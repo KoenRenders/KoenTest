@@ -95,24 +95,32 @@ with the usability arguments beside it.
 
 ## A3. To-be process — how it should work afterwards
 
-> [!NOTE]
-> *How the work should go afterwards: the same drawing and table as A2, the*
-> *same lanes in the same order, so the difference is what the eye finds.*
-> *Still no components: "the portal renders the poster", not "WeasyPrint*
-> *renders the poster". A step that disappears, moves lane or turns into a*
-> *choice is the change — name it under the drawing in one line each.*
+The same lanes as today — the daily user in the admin, the member on the
+public site, the person who asks for a change — and one difference in each:
+
+| Who | Today | Afterwards |
+|---|---|---|
+| The board member in the admin | Learns each screen on its own: where save is, whether the row opens, where the pager sits, what a blue name does. | Learns **three screens once** — a list, a record, a document — and finds every module the same: the row opens, "Bewerken" edits, one save, the summary on the right, the tabs to related records, Raakje in the same place. |
+| The member on the public site | Registers in a modal, becomes a member on a narrower page, sees a form in other colours; is not told they could sign in. | Meets the same page shape, surfaces and buttons everywhere; is nudged to sign in; sees in the family portal for which activities the household is registered and what is paid. |
+| The person who asks for a change | Describes the look and the behaviour of a repeating group, a button bar, a pager, again for every screen; reports two labels stuck together after the build. | Names a pattern ("a repeating group of e-mail addresses", "a record page") and nothing more; a fault in spacing is red in CI before anyone sees it. |
+| The developer (a CLI) | Assembles each screen from parts with the best insight of the day; drifts. | Extends a layout, composes macros, and is refused by a gate the moment a screen writes its own markup, spacing, colour or control. |
+
+What changes is not what the portal does but how many ways it has of doing
+it: one per thing, made by the kit or refused by a gate (B8).
 
 ## A4. Benefits — what the change earns
 
-> [!NOTE]
-> *The business side of the decision: what this change earns, in the*
-> *measures the association counts in — hours of volunteer work saved per*
-> *activity or per year, mistakes avoided, money collected sooner or not*
-> *lost, members who would otherwise drop out, a process that becomes*
-> *possible at all. One line per benefit, with the figure where it can be*
-> *estimated and the reason where it cannot; a benefit that only the*
-> *solution can name does not belong here. Set against the cost of B3, this*
-> *is what says whether the change is worth doing, and when.*
+| Benefit | Measure |
+|---|---|
+| Screens that impress at first sight — the portal shown to a board, a club or a company reads as one product. | the attraction the association wants; judged by the people it is shown to |
+| Less to explain and less to support: one way per thing means no question "where is save on this screen?". | fewer of the small validation reports (six of twenty-four issues in v2.6.0 were visible faults, per `CLAUDE.md`) |
+| Faster change requests: a pattern is named, not described; a screen extends a layout instead of being drawn. | the hours the person asking spends describing the same thing again — row 1 was one evening for one group |
+| Fewer bugs and fewer regressions: what the template cannot write wrongly does not break, and a pixel diff catches the rest. | the 390 px faults per release, today found by eye |
+| A platform a second organisation can wear: kit apart from brand. | the separate change request for other organisations starts from a base that allows it |
+
+Not quantified in money; the first line is the one that decides.
+
+## A5. Supplied material — and what it taught us
 
 ## A5. Supplied material — and what it taught us
 
@@ -129,12 +137,24 @@ instead of reconstructed:
 
 ## A6. Business requirements — what the board asks, with MoSCoW
 
-Every parked item is a candidate requirement. MoSCoW is **Parked** for all
-of them: not a Won't (it may come), not a Could (nothing is planned). Each
-row keeps its as-is and the intended direction.
+Two kinds of row. **R1–R12** are the requirements this change request
+delivers, each traced to the rows of A2 it answers. **P1–P9** are the parked
+candidates from before: still parked, unless a row of A2 raised them.
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
+| R1 | Every admin screen is one of three kinds — a list, a record, a document — and every screen of a kind looks and behaves the same, whatever the module. | Must | Koen, 30 Sep 2026 | rows 4, 5, 11, 12, 13, 26, 27, 43, 44 |
+| R2 | A record is read as a whole, edited as a whole with one save, and warns when left with unsaved changes; the only separate saves are sub-records with their own lifecycle. | Must | Koen, 30 Sep 2026 | rows 7, 14, 22, 39 |
+| R3 | A list is a toolbar over a table or cards: the count and the pages visible before scrolling, the KPI figures as filters, the row as the way in, the list starting in the top third of a large screen. | Must | Koen, 30 Sep 2026 | rows 5, 6, 10, 26, 36, 45 |
+| R4 | From any record the user reaches the records it points at and the lists that point at it — with one click, in one look. | Must | Koen, 30 Sep 2026 | rows 19, 20, 28, 30 |
+| R5 | Fields, groups, buttons, spacing, surfaces and icons are the same everywhere, and a screen cannot deviate: what the kit does not make, a gate refuses. | Must | Koen, 30 Sep 2026 | rows 1, 2, 3, 8, 9, 16, 22, 23, 24, 31, 34, 35, 38; B8 |
+| R6 | Rare and discouraged settings are out of the way; what a card shows is only what applies to it. | Should | Koen, 30 Sep 2026 | rows 3, 36 |
+| R7 | Raakje is one thing: called from one place, shown in one place, offered where the module's data allows, reading what the screen has selected. | Should | Koen, 30 Sep 2026 | rows 32, 33, 41 |
+| R8 | A rich-text editor behaves the same on every screen that has one, with its tools where the cursor is. | Should | Koen, 30 Sep 2026 | rows 15, 40 |
+| R9 | An import always shows what it will do before it does it; a button says whether it acts or leads on. | Should | Koen, 30 Sep 2026 | rows 17, 18, 42 |
+| R10 | A member on the public site is nudged to sign in, without being told whether an address is known. | Should | Koen, 30 Sep 2026 | row 21 |
+| R11 | The change arrives in steps that each impress on their own: quick wins first, then one pilot screen per kind, lived with for a release, then rolled out. | Must | Koen, 30 Sep 2026 | B6 |
+| R12 | What belongs to the kit and what belongs to a tenant's brand stay apart, so another organisation can wear the platform later. | Should | Koen, 30 Sep 2026 | A1 background; own change request |
 | P1 | The admin lists Leden and Activiteiten page like Betalingen does. | Parked → **raised** 30 Sep 2026 (A2 row 6) | Koen, 20 Sep 2026 | as-is: only Betalingen pages (#1059); decided **together with P2**, because a card list and a dense table page differently |
 | P2 | The admin list screens have one settled shape — table or cards — for Leden, Activiteiten and Betalingen alike. | Parked → **raised** 30 Sep 2026 (A2 row 5) | Koen, 19 Sep 2026 | "Ik twijfel nog altijd of we betalingen ook niet terug moeten zetten naar de cards"; F10 waits until the dense Betalingen screen has been lived with; one decision covers both directions |
 | P3 | Bulk actions on admin lists (select many, act once). | Parked | Koen, 19 Sep 2026 | "bulk selectie zou ik voorlopig niet doen"; when it comes, scopes-with-preview as sketched in the conventions debate |
@@ -147,180 +167,437 @@ row keeps its as-is and the intended direction.
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
 
-> [!NOTE]
-> *The requirements every change request is tested against, each answered*
-> *explicitly at business level, "not applicable" included. How they are met*
-> *belongs in Part B:*
+| Concern | This change |
+|---|---|
+| **Security** | No new entrance and no new data. One touch: the member nudge (R10) is shown to everyone, never on recognition of an address, so the public form still looks nothing up. |
+| **Privacy** | Nothing new is stored or sent. The family portal's "Onze inschrijvingen" shows a household its own registrations only, behind its login. |
+| **House style / UI norm** | This change request *is* the house style's next version: `docs/design-system.md` and the live page become the end state of B4, section by section, as the phases land. The fixed UI decisions in `CLAUDE.md` are revisited at the phase that touches them: the modal is already a page (CR-14); the address grid stays as the first instance of the form grid; row actions capped at two plus `⋯` stays. |
+| **Multi-tenant** | Nothing per tenant changes now. Tokens for colour, type and the icon set are kept apart from patterns and layouts (R12), so that a later change request can give a second organisation its own brand without touching behaviour. |
+| **Reporting** | None: no view, no export, no count changes. |
 
 ## A8. Acceptance criteria — what the business signs off on HDEV
 
-> [!NOTE]
-> *Criteria the business signs off on, each testable by a person on HDEV*
-> *without reading code, each pointing at a requirement and at the steps of*
-> *the walkthrough (B2.1) that show it. These are the business's unit tests;*
-> *the developer's tests live in Part B.*
+Per phase (B6); the walkthrough per pilot is written when that pilot's
+concept is drawn (B2.1).
+
+| # | Criterion | Requirement | Walkthrough steps (B2.1) |
+|---|---|---|---|
+| AC1 | After the quick wins: Betalingen shows its totals once, the open tile shows both sides; the component's external links sit in a collapsed section; the CMS toolbar stays in view while scrolling; "Naar de tenants" and "Naar de rapporten" are gone; the meetings card shows its status once; every send button ends in an ellipsis and the last one names its consequence. | R3, R5, R6, R8, R9 | phase 1 |
+| AC2 | On the design-system page every element of the end state is rendered live: the three layouts, the form grid with its field macro, the repeating group, the switch, the surfaces, the icon vocabulary, the record header, the summary card, the pager, the action bar. | R5 | phase 2 |
+| AC3 | The activity record page (pilot A) opens from its row, reads as a whole with empty fields shown, edits as a whole with one save at the bottom, warns on leaving, shows its summary on the right and its registrations and payments as embedded tabs in one stable frame; the payments tab is one toolbar row over the table. | R1, R2, R3, R4 | phase 3 |
+| AC4 | The Betalingen list (pilot A) starts in the top third of a 1080 px screen: title row with inline tiles, one toolbar row with count and page size, the row opens the record. | R3 | phase 3 |
+| AC5 | Becoming a member, registering for an activity and answering a form on the public site (pilot B) share one page width, one surface scale, one button bar and the member nudge; the family portal shows the household's registrations with their payment state. | R1, R5, R10, R4 | phase 4 |
+| AC6 | After roll-out every list and record screen of the admin passes the same checks as the pilots, Raakje opens from the same button into the same panel on every enabled module, and the rich-text editor shows one toolbar on the newsletter and the page. | R1, R7, R8 | phase 5 |
+| AC7 | Every gate of B7 is red on its additive violation and green on `master`; the screenshot baselines exist for every screen and a one-pixel shift fails the e2e job. | R5 | phase 2 onward |
 
 ---
 
 # Part B — The solution
 
-*Empty by design: Part B is written per item, in that item's own issue or
-change request, when it is un-parked. The headings stay so the template is
-recognisable; every note block below is the template's.*
-
 ## B1. Solution outline — the solution and the decisions that shape it
 
-> [!NOTE]
-> *The solution in one paragraph, and the decisions that shape it, each with*
-> *the alternatives weighed and why they lost (Europe First named where a tool*
-> *or service is chosen).*
+Not forty-five fixes but **one kit with three layouts**, and a portal
+rebuilt onto it screen by screen. The end state (B4) says what a list, a
+record and a document look like and how they behave, down to the field,
+the button and the pixel; the kit makes it (layouts, macros, tokens); the
+gates refuse anything else; the roadmap (B6) brings the screens onto it in
+the order that impresses first and risks least: quick wins, foundations,
+one pilot per kind lived with for a release, then roll-out.
+
+Decisions that shape it, with the alternatives:
+
+- **Rebuild onto a kit, not restyle screen by screen.** Restyling each
+  screen would give forty-five improvements and the forty-sixth drift; the
+  rows of A2 exist because the kit stops at the control and the screens
+  compose the rest. So the kit grows upward — to layouts — and the screens
+  shrink to composition.
+- **Three layouts, not one and not ten.** One layout cannot hold a dense
+  list and a long document; ten is a screen each. A *list*, a *record*, a
+  *document* cover every admin screen measured (A2) and the public pages.
+- **Gates before roll-out, as ratchets.** A gate written after the
+  roll-out has nothing to catch; one written before it, as a ratchet on
+  today's counts, turns the roll-out into a shrinking list and makes drift
+  impossible from day one (the CR-12/13 pattern).
+- **Pilots, then roll-out, not a big bang.** The pilots are chosen for
+  coverage and visibility: the activity record page and the Betalingen list
+  exercise every part of the record and list layouts; the public household
+  creation with the forms exercises the surfaces and the form grid where the
+  member sees them.
+- **Kit apart from brand.** Patterns, layouts and control shapes are the
+  kit's; colours, fonts, wordmark and the icon set's look are brand tokens —
+  so that another organisation can wear the platform later (R12) and so
+  that the graphic-design review of B6 has one place to look.
 
 ### B1.1 Functional analysis — the derived requirements
 
-> [!NOTE]
-> *The derived, finer-grained requirements the solution answers, traced to A6.*
-> *This is design work by the analyst, not business input — which is why it is*
-> *not in Part A.*
+| # | Derived requirement | From |
+|---|---|---|
+| F1 | Three layout templates — `list_page`, `record_page`, `document_page` — that every admin screen and public page extends; a template that renders a list, a record or a document without extending its layout is red. | R1, R5 |
+| F2 | The list layout: title row (title · inline KPI tiles that filter · create · settings), toolbar row (status chips · search · filters · count and page size · `⋯`), the list (table or cards by the content rule), bottom navigation; the row is the way in; wide width. | R3 |
+| F3 | The record layout: the way back, the record header (title, badges with status first, facts line, "Acties"), the summary card right, tabs (Gegevens · related lists in the embedded rendering), the form on the form grid in the reading-width column, one action bar at the bottom; read mode shows every field; one save; leave-warning. | R1, R2, R4 |
+| F4 | The document layout: reading width, autosave body, a header editor opened by "Bewerken", the rich-text toolbar sticky; declared per screen, allowed only where no rule can refuse the body. | R1, R2, R8 |
+| F5 | The form grid and the field macro: rhythm from the tokens, half/full/quarter columns, sections with headings, a rule for what shares a row; no raw form element, no raw spacing in a domain template. | R5 |
+| F6 | The repeating group macro (heading, add at the right, rows with row actions, the one-among-many marker, save with the screen) and the rare-settings disclosure. | R5, R6 |
+| F7 | Control shapes: switch for a boolean setting, checkbox for multi-choice and consent, segmented control for two or three options, select above five; the button hierarchy (one primary, text cancel, delete apart) with fixed labels and the ellipsis/consequence rule. | R5, R9 |
+| F8 | Tokens: a three-level surface scale, the spacing scale applied by macros, the icon vocabulary verb → glyph; kit tokens apart from brand tokens. | R5, R12 |
+| F9 | Reference links (`spronglink` generalised) wherever a field is another record; related-records tabs on every core entity; the family portal's "Onze inschrijvingen". | R4 |
+| F10 | One pager macro with count, page size and navigation, "x–y van n" only; the classification table per list (shape · tiles · card fields · pages · save model). | R3 |
+| F11 | Raakje: one trigger in the shell, one docked panel (bottom sheet on a phone), enabled per module by rule from the reporting universe and the facades, the screen's selection as context; the assistant page and the per-screen buttons go. | R7 |
+| F12 | Rich text: one toolbar from the macro, one "Invoegen ▾" menu fed by the screen, sticky. | R8 |
+| F13 | Import in steps for every import; the form import as a file, offered as a way to create. | R9 |
+| F14 | The gates of B7, one per rule, ratchets on today's counts, hard after the phase that clears them; screenshot baselines diffed in CI. | R5 |
+| F15 | The member nudge, unconditional, on every public registration and on "Word lid". | R10 |
 
 ## B2. Architecture — three readers, three questions
 
-> [!NOTE]
-> *B2 answers three questions for three readers, in this order: the business — does the solution fit our to-be*
-> *process and our requirements (B2.1)? the architect — how does the whole*
-> *hang together across the modules, and what is touched (B2.2)? the build*
-> *teams — what exactly must happen in each module, and what does it cost*
-> *(B2.3)? Each reader should be able to stop after their section.*
-
 ### B2.1 Fit with the process and the requirements — for the business
 
-> [!NOTE]
-> *Two things. First, the **application usage drawing**: the to-be process*
-> *of A3 once more — same lanes, same activities — with, in every activity*
-> *box, a second line naming the screen or module that serves it, the box*
-> *coloured per module (`classDef`, one legend line). Every step has a home*
-> *or is marked "outside the portal"; a module no step uses is not part of*
-> *this change. Two audiences (those who set up, those who use) means two*
-> *drawings. Second, the **traceability matrix** — the one place where a*
-> *requirement's thread is followed from left to right, so it is not kept*
-> *anywhere else: one row per requirement of A6 — R · how the solution meets*
-> *it, in the words of the role that will see it · the derived requirements*
-> *(F, B1.1) · the module that builds it (B2.3) · the test that proves it*
-> *(B7) · the acceptance criterion the business checks (A8). An empty cell*
-> *is a finding: a requirement without a test, a test without a*
-> *requirement. A Won't gets a row that says so. Third, the **walkthrough** — how the*
-> *business tests this on HDEV: one numbered*
-> *script per role of A3, in the order of the to-be process, happy path*
-> *first and then the turns where it must refuse or fall back; each step*
-> *names what to do and what to see — nothing else, it is a script. The*
-> *link to the acceptance criteria lives in A8, whose last column names the*
-> *steps that show each criterion; every criterion has at least one step.*
-> *The closing comment of each issue points at the walkthrough instead of*
-> *rewriting it. This is*
-> *the page a board member reads to say "yes, that is how we will work, and*
-> *this is how I will check it".*
+The process drawing of A3 is a table because the change is not a process
+but the shape of every screen; the fit is read in the **traceability
+matrix**, one row per requirement, followed left to right:
+
+| R | How the end state meets it | F | Module (B2.3) | Test (B7) | AC (A8) |
+|---|---|---|---|---|---|
+| R1 three kinds, each the same everywhere | three layouts every screen extends; the classification table names each screen's kind | F1, F2, F3, F4, F10 | kit; every domain at roll-out | 1, 2, 12 | AC3, AC5, AC6 |
+| R2 read whole, edit whole, one save | the record layout's read mode, "Bewerken", one action bar, leave-warning; the document layout's autosave by declaration | F3, F4 | kit; activities (pilot), then all | 3, 4 | AC3 |
+| R3 a list is a toolbar over a table | the list layout's two rows, inline tiles as filters, the pager macro, the row as the way in, the content rule | F2, F10 | kit; payment (pilot), then all | 5, 6 | AC1, AC4 |
+| R4 reach what a record points at and what points at it | reference links, related-records tabs in the embedded rendering, the way back | F3, F9 | kit; activities, mdm, membership | 7 | AC3, AC5 |
+| R5 the same everywhere, no deviation possible | the form grid, field macro, repeating group, control shapes, tokens; a gate per rule | F5, F6, F7, F8, F14 | kit; tests | 1, 8, 9, 10, 11 | AC2, AC7 |
+| R6 the rare out of the way, cards relevant | the rare-settings disclosure; the card rule in the classification table | F6, F10 | activities (pilot) | 8 | AC1 |
+| R7 Raakje is one thing | one trigger, one panel, enabled by rule, the screen's selection | F11 | chatbot, ui shell; newsletter | 13 | AC6 |
+| R8 one rich-text editor | one toolbar, one Invoegen menu, sticky | F12 | kit; cms, newsletter, meetings | 14 | AC1, AC6 |
+| R9 imports show first; buttons say what they do | P6 for every import; the label rule | F7, F13 | forms, mdm import; kit | 15 | AC1 |
+| R10 the member nudge | unconditional hint, no lookup | F15 | activities, membership (public) | 16 | AC5 |
+| R11 steps that impress | the phases of B6 | — | — | — | AC1–AC6 in order |
+| R12 kit apart from brand | two token files, the design-system page split accordingly | F8 | kit | 9 | AC2 |
+
+**The walkthrough** is written per pilot, on its concept screenshots,
+before that pilot is built (B6, the concept step); AC3 and AC5 point at
+them then.
 
 ### B2.2 The whole across the modules — for the architect
 
-> [!NOTE]
-> *The **application structure drawing**: one subgraph per module touched,*
-> *inside it a box per layer (screen · view-model · service · entity ·*
-> *facade · migration · template) — a separate box for what is **new** and*
-> *for what is **changed** in that layer, and one grey box for what is only*
-> *used. Here the colour is the kind of change, not the module: green new,*
-> *orange changed, grey unchanged — the module is the subgraph, and B2.1*
-> *already coloured per module. One legend line. Arrows between modules*
-> *only through a facade (`api.py`), as the import gate enforces; external*
-> *systems and data stores as their own boxes. Then the **data model at a glance**: a Mermaid `erDiagram` of the*
-> *entities involved with their key columns and relationships, cardinality*
-> *on the edges, soft references across schemas drawn as relationships too,*
-> *and what is new or changed marked in the label. Under it, in prose: who*
-> *calls whom and through which facade, the*
-> *direction of every new dependency, the transaction boundary, and the*
-> ***impact on the existing architecture** — which existing modules, tables,*
-> *screens and contracts are touched, and how the layer rules*
-> *(`docs/code-style.md`, the import gate) hold. This is where a*
-> *reviewer checks that the change does not bend the architecture.*
+```mermaid
+flowchart TB
+  subgraph kit["ui — the kit"]
+    L["layouts — new:<br/>list_page · record_page · document_page"]
+    M["macros — new: field · form grid · section · repeating_group ·<br/>rare_settings · switch · segmented · record_header · summary_card ·<br/>reference (spronglink) · related_tabs · raakje_panel · rich_text toolbar<br/>— changed: action_bar · pager · page_header · badge"]
+    T["tokens — changed:<br/>surfaces · spacing on macros · icon vocabulary<br/>— split: kit tokens / brand tokens"]
+    DS["design-system.md + /admin/design-system — changed:<br/>the end state, section by section"]
+    L --> M --> T
+    DS -.-> L
+  end
+  subgraph gates["tests — the gates"]
+    G["test_ui_conventions_gate — changed: raw form element · raw spacing ·<br/>raw surface · raw checkbox · typed '+' · custom save label · header link ·<br/>Bewerken in row actions · overflow-x on a list · max-w on a screen ·<br/>one-off control · layout not extended<br/>— new: screenshot baselines diffed in the e2e job"]
+  end
+  subgraph domains["every domain — changed at roll-out"]
+    D1["activities · payment — pilot A"]
+    D2["membership · mdm · forms · public pages — pilot B"]
+    D3["the rest — roll-out: cms · newsletter · meetings · auth · chatbot ·<br/>reporting · designstudio · media · workflow · tenants/organisations"]
+  end
+  domains --> L
+  domains --> M
+  G -.-> domains
+  classDef new fill:#dcfce7,stroke:#15803d,color:#111
+  classDef chg fill:#ffedd5,stroke:#c2410c,color:#111
+  class L new
+  class M,T,DS,G,D1,D2,D3 chg
+```
+
+**Data model at a glance:** none. No table, no column, no migration
+anywhere in this change request; the classification of screens is a table
+in the design system, not in the database.
+
+Who depends on whom: every domain template extends a layout and calls
+macros from `ui`; `ui` depends on nothing in a domain; the gates read
+templates and models and depend on the kit's names. Raakje's panel
+(`chatbot`) is mounted by the shell and receives the screen's context
+through the existing mechanism (#1060); the enabled-module table is
+derived from `reporting/universe.py` and the domain facades. **Impact on
+the existing architecture:** the layer gate and the template-variables gate
+stay and gain the layouts as one more promise (a layout's blocks are named
+in the view-model); `StrictUndefined` still catches a missing name. No
+route changes except those the pilots' screens already have (the modal is a
+page since CR-14). The fixed UI decisions of `CLAUDE.md` change at the
+phase that touches them, in the "Na de merge" block of that phase.
 
 ### B2.3 Per module: what must happen — for the build teams
 
-> [!NOTE]
-> *One subsection per module touched, in build order, each with the same*
-> *five headings: **screens** (which, what changes, at which width it is*
-> *judged), **code** (view-model · service · entity · facade — the functions*
-> *by name), **database** (schema, table, each column with its type,*
-> *nullability and constraints, the `ON DELETE` of every FK, the migration*
-> *and whether it is additive), **templates*
-> *and mail**, **tests** (which of B7). No effort here: the effort per*
-> *module and phase is the table of B3, where the cost is added up. Which*
-> *requirements a module serves is read from the matrix of B2.1, not*
-> *repeated here. A module that is only used, not changed, gets one line. **Reporting*
-> *is always one of the modules**, touched or not: the engine reads the*
-> *tables through SQL views in the `reporting` schema and through its object*
-> *universe, so for every column this change adds, renames, retypes,*
-> *retires or gives a new meaning, its subsection says which views and*
-> *objects read it (measured, not recalled) and in which phase the view*
-> *follows — a view that reads a changed column changes in the same*
-> *migration as the column, or the phase says why not; a value change on a*
-> *column a view reads is checked against the saved reports on every*
-> *environment before the migration. "Reporting — none: no view reads these*
-> *columns" is a subsection too.*
+#### ui — the kit (phases 2, 5)
+
+- **Screens:** the design-system page renders every new element live
+  (AC2).
+- **Code:** three layout templates; the macros of F5–F12; the token split;
+  view-model promises for the layouts' blocks.
+- **Database:** none.
+- **Templates and mail:** `_macros.html` grows; `admin_base.html` and
+  `site_base.html` mount the layouts and the Raakje trigger; the brand
+  tokens move to their own file.
+- **Tests:** B7 1, 8, 9, 10, 11, 14; the design-system page rendered in the
+  screenshot set.
+
+#### tests — the gates (phase 2, hardened at 5)
+
+- **Code:** the additions to `test_ui_conventions_gate.py` listed in B2.2,
+  each a ratchet on the count A2 measured, each proven by an additive
+  violation; the screenshot baseline mechanism in `tests_e2e/screenshots.py`
+  with a per-screen baseline in the repository and a threshold.
+- **Tests:** B7 1, 11.
+
+#### activities and payment — pilot A (phase 3)
+
+- **Screens:** the activity record page onto `record_page` (header, summary,
+  tabs, read/edit whole, one save, rare settings, repeating groups for
+  dates, components and products); the Betalingen list onto `list_page`
+  (title row with tiles, toolbar row, row opens the record, totals once);
+  the embedded payments and registrations tabs.
+- **Code:** view-models for the layout blocks; the save model declared;
+  `spronglink` on every reference; the open tile with two sides.
+- **Database:** none.
+- **Tests:** B7 2, 3, 4, 5, 6, 7, 12.
+
+#### membership, mdm, forms, public pages — pilot B (phase 4)
+
+- **Screens:** "Word lid", the household portal (with "Onze
+  inschrijvingen"), the registration page (CR-14) and the public form onto
+  the same width, surfaces, form grid and button bar; the member nudge; the
+  household record page in the admin onto `record_page` (one save instead of
+  per card).
+- **Code:** view-models; the nudge (no lookup); the family portal's
+  registrations read through `activities.api`.
+- **Database:** none.
+- **Tests:** B7 2, 3, 7, 16.
+
+#### quick wins — phase 1, across modules
+
+- payment (row 10), activities (row 3), cms (row 15 sticky toolbar), ui
+  shell (rows 35), meetings (row 38), newsletter and meetings (row 42
+  labels), chatbot and reporting (row 6 wording), meetings (row 34
+  naming). Each a small PR on its own; none needs a new component beyond
+  what the kit has.
+
+#### the rest — roll-out (phase 5)
+
+- **Screens:** every remaining list and record screen onto its layout;
+  Raakje's trigger and panel replacing the page and the overlays; the
+  rich-text toolbar on cms, newsletter, meetings; users as a record; the
+  organisation and tenant pages; forms import as a file and as a way to
+  create.
+- **Tests:** the gates go hard; every screen in the screenshot set.
+
+#### reporting — untouched
+
+No view, no object, no export changes; the enabled-module table reads the
+universe, it does not change it.
 
 ### B2.4 Cross-cutting impact — the checklist of what gets forgotten
 
-> [!NOTE]
-> *One table, every row answered, "no" included, one sentence each:*
-> *reporting views and saved reports (B2.3) · existing tests, e2e*
-> *golden flows and 390 px screenshots (B7) · fixed UI decisions and*
-> *`CLAUDE.md` · design-system documentation · code lists · events and*
-> *handlers · mail templates · migration: additive or contract*
-> *(#1255) · tenant settings · env vars · JSON routes and API callers ·*
-> *external services (Mollie, mail). A "yes" points at the section that*
-> *handles it. The next thing that gets missed becomes the next row.*
+| Concern | Touched? | Where |
+|---|---|---|
+| Reporting views and saved reports | no | B2.3 reporting |
+| Existing tests, e2e golden flows, 390 px screenshots | **yes** — every screen that moves onto a layout redoes its screenshots and, where it has one, its e2e flow; the baselines become the regression net | B7, second level |
+| Fixed UI decisions, `CLAUDE.md` | **yes** — revisited per phase (A7 house style); the "Na de merge" block of each phase names the change | B6 |
+| Design-system documentation | **yes** — it *is* the deliverable of phase 2 and grows with every phase | B4 |
+| Code lists (CR-12) | no | — |
+| Events and handlers (CR-13) | no | — |
+| Mail templates | no | — |
+| Migration | none | — |
+| Tenant settings | no now; the token split prepares the later change request | R12 |
+| Env vars | no | — |
+| JSON routes and API callers | no | — |
+| External services (Mollie, mail, AI) | no; Raakje's calls are unchanged, only where it is opened from | F11 |
 
 ## B3. Cost — investment and running cost, and what operations must know
 
-> [!NOTE]
-> *Three parts, each with a figure or "none". **Investment:** one table,*
-> *module × phase, with the effort to build in CLI-days or person-days (S /*
-> *M / L until the team has a track record), a total per module and per*
-> *phase; then analysis, review, validation on HDEV and the release steps;*
-> *then one-off purchases (a licence, a product, a device). **Running*
-> *cost:** what it costs per month or per year once live — usage rights and*
-> *paid services (per use and per month, measured where a prototype exists),*
-> *storage and backups, hosting, and the maintenance it adds (a job to watch,*
-> *a certificate to renew, a dependency to keep current). **Operations:***
-> *settings, env vars, limits, kill switch, backups — what the person running*
-> *the stack must know. Set beside the benefits of A4: the two together are*
-> *the input for the release decision.*
+**Investment — effort to build**, in CLI-days, a first estimate against
+the track record (a golf package of the v2.5 design track was one to two
+days; #1284's one form for two channels one day), to be re-estimated when
+each phase's issues are written:
+
+| Phase | ui (kit) | tests (gates) | activities · payment | membership · mdm · forms · public | the rest | Total |
+|---|---|---|---|---|---|---|
+| 0 — end state and concepts | 2 (design-system text, concept screenshots, the two reviews) | — | — | — | — | 2 |
+| 1 — quick wins | — | — | 0.5 | — | 1 | 1.5 |
+| 2 — foundations | 5 | 3 | — | — | — | 8 |
+| 3 — pilot A | 1 (tuning) | 0.5 | 4 | — | — | 5.5 |
+| 4 — pilot B | 1 (tuning) | 0.5 | — | 3.5 | — | 5 |
+| 5 — roll-out | 1 | 1 | 1 | 1 | 8 | 12 |
+| **Total** | **10** | **5** | **5.5** | **4.5** | **9** | **~34** |
+
+Around it: this analysis (done); a review per pilot on its concept (the
+external advice of B6); the parity walks on HDEV per phase. No purchase,
+no licence, no new dependency (the switch, the segmented control and the
+panel are CSS and Alpine on what is there; the screenshot diff uses the
+Playwright already in CI).
+
+**Running cost.** None: no service, no job, no storage. The screenshot
+baselines add a few megabytes of PNG to the repository.
+
+**Operations.** No env var, no setting, no migration, no kill switch — a
+screen either extends a layout or it does not, and `master` always builds.
+What operations must know: the e2e job takes longer with the screenshot
+diff (measure at phase 2; if it exceeds ten minutes, the diff runs on the
+screens a PR touches).
+
+**Against A4:** thirty-four days for a portal that reads as one product,
+that a change request can name in a sentence, and that cannot drift again.
 
 ## B4. Detailed decisions — one subsection each, with the reasons
 
-> [!NOTE]
-> *The design decisions in full, one subsection each, with their reasons.*
+This is the **end state** — Rome, the North Star — written as the
+decisions it is made of. Each subsection is what one section of
+`docs/design-system.md` will say when the roadmap is done; the rows of A2
+it answers are named so the reasons can be reread there.
+
+### B4.1 Three layouts, and every screen is one of them
+
+`list_page`, `record_page`, `document_page`. A screen extends one; a
+template that renders a list, a record or a document without extending its
+layout is red. The **widths** are the layouts', never the screen's: a list
+page is wide; a record page has a wide frame with a reading-width column
+for its form; a document page is reading width. On a phone every layout is
+one column with 16 px gutters. Reading width is a property of a form, not a
+page: inside the record frame the "Gegevens" tab centres its form and a
+related-list tab fills the frame, and the header, tabs and summary card
+never move between tabs. (Rows 11, 12, 27, 43.)
+
+### B4.2 The list page
+
+Two rows of chrome, then the list. **Title row:** the title; the KPI tiles
+inline at its right — a tile is a figure the reader can act on *and* a
+filter, clicking it filters the list to what it counts; a figure that
+cannot filter is not a tile; then "+ Nieuw" and, when the module has
+configuration, "Instellingen" with the gear; nothing else — no link to
+another module, no explanation line. **Toolbar row:** status chips, search,
+filters, the count "x–y van n" with the page size, and `⋯` for export and
+the rest; one row, wrapping only on a phone. **The list:** a table where
+the user scans and compares many rows on few attributes and sorts or
+filters them; cards where each row is a thing with a face and the list is
+short — decided per list in the classification table, never per taste; no
+horizontal scrolling ever: columns fit, hide or stack. **The row is the way
+in:** click it and the record opens; "Bewerken" is not a row action; row
+actions keep delete, duplicate and quick state changes under `⋯`. **Bottom:**
+the page navigation, from the same pager macro. A card shows only what
+applies to that record — omitted, not zeroed. Totals live in the tiles and
+nowhere else. Target: on a 1080 px screen the first row sits in the top
+third. (Rows 5, 6, 10, 11, 26, 31, 34, 35, 36, 45.)
+
+### B4.3 The record page
+
+Top to bottom: **the way back** ("‹ Alle activiteiten", the list's filter
+state preserved); **the record header** — title with its badges on the
+title line, status first; the facts line (date · time · place, or the
+record's key facts) with every reference rendered as a jump link; the
+actions at the right as one "Acties" menu plus the screen's one primary;
+**the summary card** on the right (a compact strip above the content on a
+phone); **the tabs** — Gegevens first, then the related lists in their
+embedded rendering (one toolbar row over the table, no page header, no
+tiles: the summary card carries the figures), clicking a row there unfolds
+it in place with a jump link to its page; **the form** on the form grid in
+the reading-width column; **one action bar** at the bottom. (Rows 7, 19,
+20, 22, 25, 27, 28, 29, 30, 39, 43, 44.)
+
+### B4.4 Reading and editing a record
+
+A record is read as a whole: every field the editor has, in the same order
+and grid, the empty ones with a quiet placeholder, a yes/no showing its
+state either way. "Bewerken" turns the whole screen into the editor;
+nothing moves. One save writes what changed; the history says what.
+Leaving with unsaved changes warns. A repeating group lives inside the one
+form. The only separate saves are **sub-records with their own lifecycle
+and consequences** — a payment, a registration line, a membership — by
+rule, never by size. The **document** is the one declared deviation:
+autosave for a long text no rule can refuse, a header editor opened by the
+same "Bewerken"; each screen declares record or document, and the gate
+checks the declaration against the macros used. A user, an organisation, a
+tenant: records like any other. (Rows 4, 13, 14, 39, 44.)
+
+### B4.5 The form grid and the field
+
+Rhythm from the tokens: section (32) > field (12) > label (4); a template
+writes no spacing. Two columns at reading width: a field is half by
+default, full for long content, quarter for a number or code; one column
+on a phone. Fields that describe one thing sit in one section with a
+heading, in the order a person would say them; fields share a row only when
+they are read together — the address grid is the first instance. A field
+is only ever the field macro, which places label, control, help and error;
+no raw form element in a domain template. **Rare and discouraged
+settings** sit in a collapsed section at the bottom, closed, with a
+one-line summary when set. A **repeating group** is one macro: heading,
+"add" at its right, rows with row actions, the one-among-many marker, saved
+with the screen, "nog geen …" when empty. (Rows 1, 2, 3, 7, 23, 24.)
+
+### B4.6 Controls, buttons, words
+
+A **switch** for a boolean setting; a **checkbox** only for choosing
+several from a list and for consent; a **segmented control** for two or
+three options; a select above five. **One action bar** per screen: one
+primary "Opslaan", "Annuleren" as a text button, "Verwijderen" apart (far
+left, or the header's `⋯`); `sm` in bars; sticky at the bottom on a phone.
+A button that leads on ends in "…"; a button that executes an irreversible
+action names the consequence and sits on the last page only; the words are
+the macro's defaults, a custom label only for a named consequence. A create
+sits at the right of the heading of the thing it creates into, at every
+level. Icons: a text button carries the lead glyph its verb has in the
+vocabulary (add, download, upload, delete, edit, copy, print, send, filter)
+and never a typed "+"; icon-only buttons only in row actions and toolbars.
+A fact appears once per screen, in the element made for it. (Rows 8, 16,
+22, 31, 38, 42.)
+
+### B4.7 Surfaces, colour, brand
+
+Three surface levels — page ground, card, inset — as tokens with their text
+and border colours; the card macro and the shell apply them; a template
+names a surface, never a colour; the same three on the public side and in
+the admin. **Kit tokens** (surfaces, spacing, radii, the icon vocabulary's
+meanings, the control shapes) are the platform's; **brand tokens** (the
+eight brand colours, the two fonts, the wordmark, the icon set's line
+style) are the tenant's — two files, so a second organisation changes the
+second and inherits the first. (Rows 9, 16; R12.)
+
+### B4.8 Navigation between records
+
+Every reference is a link, rendered by one macro, with one glyph; a link's
+text names its target — a blue name goes to the record it names, and what
+is not a record's name is not blue. Every core entity carries the same
+related-records tabs in the same order. The public family portal gets
+"Onze inschrijvingen" with the payment state per registration. (Rows 19,
+20, 30.)
+
+### B4.9 Raakje and the rich-text editor
+
+**Raakje:** one trigger in the shell chrome on both sides; one surface, a
+side panel docked right (a bottom sheet on a phone), in the column the
+reading-width form leaves free, so it can fill a form while the user
+watches; offered where the module's objects are in the reporting universe
+or its facade exposes commands, greyed elsewhere, derived not typed; the
+screen owns its selections and Raakje reads them; the assistant page and
+the per-screen buttons go. **Rich text:** one toolbar from the macro,
+hidden until focus, sticky while scrolling, with one "Invoegen ▾" menu the
+screen feeds; no toolbar markup in a template. (Rows 15, 32, 33, 40, 41.)
+
+### B4.10 Imports, nudges, and what the gates hold
+
+Every import shows *nieuw · gewijzigd · verwijderd* and the consequences,
+then a commit whose label names them; the form import is a file, offered
+as a way to create. The member nudge is unconditional. And **the rule of
+B8** over all of it: a macro or layout the template cannot get wrong, or a
+gate that goes red — never a convention on paper. (Rows 17, 18, 21, 24.)
 
 ## B5. Privacy and security — the mechanics behind A7
 
-> [!NOTE]
-> *How A7's privacy and security answers are implemented: what leaves the*
-> *system to whom, what is sanitised, what is logged.*
+Nothing new is stored, sent or exposed. The one mechanism worth naming: the
+member nudge renders the same text for every visitor from the template,
+with no request to the server about the typed address — measured by the
+gate's absence check on the public registration view-model (no lookup by
+e-mail on the public channel, the rule `registration_form.py` already
+states). The family portal's registrations tab reads through the
+activities facade filtered on the signed-in household, behind the existing
+session.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
-> [!NOTE]
-> *Shippable phases, each with what it delivers and its dependencies, one*
-> *row per phase: issue · migration · env vars · data · failure paths that*
-> *change · manual validation. The "Na de merge" block per phase names what*
-> *CI cannot see. The column **failure paths that change** exists because a*
-> *change that reorganises behaviour — where a rule lives, who commits, what*
-> *a handler does — rarely changes what the system does on the happy path,*
-> *and almost always changes what it does when something fails: what rolls*
-> *back, what is refused, what is left half done. Name those per phase, so*
-> *"no functional change" is a claim about the happy path with the failure*
-> *paths listed beside it, and an e2e test that goes red on one of them is*
-> *expected, not a surprise. "None" is an answer.*
-
-**The approach, agreed on 30 September 2026 — to be worked out once the
-as-is (A2) is complete and the solution (B1, B4) is designed:**
+**The approach:**
 
 - **An end state first.** Part B fixes where the design is going — the
   North Star — including what is not needed yet, so that every step can be
@@ -356,73 +633,79 @@ as-is (A2) is complete and the solution (B1, B4) is designed:**
   the end state is written and where each rolled-out pattern lands; this
   change request holds the roadmap.
 
-*Remarks made while listing the as-is that concern phasing — quick wins,
-what can wait, what belongs together — are collected here until the phases
-are shaped:*
 
-- Row 10 (Betalingen: totals in the KPI row only, the open tile with its two sides) is the simplification of one screen with no new component — a quick win that can go before the rest.
-- Row 17 (JSON import: file only, and import as a way to create) is low priority — small, but not a quick win worth showing; it rides along when the forms screens are touched.
-- Row 15 (the CMS page editor) is parked as P8; only the sticky toolbar is a quick win, the block editor is a change request of its own, later.
-- Row 3 (the collapsed section for the external links) needs no data change and no new component beyond a disclosure the kit already has — a quick-win candidate, and a first instance of the layout grammar of row 2.
+| Phase | Delivers | Depends on | Failure paths that change | Manual validation |
+|---|---|---|---|---|
+| **0 — end state and concepts** | B4 written into `docs/design-system.md` as its next version (marked "end state, not yet built" per section); concept screenshots of the three layouts and of pilot A and B drawn against real screens; the graphic-design review on them; the classification table of every list and record screen (kind · shape · tiles · card fields · pages · save model) | this document | none | Koen reads the design system and the concepts; the review's findings in the Q&A |
+| **1 — quick wins** | rows 3, 10, 15 (sticky toolbar), 34 (naming), 35, 38, 42 (labels), 6 (wording) — each a small PR that is visible at once | none | none on the happy path; a send button that reads "Versturen…" where it read "Versturen" | AC1 on HDEV |
+| **2 — foundations** | the three layouts, the macros of F5–F12, the token split, the design-system page rendering all of it live; every gate of B7 as a ratchet on A2's counts; screenshot baselines for every existing screen | 0 | none: nothing existing moves yet | AC2, AC7 on HDEV |
+| **3 — pilot A** | the activity record page and the Betalingen list on the layouts, with their embedded tabs; lived with for a release and tuned; the usability review on the concept before the build | 2 | a record saved as a whole: a failed save keeps every change on screen (today a per-card save loses the others); leaving with unsaved changes now warns | AC3, AC4 on HDEV, then one release in use |
+| **4 — pilot B** | "Word lid", the family portal with "Onze inschrijvingen", the registration page and the public form on the layouts, surfaces and grid; the nudge; the household record page in the admin as one save; usability review first | 2 (3 for the household record page) | the household saved as a whole, same as pilot A; the nudge appears for everyone | AC5 on HDEV, then one release in use |
+| **5 — roll-out** | every remaining screen onto its layout; Raakje's trigger and panel; the rich-text toolbar; users, organisation, tenant as records; the gates hard; the fixed UI decisions in `CLAUDE.md` rewritten | 3, 4 tuned | per screen the same as the pilots; the assistant page and the per-screen AI buttons gone | AC6, AC7 on HDEV; the screenshot set |
+| **later — parked** | P3 bulk, P4 hero, P5 insights, P6 table conventions, P8 block editor, P9 Raakje as agent | 5 | — | own change requests |
+
+Each phase rides a release of its own or shares one with functional work;
+none spans two. Phase 5 may be split per module across releases — the
+gates, as ratchets, make every split safe. "Na de merge" per phase: no
+migration, no env var; the `CLAUDE.md` decisions touched.
 
 ## B7. Tests — what the build must prove
 
-> [!NOTE]
-> *Two levels. **What the build must prove:** the*
-> *new tests, each able to go red, guards proven by violation — numbered, so*
-> *B2.3 can point at them per module. **Impact on the test landscape:** which*
-> *existing suites, e2e golden flows and screenshot sets change or must be*
-> *redone because of this change, per module, with the reason — a screen*
-> *that moves, a route that changes, a fixture that no longer matches. A*
-> *change that breaks no existing test says so, and why that is plausible.*
+Each able to go red; every gate proven by an additive violation, with the
+violation in its docstring.
+
+1. **Layout extended.** A domain template that renders a list, record or
+   document without extending its layout → red with the layout's name.
+2. **Read whole, edit whole.** The activity in read mode renders every
+   field the editor has, empty ones as placeholders, a false switch as
+   "uit"; one save writes every changed field and one history row per
+   field.
+3. **Leave-warning.** A record editor with a changed field blocks
+   navigation with the warning; an unchanged one does not.
+4. **The declared save model.** A screen declaring "record" that uses the
+   autosave form, or "document" that uses the edit toggle → red.
+5. **Tiles filter.** Clicking "Volzette onderdelen 11" yields the 11 rows;
+   a tile without a filter → red.
+6. **The row is the way in.** Every list row carries the record's link; a
+   "Bewerken" in row actions → red; a top-level table with inline
+   disclosure → red.
+7. **References are links.** A field whose value is another record renders
+   the reference macro; a person's name pointing at a registration → red.
+8. **The kit owns the field.** A raw `<label>`, `<input>`, `<select>`,
+   `<textarea>`, a raw spacing class on a form element, a raw surface
+   class → red; the counts of A2 (456, 1 215, 224) are the ratchet's
+   baselines and may only fall.
+9. **Control shapes.** A raw `type="checkbox"` outside a multi-choice group
+   or a consent → red; a boolean setting without the switch → red.
+10. **Buttons and words.** A typed "+" at the start of a label, a custom
+    save label without a named consequence, a header button targeting
+    another module's list, a create outside a header slot, a `code_label`
+    rendered twice on a row → red.
+11. **Pixels.** Every screen has a baseline PNG at 390 px and at desktop
+    width; a diff above the threshold fails the e2e job; the design-system
+    page is in the set.
+12. **The frame does not move.** Switching from Gegevens to Betalingen on
+    an activity leaves the header, tabs and summary card at the same
+    coordinates (measured from the DOM).
+13. **Raakje by rule.** Every screen of an enabled module renders the
+    trigger; a screen of another module renders it disabled; no `AI ·`
+    button survives.
+14. **One toolbar.** The newsletter and the page render the same toolbar
+    groups; a `trix-toolbar` element in a domain template → red.
+15. **Import in steps.** The form import shows nieuw · gewijzigd ·
+    verwijderd and writes nothing until the commit.
+16. **The nudge looks nothing up.** The public registration view-model
+    makes no query by the typed e-mail address (a query counter on the
+    session).
+
+**Impact on the test landscape:** every screen that moves onto a layout
+redoes its screenshots and, where it has one, its e2e flow (registration,
+household, forms, payments); the layer and template-variables gates gain
+the layouts' blocks as promises; the UI conventions gate grows by the rules
+above, as ratchets first; the e2e job gains the pixel diff and its baseline
+directory.
 
 ## B8. Rule and gatekeeper — what this fixes for all future work
-
-> [!NOTE]
-> *An architectural change request fixes a way of doing things, not just one*
-> *instance of it. This section makes that explicit, so the decision outlives the*
-> *change and the next development follows it without anyone remembering to ask.*
-> *Three parts; "no gate" is an answer, with the reason.*
->
-> *A rule is fixed only when its gate runs in CI on every push. A rule that lives in a document is a hope; a rule whose test*
-> *goes red on the next pull request is a property of the codebase. So the gate of*
-> *B8.3 is a pytest in `backend/tests/` that `backend-tests.yml` runs on every*
-> *push and PR — not a script someone remembers, not a review checklist. Where*
-> *that is impossible, B8.3 says so and names what catches it instead*
-> *(a review agent, a release step), and that is a weaker guarantee, written*
-> *down as one.*
->
-> *1. The rule. One sentence a reviewer can apply, in the form the decision*
-> *   takes from now on ("a code list is a code table in the owning domain's*
-> *   schema, a label table per language, and an `Enum` only where code branches*
-> *   on the value"). Where it ends up: `CLAUDE.md`, `docs/code-style.md` or the*
-> *   architecture document — name the place.*
->
-> *2. The reach and the baseline. Where the rule applies (the whole codebase,*
-> *   or which modules) and how many places violate it today, measured on the*
-> *   branch, not recalled. This change request brings that number down — say to*
-> *   what. A number that cannot be counted is an intention, not a rule (CR-04,*
-> *   Making it checkable).*
->
-> *3. The gate. Which test fails when a new development breaks the rule: what*
-> *   it looks at, what its message says, and the violation it was proven with*
-> *   (B7). Two shapes, chosen by the baseline:*
-> *   - Ratchet when the count is not yet zero: a frozen list of today's*
-> *     violations that may only shrink (the #780 pattern). Nothing new may join*
-> *     it; an entry that disappears from the code must leave the list.*
-> *   - Hard gate when the count is zero after this change: any violation is*
-> *     red.*
->
-> *   Gates come last, not first (CR-04): a gate with a growing exemption list is*
-> *   a dead rule, and a gate written too early freezes the wrong understanding.*
-> *   Where the rule cannot be checked mechanically, say so and hand it to the*
-> *   judgment layer (the `design-conformiteit-bewaker` agent, review) instead of*
-> *   pretending a grep is a gate.*
->
-> *   The gate is also what makes the rule cheap to follow: for a new case it*
-> *   spells out the steps ("a new code list needs a table, a label row per*
-> *   language, an `Enum` member and a label call") and fails on the one that was*
-> *   forgotten, with the name of the missing piece.*
 
 **The rule of this change request, stated by the person who lives with the
 screens (30 September 2026), before the solution is designed:**
@@ -441,12 +724,27 @@ solution is designed; the measured counts in A2 (raw form elements, raw
 spacing classes, raw surface classes, raw checkboxes, per-card editors,
 sideways scrolls, hand-placed creates) are the first baselines.
 
+**Reach and baseline.** Every template under `app/domains/*/templates` and
+`app/ui/templates`. Baselines measured on 30 September 2026, before the
+build: 456 raw form elements · 1 215 raw spacing classes · 224 raw surface
+classes · 65 raw checkboxes · 14 per-card edit toggles · 34 action bars ·
+10 separate delete buttons · 8 lists scrolling sideways · 3 screens setting
+their own width · 5 lists with "Bewerken" as a row action. Target after
+this change request: 0 for each, and the gates hard.
+
+**The gate.** B7, tests 1 and 8–14, in `test_ui_conventions_gate.py` and
+the e2e job; ratchets from phase 2, hard from phase 5. What stays with
+judgment: whether a screen is a record or a document, which columns a list
+needs, what a card should show — the classification table, decided once
+per screen and reviewed at the merge gate with the eye.
 
 ## B9. Prototype findings — what was measured before the build
 
-> [!NOTE]
-> *What was learnt from prototypes before the build (measurements, refusals,*
-> *things that did not work).*
+None yet. Phase 0 produces them: the concept screenshots of the three
+layouts and of both pilots, drawn against the real activity, Betalingen,
+household and registration screens; the graphic-design review on them;
+the measured height of the Betalingen chrome before and after the two-row
+title and toolbar; the e2e job's duration with the pixel diff.
 
 ## B10. Decisions log — dated answers and open proposals
 
@@ -458,6 +756,7 @@ sideways scrolls, hand-placed creates) are the first baselines.
 | 30 Sep 2026 | The rule of CR-11: what screens must share is made automatically by the kit or strictly validated by a gate; a convention that is neither drifts with every new screen or change. | Koen |
 | 30 Sep 2026 | Background: the platform will serve other organisations than RAAK (a company's webshop among them) — a separate change request; here the end state keeps kit and brand apart. | Koen |
 | 30 Sep 2026 | CR-11 becomes the GUI redesign's end state and roadmap: North Star first, quick wins up front for attraction, each concept prepared with screenshots, built on one pilot screen, run through a release and tuned, then rolled out; pilots: the activity detail, the public household creation with the forms. The as-is (A2) is listed first, the solution and the approach follow. | Koen |
+| 30 Sep 2026 | The end state (B4) and the roadmap (B6) written from the forty-five rows of A2: three layouts, a kit that owns fields, buttons, surfaces and spacing, gates as ratchets, quick wins → foundations → pilot A (activity record, Betalingen list) → pilot B (public household, forms, registration) → roll-out. | author, for Koen to confirm |
 
 ## Q&A log — asked once, answered here
 
@@ -465,12 +764,21 @@ sideways scrolls, hand-placed creates) are the first baselines.
 |---|---|---|---|
 | Q1 | 30 Sep 2026 | Does CR-11 become a real change request on the new template, or stay a parking lot from which each item gets its own CR or issue? (Claude) | Koen, 30 Sep: a real change request — the end state of the GUI and the roadmap towards it; the parked items stay in A6 as candidates, the pains are listed in A2 first, then the solution and the approach (B6). |
 | Q2 | 30 Sep 2026 | Which of P1–P6 are taken up now, and is there new material — the dense Betalingen screen lived with (P2), the board missing a featured activity (P4)? (Claude) | *open* |
+| Q3 | 30 Sep 2026 | Tables versus cards (row 5): is the content rule — a table to scan and compare, cards for things with a face — the decision, so that Betalingen stays a table and Leden becomes one? (Claude) | *open* |
+| Q4 | 30 Sep 2026 | Do the quick wins (phase 1) ride the next functional release, or a release of their own so they are seen together? (Claude) | *open* |
+| Q5 | 30 Sep 2026 | Is the order pilot A (admin: activity record, Betalingen list) before pilot B (public: household, forms, registration) right, or should the public side — what members see — come first? (Claude) | *open* |
+| Q6 | 30 Sep 2026 | Phase 5's roll-out is the largest block (~12 days): one release, or split per module over releases with the ratchets keeping it safe? (Claude) | *open* |
+| Q7 | 30 Sep 2026 | The two external reviews (graphic design at phase 0, usability per pilot): which model first — Mistral, as Europe First says? (Claude) | *open* |
+
+## Non-goals — deliberately outside this change
 
 ## Non-goals — deliberately outside this change
 
 - Building anything from this list without an un-park decision and its own issue.
 - Parking new GUI candidates on a release tracker instead of here.
 - Making the platform usable by other organisations (a webshop for a company, another association's menu and brand) — its own change request; this one only keeps kit and brand apart so that one becomes possible.
+- New functionality: no new record, field or report; the family portal's "Onze inschrijvingen" tab and the member nudge are the only two additions, both small and both named in A6.
+- The parked candidates P3–P6, P8, P9 — each its own change request when un-parked.
 
 ## Relationship to existing work — issues and change requests
 
@@ -480,3 +788,5 @@ sideways scrolls, hand-placed creates) are the first baselines.
 - **#1060** — the admin assistant's screen context; P5 builds on it.
 - **#1075** — STT/TTS in the Raakje overlay, the one item un-parked so far.
 - **CR-08 (visual), CR-10 (Design Studio)** — the design work this list sits next to.
+- **CR-14** — the registration page is already a page; pilot B builds on it.
+- **#1367, #1387, #1380, #1223, #1229** — the recent validation issues that are instances of rows 22, 9 and 1.
