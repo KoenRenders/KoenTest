@@ -137,8 +137,9 @@ instead of reconstructed:
 ## A6. Business requirements — what the board asks, with MoSCoW
 
 Two kinds of row. **R1–R12** are the requirements this change request
-delivers, each traced to the rows of A2 it answers. **P1–P9** are the parked
-candidates from before: still parked, unless a row of A2 raised them.
+delivers, each traced to the rows of A2 it answers. **P1–P9** were the parked
+candidates from before; none stays parked: each is placed in the phase of
+B6 where it fits, or handed to its own change request (P8, P9).
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
@@ -154,15 +155,15 @@ candidates from before: still parked, unless a row of A2 raised them.
 | R10 | A member on the public site is nudged to sign in, without being told whether an address is known. | Should | Koen, 30 Sep 2026 | row 21 |
 | R11 | The change arrives in steps that each impress on their own: quick wins first, then one pilot screen per kind, lived with for a release, then rolled out. | Must | Koen, 30 Sep 2026 | B6 |
 | R12 | What belongs to the kit and what belongs to a tenant's brand stay apart, so another organisation can wear the platform later. | Should | Koen, 30 Sep 2026 | A1 background; own change request |
-| P1 | The admin lists Leden and Activiteiten page like Betalingen does. | Parked → **raised** 30 Sep 2026 (A2 row 6) | Koen, 20 Sep 2026 | as-is: only Betalingen pages (#1059); decided **together with P2**, because a card list and a dense table page differently |
-| P2 | The admin list screens have one settled shape — table or cards — for Leden, Activiteiten and Betalingen alike. | Parked → **raised** 30 Sep 2026 (A2 row 5) | Koen, 19 Sep 2026 | "Ik twijfel nog altijd of we betalingen ook niet terug moeten zetten naar de cards"; F10 waits until the dense Betalingen screen has been lived with; one decision covers both directions |
-| P3 | Bulk actions on admin lists (select many, act once). | Parked | Koen, 19 Sep 2026 | "bulk selectie zou ik voorlopig niet doen"; when it comes, scopes-with-preview as sketched in the conventions debate |
-| P4 | The homepage can feature one activity in a large hero card. | Parked | the Cobalt sketch; left out of golf 11 | needs a "which activity" choice by the board and sits above an agenda that already shows the same; candidate: a CMS choice once the board misses it |
-| P5 | The admin assistant offers language-model insights on top of the screen context it already has (#1060). | Parked | 20 Sep 2026 | Mistral, Europe First; under the standing rule that every claim carries a clickable source and unsupported claims are dropped |
-| P6 | Admin tables follow one set of conventions: sortable columns as the norm, a column chooser, saved views, a Ctrl-K command palette. | Parked | #785 triage | sized for the ERP ambition, not for one release |
+| P1 | The admin lists Leden and Activiteiten page like Betalingen does. | Should — phase 5, with the list layout (row 6) | Koen, 20 Sep 2026 | as-is: only Betalingen pages (#1059); decided **together with P2**, because a card list and a dense table page differently |
+| P2 | The admin list screens have one settled shape — table or cards — for Leden, Activiteiten and Betalingen alike. | Must — phase 0 decides (the classification table), phases 3–5 apply (row 5) | Koen, 19 Sep 2026 | "Ik twijfel nog altijd of we betalingen ook niet terug moeten zetten naar de cards"; F10 waits until the dense Betalingen screen has been lived with; one decision covers both directions |
+| P3 | Bulk actions on admin lists (select many, act once). | Could — phase 5: the list layout gets a selection mode with scopes-with-preview; built where a list needs it | Koen, 19 Sep 2026 | "bulk selectie zou ik voorlopig niet doen"; when it comes, scopes-with-preview as sketched in the conventions debate |
+| P4 | The homepage can feature one activity in a large hero card. | Could — phase 4 (pilot B, the public side), as a CMS choice on the homepage | the Cobalt sketch; left out of golf 11 | needs a "which activity" choice by the board and sits above an agenda that already shows the same; candidate: a CMS choice once the board misses it |
+| P5 | The admin assistant offers language-model insights on top of the screen context it already has (#1060). | Should — phase 5, with the Raakje panel (row 32); every claim with a source | 20 Sep 2026 | Mistral, Europe First; under the standing rule that every claim carries a clickable source and unsupported claims are dropped |
+| P6 | Admin tables follow one set of conventions: sortable columns as the norm, a column chooser, saved views, a Ctrl-K command palette. | Should — sortable columns and the column chooser in the list layout (phases 2 and 5, they serve row 11); saved views and the command palette after phase 5 | #785 triage | sized for the ERP ambition, not for one release |
 | ~~P7~~ | ~~STT and TTS in the Raakje overlay~~ | **un-parked** 20 Sep 2026 | Koen | mic + read-aloud, identical to the rapporten-Raakje — "Raakje is the same everywhere; the only difference is the public security boundary"; now #1075 |
-| P8 | Web pages are edited as blocks — heading, text, image, gallery, call-to-action — each with its tools where it sits, so a non-designer can make a page that looks professional. | Parked | Koen, 30 Sep 2026 | from A2 row 15; not urgent; taken up when the portal aims at public pages for a club or a company; its own change request then |
-| P9 | Raakje takes over data entry: "maak een activiteit aan" and it knows the objects an activity needs, what is required, fills the form while the user talks or types, then hands over to the Design Studio for the poster. | Parked | Koen, 30 Sep 2026 | from A2 row 32; it builds on P5 (insights on the screen context) and on the panel beside the form; its own change request when taken up |
+| P8 | Web pages are edited as blocks — heading, text, image, gallery, call-to-action — each with its tools where it sits, so a non-designer can make a page that looks professional. | Own change request, after phase 5 | Koen, 30 Sep 2026 | from A2 row 15; not urgent; taken up when the portal aims at public pages for a club or a company; its own change request then |
+| P9 | Raakje takes over data entry: "maak een activiteit aan" and it knows the objects an activity needs, what is required, fills the form while the user talks or types, then hands over to the Design Studio for the poster. | Own change request, after phase 5 | Koen, 30 Sep 2026 | from A2 row 32; it builds on P5 (insights on the screen context) and on the panel beside the form; its own change request when taken up |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
 
@@ -421,11 +422,11 @@ each phase's issues are written:
 |---|---|---|---|---|---|---|
 | 0 — end state and concepts | 2 (design-system text, concept screenshots, the two reviews) | — | — | — | — | 2 |
 | 1 — quick wins | — | — | 0.5 | — | 1 | 1.5 |
-| 2 — foundations | 5 | 3 | — | — | — | 8 |
+| 2 — foundations | 6 | 3 | — | — | — | 9 |
 | 3 — pilot A | 1 (tuning) | 0.5 | 4 | — | — | 5.5 |
-| 4 — pilot B | 1 (tuning) | 0.5 | — | 3.5 | — | 5 |
-| 5 — roll-out | 1 | 1 | 1 | 1 | 8 | 12 |
-| **Total** | **10** | **5** | **5.5** | **4.5** | **9** | **~34** |
+| 4 — pilot B | 1 (tuning) | 0.5 | — | 4 | — | 5.5 |
+| 5 — roll-out | 2 | 1 | 1 | 1 | 9 | 14 |
+| **Total** | **12** | **5** | **5.5** | **5** | **10** | **~37.5** |
 
 Around it: this analysis (done); a review per pilot on its concept (the
 external advice of B6); the parity walks on HDEV per phase. No purchase,
@@ -442,7 +443,7 @@ What operations must know: the e2e job takes longer with the screenshot
 diff (measure at phase 2; if it exceeds ten minutes, the diff runs on the
 screens a PR touches).
 
-**Against A4:** thirty-four days for a portal that reads as one product,
+**Against A4:** thirty-seven days for a portal that reads as one product,
 that a change request can name in a sentence, and that cannot drift again.
 
 ## B4. Detailed decisions — one subsection each, with the reasons
@@ -641,11 +642,11 @@ session.
 |---|---|---|---|---|
 | **0 — end state and concepts** | B4 written into `docs/design-system.md` as its next version (marked "end state, not yet built" per section); concept screenshots of the three layouts and of pilot A and B drawn against real screens; the graphic-design review on them; the classification table of every list and record screen (kind · shape · tiles · card fields · pages · save model) | this document | none | Koen reads the design system and the concepts; the review's findings in the Q&A |
 | **1 — quick wins** | rows 3, 10, 15 (sticky toolbar), 34 (naming), 35, 38, 42 (labels), 6 (wording) — each a small PR that is visible at once | none | none on the happy path; a send button that reads "Versturen…" where it read "Versturen" | AC1 on HDEV |
-| **2 — foundations** | the three layouts, the macros of F5–F12, the token split, the design-system page rendering all of it live; every gate of B7 as a ratchet on A2's counts; screenshot baselines for every existing screen | 0 | none: nothing existing moves yet | AC2, AC7 on HDEV |
+| **2 — foundations** | the three layouts (the list layout with sortable columns and a column chooser, P6), the macros of F5–F12, the token split, the design-system page rendering all of it live; every gate of B7 as a ratchet on A2's counts; screenshot baselines for every existing screen | 0 | none: nothing existing moves yet | AC2, AC7 on HDEV |
 | **3 — pilot A** | the activity record page and the Betalingen list on the layouts, with their embedded tabs; lived with for a release and tuned; the usability review on the concept before the build | 2 | a record saved as a whole: a failed save keeps every change on screen (today a per-card save loses the others); leaving with unsaved changes now warns | AC3, AC4 on HDEV, then one release in use |
-| **4 — pilot B** | "Word lid", the family portal with "Onze inschrijvingen", the registration page and the public form on the layouts, surfaces and grid; the nudge; the household record page in the admin as one save; usability review first | 2 (3 for the household record page) | the household saved as a whole, same as pilot A; the nudge appears for everyone | AC5 on HDEV, then one release in use |
-| **5 — roll-out** | every remaining screen onto its layout; Raakje's trigger and panel; the rich-text toolbar; users, organisation, tenant as records; the gates hard; the fixed UI decisions in `CLAUDE.md` rewritten | 3, 4 tuned | per screen the same as the pilots; the assistant page and the per-screen AI buttons gone | AC6, AC7 on HDEV; the screenshot set |
-| **later — parked** | P3 bulk, P4 hero, P5 insights, P6 table conventions, P8 block editor, P9 Raakje as agent | 5 | — | own change requests |
+| **4 — pilot B** | "Word lid", the family portal with "Onze inschrijvingen", the registration page and the public form on the layouts, surfaces and grid; the nudge; the featured activity on the homepage as a CMS choice (P4); the household record page in the admin as one save; usability review first | 2 (3 for the household record page) | the household saved as a whole, same as pilot A; the nudge appears for everyone | AC5 on HDEV, then one release in use |
+| **5 — roll-out** | every remaining screen onto its layout; pagination on every list (P1); the column chooser and, where a list needs it, the selection mode with scopes-with-preview (P3, P6); Raakje's trigger and panel with its insights (P5); the rich-text toolbar; users, organisation, tenant as records; the gates hard; the fixed UI decisions in `CLAUDE.md` rewritten | 3, 4 tuned | per screen the same as the pilots; the assistant page and the per-screen AI buttons gone | AC6, AC7 on HDEV; the screenshot set |
+| **after 5** | saved views and the command palette (P6's second half); the block editor (P8) and Raakje as data-entry agent (P9) as their own change requests | 5 | — | own change requests |
 
 Each phase rides a release of its own or shares one with functional work;
 none spans two. Phase 5 may be split per module across releases — the
@@ -767,7 +768,7 @@ title and toolbar; the e2e job's duration with the pixel diff.
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
 | Q1 | 30 Sep 2026 | Does CR-11 become a real change request on the new template, or stay a parking lot from which each item gets its own CR or issue? (Claude) | Koen, 30 Sep: a real change request — the end state of the GUI and the roadmap towards it; the parked items stay in A6 as candidates, the pains are listed in A2 first, then the solution and the approach (B6). |
-| Q2 | 30 Sep 2026 | Which of P1–P6 are taken up now, and is there new material — the dense Betalingen screen lived with (P2), the board missing a featured activity (P4)? (Claude) | *open* |
+| Q2 | 30 Sep 2026 | Which of P1–P6 are taken up now, and is there new material — the dense Betalingen screen lived with (P2), the board missing a featured activity (P4)? (Claude) | Koen, 30 Sep: none stays on hold — the parking lot was context; whatever fits the phasing goes in. Placed: P1, P3, P5, P6 (first half) in phase 5, P2 in phases 0 and 3–5, P4 in phase 4, P6's second half after 5, P8 and P9 as their own change requests. A6, B6, B3. |
 | Q8 | 30 Sep 2026 | Does F1 — every screen extends one of three layouts — clash with the modular architecture? (Koen) | No: extending is what every domain template does today with the shell and the macros, both the kit's; a layout is one level more in the same place; the dependency stays domain → `ui`, and the template-variables gate covers the layout's blocks as promises. B2.2. |
 | Q3 | 30 Sep 2026 | Tables versus cards (row 5): is the content rule — a table to scan and compare, cards for things with a face — the decision, so that Betalingen stays a table and Leden becomes one? (Claude) | *open* |
 | Q4 | 30 Sep 2026 | Do the quick wins (phase 1) ride the next functional release, or a release of their own so they are seen together? (Claude) | *open* |
@@ -783,7 +784,7 @@ title and toolbar; the e2e job's duration with the pixel diff.
 - Parking new GUI candidates on a release tracker instead of here.
 - Making the platform usable by other organisations (a webshop for a company, another association's menu and brand) — its own change request; this one only keeps kit and brand apart so that one becomes possible.
 - New functionality: no new record, field or report; the family portal's "Onze inschrijvingen" tab and the member nudge are the only two additions, both small and both named in A6.
-- The parked candidates P3–P6, P8, P9 — each its own change request when un-parked.
+- P8 (block editor) and P9 (Raakje as agent) — their own change requests after phase 5; everything else formerly parked is in the phases.
 
 ## Relationship to existing work — issues and change requests
 
