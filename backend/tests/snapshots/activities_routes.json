@@ -411,10 +411,16 @@
   "response_class": "HTMLResponse",
   "response_model": "None"
  },
- "GET /admin/activiteiten/{activity_id}/onderdelen/{component_id}/boek": {
+ "GET /admin/activiteiten/{activity_id}/onderdelen/{component_id}/antwoorden": {
   "endpoint": "app.domains.activities.admin_ui.component_book_page",
   "openapi": null,
   "response_class": "HTMLResponse",
+  "response_model": "None"
+ },
+ "GET /admin/activiteiten/{activity_id}/onderdelen/{component_id}/boek": {
+  "endpoint": "app.domains.activities.admin_ui.component_book_old_path",
+  "openapi": null,
+  "response_class": "",
   "response_model": "None"
  },
  "GET /admin/activiteiten/{activity_id}/onderdelen/{component_id}/export": {

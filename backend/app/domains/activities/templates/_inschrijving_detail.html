@@ -174,7 +174,7 @@
     <form class="space-y-3 border-t border-gray-200 pt-3" hx-post="/admin/inschrijvingen/{{ reg.id }}/antwoorden"
           hx-target="closest .bg-gray-50" hx-swap="outerHTML">
       {# #1380: the form's own question block. #}
-      <div>{{ vragen_kop(vraagformulier, heading="h3") }}</div>
+      <div>{{ vragen_kop(vraagformulier, heading="h3", compact=True) }}</div>
       {{ vragen_kaarten(vraag_groepen, vraag_los, vraag_fout=vraag_fout) }}
       {{ ui.action_bar(cancel_attrs='@click="edit = false"') }}
     </form>

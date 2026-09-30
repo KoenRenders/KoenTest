@@ -141,7 +141,7 @@ def test_the_answers_are_read_in_one_statement(client, db_session, sint):
 
 def test_the_book_has_a_page_per_registration_by_name(client, sint):
     html = client.get(
-        f"/admin/activiteiten/{sint.activity.id}/onderdelen/{sint.component.id}/boek"
+        f"/admin/activiteiten/{sint.activity.id}/onderdelen/{sint.component.id}/antwoorden"
     ).text
     names = re.findall(r"<h2>([^<]+)</h2>", html)
     assert names == ["Anna Eerst", "Bert Midden", "Zoë Laatst"]

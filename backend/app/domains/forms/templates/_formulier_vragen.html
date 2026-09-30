@@ -23,6 +23,10 @@
    Parameters:
    - `heading` (`vragen_kop`) — the title's tag: h1 on the form's own page, h2 where the page has
      its own h1 (the activity); the same classes either way;
+   - `compact` (`vragen_kop`) — one size smaller (`text-xl`), for a title INSIDE
+     a panel: on the registration detail the block sits in the registration's own
+     card, where a page-sized title outweighed the registration's name (master
+     CLI, #1382). The same markup, one class different;
    - `browser_required` — False where the questions can be hidden ("later"): a
      hidden `required` field blocks the submit; the server judges them;
    - `vraag_fout` — the id of the question a refusal names, marked;
@@ -32,8 +36,8 @@
    Expects in the context what `veld` expects: `values` and `ui`. #}
 {% import "_macros.html" as ui %}
 {% from "_formulier_veld.html" import veld with context %}
-{% macro vragen_kop(form, heading="h1", wizard=False) %}
-<{{ heading }} class="text-2xl font-bold text-kop mb-2">{{ form.title }}</{{ heading }}>
+{% macro vragen_kop(form, heading="h1", wizard=False, compact=False) %}
+<{{ heading }} class="{{ 'text-xl' if compact else 'text-2xl' }} font-bold text-kop mb-2">{{ form.title }}</{{ heading }}>
 {% if form.description %}<p class="text-gray-600 mb-6 whitespace-pre-wrap"{% if wizard %} x-show="step === 0" x-cloak{% endif %}>{{ form.description }}</p>{% endif %}
 {% endmacro %}
 
