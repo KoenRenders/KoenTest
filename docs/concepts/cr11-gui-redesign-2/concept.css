@@ -95,7 +95,7 @@ table.list td.ellip{text-align:right;color:var(--ink-soft)}
 .section h2{font-size:15px;font-weight:600;margin:0 0 12px;display:flex;align-items:center;justify-content:space-between}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
 .full{grid-column:1/-1}.quarter{grid-column:span 1}
-.field label{display:block;font-size:13px;font-weight:600;color:var(--ink-soft);margin-bottom:4px}
+.field label{display:block;font-size:14px;font-weight:600;color:var(--ink-soft);margin-bottom:4px}
 .field .val{font-size:15px;min-height:22px}
 .field .val.empty{color:#9ca3af}
 .field input,.field textarea,.field select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:14px;font-family:inherit;background:#fff}

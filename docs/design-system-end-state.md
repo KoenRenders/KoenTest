@@ -100,8 +100,11 @@ exists in row actions and toolbars only, with its `aria-label`.
 ### 1.6 Type
 
 Unchanged from `design-system.md` §1.2 and §1.2a (Inter body, Radio
-Canada Big display, the mobile-first scale), with one correction from the
-concepts: a field label and a tile's label are 13 px, not 11 — small text
+Canada Big display, the mobile-first scale), with one correction, measured
+against the app and not the concepts (30 Sep 2026): a field label stays
+14 px, what `ui.label` renders today (the concepts drew 13 and the review
+read 11 — both wrong); a tile's label is 13 px, replacing the 11 px of
+today's Betalingen tiles, and comes with the tiles macro; small text
 (11–12 px) is for supplementary information only. Radius: the concepts
 test 12 px for admin cards (calmer, denser) against the current 18 px,
 which the public site keeps — decided at phase 0 (CR-11 Q18). The record header's title is
