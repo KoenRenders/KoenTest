@@ -787,8 +787,9 @@ Betalingen list, the activity record page in read and in edit mode, its
 embedded Betalingen tab, the meeting as a document page, the public
 registration page — each with the rows of A2 it answers noted at the
 bottom, and an index that shows three of them in a 390 px phone frame.
-They live in Koen's project folder outside the repository (with a README),
-not in `docs/`: design material with invented data. Still to produce in
+They live in `docs/concepts/cr11-gui-redesign-2/` (with a README): design
+material with invented data only, the real kit stylesheet by relative path,
+so a reviewer reads them on GitHub and a checkout renders them. Still to produce in
 phase 0: the two external reviews on them, and the measurements — the graphic-design review on them;
 the measured height of the Betalingen chrome before and after the two-row
 title and toolbar; the e2e job's duration with the pixel diff.
