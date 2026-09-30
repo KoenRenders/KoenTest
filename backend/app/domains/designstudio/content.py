@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from app.domains.designstudio.models import Preset
+from app.domains.designstudio.models import InsetCorner, Preset
 
 
 @dataclass(frozen=True)
@@ -78,7 +78,10 @@ class PosterContent:
 
     main_image: ImageBytes | None = None
     inset_image: ImageBytes | None = None
-    inset_corner: str = "bottom_right"  # which corner of the main picture it lies on
+    #: Which corner of the main picture the polaroid lies on — a member, like
+    #: `preset` (#1388: a code-typed field that received the member while the
+    #: renderer called `.endswith` on it, a 500 on every design with a polaroid).
+    inset_corner: InsetCorner = InsetCorner.BOTTOM_RIGHT
     third_image: ImageBytes | None = None
 
     website: str = ""  # shown without scheme; the QR carries https://
@@ -101,3 +104,4 @@ class PosterContent:
         # the code, the service hands over the member. One place turns the one
         # into the other, so `blocks.py` only ever compares members.
         object.__setattr__(self, "preset", Preset(self.preset))
+        object.__setattr__(self, "inset_corner", InsetCorner(self.inset_corner))

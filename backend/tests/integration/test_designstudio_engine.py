@@ -986,12 +986,15 @@ def test_the_polaroid_lies_on_the_corner_that_was_chosen():
     """Koen, 20 September 2026: bottom right covered exactly the subject on
     some photos. Four corners, and a fifth bigger."""
     from app.domains.designstudio.blocks import polaroid_on
+    from app.domains.designstudio.models import InsetCorner
 
     inset = ImageBytes(PNG_2x2, "image/png")
     rect = (19.0, 100.0, 260.0, 120.0)  # x, y, w, h of the main picture
     places = {}
     for corner in ("top_left", "top_right", "bottom_left", "bottom_right"):
-        frag, bottom = polaroid_on(_plan(), inset, rect, corner, 91.0)
+        # A member, as `PosterContent` hands it over since #1388: `blocks.py`
+        # compares members; the code is coerced on the content's boundary.
+        frag, bottom = polaroid_on(_plan(), inset, rect, InsetCorner(corner), 91.0)
         x, y = (
             float(v)
             for v in re.search(r'<rect x="([0-9.]+)" y="([0-9.]+)" width="91', frag).groups()

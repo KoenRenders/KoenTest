@@ -23,7 +23,7 @@ from xml.sax.saxutils import escape
 from app.domains.designstudio import richtext
 from app.domains.designstudio.content import Highlight, ImageBytes, PosterContent
 from app.domains.designstudio.icons import icon_svg
-from app.domains.designstudio.models import Preset
+from app.domains.designstudio.models import InsetCorner, Preset
 
 FONT = "Radio Canada Big"
 HAND = "Caveat"
@@ -373,7 +373,7 @@ def polaroid_on(
     plan: Plan,
     image: ImageBytes,
     rect: tuple[float, float, float, float],
-    corner: str,
+    corner: InsetCorner,
     width: float,
     *,
     angle: float = 4,
@@ -388,11 +388,11 @@ def polaroid_on(
     pasted in; top corners stay inside."""
     rx, ry, rw, rh = rect
     h = width * 0.72
-    x = rx + 6 if corner.endswith("_left") else rx + rw - width - 6
-    y = ry + 6 if corner.startswith("top_") else max(ry + 6, ry + rh - h + 10)
-    frag, _below = polaroid_block(
-        plan, image, x, y, width, angle=angle if corner.endswith("_right") else -angle
-    )
+    left = corner in (InsetCorner.TOP_LEFT, InsetCorner.BOTTOM_LEFT)
+    top = corner in (InsetCorner.TOP_LEFT, InsetCorner.TOP_RIGHT)
+    x = rx + 6 if left else rx + rw - width - 6
+    y = ry + 6 if top else max(ry + 6, ry + rh - h + 10)
+    frag, _below = polaroid_block(plan, image, x, y, width, angle=-angle if left else angle)
     return frag, max(ry + rh, y + h)
 
 
