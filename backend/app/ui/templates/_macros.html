@@ -638,17 +638,33 @@
    is: dan blijft `rows` gewoon gelden tot het opengeklapt wordt. Daarmee
    vervalt de REDEN om een verborgen vak `autogrow=False` te geven; bestaande
    opt-outs blijven staan wat ze zijn, want daar kan een andere reden onder
-   liggen (`_cp_detail.html`). #}
+   liggen (`_cp_detail.html`).
+
+   #1379: a box that starts hidden now also fits its text the moment it is
+   opened, not only after the first keystroke. `init()` watches the box with a
+   ResizeObserver while it measures zero, and grows it once when it becomes
+   visible — the help text of a question sits behind "Bewerken", and showed two
+   lines of a three-line text with a scrollbar until one typed. No arrow functions
+   in this attribute: their `>` breaks every reader that takes a tag up to its
+   first `>`, tests included. The height also
+   counts the border now (`rand`): with `border-box`, `scrollHeight` alone left the
+   box 2 px short, with a scrollbar on every grown field. #}
 {% macro textarea_control(name, id=None, value="", rows=4, required=False,
                           placeholder="", cls="", attrs="", autogrow=True, max_px=400) -%}
 <textarea{% if name %} name="{{ name }}"{% endif %} id="{{ id or name }}" rows="{{ rows }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}
           class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}"
           {% if autogrow %}x-data="{ bodem: 0,
+              init() { this.groei(); if (this.bodem) return;
+                       const vak = this.$el, zelf = this;
+                       const ro = new ResizeObserver(function () {
+                         if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+                       ro.observe(vak); },
               meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
               groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
                         this.$el.style.height = `auto`;
-                        this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight, this.bodem), {{ max_px }}) + `px`; } }"
-             x-init="groei()" x-on:input="groei()" {% endif %}{{ attrs|safe }}>{{ value }}</textarea>
+                        const rand = this.$el.offsetHeight - this.$el.clientHeight;
+                        this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight + rand, this.bodem), {{ max_px }}) + `px`; } }"
+             x-on:input="groei()" {% endif %}{{ attrs|safe }}>{{ value }}</textarea>
 {%- endmacro %}
 
 {# De opgemaakte-tekst-editor (Trix) — één vorm voor elk scherm dat opgemaakte

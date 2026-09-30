@@ -188,11 +188,17 @@
 <textarea name="remarks" id="reg-remarks-<R:member>" rows="2"
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
+ init() { this.groei(); if (this.bodem) return;
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
- this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight, this.bodem), 400) + `px`; } }"
- x-init="groei()" x-on:input="groei()" >Graag vooraan</textarea>
+ const rand = this.$el.offsetHeight - this.$el.clientHeight;
+ this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight + rand, this.bodem), 400) + `px`; } }"
+ x-on:input="groei()" >Graag vooraan</textarea>
 </div>
 </form>
 </div>

@@ -40,7 +40,10 @@ pytestmark = pytest.mark.ui_serverrendered
 # leggen vast WELKE velden meegroeien; de gerenderde hoogte zelf wordt gemeten in
 # `tests_e2e/test_tekstvak_ondergrens.py` — een vergelijking van attribuuttekst
 # bewijst niets over pixels.
-GROEI = 'x-init="groei()"'
+# #1379: the first measurement moved from `x-init` into the component's `init()`,
+# which also catches a box that becomes visible later; the input listener is the
+# mark of a growing box that stayed.
+GROEI = 'x-on:input="groei()"'
 TEMPLATES = Path(__file__).resolve().parents[4] / "app"
 
 
@@ -83,7 +86,7 @@ def test_eigen_plafond_blijft_en_de_optout_groeit_niet(client):
 
     groeiend = _veld(html, "ds-omschrijving")
     assert "this.bodem), 200)" in groeiend
-    assert groeiend.count("x-init") == 1, "de groei-attributen staan er dubbel op"
+    assert groeiend.count("x-on:input") == 1, "de groei-attributen staan er dubbel op"
 
     vast = _veld(html, "ds-notities")
     assert GROEI not in vast and "groei()" not in vast

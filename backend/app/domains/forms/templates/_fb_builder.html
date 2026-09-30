@@ -56,7 +56,9 @@
     {% endcall %}</div>
   {% endif %}
   <div class="sm:col-span-4">{{ ui.label(_("Hulptekst"), "fh-" ~ _id) }}
-    {{ ui.input_control("help_text", id="fh-" ~ _id, value=(f.help_text or "" if f else ""), cls="w-full") }}</div>
+    {# #1379: a help text can run to several lines; the kit's textarea grows with
+       it, on opening and while typing, like the form and section descriptions. #}
+    {{ ui.textarea_control("help_text", id="fh-" ~ _id, rows=2, value=(f.help_text or "" if f else ""), cls="w-full") }}</div>
   {% if _kind.has_length_limits %}
   <div>{{ ui.label(_("Min. tekens"), "fminl-" ~ _id) }}{{ ui.input_control("min_length", id="fminl-" ~ _id, value=(f.min_length or "" if f else ""), cls="w-full") }}</div>
   <div>{{ ui.label(_("Max. tekens"), "fmaxl-" ~ _id) }}{{ ui.input_control("max_length", id="fmaxl-" ~ _id, value=(f.max_length or "" if f else ""), cls="w-full") }}</div>
