@@ -75,12 +75,10 @@
     </tbody>
   </table>
 </div>
-{# Kit-pager (#580). Zonder totaal: dit scherm haalt bewust één rij extra op i.p.v.
-   een COUNT te doen, dus has_prev/has_next sturen de knoppen. De filters gaan mee
-   in de URL zodat ze bij het bladeren behouden blijven. #}
+{# Kit pager (#580), with the counted total since #1391 (CR-11 W8). The filters
+   travel in the URL so they survive paging. #}
 {% set _base = "/admin/e-maillog/lijst?email_type=" ~ (email_type or "") ~ "&status=" ~ (status or "") ~ "&recipient=" ~ (recipient or "") ~ "&sort=" ~ sort ~ "&richting=" ~ richting ~ "&per_page=" ~ per_page %}
-{{ ui.pager(page, hx_get=_base, hx_target="#email-log-lijst",
-            has_prev=has_prev, has_next=has_next) }}
+{{ ui.pager(page, per_page, total, hx_get=_base, hx_target="#email-log-lijst") }}
 {% else %}
 {{ ui.empty_state(_("Geen e-mails gevonden voor deze filter.")) }}
 {% endif %}

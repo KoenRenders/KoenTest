@@ -148,17 +148,20 @@ def test_de_meta_regel_van_wijzigingen_telt_en_benoemt_de_volgorde(client, db_se
     assert "nieuwste eerst" not in op_actor
 
 
-def test_de_meta_regel_van_het_emaillog_belooft_geen_totaal(client, db_session):
-    """Dit scherm doet bewust GEEN `COUNT` (§2.3) — het haalt één rij extra op.
+def test_the_email_log_meta_line_states_the_counted_total(client, db_session):
+    """Since #1391 (CR-11 W8) the e-mail log counts, so the meta line says "N
+    e-mails" — N being every logged mail, not the rows on this page. With more
+    mails than one page holds, "on this page" and "in total" differ, so the test
+    tells them apart."""
+    from app.domains.mail.models import EmailLog
 
-    "N e-mails" zou dus een totaal suggereren dat nooit gemeten is; de regel zegt
-    daarom wat ze wél weet: wat er op deze pagina staat.
-    """
-    _emails(db_session, 4)
+    _emails(db_session, PER_PAGE_DEFAULT + 3)
+    total = db_session.query(EmailLog).count()
     _login(client, db_session)
     html = client.get(EMAILLOG).text
 
-    assert "e-mails op deze pagina · nieuwste eerst" in html
+    assert f"{total} e-mails · nieuwste eerst" in html
+    assert f"1–{PER_PAGE_DEFAULT} van {total}" in html
 
 
 # ── 3. Hoeveel rijen op een pagina ───────────────────────────────────────────

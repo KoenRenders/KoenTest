@@ -752,9 +752,9 @@ def list_email_log(
 ):
     """Een pagina uit het e-maillogboek, met de actieve filters toegepast.
 
-    Geeft `(rijen, is_er_nog_een_pagina)` terug. De "nog een pagina?"-vraag wordt
-    beantwoord door één rij méér op te halen dan de paginagrootte — goedkoper dan
-    een tweede COUNT-query over een tabel die alleen maar groeit.
+    Returns `(rows, total)`: the page and the number of rows that match the
+    filters. The total is counted (#1391, CR-11 W8) — the pager says "x–y van n"
+    everywhere, and "one row extra" could only say "page n".
 
     `sort` komt uit `_EMAIL_LOG_SORT` (onbekend → datum), `richting` is asc/desc
     (anders desc). Elke ordening eindigt op het unieke id in dezelfde richting —
@@ -776,8 +776,9 @@ def list_email_log(
     aflopend = richting != "asc"
     orden = (kolom.desc(), EmailLog.id.desc()) if aflopend else (kolom.asc(), EmailLog.id.asc())
 
-    rijen = query.order_by(*orden).offset((max(1, page) - 1) * page_size).limit(page_size + 1).all()
-    return rijen[:page_size], len(rijen) > page_size
+    total = query.order_by(None).count()
+    rijen = query.order_by(*orden).offset((max(1, page) - 1) * page_size).limit(page_size).all()
+    return rijen, total
 
 
 def delete_email_log(db, log_id: int) -> bool:

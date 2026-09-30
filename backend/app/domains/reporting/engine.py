@@ -350,6 +350,9 @@ class QueryPlan:
     # listing totals its money columns; a selection with neither has no totals row
     # at all, and asking anyway would return a meaningless `1`.
     has_totals: bool = False
+    # The number of rows the whole statement returns, ignoring the page — what
+    # the pager's "van n" reads (#1391, CR-11 W8). Empty where nothing pages.
+    count_sql: str = ""
 
 
 # A hard ceiling on what one report may return. At this scale it never fires; it
@@ -738,6 +741,7 @@ def build_query(selection: Selection, *, tenant_id: int, with_entities: bool = F
     sql = "SELECT\n  " + ",\n  ".join(select_parts) + f"\nFROM {from_clause}\nWHERE {where}"
     if group_by:
         sql += "\nGROUP BY " + ", ".join(group_by)
+    count_sql = f"SELECT count(*) FROM (\n{sql}\n) AS counted"
     if order_by:
         sql += "\nORDER BY " + ", ".join(order_by)
     sql += "\nLIMIT :limit OFFSET :offset"
@@ -761,6 +765,7 @@ def build_query(selection: Selection, *, tenant_id: int, with_entities: bool = F
         drill_aliases=drill_aliases,
         entity_aliases=entity_aliases,
         has_totals=bool(measures),
+        count_sql=count_sql,
     )
 
 
@@ -909,6 +914,7 @@ def _build_detail_list(
     params["offset"] = max(0, selection.offset)
 
     sql = "SELECT\n  " + ",\n  ".join(select_parts) + f"\nFROM {from_clause}\nWHERE {where}"
+    count_sql = f"SELECT count(*) FROM {from_clause}\nWHERE {where}"
     if order_by:
         sql += "\nORDER BY " + ", ".join(order_by)
     sql += "\nLIMIT :limit OFFSET :offset"
@@ -930,6 +936,7 @@ def _build_detail_list(
         drill_aliases=drill_aliases,
         entity_aliases=entity_aliases,
         has_totals=bool(geld),
+        count_sql=count_sql,
     )
 
 

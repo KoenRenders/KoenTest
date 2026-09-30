@@ -57,6 +57,9 @@ class ReportResult:
     # The entity id per column key, for the assistant's tokenisation (CR-07 §5.2).
     # Empty unless the caller asked for it — the panel does not.
     entity_aliases: dict[str, str] = field(default_factory=dict)
+    # Every row of the selection, not just this page — only when the caller
+    # asked for it (`with_count`), because only the paged panel reads it.
+    total_rows: int | None = None
 
     @property
     def row_count(self) -> int:
@@ -73,7 +76,12 @@ class Dataset:
 
 
 def run_selection(
-    db: Session, selection: Selection, *, tenant_id: int, with_entities: bool = False
+    db: Session,
+    selection: Selection,
+    *,
+    tenant_id: int,
+    with_entities: bool = False,
+    with_count: bool = False,
 ) -> ReportResult:
     """Execute one selection and return its rows plus the totals row.
 
@@ -93,6 +101,10 @@ def run_selection(
         if record is not None:
             totals = dict(record)
 
+    total_rows = None
+    if with_count and plan.count_sql:
+        total_rows = db.execute(text(plan.count_sql), plan.params).scalar_one()
+
     # Wat je vraagt is wat je krijgt: er wordt niets meer samengevoegd (zie de
     # uitleg bij de verwijderde drempel in `engine.py`).
     return ReportResult(
@@ -102,6 +114,7 @@ def run_selection(
         fact=plan.fact,
         drill_aliases=plan.drill_aliases,
         entity_aliases=plan.entity_aliases,
+        total_rows=total_rows,
     )
 
 
@@ -358,12 +371,15 @@ def run_validated(
     today: date | None = None,
     viewer: str = "",
     with_entities: bool = False,
+    with_count: bool = False,
 ) -> ReportResult:
     """Resolve, validate, run. The panel's single entry point — and the
     assistant's, which is the point: one path to one number (CR-07 §4.2)."""
     concreet = resolve_selection(selection, today=today, viewer=viewer)
     validate_filter_values(db, concreet, tenant_id=tenant_id)
-    return run_selection(db, concreet, tenant_id=tenant_id, with_entities=with_entities)
+    return run_selection(
+        db, concreet, tenant_id=tenant_id, with_entities=with_entities, with_count=with_count
+    )
 
 
 # ── Saved reports (CR-06 §5) ─────────────────────────────────────────────────
