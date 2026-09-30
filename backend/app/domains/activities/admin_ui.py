@@ -21,7 +21,7 @@ from fastapi import (
     Request,
     UploadFile,
 )
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -1803,7 +1803,7 @@ def activiteit_inschrijvingen_tab(
                 "export_href": (f"/admin/activiteiten/{activity_id}/onderdelen/{c.id}/export"),
                 # CR-14 F14: the book, for a component that asks questions.
                 "boek_href": (
-                    f"/admin/activiteiten/{activity_id}/onderdelen/{c.id}/boek"
+                    f"/admin/activiteiten/{activity_id}/onderdelen/{c.id}/antwoorden"
                     if c.form_id is not None
                     else None
                 ),
@@ -1902,8 +1902,18 @@ def onderdeel_export(
     )
 
 
+@router.get("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/boek")
+def component_book_old_path(activity_id: int, component_id: int) -> Response:
+    """The page was called "Boek" until #1382; a saved or shared old address keeps
+    working. A path a person sees follows the UI's word (CLAUDE.md, URL paths)."""
+    return RedirectResponse(
+        f"/admin/activiteiten/{activity_id}/onderdelen/{component_id}/antwoorden",
+        status_code=301,
+    )
+
+
 @router.get(
-    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}/boek",
+    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}/antwoorden",
     response_class=HTMLResponse,
 )
 def component_book_page(
@@ -1913,8 +1923,9 @@ def component_book_page(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ) -> HTMLResponse:
-    """The book of a component (CR-14 F14): one page per registration, printed from
-    the browser — the Sint's book. Admin only, like the export it is read from."""
+    """The answers of a component (CR-14 F14, "Antwoorden" since #1382 — the book in
+    the code): one page per registration, to print or to read and copy. Admin only,
+    like the export it is read from."""
     from app.domains.activities.api import (
         component_book,
         get_activity,
