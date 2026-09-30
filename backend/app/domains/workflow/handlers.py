@@ -17,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.domains.forms.api import CONTACT_FORM_SLUG
 from app.domains.workflow import api
 from app.domains.workflow.api import (
     KERNEL_JOB_FAILED,
@@ -24,14 +25,14 @@ from app.domains.workflow.api import (
     PAYMENT_CONFIRM_REFUND,
     PAYMENT_WEBHOOK_MISMATCH,
 )
-from app.kernel.contracts.forms import SubmissionCreated
+from app.i18n import _
+from app.kernel.contracts.forms import SubmissionCreated, SubmissionDeleted
 from app.kernel.contracts.payment import PaymentReceived, RefundDue
 from app.kernel.events import subscribe
 from app.kernel.jobs import enqueue, job
 
 logger = logging.getLogger(__name__)
 
-BERICHTEN_SLUG = "berichten"
 SWEEP_INTERVAL = timedelta(hours=1)
 
 
@@ -51,7 +52,8 @@ def advance_sweep_on_money(event: PaymentReceived | RefundDue, db: Session) -> N
 
 @subscribe(SubmissionCreated)
 def create_behartigen_task(event: SubmissionCreated, db: Session) -> None:
-    if event.form_slug != BERICHTEN_SLUG:
+    # #1377: the slug comes from forms, its one home, not from a copy here.
+    if event.form_slug != CONTACT_FORM_SLUG:
         return
     afzender = event.submitter_name or "onbekende afzender"
     api.start(
@@ -60,6 +62,22 @@ def create_behartigen_task(event: SubmissionCreated, db: Session) -> None:
         subject_type="form_submission",
         subject_id=str(event.submission_id),
         context={"afzender": afzender},
+    )
+
+
+@subscribe(SubmissionDeleted)
+def close_task_of_deleted_submission(event: SubmissionDeleted, db: Session) -> None:
+    """A deleted submission closes its open task (#1377).
+
+    Deleting spam through "Contacteer ons" left its task on the werkbank, pointing
+    at a submission that no longer existed. No slug check: a task is found by its
+    subject, so the submission of any other form has none and nothing happens.
+    """
+    api.close_subject_tasks(
+        db,
+        api.SubjectType.FORM_SUBMISSION,
+        str(event.submission_id),
+        reason=_("Automatisch gesloten: inzending verwijderd."),
     )
 
 

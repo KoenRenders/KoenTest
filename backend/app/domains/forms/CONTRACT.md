@@ -6,6 +6,10 @@
   - `submission_count(db, form_id) -> int`.
 - **Events**: `SubmissionCreated` (kernel/contracts/forms.py) — gepubliceerd bij elke inzending (berichten/workflow is de
   eerste consument; event-ladder trede 1, synchroon/in-transactie).
+  `SubmissionDeleted` (same contract file, #1377) — published by
+  `delete_submission` in the delete's transaction; workflow closes the open task.
+- **Constant**: `CONTACT_FORM_SLUG` — the slug of the seeded contact form, written
+  once in `service.py` (#1377).
 
 ## Consumeert
 - Facades: geen.

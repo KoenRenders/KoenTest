@@ -6,7 +6,9 @@ instanties en taken; de werkbank is het ene scherm waarop álles landt (§20.5).
 ## Facade (`api.py`)
 
 - **Taken** (het taakcontract — één DTO, `required_role`): `create_task`,
-  `list_tasks`/`open_tasks`, `open_count`, `get_task`, `close_task`.
+  `list_tasks`/`open_tasks`, `open_count`, `get_task`, `close_task`,
+  `close_subject_tasks` (closes the open tasks of a subject that no longer
+  exists and ends their workflow, #1377).
 - **Workflows**: `start(db, definition_code, subject_type, subject_id,
   context)` → instantie + eerste taak; `complete_task` sluit de taak én zet de
   instantie verder ("een afwijzing is ook een beslissing" — het besluit blijft
@@ -15,7 +17,9 @@ instanties en taken; de werkbank is het ene scherm waarop álles landt (§20.5).
 ## Bronnen van de werkbank (v1)
 
 1. **Berichten behartigen** — event-gedreven (`SubmissionCreated` start de
-   geseede `bericht`-definitie).
+   geseede `bericht`-definitie). `SubmissionDeleted` closes the submission's open
+   task with the reason "inzending verwijderd" (#1377). The contact form's slug
+   comes from `forms.api.CONTACT_FORM_SLUG`, not from a copy here.
 2. **Refund-bevestiging** — pending refunds (FINANCE), consolidatie van de
    bestaande wachtrij.
 3. **Definitief gefaalde mails** — na de `mail.retry`-pogingen.

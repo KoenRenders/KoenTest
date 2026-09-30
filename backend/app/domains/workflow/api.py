@@ -139,6 +139,39 @@ def close_task(
     return task
 
 
+def close_subject_tasks(
+    db: Session, subject_type: SubjectType, subject_id: str, *, reason: str
+) -> int:
+    """Close every open task about a subject that no longer exists (#1377).
+
+    The subject is gone, so its workflow does not go on: each open task is closed
+    by the system with `reason` as its decision, and its instance ends instead of
+    starting the next step (`complete_task` would advance it). A task that was
+    already closed keeps its own decision. Returns how many tasks it closed; the
+    caller owns the commit, as with `close_task`.
+    """
+    from app.domains.workflow.models import WorkflowInstance
+
+    open_ones = (
+        db.query(WorkflowTask)
+        .filter(
+            WorkflowTask.subject_type == subject_type,
+            WorkflowTask.subject_id == subject_id,
+            WorkflowTask.status == TaskStatus.OPEN,
+        )
+        .all()
+    )
+    for task in open_ones:
+        close_task(db, task.id, done_by="systeem", decision=reason)
+        instance = db.get(WorkflowInstance, task.instance_id) if task.instance_id else None
+        if instance is not None and instance.status is RunStatus.RUNNING:
+            instance.status = RunStatus.DONE
+            instance.done_at = datetime.now(timezone.utc)
+    if open_ones:
+        db.flush()
+    return len(open_ones)
+
+
 # ── Definities + instanties (fase 4b, #403) ────────────────────────────────────
 
 
