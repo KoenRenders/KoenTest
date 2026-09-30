@@ -277,6 +277,29 @@ recognisable; every note block below is the template's.*
 > *paths listed beside it, and an e2e test that goes red on one of them is*
 > *expected, not a surprise. "None" is an answer.*
 
+**The approach, agreed on 30 September 2026 — to be worked out once the
+as-is (A2) is complete and the solution (B1, B4) is designed:**
+
+- **An end state first.** Part B fixes where the design is going — the
+  North Star — including what is not needed yet, so that every step can be
+  judged by whether it moves towards it.
+- **A roadmap in smart steps**, release by release, piece by piece. No
+  big-bang redesign.
+- **Quick wins up front**, because the portal must impress: whoever is
+  shown it should say "that looks good". Rows 3, 10 and 15's sticky
+  toolbar are the first candidates (list below).
+- **Concept → pilot → release → roll-out.** A concept is prepared with
+  screenshots first, then built on **one screen**, tested, and run through a
+  release so it is lived with and tuned; only then does a developer roll it
+  out everywhere. Pilots are chosen on purpose: the **activity detail**
+  (the richest edit screen, rows 2, 3, 7, 8, 14), the **public household
+  creation** (public, and the same record as the admin household — rows 12,
+  13) **combined with the forms** (row 9). Once those are right they are the
+  standard — "this is our core" — finished and then carried through.
+- The design system (`docs/design-system.md` and the live page) is where
+  the end state is written and where each rolled-out pattern lands; this
+  change request holds the roadmap.
+
 *Remarks made while listing the as-is that concern phasing — quick wins,
 what can wait, what belongs together — are collected here until the phases
 are shaped:*
@@ -357,12 +380,13 @@ are shaped:*
 | 20 Sep 2026 | CR-11 is a parking lot, not a work order; pagination in v2.5 on Betalingen only; the rest decided piece by piece later. | Koen |
 | 20 Sep 2026 | STT/TTS in the Raakje overlay un-parked: mic + read-aloud, the same Raakje everywhere (#1075). | Koen |
 | 30 Sep 2026 | Brought onto the change-request template of 30 September; the parked items are candidate requirements P1–P6 in A6. | Koen |
+| 30 Sep 2026 | CR-11 becomes the GUI redesign's end state and roadmap: North Star first, quick wins up front for attraction, each concept prepared with screenshots, built on one pilot screen, run through a release and tuned, then rolled out; pilots: the activity detail, the public household creation with the forms. The as-is (A2) is listed first, the solution and the approach follow. | Koen |
 
 ## Q&A log — asked once, answered here
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
-| Q1 | 30 Sep 2026 | Does CR-11 become a real change request on the new template, or stay a parking lot from which each item gets its own CR or issue? (Claude) | *open* |
+| Q1 | 30 Sep 2026 | Does CR-11 become a real change request on the new template, or stay a parking lot from which each item gets its own CR or issue? (Claude) | Koen, 30 Sep: a real change request — the end state of the GUI and the roadmap towards it; the parked items stay in A6 as candidates, the pains are listed in A2 first, then the solution and the approach (B6). |
 | Q2 | 30 Sep 2026 | Which of P1–P6 are taken up now, and is there new material — the dense Betalingen screen lived with (P2), the board missing a featured activity (P4)? (Claude) | *open* |
 
 ## Non-goals — deliberately outside this change
