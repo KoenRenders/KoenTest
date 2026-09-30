@@ -312,10 +312,10 @@ def gather_sources(
     from app.domains.meetings.api import report_points_of
     from app.kernel.tenant_config import tenant_newsletter_house_style
 
-    # Whole reports are ticked, never single points (Koen, 17 September 2026).
-    # An unticked report never reaches the model.
+    # Whole reports, never single points (Koen, 17 September 2026): every report
+    # since the previous letter (CR-11 W13, #1391), no longer a tick per report.
     points = []
-    for point in report_points_of(db, letter.draft_meeting_ids or []):
+    for point in report_points_of(db, nb.reports_since_previous_letter(db)):
         line = f"[{point.meeting_date.strftime('%d/%m')} · {point.section}] {point.item.label}"
         if point.item.activity_id:
             line += f" (activiteit {point.item.activity_id})"

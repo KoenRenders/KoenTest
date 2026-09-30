@@ -479,37 +479,54 @@ def _months_later(day: date, months: int) -> date:
     return date(year, month, min(day.day, calendar.monthrange(year, month)[1]))
 
 
-def default_sources(db: Session, today: Optional[date] = None) -> tuple[list[int], list[int]]:
-    """What a new letter starts with for Raakje (Koen, 17 September 2026).
-
-    - the activities that took place since the previous letter went out — or in
-      the last three months when there is none;
-    - the activities of the coming three months;
-    - the latest sent meeting report.
-
-    The author can remove any of them; unticking the report keeps the report
-    data out altogether.
-    """
-    from app.domains.activities.api import activities_active_between, activities_from
-    from app.domains.meetings.api import sent_reports
-
-    today = today or date.today()
+def _since_previous_letter(db: Session, today: date) -> date:
+    """The day the previous letter went out — or three months back when there is
+    none. What looks back (past activities, meeting reports) starts here."""
     previous = (
         db.query(Newsletter)
         .filter(Newsletter.status != LetterStatus.DRAFT, Newsletter.send_started_at.isnot(None))
         .order_by(Newsletter.send_started_at.desc())
         .first()
     )
-    since = (
-        previous.send_started_at.date()
-        if previous is not None
-        else _months_later(today, -MONTHS_BACK_WITHOUT_LETTER)
-    )
+    if previous is not None:
+        return previous.send_started_at.date()
+    return _months_later(today, -MONTHS_BACK_WITHOUT_LETTER)
+
+
+def reports_since_previous_letter(db: Session, today: Optional[date] = None) -> list[int]:
+    """The sent meeting reports Raakje reads: every one of a meeting held since
+    the previous letter went out, newest first (CR-11 W13, #1391).
+
+    Not a choice any more: the ticks of CR-05 §3.11 are gone, and the panel says
+    in one line how many reports go along. Whole reports, never single points,
+    and `report_points_of` still leaves the member points out.
+    """
+    from app.domains.meetings.api import sent_reports
+
+    today = today or date.today()
+    since = _since_previous_letter(db, today)
+    return [m.id for m in sent_reports(db, limit=200) if m.meeting_date >= since]
+
+
+def default_sources(db: Session, today: Optional[date] = None) -> tuple[list[int], list[int]]:
+    """What a new letter starts with for Raakje (Koen, 17 September 2026).
+
+    - the activities that took place since the previous letter went out — or in
+      the last three months when there is none;
+    - the activities of the coming three months.
+
+    The author can remove any of them. The meeting reports are no longer part of
+    the draft's choice (CR-11 W13): `reports_since_previous_letter` decides them
+    when Raakje is asked, so the list stays empty here.
+    """
+    from app.domains.activities.api import activities_active_between, activities_from
+
+    today = today or date.today()
+    since = _since_previous_letter(db, today)
     until = _months_later(today, MONTHS_AHEAD)
     past = [s.activity.id for s in activities_active_between(db, since, today)]
     coming = [s.activity.id for s in activities_from(db, today) if s.start <= until]
-    reports = sent_reports(db, limit=1)
-    return sorted(set(past) | set(coming)), [r.id for r in reports]
+    return sorted(set(past) | set(coming)), []
 
 
 def create_newsletter(db: Session, *, created_by: str) -> Newsletter:

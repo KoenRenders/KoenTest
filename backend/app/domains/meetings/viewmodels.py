@@ -23,7 +23,6 @@ class MeetingListView(ViewModel):
     # dictionary of Dutch words living in a screen — the thing this change
     # request removes. What the route still derives stays derived.
     dates: dict[int, str]
-    circle_size: int
     # Het actieve zoekwoord: de filterbalk leest het terug, zodat het in het veld
     # blijft staan na een swap.
     q: str = ""

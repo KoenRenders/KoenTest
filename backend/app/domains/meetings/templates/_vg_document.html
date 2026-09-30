@@ -9,9 +9,11 @@
     {{ ui.btn_secondary(_("Download PDF"), href="/admin/vergaderingen/" ~ meeting.id ~ "/pdf", attrs='hx-boost="false"', lead_icon="download") }}
     {% if editable %}
       {% if not meeting.agenda_sent_at %}
-        {{ ui.btn_outline(_("Verstuur agenda"), href="/admin/vergaderingen/" ~ meeting.id ~ "/verstuur?kind=agenda", lead_icon="mail") }}
+        {# CR-11 W7 (#1391): a button that opens a step ends in "…"; the button
+           on that step names the consequence ("Verstuur agenda aan N ontvangers"). #}
+        {{ ui.btn_outline(_("Agenda versturen…"), href="/admin/vergaderingen/" ~ meeting.id ~ "/verstuur?kind=agenda", lead_icon="mail") }}
       {% endif %}
-      {{ ui.btn_primary(_("Verstuur verslag"), href="/admin/vergaderingen/" ~ meeting.id ~ "/verstuur?kind=verslag", lead_icon="mail") }}
+      {{ ui.btn_primary(_("Verslag versturen…"), href="/admin/vergaderingen/" ~ meeting.id ~ "/verstuur?kind=verslag", lead_icon="mail") }}
     {% else %}
       <form hx-post="/admin/vergaderingen/{{ meeting.id }}/heropen" hx-target="#vg-document" hx-swap="innerHTML">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
