@@ -38,6 +38,7 @@
   {# P7: a refusal swaps this page again, scrolled to its top, with the banner. #}
   <form hx-post="{{ form_url }}" hx-target="#inschrijf-pagina" hx-select="#inschrijf-pagina"
         hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap" class="space-y-3">
+    {% include "_member_nudge.html" %}
     {% include "_inschrijf_velden.html" %}
     {# B4.10: one primary button, full width on a phone. #}
     {{ ui.btn_primary(_("Inschrijven"), cls="w-full sm:w-auto") }}

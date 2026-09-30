@@ -8,6 +8,7 @@
 {{ ui.page_header(_("Lid worden")) }}
 {{ ui.error_banner(error) }}
 <form hx-post="/lid-worden" hx-target="body" hx-swap="innerHTML" class="space-y-4">
+  {% include "_member_nudge.html" %}
   {# Hoofdlid #}
   <div id="hoofdlid">
     {% with i = 0 %}{% include "_lid_persoon_rij.html" %}{% endwith %}

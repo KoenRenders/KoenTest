@@ -11,6 +11,8 @@
 </div>
 <form hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:plain>" hx-target="#inschrijf-pagina" hx-select="#inschrijf-pagina"
  hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap" class="space-y-3">
+<p class="text-sm text-ink" data-member-nudge>Lid van RAAK?
+ <a class="text-link underline" href="/aanmelden?terug=/activiteiten/<ACTIVITY>/inschrijven/<C:plain>">Log je eerst aan</a>: dan staat de inschrijving bij je gezin.</p>
 <div class="grid grid-cols-1 gap-3">
 <div><label for="contact_name" class="block text-sm font-medium text-gray-700 mb-1">Naam <span class="text-red-600">*</span></label>
 <input type="text" name="contact_name" id="contact_name" required

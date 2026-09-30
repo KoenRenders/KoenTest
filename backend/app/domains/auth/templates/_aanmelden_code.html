@@ -4,6 +4,7 @@
 {% endif %}
 <form hx-post="/aanmelden/code" hx-target="#aanmelden-stap" hx-swap="innerHTML" class="space-y-4">
   <input type="hidden" name="email" value="{{ email }}">
+  {% if terug %}<input type="hidden" name="terug" value="{{ terug }}">{% endif %}
   <div>
     <label for="code" class="block text-sm font-medium text-gray-700 mb-1">{{ _("Code uit de e-mail") }}</label>
     {{ ui.input_control("code", required=True, cls="w-full", attrs='inputmode="numeric" autocomplete="one-time-code"') }}
