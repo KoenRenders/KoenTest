@@ -1,16 +1,14 @@
 # Change Request 11 — GUI redesign 2 (parking lot)
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 20 September 2026 · brought onto the template of 30 September 2026 · on hold — a parking lot, not a work order
+**Status:** parked on 20 September 2026 · shaped on 30 September 2026 as the GUI's end state and roadmap · draft, for the business to read · not assigned
 **Applies to:** admin list screens, the public homepage and cards, the admin assistant — GUI work deferred from the v2.5 design track (#913, #996).
 
-> A parking lot: the place where GUI work lands that is consciously *not*
-> done yet, so a release can be decided piece by piece without losing the
-> rest. Nothing here is assigned; each item returns to the business for a
-> separate decision before anyone builds it. When an item is picked up it
-> gets its own issue or its own change request; this document remembers
-> what was parked and why. The sections that a parking lot cannot fill
-> keep the template's note block, as the template prescribes.
+> Once a parking lot for GUI work deferred from v2.5; since 30 September
+> 2026 the change request that fixes **where the portal's screens are going**
+> — the end state in B4 — and **how to get there** — the roadmap in B6. The
+> pains it answers are listed in A2, one row each, measured; the candidates
+> parked earlier are still in A6 as P-rows until one is taken up.
 
 ---
 
