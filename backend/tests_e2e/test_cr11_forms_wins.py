@@ -5,10 +5,10 @@
 - W18: the opened import block holds one input, of type `file`.
 
 Each test saves a screenshot outside the repo. Proven red against master
-`112ed593` (served from an export of it): W14 found "Export" on the builder.
-W18 fails there before its measurement, since the button was still called
-"JSON-import"; its paste box is proven by the assertion in
-`app/domains/forms/tests/test_cr11_builder_actions.py`.
+`112ed593` (served from an export of it): W14 found "Export" on the builder,
+and W18 found the empty 34 px import box while the import was closed. (Its paste
+box is proven in `app/domains/forms/tests/test_cr11_builder_actions.py`: on
+master the button was still called "JSON-import".)
 """
 
 import os
@@ -90,9 +90,17 @@ def test_w14_export_sits_on_the_submissions_tab(phone):
 
 
 def test_w18_the_import_block_holds_one_file_input(phone):
+    """Also: closed, the import leaves no empty blue box behind (the wrapper's
+    padding stood 34 px high with nothing in it, on master too); open, the block
+    is there."""
     page, form_id = phone
     page.goto(f"/admin/formulieren/{form_id}")
     pagina_klaar(page)
+    closed = page.evaluate(
+        "() => [...document.querySelectorAll('main .bg-blue-50')].filter(e => e.offsetHeight).length"
+    )
+    print("MEASURE W18 closed: visible blue boxes", closed)
+    assert closed == 0, "an empty import box stands on the builder while the import is closed"
     page.get_by_role("button", name="Definitie importeren (JSON)…").click()
     block = page.locator('form[hx-post$="/json-import"]')
     block.wait_for(state="visible")

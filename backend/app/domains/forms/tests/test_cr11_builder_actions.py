@@ -62,7 +62,7 @@ def test_w18_the_import_takes_a_file_only(client, db_session):
 
     html = client.get(f"/admin/formulieren/{form.id}").text
 
-    block = re.search(r'<form x-show="jsonimport".*?</form>', html, re.S)
+    block = re.search(r'<div x-show="jsonimport".*?</form>', html, re.S)
     assert block, "the import block is on the builder of a form without submissions"
     inputs = re.findall(r"<(?:input|textarea|select)\b[^>]*>", block.group(0))
     visible = [i for i in inputs if 'type="hidden"' not in i]

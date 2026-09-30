@@ -432,8 +432,11 @@
     <p class="text-sm text-gray-600 mt-1">{{ "%s"|format(submission_count) }} {{ _("inzending(en): een import zou de volledige opbouw vervangen en die antwoorden verwijderen, dus hij is hier niet beschikbaar.") }}</p>
   </div>
   {% else %}
-  <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4">
-    <form x-show="jsonimport" x-cloak class="space-y-2" enctype="multipart/form-data"
+  {# #1391 (W18): the x-show sits on the wrapper, not on the form in it; on the
+     form it left the wrapper's padding as an empty blue box while the import
+     was closed (empty since F16 took its footer away). #}
+  <div x-show="jsonimport" x-cloak class="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+    <form class="space-y-2" enctype="multipart/form-data"
           hx-post="/admin/formulieren/{{ form.id }}/json-import" hx-encoding="multipart/form-data"
           hx-target="#fb-detail" hx-swap="innerHTML">
       <p class="text-xs text-gray-600">Zelfde payload als de admin-API (titel, status, sections[], fields[] met section_index/opties/branching-indexen). De <a href="/static/form-json-formaat.md" class="underline" target="_blank">AI-formaatgids</a> blijft bruikbaar: bewaar de gegenereerde JSON als bestand.</p>
