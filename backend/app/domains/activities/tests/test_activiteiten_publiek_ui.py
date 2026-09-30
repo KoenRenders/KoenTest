@@ -136,7 +136,8 @@ def test_volzet_is_oranje_geen_rood():
     """
     # CR-14 phase 1: the component actions live in one partial for card and page.
     inhoud = (TPL / "_onderdeel_acties.html").read_text()
-    assert 'ui.badge(_("Volzet"), "orange")' in inhoud
+    # #1375: "Volzet" is the switched-off button now, still in orange.
+    assert 'ui.btn_unavailable(_("Volzet"), size=knopmaat, tone="orange")' in inhoud
     # CR-12 phase 4: the state badge takes its tone from the code, no longer
     # from a dictionary keyed on the Dutch label inside the template. Its
     # `"Vol"` key was dead — no state ever read "Vol" — so the orange that

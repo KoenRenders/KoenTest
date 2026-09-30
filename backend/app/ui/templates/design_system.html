@@ -125,10 +125,14 @@
     {{ ui.btn_outline(_("Exporteren"), type="button", lead_icon="download") }}
     {{ ui.btn_danger(_("Verwijderen"), type="button", size="md") }}
     {{ ui.button(_("Kleine actie"), "secondary", "button", none, "sm") }}
+    {{ ui.btn_unavailable(_("Afgesloten")) }}
+    {{ ui.btn_unavailable(_("Volzet"), tone="orange") }}
   </div>
   <p class="text-xs text-gray-500">
     <code>ui.btn_primary(_("Opslaan"))</code> ·
-    <code>ui.btn_outline(_("Exporteren"), type="button", lead_icon="download")</code>
+    <code>ui.btn_outline(_("Exporteren"), type="button", lead_icon="download")</code> ·
+    <code>ui.btn_unavailable(_("Afgesloten"), size=knopmaat)</code>
+    — {{ _("een actie die hier kon en nu niet meer kan: dezelfde vorm, uitgeschakeld (#1375)") }}
   </p>
   <p class="text-xs text-gray-500 mt-1">
     {{ _("De klassenreeks komt uit") }} <code>ui.btn_class("primary")</code>:

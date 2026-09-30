@@ -142,7 +142,8 @@ def test_geen_klokregel_na_de_deadline(client, db_session):
 
     html = client.get(f"/activiteiten/{activity.id}").text
     assert "Inschrijven t/m" not in html
-    assert "Inschrijvingen afgesloten" in html
+    # #1375: the disabled "Afgesloten" button, not the status label of the same word.
+    assert ">Afgesloten</button>" in html
 
 
 def test_kaarttitel_linkt_naar_de_pagina(client, db_session):

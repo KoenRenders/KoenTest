@@ -27,12 +27,19 @@
        (`registration_state`), en de kaart rekent het niet opnieuw uit. Na de
        deadline verdwijnt ook de externe link: het formulier daarachter kunnen
        we niet sluiten, maar we hoeven er niet meer naartoe te wijzen. #}
-    {% if c.registration_closed %}
-    {{ ui.badge(_("Inschrijvingen afgesloten"), "gray") }}
+    {# #1375: where "Inschrijven" stood, the same button switched off — same size
+       as "Wie doet er mee?" beside it. Full goes before closed (Koen, 30 September
+       2026): a full component says "Volzet", also once its deadline has passed.
+       Only an OPEN external form still wins over "Volzet", as before: the portal
+       counts its own registrations, not the ones taken elsewhere. #}
+    {% if c.is_full and (c.registration_closed or not c.external_register_url) %}
+    {{ ui.btn_unavailable(_("Volzet"), size=knopmaat, tone="orange") }}
+    {% elif c.registration_closed %}
+    {# "Afgesloten", not "Inschrijvingen afgesloten": the short word fits beside
+       "Wie doet er mee?" on one line at 390 px (Koen, 30 September 2026). #}
+    {{ ui.btn_unavailable(_("Afgesloten"), size=knopmaat) }}
     {% elif c.external_register_url %}
     <a class="{{ _btn }}" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }} ↗</a>
-    {% elif c.is_full %}
-    {{ ui.badge(_("Volzet"), "orange") }}
     {% else %}
     {# Kernactie: primair-blauw (#601-vervolg). Since CR-14 phase 1 a link to the
        registration PAGE, not a modal (B4.1). #}

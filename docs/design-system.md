@@ -278,6 +278,17 @@ Import with `{% import "_macros.html" as ui %}`.
   and reads **"Bezig…"**.
 - Icon-only buttons need an `aria_label`; `button()` then adds a `title` with
   the same text, so mouse users do not have to guess either (#698).
+- **An action that is no longer possible here** stays a button, not a badge:
+  `ui.btn_unavailable(label, size)` (#1375), the `unavailable` variant of
+  `btn_class` — the same form and size as the buttons beside it, a dark-grey
+  border (`gray-500`), grey text, no hover, `cursor-not-allowed`, `disabled` and
+  `aria-disabled="true"`. The reference is "Afgesloten" on the activity card,
+  where "Inschrijven" stood: someone who knows the card sees the same button,
+  switched off. Keep the label short: it has to fit beside "Wie doet er mee?" on
+  one line at 390 px, which "Inschrijvingen afgesloten" did not. "Volzet" is the same button with `tone="orange"`
+  (orange border and text), and it goes before "Afgesloten": a
+  full component stays full after its deadline. A state that is not a lost action
+  (paid, open) stays a status chip (§2.5).
 
 ### 2.2 Form fields — one family (#659, #663; consolidated in wave 0b, #913)
 
