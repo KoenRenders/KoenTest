@@ -164,6 +164,8 @@
         <button class="inline-flex items-center justify-center min-w-11 min-h-11 rounded hover:bg-surface-2"
                 @click="open = !open" aria-label="{{ _("Menu") }}">{{ ui.icon("menu", 24) }}</button>
       </header>
+      {# The signed-in account, for the desktop bar and the mobile menu (#1381). #}
+      {% set _account = beheer_account(request) if request is defined else None %}
       {# #714: twee renderingen per schil, dus ook deze mee. Een fix die er één
          bijwerkt laat de andere fout staan — en op een telefoon zie je juist deze. #}
       {# #737: `style="display: none"` staat er letterlijk bij (§2.9b). Dit element heeft een `id` én wordt door Alpine verborgen, dus htmx' settle zet bij een swap de attributen van het serverantwoord terug en wist de inline style die Alpine er net op zette (#726). Verborgen is hier de juiste beginstand: `open` begint op false. #}
@@ -180,14 +182,30 @@
         {# path_for (#889): op een platform-host is "/" de platform-landing; de
            tenant-site woont op /{code}. Op een eigen hostnaam verandert er niets. #}
         <a href="{{ path_for('/') }}" hx-boost="false" class="block px-3 py-2 rounded-lg text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">↗ {{ _("Naar de site") }}</a>
-        <a href="/afmelden" hx-boost="false" @click="open = false" class="block px-3 py-2 rounded-lg text-sm text-brand-danger hover:bg-surface-2">⎋ {{ _("Uitloggen") }}</a>
+        {# #1381: the account items of the desktop menu, from the same partial and
+           loaded lazily, so the shell asks the database nothing per page. The
+           intersect is measured against the menu, not the viewport: this block sits
+           at the bottom of a long menu, and it loads when the menu opens instead of
+           when a phone scrolls down to it. The container makes every link a 44 px
+           touch target. #}
+        {% if _account %}
+        <div class="flex items-center gap-2 px-3 py-2">
+          <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-xs font-bold" aria-hidden="true">{{ _account.initialen }}</span>
+          <span class="text-sm text-ink min-w-0 break-all">{{ _account.email }}</span>
+        </div>
+        <div hx-get="/admin/accountmenu" hx-trigger="intersect once root:#admin-nav-mobiel" hx-swap="innerHTML"
+             class="[&>a]:flex [&>a]:items-center [&>a]:min-h-11 [&>a]:px-3 [&>a]:rounded-lg">
+          {% with toon_wisselen = False %}{% include "_account_menu.html" %}{% endwith %}
+        </div>
+        {% else %}
+        <a href="/afmelden" hx-boost="false" class="flex items-center min-h-11 px-3 rounded-lg text-sm text-brand-danger hover:bg-surface-2">{{ _("Uitloggen") }}</a>
+        {% endif %}
         </div>
       </nav>
 
       {# Golf 2 (#913, beslissing i): account-aanwezigheid rechtsboven. DB-loos —
          beheer_account() leest enkel de sessiecookie; naam en rol volgen wanneer
          een latere golf een gedeelde gebruikerscontext invoert. #}
-      {% set _account = beheer_account(request) if request is defined else None %}
       <div class="hidden md:flex items-center justify-end gap-1 px-6 py-2 bg-surface border-b border-line">
         <a href="{{ path_for('/') }}" hx-boost="false" class="px-3 py-1.5 rounded-lg text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">{{ _("Naar de site") }} ↗</a>
         {% if _account %}
@@ -202,14 +220,12 @@
              server zodra het menu zichtbaar wordt (intersect): of "Werkruimte
              wisselen" bestaat hangt aan de database, en schil-chrome mag geen
              query per paginaweergave kosten. Tot de swap staat hier de
-             terugval zonder dat item. #}
+             terugval zonder dat item: dezelfde partial (#1381). #}
           <div x-show="acc" x-cloak @click.outside="acc = false"
                hx-get="/admin/accountmenu" hx-trigger="intersect once"
                hx-swap="innerHTML"
                class="absolute right-0 mt-1 w-52 rounded-xl border border-line bg-surface shadow-md py-1 z-40">
-            <a href="/admin/profiel" class="block px-4 py-2 text-sm text-ink hover:bg-surface-2">{{ _("Mijn profiel") }}</a>
-            <div class="border-t border-line my-1"></div>
-            <a href="/afmelden" hx-boost="false" class="block px-4 py-2 text-sm text-brand-danger hover:bg-surface-2">{{ _("Uitloggen") }}</a>
+            {% with toon_wisselen = False %}{% include "_account_menu.html" %}{% endwith %}
           </div>
         </div>
         {% else %}
