@@ -39,26 +39,13 @@
   </div>
   {% endfor %}
 
-  {% if reports %}
-  {# Hele verslagen, geen losse punten. Drie zijn meteen zichtbaar, de rest
-     scrolt; het laatste staat standaard aangevinkt. Alles uitvinken houdt de
-     verslaggegevens buiten de brief. #}
-  <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/raakje/verslagen" hx-target="#nb-raakje"
-        hx-swap="innerHTML" hx-trigger="change" hx-indicator="#nb-raakje-bezig">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {# CR-11 W13 (#1391): the reports are not a choice. Raakje always reads every
+     report since the previous letter, and this line says how many. #}
+  <div>
     <p class="text-sm font-semibold">{{ _("Vergaderverslagen") }}</p>
+    <p class="text-sm">{% if report_count %}{{ ngettext("%(num)s verslag sinds de vorige nieuwsbrief gaat mee.", "%(num)s verslagen sinds de vorige nieuwsbrief gaan mee.", report_count) }}{% else %}{{ _("Geen verslagen sinds de vorige nieuwsbrief.") }}{% endif %}</p>
     <p class="text-xs text-ink-soft">{{ _("Raakje haalt eruit wat lezers aanbelangt — wat goed ging, een verbetering tegenover vorig jaar. Namen gaan nooit mee.") }}</p>
-    <div class="mt-1.5 space-y-1 max-h-[5.25rem] overflow-y-auto pr-1">
-      {% for meeting_id, label in reports %}
-      <label class="flex items-center gap-2 text-sm h-7">
-        <input type="checkbox" name="meeting_id" value="{{ meeting_id }}"
-               {% if meeting_id in ticked_reports %}checked{% endif %}>
-        <span>{{ label }}</span>
-      </label>
-      {% endfor %}
-    </div>
-  </form>
-  {% endif %}
+  </div>
 
   {# Een eigen, gescheiden deel met een kop: zonder die kop liep het vraagveld
      naadloos door na de verslagenlijst (Koen, 17 september 2026). #}

@@ -43,11 +43,11 @@ class NewsletterComposeView(ViewModel):
     # Raakje (CR-05 §3.15): off when the back-office switch is off.
     raakje_enabled: bool
     # What Raakje writes about (Koen, 17 September 2026): past and coming
-    # activities, and whole meeting reports to tick.
+    # activities, and how many whole meeting reports go along (CR-11 W13: every
+    # report since the previous letter, no longer a tick per report).
     past_activities: list[Any]
     coming_activities: list[Any]
-    reports: list[tuple[int, str]]
-    ticked_reports: list[int]
+    report_count: int
     # The conversation as turns (question, answer), newest turn first.
     turns: list[Any]
     # Per message id: is this the author's own line, or Raakje's answer? The
