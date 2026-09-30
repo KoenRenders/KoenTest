@@ -34,6 +34,19 @@ def test_icon_macro_rendert_svg():
         assert "<svg" in out and "<path" in out or "<circle" in out, naam
 
 
+def test_the_settings_gear_is_an_icon_and_on_the_design_system_page():
+    """#1391 (CR-11 W4): "Instellingen" carries the Lucide gear. An unknown name
+    renders an EMPTY svg (below), so the test asks for the gear's own shapes — its
+    path and its centre circle — and for its place on /admin/design-system, whose
+    list is read from the same table."""
+    from app.ui.design_system_ui import _iconen
+
+    out = _render("{{ ui.icon('settings') }}")
+    assert "<path" in out and '<circle cx="12" cy="12" r="3"' in out
+    _iconen.cache_clear()
+    assert "settings" in _iconen()
+
+
 def test_icon_onbekend_faalt_stil():
     out = _render("{{ ui.icon('bestaat-niet') }}")
     assert "<svg" in out  # lege maar geldige svg, breekt de layout niet
