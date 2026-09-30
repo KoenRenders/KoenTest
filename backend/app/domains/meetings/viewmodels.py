@@ -109,8 +109,6 @@ class MeetingItemView(ViewModel):
     circle: list[Any]
     editable: bool
     csrf_token: str
-    # Alleen waar in de lus van het document: de eerste rij draagt geen scheiding.
-    loop_first: bool = False
     # Why an edit of this point was refused (#1359), shown in the point itself. Not
     # `error`: inside the document loop that name is the document's own banner.
     item_error: Optional[str] = None

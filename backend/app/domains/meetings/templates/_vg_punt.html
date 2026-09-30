@@ -6,7 +6,7 @@
    name from its source, so only a free point, while editable, gets the pencil. #}
 {% set title_editable = editable and not item.source_url %}
 {% set item_error = item_error|default(None) %}
-<div id="vg-punt-{{ item.id }}" class="py-3 {% if not loop_first|default(False) %}border-t border-line{% endif %}"
+<div id="vg-punt-{{ item.id }}" class="py-3"
      {% if title_editable %}x-data="{ edit: {{ 'true' if item_error else 'false' }} }"{% endif %}>
     <div class="flex items-center gap-2.5 flex-wrap">
       <span class="font-semibold text-sm text-ink" {% if title_editable %}x-show="!edit"{% endif %}>{{ item.label }}</span>

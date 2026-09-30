@@ -104,9 +104,14 @@
   {% if not section.items %}
     <p class="text-sm text-ink-soft py-4 text-center">{{ _("Nog geen punten.") }}</p>
   {% endif %}
+  {# #1372: the line between points belongs to this list (`divide-y`), not to a
+     point. A point swapped back on its own does not know it is the first, so a
+     line decided by the point itself grew under the heading after every note. #}
+  <div class="divide-y divide-line">
   {% for item in section.items %}
-  {% with loop_first = loop.first %}{% include "_vg_punt.html" %}{% endwith %}
+  {% include "_vg_punt.html" %}
   {% endfor %}
+  </div>
 
   {% if section.can_add %}
     {% if picker_section_id == section.id %}
