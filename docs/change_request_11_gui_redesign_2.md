@@ -25,6 +25,17 @@ one by one later — "laten we dat enkel inbouwen in betalingen, de rest is
 voor later; dan kunnen we stuk per stuk bekijken wat we nog doen en de rest
 parkeren we naar later" (20 September 2026).
 
+**Background that shapes the end state without being in scope:** the
+platform will be used by other organisations than RAAK — a company that
+wants a webshop on it, another association with its own menu and brand.
+That is a separate change request (the menu structure and more are fixed
+for RAAK today); nothing in this one builds for it. But the patterns and
+the style decided here are the platform's, not RAAK's: the end state keeps
+apart what belongs to the **kit** (behaviour patterns, layout grammar,
+control shapes, icons' meanings) and what belongs to a **tenant's brand**
+(colours, fonts, wordmark, the icon set's look), so a second organisation
+changes the second and inherits the first.
+
 ## A2. As-is process — how it works today, and where it hurts
 
 Not one process but the screens and the behaviour patterns of the admin and
@@ -404,6 +415,7 @@ are shaped:*
 | 20 Sep 2026 | CR-11 is a parking lot, not a work order; pagination in v2.5 on Betalingen only; the rest decided piece by piece later. | Koen |
 | 20 Sep 2026 | STT/TTS in the Raakje overlay un-parked: mic + read-aloud, the same Raakje everywhere (#1075). | Koen |
 | 30 Sep 2026 | Brought onto the change-request template of 30 September; the parked items are candidate requirements P1–P6 in A6. | Koen |
+| 30 Sep 2026 | Background: the platform will serve other organisations than RAAK (a company's webshop among them) — a separate change request; here the end state keeps kit and brand apart. | Koen |
 | 30 Sep 2026 | CR-11 becomes the GUI redesign's end state and roadmap: North Star first, quick wins up front for attraction, each concept prepared with screenshots, built on one pilot screen, run through a release and tuned, then rolled out; pilots: the activity detail, the public household creation with the forms. The as-is (A2) is listed first, the solution and the approach follow. | Koen |
 
 ## Q&A log — asked once, answered here
@@ -417,6 +429,7 @@ are shaped:*
 
 - Building anything from this list without an un-park decision and its own issue.
 - Parking new GUI candidates on a release tracker instead of here.
+- Making the platform usable by other organisations (a webshop for a company, another association's menu and brand) — its own change request; this one only keeps kit and brand apart so that one becomes possible.
 
 ## Relationship to existing work — issues and change requests
 
