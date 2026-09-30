@@ -663,7 +663,7 @@ what is shown first: "look, it already looks better."
 | # | Screen | What changes | Row |
 |---|---|---|---|
 | Q1 | Betalingen | The total row under the table and the summary block below it go; the totals live in the three tiles only. The "Openstaand" tile shows both sides when they are not both zero ("€ 120 te ontvangen · € 120 terug te betalen") and colours when either is open, so a coincidental net of zero never reads as "nothing to do". | 10 |
-| Q2 | Activiteit › onderdeel | The three external links move into a collapsed section "Externe koppelingen" at the bottom of the component's form, closed by default, with a one-line summary when set. | 3 |
+| Q2 | Onderdeel (inside the activity detail) | The three external links — they exist on the component only; the activity has none (measured: `external_register_url`, `external_registrations_url`, `info_url` on `ActivitySubRegistration`, the activity's only URL being its poster) — move into a collapsed section "Externe koppelingen" at the bottom of the component's form, closed by default, with a one-line summary when set. | 3 |
 | Q3 | Pagina's (CMS) | The editor's toolbar sticks to the top of the viewport while the page scrolls, so an image can be inserted at the bottom without scrolling up. | 15 |
 | Q4 | Vergaderingen | The header button "Vergaderkring" becomes "Instellingen" with the gear, its page holding the circle; the stray line "De vergaderkring telt 3 personen. Beheer de kring" under the list goes. | 34 |
 | Q5 | Organisaties · Raakje-pagina | The header buttons "Naar de tenants" and "Naar de rapporten" go; the menu already has both. | 35 |
