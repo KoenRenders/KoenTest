@@ -73,7 +73,7 @@ def test_kpi_telt_alles_wat_openstaat_ook_tijdens_zoeken(client, db_session):
 
     ongefilterd = client.get("/admin/activiteiten").text
     gefilterd = client.get("/admin/activiteiten", params={"q": "quiz"}).text
-    kop = "Open inschrijvingen"
+    kop = "Activiteiten met open inschrijving"
     assert kop in ongefilterd and kop in gefilterd
 
     def getal(html: str) -> str:
