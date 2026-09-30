@@ -730,7 +730,8 @@ async def json_import(
     waar beide samenkomen.
 
     Een opgeladen bestand primeert op het tekstvak, net als een opgeladen affiche
-    op de poster-URL (#223). Plakken blijft de gewone weg.
+    op de poster-URL (#223). The screen offers only the file since CR-11 W18
+    (#1391); `payload` stays for a caller that posts the JSON as text.
     """
     from app.domains.forms.api import assert_geen_id_vorm, import_definition, submission_count
     from app.domains.forms.schemas import FormUpdate

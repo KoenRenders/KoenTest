@@ -3,6 +3,11 @@
 {% block title %}{{ form.title }} — {{ _("inzendingen") }}{% endblock %}
 {% block content %}
 {% include "_fb_recordkop.html" %}
+{# CR-11 W14 (#1391): the export of the submissions sits on their own tab,
+   top right. A download, so outside hx-boost (#634). #}
+<div class="flex justify-end mb-3">
+  {{ ui.link_action(_("Export (.ods)"), href="/admin/formulieren/" ~ form.id ~ "/export", attrs='hx-boost="false"') }}
+</div>
 {# Het bestaande fragment; verwijderen swapt dit doel opnieuw. #}
 <div id="fb-inzendingen">
   {% include "_fb_inzendingen.html" %}
