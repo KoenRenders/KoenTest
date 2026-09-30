@@ -453,7 +453,11 @@ that a change request can name in a sentence, and that cannot drift again.
 ## B4. Detailed decisions — one subsection each, with the reasons
 
 This is the **end state** — Rome, the North Star — written as the
-decisions it is made of. Each subsection is what one section of
+decisions it is made of. The full design — tokens, the three layouts
+drawn, every component with its behaviour, the patterns, the classification
+of every existing screen — is `docs/design-system-end-state.md`, the
+deliverable of phase 0 in draft; this section is its summary with the
+reasons. Each subsection is what one section of
 `docs/design-system.md` will say when the roadmap is done; the rows of A2
 it answers are named so the reasons can be reread there.
 
@@ -651,7 +655,7 @@ session.
 
 | Phase | Delivers | Depends on | Failure paths that change | Manual validation |
 |---|---|---|---|---|
-| **0 — end state and concepts** | B4 written into `docs/design-system.md` as its next version (marked "end state, not yet built" per section); concept screenshots of the three layouts and of pilot A and B drawn against real screens; the graphic-design review on them; the classification table of every list and record screen (kind · shape · tiles · card fields · pages · save model) | this document | none | Koen reads the design system and the concepts; the review's findings in the Q&A |
+| **0 — end state and concepts** | the end state as a design: `docs/design-system-end-state.md` (drafted 30 Sep 2026: tokens, layouts, components, patterns, the classification of every screen), folded into `docs/design-system.md` as sections land; concept screenshots of the three layouts and of pilot A and B drawn against real screens; the graphic-design review on them; the classification table of every list and record screen (kind · shape · tiles · card fields · pages · save model) | this document | none | Koen reads the design system and the concepts; the review's findings in the Q&A |
 | **1 — quick wins** | rows 3, 10, 15 (sticky toolbar), 34 (naming), 35, 38, 42 (labels), 6 (wording) — each a small PR that is visible at once | none | none on the happy path; a send button that reads "Versturen…" where it read "Versturen" | AC1 on HDEV |
 | **2 — foundations** | the three layouts (the list layout with sortable columns and a column chooser, P6), the macros of F5–F12, the token split, the design-system page rendering all of it live; every gate of B7 as a ratchet on A2's counts; screenshot baselines for every existing screen | 0 | none: nothing existing moves yet | AC2, AC7 on HDEV |
 | **3 — pilot A** | the activity record page and the Betalingen list on the layouts, with their embedded tabs; lived with for a release and tuned; the usability review on the concept before the build | 2 | a record saved as a whole: a failed save keeps every change on screen (today a per-card save loses the others); leaving with unsaved changes now warns | AC3, AC4 on HDEV, then one release in use |
@@ -830,5 +834,6 @@ title and toolbar; the e2e job's duration with the pixel diff.
 - **#1060** — the admin assistant's screen context; P5 builds on it.
 - **#1075** — STT/TTS in the Raakje overlay, the one item un-parked so far.
 - **CR-08 (visual), CR-10 (Design Studio)** — the design work this list sits next to.
+- **`docs/design-system-end-state.md`** — the end state as a design, phase 0's deliverable in draft.
 - **CR-14** — the registration page is already a page; pilot B builds on it.
 - **#1367, #1387, #1380, #1223, #1229, #1381** — recent validation issues that are instances of rows 22, 9, 1 and 47. Each is fixed as a bug in its own release (#1381 and #1387 in v2.11.0) and stays its own issue; this change request does not absorb bugs — it makes their class impossible (row 22's bar that cannot wrap, row 47's one menu source) and cites them as the evidence.
