@@ -303,6 +303,20 @@ as-is (A2) is complete and the solution (B1, B4) is designed:**
   creation** (public, and the same record as the admin household — rows 12,
   13) **combined with the forms** (row 9). Once those are right they are the
   standard — "this is our core" — finished and then carried through.
+- **External advice, at two moments, from a second model rather than a
+  hired designer** (a separate Claude, ChatGPT or Mistral session — Mistral
+  first, Europe First; it has been done before for laying out screens).
+  Two expertises, asked separately because they answer different questions:
+  **graphic design** — surfaces, type, spacing, icons, the weight of buttons
+  (rows 8, 9, 16, 22) — asked once, when the end state is drafted and before
+  the first pilot, on the design-system page and a handful of screenshots;
+  **usability** — does the pattern do what the user expects (rows 2, 7, 14,
+  19, 20) — asked per pilot, on the concept's screenshots, before it is
+  built. Not at roll-out: by then the questions are answered. What such a
+  review says is checked against our own measurements before it changes a
+  decision (unsupported claims are dropped, as with every AI answer), and
+  its dated findings land in the Q&A log. Much we can decide ourselves;
+  the review is for what we cannot see because we look at it every day.
 - The design system (`docs/design-system.md` and the live page) is where
   the end state is written and where each rolled-out pattern lands; this
   change request holds the roadmap.
