@@ -54,9 +54,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -67,9 +68,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -113,9 +115,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -167,9 +170,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -225,9 +229,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -283,9 +288,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -341,9 +347,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -399,9 +406,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -457,9 +465,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -583,9 +592,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -734,9 +744,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -870,9 +881,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -930,9 +942,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -962,9 +975,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -1020,9 +1034,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -1074,9 +1089,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -1110,9 +1126,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
@@ -1155,9 +1172,10 @@
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
- const ro = new ResizeObserver(() => {
- if (this.$el.offsetHeight) { ro.disconnect(); this.groei(); } });
- ro.observe(this.$el); },
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
