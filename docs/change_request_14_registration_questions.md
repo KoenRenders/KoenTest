@@ -789,10 +789,10 @@ transaction (flush, no commit). So it is one named entry in that baseline,
 `activities/service.py::take_answers → forms.api.submit_attached`, with this
 reason on its line. Phase 3 added the second of the same coupling,
 `edit_answers → forms.api.update_attached` (§B4.7; Koen, 29 September 2026: the
-same pair of domains, a second verb, still an exception). Should a third come, or
-a second pair of domains, it becomes a command port in the kernel, and that port
-replaces these entries. (The walk that finds such calls did not see the second
-at first — a write through a mapped collection and a flush; #1368 taught it.)
+same pair of domains, a second verb, still an exception). When such a call
+becomes a command port instead is the rule of `docs/architecture.md` §3.2.1.
+(The walk that finds such calls did not see the second at first — a write
+through a mapped collection and a flush; #1368 taught it.)
 
 The answers are validated *before* the registration's own "full" and
 "already registered" checks? No — after `service.register` has passed them,

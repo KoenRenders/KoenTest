@@ -676,14 +676,10 @@ COMMIT_BEHIND_API: frozenset[str] = frozenset(
 # are the couplings B4.9 names — mail, payment, workflow, media — and phase 3's
 # household moves.
 #
-# One entry was ADDED after the freeze, by decision (Koen, 29 September 2026, CR-14
-# §B4.2): a registration's answers are a synchronous command into `forms` — the
-# refusal must come back to the screen and the submission's id to the registration,
-# in the registration's own transaction — which an event cannot do. A second entry of
-# the same coupling followed (`edit_answers → update_attached`, CR-14 §B4.7, Koen, 29
-# September 2026: the same pair of domains, a second verb). Should a third come, or a
-# second pair of domains, it becomes a command port in the kernel, and that port
-# replaces these entries.
+# Two entries were ADDED after the freeze, by decision (Koen, 29 September 2026): the
+# synchronous commands of `activities` into `forms` (CR-14 §B4.2, §B4.7). When a call
+# is an event, a port or a read — and when a port gets built instead of an entry
+# here — is one rule, written once: `docs/architecture.md` §3.2.1.
 COMMAND_CALLS: frozenset[str] = frozenset(
     {
         "domains/activities/service.py::take_answers → forms.api.submit_attached",  # CR-14 §B4.2: synchronous refusal and returned id; flush, no commit; Koen 29 Sep 2026
