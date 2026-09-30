@@ -67,8 +67,15 @@ binding: each step has one use, applied by a macro, never by a template.
 | record page | wide frame `max-w-7xl`; the form column `max-w-3xl`, 768 px, centred in the frame | one column, 16 px gutters; the summary as a strip above |
 | document page | reading width `max-w-3xl`, centred | one column, 16 px gutters |
 
-A screen never sets `max-w-*` on its root. Reading width is a property of
-a form, not of a page: inside the record frame the form column is narrow
+**Breakpoints follow the content, not two device classes.** Between the
+phone and a wide desktop lies the small laptop (1024 px) where the
+navigation (220 px), the summary column (300 px), the margins and a
+two-column form cannot all fit: the summary card moves above the content
+when the content column would drop under 640 px, the navigation collapses
+to icons under 1100 px, and the form grid goes to one column when a half
+field would be narrower than 260 px. Concepts and screenshots are judged at
+390, 768, 1024 and 1440 px. A screen never sets `max-w-*` on its root.
+Reading width is a property of a form, not of a page: inside the record frame the form column is narrow
 and a related-list tab is wide, and the frame does not move. (Phase 2.
 Rows 11, 12, 27.)
 
@@ -93,7 +100,11 @@ exists in row actions and toolbars only, with its `aria-label`.
 ### 1.6 Type
 
 Unchanged from `design-system.md` §1.2 and §1.2a (Inter body, Radio
-Canada Big display, the mobile-first scale). The record header's title is
+Canada Big display, the mobile-first scale), with one correction from the
+concepts: a field label and a tile's label are 13 px, not 11 — small text
+(11–12 px) is for supplementary information only. Radius: the concepts
+test 12 px for admin cards (calmer, denser) against the current 18 px,
+which the public site keeps — decided at phase 0 (CR-11 Q18). The record header's title is
 `text-3xl`; a section heading inside a form is `text-base font-semibold`;
 a repeating group's heading the same, never larger than the section it is
 in. (Row 1.)
@@ -121,8 +132,10 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
 ```
 
 - **Title row:** the title (`h1`); at its right the KPI **tiles** inline
-  (figure and label, no card around them; each a filter — clicking it
-  filters the list to what it counts; a figure that cannot filter is not a
+  (figure and label, no card around them; each a filter: it says what it
+  counts and which rows open — a count opens the rows counted, a sum opens
+  the rows summed, "activiteiten met een volzet onderdeel" counts
+  activities and not components; a figure that can do neither is not a
   tile); then "+ Nieuw <item>" and, when the module has configuration,
   "Instellingen" with the gear. Nothing else: no link to another module, no
   explanation line, no breadcrumb (the menu shows the place). [31, 34, 35,
@@ -185,11 +198,15 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   the table; a row there unfolds in place with a jump link to its page.
   The header, tabs and summary do not move between tabs; only the content
   column is narrow or wide. [19, 27, 29, 26]
-- **Read mode** shows every field the editor has, in the same grid, empty
-  ones as "—", a yes/no as an off switch or "nee". [7]
+- **Read mode** shows data and navigation, nothing that edits: every
+  field the editor has, in the same sections and order, empty ones as "—",
+  a yes/no in plain words ("Enkel leden: ja") — not as a disabled control;
+  no add buttons, no drag handles, no row menus until "Bewerken". [7]
 - **"Bewerken"** (the primary, or the first action) turns the whole form
-  into the editor; nothing moves; one save at the bottom; leaving with
-  changes warns. Separate saves only for sub-records with their own
+  into the editor: the same sections, the same order, every datum in its
+  recognisable place — edit mode may take more room for inputs, help and
+  validation, but nothing changes section or order; one save at the
+  bottom; leaving with changes warns. Separate saves only for sub-records with their own
   lifecycle (a payment, a registration line, a membership). [14, 22]
 - **The action bar:** at the bottom of the form column; "Verwijderen" at
   the far left as a red text action (or in "Acties ▾"), "Annuleren" as a
@@ -205,9 +222,14 @@ is one long text that validation cannot refuse; the rich-text toolbar sticky
 at the top of the viewport; "Versturen…" and its send page where the
 document is sent. [4, 15, 39, 42]
 
-### 2.4 Public pages
+### 2.4 Public pages — the kit, not the layouts
 
-The site shell (`site_base.html`) hosts two shapes: a **card list** (the
+The three layouts are the admin's. The public site shares the tokens,
+the fields, the buttons, the surfaces and the messages, and keeps its own
+page shapes, designed around the visitor's tasks (discover, judge, register,
+check) in pilot B — a public activity page and "Mijn gezin" are more than
+a form page and get their own composition there. Today the site shell
+(`site_base.html`) hosts two shapes: a **card list** (the
 activities with their posters, the photo albums) and a **form page**
 (register for an activity, become a member, a public form, the family
 portal) — the form page is the record layout's form column at reading
@@ -242,11 +264,17 @@ when read together (street · number · bus; price · member price; from ·
 to). Sections are separated by 32; a section is a card or a heading in a
 card, never a nested box. [2, 23]
 
-### 3.3 `repeating_group(title, rows, add_url, …)`
+### 3.3 `repeating_group(title, rows, add_url, …)` — two variants
 
-Heading with "+ <item>" at its right; one row per item with a drag handle
-at the far left (up/down for the keyboard), the row's fields inline, `⋯`
-at the far right (delete, duplicate); the one-among-many marker
+Heading with "+ <item>" at its right (in edit mode); `⋯` at the far right
+of each row (delete, duplicate); a drag handle at the far left **only when
+the order means something** (dates, components, products, form options —
+not e-mail addresses). **Simple** variant: one compact row per item, the
+fields inline (an e-mail address, a date). **Composite** variant: a titled
+block per item with its own fields underneath and, when it has them, its
+own child group (a component with its settings and its products) — so it
+is visible which product belongs to which component and which settings are
+whose; the one-among-many marker
 ("hoofdadres") as a chip on the row; "nog geen …" and the add button when
 empty; the rows are committed with the screen's save, never on their own.
 Instances: contact details, addresses, activity dates, components,
@@ -358,7 +386,19 @@ verwijderd* with counts, names and consequences, then one commit button
 whose label names the consequence; leaving before it changes nothing.
 [17, 18]
 
-### 3.18 Buttons — the hierarchy and the words
+### 3.18 States — designed, not left to chance
+
+Every layout has these states drawn in the design-system page: a
+**validation error** on save (the bar stays, the banner at the top of the
+form, the first refused field scrolled into view and marked, every typed
+value kept); **saving** (the primary shows a spinner and is disabled, the
+form stays editable-looking but locked); **save failed** (the error banner
+with the reason, P7, nothing lost); **empty** (one sentence and the create
+action, §2.8); **no access** (the page says so and offers the way back);
+**autosave** on a document ("opgeslagen om 21:14", "opslaan…",
+"niet opgeslagen — opnieuw proberen" in the facts line).
+
+### 3.19 Buttons — the hierarchy and the words
 
 Three weights: **primary** (filled, one per screen), **secondary** (outline,
 for the screen's other actions), **text** (cancel, quiet actions); `danger`

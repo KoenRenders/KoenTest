@@ -6,6 +6,7 @@
 .site-top{background:var(--surface-card);border-bottom:1px solid var(--line);padding:12px 24px;display:flex;align-items:center;gap:24px}
 .site-top .brand{font-family:"Radio Canada Big",Inter,sans-serif;font-weight:800;color:var(--kop);font-size:22px}
 .site-top nav a{margin-right:16px;text-decoration:none;color:var(--ink);font-size:14px}
+@media (max-width:767px){.site-nav{display:none}.phone-only{display:inline-flex!important}.site-top .right .raakje{display:none}}
 .site-top .right{margin-left:auto;display:flex;gap:10px;align-items:center}
 .qcard .q{margin-bottom:14px}
 .qcard .q label{font-weight:600;display:block;margin-bottom:4px}
@@ -15,38 +16,38 @@
 .scale input{margin:0 4px}
 </style></head>
 <body data-shell="site">
-<div class="site-top"><span class="brand">RaaK</span><nav><a href="#">Activiteiten</a><a href="#">Foto's</a><a href="#">Word lid</a><a href="#">Contact</a></nav><div class="right"><span class="raakje">✦ Raakje</span><a class="btn btn-secondary btn-sm" href="#">Aanmelden</a></div></div>
+<div class="site-top"><span class="brand">RaaK</span><span class="btn btn-secondary btn-sm phone-only" aria-label="Menu" style="display:none">☰</span><nav class="site-nav"><a href="#">Activiteiten</a><a href="#">Foto's</a><a href="#">Word lid</a><a href="#">Contact</a></nav><div class="right"><span class="raakje">✦ Raakje</span><a class="btn btn-secondary btn-sm" href="#">Aanmelden</a></div></div>
 <main><div class="frame reading">
  <div class="wayback"><a href="#">‹ Sinterklaas huisbezoeken 2026</a></div>
  <div class="rhead"><h1>Inschrijven</h1></div>
  <div class="facts">Sinterklaas huisbezoeken 2026 · vr 27 nov en za 28 nov · onderdeel <b>Huisbezoek</b> · inschrijven tot 15 nov</div>
- <div class="nudge">Lid van RAAK? <a href="#">Log je eerst aan</a>: dan staat de inschrijving bij je gezin en geldt de ledenprijs.</div>
+ <div class="nudge">Lid van RAAK? <a href="#">Log je eerst aan</a>: dan staat de inschrijving bij je gezin en geldt de ledenprijs. <small style="color:var(--ink-soft)">Je aantallen en antwoorden blijven bewaard.</small></div>
  <div class="formcol">
-  <div class="section"><h2>Wie</h2>
+  <div class="section"><h2>Contactgegevens</h2>
    <div class="grid2">
     <div class="field"><label>Naam</label><input placeholder="Voor- en achternaam"></div>
     <div class="field"><label>E-mailadres</label><input type="email" placeholder="jij@voorbeeld.be"></div>
     <div class="field"><label>Mobiel nummer</label><input type="tel" placeholder="04…"></div>
    </div>
   </div>
-  <div class="section rg"><h2>Wat</h2>
+  <div class="section rg"><h2>Aantal kinderen</h2>
    <div class="row"><span class="cell"><b>Kind</b> · € 5,00</span><span class="cell small"><span class="btn btn-secondary btn-sm">−</span> <b style="padding:0 8px">2</b> <span class="btn btn-secondary btn-sm">+</span></span></div>
    <div class="row" style="border-top:1px solid var(--line);justify-content:flex-end"><span class="cell" style="flex:0;white-space:nowrap">Totaal <b>€ 10,00</b></span></div>
   </div>
-  <div class="section qcard"><h2>Vragen van de Sint</h2>
+  <div class="section qcard"><h2>Informatie voor het huisbezoek</h2>
    <p class="help" style="margin:-6px 0 12px">Vul deze vragen in zodat de Sint en de Pieten goed voorbereid bij jullie langskomen.</p>
-   <div class="field" style="margin-bottom:14px"><label>Vragen</label><span class="seg"><span class="on">Nu invullen</span><span>Later, via de link in de bevestigingsmail</span></span></div>
+   <div class="choice" style="margin-bottom:14px"><label class="on"><input type="radio" name="w" checked><span><b>Nu invullen</b><small>Je beantwoordt de vragen hieronder en verstuurt alles in één keer.</small></span></label><label><input type="radio" name="w"><span><b>Later invullen</b><small>Je krijgt een link in de bevestigingsmail; de Sint wacht rustig af.</small></span></label></div>
    <div class="q"><label>Beschikbare tijdstippen <span style="color:#b91c1c">*</span></label><p class="help">Ik geef echt ALLE tijdstippen op dat de Sint kan komen (minstens 4). Stem ook even af met de buren.</p>
-    <div class="opts" style="columns:2"><label><input type="checkbox"> Vrij 17u-18u</label><label><input type="checkbox"> Vrij 18u-19u</label><label><input type="checkbox"> Vrij 19u-20u</label><label><input type="checkbox"> Vrij 20u-21u</label><label><input type="checkbox"> Zat 08u-09u</label><label><input type="checkbox"> Zat 09u-10u</label><label><input type="checkbox"> Zat 10u-11u</label><label><input type="checkbox"> Zat 11u-12u</label><label><input type="checkbox"> Zat 13u-14u</label><label><input type="checkbox"> Zat 14u-15u</label><label><input type="checkbox"> Zat 15u-16u</label><label><input type="checkbox"> Zat 16u-17u</label></div></div>
+    <div class="help" style="color:#166534;font-weight:600">3 van minimaal 4 tijdstippen gekozen</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px" class="opts slots"><div><b style="font-size:13px">Vrijdag 27 november</b><label><input type="checkbox" checked> 17u–18u</label><label><input type="checkbox" checked> 18u–19u</label><label><input type="checkbox"> 19u–20u</label><label><input type="checkbox"> 20u–21u</label></div><div><b style="font-size:13px">Zaterdag 28 november</b><label><input type="checkbox" checked> 08u–09u</label><label><input type="checkbox"> 09u–10u</label><label><input type="checkbox"> 10u–11u</label><label><input type="checkbox"> 11u–12u</label><label><input type="checkbox"> 13u–14u</label><label><input type="checkbox"> 14u–15u</label><label><input type="checkbox"> 15u–16u</label><label><input type="checkbox"> 16u–17u</label></div></div></div>
    <div class="q"><label>Aan deur of binnen? <span style="color:#b91c1c">*</span></label><p class="help">Geef hier aan of de Sint en Pieten binnen mogen komen of je liever hebt dat ze aan de deur blijven staan.</p><span class="seg"><span>binnen</span><span>aan deur</span></span></div>
    <div class="q"><label>Zijn de kindjes flink? <span style="color:#b91c1c">*</span></label><div class="scale">Zeer stout <input type="radio" name="f">1 <input type="radio" name="f">2 <input type="radio" name="f">3 <input type="radio" name="f">4 <input type="radio" name="f">5 Zeer flink</div></div>
    <div class="q field"><label>Woordje uitleg <span style="color:#b91c1c">*</span></label><p class="help">Schrijf per kind leuke dingen die de Sint in zijn boek zou moeten hebben staan.</p><textarea></textarea></div>
    <div class="q field"><label>Opmerking</label><p class="help">Diëten of allergieën? Een alternatieve Millegemse locatie (grootouders, familie, vrienden)?</p><textarea></textarea></div>
   </div>
-  <div class="section"><h2>Betalen</h2>
+  <div class="section"><h2>Betaalwijze</h2>
    <div class="opts"><label><input type="radio" name="pm" checked> Online betalen <span class="help" style="display:inline"> — na het versturen ga je meteen naar de beveiligde betaalpagina</span></label><label><input type="radio" name="pm"> Overschrijving <span class="help" style="display:inline"> — je ontvangt de betaalinstructies per e-mail</span></label></div>
   </div>
-  <div class="bar"><div class="right"><span class="btn btn-primary">Inschrijven</span></div></div>
+  <div class="bar"><span style="font-size:14px">Totaal <b>€ 10,00</b> · online</span><div class="right"><span class="btn btn-primary">Inschrijven en naar betaling</span></div></div>
  </div>
- <div class="note" style="margin-top:24px"><b>Wat dit concept toont</b> · piloot B: dezelfde formulierkolom op leesbreedte, dezelfde oppervlakken, secties en actiebalk als het beheer; de ledenduw bovenaan, onvoorwaardelijk; wie · wat · de vragen (met de keuze nu of later) · betalen, in die volgorde; op een telefoon één kolom met de knop onderaan geplakt.</div>
+ <div class="note" style="margin-top:24px"><b>Wat dit concept toont</b> · piloot B: dezelfde formulierkolom op leesbreedte, dezelfde oppervlakken, secties en actiebalk als het beheer; de ledenduw bovenaan, onvoorwaardelijk, met de belofte dat aanmelden niets wist; contactgegevens · aantal kinderen · informatie voor het huisbezoek (nu of later als twee keuzes onder elkaar, de tijdstippen per dag met een teller) · betaalwijze; de laatste knop zegt wat volgt, met het totaal ernaast; op een telefoon één kolom, de knop onderaan geplakt, een menuknop in de kop.</div>
 </div></main></body></html>
