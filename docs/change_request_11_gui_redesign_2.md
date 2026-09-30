@@ -307,8 +307,12 @@ flowchart TB
 anywhere in this change request; the classification of screens is a table
 in the design system, not in the database.
 
-Who depends on whom: every domain template extends a layout and calls
-macros from `ui`; `ui` depends on nothing in a domain; the gates read
+Who depends on whom — and why the layouts do not bend the modular
+architecture: every domain template already extends the shell
+(`admin_base.html`, `site_base.html`) and imports `_macros.html`, both the
+kit's; a layout is one more level between shell and screen, in the same
+place, so a domain depends on `ui` exactly as it does today and on nothing
+else; `ui` depends on nothing in a domain; the gates read
 templates and models and depend on the kit's names. Raakje's panel
 (`chatbot`) is mounted by the shell and receives the screen's context
 through the existing mechanism (#1060); the enabled-module table is
@@ -764,6 +768,7 @@ title and toolbar; the e2e job's duration with the pixel diff.
 |---|---|---|---|
 | Q1 | 30 Sep 2026 | Does CR-11 become a real change request on the new template, or stay a parking lot from which each item gets its own CR or issue? (Claude) | Koen, 30 Sep: a real change request — the end state of the GUI and the roadmap towards it; the parked items stay in A6 as candidates, the pains are listed in A2 first, then the solution and the approach (B6). |
 | Q2 | 30 Sep 2026 | Which of P1–P6 are taken up now, and is there new material — the dense Betalingen screen lived with (P2), the board missing a featured activity (P4)? (Claude) | *open* |
+| Q8 | 30 Sep 2026 | Does F1 — every screen extends one of three layouts — clash with the modular architecture? (Koen) | No: extending is what every domain template does today with the shell and the macros, both the kit's; a layout is one level more in the same place; the dependency stays domain → `ui`, and the template-variables gate covers the layout's blocks as promises. B2.2. |
 | Q3 | 30 Sep 2026 | Tables versus cards (row 5): is the content rule — a table to scan and compare, cards for things with a face — the decision, so that Betalingen stays a table and Leden becomes one? (Claude) | *open* |
 | Q4 | 30 Sep 2026 | Do the quick wins (phase 1) ride the next functional release, or a release of their own so they are seen together? (Claude) | *open* |
 | Q5 | 30 Sep 2026 | Is the order pilot A (admin: activity record, Betalingen list) before pilot B (public: household, forms, registration) right, or should the public side — what members see — come first? (Claude) | *open* |
