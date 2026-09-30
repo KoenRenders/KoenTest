@@ -1247,13 +1247,42 @@ def collect_commit_behind_api() -> dict[str, str]:
 # ── 10. Events, not calls (ratchet; hard for a new package) ─────────────────
 
 
+#: A change to a mapped collection: `submission.answers.clear()`, `.append(row)`.
+_COLLECTION_CALLS = {"append", "extend", "remove", "clear", "pop", "insert"}
+
+
+def _collection_write_or_flush(node: ast.AST) -> tuple[int, str] | None:
+    """A write the ORM persists without `db.add`: a change to a collection reached
+    through an attribute (`submission.answers.clear()`), or a `db.flush()` that sends
+    what the function changed (#1368). The first shape was the blind spot:
+    `forms.api.update_attached` replaced a submission's answers through its
+    collection and flushed, and the command walk saw no write at all.
+
+    A collection on a bare name (`rows.append(x)`, `seen.clear()`) is a local list,
+    not a mapped one: only an attribute receiver counts."""
+    for n in _own_nodes(node) if not isinstance(node, ast.expr) else ast.walk(node):
+        if not isinstance(n, ast.Call) or not isinstance(n.func, ast.Attribute):
+            continue
+        name, receiver = n.func.attr, n.func.value
+        if name == "flush" and _is_session(receiver):
+            return n.lineno, "db.flush()"
+        if (
+            name in _COLLECTION_CALLS
+            and isinstance(receiver, ast.Attribute)
+            and not (_is_session(receiver))
+        ):
+            return n.lineno, f".{receiver.attr}.{name}()"
+    return None
+
+
 def _writes(function: ast.AST) -> int | None:
-    """The line of the first ORM write or commit in a function's own body."""
+    """The line of the first ORM write or commit in a function's own body — a
+    change through a mapped collection and a flush included (#1368)."""
     for node in _own_nodes(function):
         if _is_commit(node):
             return node.lineno
         if isinstance(node, ast.stmt):
-            write = _write_in(node)
+            write = _write_in(node) or _collection_write_or_flush(node)
             if write:
                 return write[0]
     return None
@@ -2033,6 +2062,9 @@ def test_events_not_calls():
         ("payment", "reconcile_registration_charges", True),
         ("payment", "reconcile_charges", True),
         ("workflow", "vervroeg_sweep", True),
+        # #1368: a write through a mapped collection and a flush is a write too.
+        ("forms", "update_attached", True),
+        ("media", "activity_image_path", True),
         # Reads are not commands.
         ("mdm", "get_person", False),
         ("mdm", "name_parts", False),
@@ -2040,6 +2072,36 @@ def test_events_not_calls():
 )
 def test_a_command_is_an_export_that_writes(domain, name, command):
     assert ((domain, name) in api_commands()) is command
+
+
+def test_the_walk_sees_a_write_through_a_collection_or_a_flush():
+    """#1368: the command walk counted `db.add/delete/merge`, commits and bulk
+    statements — and missed a write the ORM persists from a changed collection and a
+    `flush` (`forms.api.update_attached`: `submission.answers.clear()`/`.append()`,
+    `db.flush()`). Measured when the shape was added (30 September 2026): it finds
+    103 functions whose only write in a statement is of this shape (73 of them a
+    `db.flush()`), and the facade's commands went from 178 to 187. The count is a
+    floor: a refactor that made the shape invisible again would drop it.
+
+    Proven red (run, removed), additively: a facade function in `cms/api.py` that
+    only appends to `page.blocks` and flushes, called from `newsletter/service.py`
+    → exactly one new violation in `test_events_not_calls`."""
+    found = 0
+    for path in _python_files():
+        tree = _tree(path)
+        for function in ast.walk(tree):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for node in _own_nodes(function):
+                if (
+                    isinstance(node, ast.stmt)
+                    and _collection_write_or_flush(node)
+                    and not _write_in(node)
+                ):
+                    found += 1
+                    break
+    assert found >= 100, f"the collection/flush shape found only {found} functions"
+    assert len(api_commands()) >= 187
 
 
 def test_no_new_rule_in_a_router():
