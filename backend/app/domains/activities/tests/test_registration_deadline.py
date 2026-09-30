@@ -19,6 +19,7 @@ needs two components — one closed, one open — lives in
 `test_inschrijfdatum_per_onderdeel.py`, with the screen tests of #1051.
 """
 
+import re
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -31,6 +32,10 @@ from app.domains.activities.api import (
 )
 
 DEADLINE = date(2027, 7, 15)  # zomer: Brussel = UTC+2
+
+#: The closed button (#1375). Specific on purpose: the status label beside the title
+#: is "Afgesloten" too, so the bare word on the card does not tell the two apart.
+CLOSED_BUTTON = re.compile(r"<button\b[^>]*\bdisabled\b[^>]*>\s*Afgesloten\s*</button>")
 
 
 def _pin(monkeypatch, instant_utc: datetime) -> None:
@@ -218,9 +223,72 @@ def test_after_the_deadline_the_card_shows_closed_and_offers_no_way_in(
     start = html.index("Bowling")
     kaart = html[start : start + 6000]
 
-    assert "Inschrijvingen afgesloten" in kaart
+    assert CLOSED_BUTTON.search(kaart)
     assert "https://extern.example/inschrijven" not in kaart
     assert f"/activiteiten/{a.id}/inschrijven/" not in kaart
+
+
+def test_the_closed_state_is_a_disabled_button_not_a_badge(client, db_session, monkeypatch):
+    """#1375 (Koen, 30 September 2026): where "Inschrijven" stood, a button of the
+    same form that can no longer be pressed — not a grey badge, which did not read
+    as the same button. Disabled for the browser and for assistive technology, and
+    in the kit's `unavailable` variant.
+
+    Red against master `3f3740c3`: the card rendered `ui.badge(..., "gray")`, a span.
+    """
+    _activity(db_session)
+    _pin(monkeypatch, datetime(2027, 7, 16, 10, 0, tzinfo=timezone.utc))
+
+    html = client.get("/activiteiten").text
+    start = html.index("Bowling")
+    kaart = html[start : start + 6000]
+
+    button = re.search(r"<button\b[^>]*>\s*Afgesloten\s*</button>", kaart)
+    assert button, "the closed state is a <button>"
+    tag = button.group(0)
+    assert " disabled" in tag and 'aria-disabled="true"' in tag, tag
+    assert "cursor-not-allowed" in tag, "the kit's unavailable variant"
+
+
+def _full_card(client, db_session, monkeypatch, *, after_deadline: bool) -> str:
+    """One place, taken before the deadline; the card read before or after it."""
+    a, comp, product = _activity(db_session)
+    comp.max_participants = 1
+    db_session.flush()
+    _pin(monkeypatch, datetime(2027, 7, 1, 10, 0, tzinfo=timezone.utc))
+    assert "Bedankt, Fee" in _inschrijven(client, a, comp, product).text
+    if after_deadline:
+        _pin(monkeypatch, datetime(2027, 7, 16, 10, 0, tzinfo=timezone.utc))
+    html = client.get("/activiteiten").text
+    start = html.index("Bowling")
+    return html[start : start + 6000]
+
+
+def test_a_full_component_is_an_orange_disabled_button(client, db_session, monkeypatch):
+    """#1375: "Volzet" is the same switched-off button, in orange — it was an
+    orange badge.
+
+    Red against master `3f3740c3`: a badge span, no <button>.
+    """
+    kaart = _full_card(client, db_session, monkeypatch, after_deadline=False)
+
+    button = re.search(r"<button\b[^>]*>\s*Volzet\s*</button>", kaart)
+    assert button, "the full state is a <button>"
+    assert " disabled" in button.group(0) and "border-orange-500" in button.group(0)
+
+
+def test_full_goes_before_closed(client, db_session, monkeypatch):
+    """#1375 (Koen, 30 September 2026): full and past its deadline, the card says
+    "Volzet" — full is full; the deadline comes after.
+
+    Red against master `3f3740c3`: the template tested `registration_closed` first,
+    so the card said "Inschrijvingen afgesloten". The status label beside the title
+    still says "Afgesloten"; that label is outside #1375.
+    """
+    kaart = _full_card(client, db_session, monkeypatch, after_deadline=True)
+
+    assert "Volzet" in kaart
+    assert not CLOSED_BUTTON.search(kaart)
 
 
 def test_before_the_deadline_the_card_says_until_when(client, db_session, monkeypatch):
@@ -232,7 +300,7 @@ def test_before_the_deadline_the_card_says_until_when(client, db_session, monkey
     kaart = html[start : start + 6000]
 
     assert "Inschrijven t/m" in kaart
-    assert "Inschrijvingen afgesloten" not in kaart
+    assert not CLOSED_BUTTON.search(kaart)
 
 
 def test_a_modal_opened_after_the_deadline_says_why(client, db_session, monkeypatch):

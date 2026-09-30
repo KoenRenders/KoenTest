@@ -14,7 +14,9 @@
   "primary": "bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent",
   "secondary": "bg-white border border-gray-300 hover:bg-gray-100 text-gray-800",
   "danger": "bg-red-600 hover:bg-red-700 text-white border border-transparent",
-  "outline": "bg-white border border-blue-600 text-blue-700 hover:bg-blue-50"} -%}
+  "outline": "bg-white border border-blue-600 text-blue-700 hover:bg-blue-50",
+  "unavailable": "bg-white border border-gray-500 text-gray-500 cursor-not-allowed",
+  "unavailable-orange": "bg-white border border-orange-500 text-orange-600 cursor-not-allowed"} -%}
 {#- #810: de knopmaten zijn mobiel-eerst, net als de typeschaal (§1.2a). De kale
     klasse is de telefoonmaat, de `md:`-variant zet de bureaubladwaarde terug — dus
     op een breed scherm verandert er niets.
@@ -59,6 +61,16 @@
 {% macro btn_secondary(label, type="button", href=None, size="md", attrs="", cls="", lead_icon=None, confirm=None, aria_label=None) -%}{{ button(label, "secondary", type, href, size, attrs, cls, lead_icon, confirm, aria_label) }}{%- endmacro %}
 {% macro btn_danger(label, type="button", href=None, size="md", attrs="", cls="", lead_icon=None, confirm=None, aria_label=None) -%}{{ button(label, "danger", type, href, size, attrs, cls, lead_icon, confirm, aria_label) }}{%- endmacro %}
 {% macro btn_outline(label, type="button", href=None, size="sm", attrs="", cls="", lead_icon=None, confirm=None, aria_label=None) -%}{{ button(label, "outline", type, href, size, attrs, cls, lead_icon, confirm, aria_label) }}{%- endmacro %}
+{# #1375: an action that WAS possible here and no longer is — "Afgesloten" where
+   "Inschrijven" stood. The same form and size as the buttons
+   around it, a dark-grey border and grey text, and no hover: it reads as the same
+   button that can no longer be pressed, not as a status badge. Disabled for the
+   browser and for assistive technology; no `hx-disabled-elt`, it sends nothing.
+   `tone="orange"` for "Volzet": the same switched-off button, in the colour the
+   full state already had. #}
+{% macro btn_unavailable(label, size="sm", tone="gray", cls="") -%}
+<button type="button" disabled aria-disabled="true" class="{{ btn_class('unavailable-orange' if tone == 'orange' else 'unavailable', size) }}{% if cls %} {{ cls }}{% endif %}">{{ label }}</button>
+{%- endmacro %}
 
 {# ── Iconen (#593, §1.5) ───────────────────────────────────────────────────────
    Eén SVG-icoonset (Lucide, ISC-licentie) via `ui.icon('naam')` i.p.v. losse

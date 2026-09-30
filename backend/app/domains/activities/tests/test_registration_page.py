@@ -73,8 +73,9 @@ def test_card_and_page_link_to_the_page_and_close_per_component(client, two_comp
     open_block = _component_block(html, "Onderdeel")
     closed_block = _component_block(html, "Vroeg")
     assert f'href="/activiteiten/{activity.id}/inschrijven/{open_one.id}"' in open_block
-    assert "Inschrijvingen afgesloten" not in open_block
-    assert "Inschrijvingen afgesloten" in closed_block
+    # #1375: the closed state is the disabled "Afgesloten" button.
+    assert ">Afgesloten</button>" not in open_block
+    assert ">Afgesloten</button>" in closed_block
     assert f"/inschrijven/{closed.id}" not in closed_block
     assert 'hx-get="/activiteiten/' + str(activity.id) + "/inschrijven" not in html, (
         "a component still opens the form as a modal"
