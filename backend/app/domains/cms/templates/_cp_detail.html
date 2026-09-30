@@ -1,8 +1,24 @@
 {% import "_macros.html" as ui %}
-<div class="bg-white border border-gray-200 rounded-2xl p-5">
+{# CR-11 W3 (#1391): both toolbars stay in view under the sticky header while a
+   long page scrolls: this page's own button row, and Trix's toolbar below it.
+   The header's height is not fixed (its action bar wraps on a phone), so the
+   card measures it, and the button row's, into two CSS variables the toolbars
+   stick under. `function` and no arrow: a `>` in an attribute breaks the tests
+   that read a tag up to its first `>`. #}
+<div class="bg-white border border-gray-200 rounded-2xl p-5"
+     x-data
+     x-init="const kaart = $el, kop = $el.querySelector('[data-cp-kop]'), balk = $el.querySelector('[data-cp-balk]');
+             const meet = function () {
+               kaart.style.setProperty('--cp-kop', kop.offsetHeight + 'px');
+               kaart.style.setProperty('--cp-balk', (balk ? balk.offsetHeight : 0) + 'px');
+             };
+             meet();
+             const ro = new ResizeObserver(meet);
+             ro.observe(kop);
+             if (balk) ro.observe(balk);">
   {# Golf 6, kop-herziening (Koen, 14 sep 2026): alles bovenaan, sticky —
      de Trix-editor is lang en Opslaan blijft zo in beeld. #}
-  <div class="flex items-start justify-between mb-4 sticky top-0 z-20 bg-white py-1">
+  <div data-cp-kop class="flex items-start justify-between mb-4 sticky top-0 z-20 bg-white py-1">
     <h2 class="text-lg font-bold text-kop">{{ p.title }}</h2>
     <div class="flex gap-2">
       {# #554: linkt naar de admin-voorbeeld-route zodat ook een concept (nog niet
@@ -34,6 +50,7 @@
          (zie `admin_pagina.html`); die knop kan Alpine niet rechtstreeks
          aanspreken, dus hij stuurt een event en dit blok vangt het op. #}
       <div x-data="{ src: false, picker: false, chosen: null, altText: '', maat: 'vol', bewerken: false }"
+           class="[&_trix-toolbar]:sticky [&_trix-toolbar]:top-[calc(var(--cp-kop,0px)+var(--cp-balk,0px))] [&_trix-toolbar]:z-10 [&_trix-toolbar]:bg-white"
            @raak-beeld-bewerken.window="bewerken = true; picker = true;
                                         chosen = { url: $event.detail.url,
                                                    width: $event.detail.width,
@@ -43,7 +60,7 @@
         {# #555: extra kop-niveaus (H2/H3) + HTML-bron-toggle. De H2/H3-knoppen
            activeren de blok-attributen (geregistreerd in admin_paginas.html) via de
            Trix editor-API; onmousedown houdt de editorfocus vast. #}
-        <div class="flex flex-wrap gap-1 bg-gray-50 border border-gray-200 border-b-0 rounded-t-lg p-1 text-xs items-center">
+        <div data-cp-balk class="sticky top-[var(--cp-kop,0px)] z-10 flex flex-wrap gap-1 bg-gray-50 border border-gray-200 border-b-0 rounded-t-lg p-1 text-xs items-center">
           <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-semibold" x-show="!src"
                   onmousedown="event.preventDefault()"
                   onclick="var e=document.getElementById('cp-trix').editor; e.attributeIsActive('heading2') ? e.deactivateAttribute('heading2') : e.activateAttribute('heading2')"
