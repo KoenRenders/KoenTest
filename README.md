@@ -79,16 +79,24 @@ Default admin credentials (change immediately):
 
 ## Deployment
 
-Production target: Hetzner CX22 (Ubuntu, 4 Docker containers behind Caddy reverse proxy).
+Three server environments run from the same repository, each in its own
+checkout and compose project: **HDEV** follows `master`, **UAT** and **PROD** run a
+pinned release tag. One script, `deploy.sh <env> [tag]`, deploys all three; it
+backs up the database, rebuilds, lets the backend apply migrations at startup
+(`alembic upgrade head`), and runs a read-only smoke test.
 
-```bash
-# On the server
-git pull
-docker compose -f docker-compose.yml up -d --build
-docker compose exec backend alembic upgrade head
-```
+Do not run `deploy.sh` or `docker compose` by hand on the server. Use **`raakctl`**
+on the server, or **`raak`** from a laptop (same verbs over SSH): `status`,
+`deploy <env> [tag]`, `logs`, `diagnose`, `backup`, `restore-test`, `caddy`. It
+resolves an environment to its own checkout, so you cannot deploy PROD from the
+UAT directory by mistake.
 
-See `caddy/Caddyfile` for domain configuration.
+UAT and PROD sit behind one shared Caddy (`caddy/Caddyfile.shared`, which imports
+`caddy/parts/`); HDEV has its own (`caddy/Caddyfile.hdev`).
+
+The release order, who may do which step, and what to verify after a deploy are
+in `CLAUDE.md` under *Releases and hotfixes* and *Deploying a release to UAT /
+PROD*. They are not repeated here.
 
 ## Branches and pull requests
 
