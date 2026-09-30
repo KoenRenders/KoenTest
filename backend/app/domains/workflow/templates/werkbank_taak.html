@@ -1,6 +1,7 @@
 {% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
 {% block title %}{{ _("Taak — Werkbank") }}{% endblock %}
 {% block content %}
-<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/werkbank">← {{ _("Werkbank") }}</a></p>
+{{ ui.back_link(_("Werkbank"), "/admin/werkbank") }}
 {% include "_werkbank_detail.html" %}
 {% endblock %}

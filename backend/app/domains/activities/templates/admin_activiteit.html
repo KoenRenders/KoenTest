@@ -4,7 +4,7 @@
 {% block content %}
 {# Paginabrede editor (C1, #586): de kaart-klik landt hier. De bewerkingen binnen
    het detail blijven htmx-fragmenten die #aa-detail vervangen. #}
-<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/activiteiten">{{ _("‹ Alle activiteiten") }}</a></p>
+{{ ui.back_link(_("Alle activiteiten"), "/admin/activiteiten") }}
 {# Golf 8 (#913): de recordpagina — P13 in tabvorm. Elke tab is een bestaand
    lijstscherm in de scope van dit record; Betalingen alleen met FINANCE. #}
 <div id="aa-recordkop">
