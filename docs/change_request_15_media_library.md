@@ -2,6 +2,7 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** shaped on 1 October 2026 · on hold — Koen walks through it point by point before anything is assigned
+**Tracking issue:** #1410 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the media domain and its admin screen; the picture choosers of Design Studio and the CMS; later the newsletter; the public photo albums; one new field on the activity, already under way (#1397).
 
 ---
