@@ -45,10 +45,15 @@ def _hash_otp(code: str) -> str:
 logger = logging.getLogger(__name__)
 
 
-def start_login(db: Session, email: str) -> None:
+def start_login(db: Session, email: str, return_to: str = "") -> None:
     """De volledige request-login-stap (ook gebruikt door het aanmeldscherm,
     fase 1 #399): gekend adres → magic-link + OTP; meerdere gezinnen → uitleg-
-    mail; onbekend → stil. De aanroeper toont ALTIJD dezelfde generieke respons."""
+    mail; onbekend → stil. De aanroeper toont ALTIJD dezelfde generieke respons.
+
+    `return_to` (#1437): the page that asked for the sign-in. It rides along in
+    the mail link as `terug`, and `/login/verify` checks it again with
+    `veilige_terug` when the link is used — a link can be edited, so the check
+    belongs where it is used, not here."""
     # Twee onafhankelijke checks: heeft dit adres een account, en/of hangt het
     # aan een persoon (en is dat gezin eenduidig)?
     user = (
@@ -83,6 +88,10 @@ def start_login(db: Session, email: str) -> None:
         from app.kernel.tenant_config import tenant_base_url
 
         magic_link = f"{tenant_base_url(db)}/login/verify?token={token}"
+        if return_to:
+            from urllib.parse import quote
+
+            magic_link += f"&terug={quote(return_to, safe='/')}"
         if settings.debug:
             logger.warning("[DEBUG] Inloglink voor %s: %s", email, magic_link)
         send_magic_link(to_email=email, magic_link=magic_link, otp_code=otp_code)

@@ -56,7 +56,8 @@ def aanmelden_submit(
         )
     from app.domains.auth.api import start_login
 
-    start_login(db, email)
+    # #1437: the mail link carries the page too, not only this code step.
+    start_login(db, email, return_to=return_to)
     # Altijd hetzelfde vervolg — verklap niet of het adres gekend is.
     return templates.TemplateResponse(
         request, "_aanmelden_code.html", {"email": email, "error": None, "terug": return_to}
@@ -81,19 +82,11 @@ def aanmelden_code(
             "_aanmelden_code.html",
             {"email": email, "error": _("Ongeldige of verlopen code."), "terug": return_to},
         )
-    # Landing naar wat de rol mag openen (#530): ADMIN/OPERATOR → werkbank;
-    # FINANCE-only → betalingen (werkbank zou 403'en); overige (gewoon lid) → gezin.
-    from app.domains.auth.service import get_user_roles
+    # The page that asked, else the landing by role (#530, #1437) — the same
+    # rule as the mail link, from the one place it lives.
+    from app.domains.auth.api import landing_for
 
-    roles = set(get_user_roles(db, email))
-    if {"ADMIN", "OPERATOR"} & roles:
-        dest = "/admin/werkbank"
-    elif "FINANCE" in roles:
-        dest = "/admin/betalingen"
-    else:
-        dest = "/leden/gezin"
-    if return_to:
-        dest = return_to
+    dest = return_to or landing_for(db, email)
     response = templates.TemplateResponse(request, "_aanmelden_klaar.html", {})
     set_session_cookie(response, email, request)
     response.headers["HX-Redirect"] = dest

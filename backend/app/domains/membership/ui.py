@@ -285,9 +285,14 @@ def _lopende_vernieuwing(db: Session, person) -> dict:
 def gezin_portaal(request: Request, db: Session = Depends(get_db)):
     person = _session_member(request, db)
     if person is None:
+        from urllib.parse import quote
+
         from fastapi.responses import RedirectResponse
 
-        return RedirectResponse("/aanmelden", status_code=302)
+        # #1437: remember the page, so the sign-in comes back here — whatever
+        # the role (a board member who is also a member lands in the portal).
+        here = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+        return RedirectResponse(f"/aanmelden?terug={quote(here, safe='/')}", status_code=302)
     return templates.TemplateResponse(
         request, "gezin_portaal.html", _portal_ctx(request, db, person)
     )
@@ -444,10 +449,11 @@ def leden_login_redirect(request: Request):
 
 
 @router.get("/login/verify", response_class=HTMLResponse)
-def login_verify(request: Request, token: str = "", db: Session = Depends(get_db)):
+def login_verify(request: Request, token: str = "", terug: str = "", db: Session = Depends(get_db)):
     from fastapi.responses import RedirectResponse
 
-    from app.domains.auth.api import consume_magic_link, get_user_roles, set_session_cookie
+    from app.domains.auth.api import consume_magic_link, landing_for, set_session_cookie
+    from app.ui import veilige_terug
 
     # Eenmalig verzilveren (#268) — die regel woont in de auth-service, niet hier.
     email = consume_magic_link(db, token)
@@ -455,24 +461,20 @@ def login_verify(request: Request, token: str = "", db: Session = Depends(get_db
         return templates.TemplateResponse(
             request, "login_verlopen.html", site_context(db, request), status_code=401
         )
-    # Landing naar wat de rol mag openen (#530), gelijk aan de OTP-flow: ADMIN/
-    # OPERATOR → werkbank; FINANCE-only → betalingen (werkbank is nu ADMIN/OPERATOR-
-    # only en zou 403'en); overige (gewoon lid) → gezin.
-    roles = set(get_user_roles(db, email))
-    if {"ADMIN", "OPERATOR"} & roles:
-        doel = "/admin/werkbank"
-    elif "FINANCE" in roles:
-        doel = "/admin/betalingen"
-    else:
-        doel = "/leden/gezin"
-    response = RedirectResponse(doel, status_code=302)
+    # The page that asked (#1437), checked by the one `veilige_terug` — a link
+    # can be edited, so only a path on this site counts; else the landing by
+    # role (#530), the same rule as the code step.
+    response = RedirectResponse(veilige_terug(terug, landing_for(db, email)), status_code=302)
     set_session_cookie(response, email, request)
     return response
 
 
 @router.get("/leden/login/verify", response_class=HTMLResponse)
-def leden_login_verify_redirect(request: Request, token: str = ""):
+def leden_login_verify_redirect(request: Request, token: str = "", terug: str = ""):
     """URL-pariteit (React-exit 405-e): oud React-pad → het magic-link-doel."""
+    from urllib.parse import quote
+
     from fastapi.responses import RedirectResponse
 
-    return RedirectResponse(f"/login/verify?token={token}", status_code=302)
+    extra = f"&terug={quote(terug, safe='/')}" if terug else ""
+    return RedirectResponse(f"/login/verify?token={token}{extra}", status_code=302)
