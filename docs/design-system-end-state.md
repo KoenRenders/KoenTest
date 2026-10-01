@@ -184,8 +184,11 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-- **The way back** on the first line, to the list it came from, filter
-  state preserved. [28]
+- **The way back** on the first line, to the list it came from **as it was
+  left** — the same filter, search, sort and page: the list's state is its
+  URL, a row's link carries it, and the layout returns to it (a local path
+  only; the list's default when the record was opened from elsewhere). A
+  screen never writes this link itself. [28, 57]
 - **The record header:** the title with its badges on the title line,
   status first; the facts line under it, every reference a jump link; at
   the right the screen's one primary and one "Acties ▾" menu holding the
@@ -453,7 +456,7 @@ The current P1–P12 stay; four change and four are added.
 |---|---|---|
 | P1 · Edit and stay | **revised:** the whole record is the editor; one save at the bottom; the screen stays; a toast; leaving with changes warns. [14] |
 | P2 · Create and continue | the record exists after "Opslaan", not after "Toevoegen"; the create button is "+ Nieuw <item>" at the right of the heading it creates into. [31, 46] |
-| P3 · The way back | on every record page, first line, filter state preserved. [28] |
+| P3 · The way back | on every record page, first line, to the list as it was left: a list's state (filter, search, sort, page, page size) is its URL, pushed by the list layout; the record layout returns to the address the row carried. [28, 57] |
 | P6 · Import in steps | **widened:** every import that creates, updates or deletes; the report in three lines; the commit names the consequence. [18] |
 | P8 · List, detail, edit | **revised:** the row opens the record; on a top-level list the record page, inside a record's related list an in-place unfold with a jump link. [26] |
 | P13 · Opens shows | a control that opens something shows that it opens — chevron, "…", disclosure triangle. [48] |
