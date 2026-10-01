@@ -112,3 +112,28 @@ def test_w18_the_import_block_holds_one_file_input(phone):
     _shot(page, "w18-import")
     print("MEASURE W18", inputs)
     assert inputs == ["input:file"], inputs
+
+
+@pytest.mark.parametrize("width", [390, 1280])
+def test_the_submissions_export_is_the_same_button_as_on_payments(phone, width):
+    """#1391 follow-up: "Export (.ods)" on the Inzendingen tab is the secondary
+    button with the download icon that Betalingen has, not a text link.
+
+    Proven red against master `8c010f5c`: there it was a 72 × 16 px text link
+    without an icon."""
+    page, form_id = phone
+    page.set_viewport_size({"width": width, "height": 900})
+    page.goto(f"/admin/formulieren/{form_id}/inzendingen")
+    pagina_klaar(page)
+    export = page.get_by_role("link", name="Export (.ods)")
+    box = export.bounding_box()
+    icon = export.locator("svg").count()
+    width_now = page.evaluate("() => [document.documentElement.scrollWidth, innerWidth]")
+    print(f"MEASURE @{width}", box, "icon", icon, "page", width_now)
+    if os.path.isdir("/scratch"):
+        os.makedirs(SHOTS, exist_ok=True)
+        page.screenshot(path=f"{SHOTS}/{width}-inzendingen-export.png")
+    assert icon == 1, "the download icon"
+    assert box and box["height"] >= 32, f"a button, not a text link: {box}"
+    assert box["x"] + box["width"] <= width, f"the button is off screen: {box}"
+    assert width_now[0] <= width_now[1], width_now

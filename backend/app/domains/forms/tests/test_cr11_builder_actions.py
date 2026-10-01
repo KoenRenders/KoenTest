@@ -54,6 +54,11 @@ def test_w14_the_builder_acts_on_the_definition_and_the_tab_exports(client, db_s
     exports = [a for a in _actions(tab) if a.startswith("Export")]
     assert exports == ["Export (.ods)"], exports
     assert f'href="/admin/formulieren/{form.id}/export"' in tab
+    # The same control as the export on Betalingen: a secondary button with the
+    # download icon, not a text link (#1391 follow-up).
+    export = re.search(rf'<a href="/admin/formulieren/{form.id}/export"[^>]*>(.*?)</a>', tab, re.S)
+    assert "border-gray-300" in export.group(0) and "text-link" not in export.group(0)
+    assert "<svg" in export.group(1), "with the download icon"
 
 
 def test_w18_the_import_takes_a_file_only(client, db_session):

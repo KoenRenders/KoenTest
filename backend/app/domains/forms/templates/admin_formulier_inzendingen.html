@@ -6,7 +6,10 @@
 {# CR-11 W14 (#1391): the export of the submissions sits on their own tab,
    top right. A download, so outside hx-boost (#634). #}
 <div class="flex justify-end mb-3">
-  {{ ui.link_action(_("Export (.ods)"), href="/admin/formulieren/" ~ form.id ~ "/export", attrs='hx-boost="false"') }}
+  {# #1391: the same control as the export on Betalingen — a secondary button
+     with the download icon, not a text link. #}
+  {{ ui.btn_secondary(_("Export (.ods)"), href="/admin/formulieren/" ~ form.id ~ "/export",
+                      lead_icon="download", size="sm", attrs='hx-boost="false"') }}
 </div>
 {# Het bestaande fragment; verwijderen swapt dit doel opnieuw. #}
 <div id="fb-inzendingen">
