@@ -69,8 +69,11 @@ def importkaart(browser):
     page.fill("#f-title", "E2E bevestiging")
     page.locator("form[hx-post='/admin/formulieren'] button[type=submit]").click()
     page.wait_for_url(re.compile(r".*/admin/formulieren/\d+$"), timeout=10_000)
-    page.get_by_role("button", name="JSON-import").click()
-    page.locator("textarea[name=payload]").fill(PAYLOAD)
+    page.get_by_role("button", name="Definitie importeren (JSON)…").click()
+    # CR-11 W18 (#1391): the import takes a file only; the paste box is gone.
+    page.locator("input[type=file][name=file]").set_input_files(
+        files=[{"name": "opbouw.json", "mimeType": "application/json", "buffer": PAYLOAD.encode()}]
+    )
 
     imports = []
     page.on("request", lambda r: imports.append(r.url) if "/json-import" in r.url else None)

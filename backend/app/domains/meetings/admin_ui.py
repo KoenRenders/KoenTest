@@ -154,8 +154,6 @@ def _title(meeting) -> str:
 def _list_view(
     request: Request, db: Session, error: Optional[str] = None, q: str = ""
 ) -> MeetingListView:
-    from app.domains.mdm.api import organization_circle
-
     meetings = list_meetings(db)
     zoek = (q or "").strip().lower()
     if zoek:
@@ -171,7 +169,6 @@ def _list_view(
         meetings=meetings,
         q=q,
         dates={m.id: long_date(m.meeting_date) for m in meetings},
-        circle_size=len(organization_circle(db)),
         csrf_token=_csrf(request),
         error=error,
         nav_items=admin_nav(NAV),

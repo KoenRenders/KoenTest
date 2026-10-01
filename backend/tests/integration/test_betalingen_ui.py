@@ -219,6 +219,8 @@ def test_netto_rij_telt_negatieve_refunds_op(client, db_session):
     _login(client)
     html = client.get("/admin/betalingen").text
 
-    netto_rij = html.split(">Netto<")[1].split("</tr>")[0]
-    assert netto_rij.count("€ 9,00") >= 2  # Te betalen én Betaald: 18 + (−9)
+    # Since #1391 (CR-11 W1) the totals stand once, in the tiles: the net row
+    # under the table is gone, and the same arithmetic reads from the tiles.
+    tegels = html[html.index("Netto te betalen") : html.index("Nog af te handelen")]
+    assert tegels.count("€ 9,00") == 2  # Netto te betalen én Ontvangen: 18 + (−9)
     assert "27,00" not in html

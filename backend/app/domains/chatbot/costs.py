@@ -131,20 +131,21 @@ class CallRow:
 
 def list_calls(
     db: Session, *, tenant_id: int, page: int = 1, per_page: int = 50
-) -> tuple[list[CallRow], bool]:
-    """Newest first. Returns the rows and whether there is a next page.
+) -> tuple[list[CallRow], int]:
+    """Newest first. Returns the page and the tenant's number of calls.
 
-    One row extra instead of a COUNT, like the e-mail log: the list grows with
-    every question and a count per page view buys a number nobody reads.
+    Counted since #1391 (CR-11 W8): the pager says "x–y van n" on every list,
+    and "one row extra" could only say "page n".
     """
     page = max(1, page)
     kolommen = [getattr(AiCallLog, f) for f in CallRow.__dataclass_fields__]
+    total = db.query(AiCallLog.id).filter(AiCallLog.tenant_id == tenant_id).count()
     rows = (
         db.query(*kolommen)
         .filter(AiCallLog.tenant_id == tenant_id)
         .order_by(AiCallLog.created_at.desc(), AiCallLog.id.desc())
         .offset((page - 1) * per_page)
-        .limit(per_page + 1)
+        .limit(per_page)
         .all()
     )
-    return [CallRow(*r) for r in rows[:per_page]], len(rows) > per_page
+    return [CallRow(*r) for r in rows], total

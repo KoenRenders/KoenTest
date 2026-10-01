@@ -1,11 +1,9 @@
 <main id="main" class="max-w-7xl mx-auto px-4 py-8">
 <div id="inschrijf-pagina" class="max-w-xl">
 <p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/activiteiten/<ACTIVITY>">‹ Terug</a></p>
-<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
-<div>
-<h1 tabindex="-1" class="text-3xl font-bold text-kop">Karakterisering</h1>
-<p class="text-sm text-gray-500 mt-1">maandag 1 juni 2099 · Los</p>
-</div>
+<div data-page-header class="flex flex-wrap items-start justify-end gap-x-3 gap-y-2 mb-6 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-end md:gap-y-0">
+<h1 tabindex="-1" class="min-w-0 flex-[1_1_33%] text-3xl font-bold text-kop md:col-start-1 md:row-start-1">Karakterisering</h1>
+<p class="order-2 basis-full text-sm text-gray-500 mt-1 md:order-none md:col-start-1 md:row-start-2">maandag 1 juni 2099 · Los</p>
 </div>
 <div class="mb-4 flex flex-wrap gap-2">
 <a href="/activiteiten/<ACTIVITY>/inschrijven/<C:team>" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >Ploegen</a>
@@ -13,6 +11,8 @@
 </div>
 <form hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:plain>" hx-target="#inschrijf-pagina" hx-select="#inschrijf-pagina"
  hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap" class="space-y-3">
+<p class="text-sm text-ink" data-member-nudge>Lid van RAAK?
+ <a class="text-link underline" href="/aanmelden?terug=/activiteiten/<ACTIVITY>/inschrijven/<C:plain>">Log je eerst aan</a>: dan staat de inschrijving bij je gezin.</p>
 <div class="grid grid-cols-1 gap-3">
 <div><label for="contact_name" class="block text-sm font-medium text-gray-700 mb-1">Naam <span class="text-red-600">*</span></label>
 <input type="text" name="contact_name" id="contact_name" required

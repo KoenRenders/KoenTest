@@ -17,8 +17,6 @@
         {{ ui.input_control("name", id="name", required=True, cls="w-full") }}</div>
       <div>{{ ui.label(_("Locatie"), "location") }}
         {{ ui.input_control("location", id="location", cls="w-full") }}</div>
-      <div>{{ ui.label(_("Poster-URL"), "poster_url") }}
-        {{ ui.input_control("poster_url", id="poster_url", placeholder="https://…", cls="w-full") }}</div>
     </div>
     {# #792: the complete first date row, not just the start date. This deliberately
        revises the choice made in #623 ("name and first date suffice"): in practice that
@@ -42,6 +40,14 @@
     </fieldset>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1"> {{ _("Enkel voor leden") }}</label>
     <p class="text-xs text-ink-soft">{{ _("Een affiche opladen kan zodra de activiteit bestaat — dat doe je in de editor.") }}</p>
+    {# #1391 (CR-11 W2): the poster URL folds away, as on the activity's own form. #}
+    {% set _links = 0 %}
+    <details data-external-links>
+      <summary class="cursor-pointer text-sm font-medium text-ink select-none">{{ _("Externe koppelingen") }}{% if _links %}<span class="font-normal text-ink-soft"> · {{ ngettext("%(num)d externe link", "%(num)d externe links", _links) }}</span>{% endif %}</summary>
+      <div class="mt-2 max-w-md">{{ ui.label(_("Poster-URL"), "poster_url") }}
+        {{ ui.input_control("poster_url", id="poster_url", placeholder="https://…", cls="w-full") }}
+        <p class="text-xs text-ink-soft mt-1">{{ _("De affiche maak je in de Design Studio; een adres intypen is de oude weg.") }}</p></div>
+    </details>
   </form>
 </div>
 {% endblock %}

@@ -221,15 +221,17 @@
            één formulier laten zien. #}
         {{ ui.link_action(_("Bekijk"), href=path_for(share_path), attrs='target="_blank"') }}
         {{ ui.link_action(_("Afdruk"), href="/admin/formulieren/" ~ form.id ~ "/afdruk", attrs='target="_blank"') }}
-        {# Downloads staan buiten hx-boost (#634): het antwoord is een bestand, geen HTML. #}
-        {{ ui.link_action(_("Export"), href="/admin/formulieren/" ~ form.id ~ "/export", attrs='hx-boost="false"') }}
-        {{ ui.link_action(_("JSON"), href="/admin/formulieren/" ~ form.id ~ "/json", attrs='hx-boost="false"') }}
+        {# Downloads staan buiten hx-boost (#634): het antwoord is een bestand, geen HTML.
+           CR-11 W14 (#1391): an action sits by the thing it works on. The export
+           of the submissions moved to the Inzendingen tab; what stays here works
+           on the definition, and says so. #}
+        {{ ui.link_action(_("Definitie exporteren (JSON)"), href="/admin/formulieren/" ~ form.id ~ "/json", attrs='hx-boost="false"') }}
         {# #665: import staat hier, maar niet als gelijke van Bekijk/Afdruk/Export —
            die vier zijn onschadelijk, importeren gooit de opbouw weg. Het gewicht
            zit in de eigen bevestigingstekst op de knop die het écht doet, en de
            knop verdwijnt zodra er antwoorden zijn die eraan zouden sneuvelen. #}
         {% if not submission_count %}
-        {{ ui.link_action(_("JSON-import"), attrs='@click="jsonimport = !jsonimport"') }}
+        {{ ui.link_action(_("Definitie importeren (JSON)…"), attrs='@click="jsonimport = !jsonimport"') }}
         {% endif %}
         {# #722: de import staat vóór de bewerktoggle. Deze rij mengt acties op de
            INHOUD (bekijken, afdrukken, exporteren, importeren) met acties op het
@@ -430,15 +432,18 @@
     <p class="text-sm text-gray-600 mt-1">{{ "%s"|format(submission_count) }} {{ _("inzending(en): een import zou de volledige opbouw vervangen en die antwoorden verwijderen, dus hij is hier niet beschikbaar.") }}</p>
   </div>
   {% else %}
-  <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4">
-    <form x-show="jsonimport" x-cloak class="space-y-2" enctype="multipart/form-data"
+  {# #1391 (W18): the x-show sits on the wrapper, not on the form in it; on the
+     form it left the wrapper's padding as an empty blue box while the import
+     was closed (empty since F16 took its footer away). #}
+  <div x-show="jsonimport" x-cloak class="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+    <form class="space-y-2" enctype="multipart/form-data"
           hx-post="/admin/formulieren/{{ form.id }}/json-import" hx-encoding="multipart/form-data"
           hx-target="#fb-detail" hx-swap="innerHTML">
-      <p class="text-xs text-gray-600">Zelfde payload als de admin-API (titel, status, sections[], fields[] met section_index/opties/branching-indexen). De <a href="/static/form-json-formaat.md" class="underline" target="_blank">AI-formaatgids</a> blijft bruikbaar: plak hier de gegenereerde JSON.</p>
-      {{ ui.textarea_control("payload", rows=8, cls="w-full font-mono text-xs") }}
-      {{ ui.upload_field(name="file", text=_("of een .json-bestand kiezen"),
-                         accept="application/json,.json",
-                         hint=_("Een gekozen bestand primeert op de tekst hierboven.")) }}
+      <p class="text-xs text-gray-600">Zelfde payload als de admin-API (titel, status, sections[], fields[] met section_index/opties/branching-indexen). De <a href="/static/form-json-formaat.md" class="underline" target="_blank">AI-formaatgids</a> blijft bruikbaar: bewaar de gegenereerde JSON als bestand.</p>
+      {# CR-11 W18 (#1391): a file comes in through the upload field only, as
+         everywhere a file comes in (§2.6); the paste box is gone. #}
+      {{ ui.upload_field(name="file", text=_("Een .json-bestand kiezen"),
+                         accept="application/json,.json") }}
       {# Eigen bevestigingstekst, geen confirm_attrs(): dat is voor echte
          verwijder-dialogen (Fixed UI decisions). Hier zegt de tekst wat er
          verdwijnt — de opbouw, niet het formulier (#665). #}

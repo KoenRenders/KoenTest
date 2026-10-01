@@ -429,18 +429,10 @@
             </table>
           </div>
 
-          {% if has_prev or has_next %}
-          <nav class="flex items-center justify-between gap-3 mt-3 text-sm" aria-label="{{ _('Paginering') }}">
-            <span class="text-ink-soft">{{ _("Pagina") }} {{ page }}</span>
-            <span class="flex gap-1">
-              {% for label, doel, aan in [(_("‹ Vorige"), page - 1, has_prev), (_("Volgende ›"), page + 1, has_next)] %}
-              <button type="button" name="goto" value="{{ doel }}"
-                      class="px-3 py-1.5 rounded-lg border {{ 'border-gray-300 hover:bg-gray-50' if aan else 'border-gray-200 text-gray-400 cursor-not-allowed' }}"
-                      {% if aan %}hx-get="{{ paneel_url }}"{% else %}disabled aria-disabled="true"{% endif %}>{{ label }}</button>
-              {% endfor %}
-            </span>
-          </nav>
-          {% endif %}
+          {# The kit pager (#1391, CR-11 W8): `goto` is the panel's paging
+             command, and target, swap and the form state are inherited from
+             the panel's outer div. #}
+          {{ ui.pager(page, per_page, total_rows, hx_get=paneel_url, param="goto") }}
           {% endif %}
         </div>
       </div>

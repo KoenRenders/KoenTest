@@ -17,6 +17,17 @@
     {% endif %}
   </div>
 
+  {# CR-11 W7 (#1391): how the letter leaves is said where it leaves, not in the editor. #}
+  <div class="bg-surface border border-line rounded-2xl p-5">
+    <p class="text-xs font-bold uppercase tracking-wider text-ink-soft">{{ _("Zo vertrekt hij") }}</p>
+    <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
+      <dt class="text-ink-soft">{{ _("Van") }}</dt><dd>{{ _("het adres van de vereniging, zoals een inschrijvingsbevestiging") }}</dd>
+      <dt class="text-ink-soft">{{ _("Antwoorden") }}</dt><dd>{{ _("naar de vereniging of naar jezelf — je kiest het hieronder") }}</dd>
+      <dt class="text-ink-soft">{{ _("Per mail") }}</dt><dd>{{ _("één ontvanger — niemand ziet de anderen") }}</dd>
+      <dt class="text-ink-soft">{{ _("Onderaan") }}</dt><dd>{{ _("de naam van de vereniging; bij niet-leden ook de uitschrijflink") }}</dd>
+    </dl>
+  </div>
+
   <fieldset class="bg-surface border border-line rounded-2xl p-5">
     <legend class="sr-only">{{ _("Antwoorden gaan naar") }}</legend>
     <h2 class="font-semibold text-blue-700">{{ _("Antwoorden gaan naar") }}</h2>
@@ -28,11 +39,16 @@
     </div>
   </fieldset>
 
-  <div class="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-    <span class="text-blue-700">{{ ui.icon("send", 18) }}</span>
-    <p class="text-sm text-blue-700"><strong>{{ _("Nagelezen?") }}</strong>
-      {{ _("Stuur eerst een testmail naar jezelf als je dat nog niet deed.") }}</p>
-    <span class="ml-auto shrink-0">{{ ui.btn_primary(_("Versturen (%(n)s)", n=recipient_count), type="submit", lead_icon="send", cls="whitespace-nowrap") }}</span>
+  {# flex-wrap: "Verstuur naar N abonnees" is longer than "Versturen (N)" was,
+     and on a phone it takes a line of its own instead of widening the page. #}
+  <div class="flex flex-wrap items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+    <div class="flex items-center gap-3 min-w-0 flex-1 basis-60">
+      <span class="text-blue-700">{{ ui.icon("send", 18) }}</span>
+      <p class="text-sm text-blue-700"><strong>{{ _("Nagelezen?") }}</strong>
+        {{ _("Stuur eerst een testmail naar jezelf als je dat nog niet deed.") }}</p>
+    </div>
+    {# CR-11 W7 (#1391): the last button names the consequence, not only a count. #}
+    <span class="ml-auto shrink-0">{{ ui.btn_primary(ngettext("Verstuur naar %(num)s abonnee", "Verstuur naar %(num)s abonnees", recipient_count), type="submit", lead_icon="send", cls="whitespace-nowrap") }}</span>
   </div>
 </form>
 {% elif blocked %}

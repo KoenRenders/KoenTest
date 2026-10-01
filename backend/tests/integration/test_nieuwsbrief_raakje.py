@@ -175,17 +175,30 @@ def test_een_naam_uit_het_verslag_vertrekt_niet_en_komt_niet_terug(db_session, r
     assert "Kris" not in json.dumps(turn.proposal)
 
 
-def test_een_niet_aangevinkt_verslag_gaat_nooit_mee(db_session, raakje):
-    """Whole reports are ticked (Koen, 17 September 2026); the latest one is
-    ticked by default, and unticking it keeps the report data out altogether.
+def _previous_letter(db, days_ago):
+    """A letter that went out `days_ago` days ago: what looks back starts there."""
+    from datetime import datetime, timezone
 
-    Broken on purpose: `gather_sources` reading every sent report regardless of
-    the ticks → the unticked report's text is in the payload and this fails.
+    vorige = nb.create_newsletter(db, created_by="s@example.org")
+    nb.update_draft(
+        db, vorige, subject="Vorige", body_html="<div>x</div>", audience=Audience.MEMBERS
+    )
+    vorige.status = LetterStatus.SENT
+    vorige.send_started_at = datetime.now(timezone.utc) - timedelta(days=days_ago)
+    db.commit()
+
+
+def test_een_verslag_van_voor_de_vorige_brief_gaat_nooit_mee(db_session, raakje):
+    """CR-11 W13 (#1391): the reports are not ticked any more; Raakje reads every
+    report since the previous letter, and nothing older.
+
+    Broken on purpose: `reports_since_previous_letter` without the date filter
+    (every sent report) → the older report's text is in the payload and this
+    fails.
     """
-    item = _sent_meeting_with_point(db_session, "<div>Geheim punt over de kas.</div>")
+    _sent_meeting_with_point(db_session, "<div>Geheim punt over de kas.</div>")  # 10 days ago
+    _previous_letter(db_session, days_ago=5)
     letter = nb.create_newsletter(db_session, created_by="s@example.org")
-    assert letter.draft_meeting_ids == [item.meeting_id], "het laatste verslag staat aangevinkt"
-    nb.set_draft_sources(db_session, letter, activity_ids=[], meeting_ids=[])
     provider = raakje(_draft(["Een brief."]), _verdict())
 
     _ask(db_session, letter)
@@ -193,16 +206,19 @@ def test_een_niet_aangevinkt_verslag_gaat_nooit_mee(db_session, raakje):
     assert "geheim punt" not in provider.payloads()
 
 
-def test_een_aangevinkt_verslag_gaat_als_geheel_mee(db_session, raakje):
-    item = _sent_meeting_with_point(db_session, "<div>Iedereen genoot van de soep.</div>")
+def test_elk_verslag_sinds_de_vorige_brief_gaat_als_geheel_mee(db_session, raakje):
+    """No tick needed: a report since the previous letter goes along whole, even
+    when the draft's own list of reports is empty (CR-11 W13)."""
+    _sent_meeting_with_point(db_session, "<div>Iedereen genoot van de soep.</div>")
+    _previous_letter(db_session, days_ago=30)
     letter = nb.create_newsletter(db_session, created_by="s@example.org")
+    nb.set_draft_sources(db_session, letter, activity_ids=[], meeting_ids=[])
     provider = raakje(_draft(["Een brief."]), _verdict())
 
     _ask(db_session, letter)
 
     assert "iedereen genoot van de soep" in provider.payloads()
     assert "intern" in provider.payloads(), "het model hoort dat een verslag intern is"
-    assert item.meeting_id in letter.draft_meeting_ids
 
 
 def test_niemands_adres_en_geen_ontvangerslijst_in_de_payload(db_session, raakje):
@@ -970,3 +986,22 @@ def test_elke_markering_toont_de_zin_waarover_ze_gaat(db_session, client, raakje
     for zin in zinnen:
         assert f"«{zin}»" in scherm, zin
     assert 'name="keep"' in scherm
+
+
+def test_het_paneel_toont_de_verslagen_als_regel_zonder_keuze(client, db_session, monkeypatch):
+    """CR-11 W13 (#1391): no checkbox per report; one line with how many go along.
+
+    Red against master: the panel had a `meeting_id` checkbox per report and no
+    such line.
+    """
+    headers = _login(client)
+    _switch(db_session, monkeypatch, True)
+    _sent_meeting_with_point(db_session, "<div>Een punt.</div>")
+    _previous_letter(db_session, days_ago=30)
+    letter = _letter(db_session)
+
+    html = client.get(f"/admin/nieuwsbrieven/{letter.id}", headers=headers).text
+
+    assert 'id="nb-raakje"' in html, "the panel is on the page"
+    assert 'name="meeting_id"' not in html
+    assert "1 verslag sinds de vorige nieuwsbrief gaat mee." in html

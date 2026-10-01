@@ -192,11 +192,15 @@
         <a href="{{ path_for('/') }}" hx-boost="false" class="px-3 py-1.5 rounded-lg text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">{{ _("Naar de site") }} ↗</a>
         {% if _account %}
         <div x-data="{ acc: false }" class="relative">
+          {# #1391 (CR-11 W9): the trigger reads as a menu — initials and a
+             chevron, hover, a focus ring, aria-haspopup/aria-expanded. The
+             e-mail address moved into the opened menu ("Aangemeld als …"). #}
           <button type="button" @click="acc = !acc" @keydown.escape.window="acc = false"
-                  class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-surface-2"
+                  class="flex items-center gap-1 px-2 py-1.5 rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  aria-haspopup="menu" :aria-expanded="acc.toString()" aria-expanded="false"
                   aria-label="{{ _("Account") }}">
             <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-xs font-bold" aria-hidden="true">{{ _account.initialen }}</span>
-            <span class="text-sm text-ink">{{ _account.email }}</span>
+            {{ ui.icon("chevron-down") }}
           </button>
           {# Golf 9 (#913)/#963: het accountmenu. De inhoud komt lui van de
              server zodra het menu zichtbaar wordt (intersect): of "Werkruimte
@@ -206,10 +210,10 @@
           <div x-show="acc" x-cloak @click.outside="acc = false"
                hx-get="/admin/accountmenu" hx-trigger="intersect once"
                hx-swap="innerHTML"
-               class="absolute right-0 mt-1 w-52 rounded-xl border border-line bg-surface shadow-md py-1 z-40">
-            <a href="/admin/profiel" class="block px-4 py-2 text-sm text-ink hover:bg-surface-2">{{ _("Mijn profiel") }}</a>
-            <div class="border-t border-line my-1"></div>
-            <a href="/afmelden" hx-boost="false" class="block px-4 py-2 text-sm text-brand-danger hover:bg-surface-2">{{ _("Uitloggen") }}</a>
+               class="absolute right-0 mt-1 w-64 rounded-xl border border-line bg-surface shadow-md py-1 z-40">
+            {# The fallback is the fragment itself, without the switch item:
+               one template, so "Aangemeld als" cannot drift between the two. #}
+            {% with toon_wisselen = False %}{% include "_account_menu.html" %}{% endwith %}
           </div>
         </div>
         {% else %}

@@ -132,6 +132,7 @@
   "volume-2": '<path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.4 7.6a1.4 1.4 0 0 1-1 .4H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.4a1.4 1.4 0 0 1 1 .4l3.4 3.4a.7.7 0 0 0 1.2-.5z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.4 5.6a9 9 0 0 1 0 12.7"/>',
   "menu": '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
   "x": '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  "settings": '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
   "send": '<path d="M14.5 21.7a.5.5 0 0 0 .9 0l6.5-19a.5.5 0 0 0-.6-.6l-19 6.5a.5.5 0 0 0 0 .9l7.9 3.2a2 2 0 0 1 1.1 1.1z"/><path d="m21.9 2.1-10.9 10.9"/>',
   "trash-2": '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
   "pencil": '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
@@ -286,17 +287,31 @@
 <p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="{{ href }}">‹ {{ label }}</a></p>
 {%- endmacro %}
 
+{# On a phone the create button stays on the title line (#1391, CR-11 W10).
+   Before, the whole action row wrapped under the title, flush left. Below `md`
+   the action wrapper dissolves (`contents`) so its buttons join the header's
+   own flex row: the LAST action — the primary one, by convention the rightmost
+   — keeps its place beside the title, the others move to a row of their own
+   underneath (`order-1`), right-aligned, and the subtitle comes last, full
+   width. The title truncates (Koen accepted a truncated title, 30 September
+   2026); its 33 % basis is what pushes the secondary buttons off the title
+   line, while it still grows into whatever the primary button leaves. From
+   `md` a grid restores the desktop layout: title and subtitle left, the
+   actions right in their DOM order, aligned to the bottom.
+   `data-page-header` marks the macro's output for tests, so they do not pin
+   the class string. An empty call block (a screen with nothing to add) counts
+   as no actions. #}
 {% macro page_header(title, subtitle=None) -%}
-<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
-  <div>
-    <h1 tabindex="-1" class="text-3xl font-bold text-kop">{{ title }}</h1>
-    {% if subtitle %}<p class="text-sm text-gray-500 mt-1">{{ subtitle }}</p>{% endif %}
-  </div>
+{% set actions = caller() if caller is defined else "" %}
+{% set has_actions = actions | trim | length > 0 %}
+<div data-page-header class="flex flex-wrap items-start justify-end gap-x-3 gap-y-2 mb-6 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-end md:gap-y-0">
+  <h1 tabindex="-1" class="min-w-0 flex-[1_1_33%] text-3xl font-bold text-kop md:col-start-1 md:row-start-1{% if has_actions %} truncate md:whitespace-normal{% endif %}">{{ title }}</h1>
   {# `caller is defined` en niet `if caller` (#643): onder StrictUndefined klapt
      een waarheidstest op een niet-bestaande variabele eruit, en Jinja zet
      `caller` juist op undefined wanneer de macro zónder {% call %} gebruikt
      wordt. `is defined` vraagt naar het bestaan i.p.v. naar de waarde. #}
-  {% if caller is defined %}<div class="flex flex-wrap items-center gap-2">{{ caller() }}</div>{% endif %}
+  {% if has_actions %}<div class="contents [&>*:not(:last-child)]:order-1 md:flex md:flex-wrap md:justify-end md:items-center md:gap-2 md:col-start-2 md:row-start-1 md:row-span-2 md:[&>*:not(:last-child)]:order-none">{{ actions }}</div>{% endif %}
+  {% if subtitle %}<p class="order-2 basis-full text-sm text-gray-500 mt-1 md:order-none md:col-start-1 md:row-start-2">{{ subtitle }}</p>{% endif %}
 </div>
 {%- endmacro %}
 
@@ -701,29 +716,25 @@
    die groeien zegt een reeks knoppen weinig en breekt ze op mobiel. Verbergt
    zichzelf als alles op één pagina past, zodat een lijst met drie rijen geen
    navigatie krijgt. #}
-{% macro pager(page, per_page=None, total=None, hx_get="", hx_target="", include="",
-               has_prev=None, has_next=None) -%}
-{# Twee modi. Mét `total` toont hij "x–y van n" en leidt hij zelf af of er nog een
-   pagina is. Zonder totaal — voor lijsten die bewust géén COUNT doen en één rij
-   extra ophalen — geef je has_prev/has_next mee en toont hij enkel "Pagina n".
-   Een COUNT afdwingen zou die optimalisatie slopen voor een cijfertje. #}
-{% set weet_totaal = total is not none and per_page %}
-{% set pages = ((total - 1) // per_page + 1) if weet_totaal and total else 1 %}
-{% set _prev = (page > 1) if has_prev is none else has_prev %}
-{% set _next = (page < pages) if has_next is none else has_next %}
+{% macro pager(page, per_page, total, hx_get="", hx_target="", include="", param="page") -%}
+{# One wording: "x–y van n" (#1391, CR-11 W8). The "Pagina n" mode for lists
+   that fetched one row extra instead of counting is gone — every list that
+   pages now counts, because "page 3" does not tell anyone how far they are.
+   `param` names the query parameter (the report panel reads `goto`). Without
+   `hx_target` the buttons set no target or swap and inherit them from an
+   ancestor, as the report panel's commands do. #}
+{% set pages = ((total - 1) // per_page + 1) if total else 1 %}
+{% set _prev = page > 1 %}
+{% set _next = page < pages %}
 {% if _prev or _next %}
 <nav class="flex items-center justify-between gap-3 mt-3 text-sm" aria-label="Paginering">
-  {% if weet_totaal %}
   <span class="text-ink-soft">{{ (page - 1) * per_page + 1 }}–{{ [page * per_page, total] | min }} van {{ total }}</span>
-  {% else %}
-  <span class="text-ink-soft">{{ _("Pagina") }} {{ page }}</span>
-  {% endif %}
   <span class="flex gap-1">
     {% for label, target, enabled in [("‹ Vorige", page - 1, _prev), ("Volgende ›", page + 1, _next)] %}
     <button type="button"
             class="px-3 py-1.5 rounded-lg border {{ 'border-gray-300 hover:bg-gray-50' if enabled else 'border-gray-200 text-gray-400 cursor-not-allowed' }}"
-            {% if enabled %}hx-get="{{ hx_get }}{{ '&' if '?' in hx_get else '?' }}page={{ target }}"
-              hx-target="{{ hx_target }}" hx-swap="innerHTML"
+            {% if enabled %}hx-get="{{ hx_get }}{{ '&' if '?' in hx_get else '?' }}{{ param }}={{ target }}"
+              {% if hx_target %}hx-target="{{ hx_target }}" hx-swap="innerHTML"{% endif %}
               {% if include %}hx-include="{{ include }}"{% endif %}
             {% else %}disabled aria-disabled="true"{% endif %}>{{ label }}</button>
     {% endfor %}

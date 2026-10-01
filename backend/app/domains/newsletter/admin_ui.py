@@ -456,8 +456,6 @@ def _compose_view(
     apply_placement: str = "",
     apply_range: str = "",
 ) -> NewsletterComposeView:
-    from app.domains.meetings.api import long_date, sent_reports
-
     counts = nb.audience_counts(db)
     # (code, label, count, hint): the count is on the button, the hint in the
     # tooltip — the choice is one line high (Koen, 17 September 2026). The
@@ -488,7 +486,7 @@ def _compose_view(
     raakje = _raakje_enabled(db)
     past: list = []
     coming: list = []
-    reports: list[tuple[int, str]] = []
+    report_count = 0
     messages = nb.messages_of(db, letter) if raakje else []
     if raakje:
         facts = nb.activity_facts(db, letter.draft_activity_ids, base_url=_base_url(db))
@@ -497,10 +495,7 @@ def _compose_view(
         )
         past = [f for f in chosen if f.is_past]
         coming = [f for f in chosen if not f.is_past]
-        reports = [
-            (m.id, _("Verslag van %(d)s") % {"d": long_date(m.meeting_date)})
-            for m in sent_reports(db)
-        ]
+        report_count = len(nb.reports_since_previous_letter(db))
     return NewsletterComposeView(
         letter=letter,
         counts=counts,
@@ -510,8 +505,7 @@ def _compose_view(
         raakje_enabled=raakje,
         past_activities=past,
         coming_activities=coming,
-        reports=reports,
-        ticked_reports=list(letter.draft_meeting_ids or []),
+        report_count=report_count,
         turns=_turns(messages),
         by_author={m.id: m.role is nb.MessageRole.AUTHOR for m in messages},
         proposals={m.id: nb.display_proposal(db, letter, m) for m in messages if m.proposal},
@@ -945,26 +939,6 @@ def raakje_remove_activity(
         activity_ids=[i for i in letter.draft_activity_ids if i != activity_id],
         meeting_ids=letter.draft_meeting_ids,
     )
-    return _panel(request, db, letter)
-
-
-@router.post(
-    "/admin/nieuwsbrieven/{newsletter_id:int}/raakje/verslagen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-async def raakje_reports(
-    newsletter_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
-):
-    """The ticked meeting reports — the input gate (CR-05 §3.11). Unticking
-    every report keeps the report data out of the letter altogether."""
-    letter = _raakje_letter(db, newsletter_id)
-    form = await request.form()
-    ticked = [int(str(v)) for v in form.getlist("meeting_id") if str(v).isdigit()]
-    nb.set_draft_sources(db, letter, activity_ids=letter.draft_activity_ids, meeting_ids=ticked)
     return _panel(request, db, letter)
 
 

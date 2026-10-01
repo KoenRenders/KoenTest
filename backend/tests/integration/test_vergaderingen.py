@@ -1679,9 +1679,7 @@ def test_de_lijstkop_volgt_de_conventie_van_de_andere_schermen(client, db_sessio
     html = client.get("/admin/vergaderingen").text
 
     # De macro zelf: titelrij met de acties rechts uitgelijnd.
-    assert 'class="flex flex-wrap items-end justify-between gap-3 mb-6"' in html, (
-        "de kop komt niet uit page_header"
-    )
-    assert html.index("Vergaderkring") < html.index("+ Nieuwe vergadering"), (
+    assert "<div data-page-header" in html, "de kop komt niet uit page_header"
+    assert html.index("Instellingen") < html.index("+ Nieuwe vergadering"), (
         "de primaire knop hoort uiterst rechts te staan, dus als laatste"
     )

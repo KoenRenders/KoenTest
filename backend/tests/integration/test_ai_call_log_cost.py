@@ -245,11 +245,11 @@ def test_the_list_has_no_payload_and_shows_the_newest_first(db_session, leeg_log
     _beeld(TENANT, model="tweede")
     _beeld(ANDER, model="elders")
 
-    rows, verder = list_calls(db_session, tenant_id=TENANT, per_page=1)
-    assert [r.model for r in rows] == ["tweede"] and verder
+    rows, total = list_calls(db_session, tenant_id=TENANT, per_page=1)
+    assert [r.model for r in rows] == ["tweede"] and total == 2
     assert not hasattr(rows[0], "payload")
-    rows, verder = list_calls(db_session, tenant_id=TENANT, page=2, per_page=1)
-    assert [r.model for r in rows] == ["eerste"] and not verder
+    rows, total = list_calls(db_session, tenant_id=TENANT, page=2, per_page=1)
+    assert [r.model for r in rows] == ["eerste"] and total == 2, "the other tenant's call counted"
 
 
 # ── The migration's backfill ─────────────────────────────────────────────────

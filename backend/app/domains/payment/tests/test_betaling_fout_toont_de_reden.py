@@ -104,7 +104,7 @@ def test_de_generieke_zin_komt_er_niet_meer_aan_te_pas(client, db_session):
     )
 
     assert 'role="alert"' in resp.text, "de reden staat niet in de foutbanner"
-    assert "Te betalen" in resp.text, "het lijstfragment is niet meegekomen"
+    assert 'id="bt-boven"' in resp.text, "het lijstfragment is niet meegekomen"
 
 
 def test_een_geslaagde_terugbetaling_toont_geen_banner(client, db_session):

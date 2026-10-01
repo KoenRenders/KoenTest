@@ -8,7 +8,7 @@
    groep. De sortering (golf 4-machinerie) geldt binnen elke groep; de
    rij-knop "Details" opent de inschrijvingspagina in leesmodus — daar staat
    de consistente Bewerken-opener (feedback 15 sep). #}
-<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/activiteiten">{{ _("‹ Alle activiteiten") }}</a></p>
+{{ ui.back_link(_("Alle activiteiten"), "/admin/activiteiten") }}
 {% include "_aa_recordkop.html" %}
 {# #1192: the board adds a registration itself. Here and not in the shared group
    template below, which the family tab uses too. #}

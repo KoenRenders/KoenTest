@@ -13,6 +13,13 @@ year and the two before it", and the payment dates are a fixed number of days ag
 so the ageing buckets and the age groups still mean the same thing when this test
 runs next year. What must not move — amounts, counts, statuses — is written out.
 
+**"Today" is the database's today** (#1406). The facts compare against
+``CURRENT_DATE``, so the seed reads the same clock instead of the test process's:
+two clocks drift apart around midnight and across a time zone, and a seed that
+picks its dates from the other one builds a different situation than the view
+reads. It also makes the seed testable on any date — run the database on a
+shifted clock and the whole situation moves with it.
+
 **What is deliberately in here to be caught:**
 
 - a household in tenant B, so a tenant leak shows up as a number that is too high;
@@ -20,12 +27,14 @@ runs next year. What must not move — amounts, counts, statuses — is written 
   ``deleted_at IS NULL`` counts them;
 - a member price, so the registration amount is wrong if the member rule is lost;
 - a registration with no lines, so a fact that inner-joins its lines loses it;
-- **a household that joins in October for next year.** From mid-September a
+- **a household that joins this autumn for next year.** From mid-September a
   membership can be taken out for the following year: ``valid_from`` falls in this
   year while ``year`` is the next one, and the free tail of this year is a gift,
   not a membership of this year. The fact counts it once, in ``year``. A star
   schema that reads the validity dates instead would count it twice, and both
-  numbers would look reasonable.
+  numbers would look reasonable. Its ``valid_from`` is *tomorrow*, so it is not
+  valid today on any day the suite runs (#1406: a fixed 1 October made it valid
+  from 1 October on, and the test that says otherwise went red for a quarter).
 """
 
 from __future__ import annotations
@@ -33,16 +42,24 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
+from sqlalchemy import text
+
 TENANT_A = 2
 TENANT_B = 3
 
 
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
+def _now(db) -> datetime:
+    """The database's clock, as it ticks — the clock the facts read (see the module
+    docstring). `clock_timestamp()` and not `now()`: `now()` is the start of the
+    transaction, so every payment seeded with the same `days_ago` got the very
+    same moment and the export's order between them became a coin toss (#1406,
+    measured: one run in three)."""
+    return db.execute(text("SELECT clock_timestamp()")).scalar_one()
 
 
-def _year() -> int:
-    return date.today().year
+def _today(db) -> date:
+    """The database's ``CURRENT_DATE``, the "today" of every ``*_valid_today``."""
+    return db.execute(text("SELECT CURRENT_DATE")).scalar_one()
 
 
 def seed(db) -> dict:
@@ -60,7 +77,8 @@ def seed(db) -> dict:
     from app.domains.payment.api import PaymentRecord
     from app.soft_delete import soft_delete
 
-    y2 = _year()
+    today = _today(db)
+    y2 = today.year
     y1, y0 = y2 - 1, y2 - 2
     y3 = y2 + 1
     born = date(y2 - 30, 6, 15)
@@ -159,16 +177,20 @@ def seed(db) -> dict:
     ms_h3_y2 = membership(h3, y2)
     membership(hb, y2, tenant=TENANT_B)
 
-    # H4 joins in October of this year for NEXT year. The membership is already
-    # valid — that is the point of the September rule — but it belongs to `year`,
-    # and to that year only.
+    # H4 joins this autumn for NEXT year: it belongs to `year`, and to that year
+    # only. Its validity starts TOMORROW, so it is not valid today whatever day the
+    # suite runs. Until #1406 this said "already valid" and the date was a fixed
+    # 1 October — valid from then on, while the test asserts it is not.
+    # Tomorrow stays before `valid_to` (31 December of next year) every day of the
+    # year, so ck_memberships_valid_period (migration 172) holds; only on
+    # 31 December does tomorrow fall in next year instead of this one.
     db.add(
         Membership(
             tenant_id=TENANT_A,
             member_id=h4.id,
             year=y3,
             is_active=True,
-            valid_from=date(y2, 10, 1),
+            valid_from=today + timedelta(days=1),
             valid_to=date(y3, 12, 31),
         )
     )
@@ -257,7 +279,7 @@ def seed(db) -> dict:
         record_type: str = "charge",
         tenant: int = TENANT_A,
     ):
-        created = _now() - timedelta(days=days_ago)
+        created = _now(db) - timedelta(days=days_ago)
         row = PaymentRecord(
             tenant_id=tenant,
             payable_type=payable_type,

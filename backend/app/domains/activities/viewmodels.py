@@ -4,7 +4,8 @@ Zie `app/ui/viewmodel.py` voor het waarom: een dict is geen belofte.
 """
 
 from dataclasses import dataclass, field
-from typing import Any
+from datetime import date
+from typing import Any, Optional
 
 from app.ui.viewmodel import ViewModel
 
@@ -22,7 +23,7 @@ class AdminActiviteitenView(ViewModel):
     scope: str
     q: str
     # Kengetallen (#528). Ze tellen wat er openstaat, niet wat er toevallig
-    # gefilterd is: een zoekterm mag "Open inschrijvingen" niet doen dalen.
+    # gefilterd is: een zoekterm mag "Activiteiten met open inschrijving" niet doen dalen.
     kpi_open: int
     kpi_vol: int
     kpi_onderdelen: int
@@ -105,5 +106,24 @@ class AdminActiviteitInschrijvingenView(ViewModel):
     # #1070: de bestemming van de Designs-knop in diezelfde kop. Eén label, drie
     # bestemmingen — de keuze valt in `record_kop_ctx`, niet in het sjabloon.
     designs_href: str
+    csrf_token: str
+    nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class CopyActivityView(ViewModel):
+    """`admin_activiteit_kopieren.html`: the step before a copy (#1397).
+
+    `first_date` is None for an activity without dates; then there is nothing to
+    move and the step only confirms. `left_out` names the organisers who are no
+    longer members and so do not come along.
+    """
+
+    activity: Any
+    first_date: Optional[date]
+    same_weekday: Optional[date]
+    same_date: Optional[date]
+    left_out: list[str]
+    error: Optional[str] = None
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)

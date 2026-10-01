@@ -17,7 +17,7 @@ Zo volgt élke ingang — JSON-router, UI-route, script — dezelfde regel.
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
-from datetime import date
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, NamedTuple, Optional
 
 from sqlalchemy import func, not_, nulls_last
@@ -385,6 +385,42 @@ def create_activity(
     krijgen. `dates` bevat objecten met start_date/end_date/start_time/end_time —
     de Pydantic-vorm van de router past daarop, maar de service eist ze niet.
     """
+    activity = _add_activity(
+        db,
+        name=name,
+        location=location,
+        poster_url=poster_url,
+        description=description,
+        members_only=members_only,
+        dates=dates,
+        actor=actor,
+        slug=slug,
+        action="activity_created",
+    )
+    with _rollback_on_rule_violation(db):
+        db.commit()
+    return activity
+
+
+def _add_activity(
+    db: Session,
+    *,
+    name: str,
+    location: str | None,
+    poster_url: str | None,
+    description: str | None,
+    members_only: bool,
+    dates: Iterable[Any],
+    actor: str | None,
+    slug: str | None,
+    action: str,
+) -> Activity:
+    """Add an activity and its dates, with their history, WITHOUT committing.
+
+    `create_activity` commits right after; `copy_activity` (#1397) adds the
+    organisers first, so the copy is one transaction. A rule violation on a date
+    row rolls back here, as before.
+    """
     from app.domains.audit.api import snapshot_activity, snapshot_activity_date
 
     # #884: bij het AANMAKEN een voorstel uit de naam, tenzij er één meegegeven is.
@@ -410,7 +446,7 @@ def create_activity(
         db,
         activity,
         operation="insert",
-        action="activity_created",
+        action=action,
         source="admin_manual",
         actor=actor,
     )
@@ -430,12 +466,137 @@ def create_activity(
                 db,
                 ad,
                 operation="insert",
-                action="activity_created",
+                action=action,
                 source="admin_manual",
                 actor=actor,
             )
-        db.commit()
     return activity
+
+
+class CopySuggestions(NamedTuple):
+    """The two starting dates the copy step offers (#1397)."""
+
+    same_weekday: date  # 52 weeks later: Bouwen, Saturday to Saturday
+    same_date: date  # the same calendar date a year later: Kerstherberg, 25 December
+
+
+def copy_suggestions(first: date) -> CopySuggestions:
+    """Same weekday 52 weeks later, and the same calendar date a year later.
+
+    29 February has no twin in a common year; it becomes 28 February.
+    """
+    try:
+        same_date = first.replace(year=first.year + 1)
+    except ValueError:
+        same_date = first.replace(year=first.year + 1, day=28)
+    return CopySuggestions(same_weekday=first + timedelta(weeks=52), same_date=same_date)
+
+
+def first_date_of(activity: Activity) -> date | None:
+    """The earliest start date of an activity, the one a copy is moved by."""
+    return min((d.start_date for d in activity.dates), default=None)
+
+
+def organisers_left_out_of_a_copy(db: Session, activity: Activity) -> list[ActivityOrganiser]:
+    """The organisers a copy would not take along: no longer a member (#1397).
+
+    `add_organiser` refuses someone who is no member, and a copy is no way
+    around that rule. The copy step shows these before anything is made.
+    """
+    from app.domains.mdm.api import is_member
+
+    return [o for o in activity.organisers if not is_member(db, o.person_id)]
+
+
+def copy_activity(
+    db: Session, activity_id: int, *, first_date: date | None, actor: str | None = None
+) -> Activity | None:
+    """Copy an activity to a new date, in one transaction (#1397).
+
+    Comes along: every field of the activity, its dates moved by one difference
+    in days (the new first date minus the old one; hours stay), and its
+    organisers who are still members. Not: components and products (the board
+    sets those up months ahead, with that year's prices), registrations,
+    payments, history, and the poster (open question for Koen).
+
+    The copy is on the public agenda at once, without a way to register until
+    a component is added. Its slug is suggested from the name, as for a new
+    activity; the original keeps that address, so the copy usually starts
+    without one. Returns None when the activity does not exist.
+    """
+    from types import SimpleNamespace
+
+    from app.domains.activities.models import ActivityOrganiser
+
+    source = _activity_met_boom(db, activity_id)
+    if source is None:
+        return None
+    first = first_date_of(source)
+    if first is not None and first_date is None:
+        from app.i18n import _
+
+        # The rule, not the screen: every date moves by the difference from the
+        # first, so a copy of an activity with dates needs that new first date.
+        raise ActiviteitFout(_("Kies de nieuwe begindatum."))
+    shift = (first_date - first) if (first and first_date) else timedelta(0)
+    left_out = {o.id for o in organisers_left_out_of_a_copy(db, source)}
+    # One transaction: everything below lands, or nothing does. A savepoint and
+    # not `db.rollback()`: a failure undoes the copy and only the copy, whatever
+    # the caller's session already holds. The explicit form and not `with`, as in
+    # `register`: the context-manager form refuses a transaction begun inside it.
+    savepoint = db.begin_nested()
+    try:
+        copy = _add_activity(
+            db,
+            name=source.name,
+            location=source.location,
+            poster_url=None,
+            description=source.description,
+            members_only=source.members_only,
+            dates=[
+                SimpleNamespace(
+                    start_date=d.start_date + shift,
+                    end_date=d.end_date + shift if d.end_date else None,
+                    start_time=d.start_time,
+                    end_time=d.end_time,
+                )
+                for d in sorted(source.dates, key=lambda d: (d.start_date, d.id))
+            ],
+            actor=actor,
+            slug=None,
+            action="activity_copied",
+        )
+        copy.board_notes = source.board_notes
+        for organiser in source.organisers:
+            if organiser.id in left_out:
+                continue
+            db.add(
+                ActivityOrganiser(
+                    activity_id=copy.id,
+                    person_id=organiser.person_id,
+                    sort_order=organiser.sort_order,
+                    is_contact=organiser.is_contact,
+                    email_override=organiser.email_override,
+                    mobile_override=organiser.mobile_override,
+                    show_email=organiser.show_email,
+                    show_mobile=organiser.show_mobile,
+                )
+            )
+        db.flush()
+        from app.kernel.contracts.activities import ActivityCopied
+        from app.kernel.events import publish
+
+        # The poster design is another domain's: it hears the fact, in this
+        # transaction, and copies its own (Koen, 30 September 2026).
+        publish(
+            ActivityCopied(source_activity_id=source.id, copy_activity_id=copy.id, actor=actor),
+            db,
+        )
+    except Exception:
+        savepoint.rollback()
+        raise
+    db.commit()
+    return copy
 
 
 def update_activity(

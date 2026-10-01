@@ -8,10 +8,10 @@
    the saved design again and so drops whatever was typed (#1089). One value,
    because four forms must not drift apart. #}
 {% set editor_url = "/admin/ontwerpen/" ~ design_id ~ "?layout=" ~ layout %}
+{{ ui.back_link(_("Alle ontwerpen"), "/admin/ontwerpen") }}
 {% call ui.page_header(activity_name, _("De feiten (titel, data, plaats, contact) komen van de activiteit. Hier kies je beeld, kleur en ontwerptekst.")) %}
     {{ ui.badge(status_label, status_tone) }}
     {{ ui.btn_secondary(_("Activiteit"), href=facts_href, size="sm") }}
-    {{ ui.btn_secondary(_("Alle ontwerpen"), href="/admin/ontwerpen", size="sm") }}
   {% endcall %}
 {% if error %}{{ ui.error_banner(error) }}{% endif %}
 {% if notice %}{{ ui.success_banner(notice) }}{% endif %}

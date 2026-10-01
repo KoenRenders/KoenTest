@@ -1,6 +1,8 @@
 {% import "_macros.html" as ui %}
 {{ ui.error_banner(error) }}
 <form hx-post="/aanmelden" hx-target="#aanmelden-stap" hx-swap="innerHTML" class="space-y-4">
+  {# #1391 (W17): the page to return to, if one sent the visitor here. #}
+  {% if terug %}<input type="hidden" name="terug" value="{{ terug }}">{% endif %}
   <div>
     <label for="email" class="block text-sm font-medium text-gray-700 mb-1">{{ _("E-mailadres") }}</label>
     {{ ui.input_control("email", type="email", value=email|default(""), required=True, cls="w-full") }}

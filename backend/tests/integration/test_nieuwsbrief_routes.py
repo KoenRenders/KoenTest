@@ -228,7 +228,7 @@ def test_met_een_plaatshouder_toont_het_scherm_de_zin_en_geen_verzendknop(
     stap = client.get(f"/admin/nieuwsbrieven/{letter.id}/versturen")
     assert "Er staat nog een plaatshouder" in stap.text
     assert "«Inschrijven via [e-mailadres].»" in stap.text
-    assert "Versturen (1)" not in stap.text
+    assert "Verstuur naar 1 abonnee" not in stap.text
     poging = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/versturen",
         headers=headers,

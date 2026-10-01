@@ -17,7 +17,7 @@
           {% if not o.is_active %}{{ ui.badge(_("inactief"), "red") }}{% endif %}
         </div>
       </div>
-      <span class="shrink-0 text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
+      <span class="shrink-0 text-sm text-ink-soft" aria-hidden="true">›</span>
     </div>
   </div>
   {% endfor %}

@@ -23,7 +23,7 @@
           {% if u.is_active %}{{ ui.badge(_("actief"), "green") }}{% else %}{{ ui.badge(_("inactief")) }}{% endif %}
         </div>
       </div>
-      <span class="shrink-0 text-sm text-ink-soft">{{ _("Instellingen bewerken") }} ›</span>
+      <span class="shrink-0 text-sm text-ink-soft" aria-hidden="true">›</span>
     </div>
   </a>
   {% endfor %}

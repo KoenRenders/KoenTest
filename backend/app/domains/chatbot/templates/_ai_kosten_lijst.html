@@ -28,7 +28,7 @@
   </tbody>
 </table>
 </div>
-{{ ui.pager(page, has_prev=has_prev, has_next=has_next, hx_get="/admin/info/ai-kosten", hx_target="#ai-oproepen") }}
+{{ ui.pager(page, per_page, total, hx_get="/admin/info/ai-kosten", hx_target="#ai-oproepen") }}
 {% else %}
 {{ ui.empty_state(_("Nog geen AI-oproepen in deze afdeling.")) }}
 {% endif %}

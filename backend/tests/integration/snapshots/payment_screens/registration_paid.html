@@ -1,10 +1,8 @@
 <main id="main" class="flex-1 px-4 py-8">
 <div class="max-w-5xl mx-auto">
-<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/activiteiten/<ACTIVITY>">← Betaalkarakter</a></p>
-<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
-<div>
-<h1 tabindex="-1" class="text-3xl font-bold text-kop">Deelnemer paid</h1>
-</div>
+<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/activiteiten/<ACTIVITY>">‹ Betaalkarakter</a></p>
+<div data-page-header class="flex flex-wrap items-start justify-end gap-x-3 gap-y-2 mb-6 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-end md:gap-y-0">
+<h1 tabindex="-1" class="min-w-0 flex-[1_1_33%] text-3xl font-bold text-kop md:col-start-1 md:row-start-1">Deelnemer paid</h1>
 </div>
 <p class="text-sm text-ink-soft -mt-4 mb-4">
 <a class="text-blue-700 hover:underline" href="/admin/activiteiten/<ACTIVITY>">Betaalkarakter</a> · Deelname · ingeschreven op 01-09-2026
@@ -29,8 +27,14 @@
 <div class="hidden md:block text-[11px] text-ink-soft">Na terugbetalingen</div>
 </div>
 <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
-<div class="text-[11px] text-ink-soft">Openstaand <span class="md:hidden">· 1 boekingen</span></div>
-<div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ -5,00</div>
+<div class="text-[11px] text-ink-soft">Nog af te handelen <span class="md:hidden">· 1 boekingen</span></div>
+<div class="text-right md:text-left font-bold tracking-tight tabular-nums text-orange-700" data-open-sides>
+<span class="inline-block whitespace-nowrap"><span class="text-lg md:text-2xl">€ 0,00</span>
+<span class="text-[11px] font-normal">te ontvangen</span>
+<span class="text-ink-soft font-normal">·</span></span>
+<span class="inline-block whitespace-nowrap"><span class="text-lg md:text-2xl">€ 5,00</span>
+<span class="text-[11px] font-normal">terug te betalen</span></span>
+</div>
 <div class="hidden md:block text-[11px] text-ink-soft">1 boekingen</div>
 </div>
 </div>
@@ -91,7 +95,8 @@
 </tr>
 </thead>
 <tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
+ data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:paid>' ? null : '<REC:paid>'; terug = null }">
 <td class="px-3 py-2 ">
 <span class="font-medium">Deelnemer paid</span>
 <div class="md:hidden mt-1 flex items-center gap-2">
@@ -159,7 +164,8 @@
 </form>
 </td>
 </tr>
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
+ data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:refund_due>' ? null : '<REC:refund_due>'; terug = null }">
 <td class="px-3 py-2 pl-9">
 <span class="text-gray-400" aria-hidden="true">↳</span>
 <span class="font-medium">Deelnemer paid</span>
@@ -221,51 +227,7 @@
 <td></td>
 </tr>
 </tbody>
-<tfoot>
-<tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
-<td colspan="3" class="px-3 py-2">Netto totaal · 2 boekingen</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 15,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-green-700">€ 20,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-green-700">€ -5,00</td>
-<td></td>
-</tr>
-</tfoot>
 </table>
-</div>
-<div class="mb-4 max-w-md">
-<h2 class="text-sm font-semibold text-kop mb-2">Financieel overzicht <span class="font-normal text-ink-soft">· huidige selectie</span></h2>
-<div class="overflow-x-auto">
-<table class="text-xs md:text-sm border border-gray-200 rounded-card overflow-hidden">
-<thead>
-<tr class="bg-gray-50 text-gray-500">
-<th class="px-2 md:px-4 py-2 text-left font-medium"></th>
-<th class="px-2 md:px-4 py-2 text-right font-medium">Te betalen</th>
-<th class="px-2 md:px-4 py-2 text-right font-medium">Betaald</th>
-<th class="px-2 md:px-4 py-2 text-right font-medium">Saldo</th>
-</tr>
-</thead>
-<tbody>
-<tr class="border-t border-gray-100">
-<td class="px-2 md:px-4 py-2 text-gray-700">Betalingen</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ 20,00</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ 20,00</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ 0,00</td>
-</tr>
-<tr class="border-t border-gray-100">
-<td class="px-2 md:px-4 py-2 text-gray-700">Terugbetalingen</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ -5,00</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ 0,00</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ -5,00</td>
-</tr>
-<tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
-<td class="px-2 md:px-4 py-2">Netto</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ 15,00</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ 20,00</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ -5,00</td>
-</tr>
-</tbody>
-</table>
-</div>
 </div>
 </div>
 </div>

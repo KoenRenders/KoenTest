@@ -10,22 +10,28 @@
      `first`/`last` komen uit de VOLLEDIGE lijst, niet uit deze lus: met een filter
      aan is de bovenste zichtbare rij zelden de eerste pagina, en die uitgrijzen zou
      een verplaatsing blokkeren die gewoon kan. #}
-  <div class="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+  {# #1391 (CR-11 W11): the whole card opens the page — a stretched link, as on
+     the forms list (#689): the <a> covers the card as an absolute layer, and
+     only what is positioned itself (the arrows, z-10) lies above it. #}
+  <div class="relative bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+    <a href="/admin/paginas/{{ p.id }}" class="absolute inset-0 rounded-xl" aria-label="{{ p.title }}"></a>
     <div class="flex items-start justify-between gap-3">
-      <a href="/admin/paginas/{{ p.id }}" class="block flex-1 min-w-0">
+      <div class="flex-1 min-w-0">
         <div class="font-semibold text-ink">{{ p.title }}</div>
         <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
           <span class="font-mono text-xs text-ink-soft">/{{ p.slug }}</span>
           {% if p.is_published %}{{ ui.badge(_("gepubliceerd"), "green") }}{% else %}{{ ui.badge(_("concept")) }}{% endif %}
           {% if p.show_in_nav %}{{ ui.badge(_("in navigatie"), "blue") }}{% endif %}
         </div>
-      </a>
+      </div>
       <div class="shrink-0 flex items-center gap-3">
-        {{ ui.reorder(
+        {# Only the arrows lie above the stretched link (their own z-10 layer); the
+           wrapper and the chevron stay under it, so a click there opens the page. #}
+        <div class="relative z-10">{{ ui.reorder(
              up_attrs='hx-post="/admin/paginas/' ~ p.id ~ '/volgorde/omhoog" hx-target="#cp-lijst" hx-swap="innerHTML"',
              down_attrs='hx-post="/admin/paginas/' ~ p.id ~ '/volgorde/omlaag" hx-target="#cp-lijst" hx-swap="innerHTML"',
-             first=(p.id == eerste_id), last=(p.id == laatste_id)) }}
-        <a href="/admin/paginas/{{ p.id }}" class="text-sm text-ink-soft">{{ _("Bewerken") }} ›</a>
+             first=(p.id == eerste_id), last=(p.id == laatste_id)) }}</div>
+        <span class="text-sm text-ink-soft" aria-hidden="true">›</span>
       </div>
     </div>
   </div>

@@ -1,0 +1,48 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Activiteit kopiëren — Raak beheer") }}{% endblock %}
+{% block content %}
+{# #1397: the step before a copy. One choice, where the first date goes; every
+   other date moves by the same number of days. The two suggestions fill in the
+   same field and stay editable. #}
+{{ ui.back_link(activity.name, "/admin/activiteiten/" ~ activity.id) }}
+{{ ui.page_header(_("Activiteit kopiëren"), activity.name) }}
+
+<div id="aa-kopieer" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 max-w-xl">
+  {{ ui.error_banner(error) }}
+  <form class="space-y-4" hx-post="/admin/activiteiten/{{ activity.id }}/kopieren"
+        hx-target="#aa-kopieer" hx-select="#aa-kopieer" hx-swap="outerHTML"
+        x-data="{ datum: '{{ same_weekday.isoformat() if same_weekday else '' }}' }">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if first_date %}
+    <div>
+      <p class="text-sm text-ink-soft">{{ _("Nu begint ze op %(datum)s.", datum=first_date|langedatum) }}</p>
+      <div class="mt-2 flex flex-wrap gap-2">
+        {{ ui.btn_outline(_("Zelfde weekdag, 52 weken later"), size="sm",
+                          attrs='@click="datum = \'' ~ same_weekday.isoformat() ~ '\'"') }}
+        {{ ui.btn_outline(_("Zelfde datum, een jaar later"), size="sm",
+                          attrs='@click="datum = \'' ~ same_date.isoformat() ~ '\'"') }}
+      </div>
+    </div>
+    <div>
+      {{ ui.label(_("Nieuwe begindatum"), "start_date", required=True) }}
+      {{ ui.input_control("start_date", id="start_date", type="date", required=True,
+                          cls="w-full sm:w-auto", attrs='x-model="datum"') }}
+      <p class="text-xs text-ink-soft mt-1">{{ _("Elke datum schuift evenveel dagen op; de uren blijven gelijk.") }}</p>
+    </div>
+    {% else %}
+    <p class="text-sm text-ink-soft">{{ _("Deze activiteit heeft nog geen datum; de kopie krijgt er ook geen.") }}</p>
+    {% endif %}
+
+    <div class="text-sm space-y-1">
+      <p><strong>{{ _("Gaat mee:") }}</strong> {{ _("de activiteit met al haar teksten, de datums en de organisatoren.") }}</p>
+      <p><strong>{{ _("Gaat niet mee:") }}</strong> {{ _("onderdelen, producten en inschrijvingen. De kopie staat meteen op de agenda, zonder inschrijfknop tot je een onderdeel toevoegt.") }}</p>
+      {% if left_out %}
+      <p class="text-brand-danger">{{ _("Niet meer lid, dus niet mee als organisator: %(namen)s.", namen=left_out|join(", ")) }}</p>
+      {% endif %}
+    </div>
+
+    {{ ui.action_bar(cancel_href="/admin/activiteiten/" ~ activity.id, save_label=_("Kopie maken")) }}
+  </form>
+</div>
+{% endblock %}
