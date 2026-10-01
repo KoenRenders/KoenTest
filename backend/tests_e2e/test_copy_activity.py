@@ -98,7 +98,7 @@ def test_copy_from_the_header_to_the_new_activity(phone):
     pagina_klaar(page)
     field = page.locator("#start_date")
     proposed = field.input_value()
-    page.get_by_role("button", name="Zelfde datum, een jaar later").click()
+    page.get_by_role("radio", name="Zelfde datum, een jaar later").check()
     same_date = field.input_value()
     width = page.evaluate(WIDTH)
     print("MEASURE step", {"proposed": proposed, "same_date": same_date, "width": width})

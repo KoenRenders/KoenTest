@@ -539,7 +539,12 @@ def organisers_left_out_of_a_copy(db: Session, activity: Activity) -> list[Activ
 
 
 def copy_activity(
-    db: Session, activity_id: int, *, first_date: date | None, actor: str | None = None
+    db: Session,
+    activity_id: int,
+    *,
+    first_date: date | None,
+    actor: str | None = None,
+    with_components: bool = False,
 ) -> Activity | None:
     """Copy an activity to a new date, in one transaction (#1397).
 
@@ -614,6 +619,8 @@ def copy_activity(
                 )
             )
         db.flush()
+        if with_components:
+            _copy_components(db, source, copy, shift=shift, new_first=first_date, actor=actor)
         from app.kernel.contracts.activities import ActivityCopied
         from app.kernel.events import publish
 
@@ -628,6 +635,72 @@ def copy_activity(
         raise
     db.commit()
     return copy
+
+
+def _copy_components(
+    db: Session,
+    source: Activity,
+    copy: Activity,
+    *,
+    shift: timedelta,
+    new_first: date | None,
+    actor: str | None,
+) -> None:
+    """Copy every component and its products onto `copy` (#1397, ticked).
+
+    Koen, 1 October 2026: name, maximum, team name, pay-on-site, prices, free,
+    publicly bookable; the deadline moves by the same days as the dates. Not the
+    links (an external registration page, a list, an info page or document of
+    last year) and never a registration. A component's question form is copied
+    too, with the new year in its title (`forms.api.copy_form`).
+    """
+    from app.domains.activities.models import ActivityProduct
+    from app.domains.forms.api import copy_form
+
+    old_first = first_date_of(source)
+    old_year = old_first.year if old_first else None
+    new_year = new_first.year if new_first else None
+    for component in source.sub_registrations:
+        new = ActivitySubRegistration(
+            activity_id=copy.id,
+            name=component.name,
+            description=component.description,
+            registration_type_code=component.registration_type_code,
+            max_participants=component.max_participants,
+            registration_closes_on=(
+                component.registration_closes_on + shift
+                if component.registration_closes_on
+                else None
+            ),
+            price=component.price,
+            member_price=component.member_price,
+            is_free=component.is_free,
+            team_name_required=component.team_name_required,
+            sort_order=component.sort_order,
+            form_id=(
+                copy_form(db, component.form_id, old_year=old_year, new_year=new_year)
+                if component.form_id
+                else None
+            ),
+        )
+        _insert_component(db, new, actor=actor, action="component_copied")
+        for product in component.products:
+            _insert_product(
+                db,
+                ActivityProduct(
+                    component_id=new.id,
+                    name=product.name,
+                    price=product.price,
+                    member_price=product.member_price,
+                    is_free=product.is_free,
+                    pay_on_site=product.pay_on_site,
+                    is_active=product.is_active,
+                    max_participants=product.max_participants,
+                    sort_order=product.sort_order,
+                ),
+                actor=actor,
+                action="product_copied",
+            )
 
 
 def update_activity(
@@ -816,8 +889,6 @@ def add_component(
     db: Session, activity_id: int, gegevens: ComponentCreate, *, actor: str | None = None
 ) -> ActivitySubRegistration | None:
     """Voeg een onderdeel toe. None als de activiteit niet bestaat."""
-    from app.domains.audit.api import snapshot_component
-
     if db.query(Activity).filter(Activity.id == activity_id).first() is None:
         return None
     component = ActivitySubRegistration(
@@ -836,19 +907,24 @@ def add_component(
         price=0,
         is_free=True,
     )
-    db.add(component)
-    db.flush()
-    snapshot_component(
-        db,
-        component,
-        operation="insert",
-        action="component_created",
-        source="admin_manual",
-        actor=actor,
-    )
+    _insert_component(db, component, actor=actor, action="component_created")
     db.commit()
     db.refresh(component)
     return component
+
+
+def _insert_component(
+    db: Session, component: ActivitySubRegistration, *, actor: str | None, action: str
+) -> None:
+    """Add a component row with its history, without committing (#1397: shared
+    by `add_component` and `copy_activity`)."""
+    from app.domains.audit.api import snapshot_component
+
+    db.add(component)
+    db.flush()
+    snapshot_component(
+        db, component, operation="insert", action=action, source="admin_manual", actor=actor
+    )
 
 
 def update_component(
@@ -999,7 +1075,6 @@ def add_product(
 ) -> ActivityProduct | None:
     """Voeg een product toe. None als het onderdeel niet bij de activiteit hoort."""
     from app.domains.activities.models import ActivityProduct
-    from app.domains.audit.api import snapshot_product
 
     if get_component(db, component_id, activity_id=activity_id) is None:
         return None
@@ -1015,19 +1090,22 @@ def add_product(
         max_participants=gegevens.max_participants,
         sort_order=gegevens.sort_order,
     )
-    db.add(product)
-    db.flush()
-    snapshot_product(
-        db,
-        product,
-        operation="insert",
-        action="product_created",
-        source="admin_manual",
-        actor=actor,
-    )
+    _insert_product(db, product, actor=actor, action="product_created")
     db.commit()
     db.refresh(product)
     return product
+
+
+def _insert_product(db: Session, product: Any, *, actor: str | None, action: str) -> None:
+    """Add a product row with its history, without committing (#1397: shared by
+    `add_product` and `copy_activity`)."""
+    from app.domains.audit.api import snapshot_product
+
+    db.add(product)
+    db.flush()
+    snapshot_product(
+        db, product, operation="insert", action=action, source="admin_manual", actor=actor
+    )
 
 
 def update_product(
