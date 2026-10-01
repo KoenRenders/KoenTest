@@ -12,22 +12,31 @@
   {{ ui.error_banner(error) }}
   <form class="space-y-4" hx-post="/admin/activiteiten/{{ activity.id }}/kopieren"
         hx-target="#aa-kopieer" hx-select="#aa-kopieer" hx-swap="outerHTML"
-        x-data="{ datum: '{{ same_weekday.isoformat() if same_weekday else '' }}' }">
+        x-data="{ datum: '{{ same_weekday.isoformat() if same_weekday else '' }}', keuze: 'weekdag' }">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {% if first_date %}
-    <div>
-      <p class="text-sm text-ink-soft">{{ _("Nu begint ze op %(datum)s.", datum=first_date|langedatum) }}</p>
-      <div class="mt-2 flex flex-wrap gap-2">
-        {{ ui.btn_outline(_("Zelfde weekdag, 52 weken later"), size="sm",
-                          attrs='@click="datum = \'' ~ same_weekday.isoformat() ~ '\'"') }}
-        {{ ui.btn_outline(_("Zelfde datum, een jaar later"), size="sm",
-                          attrs='@click="datum = \'' ~ same_date.isoformat() ~ '\'"') }}
+    {# Koen, 1 October 2026: two choices as radio buttons, the date field always
+       visible under them. A choice fills the field; typing in it overrides the
+       suggestion, and then neither choice is ticked. #}
+    <fieldset>
+      <legend class="text-sm text-ink-soft">{{ _("Nu begint ze op %(datum)s.", datum=first_date|langedatum) }}</legend>
+      <div class="mt-2 space-y-1 text-sm">
+        <label class="flex items-start gap-2 min-h-11 py-1">
+          <input type="radio" name="voorstel" value="weekdag" x-model="keuze" class="mt-1"
+                 @change="datum = '{{ same_weekday.isoformat() }}'">
+          <span>{{ _("Zelfde weekdag, 52 weken later") }} <span class="text-ink-soft">· {{ same_weekday|langedatum }}</span></span>
+        </label>
+        <label class="flex items-start gap-2 min-h-11 py-1">
+          <input type="radio" name="voorstel" value="datum" x-model="keuze" class="mt-1"
+                 @change="datum = '{{ same_date.isoformat() }}'">
+          <span>{{ _("Zelfde datum, een jaar later") }} <span class="text-ink-soft">· {{ same_date|langedatum }}</span></span>
+        </label>
       </div>
-    </div>
+    </fieldset>
     <div>
       {{ ui.label(_("Nieuwe begindatum"), "start_date", required=True) }}
       {{ ui.input_control("start_date", id="start_date", type="date", required=True,
-                          cls="w-full sm:w-auto", attrs='x-model="datum"') }}
+                          cls="w-full sm:w-auto", attrs='x-model="datum" @input="keuze = \'\'"') }}
       <p class="text-xs text-ink-soft mt-1">{{ _("Elke datum schuift evenveel dagen op; de uren blijven gelijk.") }}</p>
     </div>
     {% else %}
@@ -36,11 +45,19 @@
 
     <div class="text-sm space-y-1">
       <p><strong>{{ _("Gaat mee:") }}</strong> {{ _("de activiteit met al haar teksten, de datums en de organisatoren.") }}</p>
-      <p><strong>{{ _("Gaat niet mee:") }}</strong> {{ _("onderdelen, producten en inschrijvingen. De kopie staat meteen op de agenda, zonder inschrijfknop tot je een onderdeel toevoegt.") }}</p>
+      <p><strong>{{ _("Gaat nooit mee:") }}</strong> {{ _("inschrijvingen, betalingen, de affiche en de links. De kopie staat meteen op de agenda.") }}</p>
       {% if left_out %}
       <p class="text-brand-danger">{{ _("Niet meer lid, dus niet mee als organisator: %(namen)s.", namen=left_out|join(", ")) }}</p>
       {% endif %}
     </div>
+
+    {# Koen, 1 October 2026: off by default — the board usually sets components up
+       months ahead with that year's prices. #}
+    <label class="flex items-start gap-2 text-sm min-h-11">
+      <input type="checkbox" name="with_components" value="true" class="mt-1">
+      <span>{{ _("Ook onderdelen en producten kopiëren") }}
+        <span class="block text-xs text-ink-soft">{{ _("Met hun prijzen en het formulier met vragen; de uiterste inschrijfdatum schuift mee. Zonder dit vinkje staat de kopie op de agenda zonder inschrijfknop tot je een onderdeel toevoegt.") }}</span></span>
+    </label>
 
     {{ ui.action_bar(cancel_href="/admin/activiteiten/" ~ activity.id, save_label=_("Kopie maken")) }}
   </form>

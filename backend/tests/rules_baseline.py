@@ -684,6 +684,7 @@ COMMAND_CALLS: frozenset[str] = frozenset(
     {
         "domains/activities/service.py::take_answers → forms.api.submit_attached",  # CR-14 §B4.2: synchronous refusal and returned id; flush, no commit; Koen 29 Sep 2026
         "domains/activities/service.py::edit_answers → forms.api.update_attached",  # CR-14 §B4.7: synchronous refusal; same coupling as submit_attached; Koen 29 Sep 2026
+        "domains/activities/service.py::_copy_components → forms.api.copy_form",  # #1397: synchronous copy, returned id; Koen 1 Oct 2026; the port follows in its own CR
         "domains/newsletter/service.py::_pictures → media.api.activity_image_path",  # #1368, measured 30 Sep 2026: the walk now sees a flush; media caches a PDF poster's rendering (poster.thumbnail + db.flush) — a read with a cache write, not a coupling to move
         "domains/activities/admin_ui.py::activiteit_bijwerken → media.api.replace_activity_poster",
         "domains/activities/admin_ui.py::affiche_uploaden → media.api.replace_activity_poster",
@@ -694,9 +695,9 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/activities/admin_ui.py::onderdeel_toevoegen → media.api.replace_component_info",
         "domains/activities/router.py::create_registration → payment.api.create_payment_record",
         "domains/activities/service.py::add_activity_date → audit.api.snapshot_activity_date",
-        "domains/activities/service.py::add_component → audit.api.snapshot_component",
+        "domains/activities/service.py::_insert_component → audit.api.snapshot_component",
         "domains/activities/service.py::add_order_line → audit.api.snapshot_registration_item",
-        "domains/activities/service.py::add_product → audit.api.snapshot_product",
+        "domains/activities/service.py::_insert_product → audit.api.snapshot_product",
         "domains/activities/service.py::_add_activity → audit.api.snapshot_activity",
         "domains/activities/service.py::_add_activity → audit.api.snapshot_activity_date",
         "domains/activities/service.py::delete_activity → audit.api.snapshot_activity",

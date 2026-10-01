@@ -1243,6 +1243,57 @@ def _sectie_indexen(secties) -> dict:
     return {s.id: i for i, s in enumerate(secties)}
 
 
+def _with_year(text: str, old_year: Optional[int], new_year: Optional[int], sep: str) -> str:
+    """`text` with `old_year` replaced by `new_year`, or `new_year` added (#1397)."""
+    if new_year is None:
+        return text
+    if old_year is not None and re.search(rf"\b{old_year}\b", text):
+        return re.sub(rf"\b{old_year}\b", str(new_year), text)
+    return f"{text}{sep}{new_year}"
+
+
+def _free_slug(db, base: str) -> Optional[str]:
+    """`base` if no form has it yet, else `base-2`, `base-3`, …; None if unusable."""
+    if not base or not _SLUG_RE.match(base) or base in GERESERVEERDE_SLUGS:
+        return None
+    candidate, n = base, 2
+    while db.query(Form.id).filter(Form.slug == candidate).first() is not None:
+        candidate, n = f"{base}-{n}", n + 1
+    return candidate
+
+
+def copy_form(
+    db, form_id: int, *, share_token: str, old_year: Optional[int], new_year: Optional[int]
+) -> int:
+    """A new form with the same sections, questions and options, and no
+    submissions (#1397); returns its id.
+
+    For a copied activity whose component asks this form's questions. The title
+    gets the new year: the source's year replaced where it stands, otherwise
+    added. The slug follows the same rule and is made unique; the share token is
+    new. The definition travels as `export_definition` writes it — the same path
+    a JSON export and import take, so nothing of the old form's rows comes along.
+    Flushes; the caller's transaction commits.
+    """
+    from app.domains.forms.schemas import FormUpdate
+
+    source = get_form(db, form_id)
+    data = FormUpdate(**export_definition(source))
+    title = _with_year(source.title, old_year, new_year, " ")
+    slug = _free_slug(db, _with_year(source.slug, old_year, new_year, "-")) if source.slug else None
+    copy = Form(title=title, share_token=share_token)
+    db.add(copy)
+    db.flush()
+    validate_definition(data)
+    # `update_settings` writes every setting the definition carries, title and
+    # slug included — the definition has no slug, so both are set after it.
+    update_settings(copy, data)
+    copy.title, copy.slug = title, slug
+    apply_definition(copy, data)
+    db.flush()
+    return copy.id
+
+
 def export_definition(form: Form) -> dict:
     """De definitie zoals de IMPORT haar leest (#692).
 

@@ -339,6 +339,7 @@ def copy_activity_submit(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
     start_date: Optional[date] = Form(None),
+    with_components: bool = Form(False),
 ) -> Response:
     """Make the copy and open it (#1397). The copying, and its rules, are in the
     service; the form's `start_date` is the new start of the first date row."""
@@ -346,7 +347,9 @@ def copy_activity_submit(
     from app.domains.activities.api import copy_activity
 
     try:
-        copy = copy_activity(db, activity_id, first_date=start_date, actor=email)
+        copy = copy_activity(
+            db, activity_id, first_date=start_date, actor=email, with_components=with_components
+        )
     except service.ActiviteitFout as fout:
         view = _copy_view(request, db, activity_id, error=str(fout))
         return templates.TemplateResponse(

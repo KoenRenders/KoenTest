@@ -1,17 +1,18 @@
 """E2E: copy an activity to a next year, at 390 px (#1397).
 
 Measured:
-- "Kopiëren naar een volgend jaar" sits on screen under the date line and adds
-  nothing to the page's width (the header row is wider than a phone on master
-  already, #1387);
+- "Kopiëren" is a button in the header's row, beside Design Studio. The row is
+  wider than a phone on master already (#1387); Koen accepts that it grows, so
+  the page width is recorded, not held;
 - the copy step fits, and the two suggestions fill the date field;
 - the whole way: Kopiëren → "Zelfde datum, een jaar later" → Kopie maken lands on
   the copy's overview;
 - on the public agenda the copy has no registration button and no empty
   "Wie doet er mee?" line, on its card and on its page.
 
-Screenshots go outside the repo. Proven red against master `0bb17459` (served
-from an export of it): the header had no copy link to click.
+Screenshots go outside the repo. Proven red against master `ee4fee11` (served
+from an export of it): there the copy is a text link under the date line, not a
+button in the row.
 """
 
 import os
@@ -78,37 +79,26 @@ def test_copy_from_the_header_to_the_new_activity(phone):
     _, page, activity_id = phone
     page.goto(f"/admin/activiteiten/{activity_id}")
     pagina_klaar(page)
-    # #1387: the header's button row is wider than a phone on master already
-    # (685 px at 390). The link sits under the date line and must add nothing.
-    row = page.evaluate(
-        """() => { const r = document.querySelector('h1').closest('.justify-between');
-                   return Math.round(r.scrollWidth); }"""
-    )
-    link = page.get_by_role("link", name="Kopiëren naar een volgend jaar")
-    box = link.bounding_box()
-    with_link = page.evaluate(WIDTH)[0]
-    without_link = page.evaluate(
-        """() => { const a = [...document.querySelectorAll('a')]
-                     .find(e => e.textContent.trim() === 'Kopiëren naar een volgend jaar');
-                   const p = a.parentElement, keep = p.style.display;
-                   p.style.display = 'none';
-                   const w = document.documentElement.scrollWidth;
-                   p.style.display = keep;
-                   return w; }"""
-    )
-    print("MEASURE header row", row, "page with/without link", with_link, without_link, box)
+    # Koen, 1 October 2026: "Kopiëren" is a button in the header's row, beside
+    # Design Studio. That row is wider than a phone on master already (685 px at
+    # 390, #1387); Koen accepts that it grows, so the width is recorded, not held.
+    button = page.get_by_role("link", name="Kopiëren", exact=True)
+    box = button.bounding_box()
+    studio = page.get_by_role("link", name="Design Studio").bounding_box()
+    width = page.evaluate(WIDTH)
+    print("MEASURE header", {"button": box, "design_studio": studio, "page": width})
     _shot(page, "recordkop")
-    assert box and box["x"] >= 0 and box["x"] + box["width"] <= 390, (
-        f"the link is off screen: {box}"
-    )
-    assert with_link == without_link, "the link widens the page"
+    assert box and studio, "both buttons are in the header"
+    assert abs(box["y"] - studio["y"]) <= 1, "the button sits in the row beside Design Studio"
+    assert 32 <= box["height"] <= 48, f"a button on one line: {box}"
 
+    link = button
     link.click()
     page.wait_for_url(re.compile(rf".*/admin/activiteiten/{activity_id}/kopieren$"))
     pagina_klaar(page)
     field = page.locator("#start_date")
     proposed = field.input_value()
-    page.get_by_role("button", name="Zelfde datum, een jaar later").click()
+    page.get_by_role("radio", name="Zelfde datum, een jaar later").check()
     same_date = field.input_value()
     width = page.evaluate(WIDTH)
     print("MEASURE step", {"proposed": proposed, "same_date": same_date, "width": width})

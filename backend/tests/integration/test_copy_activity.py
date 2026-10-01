@@ -103,12 +103,15 @@ def _bouwen(db) -> Activity:
     return activity
 
 
-def _copy(client, activity_id: int, first_date: date):
+def _copy(client, activity_id: int, first_date: date, *, with_components: bool = False):
     value = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, value)
+    data = {"start_date": first_date.isoformat()}
+    if with_components:
+        data["with_components"] = "true"
     return client.post(
         f"/admin/activiteiten/{activity_id}/kopieren",
-        data={"start_date": first_date.isoformat()},
+        data=data,
         headers={"X-CSRF-Token": csrf_token_for(value)},
     )
 
@@ -304,3 +307,77 @@ def test_a_copy_without_a_new_start_date_is_refused_with_the_reason(client, db_s
     assert "Kies de nieuwe begindatum." in answer.text
     db_session.expire_all()
     assert db_session.query(Activity).count() == count, "no copy"
+
+
+def _question_form(db, title: str, slug: str | None):
+    """An open form with one question, attachable to a component, and one
+    submission — which must not come along."""
+    from app.domains.forms.models import Form, FormField, FormSubmission
+
+    form = Form(title=title, slug=slug, status="open", share_token=f"t-{title[:6]}-{slug}")
+    db.add(form)
+    db.flush()
+    db.add(FormField(form_id=form.id, label="Allergieën?", field_type="text", position=0))
+    db.add(FormSubmission(form_id=form.id, submitter_name="Iemand"))
+    db.flush()
+    return form
+
+
+def test_ticked_components_products_and_their_form_come_along(client, db_session):
+    """Koen, 1 October 2026: with "Ook onderdelen en producten kopiëren" ticked,
+    every component and product comes along, the deadline moves with the dates,
+    and a component's question form is copied with the new year in its title —
+    the original untouched, the copy without submissions. Never a registration."""
+    from app.domains.forms.models import Form, FormField, FormSubmission
+
+    source = _bouwen(db_session)
+    form = _question_form(db_session, "Bouwen 2026 vragen", "bouwen-2026")
+    source.sub_registrations[0].form_id = form.id
+    db_session.commit()
+    source_id, form_id = source.id, form.id
+
+    copy = _new_copy(db_session, _copy(client, source_id, date(2027, 11, 13), with_components=True))
+
+    old = db_session.get(Activity, source_id)
+    assert [c.name for c in copy.sub_registrations] == [c.name for c in old.sub_registrations]
+    for new, was in zip(copy.sub_registrations, old.sub_registrations):
+        assert new.id != was.id
+        assert new.registration_closes_on == was.registration_closes_on + timedelta(days=364)
+        assert (new.price, new.is_free, new.max_participants) == (
+            was.price,
+            was.is_free,
+            was.max_participants,
+        )
+        assert [(p.name, p.price) for p in new.products] == [
+            (p.name, p.price) for p in was.products
+        ]
+    assert db_session.query(Registration).filter(Registration.activity_id == copy.id).count() == 0
+
+    copied_form = db_session.get(Form, copy.sub_registrations[0].form_id)
+    assert copied_form.id != form_id
+    assert copied_form.title == "Bouwen 2027 vragen", "the year in the title is the new one"
+    assert copied_form.slug == "bouwen-2027" and copied_form.share_token != form.share_token
+    assert [f.label for f in copied_form.fields] == ["Allergieën?"]
+    assert (
+        db_session.query(FormSubmission).filter(FormSubmission.form_id == copied_form.id).count()
+        == 0
+    )
+    original = db_session.get(Form, form_id)
+    assert original.title == "Bouwen 2026 vragen" and original.slug == "bouwen-2026"
+    assert db_session.query(FormField).filter(FormField.form_id == form_id).count() == 1
+    assert db_session.query(FormSubmission).filter(FormSubmission.form_id == form_id).count() == 1
+
+
+def test_a_form_title_without_the_year_gets_it_added(client, db_session):
+    from app.domains.forms.models import Form
+
+    source = _bouwen(db_session)
+    form = _question_form(db_session, "Vragen bij het bouwen", None)
+    source.sub_registrations[0].form_id = form.id
+    db_session.commit()
+
+    copy = _new_copy(db_session, _copy(client, source.id, date(2027, 11, 13), with_components=True))
+
+    copied_form = db_session.get(Form, copy.sub_registrations[0].form_id)
+    assert copied_form.title == "Vragen bij het bouwen 2027"
+    assert copied_form.slug is None

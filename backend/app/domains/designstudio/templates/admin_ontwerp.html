@@ -93,7 +93,14 @@
           {% if slot == "third_image_id" %}<p class="text-xs text-ink-soft -mt-1 mb-1">{{ _("Linksonder, onder de kernpunten; alleen in de opmaak 'met beeld'.") }}</p>{% endif %}
           {% call ui.select_control(slot, cls="w-full", attrs='id="ds-' ~ slot ~ '"') %}
             <option value="">{{ _("— geen —") }}</option>
-            {% for opt in image_options %}<option value="{{ opt.id }}"{% if opt.id == current %} selected{% endif %}>{{ opt.label }}</option>{% endfor %}
+            {# #1397: this activity's own pictures first, then per earlier activity
+               under its own heading — a reference, the picture stays there. #}
+            {% set ns = namespace(group="") %}
+            {% for opt in image_options %}
+            {% if opt.group != ns.group %}{% if ns.group %}</optgroup>{% endif %}<optgroup label="{{ _("Van %(activiteit)s", activiteit=opt.group) }}">{% set ns.group = opt.group %}{% endif %}
+            <option value="{{ opt.id }}"{% if opt.id == current %} selected{% endif %}>{{ opt.label }}</option>
+            {% endfor %}
+            {% if ns.group %}</optgroup>{% endif %}
           {% endcall %}
         </div>
         {% endfor %}

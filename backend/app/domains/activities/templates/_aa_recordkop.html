@@ -16,10 +16,6 @@
     {%- if a.dates %}{{ a.dates[0].start_date|langedatum }}{% if a.dates[0].start_time %} · {{ a.dates[0].start_time.strftime("%H.%M") }}{% if a.dates[0].end_time %}–{{ a.dates[0].end_time.strftime("%H.%M") }}{% endif %} u.{% endif %}{% endif %}
     {%- if a.location %} · {{ a.location }}{% endif %}
   </p>
-  {# #1397 (Koen, 1 October 2026): a text link under the date line, not a button
-     in the row beside the title — that row is already wider than a phone (#1387),
-     and this link adds nothing to its width. #}
-  <p class="mt-1">{{ ui.link_action(_("Kopiëren naar een volgend jaar"), href="/admin/activiteiten/" ~ a.id ~ "/kopieren") }}</p>
   </div>
   {# Raakje Admin (golf 10, #913 — Koen: overlay over het record, in de stijl
      van de publieke Raakje). De knop bestaat alleen als de beheer-assistent
@@ -48,6 +44,10 @@
                       href="/admin/media/nieuw?kind=activity_photo&activity_id=" ~ a.id,
                       size="sm") }}
   {{ ui.btn_secondary(_("Design Studio"), href=designs_href, size="sm") }}
+  {# #1397 (Koen, 1 October 2026): a button in this row, like its neighbours.
+     The row is already wider than a phone (#1387); Koen accepts that it grows,
+     and CR-11 takes the row on as a whole. #}
+  {{ ui.btn_secondary(_("Kopiëren"), href="/admin/activiteiten/" ~ a.id ~ "/kopieren", size="sm") }}
   {% if raakje_admin|default(false) %}
   {# #1115: dezelfde overlay als Betalingen, uit `_raakje_overlay.html`. Deze kop
      droeg een eigen kopie zolang #1075 hier openstond; die reden is weg, en twee

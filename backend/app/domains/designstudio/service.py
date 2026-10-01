@@ -907,14 +907,33 @@ async def add_design_image(db: Session, design: Design, upload, *, slot: str = "
 
 
 def image_options(db: Session, design: Design) -> list[dict]:
-    """Activity photos, design images of this activity and fetched AI variants."""
+    """Activity photos and design images of this activity, then those of the
+    activities it was copied from (#1397).
+
+    Koen, 1 October 2026: pictures are reusable over the years. A copied design
+    points at last year's photos, so the choice offers them, each under the
+    name and year of the activity it belongs to (`group`; empty for this
+    activity's own). Choosing one is a reference: no file is copied, and the
+    photo stays with the old activity.
+    """
+    from app.domains.activities.api import predecessors_of
     from app.domains.media.api import list_activity_photos, list_media
 
-    out = [dict(m, source="activity_photo") for m in list_activity_photos(db, design.activity_id)]
-    out += [
-        dict(m, source="design_image")
-        for m in list_media(db, kind="design_image", activity_id=design.activity_id)
-    ]
+    def of(activity_id: int, group: str) -> list[dict]:
+        rows = [
+            dict(m, source="activity_photo", group=group)
+            for m in list_activity_photos(db, activity_id)
+        ]
+        rows += [
+            dict(m, source="design_image", group=group)
+            for m in list_media(db, kind="design_image", activity_id=activity_id)
+        ]
+        return rows
+
+    out = of(design.activity_id, "")
+    for earlier in predecessors_of(db, design.activity_id):
+        label = f"{earlier.name} ({earlier.year})" if earlier.year else earlier.name
+        out += of(earlier.id, label)
     return out
 
 
