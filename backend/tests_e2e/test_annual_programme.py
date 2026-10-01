@@ -1,8 +1,8 @@
-"""E2E: the report "Jaarprogramma" at 390 px (#1428, part B).
+"""E2E: the report "Jaarprogramma" at 390 px (#1428, part B; #1439).
 
 Measured:
-- the report opens from its saved row and lists one line per date of a draft
-  activity, with "Concept" in it;
+- the report opens from its saved row and lists a draft activity of three
+  dates ONCE (#1439), with "Concept" in it and its three dates in one cell;
 - the nine columns scroll inside their own box, within the width;
 - the page is no wider than with an existing report. It is NOT 390: the panel's
   layout switch (Tabel · Gestapeld · Lijst) makes every report page 522 px wide
@@ -32,7 +32,9 @@ _ROWS = """(name) => {
   const rows = [...document.querySelectorAll('tr')].filter(r => r.textContent.includes(name));
   const table = rows.length ? rows[0].closest('table') : null;
   const box = table ? table.parentElement : null;
-  return {rows: rows.length, concept: rows.filter(r => r.textContent.includes('Concept')).length,
+  const cells = rows.length ? [...rows[0].querySelectorAll('td')].map(c => c.textContent.trim()) : [];
+  const dates = cells.map(c => c.split(' · ').length).reduce((a, b) => Math.max(a, b), 0);
+  return {rows: rows.length, concept: rows.filter(r => r.textContent.includes('Concept')).length, dates,
           table: table && Math.round(table.getBoundingClientRect().width),
           box: box && [Math.round(box.getBoundingClientRect().width), getComputedStyle(box).overflowX]};
 }"""
@@ -111,7 +113,8 @@ def test_the_programme_lists_every_date_of_a_draft(phone):
     if os.path.isdir("/scratch"):
         os.makedirs(SHOTS, exist_ok=True)
         page.screenshot(path=f"{SHOTS}/390-jaarprogramma.png", full_page=True)
-    assert m["rows"] == 3 and m["concept"] == 3, m
+    assert m["rows"] == 1 and m["concept"] == 1, m
+    assert m["dates"] == 3, m
     assert m["box"][0] <= 390 and m["box"][1] in ("auto", "scroll"), m
     assert m["table"] > m["box"][0], "the columns are wider than the box, so it scrolls"
     assert width[0] <= existing[0], f"wider than an existing report: {width} vs {existing}"

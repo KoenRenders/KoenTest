@@ -57,15 +57,16 @@ def test_every_date_is_one_line_and_not_four():
     replacing one: the hierarchy appears and the four lines per date stay. So the
     number is asserted, not the presence of the hierarchy.
 
-    Eleven hierarchies of four levels is forty-four objects on eleven lines — the
-    eleventh is the activity date of #1428. Counted over the
+    Twelve hierarchies of four levels is forty-eight objects on twelve lines — the
+    eleventh is the activity date of #1428, the twelfth the first date in the
+    year of #1439. Counted over the
     classes since #901, because the class *Tijd* is gone — each date now sits with
     its subject.
     """
     regels = _datumregels()
     niveaus = sum(len(r.level_keys) for r in regels)
-    assert len(regels) == 11, f"{len(regels)} datumregels: {[r.name for r in regels]}"
-    assert niveaus >= 44, f"{niveaus} niveaus achter {len(regels)} regels"
+    assert len(regels) == 12, f"{len(regels)} datumregels: {[r.name for r in regels]}"
+    assert niveaus >= 48, f"{niveaus} niveaus achter {len(regels)} regels"
 
 
 def test_a_level_is_still_directly_selectable(db_session, situation):
