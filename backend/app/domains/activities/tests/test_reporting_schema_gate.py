@@ -53,6 +53,7 @@ EXPECTED_VIEWS = {
     "f_tasks",
     "f_members",
     "f_activities",
+    "f_activity_dates",
 }
 
 

@@ -1109,6 +1109,7 @@ SCOPE_COUNT_MEASURE = {
     "f_registrations": "registration_count",
     "f_payments": "payment_count",
     "f_activities": "activity_count",
+    "f_activity_dates": "activity_date_count",
 }
 
 _ACTIVITY_FILTER_KEYS = ("activity", "activity_id")

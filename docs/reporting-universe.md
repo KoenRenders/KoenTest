@@ -35,6 +35,7 @@ The role column is the role the fact's **flat dataset dump** will need once the 
 | `f_members` | Gezinnen | één rij per gezin | `admin` | `COUNT(DISTINCT {view}.member_id)` | Elk gezin, ook een dat nooit lid was. Dat is het verschil met Lidmaatschappen, dat alleen gezinnen kent die ooit aansloten. |
 | `f_forms` | Formulieren | één rij per formulier | `admin` | — | Elk formulier, ook een zonder inzendingen. Dat is het verschil met Inzendingen, dat alleen formulieren kent waarop iemand antwoordde. |
 | `f_activities` | Activiteiten | één rij per activiteit | `admin` | — | Elke activiteit, ook een zonder inschrijvingen. Dat is het verschil met Inschrijvingen, dat alleen activiteiten kent waarop iemand inschreef. |
+| `f_activity_dates` | Activiteitsdatums | één rij per datum van een activiteit | `admin` | — | Elke datum van elke activiteit, ook van een concept of een geannuleerde. Een reeks van zes avonden is zes rijen — dat is het verschil met Activiteiten, dat één rij per activiteit telt. |
 | `f_form_submissions` | Formulierinzendingen | één rij per inzending | `admin` | — | Inzendingen op formulieren. Zonder naam of e-mailadres: een rapport telt inzendingen, het formulierscherm toont wat iemand schreef. |
 | `f_tasks` | Taken | één rij per werkbanktaak, open én afgehandeld | `admin` | — | De werkbank: elke taak, met haar status als dimensie. Een definitief mislukte e-mail en een te bevestigen terugbetaling zitten erin als taaksoort — niet als aparte rij ernaast. Filter op Open voor de werkvoorraad; laat het filter weg en je ziet of ze groeit of krimpt. |
 
@@ -64,6 +65,7 @@ The role column is the role the fact's **flat dataset dump** will need once the 
 | `d_done_date` | Afhandeldatum | `date_key` |
 | `d_activity_start` | Startdatum | `date_key` |
 | `d_activity_end` | Einddatum | `date_key` |
+| `d_activity_date` | Activiteitsdatum | `date_key` |
 
 ## Join graph
 
@@ -99,6 +101,8 @@ Every join also matches on `tenant_id`, unconditionally — a dimension row can 
 | `f_activities` | `d_activity_organiser` | `activity_id` = `activity_id` |
 | `f_activities` | `d_activity_start` | `first_date` = `date_key` |
 | `f_activities` | `d_activity_end` | `last_date` = `date_key` |
+| `f_activity_dates` | `d_activity` | `activity_id` = `activity_id` |
+| `f_activity_dates` | `d_activity_date` | `date_key` = `date_key` |
 | `d_member` | `d_board_member` | `board_member_id` = `board_member_id` |
 | `d_person` | `d_address` | `person_id` = `person_id` |
 | `f_members` | `d_person` | `head_person_id` = `person_id` |
@@ -109,7 +113,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Universe role | Meaning | Objects |
 |---|---|---|
-| `admin` | the default: what an admin screen already shows | 89 |
+| `admin` | the default: what an admin screen already shows | 97 |
 | `finance` | money — every measure formatted as money, and the Betalingen class | 31 |
 | `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 10 |
 
@@ -177,6 +181,12 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `end_date_quarter` | Einddatum › Kwartaal | dimension | label | `admin` | admin_plain | `(d_activity_end.year::text \|\| '-K' \|\| d_activity_end.quarter::text)` | De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot kwartaal. |
 | `end_date_month` | Einddatum › Maand | dimension | label | `admin` | admin_plain | `d_activity_end.year_month` | De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot maand. |
 | `end_date_day` | Einddatum › Datum | dimension | date | `admin` | admin_plain | `d_activity_end.date_key` | De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot datum. |
+| `activity_date_year` | Activiteitsdatum › Jaar | dimension | year | `admin` | admin_plain | `d_activity_date.year` | Elke datum van de activiteit, één rij per datum. Opgerold tot jaar. |
+| `activity_date_quarter` | Activiteitsdatum › Kwartaal | dimension | label | `admin` | admin_plain | `(d_activity_date.year::text \|\| '-K' \|\| d_activity_date.quarter::text)` | Elke datum van de activiteit, één rij per datum. Opgerold tot kwartaal. |
+| `activity_date_month` | Activiteitsdatum › Maand | dimension | label | `admin` | admin_plain | `d_activity_date.year_month` | Elke datum van de activiteit, één rij per datum. Opgerold tot maand. |
+| `activity_date_day` | Activiteitsdatum › Datum | dimension | date | `admin` | admin_plain | `d_activity_date.date_key` | Elke datum van de activiteit, één rij per datum. Opgerold tot datum. |
+| `activity_date_time` | Aanvangsuur | detail | label | `admin` | admin_plain | `f_activity_dates.start_time_label` | Het uur waarop de activiteit die dag begint, als 19:30. Leeg als er geen uur is ingevuld. |
+| `activity_date_count` | Aantal activiteitsdatums | measure | count | `admin` | admin_plain | `COUNT(f_activity_dates.activity_date_id)` | Hoeveel datums er gepland zijn. Een reeks van zes avonden telt zes, waar 'Aantal activiteiten' er één telt. |
 | `registration_count` | Aantal inschrijvingen | measure | count | `admin` | admin_plain | `COUNT(DISTINCT f_registrations.registration_id)` | Aantal inschrijvingen, ongeacht hoeveel producten erop staan. Voor 'hoeveel mensen of plaatsen' neem je 'Aantal stuks': één inschrijving kan vier kaarten bevatten. |
 | `registration_quantity` | Aantal stuks | measure | count | `admin` | admin_plain | `SUM(f_registrations.quantity)` | Som van de aantallen op de inschrijfregels — de bezetting, dus wat je neemt voor 'hoeveel deelnemers'. Een inschrijving met vier kaarten telt hier vier en bij 'Aantal inschrijvingen' één. |
 | `registration_amount` | Inschrijfbedrag | measure | money | `finance` | admin_plain | `SUM(f_registrations.line_amount)` | Waarde van de inschrijfregels aan de prijs van dat moment — de omzet uit inschrijvingen, gefactureerd en niet ontvangen. Gratis producten en 'ter plaatse te betalen' tellen niet mee. Wat er werkelijk betaald is, staat bij Betalingen. |
@@ -188,6 +198,8 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `activity_id` | Activiteitnummer | dimension | label | `admin` | admin_plain | `d_activity.activity_id` | Het technische nummer van de activiteit. Niet in het objectenpaneel: het bestaat om op één activiteit te kunnen filteren, want de naam is daar niet eenduidig genoeg voor — een activiteit die elk jaar terugkomt, heet elk jaar hetzelfde (#975). |
 | `activity_year` | Jaar van de activiteit | dimension | year | `admin` | admin_plain | `d_activity.activity_year` | Het jaar van de eerste datum van de activiteit, als eigenschap van de activiteit zelf. Neem dit voor 'welke activiteiten in 2026'; wil je per maand of kwartaal groeperen, gebruik dan Startdatum. Het model kent geen seizoen (CR-06 §12). |
 | `activity_location` | Locatie | dimension | label | `admin` | admin_plain | `d_activity.location` | Waar de activiteit doorgaat, zoals ingevuld bij de activiteit — vrije tekst, dus geen adres en niet genormaliseerd. |
+| `activity_status` | Publicatiestatus | dimension | label | `admin` | admin_plain | `d_activity.status_label` | Concept of Gepubliceerd. Een concept staat nergens op de publieke site; het rapport toont het wel, zodat je ziet wat nog gepubliceerd moet worden. Geannuleerd is een aparte eigenschap. |
+| `activity_target_audience` | Doelpubliek | dimension | label | `admin` | admin_plain | `d_activity.target_audience_label` | Voor wie de activiteit bedoeld is — Gezinnen, Volwassenen, Mannen, Vrouwen, Tieners of Kinderen. Leeg als het bestuur het niet invulde. |
 | `activity_cancelled` | Geannuleerd | dimension | label | `admin` | admin_plain | `CASE WHEN d_activity.is_cancelled THEN 'Ja' ELSE 'Nee' END` | Of de activiteit geannuleerd werd. Geannuleerde activiteiten blijven in de cijfers staan, dus filter hierop als je ze niet wil meetellen. |
 | `activity_members_only` | Enkel voor leden | dimension | label | `admin` | admin_plain | `CASE WHEN d_activity.members_only THEN 'Ja' ELSE 'Nee' END` | Of enkel leden zich mochten inschrijven op deze activiteit. |
 | `activity_count` | Aantal activiteiten | measure | count | `admin` | admin_plain | `COUNT(DISTINCT f_activities.activity_id)` | Elke activiteit, ook zonder inschrijvingen. Verschilt van 'Aantal inschrijvingen', dat de inschrijvingen telt. |

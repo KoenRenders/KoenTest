@@ -341,6 +341,7 @@ DATE_OBJECT_GRAIN: dict[str, str] = {
             "done_date",
             "start_date",
             "end_date",
+            "activity_date",
         )
         for korrel in ("year", "quarter", "month", "day")
     },
@@ -436,6 +437,22 @@ FACTS: tuple[Fact, ...] = (
             "inschreef."
         ),
         dataset_key=("activity_id",),
+    ),
+    # #1428: the annual programme lists every DATE, and `f_activities` folds the
+    # dates of an activity into a first and a last day.
+    Fact(
+        key="f_activity_dates",
+        name="Activiteitsdatums",
+        role=Role.ADMIN,
+        grain="één rij per datum van een activiteit",
+        description=(
+            "Elke datum van elke activiteit, ook van een concept of een "
+            "geannuleerde. Een reeks van zes avonden is zes rijen — dat is het "
+            "verschil met Activiteiten, dat één rij per activiteit telt."
+        ),
+        dataset_key=("activity_date_id",),
+        # In the order of the year, like the programme on paper.
+        detail_order=("{view}.date_key", "{view}.start_time", "{view}.activity_date_id"),
     ),
     Fact(
         key="f_form_submissions",
@@ -533,6 +550,12 @@ DIMENSIONS: tuple[Dimension, ...] = (
         key="d_activity_start", name="Startdatum", key_column="date_key", source_view="d_date"
     ),
     Dimension(key="d_activity_end", name="Einddatum", key_column="date_key", source_view="d_date"),
+    Dimension(
+        key="d_activity_date",
+        name="Activiteitsdatum",
+        key_column="date_key",
+        source_view="d_date",
+    ),
 )
 
 JOINS: tuple[Join, ...] = (
@@ -573,6 +596,11 @@ JOINS: tuple[Join, ...] = (
     Join("f_activities", "d_activity_organiser", (("activity_id", "activity_id"),)),
     Join("f_activities", "d_activity_start", (("first_date", "date_key"),)),
     Join("f_activities", "d_activity_end", (("last_date", "date_key"),)),
+    # #1428: the activity's own fields reach every one of its dates. Not
+    # `d_activity_organiser`: it would split a programme line per organiser; the
+    # programme takes the joined column instead.
+    Join("f_activity_dates", "d_activity", (("activity_id", "activity_id"),)),
+    Join("f_activity_dates", "d_activity_date", (("date_key", "date_key"),)),
     # A snowflake: the board member hangs off the household, not off a fact. Same
     # grain as the household it hangs off, so nothing multiplies (#849).
     Join("d_member", "d_board_member", (("board_member_id", "board_member_id"),)),
@@ -1162,6 +1190,90 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.DATE,
         role=Role.ADMIN,
         description="De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot datum.",
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    # #1428: every date of an activity, not only its first and last.
+    UniverseObject(
+        key="activity_date_year",
+        name="Activiteitsdatum › Jaar",
+        klass="Activiteiten",
+        kind=ObjectKind.DIMENSION,
+        view="d_activity_date",
+        sql="{view}.year",
+        format=Format.YEAR,
+        role=Role.ADMIN,
+        description="Elke datum van de activiteit, één rij per datum. Opgerold tot jaar.",
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="activity_date_quarter",
+        name="Activiteitsdatum › Kwartaal",
+        klass="Activiteiten",
+        kind=ObjectKind.DIMENSION,
+        view="d_activity_date",
+        sql="({view}.year::text || '-K' || {view}.quarter::text)",
+        # With the year in it, for the reason of #912 at `start_date_quarter`.
+        sort_sql="{view}.year, {view}.quarter",
+        format=Format.LABEL,
+        role=Role.ADMIN,
+        description="Elke datum van de activiteit, één rij per datum. Opgerold tot kwartaal.",
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="activity_date_month",
+        name="Activiteitsdatum › Maand",
+        klass="Activiteiten",
+        kind=ObjectKind.DIMENSION,
+        view="d_activity_date",
+        sql="{view}.year_month",
+        format=Format.LABEL,
+        role=Role.ADMIN,
+        description="Elke datum van de activiteit, één rij per datum. Opgerold tot maand.",
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="activity_date_day",
+        name="Activiteitsdatum › Datum",
+        klass="Activiteiten",
+        kind=ObjectKind.DIMENSION,
+        view="d_activity_date",
+        sql="{view}.date_key",
+        format=Format.DATE,
+        role=Role.ADMIN,
+        description="Elke datum van de activiteit, één rij per datum. Opgerold tot datum.",
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="activity_date_time",
+        name="Aanvangsuur",
+        klass="Activiteiten",
+        kind=ObjectKind.DETAIL,
+        view="f_activity_dates",
+        sql="{view}.start_time_label",
+        sort_sql="{view}.start_time",
+        format=Format.LABEL,
+        role=Role.ADMIN,
+        fact="f_activity_dates",
+        description=(
+            "Het uur waarop de activiteit die dag begint, als 19:30. Leeg als er "
+            "geen uur is ingevuld."
+        ),
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="activity_date_count",
+        name="Aantal activiteitsdatums",
+        klass="Activiteiten",
+        kind=ObjectKind.MEASURE,
+        view="f_activity_dates",
+        sql="COUNT({view}.activity_date_id)",
+        format=Format.COUNT,
+        role=Role.ADMIN,
+        fact="f_activity_dates",
+        description=(
+            "Hoeveel datums er gepland zijn. Een reeks van zes avonden telt zes, "
+            "waar 'Aantal activiteiten' er één telt."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     # ── Leden ───────────────────────────────────────────────────────────────
@@ -1777,6 +1889,38 @@ OBJECTS: tuple[UniverseObject, ...] = (
         description=(
             "Waar de activiteit doorgaat, zoals ingevuld bij de activiteit — vrije tekst, "
             "dus geen adres en niet genormaliseerd."
+        ),
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    # #1428: the two fields of part A, as their Dutch label.
+    UniverseObject(
+        key="activity_status",
+        name="Publicatiestatus",
+        klass="Activiteiten",
+        kind=ObjectKind.DIMENSION,
+        view="d_activity",
+        sql="{view}.status_label",
+        format=Format.LABEL,
+        role=Role.ADMIN,
+        description=(
+            "Concept of Gepubliceerd. Een concept staat nergens op de publieke "
+            "site; het rapport toont het wel, zodat je ziet wat nog gepubliceerd "
+            "moet worden. Geannuleerd is een aparte eigenschap."
+        ),
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="activity_target_audience",
+        name="Doelpubliek",
+        klass="Activiteiten",
+        kind=ObjectKind.DIMENSION,
+        view="d_activity",
+        sql="{view}.target_audience_label",
+        format=Format.LABEL,
+        role=Role.ADMIN,
+        description=(
+            "Voor wie de activiteit bedoeld is — Gezinnen, Volwassenen, Mannen, "
+            "Vrouwen, Tieners of Kinderen. Leeg als het bestuur het niet invulde."
         ),
         ai_exposure=AiExposure.PLAIN,
     ),
@@ -2762,6 +2906,12 @@ HIERARCHIES: tuple[Hierarchy, ...] = (
     ),
     Hierarchy(
         key="end_date", name="Einddatum", klass="Activiteiten", level_keys=_date_levels("end_date_")
+    ),
+    Hierarchy(
+        key="activity_date",
+        name="Activiteitsdatum",
+        klass="Activiteiten",
+        level_keys=_date_levels("activity_date_"),
     ),
     Hierarchy(
         key="payment_created",
