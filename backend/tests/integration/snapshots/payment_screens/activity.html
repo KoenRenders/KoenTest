@@ -106,7 +106,8 @@
 </tr>
 </thead>
 <tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
+ data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:refunded>' ? null : '<REC:refunded>'; terug = null }">
 <td class="px-3 py-2 ">
 <span class="font-medium">Deelnemer other</span>
 <div class="md:hidden mt-1 flex items-center gap-2">
@@ -159,7 +160,8 @@
 </div>
 </td>
 </tr>
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
+ data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:failed>' ? null : '<REC:failed>'; terug = null }">
 <td class="px-3 py-2 ">
 <span class="font-medium">Deelnemer other</span>
 <div class="md:hidden mt-1 flex items-center gap-2">
@@ -212,7 +214,8 @@
 </div>
 </td>
 </tr>
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
+ data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:cancelled>' ? null : '<REC:cancelled>'; terug = null }">
 <td class="px-3 py-2 pl-9">
 <span class="text-gray-400" aria-hidden="true">↳</span>
 <span class="font-medium">Deelnemer other</span>
@@ -275,7 +278,8 @@
 </tr>
 </tbody>
 <tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
+ data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:open>' ? null : '<REC:open>'; terug = null }">
 <td class="px-3 py-2 ">
 <span class="font-medium">Deelnemer open</span>
 <div class="md:hidden mt-1 flex items-center gap-2">
@@ -330,7 +334,8 @@
 </tr>
 </tbody>
 <tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
+ data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:partial>' ? null : '<REC:partial>'; terug = null }">
 <td class="px-3 py-2 ">
 <span class="font-medium">Deelnemer partial</span>
 <div class="md:hidden mt-1 flex items-center gap-2">
@@ -385,7 +390,8 @@
 </tr>
 </tbody>
 <tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
+ data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:paid>' ? null : '<REC:paid>'; terug = null }">
 <td class="px-3 py-2 ">
 <span class="font-medium">Deelnemer paid</span>
 <div class="md:hidden mt-1 flex items-center gap-2">
@@ -453,7 +459,8 @@
 </form>
 </td>
 </tr>
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
+ data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:refund_due>' ? null : '<REC:refund_due>'; terug = null }">
 <td class="px-3 py-2 pl-9">
 <span class="text-gray-400" aria-hidden="true">↳</span>
 <span class="font-medium">Deelnemer paid</span>

@@ -268,7 +268,9 @@ def test_inschrijvingen_tab_sorteert_binnen_de_groep(client, db_session):
     basis = f"/admin/leden/gezin/{m.id}/inschrijvingen"
 
     def namen(html):
-        return re.findall(r">(Aaa Eerst|Rita Recordmans)</a>", html)
+        # The name cell of the registrations table: plain text since #1391 (W11),
+        # "Details" is the link into the registration.
+        return re.findall(r'<td class="px-4 py-2">(Aaa Eerst|Rita Recordmans)\b', html)
 
     assert namen(client.get(f"{basis}?sort=naam&richting=asc").text) == [
         "Aaa Eerst",

@@ -28,7 +28,12 @@
 {% set r = k.rec %}
 {# vertical-align: middle zoals de referentie — bedragen en acties
    centreren naast meerregelige naam/context-cellen. #}
-<tr class="border-t border-gray-100 align-middle {{ 'text-ink-soft' if k.get('is_context') else 'hover:bg-blue-50/40' }}">
+{# #1391 (CR-11 W11): no inert row — for whoever may edit, a click anywhere on
+   the row opens it, like the "Bewerken" link; a click on a link, button or
+   field keeps doing its own thing. A context row has no actions (#668). #}
+{% set _opens = is_finance and not k.get('is_context') %}
+<tr class="border-t border-gray-100 align-middle {{ 'text-ink-soft' if k.get('is_context') else 'hover:bg-blue-50/40' }}{{ ' cursor-pointer' if _opens }}"
+    {% if _opens %}data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '{{ r.id }}' ? null : '{{ r.id }}'; terug = null }"{% endif %}>
   <td class="px-3 py-2 {{ 'pl-9' if kind or k.get('is_extra') }}">
     {% if kind or k.get('is_extra') %}<span class="text-gray-400" aria-hidden="true">↳</span> {% endif %}{{ _naam(k) }}
     {% if k.get('is_context') %}<div class="text-[11px]">{{ _("Ter context — valt buiten het filter") }}</div>{% endif %}
