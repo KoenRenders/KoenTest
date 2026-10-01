@@ -23,6 +23,18 @@ one by one later — "laten we dat enkel inbouwen in betalingen, de rest is
 voor later; dan kunnen we stuk per stuk bekijken wat we nog doen en de rest
 parkeren we naar later" (20 September 2026).
 
+**The end goal, sharpened on 1 October 2026.** While validating the quick
+wins on HDEV, Koen reported five corrections of shape in one day — a tile
+with two amounts, a rare section between fields, URL fields side by side,
+figures of one tile row at different heights, a title squeezed by its
+buttons — and had each relayed to this change request. Not because they
+should be fixed one by one, but because he does not want to report such
+things any more: *"ons framework zou dit moeten regelen, verhinderen."*
+That is the end goal in one sentence: **a convention of shape is never
+again something Koen has to notice, explain or decide; the kit makes it or
+a gate refuses it before a screen reaches him.** The measure is in A4 and
+the sign-off in AC8.
+
 **Background that shapes the end state without being in scope:** the
 platform will be used by other organisations than RAAK — a company that
 wants a webshop on it, another association with its own menu and brand.
@@ -95,6 +107,16 @@ with the usability arguments beside it.
 | 48 | **The account menu does not look like a menu** — top right of the admin: initials and an e-mail address, plain; nothing says that clicking them opens "Mijn profiel", "Werkruimte wisselen" and "Uitloggen" | An affordance is missing: the thing that opens is drawn like a label. Every other tool shows an avatar or initials *as a button* with a chevron, or at least a hover and a cursor that say "this opens". Here the user discovers the menu by accident, or not. | **The account control is a button with a chevron, and only the initials.** One macro in the shell: a round badge with the initials (the avatar convention every application shares), a small chevron after it, a hover state and a focus ring, `aria-haspopup`; the e-mail address moves *into* the opened menu as its first line ("Aangemeld als …") instead of sitting in the bar, which also frees the bar on a narrow desktop. The same control opens the same list on a phone, at the bottom of the hamburger sheet (row 47, one source). And the general rule it stands for, next to row 42's ellipsis: **a control that opens something shows that it opens** — a chevron on a menu button, "…" on a button that leads to a step, a disclosure triangle on a collapsible section (row 3); the design system lists the three and the gate flags a click target with an Alpine toggle and none of them. | Koen, 30 Sep 2026 |
 | 49 | **The form builder's action row mixes what a form *is* with what it *collected*, and names the pair unevenly** — Bekijk · Afdruk · Export · JSON · JSON-import in one row above the form: "JSON" is the export of the form's definition, "Export" is the submissions as .ods, "JSON-import" the import; the tab *Inzendingen* has no export of its own | Measured on the builder page (`_fb_builder.html`): five text actions on one line; two of them export different things under two words, one of them imports what the other exports without the pair being named; and the submissions export sits with the form's own actions instead of on the tab that shows the submissions — where, on other screens, the export lives (the component's registrations export, the payments export). | **Actions sit with the thing they act on, and a pair is named as a pair.** The form's *definition* keeps two actions in the record header's menu: "Definitie exporteren (JSON)" and "Definitie importeren (JSON)…" — a named pair, the second with the ellipsis of row 42 and the import-in-steps of row 18, hidden once the form has submissions (#665) as today. The *submissions* export moves to the **Inzendingen tab's toolbar**, as "Export (.ods)" in the `⋯` of row 45's toolbar row — where every embedded or related list has it (rows 19, 29). "Bekijk" and "Afdruk" are the record's own actions and stay in the "Acties" menu of the record header (row 39). The rule, in §3.2 and §3.3: an export of a list belongs to that list's toolbar; an export or import of a record's definition belongs to the record's actions; import and export of the same thing are named as a pair. The gate flags an "Export" outside a list toolbar or a record menu. | Koen, 30 Sep 2026 |
 | 50 | **Editing a component: the arrows, delete, cancel and save line up from the left** — on the activity detail a component card (a "Huisbezoek") carries, in its header, the move-up and move-down arrows, the edit toggle and, once editing, the action bar with Verwijderen · Annuleren · Opslaan, all in one left-aligned row | Measured (`_aa_detail.html`): one flex row holds `reorder`, `edit_toggle` and `action_bar` side by side, so three different kinds of control — ordering, mode, commit — share a line and start at the left, where the card's title already is. Ugly, and not what any other screen does: elsewhere the bar sits at the bottom, right-aligned. It is the per-card editor of row 14 again, with its ordering controls thrown in. | **The repeating group owns the row controls; the screen owns the bar.** With one save per screen (row 14) the per-card bar disappears; a component, a date and a product are rows of a repeating group (row 1) whose macro places the controls in one place for every group: the **ordering handle at the far left** of the row (drag, with up/down arrows for the keyboard), the row's actions — delete, duplicate — in its `⋯` at the far right, nothing else on the row; editing is the screen's "Bewerken", saving the screen's one bar at the bottom (row 22). Until row 14 lands, the interim rule for any per-card bar that still exists: right-aligned, in the card's footer, never in its header beside the title. The gate flags an `action_bar` inside a repeating-group row. | Koen, 30 Sep 2026 |
+| 51 | **The place of one action on a record page was decided four times** — "Kopiëren" on the activity (#1397, 30 September to 1 October 2026): the issue said "in the record header, without widening it"; the build measured that the header's button group is already 685 px wide at 390 px (#1387) and offered three options, and a text link under the date line was chosen; at the validation on HDEV a button was wanted after all, "like on other screens"; then the button row after all, with the overflow accepted as "solved in the GUI redesign" | Four decisions for one button, each a question, a choice and a change by a CLI. Not because anyone was wrong: because nothing said where a record's action sits, in which form, and what yields first on a phone — so every screen invents it, and every validation reopens it. The person who lives with it: "we reinvent every screen; after CR-11 there must be a fixed set of rules, a template and conventions, so this is always built the same way and there is no discussion per screen." | **A placement grammar for actions, per layout and per kind of action, and a header that takes its actions as data.** Four kinds: the *primary* (one, the thing the screen is for), the *record's actions* (bewerken, kopiëren, verwijderen, versturen…), *tools* (photos, Design Studio, AI), and *navigation* (the way back, references). Per layout the rule says where each kind sits and in which form (button, menu item, link); and the phone rule is that there is nothing to overflow: a record header holds at most one primary button and one "Acties" menu, so "does it fit?" is never asked. The macro `record_header(actions=[…])` receives the actions as a list with their kind and places them itself; a screen cannot build its own button row, and the gate refuses one. The four steps above are the test case: with the rule, "Kopiëren" is a record action, so it is an item in the "Acties" menu — decided before the issue was written. B4.3 holds the table; #1387 and #1397's button are its first application in phase 2. | Koen, via the master CLI, 1 Oct 2026 |
+| 52 | **A tile that stacks two amounts** — W1 as decided on 30 September put one tile "Nog af te handelen" with "€ x te ontvangen · € y terug te betalen"; on HDEV (1 October 2026) Koen had it rebuilt as two tiles, "Nog te ontvangen" and "Nog terug te betalen" | Two amounts in one tile are two things to do read as one figure; the eye wants one number per tile, and a click on a tile must open one set of rows — two amounts would open two sets. Decided twice for one tile (Q19, then HDEV): the second decision is the rule the first lacked. | **One tile = one figure = one action.** A tile carries exactly one figure; two things to do are two tiles; a tile never stacks amounts or shows a pair. The tiles macro accepts one figure per tile and nothing else — the rule is in its signature, not in a review. The net figure, when wanted, is a tile of its own or not shown. (W1, built so in v2.11.0.) | Koen, via the master CLI, 1 Oct 2026 |
+| 53 | **A collapsed "rare" section in the middle of the form** — W2 put the component's "Externe koppelingen" where the three URL fields used to be, between the ordinary fields; on HDEV Koen moved it to the bottom, under the info attachment, just above the button row | A disclosure between ordinary fields breaks the reading order: the eye meets a closed box, skips it, and the fields after it read as an afterthought. Rare things belong where the eye arrives last. B4.5 already said "at the bottom"; nothing placed it there mechanically. | **The form layout owns the place of the rare section**: the last block before the action bar, after every ordinary section and after the attachments, never between fields. The `rare_settings` macro is rendered by the form layout in that slot, not by the template where it likes; a `rare_settings` call followed by an ordinary section is red. (W2, built so in v2.11.0.) | Koen, via the master CLI, 1 Oct 2026 |
+| 54 | **Long-value fields side by side** — the three URL fields of that section sat next to each other and were truncated; on HDEV Koen had them stacked, each full width | A URL, an e-mail address, a description, a free-text name are long by nature; next to another field they truncate and the person cannot see what is typed. B4.5 said "full for long content" and left "long" to the template's judgment; the template judged wrong. | **The field knows its width from its kind.** The field macro chooses: `url`, `email`, `textarea`, `rich_text`, a long text → full width, always; `number`, `date`, `time`, `code`, `select` with short options, `switch` → half or quarter; `text` is half unless marked long. A template may make a short field full, never a long field half. Mechanical gate: a `url`, `email` or `textarea` field with `span="half"` or placed in a row with another field is red. (W2, built so in v2.11.0.) | Koen, via the master CLI, 1 Oct 2026 |
+| 55 | **Figures in one tile row at different heights** — on the activities list (W12) the label "Activiteiten met open inschrijving" wraps to two lines and "Volzette onderdelen · van 10" does not, so the "13" sits lower than the "0" | A row of tiles is read as one row of figures; when the figures jump, the eye reads two rows and compares nothing. The height depends on the label's length, which depends on the language and the width — a template cannot promise it. Fixed by dev2 in the shared tile markup as a W12 repair; the rule is what was missing. | **The figures of one tile row sit on one line, whatever the labels do.** The tiles macro fixes it itself, so no template can break it — first tried by anchoring the figure at the bottom of the tile, which row 58 corrects: the label stays on one line and the figure sits directly under it. Mechanical gate: B7 test 20. | Koen, via the master CLI, 1 Oct 2026 |
+| 56 | **A title squeezed into a narrow column by its buttons** — W10 kept the create button on the title line and let the title truncate; on a header with several buttons the title became "Verg… — zondag 1 nove…" | The title is what the page is; the buttons are what you can do with it. A rule that keeps the buttons on the line at the title's expense has the priority backwards: a reader who cannot read the title does not know what the buttons act on. | **The title goes first.** The header lays the title out at the width it needs; the actions move to a line of their own under it *before* the title wraps word by word into a column or truncates to a few letters. A title truncates only at its end when it alone does not fit one line. On a record page (R13: one primary, one menu) the two controls drop under the title at 390 px when the title needs the width; on a list the create button does the same. W10's "the title truncates" is replaced by this rule. | Koen, via the master CLI, 1 Oct 2026 |
+| 57 | **The way back forgets how the list was set** — in the admin's activities list, filter on "Archief", open an activity, edit it, press "‹ Alle activiteiten": the list is back on "Komende". The same on every list with a filter, a search, a sort or pages | The user was working in a view of the list — the archive, a search for a name, page three — and the way back throws it away, so after every record the filter is set again by hand to get the same result. "Heel vervelend"; it comes back on several screens. Measured: the list's state lives in the page, not in its address — the chips swap the list fragment without changing the URL (one list template of all pushes its URL), and the way back is a fixed address (26 templates call `ui.back_link` with a hard-coded list path; three pass a return address by hand). Row 28 and P3 already said "filter state preserved"; nothing made it so. | **A list's state is its address, and the way back is that address.** Every filter, search, sort, page and page size of a list is a query parameter and the list layout pushes it into the URL as it changes — so the state survives a reload, can be bookmarked and shared, and the browser's own back button returns to it. A row's link carries where it came from; the record layout's way back returns there (validated as a path of this portal, never an outside address), and to the list's default only when the record was opened from elsewhere. After saving or cancelling an edit the user is still on the record, and the way back still leads to the list as it was. The scroll position is the browser's on a real back navigation. No screen builds a way back by hand: the layouts own both halves, and the gate refuses a `back_link` with a literal list path on a record page and a filter control that does not push the URL. Usability won on every list at once. | Koen, 1 Oct 2026 |
+| 58 | **Anchoring the figure at the bottom made the tiles tall** — the first repair of row 55 put the figure at the bottom of each tile so the figures lined up under a wrapped label; in practice the tiles grew as high as the longest label, and in the tile with the short label the figure stood far below its text (#1432) | The rule "figures on one line" was right; the mechanism was wrong: it kept the wrapped label and paid for it with height and with a gap between a label and its own figure. A tile is a label and its figure, read together. | **A tile's label is always one line** — too long is cut with "…", never wrapped; **the figure sits directly under the label** at a fixed distance; the figures of a row are then on one line by themselves, and no anchoring is needed. The consequence is for the copy: tile labels are short — "Activiteiten met open inschrijving" became "Open inschrijving" — and the full meaning goes in the tile's `title` and accessible name. The macro clamps the label; the gate measures one-line labels, figure tops within 1 px, and a tile no higher than label plus figure (B7 test 20). | Koen, via the master CLI, 1 Oct 2026 (#1432) |
+| 59 | **A button row that makes the page wider than the phone** — at 390 px every report page is 522 px wide: the row of layout buttons in the reports panel does not wrap. Measured by dev1 on "Jaarprogramma" and on "Betalingen en vorderingen"; it predates v2.11.0 | The whole page scrolls sideways because one row of controls is wider than the screen — the same fault as the activity's record head (#1387), in a toolbar this time. Nothing says what a row of buttons does when it does not fit, so each row does what its markup happens to do. | **A row of controls never widens the page.** One rule for every toolbar and button row, by the kit: on a phone the row wraps onto further lines, and what is secondary goes into the row's `⋯` menu in a fixed order (the least used first); a control row never has `flex-nowrap` or a fixed width. The toolbar macro owns it; the general gate is the page-width check on every screen — at 390 px the document is exactly as wide as the viewport (#1262) — B7 test 22. | Koen, via the master CLI, 1 Oct 2026 |
+| 60 | **A tile label that loses its meaning when cut** — after #1432 (label on one line, cut with "…") the Leden tile reads "Nog niet vernieuwd (2027) · wa…"; the part that fell away, "was lid in 2026", is exactly the meaning | Row 58 made the ellipsis the fallback and the `title` the place for the rest; on a phone there is no hover, so the rest is gone. A label that is cut has failed, not been handled: "tile labels are short" was written as advice, not as a rule. | **The label fits, or it is rewritten.** A tile's label must fit on one line in the narrowest tile of its row at 390 px — the ellipsis is the safety net against a translation or a long name, never the design. What does not fit goes into the tile itself as its one line of context under the figure, or into a hint that works on touch; it is never cut away. The gate fails on any real tile label that is truncated in the rendered screen (its text wider than its box), so a label that is too long is found when it is written. For this tile: "Te vernieuwen (2027)" — proposed, Koen decides the words. | Koen, via the master CLI, 1 Oct 2026 |
 
 ## A3. To-be process — how it should work afterwards
 
@@ -119,6 +141,7 @@ it: one per thing, made by the kit or refused by a gate (B8).
 | Less to explain and less to support: one way per thing means no question "where is save on this screen?". | fewer of the small validation reports (six of twenty-four issues in v2.6.0 were visible faults, per `CLAUDE.md`) |
 | Faster change requests: a pattern is named, not described; a screen extends a layout instead of being drawn. | the hours the person asking spends describing the same thing again — row 1 was one evening for one group |
 | Fewer bugs and fewer regressions: what the template cannot write wrongly does not break, and a pixel diff catches the rest. | the 390 px faults per release, today found by eye |
+| Koen never again reports a correction of shape: no tile, width, placement or alignment rule explained at validation. | **shape corrections per release at HDEV validation** — six of twenty-four issues in v2.6.0; five in one day on 1 October 2026 (rows 52–56). The end state is reached when the count is zero for two consecutive releases that touched screens. |
 | A platform a second organisation can wear: kit apart from brand. | the separate change request for other organisations starts from a base that allows it |
 
 Not quantified in money; the first line is the one that decides.
@@ -157,6 +180,8 @@ B6 where it fits, or handed to its own change request (P8, P9).
 | R10 | A member on the public site is nudged to sign in, without being told whether an address is known. | Should | Koen, 30 Sep 2026 | row 21 |
 | R11 | The change arrives in steps that each impress on their own: quick wins first, then one pilot screen per kind, lived with for a release, then rolled out. | Must | Koen, 30 Sep 2026 | B6 |
 | R12 | What belongs to the kit and what belongs to a tenant's brand stay apart, so another organisation can wear the platform later. | Should | Koen, 30 Sep 2026 | A1 background; own change request |
+| R13 | Where an action sits on a screen, in which form, and what yields first on a phone is decided once per layout and per kind of action; a screen cannot build its own button row, and no validation reopens the question. | Must | Koen, 1 Oct 2026 (after #1397) | row 51; B4.3 |
+| R14 | Returning from a record brings the user back to the list exactly as it was left — the same filter, search, sort and page — on every list, without setting anything again. | Must | Koen, 1 Oct 2026 | row 57; B4.8; sharpens row 28 and P3 |
 | P1 | The admin lists Leden and Activiteiten page like Betalingen does. | Should — phase 5, with the list layout (row 6) | Koen, 20 Sep 2026 | as-is: only Betalingen pages (#1059); decided **together with P2**, because a card list and a dense table page differently |
 | P2 | The admin list screens have one settled shape — table or cards — for Leden, Activiteiten and Betalingen alike. | Must — **decided** 30 Sep 2026 (row 5: tables in the admin, cards on the public site and in media); phases 3–5 apply | Koen, 19 Sep 2026 | "Ik twijfel nog altijd of we betalingen ook niet terug moeten zetten naar de cards"; F10 waits until the dense Betalingen screen has been lived with; one decision covers both directions |
 | P3 | Bulk actions on admin lists (select many, act once). | Could — phase 5: the list layout gets a selection mode with scopes-with-preview; built where a list needs it | Koen, 19 Sep 2026 | "bulk selectie zou ik voorlopig niet doen"; when it comes, scopes-with-preview as sketched in the conventions debate |
@@ -191,6 +216,8 @@ concept is drawn (B2.1).
 | AC4 | The Betalingen list (pilot A) starts in the top third of a 1080 px screen: title row with inline tiles, one toolbar row with count and page size, the row opens the record. | R3 | phase 3 |
 | AC5 | Becoming a member, registering for an activity and answering a form on the public site (pilot B) share one page width, one surface scale, one button bar and the member nudge; the family portal shows the household's registrations with their payment state. | R1, R5, R10, R4 | phase 4 |
 | AC6 | After roll-out every list and record screen of the admin passes the same checks as the pilots, Raakje opens from the same button into the same panel on every enabled module, and the rich-text editor shows one toolbar on the newsletter and the page. | R1, R7, R8 | phase 5 |
+| AC8 | Two consecutive releases that touch screens pass Koen's HDEV validation without a single correction of shape (tile, width, placement, alignment, header, button); every such finding that does occur is already a red gate or a macro's refusal when the next release is built. | R5, R13 | phase 5, then every release |
+| AC9 | On the activities list, choose "Archief", search a word, open an activity, edit and save it, press the way back: the list shows "Archief" with the same search and the same rows; the same on Betalingen with a status and page two, and on Leden with a search. | R14 | phases 3 and 5 |
 | AC7 | Every gate of B7 is red on its additive violation and green on `master`; the screenshot baselines exist for every screen and a shift above that screen's threshold fails the e2e job (B7 test 11: a shifted label fails, antialiasing passes). | R5 | phase 2 onward |
 
 ---
@@ -258,6 +285,8 @@ Decisions that shape it, with the alternatives:
 | F13 | Import in steps for every import; the form import as a file, offered as a way to create. | R9 |
 | F14 | The gates of B7, one per rule, ratchets on today's counts, hard after the phase that clears them; screenshot baselines diffed in CI. | R5 |
 | F15 | The member nudge, unconditional, on every public registration and on "Word lid". | R10 |
+| F16 | Actions as data: `record_header(primary, actions=[{label, kind, …}])` and the list toolbar receive their actions as a list with a kind (record action, tool) and place them by the table of B4.3 — one primary, one menu, nothing to overflow; a `btn_*` call inside a header's call slot that is not the layout's own is red. | R13 |
+| F17 | List state in the URL: the list layout's toolbar pushes every filter, search, sort, page and page size as query parameters (`hx-push-url`) and reads them back on load; a row's link carries the list's current address as its return; the record layout's way back uses it after validating it as a local path, else the list's default. | R14 |
 
 ## B2. Architecture — three readers, three questions
 
@@ -281,6 +310,8 @@ matrix**, one row per requirement, followed left to right:
 | R10 the member nudge | unconditional hint, no lookup | F15 | activities, membership (public) | 16 | AC5 |
 | R11 steps that impress | the phases of B6 | — | — | — | AC1–AC6 in order |
 | R12 kit apart from brand | two token files, the design-system page split accordingly | F8 | kit | 9 | AC2 |
+| R13 actions placed by rule | the placement table of B4.3; the record header and the list toolbar take actions as data and place them; the gate refuses a hand-built button row | F3, F16 | kit; every record page | 17 | AC3 (the activity's head), AC2 |
+| R14 back to the list as it was | the list's state is its URL; the record's way back is the address it was opened from | F2, F3, F17 | kit; every list and record page | 21 | AC9 |
 
 **The walkthrough** is written per pilot, on its concept screenshots,
 before that pilot is built (B6, the concept step); AC3 and AC5 point at
@@ -434,7 +465,7 @@ each phase's issues are written:
 | Phase | ui (kit) | tests (gates) | activities · payment | membership · mdm · forms · public | the rest | Total |
 |---|---|---|---|---|---|---|
 | 0 — end state and concepts | 2 (design-system text, concept screenshots, the two reviews) | — | — | — | — | 2 |
-| 1 — quick wins (nineteen, #1391, in v2.11.0) | — | — | 1.5 | 0.75 | 1.25 | 3.5 |
+| 1 — quick wins (eighteen, #1391, in v2.11.0) | — | — | 1.5 | 0.75 | 1.25 | 3.5 |
 | 2 — foundations (pilot A's) | 4 | 3 | — | — | — | 7 |
 | 3 — pilot A | 1 (tuning) | 0.5 | 4 | — | — | 5.5 |
 | 4 — pilot B | 1 (tuning) | 0.5 | — | 4 | — | 5.5 |
@@ -485,13 +516,26 @@ never move between tabs. (Rows 11, 12, 27, 43.)
 ### B4.2 The list page
 
 Two rows of chrome, then the list. **Title row:** the title; the KPI tiles
-inline at its right — a tile is a figure the reader can act on *and* a
+inline at its right — a tile is **one figure** the reader can act on *and* a
 filter, clicking it filters the list to what it counts; a figure that
-cannot filter is not a tile; then "+ Nieuw" and, when the module has
+cannot filter is not a tile, and a tile never stacks two amounts or a
+pair — two things to do are two tiles (row 52; the macro accepts one
+figure); a tile's label is always one line — cut with "…", never wrapped — and
+the figure sits directly under it at a fixed distance, so the figures of
+one row are on one line by themselves and a tile is never higher than
+its label plus its figure; tile labels are therefore short — **the label fits on one line in the
+narrowest tile of its row at 390 px, or it is rewritten**; the ellipsis is
+a safety net, not the design, and a real label that gets cut is red; what
+does not fit goes into the tile's one line of context or a hint that works
+on touch, never away (rows 55, 58, 60); then "+ Nieuw" and, when the module has
 configuration, "Instellingen" with the gear; nothing else — no link to
 another module, no explanation line. **Toolbar row:** status chips, search,
 filters, the count "x–y van n" with the page size, and `⋯` for export and
-the rest; one row, wrapping only on a phone. **The list:** in the admin
+the rest; one row on a desktop. **A row of controls never widens the
+page** (row 59): on a phone it wraps onto further lines and the secondary
+controls move into the `⋯` menu in a fixed order; the same rule for every
+button row and toolbar in the portal — the reports panel's layout buttons
+among them — owned by the toolbar macro. **The list:** in the admin
 always a table — a picture is a thumbnail column; cards exist only on the
 public site (an activity browsed by its poster) and in the media library (a
 grid of images) — a rule by place, so the classification table records it
@@ -502,7 +546,7 @@ actions keep delete, duplicate and quick state changes under `⋯`. **Bottom:**
 the page navigation, from the same pager macro. A card shows only what
 applies to that record — omitted, not zeroed. Totals live in the tiles and
 nowhere else. Target: on a 1080 px screen the first row sits in the top
-third. (Rows 5, 6, 10, 11, 26, 31, 34, 35, 36, 45.)
+third. (Rows 5, 6, 10, 11, 26, 31, 34, 35, 36, 45, 52, 55, 58, 59, 60.)
 
 ### B4.3 The record page
 
@@ -518,6 +562,34 @@ tiles: the summary card carries the figures), clicking a row there unfolds
 it in place with a jump link to its page; **the form** on the form grid in
 the reading-width column; **one action bar** at the bottom. (Rows 7, 19,
 20, 22, 25, 27, 28, 29, 30, 39, 43, 44.)
+
+**Where an action sits — decided once, per layout and per kind** (row
+51, R13). Four kinds of action, and for each layout one place and one
+form; a screen hands its actions to the layout as data and never draws a
+button row of its own.
+
+| Kind | List page | Record page | Document page | Public page |
+|---|---|---|---|---|
+| **Primary** — the one thing the screen is for | "+ Nieuw <item>", a button in the title row | read mode: "Bewerken"; edit mode: "Opslaan" in the action bar; a record whose point is to be sent: "Versturen…" | "Versturen…" (or the document's one act) | "Inschrijven" (or "Word lid"), a button in the sticky card |
+| **Record actions** — bewerken, kopiëren, verwijderen, heropenen, afdrukken, exporteren of the definition | not on the page: they belong to the record (the row's `⋯` holds only delete, duplicate, a quick state change) | items of the one "Acties ▾" menu, in a fixed order: duplicate · print/export · send · reopen · delete last, after a divider | the same menu | none; a visitor has no record actions |
+| **Tools** — photos, Design Studio, AI, settings | "Instellingen" with the gear in the title row (one button); Raakje is the shell's trigger | in the "Acties ▾" menu under a divider, or on the tab they belong to (photos on the media tab); Raakje is the shell's trigger, never a header button | the same | none in the chrome; Raakje is the shell's trigger |
+| **Navigation** — the way back, references, related lists | the menu; never a header button to another module | the way back on the first line; references as jump links in the facts line; related records as tabs | the same | the way back; links in the text |
+
+The phone rule follows from the table and needs no second table: a record
+header holds **at most one primary button and one menu**, so there is
+nothing to overflow — and **the title goes first** (row 56): the two
+controls stay on the title line while the title fits beside them, and
+drop to a line of their own under it before the title ever wraps into a
+narrow column or truncates to a few letters; a title truncates only at its
+end when it alone does not fit one line. A list's title row does the same
+with the create button, and lets the tiles and the settings button wrap
+under it (W10). The
+question "does this fit at 390 px?" is therefore never asked per screen;
+it was asked four times for one button in #1397, and that is the test
+case of B7 test 17. The record header receives the actions as data —
+`record_header(primary=…, actions=[…])`, each with its kind — and places
+them; `_aa_recordkop.html` (#1387) and the "Kopiëren" of #1397 are the
+first heads rebuilt on it, in phase 2.
 
 ### B4.4 Reading and editing a record
 
@@ -537,17 +609,21 @@ tenant: records like any other. (Rows 4, 13, 14, 39, 44.)
 ### B4.5 The form grid and the field
 
 Rhythm from the tokens: section (32) > field (12) > label (4); a template
-writes no spacing. Two columns at reading width: a field is half by
-default, full for long content, quarter for a number or code; one column
-on a phone. Fields that describe one thing sit in one section with a
+writes no spacing. Two columns at reading width: **the field's kind decides its width**
+(row 54) — `url`, `email`, `textarea`, rich text and a long text are
+always full; a number, date, time, code, short select or switch is half or
+quarter; plain text is half unless marked long; a template may widen a
+short field, never narrow a long one; one column on a phone. Fields that describe one thing sit in one section with a
 heading, in the order a person would say them; fields share a row only when
 they are read together — the address grid is the first instance. A field
 is only ever the field macro, which places label, control, help and error;
 no raw form element in a domain template. **Rare and discouraged
-settings** sit in a collapsed section at the bottom, closed, with a
-one-line summary when set. A **repeating group** is one macro: heading,
+settings** sit in a collapsed section in **the last slot of the form
+layout** — after every ordinary section and the attachments, just above
+the action bar, never between fields (row 53) — closed, with a one-line
+summary when set; the layout places it, the template cannot. A **repeating group** is one macro: heading,
 "add" at its right, rows with row actions, the one-among-many marker, saved
-with the screen, "nog geen …" when empty. (Rows 1, 2, 3, 7, 23, 24.)
+with the screen, "nog geen …" when empty. (Rows 1, 2, 3, 7, 23, 24, 53, 54.)
 
 ### B4.6 Controls, buttons, words
 
@@ -583,8 +659,15 @@ Every reference is a link, rendered by one macro, with one glyph; a link's
 text names its target — a blue name goes to the record it names, and what
 is not a record's name is not blue. Every core entity carries the same
 related-records tabs in the same order. The public family portal gets
-"Onze inschrijvingen" with the payment state per registration. (Rows 19,
-20, 30.)
+"Onze inschrijvingen" with the payment state per registration. **A list's
+state is its address** (row 57, R14): filter, search, sort, page and page
+size are query parameters the list layout pushes into the URL as they
+change, so a reload, a bookmark and the browser's back button all return
+to the same view; a row's link carries that address, and the record
+layout's way back returns to it — validated as a local path, the list's
+default only when the record was opened from elsewhere. Saving or
+cancelling an edit does not lose it. No screen writes a way back by hand.
+(Rows 19, 20, 28, 30, 57.)
 
 ### B4.9 Raakje and the rich-text editor
 
@@ -678,8 +761,8 @@ session.
 | Phase | Delivers | Depends on | Failure paths that change | Manual validation |
 |---|---|---|---|---|
 | **0 — end state and concepts** | the end state as a design: `docs/design-system-end-state.md` (drafted 30 Sep 2026: tokens, layouts, components, patterns, the classification of every screen), folded into `docs/design-system.md` as sections land; concept screenshots of the three layouts and of pilot A and B drawn against real screens; the graphic-design review on them; the classification table of every list and record screen (kind · shape · tiles · card fields · pages · save model) | this document | none | Koen reads the design system and the concepts; the review's findings in the Q&A |
-| **1 — quick wins** | nineteen wins, W1–W19 below (rows 3, 6, 10, 15, 17, 21, 26, 28, 30, 31, 34, 35, 36, 38, 41, 42, 48, 49, 50) — each a small PR that is visible at once, inventoried in #1391 | none | none on the happy path; a send button that reads "Versturen…" where it read "Versturen"; the nudge appears for every anonymous visitor | AC1 on HDEV |
-| **2 — foundations, for pilot A only** | the list and record layouts and the macros pilot A needs (field, form grid, section, repeating group, rare settings, switch, action bar, pager, tiles, toolbar, record header, summary card, reference, related tabs), the token split, the design-system page rendering them live; the gates of B7 as ratchets on A2's counts; screenshot baselines for every existing screen. The document layout, the Raakje panel, the rich-text toolbar and the import steps come at the phase that first needs them (4 and 5) — so a pattern the pilots overturn is not already built everywhere (external review, 30 Sep) | 0 | none: nothing existing moves yet | AC2, AC7 on HDEV |
+| **1 — quick wins** | eighteen wins, W1–W18 below (rows 3, 6, 10, 15, 17, 21, 26, 28, 30, 31, 34, 35, 36, 38, 41, 42, 48, 49, 50) — each a small PR that is visible at once, inventoried in #1391 | none | none on the happy path; a send button that reads "Versturen…" where it read "Versturen"; the nudge appears for every anonymous visitor | AC1 on HDEV |
+| **2 — foundations, for pilot A only** | the list and record layouts and the macros pilot A needs (field, form grid, section, repeating group, rare settings, switch, action bar, pager, tiles, toolbar, record header **with its actions as data — the activity's head (#1387) and the "Kopiëren" of #1397 are its first application, row 51**, summary card, reference, related tabs), the token split, the design-system page rendering them live; the gates of B7 as ratchets on A2's counts; screenshot baselines for every existing screen. The document layout, the Raakje panel, the rich-text toolbar and the import steps come at the phase that first needs them (4 and 5) — so a pattern the pilots overturn is not already built everywhere (external review, 30 Sep) | 0 | none: nothing existing moves yet | AC2, AC7 on HDEV |
 | **3 — pilot A** | the activity record page and the Betalingen list on the layouts, with their embedded tabs; lived with for a release and tuned; the usability review on the concept before the build | 2 | a record saved as a whole: a failed save keeps every change on screen (today a per-card save loses the others); leaving with unsaved changes now warns | AC3, AC4 on HDEV, then one release in use |
 | **4 — pilot B** | "Word lid", the family portal with "Onze inschrijvingen", the registration page and the public form on the layouts, surfaces and grid; the nudge; the featured activity on the homepage as a CMS choice (P4); the household record page in the admin as one save; usability review first | 2 (3 for the household record page) | the household saved as a whole, same as pilot A; the nudge appears for everyone | AC5 on HDEV, then one release in use |
 | **5 — roll-out** | every remaining screen onto its layout; pagination on every list (P1); the column chooser and, where a list needs it, the selection mode with scopes-with-preview (P3, P6); Raakje's trigger and panel with its insights (P5); the rich-text toolbar; users, organisation, tenant as records; the gates hard; the fixed UI decisions in `CLAUDE.md` rewritten | 3, 4 tuned | per screen the same as the pilots; the assistant page and the per-screen AI buttons gone | AC6, AC7 on HDEV; the screenshot set |
@@ -695,8 +778,8 @@ in #1391, with the DOM measurement each win hands over.
 
 | # | Screen | What changes | Row |
 |---|---|---|---|
-| W1 | Betalingen | The `tfoot` total and the "Financieel overzicht" block under the table go; the totals live in the three tiles only (the per-registration subtotal row stays — a subtotal, not a total). The third tile becomes "Nog af te handelen" with both amounts the same size — "€ 120 te ontvangen · € 120 terug te betalen" — and no net figure, so a coincidental net of zero never reads as "nothing to do" (Q19, Koen, 30 Sep 2026). | 10 |
-| W2 | Activiteit and onderdeel | The same collapsed section "Externe koppelingen" at the bottom of both forms, closed by default, with a one-line summary when set: on the component its three external links (`external_register_url`, `external_registrations_url`, `info_url`); on the activity its one, the poster URL (`poster_url`) — typing a poster's address is the way from before the Design Studio, kept for the odd case and discouraged since. One field is enough to earn the section: the point is that the discouraged path looks the same on both levels. A native `<details>`; the section macro is phase 2. | 3 |
+| W1 | Betalingen | The `tfoot` total and the "Financieel overzicht" block under the table go; the totals live in the three tiles only (the per-registration subtotal row stays — a subtotal, not a total). The third tile was first decided as "Nog af te handelen" with both amounts (Q19, 30 Sep) and then, on HDEV on 1 October 2026, rebuilt as **two tiles**, "Nog te ontvangen" and "Nog terug te betalen" — one figure per tile (row 52); no net figure, so a coincidental net of zero never reads as "nothing to do". | 10, 52 |
+| W2 | Activiteit and onderdeel | The same collapsed section "Externe koppelingen" at the bottom of both forms, closed by default, with a one-line summary when set: on the component its three external links (`external_register_url`, `external_registrations_url`, `info_url`); on the activity its one, the poster URL (`poster_url`) — typing a poster's address is the way from before the Design Studio, kept for the odd case and discouraged since. One field is enough to earn the section: the point is that the discouraged path looks the same on both levels. A native `<details>`; the section macro is phase 2. On HDEV (1 October 2026) two corrections became rules: the section sits at the very bottom, above the button row, never between fields (row 53); the URL fields inside it stack, each full width (row 54). | 3, 53, 54 |
 | W3 | Pagina's (CMS) | The editor's own button bar and the Trix toolbar stick to the top of the viewport, under the header row that already sticks, so an image can be inserted at the bottom without scrolling up. | 15 |
 | W4 | Vergaderingen | The header button "Vergaderkring" becomes "Instellingen" with the gear, its page titled so and holding the circle (the URL stays; renaming it is phase 5); the stray line "De vergaderkring telt 3 personen. Beheer de kring" under the list goes. | 34 |
 | W5 | Organisaties · Raakje-pagina | The header buttons "Naar de tenants" and "Naar de rapporten" go; the menu already has both. | 35 |
@@ -704,16 +787,15 @@ in #1391, with the DOM measurement each win hands over.
 | W7 | Nieuwsbrief · Vergadering | Every send button that opens a further step ends in "…" (the newsletter's already does; the meeting's "Verstuur agenda" / "Verstuur verslag" become "Agenda versturen…" / "Verslag versturen…"); the last button on the send page names the consequence ("Verstuur naar 312 abonnees" instead of "Versturen (312)"; the meeting's already does); the card "Zo vertrekt hij" moves from the editor to the send page. | 42 |
 | W8 | AI-oproepen · e-maillogboek · Rapporten | `ui.pager` loses its "Pagina n" branch; the three lists that used it pass a counted total and say "x–y van n"; the reports panel uses the macro instead of its own copy. | 6 |
 | W9 | Admin shell | The account control top right shows the initials only, as a button with a chevron, hover, focus ring and `aria-haspopup`; the e-mail address moves into the opened menu as its first line. The phone side — the account items in the hamburger sheet — is #1381, which Koen took out of v2.11.0 and folded into row 47 (phase 2, one navigation source). | 48 |
-| W10 | Every list, on a phone | `page_header` keeps the create button on the title row (the title truncates — accepted by Koen, 30 Sep 2026; the call slot does not wrap); the secondary buttons may wrap under it. Measured at 390 px on the headers with two and three buttons. | 31 |
+| W10 | Every list, on a phone | `page_header` keeps the create button on the title row when the title fits beside it; otherwise the actions drop to a line of their own under the title — **the title goes first** (row 56, Koen on HDEV, 1 Oct 2026, replacing "the title truncates" of 30 Sep). Measured at 390 px on the headers with two and three buttons. | 31, 56 |
 | W11 | Betalingen · registrations tabs · six card lists | On Betalingen a click on the row does what "Bewerken" does, so no row is inert. In the registrations groups the contact's name is plain text — blue promised the person and opened the registration; "Details" stays the way in. The five card lists whose card already is the link drop the "Bewerken ›" label and keep a plain "›"; the CMS pages list makes the whole card the link. | 26, 30 |
-| W12 | Activiteiten (list) | The registration count is omitted, not zeroed, on an activity without any component (nothing to register for; a closed component still shows its count); the tiles are named after what they count ("Activiteiten met open inschrijving" — today "Open inschrijvingen", which reads as a number of registrations while it counts activities). Filtering on a tile is not in this win: it comes with pilot A, where the list layout builds the tiles as filters (Koen, 30 Sep 2026). | 36 |
+| W12 | Activiteiten (list) | The registration count is omitted, not zeroed, on an activity without any component (nothing to register for; a closed component still shows its count); the tiles are named after what they count — first "Activiteiten met open inschrijving", shortened to "Open inschrijving" on 1 October 2026 because a tile's label is one line (row 58); the old "Open inschrijvingen" read as a number of registrations while it counts activities. Filtering on a tile is not in this win: it comes with pilot A, where the list layout builds the tiles as filters (Koen, 30 Sep 2026). | 36 |
 | W13 | Nieuwsbrief (Raakje panel) | The meeting-report checkboxes go: Raakje always uses the reports since the last newsletter, and the panel says so in one line with the count. The activity selection stays where it is until phase 5. | 41 |
 | W14 | Formulieren (builder) | "JSON" / "JSON-import" become the named pair "Definitie exporteren (JSON)" / "Definitie importeren (JSON)…"; the submissions "Export" moves to the Inzendingen tab as "Export (.ods)"; "Bekijk" and "Afdruk" stay. | 49 |
 | W15 | Activiteit (component and product cards) | The per-card action bar leaves the header row for a right-aligned footer line; the reorder arrows and the edit toggle stay in the header. The interim rule of row 50, until pilot A replaces the screen. | 50 |
 | W16 | Every record page | `ui.back_link` on the first line of every record page: the six raw copies use the macro, the two "←" record heads switch to it, and tenant, organisation and design get it and lose their "Alle …" header button. Filter state comes with the list layout (phase 2). | 28 |
 | W17 | Public registration · "Word lid" | The member nudge, unconditional, one sentence above the contact fields with the sign-in link that returns to the page; hidden for a signed-in member; no lookup. Moved from phase 4 (Koen, 30 Sep 2026): it needs no layout. The sentence does not mention the member price. | 21 |
 | W18 | Formulieren (import) | The paste box goes; the import takes a file only. The second half of row 17 (import as a way to create) is phase 5, with the import steps of row 18. | 17 |
-| W19 | Every form | Field labels and tile labels are 13 px, not 11 — one change in the label macro and the tiles; small text stays for supplementary information (the second external review on the concepts; Koen, 30 Sep 2026). | — |
 
 Not in phase 1, on purpose: anything that needs a new macro or layout
 (rows 1, 2, 22, 23…); row 37, because the read-text toggle is today the
@@ -787,8 +869,53 @@ violation in its docstring.
 16. **The nudge looks nothing up.** The public registration view-model
     makes no query by the typed e-mail address (a query counter on the
     session).
+17. **Actions as data.** A record page whose head renders a `btn_*`
+    macro outside `record_header(primary=…, actions=[…])`, or a `page_header`
+    call slot with more than the create button and "Instellingen", → red.
+    Proven additively: a header with one extra hand-placed button fails
+    naming the template. The worked case: the activity head with
+    "Kopiëren" passed as a record action renders it as an item of "Acties
+    ▾", the head at 390 px is at most 390 px wide, and the title line holds
+    two controls — the four decisions of #1397 reduced to none.
+18. **One figure per tile.** The tiles macro refuses an item with two
+    figures or a figure containing "·" or two currency amounts (a type
+    error at render); a domain template that draws a tile outside the
+    macro is red. Proven by passing a pair.
+19. **Width by kind; the rare section last.** A `url`, `email` or
+    `textarea` field with `span="half"` or `span="quarter"`, or two such
+    fields in one grid row, → red naming the template and field; a
+    `rare_settings` call followed by an ordinary `section` in the same form
+    → red. Proven additively with a throwaway template.
+20. **Figures on one line; the title first.** In the rendered DOM of every
+    list with tiles, at 390 px and at desktop: every tile label is one
+    line (its height equals one line-height, with an over-long label in the
+    fixture cut by an ellipsis), and **no real label is cut** — for every
+    tile the screens actually render, the label's text is not wider than
+    its box (red on the Leden tile of 1 October 2026); the tops of the figures in one tile row
+    differ by at most 1 px; and a tile is no higher than its label plus its
+    figure plus the fixed gap and padding; and in every header, the title's box is at least as wide as
+    its longest word and never narrower than 60 % of the row when actions
+    sit beside it — otherwise the actions must be on their own line. Red
+    on the activities list of 1 October 2026 (the "13" lower than the
+    "0") and on the meeting header of W10.
+21. **Back to the list as it was.** For every list with a filter, a
+    search, a sort or pages (e2e): set each to a non-default value, open
+    a row, edit and save, follow the way back — the URL equals the list's
+    URL before opening and the rendered rows are the same ids. And two
+    mechanical gates: a filter, search, sort or pager control in a list
+    template without `hx-push-url` → red; a `back_link` on a record page
+    with a literal list path instead of the layout's return address →
+    red (baseline 26 on 1 October 2026, a ratchet until the record layout
+    owns it). The return address is refused when it is not a local path
+    — proven with `?terug=https://elders.example`.
+22. **No row of controls widens the page.** On every screen in the
+    screenshot set at 390 px the document's scroll width equals the
+    viewport's width (the one automatic width check of #1262); red on the
+    report pages of 1 October 2026 (522 px). And mechanically: a toolbar or
+    button row in a domain template with `flex-nowrap`, `whitespace-nowrap`
+    on the row or a fixed `min-w-*` → red.
 
-Tests 5, 7, 10 and the "one-off control" of test 8 carry a judgment part; there the test flags a candidate and the merge gate decides (B8).
+Tests 5, 7, 10 and the "one-off control" of test 8 carry a judgment part (18 and 19 are mechanical); there the test flags a candidate and the merge gate decides (B8).
 
 **Impact on the test landscape:** every screen that moves onto a layout
 redoes its screenshots and, where it has one, its e2e flow (registration,
@@ -815,6 +942,15 @@ baseline and the gates themselves are written per item in Part B when the
 solution is designed; the measured counts in A2 (raw form elements, raw
 spacing classes, raw surface classes, raw checkboxes, per-card editors,
 sideways scrolls, hand-placed creates) are the first baselines.
+
+**The measure of success**, added on 1 October 2026 from Koen's words at
+the HDEV validation: the count of shape corrections he reports per release
+(A4), today five in a day; the rule above is kept when that count is zero
+for two consecutive releases — not because nothing is wrong, but because
+whatever is wrong was refused by a gate or made impossible by a macro
+before he saw it. Until the macros of phase 2 exist, that count cannot be
+zero: a screen drawn by hand has nothing to refuse it, which is why the
+five rules of rows 52–56 each got a gate the day they were found.
 
 **Reach and baseline.** Every template under `app/domains/*/templates` and
 `app/ui/templates`. Baselines measured on 30 September 2026, before the
@@ -875,7 +1011,14 @@ title and toolbar; the e2e job's duration with the pixel diff.
 | 30 Sep 2026 | Background: the platform will serve other organisations than RAAK (a company's webshop among them) — a separate change request; here the end state keeps kit and brand apart. | Koen |
 | 30 Sep 2026 | CR-11 becomes the GUI redesign's end state and roadmap: North Star first, quick wins up front for attraction, each concept prepared with screenshots, built on one pilot screen, run through a release and tuned, then rolled out; pilots: the activity detail, the public household creation with the forms. The as-is (A2) is listed first, the solution and the approach follow. | Koen |
 | 30 Sep 2026 | External reviews: Mistral and ChatGPT together, same brief, one round per moment — the graphic-design question at phase 0, the usability question before each pilot. | Koen |
-| 30 Sep 2026 | The quick wins are inventoried first and planned with the build CLI before phase 0 goes on, so they are off the table while the end state is worked out: nineteen wins, W1–W19 in B6, issue #1391 with the measured template lines and the DOM measurement per win. Decided the same day: W17 (the nudge, without the member price in its sentence) moves from phase 4; W19 (labels 13 px) added; W12 without the tile filters (pilot A); W1's tile is "Nog af te handelen"; a truncated title on a phone is accepted (W10); the nineteen ride v2.11.0. | Koen |
+| 1 Oct 2026 | Two more rules from the day's findings: a row of controls never widens the page (wrap, then `⋯`); a tile label fits its tile or is rewritten — a cut label is a red gate, not a fallback. Rows 59–60, B4.2, B7 tests 20 and 22. | Koen, via the master CLI |
+| 1 Oct 2026 | The tile rule corrected after its first build (#1432): a tile's label is one line, cut with an ellipsis, the figure directly under it; no anchoring at the bottom; tile labels are short. Rows 55 and 58, B4.2, B7 test 20. | Koen, via the master CLI |
+| 1 Oct 2026 | Returning from a record must bring the user back to the list as it was left (filter, search, sort, page): row 57, R14, B4.8 — a list's state is its address, the way back is that address; the layouts own both. | Koen |
+| 1 Oct 2026 | The end goal sharpened: Koen does not want to report corrections of shape any more — the framework must prevent them. Measure: shape corrections per release at HDEV validation, zero for two consecutive releases as the sign-off (A1, A4, AC8, B8). Not a work item now; context for the end state. | Koen |
+| 1 Oct 2026 | Two further findings on HDEV become rules: the figures of one tile row sit on one line (the macro anchors them); the title goes first in every header — actions drop to their own line before the title breaks (replaces W10's "the title truncates"). Rows 55–56, B4.2, B4.3, B7 test 20. | Koen, via the master CLI |
+| 1 Oct 2026 | Three corrections at the HDEV validation of the quick wins become conventions in the kit, not instructions per screen: one figure per tile; the rare section last in the form, above the bar; a long-value field (URL, e-mail, text area) always full width — rows 52–54, B4.2, B4.5, B7 18–19. | Koen, via the master CLI |
+| 1 Oct 2026 | After #1397 (four decisions for the place of one button): where an action sits, in which form, and what yields on a phone is a **requirement** (R13), decided once per layout and kind of action (the table in B4.3), enforced by a header that takes its actions as data and a gate (B7 test 17). #1387 and #1397's button are the first application, in phase 2. | Koen, via the master CLI |
+| 30 Sep 2026 | The quick wins are inventoried first and planned with the build CLI before phase 0 goes on, so they are off the table while the end state is worked out: eighteen wins, W1–W18 in B6, issue #1391 with the measured template lines and the DOM measurement per win. Decided the same day: W17 (the nudge, without the member price in its sentence) moves from phase 4; W19 (labels 13 px) proposed and withdrawn the same day — dev2 measured that `ui.label` already renders 14 px and the 11 px the review saw was the concepts' and Betalingen's tile chrome, so the win would have shrunk the labels (a size is measured against the app, not the concept); W12 without the tile filters (pilot A); W1's tile is "Nog af te handelen"; a truncated title on a phone is accepted (W10); the eighteen ride v2.11.0. | Koen |
 | 30 Sep 2026 | Pilot order: A (activity record, Betalingen list) before B (public household, forms, registration). | Koen |
 | 30 Sep 2026 | Lists: in the admin every list is a table, a picture is a thumbnail column; cards only on the public site and in the media library. P2 decided. | Koen |
 | 30 Sep 2026 | The end state (B4) and the roadmap (B6) written from the rows of A2 (fifty by the end of the day): three layouts, a kit that owns fields, buttons, surfaces and spacing, gates as ratchets, quick wins → foundations → pilot A (activity record, Betalingen list) → pilot B (public household, forms, registration) → roll-out. | author, for Koen to confirm |
@@ -886,7 +1029,7 @@ title and toolbar; the e2e job's duration with the pixel diff.
 |---|---|---|---|
 | Q1 | 30 Sep 2026 | Does CR-11 become a real change request on the new template, or stay a parking lot from which each item gets its own CR or issue? (Claude) | Koen, 30 Sep: a real change request — the end state of the GUI and the roadmap towards it; the parked items stay in A6 as candidates, the pains are listed in A2 first, then the solution and the approach (B6). |
 | Q2 | 30 Sep 2026 | Which of P1–P6 are taken up now, and is there new material — the dense Betalingen screen lived with (P2), the board missing a featured activity (P4)? (Claude) | Koen, 30 Sep: none stays on hold — the parking lot was context; whatever fits the phasing goes in. Placed: P1, P3, P5, P6 (first half) in phase 5, P2 in phases 0 and 3–5, P4 in phase 4, P6's second half after 5, P8 and P9 as their own change requests. A6, B6, B3. |
-| Q19 | 30 Sep 2026 (decided the same day: "Nog af te handelen", both amounts the same size, no net — W1) | The "Openstaand" tile shows € 0 as its biggest figure while € 120 is to receive and € 120 to refund — the second line corrects it, but the big number sets the first impression. Retitle the tile "Nog af te handelen" with the two amounts as its figures and the net as the small line? (external review on the concepts) | *recommendation:* yes — it keeps row 10's "subtle, no bigger bar" and removes the misleading zero. Done in concept 01; row 10's idea updated. *Koen confirms.* |
+| Q19 | 30 Sep 2026 (decided the same day: "Nog af te handelen", both amounts the same size, no net — W1; overturned on HDEV on 1 Oct: two tiles, one figure each, row 52) | The "Openstaand" tile shows € 0 as its biggest figure while € 120 is to receive and € 120 to refund — the second line corrects it, but the big number sets the first impression. Retitle the tile "Nog af te handelen" with the two amounts as its figures and the net as the small line? (external review on the concepts) | *recommendation:* yes — it keeps row 10's "subtle, no bigger bar" and removes the misleading zero. Done in concept 01; row 10's idea updated. *Koen confirms.* |
 | Q18 | 30 Sep 2026 | Card radius: 18 px everywhere reads soft; test 12 px for the admin (calmer, denser) and keep 18 on the public site? (external review on the concepts) | *proposed*, decided at phase 0 on the two directions of Q15. |
 | Q17 | 30 Sep 2026 | External review (ChatGPT, on the end state and the six concepts): design the 768–1024 px range by content, not two device classes; read mode must not show edit handles and add buttons, booleans as words; "nothing moves" is too strict — same sections, order and place, edit may take more room; two variants of the repeating group, handles only where order matters; the mobile concepts are unfinished (stacked rows, phone menu, now/later stacked, slots in one column, the scale wrapping); the public form's section names, slot feedback, final button "Inschrijven en naar betaling"; labels 11–12 px too small; error, saving, empty and no-access states; a Raakje-open concept, a public activity page, a validation-error concept; fonts by relative path. | All adopted in the end state (§1.4, §1.6, 2.2, 3.3, 3.18) and in the concepts (01–06 revised, 07–09 added, concept.css); the tile retitling is Q19, the radius Q18. |
 | Q12 | 30 Sep 2026 | External review (ChatGPT, on the rewritten CR-11, pasted by Koen): the public site deserves its own patterns; several rules are too absolute (a switch in a form with Opslaan, never horizontal scrolling, all empty fields in read mode, every KPI a filter, two-column forms); two visual directions on real screens in phase 0; real user tests with volunteers; accessibility explicit; a smaller phase 2; scope of bulk/AI/import; corrections (title, duplicates, counts, AC7 vs threshold, "no new functionality", re-estimate after pilot A). | **Adopted:** the public site shares the kit, not the layouts (B1); the tile rule now says what it counts and what opens (B4.2); phase 2 shrinks to pilot A's needs (B6, B3); people tests and accessibility in B6 and A7; the corrections. **Put to Koen with a recommendation (Q13–Q16):** the switch in a form, the horizontal-scroll exception, the two visual directions, the people tests. **Kept as decided, noted:** every empty field in read mode (row 7 — the reader's explicit wish) and the two-column grid with the "read together" rule for rows (B4.5 already lets task order lead); bulk, insights and imports stay where B6 put them, as Could/Should, not in the pilots. |
@@ -894,13 +1037,19 @@ title and toolbar; the e2e job's duration with the pixel diff.
 | Q14 | 30 Sep 2026 | "Never horizontal scrolling in a list" (row 11) — W3C allows it for data tables that need their two-dimensional structure; hiding important columns can be worse. Keep the rule, or allow a controlled exception? (external review) | *recommendation:* keep "fit, hide or stack" as the rule, with the column chooser as the way to bring a hidden column back — and one **declared exception**, by name in the classification table, for a table whose columns must be compared side by side (none identified today); a scroll that is a declared exception is a decision, an undeclared one is drift. *Koen decides.* |
 | Q15 | 30 Sep 2026 | Two visual directions in phase 0, on the same four real screens (Betalingen, an activity, the public activity page, the public registration), with real amounts of data, to decide the look before the pilots? (external review) | *recommendation:* yes, but light: the concepts of B9 are direction one; a second direction for the two public screens only (more photography, stronger blue-yellow accents, the "expressive public site" of the review) — the admin's calm direction is not in doubt. Half a day. *Koen decides.* |
 | Q16 | 30 Sep 2026 | People tests per pilot — three to five board members and three to five members on four tasks, before and after? (external review) | *recommendation:* yes; it is the only proof that a screen is understood. Koen names the people; the tasks are in B6. *Koen decides.* |
+| Q26 | 1 Oct 2026 | Two findings Koen wants in this change request, not as issues: every report page is 522 px wide at 390 px because the reports panel's layout buttons do not wrap; and a tile label cut by #1432 lost exactly its meaning ("Nog niet vernieuwd (2027) · wa…"). (master CLI, for Koen) | Rows 59 and 60; B4.2: a row of controls never widens the page — it wraps and its secondary controls go into `⋯`; a tile's label fits the narrowest tile at 390 px or is rewritten, the ellipsis only a safety net; B7 test 20 fails on any real label that is cut, test 22 is the page-width check of #1262 on every screen. The words for the Leden tile ("Te vernieuwen (2027)") are a proposal for Koen. |
+| Q25 | 1 Oct 2026 | The tile rule of this morning — the macro anchors the figure at the bottom — did not work in practice: tall tiles, and a figure far below a short label. Koen chose (#1432): the label always one line, cut with "…"; the figure directly under it; the figures line up by themselves. (master CLI, for Koen) | Row 58; row 55's idea, B4.2, the end state §3.8 and B7 test 20 corrected (one-line labels, figure tops within 1 px, a tile no higher than label plus figure); the copy rule that tile labels are short, the full meaning in the `title`; W12's label recorded as "Open inschrijving". |
+| Q24 | 1 Oct 2026 | In the admin, filtering the activities on "Archief", editing one and pressing the way back lands on "Komende" again; the same pattern on several screens — the filter must be set again after every return. To be in the as-is and solved. (Koen) | Row 57 with the measurement (the state lives in the page, not the URL; 26 hard-coded way-back addresses); R14 (Must); B4.8: a list's state is its address and the way back is that address; F17; B7 test 21 with two mechanical gates and the open-redirect refusal; AC9. Built with the list and record layouts (phase 2, pilot A on the activities and Betalingen, the rest at roll-out). A smaller first step is possible before that — the activities list alone pushing its scope and search into the URL and the activity's way back carrying it — if Koen wants it sooner; *not assigned*. |
+| Q23 | 1 Oct 2026 | Two more findings at the HDEV validation: the figures of the activities' tile row at different heights (a wrapped label), and a header title squeezed to "Verg… — zondag 1 nove…" by its buttons under W10's rule. (Koen, via the master CLI) | Rows 55 and 56; B4.2: the figures of one row on one line, anchored by the macro; B4.3 and the end state §3.9: the title goes first, the actions drop to their own line before the title breaks — W10 reworded; B7 test 20 as the mechanical gate (figure tops within 1 px; the title's box never narrower than its longest word or 60 % of the row beside actions). |
+| Q22 | 1 Oct 2026 | Validating the quick wins on HDEV, Koen had to explain three times how something must be built — a tile with two amounts, a rare section in the middle of a form, URL fields side by side. Same point as #1397: a convention should have fixed it beforehand; we do not want to rethink and re-instruct every pattern. (Koen, via the master CLI) | Rows 52–54 as measured pains with their quick win; three rules in B4.2 and B4.5, placed in the kit and not in a screen — the tiles macro takes one figure, the field macro chooses the width from its kind, the form layout owns the slot of the rare section; B7 tests 18 and 19 as mechanical gates (two of the three rules are grep-able; the third — one figure — is the macro's signature); the end state §3.1, §3.4 and §3.8 updated. |
+| Q21 | 1 Oct 2026 | #1397 (copy an activity): the place of one button was decided four times — issue, measurement at 390 px, HDEV validation, then the button row after all. Koen asks, via the master CLI: a fixed set of rules per layout for where actions sit, what happens at 390 px, and a macro or gate that enforces it, so no CLI chooses and Koen does not decide per screen. | Taken in as a requirement, not an idea: R13; row 51 with the four steps; the placement table in B4.3 (four kinds × four layouts, form included); the phone rule that a record header has at most a primary and a menu, so nothing overflows; F16 actions as data; B7 test 17 with #1397 as the worked case; phase 2 applies it first to #1387 and #1397's button. |
 | Q20 | 30 Sep 2026 | Which rows of A2 are quick wins, now that rows 46–50 and the two external reviews are in? Koen wants them planned with the build CLI before phase 0 continues. (Koen) | Eighteen, W1–W18 in B6 and #1391: the eight already listed, sharpened by the measurement (W7: two buttons already right; W8: three lists, not two), plus ten more that need no macro, layout or migration — the account control (48), the phone title row (31), opening a record from a list (26, 30), the activity tiles and count (36), the report checkboxes (41), the form builder's actions (49), the interim bar position (50), the way back through the existing `ui.back_link` (28), the nudge (21, *proposed* — it moves from phase 4), the paste box (17). Kept out with the reason: 37 (no detail page to take the text), 16 (needs the vocabulary and the gate), 25 and 45 (the record layout, pilot A), 47 (#1381, folded into CR-11). Cost 1.5 → 3.5 days. Open: Q4 (own release or not) and W17. |
 | Q11 | 30 Sep 2026 | Width conflict found by the review: this CR and the end state put the form column at 768 px (`max-w-3xl`, the two-column grid); CR-14's parity list P15 keeps the registration page at `max-w-xl` (576 px). Which wins at pilot B? (Claude, from the review) | *proposed:* the end state — 768 px is what the two-column form grid needs; CR-14's P15 is updated to say so, before phase 4. *Koen decides.* |
 | Q10 | 30 Sep 2026 | External review (Mistral, on the rewritten CR-11 and the end-state document, pasted by Koen): three row counts for one table; two duplicated headings; decide Q4 (own release); the gates promise hardness that the semantic ones cannot deliver — split mechanical from eye; the pixel diff needs a stability protocol; "hard from phase 5" is a cliff — go hard per rule at zero; the width conflict with CR-14; the users list "pages: no (small)" contradicts row 44. | Taken in: counts and headings fixed; Q4 proposed as an own release; B8 splits the gates and makes hardness per rule at zero; B7 test 11 carries the protocol; Q11 for the width; the users list pages. |
 | Q9 | 30 Sep 2026 | External review (Mistral, on the 74-line parking-lot version of this document, pasted by Koen): take pagination, tables-versus-cards and the table conventions as one change, not three; give the list a return moment; add a uniqueness rule like CR-14's B8; un-park bulk only for a concrete repeated task; close the featured activity rather than park it. | All but one were already the shape of the rewrite it had not seen (the list layout, the roadmap, B8, P3 as Could where a list needs it). Taken from it: P4 closes as Won't at phase 4 if the board has not asked; and its measurement — only Betalingen pages, Leden and the registrations load everything — is now row 6's baseline. |
 | Q8 | 30 Sep 2026 | Does F1 — every screen extends one of three layouts — clash with the modular architecture? (Koen) | No: extending is what every domain template does today with the shell and the macros, both the kit's; a layout is one level more in the same place; the dependency stays domain → `ui`, and the template-variables gate covers the layout's blocks as promises. B2.2. |
 | Q3 | 30 Sep 2026 | Tables versus cards (row 5): is the content rule the decision, so that Betalingen stays a table and Leden becomes one? (Claude) | Reworded twice on Koen's reading. First to "table when scanned, cards when the picture is the content"; then, on "why would the designs be cards — they are a list too", to a rule by place with no judgment in it: **in the admin every list is a table** (a picture is a thumbnail column); **cards only on the public site and in the media library**. Koen, 30 Sep: that is the decision. |
-| Q4 | 30 Sep 2026 | Do the quick wins (phase 1) ride the next functional release, or a release of their own so they are seen together? (Claude) | Proposed as a release of their own. Koen, 30 Sep: they ride **v2.11.0** (#1331), all nineteen in one release — which keeps the point that they are seen together. #1391 assigned; the master CLI plans it, dev1 or dev2 builds. |
+| Q4 | 30 Sep 2026 | Do the quick wins (phase 1) ride the next functional release, or a release of their own so they are seen together? (Claude) | Proposed as a release of their own. Koen, 30 Sep: they ride **v2.11.0** (#1331), all eighteen in one release — which keeps the point that they are seen together. #1391 assigned; the master CLI plans it, dev1 or dev2 builds. |
 | Q5 | 30 Sep 2026 | Is the order pilot A (admin: activity record, Betalingen list) before pilot B (public: household, forms, registration) right, or should the public side — what members see — come first? (Claude) | Koen, 30 Sep: pilot A first — the activity record and the Betalingen list — then pilot B as proposed. |
 | Q6 | 30 Sep 2026 | Phase 5's roll-out is the largest block (~14 days): one release, or split per module over releases with the ratchets keeping it safe? (Claude) | Koen, 30 Sep: deferred until phase 5 is due — nothing before it depends on the answer, the ratchets of phase 2 make either safe. Leaning: split over releases with the ratchets as the net. *Decided at phase 5.* |
 | Q7 | 30 Sep 2026 | The two external reviews (graphic design at phase 0, usability per pilot): which model first — Mistral, as Europe First says? (Claude) | Koen, 30 Sep: not one first — both at once, Mistral and ChatGPT, the same brief, the answers compared in one round; agreement adopted, contradictions decided by us. B6. |
@@ -923,4 +1072,5 @@ title and toolbar; the e2e job's duration with the pixel diff.
 - **CR-08 (visual), CR-10 (Design Studio)** — the design work this list sits next to.
 - **`docs/design-system-end-state.md`** — the end state as a design, phase 0's deliverable in draft.
 - **CR-14** — the registration page is already a page; pilot B builds on it.
+- **#1397** — copy an activity; the place of its button was decided four times (row 51) and became R13.
 - **#1367, #1387, #1380, #1223, #1229, #1381** — recent validation issues that are instances of rows 22, 9, 1 and 47. Each is fixed as a bug in its own release and stays its own issue; this change request does not absorb bugs — it makes their class impossible (row 22's bar that cannot wrap, row 47's one menu source) and cites them as the evidence. Two exceptions, decided by Koen on 30 Sep 2026: #1381 (the account items in the mobile menu) and #1387 (the activity's record head at 390 px) were taken out of v2.11.0 and are resolved by this change request — the one navigation source of row 47 and the record header of row 39, both phase 2.

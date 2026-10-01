@@ -100,8 +100,11 @@ exists in row actions and toolbars only, with its `aria-label`.
 ### 1.6 Type
 
 Unchanged from `design-system.md` §1.2 and §1.2a (Inter body, Radio
-Canada Big display, the mobile-first scale), with one correction from the
-concepts: a field label and a tile's label are 13 px, not 11 — small text
+Canada Big display, the mobile-first scale), with one correction, measured
+against the app and not the concepts (30 Sep 2026): a field label stays
+14 px, what `ui.label` renders today (the concepts drew 13 and the review
+read 11 — both wrong); a tile's label is 13 px, replacing the 11 px of
+today's Betalingen tiles, and comes with the tiles macro; small text
 (11–12 px) is for supplementary information only. Radius: the concepts
 test 12 px for admin cards (calmer, denser) against the current 18 px,
 which the public site keeps — decided at phase 0 (CR-11 Q18). The record header's title is
@@ -181,8 +184,11 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-- **The way back** on the first line, to the list it came from, filter
-  state preserved. [28]
+- **The way back** on the first line, to the list it came from **as it was
+  left** — the same filter, search, sort and page: the list's state is its
+  URL, a row's link carries it, and the layout returns to it (a local path
+  only; the list's default when the record was opened from elsewhere). A
+  screen never writes this link itself. [28, 57]
 - **The record header:** the title with its badges on the title line,
   status first; the facts line under it, every reference a jump link; at
   the right the screen's one primary and one "Acties ▾" menu holding the
@@ -251,8 +257,13 @@ Renders label, control, help text and error in one block on the grid;
 `required` marks the label; the error sits under the control in
 `brand-danger`, the field's border coloured. `kind` is one of `text`,
 `textarea`, `number`, `email`, `phone`, `date`, `select`, `switch`,
-`segmented`, `checkbox_group`, `radio_group`, `upload`. No raw `<label>`,
-`<input>`, `<select>` or `<textarea>` in a domain template. [23, 24]
+`segmented`, `checkbox_group`, `radio_group`, `upload`, `url`. **The kind
+decides the width:** `url`, `email`, `textarea` and rich text are always
+full; `number`, `date`, `time`, a code, a short `select` and `switch` are
+half or quarter; `text` is half unless `long=True`; a template may widen a
+short field and never narrow a long one — a long field with `span="half"`
+is red. No raw `<label>`, `<input>`, `<select>` or `<textarea>` in a domain
+template. [23, 24, 54]
 
 ### 3.2 `form_grid` and `section(title)`
 
@@ -280,13 +291,17 @@ empty; the rows are committed with the screen's save, never on their own.
 Instances: contact details, addresses, activity dates, components,
 products, form options, order lines. [1, 50]
 
-### 3.4 `rare_settings(title, summary)`
+### 3.4 `rare_settings(title, summary)` — placed by the layout, last
 
-A collapsed section at the bottom of a form, closed by default, a
+A collapsed section in the **last slot of the form layout** — after every
+ordinary section and the attachments, just above the action bar, never
+between fields; the layout renders it there from the screen's declaration,
+so a template cannot put it elsewhere (a `rare_settings` followed by a
+`section` is red). Closed by default, a
 disclosure triangle, a one-line summary when something inside is set
 ("2 externe links"), a short note when the content is discouraged ("de
 eigen inschrijving heeft de voorkeur"). Instances: the component's
-external links, the activity's poster URL. [3]
+external links, the activity's poster URL. [3, 53]
 
 ### 3.5 Controls
 
@@ -316,18 +331,46 @@ with the page-size select; at the bottom "‹ vorige · volgende ›". Always a
 total (an approximate "van meer dan 10 000" where counting is heavy);
 "Pagina n" does not exist. Hidden when everything fits. [6]
 
-### 3.8 `tiles(items)`
+### 3.8 `tiles(items)` — one figure per tile
 
-Inline in the title row: figure (`text-2xl font-extrabold`), label
-(`text-xs`), optional second line; each a link that sets the list's filter;
+Inline in the title row: **one figure** per tile (`text-2xl
+font-extrabold`; the macro takes a single value and refuses a pair or a
+stacked amount — two things to do are two tiles, "Nog te ontvangen" and
+"Nog terug te betalen"), label (`text-xs`), optional second line of
+context that is not a second figure); the label is always one
+line — the macro cuts it with "…" and never wraps it, the full text in
+the `title` — and the figure sits directly under it at a fixed distance,
+so the figures of one row are on one line by themselves and a tile is no
+higher than label plus figure; tile labels are short by rule ("Open
+inschrijving", not "Activiteiten met open inschrijving"): a label fits
+on one line in the narrowest tile of its row at 390 px or it is
+rewritten — the ellipsis is a safety net, a real label that gets cut is
+red, and what does not fit goes into the tile's one line of context or a
+hint that works on touch [55, 58, 60]; each a link that sets the list's
+filter;
 the active tile marked. A tile colours only when its figure asks for
-attention (an open balance, an overdue count). [10, 36]
+attention (an open balance, an overdue count). [10, 36, 52]
 
-### 3.9 `record_header(title, badges, facts, primary, actions)`
+### 3.9 `record_header(title, badges, facts, primary, actions=[…])` — actions as data
 
 Title line with badges (status first); facts line with reference links;
-the primary and "Acties ▾" at the right; on a phone the actions collapse
-into the menu and the title truncates. [39]
+at the right **one primary button and one "Acties ▾" menu, never more**.
+The screen hands its actions as a list, each with a kind — *record action*
+(duplicate, print, export, send, reopen, delete) or *tool* (photos, Design
+Studio) — and the macro places them: record actions first in a fixed
+order, tools under a divider, delete last after a divider; Raakje is never
+among them (it is the shell's trigger). A screen cannot draw a button of
+its own in the head: a `btn_*` call there outside the macro is red. On a
+phone there is nothing to overflow, and **the title goes first**: the two
+controls stay beside the title while it fits, and drop to a line of their
+own under it before the title wraps into a narrow column or truncates to
+a few letters; a title truncates only at its end when it alone does not
+fit one line [56]. Where each kind sits on the other layouts is the
+table in CR-11 B4.3 (list: create and "Instellingen" in the title row;
+document: the same menu; public: one primary in the sticky card, no
+menu). First applied to the activity's head (#1387) and the "Kopiëren" of
+#1397, whose place was decided four times before this rule existed. [39,
+51]
 
 ### 3.10 `summary_card(state, figures, action)`
 
@@ -419,7 +462,7 @@ The current P1–P12 stay; four change and four are added.
 |---|---|---|
 | P1 · Edit and stay | **revised:** the whole record is the editor; one save at the bottom; the screen stays; a toast; leaving with changes warns. [14] |
 | P2 · Create and continue | the record exists after "Opslaan", not after "Toevoegen"; the create button is "+ Nieuw <item>" at the right of the heading it creates into. [31, 46] |
-| P3 · The way back | on every record page, first line, filter state preserved. [28] |
+| P3 · The way back | on every record page, first line, to the list as it was left: a list's state (filter, search, sort, page, page size) is its URL, pushed by the list layout; the record layout returns to the address the row carried. [28, 57] |
 | P6 · Import in steps | **widened:** every import that creates, updates or deletes; the report in three lines; the commit names the consequence. [18] |
 | P8 · List, detail, edit | **revised:** the row opens the record; on a top-level list the record page, inside a record's related list an in-place unfold with a jump link. [26] |
 | P13 · Opens shows | a control that opens something shows that it opens — chevron, "…", disclosure triangle. [48] |
@@ -493,7 +536,16 @@ raw spacing class · no raw surface class · no raw checkbox outside a
 multi-choice group or consent · no typed "+" in a label · no header button
 to another module · no "Bewerken" in row actions · no `overflow-x-auto` on
 a list · no `max-w-*` on a screen · no `action_bar` in a repeating-group
-row · no `code_label` twice on a row · the declared save model matches the
+row · no `code_label` twice on a row · a long-value field (`url`, `email`,
+`textarea`) never half or beside another field · `rare_settings` never
+followed by a section · a tile with two figures refused by the macro · tile labels on one line and never cut, figure tops in one tile
+row within 1 px, a tile no higher than label plus figure, no row of
+controls wider than the page (the document as wide as the viewport at
+390 px on every screen), the title's box never squeezed by its actions (the
+screenshot set) · no
+`btn_*` in a record head outside
+`record_header(actions=…)`, and a list header's call slot holds only the
+create button and "Instellingen" · the declared save model matches the
 macros used · the Raakje trigger by rule · one toolbar per rich text ·
 screenshot baselines diffed (with the stability protocol of CR-11 B7).
 
