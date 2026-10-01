@@ -1007,6 +1007,12 @@
   "response_class": "HTMLResponse",
   "response_model": "None"
  },
+ "POST /admin/activiteiten/{activity_id}/organisatoren/{organiser_id}/verplaats": {
+  "endpoint": "app.domains.activities.admin_ui.move_organiser_route",
+  "openapi": null,
+  "response_class": "HTMLResponse",
+  "response_model": "None"
+ },
  "POST /admin/activiteiten/{activity_id}/organisatoren/{organiser_id}/verwijderen": {
   "endpoint": "app.domains.activities.admin_ui.organisator_verwijderen",
   "openapi": null,

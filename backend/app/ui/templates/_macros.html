@@ -433,10 +433,13 @@
    Bewust een boolean en geen tekstwaarde: een verkeerd gespelde toon zou stil de
    verkeerde variant geven, en dat is precies het soort stille fout dat we hier
    vanavond meermaals tegenkwamen. #}
-{% macro reorder(up_attrs="", down_attrs="", first=False, last=False, op_donker=False) -%}
+{# `touch=True` (#1433): each arrow a 44 × 44 px target, for a list worked on a
+   phone; the default stays compact for the dense editors that use it. #}
+{% macro reorder(up_attrs="", down_attrs="", first=False, last=False, op_donker=False, touch=False) -%}
 {%- set _knop = ("px-1.5 py-0.5 rounded hover:bg-white/20 disabled:opacity-30"
                  if op_donker else
                  "px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30") -%}
+{%- if touch %}{% set _knop = _knop ~ " inline-flex items-center justify-center min-w-11 min-h-11" %}{% endif -%}
 <span class="inline-flex items-center gap-1">
   {% if up_attrs %}<button type="button" class="{{ _knop }}" {% if first %}disabled{% endif %} {{ up_attrs|safe }} aria-label="{{ _("Naar boven") }}" title="{{ _("Naar boven") }}">{{ icon('arrow-up', size=14) }}</button>{% endif %}
   {% if down_attrs %}<button type="button" class="{{ _knop }}" {% if last %}disabled{% endif %} {{ down_attrs|safe }} aria-label="{{ _("Naar onder") }}" title="{{ _("Naar onder") }}">{{ icon('arrow-down', size=14) }}</button>{% endif %}

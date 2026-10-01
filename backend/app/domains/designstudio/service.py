@@ -330,6 +330,15 @@ def delete_design(db: Session, design: Design) -> None:
 # ── Facts ───────────────────────────────────────────────────────────────────
 
 
+def on_the_poster(organisers: list) -> list:
+    """The organisers the poster names (#1433): the first `POSTER_CONTACT_ROWS`
+    ticked as contact, in the activity's order. The activity screen asks this to
+    mark them, so the rule is written once."""
+    from app.domains.designstudio.blocks import POSTER_CONTACT_ROWS
+
+    return [o for o in organisers if o.is_contact][:POSTER_CONTACT_ROWS]
+
+
 def _organisers(db: Session, activity_id: int) -> list[Contact]:
     """The organisers ticked as contact (#1004), with the e-mail and gsm the
     activity publishes (override or the person's own). Nobody ticked → the

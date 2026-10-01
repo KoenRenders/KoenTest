@@ -6,7 +6,7 @@
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
   {{ ui.section_header(_("Organisatoren")) }}
   <p class="text-sm text-ink-soft -mt-2 mb-3">
-    {{ _("Wie aangevinkt is, komt met naam en gegevens op de affiches.") }}
+    {{ _("Wie aangevinkt is, komt met naam en gegevens op de affiches — de eerste drie, in deze volgorde.") }}
   </p>
   {% if organisers %}
   <div class="divide-y divide-line">
@@ -27,7 +27,10 @@
         <span class="font-medium text-sm">{{ o.name }}</span>
         <template x-if="!edit">
         <span class="contents">
-        {% if o.is_contact %}{{ ui.badge(_("contactpersoon"), "green") }}
+        {# #1433: the order decides the poster — its first three contacts. A
+           contact further down says it is not on the poster, and why. #}
+        {% if o.id in poster_ids %}{{ ui.badge(_("op de affiche"), "green") }}
+        {% elif o.is_contact %}{{ ui.badge(_("contactpersoon"), "gray") }} <span class="text-sm text-ink-soft">{{ _("niet op de affiche: alleen de eerste drie") }}</span>
         {% else %}<span class="text-sm text-ink-soft">{{ _("niet op de affiche") }}</span>{% endif %}
         {% if o.is_contact %}
         <span class="text-sm text-ink-soft">
@@ -40,7 +43,11 @@
         {% endif %}
         </span>
         </template>
-        <span class="ml-auto flex gap-2">
+        <span class="ml-auto flex items-center gap-2">
+          {% if organisers|length > 1 %}{{ ui.reorder(
+               up_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/organisatoren/' ~ o.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog"}\' hx-target="#aa-detail" hx-swap="innerHTML"',
+               down_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/organisatoren/' ~ o.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag"}\' hx-target="#aa-detail" hx-swap="innerHTML"',
+               first=loop.first, last=loop.last, touch=True) }}{% endif %}
           {{ ui.edit_toggle("edit") }}
           <div x-show="edit" x-cloak>{{ ui.action_bar(form="org-" ~ o.id, cancel_attrs='@click="edit = false"',
                delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/organisatoren/' ~ o.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Organisator"), o.name)) }}</div>

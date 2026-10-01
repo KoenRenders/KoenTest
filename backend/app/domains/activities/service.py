@@ -2940,3 +2940,35 @@ def remove_organiser(db: Session, activity_id: int, organiser_id: int) -> bool:
     db.delete(rij)
     db.commit()
     return True
+
+
+def move_organiser(db: Session, activity_id: int, organiser_id: int, direction: str) -> bool:
+    """Move one organiser one place up or down (#1433), in one transaction.
+
+    The order decides who makes the Design Studio poster (its first three
+    contacts). Returns whether anything moved: the first one up, or the last one
+    down, changes nothing and is no error.
+
+    Not `kernel.ordering.move_sibling`: that swaps two values in one flush, and
+    the UNIQUE on (activity_id, sort_order) is checked per row, so a swap is a
+    moment where two organisers share a place. So two steps inside the one
+    transaction: first every row to a free place above all current ones, then
+    every row to its final place 0..n-1 (which also closes the gaps a removal
+    left). `sort_order >= 0` (migration 179) holds in both.
+    """
+    rijen = _organiser_rows(db, activity_id)
+    positie = next((i for i, r in enumerate(rijen) if r.id == organiser_id), None)
+    if positie is None:
+        raise LookupError("Organisator niet gevonden")
+    buur = positie - 1 if direction in ("up", "omhoog") else positie + 1
+    if not 0 <= buur < len(rijen):
+        return False
+    rijen[positie], rijen[buur] = rijen[buur], rijen[positie]
+    vrij = max(r.sort_order for r in rijen) + 1
+    for index, rij in enumerate(rijen):
+        rij.sort_order = vrij + index
+    db.flush()
+    for index, rij in enumerate(rijen):
+        rij.sort_order = index
+    db.commit()
+    return True
