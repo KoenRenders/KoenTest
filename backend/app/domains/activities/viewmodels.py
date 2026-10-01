@@ -115,15 +115,13 @@ class CopyActivityView(ViewModel):
     """`admin_activiteit_kopieren.html`: the step before a copy (#1397).
 
     `first_date` is None for an activity without dates; then there is nothing to
-    move and the step only confirms. `left_out` names the organisers who are no
-    longer members and so do not come along.
+    move and the step only confirms.
     """
 
     activity: Any
     first_date: Optional[date]
     same_weekday: Optional[date]
     same_date: Optional[date]
-    left_out: list[str]
     error: Optional[str] = None
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)

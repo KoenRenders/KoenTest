@@ -293,8 +293,6 @@ def _copy_view(
         copy_suggestions,
         first_date_of,
         get_activity,
-        organisers_for,
-        organisers_left_out_of_a_copy,
     )
 
     activity = get_activity(db, activity_id)
@@ -302,13 +300,11 @@ def _copy_view(
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     first = first_date_of(activity)
     suggestions = copy_suggestions(first) if first else None
-    left_out = {o.id for o in organisers_left_out_of_a_copy(db, activity)}
     return CopyActivityView(
         activity=activity,
         first_date=first,
         same_weekday=suggestions.same_weekday if suggestions else None,
         same_date=suggestions.same_date if suggestions else None,
-        left_out=[o.name for o in organisers_for(db, activity_id) if o.id in left_out],
         error=error,
         csrf_token=csrf_from_request(request),
         nav_items=NAV,

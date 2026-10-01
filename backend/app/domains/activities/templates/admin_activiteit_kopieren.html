@@ -46,9 +46,6 @@
     <div class="text-sm space-y-1">
       <p><strong>{{ _("Gaat mee:") }}</strong> {{ _("de activiteit met al haar teksten, de datums en de organisatoren.") }}</p>
       <p><strong>{{ _("Gaat nooit mee:") }}</strong> {{ _("inschrijvingen, betalingen, de affiche en de links. De kopie staat meteen op de agenda.") }}</p>
-      {% if left_out %}
-      <p class="text-brand-danger">{{ _("Niet meer lid, dus niet mee als organisator: %(namen)s.", namen=left_out|join(", ")) }}</p>
-      {% endif %}
     </div>
 
     {# Koen, 1 October 2026: off by default — the board usually sets components up
