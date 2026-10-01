@@ -342,6 +342,7 @@ DATE_OBJECT_GRAIN: dict[str, str] = {
             "start_date",
             "end_date",
             "activity_date",
+            "year_first_date",
         )
         for korrel in ("year", "quarter", "month", "day")
     },
@@ -454,6 +455,23 @@ FACTS: tuple[Fact, ...] = (
         # In the order of the year, like the programme on paper.
         detail_order=("{view}.date_key", "{view}.start_time", "{view}.activity_date_id"),
     ),
+    # #1439: Koen wants every activity ONCE in the programme. "The first date in
+    # the year" depends on the year, so the grain is activity × year: a series
+    # from November to February is a row in each year, with that year's dates.
+    Fact(
+        key="f_activity_years",
+        name="Activiteiten per jaar",
+        role=Role.ADMIN,
+        grain="één rij per activiteit per jaar waarin ze een datum heeft",
+        description=(
+            "Elke activiteit één keer per jaar, met haar eerste datum in dat jaar "
+            "en al haar datums van dat jaar in één cel. Een datum telt in het jaar "
+            "van haar startdag. Ook concepten en geannuleerde activiteiten."
+        ),
+        dataset_key=("activity_id", "year"),
+        # By the first date, like the programme on paper.
+        detail_order=("{view}.first_date", "{view}.first_time", "{view}.activity_id"),
+    ),
     Fact(
         key="f_form_submissions",
         name="Formulierinzendingen",
@@ -556,6 +574,12 @@ DIMENSIONS: tuple[Dimension, ...] = (
         key_column="date_key",
         source_view="d_date",
     ),
+    Dimension(
+        key="d_year_first_date",
+        name="Eerste datum in het jaar",
+        key_column="date_key",
+        source_view="d_date",
+    ),
 )
 
 JOINS: tuple[Join, ...] = (
@@ -601,6 +625,9 @@ JOINS: tuple[Join, ...] = (
     # programme takes the joined column instead.
     Join("f_activity_dates", "d_activity", (("activity_id", "activity_id"),)),
     Join("f_activity_dates", "d_activity_date", (("date_key", "date_key"),)),
+    # #1439: one row per activity and year, so `d_activity` cannot multiply it.
+    Join("f_activity_years", "d_activity", (("activity_id", "activity_id"),)),
+    Join("f_activity_years", "d_year_first_date", (("first_date", "date_key"),)),
     # A snowflake: the board member hangs off the household, not off a fact. Same
     # grain as the household it hangs off, so nothing multiplies (#849).
     Join("d_member", "d_board_member", (("board_member_id", "board_member_id"),)),
@@ -1273,6 +1300,120 @@ OBJECTS: tuple[UniverseObject, ...] = (
         description=(
             "Hoeveel datums er gepland zijn. Een reeks van zes avonden telt zes, "
             "waar 'Aantal activiteiten' er één telt."
+        ),
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    # #1439: the annual programme, one row per activity per year.
+    UniverseObject(
+        key="year_first_date_year",
+        name="Eerste datum in het jaar › Jaar",
+        klass="Activiteiten",
+        kind=ObjectKind.DIMENSION,
+        view="d_year_first_date",
+        sql="{view}.year",
+        format=Format.YEAR,
+        role=Role.ADMIN,
+        description=(
+            "De eerste datum van de activiteit in het jaar — één rij per activiteit "
+            "per jaar. Opgerold tot jaar."
+        ),
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="year_first_date_quarter",
+        name="Eerste datum in het jaar › Kwartaal",
+        klass="Activiteiten",
+        kind=ObjectKind.DIMENSION,
+        view="d_year_first_date",
+        sql="({view}.year::text || '-K' || {view}.quarter::text)",
+        sort_sql="{view}.year, {view}.quarter",
+        format=Format.LABEL,
+        role=Role.ADMIN,
+        description=(
+            "De eerste datum van de activiteit in het jaar — één rij per activiteit "
+            "per jaar. Opgerold tot kwartaal."
+        ),
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="year_first_date_month",
+        name="Eerste datum in het jaar › Maand",
+        klass="Activiteiten",
+        kind=ObjectKind.DIMENSION,
+        view="d_year_first_date",
+        sql="{view}.year_month",
+        format=Format.LABEL,
+        role=Role.ADMIN,
+        description=(
+            "De eerste datum van de activiteit in het jaar — één rij per activiteit "
+            "per jaar. Opgerold tot maand."
+        ),
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="year_first_date_day",
+        name="Eerste datum in het jaar › Datum",
+        klass="Activiteiten",
+        kind=ObjectKind.DIMENSION,
+        view="d_year_first_date",
+        sql="{view}.date_key",
+        format=Format.DATE,
+        role=Role.ADMIN,
+        description=(
+            "De eerste datum van de activiteit in het jaar — één rij per activiteit "
+            "per jaar. Opgerold tot datum."
+        ),
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="year_first_time",
+        name="Uur",
+        klass="Activiteiten",
+        kind=ObjectKind.DETAIL,
+        view="f_activity_years",
+        sql="{view}.first_time_label",
+        sort_sql="{view}.first_time",
+        format=Format.LABEL,
+        role=Role.ADMIN,
+        fact="f_activity_years",
+        description=(
+            "Het uur van de eerste datum van de activiteit in het jaar, als 19:30. "
+            "Leeg als die datum geen uur heeft."
+        ),
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="year_dates",
+        name="Datums",
+        klass="Activiteiten",
+        kind=ObjectKind.DETAIL,
+        view="f_activity_years",
+        sql="{view}.dates_label",
+        format=Format.LABEL,
+        role=Role.ADMIN,
+        fact="f_activity_years",
+        description=(
+            "Alle datums van de activiteit in het jaar, in volgorde, met een · "
+            "ertussen zoals bij de organisatoren. Een datum met een einddatum leest "
+            "'begin–einde'. Het uur staat er alleen bij als het per datum verschilt; "
+            "anders zegt 'Uur' het al."
+        ),
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="year_activity_count",
+        name="Aantal activiteiten in het jaar",
+        klass="Activiteiten",
+        kind=ObjectKind.MEASURE,
+        view="f_activity_years",
+        sql="COUNT(DISTINCT {view}.activity_id)",
+        format=Format.COUNT,
+        role=Role.ADMIN,
+        fact="f_activity_years",
+        additive=False,
+        description=(
+            "Hoeveel activiteiten een datum hebben in het jaar. Een reeks over de "
+            "jaarwisseling telt in elk van beide jaren."
         ),
         ai_exposure=AiExposure.PLAIN,
     ),
@@ -2912,6 +3053,12 @@ HIERARCHIES: tuple[Hierarchy, ...] = (
         name="Activiteitsdatum",
         klass="Activiteiten",
         level_keys=_date_levels("activity_date_"),
+    ),
+    Hierarchy(
+        key="year_first_date",
+        name="Eerste datum in het jaar",
+        klass="Activiteiten",
+        level_keys=_date_levels("year_first_date_"),
     ),
     Hierarchy(
         key="payment_created",
