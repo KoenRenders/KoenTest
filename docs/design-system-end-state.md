@@ -334,7 +334,10 @@ Inline in the title row: **one figure** per tile (`text-2xl
 font-extrabold`; the macro takes a single value and refuses a pair or a
 stacked amount — two things to do are two tiles, "Nog te ontvangen" and
 "Nog terug te betalen"), label (`text-xs`), optional second line of
-context that is not a second figure; each a link that sets the list's
+context that is not a second figure); the figures of one row sit on one
+line whatever the labels do — the macro anchors the figure at the bottom
+of the tile and clamps the label, so a wrapped label never pushes a
+figure [55]; each a link that sets the list's
 filter;
 the active tile marked. A tile colours only when its figure asks for
 attention (an open balance, an overdue count). [10, 36, 52]
@@ -349,8 +352,11 @@ Studio) — and the macro places them: record actions first in a fixed
 order, tools under a divider, delete last after a divider; Raakje is never
 among them (it is the shell's trigger). A screen cannot draw a button of
 its own in the head: a `btn_*` call there outside the macro is red. On a
-phone there is nothing to overflow — the title truncates, the two controls
-stay on the title line. Where each kind sits on the other layouts is the
+phone there is nothing to overflow, and **the title goes first**: the two
+controls stay beside the title while it fits, and drop to a line of their
+own under it before the title wraps into a narrow column or truncates to
+a few letters; a title truncates only at its end when it alone does not
+fit one line [56]. Where each kind sits on the other layouts is the
 table in CR-11 B4.3 (list: create and "Instellingen" in the title row;
 document: the same menu; public: one primary in the sticky card, no
 menu). First applied to the activity's head (#1387) and the "Kopiëren" of
@@ -523,7 +529,9 @@ to another module · no "Bewerken" in row actions · no `overflow-x-auto` on
 a list · no `max-w-*` on a screen · no `action_bar` in a repeating-group
 row · no `code_label` twice on a row · a long-value field (`url`, `email`,
 `textarea`) never half or beside another field · `rare_settings` never
-followed by a section · a tile with two figures refused by the macro · no
+followed by a section · a tile with two figures refused by the macro · figure tops in one tile
+row within 1 px, the title's box never squeezed by its actions (the
+screenshot set) · no
 `btn_*` in a record head outside
 `record_header(actions=…)`, and a list header's call slot holds only the
 create button and "Instellingen" · the declared save model matches the
