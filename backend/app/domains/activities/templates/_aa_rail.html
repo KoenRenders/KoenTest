@@ -8,7 +8,10 @@
       {# Label-waarde zoals de mockup: links het label, rechts de waarde. #}
       <dl class="text-sm space-y-1 mb-3">
         <div class="flex justify-between gap-2"><dt class="text-ink-soft">{{ _("Status") }}</dt>
-          <dd>{% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% else %}{{ ui.badge(_("actief"), "green") }}{% endif %}</dd></div>
+          {# #1428: the card is about publication, so its status is the
+             publication status — Concept or Gepubliceerd. "actief" (not
+             cancelled) contradicted a draft here; a cancellation is its own badge. #}
+          <dd>{{ ui.badge(publication.status|code_label("activity_status"), publication.status|tone("activity_status")) }}{% if a.is_cancelled %} {{ ui.badge(_("geannuleerd"), "red") }}{% endif %}</dd></div>
         <div class="flex justify-between gap-2"><dt class="text-ink-soft">{{ _("Toegang") }}</dt>
           <dd>{% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% else %}{{ ui.badge(_("iedereen welkom")) }}{% endif %}</dd></div>
         {# #974: zichtbaar in de detailweergave, met de toestand zoals de service

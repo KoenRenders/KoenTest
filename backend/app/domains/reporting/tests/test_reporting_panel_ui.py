@@ -158,8 +158,8 @@ def test_the_shipped_reports_return_the_numbers_of_the_seed(db_session, situatio
     # Seven since #833, ten since #841 (the questions of CR-06 §3), plus the
     # payments listing of #841 point 4, the six dashboard tiles of #848, the
     # board-member work list of #849 and the members-per-board-member listing of
-    # #850.
-    assert len(reports) == 19, "de negentien meegeleverde rapporten staan er"
+    # #850, and the annual programme of #1428.
+    assert len(reports) == 20, "de twintig meegeleverde rapporten staan er"
 
     def run(key):
         selection = selection_of(reports[key])

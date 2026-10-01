@@ -536,10 +536,12 @@ def test_the_ten_questions_are_now_complete(db_session, situation):
         "payments_list",
         "households_per_board_member",
         "members_per_board_member",
+        "annual_programme",
     }, (
         "en daarnaast de betalingenlijst (#841 punt 4), de zes dashboardtegels "
-        "(#848), de werklijst per bestuurslid (#849) en de ledenlijst per "
-        "bestuurslid (#850) — geen van die is een bestuurdersvraag uit §3"
+        "(#848), de werklijst per bestuurslid (#849), de ledenlijst per "
+        "bestuurslid (#850) en het jaarprogramma (#1428) — geen van die is een "
+        "bestuurdersvraag uit §3"
     )
 
 

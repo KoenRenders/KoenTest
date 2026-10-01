@@ -102,6 +102,7 @@ def test_every_date_sits_with_its_subject():
         "registration_date": "Activiteiten",
         "start_date": "Activiteiten",
         "end_date": "Activiteiten",
+        "activity_date": "Activiteiten",
         "payment_created": "Betalingen",
         "paid_date": "Betalingen",
         "member_created": "Leden",

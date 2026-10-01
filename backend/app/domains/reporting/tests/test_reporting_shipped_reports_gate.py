@@ -58,7 +58,7 @@ TENANTS = (TENANT_A, TENANT_B)
 # What migrations 099 through 113 ship. A number and not a `> 0`: the whole point
 # of #678 is that "the loop ran" and "the loop ran over something" are different
 # statements.
-VERWACHT_AANTAL = 19
+VERWACHT_AANTAL = 20  # + the annual programme (#1428)
 
 
 @pytest.fixture
