@@ -16,6 +16,7 @@ Zo volgt élke ingang — JSON-router, UI-route, script — dezelfde regel.
 
 from __future__ import annotations
 
+import itertools
 from contextlib import AbstractContextManager
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, NamedTuple, Optional
@@ -2664,15 +2665,14 @@ booked_per_component = _booked_per_component
 
 # ── Organisatoren (#1004, CR-10 §3.9) ────────────────────────────────────────
 #
-# Up to three "trekkers" per activity. The limit lives in THREE places on
-# purpose (CLAUDE.md, "Validation layers"): the screen hides the button (a
-# courtesy), this service refuses the fourth with a readable message (the rule),
-# and a CHECK on `sort_order` in the database is the net (migration 133).
+# The "trekkers" of an activity, as many as it has (#1429: the quiz has six).
+# Until #1429 an activity had at most three; that three belonged to the Design
+# Studio poster, which has room for three contact rows, and lives there now
+# (`designstudio.blocks.POSTER_CONTACT_ROWS`). The database keeps
+# `sort_order >= 0` and the UNIQUE on (activity_id, sort_order) (migration 179).
 #
 # Who is pickable is a member: everyone in a household (Koen, 16 September
 # 2026). The circle of a meeting is deliberately wider — see `search_persons`.
-
-MAX_ORGANISERS = 3
 
 
 class OrganiserView(NamedTuple):
@@ -2772,7 +2772,8 @@ def board_notes(db: Session, activity_id: int) -> str:
 
 
 def add_organiser(db: Session, activity_id: int, person_id: int) -> ActivityOrganiser:
-    """Add one organiser. Refuses a fourth, and someone who is no member."""
+    """Add one organiser, in the first free place. Refuses someone who is
+    already there and someone who is no member."""
     from app.domains.activities.models import ActivityOrganiser
     from app.domains.mdm.api import Person, is_member
     from app.i18n import _
@@ -2780,10 +2781,6 @@ def add_organiser(db: Session, activity_id: int, person_id: int) -> ActivityOrga
     if db.query(Activity).filter(Activity.id == activity_id).first() is None:
         raise LookupError("Activiteit niet gevonden")
     rijen = _organiser_rows(db, activity_id)
-    if len(rijen) >= MAX_ORGANISERS:
-        raise ActiviteitFout(
-            _("Een activiteit heeft hoogstens %(n)s organisatoren.") % {"n": MAX_ORGANISERS}
-        )
     if any(r.person_id == person_id for r in rijen):
         raise ActiviteitFout(_("Die persoon staat er al bij."))
     person = db.query(Person).filter(Person.id == person_id).first()
@@ -2794,8 +2791,9 @@ def add_organiser(db: Session, activity_id: int, person_id: int) -> ActivityOrga
         # post does not go through the picker.
         raise ActiviteitFout(_("Alleen leden kunnen organisator zijn."))
 
+    # The first free place, as before #1429 — only without the ceiling of three.
     gebruikt = {r.sort_order for r in rijen}
-    volgende = next(i for i in range(MAX_ORGANISERS) if i not in gebruikt)
+    volgende = next(i for i in itertools.count() if i not in gebruikt)
     rij = ActivityOrganiser(activity_id=activity_id, person_id=person_id, sort_order=volgende)
     db.add(rij)
     db.commit()

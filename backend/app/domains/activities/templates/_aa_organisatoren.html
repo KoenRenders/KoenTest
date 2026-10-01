@@ -103,7 +103,7 @@
   {{ ui.empty_state(_("Nog geen organisatoren.")) }}
   {% endif %}
 
-  {% if organisers|length < max_organisers %}
+  {# #1429: no limit on the number of organisers; the search stays. #}
   <div class="mt-3 border-t border-line pt-3">
     <input type="search" name="organiser_q" value="{{ organiser_query }}"
            placeholder="{{ _("Zoek een lid op naam…") }}"
@@ -135,9 +135,4 @@
       {% endif %}
     </div>
   </div>
-  {% else %}
-  <p class="text-sm text-ink-soft mt-3">
-    {{ _("Een activiteit heeft hoogstens %(n)s organisatoren.", n=max_organisers) }}
-  </p>
-  {% endif %}
 </div>

@@ -4,6 +4,7 @@ The only door for other components and for the screens. Today nothing else
 reads it; the screens are its one caller.
 """
 
+from app.domains.designstudio.blocks import POSTER_CONTACT_ROWS  # noqa: F401
 from app.domains.designstudio.brand import (  # noqa: F401
     COLOURS,
     DUOS,
@@ -80,6 +81,7 @@ __all__ = [
     "check_template",
     "palette_for",
     "ICONS",
+    "POSTER_CONTACT_ROWS",
     "Budget",
     "ImagingError",
     "RenderError",

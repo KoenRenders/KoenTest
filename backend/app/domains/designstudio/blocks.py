@@ -56,6 +56,14 @@ class Plan:
 # ── Helpers the template and the blocks share ─────────────────────────────
 
 
+#: How many organisers the poster names (#1429). Three contact rows is what fits
+#: in the band beside the QR code at the poster's one text size; a fourth would
+#: shrink every row or push the band into the picture. An activity can have more
+#: organisers than this — the poster takes the first three ticked as contact, in
+#: the activity's own order, and the editor says which three.
+POSTER_CONTACT_ROWS = 3
+
+
 def data_uri(image: ImageBytes) -> str:
     return f"data:{image.mime};base64," + base64.b64encode(image.data).decode()
 
@@ -765,7 +773,7 @@ def plan_affiche(
 
     rows: list[dict[str, object]] = []
     if content.contacts:
-        for i, c in enumerate(content.contacts[:3]):
+        for i, c in enumerate(content.contacts[:POSTER_CONTACT_ROWS]):
             # Name, mobile and address on one line while it fits, and over two
             # when it does not: "Marieke Vermeer · 0123 456 789 ·
             # mariekevermeer@example.com" measures 171 mm against a column of

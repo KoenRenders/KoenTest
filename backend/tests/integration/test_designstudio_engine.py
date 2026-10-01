@@ -1222,3 +1222,40 @@ def test_missing_inkscape_is_a_named_error(monkeypatch):
     monkeypatch.setattr(render, "INKSCAPE", "/nonexistent/inkscape")
     with pytest.raises(render.RenderError, match="niet geïnstalleerd"):
         render.export("<svg/>", "pdf")
+
+
+# ── The poster names three organisers (#1429) ────────────────────────────────
+
+
+def test_the_poster_names_the_first_three_of_six_organisers_in_order():
+    """An activity may have six organisers; the poster has room for three
+    contact rows and takes the first three, in the activity's own order."""
+    from app.domains.designstudio.api import POSTER_CONTACT_ROWS
+
+    names = [f"Trekker{i} Naam" for i in range(6)]
+    content = _content(contacts=tuple(Contact(n, f"0470 00 00 0{i}") for i, n in enumerate(names)))
+    svg = render.merge(content, layout="print_a").svg
+    assert POSTER_CONTACT_ROWS == 3
+    shown = [n for n in names if n in svg]
+    assert shown == names[:3], shown
+    assert [i for i in range(6) if f'id="t-contact-{i}"' in svg] == [0, 1, 2]
+    assert svg.index(names[0]) < svg.index(names[1]) < svg.index(names[2])
+
+
+def test_the_editor_says_which_three_make_the_poster():
+    """Red against master: there the editor listed every contact and said
+    nothing about which of them the poster actually shows."""
+    from app.domains.designstudio.admin_ui import _facts_rows
+
+    facts = {
+        "title": "Kwis",
+        "dates": [],
+        "location": "",
+        "deadline": "",
+        "description": "",
+        "organisers": [{"name": f"Trekker{i}", "mobile": "", "email": ""} for i in range(4)],
+    }
+    rows = dict(_facts_rows(facts))
+    assert rows["Op de affiche"] == "de eerste 3: Trekker0, Trekker1, Trekker2"
+    facts["organisers"] = facts["organisers"][:3]
+    assert "Op de affiche" not in dict(_facts_rows(facts)), "three fit: nothing to say"
