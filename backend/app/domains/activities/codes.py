@@ -16,11 +16,16 @@ Two lists, and neither is ordinary.
 """
 
 from app.domains.activities.models import (
+    ActivityStatus,
+    ActivityStatusCode,
+    ActivityStatusLabel,
     RegistrationState,
     RegistrationStateCode,
     RegistrationStateLabel,
     RegistrationTypeCode,
     RegistrationTypeLabel,
+    TargetAudienceCode,
+    TargetAudienceLabel,
 )
 from app.kernel.codes import Code, CodeList, CodeSeed
 
@@ -60,4 +65,43 @@ REGISTRATION_STATE = CodeList(
     labels=RegistrationStateLabel,
     enum=RegistrationState,
     derived=True,
+)
+
+
+#: #1428: draft ("Concept", in Koen's spreadsheet "TBD") or published
+#: ("Gepubliceerd", "OK"). The code branches on it, so it has an Enum.
+ACTIVITY_STATUS_CODES = (
+    CodeSeed(code="draft", nl="Concept", en="Draft", sort_order=10),
+    CodeSeed(code="published", nl="Gepubliceerd", en="Published", sort_order=20),
+)
+
+ACTIVITY_STATUS = CodeList(
+    name="activity_status",
+    schema="activities",
+    codes=ActivityStatusCode,
+    labels=ActivityStatusLabel,
+    enum=ActivityStatus,
+    fk_from=("activities.activities.status",),
+)
+
+#: #1428: who an activity is for. English codes, Dutch labels — the
+#: spreadsheet's letter codes cannot be kept, it has two V's (volwassenen and
+#: vrouwen). No Enum: nothing in Python branches on it (Koen's correction of
+#: 1 October 2026); it gets one when the public site starts to show it.
+TARGET_AUDIENCE_CODES = (
+    CodeSeed(code="families", nl="Gezinnen", en="Families", sort_order=10),
+    CodeSeed(code="adults", nl="Volwassenen", en="Adults", sort_order=20),
+    CodeSeed(code="men", nl="Mannen", en="Men", sort_order=30),
+    CodeSeed(code="women", nl="Vrouwen", en="Women", sort_order=40),
+    CodeSeed(code="teens", nl="Tieners", en="Teenagers", sort_order=50),
+    CodeSeed(code="children", nl="Kinderen", en="Children", sort_order=60),
+)
+
+TARGET_AUDIENCE = CodeList(
+    name="target_audience",
+    schema="activities",
+    codes=TargetAudienceCode,
+    labels=TargetAudienceLabel,
+    enum=None,
+    fk_from=("activities.activities.target_audience",),
 )

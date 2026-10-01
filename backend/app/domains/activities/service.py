@@ -523,6 +523,87 @@ def predecessors_of(db: Session, activity_id: int, *, limit: int = 10) -> list[P
     return chain
 
 
+def published_only() -> Any:
+    """The filter for every public place that lists activities (#1428).
+
+    A draft is left out of the agenda, the archive, the homepage, the photo
+    albums, the public JSON list, the public chatbot and the newsletter. The
+    board sees drafts: its screens ask for them explicitly. One expression, so
+    no public place writes its own.
+    """
+    from app.domains.activities.models import ActivityStatus
+
+    return Activity.status == ActivityStatus.PUBLISHED
+
+
+def is_published(activity: Any) -> bool:
+    """Whether a visitor may see this activity (#1428): not a draft."""
+    from app.domains.activities.models import ActivityStatus
+
+    return activity.status is ActivityStatus.PUBLISHED
+
+
+class Publication(NamedTuple):
+    """What the board's screens show of an activity's status and audience (#1428).
+
+    Not on `ActivityResponse`: that schema is also the public JSON answer.
+    `draft` is decided here, so a template never compares a code.
+    """
+
+    status: Any
+    draft: bool
+    audience: str | None
+
+
+def publication_of(db: Session, activity_ids: Iterable[int]) -> dict[int, Publication]:
+    """Status and target audience of these activities, in one query (#1428)."""
+    from app.domains.activities.models import ActivityStatus
+
+    ids = list(activity_ids)
+    if not ids:
+        return {}
+    rows = (
+        db.query(Activity.id, Activity.status, Activity.target_audience)
+        .filter(Activity.id.in_(ids))
+        .all()
+    )
+    return {
+        row.id: Publication(row.status, row.status is ActivityStatus.DRAFT, row.target_audience)
+        for row in rows
+    }
+
+
+def publication(db: Session, activity_id: int) -> Publication:
+    """Status and audience of one activity, from the session's identity map (#1428).
+
+    `db.get` and not a query, like `board_notes`: the record page loaded the row
+    just before, so this costs no second query (the query budget, #645 D).
+    """
+    from app.domains.activities.models import ActivityStatus
+
+    row = db.get(Activity, activity_id)
+    assert row is not None
+    return Publication(row.status, row.status is ActivityStatus.DRAFT, row.target_audience)
+
+
+def set_activity_status(
+    db: Session, activity_id: int, status: Any, *, actor: str | None = None
+) -> Activity | None:
+    """Publish a draft, or take a published activity back to draft (#1428).
+
+    Through `update_activity`, so the change has its history row like any edit.
+    An unknown status is refused by name.
+    """
+    from app.domains.activities.models import ActivityStatus
+    from app.i18n import _ as vertaal
+
+    try:
+        member = ActivityStatus(status)
+    except ValueError:
+        raise ActiviteitFout(vertaal("Onbekende status.")) from None
+    return update_activity(db, activity_id, {"status": member}, actor=actor)
+
+
 def first_date_of(activity: Activity) -> date | None:
     """The earliest start date of an activity, the one a copy is moved by."""
     return min((d.start_date for d in activity.dates), default=None)
@@ -535,6 +616,7 @@ def copy_activity(
     first_date: date | None,
     actor: str | None = None,
     with_components: bool = False,
+    status: Any = None,
 ) -> Activity | None:
     """Copy an activity to a new date, in one transaction (#1397).
 
@@ -552,7 +634,7 @@ def copy_activity(
     """
     from types import SimpleNamespace
 
-    from app.domains.activities.models import ActivityOrganiser
+    from app.domains.activities.models import ActivityOrganiser, ActivityStatus
 
     source = _activity_met_boom(db, activity_id)
     if source is None:
@@ -593,6 +675,9 @@ def copy_activity(
         )
         copy.board_notes = source.board_notes
         copy.copied_from_id = source.id
+        # #1428: a copy is a draft unless the copy step says published — next
+        # year's programme is prepared before it goes on the site.
+        copy.status = ActivityStatus(status) if status else ActivityStatus.DRAFT
         for organiser in source.organisers:
             db.add(
                 ActivityOrganiser(
@@ -711,6 +796,13 @@ def update_activity(
     # het merkt: wie op zo'n link klikt is geen bestuurder.
     if "slug" in velden:
         velden = {**velden, "slug": _controleer_slug(db, velden["slug"], behalve_id=activity_id)}
+    if velden.get("target_audience") is not None:
+        from app.domains.activities.codes import TARGET_AUDIENCE_CODES
+        from app.i18n import _ as vertaal
+
+        # #1428: a code of the list, or empty ("niet ingevuld").
+        if velden["target_audience"] not in {c.code for c in TARGET_AUDIENCE_CODES}:
+            raise ActiviteitFout(vertaal("Onbekend doelpubliek."))
     for veld, waarde in velden.items():
         setattr(activity, veld, waarde)
     snapshot_activity(
@@ -1445,6 +1537,10 @@ def register(
         tenant_max_registrations_per_email,
     )
 
+    # #1428: a draft takes no registration from the site; the board may register
+    # on its own way in (the back office), e.g. to prepare one.
+    if not backoffice_products and not is_published(activity):
+        raise RegistrationRefused(vertaal("Deze activiteit staat nog niet open."))
     component = next((c for c in activity.sub_registrations if c.id == data.component_id), None)
     refusal = registration_refusal(activity, component=component)
     if refusal:
@@ -2154,9 +2250,12 @@ def record_kop_ctx(
     De keuze valt hier en niet in het sjabloon, zoals de laaggate vraagt.
     """
     from app.config import settings
+    from app.domains.activities.models import ActivityStatus
     from app.domains.designstudio.api import designs_for_activity
     from app.kernel.tenant_config import tenant_admin_chat_enabled
 
+    # #1428: the status the header shows and its button changes.
+    pub = publication(db, activiteit.id)
     ontwerpen = designs_for_activity(db, activiteit.id)
     if not ontwerpen:
         designs_href = f"/admin/ontwerpen/nieuw?activity_id={activiteit.id}"
@@ -2174,6 +2273,10 @@ def record_kop_ctx(
         # configuration here, the same value the reporting Raakje passes on.
         "stt_mode": settings.stt_mode,
         "designs_href": designs_href,
+        # #1428: "Concept" on the title line, and the one status change the
+        # header's button makes — decided here, so the template compares no code.
+        "publication": pub,
+        "status_next": (ActivityStatus.PUBLISHED if pub.draft else ActivityStatus.DRAFT).value,
     }
 
 
@@ -2470,19 +2573,27 @@ class ActivitySpan(NamedTuple):
     capacity: Optional[int]
 
 
-def _spans(db: Session, having: Callable[[Any, Any], Any]) -> list[ActivitySpan]:
+def _spans(
+    db: Session, having: Callable[[Any, Any], Any], *, published: bool = False
+) -> list[ActivitySpan]:
     """Activities whose span matches `having`, chronologically.
 
     `having` receives the aggregated first/last columns so both callers express
     their window in the same vocabulary; the counting itself happens once, below.
+    `published` leaves drafts out (#1428): the newsletter reaches the public, a
+    meeting of the board discusses drafts too.
     """
     first = func.min(ActivityDate.start_date)
     last = func.max(func.coalesce(ActivityDate.end_date, ActivityDate.start_date))
-    rows = (
+    query = (
         db.query(Activity, first.label("first"), last.label("last"))
         .join(ActivityDate, ActivityDate.activity_id == Activity.id)
         .filter(Activity.is_cancelled.is_(False))
-        .group_by(Activity.id)
+    )
+    if published:
+        query = query.filter(published_only())
+    rows = (
+        query.group_by(Activity.id)
         .having(having(first, last))
         .order_by(first.asc(), Activity.id.asc())
         .all()
@@ -2500,23 +2611,25 @@ def _spans(db: Session, having: Callable[[Any, Any], Any]) -> list[ActivitySpan]
     ]
 
 
-def activities_active_between(db: Session, start: date, end: date) -> list[ActivitySpan]:
+def activities_active_between(
+    db: Session, start: date, end: date, *, published_only: bool = False
+) -> list[ActivitySpan]:
     """Activities that were running or started in the window [start, end).
 
     What a meeting evaluates: everything since the previous meeting, a still
     running activity included — the photo hunt sat under evaluation every month
     while it ran, which is exactly what the board discussed.
     """
-    return _spans(db, lambda first, last: (first < end) & (last >= start))
+    return _spans(db, lambda first, last: (first < end) & (last >= start), published=published_only)
 
 
-def activities_from(db: Session, day: date) -> list[ActivitySpan]:
+def activities_from(db: Session, day: date, *, published_only: bool = False) -> list[ActivitySpan]:
     """Activities starting on or after `day` — the whole planned programme.
 
     No time window (CR-09 §3.21): booking a venue a year ahead is a normal agenda
     point, and the secretary leaves off what has nothing to discuss.
     """
-    return _spans(db, lambda first, last: first >= day)
+    return _spans(db, lambda first, last: first >= day, published=published_only)
 
 
 class ActivityDateSpan(NamedTuple):

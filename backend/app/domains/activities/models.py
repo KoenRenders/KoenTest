@@ -54,6 +54,19 @@ def _media_newest_first() -> Any:
     return MediaAsset.id.desc()
 
 
+class ActivityStatus(CodeEnum):
+    """Whether an activity is on the public site (#1428, Koen 1 October 2026).
+
+    An Enum because the code branches on it: a draft is left out of every
+    public place. In Koen's programme spreadsheet a draft was "TBD" and a
+    published activity "OK". Cancelled stays a state of its own
+    (`is_cancelled`): a published activity can be cancelled.
+    """
+
+    DRAFT = "draft"
+    PUBLISHED = "published"
+
+
 class RegistrationState(CodeEnum):
     """Whether an activity accepts a NEW registration, and if not, why (#974).
 
@@ -226,6 +239,22 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
     # weg en deze begint leeg, onder een naam die niet met de oude te verwarren
     # is. Wat de bezoeker mag lezen is `description` hierboven.
     board_notes = Column(Text, nullable=True)
+    # #1428: draft or published. Every activity that existed before is published
+    # (migration 179); a new one by hand is too, as before; a copy starts as a
+    # draft unless the copy step says otherwise.
+    status: Mapped[ActivityStatus] = mapped_column(
+        EnumColumn(ActivityStatus, length=20),
+        ForeignKey("activities.activity_status_codes.code"),
+        nullable=False,
+        default=ActivityStatus.PUBLISHED,
+    )
+    # #1428: who the activity is for — ONE value, on purpose (Koen: "vandaag is
+    # het altijd één"). If one activity ever needs more, that is a link table,
+    # not a second column. A plain code with a foreign key and no Enum: nothing in
+    # Python branches on it yet (docs/code-style.md). Empty until the board picks.
+    target_audience = Column(
+        String(20), ForeignKey("activities.target_audience_codes.code"), nullable=True
+    )
     # #1397: the activity this one was copied from, if any. No foreign key:
     # activities are soft-deleted, and a link to a deleted predecessor is history.
     # The Design Studio reads the chain to offer last year's photos.
@@ -818,6 +847,76 @@ class RegistrationStateLabel(Base):
     code = Column(
         String(10), ForeignKey("activities.registration_state_codes.code"), primary_key=True
     )
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class ActivityStatusCode(Base):
+    """Which activity statuses exist — the target of the foreign key (#1428)."""
+
+    __tablename__ = "activity_status_codes"
+    __table_args__ = {"schema": "activities"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
+class ActivityStatusLabel(Base):
+    """The word a screen shows for an activity status, per language (#1428)."""
+
+    __tablename__ = "activity_status_labels"
+    __table_args__ = {"schema": "activities"}
+
+    code = Column(String(20), ForeignKey("activities.activity_status_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class TargetAudienceCode(Base):
+    """Which target audiences exist — the target of the foreign key (#1428)."""
+
+    __tablename__ = "target_audience_codes"
+    __table_args__ = {"schema": "activities"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
+class TargetAudienceLabel(Base):
+    """The word a screen shows for a target audience, per language (#1428)."""
+
+    __tablename__ = "target_audience_labels"
+    __table_args__ = {"schema": "activities"}
+
+    code = Column(String(20), ForeignKey("activities.target_audience_codes.code"), primary_key=True)
     language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)

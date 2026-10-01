@@ -38,6 +38,16 @@ from app.ui import admin_nav, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
 
+# #1428: the badge tone of an activity's status. A draft is "attention": it is
+# not on the site yet. Published is the normal case (the card shows no badge).
+from app.domains.activities.api import ACTIVITY_STATUS, ActivityStatus  # noqa: E402
+from app.kernel.codes import register_tones  # noqa: E402
+
+register_tones(
+    ACTIVITY_STATUS.name,
+    {ActivityStatus.DRAFT: "orange", ActivityStatus.PUBLISHED: "gray"},
+)
+
 NAV = admin_nav("/admin/activiteiten")
 
 
@@ -97,7 +107,7 @@ def _lijst_ctx(db: Session, scope: str = "all", q: str = "") -> dict:
 
     if scope not in SCOPES:
         scope = "all"
-    activiteiten = list_activities(db, scope=scope)
+    activiteiten = list_activities(db, scope=scope, include_drafts=True)
     term = q.strip().lower()
     if term:
         activiteiten = [
@@ -183,7 +193,19 @@ def _aa_detail_ctx(
         # and which one each component asks. Not on `a`: that is the public JSON.
         "question_forms": vraagformulieren,
         "component_form": gekozen_formulier,
+        # #1428: the audience choice; `selected` is decided here, so the template
+        # compares no code. Not on `a`: that is the public JSON.
+        "audience_options": _audience_options(db, activiteit.id),
     }
+
+
+def _audience_options(db: Session, activity_id: int) -> list[tuple[str, str, bool]]:
+    """(code, label, selected) for the target audience select (#1428)."""
+    from app.domains.activities.api import TARGET_AUDIENCE, publication
+    from app.kernel.codes import code_labels
+
+    chosen = publication(db, activity_id).audience
+    return [(code, label, code == chosen) for code, label in code_labels(TARGET_AUDIENCE.name)]
 
 
 def _detail_response(
@@ -253,9 +275,13 @@ def admin_activiteiten(
     # De filterbalk vraagt enkel de kaarten op; zou ze de pagina vervangen, dan
     # sneuvelt het zoekveld (en de focus) bij elke aanslag.
     fragment = is_fragment_request(request)
+    from app.domains.activities.api import publication_of
+
     view = AdminActiviteitenView(
         **lijst,
         **_kpi(kpi_bron),
+        # #1428: "Concept" and the audience on the cards.
+        publication=publication_of(db, [a.id for a in lijst["activities"]]),
         csrf_token=csrf_from_request(request),
         nav_items=[] if fragment else NAV,
     )
@@ -309,6 +335,33 @@ def _copy_view(
     )
 
 
+@router.post(
+    "/admin/activiteiten/{activity_id}/status",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def activity_status_submit(
+    activity_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    status: str = Form(""),
+) -> Response:
+    """Publish a draft or take it back to draft (#1428); the rule is the service's."""
+    from app.domains.activities import service
+    from app.domains.activities.api import set_activity_status
+
+    try:
+        changed = set_activity_status(db, activity_id, status, actor=email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
+    if changed is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    # The header sits on every tab of the activity; the page that pressed the
+    # button reloads, so the badge and the button show the new status.
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
 @router.get("/admin/activiteiten/{activity_id}/kopieren", response_class=HTMLResponse)
 def copy_activity_step(
     activity_id: int,
@@ -334,6 +387,7 @@ def copy_activity_submit(
     email: str = Depends(require_admin_ui),
     start_date: Optional[date] = Form(None),
     with_components: bool = Form(False),
+    status: str = Form(""),
 ) -> Response:
     """Make the copy and open it (#1397). The copying, and its rules, are in the
     service; the form's `start_date` is the new start of the first date row."""
@@ -342,7 +396,12 @@ def copy_activity_submit(
 
     try:
         copy = copy_activity(
-            db, activity_id, first_date=start_date, actor=email, with_components=with_components
+            db,
+            activity_id,
+            first_date=start_date,
+            actor=email,
+            with_components=with_components,
+            status=status or None,
         )
     except service.ActiviteitFout as fout:
         view = _copy_view(request, db, activity_id, error=str(fout))
@@ -474,6 +533,7 @@ async def activiteit_bijwerken(
     slug: str = Form(""),
     members_only: str = Form(""),
     is_cancelled: str = Form(""),
+    target_audience: str = Form(""),
     file: Optional[UploadFile] = File(None),
 ) -> Response:
     """Bewerkt de activiteit; één "Opslaan" bewaart tekstvelden én de affiche (#623).
@@ -503,6 +563,8 @@ async def activiteit_bijwerken(
     # #1028: de interne nota, zelfde behandeling als de omschrijving — leegmaken
     # is een geldige keuze en moet de kolom bereiken.
     velden["board_notes"] = board_notes.strip() or None
+    # #1428: one audience or none; emptying it is a valid choice.
+    velden["target_audience"] = target_audience.strip() or None
     try:
         bijgewerkt = service.update_activity(db, activity_id, velden, actor=email)
     except service.ActiviteitFout as fout:

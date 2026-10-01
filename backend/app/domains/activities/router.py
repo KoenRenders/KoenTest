@@ -185,6 +185,17 @@ def list_activities(
       recente voorbije datum; enkel de voorbije datums; status altijd Voorbij.
     - ``all`` (admin): álle activiteiten met álle datums.
     """
+    # #1428: the public JSON list never carries a draft, whatever the scope. The
+    # docstring above is the route's OpenAPI description, so it stays as it was.
+    return activities_for(db, scope, include_drafts=False)
+
+
+def activities_for(
+    db: Session, scope: str = "upcoming", *, include_drafts: bool = False
+) -> List[ActivityResponse]:
+    """The activities of a scope, as `list_activities` describes them, for every
+    caller: the public route and the facade. `include_drafts` only for the
+    board's own list (#1428)."""
     today = belgian_today()
     # "Passed" and "ahead" are the service's, the same comparison `registration_state`
     # makes (CR-13 phase 4).
@@ -198,6 +209,11 @@ def list_activities(
         selectinload(Activity.poster_assets),
         selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.info_assets),
     )
+    # #1428: a draft is for the board only; every other caller gets none.
+    if not include_drafts:
+        from app.domains.activities.service import published_only
+
+        base = base.filter(published_only())
 
     if scope == "archived":
         has_past = (
@@ -787,8 +803,11 @@ def get_public_registrations(
     db: Session = Depends(get_db),
 ) -> list[dict]:
     """Return public participant list for a given component."""
+    from app.domains.activities.service import is_published
+
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
-    if not activity:
+    # #1428: a draft has no public participant list.
+    if not activity or not is_published(activity):
         raise HTTPException(status_code=404, detail=_("Activity not found"))
 
     result = []

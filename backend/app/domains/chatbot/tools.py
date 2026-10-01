@@ -249,9 +249,16 @@ def get_activities(db: Session, when: str = "upcoming", limit: int = 20) -> dict
         ActivityDate.start_date < today if is_past else ActivityDate.start_date >= today
     )
     activity_ids = [row[0] for row in date_q.all()]
+    from app.domains.activities.api import published_only
+
+    # #1428: a draft is not public, so Raakje does not know it either.
     activities = (
         db.query(Activity)
-        .filter(Activity.id.in_(activity_ids), Activity.is_cancelled == False)  # noqa: E712
+        .filter(
+            Activity.id.in_(activity_ids),
+            Activity.is_cancelled == False,  # noqa: E712 - a SQL comparison, not Python truth
+            published_only(),
+        )
         .all()
     )
 
@@ -287,7 +294,10 @@ def _text_or_unspecified(value: Optional[str]) -> str:
 
 
 def get_activity_detail(db: Session, activity_id: int) -> dict[str, Any]:
-    a = db.query(Activity).filter(Activity.id == activity_id).first()
+    from app.domains.activities.api import published_only
+
+    # #1428: a draft is "not found" for the chatbot, as it is for a visitor.
+    a = db.query(Activity).filter(Activity.id == activity_id, published_only()).first()
     if not a:
         return {"error": "Activiteit niet gevonden."}
 

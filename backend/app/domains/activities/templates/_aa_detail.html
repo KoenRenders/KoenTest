@@ -138,6 +138,12 @@
                          delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/affiche/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
                          delete_confirm=_("De opgeladen affiche verwijderen?"),
                          hint=_("Een opgeladen affiche primeert op de Poster-URL.")) }}
+      {# #1428: who the activity is for — one value, or not filled in. #}
+      <div class="max-w-xs">{{ ui.label(_("Doelpubliek"), "target_audience") }}
+        {% call ui.select_control("target_audience", cls="w-full", attrs='id="target_audience"') %}
+          <option value="">{{ _("— niet ingevuld —") }}</option>
+          {% for code, label, selected in audience_options %}<option value="{{ code }}"{% if selected %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        {% endcall %}</div>
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1" {% if a.members_only %}checked{% endif %}> {{ _("Enkel voor leden") }}</label>
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_cancelled" value="1" {% if a.is_cancelled %}checked{% endif %}> {{ _("Geannuleerd") }}</label>
       {# #1391 (CR-11 W2): the poster URL folds away at the bottom, like the

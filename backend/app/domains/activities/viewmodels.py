@@ -27,6 +27,9 @@ class AdminActiviteitenView(ViewModel):
     kpi_open: int
     kpi_vol: int
     kpi_onderdelen: int
+    # #1428: status and audience per activity id — not on the cards' schema,
+    # which is also the public JSON answer.
+    publication: dict[int, Any] = field(default_factory=dict)
 
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
@@ -106,6 +109,10 @@ class AdminActiviteitInschrijvingenView(ViewModel):
     # #1070: de bestemming van de Designs-knop in diezelfde kop. Eén label, drie
     # bestemmingen — de keuze valt in `record_kop_ctx`, niet in het sjabloon.
     designs_href: str
+    # #1428: "Concept" in the header and the status its button sets — both from
+    # `record_kop_ctx`.
+    publication: Any
+    status_next: str
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 

@@ -45,8 +45,20 @@
 
     <div class="text-sm space-y-1">
       <p><strong>{{ _("Gaat mee:") }}</strong> {{ _("de activiteit met al haar teksten, de datums en de organisatoren.") }}</p>
-      <p><strong>{{ _("Gaat nooit mee:") }}</strong> {{ _("inschrijvingen, betalingen, de affiche en de links. De kopie staat meteen op de agenda.") }}</p>
+      <p><strong>{{ _("Gaat nooit mee:") }}</strong> {{ _("inschrijvingen, betalingen, de affiche en de links.") }}</p>
     </div>
+
+    {# #1428: the copy's status, draft by default — next year's programme is
+       prepared before it goes on the site. #}
+    <fieldset>
+      <legend class="text-sm font-medium text-ink">{{ _("Status van de kopie") }}</legend>
+      <div class="mt-1 space-y-1 text-sm">
+        <label class="flex items-start gap-2 min-h-11 py-1"><input type="radio" name="status" value="draft" checked class="mt-1">
+          <span>{{ _("Concept") }} <span class="block text-xs text-ink-soft">{{ _("Nog niet op de site; je publiceert ze later vanop de activiteit.") }}</span></span></label>
+        <label class="flex items-start gap-2 min-h-11 py-1"><input type="radio" name="status" value="published" class="mt-1">
+          <span>{{ _("Gepubliceerd") }} <span class="block text-xs text-ink-soft">{{ _("Meteen op de agenda.") }}</span></span></label>
+      </div>
+    </fieldset>
 
     {# Koen, 1 October 2026: off by default — the board usually sets components up
        months ahead with that year's prices. #}

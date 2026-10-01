@@ -524,8 +524,10 @@ def default_sources(db: Session, today: Optional[date] = None) -> tuple[list[int
     today = today or date.today()
     since = _since_previous_letter(db, today)
     until = _months_later(today, MONTHS_AHEAD)
-    past = [s.activity.id for s in activities_active_between(db, since, today)]
-    coming = [s.activity.id for s in activities_from(db, today) if s.start <= until]
+    past = [s.activity.id for s in activities_active_between(db, since, today, published_only=True)]
+    coming = [
+        s.activity.id for s in activities_from(db, today, published_only=True) if s.start <= until
+    ]
     return sorted(set(past) | set(coming)), []
 
 
@@ -750,10 +752,15 @@ def activity_facts(
     pictures = _pictures(db, wanted)
     since = (today or date.today()) - timedelta(days=400)
     spans = {
-        span.activity.id: span for span in activities_from(db, since) if span.activity.id in wanted
+        span.activity.id: span
+        for span in activities_from(db, since, published_only=True)
+        if span.activity.id in wanted
     }
     out: dict[int, ActivityFacts] = {}
-    for activity in db.query(Activity).filter(Activity.id.in_(wanted)).all():
+    from app.domains.activities.api import published_only
+
+    # #1428: a draft never becomes a block in a letter that leaves.
+    for activity in db.query(Activity).filter(Activity.id.in_(wanted), published_only()).all():
         span = spans.get(activity.id)
         dates = sorted(
             getattr(activity, "dates", []) or [],
@@ -1072,7 +1079,9 @@ def calendar_default_ids(db: Session, *, today: Optional[date] = None) -> list[i
 
     start = today or date.today()
     until = start + timedelta(weeks=CALENDAR_WEEKS)
-    return [s.activity.id for s in activities_from(db, start) if s.start <= until]
+    return [
+        s.activity.id for s in activities_from(db, start, published_only=True) if s.start <= until
+    ]
 
 
 def calendar_html(
@@ -1094,11 +1103,13 @@ def calendar_html(
     if activity_ids is not None:
         wanted = {int(i) for i in activity_ids}
         spans = [
-            s for s in activities_from(db, start - timedelta(days=400)) if s.activity.id in wanted
+            s
+            for s in activities_from(db, start - timedelta(days=400), published_only=True)
+            if s.activity.id in wanted
         ]
     else:
         until = start + timedelta(weeks=CALENDAR_WEEKS)
-        spans = [s for s in activities_from(db, start) if s.start <= until]
+        spans = [s for s in activities_from(db, start, published_only=True) if s.start <= until]
     if not spans:
         return f"<div>{html_lib.escape(_('Er staan de komende weken geen activiteiten gepland.'))}</div>"
     facts = activity_facts(db, [s.activity.id for s in spans], base_url=base_url, today=start)
@@ -1123,12 +1134,12 @@ def insertable_activities(
     today = today or date.today()
     if past:
         spans = sorted(
-            activities_active_between(db, _months_later(today, -12), today),
+            activities_active_between(db, _months_later(today, -12), today, published_only=True),
             key=lambda s: s.start,
             reverse=True,
         )
     else:
-        spans = activities_from(db, today)
+        spans = activities_from(db, today, published_only=True)
     needle = (query or "").strip().lower()
     if needle:
         spans = [s for s in spans if needle in s.activity.name.lower()]
