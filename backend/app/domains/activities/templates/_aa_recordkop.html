@@ -16,6 +16,10 @@
     {%- if a.dates %}{{ a.dates[0].start_date|langedatum }}{% if a.dates[0].start_time %} · {{ a.dates[0].start_time.strftime("%H.%M") }}{% if a.dates[0].end_time %}–{{ a.dates[0].end_time.strftime("%H.%M") }}{% endif %} u.{% endif %}{% endif %}
     {%- if a.location %} · {{ a.location }}{% endif %}
   </p>
+  {# #1397 (Koen, 1 October 2026): a text link under the date line, not a button
+     in the row beside the title — that row is already wider than a phone (#1387),
+     and this link adds nothing to its width. #}
+  <p class="mt-1">{{ ui.link_action(_("Kopiëren naar een volgend jaar"), href="/admin/activiteiten/" ~ a.id ~ "/kopieren") }}</p>
   </div>
   {# Raakje Admin (golf 10, #913 — Koen: overlay over het record, in de stijl
      van de publieke Raakje). De knop bestaat alleen als de beheer-assistent

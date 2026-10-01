@@ -26,7 +26,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.activities.viewmodels import AdminActiviteitenView
+from app.domains.activities.viewmodels import AdminActiviteitenView, CopyActivityView
 from app.domains.auth.api import (
     SESSION_COOKIE,
     csrf_from_request,
@@ -284,6 +284,77 @@ def activiteit_nieuw(
             "csrf_token": csrf_from_request(request),
         },
     )
+
+
+def _copy_view(
+    request: Request, db: Session, activity_id: int, error: Optional[str] = None
+) -> CopyActivityView:
+    from app.domains.activities.api import (
+        copy_suggestions,
+        first_date_of,
+        get_activity,
+        organisers_for,
+        organisers_left_out_of_a_copy,
+    )
+
+    activity = get_activity(db, activity_id)
+    if activity is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    first = first_date_of(activity)
+    suggestions = copy_suggestions(first) if first else None
+    left_out = {o.id for o in organisers_left_out_of_a_copy(db, activity)}
+    return CopyActivityView(
+        activity=activity,
+        first_date=first,
+        same_weekday=suggestions.same_weekday if suggestions else None,
+        same_date=suggestions.same_date if suggestions else None,
+        left_out=[o.name for o in organisers_for(db, activity_id) if o.id in left_out],
+        error=error,
+        csrf_token=csrf_from_request(request),
+        nav_items=NAV,
+    )
+
+
+@router.get("/admin/activiteiten/{activity_id}/kopieren", response_class=HTMLResponse)
+def copy_activity_step(
+    activity_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+) -> Response:
+    """The step before a copy (#1397): where the dates move to."""
+    return templates.TemplateResponse(
+        request, "admin_activiteit_kopieren.html", _copy_view(request, db, activity_id).as_context()
+    )
+
+
+@router.post(
+    "/admin/activiteiten/{activity_id}/kopieren",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def copy_activity_submit(
+    activity_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    start_date: Optional[date] = Form(None),
+) -> Response:
+    """Make the copy and open it (#1397). The copying, and its rules, are in the
+    service; the form's `start_date` is the new start of the first date row."""
+    from app.domains.activities import service
+    from app.domains.activities.api import copy_activity
+
+    try:
+        copy = copy_activity(db, activity_id, first_date=start_date, actor=email)
+    except service.ActiviteitFout as fout:
+        view = _copy_view(request, db, activity_id, error=str(fout))
+        return templates.TemplateResponse(
+            request, "admin_activiteit_kopieren.html", view.as_context()
+        )
+    if copy is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    return Response(status_code=204, headers={"HX-Redirect": f"/admin/activiteiten/{copy.id}"})
 
 
 @router.get("/admin/activiteiten/{activity_id}", response_class=HTMLResponse)
