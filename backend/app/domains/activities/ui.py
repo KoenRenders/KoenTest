@@ -88,11 +88,12 @@ def deelnemers_fragment(
 def _component_or_404(db: Session, activity_id: int, component_id: int) -> tuple[Any, Any]:
     """Activiteit + onderdeel, of 404. `get_component` controleert meteen dat het
     onderdeel bij díe activiteit hoort (#635 I)."""
-    from app.domains.activities.api import get_activity, get_component
+    from app.domains.activities.api import get_activity, get_component, is_published
 
     activity = get_activity(db, activity_id)
     component = get_component(db, component_id, activity_id=activity_id)
-    if activity is None or component is None:
+    # #1428: a draft cannot be registered for from the site, as it cannot be seen.
+    if activity is None or component is None or not is_published(activity):
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     return activity, component
 
@@ -409,11 +410,12 @@ def activiteit_deeplink(sleutel: str, request: Request, db: Session = Depends(ge
 
     from fastapi.responses import RedirectResponse
 
-    from app.domains.activities.api import activity_by_key
+    from app.domains.activities.api import activity_by_key, is_published
     from app.ui import path_for
 
     activiteit = activity_by_key(db, sleutel)
-    if activiteit is None:
+    # #1428: a draft has no public page — not even a redirect that betrays it.
+    if activiteit is None or not is_published(activiteit):
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     # Voorbij = de laatste (eind)datum ligt vóór vandaag — dezelfde blik als de
     # lijstscopes: zonder datums blijft ze op de komende lijst staan.

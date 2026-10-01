@@ -8,6 +8,8 @@
   <div>
   <h1 class="text-3xl font-bold text-kop inline-flex flex-wrap items-center gap-3">{{ a.name }}
     <span class="inline-flex gap-1">
+      {# #1428: the status first (CR-11 §B4.3); only a draft shows it. #}
+      {% if publication.draft %}{{ ui.badge(publication.status|code_label("activity_status"), publication.status|tone("activity_status")) }}{% endif %}
       {% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% else %}{{ ui.badge(_("actief"), "green") }}{% endif %}
       {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% else %}{{ ui.badge(_("iedereen welkom")) }}{% endif %}
     </span>
@@ -48,6 +50,11 @@
      The row is already wider than a phone (#1387); Koen accepts that it grows,
      and CR-11 takes the row on as a whole. #}
   {{ ui.btn_secondary(_("Kopiëren"), href="/admin/activiteiten/" ~ a.id ~ "/kopieren", size="sm") }}
+  {# #1428 (Koen, 1 October 2026): a button in this row like Kopiëren. CR-11
+     §B4.3 puts record actions in one "Acties" menu; that menu comes with CR-11
+     phase 2 and takes this button and Kopiëren along. #}
+  {{ ui.btn_secondary(_("Publiceren") if publication.draft else _("Terug naar concept"), type="button", size="sm",
+                      attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/status" hx-vals=\'{"status": "' ~ status_next ~ '"}\'') }}
   {% if raakje_admin|default(false) %}
   {# #1115: dezelfde overlay als Betalingen, uit `_raakje_overlay.html`. Deze kop
      droeg een eigen kopie zolang #1075 hier openstond; die reden is weg, en twee

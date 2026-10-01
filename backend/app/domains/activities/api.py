@@ -22,9 +22,12 @@ if TYPE_CHECKING:  # #1305: types for the annotations only, not a new import ord
 # component dat middenin deze import (indirect) terugverwijst de modelnamen al
 # vinden (zelfde patroon als payment.api).
 from app.domains.activities.codes import (  # noqa: F401
+    ACTIVITY_STATUS,
     INDIVIDUAL,
     REGISTRATION_STATE,
     REGISTRATION_TYPE,
+    TARGET_AUDIENCE,
+    TARGET_AUDIENCE_CODES,
 )
 from app.domains.activities.export import build_component_export_ods  # noqa: F401
 from app.domains.activities.models import (  # noqa: F401
@@ -33,6 +36,7 @@ from app.domains.activities.models import (  # noqa: F401
     ActivityDateHistory,
     ActivityHistory,
     ActivityProduct,
+    ActivityStatus,
     ActivitySubRegistration,
     ComponentHistory,
     ProductHistory,
@@ -87,9 +91,13 @@ from app.domains.activities.service import (  # noqa: F401
     get_registration,
     inschrijving_kop_ctx,
     inschrijving_tabs,
+    is_published,
     organisers_for,
     predecessors_of,
+    publication,
+    publication_of,
     publicly_bookable_products,
+    published_only,
     question_form,
     question_forms,
     record_kop_ctx,
@@ -107,6 +115,7 @@ from app.domains.activities.service import (  # noqa: F401
     registrations_without_component_count,
     remove_organiser,
     send_answer_link,
+    set_activity_status,
     slug_is_vrij,
     slugify,
     sorteer_inschrijvingen,
@@ -127,12 +136,18 @@ from app.domains.activities.totals import (  # noqa: F401
 # router. Vandaar deze doorgangen, met `db` vooraan zoals elders in de service.
 
 
-def list_activities(db: Session, scope: str = "upcoming") -> list[ActivityResponse]:
+def list_activities(
+    db: Session, scope: str = "upcoming", *, include_drafts: bool = False
+) -> list[ActivityResponse]:
     """Publieke activiteitenlijst (upcoming/archived/all) — facade-doorgang
-    voor andere componenten (o.a. de homepage, #405)."""
-    from app.domains.activities.router import list_activities as _impl
+    voor andere componenten (o.a. de homepage, #405).
 
-    return _impl(scope=scope, db=db)
+    #1428: without drafts unless the caller asks — only the board's own list
+    does. A public place that forgets the argument stays safe.
+    """
+    from app.domains.activities.router import activities_for as _impl
+
+    return _impl(db, scope, include_drafts=include_drafts)
 
 
 def get_activity_detail(db: Session, activity_id: int) -> ActivityResponse | None:
@@ -326,4 +341,9 @@ __all__ = [
     "copy_suggestions",
     "first_date_of",
     "predecessors_of",
+    "is_published",
+    "published_only",
+    "publication",
+    "publication_of",
+    "set_activity_status",
 ]

@@ -103,12 +103,21 @@ def _bouwen(db) -> Activity:
     return activity
 
 
-def _copy(client, activity_id: int, first_date: date, *, with_components: bool = False):
+def _copy(
+    client,
+    activity_id: int,
+    first_date: date,
+    *,
+    with_components: bool = False,
+    status: str | None = None,
+):
     value = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, value)
     data = {"start_date": first_date.isoformat()}
     if with_components:
         data["with_components"] = "true"
+    if status:
+        data["status"] = status
     return client.post(
         f"/admin/activiteiten/{activity_id}/kopieren",
         data=data,
@@ -222,13 +231,15 @@ def test_every_organiser_comes_along_member_or_not(client, db_session):
 
 
 def test_the_copy_is_on_the_agenda_without_a_way_to_register(client, db_session):
+    """Copied as published (#1428: a copy is a draft unless the step says so).
+    The copy's own card is looked for — the source has the same name."""
     source = _bouwen(db_session)
-    copy = _new_copy(db_session, _copy(client, source.id, date(2027, 11, 13)))
+    copy = _new_copy(db_session, _copy(client, source.id, date(2027, 11, 13), status="published"))
     client.cookies.clear()
 
     agenda = client.get("/activiteiten").text
 
-    assert f'href="/activiteiten/{copy.id}"' in agenda or copy.name in agenda
+    assert f'href="/activiteiten/{copy.slug or copy.id}"' in agenda, "the copy's own card"
     assert f"/activiteiten/{copy.id}/inschrijven/" not in agenda, "no registration button"
 
 

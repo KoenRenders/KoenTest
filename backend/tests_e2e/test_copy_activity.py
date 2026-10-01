@@ -122,7 +122,8 @@ def test_the_copy_on_the_public_agenda_has_no_registration(phone):
 
     db = SessionLocal()
     try:
-        copy = copy_activity(db, activity_id, first_date=date(2027, 12, 25))
+        # #1428: a copy is a draft by default; this one goes on the agenda.
+        copy = copy_activity(db, activity_id, first_date=date(2027, 12, 25), status="published")
         # The public address is the slug when there is one, else the id (#884).
         copy_id, key = copy.id, copy.slug or str(copy.id)
     finally:
