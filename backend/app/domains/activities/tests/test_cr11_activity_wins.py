@@ -89,6 +89,31 @@ def test_the_external_links_are_folded_and_counted(client, db_session):
         assert f'name="{name}"' not in outside, f"{name} outside the fold"
 
 
+def test_a_component_fold_sits_under_the_attachment_with_full_width_fields(client, db_session):
+    """Koen at the validation (1 October 2026): on a component the fold sits under
+    "Info-bijlage", just above the buttons, and opened its three fields stand one
+    under the other at full width. Proven red: the fold moved back above the
+    attachment → the order assertion fails; `sm:w-72` put back → the width one."""
+    a = _activity(db_session, "Volgorde W2")
+    c = _component(db_session, a, external_register_url="https://example.com/in")
+    db_session.commit()
+    _login(client)
+    html = client.get(f"/admin/activiteiten/{a.id}").text
+
+    for form_start, form_end in (
+        (f'<form id="aa-comp-{c.id}"', "</form>"),
+        ('hx-post="/admin/activiteiten/' + str(a.id) + '/onderdelen" ', "</form>"),
+    ):
+        form = html[html.index(form_start) :]
+        form = form[: form.index(form_end)]
+        assert form.index("Info-bijlage") < form.index("data-external-links"), form_start
+        fold = re.search(r"<details[^>]*data-external-links.*?</details>", form, flags=re.S).group(
+            0
+        )
+        assert "sm:w-72" not in fold and 'class="mt-2 space-y-2"' in fold, form_start
+        assert fold.count('<div class="w-full">') == 3, form_start
+
+
 def test_the_new_activity_form_folds_the_poster_url(client, db_session):
     _login(client)
     html = client.get("/admin/activiteiten/nieuw").text

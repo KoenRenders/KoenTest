@@ -1,15 +1,19 @@
 """CR-11 W1 (#1391): the payment totals stand once, in the tiles.
 
 The table's "Netto totaal" row and the "Financieel overzicht" block under the
-list are gone; the third tile is "Nog af te handelen" and shows two sides —
-to receive, to refund — side by side, never their net (CR-11 Q19): € 120 to
-receive and € 120 to refund is two things to do, and a net € 0 reads as
-nothing to do. Both zero: "€ 0,00" once.
+list are gone. What is still open is two tiles — "Nog te ontvangen" and "Nog
+terug te betalen" (Koen at the validation, 1 October 2026; before that it was
+one tile "Nog af te handelen" with both amounts) — each one amount the size of
+the other tiles and its own number of bookings, never their net (CR-11 Q19):
+€ 120 to receive and € 120 to refund is two things to do, and a net € 0 reads
+as nothing to do. Nothing open: € 0,00.
 
 Proven red: the tfoot put back → the "Netto" count is 2; `open_sides` summing
-the signed balances (a net) → the 120/120 case says 0/0.
+the signed balances (a net) → the 120/120 case says 0/0; the old single tile
+put back → the four-tile test fails.
 """
 
+import re
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -29,21 +33,30 @@ def _record(amount, paid=None):
     )
 
 
+def _sides(receive, refund, receive_count, refund_count):
+    return {
+        "to_receive": Decimal(receive),
+        "to_refund": Decimal(refund),
+        "receive_count": receive_count,
+        "refund_count": refund_count,
+    }
+
+
 def test_two_sides_that_would_net_to_zero_stay_two_amounts():
-    sides = open_sides([_record("120"), _record("-120")])
-    assert sides == {"to_receive": Decimal("120"), "to_refund": Decimal("120")}
+    assert open_sides([_record("120"), _record("-120")]) == _sides("120", "120", 1, 1)
 
 
 def test_settled_records_leave_nothing_to_handle():
-    sides = open_sides([_record("30", "30"), _record("-10", "-10")])
-    assert sides == {"to_receive": Decimal("0"), "to_refund": Decimal("0")}
+    assert open_sides([_record("30", "30"), _record("-10", "-10")]) == _sides("0", "0", 0, 0)
 
 
 def test_an_overpaid_charge_is_money_to_go_back():
-    assert open_sides([_record("18", "20")]) == {
-        "to_receive": Decimal("0"),
-        "to_refund": Decimal("2"),
-    }
+    assert open_sides([_record("18", "20")]) == _sides("0", "2", 0, 1)
+
+
+def test_each_side_counts_its_own_bookings():
+    records = [_record("10"), _record("5", "2"), _record("-4"), _record("7", "7")]
+    assert open_sides(records) == _sides("13", "4", 2, 1)
 
 
 def _login_finance(client, db):
@@ -69,7 +82,12 @@ def _add(db, amount, *, type_, status, paid=None):
     db.flush()
 
 
-def test_the_screen_states_the_totals_once(client, db_session):
+def _tile(html: str, side: str) -> str:
+    block = html[html.index(f'data-open-side="{side}"') :]
+    return block[: block.index("</div>\n  </div>")]
+
+
+def test_the_screen_has_four_tiles_and_the_totals_once(client, db_session):
     _add(db_session, "120", type_="charge", status="pending")
     _add(db_session, "-120", type_="refund", status="pending")
     _login_finance(client, db_session)
@@ -77,39 +95,35 @@ def test_the_screen_states_the_totals_once(client, db_session):
 
     assert html.count("Netto") == 1, "the net amount stands more than once"
     assert "Financieel overzicht" not in html and "<tfoot" not in html
-    tile = html[html.index("data-open-sides") :]
-    tile = tile[: tile.index("</div>")]
-    assert "te ontvangen" in tile and "terug te betalen" in tile
-    assert (
-        "text-orange-700"
-        in html[html.index("Nog af te handelen") : html.index("data-open-sides") + 80]
-    )
+    assert "Nog af te handelen" not in html, "the combined tile is back"
+    for label in ("Netto te betalen", "Ontvangen", "Nog te ontvangen", "Nog terug te betalen"):
+        assert label in html, label
+    for side in ("receive", "refund"):
+        tile = _tile(html, side)
+        assert len(re.findall(r"€ [\d.,-]+", tile)) == 1, f"{side}: not one amount"
+        assert "boekingen" in tile, f"{side}: no count of bookings"
+        assert "text-orange-700" in tile, f"{side}: open but not orange"
 
 
-def _tile(to_receive, to_refund) -> str:
+def _render(**kpi) -> str:
     from app.ui import templates
 
-    kpi = {
-        "due": Decimal("0"),
-        "paid": Decimal("0"),
-        "to_receive": Decimal(to_receive),
-        "to_refund": Decimal(to_refund),
-        "boekingen": 0,
-        "open": 0,
-    }
-    html = templates.env.get_template("_bt_boven.html").render(
-        scope=None, zicht="alle", zichten=[], kpi=kpi
+    base = {"due": Decimal("0"), "paid": Decimal("0"), "boekingen": 0}
+    return templates.env.get_template("_bt_boven.html").render(
+        scope=None, zicht="alle", zichten=[], kpi={**base, **kpi}
     )
-    block = html[html.index("Nog af te handelen") :]
-    return block[: block.index("</div>", block.index("data-open-sides"))]
 
 
-def test_nothing_open_shows_zero_once_and_stays_ink():
-    tile = _tile("0", "0")
-    assert tile.count("€ 0,00") == 1 and "te ontvangen" not in tile
-    assert "text-orange-700" not in tile
+def test_nothing_open_shows_zero_on_both_tiles_in_ink():
+    html = _render(**_sides("0", "0", 0, 0))
+    for side in ("receive", "refund"):
+        tile = _tile(html, side)
+        assert "€ 0,00" in tile and "0 boekingen" in tile
+        assert "text-orange-700" not in tile
 
 
-def test_one_open_side_colours_the_tile():
-    tile = _tile("0", "9")
-    assert "text-orange-700" in tile and "€ 9,00" in tile and "€ 0,00" in tile
+def test_only_the_open_side_turns_orange():
+    html = _render(**_sides("0", "9", 0, 2))
+    assert "text-orange-700" not in _tile(html, "receive")
+    refund = _tile(html, "refund")
+    assert "text-orange-700" in refund and "€ 9,00" in refund and "2 boekingen" in refund

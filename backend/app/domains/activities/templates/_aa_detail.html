@@ -224,19 +224,6 @@
       <div>{{ ui.label(_("Inschrijven tot"), "nc-deadline") }}
         {{ ui.input_control("registration_closes_on", id="nc-deadline", type="date") }}</div>
       <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="team_name_required" value="1"> {{ _("Ploegnaam vereist") }}</label>
-      {# #1391 (CR-11 W2): the external links fold away, closed by default. #}
-      {% set _links = 0 %}
-      <details class="w-full" data-external-links>
-        <summary class="cursor-pointer text-sm font-medium text-ink select-none">{{ _("Externe koppelingen") }}{% if _links %}<span class="font-normal text-ink-soft"> · {{ ngettext("%(num)d externe link", "%(num)d externe links", _links) }}</span>{% endif %}</summary>
-        <div class="mt-2 flex flex-wrap gap-2">
-      <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijf-URL"), "nc-ext") }}
-        {{ ui.input_control("external_register_url", id="nc-ext", placeholder="https://…", cls="w-full") }}</div>
-      <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijvingen-URL"), "nc-exts") }}
-        {{ ui.input_control("external_registrations_url", id="nc-exts", placeholder="https://…", cls="w-full") }}</div>
-      <div class="w-full sm:w-72">{{ ui.label(_("Externe info-URL"), "nc-info") }}
-        {{ ui.input_control("info_url", id="nc-info", placeholder="https://…", cls="w-full") }}</div>
-        </div>
-      </details>
       {# Geen current_url/delete_attrs: een onderdeel dat nog niet bestaat heeft
          niets te tonen en niets te verwijderen. #}
       <div class="w-full border-t border-blue-100 pt-2">
@@ -244,6 +231,22 @@
                            id="nc-info-file",
                            hint=_("Een opgeladen bijlage primeert op de externe info-URL.")) }}
       </div>
+      {# Under the info attachment, just above the buttons, and opened the three
+         fields stand one under the other at full width so a link is never cut
+         off (Koen at the validation, 1 October 2026). #}
+      {# #1391 (CR-11 W2): the external links fold away, closed by default. #}
+      {% set _links = 0 %}
+      <details class="w-full" data-external-links>
+        <summary class="cursor-pointer text-sm font-medium text-ink select-none">{{ _("Externe koppelingen") }}{% if _links %}<span class="font-normal text-ink-soft"> · {{ ngettext("%(num)d externe link", "%(num)d externe links", _links) }}</span>{% endif %}</summary>
+        <div class="mt-2 space-y-2">
+      <div class="w-full">{{ ui.label(_("Externe inschrijf-URL"), "nc-ext") }}
+        {{ ui.input_control("external_register_url", id="nc-ext", placeholder="https://…", cls="w-full") }}</div>
+      <div class="w-full">{{ ui.label(_("Externe inschrijvingen-URL"), "nc-exts") }}
+        {{ ui.input_control("external_registrations_url", id="nc-exts", placeholder="https://…", cls="w-full") }}</div>
+      <div class="w-full">{{ ui.label(_("Externe info-URL"), "nc-info") }}
+        {{ ui.input_control("info_url", id="nc-info", placeholder="https://…", cls="w-full") }}</div>
+        </div>
+      </details>
       <div class="w-full flex gap-2">{{ ui.btn_primary(_("Toevoegen")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="addcomp = false"') }}</div>
     </form>
     <div class="space-y-3">
@@ -304,19 +307,6 @@
       {# The hint on its own line, not in the column: this form aligns its columns
          on their bottom edge (#656). #}
       <p class="w-full text-xs text-ink-soft -mt-1">{{ _("Extra vragen: het onderdeel bepaalt wie inschrijft en tot wanneer; de instellingen van het formulier gelden hier niet.") }}</p>
-      {# #1391 (CR-11 W2): closed by default; the summary says how many are filled. #}
-      {% set _links = [c.external_register_url, c.external_registrations_url, c.info_url] | select | list | length %}
-      <details class="w-full" data-external-links>
-        <summary class="cursor-pointer text-sm font-medium text-ink select-none">{{ _("Externe koppelingen") }}{% if _links %}<span class="font-normal text-ink-soft"> · {{ ngettext("%(num)d externe link", "%(num)d externe links", _links) }}</span>{% endif %}</summary>
-        <div class="mt-2 flex flex-wrap gap-2">
-      <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijf-URL"), "cext-" ~ c.id) }}
-        {{ ui.input_control("external_register_url", id="cext-" ~ c.id, value=c.external_register_url or "", placeholder="https://…", cls="w-full") }}</div>
-      <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijvingen-URL"), "cexts-" ~ c.id) }}
-        {{ ui.input_control("external_registrations_url", id="cexts-" ~ c.id, value=c.external_registrations_url or "", placeholder="https://…", cls="w-full") }}</div>
-      <div class="w-full sm:w-72">{{ ui.label(_("Externe info-URL"), "cinfo-" ~ c.id) }}
-        {{ ui.input_control("info_url", id="cinfo-" ~ c.id, value=c.info_url or "", placeholder="https://…", cls="w-full") }}</div>
-        </div>
-      </details>
       {# Info-bijlage (#451). Heette "reglement" tot #623 — één woord voor één ding
          (§2.13). Staat sinds #654 ín de vorm hierboven: één "Opslaan" bewaart de
          velden én het bestand. De verwijderknop blijft een aparte actie — dat is
@@ -330,6 +320,22 @@
                            delete_confirm=_("De opgeladen info-bijlage verwijderen?"),
                            hint=_("Een opgeladen bijlage primeert op de externe info-URL.")) }}
       </div>
+      {# Under the info attachment, just above the buttons, and opened the three
+         fields stand one under the other at full width so a link is never cut
+         off (Koen at the validation, 1 October 2026). #}
+      {# #1391 (CR-11 W2): closed by default; the summary says how many are filled. #}
+      {% set _links = [c.external_register_url, c.external_registrations_url, c.info_url] | select | list | length %}
+      <details class="w-full" data-external-links>
+        <summary class="cursor-pointer text-sm font-medium text-ink select-none">{{ _("Externe koppelingen") }}{% if _links %}<span class="font-normal text-ink-soft"> · {{ ngettext("%(num)d externe link", "%(num)d externe links", _links) }}</span>{% endif %}</summary>
+        <div class="mt-2 space-y-2">
+      <div class="w-full">{{ ui.label(_("Externe inschrijf-URL"), "cext-" ~ c.id) }}
+        {{ ui.input_control("external_register_url", id="cext-" ~ c.id, value=c.external_register_url or "", placeholder="https://…", cls="w-full") }}</div>
+      <div class="w-full">{{ ui.label(_("Externe inschrijvingen-URL"), "cexts-" ~ c.id) }}
+        {{ ui.input_control("external_registrations_url", id="cexts-" ~ c.id, value=c.external_registrations_url or "", placeholder="https://…", cls="w-full") }}</div>
+      <div class="w-full">{{ ui.label(_("Externe info-URL"), "cinfo-" ~ c.id) }}
+        {{ ui.input_control("info_url", id="cinfo-" ~ c.id, value=c.info_url or "", placeholder="https://…", cls="w-full") }}</div>
+        </div>
+      </details>
     </form>
     {# #1391 (CR-11 W15): the bar sits in the card's foot, right-aligned, and no
        longer beside the title; the arrows and the edit toggle stay in the head.
