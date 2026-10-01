@@ -370,10 +370,10 @@ def _view(
     kpi = {
         "due": basis_tot["due"],
         "paid": basis_tot["paid"],
-        # #1391 (W1): the third tile, "Nog af te handelen" — two sides, no net.
+        # #1391 (W1): the tiles "Nog te ontvangen" and "Nog terug te betalen" — two
+        # sides with their own counts, never a net.
         **open_sides(zicht_basis),
         "boekingen": len(zicht_basis),
-        "open": telling["openstaand"],
     }
 
     # Tab-URLs server-side opgebouwd mét de actieve filterstand: de tabs staan
