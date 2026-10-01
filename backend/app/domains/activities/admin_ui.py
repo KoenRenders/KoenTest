@@ -157,7 +157,6 @@ def _aa_detail_ctx(
     # de Inschrijvingen-tab toont die inschrijvingen als groep "Zonder onderdeel",
     # dus ze blijven bereikbaar — de reden achter #650 blijft gedekt.
     from app.domains.activities.api import (
-        MAX_ORGANISERS,
         board_notes,
         organisers_for,
         question_forms,
@@ -173,7 +172,6 @@ def _aa_detail_ctx(
         # elke rendering van dit fragment.
         "organisers": organisers,
         "contact_count": sum(1 for o in organisers if o.is_contact),
-        "max_organisers": MAX_ORGANISERS,
         "organiser_query": organiser_query,
         "organiser_candidates": organiser_candidates or [],
         # #1028: de interne nota komt NIET uit `activiteit` — dat is

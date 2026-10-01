@@ -1,17 +1,18 @@
-"""Organisers of an activity, up to three (#1004, CR-10 §3.9).
+"""Organisers of an activity, as many as it has (#1004, CR-10 §3.9; #1429).
 
-The limit lives in three places and this file tests two of them: the service
-refuses the fourth with a message, and the database refuses a row with
-`sort_order = 3` even when the service is bypassed. The screen hiding the button
-is the third and is a courtesy, not a limit.
+Until #1429 an activity had at most three: the service refused the fourth and a
+CHECK `sort_order IN (0, 1, 2)` was the net. The quiz has six (Koen, 1 October
+2026); the three belonged to the Design Studio poster, which still names three
+(`designstudio.api.POSTER_CONTACT_ROWS`). The database keeps `sort_order >= 0`
+and the UNIQUE on (activity_id, sort_order).
 
 The confirmation for unticking the LAST contact person is a server rule too: a
 dialog in one screen cannot stop a script, and a poster without a contact person
 silently falls back to Raak's own details.
 
 Broken to see them red (measured):
-- the `MAX_ORGANISERS` check out of `add_organiser` → the fourth is accepted;
-- the CHECK out of the migration → the raw insert with sort_order 3 succeeds;
+- (#1429) the old `MAX_ORGANISERS` check back in `add_organiser` → the fourth
+  is refused; the old CHECK back (master `5f436cb5`) → sort_order 5 is refused;
 - the override ignored in `organisers_for` → the poster shows the member's own
   address;
 - the `is_member` check out of `add_organiser` → a non-member becomes organiser;
@@ -24,7 +25,6 @@ import pytest
 from sqlalchemy import text as sql_text
 
 from app.domains.activities.api import (
-    MAX_ORGANISERS,
     add_organiser,
     get_activity,
     organisers_for,
@@ -72,38 +72,53 @@ def _login(client):
     return csrf_token_for(value)
 
 
-# ── De grens van drie, in twee lagen ─────────────────────────────────────────
+# ── No limit on the activity (#1429) ──────────────────────────────────────────
 
 
-def test_the_service_refuses_a_fourth_organiser(db_session, activiteit):
-    for i in range(MAX_ORGANISERS):
-        add_organiser(db_session, activiteit.id, _persoon(db_session, f"Lid{i}", "Drager").id)
+def test_an_activity_takes_six_organisers_in_their_order(db_session, activiteit):
+    """The quiz: six organisers, none refused, each after the one before."""
+    ids = [_persoon(db_session, f"Lid{i}", "Drager").id for i in range(6)]
+    for person_id in ids:
+        add_organiser(db_session, activiteit.id, person_id)
 
-    with pytest.raises(ActiviteitFout) as fout:
-        add_organiser(db_session, activiteit.id, _persoon(db_session, "Vier", "Teveel").id)
-
-    assert "hoogstens" in str(fout.value)
-    assert len(organisers_for(db_session, activiteit.id)) == MAX_ORGANISERS
+    rows = organisers_for(db_session, activiteit.id)
+    assert [r.person_id for r in rows] == ids
+    assert [r.sort_order for r in rows] == [0, 1, 2, 3, 4, 5]
 
 
-def test_the_database_refuses_a_fourth_row_too(db_session, activiteit):
-    """The net under the rule: a row that never passed the service.
+def _raw_insert(db, activity_id, person_id, sort_order):
+    """A row that never passed the service, as a script or an import writes it."""
+    db.execute(
+        sql_text(
+            "INSERT INTO activities.activity_organisers "
+            "(tenant_id, activity_id, person_id, sort_order, is_contact) "
+            "VALUES (2, :a, :p, :o, false)"
+        ),
+        {"a": activity_id, "p": person_id, "o": sort_order},
+    )
+    db.flush()
 
-    Written over the raw connection, exactly as a script or an import would.
-    """
+
+def test_the_database_accepts_sort_order_five(db_session, activiteit):
+    """Red against master: the CHECK of migration 133 allowed only 0, 1 and 2."""
+    _raw_insert(db_session, activiteit.id, _persoon(db_session, "Zes", "Rechtstreeks").id, 5)
+    assert [r.sort_order for r in organisers_for(db_session, activiteit.id)] == [5]
+
+
+def test_the_database_still_refuses_a_negative_place_and_a_shared_one(db_session, activiteit):
+    """What stays: `sort_order >= 0` (migration 179) and the UNIQUE (133)."""
     from sqlalchemy.exc import IntegrityError
 
-    person = _persoon(db_session, "Vier", "Rechtstreeks")
     with pytest.raises(IntegrityError):
-        db_session.execute(
-            sql_text(
-                "INSERT INTO activities.activity_organisers "
-                "(tenant_id, activity_id, person_id, sort_order, is_contact) "
-                "VALUES (2, :a, :p, 3, false)"
-            ),
-            {"a": activiteit.id, "p": person.id},
-        )
-        db_session.flush()
+        _raw_insert(db_session, activiteit.id, _persoon(db_session, "Min", "Een").id, -1)
+    db_session.rollback()
+
+    a = Activity(name="Gedeelde plaats")
+    db_session.add(a)
+    db_session.flush()
+    _raw_insert(db_session, a.id, _persoon(db_session, "Eerste", "Plaats").id, 4)
+    with pytest.raises(IntegrityError):
+        _raw_insert(db_session, a.id, _persoon(db_session, "Tweede", "Plaats").id, 4)
     db_session.rollback()
 
 

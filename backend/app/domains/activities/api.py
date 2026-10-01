@@ -59,7 +59,6 @@ from app.domains.activities.registration_form import (  # noqa: F401
 )
 from app.domains.activities.service import (  # noqa: F401
     INSCHRIJVING_SORT_VELDEN,
-    MAX_ORGANISERS,
     ActivityDateSpan,
     ActivityOption,
     ActivitySpan,
@@ -310,7 +309,6 @@ __all__ = [
     "move_within",
     "public_registrations",
     "register_for_activity",
-    "MAX_ORGANISERS",
     "OrganiserView",
     "add_organiser",
     "organisers_for",

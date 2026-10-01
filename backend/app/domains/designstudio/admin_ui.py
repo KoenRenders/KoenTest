@@ -47,6 +47,7 @@ from app.domains.designstudio.api import (
     LAYOUT,
     MAX_HIGHLIGHTS,
     MAX_VERSIONS,
+    POSTER_CONTACT_ROWS,
     PRESET,
     PREVIEW_LARGE_PX,
     PREVIEW_PX,
@@ -333,6 +334,16 @@ def _facts_rows(facts: dict) -> list[tuple[str, str]]:
             or _("niemand aangevinkt → gegevens van de vereniging"),
         )
     )
+    # #1429: an activity can have more contacts than the poster names; one line
+    # says which ones make it, so nobody wonders where the fourth went.
+    if len(facts["organisers"]) > POSTER_CONTACT_ROWS:
+        names = ", ".join(c["name"] for c in facts["organisers"][:POSTER_CONTACT_ROWS])
+        rows.append(
+            (
+                _("Op de affiche"),
+                _("de eerste %(n)s: %(names)s") % {"n": POSTER_CONTACT_ROWS, "names": names},
+            )
+        )
     rows.append(
         (_("Omschrijving"), facts["description"] or _("— (leeg; typ hieronder een toelichting)"))
     )
