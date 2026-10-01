@@ -8,7 +8,7 @@
 
 {# De primaire actie is een LINK naar het paginabrede aanmaakscherm (#623); geen
    modal meer. Zo werk je meteen in dezelfde vorm als de editor. #}
-{% call ui.page_header(_("Activiteiten"), _("Een kaart opent de activiteit: datums, onderdelen en producten.")) %}
+{% call ui.page_header(_("Activiteiten"), _("Een kaart opent de activiteit: datums, onderdelen en producten."), list_page=True) %}
   {{ ui.btn_primary(_("+ Nieuwe activiteit"), href="/admin/activiteiten/nieuw") }}
 {% endcall %}
 
@@ -24,7 +24,7 @@
    cijfer (.v, brand-font). De eerste kaart had een getinte uitzondering die de mock
    niet kent — twee zusterschermen die hetzelfde tonen en er anders uitzien is precies
    wat #611/#621 hebben opgeruimd. #}
-<div class="mb-6 max-w-md flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
+<div class="kpi-strip mb-6 max-w-md flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
   <div class="flex-1 px-4 py-2 md:py-4 flex items-baseline justify-between gap-3 md:block">
     <div class="text-xs font-semibold text-ink-soft">{{ _("Activiteiten met open inschrijving") }}</div>
     <div class="text-xl md:text-3xl font-extrabold font-brand">{{ kpi_open }}</div>

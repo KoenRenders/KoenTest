@@ -1,13 +1,15 @@
 <main id="main" class="flex-1 px-4 py-8">
 <div class="max-w-none mx-auto">
 <div class="text-[11px] text-ink-soft mb-2">Financieel › Betalingen</div>
-<div data-page-header class="flex flex-wrap items-start justify-end gap-x-3 gap-y-2 mb-6 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-end md:gap-y-0">
-<h1 tabindex="-1" class="min-w-0 flex-[1_1_33%] text-3xl font-bold text-kop md:col-start-1 md:row-start-1">Betalingen</h1>
-<p class="order-2 basis-full text-sm text-gray-500 mt-1 md:order-none md:col-start-1 md:row-start-2">Vorderingen, ontvangsten en terugbetalingen op één plek.</p>
+<div data-page-header class="flex flex-wrap gap-x-3 gap-y-2 mb-6 items-end">
+<div data-title-block class="block min-w-0 max-w-full flex-[1_0_auto]">
+<h1 tabindex="-1" class="text-3xl font-bold text-kop truncate">Betalingen</h1>
+<p class="text-sm text-gray-500 mt-1 w-0 min-w-full">Vorderingen, ontvangsten en terugbetalingen op één plek.</p>
+</div>
 </div>
 <div id="bt-boven">
 <input type="hidden" name="zicht" value="alle" form="bt-filter">
-<div class="mb-4 md:max-w-3xl flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
+<div class="kpi-strip mb-4 md:max-w-3xl flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
 <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
 <div class="text-[11px] text-ink-soft">Netto te betalen <span class="md:hidden">· 8 boekingen</span></div>
 <div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ 121,00</div>

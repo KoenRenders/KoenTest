@@ -7,7 +7,7 @@
    uiterst rechts — en daaronder de kit-filterbalk. Geen eigen wikkel-div om de
    knoppen: `page_header` levert die rij zelf, en een tweede laag eromheen zou de
    afstanden per scherm laten verschillen. #}
-{% call ui.page_header(_("Vergaderingen"), _("Agenda en verslag zijn één document: voorbereiden, notuleren en versturen gebeuren op hetzelfde scherm.")) %}
+{% call ui.page_header(_("Vergaderingen"), _("Agenda en verslag zijn één document: voorbereiden, notuleren en versturen gebeuren op hetzelfde scherm."), list_page=True) %}
     {# CR-11 W4 (#1391): the settings of the module, with the circle as their
        section; the address stays until phase 5 renames it. #}
     {{ ui.btn_secondary(_("Instellingen"), href="/admin/vergaderingen/kring", lead_icon="settings") }}

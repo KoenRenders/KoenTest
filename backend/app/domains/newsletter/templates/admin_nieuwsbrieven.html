@@ -6,7 +6,7 @@
    de acties rechts — secundair eerst, de primaire actie uiterst rechts. De
    primaire knop is een formulier: hij maakt een concept aan en opent dat als
    volledige pagina (geen aanmaak-modal, #627). #}
-{% call ui.page_header(_("Nieuwsbrieven"), _("Opstellen, versturen en terugvinden wat er vertrokken is.")) %}
+{% call ui.page_header(_("Nieuwsbrieven"), _("Opstellen, versturen en terugvinden wat er vertrokken is."), list_page=True) %}
     {{ ui.btn_secondary(_("Instellingen"), href="/admin/nieuwsbrieven/instellingen") }}
     {{ ui.btn_secondary(_("Abonnees"), href="/admin/nieuwsbrieven/abonnees") }}
     <form hx-post="/admin/nieuwsbrieven">

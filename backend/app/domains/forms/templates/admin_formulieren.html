@@ -11,7 +11,7 @@
    opent een volledige-pagina-editor, geen modal. Je werkt na het aanmaken toch
    verder in de editor, en de velden uit een dialoogje maken het object zelden
    compleet. #}
-{% call ui.page_header(_("Formulieren"), _("Een kaart opent de form-builder: secties, velden en vertakkingen.")) %}
+{% call ui.page_header(_("Formulieren"), _("Een kaart opent de form-builder: secties, velden en vertakkingen."), list_page=True) %}
     {# Blijft de #462-gids, nu als secundaire actie links van de primaire knop —
        dezelfde volgorde als "Leden importeren" + "+ Nieuw lid" op Leden (#621). #}
     {{ ui.btn_secondary(_("Formaat (voor AI)"), lead_icon="file-text", href="/static/form-json-formaat.md",

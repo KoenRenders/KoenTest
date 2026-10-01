@@ -6,6 +6,7 @@ handover; here the markup that produces it is pinned, so a later edit of the
 macro fails in CI rather than on a phone.
 """
 
+import html as html_module
 import re
 from pathlib import Path
 
@@ -38,19 +39,21 @@ def _element(html: str, start: str, tag: str = "div") -> str:
 # ── W10: the create button stays on the title line ──────────────────────────
 
 
-def test_a_header_with_actions_truncates_its_title_and_keeps_the_last_action_on_top():
-    """Below md the action wrapper dissolves and every action but the LAST — the
-    primary — moves to the row under the title; the title yields by truncating.
-    Drop the `order-1` on the secondary actions or the `truncate` and this goes
-    red."""
+def test_a_list_page_keeps_its_create_button_beside_the_title_on_a_phone():
+    """W10, now only for a list page (`list_page=True`): below md the action
+    wrapper dissolves and every action but the LAST — the create button — moves
+    to the row under the title; the title truncates. Drop the `order-1` or the
+    `truncate` and this goes red."""
     html = _render(
-        "{% call ui.page_header('Nieuwsbrieven', 'Uitleg') %}"
+        "{% call ui.page_header('Nieuwsbrieven', 'Uitleg', list_page=True) %}"
         "<a>Instellingen</a><a>Abonnees</a><a>+ Nieuwe nieuwsbrief</a>{% endcall %}"
     )
     h1 = _element(html, "<h1", "h1")
-    assert "truncate" in h1 and "min-w-0" in h1 and "md:whitespace-normal" in h1
+    assert "truncate" in h1 and "min-w-0" in h1
     header = _element(html, "<div data-page-header")
-    actions = header[header.index("</h1>") :]
+    # The class is written by an expression, so the attribute arrives escaped
+    # (`&amp;&gt;`); a browser decodes it, and so does this test.
+    actions = html_module.unescape(_element(header, "<div data-header-actions"))
     assert "contents [&>*:not(:last-child)]:order-1" in actions
     assert "md:[&>*:not(:last-child)]:order-none" in actions, "desktop keeps the DOM order"
     assert actions.index("Abonnees") < actions.index("+ Nieuwe nieuwsbrief")
@@ -58,13 +61,61 @@ def test_a_header_with_actions_truncates_its_title_and_keeps_the_last_action_on_
     assert "basis-full" in _element(header, "<p", "p")
 
 
+def test_any_other_header_gives_the_title_its_line_and_drops_the_actions():
+    """Koen on HDEV, 1 October 2026: W10 squeezed the meeting's title into
+    "Verg… — zondag 1 nove…" beside five buttons. By default the title block's
+    natural width is the title on one line (the subtitle does not count:
+    `w-0 min-w-full`), it never shrinks (`flex-[1_0_auto]`), and the actions sit
+    in a wrapping row that drops under it when both do not fit (`ml-auto`). No
+    W10 machinery: nothing dissolves, nothing is reordered. Proven red against
+    master 8c010f5c, where the header was a grid with the actions in an `auto`
+    column beside a `minmax(0,1fr)` title."""
+    html = _render(
+        "{% call ui.page_header('Vergadering — zondag 1 november 2026', 'Uitleg') %}"
+        "<a>A</a><a>B</a><a>C</a><a>D</a><a>E</a>{% endcall %}"
+    )
+    header = _element(html, "<div data-page-header")
+    assert "md:grid" not in header and "flex flex-wrap" in header
+    block = _element(header, "<div data-title-block")
+    assert "flex-[1_0_auto]" in block and "max-w-full" in block and "contents" not in block
+    assert "w-0 min-w-full" in _element(block, "<p", "p"), "the subtitle widens the block"
+    assert "truncate" in _element(block, "<h1", "h1"), "one line, never word by word"
+    actions = _element(header, "<div data-header-actions")
+    assert "ml-auto" in actions and "flex-wrap" in actions and "order-1" not in actions
+
+
 def test_an_empty_call_block_is_no_actions():
-    """A screen with nothing in its call block (Organisaties since W5) gets a
-    title that wraps as before and no empty action wrapper."""
-    html = _render("{% call ui.page_header('Organisaties') %}{% endcall %}")
-    assert "truncate" not in html and "contents" not in html
-    bare = _render("{{ ui.page_header('Organisaties') }}")
-    assert "truncate" not in bare and "contents" not in bare
+    """A screen with nothing in its call block (Organisaties since W5) gets no
+    empty action wrapper, and a list page without actions no W10 machinery."""
+    for body in (
+        "{% call ui.page_header('Organisaties') %}{% endcall %}",
+        "{{ ui.page_header('Organisaties') }}",
+        "{% call ui.page_header('Organisaties', list_page=True) %}{% endcall %}",
+    ):
+        html = _render(body)
+        assert "data-header-actions" not in html and "contents" not in html, body
+
+
+def test_the_list_pages_are_the_headers_with_a_create_button():
+    """`list_page=True` exactly where the call block carries a "+ …" create
+    button: the W10 rule is for list pages, and that button is how one is
+    recognised. A new list page that forgets the flag, or a record page that
+    takes it, fails here."""
+    import re
+
+    scanned = 0
+    wrong = []
+    for path in APP.rglob("*.html"):
+        text = path.read_text()
+        for m in re.finditer(r"\{% call ui\.page_header\((.*?)\{% endcall %\}", text, re.S):
+            scanned += 1
+            call = m.group(0)
+            head = call[: call.index("%}")]
+            has_create = bool(re.search(r"""["']\+ """, call))
+            if has_create != ("list_page=True" in head):
+                wrong.append(str(path.relative_to(APP)))
+    assert scanned > 20, f"the scan found only {scanned} headers"
+    assert not wrong, wrong
 
 
 # ── W5: no header button that only repeats the menu ──────────────────────────
@@ -168,3 +219,24 @@ def test_no_admin_template_writes_the_left_arrow():
             offenders.append(str(path.relative_to(APP)))
     assert scanned > 100, f"the scan found only {scanned} templates"
     assert not offenders, offenders
+
+
+# ── W12 follow-up: tile numbers on one line ──────────────────────────────────
+
+
+def test_every_tile_strip_aligns_its_numbers_through_the_shared_rule():
+    """Koen on HDEV, 1 October 2026: "13" stood lower than "0" because one label
+    broke over two lines. The fix is one CSS rule (`.kpi-strip`, a subgrid of the
+    strip's rows) in the shared stylesheet, and every strip of tiles carries the
+    class — a new strip that forgets it fails here. Proven red by dropping the
+    class from `admin_activiteiten.html`, and by deleting the rule."""
+    strip = "md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100"
+    found = []
+    for path in APP.rglob("*.html"):
+        for line in path.read_text().splitlines():
+            if strip in line:
+                found.append((str(path.relative_to(APP)), "kpi-strip" in line))
+    assert len(found) >= 3, f"the scan found only {found}"
+    assert all(ok for _path, ok in found), [p for p, ok in found if not ok]
+    css = (APP / "static" / "app.css").read_text()
+    assert ".kpi-strip.kpi-strip>*{" in css and "grid-template-rows:subgrid" in css
