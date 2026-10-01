@@ -157,7 +157,7 @@ def test_a_card_counts_registrations_only_when_there_is_a_component(client, db_s
 def test_the_tiles_say_what_they_count(client, db_session):
     _login(client)
     html = client.get("/admin/activiteiten").text
-    assert "Activiteiten met open inschrijving" in html
+    assert "Open inschrijving" in html
     assert "Volzette onderdelen" in html
     assert ">Open inschrijvingen<" not in html
 

@@ -484,8 +484,8 @@ def test_open_activities_are_counted_by_state_not_by_their_word(client, db_sessi
 
     def open_count() -> int:
         html = client.get("/admin/activiteiten").text
-        found = re.search(r"Activiteiten met open inschrijving</div>\s*<div[^>]*>(\d+)</div>", html)
-        assert found, "the KPI 'Activiteiten met open inschrijving' is not on the page"
+        found = re.search(r">Open inschrijving</div>\s*<div[^>]*>(\d+)</div>", html)
+        assert found, "the KPI 'Open inschrijving' is not on the page"
         return int(found.group(1))
 
     in_dutch = open_count()

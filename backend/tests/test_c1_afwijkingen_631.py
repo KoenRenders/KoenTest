@@ -24,7 +24,7 @@ def test_de_kpi_rij_staat_na_de_titel(client, db_session):
     _login(client, db_session)
     html = client.get("/admin/activiteiten").text
 
-    assert html.index("<h1") < html.index("Activiteiten met open inschrijving"), (
+    assert html.index("<h1") < html.index("Open inschrijving"), (
         "de KPI-rij hoort ná de paginatitel te staan"
     )
 
@@ -90,7 +90,7 @@ def test_de_kpi_kaarten_zien_er_op_beide_schermen_hetzelfde_uit(client, db_sessi
     _login(client, db_session)
 
     for pad, label in (
-        ("/admin/activiteiten", "Activiteiten met open inschrijving"),
+        ("/admin/activiteiten", "Open inschrijving"),
         ("/admin/leden", "Actieve gezinnen"),
     ):
         html = client.get(pad).text

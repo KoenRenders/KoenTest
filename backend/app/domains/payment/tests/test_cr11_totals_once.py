@@ -93,7 +93,9 @@ def test_the_screen_has_four_tiles_and_the_totals_once(client, db_session):
     _login_finance(client, db_session)
     html = client.get("/admin/betalingen").text
 
-    assert html.count("Netto") == 1, "the net amount stands more than once"
+    # On the screen, not in a tile label's `title` that repeats it (#1432).
+    visible = re.sub(r'title="[^"]*"', "", html)
+    assert visible.count("Netto") == 1, "the net amount stands more than once"
     assert "Financieel overzicht" not in html and "<tfoot" not in html
     assert "Nog af te handelen" not in html, "the combined tile is back"
     for label in ("Netto te betalen", "Ontvangen", "Nog te ontvangen", "Nog terug te betalen"):
