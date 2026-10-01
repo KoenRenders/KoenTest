@@ -326,11 +326,23 @@ Inline in the title row: figure (`text-2xl font-extrabold`), label
 the active tile marked. A tile colours only when its figure asks for
 attention (an open balance, an overdue count). [10, 36]
 
-### 3.9 `record_header(title, badges, facts, primary, actions)`
+### 3.9 `record_header(title, badges, facts, primary, actions=[…])` — actions as data
 
 Title line with badges (status first); facts line with reference links;
-the primary and "Acties ▾" at the right; on a phone the actions collapse
-into the menu and the title truncates. [39]
+at the right **one primary button and one "Acties ▾" menu, never more**.
+The screen hands its actions as a list, each with a kind — *record action*
+(duplicate, print, export, send, reopen, delete) or *tool* (photos, Design
+Studio) — and the macro places them: record actions first in a fixed
+order, tools under a divider, delete last after a divider; Raakje is never
+among them (it is the shell's trigger). A screen cannot draw a button of
+its own in the head: a `btn_*` call there outside the macro is red. On a
+phone there is nothing to overflow — the title truncates, the two controls
+stay on the title line. Where each kind sits on the other layouts is the
+table in CR-11 B4.3 (list: create and "Instellingen" in the title row;
+document: the same menu; public: one primary in the sticky card, no
+menu). First applied to the activity's head (#1387) and the "Kopiëren" of
+#1397, whose place was decided four times before this rule existed. [39,
+51]
 
 ### 3.10 `summary_card(state, figures, action)`
 
@@ -496,7 +508,9 @@ raw spacing class · no raw surface class · no raw checkbox outside a
 multi-choice group or consent · no typed "+" in a label · no header button
 to another module · no "Bewerken" in row actions · no `overflow-x-auto` on
 a list · no `max-w-*` on a screen · no `action_bar` in a repeating-group
-row · no `code_label` twice on a row · the declared save model matches the
+row · no `code_label` twice on a row · no `btn_*` in a record head outside
+`record_header(actions=…)`, and a list header's call slot holds only the
+create button and "Instellingen" · the declared save model matches the
 macros used · the Raakje trigger by rule · one toolbar per rich text ·
 screenshot baselines diffed (with the stability protocol of CR-11 B7).
 
