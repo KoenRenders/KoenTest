@@ -39,6 +39,9 @@ class ImageOption:
     thumb_url: str
     label: str
     source: str  # activity_photo | design_image | generated
+    # #1397: "" for the activity's own pictures; the name and year of an
+    # earlier activity for pictures it reuses from there.
+    group: str = ""
 
 
 @dataclass(frozen=True)

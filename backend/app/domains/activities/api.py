@@ -90,6 +90,7 @@ from app.domains.activities.service import (  # noqa: F401
     inschrijving_tabs,
     organisers_for,
     organisers_left_out_of_a_copy,
+    predecessors_of,
     publicly_bookable_products,
     question_form,
     question_forms,
@@ -328,4 +329,5 @@ __all__ = [
     "copy_suggestions",
     "first_date_of",
     "organisers_left_out_of_a_copy",
+    "predecessors_of",
 ]

@@ -407,6 +407,7 @@ def _editor_view(
             thumb_url=m["thumb_url"],
             label=f"{_short(m.get('title') or '')} · {source_labels.get(m['source'], m['source'])} #{m['id']}",
             source=m["source"],
+            group=m.get("group", ""),
         )
         for m in image_options(db, design)
     ]

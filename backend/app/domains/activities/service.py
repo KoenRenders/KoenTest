@@ -492,6 +492,36 @@ def copy_suggestions(first: date) -> CopySuggestions:
     return CopySuggestions(same_weekday=first + timedelta(weeks=52), same_date=same_date)
 
 
+class Predecessor(NamedTuple):
+    """An activity a copy descends from (#1397): what the photo choice names."""
+
+    id: int
+    name: str
+    year: int | None
+
+
+def predecessors_of(db: Session, activity_id: int, *, limit: int = 10) -> list[Predecessor]:
+    """The activities this one was copied from, nearest first (#1397).
+
+    Follows `copied_from_id` back, `limit` steps at most and never round in a
+    circle. A deleted predecessor ends the chain: the global soft-delete filter
+    does not return it.
+    """
+    chain: list[Predecessor] = []
+    seen = {activity_id}
+    current = db.query(Activity).filter(Activity.id == activity_id).first()
+    while current is not None and current.copied_from_id and len(chain) < limit:
+        if current.copied_from_id in seen:
+            break
+        seen.add(current.copied_from_id)
+        current = db.query(Activity).filter(Activity.id == current.copied_from_id).first()
+        if current is None:
+            break
+        first = first_date_of(current)
+        chain.append(Predecessor(current.id, current.name, first.year if first else None))
+    return chain
+
+
 def first_date_of(activity: Activity) -> date | None:
     """The earliest start date of an activity, the one a copy is moved by."""
     return min((d.start_date for d in activity.dates), default=None)
@@ -567,6 +597,7 @@ def copy_activity(
             action="activity_copied",
         )
         copy.board_notes = source.board_notes
+        copy.copied_from_id = source.id
         for organiser in source.organisers:
             if organiser.id in left_out:
                 continue

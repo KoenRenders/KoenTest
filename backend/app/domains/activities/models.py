@@ -226,6 +226,10 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
     # weg en deze begint leeg, onder een naam die niet met de oude te verwarren
     # is. Wat de bezoeker mag lezen is `description` hierboven.
     board_notes = Column(Text, nullable=True)
+    # #1397: the activity this one was copied from, if any. No foreign key:
+    # activities are soft-deleted, and a link to a deleted predecessor is history.
+    # The Design Studio reads the chain to offer last year's photos.
+    copied_from_id = Column(Integer, nullable=True)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
