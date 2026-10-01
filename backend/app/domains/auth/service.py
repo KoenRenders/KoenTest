@@ -66,6 +66,22 @@ def _email_from_token(token: str) -> str:
 # De enige brug tussen beide domeinen is de e-mailwaarde, geen foreign key.
 
 
+def landing_for(db: Session, email: str) -> str:
+    """Where someone lands after signing in when no page asked for them (#530).
+
+    ADMIN/OPERATOR → the workbench; FINANCE only → payments (the workbench would
+    refuse them); everyone else → their household. One place since #1437: the
+    code step and the mail link each carried a copy. A page that asked comes
+    first — the caller passes this as the fallback of `veilige_terug`.
+    """
+    roles = set(get_user_roles(db, email))
+    if {"ADMIN", "OPERATOR"} & roles:
+        return "/admin/werkbank"
+    if "FINANCE" in roles:
+        return "/admin/betalingen"
+    return "/leden/gezin"
+
+
 def get_user_roles(db: Session, email: str) -> set:
     """Backoffice-rollen voor dit e-mailadres in de ACTIEVE werkruimte (#963):
     de platformbrede rijen (tenant_id NULL, vandaag alleen OPERATOR) plus de
