@@ -23,7 +23,9 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 - de nieuwe arm uit `_LABEL_SQL["persoon"]` halen → de terugvertaaltest valt om en
   het antwoord houdt een kaal `persoon-<id>`;
 - de samengevoegde kolom op `string_agg` zonder filter op `is_contact` zetten →
-  de test die telt wie er in de regel staat, valt om.
+  de test die telt wie er in de regel staat, viel om. Sinds #1441 is dat de
+  bedoeling: de kolom noemt iedereen, en het filter terugzetten laat die test
+  nu omvallen.
 """
 
 from __future__ import annotations
@@ -126,15 +128,17 @@ def test_een_leeg_veld_wordt_leeg_en_niet_de_vorige_waarde(db_session, activitei
 # ── De organisatoren, in twee vormen ─────────────────────────────────────────
 
 
-def test_de_samengevoegde_regel_toont_de_affichenamen_in_volgorde(db_session, activiteit):
-    """Eén rij per activiteit, en alleen wie op de affiche komt.
+def test_de_samengevoegde_regel_toont_alle_organisatoren_in_volgorde(db_session, activiteit):
+    """Eén rij per activiteit, met iedereen die ze trekt.
 
-    'Stil' is organisator zonder aangevinkt te zijn: die hoort hier niet in, want
-    deze kolom zegt wat er gedrukt wordt.
+    'Stil' is organisator zonder als contactpersoon aangevinkt te zijn. Tot #1441
+    liet deze kolom hem weg — ze zou zeggen wat er gedrukt wordt — en daardoor
+    was ze in het jaarprogramma bijna altijd leeg. Contactpersoon is een keuze
+    voor de affiche, niet voor wie organiseert.
     """
     rij = _rij(db_session, "activity", "activity_organisers")
 
-    assert rij["activity_organisers"] == "Jan Trekker · Marie Trekker"
+    assert rij["activity_organisers"] == "Jan Trekker · Marie Trekker · Stil Trekker"
 
 
 def test_de_dimensie_geeft_een_rij_per_organisator(db_session, activiteit):

@@ -1942,9 +1942,9 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         description=(
-            "Wie deze activiteit trekt, als één regel: de aangevinkte "
-            "contactpersonen met een · ertussen, in dezelfde volgorde als op de "
-            "affiche. Eén kolom en geen eigen korrel — daardoor blijft een rapport "
+            "Wie deze activiteit trekt, als één regel: alle organisatoren met een "
+            "· ertussen, in de volgorde van de activiteit — ook wie niet als "
+            "contactpersoon op de affiche staat (#1441). Eén kolom en geen eigen korrel — daardoor blijft een rapport "
             "over activiteiten één rij per activiteit, en kan je er niet op "
             "groeperen. Wil je dat laatste — of wil je Raakje erover kunnen vragen "
             "— neem dan 'Organisator'; die heeft een eigen korrel."
