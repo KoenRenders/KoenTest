@@ -16,7 +16,7 @@ from app.database import get_db
 from app.domains.auth.session import set_session_cookie
 from app.i18n import _
 from app.limiter import login_limiter
-from app.ui import templates
+from app.ui import templates, veilige_terug
 
 router = APIRouter(include_in_schema=False)
 
@@ -28,41 +28,58 @@ def aanmelden_page(request: Request, db: Session = Depends(get_db)):
     # De pagina includeert _aanmelden_email.html, dat een foutbanner en het
     # ingevulde adres toont. Bij een verse GET zijn die leeg — maar wél beloofd
     # (#643): een template die iets vraagt, krijgt het van de route.
+    # #1391 (W17): where to go after signing in, when a page sent the visitor
+    # here. Carried as a hidden field through both steps; followed only when it
+    # is a path on this site (`veilige_terug`), else the landing by role.
+    return_to = veilige_terug(request.query_params.get("terug"), "")
     return templates.TemplateResponse(
-        request, "aanmelden.html", {**site_context(db, request), "error": None, "email": ""}
+        request,
+        "aanmelden.html",
+        {**site_context(db, request), "error": None, "email": "", "terug": return_to},
     )
 
 
 @router.post("/aanmelden", response_class=HTMLResponse, dependencies=[Depends(login_limiter)])
-def aanmelden_submit(request: Request, db: Session = Depends(get_db), email: str = Form("")):
+def aanmelden_submit(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Form(""),
+    return_to: str = Form("", alias="terug"),
+):
     email = email.strip()
+    return_to = veilige_terug(return_to, "")
     if not email or "@" not in email:
         return templates.TemplateResponse(
             request,
             "_aanmelden_email.html",
-            {"error": _("Vul een geldig e-mailadres in."), "email": email},
+            {"error": _("Vul een geldig e-mailadres in."), "email": email, "terug": return_to},
         )
     from app.domains.auth.api import start_login
 
     start_login(db, email)
     # Altijd hetzelfde vervolg — verklap niet of het adres gekend is.
     return templates.TemplateResponse(
-        request, "_aanmelden_code.html", {"email": email, "error": None}
+        request, "_aanmelden_code.html", {"email": email, "error": None, "terug": return_to}
     )
 
 
 @router.post("/aanmelden/code", response_class=HTMLResponse, dependencies=[Depends(login_limiter)])
 def aanmelden_code(
-    request: Request, db: Session = Depends(get_db), email: str = Form(""), code: str = Form("")
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Form(""),
+    code: str = Form(""),
+    return_to: str = Form("", alias="terug"),
 ):
     from app.domains.auth.api import check_otp
 
     email, code = email.strip(), code.strip()
+    return_to = veilige_terug(return_to, "")
     if not check_otp(db, email, code):
         return templates.TemplateResponse(
             request,
             "_aanmelden_code.html",
-            {"email": email, "error": _("Ongeldige of verlopen code.")},
+            {"email": email, "error": _("Ongeldige of verlopen code."), "terug": return_to},
         )
     # Landing naar wat de rol mag openen (#530): ADMIN/OPERATOR → werkbank;
     # FINANCE-only → betalingen (werkbank zou 403'en); overige (gewoon lid) → gezin.
@@ -75,6 +92,8 @@ def aanmelden_code(
         dest = "/admin/betalingen"
     else:
         dest = "/leden/gezin"
+    if return_to:
+        dest = return_to
     response = templates.TemplateResponse(request, "_aanmelden_klaar.html", {})
     set_session_cookie(response, email, request)
     response.headers["HX-Redirect"] = dest

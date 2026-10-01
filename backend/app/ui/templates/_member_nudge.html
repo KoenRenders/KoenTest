@@ -1,0 +1,14 @@
+{# The member nudge (#1391, CR-11 W17): one sentence, unconditional, above the
+   contact fields of the public registration page and of "Word lid". It never
+   depends on a recognised address — the form looks nothing up, and a hint on
+   recognition would leak whether an address belongs to a member. A signed-in
+   member does not see it. `gebruiker` comes from `site_context`, which every
+   public page already builds, so the nudge costs no query of its own.
+
+   The sign-in link returns here: `/aanmelden?terug=` carries this page, and the
+   sign-in only follows it when it is a path on this site (`veilige_terug`). #}
+{% if not (gebruiker and gebruiker.is_member) %}
+{% set _here = request.url.path ~ ("?" ~ request.url.query if request.url.query else "") %}
+<p class="text-sm text-ink" data-member-nudge>{{ _("Lid van RAAK?") }}
+  <a class="text-link underline" href="/aanmelden?terug={{ _here | urlencode }}">{{ _("Log je eerst aan") }}</a>{{ _(": dan staat de inschrijving bij je gezin.") }}</p>
+{% endif %}
