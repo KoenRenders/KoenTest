@@ -342,7 +342,11 @@ line — the macro cuts it with "…" and never wraps it, the full text in
 the `title` — and the figure sits directly under it at a fixed distance,
 so the figures of one row are on one line by themselves and a tile is no
 higher than label plus figure; tile labels are short by rule ("Open
-inschrijving", not "Activiteiten met open inschrijving") [55, 58]; each a link that sets the list's
+inschrijving", not "Activiteiten met open inschrijving"): a label fits
+on one line in the narrowest tile of its row at 390 px or it is
+rewritten — the ellipsis is a safety net, a real label that gets cut is
+red, and what does not fit goes into the tile's one line of context or a
+hint that works on touch [55, 58, 60]; each a link that sets the list's
 filter;
 the active tile marked. A tile colours only when its figure asks for
 attention (an open balance, an overdue count). [10, 36, 52]
@@ -534,8 +538,10 @@ to another module · no "Bewerken" in row actions · no `overflow-x-auto` on
 a list · no `max-w-*` on a screen · no `action_bar` in a repeating-group
 row · no `code_label` twice on a row · a long-value field (`url`, `email`,
 `textarea`) never half or beside another field · `rare_settings` never
-followed by a section · a tile with two figures refused by the macro · tile labels on one line, figure tops in one tile
-row within 1 px, a tile no higher than label plus figure, the title's box never squeezed by its actions (the
+followed by a section · a tile with two figures refused by the macro · tile labels on one line and never cut, figure tops in one tile
+row within 1 px, a tile no higher than label plus figure, no row of
+controls wider than the page (the document as wide as the viewport at
+390 px on every screen), the title's box never squeezed by its actions (the
 screenshot set) · no
 `btn_*` in a record head outside
 `record_header(actions=…)`, and a list header's call slot holds only the
