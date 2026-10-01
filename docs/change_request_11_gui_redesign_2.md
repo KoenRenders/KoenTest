@@ -23,6 +23,18 @@ one by one later — "laten we dat enkel inbouwen in betalingen, de rest is
 voor later; dan kunnen we stuk per stuk bekijken wat we nog doen en de rest
 parkeren we naar later" (20 September 2026).
 
+**The end goal, sharpened on 1 October 2026.** While validating the quick
+wins on HDEV, Koen reported five corrections of shape in one day — a tile
+with two amounts, a rare section between fields, URL fields side by side,
+figures of one tile row at different heights, a title squeezed by its
+buttons — and had each relayed to this change request. Not because they
+should be fixed one by one, but because he does not want to report such
+things any more: *"ons framework zou dit moeten regelen, verhinderen."*
+That is the end goal in one sentence: **a convention of shape is never
+again something Koen has to notice, explain or decide; the kit makes it or
+a gate refuses it before a screen reaches him.** The measure is in A4 and
+the sign-off in AC8.
+
 **Background that shapes the end state without being in scope:** the
 platform will be used by other organisations than RAAK — a company that
 wants a webshop on it, another association with its own menu and brand.
@@ -125,6 +137,7 @@ it: one per thing, made by the kit or refused by a gate (B8).
 | Less to explain and less to support: one way per thing means no question "where is save on this screen?". | fewer of the small validation reports (six of twenty-four issues in v2.6.0 were visible faults, per `CLAUDE.md`) |
 | Faster change requests: a pattern is named, not described; a screen extends a layout instead of being drawn. | the hours the person asking spends describing the same thing again — row 1 was one evening for one group |
 | Fewer bugs and fewer regressions: what the template cannot write wrongly does not break, and a pixel diff catches the rest. | the 390 px faults per release, today found by eye |
+| Koen never again reports a correction of shape: no tile, width, placement or alignment rule explained at validation. | **shape corrections per release at HDEV validation** — six of twenty-four issues in v2.6.0; five in one day on 1 October 2026 (rows 52–56). The end state is reached when the count is zero for two consecutive releases that touched screens. |
 | A platform a second organisation can wear: kit apart from brand. | the separate change request for other organisations starts from a base that allows it |
 
 Not quantified in money; the first line is the one that decides.
@@ -198,6 +211,7 @@ concept is drawn (B2.1).
 | AC4 | The Betalingen list (pilot A) starts in the top third of a 1080 px screen: title row with inline tiles, one toolbar row with count and page size, the row opens the record. | R3 | phase 3 |
 | AC5 | Becoming a member, registering for an activity and answering a form on the public site (pilot B) share one page width, one surface scale, one button bar and the member nudge; the family portal shows the household's registrations with their payment state. | R1, R5, R10, R4 | phase 4 |
 | AC6 | After roll-out every list and record screen of the admin passes the same checks as the pilots, Raakje opens from the same button into the same panel on every enabled module, and the rich-text editor shows one toolbar on the newsletter and the page. | R1, R7, R8 | phase 5 |
+| AC8 | Two consecutive releases that touch screens pass Koen's HDEV validation without a single correction of shape (tile, width, placement, alignment, header, button); every such finding that does occur is already a red gate or a macro's refusal when the next release is built. | R5, R13 | phase 5, then every release |
 | AC7 | Every gate of B7 is red on its additive violation and green on `master`; the screenshot baselines exist for every screen and a shift above that screen's threshold fails the e2e job (B7 test 11: a shifted label fails, antialiasing passes). | R5 | phase 2 onward |
 
 ---
@@ -884,6 +898,15 @@ solution is designed; the measured counts in A2 (raw form elements, raw
 spacing classes, raw surface classes, raw checkboxes, per-card editors,
 sideways scrolls, hand-placed creates) are the first baselines.
 
+**The measure of success**, added on 1 October 2026 from Koen's words at
+the HDEV validation: the count of shape corrections he reports per release
+(A4), today five in a day; the rule above is kept when that count is zero
+for two consecutive releases — not because nothing is wrong, but because
+whatever is wrong was refused by a gate or made impossible by a macro
+before he saw it. Until the macros of phase 2 exist, that count cannot be
+zero: a screen drawn by hand has nothing to refuse it, which is why the
+five rules of rows 52–56 each got a gate the day they were found.
+
 **Reach and baseline.** Every template under `app/domains/*/templates` and
 `app/ui/templates`. Baselines measured on 30 September 2026, before the
 build: 456 raw form elements · 1 215 raw spacing classes · 224 raw surface
@@ -943,6 +966,7 @@ title and toolbar; the e2e job's duration with the pixel diff.
 | 30 Sep 2026 | Background: the platform will serve other organisations than RAAK (a company's webshop among them) — a separate change request; here the end state keeps kit and brand apart. | Koen |
 | 30 Sep 2026 | CR-11 becomes the GUI redesign's end state and roadmap: North Star first, quick wins up front for attraction, each concept prepared with screenshots, built on one pilot screen, run through a release and tuned, then rolled out; pilots: the activity detail, the public household creation with the forms. The as-is (A2) is listed first, the solution and the approach follow. | Koen |
 | 30 Sep 2026 | External reviews: Mistral and ChatGPT together, same brief, one round per moment — the graphic-design question at phase 0, the usability question before each pilot. | Koen |
+| 1 Oct 2026 | The end goal sharpened: Koen does not want to report corrections of shape any more — the framework must prevent them. Measure: shape corrections per release at HDEV validation, zero for two consecutive releases as the sign-off (A1, A4, AC8, B8). Not a work item now; context for the end state. | Koen |
 | 1 Oct 2026 | Two further findings on HDEV become rules: the figures of one tile row sit on one line (the macro anchors them); the title goes first in every header — actions drop to their own line before the title breaks (replaces W10's "the title truncates"). Rows 55–56, B4.2, B4.3, B7 test 20. | Koen, via the master CLI |
 | 1 Oct 2026 | Three corrections at the HDEV validation of the quick wins become conventions in the kit, not instructions per screen: one figure per tile; the rare section last in the form, above the bar; a long-value field (URL, e-mail, text area) always full width — rows 52–54, B4.2, B4.5, B7 18–19. | Koen, via the master CLI |
 | 1 Oct 2026 | After #1397 (four decisions for the place of one button): where an action sits, in which form, and what yields on a phone is a **requirement** (R13), decided once per layout and kind of action (the table in B4.3), enforced by a header that takes its actions as data and a gate (B7 test 17). #1387 and #1397's button are the first application, in phase 2. | Koen, via the master CLI |
