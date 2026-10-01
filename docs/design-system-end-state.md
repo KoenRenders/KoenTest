@@ -254,8 +254,13 @@ Renders label, control, help text and error in one block on the grid;
 `required` marks the label; the error sits under the control in
 `brand-danger`, the field's border coloured. `kind` is one of `text`,
 `textarea`, `number`, `email`, `phone`, `date`, `select`, `switch`,
-`segmented`, `checkbox_group`, `radio_group`, `upload`. No raw `<label>`,
-`<input>`, `<select>` or `<textarea>` in a domain template. [23, 24]
+`segmented`, `checkbox_group`, `radio_group`, `upload`, `url`. **The kind
+decides the width:** `url`, `email`, `textarea` and rich text are always
+full; `number`, `date`, `time`, a code, a short `select` and `switch` are
+half or quarter; `text` is half unless `long=True`; a template may widen a
+short field and never narrow a long one — a long field with `span="half"`
+is red. No raw `<label>`, `<input>`, `<select>` or `<textarea>` in a domain
+template. [23, 24, 54]
 
 ### 3.2 `form_grid` and `section(title)`
 
@@ -283,13 +288,17 @@ empty; the rows are committed with the screen's save, never on their own.
 Instances: contact details, addresses, activity dates, components,
 products, form options, order lines. [1, 50]
 
-### 3.4 `rare_settings(title, summary)`
+### 3.4 `rare_settings(title, summary)` — placed by the layout, last
 
-A collapsed section at the bottom of a form, closed by default, a
+A collapsed section in the **last slot of the form layout** — after every
+ordinary section and the attachments, just above the action bar, never
+between fields; the layout renders it there from the screen's declaration,
+so a template cannot put it elsewhere (a `rare_settings` followed by a
+`section` is red). Closed by default, a
 disclosure triangle, a one-line summary when something inside is set
 ("2 externe links"), a short note when the content is discouraged ("de
 eigen inschrijving heeft de voorkeur"). Instances: the component's
-external links, the activity's poster URL. [3]
+external links, the activity's poster URL. [3, 53]
 
 ### 3.5 Controls
 
@@ -319,12 +328,16 @@ with the page-size select; at the bottom "‹ vorige · volgende ›". Always a
 total (an approximate "van meer dan 10 000" where counting is heavy);
 "Pagina n" does not exist. Hidden when everything fits. [6]
 
-### 3.8 `tiles(items)`
+### 3.8 `tiles(items)` — one figure per tile
 
-Inline in the title row: figure (`text-2xl font-extrabold`), label
-(`text-xs`), optional second line; each a link that sets the list's filter;
+Inline in the title row: **one figure** per tile (`text-2xl
+font-extrabold`; the macro takes a single value and refuses a pair or a
+stacked amount — two things to do are two tiles, "Nog te ontvangen" and
+"Nog terug te betalen"), label (`text-xs`), optional second line of
+context that is not a second figure; each a link that sets the list's
+filter;
 the active tile marked. A tile colours only when its figure asks for
-attention (an open balance, an overdue count). [10, 36]
+attention (an open balance, an overdue count). [10, 36, 52]
 
 ### 3.9 `record_header(title, badges, facts, primary, actions=[…])` — actions as data
 
@@ -508,7 +521,10 @@ raw spacing class · no raw surface class · no raw checkbox outside a
 multi-choice group or consent · no typed "+" in a label · no header button
 to another module · no "Bewerken" in row actions · no `overflow-x-auto` on
 a list · no `max-w-*` on a screen · no `action_bar` in a repeating-group
-row · no `code_label` twice on a row · no `btn_*` in a record head outside
+row · no `code_label` twice on a row · a long-value field (`url`, `email`,
+`textarea`) never half or beside another field · `rare_settings` never
+followed by a section · a tile with two figures refused by the macro · no
+`btn_*` in a record head outside
 `record_header(actions=…)`, and a list header's call slot holds only the
 create button and "Instellingen" · the declared save model matches the
 macros used · the Raakje trigger by rule · one toolbar per rich text ·
