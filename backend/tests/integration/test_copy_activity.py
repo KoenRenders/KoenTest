@@ -193,7 +193,13 @@ def test_a_copy_that_fails_halfway_leaves_nothing(client, db_session, monkeypatc
     assert db_session.query(Activity).count() == count, "no half copy"
 
 
-def test_an_organiser_who_is_no_member_does_not_come_along(client, db_session):
+def test_every_organiser_comes_along_member_or_not(client, db_session):
+    """Koen, 1 October 2026: the copy gets exactly the source's organisers.
+    Next year's programme is made before that year's memberships are settled,
+    so membership is not checked — and the step says nothing about it.
+
+    Red against master `030bee4b`: there the organiser without a membership was
+    left out and named in the step."""
     source = _bouwen(db_session)
     db_session.add(
         ActivityOrganiser(
@@ -203,14 +209,16 @@ def test_an_organiser_who_is_no_member_does_not_come_along(client, db_session):
         )
     )
     db_session.commit()
+    expected = [(o.person_id, o.sort_order, o.is_contact) for o in source.organisers]
     value = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, value)
 
     step = client.get(f"/admin/activiteiten/{source.id}/kopieren").text
     copy = _new_copy(db_session, _copy(client, source.id, date(2027, 11, 13)))
 
-    assert "Niet meer lid, dus niet mee als organisator: Oudlid T." in step
-    assert len(copy.organisers) == 1
+    assert [(o.person_id, o.sort_order, o.is_contact) for o in copy.organisers] == expected
+    assert len(expected) == 2, "the member and the one without a membership"
+    assert "Niet meer lid" not in step
 
 
 def test_the_copy_is_on_the_agenda_without_a_way_to_register(client, db_session):

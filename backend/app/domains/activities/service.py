@@ -527,17 +527,6 @@ def first_date_of(activity: Activity) -> date | None:
     return min((d.start_date for d in activity.dates), default=None)
 
 
-def organisers_left_out_of_a_copy(db: Session, activity: Activity) -> list[ActivityOrganiser]:
-    """The organisers a copy would not take along: no longer a member (#1397).
-
-    `add_organiser` refuses someone who is no member, and a copy is no way
-    around that rule. The copy step shows these before anything is made.
-    """
-    from app.domains.mdm.api import is_member
-
-    return [o for o in activity.organisers if not is_member(db, o.person_id)]
-
-
 def copy_activity(
     db: Session,
     activity_id: int,
@@ -549,8 +538,9 @@ def copy_activity(
     """Copy an activity to a new date, in one transaction (#1397).
 
     Comes along: every field of the activity, its dates moved by one difference
-    in days (the new first date minus the old one; hours stay), and its
-    organisers who are still members. Not: components and products (the board
+    in days (the new first date minus the old one; hours stay), and all its
+    organisers — membership is not checked (Koen, 1 October 2026: next year's
+    programme is made before that year's memberships are settled). Not: components and products (the board
     sets those up months ahead, with that year's prices), registrations,
     payments, history, and the poster (open question for Koen).
 
@@ -574,7 +564,6 @@ def copy_activity(
         # first, so a copy of an activity with dates needs that new first date.
         raise ActiviteitFout(_("Kies de nieuwe begindatum."))
     shift = (first_date - first) if (first and first_date) else timedelta(0)
-    left_out = {o.id for o in organisers_left_out_of_a_copy(db, source)}
     # One transaction: everything below lands, or nothing does. A savepoint and
     # not `db.rollback()`: a failure undoes the copy and only the copy, whatever
     # the caller's session already holds. The explicit form and not `with`, as in
@@ -604,8 +593,6 @@ def copy_activity(
         copy.board_notes = source.board_notes
         copy.copied_from_id = source.id
         for organiser in source.organisers:
-            if organiser.id in left_out:
-                continue
             db.add(
                 ActivityOrganiser(
                     activity_id=copy.id,
