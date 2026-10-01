@@ -8,9 +8,11 @@
   <div>
   <h1 class="text-3xl font-bold text-kop inline-flex flex-wrap items-center gap-3">{{ a.name }}
     <span class="inline-flex gap-1">
-      {# #1428: the status first (CR-11 §B4.3); only a draft shows it. #}
+      {# #1428: the status first (CR-11 §B4.3); only a draft shows it. "actief"
+         means "not cancelled" and read as "published" beside it, so a draft shows
+         only "Concept" — and "geannuleerd" when that is true as well. #}
       {% if publication.draft %}{{ ui.badge(publication.status|code_label("activity_status"), publication.status|tone("activity_status")) }}{% endif %}
-      {% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% else %}{{ ui.badge(_("actief"), "green") }}{% endif %}
+      {% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% elif not publication.draft %}{{ ui.badge(_("actief"), "green") }}{% endif %}
       {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% else %}{{ ui.badge(_("iedereen welkom")) }}{% endif %}
     </span>
   </h1>

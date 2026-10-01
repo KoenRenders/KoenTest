@@ -196,3 +196,39 @@ def test_the_board_sees_the_draft_and_sets_its_audience(client, db_session):
     assert "Onbekend doelpubliek." in refused.text
     db_session.expire_all()
     assert db_session.get(Activity, draft.id).target_audience == "women"
+
+
+def _header_and_card(client, activity_id: int) -> tuple[str, str]:
+    """The title line and the "Status" row of the Publicatie card, as HTML."""
+    page = client.get(f"/admin/activiteiten/{activity_id}").text
+    header = page[page.index("<h1") : page.index("</h1>")]
+    card = page[page.index(">Publicatie<") :]
+    row = card[card.index(">Status<") : card.index(">Toegang<")]
+    return header, row
+
+
+def test_a_draft_says_one_status_in_its_header_and_its_card(client, db_session):
+    """Found on the 390 px screenshot after part A: a draft read "Concept" and
+    "actief" side by side, and "Status: actief" in the Publicatie card — which
+    reads as published. "actief" means "not cancelled"; for a draft it goes, and
+    the card shows the publication status.
+
+    Red before this change: `">actief<" not in header` failed on the draft.
+    """
+    draft = _activity(db_session, "Concept met één status")
+    published = _activity(db_session, "Gepubliceerd met status", ActivityStatus.PUBLISHED)
+    _board(client)
+
+    header, row = _header_and_card(client, draft.id)
+    assert ">Concept<" in header and ">actief<" not in header, header
+    assert ">Concept<" in row and ">actief<" not in row, row
+
+    header, row = _header_and_card(client, published.id)
+    assert ">actief<" in header and ">Concept<" not in header, header
+    assert ">Gepubliceerd<" in row, row
+
+    published.is_cancelled = True
+    db_session.commit()
+    header, row = _header_and_card(client, published.id)
+    assert ">geannuleerd<" in header and ">actief<" not in header, header
+    assert ">Gepubliceerd<" in row and ">geannuleerd<" in row, row

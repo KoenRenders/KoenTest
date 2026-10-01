@@ -4,7 +4,9 @@ Measured:
 - the card on /admin/activiteiten carries "Concept" and the audience in full,
   on or under the date line, and stays within the width;
 - the record header carries "Concept" and the button "Publiceren";
-- the edit form offers the audience choice, within the width.
+- the edit form offers the audience choice, within the width;
+- a draft says one status: no "actief" beside "Concept" in the header, and
+  "Concept" as the status in the Publicatie card, within the width.
 
 Screenshots go outside the repo. Proven red against master `cbe40e28` (served
 from an export of it): it fails at its setup, since the column `status` does
@@ -114,3 +116,26 @@ def test_the_header_and_the_edit_form(phone):
     _shot(page, "recordkop-formulier")
     assert chosen == "women"
     assert box["x"] >= 0 and box["x"] + box["width"] <= 390, box
+
+
+_STATUS = """() => {
+  const r = e => { const b = e.getBoundingClientRect(); return [Math.round(b.x), Math.round(b.right), Math.round(b.y)]; };
+  const badges = [...document.querySelector('h1').querySelectorAll('span span, span > *')]
+    .map(e => e.textContent.trim()).filter(t => t);
+  const dt = [...document.querySelectorAll('dt')].find(e => e.textContent.trim() === 'Status');
+  const dd = dt && dt.nextElementSibling;
+  return {header: [...new Set(badges)], status: dd && dd.textContent.trim(), box: dd && r(dd)};
+}"""
+
+
+def test_a_draft_says_one_status(phone):
+    page, activity_id = phone
+    page.goto(f"/admin/activiteiten/{activity_id}")
+    pagina_klaar(page)
+    m = page.evaluate(_STATUS)
+    print("MEASURE status", m)
+    page.locator("dt", has_text="Status").first.scroll_into_view_if_needed()
+    _shot(page, "publicatiekaart")
+    assert "Concept" in m["header"] and "actief" not in m["header"], m
+    assert m["status"] == "Concept", m
+    assert m["box"][1] <= 390, m
