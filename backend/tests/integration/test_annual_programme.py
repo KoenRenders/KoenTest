@@ -18,7 +18,8 @@ the activities this module makes:
   dates; one date running from 31 December to 2 January is in the year it starts;
 - a draft is in it with its labels; last year, a removed activity and the other
   tenant are not;
-- the .ods has as many rows as the screen.
+- the .ods has as many rows as the screen;
+- every organiser is in "Organisatoren", contact or not, in their order (#1441).
 
 Proven red against master `2f1b853e`: there the report lists one row per date,
 so `test_three_dates_are_one_row` finds three rows for the course.
@@ -255,3 +256,46 @@ def test_the_export_has_the_rows_of_the_screen(db_session, situation):
     # row is one whose first cell is a month, `2027-03`.
     data = [row for row in sheet if row and re.fullmatch(r"\d{4}-\d{2}", row[0])]
     assert len(data) == len(result.rows), "every row of the screen, once"
+
+
+def test_every_organiser_is_in_the_programme(db_session, situation):
+    """#1441: three organisers, one of them the contact, all three in their order.
+
+    Until #1441 the joined column held only the contacts — measured on PROD, it
+    was filled for 1 of 38 activities with organisers. The order is the
+    organisers' own (`sort_order`), not the order they were added, and not the
+    contact first.
+
+    Red against master `654917dc`: the column reads "Bart Trekker" alone.
+    """
+    from app.domains.activities.api import Activity
+    from app.domains.activities.models import ActivityOrganiser
+    from app.domains.mdm.api import Person
+
+    course = db_session.query(Activity).filter(Activity.name == "Kookcursus" + MARK).one()
+    for first_name, contact, order in (("Cas", False, 2), ("Bart", True, 1), ("Anna", False, 0)):
+        person = Person(
+            tenant_id=TENANT_A,
+            first_name=first_name,
+            last_name="Trekker",
+            date_of_birth=date(1980, 1, 1),
+            gender_code="M",
+        )
+        db_session.add(person)
+        db_session.flush()
+        db_session.add(
+            ActivityOrganiser(
+                tenant_id=TENANT_A,
+                activity_id=course.id,
+                person_id=person.id,
+                is_contact=contact,
+                sort_order=order,
+            )
+        )
+    db_session.commit()
+
+    _report, _selection, result = _run(db_session)
+
+    assert _mine(result.rows)["Kookcursus"]["activity_organisers"] == (
+        "Anna Trekker · Bart Trekker · Cas Trekker"
+    )
