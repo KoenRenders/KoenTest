@@ -25,7 +25,7 @@ from app.domains.auth.api import (
     require_finance_mutation,
     require_finance_ui,
 )
-from app.domains.payment.api import PayableType, PaymentType
+from app.domains.payment.api import PayableType
 from app.domains.payment.service import (
     BetalingFout,
     bevestig_betaling,
@@ -217,6 +217,7 @@ def _view(
         filter_records,
         group_cards,
         may_delete,
+        open_sides,
     )
 
     # #671: uit HX-Current-URL als htmx die meestuurt, anders uit de query-string.
@@ -363,16 +364,14 @@ def _view(
             "param_waarde": record_id,
         }
 
-    charges = [r for r in zichtbaar if r.type != PaymentType.REFUND]
-    refunds = [r for r in zichtbaar if r.type == PaymentType.REFUND]
-    m_bet, m_ref = aggregate(charges), aggregate(refunds)
     # De KPI-band telt over de zicht-BASIS: de tabs snijden de tabel, niet de
     # kengetallen — anders zegt het tab "Betaald" dat er € 0 openstaat.
     basis_tot = aggregate(zicht_basis)
     kpi = {
         "due": basis_tot["due"],
         "paid": basis_tot["paid"],
-        "saldo": basis_tot["saldo"],
+        # #1391 (W1): the third tile, "Nog af te handelen" — two sides, no net.
+        **open_sides(zicht_basis),
         "boekingen": len(zicht_basis),
         "open": telling["openstaand"],
     }
@@ -413,11 +412,6 @@ def _view(
                 "actief": _zkey == zicht,
             }
         )
-    # Terugbetalingen staan al NEGATIEF in de records (create_refund bewaart
-    # -bedrag), dus netto is een OPTELSOM. De oude aftrekking telde ze dubbel:
-    # 18 − (−9) = 27, terwijl de totaalregels onderaan (aggregate over alle
-    # records van een groep) correct 9 zeiden (HDEV-melding Koen, 15 sep).
-    m_net = {k: m_bet[k] + m_ref[k] for k in ("due", "paid", "saldo")}
     # #1059: dezelfde stand als de tabs, plus het actieve zicht. De macro plakt er
     # `&page=N` achter. Bewust zonder `hx-include`: de filterbalk serialiseert
     # geen `page`, dus meesturen zou de knop zijn eigen keuze laten overschrijven.
@@ -542,7 +536,6 @@ def _view(
         jaren=_jaren,
         context_top=context_top,
         context_groups=context_groups,
-        matrix={"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},
         is_finance="FINANCE" in get_user_roles(db, email),
         raakje_scherm=_raakje_op_dit_scherm(db, email),
         stt_mode=_stt_mode(),

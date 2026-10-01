@@ -36,8 +36,23 @@
     <div class="hidden md:block text-[11px] text-ink-soft">{{ _("Na terugbetalingen") }}</div>
   </div>
   <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
-    <div class="text-[11px] text-ink-soft">{{ _("Openstaand") }} <span class="md:hidden">· {{ kpi.open }} {{ _("boekingen") }}</span></div>
-    <div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums {{ 'text-orange-700' if kpi.saldo > 0 else 'text-ink' }}">€ {{ kpi.saldo|geld }}</div>
+    {# #1391 (CR-11 W1, Q19): the totals live here and nowhere else on the
+       screen. Two amounts side by side, the same size, and no net: € 120 to
+       receive and € 120 to refund is two things to do, and a net € 0 would
+       read as "nothing to do". Both zero: "€ 0,00" once. Orange as soon as
+       either side is open. #}
+    {% set _open = kpi.to_receive > 0 or kpi.to_refund > 0 %}
+    <div class="text-[11px] text-ink-soft">{{ _("Nog af te handelen") }} <span class="md:hidden">· {{ kpi.open }} {{ _("boekingen") }}</span></div>
+    {# Each amount stays whole with its words: a pair wraps as one unit, never
+       between "€" and the number. #}
+    <div class="text-right md:text-left font-bold tracking-tight tabular-nums {{ 'text-orange-700' if _open else 'text-ink' }}" data-open-sides>
+      {% if _open %}
+      <span class="inline-block whitespace-nowrap"><span class="text-lg md:text-2xl">€ {{ kpi.to_receive|geld }}</span> <span class="text-[11px] font-normal">{{ _("te ontvangen") }}</span> <span class="text-ink-soft font-normal">·</span></span>
+      <span class="inline-block whitespace-nowrap"><span class="text-lg md:text-2xl">€ {{ kpi.to_refund|geld }}</span> <span class="text-[11px] font-normal">{{ _("terug te betalen") }}</span></span>
+      {% else %}
+      <span class="text-lg md:text-2xl">€ {{ 0|geld }}</span>
+      {% endif %}
+    </div>
     <div class="hidden md:block text-[11px] text-ink-soft">{{ kpi.open }} {{ _("boekingen") }}</div>
   </div>
 </div>
