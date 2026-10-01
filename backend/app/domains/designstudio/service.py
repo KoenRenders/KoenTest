@@ -163,6 +163,55 @@ def list_designs(db: Session) -> list[Design]:
     return db.query(Design).order_by(Design.updated_at.desc(), Design.id.desc()).all()
 
 
+def copy_designs(
+    db: Session, source_activity_id: int, copy_activity_id: int, *, actor: str | None
+) -> list[Design]:
+    """Give a copied activity its own designs, from the source's (#1397).
+
+    Koen, 30 September 2026: the design comes along with the same template, the
+    same texts and the same pictures and photos, as references to the existing
+    media. Nothing is rendered: no version, no rendition, no generation — the
+    board renders the new poster itself, with the new date on it. The source's
+    designs are not touched. Flushes; the caller's transaction commits.
+    """
+    copies = []
+    for source in (
+        db.query(Design).filter(Design.activity_id == source_activity_id).order_by(Design.id).all()
+    ):
+        copy = Design(
+            activity_id=copy_activity_id,
+            template_key=source.template_key,
+            template_version=source.template_version,
+            preset=source.preset,
+            duo_code=source.duo_code,
+            status=DesignStatus.DRAFT,
+            tagline=source.tagline,
+            subtitle=source.subtitle,
+            explanation_md=source.explanation_md,
+            main_image_id=source.main_image_id,
+            main_focus_x=source.main_focus_x,
+            main_focus_y=source.main_focus_y,
+            inset_image_id=source.inset_image_id,
+            inset_corner=source.inset_corner,
+            third_image_id=source.third_image_id,
+            created_by=actor or "",
+        )
+        copy.highlights = [
+            DesignHighlight(
+                sort_order=h.sort_order, icon_code=h.icon_code, text=h.text, emphasis=h.emphasis
+            )
+            for h in source.highlights
+        ]
+        copy.logos = [
+            DesignLogo(media_asset_id=lg.media_asset_id, sort_order=lg.sort_order)
+            for lg in source.logos
+        ]
+        db.add(copy)
+        copies.append(copy)
+    db.flush()
+    return copies
+
+
 def designs_for_activity(db: Session, activity_id: int) -> list[Design]:
     """The designs of one activity, newest first — for the activity screen's
     jump to the Design Studio (Koen, 20 September 2026)."""

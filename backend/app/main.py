@@ -30,6 +30,7 @@ from app.domains.cms.router import router as cms_router
 from app.domains.cms.ui import router as cms_public_ui_router
 from app.domains.designstudio.admin_ui import router as designstudio_admin_ui_router
 from app.domains.designstudio.handlers import (
+    copy_designs_of_copied_activity,  # noqa: F401 - event subscription (#1397)
     generate_image,  # noqa: F401 - registers the designstudio.generate job (#1007)
 )
 from app.domains.forms.admin_ui import router as forms_admin_ui_router

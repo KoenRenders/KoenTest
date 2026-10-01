@@ -61,3 +61,18 @@ class AnswerLinkSent(KernelEvent):
     registration_id: int
     to_email: str
     name: str
+
+
+@dataclass(frozen=True)
+class ActivityCopied(KernelEvent):
+    """An activity was copied to a next year (#1397).
+
+    Published by `copy_activity` inside the copy's transaction, after the new
+    activity and its dates are flushed. `designstudio` subscribes and gives the
+    copy its own design from the source's (Koen, 30 September 2026): a subscriber
+    that raises undoes the whole copy.
+    """
+
+    source_activity_id: int
+    copy_activity_id: int
+    actor: str | None = None

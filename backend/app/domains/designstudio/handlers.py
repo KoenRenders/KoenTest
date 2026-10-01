@@ -19,6 +19,8 @@ from starlette.datastructures import Headers, UploadFile
 
 from app.domains.designstudio import imaging
 from app.domains.designstudio.models import GenerationStatus, ImageGeneration
+from app.kernel.contracts.activities import ActivityCopied
+from app.kernel.events import subscribe
 from app.kernel.jobs import job
 
 logger = logging.getLogger(__name__)
@@ -126,3 +128,11 @@ def generate_image(db: Session, payload: dict) -> None:
     row.reserved_cents = 0
     row.finished_at = imaging.utc_now()
     db.flush()
+
+
+@subscribe(ActivityCopied)
+def copy_designs_of_copied_activity(event: ActivityCopied, db: Session) -> None:
+    """A copied activity gets its own design, from the source's (#1397)."""
+    from app.domains.designstudio.service import copy_designs
+
+    copy_designs(db, event.source_activity_id, event.copy_activity_id, actor=event.actor)
