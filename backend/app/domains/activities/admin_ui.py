@@ -171,6 +171,7 @@ def _aa_detail_ctx(
         organisers_for,
         question_forms,
     )
+    from app.domains.designstudio.api import on_the_poster
 
     organisers = organisers_for(db, activiteit.id)
     vraagformulieren, gekozen_formulier = question_forms(db, activiteit.id)
@@ -182,6 +183,8 @@ def _aa_detail_ctx(
         # elke rendering van dit fragment.
         "organisers": organisers,
         "contact_count": sum(1 for o in organisers if o.is_contact),
+        # #1433: who the poster names, asked of Design Studio — the rule is theirs.
+        "poster_ids": {o.id for o in on_the_poster(organisers)},
         "organiser_query": organiser_query,
         "organiser_candidates": organiser_candidates or [],
         # #1028: de interne nota komt NIET uit `activiteit` — dat is
@@ -2195,6 +2198,29 @@ def organisator_bijwerken(
         },
     )
     return _detail_response(request, db, activity_id, toast=True)
+
+
+@router.post(
+    "/admin/activiteiten/{activity_id}/organisatoren/{organiser_id}/verplaats",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def move_organiser_route(
+    activity_id: int,
+    organiser_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    richting: str = Form(""),
+) -> Response:
+    """One place up or down (#1433); the order decides who makes the poster."""
+    from app.domains.activities.api import move_organiser
+
+    try:
+        move_organiser(db, activity_id, organiser_id, richting)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Organisator niet gevonden"))
+    return _detail_response(request, db, activity_id)
 
 
 @router.post(

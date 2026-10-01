@@ -450,3 +450,68 @@ def test_na_bewaren_komt_de_rij_dicht_terug(client, db_session, activiteit):
         "de rij komt open terug; dan lijkt Bewaren niets te doen"
     )
     assert "contactpersoon" in antwoord.text, "en de leesregel toont de nieuwe stand"
+
+
+# ── The order, changed with arrows (#1433) ────────────────────────────────────
+
+
+def _six_contacts(db, activiteit):
+    ids = []
+    for i in range(6):
+        row = add_organiser(db, activiteit.id, _persoon(db, f"Trekker{i}", "Kwis").id)
+        update_organiser(db, activiteit.id, row.id, {"is_contact": True})
+        ids.append(row.id)
+    return ids
+
+
+def test_the_fourth_moved_up_twice_is_second_and_makes_the_poster(db_session, activiteit):
+    """Red against master: there was no `move_organiser`."""
+    from app.domains.activities.api import move_organiser
+    from app.domains.designstudio.api import on_the_poster
+
+    ids = _six_contacts(db_session, activiteit)
+    assert move_organiser(db_session, activiteit.id, ids[3], "omhoog")
+    assert move_organiser(db_session, activiteit.id, ids[3], "omhoog")
+
+    rows = organisers_for(db_session, activiteit.id)
+    assert [r.id for r in rows] == [ids[0], ids[3], ids[1], ids[2], ids[4], ids[5]]
+    assert [r.sort_order for r in rows] == [0, 1, 2, 3, 4, 5]
+    assert [r.id for r in on_the_poster(rows)] == [ids[0], ids[3], ids[1]]
+
+
+def test_the_first_up_and_the_last_down_change_nothing(db_session, activiteit):
+    from app.domains.activities.api import move_organiser
+
+    ids = _six_contacts(db_session, activiteit)
+    assert not move_organiser(db_session, activiteit.id, ids[0], "omhoog")
+    assert not move_organiser(db_session, activiteit.id, ids[-1], "omlaag")
+    assert [r.id for r in organisers_for(db_session, activiteit.id)] == ids
+
+
+def test_a_copy_keeps_the_changed_order(db_session, activiteit):
+    from app.domains.activities.api import copy_activity, move_organiser
+
+    ids = _six_contacts(db_session, activiteit)
+    move_organiser(db_session, activiteit.id, ids[5], "omhoog")
+    original = [r.person_id for r in organisers_for(db_session, activiteit.id)]
+    copy = copy_activity(db_session, activiteit.id, first_date=date(2027, 5, 1))
+    assert [r.person_id for r in organisers_for(db_session, copy.id)] == original
+
+
+def test_the_card_marks_the_poster_three_and_carries_44_px_arrows(client, db_session, activiteit):
+    """The first three contacts read "op de affiche", a fourth contact says why
+    it is not; the arrows are the kit's `reorder` at touch size, the first one's
+    "up" and the last one's "down" disabled."""
+    import re
+
+    _six_contacts(db_session, activiteit)
+    db_session.commit()
+    _login(client)
+    html = client.get(f"/admin/activiteiten/{activiteit.id}").text
+    card = html[html.index("Organisatoren") :]
+    assert card.count(">op de affiche<") == 3
+    assert card.count("niet op de affiche: alleen de eerste drie") == 3
+    arrows = re.findall(r'<button type="button" class="[^"]*min-w-11 min-h-11[^"]*"[^>]*>', card)
+    assert len(arrows) == 12, len(arrows)
+    # The attribute, not the `disabled:opacity-30` in the class.
+    assert sum(bool(re.search(r'"\s+disabled[\s>]', b)) for b in arrows) == 2
