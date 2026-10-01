@@ -14,7 +14,7 @@ httpx==0.28.1
 xlrd==2.0.2
 odfpy==1.4.1
 pillow==12.3.0
-pypdf==6.16.2
+pypdf==6.19.0
 # WeasyPrint (#258): HTML/CSS -> PDF voor de vergaderagenda en het verslag.
 # Europe First: open source, draait bij ons, onderhouden door CourtBouillon (FR).
 # Vereist de Pango-systeempakketten uit de Dockerfile.
