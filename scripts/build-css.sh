@@ -179,6 +179,20 @@ body.htmx-loading #nprogress{width:80%;opacity:1}
 .teller-veld::-webkit-inner-spin-button,
 .teller-veld::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .teller-veld{-moz-appearance:textfield;appearance:textfield}
+/* ── Tile strip: the numbers on one line (#1391, CR-11 W12) ──────────────────
+   Activities, Payments and Members each write a strip of tiles — a label, a
+   number, sometimes a foot line. From md they stand side by side, and a label
+   that breaks over two lines pushed its number below its neighbours' (Koen on
+   HDEV, 1 October 2026: "13" lower than "0"). Each tile becomes a subgrid of
+   the strip's three rows — label, number, foot — so a row is as tall as its
+   tallest cell and every number starts on the same line. One rule for the
+   three strips, not a fix per screen. The doubled class outranks the tiles'
+   own `md:block` and the strip's `md:flex-row`; outside @layer so Tailwind does
+   not prune it. Below md the strip is a column and nothing changes. */
+@media (min-width:768px){
+  .kpi-strip.kpi-strip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-rows:auto auto auto}
+  .kpi-strip.kpi-strip>*{display:grid;grid-row:span 3;grid-template-rows:subgrid;align-content:start}
+}
 /* View Transitions bij gebooste navigatie: kort, anders voelt het traag. */
 @view-transition{navigation:auto}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:120ms}

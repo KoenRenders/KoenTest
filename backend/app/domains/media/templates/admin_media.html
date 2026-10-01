@@ -11,7 +11,7 @@
    opent een volledige-pagina-editor, geen modal. Je werkt na het aanmaken toch
    verder in de editor, en de velden uit een dialoogje maken het object zelden
    compleet. #}
-{% call ui.page_header(_("Media"), _("Sponsorlogo's en activiteitenfoto's; elke kaart bewerk je ter plaatse.")) %}
+{% call ui.page_header(_("Media"), _("Sponsorlogo's en activiteitenfoto's; elke kaart bewerk je ter plaatse."), list_page=True) %}
     {# #696: `kind` gaat mee als BEGINWAARDE van de soort-keuze op het
        uploadscherm, niet meer als de beslissing zelf. Sta je op het sponsorfilter,
        dan begin je bij sponsor — maar je kunt daar omschakelen.

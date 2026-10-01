@@ -5,7 +5,7 @@
 {# Lijst-index (design-system C1): paginatitel → "+ Nieuw rapport" (los, geen
    blauwe balk) → zoeken → filters → record-kaarten. Een kaart opent het paneel
    met die selectie. #}
-{% call ui.page_header(_("Rapporten"), _("Stel zelf een rapport samen uit de gegevens die er al zijn, bewaar het onder een naam en neem het mee als spreadsheet.")) %}
+{% call ui.page_header(_("Rapporten"), _("Stel zelf een rapport samen uit de gegevens die er al zijn, bewaar het onder een naam en neem het mee als spreadsheet."), list_page=True) %}
   {{ ui.btn_primary(_("+ Nieuw rapport"), href="/admin/rapporten/nieuw") }}
   {# De ingang van de assistent. Sinds #1117 heet hij overal hetzelfde: `AI · …`
      met het sparkles-icoon. Zonder scherm erachter, want deze assistent gaat

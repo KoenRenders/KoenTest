@@ -13,7 +13,7 @@
    opent een volledige-pagina-editor, geen modal. Je werkt na het aanmaken toch
    verder in de editor, en de velden uit een dialoogje maken het object zelden
    compleet. #}
-{% call ui.page_header(_("Tenants"), _("Platformbeheer — enkel OPERATOR. Een tenant is een afdeling met eigen branding, instellingen en data.")) %}
+{% call ui.page_header(_("Tenants"), _("Platformbeheer — enkel OPERATOR. Een tenant is een afdeling met eigen branding, instellingen en data."), list_page=True) %}
     {{ ui.btn_primary(_("+ Nieuwe tenant"), href="/admin/tenants/nieuw") }}
   {% endcall %}
 
