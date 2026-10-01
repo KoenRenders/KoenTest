@@ -179,20 +179,22 @@ body.htmx-loading #nprogress{width:80%;opacity:1}
 .teller-veld::-webkit-inner-spin-button,
 .teller-veld::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .teller-veld{-moz-appearance:textfield;appearance:textfield}
-/* ── Tile strip: the numbers on one line (#1391, CR-11 W12) ──────────────────
+/* ── Tile strip: a label is one line (#1426, #1432) ──────────────────────────
    Activities, Payments and Members each write a strip of tiles — a label, a
-   number, sometimes a foot line. From md they stand side by side, and a label
-   that breaks over two lines pushed its number below its neighbours' (Koen on
-   HDEV, 1 October 2026: "13" lower than "0"). Each tile becomes a subgrid of
-   the strip's three rows — label, number, foot — so a row is as tall as its
-   tallest cell and every number starts on the same line. One rule for the
-   three strips, not a fix per screen. The doubled class outranks the tiles'
-   own `md:block` and the strip's `md:flex-row`; outside @layer so Tailwind does
-   not prune it. Below md the strip is a column and nothing changes. */
-@media (min-width:768px){
-  .kpi-strip.kpi-strip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-rows:auto auto auto}
-  .kpi-strip.kpi-strip>*{display:grid;grid-row:span 3;grid-template-rows:subgrid;align-content:start}
-}
+   number, sometimes a foot line. A label that broke over two lines pushed its
+   number below its neighbours' (#1426); a subgrid of the strip's rows lined
+   the numbers up but made every short label's tile as tall as the long one,
+   its number far under the text (Koen, 1 October 2026, #1432). So a label is
+   ONE line: too long, it ends in "…" and the screen gives it a `title` with the
+   whole text. Every label one line tall puts every number at the same height,
+   right under its label, as before #1426. One rule for the three strips.
+   The label may shrink in the phone's row too (`min-width:0`), the number never
+   does; and a tile does not grow to fit its label (`min-width:0` on the tile),
+   so the tiles of a strip stay as wide as each other, as before #1426.
+   Outside @layer so Tailwind does not prune it. */
+.kpi-strip>*{min-width:0}
+.kpi-strip>*>:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.kpi-strip>*>:nth-child(2){flex-shrink:0}
 /* View Transitions bij gebooste navigatie: kort, anders voelt het traag. */
 @view-transition{navigation:auto}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:120ms}

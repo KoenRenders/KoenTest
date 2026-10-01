@@ -243,7 +243,7 @@ def admin_activiteiten(
 ) -> Response:
     lijst = _lijst_ctx(db, scope, q)
     # De kengetallen tellen wat er openstaat, niet wat er toevallig gefilterd is:
-    # een zoekterm mag "Activiteiten met open inschrijving" niet doen dalen. Zonder filter is de
+    # een zoekterm mag "Open inschrijving" niet doen dalen. Zonder filter is de
     # getoonde lijst al de juiste bron en blijft het bij één query.
     kpi_bron = (
         lijst["activities"]

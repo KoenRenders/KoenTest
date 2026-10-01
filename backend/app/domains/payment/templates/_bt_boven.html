@@ -26,12 +26,12 @@
    hoort ze in één blik te vangen. #}
 <div class="kpi-strip mb-4 md:max-w-3xl flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
   <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
-    <div class="text-[11px] text-ink-soft">{{ _("Netto te betalen") }} <span class="md:hidden">· {{ kpi.boekingen }} {{ _("boekingen") }}</span></div>
+    <div class="text-[11px] text-ink-soft" title="{{ _("Netto te betalen") }}">{{ _("Netto te betalen") }} <span class="md:hidden">· {{ kpi.boekingen }} {{ _("boekingen") }}</span></div>
     <div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ {{ kpi.due|geld }}</div>
     <div class="hidden md:block text-[11px] text-ink-soft">{{ kpi.boekingen }} {{ _("boekingen") }}</div>
   </div>
   <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
-    <div class="text-[11px] text-ink-soft">{{ _("Ontvangen") }} <span class="md:hidden">· {{ _("na terugbetalingen") }}</span></div>
+    <div class="text-[11px] text-ink-soft" title="{{ _("Ontvangen") }}">{{ _("Ontvangen") }} <span class="md:hidden">· {{ _("na terugbetalingen") }}</span></div>
     <div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ {{ kpi.paid|geld }}</div>
     <div class="hidden md:block text-[11px] text-ink-soft">{{ _("Na terugbetalingen") }}</div>
   </div>
@@ -43,12 +43,12 @@
      A tile turns orange as soon as its amount is open — orange is this
      screen's fixed meaning "money still has to move". #}
   <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block" data-open-side="receive">
-    <div class="text-[11px] text-ink-soft">{{ _("Nog te ontvangen") }} <span class="md:hidden">· {{ kpi.receive_count }} {{ _("boekingen") }}</span></div>
+    <div class="text-[11px] text-ink-soft" title="{{ _("Nog te ontvangen") }}">{{ _("Nog te ontvangen") }} <span class="md:hidden">· {{ kpi.receive_count }} {{ _("boekingen") }}</span></div>
     <div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums {{ 'text-orange-700' if kpi.to_receive > 0 else 'text-ink' }}">€ {{ kpi.to_receive|geld }}</div>
     <div class="hidden md:block text-[11px] text-ink-soft">{{ kpi.receive_count }} {{ _("boekingen") }}</div>
   </div>
   <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block" data-open-side="refund">
-    <div class="text-[11px] text-ink-soft">{{ _("Nog terug te betalen") }} <span class="md:hidden">· {{ kpi.refund_count }} {{ _("boekingen") }}</span></div>
+    <div class="text-[11px] text-ink-soft" title="{{ _("Nog terug te betalen") }}">{{ _("Nog terug te betalen") }} <span class="md:hidden">· {{ kpi.refund_count }} {{ _("boekingen") }}</span></div>
     <div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums {{ 'text-orange-700' if kpi.to_refund > 0 else 'text-ink' }}">€ {{ kpi.to_refund|geld }}</div>
     <div class="hidden md:block text-[11px] text-ink-soft">{{ kpi.refund_count }} {{ _("boekingen") }}</div>
   </div>

@@ -73,7 +73,7 @@ def test_kpi_telt_alles_wat_openstaat_ook_tijdens_zoeken(client, db_session):
 
     ongefilterd = client.get("/admin/activiteiten").text
     gefilterd = client.get("/admin/activiteiten", params={"q": "quiz"}).text
-    kop = "Activiteiten met open inschrijving"
+    kop = "Open inschrijving"
     assert kop in ongefilterd and kop in gefilterd
 
     def getal(html: str) -> str:
@@ -84,7 +84,8 @@ def test_kpi_telt_alles_wat_openstaat_ook_tijdens_zoeken(client, db_session):
         cijfer). Een kengetal-test hoort over het GETAL te gaan, niet over de
         klassen — dan overleeft ze de volgende stijlwijziging.
         """
-        na_label = html.split(kop)[1]
+        # The visible text, not the `title` attribute that repeats it (#1432).
+        na_label = html.split(f">{kop}<")[1]
         return re.search(r">(\d+)<", na_label).group(1)
 
     assert getal(gefilterd) == getal(ongefilterd)

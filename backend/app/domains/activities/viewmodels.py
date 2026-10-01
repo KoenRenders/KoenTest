@@ -23,7 +23,7 @@ class AdminActiviteitenView(ViewModel):
     scope: str
     q: str
     # Kengetallen (#528). Ze tellen wat er openstaat, niet wat er toevallig
-    # gefilterd is: een zoekterm mag "Activiteiten met open inschrijving" niet doen dalen.
+    # gefilterd is: een zoekterm mag "Open inschrijving" niet doen dalen.
     kpi_open: int
     kpi_vol: int
     kpi_onderdelen: int

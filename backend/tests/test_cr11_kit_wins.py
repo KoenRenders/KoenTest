@@ -224,19 +224,37 @@ def test_no_admin_template_writes_the_left_arrow():
 # ── W12 follow-up: tile numbers on one line ──────────────────────────────────
 
 
-def test_every_tile_strip_aligns_its_numbers_through_the_shared_rule():
-    """Koen on HDEV, 1 October 2026: "13" stood lower than "0" because one label
-    broke over two lines. The fix is one CSS rule (`.kpi-strip`, a subgrid of the
-    strip's rows) in the shared stylesheet, and every strip of tiles carries the
-    class — a new strip that forgets it fails here. Proven red by dropping the
-    class from `admin_activiteiten.html`, and by deleting the rule."""
+def test_every_tile_strip_keeps_its_labels_on_one_line_through_the_shared_rule():
+    """#1426 lined the numbers up with a subgrid, which made every short label's
+    tile as tall as the long one (Koen, 1 October 2026, #1432). Now a label is
+    one line — "…" and a `title` when too long — so every number sits right
+    under its label at the same height. One rule (`.kpi-strip`) in the shared
+    stylesheet; every strip carries the class, every label a `title`. Proven
+    red by dropping the class from `admin_activiteiten.html`, by deleting the
+    rule, and by dropping a label's `title`."""
     strip = "md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100"
     found = []
     for path in APP.rglob("*.html"):
-        for line in path.read_text().splitlines():
+        lines = path.read_text().splitlines()
+        for i, line in enumerate(lines):
             if strip in line:
-                found.append((str(path.relative_to(APP)), "kpi-strip" in line))
+                found.append(path.relative_to(APP))
+                assert "kpi-strip" in line, f"{path.relative_to(APP)}: no kpi-strip"
+                # Each tile's first child is its label; each carries a title.
+                tiles = [
+                    lines[j + 1]
+                    for j in range(i + 1, len(lines))
+                    if lines[j].lstrip().startswith('<div class="flex-1')
+                    and lines[j].startswith("  <div")
+                ]
+                labels = [t for t in tiles if "text-ink-soft" in t]
+                assert labels, f"{path.relative_to(APP)}: the scan found no labels"
+                for label in labels:
+                    assert "title=" in label, f"{path.relative_to(APP)}: a label without a title"
     assert len(found) >= 3, f"the scan found only {found}"
-    assert all(ok for _path, ok in found), [p for p, ok in found if not ok]
     css = (APP / "static" / "app.css").read_text()
-    assert ".kpi-strip.kpi-strip>*{" in css and "grid-template-rows:subgrid" in css
+    assert ".kpi-strip>*>:first-child{" in css
+    rule = css[css.index(".kpi-strip>*>:first-child{") :]
+    rule = rule[: rule.index("}")]
+    assert "nowrap" in rule and "ellipsis" in rule
+    assert "subgrid" not in css, "the subgrid of #1426 is back"
