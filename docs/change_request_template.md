@@ -359,7 +359,12 @@ and deliberately not done — recorded so it is not asked again).
 > *by name, and **the named owner of every writer** to a shared table),*
 > ***database** (schema, table, each column with its type, nullability and*
 > *constraints, the `ON DELETE` of every FK, the migration and whether it is*
-> *additive), **templates and mail**, **tests** (which of C6). No effort*
+> *additive — and, for every column added to an entity that has a **copy**
+> *action, whether the copy takes it along or not, and why: the gate of*
+> *#1464 refuses an unclassified column, so the design decides it here and*
+> *the gate only confirms it; `target_audience` was added to the activity*
+> *and `copy_activity` silently left it out, #1463), **templates and mail**,*
+> ***tests** (which of C6). No effort*
 > *here: the effort per module and phase is the table of B5. Which*
 > *requirements a module serves is read from the matrix of B2, not repeated*
 > *here. A module that is only used, not changed, gets one line. **Reporting*
@@ -381,7 +386,9 @@ and deliberately not done — recorded so it is not asked again).
 > *and **which gate sees every new call across domains, and what it will*
 > *say** · mail templates · migration: additive or contract (#1255) · tenant*
 > *settings · env vars · JSON routes and API callers · external services*
-> *(Mollie, mail). A "yes" points at the section that handles it. The next*
+> *(Mollie, mail) · **copy actions**: does this change add a field to an*
+> *entity that has a copy action, and is the field copied or not, and why*
+> *(C2). A "yes" points at the section that handles it. The next*
 > *thing that gets missed becomes the next row.*
 
 ## C4. Detailed decisions — one subsection each, with the reasons
