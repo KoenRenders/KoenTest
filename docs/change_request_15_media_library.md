@@ -55,7 +55,7 @@ flowchart LR
 | 3 | Copy the activity for next year | organiser | #1397, since v2.11.0: texts, dates, organisers and the design come along; the design keeps the *references* to the same pictures | none |
 | 4 | Open the copied design, choose pictures | organiser | the choice shows the photos and design images of the design's own activity — the copy, which has none | **empty list**, although the pictures exist one activity away |
 | 5 | Find last year's photos elsewhere | organiser | own computer, a phone, the site's album saved again | ten to thirty minutes per poster, and the picture is not the original |
-| 6 | Upload again as a design image | organiser | "Foto toevoegen" in the editor | **a second copy**: 27 design images today, and the Design Studio already copies a chosen activity photo into a design image (CR-10 §3.11) — one picture, two or three rows |
+| 6 | Upload again as a design image | organiser | "Foto toevoegen" in the editor | **a second copy by hand**: 27 design images today, uploaded or AI-made, several of them the same photo as an album photo one activity away. (Choosing an album photo does *not* copy it — the slot holds the photo's id; the earlier reading of CR-10 §3.11 was wrong, measured 2 Oct 2026.) |
 | 7 | Place a picture on a CMS page | organiser | a chooser, but only over page images | a photo of the Sint cannot go on the "Sinterklaas" page without a third upload |
 | 8 | Put a picture in the newsletter | organiser | not possible; the activity block takes the poster or the album cover by itself | no choice at all |
 | 9 | Delete an activity or a design | organiser | the activity is soft-deleted; the design is deleted | **the pictures stay behind** without an owner (design renders and images orphaned; photos keep showing) |
@@ -100,7 +100,7 @@ What changes, one line each:
 ## A4. Benefits — what the change earns
 
 - **Volunteer time:** ten to thirty minutes per poster no longer spent finding and re-uploading last year's photos; with roughly fifteen recurring activities a year, five to seven hours a year — and the poster gets made with the right pictures instead of a stock one.
-- **No duplicates:** 27 design images today for 17 activity photos; each picture stored once keeps the database and every backup smaller (a design image is stored at 4096 px today, three to five times the bytes of an album photo; after this change every upload is one 2 400 px picture, stored once).
+- **No duplicates:** today a photo that lives one activity away is uploaded again as a design image because the picture choice cannot see it (27 design images for 17 album photos); with the whole library in the picker there is no reason to, and every upload is one 2 400 px picture (the 4 096 px design images of today are three to five times the bytes of an album photo).
 - **Nothing lost on delete:** pictures survive the activity and the design they were uploaded for, so next year's poster can still find them.
 - **A decision that is recorded:** whether a picture may be used publicly is answered once, at upload, instead of silently every time — the first step towards the consent model the architecture names as roadmap.
 - **Possible at all:** a photo of the Sint on the "Sinterklaas" CMS page without a third upload.
@@ -169,7 +169,7 @@ The media domain already is a library: one table, one row per picture, one kind 
 
 Decisions that shape it, each with the rejected alternative (the reasoning in C4):
 
-- **Reuse is a reference, never a copy** (C4.1). Rejected alternative: keep copying a chosen photo into a `design_image`. A copy costs bytes and backups, orphans when the design goes, and drifts from its original.
+- **Reuse is a reference, never a copy** (C4.1). Measured on 2 October 2026: the Design Studio's slots already hold the id of the chosen asset; what is missing is the offer — the picker widens it from the design's own activity to the whole library — and the rule that no module ever copies. Rejected alternative: a copy per use (bytes, orphans, drift).
 - **Tags, shown as a tree; the activity as a derived branch for its photos** (C4.2). A picture carries several tags and appears under each; search is by tag, title and activity. Rejected alternative: folders (a picture can be in one folder only — Koen reversed this the same day) and a hand-composed album entity (an activity's photos already are one). A tag vocabulary with a parent is a small table; the activity branch costs nothing.
 - **One chooser from the kit** (C4.3). Rejected alternative: improve the three `<select>`s of the design editor. A select of two hundred photos cannot be chosen from on a phone; one component means one behaviour everywhere (CR-11 R13).
 - **"Where used" is derived, not stored** (C4.4). Rejected alternative: a `media_uses` table every consumer writes. Two places for one fact drift; a read across three facades costs nothing at this scale.
@@ -184,8 +184,8 @@ Decisions that shape it, each with the rejected alternative (the reasoning in C4
 | F1 | A design's three picture slots reference any active image asset the chooser offers; `add_design_image` keeps storing an *upload* or an AI result as `design_image`, but choosing an existing photo stores nothing. | R1, R2 |
 | F2 | One facade function `media.api.pick_options(db, *, for_activity_id, q, activity_id, year, scope)` returns the library in pages, grouped "van vorig jaar" first (the predecessor chain of #1397's `copied_from_id`), then the rest as one tree (the activities by year, the tag tree); one search box on title, activity name and tag; a year filter. | R2, R3, R9 |
 | F3 | The chooser is a kit macro (`ui.media_picker`) with htmx paging and an Alpine-less sheet on a phone; the design editor and the CMS image modal render it; the design-system page shows it live; on a phone it does not break (R8). | R1, R8 |
-| F4 | "Where used" is derived: one facade function `media.api.uses_of(db, asset_id)` asks the designstudio, cms and newsletter facades for their references (each exposes `references_to_media(ids)`); nothing is stored twice. | R5 |
-| F5 | `delete_media` refuses while `uses_of` is not empty, naming the uses; the library card shows the count and the list. | R5 |
+| F4 | "Where used" is derived: one facade function `media.api.uses_of(db, asset_id)` asks the designstudio and cms facades for their references (each exposes `references_to_media(ids)`); the newsletter needs none — a letter references an activity, and its picture (poster or album cover) is chosen by the portal at send time; nothing is stored twice. | R5 |
+| F5 | `delete_media` refuses while `uses_of` is not empty, naming the uses as links; there is **no force delete** — the organiser changes or removes the uses first, because a design or a page pointing at a deleted picture would break on the site; the library card shows the count and the list. | R5 |
 | F6 | Deleting a design or an activity leaves the media rows; the library shows "van een verwijderde activiteit/ontwerp" from the soft-deleted activity or the missing design. The `_prune_versions` deletion of renders stays (a render is a product, not a picture). | R6 |
 | F7 | *(withdrawn with R7)* No clearance column; the public URL stays reachable by id for every asset, as today. | R7 Won't |
 | F8 | A tag vocabulary with a parent (`media.tags`: id, parent_id, name, tenant) the board maintains, and a many-to-many `media.asset_tags (asset_id, tag_id)`; the tree view in the library and the picker shows the activities branch and the tag tree; a picture appears under every tag it carries; searched by the same `q`. Phase 1. | R9 |
@@ -284,9 +284,6 @@ flowchart TB
     c1[image modal → the picker — changed]:::chg
     c2[facade: references_to_media — new]:::new
   end
-  subgraph nl[newsletter]
-    n1[facade: references_to_media — new]:::new
-  end
   subgraph act[activities]
     a1[copied_from_id — #1397, used]:::used
   end
@@ -297,7 +294,6 @@ flowchart TB
   c1 --> m6
   m3 --> d3
   m3 --> c2
-  m3 --> n1
   m3 --> a1
   classDef new fill:#d1fae5,stroke:#047857
   classDef chg fill:#fed7aa,stroke:#c2410c
@@ -356,9 +352,9 @@ erDiagram
   PAGE }o--o{ MEDIA_ASSET : "body references"
 ```
 
-Who calls whom: the design editor and the CMS modal call `media.api.pick_options` and render `ui.media_picker`; the media service calls `activities.api.predecessors_of` (from #1397) for the first group, and `designstudio.api.references_to_media`, `cms.api.references_to_media`, `newsletter.api.references_to_media` for "where used". The new dependencies run media → activities (already exists for `list_activity_photos`), and media → designstudio/cms/newsletter *for a read-only question* — that is the one direction to watch: the import gate allows a facade call, and it is a query, not a command; the alternative (each consumer registering its uses in media) stores the fact twice and was rejected (C4.4). Transaction boundary: choosing is the consumer's transaction (the design or page saves its reference); the refusal of a delete is one read then one refused write; tagging an asset is one row per tag.
+Who calls whom: the design editor and the CMS modal call `media.api.pick_options` and render `ui.media_picker`; the media service calls `activities.api.predecessors_of` (from #1397) for the first group, and `designstudio.api.references_to_media`, `cms.api.references_to_media` for "where used" (the newsletter references activities, not pictures). The new dependencies run media → activities (already exists for `list_activity_photos`), and media → designstudio/cms *for a read-only question* — that is the one direction to watch: the import gate allows a facade call, and it is a query, not a command; the alternative (each consumer registering its uses in media) stores the fact twice and was rejected (C4.4). Transaction boundary: choosing is the consumer's transaction (the design or page saves its reference); the refusal of a delete is one read then one refused write; tagging an asset is one row per tag.
 
-Impact on the existing architecture: `media.media_assets` stays as it is; the schema gains a `tags` table and the `asset_tags` link; the designstudio stops writing a `design_image` row for a chosen photo (its `design_image` kind stays for uploads and AI); three facades gain one function each; no table is dropped, no contract to an outside caller changes (the JSON routes keep their shape). The layer rules hold: screens through facades, services through facades, nothing reaches into another domain's models.
+Impact on the existing architecture: `media.media_assets` stays as it is; the schema gains a `tags` table and the `asset_tags` link; the designstudio stops writing a `design_image` row for a chosen photo (its `design_image` kind stays for uploads and AI); two facades gain one function each; no table is dropped, no contract to an outside caller changes (the JSON routes keep their shape). The layer rules hold: screens through facades, services through facades, nothing reaches into another domain's models.
 
 
 ## B4. Rules this change needs an exception from — decided once, here
@@ -376,9 +372,9 @@ Impact on the existing architecture: `media.media_assets` stays as it is; the sc
 | media | 3 (incl. the tag tree) | 2 (the picker, the facade) | — | 5 |
 | designstudio | — | 1.5 | — | 1.5 |
 | cms | — | 0.5 | — | 0.5 |
-| newsletter | — | 0.25 (facade for "where used") | — | 0.25 |
+| newsletter | — | — | — | — |
 | tests | 0.75 | 1 | — | 1.75 |
-| **Total** | **3.75** | **5.25** | — | **~9** |
+| **Total** | **3.75** | **5** | — | **~8.75** |
 
 Plus analysis (this document, ~1), review and HDEV validation per phase (~0.5 each), no purchases.
 
@@ -401,13 +397,17 @@ Plus analysis (this document, ~1), review and HDEV validation per phase (~0.5 ea
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
 1. **The rule.** *A picture is one media row; every use of it is a reference to that row through `media.api`, chosen through the one picker; no module copies a media row, reads its bytes, or builds its URL by hand.* Lives in `docs/code-style.md` under layer boundaries, and in the design system next to the picker.
-2. **Reach and baseline.** The whole codebase. Measured on the branch, 1 October 2026: one copy path (`designstudio.service`, the chosen photo copied into `design_image`); three screens that offer pictures, each its own way (the design editor's selects, the CMS modal, the newsletter's nothing); zero hand-built media URLs outside media's view-models. After this change: zero copy paths, one picker.
+2. **Reach and baseline.** The whole codebase. Measured on the branch, 2 October 2026: zero copy paths (the review's finding — a slot already references the asset); two screens that offer pictures, each its own way and each from its own slice (the design editor's selects over one activity, the CMS modal over page images); zero hand-built media URLs outside media's view-models. After this change: one picker over the whole library, and the no-copy rule gated so it stays zero.
 
 **The gate, in one line:** two hard gates from the build (C6 tests 6 and 12 — refusal while in use, and no bytes or hand-built media URL outside `media`) and one ratchet on the copy path; the "one picker" half is judgment, handed to the merge gate. Detail in C7.
 
 ## B8. Open decisions — what the approver still decides
 
-None on 2 October 2026: every question of the walkthrough with Koen is answered (B9, Q&A). The change request is ready to be assigned to a release when Koen plans it.
+| # | Question | Recommendation | What the answer changes |
+|---|---|---|---|
+| Q10 | Posters (`activity_poster`, 13 today) as reusable pictures in the picker, as decided under Q2 — or dropped, as the review suggests (a poster is a product of a design like a render; choosing last year's poster as a picture for a new one is a rare case, and it is noise in the picker)? | Keep the decision as it is, no extra rule; thirteen posters among hundreds of photos are not the noise that matters, and a poster sits under its activity's branch like any picture. Revisit only if the picker turns out noisy. | Nothing to build either way; one filter line if dropped. |
+
+Everything else of the walkthrough with Koen is answered (B9, Q&A).
 
 ## B9. Decisions log — dated answers
 
@@ -416,7 +416,7 @@ None on 2 October 2026: every question of the walkthrough with Koen is answered 
 | 1 Oct 2026 | A change request for the media library, to be walked through point by point before anything is assigned; nothing built from it yet. The small step of #1397 (`copied_from_id`, predecessors in the choice) goes ahead as its seed. | Koen, via the master CLI |
 | 2 Oct 2026 | **Tags, not folders** — Koen reversed the folder decision the same day after reading the rejected alternative: every picture can carry several tags, you search by tag, and the tags are shown as a tree knowing that a picture then appears in several places. R9 becomes a Must and the order of the library; R13 (folders) a Won't; no folders inside an activity's album either. | Koen |
 | 2 Oct 2026 | **What the picker shows when it opens** (Q1): from a design on a copied activity, first last year's photos of that activity (the chain of #1397), under it the whole tree — Activiteiten by year, the tag tree — one search box on a picture's title, its activity's name and its tags, a year filter; keywords later (phase 3). With this answer B8 is empty. | Koen |
-| 2 Oct 2026 | **One stored size for every upload: 2 400 px** (Q8). The 4 096 px size for design images goes, and so does the copy of a chosen library photo into a design image: choosing is a reference. 2 400 px prints an A3 poster at about 145 dpi and an A4 at about 205 dpi — enough for a poster read from a distance, not for fine print; AI pictures come at the model's own size and are unaffected; existing assets stay as stored. | Koen, on the author's judgment that 2 400 suffices |
+| 2 Oct 2026 | **One stored size for every upload: 2 400 px** (Q8). The 4 096 px size for design images goes. (The "copy into a design image" this decision also named turned out not to exist — a slot already references the chosen asset; measured the same evening after Mistral's review.) 2 400 px prints an A3 poster at about 145 dpi and an A4 at about 205 dpi — enough for a poster read from a distance, not for fine print; AI pictures come at the model's own size and are unaffected; existing assets stay as stored. | Koen, on the author's judgment that 2 400 suffices |
 | 2 Oct 2026 | One tree for the library (Q9); **no clearance**: what is in the system is released, the consent register stays roadmap (Q3, R7 Won't); ownership as proposed — the activity stays the origin, a photo survives its activity (Q4); the phone is not a focus beyond uploading (Q6, R8 Should); **no picture insert in the newsletter** — the activity block keeps working, the rest is out of scope (Q7, R10 Won't). Phase 3 (clearance) and the newsletter half of phase 4 fall away; ~12.25 → ~9.5 CLI-days. | Koen |
 | 2 Oct 2026 | Every picture in the library is usable by the Design Studio and the CMS pages — also sponsor logos and the association's logo (R14, settles Q2); the library's own material gets **folders and subfolders** the board names (R13), because hundreds of pictures cannot be searched by eye; the CMS is a user as important as the Design Studio. | Koen |
 | 1 Oct 2026 | *Proposed:* reference not copy; no album entity; one picker from the kit; "where used" derived; clearance per picture as the first step of the consent model; bytes stay in Postgres. | author |
@@ -432,7 +432,7 @@ None on 2 October 2026: every question of the walkthrough with Koen is answered 
 |---|---|---|---|
 | There is no album entity | `media/models.py` (one table, `media_assets`; `media_thumbs_up`, kind codes) | true: an album is the `activity_photo` rows sharing an `activity_id` | C4.2 |
 | Design slots and `activity_id` are soft references, no FK | `media/models.py:96-99` (comment, migration 081); `designstudio/models.py:342-354` | true; `test_schema_boundaries` forbids cross-schema keys | reference-not-copy needs no migration on the slots |
-| The Design Studio copies a chosen photo into `design_image` | CR-10 §3.11; `designstudio/service.py:838-868` | true | C4.1 removes it |
+| The Design Studio copies a chosen photo into `design_image` (CR-10 §3.11) | `designstudio/service.py:71,294` (a slot is set to the chosen asset's id), `:896-905` (`add_design_image` stores an *upload*), `:933-938` (`image_options` offers the design's own activity only) | **false** — a chosen photo is a reference already; only uploads and AI pictures become `design_image` rows (found by Mistral's review, confirmed 2 Oct 2026) | C4.1 rewritten; C6 test 1 is a guard, not red on master; the 27 design images are uploads, not copies |
 | Bytes live in Postgres and go into every dump | `media/models.py:58` (BYTEA); `scripts/db-backup.sh:32` (plain `pg_dump`, no exclusion) | true | C4.6; fewer copies = smaller dumps |
 | `GET /api/v1/media/{id}` checks neither `is_active` nor kind | `media/router.py:186-217` | true | stays so: what is in the system is released (C4.5) |
 | Deleting a design or an activity leaves its media behind | `designstudio/service.py:276` (`db.delete(design)`); `activities/service.py:476-531` (soft delete, no media handler) | true | C4.7 |
@@ -463,11 +463,9 @@ None on 2 October 2026: every question of the walkthrough with Koen is answered 
 - **Code:** `api.references_to_media(ids)` scans page bodies for `/api/v1/media/<id>` (a regex over the stored HTML; measured cost negligible at the page counts of today).
 - **Tests:** C6 2, 6.
 
-#### newsletter (phase 2, the facade only)
+#### newsletter (used, unchanged)
 
-- **Screens:** none — no picture insert (R10 Won't); the activity block keeps working as today.
-- **Code:** `api.references_to_media(ids)` over letter bodies, for "where used".
-- **Tests:** C6 6.
+- No picture insert (R10 Won't); the activity block keeps working as today; a letter references an activity, never a picture, so it needs no "where used" facade (Mistral's review, 2 Oct 2026, taken in).
 
 #### activities (used)
 
@@ -500,7 +498,7 @@ No view in the `reporting` schema reads `media.media_assets` (measured: the univ
 
 ### C4.1 Reuse is a reference, never a copy
 
-A picture is one row; everything that shows it points at the row. Today the Design Studio copies a chosen activity photo into a `design_image` (CR-10 §3.11) so that the design "owns" its material at 4096 px. The ownership was the wrong thing to want: it costs a second copy, the copy orphans when the design goes, and the activity photo and its copy drift apart in title and order. The design's slots are soft references already; they simply get to point at any image asset. **Sizes, decided by Koen on 2 October 2026:** one stored size for every upload, **2 400 px** on the long side, for album photos, page pictures, logos and pictures uploaded straight into the studio alike; the 4 096 px size for design images goes with the copy (`MAX_FULL_BY_KIND` in `media/images.py` becomes one `MAX_FULL`). Why 2 400 suffices: an A3 poster (420 mm) prints at about 145 dpi from 2 400 px and an A4 at about 205 dpi — fine for a poster read from a distance, which is what the association prints; fine print would need 4 000 px and nobody asked. A picture is about 2.25 times the bytes of today's 1 600 px one and less than a third of a 4 096 px design image, and there is one copy instead of two or three. Existing assets stay as stored; AI pictures arrive at the model's size.
+A picture is one row; everything that shows it points at the row. **Measured on 2 October 2026, after Mistral's review:** the Design Studio does *not* copy a chosen photo — a slot (`main_image_id`, …) holds the chosen asset's id, and only an upload or an AI result becomes a `design_image` row. The earlier reading of CR-10 §3.11 was wrong; what the studio lacks is the *offer*: `image_options` shows the photos of the design's own activity only, which is why last year's photos were uploaded again. So C4.1 changes nothing in how a slot stores its picture; it widens what the slot may point at (any image in the library, through the picker) and makes the rule explicit — no module ever copies a media row — with a gate that keeps it so. **Sizes, decided by Koen on 2 October 2026:** one stored size for every upload, **2 400 px** on the long side, for album photos, page pictures, logos and pictures uploaded straight into the studio alike; the 4 096 px size for design images goes with the copy (`MAX_FULL_BY_KIND` in `media/images.py` becomes one `MAX_FULL`). Why 2 400 suffices: an A3 poster (420 mm) prints at about 145 dpi from 2 400 px and an A4 at about 205 dpi — fine for a poster read from a distance, which is what the association prints; fine print would need 4 000 px and nobody asked. A picture is about 2.25 times the bytes of today's 1 600 px one and less than a third of a 4 096 px design image, and there is one copy instead of two or three. Existing assets stay as stored; AI pictures arrive at the model's size.
 
 ### C4.2 Tags shown as a tree; the activity as a derived branch
 
@@ -512,7 +510,7 @@ Two kinds of material live in the library and they are ordered differently. **An
 
 ### C4.4 "Where used" is derived, not stored
 
-Each consumer knows what it references; media asks them. Storing a `media_uses` table would mean every consumer writes twice (its reference and the use row) and the two drift — the shape CLAUDE.md calls the bug ("twee keer dezelfde reparatie"). The cost is a query across three facades at delete time and on the library card; at the counts of this portal (hundreds of pictures, tens of designs) it is not measurable. The direction media → consumers is read-only and through facades; the import gate allows it.
+Each consumer knows what it references; media asks them. Storing a `media_uses` table would mean every consumer writes twice (its reference and the use row) and the two drift — the shape CLAUDE.md calls the bug ("twee keer dezelfde reparatie"). Deleting a picture that is in use is refused, with the uses as links, and there is no force delete: a design or a page pointing at a deleted picture would break on the site, and the organiser can remove the use in one click from the list. The cost is a query across two facades at delete time and on the library card; at the counts of this portal (hundreds of pictures, tens of designs) it is not measurable. The direction media → consumers is read-only and through facades; the import gate allows it.
 
 ### C4.5 No clearance: the upload is the release
 
@@ -536,7 +534,7 @@ An activity is soft-deleted (#166); its photos stay rows with an `activity_id` t
 
 ## C6. Tests — what the build must prove
 
-1. **Choosing stores nothing.** Setting a design slot to an existing activity photo leaves `media_assets` at the same count and the slot pointing at that photo's id; uploading through "Foto toevoegen" adds exactly one row. Red on master, where the choice creates a `design_image`.
+1. **Choosing stores nothing.** Setting a design slot to any library picture — now also one of another activity, or a page picture — leaves `media_assets` at the same count and the slot pointing at that picture's id; uploading through "Foto toevoegen" adds exactly one row. A guard, green on master for the design's own photos (there was never a copy); red on master for a picture of another activity, which the offer refuses today.
 2. **The CMS places a reference.** Placing a photo through the modal inserts `/api/v1/media/<id>` of that photo; no `page_image` row is created.
 3. **Last year first.** For a design on a copied activity, `pick_options` returns the predecessor chain's photos as the first group, labelled with the source's name and year; for an activity without predecessors, no such group.
 4. **Search and filters.** `q="kerst"` matches title and activity name; `year=2024` restricts to activities dated in 2024; the two combine.
@@ -554,7 +552,7 @@ An activity is soft-deleted (#166); its photos stay rows with an `activity_id` t
 
 ## C7. The gate — what refuses a deviation from now on
 
-**The gate.** C6 test 12 (hard: the count is zero after the build) for bytes and URLs; and a ratchet on the copy path: a test that the designstudio service has no function creating a `MediaAsset` from an existing one (`copy` of `data`), proven by adding one. The "one picker" half cannot be checked by grep — a screen can still draw a `<select>` of assets — and is handed to the `design-conformiteit-bewaker` agent and the merge gate, as a weaker guarantee, written down as one.
+**The gate.** C6 test 12 (hard: the count is zero after the build) for bytes and URLs; and a hard gate on copying (the count is zero today): no module creates a `MediaAsset` from an existing one's bytes, proven by adding one. The "one picker" half cannot be checked by grep — a screen can still draw a `<select>` of assets — and is handed to the `design-conformiteit-bewaker` agent and the merge gate, as a weaker guarantee, written down as one.
 
 ## C8. Prototype findings — what was measured before the build
 
@@ -581,13 +579,14 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
 | Q1 | 1 Oct 2026 | Search and filter: by activity, year, keywords; "van vorig jaar" as the default? (master CLI, for Koen) | *Proposed:* the picker opens on the predecessor chain when there is one, then the whole library; filters activity and year, search over title and activity name now, over tags in phase 4. **Koen, 2 Oct 2026: yes, as proposed** — last year's photos of the same activity first, then the whole tree, one search box on title and activity name, a year filter. |
+| Q10 | 2 Oct 2026 | External review (Mistral, pasted by Koen; on the version of 1 October, before the day's decisions): the copy path does not exist on master — a slot already references the chosen photo; 1 600 px is thin for A3 — store album photos at 2 048 px or more; the newsletter would break the clearance model; R5 needs a stated escape or none; posters are products like renders — drop them from the reusable kinds; tags are a maintenance burden for volunteers — Won't; no tenant setting for clearance; two facades for "where used" are enough. | **Taken in:** the copy path — measured and found absent, C4.1, C1, C6 test 1 and B7 rewritten; no force delete, written at F5 and C4.4; the newsletter facade dropped (a letter references an activity, not a picture). **Already decided the same day, before the review reached us:** 2 400 px for every upload; no clearance at all; no newsletter picture; no tenant setting. **Put to Koen:** posters as reusable pictures (Q10 below). **Not taken, by Koen's decision of the same day:** tags stay — he chose them over folders knowing the maintenance; the review's objection is recorded here. |
 | Q2 | 1 Oct 2026 | Which kinds are reusable, for which use (poster, newsletter, CMS)? (master CLI) | Koen, 2 Oct 2026: **every picture** — activity photos, design images, page pictures, posters as pictures, **and the sponsor logos and the association's logo** — for the Design Studio and the CMS pages alike (R14). Not pictures and so not in the picker: renders (products) and newsletter files (documents). The use filter is clearance, not kind. |
 | Q3 | 1 Oct 2026 | Privacy and consent: may every album photo go on a poster, with minors on it? (master CLI) | *Proposed:* a clearance per picture, two values, set at upload with a default per kind (`public` for album photos, `internal` for design and page images until placed); the consent register of the roadmap plugs in later (C4.5). The real question for Koen: **does an album photo count as cleared for a poster by the fact that it is on the site, or must the board say so per picture?** The author recommends the first. **Koen, 2 Oct 2026: nothing changes — what is in the system is released.** R7 becomes a Won't; no clearance column, no phase 3. |
 | Q4 | 1 Oct 2026 | Ownership: does a photo stay with its activity when used elsewhere; what when the activity is deleted? (master CLI) | *Proposed:* yes — the activity is the origin and the album; a use is a reference; on delete the photo stays, origin marked gone (C4.7). **Koen, 2 Oct 2026: yes.** How the loose coupling across domains works: media keeps the activity's id as a *soft reference* — a number, no foreign key, already so since migration 081 — so deleting (soft-deleting) an activity touches no media row; the library shows "van een verwijderde activiteit" by asking `activities.api` whether that id is still alive; the design's slots are soft references to media ids the same way; "where used" is a read through the three facades, never a stored link. Nothing cascades because nothing is tied. |
 | Q5 | 1 Oct 2026 | Storage: blobs in Postgres — does this touch R8, the object-storage adapter? (master CLI) | *Answer:* no — this change adds references and removes copies; R8 stays roadmap, the seam is kept clean (C4.6, C6 test 12). |
 | Q6 | 1 Oct 2026 | Mobile first: choosing from hundreds of photos at 390 px? (master CLI) | *Proposed:* a bottom sheet, search on top, filter chips, a three-column thumbnail grid paged at 60, the predecessor group first so the common case is one scroll (C4.3, AC6). **Koen, 2 Oct 2026: not a focus — beyond an upload, the picture admin is never used on a phone.** R8 becomes a Should: upload works, nothing breaks, no design effort. |
 | Q7 | 1 Oct 2026 | One picker for Design Studio, newsletter and CMS? (master CLI) | *Proposed:* yes, a kit component (C4.3), Design Studio and CMS in phase 2, the newsletter in phase 4 as a Could. **Koen, 2 Oct 2026: can a letter take a picture today?** Measured: no — only through the activity block (the poster or the album cover, chosen by the portal) and attachments as links; that keeps working. So the newsletter picker is **out of scope** (R10 Won't); the newsletter keeps only the "where used" read. |
-| Q8 | 1 Oct 2026 | Should the Design Studio keep its 4096 px copies for print quality? (author) | *Proposed:* no copy; a design that needs more than the album's 1600 px uploads its own material through the path that stays (C4.1). Koen, 2 Oct 2026, after the explanation: **the 4 096 px size goes, the copy into a design image goes, every upload is stored at 2 400 px** — on the author's judgment that 2 400 is enough (A3 at about 145 dpi). C4.1 carries the sizes. |
+| Q8 | 1 Oct 2026 | Should the Design Studio keep its 4096 px copies for print quality? (author) | *Proposed:* no copy; a design that needs more than the album's 1600 px uploads its own material through the path that stays (C4.1). Koen, 2 Oct 2026, after the explanation: **the 4 096 px size goes, every upload is stored at 2 400 px** — on the author's judgment that 2 400 is enough (A3 at about 145 dpi). The copy the question assumed does not exist (C1); the size decision stands. C4.1 carries the sizes. |
 
 ## Non-goals — deliberately outside this change
 
