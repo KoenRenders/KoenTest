@@ -61,7 +61,7 @@ inset is only ever inside a card. The same three on the public site and in
 the admin. No `bg-*` class in a domain template. (Phase 2. Row 9.)
 
 **Radius, decided** (block 1, Koen, 2 October 2026): cards 10 px in the back
-office, 14 px on the public site; every control (button, field, chip, tab,
+office, 14 px on the public site; every control (button, field, segment, tab,
 navigation row) 6 px; badges and small blocks 4 px; a round badge 999 px. This
 replaces the 18 px cards of today and the 12 px the concepts tested (CR-11
 Q18 is closed by it).
@@ -74,7 +74,7 @@ binding: each step has one use, applied by a macro, never by a template.
 | Step | Use | Applied by |
 |---|---|---|
 | 4 | label to control; icon to its text | `field`, `btn_*` |
-| 8 | button padding; gap between chips | `btn_*`, `chips` |
+| 8 | button padding; gap between toolbar controls' segments | `btn_*`, `status_filter` |
 | 12 | field to field inside a section | `form_grid` |
 | 16 | card padding; gap between toolbar controls | `card`, `toolbar` |
 | 24 | card to card; summary card to content | layouts |
@@ -185,7 +185,7 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
 ```
 ┌ shell ────────────────────────────────────────────────────────────┐
 │ Title                     [tile] [tile] [tile]   [+ Nieuw] [⚙ Instellingen] │  title row
-│ (chips: alle · open · …)  [search…] [filter ▾] [filter ▾]  1–50 van 312 · 50 ▾  [⋯] │  toolbar row
+│ [alle|open|…]  [search…] [filter ▾] [filter ▾]  1–50 van 312 · 50 ▾  [⋯] │  toolbar row
 │ ┌ table or cards ─────────────────────────────────────────────┐ │
 │ │ row (the whole row is the link)                        [⋯] │ │
 │ │ …                                                           │ │
@@ -196,13 +196,13 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
 
 - **Title row:** the title (`h1`); at its right the **key figures** inline
   (figure and label as plain text, thin dividers between them, no card,
-  **not clickable** — the figures are read, the toolbar's chips filter;
+  **not clickable** — the figures are read, the toolbar's status filter filters;
   block 2, Koen, 2 October 2026, replacing "each a filter"); then
   "+ Nieuw <item>" and, when the module has configuration,
   "Instellingen" with the gear. Nothing else: no link to another module, no
   explanation line, no breadcrumb (the menu shows the place). [31, 34, 35,
   36, 45]
-- **Toolbar row:** status chips at the left; search; the filters; the
+- **Toolbar row:** the status filter at the left (§3.13); search; the filters; the
   count "x–y van n" with the page size (25 · 50 · 100); `⋯` with export and
   the rest. One row; it wraps only on a phone. [6, 45]
 - **The list:** in the admin always a **table** (a picture is a thumbnail
@@ -345,7 +345,7 @@ block per item with its own fields underneath and, when it has them, its
 own child group (a component with its settings and its products) — so it
 is visible which product belongs to which component and which settings are
 whose; the one-among-many marker
-("hoofdadres") as a chip on the row; "nog geen …" and the add button when
+("hoofdadres") as a tag on the row; "nog geen …" and the add button when
 empty; the rows are committed with the screen's save, never on their own.
 Instances: contact details, addresses, activity dates, components,
 products, form options, order lines. [1, 50]
@@ -405,7 +405,7 @@ and the full definition in the `title`; a qualifier belongs in the label,
 a count beside an amount is a second figure, so there is no second line.
 Thin dividers between the figures, **no card, no border, no hover, not a
 link**: a figure is read, and the rows it counts are found with the
-toolbar's chips — the fix for row 36 is that the chip with the same name
+toolbar's status filter — the fix for row 36 is that the segment with the same name
 exists, not that the figure is a button (Koen, 2 October 2026, choosing
 the subtle figures of ChatGPT's brief-01 frame over the card tiles of
 brief 02). The figures of one row share one baseline; a label fits on one
@@ -457,13 +457,25 @@ record it names. [20, 30]
 
 The tab bar of the record page: "Gegevens" first, then the related lists
 with counts, the same order per entity across the portal (defined once per
-entity in Part 5). [19]
+entity in Part 5). **Tabs — an underline under the active item — are
+navigation inside a record and nothing else**: they lead from a record to
+its linked objects, the content below switches, the place stays. A tab bar
+never appears in a list's toolbar, and a list's status filter never looks
+like one (Koen, 2 October 2026: today Betalingen's status filter is drawn
+as tabs and the activity's tabs look the same, so the eye cannot tell a
+filter from a place). [19]
 
 ### 3.13 `toolbar(…)`
 
-The list's second row: chips, search, filters, pager count, `⋯`. The
-embedded rendering drops the chips' page-level variants and keeps one
-status filter. [45, 29]
+The list's second row: the status filter, search, filters, pager count,
+`⋯`. **The status filter is a segmented control** (`status_filter`): one
+bordered group of segments — Alle | Openstaand | Betaald | Terugbetaald —
+one segment chosen, on the brand tint, 36 px high like a button; it reads
+as a control among the search and the selects, never as navigation; no
+loose pills, and the word "chip" is not used (Koen, 2 October 2026; it
+replaces the three shapes of today — Leden's pills, Activiteiten's pills,
+Betalingen's tabs with counts). The embedded rendering drops the page-level
+variants and keeps the one status filter. [45, 29]
 
 ### 3.14 `account_menu`
 
@@ -557,7 +569,7 @@ Betalingen, the roll-out for the rest). Today's state stands beside it so
 the distance is visible. The rules behind the columns: a tile is one
 figure with a one-line label, plain text, not a filter (rows 36, 52, 58, 60; block 2); a row shows the
 same three or four things for every record, omitted when they do not apply
-(row 36); the toolbar is one row — chips, search, filters, the count with
+(row 36); the toolbar is one row — the status filter, search, filters, the count with
 the page size, `⋯` (rows 6, 45); every list pages (P1); no list scrolls
 sideways (row 11); the row is the way in (row 26); the list's state is its
 URL (row 57).
@@ -568,7 +580,7 @@ Shell width for every list: the wide frame (row 11); today three lists set
 `max-w-none` themselves and the rest take the shell's reading width.
 "Today" names the shape, the tiles and the toolbar as measured.
 
-| Screen | Today | End state: a row shows | Tiles (*proposed*) | Toolbar: chips · search on · filters · sort | Header |
+| Screen | Today | End state: a row shows | Tiles (*proposed*) | Toolbar: status filter · search on · filters · sort | Header |
 |---|---|---|---|---|---|
 | Activiteiten | cards; tiles Open inschrijving · Volzette onderdelen (end state: Open activiteiten · Volzet onderdeel — "inschrijving" is too hard a word, Koen, 2 Oct 2026); search, chips Komende/Archief/Alles; no pager | name with status badges · first date and time · location · registrations count (omitted without a component) | Open inschrijving · Volzet onderdeel (activities with one) | Komende · Archief · Alles; name, location; year; date | + Nieuwe activiteit |
 | Leden | cards; three tiles; search, chips Alle/Actief/Opgezegd, year select; pager 25 | household name · municipality · persons · membership state badge | Actieve gezinnen · Actieve personen · Te vernieuwen (year) | Alle · Actief · Opgezegd; name, street, e-mail; membership year; name | Leden importeren · + Nieuw lid |
@@ -580,7 +592,7 @@ Shell width for every list: the wide frame (row 11); today three lists set
 | Pagina's | cards; search, chips; manual order with ↑↓; no pager | title · /slug · gepubliceerd/concept badge · in navigatie badge | Gepubliceerd · Concept | Alles · Gepubliceerd · Concept · In navigatie; title, slug; —; manual order (the handle of the repeating-group row) | + Nieuwe pagina |
 | Media | inline-edit cards in a 2-column grid; search, kind select, activity select; no pager | **cards (grid)** — the one admin exception: thumbnail · title · kind · origin (activity) · clearance badge (CR-15) | — | Alle · per kind; title; activity, year, in gebruik (CR-15); newest | + Uploaden |
 | Design Studio | cards without thumbnail; search; no pager | **thumbnail column** (the latest render) · activity · status badge · versions · updated | — | Alle · Gepubliceerd · Verouderd; activity; —; updated | + Nieuw ontwerp |
-| Gebruikers | inline-edit list, one form per row; search, role select, active chip | e-mail · active badge · roles as chips (row 44: the row opens the record) | Actief | Actief · Alle; e-mail; role; e-mail | + Nieuwe gebruiker |
+| Gebruikers | inline-edit list, one form per row; search, role select, active chip | e-mail · active badge · roles as tags (row 44: the row opens the record) | Actief | Actief · Alle; e-mail; role; e-mail | + Nieuwe gebruiker |
 | Organisaties | cards; search, type select; empty header | name · type badge · code · legal form · inactive badge | — | Alle · per type; name, code; —; type, name | none (created elsewhere, by design) |
 | Tenants | cards; search, status select | name · /code · active badge · platform badge | — | Actief · Inactief; name, code; —; id | + Nieuwe tenant |
 | Rapporten | cards with description and chips; search, owner and shared selects; AI buttons in the header | name · shape icon · privé/meegeleverd badge · owner · last opened | — | Mijn · Meegeleverd · Alle; name, description; owner; name | + Nieuw rapport (the AI buttons go: Raakje is the shell's trigger, row 32) |
