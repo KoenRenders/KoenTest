@@ -12,6 +12,10 @@
          >
       {# Golf 6, kop-herziening: alles bovenaan. #}
       {{ ui.action_bar(cancel_href="/admin/tenants") }}
+      {# CR-19 (#1478): chosen once — it gives the modules the tenant starts with. #}
+      <div>{{ ui.label(_("Type"), "t-kind", required=True) }}
+        {{ ui.chips("kind", kind_options, "VERENIGING") }}
+        <p class="text-xs text-ink-soft mt-1">{{ _("Bepaalt met welke modules de tenant start; die pas je nadien aan in de tenant.") }}</p></div>
       <div>{{ ui.label(_("Naam"), "t-name", required=True) }}
         <input name="name" id="t-name" required class="w-full"></div>
       <div>{{ ui.label(_("Code (slug)"), "t-code", required=True) }}

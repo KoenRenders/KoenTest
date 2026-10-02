@@ -500,7 +500,31 @@ An architect will find these, so they are listed here rather than discovered lat
 - **The tenant filter is ORM-only.** Raw SQL, such as the OGM sequence call, bypasses it. Row-level security would close that; it is a migration away.
 - **Rate limiters are in-memory per process.** The startup script refuses more than one uvicorn worker for that reason. Horizontal scaling needs a shared store.
 
-## 5.3 Security controls
+## 5.3 Modules per tenant
+
+One application serves every tenant, and a tenant need not be an association: a
+company wants a site, forms and a workbench, not members or registrations
+(CR-19). **What a module owns is code; which modules a tenant has on is data.**
+`app/kernel/modules.py` holds the registry — one entry per module with its menu
+items, route prefixes, dashboard tiles, home blocks, sitemap paths, newsletter
+audiences, reporting folders and dependencies (the Design Studio needs
+activities; payments need activities or membership) — and `mdm.tenant_modules`
+holds each tenant's enabled set, its values held to the registry's codes by a
+CHECK. Defaults per kind: an association has every module, a company cms, media,
+forms and the workbench.
+
+A module that is off is not unmounted — one process serves every tenant — but
+refused: `main.py` includes each module router with `require_module(code)`, which
+answers 404 for that tenant before any role guard runs. Its data stays,
+unreachable until the module is switched on again. The tenancy middleware puts
+the set on the request context from a process cache (one query for every tenant,
+none per request). The shell — login, account, system, tenants, users, changes,
+the e-mail log, the public site core, postal codes, dictation — belongs to no
+module. A gate holds every include to one of the two and every registry entry to
+a route that exists. [HDEV, phase 1 of CR-19: the registry, the guard and the
+set; menus and screens follow the set in phase 2]
+
+## 5.4 Security controls
 
 **Table 4 — Controls and where they live**
 
@@ -724,6 +748,7 @@ The roadmap has two horizons. R0 to R5 finish the platform as it runs for the fi
 | R10 | Ports for synchronous commands between domains, next to events in one kernel package (§3.2.1 step 2) | trigger: a third synchronous command, or a second domain pair; replaces the named `COMMAND_CALLS` exceptions (two on 30 September 2026) | [ROADMAP] |
 | R8 | Object storage adapter for media | blobs live in Postgres today; the adapter seam is named in the media facade | [ROADMAP] |
 | R9 | PWA manifest and service worker | designed in the frontend decision, not started | [ROADMAP] |
+| R11 | Modules per tenant (CR-19): the registry and guard (5.3), then menus, screens, the tenant kind and its editor | a tenant that is not an association — a company site with forms and a workbench — on the same platform, as configuration | [PARTIAL], phase 1 on `master` |
 
 What is deliberately *not* on the list: a return to a JavaScript frontend. The decision record in the working document weighed React against server-rendered htmx along eleven dimensions and chose one language for one architect plus agents; the v2.0.0 validation confirmed that the feel of the interface is a matter of polish (navigation without reload, feedback on every action, server latency under 150 ms on every admin route), not of framework.
 

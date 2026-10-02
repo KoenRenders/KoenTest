@@ -91,8 +91,62 @@ def _query_platform(db) -> int | None:
     return row[0] if row else None
 
 
+_modules_cache: dict[int, frozenset[str]] | None = None
+
+
+def _query_modules(db) -> dict[int, frozenset[str]]:
+    from app.domains.mdm.models import TenantModule
+
+    found: dict[int, set[str]] = {}
+    for tenant_id, code in db.query(TenantModule.tenant_id, TenantModule.module_code).all():
+        found.setdefault(tenant_id, set()).add(code)
+    return {tenant_id: frozenset(codes) for tenant_id, codes in found.items()}
+
+
+def enabled_modules(tenant_id: int, db=None) -> frozenset[str]:
+    """The module codes switched on for this tenant (CR-19, #1475).
+
+    Read per request by the tenancy middleware, so cached like the code map:
+    one query for every tenant, then none per request (C6 test 12 — the set must
+    not add a session or a query to a request). `invalidate_tenant_codes()`
+    clears it with the rest. A tenant without rows has nothing on.
+
+    No fallback to "everything" on a failed read: a missing table is a missing
+    migration, and that must show instead of hiding behind a full menu.
+    """
+    global _modules_cache
+    if db is not None:
+        return _query_modules(db).get(tenant_id, frozenset())
+    if _modules_cache is None:
+        from app.database import SessionLocal
+
+        session = SessionLocal()
+        try:
+            _modules_cache = _query_modules(session)
+        finally:
+            session.close()
+    return _modules_cache.get(tenant_id, frozenset())
+
+
+def module_enabled(code) -> bool:
+    """Is this module on for the tenant of this request? (#1475)
+
+    Reads the set the middleware put on the request; outside a request, the
+    active (or default) tenant's set.
+    """
+    from app.kernel.modules import current_modules
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+
+    enabled = current_modules.get()
+    if enabled is None:
+        enabled = enabled_modules(current_tenant_id.get() or DEFAULT_TENANT_ID)
+    return str(code) in enabled
+
+
 def invalidate_tenant_codes() -> None:
-    """Wis de tenant_codes-cache (na het aanmaken/wijzigen van een tenant)."""
-    global _cache, _platform_cache
+    """Wis de tenant_codes-cache (na het aanmaken/wijzigen van een tenant).
+    Sinds #1475 ook de modulesets."""
+    global _cache, _platform_cache, _modules_cache
     _cache = None
     _platform_cache = None
+    _modules_cache = None

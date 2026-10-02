@@ -386,4 +386,10 @@ def delete_media(
         _service.delete_media(db, asset_id)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    except _service.MediaInUse as exc:
+        # #1471: still shown somewhere — the caller gets the uses, not a delete.
+        raise HTTPException(
+            status_code=409,
+            detail={"message": str(exc), "uses": [vars(u) for u in exc.uses]},
+        ) from exc
     return {"detail": "Verwijderd"}

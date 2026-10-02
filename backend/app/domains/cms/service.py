@@ -6,9 +6,14 @@ queries, maar wel met een regel erin die nergens anders staat — "publiek betek
 `is_published`" — en die regel hoort niet in drie routes te wonen.
 """
 
-from typing import Optional
+import re
+from typing import Iterable, Optional
 
 from app.domains.cms.models import CmsPage
+
+# A picture in a page's text is an `<img src="/api/v1/media/<id>">` (or its
+# `/thumb`); the id is the whole run of digits, so 12 does not match 123.
+_MEDIA_URL = re.compile(r"/api/v1/media/(\d+)(?!\d)")
 
 
 class SlugBestaatAl(ValueError):
@@ -91,6 +96,48 @@ def create_page(db, data) -> CmsPage:
     return page
 
 
+def seed_site_blocks(db, tenant_id: int, name: str) -> None:
+    """The two blocks a new tenant's site starts with (CR-19 §C2 cms, #1478).
+
+    Without them a fresh site is an empty page: the home page renders
+    `home-intro` and the shell renders `site-footer`, and neither exists for a
+    tenant created through the editor. Placeholder text in Dutch, the language a
+    new tenant starts in; the address and contact come from the organisation
+    record through `site_context` already. Idempotent: a block that exists is
+    left as it is. Flushes; the caller's transaction commits.
+    """
+    from html import escape
+
+    blocks = (
+        (
+            "home-intro",
+            "Welkom",
+            f"<p>Welkom bij {escape(name)}. Deze tekst past u aan onder Pagina's.</p>",
+        ),
+        ("site-footer", "Voettekst", f"<p>{escape(name)}</p>"),
+    )
+    existing = {
+        slug
+        for (slug,) in db.query(CmsPage.slug)
+        .filter(CmsPage.tenant_id == tenant_id)
+        .execution_options(include_all_tenants=True)
+        .all()
+    }
+    for slug, title, content in blocks:
+        if slug not in existing:
+            db.add(
+                CmsPage(
+                    tenant_id=tenant_id,
+                    slug=slug,
+                    title=title,
+                    content=content,
+                    is_published=True,
+                    show_in_nav=False,
+                )
+            )
+    db.flush()
+
+
 def update_page(db, page_id: int, data) -> CmsPage:
     page = get_page_by_id(db, page_id)
     if page is None:
@@ -111,6 +158,30 @@ def delete_page(db, page_id: int) -> None:
         raise LookupError("Page not found")
     db.delete(page)
     db.commit()
+
+
+def references_to_media(db, asset_ids: Iterable[int]) -> dict:
+    """The pages whose text shows these pictures, per asset id (CR-15 §C4.4,
+    #1471). A scan of the stored HTML: a page holds a picture by its URL, not by
+    a key. Unpublished pages count — publishing one must not find a hole."""
+    from app.domains.media.api import MediaUse
+
+    wanted = {int(i) for i in asset_ids}
+    if not wanted:
+        return {}
+    found: dict[int, list] = {}
+    pages = (
+        db.query(CmsPage.id, CmsPage.title, CmsPage.content)
+        .filter(CmsPage.content.contains("/api/v1/media/"))
+        .order_by(CmsPage.id)
+        .all()
+    )
+    for page_id, title, content in pages:
+        for asset_id in sorted({int(m) for m in _MEDIA_URL.findall(content or "")} & wanted):
+            found.setdefault(asset_id, []).append(
+                MediaUse(label=f"Pagina {title}", href=f"/admin/paginas/{page_id}")
+            )
+    return found
 
 
 def placeholders() -> list[dict]:

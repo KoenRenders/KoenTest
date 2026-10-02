@@ -61,6 +61,7 @@ Verifying tests: `test_rollen_per_werkruimte.py`.
 | Betalingen **muteren** (bevestigen/terugbetalen/bewerken) | ❌ | ✅ | ❌ | ✅ |
 | **Gebruikers & rollen** beheren (`/admin/gebruikers`) | ❌ | ❌ (403) | ✅ | ✅ |
 | **Tenants** — lijst, aanmaken én instellingen (`/admin/tenants`) | ❌ | ❌ | ❌ (403) | ✅ |
+| **Type en modules van een tenant** (CR-19, #1478) — het type bij het aanmaken, de modules in de editor | ❌ | ❌ | ❌ (403) | ✅ |
 
 ## Exclusieve bevoegdheden (wie is de énige)
 

@@ -55,6 +55,12 @@
       <option value="">{{ _("Alle jaren") }}</option>
       {% for j in jaar_opties %}<option value="{{ j }}" {% if year == j %}selected{% endif %}>{{ j }}</option>{% endfor %}
     {% endcall %}
+    {# CR-15 #1471: only the pictures something shows — the second "which
+       pictures" choice, beside the year and for the same reason: the filter bar
+       has no room for it. In this form, so the two travel together. #}
+    {% call ui.select_control("gebruik", cls="w-full mt-2", aria_label=_("Gebruik")) %}
+      {% for k, woord in gebruik_options %}<option value="{{ k }}" {% if k == gebruik %}selected{% endif %}>{{ woord }}</option>{% endfor %}
+    {% endcall %}
   </form>
   {{ _tak(_("Activiteiten"), boom.activiteiten) }}
   {{ _tak(_("Affiches"), boom.affiches) }}

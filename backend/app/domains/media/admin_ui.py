@@ -19,6 +19,7 @@ from app.domains.auth.api import (
     require_admin_ui,
     require_csrf,
 )
+from app.i18n import _
 from app.ui import admin_nav, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
@@ -34,6 +35,12 @@ NAV = admin_nav("/admin/media")
 # verander je alleen het uploadscherm, dan overschrijft de lijst hem meteen weer en
 # lijkt de wijziging niet te werken.
 STANDAARD_KIND = "activity_photo"  # the code; see MediaKind.ACTIVITY_PHOTO
+
+# CR-15 #1471: the "in gebruik" filter. A list with an explicit empty value and
+# not a checkbox: the filter is read through `filterparams`, which keeps a value
+# from the current URL unless the request sends its own — an unticked box sends
+# nothing, so it could never be switched off again.
+IN_USE = "in_gebruik"
 
 
 def _activity_filter(kind: str, activity_id: Optional[int]) -> Optional[int]:
@@ -177,8 +184,9 @@ def _lijst_ctx(
     activity_id: Optional[int] = None,
     tag_id: Optional[int] = None,
     year: Optional[int] = None,
+    refused: Optional[int] = None,
 ) -> dict:
-    from app.domains.activities.api import activity_options
+    from app.domains.activities.api import activity_names, activity_options
     from app.domains.media.api import (
         MEDIA_KIND,
         VALID_KINDS,
@@ -187,8 +195,10 @@ def _lijst_ctx(
         list_media,
         list_media_with_tag,
         tag_index,
+        uses_by_asset,
     )
     from app.kernel.codes import code_labels
+    from app.ui import filterparams
 
     # #1470: posters can be LOOKED at here — their branch in the tree — but are
     # not uploaded here: they belong to the activity's own screen. So the list
@@ -231,6 +241,15 @@ def _lijst_ctx(
     by_kind = activities_by_kind(db)
     aids = set().union(*by_kind.values()) if by_kind else set()
     activiteiten = [a for a in alle_activiteiten if a["id"] in aids]
+    # CR-15 §C4.7 (#1471): the photos of a deleted activity stay, so the filter
+    # still offers that activity — the only way to reach its album here.
+    levend = {a["id"] for a in activiteiten}
+    activiteiten += [
+        {"id": aid, "naam": _("%(naam)s (verwijderd)") % {"naam": naam.name}, "jaar": None}
+        for aid, naam in sorted(activity_names(db, aids - levend).items())
+        if naam.is_deleted
+    ]
+    in_use_only = (filterparams(request).get("gebruik") or "").strip() == IN_USE
 
     # #891: bij activiteitenfoto's toont het scherm niets tot er een activiteit gekozen
     # is. Ongefilterd stond hier een lijst van alle albums door elkaar, met pijltjes die
@@ -251,8 +270,13 @@ def _lijst_ctx(
     tag_paden = index.paths
     if tag_id is not None and tag_id not in {t for t, _ in tag_paden}:
         tag_id = None
+    # #1471: "In gebruik" spans the albums too: the pictures in use are few, and
+    # the question is "which ones", not "which ones of this album".
     kies_eerst = (
-        tag_id is None and actief_kind == MediaKind.ACTIVITY_PHOTO.value and activity_id is None
+        tag_id is None
+        and actief_kind == MediaKind.ACTIVITY_PHOTO.value
+        and activity_id is None
+        and not in_use_only
     )
     if tag_id is not None:
         assets = list_media_with_tag(db, tag_id)
@@ -272,6 +296,19 @@ def _lijst_ctx(
     if term:
         # admin_list_media levert lichte metadata-dicts (_meta), geen ORM-objecten.
         assets = [a for a in assets if term in (a.get("title") or "").lower()]
+
+    # CR-15 #1471: where each card is used, derived from the consumers, and the
+    # origin of a photo whose activity was deleted.
+    uses = uses_by_asset(db, [a["id"] for a in assets])
+    for asset in assets:
+        asset["uses"] = [{"label": u.label, "href": u.href} for u in uses[asset["id"]]]
+        asset["uses_open"] = asset["id"] == refused
+    if in_use_only:
+        assets = [a for a in assets if a["uses"]]
+    herkomst = activity_names(db, {a["activity_id"] for a in assets if a["activity_id"]})
+    for asset in assets:
+        naam = herkomst.get(asset["activity_id"])
+        asset["origin_deleted"] = bool(naam and naam.is_deleted)
 
     # CR-12 phase 4: the words of the kinds come from the label table of
     # `media_kind`, one name per kind. The short chip label "Pagina" of #1173 is
@@ -300,7 +337,9 @@ def _lijst_ctx(
     return {
         "assets": assets,
         "q": q,
-        "gefilterd": bool(term or activity_id or tag_id or year),
+        "gefilterd": bool(term or activity_id or tag_id or year or in_use_only),
+        "gebruik": IN_USE if in_use_only else "",
+        "gebruik_options": [("", _("In gebruik of niet")), (IN_USE, _("Alleen in gebruik"))],
         "kies_eerst": kies_eerst,
         "kind": actief_kind,
         "kind_options": kind_options,
@@ -347,9 +386,11 @@ def _lijst_response(
     activity_id: Optional[int] = None,
     tag_id: Optional[int] = None,
     year: Optional[int] = None,
+    refused: Optional[int] = None,
 ):
-    """Enkel de kaarten (C1, #588): kop, knop en filterbalk staan op de pagina."""
-    ctx = _lijst_ctx(request, db, kind, q, activity_id, tag_id, year)
+    """Enkel de kaarten (C1, #588): kop, knop en filterbalk staan op de pagina.
+    `refused`: the card whose delete was refused opens its list of uses (#1471)."""
+    ctx = _lijst_ctx(request, db, kind, q, activity_id, tag_id, year, refused)
     ctx["error"] = error
     # #1138: de uploadknop staat buiten dit fragment en reist out-of-band mee.
     # Alleen hier en niet in de paginaroute: daar rendert het sjabloon hem zelf.
@@ -619,13 +660,26 @@ def media_verwijderen(
     filter_tag: Optional[int] = Form(None),
     filter_year: Optional[int] = Form(None),
 ):
-    from app.domains.media.api import delete_media
+    from app.domains.media.api import MediaInUse, delete_media
 
     try:
         delete_media(db, asset_id)
     except LookupError as exc:
         return _lijst_response(
             request, db, kind, str(exc), q, filter_activity_id, tag_id=filter_tag, year=filter_year
+        )
+    except MediaInUse as exc:
+        # #1471: refused, with the uses open on the card as links.
+        return _lijst_response(
+            request,
+            db,
+            kind,
+            str(exc),
+            q,
+            filter_activity_id,
+            tag_id=filter_tag,
+            year=filter_year,
+            refused=asset_id,
         )
     return _lijst_response(
         request, db, kind, q=q, activity_id=filter_activity_id, tag_id=filter_tag, year=filter_year

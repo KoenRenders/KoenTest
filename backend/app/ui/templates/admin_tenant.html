@@ -15,7 +15,21 @@
 
 <p class="text-sm text-ink-soft mb-4">
   {{ _("Code") }}: <span class="font-mono">/{{ unit.code }}</span>
+  {% if kind_label %} · {{ _("Type") }}: {{ kind_label }}{% endif %}
 </p>
+
+{# CR-19 (#1478): which modules this tenant has on. The count beside each is
+   what becomes unreachable when it goes off — nothing is deleted, and it comes
+   back when the module is switched on again. Its own form: the module set is
+   one decision, the settings below another. #}
+<form hx-post="/admin/tenants/{{ tenant_id }}/modules" hx-target="body" hx-swap="innerHTML"
+      class="max-w-2xl mb-6 space-y-3">
+  {{ ui.section_header(_("Modules")) }}
+  {{ ui.error_banner(modules_error) }}
+  <p class="text-xs text-ink-soft">{{ _("Tussen haakjes: hoeveel gegevens de module voor deze tenant bewaart. Uitzetten wist niets; aanzetten toont alles weer.") }}</p>
+  {{ ui.checkbox_group("modules", labelled=module_options, current=modules_on, aria_label=_("Modules")) }}
+  {{ ui.btn_primary(_("Modules bewaren"), type="submit", size="sm") }}
+</form>
 
 {# Golf 6, kop-herziening: alles bovenaan, sticky — drie onbegrensde secties. #}
 <div class="max-w-2xl sticky top-0 z-20 bg-ground py-2">

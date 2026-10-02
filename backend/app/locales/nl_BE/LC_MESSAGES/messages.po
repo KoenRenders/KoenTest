@@ -4763,19 +4763,19 @@ msgid ""
 "per e-mail."
 msgstr ""
 
-#: app/domains/membership/templates/login_verlopen.html:3
+#: app/domains/auth/templates/login_verlopen.html:3
 msgid "Inloglink verlopen — Raak"
 msgstr ""
 
-#: app/domains/membership/templates/login_verlopen.html:6
+#: app/domains/auth/templates/login_verlopen.html:6
 msgid "Inloglink ongeldig of verlopen"
 msgstr ""
 
-#: app/domains/membership/templates/login_verlopen.html:7
+#: app/domains/auth/templates/login_verlopen.html:7
 msgid "Vraag een nieuwe link aan — dat duurt maar even."
 msgstr ""
 
-#: app/domains/membership/templates/login_verlopen.html:8
+#: app/domains/auth/templates/login_verlopen.html:8
 msgid "Opnieuw aanmelden"
 msgstr ""
 

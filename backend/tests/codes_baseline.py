@@ -57,6 +57,12 @@ FK_NOT_OUR_LIST: dict[str, str] = {
     "designstudio.design_renditions.size_code": (
         "A paper size is design data with a payload (dimensions) in `brand.py` (§B4.10)."
     ),
+    "mdm.tenant_modules.module_code": (
+        "A module exists only when its code exists in `app/kernel/modules.py` "
+        "(`ModuleCode`); a code table would be a second place for that list. The "
+        "column carries a CHECK on the enum's values instead (CR-19 §C4.2, "
+        "accepted by the platform owner on 2 October 2026)."
+    ),
     "auth.login_tokens.otp_code": (
         "Not a vocabulary: the SHA-256 hash of a one-time login code (#395). The "
         "net matches on the `_code` suffix and cannot tell a code list from a "
