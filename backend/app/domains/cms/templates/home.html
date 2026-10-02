@@ -15,27 +15,37 @@
     {% if intro_html %}
     <div class="cms-content flex-1 text-ink [&>:first-child]:mt-0 [&>:last-child]:mb-0">{{ intro_html | safe }}</div>
     {% endif %}
+    {# CR-19 (#1477): the fee and "Word lid" belong to membership, the contact
+       button to forms; a block of a module that is off is absent. #}
+    {% if toon_lidgeld or toon_contact %}
     <div class="flex flex-wrap items-center gap-x-6 gap-y-3 md:shrink-0">
+      {% if toon_lidgeld %}
       <div>
         <div class="text-3xl font-bold text-ink">€ {{ lidgeld.prijs|geld }}</div>
         <div class="text-sm md:text-xs text-ink-soft">{{ _("per gezin, geldig tot en met") }} {{ lidgeld.tot.year }}</div>
       </div>
+      {% endif %}
       <div class="flex flex-wrap gap-3">
         {# #499: een ingelogd lid ziet 'Mijn gezin' i.p.v. een leeg registratieformulier. #}
+        {% if toon_lidgeld %}
         {% if gebruiker and gebruiker.is_member %}
         {{ ui.btn_primary(_("Mijn gezin"), href=path_for("/leden/gezin")) }}
         {% else %}
         {{ ui.btn_primary(_("Word lid"), href=path_for("/lid-worden")) }}
         {% endif %}
-        {{ ui.btn_secondary(_("Contacteer ons"), href=path_for("/berichten")) }}
+        {% endif %}
+        {% if toon_contact %}{{ ui.btn_secondary(_("Contacteer ons"), href=path_for("/berichten")) }}{% endif %}
       </div>
     </div>
+    {% endif %}
   </div>
 </section>
+{% if toon_activiteiten %}
 <section class="mt-8">
   <h2 class="text-2xl font-bold mb-6 text-kop">{{ _("Activiteiten") }}</h2>
   {% include "_activiteiten_cards.html" %}
 </section>
+{% endif %}
 {# De enige verwijzing naar de nieuwsbrief op de publieke site (Koen, 19 september
    2026): één link onderaan de homepagina, niet een formulier onder elke pagina. #}
 {% if nieuwsbrief_inschrijven %}

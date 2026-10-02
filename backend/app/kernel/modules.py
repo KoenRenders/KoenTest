@@ -82,6 +82,9 @@ class Module:
     #: The tables whose rows the tenant editor counts for this module (#1478):
     #: its main records, and the data that becomes unreachable when it is off.
     record_tables: tuple[str, ...] = ()
+    #: Tenant settings (and secrets) that only mean something with this module
+    #: on; the tenant editor leaves them out when it is off (#1477).
+    tenant_settings: tuple[str, ...] = ()
 
 
 M = ModuleCode
@@ -110,6 +113,7 @@ MODULES: tuple[Module, ...] = (
         sitemap_paths=("/activiteiten", "/activiteiten/archief"),
         reporting_folders=("Activiteiten",),
         record_tables=("activities.activities", "activities.registrations"),
+        tenant_settings=("max_item_quantity", "max_registrations_per_email"),
     ),
     Module(
         M.MEMBERSHIP,
@@ -127,6 +131,14 @@ MODULES: tuple[Module, ...] = (
         newsletter_audiences=("members", "non_members", "both"),
         reporting_folders=("Leden",),
         record_tables=("mdm.members", "membership.memberships"),
+        tenant_settings=(
+            "membership_price_full",
+            "membership_price_half",
+            "membership_half_price_start_md",
+            "membership_half_price_end_md",
+            "membership_next_year_from_md",
+            "membership_renewal_start_md",
+        ),
     ),
     Module(
         M.FORMS,
@@ -159,6 +171,7 @@ MODULES: tuple[Module, ...] = (
         admin_items=(("/admin/ai-context", "Raakje"), ("/admin/rapporten/raakje", "AI · Raakje")),
         route_prefixes=("/api/v1/chat", "/admin/ai-context", "/raakje/"),
         record_tables=("ai.chatbot_info",),
+        tenant_settings=("admin_chat_enabled",),
     ),
     Module(
         M.PAYMENT,
@@ -170,6 +183,7 @@ MODULES: tuple[Module, ...] = (
         # Payments pay for a registration or a membership (`PayableType`).
         depends_on=((M.ACTIVITIES, M.MEMBERSHIP),),
         record_tables=("payment.payment_records",),
+        tenant_settings=("payment_term_days", "mollie_api_key"),
     ),
     Module(
         M.MEETINGS,
@@ -203,6 +217,20 @@ MODULES: tuple[Module, ...] = (
 )
 
 REGISTRY: dict[ModuleCode, Module] = {module.code: module for module in MODULES}
+
+
+def owner_of(field: str, value: str) -> ModuleCode | None:
+    """The module whose registry entry lists `value` under `field`, or None when
+    no module owns it (#1477) — a tile, a folder, a path of the shell."""
+    return next((m.code for m in MODULES if value in getattr(m, field)), None)
+
+
+def shown(field: str, value: str, enabled) -> bool:
+    """Is this tile, folder or path shown for a tenant with `enabled` on? What
+    no module owns is always shown; what one owns, only with it on (#1477)."""
+    owner = owner_of(field, value)
+    return owner is None or owner.value in enabled
+
 
 #: Modules the tenant editor shows without a count (#1478), each with its
 #: reason. Reporting is a terminus (CR-07 §6.6): nothing outside its domain

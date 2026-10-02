@@ -30,6 +30,13 @@ def get_published_page(db, slug: str) -> Optional[CmsPage]:
     return db.query(CmsPage).filter(CmsPage.slug == slug, CmsPage.is_published.is_(True)).first()
 
 
+def published_home_page(db) -> Optional[CmsPage]:
+    """The page this tenant flagged as its home page, if published (#1477)."""
+    return (
+        db.query(CmsPage).filter(CmsPage.is_home.is_(True), CmsPage.is_published.is_(True)).first()
+    )
+
+
 def published_slugs(db) -> list[str]:
     """De slugs die in de sitemap horen."""
     return [
@@ -145,6 +152,12 @@ def update_page(db, page_id: int, data) -> CmsPage:
     if data.slug and data.slug != page.slug:
         if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
             raise SlugBestaatAl("Slug already exists")
+    if data.is_home and not page.is_home:
+        # #1477: one home page per tenant — the flag moves, it is not refused.
+        # Flushed first, so the unique index never sees two at once.
+        for other in db.query(CmsPage).filter(CmsPage.is_home.is_(True)).all():
+            other.is_home = False
+        db.flush()
     for veld, waarde in data.model_dump(exclude_none=True).items():
         setattr(page, veld, waarde)
     db.commit()

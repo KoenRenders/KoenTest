@@ -200,6 +200,29 @@ def _kind_labels() -> dict[str, str]:
     return dict(code_labels(TENANT_KIND.name))
 
 
+def _editable(db: Session, unit) -> tuple[list, list]:
+    """The settings and secrets this tenant's editor shows — and saves.
+
+    #854: a platform tenant does not get the membership fields. CR-19 (#1477):
+    a setting of a module this tenant has off is absent too — a module that is
+    off is absent everywhere. The SAVE uses the same lists: a key that is not
+    on the form would otherwise be saved as empty, and switching a module off
+    must delete nothing.
+    """
+    from app.domains.mdm.api import enabled_modules
+    from app.kernel.modules import shown
+
+    aan = enabled_modules(unit.id, db=db)
+    sleutels = [
+        rij
+        for rij in BEKENDE_SLEUTELS
+        if not (unit.org_type == OrganizationType.PLATFORM and rij[0] in LEDENSLEUTELS)
+        and shown("tenant_settings", rij[0], aan)
+    ]
+    geheim = [rij for rij in GEHEIME_SLEUTELS if shown("tenant_settings", rij[0], aan)]
+    return sleutels, geheim
+
+
 def _modules_ctx(db: Session, unit, chosen=None) -> dict:
     """The module checkboxes of the editor (CR-19, #1478): each module with how
     many records it holds for this tenant — switching off deletes nothing, and
@@ -225,16 +248,11 @@ def _editor_ctx(request: Request, db: Session, tenant_id: int) -> dict:
     unit = next((u for u in _units(db) if u.id == tenant_id), None)
     if unit is None:
         raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
-    # #854: een platform-tenant krijgt de ledenvelden niet te zien.
-    sleutels = [
-        rij
-        for rij in BEKENDE_SLEUTELS
-        if not (unit.org_type == OrganizationType.PLATFORM and rij[0] in LEDENSLEUTELS)
-    ]
+    sleutels, geheim = _editable(db, unit)
     waarden = {
         key: get_setting(db, key, tenant_id=tenant_id) or "" for key, _label, _hulp in sleutels
     }
-    secrets_gezet = _secrets_gezet(db, tenant_id, [key for key, _label, _hulp in GEHEIME_SLEUTELS])
+    secrets_gezet = _secrets_gezet(db, tenant_id, [key for key, _label, _hulp in geheim])
     return {
         "nav_items": admin_nav("/admin/tenants"),
         "unit": unit,
@@ -243,7 +261,7 @@ def _editor_ctx(request: Request, db: Session, tenant_id: int) -> dict:
         "kind_label": _kind_labels().get(unit.kind.value) if unit.kind is not None else None,
         **_modules_ctx(db, unit),
         "sleutels": sleutels,
-        "geheime_sleutels": GEHEIME_SLEUTELS,
+        "geheime_sleutels": geheim,
         "waarden": waarden,
         "secrets_gezet": secrets_gezet,
         "error": None,
@@ -346,8 +364,10 @@ async def tenant_opslaan(
     from app.domains.mdm.api import OngeldigeInstelling, update_tenant_settings
 
     require_operator_ui(db, email)
-    if tenant_id not in {u.id for u in _units(db)}:
+    unit = next((u for u in _units(db) if u.id == tenant_id), None)
+    if unit is None:
         raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
+    sleutels, geheim = _editable(db, unit)
     form = await request.form()
     # #971: enkel nog de instellingen van de site. Wat de organisatie IS, wordt op
     # `/admin/organisaties` bewerkt — één scherm per feit.
@@ -356,8 +376,8 @@ async def tenant_opslaan(
             db,
             tenant_id,
             form,
-            known=[key for key, _l, _h in BEKENDE_SLEUTELS],
-            secret=[key for key, _l, _h in GEHEIME_SLEUTELS],
+            known=[key for key, _l, _h in sleutels],
+            secret=[key for key, _l, _h in geheim],
         )
     except OngeldigeInstelling as fout:
         # #797: het formulier terug tonen mét de ingetypte waarden. Ze wegwerpen zou

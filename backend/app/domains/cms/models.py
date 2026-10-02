@@ -21,6 +21,9 @@ class CmsPage(TenantMixin, Base):
     # Toon de (gepubliceerde) pagina in de hoofdnavigatie. False voor juridische/
     # blok-pagina's zoals 'privacy' en 'home-intro' (#152).
     show_in_nav = Column(Boolean, default=True, nullable=False)
+    # CR-19 (#1477): this page is the tenant's home page; `/` renders it.
+    # At most one per tenant (a partial unique index, migration 189).
+    is_home = Column(Boolean, default=False, nullable=False)
     sort_order = Column(Integer, default=0, nullable=False)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
