@@ -674,6 +674,8 @@ def copy_activity(
             action="activity_copied",
         )
         copy.board_notes = source.board_notes
+        # #1463: the target audience (#1428) was left out of the copy.
+        copy.target_audience = source.target_audience
         copy.copied_from_id = source.id
         # #1428: a copy is a draft unless the copy step says published — next
         # year's programme is prepared before it goes on the site.
