@@ -1282,7 +1282,11 @@ def test_een_niet_lid_kan_in_de_vergaderkring(client, db_session):
     )
     assert koppelingen == [], "een niet-lid hoort aan geen enkel gezin te hangen"
 
-    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    # #1449: on the clock that started her membership. `add_to_circle` dates the
+    # start `date.today()`, and `recipients_for` reads the circle ON the meeting
+    # day — a fixed 1 October lay in the past from 2 October 2026 on, when she
+    # was not in the circle yet, and the test went red on the calendar alone.
+    meeting = create_meeting(db_session, meeting_date=date.today())
     assert "lies@raak-nationaal.example" in recipients_for(db_session, meeting).emails
 
 
