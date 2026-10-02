@@ -134,6 +134,7 @@ from app.domains.mdm.tenant_lookup import (  # noqa: F401
     tenant_codes,
 )
 from app.domains.mdm.tenant_service import (  # noqa: F401
+    ModuleRefused,
     OngeldigeInstelling,
     TenantFout,
     create_account,
@@ -142,6 +143,7 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
     list_manageable_tenants,
     list_units,
     platform_org,
+    save_tenant,
     secrets_gezet,
     set_modules,
     update_tenant_settings,
@@ -176,6 +178,7 @@ __all__ = [
     "admin_code_lists",
     "import_commit",
     "import_preview",
+    "ModuleRefused",
     "create_account",
     "create_tenant",
     "form_code_lists",
@@ -254,6 +257,7 @@ __all__ = [
     "enabled_modules",
     "current_enabled_modules",
     "module_enabled",
+    "save_tenant",
     "set_modules",
     "BOARD_MEETING",
     "CirclePerson",

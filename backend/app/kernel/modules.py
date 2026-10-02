@@ -171,7 +171,10 @@ MODULES: tuple[Module, ...] = (
     ),
     Module(
         M.CHATBOT,
-        "Raakje",
+        # The house word since CR-11 block 1 (#1482): the module is "Assistent";
+        # Raakje is the name of the assistant on the public site, not of the
+        # module. The tenant editor's card and its refusals read this (#1498).
+        "Assistent",
         admin_items=(("/admin/ai-context", "Raakje"), ("/admin/rapporten/raakje", "AI · Raakje")),
         route_prefixes=("/api/v1/chat", "/admin/ai-context", "/raakje/"),
         record_tables=("ai.chatbot_info",),
