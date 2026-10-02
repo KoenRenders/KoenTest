@@ -163,7 +163,7 @@ Decisions that shape it, each with the rejected alternative (the reasoning in C4
 | F2 | The master CLI dispatches: it puts the label `ai-review` on the PR (a change request is always shaped on its own branch with a PR) or the code PR, and comments the scope with an @-mention naming the reviewer it routed — the architecture reviewer for a CR, a dev CLI for code; the reviewer answers as a comment headed "Review — <date>, <scope>". | R1, R3 |
 | F3 | A PR description template (`.github/PULL_REQUEST_TEMPLATE.md`), drafted in the appendix, for code PRs: the CR or issue, what changed per module, the evidence (CI run, tests added, gates proven). | R2, R4 |
 | F4 | The shaping CLI reads the findings from the PR/issue and processes them there; the decisions log of the CR records what was taken in (as CR-15's Q10 does). | R3, R5 |
-| F5 | `CLAUDE.md`'s workflow section gains three lines: the label, the protocol, the advisory rule. | R6 |
+| F5 | `AGENTS.md` gains a section "Reviews on request" — the label, the protocol, the advisory rule, the master CLI as the one dispatcher — written in by Koen or the master CLI at Koen's request, at the realisation of this change, after approval. The three working agreements for shaping agents (never edit `AGENTS.md`, `CLAUDE.md`, `.github/` or a process document; a change request is one document on the agent's own branch from master; nothing is pushed to master — the master CLI merges) are written in at the same time; until then they live in Koen's session instructions to each agent. | R6 |
 
 ## B2. Fit with the process and the requirements — for the business
 
@@ -362,6 +362,28 @@ Nothing of this exists yet; it is the shape of the artifacts phase 1 and 2 will 
 **Checklist — a PR with code.** 1. The description states its claim (CR, modules, evidence). 2. Scope: the diff stays inside its CR. 3. Conventions hold (`CLAUDE.md`, `docs/code-style.md`, the domain's `CONTRACT.md`). 4. Every new test could go red. 5. No copy-paste of a fact the codebase keeps in one place.
 
 **Sources.** Every item points at `docs/change_request_template.md` (the five rules), `CLAUDE.md`, `docs/code-style.md`, the contracts, and the CR the PR implements; a convention found nowhere in those is an observation, not a finding.
+
+### The AGENTS.md section ("Reviews on request", written in at the realisation, after approval)
+
+```markdown
+## Reviews on request
+
+A review starts only when asked. Koen asks the master CLI; the master CLI is
+the one dispatcher: it sets the `ai-review` label on the PR (or the tracking
+issue) and comments the scope with an @-mention naming the reviewer it routed
+-- a change request review to the architecture reviewer, a code review to a
+dev CLI. No other CLI or agent session starts a review on its own. The
+reviewer answers as one comment per `docs/review-protocol.md`, in English;
+the findings are advisory -- only CI blocks a merge, and Koen decides what is
+taken in.
+
+Shaping agents: an agent asked to write a change request writes only that one
+document, on its own branch created from master; it never edits AGENTS.md,
+CLAUDE.md, `.github/` or any process document, never works on another agent's
+branch, and never pushes to master -- the merge to master happens only by the
+master CLI. A lesson that holds for every agent is proposed to Koen as an
+addition to this file, not written in. (Koen, 3 October 2026.)
+```
 
 ### The PR description template (`.github/PULL_REQUEST_TEMPLATE.md`, phase 2)
 
