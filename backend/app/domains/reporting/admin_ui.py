@@ -62,7 +62,6 @@ from app.domains.reporting.api import (
     dashboard_tile_of,
     dataset_filename,
     delete_report,
-    dimension_values,
     filter_of_ticks,
     get_saved_report,
     is_personal,
@@ -77,6 +76,7 @@ from app.domains.reporting.api import (
     save_report,
     selection_of,
     selection_to_dict,
+    tick_values,
     update_report,
 )
 from app.domains.reporting.assistant import (
@@ -482,7 +482,7 @@ def _panel(
     # rechtstreeks lezen bood elk jaar aan — ook jaren zonder één betaling.
     populatie = population_of(state["objects"])
     for key in state["filters"]:
-        filter_options[key] = dimension_values(
+        filter_options[key] = tick_values(
             db, key, tenant_id=tenant_id, fact=populatie.key if populatie else ""
         )
         filter_relative[key] = _relative_options(key)

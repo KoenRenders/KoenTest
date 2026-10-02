@@ -725,7 +725,9 @@ this order:
 3. **Filters** — one control per chosen or extra dimension. A closed list renders
    as `ui.checkbox_group` (#1445): one tick compares exactly, several mean "one
    of", and no tick means all — the user picks values, never an operator. The
-   relative values ("Dit jaar") stand on top, above a rule. The ticks stand under
+   relative values ("Dit jaar") stand on top, above a rule. A year runs from
+   new to old beneath them (#1453), so this year and next need no scrolling;
+   every other list keeps its own order (`service.tick_values`). The ticks stand under
    each other in rows of at least 44 px, in a box that scrolls when the list is
    long. Anything wider renders as a search field and searches. Live (P11): no
    "Toon" button.

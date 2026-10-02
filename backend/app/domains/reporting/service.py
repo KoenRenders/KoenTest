@@ -35,7 +35,14 @@ from app.domains.reporting.engine import (
     values_from_fact_sql,
 )
 from app.domains.reporting.models import ExportKind, ExportLog, SavedReport
-from app.domains.reporting.universe import BY_KEY, FACT_BY_KEY, Fact, UniverseObject, physical_view
+from app.domains.reporting.universe import (
+    BY_KEY,
+    FACT_BY_KEY,
+    Fact,
+    Format,
+    UniverseObject,
+    physical_view,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -292,6 +299,25 @@ def validate_filter_values(db: Session, selection: Selection, *, tenant_id: int)
 
 
 # ── Resolving "now" and "me" (#847) ──────────────────────────────────────────
+
+
+def tick_values(db: Session, object_key: str, *, tenant_id: int, fact: str = "") -> list[str]:
+    """The values a filter offers as ticks, in the order they stand (#1453).
+
+    A **year** runs from new to old: the years a board member ticks are this one
+    and the next, and in ascending order they sat at the bottom of a box that
+    shows five rows — Koen ticked 2027 and had to scroll to see it. Every other
+    closed list keeps its reading order (a month, a target audience); the
+    relative choices ("Dit jaar") are added above these by the panel.
+
+    Only the ticks: `dimension_values` keeps its order for its other readers,
+    the closed-list check and the assistant.
+    """
+    values = dimension_values(db, object_key, tenant_id=tenant_id, fact=fact)
+    obj = BY_KEY.get(object_key)
+    if obj is not None and obj.format is Format.YEAR:
+        return sorted(values, key=lambda v: int(v) if v.isdigit() else -1, reverse=True)
+    return values
 
 
 def filter_of_ticks(object_key: str, operator: Operator, ticks: Sequence[str]) -> Filter:

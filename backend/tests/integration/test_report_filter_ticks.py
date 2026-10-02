@@ -14,7 +14,9 @@ clock inside `run_validated`, so a test of fixed years ticks the years):
 - one tick saves as EQ with that value, two save as IN with both;
 - a saved report with two years reopens with both boxes ticked;
 - "Dit jaar" ticked beside next year means both (Koen's choice): the relative
-  value is added to the fixed one, on screen and in what is saved.
+  value is added to the fixed one, on screen and in what is saved;
+- #1453: the year ticks run from new to old under "Dit jaar", so this year and
+  next stand at the top of the box; another closed list keeps its own order.
 
 Proven red against master `cbd15865`: there a filter takes one value
 (`params.get`), so the two-year panel shows 2027 only — the last value wins.
@@ -172,3 +174,52 @@ def test_this_year_ticked_beside_next_year_means_both(client, db_session):
     # Saved relative, so next January it is that year plus the fixed one.
     assert saved_filter["symbolic"] == "dit_jaar"
     assert saved_filter["values"] == [str(this_year + 1)]
+
+
+def _ticks(page: str, key: str) -> list[str]:
+    """The values of one filter's ticks, in the order they stand on the screen."""
+    return re.findall(rf'<input type="checkbox" name="v_{key}" value="([^"]*)"', page)
+
+
+def test_the_years_run_from_new_to_old_under_this_year(client, db_session, situation):
+    """#1453: Koen ticked 2027 and had to scroll to see it — ascending, the years
+    that matter sat at the bottom of a five-row box.
+
+    Red against master `bbeb87e1`: the ticks read 2025, 2026, 2027.
+    """
+    login(client, db_session)
+    page = client.get(f"/admin/rapporten/paneel?{_query()}").text
+
+    ticks = _ticks(page, YEAR_FILTER)
+    years = [t for t in ticks if t.isdigit()]
+
+    assert ticks[0] == "@dit_jaar", f'"Dit jaar" stays first: {ticks}'
+    assert years == sorted(years, reverse=True), f"the years run new to old: {years}"
+    assert {"2025", "2026", "2027"} <= set(years), years
+
+
+def test_another_closed_list_keeps_its_own_order(client, db_session, situation):
+    """Only a year turns around. The target audience reads in its own order, the
+    same order the closed-list check and the assistant get."""
+    from app.domains.activities.api import Activity, ActivityDate
+    from app.domains.reporting.api import dimension_values
+
+    for audience in ("women", "children", "everyone"):
+        activity = Activity(
+            tenant_id=TENANT_A, name=f"Voor {audience}{MARK}", target_audience=audience
+        )
+        db_session.add(activity)
+        db_session.flush()
+        db_session.add(ActivityDate(activity_id=activity.id, start_date=date(2026, 6, 1)))
+    db_session.commit()
+    login(client, db_session)
+    query = _query().replace(f"filter={YEAR_FILTER}", "filter=activity_target_audience")
+
+    ticks = _ticks(client.get(f"/admin/rapporten/paneel?{query}").text, "activity_target_audience")
+    natural = dimension_values(
+        db_session, "activity_target_audience", tenant_id=TENANT_A, fact="f_activity_years"
+    )
+
+    assert {"Iedereen", "Kinderen", "Vrouwen"} <= set(ticks), ticks
+    assert ticks == natural, f"the ticks keep the list's own order: {ticks} vs {natural}"
+    assert ticks != sorted(ticks, reverse=True) or len(ticks) < 2, "not turned around"

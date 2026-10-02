@@ -3,6 +3,9 @@
 Measured on the shipped "Jaarprogramma", which filters on "Dit jaar":
 - the filter block stays within the width, and so does the box of ticks;
 - every tick row is at least 44 px high, the whole row a click target;
+- #1453: without scrolling the box, the rows of this year and next year stand
+  inside its visible part, right under "Dit jaar" — measured on geometry, since
+  Playwright would scroll to a row itself;
 - a real click on next year, in the browser, re-renders the panel with BOTH
   "Dit jaar" and next year ticked, and both years' activities in the table —
   the request htmx builds from the form, not one a test wrote by hand.
@@ -129,3 +132,29 @@ def test_a_click_on_next_year_keeps_both_ticks(browser_and_report):
 
     assert {r["text"] for r in m["rows"] if r["checked"]} == {"Dit jaar", str(year + 1)}, m
     assert sorted(set(names)) == [f"Vinkje {year} {mark}", f"Vinkje {year + 1} {mark}"], names
+
+
+_VISIBLE = """(years) => {
+  const box = document.querySelector('#rp-filters fieldset > div');
+  const b = box.getBoundingClientRect();
+  return {scrollTop: box.scrollTop, box: [Math.round(b.top), Math.round(b.bottom)],
+          rows: [...box.querySelectorAll('label')].map(l => {
+            const r = l.getBoundingClientRect();
+            return {text: l.textContent.trim(), top: Math.round(r.top), bottom: Math.round(r.bottom)};
+          }).filter(r => years.includes(r.text) || r.text === 'Dit jaar')};
+}"""
+
+
+def test_this_year_and_next_show_without_scrolling(browser_and_report):
+    """#1453, measured at 390 px on the shipped annual programme."""
+    page, year, _mark = _open(browser_and_report, 390)
+    m = page.evaluate(_VISIBLE, [str(year), str(year + 1)])
+    print("MEASURE visible", m)
+    page.close()
+
+    assert m["scrollTop"] == 0, m
+    texts = [r["text"] for r in m["rows"]]
+    assert texts == ["Dit jaar", str(year + 1), str(year)], f"order under Dit jaar: {texts}"
+    top, bottom = m["box"]
+    for row in m["rows"]:
+        assert top <= row["top"] and row["bottom"] <= bottom, f"{row} outside the box {m['box']}"
