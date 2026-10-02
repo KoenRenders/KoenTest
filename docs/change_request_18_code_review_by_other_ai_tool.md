@@ -1,10 +1,10 @@
 # Change Request 18 — Review on request: a change request and a PR reviewed through GitHub, by whoever is asked
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 3 October 2026 · on hold — Koen walks through it before anything is assigned
+**Status:** shaped on 2 October 2026, reviewed 3 October 2026 · on hold — Koen walks through it before anything is assigned
 **Tracking issue:** #1455 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the review procedure and its artifacts (`docs/review-protocol.md`, the PR description template, one label); no product code, no database, no screen.
-**Reading:** A 782 words · B 1450 · C 1320 — measured on 3 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 533 · B 1 743 · C 1 462 — measured on 2 October 2026, code fences excluded; the budget is A ≤ 1 500, B ≤ 2 500 — **A is 33 words over; the reviewer confirmed the numbers and the overclaim is not worth the cut**
 
 ---
 
@@ -18,7 +18,7 @@ What the platform owner asks: a review that can be *triggered* — a change requ
 
 ## A2. As-is process — how it works today, and where it hurts
 
-Two actors: the platform owner (Koen) and the reviewers (the Claude Code CLI that shapes, the outside AI that reviews). Measured on 3 October 2026.
+Two actors: the platform owner (Koen) and the reviewers (the Claude Code CLI that shapes, the outside AI that reviews). Measured on 2 October 2026.
 
 ```mermaid
 flowchart LR
@@ -68,7 +68,7 @@ flowchart LR
   end
   subgraph M[Master CLI — works on master, dispatches]
     m1[Label ai-review, comment the scope and @reviewer]
-    m2[Route the request: CR review to the architecture reviewer, code review to a dev CLI]
+    m2[Route the request: CR review to the architecture CLI, code review to a dev CLI]
   end
   subgraph R[Reviewer — named by the @-mention]
     r1([Session starts on the request]) --> r2[Read the protocol, the document or the diff, the code]
@@ -89,9 +89,9 @@ flowchart LR
   p1 -.-> k6
 ```
 
-What to see in it: the clipboard is gone — every arrow is a link on GitHub; the **master CLI is the dispatcher**: Koen asks it, it sets the label, names the reviewer with the @-mention and routes the request — a CR review to the architecture reviewer, a code review to a dev CLI; the reviewer runs only for the length of a session; CI stays the only blocker; the same drawing serves both scopes.
+What to see in it: the clipboard is gone — every arrow is a link on GitHub; the **master CLI is the dispatcher**: Koen asks it, it sets the label, names the reviewer with the @-mention and routes the request — a CR review to the architecture CLI, a code review to a dev CLI; the reviewer runs only for the length of a session; CI stays the only blocker; the same drawing serves both scopes.
 
-- Step 2 becomes *ask the master CLI*: the master CLI is the one dispatcher of reviews — it puts the label and the @-mention on the PR or the tracking issue, so no other CLI (and no agent session) starts a review on its own; a CR review goes to the architecture reviewer's counterpart, a code review to a dev CLI.
+- Step 2 becomes *ask the master CLI*: the master CLI is the one dispatcher of reviews — it puts the label and the @-mention on the PR or the tracking issue, so no other CLI (and no agent session) starts a review on its own; a CR review goes to the architecture CLI, a code review to a dev CLI.
 - Step 3 becomes *findings on GitHub*: the reviewer answers as a comment on the PR or issue, structured by the protocol; the authoring CLI reads them there and processes them; nothing passes through a clipboard.
 - Step 4 (code review) gets the same shape: a PR that carries code is dispatched by the master CLI to a dev CLI, which reads the diff against the conventions and the CR it implements, and answers on the PR; CI keeps the hard gates, the reviewer is the judgment layer, and Koen decides the merge.
 
@@ -99,7 +99,7 @@ The words the user reads: the label **`ai-review`**; the review request "review 
 
 ## A4. Benefits — what the change earns
 
-- **No clipboard:** the document and the findings live next to the work; the round-trip is a link, not a paste.
+- **No clipboard for the document and the findings:** they live next to the work; the round-trip is a link, not a paste. The reviewer is still started by hand, by its own channel — today a chat line naming the PR (Q5) — and that is honest: what disappears is the pasting, not the hand-start.
 - **Any reviewer:** the trigger names a task, not a tool — the Mistral agent, another AI, or a human gets the same scope and the same protocol.
 - **A second eye on code:** the judgment layer (conventions, CR-conformance, "would this test go red") gets a review it never had, at check-in time, without new infrastructure.
 - **One checklist, written once:** the protocol is a document in the repo, so every review asks the same questions the last one learned to ask.
@@ -108,7 +108,7 @@ The words the user reads: the label **`ai-review`**; the review request "review 
 
 - The reviews of CR-15 and CR-19 (2–3 October 2026): copy-paste today; their findings are the proof the process pays.
 - `docs/change_request_template.md`: the five rules (measured premises, exceptions named, screens shown, business copy, close-out) — the protocol reviews a change request against exactly these.
-- `CLAUDE.md` (the workflow, the test-evidence conventions, the fixed UI decisions) and `docs/code-style.md`: the conventions a code review reads against.
+- `AGENTS.md` (the workflow, the test-evidence conventions, the fixed UI decisions), `CLAUDE.md` only for Claude-Code-specific lines, and `docs/code-style.md`: the conventions a code review reads against.
 - `backend/app/domains/*/CONTRACT.md` (measured: every domain has one) and the gates (`test_import_boundaries`, `test_layer_gate`, …): what CI already proves, so the reviewer does not repeat the machine but reads what the machine cannot.
 - The CI workflow `.github/workflows/backend-tests.yml`: lint, the suite, pip-audit — the hard half of a review that already exists.
 
@@ -117,11 +117,11 @@ The words the user reads: the label **`ai-review`**; the review request "review 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
 | R1 | A review starts on request: Koen asks the master CLI, which dispatches it on GitHub — one label and one @-mention on the PR or the tracking issue. | Must | Koen, 3 Oct 2026 | never automatically; the master CLI is the only dispatcher |
-| R2 | The same trigger and the same protocol serve both a change request review and a code review of a PR; the master CLI routes a CR review to the architecture reviewer and a code review to a dev CLI. | Must | Koen, 3 Oct 2026 | two scopes, one shape, one dispatcher |
+| R2 | The same trigger and the same protocol serve both a change request review and a code review of a PR; the master CLI routes a CR review to the architecture CLI and a code review to a dev CLI. | Must | Koen, 3 Oct 2026 | two scopes, one shape, one dispatcher |
 | R3 | The findings arrive as a comment on that PR or issue, structured by a protocol that lives in the repository. | Must | Koen, 3 Oct 2026 | |
 | R4 | The reviewer can read the repository: the document, the diff, and the code a claim refers to. | Must | author, from the 2 Oct findings | a review that cannot measure is an opinion |
 | R5 | The review is advisory: Koen (with the shaping CLI) decides what is taken in; nothing blocks a merge but CI. | Must | Koen, 3 Oct 2026 | the reviewer proposes, the owner disposes |
-| R6 | The protocol names the conventions to read against: the template's five rules, `CLAUDE.md`, `docs/code-style.md`, the domain contracts. | Should | author | |
+| R6 | The protocol names the conventions to read against: the template's five rules, `AGENTS.md`, `docs/code-style.md`, the domain contracts. | Should | author | |
 | R7 | A review request can name a tool or a person; a human can run the same protocol. | Should | Koen, 3 Oct 2026 | |
 | R8 | Reviews start automatically on every push or PR. | Won't | Koen, 3 Oct 2026 | "gelieve niet automatisch te laten beginnen" |
 | R9 | The reviewer's findings are machine-enforced (a required CI check that a review happened). | Won't | author | advisory means advisory |
@@ -131,7 +131,7 @@ The words the user reads: the label **`ai-review`**; the review request "review 
 
 | Concern | This change |
 |---|---|
-| **Security** | No new entrance: the reviewer works through the existing GitHub access of the tool or person asked; the repository is public (CLAUDE.md: "This repository is PUBLIC"), so a review reads what the world can read. No secret, no token, no workflow input is added. |
+| **Security** | No new entrance: the reviewer works through the existing GitHub access of the tool or person asked; the repository is public (AGENTS.md: "This repository is PUBLIC"), so a review reads what the world can read. No secret, no token, no workflow input is added. |
 | **Privacy** | No personal data; review comments are text about documents and code. |
 | **House style / UI norm** | No screen. The findings comment follows the repo's Markdown conventions (English, tables where a table fits). |
 | **Multi-tenant** | Not applicable: a procedure, not a feature of the portal. |
@@ -146,7 +146,7 @@ Not applicable — a process change with no screen and no deploy. The walkthroug
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
-GitHub is the bus; the review is a request and an answer that both live there; the protocol is a document in the repo that any reviewer — the Mistral agent through its GitHub App, another AI tool, a human with a browser — reads and follows. Three artifacts carry it: **the protocol** (`docs/review-protocol.md`): what a review of a change request asks, what a review of a PR asks, in the order the template's five rules already teach; **the label** (`ai-review`) plus one sentence on the PR or issue: the trigger, on request only; **the PR description template** for code PRs: what the builder states (the CR it implements, the gates that prove it), so the reviewer starts from a claim, not a guess.
+GitHub is the bus; the review is a request and an answer that both live there; the protocol is a document in the repo that any reviewer — the Mistral agent through its GitHub App, another AI tool, a human with a browser — reads and follows. Four artifacts carry it: **the protocol** (`docs/review-protocol.md`): what a review of a change request asks, what a review of a PR asks, in the order the template's five rules already teach; **the label** (`ai-review`) plus one sentence on the PR or issue: the trigger, on request only; **the PR description template** for code PRs: what the builder states (the CR it implements, the gates that prove it), so the reviewer starts from a claim, not a guess.
 
 Decisions that shape it, each with the rejected alternative (the reasoning in C4):
 
@@ -160,7 +160,7 @@ Decisions that shape it, each with the rejected alternative (the reasoning in C4
 | # | Derived requirement | From |
 |---|---|---|
 | F1 | `docs/review-protocol.md`, drafted in the appendix: two checklists (change request, PR), each ending in the same three verdicts: *take in*, *already decided*, *not taken, with the reason*. | R2, R3, R6 |
-| F2 | The master CLI dispatches: it puts the label `ai-review` on the PR (a change request is always shaped on its own branch with a PR) or the code PR, and comments the scope with an @-mention naming the reviewer it routed — the architecture reviewer for a CR, a dev CLI for code; the reviewer answers as a comment headed "Review — <date>, <scope>". | R1, R3 |
+| F2 | The master CLI dispatches: it puts the label `ai-review` on the PR or the code PR, and comments the scope with an @-mention naming the reviewer it routed — the architecture CLI for a CR, a dev CLI for code. This rule is for **outside reviewing agents**: the in-house CLIs keep their practice of shaping change requests on the brainstorm branch and merging in batches; an outside agent works on its own branch with a PR (AGENTS.md). The reviewer answers as a comment headed "Review — <date>, <scope>". | R1, R3 |
 | F3 | A PR description template (`.github/PULL_REQUEST_TEMPLATE.md`), drafted in the appendix, for code PRs: the CR or issue, what changed per module, the evidence (CI run, tests added, gates proven). | R2, R4 |
 | F4 | The shaping CLI reads the findings from the PR/issue and processes them there; the decisions log of the CR records what was taken in (as CR-15's Q10 does). | R3, R5 |
 | F5 | `AGENTS.md` gains a section "Reviews on request" — the label, the protocol, the advisory rule, the master CLI as the one dispatcher — written in by Koen or the master CLI at Koen's request, at the realisation of this change, after approval. The three working agreements for shaping agents (never edit `AGENTS.md`, `CLAUDE.md`, `.github/` or a process document; a change request is one document on the agent's own branch from master; nothing is pushed to master — the master CLI merges) are written in at the same time; until then they live in Koen's session instructions to each agent. | R6 |
@@ -169,23 +169,27 @@ Decisions that shape it, each with the rejected alternative (the reasoning in C4
 
 ```mermaid
 flowchart LR
-  subgraph K[Koen]
-    k1([A CR is shaped / a PR is open]) --> k2[Add ai-review, name the scope]
+  subgraph K[Koen — platform owner]
+    k1([A CR is shaped / a PR is open]) --> k2[Ask the master CLI for a review]
     k4[Read the findings, decide what is taken in]
   end
-  subgraph R[Reviewer — the Mistral agent, another tool, or a human]
-    r1[Read the protocol] --> r2[Read the document / the diff / the code]
-    r2 --> r3[Post the findings as a comment]
+  subgraph M[Master CLI — dispatches]
+    m1[Label ai-review, comment the scope and @reviewer]
   end
-  subgraph C[The shaping CLI]
+  subgraph R[Reviewer — named by the @-mention]
+    r1[Started by its channel — today a chat line naming the PR] --> r2[Read the protocol, the document / the diff, the code]
+    r2 --> r3[Post the findings as one comment]
+  end
+  subgraph C[The authoring CLI]
     c1[Process the findings on the PR] --> c2[Record the verdicts in the CR]
   end
-  k2 --> r1
-  r3 --> k4
-  k4 --> c1
+  k2 -.-> m1
+  m1 -.-> r1
+  r3 -.-> k4
+  k4 -.-> c1
 ```
 
-What to see in it: the clipboard is gone; every arrow is a link on GitHub; the reviewer is a lane, not a tool.
+What to see in it: no document and no findings pass through a clipboard any more — every arrow is a link on GitHub; the reviewer is started by its own channel (today a chat line naming the PR, Q5), runs only for the length of a session, and the same drawing serves both scopes.
 
 **Traceability matrix**
 
@@ -202,9 +206,9 @@ What to see in it: the clipboard is gone; every arrow is a link on GitHub; the r
 
 **Walkthrough** (on the CR-18 PR itself, then on the first code PR after it):
 
-1. Koen pushes the CR-18 branch, opens the PR, asks the master CLI for a review; the master CLI adds `ai-review` and comments "review please, the document — @reviewer". *See:* the review arrives as a comment on the PR, structured by the protocol, with its findings measured against the code where it claims a premise.
+1. Koen opens the PR and asks for a review. *The first run, measured, deviated and is recorded in B9:* the agent pushed the branch, the request carried no label and no @-mention, and the reviewer was started from Koen's own session rather than routed by the master CLI — the loop worked, the ideal routing has not run yet. *See (ideal):* the master CLI adds `ai-review` and comments "review please, the document — @reviewer"; the review arrives as a comment on the PR, structured by the protocol, with its findings measured against the code where it claims a premise.
 2. The authoring CLI processes the findings on the PR; the verdicts land in the CR's decisions log. *See:* no clipboard anywhere; the trail is the PR.
-3. The first code PR after: the description follows the template, Koen asks the master CLI, which dispatches the review to a dev CLI; the review reads the diff against `AGENTS.md`/`CLAUDE.md` and the CR the PR implements. *See:* findings on the PR; CI green independently; Koen merges when he is satisfied.
+3. The first code PR after: the description follows the template, Koen asks the master CLI, which dispatches the review to a dev CLI; the review reads the diff against `AGENTS.md` and the CR the PR implements. *See:* findings on the PR; CI green independently; Koen merges when he is satisfied.
 
 ## B3. The whole across the modules — for the architect
 
@@ -234,7 +238,7 @@ Who calls whom: Koen triggers on GitHub; the reviewer reads the protocol from th
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
 1. **The rule.** *A review is asked for with the label and a sentence, answered as a comment on the PR or issue, structured by `docs/review-protocol.md`, and advisory.* Lives in `AGENTS.md`, written in at the realisation, after approval (F5); until then in Koen's session instructions to each agent.
-2. **Reach and baseline.** Every change request and every code PR. Measured on 3 October 2026: two reviews given (copy-paste), zero PR reviews, no protocol written down.
+2. **Reach and baseline.** Every change request and every code PR. Measured on 2 October 2026: two reviews given (copy-paste), zero PR reviews, no protocol written down.
 3. **The gate.** None — a procedure cannot be gated; the `design-conformiteit-bewaker` agent and the merge eye keep their role.
 
 ## B8. Open decisions — what the approver still decides
@@ -247,7 +251,7 @@ None on 3 October 2026. Decided: the review of a code PR stays per-PR for now �
 |---|---|---|
 | 2 Oct 2026 | The number CR-18 and issue #1455 reserved for "code review by other AI tool". | Koen |
 | 3 Oct 2026 | The trigger has two parts: the label `ai-review` marks the request, and the **@-mention in the request sentence names the reviewer** — a request without a named addressee is not picked up, so no one waits for someone else and no one reviews twice. (Koen.) |
-| 3 Oct 2026 | **The master CLI is the one dispatcher of reviews** (Koen): Koen asks it, it sets the label and the @-mention and routes the request — a CR review to the architecture reviewer (the brainstorm-architecture counterpart), a code review to a dev CLI; no other CLI or agent session starts a review on its own. |
+| 3 Oct 2026 | **The master CLI is the one dispatcher of reviews** (Koen): Koen asks it, it sets the label and the @-mention and routes the request — a CR review to the architecture CLI, a code review to a dev CLI; no other CLI or agent session starts a review on its own. |
 | 3 Oct 2026 | The label keeps the name **`ai-review`** — also when a human reviews; the label says what started the request, the @-mention says for whom. (Koen.) |
 | 3 Oct 2026 | The review of a code PR is asked per PR for now; once the habit holds, every code PR gets the request (still asked, never automatic). The findings are in English, like the docs. (Koen.) |
 | 3 Oct 2026 | *Proposed:* the GitHub bus, the protocol, the label, advisory reviews, explicit trigger, PR template; CR review and code review as one shape. | author |
@@ -260,9 +264,10 @@ None on 3 October 2026. Decided: the review of a code PR stays per-PR for now �
 
 | Claim | Measured how | Result | Consequence |
 |---|---|---|---|
+| The reviewer can answer on GitHub under its own identity | `gh auth status` in the agent's session, `git log` of this PR (commits authored by the agent's git identity); the GitHub App token of the agent session | **partly, measured 3 October 2026**: commits carry the agent's own git identity (`Vibe Nuage Agent`, co-authored with Koen), but the `gh` API token of the session is **Koen's account** — a PR comment posted from the session would appear as Koen. The reviewer's answer therefore names its author in the comment's header ("Reviewer: …"), as the review of this PR did, until the agent has a bot account; the trail must never read as Koen reviewing Koen. | F2, walkthrough step 1 verifies it |
 | The reviews of CR-15 and CR-19 arrived by copy-paste | the Q&A logs of both (CR-15 Q10: "pasted by Koen") | true | the process works; the trigger and the home are missing |
-| No PR review exists beyond CI and the master CLI's eye | `.github/workflows/backend-tests.yml` (lint, pytest, pip-audit); `CLAUDE.md`'s workflow section names no reviewer | true | F3, phase 2 |
-| The conventions a review reads against exist in writing | `CLAUDE.md` (1 183 lines), `docs/code-style.md`, `CONTRACT.md` per domain (measured: every domain has one), the template's five rules | true | the protocol can point instead of restate |
+| No PR review exists beyond CI and the master CLI's eye | `.github/workflows/backend-tests.yml` (lint, pytest, pip-audit); the workflow section (now `AGENTS.md`) names no reviewer | true | F3, phase 2 |
+| The conventions a review reads against exist in writing | `AGENTS.md` (1 198 lines; the conventions moved there from `CLAUDE.md`, commit 4cbe2a0e, 2 October 2026), `docs/code-style.md`, `CONTRACT.md` per domain (measured: every domain has one), the template's five rules | true | the protocol can point instead of restate |
 | The hard gates already exist in CI and need no duplicate | `test_import_boundaries`, `test_layer_gate`, `test_schema_boundaries`, the render gate, `ruff` | true | the protocol reviews what the machine cannot judge |
 | The repository is public | `CLAUDE.md` §"This repository is PUBLIC" | true | any reviewer reads without new access |
 | No `ai-review` label or PR template exists | `gh label list`, absence of `.github/PULL_REQUEST_TEMPLATE.md` | true | F2, F3 |
@@ -271,8 +276,8 @@ None on 3 October 2026. Decided: the review of a code PR stays per-PR for now �
 
 #### docs (phase 1)
 
-- **`docs/review-protocol.md`** — two checklists. *A change request:* the template's five rules each asked concretely (are C1's premises measured with file and line; are exceptions named in B4; is C9 handled or waived; is the user's copy in A3; does the reading budget hold); Part A free of components; the Won'ts deliberate; the ACs walkable. *A PR:* the description states the CR and the evidence; the diff stays in its CR's scope; the conventions (`CLAUDE.md`, code-style, the domain's CONTRACT) hold; every new test could go red; no copy-paste shape the gates forbid. Both end in the three verdicts.
-- **`CLAUDE.md`** — three lines in the workflow section: the label, the protocol, "advisory; Koen decides".
+- **`docs/review-protocol.md`** — two checklists. *A change request:* the template's five rules each asked concretely (are C1's premises measured with file and line; are exceptions named in B4; is C9 handled or waived; is the user's copy in A3; does the reading budget hold); Part A free of components; the Won'ts deliberate; the ACs walkable. *A PR:* the description states the CR and the evidence; the diff stays in its CR's scope; the conventions (`AGENTS.md`, code-style, the domain's CONTRACT) hold; every new test could go red; no copy-paste shape the gates forbid. Both end in the three verdicts.
+- **`AGENTS.md`** — the section of F5: the label, the protocol, "advisory; Koen decides"; written in at the realisation, after approval.
 
 #### .github (phase 2)
 
@@ -325,7 +330,7 @@ CI owns the hard truth: lint, the suite, the audit, the gates. A review that cou
 
 ## C6. Tests — what the build must prove
 
-Nothing in pytest; the proof is the walkthrough of B2, run twice (document scope, code scope). The one check that could be red: the protocol must name a source for every checklist item (a pointer to `CLAUDE.md`, the template, or a CONTRACT), so it never invents a convention the repo does not carry — checked by reading, once, at the build.
+No test: a procedure cannot be gated, and a check that cannot go red is not a test (AGENTS.md, the test-evidence convention). The proof is the walkthrough of B2, run twice (document scope, code scope). The one review step that remains: the protocol must name a source for every checklist item (a pointer to `AGENTS.md`, the template, or a CONTRACT), so it never invents a convention the repo does not carry — a review step at the build, not a test.
 
 ## C7. The gate — what refuses a deviation from now on
 
@@ -341,7 +346,7 @@ Waived: no screen. The protocol document itself is the artifact Koen reads.
 
 ## C10. Close-out at the release
 
-Not yet: on hold, nothing built. Filled in when the release that builds this change runs on PROD (`CLAUDE.md`, release step 14) — for a process change, that is: the first review asked and answered through the loop, named here.
+Not yet: on hold, nothing built. Filled in when the release that builds this change runs on PROD (`AGENTS.md`/`CLAUDE.md`, release step 14) — for a process change, that is: the first review asked and answered through the loop, named here.
 
 ---
 
@@ -359,9 +364,9 @@ Nothing of this exists yet; it is the shape of the artifacts phase 1 and 2 will 
 
 **Checklist — a change request.** 1. Premises measured: every "as X already does" claim carries file and line in C1. 2. Exceptions named once (B4). 3. Screens shown or waived (C9). 4. The user's words in A3; no components in Part A. 5. The shape holds: deliberate Won'ts, walkable ACs, the reading budget, no old decision lingering against a new one. 6. The tests could go red.
 
-**Checklist — a PR with code.** 1. The description states its claim (CR, modules, evidence). 2. Scope: the diff stays inside its CR. 3. Conventions hold (`CLAUDE.md`, `docs/code-style.md`, the domain's `CONTRACT.md`). 4. Every new test could go red. 5. No copy-paste of a fact the codebase keeps in one place.
+**Checklist — a PR with code.** 1. The description states its claim (CR, modules, evidence). 2. Scope: the diff stays inside its CR. 3. Conventions hold (`AGENTS.md`, `docs/code-style.md`, the domain's `CONTRACT.md`). 4. Every new test could go red. 5. No copy-paste of a fact the codebase keeps in one place.
 
-**Sources.** Every item points at `docs/change_request_template.md` (the five rules), `CLAUDE.md`, `docs/code-style.md`, the contracts, and the CR the PR implements; a convention found nowhere in those is an observation, not a finding.
+**Sources.** Every item points at `docs/change_request_template.md` (the five rules), `AGENTS.md`, `docs/code-style.md`, the contracts, and the CR the PR implements; a convention found nowhere in those is an observation, not a finding.
 
 ### The AGENTS.md section ("Reviews on request", written in at the realisation, after approval)
 
@@ -371,7 +376,8 @@ Nothing of this exists yet; it is the shape of the artifacts phase 1 and 2 will 
 A review starts only when asked. Koen asks the master CLI; the master CLI is
 the one dispatcher: it sets the `ai-review` label on the PR (or the tracking
 issue) and comments the scope with an @-mention naming the reviewer it routed
--- a change request review to the architecture reviewer, a code review to a
+-- a change request review to the architecture CLI (the series shaping
+change requests), a code review to a
 dev CLI. No other CLI or agent session starts a review on its own. The
 reviewer answers as one comment per `docs/review-protocol.md`, in English;
 the findings are advisory -- only CI blocks a merge, and Koen decides what is
@@ -424,4 +430,4 @@ addition to this file, not written in. (Koen, 3 October 2026.)
 - **#1455** — the tracking issue of this change (number reserved 2 October 2026).
 - **CR-15, CR-19** — the two reviews of 2–3 October 2026, the process's proof; their decisions logs show the verdicts this change standardises.
 - **`docs/change_request_template.md`** — the five rules the protocol restates as questions.
-- **`CLAUDE.md`**, **`docs/code-style.md`**, the domains' **`CONTRACT.md`** — the conventions the protocol points to, never restates.
+- **`AGENTS.md`**, **`docs/code-style.md`**, the domains' **`CONTRACT.md`** — the conventions the protocol points to, never restates.
