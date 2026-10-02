@@ -29,6 +29,7 @@ change to all four, in one pull request.
 
 | Date | Decision | Issue |
 |---|---|---|
+| 2 Oct 2026 | **CR-11 block 1, the admin frame**: the admin shell gets its own token set under `body[data-shell="admin"]` — the Atelier palette (muted blue `37 78 115`, cool grey ground, a light sidebar, warning a real orange `194 65 12`), Inter only, cards 10 px / controls 6 px, margins 24/32 px, a 224 px sidebar that becomes a 64 px rail below 1 440 and a drawer below 768, a 64 px top bar with the Assistent and account buttons; the house style leaves the back office; the public shell keeps its values until the first public block. Folded from the end state §1 (CR-11 phase 0). | #1482 |
 | Jul 2026 | Postal code is always a `<select>` from the lookup table, never free text | — |
 | Jul 2026 | Public activity registration is a narrow modal; "Wie doet er mee?" is one compact inline line | #601 |
 | Aug 2026 | Creating never opens a modal; a full-page editor instead | #627 |
@@ -84,11 +85,23 @@ anywhere. The one canonical source is the Tailwind config in
 `scripts/build-css.sh`; the browser renders what is there, so that is the truth,
 not a hex repeated elsewhere.
 
+**Two shells, two token sets, one set of names** (CR-11 block 1, #1482,
+2 October 2026). `:root` carries the public shell's values — the Raak
+palette of §1.1, Radio Canada Big, the 18 px cards — and
+`body[data-shell="admin"]` redefines the same names with the admin's
+**Atelier** values (§1.1a, §1.2, §1.3). Tailwind's `gray`/`red`/`green`/
+`orange`/`yellow` scales, the `lg`/`xl`/`2xl` radii and `font-brand` are
+tokens too, so no template changed for the palette and no template ever
+chooses: a class names a token, the shell decides the value. The public
+site stayed byte-identical at the switch (26 of 26 screens) and keeps its
+values until the first public block of CR-11.
+
 ### 1.1 Colour
 
-The Raak palette, warm and recognisable. Ocean Blue carries the interface; the
-warm accents are semantic and used sparingly. (Whether the *admin* shell keeps
-this palette in a multi-tenant product is an open decision, §12.)
+The Raak palette, warm and recognisable, **on the public shell**. Ocean Blue
+carries the interface; the warm accents are semantic and used sparingly. The
+admin shell no longer uses it — decided 2 October 2026, §1.1a (the open
+decision of §12 is closed).
 
 | Token | Value | Role |
 |---|---|---|
@@ -124,12 +137,64 @@ Rules:
   coloured surfaces.
 - Text meets 4.5:1; 3:1 only for large text (≥ 24 px, or ≥ 18.66 px bold — the earlier "≥ 18 px" was wrong, corrected 13 September 2026), verified per token.
 
+### 1.1a The admin palette — Atelier (CR-11 block 1, #1482)
+
+Koen let the house style go overboard for the back office (2 October 2026):
+a calm, professional workplace, chosen between two directions ChatGPT drew
+on the same frame (CR-11 B10). Every value is an RGB triplet under
+`body[data-shell="admin"]`; the reference files are in Koen's project
+folder outside the repo; this table and `build-css.sh` are the norm.
+
+| Token | Value | Role |
+|---|---|---|
+| `brand`, `blue-700`, `link`, `kop` | `37 78 115` | a muted brand blue: primary buttons, links, the active navigation text; headings are ink |
+| `blue-800` | `25 57 88` | the primary button's hover, nothing else |
+| `blue-500`, `focus` | `25 95 157` | the focus ring (3 px, 3 px offset) |
+| `blue-50`, `nav-active` | `230 239 247` | the brand tint: the active navigation row, a chosen segment, an inset |
+| `ink`, `gray-800/900` | `33 45 58` | text |
+| `ink-soft`, `gray-500/600` | `83 99 115` | secondary text, labels, column heads |
+| `ground`, `gray-50` | `244 246 248` | the page, a cool grey |
+| `surface` | `255 255 255` | cards, the sidebar, fields |
+| `surface-2`, `gray-100` | `240 243 246` | the table head, hover, a second surface |
+| `line`, `gray-200` | `216 224 230` | borders |
+| `control-line`, `gray-400` | `126 143 158` | the border of a field, a button, a segment |
+| `brand-danger`, `red-600` | `166 37 37` | delete, errors — and nothing else |
+| `brand-warning`, the `orange`/`yellow` scales | **`194 65 12`** | "something to do": the Openstaand badge, Terug te betalen, a draft, a blocked answer, an open Saldo, a figure that asks for attention; measured 5.18:1 on white, 4.52:1 on the badge's soft tint |
+| `green-*` | `24 103 72` family | paid, success |
+| `nav`, `nav-ink`, `nav-soft`, `nav-hover`, `nav-active-ink`, `nav-active-line` | `255 255 255` · `50 66 81` · `92 106 118` · `240 244 247` · `29 65 98` · `210 224 236` | the **light** sidebar: white, ink on white, the active row on the brand tint with brand-blue text (the dark band of the rejected direction is not an option) |
+
+Rules that follow:
+
+- **Yellow is the admin's warning family.** The `yellow` tone of a badge
+  renders the orange above; the admin has no yellow accent (the public
+  site's one warm accent, `238 193 94`, is for its call to action and comes
+  with the public block).
+- **One colour, one meaning**: orange is "open, act on it" (positive and
+  negative balances alike), red is delete and errors, green is paid; a
+  Bedrag is never coloured, a Saldo that is not zero is orange (CR-11 block
+  4). Text meets 4.5:1 as before.
+- The eight official brand colours stay the Design Studio's (§1.5) and the
+  public site's; they are not the admin's palette.
+
 ### 1.2 Typography
 
-Radio Canada Big for headings (display, `font-brand`), Inter for body and
-tables — a deliberate readability deviation from the brand guide, which asks for
-Radio Canada Big everywhere. Both vendored under `/static`, never from a CDN.
-The header (RaaK + tagline) is entirely `font-brand`; the wordmark is **RaaK**.
+**Public shell:** Radio Canada Big for headings (display, `font-brand`), Inter
+for body and tables — a deliberate readability deviation from the brand guide,
+which asks for Radio Canada Big everywhere. Both vendored under `/static`,
+never from a CDN. The header (RaaK + tagline) is entirely `font-brand`; the
+wordmark is **RaaK**. Decided for the first public block (CR-11 block 1, 2
+October 2026, not yet built): Fraunces (variable serif, OFL, vendored) for
+the public site's headings and poster areas, Inter for every field, button
+and control.
+
+**Admin shell (#1482):** Inter only — `font-brand` is a token (`--font-brand`)
+that resolves to Inter under `body[data-shell="admin"]`, so the wordmark and
+the tagline are Inter there. The scale is 13 · 14 · 16 · 18 · 24 · 30 px: a
+page title 30 px on a desktop and 28 on a phone, body 14 px, a field label
+14 px, a key figure 24 px with its label 13 px, small text 13 px at the
+least. The density: navigation rows 32 px, buttons 36 px, fields 40 px, a
+table row about 57 px, a touch target 44 px on a phone, icons 18 px at a
+1.75 px stroke. The table below is the public shell's.
 
 | Role | Size / weight |
 |---|---|
@@ -221,9 +286,25 @@ reliably. Use `icon("menu")`, like every other symbol control.
 ### 1.3 Spacing, radii, elevation
 
 One 4 px scale: 4 (icon margin) · 8 (button padding) · 12 (field gap) · 16 (card
-padding) · 24 (between cards) · 32 (section) · 48 (large section) · 64 (page
-margin). Radii: 8 px fields and buttons, 12 px panels, 18 px cards, pill for
-chips. `shadow-lg` for modals only.
+padding) · 24 (between cards) · 32 (section) · 48 (large section). **Each step
+has one use, applied by a macro, never by a template** (CR-11 block 1):
+
+| Step | Use | Applied by |
+|---|---|---|
+| 4 | label to control; icon to its text | `field`, `btn_*` |
+| 8 | button padding; the gap inside a control group | `btn_*`, the status filter |
+| 12 | field to field inside a section | the form grid |
+| 16 | card padding; gap between toolbar controls | `card`, the toolbar |
+| 24 | card to card; summary card to content | layouts |
+| 32 | section to section inside a form | `section` |
+| 48 | header to content on a record page | the record layout |
+| 24 / 32 | the admin page margin: 24 px at 1 440 px, 32 px from 1 680 px (#1482; 64 px has no use in the admin frame) | the shells |
+
+**Radii — per shell.** Admin (#1482): cards **10 px** (`2xl`), every control —
+button, field, segment, tab, navigation row — **6 px** (`lg`/`xl`), badges and
+small blocks 4 px, a round badge 999 px; one soft card shadow (`0 1px 2px`,
+ink at 3.5 %). Public, until its first block: 8 px fields and buttons, 12 px
+panels, 18 px cards, pill for chips. `shadow-lg` for modals only.
 
 ### 1.4 Icons
 
@@ -241,6 +322,57 @@ a choice but a remnant from before the helper; the gate rejects them.
 
 `ui.icon()` fails silently on an unknown name (empty SVG), so the gate asserts
 the rendered `<path>`, not the macro call.
+
+**The vocabulary — verb → glyph** (CR-11 block 1): a text button carries the
+lead glyph its verb has here, never a typed "+" or arrow; a verb not in the
+table has no glyph; an icon-only button exists in row actions, toolbars and
+the top bar only, with its `aria-label`.
+
+| Verb | Glyph | Verb | Glyph |
+|---|---|---|---|
+| add / nieuw | `plus` | download / export | `download` |
+| upload / importeren | `upload` | delete / verwijderen | `trash-2` (always red) |
+| edit / bewerken | `pencil` | copy / kopiëren | `copy` |
+| print / afdrukken | `printer` | send / versturen | `send` |
+| filter | `filter` | settings / instellingen | `settings` (the gear, settings and nothing else) |
+| open elsewhere (a reference) | `arrow-up-right` | close | `x` |
+| more / ⋯ | `ellipsis` | the assistant | `sparkles`, with the word **"Assistent"** beside it in the top bar (icon-only with that `aria-label` on a phone) |
+| a group that opens or closes | `chevron-down` / `chevron-right` — never the gear | the way back | `chevron-left` |
+
+### 1.6 The admin frame (CR-11 block 1, #1482)
+
+The shell of the back office, as built on 2 October 2026 from the end state
+(`docs/design-system-end-state.md` §1.4, §3.14, §3.15):
+
+- **Two priorities, one kit** (Koen): the public site is designed phone-first
+  (390 px first); the back office desktop-first — drawn at 1 440 px, used at
+  1 920, **1 440 px the lower bound** where everything fits, 390 px the floor
+  (never broken, the few simple actions reachable, not a day's workplace).
+  Admin screens are judged at 1 920, 1 440 and 390 px; public pages at 390,
+  768 and 1 440.
+- **The sidebar**: 224 px, white, one navigation source in groups, a group
+  that collapses shows a chevron; **below 1 440 px an icon rail of 64 px**
+  (same items, same order, labels as tooltips), **below 768 px a drawer**
+  behind a menu button in the top bar. The user may collapse it at any width;
+  the choice lives in `localStorage` (`html.nav-rail`), the default follows
+  the width.
+- **The top bar**: 64 px; menu button (phone only), the page title's room,
+  the search's room, the **Assistent** button (bordered, `sparkles` + the
+  word; it opens `/admin/rapporten/raakje` under the same rule as its menu
+  item), the account button (initials + chevron, also on a phone; its menu
+  holds "Aangemeld als …", Mijn profiel, Werkruimte wisselen, **Naar de
+  site**, Uitloggen). As built: the title room and the search room are
+  reserved and empty — no global search exists yet, and the `h1` stays in
+  the content until block 2 — decided by the master CLI at the merge because
+  the issue said no functional change.
+- **Widths**: a list page takes the full content width beside the sidebar
+  (no `max-w` on a root); a record page keeps one reading group of 768 px
+  form + 24 px gap + 300 px summary (1 092 px), centred when the frame is
+  wider; a document page 768 px centred. Breakpoints follow the content:
+  the summary moves above the content below a 640 px content column, a
+  form grid goes to one column when a half field would be under 260 px.
+- **The public site is untouched** by this block (byte-identical at the
+  merge); its shell changes with the first public block.
 
 ### 1.5 Print and social — the Design Studio (CR-10, #1007)
 
@@ -1189,7 +1321,7 @@ shortest path is the right path.
 the conventions-debate triage). Recorded here as pointers; the pattern fields
 and sections update per execution issue (see the execution note in §0).
 
-1. **Product brand for the admin** — decided: product brand in the admin
+1. **Product brand for the admin** — decided: product brand in the admin **Decided 2 October 2026 (CR-11 block 1, #1482): the admin shell has its own palette, Atelier (§1.1a); the Raak palette stays the public shell's.**
    shell, tenant identity permanently visible; public side keeps the tenant
    brand. Visual direction: **Cobalt** (#785 maker round).
 2. **Attention after an action** — decided: no scroll on save, focus stays or

@@ -18,6 +18,11 @@ what refuses a deviation. A builder reads 2 and 5 to know what a screen is,
 
 ## 1. Tokens
 
+**Folded into `design-system.md` §1 on 2 October 2026** (CR-11 phase 0, after
+block 1 was built and merged as #1482): §1.1 → §1.1a there, §1.2 and §1.6 →
+§1.2–§1.3, §1.5 → §1.4, §1.4 → §1.6 (the admin frame). This section stays as
+the design intent; where the two differ, `design-system.md` says what runs.
+
 ### 1.1 Kit tokens and brand tokens — two files
 
 | Kit (the platform's; a second organisation inherits them) | Brand (the tenant's; a second organisation replaces them) |
