@@ -1,7 +1,7 @@
 # Change Request 19 — Tenant types and modules per tenant: an organisation that is not an association
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 2 October 2026 · on hold — the platform owner walks through it, then plans it
+**Status:** shaped on 2 October 2026 · walked through on 2 October 2026, every question answered · on hold until the platform owner plans it
 **Tracking issue:** #1468 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the tenant model and its editor (mdm, kernel tenant settings), the admin and public navigation (ui), the route guards of every domain, the home page and sitemap (cms), the dashboard and the reporting universe (reporting), tenant provisioning (mdm).
 **Reading:** A 1992 words · B 2776 · C 2479 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
@@ -162,6 +162,7 @@ Decisions that shape it, each with the rejected alternative (the reasoning in C4
 | F4 | A router dependency `require_module(code)` on every domain router (JSON and UI) that answers 404 when the module is off for the resolved tenant. | R3 |
 | F5 | The admin navigation computed per request from the registry and the tenant's set; the ten import-time `NAV` constants become a call. | R3 |
 | F6 | The public shell's navigation, the home page's blocks, the sitemap and robots, the dashboard tiles, the newsletter's audiences and the reporting universe's folders read the module set. | R3, R8 |
+| F11 | A CMS page flagged as the home page (`cms_pages.is_home`, one per tenant) renders at `/`; without one the shell's composition renders. | R3, R4 |
 | F7 | `create_tenant` takes the kind, seeds the module set from its defaults and the two CMS blocks (home-intro, site-footer) with placeholder text. | R1, R4, R5 |
 | F8 | The tenant editor shows the kind (read-only after creation) and the modules as a checkbox group; saving a set that breaks a dependency is refused naming it; the "new tenant" page becomes operator-only. | R2, R6 |
 | F9 | The migration gives every existing UNIT kind `VERENIGING` and every module; the platform tenant keeps its own behaviour. | R2 |
@@ -224,7 +225,7 @@ Legend: green mdm · yellow auth · blue kernel · grey ui, cms, reporting.
 8. Create a form in the tenant's Formulieren, publish a page with its link, fill it in as a visitor. *See:* the submission on Formulieren and the task in Werkbank.
 9. As operator, tick Nieuwsbrief for the tenant and save. *See:* the menu item appears; the public sign-up appears on the site; in a new letter the audience offers "iedereen" only.
 10. Tick Design Studio without Activiteiten. *See:* refused: "Design Studio heeft Activiteiten nodig."
-11. Untick Pagina's. *See:* the public site's pages and navigation disappear; the home block stays (the home page is the shell's, not the module's).
+11. On the company tenant, flag a page "dit is de homepagina". *See:* `/` renders that page. Untick Pagina's. *See:* the public site's pages and navigation disappear and `/` falls back to the home block (the shell's).
 12. Open a department of the association (Millegem) as its admin and as a visitor. *See:* everything as before; compare the screenshots.
 
 ## B3. The whole across the modules — for the architect
@@ -354,19 +355,18 @@ Both phases ride one release. "Na de merge": the two additive migrations; no env
 
 ## B8. Open decisions — what the approver still decides
 
-| # | Question | Recommendation | What the answer changes |
-|---|---|---|---|
-| Q1 | The render gate today asserts the full admin menu once; it becomes two runs, one per kind. Acceptable that the e2e screenshot set also gets a second tenant (a `BEDRIJF` seed) from phase 2 on? | Yes: without a company seed the company behaviour is never looked at by the eye. | The e2e seed and the screenshot set grow by one tenant. |
-| Q2 | Module codes as code (the registry), not as a code table with labels like every other code list? | Yes — a module is code; CR-17 decided the same for block types. | Whether `module_codes` and `module_labels` tables exist. |
-| Q3 | Should the home page of a tenant without activities show *anything* below the home block — the pages as cards, nothing, or a second CMS block? | Nothing now: the home block is the home page; CR-17's document blocks make it rich later. | The home template's one condition. |
-| Q4 | The dependency table: payments need activities **or** membership; Design Studio needs activities; the newsletter needs nothing; reports need nothing (empty folders hidden). Agreed? | Yes. | The registry's `depends_on`. |
+None on 2 October 2026: the four questions of the first reading are answered (B9). The change request is ready to be assigned to a release when the platform owner plans it.
 
 ## B9. Decisions log — dated answers
 
 | Date | Decision | By |
 |---|---|---|
 | 2 Oct 2026 | A change request for tenant types and modules per tenant; minimal now (type, set, defaults, absent everywhere when off), a template per type later; the association's departments unchanged; a company tenant starts with pages, media, forms and the workbench, payments later, newsletter and reports Could, no meetings, no membership, no activities; the operator creates and administers, no new user management; the document abstract, naming no organisation. | platform owner |
-| 2 Oct 2026 | *Proposed:* C4.1–C4.6 as written; the dependency table of B8 Q4. | author |
+| 2 Oct 2026 | The e2e seed gets a `BEDRIJF` tenant and the screenshot set its screens, so the company behaviour is looked at by the eye (Q1). | platform owner |
+| 2 Oct 2026 | Module codes are **an Enum in code** (`ModuleCode`), keyed by the registry, with a `CHECK` on `tenant_modules.module_code` listing its values — CR-12's "code plus Enum", without a code table or a label table: a module exists only when its code exists, and its label is the menu label the registry already carries (Q2). | platform owner, on the author's explanation |
+| 2 Oct 2026 | **A page can be the home page** (Q3): a CMS page flagged "dit is de homepagina" renders at `/` for its tenant; without one, the shell's composition renders as today (the home block, and the membership band and activity cards only when those modules are on). A company tenant thus edits its home as a page. | platform owner |
+| 2 Oct 2026 | The dependencies agreed: payments need activities or membership; Design Studio needs activities; newsletter and reports need nothing — and **a shop module, when it comes, will depend on payments**, which then come into scope for the `BEDRIJF` kind (Q4). | platform owner |
+| 2 Oct 2026 | *Proposed and accepted:* C4.1–C4.6 as written. | author |
 
 ---
 
@@ -403,7 +403,7 @@ Both phases ride one release. "Na de merge": the two additive migrations; no env
 
 - **Screens:** `/admin/tenants/nieuw` gains the kind (radio: Vereniging, Bedrijf) and becomes operator-only; `/admin/tenants/{id}` shows the kind read-only and the modules as a checkbox group (kit control), with the refusal message naming the dependency; judged at 1 440 px.
 - **Code:** `tenant_service.create_tenant(name, code, parent_id, base_url, kind)` seeds `tenant_modules` from the defaults and calls `cms.api.seed_site_blocks(tenant_id)`; `set_modules(tenant_id, codes)` validates against `depends_on` and raises `TenantFout` naming the missing dependency; `api.enabled_modules(tenant_id)`, `module_enabled(code)`, `set_modules`; the migration seeds every UNIT with every module (phase 1) and `kind = VERENIGING` (phase 2).
-- **Database:** `mdm.tenant_modules (tenant_id INT NOT NULL REFERENCES mdm.organizations(id) ON DELETE CASCADE, module_code VARCHAR(20) NOT NULL, PRIMARY KEY (tenant_id, module_code))` (phase 1, additive, seeded full); `mdm.tenant_kind_codes (code PK)` with its label table per CR-12, seeded `VERENIGING`, `BEDRIJF`; `mdm.organizations.kind VARCHAR(20) NULL REFERENCES mdm.tenant_kind_codes(code)` (phase 2, additive; NULL for ACCOUNT and PLATFORM, `VERENIGING` for every existing UNIT). Copy actions: the organisation has none.
+- **Database:** `mdm.tenant_modules (tenant_id INT NOT NULL REFERENCES mdm.organizations(id) ON DELETE CASCADE, module_code VARCHAR(20) NOT NULL CHECK (module_code IN (…the ModuleCode values…)), PRIMARY KEY (tenant_id, module_code))` (phase 1, additive, seeded full; the CHECK widens by migration when a module is added — grep the migrations before adding one, per `CLAUDE.md`); `mdm.tenant_kind_codes (code PK)` with its label table per CR-12, seeded `VERENIGING`, `BEDRIJF`; `mdm.organizations.kind VARCHAR(20) NULL REFERENCES mdm.tenant_kind_codes(code)` (phase 2, additive; NULL for ACCOUNT and PLATFORM, `VERENIGING` for every existing UNIT). Copy actions: the organisation has none.
 - **Templates:** `admin_tenant.html`, `admin_tenant_nieuw.html`.
 - **Tests:** C6 2, 3, 9.
 
@@ -415,7 +415,8 @@ Both phases ride one release. "Na de merge": the two additive migrations; no env
 
 #### cms (phase 1 composition; phase 2 seed)
 
-- **Code:** the home page shows the membership band only with membership on and the activity cards only with activities on; sitemap and robots take their paths from the registry; `api.seed_site_blocks(tenant_id)` inserts `home-intro` and `site-footer` with placeholder text in the tenant's language.
+- **Code:** `/` renders the page flagged `is_home` when the tenant has one, else the shell's composition — the membership band only with membership on, the activity cards only with activities on; sitemap and robots take their paths from the registry; `api.seed_site_blocks(tenant_id)` inserts `home-intro` and `site-footer` with placeholder text in the tenant's language.
+- **Database:** `cms.cms_pages.is_home BOOLEAN NOT NULL DEFAULT false`, with a partial unique index on `(tenant_id) WHERE is_home` (phase 2, additive). Copy actions: pages have none.
 - **Tests:** C6 6, 8.
 
 #### reporting (phase 1)
@@ -469,7 +470,7 @@ The type is what the operator chooses once, in words a person uses: a *verenigin
 
 ### C4.2 The registry is code; the enabled set is data
 
-What a module owns — which menu items, which route prefixes, which tiles — changes whenever the code changes, so it lives with the code, in one kernel module, and a new module is one entry there. Which modules a tenant has on is a fact about that tenant and lives in a table. A table describing modules would drift from the code within a release; a settings key with a list would be a string nobody validates. Module codes are therefore not a code list with a label table: the registry carries the label, as CR-17 decided for block types.
+What a module owns — which menu items, which route prefixes, which tiles — changes whenever the code changes, so it lives with the code, in one kernel module, and a new module is one entry there. Which modules a tenant has on is a fact about that tenant and lives in a table. A table describing modules would drift from the code within a release; a settings key with a list would be a string nobody validates. Module codes are an `Enum` in code (`ModuleCode`), the registry keyed by it, and `tenant_modules.module_code` carries a `CHECK` on its values — CR-12's "code plus Enum" without the code table: a module exists only when its code exists, so a table would be a second place for a fact the code holds, and the label is the menu label the registry already carries (the platform owner asked why no code table, 2 October 2026; this is the answer he accepted).
 
 ### C4.3 Routes stay included; a dependency refuses
 
