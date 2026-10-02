@@ -16,7 +16,9 @@ clock inside `run_validated`, so a test of fixed years ticks the years):
 - "Dit jaar" ticked beside next year means both (Koen's choice): the relative
   value is added to the fixed one, on screen and in what is saved;
 - #1453: the year ticks run from new to old under "Dit jaar", so this year and
-  next stand at the top of the box; another closed list keeps its own order.
+  next stand at the top of the box; another closed list keeps its own order;
+- #1456: the filter is a collapsed multiselect — closed, one line names the
+  choice; it stays open across the panel's re-render only while it was open.
 
 Proven red against master `cbd15865`: there a filter takes one value
 (`params.get`), so the two-year panel shows 2027 only — the last value wins.
@@ -223,3 +225,51 @@ def test_another_closed_list_keeps_its_own_order(client, db_session, situation):
     assert {"Iedereen", "Kinderen", "Vrouwen"} <= set(ticks), ticks
     assert ticks == natural, f"the ticks keep the list's own order: {ticks} vs {natural}"
     assert ticks != sorted(ticks, reverse=True) or len(ticks) < 2, "not turned around"
+
+
+def _summary(page: str) -> str:
+    """The one line a closed multiselect shows."""
+    found = re.search(r'<summary[^>]*>\s*<span class="truncate">([^<]*)</span>', page)
+    assert found, "the filter is a collapsed dropdown with a summary line"
+    return found.group(1).strip()
+
+
+def _details(page: str) -> str:
+    found = re.search(r"<details[^>]*>", page)
+    assert found, "the filter is a <details> dropdown"
+    return found.group(0)
+
+
+def test_closed_the_filter_names_the_ticked_values(client, db_session, situation):
+    """#1456: Koen saw a 240 px box of ticks push the annual programme off his
+    phone. Closed, the filter is one line that says what is chosen.
+
+    Red against master `e73da3ff`: there is no summary line, the box is open.
+    """
+    login(client, db_session)
+
+    def page(*ticks):
+        return client.get(f"/admin/rapporten/paneel?{_query(*ticks)}").text
+
+    ticked = page("@dit_jaar", "2027")
+    assert _summary(ticked) == "Dit jaar, 2027"
+    assert " open" not in _details(ticked), "closed until it is used"
+    assert _summary(page()) == "Alle"
+    assert _summary(page("2025", "2026", "2027", "@dit_jaar")) == "4 gekozen"
+
+
+def test_it_reopens_only_while_it_was_open(client, db_session, situation):
+    """A tick re-renders the whole panel. `open_filter` travels only while the
+    list is open, so the next render opens it again — and only then."""
+    login(client, db_session)
+    base = f"/admin/rapporten/paneel?{_query('2027')}"
+
+    open_page = client.get(f"{base}&open_filter={YEAR_FILTER}").text
+    closed_page = client.get(base).text
+
+    assert " open" in _details(open_page)
+    assert " open" not in _details(closed_page)
+    field = re.search(r'<input type="hidden" name="open_filter"[^>]*>', closed_page)
+    assert field and "disabled" in field.group(0), "sent only while open"
+    stray = client.get(f"{base}&open_filter=activity").text
+    assert " open" not in _details(stray), "a filter that is not there opens nothing"
