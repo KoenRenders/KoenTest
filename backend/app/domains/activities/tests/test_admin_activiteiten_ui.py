@@ -1,7 +1,7 @@
 """Fase 4a-4 (#402): admin-activiteitenbeheer server-rendered (htmx)."""
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product, sent_to_sign_in
 
 
 def _login(client):
@@ -11,7 +11,7 @@ def _login(client):
 
 
 def test_admin_activiteiten_requires_session(client):
-    assert client.get("/admin/activiteiten").status_code == 401
+    assert sent_to_sign_in(client, "/admin/activiteiten")
 
 
 def test_admin_activiteit_aanmaken_en_detail(client, db_session):

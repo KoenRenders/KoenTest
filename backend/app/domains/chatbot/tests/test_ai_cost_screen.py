@@ -12,7 +12,7 @@ from sqlalchemy import text as sql_text
 from app.database import SessionLocal
 from app.domains.chatbot.api import sink_for
 from app.kernel.tenancy import DEFAULT_TENANT_ID
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, sent_to_sign_in
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -104,4 +104,4 @@ def test_another_department_is_not_on_the_screen(client, leeg_logboek):
 
 
 def test_the_screen_needs_an_admin(client):
-    assert client.get("/admin/info/ai-kosten").status_code == 401
+    assert sent_to_sign_in(client, "/admin/info/ai-kosten")

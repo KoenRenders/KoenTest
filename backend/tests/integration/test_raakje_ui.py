@@ -2,7 +2,7 @@
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.chatbot.models import ChatbotInfo
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, sent_to_sign_in
 
 
 def _login(client):
@@ -58,7 +58,7 @@ def test_ai_context_scherm_en_notitieflow(client, db_session):
 
 
 def test_ai_context_requires_session(client):
-    assert client.get("/admin/ai-context").status_code == 401
+    assert sent_to_sign_in(client, "/admin/ai-context")
 
 
 def test_document_toont_gelezen_ocr_tekst(client, db_session):

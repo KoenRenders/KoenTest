@@ -330,6 +330,22 @@ def form_guard_fields() -> dict:
     return {HONEYPOT_FIELD: "", TOKEN_FIELD: issue_token(now=time.time() - 5)}
 
 
+def sent_to_sign_in(client, path: str) -> bool:
+    """Does a signed-out browser that opens `path` land on the sign-in page,
+    carrying `path` back as `terug`? (#1458)
+
+    What a back-office screen does without a session since #1458: a 303, not a
+    401 a browser shows as bare JSON. The `terug` is asserted too, so the test
+    also fails when the redirect forgets the page it came from.
+    """
+    from urllib.parse import quote
+
+    answer = client.get(path, follow_redirects=False)
+    return answer.status_code == 303 and answer.headers.get("location") == (
+        f"/aanmelden?terug={quote(path, safe='/')}"
+    )
+
+
 def person_proof():
     """The same, as the `Proof` a service takes when a test calls it directly."""
     from app.kernel.form_guard import Proof

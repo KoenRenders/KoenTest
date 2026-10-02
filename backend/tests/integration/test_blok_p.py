@@ -4,7 +4,7 @@ werkbank (sessie-auth, CSRF, sluiten-door-beslissing)."""
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.forms.models import FieldType, Form, FormStatus, FormSubmission
 from app.domains.workflow.models import TaskStatus, WorkflowTask
-from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields, sent_to_sign_in
 
 
 def _login(client):
@@ -53,7 +53,7 @@ def test_bericht_requires_name_and_message(client, db_session):
 
 
 def test_werkbank_requires_session(client):
-    assert client.get("/admin/werkbank").status_code == 401
+    assert sent_to_sign_in(client, "/admin/werkbank")
 
 
 def test_werkbank_lists_and_closes_task(client, db_session):

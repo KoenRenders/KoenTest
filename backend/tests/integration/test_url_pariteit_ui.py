@@ -6,7 +6,7 @@ import io
 from PIL import Image
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, sent_to_sign_in
 
 
 def _login(client):
@@ -61,7 +61,7 @@ def test_fotos_paginas(client, db_session):
 
 
 def test_admin_dashboard(client):
-    assert client.get("/admin").status_code == 401
+    assert sent_to_sign_in(client, "/admin")
     _login(client)
     resp = client.get("/admin")
     assert resp.status_code == 200

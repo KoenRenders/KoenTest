@@ -5,7 +5,7 @@ admin-UI-routes ze correct ontsluiten (auth, telling, gemiddelde, JSON-vorm)."""
 import json
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields, sent_to_sign_in
 from tests.integration.test_forms import _create_form, _field_id, _option_id
 
 
@@ -37,7 +37,7 @@ def _submit(client, form, *, checkbox_opt, rating):
 
 def test_resultaten_requires_session(client, admin_headers):
     form = _create_form(client, admin_headers)
-    assert client.get(f"/admin/formulieren/{form['id']}/resultaten").status_code == 401
+    assert sent_to_sign_in(client, f"/admin/formulieren/{form['id']}/resultaten")
 
 
 def test_resultaten_toont_tellingen_en_gemiddelde(client, admin_headers):

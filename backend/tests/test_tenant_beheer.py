@@ -11,7 +11,7 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.auth.models import User, UserRole
 from app.kernel.tenancy import TENANT_VOORBEELD_ID
 from app.kernel.tenant_config import TenantSetting, get_setting
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, sent_to_sign_in
 
 
 def _login(client, db_session, *, operator: bool) -> str:
@@ -36,8 +36,8 @@ def _zonder_operator(db_session):
 
 def test_lijst_en_editor_zijn_operator_only(client, db_session):
     """Beide schermen zitten achter dezelfde poort — de editor is niet de zwakke plek."""
-    assert client.get("/admin/tenants").status_code == 401
-    assert client.get(f"/admin/tenants/{TENANT_VOORBEELD_ID}").status_code == 401
+    assert sent_to_sign_in(client, "/admin/tenants")
+    assert sent_to_sign_in(client, f"/admin/tenants/{TENANT_VOORBEELD_ID}")
 
     _zonder_operator(db_session)
     _login(client, db_session, operator=False)
