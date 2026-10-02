@@ -37,7 +37,7 @@ muted brand blue `37 78 115` (hover `25 57 88`), ink `33 45 58` and soft ink
 tint `230 239 247` for the active navigation row and the inset, focus
 `25 95 157`, and one warm accent `238 193 94` (yellow, text `37 44 53`) that
 the public site uses for its one call to action and the back office does not
-use at all; danger `166 37 37`, warning `116 77 9`, success `24 103 72`, each
+use at all; danger `166 37 37`, warning **`194 65 12`** (a real orange — ChatGPT's muted `116 77 9` did not read as "something to do" on an open amount; Koen, 2 October 2026, block 3; contrast on white about 4.6 : 1, measured again at the build), success `24 103 72`, each
 with a soft tint. Every value is an RGB triplet, as the tokens are today, and
 the eight official brand colours of the house style are no longer the
 palette: Koen let the house style go overboard for a calmer, professional
@@ -61,7 +61,7 @@ inset is only ever inside a card. The same three on the public site and in
 the admin. No `bg-*` class in a domain template. (Phase 2. Row 9.)
 
 **Radius, decided** (block 1, Koen, 2 October 2026): cards 10 px in the back
-office, 14 px on the public site; every control (button, field, chip, tab,
+office, 14 px on the public site; every control (button, field, segment, tab,
 navigation row) 6 px; badges and small blocks 4 px; a round badge 999 px. This
 replaces the 18 px cards of today and the 12 px the concepts tested (CR-11
 Q18 is closed by it).
@@ -74,7 +74,7 @@ binding: each step has one use, applied by a macro, never by a template.
 | Step | Use | Applied by |
 |---|---|---|
 | 4 | label to control; icon to its text | `field`, `btn_*` |
-| 8 | button padding; gap between chips | `btn_*`, `chips` |
+| 8 | button padding; gap between toolbar controls' segments | `btn_*`, `status_filter` |
 | 12 | field to field inside a section | `form_grid` |
 | 16 | card padding; gap between toolbar controls | `card`, `toolbar` |
 | 24 | card to card; summary card to content | layouts |
@@ -185,7 +185,7 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
 ```
 ┌ shell ────────────────────────────────────────────────────────────┐
 │ Title                     [tile] [tile] [tile]   [+ Nieuw] [⚙ Instellingen] │  title row
-│ (chips: alle · open · …)  [search…] [filter ▾] [filter ▾]  1–50 van 312 · 50 ▾  [⋯] │  toolbar row
+│ [alle|open|…]  [search…] [filter ▾] [filter ▾]  1–50 van 312 · 50 ▾  [⋯] │  toolbar row
 │ ┌ table or cards ─────────────────────────────────────────────┐ │
 │ │ row (the whole row is the link)                        [⋯] │ │
 │ │ …                                                           │ │
@@ -194,18 +194,22 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-- **Title row:** the title (`h1`); at its right the KPI **tiles** inline
-  (figure and label, no card around them; each a filter: it says what it
-  counts and which rows open — a count opens the rows counted, a sum opens
-  the rows summed, "activiteiten met een volzet onderdeel" counts
-  activities and not components; a figure that can do neither is not a
-  tile); then "+ Nieuw <item>" and, when the module has configuration,
-  "Instellingen" with the gear. Nothing else: no link to another module, no
-  explanation line, no breadcrumb (the menu shows the place). [31, 34, 35,
-  36, 45]
-- **Toolbar row:** status chips at the left; search; the filters; the
-  count "x–y van n" with the page size (25 · 50 · 100); `⋯` with export and
-  the rest. One row; it wraps only on a phone. [6, 45]
+- **Title row:** the title (`h1`); at its right the **key figures** inline
+  (figure and label as plain text, thin dividers between them, no card,
+  **not clickable** — the figures are read, the toolbar's status filter filters;
+  block 2, Koen, 2 October 2026, replacing "each a filter"); then **one
+  primary button, "+ Nieuw <item>"**, or none (Betalingen). Nothing else:
+  every secondary action of the screen — export, import, "Instellingen" —
+  lives under the toolbar's `⋯`, on a desktop as on a phone (block 3, Koen,
+  2 October 2026: consistency over one click — "afhankelijk van hoe je het
+  gebruikt werken dingen wel of niet, ik word daar gek van"); no link to
+  another module, no explanation line, no breadcrumb (the menu shows the
+  place). [31, 34, 35, 36, 45]
+- **Toolbar row:** the same five things in the same order at every width
+  — the status filter at the left (§3.13); the search, growing; one
+  **Filters** button; the count "x–y van n" with the page size (25 · 50 ·
+  100); `⋯` with the screen's secondary actions. One row on a desktop; three
+  on a phone (status · search · count with `⋯`). [6, 45]
 - **The list:** in the admin always a **table** (a picture is a thumbnail
   column); cards only on the public site and in the media library. Sortable
   columns as the norm, a column chooser under `⋯`; no horizontal scrolling
@@ -346,7 +350,7 @@ block per item with its own fields underneath and, when it has them, its
 own child group (a component with its settings and its products) — so it
 is visible which product belongs to which component and which settings are
 whose; the one-among-many marker
-("hoofdadres") as a chip on the row; "nog geen …" and the add button when
+("hoofdadres") as a tag on the row; "nog geen …" and the add button when
 empty; the rows are committed with the screen's save, never on their own.
 Instances: contact details, addresses, activity dates, components,
 products, form options, order lines. [1, 50]
@@ -391,29 +395,38 @@ row. [22, 46, 50]
 ### 3.7 `pager(page, size, total)`
 
 Two renderings from one macro: in the toolbar row the count "x–y van n"
-with the page-size select; at the bottom "‹ vorige · volgende ›". Always a
-total (an approximate "van meer dan 10 000" where counting is heavy);
-"Pagina n" does not exist. Hidden when everything fits. [6]
+with the page-size select (on a phone the page size moves under `⋯`); at
+the bottom "‹ Vorige · Volgende ›" only, right-aligned on a desktop, at
+the two edges on a phone, the first and last disabled. Always a total (an
+approximate "van meer dan 10 000" where counting is heavy); an empty list
+says "0–0 van 0"; a new search, status, filter or page size goes to page
+1; "Pagina n" does not exist. Hidden when everything fits. (Block 3, 2
+October 2026.) [6]
 
-### 3.8 `tiles(items)` — one figure per tile
+### 3.8 `figures(items)` — the key figures, one figure each ("tiles" in the rows of CR-11)
 
-Inline in the title row: **one figure** per tile (`text-2xl
-font-extrabold`; the macro takes a single value and refuses a pair or a
-stacked amount — two things to do are two tiles, "Nog te ontvangen" and
-"Nog terug te betalen"), label (`text-xs`), optional second line of
-context that is not a second figure); the label is always one
-line — the macro cuts it with "…" and never wraps it, the full text in
-the `title` — and the figure sits directly under it at a fixed distance,
-so the figures of one row are on one line by themselves and a tile is no
-higher than label plus figure; tile labels are short by rule ("Open
-inschrijving", not "Activiteiten met open inschrijving"): a label fits
-on one line in the narrowest tile of its row at 390 px or it is
-rewritten — the ellipsis is a safety net, a real label that gets cut is
-red, and what does not fit goes into the tile's one line of context or a
-hint that works on touch [55, 58, 60]; each a link that sets the list's
-filter;
-the active tile marked. A tile colours only when its figure asks for
-attention (an open balance, an overdue count). [10, 36, 52]
+Inline in the title row, as plain text: **one figure** per item (`text-2xl`,
+tabular digits; the macro takes a single value and refuses a pair or a
+stacked amount — two things to do are two figures, "Nog te ontvangen" and
+"Nog terug te betalen") with one short label under it (13 px, two or
+three words: "Open activiteiten", "Te vernieuwen 2027", "Netto ontvangen")
+and the full definition in the `title`; a qualifier belongs in the label,
+a count beside an amount is a second figure, so there is no second line.
+Thin dividers between the figures, **no card, no border, no hover, not a
+link**: a figure is read, and the rows it counts are found with the
+toolbar's status filter — the fix for row 36 is that the segment with the same name
+exists, not that the figure is a button (Koen, 2 October 2026, choosing
+the subtle figures of ChatGPT's brief-01 frame over the card tiles of
+brief 02). The figures of one row share one baseline; a label fits on one
+line at 390 px or it is rewritten — the ellipsis is a safety net, a real
+label that gets cut is red [55, 58, 60]. At most four or five figures per
+head, or the title row is a dashboard. A figure colours only when it asks
+for attention: the `warning` token on an open amount above zero, nothing
+else coloured. On a phone the figures sit on one line under the title and
+wrap to a second when they must. Which lists have figures and which: §5
+(Betalingen three — Netto te betalen · Nog te ontvangen · Nog terug te
+betalen; Leden three; Activiteiten two; Werkbank and Abonnees two each when
+built; the rest none). [10, 36, 52]
 
 ### 3.9 `record_header(title, badges, facts, primary, actions=[…])` — actions as data
 
@@ -453,13 +466,60 @@ record it names. [20, 30]
 
 The tab bar of the record page: "Gegevens" first, then the related lists
 with counts, the same order per entity across the portal (defined once per
-entity in Part 5). [19]
+entity in Part 5). **Tabs — an underline under the active item — are
+navigation inside a record and nothing else**: they lead from a record to
+its linked objects, the content below switches, the place stays. A tab bar
+never appears in a list's toolbar, and a list's status filter never looks
+like one (Koen, 2 October 2026: today Betalingen's status filter is drawn
+as tabs and the activity's tabs look the same, so the eye cannot tell a
+filter from a place). [19]
 
-### 3.13 `toolbar(…)`
+### 3.13 `toolbar(…)` — five things, same order at every width
 
-The list's second row: chips, search, filters, pager count, `⋯`. The
-embedded rendering drops the chips' page-level variants and keeps one
-status filter. [45, 29]
+The list's second row — **status filter · search · Filters · count with
+page size · `⋯`** — identical on a desktop and on a phone, where it
+wraps to three lines (block 3, Koen, 2 October 2026: consistency over one
+click; nothing sits on two places at once, nothing changes place by
+device).
+
+**The status filter is a segmented control** (`status_filter`): one
+bordered group of segments, one segment chosen, on the brand tint, 36 px
+high like a button (44 on a phone); `fieldset` with radio inputs, Tab
+enters, the arrows choose; it reads as a control, never as navigation;
+no loose pills, and the word "chip" is not used (it replaces the three
+shapes of today — Leden's pills, Activiteiten's pills, Betalingen's tabs
+with counts). **Which segments is a choice per list**, written in §5, not
+a formula: a segment is a state the board acts on; a done state gets no
+segment; "Alle" is not mandatory. **A segment carries its count** where
+the state is acted on — "Openstaand 3" — computed with the search and
+the other filters of that moment, so the count is what the click yields;
+"Alle" carries none (the toolbar's count says n); a zero stays ("nothing
+to do" is information). Decided: Betalingen *Alle | Openstaand n*; Leden
+*Actief n | Te vernieuwen n | Opgezegd*; Activiteiten *Komende | Archief |
+Alles* (periods, no counts). Six or more segments become one select below
+1 080 px of list width; never two lines, never a scroll strip.
+
+**The search** grows with the row (180–480 px, full width on a phone),
+the magnifier is its submit, `type="search"` gives the clear; it stands
+second, after the status filter: scope before query, and a fixed block at
+the left keeps the right-hand group in place while the search grows
+(Koen, 2 October 2026, keeps the order). The `/` key stays the top bar's.
+
+**Filters is always one button** (`filter` glyph), also with a single
+select, also at 1 920 px: it opens a panel with the list's selects
+(context, year, a multi-select) and one Toepassen; a multi-select is
+collapsed to one line ("Te controleren +1") and opens to a tick list,
+never a checkbox group in the row (row 61). The selects never stand in
+the row and never move by device.
+
+**`⋯` holds the screen's secondary actions** — export, import,
+Instellingen — in a fixed order, and on a phone the page size; it never
+repeats a button that is visible elsewhere. The count and the page size
+come from `pager` (§3.7).
+
+The embedded rendering inside a record keeps the status filter, the
+search, the count and `⋯`; no title row, no figures, no context select
+(the record is the context). [45, 29]
 
 ### 3.14 `account_menu`
 
@@ -551,9 +611,9 @@ what is marked *proposed* is the author's draft of the per-screen columns,
 confirmed with Koen at that screen's phase (pilot A for Activiteiten and
 Betalingen, the roll-out for the rest). Today's state stands beside it so
 the distance is visible. The rules behind the columns: a tile is one
-figure, a filter, a one-line label (rows 36, 52, 58, 60); a row shows the
+figure with a one-line label, plain text, not a filter (rows 36, 52, 58, 60; block 2); a row shows the
 same three or four things for every record, omitted when they do not apply
-(row 36); the toolbar is one row — chips, search, filters, the count with
+(row 36); the toolbar is one row — the status filter, search, filters, the count with
 the page size, `⋯` (rows 6, 45); every list pages (P1); no list scrolls
 sideways (row 11); the row is the way in (row 26); the list's state is its
 URL (row 57).
@@ -564,11 +624,11 @@ Shell width for every list: the wide frame (row 11); today three lists set
 `max-w-none` themselves and the rest take the shell's reading width.
 "Today" names the shape, the tiles and the toolbar as measured.
 
-| Screen | Today | End state: a row shows | Tiles (*proposed*) | Toolbar: chips · search on · filters · sort | Header |
+| Screen | Today | End state: a row shows | Tiles (*proposed*) | Toolbar: status filter · search on · filters · sort | Header |
 |---|---|---|---|---|---|
-| Activiteiten | cards; tiles Open inschrijving · Volzette onderdelen; search, chips Komende/Archief/Alles; no pager | name with status badges · first date and time · location · registrations count (omitted without a component) | Open inschrijving · Volzet onderdeel (activities with one) | Komende · Archief · Alles; name, location; year; date | + Nieuwe activiteit |
+| Activiteiten | cards; tiles Open inschrijving · Volzette onderdelen (end state: Open activiteiten · Volzet onderdeel — "inschrijving" is too hard a word, Koen, 2 Oct 2026); search, chips Komende/Archief/Alles; no pager | name with status badges · first date and time · location · registrations count (omitted without a component) | Open inschrijving · Volzet onderdeel (activities with one) | Komende · Archief · Alles; name, location; year; date | + Nieuwe activiteit |
 | Leden | cards; three tiles; search, chips Alle/Actief/Opgezegd, year select; pager 25 | household name · municipality · persons · membership state badge | Actieve gezinnen · Actieve personen · Te vernieuwen (year) | Alle · Actief · Opgezegd; name, street, e-mail; membership year; name | Leden importeren · + Nieuw lid |
-| Betalingen | table grouped per registration; four tiles; status tabs with counts, search, context filter, status select; pager 50; export in the filter bar; `max-w-none` | name/reference · context · status badge · amount · received · balance (W1's two tiles carry the totals) | Netto te betalen · Ontvangen · Nog te ontvangen · Nog terug te betalen | Alle · Openstaand · Betaald · Terugbetaald; name, OGM, description; context, status; date · export under `⋯` | none (the breadcrumb goes; row 35) |
+| Betalingen | table grouped per registration; four tiles; status tabs with counts, search, context filter, status select; pager 50; export in the filter bar; `max-w-none` | name/reference · context · status badge · amount · received · balance (W1's two tiles carry the totals) | Netto te betalen · Nog te ontvangen · Nog terug te betalen (Koen, 2 Oct 2026; "Ontvangen" and the booking count go — the toolbar's count shows n) | Alle \| Openstaand n (Koen, 2 Oct 2026; Betaald, Terugbetaald and Terug te betalen get no segment); name, OGM, description; context, status; date · export under `⋯` | none (the breadcrumb goes; row 35) |
 | Formulieren | cards; search, status select; no pager | title · status badge · submissions count · last submission | Open · Inzendingen deze maand | Alle · Open · Gesloten; name; —; updated | Instellingen (holds "Formaat (voor AI)", row 34) · + Nieuw formulier |
 | Vergaderingen | cards; search; no pager | date · status badge · location · points count | Volgende · Verslag open | Komende · Voorbije; date, location; year; date | Instellingen · + Nieuwe vergadering |
 | Nieuwsbrieven | cards; search; no pager | subject · status badge · audience · sent or updated moment · while sending: progress | Verstuurd dit jaar · Abonnees | Concept · Verstuurd; subject; audience; updated | Instellingen · Abonnees · + Nieuwe nieuwsbrief |
@@ -576,7 +636,7 @@ Shell width for every list: the wide frame (row 11); today three lists set
 | Pagina's | cards; search, chips; manual order with ↑↓; no pager | title · /slug · gepubliceerd/concept badge · in navigatie badge | Gepubliceerd · Concept | Alles · Gepubliceerd · Concept · In navigatie; title, slug; —; manual order (the handle of the repeating-group row) | + Nieuwe pagina |
 | Media | inline-edit cards in a 2-column grid; search, kind select, activity select; no pager | **cards (grid)** — the one admin exception: thumbnail · title · kind · origin (activity) · clearance badge (CR-15) | — | Alle · per kind; title; activity, year, in gebruik (CR-15); newest | + Uploaden |
 | Design Studio | cards without thumbnail; search; no pager | **thumbnail column** (the latest render) · activity · status badge · versions · updated | — | Alle · Gepubliceerd · Verouderd; activity; —; updated | + Nieuw ontwerp |
-| Gebruikers | inline-edit list, one form per row; search, role select, active chip | e-mail · active badge · roles as chips (row 44: the row opens the record) | Actief | Actief · Alle; e-mail; role; e-mail | + Nieuwe gebruiker |
+| Gebruikers | inline-edit list, one form per row; search, role select, active chip | e-mail · active badge · roles as tags (row 44: the row opens the record) | Actief | Actief · Alle; e-mail; role; e-mail | + Nieuwe gebruiker |
 | Organisaties | cards; search, type select; empty header | name · type badge · code · legal form · inactive badge | — | Alle · per type; name, code; —; type, name | none (created elsewhere, by design) |
 | Tenants | cards; search, status select | name · /code · active badge · platform badge | — | Actief · Inactief; name, code; —; id | + Nieuwe tenant |
 | Rapporten | cards with description and chips; search, owner and shared selects; AI buttons in the header | name · shape icon · privé/meegeleverd badge · owner · last opened | — | Mijn · Meegeleverd · Alle; name, description; owner; name | + Nieuw rapport (the AI buttons go: Raakje is the shell's trigger, row 32) |
@@ -663,7 +723,7 @@ screenshot baselines diffed (with the stability protocol of CR-11 B7).
 
 **The eye** — the merge gate and the classification of Part 5, where a
 test can list candidates from word lists but a person decides: whether a
-custom button label names a consequence · whether a tile filters what it
+custom button label names a consequence · whether a figure's label says what it
 counts · whether a control is a one-off or a legitimate new component ·
 whether a link's text names its target · whether a screen is a record or a
 document · which columns a list needs · what a card shows. This document
