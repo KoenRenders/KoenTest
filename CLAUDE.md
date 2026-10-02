@@ -371,6 +371,16 @@ release afwerken*, *Testen en test-evidence* — and this table is only the
 
 **Step 14 exists because CR-14 showed what happens without it** (retrospective, 2 October 2026): two days after v2.10.0 was on PROD its tracking issue still said "not assigned to a release", the document's status line still said v2.9.0, and two passages promised behaviour that the build had deliberately replaced. A change request that is not closed out keeps telling the next reader the design, not what runs.
 
+**As-built notes are the master CLI's to write, directly into the document**
+(Koen, 2 October 2026). A deviation decided during the build goes into the
+change request's decisions log (B9, dated, marked "built as") by the master
+CLI at the merge, on the branch where the document lives — not as a message to
+the architecture CLI. Every cross-session message lands in Koen's terminal
+while he is working with that CLI, and a note that only needs recording is not
+worth that interruption. The architecture CLI reads the log at the close-out
+(step 14) and folds it into the text the deviation contradicts. Message the
+architecture CLI only for a question that needs its answer.
+
 **Step 3 sits where it sits for a reason, and it used to sit at 11.** Koen spotted
 that on 27 September 2026: *"Dan is het te laat."* The closing comment exists to tell
 him **how to test the issue on HDEV**, and he tests on HDEV before the tag, before
@@ -684,6 +694,15 @@ only ever point at a separate `raaktest` database — never the real one.
 > Note: this repo uses Docker Compose v2 (`docker compose`, space), not v1
 > (`docker-compose`, hyphen). The older `docker-compose` examples elsewhere in
 > this file are legacy; prefer `docker compose`.
+
+### Review op verzoek (conventie, CR-18)
+
+Een review — van een change request of van een PR met code — start alleen op
+vraag: label **`ai-review`** op de PR of het tracking-issue, plus één zin die
+het scope noemt. De reviewer (een AI-tool of een mens) antwoordt als comment op
+die PR/issue volgens `docs/review-protocol.md`. Advies, nooit blokkerend: alleen
+CI blokkeert een merge; Koen beslist wat er wordt ingegenomen, en de
+besluitenlog van de CR noteert de uitslagen.
 
 ### CI
 

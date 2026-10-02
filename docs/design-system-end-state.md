@@ -29,17 +29,42 @@ what refuses a deviation. A builder reads 2 and 5 to know what a screen is,
 `scripts/build-css.sh` reads both; a template names a token, never a
 value. (Phase 2. Rows 9, 16; R12.)
 
+**The first brand file is decided** (block 1, Koen, 2 October 2026, choosing
+between ChatGPT's two directions on the same frame): palette *Atelier* — a
+muted brand blue `37 78 115` (hover `25 57 88`), ink `33 45 58` and soft ink
+`83 99 115`, a cool grey ground `244 246 248` with a second surface
+`240 243 246`, lines `216 224 230` and control lines `126 143 158`, a soft brand
+tint `230 239 247` for the active navigation row and the inset, focus
+`25 95 157`, and one warm accent `238 193 94` (yellow, text `37 44 53`) that
+the public site uses for its one call to action and the back office does not
+use at all; danger `166 37 37`, warning `116 77 9`, success `24 103 72`, each
+with a soft tint. Every value is an RGB triplet, as the tokens are today, and
+the eight official brand colours of the house style are no longer the
+palette: Koen let the house style go overboard for a calmer, professional
+workplace (CR-11 B10, 2 October 2026). The sidebar is **light** (white, ink
+`50 66 81`, active row on the brand tint with a brand-blue text) — not a dark
+band; the dark green sidebar of direction B was rejected. The reference
+files are ChatGPT's A files in Koen's project folder (`brief-01-kader/`,
+`tokens-a-backoffice.css` and `tokens-a-publiek.css`); the build takes its
+values from there and this document is the norm when they differ.
+
 ### 1.2 Surfaces — three levels, and nothing else
 
 | Token | What | Text on it | Border |
 |---|---|---|---|
 | `surface-page` | the page ground, one light grey | `ink` | — |
-| `surface-card` | a card, white, radius 18 px, one soft shadow | `ink` / `ink-soft` | `border-card` |
-| `surface-inset` | a block inside a card (a summary line, a read-only group), lighter grey, radius 12 px | `ink-soft` | none |
+| `surface-card` | a card, white, radius 10 px in the admin and 14 px on the public site, one soft shadow (`0 1px 2px`, ink at 3.5 %) | `ink` / `ink-soft` | `border-card` |
+| `surface-inset` | a block inside a card (a summary line, a read-only group), the brand tint or the second surface, the control radius (6 px) | `ink-soft` | none |
 
 The shell paints `surface-page`; the card macro paints `surface-card`; the
 inset is only ever inside a card. The same three on the public site and in
 the admin. No `bg-*` class in a domain template. (Phase 2. Row 9.)
+
+**Radius, decided** (block 1, Koen, 2 October 2026): cards 10 px in the back
+office, 14 px on the public site; every control (button, field, chip, tab,
+navigation row) 6 px; badges and small blocks 4 px; a round badge 999 px. This
+replaces the 18 px cards of today and the 12 px the concepts tested (CR-11
+Q18 is closed by it).
 
 ### 1.3 Spacing — where each step of the scale goes
 
@@ -55,7 +80,8 @@ binding: each step has one use, applied by a macro, never by a template.
 | 24 | card to card; summary card to content | layouts |
 | 32 | section to section inside a form | `section` |
 | 48 | header to content on a record page | `record_page` |
-| 64 | page margin on a desktop | shells |
+| 24 / 32 | page margin on a desktop: 24 px at 1 440 px, 32 px from 1 680 px (block 1, 2 Oct 2026; replaces the 64 px here before) | shells |
+| 64 | no use in the frame; kept in the scale for a poster area on the public site | — |
 
 (Phase 2. Rows 2, 23.)
 
@@ -63,9 +89,9 @@ binding: each step has one use, applied by a macro, never by a template.
 
 | Layout | Desktop | Phone (< 768 px) |
 |---|---|---|
-| list page | wide: `max-w-7xl`, 1280 px | one column, 16 px gutters |
-| record page | wide frame `max-w-7xl`; the form column `max-w-3xl`, 768 px, centred in the frame | one column, 16 px gutters; the summary as a strip above |
-| document page | reading width `max-w-3xl`, centred | one column, 16 px gutters |
+| list page | the full content width beside the sidebar, no `max-w`: a list grows with the screen (block 1 replaces the 1 280 px box here before) | one column, 16 px gutters |
+| record page | the full frame; inside it one **reading group** of 768 px form column + 24 px gap + 300 px summary column (1 092 px), centred when the frame is wider | one column, 16 px gutters; the summary as a strip above |
+| document page | reading width 768 px, centred | one column, 16 px gutters |
 
 **Two priorities, one kit** (Koen, 2 October 2026): the public site is
 designed phone-first — 390 px is where a public page is drawn first and
@@ -77,15 +103,22 @@ check, read) reachable, but not a day's workplace. The rules below hold on
 both faces; the priority says which width a block is designed at first.
 
 **Breakpoints follow the content, not two device classes.** In the back
-office everything fits down to 1 440 px — the navigation (220 px), the
-summary column (300 px), the margins and a two-column form; **below 1 440
-the sidebar collapses to an icon rail** and the frame collapses
+office everything fits down to 1 440 px — the navigation (224 px), the
+summary column (300 px), the margins (24 px) and a two-column form; **below 1 440
+the sidebar collapses to an icon rail of 64 px** (labels as tooltips, the
+same items in the same order) and **below 768 px into a drawer behind a
+menu button**; the frame collapses
 by content, not by device: the summary card moves above the content when
 the content column would drop under 640 px, and the form grid goes to one
 column when a half field would be narrower than 260 px, down to the 390 px
 floor (Koen, 2 October 2026).
 At any width the user may collapse the navigation to an icon rail to gain
-room, and the choice is remembered (Koen, 2 October 2026). Board desktops are commonly 1 920 px wide (Koen, 2 October 2026): a list
+room, and the choice is remembered in the browser (`localStorage`; the
+default follows the width) (Koen, 2 October 2026). The top bar is 64 px
+high and carries, in order: the menu button (phone only), the page title
+with room kept for it, the search, the assistant button (§3.15) and the
+account button (§3.14); the sidebar carries the wordmark, the workspace
+name and the one navigation source in groups (block 1, 2 October 2026). Board desktops are commonly 1 920 px wide (Koen, 2 October 2026): a list
 page uses that width, a record page keeps its reading column and summary
 with comfortable margins, and no page is a 1 440 px box in a sea of margin.
 Concepts and screenshots of the admin are judged at 1 920, 1 440 and 390 px; of the public site at 390, 768 and 1 440 px (Koen, 2 October 2026). A screen never sets `max-w-*` on its root.
@@ -107,21 +140,34 @@ exists in row actions and toolbars only, with its `aria-label`.
 | print / afdrukken | `printer` | send / versturen | `send` |
 | filter | `filter` | settings / instellingen | `settings` (the gear, settings and nothing else) |
 | open elsewhere (a reference) | `arrow-up-right` | close | `x` (a toast, a modal, a panel — never delete) |
-| more / ⋯ | `ellipsis` | Raakje | `sparkles` |
+| more / ⋯ | `ellipsis` | the assistant | `sparkles` (with the word "Assistent" beside it in the admin; never the gear) |
+| a group that opens or closes (navigation, details) | `chevron-down` / `chevron-right` — never the gear, which is settings only | | |
 
 (Phase 2. Rows 16, 20, 34.)
 
 ### 1.6 Type
 
-Unchanged from `design-system.md` §1.2 and §1.2a (Inter body, Radio
+**Decided with block 1** (Koen, 2 October 2026): **Inter** for the whole
+back office and for every field, button and control on the public site;
+**Fraunces** (a variable serif, OFL) for the public site's headings and
+poster areas only — direction B's type on direction A's palette. Radio
+Canada Big leaves with the house style. The scale is the concepts': 13 ·
+14 · 16 · 18 · 24 · 30 px (a page title 30 px on a desktop, 28 on a phone;
+body 14 px in the admin, 16 px in public reading text; a public hero title
+64 px, 44 on a phone). The density is the concepts' too: navigation rows
+32 px, buttons 36 px, fields 40 px, a table row about 57 px, a touch target
+44 px on a phone, icons 18 px at a 1.75 px stroke; the spacing between a
+label and its control, between fields and between cards follows §1.3
+unchanged. Before that decision this section read: unchanged from
+`design-system.md` §1.2 and §1.2a (Inter body, Radio
 Canada Big display, the mobile-first scale), with one correction, measured
 against the app and not the concepts (30 Sep 2026): a field label stays
 14 px, what `ui.label` renders today (the concepts drew 13 and the review
 read 11 — both wrong); a tile's label is 13 px, replacing the 11 px of
 today's Betalingen tiles, and comes with the tiles macro; small text
-(11–12 px) is for supplementary information only. Radius: the concepts
-test 12 px for admin cards (calmer, denser) against the current 18 px,
-which the public site keeps — decided at phase 0 (CR-11 Q18). The record header's title is
+(11–12 px) is for supplementary information only; the kit's smallest step
+is 13 px. Radius: see §1.2 — 10 px admin cards, 14 px public cards, 6 px
+controls (block 1 closed CR-11 Q18). The record header's title is
 `text-3xl`; a section heading inside a form is `text-base font-semibold`;
 a repeating group's heading the same, never larger than the section it is
 in. (Row 1.)
@@ -420,12 +466,19 @@ status filter. [45, 29]
 A round badge with the initials, a chevron, hover, focus ring,
 `aria-haspopup`; opens a menu whose first line is "Aangemeld als …", then
 "Mijn profiel", "Werkruimte wisselen", "Uitloggen". One source, rendered in
-the desktop bar and at the bottom of the phone's navigation sheet. [47, 48]
+the top bar at every width — on a phone too, initials and chevron, not at
+the bottom of the navigation drawer (block 1, 2 October 2026, following the
+concepts: the drawer is for navigation, the account stays where the eye
+looks for it). [47, 48]
 
 ### 3.15 `raakje_panel`
 
-One trigger (`sparkles`) in the shell chrome on both sides; opens a side
-panel docked right (a bottom sheet on a phone) with the screen's context;
+One trigger in the shell chrome on both sides: in the admin a bordered
+button in the top bar with the `sparkles` glyph and the word **"Assistent"**
+(icon-only with that `aria-label` on a phone), never a bare icon and never
+the gear; on the public site the tenant's own name for it ("Raakje" here)
+(block 1, Koen, 2 October 2026). It opens a side
+panel docked right from 1 440 px (a modal below, a bottom sheet on a phone) with the screen's context;
 enabled per module by rule (the module's objects are in the reporting
 universe, or its facade exposes commands), otherwise greyed with "Raakje
 kent deze gegevens nog niet". The screen owns its selections; the panel
