@@ -120,6 +120,18 @@ _PAYMENTS_VIEW_ROLES = {"ADMIN", "FINANCE", "OPERATOR"}
 _PAYMENTS_MUTATE_ROLES = {"FINANCE", "OPERATOR"}
 
 
+def admits_admin_ui(roles) -> bool:
+    """Would `require_admin_ui` let someone with these roles in? (#1499)
+
+    For a place that shows the way in — the public header's back-office link —
+    and must not keep its own copy of the set: an operator holds OPERATOR on
+    every tenant and ADMIN on none, and a link that asked for ADMIN alone hid
+    the back office from them. Reads `_GENERAL_ADMIN_ROLES` when called, the
+    set `require_admin_ui` checks.
+    """
+    return bool(_GENERAL_ADMIN_ROLES & set(roles))
+
+
 def _require_ui_roles(request: Request, db: Session, allowed: set[str]) -> str:
     """Identiteit + rolcheck voor server-rendered schermen. Zonder geldige sessie:
     een 401-pagina-redirect naar de login (303 via HTTPException zou de htmx-flow

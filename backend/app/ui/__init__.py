@@ -694,6 +694,7 @@ def _huidige_gebruiker(db, request) -> dict | None:
     try:
         from app.domains.auth.api import (
             SESSION_COOKIE,
+            admits_admin_ui,
             get_user_roles,
             login_person_for_email,
             read_session_value,
@@ -709,7 +710,10 @@ def _huidige_gebruiker(db, request) -> dict | None:
         return {
             "email": email,
             "naam": naam,
-            "is_admin": "ADMIN" in get_user_roles(db, email),
+            # #1499: whoever `require_admin_ui` admits — an operator too, who
+            # holds OPERATOR everywhere and ADMIN on no tenant. The same set,
+            # asked of the auth domain, not a copy of it here.
+            "is_admin": admits_admin_ui(get_user_roles(db, email)),
             "is_member": person is not None,
         }
     except Exception:

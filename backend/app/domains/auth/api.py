@@ -49,6 +49,7 @@ from app.domains.auth.service import (  # noqa: F401
 from app.domains.auth.session import (  # noqa: F401
     SESSION_COOKIE,
     admin_user_by_email,
+    admits_admin_ui,
     csrf_from_request,
     csrf_token_for,
     make_session_value,
@@ -99,6 +100,7 @@ __all__ = [
     "require_roles",
     "SESSION_COOKIE",
     "admin_user_by_email",
+    "admits_admin_ui",
     "csrf_from_request",
     "csrf_token_for",
     "make_session_value",
