@@ -362,6 +362,7 @@ None on 2 October 2026: the four questions of the first reading are answered (B9
 | Date | Decision | By |
 |---|---|---|
 | 2 Oct 2026 | A change request for tenant types and modules per tenant; minimal now (type, set, defaults, absent everywhere when off), a template per type later; the association's departments unchanged; a company tenant starts with pages, media, forms and the workbench, payments later, newsletter and reports Could, no meetings, no membership, no activities; the operator creates and administers, no new user management; the document abstract, naming no organisation. | platform owner |
+| 2 Oct 2026 | Pre-build answers: **Rapporten and Raakje are off by default for `BEDRIJF`** (the defaults stay cms, media, forms, workflow); **C9 is waived** — no concept of the tenant editor, the master CLI's eye at the merge is the net; the seeded blocks' placeholder copy is the author's draft (C2 cms); the sponsors line in the footer is headed **"Partners"** for a `BEDRIJF` tenant and "Sponsors" for a `VERENIGING` (one label per kind in the registry); a "Contacteer ons" on a company's page is a link to one of its forms today and CR-17's button block later — no new button in the shell. | platform owner |
 | 2 Oct 2026 | The e2e seed gets a `BEDRIJF` tenant and the screenshot set its screens, so the company behaviour is looked at by the eye (Q1). | platform owner |
 | 2 Oct 2026 | Module codes are **an Enum in code** (`ModuleCode`), keyed by the registry, with a `CHECK` on `tenant_modules.module_code` listing its values — CR-12's "code plus Enum", without a code table or a label table: a module exists only when its code exists, and its label is the menu label the registry already carries (Q2). | platform owner, on the author's explanation |
 | 2 Oct 2026 | **A page can be the home page** (Q3): a CMS page flagged "dit is de homepagina" renders at `/` for its tenant; without one, the shell's composition renders as today (the home block, and the membership band and activity cards only when those modules are on). A company tenant thus edits its home as a page. | platform owner |
@@ -415,7 +416,7 @@ None on 2 October 2026: the four questions of the first reading are answered (B9
 
 #### cms (phase 1 composition; phase 2 seed)
 
-- **Code:** `/` renders the page flagged `is_home` when the tenant has one, else the shell's composition — the membership band only with membership on, the activity cards only with activities on; sitemap and robots take their paths from the registry; `api.seed_site_blocks(tenant_id)` inserts `home-intro` and `site-footer` with placeholder text in the tenant's language.
+- **Code:** `/` renders the page flagged `is_home` when the tenant has one, else the shell's composition — the membership band only with membership on, the activity cards only with activities on; sitemap and robots take their paths from the registry; `api.seed_site_blocks(tenant_id)` inserts `home-intro` and `site-footer` with placeholder text in the tenant's language — the draft: home-intro *"Welkom bij <naam>. Deze tekst past u aan onder Pagina's."*, site-footer *"<naam>"* (address and contact come from the organisation record through `site_context` already); the sponsors line is headed "Sponsors" for a `VERENIGING` and "Partners" for a `BEDRIJF`.
 - **Database:** `cms.cms_pages.is_home BOOLEAN NOT NULL DEFAULT false`, with a partial unique index on `(tenant_id) WHERE is_home` (phase 2, additive). Copy actions: pages have none.
 - **Tests:** C6 6, 8.
 
@@ -520,7 +521,7 @@ See C1; nothing prototyped. One thing to measure at the build: the request cost 
 
 ## C9. Screens before the build — the concepts the approver saw
 
-Two screens change: the tenant editor (the kind and the module checkbox group with a refusal message) and the new-tenant page (the kind radio). Before the handover: one concept of the tenant editor at 1 440 px, with the refusal shown; invented data, in the platform owner's project folder outside the repository; the date he looked at it goes here.
+**Waived by the platform owner on 2 October 2026**: no concept of the tenant editor before the build; the master CLI's eye at the merge gate is the net.
 
 ## C10. Close-out at the release
 
