@@ -184,6 +184,10 @@ Who calls whom: Koen triggers on GitHub; the reviewer reads the protocol from th
 
 None on these two: the review of a code PR stays per-PR for now — from the first release where the habit holds, the request becomes always (Koen, 3 Oct 2026); the findings are in English, like the docs (Koen, 3 Oct 2026).
 
+| Decision | Options |
+|---|---|
+| Who is the review for, when not Mistral by default — is the addressee part of the trigger? | one label, the addressee in the request sentence (proposed: `review please, <scope> — for <reviewer>`, an @-mention when the reviewer is a bot account) · one label per reviewer (`ai-review-mistral`, `ai-review-claude`, …) · GitHub's requested reviewers |
+
 ## B9. Decisions log — dated answers
 
 | Date | Decision | By |
