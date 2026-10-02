@@ -4,7 +4,7 @@
 **Status:** shaped on 3 October 2026 · on hold — Koen walks through it before anything is assigned
 **Tracking issue:** #1455 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the review procedure and its artifacts (`docs/review-protocol.md`, the PR description template, one label); no product code, no database, no screen.
-**Reading:** A 612 words · B 1450 · C 1320 — measured on 3 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 782 words · B 1450 · C 1320 — measured on 3 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -20,6 +20,31 @@ What the platform owner asks: a review that can be *triggered* — a change requ
 
 Two actors: the platform owner (Koen) and the reviewers (the Claude Code CLI that shapes, the outside AI that reviews). Measured on 3 October 2026.
 
+```mermaid
+flowchart LR
+  subgraph K[Koen — platform owner]
+    k1([A CR is shaped / code is built]) --> k2[Open the reviewer's chat]
+    k2 --> k3[Paste the whole document by hand]
+    k3 --> k8[Read the findings in the chat]
+    k8 --> k9[Copy them, paste into the shaping CLI]
+    k9 --> k10([Findings processed])
+  end
+  subgraph C[Claude Code CLI — shapes]
+    c1[Shape the CR / build the code]
+  end
+  subgraph A[Outside AI — reviews]
+    a1[Read the pasted copy] --> a2[Write findings in the chat]
+  end
+  subgraph P[Portal — GitHub]
+    p1[CI: lint, suite, pip-audit; the master CLI looks]
+  end
+  c1 -.-> k1
+  k3 -.-> a1
+  a2 -.-> k8
+```
+
+What to see in it: the clipboard is the process — every arrow from the reviewer runs through Koen's chat, the portal lane only runs the machine gates, and code review (a route from CI to a reviewer) does not exist at all.
+
 | # | Step | Who | Today | Pain |
 |---|---|---|---|---|
 | 1 | Shape a change request | Koen + the CLI | a `docs/change_request_<NN>_<slug>.md` per the template | none — this works |
@@ -33,6 +58,32 @@ What the measurement adds: the reviews of 2 October 2026 found real defects (CR-
 ## A3. To-be process — how it should work afterwards
 
 Same actors, one new lane: the reviewer, started by a request on GitHub.
+
+```mermaid
+flowchart LR
+  subgraph K[Koen — platform owner]
+    k1([A CR is shaped / a PR is open]) --> k2[Label ai-review, comment the scope and @reviewer]
+    k5[Read the findings on the PR, decide what is taken in]
+    k5 --> k6([Merge — only the master CLI merges])
+  end
+  subgraph R[Reviewer — named by the @-mention]
+    r1([Session starts on the request]) --> r2[Read the protocol, the document or the diff, the code]
+    r2 --> r3[Post the findings as one comment]
+    r3 --> r4([Session ends])
+  end
+  subgraph C[Claude Code CLI — shapes]
+    c1[Process the findings on the PR] --> c2[Record the verdicts in the CR's decisions log]
+  end
+  subgraph P[Portal — GitHub + CI]
+    p1[CI keeps the hard gates: lint, suite, audit]
+  end
+  k2 -.-> r1
+  r3 -.-> k5
+  k5 -.-> c1
+  p1 -.-> k6
+```
+
+What to see in it: the clipboard is gone — every arrow is a link on GitHub; the reviewer is a lane that runs only for the length of a session (no permanent listener), CI stays the only blocker, and the same drawing serves both scopes: a CR review and a code review.
 
 - Step 2 becomes *ask on GitHub*: the change request lands on its branch and the review is requested with one label and one sentence on the PR or the tracking issue; the reviewer reads the document *in the repository*, with the code next to it to verify premises.
 - Step 3 becomes *findings on GitHub*: the reviewer answers as a comment on the PR or issue, structured by the protocol; the CLI that shapes reads them there and processes them; nothing passes through a clipboard.
