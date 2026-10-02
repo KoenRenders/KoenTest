@@ -30,8 +30,9 @@ import unicodedata
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from io import BytesIO
-from typing import Optional
+from typing import Iterable, Optional
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from starlette.datastructures import Headers, UploadFile
 
@@ -369,8 +370,55 @@ def save_design(
 
 
 def delete_design(db: Session, design: Design) -> None:
+    # The design's pictures stay in the library (CR-15 §C4.7): the slots and
+    # the logo strip are references, and they go with the design.
     db.delete(design)
     db.commit()
+
+
+def references_to_media(db: Session, asset_ids: Iterable[int]) -> dict:
+    """The designs that show these pictures, per asset id (CR-15 §C4.4, #1471).
+
+    A design shows a picture in one of its three slots or on its logo strip;
+    both are references, so deleting the picture would break the design. One
+    use per design, however many places on it hold the picture. The label names
+    the activity the design is for — a deleted one too, since the design stays.
+    """
+    from app.domains.activities.api import activity_names
+    from app.domains.media.api import MediaUse
+
+    wanted = {int(i) for i in asset_ids}
+    if not wanted:
+        return {}
+    slots = [getattr(Design, slot) for slot in IMAGE_SLOTS]
+    held: dict[int, set[int]] = {}
+    rows = db.query(Design.id, *slots).filter(or_(*(slot.in_(wanted) for slot in slots))).all()
+    for design_id, *pictures in rows:
+        for asset_id in pictures:
+            if asset_id in wanted:
+                held.setdefault(asset_id, set()).add(design_id)
+    for design_id, asset_id in (
+        db.query(DesignLogo.design_id, DesignLogo.media_asset_id)
+        .filter(DesignLogo.media_asset_id.in_(wanted))
+        .all()
+    ):
+        held.setdefault(asset_id, set()).add(design_id)
+    if not held:
+        return {}
+
+    design_ids = set().union(*held.values())
+    activity_of = dict(
+        db.query(Design.id, Design.activity_id).filter(Design.id.in_(design_ids)).all()
+    )
+    names = activity_names(db, set(activity_of.values()))
+
+    def use(design_id: int):
+        activity_id = activity_of.get(design_id)
+        found = names.get(activity_id) if activity_id is not None else None
+        label = f"Ontwerp voor {found.name}" if found else f"Ontwerp {design_id}"
+        return MediaUse(label=label, href=f"/admin/ontwerpen/{design_id}")
+
+    return {asset_id: [use(d) for d in sorted(ids)] for asset_id, ids in held.items()}
 
 
 # ── Facts ───────────────────────────────────────────────────────────────────

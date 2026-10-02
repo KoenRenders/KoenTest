@@ -2351,6 +2351,33 @@ def activity_options(db: Session) -> list[ActivityOption]:
     return [ActivityOption(id=rij[0], name=rij[1], first_date=rij[2]) for rij in rijen]
 
 
+class ActivityName(NamedTuple):
+    """An activity's name, and whether it was (soft) deleted (#1471)."""
+
+    name: str
+    is_deleted: bool
+
+
+def activity_names(db: Session, ids: Iterable[Optional[int]]) -> dict[int, ActivityName]:
+    """The names of these activities, the deleted ones included (#1471).
+
+    For a screen that holds an activity id of its own and must still say what it
+    was after the activity went: the media library labels a photo whose activity
+    was deleted, and a design names the activity it was made for. One query;
+    `include_deleted`, because a deleted activity is exactly the case asked about.
+    """
+    wanted = {int(i) for i in ids if i is not None}
+    if not wanted:
+        return {}
+    rows = (
+        db.query(Activity.id, Activity.name, Activity.deleted_at)
+        .filter(Activity.id.in_(wanted))
+        .execution_options(include_deleted=True)
+        .all()
+    )
+    return {row[0]: ActivityName(row[1] or "", row[2] is not None) for row in rows}
+
+
 def registrations_without_component_count(db: Session, activity_id: int) -> int:
     """Inschrijvingen op deze activiteit die aan geen enkel onderdeel hangen (#650).
 

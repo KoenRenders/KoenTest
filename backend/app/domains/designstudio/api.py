@@ -65,6 +65,7 @@ from app.domains.designstudio.service import (  # noqa: F401
     pick_generation,
     preview_png,
     publish,
+    references_to_media,
     remove_edited_svg,
     rendition,
     request_images,
@@ -140,4 +141,6 @@ __all__ = [
     "sponsor_usage",
     "upload_edited_svg",
     "warnings_for",
+    # CR-15 #1471: which designs show a picture.
+    "references_to_media",
 ]
