@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, NamedTuple, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -61,6 +61,59 @@ def is_platform_workspace(db: Session) -> bool:
 
     platform = platform_tenant_id(db)
     return platform is not None and _actieve_werkruimte() == platform
+
+
+def users_of_workspace(db: Session, workspace_id: int) -> list:
+    """The accounts that belong in this workspace's Gebruikers (#1500): those
+    with a role here, and those with a platform-wide role (OPERATOR), which
+    holds in every workspace.
+
+    Before #1500 the list showed every account in the system, so a new
+    company's Gebruikers suggested access that did not exist: `get_user_roles`
+    reads only this workspace's rows and the platform-wide ones, and an ADMIN of
+    another workspace has neither here.
+    """
+    return [
+        u
+        for u in db.query(User).order_by(User.email).all()
+        if any(r.tenant_id is None or r.tenant_id == workspace_id for r in u.roles)
+    ]
+
+
+class AccessRow(NamedTuple):
+    """One (account, workspace, role) of the operator's overview (#1500)."""
+
+    email: str
+    active: bool
+    #: The workspace's name, or None for a platform-wide row (every workspace).
+    workspace: Optional[str]
+    role: str
+
+
+def access_overview(db: Session) -> list[AccessRow]:
+    """Every role row of every account, with its workspace (#1500).
+
+    Read-only, for the operator: who may do what where, across all
+    workspaces, the account-level ACCOUNT_ADMIN and the platform-wide rows
+    included. A row is shown as stored; ACCOUNT_ADMIN grants no access today
+    (no role set of `session.py` contains it).
+    """
+    from app.domains.mdm.api import list_manageable_tenants
+
+    names = {org.id: org.name for org in list_manageable_tenants(db)}
+    rows = [
+        AccessRow(
+            u.email,
+            bool(u.is_active),
+            None if r.tenant_id is None else names.get(r.tenant_id, f"#{r.tenant_id}"),
+            r.role_code.value,
+        )
+        for u in db.query(User).order_by(User.email).all()
+        for r in u.roles
+    ]
+    return sorted(
+        rows, key=lambda row: (row.email, row.workspace is not None, row.workspace or "", row.role)
+    )
 
 
 def _ken_rollen_toe(db: Session, user_id: int, codes: List[str], actor_roles: set | None) -> None:
