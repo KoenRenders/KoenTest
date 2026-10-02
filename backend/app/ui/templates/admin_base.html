@@ -1,7 +1,9 @@
 {% import "_macros.html" as ui %}
 {# AdminShell (#396, §13.1; UI-sweep #482): base-layout voor de beheer-schermen.
-   Navigatie is een linker Indigo-zijbalk (design-system §3 (patronen)) — één schil voor álle
-   admin-layouts. Items komen uit app.ui.admin_nav() via `nav_items`. #}
+   Items komen uit app.ui.admin_nav() via `nav_items`. Since CR-11 block 1 (#1482)
+   the frame of design-system-end-state §1.4: a light sidebar of 224 px that is
+   a rail of 64 px below 1 440 px and a drawer below 768 px, and a top bar of
+   64 px with the assistant and the account. #}
 <!DOCTYPE html>
 <html lang="nl-BE">
 <head>
@@ -13,6 +15,35 @@
   <link rel="icon" href="{{ statisch('favicon.ico') }}" sizes="16x16 32x32 48x48">
   <link rel="apple-touch-icon" href="{{ statisch('apple-touch-icon.png') }}">
   <link rel="stylesheet" href="{{ statisch('app.css') }}">
+  {# CR-11 block 1 (#1482): rail or wide, decided before the first paint, so the
+     sidebar does not jump. Below 768 px neither (the drawer); below 1 440 px the
+     rail, unless the user chose to keep it wide; from 1 440 px wide, unless the
+     user chose the rail. The choice lives in this browser only (`localStorage`). #}
+  <script>
+    window.raakNav = window.raakNav || (function () {
+      var KEY = "raak-admin-sidebar";
+      function choice() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+      function sync() {
+        var c = choice(), w = innerWidth;
+        var rail = w >= 768 && (c === "rail" || (c !== "wide" && w < 1440));
+        document.documentElement.classList.toggle("nav-rail", rail);
+        var b = document.querySelector("[data-nav-toggle]");
+        if (b) {
+          b.setAttribute("aria-label", rail ? b.dataset.labelRail : b.dataset.labelWide);
+          b.setAttribute("aria-expanded", String(!rail));
+        }
+      }
+      function toggle() {
+        var rail = document.documentElement.classList.contains("nav-rail");
+        try { localStorage.setItem(KEY, rail ? "wide" : "rail"); } catch (e) {}
+        sync();
+      }
+      addEventListener("resize", sync);
+      addEventListener("DOMContentLoaded", sync);
+      sync();
+      return { sync: sync, toggle: toggle };
+    })();
+  </script>
   <style>
     [x-cloak]{display:none!important}
     /* CMS-content-opmaak (#457): ook in de admin voor de WYSIWYG-preview. */
@@ -91,10 +122,11 @@
    andere schil (zie ui.htmx_ux() voor het vangnet). #}
 <body class="bg-ground min-h-screen text-ink" x-data="{ open: false }"
       data-shell="admin" hx-boost="true"
+      @keydown.escape.window="open = false"
       hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
-  {# Zie site_base: de banner is sticky (#610) en de zijbalk start eronder. Op PROD
-     geen banner, dus md:top-0 + md:h-screen. Beide varianten letterlijk in de
-     template, anders genereert Tailwind de klassen niet. #}
+  {# Zie site_base: de banner is sticky (#610). De zijbalk staat vast en begint
+     eronder (`top-6`); op PROD geen banner, dus `top-0`. Beide varianten letterlijk
+     in de template, anders genereert Tailwind de klassen niet. #}
   {% set env_bar = omgeving and omgeving != 'prod' and not is_screenshot() %}
   {% if env_bar %}{{ ui.env_banner(omgeving) }}{% endif %}
   {# #718: de out-of-band navigatie hoort ALLEEN bij een gebooste navigatie.
@@ -104,130 +136,119 @@
      lichaam wordt daarna vervangen door wat overblijft — zonder menubalk. Zie
      `nav_oob` in app/ui/__init__.py. #}
   {% set _oob = nav_oob(request) if request is defined else False %}
+  {% set _menu = nav_items|default([]) %}
+  {% set _hrefs = _menu|map(attribute="items")|sum(start=[])|map(attribute="href")|list %}
 
-  <div class="md:flex min-h-screen">
-    {# Desktop-zijbalk (Indigo) — design-system §3 (patronen) #}
-    {# #526: sticky, volledige-viewporthoogte zijbalk (md:sticky md:top-0 md:h-screen)
-       zodat de menu in beeld blijft bij het scrollen van een lange pagina i.p.v. in
-       een lege paarse balk te veranderen; overflow-y-auto laat een lange nav intern
-       scrollen. #}
-    <aside class="hidden md:flex md:flex-col md:w-60 md:shrink-0 md:sticky {{ 'md:top-6 md:h-[calc(100vh-1.5rem)]' if env_bar else 'md:top-0 md:h-screen' }} overflow-y-auto bg-surface border-r border-line text-ink">
+  {# ── The sidebar (CR-11 block 1, #1482; design-system-end-state §1.4) ────────
+     ONE navigation source, three appearances: 224 px wide from 1 440 px, a rail
+     of 64 px below it (icons, the label as tooltip and accessible name), and
+     below 768 px a drawer behind the top bar's menu button. Which of the first
+     two shows is the class `nav-rail` on <html>, set before the first paint by
+     the script in <head> from the width and the user's own choice. The drawer is
+     this same element with `is-open` — no second list. The <aside> is not
+     swapped; only the <nav> inside it comes along out of band (#714). #}
+  <aside id="admin-zijbalk" class="admin-sidebar {{ 'top-6' if env_bar else 'top-0' }}"
+         :class="open && 'is-open'" aria-label="{{ _('Navigatie') }}">
+    <div class="admin-sidebar-brand flex items-center gap-3 h-16 px-4 border-b border-line shrink-0">
       {# Pakket-2-feedback (14 sep): tenantnaam + productlabel i.p.v. het
-         Raak-woordmerk — de schil bedient ook organisaties buiten Raak. #}
-      <a href="/admin" class="block px-5 py-4 hover:opacity-90">
-        <span class="block text-lg font-semibold text-ink leading-tight">{{ werkruimte_naam() }}</span>
-        <span class="block text-xs text-ink-soft mt-0.5">{{ _("Werkruimte") }}</span>
+         Raak-woordmerk — de schil bedient ook organisaties buiten Raak. In de
+         rail staat alleen de eerste letter. #}
+      <a href="/admin" class="min-w-0 flex-1 hover:opacity-90" aria-label="{{ werkruimte_naam() }}">
+        <span class="nav-rail-mark hidden text-xl font-bold text-nav-ink text-center" aria-hidden="true">{{ werkruimte_naam()[:1] }}</span>
+        <span class="nav-label block text-base font-semibold text-nav-ink leading-tight truncate">{{ werkruimte_naam() }}</span>
+        <span class="nav-label block text-xs text-nav-soft mt-0.5">{{ _("Werkruimte") }}</span>
       </a>
-      {# #505: geen flex-1 — de voet staat met een scheidingslijn direct onder de
-         items i.p.v. onderaan de zijbalk weggedrukt. #}
-      {# #714: de zijbalk komt mee als OUT-OF-BAND swap. `_boosted_swap_headers` zet
-         `HX-Reselect: #main` op elk geboost antwoord, dus alleen de inhoud wordt
-         vervangen en de zijbalk bleef letterlijk staan — met de markering van het
-         vórige scherm. Die keuze is goed (geen flikkerende zijbalk, en `hx-target`
-         op de body zou naar élke htmx-actie overerven — de val uit #613/#616); wat
-         over het hoofd gezien werd, is dat de zijbalk TOESTAND draagt.
-
-         Geverifieerd in de meegeleverde htmx 2.0.4: in `swap()` staat de
-         oob-afhandeling vóór het `select`-filter, dus een oob-element overleeft
-         `HX-Reselect`. Zonder die volgorde zou deze aanpak niet werken en was de
-         client-kant in `htmx_ux()` de terugval geweest — met de regel op twee
-         plaatsen als prijs. #}
-      {# Golf 2 (#913, triage A3/j): werkgebied-groepen met sectiekopjes; actief =
-         zachte kobalttint. De id en het oob-mechanisme (#714) blijven exact. #}
-      <nav id="admin-nav-zijbalk"{% if _oob %} hx-swap-oob="true"{% endif %} class="px-3 space-y-0.5 pb-4">
-        {# HDEV-feedback 14 sep: de kopjes labelden maar groepeerden niet — kleiner
-           dan de links en in dezelfde tint. Groeperen doet vooral de SCHEIDING:
-           een lijn + witruimte boven elke groep; het kopje zelf iets vetter en
-           wijder gespatieerd. #}
-        {% for groep in nav_items|default([]) %}
-        {% if groep.label %}<div class="mt-3 pt-3 border-t border-line"><div class="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-widest text-ink-soft">{{ groep.label }}</div>{% else %}<div>{% endif %}
-        {% for item in groep["items"] %}
-        <a href="{{ item.href }}"
-           class="block px-3 py-2 rounded-lg text-sm transition-colors {% if item.active %}bg-blue-50 text-blue-700 font-semibold{% else %}text-ink-soft hover:bg-surface-2 hover:text-ink{% endif %}">{{ item.label }}</a>
-        {% endfor %}
-        </div>
-        {% endfor %}
-      </nav>
-      {# De vroegere zijbalkvoet (Naar de site + Uitloggen, #526) verhuisde in
-         golf 2 naar de topbalk — beslissing i: account-aanwezigheid rechtsboven. #}
-    </aside>
-
-    <div class="flex-1 flex flex-col min-w-0">
-      {# Mobiele topbalk met hamburger #}
-      <header class="md:hidden bg-surface border-b border-line text-ink flex items-center justify-between px-4 py-3">
-        <a href="/admin" class="text-base font-semibold text-ink leading-none">{{ werkruimte_naam() }}</a>
-        {# #804: een ICOON en geen tekstteken. `☰` erfde de dikte en de hoogte van het
-             lettertype van het toestel, dus het oogde dun naast een woordmerk van 30 px
-             en was niet betrouwbaar te schalen. Het aanraakvlak is 44 px (`min-w-11
-             min-h-11`) — dat is de ondergrens voor een vinger; het icoon zelf mag
-             kleiner. #}
-        <button class="inline-flex items-center justify-center min-w-11 min-h-11 rounded hover:bg-surface-2"
-                @click="open = !open" aria-label="{{ _("Menu") }}">{{ ui.icon("menu", 24) }}</button>
-      </header>
-      {# #714: twee renderingen per schil, dus ook deze mee. Een fix die er één
-         bijwerkt laat de andere fout staan — en op een telefoon zie je juist deze. #}
-      {# #737: `style="display: none"` staat er letterlijk bij (§2.9b). Dit element heeft een `id` én wordt door Alpine verborgen, dus htmx' settle zet bij een swap de attributen van het serverantwoord terug en wist de inline style die Alpine er net op zette (#726). Verborgen is hier de juiste beginstand: `open` begint op false. #}
-      <nav id="admin-nav-mobiel"{% if _oob %} hx-swap-oob="true"{% endif %} x-show="open" style="display: none" x-cloak x-transition.opacity.duration.150ms class="md:hidden bg-surface border-b border-line px-3 pb-3 pt-1 space-y-0.5">
-        {% for groep in nav_items|default([]) %}
-        {% if groep.label %}<div class="mt-2 pt-2 border-t border-line"><div class="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-widest text-ink-soft">{{ groep.label }}</div>{% else %}<div>{% endif %}
-        {% for item in groep["items"] %}
-        <a href="{{ item.href }}" @click="open = false"
-           class="block px-3 py-2 rounded-lg text-sm {% if item.active %}bg-blue-50 text-blue-700 font-semibold{% else %}text-ink-soft hover:bg-surface-2 hover:text-ink{% endif %}">{{ item.label }}</a>
-        {% endfor %}
-        </div>
-        {% endfor %}
-        <div class="mt-2 pt-2 border-t border-line">
-        {# path_for (#889): op een platform-host is "/" de platform-landing; de
-           tenant-site woont op /{code}. Op een eigen hostnaam verandert er niets. #}
-        <a href="{{ path_for('/') }}" hx-boost="false" class="block px-3 py-2 rounded-lg text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">↗ {{ _("Naar de site") }}</a>
-        <a href="/afmelden" hx-boost="false" @click="open = false" class="block px-3 py-2 rounded-lg text-sm text-brand-danger hover:bg-surface-2">⎋ {{ _("Uitloggen") }}</a>
-        </div>
-      </nav>
-
-      {# Golf 2 (#913, beslissing i): account-aanwezigheid rechtsboven. DB-loos —
-         beheer_account() leest enkel de sessiecookie; naam en rol volgen wanneer
-         een latere golf een gedeelde gebruikerscontext invoert. #}
-      {% set _account = beheer_account(request) if request is defined else None %}
-      <div class="hidden md:flex items-center justify-end gap-1 px-6 py-2 bg-surface border-b border-line">
-        <a href="{{ path_for('/') }}" hx-boost="false" class="px-3 py-1.5 rounded-lg text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">{{ _("Naar de site") }} ↗</a>
-        {% if _account %}
-        <div x-data="{ acc: false }" class="relative">
-          {# #1391 (CR-11 W9): the trigger reads as a menu — initials and a
-             chevron, hover, a focus ring, aria-haspopup/aria-expanded. The
-             e-mail address moved into the opened menu ("Aangemeld als …"). #}
-          <button type="button" @click="acc = !acc" @keydown.escape.window="acc = false"
-                  class="flex items-center gap-1 px-2 py-1.5 rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                  aria-haspopup="menu" :aria-expanded="acc.toString()" aria-expanded="false"
-                  aria-label="{{ _("Account") }}">
-            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-xs font-bold" aria-hidden="true">{{ _account.initialen }}</span>
-            {{ ui.icon("chevron-down") }}
-          </button>
-          {# Golf 9 (#913)/#963: het accountmenu. De inhoud komt lui van de
-             server zodra het menu zichtbaar wordt (intersect): of "Werkruimte
-             wisselen" bestaat hangt aan de database, en schil-chrome mag geen
-             query per paginaweergave kosten. Tot de swap staat hier de
-             terugval zonder dat item. #}
-          <div x-show="acc" x-cloak @click.outside="acc = false"
-               hx-get="/admin/accountmenu" hx-trigger="intersect once"
-               hx-swap="innerHTML"
-               class="absolute right-0 mt-1 w-64 rounded-xl border border-line bg-surface shadow-md py-1 z-40">
-            {# The fallback is the fragment itself, without the switch item:
-               one template, so "Aangemeld als" cannot drift between the two. #}
-            {% with toon_wisselen = False %}{% include "_account_menu.html" %}{% endwith %}
-          </div>
-        </div>
-        {% else %}
-        <a href="/afmelden" hx-boost="false" class="px-3 py-1.5 rounded-lg text-sm text-brand-danger hover:bg-surface-2">{{ _("Uitloggen") }}</a>
-        {% endif %}
-      </div>
-      <main id="main" class="flex-1 px-4 py-8">
-        {# max-w-5xl is bedoeld voor leesbare formulieren, niet voor een brede
-           audit-tabel (#620). Een scherm dat de ruimte nodig heeft, zet
-           {% block content_width %}max-w-7xl{% endblock %} — globaal verbreden zou
-           de formulierschermen slechter leesbaar maken. #}
-        <div class="{% block content_width %}max-w-5xl{% endblock %} mx-auto">{% block content %}{% endblock %}</div>
-      </main>
+      <button type="button" class="nav-drawer-only inline-flex items-center justify-center min-w-11 min-h-11 rounded-lg hover:bg-nav-hover"
+              @click="open = false" aria-label="{{ _('Menu sluiten') }}">{{ ui.icon("x", 18) }}</button>
     </div>
+    {# #714: de navigatie komt mee als OUT-OF-BAND swap; `_boosted_swap_headers`
+       zet `HX-Reselect: #main` op elk geboost antwoord, en de zijbalk draagt
+       toestand (het actieve item). De id en het oob-mechanisme blijven exact. #}
+    <nav id="admin-nav-zijbalk"{% if _oob %} hx-swap-oob="true"{% endif %} class="flex-1 overflow-y-auto overflow-x-hidden p-2">
+      {% for groep in _menu %}
+      {% if groep.label %}
+      {# A group opens and closes on its chevron (§1.5: chevron, never the gear). #}
+      <details open class="nav-group mt-2">
+        <summary class="nav-heading flex items-center justify-between gap-1 h-6 px-3 text-xs font-semibold text-nav-soft cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          <span class="nav-label">{{ groep.label }}</span><span class="nav-label">{{ ui.icon("chevron-down", 14) }}</span>
+        </summary>
+      {% else %}<div class="nav-group">{% endif %}
+        {% for item in groep["items"] %}
+        <a href="{{ item.href }}" @click="open = false" title="{{ item.label }}" aria-label="{{ item.label }}"
+           {% if item.active %}aria-current="page"{% endif %}
+           class="nav-link flex items-center gap-3 h-8 px-3 rounded-lg text-sm transition-colors {% if item.active %}bg-blue-50 text-blue-700 font-semibold{% else %}text-nav-ink hover:bg-nav-hover{% endif %}">{{ ui.icon(item.icon, 18) }}<span class="nav-label truncate">{{ item.label }}</span></a>
+        {% endfor %}
+      {% if groep.label %}</details>{% else %}</div>{% endif %}
+      {% endfor %}
+    </nav>
+    {# The user's own choice, at every width from 768 px: in- or uitklappen,
+       remembered in the browser (`localStorage`). The label follows the state
+       (`raakNav.sync()` in <head>). #}
+    <div class="nav-desktop-only border-t border-line p-2 shrink-0">
+      <button type="button" data-nav-toggle onclick="raakNav.toggle()"
+              class="nav-link flex items-center gap-3 h-8 w-full px-3 rounded-lg text-sm text-nav-soft hover:bg-nav-hover"
+              aria-label="{{ _('Navigatie inklappen') }}" data-label-wide="{{ _('Navigatie inklappen') }}" data-label-rail="{{ _('Navigatie uitklappen') }}">
+        <span class="nav-when-wide">{{ ui.icon("panel-left-close", 18) }}</span><span class="nav-when-rail">{{ ui.icon("panel-left-open", 18) }}</span>
+        <span class="nav-label">{{ _("Inklappen") }}</span>
+      </button>
+    </div>
+  </aside>
+  <div class="admin-backdrop" x-show="open" style="display: none" x-cloak @click="open = false" aria-hidden="true"></div>
+
+  <div class="admin-frame flex flex-col min-h-screen">
+    {# ── The top bar (§1.4): 64 px; menu button (phone only), the title's room,
+       the search's room, the assistant, the account. The title stays in the
+       page for now (block 2 moves it), and there is no global search yet: both
+       places are kept, empty (decided with the master CLI, #1482). #}
+    {% set _account = beheer_account(request) if request is defined else None %}
+    <header class="sticky {{ 'top-6' if env_bar else 'top-0' }} z-20 h-16 flex items-center gap-3 px-4 md:px-6 bg-surface border-b border-line">
+      <button type="button" class="md:hidden inline-flex items-center justify-center min-w-11 min-h-11 rounded-lg hover:bg-surface-2"
+              @click="open = true" :aria-expanded="open.toString()" aria-expanded="false" aria-controls="admin-zijbalk"
+              aria-label="{{ _('Menu') }}">{{ ui.icon("menu", 20) }}</button>
+      <div class="flex-1 min-w-0" data-topbar-title></div>
+      <div class="hidden lg:block w-72" data-topbar-search></div>
+      {# §3.15: a bordered button with the word, the icon alone on a phone. It
+         opens what the menu's "AI · Raakje" opens, and is there under the same
+         rule: when that item is in this tenant's menu. #}
+      {% if "/admin/rapporten/raakje" in _hrefs %}
+      <a href="/admin/rapporten/raakje" data-assistant
+         class="inline-flex items-center justify-center gap-2 h-9 min-w-11 px-2 md:px-3 rounded-lg border border-control-line bg-surface text-sm font-medium text-ink hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+         aria-label="{{ _('Assistent') }}">{{ ui.icon("sparkles", 18) }}<span class="hidden md:inline">{{ _("Assistent") }}</span></a>
+      {% endif %}
+      {% if _account %}
+      <div x-data="{ acc: false }" class="relative">
+        {# #1391 (CR-11 W9), §3.14: initials and a chevron, hover, a focus ring,
+           aria-haspopup — in this bar at every width, a phone too. #}
+        <button type="button" @click="acc = !acc" @keydown.escape.window="acc = false" data-account
+                class="flex items-center gap-1 min-h-11 px-1 rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                aria-haspopup="menu" :aria-expanded="acc.toString()" aria-expanded="false"
+                aria-label="{{ _("Account") }}">
+          <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-xs font-bold" aria-hidden="true">{{ _account.initialen }}</span>
+          {{ ui.icon("chevron-down") }}
+        </button>
+        {# Golf 9 (#913)/#963: de inhoud komt lui van de server zodra het menu
+           zichtbaar wordt (intersect): of "Werkruimte wisselen" bestaat hangt aan
+           de database, en schil-chrome mag geen query per paginaweergave kosten.
+           Tot de swap staat hier de terugval zonder dat item. #}
+        <div x-show="acc" x-cloak @click.outside="acc = false"
+             hx-get="/admin/accountmenu" hx-trigger="intersect once"
+             hx-swap="innerHTML"
+             class="absolute right-0 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-surface shadow-md py-1 z-40">
+          {% with toon_wisselen = False %}{% include "_account_menu.html" %}{% endwith %}
+        </div>
+      </div>
+      {% else %}
+      <a href="/afmelden" hx-boost="false" class="px-3 py-1.5 rounded-lg text-sm text-brand-danger hover:bg-surface-2">{{ _("Uitloggen") }}</a>
+      {% endif %}
+    </header>
+    <main id="main" class="flex-1 px-4 md:px-6 min-[1680px]:px-8 py-8">
+      {# max-w-5xl is bedoeld voor leesbare formulieren (#620); een scherm dat de
+         ruimte nodig heeft zet {% block content_width %}. CR-11 block 1 (#1482):
+         a list page — `ui.page_header(…, list_page=True)` — takes the full width
+         beside the sidebar (`.admin-content:has([data-list-page])` in
+         build-css.sh); record pages keep their width until blocks 5 and 8. #}
+      <div class="admin-content {% block content_width %}max-w-5xl{% endblock %} mx-auto">{% block content %}{% endblock %}</div>
+    </main>
   </div>
   {# Vaste landingsplek voor toasts (#528 as C); htmx stuurt ze out-of-band mee.
      #748: een scherm dat een VOLLEDIGE pagina terugstuurt kan dat niet — dan wordt

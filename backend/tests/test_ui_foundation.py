@@ -64,7 +64,9 @@ def test_admin_shell_heeft_uitloggen_en_sticky_sidebar():
     )
     assert "/afmelden" in html  # logout-link aanwezig (topbalk/mobiel menu)
     assert "Uitloggen" in html
-    assert "md:sticky" in html and "md:h-screen" in html  # sticky full-height aside
+    # Since CR-11 block 1 (#1482) the full-height sidebar is fixed rather than
+    # sticky (`.admin-sidebar`: position fixed, top to bottom, in build-css.sh).
+    assert 'id="admin-zijbalk"' in html and "admin-sidebar" in html
 
 
 def test_static_assets_served(client):

@@ -97,7 +97,8 @@ def test_beide_schermen_gebruiken_de_volle_breedte(client, db_session, pad):
     _login(client, db_session)
     html = client.get(pad).text
 
-    assert '<div class="max-w-none mx-auto">' in html, (
+    # The shell's content wrapper carries `admin-content` since #1482.
+    assert '<div class="admin-content max-w-none mx-auto">' in html, (
         f"{pad}: de contentkolom staat niet op max-w-none"
     )
     for grens in ("max-w-5xl mx-auto", "max-w-7xl mx-auto"):

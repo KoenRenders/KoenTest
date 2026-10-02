@@ -73,6 +73,18 @@
   {% else %}
   {{ ui.empty_state(_("Geen tokens gevonden in app.css — is de CSS gebouwd?")) }}
   {% endif %}
+  {# #1482: the admin's radii, read from the same css. #}
+  {% if radii %}
+  <p class="text-sm text-gray-600 mt-6 mb-3">{{ _("Radius in de beheerschil: een bedieningselement (r-lg), een kaart (r-xl, r-2xl).") }}</p>
+  <div class="flex flex-wrap gap-4">
+    {% for naam, waarde in radii %}
+    <div class="flex items-center gap-3" data-radius="{{ naam }}">
+      <span class="w-12 h-12 border border-control-line bg-surface-2 shrink-0" style="border-radius: var(--{{ naam }})" aria-hidden="true"></span>
+      <span class="text-sm"><span class="block font-medium">{{ naam }}</span><span class="block text-xs text-gray-500">{{ waarde }}</span></span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 {% endcall %}
 
 {# ── 2. Typografie ─────────────────────────────────────────────────────────── #}

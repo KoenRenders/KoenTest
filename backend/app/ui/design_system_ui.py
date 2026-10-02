@@ -91,7 +91,10 @@ def _tokens() -> list[tuple[str, str, bool]]:
     # (body[data-shell="admin"]); de staal rendert die al live via var(--…),
     # maar het waardelabel toonde de basiswaarde — de referentiepagina sprak
     # de toepassing tegen. De overrides winnen hier, met een merkteken.
-    schil = re.search(r'body\[data-shell="admin"\]\s*\{(.*?)\}', css, re.S)
+    # The minifier drops the quotes (`body[data-shell=admin]`), so they are
+    # optional here — with them required this found nothing, and the page
+    # showed the base values for the admin (found with #1482).
+    schil = re.search(r'body\[data-shell="?admin"?\]\s*\{(.*?)\}', css, re.S)
     schil_namen = set()
     if schil:
         for naam, waarde in re.findall(r"--([a-z0-9-]+):\s*([^;}]+)", schil.group(1)):
@@ -101,6 +104,10 @@ def _tokens() -> list[tuple[str, str, bool]]:
     resultaat = []
     for naam, waarde in per_naam.items():
         if naam.startswith("c-") and naam not in schil_namen:
+            continue
+        # #1482: the admin shell redefines Tailwind's scales (gray-50 … red-950)
+        # so no template changes; a shade is plumbing, like the triplets.
+        if naam.startswith("c-") and re.search(r"-\d+$", naam):
             continue
         kleur = _hex_van(waarde)
         if naam in schil_namen and kleur is None:
@@ -114,6 +121,22 @@ def _tokens() -> list[tuple[str, str, bool]]:
             )
             resultaat.append((naam, kleur, van_schil))
     return resultaat
+
+
+def _radii() -> list[tuple[str, str]]:
+    """The admin shell's radii (CR-11 block 1, #1482), from the generated css.
+
+    Controls 6 px, cards 10 px (design-system-end-state §1.2). Read like the
+    colours, so this page cannot claim a radius the shell does not have.
+    """
+    try:
+        css = (_STATIC / "app.css").read_text()
+    except OSError:
+        return []
+    schil = re.search(r'body\[data-shell="?admin"?\]\s*\{(.*?)\}', css, re.S)
+    if not schil:
+        return []
+    return re.findall(r"--(r-[a-z0-9]+):\s*([^;}]+)", schil.group(1))
 
 
 @lru_cache(maxsize=1)
@@ -276,6 +299,7 @@ def design_system(request: Request, email: str = Depends(require_admin_ui)):
     view = DesignSystemView(
         nav_items=admin_nav("/admin/design-system"),
         tokens=_tokens(),
+        radii=_radii(),
         iconen=_iconen(),
         velden=_voorbeeldvelden(),
         # A real date, because the date format is the one that cannot be written

@@ -4,7 +4,7 @@ C6 tests 4 and 6, and what keeps the menu's one source:
 
 - **the menu per tenant** (test 4): a tenant with the company's modules sees
   only their items plus the shell's; an association sees the full menu; the
-  desktop and the phone rendering carry the same items;
+  desktop and the phone share one rendering (since #1482);
 - **the public header per module** (test 6): a company's header has no Foto's
   and no Archief — both mean the albums and the archive of activities — and
   an association's has them, as before; Mijn gezin goes with membership;
@@ -77,19 +77,19 @@ def test_a_company_sees_only_its_modules_and_the_shell(client, modules_of):
     assert "/admin/ledenwijzigingen" in sidebar, "Wijzigingen is the shell's"
     for gone in ("/admin/activiteiten", "/admin/leden", "/admin/betalingen", "/admin/rapporten"):
         assert gone not in sidebar, f"{gone} belongs to a module that is off"
-    # Menu items only: the phone rendering also carries the shell's own links.
-    menu = {href for href, _label in _ADMIN_NAV}
-    phone = [h for h in _hrefs(html, "admin-nav-mobiel") if h in menu]
-    assert [h for h in sidebar if h in menu] == phone, "desktop and phone: the same items"
+    # Desktop and phone: since CR-11 block 1 (#1482) there is one rendering —
+    # the phone's drawer is the sidebar itself — so the same items by
+    # construction; the frame gate holds that there is no second one.
+    assert 'id="admin-nav-mobiel"' not in html
 
 
 def test_an_association_sees_the_full_menu_as_before(client, modules_of):
-    """C6 test 4: every item of the layout, in its order, in both renderings."""
+    """C6 test 4: every item of the layout, in its order — the one rendering a
+    desktop and a phone share since #1482."""
     html = _admin_page(client, modules_of, EVERY)
     full = [href for href, _label in _ADMIN_NAV]
 
     assert [h for h in _hrefs(html, "admin-nav-zijbalk") if h in full] == full
-    assert [h for h in _hrefs(html, "admin-nav-mobiel") if h in full] == full
 
 
 def test_a_group_left_empty_goes(client):
