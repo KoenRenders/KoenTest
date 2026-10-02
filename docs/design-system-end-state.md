@@ -37,7 +37,7 @@ muted brand blue `37 78 115` (hover `25 57 88`), ink `33 45 58` and soft ink
 tint `230 239 247` for the active navigation row and the inset, focus
 `25 95 157`, and one warm accent `238 193 94` (yellow, text `37 44 53`) that
 the public site uses for its one call to action and the back office does not
-use at all; danger `166 37 37`, warning `116 77 9`, success `24 103 72`, each
+use at all; danger `166 37 37`, warning **`194 65 12`** (a real orange — ChatGPT's muted `116 77 9` did not read as "something to do" on an open amount; Koen, 2 October 2026, block 3; contrast on white about 4.6 : 1, measured again at the build), success `24 103 72`, each
 with a soft tint. Every value is an RGB triplet, as the tokens are today, and
 the eight official brand colours of the house style are no longer the
 palette: Koen let the house style go overboard for a calmer, professional
@@ -197,14 +197,19 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
 - **Title row:** the title (`h1`); at its right the **key figures** inline
   (figure and label as plain text, thin dividers between them, no card,
   **not clickable** — the figures are read, the toolbar's status filter filters;
-  block 2, Koen, 2 October 2026, replacing "each a filter"); then
-  "+ Nieuw <item>" and, when the module has configuration,
-  "Instellingen" with the gear. Nothing else: no link to another module, no
-  explanation line, no breadcrumb (the menu shows the place). [31, 34, 35,
-  36, 45]
-- **Toolbar row:** the status filter at the left (§3.13); search; the filters; the
-  count "x–y van n" with the page size (25 · 50 · 100); `⋯` with export and
-  the rest. One row; it wraps only on a phone. [6, 45]
+  block 2, Koen, 2 October 2026, replacing "each a filter"); then **one
+  primary button, "+ Nieuw <item>"**, or none (Betalingen). Nothing else:
+  every secondary action of the screen — export, import, "Instellingen" —
+  lives under the toolbar's `⋯`, on a desktop as on a phone (block 3, Koen,
+  2 October 2026: consistency over one click — "afhankelijk van hoe je het
+  gebruikt werken dingen wel of niet, ik word daar gek van"); no link to
+  another module, no explanation line, no breadcrumb (the menu shows the
+  place). [31, 34, 35, 36, 45]
+- **Toolbar row:** the same five things in the same order at every width
+  — the status filter at the left (§3.13); the search, growing; one
+  **Filters** button; the count "x–y van n" with the page size (25 · 50 ·
+  100); `⋯` with the screen's secondary actions. One row on a desktop; three
+  on a phone (status · search · count with `⋯`). [6, 45]
 - **The list:** in the admin always a **table** (a picture is a thumbnail
   column); cards only on the public site and in the media library. Sortable
   columns as the norm, a column chooser under `⋯`; no horizontal scrolling
@@ -390,9 +395,13 @@ row. [22, 46, 50]
 ### 3.7 `pager(page, size, total)`
 
 Two renderings from one macro: in the toolbar row the count "x–y van n"
-with the page-size select; at the bottom "‹ vorige · volgende ›". Always a
-total (an approximate "van meer dan 10 000" where counting is heavy);
-"Pagina n" does not exist. Hidden when everything fits. [6]
+with the page-size select (on a phone the page size moves under `⋯`); at
+the bottom "‹ Vorige · Volgende ›" only, right-aligned on a desktop, at
+the two edges on a phone, the first and last disabled. Always a total (an
+approximate "van meer dan 10 000" where counting is heavy); an empty list
+says "0–0 van 0"; a new search, status, filter or page size goes to page
+1; "Pagina n" does not exist. Hidden when everything fits. (Block 3, 2
+October 2026.) [6]
 
 ### 3.8 `figures(items)` — the key figures, one figure each ("tiles" in the rows of CR-11)
 
@@ -465,17 +474,52 @@ like one (Koen, 2 October 2026: today Betalingen's status filter is drawn
 as tabs and the activity's tabs look the same, so the eye cannot tell a
 filter from a place). [19]
 
-### 3.13 `toolbar(…)`
+### 3.13 `toolbar(…)` — five things, same order at every width
 
-The list's second row: the status filter, search, filters, pager count,
-`⋯`. **The status filter is a segmented control** (`status_filter`): one
-bordered group of segments — Alle | Openstaand | Betaald | Terugbetaald —
-one segment chosen, on the brand tint, 36 px high like a button; it reads
-as a control among the search and the selects, never as navigation; no
-loose pills, and the word "chip" is not used (Koen, 2 October 2026; it
-replaces the three shapes of today — Leden's pills, Activiteiten's pills,
-Betalingen's tabs with counts). The embedded rendering drops the page-level
-variants and keeps the one status filter. [45, 29]
+The list's second row — **status filter · search · Filters · count with
+page size · `⋯`** — identical on a desktop and on a phone, where it
+wraps to three lines (block 3, Koen, 2 October 2026: consistency over one
+click; nothing sits on two places at once, nothing changes place by
+device).
+
+**The status filter is a segmented control** (`status_filter`): one
+bordered group of segments, one segment chosen, on the brand tint, 36 px
+high like a button (44 on a phone); `fieldset` with radio inputs, Tab
+enters, the arrows choose; it reads as a control, never as navigation;
+no loose pills, and the word "chip" is not used (it replaces the three
+shapes of today — Leden's pills, Activiteiten's pills, Betalingen's tabs
+with counts). **Which segments is a choice per list**, written in §5, not
+a formula: a segment is a state the board acts on; a done state gets no
+segment; "Alle" is not mandatory. **A segment carries its count** where
+the state is acted on — "Openstaand 3" — computed with the search and
+the other filters of that moment, so the count is what the click yields;
+"Alle" carries none (the toolbar's count says n); a zero stays ("nothing
+to do" is information). Decided: Betalingen *Alle | Openstaand n*; Leden
+*Actief n | Te vernieuwen n | Opgezegd*; Activiteiten *Komende | Archief |
+Alles* (periods, no counts). Six or more segments become one select below
+1 080 px of list width; never two lines, never a scroll strip.
+
+**The search** grows with the row (180–480 px, full width on a phone),
+the magnifier is its submit, `type="search"` gives the clear; it stands
+second, after the status filter: scope before query, and a fixed block at
+the left keeps the right-hand group in place while the search grows
+(Koen, 2 October 2026, keeps the order). The `/` key stays the top bar's.
+
+**Filters is always one button** (`filter` glyph), also with a single
+select, also at 1 920 px: it opens a panel with the list's selects
+(context, year, a multi-select) and one Toepassen; a multi-select is
+collapsed to one line ("Te controleren +1") and opens to a tick list,
+never a checkbox group in the row (row 61). The selects never stand in
+the row and never move by device.
+
+**`⋯` holds the screen's secondary actions** — export, import,
+Instellingen — in a fixed order, and on a phone the page size; it never
+repeats a button that is visible elsewhere. The count and the page size
+come from `pager` (§3.7).
+
+The embedded rendering inside a record keeps the status filter, the
+search, the count and `⋯`; no title row, no figures, no context select
+(the record is the context). [45, 29]
 
 ### 3.14 `account_menu`
 
@@ -584,7 +628,7 @@ Shell width for every list: the wide frame (row 11); today three lists set
 |---|---|---|---|---|---|
 | Activiteiten | cards; tiles Open inschrijving · Volzette onderdelen (end state: Open activiteiten · Volzet onderdeel — "inschrijving" is too hard a word, Koen, 2 Oct 2026); search, chips Komende/Archief/Alles; no pager | name with status badges · first date and time · location · registrations count (omitted without a component) | Open inschrijving · Volzet onderdeel (activities with one) | Komende · Archief · Alles; name, location; year; date | + Nieuwe activiteit |
 | Leden | cards; three tiles; search, chips Alle/Actief/Opgezegd, year select; pager 25 | household name · municipality · persons · membership state badge | Actieve gezinnen · Actieve personen · Te vernieuwen (year) | Alle · Actief · Opgezegd; name, street, e-mail; membership year; name | Leden importeren · + Nieuw lid |
-| Betalingen | table grouped per registration; four tiles; status tabs with counts, search, context filter, status select; pager 50; export in the filter bar; `max-w-none` | name/reference · context · status badge · amount · received · balance (W1's two tiles carry the totals) | Netto te betalen · Nog te ontvangen · Nog terug te betalen (Koen, 2 Oct 2026; "Ontvangen" and the booking count go — the toolbar's count shows n) | Alle · Openstaand · Betaald · Terugbetaald as chips; name, OGM, description; context, status; date · export under `⋯` | none (the breadcrumb goes; row 35) |
+| Betalingen | table grouped per registration; four tiles; status tabs with counts, search, context filter, status select; pager 50; export in the filter bar; `max-w-none` | name/reference · context · status badge · amount · received · balance (W1's two tiles carry the totals) | Netto te betalen · Nog te ontvangen · Nog terug te betalen (Koen, 2 Oct 2026; "Ontvangen" and the booking count go — the toolbar's count shows n) | Alle \| Openstaand n (Koen, 2 Oct 2026; Betaald, Terugbetaald and Terug te betalen get no segment); name, OGM, description; context, status; date · export under `⋯` | none (the breadcrumb goes; row 35) |
 | Formulieren | cards; search, status select; no pager | title · status badge · submissions count · last submission | Open · Inzendingen deze maand | Alle · Open · Gesloten; name; —; updated | Instellingen (holds "Formaat (voor AI)", row 34) · + Nieuw formulier |
 | Vergaderingen | cards; search; no pager | date · status badge · location · points count | Volgende · Verslag open | Komende · Voorbije; date, location; year; date | Instellingen · + Nieuwe vergadering |
 | Nieuwsbrieven | cards; search; no pager | subject · status badge · audience · sent or updated moment · while sending: progress | Verstuurd dit jaar · Abonnees | Concept · Verstuurd; subject; audience; updated | Instellingen · Abonnees · + Nieuwe nieuwsbrief |
