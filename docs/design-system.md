@@ -265,7 +265,7 @@ Import with `{% import "_macros.html" as ui %}`.
 | Group | Macros |
 |---|---|
 | Structure | `page_header` · `section_header` · `section_bar` · `card` · `nested_panel` · `tabs` · `detail_disclosure` |
-| Lists | `search` · `filter_bar` · `grouped_filter` · `chips` · `pager` · `row_actions` · `reorder` · `empty_state` · `loading` |
+| Lists | `search` · `filter_bar` · `grouped_filter` · `chips` · `checkbox_group` · `pager` · `row_actions` · `reorder` · `empty_state` · `loading` |
 | Forms | `field_input` · `field_select` · `field_textarea` · `label` · `vraag` · `input_control` · `select_control` · `textarea_control` · `person_fields` · `upload_field` · `export_links` · `copy_button` |
 | Feedback | `toast` · `toast_oob` · `toast_host` · `success_banner` · `error_banner` · `modal` · `confirm_host` · `badge` |
 | Buttons | `btn_primary` · `btn_secondary` · `btn_outline` · `btn_danger` · `button` · `btn_class` · `edit_toggle` · `icon` · `icon_text` · `action_bar` |
@@ -723,8 +723,14 @@ this order:
    remove button. Order is column order. No drag-and-drop: it costs a library or a
    lot of Alpine, and the value is in the universe, not in the gesture.
 3. **Filters** — one control per chosen or extra dimension. A closed list renders
-   as `ui.select_control` and compares exactly; anything wider renders as a search
-   field and searches. Live (P11): no "Toon" button.
+   as `ui.checkbox_group` (#1445): one tick compares exactly, several mean "one
+   of", and no tick means all — the user picks values, never an operator. The
+   relative values ("Dit jaar") stand on top, above a rule. A year runs from
+   new to old beneath them (#1453), so this year and next need no scrolling;
+   every other list keeps its own order (`service.tick_values`). The ticks stand under
+   each other in rows of at least 44 px, in a box that scrolls when the list is
+   long. Anything wider renders as a search field and searches. Live (P11): no
+   "Toon" button.
 
 The **result** is a C1 table: sortable headers, server-side paging, a totals row
 for the measures, the one money formatter, and a default sort that ends in a

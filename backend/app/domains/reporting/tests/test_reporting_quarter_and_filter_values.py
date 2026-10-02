@@ -244,7 +244,7 @@ def test_a_dimension_that_does_not_belong_to_the_fact_offers_nothing(db_session,
     )
 
 
-def test_a_month_filter_is_a_dropdown_and_not_a_search_box(client, db_session, situation):
+def test_a_month_filter_is_a_choice_and_not_a_search_box(client, db_session, situation):
     """Koens eis, en ze wordt op de UITKOMST getoetst.
 
     Boven `OFFER_LIMIT` wordt een filter bewust een zoekveld, en die regel is
@@ -254,8 +254,11 @@ def test_a_month_filter_is_a_dropdown_and_not_a_search_box(client, db_session, s
     over en verschijnt de keuzelijst vanzelf.
 
     Dus niet "de opgehaalde waarden kloppen" — dat kan waar zijn terwijl het
-    element een tekstveld blijft — maar: er staat een `<select>` met die maanden
-    erin. `OFFER_LIMIT` blijft waar hij staat; de bron was de klem, niet de grens.
+    element een tekstveld blijft — maar: er staat een keuze met die maanden erin.
+    `OFFER_LIMIT` blijft waar hij staat; de bron was de klem, niet de grens.
+
+    Sinds #1445 is die keuze een groep vinkjes en geen `<select>`: meerdere
+    maanden tegelijk. De eis blijft dezelfde — geen tekstveld.
     """
     login(client, db_session)
     tekst = _paneel(
@@ -269,11 +272,14 @@ def test_a_month_filter_is_a_dropdown_and_not_a_search_box(client, db_session, s
         f"{len(maanden)} maanden in de data — komt de lijst nog uit de kalender?"
     )
 
-    blok = tekst[tekst.index('name="v_payment_created_month"') :]
-    blok = blok[: blok.index("</select>")] if "</select>" in blok else ""
-    assert blok, "het maandfilter hoort een keuzelijst te zijn, geen tekstveld"
+    blok = tekst[tekst.index('aria-label="Aanmaakdatum › Maand"') :]
+    blok = blok[: blok.index("</fieldset>")] if "</fieldset>" in blok else ""
+    assert blok, "het maandfilter hoort een keuze te zijn, geen tekstveld"
+    assert 'type="search"' not in blok
     for maand in maanden:
-        assert f'value="{maand}"' in blok, f"{maand} ontbreekt in de keuzelijst"
+        assert f'type="checkbox" name="v_payment_created_month" value="{maand}"' in blok, (
+            f"{maand} ontbreekt bij de vinkjes"
+        )
 
 
 def test_the_offer_limit_still_protects_a_long_list(db_session, situation):

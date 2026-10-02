@@ -16,7 +16,8 @@ def _login_as(client, email):
 
 def test_gezin_redirect_zonder_sessie(client):
     resp = client.get("/leden/gezin", follow_redirects=False)
-    assert resp.status_code == 302 and resp.headers["location"] == "/aanmelden"
+    # #1437: the sign-in remembers the portal, so it comes back here after.
+    assert resp.status_code == 302 and resp.headers["location"] == "/aanmelden?terug=/leden/gezin"
 
 
 def test_gezin_portaal_toont_leden_en_muteert(client, db_session):

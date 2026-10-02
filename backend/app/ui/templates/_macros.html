@@ -951,6 +951,39 @@
 </div>
 {%- endmacro %}
 
+{# ── Checkbox group (#1445) ──────────────────────────────────────────────────
+   Several choices from a closed list: the sibling of `chips`, which picks ONE.
+   Ticking is choosing — the form sends one `name=value` pair per tick, so the
+   server reads `getlist(name)`.
+
+   Mobile first: the choices stand under each other, each row at least 44 px
+   high (`min-h-11`) and clickable over its whole width, in a box that scrolls
+   when the list is long, so twelve months do not push the page down.
+
+   `labelled` = (value, label) pairs shown first, above a rule — the relative
+   values of a report filter ("Dit jaar"); `values` = plain values that are their
+   own label (2026, 2027). `current` = the ticked values. #}
+{% macro checkbox_group(name, values=[], labelled=[], current=[], aria_label="", cls="") -%}
+<fieldset class="{{ cls }}"{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}>
+  <div class="max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
+    {% for value, label in labelled %}
+    <label class="flex min-h-11 cursor-pointer items-center gap-3 px-3 text-sm hover:bg-gray-50">
+      <input type="checkbox" name="{{ name }}" value="{{ value }}" class="h-4 w-4 shrink-0"
+             {% if value in current %}checked{% endif %}>
+      <span>{{ label }}</span>
+    </label>
+    {% endfor %}
+    {% if labelled and values %}<div class="h-1 bg-gray-50" aria-hidden="true"></div>{% endif %}
+    {% for value in values %}
+    <label class="flex min-h-11 cursor-pointer items-center gap-3 px-3 text-sm hover:bg-gray-50">
+      <input type="checkbox" name="{{ name }}" value="{{ value }}" class="h-4 w-4 shrink-0"
+             {% if value in current %}checked{% endif %}>
+      <span>{{ value }}</span>
+    </label>
+    {% endfor %}
+  </div>
+</fieldset>
+{%- endmacro %}
 {# ── Toast (#528 as C) ────────────────────────────────────────────────────────
    Eén bevestigingspatroon voor de hele app; alert() is verboden (as A/D). Rendert
    als los fragment zodat een htmx-antwoord hem out-of-band kan meesturen:

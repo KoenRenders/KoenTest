@@ -143,7 +143,8 @@ def test_an_activity_written_without_a_status_is_published_and_has_no_audience(d
     assert dict(labels) == {
         "adults": "Volwassenen",
         "children": "Kinderen",
-        "families": "Gezinnen",
+        # #1451: `families` "Gezinnen" became `everyone` "Iedereen".
+        "everyone": "Iedereen",
         "men": "Mannen",
         "teens": "Tieners",
         "women": "Vrouwen",
