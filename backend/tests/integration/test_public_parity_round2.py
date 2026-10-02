@@ -45,6 +45,20 @@ def test_registration_form_prefills_email_and_mobile_for_member(client, db_sessi
             person_id=person.id, contact_type_code="MOBILE", value="0470112233", is_primary=True
         )
     )
+    # #1459: a members-only activity takes a member with a valid membership
+    # today; without one there is no form to prefill.
+    from app.domains.membership.api import Membership
+
+    today = date.today()
+    db_session.add(
+        Membership(
+            member_id=_member.id,
+            year=today.year,
+            is_active=True,
+            valid_from=date(today.year, 1, 1),
+            valid_to=date(today.year, 12, 31),
+        )
+    )
     activity = _members_only_activity(db_session)
     comp = activity.sub_registrations[0]
     db_session.commit()

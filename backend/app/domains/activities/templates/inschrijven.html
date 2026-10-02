@@ -34,6 +34,13 @@
     {% endfor %}
   </div>
   {% endif %}
+  {% if enkel_leden %}
+  {# #1459: signed in, but no member — the reason and the way to become one;
+     no form, so nothing to pay through. #}
+  {{ ui.error_banner(enkel_leden) }}
+  <p class="mt-3 text-sm"><a class="text-blue-700 hover:underline" href="/leden/gezin">{{ _("Naar je gezinsportaal") }}</a>
+     · <a class="text-blue-700 hover:underline" href="{{ terug_url }}">{{ _("Terug naar de activiteit") }}</a></p>
+  {% else %}
   {{ ui.error_banner(error) }}
   {# P7: a refusal swaps this page again, scrolled to its top, with the banner. #}
   <form hx-post="{{ form_url }}" hx-target="#inschrijf-pagina" hx-select="#inschrijf-pagina"
@@ -43,6 +50,7 @@
     {# B4.10: one primary button, full width on a phone. #}
     {{ ui.btn_primary(_("Inschrijven"), cls="w-full sm:w-auto") }}
   </form>
+  {% endif %}
   {% endif %}
 </div>
 {% endblock %}
