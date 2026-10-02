@@ -125,11 +125,11 @@ What changes, one line each:
 | R6 | Deleting an activity or a design does not delete the pictures uploaded for it; they stay in the library with their origin marked. | Should | author, *proposed* | today they become orphans |
 | R7 | A clearance per picture (public or back-office only). | Won't | Koen, 2 Oct 2026: "als het in het systeem zit, is het vrijgegeven" | what is uploaded is released; the consent register stays the architecture's roadmap, untouched by this change |
 | R8 | Uploading a picture works on a phone; the chooser and the library do not break there. | Should | Koen, 2 Oct 2026 | beyond an upload, the picture admin is never used on a phone: no design effort for it |
-| R9 | A picture can carry a few words (keywords) to find it by, next to its title. | Could | Koen, 1 Oct 2026 ("eventueel trefwoorden") | |
+| R9 | A picture can carry several **tags**, searched by tag and shown as a tree — the way the board orders the library's own material (page pictures, logos, sponsors, loose uploads); a picture with two tags appears under both, by design. | Must | Koen, 2 Oct 2026 (first "eventueel trefwoorden" on 1 Oct, then folders, then tags the same day) | replaces the folders of R13 |
 | R10 | The newsletter can place a picture from the library in its text. | Won't | Koen, 2 Oct 2026 | today a letter shows a picture only through the activity block (the poster or the album cover) and that keeps working; a free picture in a letter is out of scope |
 | R11 | Counting or listing pictures (per activity, per year, usage) in the reporting module. | Won't | author | nothing asked; the library screen shows the counts it needs itself |
 | R12 | A separate "album" the board composes by hand, across activities. | Won't | author | the album *is* the activity's photos; a hand-made selection is a design or a page, not a second album concept — the board's need for order is R13's folders |
-| R13 | The library's own material — page pictures, logos, sponsor images, anything not born from an activity — is kept in **folders and subfolders** the board names, because with hundreds of pictures a flat list cannot be searched by eye. | Must | Koen, 2 Oct 2026 | the activity's photos keep the activity as their place, shown as a folder in the same tree |
+| R13 | The library's own material is kept in folders and subfolders. | Won't | Koen, 2 Oct 2026, reversed the same day in favour of tags (R9) | a picture belongs in several places; a folder allows one. The activity's photos keep the activity as their place, shown as a branch of the same tree |
 | R14 | The Design Studio and the CMS pages can use **every** picture in the library — activity photos, page pictures, sponsor logos, the association's logo. | Must | Koen, 2 Oct 2026 | sharpens R1 and settles Q2 |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
@@ -170,7 +170,7 @@ The media domain already is a library: one table, one row per picture, one kind 
 Decisions that shape it, each with the rejected alternative (the reasoning in C4):
 
 - **Reuse is a reference, never a copy** (C4.1). Rejected alternative: keep copying a chosen photo into a `design_image`. A copy costs bytes and backups, orphans when the design goes, and drifts from its original.
-- **One tree: folders for the library's own material, the activity as a derived folder for its photos** (C4.2). Rejected alternative: tags only (Koen, 2 Oct: hundreds of pictures need folders, not keywords), and a hand-composed album entity (an activity's photos already are one). Folders are a small table; the activity side of the tree costs nothing.
+- **Tags, shown as a tree; the activity as a derived branch for its photos** (C4.2). A picture carries several tags and appears under each; search is by tag, title and activity. Rejected alternative: folders (a picture can be in one folder only — Koen reversed this the same day) and a hand-composed album entity (an activity's photos already are one). A tag vocabulary with a parent is a small table; the activity branch costs nothing.
 - **One chooser from the kit** (C4.3). Rejected alternative: improve the three `<select>`s of the design editor. A select of two hundred photos cannot be chosen from on a phone; one component means one behaviour everywhere (CR-11 R13).
 - **"Where used" is derived, not stored** (C4.4). Rejected alternative: a `media_uses` table every consumer writes. Two places for one fact drift; a read across three facades costs nothing at this scale.
 - **No clearance** (C4.5). Koen, 2 October: what is in the system is released; the consent register stays the architecture's roadmap. Rejected alternative: the author's clearance field as a first step.
@@ -182,13 +182,13 @@ Decisions that shape it, each with the rejected alternative (the reasoning in C4
 | # | Derived requirement | From |
 |---|---|---|
 | F1 | A design's three picture slots reference any active image asset the chooser offers; `add_design_image` keeps storing an *upload* or an AI result as `design_image`, but choosing an existing photo stores nothing. | R1, R2 |
-| F2 | One facade function `media.api.pick_options(db, *, for_activity_id, q, activity_id, year, scope)` returns the library in pages, grouped "van vorig jaar" first (the predecessor chain of #1397's `copied_from_id`), then the rest as one tree (the activities by year, the board's folders); one search box on title and activity name; a year filter. | R2, R3, R13 |
+| F2 | One facade function `media.api.pick_options(db, *, for_activity_id, q, activity_id, year, scope)` returns the library in pages, grouped "van vorig jaar" first (the predecessor chain of #1397's `copied_from_id`), then the rest as one tree (the activities by year, the tag tree); one search box on title, activity name and tag; a year filter. | R2, R3, R9 |
 | F3 | The chooser is a kit macro (`ui.media_picker`) with htmx paging and an Alpine-less sheet on a phone; the design editor and the CMS image modal render it; the design-system page shows it live; on a phone it does not break (R8). | R1, R8 |
 | F4 | "Where used" is derived: one facade function `media.api.uses_of(db, asset_id)` asks the designstudio, cms and newsletter facades for their references (each exposes `references_to_media(ids)`); nothing is stored twice. | R5 |
 | F5 | `delete_media` refuses while `uses_of` is not empty, naming the uses; the library card shows the count and the list. | R5 |
 | F6 | Deleting a design or an activity leaves the media rows; the library shows "van een verwijderde activiteit/ontwerp" from the soft-deleted activity or the missing design. The `_prune_versions` deletion of renders stays (a render is a product, not a picture). | R6 |
 | F7 | *(withdrawn with R7)* No clearance column; the public URL stays reachable by id for every asset, as today. | R7 Won't |
-| F8 | Keywords as a repeatable tag table (`media.asset_tags`), searched by the same `q`; Could, phase 3. | R9 |
+| F8 | A tag vocabulary with a parent (`media.tags`: id, parent_id, name, tenant) the board maintains, and a many-to-many `media.asset_tags (asset_id, tag_id)`; the tree view in the library and the picker shows the activities branch and the tag tree; a picture appears under every tag it carries; searched by the same `q`. Phase 1. | R9 |
 | F9 | The library screen gains the filters year and "in use", and the "where used" list per card; it stays a card grid. | R3, R5 |
 
 ## B2. Fit with the process and the requirements — for the business
@@ -236,7 +236,7 @@ Legend: blue media · yellow Design Studio · green CMS · grey activities (used
 | R6 pictures outlive their owner | no cascade; origin shown as gone | F6 | media, designstudio, activities | 7 | AC4 |
 | R7 clearance | Won't | — | — | — | — |
 | R8 on a phone | upload works; the chooser and the library do not break | F3 | kit | 10 | AC6 |
-| R9 keywords | tags, Could | F8 | media | 11 | — (phase 3) |
+| R9 tags as the order | the tag vocabulary with a parent, the many-to-many, the tree in library and picker | F8 | media | 9, 11 | AC3 (the picker shows the tree) |
 | R10 newsletter picture | Won't; the activity block keeps working as today | — | — | — | — |
 | R11 reporting | Won't | — | reporting: none | — | — |
 | R12 hand-made album | Won't | — | — | — | — |
@@ -269,9 +269,9 @@ flowchart TB
   subgraph media[media]
     m1[screen: library grid — changed: year, in-use filters, where-used]:::chg
     m2[kit macro: media_picker — new]:::new
-    m3[service: pick_options, uses_of, the folder tree — new]:::new
+    m3[service: pick_options, uses_of, tags — new]:::new
     m4[service: delete_media refuses in use — changed]:::chg
-    m5[entity: MediaFolder, MediaAsset.folder_id, asset_tags — new]:::new
+    m5[entity: MediaTag, asset_tags — new]:::new
     m6[facade api.py — changed]:::chg
     m7[migration: additive]:::new
   end
@@ -315,22 +315,21 @@ erDiagram
     string kind FK
     int activity_id "soft ref, origin"
     int component_id "soft ref"
-    int folder_id "NEW: the board's folder, nullable; activity photos have none"
     string title
     bytea data
     bytea thumbnail
     bool is_active
     int tenant_id
   }
-  MEDIA_FOLDER {
+  MEDIA_TAG {
     int id PK
-    int parent_id "nullable, same table"
+    int parent_id "nullable, same table: the tree"
     string name
     int tenant_id
   }
   MEDIA_ASSET_TAG {
     int asset_id FK
-    string tag
+    int tag_id FK
   }
   ACTIVITY {
     int id PK
@@ -348,18 +347,18 @@ erDiagram
     int id PK
     text body "Trix: img src = /api/v1/media/id"
   }
-  MEDIA_FOLDER ||--o{ MEDIA_FOLDER : "subfolders"
-  MEDIA_FOLDER ||--o{ MEDIA_ASSET : "holds the library's own material"
-  MEDIA_ASSET ||--o{ MEDIA_ASSET_TAG : "has (Could)"
+  MEDIA_TAG ||--o{ MEDIA_TAG : "child tags"
+  MEDIA_TAG ||--o{ MEDIA_ASSET_TAG : "tagged pictures"
+  MEDIA_ASSET ||--o{ MEDIA_ASSET_TAG : "carries several tags"
   ACTIVITY ||--o{ MEDIA_ASSET : "origin of"
   ACTIVITY ||--o| ACTIVITY : "copied from"
   DESIGN }o--o| MEDIA_ASSET : "slots reference"
   PAGE }o--o{ MEDIA_ASSET : "body references"
 ```
 
-Who calls whom: the design editor and the CMS modal call `media.api.pick_options` and render `ui.media_picker`; the media service calls `activities.api.predecessors_of` (from #1397) for the first group, and `designstudio.api.references_to_media`, `cms.api.references_to_media`, `newsletter.api.references_to_media` for "where used". The new dependencies run media → activities (already exists for `list_activity_photos`), and media → designstudio/cms/newsletter *for a read-only question* — that is the one direction to watch: the import gate allows a facade call, and it is a query, not a command; the alternative (each consumer registering its uses in media) stores the fact twice and was rejected (C4.4). Transaction boundary: choosing is the consumer's transaction (the design or page saves its reference); the refusal of a delete is one read then one refused write; filing an asset in a folder is a one-row update.
+Who calls whom: the design editor and the CMS modal call `media.api.pick_options` and render `ui.media_picker`; the media service calls `activities.api.predecessors_of` (from #1397) for the first group, and `designstudio.api.references_to_media`, `cms.api.references_to_media`, `newsletter.api.references_to_media` for "where used". The new dependencies run media → activities (already exists for `list_activity_photos`), and media → designstudio/cms/newsletter *for a read-only question* — that is the one direction to watch: the import gate allows a facade call, and it is a query, not a command; the alternative (each consumer registering its uses in media) stores the fact twice and was rejected (C4.4). Transaction boundary: choosing is the consumer's transaction (the design or page saves its reference); the refusal of a delete is one read then one refused write; tagging an asset is one row per tag.
 
-Impact on the existing architecture: `media.media_assets` gains a `folder_id`, the schema a `folders` table and one Could table; the designstudio stops writing a `design_image` row for a chosen photo (its `design_image` kind stays for uploads and AI); three facades gain one function each; no table is dropped, no contract to an outside caller changes (the JSON routes keep their shape). The layer rules hold: screens through facades, services through facades, nothing reaches into another domain's models.
+Impact on the existing architecture: `media.media_assets` stays as it is; the schema gains a `tags` table and the `asset_tags` link; the designstudio stops writing a `design_image` row for a chosen photo (its `design_image` kind stays for uploads and AI); three facades gain one function each; no table is dropped, no contract to an outside caller changes (the JSON routes keep their shape). The layer rules hold: screens through facades, services through facades, nothing reaches into another domain's models.
 
 
 ## B4. Rules this change needs an exception from — decided once, here
@@ -372,14 +371,14 @@ Impact on the existing architecture: `media.media_assets` gains a `folder_id`, t
 
 **Investment** (CLI-days; S/M/L where the team has no track record):
 
-| Module | Ph 1 library | Ph 2 picker + reference | Ph 3 tags (Could) | Total |
+| Module | Ph 1 library | Ph 2 picker + reference | — | Total |
 |---|---|---|---|---|
-| media | 2.5 (incl. the folder tree) | 2 (the picker, the facade) | 1 | 5.5 |
+| media | 3 (incl. the tag tree) | 2 (the picker, the facade) | — | 5 |
 | designstudio | — | 1.5 | — | 1.5 |
 | cms | — | 0.5 | — | 0.5 |
 | newsletter | — | 0.25 (facade for "where used") | — | 0.25 |
-| tests | 0.5 | 1 | 0.25 | 1.75 |
-| **Total** | **3** | **5.25** | **1.25** | **~9.5** |
+| tests | 0.75 | 1 | — | 1.75 |
+| **Total** | **3.75** | **5.25** | — | **~9** |
 
 Plus analysis (this document, ~1), review and HDEV validation per phase (~0.5 each), no purchases.
 
@@ -393,9 +392,8 @@ Plus analysis (this document, ~1), review and HDEV validation per phase (~0.5 ea
 | Phase | Delivers | Issue | Migration | Env | Data | Failure paths that change | Manual validation |
 |---|---|---|---|---|---|---|---|
 | **0 — the seed** (#1397, under way by dev1) | `copied_from_id`; the design's picture choice shows the predecessors' pictures under their own heading; no copy | #1397 follow-up | additive (activities) | — | — | none | the copied design's choice on HDEV |
-| **1 — the library knows** | the tree: the board's folders and subfolders for the library's own material, the activities as derived folders; year and "in use" filters; "where used" per card; delete refused while in use; pictures survive their activity and design | new | additive: `media.folders`, `media_assets.folder_id` | — | none | a delete that succeeded silently now refuses with a list | AC3, AC4 |
+| **1 — the library knows** | the tree: the tag vocabulary the board maintains, every picture under each of its tags, the activities as a derived branch; year and "in use" filters; "where used" per card; delete refused while in use; pictures survive their activity and design | new | additive: `media.tags`, `media.asset_tags` | — | none | a delete that succeeded silently now refuses with a list | AC3, AC4 |
 | **2 — one chooser, reference only** | `ui.media_picker`; the design editor's slots and the CMS modal on it; the copy-into-`design_image` path removed; `pick_options` with the predecessor group (phase 0's grouping moves into media) | new | none | — | none: existing `design_image` rows stay as they are | choosing a photo no longer creates a row; a design saved with a slot pointing at an asset it may not use is refused | AC1, AC2, AC6, AC7 |
-| **3 — words** (Could) | tags, searched by the same box | new | additive (media) | — | none | none | walkthrough step 5 with a tag |
 
 "Na de merge" per phase: phase 3 names the counts set per kind and the default chosen; the others nothing beyond the migration.
 
@@ -416,6 +414,7 @@ None on 2 October 2026: every question of the walkthrough with Koen is answered 
 | Date | Decision | By |
 |---|---|---|
 | 1 Oct 2026 | A change request for the media library, to be walked through point by point before anything is assigned; nothing built from it yet. The small step of #1397 (`copied_from_id`, predecessors in the choice) goes ahead as its seed. | Koen, via the master CLI |
+| 2 Oct 2026 | **Tags, not folders** — Koen reversed the folder decision the same day after reading the rejected alternative: every picture can carry several tags, you search by tag, and the tags are shown as a tree knowing that a picture then appears in several places. R9 becomes a Must and the order of the library; R13 (folders) a Won't; no folders inside an activity's album either. | Koen |
 | 2 Oct 2026 | **What the picker shows when it opens** (Q1): from a design on a copied activity, first last year's photos of that activity (the chain of #1397), under it the whole tree — Activiteiten by year, the board's folders — one search box on a picture's title and its activity's name, a year filter; keywords later (phase 3). With this answer B8 is empty. | Koen |
 | 2 Oct 2026 | **One stored size for every upload: 2 400 px** (Q8). The 4 096 px size for design images goes, and so does the copy of a chosen library photo into a design image: choosing is a reference. 2 400 px prints an A3 poster at about 145 dpi and an A4 at about 205 dpi — enough for a poster read from a distance, not for fine print; AI pictures come at the model's own size and are unaffected; existing assets stay as stored. | Koen, on the author's judgment that 2 400 suffices |
 | 2 Oct 2026 | One tree for the library (Q9); **no clearance**: what is in the system is released, the consent register stays roadmap (Q3, R7 Won't); ownership as proposed — the activity stays the origin, a photo survives its activity (Q4); the phone is not a focus beyond uploading (Q6, R8 Should); **no picture insert in the newsletter** — the activity block keeps working, the rest is out of scope (Q7, R10 Won't). Phase 3 (clearance) and the newsletter half of phase 4 fall away; ~12.25 → ~9.5 CLI-days. | Koen |
@@ -445,9 +444,9 @@ None on 2 October 2026: every question of the walkthrough with Koen is answered 
 
 #### media (phases 1–3)
 
-- **Screens:** `/admin/media` — the card grid stays; the tree of folders at the left (the board's folders; the activities by year as derived folders); filters gain *year* and *in gebruik*; a card shows its folder or activity and "gebruikt in N" with the list unfolded on click; judged at 1 440 px, not broken at 390. New: the kit macro `ui.media_picker` (search, chips *van vorig jaar · activiteit · jaar*, thumbnail grid, paging; a bottom sheet under 768 px), rendered live on `/admin/design-system`.
-- **Code:** `service.pick_options`, `service.uses_of`, `service.folders` (create, rename, move, delete when empty), `service.file_asset(asset, folder)`; `delete_media` refuses while in use (`MediaFout` with the uses); `api.py` exports them.
-- **Database:** `media.folders (id SERIAL PK, parent_id INT NULL REFERENCES media.folders(id) ON DELETE RESTRICT, name VARCHAR(80) NOT NULL, tenant_id INT NOT NULL, UNIQUE (tenant_id, parent_id, name))` and `media.media_assets.folder_id INT NULL REFERENCES media.folders(id) ON DELETE RESTRICT` (phase 1; a folder with assets or subfolders cannot be deleted); `media.asset_tags (asset_id INT NOT NULL REFERENCES media.media_assets(id) ON DELETE CASCADE, tag VARCHAR(40) NOT NULL, PRIMARY KEY (asset_id, tag))` (phase 3). All additive. Copy actions: media has none. The image size: one `MAX_FULL = 2400` for every kind, `MAX_FULL_BY_KIND` removed (phase 2, no migration).
+- **Screens:** `/admin/media` — the card grid stays; the tree at the left (the tag tree the board maintains; the activities by year as a derived branch; a picture under every tag it carries); filters gain *year* and *in gebruik*; a card shows its tags and its activity and "gebruikt in N" with the list unfolded on click; judged at 1 440 px, not broken at 390. New: the kit macro `ui.media_picker` (search, chips *van vorig jaar · activiteit · jaar*, thumbnail grid, paging; a bottom sheet under 768 px), rendered live on `/admin/design-system`.
+- **Code:** `service.pick_options`, `service.uses_of`, `service.tags` (create, rename, move under another tag, delete when unused), `service.tag_asset(asset, tag)` and `untag_asset`; `delete_media` refuses while in use (`MediaFout` with the uses); `api.py` exports them.
+- **Database:** `media.tags (id SERIAL PK, parent_id INT NULL REFERENCES media.tags(id) ON DELETE RESTRICT, name VARCHAR(80) NOT NULL, tenant_id INT NOT NULL, UNIQUE (tenant_id, parent_id, name))` and `media.asset_tags (asset_id INT NOT NULL REFERENCES media.media_assets(id) ON DELETE CASCADE, tag_id INT NOT NULL REFERENCES media.tags(id) ON DELETE RESTRICT, PRIMARY KEY (asset_id, tag_id))` (phase 1; a tag in use or with child tags cannot be deleted; a picture may carry any number of tags). Both additive; no column on `media_assets`. Copy actions: media has none. The image size: one `MAX_FULL = 2400` for every kind, `MAX_FULL_BY_KIND` removed (phase 2, no migration).
 - **Templates and mail:** `_me_lijst.html` (the tree, filters, uses), a new `_media_picker.html` partial; no mail.
 - **Tests:** C6 1, 2, 4, 5, 6, 7, 9, 10, 11.
 
@@ -503,9 +502,9 @@ No view in the `reporting` schema reads `media.media_assets` (measured: the univ
 
 A picture is one row; everything that shows it points at the row. Today the Design Studio copies a chosen activity photo into a `design_image` (CR-10 §3.11) so that the design "owns" its material at 4096 px. The ownership was the wrong thing to want: it costs a second copy, the copy orphans when the design goes, and the activity photo and its copy drift apart in title and order. The design's slots are soft references already; they simply get to point at any image asset. **Sizes, decided by Koen on 2 October 2026:** one stored size for every upload, **2 400 px** on the long side, for album photos, page pictures, logos and pictures uploaded straight into the studio alike; the 4 096 px size for design images goes with the copy (`MAX_FULL_BY_KIND` in `media/images.py` becomes one `MAX_FULL`). Why 2 400 suffices: an A3 poster (420 mm) prints at about 145 dpi from 2 400 px and an A4 at about 205 dpi — fine for a poster read from a distance, which is what the association prints; fine print would need 4 000 px and nobody asked. A picture is about 2.25 times the bytes of today's 1 600 px one and less than a third of a 4 096 px design image, and there is one copy instead of two or three. Existing assets stay as stored; AI pictures arrive at the model's size.
 
-### C4.2 One tree: the board's folders, and the activity as a derived folder
+### C4.2 Tags shown as a tree; the activity as a derived branch
 
-Two kinds of material live in the library and they are ordered differently. **An activity's photos** are already ordered: the activity is their place (`activity_id`), the site shows them as its album, and nobody should file them by hand — so in the tree they appear as derived folders, *Activiteiten › 2026 › Sinterklaas huisbezoeken*, that the portal builds from the activity's year and name — and **no folders inside an activity's album**: its photos are one flat set, ordered by hand as today (Koen, 2 October 2026). **The library's own material** — page pictures, the association's logo, sponsor images, pictures uploaded for nothing in particular — has no natural place, and Koen's experience (2 October 2026) is that a flat list of hundreds cannot be searched by eye: it gets **folders and subfolders the board names**, a small table `media.folders (id, parent_id, name, tenant_id)` and a nullable `folder_id` on the asset, with the rule that an asset is in one folder at most (a picture that belongs in two places is used from one). The picker and the library screen show **one tree**: the derived activity branch and the board's folders side by side, searched by the same box. Why not folders for the activity photos too: a second place for a fact the activity already holds, and a photo filed away from its activity would break the album on the site. Why not tags instead of folders: tags are the right shape for "the ten best of 2025" across folders and stay a Could (R9), but they are not what a person reaches for first when the list is long; the folder is. On standards: IPTC Photo Metadata names the fields a picture carries — title, description, keywords (repeatable), date created, creator, rights/usage terms; the folder is a collection, outside IPTC and common to every digital-asset manager; the asset keeps title and date, keywords as a repeatable table when R9 is built, and `clearance` as the first usage term.
+Two kinds of material live in the library and they are ordered differently. **An activity's photos** are already ordered: the activity is their place (`activity_id`), the site shows them as its album, and nobody files them by hand — in the tree they appear as a derived branch, *Activiteiten › 2026 › Sinterklaas huisbezoeken*, built from the activity's year and name, with **no folders or tags needed inside an album**: its photos are one flat set, ordered by hand as today. **The library's own material** — page pictures, the association's logo, sponsor images, pictures uploaded for nothing in particular — has no natural place, and with hundreds of pictures a flat list cannot be searched by eye. Koen first chose folders and reversed it the same day (2 October 2026) on the rejected alternative: **tags**. A picture carries several tags; you search by tag; and the tags are shown **as a tree** — a small vocabulary the board maintains, each tag with an optional parent (*Logo's › Sponsors*, *Pagina's › Jeugd*) — knowing that a picture then appears under every tag it carries, which is the point: a photo of the Sint with a sponsor banner belongs in both places, and a folder would have forced one. The picker and the library screen show one tree, the activity branch beside the tag tree, searched by one box over title, activity name and tag. On standards: IPTC Photo Metadata names the fields a picture carries — title, description, keywords (repeatable), date created, creator, rights/usage terms; the tag is IPTC's keyword given a parent, stored as a repeatable link table and never as a comma column.
 
 ### C4.3 One chooser, from the kit
 
@@ -531,7 +530,7 @@ An activity is soft-deleted (#166); its photos stay rows with an `activity_id` t
 ## C5. Privacy and security — the mechanics behind A7
 
 - `GET /api/v1/media/{id}` and `/thumb` stay as they are: every asset reachable by id (Koen, 2 October 2026: what is in the system is released).
-- No new personal data is stored; a folder name and a filing are data about pictures, not about people.
+- No new personal data is stored; a tag and a tagging are data about pictures, not about people.
 - Uploads keep their checks (type, size, SVG sanitising, batch cap).
 
 
@@ -545,7 +544,7 @@ An activity is soft-deleted (#166); its photos stay rows with an `activity_id` t
 6. **Refuse while in use.** `delete_media` on a referenced asset raises `MediaFout` naming each use (design, page, letter); on an unreferenced one it deletes. Proven by violation: a reference added through each of the three facades makes the delete refuse.
 7. **Survives its owner.** Soft-deleting an activity and hard-deleting a design leave their media rows; the library labels the origin as gone; `/fotos` no longer lists the activity.
 8. *(withdrawn: no clearance, R7 Won't)*
-9. **The tree.** A folder with a subfolder and two assets renders as a tree in the library and in the picker; an activity with photos appears under Activiteiten › its year › its name without any folder row; an asset is refused a second folder.
+9. **The tree.** A tag with a child tag and two tagged pictures renders as a tree in the library and in the picker; a picture with two tags appears under both; an activity with photos appears under Activiteiten › its year › its name without any tag row; a tag in use cannot be deleted.
 10. **The sheet at 390 px.** The picker renders as a sheet: search on top, the chips, a three-column grid; the DOM measurement — the grid's width equals the viewport minus the 16 px gutters, no horizontal scroll (the stability protocol of CR-11 C6 applies).
 11. **Tags are repeatable.** Two tags on one asset are two rows; `q` matches either; the same tag twice is refused by the primary key.
 12. **The storage seam.** A gate: no template or module outside `media` reads `MediaAsset.data` or builds a `/api/v1/media/` URL by string; baseline measured at the build (expected zero, hard).
@@ -569,7 +568,7 @@ An activity is soft-deleted (#166); its photos stay rows with an `activity_id` t
 
 ## C9. Screens before the build — the concepts the approver saw
 
-Not yet made. Before the handover: the picker at 390 px (the sheet: search, the chips *van vorig jaar · activiteit · jaar*, the three-column grid, a chosen tile) and at desktop width inside the design editor; the library with the folder tree at the left, the "in gebruik" filter and a card's "gebruikt in 2" list. Invented data, in Koen's project folder outside the repository; the date he looked at them goes here.
+Not yet made. Before the handover: the picker at 390 px (the sheet: search, the chips *van vorig jaar · activiteit · jaar*, the three-column grid, a chosen tile) and at desktop width inside the design editor; the library with the tag tree at the left, the "in gebruik" filter and a card's "gebruikt in 2" list. Invented data, in Koen's project folder outside the repository; the date he looked at them goes here.
 
 ## C10. Close-out at the release
 
