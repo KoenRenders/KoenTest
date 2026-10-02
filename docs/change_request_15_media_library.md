@@ -132,7 +132,9 @@ What changes, one line each:
 | R9 | A picture can carry a few words (keywords) to find it by, next to its title. | Could | Koen, 1 Oct 2026 ("eventueel trefwoorden") | |
 | R10 | The newsletter can place a picture from the library in its text. | Could | author, *proposed* | today no picture can be placed at all |
 | R11 | Counting or listing pictures (per activity, per year, usage) in the reporting module. | Won't | author | nothing asked; the library screen shows the counts it needs itself |
-| R12 | A separate "album" the board composes by hand, across activities. | Won't | author | the album *is* the activity's photos; a hand-made selection is a design or a page, not a second album concept |
+| R12 | A separate "album" the board composes by hand, across activities. | Won't | author | the album *is* the activity's photos; a hand-made selection is a design or a page, not a second album concept — the board's need for order is R13's folders |
+| R13 | The library's own material — page pictures, logos, sponsor images, anything not born from an activity — is kept in **folders and subfolders** the board names, because with hundreds of pictures a flat list cannot be searched by eye. | Must | Koen, 2 Oct 2026 | the activity's photos keep the activity as their place, shown as a folder in the same tree |
+| R14 | The Design Studio and the CMS pages can use **every** picture in the library — activity photos, page pictures, sponsor logos, the association's logo. | Must | Koen, 2 Oct 2026 | sharpens R1 and settles Q2 |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -172,7 +174,7 @@ The media domain already is a library: one table, one row per picture, one kind 
 Decisions that shape it, each with the alternative that lost (the reasoning in C4):
 
 - **Reuse is a reference, never a copy** (C4.1). Lost: keep copying a chosen photo into a `design_image`. A copy costs bytes and backups, orphans when the design goes, and drifts from its original.
-- **No album entity** (C4.2). Lost: an `albums` table the board composes. The activity is the album; what grows is the tag, not a second album concept.
+- **One tree: folders for the library's own material, the activity as a derived folder for its photos** (C4.2). Lost: tags only (Koen, 2 Oct: hundreds of pictures need folders, not keywords), and a hand-composed album entity (an activity's photos already are one). Folders are a small table; the activity side of the tree costs nothing.
 - **One chooser from the kit** (C4.3). Lost: improve the three `<select>`s of the design editor. A select of two hundred photos cannot be chosen from on a phone; one component means one behaviour everywhere (CR-11 R13).
 - **"Where used" is derived, not stored** (C4.4). Lost: a `media_uses` table every consumer writes. Two places for one fact drift; a read across three facades costs nothing at this scale.
 - **Clearance on the picture, not on the person yet** (C4.5). Lost: build the consent register first. One field per picture is the smallest step that stops publishing without a decision; the register plugs in later — a declared deviation, seam named.
@@ -324,10 +326,17 @@ erDiagram
     int activity_id "soft ref, origin"
     int component_id "soft ref"
     string clearance "NEW: internal | public"
+    int folder_id "NEW: the board's folder, nullable; activity photos have none"
     string title
     bytea data
     bytea thumbnail
     bool is_active
+    int tenant_id
+  }
+  MEDIA_FOLDER {
+    int id PK
+    int parent_id "nullable, same table"
+    string name
     int tenant_id
   }
   MEDIA_ASSET_TAG {
@@ -350,6 +359,8 @@ erDiagram
     int id PK
     text body "Trix: img src = /api/v1/media/id"
   }
+  MEDIA_FOLDER ||--o{ MEDIA_FOLDER : "subfolders"
+  MEDIA_FOLDER ||--o{ MEDIA_ASSET : "holds the library's own material"
   MEDIA_ASSET ||--o{ MEDIA_ASSET_TAG : "has (Could)"
   ACTIVITY ||--o{ MEDIA_ASSET : "origin of"
   ACTIVITY ||--o| ACTIVITY : "copied from"
@@ -374,12 +385,12 @@ Impact on the existing architecture: `media.media_assets` gains one column and o
 
 | Module | Ph 1 library | Ph 2 picker + reference | Ph 3 clearance | Ph 4 tags, newsletter | Total |
 |---|---|---|---|---|---|
-| media | 1.5 | 2 (the picker, the facade) | 1 | 1 | 5.5 |
+| media | 2.5 (incl. the folder tree) | 2 (the picker, the facade) | 1 | 1 | 6.5 |
 | designstudio | — | 1.5 | 0.25 | — | 1.75 |
 | cms | — | 0.5 | — | — | 0.5 |
 | newsletter | — | 0.25 (facade) | — | 1 | 1.25 |
 | tests | 0.5 | 1 | 0.5 | 0.25 | 2.25 |
-| **Total** | **2** | **5.25** | **1.75** | **2.25** | **~11.25** |
+| **Total** | **3** | **5.25** | **1.75** | **2.25** | **~12.25** |
 
 Plus analysis (this document, ~1), review and HDEV validation per phase (~0.5 each), no purchases.
 
@@ -393,7 +404,7 @@ Plus analysis (this document, ~1), review and HDEV validation per phase (~0.5 ea
 | Phase | Delivers | Issue | Migration | Env | Data | Failure paths that change | Manual validation |
 |---|---|---|---|---|---|---|---|
 | **0 — the seed** (#1397, under way by dev1) | `copied_from_id`; the design's picture choice shows the predecessors' pictures under their own heading; no copy | #1397 follow-up | additive (activities) | — | — | none | the copied design's choice on HDEV |
-| **1 — the library knows** | year and "in use" filters; "where used" per card; delete refused while in use; pictures survive their activity and design | new | none | — | none | a delete that succeeded silently now refuses with a list | AC3, AC4 |
+| **1 — the library knows** | the tree: the board's folders and subfolders for the library's own material, the activities as derived folders; year and "in use" filters; "where used" per card; delete refused while in use; pictures survive their activity and design | new | additive: `media.folders`, `media_assets.folder_id` | — | none | a delete that succeeded silently now refuses with a list | AC3, AC4 |
 | **2 — one chooser, reference only** | `ui.media_picker`; the design editor's slots and the CMS modal on it; the copy-into-`design_image` path removed; `pick_options` with the predecessor group (phase 0's grouping moves into media) | new | none | — | none: existing `design_image` rows stay as they are | choosing a photo no longer creates a row; a design saved with a slot pointing at an asset it may not use is refused | AC1, AC2, AC6, AC7 |
 | **3 — clearance** | the field with its defaults; the site, the poster chooser and the URL honour it; the badge and editor on the card | new | additive (media) | — | a one-off: every existing asset gets the default of its kind — the migration sets it, the "Na de merge" names the counts per kind | a public URL of an internal asset answers 404; a poster cannot be rendered with an uncleared picture | AC5 |
 | **4 — words and the newsletter** (Could) | tags; the newsletter's "Afbeelding" insert | new | additive (media) | — | none | none | walkthrough step 5 with a tag |
@@ -413,7 +424,7 @@ Plus analysis (this document, ~1), review and HDEV validation per phase (~0.5 ea
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
 | Q1 | Search and filter: by activity, year, keywords; "van vorig jaar" as the default? | Yes: the picker opens on the predecessor chain when there is one, then the whole library; keywords in phase 4. | The picker's first screen; whether tags are built. |
-| Q2 | Which kinds are reusable, for which use? | Every *image* kind for every use; not renders, newsletter files, logos, sponsors. The use filter is clearance, not kind. | The `pick_options` filter; whether posters-as-pictures appear in the chooser. |
+| Q9 | Folders: one tree for the whole library — Activiteiten (derived: year › activity) · the board's own folders for page pictures, logos and sponsors — or folders only for the library's own material and the activities apart? | One tree; the picker and the library screen show it the same way; an activity's photos are never moved by hand. | The picker's left column; whether a photo can be filed in two places (no). |
 | Q3 | Does an album photo count as cleared for a poster because it is on the site, or must the board say so per picture? | The first: one decision at upload, with `public` as the default for album photos and `internal` for design and page images until placed. | The default per kind in phase 3's one-off; how much the board clicks. |
 | Q4 | Ownership: a photo stays with its activity when used elsewhere; what when the activity is deleted? | Yes; on delete the photo stays with its origin marked gone. | C4.7; the library's "origin" column. |
 | Q6 | Choosing from hundreds of photos at 390 px? | A bottom sheet, search on top, filter chips, a three-column grid paged at 60, the predecessor group first. | The picker's phone rendering (AC6). |
@@ -425,6 +436,7 @@ Plus analysis (this document, ~1), review and HDEV validation per phase (~0.5 ea
 | Date | Decision | By |
 |---|---|---|
 | 1 Oct 2026 | A change request for the media library, to be walked through point by point before anything is assigned; nothing built from it yet. The small step of #1397 (`copied_from_id`, predecessors in the choice) goes ahead as its seed. | Koen, via the master CLI |
+| 2 Oct 2026 | Every picture in the library is usable by the Design Studio and the CMS pages — also sponsor logos and the association's logo (R14, settles Q2); the library's own material gets **folders and subfolders** the board names (R13), because hundreds of pictures cannot be searched by eye; the CMS is a user as important as the Design Studio. | Koen |
 | 1 Oct 2026 | *Proposed:* reference not copy; no album entity; one picker from the kit; "where used" derived; clearance per picture as the first step of the consent model; bytes stay in Postgres. | author |
 
 
@@ -508,9 +520,9 @@ No view in the `reporting` schema reads `media.media_assets` (measured: the univ
 
 A picture is one row; everything that shows it points at the row. Today the Design Studio copies a chosen activity photo into a `design_image` (CR-10 §3.11) so that the design "owns" its material at 4096 px. The ownership was the wrong thing to want: it costs a second copy, the copy orphans when the design goes, and the activity photo and its copy drift apart in title and order. The design's slots are soft references already; they simply get to point at any image asset. The 4096 px argument: a design that needs more resolution than the album's 1600 px uploads its own material (that path stays) — the album photo at 1600 px is what the poster of a village association prints at A3 anyway (CR-10 measured 1–3 MB per final design).
 
-### C4.2 No album entity; the activity is the album, the tag is what grows
+### C4.2 One tree: the board's folders, and the activity as a derived folder
 
-An album is the set of photos with one `activity_id`; the site already shows it that way. A table `albums` would be a second place for the same fact. What Koen may want beyond it — "the ten best of 2025", "all Sint photos over the years" — is a *selection*, and a selection is either a design, a page, or a search: tags (R9) give the search its words. On standards: IPTC Photo Metadata names the fields a picture carries — title, description, keywords (repeatable), date created, creator, rights/usage terms; the asset has title and a date, gets keywords as a repeatable table (never a comma column), and the usage terms are what `clearance` is the first value of.
+Two kinds of material live in the library and they are ordered differently. **An activity's photos** are already ordered: the activity is their place (`activity_id`), the site shows them as its album, and nobody should file them by hand — so in the tree they appear as derived folders, *Activiteiten › 2026 › Sinterklaas huisbezoeken*, that the portal builds from the activity's year and name. **The library's own material** — page pictures, the association's logo, sponsor images, pictures uploaded for nothing in particular — has no natural place, and Koen's experience (2 October 2026) is that a flat list of hundreds cannot be searched by eye: it gets **folders and subfolders the board names**, a small table `media.folders (id, parent_id, name, tenant_id)` and a nullable `folder_id` on the asset, with the rule that an asset is in one folder at most (a picture that belongs in two places is used from one). The picker and the library screen show **one tree**: the derived activity branch and the board's folders side by side, searched by the same box. Why not folders for the activity photos too: a second place for a fact the activity already holds, and a photo filed away from its activity would break the album on the site. Why not tags instead of folders: tags are the right shape for "the ten best of 2025" across folders and stay a Could (R9), but they are not what a person reaches for first when the list is long; the folder is. On standards: IPTC Photo Metadata names the fields a picture carries — title, description, keywords (repeatable), date created, creator, rights/usage terms; the folder is a collection, outside IPTC and common to every digital-asset manager; the asset keeps title and date, keywords as a repeatable table when R9 is built, and `clearance` as the first usage term.
 
 ### C4.3 One chooser, from the kit
 
@@ -588,7 +600,7 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
 | Q1 | 1 Oct 2026 | Search and filter: by activity, year, keywords; "van vorig jaar" as the default? (master CLI, for Koen) | *Proposed:* the picker opens on the predecessor chain when there is one, then the whole library; filters activity and year, search over title and activity name now, over tags in phase 4. *Koen decides.* |
-| Q2 | 1 Oct 2026 | Which kinds are reusable, for which use (poster, newsletter, CMS)? (master CLI) | *Proposed:* every *image* kind is reusable for every use — activity photos, design images, page images, posters as pictures; not reusable: renders (products), newsletter files (documents), logos and sponsor images stay in their own place. The use filter is clearance, not kind. *Koen decides.* |
+| Q2 | 1 Oct 2026 | Which kinds are reusable, for which use (poster, newsletter, CMS)? (master CLI) | Koen, 2 Oct 2026: **every picture** — activity photos, design images, page pictures, posters as pictures, **and the sponsor logos and the association's logo** — for the Design Studio and the CMS pages alike (R14). Not pictures and so not in the picker: renders (products) and newsletter files (documents). The use filter is clearance, not kind. |
 | Q3 | 1 Oct 2026 | Privacy and consent: may every album photo go on a poster, with minors on it? (master CLI) | *Proposed:* a clearance per picture, two values, set at upload with a default per kind (`public` for album photos, `internal` for design and page images until placed); the consent register of the roadmap plugs in later (C4.5). The real question for Koen: **does an album photo count as cleared for a poster by the fact that it is on the site, or must the board say so per picture?** The author recommends the first (one decision at upload, not two). *Koen decides.* |
 | Q4 | 1 Oct 2026 | Ownership: does a photo stay with its activity when used elsewhere; what when the activity is deleted? (master CLI) | *Proposed:* yes — the activity is the origin and the album; a use is a reference; on delete the photo stays, origin marked gone (C4.7). *Koen decides.* |
 | Q5 | 1 Oct 2026 | Storage: blobs in Postgres — does this touch R8, the object-storage adapter? (master CLI) | *Answer:* no — this change adds references and removes copies; R8 stays roadmap, the seam is kept clean (C4.6, C6 test 12). |
