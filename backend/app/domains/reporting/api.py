@@ -88,6 +88,7 @@ from app.domains.reporting.service import (  # noqa: F401
     run_validated,
     save_report,
     selection_of,
+    tick_values,
     update_report,
     validate_filter_values,
 )
@@ -188,6 +189,7 @@ __all__ = [
     "objects_in_pane_order",
     "report_filename",
     "filter_of_ticks",
+    "tick_values",
     "resolve_selection",
     "run_selection",
     "run_validated",
