@@ -88,8 +88,10 @@ ACTIVITY_STATUS = CodeList(
 #: spreadsheet's letter codes cannot be kept, it has two V's (volwassenen and
 #: vrouwen). No Enum: nothing in Python branches on it (Koen's correction of
 #: 1 October 2026); it gets one when the public site starts to show it.
+#: #1451 (Koen, 2 October 2026): `everyone` "Iedereen" replaced `families`
+#: "Gezinnen" — the code changed with the label (migration 184).
 TARGET_AUDIENCE_CODES = (
-    CodeSeed(code="families", nl="Gezinnen", en="Families", sort_order=10),
+    CodeSeed(code="everyone", nl="Iedereen", en="Everyone", sort_order=10),
     CodeSeed(code="adults", nl="Volwassenen", en="Adults", sort_order=20),
     CodeSeed(code="men", nl="Mannen", en="Men", sort_order=30),
     CodeSeed(code="women", nl="Vrouwen", en="Women", sort_order=40),
