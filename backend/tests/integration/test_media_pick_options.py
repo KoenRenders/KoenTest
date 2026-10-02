@@ -135,7 +135,8 @@ def test_never_a_render_or_a_newsletter_file(db_session):
     _asset(db_session, "logo", kind="sponsor")
     _asset(db_session, "beeld", kind="page_image")
 
-    assert _titles(pick_options(db_session)) == ["beeld"]
+    # A sponsor logo is a picture of the library and is offered since #1473.
+    assert sorted(_titles(pick_options(db_session))) == ["beeld", "logo"]
 
 
 def test_pages_of_sixty(db_session):
@@ -186,3 +187,24 @@ def test_the_picker_lives_on_the_design_system_page(client, db_session):
     assert 'name="ds_afbeelding"' in page
     assert 'hx-get="/admin/media/kiezer?field=ds_afbeelding"' in page
     assert 'id="mp-ds_afbeelding"' in page
+
+
+@pytest.mark.ui_serverrendered
+def test_the_logos_branch_leads_to_one_kind(client, db_session):
+    """#1473: Logo's in the tree, one link per kind, and `kind` keeps that kind.
+    An unknown kind in the address is no branch: the whole library."""
+    _asset(db_session, "sponsorlogo", kind="sponsor")
+    _asset(db_session, "eigen logo", kind="tenant_logo")
+    _asset(db_session, "pagina", kind="page_image")
+    _login(client, db_session)
+
+    whole = client.get("/admin/media/kiezer?field=f").text
+    assert "Logo&#39;s" in whole or "Logo's" in whole
+    assert "kind=sponsor" in whole and "kind=tenant_logo" in whole
+
+    sponsors = client.get("/admin/media/kiezer?field=f&kind=sponsor").text
+    assert "sponsorlogo" in sponsors
+    assert "eigen logo" not in sponsors and ">pagina<" not in sponsors
+
+    unknown = client.get("/admin/media/kiezer?field=f&kind=design_render").text
+    assert "sponsorlogo" in unknown and ">pagina<" in unknown

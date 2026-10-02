@@ -23,11 +23,16 @@ from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E40
 
 SHOTS = "/scratch/shots_1397"
 
+# Since #1473 the slot is the picker: open it, and read its first group — the
+# copy chain's photos — from the modal, and the hidden field that holds the choice.
 _MEASURE = """() => {
-  const sel = document.querySelector('select[name="main_image_id"]');
-  const groups = [...sel.querySelectorAll('optgroup')].map(g => ({
-    label: g.label, options: [...g.querySelectorAll('option')].map(o => Number(o.value))}));
-  return {groups, selected: Number(sel.value),
+  const box = document.querySelector('#mp-main_image_id');
+  const sections = [...box.querySelectorAll('section')];
+  const groups = sections.filter(s => s.querySelector('h4')).map(s => ({
+    label: s.querySelector('h4').textContent.trim(),
+    options: [...s.querySelectorAll('button[aria-label]')].map(
+      b => Number((b.getAttribute('@click') || b.getAttribute('x-on:click') || '').match(/chosen = '(\\d+)'/)[1]))}));
+  return {groups, selected: Number(document.querySelector('input[name="main_image_id"]').value),
           width: [document.documentElement.scrollWidth, innerWidth]};
 }"""
 
@@ -96,19 +101,22 @@ def test_the_photo_choice_offers_the_source_pictures(setup, width):
         login_met_sessie(page, session_value)
         page.goto(f"/admin/ontwerpen/{data['design']}")
         pagina_klaar(page)
+        slot = page.locator('input[name="main_image_id"]').locator("xpath=..")
+        slot.get_by_role("button", name="Kies een afbeelding").click()
+        page.locator("#mp-main_image_id h4").first.wait_for(state="visible", timeout=5000)
         m = page.evaluate(_MEASURE)
         print(f"MEASURE @{width}", m)
         if os.path.isdir("/scratch"):
             os.makedirs(SHOTS, exist_ok=True)
-            page.locator('select[name="main_image_id"]').scroll_into_view_if_needed()
+            page.locator("#mp-main_image_id").scroll_into_view_if_needed()
             page.screenshot(path=f"{SHOTS}/{width}-ontwerp-fotokeuze.png")
 
-        assert m["groups"] == [
-            {
-                "label": f"Van {data['name']} (2026)",
-                "options": [data["activity_photo"], data["design_image"]],
-            }
-        ], m
+        # The order inside a group is `pick_options`' (sort order, newest first),
+        # not this test's subject: which pictures, under which heading.
+        assert [g["label"] for g in m["groups"]] == [f"Van {data['name']} (2026)"], m
+        assert sorted(m["groups"][0]["options"]) == sorted(
+            [data["activity_photo"], data["design_image"]]
+        ), m
         assert m["selected"] == data["activity_photo"], "the chosen photo is selected"
         assert m["width"][0] <= m["width"][1], m
     finally:

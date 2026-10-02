@@ -10,9 +10,10 @@ upload, and a numbered version that can be published as the activity's poster.
 - **Read**: `list_designs`, `designs_for_activity` (for the activity screen's jump link), `get_design`, `facts_for` (what the poster takes
   from the activity and the association, plain values), `fingerprint`,
   `is_stale`, `content_for` (the `PosterContent` value), `check_design`,
-  `preview_png`, `image_options`, `sponsor_options`, `budget`, `edited_svg_for`,
+  `preview_png`, `sponsor_options`, `budget`, `edited_svg_for`,
   `rendition`.
-- **Write**: `create_design`, `save_design`, `delete_design`, `make_version`
+- **Write**: `create_design`, `save_design`, `set_slot_image` (a slot points at a
+  library picture the picker offers, or is emptied — #1473), `delete_design`, `make_version`
   (all-or-nothing, Inkscape as authority), `publish` (async — copies the A3 PDF
   onto the activity through `media.replace_activity_poster`),
   `upload_edited_svg`, `remove_edited_svg`, `add_design_image` (async),
@@ -30,7 +31,7 @@ upload, and a numbered version that can be published as the activity's poster.
 | Component | For |
 |---|---|
 | `activities.api` | `get_activity` (title, dates, place, deadline, cancelled), `organisers_for` (#1004: the contacts on the poster) |
-| `media.api` | `list_activity_photos`, `list_media` (kinds `design_image`, `sponsor`), `upload_media` (kind `design_image`, #1005), `add_document` (kind `design_render`: PDF, PNG, SVG — an SVG is cleaned by media's one allowlist, #1011), `delete_media`, `replace_activity_poster` (publishing), `MediaAsset` (bytes of an image by id) |
+| `media.api` | `list_media` (kind `sponsor`), `store_uploads` (kind `design_image`, #1005), `add_document` (kind `design_render`: PDF, PNG, SVG — an SVG is cleaned by media's one allowlist, #1011), `remove_media`, `store_activity_poster` (publishing), `offered_by_picker` (what a slot may hold, #1473), `asset_bytes` (the bytes of an image by id — never `.data`, #1473), `media_url` (a slot's thumbnail), `MediaAsset` (an image's type and size, no bytes) |
 | `mdm.api` | `organization_details` (website, e-mail, gsm of the association) |
 | `chatbot.api` | `sink_for` (the AI log, #978) and `cost_per_period` (the month's spend) |
 | `kernel` | `tenant_home_url` (the QR target, https), `current_tenant_id`, `jobs` (`designstudio.generate`) |

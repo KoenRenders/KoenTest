@@ -70,8 +70,8 @@ class MediaAsset(TenantMixin, Base):
       afbeelding óf PDF; primeert op ``ActivitySubRegistration.info_url`` (#223).
     - ``kind="design_image"`` → een beeld dat in een affiche gaat (CR-10, #1005),
       soft-gekoppeld aan een activiteit. Wordt net als elke upload heropend en
-      opnieuw gecodeerd, alleen tot 4096 px in plaats van 1600 — een A3-affiche
-      vraagt dat.
+      opnieuw gecodeerd, tot de ene maat van 2 400 px die elke upload sinds #1473
+      heeft.
     - ``kind="design_render"`` → de gerenderde affiche (PDF/PNG/SVG) van één
       versie. Komt van de Design Studio zelf en nooit van een upload.
 

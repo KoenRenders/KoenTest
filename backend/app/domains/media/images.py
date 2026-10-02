@@ -16,23 +16,24 @@ from PIL import Image, ImageOps
 
 from app.domains.media.models import MediaKind, as_media_kind
 
-MAX_FULL = 1600  # langste zijde van het "volledige" beeld
+# CR-15 §C4.1 (#1473), Koen, 2 October 2026: ONE stored size for every upload,
+# 2 400 px on the long side — album photos, page pictures, logos and pictures
+# uploaded straight into the Design Studio alike. An A3 poster prints at about
+# 145 dpi from it, an A4 at about 205: fine for a poster read from a distance.
+# It replaces 1 600 px for most kinds and the 4 096 px of design images, which
+# existed for a copy that no longer exists — the studio refers to a library
+# picture instead of storing its own. Existing rows stay as stored.
+MAX_FULL = 2400  # langste zijde van het "volledige" beeld
+# A render is no upload: it is the studio's print product, made at its own size
+# (A3 at 150 dpi is 1 754 px; PROD measured 1 754 at most). It keeps the bound it
+# had (#1011), so a print never loses detail to the upload size.
+MAX_FULL_RENDER = 4096
 MAX_THUMB = 400  # langste zijde van de thumbnail
 JPEG_QUALITY = 82
 
-# Per SOORT en niet per formaat (#1005, CR-10 §3.11). Een A3-affiche vraagt een
-# beeld tot 4096 px; 1600 px is daarvoor te weinig. De uitzondering hangt aan de
-# soort, zodat een activiteitsfoto er nooit onder valt — een grens die aan het
-# formaat hing, zou voor elke grote upload gelden.
-#
-# Wat NIET verandert: elk beeld wordt heropend en opnieuw gecodeerd. Die
-# hercodering is de beveiliging — ze strips EXIF en kleurprofiel, en een bestand
-# dat zich als afbeelding voordoet komt er niet doorheen. Alleen de doelmaat
-# verschilt.
-# `design_render` staat er ook op (#1011): dat is de gerenderde affiche zelf.
-# Ze terugbrengen tot 1600 px zou het beeld vernietigen waarvoor 4096 px net is
-# toegestaan.
-MAX_FULL_BY_KIND = {MediaKind.DESIGN_IMAGE: 4096, MediaKind.DESIGN_RENDER: 4096}
+# Elk beeld wordt heropend en opnieuw gecodeerd. Die hercodering is de beveiliging
+# — ze strips EXIF en kleurprofiel, en een bestand dat zich als afbeelding voordoet
+# komt er niet doorheen. De doelmaat is sinds #1473 dezelfde voor elke soort.
 
 # Soorten die verliesvrij blijven (#1011). Een render is een drukklaar beeld van
 # een affiche: JPEG zet juist rond letterranden de artefacten neer die je op A3
@@ -64,7 +65,8 @@ MAX_FULL_BY_KIND = {MediaKind.DESIGN_IMAGE: 4096, MediaKind.DESIGN_RENDER: 4096}
 # possible material for a block compression. And the image sits on a how-to page
 # precisely to be read.
 #
-# What does NOT belong here, measured before it became a rule: a bigger MAX_FULL.
+# Measured before #1473 made one size of 2 400 px the rule (Koen's decision, CR-15
+# §C4.1), and still true for page pictures: a bigger size costs bytes, not looks.
 # Downscaling a 1920 px screenshot to 1600 removes every pure black pixel
 # (89,064 -> 0, all of it intermediate grey), which looks like the real problem. But
 # the page shows the image in a text column of ~800 px, and there the difference
@@ -132,7 +134,7 @@ def process_image(raw: bytes, *, kind: MediaKind | str = "") -> dict:
     width, height, byte_size.
     Werpt :class:`ImageError` als de input geen geldige afbeelding is.
 
-    `kind` bepaalt de doelmaat (`MAX_FULL_BY_KIND`, #1005) en of de uitvoer
+    `kind` bepaalt of de uitvoer
     verliesvrij blijft (`LOSSLESS_KINDS`, #1011); de hercodering zelf gebeurt
     voor élke soort. Het type komt uit de INHOUD —
     Pillow leest de bytes, niet de bestandsnaam.
@@ -158,9 +160,7 @@ def process_image(raw: bytes, *, kind: MediaKind | str = "") -> dict:
     if keep_alpha and img.mode != "RGBA":
         img = img.convert("RGBA")
 
-    full = _resized(
-        img, MAX_FULL if media_kind is None else MAX_FULL_BY_KIND.get(media_kind, MAX_FULL)
-    )
+    full = _resized(img, MAX_FULL_RENDER if media_kind is MediaKind.DESIGN_RENDER else MAX_FULL)
     thumb = _resized(img, MAX_THUMB)
 
     data, content_type = _encode(full, keep_alpha=keep_alpha)
