@@ -374,12 +374,15 @@ Nothing of this exists yet; it is the shape of the artifacts phase 1 and 2 will 
 ```markdown
 ## Reviews on request
 
-A review starts only when asked. Koen asks the master CLI; the master CLI is
-the one dispatcher: it sets the `ai-review` label on the PR (or the tracking
-issue) and comments the scope with an @-mention naming the reviewer it routed
--- a change request review to the architecture CLI (the series shaping
+A review starts only when asked, through two doors. Within the Claude
+series, Koen asks the master CLI; the master CLI is the dispatcher of the
+Claude series: it sets the `ai-review` label on the PR (or the tracking
+issue) and comments the scope with an @-mention naming the reviewer it
+routed -- a change request review to the architecture CLI (the series shaping
 change requests), a code review to a
-dev CLI. No other CLI or agent session starts a review on its own. The
+dev CLI. An outside reviewing agent (Mistral, another tool) is started by
+Koen from its own channel, not routed by the master CLI. No CLI or agent
+session starts a review on its own. The
 reviewer answers as one comment per `docs/review-protocol.md`, in English;
 the findings are advisory -- only CI blocks a merge, and Koen decides what is
 taken in.
