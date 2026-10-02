@@ -1,7 +1,7 @@
 # Change Request 15 — Media library: one picture, stored once, usable everywhere
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 1 October 2026 · walked through with Koen on 2 October 2026, every question answered · on hold until Koen plans it on a release
+**Status:** shaped on 1 October 2026 · walked through with Koen on 2 October 2026, every question answered · **go, both phases, planned by the master CLI** (Koen, 2 Oct 2026); C9 waived
 **Tracking issue:** #1410 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the media domain and its admin screen; the picture choosers of Design Studio and the CMS; the public photo albums; one new field on the activity, already under way (#1397).
 **Reading:** A 2392 words · B 2964 · C 2533 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
@@ -411,6 +411,7 @@ None on 2 October 2026: every question of the walkthrough with Koen, and the one
 |---|---|---|
 | 1 Oct 2026 | A change request for the media library, to be walked through point by point before anything is assigned; nothing built from it yet. The small step of #1397 (`copied_from_id`, predecessors in the choice) goes ahead as its seed. | Koen, via the master CLI |
 | 2 Oct 2026 | **Tags, not folders** — Koen reversed the folder decision the same day after reading the rejected alternative: every picture can carry several tags, you search by tag, and the tags are shown as a tree knowing that a picture then appears in several places. R9 becomes a Must and the order of the library; R13 (folders) a Won't; no folders inside an activity's album either. | Koen |
+| 2 Oct 2026 | **Go for both phases now**, without waiting for CR-11's frame: the picker is built in today's kit and restyled with the roll-out later; the concepts of C9 are skipped for this change — the master CLI's eye at the merge is the net. The master CLI plans it on a release. | Koen |
 | 2 Oct 2026 | **Posters in their own branch** (Q10, after Mistral's review): an activity's poster (`activity_poster`) is offered by the picker, but never between the photos uploaded after the activity — that is confusing. The tree gets a branch *Affiches › year › activity* beside *Activiteiten*; an activity's own branch holds its album photos only. One grouping rule in `pick_options`; Q2's "every picture" stands. | Koen |
 | 2 Oct 2026 | **What the picker shows when it opens** (Q1): from a design on a copied activity, first last year's photos of that activity (the chain of #1397), under it the whole tree — Activiteiten by year, the tag tree — one search box on a picture's title, its activity's name and its tags, a year filter; keywords later (phase 3). With this answer B8 is empty. | Koen |
 | 2 Oct 2026 | **One stored size for every upload: 2 400 px** (Q8). The 4 096 px size for design images goes. (The "copy into a design image" this decision also named turned out not to exist — a slot already references the chosen asset; measured the same evening after Mistral's review.) 2 400 px prints an A3 poster at about 145 dpi and an A4 at about 205 dpi — enough for a poster read from a distance, not for fine print; AI pictures come at the model's own size and are unaffected; existing assets stay as stored. | Koen, on the author's judgment that 2 400 suffices |
@@ -563,7 +564,7 @@ An activity is soft-deleted (#166); its photos stay rows with an `activity_id` t
 
 ## C9. Screens before the build — the concepts the approver saw
 
-Not yet made. Before the handover: the picker at 390 px (the sheet: search, the chips *van vorig jaar · activiteit · jaar*, the three-column grid, a chosen tile) and at desktop width inside the design editor; the library with the tag tree at the left, the "in gebruik" filter and a card's "gebruikt in 2" list. Invented data, in Koen's project folder outside the repository; the date he looked at them goes here.
+**Waived by Koen on 2 October 2026**: no concepts for the picker and the library before the build. The net is the master CLI's eye at the merge gate (1 440 px, and 390 px for not breaking) and the DOM measurements of C6 test 10. The picker is built in today's kit and restyled with CR-11's roll-out, not the other way round.
 
 ## C10. Close-out at the release
 
