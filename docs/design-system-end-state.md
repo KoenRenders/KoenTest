@@ -215,11 +215,44 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   columns as the norm, a column chooser under `⋯`; no horizontal scrolling
   ever — columns fit, secondary ones hide as the width shrinks, rows stack
   on a phone. A card or row shows only what applies to that record —
-  omitted, not zeroed. [5, 11, 36, P6]
+  omitted, not zeroed. [5, 11, 36, P6] **Decided with block 4** (Koen, 2
+  October 2026, on ChatGPT's brief-04 answer): the head 36 px, `ink-soft`
+  on `surface-2`, a sortable column a link with a double arrow, the active
+  one a single arrow in its direction, `aria-sort` on it only, numbers and
+  amounts right-aligned with tabular digits, "Sorteren" under `⋯` on a
+  phone; a sort keeps search, filters and page size and goes to page 1;
+  **columns hide by list width** in a fixed order per list (Betalingen:
+  Ontvangen first, then Context; Leden: Lidjaar; Wijzigingen: Details,
+  then Uitgevoerd door), and **the column chooser** under `⋯` → Kolommen
+  gives each optional column Automatisch / Tonen / Verbergen, the choice
+  carried in the URL like search and filters, Automatisch the default;
+  **on a phone one continuous table** with dividers, no separate cards —
+  a payment row: name + reference, context, badge + amount on one line,
+  `⋯` top right (about 153 px); **status is a coloured badge** (Openstaand
+  on `warning`, Betaald / Vereffend on `success`), the row itself never
+  coloured; **a refund is a negative amount** and nothing else marks it;
+  **inside a registration group the first booking is the parent row and
+  every following booking is indented with "↳"** and carries its kind and
+  method in `ink-soft` under the context ("Terugbetaling · Overschrijving"
+  — today's coupling, kept on Koen's word), the quiet "Totaal inschrijving"
+  row under a group of more than one booking, no `tfoot`, no list total;
+  **Bedrag is never coloured, a Saldo that is not zero is `warning`,
+  positive and negative, on the row and in the sum row**, zero in ink —
+  red is for delete and errors and nothing else; **the empty state** says
+  "0–0 van 0" and one sentence naming the filter or search that caused it,
+  with the create button where one exists.
 - **The row is the way in:** click it and the record page opens; the whole
-  row is the target, with hover and a focus ring; on a phone the whole card,
-  44 px high at least. "Bewerken" is not a row action; `⋯` keeps delete,
-  duplicate and quick state changes. [26]
+  row is the target (a link in the first cell with its click area over the
+  row — no nested anchors; a reference inside the row is its own link),
+  with hover on `surface-2` and a focus ring; on a phone the whole stacked
+  row, 44 px high at least. "Bewerken" is not a row action. **One row
+  action may be visible** — the positive action of the row's state
+  ("Bevestig" on an open booking), a secondary 32 px button in the actions
+  column beside `⋯`, the cell left empty where the row has none so the `⋯`
+  of every row aligns; the page keeps one primary — and `⋯` holds the rest:
+  quick state changes, "open the registration", duplicate, delete last
+  after a divider in red (block 4, Koen, 2 October 2026; this replaces
+  "two or three inline plus ⋯"). [26]
 - **Bottom:** the page navigation from the same pager macro; hidden when
   everything fits. [6]
 - **Totals** live in the tiles and nowhere else. [10]
@@ -640,7 +673,7 @@ Shell width for every list: the wide frame (row 11); today three lists set
 | Organisaties | cards; search, type select; empty header | name · type badge · code · legal form · inactive badge | — | Alle · per type; name, code; —; type, name | none (created elsewhere, by design) |
 | Tenants | cards; search, status select | name · /code · active badge · platform badge | — | Actief · Inactief; name, code; —; id | + Nieuwe tenant |
 | Rapporten | cards with description and chips; search, owner and shared selects; AI buttons in the header | name · shape icon · privé/meegeleverd badge · owner · last opened | — | Mijn · Meegeleverd · Alle; name, description; owner; name | + Nieuw rapport (the AI buttons go: Raakje is the shell's trigger, row 32) |
-| Wijzigingen | table, sortable, page size, pager; `max-w-none` | when · change badge · group badge · person · details · object (jump link) · actor | — | per group; actor; from date; sortable columns | Ledenexport (.ods) under `⋯` |
+| Wijzigingen | table, sortable, page size, pager; `max-w-none` | Tijdstip · Wijziging (badge) · Onderdeel · **Persoon** (the member the change concerns — kept on Koen's word, 2 Oct 2026, after ChatGPT dropped it) · Record (jump link) · Uitgevoerd door · Details; Details hides first, then Uitgevoerd door; no row menu (a log line is not deleted); the segments Alle \| Leden \| Activiteiten \| Betalingen without counts | — | per group; actor; from date; sortable columns | Ledenexport (.ods) under `⋯` |
 | Werkbank | cards polled every 30 s; search, kind filter, status chips | title · kind badge · state badge · created · decision when done | Open · Vandaag | status chips (code labels); task, subject; kind; status, created | none |
 | AI-kosten | two tables (month totals, calls); month buttons; pager 50 | month totals stay a table; calls: date · module · who · model · status · duration · cost | Deze maand (cost) | month ‹ ›; —; module, provider; date | none (a settings sub-page of Systeeminfo) |
 | AI-context | three cards of rows (documents, pages, notes) with an OCR toggle and inline edit | **tabs per kind** (row 37): Documenten · Pagina's · Notities, each a table: label · state badge · read at | — | per tab; label; —; label | + Notitie (on its tab) |
