@@ -23,6 +23,7 @@ Koen would have hit.
 import pytest
 
 from app.domains.auth.api import User, UserRole
+from tests.conftest import sent_to_sign_in
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -66,7 +67,7 @@ def test_logging_out_really_ends_the_session(client, db_session, monkeypatch):
     resp = client.get("/afmelden", follow_redirects=False)
 
     assert resp.status_code == 302 and resp.headers["location"] == "/"
-    assert client.get("/admin/werkbank").status_code == 401, "de sessie werkt nog na het uitloggen"
+    assert sent_to_sign_in(client, "/admin/werkbank"), "de sessie werkt nog na het uitloggen"
 
 
 @pytest.mark.parametrize(

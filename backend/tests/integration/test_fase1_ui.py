@@ -2,7 +2,7 @@
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mail.models import EmailLog
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, sent_to_sign_in
 
 
 def _login(client):
@@ -60,7 +60,7 @@ def test_aanmelden_unknown_email_shows_same_generic_step(client):
 
 
 def test_email_log_page_requires_session(client):
-    assert client.get("/admin/e-maillog").status_code == 401
+    assert sent_to_sign_in(client, "/admin/e-maillog")
 
 
 def test_email_log_page_lists_and_filters(client, db_session):

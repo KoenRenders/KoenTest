@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.payment.api import PaymentRecord, PaymentStatus, PaymentType
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, sent_to_sign_in
 
 
 def _login(client):
@@ -35,7 +35,7 @@ def _record(db, amount="25.00", status="pending", payable_id=1):
 
 
 def test_betalingen_requires_session(client):
-    assert client.get("/admin/betalingen").status_code == 401
+    assert sent_to_sign_in(client, "/admin/betalingen")
 
 
 def test_betalingen_matrix_filters_and_totals(client, db_session):

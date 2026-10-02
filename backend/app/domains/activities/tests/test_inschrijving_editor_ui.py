@@ -5,7 +5,7 @@ UI-routes hergebruiken de bestaande router-facades; sessie + CSRF vereist.
 
 from app.domains.activities.api import Registration, RegistrationItem
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product, sent_to_sign_in
 
 
 def _login(client):
@@ -37,7 +37,7 @@ def _item_id(db, reg_id):
 def test_detail_requires_session(client, db_session):
     activity, comp, product = seed_activity_with_product(db_session, is_free=False)
     reg_id = _register(client, activity.id, comp, product)
-    assert client.get(f"/admin/inschrijvingen/{reg_id}").status_code == 401
+    assert sent_to_sign_in(client, f"/admin/inschrijvingen/{reg_id}")
 
 
 def test_editor_update_quantity_add_delete_and_remarks(client, db_session):

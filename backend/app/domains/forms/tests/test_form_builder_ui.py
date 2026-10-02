@@ -3,7 +3,7 @@ met op-aflopen en branching, JSON-import, inzendingen-tab, afdruk."""
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.forms.models import Form, FormField, FormSection
-from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields, sent_to_sign_in
 
 
 def _login(client):
@@ -13,7 +13,7 @@ def _login(client):
 
 
 def test_builder_requires_session(client):
-    assert client.get("/admin/formulieren").status_code == 401
+    assert sent_to_sign_in(client, "/admin/formulieren")
 
 
 def test_formulier_aanmaken_en_bouwen(client, db_session):

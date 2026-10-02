@@ -9,7 +9,7 @@ grens — niet de opmaak.
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.forms.models import Form
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, sent_to_sign_in
 
 
 def _login(client):
@@ -26,7 +26,7 @@ def _maak(db_session, titel: str, status: str, token: str) -> Form:
 
 
 def test_lijst_vereist_sessie(client):
-    assert client.get("/admin/formulieren").status_code == 401
+    assert sent_to_sign_in(client, "/admin/formulieren")
 
 
 def test_zoeken_filtert_op_naam(client, db_session):

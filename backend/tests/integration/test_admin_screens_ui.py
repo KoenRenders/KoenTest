@@ -9,7 +9,7 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.auth.models import User
 from app.domains.cms.models import CmsPage
 from app.domains.media.models import MediaAsset
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, sent_to_sign_in
 
 
 def _login(client):
@@ -26,7 +26,7 @@ def test_schermen_vereisen_sessie(client):
         "/admin/ledenwijzigingen",
         "/admin/info",
     ):
-        assert client.get(pad).status_code == 401, pad
+        assert sent_to_sign_in(client, pad), pad
 
 
 def test_paginas_crud(client, db_session):
