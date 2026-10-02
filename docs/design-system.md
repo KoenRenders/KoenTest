@@ -265,7 +265,7 @@ Import with `{% import "_macros.html" as ui %}`.
 | Group | Macros |
 |---|---|
 | Structure | `page_header` · `section_header` · `section_bar` · `card` · `nested_panel` · `tabs` · `detail_disclosure` |
-| Lists | `search` · `filter_bar` · `grouped_filter` · `chips` · `multiselect` · `pager` · `row_actions` · `reorder` · `empty_state` · `loading` |
+| Lists | `search` · `filter_bar` · `grouped_filter` · `chips` · `multiselect` · `media_picker` · `pager` · `row_actions` · `reorder` · `empty_state` · `loading` |
 | Forms | `field_input` · `field_select` · `field_textarea` · `label` · `vraag` · `input_control` · `select_control` · `textarea_control` · `person_fields` · `upload_field` · `export_links` · `copy_button` |
 | Feedback | `toast` · `toast_oob` · `toast_host` · `success_banner` · `error_banner` · `modal` · `confirm_host` · `badge` |
 | Buttons | `btn_primary` · `btn_secondary` · `btn_outline` · `btn_danger` · `button` · `btn_class` · `edit_toggle` · `icon` · `icon_text` · `action_bar` |
@@ -498,6 +498,17 @@ picker → current attachment (link + delete) → hint**. Macro
   elsewhere; this happened under your cursor. On failure the check mark stays
   away and the text is selected: the button does not lie. Never inside an `<a>`
   — use the stretched-link pattern.
+
+### 2.7a The media picker (#1472, CR-15 §C4.3)
+
+`ui.media_picker(name, value, value_thumb, for_activity_id)` is the one way a
+screen offers a picture from the library — the design editor and the CMS modal
+alike. A hidden field holds the chosen id; the button opens `ui.modal()` and
+loads the picker: the tree (activities by year, posters apart, tags), search
+over title, activity and tag, the year as chips, thumbnails in pages of 60.
+For a copied activity the photos of its predecessors come first, "Van
+<activity> (<year>)". What it offers is `media.api.pick_options`; a screen never
+draws its own `<select>` of pictures. On a phone the tree folds above the grid.
 
 ### 2.8 Loading and empty
 

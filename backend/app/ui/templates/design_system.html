@@ -337,6 +337,9 @@
   {{ ui.multiselect("jaren", values=["2027", "2026", "2025"],
                     labelled=[("@dit_jaar", _("Dit jaar"))],
                     current=["@dit_jaar", "2027"], aria_label=_("Jaar"), cls="mt-3 max-w-xs") }}
+  {# #1472: de kiezer — de enige manier waarop een scherm een afbeelding uit de
+     bibliotheek aanbiedt. Live op de echte bibliotheek. #}
+  <div class="mt-3 max-w-xs">{{ ui.media_picker("ds_afbeelding") }}</div>
   {# `checkbox_group` is een FORMULIERVELD: altijd open, nooit een filter. #}
   {{ ui.checkbox_group("dagen", values=["Maandag", "Woensdag", "Zaterdag"],
                        current=["Woensdag"], aria_label=_("Dagen"), cls="mt-3 max-w-xs") }}
