@@ -11,25 +11,59 @@
    gebruiker neemt; via de URL rechtstreeks klopte het wél, en dáárom bleef het
    staan. Zelfde patroon als de recordkop van een activiteit (#748/#714). #}
 {{ ui.error_banner(error) }}
+{% if tag %}
+{# #1470: the chosen tag — rename it, hang it elsewhere, or delete it when it
+   carries nothing. A tag gathers pictures of every kind. #}
+<div class="mb-4 bg-white border border-gray-200 rounded-xl p-4">
+  <form class="flex flex-wrap items-end gap-3" hx-post="/admin/media/tags/{{ tag }}" hx-target="#me-lijst" hx-swap="innerHTML">
+    <div class="min-w-[12rem] flex-1">{{ ui.label(_("Tag"), "me-tag-naam") }}
+      {{ ui.input_control("name", id="me-tag-naam", value=tag_eigen_naam, cls="w-full") }}</div>
+    <div class="min-w-[12rem]">{{ ui.label(_("Hangt onder"), "me-tag-ouder") }}
+      {% call ui.select_control("parent_id", cls="w-full", attrs='id="me-tag-ouder"') %}
+        <option value="">{{ _("Bovenaan") }}</option>
+        {% for waarde, pad in tag_ouder_opties %}<option value="{{ waarde }}" {% if waarde == tag_ouder %}selected{% endif %}>{{ pad }}</option>{% endfor %}
+      {% endcall %}</div>
+    {{ ui.action_bar(
+         cancel_attrs='hx-get="/admin/media?' ~ filterstand ~ '" hx-target="#me-lijst" hx-swap="innerHTML"',
+         delete_attrs='hx-post="/admin/media/tags/' ~ tag ~ '/verwijderen" hx-target="#me-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Tag"), tag_naam)) }}
+  </form>
+</div>
+{% endif %}
 {% if assets %}
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+{# #1470: one card per row beside the tree until 2xl (1 536 px), two from there.
+   At 1 440 the card column is 744 px; two cards of ~364 px wrapped the row
+   "Volgorde · Actief · 800×600" that #1265 keeps on one line on a desktop
+   (measured y 454 vs 486). Below `lg` there is no tree beside the cards, so
+   two columns from `md` stay as they were. #}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2 gap-4">
   {% for a in assets %}
   <form class="bg-white border border-gray-200 rounded-xl p-4 flex gap-4"
         hx-post="/admin/media/{{ a.id }}" hx-target="#me-lijst" hx-swap="innerHTML">
     <input type="hidden" name="kind" value="{{ kind }}">
     <input type="hidden" name="q" value="{{ q }}">
     <input type="hidden" name="filter_activity_id" value="{{ activity_id or '' }}">
+    <input type="hidden" name="filter_tag" value="{{ tag or '' }}">
+    <input type="hidden" name="filter_year" value="{{ year or '' }}">
     <img src="{{ a.thumb_url }}" alt="{{ a.title or '' }}" class="w-24 h-24 object-contain bg-gray-50 rounded-lg shrink-0">
-    <div class="flex-1 space-y-2 text-sm">
+    {# #1470: `min-w-0` — the tag choice's one line can be long ("Jeugd › Kamp,
+       Sint"); without it this column grows with it and pushes the buttons off
+       a phone, inside a card that clips them, so the page stays 390 wide and
+       only the eye sees it. Measured on the screenshot, then in the e2e. #}
+    <div class="flex-1 min-w-0 space-y-2 text-sm">
       {# Golf 6, kop-herziening: het cluster staat bovenaan de kaartinhoud.
          §2.8 (#694) blijft gelden: altijd open, dus Annuleren = opnieuw laden
          wat bewaard is. #}
       {{ ui.action_bar(
-           cancel_attrs='hx-get="/admin/media?kind=' ~ kind ~ '&q=' ~ q ~ '&filter_activity_id=' ~ (activity_id or "") ~ '" hx-target="#me-lijst" hx-swap="innerHTML"',
-           delete_attrs='hx-post="/admin/media/' ~ a.id ~ '/verwijderen" hx-vals=\'{"kind": "' ~ kind ~ '", "q": "' ~ q ~ '", "filter_activity_id": "' ~ (activity_id or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Media"), a.title or ("item " ~ a.id))) }}
+           cancel_attrs='hx-get="/admin/media?' ~ filterstand ~ '" hx-target="#me-lijst" hx-swap="innerHTML"',
+           delete_attrs='hx-post="/admin/media/' ~ a.id ~ '/verwijderen" hx-vals=\'{"kind": "' ~ kind ~ '", "q": "' ~ q ~ '", "filter_activity_id": "' ~ (activity_id or "") ~ '", "filter_tag": "' ~ (tag or "") ~ '", "filter_year": "' ~ (year or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Media"), a.title or ("item " ~ a.id))) }}
       {{ ui.input_control("title", id="me-title-" ~ a.id, value=a.title or "", placeholder=_("Titel"), cls="w-full") }}
       {# #707: alleen bij een sponsor; de soort van dit asset ligt vast. #}
       {% if a.is_sponsor %}{{ ui.input_control("link_url", id="me-link-" ~ a.id, value=a.link_url or "", placeholder=_("Link"), cls="w-full") }}{% endif %}
+      {# #1470: the picture's tags, ticked or not; saved with the card. The marker
+         says the card sent its tags — nothing ticked then means "none". #}
+      <input type="hidden" name="tags_on_card" value="1">
+      {{ ui.multiselect("tag_ids", labelled=tag_opties, current=a.tag_ids,
+                        aria_label=_("Tags"), empty_label=_("Geen tags")) }}
       {# #1265: `flex-wrap`, so Volgorde, Actief and the dimensions take a second
          line on a phone instead of pushing the card — and the page — to 403 px.
          `gap-x-4` keeps the 16 px of the one-line desktop row; `gap-y-2` is the
@@ -48,8 +82,8 @@
            ongefilterd staan de foto's van alle activiteiten door elkaar. #}
         <label class="flex items-center gap-1">{{ _("Volgorde") }}
           {{ ui.reorder(
-               up_attrs='hx-post="/admin/media/' ~ a.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog","kind":"' ~ kind ~ '","q":"' ~ q ~ '","filter_activity_id":"' ~ (activity_id or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML"',
-               down_attrs='hx-post="/admin/media/' ~ a.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag","kind":"' ~ kind ~ '","q":"' ~ q ~ '","filter_activity_id":"' ~ (activity_id or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML"',
+               up_attrs='hx-post="/admin/media/' ~ a.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog","kind":"' ~ kind ~ '","q":"' ~ q ~ '","filter_activity_id":"' ~ (activity_id or "") ~ '","filter_tag":"' ~ (tag or "") ~ '","filter_year":"' ~ (year or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML"',
+               down_attrs='hx-post="/admin/media/' ~ a.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag","kind":"' ~ kind ~ '","q":"' ~ q ~ '","filter_activity_id":"' ~ (activity_id or "") ~ '","filter_tag":"' ~ (tag or "") ~ '","filter_year":"' ~ (year or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML"',
                first=a.is_first, last=a.is_last) }}
         </label>
         <label class="flex items-center gap-1"><input type="checkbox" name="is_active" value="1" {% if a.is_active %}checked{% endif %}> {{ _("Actief") }}</label>
@@ -82,4 +116,6 @@
 {# #1291: the activity filter follows the kind the same way — gone for any other
    kind, back at "Alle activiteiten" for activity photos. #}
 <span id="media-activity-filter" class="contents" hx-swap-oob="true">{% include "_media_activity_filter.html" %}</span>
+{# #1470: the tree follows too — the year filter narrows its activity branches. #}
+<aside id="me-boom" class="mb-4 lg:mb-0" hx-swap-oob="true">{% include "_me_boom.html" %}</aside>
 {% endif %}

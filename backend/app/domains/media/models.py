@@ -136,6 +136,14 @@ class MediaAsset(TenantMixin, Base):
         primaryjoin="foreign(MediaAsset.component_id) == ActivitySubRegistration.id",
         viewonly=True,
     )
+    # #1470: the tags a picture carries. Read-only here: the links are written
+    # through `service.tag_asset` / `untag_asset`, the one way in.
+    tags = relationship(
+        "MediaTag",
+        secondary="media.asset_tags",
+        viewonly=True,
+        order_by="MediaTag.name",
+    )
 
 
 class MediaThumbsUp(TenantMixin, Base):
@@ -193,4 +201,41 @@ class MediaKindLabel(Base):
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(
         DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
+
+
+class MediaTag(TenantMixin, Base):
+    """A tag the board gives pictures, with an optional parent (CR-15 §C4.2, #1470).
+
+    IPTC's keyword given a parent: a picture carries several, and the library
+    shows them as a tree — *Logo's › Sponsors*. A picture appears under every tag
+    it carries and under every tag above those. The activity's own photos are no
+    tags: they are a branch derived from the activity.
+
+    The key is `UNIQUE NULLS NOT DISTINCT (tenant_id, parent_id, name)` (migration
+    186): two top-level tags of one name are refused too.
+    """
+
+    __tablename__ = "tags"
+    __table_args__ = {"schema": "media"}
+
+    id = Column(Integer, primary_key=True)
+    parent_id = Column(
+        Integer, ForeignKey("media.tags.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    name = Column(String(80), nullable=False)
+
+
+class MediaAssetTag(Base):
+    """One tag on one picture (#1470). The primary key refuses the same tag twice;
+    deleting the picture takes its links along, deleting a tag in use is refused."""
+
+    __tablename__ = "asset_tags"
+    __table_args__ = {"schema": "media"}
+
+    asset_id = Column(
+        Integer, ForeignKey("media.media_assets.id", ondelete="CASCADE"), primary_key=True
+    )
+    tag_id = Column(
+        Integer, ForeignKey("media.tags.id", ondelete="RESTRICT"), primary_key=True, index=True
     )

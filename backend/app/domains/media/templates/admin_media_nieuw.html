@@ -41,7 +41,7 @@
              stonden hier hardgecodeerd, dus een nieuwe soort verscheen wél in het
              filter van de lijst maar niet in deze keuzelijst — en was daardoor niet
              te uploaden. Nu is er één bron: VALID_KINDS. #}
-          {% for waarde, label in kind_options %}
+          {% for waarde, label in upload_kind_options %}
           <option value="{{ waarde }}" {% if kind == waarde %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         {% endcall %}</div>
@@ -59,6 +59,10 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>{{ ui.label(_("Titel"), "me-title") }}
           {{ ui.input_control("title", id="me-title", cls="w-full") }}</div>
+      {# #1470: an upload can carry one or more tags at once. #}
+      {% if tag_opties %}<div class="max-w-xs">{{ ui.label(_("Tags"), "me-tags") }}
+        {{ ui.multiselect("tag_ids", labelled=tag_opties, current=[tag|string] if tag else [],
+                          aria_label=_("Tags"), empty_label=_("Geen tags")) }}</div>{% endif %}
         {# #707: de doorklik hoort bij een sponsorlogo. Bij een activiteitenfoto
            wordt ze bewaard en nooit gebruikt — dan is het geen instelling maar
            rommel. De server negeert een meegestuurde waarde hoe dan ook; dit veld

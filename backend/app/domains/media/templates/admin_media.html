@@ -30,6 +30,12 @@
   {% endcall %}
 
 
+{# #1470: two columns from `lg` — the tree at the left, the cards at the
+   right (CR-15 §C4.2); on a phone the tree stands above the cards. Back office
+   is desktop-first: judged at 1 440 px, not broken at 390. #}
+<div class="lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6 lg:items-start">
+<aside id="me-boom" class="mb-4 lg:mb-0">{% include "_me_boom.html" %}</aside>
+<div class="min-w-0">
 {% call ui.filter_bar("/admin/media", "#me-lijst") %}
   {# #1138 punt 1: de bovengrens op de keuzelijst houdt de rij op één regel.
      Een <select> is zo breed als haar LANGSTE optie, dus zonder grens bepaalt
@@ -60,10 +66,16 @@
        activiteiten". The server applies the same rule on its own. `contents`: the
        anchor is no box of its own, so an empty one adds no gap to the row. #}
     <span id="media-activity-filter" class="contents">{% include "_media_activity_filter.html" %}</span>
+    {# #1470: the chosen tag and year travel along hidden; the year is chosen
+       at the top of the tree. #}
+    {% if tag %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}
+    {% if year %}<input type="hidden" name="year" value="{{ year }}">{% endif %}
   </div>
 {% endcall %}
 
 <div id="me-lijst">
   {% include "_me_lijst.html" %}
+</div>
+</div>
 </div>
 {% endblock %}
