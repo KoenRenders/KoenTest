@@ -13,7 +13,8 @@ Er wordt daarom getoetst op de waarde van het invoerveld in het antwoord, en op 
 er na de volledige weg `/totaal` → `/opslaan` in de databank staat.
 
 Kapotgemaakt om te controleren dat deze tests rood kunnen worden (lokaal): de
-regel `regel["quantity"] = quantities[regel["id"]]` weggehaald → de eerste en de
+getypte aantallen uit `counts = {**stored, **(quantities or {})}` in `_detail_ctx`
+weggehaald (#1494, de velden heten sindsdien `product_<id>`) → de eerste en de
 derde test vallen om; de tweede (zonder quantities) blijft groen, want die hangt
 aan de andere kant van de voorwaarde.
 """
@@ -51,17 +52,17 @@ def _inschrijving(client, db, aantal=2):
     assert resp.status_code in (200, 201), resp.text
     reg_id = resp.json()["id"]
     item_id = db.query(RegistrationItem).filter(RegistrationItem.registration_id == reg_id).one().id
-    return reg_id, item_id
+    return reg_id, item_id, product.id
 
 
-def _veldwaarde(html: str, item_id: int) -> str:
+def _veldwaarde(html: str, product_id: int) -> str:
     """De `value` van het aantal-veld uit het antwoord vissen.
 
     Op de tag zelf en niet op "1× Testproduct": die leesregel staat in het
     dichtgeklapte deel en toont iets anders dan het invoerveld — precies het
     verschil waar deze bug over gaat.
     """
-    tag = re.search(rf'<input[^>]*name="quantity_{item_id}"[^>]*>', html)
+    tag = re.search(rf'<input[^>]*name="product_{product_id}"[^>]*>', html)
     assert tag, "het aantal-veld staat niet in het antwoord"
     waarde = re.search(r'value="([^"]*)"', tag.group(0))
     assert waarde, f"het veld heeft geen value: {tag.group(0)}"
@@ -70,15 +71,15 @@ def _veldwaarde(html: str, item_id: int) -> str:
 
 def test_het_getypte_aantal_komt_terug_in_het_veld(client, db_session):
     """Het gemelde geval: 2 → 1."""
-    reg_id, item_id = _inschrijving(client, db_session, aantal=2)
+    reg_id, item_id, product_id = _inschrijving(client, db_session, aantal=2)
     hdr = _login(client)
 
     resp = client.post(
-        f"/admin/inschrijvingen/{reg_id}/totaal", headers=hdr, data={f"quantity_{item_id}": "1"}
+        f"/admin/inschrijvingen/{reg_id}/totaal", headers=hdr, data={f"product_{product_id}": "1"}
     )
 
     assert resp.status_code == 200, resp.text
-    assert _veldwaarde(resp.text, item_id) == "1", (
+    assert _veldwaarde(resp.text, product_id) == "1", (
         "het veld springt terug op de bewaarde waarde terwijl de bedragen die van "
         "het getypte aantal tonen"
     )
@@ -90,12 +91,12 @@ def test_zonder_getypt_aantal_blijft_de_bewaarde_stand_staan(client, db_session)
     Zonder haar zou "neem altijd wat er binnenkomt" ook groen staan, en dan toont
     een vers geopend paneel een leeg of nul-aantal.
     """
-    reg_id, item_id = _inschrijving(client, db_session, aantal=2)
+    reg_id, item_id, product_id = _inschrijving(client, db_session, aantal=2)
     hdr = _login(client)
 
     resp = client.get(f"/admin/inschrijvingen/{reg_id}", headers=hdr)
 
-    assert _veldwaarde(resp.text, item_id) == "2"
+    assert _veldwaarde(resp.text, product_id) == "2"
 
 
 def test_na_totaal_bewaart_opslaan_het_nieuwe_aantal(client, db_session):
@@ -105,13 +106,13 @@ def test_na_totaal_bewaart_opslaan_het_nieuwe_aantal(client, db_session):
     terug naar 2, dan stuurt Opslaan 2 mee, ziet de route geen verschil en bewaart
     ze niets — de wijziging verdwijnt zonder melding.
     """
-    reg_id, item_id = _inschrijving(client, db_session, aantal=2)
+    reg_id, item_id, product_id = _inschrijving(client, db_session, aantal=2)
     hdr = _login(client)
 
     live = client.post(
-        f"/admin/inschrijvingen/{reg_id}/totaal", headers=hdr, data={f"quantity_{item_id}": "1"}
+        f"/admin/inschrijvingen/{reg_id}/totaal", headers=hdr, data={f"product_{product_id}": "1"}
     )
-    teruggestuurd = _veldwaarde(live.text, item_id)
+    teruggestuurd = _veldwaarde(live.text, product_id)
 
     opslaan = client.post(
         f"/admin/inschrijvingen/{reg_id}/opslaan",
@@ -121,7 +122,7 @@ def test_na_totaal_bewaart_opslaan_het_nieuwe_aantal(client, db_session):
             "phone": "0470000000",
             "contact_email": "an@example.com",
             "remarks": "",
-            f"quantity_{item_id}": teruggestuurd,
+            f"product_{product_id}": teruggestuurd,
         },
     )
     assert opslaan.status_code == 200, opslaan.text
@@ -134,11 +135,11 @@ def test_na_totaal_bewaart_opslaan_het_nieuwe_aantal(client, db_session):
 
 def test_het_live_endpoint_bewaart_nog_steeds_niets(client, db_session):
     """#613-2 mag hier niet sneuvelen: er is één "Opslaan", geen autosave."""
-    reg_id, item_id = _inschrijving(client, db_session, aantal=2)
+    reg_id, item_id, product_id = _inschrijving(client, db_session, aantal=2)
     hdr = _login(client)
 
     client.post(
-        f"/admin/inschrijvingen/{reg_id}/totaal", headers=hdr, data={f"quantity_{item_id}": "1"}
+        f"/admin/inschrijvingen/{reg_id}/totaal", headers=hdr, data={f"product_{product_id}": "1"}
     )
 
     db_session.expire_all()

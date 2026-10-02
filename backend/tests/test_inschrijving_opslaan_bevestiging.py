@@ -29,7 +29,6 @@ from html.parser import HTMLParser
 
 import pytest
 
-from app.domains.activities.api import RegistrationItem
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
@@ -141,20 +140,9 @@ def test_de_tussenacties_houden_het_paneel_open(client, db_session):
     """
     reg_id, product = _inschrijving(client, db_session)
     hdr = _login(client)
-    item_id = (
-        db_session.query(RegistrationItem)
-        .filter(RegistrationItem.registration_id == reg_id)
-        .one()
-        .id
-    )
 
     wegen = [
-        (f"/admin/inschrijvingen/{reg_id}/totaal", {f"quantity_{item_id}": "3"}),
-        (
-            f"/admin/inschrijvingen/{reg_id}/regels",
-            {"product_id": str(product.id), "quantity": "1"},
-        ),
-        (f"/admin/inschrijvingen/{reg_id}/regels/{item_id}/verwijderen", {}),
+        (f"/admin/inschrijvingen/{reg_id}/totaal", {f"product_{product.id}": "3"}),
     ]
     for pad, data in wegen:
         resp = client.post(pad, headers=hdr, data=data)

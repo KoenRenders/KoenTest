@@ -106,22 +106,19 @@
       </div>
       <p class="text-xs text-ink-soft">{{ _("Dit corrigeert enkel deze inschrijving. Het ledenbestand pas je aan bij Leden.") }}</p>
 
+      {# #1494: every product of the component, as on the registration form — the
+         one product row (#1287), 0 is "not chosen". A changed counter
+         recalculates the total at once, server-side (§19.3); Save applies the
+         differences. No "Verwijderen" and no "Product toevoegen": one way. #}
       <div class="space-y-2">
-        {% for item in reg["items"] %}
-        {# #1287: the one product row, as on the registration form — the counter,
-           minimum 1, and no line amount (Koen: "doe het er in de backoffice dan
-           ook maar af"). A changed quantity still recalculates the total at once
-           (#670), server-side (§19.3), and the endpoint stores nothing; its answer
-           replaces this panel, and the input's id lets htmx keep the focus. #}
-        {% set price %}{% if item.unit_price is not none %}€ {{ item.unit_price|geld }}{% endif %}{% endset %}
-        {% call rows.product_row(item.product_name or "—", price, "quantity_" ~ item.id, "qty-" ~ item.id,
-                                 item.quantity, min=1,
-                                 attrs='hx-post="' ~ _base ~ '/totaal"'
-                                       ' hx-include="closest form"'
-                                       ' hx-target="closest .bg-gray-50" hx-swap="outerHTML"'
-                                       ' hx-trigger="change, keyup delay:300ms"') %}
-          {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="' ~ _base ~ '/regels/' ~ item.id ~ '/verwijderen" hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}
-        {% endcall %}
+        {% for p in product_rows %}
+        {% set price %}{% if p.unit_price is not none %}€ {{ p.unit_price|geld }}{% endif %}{% endset %}
+        {{ rows.product_row(p.name, price, "product_" ~ p.id, "product-" ~ reg.id ~ "-" ~ p.id,
+                            p.quantity, min=0,
+                            attrs='hx-post="' ~ _base ~ '/totaal"'
+                                  ' hx-include="closest form"'
+                                  ' hx-target="closest .bg-gray-50" hx-swap="outerHTML"'
+                                  ' hx-trigger="change, keyup delay:300ms"') }}
         {% else %}
         <div class="text-gray-400">{{ _("Geen producten") }}</div>
         {% endfor %}
@@ -130,35 +127,12 @@
       {# Totaal in het paneel (#613-4): zonder bedragen zie je niet wat je wijzigt.
          Loopt sinds #670 mee met een gewijzigd aantal; sinds #1287 is het het enige
          bedrag — geen regelbedrag meer, net als op het inschrijfformulier. #}
-      {% if reg["items"] %}
+      {% if product_rows %}
       <div class="flex justify-end border-t border-gray-200 pt-2 font-medium">
         {{ _("Totaal") }}: € {{ totaal|geld }}
       </div>
       {% endif %}
 
-      {# #670: "Product toevoegen" staat boven de opmerking, zoals op het publieke
-         formulier — het stond ná de Opslaan-knop, wat las alsof je eerst moest
-         opslaan. Géén eigen <form>: HTML staat geen geneste formulieren toe, en
-         een tweede vorm hier zou de opmerking losknippen van de aantallen — precies
-         de ene "Opslaan" die #613-2 bewust invoerde. Daarom hangt het toevoegen aan
-         de KNOP, met hx-include voor de twee velden ernaast. Ze reizen ook mee met
-         Opslaan, maar dat endpoint leest enkel de velden die het kent. #}
-      {% if products %}
-      {# #1287: `flex-wrap` — list, counter and button do not fit next to each
-         other on a phone; the button ran out to 519 px at 390. #}
-      <div class="flex flex-wrap items-center gap-2 border-t border-gray-200 pt-3">
-        {% call ui.select_control("product_id", cls="flex-1") %}
-          <option value="">{{ _("— Product toevoegen —") }}</option>
-          {% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
-        {% endcall %}
-        {# #1287: the counter here too, minimum 1. #}
-        {{ rows.quantity("quantity", "new-qty-" ~ reg.id, 1, min=1) }}
-        {{ ui.btn_secondary(_("Toevoegen"), type="button",
-                            attrs='hx-post="' ~ _base ~ '/regels"'
-                                  ' hx-include="closest form"'
-                                  ' hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}
-      </div>
-      {% endif %}
 
       <div>
         {{ ui.label(_("Opmerking"), "reg-remarks-" ~ reg.id) }}

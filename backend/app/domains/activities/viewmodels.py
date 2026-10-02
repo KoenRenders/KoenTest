@@ -44,7 +44,9 @@ class AdminInschrijvingView(ViewModel):
 
     # Fragmentcontract (_inschrijving_detail.html)
     reg: dict[str, Any]
-    products: list[dict[str, Any]]
+    #: Every product of the component as a counter row (#1494): id, name,
+    #: unit_price, quantity — 0 is "not chosen", as on the registration form.
+    product_rows: list[dict[str, Any]]
     totaal: Any
     toon_ploegnaam: bool
     ploegnaam_verplicht: bool

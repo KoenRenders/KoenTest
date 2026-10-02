@@ -24,6 +24,7 @@ from fastapi import (
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
+from starlette.datastructures import FormData
 
 from app.database import get_db
 from app.domains.activities.viewmodels import AdminActiviteitenView, CopyActivityView
@@ -1116,12 +1117,9 @@ def _detail_ctx(
     # points at a row that is soft-deleted at most, so with `include_deleted` it is
     # always found. Said here instead of crashing on `None` further down.
     assert activity is not None, f"registration {reg.id} without its activity"
-    products = []
     component = None
     if activity is not None and reg.component_id:
         component = next((c for c in activity.sub_registrations if c.id == reg.component_id), None)
-        if component is not None:
-            products = [{"id": p.id, "name": p.name} for p in component.products]
     # Bedragen per regel + totaal (#613-4): zonder bedragen zie je in het paneel
     # niet wát je aan het wijzigen bent. Ze komen uit compute_registration_total —
     # de enige bron voor "wat kost deze inschrijving" (totals.py) — zodat het paneel
@@ -1131,13 +1129,36 @@ def _detail_ctx(
     # zónder iets te bewaren — dat is de live-herberekening. Zonder is het de
     # bewaarde stand, zoals voorheen. Beide via totals.py, want een tweede
     # berekening in deze module is precies wat §19.3 uitsluit.
-    from app.domains.activities.api import compute_registration_total, quote_registration
-
-    totaal, regels = (
-        quote_registration(reg, quantities)
-        if quantities is not None
-        else compute_registration_total(reg)
+    from app.domains.activities.api import (
+        compute_registration_total,
+        quote_registration_products,
     )
+
+    # #1494: the card shows every product of the component as a counter, keyed by
+    # PRODUCT like the form; `quantities` are the form's while typing, else the
+    # stored order. 0 is "not chosen".
+    stored: dict[int, int] = {}
+    for item in reg.items or []:
+        stored[item.product_id] = stored.get(item.product_id, 0) + item.quantity
+    counts = {**stored, **(quantities or {})}
+    if quantities is not None and component is not None:
+        totaal, regels = quote_registration_products(reg, component, counts)
+    else:
+        totaal, regels = compute_registration_total(reg)
+    product_rows = []
+    if component is not None:
+        _t, prices = quote_registration_products(
+            reg, component, {p.id: 1 for p in component.products}
+        )
+        for product, price in zip(component.products, prices):
+            product_rows.append(
+                {
+                    "id": product.id,
+                    "name": product.name,
+                    "unit_price": price["unit_price"],
+                    "quantity": counts.get(product.id, 0),
+                }
+            )
     bedragen, idx = {}, 0
     for item in reg.items or []:
         if getattr(item, "product", None) is None:
@@ -1172,12 +1193,10 @@ def _detail_ctx(
         #
         # Zonder `quantities` blijft het de bewaarde stand — dat is het gewone
         # openen van het paneel — en dit endpoint bewaart nog steeds niets (#613-2).
-        if quantities is not None and regel["id"] in quantities:
-            regel["quantity"] = quantities[regel["id"]]
 
     return {
         "reg": verrijkt,
-        "products": products,
+        "product_rows": product_rows,
         "totaal": totaal,
         # #716: de ploegnaam is bewerkbaar wanneer het onderdeel er een vraagt, óf
         # wanneer de inschrijving er al een heeft. Die tweede reden is nodig: gaat
@@ -1356,17 +1375,25 @@ async def inschrijving_totaal(
     (`totals.py`), alleen de deur verschilt.
     """
     formulier = await request.form()
-    aantallen = {}
-    for sleutel, waarde in formulier.items():
-        # form.items() kan een UploadFile geven; alleen tekstvelden zijn aantallen —
-        # zelfde guard als in inschrijving_opslaan.
-        if not sleutel.startswith("quantity_") or not isinstance(waarde, str):
+    return _render_detail(
+        request, db, registration_id, edit_open=True, quantities=_product_quantities(formulier)
+    )
+
+
+def _product_quantities(form: FormData) -> dict[int, int]:
+    """The counters of the card, per product (`product_<id>`, as on the form;
+    #1494). An empty or unreadable field is left out: that product keeps its
+    stored quantity."""
+    quantities: dict[int, int] = {}
+    for key, value in form.items():
+        # form.items() may yield an UploadFile; only text fields are quantities.
+        if not key.startswith("product_") or not isinstance(value, str):
             continue
         try:
-            aantallen[int(sleutel[len("quantity_") :])] = max(0, int(waarde))
+            quantities[int(key[len("product_") :])] = max(0, int(value))
         except ValueError:
-            continue  # een leeg of onleesbaar veld laat het item op zijn eigen aantal
-    return _render_detail(request, db, registration_id, edit_open=True, quantities=aantallen)
+            continue
+    return quantities
 
 
 @router.post(
@@ -1490,30 +1517,26 @@ async def inschrijving_opslaan(
     verdwaalde refund achter.
     """
     from app.domains.activities import service
+    from app.domains.payment.api import PayableType, open_refund_amount
     from app.schemas.activity import RegistrationContactUpdate
 
     reg = _reg_or_404(db, registration_id)
     form = await request.form()
 
-    huidig = {item.id: item.quantity for item in (reg.items or [])}
-    for key, value in form.items():
-        # form.items() kan een UploadFile geven; alleen tekstvelden zijn aantallen.
-        if not key.startswith("quantity_") or not isinstance(value, str):
-            continue
-        try:
-            item_id, aantal = int(key.removeprefix("quantity_")), int(value)
-        except ValueError:
-            continue
-        if item_id not in huidig or aantal == huidig[item_id]:
-            continue
-        try:
-            gewijzigd = service.update_order_line(
-                db, reg.activity_id, registration_id, item_id, quantity=aantal, actor=email
-            )
-        except service.ActiviteitFout as fout:
-            raise HTTPException(status_code=400, detail=str(fout))
-        if gewijzigd is None:
-            raise HTTPException(status_code=404, detail=_("Order line not found"))
+    # #1494: every product is a counter; the differences go through ONE call, one
+    # transaction and one reconciliation. Removing a paid line refuses nothing,
+    # as "Verwijderen" did: the payment side prepares the refund, and the toast
+    # below says so.
+    terug_voor = open_refund_amount(db, PayableType.REGISTRATION, registration_id)
+    try:
+        gewijzigd = service.set_order_quantities(
+            db, reg.activity_id, registration_id, _product_quantities(form), actor=email
+        )
+    except service.ActiviteitFout as fout:
+        return _render_detail(request, db, registration_id, edit_open=True, error=str(fout))
+    if gewijzigd is None:
+        raise HTTPException(status_code=404, detail=_("Registration not found"))
+    terug_na = open_refund_amount(db, PayableType.REGISTRATION, registration_id)
 
     # Contactgegevens meenemen in dezelfde "Opslaan" (#624). Enkel wat het formulier
     # meestuurt wordt gewijzigd; de route laat de rest ongemoeid.
@@ -1551,53 +1574,14 @@ async def inschrijving_opslaan(
     # Sluiten alleen volstaat niet (dan zie je leesmodus zonder bevestiging), een
     # toast alleen ook niet (dan blijft de knop staan). De tussenacties hierboven
     # en hieronder houden edit_open=True: dat is #613-3 en blijft gelden.
-    return _render_detail(
-        request, db, registration_id, ververs=True, toast=_("De inschrijving is opgeslagen.")
-    )
+    bevestiging = _("De inschrijving is opgeslagen.")
+    if terug_na > terug_voor:
+        from app.kernel.geld import bedrag
 
-
-@router.post(
-    "/admin/inschrijvingen/{registration_id}/regels",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def inschrijving_regel_toevoegen(
-    registration_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    product_id: str = Form(""),
-    quantity: int = Form(1),
-) -> Response:
-    """Voegt een regel toe. Aparte actie, buiten de ene "Opslaan" (#613-2).
-
-    `product_id` is sinds #670 optioneel op HTTP-niveau. De keuzelijst staat nu in
-    hetzelfde formulier als de aantallen — geneste formulieren bestaan niet — dus
-    ze kan geen `required` dragen zonder óók Opslaan te blokkeren wanneer er niets
-    gekozen is. De controle staat daarom hier, met een leesbare melding in plaats
-    van een 422.
-    """
-    from app.domains.activities import service
-
-    reg = _reg_or_404(db, registration_id)
-    if not (product_id or "").strip():
-        return _render_detail(
-            request,
-            db,
-            registration_id,
-            edit_open=True,
-            error=_("Kies eerst een product om toe te voegen."),
-        )
-    gekozen = int(product_id)
-    try:
-        toegevoegd = service.add_order_line(
-            db, reg.activity_id, registration_id, gekozen, quantity, actor=email
-        )
-    except service.ActiviteitFout as fout:
-        raise HTTPException(status_code=400, detail=str(fout))
-    if toegevoegd is None:
-        raise HTTPException(status_code=404, detail=_("Registration not found"))
-    return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
+        bevestiging += " " + _(
+            "Er staat een terugbetaling van € %(bedrag)s klaar om te bevestigen."
+        ) % {"bedrag": bedrag(terug_na)}
+    return _render_detail(request, db, registration_id, ververs=True, toast=bevestiging)
 
 
 @router.post(
@@ -1623,29 +1607,6 @@ def inschrijving_regel_bijwerken(
     except service.ActiviteitFout as fout:
         raise HTTPException(status_code=400, detail=str(fout))
     if gewijzigd is None:
-        raise HTTPException(status_code=404, detail=_("Order line not found"))
-    return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
-
-
-@router.post(
-    "/admin/inschrijvingen/{registration_id}/regels/{item_id}/verwijderen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def inschrijving_regel_verwijderen(
-    registration_id: int,
-    item_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-) -> Response:
-    from app.domains.activities import service
-
-    reg = _reg_or_404(db, registration_id)
-    if (
-        service.delete_order_line(db, reg.activity_id, registration_id, item_id, actor=email)
-        is None
-    ):
         raise HTTPException(status_code=404, detail=_("Order line not found"))
     return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 

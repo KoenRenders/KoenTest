@@ -67,15 +67,18 @@ def test_editor_update_quantity_add_delete_and_remarks(client, db_session):
     db_session.expire_all()
     assert db_session.get(Registration, reg_id).remarks == "Komt later"
 
-    # Regel verwijderen → geen producten meer
-    r = client.post(f"/admin/inschrijvingen/{reg_id}/regels/{item_id}/verwijderen", headers=hdr)
-    assert r.status_code == 200
-
-    # Regel opnieuw toevoegen
+    # #1494: the counter to 0 and Save → no line any more (the separate
+    # "Verwijderen" and "Toevoegen" routes are gone).
     r = client.post(
-        f"/admin/inschrijvingen/{reg_id}/regels",
-        data={"product_id": product.id, "quantity": 2},
-        headers=hdr,
+        f"/admin/inschrijvingen/{reg_id}/opslaan", data={f"product_{product.id}": "0"}, headers=hdr
+    )
+    assert r.status_code == 200
+    db_session.expire_all()
+    assert db_session.get(Registration, reg_id).items == []
+
+    # The counter back to 2 and Save → one line again.
+    r = client.post(
+        f"/admin/inschrijvingen/{reg_id}/opslaan", data={f"product_{product.id}": "2"}, headers=hdr
     )
     assert r.status_code == 200 and "2×" in r.text
 

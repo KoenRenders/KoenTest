@@ -295,7 +295,8 @@ class Inschrijvingsdetail:
         self.paneel.get_by_role("button", name="Bewerken").first.click()
 
     def aantalvelden(self):
-        return self.paneel.locator('input[name^="quantity_"]')
+        # #1494: one counter per product of the component, `product_<id>`.
+        return self.paneel.locator('input[name^="product_"]')
 
     def zet_aantal(self, index: int, aantal: int):
         self.aantalvelden().nth(index).fill(str(aantal))
