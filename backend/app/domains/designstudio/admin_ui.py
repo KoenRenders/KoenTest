@@ -69,7 +69,6 @@ from app.domains.designstudio.api import (
     file_slug,
     fingerprint,
     get_design,
-    image_options,
     is_stale,
     list_designs,
     make_version,
@@ -121,16 +120,6 @@ register_tones(
         DesignStatus.FINAL: "green",
     },
 )
-
-
-def _short(name: str, limit: int = 22) -> str:
-    """A file name cut to what a select shows: the extension goes, the middle
-    gives way ("WhatsApp Image 2026-05-01 at 15.14.39.jpeg" → "WhatsApp Im…15.14.39")."""
-    stem = name.rsplit(".", 1)[0] if "." in name else name
-    if len(stem) <= limit:
-        return stem or _("(zonder naam)")
-    keep = (limit - 1) // 2
-    return f"{stem[:keep]}…{stem[-keep:]}"
 
 
 def _csrf(request: Request) -> str:
@@ -406,23 +395,18 @@ def _editor_view(
             violations = check_design(db, design).get(chosen, [])
         except RenderError as exc:
             violations, render_error = [], str(exc)
-    # Short labels: a select shows ~25 characters; a phone's file name does
-    # not fit and the source in Dutch says more than "activity_photo".
-    source_labels = {
-        "activity_photo": _("foto activiteit"),
-        "design_image": _("studio"),
-        "generated": _("AI"),
-    }
-    options = [
-        ImageOption(
-            id=m["id"],
-            thumb_url=m["thumb_url"],
-            label=f"{_short(m.get('title') or '')} · {source_labels.get(m['source'], m['source'])} #{m['id']}",
-            source=m["source"],
-            group=m.get("group", ""),
+    # CR-15 (#1473): the slots open the picker; the editor only shows what each
+    # slot holds now. The choice itself is the picker's (`media.pick_options`).
+    from app.domains.media.api import media_url
+
+    slot_thumbs = {
+        slot: media_url(asset_id, thumb=True) if asset_id else ""
+        for slot, asset_id in (
+            ("main_image_id", design.main_image_id),
+            ("inset_image_id", design.inset_image_id),
+            ("third_image_id", design.third_image_id),
         )
-        for m in image_options(db, design)
-    ]
+    }
     year = date.today().year
     logos = [
         ImageOption(
@@ -499,7 +483,7 @@ def _editor_view(
         main_focus_y=f"{float(design.main_focus_y):.2f}",
         inset_corner=code_of(design.inset_corner) or "bottom_right",
         corner_options=code_labels(INSET_CORNER.name, db=db),
-        image_options=options,
+        slot_thumbs=slot_thumbs,
         logo_options=logos,
         logo_ids=[lg.media_asset_id for lg in design.logos],
         facts=_facts_rows(facts),

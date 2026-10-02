@@ -47,10 +47,10 @@ VALID_KINDS = {MediaKind.SPONSOR, MediaKind.ACTIVITY_PHOTO, MediaKind.TENANT_LOG
 # library screen, which is why they are not in VALID_KINDS (#984).
 DOCUMENT_KINDS = {MediaKind.NEWSLETTER_FILE}
 # The Design Studio (CR-10 §3.11, #1005). `design_image` is the picture that goes
-# INTO a poster and is uploaded like any other image — re-encoded, only to 4096 px
-# instead of 1600. `design_render` is the rendered poster, produced by the studio
-# itself (Inkscape); it never arrives through an upload, and the upload refuses it
-# by name so the reason is readable instead of "unknown kind".
+# INTO a poster and is uploaded like any other image — re-encoded, to the one size
+# of 2 400 px every upload has since #1473. `design_render` is the rendered poster,
+# produced by the studio itself (Inkscape); it never arrives through an upload, and
+# the upload refuses it by name so the reason is readable instead of "unknown kind".
 DESIGN_IMAGE_KIND = MediaKind.DESIGN_IMAGE
 DESIGN_RENDER_KIND = MediaKind.DESIGN_RENDER
 DESIGN_KINDS = {DESIGN_IMAGE_KIND, DESIGN_RENDER_KIND}
@@ -1020,6 +1020,32 @@ def set_asset_tags(db, asset_id: int, tag_ids: Sequence[int]) -> None:
 #: render (a product of a design) or a newsletter file.
 PICKABLE_KINDS = (MediaKind.ACTIVITY_PHOTO, MediaKind.DESIGN_IMAGE, MediaKind.PAGE_IMAGE)
 PICK_PAGE_SIZE = 60
+
+
+def media_url(asset_id: int, *, base_url: str = "", thumb: bool = False) -> str:
+    """The address a picture is served at — the one place that knows its shape
+    (CR-15 §C4.6, #1473). Every module asks here instead of writing
+    `/api/v1/media/<id>`, so that storing bytes elsewhere (architecture R8) is a
+    change inside media. `base_url` for a mail, which needs an absolute address.
+    """
+    return f"{base_url}/api/v1/media/{asset_id}" + ("/thumb" if thumb else "")
+
+
+def offered_by_picker(db, asset_id: int) -> bool:
+    """Would the picker offer this picture to this tenant? (#1473)
+
+    The kinds `pick_options` lists — the library's pictures, and a poster in its
+    own branch — and only as an image (a poster may be a PDF). Same tenant by the
+    ORM's tenant filter: another tenant's picture is not found. A screen that
+    stores a choice asks this, because a form field can carry any id.
+    """
+    row = (
+        db.query(MediaAsset.kind, MediaAsset.content_type).filter(MediaAsset.id == asset_id).first()
+    )
+    if row is None:
+        return False
+    kinds = (*PICKABLE_KINDS, MediaKind.ACTIVITY_POSTER)
+    return row.kind in kinds and (row.content_type or "").startswith("image/")
 
 
 class PickItem(NamedTuple):

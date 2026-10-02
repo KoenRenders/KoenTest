@@ -140,7 +140,8 @@ class DesignEditorView(ViewModel):
     main_focus_y: str
     inset_corner: str
     corner_options: list[tuple[str, str]]
-    image_options: list[ImageOption]
+    #: The thumbnail of what each picture slot holds now, "" when empty (#1473).
+    slot_thumbs: dict[str, str]
     logo_options: list[ImageOption]
     logo_ids: list[int]
 

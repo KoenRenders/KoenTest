@@ -85,12 +85,15 @@ def test_the_copied_design_offers_the_source_photos_selected_and_nothing_is_copi
     design = db_session.query(Design).filter(Design.activity_id == copy_id).one()
     html = client.get(f"/admin/ontwerpen/{design.id}").text
 
-    main = re.search(r'<select name="main_image_id".*?</select>', html, re.S).group(0)
-    assert '<optgroup label="Van Kerstherberg (2026)">' in main, "the source's own heading"
-    assert re.search(rf'<option value="{photo.id}" selected>', main), "the chosen photo"
-    assert f'<option value="{studio.id}"' in main
-    inset = re.search(r'<select name="inset_image_id".*?</select>', html, re.S).group(0)
-    assert re.search(rf'<option value="{studio.id}" selected>', inset)
+    # #1473: the slots are pickers — each holds its choice in a hidden field,
+    # and the picker's first group is the source's photos, under its name.
+    assert re.search(rf'name="main_image_id" value="{photo.id}"', html), "the chosen photo"
+    assert re.search(rf'name="inset_image_id" value="{studio.id}"', html)
+    from app.domains.media.api import pick_options
+
+    first = pick_options(db_session, for_activity_id=copy_id).groups[0]
+    assert first.label == "Van Kerstherberg (2026)", "the source's own heading"
+    assert {photo.id, studio.id} <= {item.id for item in first.items}
     assert db_session.query(MediaAsset).count() == media_before, "no file was copied"
     assert db_session.get(Activity, copy_id).copied_from_id == source.id
 

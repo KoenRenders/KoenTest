@@ -57,7 +57,6 @@ from app.domains.designstudio.service import (  # noqa: F401
     file_slug,
     fingerprint,
     get_design,
-    image_options,
     is_stale,
     list_designs,
     make_version,
@@ -70,6 +69,7 @@ from app.domains.designstudio.service import (  # noqa: F401
     rendition,
     request_images,
     save_design,
+    set_slot_image,
     sponsor_options,
     sponsor_usage,
     upload_edited_svg,
@@ -126,7 +126,6 @@ __all__ = [
     "facts_for",
     "fingerprint",
     "get_design",
-    "image_options",
     "is_stale",
     "list_designs",
     "make_version",
@@ -143,4 +142,5 @@ __all__ = [
     "warnings_for",
     # CR-15 #1471: which designs show a picture.
     "references_to_media",
+    "set_slot_image",
 ]

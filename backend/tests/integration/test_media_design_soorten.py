@@ -1,19 +1,18 @@
 """Two media kinds for the Design Studio (#1005, CR-10 §3.11).
 
-`design_image` is the picture that goes into a poster and may be 4096 px instead
-of 1600 — an A3 poster needs it. **It is still re-encoded**, and that is the
+`design_image` is the picture uploaded straight into a poster. Since #1473 every
+kind is stored at one size, 2 400 px (CR-15 §C4.1). **It is still re-encoded**, and that is the
 point of this file: the re-encoding is the security, not the shrinking. It
 strips EXIF and the colour profile, reads the type from the CONTENT, and refuses
 a file that only claims to be an image.
 
-The exemption hangs on the KIND, not on the size: an activity photo of the same
-5000 px source still comes back at 1600.
+The size used to hang on the kind (4096 for a design image, 1600 for the rest);
+since #1473 one 5000 px source comes back at 2400 whatever its kind.
 
 `design_render` is produced by the studio itself and is refused by the upload.
 
 Broken to see them red (measured):
-- `MAX_FULL_BY_KIND` ignored in `process_image` → the design image comes back at
-  1600 and the two-kinds test fails;
+- `MAX_FULL` back at 1600 → the one-size tests fail;
 - the kind passed as "" from `upload_media` → the same test fails through the
   route, which is where the limit is actually used;
 - the `design_render` refusal removed → the render is stored;
@@ -29,8 +28,8 @@ import pytest
 from PIL import Image
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.media.api import MediaAsset, MediaKind
-from app.domains.media.images import MAX_FULL, MAX_FULL_BY_KIND, ImageError, process_image
+from app.domains.media.api import MediaAsset
+from app.domains.media.images import MAX_FULL, ImageError, process_image
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -81,15 +80,12 @@ def _asset(db, titel):
 # ── De grens hangt aan de soort ──────────────────────────────────────────────
 
 
-def test_the_same_source_gives_4096_as_design_and_1600_as_photo():
-    bron = _jpeg()
-
-    ontwerp = process_image(bron, kind="design_image")
-    foto = process_image(bron, kind="activity_photo")
-
-    assert max(ontwerp["width"], ontwerp["height"]) == MAX_FULL_BY_KIND[MediaKind.DESIGN_IMAGE]
-    assert max(foto["width"], foto["height"]) == MAX_FULL
-    assert MAX_FULL_BY_KIND[MediaKind.DESIGN_IMAGE] == 4096
+@pytest.mark.parametrize("kind", ["design_image", "activity_photo", "page_image", "sponsor"])
+def test_every_kind_is_stored_at_2400(kind):
+    """#1473 (CR-15 §C4.1): one size for every upload, Koen's 2 400 px."""
+    assert MAX_FULL == 2400
+    beeld = process_image(_jpeg(), kind=kind)
+    assert max(beeld["width"], beeld["height"]) == 2400
 
 
 def test_an_unknown_kind_keeps_the_ordinary_limit():
@@ -108,7 +104,7 @@ def test_the_route_passes_the_kind_along(client, db_session):
     ).status_code in (200, 204)
 
     ontwerp = _asset(db_session, "ontwerp-groot")
-    assert max(ontwerp.width, ontwerp.height) == 4096
+    assert max(ontwerp.width, ontwerp.height) == 2400, "a studio upload is stored at 2 400 px"
 
 
 # ── De hercodering blijft, en die is de beveiliging ──────────────────────────

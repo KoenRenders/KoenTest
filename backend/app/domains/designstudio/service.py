@@ -309,6 +309,10 @@ def save_design(
             raise DesignError(f"Onbekend icoon: {icon}")
     if len((form.get("poster_title") or "").strip()) > MAX_POSTER_TITLE:
         raise DesignError(f"Ten hoogste {MAX_POSTER_TITLE} tekens in de titel op de affiche.")
+    for slot in IMAGE_SLOTS:
+        raw = (form.get(slot) or "").strip() if slot in form else ""
+        if raw.isdigit():
+            _check_slot_image(db, slot, int(raw))
     if "inset_corner" in form:
         try:
             InsetCorner(form["inset_corner"])
@@ -338,10 +342,10 @@ def save_design(
         typed = (form["explanation_md"] or "").strip()
         own = facts_for(db, design)["description"]
         design.explanation_md = typed if typed and typed != own else None
-    for key in ("main_image_id", "inset_image_id", "third_image_id"):
+    for key in IMAGE_SLOTS:
         if key in form:
             raw = (form[key] or "").strip()
-            setattr(design, key, int(raw) if raw.isdigit() else None)
+            set_slot_image(db, design, key, int(raw) if raw.isdigit() else None)
     for key in ("main_focus_x", "main_focus_y"):
         if key in form:
             try:
@@ -1015,35 +1019,27 @@ async def add_design_image(db: Session, design: Design, upload, *, slot: str = "
     return asset_id
 
 
-def image_options(db: Session, design: Design) -> list[dict]:
-    """Activity photos and design images of this activity, then those of the
-    activities it was copied from (#1397).
+def _check_slot_image(db: Session, slot: str, asset_id: int) -> None:
+    from app.domains.media.api import offered_by_picker
 
-    Koen, 1 October 2026: pictures are reusable over the years. A copied design
-    points at last year's photos, so the choice offers them, each under the
-    name and year of the activity it belongs to (`group`; empty for this
-    activity's own). Choosing one is a reference: no file is copied, and the
-    photo stays with the old activity.
+    if slot not in IMAGE_SLOTS:
+        raise DesignError("Onbekende plaats voor het beeld.")
+    if not offered_by_picker(db, asset_id):
+        raise DesignError("Dit beeld kan niet in een beeldvak.")
+
+
+def set_slot_image(db: Session, design: Design, slot: str, asset_id: Optional[int]) -> None:
+    """Point a slot at a library picture, or empty it (CR-15 §C4.1, #1473).
+
+    A reference, never a copy: the slot holds the picture's id and the picture
+    stays where it is — an album photo of another activity stays in that album.
+    Refused when the picker would not offer the picture (another tenant's, a
+    render, a PDF): the id comes from a form field. Flushes nothing; the caller
+    commits.
     """
-    from app.domains.activities.api import predecessors_of
-    from app.domains.media.api import list_activity_photos, list_media
-
-    def of(activity_id: int, group: str) -> list[dict]:
-        rows = [
-            dict(m, source="activity_photo", group=group)
-            for m in list_activity_photos(db, activity_id)
-        ]
-        rows += [
-            dict(m, source="design_image", group=group)
-            for m in list_media(db, kind="design_image", activity_id=activity_id)
-        ]
-        return rows
-
-    out = of(design.activity_id, "")
-    for earlier in predecessors_of(db, design.activity_id):
-        label = f"{earlier.name} ({earlier.year})" if earlier.year else earlier.name
-        out += of(earlier.id, label)
-    return out
+    if asset_id is not None:
+        _check_slot_image(db, slot, asset_id)
+    setattr(design, slot, asset_id)
 
 
 def sponsor_options(db: Session) -> list[dict]:
