@@ -47,10 +47,18 @@ def _activity_filter(kind: str, activity_id: Optional[int]) -> Optional[int]:
     """
     from app.domains.media.api import MediaKind
 
-    return activity_id if kind == MediaKind.ACTIVITY_PHOTO.value else None
+    # #1470: posters hang off an activity too — their own branch in the tree.
+    met_activiteit = {MediaKind.ACTIVITY_PHOTO.value, MediaKind.ACTIVITY_POSTER.value}
+    return activity_id if kind in met_activiteit else None
 
 
-def _filterstand(kind: str, q: str = "", activity_id: Optional[int] = None) -> str:
+def _filterstand(
+    kind: str,
+    q: str = "",
+    activity_id: Optional[int] = None,
+    tag_id: Optional[int] = None,
+    year: Optional[int] = None,
+) -> str:
     """ "Waar ik was", als query-string. De enige plek die dat adres samenstelt (#962).
 
     Soort, zoekterm en activiteit vormen samen de plek waar je stond, en die plek
@@ -75,28 +83,129 @@ def _filterstand(kind: str, q: str = "", activity_id: Optional[int] = None) -> s
     activity_id = _activity_filter(kind, activity_id)
     if activity_id:
         params.append(("activity_id", str(activity_id)))
+    # #1470: the chosen tag and year are part of "where I was" too.
+    if tag_id:
+        params.append(("tag", str(tag_id)))
+    if year:
+        params.append(("year", str(year)))
     return urlencode(params)
 
 
+def _int(raw) -> Optional[int]:
+    return int(raw) if raw and str(raw).isdigit() else None
+
+
+def _tree(
+    db: Session,
+    alle_activiteiten: list[dict],
+    year: Optional[int],
+    *,
+    kind: str,
+    activity_id: Optional[int],
+    tag_id: Optional[int],
+    by_kind: dict,
+    tags: list,
+) -> dict:
+    """The library's tree (CR-15 §C4.2, #1470): two branches derived from the
+    activity — its album photos and, apart, its posters (Q10) — and the board's
+    tags.
+
+    No tag row stands behind the activity branches: an activity's photos already
+    have their place. Within the year filter, only that year's activities. Every
+    node carries its address and whether it is the one shown, so the template
+    composes no URL and compares nothing.
+    """
+    from app.domains.media.api import MediaKind
+
+    def branch(soort: MediaKind) -> list[dict]:
+        met = by_kind.get(soort, set())
+        per_jaar: dict[int, list[dict]] = {}
+        for a in alle_activiteiten:
+            if a["id"] in met and a["jaar"] and (year is None or a["jaar"] == year):
+                per_jaar.setdefault(a["jaar"], []).append(
+                    {
+                        "naam": a["naam"],
+                        "href": "/admin/media?"
+                        + _filterstand(soort.value, activity_id=a["id"], year=year),
+                        "actief": tag_id is None and kind == soort.value and activity_id == a["id"],
+                    }
+                )
+        jaren = sorted(per_jaar, reverse=True)
+        met_keuze = next((j for j in jaren if any(a["actief"] for a in per_jaar[j])), None)
+        open_jaar = met_keuze if met_keuze is not None else (jaren[0] if jaren else None)
+        return [
+            {
+                "jaar": jaar,
+                "open": jaar == open_jaar,
+                "activiteiten": sorted(per_jaar[jaar], key=lambda x: x["naam"]),
+            }
+            for jaar in jaren
+        ]
+
+    def tag_node(node) -> dict:
+        return {
+            "naam": node.name,
+            "aantal": node.pictures,
+            "href": "/admin/media?" + _filterstand(STANDAARD_KIND, tag_id=node.id, year=year),
+            "actief": node.id == tag_id,
+            "kinderen": [tag_node(child) for child in node.children],
+        }
+
+    return {
+        "activiteiten": branch(MediaKind.ACTIVITY_PHOTO),
+        "affiches": branch(MediaKind.ACTIVITY_POSTER),
+        "tags": [tag_node(node) for node in tags],
+    }
+
+
+def _find_tag(tree: list, tag_id: int):
+    """The chosen tag as a tree node — its own name and its parent."""
+    todo = list(tree)
+    while todo:
+        node = todo.pop()
+        if node.id == tag_id:
+            return node
+        todo.extend(node.children)
+    return None
+
+
 def _lijst_ctx(
-    request: Request, db: Session, kind: str, q: str = "", activity_id: Optional[int] = None
+    request: Request,
+    db: Session,
+    kind: str,
+    q: str = "",
+    activity_id: Optional[int] = None,
+    tag_id: Optional[int] = None,
+    year: Optional[int] = None,
 ) -> dict:
     from app.domains.activities.api import activity_options
     from app.domains.media.api import (
         MEDIA_KIND,
         VALID_KINDS,
         MediaKind,
-        activity_ids_with_media,
+        activities_by_kind,
         list_media,
+        list_media_with_tag,
+        tag_index,
     )
     from app.kernel.codes import code_labels
 
-    actief_kind = kind if kind in {k.value for k in VALID_KINDS} else STANDAARD_KIND
+    # #1470: posters can be LOOKED at here — their branch in the tree — but are
+    # not uploaded here: they belong to the activity's own screen. So the list
+    # and its kind choice know one more kind than the upload does.
+    bekijkbaar = {k.value for k in VALID_KINDS} | {MediaKind.ACTIVITY_POSTER.value}
+    actief_kind = kind if kind in bekijkbaar else STANDAARD_KIND
     if activity_id is None:
         # GET: het filter staat in de querystring. Bij een mutatie (POST) geeft de
         # kaart hem als verborgen veld mee, zodat het filter niet wegvalt.
         raw = request.query_params.get("activity_id")
         activity_id = int(raw) if raw and raw.isdigit() else None
+    # #1470: the tag and the year travel the same way — the query string on a
+    # GET, a hidden field on a card's POST.
+    if tag_id is None:
+        tag_id = _int(request.query_params.get("tag"))
+    if year is None:
+        year = _int(request.query_params.get("year"))
     # The server decides, not the filter bar: a URL with `kind=sponsor&activity_id=…`
     # shows every sponsor too (#1291).
     activity_id = _activity_filter(actief_kind, activity_id)
@@ -117,7 +226,10 @@ def _lijst_ctx(
         for optie in activity_options(db)
     ]
     # Filter-dropdown: enkel activiteiten die al media hebben (#459), mét jaar.
-    aids = activity_ids_with_media(db)
+    # #1470: one query for the activities per kind; the filter list, the
+    # tree's branches and the year choices all read it (query budget 6).
+    by_kind = activities_by_kind(db)
+    aids = set().union(*by_kind.values()) if by_kind else set()
     activiteiten = [a for a in alle_activiteiten if a["id"] in aids]
 
     # #891: bij activiteitenfoto's toont het scherm niets tot er een activiteit gekozen
@@ -132,8 +244,28 @@ def _lijst_ctx(
     #
     # ALLEEN voor deze soort: sponsors en component-info hangen niet aan een activiteit,
     # en daar is de volle lijst juist de bedoeling.
-    kies_eerst = actief_kind == MediaKind.ACTIVITY_PHOTO.value and activity_id is None
-    assets = [] if kies_eerst else list_media(db, kind=actief_kind, activity_id=activity_id)
+    # #1470: a chosen tag shows every picture with that tag or a tag below it,
+    # of whatever kind — a tag gathers across kinds, which is its point.
+    # #1470: the tags in two queries — tree, paths and each card's tags.
+    index = tag_index(db)
+    tag_paden = index.paths
+    if tag_id is not None and tag_id not in {t for t, _ in tag_paden}:
+        tag_id = None
+    kies_eerst = (
+        tag_id is None and actief_kind == MediaKind.ACTIVITY_PHOTO.value and activity_id is None
+    )
+    if tag_id is not None:
+        assets = list_media_with_tag(db, tag_id)
+    else:
+        assets = [] if kies_eerst else list_media(db, kind=actief_kind, activity_id=activity_id)
+    # #1470: the year filter keeps the pictures of that year's activities; a
+    # picture of no activity (a sponsor, a page picture) is not dated by it.
+    jaar_van = {a["id"]: a["jaar"] for a in alle_activiteiten}
+    if year is not None:
+        assets = [
+            a for a in assets if a["activity_id"] is None or jaar_van.get(a["activity_id"]) == year
+        ]
+    jaren = sorted({j for aid, j in jaar_van.items() if j and aid in aids}, reverse=True)
     # Vrij zoeken op titel (C1, #588). Media zonder titel valt weg zodra er
     # gezocht wordt — dat is de bedoeling van een zoekterm.
     term = q.strip().lower()
@@ -146,7 +278,9 @@ def _lijst_ctx(
     # gone with #1194: the filter is a list now, so the row no longer runs out of
     # room and the kind carries its one name again. Order: the label table's.
     toonbaar = {k.value for k in VALID_KINDS}
-    kind_options = [(k, w) for k, w in code_labels(MEDIA_KIND.name) if k in toonbaar]
+    alle_labels = code_labels(MEDIA_KIND.name)
+    kind_options = [(k, w) for k, w in alle_labels if k in bekijkbaar]
+    upload_kind_options = [(k, w) for k, w in alle_labels if k in toonbaar]
     # #882: de pijltjes moeten weten of dit item het eerste of laatste van ZIJN GROEP
     # is — niet van de lijst. Ongefilterd staan de foto's van alle activiteiten door
     # elkaar, dus de buur in de lijst hoort vaak bij een ander album.
@@ -157,13 +291,20 @@ def _lijst_ctx(
             asset["is_last"] = positie == len(groep) - 1
             asset["is_sponsor"] = asset["kind"] == MediaKind.SPONSOR.value
 
+    # #1470: the tags each card carries, in one query for the page.
+    for asset in assets:
+        asset["tag_ids"] = [str(t) for t in index.per_asset.get(asset["id"], [])]
+    tag_naam = dict(tag_paden)
+    gekozen = _find_tag(index.tree, tag_id) if tag_id is not None else None
+
     return {
         "assets": assets,
         "q": q,
-        "gefilterd": bool(term or activity_id),
+        "gefilterd": bool(term or activity_id or tag_id or year),
         "kies_eerst": kies_eerst,
         "kind": actief_kind,
         "kind_options": kind_options,
+        "upload_kind_options": upload_kind_options,
         # Decided here, so the templates compare no code with a literal.
         "is_activity_photo": actief_kind == MediaKind.ACTIVITY_PHOTO.value,
         "activity_id": activity_id,
@@ -172,8 +313,28 @@ def _lijst_ctx(
         # Waar je stond, als één waarde (#962). Het sjabloon plakt er een pad
         # voor en stelt niets zelf samen — de knop die hem vergat, is de reden
         # dat je de activiteit drie keer moest kiezen.
-        "filterstand": _filterstand(actief_kind, q, activity_id),
+        "filterstand": _filterstand(actief_kind, q, activity_id, tag_id, year),
         "csrf_token": csrf_from_request(request),
+        # #1470: the tree, the chosen tag and year, and the tags as choices.
+        "boom": _tree(
+            db,
+            alle_activiteiten,
+            year,
+            kind=actief_kind,
+            activity_id=activity_id,
+            tag_id=tag_id,
+            by_kind=by_kind,
+            tags=index.tree,
+        ),
+        "tag": tag_id,
+        "tag_naam": tag_naam.get(tag_id, "") if tag_id else "",
+        "tag_eigen_naam": gekozen.name if gekozen else "",
+        "tag_ouder": str(gekozen.parent_id) if gekozen and gekozen.parent_id else "",
+        "year": year,
+        "jaar_opties": jaren,
+        "tag_opties": [(str(t), pad) for t, pad in tag_paden],
+        "tag_ouder_opties": [(str(t), pad) for t, pad in tag_paden if t != tag_id],
+        "is_poster_lijst": tag_id is None and actief_kind == MediaKind.ACTIVITY_POSTER.value,
     }
 
 
@@ -184,9 +345,11 @@ def _lijst_response(
     error: str | None = None,
     q: str = "",
     activity_id: Optional[int] = None,
+    tag_id: Optional[int] = None,
+    year: Optional[int] = None,
 ):
     """Enkel de kaarten (C1, #588): kop, knop en filterbalk staan op de pagina."""
-    ctx = _lijst_ctx(request, db, kind, q, activity_id)
+    ctx = _lijst_ctx(request, db, kind, q, activity_id, tag_id, year)
     ctx["error"] = error
     # #1138: de uploadknop staat buiten dit fragment en reist out-of-band mee.
     # Alleen hier en niet in de paginaroute: daar rendert het sjabloon hem zelf.
@@ -243,11 +406,12 @@ async def media_uploaden(
     link_url: str = Form(""),
     q: str = Form(""),
     filter_activity_id: Optional[int] = Form(None),
+    tag_ids: List[int] = Form([]),
 ):
-    from app.domains.media.api import MediaFout, upload_media
+    from app.domains.media.api import MediaFout, set_asset_tags, upload_media
 
     try:
-        await upload_media(
+        stored = await upload_media(
             db,
             files=files,
             kind=kind,
@@ -255,6 +419,10 @@ async def media_uploaden(
             title=title.strip() or None,
             link_url=link_url.strip() or None,
         )
+        # #1470: an upload can carry one or more tags at once.
+        for asset in stored:
+            if tag_ids:
+                set_asset_tags(db, asset["id"], tag_ids)
     except (LookupError, MediaFout) as exc:
         # Op het aanmaakscherm blijven mét de fout (#627): een fragment terugsturen
         # naar een pagina die geen lijst toont, laat de gebruiker in het ongewisse.
@@ -274,6 +442,79 @@ async def media_uploaden(
     return Response(status_code=204, headers={"HX-Redirect": f"/admin/media?{terug}"})
 
 
+# ── Tags (CR-15 §C4.2, #1470) ────────────────────────────────────────────────
+# Create, rename, move and delete. Done: back to the library with that tag
+# chosen, so the tree shows it. Refused: the reason above the cards.
+
+
+def _to_tag(tag_id: Optional[int]) -> Response:
+    adres = f"/admin/media?tag={tag_id}" if tag_id else "/admin/media"
+    return Response(status_code=204, headers={"HX-Redirect": adres})
+
+
+@router.post("/admin/media/tags", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def create_tag_submit(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    name: str = Form(""),
+    parent_id: Optional[int] = Form(None),
+):
+    from app.domains.media.api import MediaFout, create_tag
+
+    try:
+        tag = create_tag(db, name, parent_id)
+    except (LookupError, MediaFout) as exc:
+        return _lijst_response(request, db, STANDAARD_KIND, str(exc), tag_id=parent_id)
+    return _to_tag(tag.id)
+
+
+@router.post(
+    "/admin/media/tags/{tag_id}", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
+)
+def update_tag_submit(
+    tag_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    name: str = Form(""),
+    parent_id: Optional[int] = Form(None),
+):
+    """Rename and move in one form: the name, and the tag it hangs under (none = top)."""
+    from app.domains.media.api import MediaFout, move_tag, rename_tag
+
+    try:
+        rename_tag(db, tag_id, name)
+        move_tag(db, tag_id, parent_id)
+    except (LookupError, MediaFout) as exc:
+        return _lijst_response(request, db, STANDAARD_KIND, str(exc), tag_id=tag_id)
+    return _to_tag(tag_id)
+
+
+@router.post(
+    "/admin/media/tags/{tag_id}/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def delete_tag_submit(
+    tag_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
+    from app.domains.media.api import MediaFout, delete_tag
+
+    try:
+        delete_tag(db, tag_id)
+    except (LookupError, MediaFout) as exc:
+        return _lijst_response(request, db, STANDAARD_KIND, str(exc), tag_id=tag_id)
+    return _to_tag(None)
+
+
+# The tag routes stand BEFORE `/admin/media/{asset_id}`: that pattern would
+# take "tags" as an asset id and answer 422.
+
+
 @router.post(
     "/admin/media/{asset_id}", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
 )
@@ -289,6 +530,10 @@ def media_bijwerken(
     show_in_footer: str = Form(""),
     q: str = Form(""),
     filter_activity_id: Optional[int] = Form(None),
+    filter_tag: Optional[int] = Form(None),
+    filter_year: Optional[int] = Form(None),
+    tag_ids: List[int] = Form([]),
+    tags_on_card: str = Form(""),
 ):
     """Titel, link en zichtbaarheid. NIET de volgorde (#882).
 
@@ -297,7 +542,7 @@ def media_bijwerken(
     default bij élke keer opslaan de volgorde op 0 zetten. Vandaar: `sort_order` staat
     niet in de payload, en `update_media` raakt alleen aan wat er wél in staat.
     """
-    from app.domains.media.api import MediaFout, update_media
+    from app.domains.media.api import MediaFout, set_asset_tags, update_media
 
     try:
         update_media(
@@ -313,9 +558,17 @@ def media_bijwerken(
                 "show_in_footer": bool(show_in_footer),
             },
         )
+        # #1470: the card's tags. Only when the card sent its tag field: an
+        # unticked list sends nothing, and that must mean "none", not "untouched".
+        if tags_on_card:
+            set_asset_tags(db, asset_id, tag_ids)
     except (LookupError, MediaFout) as exc:
-        return _lijst_response(request, db, kind, str(exc), q, filter_activity_id)
-    return _lijst_response(request, db, kind, q=q, activity_id=filter_activity_id)
+        return _lijst_response(
+            request, db, kind, str(exc), q, filter_activity_id, tag_id=filter_tag, year=filter_year
+        )
+    return _lijst_response(
+        request, db, kind, q=q, activity_id=filter_activity_id, tag_id=filter_tag, year=filter_year
+    )
 
 
 @router.post(
@@ -332,6 +585,8 @@ def media_verplaatsen(
     richting: str = Form("omhoog"),
     q: str = Form(""),
     filter_activity_id: Optional[int] = Form(None),
+    filter_tag: Optional[int] = Form(None),
+    filter_year: Optional[int] = Form(None),
 ):
     """Media omhoog/omlaag herordenen (#882) — dezelfde vorm als de vier andere
     schermen met `ui.reorder`."""
@@ -340,8 +595,12 @@ def media_verplaatsen(
     try:
         move_media(db, asset_id, richting)
     except LookupError as exc:
-        return _lijst_response(request, db, kind, str(exc), q, filter_activity_id)
-    return _lijst_response(request, db, kind, q=q, activity_id=filter_activity_id)
+        return _lijst_response(
+            request, db, kind, str(exc), q, filter_activity_id, tag_id=filter_tag, year=filter_year
+        )
+    return _lijst_response(
+        request, db, kind, q=q, activity_id=filter_activity_id, tag_id=filter_tag, year=filter_year
+    )
 
 
 @router.post(
@@ -357,11 +616,17 @@ def media_verwijderen(
     kind: str = Form("sponsor"),
     q: str = Form(""),
     filter_activity_id: Optional[int] = Form(None),
+    filter_tag: Optional[int] = Form(None),
+    filter_year: Optional[int] = Form(None),
 ):
     from app.domains.media.api import delete_media
 
     try:
         delete_media(db, asset_id)
     except LookupError as exc:
-        return _lijst_response(request, db, kind, str(exc), q, filter_activity_id)
-    return _lijst_response(request, db, kind, q=q, activity_id=filter_activity_id)
+        return _lijst_response(
+            request, db, kind, str(exc), q, filter_activity_id, tag_id=filter_tag, year=filter_year
+        )
+    return _lijst_response(
+        request, db, kind, q=q, activity_id=filter_activity_id, tag_id=filter_tag, year=filter_year
+    )

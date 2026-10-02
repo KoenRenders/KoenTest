@@ -10,10 +10,16 @@ Fouten komen naar buiten als `MediaFout` (invoer) of `LookupError` (niet
 gevonden); de route vertaalt die naar een statuscode.
 """
 
-from typing import Optional, Sequence
+from typing import NamedTuple, Optional, Sequence
 
 from app.domains.media.images import ALLOWED_CONTENT_TYPES, ImageError, process_image
-from app.domains.media.models import MediaAsset, MediaKind, as_media_kind
+from app.domains.media.models import (
+    MediaAsset,
+    MediaAssetTag,
+    MediaKind,
+    MediaTag,
+    as_media_kind,
+)
 from app.domains.media.pdf import PDF_CONTENT_TYPE, PNG_CONTENT_TYPE, first_page_png
 from app.domains.media.svg import SVG_CONTENT_TYPE, process_svg
 from app.i18n import _
@@ -496,6 +502,19 @@ def add_document(
     return asset
 
 
+def activities_by_kind(db) -> dict[MediaKind, set[int]]:
+    """Per kind, the activities with media of that kind — in one query, for the
+    library's derived branches (#1470): album photos, and posters apart."""
+    out: dict[MediaKind, set[int]] = {}
+    for activity_id, kind in (
+        db.query(MediaAsset.activity_id, MediaAsset.kind)
+        .filter(MediaAsset.activity_id.isnot(None))
+        .distinct()
+    ):
+        out.setdefault(kind, set()).add(activity_id)
+    return out
+
+
 def activity_ids_with_media(db) -> set[int]:
     """De activiteiten die al media hebben — voor de filter-dropdown (#459).
 
@@ -673,3 +692,263 @@ def tenant_logo(db):
         .order_by(MediaAsset.id.desc())
         .first()
     )
+
+
+# ── Tags, shown as a tree (CR-15 §C4.2, #1470) ───────────────────────────────
+# A picture carries any number of tags; a tag has an optional parent. The
+# library shows them as a tree, and a picture appears under every tag it
+# carries and under every tag above those. The activity's photos are no tags:
+# the screen derives their branch from the activity.
+
+TAG_NAME_MAX = 80
+
+
+class TagNode(NamedTuple):
+    """One tag in the tree, with how many pictures sit under it — its own and
+    those of every tag below it, each picture once."""
+
+    id: int
+    name: str
+    parent_id: Optional[int]
+    pictures: int
+    children: tuple["TagNode", ...]
+
+
+def _all_tags(db) -> list[MediaTag]:
+    return db.query(MediaTag).order_by(MediaTag.name.asc(), MediaTag.id.asc()).all()
+
+
+def _children_of(tags: Sequence[MediaTag]) -> dict[Optional[int], list[MediaTag]]:
+    children: dict[Optional[int], list[MediaTag]] = {}
+    for tag in tags:
+        children.setdefault(tag.parent_id, []).append(tag)
+    return children
+
+
+def tag_subtree_ids(db, tag_id: int) -> set[int]:
+    """`tag_id` and every tag below it."""
+    children = _children_of(_all_tags(db))
+    found, todo = set(), [tag_id]
+    while todo:
+        current = todo.pop()
+        if current in found:
+            continue
+        found.add(current)
+        todo.extend(child.id for child in children.get(current, []))
+    return found
+
+
+class TagIndex(NamedTuple):
+    """Everything the library needs of the tags, from two queries (#1470): the
+    tree, every tag's path for a choice list, and each picture's tags."""
+
+    tree: list[TagNode]
+    paths: list[tuple[int, str]]
+    per_asset: dict[int, list[int]]
+
+
+def tag_index(db) -> TagIndex:
+    tags = _all_tags(db)
+    links = db.query(MediaAssetTag.asset_id, MediaAssetTag.tag_id).all()
+    tree = _tree_of(tags, links)
+    per_asset: dict[int, list[int]] = {}
+    for asset_id, tag_id in links:
+        per_asset.setdefault(asset_id, []).append(tag_id)
+    return TagIndex(tree, _paths_of(tree), per_asset)
+
+
+def tag_tree(db) -> list[TagNode]:
+    """The tags as a tree, roots first, each level by name."""
+    return tag_index(db).tree
+
+
+def _tree_of(tags: Sequence[MediaTag], links: Sequence) -> list[TagNode]:
+    children = _children_of(tags)
+    assets_per_tag: dict[int, set[int]] = {}
+    for asset_id, tag_id in links:
+        assets_per_tag.setdefault(tag_id, set()).add(asset_id)
+
+    def build(tag: MediaTag) -> tuple[TagNode, set[int]]:
+        below = [build(child) for child in children.get(tag.id, [])]
+        assets = set(assets_per_tag.get(tag.id, set()))
+        for _node, child_assets in below:
+            assets |= child_assets
+        node = TagNode(tag.id, tag.name, tag.parent_id, len(assets), tuple(n for n, _ in below))
+        return node, assets
+
+    return [build(root)[0] for root in children.get(None, [])]
+
+
+def tag_paths(db) -> list[tuple[int, str]]:
+    """Every tag as (id, "Parent › Child"), in tree order — for a choice list."""
+    return tag_index(db).paths
+
+
+def _paths_of(tree: Sequence[TagNode]) -> list[tuple[int, str]]:
+    out: list[tuple[int, str]] = []
+
+    def walk(nodes: Sequence[TagNode], prefix: str) -> None:
+        for node in nodes:
+            path = f"{prefix}{node.name}"
+            out.append((node.id, path))
+            walk(node.children, f"{path} › ")
+
+    walk(tree, "")
+    return out
+
+
+def list_media_with_tag(db, tag_id: int) -> list[dict]:
+    """The pictures carrying `tag_id` or any tag below it, each once."""
+    ids = tag_subtree_ids(db, tag_id)
+    rijen = (
+        db.query(MediaAsset)
+        .filter(
+            MediaAsset.id.in_(
+                db.query(MediaAssetTag.asset_id).filter(MediaAssetTag.tag_id.in_(ids))
+            )
+        )
+        .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.desc())
+        .all()
+    )
+    return [meta(a) for a in rijen]
+
+
+def tags_of_assets(db, asset_ids: Sequence[int]) -> dict[int, list[int]]:
+    """Per picture, the ids of the tags it carries — one query for a page of cards."""
+    out: dict[int, list[int]] = {asset_id: [] for asset_id in asset_ids}
+    if not asset_ids:
+        return out
+    for asset_id, tag_id in db.query(MediaAssetTag.asset_id, MediaAssetTag.tag_id).filter(
+        MediaAssetTag.asset_id.in_(list(asset_ids))
+    ):
+        out.setdefault(asset_id, []).append(tag_id)
+    return out
+
+
+def _tag_or_404(db, tag_id: int) -> MediaTag:
+    tag = db.query(MediaTag).filter(MediaTag.id == tag_id).first()
+    if tag is None:
+        raise LookupError(_("Tag niet gevonden"))
+    return tag
+
+
+def _clean_tag_name(name: str) -> str:
+    naam = (name or "").strip()
+    if not naam:
+        raise MediaFout(_("Geef de tag een naam."))
+    if len(naam) > TAG_NAME_MAX:
+        raise MediaFout(_("Een tagnaam is hoogstens %(n)s tekens.") % {"n": TAG_NAME_MAX})
+    return naam
+
+
+def _refuse_twin(db, name: str, parent_id: Optional[int], *, own_id: Optional[int] = None):
+    """The database key refuses it too; this names it before it gets there."""
+    twin = db.query(MediaTag).filter(
+        MediaTag.name == name,
+        MediaTag.parent_id.is_(None) if parent_id is None else MediaTag.parent_id == parent_id,
+    )
+    if own_id is not None:
+        twin = twin.filter(MediaTag.id != own_id)
+    if twin.first() is not None:
+        raise MediaFout(_("Er bestaat hier al een tag '%(naam)s'.") % {"naam": name})
+
+
+def create_tag(db, name: str, parent_id: Optional[int] = None) -> MediaTag:
+    naam = _clean_tag_name(name)
+    if parent_id is not None:
+        _tag_or_404(db, parent_id)
+    _refuse_twin(db, naam, parent_id)
+    tag = MediaTag(name=naam, parent_id=parent_id)
+    db.add(tag)
+    db.commit()
+    return tag
+
+
+def rename_tag(db, tag_id: int, name: str) -> MediaTag:
+    tag = _tag_or_404(db, tag_id)
+    naam = _clean_tag_name(name)
+    _refuse_twin(db, naam, tag.parent_id, own_id=tag.id)
+    tag.name = naam
+    db.commit()
+    return tag
+
+
+def move_tag(db, tag_id: int, parent_id: Optional[int]) -> MediaTag:
+    """Hang a tag under another one, or at the top (`parent_id` None). Never under
+    itself or one of its own descendants: the tree would close into a ring."""
+    tag = _tag_or_404(db, tag_id)
+    if parent_id is not None:
+        _tag_or_404(db, parent_id)
+        if parent_id in tag_subtree_ids(db, tag.id):
+            raise MediaFout(_("Een tag kan niet onder zichzelf of een eigen ondertag hangen."))
+    _refuse_twin(db, tag.name, parent_id, own_id=tag.id)
+    tag.parent_id = parent_id
+    db.commit()
+    return tag
+
+
+def delete_tag(db, tag_id: int) -> None:
+    """Delete a tag that carries nothing: no tag below it and no picture on it.
+    The refusal says which and how many, so the board knows what to undo."""
+    tag = _tag_or_404(db, tag_id)
+    kinderen = db.query(MediaTag).filter(MediaTag.parent_id == tag.id).count()
+    if kinderen:
+        raise MediaFout(
+            _("De tag '%(naam)s' heeft nog %(n)s ondertag(s); verplaats of verwijder die eerst.")
+            % {"naam": tag.name, "n": kinderen}
+        )
+    gebruik = db.query(MediaAssetTag).filter(MediaAssetTag.tag_id == tag.id).count()
+    if gebruik:
+        raise MediaFout(
+            _("De tag '%(naam)s' hangt nog aan %(n)s foto('s); haal hem daar eerst weg.")
+            % {"naam": tag.name, "n": gebruik}
+        )
+    db.delete(tag)
+    db.commit()
+
+
+def _asset_or_404(db, asset_id: int) -> MediaAsset:
+    asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
+    if asset is None:
+        raise LookupError(_("Niet gevonden"))
+    return asset
+
+
+def tag_asset(db, asset_id: int, tag_id: int) -> None:
+    """Give a picture a tag. Already there: nothing changes — the key refuses a
+    second row, and asking twice is not an error the board can act on."""
+    _asset_or_404(db, asset_id)
+    _tag_or_404(db, tag_id)
+    exists = (
+        db.query(MediaAssetTag)
+        .filter(MediaAssetTag.asset_id == asset_id, MediaAssetTag.tag_id == tag_id)
+        .first()
+    )
+    if exists is None:
+        db.add(MediaAssetTag(asset_id=asset_id, tag_id=tag_id))
+    db.commit()
+
+
+def untag_asset(db, asset_id: int, tag_id: int) -> None:
+    db.query(MediaAssetTag).filter(
+        MediaAssetTag.asset_id == asset_id, MediaAssetTag.tag_id == tag_id
+    ).delete(synchronize_session=False)
+    db.commit()
+
+
+def set_asset_tags(db, asset_id: int, tag_ids: Sequence[int]) -> None:
+    """The picture carries exactly these tags afterwards — the card's ticks."""
+    _asset_or_404(db, asset_id)
+    wanted = {int(t) for t in tag_ids}
+    for tag_id in wanted:
+        _tag_or_404(db, tag_id)
+    have = {
+        row[0] for row in db.query(MediaAssetTag.tag_id).filter(MediaAssetTag.asset_id == asset_id)
+    }
+    for tag_id in wanted - have:
+        db.add(MediaAssetTag(asset_id=asset_id, tag_id=tag_id))
+    if have - wanted:
+        db.query(MediaAssetTag).filter(
+            MediaAssetTag.asset_id == asset_id, MediaAssetTag.tag_id.in_(have - wanted)
+        ).delete(synchronize_session=False)
+    db.commit()
