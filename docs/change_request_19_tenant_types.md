@@ -434,9 +434,9 @@ None on 2 October 2026: the four questions of the first reading are answered (B9
 - **Code:** `landing_for`: a user without an admin role on a tenant without membership lands on the home page, not `/leden/gezin`.
 - **Tests:** C6 9.
 
-#### every domain router (phase 1)
+#### every domain router — through `main.py` (phase 1)
 
-- **Code:** `router = APIRouter(dependencies=[Depends(require_module("<code>"))])` on each JSON and UI router of a module; the shell's own routes (login, account menu, system, tenants, users, changes, e-mail log) carry no module.
+- **Code:** nothing in the domains' router files — `main.py` includes each module's JSON and UI routers with `dependencies=[Depends(require_module(ModuleCode.X))]`; the shell's own routes (login, account menu, system, tenants, users, changes, e-mail log) carry no module. The gate (C6 test 10) checks the includes.
 - **Tests:** C6 1, 4.
 
 #### reporting — the views
@@ -474,7 +474,7 @@ What a module owns — which menu items, which route prefixes, which tiles — c
 
 ### C4.3 Routes stay included; a dependency refuses
 
-One application serves every tenant, resolved per request; including routers per tenant is impossible in that shape. A dependency on the router — `require_module("activities")` — is one line per router, the same shape as the role guards, and it covers JSON and UI routes alike. A module that is off answers 404, not 403: for that tenant the pages do not exist.
+One application serves every tenant, resolved per request; including routers per tenant is impossible in that shape. A dependency on the router — `require_module(ModuleCode.ACTIVITIES)` — is one line per router, the same shape as the role guards, and it covers JSON and UI routes alike. It is applied **at include time in `main.py`** (`app.include_router(router, dependencies=[…])`), not inside the domains' router files: one place says which router belongs to which module, next to the registry, and no domain file changes for it — which also keeps this change out of the files CR-15 is editing in the same release (planning, 2 October 2026). A module that is off answers 404, not 403: for that tenant the pages do not exist.
 
 ### C4.4 Per-request navigation
 
