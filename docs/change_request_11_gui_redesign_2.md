@@ -725,8 +725,8 @@ session.
   "concept → pilot → release → roll-out" after the whole-screen concepts
   of 30 September failed to convince). The kit is designed and built block
   by block, each block in one loop: a **brief** with the measured facts and
-  the fixed constraints to ChatGPT and Mistral, two directions each as
-  rendered HTML at 390 and 1 280 px; Koen **looks and decides**, one
+  the fixed constraints to ChatGPT (Koen, 2 October: not to Mistral), two
+  directions as rendered HTML at 390 and 1 440 px; Koen **looks and decides**, one
   decision at a time; the decision becomes a **rule in the end state and a
   macro specification**; a dev CLI **builds the macro on the pilot screens
   only** (Betalingen, the activity) with the gate as a ratchet; Koen
@@ -1046,6 +1046,7 @@ title and toolbar; the e2e job's duration with the pixel diff.
 | 30 Sep 2026 | Background: the platform will serve other organisations than RAAK (a company's webshop among them) — a separate change request; here the end state keeps kit and brand apart. | Koen |
 | 30 Sep 2026 | CR-11 becomes the GUI redesign's end state and roadmap: North Star first, quick wins up front for attraction, each concept prepared with screenshots, built on one pilot screen, run through a release and tuned, then rolled out; pilots: the activity detail, the public household creation with the forms. The as-is (A2) is listed first, the solution and the approach follow. | Koen |
 | 30 Sep 2026 | External reviews: Mistral and ChatGPT together, same brief, one round per moment — the graphic-design question at phase 0, the usability question before each pilot. | Koen |
+| 2 Oct 2026 | The design briefs of the building blocks go to **ChatGPT only**; Mistral is not asked (Koen; this narrows Q7 of 30 September, which had both models on the same brief, for the design briefs of pilot A). | Koen |
 | 2 Oct 2026 | The activity record head at 390 px (912 px wide, five buttons; row 62) goes into the as-is inventory, not into v2.12: the record header of block 5 fixes it structurally. | Koen, via the master CLI |
 | 2 Oct 2026 | **Two design priorities, one kit** (Koen): the public site is designed phone-first (80 % of its visits are mobile); the back office desktop-first (80–90 % of its use is on a desktop), where a phone carries a few simple actions — look up, confirm, check — and never breaks, but is not designed for a day's work. The phone rules of B4 (no sideways scroll, content on the first screen, the title first, 44 px targets) stay as the floor for the admin; the design width of the admin is 1 440 px, with 1 024 px as the laptop that must still work well. | Koen |
 | 2 Oct 2026 | **The direction for the look** (Koen): the house style — colours and the rest — is not what matters and may go overboard; the behaviour patterns may change; **the functionality and the menu structure stay**. The goal: a modern, sleek, professional application that makes people say "that looks good" — the public site warmer and different, the back office a pleasant, fast workplace for a whole day's work, like an ERP. The approach to the application: process-driven where a real process exists, record-centred everywhere (the lesson of the wizard era: perfect process screens and the same data managed eight times over). | Koen |
