@@ -86,6 +86,8 @@ class ReportPanelView(ViewModel):
     filter_relative: dict[str, list[tuple[str, str]]]
     # #1445: a list per filter — the ticked values, or the one search term.
     filter_values: dict[str, list[str]]
+    # #1456: the filter whose dropdown is open, so a re-render keeps it open.
+    open_filter: str
 
     # ── Result ──────────────────────────────────────────────────────────────
     # True when `message` is a REFUSAL and not an absence. The two are drawn

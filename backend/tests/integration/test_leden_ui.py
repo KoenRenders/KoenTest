@@ -7,6 +7,7 @@ from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
     seed_postal_code,
+    sent_to_sign_in,
 )
 
 
@@ -27,7 +28,7 @@ def _family_with_address(db):
 
 
 def test_leden_page_requires_session(client):
-    assert client.get("/admin/leden").status_code == 401
+    assert sent_to_sign_in(client, "/admin/leden")
 
 
 def test_leden_lijst_and_detail(client, db_session):

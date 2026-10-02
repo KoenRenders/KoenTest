@@ -9,7 +9,7 @@ canonieke fallback — nooit de Referer, nooit een extern adres.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product, sent_to_sign_in
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -41,7 +41,7 @@ def _inschrijving(client, db_session, naam="Pagina Proef"):
 
 
 def test_pagina_vereist_sessie(client):
-    assert client.get("/admin/inschrijvingen/1").status_code == 401
+    assert sent_to_sign_in(client, "/admin/inschrijvingen/1")
 
 
 def test_pagina_toont_kop_context_en_editor(client, db_session):

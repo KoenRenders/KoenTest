@@ -24,6 +24,7 @@ from app.domains.auth.api import (
     make_session_value,
 )
 from tests._reporting_seed import EXPECTED, seed
+from tests.conftest import sent_to_sign_in
 
 URL = "/admin/rapporten/dataset/f_payments.ods"
 
@@ -43,7 +44,7 @@ def _login_as(client, db, email: str, roles: tuple[str, ...]):
 
 
 def test_the_download_needs_a_session(client):
-    assert client.get(URL).status_code == 401
+    assert sent_to_sign_in(client, URL)
 
 
 def test_a_finance_only_user_does_not_reach_reporting(client, db_session):

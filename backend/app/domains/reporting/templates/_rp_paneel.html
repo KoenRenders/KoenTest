@@ -318,16 +318,21 @@
                         class="text-ink-soft hover:text-red-700">{{ ui.icon("x", 14) }}</button>
               </div>
               {% if filter_options[key] or filter_relative[key] %}
-              {# Een gesloten lijst vink je aan (#1445): één vinkje vergelijkt
+              {# Een multiselect (#1456, CR-11 §B4.6): dichtgeklapt tot één regel die de keuze noemt; open
+                 staan de vinkjes eronder.
+                 Een gesloten lijst vink je aan (#1445): één vinkje vergelijkt
                  exact, meerdere betekenen "één van" — de server kiest de
                  vergelijking, de gebruiker kiest waarden. Niets aangevinkt is
                  "alle". De relatieve waarden (#847) staan bovenaan met een streep
                  eronder: ze bewegen mee met de dag waarop je het rapport opent. #}
               <input type="hidden" name="op_{{ key }}" value="eq">
-              {{ ui.checkbox_group("v_" ~ key, values=filter_options[key],
-                                   labelled=filter_relative[key],
-                                   current=filter_values.get(key, []),
-                                   aria_label=objects_by_key[key].name, cls="mt-1") }}
+              {{ ui.multiselect("v_" ~ key, values=filter_options[key],
+                                labelled=filter_relative[key],
+                                current=filter_values.get(key, []),
+                                aria_label=objects_by_key[key].name, cls="mt-1",
+                                open=(key == open_filter),
+                                open_field=("open_filter", key),
+                                empty_label=_("Alle")) }}
               {% else %}
               {# Te veel waarden om te tonen, dus typ je ze — dan zoekt het filter. #}
               <input type="hidden" name="op_{{ key }}" value="contains">

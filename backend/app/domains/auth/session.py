@@ -14,7 +14,9 @@ import hashlib
 import hmac
 import logging
 import time
+from http import HTTPMethod
 from typing import Optional
+from urllib.parse import quote
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.responses import Response
@@ -121,10 +123,24 @@ _PAYMENTS_MUTATE_ROLES = {"FINANCE", "OPERATOR"}
 def _require_ui_roles(request: Request, db: Session, allowed: set[str]) -> str:
     """Identiteit + rolcheck voor server-rendered schermen. Zonder geldige sessie:
     een 401-pagina-redirect naar de login (303 via HTTPException zou de htmx-flow
-    breken)."""
+    breken).
+
+    #1458: a plain browser GET — a link someone was sent — gets the 303 after all,
+    to the sign-in page carrying the requested page as `terug`, so signing in
+    lands there (the sign-in flow checks it with `veilige_terug`, #1437). A
+    browser does not follow `Location` on a 401 and showed the bare JSON. htmx
+    requests and other methods keep the 401 above.
+    """
     from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
 
     email = read_session_value(_session_raw(request))
+    if email is None and request.method == HTTPMethod.GET and not request.headers.get("HX-Request"):
+        here = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+        raise HTTPException(
+            status_code=status.HTTP_303_SEE_OTHER,
+            detail=_("Niet aangemeld"),
+            headers={"Location": f"/aanmelden?terug={quote(here, safe='/')}"},
+        )
     if email is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

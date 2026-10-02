@@ -41,6 +41,7 @@ from app.domains.forms.schemas import AnswerIn
 from app.domains.forms.screenfields import BRANCHABLE, CHOICES
 from app.i18n import _
 from app.kernel.codes import code_of
+from app.kernel.copying import CopyPlan
 
 # Eenvoudige e-mailcheck (vorm, niet bestaan). Bewust soepel.
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -1260,6 +1261,82 @@ def _free_slug(db, base: str) -> Optional[str]:
     while db.query(Form.id).filter(Form.slug == candidate).first() is not None:
         candidate, n = f"{base}-{n}", n + 1
     return candidate
+
+
+# ── What a copy takes along (#1464) ──────────────────────────────────────────
+# `copy_form` copies through `export_definition`, the path a JSON export and
+# import take, so `copied` here is what that definition carries; the gate holds
+# the two together (`test_copy_plans_gate.py`).
+_REMAPPED = "points at the copy's own row, not the source's"
+
+FORM_COPY = CopyPlan(
+    model=Form,
+    copied=(
+        "description",
+        "status",
+        "requires_login",
+        "max_submissions",
+        "send_confirmation",
+        "confirmation_message",
+        "allow_edit",
+        "is_anonymous",
+    ),
+    set_by_copy={
+        "title": "the new year replaces the source's, or is added (#1397)",
+        "slug": "the same rule, made unique",
+        "share_token": "a new link: the source's keeps working",
+    },
+    not_copied={
+        "id": "a new row: its own id and bookkeeping",
+        "created_at": "a new row: its own id and bookkeeping",
+        "updated_at": "a new row: its own id and bookkeeping",
+        "tenant_id": "the copy belongs to the tenant it is made in",
+    },
+)
+SECTION_COPY = CopyPlan(
+    model=FormSection,
+    copied=("title", "description", "position", "next_is_end"),
+    set_by_copy={"form_id": "the copied form", "next_section_id": _REMAPPED},
+    not_copied={
+        "id": "a new row: its own id and bookkeeping",
+        "tenant_id": "the copy belongs to the tenant it is made in",
+    },
+)
+FIELD_COPY = CopyPlan(
+    model=FormField,
+    copied=(
+        "field_type",
+        "label",
+        "help_text",
+        "required",
+        "position",
+        "min_value",
+        "max_value",
+        "min_length",
+        "max_length",
+        "regex_pattern",
+        "rating_max",
+        "rating_low_label",
+        "rating_high_label",
+    ),
+    set_by_copy={"form_id": "the copied form", "section_id": _REMAPPED},
+    not_copied={
+        "id": "a new row: its own id and bookkeeping",
+        "tenant_id": "the copy belongs to the tenant it is made in",
+    },
+)
+OPTION_COPY = CopyPlan(
+    model=FormFieldOption,
+    copied=("label", "value", "position", "is_other", "skip_to_end"),
+    set_by_copy={"field_id": "the copied field", "skip_to_section_id": _REMAPPED},
+    not_copied={
+        "id": "a new row: its own id and bookkeeping",
+        "tenant_id": "the copy belongs to the tenant it is made in",
+    },
+)
+
+#: Every copy action of this module and the plans it follows (#1464).
+COPY_PLANS = {"copy_form": (FORM_COPY, SECTION_COPY, FIELD_COPY, OPTION_COPY)}
 
 
 def copy_form(

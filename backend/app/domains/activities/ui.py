@@ -184,17 +184,34 @@ def _page_ctx(request: Request, db: Session, activity: Any, component: Any, form
         "naam": "",
         # CR-14 §B4.8: after "later", the thank-you page repeats the answer link.
         "antwoord_url": None,
+        # #1459: set on the GET for a signed-in non-member on a members-only page.
+        "enkel_leden": None,
     }
 
 
 @router.get("/activiteiten/{activity_id}/inschrijven/{component_id}", response_class=HTMLResponse)
 def inschrijf_form(
     activity_id: int, component_id: int, request: Request, db: Session = Depends(get_db)
-) -> HTMLResponse:
-    from app.domains.activities.api import form_context, registration_refusal
+) -> Response:
+    from app.domains.activities.api import (
+        form_context,
+        members_only_refusal,
+        registration_refusal,
+    )
 
     activity, component = _component_or_404(db, activity_id, component_id)
     channel = _channel(request, db, activity, component)
+    if activity.members_only and not _aanmeldadres(request):
+        # #1459: signed out — sign in first, and come back here (#1437's
+        # `terug`, checked by `veilige_terug` on the way back). On SIGNED OUT
+        # and not on "no person": somebody signed in without a household has no
+        # person either, and sending them to sign in again would be a loop.
+        from urllib.parse import quote
+
+        from fastapi.responses import RedirectResponse
+
+        here = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+        return RedirectResponse(f"/aanmelden?terug={quote(here, safe='/')}", status_code=302)
     # #974: een pagina die geopend wordt nadat de inschrijvingen dicht zijn (een oude
     # link, een tabblad dat bleef openstaan) toont meteen waarom — met dezelfde
     # woorden als de route bij het verzenden, want ze komen uit dezelfde functie.
@@ -205,9 +222,12 @@ def inschrijf_form(
         values=_prefill(request, channel.person),
         error=registration_refusal(activity, component=component),
     )
-    return templates.TemplateResponse(
-        request, "inschrijven.html", _page_ctx(request, db, activity, component, ctx)
+    page = _page_ctx(request, db, activity, component, ctx)
+    # #1459: signed in but no member — the reason, and no form to pay through.
+    page["enkel_leden"] = members_only_refusal(
+        db, activity, channel.person.id if channel.person else None
     )
+    return templates.TemplateResponse(request, "inschrijven.html", page)
 
 
 @router.post(

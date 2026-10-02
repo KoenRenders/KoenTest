@@ -984,6 +984,72 @@
   </div>
 </fieldset>
 {%- endmacro %}
+{# ── Multiselect (#1456, CR-11 §B4.6) ───────────────────────────────────────
+   Several choices from a closed list, in a FILTER or a toolbar. A control that
+   holds a choice is collapsed by default (CR-11 row 61): an always-open list
+   of checkboxes is a form field (`checkbox_group`), never a filter. Ticking is
+   choosing — one `name=value` pair per tick, read with `getlist(name)`.
+
+   Closed it is ONE line that names the choice — "Dit jaar, 2027 ▾"; from
+   four ticks on their count ("4 gekozen"), since a line of names that
+   truncates hides which; `empty_label` when nothing is ticked —
+   because an always-open box of 240 px pushed the report off a phone's first
+   screen. Tapping the line opens the ticks below it; tapping outside, Escape
+   or the line again closes it. Native `<details>`: keyboard and screen reader
+   work without script, and Alpine only adds "close on outside tap".
+
+   Mobile first: each tick a full-width row of at least 44 px (`min-h-11`), in a
+   list that scrolls when it is long.
+
+   `labelled` = (value, label) pairs shown first, above a rule — the relative
+   values of a report filter ("Dit jaar"); `values` = plain values that are their
+   own label (2026, 2027). `current` = the ticked values.
+
+   `open` renders it open. A screen that re-renders itself on every tick (the
+   report panel swaps its whole HTML) would close it under the user's finger, so
+   it passes `open_field` = (name, value): a hidden input that is sent only while
+   the list is open, so the server knows to render it open again. The disabled
+   state is in the server markup (§8.1), not only in Alpine. #}
+{% macro multiselect(name, values=[], labelled=[], current=[], aria_label="", cls="",
+                     open=False, open_field=None, empty_label="Alle") -%}
+{% set gekozen = [] %}
+{% for value, label in labelled %}{% if value in current %}{% set _ = gekozen.append(label) %}{% endif %}{% endfor %}
+{% for value in values %}{% if value in current %}{% set _ = gekozen.append(value) %}{% endif %}{% endfor %}
+{% set samenvatting = (gekozen|join(', ') if gekozen|length < 4
+                      else _('%(n)s gekozen', n=gekozen|length))
+                     if gekozen else empty_label %}
+<details class="group relative {{ cls }}"{% if open %} open{% endif %}
+         x-data @click.outside="$el.open = false" @keydown.escape="$el.open = false"
+         @toggle="$el.querySelectorAll('[data-open-field]').forEach(i => i.disabled = !$el.open)">
+  <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm hover:bg-gray-50 [&::-webkit-details-marker]:hidden"
+           {% if aria_label %}aria-label="{{ aria_label }}: {{ samenvatting }}"{% endif %}>
+    <span class="truncate">{{ samenvatting }}</span>
+    <span class="shrink-0 text-ink-soft transition-transform group-open:rotate-180" aria-hidden="true">{{ icon("chevron-down", 16) }}</span>
+  </summary>
+  {% if open_field %}
+  <input type="hidden" name="{{ open_field[0] }}" value="{{ open_field[1] }}" data-open-field{% if not open %} disabled{% endif %}>
+  {% endif %}
+  <fieldset class="mt-1"{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}>
+    <div class="max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
+      {% for value, label in labelled %}
+      <label class="flex min-h-11 cursor-pointer items-center gap-3 px-3 text-sm hover:bg-gray-50">
+        <input type="checkbox" name="{{ name }}" value="{{ value }}" class="h-4 w-4 shrink-0"
+               {% if value in current %}checked{% endif %}>
+        <span>{{ label }}</span>
+      </label>
+      {% endfor %}
+      {% if labelled and values %}<div class="h-1 bg-gray-50" aria-hidden="true"></div>{% endif %}
+      {% for value in values %}
+      <label class="flex min-h-11 cursor-pointer items-center gap-3 px-3 text-sm hover:bg-gray-50">
+        <input type="checkbox" name="{{ name }}" value="{{ value }}" class="h-4 w-4 shrink-0"
+               {% if value in current %}checked{% endif %}>
+        <span>{{ value }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+</details>
+{%- endmacro %}
 {# ── Toast (#528 as C) ────────────────────────────────────────────────────────
    Eén bevestigingspatroon voor de hele app; alert() is verboden (as A/D). Rendert
    als los fragment zodat een htmx-antwoord hem out-of-band kan meesturen:

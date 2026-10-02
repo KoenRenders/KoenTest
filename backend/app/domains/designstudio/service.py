@@ -54,6 +54,7 @@ from app.domains.designstudio.models import (
     RenderVariant,
 )
 from app.kernel.codes import code_label, code_of
+from app.kernel.copying import CopyPlan
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 
 
@@ -68,6 +69,8 @@ MAX_HIGHLIGHTS = 4  # the unit's own rows (Koen, 20 September 2026: six in total
 MAX_HIGHLIGHT_ROWS = 6  # plus date/time and place, which come by themselves
 MAX_LOGOS = 2
 MAX_DATES = 12
+#: The column's own length (#1461), so the refusal and the schema cannot drift.
+MAX_POSTER_TITLE = Design.__table__.c.poster_title.type.length
 IMAGE_SLOTS = ("main_image_id", "inset_image_id", "third_image_id")
 
 MONTHS_NL = (
@@ -163,6 +166,61 @@ def list_designs(db: Session) -> list[Design]:
     return db.query(Design).order_by(Design.updated_at.desc(), Design.id.desc()).all()
 
 
+# ── What a copy takes along (#1464) ──────────────────────────────────────────
+DESIGN_COPY = CopyPlan(
+    model=Design,
+    copied=(
+        "template_key",
+        "template_version",
+        "preset",
+        "duo_code",
+        "poster_title",
+        "tagline",
+        "subtitle",
+        "explanation_md",
+        "main_image_id",
+        "main_focus_x",
+        "main_focus_y",
+        "inset_image_id",
+        "inset_corner",
+        "third_image_id",
+    ),
+    set_by_copy={
+        "activity_id": "the copied activity",
+        "status": "a draft: nothing is rendered (Koen, 30 September 2026)",
+        "created_by": "who copies",
+    },
+    not_copied={
+        "published_version_id": "no version is rendered; the board renders the new poster",
+        "id": "a new row: its own id and bookkeeping",
+        "created_at": "a new row: its own id and bookkeeping",
+        "updated_at": "a new row: its own id and bookkeeping",
+        "tenant_id": "the copy belongs to the tenant it is made in",
+    },
+)
+HIGHLIGHT_COPY = CopyPlan(
+    model=DesignHighlight,
+    copied=("sort_order", "icon_code", "text", "emphasis"),
+    set_by_copy={"design_id": "the copied design"},
+    not_copied={
+        "id": "a new row: its own id and bookkeeping",
+        "tenant_id": "the copy belongs to the tenant it is made in",
+    },
+)
+LOGO_COPY = CopyPlan(
+    model=DesignLogo,
+    copied=("media_asset_id", "sort_order"),
+    set_by_copy={"design_id": "the copied design"},
+    not_copied={
+        "id": "a new row: its own id and bookkeeping",
+        "tenant_id": "the copy belongs to the tenant it is made in",
+    },
+)
+
+#: Every copy action of this module and the plans it follows (#1464).
+COPY_PLANS = {"copy_designs": (DESIGN_COPY, HIGHLIGHT_COPY, LOGO_COPY)}
+
+
 def copy_designs(
     db: Session, source_activity_id: int, copy_activity_id: int, *, actor: str | None
 ) -> list[Design]:
@@ -179,33 +237,13 @@ def copy_designs(
         db.query(Design).filter(Design.activity_id == source_activity_id).order_by(Design.id).all()
     ):
         copy = Design(
+            **DESIGN_COPY.values(source),
             activity_id=copy_activity_id,
-            template_key=source.template_key,
-            template_version=source.template_version,
-            preset=source.preset,
-            duo_code=source.duo_code,
             status=DesignStatus.DRAFT,
-            tagline=source.tagline,
-            subtitle=source.subtitle,
-            explanation_md=source.explanation_md,
-            main_image_id=source.main_image_id,
-            main_focus_x=source.main_focus_x,
-            main_focus_y=source.main_focus_y,
-            inset_image_id=source.inset_image_id,
-            inset_corner=source.inset_corner,
-            third_image_id=source.third_image_id,
             created_by=actor or "",
         )
-        copy.highlights = [
-            DesignHighlight(
-                sort_order=h.sort_order, icon_code=h.icon_code, text=h.text, emphasis=h.emphasis
-            )
-            for h in source.highlights
-        ]
-        copy.logos = [
-            DesignLogo(media_asset_id=lg.media_asset_id, sort_order=lg.sort_order)
-            for lg in source.logos
-        ]
+        copy.highlights = [DesignHighlight(**HIGHLIGHT_COPY.values(h)) for h in source.highlights]
+        copy.logos = [DesignLogo(**LOGO_COPY.values(lg)) for lg in source.logos]
         db.add(copy)
         copies.append(copy)
     db.flush()
@@ -268,6 +306,8 @@ def save_design(
     for icon, _line, _emphasis in kept:
         if icon not in ICONS:
             raise DesignError(f"Onbekend icoon: {icon}")
+    if len((form.get("poster_title") or "").strip()) > MAX_POSTER_TITLE:
+        raise DesignError(f"Ten hoogste {MAX_POSTER_TITLE} tekens in de titel op de affiche.")
     if "inset_corner" in form:
         try:
             InsetCorner(form["inset_corner"])
@@ -284,6 +324,12 @@ def save_design(
     for key in ("tagline", "subtitle"):
         if key in form:
             setattr(design, key, (form[key] or "").strip() or None)
+    if "poster_title" in form:
+        # #1461: like "Omschrijving anders" — empty, or the activity's name
+        # typed back, means "use the activity's", stored as NULL so a renamed
+        # activity still reaches the poster.
+        typed = (form["poster_title"] or "").strip()
+        design.poster_title = typed if typed and typed != facts_for(db, design)["title"] else None
     if "explanation_md" in form:
         # "Omschrijving anders": the field shows the activity's description;
         # unchanged (or emptied) means "use the activity's", stored as NULL so
@@ -506,9 +552,15 @@ def _title_lines(title: str) -> tuple[tuple[str, ...], str]:
     return (text.upper(),), ""
 
 
+def poster_title(design: Design, facts: dict) -> str:
+    """The title the poster prints: the design's own (#1461), else the
+    activity's name. One place, so the drawn title and the SVG's <title> agree."""
+    return design.poster_title or facts["title"]
+
+
 def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> PosterContent:
     facts = facts or facts_for(db, design)
-    title_lines, joiner = _title_lines(facts["title"])
+    title_lines, joiner = _title_lines(poster_title(design, facts))
 
     highlights: list[Highlight] = []
     dates = facts["dates"]
@@ -646,7 +698,7 @@ def merged_for(
         content,
         layout=layout.value,
         template_key=design.template_key,
-        title=facts["title"] if facts else "Affiche",
+        title=poster_title(design, facts) if facts else "Affiche",
         qr_url=qr_url(db, facts.get("key", "") if facts else ""),
     )
 

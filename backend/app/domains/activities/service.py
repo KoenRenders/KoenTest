@@ -29,6 +29,8 @@ from app.domains.activities.models import (
     ActiviteitFout,
     Activity,
     ActivityDate,
+    ActivityOrganiser,
+    ActivityProduct,
     ActivitySubRegistration,
     Registration,
     RegistrationHistory,
@@ -36,6 +38,7 @@ from app.domains.activities.models import (
 )
 from app.domains.mdm.api import CONTACT
 from app.kernel.codes import code_label, code_of
+from app.kernel.copying import CopyPlan
 
 if TYPE_CHECKING:
     from app.domains.activities.models import ActivityOrganiser, ActivityProduct, RegistrationItem
@@ -609,6 +612,130 @@ def first_date_of(activity: Activity) -> date | None:
     return min((d.start_date for d in activity.dates), default=None)
 
 
+# ── What a copy takes along (#1464) ──────────────────────────────────────────
+# One plan per model `copy_activity` writes: every column copied, set by the
+# copy, or not copied with its reason. The copy reads `copied` from here, so a
+# new column is either declared here or fails `test_copy_plans_gate.py`.
+
+_NEW_ROW = "a new row: its own id and bookkeeping"
+_TENANT = "the copy belongs to the tenant it is made in"
+
+ACTIVITY_COPY = CopyPlan(
+    model=Activity,
+    copied=(
+        "name",
+        "location",
+        "description",
+        "members_only",
+        "board_notes",
+        "target_audience",
+    ),
+    set_by_copy={
+        "status": "the copy step chooses Concept or Gepubliceerd (#1428)",
+        "copied_from_id": "points at the source (#1397)",
+        "slug": "suggested from the name as for a new activity; the source keeps its address",
+    },
+    not_copied={
+        "poster_url": "the board renders the new poster with the new date (#1397)",
+        "is_cancelled": "a new edition is not cancelled because last year's was",
+        "id": _NEW_ROW,
+        "created_at": _NEW_ROW,
+        "updated_at": _NEW_ROW,
+        "deleted_at": _NEW_ROW,
+        "tenant_id": _TENANT,
+    },
+)
+
+DATE_COPY = CopyPlan(
+    model=ActivityDate,
+    copied=("start_time", "end_time"),
+    set_by_copy={
+        "start_date": "moved by the difference to the new first date (#1397)",
+        "end_date": "moved by the same difference",
+        "activity_id": "the copy",
+    },
+    not_copied={"id": _NEW_ROW, "deleted_at": _NEW_ROW, "tenant_id": _TENANT},
+)
+
+ORGANISER_COPY = CopyPlan(
+    model=ActivityOrganiser,
+    copied=(
+        "person_id",
+        "sort_order",
+        "is_contact",
+        "email_override",
+        "mobile_override",
+        "show_email",
+        "show_mobile",
+    ),
+    set_by_copy={"activity_id": "the copy"},
+    not_copied={"id": _NEW_ROW, "created_at": _NEW_ROW, "tenant_id": _TENANT},
+)
+
+COMPONENT_COPY = CopyPlan(
+    model=ActivitySubRegistration,
+    copied=(
+        "name",
+        "description",
+        "registration_type_code",
+        "max_participants",
+        "price",
+        "member_price",
+        "is_free",
+        "team_name_required",
+        "sort_order",
+    ),
+    set_by_copy={
+        "activity_id": "the copy",
+        "registration_closes_on": "moved by the same days as the dates (Koen, 1 October 2026)",
+        "form_id": "a copy of the question form, with the new year (forms.api.copy_form)",
+    },
+    not_copied={
+        "external_register_url": "not the links of last year (Koen, 1 October 2026)",
+        "external_registrations_url": "not the links of last year (Koen, 1 October 2026)",
+        "info_url": "not the links of last year (Koen, 1 October 2026)",
+        "id": _NEW_ROW,
+        "created_at": _NEW_ROW,
+        "updated_at": _NEW_ROW,
+        "deleted_at": _NEW_ROW,
+        "tenant_id": _TENANT,
+    },
+)
+
+PRODUCT_COPY = CopyPlan(
+    model=ActivityProduct,
+    copied=(
+        "name",
+        "price",
+        "member_price",
+        "is_free",
+        "pay_on_site",
+        "is_active",
+        "max_participants",
+        "sort_order",
+    ),
+    set_by_copy={"component_id": "the copied component"},
+    not_copied={
+        "id": _NEW_ROW,
+        "created_at": _NEW_ROW,
+        "deleted_at": _NEW_ROW,
+        "tenant_id": _TENANT,
+    },
+)
+
+#: Every copy action of this module and the plans it follows (#1464). Not a
+#: copy action: `copy_suggestions` (two dates) — see the gate's register.
+COPY_PLANS = {
+    "copy_activity": (
+        ACTIVITY_COPY,
+        DATE_COPY,
+        ORGANISER_COPY,
+        COMPONENT_COPY,
+        PRODUCT_COPY,
+    ),
+}
+
+
 def copy_activity(
     db: Session,
     activity_id: int,
@@ -634,7 +761,7 @@ def copy_activity(
     """
     from types import SimpleNamespace
 
-    from app.domains.activities.models import ActivityOrganiser, ActivityStatus
+    from app.domains.activities.models import ActivityStatus
 
     source = _activity_met_boom(db, activity_id)
     if source is None:
@@ -662,10 +789,9 @@ def copy_activity(
             members_only=source.members_only,
             dates=[
                 SimpleNamespace(
+                    **DATE_COPY.values(d),
                     start_date=d.start_date + shift,
                     end_date=d.end_date + shift if d.end_date else None,
-                    start_time=d.start_time,
-                    end_time=d.end_time,
                 )
                 for d in sorted(source.dates, key=lambda d: (d.start_date, d.id))
             ],
@@ -673,24 +799,17 @@ def copy_activity(
             slug=None,
             action="activity_copied",
         )
-        copy.board_notes = source.board_notes
+        # #1464: the plan is the one list of what comes along — #1463 was a
+        # field missing from a list kept here by hand. `_add_activity` above
+        # takes what creating needs (the name for the slug suggestion).
+        for column, value in ACTIVITY_COPY.values(source).items():
+            setattr(copy, column, value)
         copy.copied_from_id = source.id
         # #1428: a copy is a draft unless the copy step says published — next
         # year's programme is prepared before it goes on the site.
         copy.status = ActivityStatus(status) if status else ActivityStatus.DRAFT
         for organiser in source.organisers:
-            db.add(
-                ActivityOrganiser(
-                    activity_id=copy.id,
-                    person_id=organiser.person_id,
-                    sort_order=organiser.sort_order,
-                    is_contact=organiser.is_contact,
-                    email_override=organiser.email_override,
-                    mobile_override=organiser.mobile_override,
-                    show_email=organiser.show_email,
-                    show_mobile=organiser.show_mobile,
-                )
-            )
+            db.add(ActivityOrganiser(activity_id=copy.id, **ORGANISER_COPY.values(organiser)))
         db.flush()
         if with_components:
             _copy_components(db, source, copy, shift=shift, new_first=first_date, actor=actor)
@@ -727,7 +846,6 @@ def _copy_components(
     last year) and never a registration. A component's question form is copied
     too, with the new year in its title (`forms.api.copy_form`).
     """
-    from app.domains.activities.models import ActivityProduct
     from app.domains.forms.api import copy_form
 
     old_first = first_date_of(source)
@@ -735,21 +853,13 @@ def _copy_components(
     new_year = new_first.year if new_first else None
     for component in source.sub_registrations:
         new = ActivitySubRegistration(
+            **COMPONENT_COPY.values(component),
             activity_id=copy.id,
-            name=component.name,
-            description=component.description,
-            registration_type_code=component.registration_type_code,
-            max_participants=component.max_participants,
             registration_closes_on=(
                 component.registration_closes_on + shift
                 if component.registration_closes_on
                 else None
             ),
-            price=component.price,
-            member_price=component.member_price,
-            is_free=component.is_free,
-            team_name_required=component.team_name_required,
-            sort_order=component.sort_order,
             form_id=(
                 copy_form(db, component.form_id, old_year=old_year, new_year=new_year)
                 if component.form_id
@@ -760,17 +870,7 @@ def _copy_components(
         for product in component.products:
             _insert_product(
                 db,
-                ActivityProduct(
-                    component_id=new.id,
-                    name=product.name,
-                    price=product.price,
-                    member_price=product.member_price,
-                    is_free=product.is_free,
-                    pay_on_site=product.pay_on_site,
-                    is_active=product.is_active,
-                    max_participants=product.max_participants,
-                    sort_order=product.sort_order,
-                ),
+                ActivityProduct(component_id=new.id, **PRODUCT_COPY.values(product)),
                 actor=actor,
                 action="product_copied",
             )
@@ -1497,6 +1597,42 @@ def _order_changed(db: Session, reg: Registration, actor: Optional[str]) -> None
     publish(OrderChanged(registration_id=reg.id, total_due=str(total), actor=actor), db)
 
 
+def counts_as_member(db: Session, person_id: int | None) -> bool:
+    """Who counts as a member for a members-only activity (#1459).
+
+    A valid membership TODAY — Koen, 2 October 2026 (choice B). The same test that
+    gives the member price on this form (`registration_form.is_member`), so one
+    form never says "you are a member" and "you are not" at once: whoever may
+    register pays the member price. Not `mdm.api.is_member` (in a household,
+    #1004): that rule is for organisers, and a household that did not renew
+    would get in at the non-member price. Nobody signed in is no member.
+    """
+    if person_id is None:
+        return False
+    from app.domains.mdm.api import Person
+    from app.domains.membership.api import has_valid_membership
+
+    return has_valid_membership(db.get(Person, person_id))
+
+
+def members_only_refusal(db: Session, activity: Activity, person_id: int | None) -> str | None:
+    """Why this person may not register for this activity, or None (#1459).
+
+    `members_only` was shown — the checkbox, the "enkel leden" badge — and
+    enforced nowhere: signed out, with any address, anyone registered for the
+    Sint and paid. The rule is here, so the public form, the JSON API and any
+    later way in meet it; the screen only adds a friendlier way to sign in.
+    """
+    if not activity.members_only or counts_as_member(db, person_id):
+        return None
+    from app.i18n import _ as vertaal
+
+    # One sentence: the service does not know whether somebody is signed in —
+    # a person without a household has no person id either. The page sends a
+    # signed-out visitor to sign in before it ever gets here.
+    return vertaal("Deze activiteit is enkel voor leden met een geldig lidmaatschap.")
+
+
 def register(
     db: Session,
     activity: Activity,
@@ -1513,6 +1649,8 @@ def register(
     meets the same rules. In the order they were checked before, so a request that
     breaks two of them gets the same answer as before:
 
+    0. #1459: a members-only activity takes no registration from a non-member on
+       the public way (`members_only_refusal`);
     1. the activity or the component is closed or cancelled (`registration_refusal`);
     2. the tenant's limit per e-mail address and component (`RegistrationLimitReached`);
     3. every product belongs to the activity, every quantity within the tenant's bounds;
@@ -1541,6 +1679,12 @@ def register(
     # on its own way in (the back office), e.g. to prepare one.
     if not backoffice_products and not is_published(activity):
         raise RegistrationRefused(vertaal("Deze activiteit staat nog niet open."))
+    # #1459: members only. The board's way in (`backoffice_products`) registers
+    # somebody else on purpose and is not held to it — like a draft above.
+    if not backoffice_products:
+        members_only = members_only_refusal(db, activity, person_id)
+        if members_only:
+            raise RegistrationRefused(members_only)
     component = next((c for c in activity.sub_registrations if c.id == data.component_id), None)
     refusal = registration_refusal(activity, component=component)
     if refusal:

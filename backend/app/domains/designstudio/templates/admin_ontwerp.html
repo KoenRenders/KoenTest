@@ -49,6 +49,10 @@
           {% endcall %}
         </div>
       </div>
+      <div>
+        {{ ui.label(_("Titel op de affiche"), "ds-poster-title") }}
+        {{ ui.input_control("poster_title", id="ds-poster-title", value=poster_title, cls="w-full", placeholder=activity_name) }}
+      </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
           {{ ui.label(_("Balk onder de titel"), "ds-subtitle") }}

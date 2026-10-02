@@ -27,6 +27,7 @@ from app.domains.auth.api import (
     make_session_value,
 )
 from tests._reporting_seed import EXPECTED, TENANT_A, TENANT_B, seed
+from tests.conftest import sent_to_sign_in
 
 ADMIN_EMAIL = "rapport-beheer@example.com"
 OTHER_EMAIL = "rapport-collega@example.com"
@@ -62,8 +63,8 @@ def situation(db_session):
 
 
 def test_reporting_needs_a_session(client):
-    assert client.get("/admin/rapporten").status_code == 401
-    assert client.get("/admin/rapporten/nieuw").status_code == 401
+    assert sent_to_sign_in(client, "/admin/rapporten")
+    assert sent_to_sign_in(client, "/admin/rapporten/nieuw")
 
 
 def test_a_finance_only_user_is_refused_with_the_reason(client, db_session):

@@ -333,6 +333,9 @@ class Design(TenantMixin, Base):
     # Design text — never a copy of a fact. Round 3 (Koen, 19 September 2026)
     # cut it to three: the subtitle bar, the handwritten line and
     # "Omschrijving anders" — empty when the activity's own description is used.
+    # #1461 adds a fourth: the poster's own title, empty when the activity's
+    # name is used (it came back after round 3, see migration 185).
+    poster_title = Column(String(255), nullable=True)
     tagline = Column(String(90), nullable=True)
     subtitle = Column(String(120), nullable=True)
     explanation_md = Column(Text, nullable=True)
