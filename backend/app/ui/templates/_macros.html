@@ -1083,13 +1083,15 @@
    picker (`/admin/media/kiezer`, `media.api.pick_options`): the tree, search and
    the year, thumbnails in pages of 60, last year's photos first for a copied
    activity (`for_activity_id`). Choosing sets the field, shows the thumbnail and
-   closes the modal. The hidden initial state is in the server markup (§8.1).
+   closes the modal: the fragment announces the choice as `media-picked` (#1474),
+   which a screen with its own modal — the CMS page — reads the same way. The hidden initial state is in the server markup (§8.1).
    `clearable` (#1473): a "Weghalen" link empties the choice — a design slot may
    hold no picture; off by default, so a field that needs one never offers it. #}
 {% macro media_picker(name, value=None, value_thumb=None, for_activity_id=None,
                       label=None, title=None, clearable=False) -%}
 {% set adres = "/admin/media/kiezer?field=" ~ name ~ ("&for_activity_id=" ~ for_activity_id if for_activity_id else "") %}
-<div class="space-y-2" x-data="{ open: false, chosen: '{{ value or '' }}', thumb: '{{ value_thumb or '' }}' }">
+<div class="space-y-2" x-data="{ open: false, chosen: '{{ value or '' }}', thumb: '{{ value_thumb or '' }}' }"
+     @media-picked="chosen = $event.detail.id; thumb = $event.detail.thumb; open = false">
   <input type="hidden" name="{{ name }}" value="{{ value or '' }}" :value="chosen">
   <div class="flex items-center gap-3">
     {# #1473: the thumbnail's place is always there, empty or not, so pickers under

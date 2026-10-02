@@ -323,13 +323,50 @@ def test_the_editor_offers_the_library_to_insert_from(client, db_session):
     db_session.flush()
     beeld = _asset(db_session, kind=PAGE_IMAGE_KIND, title="Schermafdruk")
 
+    foto = _asset(db_session, kind="activity_photo", title="Sint op het podium")
+
     html = client.get(f"/admin/paginas/{pagina.id}").text
 
     assert "insertPageImage" in html, "de invoegknop heeft geen invoegfunctie"
-    assert f'data-url="/api/v1/media/{beeld.id}"' in html, (
-        "de bibliotheek staat niet in de kiezer, dus er is niets te kiezen"
-    )
     assert 'id="cp-alt"' in html, "het alt-veld ontbreekt in de kiezer"
+    # #1474: the dialog loads the kit's picker into itself — `hx-target="this"`,
+    # or it inherits #cp-form's target and replaces the whole editor (measured).
+    assert (
+        'id="mp-cp-beeld"' in html
+        and 'hx-get="/admin/media/kiezer?field=cp-beeld" hx-target="this"' in html
+    )
+    kiezer = client.get("/admin/media/kiezer?field=cp-beeld").text
+    for asset in (beeld, foto):
+        assert f'data-url="/api/v1/media/{asset.id}"' in kiezer, (
+            f"{asset.kind} staat niet in de kiezer van de pagina, dus er is niets te kiezen"
+        )
+
+
+def test_placing_an_album_photo_puts_a_reference_and_adds_no_media_row(client, db_session):
+    """CR-15 C6 test 2 (#1474): the CMS places a reference to a picture of the
+    library — an album photo of the Sint as well as a page picture — and stores
+    no copy of it: the number of media rows is the same before and after."""
+    from app.domains.cms.api import CmsPage
+
+    hdr = _login(client, db_session)
+    pagina = CmsPage(title="Sint", slug="sint-uitleg", content="<p>x</p>")
+    db_session.add(pagina)
+    foto = _asset(db_session, kind="activity_photo", title="Sint op het podium")
+    db_session.commit()
+    voor = db_session.query(MediaAsset).count()
+
+    inhoud = INGEVOEGD.replace("/api/v1/media/7", f"/api/v1/media/{foto.id}")
+    resp = client.post(
+        f"/admin/paginas/{pagina.id}",
+        data={"title": "Sint", "slug": "sint-uitleg", "content": inhoud, "is_published": "1"},
+        headers=hdr,
+    )
+    assert resp.status_code == 200, resp.text[:300]
+
+    db_session.expire_all()
+    assert db_session.query(MediaAsset).count() == voor, "placing a picture stored a copy"
+    getoond = render_cms_content(db_session.get(CmsPage, pagina.id).content)
+    assert f'src="/api/v1/media/{foto.id}"' in getoond and f'alt="{ALT}"' in getoond, getoond
 
 
 def test_the_editor_still_refuses_a_dropped_file():

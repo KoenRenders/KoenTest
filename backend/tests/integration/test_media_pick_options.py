@@ -173,7 +173,12 @@ def test_the_picker_fragment_offers_last_year_first_and_chooses(client, db_sessi
     page = client.get(f"/admin/media/kiezer?field=main_image&for_activity_id={sint_2026.id}").text
 
     assert page.index("Van Sint (2025)") < page.index("sint vorig jaar") < page.index(">pagina<")
-    assert f"chosen = '{oud.id}'; thumb = '/api/v1/media/{oud.id}/thumb'; open = false" in page
+    # #1474: a thumbnail announces the choice as `media-picked`, with its data.
+    assert (
+        f'data-id="{oud.id}" data-url="/api/v1/media/{oud.id}" data-thumb="/api/v1/media/{oud.id}/thumb"'
+        in page
+    )
+    assert "$dispatch('media-picked', { ...$el.dataset })" in page
     assert 'hx-target="#mp-main_image"' in page, "every link reloads the fragment in the modal"
     assert "posters_of=" in page and "photos_of=" in page, "the tree's branches are links"
 
@@ -208,3 +213,19 @@ def test_the_logos_branch_leads_to_one_kind(client, db_session):
 
     unknown = client.get("/admin/media/kiezer?field=f&kind=design_render").text
     assert "sponsorlogo" in unknown and ">pagina<" in unknown
+
+
+@pytest.mark.ui_serverrendered
+def test_a_search_with_every_year_chosen_answers(client, db_session):
+    """#1474: the "Alle jaren" chip sends `year=` with every search. The route
+    took the year as an int and refused that with a 422, so every search in the
+    picker failed — the CMS dialog showed "Er ging iets mis". Red on that
+    version: 422."""
+    _asset(db_session, "kerstboom", kind="page_image")
+    _asset(db_session, "zomerfeest", kind="page_image")
+    _login(client, db_session)
+
+    resp = client.get("/admin/media/kiezer?field=f&q=kerst&year=")
+
+    assert resp.status_code == 200, resp.status_code
+    assert "kerstboom" in resp.text and "zomerfeest" not in resp.text, "the search filters"

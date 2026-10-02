@@ -3,16 +3,22 @@
 {# De kiezer (CR-15 §C4.3, #1472): wat `ui.media_picker` in zijn modal laadt.
    Boven zoeken en het jaar, links de boom, rechts de duimnagels per groep —
    eerst "Van <activiteit> (<jaar>)" voor de kopieerketen. Elke link laadt dit
-   fragment opnieuw in de modal; kiezen zet het verborgen veld van de macro
-   (`chosen`, `thumb` in diens Alpine-scope) en sluit de modal. #}
+   fragment opnieuw in de modal. Kiezen meldt zich als het event
+   `media-picked` met de gegevens van het beeld (#1474): `ui.media_picker` zet
+   er zijn verborgen veld mee en sluit zijn modal, de CMS-modal neemt er url,
+   maat en titel uit. Eén kiezer, en elke plek leest wat zij nodig heeft. #}
 <div class="space-y-4">
-  <form class="flex flex-wrap items-center gap-3" hx-get="/admin/media/kiezer" hx-target="{{ target }}" hx-swap="innerHTML"
-        hx-trigger="input changed delay:300ms from:find input[name=q], change">
+  {# A <div> and not a <form> (#1474): the CMS page loads this fragment inside
+     its own form, and the HTML parser drops a <form> nested in one — search and
+     year went dead there. htmx 2 includes the inputs inside the element named by
+     `hx-include`, so the row asks the same with or without a form around it. #}
+  <div class="flex flex-wrap items-center gap-3" data-mp-filters hx-get="/admin/media/kiezer" hx-target="{{ target }}" hx-swap="innerHTML"
+       hx-include="this" hx-trigger="input changed delay:300ms from:find input[name=q], change">
     <input type="hidden" name="field" value="{{ field }}">
     {% if for_activity_id %}<input type="hidden" name="for_activity_id" value="{{ for_activity_id }}">{% endif %}
     <div class="flex-1 min-w-[12rem]">{{ ui.search(value=q, placeholder=_("Zoek op titel, activiteit of tag…"), standalone=False) }}</div>
     {{ ui.chips("year", jaar_keuzes, current=year) }}
-  </form>
+  </div>
 
   <div class="lg:grid lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-4 lg:items-start">
     {# Op een telefoon een uitklapbare lijst boven het raster, dicht zodat het
@@ -46,7 +52,9 @@
           {% for i in g.items %}
           <li>
             <button type="button" class="block w-full text-left rounded-lg border border-gray-200 p-1 hover:border-blue-700 focus-visible:ring-2 focus-visible:ring-blue-700"
-                    @click="chosen = '{{ i.id }}'; thumb = '{{ i.thumb_url }}'; open = false"
+                    data-id="{{ i.id }}" data-url="{{ i.url }}" data-thumb="{{ i.thumb_url }}"
+                    data-title="{{ i.title }}" data-width="{{ i.width or '' }}" data-height="{{ i.height or '' }}"
+                    @click="$dispatch('media-picked', { ...$el.dataset })"
                     aria-label="{{ _('Kies') }} {{ i.title or i.origin or ('#' ~ i.id) }}">
               <img src="{{ i.thumb_url }}" alt="" loading="lazy" class="aspect-square w-full object-cover rounded bg-gray-50">
               <span class="mt-1 block truncate text-xs text-ink">{{ i.title or "—" }}</span>
@@ -59,7 +67,8 @@
       {% endfor %}
       {{ ui.pager(page, per_page, total, hx_get=pager_url, hx_target=target) }}
       {% else %}
-      {{ ui.empty_state(_("Geen afbeeldingen gevonden.")) }}
+      {{ ui.empty_state(_("Geen afbeeldingen gevonden."),
+                        action_label=_("Afbeelding opladen"), action_href="/admin/media/nieuw") }}
       {% endif %}
     </div>
   </div>

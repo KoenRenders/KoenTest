@@ -124,6 +124,22 @@ def open_registration(page, activity_id: int, component_id: int) -> None:
     pagina_klaar(page)
 
 
+def pagina_beeld_in_kiezer(dialoog, titel: str = "E2E-schermafdruk aanmelden"):
+    """The seeded page picture in the CMS image dialog (#1474).
+
+    Since #1474 the dialog shows the kit's picker over the whole library: it
+    loads when the dialog opens, and the page picture is one of many, so it is
+    found by its title after the picker has loaded. Returns the locator; it
+    counts 0 when the picture is not there, which the callers report.
+    """
+    knop = dialoog.locator(f"button[data-url][data-title='{titel}']").first
+    try:
+        knop.wait_for(timeout=10_000)
+    except Exception:  # noqa: BLE001 - the caller reports a missing picture
+        pass
+    return knop
+
+
 def htmx_stil(page, *, timeout: int = 10_000) -> None:
     """Wait until nothing htmx started is still running — after a page load.
 

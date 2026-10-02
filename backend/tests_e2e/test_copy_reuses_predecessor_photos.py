@@ -30,8 +30,8 @@ _MEASURE = """() => {
   const sections = [...box.querySelectorAll('section')];
   const groups = sections.filter(s => s.querySelector('h4')).map(s => ({
     label: s.querySelector('h4').textContent.trim(),
-    options: [...s.querySelectorAll('button[aria-label]')].map(
-      b => Number((b.getAttribute('@click') || b.getAttribute('x-on:click') || '').match(/chosen = '(\\d+)'/)[1]))}));
+    // #1474: a thumbnail carries its id as data-id (it announces `media-picked`).
+    options: [...s.querySelectorAll('button[aria-label]')].map(b => Number(b.dataset.id))}));
   return {groups, selected: Number(document.querySelector('input[name="main_image_id"]').value),
           width: [document.documentElement.scrollWidth, innerWidth]};
 }"""

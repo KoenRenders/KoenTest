@@ -72,18 +72,12 @@ def _editor_ctx(request: Request, db: Session, page) -> dict:
     third copy of the same keys. One source; each caller adds only what differs.
     """
     from app.domains.cms.api import placeholders
-    from app.domains.media.api import PAGE_IMAGE_KIND, list_media
 
+    # #1474: the insert button's library is the kit's picker, loaded when the
+    # dialog opens (`/admin/media/kiezer`) — no list of page pictures here.
     return {
         "p": page,
         "placeholders": placeholders(),
-        # #1173: the library the insert button offers. Rendered with the screen
-        # rather than fetched when the dialog opens — there is a handful of these,
-        # and `meta()` already carries the thumbnail URL and the dimensions, so a
-        # separate route would only add a second place that builds the same URL.
-        "page_images": [
-            a for a in list_media(db, kind=PAGE_IMAGE_KIND) if a.get("is_active", True)
-        ],
         "csrf_token": csrf_from_request(request),
         "error": None,
     }
