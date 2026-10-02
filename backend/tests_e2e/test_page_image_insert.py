@@ -35,7 +35,12 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, Paginascherm, login_met_sessie  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    Paginascherm,
+    login_met_sessie,
+    pagina_beeld_in_kiezer,
+)
 
 TITEL = "E2E-schermafdruk aanmelden"  # de seed-titel; wordt de voorgestelde alt
 
@@ -74,13 +79,19 @@ def test_de_knop_voegt_een_afbeelding_met_alt_in(admin_page):
     dialoog = admin_page.get_by_role("dialog")
     expect(dialoog, "het dialoogje ging niet open").to_be_visible()
 
-    keuze = dialoog.locator("button[data-url]").first
+    keuze = pagina_beeld_in_kiezer(dialoog)
     if keuze.count() == 0:
         _ontbreekt("geen pagina-afbeelding in de bibliotheek")
 
     # De afbeelding moet ook écht laden: een kapotte miniatuur zou hier een
     # keuzeknop met een leeg vak zijn, en dan kiest niemand iets.
+    # #1474: the kit's picker loads thumbnails lazily, so the picture is first
+    # brought into view, as a person scrolling to it would.
+    keuze.scroll_into_view_if_needed()
     miniatuur = keuze.locator("img")
+    admin_page.wait_for_function(
+        "el => el.complete", arg=miniatuur.element_handle(), timeout=10_000
+    )
     assert admin_page.evaluate("el => el.naturalWidth", miniatuur.element_handle()) > 0, (
         "de miniatuur in de kiezer laadt niet"
     )

@@ -740,7 +740,10 @@ def media_picker(
     field: str = "",
     for_activity_id: Optional[int] = None,
     q: str = "",
-    year: Optional[int] = None,
+    # Read like the library's (`_int`): the "Alle jaren" chip sends `year=`, which
+    # an `Optional[int]` refuses with a 422 — every search in the picker failed
+    # (measured with #1474, the picker's own e2e did not see it).
+    year: str = "",
     tag: Optional[int] = None,
     photos_of: Optional[int] = None,
     posters_of: Optional[int] = None,
@@ -763,12 +766,13 @@ def media_picker(
 
     # Only a kind with its own branch; anything else in the address is no branch.
     branch_kind = next((k for k in KIND_BRANCHES if k.value == kind), None)
+    chosen_year = _int(year)
 
     options = pick_options(
         db,
         for_activity_id=for_activity_id,
         q=q,
-        year=year,
+        year=chosen_year,
         tag_id=tag,
         photos_of=photos_of,
         posters_of=posters_of,
@@ -790,7 +794,7 @@ def media_picker(
 
     def href(node_kind: str, node_id: int | str) -> str:
         return _picker_url(
-            field, for_activity_id, q=q, year=year, **{branch_state[node_kind]: node_id}
+            field, for_activity_id, q=q, year=chosen_year, **{branch_state[node_kind]: node_id}
         )
 
     def chosen(node_kind: str, node_id: int | str) -> bool:
@@ -809,7 +813,7 @@ def media_picker(
             "field": field,
             "for_activity_id": for_activity_id or "",
             "q": q,
-            "year": str(year) if year else "",
+            "year": str(chosen_year) if chosen_year else "",
             "jaar_keuzes": [("", _("Alle jaren"))] + [(str(j), str(j)) for j in jaren],
             "groups": options.groups,
             "total": options.total,
@@ -817,7 +821,7 @@ def media_picker(
             "per_page": PICK_PAGE_SIZE,
             "boom": _tree(
                 alle_activiteiten,
-                year,
+                chosen_year,
                 by_kind=by_kind,
                 tags=tag_index(db).tree,
                 href=href,
@@ -833,9 +837,9 @@ def media_picker(
                 }
                 for k in KIND_BRANCHES
             ],
-            "alles_href": _picker_url(field, for_activity_id, q=q, year=year),
+            "alles_href": _picker_url(field, for_activity_id, q=q, year=chosen_year),
             "branch_chosen": any(v is not None for v in current.values()),
-            "pager_url": _picker_url(field, for_activity_id, q=q, year=year, **current),
+            "pager_url": _picker_url(field, for_activity_id, q=q, year=chosen_year, **current),
             "target": f"#mp-{field}",
         },
     )

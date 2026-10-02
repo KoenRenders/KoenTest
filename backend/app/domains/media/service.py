@@ -1081,6 +1081,10 @@ class PickItem(NamedTuple):
     thumb_url: str
     #: "<activity> (<year>)" for a picture of an activity, else "".
     origin: str
+    #: The picture itself and its size (#1474): the CMS places it in a page.
+    url: str = ""
+    width: Optional[int] = None
+    height: Optional[int] = None
 
 
 class PickGroup(NamedTuple):
@@ -1143,7 +1147,14 @@ def pick_options(
     elif kind in KIND_BRANCHES:
         kinds = (kind,)
     rows = (
-        db.query(MediaAsset.id, MediaAsset.kind, MediaAsset.activity_id, MediaAsset.title)
+        db.query(
+            MediaAsset.id,
+            MediaAsset.kind,
+            MediaAsset.activity_id,
+            MediaAsset.title,
+            MediaAsset.width,
+            MediaAsset.height,
+        )
         .filter(_offered(), MediaAsset.kind.in_(kinds))
         .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.desc())
         .all()
@@ -1182,7 +1193,15 @@ def pick_options(
         if r.activity_id in activities:
             name, jaar = activities[r.activity_id]
             origin = f"{name} ({jaar})" if jaar else name
-        return PickItem(r.id, r.title or "", f"/api/v1/media/{r.id}/thumb", origin)
+        return PickItem(
+            r.id,
+            r.title or "",
+            media_url(r.id, thumb=True),
+            origin,
+            url=media_url(r.id),
+            width=r.width,
+            height=r.height,
+        )
 
     ordered: list[tuple[str, PickItem]] = []
     taken: set[int] = set()

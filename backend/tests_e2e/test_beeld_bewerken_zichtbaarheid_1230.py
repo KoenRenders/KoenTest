@@ -59,7 +59,12 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, Paginascherm, login_met_sessie  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    Paginascherm,
+    login_met_sessie,
+    pagina_beeld_in_kiezer,
+)
 
 
 def _ontbreekt(reden: str) -> None:
@@ -94,7 +99,7 @@ def _voeg_in(page, maat: str, alt: str):
     page.get_by_role("button", name="Afbeelding").first.click()
     dialoog = page.get_by_role("dialog")
     expect(dialoog).to_be_visible()
-    keuze = dialoog.locator("button[data-url]").first
+    keuze = pagina_beeld_in_kiezer(dialoog)
     if keuze.count() == 0:
         _ontbreekt("geen pagina-afbeelding in de bibliotheek")
     keuze.click()

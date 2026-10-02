@@ -22,7 +22,7 @@ import secrets
 import sys
 
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -111,8 +111,16 @@ def _open_picker(browser_and_asset, width: int):
     pagina_klaar(page)
     page.locator(f"[x-data]:has(> input[name={FIELD}]) button").first.click()
     box = page.locator(f"#mp-{FIELD}")
+    # Type only once htmx has taken the loaded picker in: typed sooner, the
+    # input event fires before anything listens (in CI the search went unsent,
+    # 20 pictures instead of 12).
+    box.locator("button[data-url]").first.wait_for()
+    pagina_klaar(page)
     box.locator("input[name=q]").fill(f"kiezer {mark}")
     box.locator(f"button[aria-label='Kies kiezer {mark} 11']").wait_for()
+    # The search ran: only its twelve pictures are left. Waiting for one of
+    # them alone passed while every search failed (`year=`, #1474).
+    expect(box.locator("button[data-url]")).to_have_count(12)
     pagina_klaar(page)
     return page, box
 
