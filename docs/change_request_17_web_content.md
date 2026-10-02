@@ -158,14 +158,14 @@ What changes, one line each:
 
 A page becomes a **structured document**: a tree of blocks in a known schema — paragraph, heading, list, table, picture (with caption and placement), two columns, button, callout, link card, value — stored as JSON, rendered by the portal to HTML for the site, to mail-safe HTML for the newsletter and to print for the meeting notes. The editor edits that tree in place, block by block, with one toolbar and one "Invoegen ▾" menu; it is a vendored, self-hosted library under the existing CSP. The same editor serves the three places with a block set per place. A page has a draft document and a published document, a preview of the draft, and a history of published versions through the kernel's history pattern. Pictures come through CR-15's picker; the five placeholders become value blocks. The public typography of a page — reading width, headings, tables that fit a phone, pictures beside text — is written once in the kit.
 
-Decisions that shape it, each with what lost (the reasoning in C4):
+Decisions that shape it, each with the rejected alternative (the reasoning in C4):
 
-- **Structure stored, HTML rendered** (C4.2). Lost: keep storing editor HTML and sanitise. A table that must survive edits, a value that must show the current price, a letter that must become mail-HTML and a note that must print are four renderings of one content; only a structure renders four ways.
-- **One document with block nodes, not a table of block rows** (C4.2). Lost: a `page_blocks` table with a form per block type. A document editor already gives selection, reordering, undo and inline editing; rows would rebuild that by hand.
-- **The editor: ProseMirror-based, Europe First — TipTap (Germany, MIT) recommended; CKEditor 5 (Poland, GPL/commercial) the alternative** (C4.1). Lost: Trix (no document model, measured), Editor.js, Quill, Lexical, Slate (not EU), bare ProseMirror (too low-level). One spike decides (C8).
-- **Vendored bundle, zero Node in the repository's build** (C4.1). Lost: a CDN (the CSP and #520 forbid it) and a Node build step in the repo. The bundle is a release artifact built once outside the repo and committed, pinned by checksum, like `trix.min.js` today.
-- **Draft and published as two documents, versions through `*_history`** (C4.3). Lost: "live on save" and a separate versions table.
-- **Value blocks instead of placeholder codes** (C4.4). Lost: typed `{{codes}}`; kept: the five values and their source.
+- **Structure stored, HTML rendered** (C4.2). Rejected alternative: keep storing editor HTML and sanitise. A table that must survive edits, a value that must show the current price, a letter that must become mail-HTML and a note that must print are four renderings of one content; only a structure renders four ways.
+- **One document with block nodes, not a table of block rows** (C4.2). Rejected alternative: a `page_blocks` table with a form per block type. A document editor already gives selection, reordering, undo and inline editing; rows would rebuild that by hand.
+- **The editor: ProseMirror-based, Europe First — TipTap (Germany, MIT) recommended; CKEditor 5 (Poland, GPL/commercial) the alternative** (C4.1). Rejected alternative: Trix (no document model, measured), Editor.js, Quill, Lexical, Slate (not EU), bare ProseMirror (too low-level). One spike decides (C8).
+- **Vendored bundle, zero Node in the repository's build** (C4.1). Rejected alternative: a CDN (the CSP and #520 forbid it) and a Node build step in the repo. The bundle is a release artifact built once outside the repo and committed, pinned by checksum, like `trix.min.js` today.
+- **Draft and published as two documents, versions through `*_history`** (C4.3). Rejected alternative: "live on save" and a separate versions table.
+- **Value blocks instead of placeholder codes** (C4.4). Rejected alternative: typed `{{codes}}`; kept: the five values and their source.
 - **No site builder** (C4.7).
 
 ### B1.1 Functional analysis — the derived requirements

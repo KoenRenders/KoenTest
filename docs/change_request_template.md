@@ -175,13 +175,13 @@ and deliberately not done — recorded so it is not asked again).
 > *across the modules and what does it touch, what does it cost and in which*
 > *steps does it arrive — and it ends with what is still theirs to decide.*
 > *Reasoning in depth, mechanics and per-module detail go to Part C; Part B*
-> *names the decision and the alternative that lost, in five lines at most.*
+> *names the decision and the rejected alternative ("Rejected alternative: …"), in five lines at most.*
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
 > [!NOTE]
 > *The solution in one paragraph; then the decisions that shape it, one*
-> *bullet each of at most five lines: the decision, the alternative that*
+> *bullet each of at most five lines: the decision, the rejected alternative that
 > *lost, why (Europe First named where a tool or service is chosen). The*
 > *full reasoning behind each decision is C4, which points back here. Then*
 > *the **derived requirements** (F1, F2, …) in one table, traced to A6: the*

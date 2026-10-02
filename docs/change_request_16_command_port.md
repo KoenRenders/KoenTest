@@ -149,13 +149,13 @@ Written in the words of the one who decides on the architecture; the board sees 
 
 One small kernel package, `kernel/messaging/`, holds the two ways a domain talks to another with effect: **events** (moved there unchanged: `publish`, `@subscribe`, the contracts) and **ports** (new: a request type, a reply type, `@serve` for the one handler, `send(request, db) -> reply`, and `Refusal`). A port is declared in `kernel/contracts/<owner>.py` next to the owner's events: a frozen request dataclass, a frozen reply dataclass, and a docstring that says what answer the caller needs. The owner serves it with one function; a second registration raises at import. The caller sends and gets the reply or a `Refusal`. Everything runs in the caller's transaction and flushes; a serving function never commits and never touches the network — the handler gates of CR-13 cover `@serve` as they cover `@subscribe`. The three exceptions become three ports, and their baseline lines go. The gate learns that `send()` is allowed and that a port's reply must be declared.
 
-Decisions that shape it, each with what lost (the reasoning in C4):
+Decisions that shape it, each with the rejected alternative (the reasoning in C4):
 
-- **Same package as events, same contract files** (C4.1). Lost: a `ports.py` at the kernel root, or a domain of its own. §3.2.1 said "move together"; a domain would be the hub everything couples to.
-- **Request and reply as values; refusal as one kernel exception** (C4.2). Lost: returning the owner's ORM object and letting `VeldFout` travel. The caller holds a value, never another domain's class.
-- **One handler, by decorator, checked at startup** (C4.1, C4.3). Lost: a handler list in `main.py` and the hand-written `has_subscribers` refusals. A port without a handler is "the caller cannot continue", so it stops the app at startup.
-- **The gate accepts `send()` and checks what can be checked** (C4.4). Lost: pretending a grep can tell whether an answer is really needed — that part is the contract's "Answer needed:" line and the review.
-- **No network, no async, no framework** (C4.6). Lost: nothing; there is no dependency to choose, so Europe First has nothing to decide here.
+- **Same package as events, same contract files** (C4.1). Rejected alternative: a `ports.py` at the kernel root, or a domain of its own. §3.2.1 said "move together"; a domain would be the hub everything couples to.
+- **Request and reply as values; refusal as one kernel exception** (C4.2). Rejected alternative: returning the owner's ORM object and letting `VeldFout` travel. The caller holds a value, never another domain's class.
+- **One handler, by decorator, checked at startup** (C4.1, C4.3). Rejected alternative: a handler list in `main.py` and the hand-written `has_subscribers` refusals. A port without a handler is "the caller cannot continue", so it stops the app at startup.
+- **The gate accepts `send()` and checks what can be checked** (C4.4). Rejected alternative: pretending a grep can tell whether an answer is really needed — that part is the contract's "Answer needed:" line and the review.
+- **No network, no async, no framework** (C4.6). Rejected alternative: nothing; there is no dependency to choose, so Europe First has nothing to decide here.
 
 ### B1.1 Functional analysis — the derived requirements
 

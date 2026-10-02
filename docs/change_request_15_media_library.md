@@ -167,15 +167,15 @@ and deliberately not done — recorded so it is not asked again).
 
 The media domain already is a library: one table, one row per picture, one kind code, a tenant, an origin (`activity_id`). What is missing is three things, and the solution adds exactly those. **One: reuse is a reference, never a copy.** A design slot, a CMS page and later the newsletter point at the media row; the Design Studio stops copying a chosen photo into a design image. **Two: one chooser.** A kit component — search, the filters *activity · year · van vorig jaar*, a thumbnail grid, a bottom sheet on a phone — used by every screen that places a picture, fed by one facade function that knows the current record and opens on its predecessors. **Three: the library knows its uses and its order.** A derived "where used" (read from the designs, pages and letters that reference a picture — not stored twice), the refusal of a delete while uses exist, pictures that outlive their activity and design, and one tree of folders — the board's for its own material, the activities as derived folders for their photos.
 
-Decisions that shape it, each with the alternative that lost (the reasoning in C4):
+Decisions that shape it, each with the rejected alternative (the reasoning in C4):
 
-- **Reuse is a reference, never a copy** (C4.1). Lost: keep copying a chosen photo into a `design_image`. A copy costs bytes and backups, orphans when the design goes, and drifts from its original.
-- **One tree: folders for the library's own material, the activity as a derived folder for its photos** (C4.2). Lost: tags only (Koen, 2 Oct: hundreds of pictures need folders, not keywords), and a hand-composed album entity (an activity's photos already are one). Folders are a small table; the activity side of the tree costs nothing.
-- **One chooser from the kit** (C4.3). Lost: improve the three `<select>`s of the design editor. A select of two hundred photos cannot be chosen from on a phone; one component means one behaviour everywhere (CR-11 R13).
-- **"Where used" is derived, not stored** (C4.4). Lost: a `media_uses` table every consumer writes. Two places for one fact drift; a read across three facades costs nothing at this scale.
-- **No clearance** (C4.5). Koen, 2 October: what is in the system is released; the consent register stays the architecture's roadmap. Lost: the author's clearance field as a first step.
-- **Bytes stay in Postgres** (C4.6). Lost: the object-storage adapter (architecture R8). This change adds references, not bytes; the seam stays clean so R8 is a drop-in. Europe First applies when R8 comes.
-- **Pictures outlive their activity and design** (C4.7). Lost: cascade on delete. Today they become orphans; next year's poster needs them.
+- **Reuse is a reference, never a copy** (C4.1). Rejected alternative: keep copying a chosen photo into a `design_image`. A copy costs bytes and backups, orphans when the design goes, and drifts from its original.
+- **One tree: folders for the library's own material, the activity as a derived folder for its photos** (C4.2). Rejected alternative: tags only (Koen, 2 Oct: hundreds of pictures need folders, not keywords), and a hand-composed album entity (an activity's photos already are one). Folders are a small table; the activity side of the tree costs nothing.
+- **One chooser from the kit** (C4.3). Rejected alternative: improve the three `<select>`s of the design editor. A select of two hundred photos cannot be chosen from on a phone; one component means one behaviour everywhere (CR-11 R13).
+- **"Where used" is derived, not stored** (C4.4). Rejected alternative: a `media_uses` table every consumer writes. Two places for one fact drift; a read across three facades costs nothing at this scale.
+- **No clearance** (C4.5). Koen, 2 October: what is in the system is released; the consent register stays the architecture's roadmap. Rejected alternative: the author's clearance field as a first step.
+- **Bytes stay in Postgres** (C4.6). Rejected alternative: the object-storage adapter (architecture R8). This change adds references, not bytes; the seam stays clean so R8 is a drop-in. Europe First applies when R8 comes.
+- **Pictures outlive their activity and design** (C4.7). Rejected alternative: cascade on delete. Today they become orphans; next year's poster needs them.
 
 ### B1.1 Functional analysis — the derived requirements
 
