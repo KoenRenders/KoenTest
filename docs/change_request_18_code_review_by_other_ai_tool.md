@@ -208,7 +208,7 @@ What to see in it: the clipboard is gone; every arrow is a link on GitHub; the r
 
 ## B3. The whole across the modules — for the architect
 
-No product module is touched. The artifacts: `docs/review-protocol.md` (new), `.github/PULL_REQUEST_TEMPLATE.md` (new), the `ai-review` label (new, GitHub-side), three lines in `CLAUDE.md` (changed). No workflow, no webhook, no secret, no migration, no env var.
+No product module is touched. The artifacts: `docs/review-protocol.md` (new), `.github/PULL_REQUEST_TEMPLATE.md` (new), the `ai-review` label (new, GitHub-side), a section in `AGENTS.md` (added by Koen or the master CLI at the realisation, after approval — F5). No workflow, no webhook, no secret, no migration, no env var.
 
 Who calls whom: Koen triggers on GitHub; the reviewer reads the protocol from the repo and answers on the PR/issue; the shaping CLI reads and processes the comment. Nothing in the backend changes.
 
@@ -220,7 +220,7 @@ Who calls whom: Koen triggers on GitHub; the reviewer reads the protocol from th
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-**Investment:** the protocol ~0.5 CLI-day (it restates the template's five rules and the test-evidence conventions, each with a pointer), the PR template 0.25, the label and the CLAUDE.md lines 0.25, the trial run of the walkthrough 0.5. **~1.5 CLI-days**, no purchases.
+**Investment:** the protocol ~0.5 CLI-day (it restates the template's five rules and the test-evidence conventions, each with a pointer), the PR template 0.25, the label and the AGENTS.md section 0.25, the trial run of the walkthrough 0.5. **~1.5 CLI-days**, no purchases.
 
 **Running cost:** a review costs what a review costs (a session of the reviewer asked); nothing runs unasked. **Operations:** nothing — no env var, no deploy.
 
@@ -228,12 +228,12 @@ Who calls whom: Koen triggers on GitHub; the reviewer reads the protocol from th
 
 | Phase | Delivers | Migration | Failure paths that change | Manual validation |
 |---|---|---|---|---|
-| **1 — the review loop on documents** | the protocol, the label, the CLAUDE.md lines; the walkthrough on this CR's own PR | none | none | step 1–2 |
+| **1 — the review loop on documents** | the protocol, the label, the AGENTS.md section (F5, at the realisation); the walkthrough on this CR's own PR | none | none | step 1–2 |
 | **2 — the code PR half** | the PR description template; the protocol's PR checklist; the first code review | none | none | step 3 |
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
-1. **The rule.** *A review is asked for with the label and a sentence, answered as a comment on the PR or issue, structured by `docs/review-protocol.md`, and advisory.* Lives in `CLAUDE.md`'s workflow section.
+1. **The rule.** *A review is asked for with the label and a sentence, answered as a comment on the PR or issue, structured by `docs/review-protocol.md`, and advisory.* Lives in `AGENTS.md`, written in at the realisation, after approval (F5); until then in Koen's session instructions to each agent.
 2. **Reach and baseline.** Every change request and every code PR. Measured on 3 October 2026: two reviews given (copy-paste), zero PR reviews, no protocol written down.
 3. **The gate.** None — a procedure cannot be gated; the `design-conformiteit-bewaker` agent and the merge eye keep their role.
 
