@@ -68,6 +68,8 @@ MAX_HIGHLIGHTS = 4  # the unit's own rows (Koen, 20 September 2026: six in total
 MAX_HIGHLIGHT_ROWS = 6  # plus date/time and place, which come by themselves
 MAX_LOGOS = 2
 MAX_DATES = 12
+#: The column's own length (#1461), so the refusal and the schema cannot drift.
+MAX_POSTER_TITLE = Design.__table__.c.poster_title.type.length
 IMAGE_SLOTS = ("main_image_id", "inset_image_id", "third_image_id")
 
 MONTHS_NL = (
@@ -185,6 +187,7 @@ def copy_designs(
             preset=source.preset,
             duo_code=source.duo_code,
             status=DesignStatus.DRAFT,
+            poster_title=source.poster_title,
             tagline=source.tagline,
             subtitle=source.subtitle,
             explanation_md=source.explanation_md,
@@ -268,6 +271,8 @@ def save_design(
     for icon, _line, _emphasis in kept:
         if icon not in ICONS:
             raise DesignError(f"Onbekend icoon: {icon}")
+    if len((form.get("poster_title") or "").strip()) > MAX_POSTER_TITLE:
+        raise DesignError(f"Ten hoogste {MAX_POSTER_TITLE} tekens in de titel op de affiche.")
     if "inset_corner" in form:
         try:
             InsetCorner(form["inset_corner"])
@@ -284,6 +289,12 @@ def save_design(
     for key in ("tagline", "subtitle"):
         if key in form:
             setattr(design, key, (form[key] or "").strip() or None)
+    if "poster_title" in form:
+        # #1461: like "Omschrijving anders" — empty, or the activity's name
+        # typed back, means "use the activity's", stored as NULL so a renamed
+        # activity still reaches the poster.
+        typed = (form["poster_title"] or "").strip()
+        design.poster_title = typed if typed and typed != facts_for(db, design)["title"] else None
     if "explanation_md" in form:
         # "Omschrijving anders": the field shows the activity's description;
         # unchanged (or emptied) means "use the activity's", stored as NULL so
@@ -506,9 +517,15 @@ def _title_lines(title: str) -> tuple[tuple[str, ...], str]:
     return (text.upper(),), ""
 
 
+def poster_title(design: Design, facts: dict) -> str:
+    """The title the poster prints: the design's own (#1461), else the
+    activity's name. One place, so the drawn title and the SVG's <title> agree."""
+    return design.poster_title or facts["title"]
+
+
 def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> PosterContent:
     facts = facts or facts_for(db, design)
-    title_lines, joiner = _title_lines(facts["title"])
+    title_lines, joiner = _title_lines(poster_title(design, facts))
 
     highlights: list[Highlight] = []
     dates = facts["dates"]
@@ -646,7 +663,7 @@ def merged_for(
         content,
         layout=layout.value,
         template_key=design.template_key,
-        title=facts["title"] if facts else "Affiche",
+        title=poster_title(design, facts) if facts else "Affiche",
         qr_url=qr_url(db, facts.get("key", "") if facts else ""),
     )
 
