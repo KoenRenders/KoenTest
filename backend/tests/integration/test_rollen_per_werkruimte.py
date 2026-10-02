@@ -240,13 +240,19 @@ def test_rollen_vervangen_raakt_andere_werkruimte_niet(client, db_session):
 
 def test_lijst_toont_rollen_van_de_actieve_werkruimte(client, db_session):
     """Het rolvinkje op de kaart toont de werkruimte waarin je kijkt — een
-    ADMIN-vinkje uit een andere werkruimte zou hier liegen."""
+    ADMIN-vinkje uit een andere werkruimte zou hier liegen.
+
+    Since #1500 an account with roles only in another workspace is not on
+    this workspace's list at all; in its own workspace its ADMIN is ticked."""
     _user(db_session, "doelwit@example.com", ("ADMIN", TENANT_VOORBEELD_ID))
     db_session.commit()
     _login(client)
     html = client.get("/admin/gebruikers?q=doelwit").text
-    kaart = html.split("doelwit@example.com")[1]
-    assert 'value="ADMIN" checked' not in kaart and 'value="ADMIN"  checked' not in kaart
+    assert "doelwit@example.com" not in html, "an ADMIN of another workspace is listed here"
+
+    eigen = client.get("/raakvoorbeeldafdeling/admin/gebruikers?q=doelwit").text
+    kaart = eigen.split("doelwit@example.com")[1]
+    assert 'value="ADMIN" checked' in kaart or 'value="ADMIN"  checked' in kaart
 
 
 def test_accountmenu_toont_wisselen_alleen_bij_meerdere_werkruimtes(client, db_session):

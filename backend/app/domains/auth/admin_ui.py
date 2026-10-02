@@ -91,13 +91,19 @@ def _lijst_ctx(
     rollen toe binnen zijn werkruimte, niet daarboven.
     """
     from app.domains.auth.api import list_assignable_roles, role_options
-    from app.domains.auth.users import is_platform_workspace, list_users
+    from app.domains.auth.users import is_platform_workspace, list_users, users_of_workspace
     from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 
     actieve_werkruimte = current_tenant_id.get() or DEFAULT_TENANT_ID
     op_platform = is_platform_workspace(db)
     werkruimtes = _werkruimtes(db) if op_platform else []
-    users = list_users(db=db, _admin=None)
+    # #1500: in a workspace, only who has a role here (or a platform-wide one);
+    # on the platform every account, since there the card manages them all.
+    users = (
+        list_users(db=db, _admin=None)
+        if op_platform
+        else users_of_workspace(db, actieve_werkruimte)
+    )
     # Aanscherping 16 sep: op het platform beheert de kaart álle werkruimtes
     # (zo maakt een OPERATOR de eerste gebruikers van een nieuwe tenant aan);
     # in een gewone werkruimte alleen de eigen rijen.
@@ -147,6 +153,8 @@ def _lijst_ctx(
         "op_platform": op_platform,
         "werkruimtes": werkruimtes,
         "toon_operator": op_platform and is_operator,
+        # #1500: the way to the overview of every workspace, for an operator.
+        "toon_overzicht": is_operator,
         # Filteropties per request: _() volgt de taal van de tenant.
         # Sinds #1079 één keuzelijst i.p.v. knoppen: het aantal rollen is
         # data-gedreven en groeit mee met de codetabel, dus een rij knoppen
@@ -193,6 +201,22 @@ def admin_gebruikers(
             "error": None,
             **_lijst_ctx(request, db, q, rol, actief, viewer_email=email),
         },
+    )
+
+
+@router.get("/admin/gebruikers/alle-werkruimtes", response_class=HTMLResponse)
+def access_overview_page(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
+    """Every account, every workspace, every role — read-only, OPERATOR only (#1500)."""
+    from app.domains.auth.api import require_operator_ui
+    from app.domains.auth.users import access_overview
+
+    require_operator_ui(db, email)
+    return templates.TemplateResponse(
+        request,
+        "admin_gebruikers_overzicht.html",
+        {"nav_items": admin_nav(NAV), "rows": access_overview(db)},
     )
 
 
