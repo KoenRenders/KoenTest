@@ -318,29 +318,21 @@
                         class="text-ink-soft hover:text-red-700">{{ ui.icon("x", 14) }}</button>
               </div>
               {% if filter_options[key] or filter_relative[key] %}
-              {# Een gesloten lijst kies je uit, dus vergelijkt het filter exact.
-                 De relatieve waarden (#847) staan bovenaan met een streep eronder:
-                 ze horen bij de dimensie, maar ze zijn van een andere orde — ze
-                 bewegen mee met de dag waarop je het rapport opent. #}
+              {# Een gesloten lijst vink je aan (#1445): één vinkje vergelijkt
+                 exact, meerdere betekenen "één van" — de server kiest de
+                 vergelijking, de gebruiker kiest waarden. Niets aangevinkt is
+                 "alle". De relatieve waarden (#847) staan bovenaan met een streep
+                 eronder: ze bewegen mee met de dag waarop je het rapport opent. #}
               <input type="hidden" name="op_{{ key }}" value="eq">
-              {% call ui.select_control("v_" ~ key, cls="mt-1 w-full",
-                                        aria_label=objects_by_key[key].name) %}
-                <option value="">{{ _("Alle") }}</option>
-                {% for waarde, label in filter_relative[key] %}
-                <option value="{{ waarde }}" {% if filter_values.get(key) == waarde %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-                {% if filter_relative[key] and filter_options[key] %}
-                <option disabled>──────────</option>
-                {% endif %}
-                {% for waarde in filter_options[key] %}
-                <option value="{{ waarde }}" {% if filter_values.get(key) == waarde %}selected{% endif %}>{{ waarde }}</option>
-                {% endfor %}
-              {% endcall %}
+              {{ ui.checkbox_group("v_" ~ key, values=filter_options[key],
+                                   labelled=filter_relative[key],
+                                   current=filter_values.get(key, []),
+                                   aria_label=objects_by_key[key].name, cls="mt-1") }}
               {% else %}
               {# Te veel waarden om te tonen, dus typ je ze — dan zoekt het filter. #}
               <input type="hidden" name="op_{{ key }}" value="contains">
               {{ ui.input_control("v_" ~ key, id="rp-f-" ~ key, type="search",
-                                  value=filter_values.get(key, ""),
+                                  value=filter_values.get(key, [""])|first,
                                   cls="mt-1 w-full", placeholder=_("Zoeken…"),
                                   aria_label=objects_by_key[key].name,
                                   attrs='autocomplete="off"') }}
