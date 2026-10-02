@@ -1,7 +1,7 @@
 # Change Request 14 — Extra questions on a registration: a form attached to a component
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped and confirmed on 29 September 2026 · assigned to v2.9.0 (#1325) · issue #1320
+**Status:** shaped and confirmed on 29 September 2026 · built in v2.10.0 (#1337), on PROD since 30 September 2026 · issue #1320 · as-built deviations in B10 and marked in the text; the retrospective of 2 October 2026 is in the Q&A log
 **Applies to:** the activity registration flow (the public registration — today a modal — the board form, the JSON API), the `forms` domain, the registration detail and export in the admin, the confirmation mail.
 
 > Part A is the business's; Part B is measured on `master` `6a96af01`. Who
@@ -220,7 +220,7 @@ nothing in it needs a question:
 | AC1 | On HDEV, the organiser attaches an open form with three questions (a choice, a number, a text) to a component; the public registration for that component shows the three questions after the products and before the payment method, behind the choice "nu / later"; a component without a form shows nothing new. | R1, R2 | 1, 2, 5 |
 | AC2 | "Now" chosen and a required question left empty: refused with the question named — on the public page, on the board page, through the JSON API and on the answer-link page — and nothing is saved. "Later" chosen: the registration is saved without answers and the mail carries the link. | R2, R4 | 6 |
 | AC3 | After a paid registration (stub provider) and a free one, the answers show on the registration detail in the admin and in the component's export, one column per question, in the form's order — the .ods opens in LibreOffice and is fit to print as the Sint's list. | R3, R13 | 7, 9, 12 |
-| AC4 | The member (public) and the board each register with "later": the member gets a mail with a link; opening it shows the questions, answering them puts the answers on that registration in the admin detail and the export; opening the link again shows "al ingevuld". The detail shows "antwoorden gevraagd op <date>" until then and lets the organiser resend the link. | R2, R5 | 8, 10, 11 |
+| AC4 | The member (public) and the board each register with "later": the member gets a mail with a link; opening it shows the questions, answering them puts the answers on that registration in the admin detail and the export; opening the link again shows "al ingevuld" *(as built: a spent link answers the same 404 as an unknown one — B10, 29 Sep 2026; B5 won over this text)*. The detail shows "antwoorden gevraagd op <date>" until then and lets the organiser resend the link. | R2, R5 | 8, 10, 11 |
 | AC5 | Attaching a closed form, a form of another tenant, or a form with more than one section is refused with a message that says why; so is replacing the form of a component that already has answered registrations. | R1, R10 | 3, the turns |
 | AC6 | Once the form has answers on a registration, the form builder refuses to change its fields (as it does today for any form with submissions). | R3 | 14 |
 | AC7 | The organiser corrects an answer on the registration detail; the corrected value shows in the detail and the export; an empty required answer is refused there too. | R7 | 13 |
@@ -417,7 +417,7 @@ issues point here.
    answers.
 8. Register again with "later": the thank-you page shows the answer link;
    the mail carries it. Open the link: the five questions; answer; see
-   "Bedankt". Open the link again: "al ingevuld".
+   "Bedankt". Open the link again: "al ingevuld" *(as built: 404, see AC4)*.
 9. Register once more with "nu" and pay online (stub provider): Mollie's
    stub page, then the return page; the answers are on the registration.
 
@@ -908,7 +908,9 @@ builder's own edit link (`edit_token`), on the registration side:
   contact shown read-only ("Inschrijving van <name> voor <activity>"); the
   post runs `submit_attached`, links the submission, clears the token, one
   transaction, `check()` on flush. A second visit: "al ingevuld", with the
-  answers shown, no edit (the organiser edits, B4.7).
+  answers shown, no edit (the organiser edits, B4.7). *As built (B10, 29 Sep
+  2026): no `check()` rule — the one writer holds it — and a spent link
+  answers 404 like an unknown one; this paragraph kept the design's words.*
 - The detail shows "antwoorden gevraagd op <registered_at>" while the token
   is open, with "link opnieuw sturen" (same token, new mail). The token has
   no expiry and the answer page does not look at `registration_closes_on`:
@@ -982,7 +984,7 @@ goes back to the business before the build, not after.
 | P12 | Close with ×, Escape or a click outside; the sheet scrolls within 90 vh (#601) | the overlay | the browser's back button and the "‹ Terug" link; a page scrolls |
 | P13 | Rate limit on the public submit (`registration_limiter`) | ui.py | unchanged |
 | P14 | A component switch: **the board has it** (buttons for the activity's components), the public does not | board page | the public page gets it too when the activity has more than one component — the one thing the public *gains* from the board's page |
-| P15 | Compact, phone-first: the modal was a full-width sheet at 390 px | overlay `max-w-md` | the page's form column is the reading width of the design system's end state — `max-w-3xl`, 768 px, the width the two-column form grid needs (CR-11 §1.4; proposed there, Q11 of CR-11, to replace the `max-w-xl` first written here) — and full width on a phone |
+| P15 | Compact, phone-first: the modal was a full-width sheet at 390 px | overlay `max-w-md` | the page's form column is the reading width of the design system's end state — `max-w-3xl`, 768 px, the width the two-column form grid needs (CR-11 §1.4; proposed there, Q11 of CR-11, to replace the `max-w-xl` first written here — **built and shipped in v2.10.0 with `max-w-xl`, 576 px**; the 768 px waits for Koen's answer to CR-11 Q11) — and full width on a phone |
 
 What the board page has that the public page must **not** get: the CSRF
 hidden field is the admin's (the public form has its own guard), the
@@ -1071,7 +1073,7 @@ release or spread over two; the first is worth doing even if the others
 wait. Builds on CR-13 phase 1 (the `Registration` aggregate with
 `check()`, the one `create_registration`) — on `master` and on PROD with
 v2.8.0 — so the rule "a linked submission belongs to the component's form"
-has its home from day one. All three phases are assigned to v2.9.0.
+has its home from day one. All three phases were assigned to v2.9.0 and, an hour later, moved to v2.10.0 (#1337) so that v2.9.0 could ship a hotfix on a master without half of CR-14; built and on PROD on 30 September 2026.
 
 | Phase | Delivers | Depends on | Migration | Env vars | Failure paths that change (R13-style) | Manual validation |
 |---|---|---|---|---|---|---|
@@ -1102,7 +1104,7 @@ Each able to go red:
    NULL, `answer_token` set, one mail with the link.
 3. **The link, once.** GET the page with the token → the fields; POST valid
    answers → submission linked, token cleared; POST again or GET again →
-   "al ingevuld", no second submission; a wrong token → 404, nothing
+   "al ingevuld" *(as built: 404)*, no second submission; a wrong token → 404, nothing
    revealed; the twentieth wrong token in a minute → 429 (the limiter).
 4. **One transaction.** Stub provider set to fail → after the 502 there is
    no registration *and no submission* for that component.

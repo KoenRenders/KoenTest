@@ -1,23 +1,57 @@
 # Change Request <NN> — <short name>
 
-> Copy this file to `docs/change_request_<NN>_<slug>.md`. **Part A is written
-> from the business, Part B from the solution.** Part A never mentions a
-> component, a library or a table; Part B never introduces a new business
-> rule. A reviewer must be able to read Part A on its own and agree with it
-> before Part B exists. Part A is written by the business, in its words; the
-> analyst does not fill it in on the business's behalf.
+> Copy this file to `docs/change_request_<NN>_<slug>.md`. A change request has
+> **three parts for three readers**, and each reader may stop after their
+> part. **Part A is the business**, in its words: what hurts, what it wants,
+> what it will sign off; the business writes it or dictates it, the analyst
+> never fills it in on the business's behalf. **Part B is the solution for
+> whoever approves it** — Koen, the analyst, the architect: what will be
+> built, how it fits the process and the modules, what it costs, what rule
+> it fixes, what is still theirs to decide. **Part C is the build**, for the
+> master CLI that plans it and the dev CLIs that build it: per module, with
+> the tests, the gates, the verified premises and the mechanics. Part A
+> never mentions a component, a library or a table; Part B never introduces
+> a business rule; Part C never introduces a decision Part B does not carry.
+>
+> **Reading load is a property of the document.** Part A holds at most
+> about 1 500 words, Part B at most about 2 500, Part C is unbounded; the
+> header line *Reading* carries the measured counts, so a change request
+> that outgrows its budget says so itself and the writer moves text to C
+> or cuts it, instead of the reader skipping it. **Every drawing lives in
+> A or B**: the two process drawings (A2, A3), the usage drawing (B2), the
+> structure drawing and the data model (B3). They are what the approver
+> reads first and understands best; Part C has tables, no drawings.
 >
 > Every section opens with a `[!NOTE]` block that says what belongs in it.
-> When a change request is written from this template, the note block of a
-> section is deleted as soon as that section is filled in; a note left
+> The note is deleted as soon as the section is written; a note left
 > standing means the section is not written yet, and a finished change
-> request has none. The heading with its purpose ("A1. Reason to act — the
-> trigger") stays verbatim in every instance: the heading tells the reader
-> what the section is, the note tells the writer how to fill it.
+> request has none. The heading with its purpose stays verbatim in every
+> instance. Change requests written before 2 October 2026 (CR-01 to CR-17)
+> follow the previous numbering, with the build sections inside Part B
+> (B2.3, B2.4, B4, B5, B7, B9); references to them stay as they are.
+>
+> **The procedure around the document, in five rules that came from the
+> retrospective of CR-14 (2 October 2026):**
+> 1. *Measured premises before the handover* (C1): every claim in B or C of
+>    the form "as X already does", "no migration", "the key refuses it" is
+>    measured in the code with file and line before the change request is
+>    assigned. CR-14 built on two foreign keys that did not exist.
+> 2. *Every rule the design needs an exception from is named once, at the
+>    handover* (B4), with the mechanism; it is not discovered by a gate
+>    during the build and put to Koen six times.
+> 3. *A screen is shown before it is built* (C9): a rendered concept per
+>    changed screen, at 390 px, looked at by Koen before the handover.
+> 4. *The words the user reads are business copy* (A3): button labels,
+>    titles and names are decided in Part A, not inherited from the domain's
+>    vocabulary ("Boek" was the Sint's word; "Antwoorden" is the user's).
+> 5. *A change request is closed out at the release* (C10, `CLAUDE.md` step
+>    14): status line, as-built deviations, tracking issue closed.
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** <shaped on …> · <on hold / assigned to vX.Y / built>
+**Status:** <shaped on …> · <on hold / assigned to vX.Y (#tracker) / built in vX.Y, on PROD since …>
+**Tracking issue:** #<NNNN> — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** <one line: which parts of the system it touches>
+**Reading:** A <n> words · B <n> · C <n> — measured with the word count per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -48,7 +82,8 @@
 > *and the answers on the arrows; a dashed arrow for a message between*
 > *lanes; at most fifteen activities per drawing — more becomes a subprocess*
 > *in its own drawing. No intermediate events, no timers, no data objects:*
-> *Level 1 stops there on purpose.*
+> *Level 1 stops there on purpose. Under every drawing, one line that says*
+> *what to see in it.*
 
 ## A3. To-be process — how it should work afterwards
 
@@ -58,6 +93,11 @@
 > *Still no components: "the portal renders the poster", not "WeasyPrint*
 > *renders the poster". A step that disappears, moves lane or turns into a*
 > *choice is the change — name it under the drawing in one line each.*
+>
+> *The words the user will read are decided here, not in Part C: the name*
+> *of a button, a page title, a tile label, a menu item — one short list,*
+> *"what it says on the screen", in the user's language and never the*
+> *domain's pet word.*
 
 ## A4. Benefits — what the change earns
 
@@ -68,26 +108,27 @@
 > *lost, members who would otherwise drop out, a process that becomes*
 > *possible at all. One line per benefit, with the figure where it can be*
 > *estimated and the reason where it cannot; a benefit that only the*
-> *solution can name does not belong here. Set against the cost of B3, this*
+> *solution can name does not belong here. Set against the cost of B5, this*
 > *is what says whether the change is worth doing, and when.*
 
 ## A5. Supplied material — and what it taught us
 
 > [!NOTE]
 > *What the business handed over to start from — brand guides, examples,*
-> *photos, spreadsheets, briefs — with where it lives (Nextcloud path, never in*
-> *the repository when it holds personal data or brand assets). What was learnt*
-> *from it goes here too, as measurements: "four example posters; none has a*
-> *bleed".*
+> *photos, spreadsheets, briefs — with where it lives (described in words or*
+> *by file name; never a local path, never in the repository when it holds*
+> *personal data or brand assets). What was learnt from it goes here too, as*
+> *measurements: "four example posters; none has a bleed". Do not forget the*
+> *reporting need: must something be counted, listed, exported or printed*
+> *afterwards, for whom, in which form? If so, it is a requirement in A6; if*
+> *not, A6 says so in one row.*
 
 ## A6. Business requirements — what the board asks, with MoSCoW
 
 > [!NOTE]
 > *One table. Each requirement is a sentence a board member would say, with a*
-> *MoSCoW class. Numbered, so Part B and the acceptance criteria can point at*
-> *them. Do not forget the reporting need: must something be counted, listed,*
-> *exported or printed afterwards, for whom, in which form? If so, it is a*
-> *requirement here; if not, say so in one row.*
+> *MoSCoW class. Numbered, so Part B, Part C and the acceptance criteria can*
+> *point at them.*
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
@@ -102,7 +143,7 @@ and deliberately not done — recorded so it is not asked again).
 > [!NOTE]
 > *The requirements every change request is tested against, each answered*
 > *explicitly at business level, "not applicable" included. How they are met*
-> *belongs in Part B:*
+> *belongs in Part C (C5):*
 
 | Concern | This change |
 |---|---|
@@ -116,8 +157,8 @@ and deliberately not done — recorded so it is not asked again).
 > [!NOTE]
 > *Criteria the business signs off on, each testable by a person on HDEV*
 > *without reading code, each pointing at a requirement and at the steps of*
-> *the walkthrough (B2.1) that show it. These are the business's unit tests;*
-> *the developer's tests live in Part B.*
+> *the walkthrough (B2) that show it. These are the business's unit tests;*
+> *the developer's tests live in Part C.*
 
 | # | Criterion | Requirement | Walkthrough steps |
 |---|---|---|---|
@@ -125,60 +166,53 @@ and deliberately not done — recorded so it is not asked again).
 
 ---
 
-# Part B — The solution
+# Part B — The solution, for whoever approves it
+
+> [!NOTE]
+> *Part B is read by the people who say "yes, build this": Koen, the*
+> *analyst, the architect. It answers four questions — what is the solution,*
+> *does it fit our process and our requirements, how does it hang together*
+> *across the modules and what does it touch, what does it cost and in which*
+> *steps does it arrive — and it ends with what is still theirs to decide.*
+> *Reasoning in depth, mechanics and per-module detail go to Part C; Part B*
+> *names the decision and the rejected alternative ("Rejected alternative: …"), in five lines at most.*
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
 > [!NOTE]
-> *The solution in one paragraph, and the decisions that shape it, each with*
-> *the alternatives weighed and why they lost (Europe First named where a tool*
-> *or service is chosen).*
+> *The solution in one paragraph; then the decisions that shape it, one*
+> *bullet each of at most five lines: the decision, the rejected alternative that
+> *lost, why (Europe First named where a tool or service is chosen). The*
+> *full reasoning behind each decision is C4, which points back here. Then*
+> *the **derived requirements** (F1, F2, …) in one table, traced to A6: the*
+> *finer-grained requirements the solution answers — design work by the*
+> *analyst, which is why they are not in Part A.*
 
-### B1.1 Functional analysis — the derived requirements
-
-> [!NOTE]
-> *The derived, finer-grained requirements the solution answers, traced to A6.*
-> *This is design work by the analyst, not business input — which is why it is*
-> *not in Part A.*
-
-## B2. Architecture — three readers, three questions
+## B2. Fit with the process and the requirements — for the business
 
 > [!NOTE]
-> *B2 answers three questions for three readers, in this order: the business — does the solution fit our to-be*
-> *process and our requirements (B2.1)? the architect — how does the whole*
-> *hang together across the modules, and what is touched (B2.2)? the build*
-> *teams — what exactly must happen in each module, and what does it cost*
-> *(B2.3)? Each reader should be able to stop after their section.*
-
-### B2.1 Fit with the process and the requirements — for the business
-
-> [!NOTE]
-> *Two things. First, the **application usage drawing**: the to-be process*
+> *Three things. First, the **application usage drawing**: the to-be process*
 > *of A3 once more — same lanes, same activities — with, in every activity*
 > *box, a second line naming the screen or module that serves it, the box*
 > *coloured per module (`classDef`, one legend line). Every step has a home*
 > *or is marked "outside the portal"; a module no step uses is not part of*
 > *this change. Two audiences (those who set up, those who use) means two*
 > *drawings. Second, the **traceability matrix** — the one place where a*
-> *requirement's thread is followed from left to right, so it is not kept*
-> *anywhere else: one row per requirement of A6 — R · how the solution meets*
+> *requirement's thread is followed from left to right, so it is kept*
+> *nowhere else: one row per requirement of A6 — R · how the solution meets*
 > *it, in the words of the role that will see it · the derived requirements*
-> *(F, B1.1) · the module that builds it (B2.3) · the test that proves it*
-> *(B7) · the acceptance criterion the business checks (A8). An empty cell*
-> *is a finding: a requirement without a test, a test without a*
-> *requirement. A Won't gets a row that says so. Third, the **walkthrough** — how the*
-> *business tests this on HDEV: one numbered*
-> *script per role of A3, in the order of the to-be process, happy path*
-> *first and then the turns where it must refuse or fall back; each step*
-> *names what to do and what to see — nothing else, it is a script. The*
-> *link to the acceptance criteria lives in A8, whose last column names the*
-> *steps that show each criterion; every criterion has at least one step.*
-> *The closing comment of each issue points at the walkthrough instead of*
-> *rewriting it. This is*
-> *the page a board member reads to say "yes, that is how we will work, and*
-> *this is how I will check it".*
+> *(F, B1) · the module that builds it (C2) · the test that proves it (C6) ·*
+> *the acceptance criterion the business checks (A8). An empty cell is a*
+> *finding: a requirement without a test, a test without a requirement. A*
+> *Won't gets a row that says so. Third, the **walkthrough** — how the*
+> *business tests this on HDEV: one numbered script per role of A3, in the*
+> *order of the to-be process, happy path first and then the turns where it*
+> *must refuse or fall back; each step names what to do and what to see —*
+> *nothing else, it is a script. A8's last column names the steps that show*
+> *each criterion; every criterion has at least one step. The closing*
+> *comment of each issue points at the walkthrough instead of rewriting it.*
 
-### B2.2 The whole across the modules — for the architect
+## B3. The whole across the modules — for the architect
 
 > [!NOTE]
 > *The **application structure drawing**: one subgraph per module touched,*
@@ -186,57 +220,39 @@ and deliberately not done — recorded so it is not asked again).
 > *facade · migration · template) — a separate box for what is **new** and*
 > *for what is **changed** in that layer, and one grey box for what is only*
 > *used. Here the colour is the kind of change, not the module: green new,*
-> *orange changed, grey unchanged — the module is the subgraph, and B2.1*
-> *already coloured per module. One legend line. Arrows between modules*
+> *orange changed, grey unchanged. One legend line. Arrows between modules*
 > *only through a facade (`api.py`), as the import gate enforces; external*
-> *systems and data stores as their own boxes. Then the **data model at a glance**: a Mermaid `erDiagram` of the*
-> *entities involved with their key columns and relationships, cardinality*
-> *on the edges, soft references across schemas drawn as relationships too,*
-> *and what is new or changed marked in the label. Under it, in prose: who*
-> *calls whom and through which facade, the*
-> *direction of every new dependency, the transaction boundary, and the*
-> ***impact on the existing architecture** — which existing modules, tables,*
-> *screens and contracts are touched, and how the layer rules*
-> *(`docs/code-style.md`, the import gate) hold. This is where a*
-> *reviewer checks that the change does not bend the architecture.*
+> *systems and data stores as their own boxes. Then the **data model at a*
+> *glance**: a Mermaid `erDiagram` of the entities involved with their key*
+> *columns and relationships, cardinality on the edges, soft references*
+> *across schemas drawn as relationships too, and what is new or changed*
+> *marked in the label. Under it, in at most two hundred words: who calls*
+> *whom and through which facade, the direction of every new dependency,*
+> *the transaction boundary, and the **impact on the existing*
+> *architecture** — which existing modules, tables, screens and contracts*
+> *are touched, and how the layer rules (`docs/code-style.md`, the import*
+> *gate) hold. This is where a reviewer checks that the change does not*
+> *bend the architecture; the per-module detail is C2.*
 
-### B2.3 Per module: what must happen — for the build teams
-
-> [!NOTE]
-> *One subsection per module touched, in build order, each with the same*
-> *five headings: **screens** (which, what changes, at which width it is*
-> *judged), **code** (view-model · service · entity · facade — the functions*
-> *by name), **database** (schema, table, each column with its type,*
-> *nullability and constraints, the `ON DELETE` of every FK, the migration*
-> *and whether it is additive), **templates*
-> *and mail**, **tests** (which of B7). No effort here: the effort per*
-> *module and phase is the table of B3, where the cost is added up. Which*
-> *requirements a module serves is read from the matrix of B2.1, not*
-> *repeated here. A module that is only used, not changed, gets one line. **Reporting*
-> *is always one of the modules**, touched or not: the engine reads the*
-> *tables through SQL views in the `reporting` schema and through its object*
-> *universe, so for every column this change adds, renames, retypes,*
-> *retires or gives a new meaning, its subsection says which views and*
-> *objects read it (measured, not recalled) and in which phase the view*
-> *follows — a view that reads a changed column changes in the same*
-> *migration as the column, or the phase says why not; a value change on a*
-> *column a view reads is checked against the saved reports on every*
-> *environment before the migration. "Reporting — none: no view reads these*
-> *columns" is a subsection too.*
-
-### B2.4 Cross-cutting impact — the checklist of what gets forgotten
+## B4. Rules this change needs an exception from — decided once, here
 
 > [!NOTE]
-> *One table, every row answered, "no" included, one sentence each:*
-> *reporting views and saved reports (B2.3) · existing tests, e2e*
-> *golden flows and 390 px screenshots (B7) · fixed UI decisions and*
-> *`CLAUDE.md` · design-system documentation · code lists · events and*
-> *handlers · mail templates · migration: additive or contract*
-> *(#1255) · tenant settings · env vars · JSON routes and API callers ·*
-> *external services (Mollie, mail). A "yes" points at the section that*
-> *handles it. The next thing that gets missed becomes the next row.*
+> *Every existing rule, gate or fixed decision the design breaks or bends:*
+> *the rule by name and place (`CLAUDE.md`, `docs/code-style.md`,*
+> *`docs/architecture.md` §…, a gate in `backend/tests/`), what the design*
+> *does instead, the mechanism (a named baseline entry, a widened gate, a*
+> *replaced fixed UI decision), and whether the exception is temporary (with*
+> *what ends it) or the new rule. One table; "none" is an answer, with the*
+> *gates that were checked to say so. The approver decides each row at the*
+> *handover — once. CR-14 needed an exception from the cross-domain call rule*
+> *and nobody had written it down: the gate found it, the master CLI asked*
+> *six times, and the third case became a change request of its own.*
 
-## B3. Cost — investment and running cost, and what operations must know
+| Rule (where) | What the design does instead | Mechanism | Temporary until … / the new rule | Decided |
+|---|---|---|---|---|
+| … | … | … | … | <who>, <date> |
+
+## B5. Cost — investment and running cost, and what operations must know
 
 > [!NOTE]
 > *Three parts, each with a figure or "none". **Investment:** one table,*
@@ -252,17 +268,6 @@ and deliberately not done — recorded so it is not asked again).
 > *the stack must know. Set beside the benefits of A4: the two together are*
 > *the input for the release decision.*
 
-## B4. Detailed decisions — one subsection each, with the reasons
-
-> [!NOTE]
-> *The design decisions in full, one subsection each, with their reasons.*
-
-## B5. Privacy and security — the mechanics behind A7
-
-> [!NOTE]
-> *How A7's privacy and security answers are implemented: what leaves the*
-> *system to whom, what is sanitised, what is logged.*
-
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
 > [!NOTE]
@@ -275,88 +280,208 @@ and deliberately not done — recorded so it is not asked again).
 > *and almost always changes what it does when something fails: what rolls*
 > *back, what is refused, what is left half done. Name those per phase, so*
 > *"no functional change" is a claim about the happy path with the failure*
-> *paths listed beside it, and an e2e test that goes red on one of them is*
-> *expected, not a surprise. "None" is an answer.*
+> *paths listed beside it. "None" is an answer. Dependencies on other change*
+> *requests are named per phase, so the approver can order them.*
 
-## B7. Tests — what the build must prove
-
-> [!NOTE]
-> *Two levels. **What the build must prove:** the*
-> *new tests, each able to go red, guards proven by violation — numbered, so*
-> *B2.3 can point at them per module. **Impact on the test landscape:** which*
-> *existing suites, e2e golden flows and screenshot sets change or must be*
-> *redone because of this change, per module, with the reason — a screen*
-> *that moves, a route that changes, a fixture that no longer matches. A*
-> *change that breaks no existing test says so, and why that is plausible.*
-
-## B8. Rule and gatekeeper — what this fixes for all future work
+## B7. Rule and gatekeeper — what this fixes for all future work
 
 > [!NOTE]
 > *An architectural change request fixes a way of doing things, not just one*
-> *instance of it. This section makes that explicit, so the decision outlives the*
-> *change and the next development follows it without anyone remembering to ask.*
-> *Three parts; "no gate" is an answer, with the reason.*
->
-> *A rule is fixed only when its gate runs in CI on every push. A rule that lives in a document is a hope; a rule whose test*
-> *goes red on the next pull request is a property of the codebase. So the gate of*
-> *B8.3 is a pytest in `backend/tests/` that `backend-tests.yml` runs on every*
-> *push and PR — not a script someone remembers, not a review checklist. Where*
-> *that is impossible, B8.3 says so and names what catches it instead*
-> *(a review agent, a release step), and that is a weaker guarantee, written*
-> *down as one.*
->
-> *1. The rule. One sentence a reviewer can apply, in the form the decision*
-> *   takes from now on ("a code list is a code table in the owning domain's*
-> *   schema, a label table per language, and an `Enum` only where code branches*
-> *   on the value"). Where it ends up: `CLAUDE.md`, `docs/code-style.md` or the*
-> *   architecture document — name the place.*
->
-> *2. The reach and the baseline. Where the rule applies (the whole codebase,*
-> *   or which modules) and how many places violate it today, measured on the*
-> *   branch, not recalled. This change request brings that number down — say to*
-> *   what. A number that cannot be counted is an intention, not a rule (CR-04,*
-> *   Making it checkable).*
->
-> *3. The gate. Which test fails when a new development breaks the rule: what*
-> *   it looks at, what its message says, and the violation it was proven with*
-> *   (B7). Two shapes, chosen by the baseline:*
-> *   - Ratchet when the count is not yet zero: a frozen list of today's*
-> *     violations that may only shrink (the #780 pattern). Nothing new may join*
-> *     it; an entry that disappears from the code must leave the list.*
-> *   - Hard gate when the count is zero after this change: any violation is*
-> *     red.*
->
-> *   Gates come last, not first (CR-04): a gate with a growing exemption list is*
-> *   a dead rule, and a gate written too early freezes the wrong understanding.*
-> *   Where the rule cannot be checked mechanically, say so and hand it to the*
-> *   judgment layer (the `design-conformiteit-bewaker` agent, review) instead of*
-> *   pretending a grep is a gate.*
->
-> *   The gate is also what makes the rule cheap to follow: for a new case it*
-> *   spells out the steps ("a new code list needs a table, a label row per*
-> *   language, an `Enum` member and a label call") and fails on the one that was*
-> *   forgotten, with the name of the missing piece.*
+> *instance of it. Here, for the approver: **the rule** in one sentence a*
+> *reviewer can apply, in the form the decision takes from now on, and where*
+> *it ends up (`CLAUDE.md`, `docs/code-style.md`, the architecture document,*
+> *the design system); **the reach and the baseline** — where it applies and*
+> *how many places violate it today, measured on the branch, and to what*
+> *this change brings that number; and in one line whether the gate is a*
+> *ratchet or hard. The gate itself — what it looks at, its message, the*
+> *violation it was proven with — is C7. "No gate" is an answer, with the*
+> *reason and what catches it instead, written down as the weaker guarantee*
+> *it is.*
 
-## B9. Prototype findings — what was measured before the build
+## B8. Open decisions — what the approver still decides
 
 > [!NOTE]
-> *What was learnt from prototypes before the build (measurements, refusals,*
-> *things that did not work).*
+> *The questions that are still open, each with the author's recommendation*
+> *and the difference the answer makes; numbered Q-entries, the same numbers*
+> *as the Q&A log, so an answer moves the row from here to the log. This is*
+> *the last thing the approver reads before saying yes; an empty section*
+> *means the change request is ready to assign.*
 
-## B10. Decisions log — dated answers and open proposals
+| # | Question | Recommendation | What the answer changes |
+|---|---|---|---|
+| Q<n> | … | … | … |
+
+## B9. Decisions log — dated answers
 
 > [!NOTE]
-> *Dated decisions of the business and open proposals awaiting an answer.*
+> *Dated decisions of the business and of the architecture, one row each,*
+> *with who decided. A decision taken during the build is added here with*
+> *the date and marked "built as"; the text it contradicts gets an as-built*
+> *note pointing here (C10).*
+
+| Date | Decision | By |
+|---|---|---|
+| … | … | … |
+
+---
+
+# Part C — The build, for the master CLI and the dev CLIs
+
+> [!NOTE]
+> *Part C is read by whoever plans and builds. It is as long as it needs to*
+> *be and it carries no decision Part B does not carry: a dev CLI that finds*
+> *a decision missing here brings it to the master CLI, who brings it to the*
+> *approver and records it in B9 — never a choice made in the code alone.*
+
+## C1. Verified premises — measured before the handover
+
+> [!NOTE]
+> *Every claim the design rests on, measured in the code before the change*
+> *request is assigned: a key or constraint that "already exists", a column*
+> *that "has room", "no migration", "the gate allows this", "the pattern X*
+> *already uses". One row each: the claim · how it was measured (the command,*
+> *the test, the file and line) · the result · what changed in the design if*
+> *the result differed. A change request is not assigned while a premise in*
+> *B or C has no row here. CR-14 planned two foreign keys across schemas "as*
+> *`registrations.person_id` already does"; it did not, and a gate refused*
+> *them: B3, C2, C5, C6 and two tests were rewritten during the build.*
+
+| Claim | Measured how | Result | Consequence |
+|---|---|---|---|
+| … | … | … | … |
+
+## C2. Per module: what must happen
+
+> [!NOTE]
+> *One subsection per module touched, in build order, each with the same*
+> *five headings: **screens** (which, what changes, at which width it is*
+> *judged), **code** (view-model · service · entity · facade — the functions*
+> *by name, and **the named owner of every writer** to a shared table),*
+> ***database** (schema, table, each column with its type, nullability and*
+> *constraints, the `ON DELETE` of every FK, the migration and whether it is*
+> *additive — and, for every column added to an entity that has a **copy**
+> *action, whether the copy takes it along or not, and why: the gate of*
+> *#1464 refuses an unclassified column, so the design decides it here and*
+> *the gate only confirms it; `target_audience` was added to the activity*
+> *and `copy_activity` silently left it out, #1463), **templates and mail**,*
+> ***tests** (which of C6). No effort*
+> *here: the effort per module and phase is the table of B5. Which*
+> *requirements a module serves is read from the matrix of B2, not repeated*
+> *here. A module that is only used, not changed, gets one line. **Reporting*
+> *is always one of the modules**, touched or not: the engine reads the*
+> *tables through SQL views in the `reporting` schema and through its object*
+> *universe, so for every column this change adds, renames, retypes,*
+> *retires or gives a new meaning, its subsection says which views and*
+> *objects read it (measured, not recalled) and in which phase the view*
+> *follows. "Reporting — none: no view reads these columns" is a subsection*
+> *too.*
+
+## C3. Cross-cutting impact — the checklist of what gets forgotten
+
+> [!NOTE]
+> *One table, every row answered, "no" included, one sentence each:*
+> *reporting views and saved reports (C2) · existing tests, e2e golden flows*
+> *and 390 px screenshots (C6) · fixed UI decisions and `CLAUDE.md` ·*
+> *design-system documentation · code lists · events, ports and handlers —*
+> *and **which gate sees every new call across domains, and what it will*
+> *say** · mail templates · migration: additive or contract (#1255) · tenant*
+> *settings · env vars · JSON routes and API callers · external services*
+> *(Mollie, mail) · **copy actions**: does this change add a field to an*
+> *entity that has a copy action, and is the field copied or not, and why*
+> *(C2). A "yes" points at the section that handles it. The next*
+> *thing that gets missed becomes the next row.*
+
+## C4. Detailed decisions — one subsection each, with the reasons
+
+> [!NOTE]
+> *The design decisions of B1 in full, one subsection each, with their*
+> *reasons, the alternatives weighed and the measurements that decided*
+> *them. B1 names the decision; this is where a builder reads why.*
+
+## C5. Privacy and security — the mechanics behind A7
+
+> [!NOTE]
+> *How A7's privacy and security answers are implemented: what leaves the*
+> *system to whom, what is sanitised, what is logged, which route answers*
+> *what to whom.*
+
+## C6. Tests — what the build must prove
+
+> [!NOTE]
+> *Two levels. **What the build must prove:** the new tests, each able to go*
+> *red, guards proven by violation — numbered, so C2 can point at them per*
+> *module. **Impact on the test landscape:** which existing suites, e2e*
+> *golden flows and screenshot sets change or must be redone because of this*
+> *change, per module, with the reason — a screen that moves, a route that*
+> *changes, a fixture that no longer matches. A change that breaks no*
+> *existing test says so, and why that is plausible. A test and a section of*
+> *this document that contradict each other are a finding: CR-14's B5 said a*
+> *spent link answers 404 while its test 3 expected "al ingevuld".*
+
+## C7. The gate — what refuses a deviation from now on
+
+> [!NOTE]
+> *The gate behind B7's rule: which test fails when a new development breaks*
+> *the rule, what it looks at, what its message says, and the violation it*
+> *was proven with (C6). A rule is fixed only when its gate runs in CI on*
+> *every push — a pytest in `backend/tests/` that `backend-tests.yml` runs,*
+> *not a script someone remembers, not a review checklist. Two shapes, chosen*
+> *by the baseline: a **ratchet** when the count is not yet zero (a frozen*
+> *list of today's violations that may only shrink — the #780 pattern;*
+> *nothing new may join it, an entry that disappears from the code must leave*
+> *the list); a **hard gate** when the count is zero after this change.*
+> *Gates come last, not first: a gate with a growing exemption list is a*
+> *dead rule, and a gate written too early freezes the wrong understanding.*
+> *Where the rule cannot be checked mechanically, say so and hand it to the*
+> *judgment layer (the `design-conformiteit-bewaker` agent, the merge gate)*
+> *instead of pretending a grep is a gate. The gate is also what makes the*
+> *rule cheap to follow: for a new case it spells out the steps and fails on*
+> *the one that was forgotten, with the name of the missing piece.*
+
+## C8. Prototype findings — what was measured before the build
+
+> [!NOTE]
+> *What was learnt from prototypes and spikes before the build:*
+> *measurements, refusals, things that did not work, the sizes and times*
+> *that decided a choice in B1.*
+
+## C9. Screens before the build — the concepts the approver saw
+
+> [!NOTE]
+> *For every screen this change adds or changes: a rendered concept at*
+> *390 px (and at desktop width where it differs), with invented data, kept*
+> *in the project folder outside the repository and looked at by the*
+> *approver before the handover; here the list of those concepts, what each*
+> *shows, and the date the approver saw it. A change request that changes a*
+> *screen is not assigned without this row. Two of CR-14's four follow-ups*
+> *at the HDEV validation were visible on a drawing: a question block that*
+> *looked different from the form, a button named after the domain.*
+
+## C10. Close-out at the release
+
+> [!NOTE]
+> *Filled in by the architecture CLI when the release that built this change*
+> *runs on PROD (`CLAUDE.md`, release step 14): the status line set to "built*
+> *in vX.Y.Z, on PROD since …"; every as-built deviation in B9, with an*
+> *as-built note in the text it contradicts; the tracking issue closed by the*
+> *master CLI with a comment naming the release; what was left for a later*
+> *change request, by issue number. Until this section is written, the*
+> *document describes the design, not what runs.*
+
+---
 
 ## Q&A log — asked once, answered here
 
 > [!NOTE]
-> *Questions asked during shaping, review and build, dated, with who asked and*
-> *the answer — so nothing is asked twice and open questions are visible.*
+> *Every question asked during shaping, review and build, dated, with who*
+> *asked and the answer — so nothing is asked twice. Open questions stand in*
+> *B8 with their recommendation; when answered they move here. An external*
+> *review (Mistral, ChatGPT) is one entry with what was taken in and what*
+> *was not, with the reason.*
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
-| Q1 | … | … | … / *open* |
+| Q1 | … | … | … |
 
 ## Non-goals — deliberately outside this change
 
@@ -366,4 +491,4 @@ and deliberately not done — recorded so it is not asked again).
 ## Relationship to existing work — issues and change requests
 
 > [!NOTE]
-> *Issues and CRs this builds on or hands off to.*
+> *Issues and CRs this builds on or hands off to; the tracking issue first.*

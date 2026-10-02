@@ -67,14 +67,28 @@ binding: each step has one use, applied by a macro, never by a template.
 | record page | wide frame `max-w-7xl`; the form column `max-w-3xl`, 768 px, centred in the frame | one column, 16 px gutters; the summary as a strip above |
 | document page | reading width `max-w-3xl`, centred | one column, 16 px gutters |
 
-**Breakpoints follow the content, not two device classes.** Between the
-phone and a wide desktop lies the small laptop (1024 px) where the
-navigation (220 px), the summary column (300 px), the margins and a
-two-column form cannot all fit: the summary card moves above the content
-when the content column would drop under 640 px, the navigation collapses
-to icons under 1100 px, and the form grid goes to one column when a half
-field would be narrower than 260 px. Concepts and screenshots are judged at
-390, 768, 1024 and 1440 px. A screen never sets `max-w-*` on its root.
+**Two priorities, one kit** (Koen, 2 October 2026): the public site is
+designed phone-first — 390 px is where a public page is drawn first and
+judged first; the back office is designed desktop-first — 1 440 px is where
+an admin screen is drawn first (1 920 is common and must be used), 1 440 px
+is the lower bound where everything still fits, and 390 px
+is the floor: never broken, the few simple actions (look up, confirm,
+check, read) reachable, but not a day's workplace. The rules below hold on
+both faces; the priority says which width a block is designed at first.
+
+**Breakpoints follow the content, not two device classes.** In the back
+office everything fits down to 1 440 px — the navigation (220 px), the
+summary column (300 px), the margins and a two-column form; **below 1 440
+the sidebar collapses to an icon rail** and the frame collapses
+by content, not by device: the summary card moves above the content when
+the content column would drop under 640 px, and the form grid goes to one
+column when a half field would be narrower than 260 px, down to the 390 px
+floor (Koen, 2 October 2026).
+At any width the user may collapse the navigation to an icon rail to gain
+room, and the choice is remembered (Koen, 2 October 2026). Board desktops are commonly 1 920 px wide (Koen, 2 October 2026): a list
+page uses that width, a record page keeps its reading column and summary
+with comfortable margins, and no page is a 1 440 px box in a sea of margin.
+Concepts and screenshots of the admin are judged at 1 920, 1 440 and 390 px; of the public site at 390, 768 and 1 440 px (Koen, 2 October 2026). A screen never sets `max-w-*` on its root.
 Reading width is a property of a form, not of a page: inside the record frame the form column is narrow
 and a related-list tab is wide, and the frame does not move. (Phase 2.
 Rows 11, 12, 27.)
@@ -313,6 +327,10 @@ external links, the activity's poster URL. [3, 53]
   a consent; nowhere else. [8]
 - **`select`** above five options; `radio_group` only where the options
   need a line of help each.
+- **`multiselect`** for several out of a list in a filter or a toolbar:
+  collapsed by default to one line that shows the chosen values or their
+  count; opens to tick, closes again. A control that holds a choice never
+  stays open; a `checkbox_group` is a form field, never a filter. [61]
 
 ### 3.6 `action_bar(form, …)`
 
@@ -474,54 +492,94 @@ The current P1–P12 stay; four change and four are added.
 
 ## 5. Classification — every screen, its kind and its shape
 
-Measured on `master` on 30 September 2026. The **kind** is fixed here; the
-per-list columns (tiles, card fields) are drafted and confirmed at that
-screen's phase. "Save" is the save model of Part 2.
+Measured on `master` after v2.11.0 (2 October 2026, HEAD 5e52292e) and
+written as the end state: the **kind** and the **shape** are fixed here;
+what is marked *proposed* is the author's draft of the per-screen columns,
+confirmed with Koen at that screen's phase (pilot A for Activiteiten and
+Betalingen, the roll-out for the rest). Today's state stands beside it so
+the distance is visible. The rules behind the columns: a tile is one
+figure, a filter, a one-line label (rows 36, 52, 58, 60); a row shows the
+same three or four things for every record, omitted when they do not apply
+(row 36); the toolbar is one row — chips, search, filters, the count with
+the page size, `⋯` (rows 6, 45); every list pages (P1); no list scrolls
+sideways (row 11); the row is the way in (row 26); the list's state is its
+URL (row 57).
 
 ### 5.1 Admin list pages
 
-| Screen | Shape | Tiles (draft) | Pages | Settings button |
-|---|---|---|---|---|
-| Activiteiten | table | toekomstig · volzette onderdelen | yes | — |
-| Leden | table | leden · te hernieuwen · nieuw dit jaar | yes | — |
-| Betalingen | table | netto te betalen · ontvangen · openstaand (two sides) | yes | — |
-| Formulieren | table | open · inzendingen deze maand | yes | — |
-| Vergaderingen | table | volgende · verslag open | yes | Instellingen (the circle) |
-| Nieuwsbrieven · Abonnees | table | verstuurd dit jaar · abonnees | yes | Instellingen |
-| Pagina's | table | gepubliceerd · concept | yes | — |
-| Media | **cards (grid)** | — | yes | — |
-| Design Studio | table with thumbnail column | — | yes | — |
-| Gebruikers | table | actief | yes — small today, but no screen is the exception for being small (CR-11 row 44) | — |
-| Organisaties · Tenants | table | — | no (small) | — |
-| Rapporten | table | — | no | — |
-| Wijzigingen | table | — | yes | — |
-| Werkbank | table | open · vandaag | yes | — |
-| AI-kosten | table | deze maand | yes | — |
+Shell width for every list: the wide frame (row 11); today three lists set
+`max-w-none` themselves and the rest take the shell's reading width.
+"Today" names the shape, the tiles and the toolbar as measured.
+
+| Screen | Today | End state: a row shows | Tiles (*proposed*) | Toolbar: chips · search on · filters · sort | Header |
+|---|---|---|---|---|---|
+| Activiteiten | cards; tiles Open inschrijving · Volzette onderdelen; search, chips Komende/Archief/Alles; no pager | name with status badges · first date and time · location · registrations count (omitted without a component) | Open inschrijving · Volzet onderdeel (activities with one) | Komende · Archief · Alles; name, location; year; date | + Nieuwe activiteit |
+| Leden | cards; three tiles; search, chips Alle/Actief/Opgezegd, year select; pager 25 | household name · municipality · persons · membership state badge | Actieve gezinnen · Actieve personen · Te vernieuwen (year) | Alle · Actief · Opgezegd; name, street, e-mail; membership year; name | Leden importeren · + Nieuw lid |
+| Betalingen | table grouped per registration; four tiles; status tabs with counts, search, context filter, status select; pager 50; export in the filter bar; `max-w-none` | name/reference · context · status badge · amount · received · balance (W1's two tiles carry the totals) | Netto te betalen · Ontvangen · Nog te ontvangen · Nog terug te betalen | Alle · Openstaand · Betaald · Terugbetaald; name, OGM, description; context, status; date · export under `⋯` | none (the breadcrumb goes; row 35) |
+| Formulieren | cards; search, status select; no pager | title · status badge · submissions count · last submission | Open · Inzendingen deze maand | Alle · Open · Gesloten; name; —; updated | Instellingen (holds "Formaat (voor AI)", row 34) · + Nieuw formulier |
+| Vergaderingen | cards; search; no pager | date · status badge · location · points count | Volgende · Verslag open | Komende · Voorbije; date, location; year; date | Instellingen · + Nieuwe vergadering |
+| Nieuwsbrieven | cards; search; no pager | subject · status badge · audience · sent or updated moment · while sending: progress | Verstuurd dit jaar · Abonnees | Concept · Verstuurd; subject; audience; updated | Instellingen · Abonnees · + Nieuwe nieuwsbrief |
+| Abonnees | table; search, status select; inline Uitschrijven/Verwijderen; add-form card under the table | address · first name · source · status badge · since | Bevestigd · Wachten · Uitgeschreven | Alle · Bevestigd · Wachten · Uitgeschreven; address, first name; —; since | Lijst importeren · + Adres (replaces the form card) |
+| Pagina's | cards; search, chips; manual order with ↑↓; no pager | title · /slug · gepubliceerd/concept badge · in navigatie badge | Gepubliceerd · Concept | Alles · Gepubliceerd · Concept · In navigatie; title, slug; —; manual order (the handle of the repeating-group row) | + Nieuwe pagina |
+| Media | inline-edit cards in a 2-column grid; search, kind select, activity select; no pager | **cards (grid)** — the one admin exception: thumbnail · title · kind · origin (activity) · clearance badge (CR-15) | — | Alle · per kind; title; activity, year, in gebruik (CR-15); newest | + Uploaden |
+| Design Studio | cards without thumbnail; search; no pager | **thumbnail column** (the latest render) · activity · status badge · versions · updated | — | Alle · Gepubliceerd · Verouderd; activity; —; updated | + Nieuw ontwerp |
+| Gebruikers | inline-edit list, one form per row; search, role select, active chip | e-mail · active badge · roles as chips (row 44: the row opens the record) | Actief | Actief · Alle; e-mail; role; e-mail | + Nieuwe gebruiker |
+| Organisaties | cards; search, type select; empty header | name · type badge · code · legal form · inactive badge | — | Alle · per type; name, code; —; type, name | none (created elsewhere, by design) |
+| Tenants | cards; search, status select | name · /code · active badge · platform badge | — | Actief · Inactief; name, code; —; id | + Nieuwe tenant |
+| Rapporten | cards with description and chips; search, owner and shared selects; AI buttons in the header | name · shape icon · privé/meegeleverd badge · owner · last opened | — | Mijn · Meegeleverd · Alle; name, description; owner; name | + Nieuw rapport (the AI buttons go: Raakje is the shell's trigger, row 32) |
+| Wijzigingen | table, sortable, page size, pager; `max-w-none` | when · change badge · group badge · person · details · object (jump link) · actor | — | per group; actor; from date; sortable columns | Ledenexport (.ods) under `⋯` |
+| Werkbank | cards polled every 30 s; search, kind filter, status chips | title · kind badge · state badge · created · decision when done | Open · Vandaag | status chips (code labels); task, subject; kind; status, created | none |
+| AI-kosten | two tables (month totals, calls); month buttons; pager 50 | month totals stay a table; calls: date · module · who · model · status · duration · cost | Deze maand (cost) | month ‹ ›; —; module, provider; date | none (a settings sub-page of Systeeminfo) |
+| AI-context | three cards of rows (documents, pages, notes) with an OCR toggle and inline edit | **tabs per kind** (row 37): Documenten · Pagina's · Notities, each a table: label · state badge · read at | — | per tab; label; —; label | + Notitie (on its tab) |
+| E-maillog | table, sortable, page size, pager; "Bekijk" opens a modal; `max-w-none` | date · recipient · subject · type · status badge | — | per status; recipient; type, status; sortable | none |
+
+Pages: every list, 50 per page with the count in the toolbar (today only
+Leden, Betalingen, Wijzigingen, E-maillog and AI-kosten page). Sort: today
+only Wijzigingen, E-maillog and the activity's registrations tab have
+sortable columns; in the end state every table column that is sortable
+says so, and the default order is the one named above.
 
 ### 5.2 Admin record pages
 
-| Screen | Save | Related tabs (in this order) |
+| Screen | Today | End state: header facts · summary card · tabs | Save | Repeating groups · rare section |
+|---|---|---|---|---|
+| Activiteit | hand-built head with six buttons; per-card edit toggles (activity, each date, component, product, organiser); right rail Publicatie / Deel / Bezetting; tabs Overzicht · Inschrijvingen · Betalingen; `<details>` external links | status first, then access badge; facts: dates · time · location · organiser (jump link) · poster from the Design Studio; summary: state, registrations, children or participants, open balance, the share link; tabs Gegevens · Inschrijvingen · Betalingen; primary Bewerken, menu Acties (Kopiëren, Publiceren, Design Studio, Foto's, Verwijderen) | one save (pilot A) | dates (simple), components (composite, with products), organisers (simple); Externe koppelingen last |
+| Inschrijving | page_header with facts; one panel; edit toggle; two action bars (main, answers); tabs Overzicht · Betalingen | contact name; facts: activity (jump link) · component · registered on; summary: state, total, paid, balance; tabs Gegevens · Betalingen | one save (the answers form folds into it) | product lines, answers; none rare |
+| Gezin (household) | head with Verwijderen; person cards with toggles; address card; bestuurslid; lidmaatschappen; tabs Overzicht · Inschrijvingen · Betalingen | household name; facts: address · persons · membership year (badge); summary: membership state, persons, open balance; tabs Gegevens · Personen · Inschrijvingen · Betalingen | one save (pilot B, the admin side) | persons (composite, each with e-mail addresses as a simple group), memberships; none rare |
+| Persoon | **no page**: a card on the household page | stays a card on the household page (Koen, 2 Oct 2026, Q28) | — | e-mail addresses |
+| Formulier | builder with edit toggle per settings, section, field; option rows with bars; JSON import panel; tabs Formulier · Inzendingen · Resultaten | title with status badge; facts: share link (copy) · submissions · last submission; summary: state, submissions, open since; tabs Opbouw · Inzendingen · Resultaten; menu Acties (Bekijk, Afdruk, Definitie exporteren, Definitie importeren…) | **the builder keeps per-section editing** — a declared exception (Koen, 2 Oct 2026, Q28) | sections (composite, with fields), options (simple); JSON import last |
+| Nieuwsbrief | autosave body; audience radios; insert buttons; Raakje panel right; Versturen on its own page; no tabs | **document**: subject as the title, facts: audience · state · last saved; header editor (audience, subject, preview text); body autosaved; primary Versturen…, menu Acties (Voorbeeld, Testmail, Kopiëren, Verwijderen); the Raakje panel docked | autosave + header editor | none; none |
+| Vergadering | status badge beside the buttons; attendance; agenda sections with items, notes autosave per item; separate pages for date/place and for sending | **document**: date as the title, status first; facts: time · location · attendance; header editor (date, time, location); the agenda as the body; primary Verslag versturen… / Agenda versturen…; menu Acties (Download PDF, Heropen) | autosave per item + header editor | sections (composite, with items), attendees, attachments; none |
+| Pagina (CMS) | one card, sticky head with one save; `<details>` placeholders | **document** (CR-17): title, facts: /slug · gepubliceerd/concept · last published; header editor (title, slug, in navigatie); the body as blocks; primary Publiceren, menu Acties (Voorbeeld, Geschiedenis, Verwijderen) | autosave of the draft, publish as the act (CR-17) | none; none |
+| Ontwerp (Design Studio) | four action bars and loose buttons; preview right; `<details>` prompt | activity as the title; facts: template · status · versions; summary: the preview; sections Ontwerp · Beelden (the picker, CR-15) · Varianten · Versies; primary Bewaren en voorbeeld, menu Acties (Definitief maken, Publiceren als affiche, Inkscape, Verwijderen) | one save per section — a declared exception (Koen, 2 Oct 2026, Q28) | images, versions, generations; the prompt text last |
+| Gebruiker | inline row, no page (row 44) | record page: e-mail as the title; facts: active · roles; sections Account · Rollen (checkbox group per workspace) | one save | roles per workspace; none |
+| Organisatie | sections with one save at the end, `max-w-2xl`; header button to the site settings | name; facts: type · code · legal form; sections as today; menu Acties (Instellingen van de site) | one save (already) | identifications, accounts (CR Organisation: repeatable by standard); none |
+| Tenant | key list with a sticky save on top; header button to the organisation | name; facts: code · active; sections Instellingen · Secrets; menu Acties (De organisatie) | one save (already) | none; Secrets as the rare section (collapsed, last) |
+| Werkbank-taak | **no header**; `<dl>` rows; one inline form | title as the title; facts: kind · state · created; sections Taak · Besluit; primary Afhandelen | one save | none; none |
+
+### 5.3 Public pages — the kit, not the layouts (§2.4)
+
+| Page | Today | End state (pilot B designs the flows) |
 |---|---|---|
-| Activiteit | record, one save | Gegevens · Inschrijvingen · Betalingen |
-| Inschrijving | record, one save | Gegevens · Betalingen |
-| Gezin (household) | record, one save | Gegevens · Personen · Inschrijvingen · Betalingen |
-| Persoon | record, one save | Gegevens · Inschrijvingen |
-| Formulier | record (builder), one save | Opbouw · Inzendingen · Resultaten |
-| Nieuwsbrief | **document** (autosave body) | Inhoud · Versturen |
-| Vergadering | **document** (autosave body) | Document · Versturen |
-| Pagina (CMS) | **document** (autosave body) | Inhoud · Publicatie |
-| Ontwerp (Design Studio) | record, one save | Ontwerp · Varianten |
-| Gebruiker | record, one save | Gegevens |
-| Organisatie · Tenant | record, one save | Gegevens |
-| Werkbank-taak | record, one save | Taak |
+| Home | blue intro band with CMS text, price, Word lid / Mijn gezin, then the activity cards | own composition: the intro as a CMS document block, the coming activities as cards, one featured activity if the board asks (P4) |
+| Activiteiten (agenda) and Archief | cards per year with per-component actions | cards by poster, grouped per month or year; one action per activity ("Inschrijven" leads to the activity page or straight to the form when there is one component) |
+| Activiteit | h1 with badges, facts, description, one block per component, poster aside | own composition (concept 09): poster, key facts, what to expect, who is coming, the sticky price-and-button card, the nudge |
+| Inschrijven | page with component choice, nudge, contact, products, questions, pay | the form page at reading width (CR-14 §B4.1, P1–P15 parity); the nudge above the contact fields (W17) |
+| Word lid | nudge, person rows, address, payment | the form page; the person rows a repeating group (pilot B) |
+| Formulier | name/e-mail card, section cards paged ‹ › | the form page; sections as steps where long |
+| Mijn gezin | membership card, person cards with edit toggles and e-mail rows, add card; **no registrations or payments** | the family portal as overview and details: Gezin · Onze inschrijvingen (with the payment state) · Betalingen; one save per the household record rule (pilot B) |
+| Foto's and an album | album cards per year; thumbnail grid | cards (the picture is the content); the album grid with the lightbox; clearance honoured (CR-15) |
+| Bedankt, Betaling ontvangen, Inloglink verlopen | one-card pages | one-card pages, the same card |
 
-### 5.3 Public pages
-
-| Page | Shape |
-|---|---|
-| Home, Activiteiten, Foto's | card list |
-| Activiteit, Inschrijven, Word lid, Formulier, Mijn gezin, Contacteer ons | form page (reading width, centred, the nudge where a member could sign in) |
-| Bedankt, Betaling ontvangen, Inloglink verlopen | form page, one card |
+**Decided with Koen on 2 October 2026 (CR-11 Q28):** a person stays a card on
+the household page — no person page; the form builder and the Design Studio
+keep per-section saves as declared exceptions to "one save" (they edit a
+composition, not a record); tiles are built only where the figure is acted
+on weekly — Werkbank and Abonnees — and elsewhere when asked, so the tiles
+column above is the end state for those two and "none until asked" for
+Formulieren, Vergaderingen, Nieuwsbrieven, Pagina's and AI-kosten; the
+activity's six header buttons become items of its "Acties" menu beside one
+primary button (R13).
 
 ---
 
@@ -541,7 +599,8 @@ row · no `code_label` twice on a row · a long-value field (`url`, `email`,
 followed by a section · a tile with two figures refused by the macro · tile labels on one line and never cut, figure tops in one tile
 row within 1 px, a tile no higher than label plus figure, no row of
 controls wider than the page (the document as wide as the viewport at
-390 px on every screen), the title's box never squeezed by its actions (the
+390 px on every screen) · the first content row on the first screen at
+390 × 844 px · no checkbox group in a toolbar, the title's box never squeezed by its actions (the
 screenshot set) · no
 `btn_*` in a record head outside
 `record_header(actions=…)`, and a list header's call slot holds only the
