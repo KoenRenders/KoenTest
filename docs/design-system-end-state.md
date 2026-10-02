@@ -70,25 +70,25 @@ binding: each step has one use, applied by a macro, never by a template.
 **Two priorities, one kit** (Koen, 2 October 2026): the public site is
 designed phone-first — 390 px is where a public page is drawn first and
 judged first; the back office is designed desktop-first — 1 440 px is where
-an admin screen is drawn first, 1 280 px is the lower bound where everything
-still fits, and 390 px
+an admin screen is drawn first (1 920 is common and must be used), 1 440 px
+is the lower bound where everything still fits, and 390 px
 is the floor: never broken, the few simple actions (look up, confirm,
 check, read) reachable, but not a day's workplace. The rules below hold on
 both faces; the priority says which width a block is designed at first.
 
 **Breakpoints follow the content, not two device classes.** In the back
-office everything fits down to 1 280 px — the navigation (220 px), the
-summary column (300 px), the margins and a two-column form; below 1 280 the
-frame collapses by content, not by device: the summary card moves above
-the content when the content column would drop under 640 px, the
-navigation collapses to icons, and the form grid goes to one column when a
-half field would be narrower than 260 px, down to the 390 px floor.
+office everything fits down to 1 440 px — the navigation (220 px), the
+summary column (300 px), the margins and a two-column form; **below 1 440
+the sidebar collapses to an icon rail** and the frame collapses
+by content, not by device: the summary card moves above the content when
+the content column would drop under 640 px, and the form grid goes to one
+column when a half field would be narrower than 260 px, down to the 390 px
+floor (Koen, 2 October 2026).
 At any width the user may collapse the navigation to an icon rail to gain
 room, and the choice is remembered (Koen, 2 October 2026). Board desktops are commonly 1 920 px wide (Koen, 2 October 2026): a list
 page uses that width, a record page keeps its reading column and summary
 with comfortable margins, and no page is a 1 440 px box in a sea of margin.
-Concepts and screenshots of the admin are judged at 1 920, 1 440, 1 280 and
-390 px; of the public site at 390, 768 and 1 440 px (Koen, 2 October 2026). A screen never sets `max-w-*` on its root.
+Concepts and screenshots of the admin are judged at 1 920, 1 440 and 390 px; of the public site at 390, 768 and 1 440 px (Koen, 2 October 2026). A screen never sets `max-w-*` on its root.
 Reading width is a property of a form, not of a page: inside the record frame the form column is narrow
 and a related-list tab is wide, and the frame does not move. (Phase 2.
 Rows 11, 12, 27.)
