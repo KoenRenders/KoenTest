@@ -1,0 +1,60 @@
+{% import "_macros.html" as ui %}
+{% import "_me_boom_delen.html" as boomdelen %}
+{# De kiezer (CR-15 §C4.3, #1472): wat `ui.media_picker` in zijn modal laadt.
+   Boven zoeken en het jaar, links de boom, rechts de duimnagels per groep —
+   eerst "Van <activiteit> (<jaar>)" voor de kopieerketen. Elke link laadt dit
+   fragment opnieuw in de modal; kiezen zet het verborgen veld van de macro
+   (`chosen`, `thumb` in diens Alpine-scope) en sluit de modal. #}
+<div class="space-y-4">
+  <form class="flex flex-wrap items-center gap-3" hx-get="/admin/media/kiezer" hx-target="{{ target }}" hx-swap="innerHTML"
+        hx-trigger="input changed delay:300ms from:find input[name=q], change">
+    <input type="hidden" name="field" value="{{ field }}">
+    {% if for_activity_id %}<input type="hidden" name="for_activity_id" value="{{ for_activity_id }}">{% endif %}
+    <div class="flex-1 min-w-[12rem]">{{ ui.search(value=q, placeholder=_("Zoek op titel, activiteit of tag…"), standalone=False) }}</div>
+    {{ ui.chips("year", jaar_keuzes, current=year) }}
+  </form>
+
+  <div class="lg:grid lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-4 lg:items-start">
+    {# Op een telefoon een uitklapbare lijst boven het raster, dicht zodat het
+       raster op het eerste scherm begint; vanaf `lg` open naast het raster. #}
+    <details class="mb-3 lg:mb-0 rounded-xl border border-gray-200 p-3" x-data x-init="$el.open = window.innerWidth >= 1024">
+      <summary class="cursor-pointer list-none text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">{{ _("Bladeren") }}</summary>
+      <div class="mt-2 space-y-3">
+        {% if branch_chosen %}{{ boomdelen.link(_("Alles"), alles_href, False, target=target) }}{% endif %}
+        {{ boomdelen.tak(_("Activiteiten"), boom.activiteiten, _("Nog niets."), target) }}
+        {{ boomdelen.tak(_("Affiches"), boom.affiches, _("Nog niets."), target) }}
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wide text-ink-soft">{{ _("Tags") }}</p>
+          {% if boom.tags %}<div class="mt-1">{{ boomdelen.tags(boom.tags, target) }}</div>
+          {% else %}<p class="mt-1 px-2 text-sm text-ink-soft">{{ _("Nog geen tags.") }}</p>{% endif %}
+        </div>
+      </div>
+    </details>
+
+    <div class="min-w-0">
+      {% if groups %}
+      {% for g in groups %}
+      <section class="mb-4">
+        {% if g.label %}<h4 class="mb-2 text-sm font-semibold text-ink">{{ g.label }}</h4>{% endif %}
+        <ul class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+          {% for i in g.items %}
+          <li>
+            <button type="button" class="block w-full text-left rounded-lg border border-gray-200 p-1 hover:border-blue-700 focus-visible:ring-2 focus-visible:ring-blue-700"
+                    @click="chosen = '{{ i.id }}'; thumb = '{{ i.thumb_url }}'; open = false"
+                    aria-label="{{ _('Kies') }} {{ i.title or i.origin or ('#' ~ i.id) }}">
+              <img src="{{ i.thumb_url }}" alt="" loading="lazy" class="aspect-square w-full object-cover rounded bg-gray-50">
+              <span class="mt-1 block truncate text-xs text-ink">{{ i.title or "—" }}</span>
+              {% if i.origin %}<span class="block truncate text-xs text-ink-soft">{{ i.origin }}</span>{% endif %}
+            </button>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endfor %}
+      {{ ui.pager(page, per_page, total, hx_get=pager_url, hx_target=target) }}
+      {% else %}
+      {{ ui.empty_state(_("Geen afbeeldingen gevonden.")) }}
+      {% endif %}
+    </div>
+  </div>
+</div>

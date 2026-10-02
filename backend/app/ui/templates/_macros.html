@@ -1050,6 +1050,29 @@
   </fieldset>
 </details>
 {%- endmacro %}
+{# ── Media picker (CR-15 §C4.3, #1472) ─────────────────────────────────────────
+   The ONE way a screen offers a picture from the library: the design editor and
+   the CMS modal (CR-11 R13: one component, one behaviour). A hidden field `name`
+   holds the chosen picture's id; the button opens a kit modal that loads the
+   picker (`/admin/media/kiezer`, `media.api.pick_options`): the tree, search and
+   the year, thumbnails in pages of 60, last year's photos first for a copied
+   activity (`for_activity_id`). Choosing sets the field, shows the thumbnail and
+   closes the modal. The hidden initial state is in the server markup (§8.1). #}
+{% macro media_picker(name, value=None, value_thumb=None, for_activity_id=None,
+                      label=None, title=None) -%}
+{% set adres = "/admin/media/kiezer?field=" ~ name ~ ("&for_activity_id=" ~ for_activity_id if for_activity_id else "") %}
+<div class="space-y-2" x-data="{ open: false, chosen: '{{ value or '' }}', thumb: '{{ value_thumb or '' }}' }">
+  <input type="hidden" name="{{ name }}" value="{{ value or '' }}" :value="chosen">
+  <div class="flex items-center gap-3">
+    <img x-show="thumb" :src="thumb" src="{{ value_thumb or '' }}" alt="" class="h-20 w-20 rounded-lg bg-gray-50 object-cover"{% if not value_thumb %} style="display: none"{% endif %}>
+    {{ btn_secondary(label or _("Kies een afbeelding"), size="sm",
+                     attrs='hx-get="' ~ adres ~ '" hx-target="#mp-' ~ name ~ '" hx-swap="innerHTML" @click="open = true"') }}
+  </div>
+  {% call modal("open", title or _("Kies een afbeelding"), max_w="max-w-5xl") %}
+    <div id="mp-{{ name }}" class="min-h-[12rem]">{{ loading() }}</div>
+  {% endcall %}
+</div>
+{%- endmacro %}
 {# ── Toast (#528 as C) ────────────────────────────────────────────────────────
    Eén bevestigingspatroon voor de hele app; alert() is verboden (as A/D). Rendert
    als los fragment zodat een htmx-antwoord hem out-of-band kan meesturen:

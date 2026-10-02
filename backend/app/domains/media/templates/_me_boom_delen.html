@@ -1,0 +1,41 @@
+{# De onderdelen van de mediaboom (CR-15 §C4.2): één opmaak voor de bibliotheek
+   (#1470) en de kiezer (#1472). Een knoop is een gewone link in de bibliotheek;
+   in de kiezer laadt hij het fragment opnieuw in de modal (`target`). #}
+{% macro link(naam, href, actief, aantal=None, target=None) -%}
+<a href="{{ '#' if target else href }}"
+   {% if target %}hx-get="{{ href }}" hx-target="{{ target }}" hx-swap="innerHTML"{% endif %}
+   class="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-sm {{ 'bg-blue-50 text-blue-700 font-semibold' if actief else 'text-ink hover:bg-gray-50' }}"
+   {% if actief %}aria-current="true"{% endif %}>
+  <span class="truncate">{{ naam }}</span>{% if aantal is not none %}<span class="shrink-0 text-xs text-ink-soft">{{ aantal }}</span>{% endif %}
+</a>
+{%- endmacro %}
+{% macro tags(knopen, target=None) -%}
+<ul class="space-y-0.5">
+  {% for k in knopen %}
+  <li>{{ link(k.naam, k.href, k.actief, k.aantal, target) }}
+    {% if k.kinderen %}<div class="ml-3 border-l border-gray-100 pl-2">{{ tags(k.kinderen, target) }}</div>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{%- endmacro %}
+{% macro tak(titel, jaren, leeg, target=None) -%}
+<details class="group" open>
+  <summary class="cursor-pointer list-none text-xs font-semibold uppercase tracking-wide text-ink-soft [&::-webkit-details-marker]:hidden">{{ titel }}</summary>
+  {% if jaren %}
+  <ul class="mt-1 space-y-1">
+    {% for j in jaren %}
+    <li>
+      <details {% if j.open %}open{% endif %}>
+        <summary class="cursor-pointer list-none px-2 py-1 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden">{{ j.jaar }}</summary>
+        <ul class="ml-3 border-l border-gray-100 pl-2 space-y-0.5">
+          {% for a in j.activiteiten %}<li>{{ link(a.naam, a.href, a.actief, target=target) }}</li>{% endfor %}
+        </ul>
+      </details>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="mt-1 px-2 text-sm text-ink-soft">{{ leeg }}</p>
+  {% endif %}
+</details>
+{%- endmacro %}
