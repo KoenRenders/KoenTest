@@ -400,3 +400,19 @@ def test_a_form_title_without_the_year_gets_it_added(client, db_session):
     copied_form = db_session.get(Form, copy.sub_registrations[0].form_id)
     assert copied_form.title == "Vragen bij het bouwen 2027"
     assert copied_form.slug is None
+
+
+def test_the_target_audience_comes_along(client, db_session):
+    """#1463: `target_audience` (#1428) was not among the fields the copy lists
+    one by one, so a copied activity lost who it is for.
+
+    Red against master `3eff0cbc`: the copy's target audience is None.
+    """
+    source = _bouwen(db_session)
+    source.target_audience = "women"
+    db_session.commit()
+    client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
+
+    copy = _new_copy(db_session, _copy(client, source.id, date(2027, 11, 13)))
+
+    assert copy.target_audience == "women"
