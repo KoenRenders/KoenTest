@@ -48,7 +48,7 @@ register_tones(
     {ActivityStatus.DRAFT: "orange", ActivityStatus.PUBLISHED: "gray"},
 )
 
-NAV = admin_nav("/admin/activiteiten")
+NAV = "/admin/activiteiten"
 
 
 def _decimal(value: str, default: str = "0") -> Decimal:
@@ -286,7 +286,7 @@ def admin_activiteiten(
         # #1428: "Concept" and the audience on the cards.
         publication=publication_of(db, [a.id for a in lijst["activities"]]),
         csrf_token=csrf_from_request(request),
-        nav_items=[] if fragment else NAV,
+        nav_items=[] if fragment else admin_nav(NAV),
     )
     sjabloon = "_aa_kaarten.html" if fragment else "admin_activiteiten.html"
     return templates.TemplateResponse(request, sjabloon, view.as_context())
@@ -307,7 +307,7 @@ def activiteit_nieuw(
         request,
         "admin_activiteit_nieuw.html",
         {
-            "nav_items": NAV,
+            "nav_items": admin_nav(NAV),
             "csrf_token": csrf_from_request(request),
         },
     )
@@ -334,7 +334,7 @@ def _copy_view(
         same_date=suggestions.same_date if suggestions else None,
         error=error,
         csrf_token=csrf_from_request(request),
-        nav_items=NAV,
+        nav_items=admin_nav(NAV),
     )
 
 
@@ -440,7 +440,7 @@ def admin_activiteit_detail(
         request,
         "admin_activiteit.html",
         {
-            "nav_items": NAV,
+            "nav_items": admin_nav(NAV),
             **_aa_detail_ctx(request, db, activiteit),
             **_record_tabs(activiteit, reg_count, db, email, "overzicht"),
             **_record_rail(db, activiteit),
@@ -1318,7 +1318,9 @@ def inschrijving_pagina(
     if kop is None:  # kan niet meer na de 404 hierboven; mypy weet dat niet
         raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
     ctx.update(kop)
-    vm = AdminInschrijvingView(**ctx, error=None, toast_bericht=None, op_pagina=True, nav_items=NAV)
+    vm = AdminInschrijvingView(
+        **ctx, error=None, toast_bericht=None, op_pagina=True, nav_items=admin_nav(NAV)
+    )
     return templates.TemplateResponse(request, "admin_inschrijving.html", vm.as_context())
 
 
@@ -1743,7 +1745,7 @@ def _board_form_page(
         onderdeel_id=component.id if component else None,
         terug_url=basis,
         csrf_token=csrf_from_request(request),
-        nav_items=NAV,
+        nav_items=admin_nav(NAV),
     )
     return ctx
 
@@ -1986,7 +1988,7 @@ def activiteit_inschrijvingen_tab(
         toon_onderdeel=False,
         **_record_tabs(activiteit, len(regs), db, email, "inschrijvingen"),
         csrf_token=csrf_from_request(request),
-        nav_items=NAV,
+        nav_items=admin_nav(NAV),
     )
     return templates.TemplateResponse(
         request, "admin_activiteit_inschrijvingen.html", vm.as_context()

@@ -24,7 +24,7 @@ from app.ui import admin_nav, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
 
-NAV = admin_nav("/admin/media")
+NAV = "/admin/media"
 
 
 # #708: activiteitenfoto's zijn wat er dagelijks bijkomt; sponsorlogo's zet je
@@ -440,7 +440,7 @@ def admin_media(
     return templates.TemplateResponse(
         request,
         "admin_media.html",
-        {"nav_items": NAV, "error": None, **_lijst_ctx(request, db, kind, q)},
+        {"nav_items": admin_nav(NAV), "error": None, **_lijst_ctx(request, db, kind, q)},
     )
 
 
@@ -458,7 +458,7 @@ def media_nieuw(
     # activiteit-dropdown toont (die hoort enkel bij activity_photo).
     kind = (request.query_params.get("kind") or STANDAARD_KIND).strip()
     ctx = _lijst_ctx(request, db, kind=kind)
-    ctx["nav_items"] = NAV
+    ctx["nav_items"] = admin_nav(NAV)
     return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
 
 
@@ -495,7 +495,7 @@ async def media_uploaden(
         # Op het aanmaakscherm blijven mét de fout (#627): een fragment terugsturen
         # naar een pagina die geen lijst toont, laat de gebruiker in het ongewisse.
         ctx = _lijst_ctx(request, db, kind=kind, q=q, activity_id=filter_activity_id)
-        ctx["nav_items"] = NAV
+        ctx["nav_items"] = admin_nav(NAV)
         ctx["error"] = str(exc)
         return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
     # Media is met één handeling compleet, dus terug naar de lijst (#627) — en naar
