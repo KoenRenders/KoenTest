@@ -29,6 +29,8 @@ from app.domains.activities.models import (
     ActiviteitFout,
     Activity,
     ActivityDate,
+    ActivityOrganiser,
+    ActivityProduct,
     ActivitySubRegistration,
     Registration,
     RegistrationHistory,
@@ -36,6 +38,7 @@ from app.domains.activities.models import (
 )
 from app.domains.mdm.api import CONTACT
 from app.kernel.codes import code_label, code_of
+from app.kernel.copying import CopyPlan
 
 if TYPE_CHECKING:
     from app.domains.activities.models import ActivityOrganiser, ActivityProduct, RegistrationItem
@@ -609,6 +612,130 @@ def first_date_of(activity: Activity) -> date | None:
     return min((d.start_date for d in activity.dates), default=None)
 
 
+# ── What a copy takes along (#1464) ──────────────────────────────────────────
+# One plan per model `copy_activity` writes: every column copied, set by the
+# copy, or not copied with its reason. The copy reads `copied` from here, so a
+# new column is either declared here or fails `test_copy_plans_gate.py`.
+
+_NEW_ROW = "a new row: its own id and bookkeeping"
+_TENANT = "the copy belongs to the tenant it is made in"
+
+ACTIVITY_COPY = CopyPlan(
+    model=Activity,
+    copied=(
+        "name",
+        "location",
+        "description",
+        "members_only",
+        "board_notes",
+        "target_audience",
+    ),
+    set_by_copy={
+        "status": "the copy step chooses Concept or Gepubliceerd (#1428)",
+        "copied_from_id": "points at the source (#1397)",
+        "slug": "suggested from the name as for a new activity; the source keeps its address",
+    },
+    not_copied={
+        "poster_url": "the board renders the new poster with the new date (#1397)",
+        "is_cancelled": "a new edition is not cancelled because last year's was",
+        "id": _NEW_ROW,
+        "created_at": _NEW_ROW,
+        "updated_at": _NEW_ROW,
+        "deleted_at": _NEW_ROW,
+        "tenant_id": _TENANT,
+    },
+)
+
+DATE_COPY = CopyPlan(
+    model=ActivityDate,
+    copied=("start_time", "end_time"),
+    set_by_copy={
+        "start_date": "moved by the difference to the new first date (#1397)",
+        "end_date": "moved by the same difference",
+        "activity_id": "the copy",
+    },
+    not_copied={"id": _NEW_ROW, "deleted_at": _NEW_ROW, "tenant_id": _TENANT},
+)
+
+ORGANISER_COPY = CopyPlan(
+    model=ActivityOrganiser,
+    copied=(
+        "person_id",
+        "sort_order",
+        "is_contact",
+        "email_override",
+        "mobile_override",
+        "show_email",
+        "show_mobile",
+    ),
+    set_by_copy={"activity_id": "the copy"},
+    not_copied={"id": _NEW_ROW, "created_at": _NEW_ROW, "tenant_id": _TENANT},
+)
+
+COMPONENT_COPY = CopyPlan(
+    model=ActivitySubRegistration,
+    copied=(
+        "name",
+        "description",
+        "registration_type_code",
+        "max_participants",
+        "price",
+        "member_price",
+        "is_free",
+        "team_name_required",
+        "sort_order",
+    ),
+    set_by_copy={
+        "activity_id": "the copy",
+        "registration_closes_on": "moved by the same days as the dates (Koen, 1 October 2026)",
+        "form_id": "a copy of the question form, with the new year (forms.api.copy_form)",
+    },
+    not_copied={
+        "external_register_url": "not the links of last year (Koen, 1 October 2026)",
+        "external_registrations_url": "not the links of last year (Koen, 1 October 2026)",
+        "info_url": "not the links of last year (Koen, 1 October 2026)",
+        "id": _NEW_ROW,
+        "created_at": _NEW_ROW,
+        "updated_at": _NEW_ROW,
+        "deleted_at": _NEW_ROW,
+        "tenant_id": _TENANT,
+    },
+)
+
+PRODUCT_COPY = CopyPlan(
+    model=ActivityProduct,
+    copied=(
+        "name",
+        "price",
+        "member_price",
+        "is_free",
+        "pay_on_site",
+        "is_active",
+        "max_participants",
+        "sort_order",
+    ),
+    set_by_copy={"component_id": "the copied component"},
+    not_copied={
+        "id": _NEW_ROW,
+        "created_at": _NEW_ROW,
+        "deleted_at": _NEW_ROW,
+        "tenant_id": _TENANT,
+    },
+)
+
+#: Every copy action of this module and the plans it follows (#1464). Not a
+#: copy action: `copy_suggestions` (two dates) — see the gate's register.
+COPY_PLANS = {
+    "copy_activity": (
+        ACTIVITY_COPY,
+        DATE_COPY,
+        ORGANISER_COPY,
+        COMPONENT_COPY,
+        PRODUCT_COPY,
+    ),
+}
+
+
 def copy_activity(
     db: Session,
     activity_id: int,
@@ -634,7 +761,7 @@ def copy_activity(
     """
     from types import SimpleNamespace
 
-    from app.domains.activities.models import ActivityOrganiser, ActivityStatus
+    from app.domains.activities.models import ActivityStatus
 
     source = _activity_met_boom(db, activity_id)
     if source is None:
@@ -662,10 +789,9 @@ def copy_activity(
             members_only=source.members_only,
             dates=[
                 SimpleNamespace(
+                    **DATE_COPY.values(d),
                     start_date=d.start_date + shift,
                     end_date=d.end_date + shift if d.end_date else None,
-                    start_time=d.start_time,
-                    end_time=d.end_time,
                 )
                 for d in sorted(source.dates, key=lambda d: (d.start_date, d.id))
             ],
@@ -673,26 +799,17 @@ def copy_activity(
             slug=None,
             action="activity_copied",
         )
-        copy.board_notes = source.board_notes
-        # #1463: the target audience (#1428) was left out of the copy.
-        copy.target_audience = source.target_audience
+        # #1464: the plan is the one list of what comes along — #1463 was a
+        # field missing from a list kept here by hand. `_add_activity` above
+        # takes what creating needs (the name for the slug suggestion).
+        for column, value in ACTIVITY_COPY.values(source).items():
+            setattr(copy, column, value)
         copy.copied_from_id = source.id
         # #1428: a copy is a draft unless the copy step says published — next
         # year's programme is prepared before it goes on the site.
         copy.status = ActivityStatus(status) if status else ActivityStatus.DRAFT
         for organiser in source.organisers:
-            db.add(
-                ActivityOrganiser(
-                    activity_id=copy.id,
-                    person_id=organiser.person_id,
-                    sort_order=organiser.sort_order,
-                    is_contact=organiser.is_contact,
-                    email_override=organiser.email_override,
-                    mobile_override=organiser.mobile_override,
-                    show_email=organiser.show_email,
-                    show_mobile=organiser.show_mobile,
-                )
-            )
+            db.add(ActivityOrganiser(activity_id=copy.id, **ORGANISER_COPY.values(organiser)))
         db.flush()
         if with_components:
             _copy_components(db, source, copy, shift=shift, new_first=first_date, actor=actor)
@@ -729,7 +846,6 @@ def _copy_components(
     last year) and never a registration. A component's question form is copied
     too, with the new year in its title (`forms.api.copy_form`).
     """
-    from app.domains.activities.models import ActivityProduct
     from app.domains.forms.api import copy_form
 
     old_first = first_date_of(source)
@@ -737,21 +853,13 @@ def _copy_components(
     new_year = new_first.year if new_first else None
     for component in source.sub_registrations:
         new = ActivitySubRegistration(
+            **COMPONENT_COPY.values(component),
             activity_id=copy.id,
-            name=component.name,
-            description=component.description,
-            registration_type_code=component.registration_type_code,
-            max_participants=component.max_participants,
             registration_closes_on=(
                 component.registration_closes_on + shift
                 if component.registration_closes_on
                 else None
             ),
-            price=component.price,
-            member_price=component.member_price,
-            is_free=component.is_free,
-            team_name_required=component.team_name_required,
-            sort_order=component.sort_order,
             form_id=(
                 copy_form(db, component.form_id, old_year=old_year, new_year=new_year)
                 if component.form_id
@@ -762,17 +870,7 @@ def _copy_components(
         for product in component.products:
             _insert_product(
                 db,
-                ActivityProduct(
-                    component_id=new.id,
-                    name=product.name,
-                    price=product.price,
-                    member_price=product.member_price,
-                    is_free=product.is_free,
-                    pay_on_site=product.pay_on_site,
-                    is_active=product.is_active,
-                    max_participants=product.max_participants,
-                    sort_order=product.sort_order,
-                ),
+                ActivityProduct(component_id=new.id, **PRODUCT_COPY.values(product)),
                 actor=actor,
                 action="product_copied",
             )

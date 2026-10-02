@@ -6,7 +6,7 @@ repeating what is already written down.
 > **Note on this file.** Created by CR-12 phase 0 (26 September 2026) for the
 > code-list rule; CR-13 phase 0a (#755) added the rule of a rule's home. Ruff —
 > formatter and linter, blocking in CI — came with #781, so what ruff decides is
-> not repeated here.
+> not repeated here. #1464 added the rule for copied models.
 
 ## A fixed vocabulary is a code table
 
@@ -104,3 +104,13 @@ file belongs in.
 **Exceptions:** one class per domain, English (`ActivityError`); a Dutch `*Fout`
 that existed stays as an alias of it — one class, two names.
 
+## A copied model declares every column
+
+A copy action (`copy_*`) reads what it copies from a `CopyPlan`
+(`app/kernel/copying.py`) declared beside it in `COPY_PLANS`. Every mapped
+column of a model it writes is in exactly one set: copied, set by the copy, or
+not copied with its reason. **A new column on a copied model
+is classified in the same change** — `backend/tests/test_copy_plans_gate.py`
+fails, naming the model and the column, until it is. A new `copy_*` function
+needs a plan, or a reason in the gate's register of functions that copy nothing
+(#1464, after #1463 left `target_audience` behind).

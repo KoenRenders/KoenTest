@@ -18,6 +18,7 @@ from app.domains.newsletter.models import (
     DeliveryKind,
     DeliveryStatus,
     LetterStatus,
+    ReplyToMode,
     Subscriber,
     SubscriberSource,
     SubscriberStatus,
@@ -243,6 +244,23 @@ def test_een_kopie_neemt_de_doelgroep_niet_mee(db_session):
     assert copy.audience is None
     assert copy.copied_from_id == letter.id
     assert copy.status == LetterStatus.DRAFT
+
+
+def test_een_kopie_houdt_het_antwoordadres_en_de_linkbasis(db_session):
+    """Koen, 2 October 2026 (#1464): the copy answers from the same address and
+    links to the same site as the source. Red against master `a863b98f`: the copy
+    fell back to the defaults."""
+    letter = _letter(db_session, audience=Audience.BOTH, subject="Zomer")
+    letter.reply_to_mode = ReplyToMode.SENDER
+    letter.reply_to_address = "secretaris@example.org"
+    letter.link_base = "https://voorbeeld.example"
+    db_session.commit()
+
+    copy = nb.copy_newsletter(db_session, letter, created_by="s@example.org")
+
+    assert copy.reply_to_mode is ReplyToMode.SENDER
+    assert copy.reply_to_address == "secretaris@example.org"
+    assert copy.link_base == "https://voorbeeld.example"
 
 
 # ── 4. Unsubscribe links only for non-members ────────────────────────────────

@@ -34,6 +34,7 @@ from app.domains.newsletter.models import (
 )
 from app.i18n import _
 from app.kernel.codes import code_of
+from app.kernel.copying import CopyPlan
 
 logger = logging.getLogger(__name__)
 
@@ -597,18 +598,51 @@ def set_draft_sources(
     db.commit()
 
 
+# ── What a copy takes along (#1464) ──────────────────────────────────────────
+NEWSLETTER_COPY = CopyPlan(
+    model=Newsletter,
+    copied=(
+        "subject",
+        "body_html",
+        "preview_text",
+        "draft_activity_ids",
+        "draft_meeting_ids",
+        # Koen, 2 October 2026 (#1464): the copy answers from the same address
+        # and links to the same site as the source.
+        "reply_to_mode",
+        "reply_to_address",
+        "link_base",
+    ),
+    set_by_copy={
+        "audience": "no audience: a copy is sent to whom you choose again (CR-05 §3.12)",
+        "created_by": "who copies",
+        "copied_from_id": "points at the source",
+    },
+    not_copied={
+        "status": "a new draft",
+        "sent_by": "the source's send, not the copy's",
+        "send_started_at": "the source's send, not the copy's",
+        "send_finished_at": "the source's send, not the copy's",
+        "paused_until": "the source's send, not the copy's",
+        "id": "a new row: its own id and bookkeeping",
+        "created_at": "a new row: its own id and bookkeeping",
+        "updated_at": "a new row: its own id and bookkeeping",
+        "deleted_at": "a new row: its own id and bookkeeping",
+        "tenant_id": "the copy belongs to the tenant it is made in",
+    },
+)
+
+#: Every copy action of this module and the plan it follows (#1464).
+COPY_PLANS = {"copy_newsletter": (NEWSLETTER_COPY,)}
+
+
 def copy_newsletter(db: Session, letter: Newsletter, *, created_by: str) -> Newsletter:
     """A new draft with the same subject and text — and no audience (CR-05 §3.12)."""
-    copy = Newsletter(
-        subject=letter.subject,
-        body_html=letter.body_html,
-        preview_text=letter.preview_text,
-        audience=None,
-        created_by=created_by,
-        copied_from_id=letter.id,
-        draft_activity_ids=list(letter.draft_activity_ids or []),
-        draft_meeting_ids=list(letter.draft_meeting_ids or []),
-    )
+    values = NEWSLETTER_COPY.values(letter)
+    # The lists as new lists: two rows never share one mutable object.
+    for column in ("draft_activity_ids", "draft_meeting_ids"):
+        values[column] = list(values[column] or [])
+    copy = Newsletter(**values, audience=None, created_by=created_by, copied_from_id=letter.id)
     db.add(copy)
     db.commit()
     return copy
