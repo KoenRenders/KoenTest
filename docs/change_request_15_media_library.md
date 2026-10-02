@@ -165,7 +165,7 @@ and deliberately not done — recorded so it is not asked again).
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
-The media domain already is a library: one table, one row per picture, one kind code, a tenant, an origin (`activity_id`). What is missing is three things, and the solution adds exactly those. **One: reuse is a reference, never a copy.** A design slot, a CMS page and later the newsletter point at the media row; the Design Studio stops copying a chosen photo into a design image. **Two: one chooser.** A kit component — search, the filters *activity · year · van vorig jaar*, a thumbnail grid, a bottom sheet on a phone — used by every screen that places a picture, fed by one facade function that knows the current record and opens on its predecessors. **Three: the library knows its uses and its clearance.** A derived "where used" (read from the designs, pages and letters that reference a picture — not stored twice), the refusal of a delete while uses exist, pictures that outlive their activity and design, and one field per picture that says whether it may go public.
+The media domain already is a library: one table, one row per picture, one kind code, a tenant, an origin (`activity_id`). What is missing is three things, and the solution adds exactly those. **One: reuse is a reference, never a copy.** A design slot, a CMS page and later the newsletter point at the media row; the Design Studio stops copying a chosen photo into a design image. **Two: one chooser.** A kit component — search, the filters *activity · year · van vorig jaar*, a thumbnail grid, a bottom sheet on a phone — used by every screen that places a picture, fed by one facade function that knows the current record and opens on its predecessors. **Three: the library knows its uses and its order.** A derived "where used" (read from the designs, pages and letters that reference a picture — not stored twice), the refusal of a delete while uses exist, pictures that outlive their activity and design, and one tree of folders — the board's for its own material, the activities as derived folders for their photos.
 
 Decisions that shape it, each with the alternative that lost (the reasoning in C4):
 
@@ -454,7 +454,7 @@ None on 2 October 2026: every question of the walkthrough with Koen is answered 
 #### designstudio (phase 2)
 
 - **Screens:** the editor's three `<select>`s become three slots that open the picker; the "Foto toevoegen" upload stays for new material; judged at 390 and 1280 px.
-- **Code:** `set_slot_image(design, slot, asset_id)` stores the reference after checking the asset is offered for this design (clearance, tenant); the copy-into-`design_image` path is removed; `api.references_to_media(ids)` returns the designs whose slots hold them; `image_options` is replaced by `media.api.pick_options` (the #1397 predecessor grouping moves into media, one source).
+- **Code:** `set_slot_image(design, slot, asset_id)` stores the reference after checking the asset is one the picker offers (an image kind, the same tenant); the copy-into-`design_image` path is removed; `api.references_to_media(ids)` returns the designs whose slots hold them; `image_options` is replaced by `media.api.pick_options` (the #1397 predecessor grouping moves into media, one source).
 - **Database:** none — the slots are soft refs already.
 - **Tests:** C6 1, 3, 6.
 
