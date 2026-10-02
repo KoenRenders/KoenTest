@@ -550,7 +550,7 @@ never a claim you did not check:
 | `alembic current` | `… exec -T backend alembic current` | equal to that head |
 | Migrations, if the release adds any | backend logs | the expected `Running upgrade NNN -> NNN+1` |
 | Startup | backend logs | `Uvicorn running on http://0.0.0.0:8000`, zero `ERROR`/`Traceback` lines |
-| Smoke + reachability | the deploy's own output, plus a few `curl`s | `N OK · 0 gefaald`; public pages 200, an admin path 401 without a session |
+| Smoke + reachability | the deploy's own output, plus a few `curl`s | `N OK · 0 gefaald`; public pages 200, an admin screen 303 to `/aanmelden?terug=…` without a session (#1458), an `/api/v1/` admin path 401 |
 
 `raak diagnose <env>` collects the first five in one report (`logging.sh`), so use
 it instead of hand-writing `docker compose` commands; `raak fetch <env>` pulls the
