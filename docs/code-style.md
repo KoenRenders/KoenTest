@@ -104,6 +104,12 @@ file belongs in.
 **Exceptions:** one class per domain, English (`ActivityError`); a Dutch `*Fout`
 that existed stays as an alias of it — one class, two names.
 
+**What belongs to a module** (CR-19) is declared once, in `app/kernel/modules.py`:
+a menu item, route prefix, tile or path of a switchable module goes in its
+registry entry, and its routers get `require_module` where `main.py` includes
+them — never a hard-coded list in a screen. The gate is
+`backend/tests/test_module_gate.py`.
+
 ## A copied model declares every column
 
 A copy action (`copy_*`) reads what it copies from a `CopyPlan`

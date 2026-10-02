@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -74,6 +74,7 @@ from app.domains.workflow import (
     handlers as workflow_handlers,  # noqa: F401 - event-abonnementen (#398)
 )
 from app.domains.workflow.ui import router as workflow_ui_router
+from app.kernel.modules import ModuleCode, require_module
 from app.logging_config import configure_logging
 from app.models import *  # noqa: F401, F403 - ensures all models are registered
 from app.ui.admin_api import router as admin_api_router
@@ -139,49 +140,83 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# CR-19 (#1475): each module's routers carry `require_module`, here at the
+# include and not in the domain files (§C4.3) — one place says which router
+# belongs to which module. A module that is off answers 404 for that tenant.
+# The shell's own routers carry none and are listed once, below; the gate
+# (`tests/test_module_gate.py`) holds that every include is one or the other.
+M = ModuleCode
+
+
+def _module(code: ModuleCode) -> list:
+    return [Depends(require_module(code))]
+
+
+#: Routers of the shell: login, account, system, tenants, users, changes, the
+#: e-mail log; the public site core (home, sitemap, robots, CMS pages), which
+#: every tenant has; the master data that is never off (postal codes); the
+#: dictation used by screens of several modules.
+SHELL_ROUTERS = (
+    auth_router,
+    stt_router,
+    mdm_router,
+    audit_router,
+    admin_api_router,
+    auth_ui_router,
+    auth_admin_ui_router,
+    changes_ui_router,
+    design_system_ui_router,
+    system_ui_router,
+    organisaties_ui_router,
+    tenants_ui_router,
+    email_log_ui_router,
+    email_log_router,
+    cms_public_ui_router,
+)
+
 app.include_router(auth_router, prefix="/api/v1")
-app.include_router(members_router, prefix="/api/v1")
-app.include_router(activities_router, prefix="/api/v1")
-app.include_router(chat_router, prefix="/api/v1")
+app.include_router(members_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
+app.include_router(activities_router, prefix="/api/v1", dependencies=_module(M.ACTIVITIES))
+app.include_router(chat_router, prefix="/api/v1", dependencies=_module(M.CHATBOT))
 app.include_router(stt_router, prefix="/api/v1")
-app.include_router(cms_router, prefix="/api/v1")
+app.include_router(cms_router, prefix="/api/v1", dependencies=_module(M.CMS))
 app.include_router(mdm_router, prefix="/api/v1")
-app.include_router(media_router, prefix="/api/v1")
-app.include_router(chatbot_info_router, prefix="/api/v1")
+app.include_router(media_router, prefix="/api/v1", dependencies=_module(M.MEDIA))
+app.include_router(chatbot_info_router, prefix="/api/v1", dependencies=_module(M.CHATBOT))
 app.include_router(audit_router, prefix="/api/v1/admin")
 app.include_router(admin_api_router, prefix="/api/v1/admin")
-app.include_router(member_household_router, prefix="/api/v1")
-app.include_router(mdm_household_router, prefix="/api/v1")
-app.include_router(member_import_router, prefix="/api/v1")
-app.include_router(forms_router, prefix="/api/v1")
-app.include_router(forms_ui_router)
-app.include_router(forms_admin_ui_router)
-app.include_router(activities_ui_router)
-app.include_router(activities_admin_ui_router)
-app.include_router(chatbot_ui_router)
-app.include_router(chatbot_admin_ui_router)
-app.include_router(membership_ui_router)
+app.include_router(member_household_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
+app.include_router(mdm_household_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
+app.include_router(member_import_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
+app.include_router(forms_router, prefix="/api/v1", dependencies=_module(M.FORMS))
+app.include_router(forms_ui_router, dependencies=_module(M.FORMS))
+app.include_router(forms_admin_ui_router, dependencies=_module(M.FORMS))
+app.include_router(activities_ui_router, dependencies=_module(M.ACTIVITIES))
+app.include_router(activities_admin_ui_router, dependencies=_module(M.ACTIVITIES))
+app.include_router(chatbot_ui_router, dependencies=_module(M.CHATBOT))
+app.include_router(chatbot_admin_ui_router, dependencies=_module(M.CHATBOT))
+app.include_router(membership_ui_router, dependencies=_module(M.MEMBERSHIP))
 app.include_router(auth_ui_router)
 app.include_router(auth_admin_ui_router)
-app.include_router(cms_admin_ui_router)
-app.include_router(media_admin_ui_router)
-app.include_router(media_ui_router)
+app.include_router(cms_admin_ui_router, dependencies=_module(M.CMS))
+app.include_router(media_admin_ui_router, dependencies=_module(M.MEDIA))
+app.include_router(media_ui_router, dependencies=_module(M.MEDIA))
 app.include_router(changes_ui_router)
 app.include_router(design_system_ui_router)
 app.include_router(system_ui_router)
 app.include_router(organisaties_ui_router)
 app.include_router(tenants_ui_router)
 app.include_router(email_log_ui_router)
-app.include_router(mdm_ui_router)
-app.include_router(payment_ui_router)
-app.include_router(reporting_admin_ui_router)
-app.include_router(meetings_admin_ui_router)
-app.include_router(designstudio_admin_ui_router)
-app.include_router(newsletter_admin_ui_router)
-app.include_router(newsletter_ui_router)
-app.include_router(workflow_ui_router)
+app.include_router(mdm_ui_router, dependencies=_module(M.MEMBERSHIP))
+app.include_router(payment_ui_router, dependencies=_module(M.PAYMENT))
+app.include_router(reporting_admin_ui_router, dependencies=_module(M.REPORTING))
+app.include_router(meetings_admin_ui_router, dependencies=_module(M.MEETINGS))
+app.include_router(designstudio_admin_ui_router, dependencies=_module(M.DESIGNSTUDIO))
+app.include_router(newsletter_admin_ui_router, dependencies=_module(M.NEWSLETTER))
+app.include_router(newsletter_ui_router, dependencies=_module(M.NEWSLETTER))
+app.include_router(workflow_ui_router, dependencies=_module(M.WORKFLOW))
 app.include_router(email_log_router, prefix="/api/v1/admin")
-app.include_router(payment_router, prefix="/api/v1")
+app.include_router(payment_router, prefix="/api/v1", dependencies=_module(M.PAYMENT))
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -251,7 +286,8 @@ async def _tenant_context(request: Request, call_next):
     pad-prefix wordt gestript en verankerd in een cookie, zodat absolute
     vervolgnavigatie op dezelfde tenant blijft; noindex-tenants (demo) krijgen
     een X-Robots-Tag-header."""
-    from app.domains.mdm.api import platform_tenant_id, tenant_codes
+    from app.domains.mdm.api import enabled_modules, platform_tenant_id, tenant_codes
+    from app.kernel.modules import current_modules
     from app.kernel.tenancy import (
         DEFAULT_TENANT_ID,
         current_origin,
@@ -310,9 +346,13 @@ async def _tenant_context(request: Request, call_next):
     code_token = current_tenant_code.set(next((c for c, t in codes.items() if t == tenant), None))
     token = current_tenant_id.set(tenant)
     taal_token = current_locale.set(taal)
+    # CR-19 (#1475): the tenant's module set, for `require_module` on the module
+    # routers. Cached like the code map — no session and no query per request.
+    modules_token = current_modules.set(enabled_modules(tenant))
     try:
         response = await call_next(request)
     finally:
+        current_modules.reset(modules_token)
         current_locale.reset(taal_token)
         current_tenant_id.reset(token)
         current_tenant_code.reset(code_token)
