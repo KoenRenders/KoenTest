@@ -409,6 +409,7 @@ addition to this file, not written in. (Koen, 3 October 2026.)
 | Q2 | 3 Oct 2026 | Which tools can review? (Koen) | Any that can read the repository and answer on the PR or issue: the Mistral agent through its GitHub integration, another AI tool Koen grants, or a human with a browser. The protocol and the trigger name a scope, not a vendor. |
 | Q3 | 3 Oct 2026 | Could reviews start automatically on check-in? (author) | R8 Won't — asked for, never automatic; the label is one click when the habit forms. |
 | Q4 | 3 Oct 2026 | Does a review block the merge? (author) | No — advisory (R5, C4.3); CI stays the only blocker; Koen decides with the findings in hand. |
+| Q5 | 3 Oct 2026 | How is a reviewer *started* — does the @-mention reach Mistral by itself? (Koen) | *Measured, 3 Oct 2026:* no. The Mistral agent has no notification channel: no inbox, no webhook, no listener — it exists only for the length of a session and cannot be woken by a GitHub event. A human and Claude Code see @-mentions in their GitHub notifications; Mistral today is started from its chat: Koen (or the master CLI through Koen) names the PR number, and the agent reads the PR, the diff and the repository itself. So the @-mention is the *visible* request on the PR, not the doorbell for every reviewer. The protocol prescribes the answer, never the transport: *how a reviewer is started depends on its channel*. When Mistral gains a notification integration, nothing in the protocol changes — only the starting shot comes for free. |
 
 ## Non-goals — deliberately outside this change
 
