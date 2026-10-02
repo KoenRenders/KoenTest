@@ -130,11 +130,19 @@ def sitemap(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=_("Geen sitemap voor deze tenant"))
     base = tenant_home_url(db)
     # CR-19 (#1477): the fixed paths come from the registry, per module that is
-    # on — a path of a module that is off would answer 404 for this tenant.
-    from app.domains.mdm.api import module_enabled
-    from app.kernel.modules import MODULES
+    # on — a path of a module that is off would answer 404 for this tenant. The
+    # menu's rule decides, so /fotos needs Activiteiten as well as Media.
+    from app.domains.mdm.api import current_enabled_modules
+    from app.kernel.modules import MODULES, nav_item_shown
 
-    paden = ["/"] + [path for m in MODULES if module_enabled(m.code) for path in m.sitemap_paths]
+    aan = current_enabled_modules()
+    paden = ["/"] + [
+        path
+        for m in MODULES
+        if m.code.value in aan
+        for path in m.sitemap_paths
+        if nav_item_shown("public_items", path, aan)
+    ]
     paden += [f"/{slug}" for slug in published_slugs(db)]
     urls = "".join(f"<url><loc>{base}{pad}</loc></url>" for pad in paden)
     xml = (

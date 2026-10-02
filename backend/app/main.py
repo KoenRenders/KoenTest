@@ -203,7 +203,11 @@ app.include_router(auth_ui_router)
 app.include_router(auth_admin_ui_router)
 app.include_router(cms_admin_ui_router, dependencies=_module(M.CMS))
 app.include_router(media_admin_ui_router, dependencies=_module(M.MEDIA))
-app.include_router(media_ui_router, dependencies=_module(M.MEDIA))
+# The public albums are the albums of activities (#1477): Media serves them, and
+# without Activiteiten they are not found, as the menu item already was (#1476).
+app.include_router(
+    media_ui_router, dependencies=[Depends(require_module(M.MEDIA, also=(M.ACTIVITIES,)))]
+)
 app.include_router(changes_ui_router)
 app.include_router(design_system_ui_router)
 app.include_router(system_ui_router)

@@ -45,31 +45,19 @@ one source for that address — and not here.
 
 import os
 import sys
-from urllib.parse import urlsplit, urlunsplit
 
 import pytest
 from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE  # noqa: E402
+from tests_e2e.schermen import PLATFORM  # noqa: E402
 
 # Dezelfde poort als de rest van de suite, andere hostnaam: zo is de landing bereikbaar
 # zonder dat élk ander e2e-verzoek een platformverzoek wordt.
 #
-# De host wordt VERVANGEN en niet gezocht: CI draait op `localhost` en de lokale runner op
-# `127.0.0.1`. Een `replace()` op één van die twee werkt op de ene machine en stilletjes
-# niet op de andere — en daar viel deze test dan ook over, precies zoals bedoeld.
-_SPLIT = urlsplit(BASE)
-PLATFORM = urlunsplit(
-    (
-        _SPLIT.scheme,
-        f"platform.localhost:{_SPLIT.port}" if _SPLIT.port else "platform.localhost",
-        _SPLIT.path,
-        "",
-        "",
-    )
-)
+# De platformhost (`PLATFORM`) komt uit `schermen.py` sinds #1477: de bedrijfsflow
+# heeft hem ook nodig, en twee kopieën lopen uit elkaar.
 
 
 @pytest.fixture(scope="module")
