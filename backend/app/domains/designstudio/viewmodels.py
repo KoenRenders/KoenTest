@@ -117,6 +117,9 @@ class DesignEditorView(ViewModel):
     preset_options: list[tuple[str, str]]
     duo_code: str
     duo_options: list[tuple[str, str]]
+    #: The design's own poster title (#1461); empty means the activity's name,
+    #: which the field shows as its placeholder (`activity_name`).
+    poster_title: str
     tagline: str
     subtitle: str
     # "Omschrijving anders": the activity's description unless the design
