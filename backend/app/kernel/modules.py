@@ -328,8 +328,14 @@ def record_counts(db, tenant_id: int) -> dict[ModuleCode, int]:
 current_modules: ContextVar[frozenset[str] | None] = ContextVar("current_modules", default=None)
 
 
-def require_module(code: ModuleCode):
+def require_module(code: ModuleCode, also: tuple[ModuleCode, ...] = ()):
     """A FastAPI dependency: 404 when `code` is off for the resolved tenant.
+
+    `also`: modules the router's pages need as well, though `code` serves them —
+    the rule `nav_item_shown` applies to a menu item, applied to the route
+    (#1477). Media serves the photo albums, but they are the albums of
+    activities: without Activiteiten, /fotos is not found either. The router
+    still has one owner, `code`; `also` only adds a condition.
 
     404 and not 403: for that tenant the pages do not exist (§C4.3). Applied
     at include time in `main.py`, so it runs before any role guard of the
@@ -342,9 +348,10 @@ def require_module(code: ModuleCode):
 
     def guard() -> None:
         enabled = current_modules.get()
-        if enabled is not None and code.value not in enabled:
+        if enabled is not None and any(c.value not in enabled for c in (code, *also)):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_("Niet gevonden"))
 
     guard.module_code = code  # type: ignore[attr-defined]
+    guard.also = also  # type: ignore[attr-defined]
     guard.__name__ = f"require_module_{code.value}"
     return guard

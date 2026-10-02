@@ -10,8 +10,24 @@ De testfuncties lezen dan als scenario's, niet als klikinstructies.
 
 import os
 from contextlib import contextmanager
+from urllib.parse import urlsplit, urlunsplit
 
 BASE = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
+
+# The platform host of the e2e app (`PLATFORM_HOSTS=platform.localhost`): where a
+# tenant is reached by its path prefix, as on PROD. The host is REPLACED, not
+# searched: CI runs on `localhost` and the local runner on `127.0.0.1`, and a
+# `replace()` of one of the two works on one machine and quietly not on the other.
+_SPLIT = urlsplit(BASE)
+PLATFORM = urlunsplit(
+    (
+        _SPLIT.scheme,
+        f"platform.localhost:{_SPLIT.port}" if _SPLIT.port else "platform.localhost",
+        _SPLIT.path,
+        "",
+        "",
+    )
+)
 
 
 # ── Waiting on htmx, not on the clock (#997) ─────────────────────────────────

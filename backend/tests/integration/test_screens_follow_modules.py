@@ -139,8 +139,21 @@ def test_the_chat_bubble_needs_the_chatbot_module(db_session, monkeypatch, modul
 def test_the_sitemap_lists_only_the_paths_of_modules_that_are_on(client, modules):
     modules(COMPANY)
     paths = _sitemap(client)
-    assert {"/activiteiten", "/activiteiten/archief", "/lid-worden"}.isdisjoint(paths)
-    assert {"/", "/fotos", "/berichten"} <= paths
+    # /fotos is Media's route but the albums of activities: it needs both, as
+    # its menu item does (C6 test 13 found it in the sitemap of a company).
+    assert {"/activiteiten", "/activiteiten/archief", "/lid-worden", "/fotos"}.isdisjoint(paths)
+    assert {"/", "/berichten"} <= paths
+
+
+def test_the_photo_albums_need_activities_as_well_as_media(client, modules):
+    """The public album routes are served by Media and guarded for Activiteiten
+    too (`require_module(MEDIA, also=(ACTIVITIES,))`, #1477): a company, with
+    Media on and Activiteiten off, finds no /fotos; an association does."""
+    modules(COMPANY)
+    assert client.get("/fotos").status_code == 404
+    modules(EVERY)
+    assert client.get("/fotos").status_code == 200
+    assert "/fotos" in _sitemap(client)
 
 
 def test_the_dashboard_shows_only_the_tiles_of_modules_that_are_on(client, modules):
