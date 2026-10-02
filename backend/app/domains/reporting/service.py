@@ -43,6 +43,7 @@ from app.domains.reporting.universe import (
     UniverseObject,
     physical_view,
 )
+from app.kernel.copying import CopyPlan
 
 logger = logging.getLogger(__name__)
 
@@ -577,6 +578,29 @@ def update_report(
     return report
 
 
+# ── What a copy takes along (#1464) ──────────────────────────────────────────
+REPORT_COPY = CopyPlan(
+    model=SavedReport,
+    copied=("tenant_id", "description", "selection"),
+    set_by_copy={
+        "name": "the source's name with (kopie), made unique",
+        "owner_email": "who copies: it is their own copy",
+        "is_shared": "private: sharing is a decision, not part of trying something out",
+    },
+    not_copied={
+        "last_run_at": "the copy has not run yet",
+        "builtin_key": "a copy is the user's own report, not the built-in one (Koen, 2 October 2026)",
+        "id": "a new row: its own id and bookkeeping",
+        "created_at": "a new row: its own id and bookkeeping",
+        "updated_at": "a new row: its own id and bookkeeping",
+        "deleted_at": "a new row: its own id and bookkeeping",
+    },
+)
+
+#: Every copy action of this module and the plan it follows (#1464).
+COPY_PLANS = {"copy_report": (REPORT_COPY,)}
+
+
 def copy_report(db: Session, report: SavedReport, *, owner: str) -> SavedReport:
     """ "Kopiëren": your own copy, which never touches the original.
 
@@ -589,12 +613,7 @@ def copy_report(db: Session, report: SavedReport, *, owner: str) -> SavedReport:
         naam = f"{report.name} (kopie {nummer})"
         nummer += 1
     kopie = SavedReport(
-        tenant_id=report.tenant_id,
-        name=naam[:120],
-        description=report.description,
-        owner_email=owner,
-        selection=report.selection,
-        is_shared=False,
+        **REPORT_COPY.values(report), name=naam[:120], owner_email=owner, is_shared=False
     )
     db.add(kopie)
     db.commit()
