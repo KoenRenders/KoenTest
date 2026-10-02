@@ -57,14 +57,7 @@ def create_tenant(
     from app.kernel.modules import DEFAULTS
     from app.kernel.tenant_config import set_setting
 
-    name = (name or "").strip()
-    code = (code or "").strip().lower()
-    if not name or not _CODE.fullmatch(code):
-        raise TenantFout(
-            "Naam én een geldige code (kleine letters, cijfers, streepjes) zijn verplicht."
-        )
-    if db.query(Organization).filter(Organization.code == code).first():
-        raise TenantFout("Die code bestaat al.")
+    name, code = _check_code(db, name, code)
     try:
         kind = TenantKind(kind) if kind else TenantKind.ASSOCIATION
     except ValueError:
@@ -97,6 +90,45 @@ def create_tenant(
     # Cache wissen zodat de nieuwe tenant meteen resolvet (#546) — ná de commit,
     # anders vult een gelijktijdig verzoek de cache met de oude toestand.
     invalidate_tenant_codes()
+    return org
+
+
+def _check_code(db, name: str, code: str) -> tuple[str, str]:
+    """A name, and a code in the slug form that no organisation carries yet —
+    the same rule for a tenant and an account (#1495), since both live in
+    `organizations.code`."""
+    from app.domains.mdm.models import Organization
+
+    name = (name or "").strip()
+    code = (code or "").strip().lower()
+    if not name or not _CODE.fullmatch(code):
+        raise TenantFout(
+            "Naam én een geldige code (kleine letters, cijfers, streepjes) zijn verplicht."
+        )
+    if db.query(Organization).filter(Organization.code == code).first():
+        raise TenantFout("Die code bestaat al.")
+    return name, code
+
+
+def create_account(db, *, name: str, code: str):
+    """Create an account — an `ACCOUNT` organisation, the legal entity tenants
+    hang under (CR-19, #1495). A root, like "raak": an account has no parent,
+    and stands beside the platform rather than under it (measured on PROD and
+    HDEV, 2 October 2026).
+
+    Only the name and the code: legal form, identifiers, address and bank
+    account are filled in on the organisation screen it lands on, not on a
+    second form. An account runs no site, so it gets no settings, no modules
+    and no site blocks, and the tenant code cache is not touched. Commits.
+    """
+    from app.domains.mdm.models import Organization
+
+    name, code = _check_code(db, name, code)
+    org = Organization(
+        org_type=OrganizationType.ACCOUNT, code=code, name=name, parent_id=None, is_active=True
+    )
+    db.add(org)
+    db.commit()
     return org
 
 
@@ -287,12 +319,16 @@ def list_manageable_tenants(db, *, alleen_actief: bool = False):
 
 
 def list_accounts(db):
-    """De accounts waar een tenant onder kan hangen."""
+    """De accounts waar een tenant onder kan hangen — the active ones (#1495):
+    a deactivated account takes no new tenant."""
     from app.domains.mdm.models import Organization
 
     return (
         db.query(Organization)
-        .filter(Organization.org_type == OrganizationType.ACCOUNT)
+        .filter(
+            Organization.org_type == OrganizationType.ACCOUNT,
+            Organization.is_active.is_(True),
+        )
         .order_by(Organization.id)
         .all()
     )

@@ -45,8 +45,8 @@ rust — nooit stilzwijgend overschrijven of verwijderen.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -180,6 +180,57 @@ def organisaties(
     require_operator_ui(db, email)
     sjabloon = "_org_kaarten.html" if is_fragment_request(request) else "admin_organisaties.html"
     return templates.TemplateResponse(request, sjabloon, _lijst_ctx(request, db))
+
+
+def _new_account_ctx(request: Request, *, name: str = "", code: str = "", error=None) -> dict:
+    return {
+        "nav_items": admin_nav(NAV),
+        "name": name,
+        "code": code,
+        "error": error,
+        "csrf_token": csrf_from_request(request),
+    }
+
+
+# Declared before `/{organization_id}`: FastAPI matches in declaration order.
+@router.get("/admin/organisaties/nieuw", response_class=HTMLResponse)
+def new_account_form(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
+    """ "Nieuw account" (CR-19, #1495): OPERATOR only, on GET as on POST."""
+    require_operator_ui(db, email)
+    return templates.TemplateResponse(
+        request, "admin_organisatie_nieuw.html", _new_account_ctx(request)
+    )
+
+
+@router.post(
+    "/admin/organisaties", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
+)
+def create_account_route(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    name: str = Form(""),
+    code: str = Form(""),
+):
+    """Creates the account and lands on its organisation screen, where the rest
+    is filled in. A refusal shows the form again with what was typed."""
+    from app.domains.mdm.api import TenantFout, create_account
+
+    require_operator_ui(db, email)
+    try:
+        account = create_account(db, name=name, code=code)
+    except TenantFout as fout:
+        # 200, not 422: htmx swaps no 4xx answer, and the banner would not show.
+        ctx = _new_account_ctx(request, name=name, code=code, error=_(str(fout)))
+        return templates.TemplateResponse(request, "admin_organisatie_nieuw.html", ctx)
+    target = f"/admin/organisaties/{account.id}"
+    # As in meetings: a boosted form is an htmx request, and `HX-Redirect` makes
+    # the browser really navigate, so the address bar follows.
+    if request.headers.get("HX-Request"):
+        return Response(status_code=204, headers={"HX-Redirect": target})
+    return RedirectResponse(target, status_code=303)
 
 
 @router.get("/admin/organisaties/{organization_id}", response_class=HTMLResponse)
