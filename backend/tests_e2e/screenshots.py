@@ -1,6 +1,6 @@
 """Reproducible screenshot set for the design track (#785 step 0).
 
-Captures a FIXED set of screens at two widths against a live backend with the
+Captures a FIXED set of screens at two widths (admin screens at three, #1482) against a live backend with the
 e2e seed — the same environment as the e2e CI job. Two runs on the same commit
 must produce the same images; a sha256 manifest is written so that claim can
 be checked instead of felt.
@@ -34,6 +34,9 @@ from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar
 # The audience decides the primary width (CR-08): public screens are judged on
 # a phone, admin screens on a desktop. Both widths are captured for every
 # screen; the order in the filename makes the primary one sort first.
+# CR-11 block 1 (#1482): an admin screen is also judged at 1 920 px, the common
+# board desktop (design-system-end-state §1.4), so admin screens get it too.
+WIDE = {"width": 1920, "height": 1080}
 DESKTOP = {"width": 1440, "height": 900}
 PHONE = {"width": 390, "height": 844}
 
@@ -387,8 +390,9 @@ def main(argv: list[str]) -> int:
             if screen.sessie is not None and screen.sessie not in sessies:
                 missing.append(f"{screen.key}: onbekende sessie {screen.sessie!r}")
                 continue
-            # Primary width first: phone for public, desktop for admin.
-            widths = (DESKTOP, PHONE) if screen.admin else (PHONE, DESKTOP)
+            # Primary width first: phone for public, desktop for admin; an admin
+            # screen also at 1 920 (#1482).
+            widths = (WIDE, DESKTOP, PHONE) if screen.admin else (PHONE, DESKTOP)
             for width in widths:
                 try:
                     _zet_sessie(page, sessies.get(screen.sessie) if screen.sessie else None)

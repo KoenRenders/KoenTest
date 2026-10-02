@@ -52,10 +52,12 @@ def _blok(html: str, element_id: str) -> str:
 # ── 1. Het mechanisme: de nav komt mee als oob ─────────────────────────────
 
 
-@pytest.mark.parametrize("element_id", ["admin-nav-zijbalk", "admin-nav-mobiel"])
+@pytest.mark.parametrize("element_id", ["admin-nav-zijbalk"])
 def test_de_beheernav_komt_mee_als_oob(client, db_session, element_id):
     """Twee renderingen per schil: een fix die er één bijwerkt laat de andere fout
-    staan, en op een telefoon zie je juist die tweede."""
+    staan, en op een telefoon zie je juist die tweede. Since CR-11 block 1
+    (#1482) the admin shell has one: the phone's drawer is the sidebar itself,
+    so `admin-nav-mobiel` is gone and this one rendering is what a phone sees."""
     _login(client)
     html = client.get("/admin/activiteiten", headers=BOOST).text
 

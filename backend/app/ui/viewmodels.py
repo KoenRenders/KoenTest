@@ -21,6 +21,9 @@ class DesignSystemView(ViewModel):
     #: (naam, waarde) uit de `:root`-blok van de gegenereerde app.css.
     # (naam, hex, komt-van-de-beheerschil) — F27 (#996).
     tokens: list[tuple[str, str, bool]]
+    #: (name, value) of the admin shell's radii (#1482): `r-lg` is a control,
+    #: `r-xl`/`r-2xl` a card.
+    radii: list[tuple[str, str]]
     #: De namen uit de `paths`-tabel van `ui.icon()`.
     iconen: list[str]
     #: Eén voorbeeldveld per soort uit `FIELD_TYPES` (#811), gerenderd door dezelfde

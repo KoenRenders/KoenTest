@@ -40,12 +40,21 @@ module.exports = {
       ink: {DEFAULT:'rgb(var(--c-ink) / <alpha-value>)', 'soft':'rgb(var(--c-ink-soft) / <alpha-value>)'},
       line: 'rgb(var(--c-line) / <alpha-value>)', ground: 'rgb(var(--c-ground) / <alpha-value>)',
       surface: {DEFAULT:'rgb(var(--c-surface) / <alpha-value>)', 2:'rgb(var(--c-surface-2) / <alpha-value>)'},
+      gray: {50:'rgb(var(--c-gray-50) / <alpha-value>)', 100:'rgb(var(--c-gray-100) / <alpha-value>)', 200:'rgb(var(--c-gray-200) / <alpha-value>)', 300:'rgb(var(--c-gray-300) / <alpha-value>)', 400:'rgb(var(--c-gray-400) / <alpha-value>)', 500:'rgb(var(--c-gray-500) / <alpha-value>)', 600:'rgb(var(--c-gray-600) / <alpha-value>)', 700:'rgb(var(--c-gray-700) / <alpha-value>)', 800:'rgb(var(--c-gray-800) / <alpha-value>)', 900:'rgb(var(--c-gray-900) / <alpha-value>)', 950:'rgb(var(--c-gray-950) / <alpha-value>)'},
+      red: {50:'rgb(var(--c-red-50) / <alpha-value>)', 100:'rgb(var(--c-red-100) / <alpha-value>)', 200:'rgb(var(--c-red-200) / <alpha-value>)', 300:'rgb(var(--c-red-300) / <alpha-value>)', 400:'rgb(var(--c-red-400) / <alpha-value>)', 500:'rgb(var(--c-red-500) / <alpha-value>)', 600:'rgb(var(--c-red-600) / <alpha-value>)', 700:'rgb(var(--c-red-700) / <alpha-value>)', 800:'rgb(var(--c-red-800) / <alpha-value>)', 900:'rgb(var(--c-red-900) / <alpha-value>)', 950:'rgb(var(--c-red-950) / <alpha-value>)'},
+      green: {50:'rgb(var(--c-green-50) / <alpha-value>)', 100:'rgb(var(--c-green-100) / <alpha-value>)', 200:'rgb(var(--c-green-200) / <alpha-value>)', 300:'rgb(var(--c-green-300) / <alpha-value>)', 400:'rgb(var(--c-green-400) / <alpha-value>)', 500:'rgb(var(--c-green-500) / <alpha-value>)', 600:'rgb(var(--c-green-600) / <alpha-value>)', 700:'rgb(var(--c-green-700) / <alpha-value>)', 800:'rgb(var(--c-green-800) / <alpha-value>)', 900:'rgb(var(--c-green-900) / <alpha-value>)', 950:'rgb(var(--c-green-950) / <alpha-value>)'},
+      orange: {50:'rgb(var(--c-orange-50) / <alpha-value>)', 100:'rgb(var(--c-orange-100) / <alpha-value>)', 200:'rgb(var(--c-orange-200) / <alpha-value>)', 300:'rgb(var(--c-orange-300) / <alpha-value>)', 400:'rgb(var(--c-orange-400) / <alpha-value>)', 500:'rgb(var(--c-orange-500) / <alpha-value>)', 600:'rgb(var(--c-orange-600) / <alpha-value>)', 700:'rgb(var(--c-orange-700) / <alpha-value>)', 800:'rgb(var(--c-orange-800) / <alpha-value>)', 900:'rgb(var(--c-orange-900) / <alpha-value>)', 950:'rgb(var(--c-orange-950) / <alpha-value>)'},
+      'control-line': 'rgb(var(--c-control-line) / <alpha-value>)', focus: 'rgb(var(--c-focus) / <alpha-value>)',
+      nav: {DEFAULT:'rgb(var(--c-nav) / <alpha-value>)', 'ink':'rgb(var(--c-nav-ink) / <alpha-value>)', 'soft':'rgb(var(--c-nav-soft) / <alpha-value>)', 'hover':'rgb(var(--c-nav-hover) / <alpha-value>)', 'active':'rgb(var(--c-nav-active) / <alpha-value>)', 'active-ink':'rgb(var(--c-nav-active-ink) / <alpha-value>)', 'active-line':'rgb(var(--c-nav-active-line) / <alpha-value>)'},
       yellow: {50:'rgb(var(--c-yellow-50) / <alpha-value>)', 100:'rgb(var(--c-yellow-100) / <alpha-value>)', 200:'rgb(var(--c-yellow-200) / <alpha-value>)', 300:'rgb(var(--c-yellow-300) / <alpha-value>)', 400:'rgb(var(--c-yellow-400) / <alpha-value>)', 500:'rgb(var(--c-yellow-500) / <alpha-value>)', 600:'rgb(var(--c-yellow-600) / <alpha-value>)', 700:'rgb(var(--c-yellow-700) / <alpha-value>)', 800:'rgb(var(--c-yellow-800) / <alpha-value>)', 900:'rgb(var(--c-yellow-900) / <alpha-value>)', 950:'rgb(var(--c-yellow-950) / <alpha-value>)'},
     },
     // Cobalt-kaartradius (#996, Koens nabouwronde): 10px zoals de mockup's
     // --r. Eén token; de uitrol per scherm volgt met de clusters.
-    borderRadius: { card: '0.625rem' },
-    fontFamily: { brand: ['"Radio Canada Big"','system-ui','sans-serif'],
+    // CR-11 block 1 (#1482): lg/xl/2xl are tokens too, Tailwind's values in
+    // :root and the admin's (controls 6 px, cards 10 px) under its shell.
+    borderRadius: { card: '0.625rem', lg: 'var(--r-lg)', xl: 'var(--r-xl)', '2xl': 'var(--r-2xl)' },
+    // #1482: the brand face is a token, so the admin shell can be Inter only.
+    fontFamily: { brand: ['var(--font-brand)'],
                   sans: ['Inter','system-ui','sans-serif'] },
   } }, plugins: [],
 }
@@ -84,7 +93,17 @@ cat > "$TMP/in.css" << 'CSS'
         --primary:rgb(var(--c-brand-ocean));--primary-hover:rgb(var(--c-brand-ocean-hover));--link:rgb(var(--c-link));--accent:rgb(var(--c-brand-accent));
         --ground:rgb(var(--c-ground));--surface:rgb(var(--c-surface));--surface-2:rgb(var(--c-surface-2));
         --ink:rgb(var(--c-ink));--ink-soft:rgb(var(--c-ink-soft));--line:rgb(var(--c-line));
-        --brand-font:"Radio Canada Big",system-ui,sans-serif;--sans:Inter,system-ui,sans-serif}
+        --brand-font:"Radio Canada Big",system-ui,sans-serif;--sans:Inter,system-ui,sans-serif;
+        /* CR-11 block 1 (#1482): Tailwind's own scales, radii and the brand face as
+           tokens. These are Tailwind's values: outside the admin shell nothing renders
+           differently. The admin shell redefines them below. */
+        --c-gray-50:249 250 251;--c-gray-100:243 244 246;--c-gray-200:229 231 235;--c-gray-300:209 213 219;--c-gray-400:156 163 175;--c-gray-500:107 114 128;--c-gray-600:75 85 99;--c-gray-700:55 65 81;--c-gray-800:31 41 55;--c-gray-900:17 24 39;--c-gray-950:3 7 18;
+        --c-red-50:254 242 242;--c-red-100:254 226 226;--c-red-200:254 202 202;--c-red-300:252 165 165;--c-red-400:248 113 113;--c-red-500:239 68 68;--c-red-600:220 38 38;--c-red-700:185 28 28;--c-red-800:153 27 27;--c-red-900:127 29 29;--c-red-950:69 10 10;
+        --c-green-50:240 253 244;--c-green-100:220 252 231;--c-green-200:187 247 208;--c-green-300:134 239 172;--c-green-400:74 222 128;--c-green-500:34 197 94;--c-green-600:22 163 74;--c-green-700:21 128 61;--c-green-800:22 101 52;--c-green-900:20 83 45;--c-green-950:5 46 22;
+        --c-orange-50:255 247 237;--c-orange-100:255 237 213;--c-orange-200:254 215 170;--c-orange-300:253 186 116;--c-orange-400:251 146 60;--c-orange-500:249 115 22;--c-orange-600:234 88 12;--c-orange-700:194 65 12;--c-orange-800:154 52 18;--c-orange-900:124 45 18;--c-orange-950:67 20 7;
+        --c-control-line:209 213 219;--c-focus:59 130 246;
+        --r-lg:.5rem;--r-xl:.75rem;--r-2xl:1rem;
+        --font-brand:"Radio Canada Big",system-ui,sans-serif}
   /* ── Ontwerpspoor golf 1 (#913): de PUBLIEKE schil in de Cobalt-richting ──
      Gekozen door Koen op de makersronde-mockups (#785, 13 september 2026):
      kobaltblauw draagt actie en selectie, koelere neutralen, zelfde
@@ -92,8 +111,9 @@ cat > "$TMP/in.css" << 'CSS'
      schil-onafhankelijk). Alleen waarden: geen template weet hiervan.
      Golf 2 trok de beheerschil bij in hetzelfde blok — beide schillen dragen
      nu Cobalt; het per-schil-mechanisme blijft staan voor de dag dat ze weer
-     uiteen willen. */
-  body[data-shell="site"],body[data-shell="admin"]{
+     uiteen willen. Die dag kwam met CR-11 block 1 (#1482): the admin shell has
+     its own block below, and this one is the site's alone. */
+  body[data-shell="site"]{
         --c-blue-50:234 240 255;--c-blue-100:220 230 253;--c-blue-200:189 207 250;--c-blue-300:150 175 244;--c-blue-400:100 136 234;--c-blue-500:61 99 218;--c-blue-600:44 83 206;--c-blue-700:36 75 197;--c-blue-800:29 60 158;--c-blue-900:23 46 119;--c-blue-950:15 29 75;
         --c-brand:36 75 197;--c-brand-ocean:36 75 197;--c-brand-ocean-hover:29 60 158;
         --c-link:36 75 197;
@@ -105,7 +125,33 @@ cat > "$TMP/in.css" << 'CSS'
      kant expliciet langsgaat. Templates schrijven text-kop en weten van geen
      schil. */
   body[data-shell="site"]{--c-kop:36 75 197}
-  body[data-shell="admin"]{--c-kop:25 38 56}
+  /* ── CR-11 block 1 (#1482): the admin shell in palette Atelier ─────────────
+     Decided by Koen on 2 October 2026; the norm is design-system-end-state.md
+     §1.1, §1.2, §1.6. The brand blue 37 78 115 carries action and selection, the
+     neutrals are cool greys, and the house style's eight colours are no longer
+     the admin's palette. Warning is a real orange, 194 65 12 (block 3). Tailwind's
+     scales the templates already use are redefined here, so not one template
+     changes: blue around the brand, gray as the Atelier neutrals, red as danger,
+     green as success, orange 600–800 as warning. Radius: controls 6 px, cards
+     10 px; the face is Inter alone (Radio Canada Big leaves the admin). */
+  body[data-shell="admin"]{
+        --c-blue-50:230 239 247;--c-blue-100:210 224 236;--c-blue-200:156 184 210;--c-blue-300:118 152 182;--c-blue-400:72 116 154;--c-blue-500:25 95 157;--c-blue-600:31 70 110;--c-blue-700:37 78 115;--c-blue-800:25 57 88;--c-blue-900:20 45 70;--c-blue-950:12 28 45;
+        --c-brand:37 78 115;--c-brand-ocean:37 78 115;--c-brand-ocean-hover:25 57 88;--c-brand-danger:166 37 37;--c-brand-warning:194 65 12;
+        --c-link:37 78 115;--c-kop:33 45 58;
+        --c-ink:33 45 58;--c-ink-soft:83 99 115;
+        --c-line:216 224 230;--c-ground:244 246 248;--c-surface:255 255 255;--c-surface-2:240 243 246;
+        --c-control-line:126 143 158;--c-focus:25 95 157;
+        --c-nav:255 255 255;--c-nav-ink:50 66 81;--c-nav-soft:92 106 118;--c-nav-hover:240 244 247;--c-nav-active:230 239 247;--c-nav-active-ink:29 65 98;--c-nav-active-line:210 224 236;
+        --c-gray-50:244 246 248;--c-gray-100:240 243 246;--c-gray-200:216 224 230;--c-gray-300:190 201 210;--c-gray-400:126 143 158;--c-gray-500:83 99 115;--c-gray-600:83 99 115;--c-gray-700:50 66 81;--c-gray-800:33 45 58;--c-gray-900:33 45 58;--c-gray-950:20 28 36;
+        --c-red-50:251 236 236;--c-red-100:248 222 222;--c-red-200:238 190 190;--c-red-300:222 150 150;--c-red-400:200 90 90;--c-red-500:184 52 52;--c-red-600:166 37 37;--c-red-700:146 31 31;--c-red-800:125 26 26;--c-red-900:100 21 21;--c-red-950:60 12 12;
+        --c-green-50:226 243 231;--c-green-100:214 237 222;--c-green-200:180 222 196;--c-green-300:130 196 158;--c-green-400:70 160 118;--c-green-500:40 130 92;--c-green-600:30 115 80;--c-green-700:24 103 72;--c-green-800:24 103 72;--c-green-900:18 78 55;--c-green-950:10 45 32;
+        --c-orange-100:255 237 213;--c-orange-600:194 65 12;--c-orange-700:194 65 12;--c-orange-800:194 65 12;
+        /* Yellow is the admin's warning tone (the `yellow` badge: Openstaand,
+           Terug te betalen, a draft, a blocked answer) and the accent is not used
+           in the admin at all (§1.1), so its scale is the warning orange here. */
+        --c-yellow-50:255 247 237;--c-yellow-100:255 237 213;--c-yellow-200:254 215 170;--c-yellow-300:253 186 116;--c-yellow-400:251 146 60;--c-yellow-500:234 88 12;--c-yellow-600:194 65 12;--c-yellow-700:194 65 12;--c-yellow-800:194 65 12;--c-yellow-900:154 52 18;--c-yellow-950:67 20 7;
+        --r-lg:6px;--r-xl:10px;--r-2xl:10px;
+        --font-brand:Inter,system-ui,sans-serif}
   html{font-family:Inter,system-ui,sans-serif}
   /* Koppen in Inter (golf 1 variant B, door Koen gekozen op het
      goedkeuringspakket; golf 2 trok de beheerschil bij — één typografie,
@@ -127,7 +173,7 @@ cat > "$TMP/in.css" << 'CSS'
      0,1,0), dus de oorspronkelijke bedoeling blijft overeind. Een kale selector
      zónder `:where()` zou dat wél breken: `input[type="text"]` is 0,1,1 en zou
      `.px-2` verslaan. */
-  html :where(input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],input[type="url"],input[type="date"],input[type="time"],input[type="datetime-local"],input:not([type]),select,textarea){border:1px solid #d1d5db;border-radius:.5rem;padding:.5rem .75rem;font-size:.875rem;line-height:1.25rem;background-color:#fff;color:#111827}
+  html :where(input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],input[type="url"],input[type="date"],input[type="time"],input[type="datetime-local"],input:not([type]),select,textarea){border:1px solid rgb(var(--c-control-line));border-radius:var(--r-lg);padding:.5rem .75rem;font-size:.875rem;line-height:1.25rem;background-color:#fff;color:#111827}
   /* Expliciete hoogte (#677). Gelijke padding en lettergrootte volstaan NIET: een
      <select> krijgt van de browser intrinsieke ruimte voor zijn pijltje en een
      eigen minimumhoogte, een <input> niet. Enkele pixels verschil, en omdat de
@@ -195,6 +241,37 @@ body.htmx-loading #nprogress{width:80%;opacity:1}
 .kpi-strip>*{min-width:0}
 .kpi-strip>*>:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .kpi-strip>*>:nth-child(2){flex-shrink:0}
+/* ── CR-11 block 1 (#1482): the admin frame ─────────────────────────────────
+   design-system-end-state §1.4. The sidebar is fixed and the frame beside it
+   keeps its distance with `--nav-current`: 224 px, 64 px as a rail (the class
+   `nav-rail` on <html>, set by `raakNav` in admin_base.html from the width and
+   the user's choice), 0 below 768 px, where the same element is a drawer
+   (`is-open`). In the rail the labels go and the label is the tooltip; a
+   group's heading becomes a thin line. Outside @layer: these classes are set
+   by script and state, and Tailwind would prune them. No value here that is
+   not a token or a size of the norm. */
+body[data-shell="admin"]{--nav-current:224px}
+html.nav-rail body[data-shell="admin"]{--nav-current:64px}
+.admin-sidebar{position:fixed;bottom:0;left:0;z-index:30;width:var(--nav-current);display:flex;flex-direction:column;background:rgb(var(--c-nav));border-right:1px solid rgb(var(--c-line));color:rgb(var(--c-nav-ink));overflow:hidden}
+.admin-frame{margin-left:var(--nav-current);min-width:0}
+.admin-content:has([data-list-page]){max-width:none}
+.nav-drawer-only,.nav-when-rail{display:none}
+html.nav-rail .admin-sidebar:not(.is-open) .nav-label{display:none}
+html.nav-rail .admin-sidebar:not(.is-open) .nav-rail-mark{display:block}
+html.nav-rail .admin-sidebar:not(.is-open) .nav-link{justify-content:center;padding-inline:0}
+html.nav-rail .admin-sidebar:not(.is-open) .admin-sidebar-brand{justify-content:center;padding-inline:8px}
+html.nav-rail .admin-sidebar:not(.is-open) .nav-heading{height:8px;padding:0;border-top:1px solid rgb(var(--c-line)/.5);pointer-events:none}
+html.nav-rail .nav-when-rail{display:inline-flex}
+html.nav-rail .nav-when-wide{display:none}
+.admin-backdrop{position:fixed;inset:0;z-index:40;background:rgb(var(--c-ink)/.32)}
+@media (width < 768px){
+  html body[data-shell="admin"],html.nav-rail body[data-shell="admin"]{--nav-current:0px}
+  .admin-sidebar{display:none}
+  .admin-sidebar.is-open{display:flex;top:0;width:312px;max-width:100%;z-index:50;box-shadow:0 12px 40px rgb(var(--c-ink)/.16)}
+  .admin-sidebar.is-open .nav-drawer-only{display:inline-flex}
+  .admin-sidebar.is-open .nav-link{min-height:44px}
+  .nav-desktop-only{display:none}
+}
 /* View Transitions bij gebooste navigatie: kort, anders voelt het traag. */
 @view-transition{navigation:auto}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:120ms}

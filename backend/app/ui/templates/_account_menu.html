@@ -10,6 +10,9 @@
 {% if _signed_in %}<p class="px-4 pt-2 pb-1 text-xs text-ink-soft">{{ _("Aangemeld als") }}<span class="block text-sm text-ink truncate" title="{{ _signed_in.email }}">{{ _signed_in.email }}</span></p>
 <div class="border-t border-line my-1"></div>{% endif %}
 <a href="/admin/profiel" class="block px-4 py-2 text-sm text-ink hover:bg-surface-2">{{ _("Mijn profiel") }}</a>
+{# #1482: "Naar de site" left the top bar (§1.4 names what the bar carries) and
+   lives here. path_for (#889): on a platform host the tenant's site is /{code}. #}
+<a href="{{ path_for('/') }}" hx-boost="false" class="block px-4 py-2 text-sm text-ink hover:bg-surface-2">{{ _("Naar de site") }} ↗</a>
 {% if toon_wisselen %}
 <a href="/admin/werkruimte-wisselen" class="block px-4 py-2 text-sm text-ink hover:bg-surface-2">{{ _("Werkruimte wisselen") }}</a>
 {% endif %}

@@ -518,6 +518,33 @@ def _resolve_layout() -> list[tuple[str | None, list[tuple[str, str]]]]:
     ]
 
 
+#: The icon of each menu item (CR-11 block 1, #1482). Below 1 440 px the
+#: sidebar is a rail of icons alone, the label a tooltip, so every item of the
+#: layout has one — `tests/test_admin_frame_gate.py` holds that. None is a
+#: verb's glyph (design-system-end-state §1.5, one meaning per glyph).
+_ADMIN_NAV_ICONS: dict[str, str] = {
+    "/admin/werkbank": "list-todo",
+    "/admin/activiteiten": "calendar-days",
+    "/admin/leden": "users",
+    "/admin/formulieren": "clipboard-list",
+    "/admin/paginas": "panels-top-left",
+    "/admin/media": "image",
+    "/admin/ai-context": "book-open",
+    "/admin/betalingen": "wallet",
+    "/admin/vergaderingen": "presentation",
+    "/admin/nieuwsbrieven": "newspaper",
+    "/admin/ontwerpen": "palette",
+    "/admin": "layout-dashboard",
+    "/admin/rapporten": "chart-pie",
+    "/admin/rapporten/raakje": "sparkles",
+    "/admin/gebruikers": "user-cog",
+    "/admin/ledenwijzigingen": "history",
+    "/admin/e-maillog": "inbox",
+    "/admin/organisaties": "building-2",
+    "/admin/tenants": "globe",
+    "/admin/info": "info",
+}
+
 #: The full menu, every module on — what a VERENIGING sees.
 _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = _resolve_layout()
 
@@ -645,7 +672,13 @@ def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
         {
             "label": _(label) if label else None,
             "items": [
-                {"href": href, "label": _(lbl), "active": href == active} for href, lbl in items
+                {
+                    "href": href,
+                    "label": _(lbl),
+                    "active": href == active,
+                    "icon": _ADMIN_NAV_ICONS[href],
+                }
+                for href, lbl in items
             ],
         }
         for label, items in groepen

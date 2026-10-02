@@ -88,7 +88,9 @@ def test_het_beheermenu_blijft_dicht_na_een_gebooste_navigatie(telefoon_page):
     page = telefoon_page
     page.goto("/admin/leden")
     pagina_klaar(page)
-    menu = page.locator("#admin-nav-mobiel")
+    # Since CR-11 block 1 (#1482) the phone's menu is the sidebar itself, as a
+    # drawer: `#admin-zijbalk`, closed on a phone until the menu button.
+    menu = page.locator("#admin-zijbalk")
     assert not menu.is_visible(), "het menu stond bij het laden al open"
 
     _boost_naar(page, '#admin-nav-zijbalk a[href="/admin/activiteiten"]')
