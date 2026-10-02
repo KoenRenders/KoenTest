@@ -334,6 +334,17 @@ def count_registration_records_by_activity(db: Session, activity_id: int) -> int
     )
 
 
+def open_refund_amount(db: Session, payable_type: PayableType | str, payable_id: int) -> Decimal:
+    """What is waiting to be refunded on this payable, as a positive amount (#1494):
+    the refunds not confirmed yet (`amount_paid` empty). A screen says it after an
+    order went down, so the board sees the money it now owes."""
+    total = Decimal("0")
+    for record in get_records_for(db, payable_type, payable_id):
+        if code_of(record.type) == "refund" and record.amount_paid is None:
+            total += -Decimal(str(record.amount))
+    return total
+
+
 def get_records_for(
     db: Session, payable_type: PayableType | str, payable_id: int
 ) -> list[PaymentRecord]:

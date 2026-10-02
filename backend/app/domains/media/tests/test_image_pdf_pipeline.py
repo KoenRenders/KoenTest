@@ -37,8 +37,8 @@ def test_process_image_resizes_large_image():
     buf = BytesIO()
     Image.new("RGB", (3000, 1000), (10, 10, 10)).save(buf, "PNG")
     out = process_image(buf.getvalue())
-    # LANCZOS-resize tot max 1600 langste zijde.
-    assert out["width"] <= 1600 and out["height"] <= 1600
+    # LANCZOS-resize tot max 2400 langste zijde (#1473, één maat voor elke soort).
+    assert (out["width"], out["height"]) == (2400, 800)
 
 
 def test_pypdf_reader_api_still_works():

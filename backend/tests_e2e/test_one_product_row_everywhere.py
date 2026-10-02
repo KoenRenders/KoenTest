@@ -12,7 +12,7 @@ measures on the DOM:
   out of reach);
 - a quantity raised with `+` moves the total, and no row carries that amount:
   there is no line amount;
-- on the edit screen the "Product toevoegen" quantity is a counter too;
+- on the edit screen every product of the component is a counter row (#1494);
 - nothing sticks out of the screen.
 
 It counts before it measures: each screen must show at least one product row.
@@ -200,17 +200,15 @@ def test_editing_has_the_one_row(browser, setup, registration, width):
         panel = page.locator("div.bg-gray-50.border", has=page.locator('form[id^="insch-form-"]'))
         panel.first.get_by_role("button", name="Bewerken").first.click()
         rows = _check_rows(page, f"edit @{width}")
-        assert all("Verwijderen" in r["text"] for r in rows), rows
+        # #1494: every product is a counter row; no "Verwijderen" beside it.
+        assert not any("Verwijderen" in r["text"] for r in rows), rows
 
         _plus(page, setup["product"])  # 2 → 3, recalculated, not stored
         form = page.locator('form[id^="insch-form-"]').first
         assert "30,00" in form.inner_text(), "the total does not follow the counter"
         _no_line_amount(page, "30,00", f"edit @{width}")
 
-        adding = form.locator('input[name="quantity"]')
-        assert adding.count() == 1, "no quantity for Product toevoegen"
-        assert (
-            adding.locator("xpath=../button[starts-with(@aria-label,'Eén meer')]").count() == 1
-        ), "Product toevoegen has no counter"
+        # #1494: no "Product toevoegen" any more — the card lists every product.
+        assert form.locator('select[name="product_id"]').count() == 0
     finally:
         context.close()

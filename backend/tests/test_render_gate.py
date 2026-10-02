@@ -322,3 +322,35 @@ def test_de_gate_ziet_ook_de_aanmaakschermen(client, gevulde_admin):
         f"de gate ziet er nog maar {len(gezien)}; kwam de paginalijst terug uit een "
         "handgeschreven opsomming?"
     )
+
+
+def test_the_menu_per_kind_renders_and_what_is_off_is_404(client, gevulde_admin, monkeypatch):
+    """CR-19 C6 test 5 (#1476): the render gate per kind of tenant.
+
+    A tenant with the company's modules: every item of ITS menu renders, and
+    every module that is off answers 404 on its own menu item. The association
+    is the gate above — every item of the full menu renders. The company kind
+    is seeded by #1478; until then the gate sets the module set itself.
+    """
+    from app.domains.mdm import tenant_lookup
+    from app.domains.mdm.api import invalidate_tenant_codes
+    from app.kernel.modules import DEFAULTS, MODULES
+    from app.kernel.tenancy import TENANT_MILLEGEM_ID
+    from app.ui import admin_nav
+
+    company = frozenset(code.value for code in DEFAULTS["BEDRIJF"])
+    invalidate_tenant_codes()
+    monkeypatch.setattr(tenant_lookup, "_modules_cache", {TENANT_MILLEGEM_ID: company})
+    try:
+        menu = [i["href"] for g in admin_nav("", modules=company) for i in g["items"]]
+        assert "/admin/media" in menu and "/admin/activiteiten" not in menu, menu
+        broken = [p for p in menu if client.get(p).status_code != 200]
+        off = [m for m in MODULES if m.code.value not in company and m.admin_items]
+        assert off, "the company has modules off"
+        live = [
+            m.admin_items[0][0] for m in off if client.get(m.admin_items[0][0]).status_code != 404
+        ]
+    finally:
+        invalidate_tenant_codes()
+    assert not broken, f"items of the company's menu that do not render: {broken}"
+    assert not live, f"menu items of modules that are off, still answering: {live}"

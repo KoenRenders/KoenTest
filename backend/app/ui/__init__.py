@@ -427,28 +427,28 @@ templates.env.globals["path_for"] = path_for
 # ERP-horizon bijkomt zou de verhuis duurder maken. De groepen zijn de bron;
 # `_ADMIN_NAV` wordt eruit afgeleid voor wie de vlakke lijst nodig heeft
 # (de render-gate bezoekt élk item, groep of niet).
-_ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
-    (None, [("/admin/werkbank", "Werkbank")]),
+_ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
+    (None, ["/admin/werkbank"]),
     (
         "Werking",
         [
-            ("/admin/activiteiten", "Activiteiten"),
-            ("/admin/leden", "Leden"),
-            ("/admin/formulieren", "Formulieren"),
+            "/admin/activiteiten",
+            "/admin/leden",
+            "/admin/formulieren",
         ],
     ),
     (
         "Inhoud",
         [
-            ("/admin/paginas", "Pagina's"),
-            ("/admin/media", "Media"),
-            ("/admin/ai-context", "Raakje"),
+            "/admin/paginas",
+            "/admin/media",
+            "/admin/ai-context",
         ],
     ),
     (
         "Financieel",
         [
-            ("/admin/betalingen", "Betalingen"),
+            "/admin/betalingen",
         ],
     ),
     # Communicatie (#258): wat naar buiten gaat. De vergaderingen gaan naar het
@@ -456,10 +456,10 @@ _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
     (
         "Communicatie",
         [
-            ("/admin/vergaderingen", "Vergaderingen"),
-            ("/admin/nieuwsbrieven", "Nieuwsbrief"),
+            "/admin/vergaderingen",
+            "/admin/nieuwsbrieven",
             # Design Studio (#1007, CR-10): affiches en sociale beelden uit een activiteit.
-            ("/admin/ontwerpen", "Design Studio"),
+            "/admin/ontwerpen",
         ],
     ),
     # Inzicht (Rapporten is niet enkel financieel; het dashboard verdient een
@@ -468,13 +468,13 @@ _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
         "Inzicht",
         [
             ("/admin", "Dashboard"),
-            ("/admin/rapporten", "Rapporten"),
+            "/admin/rapporten",
             # #1117: de beheer-assistent gaat breder dan de rapporten — hij
             # beantwoordt vragen over betalingen, leden, activiteiten en taken. Hem
             # onder Rapporten laten wonen verkleint hem tot één van zijn onderwerpen
             # en je moet er langs de rapportenlijst naartoe. Vandaar een eigen regel,
             # en vandaar `AI · Raakje`: geen scherm, geen selectie — de assistent zelf.
-            ("/admin/rapporten/raakje", "AI · Raakje"),
+            "/admin/rapporten/raakje",
         ],
     ),
     (
@@ -499,6 +499,54 @@ _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
         ],
     ),
 ]
+
+
+def _resolve_layout() -> list[tuple[str | None, list[tuple[str, str]]]]:
+    """The layout with every module item's label taken from the registry (#1476).
+
+    A module's item is named in the layout by its href only: the label lives
+    once, in `kernel.modules`, beside the module that owns it. The layout keeps
+    what the registry does not know — the groups and their order — and the
+    shell items (Dashboard, Gebruikers, Info, …) that belong to no module.
+    """
+    from app.kernel.modules import MODULES
+
+    labels = {href: label for module in MODULES for href, label in module.admin_items}
+    return [
+        (group, [item if isinstance(item, tuple) else (item, labels[item]) for item in items])
+        for group, items in _ADMIN_NAV_LAYOUT
+    ]
+
+
+#: The icon of each menu item (CR-11 block 1, #1482). Below 1 440 px the
+#: sidebar is a rail of icons alone, the label a tooltip, so every item of the
+#: layout has one — `tests/test_admin_frame_gate.py` holds that. None is a
+#: verb's glyph (design-system-end-state §1.5, one meaning per glyph).
+_ADMIN_NAV_ICONS: dict[str, str] = {
+    "/admin/werkbank": "list-todo",
+    "/admin/activiteiten": "calendar-days",
+    "/admin/leden": "users",
+    "/admin/formulieren": "clipboard-list",
+    "/admin/paginas": "panels-top-left",
+    "/admin/media": "image",
+    "/admin/ai-context": "book-open",
+    "/admin/betalingen": "wallet",
+    "/admin/vergaderingen": "presentation",
+    "/admin/nieuwsbrieven": "newspaper",
+    "/admin/ontwerpen": "palette",
+    "/admin": "layout-dashboard",
+    "/admin/rapporten": "chart-pie",
+    "/admin/rapporten/raakje": "sparkles",
+    "/admin/gebruikers": "user-cog",
+    "/admin/ledenwijzigingen": "history",
+    "/admin/e-maillog": "inbox",
+    "/admin/organisaties": "building-2",
+    "/admin/tenants": "globe",
+    "/admin/info": "info",
+}
+
+#: The full menu, every module on — what a VERENIGING sees.
+_ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = _resolve_layout()
 
 _ADMIN_NAV: list[tuple[str, str]] = [item for _, _items in _ADMIN_NAV_GROEPEN for item in _items]
 
@@ -589,25 +637,48 @@ def sort_description(column_label: str, direction: str, is_date: bool = False) -
     return sjabloon % {"kolom": column_label}
 
 
-def admin_nav(active: str, roles=None) -> list[dict]:
+def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
     """Navigatiegroepen voor de AdminShell; `active` is de href van het scherm.
 
     Sinds golf 2 (#913) per werkgebied: [{"label": ..|None, "items": [...]}].
 
     Role-aware (#530): een FINANCE-only gebruiker (geen ADMIN/OPERATOR) mag enkel de
     betalingen-schermen openen — toon dan enkel Betalingen, zodat de nav niet vol
-    links staat die 403'en. ADMIN/OPERATOR (of geen `roles` meegegeven) zien alles."""
-    from app.i18n import _
+    links staat die 403'en. ADMIN/OPERATOR (of geen `roles` meegegeven) zien alles.
 
-    groepen = _ADMIN_NAV_GROEPEN
+    Module-aware (CR-19, #1476): an item of a module that is off for this
+    tenant is left out (`kernel.modules.nav_item_shown`), and a group left
+    empty goes with it. `modules` is the enabled set; by default the one of
+    this request. So this is called per request — a constant computed at
+    import time would freeze the menu of no tenant at all."""
+    from app.domains.mdm.api import current_enabled_modules
+    from app.i18n import _
+    from app.kernel.modules import nav_item_shown
+
+    enabled = modules if modules is not None else current_enabled_modules()
+    groepen = [
+        (label, [(h, lbl) for h, lbl in items if nav_item_shown("admin_items", h, enabled)])
+        for label, items in _ADMIN_NAV_GROEPEN
+    ]
     if roles is not None and not ({"ADMIN", "OPERATOR"} & set(roles)):
         # FINANCE-only: één ongelabelde groep met enkel Betalingen.
-        groepen = [(None, [(h, lbl) for h, lbl in _ADMIN_NAV if h == "/admin/betalingen"])]
+        groepen = [
+            (
+                None,
+                [(h, lbl) for _g, items in groepen for h, lbl in items if h == "/admin/betalingen"],
+            )
+        ]
     return [
         {
             "label": _(label) if label else None,
             "items": [
-                {"href": href, "label": _(lbl), "active": href == active} for href, lbl in items
+                {
+                    "href": href,
+                    "label": _(lbl),
+                    "active": href == active,
+                    "icon": _ADMIN_NAV_ICONS[href],
+                }
+                for href, lbl in items
             ],
         }
         for label, items in groepen
@@ -648,10 +719,10 @@ def _huidige_gebruiker(db, request) -> dict | None:
 def _site_logo_url(db) -> str | None:
     """De URL van het verenigingslogo, of None. Mag het renderen nooit breken."""
     try:
-        from app.domains.media.api import tenant_logo
+        from app.domains.media.api import media_url, tenant_logo
 
         asset = tenant_logo(db)
-        return f"/api/v1/media/{asset.id}" if asset is not None else None
+        return media_url(asset.id) if asset is not None else None
     except Exception:
         return None
 
@@ -802,6 +873,27 @@ def _sociale_links(db, organisatie) -> list[dict]:
     return links
 
 
+#: Where a public link lands when that is not its own path: /archief is a
+#: redirect to /activiteiten/archief (#405-e), and `navlink` underlines the
+#: link on the page it lands on.
+_PUBLIC_NAV_LANDS_ON = {"/archief": "/activiteiten/archief"}
+
+
+def _public_nav(field: str) -> list[dict]:
+    """The site shell's links of one registry field, for this request (#1476)."""
+    from app.domains.mdm.api import current_enabled_modules
+    from app.i18n import _
+    from app.kernel.modules import MODULES, nav_item_shown
+
+    enabled = current_enabled_modules()
+    return [
+        {"href": href, "label": _(label), "match": _PUBLIC_NAV_LANDS_ON.get(href)}
+        for module in MODULES
+        for href, label in getattr(module, field)
+        if nav_item_shown(field, href, enabled)
+    ]
+
+
 def site_context(db, request=None) -> dict:
     """Gedeelde context van de SiteShell (site_base.html): navigatie-pagina's,
     footer-blok en sponsors. Eén plek, elke publieke route neemt hem mee."""
@@ -809,8 +901,10 @@ def site_context(db, request=None) -> dict:
 
     from app.domains.auth.api import csrf_from_request
     from app.domains.cms.api import CmsPage, render_cms_content
-    from app.domains.mdm.api import Organization, OrganizationType
-    from app.domains.media.api import MediaAsset, MediaKind
+    from app.domains.mdm.api import Organization, OrganizationType, TenantKind, module_enabled
+    from app.domains.media.api import MediaAsset, MediaKind, media_url
+    from app.i18n import _
+    from app.kernel.modules import ModuleCode
     from app.kernel.tenant_config import _actieve_tenant
 
     # Dezelfde tenantresolutie als de rest van de configuratie (#924): buiten een
@@ -872,10 +966,19 @@ def site_context(db, request=None) -> dict:
 
     return {
         "nav_pages": pages,
+        # CR-19 (#1476): the module links of the header, from the registry —
+        # what a module that is off lists or serves is not there.
+        "public_nav": _public_nav("public_items"),
+        "member_nav": _public_nav("member_items"),
         "footer_block": footer_block,
-        "sponsors": sponsors,
+        # #1473: the address comes from media; the footer writes none itself.
+        "sponsors": [
+            {"title": s.title, "link_url": s.link_url, "url": media_url(s.id)} for s in sponsors
+        ],
         "current_year": date.today().year,
-        "chat_enabled": settings.chat_enabled,
+        # CR-19 (#1477): and only with the chatbot module on for this tenant —
+        # the bubble would otherwise post to a route that answers 404.
+        "chat_enabled": settings.chat_enabled and module_enabled(ModuleCode.CHATBOT),
         "stt_mode": settings.stt_mode,  # spraakinvoer in de widget (#567)
         "gebruiker": _huidige_gebruiker(db, request),
         # Branding per tenant (#407/#519): naam/tagline/Facebook uit de
@@ -922,8 +1025,18 @@ def site_context(db, request=None) -> dict:
         # verstuurt geen nieuwsbrief.
         # CR-19 C6 test 11: the member, not the string. `org_type` is a CodeEnum,
         # which never equals "PLATFORM", so the platform showed the link too.
+        # CR-19 (#1477): and only with the newsletter module on.
         "nieuwsbrief_inschrijven": (
-            organisatie is not None and organisatie.org_type is not OrganizationType.PLATFORM
+            organisatie is not None
+            and organisatie.org_type is not OrganizationType.PLATFORM
+            and module_enabled(ModuleCode.NEWSLETTER)
+        ),
+        # CR-19 (#1477): what the line above the sponsor logos says. A company
+        # has partners; an association keeps the words it has always had.
+        "sponsors_kop": (
+            _("Partners")
+            if organisatie is not None and organisatie.kind is TenantKind.COMPANY
+            else _("Met steun van")
         ),
         # Privacyverklaring-link per tenant (#493, raakt #453): leeg = niet tonen.
         "privacy_url": get_setting(db, "privacy_url") or None,

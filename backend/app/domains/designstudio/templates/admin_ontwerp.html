@@ -90,22 +90,17 @@
       </div>
 
       <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Beelden") }}</h3>
-      <div class="grid grid-cols-3 gap-3">
+      {# #1473: one slot per row at every width — a picker (thumbnail, button and
+         "Weghalen") does not fit a third of the form: measured at 1440 px the
+         column was 180 px and the button broke over two lines beside the thumbnail. #}
+      <div class="space-y-3">
         {% for slot, label, current in (("main_image_id", _("Hoofdbeeld"), main_image_id), ("inset_image_id", _("Polaroid"), inset_image_id), ("third_image_id", _("Derde beeld"), third_image_id)) %}
         <div>
-          {{ ui.label(label, "ds-" ~ slot) }}
+          <p class="text-sm font-medium text-ink">{{ label }}</p>
           {% if slot == "third_image_id" %}<p class="text-xs text-ink-soft -mt-1 mb-1">{{ _("Linksonder, onder de kernpunten; alleen in de opmaak 'met beeld'.") }}</p>{% endif %}
-          {% call ui.select_control(slot, cls="w-full", attrs='id="ds-' ~ slot ~ '"') %}
-            <option value="">{{ _("— geen —") }}</option>
-            {# #1397: this activity's own pictures first, then per earlier activity
-               under its own heading — a reference, the picture stays there. #}
-            {% set ns = namespace(group="") %}
-            {% for opt in image_options %}
-            {% if opt.group != ns.group %}{% if ns.group %}</optgroup>{% endif %}<optgroup label="{{ _("Van %(activiteit)s", activiteit=opt.group) }}">{% set ns.group = opt.group %}{% endif %}
-            <option value="{{ opt.id }}"{% if opt.id == current %} selected{% endif %}>{{ opt.label }}</option>
-            {% endfor %}
-            {% if ns.group %}</optgroup>{% endif %}
-          {% endcall %}
+          {# CR-15 (#1473): the picker over the whole library — last year's photos
+             first for a copied activity. A reference: the picture stays where it is. #}
+          {{ ui.media_picker(slot, value=current, value_thumb=slot_thumbs[slot], for_activity_id=activity_id, title=label, clearable=True) }}
         </div>
         {% endfor %}
       </div>
@@ -148,7 +143,7 @@
       <input type="hidden" name="layout" value="{{ layout }}">
       <h2 class="text-sm font-semibold text-ink">{{ _("Foto toevoegen") }}</h2>
       <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
-        <div class="min-w-0 [&_input]:max-w-full">{{ ui.upload_field(name="file", text=_("Bestand"), accept="image/*", hint=_("Wordt bewaard tot 4096 px; groot genoeg voor A3.")) }}</div>
+        <div class="min-w-0 [&_input]:max-w-full">{{ ui.upload_field(name="file", text=_("Bestand"), accept="image/*", hint=_("Wordt bewaard tot 2 400 px aan de lange zijde; genoeg voor een A3-affiche.")) }}</div>
         <div>
           {{ ui.label(_("Plaats"), "ds-upload-slot") }}
           {% call ui.select_control("slot", attrs='id="ds-upload-slot"') %}

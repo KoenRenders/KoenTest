@@ -1562,6 +1562,102 @@ def delete_order_line(
     return reg
 
 
+def set_order_quantities(
+    db: Session,
+    activity_id: int,
+    registration_id: int,
+    quantities: dict[int, int],
+    *,
+    actor: str | None = None,
+) -> Registration | None:
+    """Bring the order to these quantities per product, in ONE transaction (#1494).
+
+    The card shows every product of the component as a counter: 0 is "not
+    chosen". Against what is stored, 0 → n adds a line, n → m changes it, n → 0
+    removes it — the same three changes the separate routes made, with the same
+    audit snapshots, but one commit and one reconciliation: the charges follow
+    the whole new order at once (#185). Removing a paid line refuses nothing,
+    exactly as "Verwijderen" did; the payment side prepares the refund.
+
+    None when the registration is not found; a product that is not the
+    component's is refused (`controleer_bestelproduct`), before anything changes.
+    """
+    from app.domains.activities.models import RegistrationItem
+    from app.domains.audit.api import snapshot_registration_item
+    from app.i18n import _ as vertaal
+    from app.soft_delete import soft_delete
+
+    reg = _registratie(db, activity_id, registration_id)
+    if reg is None:
+        return None
+    for product_id, quantity in quantities.items():
+        if quantity < 0:
+            raise ActiviteitFout(vertaal("Aantal kan niet negatief zijn."))
+        if controleer_bestelproduct(db, activity_id, reg, product_id) is None:
+            raise ActiviteitFout(vertaal("Dit product hoort niet bij dit onderdeel."))
+
+    per_product: dict[int, list] = {}
+    for item in reg.items or []:
+        per_product.setdefault(item.product_id, []).append(item)
+    changed = False
+    for product_id, quantity in quantities.items():
+        items = per_product.get(product_id, [])
+        if quantity == sum(i.quantity for i in items):
+            continue
+        changed = True
+        if quantity == 0:
+            for item in items:
+                snapshot_registration_item(
+                    db,
+                    item,
+                    operation="delete",
+                    action="order_changed",
+                    source="admin_manual",
+                    actor=actor,
+                )
+                soft_delete(item)
+        elif items:
+            # One line per product since #197; an older second line folds in.
+            first, *rest = items
+            first.quantity = quantity
+            db.flush()
+            snapshot_registration_item(
+                db,
+                first,
+                operation="update",
+                action="order_changed",
+                source="admin_manual",
+                actor=actor,
+            )
+            for item in rest:
+                snapshot_registration_item(
+                    db,
+                    item,
+                    operation="delete",
+                    action="order_changed",
+                    source="admin_manual",
+                    actor=actor,
+                )
+                soft_delete(item)
+        else:
+            item = RegistrationItem(
+                registration_id=reg.id, product_id=product_id, quantity=quantity
+            )
+            db.add(item)
+            db.flush()
+            snapshot_registration_item(
+                db,
+                item,
+                operation="insert",
+                action="order_changed",
+                source="admin_manual",
+                actor=actor,
+            )
+    if changed:
+        _herbereken(db, reg, actor)
+    return reg
+
+
 def _herbereken(db: Session, reg: Registration, actor: Optional[str]) -> None:
     """De betaalposten volgen de bestelling (#185) — through an event since CR-13
     phase 1, and in ONE transaction.

@@ -28,7 +28,7 @@ from app.ui import admin_nav, filterparams, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
 
-NAV = admin_nav("/admin/leden")
+NAV = "/admin/leden"
 
 
 def _codes(db: Session) -> dict:
@@ -192,7 +192,7 @@ def leden_page(
     request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
 ):
     return templates.TemplateResponse(
-        request, "leden.html", _lijst_view(request, db, nav_items=NAV).as_context()
+        request, "leden.html", _lijst_view(request, db, nav_items=admin_nav(NAV)).as_context()
     )
 
 
@@ -218,7 +218,7 @@ def lid_nieuw(
         request,
         "leden_nieuw.html",
         {
-            "nav_items": NAV,
+            "nav_items": admin_nav(NAV),
             "csrf_token": csrf_from_request(request),
             "postal_codes": list_postal_codes(db),
             "values": {},
@@ -288,7 +288,7 @@ async def gezin_aanmaken(
             request,
             "leden_nieuw.html",
             {
-                "nav_items": NAV,
+                "nav_items": admin_nav(NAV),
                 "csrf_token": csrf_from_request(request),
                 "postal_codes": list_postal_codes(db),
                 "values": values,
@@ -349,7 +349,11 @@ def gezin_detail(
     return templates.TemplateResponse(
         request,
         "leden_gezin.html",
-        {"nav_items": NAV, **ctx, "record_tabs": gezin_tabs(db, ctx["family"], email, "overzicht")},
+        {
+            "nav_items": admin_nav(NAV),
+            **ctx,
+            "record_tabs": gezin_tabs(db, ctx["family"], email, "overzicht"),
+        },
     )
 
 
@@ -400,7 +404,7 @@ def gezin_inschrijvingen_tab(
         request,
         "admin_gezin_inschrijvingen.html",
         {
-            "nav_items": NAV,
+            "nav_items": admin_nav(NAV),
             "family": family,
             "record_tabs": gezin_tabs(db, family, email, "inschrijvingen"),
             "groepen": groepen,
@@ -789,7 +793,7 @@ def gezin_verwijderen(
 def import_page(
     request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
 ):
-    nav = [dict(item, active=False) for item in NAV]
+    nav = [dict(item, active=False) for item in admin_nav(NAV)]
     return templates.TemplateResponse(
         request,
         "leden_import.html",

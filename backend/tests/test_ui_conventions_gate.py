@@ -1304,16 +1304,21 @@ def test_de_out_of_band_navigatie_bestaat_nog():
 
     "Geen onvoorwaardelijke oob" zou ook slagen door de out-of-band navigatie
     helemaal te schrappen — en dan volgt de actieve markering geen gebooste
-    navigatie meer, precies de bug die #714 oploste. Beide schillen renderen hun
-    navigatie twee keer (breed + mobiel), dus vier in totaal.
+    navigatie meer, precies de bug die #714 oploste. De publieke schil rendert
+    haar navigatie twee keer (breed + mobiel). The admin shell renders it once
+    since CR-11 block 1 (#1482): the drawer is the sidebar itself. Counted per
+    shell, so one shell cannot hide a loss in the other.
     """
-    gevonden = sum(
-        _zonder_commentaar(APP / "ui" / "templates" / schil).count("hx-swap-oob")
+    verwacht = {"site_base.html": 2, "admin_base.html": 1}
+    assert set(verwacht) == set(NAV_SCHILLEN)
+    gevonden = {
+        schil: _zonder_commentaar(APP / "ui" / "templates" / schil).count("hx-swap-oob")
         for schil in NAV_SCHILLEN
-    )
-    assert gevonden >= 4, (
-        f"nog maar {gevonden} out-of-band navigatiecontainers; #714 is "
-        "waarschijnlijk stilletjes teruggedraaid"
+    }
+    te_weinig = {s: n for s, n in gevonden.items() if n < verwacht[s]}
+    assert not te_weinig, (
+        f"te weinig out-of-band navigatiecontainers {te_weinig} (verwacht {verwacht}); "
+        "#714 is waarschijnlijk stilletjes teruggedraaid"
     )
 
 

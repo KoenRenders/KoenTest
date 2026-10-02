@@ -483,6 +483,21 @@ def _compose_view(
             ),
         )
     ]
+    # CR-19 (#1477): without the membership module there are no members, so the
+    # letter goes to its subscribers — "both" reaches exactly them — offered as
+    # the one choice "Iedereen".
+    from app.domains.mdm.api import module_enabled
+    from app.kernel.modules import ModuleCode
+
+    if not module_enabled(ModuleCode.MEMBERSHIP):
+        options = [
+            (
+                nb.Audience.BOTH.value,
+                _("Iedereen"),
+                str(counts.both),
+                _("Bevestigde abonnees; elke mail heeft een uitschrijflink"),
+            )
+        ]
     raakje = _raakje_enabled(db)
     past: list = []
     coming: list = []

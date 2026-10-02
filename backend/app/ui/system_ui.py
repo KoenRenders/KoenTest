@@ -19,7 +19,7 @@ from app.ui import admin_nav, templates
 
 router = APIRouter(include_in_schema=False)
 
-NAV = admin_nav("/admin/info")
+NAV = "/admin/info"
 
 
 # De zes tegels, elk met het bewaarde rapport waar haar cijfer uit komt (#848).
@@ -58,9 +58,16 @@ def admin_dashboard(
     # hun symbolische filters ("vandaag", "dit jaar") op déze ene klok, en het
     # scherm zegt eronder van wanneer de cijfers zijn.
     peilmoment = datetime.now()
+    # CR-19 (#1477): only the tiles of the modules this tenant has on — a tile
+    # of a module that is off would count what the tenant cannot open.
+    from app.domains.mdm.api import module_enabled
+    from app.kernel.modules import ModuleCode, shown
+
+    aan = {code.value for code in ModuleCode if module_enabled(code)}
+    zichtbaar = [t for t in DASHBOARD_TEGELS if shown("dashboard_tiles", t[1], aan)]
     cijfers = dashboard_numbers(
         db,
-        [(sleutel, maat) for _l, sleutel, maat, _h, _g in DASHBOARD_TEGELS],
+        [(sleutel, maat) for _l, sleutel, maat, _h, _g in zichtbaar],
         tenant_id=current_tenant_id.get() or DEFAULT_TENANT_ID,
         viewer=email,
         today=peilmoment.date(),
@@ -85,7 +92,7 @@ def admin_dashboard(
                 else None
             ),
         }
-        for label, sleutel, _maat, href, geld in DASHBOARD_TEGELS
+        for label, sleutel, _maat, href, geld in zichtbaar
     ]
     # #693: het dashboard zette een LEEG csrf-token in `hx-headers`. Landde je hier
     # en boostte je daarna naar een beheerscherm, dan hield de body die lege waarde
@@ -224,7 +231,7 @@ def admin_info(
         request,
         "admin_info.html",
         {
-            "nav_items": NAV,
+            "nav_items": admin_nav(NAV),
             "info": info,
             "umami_actief": bool(umami_src and umami_website_id),
             "umami_dashboard": umami_dashboard,

@@ -22,7 +22,7 @@ from app.ui import admin_nav, filterparams, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
 
-NAV = admin_nav("/admin/paginas")
+NAV = "/admin/paginas"
 
 
 def _lijst_ctx(db: Session, q: str = "", status: str = "") -> dict:
@@ -112,7 +112,11 @@ def admin_paginas(
     return templates.TemplateResponse(
         request,
         sjabloon,
-        {"nav_items": NAV, "csrf_token": csrf_from_request(request), **_lijst_ctx(db, q, status)},
+        {
+            "nav_items": admin_nav(NAV),
+            "csrf_token": csrf_from_request(request),
+            **_lijst_ctx(db, q, status),
+        },
     )
 
 
@@ -125,7 +129,7 @@ def pagina_nieuw(
         request,
         "admin_pagina_nieuw.html",
         {
-            "nav_items": NAV,
+            "nav_items": admin_nav(NAV),
             "csrf_token": csrf_from_request(request),
         },
     )
@@ -148,7 +152,9 @@ def pagina_detail(
     if page is None:
         raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
     return templates.TemplateResponse(
-        request, "admin_pagina.html", {"nav_items": NAV, **_editor_ctx(request, db, page)}
+        request,
+        "admin_pagina.html",
+        {"nav_items": admin_nav(NAV), **_editor_ctx(request, db, page)},
     )
 
 
@@ -188,6 +194,7 @@ def pagina_bijwerken(
     content: str = Form(""),
     is_published: str = Form(""),
     show_in_nav: str = Form(""),
+    is_home: str = Form(""),
     sort_order: str | None = Form(None),
 ):
     from app.domains.cms.api import update_page
@@ -211,6 +218,7 @@ def pagina_bijwerken(
         content=content,
         is_published=bool(is_published),
         show_in_nav=bool(show_in_nav),
+        is_home=bool(is_home),
         sort_order=volgorde,
     )
     update_page(db, page_id, data)

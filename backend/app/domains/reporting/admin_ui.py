@@ -542,8 +542,14 @@ def _panel(
     else:
         message = _("Kies objecten links, filters rechts.")
 
+    # CR-19 (#1477): the universe offers only the folders of the modules this
+    # tenant has on; the views stay, what the panel offers follows the set.
+    from app.domains.mdm.api import module_enabled
+    from app.kernel.modules import ModuleCode, shown
+
+    aan = {code.value for code in ModuleCode if module_enabled(code)}
     return ReportPanelView(
-        classes=classes_with_objects(),
+        classes=[c for c in classes_with_objects() if shown("reporting_folders", c[0], aan)],
         objects_by_key=dict(BY_KEY),
         kind_symbols={"measure": "Σ", "dimension": "▦", "detail": "·"},
         kind_labels={"measure": "maat", "dimension": "dimensie", "detail": "detail"},

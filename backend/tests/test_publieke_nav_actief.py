@@ -39,15 +39,21 @@ def test_de_juiste_nav_link_is_gemarkeerd(client, pad, verwacht):
 
 def test_archief_markeert_ondanks_de_redirect():
     """/archief is een 302 naar /activiteiten/archief (#405-e). Zonder het
-    `match`-argument zou de Archief-link daar nooit oplichten."""
-    inhoud = (
-        __import__("pathlib").Path(__file__).resolve().parents[1]
-        / "app"
-        / "ui"
-        / "templates"
-        / "site_base.html"
-    ).read_text()
-    assert 'match="/activiteiten/archief"' in inhoud
+    `match`-argument zou de Archief-link daar nooit oplichten.
+
+    Since #1476 the header's module links come from the registry, and the
+    `match` travels with the Archief item of `public_nav` instead of standing
+    in the template. The rendered behaviour is the parametrized case above.
+    """
+    from app.kernel.modules import ModuleCode, current_modules
+    from app.ui import _public_nav
+
+    token = current_modules.set(frozenset(code.value for code in ModuleCode))
+    try:
+        archief = [n for n in _public_nav("public_items") if n["href"] == "/archief"]
+    finally:
+        current_modules.reset(token)
+    assert archief and archief[0]["match"] == "/activiteiten/archief", archief
 
 
 def test_home_licht_niet_op_elders(client):

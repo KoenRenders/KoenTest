@@ -7,7 +7,7 @@ media-routerfuncties als servicelaag.
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
@@ -24,7 +24,7 @@ from app.ui import admin_nav, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
 
-NAV = admin_nav("/admin/media")
+NAV = "/admin/media"
 
 
 # #708: activiteitenfoto's zijn wat er dagelijks bijkomt; sponsorlogo's zet je
@@ -103,15 +103,13 @@ def _int(raw) -> Optional[int]:
 
 
 def _tree(
-    db: Session,
     alle_activiteiten: list[dict],
     year: Optional[int],
     *,
-    kind: str,
-    activity_id: Optional[int],
-    tag_id: Optional[int],
     by_kind: dict,
     tags: list,
+    href: "Callable[[str, int], str]",
+    chosen: "Callable[[str, int], bool]",
 ) -> dict:
     """The library's tree (CR-15 §C4.2, #1470): two branches derived from the
     activity — its album photos and, apart, its posters (Q10) — and the board's
@@ -121,10 +119,15 @@ def _tree(
     have their place. Within the year filter, only that year's activities. Every
     node carries its address and whether it is the one shown, so the template
     composes no URL and compares nothing.
+
+    One builder for two screens (#1472): the library and the picker show the same
+    tree and differ only in where a node leads. `href(node_kind, id)` and
+    `chosen(node_kind, id)` say that, with `node_kind` "photos", "posters" or
+    "tag".
     """
     from app.domains.media.api import MediaKind
 
-    def branch(soort: MediaKind) -> list[dict]:
+    def branch(soort: MediaKind, node_kind: str) -> list[dict]:
         met = by_kind.get(soort, set())
         per_jaar: dict[int, list[dict]] = {}
         for a in alle_activiteiten:
@@ -132,9 +135,8 @@ def _tree(
                 per_jaar.setdefault(a["jaar"], []).append(
                     {
                         "naam": a["naam"],
-                        "href": "/admin/media?"
-                        + _filterstand(soort.value, activity_id=a["id"], year=year),
-                        "actief": tag_id is None and kind == soort.value and activity_id == a["id"],
+                        "href": href(node_kind, a["id"]),
+                        "actief": chosen(node_kind, a["id"]),
                     }
                 )
         jaren = sorted(per_jaar, reverse=True)
@@ -153,16 +155,43 @@ def _tree(
         return {
             "naam": node.name,
             "aantal": node.pictures,
-            "href": "/admin/media?" + _filterstand(STANDAARD_KIND, tag_id=node.id, year=year),
-            "actief": node.id == tag_id,
+            "href": href("tag", node.id),
+            "actief": chosen("tag", node.id),
             "kinderen": [tag_node(child) for child in node.children],
         }
 
     return {
-        "activiteiten": branch(MediaKind.ACTIVITY_PHOTO),
-        "affiches": branch(MediaKind.ACTIVITY_POSTER),
+        "activiteiten": branch(MediaKind.ACTIVITY_PHOTO, "photos"),
+        "affiches": branch(MediaKind.ACTIVITY_POSTER, "posters"),
         "tags": [tag_node(node) for node in tags],
     }
+
+
+def _library_href(year: Optional[int]):
+    """Where a node of the library's tree leads: the library, on that branch."""
+    from app.domains.media.api import MediaKind
+
+    kinds = {"photos": MediaKind.ACTIVITY_PHOTO.value, "posters": MediaKind.ACTIVITY_POSTER.value}
+
+    def href(node_kind: str, node_id: int) -> str:
+        if node_kind == "tag":
+            return "/admin/media?" + _filterstand(STANDAARD_KIND, tag_id=node_id, year=year)
+        return "/admin/media?" + _filterstand(kinds[node_kind], activity_id=node_id, year=year)
+
+    return href
+
+
+def _library_chosen(kind: str, activity_id: Optional[int], tag_id: Optional[int]):
+    from app.domains.media.api import MediaKind
+
+    kinds = {"photos": MediaKind.ACTIVITY_PHOTO.value, "posters": MediaKind.ACTIVITY_POSTER.value}
+
+    def chosen(node_kind: str, node_id: int) -> bool:
+        if node_kind == "tag":
+            return node_id == tag_id
+        return tag_id is None and kind == kinds[node_kind] and activity_id == node_id
+
+    return chosen
 
 
 def _find_tag(tree: list, tag_id: int):
@@ -356,14 +385,12 @@ def _lijst_ctx(
         "csrf_token": csrf_from_request(request),
         # #1470: the tree, the chosen tag and year, and the tags as choices.
         "boom": _tree(
-            db,
             alle_activiteiten,
             year,
-            kind=actief_kind,
-            activity_id=activity_id,
-            tag_id=tag_id,
             by_kind=by_kind,
             tags=index.tree,
+            href=_library_href(year),
+            chosen=_library_chosen(actief_kind, activity_id, tag_id),
         ),
         "tag": tag_id,
         "tag_naam": tag_naam.get(tag_id, "") if tag_id else "",
@@ -413,7 +440,7 @@ def admin_media(
     return templates.TemplateResponse(
         request,
         "admin_media.html",
-        {"nav_items": NAV, "error": None, **_lijst_ctx(request, db, kind, q)},
+        {"nav_items": admin_nav(NAV), "error": None, **_lijst_ctx(request, db, kind, q)},
     )
 
 
@@ -431,7 +458,7 @@ def media_nieuw(
     # activiteit-dropdown toont (die hoort enkel bij activity_photo).
     kind = (request.query_params.get("kind") or STANDAARD_KIND).strip()
     ctx = _lijst_ctx(request, db, kind=kind)
-    ctx["nav_items"] = NAV
+    ctx["nav_items"] = admin_nav(NAV)
     return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
 
 
@@ -468,7 +495,7 @@ async def media_uploaden(
         # Op het aanmaakscherm blijven mét de fout (#627): een fragment terugsturen
         # naar een pagina die geen lijst toont, laat de gebruiker in het ongewisse.
         ctx = _lijst_ctx(request, db, kind=kind, q=q, activity_id=filter_activity_id)
-        ctx["nav_items"] = NAV
+        ctx["nav_items"] = admin_nav(NAV)
         ctx["error"] = str(exc)
         return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
     # Media is met één handeling compleet, dus terug naar de lijst (#627) — en naar
@@ -683,4 +710,132 @@ def media_verwijderen(
         )
     return _lijst_response(
         request, db, kind, q=q, activity_id=filter_activity_id, tag_id=filter_tag, year=filter_year
+    )
+
+
+# ── The picker (CR-15 §C4.3, #1472) ──────────────────────────────────────────
+# `ui.media_picker` opens a kit modal and loads this fragment into it: the tree
+# at the left, search and the year above, the thumbnails in pages of 60. Every
+# link inside reloads the fragment in place; choosing sets the hidden field the
+# macro owns. The offer itself is `media.api.pick_options`.
+
+
+def _picker_url(field: str, for_activity_id: Optional[int], **state) -> str:
+    """The fragment's own address with the state that travels: one place."""
+    from urllib.parse import urlencode
+
+    pairs = [("field", field)]
+    if for_activity_id:
+        pairs.append(("for_activity_id", str(for_activity_id)))
+    for key in ("q", "year", "tag", "photos_of", "posters_of", "kind"):
+        value = state.get(key)
+        if value not in (None, ""):
+            pairs.append((key, str(value)))
+    return "/admin/media/kiezer?" + urlencode(pairs)
+
+
+@router.get("/admin/media/kiezer", response_class=HTMLResponse)
+def media_picker(
+    request: Request,
+    field: str = "",
+    for_activity_id: Optional[int] = None,
+    q: str = "",
+    year: Optional[int] = None,
+    tag: Optional[int] = None,
+    photos_of: Optional[int] = None,
+    posters_of: Optional[int] = None,
+    kind: str = "",
+    page: int = 1,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
+    from app.domains.activities.api import activity_options
+    from app.domains.media.api import (
+        KIND_BRANCHES,
+        MEDIA_KIND,
+        PICK_PAGE_SIZE,
+        activities_by_kind,
+        pick_options,
+        tag_index,
+    )
+    from app.i18n import _
+    from app.kernel.codes import code_labels
+
+    # Only a kind with its own branch; anything else in the address is no branch.
+    branch_kind = next((k for k in KIND_BRANCHES if k.value == kind), None)
+
+    options = pick_options(
+        db,
+        for_activity_id=for_activity_id,
+        q=q,
+        year=year,
+        tag_id=tag,
+        photos_of=photos_of,
+        posters_of=posters_of,
+        kind=branch_kind,
+        page=page,
+    )
+    alle_activiteiten = [
+        {"id": o.id, "naam": o.name, "jaar": o.first_date.year if o.first_date else None}
+        for o in activity_options(db)
+    ]
+    by_kind = activities_by_kind(db)
+    branch_state = {"photos": "photos_of", "posters": "posters_of", "tag": "tag", "kind": "kind"}
+    current = {
+        "photos_of": photos_of,
+        "posters_of": posters_of,
+        "tag": tag,
+        "kind": branch_kind.value if branch_kind else None,
+    }
+
+    def href(node_kind: str, node_id: int | str) -> str:
+        return _picker_url(
+            field, for_activity_id, q=q, year=year, **{branch_state[node_kind]: node_id}
+        )
+
+    def chosen(node_kind: str, node_id: int | str) -> bool:
+        return current[branch_state[node_kind]] == node_id
+
+    labels = dict(code_labels(MEDIA_KIND.name))
+
+    met_media = set().union(*by_kind.values()) if by_kind else set()
+    jaren = sorted(
+        {a["jaar"] for a in alle_activiteiten if a["jaar"] and a["id"] in met_media}, reverse=True
+    )
+    return templates.TemplateResponse(
+        request,
+        "_media_picker.html",
+        {
+            "field": field,
+            "for_activity_id": for_activity_id or "",
+            "q": q,
+            "year": str(year) if year else "",
+            "jaar_keuzes": [("", _("Alle jaren"))] + [(str(j), str(j)) for j in jaren],
+            "groups": options.groups,
+            "total": options.total,
+            "page": options.page,
+            "per_page": PICK_PAGE_SIZE,
+            "boom": _tree(
+                alle_activiteiten,
+                year,
+                by_kind=by_kind,
+                tags=tag_index(db).tree,
+                href=href,
+                chosen=chosen,
+            ),
+            # #1473: Logo's — sponsors and the association's logo hang off no
+            # activity, so they get a branch per kind.
+            "logo_links": [
+                {
+                    "naam": labels.get(k.value, k.value),
+                    "href": href("kind", k.value),
+                    "actief": chosen("kind", k.value),
+                }
+                for k in KIND_BRANCHES
+            ],
+            "alles_href": _picker_url(field, for_activity_id, q=q, year=year),
+            "branch_chosen": any(v is not None for v in current.values()),
+            "pager_url": _picker_url(field, for_activity_id, q=q, year=year, **current),
+            "target": f"#mp-{field}",
+        },
     )

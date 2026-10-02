@@ -314,6 +314,13 @@ def save_design(
             InsetCorner(form["inset_corner"])
         except ValueError:
             raise DesignError("Onbekende hoek voor de polaroid.") from None
+    # The picture slots are the first change: `set_slot_image` is the one check
+    # (#1473), so a refused picture stops the save before anything else is
+    # touched; nothing commits, and the editor shows the typed slots anyway.
+    for key in IMAGE_SLOTS:
+        if key in form:
+            raw = (form[key] or "").strip()
+            set_slot_image(db, design, key, int(raw) if raw.isdigit() else None)
     # Choices keep their last value when the form leaves them empty; free text
     # becomes NULL so "empty" and "not filled in" stay the same thing. The
     # form may carry a code or a member (§B4.2); `code_of` makes one of the
@@ -338,10 +345,6 @@ def save_design(
         typed = (form["explanation_md"] or "").strip()
         own = facts_for(db, design)["description"]
         design.explanation_md = typed if typed and typed != own else None
-    for key in ("main_image_id", "inset_image_id", "third_image_id"):
-        if key in form:
-            raw = (form[key] or "").strip()
-            setattr(design, key, int(raw) if raw.isdigit() else None)
     for key in ("main_focus_x", "main_focus_y"):
         if key in form:
             try:
@@ -576,8 +579,10 @@ def _image(db: Session, asset_id: Optional[int], focus=(0.5, 0.5)) -> Optional[I
         or asset.content_type == "image/svg+xml"
     ):
         return None
+    from app.domains.media.api import asset_bytes
+
     return ImageBytes(
-        bytes(asset.data),
+        asset_bytes(db, asset.id) or b"",
         asset.content_type,
         float(focus[0]),
         float(focus[1]),
@@ -715,12 +720,13 @@ def edited_svg_for(db: Session, design: Design, layout) -> Optional[DesignRendit
 
 
 def _asset_bytes(db: Session, asset_id: int) -> bytes:
-    from app.domains.media.api import MediaAsset
 
-    asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
-    if asset is None:
+    from app.domains.media.api import asset_bytes
+
+    data = asset_bytes(db, asset_id)
+    if data is None:
         raise DesignError("Bestand niet gevonden in media.")
-    return bytes(asset.data)
+    return data
 
 
 def merged_for(
@@ -950,7 +956,9 @@ def upload_edited_svg(db: Session, design: Design, layout, raw: bytes) -> list[s
         )
     except MediaFout as exc:
         raise DesignError(str(exc)) from exc
-    cleaned = bytes(asset.data).decode("utf-8")
+    from app.domains.media.api import asset_bytes
+
+    cleaned = (asset_bytes(db, asset.id) or b"").decode("utf-8")
     spec = render.contract(design.template_key)["layouts"][layout.value]
     w, h = render.page_size_mm(cleaned)
     if abs(w - spec["width_mm"]) > 1 or abs(h - spec["height_mm"]) > 1:
@@ -1015,35 +1023,22 @@ async def add_design_image(db: Session, design: Design, upload, *, slot: str = "
     return asset_id
 
 
-def image_options(db: Session, design: Design) -> list[dict]:
-    """Activity photos and design images of this activity, then those of the
-    activities it was copied from (#1397).
+def set_slot_image(db: Session, design: Design, slot: str, asset_id: Optional[int]) -> None:
+    """Point a slot at a library picture, or empty it (CR-15 §C4.1, #1473).
 
-    Koen, 1 October 2026: pictures are reusable over the years. A copied design
-    points at last year's photos, so the choice offers them, each under the
-    name and year of the activity it belongs to (`group`; empty for this
-    activity's own). Choosing one is a reference: no file is copied, and the
-    photo stays with the old activity.
+    A reference, never a copy: the slot holds the picture's id and the picture
+    stays where it is — an album photo of another activity stays in that album.
+    Refused when the picker would not offer the picture (another tenant's, a
+    render, a PDF): the id comes from a form field. Flushes nothing; the caller
+    commits.
     """
-    from app.domains.activities.api import predecessors_of
-    from app.domains.media.api import list_activity_photos, list_media
+    from app.domains.media.api import offered_by_picker
 
-    def of(activity_id: int, group: str) -> list[dict]:
-        rows = [
-            dict(m, source="activity_photo", group=group)
-            for m in list_activity_photos(db, activity_id)
-        ]
-        rows += [
-            dict(m, source="design_image", group=group)
-            for m in list_media(db, kind="design_image", activity_id=activity_id)
-        ]
-        return rows
-
-    out = of(design.activity_id, "")
-    for earlier in predecessors_of(db, design.activity_id):
-        label = f"{earlier.name} ({earlier.year})" if earlier.year else earlier.name
-        out += of(earlier.id, label)
-    return out
+    if slot not in IMAGE_SLOTS:
+        raise DesignError("Onbekende plaats voor het beeld.")
+    if asset_id is not None and not offered_by_picker(db, asset_id):
+        raise DesignError("Dit beeld kan niet in een beeldvak.")
+    setattr(design, slot, asset_id)
 
 
 def sponsor_options(db: Session) -> list[dict]:

@@ -42,8 +42,6 @@ from app.ui import admin_nav, filterparams, templates
 
 router = APIRouter(include_in_schema=False)
 
-NAV = admin_nav("/admin/betalingen")
-
 
 def _uitvoeren(
     bewerking, request: Request, db: Session, email: str, *args, **kwargs

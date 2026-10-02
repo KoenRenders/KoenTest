@@ -38,7 +38,7 @@ from app.ui import admin_nav, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
 
-NAV = admin_nav("/admin/formulieren")
+NAV = "/admin/formulieren"
 
 
 def _form_or_404(db: Session, form_id: int):
@@ -160,7 +160,7 @@ def formulieren_page(
         request,
         sjabloon,
         {
-            "nav_items": NAV,
+            "nav_items": admin_nav(NAV),
             "forms": forms,
             "q": q,
             "status": status,
@@ -186,7 +186,7 @@ def formulier_nieuw(
         request,
         "admin_formulier_nieuw.html",
         {
-            "nav_items": NAV,
+            "nav_items": admin_nav(NAV),
             "csrf_token": csrf_from_request(request),
         },
     )
@@ -245,7 +245,7 @@ def formulier_builder(
     form = _form_or_404(db, form_id)
     if is_fragment_request(request):
         return _builder_response(request, db, form)
-    ctx = {"nav_items": NAV, **_builder_ctx(request, db, form)}
+    ctx = {"nav_items": admin_nav(NAV), **_builder_ctx(request, db, form)}
     ctx.update(_form_tabs(form, ctx["submission_count"], "formulier"))
     return templates.TemplateResponse(request, "admin_formulier_builder.html", ctx)
 
@@ -813,7 +813,7 @@ def inzendingen_tab(
     # kale fragment swappen (#fb-inzendingen).
     if is_fragment_request(request):
         return templates.TemplateResponse(request, "_fb_inzendingen.html", ctx)
-    ctx.update({"nav_items": NAV, **_form_tabs(form, len(rows), "inzendingen")})
+    ctx.update({"nav_items": admin_nav(NAV), **_form_tabs(form, len(rows), "inzendingen")})
     return templates.TemplateResponse(request, "admin_formulier_inzendingen.html", ctx)
 
 
@@ -876,7 +876,12 @@ def resultaten_tab(
     ctx = {"form": form, "results": results}
     if is_fragment_request(request):
         return templates.TemplateResponse(request, "_fb_resultaten.html", ctx)
-    ctx.update({"nav_items": NAV, **_form_tabs(form, submission_count(db, form.id), "resultaten")})
+    ctx.update(
+        {
+            "nav_items": admin_nav(NAV),
+            **_form_tabs(form, submission_count(db, form.id), "resultaten"),
+        }
+    )
     return templates.TemplateResponse(request, "admin_formulier_resultaten.html", ctx)
 
 

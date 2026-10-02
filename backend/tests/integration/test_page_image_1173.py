@@ -290,34 +290,22 @@ def test_a_page_image_is_offered_by_the_media_library(client, db_session):
     )
 
 
-def test_a_page_image_is_not_offered_as_an_activity_photo_or_a_logo(db_session):
-    """It must not surface in the Design Studio's pickers (#1173).
+def test_a_page_image_is_not_offered_as_a_logo(db_session):
+    """It must not surface in the Design Studio's logo strip (#1173).
 
-    Both halves are asserted on purpose. That the page image is absent proves
-    nothing while the lists could simply be empty — so each list also has to
-    contain the kind it is for.
+    The other half of this test — "not offered as an activity photo" — went with
+    CR-15 (#1473): the slots open the picker over the whole library, page
+    pictures included, on purpose. The logo strip still offers sponsors only.
+    Both halves of the remaining claim are asserted: the list holds the kind it
+    is for, and not the page picture.
     """
-    from app.domains.designstudio.service import image_options, sponsor_options
-    from tests.conftest import seed_activity_with_product
+    from app.domains.designstudio.service import sponsor_options
 
-    activity, _c, _p = seed_activity_with_product(db_session)
     pagina_beeld = _asset(db_session, kind=PAGE_IMAGE_KIND, title="Schermafdruk")
-    foto = _asset(db_session, kind="activity_photo", title="Foto", activity_id=activity.id)
     logo = _asset(db_session, kind="sponsor", title="Sponsorlogo")
-
-    class _Design:
-        activity_id = activity.id
-
-    beelden = image_options(db_session, _Design())
     logos = sponsor_options(db_session)
 
-    assert foto.id in [b["id"] for b in beelden], (
-        "de activiteitenfoto-keuzelijst is leeg, dus deze test bewijst niets"
-    )
     assert logo.id in [m["id"] for m in logos], "de logokiezer is leeg, dus deze test bewijst niets"
-    assert pagina_beeld.id not in [b["id"] for b in beelden], (
-        "een pagina-afbeelding duikt op in de activiteitenfoto-keuzelijst"
-    )
     assert pagina_beeld.id not in [m["id"] for m in logos], (
         "een pagina-afbeelding duikt op in de logokiezer van de Design Studio"
     )

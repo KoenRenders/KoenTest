@@ -110,6 +110,12 @@ registry entry, and its routers get `require_module` where `main.py` includes
 them — never a hard-coded list in a screen. The gate is
 `backend/tests/test_module_gate.py`.
 
+**A picture's address and bytes belong to media** (CR-15 §C4.6, #1473): a module
+asks `media.api.media_url` for `/api/v1/media/<id>` and `media.api.asset_bytes`
+for the bytes — it never writes the address or reads `MediaAsset.data` itself —
+and it reuses a picture by its id, never by copying its bytes into a new row.
+The gate is `backend/tests/test_media_seam_gate.py`.
+
 ## A copied model declares every column
 
 A copy action (`copy_*`) reads what it copies from a `CopyPlan`

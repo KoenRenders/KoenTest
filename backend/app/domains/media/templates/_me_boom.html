@@ -4,43 +4,7 @@
    tags van het bestuur. Elke knoop draagt zijn adres en of hij gekozen is — de view
    beslist, dit sjabloon toont. Gerenderd door de pagina en, out-of-band, door het
    lijstfragment, zodat het jaarfilter ook de boom bijwerkt. #}
-{% macro _link(naam, href, actief, aantal=None) -%}
-<a href="{{ href }}"
-   class="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-sm {{ 'bg-blue-50 text-blue-700 font-semibold' if actief else 'text-ink hover:bg-gray-50' }}"
-   {% if actief %}aria-current="true"{% endif %}>
-  <span class="truncate">{{ naam }}</span>{% if aantal is not none %}<span class="shrink-0 text-xs text-ink-soft">{{ aantal }}</span>{% endif %}
-</a>
-{%- endmacro %}
-{% macro _tags(knopen) -%}
-<ul class="space-y-0.5">
-  {% for k in knopen %}
-  <li>{{ _link(k.naam, k.href, k.actief, k.aantal) }}
-    {% if k.kinderen %}<div class="ml-3 border-l border-gray-100 pl-2">{{ _tags(k.kinderen) }}</div>{% endif %}
-  </li>
-  {% endfor %}
-</ul>
-{%- endmacro %}
-{% macro _tak(titel, jaren) -%}
-<details class="group" open>
-  <summary class="cursor-pointer list-none text-xs font-semibold uppercase tracking-wide text-ink-soft [&::-webkit-details-marker]:hidden">{{ titel }}</summary>
-  {% if jaren %}
-  <ul class="mt-1 space-y-1">
-    {% for j in jaren %}
-    <li>
-      <details {% if j.open %}open{% endif %}>
-        <summary class="cursor-pointer list-none px-2 py-1 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden">{{ j.jaar }}</summary>
-        <ul class="ml-3 border-l border-gray-100 pl-2 space-y-0.5">
-          {% for a in j.activiteiten %}<li>{{ _link(a.naam, a.href, a.actief) }}</li>{% endfor %}
-        </ul>
-      </details>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="mt-1 px-2 text-sm text-ink-soft">{{ _("Niets in dit jaar.") if year else _("Nog niets.") }}</p>
-  {% endif %}
-</details>
-{%- endmacro %}
+{% import "_me_boom_delen.html" as boomdelen %}
 <nav class="bg-white border border-gray-200 rounded-xl p-4 space-y-4" aria-label="{{ _('Bibliotheek') }}">
   {# The year narrows the tree's activity branches and the pictures of those
      activities. Here and not in the filter bar: it is the tree's choice first,
@@ -62,11 +26,11 @@
       {% for k, woord in gebruik_options %}<option value="{{ k }}" {% if k == gebruik %}selected{% endif %}>{{ woord }}</option>{% endfor %}
     {% endcall %}
   </form>
-  {{ _tak(_("Activiteiten"), boom.activiteiten) }}
-  {{ _tak(_("Affiches"), boom.affiches) }}
+  {{ boomdelen.tak(_("Activiteiten"), boom.activiteiten, _("Niets in dit jaar.") if year else _("Nog niets.")) }}
+  {{ boomdelen.tak(_("Affiches"), boom.affiches, _("Niets in dit jaar.") if year else _("Nog niets.")) }}
   <div>
     <p class="text-xs font-semibold uppercase tracking-wide text-ink-soft">{{ _("Tags") }}</p>
-    {% if boom.tags %}<div class="mt-1">{{ _tags(boom.tags) }}</div>
+    {% if boom.tags %}<div class="mt-1">{{ boomdelen.tags(boom.tags) }}</div>
     {% else %}<p class="mt-1 px-2 text-sm text-ink-soft">{{ _("Nog geen tags.") }}</p>{% endif %}
     {# Een tag aanmaken: naam, en onder welke tag hij hangt. Gelukt: de bibliotheek
        met die tag gekozen; geweigerd: de reden boven de kaarten. #}

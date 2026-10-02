@@ -73,6 +73,18 @@
   {% else %}
   {{ ui.empty_state(_("Geen tokens gevonden in app.css — is de CSS gebouwd?")) }}
   {% endif %}
+  {# #1482: the admin's radii, read from the same css. #}
+  {% if radii %}
+  <p class="text-sm text-gray-600 mt-6 mb-3">{{ _("Radius in de beheerschil: een bedieningselement (r-lg), een kaart (r-xl, r-2xl).") }}</p>
+  <div class="flex flex-wrap gap-4">
+    {% for naam, waarde in radii %}
+    <div class="flex items-center gap-3" data-radius="{{ naam }}">
+      <span class="w-12 h-12 border border-control-line bg-surface-2 shrink-0" style="border-radius: var(--{{ naam }})" aria-hidden="true"></span>
+      <span class="text-sm"><span class="block font-medium">{{ naam }}</span><span class="block text-xs text-gray-500">{{ waarde }}</span></span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 {% endcall %}
 
 {# ── 2. Typografie ─────────────────────────────────────────────────────────── #}
@@ -337,6 +349,9 @@
   {{ ui.multiselect("jaren", values=["2027", "2026", "2025"],
                     labelled=[("@dit_jaar", _("Dit jaar"))],
                     current=["@dit_jaar", "2027"], aria_label=_("Jaar"), cls="mt-3 max-w-xs") }}
+  {# #1472: de kiezer — de enige manier waarop een scherm een afbeelding uit de
+     bibliotheek aanbiedt. Live op de echte bibliotheek. #}
+  <div class="mt-3 max-w-xs">{{ ui.media_picker("ds_afbeelding") }}</div>
   {# `checkbox_group` is een FORMULIERVELD: altijd open, nooit een filter. #}
   {{ ui.checkbox_group("dagen", values=["Maandag", "Woensdag", "Zaterdag"],
                        current=["Woensdag"], aria_label=_("Dagen"), cls="mt-3 max-w-xs") }}

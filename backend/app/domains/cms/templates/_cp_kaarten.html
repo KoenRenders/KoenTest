@@ -22,6 +22,7 @@
           <span class="font-mono text-xs text-ink-soft">/{{ p.slug }}</span>
           {% if p.is_published %}{{ ui.badge(_("gepubliceerd"), "green") }}{% else %}{{ ui.badge(_("concept")) }}{% endif %}
           {% if p.show_in_nav %}{{ ui.badge(_("in navigatie"), "blue") }}{% endif %}
+          {% if p.is_home %}{{ ui.badge(_("homepagina"), "green") }}{% endif %}
         </div>
       </div>
       <div class="shrink-0 flex items-center gap-3">

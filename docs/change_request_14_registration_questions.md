@@ -1221,6 +1221,7 @@ None yet. To measure before the build of phase 2:
 | 29 Sep 2026 | The answers are a synchronous command into `forms` — one named exception in CR-13's `COMMAND_CALLS` baseline (B4.2); a second and a third of the kind become a kernel command port. | Koen |
 | 29 Sep 2026 | No ORM relationship across the schema line either: the component's form and the submission are read through `forms.api`; "the answers belong to the component's form" holds at its one writer, not in `check()` (B2.2, B4.2, B7 tests 8 and 14). | master CLI, after review by the architecture track |
 | 30 Sep 2026 | `update_attached` stays a deliberate exception next to `submit_attached` (same coupling); the port comes with a third case or a second pair of domains (B4.2). | Koen |
+| 2 Oct 2026 | **Built as (#1494, PR #1503):** the registration sheet in the back office shows the products like the form — every product of the component as a counter, 0 is not chosen, one Opslaan (`set_order_quantities`, one transaction, one recalculation, the same history row per line); the separate add and remove routes are gone. A paid product set to 0 is not refused (the premise that "Verwijderen" refused it was wrong): the payment side prepares a refund as before, and the sheet now names the amount to refund. The direct call to `audit` is a fourth COMMAND_CALLS exception (Koen, 2 October 2026), its straightening tracked in #1502 and CR-16 Q9. | master CLI, at the merge |
 
 ## Q&A log — asked once, answered here
 

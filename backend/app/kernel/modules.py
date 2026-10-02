@@ -65,6 +65,8 @@ class Module:
     admin_items: tuple[tuple[str, str], ...] = ()
     #: Public navigation items of the site shell, as (href, label).
     public_items: tuple[tuple[str, str], ...] = ()
+    #: Items of the site shell shown only to a signed-in member (#1476).
+    member_items: tuple[tuple[str, str], ...] = ()
     #: Path prefixes only this module serves; each is served by a guarded router.
     route_prefixes: tuple[str, ...] = ()
     #: Dashboard tiles, by their report key (`reporting.DASHBOARD_TEGELS`).
@@ -82,6 +84,9 @@ class Module:
     #: The tables whose rows the tenant editor counts for this module (#1478):
     #: its main records, and the data that becomes unreachable when it is off.
     record_tables: tuple[str, ...] = ()
+    #: Tenant settings (and secrets) that only mean something with this module
+    #: on; the tenant editor leaves them out when it is off (#1477).
+    tenant_settings: tuple[str, ...] = ()
 
 
 M = ModuleCode
@@ -103,19 +108,23 @@ MODULES: tuple[Module, ...] = (
         M.ACTIVITIES,
         "Activiteiten",
         admin_items=(("/admin/activiteiten", "Activiteiten"),),
-        public_items=(("/archief", "Archief"),),
+        # Foto's is the album of past activities: media serves the route, but
+        # without activities there is nothing in it (#1476). `nav_item_shown`
+        # asks for both.
+        public_items=(("/fotos", "Foto's"), ("/archief", "Archief")),
         route_prefixes=("/api/v1/activities", "/admin/activiteiten", "/activiteiten", "/archief"),
         dashboard_tiles=("dashboard_upcoming_activities",),
         home_blocks=("activity_cards",),
         sitemap_paths=("/activiteiten", "/activiteiten/archief"),
         reporting_folders=("Activiteiten",),
         record_tables=("activities.activities", "activities.registrations"),
+        tenant_settings=("max_item_quantity", "max_registrations_per_email"),
     ),
     Module(
         M.MEMBERSHIP,
         "Leden",
         admin_items=(("/admin/leden", "Leden"),),
-        public_items=(("/leden/gezin", "Mijn gezin"),),
+        member_items=(("/leden/gezin", "Mijn gezin"),),
         route_prefixes=("/api/v1/families", "/lid-worden", "/leden/gezin", "/admin/leden"),
         dashboard_tiles=(
             "dashboard_members",
@@ -127,6 +136,14 @@ MODULES: tuple[Module, ...] = (
         newsletter_audiences=("members", "non_members", "both"),
         reporting_folders=("Leden",),
         record_tables=("mdm.members", "membership.memberships"),
+        tenant_settings=(
+            "membership_price_full",
+            "membership_price_half",
+            "membership_half_price_start_md",
+            "membership_half_price_end_md",
+            "membership_next_year_from_md",
+            "membership_renewal_start_md",
+        ),
     ),
     Module(
         M.FORMS,
@@ -148,7 +165,6 @@ MODULES: tuple[Module, ...] = (
         M.MEDIA,
         "Media",
         admin_items=(("/admin/media", "Media"),),
-        public_items=(("/fotos", "Foto's"),),
         route_prefixes=("/api/v1/media", "/admin/media", "/fotos"),
         sitemap_paths=("/fotos",),
         record_tables=("media.media_assets",),
@@ -159,6 +175,7 @@ MODULES: tuple[Module, ...] = (
         admin_items=(("/admin/ai-context", "Raakje"), ("/admin/rapporten/raakje", "AI · Raakje")),
         route_prefixes=("/api/v1/chat", "/admin/ai-context", "/raakje/"),
         record_tables=("ai.chatbot_info",),
+        tenant_settings=("admin_chat_enabled",),
     ),
     Module(
         M.PAYMENT,
@@ -170,6 +187,7 @@ MODULES: tuple[Module, ...] = (
         # Payments pay for a registration or a membership (`PayableType`).
         depends_on=((M.ACTIVITIES, M.MEMBERSHIP),),
         record_tables=("payment.payment_records",),
+        tenant_settings=("payment_term_days", "mollie_api_key"),
     ),
     Module(
         M.MEETINGS,
@@ -203,6 +221,54 @@ MODULES: tuple[Module, ...] = (
 )
 
 REGISTRY: dict[ModuleCode, Module] = {module.code: module for module in MODULES}
+
+
+def owner_of(field: str, value: str) -> ModuleCode | None:
+    """The module whose registry entry lists `value` under `field`, or None when
+    no module owns it (#1477) — a tile, a folder, a path of the shell."""
+    return next((m.code for m in MODULES if value in getattr(m, field)), None)
+
+
+def shown(field: str, value: str, enabled) -> bool:
+    """Is this tile, folder or path shown for a tenant with `enabled` on? What
+    no module owns is always shown; what one owns, only with it on (#1477)."""
+    owner = owner_of(field, value)
+    return owner is None or owner.value in enabled
+
+
+def serving_module(path: str) -> ModuleCode | None:
+    """The module whose router serves `path`: the longest of the registry's
+    route prefixes it starts with, or None for a path of the shell (#1476).
+
+    Whole segments only: `/admin/leden` serves `/admin/leden/12`, not the
+    shell's `/admin/ledenwijzigingen`. A prefix that ends in a slash (`/f/`)
+    already marks its segment."""
+    best: tuple[int, ModuleCode] | None = None
+    for module in MODULES:
+        for prefix in module.route_prefixes:
+            stem = prefix.rstrip("/")
+            if (path == stem or path.startswith(stem + "/")) and (
+                best is None or len(prefix) > best[0]
+            ):
+                best = (len(prefix), module.code)
+    return best[1] if best else None
+
+
+def nav_item_shown(field: str, href: str, enabled) -> bool:
+    """Is this menu item shown for a tenant with `enabled` on? (#1476)
+
+    `field` is `admin_items`, `public_items` or `member_items`. An item is shown when the module
+    that lists it and the module that serves its path are both on; what no
+    module lists or serves (Dashboard, Gebruikers, Home) is always shown. Two
+    owners and not one, because they can differ: Foto's is listed by activities
+    (the albums of its activities) and served by media; "AI · Raakje" is listed
+    by the chatbot and served by reporting. A link to a page that 404s, or to
+    a page with nothing in it, is not in the menu.
+    """
+    listing = next((m.code for m in MODULES if any(h == href for h, _l in getattr(m, field))), None)
+    serving = serving_module(href)
+    return all(code is None or code.value in enabled for code in (listing, serving))
+
 
 #: Modules the tenant editor shows without a count (#1478), each with its
 #: reason. Reporting is a terminus (CR-07 §6.6): nothing outside its domain

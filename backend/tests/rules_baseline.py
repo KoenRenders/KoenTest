@@ -200,8 +200,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "domains/activities/admin_ui.py::inschrijving_opslaan",
         "domains/activities/admin_ui.py::inschrijving_pagina",
         "domains/activities/admin_ui.py::inschrijving_regel_bijwerken",
-        "domains/activities/admin_ui.py::inschrijving_regel_toevoegen",
-        "domains/activities/admin_ui.py::inschrijving_regel_verwijderen",
         "domains/activities/admin_ui.py::inschrijving_totaal",
         "domains/activities/admin_ui.py::inschrijving_verwijderen",
         "domains/activities/admin_ui.py::onderdeel_bijwerken",
@@ -713,6 +711,7 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/activities/service.py::update_activity_date → audit.api.snapshot_activity_date",
         "domains/activities/service.py::update_component → audit.api.snapshot_component",
         "domains/activities/service.py::update_order_line → audit.api.snapshot_registration_item",
+        "domains/activities/service.py::set_order_quantities → audit.api.snapshot_registration_item",  # #1494: same coupling as add/update/delete_order_line which it bundles, in one transaction; the port of all four is #1502 (Koen, 2 October 2026)
         "domains/activities/service.py::update_product → audit.api.snapshot_product",
         "domains/auth/login.py::start_login → mail.api.send_magic_link",
         "domains/auth/login.py::start_login → mail.api.send_member_contact_board_notice",
@@ -828,7 +827,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
 RULE_IN_ROUTER: dict[str, str] = {
     "domains/activities/admin_ui.py::activiteit_aanmaken::not name.strip() or not start_date": "rule: an activity has a name and a start date (Activity) — phase 4",
     "domains/activities/admin_ui.py::inschrijving_nieuw_opslaan::component is None": "door: the board form asks for a component before it can be filled — the request's shape, not a rule on the data",
-    "domains/activities/admin_ui.py::inschrijving_regel_toevoegen::not (product_id or '').strip()": "door: the add-line form sent no product choice — the request's shape, not a rule on the data",
     "domains/activities/admin_ui.py::organisator_bijwerken::laatste and (not aan) and (not bevestigd)": "rule: an activity keeps at least one contact organiser (Activity) — phase 4",
     "domains/auth/router.py::create_api_key::db.query(ApiKey).filter(ApiKey.name == name).first()": "rule: API key names are unique (ApiKey, with a UNIQUE constraint) — phase 4",
     "domains/auth/router.py::create_api_key::not name": "rule: an API key has a name (ApiKey) — phase 4",
