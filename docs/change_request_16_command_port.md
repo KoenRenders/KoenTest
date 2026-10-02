@@ -353,6 +353,7 @@ Both phases ride one release, after v2.11.0 (Koen: not deferred, not rushed). "N
 | Q2 | Refusals: the owner's handler translates `VeldFout` into the kernel's `Refusal(message, field_id)`? | Yes; the caller and the screens know only `Refusal`. | C4.2; the 422 handler in `main.py`. |
 | Q7 | Should `VeldFout` itself become a kernel class so forms raises the refusal directly? | No — the owner translates at its edge; a domain's errors stay its own. | Whether forms' own screens change (they do not). |
 | Q8 | Move `kernel/events.py` into `kernel/messaging/` now, in one mechanical commit, no shim? | Yes; a shim is a second place. | Phase 1's size (about twenty import lines). |
+| Q9 | The registration history (#1502): `activities` calls `audit.api.snapshot_registration_item` directly from four functions — `add_order_line`, `update_order_line`, `delete_order_line` and `set_order_quantities` (the fourth approved as an exception on 2 October 2026, #1494). Do they move onto this port in this CR, or is a history write an event rather than a command? **To be talked through with Koen before this CR starts** (Koen, 2 October 2026). | Talk it through first; recommendation follows from that conversation. | Whether CR-16's phase list grows by one slice, and whether audit gets its first handler. |
 
 ## B9. Decisions log — dated answers
 
