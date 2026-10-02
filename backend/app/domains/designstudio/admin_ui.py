@@ -423,7 +423,7 @@ def _editor_view(
             {
                 "label": f"{code_label(LAYOUT.name, r.layout_code, db=db)} · "
                 f"{code_label(RENDER_VARIANT.name, r.variant, db=db)} {r.size_code}".strip(),
-                "url": f"/api/v1/media/{r.media_asset_id}",
+                "url": media_url(r.media_asset_id),
             }
             for r in v.renditions
         ]
@@ -442,12 +442,12 @@ def _editor_view(
             id=g.id,
             status=code_of(g.status) or "",
             status_label=code_label(GENERATION_STATUS.name, g.status, db=db),
-            thumb_url=f"/api/v1/media/{g.media_asset_id}/thumb" if g.media_asset_id else "",
+            thumb_url=media_url(g.media_asset_id, thumb=True) if g.media_asset_id else "",
             media_asset_id=g.media_asset_id,
             failure_reason=g.failure_reason or "",
             scene=g.scene or "",
             style=code_of(g.style) or "lijn",
-            image_url=f"/api/v1/media/{g.media_asset_id}" if g.media_asset_id else "",
+            image_url=media_url(g.media_asset_id) if g.media_asset_id else "",
         )
         for g in sorted(design.generations, key=lambda g: -g.id)[:12]
     ]

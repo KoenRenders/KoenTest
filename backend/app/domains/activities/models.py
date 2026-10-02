@@ -324,8 +324,10 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
     @property
     def poster_asset_url(self) -> Optional[str]:
         """Een geüploade poster primeert op ``poster_url`` (#223)."""
+        from app.domains.media.api import media_url
+
         a = self._poster_asset
-        return f"/api/v1/media/{a.id}" if a else None
+        return media_url(a.id) if a else None
 
     @property
     def poster_asset_title(self) -> Optional[str]:
@@ -616,8 +618,10 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
     @property
     def info_asset_url(self) -> Optional[str]:
         """Een geüpload info/reglement-bestand primeert op ``info_url`` (#223)."""
+        from app.domains.media.api import media_url
+
         a = self._info_asset()
-        return f"/api/v1/media/{a.id}" if a else None
+        return media_url(a.id) if a else None
 
     @property
     def info_asset_is_pdf(self) -> bool:

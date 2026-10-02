@@ -580,8 +580,10 @@ def _image(db: Session, asset_id: Optional[int], focus=(0.5, 0.5)) -> Optional[I
         or asset.content_type == "image/svg+xml"
     ):
         return None
+    from app.domains.media.api import asset_bytes
+
     return ImageBytes(
-        bytes(asset.data),
+        asset_bytes(db, asset.id) or b"",
         asset.content_type,
         float(focus[0]),
         float(focus[1]),
@@ -719,12 +721,13 @@ def edited_svg_for(db: Session, design: Design, layout) -> Optional[DesignRendit
 
 
 def _asset_bytes(db: Session, asset_id: int) -> bytes:
-    from app.domains.media.api import MediaAsset
 
-    asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
-    if asset is None:
+    from app.domains.media.api import asset_bytes
+
+    data = asset_bytes(db, asset_id)
+    if data is None:
         raise DesignError("Bestand niet gevonden in media.")
-    return bytes(asset.data)
+    return data
 
 
 def merged_for(
@@ -954,7 +957,9 @@ def upload_edited_svg(db: Session, design: Design, layout, raw: bytes) -> list[s
         )
     except MediaFout as exc:
         raise DesignError(str(exc)) from exc
-    cleaned = bytes(asset.data).decode("utf-8")
+    from app.domains.media.api import asset_bytes
+
+    cleaned = (asset_bytes(db, asset.id) or b"").decode("utf-8")
     spec = render.contract(design.template_key)["layouts"][layout.value]
     w, h = render.page_size_mm(cleaned)
     if abs(w - spec["width_mm"]) > 1 or abs(h - spec["height_mm"]) > 1:

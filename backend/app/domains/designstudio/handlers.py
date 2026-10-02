@@ -50,7 +50,7 @@ def whiten(png: bytes) -> bytes:
 @job("designstudio.generate")
 def generate_image(db: Session, payload: dict) -> None:
     from app.domains.chatbot.api import AiStatus, sink_for
-    from app.domains.media.api import MediaAsset, store_uploads
+    from app.domains.media.api import store_uploads
 
     row = db.query(ImageGeneration).filter(ImageGeneration.id == payload["generation_id"]).first()
     if row is None:
@@ -60,8 +60,9 @@ def generate_image(db: Session, payload: dict) -> None:
     log = sink_for(row.requested_by)
     reference = None
     if payload.get("reference_asset_id"):
-        asset = db.query(MediaAsset).filter(MediaAsset.id == payload["reference_asset_id"]).first()
-        reference = bytes(asset.data) if asset is not None else None
+        from app.domains.media.api import asset_bytes
+
+        reference = asset_bytes(db, payload["reference_asset_id"])
 
     try:
         result = client_factory().generate(

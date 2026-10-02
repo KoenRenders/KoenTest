@@ -686,10 +686,10 @@ def _huidige_gebruiker(db, request) -> dict | None:
 def _site_logo_url(db) -> str | None:
     """De URL van het verenigingslogo, of None. Mag het renderen nooit breken."""
     try:
-        from app.domains.media.api import tenant_logo
+        from app.domains.media.api import media_url, tenant_logo
 
         asset = tenant_logo(db)
-        return f"/api/v1/media/{asset.id}" if asset is not None else None
+        return media_url(asset.id) if asset is not None else None
     except Exception:
         return None
 
@@ -869,7 +869,7 @@ def site_context(db, request=None) -> dict:
     from app.domains.auth.api import csrf_from_request
     from app.domains.cms.api import CmsPage, render_cms_content
     from app.domains.mdm.api import Organization, OrganizationType, TenantKind, module_enabled
-    from app.domains.media.api import MediaAsset, MediaKind
+    from app.domains.media.api import MediaAsset, MediaKind, media_url
     from app.i18n import _
     from app.kernel.modules import ModuleCode
     from app.kernel.tenant_config import _actieve_tenant
@@ -938,7 +938,10 @@ def site_context(db, request=None) -> dict:
         "public_nav": _public_nav("public_items"),
         "member_nav": _public_nav("member_items"),
         "footer_block": footer_block,
-        "sponsors": sponsors,
+        # #1473: the address comes from media; the footer writes none itself.
+        "sponsors": [
+            {"title": s.title, "link_url": s.link_url, "url": media_url(s.id)} for s in sponsors
+        ],
         "current_year": date.today().year,
         # CR-19 (#1477): and only with the chatbot module on for this tenant —
         # the bubble would otherwise post to a route that answers 404.

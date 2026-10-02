@@ -1208,7 +1208,9 @@ def add_attachment(
     kind = extension.lstrip(".").lower() or ("pdf" if content_type == "application/pdf" else "")
     esc = html_lib.escape
     text = _("Download %(naam)s") % {"naam": label} + (f" ({kind})" if kind else "")
-    return f'<div><a href="{esc(base_url)}/api/v1/media/{asset.id}">{esc(text)}</a></div>'
+    from app.domains.media.api import media_url
+
+    return f'<div><a href="{esc(media_url(asset.id, base_url=base_url))}">{esc(text)}</a></div>'
 
 
 def save_settings(db: Session, *, house_style: str, daily_cap: Optional[int]) -> None:
@@ -1417,9 +1419,9 @@ def _logo_url(db: Session, base_url: str) -> Optional[str]:
         return None
     if asset is None:
         return None
-    if asset.content_type == SVG_CONTENT_TYPE:
-        return f"{base_url}/api/v1/media/{asset.id}/thumb"
-    return f"{base_url}/api/v1/media/{asset.id}"
+    from app.domains.media.api import media_url
+
+    return media_url(asset.id, base_url=base_url, thumb=asset.content_type == SVG_CONTENT_TYPE)
 
 
 def reply_address(mode: ReplyToMode, sender_email: str) -> Optional[str]:

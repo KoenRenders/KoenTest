@@ -303,7 +303,7 @@
     <div class="flex flex-wrap justify-center items-center gap-6 mb-6">
       {% for s in sponsors %}
       {% if s.link_url %}<a href="{{ s.link_url }}" target="_blank" rel="noopener noreferrer">{% endif %}
-      <img src="/api/v1/media/{{ s.id }}" alt="{{ s.title or 'sponsor' }}" class="h-12 w-auto">
+      <img src="{{ s.url }}" alt="{{ s.title or 'sponsor' }}" class="h-12 w-auto">
       {% if s.link_url %}</a>{% endif %}
       {% endfor %}
     </div>

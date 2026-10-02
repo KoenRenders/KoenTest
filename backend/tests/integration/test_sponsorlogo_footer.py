@@ -73,7 +73,8 @@ def _footer_logos(client, db) -> list[int]:
     """De id's van de logo's die de footer werkelijk rendert."""
     from app.ui import site_context
 
-    ids = [s.id for s in site_context(db)["sponsors"]]
+    # #1473: the footer gets each sponsor's address from media, not its row.
+    ids = [int(s["url"].rsplit("/", 1)[1]) for s in site_context(db)["sponsors"]]
     # De gerenderde pagina toont dezelfde: het sjabloon leest `sponsors`, en dat
     # laatste is wat hierboven gemeten wordt. Eén controle op de HTML erbij, zodat
     # deze test niet alleen de query maar ook de weergave raakt.

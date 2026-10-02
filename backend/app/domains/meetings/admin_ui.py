@@ -966,12 +966,13 @@ def _logo_data_uri(db: Session) -> Optional[str]:
     """
     import base64
 
-    from app.domains.media.api import tenant_logo
+    from app.domains.media.api import asset_bytes, tenant_logo
 
     asset = tenant_logo(db)
-    if asset is None or not asset.data:
+    data = asset_bytes(db, asset.id) if asset is not None else None
+    if not data:
         return None
-    gecodeerd = base64.b64encode(asset.data).decode("ascii")
+    gecodeerd = base64.b64encode(data).decode("ascii")
     return f"data:{asset.content_type};base64,{gecodeerd}"
 
 

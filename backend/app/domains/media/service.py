@@ -1031,6 +1031,17 @@ def media_url(asset_id: int, *, base_url: str = "", thumb: bool = False) -> str:
     return f"{base_url}/api/v1/media/{asset_id}" + ("/thumb" if thumb else "")
 
 
+def asset_bytes(db, asset_id: int) -> Optional[bytes]:
+    """The stored bytes of a picture or file, or None (CR-15 §C4.6, #1473).
+
+    The one door to `MediaAsset.data` for every other module: a poster render
+    needs its images, a meeting PDF its logo. With bytes read only here, storing
+    them elsewhere (architecture R8) is a change inside media.
+    """
+    row = db.query(MediaAsset.data).filter(MediaAsset.id == asset_id).first()
+    return bytes(row.data) if row is not None and row.data is not None else None
+
+
 def offered_by_picker(db, asset_id: int) -> bool:
     """Would the picker offer this picture to this tenant? (#1473)
 
