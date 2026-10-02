@@ -43,10 +43,8 @@ from app.domains.reporting.api import (
     SYMBOLIC_ME,
     SYMBOLIC_THIS_YEAR,
     SYMBOLIC_TODAY,
-    SYMBOLIC_VALUES,
     Direction,
     ExportKind,
-    Filter,
     Layout,
     Operator,
     SavedReportError,
@@ -65,6 +63,7 @@ from app.domains.reporting.api import (
     dataset_filename,
     delete_report,
     dimension_values,
+    filter_of_ticks,
     get_saved_report,
     is_personal,
     list_saved_reports,
@@ -162,7 +161,13 @@ def _read_state(params) -> dict:
     """
     objects = [k for k in params.getlist("object") if k in BY_KEY]
     filters = [k for k in params.getlist("filter") if k in BY_KEY]
-    values = {k[2:]: (params.get(k) or "").strip() for k in params.keys() if k.startswith("v_")}
+    # #1445: a closed list is a set of ticks, so a filter carries a LIST of
+    # values — `getlist`, in the order the ticks stand. A search field sends one.
+    values = {
+        k[2:]: [v.strip() for v in params.getlist(k) if (v or "").strip()]
+        for k in params.keys()
+        if k.startswith("v_")
+    }
     values = {k: v for k, v in values.items() if v}
     operators = {k[3:]: (params.get(k) or "eq") for k in params.keys() if k.startswith("op_")}
     sort = params.get("sort") or ""
@@ -379,8 +384,8 @@ def _selection(state: dict) -> Selection:
     """The state as a `Selection`. Raises `SelectionError` with the reason."""
     filters = []
     for key in state["filters"]:
-        waarde = state["values"].get(key)
-        if not waarde:
+        waarden = state["values"].get(key) or []
+        if not waarden:
             continue
         # The operator travels as a hidden input beside the control that produced
         # the value: a dropdown compares exactly, a text field searches. Deriving
@@ -392,14 +397,9 @@ def _selection(state: dict) -> Selection:
             raise SelectionError(
                 f"Onbekende filtersoort: '{state['operators'].get(key)}'."
             ) from exc
-        # `@vandaag` in the query string is a RELATIVE value (#847). The prefix
-        # exists only in the panel's own state; what gets saved carries the name
-        # in its own field, so a literal value that happens to start with "@" —
-        # an e-mail address — can never be mistaken for one.
-        if waarde.startswith("@") and waarde[1:] in SYMBOLIC_VALUES:
-            filters.append(Filter(key, operator, (), waarde[1:]))
-        else:
-            filters.append(Filter(key, operator, (waarde,)))
+        # The ticks — literal or "@relative" — become one filter in the service
+        # (#1445): one tick is EQ, several are IN.
+        filters.append(filter_of_ticks(key, operator, waarden))
 
     sort: tuple[Sort, ...] = ()
     if state["sort"] in state["objects"]:
@@ -422,7 +422,7 @@ def _query_string(state: dict) -> str:
     paren: list[tuple[str, str]] = []
     paren += [("object", k) for k in state["objects"]]
     paren += [("filter", k) for k in state["filters"]]
-    paren += [(f"v_{k}", v) for k, v in state["values"].items()]
+    paren += [(f"v_{k}", v) for k, waarden in state["values"].items() for v in waarden]
     paren += [(f"op_{k}", v) for k, v in state["operators"].items()]
     if state["sort"]:
         paren.append(("sort", state["sort"]))
@@ -438,8 +438,10 @@ def _state_from_selection(selection: Selection, page: int = 1) -> dict:
     return {
         "objects": list(selection.object_keys),
         "filters": [f.object_key for f in selection.filters],
+        # #1445: every value back as a tick — a saved report with 2026 and 2027
+        # reopens with both ticked, and a relative value next to them as "@name".
         "values": {
-            f.object_key: (f"@{f.symbolic}" if f.symbolic else (f.values[0] if f.values else ""))
+            f.object_key: ([f"@{f.symbolic}"] if f.symbolic else []) + list(f.values)
             for f in selection.filters
         },
         "operators": {f.object_key: f.operator.value for f in selection.filters},

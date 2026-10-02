@@ -84,7 +84,8 @@ class ReportPanelView(ViewModel):
     # Per filter object: the relative values it may take (#847), as
     # (value, label). Empty for an object where "today" or "me" means nothing.
     filter_relative: dict[str, list[tuple[str, str]]]
-    filter_values: dict[str, str]
+    # #1445: a list per filter — the ticked values, or the one search term.
+    filter_values: dict[str, list[str]]
 
     # ── Result ──────────────────────────────────────────────────────────────
     # True when `message` is a REFUSAL and not an absence. The two are drawn

@@ -23,6 +23,7 @@ from app.domains.reporting.engine import (
     SYMBOLIC_ME,
     SYMBOLIC_THIS_YEAR,
     SYMBOLIC_TODAY,
+    SYMBOLIC_VALUES,
     Column,
     Filter,
     Operator,
@@ -293,6 +294,28 @@ def validate_filter_values(db: Session, selection: Selection, *, tenant_id: int)
 # ── Resolving "now" and "me" (#847) ──────────────────────────────────────────
 
 
+def filter_of_ticks(object_key: str, operator: Operator, ticks: Sequence[str]) -> Filter:
+    """The filter that a set of ticked values means (#1445).
+
+    Ticking IS choosing: one tick compares exactly, as before; several mean "one
+    of" — the user picks values, never an operator. A tick written "@name" is a
+    RELATIVE value (#847): the prefix exists only in the panel's own state, and
+    what is saved carries the name in its own field, so a literal value that
+    starts with "@" — an e-mail address — is never mistaken for one.
+
+    One filter holds one relative value: "vandaag" and "ik" on the same object
+    have no shared meaning, so two are refused by name rather than one dropped.
+    """
+    relatief = [t[1:] for t in ticks if t.startswith("@") and t[1:] in SYMBOLIC_VALUES]
+    letterlijk = tuple(t for t in ticks if not (t.startswith("@") and t[1:] in SYMBOLIC_VALUES))
+    if len(relatief) > 1:
+        naam = BY_KEY[object_key].name if object_key in BY_KEY else object_key
+        raise SelectionError(f"Kies voor '{naam}' één relatieve waarde, niet meerdere.")
+    if operator is Operator.EQ and len(relatief) + len(letterlijk) > 1:
+        operator = Operator.IN
+    return Filter(object_key, operator, letterlijk, relatief[0] if relatief else "")
+
+
 def resolve_selection(
     selection: Selection, *, today: date | None = None, viewer: str = ""
 ) -> Selection:
@@ -319,11 +342,20 @@ def resolve_selection(
         if not flt.symbolic:
             opgelost.append(flt)
             continue
-        if flt.symbolic == SYMBOLIC_TODAY:
-            waarden = (nu.isoformat(),)
-        elif flt.symbolic == SYMBOLIC_THIS_YEAR:
-            waarden = (str(nu.year),)
-        elif flt.symbolic == SYMBOLIC_ME:
+        if flt.symbolic in (SYMBOLIC_TODAY, SYMBOLIC_THIS_YEAR):
+            eigen = nu.isoformat() if flt.symbolic == SYMBOLIC_TODAY else str(nu.year)
+            # #1445: "Dit jaar" ticked beside 2027 means this year AND 2027, so the
+            # relative value is added to the literal ones, not put in their place.
+            # Without fixed values that is the old answer. Resolving twice — the
+            # panel resolves and `run_validated` again — adds the same year to a
+            # list that already holds it, so it stays idempotent on one clock.
+            waarden = tuple(dict.fromkeys((eigen, *flt.values)))
+            operator = flt.operator
+            if operator is Operator.EQ and len(waarden) > 1:
+                operator = Operator.IN
+            opgelost.append(Filter(flt.object_key, operator, waarden, flt.symbolic))
+            continue
+        if flt.symbolic == SYMBOLIC_ME:
             if not viewer:
                 if flt.values:
                     # Already resolved by a caller that DID know who was looking.
