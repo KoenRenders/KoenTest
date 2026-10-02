@@ -67,6 +67,14 @@ binding: each step has one use, applied by a macro, never by a template.
 | record page | wide frame `max-w-7xl`; the form column `max-w-3xl`, 768 px, centred in the frame | one column, 16 px gutters; the summary as a strip above |
 | document page | reading width `max-w-3xl`, centred | one column, 16 px gutters |
 
+**Two priorities, one kit** (Koen, 2 October 2026): the public site is
+designed phone-first — 390 px is where a public page is drawn first and
+judged first; the back office is designed desktop-first — 1 440 px is where
+an admin screen is drawn first, 1 024 px must still work well, and 390 px
+is the floor: never broken, the few simple actions (look up, confirm,
+check, read) reachable, but not a day's workplace. The rules below hold on
+both faces; the priority says which width a block is designed at first.
+
 **Breakpoints follow the content, not two device classes.** Between the
 phone and a wide desktop lies the small laptop (1024 px) where the
 navigation (220 px), the summary column (300 px), the margins and a
