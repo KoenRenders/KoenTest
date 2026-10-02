@@ -509,6 +509,8 @@ over title, activity and tag, the year as chips, thumbnails in pages of 60.
 For a copied activity the photos of its predecessors come first, "Van
 <activity> (<year>)". What it offers is `media.api.pick_options`; a screen never
 draws its own `<select>` of pictures. On a phone the tree folds above the grid.
+`clearable=True` adds a "Weghalen" link for a field that may hold no picture —
+the design editor's three slots use it, one slot per row on a phone (#1473).
 
 ### 2.8 Loading and empty
 
@@ -1120,7 +1122,8 @@ is broken.
 - **leden**: master-detail (family list + detail) — keeps standard search,
   paging and feedback.
 - **media**: thumbnail grid with ◀▶ (grid direction); upload feedback via
-  banner or toast.
+  banner or toast. It stays the one card grid of pictures — the picker shows
+  the same thumbnails, and no other screen draws its own (CR-15, #1473).
 - **leden-import**: two-step wizard (dry run → commit), explicit commit label.
 - **paginas**: rich-text editor (Trix).
 - **activiteiten**: nested cards (activity → dates and components → products);
