@@ -1,7 +1,7 @@
 # Change Request 19 — Tenant types and modules per tenant: an organisation that is not an association
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 2 October 2026 · walked through on 2 October 2026, every question answered · on hold until the platform owner plans it
+**Status:** shaped on 2 October 2026 · walked through on 2 October 2026, every question answered · **go: v2.13.0 (#1469), planned by the master CLI** (2 Oct 2026); C9 waived
 **Tracking issue:** #1468 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the tenant model and its editor (mdm, kernel tenant settings), the admin and public navigation (ui), the route guards of every domain, the home page and sitemap (cms), the dashboard and the reporting universe (reporting), tenant provisioning (mdm).
 **Reading:** A 1992 words · B 3097 · C 3052 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
