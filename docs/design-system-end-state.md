@@ -313,6 +313,10 @@ external links, the activity's poster URL. [3, 53]
   a consent; nowhere else. [8]
 - **`select`** above five options; `radio_group` only where the options
   need a line of help each.
+- **`multiselect`** for several out of a list in a filter or a toolbar:
+  collapsed by default to one line that shows the chosen values or their
+  count; opens to tick, closes again. A control that holds a choice never
+  stays open; a `checkbox_group` is a form field, never a filter. [61]
 
 ### 3.6 `action_bar(form, …)`
 
@@ -541,7 +545,8 @@ row · no `code_label` twice on a row · a long-value field (`url`, `email`,
 followed by a section · a tile with two figures refused by the macro · tile labels on one line and never cut, figure tops in one tile
 row within 1 px, a tile no higher than label plus figure, no row of
 controls wider than the page (the document as wide as the viewport at
-390 px on every screen), the title's box never squeezed by its actions (the
+390 px on every screen) · the first content row on the first screen at
+390 × 844 px · no checkbox group in a toolbar, the title's box never squeezed by its actions (the
 screenshot set) · no
 `btn_*` in a record head outside
 `record_header(actions=…)`, and a list header's call slot holds only the
