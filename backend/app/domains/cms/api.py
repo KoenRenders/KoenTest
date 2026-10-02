@@ -17,6 +17,7 @@ from app.domains.cms.service import (  # noqa: F401
     placeholders,
     published_slugs,
     references_to_media,
+    seed_site_blocks,
     update_page,
     verplaats_pagina,
 )
@@ -32,6 +33,8 @@ __all__ = [
     "placeholders",
     # CR-15 #1471: which pages show a picture.
     "references_to_media",
+    # CR-19 #1478: the blocks a new tenant's site starts with.
+    "seed_site_blocks",
     "published_slugs",
     "update_page",
     "CmsPage",

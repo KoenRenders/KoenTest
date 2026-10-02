@@ -16,3 +16,14 @@ class EntityMerged(KernelEvent):
     entity_type: str  # bv. "person"
     source_id: int  # de opgeslokte entiteit (blijft bestaan, superseded)
     target_id: int  # de overlever
+
+
+@dataclass(frozen=True)
+class TenantCreated(KernelEvent):
+    """A tenant was created (CR-19, #1478). Published by `create_tenant` in
+    its transaction, after the organisation and its modules are flushed. `cms`
+    subscribes and seeds the two site blocks a new site starts with; a
+    subscriber that raises undoes the creation."""
+
+    tenant_id: int
+    name: str

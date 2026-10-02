@@ -173,9 +173,13 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     elif status == "inactief":
         units = [u for u in units if not u.is_active]
     accounts = list_accounts(db)
+    kinds = _kind_labels()
     return {
         "nav_items": admin_nav("/admin/tenants"),
         "units": units,
+        # CR-19 (#1478): the kind of each tenant, as its label; the platform has none.
+        "kind_of": {u.id: kinds[u.kind.value] for u in units if u.kind is not None},
+        "kind_options": list(kinds.items()),
         # #854: the platform is in this list but is no unit; the screen marks
         # it. Decided here, because a template comparing the member with
         # "PLATFORM" is always false (CR-12 phase 2).
@@ -186,6 +190,31 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
         "error": None,
         "opgeslagen": False,
         "csrf_token": csrf_from_request(request),
+    }
+
+
+def _kind_labels() -> dict[str, str]:
+    from app.domains.mdm.api import TENANT_KIND
+    from app.kernel.codes import code_labels
+
+    return dict(code_labels(TENANT_KIND.name))
+
+
+def _modules_ctx(db: Session, unit, chosen=None) -> dict:
+    """The module checkboxes of the editor (CR-19, #1478): each module with how
+    many records it holds for this tenant — switching off deletes nothing, and
+    the operator sees how much becomes unreachable before the click."""
+    from app.domains.mdm.api import enabled_modules
+    from app.kernel.modules import MODULES, record_counts
+
+    counts = record_counts(db, unit.id)
+    return {
+        "module_options": [
+            (m.code.value, f"{m.label} ({counts[m.code]})" if m.code in counts else m.label)
+            for m in MODULES
+        ],
+        "modules_on": sorted(chosen if chosen is not None else enabled_modules(unit.id, db=db)),
+        "modules_error": None,
     }
 
 
@@ -210,6 +239,9 @@ def _editor_ctx(request: Request, db: Session, tenant_id: int) -> dict:
         "nav_items": admin_nav("/admin/tenants"),
         "unit": unit,
         "tenant_id": tenant_id,
+        # CR-19 (#1478): the kind is chosen once, at creation, and shown here.
+        "kind_label": _kind_labels().get(unit.kind.value) if unit.kind is not None else None,
+        **_modules_ctx(db, unit),
         "sleutels": sleutels,
         "geheime_sleutels": GEHEIME_SLEUTELS,
         "waarden": waarden,
@@ -247,7 +279,12 @@ def tenant_nieuw(
     """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal.
 
     Hergebruikt de contextbouwer van de lijst voor de accounts-dropdown.
+
+    CR-19 (#1478): operator-only on GET too. Until now only the POST was — an
+    ADMIN could open the form, which leaked the accounts list and promised a
+    save that was then refused.
     """
+    require_operator_ui(db, email)
     return templates.TemplateResponse(request, "admin_tenant_nieuw.html", _lijst_ctx(request, db))
 
 
@@ -273,6 +310,7 @@ def tenant_aanmaken(
     code: str = Form(""),
     account_id: str = Form(""),
     base_url: str = Form(""),
+    kind: str = Form("VERENIGING"),
 ):
     from app.domains.mdm.api import TenantFout, create_tenant
 
@@ -284,6 +322,7 @@ def tenant_aanmaken(
             code=code,
             parent_id=int(account_id) if account_id.isdigit() else None,
             base_url=base_url,
+            kind=kind,
         )
     except TenantFout as fout:
         ctx = _lijst_ctx(request, db)
@@ -333,5 +372,38 @@ async def tenant_opslaan(
     # #742: een toast in plaats van de bestaande success_banner. §2.9 schrijft één
     # bevestigingspatroon voor; twee vormen naast elkaar is precies de inconsistentie
     # die dat issue wegneemt.
+    ctx["toast_opgeslagen"] = True
+    return templates.TemplateResponse(request, "admin_tenant.html", ctx)
+
+
+@router.post(
+    "/admin/tenants/{tenant_id}/modules",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def tenant_modules_save(
+    tenant_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
+    """The module set of one tenant (CR-19, #1478). Operator-only, like the
+    rest of this screen. A refusal (a missing dependency) shows above the
+    checkboxes with the ticks as they were sent."""
+    from app.domains.mdm.api import TenantFout, set_modules
+
+    require_operator_ui(db, email)
+    unit = next((u for u in _units(db) if u.id == tenant_id), None)
+    if unit is None:
+        raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
+    chosen = [str(v) for v in (await request.form()).getlist("modules")]
+    try:
+        set_modules(db, tenant_id, chosen)
+    except TenantFout as fout:
+        ctx = _editor_ctx(request, db, tenant_id)
+        ctx.update(_modules_ctx(db, unit, chosen))
+        ctx["modules_error"] = _(str(fout))
+        return templates.TemplateResponse(request, "admin_tenant.html", ctx, status_code=422)
+    ctx = _editor_ctx(request, db, tenant_id)
     ctx["toast_opgeslagen"] = True
     return templates.TemplateResponse(request, "admin_tenant.html", ctx)

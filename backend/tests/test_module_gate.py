@@ -122,3 +122,27 @@ def test_every_registry_entry_is_real():
                 problems.append(f"{module.code}: menu item {href} is no route")
     assert not problems, "\n".join(problems)
     assert len(MODULES) == len(ModuleCode), "every ModuleCode has its registry entry"
+
+
+def test_every_counted_table_exists_and_belongs_to_a_tenant():
+    """#1478: `record_counts` filters each table on its `tenant_id`. A table
+    without one would count across tenants; a misspelt name would fail in the
+    editor. Proven by adding "media.asset_tags" (no tenant_id) to the media
+    entry → red, naming it."""
+    import app.models  # noqa: F401 — every table registered
+    from app.database import Base
+    from app.kernel.modules import UNCOUNTED
+
+    problems = []
+    for module in MODULES:
+        if module.code in UNCOUNTED:
+            assert not module.record_tables, f"{module.code}: uncounted, yet lists tables"
+            continue
+        assert module.record_tables, f"{module.code}: counts nothing and is not in UNCOUNTED"
+        for name in module.record_tables:
+            table = Base.metadata.tables.get(name)
+            if table is None:
+                problems.append(f"{module.code}: no table {name}")
+            elif "tenant_id" not in table.c:
+                problems.append(f"{module.code}: {name} has no tenant_id")
+    assert not problems, "\n".join(problems)

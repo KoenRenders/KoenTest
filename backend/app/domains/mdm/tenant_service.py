@@ -32,15 +32,27 @@ class TenantFout(ValueError):
     welk sjabloon erbij hoort."""
 
 
-def create_tenant(db, *, name: str, code: str, parent_id: int | None = None, base_url: str = ""):
+def create_tenant(
+    db,
+    *,
+    name: str,
+    code: str,
+    parent_id: int | None = None,
+    base_url: str = "",
+    kind=None,
+):
     """Maak een tenant (een `UNIT`-organisatie) met haar basisinstellingen.
 
     De code is de sleutel waarmee een binnenkomend verzoek naar zijn tenant
     resolvet, dus hij moet aan de slug-vorm voldoen en uniek zijn. Na het
     aanmaken wordt de codecache gewist, anders resolvet de nieuwe tenant pas na
     een herstart (#546).
+
+    CR-19 (#1478): the kind — VERENIGING unless given — sets the modules the
+    tenant starts with, and the two site blocks are seeded so the new site is
+    not an empty page.
     """
-    from app.domains.mdm.models import Organization, TenantModule
+    from app.domains.mdm.models import Organization, TenantKind, TenantModule
     from app.domains.mdm.tenant_lookup import invalidate_tenant_codes
     from app.kernel.modules import DEFAULTS
     from app.kernel.tenant_config import set_setting
@@ -53,8 +65,14 @@ def create_tenant(db, *, name: str, code: str, parent_id: int | None = None, bas
         )
     if db.query(Organization).filter(Organization.code == code).first():
         raise TenantFout("Die code bestaat al.")
+    try:
+        kind = TenantKind(kind) if kind else TenantKind.ASSOCIATION
+    except ValueError:
+        raise TenantFout("Kies het type: vereniging of bedrijf.") from None
 
-    org = Organization(org_type="UNIT", code=code, name=name, parent_id=parent_id, is_active=True)
+    org = Organization(
+        org_type="UNIT", code=code, name=name, parent_id=parent_id, is_active=True, kind=kind
+    )
     db.add(org)
     db.flush()
 
@@ -65,18 +83,58 @@ def create_tenant(db, *, name: str, code: str, parent_id: int | None = None, bas
     # beginnen te lopen.
     if (base_url or "").strip():
         set_setting(db, "base_url", base_url.strip(), tenant_id=org.id)
-    # CR-19 (#1475): a new tenant starts with its kind's modules. The kind comes
-    # with #1478; until then every tenant is an association, with everything on —
-    # without these rows a new tenant would have every module off.
+    # CR-19: a new tenant starts with its kind's modules (#1475, #1478) and the
+    # site blocks its home page and footer render (#1478).
     db.add_all(
-        TenantModule(tenant_id=org.id, module_code=code.value)
-        for code in sorted(DEFAULTS["VERENIGING"], key=lambda c: c.value)
+        TenantModule(tenant_id=org.id, module_code=module.value)
+        for module in sorted(DEFAULTS[kind.value], key=lambda c: c.value)
     )
+    from app.kernel.contracts.mdm import TenantCreated
+    from app.kernel.events import publish
+
+    publish(TenantCreated(tenant_id=org.id, name=name), db)
     db.commit()
     # Cache wissen zodat de nieuwe tenant meteen resolvet (#546) — ná de commit,
     # anders vult een gelijktijdig verzoek de cache met de oude toestand.
     invalidate_tenant_codes()
     return org
+
+
+def set_modules(db, tenant_id: int, codes) -> None:
+    """Switch a tenant's modules to exactly these (CR-19 §C4.5, #1478).
+
+    Refused, before anything changes, when a module lacks one it depends on:
+    the Design Studio needs activities (a design is made for one), payments
+    need activities or membership (there must be something to pay for). The
+    refusal names the missing module, in the registry's words. Switching off
+    deletes nothing — the module's data stays, unreachable until it is back on.
+    Commits, and clears the cached sets so the next request reads the new one.
+    """
+    from app.domains.mdm.models import TenantModule
+    from app.domains.mdm.tenant_lookup import invalidate_tenant_codes
+    from app.kernel.modules import REGISTRY, ModuleCode
+
+    try:
+        chosen = {ModuleCode(str(code)) for code in codes}
+    except ValueError:
+        raise TenantFout("Onbekende module.") from None
+    for code in sorted(chosen, key=lambda c: c.value):
+        for alternatives in REGISTRY[code].depends_on:
+            if not chosen & set(alternatives):
+                needed = " of ".join(REGISTRY[a].label for a in alternatives)
+                raise TenantFout(f"{REGISTRY[code].label} heeft {needed} nodig.")
+
+    stored = {
+        row.module_code: row
+        for row in db.query(TenantModule).filter(TenantModule.tenant_id == tenant_id).all()
+    }
+    for code, row in stored.items():
+        if code not in {c.value for c in chosen}:
+            db.delete(row)
+    for code in chosen - {ModuleCode(c) for c in stored}:
+        db.add(TenantModule(tenant_id=tenant_id, module_code=code.value))
+    db.commit()
+    invalidate_tenant_codes()
 
 
 # #797: welke instellingen een getal moeten zijn. Een tenant-instelling is door

@@ -79,7 +79,12 @@ def landing_for(db: Session, email: str) -> str:
         return "/admin/werkbank"
     if "FINANCE" in roles:
         return "/admin/betalingen"
-    return "/leden/gezin"
+    # CR-19 C6 test 9 (#1478): a tenant without members has no household
+    # portal — that route answers 404 there — so its users land on the site.
+    from app.domains.mdm.api import module_enabled
+    from app.kernel.modules import ModuleCode
+
+    return "/leden/gezin" if module_enabled(ModuleCode.MEMBERSHIP) else "/"
 
 
 def get_user_roles(db: Session, email: str) -> set:

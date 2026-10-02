@@ -232,6 +232,15 @@ SCREENS: tuple[Screen, ...] = (
     ),
     # The living component kit — review-round material.
     Screen("admin-design-system", "/admin/design-system", admin=True),
+    # CR-19 (#1478, Q1): the company tenant of the seed — its editor with the
+    # kind and the reduced module set, and the site it starts with.
+    Screen(
+        "admin-tenant-bedrijf",
+        "/admin/tenants",
+        admin=True,
+        action=lambda page: _open_first_link(page, "Voorbeeldbedrijf", "**/admin/tenants/*"),
+    ),
+    Screen("bedrijf-home", "/voorbeeldbedrijf/", admin=False),
     # Ledenflow (#1183) — het beeldmateriaal voor de publieke uitlegpagina over
     # aanmelden, je gegevens nakijken en je lidmaatschap verlengen. Telefoon-eerst,
     # want zo'n pagina wordt vooral op een telefoon gelezen.

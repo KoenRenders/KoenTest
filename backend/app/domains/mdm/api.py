@@ -21,6 +21,7 @@ from app.domains.mdm.codes import (  # noqa: F401,E402
     ORGANIZATION_TYPE,
     PAYMENT_METHOD,
     RELATION_TYPE,
+    TENANT_KIND,
 )
 
 # The family portal's mutations (CR-13 phase 3): master data changed by its owner.
@@ -78,6 +79,7 @@ from app.domains.mdm.models import (  # noqa: F401
     PostalCode,
     RelationType,
     RelationTypeCode,
+    TenantKind,
 )
 
 # De organisatie als rechtspersoon staat sinds #971 apart van de tenant als site.
@@ -139,6 +141,7 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
     list_units,
     platform_org,
     secrets_gezet,
+    set_modules,
     update_tenant_settings,
 )
 
@@ -219,6 +222,7 @@ __all__ = [
     "LegalFormCode",
     "LegalFormLabel",
     "OrganizationType",
+    "TenantKind",
     "OrganizationTypeCode",
     "OrganizationTypeLabel",
     "RelationType",
@@ -229,6 +233,7 @@ __all__ = [
     "EXTERNAL_SOURCE",
     "RELATION_TYPE",
     "LEGAL_FORM",
+    "TENANT_KIND",
     "ORGANIZATION_TYPE",
     "ORGANIZATION_RELATION_TYPE",
     "IDENTIFICATION_SCHEME",
@@ -245,6 +250,7 @@ __all__ = [
     # CR-19 #1475: the enabled module set per tenant.
     "enabled_modules",
     "module_enabled",
+    "set_modules",
     "BOARD_MEETING",
     "CirclePerson",
     "OrganizationPerson",

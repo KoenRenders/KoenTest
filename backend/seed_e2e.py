@@ -229,6 +229,18 @@ def main() -> None:
         db.commit()
 
         vandaag = date.today()
+        # CR-19 (#1478, Q1): a company tenant next to the association, so the
+        # e2e flows and the screenshot set see a reduced module set. Made the
+        # way an operator makes one, so it gets its modules and site blocks.
+        # Before the marker check: it is idempotent itself, and an environment
+        # seeded before it must get it too.
+        from app.domains.mdm.api import TenantKind, create_tenant, tenant_codes
+
+        if "voorbeeldbedrijf" not in tenant_codes(db):
+            create_tenant(
+                db, name="Voorbeeldbedrijf", code="voorbeeldbedrijf", kind=TenantKind.COMPANY
+            )
+
         bestaat = db.query(ContactDetail).filter(ContactDetail.value == MARKER_EMAIL).first()
         if bestaat is not None:
             print("seed_e2e: data staat er al (marker gevonden) — niets gedaan")

@@ -79,6 +79,9 @@ class Module:
     reporting_folders: tuple[str, ...] = ()
     #: Other modules this one needs. A tuple of alternatives means "one of".
     depends_on: tuple[tuple[ModuleCode, ...], ...] = ()
+    #: The tables whose rows the tenant editor counts for this module (#1478):
+    #: its main records, and the data that becomes unreachable when it is off.
+    record_tables: tuple[str, ...] = ()
 
 
 M = ModuleCode
@@ -94,6 +97,7 @@ MODULES: tuple[Module, ...] = (
         route_prefixes=("/admin/werkbank",),
         dashboard_tiles=("dashboard_open_tasks",),
         reporting_folders=("Taken",),
+        record_tables=("workflow.workflow_tasks",),
     ),
     Module(
         M.ACTIVITIES,
@@ -105,6 +109,7 @@ MODULES: tuple[Module, ...] = (
         home_blocks=("activity_cards",),
         sitemap_paths=("/activiteiten", "/activiteiten/archief"),
         reporting_folders=("Activiteiten",),
+        record_tables=("activities.activities", "activities.registrations"),
     ),
     Module(
         M.MEMBERSHIP,
@@ -121,6 +126,7 @@ MODULES: tuple[Module, ...] = (
         sitemap_paths=("/lid-worden",),
         newsletter_audiences=("members", "non_members", "both"),
         reporting_folders=("Leden",),
+        record_tables=("mdm.members", "membership.memberships"),
     ),
     Module(
         M.FORMS,
@@ -129,12 +135,14 @@ MODULES: tuple[Module, ...] = (
         route_prefixes=("/api/v1/forms", "/admin/formulieren", "/f/", "/formulier/"),
         sitemap_paths=("/berichten",),
         reporting_folders=("Formulieren",),
+        record_tables=("form.forms", "form.form_submissions"),
     ),
     Module(
         M.CMS,
         "Pagina's",
         admin_items=(("/admin/paginas", "Pagina's"),),
         route_prefixes=("/api/v1/pages", "/admin/paginas"),
+        record_tables=("cms.cms_pages",),
     ),
     Module(
         M.MEDIA,
@@ -143,12 +151,14 @@ MODULES: tuple[Module, ...] = (
         public_items=(("/fotos", "Foto's"),),
         route_prefixes=("/api/v1/media", "/admin/media", "/fotos"),
         sitemap_paths=("/fotos",),
+        record_tables=("media.media_assets",),
     ),
     Module(
         M.CHATBOT,
         "Raakje",
         admin_items=(("/admin/ai-context", "Raakje"), ("/admin/rapporten/raakje", "AI · Raakje")),
         route_prefixes=("/api/v1/chat", "/admin/ai-context", "/raakje/"),
+        record_tables=("ai.chatbot_info",),
     ),
     Module(
         M.PAYMENT,
@@ -159,18 +169,21 @@ MODULES: tuple[Module, ...] = (
         reporting_folders=("Betalingen",),
         # Payments pay for a registration or a membership (`PayableType`).
         depends_on=((M.ACTIVITIES, M.MEMBERSHIP),),
+        record_tables=("payment.payment_records",),
     ),
     Module(
         M.MEETINGS,
         "Vergaderingen",
         admin_items=(("/admin/vergaderingen", "Vergaderingen"),),
         route_prefixes=("/admin/vergaderingen",),
+        record_tables=("meetings.meetings",),
     ),
     Module(
         M.NEWSLETTER,
         "Nieuwsbrief",
         admin_items=(("/admin/nieuwsbrieven", "Nieuwsbrief"),),
         route_prefixes=("/admin/nieuwsbrieven", "/nieuwsbrief"),
+        record_tables=("newsletter.newsletters", "newsletter.subscribers"),
     ),
     Module(
         M.DESIGNSTUDIO,
@@ -179,6 +192,7 @@ MODULES: tuple[Module, ...] = (
         route_prefixes=("/admin/ontwerpen",),
         # A design is made for an activity (`designs.activity_id NOT NULL`).
         depends_on=((M.ACTIVITIES,),),
+        record_tables=("designstudio.designs",),
     ),
     Module(
         M.REPORTING,
@@ -190,12 +204,51 @@ MODULES: tuple[Module, ...] = (
 
 REGISTRY: dict[ModuleCode, Module] = {module.code: module for module in MODULES}
 
+#: Modules the tenant editor shows without a count (#1478), each with its
+#: reason. Reporting is a terminus (CR-07 §6.6): nothing outside its domain
+#: addresses its schema, so its saved reports are not counted from here.
+UNCOUNTED: dict[ModuleCode, str] = {
+    M.REPORTING: "a terminus: its schema is addressed only from its own domain",
+}
+
 #: The modules a new tenant starts with, per kind (CR-19 §C2 kernel). The kind
 #: itself arrives with #1478; until then every tenant is a VERENIGING.
 DEFAULTS: dict[str, frozenset[ModuleCode]] = {
     "VERENIGING": frozenset(ModuleCode),
     "BEDRIJF": frozenset({M.CMS, M.MEDIA, M.FORMS, M.WORKFLOW}),
 }
+
+
+def record_counts(db, tenant_id: int) -> dict[ModuleCode, int]:
+    """How many records each module holds for this tenant (#1478, CR-19 F12).
+
+    The tenant editor shows it next to each module, because switching a module
+    off deletes nothing: its data stays, unreachable until it is switched on
+    again, and the operator should see how much that is before the click.
+
+    Here beside the registry and not in a domain, so no domain reads another
+    domain's tables; it only reads, and only counts. Each table is filtered on
+    its own `tenant_id` explicitly (a Core select gets no ORM tenant filter),
+    and a soft-deleted row does not count. Every table listed has `tenant_id`;
+    `test_module_gate` holds that.
+    """
+    from sqlalchemy import func, select
+
+    from app.database import Base
+
+    counts: dict[ModuleCode, int] = {}
+    for module in MODULES:
+        if module.code in UNCOUNTED:
+            continue
+        total = 0
+        for name in module.record_tables:
+            table = Base.metadata.tables[name]
+            query = select(func.count()).select_from(table).where(table.c.tenant_id == tenant_id)
+            if "deleted_at" in table.c:
+                query = query.where(table.c.deleted_at.is_(None))
+            total += db.execute(query).scalar_one()
+        counts[module.code] = total
+    return counts
 
 
 # ── The guard ────────────────────────────────────────────────────────────────

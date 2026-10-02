@@ -20,6 +20,7 @@
           {% else %}
           <span class="font-mono text-xs text-ink-soft">/{{ u.code }}</span>
           {% endif %}
+          {% if u.id in kind_of %}{{ ui.badge(kind_of[u.id]) }}{% endif %}
           {% if u.is_active %}{{ ui.badge(_("actief"), "green") }}{% else %}{{ ui.badge(_("inactief")) }}{% endif %}
         </div>
       </div>
