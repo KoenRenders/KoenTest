@@ -194,12 +194,11 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-- **Title row:** the title (`h1`); at its right the KPI **tiles** inline
-  (figure and label, no card around them; each a filter: it says what it
-  counts and which rows open — a count opens the rows counted, a sum opens
-  the rows summed, "activiteiten met een volzet onderdeel" counts
-  activities and not components; a figure that can do neither is not a
-  tile); then "+ Nieuw <item>" and, when the module has configuration,
+- **Title row:** the title (`h1`); at its right the **key figures** inline
+  (figure and label as plain text, thin dividers between them, no card,
+  **not clickable** — the figures are read, the toolbar's chips filter;
+  block 2, Koen, 2 October 2026, replacing "each a filter"); then
+  "+ Nieuw <item>" and, when the module has configuration,
   "Instellingen" with the gear. Nothing else: no link to another module, no
   explanation line, no breadcrumb (the menu shows the place). [31, 34, 35,
   36, 45]
@@ -395,25 +394,30 @@ with the page-size select; at the bottom "‹ vorige · volgende ›". Always a
 total (an approximate "van meer dan 10 000" where counting is heavy);
 "Pagina n" does not exist. Hidden when everything fits. [6]
 
-### 3.8 `tiles(items)` — one figure per tile
+### 3.8 `figures(items)` — the key figures, one figure each ("tiles" in the rows of CR-11)
 
-Inline in the title row: **one figure** per tile (`text-2xl
-font-extrabold`; the macro takes a single value and refuses a pair or a
-stacked amount — two things to do are two tiles, "Nog te ontvangen" and
-"Nog terug te betalen"), label (`text-xs`), optional second line of
-context that is not a second figure); the label is always one
-line — the macro cuts it with "…" and never wraps it, the full text in
-the `title` — and the figure sits directly under it at a fixed distance,
-so the figures of one row are on one line by themselves and a tile is no
-higher than label plus figure; tile labels are short by rule ("Open
-inschrijving", not "Activiteiten met open inschrijving"): a label fits
-on one line in the narrowest tile of its row at 390 px or it is
-rewritten — the ellipsis is a safety net, a real label that gets cut is
-red, and what does not fit goes into the tile's one line of context or a
-hint that works on touch [55, 58, 60]; each a link that sets the list's
-filter;
-the active tile marked. A tile colours only when its figure asks for
-attention (an open balance, an overdue count). [10, 36, 52]
+Inline in the title row, as plain text: **one figure** per item (`text-2xl`,
+tabular digits; the macro takes a single value and refuses a pair or a
+stacked amount — two things to do are two figures, "Nog te ontvangen" and
+"Nog terug te betalen") with one short label under it (13 px, two or
+three words: "Open activiteiten", "Te vernieuwen 2027", "Netto ontvangen")
+and the full definition in the `title`; a qualifier belongs in the label,
+a count beside an amount is a second figure, so there is no second line.
+Thin dividers between the figures, **no card, no border, no hover, not a
+link**: a figure is read, and the rows it counts are found with the
+toolbar's chips — the fix for row 36 is that the chip with the same name
+exists, not that the figure is a button (Koen, 2 October 2026, choosing
+the subtle figures of ChatGPT's brief-01 frame over the card tiles of
+brief 02). The figures of one row share one baseline; a label fits on one
+line at 390 px or it is rewritten — the ellipsis is a safety net, a real
+label that gets cut is red [55, 58, 60]. At most four or five figures per
+head, or the title row is a dashboard. A figure colours only when it asks
+for attention: the `warning` token on an open amount above zero, nothing
+else coloured. On a phone the figures sit on one line under the title and
+wrap to a second when they must. Which lists have figures and which: §5
+(Betalingen three — Netto te betalen · Nog te ontvangen · Nog terug te
+betalen; Leden three; Activiteiten two; Werkbank and Abonnees two each when
+built; the rest none). [10, 36, 52]
 
 ### 3.9 `record_header(title, badges, facts, primary, actions=[…])` — actions as data
 
@@ -551,7 +555,7 @@ what is marked *proposed* is the author's draft of the per-screen columns,
 confirmed with Koen at that screen's phase (pilot A for Activiteiten and
 Betalingen, the roll-out for the rest). Today's state stands beside it so
 the distance is visible. The rules behind the columns: a tile is one
-figure, a filter, a one-line label (rows 36, 52, 58, 60); a row shows the
+figure with a one-line label, plain text, not a filter (rows 36, 52, 58, 60; block 2); a row shows the
 same three or four things for every record, omitted when they do not apply
 (row 36); the toolbar is one row — chips, search, filters, the count with
 the page size, `⋯` (rows 6, 45); every list pages (P1); no list scrolls
@@ -566,9 +570,9 @@ Shell width for every list: the wide frame (row 11); today three lists set
 
 | Screen | Today | End state: a row shows | Tiles (*proposed*) | Toolbar: chips · search on · filters · sort | Header |
 |---|---|---|---|---|---|
-| Activiteiten | cards; tiles Open inschrijving · Volzette onderdelen; search, chips Komende/Archief/Alles; no pager | name with status badges · first date and time · location · registrations count (omitted without a component) | Open inschrijving · Volzet onderdeel (activities with one) | Komende · Archief · Alles; name, location; year; date | + Nieuwe activiteit |
+| Activiteiten | cards; tiles Open inschrijving · Volzette onderdelen (end state: Open activiteiten · Volzet onderdeel — "inschrijving" is too hard a word, Koen, 2 Oct 2026); search, chips Komende/Archief/Alles; no pager | name with status badges · first date and time · location · registrations count (omitted without a component) | Open inschrijving · Volzet onderdeel (activities with one) | Komende · Archief · Alles; name, location; year; date | + Nieuwe activiteit |
 | Leden | cards; three tiles; search, chips Alle/Actief/Opgezegd, year select; pager 25 | household name · municipality · persons · membership state badge | Actieve gezinnen · Actieve personen · Te vernieuwen (year) | Alle · Actief · Opgezegd; name, street, e-mail; membership year; name | Leden importeren · + Nieuw lid |
-| Betalingen | table grouped per registration; four tiles; status tabs with counts, search, context filter, status select; pager 50; export in the filter bar; `max-w-none` | name/reference · context · status badge · amount · received · balance (W1's two tiles carry the totals) | Netto te betalen · Ontvangen · Nog te ontvangen · Nog terug te betalen | Alle · Openstaand · Betaald · Terugbetaald; name, OGM, description; context, status; date · export under `⋯` | none (the breadcrumb goes; row 35) |
+| Betalingen | table grouped per registration; four tiles; status tabs with counts, search, context filter, status select; pager 50; export in the filter bar; `max-w-none` | name/reference · context · status badge · amount · received · balance (W1's two tiles carry the totals) | Netto te betalen · Nog te ontvangen · Nog terug te betalen (Koen, 2 Oct 2026; "Ontvangen" and the booking count go — the toolbar's count shows n) | Alle · Openstaand · Betaald · Terugbetaald as chips; name, OGM, description; context, status; date · export under `⋯` | none (the breadcrumb goes; row 35) |
 | Formulieren | cards; search, status select; no pager | title · status badge · submissions count · last submission | Open · Inzendingen deze maand | Alle · Open · Gesloten; name; —; updated | Instellingen (holds "Formaat (voor AI)", row 34) · + Nieuw formulier |
 | Vergaderingen | cards; search; no pager | date · status badge · location · points count | Volgende · Verslag open | Komende · Voorbije; date, location; year; date | Instellingen · + Nieuwe vergadering |
 | Nieuwsbrieven | cards; search; no pager | subject · status badge · audience · sent or updated moment · while sending: progress | Verstuurd dit jaar · Abonnees | Concept · Verstuurd; subject; audience; updated | Instellingen · Abonnees · + Nieuwe nieuwsbrief |
@@ -663,7 +667,7 @@ screenshot baselines diffed (with the stability protocol of CR-11 B7).
 
 **The eye** — the merge gate and the classification of Part 5, where a
 test can list candidates from word lists but a person decides: whether a
-custom button label names a consequence · whether a tile filters what it
+custom button label names a consequence · whether a figure's label says what it
 counts · whether a control is a one-off or a legitimate new component ·
 whether a link's text names its target · whether a screen is a record or a
 document · which columns a list needs · what a card shows. This document
