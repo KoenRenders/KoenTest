@@ -21,6 +21,7 @@ class CmsPageUpdate(BaseModel):
     content: Optional[str] = None
     is_published: Optional[bool] = None
     show_in_nav: Optional[bool] = None
+    is_home: Optional[bool] = None
     sort_order: Optional[int] = None
 
 

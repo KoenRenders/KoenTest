@@ -15,6 +15,7 @@ from app.domains.cms.service import (  # noqa: F401
     get_published_page,
     list_pages,
     placeholders,
+    published_home_page,
     published_slugs,
     references_to_media,
     seed_site_blocks,
@@ -35,6 +36,7 @@ __all__ = [
     "references_to_media",
     # CR-19 #1478: the blocks a new tenant's site starts with.
     "seed_site_blocks",
+    "published_home_page",
     "published_slugs",
     "update_page",
     "CmsPage",

@@ -809,8 +809,10 @@ def site_context(db, request=None) -> dict:
 
     from app.domains.auth.api import csrf_from_request
     from app.domains.cms.api import CmsPage, render_cms_content
-    from app.domains.mdm.api import Organization, OrganizationType
+    from app.domains.mdm.api import Organization, OrganizationType, TenantKind, module_enabled
     from app.domains.media.api import MediaAsset, MediaKind
+    from app.i18n import _
+    from app.kernel.modules import ModuleCode
     from app.kernel.tenant_config import _actieve_tenant
 
     # Dezelfde tenantresolutie als de rest van de configuratie (#924): buiten een
@@ -875,7 +877,9 @@ def site_context(db, request=None) -> dict:
         "footer_block": footer_block,
         "sponsors": sponsors,
         "current_year": date.today().year,
-        "chat_enabled": settings.chat_enabled,
+        # CR-19 (#1477): and only with the chatbot module on for this tenant —
+        # the bubble would otherwise post to a route that answers 404.
+        "chat_enabled": settings.chat_enabled and module_enabled(ModuleCode.CHATBOT),
         "stt_mode": settings.stt_mode,  # spraakinvoer in de widget (#567)
         "gebruiker": _huidige_gebruiker(db, request),
         # Branding per tenant (#407/#519): naam/tagline/Facebook uit de
@@ -922,8 +926,18 @@ def site_context(db, request=None) -> dict:
         # verstuurt geen nieuwsbrief.
         # CR-19 C6 test 11: the member, not the string. `org_type` is a CodeEnum,
         # which never equals "PLATFORM", so the platform showed the link too.
+        # CR-19 (#1477): and only with the newsletter module on.
         "nieuwsbrief_inschrijven": (
-            organisatie is not None and organisatie.org_type is not OrganizationType.PLATFORM
+            organisatie is not None
+            and organisatie.org_type is not OrganizationType.PLATFORM
+            and module_enabled(ModuleCode.NEWSLETTER)
+        ),
+        # CR-19 (#1477): what the line above the sponsor logos says. A company
+        # has partners; an association keeps the words it has always had.
+        "sponsors_kop": (
+            _("Partners")
+            if organisatie is not None and organisatie.kind is TenantKind.COMPANY
+            else _("Met steun van")
         ),
         # Privacyverklaring-link per tenant (#493, raakt #453): leeg = niet tonen.
         "privacy_url": get_setting(db, "privacy_url") or None,
