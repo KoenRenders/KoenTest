@@ -695,6 +695,15 @@ only ever point at a separate `raaktest` database — never the real one.
 > (`docker-compose`, hyphen). The older `docker-compose` examples elsewhere in
 > this file are legacy; prefer `docker compose`.
 
+### Review op verzoek (conventie, CR-18)
+
+Een review — van een change request of van een PR met code — start alleen op
+vraag: label **`ai-review`** op de PR of het tracking-issue, plus één zin die
+het scope noemt. De reviewer (een AI-tool of een mens) antwoordt als comment op
+die PR/issue volgens `docs/review-protocol.md`. Advies, nooit blokkerend: alleen
+CI blokkeert een merge; Koen beslist wat er wordt ingegenomen, en de
+besluitenlog van de CR noteert de uitslagen.
+
 ### CI
 
 `.github/workflows/backend-tests.yml` runs the pytest suite on every push/PR to
