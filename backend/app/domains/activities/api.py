@@ -128,6 +128,7 @@ from app.domains.activities.totals import (  # noqa: F401
     compute_registration_total,
     quote_lines,
     quote_registration,
+    quote_registration_products,
 )
 
 # ── Facade-doorgangen naar de registratieflow ────────────────────────────────
@@ -322,6 +323,7 @@ __all__ = [
     "build_component_export_ods",
     "compute_registration_total",
     "quote_registration",
+    "quote_registration_products",
     "enrich_registration",
     "get_activity_detail",
     "list_activities",

@@ -35,11 +35,8 @@ def _inschrijving(client, db):
         },
     )
     assert resp.status_code in (200, 201), resp.text
-    reg_id = resp.json()["id"]
-    item_id = (
-        db.query(RegistrationItem).filter(RegistrationItem.registration_id == reg_id).first().id
-    )
-    return reg_id, item_id
+    # #1494: the card's counters are keyed by product, as on the form.
+    return resp.json()["id"], product.id
 
 
 def test_attributen_zijn_niet_geescaped(client, db_session):
@@ -55,29 +52,36 @@ def test_attributen_zijn_niet_geescaped(client, db_session):
 
 def test_een_opslaan_voor_aantallen_en_opmerking(client, db_session):
     """#613-2: geen autosave op change, geen aparte "Opmerking opslaan" meer."""
-    reg_id, item_id = _inschrijving(client, db_session)
+    reg_id, product_id = _inschrijving(client, db_session)
     _login(client)
     html = client.get(f"/admin/inschrijvingen/{reg_id}").text
 
     assert 'hx-trigger="change"' not in html
     assert "Opmerking opslaan" not in html
     assert f'hx-post="/admin/inschrijvingen/{reg_id}/opslaan"' in html
-    assert f'name="quantity_{item_id}"' in html
+    assert f'name="product_{product_id}"' in html
 
 
 def test_opslaan_bewaart_aantal_en_opmerking_samen(client, db_session):
-    reg_id, item_id = _inschrijving(client, db_session)
+    reg_id, product_id = _inschrijving(client, db_session)
     csrf = _login(client)
 
     r = client.post(
         f"/admin/inschrijvingen/{reg_id}/opslaan",
-        data={f"quantity_{item_id}": "3", "remarks": "Nota van de admin"},
+        data={f"product_{product_id}": "3", "remarks": "Nota van de admin"},
         headers={"X-CSRF-Token": csrf},
     )
     assert r.status_code == 200, r.text
 
     db_session.expire_all()
-    assert db_session.get(RegistrationItem, item_id).quantity == 3
+    item = (
+        db_session.query(RegistrationItem)
+        .filter(
+            RegistrationItem.registration_id == reg_id, RegistrationItem.product_id == product_id
+        )
+        .one()
+    )
+    assert item.quantity == 3
     assert db_session.get(Registration, reg_id).remarks == "Nota van de admin"
 
 
@@ -92,12 +96,12 @@ def test_opslaan_ververst_de_kaart_erboven(client, db_session):
     invariant in test_inschrijving_opslaan_bevestiging.py, samen met de tegenhanger
     (Opslaan sluit). Ze zijn dus samen nog altijd afgedekt, op één plek.
     """
-    reg_id, item_id = _inschrijving(client, db_session)
+    reg_id, product_id = _inschrijving(client, db_session)
     csrf = _login(client)
 
     r = client.post(
         f"/admin/inschrijvingen/{reg_id}/opslaan",
-        data={f"quantity_{item_id}": "2", "remarks": ""},
+        data={f"product_{product_id}": "2", "remarks": ""},
         headers={"X-CSRF-Token": csrf},
     )
     assert r.headers.get("HX-Trigger") == "betalingen-ververst"
@@ -106,11 +110,11 @@ def test_opslaan_ververst_de_kaart_erboven(client, db_session):
 def test_paneel_toont_bedragen_en_totaal(client, db_session):
     """#613-4: zonder bedragen zie je niet wát je aan het wijzigen bent. Het bedrag
     komt uit compute_registration_total, dezelfde bron als de betaalrecords."""
-    reg_id, item_id = _inschrijving(client, db_session)
+    reg_id, product_id = _inschrijving(client, db_session)
     csrf = _login(client)
     client.post(
         f"/admin/inschrijvingen/{reg_id}/opslaan",
-        data={f"quantity_{item_id}": "2", "remarks": ""},
+        data={f"product_{product_id}": "2", "remarks": ""},
         headers={"X-CSRF-Token": csrf},
     )
 

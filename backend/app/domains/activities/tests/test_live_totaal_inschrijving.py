@@ -62,7 +62,7 @@ def test_een_hoger_aantal_toont_meteen_het_nieuwe_bedrag(client, db_session):
 
     r = client.post(
         f"/admin/inschrijvingen/{reg.id}/totaal",
-        data={f"quantity_{item.id}": "5"},
+        data={f"product_{item.product_id}": "5"},
         headers={"X-CSRF-Token": csrf},
     )
     assert r.status_code == 200
@@ -86,7 +86,7 @@ def test_de_herberekening_bewaart_niets(client, db_session):
 
     client.post(
         f"/admin/inschrijvingen/{reg.id}/totaal",
-        data={f"quantity_{item.id}": "9"},
+        data={f"product_{item.product_id}": "9"},
         headers={"X-CSRF-Token": csrf},
     )
 
@@ -112,7 +112,9 @@ def test_zonder_aantallen_toont_het_de_bewaarde_stand(client, db_session):
 def test_het_endpoint_vereist_een_beheerder(client, db_session):
     """Eigen endpoint met require_admin_ui + CSRF; het publieke /totaal is open."""
     reg, item = _inschrijving(client, db_session)
-    r = client.post(f"/admin/inschrijvingen/{reg.id}/totaal", data={f"quantity_{item.id}": "5"})
+    r = client.post(
+        f"/admin/inschrijvingen/{reg.id}/totaal", data={f"product_{item.product_id}": "5"}
+    )
     assert r.status_code in (401, 403)
 
 
@@ -133,30 +135,20 @@ def test_de_rekenkant_blijft_die_van_totals_py(client, db_session):
     )
 
 
-def test_product_toevoegen_staat_boven_de_opmerking(client, db_session):
-    """Consistent met het publieke formulier; het stond ná de Opslaan-knop."""
+def test_de_producten_staan_boven_de_opmerking_in_een_formulier(client, db_session):
+    """Consistent met het publieke formulier: de productrijen vóór de opmerking.
+
+    #1494: er is geen "Product toevoegen" meer — elk product van het onderdeel
+    staat als teller op de fiche. "Toevoegen zonder keuze" bestaat dus ook niet.
+    """
     reg, _item = _inschrijving(client, db_session)
     _login(client)
 
     html = client.get(f"/admin/inschrijvingen/{reg.id}").text
-    assert "Product toevoegen" in html and "Opmerking" in html
-    assert html.index("Product toevoegen") < html.index("Opmerking"), (
-        "Product toevoegen staat nog onder de opmerking"
-    )
+    assert "Product toevoegen" not in html and 'name="product_id"' not in html
+    assert "data-product-row" in html and "Opmerking" in html
+    assert html.index("data-product-row") < html.index("Opmerking")
     # Eén formulier: de opmerking mag niet losgeknipt worden van de aantallen (#613-2).
     assert html.count("<form") == 1, (
         f"{html.count('<form')} formulieren — de ene Opslaan is opgesplitst"
     )
-
-
-def test_toevoegen_zonder_keuze_geeft_een_melding(client, db_session):
-    """De keuzelijst kan geen `required` dragen zonder ook Opslaan te blokkeren."""
-    reg, _item = _inschrijving(client, db_session)
-    csrf = _login(client)
-
-    r = client.post(
-        f"/admin/inschrijvingen/{reg.id}/regels",
-        data={"product_id": "", "quantity": "1"},
-        headers={"X-CSRF-Token": csrf},
-    )
-    assert r.status_code == 200 and "Kies eerst een product" in r.text

@@ -1055,20 +1055,8 @@
   "response_class": "HTMLResponse",
   "response_model": "None"
  },
- "POST /admin/inschrijvingen/{registration_id}/regels": {
-  "endpoint": "app.domains.activities.admin_ui.inschrijving_regel_toevoegen",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
  "POST /admin/inschrijvingen/{registration_id}/regels/{item_id}": {
   "endpoint": "app.domains.activities.admin_ui.inschrijving_regel_bijwerken",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/inschrijvingen/{registration_id}/regels/{item_id}/verwijderen": {
-  "endpoint": "app.domains.activities.admin_ui.inschrijving_regel_verwijderen",
   "openapi": null,
   "response_class": "HTMLResponse",
   "response_model": "None"

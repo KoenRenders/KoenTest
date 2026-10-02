@@ -96,6 +96,24 @@ def quote_lines(
     return totaal, regels
 
 
+def quote_registration_products(
+    registration: Registration, component: ActivitySubRegistration, quantities: dict[int, int]
+) -> Tuple[Decimal, List[RegistrationLine]]:
+    """What would this registration cost with these quantities PER PRODUCT? (#1494)
+
+    The card shows every product of the component as a counter, like the form,
+    so its quantities are keyed by product. The price is the one fixed at the
+    registration date — membership measured then, as `quote_registration` does —
+    so the live total cannot differ from what Save stores.
+    """
+    from app.domains.membership.api import has_valid_membership
+
+    registered_at = getattr(registration, "registered_at", None)
+    ref_date = registered_at.date() if registered_at is not None else None
+    is_member = has_valid_membership(getattr(registration, "person", None), ref_date)
+    return quote_lines(component, quantities, is_member)
+
+
 def has_payable_products(component: ActivitySubRegistration, is_member: bool) -> bool:
     """Valt er op dit onderdeel iets af te rekenen via de portaal? (#607)
 
