@@ -633,6 +633,24 @@ class Organization(SoftDeleteMixin, Base):
     # cbc:CompanyLegalForm` per definitie enkelvoudig.
 
 
+class TenantModule(Base):
+    """One module switched on for one tenant (CR-19 §C4.2, #1475).
+
+    The set is data, the modules themselves are code (`app/kernel/modules.py`):
+    a module code exists only there, and the column's CHECK holds the stored
+    values to it. No soft delete: switching a module off removes its row, and
+    the module's own data stays where it is (§C4.3).
+    """
+
+    __tablename__ = "tenant_modules"
+    __table_args__ = {"schema": "mdm"}
+
+    tenant_id = Column(
+        Integer, ForeignKey("mdm.organizations.id", ondelete="CASCADE"), primary_key=True
+    )
+    module_code = Column(String(20), primary_key=True)
+
+
 class BankAccount(SoftDeleteMixin, Base):
     """Een rekening van een organisatie (#945) — UBL ``cac:PayeeFinancialAccount``.
 

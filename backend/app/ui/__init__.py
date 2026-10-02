@@ -809,7 +809,7 @@ def site_context(db, request=None) -> dict:
 
     from app.domains.auth.api import csrf_from_request
     from app.domains.cms.api import CmsPage, render_cms_content
-    from app.domains.mdm.api import Organization
+    from app.domains.mdm.api import Organization, OrganizationType
     from app.domains.media.api import MediaAsset, MediaKind
     from app.kernel.tenant_config import _actieve_tenant
 
@@ -920,8 +920,10 @@ def site_context(db, request=None) -> dict:
         # De link naar de nieuwsbrief onderaan de HOMEPAGINA (#984, bijgesteld
         # op 19 september 2026). Niet op het platform: dat heeft geen leden en
         # verstuurt geen nieuwsbrief.
+        # CR-19 C6 test 11: the member, not the string. `org_type` is a CodeEnum,
+        # which never equals "PLATFORM", so the platform showed the link too.
         "nieuwsbrief_inschrijven": (
-            organisatie is not None and getattr(organisatie, "org_type", "") != "PLATFORM"
+            organisatie is not None and organisatie.org_type is not OrganizationType.PLATFORM
         ),
         # Privacyverklaring-link per tenant (#493, raakt #453): leeg = niet tonen.
         "privacy_url": get_setting(db, "privacy_url") or None,

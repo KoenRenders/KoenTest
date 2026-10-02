@@ -40,8 +40,9 @@ def create_tenant(db, *, name: str, code: str, parent_id: int | None = None, bas
     aanmaken wordt de codecache gewist, anders resolvet de nieuwe tenant pas na
     een herstart (#546).
     """
-    from app.domains.mdm.models import Organization
+    from app.domains.mdm.models import Organization, TenantModule
     from app.domains.mdm.tenant_lookup import invalidate_tenant_codes
+    from app.kernel.modules import DEFAULTS
     from app.kernel.tenant_config import set_setting
 
     name = (name or "").strip()
@@ -64,6 +65,13 @@ def create_tenant(db, *, name: str, code: str, parent_id: int | None = None, bas
     # beginnen te lopen.
     if (base_url or "").strip():
         set_setting(db, "base_url", base_url.strip(), tenant_id=org.id)
+    # CR-19 (#1475): a new tenant starts with its kind's modules. The kind comes
+    # with #1478; until then every tenant is an association, with everything on —
+    # without these rows a new tenant would have every module off.
+    db.add_all(
+        TenantModule(tenant_id=org.id, module_code=code.value)
+        for code in sorted(DEFAULTS["VERENIGING"], key=lambda c: c.value)
+    )
     db.commit()
     # Cache wissen zodat de nieuwe tenant meteen resolvet (#546) — ná de commit,
     # anders vult een gelijktijdig verzoek de cache met de oude toestand.

@@ -124,7 +124,9 @@ from app.domains.mdm.service import (  # noqa: F401  # noqa: F401  # noqa: E402,
     upsert_primary_contact,
 )
 from app.domains.mdm.tenant_lookup import (  # noqa: F401
+    enabled_modules,
     invalidate_tenant_codes,
+    module_enabled,
     platform_tenant_id,
     tenant_codes,
 )
@@ -240,6 +242,9 @@ __all__ = [
     "unmerge_person",
     "tenant_codes",
     "invalidate_tenant_codes",
+    # CR-19 #1475: the enabled module set per tenant.
+    "enabled_modules",
+    "module_enabled",
     "BOARD_MEETING",
     "CirclePerson",
     "OrganizationPerson",

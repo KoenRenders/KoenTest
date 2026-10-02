@@ -121,3 +121,58 @@ def admin_login_verify_redirect(request: Request, token: str = ""):
     from fastapi.responses import RedirectResponse
 
     return RedirectResponse(f"/login/verify?token={token}", status_code=302)
+
+
+# Login-pariteit (#405): /login = de htmx-aanmeldflow; /login/verify blijft het
+# magic-link-doel uit de e-mails en zet de sessie + stuurt door.
+#
+# Moved here from membership/ui.py with CR-19 (#1475), unchanged: signing in
+# belongs to auth, and the membership router is switched off with the
+# membership module — a tenant without members must still sign in.
+
+
+@router.get("/login", response_class=HTMLResponse)
+def login_redirect(request: Request):
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse("/aanmelden", status_code=302)
+
+
+@router.get("/leden/login", response_class=HTMLResponse)
+def member_login_redirect(request: Request):
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse("/aanmelden", status_code=302)
+
+
+@router.get("/login/verify", response_class=HTMLResponse)
+def login_verify(request: Request, token: str = "", terug: str = "", db: Session = Depends(get_db)):
+    from fastapi.responses import RedirectResponse
+
+    from app.domains.auth.login import consume_magic_link
+    from app.domains.auth.service import landing_for
+    from app.ui import site_context
+
+    # Eenmalig verzilveren (#268) — die regel woont in de auth-service, niet hier.
+    email = consume_magic_link(db, token)
+    if email is None:
+        return templates.TemplateResponse(
+            request, "login_verlopen.html", site_context(db, request), status_code=401
+        )
+    # The page that asked (#1437), checked by the one `veilige_terug` — a link
+    # can be edited, so only a path on this site counts; else the landing by
+    # role (#530), the same rule as the code step.
+    response = RedirectResponse(veilige_terug(terug, landing_for(db, email)), status_code=302)
+    set_session_cookie(response, email, request)
+    return response
+
+
+@router.get("/leden/login/verify", response_class=HTMLResponse)
+def member_login_verify_redirect(request: Request, token: str = "", terug: str = ""):
+    """URL-pariteit (React-exit 405-e): oud React-pad → het magic-link-doel."""
+    from urllib.parse import quote
+
+    from fastapi.responses import RedirectResponse
+
+    extra = f"&terug={quote(terug, safe='/')}" if terug else ""
+    return RedirectResponse(f"/login/verify?token={token}{extra}", status_code=302)
