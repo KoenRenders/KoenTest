@@ -256,6 +256,7 @@ None on 3 October 2026. Decided: the review of a code PR stays per-PR for now �
 | 3 Oct 2026 | The label keeps the name **`ai-review`** — also when a human reviews; the label says what started the request, the @-mention says for whom. (Koen.) |
 | 3 Oct 2026 | The review of a code PR is asked per PR for now; once the habit holds, every code PR gets the request (still asked, never automatic). The findings are in English, like the docs. (Koen.) |
 | 3 Oct 2026 | *Proposed:* the GitHub bus, the protocol, the label, advisory reviews, explicit trigger, PR template; CR review and code review as one shape. | author |
+| 2 Oct 2026 | **Built as (#1489):** the review convention lives in `AGENTS.md` ("Reviews on request"), not as three lines in `CLAUDE.md` (C3, C1) — `CLAUDE.md` imports `AGENTS.md` since 4cbe2a0e; the shaping-agent paragraph refers to the file's header for what it already says and adds the three agreements; the decision is dated 2 October 2026, the day Koen approved it. Koen confirmed the two doors: he decides when a review is needed; a Claude review goes through the master CLI, Mistral is started by Koen from its own chat (no GitHub notifications). The `ai-review` label exists. | master CLI, at the realisation |
 
 ---
 

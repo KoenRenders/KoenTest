@@ -605,6 +605,29 @@ Still report all six lines after every deploy — the commit, the smoke result a
 expected `Running upgrade` lines are yours to verify, and "the script said nothing"
 is not a measurement.
 
+## Reviews on request
+
+A review starts only when asked, through two doors. Within the Claude
+series, Koen asks the master CLI; the master CLI is the dispatcher of the
+Claude series: it sets the `ai-review` label on the PR (or the tracking
+issue) and comments the scope with an @-mention naming the reviewer it
+routed -- a change request review to the architecture CLI (the series shaping
+change requests), a code review to a
+dev CLI. An outside reviewing agent (Mistral, another tool) is started by
+Koen from its own channel, not routed by the master CLI. No CLI or agent
+session starts a review on its own. The
+reviewer answers as one comment per `docs/review-protocol.md`, in English;
+the findings are advisory -- only CI blocks a merge, and Koen decides what is
+taken in.
+
+Shaping agents: the header of this file (*Who may change this file*) already
+says that an agent asked to write a change request writes only that one
+document, on its own branch, edits no process document, and proposes a lesson
+to Koen instead of writing it in. Three agreements add to it: the branch is
+created from master; the agent never works on another agent's branch; and it
+never pushes to master -- the merge to master happens only by the master CLI.
+(Koen, 2 October 2026.)
+
 ## Data operations on an environment — through the app, never raw SQL
 
 Decided by Koen on 29 September 2026. Adding members, importing registrations,
