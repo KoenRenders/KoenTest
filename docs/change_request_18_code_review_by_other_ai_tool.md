@@ -182,16 +182,14 @@ Who calls whom: Koen triggers on GitHub; the reviewer reads the protocol from th
 
 ## B8. Open decisions — what the approver still decides
 
-| Decision | Options |
-|---|---|
-| Does the review of a code PR become standard for *every* code PR from a certain release on (still on request, but the request becomes habit), or stays per-PR? | per-PR now (proposed) · always-ask from release vX |
-| The findings language | English like the docs (proposed) · Dutch |
+None on these two: the review of a code PR stays per-PR for now — from the first release where the habit holds, the request becomes always (Koen, 3 Oct 2026); the findings are in English, like the docs (Koen, 3 Oct 2026).
 
 ## B9. Decisions log — dated answers
 
 | Date | Decision | By |
 |---|---|---|
 | 2 Oct 2026 | The number CR-18 and issue #1455 reserved for "code review by other AI tool". | Koen |
+| 3 Oct 2026 | The review of a code PR is asked per PR for now; once the habit holds, every code PR gets the request (still asked, never automatic). The findings are in English, like the docs. (Koen.) |
 | 3 Oct 2026 | *Proposed:* the GitHub bus, the protocol, the label, advisory reviews, explicit trigger, PR template; CR review and code review as one shape. | author |
 
 ---
