@@ -10,6 +10,8 @@ not import. The three gate-like rules are also broken on this branch on purpose
 
 from __future__ import annotations
 
+import re
+
 import pytest
 from sqlalchemy import text as sql
 
@@ -158,12 +160,14 @@ def test_the_editor_shows_the_kind_and_the_modules_and_refuses_a_missing_depende
     page = client.get(f"/admin/tenants/{org.id}").text
     assert "Type: Bedrijf" in page
     assert _ticked(page) == COMPANY
-    assert "Pagina&#39;s (2)" in page, "the two seeded site blocks, counted"
-    assert "Activiteiten (0)" in page
+    # #1498: the count stands in each module's card header.
+    assert re.search(r'data-card="cms".*?2 gegevens', page, re.S), "the two seeded site blocks"
+    assert re.search(r'data-card="activities".*?0 gegevens', page, re.S)
 
+    # #1498: one Opslaan for modules and settings; the refusal on the card concerned.
     refused = client.post(
-        f"/admin/tenants/{org.id}/modules",
-        data={"modules": ["cms", "designstudio"]},
+        f"/admin/tenants/{org.id}",
+        data={"modules_shown": "1", "modules": ["cms", "designstudio"]},
         headers={"X-CSRF-Token": csrf, "HX-Request": "true"},
     )
     assert refused.status_code == 422
@@ -171,8 +175,8 @@ def test_the_editor_shows_the_kind_and_the_modules_and_refuses_a_missing_depende
     assert enabled_modules(org.id, db=db_session) == COMPANY
 
     saved = client.post(
-        f"/admin/tenants/{org.id}/modules",
-        data={"modules": ["cms", "media", "forms", "workflow", "newsletter"]},
+        f"/admin/tenants/{org.id}",
+        data={"modules_shown": "1", "modules": ["cms", "media", "forms", "workflow", "newsletter"]},
         headers={"X-CSRF-Token": csrf, "HX-Request": "true"},
     )
     assert saved.status_code == 200

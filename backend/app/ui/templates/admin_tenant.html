@@ -18,58 +18,62 @@
   {% if kind_label %} · {{ _("Type") }}: {{ kind_label }}{% endif %}
 </p>
 
-{# CR-19 (#1478): which modules this tenant has on. The count beside each is
-   what becomes unreachable when it goes off — nothing is deleted, and it comes
-   back when the module is switched on again. Its own form: the module set is
-   one decision, the settings below another. #}
-<form hx-post="/admin/tenants/{{ tenant_id }}/modules" hx-target="body" hx-swap="innerHTML"
-      class="max-w-2xl mb-6 space-y-3">
-  {{ ui.section_header(_("Modules")) }}
-  {{ ui.error_banner(modules_error) }}
-  <p class="text-xs text-ink-soft">{{ _("Tussen haakjes: hoeveel gegevens de module voor deze tenant bewaart. Uitzetten wist niets; aanzetten toont alles weer.") }}</p>
-  {{ ui.checkbox_group("modules", labelled=module_options, current=modules_on, aria_label=_("Modules")) }}
-  {{ ui.btn_primary(_("Modules bewaren"), type="submit", size="sm") }}
-</form>
-
-{# Golf 6, kop-herziening: alles bovenaan, sticky — drie onbegrensde secties. #}
+{# CR-19 (#1498): one card per module, its checkbox in the card's header, and one
+   Opslaan for the page — the module set and the settings in one transaction.
+   Which setting belongs on which card is the registry's (`tenant_settings`),
+   decided in `_cards`; this template only lays the cards out. A ticked box
+   shows the card's settings, an unticked one folds them away: they stay on
+   the form, so switching a module off keeps its values (#1478 deletes
+   nothing). "Site" holds what no module owns and has no checkbox. #}
 <div class="max-w-2xl sticky top-0 z-20 bg-ground py-2">
   {{ ui.action_bar(form="tn-form", cancel_href="/admin/tenants") }}
 </div>
 <form id="tn-form" hx-post="/admin/tenants/{{ tenant_id }}" hx-target="body" hx-swap="innerHTML"
       class="space-y-4 max-w-2xl">
-  {# #971: de organisatievelden stonden hier en zijn verhuisd. Wat dit scherm is,
-     staat nu in de kop: de instellingen van de SITE. Wat de organisatie IS — naam,
-     rechtsvorm, adres, rekening, nummers — bewerk je op `/admin/organisaties`, en
-     alleen daar. Twee schermen voor één feit is dezelfde duplicatie die #924 en
-     #945 uit de kolommen haalden.
-
-     De link staat in de kop van dit scherm en niet hier, zodat hij ook zichtbaar
-     is zonder naar beneden te scrollen. #}
-  {{ ui.section_header(_("Instellingen van deze site")) }}
-  {% for key, label, hulp in sleutels %}
-  <div>
-    {{ ui.label(label, key) }}
-    <input name="{{ key }}" id="{{ key }}" value="{{ waarden[key] }}" class="w-full">
-    <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p>
-  </div>
-  {% endfor %}
-  <div class="border-t border-line pt-4">
-    {{ ui.section_header(_("Secrets")) }}
-    {% for key, label, hulp in geheime_sleutels %}
-    <div class="mb-4">
-      {{ ui.label(label, key) }}
-      <input type="password" name="{{ key }}" id="{{ key }}" autocomplete="off"
-             placeholder="{{ _('•••• (gezet — leeg laten = ongewijzigd)') if secrets_gezet[key] else _('niet gezet — .env-default geldt') }}"
-             class="w-full">
-      <label class="flex items-center gap-2 text-sm mt-1">
-        <input type="checkbox" name="{{ key }}_wissen" value="1"> {{ _("Wissen (terug naar de .env-default)") }}
+  <p class="text-xs text-ink-soft">{{ _("Vink een module aan of uit in haar kaart. Het getal is hoeveel gegevens de module voor deze tenant bewaart: uitzetten wist niets, aanzetten toont alles weer.") }}</p>
+  <input type="hidden" name="modules_shown" value="1">
+  {% for m in kept_modules %}<input type="hidden" name="modules" value="{{ m }}">{% endfor %}
+  {% for card in cards %}
+  <section class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" data-card="{{ card.code or 'site' }}"
+           {% if card.code %}x-data="{ on: {{ 'true' if card.on else 'false' }} }"{% endif %}>
+    <div class="flex items-center justify-between gap-3">
+      {% if card.code %}
+      <label class="flex min-h-11 cursor-pointer items-center gap-3">
+        <input type="checkbox" name="modules" value="{{ card.code }}" class="h-4 w-4 shrink-0" x-model="on"
+               {% if card.on %}checked{% endif %}>
+        <span class="text-base font-semibold text-ink">{{ card.label }}</span>
       </label>
-      <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p>
+      {% if card.count is not none %}<span class="shrink-0 text-xs text-ink-soft">{{ _("%(n)s gegevens", n=card.count) }}</span>{% endif %}
+      {% else %}
+      <h2 class="text-base font-semibold text-ink">{{ card.label }}</h2>
+      {% endif %}
     </div>
-    {% endfor %}
-  </div>
-  {# §2.8, #664: bewerken kreeg een teruglink in plaats van Annuleren; de zes
-     aanmaakschermen doen het wel goed. #}
+    {{ ui.error_banner(card.error) }}
+    {% if card.settings or card.secrets %}
+    <div class="mt-3 space-y-4"{% if card.code %} x-show="on"{% if not card.on %} style="display: none"{% endif %}{% endif %}>
+      {% for key, label, hulp in card.settings %}
+      <div>
+        {{ ui.label(label, key) }}
+        <input name="{{ key }}" id="{{ key }}" value="{{ waarden[key] }}" class="w-full">
+        <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p>
+      </div>
+      {% endfor %}
+      {% for key, label, hulp in card.secrets %}
+      <div>
+        {{ ui.label(label, key) }}
+        <input type="password" name="{{ key }}" id="{{ key }}" autocomplete="off"
+               placeholder="{{ _('•••• (gezet — leeg laten = ongewijzigd)') if secrets_gezet[key] else _('niet gezet — .env-default geldt') }}"
+               class="w-full">
+        <label class="flex items-center gap-2 text-sm mt-1">
+          <input type="checkbox" name="{{ key }}_wissen" value="1"> {{ _("Wissen (terug naar de .env-default)") }}
+        </label>
+        <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  {% endfor %}
 </form>
 
 {# #742/#748: dit scherm stuurt een VOLLEDIGE pagina terug (hx-target="body"), dus

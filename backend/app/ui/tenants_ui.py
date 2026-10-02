@@ -200,55 +200,92 @@ def _kind_labels() -> dict[str, str]:
     return dict(code_labels(TENANT_KIND.name))
 
 
-def _editable(db: Session, unit) -> tuple[list, list]:
+def _settings_of(unit) -> tuple[list, list]:
     """The settings and secrets this tenant's editor shows — and saves.
 
-    #854: a platform tenant does not get the membership fields. CR-19 (#1477):
-    a setting of a module this tenant has off is absent too — a module that is
-    off is absent everywhere. The SAVE uses the same lists: a key that is not
-    on the form would otherwise be saved as empty, and switching a module off
-    must delete nothing.
+    #854: a platform tenant does not get the membership fields. Since #1498 the
+    settings of a module that is off are on the form too, folded away in its
+    card: the form carries every key, so saving a module off keeps its values
+    (switching off deletes nothing, #1478), and ticking it shows them again.
     """
-    from app.domains.mdm.api import enabled_modules
-    from app.kernel.modules import shown
-
-    aan = enabled_modules(unit.id, db=db)
     sleutels = [
         rij
         for rij in BEKENDE_SLEUTELS
         if not (unit.org_type == OrganizationType.PLATFORM and rij[0] in LEDENSLEUTELS)
-        and shown("tenant_settings", rij[0], aan)
     ]
-    geheim = [rij for rij in GEHEIME_SLEUTELS if shown("tenant_settings", rij[0], aan)]
-    return sleutels, geheim
+    return sleutels, list(GEHEIME_SLEUTELS)
 
 
-def _modules_ctx(db: Session, unit, chosen=None) -> dict:
-    """The module checkboxes of the editor (CR-19, #1478): each module with how
-    many records it holds for this tenant — switching off deletes nothing, and
-    the operator sees how much becomes unreachable before the click."""
-    from app.domains.mdm.api import enabled_modules
-    from app.kernel.modules import MODULES, record_counts
+def _hidden_cards(unit) -> set:
+    """The modules without a card for this tenant: a platform has no members (#854)."""
+    from app.kernel.modules import ModuleCode
 
+    return {ModuleCode.MEMBERSHIP} if unit.org_type == OrganizationType.PLATFORM else set()
+
+
+def _cards(db: Session, unit, *, modules_on, refused=None) -> list[dict]:
+    """The editor's cards (#1498): "Site" for the settings no module owns, then
+    one per module in registry order, its checkbox in the card's header.
+
+    The grouping is the registry's (`owner_of("tenant_settings", key)`), not a
+    second list here. A module's record count is what becomes unreachable when
+    it goes off. `refused` = (module, message): a refused dependency shows on
+    the card of the module concerned.
+    """
+    from app.kernel.modules import MODULES, owner_of, record_counts
+
+    sleutels, geheim = _settings_of(unit)
     counts = record_counts(db, unit.id)
-    return {
-        "module_options": [
-            (m.code.value, f"{m.label} ({counts[m.code]})" if m.code in counts else m.label)
-            for m in MODULES
-        ],
-        "modules_on": sorted(chosen if chosen is not None else enabled_modules(unit.id, db=db)),
-        "modules_error": None,
-    }
+
+    def owned_by(code) -> tuple[list, list]:
+        return (
+            [r for r in sleutels if owner_of("tenant_settings", r[0]) == code],
+            [r for r in geheim if owner_of("tenant_settings", r[0]) == code],
+        )
+
+    settings, secrets = owned_by(None)
+    cards: list[dict] = [
+        {
+            "code": None,
+            "label": _("Site"),
+            "count": None,
+            "on": True,
+            "settings": settings,
+            "secrets": secrets,
+            "error": None,
+        }
+    ]
+    for module in MODULES:
+        if module.code in _hidden_cards(unit):
+            continue
+        settings, secrets = owned_by(module.code)
+        cards.append(
+            {
+                "code": module.code.value,
+                "label": module.label,
+                "count": counts.get(module.code),
+                "on": module.code.value in modules_on,
+                "settings": settings,
+                "secrets": secrets,
+                "error": refused[1] if refused and refused[0] == module.code else None,
+            }
+        )
+    return cards
 
 
-def _editor_ctx(request: Request, db: Session, tenant_id: int) -> dict:
+def _editor_ctx(
+    request: Request, db: Session, tenant_id: int, *, modules_on=None, refused=None
+) -> dict:
+    from app.domains.mdm.api import enabled_modules
     from app.domains.mdm.api import secrets_gezet as _secrets_gezet
     from app.kernel.tenant_config import get_setting
 
     unit = next((u for u in _units(db) if u.id == tenant_id), None)
     if unit is None:
         raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
-    sleutels, geheim = _editable(db, unit)
+    sleutels, geheim = _settings_of(unit)
+    stored_on = enabled_modules(unit.id, db=db)
+    on = set(modules_on) if modules_on is not None else stored_on
     waarden = {
         key: get_setting(db, key, tenant_id=tenant_id) or "" for key, _label, _hulp in sleutels
     }
@@ -259,9 +296,9 @@ def _editor_ctx(request: Request, db: Session, tenant_id: int) -> dict:
         "tenant_id": tenant_id,
         # CR-19 (#1478): the kind is chosen once, at creation, and shown here.
         "kind_label": _kind_labels().get(unit.kind.value) if unit.kind is not None else None,
-        **_modules_ctx(db, unit),
-        "sleutels": sleutels,
-        "geheime_sleutels": geheim,
+        "cards": _cards(db, unit, modules_on=on, refused=refused),
+        # A module without a card keeps its state through the one Opslaan.
+        "kept_modules": sorted(c.value for c in _hidden_cards(unit) if c.value in stored_on),
         "waarden": waarden,
         "secrets_gezet": secrets_gezet,
         "error": None,
@@ -361,69 +398,56 @@ async def tenant_opslaan(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
-    from app.domains.mdm.api import OngeldigeInstelling, update_tenant_settings
+    """The editor's one Opslaan (#1498): the module set and the settings in one
+    transaction (`save_tenant`); "Modules bewaren" and its route are gone. A
+    refusal shows the form again as it was sent, with the 422 both routes gave
+    (#797, #1478); whether htmx shows a 4xx is an open question to Koen."""
+    from app.domains.mdm.api import ModuleRefused, OngeldigeInstelling, TenantFout, save_tenant
 
     require_operator_ui(db, email)
     unit = next((u for u in _units(db) if u.id == tenant_id), None)
     if unit is None:
         raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
-    sleutels, geheim = _editable(db, unit)
+    sleutels, geheim = _settings_of(unit)
     form = await request.form()
+    # Only what the form carries is saved: a key that is not on it is left
+    # alone, never emptied, and the module set only when the form sent its
+    # checkboxes (`modules_shown`) — an empty list then means "all off".
+    modules = [str(v) for v in form.getlist("modules")] if form.get("modules_shown") else None
+    labels = {key: label for key, label, _h in BEKENDE_SLEUTELS}
+
+    def again(**kwargs) -> dict:
+        ctx = _editor_ctx(request, db, tenant_id, modules_on=modules, **kwargs)
+        # #797: the typed values stay; throwing them away makes the message worse
+        # than the mistake.
+        ctx["waarden"] = {**ctx["waarden"], **{k: v for k, v in form.items() if k in labels}}
+        return ctx
+
     # #971: enkel nog de instellingen van de site. Wat de organisatie IS, wordt op
     # `/admin/organisaties` bewerkt — één scherm per feit.
     try:
-        update_tenant_settings(
+        save_tenant(
             db,
             tenant_id,
             form,
-            known=[key for key, _l, _h in sleutels],
+            known=[key for key, _l, _h in sleutels if key in form],
             secret=[key for key, _l, _h in geheim],
+            modules=modules,
         )
+    except ModuleRefused as fout:
+        ctx = again(refused=(fout.module, _(str(fout))))
+        return templates.TemplateResponse(request, "admin_tenant.html", ctx, status_code=422)
+    except TenantFout as fout:
+        ctx = again()
+        ctx["error"] = _(str(fout))
+        return templates.TemplateResponse(request, "admin_tenant.html", ctx, status_code=422)
     except OngeldigeInstelling as fout:
-        # #797: het formulier terug tonen mét de ingetypte waarden. Ze wegwerpen zou
-        # betekenen dat één tikfout in een bedrag het hele scherm leegveegt, en dan
-        # is de melding erger dan de fout.
-        ctx = _editor_ctx(request, db, tenant_id)
-        labels = {key: label for key, label, _h in BEKENDE_SLEUTELS}
+        ctx = again()
         ctx["error"] = " ".join(f"{labels.get(k, k)}: {m}" for k, m in fout.fouten.items())
-        ctx["waarden"] = {**ctx["waarden"], **{k: v for k, v in form.items() if k in labels}}
         return templates.TemplateResponse(request, "admin_tenant.html", ctx, status_code=422)
     ctx = _editor_ctx(request, db, tenant_id)
     # #742: een toast in plaats van de bestaande success_banner. §2.9 schrijft één
     # bevestigingspatroon voor; twee vormen naast elkaar is precies de inconsistentie
     # die dat issue wegneemt.
-    ctx["toast_opgeslagen"] = True
-    return templates.TemplateResponse(request, "admin_tenant.html", ctx)
-
-
-@router.post(
-    "/admin/tenants/{tenant_id}/modules",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-async def tenant_modules_save(
-    tenant_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-):
-    """The module set of one tenant (CR-19, #1478). Operator-only, like the
-    rest of this screen. A refusal (a missing dependency) shows above the
-    checkboxes with the ticks as they were sent."""
-    from app.domains.mdm.api import TenantFout, set_modules
-
-    require_operator_ui(db, email)
-    unit = next((u for u in _units(db) if u.id == tenant_id), None)
-    if unit is None:
-        raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
-    chosen = [str(v) for v in (await request.form()).getlist("modules")]
-    try:
-        set_modules(db, tenant_id, chosen)
-    except TenantFout as fout:
-        ctx = _editor_ctx(request, db, tenant_id)
-        ctx.update(_modules_ctx(db, unit, chosen))
-        ctx["modules_error"] = _(str(fout))
-        return templates.TemplateResponse(request, "admin_tenant.html", ctx, status_code=422)
-    ctx = _editor_ctx(request, db, tenant_id)
     ctx["toast_opgeslagen"] = True
     return templates.TemplateResponse(request, "admin_tenant.html", ctx)

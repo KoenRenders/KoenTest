@@ -32,6 +32,15 @@ class TenantFout(ValueError):
     welk sjabloon erbij hoort."""
 
 
+class ModuleRefused(TenantFout):
+    """A module set refused because a module lacks one it depends on (#1478).
+    Carries that module, so the editor shows the refusal on its card (#1498)."""
+
+    def __init__(self, message: str, module) -> None:
+        super().__init__(message)
+        self.module = module
+
+
 def create_tenant(
     db,
     *,
@@ -142,8 +151,17 @@ def set_modules(db, tenant_id: int, codes) -> None:
     deletes nothing — the module's data stays, unreachable until it is back on.
     Commits, and clears the cached sets so the next request reads the new one.
     """
-    from app.domains.mdm.models import TenantModule
     from app.domains.mdm.tenant_lookup import invalidate_tenant_codes
+
+    chosen = _checked_modules(codes)
+    _write_modules(db, tenant_id, chosen)
+    db.commit()
+    invalidate_tenant_codes()
+
+
+def _checked_modules(codes) -> set:
+    """The module codes as members, refused before anything changes when one is
+    unknown or lacks a module it depends on (`ModuleRefused`, naming it)."""
     from app.kernel.modules import REGISTRY, ModuleCode
 
     try:
@@ -154,7 +172,14 @@ def set_modules(db, tenant_id: int, codes) -> None:
         for alternatives in REGISTRY[code].depends_on:
             if not chosen & set(alternatives):
                 needed = " of ".join(REGISTRY[a].label for a in alternatives)
-                raise TenantFout(f"{REGISTRY[code].label} heeft {needed} nodig.")
+                raise ModuleRefused(f"{REGISTRY[code].label} heeft {needed} nodig.", code)
+    return chosen
+
+
+def _write_modules(db, tenant_id: int, chosen) -> None:
+    """Make the stored set exactly `chosen`. Does not commit."""
+    from app.domains.mdm.models import TenantModule
+    from app.kernel.modules import ModuleCode
 
     stored = {
         row.module_code: row
@@ -165,6 +190,29 @@ def set_modules(db, tenant_id: int, codes) -> None:
             db.delete(row)
     for code in chosen - {ModuleCode(c) for c in stored}:
         db.add(TenantModule(tenant_id=tenant_id, module_code=code.value))
+
+
+def save_tenant(
+    db,
+    tenant_id: int,
+    form: Mapping,
+    *,
+    known: Iterable[str],
+    secret: Iterable[str],
+    modules: Iterable[str] | None,
+) -> None:
+    """The tenant editor's one Opslaan (#1498): the module set and the settings
+    in ONE transaction. Both are checked before anything is written — a refused
+    dependency (`ModuleRefused`) or an invalid value (`OngeldigeInstelling`)
+    saves nothing. Switching a module off deletes nothing: its settings stay,
+    as they are on the form. `modules=None` leaves the module set as it is.
+    Commits, and clears the cached module sets."""
+    from app.domains.mdm.tenant_lookup import invalidate_tenant_codes
+
+    chosen = _checked_modules(modules) if modules is not None else None
+    _write_settings(db, tenant_id, form, known=known, secret=secret)
+    if chosen is not None:
+        _write_modules(db, tenant_id, chosen)
     db.commit()
     invalidate_tenant_codes()
 
@@ -234,6 +282,15 @@ def update_tenant_settings(
     schrijven: anders staat de helft van het formulier in de databank en de andere
     helft niet, en dan is de toestand na een tikfout onduidelijker dan ervoor.
     """
+    _write_settings(db, tenant_id, form, known=known, secret=secret)
+    db.commit()
+
+
+def _write_settings(
+    db, tenant_id: int, form: Mapping, *, known: Iterable[str], secret: Iterable[str]
+) -> None:
+    """Check every value, then write them — `update_tenant_settings` without the
+    commit, so `save_tenant` can write the modules in the same transaction."""
     from app.kernel.tenant_config import SITE_HEADER_COLOR_KEY, header_color_problem, set_setting
 
     def _tekst(key: str) -> str:
@@ -274,7 +331,6 @@ def update_tenant_settings(
             set_setting(db, key, None, tenant_id=tenant_id)
         elif _tekst(key):
             set_setting(db, key, _tekst(key), secret=True, tenant_id=tenant_id)
-    db.commit()
 
 
 def list_units(db, *, alleen_actief: bool = False):
