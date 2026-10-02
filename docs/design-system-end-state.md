@@ -532,12 +532,12 @@ says so, and the default order is the one named above.
 | Activiteit | hand-built head with six buttons; per-card edit toggles (activity, each date, component, product, organiser); right rail Publicatie / Deel / Bezetting; tabs Overzicht · Inschrijvingen · Betalingen; `<details>` external links | status first, then access badge; facts: dates · time · location · organiser (jump link) · poster from the Design Studio; summary: state, registrations, children or participants, open balance, the share link; tabs Gegevens · Inschrijvingen · Betalingen; primary Bewerken, menu Acties (Kopiëren, Publiceren, Design Studio, Foto's, Verwijderen) | one save (pilot A) | dates (simple), components (composite, with products), organisers (simple); Externe koppelingen last |
 | Inschrijving | page_header with facts; one panel; edit toggle; two action bars (main, answers); tabs Overzicht · Betalingen | contact name; facts: activity (jump link) · component · registered on; summary: state, total, paid, balance; tabs Gegevens · Betalingen | one save (the answers form folds into it) | product lines, answers; none rare |
 | Gezin (household) | head with Verwijderen; person cards with toggles; address card; bestuurslid; lidmaatschappen; tabs Overzicht · Inschrijvingen · Betalingen | household name; facts: address · persons · membership year (badge); summary: membership state, persons, open balance; tabs Gegevens · Personen · Inschrijvingen · Betalingen | one save (pilot B, the admin side) | persons (composite, each with e-mail addresses as a simple group), memberships; none rare |
-| Persoon | **no page**: a card on the household page | *proposed:* stays a card on the household page in phase 5; a person page is new scope (Q28) | — | e-mail addresses |
-| Formulier | builder with edit toggle per settings, section, field; option rows with bars; JSON import panel; tabs Formulier · Inzendingen · Resultaten | title with status badge; facts: share link (copy) · submissions · last submission; summary: state, submissions, open since; tabs Opbouw · Inzendingen · Resultaten; menu Acties (Bekijk, Afdruk, Definitie exporteren, Definitie importeren…) | **the builder keeps per-section editing** — a declared exception: a form is edited field by field (Q28) | sections (composite, with fields), options (simple); JSON import last |
+| Persoon | **no page**: a card on the household page | stays a card on the household page (Koen, 2 Oct 2026, Q28) | — | e-mail addresses |
+| Formulier | builder with edit toggle per settings, section, field; option rows with bars; JSON import panel; tabs Formulier · Inzendingen · Resultaten | title with status badge; facts: share link (copy) · submissions · last submission; summary: state, submissions, open since; tabs Opbouw · Inzendingen · Resultaten; menu Acties (Bekijk, Afdruk, Definitie exporteren, Definitie importeren…) | **the builder keeps per-section editing** — a declared exception (Koen, 2 Oct 2026, Q28) | sections (composite, with fields), options (simple); JSON import last |
 | Nieuwsbrief | autosave body; audience radios; insert buttons; Raakje panel right; Versturen on its own page; no tabs | **document**: subject as the title, facts: audience · state · last saved; header editor (audience, subject, preview text); body autosaved; primary Versturen…, menu Acties (Voorbeeld, Testmail, Kopiëren, Verwijderen); the Raakje panel docked | autosave + header editor | none; none |
 | Vergadering | status badge beside the buttons; attendance; agenda sections with items, notes autosave per item; separate pages for date/place and for sending | **document**: date as the title, status first; facts: time · location · attendance; header editor (date, time, location); the agenda as the body; primary Verslag versturen… / Agenda versturen…; menu Acties (Download PDF, Heropen) | autosave per item + header editor | sections (composite, with items), attendees, attachments; none |
 | Pagina (CMS) | one card, sticky head with one save; `<details>` placeholders | **document** (CR-17): title, facts: /slug · gepubliceerd/concept · last published; header editor (title, slug, in navigatie); the body as blocks; primary Publiceren, menu Acties (Voorbeeld, Geschiedenis, Verwijderen) | autosave of the draft, publish as the act (CR-17) | none; none |
-| Ontwerp (Design Studio) | four action bars and loose buttons; preview right; `<details>` prompt | activity as the title; facts: template · status · versions; summary: the preview; sections Ontwerp · Beelden (the picker, CR-15) · Varianten · Versies; primary Bewaren en voorbeeld, menu Acties (Definitief maken, Publiceren als affiche, Inkscape, Verwijderen) | one save per section is the declared exception until the studio is revisited (Q28) | images, versions, generations; the prompt text last |
+| Ontwerp (Design Studio) | four action bars and loose buttons; preview right; `<details>` prompt | activity as the title; facts: template · status · versions; summary: the preview; sections Ontwerp · Beelden (the picker, CR-15) · Varianten · Versies; primary Bewaren en voorbeeld, menu Acties (Definitief maken, Publiceren als affiche, Inkscape, Verwijderen) | one save per section — a declared exception (Koen, 2 Oct 2026, Q28) | images, versions, generations; the prompt text last |
 | Gebruiker | inline row, no page (row 44) | record page: e-mail as the title; facts: active · roles; sections Account · Rollen (checkbox group per workspace) | one save | roles per workspace; none |
 | Organisatie | sections with one save at the end, `max-w-2xl`; header button to the site settings | name; facts: type · code · legal form; sections as today; menu Acties (Instellingen van de site) | one save (already) | identifications, accounts (CR Organisation: repeatable by standard); none |
 | Tenant | key list with a sticky save on top; header button to the organisation | name; facts: code · active; sections Instellingen · Secrets; menu Acties (De organisatie) | one save (already) | none; Secrets as the rare section (collapsed, last) |
@@ -557,16 +557,15 @@ says so, and the default order is the one named above.
 | Foto's and an album | album cards per year; thumbnail grid | cards (the picture is the content); the album grid with the lightbox; clearance honoured (CR-15) |
 | Bedankt, Betaling ontvangen, Inloglink verlopen | one-card pages | one-card pages, the same card |
 
-**Open with Koen from this table (CR-11 Q28):** whether a person gets a
-record page of its own (today a card on the household page; new scope);
-whether the form builder and the Design Studio keep per-section saves as
-declared exceptions to "one save" (recommended: yes, both edit a
-composition, not a record); the draft tiles for Formulieren, Vergaderingen,
-Nieuwsbrieven, Abonnees, Pagina's, Werkbank and AI-kosten (recommended:
-build them only where the figure is acted on weekly — Werkbank and Abonnees
-yes, the others not until asked); and the header buttons that become menu
-items of "Acties" on each record (the activity's six buttons in
-particular).
+**Decided with Koen on 2 October 2026 (CR-11 Q28):** a person stays a card on
+the household page — no person page; the form builder and the Design Studio
+keep per-section saves as declared exceptions to "one save" (they edit a
+composition, not a record); tiles are built only where the figure is acted
+on weekly — Werkbank and Abonnees — and elsewhere when asked, so the tiles
+column above is the end state for those two and "none until asked" for
+Formulieren, Vergaderingen, Nieuwsbrieven, Pagina's and AI-kosten; the
+activity's six header buttons become items of its "Acties" menu beside one
+primary button (R13).
 
 ---
 
