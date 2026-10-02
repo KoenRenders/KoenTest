@@ -94,6 +94,18 @@
         {% endif %}
         <span class="text-xs text-gray-400">{{ a.width }}×{{ a.height }}</span>
       </div>
+      {# CR-15 #1471: where the picture is used, derived from the designs and the
+         pages; unfolded on a click, and open on the card whose delete was just
+         refused, so the places to fix are the links right there. #}
+      {% if a.uses %}
+      <details class="text-xs"{% if a.uses_open %} open{% endif %}>
+        <summary class="cursor-pointer text-ink-soft">{{ _("Gebruikt in %(n)s", n=a.uses|length) }}</summary>
+        <ul class="mt-1 space-y-0.5">
+          {% for u in a.uses %}<li><a href="{{ u.href }}" class="text-link underline">{{ u.label }}</a></li>{% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+      {% if a.origin_deleted %}<p class="text-xs text-ink-soft">{{ _("Van een verwijderde activiteit") }}</p>{% endif %}
     </div>
   </form>
   {% endfor %}

@@ -16,6 +16,7 @@ from app.domains.cms.service import (  # noqa: F401
     list_pages,
     placeholders,
     published_slugs,
+    references_to_media,
     update_page,
     verplaats_pagina,
 )
@@ -29,6 +30,8 @@ __all__ = [
     "get_published_page",
     "list_pages",
     "placeholders",
+    # CR-15 #1471: which pages show a picture.
+    "references_to_media",
     "published_slugs",
     "update_page",
     "CmsPage",

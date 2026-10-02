@@ -10,6 +10,7 @@ Fouten komen naar buiten als `MediaFout` (invoer) of `LookupError` (niet
 gevonden); de route vertaalt die naar een statuscode.
 """
 
+from dataclasses import dataclass
 from typing import NamedTuple, Optional, Sequence
 
 from app.domains.media.images import ALLOWED_CONTENT_TYPES, ImageError, process_image
@@ -62,6 +63,54 @@ MAX_BATCH = 20
 class MediaFout(ValueError):
     """Een invoerfout die het scherm toont. Geen HTTPException: de service kent
     geen HTTP."""
+
+
+@dataclass(frozen=True)
+class MediaUse:
+    """One place that shows a picture: what it is called and where to fix it
+    (CR-15 §C4.4, #1471). A consumer's `references_to_media` returns these."""
+
+    label: str
+    href: str
+
+
+class MediaInUse(MediaFout):
+    """Deleting a picture that something still shows (#1471). Carries the uses,
+    so a screen can offer them as links; there is no forced delete."""
+
+    def __init__(self, uses: list[MediaUse]):
+        self.uses = uses
+        names = ", ".join(use.label for use in uses)
+        super().__init__(_("Nog in gebruik in %(waar)s. Pas dat eerst aan.") % {"waar": names})
+
+
+def uses_by_asset(db, asset_ids) -> dict[int, list[MediaUse]]:
+    """Where each of these pictures is used — derived, never stored (§C4.4).
+
+    Each consumer knows what it references, so media asks them through their
+    facades: the Design Studio (the picture slots and the logo strip of every
+    design) and the CMS (the page texts). A stored table of uses would make every
+    consumer write twice, and the two would drift. The newsletter needs no
+    facade: a letter references an activity, never a picture.
+
+    Lazy imports: both consumers import media's facade themselves.
+    """
+    from app.domains.cms.api import references_to_media as pages_using
+    from app.domains.designstudio.api import references_to_media as designs_using
+
+    ids = sorted({int(i) for i in asset_ids})
+    found: dict[int, list[MediaUse]] = {i: [] for i in ids}
+    if not ids:
+        return found
+    for references in (designs_using(db, ids), pages_using(db, ids)):
+        for asset_id, uses in references.items():
+            found.setdefault(asset_id, []).extend(uses)
+    return found
+
+
+def uses_of(db, asset_id: int) -> list[MediaUse]:
+    """Where this one picture is used (#1471); empty when nowhere."""
+    return uses_by_asset(db, [asset_id])[asset_id]
 
 
 def meta(asset: MediaAsset) -> dict:
@@ -328,7 +377,16 @@ def remove_media(db, asset_id: int) -> None:
 
 
 def delete_media(db, asset_id: int) -> None:
-    """Delete one asset and commit — the door of media's own screens and routes."""
+    """Delete one asset and commit — the door of media's own screens and routes.
+
+    Refused while the picture is in use (#1471, §C4.4): a design or a page that
+    points at a deleted picture breaks on the site. No forced delete — the uses
+    come with the refusal, and each is one click to change. `remove_media`, the
+    door for another domain's own products (renders, posters), does not ask.
+    """
+    uses = uses_of(db, asset_id)
+    if uses:
+        raise MediaInUse(uses)
     remove_media(db, asset_id)
     db.commit()
 

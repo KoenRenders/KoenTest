@@ -82,6 +82,11 @@ __all__ = [
     "remove_media",
     "replace_component_info",
     "update_media_extracted_text",
+    # CR-15 #1471: where a picture is used, and the refusal to delete it then.
+    "MediaInUse",
+    "MediaUse",
+    "uses_by_asset",
+    "uses_of",
 ]
 
 
@@ -98,6 +103,8 @@ from app.domains.media.service import (  # noqa: F401
     UPLOADABLE_KINDS,
     VALID_KINDS,
     MediaFout,
+    MediaInUse,
+    MediaUse,
     TagIndex,
     TagNode,
     activities_by_kind,
@@ -136,4 +143,6 @@ from app.domains.media.service import (  # noqa: F401
     untag_asset,
     update_media,
     upload_media,
+    uses_by_asset,
+    uses_of,
 )
