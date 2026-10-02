@@ -103,7 +103,7 @@ Decisions that shape it, each with the rejected alternative (the reasoning in C4
 | # | Derived requirement | From |
 |---|---|---|
 | F1 | `docs/review-protocol.md`, drafted in the appendix: two checklists (change request, PR), each ending in the same three verdicts: *take in*, *already decided*, *not taken, with the reason*. | R2, R3, R6 |
-| F2 | The label `ai-review` on a PR or the tracking issue, plus a comment naming the scope; the reviewer answers as a comment headed "Review — <date>, <scope>". | R1, R3 |
+| F2 | The label `ai-review` on the PR that carries the document (a change request is always shaped on its own branch with a PR) or on a code PR, plus a comment naming the scope and, with an @-mention, the reviewer; the reviewer answers as a comment headed "Review — <date>, <scope>". | R1, R3 |
 | F3 | A PR description template (`.github/PULL_REQUEST_TEMPLATE.md`), drafted in the appendix, for code PRs: the CR or issue, what changed per module, the evidence (CI run, tests added, gates proven). | R2, R4 |
 | F4 | The shaping CLI reads the findings from the PR/issue and processes them there; the decisions log of the CR records what was taken in (as CR-15's Q10 does). | R3, R5 |
 | F5 | `CLAUDE.md`'s workflow section gains three lines: the label, the protocol, the advisory rule. | R6 |
@@ -182,17 +182,14 @@ Who calls whom: Koen triggers on GitHub; the reviewer reads the protocol from th
 
 ## B8. Open decisions — what the approver still decides
 
-None on these two: the review of a code PR stays per-PR for now — from the first release where the habit holds, the request becomes always (Koen, 3 Oct 2026); the findings are in English, like the docs (Koen, 3 Oct 2026).
-
-| Decision | Options |
-|---|---|
-| Who is the review for, when not Mistral by default — is the addressee part of the trigger? | one label, the addressee in the request sentence (proposed: `review please, <scope> — for <reviewer>`, an @-mention when the reviewer is a bot account) · one label per reviewer (`ai-review-mistral`, `ai-review-claude`, …) · GitHub's requested reviewers |
+None on these two: the review of a code PR stays per-PR for now — from the first release where the habit holds, the request becomes always (Koen, 3 Oct 2026); the findings are in English, like the docs (Koen, 3 Oct 2026). The addressee is decided too (B9, same day): the label marks the request, the @-mention names the reviewer.
 
 ## B9. Decisions log — dated answers
 
 | Date | Decision | By |
 |---|---|---|
 | 2 Oct 2026 | The number CR-18 and issue #1455 reserved for "code review by other AI tool". | Koen |
+| 3 Oct 2026 | The trigger has two parts: the label `ai-review` marks the request, and the **@-mention in the request sentence names the reviewer** — a request without a named addressee is not picked up, so no one waits for someone else and no one reviews twice. (Koen.) |
 | 3 Oct 2026 | The review of a code PR is asked per PR for now; once the habit holds, every code PR gets the request (still asked, never automatic). The findings are in English, like the docs. (Koen.) |
 | 3 Oct 2026 | *Proposed:* the GitHub bus, the protocol, the label, advisory reviews, explicit trigger, PR template; CR review and code review as one shape. | author |
 
@@ -297,7 +294,7 @@ Nothing of this exists yet; it is the shape of the artifacts phase 1 and 2 will 
 
 > One trigger, one answer, one place: a review is asked for with the **`ai-review`** label plus one sentence on the PR or the tracking issue, and it is answered as a comment on that PR or issue. It is *advisory*: nothing blocks a merge but CI, and the platform owner decides what is taken in. Any reviewer — an AI tool or a human — gets the same scope. Never automatic: a review starts only when asked.
 
-**The request.** Add the label `ai-review`; comment: *review please, <scope>* — "the document" for a change request, "the diff against CR-<NN>" for a PR.
+**The request.** On the PR that carries the change request document, or on a code PR: add the label `ai-review`; comment: *review please, <scope> — **@<reviewer>*** — "the document" for a change request, "the diff against CR-<NN>" for a PR. The label marks the request; the @-mention names the addressee, and without it nobody is expected to act.
 
 **The answer.** One comment, headed **"Review — <date>, <scope>"**, findings grouped by weight, each with file and line or section; ending with the verdict list (*take in* · *already decided* · *not taken, with the reason*).
 
