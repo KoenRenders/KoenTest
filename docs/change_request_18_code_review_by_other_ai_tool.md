@@ -4,7 +4,7 @@
 **Status:** shaped on 3 October 2026 · on hold — Koen walks through it before anything is assigned
 **Tracking issue:** #1455 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the review procedure and its artifacts (`docs/review-protocol.md`, the PR description template, one label); no product code, no database, no screen.
-**Reading:** A 612 words · B 1450 · C 1055 — measured on 3 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 612 words · B 1450 · C 1320 — measured on 3 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -102,9 +102,9 @@ Decisions that shape it, each with the rejected alternative (the reasoning in C4
 
 | # | Derived requirement | From |
 |---|---|---|
-| F1 | `docs/review-protocol.md`: two checklists (change request, PR), each ending in the same three verdicts: *take in*, *already decided*, *not taken, with the reason*. | R2, R3, R6 |
+| F1 | `docs/review-protocol.md`, drafted in the appendix: two checklists (change request, PR), each ending in the same three verdicts: *take in*, *already decided*, *not taken, with the reason*. | R2, R3, R6 |
 | F2 | The label `ai-review` on a PR or the tracking issue, plus a comment naming the scope; the reviewer answers as a comment headed "Review — <date>, <scope>". | R1, R3 |
-| F3 | A PR description template (`.github/PULL_REQUEST_TEMPLATE.md`) for code PRs: the CR or issue, what changed per module, the evidence (CI run, tests added, gates proven). | R2, R4 |
+| F3 | A PR description template (`.github/PULL_REQUEST_TEMPLATE.md`), drafted in the appendix, for code PRs: the CR or issue, what changed per module, the evidence (CI run, tests added, gates proven). | R2, R4 |
 | F4 | The shaping CLI reads the findings from the PR/issue and processes them there; the decisions log of the CR records what was taken in (as CR-15's Q10 does). | R3, R5 |
 | F5 | `CLAUDE.md`'s workflow section gains three lines: the label, the protocol, the advisory rule. | R6 |
 
@@ -286,6 +286,40 @@ Waived: no screen. The protocol document itself is the artifact Koen reads.
 Not yet: on hold, nothing built. Filled in when the release that builds this change runs on PROD (`CLAUDE.md`, release step 14) — for a process change, that is: the first review asked and answered through the loop, named here.
 
 ---
+
+## Appendix — the drafts the build will turn into files
+
+Nothing of this exists yet; it is the shape of the artifacts phase 1 and 2 will create, written here so the approver signs off the words themselves.
+
+### The protocol (`docs/review-protocol.md`, phase 1)
+
+> One trigger, one answer, one place: a review is asked for with the **`ai-review`** label plus one sentence on the PR or the tracking issue, and it is answered as a comment on that PR or issue. It is *advisory*: nothing blocks a merge but CI, and the platform owner decides what is taken in. Any reviewer — an AI tool or a human — gets the same scope. Never automatic: a review starts only when asked.
+
+**The request.** Add the label `ai-review`; comment: *review please, <scope>* — "the document" for a change request, "the diff against CR-<NN>" for a PR.
+
+**The answer.** One comment, headed **"Review — <date>, <scope>"**, findings grouped by weight, each with file and line or section; ending with the verdict list (*take in* · *already decided* · *not taken, with the reason*).
+
+**Checklist — a change request.** 1. Premises measured: every "as X already does" claim carries file and line in C1. 2. Exceptions named once (B4). 3. Screens shown or waived (C9). 4. The user's words in A3; no components in Part A. 5. The shape holds: deliberate Won'ts, walkable ACs, the reading budget, no old decision lingering against a new one. 6. The tests could go red.
+
+**Checklist — a PR with code.** 1. The description states its claim (CR, modules, evidence). 2. Scope: the diff stays inside its CR. 3. Conventions hold (`CLAUDE.md`, `docs/code-style.md`, the domain's `CONTRACT.md`). 4. Every new test could go red. 5. No copy-paste of a fact the codebase keeps in one place.
+
+**Sources.** Every item points at `docs/change_request_template.md` (the five rules), `CLAUDE.md`, `docs/code-style.md`, the contracts, and the CR the PR implements; a convention found nowhere in those is an observation, not a finding.
+
+### The PR description template (`.github/PULL_REQUEST_TEMPLATE.md`, phase 2)
+
+```markdown
+## Summary
+- The change request or issue this PR implements: <CR-NN / #issue>
+- What changed, per module: <one line per module>
+
+## Evidence
+- CI run: <run-id + link, pytest summary (N passed)>
+- Tests added: <which invariant each proves, and how each could go red>
+- Gates proven by violation: <which, what was broken to prove it>
+
+## Na de merge
+- <what the release issue must name, if anything>
+```
 
 ## Q&A log — asked once, answered here
 
