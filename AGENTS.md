@@ -1,0 +1,1198 @@
+# AGENTS.md — project conventions for every AI agent
+
+This file holds the conventions of the Raak Millegem project for every AI coding agent that works in this repository (Claude Code, Mistral Vibe, Codex, …) and for humans. Tool-specific instructions live in the tool's own file (`CLAUDE.md` for Claude Code), which points here.
+
+**Who may change this file:** Koen, or the master CLI at Koen's explicit request. Any other agent or session proposes a change (in its chat with Koen or as an issue comment) and does not edit this file, `CLAUDE.md`, `.github/`, or any process document itself. An agent that is asked to write a change request writes only that change request document, on its own branch. (Koen, 2 October 2026.)
+
+## Project: Raak Millegem web portal
+
+Community association website with public activity registration, family membership, Mollie payment integration, and an admin dashboard. Language: Dutch (nl-BE).
+
+## Documentation language
+
+Chat with Koen is in Dutch (nl-BE), but **all documentation written from now on
+is in English** — code comments, docstrings, README's, `docs/`, ADRs, and this
+file. This holds even when the conversation is in Dutch.
+
+Existing Dutch documentation stays as it is (`docs/ui-conventies.md` — now only
+IST inventories and work lists, `docs/rollen-en-rechten.md`, the Dutch sections
+below, …). The UI norm itself is English since 9 September 2026:
+`docs/design-system.md`, one document for look, behaviour and copy, with the
+components rendered live from the real macros at `/admin/design-system` (#783).
+Do not translate it unless Koen asks. User-facing UI copy is Dutch and is not
+documentation — it is unaffected by this rule.
+
+## Referring to issues in chat
+
+Koen does not know issue numbers by heart, and there are hundreds of them.
+Keep using the numbers — they are the link into GitHub — but **in chat, every
+issue number carries a short name in parentheses, every time it is mentioned**:
+`#785 (ontwerprichting)`, `#779 (codes en enums)`, `#657 (tracker v2.1)`. Not
+only the first time in a message; every time, because messages are skimmed.
+
+The name is two to four Dutch words, the same words every time, so it becomes
+the issue's name rather than a fresh summary. Pick it from the issue title and
+reuse it. A number without a name costs Koen a lookup for every sentence; the
+name is what makes his answer fast. (Asked for on 9 September 2026.)
+
+In GitHub text — issue bodies, tracker lines, commit messages — the number alone
+is fine: GitHub shows the title on hover, and tracker lines already carry a
+description per issue.
+
+## Code language
+
+Decided 9 September 2026, with the ambition of several consultants working on
+this codebase: **all new code is English** — identifiers (modules, classes,
+functions, variables), database objects (tables, columns, constraints), migration
+filenames, test names and log messages. Same rule as for documentation, same
+date of effect.
+
+Existing Dutch identifiers stay. **Do not rename.** A rename touches every
+caller, every migration reference and every history row for no behavioural gain,
+and a half-renamed codebase is worse than either pure state. Extend a Dutch
+module in English; the mix at the seam is accepted.
+
+Dutch remains wherever it is data or copy rather than code: user-facing UI text
+and i18n strings, stored values (`relation_type = "hoofdlid"`), tenant content,
+and domain terms quoted in a docstring. A domain concept gets its accepted
+English name as identifier (`StructuredCommunication`, not
+`GestructureerdeMededeling`; `Household`, not `Gezin`), with the Dutch term once
+in the docstring so the vocabulary stays findable. Where CR-04 still names a
+value object in Dutch, the English name applies when it is built.
+
+**URL paths follow the audience, not the code language** (clarified 10
+September 2026). A path a person sees in the address bar, types, or gets in an
+e-mail is user-facing copy and follows the UI language: `/admin/betalingen`,
+`/lid-worden`, `/admin/rapporten`. A path a machine calls is an identifier and
+is English: `/api/v1/activities`, `/payment-gateway`. That is what the code
+base already does; the rule only names it. The route function, the template
+file, the view-model and the table behind a Dutch path are English like all new
+code (`def report_panel`, `report_panel.html`, `reporting.saved_reports`).
+
+**Enforced since 29 September 2026** (#780, built with CR-13 phase 0c): a
+frozen baseline of the Dutch identifiers that existed then (437), which may only
+shrink. Nothing outside the baseline may be Dutch; an entry that disappears from
+the code must leave the baseline. A rule with a growing exemption list is dead;
+a baseline that can only shrink is a ratchet. Before the gate, the rule was
+enforced in review only — and on 26 September 2026 review caught 26 Dutch
+function names that CI had let through.
+
+## Code style
+
+Decided 9 September 2026, **built 28 September 2026** (#781, the first step of
+v2.8.0): **ruff is the formatter and the linter**, and CI blocks on both
+(`ruff format --check`, `ruff check`, the `lint` job). The one-off formatting
+commit rewrote 720 files in the window between two releases, with no feature
+branch open. **Rebase or `git pull` before new work** on any branch that
+predates it. The 169 migrations up to `167_2026_09_28_045715` are frozen out
+of ruff (`extend-exclude`, `force-exclude`), because a merged migration is
+never modified; that list may only shrink, and every new migration is
+formatted and linted like any other file (`test_ruff_migrations.py`). Only AI agents write
+code here, but two sessions have the same style questions as two people; ruff
+answers them once, up front, so a review is about meaning and never about
+quotes, line length or import order. Do not argue with the formatter and do
+not silence it with `# noqa` unless the reason stands on the same line.
+
+What ruff cannot decide lives in one short style guide, `docs/code-style.md`
+(English, one screen; created by CR-12 phase 0 on 26 September 2026 with the
+code-list rule, extended by CR-13 phase 0a with the rule's-home section; #781
+adds nothing to it): language,
+where a rule belongs (CR-04, CR-13), layer boundaries, exceptions, typing,
+docstrings and tests. This file points there and does not repeat it.
+
+## This repository is PUBLIC
+
+Never commit secrets, credentials, or operational/infrastructure details to this
+repo. Specifically NOT in git:
+- Server IPs, real domain names, Storage Box users/hosts → use placeholders or env vars.
+- Personal backup/ops tooling (Restic scripts, off-site backup pipelines, server
+  runbooks, systemd units for personal infra). Keep those local on the server only,
+  outside the git checkout.
+- Any `.env*` file with real values (only `.env.*.example` with placeholders).
+
+App-stack infrastructure that ships with the deployable stack (e.g. the
+`db-backup` service in docker-compose, generic scripts without secrets) may stay
+in the repo, as long as it contains no secrets or personal infra details.
+
+**Wat je uit een draaiende omgeving plakt, maskeer je eerst.** Dit geldt overal
+waar tekst publiek wordt — issues, comments, PR-teksten, commit-berichten, docs —
+en niet enkel voor code. Elk lek dat we tot nu toe gevonden hebben ontstond
+identiek: copy-paste van een crashlog, een `dig`-output, een auditrij of een
+betaalscherm, rechtstreeks in een issue.
+
+| Maskeer altijd | Mag blijven |
+|---|---|
+| IP's, hostnames, poorten van een omgeving | bedragen, aantallen, datums |
+| credentials, connection strings, tokens | interne id's (`inschrijving #3`, `Persoon 90`) |
+| namen van personen, e-mailadressen | rolbenamingen ("de penningmeester") |
+| telefoonnummers, IBAN's, OGM's | tabel-/kolomnamen, foutcodes |
+
+De rechterkolom is precies wat een bevinding bewijskracht geeft — een issue dat
+zegt "gemeten, niet geredeneerd" moet zijn cijfers kunnen tonen. Haal dus de
+*identiteit* weg, niet de meting: laat bij een meting de kolom `naam` /
+`contact_name` bewust weg in plaats van de tabel te schrappen.
+
+Twee dingen om te onthouden als het tóch misgaat: een issue-body bewerken
+**verwijdert niets** — GitHub bewaart de bewerkingsgeschiedenis en die is op een
+publieke repo voor iedereen zichtbaar. En bij een gelekte credential is roteren de
+enige echte fix; maskeren is enkel opruimwerk achteraf. De
+`publieke-repo-bewaker`-agent screent hierop, zowel de diff als de issues.
+
+## Development workflow
+
+The user runs this after every session:
+```bash
+git pull && sudo docker-compose up --build -d
+```
+
+All commits and pushes are done by the AI agents (Claude Code, Mistral, …) — the user never does this manually.
+
+**There are two kinds of working copy, and they have different branch rules:**
+
+- **The master worktree/CLI** (the canonical checkout) works **directly on
+  `master`**. Routine work, quick fixes, and integration land here straight on
+  `master`, committed and pushed by the AI agent.
+- **Worktree CLIs** (feature worktrees, e.g. a `claude/...` or `feature/...`
+  branch) work on a **feature branch**. **The release assignment IS the merge
+  approval** (standing approval of 6 September 2026, scope made explicit on
+  14 September 2026) — Koen is never asked again per merge. **But the merge
+  itself is executed by the master CLI, and only by the master CLI** (Koen,
+  14 September 2026, second sharpening): a feature CLI readies the PR with
+  green CI and hands it over; it never runs `gh pr merge` itself. **Work that
+  is NOT on a release never even reaches that handover** — not with green CI,
+  not with an approved deliverable: it waits until Koen plans it onto a
+  release. Content approval of a deliverable is not a release assignment. Deploying to UAT or PROD and
+  recreating the shared Caddy require explicit confirmation every time, as
+  before. Never commit feature work straight onto `master` from a worktree
+  CLI.
+
+In short: **decide by which working copy you are in.** Master worktree → commit on
+`master`. Feature worktree → commit on its branch; when the work is
+release-assigned and CI is green, hand the PR to the master CLI — who performs
+every merge to `master`, as the only one who may. The only branch
+exception on the master side is a hotfix on a released tag — see "Releases and
+hotfixes" below.
+
+**Every deployable code change goes through an issue.** Before implementing
+anything that ships in the deployable stack (backend, frontend, migrations,
+deploy/infra config), there must be a GitHub issue covering it — either create a
+new one, or add the work as a checklist item / comment on an existing open issue.
+No "drive-by" commits without an issue. After implementing, reference the issue in
+the commit/PR and tick it off in the release tracking issue. This keeps the issue
+tracker the single source of truth for *why* every change was made.
+
+This rule is about **deployable code only**. Meta/process edits that don't ship —
+e.g. workflow tweaks to this `AGENTS.md` or to `CLAUDE.md`, memory notes, local tooling config — do
+not require an issue and may be committed directly when Koen asks for them.
+
+After completing a task:
+1. In the master worktree: commit and push directly to `master`. In a feature
+   worktree: commit and push to the feature branch, let CI run, and — only when
+   the work is assigned to a release — hand the green PR to the master CLI for
+   the merge. Unassigned work stays on its branch (14 September 2026).
+
+**Autonoom een release afwerken (geen "mag ik doorgaan?").** Zodra Koen werk aan
+een release toewijst — of dat nu de lopende of de volgende release is (bv. "dit is
+voor v1.x.0", "zet dit in de volgende release") — werkt de AI-agent **alle** issues van
+die release **autonoom** af: implementeren → tests → CI groen → mergen naar `master`
+zodra CI groen is → issues sluiten → de release-tracker bijwerken. **Niet** telkens
+vragen of je mag doorgaan of mergen; de release-toewijzing ís de toestemming.
+Onderbreek enkel voor (a) een echte inhoudelijke ontwerpkeuze die Koens input nodig
+heeft, of (b) een onomkeerbare/risicovolle stap — met name een **UAT- of
+PROD-deploy**, die altijd expliciete bevestiging vereist. HDEV mag autonoom.
+
+**Rolverdeling: de master-CLI analyseert en communiceert, de feature-CLI ontwikkelt.**
+Alle code — implementatie, tests, commits en pushes naar GitHub — komt van de
+feature-CLI. De master-CLI schrijft issues uit, meet, verifieert claims, drijft de
+release en praat met Koen; ze schrijft **geen** productiecode, ook niet voor een
+klein ding als een label of een ontbrekend veld. Twee uitzonderingen die Koen
+expliciet benoemd heeft: `AGENTS.md`, `CLAUDE.md` en de architectuurdocumentatie mag de
+master-CLI wél zelf bijwerken.
+
+**Waarom:** de twee CLI's hebben een verschillende taak en een verschillend tempo.
+Bouwt de master-CLI zelf mee, dan raakt ze haar snelheid kwijt op precies het moment
+dat Koen een antwoord nodig heeft — en ontstaat er werk op `master` dat de
+feature-CLI niet kent. "Het is maar een label" is geen uitzondering: dat is hoe het
+begint.
+
+**In de praktijk:** analyse → issue → aan Koen voorleggen → pas doorgeven als hij
+bevestigt dat jullie hetzelfde bedoelen. Dat laatste is een aparte stap: een
+goedgekeurd ontwerp is nog geen goedgekeurde overdracht.
+
+**Werk toewijzen aan een andere CLI is Koens beslissing, niet die van de AI-agent.**
+De master-CLI mag issues *schrijven* zoveel ze wil — analyseren en uitkristalliseren
+is haar taak. Maar een issue **doorgeven** aan de feature-CLI (via `SendMessage`, of
+door het aan een release toe te wijzen) gebeurt **alleen als Koen daar expliciet om
+vraagt**. "Ik wil dit in v2.0" of "geef dit door aan de CLI" is zo'n vraag; een issue
+dat de AI-agent zelf nuttig vindt, is dat niet.
+
+**Waarom:** Koen bepaalt wat er in een release komt en waar de andere CLI zijn tijd
+aan besteedt. Een issue dat ongevraagd doorgegeven wordt, is werk dat begint zonder
+dat iemand het inplande — en het is achteraf niet gratis terug te draaien, want de
+CLI heeft dan al gecommit. Dat de AI-agent een bevinding terecht vindt, maakt haar nog
+geen prioriteit.
+
+**In de praktijk:** schrijf het issue, hang het **niet** aan de release-tracker, meld
+kort wat je gevonden hebt, en vraag of het naar v2.x mag én of je het mag doorgeven.
+Wacht op het antwoord. Dit staat los van de autonomie hierboven: die geldt *binnen*
+werk dat Koen al toegewezen heeft, niet voor het toewijzen zelf.
+
+**NOOIT vinkjes uitvinken die Koen heeft aangevinkt.** De checkboxes in een
+release-tracker/issue (m.n. de HDEV-validatie) vinkt **Koen zelf** af. Bij het
+bijwerken van een tracker: **haal eerst de huidige body op** en **behoud** de
+bestaande checkbox-status — reset NOOIT `- [x]` terug naar `- [ ]`. Werk bij
+voorkeur **incrementeel** (voeg regels toe of wijzig alleen de nodige regels) i.p.v.
+de hele body te herschrijven; als je toch de body vervangt, neem dan de reeds
+aangevinkte vakjes exact over.
+
+**Always create a release tracking issue** when starting a new batch of work
+(e.g. "Release v1.x.0 — <short description>"). List all planned issues with
+checkboxes, and add the full deploy checklist (HDEV test → GitHub Release →
+UAT → PROD → verify logs). Close the issue when the release is on PROD.
+This is the single source of truth for what's in a release and how to deploy it.
+
+At the start of each session, sync with master:
+```bash
+git fetch origin master && git reset --hard origin/master
+```
+
+## Releases and hotfixes
+
+**Feature-branch work only enters the release pipeline once it is merged to
+`master` (after CI is green).** HDEV deploys `master` HEAD and the release tag
+targets `master`, so nothing on an unmerged feature branch can ever reach HDEV,
+UAT, or PROD. The merge-to-`master` is the gate into a release — for
+release-assigned work the master CLI executes it as soon as CI is green,
+before any HDEV test or tag step below; unassigned work does not take this
+gate at all (14 September 2026).
+
+### Handoff from a feature worktree to master
+
+The merge to `master` is also a **handoff**: the feature-worktree CLI holds all
+the context for going live; the master CLI that runs the release starts cold. So
+the merging PR body (mirrored into the release tracking issue) must carry a
+short **"Na de merge"** block capturing everything CI cannot:
+
+- **Migration?** the new alembic head (e.g. `058 -> 059`).
+- **New/changed env vars?** name them — they are NOT auto-added to the real
+  `.env.<env>` files; each host must be updated before deploy.
+- **Feature flag / kill-switch?** name it + intended default per environment
+  (dark-launch vs. live).
+- **One-off script?** (backfill, data fix) — what runs, when, where.
+- **Manual validation?** anything an external dependency (Mollie/Gmail/Mistral)
+  needs that the read-only smoke test does not exercise.
+
+The master CLI taking over reads that block first, then drives HDEV → UAT → PROD.
+From the merge onward the master CLI owns tagging and issue-closing; the feature
+worktree does not tag.
+
+**HDEV deploys `master` HEAD; UAT and PROD deploy a pinned tag.** One script,
+`deploy.sh <env> [tag]`, drives all three; a config block at the top holds the
+per-environment differences (source, DB backup, rollback, own vs shared Caddy).
+`deploy.sh hdev` does `git reset --hard origin/master` (integration line).
+`deploy.sh uat` and `deploy.sh prod` take a release tag as argument and check it
+out detached — they
+do NOT assume master equals the latest release, because master may already be
+ahead. A release tag is the **single source of truth** for what runs on UAT/PROD.
+
+**Test on HDEV against master BEFORE creating the Release tag.** The release
+tag is the single source of truth for UAT/PROD, so it must point at a commit
+that has already been validated on HDEV — never tag an untested commit. Correct
+order: (1) deploy master to HDEV (`./deploy.sh hdev`), (2) test on HDEV,
+(3) only then create the GitHub Release targeting that tested master commit.
+Re-check the exact target commit at tag-time — master may have moved since the
+work started.
+
+**Mark each release with a GitHub Release (not a manual `git tag` push).**
+Creating a Release on GitHub creates the tag **server-side**, so there is no
+separate `git push origin <tag>` step (which is also blocked in the Claude
+remote environment with a 403 on tag refs). Steps:
+1. GitHub → **Releases** → **Draft a new release**.
+2. **Choose a tag** → type `v1.x.x` → *"Create new tag: v1.x.x on publish"*.
+3. **Target** → `master` (the commit you're releasing — must contain the fix).
+4. Title `v1.x.x`, write notes, reference issues with `Fixes #NN`.
+5. **Publish release** → the tag is created on the target commit.
+
+For a hotfix on a released version while newer work is in progress (this is the
+**master-side exception**: a hotfix branch may merge straight back into `master`
+on urgency, without waiting for the feature-branch merge-on-request norm — but
+still only after CI is green):
+1. `git checkout -b hotfix/1.x.x v1.x.x`
+2. Apply fix, commit, merge back into master once CI is green.
+3. Publish a GitHub Release `v1.x.x` targeting master.
+
+## Deploying a release to UAT / PROD
+
+UAT and PROD pin an exact tag (passed as argument). Promote in order:
+HDEV → UAT → PROD. On the server, in the repo checkout:
+
+```bash
+# HDEV — always tracks master (integration; no tag)
+./deploy.sh hdev
+
+# UAT — deploy a specific tag
+./deploy.sh uat v1.x.x        # fetch --tags && checkout --detach <tag> && compose up --build -d
+# Extra argumenten gaan door naar `docker compose up`, bv. --remove-orphans.
+
+# PROD — same tag, after UAT looks good
+./deploy.sh prod v1.x.x
+```
+
+Prefer driving these through **`raakctl`**, the single entry point on the server:
+`raakctl status`, `raakctl logs <env> [service]`, `raakctl diagnose <env>`,
+`raakctl backup <env>`, `raakctl deploy <env> [tag] [--confirm]`, `raakctl caddy`,
+or no arguments for a menu. It resolves the environment to its checkout, so you
+name an environment instead of a directory — every environment is a checkout of
+this same repository, so `<uat-checkout>/deploy.sh prod` exists and would do the
+wrong thing. From a laptop, `raak <verb>` passes the same verbs over SSH and adds
+`raak fetch <env>` to pull a diagnostics report down.
+
+### Running a release from the CLI — the order
+
+The CLI drives a release from this file; there is no separate release skill. The
+rules live in the sections around this one — *Releases and hotfixes*, *Autonoom een
+release afwerken*, *Testen en test-evidence* — and this table is only the
+**sequence** plus who may act without asking.
+
+| # | Step | Autonomy | How |
+|---|---|---|---|
+| 1 | Release tracking issue (single source of truth) | CLI | one checkbox per issue; never uncheck Koen's boxes |
+| 2 | Merge gate: every feature branch merged to `master`, CI green | **master CLI executes every merge** (feature CLIs hand over green PRs; the release assignment is the approval, so Koen is not re-asked) | `gh pr merge` |
+| 3 | **Close that issue with a closing comment** (what was built + how to test it on HDEV) — per issue, at its merge, before the next one starts | CLI | the tracker's HDEV checkbox stays for Koen |
+| 4 | CI evidence into the tracker: run id + link + `N passed` + the `pip-audit` outcome | CLI | `gh run view` |
+| 5 | New/changed **env vars** set on each host | **Koen** | name them explicitly; they are never auto-added |
+| 6 | Deploy master to HDEV and verify | CLI, autonomous | `raak deploy hdev` |
+| 7 | Koen validates on HDEV | **Koen** | he reads the closing comments from step 3 to know what to test |
+| 8 | GitHub Release `vX.Y.Z` on the **HDEV-tested** master commit | CLI | re-check the target commit; the tag is created server-side |
+| 9 | Deploy that tag to UAT | **confirmation required** | `raak deploy uat vX.Y.Z` |
+| 10 | Shared Caddy — only when the release touches `caddy/parts/*` | **confirmation required** | `raak caddy` (one recreate covers UAT + PROD) |
+| 11 | Same tag to PROD, after UAT is good | **confirmation required** | `raak deploy prod vX.Y.Z --confirm` |
+| 12 | Verify the backend logs per environment | CLI | `raak logs <env>`, or `raak diagnose <env>` + `raak fetch <env>` |
+| 13 | Close the tracker once the release runs on PROD | CLI | — |
+| 14 | **Close out every change request the release built**: its status line says "built in vX.Y.Z", every as-built deviation stands in its document (B10 and the text it contradicts), and its tracking issue is closed with a comment naming the release | CLI | the CR lives on the architecture branch: the architecture CLI edits it, the master CLI closes the issue |
+
+**Step 14 exists because CR-14 showed what happens without it** (retrospective, 2 October 2026): two days after v2.10.0 was on PROD its tracking issue still said "not assigned to a release", the document's status line still said v2.9.0, and two passages promised behaviour that the build had deliberately replaced. A change request that is not closed out keeps telling the next reader the design, not what runs.
+
+**As-built notes are the master CLI's to write, directly into the document**
+(Koen, 2 October 2026). A deviation decided during the build goes into the
+change request's decisions log (B9, dated, marked "built as") by the master
+CLI at the merge, on the branch where the document lives — not as a message to
+the architecture CLI. Every cross-session message lands in Koen's terminal
+while he is working with that CLI, and a note that only needs recording is not
+worth that interruption. The architecture CLI reads the log at the close-out
+(step 14) and folds it into the text the deviation contradicts. Message the
+architecture CLI only for a question that needs its answer.
+
+**Step 3 sits where it sits for a reason, and it used to sit at 11.** Koen spotted
+that on 27 September 2026: *"Dan is het te laat."* The closing comment exists to tell
+him **how to test the issue on HDEV**, and he tests on HDEV before the tag, before
+UAT and before PROD. A checklist that closes issues after the PROD deploy hands him
+the instructions for a test he finished three steps earlier.
+
+The rule itself was never wrong — *Release-tracker format* below already says the AI agent
+closes each issue as soon as CI is green, and it is the merge that carries the
+handover context. Only this table disagreed with it, and a release checklist gets
+copied into every tracker, so the wrong order travelled. One fact, one place: the
+closing comment belongs to the merge, not to the deploy.
+
+`raak` is the laptop-side entry point (see *Deploying a release to UAT / PROD*); it
+needs the `raak` alias in `~/.ssh/config` and hands every verb to `raakctl` on the
+server. Its own documentation lives outside this repo, next to the script. An
+environment still running a release from before `raakctl` falls back to the legacy
+`deploy-<env>.sh` automatically — no special handling needed.
+
+**Everything Koen has to tick off or walk through lives in GitHub, reachable from
+the release tracking issue.** Never in a separate document — not in a local file,
+not outside the repo. The closing comment on each issue says what was built and how
+to test it on HDEV; the tracker carries one HDEV-validation checkbox per issue and
+links to those comments. A validation plan kept anywhere else goes stale within a
+release and nobody finds it when it matters.
+
+**Elk release-bericht in de chat noemt de issues die erin zitten** (gevraagd door
+Koen op 21 september 2026). Bij het taggen en bij elke deploy naar UAT of PROD: een
+lijstje van één regel per issue — nummer, korte naam, en in één halve zin wat het
+doet. Niet alleen een link naar de release notes of de tracker.
+
+**Waarom:** zonder die lijst moet Koen in de gesprekken van de andere CLI's gaan
+lezen wat ze gebouwd en overgedragen hebben, en dat is precies het werk dat de
+master-CLI van hem hoort over te nemen. Hij beslist over een UAT- of PROD-deploy;
+die beslissing vraagt dat hij wéét wat er meegaat, op het moment dat hij ze neemt.
+Een lijst die hij eerst moet gaan zoeken, bestaat op dat moment niet.
+
+Dezelfde regel geldt voor de zes metingen na een deploy: ze staan in het bericht,
+niet in een bestand waar hij naartoe moet.
+
+**A validation bug needs three things before anyone starts searching: the screen,
+what Koen expected, and what he saw.** Most of the time spent "analysing" a report
+is spent working out which screen and which element is meant — not on the fix. When
+one of the three is missing, ask for it instead of guessing your way through the
+templates; one question costs a minute, a wrong guess costs an afternoon. A
+screenshot in the Nextcloud project folder counts as "what he saw". Handy but
+optional: the issue number Koen suspects, and whether it also happens on v1.14.0
+(i.e. is it new in v2.0.0 or pre-existing).
+
+**The three confirmation steps are the only ones that stop.** Everything else runs
+without asking, per *Autonoom een release afwerken*: assigning work to a release is
+the permission. Never tag a commit that has not been tested on HDEV.
+
+### Script naming: interface vs. step
+
+Files invoked **by path** keep the `.sh` extension — `deploy.sh`, `logging.sh`,
+`build-css.sh`. The extension tells you it is a readable shell script you are
+about to run.
+
+Files that are **typed as a command** do not — `raakctl`, and `raak` on a laptop.
+The implementation language has no business in an interface: rewriting `raakctl`
+in Python should not rename the command. Where a file is both (kept in a
+checkout, but typed), name the file `.sh` and put an extension-less symlink on
+`PATH` — that is how `raak.sh` is reached as `raak`.
+
+Each UAT/PROD script does `git fetch --tags --prune` then `git checkout --detach
+<tag>` (detached HEAD is intended — you run an exact commit, not a moving branch),
+then rebuilds with the matching compose + env file and runs a **read-only**
+post-deploy smoke test (`tests/run-all.sh`) that creates no data. The backend runs
+`alembic upgrade head` on startup, so DB migrations (e.g. 031) apply automatically
+during the rebuild.
+
+> **Shared Caddy: a release that changes `caddy/Caddyfile.shared` needs an extra
+> step (#312/#314).** `deploy.sh uat`/`deploy.sh prod` run in the `uat/`/`prod/`
+> checkout and do **not** touch the shared Caddy (a separate stack, `name: caddy`,
+> serving all domains). Run, in the `caddy/` checkout: `./deploy-caddy.sh` — it
+> forces the checkout onto `master` (also from a detached HEAD), checks that
+> `encode` is present, and does `up -d --force-recreate caddy` (loads the config
+> fresh from disk). It deliberately avoids `caddy reload`: that admin-API reload is
+> in-memory only and does **not** survive a restart, which is what kept silently
+> reverting the #303 compression. The compression smoke test
+> (`tests/smoke/compression.sh`) is the safety net. One recreate covers UAT **and**
+> PROD (same shared Caddy).
+
+> First-time note: the tag must contain these tag-aware deploy scripts. For a
+> release predating them, run the equivalent by hand once:
+> `git fetch --tags origin && git checkout --detach v1.x.x && docker compose -f
+> docker-compose.uat.yml --env-file .env.uat up --build -d`.
+
+### Shared Caddy: expand/contract
+
+**HDEV komt hier nooit in — beslist door Koen op 10 september 2026.** HDEV houdt zijn
+eigen Caddy binnen zijn eigen stack (`caddy/Caddyfile.hdev`, poort 8081) en gaat niet
+mee in de gedeelde Caddy, ook niet wanneer het een echt certificaat krijgt (#865).
+
+**Waarom:** de gedeelde Caddy is één proces met één configuratie, en ze bedient PROD.
+HDEV beweegt dagelijks en volgt `master`. Een kapot HDEV-blok zou dus PROD platleggen —
+hetzelfde mechanisme als het `.env.caddy`-scenario verderop, waar één niet-gezette
+domeinvariabele de hele configuratie ongeldig maakt en Caddy weigert te starten. De
+versiebeheerregel hieronder wringt bovendien: elk onderdeel komt uit het tag van zijn
+omgeving, en HDEV heeft er geen.
+
+**Gevolg voor certificaten:** HDEV kan poort 80 niet gebruiken voor een
+certificaatuitgifte, want die is van de gedeelde Caddy. Een echt certificaat op HDEV
+loopt dus via een DNS-uitdaging, op een eigen TLS-poort.
+
+
+One Caddy container terminates HTTPS for UAT **and** PROD (one server, one `:443`).
+Its config therefore serves two releases at the same time — exactly like the
+database does during a deploy. The same expand/contract rule from architectuurdoc
+§19.5 applies: within a release, only additive changes to the shared part.
+
+**The config never follows `master`.** `deploy-caddy.sh` takes each part from the
+tag of its own environment, so UAT can run ahead of PROD:
+
+| File | Scope | Comes from |
+|---|---|---|
+| `caddy/parts/sites-uat.caddy` | UAT sites | the tag UAT runs — may run ahead |
+| `caddy/parts/sites-prod.caddy` | PROD sites | the tag PROD runs |
+| `caddy/parts/snippets.caddy` | shared (`security_headers`, CSP, `encode`) | the tag PROD runs — conservative |
+
+`caddy/Caddyfile.shared` only imports these three, in that order (the snippet must
+be defined before the sites that import it). Edit the parts, never the importing
+file. Running `deploy-caddy.sh` without an argument derives both tags from the
+sibling checkouts (`../uat`, `../prod`); if PROD is not on an exact tag it aborts
+rather than guessing.
+
+**What this means per kind of change:**
+
+| Change | Shared? | Can be validated on UAT first |
+|---|---|---|
+| Routing inside a UAT site block | no | yes, directly |
+| New domain / new site block | no | yes, directly |
+| Snippet (`security_headers`, CSP, `encode`) | yes | only via expand/contract |
+| Global options / Caddy version | yes | no — rehearse on HDEV |
+
+A shared change takes **two releases**: first *expand* (add the new snippet next
+to the old one and let only the UAT sites import it), then *contract* (switch the
+PROD sites over and delete the old one) once PROD runs the tag that contains it.
+
+**A Caddy version upgrade is always shared** — one binary serves both. Rehearse on
+HDEV, which has its own Caddy, then let the PROD smoke gate and the rollback in
+`deploy-caddy.sh` cover the rest. Note that rollback is **runtime only**: it
+restores the previous image digest, but `docker-compose.caddy.yml` still points at
+the new version, so revert the pin in git as well or the next deploy pulls it back.
+
+> **A new site block needs its domain variable in `.env.caddy` on the server
+> before the deploy.** An unset `{$SOME_DOMAIN}` expands to an empty site address,
+> which makes the whole config invalid — Caddy then refuses to start, taking PROD
+> down with it. This is not hypothetical: `PLATFORM_DOMAIN` / `PLATFORM_WWW_DOMAIN`
+> (#406) are on master but were missing from the server's `.env.caddy`. Name every
+> new Caddy domain variable in the "Na de merge" handoff block of the release.
+
+### Verifying a deploy via the backend logs
+
+After every rebuild, check the backend logs to confirm migrations applied and
+Uvicorn started cleanly. Always pass the matching `-f`/`--env-file` pair:
+
+```bash
+sudo docker compose -f docker-compose.<env>.yml --env-file .env.<env> logs backend --tail=80
+# add -f instead of --tail to follow live (Ctrl+C to stop)
+```
+
+What to look for:
+- `Running upgrade NNN -> NNN+1` lines → the new migrations applied. These show
+  **only the first time** a migration runs; on a restart with no new migrations
+  there are no "Running upgrade" lines and that is normal.
+- `Uvicorn running on http://0.0.0.0:8000` → the app started.
+- **No** tracebacks / `ERROR` lines between those two — a failed migration or
+  import error aborts startup.
+
+**Report this back after every deploy, as a list, without being asked.** A deploy
+is not "done" because the script exited 0 — the smoke test only checks that the
+site answers and compresses. Six lines, each with the value you actually measured,
+never a claim you did not check:
+
+| What | Where it comes from | Good |
+|---|---|---|
+| Commit on the environment | `raak status <env>` | matches the intended commit/tag |
+| `alembic heads` | `… exec -T backend alembic heads` | exactly one |
+| `alembic current` | `… exec -T backend alembic current` | equal to that head |
+| Migrations, if the release adds any | backend logs | the expected `Running upgrade NNN -> NNN+1` |
+| Startup | backend logs | `Uvicorn running on http://0.0.0.0:8000`, zero `ERROR`/`Traceback` lines |
+| Smoke + reachability | the deploy's own output, plus a few `curl`s | `N OK · 0 gefaald`; public pages 200, an admin screen 303 to `/aanmelden?terug=…` without a session (#1458), an `/api/v1/` admin path 401 |
+
+`raak diagnose <env>` collects the first five in one report (`logging.sh`), so use
+it instead of hand-writing `docker compose` commands; `raak fetch <env>` pulls the
+report down. Say plainly when something is missing rather than leaving it out —
+"no `Running upgrade` lines, and that is expected here" is a finding too.
+
+**Since #604 the deploy checks two of these itself**, right after the smoke test:
+the migration chain (exactly one head, `current` equal to it) and a clean start (no
+`ERROR`/`Traceback`/`Exception` between container start and `Uvicorn running`). On
+UAT and PROD the chain check is a **gate** — failing it triggers the same one-off
+rollback as a failed smoke test; the log check is **reporting only** for now, because
+a false rollback on PROD over a single `ERROR` line costs more than a missed warning.
+On HDEV both are reporting only. The flags are `KETEN_GATE`/`LOG_GATE` in the
+per-environment config block of `deploy.sh`.
+
+**Since #1203 (v2.7.0) that rollback no longer fires for a release that adds a
+migration.** It could not have worked: the previous image runs `alembic upgrade
+head` at startup and does not know the new revision, so the rollback produced a
+backend that would not start — a failed release that stays up is better than one
+that is down. The deploy now stops instead and prints the recovery steps: stop the
+backend, drop and recreate the database, restore the pre-migration dump with
+`psql -v ON_ERROR_STOP=1`, and redeploy the previous tag.
+
+Two things follow. **Check the dump, do not assume it** — `raak restore-test <env>`
+(#1288) restores it into a throwaway database so you know the real recovery time and
+that the dump is readable. And **stop if the restore did not finish cleanly**: the
+backend seeds empty tables at startup (postal codes, activities, CMS pages, and
+more), so a half restore followed by a start does not leave an empty environment but
+one with example data — which looks like it worked.
+
+Until v2.7.0 the rollback did fire on such a release, so `DEPLOY_ROLLBACK=1` had to
+be set by hand to suppress it. **That is no longer needed for tags from v2.7.0
+onward**; only an older tag still carries the old behaviour.
+
+That does not remove the report: the deploy checks a subset, and it checks it once.
+Still report all six lines after every deploy — the commit, the smoke result and the
+expected `Running upgrade` lines are yours to verify, and "the script said nothing"
+is not a measurement.
+
+## Data operations on an environment — through the app, never raw SQL
+
+Decided by Koen on 29 September 2026. Adding members, importing registrations,
+linking registrations to members, adding e-mail addresses: every such operation
+runs **through the application's services**, never as hand-written SQL. Raw SQL
+bypasses everything the app guards — validators, `check()` on an aggregate, the
+history rows, the events — and it is neither tested nor reviewed.
+
+- The tool is `raak run <env> <script> <file>` (#1330): a registered script under
+  `backend/app/scripts/` that only calls domain facades. A dry run is the default;
+  `--apply` executes exactly what the dry run showed, in one transaction; on PROD it
+  also needs `--confirm` and takes a checked backup first.
+- The **code** of a script lives in the repo like any code, with an issue and
+  tests on made-up data. The **data** and the report of what happened on PROD never
+  go into the repo or a GitHub issue — the report stays in the chat with Koen.
+- Raw SQL that writes is for emergency repair only, with Koen's explicit approval
+  each time. Read-only `raak psql` for measuring stays fine.
+- The JSON API is not the tool for this: a script runs inside the backend, with one
+  transaction and a real dry run, and needs no API key.
+
+## Docker stack
+
+| Service | Waar | Notes |
+|---|---|---|
+| db | alle | PostgreSQL 16, volume-backed. Poort 5432 is container-intern — nooit gepubliceerd. |
+| backend | alle | FastAPI + Uvicorn op 8000 (intern) — serveert óók alle HTML (server-rendered, #405) |
+| umami | uat, prod | Analytics (#176), eigen subdomein via Caddy. **Niet op HDEV** (#820): daar mat hij sinds 13 juli 2026 niets en zal hij ook niets meten — het trackingscript draait alleen waar tenant-instellingen zijn, en HDEV heeft die bewust niet. |
+| caddy | dev, hdev | Eigen proxy binnen de stack (`caddy/Caddyfile.hdev`). HDEV publiceert 8081. |
+| db-backup, umami-db-backup | prod | Periodieke dumps (`scripts/db-backup.sh`). |
+
+**UAT en PROD publiceren zelf géén poorten.** Beide hangen aan de gedeelde Caddy:
+een apart compose-project (`docker-compose.caddy.yml`, `name: caddy`) op het
+externe netwerk `raak_proxy`, dat als enige 80/443 publiceert en HTTPS termineert
+voor alle domeinen.
+
+Sinds de React-exit (#405) is er **geen frontend-container meer**: alle
+pagina's zijn server-rendered (Jinja + htmx/Alpine) vanuit de backend, en de
+Caddy-catch-all wijst naar `backend:8000`. API-paden blijven `/api/v1/…`.
+
+Check logs after changes:
+```bash
+sudo docker-compose logs backend --tail=50
+```
+
+The backend runs `startup.sh` on container start, which runs `alembic upgrade head` then `uvicorn`. Build-time import check runs via `check_imports.py` in the Dockerfile — if any import fails, the Docker build fails.
+
+### Running `docker compose` commands on the server (IMPORTANT)
+
+This deployment uses **per-environment compose files** (`docker-compose.hdev.yml`,
+`.uat.yml`, `.prod.yml`) with **per-environment env files** (`.env.hdev`, etc.).
+The compose files use `${VAR:?...}` guards (e.g. `FRONTEND_URL`), so any
+`docker compose` command **fails unless you pass the matching env file**. Always
+include `-f docker-compose.<env>.yml --env-file .env.<env>`:
+
+```bash
+sudo docker compose -f docker-compose.hdev.yml --env-file .env.hdev <cmd>
+```
+
+**Elk compose-bestand zet een expliciete projectnaam via de top-level `name:`-key**
+(`caddy`, `dev`, `hdev`, `uat`, `prod`) (#155). Daardoor is de projectnaam
+onafhankelijk van de map waaruit je `docker compose` draait: de gedeelde Caddy
+(`name: caddy`) en de prod-stack (`name: prod`) kunnen veilig uit dezelfde map
+draaien zonder elkaars containers als "orphans" te zien. Gevolg: **geen
+`Found orphan containers`-warnings meer**, en `--remove-orphans` op één stack kan
+een andere stack niet meer slopen. Bij de eerste deploy ná deze wijziging verhuist
+`prod-caddy-1` naar het project `caddy` (= `caddy-caddy-1`); ruim de oude
+`prod-caddy-1` één keer handmatig op als die blijft staan.
+
+The DB user/password are **not** the defaults — they come from `DB_USER`/
+`DB_PASSWORD` in the env file. Never hardcode `postgres:postgres`. Instead derive
+credentials from the container's own environment:
+
+`psql -U <user>` defaults to a database named after the user, which doesn't
+exist here — always pass `-d "$POSTGRES_DB"` (the real DB, e.g.
+`raakmillegem_hdev`) to connect:
+
+```bash
+# Run psql as the real superuser, connected to the real DB
+... exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "..."'
+
+# Run the test suite against a throwaway raaktest DB (derives creds from DATABASE_URL)
+... exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE DATABASE raaktest;"'
+... exec backend sh -c 'export TEST_DATABASE_URL=$(echo "$DATABASE_URL" | sed "s#postgresql://#postgresql+psycopg2://#; s#/[^/]*\$#/raaktest#") && pip install -q -r requirements-dev.txt && python -m pytest -v'
+```
+
+The pytest suite **drops and recreates the schema** of its target DB, so it must
+only ever point at a separate `raaktest` database — never the real one.
+
+> Note: this repo uses Docker Compose v2 (`docker compose`, space), not v1
+> (`docker-compose`, hyphen). The older `docker-compose` examples elsewhere in
+> this file are legacy; prefer `docker compose`.
+
+### CI
+
+`.github/workflows/backend-tests.yml` runs the pytest suite on every push/PR to
+`master`, using a disposable Postgres 16 service container. Green/red shows up
+per commit on GitHub.
+
+### Testen en test-evidence (conventie)
+
+- **Elke functionele wijziging in een release krijgt waardecreërende pytests** —
+  geen tests pro forma, wel de invarianten die ertoe doen (security, geld,
+  autorisatie, datakoppelingen).
+- **Een test moet rood kunnen worden.** Vraag bij elke nieuwe test: *zou hij ook
+  groen staan als het onderwerp kapot was?* Zo ja, dan bewijst hij niets — en dat is
+  erger dan geen test, want hij wekt de indruk dat er bescherming is. Drie vormen
+  kwamen in v2.0.0 langs, alle drie in één nacht:
+  - **hij muteert niets** — de JWT-tampertest verving twee base64url-tekens waarvan
+    het laatste maar twee betekenisvolle bits draagt; ongeveer één run op vijfhonderd
+    toetste een ongewijzigd token en kleurde groen;
+  - **hij kijkt nergens** — veertien gate-functies haalden hun bestanden zonder te
+    controleren *dát* ze er vonden; een verplaatste map of een gewijzigde glob maakt
+    zo'n gate voorgoed groen (#678);
+  - **hij toetst het falen, niet de reden** — `assert status_code >= 400` slaagt ook
+    bij een CSRF-fout of een ontbrekende rol, dus de geldrem eronder kon verdwijnen
+    zonder dat de suite het merkte (#680).
+- **Bij een gate of een guard volstaat die vraag niet — bewijs het.** Maak één
+  overtreding, controleer dat hij faalt met de bedoelde melding, herstel. Zo is de
+  css-poort (#652) gebouwd en zo zijn de veertien gates afgedekt. Noteer in de
+  docstring wát je hebt kapotgemaakt, zodat de volgende het niet opnieuw hoeft te
+  bedenken.
+- **Absentie is geen bewijs.** Een `grep` die niets vindt toont aan dat de gezochte
+  string er niet staat, niet dat het gedrag ontbreekt: een test kan een pad prima
+  raken zonder de foutmelding te noemen, en twee velden met dezelfde `name` kunnen in
+  elkaar uitsluitende `{% if %}`-takken staan. Controleer de context vóór je uit een
+  lege zoekopdracht een conclusie trekt — die vergissing is in deze release twee keer
+  gemaakt en beide keren als bevinding doorgegeven.
+- **Test-evidence in het release-issue:** na de push haalt de AI-agent de geslaagde
+  CI-run op (`backend-tests.yml`) en noteert in het release-issue de **run-id +
+  link** en de **pytest-samenvatting** (`N passed`). De CI draait tegen een echte
+  Postgres 16 — dat is het bewijs dat de suite groen was, niet een lokale claim.
+- **De `pip-audit`-uitkomst hoort in diezelfde evidence** (#574). De audit-job is
+  bewust **niet-blokkerend** — of een bevinding een release tegenhoudt beslist
+  Koen, niet de scanner — maar ze mag nooit geruisloos passeren: een groen vinkje
+  verborg in #571 maandenlang 33 bekende kwetsbaarheden. Noteer dus altijd óf
+  `No known vulnerabilities found`, óf het aantal bevindingen per pakket, en
+  vraag Koen expliciet wat ermee moet vóór de release doorgaat. De job zet ze ook
+  als `::warning::`-annotatie + job-summary op de runpagina.
+- **Drie vormen kwamen er in de week van CR-12 en CR-13 bij** (26–27 september
+  2026), alle drie uit echte fouten:
+  - **hij draait niet** — een gate bewezen door een lid te *hernoemen* legde de
+    import van `service.py` plat; de test draaide nooit en de run kwam groen terug.
+    Bewijs een gate met een **additieve** overtreding (iets toevoegen), nooit door
+    iets kapot te maken dat bestaat, en controleer dat de test *draaide* (zijn eigen
+    assertie in de uitvoer), niet alleen dat de suite rood was.
+  - **hij ziet een lege weergave niet** — een conversie van string naar enum
+    printte keuzes en infoblokken als lege regel: geen fout, gewoon niets. Poort 12
+    van CR-12 vangt een lid *in* de uitvoer, geen ontbrekende weergave. Raakt een
+    conversie schermen, maak dan vooraf een **snapshot van de uitvoer op de oude
+    code** en eis dat de nieuwe hetzelfde rendert.
+  - **hij laadt stiekem toch** — een "detached object"-test die eerst
+    `registration.items` aanraakt, laadt de relatie en wordt groen terwijl `total()`
+    in productie alsnog een query doet. Bouw het object **zonder één
+    databankrondreis** (kale attributen, relaties met de hand gezet) en roep dan pas
+    de methodes aan.
+- **Release-tracker format — één checkbox per issue.** Elk issue staat als één
+  regel `- [ ] #NN (korte omschrijving)`. **NIET** twee checkboxes per issue, en
+  de zin **"getest op HDEV door Koen" hoort NERGENS** in een issue of tracker.
+  De AI-agent **sluit** elk geïmplementeerd issue zelf zodra CI groen is — met een
+  afsluit-comment dat beschrijft wat gerealiseerd is + hoe te testen op HDEV. De
+  ene checkbox in het tracker-issue staat voor Koens HDEV-validatie en vinkt
+  **Koen zelf** af (nooit een AI-agent). Eén intro-zin volstaat: *"De checkbox hieronder
+  vink jij af zodra je het op HDEV gevalideerd hebt."* Geen
+  "PR groen / gemerged naar master"-ruis in de issuelijst — CI-evidence (run-id +
+  `N passed`) mag in een aparte sectie van het tracker-issue.
+
+
+## Backend architecture (FastAPI + SQLAlchemy)
+
+**Entry point:** `backend/app/main.py` — registers the JSON routers under
+`/api/v1` and the server-rendered UI routers without a prefix.
+
+**There is no `app/routers/` package.** Since the modular refactor (#396 and the
+fase-issues under #393) every domain owns its own routers, models, service and
+templates under `backend/app/domains/`:
+
+| Domain | JSON router(s) | Notable endpoints |
+|---|---|---|
+| `auth/` | `router.py` | login, magic link, API keys |
+| `membership/` | `register_router.py`, `household_router.py` | `POST /families` = public registration |
+| `mdm/` | `router.py`, `import_router.py` | `GET /postal-codes` (moved here from cms) |
+| `activities/` | `router.py` | `POST /activities/{id}/register` |
+| `payment/` | `router.py`, `gateway_router.py`, `status_router.py` | Mollie + payment records |
+| `cms/`, `media/`, `forms/`, `chatbot/`, `stt/`, `mail/`, `workflow/`, `audit/` | `router.py` per domain | — |
+
+Each domain also carries its server-rendered screens (`ui.py` for the public
+side, `admin_ui.py` for the back office). Cross-cutting admin screens that belong
+to no single domain live in `app/ui/` (changes, system info, settings, tenants,
+e-mail log) — see *UI-architectuur* below. A domain's public surface is its
+`api.py` facade; import across domains through that, never straight into another
+domain's internals (`tests/test_import_boundaries.py` enforces this).
+
+**Payment** (`backend/app/domains/payment/`) — one domain; the former
+`payment_gateway/` and `payment_status/` packages were folded into it:
+- `providers/mollie.py` — `MollieProvider.create_payment()` creates a Mollie payment. Webhook URL is skipped when running on localhost (Mollie can't reach it).
+- `gateway_service.py` / `gateway_router.py` — `GatewayPayment`, which uses the `payment_metadata` column (not `metadata` — reserved by SQLAlchemy).
+  - **SECURITY INVARIANT — never trust the webhook body.** `POST
+    /payment-gateway/webhooks/mollie` accepts only a payment `id` and must
+    **always re-fetch the authoritative status/amount from the Mollie API**
+    (`refresh_payment_status` → `provider.get_payment_details()`) before it
+    changes anything. Mollie does not sign its webhooks, so the POST body is
+    unauthenticated and forgeable. Never let a future change set a payment to
+    "paid" — or read the amount/status — straight from the request body: that
+    would let anyone mark registrations as paid by POSTing a forged payload.
+    The re-fetch *is* the security model of this endpoint; treat it as
+    non-negotiable.
+- `service.py` — `create_payment_record()`, called after a registration is saved.
+
+**Models live with their domain** (`domains/mdm/models.py`,
+`domains/activities/models.py`, `domains/payment/models.py`, …).
+`app/models/__init__.py` only re-exports them so SQLAlchemy registers every table.
+
+**Key models:**
+- `Member` = household (family unit); has `board_member_id` FK
+- `Person` = individual; linked to Member via `MemberPerson` junction (with `relation_type`:
+  `HOOFDLID`, `PARTNER`, `KIND` — the **stored codes**, upper case. This line listed the Dutch
+  *labels* ("hoofdlid", "(meerderjarig) kind") as if they were the values; corrected with CR-12
+  phase 2, which also gave the column a `RelationType` enum and a foreign key.)
+- `Person` does NOT have a `mobile` column — mobile is stored as a `ContactDetail` with
+  `contact_type_code = "MOBILE"`. **Upper case**, and that is the whole correction (CR-12 phase 2):
+  this line said `"mobile"` and the stored codes have always been upper case. The lower-case
+  `mobile` that appears all over the code is something else — a form field and a view-model
+  attribute — so the two were never two spellings of one thing. The column is a plain `String`
+  with a foreign key to `mdm.contact_type_codes`; there is **no `ContactType` enum** (Koen,
+  27 September 2026: a strict enum would refuse a fifth social network and undo #1160). Compare
+  with the named constants `CONTACT.EMAIL` / `CONTACT.MOBILE` from `mdm/codes.py`, never a string.
+- `Address` → normalized via `PostalCode` table; always use postal code from the lookup table
+- `Activity` → `ActivitySubRegistration` (2-level); sub-registrations can have their own `price`, `max_participants`, `products` (`reg_form_type` is legacy/ongebruikt sinds de v2.0-unificatie — zie "Activity registration form")
+- `Registration` → `RegistrationItem` (één regel per gekozen product/aantal)
+- `GatewayPayment.payment_metadata` (JSON column — NOT `metadata`)
+
+**Auth:** JWT Bearer tokens voor de JSON-API (`get_current_admin` op alle admin-endpoints); de server-rendered schermen gebruiken de HttpOnly-sessiecookie + CSRF via `app.domains.auth.api` (`require_admin_ui`, `require_csrf`).
+
+**Rollen (ADMIN/FINANCE/OPERATOR/ACCOUNT_ADMIN) → wat mag/ziet wie:** zie de
+autoritatieve, met-de-code-geverifieerde matrix in `docs/rollen-en-rechten.md`
+(#544). Kort: algemene admin = ADMIN/OPERATOR (`require_admin_ui`); betalingen
+bekijken = +FINANCE (`require_finance_ui`), muteren = FINANCE/OPERATOR; gebruikers-
+beheer = ADMIN/OPERATOR; tenants — lijst, aanmaken én instellingen op
+`/admin/tenants` — OPERATOR-only (#581; de aparte `/admin/instellingen` is daarin
+opgegaan en redirect met 301).
+
+**Pydantic v2:** use `model_validate()`, `model_dump(exclude_none=True)`.
+
+## Alembic migrations
+
+One linear chain. **Never write the current head — not the number, not the
+filename — anywhere in this file.** It goes stale within days, and a stale example
+is worse than none: it reads as authoritative and gets copied into handoff blocks
+and release checklists, where a wrong head sends whoever runs the release looking
+for a break in the chain that does not exist. That happened: this paragraph named
+`089` long after the head had moved to `090`, and the number was copied from here
+into a release handoff.
+
+Read the head from the code, every time:
+
+```bash
+alembic heads                                      # in a running backend container
+```
+
+**Do not read the head from the file names.** `ls versions/ | sort | tail -1` used
+to stand here, and it stopped being true on 26 September 2026: two branches each
+added a migration on top of the same parent, so the tree now carries two files
+whose name starts with `151_`. Alembic does not care — it keys on the `revision`
+id inside the file, and the chain is sound — but the numeric prefix no longer
+sorts to the head. The trap is that the wrong command still *answers*, and it
+answers plausibly.
+
+From a checkout without a container, derive the head from `revision` and
+`down_revision` **inside** the files: the head is the revision that no other file
+names as its parent. `bin/alembic-heads.py` (outside this repo, next to the other
+local tooling) does exactly that and is what the master CLI runs before every
+push — it also counts the heads, which is the question that actually matters.
+
+**Before you touch a list of allowed values, look for the CHECK constraint.** A
+column can be a plain `String` in the model and still carry a database-level
+`CHECK` that only the migrations mention — so the model tells you nothing and the
+code reads as if any value is fine. Adding a value then fails at runtime, not at
+review time.
+
+This is not hypothetical and it is not rare: `media_assets.kind` caught two
+separate CLIs the same way. Migration 134 (#1005, Design Studio) opens with *"The
+issue expected no migration — `kind` is a string column. Measured while building:
+there is a CHECK on that column."* On 26 September 2026 #1173 walked into the same
+constraint for the same column, after an issue that said no migration was needed;
+the same week, CR-12 phase 0 found the pattern again on a status column.
+
+So: grep the migrations for the constraint before you write the issue, not after
+the `CheckViolation`. Widening it is a migration, and it comes from
+`alembic revision` like any other.
+
+Never modify a migration that has already been merged to master. Always create a new migration
+for schema changes. Make migrations idempotent (check if table/column exists before creating).
+
+**Let the tool write the file — do not hand-type one** (#951, and the reason added on
+19 September 2026):
+
+```bash
+alembic revision -m "wat de migratie doet"
+```
+
+The template (`backend/alembic/script.py.mako`) fills in a `revision` id that carries a real
+timestamp, so two branches can never pick the same key. That is the whole point of the scheme:
+the collision becomes a one-line `down_revision` repoint instead of a rename with references to
+chase.
+
+**Typing the id by hand defeats it, and that is not hypothetical.** This paragraph used to say
+only "create a new migration file", so every CLI wrote one by hand and picked a tidy time.
+Within a week the ids drifted from real stamps (`…_070503`, `…_073104`) to round ones
+(`…_141900`, `…_153000`, `…_160000`), and on 19 September two branches chose
+`137_2026_09_19_160000` — the *same* key, not merely two heads. The chain check caught it; it
+cost a renumbering that the generator would have made impossible.
+
+If you must write one by hand, take the id from `date +%Y_%m_%d_%H%M%S` — never a round hour.
+
+After adding a migration, verify the chain:
+```bash
+sudo docker-compose exec backend alembic heads
+```
+There must be exactly one head.
+
+## Activity registration form (unified in v2.0)
+
+**Sinds de React-exit (v2.0, #405) is er één geünificeerd inschrijfformulier**
+(`_inschrijf_form.html`) — géén vertakking meer op `reg_form_type`. Het React-tijdperk
+kende zes vormtypes (`INDIVIDUAL`, `TEAM`, `GROUP`, `PAID_PER_PERSON`,
+`PAID_PRODUCTS`, `AGE_CATEGORY`); die zijn **bewust vereenvoudigd** weg. Het ene
+formulier dekt alle gevallen via twee onderdeel-eigenschappen:
+
+- **Contact** (naam, e-mail, mobiel) — altijd.
+- **Ploegnaam** — enkel als `component.team_name_required` (vervangt het oude `TEAM`).
+- **Producten als regelitems** — `component.products`, elk met aantal-invoer; totaal
+  wordt **server-side** herberekend bij elke wijziging (`/…/totaal`, §19.3 — geen
+  drift) en inline vastgelegd als `RegistrationItem` bij commit (NIET via
+  `registration.items` — die is niet gevuld vóór commit). Dit dekt de betaalgevallen
+  die het oude `PAID_PRODUCTS`/`PAID_PER_PERSON` verzorgden; gratis producten
+  (`is_free`/`price == 0`) of `pay_on_site` maken het regelitem gratis resp. ter
+  plaatse te betalen.
+
+De oude group-size- en leeftijdscategorie-tellers (`GROUP`, `AGE_CATEGORY`,
+`age_category_config`) zijn er in v2.0 niet meer. Wil je zoiets terug, dan is dat
+**nieuwe scope** (nieuw issue), geen bestaand gedrag dat hersteld moet worden.
+
+> **Volzet-status** komt van `max_participants` per onderdeel (#451): de bezetting
+> (som van de item-hoeveelheden) wordt batched berekend in `list_activities` en zet
+> `is_full`, waarna de kaart een 'Volzet'-badge toont i.p.v. de inschrijfknop. De
+> `isPaid`-regel (positieve onderdeel-/productprijs → betalend) staat onder "Fixed
+> UI decisions".
+
+## UI-architectuur (server-rendered, React-exit #405)
+
+Er is geen Next.js/Node meer. Elke component levert zijn schermen als
+`ui.py`/`admin_ui.py` (routes bouwen een view-model en kiezen een template) +
+`templates/` (Jinja; htmx voor interactie, Alpine voor kleine client-state).
+Conventies: `docs/design-system.md` (de norm sinds 9 september 2026; #396 was de
+aanzet) en de UI-kit-macro's in `backend/app/ui/templates/_macros.html`. De publieke schil is
+`site_base.html` (+ `app.ui.site_context(db)`), de beheer-schil
+`admin_base.html` (+ `app.ui.admin_nav(active)`). CSS wordt gegenereerd met
+`scripts/build-css.sh` (Tailwind standalone-CLI, nul Node) → commit
+`backend/app/static/app.css` mee na template-wijzigingen. E2e-golden-flows:
+playwright-python in `backend/tests_e2e/` (aparte CI-job).
+
+### Two layers of UI conformity — keep them apart
+
+- **Mechanical rules → the lint gate** (`backend/tests/test_ui_conventions_gate.py`,
+  runs on every CI run): no `blue-800/900`, no raw hex outside a token definition,
+  no `alert()`/`confirm()`/`hx-confirm`, no `amber-*`, symbol-only buttons need an
+  `aria-label`, promised macros exist. See a **new rule-shaped** deviation? Add a
+  gate rule, rather than re-checking it by hand every release.
+- **Judgment → the `design-conformiteit-bewaker` agent** (`.claude/agents/`),
+  read-only and on request. It ranks findings with `file:line` and a suggested issue
+  title; it changes nothing and opens no issues. Run it before a UI batch and after.
+- **The eye → the master CLI, at the merge gate** (decided by Koen, 27 September
+  2026). Before merging a UI PR, the master CLI **looks at the rendered screen at
+  390 px** — the screens the PR touches, not all of them; `tests_e2e/screenshots.py`
+  renders them against a seeded local backend. And a handover of a UI change
+  **without a measurement taken from the rendered DOM goes back**: the two positions
+  that must line up, the count of elements that must appear once, the two numbers of
+  a box and its content. "Tests green" is not a handover.
+
+**Why this is a rule and not a good intention.** In v2.6.0, six of the twenty-four
+issues reached Koen broken, and every one of them was visible by looking at the
+screen once: a clipped `+`, a field that did not submit, a badge out of line, a
+button that did not read as a button. None was deep logic, and CI was green for all
+six. A test that posts straight to the route never passes through the browser; a
+test reading through the same session cannot tell `flush` from `commit`; a gate that
+reads templates cannot see a button created in JavaScript.
+
+After #1197 this file already said "look at the rendered screen before handover", and
+two more of those six still slipped past — because nothing fails when you skip a good
+intention. What makes it hold is the place: the merge is the one point every change
+passes through, and it belongs to the master CLI. Both master CLIs work this way as
+of 27 September 2026.
+
+**Parity with v1.14 — check, don't guess, and use the tag.** The old React frontend
+is still in the history: `git show v1.14.0:frontend/src/app/admin/betalingen/page.tsx`
+(also `components/ActivityList.tsx`, `Navigation.tsx`, `app/globals.css`,
+`tailwind.config.ts`) shows exactly how something looked — font sizes, colours,
+spacing.
+
+Always use the **tag** `v1.14.0`, never a loose commit. This file used to point at
+`149d180`, a commit from 10 June; the tag that actually runs on UAT and PROD is from
+13 July and sits **529 commits further**. Whole screens — the admin payments screen
+among them — do not exist yet in `149d180`, so a parity check there wrongly concludes
+"this did not exist in v1.14". That happened during the v2.0.0 validation (#660).
+
+**Brand.** The eight brand colours in `scripts/build-css.sh` match the official Raak
+huisstijlgids exactly. Brand blue `#0051a4` = `blue-700` (headings, chrome); link
+tint `#2367bd` = `blue-500` (brighter, underlined). The guide asks for Radio Canada
+Big everywhere; we use **Inter as body font — a deliberate readability deviation** —
+with Radio Canada Big as display font (`font-brand`). The header (RaaK + tagline) is
+entirely `font-brand`. The wordmark is **RaaK**. Brand assets cannot be fetched here:
+raakvzw.be and bruisendebuurt.be are blocked by the egress proxy, so ask Koen to
+supply an SVG rather than approximating one.
+
+## Fixed UI decisions — do not change these
+
+- **Address grid layout:** 4-column grid. Row 1: Straat (col-span-2) + Huisnummer (col-1) + Bus (col-1). Row 2: Postcode (col-span-4, full width). Bus number is always on the same row as house number, to the right of it.
+- **Postal code field:** Always a **`<select>`-dropdown** gevuld uit de
+  postcodetabel (`PostalCode`) — nooit een vrij tekstveld. Consistent in héél v2.0
+  (word-lid én gezinsportaal). `form.postal_code` is enkel gezet als de gebruiker
+  een geldige optie kiest; submit is geblokkeerd zonder geldige postcode. (In v1.14
+  was dit een autocomplete-invoer; v2.0 vereenvoudigde het bewust tot een dropdown —
+  bevestigd door Koen, juli 2026.)
+- **Payment default:** Default payment method is online (Mollie). On success with a `checkout_url`, do a **hard redirect** — server-rendered schermen zetten de `HX-Redirect`-header (nooit een soft/client-side navigatie) zodat de browser echt naar Mollie gaat.
+- **`isPaid` check:** sub-registrations can have their own price independent of the parent activity price — a positive sub-registration price makes the flow paid.
+- **Row actions:** `row_actions` caps at `max_visible` (default 2). List screens
+  show 2–3 inline plus `⋯`; **detail screens and toolbars have no cap** and may
+  show everything inline. Do not force a `⋯` menu onto a detail header.
+- **Confirmation copy:** `confirm_attrs(type, name)` is for real "delete this
+  object" dialogs only. A confirmation that is not a delete ("Bevestig betaald?",
+  "Opnieuw inlezen?", "Importeren?"), or one that spells out a consequence ("… uit
+  het saldo?"), keeps its own `data-confirm` text.
+- **Registration is one page, for the member and for the board** (CR-14 §B4.1,
+  since v2.10.0; it replaces "public registration is a modal"). The public route
+  renders it in the site shell, the board route renders the same content in the
+  admin shell. Order: who (contact) → what (products) → the component's questions
+  → payment method → submit. No modal, with or without a form. "Wie doet er mee?"
+  stays a compact inline line (`text-xs`, *N ingeschreven — naam · naam*). Not a wide
+  inline block, not a vertical list.
+
+## Choosing new tools / dependencies — Europe First
+
+Before proposing **or** adding any new tool, library, service, model or external
+dependency, **first check whether a European (EU) alternative exists, and prefer
+it.** Europe First.
+
+- This applies to cloud services, APIs, hosted models and SaaS, **and** to
+  self-hosted options (where the audio/data stays within the EU).
+- Always surface the EU-vs-non-EU options in the proposal, with the chosen option
+  and the reason.
+- Prefer, in order: data stays in the EU → EU-based vendor → open-source that we
+  self-host on our own EU infrastructure. Avoid sending personal data to non-EU
+  cloud services.
+- If no viable EU option exists, say so explicitly and explain the trade-off
+  before adding the non-EU dependency.
+
+## Code change discipline
+
+- Only change what was explicitly requested. Nothing more.
+- If something looks odd or suboptimal but wasn't mentioned, say so in chat and wait for approval — do not change it.
+- Never "clean up" surrounding code while fixing something else.
+- If a requested change requires touching something adjacent, explain what and why before doing it.
+
+## Twee keer dezelfde reparatie? Dan is de duplicatie de bug
+
+Merk je dat je dezelfde wijziging op twee plaatsen aanbrengt, stop dan. **De fout is niet
+dat er één plek achterliep — de fout is dat het er twee zijn.** Haal er één weg in plaats
+van ze allebei te repareren; anders repareer je dezelfde regel over een half jaar opnieuw,
+en dan loopt er weer één achter.
+
+In de week van 8 tot 12 september 2026 kwam deze vorm **vijf keer** langs:
+
+| Wat stond er twee keer | Hoe het misging |
+|---|---|
+| `base_url` naast de routering | een verouderd adres won van een juiste afleiding (#860) |
+| `PLATFORM_HOSTS` naast het Caddy-domein | de landingspagina van PROD kwam op een afdeling uit (#866) |
+| een met de hand gebouwde Jinja-omgeving in twee testbestanden | tweemaal dezelfde global vergeten, met dezelfde viervoudige kopie van de fix (#773 en later) |
+| drie getalopmaak-takken in het rapportenpaneel | vier van de zeven formaten gingen rauw naar het scherm (#875) |
+| twee objecten die *Soort* heten | ze noemden elkaars kolom (#871) |
+
+De reparatie is telkens dezelfde vorm: **één bron, en de andere leidt eruit af.** Kan dat
+niet, zet er dan een poort op die faalt zodra de twee uit elkaar lopen — maar besef dat
+een poort de tweede plek in stand houdt en dus de duurdere oplossing is.
+
+**Het herkenningspunt is praktisch:** je schrijft een commit waarin dezelfde zin twee keer
+voorkomt op twee paden. Dat is het moment om te stoppen en te vragen welke van de twee weg
+kan.
+
+## Modelleer op standaarden — bouw wat nodig is, in de vorm die meegroeit
+
+Vastgelegd door Koen op 15 september 2026, na de herwerking van `Organization` (#924).
+
+**De regel bestaat uit twee helften en je hebt ze allebei nodig.** Bouw **alleen wat
+vandaag nodig is** — geen velden, tabellen of abstracties op voorraad. Maar geef wat je
+bouwt de **vorm** die een gevestigde standaard eraan geeft, zodat de uitbreiding later een
+rij is en geen herwerking.
+
+**Waarom dit een regel werd.** Het domeinmodel kende een `Organization` die uitsluitend een
+tenantrol beschreef. Toen de vereniging ook adres, rechtsvorm en rekeningnummer moest
+dragen, bleek er geen plaats voor en moest de entiteit herwerkt worden. Koen achteraf:
+*"Ik had achteraf gezien ook liever met de 'party' gewerkt en we hebben nu organisatie
+moeten herwerken."* De kost zat niet in de ontbrekende velden — die voeg je toe — maar in
+de **vorm** die geen tweede geval toeliet.
+
+**Welke standaarden.** Voor alles wat een partij, een adres, een identificatie of een
+betaling beschrijft: **UBL 2.1 / EN 16931** (het Europese semantische factuurmodel, waarop
+PEPPOL BIS Billing 3.0 draait). Dat is geen academische keuze — België verplicht
+gestructureerde B2B-facturatie via PEPPOL, dus dit vocabularium komt deze codebase hoe dan
+ook binnen. Voor rekeningen en betalingen sluit **ISO 20022** erop aan (`IBAN`, `BICFI`),
+voor organisatie-identificatieschema's **ISO 6523/ICD**.
+
+**Wat die standaarden concreet zeggen**, want dit is de kern en niet de verwijzing:
+
+| Wat | UBL-vorm | Gevolg voor het schema |
+|---|---|---|
+| Identificaties (ondernemings-, btw-nummer) | `cac:PartyIdentification`, `cac:PartyTaxScheme` — **herhaalbaar**, elk met schema en land | eigen tabel met (schema, waarde), nooit één kolom per soort |
+| Rekening | `cac:PayeeFinancialAccount` — `cbc:ID` = IBAN, `cac:FinancialInstitutionBranch/cbc:ID` = BIC | eigen tabel; een partij kan er meerdere hebben |
+| Rechtsvorm, registratienaam | `cac:PartyLegalEntity` — `cbc:CompanyLegalForm`, `cbc:RegistrationName` | mag op de partij, is per definitie enkelvoudig |
+| Contact | `cac:Contact` — `cbc:ElectronicMail`, `cbc:Telephone` | enkelvoudig volstaat tot er rollen bijkomen |
+| Adres | `cac:PostalAddress` met `cac:Country` | het adres hangt áán de partij, niet ín de partij |
+
+**Het herkenningspunt:** je staat op het punt een tweede kolom toe te voegen die hetzelfde
+soort ding beschrijft als de eerste — `vat_number_nl` naast `vat_number`, `iban_2` naast
+`iban`. Dat is het moment waarop de standaard al een tabel had voorzien. Eén kolom voor een
+ding dat van nature herhaalt, is dezelfde fout als twee plaatsen voor één feit — alleen
+merk je hem pas bij het tweede geval.
+
+**Wat dit NIET betekent.** Niet: bouw UBL na. Niet: haal velden binnen die we niet gebruiken
+omdat de standaard ze kent. Wel: als een standaard een ding **herhaalbaar** maakt of het
+**apart** modelleert, neem die vorm over — ook wanneer je vandaag één rij vult. En noem de
+velden zoals de standaard ze noemt, zodat een latere koppeling een mapping is en geen
+vertaalslag.
+
+Wijkt een geval af, schrijf dan in de docstring **welke** standaard je verlaat en waarom.
+Een bewuste afwijking is werkbaar; een onbewuste is de herwerking van de volgende.
+
+## Common mistakes to avoid
+
+- Do not add `mobile` as a kwarg to `Person(...)` — it's not a column on Person.
+- Do not add `orders = relationship("Order", ...)` to Member — the Order model was removed.
+- Do not use `metadata` as a column name on SQLAlchemy models — it's reserved. Use `payment_metadata`.
+- Do not compute `total_amount` from `registration.items` after `db.flush()` — the ORM relationship is not populated yet. Compute inline while creating the items.
+- Do not use `datetime.utcnow()` — use `datetime.now(timezone.utc)`.
+- After any change to `backend/app/main.py` router includes or domain imports, verify `check_imports.py` would pass by checking that all imported modules exist.
+- Never name a Pydantic field the same as its type **when it has a default** —
+  e.g. `date: Optional[date] = None`. Python binds `date = None` in the class
+  namespace before evaluating the annotation, so the field type silently becomes
+  `NoneType` and Pydantic rejects every value with 422 "Input should be None".
+  Alias the type import instead (`from datetime import date as Date`, mirroring
+  `time as Time`). This bit us in `ActivityUpdate` (hotfix v1.2.1). The blanket
+  fix — `from __future__ import annotations` in every schema file — is **done**
+  (#100, closed); keep adding it to new schema files.
+
+## Validation layers — DB vs. service vs. router
+
+Three layers, each with one job. Put each check where it belongs; don't collapse
+them into one.
+
+1. **Router (HTTP-laag)** — the doorman. Only cares about the *request*: is the
+   caller authenticated/authorised (`get_current_admin`), does the JSON parse into
+   the Pydantic schema (shape/types/required fields → automatic 422), and shaping
+   the *response*. It does NOT contain business rules. Pydantic schemas live here:
+   they validate **form** (is `price` a number? is `email` an email?), not
+   **meaning**.
+2. **Service / domain-laag** — the rulebook. Business invariants that need other
+   data or domain knowledge: "can this member be reminded twice?", "does
+   `amount_paid` match the expected total?", "is this sub-registration still
+   open?". These are the rules that must hold no matter *which* router calls them,
+   so they live in `app/services/` or `app/domains/`, never inline in a router.
+   A rule enforced only in the router can be bypassed by any other caller.
+3. **Database (laatste vangnet)** — the safety net. Constraints that must be true
+   even if a bug slips past the code: `UNIQUE`, `NOT NULL`, `CHECK (price >= 0)`,
+   foreign keys. The DB is the last line; it guarantees integrity at rest even if
+   two requests race or a migration/script writes directly. Tracked broadly in #94.
+
+Where exactly a rule lives since CR-13 — the four addresses `@validates`,
+`check()` on an aggregate, the service, and a constraint — is written down once,
+in `docs/code-style.md`, *A rule has one home* (CR-13 §B9.1); this section does
+not repeat it.
+
+Rule of thumb: **form → router (Pydantic); meaning → service; integrity-at-rest →
+DB.** A critical invariant (e.g. no negative price) is often worth enforcing in
+*both* the schema (nice 422 for the user) and the DB (hard guarantee) — that's
+defence in depth, not duplication.
+
+Enforced by `test_layer_gate.py`: a `ui.py`/`admin_ui.py` never touches `db` and
+only imports from a domain's `api.py`; its template context comes from a
+`ViewModel`, not a dict literal. And by `test_template_variables_gate.py`: a
+template asks for nothing its view-model does not promise. Templates render under
+`StrictUndefined` in dev/test/HDEV, so a typo fails instead of rendering blank —
+see *Where logic lives* in `docs/design-system.md` §8.3.
