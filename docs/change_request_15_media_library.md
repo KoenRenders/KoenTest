@@ -4,6 +4,7 @@
 **Status:** shaped on 1 October 2026 · on hold — Koen walks through it point by point before anything is assigned
 **Tracking issue:** #1410 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the media domain and its admin screen; the picture choosers of Design Studio and the CMS; later the newsletter; the public photo albums; one new field on the activity, already under way (#1397).
+**Reading:** A 2392 words · B 2964 · C 2533 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -141,8 +142,8 @@ and deliberately not done — recorded so it is not asked again).
 
 | Concern | This change |
 |---|---|
-| **Security** | No new entrance from outside: uploads stay where they are, with their size and type checks; the chooser is a back-office screen behind the admin session. One existing weakness becomes visible and is closed: a picture is reachable by its numeric id regardless of whether it is active or cleared — a picture cleared for the back office only must not be served publicly (B5). |
-| **Privacy** | Photos of members and their children are personal data. Today they are published on the site without a recorded decision. This change records one decision per picture — public or back-office only — set by the board at upload, and the public site and the posters honour it. It does not yet ask the person on the photo; that is the consent register of the architecture's roadmap, and this change leaves the place for it (B4.5). Nothing leaves the system that does not leave it today. |
+| **Security** | No new entrance from outside: uploads stay where they are, with their size and type checks; the chooser is a back-office screen behind the admin session. One existing weakness becomes visible and is closed: a picture is reachable by its numeric id regardless of whether it is active or cleared — a picture cleared for the back office only must not be served publicly (C5). |
+| **Privacy** | Photos of members and their children are personal data. Today they are published on the site without a recorded decision. This change records one decision per picture — public or back-office only — set by the board at upload, and the public site and the posters honour it. It does not yet ask the person on the photo; that is the consent register of the architecture's roadmap, and this change leaves the place for it (C4.5). Nothing leaves the system that does not leave it today. |
 | **House style / UI norm** | The library stays the one admin screen that is a grid of cards (CR-11 row 5: the picture is the thing being chosen). The chooser is a kit component rendered live on the design-system page, used by every screen that places a picture (CR-11 R13: one place, one form). |
 | **Multi-tenant** | Pictures are tenant-scoped today and stay so; the library is per tenant. Clearance defaults are a tenant setting only if Koen wants them to differ per unit (Q3). |
 
@@ -160,19 +161,23 @@ and deliberately not done — recorded so it is not asked again).
 
 ---
 
-# Part B — The solution
+---
+
+# Part B — The solution, for whoever approves it
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
 The media domain already is a library: one table, one row per picture, one kind code, a tenant, an origin (`activity_id`). What is missing is three things, and the solution adds exactly those. **One: reuse is a reference, never a copy.** A design slot, a CMS page and later the newsletter point at the media row; the Design Studio stops copying a chosen photo into a design image. **Two: one chooser.** A kit component — search, the filters *activity · year · van vorig jaar*, a thumbnail grid, a bottom sheet on a phone — used by every screen that places a picture, fed by one facade function that knows the current record and opens on its predecessors. **Three: the library knows its uses and its clearance.** A derived "where used" (read from the designs, pages and letters that reference a picture — not stored twice), the refusal of a delete while uses exist, pictures that outlive their activity and design, and one field per picture that says whether it may go public.
 
-Decisions that shape it, with the alternative that lost:
+Decisions that shape it, each with the alternative that lost (the reasoning in C4):
 
-- **Reference, not copy** (B4.1). The alternative — keep copying into `design_image`, add a "copy from the library" button — would have kept two or three rows per picture and the orphan problem. Lost on bytes, backups and truth.
-- **No album entity** (B4.2). The alternative — an `albums` table the board composes — adds a concept the measurement does not need: an album is the photos of an activity, and a hand-picked set across activities is what a design or a page already is. Lost on "build what is needed, in the shape that grows": the shape that grows here is the *tag*, not the album (R9).
-- **Clearance on the picture, not on the person yet** (B4.5). The alternative — build the consent register first — is the right end state and far larger; a per-picture clearance is the smallest step that stops publishing without a decision, and it is where the register plugs in later. Declared deviation from the end state, with the seam named.
-- **Bytes stay in Postgres** (B4.6). The alternative — the object-storage adapter (architecture R8) — is independent of reuse: this change adds references, not bytes. Lost on scope; the seam (`media.api` as the only way to a picture's bytes and URL) is kept clean so R8 remains a drop-in. Europe First applies when R8 comes (a Storage Box or an EU object store).
-- **The chooser as a kit component** (B4.3), not three choosers. Lost alternative: improve the three `<select>`s of the design editor. Lost on CR-11 R13 and on the phone: a `<select>` of two hundred photos cannot be chosen from.
+- **Reuse is a reference, never a copy** (C4.1). Lost: keep copying a chosen photo into a `design_image`. A copy costs bytes and backups, orphans when the design goes, and drifts from its original.
+- **No album entity** (C4.2). Lost: an `albums` table the board composes. The activity is the album; what grows is the tag, not a second album concept.
+- **One chooser from the kit** (C4.3). Lost: improve the three `<select>`s of the design editor. A select of two hundred photos cannot be chosen from on a phone; one component means one behaviour everywhere (CR-11 R13).
+- **"Where used" is derived, not stored** (C4.4). Lost: a `media_uses` table every consumer writes. Two places for one fact drift; a read across three facades costs nothing at this scale.
+- **Clearance on the picture, not on the person yet** (C4.5). Lost: build the consent register first. One field per picture is the smallest step that stops publishing without a decision; the register plugs in later — a declared deviation, seam named.
+- **Bytes stay in Postgres** (C4.6). Lost: the object-storage adapter (architecture R8). This change adds references, not bytes; the seam stays clean so R8 is a drop-in. Europe First applies when R8 comes.
+- **Pictures outlive their activity and design** (C4.7). Lost: cascade on delete. Today they become orphans; next year's poster needs them.
 
 ### B1.1 Functional analysis — the derived requirements
 
@@ -188,9 +193,7 @@ Decisions that shape it, with the alternative that lost:
 | F8 | Keywords as a repeatable tag table (`media.asset_tags`), searched by the same `q`; Could, phase 4. | R9 |
 | F9 | The library screen gains the filters year and "in use", and the "where used" list per card; it stays a card grid. | R3, R5 |
 
-## B2. Architecture — three readers, three questions
-
-### B2.1 Fit with the process and the requirements — for the business
+## B2. Fit with the process and the requirements — for the business
 
 The to-be process of A3 with, per step, the screen that serves it:
 
@@ -229,7 +232,7 @@ Legend: blue media · yellow Design Studio · green CMS · grey activities (used
 
 **Traceability matrix**
 
-| R | How the solution meets it (as the organiser sees it) | F | Module | Test (B7) | AC |
+| R | How the solution meets it (as the organiser sees it) | F | Module | Test (C6) | AC |
 |---|---|---|---|---|---|
 | R1 upload once, use anywhere | choosing places a reference; the row count never grows by choosing | F1, F3 | designstudio, cms, media | 1, 2 | AC1, AC2, AC7 |
 | R2 last year's first | the chooser opens on the predecessor chain | F2 | media (reads activities' `copied_from_id`) | 3 | AC1 |
@@ -264,7 +267,8 @@ Legend: blue media · yellow Design Studio · green CMS · grey activities (used
 16. Repeat 3–4 on a phone or at 390 px. *See:* a sheet from the bottom, search on top, two filter chips, a three-column grid; three taps to choose.
 17. Open a CMS page, "Afbeelding". *See:* the same chooser; a Sint photo can be placed.
 
-### B2.2 The whole across the modules — for the architect
+
+## B3. The whole across the modules — for the architect
 
 ```mermaid
 flowchart TB
@@ -353,65 +357,18 @@ erDiagram
   PAGE }o--o{ MEDIA_ASSET : "body references"
 ```
 
-Who calls whom: the design editor and the CMS modal call `media.api.pick_options` and render `ui.media_picker`; the media service calls `activities.api.predecessors_of` (from #1397) for the first group, and `designstudio.api.references_to_media`, `cms.api.references_to_media`, `newsletter.api.references_to_media` for "where used". The new dependencies run media → activities (already exists for `list_activity_photos`), and media → designstudio/cms/newsletter *for a read-only question* — that is the one direction to watch: the import gate allows a facade call, and it is a query, not a command; the alternative (each consumer registering its uses in media) stores the fact twice and was rejected (B4.4). Transaction boundary: choosing is the consumer's transaction (the design or page saves its reference); the refusal of a delete is one read then one refused write; clearance is a one-row update.
+Who calls whom: the design editor and the CMS modal call `media.api.pick_options` and render `ui.media_picker`; the media service calls `activities.api.predecessors_of` (from #1397) for the first group, and `designstudio.api.references_to_media`, `cms.api.references_to_media`, `newsletter.api.references_to_media` for "where used". The new dependencies run media → activities (already exists for `list_activity_photos`), and media → designstudio/cms/newsletter *for a read-only question* — that is the one direction to watch: the import gate allows a facade call, and it is a query, not a command; the alternative (each consumer registering its uses in media) stores the fact twice and was rejected (C4.4). Transaction boundary: choosing is the consumer's transaction (the design or page saves its reference); the refusal of a delete is one read then one refused write; clearance is a one-row update.
 
 Impact on the existing architecture: `media.media_assets` gains one column and one Could table; the designstudio stops writing a `design_image` row for a chosen photo (its `design_image` kind stays for uploads and AI); three facades gain one function each; `GET /media/{id}` learns about clearance; no table is dropped, no contract to an outside caller changes (the JSON routes keep their shape). The layer rules hold: screens through facades, services through facades, nothing reaches into another domain's models.
 
-### B2.3 Per module: what must happen — for the build teams
 
-#### media (phases 1–4)
+## B4. Rules this change needs an exception from — decided once, here
 
-- **Screens:** `/admin/media` — the card grid stays; filters gain *year* and *in gebruik*; a card shows the clearance as a badge and "gebruikt in N" with the list unfolded on click; judged at 390 px. New: the kit macro `ui.media_picker` (search, chips *van vorig jaar · activiteit · jaar*, thumbnail grid, paging; a bottom sheet under 768 px), rendered live on `/admin/design-system`.
-- **Code:** `service.pick_options`, `service.uses_of`, `service.set_clearance`; `delete_media` refuses while in use (`MediaFout` with the uses); `list_media` filters on clearance for public callers; `api.py` exports them.
-- **Database:** `media.media_assets.clearance VARCHAR(16) NOT NULL DEFAULT 'public'` with `CHECK (clearance IN ('internal','public'))` — and the default per kind applied by the service at upload, not by the column (phase 3; the data default is Koen's Q3); `media.asset_tags (asset_id INT NOT NULL REFERENCES media.media_assets(id) ON DELETE CASCADE, tag VARCHAR(40) NOT NULL, PRIMARY KEY (asset_id, tag))` (phase 4). Both additive.
-- **Templates and mail:** `_me_lijst.html` (filters, badge, uses), a new `_media_picker.html` partial; no mail.
-- **Tests:** B7 1, 2, 4, 5, 6, 7, 8, 9, 10, 11.
+| Rule (where) | What the design does instead | Mechanism | Temporary until … / the new rule | Decided |
+|---|---|---|---|---|
+| None. Checked: the import gate (`test_import_boundaries`: media's "where used" is a *read* through three facades — allowed), `COMMAND_CALLS` (reads only, no new command across domains), `test_schema_boundaries` (no key across schemas: the slots and `activity_id` are soft references, as they are today; `asset_tags` keys inside the `media` schema), the Europe First rule (no new tool). | — | — | — | — |
 
-#### designstudio (phase 2)
-
-- **Screens:** the editor's three `<select>`s become three slots that open the picker; the "Foto toevoegen" upload stays for new material; judged at 390 and 1280 px.
-- **Code:** `set_slot_image(design, slot, asset_id)` stores the reference after checking the asset is offered for this design (clearance, tenant); the copy-into-`design_image` path is removed; `api.references_to_media(ids)` returns the designs whose slots hold them; `image_options` is replaced by `media.api.pick_options` (the #1397 predecessor grouping moves into media, one source).
-- **Database:** none — the slots are soft refs already.
-- **Tests:** B7 1, 3, 6.
-
-#### cms (phase 2)
-
-- **Screens:** the image modal of `_cp_detail.html` renders the picker over the whole library instead of the `page_image` list; the drop/paste refusal stays.
-- **Code:** `api.references_to_media(ids)` scans page bodies for `/api/v1/media/<id>` (a regex over the stored HTML; measured cost negligible at the page counts of today).
-- **Tests:** B7 2, 6.
-
-#### newsletter (phase 4, Could)
-
-- **Screens:** "Invoegen ▾ › Afbeelding" in the editor, the same picker.
-- **Code:** `api.references_to_media(ids)` over letter bodies; the insert as a Trix attachment pointing at the media URL.
-- **Tests:** B7 6.
-
-#### activities (used)
-
-- `copied_from_id` and `predecessors_of` from #1397; nothing else changes.
-
-#### reporting — none
-
-No view in the `reporting` schema reads `media.media_assets` (measured: the universe lists no media object), so the new column and table touch no saved report. R11 is a Won't.
-
-### B2.4 Cross-cutting impact — the checklist of what gets forgotten
-
-| Row | Answer |
-|---|---|
-| Reporting views and saved reports | no — no view reads media |
-| Existing tests, e2e flows, 390 px screenshots | yes — the design editor's e2e and screenshots change (the selects become slots); the media screen screenshots change (B7) |
-| Fixed UI decisions and `CLAUDE.md` | no |
-| Design-system documentation | yes — the picker is a new component (§2) and the media grid keeps its exception (§3) |
-| Code lists | yes — `media_kind_codes` unchanged; `clearance` is a two-value CHECK, not a code list (two values, no label table needed; B4.5) |
-| Events and handlers | no — no event; "where used" is a query |
-| Mail templates | no |
-| Migration: additive or contract | additive (one column with a default, one table) |
-| Tenant settings | only if the clearance default differs per tenant (Q3); otherwise no |
-| Env vars | no |
-| JSON routes and API callers | `GET /media/{id}` changes behaviour for `internal` assets (404 without a session); no caller outside the portal measured |
-| External services | no |
-
-## B3. Cost — investment and running cost, and what operations must know
+## B5. Cost — investment and running cost, and what operations must know
 
 **Investment** (CLI-days; S/M/L where the team has no track record):
 
@@ -430,42 +387,6 @@ Plus analysis (this document, ~1), review and HDEV validation per phase (~0.5 ea
 
 **Operations:** no env var, no kill switch; a migration per phase 3 and 4 (additive); backups unchanged in shape. The one behaviour change to know: an `internal` picture's URL answers 404 publicly — a picture that disappears from the site after phase 3 was marked internal, not lost.
 
-## B4. Detailed decisions — one subsection each, with the reasons
-
-### B4.1 Reuse is a reference, never a copy
-
-A picture is one row; everything that shows it points at the row. Today the Design Studio copies a chosen activity photo into a `design_image` (CR-10 §3.11) so that the design "owns" its material at 4096 px. The ownership was the wrong thing to want: it costs a second copy, the copy orphans when the design goes, and the activity photo and its copy drift apart in title and order. The design's slots are soft references already; they simply get to point at any image asset. The 4096 px argument: a design that needs more resolution than the album's 1600 px uploads its own material (that path stays) — the album photo at 1600 px is what the poster of a village association prints at A3 anyway (CR-10 measured 1–3 MB per final design).
-
-### B4.2 No album entity; the activity is the album, the tag is what grows
-
-An album is the set of photos with one `activity_id`; the site already shows it that way. A table `albums` would be a second place for the same fact. What Koen may want beyond it — "the ten best of 2025", "all Sint photos over the years" — is a *selection*, and a selection is either a design, a page, or a search: tags (R9) give the search its words. On standards: IPTC Photo Metadata names the fields a picture carries — title, description, keywords (repeatable), date created, creator, rights/usage terms; the asset has title and a date, gets keywords as a repeatable table (never a comma column), and the usage terms are what `clearance` is the first value of.
-
-### B4.3 One chooser, from the kit
-
-`ui.media_picker` is the only way a screen offers a picture: the design editor, the CMS modal, later the newsletter. It takes the asking context (the record, the use) and renders what `pick_options` returns: the group "Van <activity> (<year>)" for the predecessor chain first, then the rest, searchable and filterable, paged at 60 thumbnails; on a phone a bottom sheet with a three-column grid and the filters as chips. One component means one behaviour on every screen (CR-11 R13) and one place to make it good on a phone (R8).
-
-### B4.4 "Where used" is derived, not stored
-
-Each consumer knows what it references; media asks them. Storing a `media_uses` table would mean every consumer writes twice (its reference and the use row) and the two drift — the shape CLAUDE.md calls the bug ("twee keer dezelfde reparatie"). The cost is a query across three facades at delete time and on the library card; at the counts of this portal (hundreds of pictures, tens of designs) it is not measurable. The direction media → consumers is read-only and through facades; the import gate allows it.
-
-### B4.5 Clearance on the picture: the first step of the consent model, with the seam named
-
-The architecture's consent register (R6 there) is a model of *persons* and *their* permissions; it does not exist, and building it is its own change. What can be decided today, per picture, is whether it may go public — and today that decision is made by nobody. One field, two values, set at upload with a default per kind (Koen decides the default, Q3; the author proposes `public` for activity photos because that is how they are used today, and `internal` for design images and page images until placed). When the register comes, a picture's clearance becomes derived from the persons on it; the field stays as the override. Declared deviation from the end state; the seam is the one field and the one filter in `pick_options`.
-
-### B4.6 Bytes stay in Postgres; the storage seam stays clean
-
-This change adds references and one short column, not bytes; it removes bytes (no more copies). The object-storage adapter (architecture R8) stays roadmap; the only rule kept here is that nothing outside `media` reads `data` or builds a media URL by hand, so that R8 is a change inside one module. Measured: the designstudio and cms templates build `/api/v1/media/<id>` URLs through the media view-models today; B7 test 12 keeps it so.
-
-### B4.7 Pictures outlive their activity and their design
-
-An activity is soft-deleted (#166); its photos stay rows with an `activity_id` that now points at a deleted activity: the library shows the origin as gone, the site no longer lists the album (it never listed deleted activities). A design is hard-deleted; its slots vanish with it and the pictures stay. Renders (`design_render`) are products of a version and keep being pruned with it — a render is not a picture anyone reuses.
-
-## B5. Privacy and security — the mechanics behind A7
-
-- `GET /api/v1/media/{id}` and `/thumb`: an `internal` or inactive asset answers 404 without an admin session (today both are served by id). The cache header stays immutable for `public` assets; `internal` assets are served with `private, no-store` to the back office.
-- `pick_options(use="poster"|"page"|"newsletter")` filters on `clearance = 'public'`; the back-office library shows everything with the badge.
-- No new personal data is stored; the clearance is a decision about a picture, logged in the asset's history row like any field change.
-- Uploads keep their checks (type, size, SVG sanitising, batch cap).
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
@@ -479,7 +400,148 @@ An activity is soft-deleted (#166); its photos stay rows with an `activity_id` t
 
 "Na de merge" per phase: phase 3 names the counts set per kind and the default chosen; the others nothing beyond the migration.
 
-## B7. Tests — what the build must prove
+
+## B7. Rule and gatekeeper — what this fixes for all future work
+
+1. **The rule.** *A picture is one media row; every use of it is a reference to that row through `media.api`, chosen through the one picker; no module copies a media row, reads its bytes, or builds its URL by hand.* Lives in `docs/code-style.md` under layer boundaries, and in the design system next to the picker.
+2. **Reach and baseline.** The whole codebase. Measured on the branch, 1 October 2026: one copy path (`designstudio.service`, the chosen photo copied into `design_image`); three screens that offer pictures, each its own way (the design editor's selects, the CMS modal, the newsletter's nothing); zero hand-built media URLs outside media's view-models. After this change: zero copy paths, one picker.
+
+**The gate, in one line:** two hard gates from the build (C6 tests 6 and 12 — refusal while in use, and no bytes or hand-built media URL outside `media`) and one ratchet on the copy path; the "one picker" half is judgment, handed to the merge gate. Detail in C7.
+
+## B8. Open decisions — what the approver still decides
+
+| # | Question | Recommendation | What the answer changes |
+|---|---|---|---|
+| Q1 | Search and filter: by activity, year, keywords; "van vorig jaar" as the default? | Yes: the picker opens on the predecessor chain when there is one, then the whole library; keywords in phase 4. | The picker's first screen; whether tags are built. |
+| Q2 | Which kinds are reusable, for which use? | Every *image* kind for every use; not renders, newsletter files, logos, sponsors. The use filter is clearance, not kind. | The `pick_options` filter; whether posters-as-pictures appear in the chooser. |
+| Q3 | Does an album photo count as cleared for a poster because it is on the site, or must the board say so per picture? | The first: one decision at upload, with `public` as the default for album photos and `internal` for design and page images until placed. | The default per kind in phase 3's one-off; how much the board clicks. |
+| Q4 | Ownership: a photo stays with its activity when used elsewhere; what when the activity is deleted? | Yes; on delete the photo stays with its origin marked gone. | C4.7; the library's "origin" column. |
+| Q6 | Choosing from hundreds of photos at 390 px? | A bottom sheet, search on top, filter chips, a three-column grid paged at 60, the predecessor group first. | The picker's phone rendering (AC6). |
+| Q7 | One picker for Design Studio, newsletter and CMS? | Yes, a kit component; Design Studio and CMS in phase 2, the newsletter in phase 4. | Phase 4's scope. |
+| Q8 | Should the Design Studio keep its 4096 px copies for print quality? | No copy; a design that needs more than 1600 px uploads its own material. | Whether the copy path is removed (C4.1) or kept as an exception. |
+
+## B9. Decisions log — dated answers
+
+| Date | Decision | By |
+|---|---|---|
+| 1 Oct 2026 | A change request for the media library, to be walked through point by point before anything is assigned; nothing built from it yet. The small step of #1397 (`copied_from_id`, predecessors in the choice) goes ahead as its seed. | Koen, via the master CLI |
+| 1 Oct 2026 | *Proposed:* reference not copy; no album entity; one picker from the kit; "where used" derived; clearance per picture as the first step of the consent model; bytes stay in Postgres. | author |
+
+
+---
+
+# Part C — The build, for the master CLI and the dev CLIs
+
+## C1. Verified premises — measured before the handover
+
+| Claim | Measured how | Result | Consequence |
+|---|---|---|---|
+| There is no album entity | `media/models.py` (one table, `media_assets`; `media_thumbs_up`, kind codes) | true: an album is the `activity_photo` rows sharing an `activity_id` | C4.2 |
+| Design slots and `activity_id` are soft references, no FK | `media/models.py:96-99` (comment, migration 081); `designstudio/models.py:342-354` | true; `test_schema_boundaries` forbids cross-schema keys | reference-not-copy needs no migration on the slots |
+| The Design Studio copies a chosen photo into `design_image` | CR-10 §3.11; `designstudio/service.py:838-868` | true | C4.1 removes it |
+| Bytes live in Postgres and go into every dump | `media/models.py:58` (BYTEA); `scripts/db-backup.sh:32` (plain `pg_dump`, no exclusion) | true | C4.6; fewer copies = smaller dumps |
+| `GET /api/v1/media/{id}` checks neither `is_active` nor kind | `media/router.py:186-217` | true | C5: clearance on the URL |
+| Deleting a design or an activity leaves its media behind | `designstudio/service.py:276` (`db.delete(design)`); `activities/service.py:476-531` (soft delete, no media handler) | true | C4.7 |
+| No consent register exists | grep consent/toestemming/portretrecht in mdm, membership models and migrations | nothing; only `newsletter.subscribers.consented_at` | C4.5: the first step is per picture |
+| No reporting view reads `media_assets` | `grep -ci media backend/app/domains/reporting/universe.py` | 0 | C2 reporting: none |
+| #1397's `copied_from_id` and the predecessor grouping exist | dev1's worktree, migration `178_2026_10_01_045833`, `image_options` walks `predecessors_of` | on dev1's branch, uncommitted on 1 Oct 2026 | phase 0 is that step; phase 2 moves the grouping into media |
+
+## C2. Per module: what must happen
+
+#### media (phases 1–4)
+
+- **Screens:** `/admin/media` — the card grid stays; filters gain *year* and *in gebruik*; a card shows the clearance as a badge and "gebruikt in N" with the list unfolded on click; judged at 390 px. New: the kit macro `ui.media_picker` (search, chips *van vorig jaar · activiteit · jaar*, thumbnail grid, paging; a bottom sheet under 768 px), rendered live on `/admin/design-system`.
+- **Code:** `service.pick_options`, `service.uses_of`, `service.set_clearance`; `delete_media` refuses while in use (`MediaFout` with the uses); `list_media` filters on clearance for public callers; `api.py` exports them.
+- **Database:** `media.media_assets.clearance VARCHAR(16) NOT NULL DEFAULT 'public'` with `CHECK (clearance IN ('internal','public'))` — and the default per kind applied by the service at upload, not by the column (phase 3; the data default is Koen's Q3); `media.asset_tags (asset_id INT NOT NULL REFERENCES media.media_assets(id) ON DELETE CASCADE, tag VARCHAR(40) NOT NULL, PRIMARY KEY (asset_id, tag))` (phase 4). Both additive.
+- **Templates and mail:** `_me_lijst.html` (filters, badge, uses), a new `_media_picker.html` partial; no mail.
+- **Tests:** C6 1, 2, 4, 5, 6, 7, 8, 9, 10, 11.
+
+#### designstudio (phase 2)
+
+- **Screens:** the editor's three `<select>`s become three slots that open the picker; the "Foto toevoegen" upload stays for new material; judged at 390 and 1280 px.
+- **Code:** `set_slot_image(design, slot, asset_id)` stores the reference after checking the asset is offered for this design (clearance, tenant); the copy-into-`design_image` path is removed; `api.references_to_media(ids)` returns the designs whose slots hold them; `image_options` is replaced by `media.api.pick_options` (the #1397 predecessor grouping moves into media, one source).
+- **Database:** none — the slots are soft refs already.
+- **Tests:** C6 1, 3, 6.
+
+#### cms (phase 2)
+
+- **Screens:** the image modal of `_cp_detail.html` renders the picker over the whole library instead of the `page_image` list; the drop/paste refusal stays.
+- **Code:** `api.references_to_media(ids)` scans page bodies for `/api/v1/media/<id>` (a regex over the stored HTML; measured cost negligible at the page counts of today).
+- **Tests:** C6 2, 6.
+
+#### newsletter (phase 4, Could)
+
+- **Screens:** "Invoegen ▾ › Afbeelding" in the editor, the same picker.
+- **Code:** `api.references_to_media(ids)` over letter bodies; the insert as a Trix attachment pointing at the media URL.
+- **Tests:** C6 6.
+
+#### activities (used)
+
+- `copied_from_id` and `predecessors_of` from #1397; nothing else changes.
+
+#### reporting — none
+
+No view in the `reporting` schema reads `media.media_assets` (measured: the universe lists no media object), so the new column and table touch no saved report. R11 is a Won't.
+
+
+## C3. Cross-cutting impact — the checklist of what gets forgotten
+
+| Row | Answer |
+|---|---|
+| Reporting views and saved reports | no — no view reads media |
+| Existing tests, e2e flows, 390 px screenshots | yes — the design editor's e2e and screenshots change (the selects become slots); the media screen screenshots change (C6) |
+| Fixed UI decisions and `CLAUDE.md` | no |
+| Design-system documentation | yes — the picker is a new component (§2) and the media grid keeps its exception (§3) |
+| Code lists | yes — `media_kind_codes` unchanged; `clearance` is a two-value CHECK, not a code list (two values, no label table needed; C4.5) |
+| Events and handlers | no — no event; "where used" is a query |
+| Mail templates | no |
+| Migration: additive or contract | additive (one column with a default, one table) |
+| Tenant settings | only if the clearance default differs per tenant (Q3); otherwise no |
+| Env vars | no |
+| JSON routes and API callers | `GET /media/{id}` changes behaviour for `internal` assets (404 without a session); no caller outside the portal measured |
+| External services | no |
+
+
+## C4. Detailed decisions — one subsection each, with the reasons
+
+### C4.1 Reuse is a reference, never a copy
+
+A picture is one row; everything that shows it points at the row. Today the Design Studio copies a chosen activity photo into a `design_image` (CR-10 §3.11) so that the design "owns" its material at 4096 px. The ownership was the wrong thing to want: it costs a second copy, the copy orphans when the design goes, and the activity photo and its copy drift apart in title and order. The design's slots are soft references already; they simply get to point at any image asset. The 4096 px argument: a design that needs more resolution than the album's 1600 px uploads its own material (that path stays) — the album photo at 1600 px is what the poster of a village association prints at A3 anyway (CR-10 measured 1–3 MB per final design).
+
+### C4.2 No album entity; the activity is the album, the tag is what grows
+
+An album is the set of photos with one `activity_id`; the site already shows it that way. A table `albums` would be a second place for the same fact. What Koen may want beyond it — "the ten best of 2025", "all Sint photos over the years" — is a *selection*, and a selection is either a design, a page, or a search: tags (R9) give the search its words. On standards: IPTC Photo Metadata names the fields a picture carries — title, description, keywords (repeatable), date created, creator, rights/usage terms; the asset has title and a date, gets keywords as a repeatable table (never a comma column), and the usage terms are what `clearance` is the first value of.
+
+### C4.3 One chooser, from the kit
+
+`ui.media_picker` is the only way a screen offers a picture: the design editor, the CMS modal, later the newsletter. It takes the asking context (the record, the use) and renders what `pick_options` returns: the group "Van <activity> (<year>)" for the predecessor chain first, then the rest, searchable and filterable, paged at 60 thumbnails; on a phone a bottom sheet with a three-column grid and the filters as chips. One component means one behaviour on every screen (CR-11 R13) and one place to make it good on a phone (R8).
+
+### C4.4 "Where used" is derived, not stored
+
+Each consumer knows what it references; media asks them. Storing a `media_uses` table would mean every consumer writes twice (its reference and the use row) and the two drift — the shape CLAUDE.md calls the bug ("twee keer dezelfde reparatie"). The cost is a query across three facades at delete time and on the library card; at the counts of this portal (hundreds of pictures, tens of designs) it is not measurable. The direction media → consumers is read-only and through facades; the import gate allows it.
+
+### C4.5 Clearance on the picture: the first step of the consent model, with the seam named
+
+The architecture's consent register (R6 there) is a model of *persons* and *their* permissions; it does not exist, and building it is its own change. What can be decided today, per picture, is whether it may go public — and today that decision is made by nobody. One field, two values, set at upload with a default per kind (Koen decides the default, Q3; the author proposes `public` for activity photos because that is how they are used today, and `internal` for design images and page images until placed). When the register comes, a picture's clearance becomes derived from the persons on it; the field stays as the override. Declared deviation from the end state; the seam is the one field and the one filter in `pick_options`.
+
+### C4.6 Bytes stay in Postgres; the storage seam stays clean
+
+This change adds references and one short column, not bytes; it removes bytes (no more copies). The object-storage adapter (architecture R8) stays roadmap; the only rule kept here is that nothing outside `media` reads `data` or builds a media URL by hand, so that R8 is a change inside one module. Measured: the designstudio and cms templates build `/api/v1/media/<id>` URLs through the media view-models today; C6 test 12 keeps it so.
+
+### C4.7 Pictures outlive their activity and their design
+
+An activity is soft-deleted (#166); its photos stay rows with an `activity_id` that now points at a deleted activity: the library shows the origin as gone, the site no longer lists the album (it never listed deleted activities). A design is hard-deleted; its slots vanish with it and the pictures stay. Renders (`design_render`) are products of a version and keep being pruned with it — a render is not a picture anyone reuses.
+
+
+## C5. Privacy and security — the mechanics behind A7
+
+- `GET /api/v1/media/{id}` and `/thumb`: an `internal` or inactive asset answers 404 without an admin session (today both are served by id). The cache header stays immutable for `public` assets; `internal` assets are served with `private, no-store` to the back office.
+- `pick_options(use="poster"|"page"|"newsletter")` filters on `clearance = 'public'`; the back-office library shows everything with the badge.
+- No new personal data is stored; the clearance is a decision about a picture, logged in the asset's history row like any field change.
+- Uploads keep their checks (type, size, SVG sanitising, batch cap).
+
+
+## C6. Tests — what the build must prove
 
 1. **Choosing stores nothing.** Setting a design slot to an existing activity photo leaves `media_assets` at the same count and the slot pointing at that photo's id; uploading through "Foto toevoegen" adds exactly one row. Red on master, where the choice creates a `design_image`.
 2. **The CMS places a reference.** Placing a photo through the modal inserts `/api/v1/media/<id>` of that photo; no `page_image` row is created.
@@ -490,19 +552,18 @@ An activity is soft-deleted (#166); its photos stay rows with an `activity_id` t
 7. **Survives its owner.** Soft-deleting an activity and hard-deleting a design leave their media rows; the library labels the origin as gone; `/fotos` no longer lists the activity.
 8. **Clearance on the URL.** `GET /api/v1/media/{id}` for an `internal` asset answers 404 without a session and 200 with an admin session; `public` answers 200 to both.
 9. **Clearance in the chooser.** `pick_options(use="poster")` never returns an `internal` asset; `use="library"` returns it with the mark.
-10. **The sheet at 390 px.** The picker renders as a sheet: search on top, the chips, a three-column grid; the DOM measurement — the grid's width equals the viewport minus the 16 px gutters, no horizontal scroll (the stability protocol of CR-11 B7 applies).
+10. **The sheet at 390 px.** The picker renders as a sheet: search on top, the chips, a three-column grid; the DOM measurement — the grid's width equals the viewport minus the 16 px gutters, no horizontal scroll (the stability protocol of CR-11 C6 applies).
 11. **Tags are repeatable.** Two tags on one asset are two rows; `q` matches either; the same tag twice is refused by the primary key.
 12. **The storage seam.** A gate: no template or module outside `media` reads `MediaAsset.data` or builds a `/api/v1/media/` URL by string; baseline measured at the build (expected zero, hard).
 
 **Impact on the test landscape:** the design editor's e2e flow and its screenshots (three selects → three slots with the picker); `/admin/media` screenshots (filters, badges); the CMS image modal e2e; the media router tests gain the 404 cases. Nothing else: the public pages' tests keep passing because `public` is the default for existing photos (phase 3's one-off).
 
-## B8. Rule and gatekeeper — what this fixes for all future work
 
-1. **The rule.** *A picture is one media row; every use of it is a reference to that row through `media.api`, chosen through the one picker; no module copies a media row, reads its bytes, or builds its URL by hand.* Lives in `docs/code-style.md` under layer boundaries, and in the design system next to the picker.
-2. **Reach and baseline.** The whole codebase. Measured on the branch, 1 October 2026: one copy path (`designstudio.service`, the chosen photo copied into `design_image`); three screens that offer pictures, each its own way (the design editor's selects, the CMS modal, the newsletter's nothing); zero hand-built media URLs outside media's view-models. After this change: zero copy paths, one picker.
-3. **The gate.** B7 test 12 (hard: the count is zero after the build) for bytes and URLs; and a ratchet on the copy path: a test that the designstudio service has no function creating a `MediaAsset` from an existing one (`copy` of `data`), proven by adding one. The "one picker" half cannot be checked by grep — a screen can still draw a `<select>` of assets — and is handed to the `design-conformiteit-bewaker` agent and the merge gate, as a weaker guarantee, written down as one.
+## C7. The gate — what refuses a deviation from now on
 
-## B9. Prototype findings — what was measured before the build
+**The gate.** C6 test 12 (hard: the count is zero after the build) for bytes and URLs; and a ratchet on the copy path: a test that the designstudio service has no function creating a `MediaAsset` from an existing one (`copy` of `data`), proven by adding one. The "one picker" half cannot be checked by grep — a screen can still draw a `<select>` of assets — and is handed to the `design-conformiteit-bewaker` agent and the merge gate, as a weaker guarantee, written down as one.
+
+## C8. Prototype findings — what was measured before the build
 
 - HDEV, 1 October 2026: 17 activity photos, 27 design images, 13 posters, 24 renders; every photo, design image and poster tied to one activity; renders tied to none.
 - The design editor's picture choice is three `<select>`s with text labels — no thumbnail is shown while choosing, although the view-model carries the thumb URL.
@@ -511,12 +572,16 @@ An activity is soft-deleted (#166); its photos stay rows with an `activity_id` t
 - Deleting a design orphans its images and renders; deleting an activity leaves its photos without a listed owner.
 - The blob bytes are in every `pg_dump` (no exclusion).
 
-## B10. Decisions log — dated answers and open proposals
 
-| Date | Decision | By |
-|---|---|---|
-| 1 Oct 2026 | A change request for the media library, to be walked through point by point before anything is assigned; nothing built from it yet. The small step of #1397 (`copied_from_id`, predecessors in the choice) goes ahead as its seed. | Koen, via the master CLI |
-| 1 Oct 2026 | *Proposed:* reference not copy; no album entity; one picker from the kit; "where used" derived; clearance per picture as the first step of the consent model; bytes stay in Postgres. | author |
+## C9. Screens before the build — the concepts the approver saw
+
+Not yet made. Before the handover: the picker at 390 px (the sheet: search, the chips *van vorig jaar · activiteit · jaar*, the three-column grid, a chosen tile) and at desktop width inside the design editor; the library grid with the "in gebruik" filter and a card's "gebruikt in 2" list; the clearance badge on a card. Invented data, in Koen's project folder outside the repository; the date he looked at them goes here.
+
+## C10. Close-out at the release
+
+Not yet: on hold, nothing built. Filled in when the release that builds this change runs on PROD (`CLAUDE.md`, release step 14).
+
+---
 
 ## Q&A log — asked once, answered here
 
@@ -524,12 +589,12 @@ An activity is soft-deleted (#166); its photos stay rows with an `activity_id` t
 |---|---|---|---|
 | Q1 | 1 Oct 2026 | Search and filter: by activity, year, keywords; "van vorig jaar" as the default? (master CLI, for Koen) | *Proposed:* the picker opens on the predecessor chain when there is one, then the whole library; filters activity and year, search over title and activity name now, over tags in phase 4. *Koen decides.* |
 | Q2 | 1 Oct 2026 | Which kinds are reusable, for which use (poster, newsletter, CMS)? (master CLI) | *Proposed:* every *image* kind is reusable for every use — activity photos, design images, page images, posters as pictures; not reusable: renders (products), newsletter files (documents), logos and sponsor images stay in their own place. The use filter is clearance, not kind. *Koen decides.* |
-| Q3 | 1 Oct 2026 | Privacy and consent: may every album photo go on a poster, with minors on it? (master CLI) | *Proposed:* a clearance per picture, two values, set at upload with a default per kind (`public` for album photos, `internal` for design and page images until placed); the consent register of the roadmap plugs in later (B4.5). The real question for Koen: **does an album photo count as cleared for a poster by the fact that it is on the site, or must the board say so per picture?** The author recommends the first (one decision at upload, not two). *Koen decides.* |
-| Q4 | 1 Oct 2026 | Ownership: does a photo stay with its activity when used elsewhere; what when the activity is deleted? (master CLI) | *Proposed:* yes — the activity is the origin and the album; a use is a reference; on delete the photo stays, origin marked gone (B4.7). *Koen decides.* |
-| Q5 | 1 Oct 2026 | Storage: blobs in Postgres — does this touch R8, the object-storage adapter? (master CLI) | *Answer:* no — this change adds references and removes copies; R8 stays roadmap, the seam is kept clean (B4.6, B7 test 12). |
-| Q6 | 1 Oct 2026 | Mobile first: choosing from hundreds of photos at 390 px? (master CLI) | *Proposed:* a bottom sheet, search on top, filter chips, a three-column thumbnail grid paged at 60, the predecessor group first so the common case is one scroll (B4.3, AC6). *Koen decides.* |
-| Q7 | 1 Oct 2026 | One picker for Design Studio, newsletter and CMS? (master CLI) | *Proposed:* yes, a kit component (B4.3), Design Studio and CMS in phase 2, the newsletter in phase 4 as a Could. *Koen decides.* |
-| Q8 | 1 Oct 2026 | Should the Design Studio keep its 4096 px copies for print quality? (author) | *Proposed:* no copy; a design that needs more than the album's 1600 px uploads its own material through the path that stays (B4.1). *Koen decides.* |
+| Q3 | 1 Oct 2026 | Privacy and consent: may every album photo go on a poster, with minors on it? (master CLI) | *Proposed:* a clearance per picture, two values, set at upload with a default per kind (`public` for album photos, `internal` for design and page images until placed); the consent register of the roadmap plugs in later (C4.5). The real question for Koen: **does an album photo count as cleared for a poster by the fact that it is on the site, or must the board say so per picture?** The author recommends the first (one decision at upload, not two). *Koen decides.* |
+| Q4 | 1 Oct 2026 | Ownership: does a photo stay with its activity when used elsewhere; what when the activity is deleted? (master CLI) | *Proposed:* yes — the activity is the origin and the album; a use is a reference; on delete the photo stays, origin marked gone (C4.7). *Koen decides.* |
+| Q5 | 1 Oct 2026 | Storage: blobs in Postgres — does this touch R8, the object-storage adapter? (master CLI) | *Answer:* no — this change adds references and removes copies; R8 stays roadmap, the seam is kept clean (C4.6, C6 test 12). |
+| Q6 | 1 Oct 2026 | Mobile first: choosing from hundreds of photos at 390 px? (master CLI) | *Proposed:* a bottom sheet, search on top, filter chips, a three-column thumbnail grid paged at 60, the predecessor group first so the common case is one scroll (C4.3, AC6). *Koen decides.* |
+| Q7 | 1 Oct 2026 | One picker for Design Studio, newsletter and CMS? (master CLI) | *Proposed:* yes, a kit component (C4.3), Design Studio and CMS in phase 2, the newsletter in phase 4 as a Could. *Koen decides.* |
+| Q8 | 1 Oct 2026 | Should the Design Studio keep its 4096 px copies for print quality? (author) | *Proposed:* no copy; a design that needs more than the album's 1600 px uploads its own material through the path that stays (C4.1). *Koen decides.* |
 
 ## Non-goals — deliberately outside this change
 
@@ -543,9 +608,9 @@ An activity is soft-deleted (#166); its photos stay rows with an `activity_id` t
 ## Relationship to existing work — issues and change requests
 
 - **#1397** — copy an activity; its follow-up (`copied_from_id`, predecessors in the choice) is phase 0 of this change.
-- **CR-10** — Design Studio; §3.11's copy-into-`design_image` is what B4.1 removes; the slots as soft refs are what makes it cheap.
+- **CR-10** — Design Studio; §3.11's copy-into-`design_image` is what C4.1 removes; the slots as soft refs are what makes it cheap.
 - **CR-11** — the media library stays the one card grid in the admin (row 5); the picker is a kit component under its rule R13; the media screen is in its roll-out.
-- **CR-08** — the deferred imagery round named consent as the structural concern; B4.5 is the first step.
-- **CR-14** — the refusal of a delete while in use (B4.4) follows its RESTRICT semantics for a form with submissions.
+- **CR-08** — the deferred imagery round named consent as the structural concern; C4.5 is the first step.
+- **CR-14** — the refusal of a delete while in use (C4.4) follows its RESTRICT semantics for a form with submissions.
 - **CR-05** — the newsletter's album links and activity block; phase 4 adds the picture insert.
 - **`docs/architecture.md`** — R6 consent model and R8 object storage, both roadmap, both left in place.
