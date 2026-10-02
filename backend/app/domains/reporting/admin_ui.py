@@ -185,6 +185,10 @@ def _read_state(params) -> dict:
     # With default-open and no memory the feature is worthless — you fold three
     # classes shut, choose one object, and face all 93 lines again.
     closed = [k for k in params.getlist("closed") if k in CLASSES]
+    # #1456: which filter's dropdown is open. The panel swaps its whole HTML on
+    # every tick, so without this the list would close under the user's finger.
+    # Sent only while it is open (a disabled hidden input otherwise).
+    open_filter = params.get("open_filter") or ""
 
     add = params.get("add")
     if add in BY_KEY and add not in objects:
@@ -203,6 +207,8 @@ def _read_state(params) -> dict:
         filters.remove(remove_filter)
         values.pop(remove_filter, None)
         operators.pop(remove_filter, None)
+    if open_filter not in filters:
+        open_filter = ""
 
     for command, step in (("up", -1), ("down", 1)):
         key = params.get(command)
@@ -320,6 +326,7 @@ def _read_state(params) -> dict:
         "pivot_column": pivot_column,
         "no_column": no_column,
         "closed": closed,
+        "open_filter": open_filter,
         "page": page,
     }
 
@@ -455,6 +462,7 @@ def _state_from_selection(selection: Selection, page: int = 1) -> dict:
         # Folding is a viewing preference, not part of a report: opening a saved
         # one shows every class, the way a first visit does.
         "closed": [],
+        "open_filter": "",
         "page": page,
     }
 
@@ -545,6 +553,7 @@ def _panel(
         filter_options=filter_options,
         filter_relative=filter_relative,
         filter_values=state["values"],
+        open_filter=state["open_filter"],
         columns=columns,
         rows=rows,
         totals=totals,
