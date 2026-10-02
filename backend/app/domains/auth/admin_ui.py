@@ -24,7 +24,7 @@ from app.ui import admin_nav, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
 
-NAV = admin_nav("/admin/gebruikers")
+NAV = "/admin/gebruikers"
 
 
 def _require_admin(db: Session, email: str) -> None:
@@ -189,7 +189,7 @@ def admin_gebruikers(
         request,
         "admin_gebruikers.html",
         {
-            "nav_items": NAV,
+            "nav_items": admin_nav(NAV),
             "error": None,
             **_lijst_ctx(request, db, q, rol, actief, viewer_email=email),
         },
@@ -212,7 +212,7 @@ def gebruiker_nieuw(
         request,
         "admin_gebruiker_nieuw.html",
         {
-            "nav_items": NAV,
+            "nav_items": admin_nav(NAV),
             "csrf_token": csrf_from_request(request),
             "error": None,
             **_lijst_ctx(request, db, viewer_email=email),
@@ -261,7 +261,7 @@ async def gebruiker_aanmaken(
     except HTTPException as exc:
         # Op het aanmaakscherm blijven mét de fout (#627).
         ctx = _lijst_ctx(request, db, **filters, viewer_email=email)
-        ctx["nav_items"] = NAV
+        ctx["nav_items"] = admin_nav(NAV)
         ctx["error"] = str(exc.detail)
         return templates.TemplateResponse(request, "admin_gebruiker_nieuw.html", ctx)
     # Een gebruiker is met één handeling compleet, dus terug naar de lijst (#627).

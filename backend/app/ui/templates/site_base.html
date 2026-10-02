@@ -210,13 +210,13 @@
            "welk item is actief"-regel blijft waar ze hoort: in `navlink`. #}
         <div id="site-nav-breed"{% if _oob %} hx-swap-oob="true"{% endif %} class="hidden md:flex gap-5 items-center text-sm">
           {{ navlink(_pad, "/", _("Home"), exact=True) }}
-          {{ navlink(_pad, "/fotos", _("Foto's")) }}
-          {{ navlink(_pad, "/archief", _("Archief"), match="/activiteiten/archief") }}
+          {% for n in public_nav %}{{ navlink(_pad, n.href, n.label, match=n.match) }}
+          {% endfor %}
           {% for p in nav_pages|default([]) %}
           {{ navlink(_pad, "/" ~ p.slug, p.title) }}
           {% endfor %}
           {% if gebruiker %}
-          {% if gebruiker.is_member %}{{ navlink(_pad, "/leden/gezin", _("Mijn gezin")) }}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" hx-boost="false" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
+          {% if gebruiker.is_member %}{% for n in member_nav %}{{ navlink(_pad, n.href, n.label) }}{% endfor %}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" hx-boost="false" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
           <a href="{{ path_for("/afmelden") }}" hx-boost="false" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
           {% else %}
           <a href="{{ path_for("/aanmelden") }}" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
@@ -227,13 +227,13 @@
       {# #737: `style="display: none"` staat er letterlijk bij (§2.9b). Dit element heeft een `id` én wordt door Alpine verborgen, dus htmx' settle zet bij een swap de attributen van het serverantwoord terug en wist de inline style die Alpine er net op zette (#726). Verborgen is hier de juiste beginstand: `open` begint op false. #}
       <div id="site-nav-mobiel"{% if _oob %} hx-swap-oob="true"{% endif %} x-show="open" style="display: none" x-cloak x-transition.opacity.duration.150ms class="md:hidden px-4 pb-4 flex flex-col gap-2 text-base">
         {{ navlink(_pad, "/", _("Home"), exact=True) }}
-        {{ navlink(_pad, "/fotos", _("Foto's")) }}
-        {{ navlink(_pad, "/archief", _("Archief"), match="/activiteiten/archief") }}
+        {% for n in public_nav %}{{ navlink(_pad, n.href, n.label, match=n.match) }}
+        {% endfor %}
         {% for p in nav_pages|default([]) %}
         {{ navlink(_pad, "/" ~ p.slug, p.title) }}
         {% endfor %}
         {% if gebruiker %}
-        {% if gebruiker.is_member %}{{ navlink(_pad, "/leden/gezin", _("Mijn gezin")) }}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" hx-boost="false" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
+        {% if gebruiker.is_member %}{% for n in member_nav %}{{ navlink(_pad, n.href, n.label) }}{% endfor %}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" hx-boost="false" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
         <a href="{{ path_for("/afmelden") }}" hx-boost="false" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
         {% else %}
         <a href="{{ path_for("/aanmelden") }}" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>

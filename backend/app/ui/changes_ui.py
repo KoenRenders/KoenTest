@@ -29,7 +29,7 @@ from app.ui import (
 
 router = APIRouter(include_in_schema=False)
 
-NAV = admin_nav("/admin/ledenwijzigingen")
+NAV = "/admin/ledenwijzigingen"
 
 
 def _since(value: str) -> date:
@@ -205,7 +205,7 @@ def admin_ledenwijzigingen(
     ctx = wijzigingen_ctx(request, db, since, group, actor, page, sort, richting, per_page)
     template = "_lw_inhoud.html" if is_fragment_request(request) else "admin_ledenwijzigingen.html"
     if template == "admin_ledenwijzigingen.html":
-        ctx["nav_items"] = NAV
+        ctx["nav_items"] = admin_nav(NAV)
     else:
         # #1141: de exportknop staat buiten het swap-doel en reist out-of-band
         # mee. Alleen hier en niet op de paginaroute: daar rendert de kop hem

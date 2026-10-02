@@ -19,7 +19,7 @@ from app.ui import admin_nav, templates
 
 router = APIRouter(include_in_schema=False)
 
-NAV = admin_nav("/admin/info")
+NAV = "/admin/info"
 
 
 # De zes tegels, elk met het bewaarde rapport waar haar cijfer uit komt (#848).
@@ -231,7 +231,7 @@ def admin_info(
         request,
         "admin_info.html",
         {
-            "nav_items": NAV,
+            "nav_items": admin_nav(NAV),
             "info": info,
             "umami_actief": bool(umami_src and umami_website_id),
             "umami_dashboard": umami_dashboard,

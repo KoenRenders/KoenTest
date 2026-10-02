@@ -128,8 +128,9 @@ def enabled_modules(tenant_id: int, db=None) -> frozenset[str]:
     return _modules_cache.get(tenant_id, frozenset())
 
 
-def module_enabled(code) -> bool:
-    """Is this module on for the tenant of this request? (#1475)
+def current_enabled_modules() -> frozenset[str]:
+    """The modules on for the tenant of this request (#1475; split out for the
+    menu, #1476).
 
     Reads the set the middleware put on the request; outside a request, the
     active (or default) tenant's set.
@@ -140,7 +141,12 @@ def module_enabled(code) -> bool:
     enabled = current_modules.get()
     if enabled is None:
         enabled = enabled_modules(current_tenant_id.get() or DEFAULT_TENANT_ID)
-    return str(code) in enabled
+    return enabled
+
+
+def module_enabled(code) -> bool:
+    """Is this module on for the tenant of this request? (#1475)"""
+    return str(code) in current_enabled_modules()
 
 
 def invalidate_tenant_codes() -> None:
