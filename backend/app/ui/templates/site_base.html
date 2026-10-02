@@ -191,7 +191,19 @@
              ruil uit #1156 — het logo neemt de ruimte die de padding afstaat. #}
           <img src="{{ site_logo_url }}" alt="{{ site_name }}{% if site_tagline %} — {{ site_tagline }}{% endif %}" class="h-[calc(var(--balk)_-_2_*_var(--lucht))] w-auto">
           {% else %}
+          {# CR-19 (#1496): a company without a logo shows its own name, in the
+             wordmark's font and height, not the association's brand. The line is
+             1.3em high, the size of RaaK's "aa" below: measured, RaaK stands 39 px
+             and a name at `leading-none` 30 px, which made the bar 9 px lower.
+             On a phone a smaller size and at most two lines: a long name broke
+             over three at 390 px and made the bar 149 px, pushing the content
+             off the first screen. The whole name stays in the aria-label. No
+             `block`: it would undo the `display` that `line-clamp` sets. #}
+          {% if site_wordmark %}
+          <span class="font-brand font-bold tracking-tight text-2xl/[1.3] line-clamp-2 md:text-3xl/[1.3] md:line-clamp-none" aria-label="{{ site_wordmark }}">{{ site_wordmark }}</span>
+          {% else %}
           <span class="flex items-baseline font-brand font-bold tracking-tight leading-none text-3xl" aria-label="{{ _('Raak') }}">R<span class="text-[1.3em]">aa</span>K</span>
+          {% endif %}
           {# #804: `text-base md:text-sm` — mobiel-eerst. Zie §1.2a van het
              design-system: 14 px is een bijschrift op een breed scherm en leestekst
              op een telefoon, en 80% van het bezoek is mobiel. #}

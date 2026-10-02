@@ -1008,6 +1008,14 @@ def site_context(db, request=None) -> dict:
         # media en niet in de vergadermodule. Als URL en niet als bytes: de
         # browser haalt het gewoon op, en de mediaroute cachet het al.
         "site_logo_url": _site_logo_url(db),
+        # CR-19 (#1496): what the header shows without a logo. A company shows
+        # its own name; an association the RaaK wordmark (None). The rule is
+        # here, so the template shows a value and never asks for the kind.
+        "site_wordmark": (
+            tenant_display_name(db)
+            if organisatie is not None and organisatie.kind is TenantKind.COMPANY
+            else None
+        ),
         # #924: de sociale links komen uit de ORGANISATIE en niet meer uit de
         # tenant-instellingen. Een Facebook-pagina van een vereniging bestaat
         # los van haar site — de beslisregel uit het issue. Enkel tonen als
