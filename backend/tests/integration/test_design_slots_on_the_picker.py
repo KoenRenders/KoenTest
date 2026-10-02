@@ -142,6 +142,48 @@ def test_a_slot_refuses_what_the_picker_would_not_offer(db_session, case):
     assert design.main_image_id is None, "refused before anything changed"
 
 
+def _offered(db, **branch) -> set[int]:
+    return {item.id for group in pick_options(db, **branch).groups for item in group.items}
+
+
+@pytest.mark.parametrize("kind", [MediaKind.SPONSOR, MediaKind.TENANT_LOGO])
+def test_a_logo_is_offered_in_its_branch_and_can_be_stored(db_session, kind):
+    """Everything in the library that is a picture can be chosen (#1473): the
+    logos hang off no activity, so they have a branch of their own (Logo's).
+    Red before: neither kind was in PICKABLE_KINDS, so not offered and refused."""
+    activity = _activity(db_session, "Kaartavond")
+    logo = _asset(db_session, kind)
+    photo = _asset(db_session, MediaKind.ACTIVITY_PHOTO, activity_id=activity.id)
+    design = _design(db_session, activity)
+
+    assert logo.id in _offered(db_session), "offered in the whole library"
+    branch = _offered(db_session, kind=kind)
+    assert logo.id in branch and photo.id not in branch, "its branch holds that kind only"
+
+    _save(db_session, design, main_image_id=logo.id)
+    assert design.main_image_id == logo.id
+
+
+def test_the_posters_branch_offers_a_poster_only_as_a_picture(db_session):
+    """A PDF poster cannot go into a slot, so the picker does not show it (#1473):
+    the offer and the slot check are one condition (`_offered`). Red before:
+    the branch listed every poster and a PDF was refused only on saving."""
+    activity = _activity(db_session, "Affichewedstrijd")
+    picture = _asset(db_session, MediaKind.ACTIVITY_POSTER, activity_id=activity.id)
+    pdf = _asset(
+        db_session,
+        MediaKind.ACTIVITY_POSTER,
+        activity_id=activity.id,
+        content_type="application/pdf",
+    )
+
+    branch = _offered(db_session, posters_of=activity.id)
+    assert picture.id in branch, "a poster that is a picture is offered"
+    assert pdf.id not in branch, "a PDF poster is not"
+    assert offered_by_picker(db_session, picture.id)
+    assert not offered_by_picker(db_session, pdf.id)
+
+
 def test_an_upload_in_the_studio_adds_one_row_at_2400(client, db_session):
     from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
     from tests.conftest import SEEDED_ADMIN_EMAIL

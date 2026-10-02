@@ -13,6 +13,8 @@ gevonden); de route vertaalt die naar een statuscode.
 from dataclasses import dataclass
 from typing import NamedTuple, Optional, Sequence
 
+from sqlalchemy import and_
+
 from app.domains.media.images import ALLOWED_CONTENT_TYPES, ImageError, process_image
 from app.domains.media.models import (
     MediaAsset,
@@ -1017,8 +1019,18 @@ def set_asset_tags(db, asset_id: int, tag_ids: Sequence[int]) -> None:
 # editor and the CMS modal. What it offers, and in which order, is decided here.
 
 #: What a picker offers. A poster only under its own branch (Affiches); never a
-#: render (a product of a design) or a newsletter file.
-PICKABLE_KINDS = (MediaKind.ACTIVITY_PHOTO, MediaKind.DESIGN_IMAGE, MediaKind.PAGE_IMAGE)
+#: render (a product of a design) or a newsletter file. Sponsor and association
+#: logos too (#1473): everything in the library that is a picture can be chosen.
+PICKABLE_KINDS = (
+    MediaKind.ACTIVITY_PHOTO,
+    MediaKind.DESIGN_IMAGE,
+    MediaKind.PAGE_IMAGE,
+    MediaKind.SPONSOR,
+    MediaKind.TENANT_LOGO,
+)
+#: The kinds with a branch of their own in the picker's tree (Logo's): they hang
+#: off no activity, so the activity branches never reach them (#1473).
+KIND_BRANCHES = (MediaKind.SPONSOR, MediaKind.TENANT_LOGO)
 PICK_PAGE_SIZE = 60
 
 
@@ -1042,21 +1054,25 @@ def asset_bytes(db, asset_id: int) -> Optional[bytes]:
     return bytes(row.data) if row is not None and row.data is not None else None
 
 
+def _offered():
+    """What the picker offers, as one condition (#1473): the pickable kinds and a
+    poster in its own branch, and only as an image — a poster may be a PDF. The
+    one source for `offered_by_picker` (what may be stored) and `pick_options`
+    (what is shown), so the two cannot drift apart."""
+    return and_(
+        MediaAsset.kind.in_((*PICKABLE_KINDS, MediaKind.ACTIVITY_POSTER)),
+        MediaAsset.content_type.like("image/%"),
+    )
+
+
 def offered_by_picker(db, asset_id: int) -> bool:
     """Would the picker offer this picture to this tenant? (#1473)
 
-    The kinds `pick_options` lists — the library's pictures, and a poster in its
-    own branch — and only as an image (a poster may be a PDF). Same tenant by the
-    ORM's tenant filter: another tenant's picture is not found. A screen that
-    stores a choice asks this, because a form field can carry any id.
+    `_offered`, for one id. Same tenant by the ORM's tenant filter: another
+    tenant's picture is not found. A screen that stores a choice asks this,
+    because a form field can carry any id.
     """
-    row = (
-        db.query(MediaAsset.kind, MediaAsset.content_type).filter(MediaAsset.id == asset_id).first()
-    )
-    if row is None:
-        return False
-    kinds = (*PICKABLE_KINDS, MediaKind.ACTIVITY_POSTER)
-    return row.kind in kinds and (row.content_type or "").startswith("image/")
+    return db.query(MediaAsset.id).filter(MediaAsset.id == asset_id, _offered()).first() is not None
 
 
 class PickItem(NamedTuple):
@@ -1098,6 +1114,7 @@ def pick_options(
     tag_id: Optional[int] = None,
     photos_of: Optional[int] = None,
     posters_of: Optional[int] = None,
+    kind: Optional[MediaKind] = None,
     page: int = 1,
 ) -> PickOptions:
     """The library as a picker offers it (CR-15 §C4.3, C6 tests 3 and 4).
@@ -1108,7 +1125,8 @@ def pick_options(
       re-uploaded because the old offer showed only the activity's own photos.
     - **A branch of the tree:** `photos_of` an activity (its album photos and
       design images), `posters_of` an activity (Affiches — the only place a
-      poster is offered), or a tag with the tags below it.
+      poster is offered), a `kind` of `KIND_BRANCHES` (Logo's), or a tag with
+      the tags below it. A poster that is a PDF is never offered (`_offered`).
     - **Search** matches the title, the activity's name and a tag's name; the
       **year** keeps the pictures of activities dated in that year. They combine.
     - **Pages of 60**, counted over the groups as one list.
@@ -1122,9 +1140,11 @@ def pick_options(
     kinds: tuple[MediaKind, ...] = PICKABLE_KINDS
     if posters_of is not None:
         kinds = (MediaKind.ACTIVITY_POSTER,)
+    elif kind in KIND_BRANCHES:
+        kinds = (kind,)
     rows = (
         db.query(MediaAsset.id, MediaAsset.kind, MediaAsset.activity_id, MediaAsset.title)
-        .filter(MediaAsset.kind.in_(kinds))
+        .filter(_offered(), MediaAsset.kind.in_(kinds))
         .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.desc())
         .all()
     )
@@ -1166,7 +1186,9 @@ def pick_options(
 
     ordered: list[tuple[str, PickItem]] = []
     taken: set[int] = set()
-    branch_chosen = posters_of is not None or photos_of is not None or tag_id is not None
+    branch_chosen = (
+        posters_of is not None or photos_of is not None or tag_id is not None or kind is not None
+    )
     if for_activity_id is not None and not branch_chosen:
         from app.domains.activities.api import predecessors_of
 

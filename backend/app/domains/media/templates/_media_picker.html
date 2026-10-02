@@ -24,6 +24,12 @@
         {{ boomdelen.tak(_("Activiteiten"), boom.activiteiten, _("Nog niets."), target) }}
         {{ boomdelen.tak(_("Affiches"), boom.affiches, _("Nog niets."), target) }}
         <div>
+          <p class="text-xs font-semibold uppercase tracking-wide text-ink-soft">{{ _("Logo's") }}</p>
+          <ul class="mt-1 space-y-0.5">
+            {% for l in logo_links %}<li>{{ boomdelen.link(l.naam, l.href, l.actief, target=target) }}</li>{% endfor %}
+          </ul>
+        </div>
+        <div>
           <p class="text-xs font-semibold uppercase tracking-wide text-ink-soft">{{ _("Tags") }}</p>
           {% if boom.tags %}<div class="mt-1">{{ boomdelen.tags(boom.tags, target) }}</div>
           {% else %}<p class="mt-1 px-2 text-sm text-ink-soft">{{ _("Nog geen tags.") }}</p>{% endif %}

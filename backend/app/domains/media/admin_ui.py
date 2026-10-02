@@ -727,7 +727,7 @@ def _picker_url(field: str, for_activity_id: Optional[int], **state) -> str:
     pairs = [("field", field)]
     if for_activity_id:
         pairs.append(("for_activity_id", str(for_activity_id)))
-    for key in ("q", "year", "tag", "photos_of", "posters_of"):
+    for key in ("q", "year", "tag", "photos_of", "posters_of", "kind"):
         value = state.get(key)
         if value not in (None, ""):
             pairs.append((key, str(value)))
@@ -744,18 +744,25 @@ def media_picker(
     tag: Optional[int] = None,
     photos_of: Optional[int] = None,
     posters_of: Optional[int] = None,
+    kind: str = "",
     page: int = 1,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
     from app.domains.activities.api import activity_options
     from app.domains.media.api import (
+        KIND_BRANCHES,
+        MEDIA_KIND,
         PICK_PAGE_SIZE,
         activities_by_kind,
         pick_options,
         tag_index,
     )
     from app.i18n import _
+    from app.kernel.codes import code_labels
+
+    # Only a kind with its own branch; anything else in the address is no branch.
+    branch_kind = next((k for k in KIND_BRANCHES if k.value == kind), None)
 
     options = pick_options(
         db,
@@ -765,6 +772,7 @@ def media_picker(
         tag_id=tag,
         photos_of=photos_of,
         posters_of=posters_of,
+        kind=branch_kind,
         page=page,
     )
     alle_activiteiten = [
@@ -772,16 +780,23 @@ def media_picker(
         for o in activity_options(db)
     ]
     by_kind = activities_by_kind(db)
-    branch_state = {"photos": "photos_of", "posters": "posters_of", "tag": "tag"}
-    current = {"photos_of": photos_of, "posters_of": posters_of, "tag": tag}
+    branch_state = {"photos": "photos_of", "posters": "posters_of", "tag": "tag", "kind": "kind"}
+    current = {
+        "photos_of": photos_of,
+        "posters_of": posters_of,
+        "tag": tag,
+        "kind": branch_kind.value if branch_kind else None,
+    }
 
-    def href(node_kind: str, node_id: int) -> str:
+    def href(node_kind: str, node_id: int | str) -> str:
         return _picker_url(
             field, for_activity_id, q=q, year=year, **{branch_state[node_kind]: node_id}
         )
 
-    def chosen(node_kind: str, node_id: int) -> bool:
+    def chosen(node_kind: str, node_id: int | str) -> bool:
         return current[branch_state[node_kind]] == node_id
+
+    labels = dict(code_labels(MEDIA_KIND.name))
 
     met_media = set().union(*by_kind.values()) if by_kind else set()
     jaren = sorted(
@@ -808,6 +823,16 @@ def media_picker(
                 href=href,
                 chosen=chosen,
             ),
+            # #1473: Logo's — sponsors and the association's logo hang off no
+            # activity, so they get a branch per kind.
+            "logo_links": [
+                {
+                    "naam": labels.get(k.value, k.value),
+                    "href": href("kind", k.value),
+                    "actief": chosen("kind", k.value),
+                }
+                for k in KIND_BRANCHES
+            ],
             "alles_href": _picker_url(field, for_activity_id, q=q, year=year),
             "branch_chosen": any(v is not None for v in current.values()),
             "pager_url": _picker_url(field, for_activity_id, q=q, year=year, **current),

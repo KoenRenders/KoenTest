@@ -33,6 +33,7 @@ __all__ = [
     # #1472: the picker's offer.
     "PICK_PAGE_SIZE",
     "PICKABLE_KINDS",
+    "KIND_BRANCHES",
     "PickGroup",
     "PickItem",
     "PickOptions",
@@ -109,6 +110,7 @@ from app.domains.media.service import (  # noqa: F401
     DESIGN_KINDS,
     DESIGN_RENDER_KIND,
     DOCUMENT_KINDS,
+    KIND_BRANCHES,
     PAGE_IMAGE_KIND,
     PICK_PAGE_SIZE,
     PICKABLE_KINDS,

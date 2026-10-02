@@ -309,15 +309,18 @@ def save_design(
             raise DesignError(f"Onbekend icoon: {icon}")
     if len((form.get("poster_title") or "").strip()) > MAX_POSTER_TITLE:
         raise DesignError(f"Ten hoogste {MAX_POSTER_TITLE} tekens in de titel op de affiche.")
-    for slot in IMAGE_SLOTS:
-        raw = (form.get(slot) or "").strip() if slot in form else ""
-        if raw.isdigit():
-            _check_slot_image(db, slot, int(raw))
     if "inset_corner" in form:
         try:
             InsetCorner(form["inset_corner"])
         except ValueError:
             raise DesignError("Onbekende hoek voor de polaroid.") from None
+    # The picture slots are the first change: `set_slot_image` is the one check
+    # (#1473), so a refused picture stops the save before anything else is
+    # touched; nothing commits, and the editor shows the typed slots anyway.
+    for key in IMAGE_SLOTS:
+        if key in form:
+            raw = (form[key] or "").strip()
+            set_slot_image(db, design, key, int(raw) if raw.isdigit() else None)
     # Choices keep their last value when the form leaves them empty; free text
     # becomes NULL so "empty" and "not filled in" stay the same thing. The
     # form may carry a code or a member (§B4.2); `code_of` makes one of the
@@ -342,10 +345,6 @@ def save_design(
         typed = (form["explanation_md"] or "").strip()
         own = facts_for(db, design)["description"]
         design.explanation_md = typed if typed and typed != own else None
-    for key in IMAGE_SLOTS:
-        if key in form:
-            raw = (form[key] or "").strip()
-            set_slot_image(db, design, key, int(raw) if raw.isdigit() else None)
     for key in ("main_focus_x", "main_focus_y"):
         if key in form:
             try:
@@ -1024,15 +1023,6 @@ async def add_design_image(db: Session, design: Design, upload, *, slot: str = "
     return asset_id
 
 
-def _check_slot_image(db: Session, slot: str, asset_id: int) -> None:
-    from app.domains.media.api import offered_by_picker
-
-    if slot not in IMAGE_SLOTS:
-        raise DesignError("Onbekende plaats voor het beeld.")
-    if not offered_by_picker(db, asset_id):
-        raise DesignError("Dit beeld kan niet in een beeldvak.")
-
-
 def set_slot_image(db: Session, design: Design, slot: str, asset_id: Optional[int]) -> None:
     """Point a slot at a library picture, or empty it (CR-15 §C4.1, #1473).
 
@@ -1042,8 +1032,12 @@ def set_slot_image(db: Session, design: Design, slot: str, asset_id: Optional[in
     render, a PDF): the id comes from a form field. Flushes nothing; the caller
     commits.
     """
-    if asset_id is not None:
-        _check_slot_image(db, slot, asset_id)
+    from app.domains.media.api import offered_by_picker
+
+    if slot not in IMAGE_SLOTS:
+        raise DesignError("Onbekende plaats voor het beeld.")
+    if asset_id is not None and not offered_by_picker(db, asset_id):
+        raise DesignError("Dit beeld kan niet in een beeldvak.")
     setattr(design, slot, asset_id)
 
 

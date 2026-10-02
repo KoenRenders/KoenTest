@@ -652,8 +652,9 @@ async def design_save(
     try:
         save_design(db, design, values, highlights=highlights, logo_ids=logo_ids)
     except DesignError as exc:
-        # The service refuses before it mutates, so `design` is still the saved
-        # state; the form shows what was typed on top of it.
+        # The service refuses before it mutates — at most a picture slot before
+        # the refused one, which nothing commits; the form shows what was typed
+        # on top of it, the slots included.
         view = _typed_over(
             _editor_view(request, db, design, layout=layout, error=str(exc)),
             values,
