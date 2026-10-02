@@ -1,0 +1,21 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Nieuw account — Raak beheer") }}{% endblock %}
+{% block content %}
+{# Creating an account as a full page, like "Nieuwe tenant" (#627, §2.8): only
+   the name and the code; the rest is filled in on the organisation screen it
+   lands on (CR-19, #1495). #}
+{{ ui.error_banner(error) }}
+{{ ui.page_header(_("Nieuw account"), _("Platformbeheer — enkel OPERATOR. Een account is de rechtspersoon waar tenants onder hangen. Na het aanmaken vul je rechtsvorm, nummers, adres en rekening aan.")) }}
+
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+    <form class="space-y-3" hx-post="/admin/organisaties" hx-target="body" hx-swap="innerHTML">
+      {{ ui.action_bar(cancel_href="/admin/organisaties") }}
+      <div>{{ ui.label(_("Naam"), "a-name", required=True) }}
+        <input name="name" id="a-name" required value="{{ name }}" class="w-full"></div>
+      <div>{{ ui.label(_("Code"), "a-code", required=True) }}
+        <input name="code" id="a-code" required pattern="[a-z0-9-]+" value="{{ code }}" placeholder="nieuwaccount" class="w-full">
+        <p class="text-xs text-ink-soft mt-1">{{ _("Kleine letters, cijfers, streepjes — uniek over alle organisaties, net als een tenantcode.") }}</p></div>
+    </form>
+</div>
+{% endblock %}

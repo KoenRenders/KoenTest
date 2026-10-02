@@ -126,7 +126,11 @@ def test_the_organisations_header_links_to_no_other_module(client, db_session):
     html = client.get("/admin/organisaties").text
     header = _element(html, "<div data-page-header")
     assert "Organisaties" in header, "the measurement found the wrong header"
-    assert "href=" not in header and "Naar de tenants" not in html
+    # #1495: "+ Nieuw account" is the screen's own primary action, not a link to
+    # another module — what this test is about.
+    links = re.findall(r'href="([^"]*)"', header)
+    assert all(link.startswith("/admin/organisaties") for link in links), links
+    assert "Naar de tenants" not in html
 
 
 def test_the_raakje_report_header_links_to_no_other_module(client, db_session):
