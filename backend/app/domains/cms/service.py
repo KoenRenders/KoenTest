@@ -96,6 +96,48 @@ def create_page(db, data) -> CmsPage:
     return page
 
 
+def seed_site_blocks(db, tenant_id: int, name: str) -> None:
+    """The two blocks a new tenant's site starts with (CR-19 §C2 cms, #1478).
+
+    Without them a fresh site is an empty page: the home page renders
+    `home-intro` and the shell renders `site-footer`, and neither exists for a
+    tenant created through the editor. Placeholder text in Dutch, the language a
+    new tenant starts in; the address and contact come from the organisation
+    record through `site_context` already. Idempotent: a block that exists is
+    left as it is. Flushes; the caller's transaction commits.
+    """
+    from html import escape
+
+    blocks = (
+        (
+            "home-intro",
+            "Welkom",
+            f"<p>Welkom bij {escape(name)}. Deze tekst past u aan onder Pagina's.</p>",
+        ),
+        ("site-footer", "Voettekst", f"<p>{escape(name)}</p>"),
+    )
+    existing = {
+        slug
+        for (slug,) in db.query(CmsPage.slug)
+        .filter(CmsPage.tenant_id == tenant_id)
+        .execution_options(include_all_tenants=True)
+        .all()
+    }
+    for slug, title, content in blocks:
+        if slug not in existing:
+            db.add(
+                CmsPage(
+                    tenant_id=tenant_id,
+                    slug=slug,
+                    title=title,
+                    content=content,
+                    is_published=True,
+                    show_in_nav=False,
+                )
+            )
+    db.flush()
+
+
 def update_page(db, page_id: int, data) -> CmsPage:
     page = get_page_by_id(db, page_id)
     if page is None:

@@ -35,6 +35,9 @@ from app.domains.mdm.models import (
     RelationType,
     RelationTypeCode,
     RelationTypeLabel,
+    TenantKind,
+    TenantKindCode,
+    TenantKindLabel,
 )
 from app.kernel.codes import Code, CodeList, CodeSeed
 
@@ -199,6 +202,21 @@ LEGAL_FORM = CodeList(
     labels=LegalFormLabel,
     enum=LegalForm,
     fk_from=("mdm.organizations.legal_form",),
+)
+
+# CR-19 (#1478): what a tenant's site is for; it gives the default modules.
+TENANT_KIND_CODES = (
+    CodeSeed(code="VERENIGING", nl="Vereniging", en="Association", sort_order=10),
+    CodeSeed(code="BEDRIJF", nl="Bedrijf", en="Company", sort_order=20),
+)
+
+TENANT_KIND = CodeList(
+    name="tenant_kind",
+    schema="mdm",
+    codes=TenantKindCode,
+    labels=TenantKindLabel,
+    enum=TenantKind,
+    fk_from=("mdm.organizations.kind",),
 )
 
 ORGANIZATION_TYPE_CODES = (

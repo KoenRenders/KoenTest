@@ -26,6 +26,9 @@ from app.domains.chatbot.router import router as chat_router
 from app.domains.chatbot.stt.router import router as stt_router
 from app.domains.chatbot.ui import router as chatbot_ui_router
 from app.domains.cms.admin_ui import router as cms_admin_ui_router
+from app.domains.cms.handlers import (  # noqa: F401 - event subscriptions (#1478)
+    seed_blocks_of_new_tenant,
+)
 from app.domains.cms.router import router as cms_router
 from app.domains.cms.ui import router as cms_public_ui_router
 from app.domains.designstudio.admin_ui import router as designstudio_admin_ui_router

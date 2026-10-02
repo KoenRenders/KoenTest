@@ -70,6 +70,21 @@ def _changed(obj: object, *fields: str) -> bool:
 # class-definition time, not evaluated lazily.
 
 
+class TenantKind(CodeEnum):
+    """What a tenant's site is for (CR-19 §C4.1, §C4.6; #1478).
+
+    The operator chooses it once, in words a person uses; it gives a new tenant
+    its module set (`app/kernel/modules.py`, `DEFAULTS`). Next to `legal_form`
+    and not instead of it: the legal form is about law — a company can run a
+    club — the kind about what the site is for. Only on UNIT rows, the ones that
+    are tenants; NULL on ACCOUNT and PLATFORM. No standard has a home for "kind
+    of site" (UBL's `PartyLegalEntity` holds the legal form), so this one is ours.
+    """
+
+    ASSOCIATION = "VERENIGING"
+    COMPANY = "BEDRIJF"
+
+
 class LegalForm(CodeEnum):
     """The legal forms the code list knows (#924, pattern of #779).
 
@@ -619,6 +634,11 @@ class Organization(SoftDeleteMixin, Base):
     legal_form: Mapped[Optional[LegalForm]] = mapped_column(
         EnumColumn(LegalForm, length=30), ForeignKey("mdm.legal_form_codes.code"), nullable=True
     )
+    # CR-19 (#1478): what the site is for — `mdm.tenant_kind_codes`. A UNIT
+    # carries one; ACCOUNT and PLATFORM do not.
+    kind: Mapped[Optional[TenantKind]] = mapped_column(
+        EnumColumn(TenantKind, length=20), ForeignKey("mdm.tenant_kind_codes.code"), nullable=True
+    )
 
     parent = relationship("Organization", remote_side=[id])
 
@@ -888,6 +908,34 @@ class LegalFormLabel(Base):
     __table_args__ = {"schema": "mdm"}
 
     code = Column(String(30), ForeignKey("mdm.legal_form_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
+
+
+class TenantKindCode(Base):
+    """Which tenant kinds exist — the target of the foreign key (#1478)."""
+
+    __tablename__ = "tenant_kind_codes"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class TenantKindLabel(Base):
+    """The word a screen shows for a tenant kind, per language (#1478)."""
+
+    __tablename__ = "tenant_kind_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), ForeignKey("mdm.tenant_kind_codes.code"), primary_key=True)
     language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
