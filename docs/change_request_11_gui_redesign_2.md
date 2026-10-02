@@ -720,10 +720,28 @@ session.
 - **Quick wins up front**, because the portal must impress: whoever is
   shown it should say "that looks good". Eighteen of them (W1–W18 below,
   #1391), planned before phase 0 goes on so they are off the table.
-- **Concept → pilot → release → roll-out.** A concept is prepared with
-  screenshots first, then built on **one screen**, tested, and run through a
-  release so it is lived with and tuned; only then does a developer roll it
-  out everywhere. Pilots are chosen on purpose: the **activity detail**
+- **One building block at a time** (Koen, 2 October 2026, replacing
+  "concept → pilot → release → roll-out" after the whole-screen concepts
+  of 30 September failed to convince). The kit is designed and built block
+  by block, each block in one loop: a **brief** with the measured facts and
+  the fixed constraints to ChatGPT and Mistral, two directions each as
+  rendered HTML at 390 and 1 280 px; Koen **looks and decides**, one
+  decision at a time; the decision becomes a **rule in the end state and a
+  macro specification**; a dev CLI **builds the macro on the pilot screens
+  only** (Betalingen, the activity) with the gate as a ratchet; Koen
+  **validates on HDEV**; the next block's brief runs while the previous
+  one is built. Ten blocks for pilot A, in order: the frame (shell,
+  navigation, widths, tokens) · the list head (title row, tiles, buttons)
+  · the toolbar (chips, search, filters, count, `⋯`, pager) · the table
+  (columns, the row as the way in, row actions, sort, phone) · the record
+  head (way back, title, badges, facts, Acties) · the form grid and the
+  fields · the repeating group · the summary card, related tabs and the
+  embedded list · the action bar, the save model and the states · Raakje
+  as a panel. Each block is checked against the classification table
+  (end state §5) for what the non-pilot screens will need, so a block
+  that does not fit them is found at the pilot, not at the roll-out. The
+  roll-out (phase 5) is then applying finished macros to the other
+  screens. Pilots are chosen on purpose: the **activity detail**
   (the richest edit screen, rows 2, 3, 7, 8, 14), the **public household
   creation** (public, and the same record as the admin household — rows 12,
   13) **combined with the forms** (row 9). Once those are right they are the
@@ -770,7 +788,7 @@ session.
 |---|---|---|---|---|
 | **0 — end state and concepts** | the end state as a design: `docs/design-system-end-state.md` (drafted 30 Sep 2026: tokens, layouts, components, patterns, the classification of every screen), folded into `docs/design-system.md` as sections land; concept screenshots of the three layouts and of pilot A and B drawn against real screens; the graphic-design review on them; the classification table of every list and record screen (kind · shape · tiles · card fields · pages · save model) | this document | none | Koen reads the design system and the concepts; the review's findings in the Q&A |
 | **1 — quick wins** | eighteen wins, W1–W18 below (rows 3, 6, 10, 15, 17, 21, 26, 28, 30, 31, 34, 35, 36, 38, 41, 42, 48, 49, 50) — each a small PR that is visible at once, inventoried in #1391 | none | none on the happy path; a send button that reads "Versturen…" where it read "Versturen"; the nudge appears for every anonymous visitor | AC1 on HDEV |
-| **2 — foundations, for pilot A only** | the list and record layouts and the macros pilot A needs (field, form grid, section, repeating group, rare settings, switch, action bar, pager, tiles, toolbar, record header **with its actions as data — the activity's head (#1387) and the "Kopiëren" of #1397 are its first application, row 51**, summary card, reference, related tabs), the token split, the design-system page rendering them live; the gates of B7 as ratchets on A2's counts; screenshot baselines for every existing screen. The document layout, the Raakje panel, the rich-text toolbar and the import steps come at the phase that first needs them (4 and 5) — so a pattern the pilots overturn is not already built everywhere (external review, 30 Sep) | 0 | none: nothing existing moves yet | AC2, AC7 on HDEV |
+| **2 + 3 — the kit, one block at a time, on pilot A** (since 2 October 2026 the two phases are one loop per block: brief · decide · rule and macro · build on Betalingen and the activity · validate; ten blocks, the frame first) | the list and record layouts and the macros pilot A needs (field, form grid, section, repeating group, rare settings, switch, action bar, pager, tiles, toolbar, record header **with its actions as data — the activity's head (#1387) and the "Kopiëren" of #1397 are its first application, row 51**, summary card, reference, related tabs), the token split, the design-system page rendering them live; the gates of B7 as ratchets on A2's counts; screenshot baselines for every existing screen. The document layout, the Raakje panel, the rich-text toolbar and the import steps come at the phase that first needs them (4 and 5) — so a pattern the pilots overturn is not already built everywhere (external review, 30 Sep) | 0 | none: nothing existing moves yet | AC2, AC7 on HDEV |
 | **3 — pilot A** | the activity record page and the Betalingen list on the layouts, with their embedded tabs; lived with for a release and tuned; the usability review on the concept before the build | 2 | a record saved as a whole: a failed save keeps every change on screen (today a per-card save loses the others); leaving with unsaved changes now warns | AC3, AC4 on HDEV, then one release in use |
 | **4 — pilot B** | "Word lid", the family portal with "Onze inschrijvingen", the registration page and the public form on the layouts, surfaces and grid; the nudge; the featured activity on the homepage as a CMS choice (P4); the household record page in the admin as one save; usability review first | 2 (3 for the household record page) | the household saved as a whole, same as pilot A; the nudge appears for everyone | AC5 on HDEV, then one release in use |
 | **5 — roll-out** | every remaining screen onto its layout; pagination on every list (P1); the column chooser and, where a list needs it, the selection mode with scopes-with-preview (P3, P6); Raakje's trigger and panel with its insights (P5); the rich-text toolbar; users, organisation, tenant as records; the gates hard; the fixed UI decisions in `CLAUDE.md` rewritten | 3, 4 tuned | per screen the same as the pilots; the assistant page and the per-screen AI buttons gone | AC6, AC7 on HDEV; the screenshot set |
@@ -1027,6 +1045,8 @@ title and toolbar; the e2e job's duration with the pixel diff.
 | 30 Sep 2026 | Background: the platform will serve other organisations than RAAK (a company's webshop among them) — a separate change request; here the end state keeps kit and brand apart. | Koen |
 | 30 Sep 2026 | CR-11 becomes the GUI redesign's end state and roadmap: North Star first, quick wins up front for attraction, each concept prepared with screenshots, built on one pilot screen, run through a release and tuned, then rolled out; pilots: the activity detail, the public household creation with the forms. The as-is (A2) is listed first, the solution and the approach follow. | Koen |
 | 30 Sep 2026 | External reviews: Mistral and ChatGPT together, same brief, one round per moment — the graphic-design question at phase 0, the usability question before each pilot. | Koen |
+| 2 Oct 2026 | **The direction for the look** (Koen): the house style — colours and the rest — is not what matters and may go overboard; the behaviour patterns may change; **the functionality and the menu structure stay**. The goal: a modern, sleek, professional application that makes people say "that looks good" — the public site warmer and different, the back office a pleasant, fast workplace for a whole day's work, like an ERP. The approach to the application: process-driven where a real process exists, record-centred everywhere (the lesson of the wizard era: perfect process screens and the same data managed eight times over). | Koen |
+| 2 Oct 2026 | **The working method**: one building block at a time — brief → look and decide → rule and macro → build on the pilots → validate — ten blocks for pilot A, starting with the frame; the brief for block 1 written the same day (in Koen's project folder, `briefpakket`). Phases 2 and 3 of B6 become this loop; the external reviews run per block, both models, same brief. | Koen |
 | 2 Oct 2026 | The classification of every screen (end state §5) confirmed: no person page; the builder and the Design Studio keep per-section saves as declared exceptions; tiles only where acted on weekly (Werkbank, Abonnees); the activity's header buttons into "Acties". Q28. | Koen |
 | 2 Oct 2026 | A control that holds a choice is collapsed by default and shows its value on one line; the first content row is on the first screen at 390 px. Row 61, B4.2, B4.6, B7 test 23. | Koen, via the master CLI |
 | 1 Oct 2026 | Two more rules from the day's findings: a row of controls never widens the page (wrap, then `⋯`); a tile label fits its tile or is rewritten — a cut label is a red gate, not a fallback. Rows 59–60, B4.2, B7 tests 20 and 22. | Koen, via the master CLI |
