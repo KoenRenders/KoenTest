@@ -4,7 +4,7 @@
 **Status:** shaped on 2 October 2026 · walked through on 2 October 2026, every question answered · on hold until the platform owner plans it
 **Tracking issue:** #1468 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the tenant model and its editor (mdm, kernel tenant settings), the admin and public navigation (ui), the route guards of every domain, the home page and sitemap (cms), the dashboard and the reporting universe (reporting), tenant provisioning (mdm).
-**Reading:** A 1992 words · B 2776 · C 2479 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1992 words · B 3097 · C 3052 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -162,11 +162,12 @@ Decisions that shape it, each with the rejected alternative (the reasoning in C4
 | F4 | A router dependency `require_module(code)` on every domain router (JSON and UI) that answers 404 when the module is off for the resolved tenant. | R3 |
 | F5 | The admin navigation computed per request from the registry and the tenant's set; the ten import-time `NAV` constants become a call. | R3 |
 | F6 | The public shell's navigation, the home page's blocks, the sitemap and robots, the dashboard tiles, the newsletter's audiences and the reporting universe's folders read the module set. | R3, R8 |
-| F11 | A CMS page flagged as the home page (`cms_pages.is_home`, one per tenant) renders at `/`; without one the shell's composition renders. | R3, R4 |
 | F7 | `create_tenant` takes the kind, seeds the module set from its defaults and the two CMS blocks (home-intro, site-footer) with placeholder text. | R1, R4, R5 |
-| F8 | The tenant editor shows the kind (read-only after creation) and the modules as a checkbox group; saving a set that breaks a dependency is refused naming it; the "new tenant" page becomes operator-only. | R2, R6 |
+| F8 | The tenant editor shows the kind (read-only after creation) and the modules as a checkbox group with the record count per module (F12); saving a set that breaks a dependency is refused naming it; the "new tenant" page becomes operator-only. | R2, R6 |
 | F9 | The migration gives every existing UNIT kind `VERENIGING` and every module; the platform tenant keeps its own behaviour. | R2 |
 | F10 | The login landing for a user without a member role on a tenant without the membership module goes to the back office or the home page, never to "Mijn gezin". | R3 |
+| F11 | A CMS page flagged as the home page (`cms_pages.is_home`, one per tenant) renders at `/`; without one the shell's composition renders. | R3, R4 |
+| F12 | Switching a module off deletes nothing and touches no row; its data is unreachable through the portal while it is off — for the operator too — and switching it on shows everything again. The editor shows beside each module how many records it holds for this tenant, so an operator sees what disappears from view. | R2, R3 |
 
 ## B2. Fit with the process and the requirements — for the business
 
@@ -362,6 +363,8 @@ None on 2 October 2026: the four questions of the first reading are answered (B9
 | Date | Decision | By |
 |---|---|---|
 | 2 Oct 2026 | A change request for tenant types and modules per tenant; minimal now (type, set, defaults, absent everywhere when off), a template per type later; the association's departments unchanged; a company tenant starts with pages, media, forms and the workbench, payments later, newsletter and reports Could, no meetings, no membership, no activities; the operator creates and administers, no new user management; the document abstract, naming no organisation. | platform owner |
+| 2 Oct 2026 | After Mistral's review: switching off deletes nothing and its data is unreachable while off (F12, C4.3); the editor shows the record count per module; the membership, chatbot, reporting, workflow and payment entries' boundaries written out (C2); `admin_chat_enabled` stays a kill switch in series; the request-cost rule and the company persona become tests (C6 12, 13); F renumbered. | author, on the review |
+| 2 Oct 2026 | Pre-build answers: **Rapporten and Raakje are off by default for `BEDRIJF`** (the defaults stay cms, media, forms, workflow); **C9 is waived** — no concept of the tenant editor, the master CLI's eye at the merge is the net; the seeded blocks' placeholder copy is the author's draft (C2 cms); the sponsors line in the footer is headed **"Partners"** for a `BEDRIJF` tenant and "Sponsors" for a `VERENIGING` (one label per kind in the registry); a "Contacteer ons" on a company's page is a link to one of its forms today and CR-17's button block later — no new button in the shell. | platform owner |
 | 2 Oct 2026 | The e2e seed gets a `BEDRIJF` tenant and the screenshot set its screens, so the company behaviour is looked at by the eye (Q1). | platform owner |
 | 2 Oct 2026 | Module codes are **an Enum in code** (`ModuleCode`), keyed by the registry, with a `CHECK` on `tenant_modules.module_code` listing its values — CR-12's "code plus Enum", without a code table or a label table: a module exists only when its code exists, and its label is the menu label the registry already carries (Q2). | platform owner, on the author's explanation |
 | 2 Oct 2026 | **A page can be the home page** (Q3): a CMS page flagged "dit is de homepagina" renders at `/` for its tenant; without one, the shell's composition renders as today (the home block, and the membership band and activity cards only when those modules are on). A company tenant thus edits its home as a page. | platform owner |
@@ -395,7 +398,7 @@ None on 2 October 2026: the four questions of the first reading are answered (B9
 
 #### kernel (phase 1)
 
-- **Code:** `kernel/modules.py`: `Module(code, label, admin_items, public_items, route_prefixes, dashboard_tiles, home_blocks, sitemap_paths, newsletter_audiences, reporting_folders, depends_on)`; `MODULES` as the one tuple; `DEFAULTS = {"VERENIGING": all, "BEDRIJF": ("cms", "media", "forms", "workflow")}`; `require_module(code)` as a FastAPI dependency reading the enabled set from the request context and raising 404; the tenancy middleware puts `enabled_modules` on the context after resolving the tenant (one read, through `mdm.api`). Owner of the registry: the kernel; a domain adds its own entry in the same file (one place, reviewed).
+- **Code:** `kernel/modules.py`: `Module(code, label, admin_items, public_items, route_prefixes, dashboard_tiles, home_blocks, sitemap_paths, newsletter_audiences, reporting_folders, depends_on)`; `MODULES` as the one tuple; `DEFAULTS = {"VERENIGING": all, "BEDRIJF": ("cms", "media", "forms", "workflow")}`; `require_module(code)` as a FastAPI dependency reading the enabled set from the request context and raising 404; the tenancy middleware puts `enabled_modules` on the context after resolving the tenant (one read, through `mdm.api`). Owner of the registry: the kernel; a domain adds its own entry in the same file (one place, reviewed). A field a module has nothing for stays an empty tuple (the sitemap has two paths today, the audiences three); the registry describes what exists, it is not a wish list. The entries whose boundary is not obvious, made explicit: **membership** = the `membership` domain (public "Word lid" at `/lid-worden`, the family portal at `/leden/…`, renewals, `/api/v1/families`), the admin Leden screens of mdm (`/admin/leden`), the home page's membership band, the newsletter's member audiences and the login landing to "Mijn gezin" — while mdm's master data itself (persons, households as data, organisations, postal codes, tenants) is core and never off; **chatbot** = Raakje the assistant and "Wat Raakje weet" (`/admin/ai-context`, `/admin/rapporten/raakje`, the public chat); **reporting** = Rapporten and the dashboard's figures; **workflow** = the Werkbank; **payment** = Betalingen and the payment gateway routes.
 - **Database:** none.
 - **Tests:** C6 1, 4, 5, 10.
 
@@ -415,7 +418,7 @@ None on 2 October 2026: the four questions of the first reading are answered (B9
 
 #### cms (phase 1 composition; phase 2 seed)
 
-- **Code:** `/` renders the page flagged `is_home` when the tenant has one, else the shell's composition — the membership band only with membership on, the activity cards only with activities on; sitemap and robots take their paths from the registry; `api.seed_site_blocks(tenant_id)` inserts `home-intro` and `site-footer` with placeholder text in the tenant's language.
+- **Code:** `/` renders the page flagged `is_home` when the tenant has one, else the shell's composition — the membership band only with membership on, the activity cards only with activities on; sitemap and robots take their paths from the registry; `api.seed_site_blocks(tenant_id)` inserts `home-intro` and `site-footer` with placeholder text in the tenant's language — the draft: home-intro *"Welkom bij <naam>. Deze tekst past u aan onder Pagina's."*, site-footer *"<naam>"* (address and contact come from the organisation record through `site_context` already); the sponsors line is headed "Sponsors" for a `VERENIGING` and "Partners" for a `BEDRIJF`.
 - **Database:** `cms.cms_pages.is_home BOOLEAN NOT NULL DEFAULT false`, with a partial unique index on `(tenant_id) WHERE is_home` (phase 2, additive). Copy actions: pages have none.
 - **Tests:** C6 6, 8.
 
@@ -434,9 +437,9 @@ None on 2 October 2026: the four questions of the first reading are answered (B9
 - **Code:** `landing_for`: a user without an admin role on a tenant without membership lands on the home page, not `/leden/gezin`.
 - **Tests:** C6 9.
 
-#### every domain router (phase 1)
+#### every domain router — through `main.py` (phase 1)
 
-- **Code:** `router = APIRouter(dependencies=[Depends(require_module("<code>"))])` on each JSON and UI router of a module; the shell's own routes (login, account menu, system, tenants, users, changes, e-mail log) carry no module.
+- **Code:** nothing in the domains' router files — `main.py` includes each module's JSON and UI routers with `dependencies=[Depends(require_module(ModuleCode.X))]`; the shell's own routes (login, account menu, system, tenants, users, changes, e-mail log) carry no module. The gate (C6 test 10) checks the includes.
 - **Tests:** C6 1, 4.
 
 #### reporting — the views
@@ -453,6 +456,7 @@ No view changes; no column is added that a view reads; the universe's folders ar
 | Design-system documentation | no (the checkbox group is the kit's) |
 | Code lists | yes — `tenant_kind_codes` with labels; module codes deliberately not (B4) |
 | Events, ports and handlers | no |
+| The one existing per-tenant switch, `admin_chat_enabled` | stays as it is: a kill switch in series with the environment (off wins), inside the `chatbot` module — the module switch says whether Raakje exists for the tenant, the key whether it is on today; not merged into the registry |
 | Mail templates | no |
 | Migration: additive or contract | additive, twice |
 | Tenant settings | no new key; the module set is a table, not a setting |
@@ -474,7 +478,7 @@ What a module owns — which menu items, which route prefixes, which tiles — c
 
 ### C4.3 Routes stay included; a dependency refuses
 
-One application serves every tenant, resolved per request; including routers per tenant is impossible in that shape. A dependency on the router — `require_module("activities")` — is one line per router, the same shape as the role guards, and it covers JSON and UI routes alike. A module that is off answers 404, not 403: for that tenant the pages do not exist.
+One application serves every tenant, resolved per request; including routers per tenant is impossible in that shape. A dependency on the router — `require_module(ModuleCode.ACTIVITIES)` — is one line per router, the same shape as the role guards, and it covers JSON and UI routes alike. It is applied **at include time in `main.py`** (`app.include_router(router, dependencies=[…])`), not inside the domains' router files: one place says which router belongs to which module, next to the registry, and no domain file changes for it — which also keeps this change out of the files CR-15 is editing in the same release (planning, 2 October 2026). A module that is off answers 404, not 403: for that tenant the pages do not exist. **Its data stays and is unreachable while it is off** — a form's submissions, an activity's registrations — for the operator too; switching off deletes nothing, switching on shows everything again (F12). That is a choice, written down because it will raise the question "where are my submissions?": the answer is the module switch, not a search.
 
 ### C4.4 Per-request navigation
 
@@ -507,8 +511,10 @@ The organisation already carries `legal_form` (VZW, feitelijke vereniging, bedri
 9. **Landing.** A user with no admin role on a tenant without membership lands on `/`, not `/leden/gezin`.
 10. **Every router guarded, every entry real (gate).** For every router in `main.py` that belongs to a module, `require_module` is among its dependencies; for every registry entry, its route prefixes match an included router and its menu items exist (the render gate's list is derived from the registry); the ten import-time `NAV` constants are gone (a grep for `NAV = admin_nav(` → zero).
 11. **Codes, not strings.** `site_context` compares `org_type` with the enum member; a test passes the PLATFORM organisation and asserts the branch (red on master, where the comparison is always true).
+12. **No extra session per request.** On a non-default tenant, the middleware opens no more sessions and runs no more queries per request than on master before this change (a counter on `SessionLocal` and on the engine's `before_cursor_execute`); the module set rides the existing read or a per-request cache. Red on a build that opens a third session.
+13. **The company persona, end to end.** An e2e flow on the `BEDRIJF` seed walks steps 1–8 of B2 (create, roles, menu, dashboard, site, 404s, sitemap, a form submission into the workbench) and a second flow asserts the association's menu, dashboard and home against a snapshot taken on the old code — R2's promise, run on every push.
 
-**Impact on the test landscape:** the render gate and every test using `_ADMIN_NAV` change (derived from the registry, run per kind); fixtures that imported the ten `NAV` constants change mechanically; the e2e seed gains a `BEDRIJF` tenant and the screenshot set its screens (B8 Q1); the public-shell snapshot for the association must be taken on the old code first.
+**Impact on the test landscape:** two new e2e flows (test 13); the render gate and every test using `_ADMIN_NAV` change (derived from the registry, run per kind); fixtures that imported the ten `NAV` constants change mechanically; the e2e seed gains a `BEDRIJF` tenant and the screenshot set its screens (B8 Q1); the public-shell snapshot for the association must be taken on the old code first.
 
 ## C7. The gate — what refuses a deviation from now on
 
@@ -516,11 +522,11 @@ C6 test 10 is the gate, hard from phase 1: a router of a module without `require
 
 ## C8. Prototype findings — what was measured before the build
 
-See C1; nothing prototyped. One thing to measure at the build: the request cost of reading the module set — one query per request on a non-default tenant today already opens two sessions (language, noindex); the set should ride the same read or a per-request cache, not a third session.
+See C1; nothing prototyped. One thing to measure at the build: the request cost of reading the module set — one query per request on a non-default tenant today already opens two sessions (language, noindex); the set must ride the same read or a per-request cache, not a third session — C6 test 12 makes it a requirement, not a wish.
 
 ## C9. Screens before the build — the concepts the approver saw
 
-Two screens change: the tenant editor (the kind and the module checkbox group with a refusal message) and the new-tenant page (the kind radio). Before the handover: one concept of the tenant editor at 1 440 px, with the refusal shown; invented data, in the platform owner's project folder outside the repository; the date he looked at it goes here.
+**Waived by the platform owner on 2 October 2026**: no concept of the tenant editor before the build; the master CLI's eye at the merge gate is the net.
 
 ## C10. Close-out at the release
 
@@ -535,6 +541,7 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 | Q1 | 2 Oct 2026 | Is there a change request to let the platform serve organisations that are not associations — no members, no activities, a website with a form, later a shop? (platform owner) | No: CR-11 names it as "a separate change request" three times; this is it. The groundwork exists (tenants, the platform tenant, organisations with a role, roles per workspace, per-tenant settings and secrets); what is missing is a type and a module set. |
 | Q2 | 2 Oct 2026 | Which modules does a company tenant need at least? (author) | Platform owner, 2 Oct: pages, media, forms, workbench; payments later (a shop is coming); newsletter and reports possible; meetings not in their present form; no membership, no activities (an activity as a block on a page later). |
 | Q3 | 2 Oct 2026 | Who administers a company tenant? (author) | Platform owner, 2 Oct: the operator creates the account and the tenant and administers it, as for the association's departments; no new user management. |
+| Q5 | 2 Oct 2026 | External review (Mistral, pasted by Koen; its C1 checks confirmed, including the `org_type` string comparison): what happens to existing data when a module is switched off; the data of an off module unreachable for the operator too; the membership module's boundary implicit; the `admin_chat_enabled` precedent left hanging; the request-cost rule a wish, not a test; F11 out of order; the reading budget exceeded; two suggestions — empty registry fields allowed, the company persona as a permanent e2e flow. | Taken in: F12 and C4.3 (nothing deleted, unreachable while off, counts in the editor); the boundaries of membership, chatbot, reporting, workflow and payment in C2; `admin_chat_enabled` as a kill switch in series (C3); C6 tests 12 and 13; empty fields explicit; F renumbered. Not changed: the reading budget — the counts are honest and the text is content, not padding. |
 | Q4 | 2 Oct 2026 | Does a company tenant ever pay through the platform? (author) | Platform owner, 2 Oct: yes, in time — the switch exists from day one (R7 Could), nothing is built for it now. |
 
 ## Non-goals — deliberately outside this change
