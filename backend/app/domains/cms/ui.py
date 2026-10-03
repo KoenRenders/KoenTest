@@ -65,6 +65,7 @@ def homepage(request: Request, db: Session = Depends(get_db)):
     # Golf 11 (F31, #913): de lidmaatschapsband toont bedrag en geldigheid uit
     # dezelfde betaal-helpers als het Word-lid-scherm en de aanrekening zelf —
     # het tarief staat dus niet meer als tekst in de intro.
+    from app.domains.forms.api import contact_form
     from app.domains.mdm.api import module_enabled
     from app.domains.payment.api import membership_price_for_date, membership_valid_period
     from app.kernel.modules import ModuleCode
@@ -81,7 +82,9 @@ def homepage(request: Request, db: Session = Depends(get_db)):
             **site_context(db, request),
             "intro_html": render_cms_content(intro.content or "") if intro else None,
             "toon_lidgeld": toon_lidgeld,
-            "toon_contact": module_enabled(ModuleCode.FORMS),
+            # #1509: and only when the contact form can take a message — a
+            # tenant without it had a button that led nowhere.
+            "toon_contact": module_enabled(ModuleCode.FORMS) and contact_form(db) is not None,
             "toon_activiteiten": toon_activiteiten,
             "activities": list_activities(db, scope="upcoming") if toon_activiteiten else [],
             "scope": "upcoming",

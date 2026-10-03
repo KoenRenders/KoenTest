@@ -27,6 +27,7 @@ from app.domains.workflow.api import (
 )
 from app.i18n import _
 from app.kernel.contracts.forms import SubmissionCreated, SubmissionDeleted
+from app.kernel.contracts.mdm import TenantCreated
 from app.kernel.contracts.payment import PaymentReceived, RefundDue
 from app.kernel.events import subscribe
 from app.kernel.jobs import enqueue, job
@@ -58,7 +59,7 @@ def create_behartigen_task(event: SubmissionCreated, db: Session) -> None:
     afzender = event.submitter_name or "onbekende afzender"
     api.start(
         db,
-        "bericht",
+        api.MESSAGE_WORKFLOW,
         subject_type="form_submission",
         subject_id=str(event.submission_id),
         context={"afzender": afzender},
@@ -251,3 +252,9 @@ def sweep(db: Session, payload: dict) -> None:
             db.flush()
     if not payload.get("once"):
         enqueue(db, "workflow.sweep", {}, run_at=datetime.now(timezone.utc) + SWEEP_INTERVAL)
+
+
+@subscribe(TenantCreated)
+def seed_message_workflow_of_new_tenant(event: TenantCreated, db: Session) -> None:
+    """A new tenant can take a contact message: its own "bericht" (#1509)."""
+    api.seed_message_workflow(db, event.tenant_id)

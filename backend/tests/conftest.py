@@ -447,3 +447,19 @@ def seed_question_form(db, title="Sint 2026", **settings):
     db.commit()
     db.refresh(form)
     return form
+
+
+#: A host from `PLATFORM_HOSTS` in a test: where a tenant is reached by its path
+#: prefix, as on PROD (#889). Moved here with #1509.
+PLATFORM_HOST = "platform.example.test"
+
+
+@pytest.fixture
+def platform_host(monkeypatch):
+    from app.config import settings
+    from app.domains.mdm.api import invalidate_tenant_codes
+
+    monkeypatch.setattr(settings, "platform_hosts", PLATFORM_HOST)
+    invalidate_tenant_codes()
+    yield PLATFORM_HOST
+    invalidate_tenant_codes()
