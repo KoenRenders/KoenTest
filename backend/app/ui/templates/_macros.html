@@ -1577,6 +1577,18 @@
       });
       host.appendChild(melding);
     }
+    // #1515: a refusal that renders its form again, with the reason in a
+    // banner, answers 422 with HTML. htmx 2 swaps no 4xx answer, so the reason
+    // never reached the screen — the user saw only the generic toast below.
+    // An HTML 422 is swapped like a 200; a JSON 422 (a validation error of the
+    // API) keeps the error path, since swapping JSON into a screen helps no one.
+    body.addEventListener('htmx:beforeSwap', function (e) {
+      var xhr = e.detail.xhr;
+      if (xhr && xhr.status === 422 && /text\/html/.test(xhr.getResponseHeader('Content-Type') || '')) {
+        e.detail.shouldSwap = true;
+        e.detail.isError = false;
+      }
+    });
     body.addEventListener('htmx:responseError', function (e) {
       if (e.detail.boosted) { window.location.assign(e.detail.pathInfo.finalRequestPath); return; }
       var status = (e.detail.xhr && e.detail.xhr.status) || 0;

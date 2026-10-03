@@ -282,6 +282,8 @@ async def organisatie_opslaan(
         ctx["error"] = " ".join(f"{labels.get(k, k)}: {m}" for k, m in fout.fouten.items())
         ctx["velden"] = {**ctx["velden"], **{k: v for k, v in form.items() if k in ctx["velden"]}}
         ctx["adres"] = {**ctx["adres"], **{k: v for k, v in form.items() if k in ctx["adres"]}}
+        # 422 is the right status; since #1515 the shells swap an HTML 422
+        # (`ui.htmx_ux`), so the form with its banner reaches the screen.
         return templates.TemplateResponse(request, "admin_organisatie.html", ctx, status_code=422)
 
     ctx = _editor_ctx(request, db, organization_id)
