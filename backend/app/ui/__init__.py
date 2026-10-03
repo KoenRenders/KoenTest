@@ -660,7 +660,10 @@ def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
         (label, [(h, lbl) for h, lbl in items if nav_item_shown("admin_items", h, enabled)])
         for label, items in _ADMIN_NAV_GROEPEN
     ]
-    if roles is not None and not ({"ADMIN", "OPERATOR"} & set(roles)):
+    from app.domains.auth.api import admits_admin_ui
+
+    # #1513: who is not admitted to the general back office sees payments only.
+    if roles is not None and not admits_admin_ui(roles):
         # FINANCE-only: één ongelabelde groep met enkel Betalingen.
         groepen = [
             (
