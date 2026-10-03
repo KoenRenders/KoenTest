@@ -16,7 +16,10 @@
 {# Begrensde formulierkolom, zoals het publieke formulier (F18, #913): korte
    persoonsvelden horen niet over de volle paginabreedte. #}
 <div class="max-w-2xl">
-<form hx-post="/admin/leden" class="space-y-4">
+{# #1515: a refusal answers this full page again (422, swapped since then); without
+   a target it landed inside the form itself — two shells, measured. The body is
+   its place, as for the organisation and tenant forms. Success redirects. #}
+<form hx-post="/admin/leden" hx-target="body" hx-swap="innerHTML" class="space-y-4">
   {# Golf 6, kop-herziening: het cluster bovenaan. #}
   {{ ui.action_bar(cancel_href="/admin/leden") }}
 
