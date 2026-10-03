@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.cms.api import get_published_page, published_slugs
+from app.domains.cms.api import get_published_page, published_page, published_slugs
 from app.domains.cms.render import render_cms_content
 from app.i18n import _
 from app.ui import site_context, templates
@@ -160,8 +160,9 @@ def sitemap(request: Request, db: Session = Depends(get_db)):
 @router.get("/{slug}", response_class=HTMLResponse)
 def cms_pagina(slug: str, request: Request, db: Session = Depends(get_db)):
     """CMS-slugpagina. Geregistreerd als LAATSTE route (main mount-volgorde):
-    alle vaste paden winnen; onbekende slug = nette 404."""
-    page = get_published_page(db, slug)
+    alle vaste paden winnen; onbekende slug = nette 404. A site block's slug
+    too (#1510): `published_page` reads the same test as the sitemap."""
+    page = published_page(db, slug)
     if page is None:
         raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
     return _render_page(request, db, page)

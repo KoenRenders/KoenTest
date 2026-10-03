@@ -44,6 +44,8 @@ TILES = (
     "Openstaand saldo",
 )
 # The association's sitemap on the old code, as paths (order is not meaning).
+# Without `/home-intro` and `/site-footer` since #1510: they are site blocks,
+# not pages; every other path of the old sitemap stays.
 SITEMAP_BEFORE = {
     "/",
     "/activiteiten",
@@ -51,9 +53,7 @@ SITEMAP_BEFORE = {
     "/fotos",
     "/lid-worden",
     "/berichten",
-    "/home-intro",
     "/privacy",
-    "/site-footer",
 }
 
 
