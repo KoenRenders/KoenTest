@@ -78,5 +78,8 @@ python seed_newsletter.py || echo "  newsletter seeding skipped/failed (non-fata
 echo "==> Seeding tenant settings (footer links)..."
 python seed_tenant_settings.py || echo "  tenant-settings seeding skipped/failed (non-fatal)"
 
+echo "==> Seeding the contact form of every tenant (missing only, #1509)..."
+python seed_contact_forms.py || echo "  contact-form seeding skipped/failed (non-fatal)"
+
 echo "==> Starting API server..."
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000

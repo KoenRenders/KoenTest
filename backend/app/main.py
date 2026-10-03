@@ -37,6 +37,9 @@ from app.domains.designstudio.handlers import (
     generate_image,  # noqa: F401 - registers the designstudio.generate job (#1007)
 )
 from app.domains.forms.admin_ui import router as forms_admin_ui_router
+from app.domains.forms.handlers import (  # noqa: F401 - event subscriptions (#1509)
+    seed_contact_form_of_new_tenant,
+)
 from app.domains.forms.router import router as forms_router
 from app.domains.forms.ui import router as forms_ui_router
 from app.domains.mail.handlers import (

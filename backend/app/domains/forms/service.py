@@ -21,6 +21,7 @@ Twee lagen domeinlogica:
 """
 
 import re
+import secrets
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional
 
@@ -1138,6 +1139,76 @@ CONTACT_FORM_SLUG = "berichten"
 # `/berichten` zoekt het contactformulier op slug op (`forms/ui.py`); een tweede
 # formulier met die naam kaapt dat scherm.
 GERESERVEERDE_SLUGS = frozenset({CONTACT_FORM_SLUG})
+
+
+def contact_form(db) -> Optional[Form]:
+    """This tenant's contact form when it can take a message, else None (#1509).
+
+    It can when it exists with a field and workflow can start the task a message
+    starts (`workflow.api.can_handle_messages`): without that definition the
+    handler refuses, and the message would be rolled back with a 500. One rule
+    for every place that asks — the page, its POST, the write path and the home
+    page's "Contacteer ons" — so a button never leads to a form that cannot be
+    sent.
+    """
+    from app.domains.workflow.api import can_handle_messages
+
+    form = get_form_by_slug(db, CONTACT_FORM_SLUG)
+    if form is None or not form.fields or not can_handle_messages(db):
+        return None
+    return form
+
+
+#: The words a tenant's contact form starts with (#1509): those of migration 073,
+#: without its "voor Raak" — a company is not Raak.
+CONTACT_FORM_TITLE = "Contacteer ons"
+CONTACT_FORM_DESCRIPTION = "Een vraag, idee of voorstel? Laat het ons weten."
+CONTACT_FORM_THANKS = (
+    "Bedankt voor je bericht! We behartigen het zo snel mogelijk en laten iets weten als dat "
+    "nodig is."
+)
+
+
+def seed_contact_form(db, tenant_id: int) -> bool:
+    """Give a tenant its contact form, as migration 073 gave the first one (#1509).
+
+    For a new tenant through `TenantCreated`, and for an existing one without it
+    through the backfill. Written for `tenant_id` explicitly — the request that
+    creates a tenant runs as the operator's — and idempotent: a tenant that has a
+    `berichten` form keeps it, and False says nothing was added. Flushes; the
+    caller commits.
+    """
+    exists = (
+        db.query(Form.id)
+        .filter(Form.tenant_id == tenant_id, Form.slug == CONTACT_FORM_SLUG)
+        .execution_options(include_all_tenants=True)
+        .first()
+    )
+    if exists is not None:
+        return False
+    form = Form(
+        title=CONTACT_FORM_TITLE,
+        slug=CONTACT_FORM_SLUG,
+        description=CONTACT_FORM_DESCRIPTION,
+        share_token=secrets.token_hex(16),
+        status="open",
+        requires_login=False,
+        send_confirmation=True,
+        confirmation_message=CONTACT_FORM_THANKS,
+        allow_edit=False,
+        is_anonymous=False,
+    )
+    form.tenant_id = tenant_id
+    db.add(form)
+    db.flush()
+    field = FormField(
+        form_id=form.id, label="Je bericht", field_type="textarea", required=True, position=1
+    )
+    field.tenant_id = tenant_id
+    db.add(field)
+    db.flush()
+    return True
+
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 

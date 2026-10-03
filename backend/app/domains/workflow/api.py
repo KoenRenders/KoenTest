@@ -175,6 +175,67 @@ def close_subject_tasks(
 # ── Definities + instanties (fase 4b, #403) ────────────────────────────────────
 
 
+#: The definition a message from the contact form starts (#398). One place: the
+#: handler that starts it and `can_handle_messages` both read it (#1509).
+MESSAGE_WORKFLOW = "bericht"
+
+
+def can_handle_messages(db: Session) -> bool:
+    """Does this tenant have the definition a contact message starts? (#1509)
+
+    Without it, `start` refuses and the message would be rolled back with it, so
+    the contact form is offered only where this holds. A read, by the ORM's
+    tenant filter: another tenant's definition is not this tenant's.
+    """
+    definition = _definition(db, MESSAGE_WORKFLOW)
+    return definition is not None and bool(definition.steps)
+
+
+#: The steps a tenant's "bericht" starts with (#1509): those of migration 082,
+#: which gave the first tenant its definition.
+MESSAGE_WORKFLOW_NAME = "Bericht behartigen"
+MESSAGE_WORKFLOW_STEPS = [
+    {"kind": "bericht.behartigen", "title": "Bericht van {afzender} behartigen", "role": "ADMIN"}
+]
+
+
+def _definition(db: Session, code: str):
+    """This tenant's definition with `code`, or None. By query and not `db.get`:
+    the key is (tenant_id, code) since #1509, and the ORM's tenant filter picks
+    the tenant."""
+    from app.domains.workflow.models import WorkflowDefinition
+
+    return db.query(WorkflowDefinition).filter(WorkflowDefinition.code == code).first()
+
+
+def seed_message_workflow(db: Session, tenant_id: int) -> bool:
+    """Give a tenant the definition a contact message starts, as 082 gave the
+    first one (#1509). Written for `tenant_id` explicitly and idempotent: False
+    when the tenant has it. Flushes; the caller commits."""
+    from app.domains.workflow.models import WorkflowDefinition
+
+    exists = (
+        db.query(WorkflowDefinition.code)
+        .filter(
+            WorkflowDefinition.tenant_id == tenant_id,
+            WorkflowDefinition.code == MESSAGE_WORKFLOW,
+        )
+        .execution_options(include_all_tenants=True)
+        .first()
+    )
+    if exists is not None:
+        return False
+    definition = WorkflowDefinition(
+        code=MESSAGE_WORKFLOW,
+        name=MESSAGE_WORKFLOW_NAME,
+        steps=[dict(step) for step in MESSAGE_WORKFLOW_STEPS],
+    )
+    definition.tenant_id = tenant_id
+    db.add(definition)
+    db.flush()
+    return True
+
+
 def start(
     db: Session,
     definition_code: str,
@@ -185,9 +246,9 @@ def start(
 ):
     """Start een workflow-instantie en maak de taak van de eerste stap.
     ``context`` vult de titel-template van de stap (str.format)."""
-    from app.domains.workflow.models import WorkflowDefinition, WorkflowInstance
+    from app.domains.workflow.models import WorkflowInstance
 
-    definition = db.get(WorkflowDefinition, definition_code)
+    definition = _definition(db, definition_code)
     if definition is None or not definition.steps:
         raise ValueError(f"Onbekende of lege workflow-definitie '{definition_code}'")
     instance = WorkflowInstance(
@@ -223,11 +284,9 @@ def _create_step_task(
 def advance(db: Session, instance, *, context: Optional[dict] = None):
     """Zet de instantie één stap verder: volgende stap → nieuwe taak; geen
     volgende stap → instantie klaar. Idempotent op een al-voltooide instantie."""
-    from app.domains.workflow.models import WorkflowDefinition
-
     if instance.status is RunStatus.DONE:
         return instance
-    definition = db.get(WorkflowDefinition, instance.definition_code)
+    definition = _definition(db, instance.definition_code)
     instance.current_step += 1
     if definition is None or instance.current_step >= len(definition.steps):
         instance.status = RunStatus.DONE
