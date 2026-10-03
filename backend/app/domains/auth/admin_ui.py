@@ -14,6 +14,7 @@ from app.database import get_db
 from app.domains.auth.api import (
     Role,
     admin_user_by_email,
+    admits_admin_ui,
     csrf_from_request,
     get_user_roles,
     require_admin_ui,
@@ -37,7 +38,8 @@ def _require_admin(db: Session, email: str) -> None:
     # OPERATOR telt overal mee (rollen-matrix #544: gebruikersbeheer =
     # ADMIN/OPERATOR) — vóór 16 sep verstopte deze check dat, wat op het
     # platform meteen opviel: een OPERATOR heeft daar geen eigen ADMIN-rij.
-    if not ({"ADMIN", "OPERATOR"} & get_user_roles(db, email)):
+    # #1513: the same set as `require_admin_ui`, asked of one place.
+    if not admits_admin_ui(get_user_roles(db, email)):
         raise HTTPException(
             status_code=403,
             detail=_("Alleen een beheerder (ADMIN) mag gebruikers en rollen beheren."),

@@ -33,6 +33,7 @@ from app.domains.auth.service import (  # noqa: E402
     hash_api_key,
     require_member,
 )
+from app.domains.auth.session import admits_admin_ui
 from app.domains.auth.session import set_session_cookie as _set_ui_session_cookie
 
 # Gebruikersbeheer (backoffice-accounts + rollen) hoort bij het auth-component;
@@ -127,7 +128,9 @@ def auth_me(email: str = Depends(get_current_identity), db: Session = Depends(ge
     return AuthMeResponse(
         email=email,
         roles=roles,
-        is_admin="ADMIN" in roles,
+        # #1513: whoever `require_admin_ui` admits, an operator too — the set
+        # from one place, as the public header's link (#1499).
+        is_admin=admits_admin_ui(roles),
         is_finance="FINANCE" in roles,
         is_member=person is not None,
         member_name=(f"{person.first_name} {person.last_name}".strip() if person else None),
