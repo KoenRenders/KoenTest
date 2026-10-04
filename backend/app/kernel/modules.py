@@ -280,11 +280,16 @@ UNCOUNTED: dict[ModuleCode, str] = {
     M.REPORTING: "a terminus: its schema is addressed only from its own domain",
 }
 
-#: The modules a new tenant starts with, per kind (CR-19 §C2 kernel). The kind
-#: itself arrives with #1478; until then every tenant is a VERENIGING.
+#: The modules a tenant starts with, per kind (CR-19 §C2 kernel; #1478), and
+#: the platform's own set (#1523).
 DEFAULTS: dict[str, frozenset[ModuleCode]] = {
     "VERENIGING": frozenset(ModuleCode),
     "BEDRIJF": frozenset({M.CMS, M.MEDIA, M.FORMS, M.WORKFLOW}),
+    # #1523: the platform — pages, media, forms and the workbench, for help
+    # pages and a contact or request form. Equal to BEDRIJF's today ("op dit
+    # moment dus dezelfde scope als bedrijf", Koen) but its own entry: the two
+    # kinds will grow apart, and then one line changes, not a shared constant.
+    "PLATFORM": frozenset({M.CMS, M.MEDIA, M.FORMS, M.WORKFLOW}),
 }
 
 

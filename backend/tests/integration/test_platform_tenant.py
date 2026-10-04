@@ -84,7 +84,9 @@ def test_the_migration_created_exactly_one_platform_row(db_session):
     )
 
 
-@pytest.mark.parametrize("path", ["/aanmelden", "/activiteiten"])
+# `/berichten` and not `/activiteiten` since #1523: the platform has activities
+# off, and a module that is off answers 404 there (CR-19). Forms is on.
+@pytest.mark.parametrize("path", ["/aanmelden", "/berichten"])
 def test_a_platform_host_resolves_to_the_platform_on_every_path(
     client, db_session, platform_host, path
 ):

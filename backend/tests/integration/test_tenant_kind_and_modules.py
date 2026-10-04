@@ -92,10 +92,13 @@ def test_an_unknown_kind_is_refused(db_session):
 
 
 def test_every_existing_unit_is_an_association_and_nothing_else_has_a_kind(db_session):
+    """Every UNIT an association; the PLATFORM its own kind since #1523
+    (migration 191); an ACCOUNT none."""
     rows = db_session.execute(sql("SELECT org_type, kind FROM mdm.organizations")).all()
-    assert {r.org_type for r in rows} >= {"UNIT", "ACCOUNT"}
+    assert {r.org_type for r in rows} >= {"UNIT", "ACCOUNT", "PLATFORM"}
+    expected = {"UNIT": "VERENIGING", "PLATFORM": "PLATFORM"}
     for org_type, kind in rows:
-        assert kind == ("VERENIGING" if org_type == "UNIT" else None), (org_type, kind)
+        assert kind == expected.get(org_type), (org_type, kind)
 
 
 # ── C6 test 3: dependencies ─────────────────────────────────────────────────

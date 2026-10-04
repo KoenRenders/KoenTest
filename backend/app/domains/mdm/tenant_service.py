@@ -21,7 +21,7 @@ alleen voor de route die er toevallig aan dacht.
 import re
 from typing import Iterable, Mapping
 
-from app.domains.mdm.models import OrganizationType
+from app.domains.mdm.models import OrganizationType, TenantKind
 
 _CODE = re.compile(r"[a-z0-9-]+")
 
@@ -39,6 +39,11 @@ class ModuleRefused(TenantFout):
     def __init__(self, message: str, module) -> None:
         super().__init__(message)
         self.module = module
+
+
+#: The kinds a new tenant may take (#1523): every kind but PLATFORM — there is
+#: one platform, the PLATFORM organisation, and a new tenant is a UNIT.
+CREATABLE_TENANT_KINDS = (TenantKind.ASSOCIATION, TenantKind.COMPANY)
 
 
 def create_tenant(
@@ -71,6 +76,8 @@ def create_tenant(
         kind = TenantKind(kind) if kind else TenantKind.ASSOCIATION
     except ValueError:
         raise TenantFout("Kies het type: vereniging of bedrijf.") from None
+    if kind not in CREATABLE_TENANT_KINDS:
+        raise TenantFout("Kies het type: vereniging of bedrijf.")
 
     org = Organization(
         org_type="UNIT", code=code, name=name, parent_id=parent_id, is_active=True, kind=kind
