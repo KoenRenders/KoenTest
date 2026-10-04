@@ -145,7 +145,7 @@ def test_the_social_settings_are_gone_from_the_screen():
     assert not ({"facebook_url", "instagram_url", "tiktok_url"} & sleutels)
     # En de instellingen die er wél horen staan er nog — anders toetst de regel
     # hierboven alleen dat de lijst leeg is.
-    assert {"base_url", "privacy_url", "language"} <= sleutels
+    assert {"base_url", "language"} <= sleutels
 
 
 def test_a_tenant_setting_no_longer_wins(client, db_session, organisatie):

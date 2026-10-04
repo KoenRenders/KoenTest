@@ -1068,6 +1068,14 @@ def site_context(db, request=None) -> dict:
         .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
         .all()
     )
+    # #1569: the pages that say themselves that they stand in the footer. One
+    # list for the footer and for the newsletter form's small print.
+    footer_pages = (
+        db.query(CmsPage)
+        .filter(CmsPage.is_published.is_(True), CmsPage.show_in_footer.is_(True))
+        .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
+        .all()
+    )
     # #727: via de domeinfacade en niet met een eigen query — die keek langs
     # `is_published` heen, dus de footer stond op elke publieke pagina terwijl het
     # beheerscherm hem als niet-gepubliceerd toonde.
@@ -1108,6 +1116,7 @@ def site_context(db, request=None) -> dict:
 
     return {
         "nav_pages": pages,
+        "footer_pages": footer_pages,
         # CR-19 (#1476): the module links of the header, from the registry —
         # what a module that is off lists or serves is not there.
         "public_nav": _public_nav("public_items"),
@@ -1191,8 +1200,6 @@ def site_context(db, request=None) -> dict:
             if organisatie is not None and organisatie.kind is TenantKind.COMPANY
             else _("Met steun van")
         ),
-        # Privacyverklaring-link per tenant (#493, raakt #453): leeg = niet tonen.
-        "privacy_url": get_setting(db, "privacy_url") or None,
         # SEO (#454): canonieke origin + huidige canonical-URL voor OG/canonical.
         "base_url": base_url,
         # Webstatistieken (#176/#808). Beide of geen van beide — zie

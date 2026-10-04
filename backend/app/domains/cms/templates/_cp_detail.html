@@ -210,6 +210,9 @@
       <label class="flex items-center gap-2"><input type="checkbox" name="show_in_nav" value="1" {% if p.show_in_nav %}checked{% endif %}> {{ _("In navigatie") }}</label>
       {# CR-19 (#1477): the home page of the site; another page loses the flag. #}
       <label class="flex items-center gap-2"><input type="checkbox" name="is_home" value="1" {% if p.is_home %}checked{% endif %}> {{ _("Homepagina") }}</label>
+      {# #1569: listed in the site's footer when published — where the privacy
+         link stood. #}
+      <label class="flex items-center gap-2"><input type="checkbox" name="show_in_footer" value="1" {% if p.show_in_footer %}checked{% endif %}> {{ _("Toon in de voettekst") }}</label>
       {# #745: het getalveld "Volgorde" is hier weg. De volgorde zet je met de
          pijltjes in de lijst; twee bedieningen voor hetzelfde ding kunnen elkaar
          tegenspreken, en dit veld dwong je bovendien het nummer van de pagina

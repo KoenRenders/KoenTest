@@ -22,6 +22,7 @@ class CmsPageUpdate(BaseModel):
     is_published: Optional[bool] = None
     show_in_nav: Optional[bool] = None
     is_home: Optional[bool] = None
+    show_in_footer: Optional[bool] = None
     sort_order: Optional[int] = None
 
 
@@ -32,6 +33,7 @@ class CmsPageResponse(BaseModel):
     content: Optional[str] = None
     is_published: bool
     show_in_nav: bool
+    show_in_footer: bool = False
     sort_order: int
     created_at: datetime
     updated_at: datetime

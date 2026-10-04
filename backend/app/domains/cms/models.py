@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, UniqueConstraint, false
 
 from app.database import Base
 from app.kernel.tenancy import TenantMixin
@@ -24,6 +24,10 @@ class CmsPage(TenantMixin, Base):
     # CR-19 (#1477): this page is the tenant's home page; `/` renders it.
     # At most one per tenant (a partial unique index, migration 189).
     is_home = Column(Boolean, default=False, nullable=False)
+    # #1569: the (published) page is listed in the site's footer, by sort order.
+    # Where a page appears is set on the page; this replaced the tenant setting
+    # `privacy_url`.
+    show_in_footer = Column(Boolean, default=False, server_default=false(), nullable=False)
     sort_order = Column(Integer, default=0, nullable=False)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False

@@ -55,11 +55,6 @@ BEKENDE_SLEUTELS = [
         "Canonieke URL",
         "Publieke origin voor links in mails/Mollie/SEO, bv. https://raakmillegem.be.",
     ),
-    (
-        "privacy_url",
-        "Privacyverklaring-link",
-        "Footer-link naar je privacyverklaring. Leeg = niet tonen.",
-    ),
     ("mail_mode", "Mail-modus", "'send' (default) of 'log_only' (mails enkel loggen — demo)."),
     ("noindex", "Noindex", "'1' = niet indexeren door zoekmachines (demo)."),
     ("language", "Taal", "Catalogustaal, bv. nl_BE (default)."),

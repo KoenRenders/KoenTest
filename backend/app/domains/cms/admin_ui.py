@@ -189,6 +189,7 @@ def pagina_bijwerken(
     is_published: str = Form(""),
     show_in_nav: str = Form(""),
     is_home: str = Form(""),
+    show_in_footer: str = Form(""),
     sort_order: str | None = Form(None),
 ):
     from app.domains.cms.api import update_page
@@ -213,6 +214,7 @@ def pagina_bijwerken(
         is_published=bool(is_published),
         show_in_nav=bool(show_in_nav),
         is_home=bool(is_home),
+        show_in_footer=bool(show_in_footer),
         sort_order=volgorde,
     )
     update_page(db, page_id, data)
