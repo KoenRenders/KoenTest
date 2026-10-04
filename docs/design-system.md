@@ -29,6 +29,7 @@ change to all four, in one pull request.
 
 | Date | Decision | Issue |
 |---|---|---|
+| 4 Oct 2026 | **CR-11 pilot A, K1 and K3**: the list head and toolbar (`figures`, `status_filter`, `toolbar`, `pager`, the `list_page` layout; Betalingen on it) and the record head (`record_header` with actions as data, `reference`, `related_tabs`, the way back naming its origin; the activity on it); the dense-list recipe and the hand-built heads are superseded on migrated screens. Folded from the end state §2.1, §3.7–§3.9, §3.11–§3.13. | #1555, #1557 |
 | 2 Oct 2026 | **CR-11 block 1, the admin frame**: the admin shell gets its own token set under `body[data-shell="admin"]` — the Atelier palette (muted blue `37 78 115`, cool grey ground, a light sidebar, warning a real orange `194 65 12`), Inter only, cards 10 px / controls 6 px, margins 24/32 px, a 224 px sidebar that becomes a 64 px rail below 1 440 and a drawer below 768, a 64 px top bar with the Assistent and account buttons; the house style leaves the back office; the public shell keeps its values until the first public block. Folded from the end state §1 (CR-11 phase 0). | #1482 |
 | Jul 2026 | Postal code is always a `<select>` from the lookup table, never free text | — |
 | Jul 2026 | Public activity registration is a narrow modal; "Wie doet er mee?" is one compact inline line | #601 |
@@ -472,6 +473,40 @@ by the status choice; convert one and the field shows two notations.
 
 ### 2.3 Table, search, filters, row actions, paging
 
+**Since K1 (#1555, CR-11 pilot A, merged 4 October 2026) a list screen on
+the `list_page` layout has one head and one toolbar**, and Betalingen is
+the first; the "dense list" recipe below (filter row, KPI strip, status
+tabs with counts, `tfoot`) describes the screens not yet migrated and is
+superseded on every screen that moves to the layout:
+
+- **The title row**: the title, then the **key figures** as plain text
+  (`ui.figures(items)`: one figure 24 px, one short label 13 px, thin
+  dividers, no card, not clickable, `warning` only on an open amount),
+  then one primary "+ Nieuw …" or nothing; no breadcrumb, no description
+  line, no secondary buttons (they live under `⋯`). Betalingen: *Netto te
+  betalen · Nog te ontvangen · Nog terug te betalen*.
+- **The toolbar** (`ui.toolbar`): the same five things in the same order
+  at every width — the **status filter** as a segmented control
+  (`ui.status_filter`: one bordered group, one segment chosen on the brand
+  tint, the count in brackets on a state the board acts on, computed with
+  the other active filters; Betalingen *Alle | Openstaand (n)*; never
+  tabs, never loose pills) · the search, growing · one **Filters** button
+  that opens the selects, also with one select, also at 1 920 px · the
+  count "x–y van n" with the page size · `⋯` with the secondary actions
+  (Export; on a phone also Per pagina). One row on a desktop, three on a
+  phone; nothing stands in two places; nothing moves by device. The
+  status tabs and the status select of Betalingen are gone; filtering on
+  Mislukt/Geannuleerd went with the select (Koen, 4 Oct 2026: "mag weg").
+- **The pager** (`ui.pager`): the count on top in the toolbar; at the
+  bottom only "‹ Vorige · Volgende ›", hidden when everything fits; a new
+  search, status, filter or page size goes to page 1.
+- **The list's state is its URL** (`hx-push-url`): status, search,
+  filters, page, page size, sort; a row's link carries it and the record's
+  way back returns to it.
+- **As built** (master CLI at the merge): the embedded payment tabs under
+  an activity got the toolbar now and keep their figures until K6; the
+  "AI · Betalingen" button stays until K8 as a named exception.
+
 - **Default list = table** in a `card` with `overflow-x-auto`; cards only for
   hierarchical or visual content (§9). Row height ~50 px, subtle hover.
 - **Dense list (wave 10, #913 — reference: Betalingen).** A money- or
@@ -816,7 +851,13 @@ one interaction language.
 
 ### 3.2 Records list — the fixed layout
 
-Every admin screen with records has the same order in the content column, top
+**Since K1 (#1555)** a list on the `list_page` layout reads, top to bottom:
+the title row (title · key figures · one primary button) → the toolbar
+(§2.3, the five things) → the table at the full content width → the
+bottom pager. Betalingen is on it; the other lists keep the order below
+until their roll-out.
+
+Every admin screen with records not yet migrated has the same order in the content column, top
 to bottom: **page header carrying the title, the optional one-line description
 AND the "+ Nieuwe <item>" button right-aligned in the same header row
 (`ui.page_header` call-slot — wave 3, #913: measured, all eight list screens
@@ -841,6 +882,29 @@ contact + quantities and done; the card stays visible underneath). Creating
 never opens a modal. Long details go in a side panel, not a modal.
 
 ### 3.4 Record management (decided)
+
+**Since K3 (#1557, CR-11 pilot A, merged 4 October 2026) a record page
+has one head**, `ui.record_header(title, badges, facts, primary, actions,
+back, editing)`, and the activity is the first: the way back on the first
+line **naming its origin** (`back` = label and href from one helper through
+`veilige_terug`; a booking's label is registered by the payment domain;
+"‹ Zoekresultaten" is not built — there is no search screen); the title
+with its badges (status first; a badge "Bewerken" while `?bewerken=1`);
+the facts line with every reference as a jump link (`ui.reference`,
+`arrow-up-right`), its words the same on a phone; at the right **one
+primary and one "Acties ▾"**, the actions handed as data and placed by the
+macro in groups — record actions (Kopiëren; a **state slot**: Publiceren
+for a draft, Terug naar concept for a published activity — Koen, 4 Oct
+2026), tools (Foto's uploaden, Design Studio), delete last in red (the
+macro supports it; the activity gets it with K7); a `btn_*` in a head
+outside the macro is red. On a phone the title goes first, the two
+controls drop under it. `ui.related_tabs(tabs)`: Gegevens first, the
+related lists with their count in brackets, a 2 px underline, never a
+bordered group. As built: the activity's primary "Bewerken" opens the
+same page with `?bewerken=1` while the sections keep their own toggles
+until K4/K7; "Annuleren" waits for K4; the "AI · Activiteit" overlay
+stays after Acties as a named exception until K8 and costs a second
+button row at 390 px.
 
 From a list, "Bewerken" opens the editor. Complex records (activity, form,
 member) use the full-page editor; one-line records (media, users) may be edited
@@ -950,7 +1014,9 @@ back · forbidden · test.** Fields marked *open* are decisions still to take
 - **Test**: the return link exists; a forged `?terug=` renders the canonical
   fallback (`test_inschrijving_pagina.py`).
 - **Reference**: `/admin/inschrijvingen/{id}` and the name links that carry
-  `?terug=` into it.
+  `?terug=` into it. **Since K3 (#1557)** the link's label names the origin
+  ("‹ Activiteiten", "‹ Betaling van …"), both from the one helper; a screen
+  never writes the link itself.
 
 ### P4 · Action with a result elsewhere
 
