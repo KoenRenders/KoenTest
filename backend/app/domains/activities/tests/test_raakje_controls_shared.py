@@ -1,36 +1,31 @@
 """Raakje carries the same controls everywhere (#1075).
 
 Koen's rule, 20 September 2026: *Raakje and Raakje-admin are the same
-everywhere; the only difference is the security on the public one.* Four
-surfaces show the assistant — the public widget, `/raakje`, the reporting
-Raakje and the activity overlay — and before this issue each carried its own
-copy of the input row. The overlay had quietly lost the microphone and the
-read-aloud toggle. A copy does not drift on purpose; it drifts because the next
-change lands on the surface someone is looking at.
+everywhere; the only difference is the security on the public one.* Before
+#1075 each surface carried its own copy of the input row, and the activity
+overlay had quietly lost the microphone and the read-aloud toggle. A copy does
+not drift on purpose; it drifts because the next change lands on the surface
+someone is looking at.
+
+Since #1562 (CR-11 K8) the rule is one component: `_raakje_panel.html` of the
+chatbot domain renders the conversation for both shells — the back office's
+Assistent panel and the public bell. The assistant page and the per-screen
+overlay (`_raakje_overlay.html`) are gone.
 
 Two halves, and both are needed:
 
-- **Source: one partial, no copies.** Every Raakje template reaches the controls
-  through `_raakje_controls.html` — directly, or through the shared overlay
-  (`_raakje_overlay.html`), which since #1115 is the ONE modal for the record
-  screens. The attributes that make the controls work (`data-stt-target`,
-  `data-tts-toggle`, the growth handler) appear in that one partial and nowhere
-  else. Both lists are asserted to be non-empty, so a moved or removed template
-  cannot make this scan an empty set and go green (#678).
-- **Rendered: the overlay equals the reporting Raakje.** Through the real
-  routes, with both assistant switches on: the microphone button of the
-  activity overlay is byte-for-byte the reporting one, save for the field id;
-  the read-aloud toggle carries the same attributes; and the two other tabs
-  that include the record header still render — the header is included by four
-  templates and a missing `stt_mode` fails under `StrictUndefined` rather than
-  rendering blank (#1070).
-
-Broken on purpose, each restored after:
-  - the microphone button of the overlay hand-written back into
-    `_aa_recordkop.html` with one class changed → the source half names the
-    file, and the rendered half shows the diff between the two buttons;
-  - `stt_mode` dropped from `record_kop_ctx` → the tab test fails with the
-    StrictUndefined error, on Inschrijvingen and on Betalingen.
+- **Source: one partial, no copies.** The panel component reaches the controls
+  through `_raakje_controls.html`; the two surfaces reach them through the
+  panel and build nothing themselves. The attributes that make the controls
+  work (`data-stt-target`, `data-tts-toggle`, the growth handler) appear in
+  that one partial and nowhere else. The lists are asserted to be non-empty,
+  so a moved or removed template cannot make this scan an empty set and go
+  green (#678).
+- **Rendered: the back office's panel equals the public bell.** Through the
+  real routes, with the switches on: the microphone button of the Assistent
+  panel is byte-for-byte the bell's, save for the field id, on a record as on
+  a list; the read-aloud toggle carries the same attributes; and the panel
+  opened on the two other tabs of an activity is that activity's.
 """
 
 from __future__ import annotations
@@ -50,21 +45,23 @@ pytestmark = pytest.mark.ui_serverrendered
 DOMAINS = Path(__file__).resolve().parents[4] / "app" / "domains"
 PARTIAL = DOMAINS / "chatbot" / "templates" / "_raakje_controls.html"
 
-# De plekken die de bediening ZELF renderen, met de variant van de voorleesknop.
-# Een nieuwe plek erbij? Dan via het partial — niet via een kopie (design-system
-# §2.11).
-SURFACES = {
-    "chatbot/templates/_raakje_widget.html": "on_dark=True",
-    # `chatbot/templates/raakje.html` stond hier tot #1120: de publieke pagina is
-    # weg (niemand kwam er), de zwevende bel erboven doet het werk.
-    "reporting/templates/admin_rapporten_raakje.html": "",
-}
-# De gedeelde overlay staat buiten `domains/` (het is kit-schil, niet één domein).
-OVERLAY = Path(__file__).resolve().parents[4] / "app" / "ui" / "templates" / "_raakje_overlay.html"
+APP = Path(__file__).resolve().parents[4] / "app"
 
-# De schermen die hun Raakje via die overlay tonen (#1115): zij renderen de
-# bediening niet zelf en horen dat ook niet te doen — één modal, één vorm.
-VIA_OVERLAY = (
+# The ONE place that renders the controls itself (#1562), with the variant of
+# the read-aloud toggle it asks for. A new surface goes through this component —
+# not through a copy (design-system §2.11).
+COMPONENT = "chatbot/templates/_raakje_panel.html"
+COMPONENT_TOGGLE = "on_dark=True"
+
+# The surfaces that show Raakje through that component: the public bell and the
+# back office's Assistent panel. They render no controls themselves.
+VIA_PANEL = (
+    "chatbot/templates/_raakje_widget.html",
+    "reporting/templates/_assistant_panel.html",
+)
+
+# The screens that had an overlay of their own until #1562.
+FORMER_OVERLAY_SCREENS = (
     "activities/templates/_aa_recordkop.html",
     "payment/templates/_betalingen_scherm.html",
 )
@@ -82,39 +79,51 @@ CONTROL_MARKERS = (
 
 
 def test_every_surface_uses_the_shared_partial():
-    # Ondergrens en geen exact getal: de lijst mag krimpen (#1120 haalde de
-    # publieke pagina weg), maar bij nul of één scant deze gate niets meer en
-    # slaagt ze om de verkeerde reden (#678).
-    assert len(SURFACES) >= 2, "de lijst Raakje-plekken kromp; deze gate scant niets"
-    bronnen = {relative: (DOMAINS / relative).read_text() for relative in SURFACES}
-    bronnen["ui/templates/_raakje_overlay.html"] = OVERLAY.read_text()
-    varianten = dict(SURFACES, **{"ui/templates/_raakje_overlay.html": "on_dark=True"})
-    for relative, source in bronnen.items():
-        variant = varianten[relative]
-        assert '{% import "_raakje_controls.html" as controls %}' in source, (
-            f"{relative} does not import the shared Raakje controls"
-        )
-        assert "controls.input_row(" in source, f"{relative} builds its own input row"
-        assert f"controls.read_aloud_toggle({variant})" in source, (
-            f"{relative} lacks the read-aloud toggle ({variant or 'page variant'})"
-        )
+    component = (DOMAINS / COMPONENT).read_text()
+    assert '{% import "_raakje_controls.html" as controls %}' in component, (
+        f"{COMPONENT} does not import the shared Raakje controls"
+    )
+    assert "controls.input_row(" in component, f"{COMPONENT} builds its own input row"
+    assert f"controls.read_aloud_toggle({COMPONENT_TOGGLE})" in component, (
+        f"{COMPONENT} lacks the read-aloud toggle"
+    )
 
-
-def test_de_overlayschermen_bouwen_geen_eigen_modal():
-    """#1115: de recordschermen tonen Raakje via de gedeelde overlay.
-
-    De activiteit-recordkop droeg tot dit issue een eigen kopie van diezelfde
-    modal; die liep meteen achter (ze had wél een voorleesknop, de gedeelde niet).
-    Eén modal, dus één plek waar de volgende verbetering landt.
-    """
-    assert VIA_OVERLAY, "de lijst overlay-schermen is leeg; deze gate scant niets"
-    for relative in VIA_OVERLAY:
+    # A floor and not an exact number, but below two there is no "everywhere"
+    # left to keep the same and this gate scans nothing (#678).
+    assert len(VIA_PANEL) >= 2, "the list of Raakje surfaces shrank; this gate scans nothing"
+    for relative in VIA_PANEL:
         source = (DOMAINS / relative).read_text()
-        assert '{% import "_raakje_overlay.html" as raakje %}' in source, (
-            f"{relative} importeert de gedeelde overlay niet"
+        assert '{% import "_raakje_panel.html" as panel %}' in source, (
+            f"{relative} does not import the shared panel"
         )
-        assert "raakje.overlay(" in source, f"{relative} roept de overlay niet aan"
-        assert "controls." not in source, f"{relative} bouwt zijn eigen bediening naast de overlay"
+        assert "panel.inner(" in source, f"{relative} does not render the shared panel"
+        assert "controls." not in source and "<form" not in source, (
+            f"{relative} builds its own controls beside the panel"
+        )
+
+
+def test_no_screen_builds_an_overlay_of_its_own():
+    """#1115 made the shared overlay the one modal of the record screens; #1562
+    replaced it by the shell's panel. No template imports or calls the overlay
+    any more, its file is gone, and the two screens that had one build no
+    conversation of their own in its place."""
+    assert not (APP / "ui" / "templates" / "_raakje_overlay.html").exists()
+
+    templates = list(APP.rglob("templates/*.html"))
+    assert len(templates) > 100, f"the scan found only {len(templates)} templates"
+    callers = [
+        str(template.relative_to(APP))
+        for template in templates
+        if "_raakje_overlay.html" in template.read_text()
+        or "raakje.overlay(" in template.read_text()
+    ]
+    assert not callers, f"these templates still reach for the removed overlay: {callers}"
+
+    assert FORMER_OVERLAY_SCREENS, "the list of former overlay screens is empty"
+    for relative in FORMER_OVERLAY_SCREENS:
+        source = (DOMAINS / relative).read_text()
+        for own in ("controls.", "panel.inner(", "data-raakje-form", "/admin/rapporten/raakje"):
+            assert own not in source, f"{relative} builds its own assistant again: {own}"
 
 
 def test_the_control_markup_lives_in_the_partial_and_nowhere_else():
@@ -136,7 +145,14 @@ def test_the_control_markup_lives_in_the_partial_and_nowhere_else():
     )
 
 
-# ── Rendered: the overlay equals the reporting Raakje ───────────────────────
+# ── Rendered: the back office's panel equals the public bell ────────────────
+
+PANEL_URL = "/admin/rapporten/raakje/paneel"
+
+
+def _panel(client, path: str):
+    """The Assistent panel as it is loaded on the screen at `path`."""
+    return client.get(PANEL_URL, headers={"HX-Current-URL": f"http://testserver{path}"})
 
 
 @pytest.fixture
@@ -175,9 +191,8 @@ def _microphone(html: str, field_id: str) -> str:
 def _toggles(html: str) -> list[str]:
     """Elke voorleesknop op de pagina.
 
-    Meer dan één is sinds #1115 normaal: de Betalingen-tab van een activiteit
-    draagt twee Raakje's — één over de activiteit, één over de selectie. Ze
-    tonen dezelfde stand; `tts.js` schildert ze samen bij.
+    Since #1562 a page or a panel holds one: the two Raakje's on the payments
+    tab of an activity (#1115) became one panel.
     """
     found = re.findall(r'<button type="button" data-tts-toggle[\s\S]*?</button>', html)
     assert found, "geen enkele voorleesknop op de pagina"
@@ -202,57 +217,79 @@ def _attributes(button: str) -> dict[str, str]:
     return attrs
 
 
-def test_the_overlay_microphone_is_the_reporting_one(client, db_session, assistant_on, activity):
-    _login(client)
-    overlay = client.get(f"/admin/activiteiten/{activity.id}")
-    reporting = client.get("/admin/rapporten/raakje")
-    assert overlay.status_code == 200 and reporting.status_code == 200
+@pytest.fixture
+def bell(client, monkeypatch) -> str:
+    """A public page with the bell on it."""
+    from app.config import settings
 
-    mic_overlay = _microphone(overlay.text, "aa-raakje-vraag")
-    mic_reporting = _microphone(reporting.text, "rp-raakje-vraag")
-    assert mic_overlay.replace("aa-raakje-vraag", "rp-raakje-vraag") == mic_reporting, (
-        "the overlay's microphone differs from the reporting Raakje's:\n"
-        f"{mic_overlay}\n---\n{mic_reporting}"
+    monkeypatch.setattr(settings, "chat_enabled", True)
+    answer = client.get("/")
+    assert answer.status_code == 200
+    return answer.text
+
+
+def test_the_panel_microphone_is_the_public_bells(client, db_session, assistant_on, activity, bell):
+    _login(client)
+    on_record = _panel(client, f"/admin/activiteiten/{activity.id}")
+    on_list = _panel(client, "/admin/rapporten")
+    assert on_record.status_code == 200 and on_list.status_code == 200
+    assert f"/activiteit/{activity.id}" in on_record.text, "precondition: two different contexts"
+
+    mic_record = _microphone(on_record.text, "assistent-vraag")
+    mic_list = _microphone(on_list.text, "assistent-vraag")
+    mic_bell = _microphone(bell, "raakje-widget-vraag")
+    assert mic_record == mic_list, "the microphone differs between two screens of the back office"
+    assert mic_record.replace("assistent-vraag", "raakje-widget-vraag") == mic_bell, (
+        f"the panel's microphone differs from the public bell's:\n{mic_record}\n---\n{mic_bell}"
     )
     # Same speech path, from the same configuration value.
-    assert 'data-stt-mode="' in mic_overlay
+    assert 'data-stt-mode="' in mic_record
 
 
-def test_the_overlay_read_aloud_toggle_reads_like_the_reporting_one(
-    client, db_session, assistant_on, activity
+def test_the_panel_read_aloud_toggle_reads_like_the_public_bells(
+    client, db_session, assistant_on, activity, bell
 ):
-    """The class differs by design (white on a blue header); everything tts.js
-    reads — the hook, the two icons, the accessible name — is the same."""
+    """Everything tts.js reads — the hook, the two icons, the accessible name —
+    is the same in the back office's panel and in the bell."""
     _login(client)
-    overlay = _toggle(client.get(f"/admin/activiteiten/{activity.id}").text)
-    reporting = _toggle(client.get("/admin/rapporten/raakje").text)
+    panel = _toggles(_panel(client, f"/admin/activiteiten/{activity.id}").text)
+    assert len(panel) == 1, "one toggle per conversation"
+    public = _toggle(bell)
 
-    assert "data-tts-toggle" in overlay and "data-tts-toggle" in reporting
-    overlay_attrs, reporting_attrs = _attributes(overlay), _attributes(reporting)
+    panel_attrs, public_attrs = _attributes(panel[0]), _attributes(public)
     for name in ("data-icon-aan", "data-icon-uit", "aria-label", "title"):
-        assert name in overlay_attrs, f"the overlay toggle lacks {name}"
-        assert overlay_attrs[name] == reporting_attrs[name], name
+        assert name in panel_attrs, f"the panel's toggle lacks {name}"
+        assert panel_attrs[name] == public_attrs[name], name
 
 
-def test_without_the_assistant_the_overlay_and_its_controls_are_absent(
-    client, db_session, activity
-):
+def test_without_the_assistant_the_panel_and_its_controls_are_absent(client, db_session, activity):
     """The negative that gives the positive tests their meaning: the controls
-    come with the overlay, and the overlay comes with the kernel switch."""
+    come with the panel, and the panel comes with the two switches."""
     _login(client)
-    html = client.get(f"/admin/activiteiten/{activity.id}").text
-    assert "aa-raakje-vraag" not in html
+    path = f"/admin/activiteiten/{activity.id}"
+    html = client.get(path).text
+    assert 'id="assistent-paneel"' not in html and 'id="assistent-knop"' not in html
+    assert "data-stt-target" not in html
     assert "data-tts-toggle" not in html
+    assert _panel(client, path).status_code == 403
 
 
 @pytest.mark.parametrize("tab", ["inschrijvingen", "betalingen"])
-def test_the_other_tabs_render_the_overlay_with_its_microphone(
+def test_the_other_tabs_open_the_activitys_panel_with_its_microphone(
     client, db_session, assistant_on, activity, tab
 ):
-    """Four templates include the record header (#1070). A context key missing
-    on one of them is not a blank spot but a StrictUndefined error."""
+    """Three pages carry the record head (#1070). Since #1562 none of them hands
+    the assistant a context key: the panel reads the record from the address,
+    and a tab's address must lead to the same activity as the record's own."""
     _login(client)
-    answer = client.get(f"/admin/activiteiten/{activity.id}/{tab}")
+    path = f"/admin/activiteiten/{activity.id}/{tab}"
+    answer = client.get(path)
     assert answer.status_code == 200, answer.text[:400]
-    _microphone(answer.text, "aa-raakje-vraag")
-    _toggle(answer.text)
+    assert 'id="assistent-paneel"' in answer.text
+
+    panel = _panel(client, path)
+    assert panel.status_code == 200
+    assert f'hx-post="/admin/rapporten/raakje/activiteit/{activity.id}"' in panel.text
+    assert f"over {activity.name}" in panel.text
+    _microphone(panel.text, "assistent-vraag")
+    _toggle(panel.text)

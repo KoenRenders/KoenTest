@@ -153,27 +153,28 @@ class ReportPanelView(ViewModel):
 
 
 @dataclass(frozen=True, kw_only=True)
-class AssistantView(ViewModel):
-    """`admin_rapporten_raakje.html` — the assistant's own page (CR-07 §4.3).
+class AssistantTriggerView(ViewModel):
+    """`_assistant_trigger.html` — the one trigger in the top bar (CR-11 K8,
+    #1562). `shown`: there is an Assistent for this visitor (both switches, the
+    module, the role). `available`: the screen's module is one the assistant
+    knows; otherwise the button is dimmed but focusable."""
 
-    The conversation lives in the page and not on the server: `history` is what
-    goes back into the form, so a reload starts a fresh conversation and nothing is
-    kept between sessions (§10). Deliberately only questions and answers — tool
-    results are rebuilt server-side each turn, so nothing that reaches the model as
-    data can be edited on its way back through the browser.
-    """
+    shown: bool
+    available: bool
 
-    enabled: bool
-    # Why it is off, when it is: the global switch, the tenant switch, or neither.
-    # Derived in the route — a template that works this out is a second place where
-    # the rule lives (design-system §8.3).
-    reason: str
-    # Which speech path the microphone button uses (#917). Read from the config in
-    # the route; the same value the public Raakje passes to its own button.
+
+@dataclass(frozen=True, kw_only=True)
+class AssistantPanelView(ViewModel):
+    """`_assistant_panel.html` — what stands in the panel for one screen: its
+    context (`assistant_context.AssistantContext`: the line under the title,
+    where a question goes, three suggestions, or why asking is off).
+
+    The conversation lives in the panel and not on the server: a new context
+    starts a fresh one and nothing is kept between sessions (CR-07 §10)."""
+
+    ctx: Any
+    # Which speech path the microphone button uses (#917), from the config.
     stt_mode: str
-    history: str
-    csrf_token: str
-    nav_items: list[Any] = field(default_factory=list)
 
 
 @dataclass(frozen=True, kw_only=True)

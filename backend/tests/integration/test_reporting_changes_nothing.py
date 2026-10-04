@@ -191,13 +191,12 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
         "/admin/vergaderingen",
         "/admin/nieuwsbrieven",
         "/admin/ontwerpen",
-        # #1117: de beheer-assistent krijgt een eigen regel in Inzicht — `AI · Raakje`,
-        # de assistent zelf, want hij gaat breder dan de rapporten. Dat is een
-        # toevoeging aan deze lijst en geen verschuiving: elk ander item staat waar
-        # het stond.
+        # #1117 gave the back-office assistant a line of its own in Inzicht
+        # (`AI · Raakje`); #1562 took it out again — the Assistent is the panel
+        # behind the top bar's trigger and has no menu item. A removal from this
+        # list and no shift: every other item stands where it stood.
         "/admin",
         "/admin/rapporten",
-        "/admin/rapporten/raakje",
         "/admin/gebruikers",
         "/admin/ledenwijzigingen",
         "/admin/e-maillog",
@@ -215,6 +214,8 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
     # Sinds de Inzicht-groep (Koen, 14 sep) staat Rapporten naast het Dashboard,
     # niet meer naast Betalingen — rapportering is niet enkel financieel.
     assert hrefs.index("/admin/rapporten") == hrefs.index("/admin") + 1
+    # #1562: reporting still adds exactly one item — the assistant none.
+    assert [h for h in hrefs if h.startswith("/admin/rapporten")] == ["/admin/rapporten"]
 
 
 def test_the_dashboard_keeps_its_six_tiles_and_its_place(client, db_session):

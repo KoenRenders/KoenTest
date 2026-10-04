@@ -41,8 +41,7 @@
 </div>
 </div>
 </div>
-<div class="flex flex-wrap items-start md:items-stretch gap-x-3">
-<form id="bt-filter" data-toolbar class="relative mb-3 flex flex-wrap items-center gap-2 min-w-0 basis-full md:basis-0 md:flex-1"
+<form id="bt-filter" data-toolbar class="relative mb-3 flex flex-wrap items-center gap-2 min-w-0"
  hx-get="/admin/betalingen/lijst" hx-target="#betalingen-lijst" hx-swap="innerHTML"
  hx-trigger="change[!event.target.closest('[data-filters-panel]')&&event.target.type!=='search'], input changed delay:400ms from:find input[type=search], submit"
  hx-headers='{"X-Raak-Filter": "1"}'>
@@ -101,7 +100,6 @@
 <input type="hidden" name="gezin" value="<MEMBER>"><input type="hidden" name="scope_stil" value="1">
 <input type="hidden" id="bt-filter-sort" name="sort" value="" data-sort-field>
 </form>
-</div>
 <div id="betalingen-lijst"
  hx-get="/admin/betalingen/lijst" hx-trigger="betalingen-ververst from:body"
  hx-include="#bt-filter" hx-swap="innerHTML"

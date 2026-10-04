@@ -1,4 +1,5 @@
 {% import "_macros.html" as ui %}
+{% import "_raakje_frame.html" as raakje_frame %}
 {# AdminShell (#396, §13.1; UI-sweep #482): base-layout voor de beheer-schermen.
    Items komen uit app.ui.admin_nav() via `nav_items`. Since CR-11 block 1 (#1482)
    the frame of design-system-end-state §1.4: a light sidebar of 224 px that is
@@ -112,6 +113,8 @@
      negeren dit; geen terugval nodig. #}
   <meta name="htmx-config" content='{"globalViewTransitions":true}'>
   <script src="{{ statisch('vendor/htmx.min.js') }}" defer></script>
+  {# K8 (#1562): the panel's component, before Alpine reads the page. #}
+  <script src="{{ statisch('raakje-panel.js') }}" defer></script>
   <script src="{{ statisch('vendor/alpine.min.js') }}" defer></script>
   {# The repeating group of the kit (#1559): rows are added, moved and removed in
      the page; one listener set on the document, loaded once with the shell. #}
@@ -185,7 +188,10 @@
      `nav_oob` in app/ui/__init__.py. #}
   {% set _oob = nav_oob(request) if request is defined else False %}
   {% set _menu = nav_items|default([]) %}
-  {% set _hrefs = _menu|map(attribute="items")|sum(start=[])|map(attribute="href")|list %}
+  {# K8 (#1562): the Assistent exists where its module and the reporting it
+     reads are on, and the environment allows it — known without a query. The
+     tenant's own switch and the role are asked by the trigger itself. #}
+  {% set _assistant = assistant_in_shell is defined and assistant_in_shell() %}
 
   {# ── The sidebar (CR-11 block 1, #1482; design-system-end-state §1.4) ────────
      ONE navigation source, three appearances: 224 px wide from 1 440 px, a rail
@@ -257,13 +263,12 @@
               aria-label="{{ _('Menu') }}">{{ ui.icon("menu", 20) }}</button>
       <div class="flex-1 min-w-0" data-topbar-title></div>
       <div class="hidden lg:block w-72" data-topbar-search></div>
-      {# §3.15: a bordered button with the word, the icon alone on a phone. It
-         opens what the menu's "AI · Raakje" opens, and is there under the same
-         rule: when that item is in this tenant's menu. #}
-      {% if "/admin/rapporten/raakje" in _hrefs %}
-      <a href="/admin/rapporten/raakje" data-assistant
-         class="inline-flex items-center justify-center gap-2 h-9 min-w-11 px-2 md:px-3 rounded-lg border border-control-line bg-surface text-sm font-medium text-ink hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-         aria-label="{{ _('Assistent') }}">{{ ui.icon("sparkles", 18) }}<span class="hidden md:inline">{{ _("Assistent") }}</span></a>
+      {# §3.15, K8 (#1562): the one trigger of the Assistent. Loaded after the
+         page — whether there is one for this tenant and this visitor is a
+         question for the database, and shell chrome may not cost a query per
+         page view (as the account menu). It asks again when the screen changes. #}
+      {% if _assistant %}
+      <span id="assistent-knop" hx-get="/admin/rapporten/raakje/knop" hx-trigger="load" hx-swap="outerHTML transition:false"></span>
       {% endif %}
       {% if _account %}
       <div x-data="{ acc: false }" class="relative">
@@ -303,6 +308,13 @@
   {# Vaste landingsplek voor toasts (#528 as C); htmx stuurt ze out-of-band mee.
      #748: een scherm dat een VOLLEDIGE pagina terugstuurt kan dat niet — dan wordt
      deze host zelf mee vervangen — en zet in plaats daarvan `toast_opgeslagen`. #}
+  {# K8 (#1562): the Assistent panel — outside #main, so it stays beside the
+     content over a navigation. What stands in it comes from the server, for the
+     screen it is opened on. #}
+  {% if _assistant %}
+  {% call raakje_frame.frame("assistent-paneel", mode="docked", label=_("Assistent"),
+                             context_url="/admin/rapporten/raakje/paneel", env_bar=env_bar) %}{% endcall %}
+  {% endif %}
   {{ ui.toast_host(toast_opgeslagen|default(False)) }}
   {# In-app bevestig-modal (#595): vervangt het browser-confirm(). #}
   {{ ui.confirm_host() }}

@@ -1,0 +1,8 @@
+{% import "_raakje_panel.html" as panel %}
+{# What stands in the back office's Assistent panel for the screen it was opened
+   on (K8, #1562): the context from `assistant_context.context_for`, the
+   conversation on the one engine (`admin_ui._ask`). On a module the assistant
+   does not know, only the sentence that says so. #}
+{{ panel.inner(_("Assistent"), ctx.label, ctx.post_url, "assistent-gesprek", "assistent-vraag", stt_mode,
+               key=ctx.key, suggestions=ctx.suggestions, blocked=ctx.blocked,
+               history_id="rp-raakje-historie") }}

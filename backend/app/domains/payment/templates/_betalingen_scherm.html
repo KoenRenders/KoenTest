@@ -1,5 +1,4 @@
 {% import "_macros.html" as ui %}
-{% import "_raakje_overlay.html" as raakje %}
 {# The payments screen without its shell (golf 8, #913): the toolbar and the
    list. Shared by /admin/betalingen and the embedded Betalingen tab of an
    activity, a family and a registration — one source, two heads.
@@ -20,49 +19,25 @@
   {% include "_bt_boven.html" %}
 </div>
 
-{# The toolbar and, beside it, the "AI · Betalingen" button. That button is the
-   one named exception to "five things in the toolbar row" (the master CLI, 4
-   October 2026): it stays, outside the toolbar and at the right of its row,
-   until K8 (#1562) lets the shell's Assistent panel read this screen's
-   selection. It cannot stand inside the toolbar anyway: the toolbar is a
-   `<form>` and the overlay brings its own (#1115). On a phone it takes a line
-   of its own under the toolbar. #}
-{# `md:items-stretch` with the wrapper's `md:flex md:items-center` below (#1197):
-   the button's wrapper takes the toolbar's height — margin included, both carry
-   `mb-3` — and centres the button in it, so the button's centre is the centre of
-   the toolbar's row without a height written here. #}
-<div class="flex flex-wrap items-start md:items-stretch gap-x-3">
-  {# Filters holds the context select, and only on the list itself: inside a
-     record the record is the context, so the embedded rendering has no Filters
-     button (§3.13). #}
-  {% call ui.toolbar("/admin/betalingen/lijst", "#betalingen-lijst", "bt-filter",
-                     segments=segments, status_name="zicht", status_current=zicht, status_legend=_("Status"),
-                     q=q, search_placeholder=_("Zoek op naam, OGM of omschrijving…"),
-                     page=page, per_page=per_page, total=totaal_groepen, page_sizes=page_sizes,
-                     menu=toolbar_menu, hidden=toolbar_hidden, cls="basis-full md:basis-0 md:flex-1",
-                     sort=sort, sort_options=sort_options, columns=column_choices) %}
-    {% if not embedded %}
-    <div class="flex flex-col gap-1">
-      {{ ui.label(_("Betalingscontext"), "bt-context") }}
-      {{ ui.grouped_filter("context", context_top, context_groups, current=context, id="bt-context") }}
-    </div>
-    {% endif %}
-  {% endcall %}
-  {# #1060: Raakje met de selectie die hierboven staat. De ingang verschijnt
-     alleen als de assistent aanstaat ÉN deze gebruiker hem mag aanspreken —
-     dit scherm laat FINANCE binnen, de assistent niet, en een knop die op een
-     403 uitkomt is erger dan geen knop. De selectie zelf reist niet mee in een
-     formulier: de route leidt ze server-side af uit dezelfde filterstand die
-     dit scherm leest (`filterparams`, via HX-Current-URL) — dat is ook waarom
-     deze knop buiten de filterbalk kan staan zonder iets te verliezen. #}
-  {% if raakje_scherm %}
-  {{ raakje.overlay(_("AI · Betalingen"),
-                    "/admin/rapporten/raakje/scherm/betalingen",
-                    _("Dag! Ik kijk mee met de selectie die je hier hebt staan — vraag me bijvoorbeeld “hoeveel staat er open?” of “hoe verdeelt dit zich over lidgeld en activiteiten?”."),
-                    stt_mode, prefix="bt-raakje",
-                    wrapper_cls="mb-3 md:flex md:items-center") }}
+{# The toolbar. Nothing stands beside it: the "AI · Betalingen" button left
+   with the shell's Assistent panel (K8, #1562), which reads this screen's
+   selection from the address.
+   Filters holds the context select, and only on the list itself: inside a
+   record the record is the context, so the embedded rendering has no Filters
+   button (§3.13). #}
+{% call ui.toolbar("/admin/betalingen/lijst", "#betalingen-lijst", "bt-filter",
+                   segments=segments, status_name="zicht", status_current=zicht, status_legend=_("Status"),
+                   q=q, search_placeholder=_("Zoek op naam, OGM of omschrijving…"),
+                   page=page, per_page=per_page, total=totaal_groepen, page_sizes=page_sizes,
+                   menu=toolbar_menu, hidden=toolbar_hidden,
+                   sort=sort, sort_options=sort_options, columns=column_choices) %}
+  {% if not embedded %}
+  <div class="flex flex-col gap-1">
+    {{ ui.label(_("Betalingscontext"), "bt-context") }}
+    {{ ui.grouped_filter("context", context_top, context_groups, current=context, id="bt-context") }}
+  </div>
   {% endif %}
-</div>
+{% endcall %}
 
 {# Verversen na een bewerking in het inschrijvingsdetail (#613-4/#617-3). Dat
    fragment swapt enkel zichzelf, dus de kaart erboven bleef op het oude bedrag

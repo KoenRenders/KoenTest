@@ -23,6 +23,11 @@ De maat van het hoekje ligt hier vast om dezelfde reden als de viewbox bij #762:
 Kapotgemaakt om te controleren dat deze tests rood kunnen worden: de welkomsttekst
 in de widget weer boven `#raakje-widget-gesprek` gezet → de plaatsingstest valt om;
 `rounded-bl-sm` uit de macro gehaald → de hoektest valt om.
+
+Since #1562 (CR-11 K8) the bell is built on the shared panel component: the
+widget hands its greeting to `panel.inner(… opening=teksten.intro())`, and the
+balloon and the conversation around it are written in `_raakje_panel.html`. The
+two placement tests therefore follow the greeting through both sources.
 """
 
 import re
@@ -35,6 +40,7 @@ pytestmark = pytest.mark.ui_serverrendered
 CHATBOT = Path(__file__).resolve().parents[1] / "app/domains/chatbot/templates"
 BALLON = (CHATBOT / "_raakje_ballon.html").read_text()
 WIDGET = (CHATBOT / "_raakje_widget.html").read_text()
+PANEL = (CHATBOT / "_raakje_panel.html").read_text()
 ANTWOORD = (CHATBOT / "_raakje_antwoord.html").read_text()
 
 
@@ -49,14 +55,27 @@ SCHERMEN = {"widget": (WIDGET, "raakje-widget-gesprek")}
 assert SCHERMEN, "zonder scherm toetst deze parametrisering niets"
 
 
-@pytest.mark.parametrize("naam", sorted(SCHERMEN))
-def test_de_welkomsttekst_staat_in_de_ballon(naam):
-    """Op allebei de schermen, en via dezelfde macro als een antwoord."""
-    bron, _container = SCHERMEN[naam]
+def _opening_handed_over(bron: str, naam: str) -> None:
+    """The surface hands its greeting to the panel component as `opening`."""
     regels = [r for r in bron.splitlines() if "teksten.intro()" in r]
     assert len(regels) == 1, f"{naam}: verwacht één introregel, gevonden {len(regels)}"
+    assert "opening=teksten.intro()" in regels[0], (
+        f"{naam}: the greeting is not handed to the panel as its opening: {regels[0].strip()}"
+    )
+    assert "panel.inner(" in bron, f"{naam}: does not render the shared panel"
+
+
+@pytest.mark.parametrize("naam", sorted(SCHERMEN))
+def test_de_welkomsttekst_staat_in_de_ballon(naam):
+    """Via dezelfde macro als een antwoord. Since #1562 in two steps: the surface
+    hands the greeting over, and the panel writes it in Raakje's balloon."""
+    bron, _container = SCHERMEN[naam]
+    _opening_handed_over(bron, naam)
+
+    regels = [r for r in PANEL.splitlines() if "{{ opening }}" in r]
+    assert len(regels) == 1, f"the panel writes the opening {len(regels)} times"
     assert "ballon.van_raakje()" in regels[0], (
-        f"{naam}: de welkomsttekst staat niet in de Raakje-ballon: {regels[0].strip()}"
+        f"de welkomsttekst staat niet in de Raakje-ballon: {regels[0].strip()}"
     )
 
 
@@ -64,19 +83,29 @@ def test_de_welkomsttekst_staat_in_de_ballon(naam):
 def test_de_welkomsttekst_staat_binnen_het_gesprek(naam):
     """Anders schuiven de antwoorden (`hx-swap="beforeend"`) er niet onder.
 
-    Getoetst op de volgorde in de bron: de intro staat ná het openen van de
-    gespreks-`<div>` en vóór het sluiten ervan.
+    Checked on the order in the panel's source (#1562): the opening stands after
+    the conversation's `<div>` opens and before it closes, and the surface names
+    that conversation as the panel's container.
     """
     bron, container = SCHERMEN[naam]
-    opening = bron.index(f'id="{container}"')
-    intro = bron.index("teksten.intro()")
-    assert intro > opening, f"{naam}: de welkomsttekst staat vóór het gesprek in plaats van erin"
+    _opening_handed_over(bron, naam)
+    assert f'"{container}"' in bron, f"{naam}: the panel is not given #{container}"
 
-    # Het eerstvolgende `</div>` op hetzelfde niveau kunnen we niet betrouwbaar
-    # vinden zonder te parsen; wat wél telt is dat er tussen de opening en de intro
-    # geen sluiting van diezelfde container zit.
-    tussenin = bron[opening:intro]
-    assert "<div id=" not in tussenin.replace(f'id="{container}"', ""), (
+    opening = PANEL.index('id="{{ gesprek_id }}"')
+    intro = PANEL.index("{{ opening }}")
+    assert intro > opening, f"{naam}: de welkomsttekst staat vóór het gesprek in plaats van erin"
+    assert 'hx-target="#{{ gesprek_id }}"' in PANEL and 'hx-swap="beforeend"' in PANEL, (
+        "the answers no longer land at the end of that conversation"
+    )
+
+    # Between the conversation's opening tag and the opening, every `<div` that
+    # opens must outnumber or equal the ones that close: one close too many is
+    # the conversation itself, and then the greeting stands under it.
+    tussenin = PANEL[opening:intro]
+    assert tussenin.count("</div>") <= tussenin.count("<div"), (
+        f"{naam}: het gesprek sluit vóór de welkomsttekst"
+    )
+    assert "<div id=" not in tussenin, (
         f"{naam}: er begint een andere container tussen het gesprek en de intro"
     )
 

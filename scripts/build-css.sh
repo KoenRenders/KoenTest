@@ -429,6 +429,40 @@ html.nav-rail .admin-sidebar:not(.is-open) .nav-heading{height:8px;padding:0;bor
 html.nav-rail .nav-when-rail{display:inline-flex}
 html.nav-rail .nav-when-wide{display:none}
 .admin-backdrop{position:fixed;inset:0;z-index:40;background:rgb(var(--c-ink)/.32)}
+/* ── The Assistent panel (CR-11 pilot A, K8 — #1562; end state §3.15) ──────────
+   One component, `_raakje_panel.html`, in two modes.
+
+   Docked (the back office): from 1 440 px a column of 400 px at the right, under
+   the top bar (64 px, 88 with the environment band) to the window's bottom, and
+   THE CONTENT MOVES ASIDE — `assistant-open` on <html> gives `#main` the same
+   400 px of margin, so nothing is covered and the top bar keeps its width. At 1 920 the reading group fits
+   beside it; at 1 440 exactly 768 px remain and the record's summary becomes its
+   strip (its own container query). Below 1 440 a centred dialog of at most
+   560 × 720 px over a blocked background; below 768 a sheet of 560 px from the
+   bottom with a handle.
+
+   Bell (the public site): a button of 56 px at the bottom right; from 768 px a
+   window of 400 × 640 px above it, below that the same sheet.
+
+   The panel is a flex column: head, the conversation with its own scroll, the
+   suggestions, the field. */
+.raakje-panel{position:fixed;z-index:45;display:flex;flex-direction:column;min-height:0;background:rgb(var(--c-surface));border:1px solid rgb(var(--c-line));
+  left:0;right:0;bottom:0;height:560px;max-height:calc(100vh - 64px);border-radius:16px 16px 0 0;border-bottom:0;box-shadow:0 -8px 32px rgb(var(--c-ink)/.16)}
+.raakje-panel-handle{flex:none;width:36px;height:4px;margin:8px auto 0;border-radius:2px;background:rgb(var(--c-line))}
+.raakje-backdrop{position:fixed;inset:0;z-index:44;background:rgb(var(--c-ink)/.32)}
+.raakje-bell{position:fixed;right:16px;bottom:16px;z-index:43;display:grid;place-items:center;width:56px;height:56px;border-radius:9999px}
+@media (min-width:768px){
+  .raakje-panel-handle{display:none}
+  [data-mode="docked"] .raakje-panel{left:50%;right:auto;top:50%;bottom:auto;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 32px));height:min(720px,calc(100vh - 32px));max-height:none;border-radius:16px;border-bottom:1px solid rgb(var(--c-line));box-shadow:0 16px 48px rgb(var(--c-ink)/.24)}
+  [data-mode="bell"] .raakje-panel{left:auto;right:16px;bottom:88px;width:400px;height:min(640px,calc(100vh - 104px));max-height:none;border-radius:16px;border-bottom:1px solid rgb(var(--c-line));box-shadow:0 16px 48px rgb(var(--c-ink)/.24)}
+  [data-mode="bell"] .raakje-backdrop{display:none}
+}
+@media (min-width:1440px){
+  [data-mode="docked"] .raakje-panel{left:auto;right:0;top:64px;bottom:0;transform:none;width:400px;height:auto;border-width:0 0 0 1px;border-radius:0;box-shadow:none;z-index:15}
+  [data-mode="docked"] .raakje-panel.raakje-panel--env{top:88px}
+  [data-mode="docked"] .raakje-backdrop{display:none}
+  html.assistant-open #main{margin-right:400px}
+}
 @media (width < 768px){
   html body[data-shell="admin"],html.nav-rail body[data-shell="admin"]{--nav-current:0px}
   .admin-sidebar{display:none}

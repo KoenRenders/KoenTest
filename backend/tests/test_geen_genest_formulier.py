@@ -16,9 +16,12 @@ htmx-attribuutnamen, en een tolerante parser slikt precies dít stil in — hij
 herstelt de nesting zoals een browser en meldt niets.
 
 De schermen hieronder renderen mét de beheer-assistent aan, want de overlay is
-juist het stuk dat de fout veroorzaakte. Elke render wordt getoetst op 200 én op
-de aanwezigheid van minstens één `<form>`: een gate die een foutpagina scant,
-vindt vanzelf geen nesting en staat groen om de verkeerde reden (#678).
+juist het stuk dat de fout veroorzaakte. Since #1562 the overlay is gone: the
+assistant's form stands in the shell's panel, which is loaded for the screen it
+is opened on. The gate therefore scans each screen and the panel that opens on
+it. A screen must answer 200 with the admin shell around it, and the scan as a
+whole must have seen forms on most screens and in most panels: a gate that scans
+an error page finds no nesting by itself and is green for the wrong reason (#678).
 
 Kapotgemaakt om te controleren dat deze gate rood kan worden (gemeten): de
 Raakje-overlay terug binnen `{% call ui.filter_bar %}` gezet → rood met
@@ -49,11 +52,13 @@ class _Nesting(HTMLParser):
     def __init__(self):
         super().__init__()
         self.diepte = 0
+        self.aantal = 0
         self.fouten: list[int] = []
 
     def handle_starttag(self, tag, attrs):
         if tag != "form":
             return
+        self.aantal += 1
         self.diepte += 1
         if self.diepte > 1:
             self.fouten.append(self.getpos()[0])
@@ -111,21 +116,48 @@ def schermen(client, db_session, assistent_aan) -> list[str]:
     ]
 
 
+PANEL = "/admin/rapporten/raakje/paneel"
+
+
 def test_geen_enkel_scherm_rendert_een_formulier_in_een_formulier(client, schermen):
     assert len(schermen) >= 8, "de schermenlijst kromp; deze gate scant bijna niets"
 
     fouten = []
+    met_formulier = 0
+    panelen_met_formulier = 0
     for pad in schermen:
         antwoord = client.get(pad)
         assert antwoord.status_code == 200, f"{pad} → {antwoord.status_code}"
-        assert "<form" in antwoord.text, (
-            f"{pad} rendert geen enkel formulier — dan bewijst deze scan niets"
+        assert 'id="assistent-paneel"' in antwoord.text, (
+            f"{pad} is not an admin screen with the assistant on — the scan would prove nothing"
         )
         meter = _Nesting()
         meter.feed(antwoord.text)
+        met_formulier += 1 if meter.aantal else 0
         for regel in meter.fouten:
             fouten.append(f"{pad}:{regel}")
 
+        # The panel that opens on this screen (#1562): its own form, never one
+        # inside another.
+        paneel = client.get(PANEL, headers={"HX-Current-URL": f"http://testserver{pad}"})
+        assert paneel.status_code == 200, f"panel on {pad} → {paneel.status_code}"
+        # Either the question form, or — on a module the assistant does not
+        # know — only the sentence that says so.
+        vraagt = "data-raakje-form" in paneel.text
+        assert vraagt != ("data-panel-blocked" in paneel.text), f"the panel on {pad} is neither"
+        panelen_met_formulier += 1 if vraagt else 0
+        meter = _Nesting()
+        meter.feed(paneel.text)
+        assert meter.aantal == (1 if vraagt else 0), (
+            f"the panel on {pad} holds {meter.aantal} forms"
+        )
+        for regel in meter.fouten:
+            fouten.append(f"panel on {pad}:{regel}")
+
+    # Not every screen has a form of its own since the overlay left the record
+    # head, but most do; a scan that saw none measured nothing.
+    assert met_formulier >= 8, f"only {met_formulier} screens rendered a form"
+    assert panelen_met_formulier >= 8, f"only {panelen_met_formulier} panels held a form"
     assert not fouten, (
         "Een <form> binnen een <form>: de browser gooit de binnenste tag weg, "
         "waarna zijn knoppen bij het buitenste formulier horen en zijn opmaak "
@@ -139,12 +171,22 @@ def test_de_betalingen_overlay_staat_buiten_de_filterbalk(client, schermen):
     Een structurele toets naast de scan hierboven, want deze zegt *waarom* het
     fout was — de filterbalk draagt `onsubmit="return false"`, dus een submit-knop
     die erbij hoort doet gegarandeerd niets.
+
+    Since #1562 the screen has no overlay of its own. What can still land in the
+    filter form is the shell's panel, where the assistant's form is loaded: its
+    frame must stand outside every form of the screen, and the screen itself
+    carries no assistant form at all.
     """
     html = client.get("/admin/betalingen").text
-    assert "AI · Betalingen" in html, "voorwaarde: de overlay staat op het scherm"
+    assert "AI · Betalingen" not in html and "data-raakje-form" not in html
 
+    assert html.count('id="assistent-paneel"') == 1, "precondition: the panel's frame is there"
+    paneel = html.index('id="assistent-paneel"')
     filterbalk = html.index('id="bt-filter"')
     einde = html.index("</form>", filterbalk)
-    assert "AI · Betalingen" not in html[filterbalk:einde], (
-        "de Raakje-knop staat binnen het filterformulier; daar submit hij niets"
+    assert not filterbalk < paneel < einde, (
+        "the assistant's panel stands inside the filter form; its question would submit nothing"
+    )
+    assert html.count("<form", 0, paneel) == html.count("</form>", 0, paneel), (
+        "the assistant's panel opens inside a form of the screen"
     )

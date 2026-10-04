@@ -365,7 +365,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "domains/payment/ui.py::_gezin_scope",
         "domains/payment/ui.py::_kaart",
         "domains/payment/ui.py::_paginakeuze",
-        "domains/payment/ui.py::_raakje_op_dit_scherm",
         "domains/payment/ui.py::activiteit_betalingen_tab",
         "domains/payment/ui.py::betaling_bevestigen",
         "domains/payment/ui.py::betaling_bewerken",

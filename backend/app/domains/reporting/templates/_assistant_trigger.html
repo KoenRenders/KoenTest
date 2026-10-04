@@ -1,0 +1,15 @@
+{% import "_macros.html" as ui %}
+{# The one trigger of the Assistent (K8, #1562; §3.15): a bordered button with
+   the word, the icon alone on a phone. It opens the panel. On a module the
+   assistant does not know it is dimmed but focusable, and the panel then says
+   only "Raakje kent deze gegevens nog niet". The top bar loads it and asks
+   again when the screen changes (`raakje-screen`); with the assistant off for
+   this tenant, or for a role that may not ask, the answer is empty. #}
+<span id="assistent-knop" hx-get="/admin/rapporten/raakje/knop" hx-trigger="raakje-screen from:body" hx-swap="outerHTML transition:false">
+{% if shown %}
+<button type="button" data-assistant data-raakje-trigger data-available="{{ 'true' if available else 'false' }}"
+        class="inline-flex items-center justify-center gap-2 h-9 min-w-11 px-2 md:px-3 rounded-lg border border-control-line bg-surface text-sm font-medium hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus {{ 'text-ink' if available else 'text-ink-soft opacity-60' }}"
+        aria-label="{{ _('Assistent') }}"{% if not available %} title="{{ _('Raakje kent deze gegevens nog niet') }}"{% endif %}
+        aria-haspopup="dialog" @click="$dispatch('raakje-toggle', { opener: $el })">{{ ui.icon("sparkles", 18) }}<span class="hidden md:inline">{{ _("Assistent") }}</span></button>
+{% endif %}
+</span>

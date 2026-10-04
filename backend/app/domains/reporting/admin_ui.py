@@ -86,8 +86,9 @@ from app.domains.reporting.assistant import (
     scope_for_payments,
 )
 from app.domains.reporting.viewmodels import (
+    AssistantPanelView,
+    AssistantTriggerView,
     AssistantTurnView,
-    AssistantView,
     ReportListView,
     ReportPanelView,
 )
@@ -101,7 +102,6 @@ router = APIRouter(include_in_schema=False)
 
 NAV = "/admin/rapporten"
 # #1117: de assistent heeft een eigen menuplek; deze pagina markeert die.
-NAV_RAAKJE = "/admin/rapporten/raakje"
 ODS_MEDIA_TYPE = "application/vnd.oasis.opendocument.spreadsheet"
 PER_PAGE = 50
 
@@ -838,6 +838,10 @@ def dataset_export(
 # meant to pay for.
 HISTORY_TURNS = 12
 
+#: Says to the panel that the question was not answered, so the field keeps it
+#: ("Je vraag staat er nog", decision 10).
+NOT_ANSWERED = {"X-Raakje-Failed": "1"}
+
 
 def _assistant_state(db: Session, request: Request) -> tuple[bool, str]:
     """Is the assistant available here, and if not, which switch is off?
@@ -891,25 +895,82 @@ def _history_out(turns: list[dict[str, str]]) -> str:
     return _json.dumps(turns[-HISTORY_TURNS * 2 :], ensure_ascii=False)
 
 
-@router.get("/admin/rapporten/raakje", response_class=HTMLResponse)
-def assistant_page(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
-):
+@router.get("/admin/rapporten/raakje")
+def assistant_page_moved(email: str = Depends(require_admin_ui)) -> Response:
+    """The assistant page is gone (CR-11 K8, #1562): the Assistent is a panel
+    that opens beside any screen. An old bookmark lands on the reports list,
+    where the panel speaks about the whole tenant — permanently, so the address
+    is forgotten."""
+    return RedirectResponse(NAV, status_code=301)
+
+
+def _may_ask(db: Session, request: Request) -> bool:
+    """Is there an Assistent for this visitor? The two switches (`_assistant_state`),
+    the module, and the role the question routes admit — FINANCE alone sees the
+    payments list and may not ask (#1060)."""
+    from app.domains.auth.api import (
+        SESSION_COOKIE,
+        may_use_admin_assistant,
+        read_session_value,
+    )
+    from app.domains.mdm.api import module_enabled
+    from app.kernel.modules import ModuleCode
+
+    email = read_session_value(request.cookies.get(SESSION_COOKIE))
+    return bool(
+        email
+        and _assistant_state(db, request)[0]
+        and module_enabled(ModuleCode.CHATBOT)
+        and may_use_admin_assistant(db, email)
+    )
+
+
+def _screen_context(db: Session, request: Request):
+    """The context of the screen the browser shows — its address, as htmx sends
+    it with every request."""
+    from app.domains.reporting.assistant_context import context_for
+
+    return context_for(db, request.headers.get("hx-current-url") or "", tenant_id=_tenant(request))
+
+
+@router.get("/admin/rapporten/raakje/knop", response_class=HTMLResponse)
+def assistant_trigger(request: Request, db: Session = Depends(get_db)) -> Response:
+    """The trigger in the top bar, for the screen it stands on. No role
+    dependency: the shell of a FINANCE-only user asks too, and gets an empty
+    answer instead of a 403 it would show as an error."""
+    shown = _may_ask(db, request)
+    available = shown and _screen_context(db, request).available
+    return templates.TemplateResponse(
+        request,
+        "_assistant_trigger.html",
+        AssistantTriggerView(shown=shown, available=available).as_context(),
+    )
+
+
+@router.get("/admin/rapporten/raakje/paneel", response_class=HTMLResponse)
+def assistant_panel(
+    request: Request,
+    huidig: str = "",
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+) -> Response:
+    """What stands in the panel for this screen. `huidig` is the context the
+    panel shows already: while the screen's context is that one, nothing is
+    swapped (204) and the conversation stays."""
     from app.config import settings
 
-    enabled, reason = _assistant_state(db, request)
-    view = AssistantView(
-        enabled=enabled,
-        reason=reason,
-        history="[]",
-        stt_mode=settings.stt_mode,
-        csrf_token=_csrf(request),
-        # #1117: deze pagina heeft sinds dit issue haar eigen
-        # menu-item (AI · Raakje, groep Inzicht) en markeert dat
-        # als actief — niet Rapporten, waar ze niet onder hoort.
-        nav_items=admin_nav(NAV_RAAKJE),
+    if not _may_ask(db, request):
+        # 403 and not 404: the address exists, there is no Assistent for this
+        # visitor here (a switch is off) — and then there is no trigger either.
+        raise HTTPException(status_code=403, detail=_("Geen toegang"))
+    ctx = _screen_context(db, request)
+    if huidig and huidig == ctx.key:
+        return Response(status_code=204)
+    return templates.TemplateResponse(
+        request,
+        "_assistant_panel.html",
+        AssistantPanelView(ctx=ctx, stt_mode=settings.stt_mode).as_context(),
     )
-    return templates.TemplateResponse(request, "admin_rapporten_raakje.html", view.as_context())
 
 
 @router.post(
@@ -1115,6 +1176,7 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
                 payload=_last_payload(provider),
                 history=_history_out(turns),
             ).as_context(),
+            headers=NOT_ANSWERED,
         )
     except Exception:
         logger.exception("Raakje (backoffice) kon geen antwoord geven")
@@ -1124,10 +1186,13 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
             AssistantTurnView(
                 vraag=vraag,
                 antwoord="",
-                error=_("Sorry, dat lukte niet. Probeer het opnieuw of stel de vraag anders."),
+                error=_(
+                    "Raakje kon geen antwoord geven — probeer het opnieuw. Je vraag staat er nog."
+                ),
                 payload=_last_payload(provider),
                 history=_history_out(turns),
             ).as_context(),
+            headers=NOT_ANSWERED,
         )
 
     # The history carries what the model said, tokens and all; the screen shows

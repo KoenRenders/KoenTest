@@ -158,34 +158,15 @@ def test_nothing_overlaps_on_a_phone(browser_page, screen):
 
 
 @pytest.mark.parametrize("screen", ["/admin/betalingen", TAB])
-def test_on_a_desktop_the_button_stays_beside_the_form(browser_page, screen):
-    """Wrapping is for a phone. At 1440 px the *AI · Betalingen* button still
-    stands to the right of the form, on its line — the only thing this change
-    could move on a desktop. The other bars have nothing next to their form;
-    their 1440 px geometry was compared before and after, and was identical."""
-    m = _measure(browser_page, screen, 1440)
-    assert m["inRow"] and m["neighbours"], (
-        f"{screen}: nothing next to the filter form — is the Raakje button on?"
-    )
-    for n in m["neighbours"]:
-        assert n["l"] >= m["form"]["r"], (
-            f"{screen}: {n['name']!r} wrapped under the form at 1440 px"
-        )
-        assert n["t"] < m["form"]["b"], f"{screen}: {n['name']!r} stands below the form at 1440 px"
-
-
-@pytest.mark.parametrize("screen", ["/admin/betalingen", TAB])
-def test_on_a_phone_the_button_takes_its_own_line(browser_page, screen):
-    """The other half: at 390 px the button goes UNDER the form instead of
-    squeezing it. Without this, the overlap test would also pass if the button
-    simply disappeared."""
-    m = _measure(browser_page, screen, 390)
-    assert m["inRow"] and m["neighbours"], (
-        f"{screen}: nothing next to the filter form — is the Raakje button on?"
-    )
-    for n in m["neighbours"]:
-        assert n["t"] >= m["form"]["b"], f"{screen}: {n['name']!r} is not below the form at 390 px"
-        assert n["r"] <= 390, f"{screen}: {n['name']!r} sticks out of the screen"
+@pytest.mark.parametrize("width", [1440, 390])
+def test_nothing_stands_beside_the_payments_toolbar(browser_page, screen, width):
+    """Until K8 (#1562) the *AI · Betalingen* button stood beside this form: to
+    its right on a desktop, on a line of its own on a phone (symptom 2 above was
+    its overlap). The Assistent is the shell's panel now, so the toolbar has its
+    row to itself — and a button that came back beside it would be measured here
+    as a neighbour again."""
+    m = _measure(browser_page, screen, width)
+    assert not m["neighbours"], f"{screen} at {width}: beside the toolbar: {m['neighbours']}"
 
 
 @pytest.mark.parametrize("screen", SCREENS)

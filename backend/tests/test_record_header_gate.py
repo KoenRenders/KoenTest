@@ -33,12 +33,10 @@ FORBIDDEN = [
 ]
 
 #: The one `{% call %}` body the macro accepts, per head partial: what it may
-#: contain and the issue that takes it away. Raakje leaves the head with the
-#: shell's panel (§3.15); until that is built the per-screen overlay stays, or the
-#: conversation about one record would be unreachable in between.
-CALL_BODY_EXCEPTIONS = {
-    "domains/activities/templates/_aa_recordkop.html": ("raakje.overlay(", "#1562"),
-}
+#: contain and the issue that takes it away. Empty since K8 (#1562): the
+#: per-screen assistant overlay left the activity's head with the shell's panel
+#: (§3.15). A list that only shrinks.
+CALL_BODY_EXCEPTIONS: dict[str, tuple[str, str]] = {}
 
 
 def _without_comments(text: str) -> str:
@@ -174,11 +172,14 @@ def test_a_call_body_without_an_exception_is_red():
     ]
 
 
-def test_the_exception_allows_only_the_overlay():
+def test_since_k8_no_head_has_a_call_body_at_all():
+    """#1562 took the overlay out of the activity's head and the exception with
+    it: the list is empty, so the head that carried it is refused like any
+    other — and the mechanism still tells one allowed body from more (kept as
+    the red proof of the exception's own rule)."""
+    assert not CALL_BODY_EXCEPTIONS
     rel = "domains/activities/templates/_aa_recordkop.html"
-    ok = '{% call ui.record_header(t) %}{% if on %}{{ raakje.overlay("AI", "/x", "", m) }}{% endif %}{% endcall %}'
-    assert head_violations(rel, ok) == []
-    extra = ok.replace("{% endif %}", '{% endif %}{{ ui.btn_secondary("Extra") }}')
-    assert head_violations(rel, extra) == [
-        f"{rel}: the `{{% call %}}` body holds more than `raakje.overlay(…)`"
+    was = '{% call ui.record_header(t) %}{% if on %}{{ raakje.overlay("AI", "/x", "", m) }}{% endif %}{% endcall %}'
+    assert head_violations(rel, was) == [
+        f"{rel}: a `{{% call %}}` body in the record head, and no exception names it"
     ]

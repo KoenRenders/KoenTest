@@ -1,0 +1,22 @@
+{# The frame of the Raakje panel (CR-11 K8, #1562; end state §3.15): the
+   container both shells carry. What stands in it is `_raakje_panel.html` of the
+   chatbot domain (`inner`); the geometry is `.raakje-panel` in
+   `scripts/build-css.sh`, the behaviour `static/raakje-panel.js`.
+
+   Here and not with `inner`: a shell template must render with the shell's own
+   templates alone, and `inner` imports the chatbot domain's balloons. #}
+{# `context_url`: where the back office asks the screen's context (empty on the
+   public site: its context is fixed and `caller()` renders it at once). #}
+{% macro frame(id, mode="docked", label="", context_url="", env_bar=False) -%}
+<div id="{{ id }}" data-raakje-panel data-mode="{{ mode }}"
+     x-data="raakjePanel({ contextUrl: '{{ context_url }}', docked: {{ 'true' if mode == 'docked' else 'false' }} })"
+     @raakje-toggle.window="toggle($event)" @keydown.escape.window="open && hide()">
+  <div class="raakje-backdrop" x-show="open" x-cloak aria-hidden="true"></div>
+  <section class="raakje-panel{{ ' raakje-panel--env' if env_bar }}" x-show="open" x-cloak
+           role="dialog" aria-label="{{ label }}" :aria-modal="modal().toString()" x-ref="panel">
+    <div class="raakje-panel-handle" aria-hidden="true"></div>
+    <div x-ref="inner" data-raakje-inner class="flex min-h-0 flex-1 flex-col">{{ caller() }}</div>
+  </section>
+</div>
+{%- endmacro %}
+

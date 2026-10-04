@@ -405,6 +405,27 @@ def _werkruimte_naam() -> str:
 
 templates.env.globals["werkruimte_naam"] = _werkruimte_naam
 
+
+def _assistant_in_shell() -> bool:
+    """Does the back office's shell carry the Assistent (CR-11 K8, #1562)?
+
+    What is known without a query: the environment's switch, and the two
+    modules it needs — the assistant itself and the reporting it reads. The
+    tenant's own switch and the visitor's role are the trigger's to ask (the
+    route behind it, in the reporting domain): shell chrome may not cost a query
+    per page view."""
+    from app.domains.mdm.api import module_enabled
+    from app.kernel.modules import ModuleCode
+
+    return (
+        _settings.admin_chat_enabled
+        and module_enabled(ModuleCode.CHATBOT)
+        and module_enabled(ModuleCode.REPORTING)
+    )
+
+
+templates.env.globals["assistant_in_shell"] = _assistant_in_shell
+
 # Omgevings-indicator (#464): [HDEV]/[UAT] in titel + gekleurde band. Als globale
 # beschikbaar in álle templates (publiek + admin); PROD blijft schoon.
 from app.config import settings as _settings  # noqa: E402
@@ -578,12 +599,6 @@ _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
         [
             ("/admin", "Dashboard"),
             "/admin/rapporten",
-            # #1117: de beheer-assistent gaat breder dan de rapporten — hij
-            # beantwoordt vragen over betalingen, leden, activiteiten en taken. Hem
-            # onder Rapporten laten wonen verkleint hem tot één van zijn onderwerpen
-            # en je moet er langs de rapportenlijst naartoe. Vandaar een eigen regel,
-            # en vandaar `AI · Raakje`: geen scherm, geen selectie — de assistent zelf.
-            "/admin/rapporten/raakje",
         ],
     ),
     (
@@ -649,7 +664,6 @@ _ADMIN_NAV_ICONS: dict[str, str] = {
     "/admin/ontwerpen": "palette",
     "/admin": "layout-dashboard",
     "/admin/rapporten": "chart-pie",
-    "/admin/rapporten/raakje": "sparkles",
     "/admin/gebruikers": "user-cog",
     "/admin/ledenwijzigingen": "history",
     "/admin/e-maillog": "inbox",

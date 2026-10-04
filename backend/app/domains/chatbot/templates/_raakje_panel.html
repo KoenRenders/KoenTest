@@ -1,0 +1,81 @@
+{% import "_macros.html" as ui %}
+{% import "_raakje_ballon.html" as ballon %}
+{% import "_raakje_controls.html" as controls %}
+{# The Assistent as a panel (CR-11 pilot A, K8 — #1562; end state §3.15, block
+   10, Koen, 4 October 2026). **One component for both shells**: the back office
+   docks it at the right under the top bar, the public site opens it from the
+   bell. What differs is the mode and what the caller hands over — the toolset is
+   bound in the route the form posts to, never here
+   (`tests/test_public_tool_boundary_gate.py`).
+
+   - `frame` (`app/ui/templates/_raakje_frame.html`, the shell's own — a shell
+     renders it without a domain's templates): the container. Docked (`mode="docked"`): 400 px at the right from
+     1 440 px, the content moves aside; below 1 440 a centred dialog of at most
+     560 × 720 px with the background blocked; on a phone a sheet of 560 px with
+     a handle. Bell (`mode="bell"`): a window of 400 × 640 px above the bell,
+     the same sheet on a phone. X or Escape closes and returns the focus; a
+     click beside the panel does not close it. The geometry is in
+     `scripts/build-css.sh` (`.raakje-panel`), the behaviour in
+     `static/raakje-panel.js`.
+   - `inner`: what stands in it — the head (title, read-aloud, close), the
+     context in full under it, the conversation in the kit's balloons with its
+     own scroll, three suggestions of the screen as text lines, and the question
+     field with the microphone and the send button (Enter sends). No selectors:
+     the screen owns its selection.
+
+   Like the balloons and the controls, deliberately not in `_macros.html`
+   (#791): this stays inside the chatbot domain and is imported from there. #}
+
+{# `key` names the context: when the screen's context changes, the back office
+   swaps this whole block, so a conversation never continues under another
+   subject. `blocked` is the reason asking is off. `history_id` is the hidden
+   field the admin answer fragment refreshes out-of-band (empty on the public
+   site, which keeps no history). `send_failed_header`: the response header that
+   says the question was not answered, so the field keeps it. #}
+{% macro inner(title, context, post_url, gesprek_id, field_id, stt_mode, key="",
+               suggestions=[], opening="", blocked="", history_id="", heading_cls="") -%}
+<div data-context-key="{{ key }}" class="flex min-h-0 flex-1 flex-col">
+  <header class="shrink-0 border-b border-line px-4 py-3">
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="text-base font-semibold text-ink {{ heading_cls }}" data-panel-title>{{ title }}</h2>
+      <div class="flex items-center gap-1 text-ink-soft">
+        {{ controls.read_aloud_toggle(on_dark=True) }}
+        <button type="button" data-panel-close class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg hover:bg-surface-2 hover:text-ink"
+                @click="hide()" aria-label="{{ _('Sluiten') }}">{{ ui.icon("x", 18) }}</button>
+      </div>
+    </div>
+    {% if context %}<p data-panel-context class="mt-0.5 text-[13px] text-ink-soft">{{ context }}</p>{% endif %}
+  </header>
+  <div id="{{ gesprek_id }}" data-panel-conversation class="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 text-sm">
+    {% if blocked %}
+    <div><div data-panel-blocked class="{{ ballon.van_raakje() }}">{{ blocked }}</div></div>
+    {% elif opening %}
+    <div><div class="{{ ballon.van_raakje() }}">{{ opening }}</div></div>
+    {% endif %}
+  </div>
+  {% if not blocked %}
+  <p id="{{ gesprek_id }}-laden" class="htmx-indicator shrink-0 px-4 pb-2 text-[13px] text-ink-soft" role="status">{{ _("Raakje zoekt het voor je uit…") }}</p>
+  {% if suggestions %}
+  <ul data-panel-suggestions class="m-0 shrink-0 list-none border-t border-line p-0">
+    {% for s in suggestions %}
+    <li class="border-b border-line last:border-b-0">
+      <button type="button" data-suggestion class="flex min-h-11 md:min-h-9 w-full items-center justify-between gap-2 px-4 text-left text-[13px] text-blue-700 hover:bg-surface-2"
+              @click="ask($el.dataset.question)" data-question="{{ s }}"><span>{{ s }}</span>{{ ui.icon("chevron-right", 16) }}</button>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {# The history travels in the form and is not kept on the server (CR-07 §10);
+     the admin answer fragment refreshes the field out-of-band. A question that
+     was not answered stays in the field ("Je vraag staat er nog"). #}
+  <form data-raakje-form hx-post="{{ post_url }}" hx-target="#{{ gesprek_id }}" hx-swap="beforeend"
+        hx-indicator="#{{ gesprek_id }}-laden"
+        hx-on::after-request="raakjeAfterAnswer(this, event)"
+        class="flex shrink-0 items-end gap-2 border-t border-line px-4 py-3">
+    {% if history_id %}<input type="hidden" name="historie" id="{{ history_id }}" value="">{% endif %}
+    {{ controls.input_row(field_id, stt_mode, icoon_verzenden=True) }}
+  </form>
+  <p class="shrink-0 px-4 pb-3 text-xs text-ink-soft">{{ _("Enter verzendt · Shift+Enter voor een nieuwe regel") }}</p>
+  {% endif %}
+</div>
+{%- endmacro %}

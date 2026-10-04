@@ -35,11 +35,10 @@ Since K2 (#1556, block 4) the list fragment — the table itself — has rules t
     comes from `ui.figures`, which makes it plain text and never a link or a
     button (B7 test 5).
 
-`BESIDE_THE_TOOLBAR` is a list that may only shrink. Its one entry is the
-"AI · Betalingen" button: it stays outside the toolbar, at the right of its row,
-until K8 (#1562) lets the shell's Assistent panel read the screen's selection
-(the master CLI, 4 October 2026). An entry whose template no longer carries the
-call must leave the list.
+`BESIDE_THE_TOOLBAR` is a list that may only shrink, and it is empty since K8
+(#1562): its one entry was the "AI · Betalingen" button, which left when the
+shell's Assistent panel began to read the screen's selection. A per-screen AI
+button anywhere is red in `test_assistant_gate.py` too (B7 test 13).
 
 The list fragment that a screen swaps (`_betalingen_lijst.html`) holds the
 table; rule 2 does not read it, rules 7–10 read only it.
@@ -60,9 +59,7 @@ import pytest
 APP = Path(__file__).resolve().parent.parent / "app"
 
 #: Screens that still carry something beside their toolbar, and until when.
-BESIDE_THE_TOOLBAR = {
-    "_betalingen_scherm.html": "raakje.overlay — the AI · Betalingen button, until K8 (#1562)",
-}
+BESIDE_THE_TOOLBAR: dict[str, str] = {}
 
 #: Partials that are the swapped list itself, not the chrome above it.
 LIST_FRAGMENTS = {"_betalingen_lijst.html"}
@@ -176,7 +173,7 @@ def test_the_exceptions_still_exist():
         assert name in family and "raakje.overlay(" in _without_comments(family[name]), (
             f"{name} no longer carries what BESIDE_THE_TOOLBAR excuses — remove the entry"
         )
-    assert len(BESIDE_THE_TOOLBAR) <= 1, "this list only shrinks"
+    assert not BESIDE_THE_TOOLBAR, "this list only shrinks, and it is empty since #1562"
 
 
 CLEAN = """{% call ui.toolbar("/l", "#l", "t") %}{{ ui.grouped_filter("context") }}{% endcall %}

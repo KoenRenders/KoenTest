@@ -10,7 +10,10 @@ niet: ik antwoord op groepsniveau."* Waar een rij een gezin of een bestuurslid
 noemt, ziet de beheerder wél de naam. Die zin stond op **drie** plaatsen (de
 Betalingen-overlay, de activiteit-overlay en de pagina van de assistent); het
 issue noemt er één, maar het is dezelfde zin met dezelfde fout, en één ervan
-repareren laat er twee liegen.
+repareren laat er twee liegen. Since #1562 (CR-11 K8) those three places are
+gone: the Assistent is one panel, it opens without a greeting, and what it says
+about the screen is the context line and three suggestions. The promise must
+not come back there, so the scan below reads what the panel is built from.
 
 **2. Een activiteit heette "activiteit 77".** De naam wordt nu server-side
 opgezocht en gaat mee de prompt in, met het nummer ernaast — het model filtert op
@@ -53,11 +56,13 @@ pytestmark = pytest.mark.ui_serverrendered
 
 DOMAINS = Path(__file__).resolve().parents[2] / "app" / "domains"
 
-# De drie openingszinnen van Raakje in het beheer, met de plek waar ze staan.
-OPENINGEN = (
-    "payment/templates/_betalingen_scherm.html",
-    "activities/templates/_aa_recordkop.html",
-    "reporting/templates/admin_rapporten_raakje.html",
+# What the back office's Assistent panel says before a question is asked
+# (#1562): the panel's own templates and the module that writes its context
+# line, its suggestions and its refusals.
+PANEL_TEXTS = (
+    "reporting/templates/_assistant_panel.html",
+    "chatbot/templates/_raakje_panel.html",
+    "reporting/assistant_context.py",
 )
 
 
@@ -70,16 +75,17 @@ def situatie(db_session):
 
 
 def test_geen_enkele_openingszin_belooft_dat_namen_wegblijven():
-    """Toets de zin, niet de aanwezigheid van een overlay.
-
-    De claim is onwaar: de terugvertaling zet `gezin-23` om naar de naam vóór de
+    """De claim is onwaar: de terugvertaling zet `gezin-23` om naar de naam vóór de
     beheerder het leest. Beloof dus niets over namen — wat er komt, hangt af van
     wat er in de rij staat.
+
+    Since #1562 the scan reads the panel's sources instead of the three overlays.
     """
-    assert len(OPENINGEN) == 3, "de lijst openingszinnen kromp; deze test scant minder"
+    assert len(PANEL_TEXTS) == 3, "the list of panel sources shrank; this test scans less"
     fouten = []
-    for relatief in OPENINGEN:
+    for relatief in PANEL_TEXTS:
         bron = (DOMAINS / relatief).read_text()
+        assert "Raakje" in bron or "panel.inner(" in bron, f"{relatief} is not a panel source"
         for zin in ("Namen van personen geef ik niet", "ik antwoord op groepsniveau"):
             if zin in bron:
                 fouten.append(f"{relatief}: «{zin}»")
@@ -89,16 +95,34 @@ def test_geen_enkele_openingszin_belooft_dat_namen_wegblijven():
     )
 
 
-def test_de_rest_van_de_openingszin_blijft_staan():
-    """De tegenproef: de zin is ingekort, niet leeggehaald. Zonder deze test zou
-    "haal de hele begroeting weg" ook groen staan."""
+def test_three_suggestions_replace_the_opening_sentence(db_session, situatie):
+    """#1562 took the greeting away with the overlays; what a screen offers
+    instead is its context line and three example questions. The counter-proof
+    of the scan above, as before: "remove everything the panel says" would pass
+    that scan too, so each of the three contexts must still say what it is about
+    and offer its examples."""
+    from app.domains.reporting.assistant_context import context_for
+
+    quiz = situatie["activities"]["quiz"]
     voorbeelden = {
-        "payment/templates/_betalingen_scherm.html": "Ik kijk mee met de selectie",
-        "activities/templates/_aa_recordkop.html": "Vraag me iets over deze activiteit",
-        "reporting/templates/admin_rapporten_raakje.html": "Vraag me iets over de leden",
+        f"http://testserver/admin/activiteiten/{quiz}": "Hoeveel inschrijvingen zijn er?",
+        "http://testserver/admin/betalingen?zicht=openstaand": "Wie heeft nog niet betaald?",
+        "http://testserver/admin/rapporten": "Hoeveel gezinnen zijn er per gemeente?",
     }
-    for relatief, stuk in voorbeelden.items():
-        assert stuk in (DOMAINS / relatief).read_text(), relatief
+    labels = set()
+    for url, voorbeeld in voorbeelden.items():
+        ctx = context_for(db_session, url, tenant_id=TENANT)
+        assert ctx.can_ask, url
+        assert len(ctx.suggestions) == 3, (url, ctx.suggestions)
+        assert voorbeeld in ctx.suggestions, (url, ctx.suggestions)
+        assert ctx.label.startswith("over "), (url, ctx.label)
+        labels.add(ctx.label)
+    assert len(labels) == 3, f"three screens, three contexts: {labels}"
+    assert "over Quiz" in labels, labels
+
+    paneel = (DOMAINS / "reporting/templates/_assistant_panel.html").read_text()
+    assert "suggestions=ctx.suggestions" in paneel
+    assert "opening=" not in paneel, "the back office's panel opens without a greeting"
 
 
 # ── 2. De activiteit bij naam ────────────────────────────────────────────────

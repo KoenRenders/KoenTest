@@ -109,21 +109,43 @@ def test_finance_only_still_sees_payments_and_only_when_payment_is_on():
     assert not [i for g in admin_nav("/x", roles=["FINANCE"], modules=COMPANY) for i in g["items"]]
 
 
-def test_an_item_needs_the_module_that_lists_it_and_the_one_that_serves_it():
-    """Foto's: listed by activities, served by media. AI · Raakje: listed by
-    the chatbot, served by reporting."""
+def test_an_item_needs_the_module_that_lists_it_and_the_one_that_serves_it(monkeypatch):
+    """Foto's: listed by activities, served by media.
+
+    Until #1562 the admin menu had such an item too — "AI · Raakje", listed by
+    the chatbot and served by reporting. It left the menu: the Assistent is the
+    panel behind the top bar's trigger. The two-module rule went with it to the
+    shell (`assistant_in_shell`): the trigger and the panel are there only when
+    the chatbot and reporting are both on."""
+    from app.config import settings
+    from app.ui import _assistant_in_shell
+
     without = lambda *off: EVERY - {code.value for code in off}  # noqa: E731
 
     assert nav_item_shown("public_items", "/fotos", EVERY)
     assert not nav_item_shown("public_items", "/fotos", without(ModuleCode.ACTIVITIES))
     assert not nav_item_shown("public_items", "/fotos", without(ModuleCode.MEDIA))
-    assert not nav_item_shown(
-        "admin_items", "/admin/rapporten/raakje", without(ModuleCode.REPORTING)
-    )
-    assert not nav_item_shown("admin_items", "/admin/rapporten/raakje", without(ModuleCode.CHATBOT))
+    assert not [
+        module.code for module in MODULES for href, _l in module.admin_items if "raakje" in href
+    ], "the assistant is back in a module's menu items"
+    # What the chatbot still lists is its own screen, and that needs the chatbot.
+    assert nav_item_shown("admin_items", "/admin/ai-context", EVERY)
+    assert not nav_item_shown("admin_items", "/admin/ai-context", without(ModuleCode.CHATBOT))
     assert nav_item_shown("admin_items", "/admin/gebruikers", frozenset()), (
         "the shell is always there"
     )
+
+    monkeypatch.setattr(settings, "admin_chat_enabled", True)
+    for enabled, expected in (
+        (EVERY, True),
+        (without(ModuleCode.REPORTING), False),
+        (without(ModuleCode.CHATBOT), False),
+    ):
+        token = current_modules.set(enabled)
+        try:
+            assert _assistant_in_shell() is expected, sorted(EVERY - enabled)
+        finally:
+            current_modules.reset(token)
 
 
 def test_a_company_header_has_no_photos_and_no_archive(client, modules_of):
