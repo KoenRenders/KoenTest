@@ -49,9 +49,8 @@ def test_token_van_een_vorige_sessie_geeft_403(client, db_session):
 
     # De browser draagt de nieuwe cookie (herinlog), het tabblad het oude token.
     client.cookies.set(SESSION_COOKIE, nieuwe_waarde)
-    datum = activity.dates[0]
     r = client.post(
-        f"/admin/activiteiten/{activity.id}/datums/{datum.id}",
+        f"/admin/activiteiten/{activity.id}",  # the fiche's save (#1559)
         data={"start_date": "2032-03-03"},
         headers={"X-CSRF-Token": csrf_token_for(oude_waarde)},
     )
@@ -60,7 +59,7 @@ def test_token_van_een_vorige_sessie_geeft_403(client, db_session):
     # Met het token van de huidige cookie lukt dezelfde POST wél — het bewijs dat
     # niet de invoer maar de sessie het probleem was.
     ok = client.post(
-        f"/admin/activiteiten/{activity.id}/datums/{datum.id}",
+        f"/admin/activiteiten/{activity.id}",  # the fiche's save (#1559)
         data={"start_date": "2032-03-03"},
         headers={"X-CSRF-Token": csrf_token_for(nieuwe_waarde)},
     )

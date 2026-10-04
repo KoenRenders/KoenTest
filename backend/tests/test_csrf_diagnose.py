@@ -22,7 +22,9 @@ from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 
 def _pad(activity, datum):
-    return f"/admin/activiteiten/{activity.id}/datums/{datum.id}"
+    # #1559: the date route went with the row routes; the diagnosis is about the
+    # guard, so the fiche's own save serves as well.
+    return f"/admin/activiteiten/{activity.id}"
 
 
 def _reden(caplog):

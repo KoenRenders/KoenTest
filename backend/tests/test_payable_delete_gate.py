@@ -102,7 +102,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # de rij zegt "deze persoon trekt deze activiteit", en wie dat niet meer doet,
     # heeft geen grafsteen nodig. Er hangt geen betaling aan, dus er kan geen wees
     # ontstaan.
-    ("domains/activities/service.py", "remove_organiser"): (
+    # #1559: the delete itself moved into `drop_organiser`, the non-committing
+    # core `remove_organiser` and the save of the fiche share.
+    ("domains/activities/service.py", "drop_organiser"): (
         "ActivityOrganiser: geen payable, geen soft delete (#1004)"
     ),
 }

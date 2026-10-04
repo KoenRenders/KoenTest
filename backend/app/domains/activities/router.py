@@ -498,7 +498,12 @@ def delete_component(
 ) -> dict[str, str]:
     from app.domains.activities import service
 
-    if not service.delete_component(db, activity_id, component_id, actor=admin.email):
+    try:
+        deleted = service.delete_component(db, activity_id, component_id, actor=admin.email)
+    except service.ActiviteitFout as fout:
+        # #1559: a component with registrations cannot go.
+        raise HTTPException(status_code=422, detail=str(fout))
+    if not deleted:
         raise HTTPException(status_code=404, detail=_("Component not found"))
     return {"detail": "deleted"}
 
@@ -565,7 +570,12 @@ def delete_product(
 ) -> dict[str, str]:
     from app.domains.activities import service
 
-    if not service.delete_product(db, component_id, product_id, actor=admin.email):
+    try:
+        deleted = service.delete_product(db, component_id, product_id, actor=admin.email)
+    except service.ActiviteitFout as fout:
+        # #1559: a product that stands on a registration cannot go.
+        raise HTTPException(status_code=422, detail=str(fout))
+    if not deleted:
         raise HTTPException(status_code=404, detail=_("Product not found"))
     return {"detail": "deleted"}
 

@@ -182,16 +182,18 @@ def test_the_settings_offer_the_form_and_say_why_a_replace_fails(client, db_sess
     _attach(db_session, component, sint.id)
     _answered(db_session, component, sint)
 
+    from tests._fiche import Fiche
+
     value = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, value)
-    html = client.get(f"/admin/activiteiten/{activity.id}").text
+    html = client.get(f"/admin/activiteiten/{activity.id}?bewerken=1").text
     assert f'<option value="{sint.id}" selected>Sint 2026</option>' in html
-    assert f'<option value="{other.id}" >Andere vragen</option>' in html
+    assert f'<option value="{other.id}">Andere vragen</option>' in html
 
-    r = client.post(
-        f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}",
-        data={"name": component.name, "form_id": str(other.id)},
-        headers={"X-CSRF-Token": csrf_token_for(value)},
-    )
-    assert r.status_code == 200
+    # Since #1559 through the fiche's one save: refused with the reason, in the
+    # fiche's message line.
+    fiche = Fiche(db_session, activity.id)
+    fiche.set("c", component.id, form_id=other.id)
+    r = fiche.post(client, {"X-CSRF-Token": csrf_token_for(value)})
+    assert r.status_code == 422
     assert "al antwoorden op zijn vragen" in r.text

@@ -885,11 +885,23 @@ def update_activity(
     maakt er een 404 van, een script misschien iets anders. De service kent geen
     HTTP-statuscodes.
     """
-    from app.domains.audit.api import snapshot_activity
-
     activity = _activity_met_boom(db, activity_id)
     if activity is None:
         return None
+    apply_activity_update(db, activity, velden, actor=actor)
+    db.commit()
+    db.refresh(activity)
+    return activity
+
+
+def apply_activity_update(
+    db: Session, activity: Activity, velden: dict, *, actor: str | None = None
+) -> None:
+    """Write `velden` on the activity with its history, without committing (#1559:
+    shared by `update_activity` and the save of the whole fiche)."""
+    from app.domains.audit.api import snapshot_activity
+
+    activity_id = activity.id
     # #884: een slug volgt de naam NIET. Hij verandert alleen wanneer hij expliciet in
     # `velden` staat — en dan met een zichtbare controle op botsing. Zou hij meebewegen
     # met de naam, dan sterft elke gedeelde link bij een hernoeming, zonder dat iemand
@@ -913,9 +925,6 @@ def update_activity(
         source="admin_manual",
         actor=actor,
     )
-    db.commit()
-    db.refresh(activity)
-    return activity
 
 
 def delete_activity(db: Session, activity_id: int, *, actor: str | None = None) -> bool:
@@ -982,10 +991,23 @@ def add_activity_date(
     db: Session, activity_id: int, gegevens: ActivityDateCreate, *, actor: str | None = None
 ) -> Optional[ActivityDate]:
     """Voeg een datum toe. None als de activiteit niet bestaat (#679, batch 2)."""
-    from app.domains.audit.api import snapshot_activity_date
-
     if db.query(Activity).filter(Activity.id == activity_id).first() is None:
         return None
+    with _rollback_on_rule_violation(db):
+        ad = insert_date(db, activity_id, gegevens, actor=actor)
+        db.commit()
+    db.refresh(ad)
+    return ad
+
+
+def insert_date(
+    db: Session, activity_id: int, gegevens: Any, *, actor: str | None = None
+) -> ActivityDate:
+    """Add a date row with its history, without committing (#1559: shared by
+    `add_activity_date` and the save of the whole fiche). The coherence rule of
+    the row fires in the flush."""
+    from app.domains.audit.api import snapshot_activity_date
+
     ad = ActivityDate(
         activity_id=activity_id,
         start_date=gegevens.start_date,
@@ -993,14 +1015,11 @@ def add_activity_date(
         start_time=getattr(gegevens, "start_time", None),
         end_time=getattr(gegevens, "end_time", None),
     )
-    with _rollback_on_rule_violation(db):
-        db.add(ad)
-        db.flush()
-        snapshot_activity_date(
-            db, ad, operation="insert", action="date_created", source="admin_manual", actor=actor
-        )
-        db.commit()
-    db.refresh(ad)
+    db.add(ad)
+    db.flush()
+    snapshot_activity_date(
+        db, ad, operation="insert", action="date_created", source="admin_manual", actor=actor
+    )
     return ad
 
 
@@ -1013,38 +1032,50 @@ def update_activity_date(
     activiteit A mag je niet via activiteit B kunnen bewerken, ongeacht welke
     ingang het probeert.
     """
-    from app.domains.audit.api import snapshot_activity_date
-
     ad = _datum(db, activity_id, date_id)
     if ad is None:
         return None
-    for veld, waarde in velden.items():
-        setattr(ad, veld, waarde)
     with _rollback_on_rule_violation(db):
-        snapshot_activity_date(
-            db, ad, operation="update", action="date_updated", source="admin_manual", actor=actor
-        )
+        apply_date_update(db, ad, velden, actor=actor)
         db.commit()
     db.refresh(ad)
     return ad
+
+
+def apply_date_update(
+    db: Session, ad: ActivityDate, velden: dict, *, actor: str | None = None
+) -> None:
+    """Write `velden` on a date row with its history, without committing (#1559)."""
+    from app.domains.audit.api import snapshot_activity_date
+
+    for veld, waarde in velden.items():
+        setattr(ad, veld, waarde)
+    snapshot_activity_date(
+        db, ad, operation="update", action="date_updated", source="admin_manual", actor=actor
+    )
 
 
 def delete_activity_date(
     db: Session, activity_id: int, date_id: int, *, actor: str | None = None
 ) -> bool:
     """Soft delete van één datum. False als ze niet bij deze activiteit hoort."""
-    from app.domains.audit.api import snapshot_activity_date
-    from app.soft_delete import soft_delete
-
     ad = _datum(db, activity_id, date_id)
     if ad is None:
         return False
+    remove_date(db, ad, actor=actor)
+    db.commit()
+    return True
+
+
+def remove_date(db: Session, ad: ActivityDate, *, actor: str | None = None) -> None:
+    """Soft-delete a date row with its history, without committing (#1559)."""
+    from app.domains.audit.api import snapshot_activity_date
+    from app.soft_delete import soft_delete
+
     snapshot_activity_date(
         db, ad, operation="delete", action="date_deleted", source="admin_manual", actor=actor
     )
     soft_delete(ad)
-    db.commit()
-    return True
 
 
 def _datum(db: Session, activity_id: int, date_id: int) -> Optional[ActivityDate]:
@@ -1071,7 +1102,17 @@ def add_component(
     """Voeg een onderdeel toe. None als de activiteit niet bestaat."""
     if db.query(Activity).filter(Activity.id == activity_id).first() is None:
         return None
-    component = ActivitySubRegistration(
+    component = new_component(activity_id, gegevens)
+    _insert_component(db, component, actor=actor, action="component_created")
+    db.commit()
+    db.refresh(component)
+    return component
+
+
+def new_component(activity_id: int, gegevens: Any) -> ActivitySubRegistration:
+    """A component row from its fields, not yet added (#1559: shared by
+    `add_component` and the save of the whole fiche)."""
+    return ActivitySubRegistration(
         activity_id=activity_id,
         name=gegevens.name,
         team_name_required=gegevens.team_name_required,
@@ -1087,10 +1128,6 @@ def add_component(
         price=0,
         is_free=True,
     )
-    _insert_component(db, component, actor=actor, action="component_created")
-    db.commit()
-    db.refresh(component)
-    return component
 
 
 def _insert_component(
@@ -1111,11 +1148,22 @@ def update_component(
     db: Session, activity_id: int, component_id: int, velden: dict, *, actor: str | None = None
 ) -> ActivitySubRegistration | None:
     """Werk een onderdeel bij. None als het niet bij deze activiteit hoort."""
-    from app.domains.audit.api import snapshot_component
-
     component = get_component(db, component_id, activity_id=activity_id)
     if component is None:
         return None
+    apply_component_update(db, component, velden, actor=actor)
+    db.commit()
+    db.refresh(component)
+    return component
+
+
+def apply_component_update(
+    db: Session, component: ActivitySubRegistration, velden: dict, *, actor: str | None = None
+) -> None:
+    """Write `velden` on a component with its history, without committing (#1559).
+    The question form is checked before anything is written."""
+    from app.domains.audit.api import snapshot_component
+
     if "form_id" in velden:
         _check_questions(db, component, velden["form_id"])
     for veld, waarde in velden.items():
@@ -1128,9 +1176,6 @@ def update_component(
         source="admin_manual",
         actor=actor,
     )
-    db.commit()
-    db.refresh(component)
-    return component
 
 
 def _check_questions(db: Session, component: ActivitySubRegistration, form_id: int | None) -> None:
@@ -1202,13 +1247,51 @@ def question_forms(db: Session, activity_id: int) -> tuple[list[tuple[int, str]]
 def delete_component(
     db: Session, activity_id: int, component_id: int, *, actor: str | None = None
 ) -> bool:
-    """Soft delete van een onderdeel én zijn producten. False als het niet bestaat."""
-    from app.domains.audit.api import snapshot_component, snapshot_product
-    from app.soft_delete import soft_delete
+    """Soft delete van een onderdeel én zijn producten. False als het niet bestaat.
 
+    Refuses a component that has registrations (#1559) — `ActiviteitFout`."""
     component = get_component(db, component_id, activity_id=activity_id)
     if component is None:
         return False
+    remove_component(db, component, actor=actor)
+    db.commit()
+    return True
+
+
+def remove_component(
+    db: Session, component: ActivitySubRegistration, *, actor: str | None = None
+) -> None:
+    """Soft-delete a component and its products with their history, without
+    committing (#1559).
+
+    **A component with registrations cannot go** (Koen, 4 October 2026 — a new
+    rule with #1559). Until then this was an unconditional soft delete behind a
+    confirmation dialog, and the registrations stayed behind without their
+    component. In the fiche a row is removed without a dialog, so the rule is
+    what keeps one click and a save from taking a component with thirty
+    registrations along. In the service, so every entrance refuses.
+    """
+    from app.domains.audit.api import snapshot_component, snapshot_product
+    from app.i18n import _ as vertaal
+    from app.soft_delete import soft_delete
+
+    registrations = (
+        db.query(Registration.id).filter(Registration.component_id == component.id).count()
+    )
+    if registrations:
+        raise ActiviteitFout(
+            (
+                vertaal(
+                    "Het onderdeel “%(name)s” heeft één inschrijving en kan niet verwijderd worden."
+                )
+                if registrations == 1
+                else vertaal(
+                    "Het onderdeel “%(name)s” heeft %(count)d inschrijvingen en kan niet "
+                    "verwijderd worden."
+                )
+            )
+            % {"name": component.name, "count": registrations}
+        )
     for p in component.products:
         snapshot_product(
             db,
@@ -1228,8 +1311,6 @@ def delete_component(
         actor=actor,
     )
     soft_delete(component)
-    db.commit()
-    return True
 
 
 def _controleer_afrekening(is_free: bool | None, pay_on_site: bool | None) -> None:
@@ -1254,12 +1335,23 @@ def add_product(
     actor: str | None = None,
 ) -> ActivityProduct | None:
     """Voeg een product toe. None als het onderdeel niet bij de activiteit hoort."""
-    from app.domains.activities.models import ActivityProduct
-
     if get_component(db, component_id, activity_id=activity_id) is None:
         return None
+    product = new_product(component_id, gegevens)
+    _insert_product(db, product, actor=actor, action="product_created")
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+def new_product(component_id: int, gegevens: Any) -> ActivityProduct:
+    """A product row from its fields, not yet added (#1559: shared by
+    `add_product` and the save of the whole fiche). Refuses free and
+    pay-on-site together."""
+    from app.domains.activities.models import ActivityProduct
+
     _controleer_afrekening(gegevens.is_free, gegevens.pay_on_site)
-    product = ActivityProduct(
+    return ActivityProduct(
         component_id=component_id,
         name=gegevens.name,
         price=gegevens.price,
@@ -1270,10 +1362,6 @@ def add_product(
         max_participants=gegevens.max_participants,
         sort_order=gegevens.sort_order,
     )
-    _insert_product(db, product, actor=actor, action="product_created")
-    db.commit()
-    db.refresh(product)
-    return product
 
 
 def _insert_product(db: Session, product: Any, *, actor: str | None, action: str) -> None:
@@ -1292,11 +1380,22 @@ def update_product(
     db: Session, component_id: int, product_id: int, velden: dict, *, actor: str | None = None
 ) -> ActivityProduct | None:
     """Werk een product bij. None als het niet bij dit onderdeel hoort."""
-    from app.domains.audit.api import snapshot_product
-
     product = _product(db, component_id, product_id)
     if product is None:
         return None
+    with _rollback_on_rule_violation(db):
+        apply_product_update(db, product, velden, actor=actor)
+        db.commit()
+    db.refresh(product)
+    return product
+
+
+def apply_product_update(
+    db: Session, product: ActivityProduct, velden: dict, *, actor: str | None = None
+) -> None:
+    """Write `velden` on a product with its history, without committing (#1559)."""
+    from app.domains.audit.api import snapshot_product
+
     for veld, waarde in velden.items():
         setattr(product, veld, waarde)
     # Ná het toepassen: de combinatie kan ook ontstaan door één veld te wijzigen.
@@ -1309,21 +1408,45 @@ def update_product(
         source="admin_manual",
         actor=actor,
     )
-    db.commit()
-    db.refresh(product)
-    return product
 
 
 def delete_product(
     db: Session, component_id: int, product_id: int, *, actor: str | None = None
 ) -> bool:
-    """Soft delete van één product. False als het niet bij dit onderdeel hoort."""
-    from app.domains.audit.api import snapshot_product
-    from app.soft_delete import soft_delete
+    """Soft delete van één product. False als het niet bij dit onderdeel hoort.
 
+    Refuses a product that stands on a registration (#1559) — `ActiviteitFout`."""
     product = _product(db, component_id, product_id)
     if product is None:
         return False
+    remove_product(db, product, actor=actor)
+    db.commit()
+    return True
+
+
+def remove_product(db: Session, product: ActivityProduct, *, actor: str | None = None) -> None:
+    """Soft-delete a product with its history, without committing (#1559).
+
+    **A product that stands on a registration cannot go** (Koen, 4 October 2026 —
+    a new rule with #1559): the line would keep its amount and lose its name on
+    the screen and its column on the door list, because both read the living
+    products. `is_active` exists for exactly that case — off, the product leaves
+    the public form and the board keeps it.
+    """
+    from app.domains.activities.models import RegistrationItem
+    from app.domains.audit.api import snapshot_product
+    from app.i18n import _ as vertaal
+    from app.soft_delete import soft_delete
+
+    lines = db.query(RegistrationItem.id).filter(RegistrationItem.product_id == product.id).count()
+    if lines:
+        raise ActiviteitFout(
+            vertaal(
+                "Het product “%(name)s” staat op een inschrijving en kan niet verwijderd "
+                "worden. Zet “Publiek zichtbaar” uit als het niet meer gekozen mag worden."
+            )
+            % {"name": product.name}
+        )
     snapshot_product(
         db,
         product,
@@ -1333,8 +1456,6 @@ def delete_product(
         actor=actor,
     )
     soft_delete(product)
-    db.commit()
-    return True
 
 
 def _product(db: Session, component_id: int, product_id: int) -> ActivityProduct | None:
@@ -3293,9 +3414,16 @@ def remove_organiser(db: Session, activity_id: int, organiser_id: int) -> bool:
     rij = next((r for r in _organiser_rows(db, activity_id) if r.id == organiser_id), None)
     if rij is None:
         return False
-    db.delete(rij)
+    drop_organiser(db, rij)
     db.commit()
     return True
+
+
+def drop_organiser(db: Session, rij: ActivityOrganiser) -> None:
+    """Remove an organiser row, without committing (#1559: shared by
+    `remove_organiser` and the save of the whole fiche). A hard delete: an
+    organiser is no payable and carries no soft delete (#1004)."""
+    db.delete(rij)
 
 
 def move_organiser(db: Session, activity_id: int, organiser_id: int, direction: str) -> bool:

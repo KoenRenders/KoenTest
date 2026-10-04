@@ -350,30 +350,3 @@ def test_the_board_can_still_correct_an_existing_registration(
 
 
 # ── Beheer: het veld ─────────────────────────────────────────────────────────
-
-
-def test_the_deadline_can_be_set_and_cleared_in_the_admin(client, db_session):
-    """Clearing is a valid choice, so an empty field must remove the deadline.
-
-    #1053: the field sits on the COMPONENT form now, so this posts to the component
-    route. Same three steps as before: set, read back on the screen, clear.
-    """
-    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-    from tests.conftest import SEEDED_ADMIN_EMAIL
-
-    a, comp, _product = _activity(db_session, closes_on=None)
-    value = make_session_value(SEEDED_ADMIN_EMAIL)
-    client.cookies.set(SESSION_COOKIE, value)
-    kop = {"X-CSRF-Token": csrf_token_for(value)}
-    pad = f"/admin/activiteiten/{a.id}/onderdelen/{comp.id}"
-
-    client.post(pad, data={"name": "Deelname", "registration_closes_on": "2027-07-15"}, headers=kop)
-    db_session.refresh(comp)
-    assert comp.registration_closes_on == DEADLINE
-
-    html = client.get(f"/admin/activiteiten/{a.id}").text
-    assert 'value="2027-07-15"' in html
-
-    client.post(pad, data={"name": "Deelname", "registration_closes_on": ""}, headers=kop)
-    db_session.refresh(comp)
-    assert comp.registration_closes_on is None

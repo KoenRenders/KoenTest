@@ -328,6 +328,35 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .data-table [data-sum] [data-cell="context"],.data-table [data-sum] [data-cell="status"],.data-table [data-sum] [data-cell="actions"]{display:none!important}
   .data-table [data-sum] [data-cell="amount"]{grid-row:1}
 }
+/* CR-11 block 7 (#1559), design-system-end-state §3.3: the repeating group.
+   12 px between rows with a thin line in that space. A simple row in edit mode
+   is [handle 44] [fields] [⋯ 44]; its labels stand once, in the group's head,
+   and are hidden per row — until the section is too narrow for two half fields
+   (the same 532 px), where the head goes, the fields stack with their labels and
+   the handle and ⋯ take the first line. A composite item keeps its handle in a
+   gutter of 44 px at the left of the whole block. A child group is indented
+   behind a vertical line: 16 px, 12 on a phone. While dragging: the origin
+   dotted and dimmed, a brand line where the row will land. */
+.group-rows>[data-group-row]+[data-group-row]{margin-top:12px;padding-top:12px;border-top:1px solid rgb(var(--c-line))}
+.group-row--edit.group-row--simple{display:grid;grid-template-columns:minmax(0,1fr) 44px;column-gap:8px;align-items:end}
+.group-row--edit.group-row--simple.group-row--handle{grid-template-columns:44px minmax(0,1fr) 44px}
+.group-row--edit.group-row--composite.group-row--handle{display:grid;grid-template-columns:44px minmax(0,1fr);column-gap:8px;align-items:start}
+.group-handle{display:flex;align-items:center;justify-content:center;width:44px;height:44px;color:rgb(var(--c-ink-soft));cursor:grab;touch-action:none}
+.group-head{margin-bottom:4px;padding-right:52px}
+.group-head--handle{padding-left:52px}
+.group-row--edit.group-row--simple [data-field]>label{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.group-child{margin-top:16px;padding-left:16px;border-left:1px solid rgb(var(--c-line))}
+.group-dragging{opacity:.5;outline:1px dashed rgb(var(--c-control-line));outline-offset:2px}
+.group-drop-before{box-shadow:0 -2px 0 rgb(var(--c-brand))}
+.group-drop-after{box-shadow:0 2px 0 rgb(var(--c-brand))}
+@container (max-width:531.98px){
+  .group-head{display:none}
+  .group-row--edit.group-row--simple,.group-row--edit.group-row--simple.group-row--handle{grid-template-columns:44px minmax(0,1fr) 44px;row-gap:4px;align-items:center}
+  .group-row--edit.group-row--simple>.group-body{grid-column:1/-1;grid-row:2}
+  .group-row--edit.group-row--simple:not(.group-row--handle)>.relative{grid-column:3}
+  .group-row--edit.group-row--simple [data-field]>label{position:static;width:auto;height:auto;margin:0 0 4px;overflow:visible;clip:auto;white-space:normal}
+  .group-child{padding-left:12px}
+}
 .nav-drawer-only,.nav-when-rail{display:none}
 html.nav-rail .admin-sidebar:not(.is-open) .nav-label{display:none}
 html.nav-rail .admin-sidebar:not(.is-open) .nav-rail-mark{display:block}

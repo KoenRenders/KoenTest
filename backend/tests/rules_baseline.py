@@ -177,9 +177,7 @@ JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset(
 DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
     {
         "config.py::_leeg_is_niet_gezet",
-        "domains/activities/admin_ui.py::_datum_of_none",
         "domains/activities/admin_ui.py::_lijst_ctx",
-        "domains/activities/admin_ui.py::_verplaats",
         "domains/activities/admin_ui.py::activiteit_aanmaken",
         "domains/activities/admin_ui.py::activiteit_bijwerken",
         "domains/activities/admin_ui.py::activiteit_inschrijvingen_tab",
@@ -187,10 +185,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "domains/activities/admin_ui.py::activiteit_verwijderen",
         "domains/activities/admin_ui.py::admin_activiteit_detail",
         "domains/activities/admin_ui.py::admin_activiteiten",
-        "domains/activities/admin_ui.py::affiche_verwijderen",
-        "domains/activities/admin_ui.py::datum_bijwerken",
-        "domains/activities/admin_ui.py::datum_toevoegen",
-        "domains/activities/admin_ui.py::datum_verwijderen",
         "domains/activities/admin_ui.py::inschrijving_detail",
         "domains/activities/admin_ui.py::inschrijving_nieuw",
         "domains/activities/admin_ui.py::inschrijving_nieuw_opslaan",
@@ -202,21 +196,8 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "domains/activities/admin_ui.py::inschrijving_regel_bijwerken",
         "domains/activities/admin_ui.py::inschrijving_totaal",
         "domains/activities/admin_ui.py::inschrijving_verwijderen",
-        "domains/activities/admin_ui.py::onderdeel_bijwerken",
         "domains/activities/admin_ui.py::onderdeel_export",
-        "domains/activities/admin_ui.py::onderdeel_info_uploaden",
-        "domains/activities/admin_ui.py::onderdeel_info_verwijderen",
-        "domains/activities/admin_ui.py::onderdeel_toevoegen",
-        "domains/activities/admin_ui.py::onderdeel_verplaatsen",
-        "domains/activities/admin_ui.py::onderdeel_verwijderen",
-        "domains/activities/admin_ui.py::organisator_bijwerken",
-        "domains/activities/admin_ui.py::organisator_toevoegen",
-        "domains/activities/admin_ui.py::organisator_verwijderen",
         "domains/activities/admin_ui.py::organisatoren_zoeken",
-        "domains/activities/admin_ui.py::product_bijwerken",
-        "domains/activities/admin_ui.py::product_toevoegen",
-        "domains/activities/admin_ui.py::product_verplaatsen",
-        "domains/activities/admin_ui.py::product_verwijderen",
         "domains/activities/router.py::_inschrijver",
         "domains/activities/service.py::_controleer_afrekening",
         "domains/activities/service.py::_controleer_slug",
@@ -441,7 +422,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "test file:test_activiteitspagina_blok_1143.py",
         "test file:test_admin_activiteiten_lijst_ui.py",
         "test file:test_admin_activiteiten_ui.py",
-        "test file:test_admin_datum_tijd_ui.py",
         "test file:test_adresbeheer_portaal.py",
         "test file:test_adresbeheer_scherm.py",
         "test file:test_adresrijen_formulier.py",
@@ -535,7 +515,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "test file:test_navigatie_oob_alleen_bij_boost.py",
         "test file:test_nieuwsbrief_alle_adressen.py",
         "test file:test_onderdeel_een_opslaan.py",
-        "test file:test_onderdeel_toevoegen_bijlage.py",
         "test file:test_opslaan_bevestiging_schermen.py",
         "test file:test_organisatie_lijsten.py",
         "test file:test_organisatie_opslaan_een_transactie.py",
@@ -681,15 +660,12 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/activities/service.py::edit_answers → forms.api.update_attached",  # CR-14 §B4.7: synchronous refusal; same coupling as submit_attached; Koen 29 Sep 2026
         "domains/activities/service.py::_copy_components → forms.api.copy_form",  # #1397: synchronous copy, returned id; Koen 1 Oct 2026; the port follows in its own CR
         "domains/newsletter/service.py::_pictures → media.api.activity_image_path",  # #1368, measured 30 Sep 2026: the walk now sees a flush; media caches a PDF poster's rendering (poster.thumbnail + db.flush) — a read with a cache write, not a coupling to move
-        "domains/activities/admin_ui.py::activiteit_bijwerken → media.api.replace_activity_poster",
-        "domains/activities/admin_ui.py::affiche_uploaden → media.api.replace_activity_poster",
-        "domains/activities/admin_ui.py::affiche_verwijderen → media.api.delete_activity_poster",
-        "domains/activities/admin_ui.py::onderdeel_bijwerken → media.api.replace_component_info",
-        "domains/activities/admin_ui.py::onderdeel_info_uploaden → media.api.replace_component_info",
-        "domains/activities/admin_ui.py::onderdeel_info_verwijderen → media.api.delete_component_info",
-        "domains/activities/admin_ui.py::onderdeel_toevoegen → media.api.replace_component_info",
+        "domains/activities/fiche.py::_store_files → media.api.drop_activity_poster",  # #1559: the attachments of the one save
+        "domains/activities/fiche.py::_store_files → media.api.drop_component_info",  # #1559: the attachments of the one save
+        "domains/activities/fiche.py::_store_files → media.api.store_activity_poster",  # #1559: the attachments of the one save
+        "domains/activities/fiche.py::_store_files → media.api.store_component_info",  # #1559: the attachments of the one save
         "domains/activities/router.py::create_registration → payment.api.create_payment_record",
-        "domains/activities/service.py::add_activity_date → audit.api.snapshot_activity_date",
+        "domains/activities/service.py::insert_date → audit.api.snapshot_activity_date",  # #1559: moved with the core out of `add_activity_date`
         "domains/activities/service.py::_insert_component → audit.api.snapshot_component",
         "domains/activities/service.py::add_order_line → audit.api.snapshot_registration_item",
         "domains/activities/service.py::_insert_product → audit.api.snapshot_product",
@@ -699,19 +675,19 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/activities/service.py::delete_activity → audit.api.snapshot_activity_date",
         "domains/activities/service.py::delete_activity → audit.api.snapshot_component",
         "domains/activities/service.py::delete_activity → audit.api.snapshot_product",
-        "domains/activities/service.py::delete_activity_date → audit.api.snapshot_activity_date",
-        "domains/activities/service.py::delete_component → audit.api.snapshot_component",
-        "domains/activities/service.py::delete_component → audit.api.snapshot_product",
+        "domains/activities/service.py::remove_date → audit.api.snapshot_activity_date",  # #1559: moved with the core out of `delete_activity_date`
+        "domains/activities/service.py::remove_component → audit.api.snapshot_component",  # #1559: moved with the core out of `delete_component`
+        "domains/activities/service.py::remove_component → audit.api.snapshot_product",  # #1559: moved with the core out of `delete_component`
         "domains/activities/service.py::delete_order_line → audit.api.snapshot_registration_item",
-        "domains/activities/service.py::delete_product → audit.api.snapshot_product",
+        "domains/activities/service.py::remove_product → audit.api.snapshot_product",  # #1559: moved with the core out of `delete_product`
         "domains/activities/service.py::delete_registration → audit.api.snapshot_registration_item",
         "domains/activities/service.py::register → audit.api.snapshot_registration_item",
-        "domains/activities/service.py::update_activity → audit.api.snapshot_activity",
-        "domains/activities/service.py::update_activity_date → audit.api.snapshot_activity_date",
-        "domains/activities/service.py::update_component → audit.api.snapshot_component",
+        "domains/activities/service.py::apply_activity_update → audit.api.snapshot_activity",  # #1559: moved with the core out of `update_activity`
+        "domains/activities/service.py::apply_date_update → audit.api.snapshot_activity_date",  # #1559: moved with the core out of `update_activity_date`
+        "domains/activities/service.py::apply_component_update → audit.api.snapshot_component",  # #1559: moved with the core out of `update_component`
         "domains/activities/service.py::update_order_line → audit.api.snapshot_registration_item",
         "domains/activities/service.py::set_order_quantities → audit.api.snapshot_registration_item",  # #1494: same coupling as add/update/delete_order_line which it bundles, in one transaction; the port of all four is #1502 (Koen, 2 October 2026)
-        "domains/activities/service.py::update_product → audit.api.snapshot_product",
+        "domains/activities/service.py::apply_product_update → audit.api.snapshot_product",  # #1559: moved with the core out of `update_product`
         "domains/auth/login.py::start_login → mail.api.send_magic_link",
         "domains/auth/login.py::start_login → mail.api.send_member_contact_board_notice",
         "domains/chatbot/tools.py::submit_idea → forms.api.submit_bericht",
@@ -826,7 +802,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
 RULE_IN_ROUTER: dict[str, str] = {
     "domains/activities/admin_ui.py::activiteit_aanmaken::not name.strip() or not start_date": "rule: an activity has a name and a start date (Activity) — phase 4",
     "domains/activities/admin_ui.py::inschrijving_nieuw_opslaan::component is None": "door: the board form asks for a component before it can be filled — the request's shape, not a rule on the data",
-    "domains/activities/admin_ui.py::organisator_bijwerken::laatste and (not aan) and (not bevestigd)": "rule: an activity keeps at least one contact organiser (Activity) — phase 4",
     "domains/auth/router.py::create_api_key::db.query(ApiKey).filter(ApiKey.name == name).first()": "rule: API key names are unique (ApiKey, with a UNIQUE constraint) — phase 4",
     "domains/auth/router.py::create_api_key::not name": "rule: an API key has a name (ApiKey) — phase 4",
     "domains/chatbot/ui.py::notitie_toevoegen::not title.strip() or not text_addition.strip()": "rule: a note has a title and a text — phase 4",

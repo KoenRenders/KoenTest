@@ -251,6 +251,26 @@ def search_persons(
     ]
 
 
+def household_ids(db, person_ids) -> dict[int, int]:
+    """{person id: the id of a household that person belongs to} (#1559).
+
+    A person has no page of their own; their name links to the household's. Someone
+    in two households gets the one with the lowest id; someone in none is absent.
+    """
+    from app.domains.mdm.models import MemberPerson
+
+    ids = list(person_ids)
+    if not ids:
+        return {}
+    rows = (
+        db.query(MemberPerson.person_id, MemberPerson.member_id)
+        .filter(MemberPerson.person_id.in_(ids))
+        .order_by(MemberPerson.member_id.desc())
+        .all()
+    )
+    return {person_id: member_id for person_id, member_id in rows}
+
+
 def is_member(db, person_id: int) -> bool:
     """Is this person in a household (#1004)?
 

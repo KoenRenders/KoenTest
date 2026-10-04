@@ -70,19 +70,17 @@ def test_organisatoren_staan_onder_onderdelen(client, db_session, activiteit):
     _login(client)
     html = _scherm(client, activiteit)
 
-    # Op de kop zelf en niet op de losse woorden: "onderdelen" komt ook voor in
-    # de lege-toestand-zin eronder.
+    # On the group's heading, not on the loose words: "onderdelen" also stands in
+    # the empty line under it. Since #1559 the groups are the kit's, headed `h2`.
     def kop(tekst):
-        m = re.search(rf"<h3[^>]*>{tekst}</h3>", html)
+        m = re.search(rf"<h2[^>]*>{tekst}</h2>", html)
         assert m, f"kop {tekst!r} niet gevonden"
         return m.start()
 
-    onderdelen = kop("Onderdelen [^<]*producten")
+    onderdelen = kop("Onderdelen")
     organisatoren = kop("Organisatoren")
 
-    assert organisatoren > onderdelen, (
-        "het organisatorenblok staat weer boven Onderdelen & producten (#1046)"
-    )
+    assert organisatoren > onderdelen, "het organisatorenblok staat weer boven Onderdelen (#1046)"
 
 
 def test_het_blok_staat_ook_in_het_fragment_na_een_bewerking(client, db_session, activiteit):
@@ -114,7 +112,7 @@ def test_het_blok_staat_ook_in_het_fragment_na_een_bewerking(client, db_session,
     )
 
     assert antwoord.status_code == 200
-    assert re.search(r"<h3[^>]*>Organisatoren</h3>", antwoord.text), (
+    assert re.search(r"<h2[^>]*>Organisatoren</h2>", antwoord.text), (
         "na een bewerking is het organisatorenblok weg — de include staat buiten #aa-detail"
     )
 
@@ -126,7 +124,7 @@ def test_zonder_onderdelen_blijft_de_scheiding_leesbaar(client, db_session, acti
     html = _scherm(client, activiteit)
 
     assert "Nog geen onderdelen" in html
-    assert html.index("Nog geen onderdelen") < html.index(">Organisatoren</h3>")
+    assert html.index("Nog geen onderdelen") < html.index(">Organisatoren</h2>")
 
 
 # ── #1049 → #1070: de sprong naar de Design Studio ───────────────────────────

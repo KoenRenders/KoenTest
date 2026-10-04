@@ -1,0 +1,10 @@
+{% import "_macros.html" as ui %}
+{# Why a save of the fiche was refused (#1559): the reason alone, for the
+   fiche's message line. The form stays as it was typed. When the reason is a
+   question — the posters would go without a contact person — the answer carries
+   the button that confirms and saves again. #}
+{{ ui.error_banner(error) }}
+{% if confirm|default(false) %}
+<p class="mt-2">{{ ui.btn_secondary(_("Bevestigen"), size="sm",
+     attrs='data-confirm-save @click="document.getElementById(\'aa-bevestigd\').value = \'1\'; htmx.trigger(\'#aa-act-form\', \'submit\')"') }}</p>
+{% endif %}

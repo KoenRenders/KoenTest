@@ -62,11 +62,9 @@ def test_een_403_levert_een_zichtbare_melding(admin_page):
     scherm = Activiteitdetail(admin_page)
     if not scherm.open_eerste():
         _ontbreekt("geen activiteit om te openen")
-    if scherm.datumregel().count() == 0:
-        _ontbreekt("de activiteit heeft geen datumregel om te bewerken")
 
+    scherm.bewerk()
     scherm.breek_het_csrf_token()
-    scherm.bewerk_de_eerste_datum()
     scherm.bewaar()
 
     melding = scherm.foutmeldingen().first
@@ -95,11 +93,9 @@ def test_herhaald_mislukken_geeft_niet_elf_meldingen(admin_page):
     scherm = Activiteitdetail(admin_page)
     if not scherm.open_eerste():
         _ontbreekt("geen activiteit om te openen")
-    if scherm.datumregel().count() == 0:
-        _ontbreekt("de activiteit heeft geen datumregel om te bewerken")
 
+    scherm.bewerk()
     scherm.breek_het_csrf_token()
-    scherm.bewerk_de_eerste_datum()
     # #997: each attempt is finished (the 403 answered and handled) before the
     # next — the count below is an absence check, so it must not run early.
     for _ in range(3):

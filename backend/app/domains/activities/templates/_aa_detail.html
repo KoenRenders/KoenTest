@@ -54,12 +54,19 @@
 {% set _audience = namespace(value="") %}
 {% for code, label, selected in audience_options %}{% if selected %}{% set _audience.value = code %}{% endif %}{% endfor %}
 <div data-form-flow data-mode="{{ 'edit' if _edit else 'read' }}" class="form-flow">
-  {{ ui.error_banner(error|default(None)) }}
+  {# The fiche's message line: a refused save answers here and nowhere else, so
+     the form keeps what was typed (#1559). #}
+  <div id="aa-fiche-message">{{ ui.error_banner(error|default(None)) }}</div>
   {# One "Opslaan" keeps the text fields and the poster (#623): the form is
      multipart. `contents`, so the sections are the flow's own children. #}
   {% if _edit %}<form id="aa-act-form" class="contents" enctype="multipart/form-data"
         hx-post="/admin/activiteiten/{{ a.id }}" hx-encoding="multipart/form-data"
-        hx-target="#aa-detail" hx-swap="innerHTML">{% endif %}
+        hx-target="#aa-detail" hx-swap="innerHTML">
+  {# Which groups this form carries: a group it does not name is left alone by
+     the save. `bevestigd` is set by the answer that asks for it. #}
+  <input type="hidden" name="fiche_groups" value="dates components organisers">
+  <input type="hidden" name="bevestigd" id="aa-bevestigd" value="">
+  {% endif %}
   {% call ui.section(_("Activiteit"), id="aa-section-activity") %}
     {{ ui.field("name", _("Naam"), value=a.name, edit=_edit, required=True) }}
     {# #884: the friendly URL does NOT follow the name — one is proposed at
@@ -77,8 +84,7 @@
                 current_url=a.poster_asset_url,
                 current_label=a.poster_asset_title or _("Huidige affiche bekijken"),
                 preview_url=(a.poster_asset_url ~ "/thumb") if a.poster_asset_url else None,
-                delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/affiche/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
-                delete_confirm=_("De opgeladen affiche verwijderen?"),
+                delete_name="file_delete",
                 help=_("Afbeelding of PDF. Een opgeladen affiche primeert op de Poster-URL.")) }}
   {% endcall %}
   {% call ui.section(_("Publiek"), id="aa-section-audience") %}
@@ -86,7 +92,7 @@
     {{ ui.field("target_audience", _("Doelpubliek"), kind="select", value=_audience.value, edit=_edit,
                 options=[("", _("— niet ingevuld —"))] + audience_options) }}
     {# One word for the badge and the field (decision 06). #}
-    {{ ui.field("members_only", _("Enkel leden"), kind="switch", value=a.members_only, edit=_edit) }}
+    {{ ui.field("members_only", _("Enkel leden"), kind="switch", value=a.members_only, edit=_edit, beside_field=True) }}
   {% endcall %}
   {% call ui.section(_("Intern"), id="aa-section-internal") %}
     {# #1028/#1139: the promise stands where the note is typed AND where it is
@@ -95,296 +101,183 @@
                 placeholder=_("Afspraken, contacten, wat je jezelf wil herinneren."),
                 help=INTERNE_NOTA_BELOFTE, help_in_read=True if board_notes else False) }}
   {% endcall %}
-  {% if _edit %}</form>{% endif %}
 
-  {# Datums (#623-4): "+ Datum" rechts van de titel; de toevoegvorm stond altijd
-     open. De meeste activiteiten hebben één datum, dus dat was permanent ruis —
-     hetzelfde lijst-index-principe als de vervallen bg-blue-50-balk. #}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ adddate: false }">
-    {{ ui.section_header(_("Datums"), _("+ Datum"), '@click="adddate = !adddate"') }}
-    {% for d in a.dates %}
-    <div class="text-sm py-1 border-b border-gray-100" x-data="{ edit: false }">
-      <div class="flex items-center justify-between">
-        {# #648: de leesregel verdween niet, dus stond dezelfde datum twee keer op
-           het scherm — één keer als tekst, één keer in de invulvelden eronder.
-           Patroon van het adresblok (#639): leesregel weg, korte vervangtekst in
-           haar plaats, knop blijft staan. De x-show hoort op de leesregel, NIET op
-           het knoppenblok — dat laatste was precies de fout die #639 wegwerkte. #}
-        <span x-show="!edit">{{ d.start_date|kortedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date|kortedatum }}{% endif %}{% if d.start_time %} · {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %}–{{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
-        <span x-show="edit" x-cloak class="text-gray-500">{{ _("Datum bewerken") }}</span>
-        <div class="flex gap-2">
-          {{ ui.edit_toggle("edit") }}
-          <div x-show="edit" x-cloak>{{ ui.action_bar(form="aa-datum-" ~ d.id, cancel_attrs='@click="edit = false"',
-               delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/datums/' ~ d.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
-               delete_confirm=_("Datum verwijderen?")) }}</div>
-        </div>
-      </div>
-      <form id="aa-datum-{{ d.id }}" x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-2 bg-gray-50 rounded-lg p-2"
-            hx-post="/admin/activiteiten/{{ a.id }}/datums/{{ d.id }}" hx-target="#aa-detail" hx-swap="innerHTML" style="display: none">
-        <div>{{ ui.label(_("Start"), "sd-" ~ d.id, required=True) }}
-          {{ ui.input_control("start_date", id="sd-" ~ d.id, type="date", value=d.start_date.strftime("%Y-%m-%d"), required=True) }}</div>
-        <div>{{ ui.label(_("Einde"), "ed-" ~ d.id) }}
-          {{ ui.input_control("end_date", id="ed-" ~ d.id, type="date", value=d.end_date.strftime("%Y-%m-%d") if d.end_date else "") }}</div>
-        <div>{{ ui.label(_("Beginuur"), "st-" ~ d.id) }}
-          {{ ui.input_control("start_time", id="st-" ~ d.id, type="time", value=d.start_time.strftime("%H:%M") if d.start_time else "") }}</div>
-        <div>{{ ui.label(_("Einduur"), "et-" ~ d.id) }}
-          {{ ui.input_control("end_time", id="et-" ~ d.id, type="time", value=d.end_time.strftime("%H:%M") if d.end_time else "") }}</div>
-      </form>
-    </div>
-    {% endfor %}
-    <form x-show="adddate" x-cloak class="flex flex-wrap gap-2 items-end mt-3 bg-gray-50 rounded-lg p-3"
-          hx-post="/admin/activiteiten/{{ a.id }}/datums"
-          hx-target="#aa-detail" hx-swap="innerHTML">
-      <div>{{ ui.label(_("Start"), "start_date", required=True) }}
-        {{ ui.input_control("start_date", type="date", required=True) }}</div>
-      <div>{{ ui.label(_("Einde"), "end_date") }}
-        {{ ui.input_control("end_date", type="date") }}</div>
-      <div>{{ ui.label(_("Beginuur"), "start_time") }}
-        {{ ui.input_control("start_time", type="time") }}</div>
-      <div>{{ ui.label(_("Einduur"), "end_time") }}
-        {{ ui.input_control("end_time", type="time") }}</div>
-      {{ ui.btn_primary(_("Toevoegen")) }}
-    </form>
-  </div>
+  {# ── The repeating groups (CR-11 block 7, #1559) ──────────────────────────────
+     Dates, components with their products, organisers: rows of the one form.
+     They are added, moved, duplicated and removed in the page and written by
+     the fiche's one save. Each row macro below renders an existing row and, with
+     the group's token as its key, the template a new row is made from. #}
 
-  {# Onderdelen-sectie (#509): sectiekop met "+ Onderdeel", sterk-afgelijnde
-     onderdeel-kaarten, en de producten genest in een subpaneel per onderdeel. #}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ addcomp: false }">
-    {# Feedbackronde 15 sep: de titel hoort ín de kaart, zoals bij Datums —
-       en heet "Onderdelen & producten", zoals de mockup. #}
-    {{ ui.section_header(_("Onderdelen & producten"), _("+ Onderdeel"), '@click="addcomp = !addcomp"') }}
-    {# #715: de info-bijlage hoort al bij het aanmaken te kunnen, niet pas na een
-       tweede ronde via "Bewerken". Vandaar enctype + hx-encoding: zonder die twee
-       stuurt htmx het bestand niet mee en verdwijnt het stil. #}
-    <form x-show="addcomp" x-cloak class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-3 flex flex-wrap gap-2 items-end"
-          enctype="multipart/form-data" hx-encoding="multipart/form-data"
-          hx-post="/admin/activiteiten/{{ a.id }}/onderdelen" hx-target="#aa-detail" hx-swap="innerHTML">
-      <div>{{ ui.label(_("Nieuw onderdeel"), "nc-name", required=True) }}
-        {{ ui.input_control("name", id="nc-name", required=True) }}</div>
-      <div>{{ ui.label(_("Max"), "nc-max") }}
-        {{ ui.input_control("max_participants", id="nc-max", cls="w-24") }}</div>
-      {# #1053: de uiterste inschrijfdatum hoort hier, bij het onderdeel. Ze stond
-         tot dan op de activiteit, waar ze élk onderdeel sloot — ook het onderdeel
-         waar nog wel ingeschreven kon worden. Leeg laten = geen uiterste datum. #}
-      <div>{{ ui.label(_("Inschrijven tot"), "nc-deadline") }}
-        {{ ui.input_control("registration_closes_on", id="nc-deadline", type="date") }}</div>
-      <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="team_name_required" value="1"> {{ _("Ploegnaam vereist") }}</label>
-      {# Geen current_url/delete_attrs: een onderdeel dat nog niet bestaat heeft
-         niets te tonen en niets te verwijderen. #}
-      <div class="w-full border-t border-blue-100 pt-2">
-        {{ ui.upload_field(name="file", text=_("Info-bijlage (afbeelding of PDF)"),
-                           id="nc-info-file",
-                           hint=_("Een opgeladen bijlage primeert op de externe info-URL.")) }}
-      </div>
-      {# Under the info attachment, just above the buttons, and opened the three
-         fields stand one under the other at full width so a link is never cut
-         off (Koen at the validation, 1 October 2026). #}
-      {# #1391 (CR-11 W2): the external links fold away, closed by default. #}
-      {% set _links = 0 %}
-      <details class="w-full" data-external-links>
-        <summary class="cursor-pointer text-sm font-medium text-ink select-none">{{ _("Externe koppelingen") }}{% if _links %}<span class="font-normal text-ink-soft"> · {{ ngettext("%(num)d externe link", "%(num)d externe links", _links) }}</span>{% endif %}</summary>
-        <div class="mt-2 space-y-2">
-      <div class="w-full">{{ ui.label(_("Externe inschrijf-URL"), "nc-ext") }}
-        {{ ui.input_control("external_register_url", id="nc-ext", placeholder="https://…", cls="w-full") }}</div>
-      <div class="w-full">{{ ui.label(_("Externe inschrijvingen-URL"), "nc-exts") }}
-        {{ ui.input_control("external_registrations_url", id="nc-exts", placeholder="https://…", cls="w-full") }}</div>
-      <div class="w-full">{{ ui.label(_("Externe info-URL"), "nc-info") }}
-        {{ ui.input_control("info_url", id="nc-info", placeholder="https://…", cls="w-full") }}</div>
-        </div>
-      </details>
-      <div class="w-full flex gap-2">{{ ui.btn_primary(_("Toevoegen")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="addcomp = false"') }}</div>
-    </form>
-    <div class="space-y-3">
-  {% for c in a.sub_registrations %}
-  <div class="bg-white rounded-xl border border-gray-200 p-4" x-data="{ edit: false, addprod: false }">
-    {# F17 (#996): kop en actiecluster vallen bij ruimtegebrek als volledige
-       groepen onder elkaar in plaats van elkaar samen te drukken. #}
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <h3 class="font-semibold">{{ c.name }}
-        {% if c.team_name_required %}{{ ui.badge(_("ploegnaam"), "blue") }}{% endif %}
-        {% if c.max_participants %}{{ ui.badge("max " ~ c.max_participants) }}{% endif %}
-        {% if c.registration_closes_on %}{{ ui.badge(_("t/m") ~ " " ~ (c.registration_closes_on | langedatum)) }}{% endif %}
-      </h3>
-      <div class="flex gap-2">
-        {{ ui.reorder(
-             up_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog"}\' hx-target="#aa-detail" hx-swap="innerHTML"',
-             down_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}
-        {# Feedbackronde 2 (15 sep): Toon inschrijvingen en Export verhuisden
-           naar de Inschrijvingen-tab — daar staat de lijst per onderdeel
-           gegroepeerd, met een exportknop per groep. #}
-        {{ ui.edit_toggle("edit") }}
-      </div>
-    </div>
-    {# Leeslink naar de info-bijlage (#655). De activiteit had er al een voor haar
-       affiche, het onderdeel niet — met #653 is die leeslink de norm voor élke
-       bijlage (§2.12), zodat je ze kan openen zonder eerst te gaan bewerken.
-       Achter x-show="!edit": in bewerkmodus staat ze in het uploadblok, en twee
-       keer tegelijk is precies wat #653 wegwerkte. De guard blijft nodig — zonder
-       bijlage hoort er geen link te staan. #}
-    {% if c.info_asset_url %}<p class="mt-1" x-show="!edit" x-cloak><a href="{{ c.info_asset_url }}" target="_blank" rel="noopener" class="text-sm text-link underline">{{ _("Huidige info-bijlage bekijken") }}</a></p>{% endif %}
-    {# Eén vorm voor tekstvelden én info-bijlage (#654). §2.12 verbood een eigen
-       submit-knop bij het uploadveld al, maar dat was in #623 alleen op de
-       activiteit toegepast; het onderdeel hield twee vormen naar twee endpoints en
-       toonde dus twee "Opslaan"-knoppen onder elkaar. #}
-    <form id="aa-comp-{{ c.id }}" x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-3"
-          enctype="multipart/form-data" hx-encoding="multipart/form-data"
-          hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}"
-          hx-target="#aa-detail" hx-swap="innerHTML" style="display: none">
-      <div>{{ ui.label(_("Naam"), "cname-" ~ c.id, required=True) }}
-        {{ ui.input_control("name", id="cname-" ~ c.id, value=c.name, required=True) }}</div>
-      <div>{{ ui.label(_("Max"), "cmax-" ~ c.id) }}
-        {{ ui.input_control("max_participants", id="cmax-" ~ c.id, value=c.max_participants or "", cls="w-24") }}</div>
-      {# #1053: leegmaken is een geldige keuze, dus de route stuurt dit veld altijd
-         door — ook leeg. #}
-      <div>{{ ui.label(_("Inschrijven tot"), "cdeadline-" ~ c.id) }}
-        {{ ui.input_control("registration_closes_on", id="cdeadline-" ~ c.id, type="date",
-                            value=(c.registration_closes_on.strftime("%Y-%m-%d") if c.registration_closes_on else "")) }}</div>
-      <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="team_name_required" value="1" {% if c.team_name_required %}checked{% endif %}> {{ _("Ploegnaam vereist") }}</label>
+  {# Dates. They show in the order of the calendar and have no order of their
+     own to drag (the table has no such column): no handle, no up and down. #}
+  {% macro _date_row(key, d) %}
+  {% call ui.group_row("d_order", key, edit=_edit, menu=["duplicate", "remove"], label=_("deze datum")) %}
+    {% if _edit %}
+    {{ ui.field("d." ~ key ~ ".start_date", _("Datum"), kind="date", id="d-" ~ key ~ "-start_date", span="quarter", required=True,
+                value=d.start_date.isoformat() if d else "") }}
+    {{ ui.field("d." ~ key ~ ".start_time", _("Van"), kind="time", id="d-" ~ key ~ "-start_time", span="quarter",
+                value=d.start_time.strftime("%H:%M") if d and d.start_time else "") }}
+    {{ ui.field("d." ~ key ~ ".end_date", _("Einddatum"), kind="date", id="d-" ~ key ~ "-end_date", span="quarter",
+                value=d.end_date.isoformat() if d and d.end_date else "") }}
+    {{ ui.field("d." ~ key ~ ".end_time", _("Tot"), kind="time", id="d-" ~ key ~ "-end_time", span="quarter",
+                value=d.end_time.strftime("%H:%M") if d and d.end_time else "") }}
+    {% else %}
+    <p data-span="full" data-date-line class="text-sm leading-[21px] text-ink">{{ d.start_date|langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date|langedatum }}{% endif %}{% if d.start_time %} · {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %}–{{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</p>
+    {% endif %}
+  {% endcall %}
+  {% endmacro %}
+  {% set _date_template %}{% if _edit %}{{ _date_row("__D__", none) }}{% endif %}{% endset %}
+  {% call ui.repeating_group(_("Datums"), "d_order", token="__D__", add_label=_("Datum"), edit=_edit,
+                             empty=_("Nog geen datums."), count=a.dates|length, template=_date_template, id="aa-group-dates",
+                             columns=[{"label": _("Datum"), "span": "quarter", "required": True}, {"label": _("Van"), "span": "quarter"},
+                                      {"label": _("Einddatum"), "span": "quarter"}, {"label": _("Tot"), "span": "quarter"}]) %}
+    {% for d in a.dates|sort(attribute="start_date") %}{{ _date_row(d.id, d) }}{% endfor %}
+  {% endcall %}
+
+  {# A product: in the editor a composite item under its component, in read mode
+     two short lines. Free and pay-on-site are two switches (they were one
+     select); the service refuses both at once. #}
+  {% macro _product_row(ckey, key, p) %}
+  {% call ui.group_row("p_order." ~ ckey, key, edit=_edit, variant="composite" if _edit else "simple", handle=True,
+                       title=p.name if p else _("Nieuw product"), label=p.name if p else _("dit product")) %}
+    {% if _edit %}
+    {% call ui.form_grid() %}
+      {{ ui.field("p." ~ key ~ ".name", _("Naam"), id="p-" ~ key ~ "-name", required=True, value=p.name if p else "", attrs="data-row-title-source") }}
+      {{ ui.field("p." ~ key ~ ".price", _("Prijs"), kind="number", unit="€", id="p-" ~ key ~ "-price", span="quarter",
+                  value=p.price if p else "", attrs='step="0.01" min="0"') }}
+      {{ ui.field("p." ~ key ~ ".member_price", _("Ledenprijs"), kind="number", unit="€", id="p-" ~ key ~ "-member_price", span="quarter",
+                  value=p.member_price if p and p.member_price is not none else "", attrs='step="0.01" min="0"') }}
+      {{ ui.field("p." ~ key ~ ".max_participants", _("Maximum"), kind="number", id="p-" ~ key ~ "-max_participants", span="quarter",
+                  value=p.max_participants if p and p.max_participants else "", attrs='min="1" step="1"') }}
+      {{ ui.field("p." ~ key ~ ".is_free", _("Gratis"), kind="switch", id="p-" ~ key ~ "-is_free", span="quarter", value=p.is_free if p else False, beside_field=True) }}
+      {{ ui.field("p." ~ key ~ ".pay_on_site", _("Ter plaatse betalen"), kind="switch", id="p-" ~ key ~ "-pay_on_site", value=p.pay_on_site if p else False, beside_field=True) }}
+      {{ ui.field("p." ~ key ~ ".is_active", PRODUCT_ZICHTBAAR_LABEL, kind="switch", id="p-" ~ key ~ "-is_active", span="full", value=p.is_active if p else True,
+                  help=PRODUCT_ZICHTBAAR_HINT) }}
+    {% endcall %}
+    {% else %}
+    <p data-span="full" data-product-line class="text-sm leading-[21px] text-ink">{{ p.name }} · €&nbsp;{{ p.price|geld }}{% if p.member_price is not none %} · {{ _("leden") }} €&nbsp;{{ p.member_price|geld }}{% endif %}{% if p.max_participants %} · {{ _("max") }} {{ p.max_participants }}{% endif %}{% if not p.is_active %} {{ ui.badge(PRODUCT_NIET_PUBLIEK_BADGE, "gray") }}{% endif %}</p>
+    <p data-span="full" class="text-[13px] leading-[19.5px] text-ink-soft">{{ _("Gratis") }}: {{ _("ja") if p.is_free else _("nee") }} · {{ _("Ter plaatse betalen") }}: {{ _("ja") if p.pay_on_site else _("nee") }}</p>
+    {% endif %}
+  {% endcall %}
+  {% endmacro %}
+
+  {# A component: its name is its heading (in the editor the heading follows
+     the name field), its fields under it, its products as a child group. Its
+     external links stand in the fiche's one closed last section. #}
+  {% macro _component_row(key, c) %}
+  {% call ui.group_row("c_order", key, edit=_edit, variant="composite", handle=True,
+                       title=c.name if c else _("Nieuw onderdeel"), label=c.name if c else _("dit onderdeel")) %}
+    {% call ui.form_grid() %}
+      {% if _edit %}
+      {{ ui.field("c." ~ key ~ ".name", _("Naam"), id="c-" ~ key ~ "-name", required=True, value=c.name if c else "", attrs="data-row-title-source") }}
+      {% endif %}
+      {# Read mode shows the occupancy where the maximum stands: "12 / 20", or
+         the count alone without a maximum. #}
+      {% set _booked = component_booked.get(c.id, 0) if c else 0 %}
+      {{ ui.field("c." ~ key ~ ".max_participants", _("Maximum") if _edit else _("Bezetting"), kind="number", id="c-" ~ key ~ "-max_participants", span="quarter", edit=_edit,
+                  value=c.max_participants if c and c.max_participants else "", attrs='min="1" step="1"',
+                  display=(_booked ~ " / " ~ c.max_participants) if c and c.max_participants else _booked ~ "") }}
+      {{ ui.field("c." ~ key ~ ".registration_closes_on", _("Inschrijven tot"), kind="date", id="c-" ~ key ~ "-registration_closes_on", span="quarter", edit=_edit,
+                  value=c.registration_closes_on.isoformat() if c and c.registration_closes_on else "",
+                  display=(_("t/m") ~ " " ~ (c.registration_closes_on|langedatum)) if c and c.registration_closes_on else "") }}
+      {{ ui.field("c." ~ key ~ ".team_name_required", _("Ploegnaam vereist"), kind="switch", id="c-" ~ key ~ "-team_name_required", edit=_edit,
+                  value=c.team_name_required if c else False, beside_field=True) }}
       {# CR-14 phase 2 (§B4.5): the questions this component asks, a form of the
          form builder — open, one section, not anonymous, no maximum. #}
-      <div class="w-full sm:w-72">{{ ui.label(_("Extra vragen"), "cform-" ~ c.id) }}
-        {% call ui.select_control("form_id", cls="w-full", attrs='id="cform-' ~ c.id ~ '"') %}
-          <option value="">{{ _("Geen") }}</option>
-          {% for fid, titel in question_forms %}
-          <option value="{{ fid }}" {% if component_form.get(c.id) == fid %}selected{% endif %}>{{ titel }}</option>
-          {% endfor %}
-        {% endcall %}</div>
-      {# The hint on its own line, not in the column: this form aligns its columns
-         on their bottom edge (#656). #}
-      <p class="w-full text-xs text-ink-soft -mt-1">{{ _("Extra vragen: het onderdeel bepaalt wie inschrijft en tot wanneer; de instellingen van het formulier gelden hier niet.") }}</p>
-      {# Info-bijlage (#451). Heette "reglement" tot #623 — één woord voor één ding
-         (§2.13). Staat sinds #654 ín de vorm hierboven: één "Opslaan" bewaart de
-         velden én het bestand. De verwijderknop blijft een aparte actie — dat is
-         geen bewaarhandeling (§2.12). #}
-      <div class="w-full border-t border-gray-100 pt-2">
-        {{ ui.upload_field(name="file", text=_("Info-bijlage (afbeelding of PDF)"),
-                           id="cinfo-file-" ~ c.id,
-                           current_url=c.info_asset_url,
-                           huidig_label=_("Huidige info-bijlage bekijken"),
-                           delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/info/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
-                           delete_confirm=_("De opgeladen info-bijlage verwijderen?"),
-                           hint=_("Een opgeladen bijlage primeert op de externe info-URL.")) }}
-      </div>
-      {# Under the info attachment, just above the buttons, and opened the three
-         fields stand one under the other at full width so a link is never cut
-         off (Koen at the validation, 1 October 2026). #}
-      {# #1391 (CR-11 W2): closed by default; the summary says how many are filled. #}
-      {% set _links = [c.external_register_url, c.external_registrations_url, c.info_url] | select | list | length %}
-      <details class="w-full" data-external-links>
-        <summary class="cursor-pointer text-sm font-medium text-ink select-none">{{ _("Externe koppelingen") }}{% if _links %}<span class="font-normal text-ink-soft"> · {{ ngettext("%(num)d externe link", "%(num)d externe links", _links) }}</span>{% endif %}</summary>
-        <div class="mt-2 space-y-2">
-      <div class="w-full">{{ ui.label(_("Externe inschrijf-URL"), "cext-" ~ c.id) }}
-        {{ ui.input_control("external_register_url", id="cext-" ~ c.id, value=c.external_register_url or "", placeholder="https://…", cls="w-full") }}</div>
-      <div class="w-full">{{ ui.label(_("Externe inschrijvingen-URL"), "cexts-" ~ c.id) }}
-        {{ ui.input_control("external_registrations_url", id="cexts-" ~ c.id, value=c.external_registrations_url or "", placeholder="https://…", cls="w-full") }}</div>
-      <div class="w-full">{{ ui.label(_("Externe info-URL"), "cinfo-" ~ c.id) }}
-        {{ ui.input_control("info_url", id="cinfo-" ~ c.id, value=c.info_url or "", placeholder="https://…", cls="w-full") }}</div>
-        </div>
-      </details>
-    </form>
-    {# #1391 (CR-11 W15): the bar sits in the card's foot, right-aligned, and no
-       longer beside the title; the arrows and the edit toggle stay in the head.
-       `form=` ties the buttons to the form above. #}
-    <div x-show="edit" x-cloak class="mt-3 flex justify-end" data-card-foot style="display: none">{{ ui.action_bar(form="aa-comp-" ~ c.id, cancel_attrs='@click="edit = false"',
-         delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Onderdeel"), c.name)) }}</div>
-    {# "+ Product" in de paneelkop (#623-4): de toevoegvorm stond permanent open,
-       terwijl de meeste onderdelen één product hebben. #}
-    {% call ui.nested_panel(_("Producten"), _("+ Product"), '@click="addprod = !addprod"') %}
-      {% for p in c.products %}
-      <div class="border-t border-gray-100 py-1" x-data="{ ed: false }">
-        <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span x-show="!ed" class="min-w-0">{{ p.name }} ·
-            {% if p.pay_on_site %}{{ _("ter plaatse") }}{% elif p.is_free or p.price == 0 %}{{ _("gratis") }}{% else %}€{{ p.price|geld }}{% if p.member_price is not none %} / leden €{{ p.member_price|geld }}{% endif %}{% endif %}
-            {% if p.max_participants %} · max {{ p.max_participants }}{% endif %}
-            {# #1191: inactive is the exception, so only that state carries a badge.
-               #1209: the wording comes from the same {% set %} as the checkbox
-               label and its hint — three texts about one flag. #}
-            {% if not p.is_active %} {{ ui.badge(PRODUCT_NIET_PUBLIEK_BADGE, "gray") }}{% endif %}
-          </span>
-          <span x-show="ed" x-cloak class="text-gray-500">{{ _("Product bewerken") }}</span>
-          <div class="flex gap-2 ml-auto shrink-0">
-            {{ ui.reorder(
-                 up_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog"}\' hx-target="#aa-detail" hx-swap="innerHTML"',
-                 down_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}
-            {{ ui.edit_toggle("ed") }}
-          </div>
-        </div>
-        <form id="aa-prod-{{ p.id }}" x-show="ed" x-cloak class="flex flex-wrap gap-2 items-end mt-2"
-              hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/producten/{{ p.id }}"
-              hx-target="#aa-detail" hx-swap="innerHTML" style="display: none">
-          <div>{{ ui.label(_("Naam"), "epname-" ~ p.id, required=True) }}
-            {{ ui.input_control("name", id="epname-" ~ p.id, value=p.name, required=True) }}</div>
-          <div>{{ ui.label(_("Prijs"), "epprice-" ~ p.id) }}
-            {{ ui.input_control("price", id="epprice-" ~ p.id, value=p.price|geld, cls="w-24", attrs='inputmode="decimal"') }}</div>
-          <div>{{ ui.label(_("Ledenprijs"), "epmprice-" ~ p.id) }}
-            {{ ui.input_control("member_price", id="epmprice-" ~ p.id, value=(p.member_price|geld if p.member_price is not none else ""), cls="w-24", attrs='inputmode="decimal"') }}</div>
-          <div>{{ ui.label(_("Max"), "epmax-" ~ p.id) }}
-            {{ ui.input_control("max_participants", id="epmax-" ~ p.id, value=p.max_participants or "", cls="w-20") }}</div>
-          {# #507: expliciete Afrekening-keuze (prijs blijft los invulbaar). #}
-          <div>{% set _afr = "ter_plaatse" if p.pay_on_site else ("gratis" if p.is_free else "betalend") %}{{ ui.label(_("Afrekening"), "epafr-" ~ p.id) }}
-            {% call ui.select_control("afrekening", attrs='id="epafr-' ~ p.id ~ '"') %}
-              <option value="betalend" {% if _afr == "betalend" %}selected{% endif %}>{{ _("Betalend") }}</option>
-              <option value="gratis" {% if _afr == "gratis" %}selected{% endif %}>{{ _("Gratis") }}</option>
-              <option value="ter_plaatse" {% if _afr == "ter_plaatse" %}selected{% endif %}>{{ _("Ter plaatse") }}</option>
-            {% endcall %}</div>
-          {# #1191: off = gone from the public form, NOT closed. The board can still
-             add it to an existing registration from here. Label and hint: #1201. #}
-          <label class="flex items-center gap-2 text-sm" title="{{ PRODUCT_ZICHTBAAR_HINT }}"><input type="checkbox" name="is_active" value="1" {% if p.is_active %}checked{% endif %}> {{ PRODUCT_ZICHTBAAR_LABEL }}</label>
-        </form>
-        {# #1391 (CR-11 W15): the product's bar in the foot, as the component's. #}
-        <div x-show="ed" x-cloak class="mt-2 flex justify-end" data-card-foot style="display: none">{{ ui.action_bar(form="aa-prod-" ~ p.id, cancel_attrs='@click="ed = false"',
-             delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Product"), p.name)) }}</div>
-      </div>
-      {% endfor %}
-      <form x-show="addprod" x-cloak class="flex flex-wrap gap-2 items-end mt-2"
-            hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/producten"
-            hx-target="#aa-detail" hx-swap="innerHTML">
-        <div>{{ ui.label(_("Product"), "pname-" ~ c.id, required=True) }}
-          {{ ui.input_control("name", id="pname-" ~ c.id, required=True) }}</div>
-        <div>{{ ui.label(_("Prijs"), "pprice-" ~ c.id) }}
-          {{ ui.input_control("price", id="pprice-" ~ c.id, value="0", cls="w-24", attrs='inputmode="decimal"') }}</div>
-        <div>{{ ui.label(_("Ledenprijs"), "pmprice-" ~ c.id) }}
-          {{ ui.input_control("member_price", id="pmprice-" ~ c.id, cls="w-24", attrs='inputmode="decimal"') }}</div>
-        <div>{{ ui.label(_("Max"), "pmax-" ~ c.id) }}
-          {{ ui.input_control("max_participants", id="pmax-" ~ c.id, cls="w-20") }}</div>
-        <div>{{ ui.label(_("Afrekening"), "pafr-" ~ c.id) }}
-          {% call ui.select_control("afrekening", attrs='id="pafr-' ~ c.id ~ '"') %}
-            <option value="betalend">{{ _("Betalend") }}</option>
-            <option value="gratis">{{ _("Gratis") }}</option>
-            <option value="ter_plaatse">{{ _("Ter plaatse") }}</option>
-          {% endcall %}</div>
-        <label class="flex items-center gap-2 text-sm" title="{{ PRODUCT_ZICHTBAAR_HINT }}"><input type="checkbox" name="is_active" value="1" checked> {{ PRODUCT_ZICHTBAAR_LABEL }}</label>
-        {{ ui.btn_primary(_("Toevoegen")) }}
-      </form>
+      {{ ui.field("c." ~ key ~ ".form_id", _("Extra vragen"), kind="select", id="c-" ~ key ~ "-form_id", edit=_edit,
+                  value=component_form.get(c.id, "") if c else "", options=[("", _("Geen extra vragen"))] + question_forms,
+                  help=_("Het onderdeel bepaalt wie inschrijft en tot wanneer; de instellingen van het formulier gelden hier niet.")) }}
+      {# The info attachment (#451). An uploaded one wins from the external info
+         address; removing it is part of the save, like everything else. #}
+      {{ ui.field("c." ~ key ~ ".file", _("Info-bijlage"), kind="upload", id="c-" ~ key ~ "-file", edit=_edit,
+                  current_url=c.info_asset_url if c else none, current_label=_("Huidige info-bijlage bekijken"),
+                  delete_name="c." ~ key ~ ".info_delete",
+                  help=_("Afbeelding of PDF. Een opgeladen bijlage primeert op de externe info-URL.")) }}
     {% endcall %}
-  </div>
-  {% endfor %}
-  {% if not a.sub_registrations %}
-    {# #637/#650: zonder onderdelen was deze sectie visueel leeg, waardoor de
-       Inschrijvingen-kaart eronder als een onderdeel las. En het verklaart
-       meteen waarom er publiek geen inschrijfknop staat. #}
-    {{ ui.empty_state(_("Nog geen onderdelen. Voeg er een toe om inschrijven mogelijk te maken.")) }}
-  {% endif %}
-    </div>
-  </div>
+    {% set _product_template %}{% if _edit %}{{ _product_row(key, "__P__", none) }}{% endif %}{% endset %}
+    {% call ui.repeating_group(_("Producten"), "p_order." ~ key, token="__P__", add_label=_("Product"), edit=_edit, variant="composite",
+                               child=True, empty=_("Nog geen producten."), count=c.products|length if c else 0, template=_product_template) %}
+      {% if c %}{% for p in c.products %}{{ _product_row(key, p.id, p) }}{% endfor %}{% endif %}
+    {% endcall %}
+  {% endcall %}
+  {% endmacro %}
+  {% set _component_template %}{% if _edit %}{{ _component_row("__C__", none) }}{% endif %}{% endset %}
+  {% call ui.repeating_group(_("Onderdelen"), "c_order", token="__C__", add_label=_("Onderdeel"), edit=_edit, variant="composite",
+                             empty=_("Nog geen onderdelen. Voeg er een toe om inschrijven mogelijk te maken."),
+                             count=a.sub_registrations|length, template=_component_template, id="aa-group-components") %}
+    {% for c in a.sub_registrations %}{{ _component_row(c.id, c) }}{% endfor %}
+  {% endcall %}
 
-  {# #1046: organisatoren staan onderaan, ónder Onderdelen & producten (Koen,
-     20 september 2026). BINNEN `#aa-detail`: erbuiten verdwijnt het blok stil bij
-     de eerstvolgende fragmentvervanging, want elke bewerking swapt dit fragment.
-     De lege-toestand-waarschuwing hierboven (#637/#650) doet nu haar werk voor
-     dit blok: zonder onderdelen las de kaart eronder anders als een onderdeel. #}
-  {% include "_aa_organisatoren.html" %}
-
-  {# The closed last section (§3.4): what is rarely set, after everything else.
-     The poster address is the old way; the poster is made in the Design Studio. #}
+  {# Organisers (#1004, CR-10 §3.9): a composite item each, with a handle — the
+     order decides the Design Studio poster's first three contacts (#1433), so it
+     means something. No roles. A new one comes through the member search inside
+     the group: pick a member and a row is added to the form. #}
+  {% macro _organiser_row(key, o, name, href, person_id) %}
+  {# #1433: the order decides the poster — its first three contacts. #}
+  {% set _tag = none %}
+  {% if o and o.id in poster_ids %}{% set _tag = {"label": _("op de affiche"), "tone": "green"} %}
+  {% elif o and o.is_contact %}{% set _tag = {"label": _("niet op de affiche: alleen de eerste drie")} %}{% endif %}
+  {% call ui.group_row("o_order", key, edit=_edit, variant="composite", handle=True, menu=["up", "down", "remove"],
+                       title=name, title_href=href, label=name, tag=_tag) %}
+    {% if _edit %}<input type="hidden" name="o.{{ key }}.person_id" value="{{ person_id }}">{% endif %}
+    {% call ui.form_grid() %}
+      {{ ui.field("o." ~ key ~ ".is_contact", _("Contactpersoon"), kind="switch", id="o-" ~ key ~ "-is_contact", edit=_edit, value=o.is_contact if o else False) }}
+      {# #1032: unticked, this detail stays off the poster — also when no other
+         address is filled in. #}
+      {{ ui.field("o." ~ key ~ ".show_email", _("Toon e-mail"), kind="switch", id="o-" ~ key ~ "-show_email", span="quarter", edit=_edit, value=o.show_email if o else True) }}
+      {{ ui.field("o." ~ key ~ ".show_mobile", _("Toon gsm"), kind="switch", id="o-" ~ key ~ "-show_mobile", span="quarter", edit=_edit, value=o.show_mobile if o else True) }}
+      {{ ui.field("o." ~ key ~ ".email_override", _("Ander e-mailadres"), kind="email", id="o-" ~ key ~ "-email_override", edit=_edit,
+                  value=o.email_override if o else "", help=_("Leeg = het adres van het lid.")) }}
+      {{ ui.field("o." ~ key ~ ".mobile_override", _("Ander gsm-nummer"), kind="phone", id="o-" ~ key ~ "-mobile_override", edit=_edit,
+                  value=o.mobile_override if o else "", help=_("Leeg = het nummer van het lid.")) }}
+    {% endcall %}
+  {% endcall %}
+  {% endmacro %}
+  {% set _organiser_template %}{% if _edit %}{{ _organiser_row("__O__", none, "__NAME__", "__HREF__", "__PERSON__") }}{% endif %}{% endset %}
+  {# The member search: typing replaces only the candidates (#939), picking one
+     adds a row above. Members only — the service refuses anyone else. Enter in
+     the search field must not send the fiche. #}
+  {% set _organiser_search %}
+  <div data-organiser-search @keydown.enter.prevent>
+    <p class="text-sm font-medium leading-[21px] text-ink mb-1">{{ _("Organisator toevoegen") }}</p>
+    {{ ui.search(hx_get="/admin/activiteiten/" ~ a.id ~ "/organisatoren", hx_target="#aa-org-kandidaten",
+                 name="organiser_q", placeholder=_("Zoek een lid op naam…"), cls="w-full sm:w-80 min-h-11 md:min-h-0") }}
+    <div id="aa-org-kandidaten"></div>
+  </div>
+  {% endset %}
+  {% call ui.repeating_group(_("Organisatoren"), "o_order", token="__O__", edit=_edit, variant="composite",
+                             empty=_("Nog geen organisatoren."), count=organisers|length, template=_organiser_template, id="aa-group-organisers",
+                             footer=_organiser_search,
+                             hint=_("Wie contactpersoon is, komt met naam en gegevens op de affiches — de eerste drie, in deze volgorde.")) %}
+    {% for o in organisers %}
+    {{ _organiser_row(o.id, o, o.name, ("/admin/leden/gezin/" ~ organiser_households[o.person_id]) if o.person_id in organiser_households else none, o.person_id) }}
+    {% endfor %}
+  {% endcall %}
+  {# The closed last section (§3.4): what is rarely set, after everything else —
+     the poster address (the old way; the poster is made in the Design Studio)
+     and, since #1559, the external links of every component, named by it. A
+     component added in the page gets its place here once it is saved. #}
+  {% set _links = namespace(count=1 if a.poster_url else 0) %}
+  {% for c in a.sub_registrations %}{% set _links.count = _links.count + ([c.external_register_url, c.external_registrations_url, c.info_url]|select|list|length) %}{% endfor %}
   {% call ui.rare_settings(_("Externe koppelingen"),
-                           summary=ngettext("%(num)d externe link", "%(num)d externe links", 1) if a.poster_url else "",
+                           summary=ngettext("%(num)d externe link", "%(num)d externe links", _links.count) if _links.count else "",
                            note=_("De affiche maak je in de Design Studio; een adres intypen is de oude weg.")) %}
     {{ ui.field("poster_url", _("Poster-URL"), kind="url", value=a.poster_url or "", edit=_edit,
                 form="aa-act-form", placeholder="https://…") }}
+    {% for c in a.sub_registrations %}
+    <p data-span="full" data-links-of="{{ c.id }}" class="mt-2 text-sm font-semibold leading-[21px] text-ink">{{ c.name }}</p>
+    {{ ui.field("c." ~ c.id ~ ".external_register_url", _("Externe inschrijf-URL"), kind="url", id="c-" ~ c.id ~ "-external_register_url",
+                value=c.external_register_url or "", edit=_edit, placeholder="https://…") }}
+    {{ ui.field("c." ~ c.id ~ ".external_registrations_url", _("Externe inschrijvingen-URL"), kind="url", id="c-" ~ c.id ~ "-external_registrations_url",
+                value=c.external_registrations_url or "", edit=_edit, placeholder="https://…") }}
+    {{ ui.field("c." ~ c.id ~ ".info_url", _("Externe info-URL"), kind="url", id="c-" ~ c.id ~ "-info_url",
+                value=c.info_url or "", edit=_edit, placeholder="https://…") }}
+    {% endfor %}
   {% endcall %}
-  {# Provisional (#1558): one save for the three sections and the last one, at
-     the bottom of the form column. #1561 replaces it with the action bar. #}
+  {% if _edit %}</form>{% endif %}
+  {# Provisional (#1558): the one save of the whole fiche — sections, groups
+     and the last section — at the bottom of the form column. #1561 replaces it
+     with the action bar. #}
   {% if _edit %}<div data-provisional-bar>{{ ui.action_bar(form="aa-act-form", cancel_href=_read_url) }}</div>{% endif %}
 </div>
 

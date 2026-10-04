@@ -71,9 +71,10 @@ def test_a_save_returns_the_fiche_to_read_and_says_so_in_the_address(client, db_
     assert plain.headers["HX-Push-Url"] == f"/admin/activiteiten/{activity.id}"
 
 
-def test_a_refused_save_stays_in_the_edit_state(client, db_session):
-    """A slug that another activity has: the fiche stays open with the reason,
-    and the address keeps its flag."""
+def test_a_refused_save_leaves_the_editor_as_it_is(client, db_session):
+    """A slug that another activity has. Since #1559 the answer is the reason
+    alone, for the fiche's message line: the form — with every row typed in the
+    page — is not rendered again, and the address keeps its flag."""
     activity = _activity(db_session)
     other = Activity(name="Bezet", slug="bezet-1558")
     db_session.add(other)
@@ -81,9 +82,10 @@ def test_a_refused_save_stays_in_the_edit_state(client, db_session):
     headers = _login(client)
 
     r = _save(client, headers, activity, slug="bezet-1558")
-    assert r.status_code == 200
+    assert r.status_code == 422
     assert "HX-Push-Url" not in r.headers
-    assert 'data-mode="edit"' in r.text and '<form id="aa-act-form"' in r.text
+    assert r.headers["HX-Retarget"] == "#aa-fiche-message"
+    assert "al in gebruik" in r.text and "data-form-flow" not in r.text
 
 
 def test_the_switch_saves_on_and_off(client, db_session):

@@ -20,7 +20,6 @@ from datetime import date
 
 import pytest
 
-from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.mdm.api import ContactDetail, Member, MemberPerson, Person, search_persons
 from tests.conftest import SEEDED_ADMIN_EMAIL
@@ -80,24 +79,6 @@ def test_the_circle_search_shows_the_address_beside_the_right_person(client, nam
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
 
     html = client.get("/admin/vergaderingen/kring", params={"q": "lieve"}).text
-
-    assert "lieve.een@example.org" in _row_of(html, one.id)
-    assert "lieve.twee@example.org" in _row_of(html, two.id)
-    assert "geen e-mailadres" in _row_of(html, none.id)
-
-
-def test_the_organiser_picker_shows_it_too(client, db_session, namesakes):
-    one, two, none = namesakes
-    activity = Activity(name="Proefactiviteit")
-    db_session.add(activity)
-    db_session.flush()
-    db_session.add(ActivityDate(activity_id=activity.id, start_date=date(2026, 11, 1)))
-    db_session.flush()
-    client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-
-    html = client.get(
-        f"/admin/activiteiten/{activity.id}/organisatoren", params={"organiser_q": "lieve"}
-    ).text
 
     assert "lieve.een@example.org" in _row_of(html, one.id)
     assert "lieve.twee@example.org" in _row_of(html, two.id)

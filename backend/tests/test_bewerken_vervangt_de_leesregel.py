@@ -36,67 +36,6 @@ def _detail(client, activity_id: int) -> str:
     return r.text
 
 
-def test_de_datumregel_verdwijnt_tijdens_het_bewerken(client, db_session):
-    """Het gemelde geval."""
-    activity, _c, _p = seed_activity_with_product(db_session)
-    _login(client)
-    html = _detail(client, activity.id)
-
-    datum = activity.dates[0].start_date.strftime("%d-%m-%Y")
-    # De regel waarop de datum staat, moet aan de bewerkstand hangen.
-    regels = [r for r in html.splitlines() if datum in r and "<span" in r]
-    assert regels, f"de datum {datum} staat niet als leesregel op het scherm"
-    assert all('x-show="!edit"' in r for r in regels), (
-        "de leesregel van de datum blijft staan tijdens het bewerken (#648):\n"
-        + "\n".join(r.strip()[:120] for r in regels)
-    )
-
-
-def test_de_productregel_verdwijnt_tijdens_het_bewerken(client, db_session):
-    """Zelfde fout, tweede plek: het product herhaalt zijn naam en prijs."""
-    activity, _c, product = seed_activity_with_product(db_session)
-    _login(client)
-    html = _detail(client, activity.id)
-
-    # Sinds golf 6 (#913) noemt óók de Verwijderen-knop in de actiebalk het
-    # product — in zijn data-confirm-tekst. Dat is geen leesregel; eruit filteren.
-    regels = [
-        r
-        for r in html.splitlines()
-        if product.name in r and "<span" in r and "input" not in r and "data-confirm" not in r
-    ]
-    assert regels, "de productnaam staat niet als leesregel op het scherm"
-    assert all('x-show="!ed"' in r for r in regels), (
-        "de leesregel van het product blijft staan tijdens het bewerken (#648):\n"
-        + "\n".join(r.strip()[:120] for r in regels)
-    )
-
-
-def test_de_knop_blijft_staan_tijdens_het_bewerken(client, db_session):
-    """De fout die #639 wegwerkte, mag niet via deze fix terugkomen.
-
-    De `x-show` hoort op de leesregel, niet op het knoppenblok: verdwijnt de knop,
-    dan verspringt de layout en heb je geen weg terug uit de bewerkstand.
-    """
-    activity, _c, _p = seed_activity_with_product(db_session)
-    _login(client)
-    html = _detail(client, activity.id)
-
-    # Kop-herziening golf 6 (#913, Koen 14 sep 2026): de opener VERDWIJNT in
-    # bewerkmodus (x-show="!state") en het actiecluster — mét Annuleren — neemt
-    # zijn plek in. De weg terug bestaat dus nog steeds, alleen als andere knop;
-    # wat niet mag is een opener zónder x-show (die zou blijven staan en liegen).
-    knoppen = re.findall(
-        r"(<button[^>]*)>((?:(?!</button>).)*Bewerken(?:(?!</button>).)*)</button>", html, re.S
-    )
-    assert knoppen, "geen enkele bewerk-opener op het scherm"
-    for attrs, _inhoud in knoppen:
-        assert 'x-show="!' in attrs, (
-            f"een opener zonder x-show blijft in bewerkmodus staan en liegt: {attrs[:100]!r}"
-        )
-    assert ">Annuleren<" in html, "geen Annuleren in het cluster — geen weg terug"
-
-
 def test_de_koppen_blijven_wel_staan(client, db_session):
     """Bewuste keuze, zie #648: bij de activiteit- en onderdeelKOP blijft de
     leesweergave staan.

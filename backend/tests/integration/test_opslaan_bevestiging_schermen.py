@@ -130,19 +130,6 @@ def test_een_activiteit_opslaan_bevestigt(client, db_session, admin_headers):
     assert OOB in resp.text
 
 
-def test_een_deelactie_op_de_activiteit_bevestigt_niet(client, db_session, admin_headers):
-    """De grens uit #717: een datum toevoegen is geen afsluitende opslag."""
-    activity_id = _activiteit(client, db_session, admin_headers)
-    hdr = _login(client)
-
-    resp = client.post(
-        f"/admin/activiteiten/{activity_id}/datums", headers=hdr, data={"start_date": "2030-05-05"}
-    )
-
-    assert resp.status_code == 200, resp.text
-    assert OOB not in resp.text, "een deelactie hoort niet te bevestigen"
-
-
 # ── Gezin ────────────────────────────────────────────────────────────────────
 
 

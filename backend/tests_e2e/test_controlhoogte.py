@@ -55,25 +55,24 @@ def admin_page():
         browser.close()
 
 
+COMPONENT = "#aa-group-components > [data-group-rows] > [data-group-row]"
+
+
 def test_input_en_select_zijn_even_hoog(admin_page):
-    """De "+ Product"-vorm: vier tekstvelden en één keuzelijst naast elkaar."""
+    """A component in the editor: text, number and date fields and one select
+    (the question form) in one grid."""
     scherm = Activiteitdetail(admin_page)
     if not scherm.open_eerste():
         _ontbreekt("geen activiteit om te openen")
+    scherm.bewerk()
+    if admin_page.locator(COMPONENT).count() == 0:
+        _ontbreekt("de activiteit heeft geen onderdeel om te meten")
+    expect(admin_page.locator(f"{COMPONENT} select").first).to_be_visible()
 
-    # De toevoegvorm staat dicht; ze openen zet de velden in beeld.
-    knop = admin_page.get_by_role("button", name="+ Product").first
-    if knop.count() == 0:
-        _ontbreekt("dit onderdeel heeft geen '+ Product'-vorm")
-    knop.click()
-    # #997: wait for the opened fields themselves, not for a fixed time.
-    expect(
-        admin_page.locator('form[hx-post*="/producten"] input:not([type=hidden]):visible').first
-    ).to_be_visible()
-
-    hoogtes = controlhoogtes(admin_page, 'form[hx-post*="/producten"]')
+    hoogtes = controlhoogtes(admin_page, COMPONENT)
     if len(hoogtes) < 2:
-        _ontbreekt("de toevoegvorm toont geen velden om te meten")
+        _ontbreekt("het onderdeel toont geen velden om te meten")
+    assert any("form_id" in naam for naam in hoogtes), f"geen keuzelijst gemeten: {hoogtes}"
 
     uniek = set(hoogtes.values())
     assert len(uniek) == 1, (
@@ -88,15 +87,13 @@ def test_datum_en_tijdvelden_lopen_mee(admin_page):
     scherm = Activiteitdetail(admin_page)
     if not scherm.open_eerste():
         _ontbreekt("geen activiteit om te openen")
+    scherm.bewerk()
     if scherm.datumregel().count() == 0:
         _ontbreekt("de activiteit heeft geen datumregel")
+    expect(scherm.datumregel().locator("input[type=date]").first).to_be_visible()
 
-    scherm.bewerk_de_eerste_datum()
-    expect(
-        admin_page.locator('form[hx-post*="/datums/"] input:not([type=hidden]):visible').first
-    ).to_be_visible()
-
-    hoogtes = controlhoogtes(admin_page, 'form[hx-post*="/datums/"]')
+    hoogtes = controlhoogtes(admin_page, "#aa-group-dates")
+    assert any("time" in naam for naam in hoogtes), f"geen tijdveld gemeten: {hoogtes}"
     if len(hoogtes) < 2:
         _ontbreekt("de datumvorm toont geen velden om te meten")
     assert len(set(hoogtes.values())) == 1, (
