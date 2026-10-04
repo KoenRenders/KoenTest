@@ -22,22 +22,24 @@
 <body class="bg-gray-50 min-h-screen text-ink" data-shell="platform">
   <main class="max-w-3xl mx-auto px-4 py-16">
     <h1 class="text-4xl font-bold text-blue-700 mb-3">{{ _("Digital Platform") }}</h1>
-    <p class="text-gray-600 mb-10">{{ _("Eén platform voor Raak-afdelingen: activiteiten, inschrijvingen, ledenbeheer en online betalen — per afdeling een eigen site.") }}</p>
-    <h2 class="text-lg font-bold text-blue-700 mb-4">{{ _("Afdelingen") }}</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-12">
-      {% for a in afdelingen %}
+    {# #1525: the text is the platform's own home-intro, edited under Pagina's;
+       absent when the platform has pages off or the block is unpublished. Styled
+       here, not with `.cms-content`, whose rules live in the two shells. #}
+    {% if intro_html %}
+    <div class="text-gray-700 mb-10 [&_p]:mb-3 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-blue-700 [&_h2]:mt-8 [&_h2]:mb-2 [&_a]:text-blue-700 [&_a]:underline [&>:first-child]:mt-0">{{ intro_html | safe }}</div>
+    {% endif %}
+    {# #1525: the tenants per account; "Overige" holds those without one. #}
+    {% for account in accounts %}
+    <h2 class="text-lg font-bold text-blue-700 mb-4">{{ account.name }}</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+      {% for a in account.tenants %}
       <a href="{{ a.url }}" class="block bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
         <span class="font-semibold text-ink">{{ a.naam }}</span>
         <span class="block text-sm text-gray-500 mt-1">{{ a.url }}</span>
       </a>
       {% endfor %}
     </div>
-    {# #821: no more pointing at one afdeling. A platform that sends you to one of its
-       own customers for administration is not a platform. #}
-    <div class="bg-blue-50 border border-blue-100 rounded-2xl p-6">
-      <h2 class="text-lg font-bold text-blue-700 mb-2">{{ _("Ook een afdeling op het platform?") }}</h2>
-      <p class="text-sm text-gray-700">{{ _("Activiteiten publiceren, inschrijvingen en betalingen ontvangen, je leden beheren — elke afdeling krijgt een eigen site. Vraag het aan bij de platformbeheerder.") }}</p>
-    </div>
+    {% endfor %}
     {# #821: the entrance for the platform administrator. Visible to everyone, and that
        is a choice: /admin/tenants is OPERATOR-only and refuses the rest with a 403, so
        the link gives away nothing the login screen does not already give away. Hiding

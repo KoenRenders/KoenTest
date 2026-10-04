@@ -25,27 +25,43 @@ def homepage(request: Request, db: Session = Depends(get_db)):
     if request.state.platform_landing:
         # platform.example-wortel (§7, 5c): de "Raak Digital Platform"-landing met de
         # actieve afdelingen; units draaien op hun eigen adres of pad-prefix.
-        from app.domains.mdm.api import list_units
+        # #1525: per account, and the text above it is the platform's own
+        # home-intro, which the operator edits under Pagina's.
+        from app.domains.mdm.api import active_units_by_account, module_enabled
+        from app.kernel.modules import ModuleCode
         from app.kernel.tenant_config import tenant_display_name, tenant_home_url
 
-        units = list_units(db, alleen_actief=True)
         # #860: `tenant_home_url` en niet `tenant_base_url` — dit is de vraag "waar
         # woont die afdeling", niet "waar breng je mij terug". Een afdeling mét eigen
         # host krijgt dus haar eigen domein (uit TENANT_HOSTNAMES) en niet
         # <platform-host>/<code>; zonder eigen host wordt haar adres afgeleid uit de
         # host waarop JIJ binnenkwam. Dat laatste is wat Koen zag misgaan: de kaart
         # "Raak Voorbeeldafdeling" wees naar het adres van Millegem.
-        afdelingen = [
+        accounts = [
             {
-                "naam": tenant_display_name(db, tenant_id=u.id),
-                "url": tenant_home_url(db, tenant_id=u.id, code=u.code),
+                "name": account.name if account is not None else _("Overige"),
+                "tenants": sorted(
+                    (
+                        {
+                            "naam": tenant_display_name(db, tenant_id=u.id),
+                            "url": tenant_home_url(db, tenant_id=u.id, code=u.code),
+                        }
+                        for u in units
+                    ),
+                    key=lambda t: t["naam"].casefold(),
+                ),
             }
-            for u in units
+            for account, units in active_units_by_account(db)
         ]
+        intro = get_published_page(db, "home-intro") if module_enabled(ModuleCode.CMS) else None
         return templates.TemplateResponse(
             request,
             "platform_landing.html",
-            {"afdelingen": afdelingen, "current_year": site_context(db, request)["current_year"]},
+            {
+                "accounts": accounts,
+                "intro_html": render_cms_content(intro.content) if intro else None,
+                "current_year": site_context(db, request)["current_year"],
+            },
         )
 
     # #727: `is_published` geldt ook voor de blokken die de site zelf invult. Er
