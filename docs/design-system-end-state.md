@@ -303,12 +303,23 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   the fields it edits. [39, 29, 20]
 - **The summary card** at the right of the content column, `max-w-xs`:
   the state, two or three figures, the main action; on a phone a compact
-  strip above the tabs. [25]
+  strip under the tabs, above the content. **Only on the Gegevens tab**
+  (block 8, Koen, 4 October 2026): a list tab — Personen, Inschrijvingen,
+  Betalingen — has no card and no strip, so the list starts directly under
+  the tabs at the full width; the record's figures are read on Gegevens.
+  [25]
 - **The tabs:** "Gegevens" first, then the related lists in the same order
   on every entity (Inschrijvingen · Betalingen · …), each with its count.
   A related-list tab is the list layout in its **embedded rendering**: no
-  page header, no tiles (the summary carries the figures), one toolbar row,
-  the table; a row there unfolds in place with a jump link to its page.
+  page header, no figures, no summary card, one toolbar row, the table; a
+  row there **unfolds in place, read-only** (the registration: Contact ·
+  Producten · Antwoorden · Betaling side by side, stacked on a phone; the
+  chevron turns, a 3 px line at the left, one open row per list) with a
+  jump link "Inschrijving openen ↗" to its own page — **no Bewerken in the
+  unfolded row**: editing is the record page's (block 8, Koen, 4 October
+  2026). Registrations are **one table with a collapsible group row per
+  component** (chevron, name, count, `⋯` with Exporteren and Antwoorden),
+  per activity on the household with a jump link in the group row (Q41).
   The header, tabs and summary do not move between tabs; only the content
   column is narrow or wide. [19, 27, 29, 26]
 - **Read mode** shows data and navigation, nothing that edits: every
@@ -568,9 +579,17 @@ summary strip above it.
 
 ### 3.10 `summary_card(state, figures, action)`
 
-Right column on a desktop (`max-w-xs`, `surface-card`), a strip above the
-tabs on a phone: the state badge, up to three figures with labels, one
-action. [25]
+Right column on a desktop (300 px in the reading group, `surface-card`,
+16 px padding, 12 px between parts), a strip under the tabs on a phone
+(358 px, 12 px padding, badge and action icon on the first line, the
+figures on the second, about 130 px): the state badge first, up to three
+figures (24 px semibold, labels 13 px, tabular amounts, an open balance in
+`warning`), one action (the activity: the public link with its copy
+button, which confirms "Gekopieerd" beside itself). The activity: Gepubliceerd ·
+Inschrijvingen · Deelnemers · Openstaand · the link; the household:
+Lidmaatschap <year> · Personen · Openstaand. Toegang is the head's badge and
+a form field, Inschrijven tot and Bezetting belong to the component. **Only
+on Gegevens**; a list tab has none (block 8, Koen, 4 October 2026). [25]
 
 ### 3.11 `reference(record)` — the jump link
 
@@ -778,7 +797,7 @@ says so, and the default order is the one named above.
 |---|---|---|---|---|
 | Activiteit | hand-built head with six buttons; per-card edit toggles (activity, each date, component, product, organiser); right rail Publicatie / Deel / Bezetting; tabs Overzicht · Inschrijvingen · Betalingen; `<details>` external links | status first, then access badge; facts: dates · time · location · organiser (jump link) · poster from the Design Studio; summary: state, registrations, children or participants, open balance, the share link; tabs Gegevens · Inschrijvingen · Betalingen; primary Bewerken, menu Acties (Kopiëren, Publiceren, Design Studio, Foto's, Verwijderen) | one save (pilot A) | **sections decided with block 6 (Koen, 4 Oct 2026)**: *Activiteit* (naam, vriendelijke URL as `slug`, locatie, omschrijving, affiche — the poster is public, not internal) · *Publiek* (doelpubliek, enkel leden — one word for the badge and the field) · *Intern* (interne nota only) · the repeating groups: dates (simple), components (composite, **with their products inside**), organisers (simple, a list of members — no roles: they do not exist); Externe koppelingen last; "Geannuleerd" is not a field but the record action "Annuleren"; the component keeps its select "Extra vragen: <formulier>" — "nu / later" is the registrant's choice (CR-14), not a setting |
 | Inschrijving | page_header with facts; one panel; edit toggle; two action bars (main, answers); tabs Overzicht · Betalingen | contact name; facts: activity (jump link) · component · registered on; summary: state, total, paid, balance; tabs Gegevens · Betalingen | one save (the answers form folds into it) | product lines, answers; none rare |
-| Gezin (household) | head with Verwijderen; person cards with toggles; address card; bestuurslid; lidmaatschappen; tabs Overzicht · Inschrijvingen · Betalingen | household name; facts: address · persons · membership year (badge); summary: membership state, persons, open balance; tabs Gegevens · Personen · Inschrijvingen · Betalingen | one save (pilot B, the admin side) | persons (composite, each with e-mail addresses as a simple group), memberships; none rare |
+| Gezin (household) | head with Verwijderen; person cards with toggles; address card; bestuurslid; lidmaatschappen; tabs Overzicht · Inschrijvingen · Betalingen | household name; facts: address · the household's e-mail (jump link); summary on Gegevens: Lidmaatschap <year> badge, Personen, Openstaand; tabs Gegevens · Personen · Inschrijvingen · Betalingen; **Personen is a table** (Naam · Relatie · Geboortedatum · E-mail · Gsm) whose row unfolds in place to the person's fields and e-mail addresses — a person has no page (Q28); the relation reads **Hoofdlid**, Partner, Kind — never "Contactpersoon" (block 8, Koen, 4 Oct 2026) | one save (pilot B, the admin side) | Gegevens: a section **Adres** (straat · nummer · bus · postcode — the address is the household's, shown in the facts line and edited here), Bestuurslid, then the groups: persons (composite, each with e-mail addresses as a simple group), memberships; none rare |
 | Persoon | **no page**: a card on the household page | stays a card on the household page (Koen, 2 Oct 2026, Q28) | — | e-mail addresses |
 | Formulier | builder with edit toggle per settings, section, field; option rows with bars; JSON import panel; tabs Formulier · Inzendingen · Resultaten | title with status badge; facts: share link (copy) · submissions · last submission; summary: state, submissions, open since; tabs Opbouw · Inzendingen · Resultaten; menu Acties (Bekijk, Afdruk, Definitie exporteren, Definitie importeren…) | **the builder keeps per-section editing** — a declared exception (Koen, 2 Oct 2026, Q28) | sections (composite, with fields), options (simple); JSON import last |
 | Nieuwsbrief | autosave body; audience radios; insert buttons; Raakje panel right; Versturen on its own page; no tabs | **document**: subject as the title, facts: audience · state · last saved; header editor (audience, subject, preview text); body autosaved; primary Versturen…, menu Acties (Voorbeeld, Testmail, Kopiëren, Verwijderen); the Raakje panel docked | autosave + header editor | none; none |
