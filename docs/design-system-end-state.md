@@ -364,7 +364,10 @@ Renders label, control, help text and error in one block on the grid;
 `required` marks the label; the error sits under the control in
 `brand-danger`, the field's border coloured. `kind` is one of `text`,
 `textarea`, `number`, `email`, `phone`, `date`, `select`, `switch`,
-`segmented`, `checkbox_group`, `radio_group`, `upload`, `url`. **The kind
+`segmented`, `checkbox_group`, `radio_group`, `upload`, `url`, and `slug`
+(a URL name such as `herfstwandeling-met-soep`: half width, no
+auto-capitalisation — distinct from `url`, which is a full address and
+always full width; block 6, 4 Oct 2026). **The kind
 decides the width:** `url`, `email`, `textarea` and rich text are always
 full; `number`, `date`, `time`, a code, a short `select` and `switch` are
 half or quarter; `text` is half unless `long=True`; a template may widen a
@@ -375,7 +378,8 @@ template. [23, 24, 54]
 ### 3.2 `form_grid` and `section(title)`
 
 A section is a heading (`text-base font-semibold`) over a two-column grid
-at reading width; a field spans half by default, `span="full"` for long
+at reading width — **one card per section, never a nested card**, 16 px
+from the heading to the first field (block 6); a field spans half by default, `span="full"` for long
 content, `span="quarter"` for a number or code; one column on a phone.
 Fields that describe one thing share a section; fields share a row only
 when read together (street · number · bus; price · member price; from ·
@@ -412,8 +416,12 @@ external links, the activity's poster URL. [3, 53]
 
 ### 3.5 Controls
 
-- **`switch`** for a boolean setting; label at the left, "aan"/"uit" for
-  the screen reader; disabled in read mode, showing its state. [8]
+- **`switch`** for a boolean setting — also inside an edit form that applies
+  only on Opslaan (Q13, Koen, 3 Oct 2026); **the knob at the left, the label
+  at its right**, 8 px apart, as a checkbox reads, so two half-width switches
+  on one row never put a knob beside the wrong label (block 6, Koen, 4 Oct
+  2026, reversing "label at the left"); "aan"/"uit" for the screen reader;
+  in read mode it is words ("Enkel leden: ja"), never a disabled control. [8]
 - **`segmented`** for two or three exclusive options (table · cards;
   nu · later). [2]
 - **`checkbox_group`** for several out of a list, and a single checkbox for
@@ -491,6 +499,11 @@ document: the same menu; public: one primary in the sticky card, no
 menu). First applied to the activity's head (#1387) and the "Kopiëren" of
 #1397, whose place was decided four times before this rule existed. [39,
 51]
+
+**Decided with block 6** (Koen, 4 October 2026): a state of the record is
+never a form field — "Geannuleerd" leaves the activity's form and becomes
+the record action **"Annuleren"** in Acties, next to "Terug naar concept";
+the status badge then says Geannuleerd.
 
 **Decided with block 5** (Koen, 3 October 2026, on ChatGPT's brief-05
 answer): the title line is 36 px on a desktop (title 30 px, badges beside
@@ -728,7 +741,7 @@ says so, and the default order is the one named above.
 
 | Screen | Today | End state: header facts · summary card · tabs | Save | Repeating groups · rare section |
 |---|---|---|---|---|
-| Activiteit | hand-built head with six buttons; per-card edit toggles (activity, each date, component, product, organiser); right rail Publicatie / Deel / Bezetting; tabs Overzicht · Inschrijvingen · Betalingen; `<details>` external links | status first, then access badge; facts: dates · time · location · organiser (jump link) · poster from the Design Studio; summary: state, registrations, children or participants, open balance, the share link; tabs Gegevens · Inschrijvingen · Betalingen; primary Bewerken, menu Acties (Kopiëren, Publiceren, Design Studio, Foto's, Verwijderen) | one save (pilot A) | dates (simple), components (composite, with products), organisers (simple); Externe koppelingen last |
+| Activiteit | hand-built head with six buttons; per-card edit toggles (activity, each date, component, product, organiser); right rail Publicatie / Deel / Bezetting; tabs Overzicht · Inschrijvingen · Betalingen; `<details>` external links | status first, then access badge; facts: dates · time · location · organiser (jump link) · poster from the Design Studio; summary: state, registrations, children or participants, open balance, the share link; tabs Gegevens · Inschrijvingen · Betalingen; primary Bewerken, menu Acties (Kopiëren, Publiceren, Design Studio, Foto's, Verwijderen) | one save (pilot A) | **sections decided with block 6 (Koen, 4 Oct 2026)**: *Activiteit* (naam, vriendelijke URL as `slug`, locatie, omschrijving, affiche — the poster is public, not internal) · *Publiek* (doelpubliek, enkel leden — one word for the badge and the field) · *Intern* (interne nota only) · the repeating groups: dates (simple), components (composite, **with their products inside**), organisers (simple, a list of members — no roles: they do not exist); Externe koppelingen last; "Geannuleerd" is not a field but the record action "Annuleren"; the component keeps its select "Extra vragen: <formulier>" — "nu / later" is the registrant's choice (CR-14), not a setting |
 | Inschrijving | page_header with facts; one panel; edit toggle; two action bars (main, answers); tabs Overzicht · Betalingen | contact name; facts: activity (jump link) · component · registered on; summary: state, total, paid, balance; tabs Gegevens · Betalingen | one save (the answers form folds into it) | product lines, answers; none rare |
 | Gezin (household) | head with Verwijderen; person cards with toggles; address card; bestuurslid; lidmaatschappen; tabs Overzicht · Inschrijvingen · Betalingen | household name; facts: address · persons · membership year (badge); summary: membership state, persons, open balance; tabs Gegevens · Personen · Inschrijvingen · Betalingen | one save (pilot B, the admin side) | persons (composite, each with e-mail addresses as a simple group), memberships; none rare |
 | Persoon | **no page**: a card on the household page | stays a card on the household page (Koen, 2 Oct 2026, Q28) | — | e-mail addresses |
