@@ -1159,6 +1159,32 @@ def contact_form(db) -> Optional[Form]:
     return form
 
 
+def form_button_target(db, slug: str) -> Optional[tuple[str, str]]:
+    """The title and the public path of this tenant's form `slug` — when it can
+    take a submission, else None (#1567).
+
+    For the page placeholder `{{form:<slug>}}`: a button is offered only where
+    the form exists in THIS tenant (the ORM's tenant filter; another tenant's
+    slug is not found), is open and has room left; and for the contact form the
+    one rule of #1509 decides (`contact_form`). So a button never leads to a form
+    that cannot be sent. The contact form lives at `/berichten`, any other form
+    at its readable link `/f/<slug>` (#690).
+    """
+    from app.domains.forms.models import FormSubmission
+
+    if slug == CONTACT_FORM_SLUG:
+        form = contact_form(db)
+    else:
+        form = get_form_by_slug(db, slug)
+    if form is None or form.status is not FormStatus.OPEN:
+        return None
+    if form.max_submissions is not None:
+        taken = db.query(FormSubmission).filter(FormSubmission.form_id == form.id).count()
+        if taken >= form.max_submissions:
+            return None
+    return form.title, "/berichten" if slug == CONTACT_FORM_SLUG else f"/f/{slug}"
+
+
 #: The words a tenant's contact form starts with (#1509): those of migration 073,
 #: without its "voor Raak" — a company is not Raak.
 CONTACT_FORM_TITLE = "Contacteer ons"

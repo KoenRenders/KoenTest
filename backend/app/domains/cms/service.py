@@ -10,6 +10,7 @@ import re
 from typing import Iterable, Optional
 
 from app.domains.cms.models import CmsPage
+from app.i18n import _
 
 # A picture in a page's text is an `<img src="/api/v1/media/<id>">` (or its
 # `/thumb`); the id is the whole run of digits, so 12 does not match 123.
@@ -227,11 +228,16 @@ def placeholders() -> list[dict]:
     """Beschikbare codes voor de CMS-editor (code → omschrijving + voorbeeld)."""
     from app.domains.cms.render import PLACEHOLDER_LABELS, render_cms_content
 
+    def _preview(code: str) -> str:
+        shown = render_cms_content(f"{{{{{code}}}}}") or ""
+        if code.startswith("form:"):
+            # #1567: the legend shows the button's words, not its markup — or
+            # says that this tenant has no such form to send.
+            words = re.sub(r"<[^>]+>", " ", shown).strip()
+            return f"[{words}]" if words else _("geen knop: dit formulier kan niets ontvangen")
+        return shown
+
     return [
-        {
-            "code": f"{{{{{code}}}}}",
-            "label": label,
-            "preview": render_cms_content(f"{{{{{code}}}}}"),
-        }
+        {"code": f"{{{{{code}}}}}", "label": label, "preview": _preview(code)}
         for code, label in PLACEHOLDER_LABELS.items()
     ]
