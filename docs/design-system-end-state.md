@@ -95,8 +95,8 @@ binding: each step has one use, applied by a macro, never by a template.
 | Layout | Desktop | Phone (< 768 px) |
 |---|---|---|
 | list page | the full content width beside the sidebar, no `max-w`: a list grows with the screen (block 1 replaces the 1 280 px box here before) | one column, 16 px gutters |
-| record page | the full frame; inside it one **reading group** of 768 px form column + 24 px gap + 300 px summary column (1 092 px), centred when the frame is wider | one column, 16 px gutters; the summary as a strip above |
-| document page | reading width 768 px, centred | one column, 16 px gutters |
+| record page | the full frame; inside it one **reading group** of 768 px form column + 24 px gap + 300 px summary column (1 092 px), **left-aligned against the page margin** — never centred — so a form starts on the same x as a list, the title and the tabs; the space beyond the summary stays empty on a wide screen (Koen, 4 Oct 2026, correcting block 1's "centred when the frame is wider") | one column, 16 px gutters; the summary as a strip under the tabs |
+| document page | reading width 768 px, left-aligned like the record page | one column, 16 px gutters |
 
 **Two priorities, one kit** (Koen, 2 October 2026): the public site is
 designed phone-first — 390 px is where a public page is drawn first and
