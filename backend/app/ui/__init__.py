@@ -674,6 +674,9 @@ def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
     return [
         {
             "label": _(label) if label else None,
+            # #1526: the untranslated label names the group in the browser's
+            # memory of what is folded; a translation must not forget it.
+            "key": label,
             "items": [
                 {
                     "href": href,

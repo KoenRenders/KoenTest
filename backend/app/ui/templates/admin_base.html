@@ -18,7 +18,10 @@
   {# CR-11 block 1 (#1482): rail or wide, decided before the first paint, so the
      sidebar does not jump. Below 768 px neither (the drawer); below 1 440 px the
      rail, unless the user chose to keep it wide; from 1 440 px wide, unless the
-     user chose the rail. The choice lives in this browser only (`localStorage`). #}
+     user chose the rail. The choice lives in this browser only (`localStorage`).
+     #1526: so does each group's folded state; the active item's group is always
+     open, and the sidebar scrolls only as far as needed to show the active item.
+     In the rail every group is open — it has no headings to unfold them by. #}
   <script>
     window.raakNav = window.raakNav || (function () {
       var KEY = "raak-admin-sidebar";
@@ -38,10 +41,51 @@
         try { localStorage.setItem(KEY, rail ? "wide" : "rail"); } catch (e) {}
         sync();
       }
-      addEventListener("resize", sync);
+      var GROUPS = "raak-admin-sidebar-groups";
+      function folded() {
+        try { return JSON.parse(localStorage.getItem(GROUPS)) || {}; } catch (e) { return {}; }
+      }
+      function groups() {
+        var nav = document.getElementById("admin-nav-zijbalk");
+        if (!nav) return;
+        var rail = document.documentElement.classList.contains("nav-rail"), f = folded();
+        nav.querySelectorAll("details[data-nav-group]").forEach(function (d) {
+          d.open = rail || !!d.querySelector("[aria-current]") || !f[d.dataset.navGroup];
+        });
+      }
+      function reveal(top) {
+        var nav = document.getElementById("admin-nav-zijbalk");
+        if (!nav) return;
+        if (top) nav.scrollTop = top;
+        var a = nav.querySelector("[aria-current]");
+        if (!a) return;
+        var r = a.getBoundingClientRect(), b = nav.getBoundingClientRect();
+        if (r.top < b.top) nav.scrollTop -= b.top - r.top;
+        else if (r.bottom > b.bottom) nav.scrollTop += r.bottom - b.bottom;
+      }
+      function show() { groups(); reveal(); }
+      // A click on a heading is the user's choice; opening a group in code is not.
+      document.addEventListener("click", function (e) {
+        var s = e.target.closest && e.target.closest("details[data-nav-group] > summary");
+        if (!s || document.documentElement.classList.contains("nav-rail")) return;
+        var f = folded();
+        if (s.parentNode.open) f[s.parentNode.dataset.navGroup] = true;
+        else delete f[s.parentNode.dataset.navGroup];
+        try { localStorage.setItem(GROUPS, JSON.stringify(f)); } catch (e2) {}
+      });
+      // A boosted click swaps the nav out of band: keep where it was scrolled.
+      var kept = 0;
+      document.addEventListener("htmx:oobBeforeSwap", function (e) {
+        var nav = document.getElementById("admin-nav-zijbalk");
+        if (nav && e.target === nav) kept = nav.scrollTop;
+      });
+      document.addEventListener("htmx:oobAfterSwap", function (e) {
+        if (e.target && e.target.id === "admin-nav-zijbalk") { groups(); reveal(kept); }
+      });
+      addEventListener("resize", function () { sync(); groups(); });
       addEventListener("DOMContentLoaded", sync);
       sync();
-      return { sync: sync, toggle: toggle };
+      return { sync: sync, toggle: toggle, show: show };
     })();
   </script>
   <style>
@@ -168,7 +212,7 @@
       {% for groep in _menu %}
       {% if groep.label %}
       {# A group opens and closes on its chevron (§1.5: chevron, never the gear). #}
-      <details open class="nav-group mt-2">
+      <details open class="nav-group mt-2" data-nav-group="{{ groep.key }}">
         <summary class="nav-heading flex items-center justify-between gap-1 h-6 px-3 text-xs font-semibold text-nav-soft cursor-pointer list-none [&::-webkit-details-marker]:hidden">
           <span class="nav-label">{{ groep.label }}</span><span class="nav-label">{{ ui.icon("chevron-down", 14) }}</span>
         </summary>
@@ -181,6 +225,8 @@
       {% if groep.label %}</details>{% else %}</div>{% endif %}
       {% endfor %}
     </nav>
+    {# #1526: before the first paint, the stored groups and the active item. #}
+    <script>raakNav.show()</script>
     {# The user's own choice, at every width from 768 px: in- or uitklappen,
        remembered in the browser (`localStorage`). The label follows the state
        (`raakNav.sync()` in <head>). #}
