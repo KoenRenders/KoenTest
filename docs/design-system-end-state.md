@@ -711,6 +711,54 @@ kent deze gegevens nog niet". The screen owns its selections; the panel
 reads them. The assistant page and the per-screen `AI ·` buttons do not
 exist. [32, 33, 41]
 
+**Decided with block 10** (Koen, 4 October 2026, on ChatGPT's brief-10
+answer, as drawn): the panel is **400 px, docked at the right under the
+top bar to the window's bottom**, on `surface-card` with a thin line; the
+head "Assistent" with the read-aloud toggle and close, the context under
+it in full ("over Herfstwandeling met soep", "over 8 openstaande
+betalingen (filter Openstaand)", "over Raak Millegem" without a record);
+the conversation in the kit's balloons with its own scroll; **three
+suggestions of the screen** as text lines above the question field; the
+field from 44 to 120 px with the microphone and the send button, Enter
+sends, Shift+Enter breaks. **The content moves aside, it is not covered**:
+at 1 920 px the whole reading group fits beside the panel; at 1 440 px
+exactly 768 px remain, the summary becomes the strip above the form and
+the form keeps its width; a list beside the panel at 1 440 px falls back
+to its stacked rows (list width under 900) — accepted, the panel is
+occasional and closing restores the room. **Below 1 440 px** a centred
+dialog of at most 560 × 720 px (the background blocked); **at 390 px** a
+sheet of 560 px from y = 284 with a handle, the title and badges visible
+above it; X or Escape closes and returns the focus; a click beside the
+panel does not close it. **No selectors in the panel**: the screen owns
+them (the newsletter's activities and reports stand on the newsletter
+page). On a module the assistant does not know the trigger is dimmed but
+focusable and opens only "Raakje kent deze gegevens nog niet". **A
+proposal for the form**: the fields it touches get a brand line, the brand
+tint and "Voorstel · nog niet toegepast"; the panel says "3 velden
+ingevuld als voorstel" with Toepassen and Negeren; Toepassen writes the
+values into the fields ("Ingevuld door Assistent · nog niet opgeslagen"),
+the one Opslaan of the action bar saves; a proposal carries the field
+names, the values and the version it was based on, and never silently
+overwrites a change made meanwhile; Negeren removes it and keeps the
+user's own changes. **A reviewable proposal** (the newsletter today): a
+proposal whose text carries passages the assistant could not ground
+shows them in the panel marked, each with "klopt, behouden" unticked —
+omitted by default — and Toepassen writes the text with the kept passages
+(the rule of "AI-antwoord: dubbelcheck tegen bronnen"). A proposal may
+fill **any field the screen declares** — on the newsletter: Onderwerp,
+Voorbeeldtekst (a growing field) and Inhoud together — not only the
+body. **Answers**: a figure large in the balloon with its range and source;
+a small table (two columns, a few rows) with a link to the full list
+state ("Bekijk alle 8 betalingen"); loading "Raakje zoekt het voor je
+uit…"; failed "Raakje kon geen antwoord geven — probeer het opnieuw. Je
+vraag staat er nog.", no invented figures. **The public bell**: 56 px at
+the bottom right; at 1 440 px a compact window of 400 × 640 px above it,
+on a phone the same sheet; the tenant's name; headings in Fraunces; three
+public suggestions; one component in the DOM for both shells, the public
+toolset only. Measured: the panel 400 × 1 016 px; remaining content
+1 232 px at 1 920 and 768 px at 1 440; the question field at y = 992
+(desktop) and 760 (phone); no overflow in Firefox and Chromium.
+
 ### 3.16 `rich_text(name, inserts=[…])`
 
 One toolbar for every rich-text field: format groups, lists, link,
