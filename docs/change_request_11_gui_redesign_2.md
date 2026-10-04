@@ -1,7 +1,7 @@
 # Change Request 11 — GUI redesign 2: the end state of the screens, and the road there
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** parked on 20 September 2026 · shaped on 30 September 2026 as the GUI's end state and roadmap · draft, for the business to read · not assigned
+**Status:** parked on 20 September 2026 · shaped on 30 September 2026 as the GUI's end state and roadmap · phase 1 (the quick wins, #1391) built in v2.11.0–v2.12.0 · the frame (block 1, #1482) built in v2.13.0 · **pilot A, blocks 2–10, assigned to v2.13.0 (#1469) on 4 October 2026 — tracking issue #1481**
 **Applies to:** admin list screens, the public homepage and cards, the admin assistant — GUI work deferred from the v2.5 design track (#913, #996).
 
 > Once a parking lot for GUI work deferred from v2.5; since 30 September
