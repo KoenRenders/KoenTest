@@ -58,6 +58,7 @@ def test_the_head_carries_one_primary_and_the_actions_as_a_menu(client, db_sessi
     assert _menu_labels(head) == [
         "Kopiëren",
         "Terug naar concept",
+        "Activiteit annuleren",
         "Foto&#39;s uploaden",
         "Design Studio",
     ]

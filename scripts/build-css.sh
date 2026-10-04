@@ -255,6 +255,26 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .admin-sidebar{position:fixed;bottom:0;left:0;z-index:30;width:var(--nav-current);display:flex;flex-direction:column;background:rgb(var(--c-nav));border-right:1px solid rgb(var(--c-line));color:rgb(var(--c-nav-ink));overflow:hidden}
 .admin-frame{margin-left:var(--nav-current);min-width:0}
 .admin-content:has([data-list-page]){max-width:none}
+/* CR-11 block 6 (#1558), design-system-end-state §1.4, §3.2. A record page
+   (it carries the record head) takes the frame like a list page; inside it the reading group is 768 + 24 +
+   300 px, left-aligned; the summary stands beside the form while the form keeps
+   640 px (964 px of frame), else above it. The form grid has four tracks, 12 px apart; it goes to
+   one column when the section is narrower than 532 px inside (two half fields
+   of 260 px and their gap) — a container query, which a utility cannot say.
+   32 px between the sections of a form column. */
+.admin-content:has([data-record-head]){max-width:none}
+.record-frame{container-type:inline-size}
+.record-columns{display:grid;grid-template-columns:minmax(0,768px);gap:24px;align-items:start}
+.record-form-column{min-width:0}
+.form-flow{display:grid;gap:32px;min-width:0}
+.record-summary-column{min-width:0;order:-1}
+@container (min-width:964px){.record-columns:has(>.record-summary-column){grid-template-columns:minmax(0,768px) 300px}.record-summary-column{order:0}}
+.form-section{container-type:inline-size;min-width:0}
+.form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
+.form-grid>[data-span="full"]{grid-column:1/-1}
+.form-grid>[data-span="half"]{grid-column:span 2}
+.form-grid>[data-span="quarter"]{grid-column:span 1}
+@container (max-width:531.98px){.form-grid>[data-span]{grid-column:1/-1}}
 .nav-drawer-only,.nav-when-rail{display:none}
 html.nav-rail .admin-sidebar:not(.is-open) .nav-label{display:none}
 html.nav-rail .admin-sidebar:not(.is-open) .nav-rail-mark{display:block}

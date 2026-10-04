@@ -42,121 +42,60 @@
    iets zwakkers. #}
 {% set PRODUCT_NIET_PUBLIEK_BADGE = _("Niet publiek") %}
 {% set PRODUCT_ZICHTBAAR_HINT = _("Uit: het product verdwijnt van het publieke formulier, maar het bestuur kan het nog toevoegen aan een bestaande inschrijving.") %}
-<div class="space-y-4">
+{# CR-11 block 6 (#1558): the fiche reads and edits as a whole. `head_editing`
+   (`?bewerken=1`, from `app.ui.record_frame`) turns every section into its
+   editor: the same sections, the same fields, the same order. One form holds
+   the three sections; the closed last section below names it (`form=`). Dates,
+   components and organisers are the repeating groups of #1559 and keep their
+   own cards and buttons until then. #}
+{% set _edit = head_editing|default(false) %}
+{% set _keep = way_back.keep if way_back is defined else "" %}
+{% set _read_url = "/admin/activiteiten/" ~ a.id ~ ("?" ~ _keep if _keep else "") %}
+{% set _audience = namespace(value="") %}
+{% for code, label, selected in audience_options %}{% if selected %}{% set _audience.value = code %}{% endif %}{% endfor %}
+<div data-form-flow data-mode="{{ 'edit' if _edit else 'read' }}" class="form-flow">
   {{ ui.error_banner(error|default(None)) }}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
-    {# Golf 6, kop-herziening (Koen, 14 sep 2026): ALLE recordacties bovenaan.
-       Leesmodus toont de opener (#503-toggle werd opener-only); bewerkmodus
-       wisselt hem voor het cluster — nooit twee Annulerens. Sticky: lang
-       formulier, Opslaan blijft in beeld. #}
-    <div class="flex items-center justify-between sticky top-0 z-20 bg-white py-1">
-      {# Naam, status en locatie staan sinds de feedbackronde in de recordkop
-         (_aa_recordkop.html); deze kaart draagt de rest. #}
-      {# Feedbackronde 2 (15 sep): zelfde titelstijl als Datums en Onderdelen. #}
-      <h2 class="text-xl font-semibold text-kop">{{ _("Activiteit") }}</h2>
-      <div class="flex gap-2">
-        {{ ui.edit_toggle("edit") }}
-        <div x-show="edit" x-cloak>{{ ui.action_bar(form="aa-act-form", cancel_attrs='@click="edit = false"',
-             delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen" ' ~ confirm_attrs(_("Activiteit"), a.name)) }}</div>
-      </div>
-    </div>
-    {# De leeslink naar de affiche (#503). Het commentaar zei "in read-modus" maar
-       de x-show ontbrak, dus stond ze óók tijdens het bewerken — naast diezelfde
-       link in het uploadblok (#653). §2.12: de bijlage staat nooit twee keer
-       tegelijk op het scherm; de leeslink mag blijven, maar enkel in leesmodus.
-       Ze bestaat om de bijlage te kunnen openen zónder eerst te gaan bewerken. #}
-    {# Ronde 4 (15 sep): mét label — een kale bestandsnaam leest niet als
-       "dit is de affiche". #}
-    {# Ronde 4/5 (15 sep): élk veld zichtbaar in leesmodus, zonder misleiding —
-       de Poster-URL toont alleen wanneer hij ook GELDT (een upload prevaleert,
-       #223); de vriendelijke URL zit in de deellink rechts, niet dubbel hier.
-       x-show per regel: gate-regel 28 leest per element. #}
-    {% if a.poster_asset_url %}<p class="mt-2 text-sm" x-show="!edit" x-cloak><span class="text-ink-soft">{{ _("Affiche") }}:</span> <a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-link underline">{{ a.poster_asset_title or _("Huidige affiche bekijken") }}</a></p>
-    {% elif a.poster_url %}<p class="mt-2 text-sm" x-show="!edit" x-cloak><span class="text-ink-soft">{{ _("Poster-URL") }}:</span> <a href="{{ a.poster_url }}" target="_blank" rel="noopener" class="text-link underline break-all">{{ a.poster_url }}</a></p>
-    {% endif %}
-    {# #1139: de kaart toont in leesmodus WAT ZE BEVAT. Tot hier stond er precies
-       één ding — de affichelink, of de zin dat er nog geen affiche is — en zat al
-       het andere in het formulier eronder achter `x-show="edit"`. Je zag de
-       omschrijving en de interne nota dus alleen terwijl je ze bewerkte.
-
-       Een leeg veld wordt WEGGELATEN en niet als lege regel getoond: dan is de
-       kaart opnieuw een kader zonder inhoud, en precies dat was de klacht.
-
-       `x-show` per element en niet één omhullende div: de bijlage-poort
-       (§2.12, #653) leest per regel, en de leeslink hierboven moet haar
-       `x-show="!edit"` op haar eigen regel hebben. #}
-    {% if a.description %}<div class="mt-2 text-sm" x-show="!edit" x-cloak><span class="text-ink-soft">{{ _("Omschrijving") }}:</span> <span class="whitespace-pre-line">{{ a.description }}</span></div>{% endif %}
-    {% if board_notes %}<div class="mt-2 text-sm" x-show="!edit" x-cloak><span class="text-ink-soft">{{ _("Interne nota") }}:</span> <span class="whitespace-pre-line">{{ board_notes }}</span>
-      <p class="text-xs text-ink-soft mt-1">{{ INTERNE_NOTA_BELOFTE }}</p></div>{% endif %}
-    {# F33 (#996) verklaarde een lege kaart met een zin over de affiche. Die zin
-       blijft, maar hoort nu bij de kaart als geheel: met een omschrijving erin is
-       de kaart niet leeg en is "nog geen affiche" ruis. Alleen wanneer er écht
-       niets te tonen valt, zegt de kaart dat. #}
-    {% if not (a.poster_asset_url or a.poster_url or a.description or board_notes) %}
-    <p class="mt-2 text-sm text-ink-soft" x-show="!edit" x-cloak>{{ _("Nog niets ingevuld — voeg een omschrijving of een affiche toe via Bewerken.") }}</p>{% endif %}
-    {# Eén vorm voor tekstvelden én affiche (#623). Poster-URL was uit het scherm
-       verdwenen terwijl het veld op het model bleef bestaan — je kon alleen nog
-       uploaden. En het uploadblok had een eigen "Uploaden"-knop, dus twee handelingen
-       voor één wijziging. Nu bewaart één "Opslaan" allebei. #}
-    <form id="aa-act-form" x-show="edit" x-cloak class="space-y-3 mt-3" enctype="multipart/form-data"
-          hx-post="/admin/activiteiten/{{ a.id }}" hx-encoding="multipart/form-data"
-          hx-target="#aa-detail" hx-swap="innerHTML" style="display: none">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>{{ ui.label(_("Naam"), "name", required=True) }}
-          {{ ui.input_control("name", id="name", value=a.name, required=True, cls="w-full") }}</div>
-        {# #884: de vriendelijke URL. Hij VOLGT DE NAAM NIET — bij het aanmaken wordt er
-           één voorgesteld, daarna blijft hij staan. De hulptekst zegt waarom: wie hem
-           wijzigt, breekt de links die al gedeeld zijn, en dat merkt niemand, want wie
-           erop klikt is geen bestuurder. #}
-        <div>{{ ui.label(_("Vriendelijke URL"), "slug") }}
-          {{ ui.input_control("slug", id="slug", value=a.slug or "", placeholder=_("bv. zomerfeest-2026"), cls="w-full") }}
-          <p class="text-xs text-ink-soft mt-1">{{ _("Optioneel. Leeg = enkel het nummer-adres. Wijzig je dit, dan werken eerder gedeelde links niet meer.") }}</p></div>
-        <div>{{ ui.label(_("Locatie"), "location") }}
-          {{ ui.input_control("location", id="location", value=a.location or "", cls="w-full") }}</div>
-      </div>
-      <div>{{ ui.label(_("Omschrijving"), "description") }}
-        {{ ui.textarea_control("description", id="description", value=a.description or "", rows=3,
-                               placeholder=_("Twee à drie zinnen die bezoekers lezen."), cls="w-full") }}
-        <p class="text-xs text-ink-soft mt-1">{{ _("Optioneel. Staat op de activiteitenpagina en komt mee in de nieuwsbrief.") }}</p></div>
-      {# #1028: de interne nota. De vermelding staat BIJ het veld en niet ergens
-         anders op de pagina: hier beslist iemand wat hij typt. #1077 stelde die
-         belofte bij: "niet in een export" werd onwaar toen dit veld in de
-         rapportering kwam, en een belofte die niet meer klopt is erger dan geen —
-         dit veld bestaat juist omdat de oude `notes`-kolom stil publiek
-         uitleesbaar bleek. Naar een taalmodel gaat het niet (AiExposure.NONE). De kolom bestond al
-         sinds #402 en droeg inhoud uit de oude toepassing; die wordt dus zichtbaar
-         zodra dit veld er staat — voor het bestuur, en alleen daar. #}
-      <div>{{ ui.label(_("Interne nota"), "board_notes") }}
-        {{ ui.textarea_control("board_notes", id="board_notes", value=board_notes, rows=3,
-                               placeholder=_("Afspraken, contacten, wat je jezelf wil herinneren."),
-                               cls="w-full") }}
-        <p class="text-xs text-ink-soft mt-1">{{ INTERNE_NOTA_BELOFTE }}</p></div>
-      {{ ui.upload_field(name="file", text=_("of opladen (afbeelding of PDF)"),
-                         current_url=a.poster_asset_url,
-                         preview_url=(a.poster_asset_url ~ "/thumb") if a.poster_asset_url else None,
-                         huidig_label=_("Huidige affiche bekijken"),
-                         delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/affiche/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
-                         delete_confirm=_("De opgeladen affiche verwijderen?"),
-                         hint=_("Een opgeladen affiche primeert op de Poster-URL.")) }}
-      {# #1428: who the activity is for — one value, or not filled in. #}
-      <div class="max-w-xs">{{ ui.label(_("Doelpubliek"), "target_audience") }}
-        {% call ui.select_control("target_audience", cls="w-full", attrs='id="target_audience"') %}
-          <option value="">{{ _("— niet ingevuld —") }}</option>
-          {% for code, label, selected in audience_options %}<option value="{{ code }}"{% if selected %} selected{% endif %}>{{ label }}</option>{% endfor %}
-        {% endcall %}</div>
-      <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1" {% if a.members_only %}checked{% endif %}> {{ _("Enkel voor leden") }}</label>
-      <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_cancelled" value="1" {% if a.is_cancelled %}checked{% endif %}> {{ _("Geannuleerd") }}</label>
-      {# #1391 (CR-11 W2): the poster URL folds away at the bottom, like the
-         component's external links. #}
-      {% set _links = 1 if a.poster_url else 0 %}
-      <details data-external-links>
-        <summary class="cursor-pointer text-sm font-medium text-ink select-none">{{ _("Externe koppelingen") }}{% if _links %}<span class="font-normal text-ink-soft"> · {{ ngettext("%(num)d externe link", "%(num)d externe links", _links) }}</span>{% endif %}</summary>
-        <div class="mt-2 max-w-md">{{ ui.label(_("Poster-URL"), "poster_url") }}
-          {{ ui.input_control("poster_url", id="poster_url", value=a.poster_url or "", placeholder="https://…", cls="w-full") }}
-          <p class="text-xs text-ink-soft mt-1">{{ _("De affiche maak je in de Design Studio; een adres intypen is de oude weg.") }}</p></div>
-      </details>
-    </form>
-  </div>
+  {# One "Opslaan" keeps the text fields and the poster (#623): the form is
+     multipart. `contents`, so the sections are the flow's own children. #}
+  {% if _edit %}<form id="aa-act-form" class="contents" enctype="multipart/form-data"
+        hx-post="/admin/activiteiten/{{ a.id }}" hx-encoding="multipart/form-data"
+        hx-target="#aa-detail" hx-swap="innerHTML">{% endif %}
+  {% call ui.section(_("Activiteit"), id="aa-section-activity") %}
+    {{ ui.field("name", _("Naam"), value=a.name, edit=_edit, required=True) }}
+    {# #884: the friendly URL does NOT follow the name — one is proposed at
+       creation, after that it stays. The help says why. #}
+    {{ ui.field("slug", _("Vriendelijke URL"), kind="slug", value=a.slug or "", edit=_edit,
+                placeholder=_("bv. zomerfeest-2026"),
+                help=_("Optioneel. Leeg = enkel het nummer-adres. Wijzig je dit, dan werken eerder gedeelde links niet meer.")) }}
+    {{ ui.field("location", _("Locatie"), value=a.location or "", edit=_edit) }}
+    {{ ui.field("description", _("Omschrijving"), kind="textarea", value=a.description or "", edit=_edit,
+                placeholder=_("Twee à drie zinnen die bezoekers lezen."),
+                help=_("Optioneel. Staat op de activiteitenpagina en komt mee in de nieuwsbrief.")) }}
+    {# The poster is public, so it stands here and not under Intern (decision 06).
+       An uploaded poster wins from the poster address (#223). #}
+    {{ ui.field("file", _("Affiche"), kind="upload", id="upl-file", edit=_edit,
+                current_url=a.poster_asset_url,
+                current_label=a.poster_asset_title or _("Huidige affiche bekijken"),
+                preview_url=(a.poster_asset_url ~ "/thumb") if a.poster_asset_url else None,
+                delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/affiche/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
+                delete_confirm=_("De opgeladen affiche verwijderen?"),
+                help=_("Afbeelding of PDF. Een opgeladen affiche primeert op de Poster-URL.")) }}
+  {% endcall %}
+  {% call ui.section(_("Publiek"), id="aa-section-audience") %}
+    {# #1428: who the activity is for — one value, or not filled in. #}
+    {{ ui.field("target_audience", _("Doelpubliek"), kind="select", value=_audience.value, edit=_edit,
+                options=[("", _("— niet ingevuld —"))] + audience_options) }}
+    {# One word for the badge and the field (decision 06). #}
+    {{ ui.field("members_only", _("Enkel leden"), kind="switch", value=a.members_only, edit=_edit) }}
+  {% endcall %}
+  {% call ui.section(_("Intern"), id="aa-section-internal") %}
+    {# #1028/#1139: the promise stands where the note is typed AND where it is
+       read — there someone decides whether to pass it on. #}
+    {{ ui.field("board_notes", _("Interne nota"), kind="textarea", value=board_notes or "", edit=_edit,
+                placeholder=_("Afspraken, contacten, wat je jezelf wil herinneren."),
+                help=INTERNE_NOTA_BELOFTE, help_in_read=True if board_notes else False) }}
+  {% endcall %}
+  {% if _edit %}</form>{% endif %}
 
   {# Datums (#623-4): "+ Datum" rechts van de titel; de toevoegvorm stond altijd
      open. De meeste activiteiten hebben één datum, dus dat was permanent ruis —
@@ -436,6 +375,17 @@
      dit blok: zonder onderdelen las de kaart eronder anders als een onderdeel. #}
   {% include "_aa_organisatoren.html" %}
 
+  {# The closed last section (§3.4): what is rarely set, after everything else.
+     The poster address is the old way; the poster is made in the Design Studio. #}
+  {% call ui.rare_settings(_("Externe koppelingen"),
+                           summary=ngettext("%(num)d externe link", "%(num)d externe links", 1) if a.poster_url else "",
+                           note=_("De affiche maak je in de Design Studio; een adres intypen is de oude weg.")) %}
+    {{ ui.field("poster_url", _("Poster-URL"), kind="url", value=a.poster_url or "", edit=_edit,
+                form="aa-act-form", placeholder="https://…") }}
+  {% endcall %}
+  {# Provisional (#1558): one save for the three sections and the last one, at
+     the bottom of the form column. #1561 replaces it with the action bar. #}
+  {% if _edit %}<div data-provisional-bar>{{ ui.action_bar(form="aa-act-form", cancel_href=_read_url) }}</div>{% endif %}
 </div>
 
 

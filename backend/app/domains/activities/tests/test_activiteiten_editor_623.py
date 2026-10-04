@@ -48,7 +48,7 @@ def test_poster_url_wordt_bewaard(client, db_session):
     activity, _comp, _product = seed_activity_with_product(db_session, is_free=False)
     hdr = _login(client)
 
-    detail = client.get(f"/admin/activiteiten/{activity.id}").text
+    detail = client.get(f"/admin/activiteiten/{activity.id}?bewerken=1").text
     assert 'name="poster_url"' in detail, "het veld hoort in de bewerkvorm te staan"
 
     resp = client.post(
@@ -134,7 +134,7 @@ def test_de_omschrijving_wordt_bewaard_en_kan_weer_leeg(client, db_session):
     activity, _comp, _product = seed_activity_with_product(db_session)
     hdr = _login(client)
 
-    detail = client.get(f"/admin/activiteiten/{activity.id}").text
+    detail = client.get(f"/admin/activiteiten/{activity.id}?bewerken=1").text
     assert 'name="description"' in detail, "het veld hoort in de bewerkvorm te staan"
 
     velden = {

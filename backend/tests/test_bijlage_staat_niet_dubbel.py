@@ -6,6 +6,10 @@ tijdens het bewerken, waar `ui.upload_field()` diezelfde link al rendert.
 
 §2.12: de leeslink mag blijven — een bijlage kunnen openen zonder eerst te gaan
 bewerken is nuttig — maar dan uitsluitend achter `x-show="!edit"`.
+
+Since #1558 (CR-11 block 6) reading and editing are two states of the page
+(`?bewerken=1`), not two layers shown and hidden in one DOM; the invariant is
+the same and is checked per state.
 """
 
 import io
@@ -46,51 +50,40 @@ def _regels_met(html: str, tekst: str) -> list[str]:
     return [r.strip() for r in html.splitlines() if tekst in r]
 
 
-def test_de_affichelink_staat_er_twee_keer_maar_nooit_tegelijk(client, db_session):
-    """Twee voorkomens is juist — één per modus. Ze horen elkaar uit te sluiten."""
+def test_de_affichelink_staat_er_in_elke_modus_precies_een_keer(client, db_session):
+    """#653, since #1558: read and edit are two states of the page, not two layers
+    in one DOM. Each state shows the attachment's link exactly once — as the
+    field's value while reading, beside the upload button while editing."""
     activity, _c, _p = seed_activity_with_product(db_session)
     csrf = _login(client)
     _upload_affiche(client, csrf, activity)
-    html = client.get(f"/admin/activiteiten/{activity.id}").text
 
-    # Sinds ronde 2 van golf 8 draagt de leeslink de documentTITEL; het vaste
-    # label staat alleen nog in het uploadblok. Op de bijlage-URL zoeken dekt
-    # beide vormen — de invariant (#653: nooit twee tegelijk) blijft dezelfde.
-    # Alleen LINKS tellen (#1019): sinds de affiche ook als voorbeeldafbeelding
-    # getoond wordt, staat er een derde media-URL op het scherm, en die is geen
-    # leeslink maar een <img>. De invariant gaat over de leeslink.
-    regels = [r for r in _regels_met(html, "/api/v1/media/") if "<a " in r]
-    assert len(regels) == 2, (
-        f"verwacht één leeslink en één in het uploadblok, kreeg er {len(regels)}"
-    )
-    lees = [r for r in regels if 'x-show="!edit"' in r]
-    assert len(lees) == 1, (
-        "de leeslink hangt niet aan de leesmodus en staat dus ook tijdens het "
-        "bewerken op het scherm (#653):\n  " + "\n  ".join(regels)
-    )
-    assert "- poster" in html, "de leeslink toont de documenttitel niet"
+    for suffix in ("", "?bewerken=1"):
+        html = client.get(f"/admin/activiteiten/{activity.id}{suffix}").text
+        # Only LINKS count (#1019): the preview picture is an <img>, not a link.
+        links = re.findall(r'<a href="/api/v1/media/[^"]*"', html)
+        assert len(links) == 1, f"{suffix or 'read'}: {len(links)} links to the attachment"
+        assert "- poster" in html, "the link carries the document's title"
 
 
-def test_ook_de_locatie_hangt_aan_de_leesmodus(client, db_session):
-    """Herzien op de feedbackronde van 15 sep (golf 8): de locatie staat nu in
-    de RECORDKOP (die blijft in elke modus staan — hij zegt wat je bewerkt,
-    zoals de #648-uitzondering voor koppen) en niet meer als leesregel in de
-    kaart. Wat niet mag terugkomen: een tweede locatieregel in de kaart die
-    tijdens het bewerken naast het invoerveld staat."""
+def test_de_locatie_staat_niet_dubbel_als_tekst_tijdens_het_bewerken(client, db_session):
+    """The location stands in the record head in every state — it says what you
+    are editing. While editing it is a field, not a second line of text beside
+    that field; while reading it is the head and the field's value."""
     activity, _c, _p = seed_activity_with_product(db_session)
     activity.location = "Parochiezaal"
     db_session.flush()
     _login(client)
-    html = client.get(f"/admin/activiteiten/{activity.id}").text
 
-    alineas = re.findall(r"<p\b[^>]*>(?:(?!</p>).)*Parochiezaal", html, re.S)
-    assert len(alineas) == 1, (
-        "de locatie hoort precies één keer als tekst te staan — in de recordkop"
-    )
-    opening = alineas[0][: alineas[0].index(">") + 1]
-    assert "x-show" not in opening, (
-        "de recordkop-regel hoort modusloos te zijn — hij zegt wat je bewerkt"
-    )
+    def as_text(html: str) -> int:
+        return len(re.findall(r">\s*Parochiezaal\s*<", html))
+
+    edit = client.get(f"/admin/activiteiten/{activity.id}?bewerken=1").text
+    assert as_text(edit) == 1, "only the head says it as text while editing"
+    assert 'name="location"' in edit and 'value="Parochiezaal"' in edit
+    read = client.get(f"/admin/activiteiten/{activity.id}").text
+    assert as_text(read) == 2, "the head and the field's value"
+    assert 'name="location"' not in read
 
 
 def test_zonder_bijlage_geen_leeslink(client, db_session):

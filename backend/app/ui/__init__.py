@@ -288,8 +288,14 @@ def record_frame(request, db, list_href: str) -> dict:
     Read through `filterparams`, so a fragment answer that carries the head along
     out of band — a save inside the record — still knows both: htmx sends the
     page's own URL as `HX-Current-URL`, and the save's own URL has neither.
+
+    A boosted navigation is the exception (#1558): it is an htmx request too, but
+    its `HX-Current-URL` is the page being LEFT. "Annuleren" in the editor links
+    to the same record without `?bewerken=1`; merged with the page it leaves, the
+    editor would open again. A navigation's own address is the whole truth.
     """
-    params = filterparams(request)
+    boosted = request.headers.get("hx-boosted") == "true"
+    params = dict(request.query_params) if boosted else filterparams(request)
     return {
         "way_back": way_back(db, params.get("terug"), list_href),
         "head_editing": params.get("bewerken") == "1",

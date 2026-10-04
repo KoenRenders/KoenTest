@@ -754,6 +754,53 @@
   <p class="text-sm">{{ ui.reference(_("Gezin Voorbeeld"), "/admin/design-system") }}</p>
 {% endcall %}
 
+{# ── 13c. The form: section, field, rare settings (CR-11 block 6, #1558) ──────
+   Every kind of field, once to edit and once to read. The sections here stand in
+   the page's own card-less flow, as on a record page. #}
+{{ ui.section_header(_("13c · Formulier: sectie en veld"), cls="mt-10") }}
+<p class="text-sm text-gray-600 mb-3">
+  {{ _("Eén kaart per sectie; het veld bepaalt zijn breedte uit zijn soort. Een adres, een e-mail, een tekstvak en een upload zijn altijd vol; een getal, een datum of een schakelaar half of een kwart. Onder 532 px binnenbreedte staat alles in één kolom.") }}
+</p>
+{% set _kit_audience = [("", _("— niet ingevuld —")), ("everyone", _("Iedereen")), ("families", _("Gezinnen")), ("seniors", _("Senioren"))] %}
+{% set _kit_view = [("table", _("Tabel")), ("cards", _("Kaarten"))] %}
+{% set _kit_days = [("sat", _("Zaterdag")), ("sun", _("Zondag")), ("wed", _("Woensdag"))] %}
+{% set _kit_pay = [("online", _("Online"), _("De deelnemer betaalt meteen.")), ("site", _("Ter plaatse"), _("De deelnemer betaalt aan de kassa."))] %}
+{% set _kit_summary %}<div class="bg-surface-2 border border-dashed border-control-line rounded-2xl p-4 text-sm text-ink-soft">{{ _("De samenvatting: 300 px naast de formulierkolom, erboven zodra de kolom onder 640 px zou komen.") }}</div>{% endset %}
+{% for _edit in [True, False] %}
+<p class="text-sm font-medium text-ink mt-6 mb-2">{{ _("Bewerken") if _edit else _("Lezen") }}</p>
+<div data-kit-form="{{ 'edit' if _edit else 'read' }}">
+{% call ui.record_columns(aside=_kit_summary) %}
+  {% call ui.section(_("Tekst")) %}
+    {{ ui.field("kit_name" ~ loop.index, _("Naam"), value=_("Herfstwandeling met soep"), edit=_edit, required=True) }}
+    {{ ui.field("kit_slug" ~ loop.index, _("Vriendelijke URL"), kind="slug", value="herfstwandeling-met-soep", edit=_edit,
+                help=_("Wijzig je dit, dan werken eerder gedeelde links niet meer.")) }}
+    {{ ui.field("kit_location" ~ loop.index, _("Locatie"), value="", edit=_edit, placeholder=_("bv. Parochiezaal")) }}
+    {{ ui.field("kit_description" ~ loop.index, _("Omschrijving"), kind="textarea", value=_("Samen op pad. Na de wandeling een warme kom soep."), edit=_edit) }}
+    {{ ui.field("kit_mail" ~ loop.index, _("E-mail"), kind="email", value="info@example.test", edit=_edit) }}
+    {{ ui.field("kit_phone" ~ loop.index, _("Telefoon"), kind="phone", value="", edit=_edit, error=_("Vul een telefoonnummer in.") if _edit else None) }}
+    {{ ui.field("kit_url" ~ loop.index, _("Website"), kind="url", value="https://voorbeeld.example.test", edit=_edit) }}
+  {% endcall %}
+  {% call ui.section(_("Getallen, datums en keuzes")) %}
+    {{ ui.field("kit_max" ~ loop.index, _("Maximum"), kind="number", value=80, span="quarter", edit=_edit) }}
+    {{ ui.field("kit_price" ~ loop.index, _("Prijs"), kind="number", value="12.50", unit="€", span="quarter", edit=_edit, display="€ 12,50") }}
+    {{ ui.field("kit_date" ~ loop.index, _("Datum"), kind="date", value="2031-06-14", span="quarter", edit=_edit, display=_("14 juni 2031")) }}
+    {{ ui.field("kit_time" ~ loop.index, _("Uur"), kind="time", value="14:00", span="quarter", edit=_edit) }}
+    {{ ui.field("kit_audience" ~ loop.index, _("Doelpubliek"), kind="select", value="families", options=_kit_audience, edit=_edit) }}
+    {{ ui.field("kit_members" ~ loop.index, _("Enkel leden"), kind="switch", value=True, edit=_edit) }}
+    {{ ui.field("kit_view" ~ loop.index, _("Weergave"), kind="segmented", value="table", options=_kit_view, edit=_edit) }}
+    {{ ui.field("kit_days" ~ loop.index, _("Dagen"), kind="checkbox_group", value=["sat", "sun"], options=_kit_days, edit=_edit) }}
+    {{ ui.field("kit_pay" ~ loop.index, _("Betaalwijze"), kind="radio_group", value="online", options=_kit_pay, edit=_edit) }}
+    {{ ui.field("kit_poster" ~ loop.index, _("Affiche"), kind="upload", edit=_edit, current_url="/admin/design-system",
+                current_label=_("herfstwandeling.pdf")) }}
+  {% endcall %}
+  {% call ui.rare_settings(_("Externe koppelingen"), summary=_("1 externe link"),
+                           note=_("De affiche maak je in de Design Studio; een adres intypen is de oude weg.")) %}
+    {{ ui.field("kit_poster_url" ~ loop.index, _("Poster-URL"), kind="url", value="https://voorbeeld.example.test/affiche.pdf", edit=_edit) }}
+  {% endcall %}
+{% endcall %}
+</div>
+{% endfor %}
+
 {# ── 14. Publieke schil ────────────────────────────────────────────────────── #}
 {{ ui.section_header(_("14 · Publieke schil"), _("Naar de publieke activiteiten"), action_href="/activiteiten", action_attrs='hx-boost="false"', cls="mt-10") }}
 {% call ui.card() %}

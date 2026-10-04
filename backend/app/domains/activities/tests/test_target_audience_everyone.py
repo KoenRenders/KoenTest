@@ -133,7 +133,7 @@ def test_the_form_and_the_programme_say_iedereen(client, db_session):
     db_session.add(activity)
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-    html = client.get(f"/admin/activiteiten/{activity.id}").text
+    html = client.get(f"/admin/activiteiten/{activity.id}?bewerken=1").text
     form = html[html.index('id="target_audience"') :]
     form = form[: form.index("</select>")]
     assert '<option value="everyone"' in form and "Iedereen" in form
