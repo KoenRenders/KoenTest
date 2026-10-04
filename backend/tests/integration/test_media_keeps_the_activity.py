@@ -161,6 +161,7 @@ def test_a_successful_upload_returns_to_the_same_list(client, db_session, activi
             "kind": "activity_photo",
             "activity_id": str(activiteit.id),
             "q": "",
+            "filter_kind": "activity_photo",  # #1527: the form carries its branch
             "filter_activity_id": str(activiteit.id),
         },
         files={"files": ("foto.png", _png(), "image/png")},
@@ -187,6 +188,7 @@ def test_a_failed_upload_still_keeps_you_where_you_were(client, db_session, acti
             "kind": "activity_photo",
             "activity_id": "",  # verplicht, dus fout
             "q": "",
+            "filter_kind": "activity_photo",  # #1527: the form carries its branch
             "filter_activity_id": str(activiteit.id),
         },
         files={"files": ("foto.png", _png(), "image/png")},
@@ -210,6 +212,7 @@ def test_a_sponsor_upload_returns_to_the_sponsor_list(client, db_session, activi
             "kind": "sponsor",
             "title": "Bakkerij",
             "q": "",
+            "filter_kind": "activity_photo",  # #1527: the form carries its branch
             "filter_activity_id": str(activiteit.id),
         },
         files={"files": ("logo.png", _png(), "image/png")},

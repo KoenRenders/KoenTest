@@ -180,7 +180,8 @@ SCHERMEN = [
     ("/admin/organisaties", {"q", "org_type"}),
     ("/admin/tenants", {"q", "status"}),
     ("/admin/leden", {"q", "status", "jaar"}),
-    ("/admin/media", {"q", "kind", "activity_id"}),
+    # #1527: the tree chooses the kind and the activity; the row keeps the search.
+    ("/admin/media", {"q"}),
     ("/admin/ledenwijzigingen", {"actor", "since", "group"}),
     ("/admin/gebruikers", {"q", "rol", "actief"}),
 ]
@@ -244,22 +245,17 @@ def test_het_zoekveld_wint_de_restbreedte(client, db_session):
 # ── Media: de rij verspringt niet bij het wisselen van soort ─────────────────
 
 
-def test_media_blijft_een_rij_met_en_zonder_de_activiteitenlijst(client, db_session):
-    """`activity_id` verschijnt alleen bij activiteitenfoto's (#891), dus de rij
-    verandert van inhoud als je van soort wisselt. Beide toestanden horen één
-    regel te blijven — anders springt de balk onder je vingers."""
+def test_media_houdt_alleen_het_zoekveld_in_elke_tak(client, db_session):
+    """#1527: the kind list and the activity list left the row — the tree chooses
+    both — so whatever branch is shown, an album or the sponsors, the row holds
+    the search and nothing else. (Until #1527 the activity list came and went
+    with the kind, #891, and this test held the row to one line in both states.)"""
     _login(client, db_session)
     _seed(db_session)
 
-    met = meet(client.get("/admin/media", params={"kind": "activity_photo"}).text)
-    assert {n for _k, n, _s in met} == {"q", "kind", "activity_id"}
-    assert len({k for k, _n, _s in met}) == 1
-
-    zonder = meet(client.get("/admin/media", params={"kind": "sponsor"}).text)
-    assert {n for _k, n, _s in zonder} == {"q", "kind"}, (
-        "bij een sponsorlogo hoort er geen activiteitenfilter te staan"
-    )
-    assert len({k for k, _n, _s in zonder}) == 1
+    for params in ({"kind": "activity_photo"}, {"kind": "sponsor"}, {}):
+        rij = meet(client.get("/admin/media", params=params).text)
+        assert {n for _k, n, _s in rij} == {"q"}, params
 
 
 # ── Gebruikers: de rollen zijn één keuzelijst geworden ───────────────────────

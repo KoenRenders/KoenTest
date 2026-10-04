@@ -25,7 +25,7 @@
        zonder die bijwerking draagt ze na een chipklik nog de filterstand van bij
        het LADEN van de pagina, en land je op de verkeerde soort. #}
     <span id="me-uploadknop">
-      {{ ui.btn_primary(_("+ Uploaden"), href="/admin/media/nieuw?" ~ filterstand) }}
+      {{ ui.btn_primary(_("+ Uploaden"), href=upload_href) }}
     </span>
   {% endcall %}
 
@@ -37,37 +37,18 @@
 <aside id="me-boom" class="mb-4 lg:mb-0">{% include "_me_boom.html" %}</aside>
 <div class="min-w-0">
 {% call ui.filter_bar("/admin/media", "#me-lijst") %}
-  {# #1138 punt 1: de bovengrens op de keuzelijst houdt de rij op één regel.
-     Een <select> is zo breed als haar LANGSTE optie, dus zonder grens bepaalt
-     de langste activiteitentitel of de rij breekt — bij de seed-titel
-     "Gezinsuitstap naar Irrland met bus en picknick" werd ze 399 px en wrapte
-     de rij op élke gemeten breedte, 1600 px incluis. Met `max-w-[14rem]` (224)
-     staat alles op één regel tot en met een venster van 1280 px en breekt ze
-     vanaf 1152. Dat mag: het issue vraagt één regel op een gewone
-     laptopbreedte, niet op elke.
-
-     De ondergrens van het zoekveld blijft bewust `min-w-[14rem]`: die klasse
-     is de gedeelde referentie van alle elf filterbalken en wordt bewaakt door
-     `tests/test_filterbalk_op_een_regel.py` (#1079/#996). Ze verlagen voor één
-     scherm zou die ene regel op elf plaatsen laten uiteenlopen. De meting staat
-     in `tests_e2e/test_mediafilterrij_blijft_een_regel.py`. #}
+  {# #1527: the row holds the search alone — the tree chooses the kind and the
+     activity, so the width questions of the kind and activity lists (#1138,
+     #1194, #1291) went with them. The search keeps the shared
+     `min-w-[14rem]` of every filter bar (`tests/test_filterbalk_op_een_regel.py`). #}
   <div class="flex flex-wrap gap-3 items-center">
     <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op titel…'), standalone=False) }}</div>
-    {# #1194: a list and not a row of chips. The row was exactly full with three
-       kinds (#1138) and #1173 had to shorten a fourth one to "Pagina"; a list
-       grows with the kinds and every kind keeps its one name. Koen wanted the
-       chips in #1138 — they go only because the row could not grow. #}
-    {% call ui.select_control("kind", aria_label=_("Soort")) %}
-      {% for k, woord in kind_options %}<option value="{{ k }}" {% if k == kind %}selected{% endif %}>{{ woord }}</option>{% endfor %}
-    {% endcall %}
-    {# #1291: the activity list lives in its own anchor, which the list fragment
-       replaces out-of-band. Choose another kind and it goes, value and all, so it
-       does not travel along hidden; come back and it starts at "Alle
-       activiteiten". The server applies the same rule on its own. `contents`: the
-       anchor is no box of its own, so an empty one adds no gap to the row. #}
-    <span id="media-activity-filter" class="contents">{% include "_media_activity_filter.html" %}</span>
-    {# #1470: the chosen tag and year travel along hidden; the year is chosen
-       at the top of the tree. #}
+    {# #1527: the kind list (#1194) and the activity list (#1291) are gone: the
+       tree at the left chooses both, as the picker's does. The search searches
+       within the chosen branch, which travels along hidden with the tag and the
+       year. #}
+    {% if kind %}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}
+    {% if activity_id %}<input type="hidden" name="activity_id" value="{{ activity_id }}">{% endif %}
     {% if tag %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}
     {% if year %}<input type="hidden" name="year" value="{{ year }}">{% endif %}
   </div>
