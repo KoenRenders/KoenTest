@@ -188,7 +188,7 @@ def _menu(page, row, action: str):
 
 
 def _save(page):
-    page.click('[data-provisional-bar] button:has-text("Opslaan")')
+    page.click("[data-action-bar] [data-form-save]")
 
 
 # ── The shape ────────────────────────────────────────────────────────────────
@@ -361,7 +361,9 @@ def test_annuleren_brings_a_removed_row_back(setup):
         "remove",
     )
     assert dates.count() == count - 1 and len(_rows(page, "aa-group-components")) == len(before) - 1
-    page.click('[data-provisional-bar] a:has-text("Annuleren")')
+    page.click("[data-action-bar] [data-form-cancel]")
+    # #1561: with changes, Annuleren asks first; the outline button discards.
+    page.click('[data-dialog][data-tone="keep"] [data-dialog-ok]')
     pagina_klaar(page)
     assert page.locator("#aa-group-dates [data-date-line]").count() == count
     assert page.locator("#aa-group-components [data-row-title]").all_inner_texts() == before
@@ -399,10 +401,13 @@ def test_a_refused_save_says_why_and_keeps_what_was_typed(setup):
     assert new.locator("[data-row-title-source]").input_value() == "Gratis en ter plaatse", (
         "the typed row is still there"
     )
-    # htmx scrolls (`show:top`) after the swap has settled: wait for it.
+    # #1561: the reason stands on its field too, and that field has the focus.
+    refused = new.locator('[data-field$=".pay_on_site"] [data-refused-message]')
+    refused.wait_for()
+    assert "niet tegelijk gratis" in refused.inner_text()
     page.wait_for_function(
-        """() => { const y = document.getElementById('aa-fiche-message').getBoundingClientRect().top;
-                 return y >= 0 && y < innerHeight; }""",
+        """() => { const b = document.activeElement.getBoundingClientRect();
+                 return document.activeElement.name.endsWith('.pay_on_site') && b.top >= 0 && b.bottom <= innerHeight; }""",
         timeout=5000,
     )
     page.close()

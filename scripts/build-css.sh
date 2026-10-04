@@ -373,6 +373,45 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .group-dragging{opacity:.5;outline:1px dashed rgb(var(--c-control-line));outline-offset:2px}
 .group-drop-before{box-shadow:0 -2px 0 rgb(var(--c-brand))}
 .group-drop-after{box-shadow:0 2px 0 rgb(var(--c-brand))}
+/* CR-11 block 9 (#1561), design-system-end-state §3.6, §3.18: the action bar of
+   a record form and the states of a save.
+   The bar is the form flow's last child: 64 px, white, a thin top line, 24 px
+   under the last section (the flow's gap is 32). Sticky 16 px above the window's
+   bottom while the form is longer than the window; at the form's end it stands
+   in the flow. Verwijderen left, then Annuleren and Opslaan at the right.
+   On a phone: Opslaan full width on the first line, Verwijderen left and
+   Annuleren right on the second — 121 px (16 + 44 + 8 + 44 + 8 + the line),
+   sticky at the window's bottom and as wide as the window. Sticky and not
+   fixed: the record frame is a query container, and that makes it the
+   containing block of anything fixed inside it. The flow keeps 24 px free
+   under the bar, so the last field is never under it.
+   A refused field: the reason under it in red and a red line on its control;
+   a refused row: the reason on top of it and a red line at its left. */
+.record-bar{position:sticky;bottom:16px;z-index:20;display:flex;align-items:center;gap:8px;min-height:64px;margin-top:-8px;padding:0 16px;background:rgb(var(--c-surface));border-top:1px solid rgb(var(--c-line))}
+.record-bar-delete{margin-right:auto}
+.record-bar-cancel{margin-left:auto}
+.record-bar-delete+.record-bar-cancel{margin-left:0}
+.record-bar[data-saving] .record-bar-cancel,.record-bar[data-saving] .record-bar-delete{opacity:.5}
+/* `hidden` loses from a display utility on the same element: say it here. */
+.record-bar [hidden]{display:none!important}
+.record-spinner{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:9999px;animation:record-spin .7s linear infinite}
+@keyframes record-spin{to{transform:rotate(360deg)}}
+[data-refused-message]{margin-top:4px;font-size:13px;line-height:19.5px;color:rgb(var(--c-red-700));overflow-wrap:anywhere}
+[data-refused-control]{border-color:rgb(var(--c-red-700))!important}
+[data-group-row][data-refused]{box-shadow:inset 3px 0 0 rgb(var(--c-red-600))}
+[data-group-row][data-refused]>[data-refused-message],[data-group-row][data-refused] [data-row-body]>[data-refused-message]{margin:0 0 4px;padding-left:8px}
+@media (max-width:767.98px){
+  .record-bar{bottom:0;display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:121px;margin:-8px -16px 0;padding:12px 16px}
+  .record-bar-save{grid-column:1/-1;grid-row:1}
+  .record-bar-delete{grid-column:1;grid-row:2;justify-self:start;margin:0}
+  .record-bar-cancel{grid-column:2;grid-row:2;justify-self:end;margin:0}
+  .form-flow:has(>.record-bar){padding-bottom:24px}
+}
+/* The toast in the admin (§3.18): under the top bar at the right on a desktop,
+   at the bottom on a phone; "saved" is white on ink. */
+body[data-shell="admin"] #toasts{top:96px}
+body[data-shell="admin"] #toasts [data-toast="success"]{background:rgb(var(--c-ink));border-color:rgb(var(--c-ink));color:#fff}
+@media (max-width:767.98px){body[data-shell="admin"] #toasts{top:auto;bottom:16px;left:16px;right:16px;width:auto}}
 @container (max-width:531.98px){
   .group-head{display:none}
   .group-row--edit.group-row--simple,.group-row--edit.group-row--simple.group-row--handle{grid-template-columns:44px minmax(0,1fr) 44px;row-gap:4px;align-items:center}

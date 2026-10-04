@@ -101,7 +101,8 @@ def test_admin_inschrijvingen_en_export(client, db_session):
     assert f'data-row-toggle="{reg.id}"' in lijst.text
     assert f'href="/admin/inschrijvingen/{reg.id}?terug=' in lijst.text
     assert "bewerk=1" not in lijst.text
-    assert ">Verwijderen<" not in lijst.text
+    # The rows have no delete; the head's Acties menu has the activity's (#1561).
+    assert ">Verwijderen<" not in lijst.text.split("data-table-frame")[1]
     # B2 (golf 4): de recordnaam zelf opent de pagina (leesmodus), met A7 —
     # de terugweg is sinds ronde 2 de tab-URL mét sorteerstand (ge-encodeerd).
     assert f'href="/admin/inschrijvingen/{reg.id}?terug=' in lijst.text

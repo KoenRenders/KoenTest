@@ -544,7 +544,20 @@ class Activiteitdetail:
 
     def bewaar(self):
         """The fiche's one save."""
-        self.page.click('[data-provisional-bar] button:has-text("Opslaan")')
+        self.page.click("[data-action-bar] [data-form-save]")
+
+    def staatscommando(self):
+        """Press the state command of the head's Acties menu (Publiceren / Terug
+        naar concept) and confirm its dialog: a plain htmx POST outside any form.
+
+        The item is pressed by its own click event, so a repeated press does not
+        depend on whether the menu is still open from the press before."""
+        item = self.page.locator('[data-actions-menu] [role=menuitem][hx-post$="/status"]').first
+        item.dispatch_event("click")
+        ok = self.page.locator("[data-dialog] [data-dialog-ok]")
+        ok.wait_for(state="visible")
+        ok.click()
+        self.page.locator("[data-dialog]").wait_for(state="hidden")
 
     def breek_het_csrf_token(self) -> None:
         """Vervang het CSRF-token door een ongeldige waarde.

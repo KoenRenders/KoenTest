@@ -519,7 +519,12 @@ async def activiteit_bijwerken(
     would throw away every row added or changed in the page.
     """
     from app.domains.activities import service
-    from app.domains.activities.fiche import ContactConfirmation, save_fiche
+    from app.domains.activities.fiche import (
+        ContactConfirmation,
+        FicheRefusal,
+        FieldError,
+        save_fiche,
+    )
     from app.domains.activities.fiche_form import fiche_from_form
 
     form = await request.form()
@@ -536,28 +541,34 @@ async def activiteit_bijwerken(
             background_tasks=background_tasks,
         )
     except ContactConfirmation as question:
-        return _refusal(request, str(question), confirm=True)
+        return _refusal(request, question=str(question))
+    except FicheRefusal as refusal:
+        return _refusal(request, refusal.errors)
     except service.ActiviteitFout as fout:
-        return _refusal(request, str(fout))
+        return _refusal(request, [FieldError("", str(fout))])
     if saved is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
     # #742: this closing "Opslaan" confirms. #1558: and it ends the edit state.
     return _detail_response(request, db, activity_id, toast=True, read_mode=True)
 
 
-def _refusal(request: Request, message: str, *, confirm: bool = False) -> Response:
+def _refusal(
+    request: Request, errors: list | None = None, *, question: str | None = None
+) -> Response:
     """Why the save was refused, for the fiche's message line — and nothing else,
     so the form keeps what was typed. An HTML 422 is swapped (#1515); the two
-    headers send it to that line instead of to the form's own target."""
-    # `confirm`: the refusal is a question; the answer carries the button that
-    # confirms and saves again.
-    refusal = {"error": message, "confirm": confirm}
+    headers send it to that line instead of to the form's own target.
+
+    `errors` name their field or row (#1561): the banner lists them and the
+    form's script marks each one. `question`: the refusal is a question; the
+    answer carries the button that confirms and saves again.
+    """
     return templates.TemplateResponse(
         request,
         "_aa_refusal.html",
-        refusal,
+        {"errors": errors or [], "question": question, "confirm": question is not None},
         status_code=422,
-        headers={"HX-Retarget": "#aa-fiche-message", "HX-Reswap": "innerHTML show:top"},
+        headers={"HX-Retarget": "#aa-fiche-message", "HX-Reswap": "innerHTML"},
     )
 
 
@@ -574,7 +585,13 @@ def activiteit_verwijderen(
 ) -> Response:
     from app.domains.activities import service
 
-    if not service.delete_activity(db, activity_id, actor=email):
+    try:
+        deleted = service.delete_activity(db, activity_id, actor=email)
+    except service.ActiviteitFout as refusal:
+        # The screen says so before the click (#1561); this is the request that
+        # came anyway.
+        raise HTTPException(status_code=422, detail=str(refusal)) from refusal
+    if not deleted:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
     # Verwijderen gebeurt vanuit de editor; die pagina bestaat daarna niet meer.
     return Response(status_code=204, headers={"HX-Redirect": "/admin/activiteiten"})

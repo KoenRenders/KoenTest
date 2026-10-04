@@ -43,7 +43,7 @@ _FRAME = """() => {
     mode: q('[data-form-flow]').dataset.mode,
     // the one form is `display:contents` (#1559): its children are the flow's blocks
     blocks: [...q('[data-form-flow]').children].flatMap(e => e.matches('form') ? [...e.children] : [e]).filter(e => e.checkVisibility() && e.getBoundingClientRect().height > 0)
-      .map(e => e.matches('[data-rare-settings]') ? 'rare' : e.matches('[data-provisional-bar]') ? 'bar' : e.matches('[data-form-section]') ? 'section' : e.matches('form') ? 'form' : 'card'),
+      .map(e => e.matches('[data-rare-settings]') ? 'rare' : e.matches('[data-action-bar]') ? 'bar' : e.matches('[data-form-section]') ? 'section' : e.matches('form') ? 'form' : 'card'),
     sections: [...document.querySelectorAll('[data-form-flow] [data-form-section]')].map(s => ({title: s.querySelector('h2').innerText, ...r(s)})),
     fields: [...document.querySelectorAll('#aa-section-activity [data-field], #aa-section-audience [data-field], #aa-section-internal [data-field]')].map(f => ({name: f.dataset.field, ...r(f)})),
     controls: [...document.querySelectorAll('#aa-act-form input:not([type=checkbox]):not([type=file]):not([type=hidden]), #aa-act-form select, #aa-act-form [data-kind=switch] label, #aa-act-form [data-upload] label')].map(e => Math.round(e.getBoundingClientRect().height)),
@@ -259,7 +259,7 @@ def test_bewerken_opens_the_editor_and_one_save_returns_to_reading(setup):
     page.fill("#location", "Dorpshuis")
     page.locator('[data-kind="switch"] label').click()
     assert page.locator("#members_only").is_checked()
-    page.click('[data-provisional-bar] button:has-text("Opslaan")')
+    page.click("[data-action-bar] [data-form-save]")
     page.wait_for_selector('[data-form-flow][data-mode="read"]')
     pagina_klaar(page)
 
@@ -278,7 +278,9 @@ def test_bewerken_opens_the_editor_and_one_save_returns_to_reading(setup):
     page.goto(f"{base}?bewerken=1")
     pagina_klaar(page)
     page.fill("#location", "Niet bewaren")
-    page.click('[data-provisional-bar] a:has-text("Annuleren")')
+    page.click("[data-action-bar] [data-form-cancel]")
+    # #1561: with changes, Annuleren asks first; the outline button discards.
+    page.click('[data-dialog][data-tone="keep"] [data-dialog-ok]')
     pagina_klaar(page)
     assert page.url.endswith(base)
     assert page.locator('[data-field="location"] [data-value]').inner_text() == "Dorpshuis"
@@ -306,5 +308,7 @@ def test_cancelling_asks_first_and_shows_in_the_head(setup):
         == 0
     )
     page.click('[data-actions-menu] [role=menuitem]:has-text("Annulering intrekken")')
+    # #1561: every state command names its consequence first.
+    page.click("[data-dialog]:visible [data-dialog-ok]")
     page.wait_for_selector('[data-badges]:not(:has-text("Geannuleerd"))')
     page.close()

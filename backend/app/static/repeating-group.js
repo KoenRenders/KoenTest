@@ -184,10 +184,39 @@
     if (trigger) trigger.focus();
   }
 
+  var removed = [];
+
+  /* The key of a row as the server names it: the letter of its group's order
+     field and the row's key — `c.12`, `p.n1x…`. */
+  function placeOf(row) {
+    var order = Array.prototype.filter.call(row.querySelectorAll("[data-row-order]"), function (el) {
+      return el.closest("[data-group-row]") === row;
+    })[0];
+    return order ? order.name.charAt(0) + "." + row.getAttribute("data-row-key") : "";
+  }
+
+  /* Put a removed row back where it stood (or at the end when its neighbour is
+     gone too). Returns the row, or null when this page never removed it. */
+  function restore(place) {
+    for (var i = removed.length - 1; i >= 0; i -= 1) {
+      var entry = removed[i];
+      if (placeOf(entry.row) !== place || !entry.parent.isConnected) continue;
+      removed.splice(i, 1);
+      var before = entry.next && entry.next.parentElement === entry.parent ? entry.next : null;
+      entry.parent.insertBefore(entry.row, before);
+      refresh(groupOf(entry.row));
+      return entry.row;
+    }
+    return null;
+  }
+
   function remove(row) {
     var group = groupOf(row);
     var rows = rowsOf(group);
     var index = rows.indexOf(row);
+    // Kept, not thrown away: when the save refuses the removal (a component with
+    // registrations), the form puts the row back with the reason on it (#1561).
+    removed.push({ row: row, parent: row.parentElement, next: row.nextElementSibling });
     row.remove();
     refresh(group);
     var next = rows[index + 1] || rows[index - 1];
@@ -317,5 +346,5 @@
   document.addEventListener("DOMContentLoaded", function () { refreshAll(); });
   document.addEventListener("htmx:afterSettle", function (event) { refreshAll(event.target.parentElement || document); });
 
-  window.raakRepeatingGroup = { add: add, duplicate: duplicate, move: move, remove: remove, refresh: refreshAll };
+  window.raakRepeatingGroup = { add: add, duplicate: duplicate, move: move, remove: remove, refresh: refreshAll, restore: restore, placeOf: placeOf };
 })();

@@ -21,6 +21,10 @@ left alone by the save.
 This module reads the SHAPE — a date is a date, an amount an amount — and says so
 in the user's words when it is not; what a value MEANS is the save's
 (`activities.fiche`).
+
+Since #1561 a value of the wrong shape does not stop the reading: it is noted at
+its field (`FicheSave.errors`) and the save reports it with everything else it
+refuses, so the screen can show every field to correct at once.
 """
 
 from __future__ import annotations
@@ -34,10 +38,10 @@ from app.domains.activities.fiche import (
     ComponentRow,
     DateRow,
     FicheSave,
+    FieldError,
     OrganiserRow,
     ProductRow,
 )
-from app.domains.activities.models import ActiviteitFout
 from app.i18n import _
 
 GROUPS = ("dates", "components", "organisers")
@@ -59,44 +63,48 @@ def _text(form: Any, name: str) -> Optional[str]:
     return _last(form, name) or None
 
 
-def _date(form: Any, name: str, what: str) -> Optional[date]:
+def _date(form: Any, name: str, what: str, errors: list[FieldError]) -> Optional[date]:
     raw = _last(form, name)
     if not raw:
         return None
     try:
         return date.fromisoformat(raw)
     except ValueError:
-        raise ActiviteitFout(_("Ongeldige datum bij %(what)s.") % {"what": what}) from None
+        errors.append(FieldError(name, _("Ongeldige datum bij %(what)s.") % {"what": what}))
+        return None
 
 
-def _time(form: Any, name: str, what: str) -> Optional[time]:
+def _time(form: Any, name: str, what: str, errors: list[FieldError]) -> Optional[time]:
     raw = _last(form, name)
     if not raw:
         return None
     try:
         return time.fromisoformat(raw)
     except ValueError:
-        raise ActiviteitFout(_("Ongeldig uur bij %(what)s.") % {"what": what}) from None
+        errors.append(FieldError(name, _("Ongeldig uur bij %(what)s.") % {"what": what}))
+        return None
 
 
-def _int(form: Any, name: str, what: str) -> Optional[int]:
+def _int(form: Any, name: str, what: str, errors: list[FieldError]) -> Optional[int]:
     raw = _last(form, name)
     if not raw:
         return None
     try:
         return int(raw)
     except ValueError:
-        raise ActiviteitFout(_("%(what)s is geen geheel getal.") % {"what": what}) from None
+        errors.append(FieldError(name, _("%(what)s is geen geheel getal.") % {"what": what}))
+        return None
 
 
-def _money(form: Any, name: str, what: str) -> Optional[Decimal]:
+def _money(form: Any, name: str, what: str, errors: list[FieldError]) -> Optional[Decimal]:
     raw = _last(form, name)
     if not raw:
         return None
     try:
         return Decimal(raw.replace(",", "."))
     except InvalidOperation:
-        raise ActiviteitFout(_("Ongeldig bedrag bij %(what)s.") % {"what": what}) from None
+        errors.append(FieldError(name, _("Ongeldig bedrag bij %(what)s.") % {"what": what}))
+        return None
 
 
 def fiche_from_form(form: Any) -> tuple[FicheSave, dict[str, Any]]:
@@ -114,44 +122,51 @@ def fiche_from_form(form: Any) -> tuple[FicheSave, dict[str, Any]]:
     for name in ("slug", "description", "board_notes", "target_audience", "location", "poster_url"):
         if name in form:
             fields[name] = _text(form, name)
-    name = _last(form, "name")
-    if name:
-        fields["name"] = name  # an empty name keeps the name, as before
+    errors: list[FieldError] = []
+    if "name" in form:
+        name = _last(form, "name")
+        if name:
+            fields["name"] = name
+        else:
+            # Until #1561 an empty name silently kept the old one; the form now
+            # says so at the field.
+            errors.append(FieldError("name", _("De activiteit heeft een naam nodig.")))
 
     files: dict[str, Any] = {}
     fiche = FicheSave(
         fields=fields,
         groups=groups,
+        errors=errors,
         confirmed_no_contact=_last(form, "bevestigd") == "1",
         drop_poster=_last(form, "file_delete") == "1",
     )
     if "dates" in groups:
-        fiche.dates = [_date_row(form, key) for key in form.getlist("d_order")]
+        fiche.dates = [_date_row(form, key, errors) for key in form.getlist("d_order")]
     if "components" in groups:
         for key in form.getlist("c_order"):
-            fiche.components.append(_component_row(form, key))
+            fiche.components.append(_component_row(form, key, errors))
             upload = form.get(f"c.{key}.file")
             if upload is not None and not isinstance(upload, str):
                 files[key] = upload
     if "organisers" in groups:
-        fiche.organisers = [_organiser_row(form, key) for key in form.getlist("o_order")]
+        fiche.organisers = [_organiser_row(form, key, errors) for key in form.getlist("o_order")]
     return fiche, files
 
 
-def _date_row(form: Any, key: str) -> DateRow:
-    start = _date(form, f"d.{key}.start_date", _("een datum"))
-    if start is None:
-        raise ActiviteitFout(_("Een datum heeft een begindatum nodig."))
+def _date_row(form: Any, key: str, errors: list[FieldError]) -> DateRow:
+    start = _date(form, f"d.{key}.start_date", _("een datum"), errors)
+    if start is None and not _last(form, f"d.{key}.start_date"):
+        errors.append(FieldError(f"d.{key}.start_date", _("Een datum heeft een begindatum nodig.")))
     return DateRow(
         key=key,
         start_date=start,
-        end_date=_date(form, f"d.{key}.end_date", _("een einddatum")),
-        start_time=_time(form, f"d.{key}.start_time", _("een beginuur")),
-        end_time=_time(form, f"d.{key}.end_time", _("een einduur")),
+        end_date=_date(form, f"d.{key}.end_date", _("een einddatum"), errors),
+        start_time=_time(form, f"d.{key}.start_time", _("een beginuur"), errors),
+        end_time=_time(form, f"d.{key}.end_time", _("een einduur"), errors),
     )
 
 
-def _component_row(form: Any, key: str) -> ComponentRow:
+def _component_row(form: Any, key: str, errors: list[FieldError]) -> ComponentRow:
     name = _last(form, f"c.{key}.name")
     what = name or _("een onderdeel")
     links = None
@@ -162,44 +177,58 @@ def _component_row(form: Any, key: str) -> ComponentRow:
         name=name,
         team_name_required=_on(form, f"c.{key}.team_name_required"),
         max_participants=_int(
-            form, f"c.{key}.max_participants", _("Het maximum van “%(name)s”") % {"name": what}
+            form,
+            f"c.{key}.max_participants",
+            _("Het maximum van “%(name)s”") % {"name": what},
+            errors,
         ),
         registration_closes_on=_date(
             form,
             f"c.{key}.registration_closes_on",
             _("“Inschrijven tot” van “%(name)s”") % {"name": what},
+            errors,
         ),
-        form_id=_int(form, f"c.{key}.form_id", _("Het formulier van “%(name)s”") % {"name": what}),
+        form_id=_int(
+            form, f"c.{key}.form_id", _("Het formulier van “%(name)s”") % {"name": what}, errors
+        ),
         links=links,
-        products=[_product_row(form, product) for product in form.getlist(f"p_order.{key}")],
+        products=[
+            _product_row(form, product, errors) for product in form.getlist(f"p_order.{key}")
+        ],
         drop_info=_last(form, f"c.{key}.info_delete") == "1",
     )
 
 
-def _product_row(form: Any, key: str) -> ProductRow:
+def _product_row(form: Any, key: str, errors: list[FieldError]) -> ProductRow:
     name = _last(form, f"p.{key}.name")
     what = name or _("een product")
-    price = _money(form, f"p.{key}.price", _("de prijs van “%(name)s”") % {"name": what})
+    price = _money(form, f"p.{key}.price", _("de prijs van “%(name)s”") % {"name": what}, errors)
     return ProductRow(
         key=key,
         name=name,
         price=price if price is not None else Decimal("0"),
         member_price=_money(
-            form, f"p.{key}.member_price", _("de ledenprijs van “%(name)s”") % {"name": what}
+            form,
+            f"p.{key}.member_price",
+            _("de ledenprijs van “%(name)s”") % {"name": what},
+            errors,
         ),
         is_free=_on(form, f"p.{key}.is_free"),
         pay_on_site=_on(form, f"p.{key}.pay_on_site"),
         is_active=_on(form, f"p.{key}.is_active"),
         max_participants=_int(
-            form, f"p.{key}.max_participants", _("Het maximum van “%(name)s”") % {"name": what}
+            form,
+            f"p.{key}.max_participants",
+            _("Het maximum van “%(name)s”") % {"name": what},
+            errors,
         ),
     )
 
 
-def _organiser_row(form: Any, key: str) -> OrganiserRow:
+def _organiser_row(form: Any, key: str, errors: list[FieldError]) -> OrganiserRow:
     return OrganiserRow(
         key=key,
-        person_id=_int(form, f"o.{key}.person_id", _("De organisator")),
+        person_id=_int(form, f"o.{key}.person_id", _("De organisator"), errors),
         is_contact=_on(form, f"o.{key}.is_contact"),
         show_email=_on(form, f"o.{key}.show_email"),
         show_mobile=_on(form, f"o.{key}.show_mobile"),

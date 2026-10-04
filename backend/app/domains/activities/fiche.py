@@ -20,10 +20,20 @@ used by the JSON API — call. What is new is said where it stands:
   of the route; it is a rule here.
 
 A refusal anywhere rolls the whole save back: nothing is half written.
+
+Since #1561 a refusal names its **place** and the save names **all of them at
+once** (`FicheRefusal`): a field (`slug`, `c.<key>.max_participants`), a row
+(`c.<key>`, also a row the form removed) or the fiche as a whole (``""``). The
+place is the address the form uses (`fiche_form`). The rules themselves stay
+where they were — on the object, in the service — and are called, not copied:
+the save keeps going after a refused row to hear the next one, and the
+savepoint takes everything back.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, time
 from decimal import Decimal
@@ -37,6 +47,7 @@ from app.domains.activities import service
 from app.domains.activities.models import (
     ActiviteitFout,
     Activity,
+    ActivityDate,
     ActivityOrganiser,
 )
 
@@ -62,12 +73,30 @@ PRODUCT_FIELDS = (
 ORGANISER_FIELDS = ("is_contact", "show_email", "show_mobile", "email_override", "mobile_override")
 
 
+@dataclass(frozen=True)
+class FieldError:
+    """One refusal and its place in the form: a field's name, a row (`c.<key>`),
+    or "" for the fiche as a whole."""
+
+    field: str
+    message: str
+
+
+class FicheRefusal(ActiviteitFout):
+    """The save is refused; `errors` says why and where, all of them."""
+
+    def __init__(self, errors: list[FieldError]) -> None:
+        self.errors = list(errors)
+        super().__init__(" ".join(error.message for error in self.errors))
+
+
 @dataclass
 class DateRow:
     """One date of the fiche. `key` is the row's id, or anything else for a new row."""
 
     key: str
-    start_date: date
+    #: None only when the form's value was no date; the row then carries an error.
+    start_date: Optional[date] = None
     end_date: Optional[date] = None
     start_time: Optional[time] = None
     end_time: Optional[time] = None
@@ -127,6 +156,9 @@ class FicheSave:
     #: Which groups the form carried. A group the form did not send is left
     #: alone — a caller that saves only the sections removes no rows.
     groups: frozenset[str] = frozenset({"dates", "components", "organisers"})
+    #: What the form's reader already refused (a date that is no date, an amount
+    #: that is none): the save reports them together with its own.
+    errors: list[FieldError] = field(default_factory=list)
 
 
 class ContactConfirmation(ActiviteitFout):
@@ -147,29 +179,66 @@ def _gone(what: str) -> ActiviteitFout:
     )
 
 
+class _Errors:
+    """The refusals of one save, each with its place."""
+
+    def __init__(self, found: list[FieldError]) -> None:
+        self.found = list(found)
+
+    def add(self, place: str, message: str) -> None:
+        self.found.append(FieldError(place, message))
+
+    @contextmanager
+    def at(self, place: str) -> Iterator[None]:
+        """A rule that refuses inside this block is noted at `place`, and the save
+        goes on to hear the next one. The question about the contact person is
+        not a refusal and passes through."""
+        try:
+            yield
+        except (ContactConfirmation, FicheRefusal):
+            raise
+        except ActiviteitFout as refusal:
+            self.add(place, str(refusal))
+
+    def touches(self, row: str) -> bool:
+        """This row, or a field of it, was refused: it is not written."""
+        return any(e.field == row or e.field.startswith(row + ".") for e in self.found)
+
+
 def _changed(row: Any, values: dict) -> dict:
     """The fields of `values` that differ from the row."""
     return {name: value for name, value in values.items() if getattr(row, name) != value}
 
 
 def _checked(
-    kind: str, name: str, max_participants: Optional[int], *prices: Optional[Decimal]
+    errors: _Errors,
+    row: str,
+    kind: str,
+    name: str,
+    max_participants: Optional[int],
+    **prices: Optional[Decimal],
 ) -> None:
     """The refusals that were a 500 through the row routes: an empty name passed
     (and a nameless row is unfindable), a maximum of zero or less hit the CHECK
     of the database, and a negative price failed a schema built by hand."""
     if not name.strip():
-        raise ActiviteitFout(
+        errors.add(
+            f"{row}.name",
             _("Een onderdeel heeft een naam nodig.")
             if kind == "component"
-            else _("Een product heeft een naam nodig.")
+            else _("Een product heeft een naam nodig."),
         )
     if max_participants is not None and max_participants <= 0:
-        raise ActiviteitFout(
-            _("Het maximum van “%(name)s” moet groter zijn dan nul.") % {"name": name}
+        errors.add(
+            f"{row}.max_participants",
+            _("Het maximum van “%(name)s” moet groter zijn dan nul.") % {"name": name},
         )
-    if any(price is not None and price < 0 for price in prices):
-        raise ActiviteitFout(_("De prijs van “%(name)s” mag niet negatief zijn.") % {"name": name})
+    for price_field, price in prices.items():
+        if price is not None and price < 0:
+            errors.add(
+                f"{row}.{price_field}",
+                _("De prijs van “%(name)s” mag niet negatief zijn.") % {"name": name},
+            )
 
 
 async def save_fiche(
@@ -196,21 +265,35 @@ async def save_fiche(
     # wrote and nothing else, and the session stays usable for the answer that
     # says why. Nothing is half written.
     savepoint = db.begin_nested()
+    errors = _Errors(fiche.errors)
     try:
         changed = _changed(activity, fiche.fields)
         if changed:
-            service.apply_activity_update(db, activity, changed, actor=actor)
+            _save_fields(db, activity, changed, actor, errors)
         if "dates" in fiche.groups:
-            _save_dates(db, activity, fiche.dates, actor)
+            _save_dates(db, activity, fiche.dates, actor, errors)
         component_ids: dict[str, int] = {}
         if "components" in fiche.groups:
-            component_ids = _save_components(db, activity, fiche.components, actor)
+            component_ids = _save_components(db, activity, fiche.components, actor, errors)
         if "organisers" in fiche.groups:
-            _save_organisers(db, activity, fiche.organisers, fiche.confirmed_no_contact)
-        db.flush()  # the coherence rule of a date row fires here (#792)
-        await _store_files(
-            db, activity, fiche, component_ids, poster, component_files or {}, background_tasks
-        )
+            _save_organisers(db, activity, fiche.organisers, fiche.confirmed_no_contact, errors)
+        if errors.found:
+            raise FicheRefusal(errors.found)
+        with errors.at(""):
+            db.flush()  # the object rules fire here once more, at the write itself (#792)
+        if not errors.found:
+            await _store_files(
+                db,
+                activity,
+                fiche,
+                component_ids,
+                poster,
+                component_files or {},
+                background_tasks,
+                errors,
+            )
+        if errors.found:
+            raise FicheRefusal(errors.found)
     except Exception:
         # Also after a failed flush: the savepoint is then deactivated, not closed,
         # and the session refuses everything until it is rolled back.
@@ -225,21 +308,57 @@ async def save_fiche(
     return activity
 
 
+def _save_fields(
+    db: Session, activity: Activity, changed: dict, actor: str | None, errors: _Errors
+) -> None:
+    """The activity's own fields. The two rules of `apply_activity_update` each
+    have their field: the friendly URL is asked first, so what is left is the
+    audience's."""
+    if "slug" in changed:
+        with errors.at("slug"):
+            service._controleer_slug(db, changed["slug"], behalve_id=activity.id)
+        if errors.touches("slug"):
+            return
+    with errors.at("target_audience"):
+        service.apply_activity_update(db, activity, changed, actor=actor)
+
+
 # ── Dates ────────────────────────────────────────────────────────────────────
 
 
-def _save_dates(db: Session, activity: Activity, rows: list[DateRow], actor: str | None) -> None:
+def _coherent(errors: _Errors, row: str, values: dict) -> None:
+    """The object's own rule (`ActivityDate.validate_coherence`, #792), asked
+    before the write so the refusal names its field and the flush stays whole:
+    first the two dates alone — what refuses then is the end date — then with the
+    hours, where it is the end hour."""
+    dates_only = {**values, "start_time": None, "end_time": None}
+    with errors.at(f"{row}.end_date"):
+        ActivityDate(**dates_only).validate_coherence()
+    if not errors.touches(row):
+        with errors.at(f"{row}.end_time"):
+            ActivityDate(**values).validate_coherence()
+
+
+def _save_dates(
+    db: Session, activity: Activity, rows: list[DateRow], actor: str | None, errors: _Errors
+) -> None:
     existing = {str(d.id): d for d in activity.dates}
     kept = set()
     for row in rows:
+        place = f"d.{row.key}"
         values = {name: getattr(row, name) for name in DATE_FIELDS}
         if row.key in existing:
             kept.add(row.key)
+        if not errors.touches(place):
+            _coherent(errors, place, values)
+        if errors.touches(place):
+            continue
+        if row.key in existing:
             changed = _changed(existing[row.key], values)
             if changed:
                 service.apply_date_update(db, existing[row.key], changed, actor=actor)
         elif row.key.isdigit():
-            raise _gone(_("Een datum"))
+            errors.add(place, str(_gone(_("Een datum"))))
         else:
             service.insert_date(db, activity.id, SimpleNamespace(**values), actor=actor)
     for key, ad in existing.items():
@@ -251,19 +370,36 @@ def _save_dates(db: Session, activity: Activity, rows: list[DateRow], actor: str
 
 
 def _save_components(
-    db: Session, activity: Activity, rows: list[ComponentRow], actor: str | None
+    db: Session, activity: Activity, rows: list[ComponentRow], actor: str | None, errors: _Errors
 ) -> dict[str, int]:
     """Returns {row key: component id} for the components that stay, so an upload
     finds the component a new row became."""
     existing = {str(c.id): c for c in activity.sub_registrations}
     ids: dict[str, int] = {}
-    # Removals first: a refusal names its component before anything is added.
+    # Removals first: a refusal names its component before anything is added. Its
+    # place is the row the form removed, so the screen can put it back.
     kept = {row.key for row in rows}
     for key, component in existing.items():
         if key not in kept:
-            service.remove_component(db, component, actor=actor)
+            with errors.at(f"c.{key}"):
+                service.remove_component(db, component, actor=actor)
     for place, row in enumerate(rows):
-        _checked("component", row.name, row.max_participants)
+        at = f"c.{row.key}"
+        _checked(errors, at, "component", row.name, row.max_participants)
+        for product in row.products:
+            _checked(
+                errors,
+                f"p.{product.key}",
+                "product",
+                product.name,
+                product.max_participants,
+                price=product.price,
+                member_price=product.member_price,
+            )
+        if row.key not in existing and row.key.isdigit():
+            errors.add(at, str(_gone(_("Een onderdeel"))))
+        if errors.touches(at):
+            continue
         values: dict[str, Any] = {name: getattr(row, name) for name in COMPONENT_FIELDS}
         values["name"] = row.name.strip()
         if row.links is not None:
@@ -272,10 +408,10 @@ def _save_components(
             component = existing[row.key]
             changed = _changed(component, values)
             if changed:
-                service.apply_component_update(db, component, changed, actor=actor)
+                # The one rule of this update is the question form's.
+                with errors.at(f"{at}.form_id"):
+                    service.apply_component_update(db, component, changed, actor=actor)
             products = {str(p.id): p for p in component.products}
-        elif row.key.isdigit():
-            raise _gone(_("Een onderdeel"))
         else:
             form_id = values.pop("form_id")
             links = {name: values.pop(name, None) for name in COMPONENT_LINKS}
@@ -286,46 +422,63 @@ def _save_components(
             if form_id is not None:
                 # The row routes could attach a form only on an update; a new row
                 # of the fiche has the select, so the same check runs here.
-                service._check_questions(db, component, form_id)
-                component.form_id = form_id
+                with errors.at(f"{at}.form_id"):
+                    service._check_questions(db, component, form_id)
+                    component.form_id = form_id
             products = {}
         if component.sort_order != place:
             component.sort_order = place  # a reorder writes no history, as before
         ids[row.key] = component.id
-        _save_products(db, component, products, row.products, actor)
+        _save_products(db, component, products, row.products, actor, errors)
     return ids
 
 
 def _save_products(
-    db: Session, component: Any, existing: dict, rows: list[ProductRow], actor: str | None
+    db: Session,
+    component: Any,
+    existing: dict,
+    rows: list[ProductRow],
+    actor: str | None,
+    errors: _Errors,
 ) -> None:
     kept = {row.key for row in rows}
     for key, product in existing.items():
         if key not in kept:
-            service.remove_product(db, product, actor=actor)
+            with errors.at(f"p.{key}"):
+                service.remove_product(db, product, actor=actor)
     for place, row in enumerate(rows):
-        _checked("product", row.name, row.max_participants, row.price, row.member_price)
+        at = f"p.{row.key}"
+        if row.key not in existing and row.key.isdigit():
+            errors.add(at, str(_gone(_("Een product"))))
+        if errors.touches(at):
+            continue
         values = {name: getattr(row, name) for name in PRODUCT_FIELDS}
         values["name"] = row.name.strip()
-        if row.key in existing:
-            product = existing[row.key]
-            changed = _changed(product, values)
-            if changed:
-                service.apply_product_update(db, product, changed, actor=actor)
-        elif row.key.isdigit():
-            raise _gone(_("Een product"))
-        else:
-            product = service.new_product(component.id, SimpleNamespace(**values, sort_order=place))
-            service._insert_product(db, product, actor=actor, action="product_created")
-        if product.sort_order != place:
-            product.sort_order = place
+        # The one rule of a product's write: free and pay-on-site exclude each other.
+        with errors.at(f"{at}.pay_on_site"):
+            if row.key in existing:
+                product = existing[row.key]
+                changed = _changed(product, values)
+                if changed:
+                    service.apply_product_update(db, product, changed, actor=actor)
+            else:
+                product = service.new_product(
+                    component.id, SimpleNamespace(**values, sort_order=place)
+                )
+                service._insert_product(db, product, actor=actor, action="product_created")
+            if product.sort_order != place:
+                product.sort_order = place
 
 
 # ── Organisers ───────────────────────────────────────────────────────────────
 
 
 def _save_organisers(
-    db: Session, activity: Activity, rows: list[OrganiserRow], confirmed: bool
+    db: Session,
+    activity: Activity,
+    rows: list[OrganiserRow],
+    confirmed: bool,
+    errors: _Errors,
 ) -> None:
     from app.domains.mdm.api import Person, is_member
 
@@ -341,21 +494,28 @@ def _save_organisers(
     final: list[ActivityOrganiser] = []
     people = {r.person_id for key, r in existing.items() if key in kept}
     for row in rows:
+        at = f"o.{row.key}"
+        if errors.touches(at):
+            continue
         if row.key in existing:
             rij = existing[row.key]
         elif row.key.isdigit():
-            raise _gone(_("Een organisator"))
+            errors.add(at, str(_gone(_("Een organisator"))))
+            continue
         else:
             # The rules of `service.add_organiser`, in the same words.
             if row.person_id in people:
-                raise ActiviteitFout(_("Die persoon staat er al bij."))
+                errors.add(at, _("Die persoon staat er al bij."))
+                continue
             if (
                 row.person_id is None
                 or db.query(Person).filter(Person.id == row.person_id).first() is None
             ):
-                raise _gone(_("Die persoon"))
+                errors.add(at, str(_gone(_("Die persoon"))))
+                continue
             if not is_member(db, row.person_id):
-                raise ActiviteitFout(_("Alleen leden kunnen organisator zijn."))
+                errors.add(at, _("Alleen leden kunnen organisator zijn."))
+                continue
             people.add(row.person_id)
             rij = ActivityOrganiser(activity_id=activity.id, person_id=row.person_id)
         # As `service.update_organiser`: an empty override means "the member's own".
@@ -368,6 +528,8 @@ def _save_organisers(
                 setattr(rij, name, value)
         final.append(rij)
 
+    if errors.found:
+        return  # refused already; the question below is for a save that would go through
     if had_contact and not any(r.is_contact for r in final) and not confirmed:
         # This was a rule of the route (and only for unticking, not for removing
         # the last contact person); it is a rule of the save now.
@@ -408,6 +570,7 @@ async def _store_files(
     poster: Any,
     component_files: dict[str, Any],
     background_tasks: Any,
+    errors: _Errors,
 ) -> None:
     """The poster and the info attachments, stored in the open transaction. A
     refused file (its type, an empty file) refuses the save with media's words."""
@@ -420,24 +583,30 @@ async def _store_files(
         store_component_info,
     )
 
-    try:
+    @contextmanager
+    def stored(place: str) -> Iterator[None]:
+        try:
+            yield
+        except HTTPException as exc:
+            errors.add(place, upload_refusal(exc))
+        except LookupError as exc:
+            errors.add(place, str(exc))
+
+    with stored("file"):
         if poster is not None and getattr(poster, "filename", None):
             await store_activity_poster(db, activity.id, poster, background_tasks)
         elif fiche.drop_poster:
             drop_activity_poster(db, activity.id)
-        for row in fiche.components:
-            component_id = component_ids.get(row.key)
-            if component_id is None:
-                continue
+    for row in fiche.components:
+        component_id = component_ids.get(row.key)
+        if component_id is None:
+            continue
+        with stored(f"c.{row.key}.file"):
             upload = component_files.get(row.key)
             if upload is not None and getattr(upload, "filename", None):
                 await store_component_info(db, component_id, upload, background_tasks)
             elif row.drop_info:
                 drop_component_info(db, component_id)
-    except HTTPException as exc:
-        raise ActiviteitFout(upload_refusal(exc)) from exc
-    except LookupError as exc:
-        raise ActiviteitFout(str(exc)) from exc
 
 
 def upload_refusal(exc: Exception) -> str:

@@ -942,6 +942,41 @@
 </div>
 {% endfor %}
 
+{# ── 13e. The action bar and the states of a save (CR-11 block 9, #1561) ─────
+   The bar of a record form, what a refused and a failed save say, and the
+   three tones of the one dialog. The bar here stands in a short flow, so it
+   does not stick; on a record it sticks 16 px above the window's bottom. #}
+{{ ui.section_header(_("13e · Actiebalk en de toestanden van een opslag"), cls="mt-10") }}
+<p class="text-sm text-gray-600 mb-3">
+  {{ _("Eén balk per recordformulier, onder de laatste sectie en alleen in bewerkmodus: Verwijderen links, Annuleren, Opslaan rechts. Een geweigerde opslag noemt elk veld bovenaan het formulier; een mislukte zegt het in het formulier, niet in een toast.") }}
+</p>
+<div data-kit-record-bar class="form-flow max-w-[768px]">
+  <div class="grid gap-3">
+    {{ ui.save_refusal([{"field": "kit_name", "message": _("De activiteit heeft een naam nodig.")},
+                        {"field": "kit_max", "message": _("Het maximum van “Wandeling” moet groter zijn dan nul.")}]) }}
+    {{ ui.save_refusal([{"field": "", "message": _("Geen verbinding met de server; je wijziging is niet bewaard.")}]) }}
+  </div>
+  {% call ui.form_grid() %}
+    {{ ui.field("kit_name", _("Naam"), id="kit-bar-name", required=True, value="") }}
+    {{ ui.field("kit_max", _("Maximum"), kind="number", id="kit-bar-max", span="quarter", value="0") }}
+  {% endcall %}
+  {{ ui.action_bar(record=True, cancel_href="#", save_attrs='type="button"',
+                   delete_attrs='data-kit-delete', delete_title=_("“Herfstwandeling” verwijderen?"),
+                   delete_confirm=_("De activiteit verdwijnt met haar datums, onderdelen en producten, en met 3 inschrijvingen. Betalingen blijven bestaan.")) }}
+</div>
+{# The words stand on the wrapper, translated; the button only asks them. #}
+<div class="mt-4 flex flex-wrap gap-2" x-data>
+  <span data-kit-dialog data-tone="keep" data-title="{{ _("Wijzigingen weggooien?") }}" data-text="{{ _("Wat je sinds de laatste opslag wijzigde, gaat verloren.") }}"
+        data-ok="{{ _("Wijzigingen weggooien") }}" data-stay="{{ _("Verder bewerken") }}">
+    {{ ui.btn_secondary(_("Dialoog: wijzigingen weggooien"), size="sm", attrs='@click="const d = $el.closest(`[data-kit-dialog]`).dataset; $store.confirm.ask(() => {}, d.text, d.ok, {title: d.title, tone: d.tone, cancelLabel: d.stay})"') }}</span>
+  <span data-kit-dialog data-tone="delete" data-title="{{ _("“Herfstwandeling” verwijderen?") }}" data-text="{{ _("De activiteit verdwijnt met haar datums, onderdelen en producten.") }}"
+        data-ok="{{ _("Definitief verwijderen") }}">
+    {{ ui.btn_secondary(_("Dialoog: verwijderen"), size="sm", attrs='@click="const d = $el.closest(`[data-kit-dialog]`).dataset; $store.confirm.ask(() => {}, d.text, d.ok, {title: d.title, tone: d.tone, cancelLabel: d.stay})"') }}</span>
+  <span data-kit-dialog data-tone="confirm" data-text="{{ _("De activiteit verdwijnt van de publieke site tot je ze opnieuw publiceert.") }}"
+        data-ok="{{ _("Terug naar concept") }}">
+    {{ ui.btn_secondary(_("Dialoog: toestandscommando"), size="sm", attrs='@click="const d = $el.closest(`[data-kit-dialog]`).dataset; $store.confirm.ask(() => {}, d.text, d.ok, {title: d.title, tone: d.tone, cancelLabel: d.stay})"') }}</span>
+</div>
+
 {# ── 14. Publieke schil ────────────────────────────────────────────────────── #}
 {{ ui.section_header(_("14 · Publieke schil"), _("Naar de publieke activiteiten"), action_href="/activiteiten", action_attrs='hx-boost="false"', cls="mt-10") }}
 {% call ui.card() %}

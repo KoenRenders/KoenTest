@@ -60,6 +60,7 @@
   {# One "Opslaan" keeps the text fields and the poster (#623): the form is
      multipart. `contents`, so the sections are the flow's own children. #}
   {% if _edit %}<form id="aa-act-form" class="contents" enctype="multipart/form-data"
+        data-record-form data-message="#aa-fiche-message" novalidate
         hx-post="/admin/activiteiten/{{ a.id }}" hx-encoding="multipart/form-data"
         hx-target="#aa-detail" hx-swap="innerHTML">
   {# Which groups this form carries: a group it does not name is left alone by
@@ -238,7 +239,7 @@
      adds a row above. Members only — the service refuses anyone else. Enter in
      the search field must not send the fiche. #}
   {% set _organiser_search %}
-  <div data-organiser-search @keydown.enter.prevent>
+  <div data-organiser-search data-dirty-ignore @keydown.enter.prevent>
     <p class="text-sm font-medium leading-[21px] text-ink mb-1">{{ _("Organisator toevoegen") }}</p>
     {{ ui.search(hx_get="/admin/activiteiten/" ~ a.id ~ "/organisatoren", hx_target="#aa-org-kandidaten",
                  name="organiser_q", placeholder=_("Zoek een lid op naam…"), cls="w-full sm:w-80 min-h-11 md:min-h-0") }}
@@ -275,10 +276,16 @@
     {% endfor %}
   {% endcall %}
   {% if _edit %}</form>{% endif %}
-  {# Provisional (#1558): the one save of the whole fiche — sections, groups
-     and the last section — at the bottom of the form column. #1561 replaces it
-     with the action bar. #}
-  {% if _edit %}<div data-provisional-bar>{{ ui.action_bar(form="aa-act-form", cancel_href=_read_url) }}</div>{% endif %}
+  {# The action bar (#1561, §3.6): the one save of the whole fiche, under its
+     last section. Verwijderen stands here in edit mode, in Acties in read mode. #}
+  {% if _edit %}
+  {{ ui.action_bar(form="aa-act-form", cancel_href=_read_url, record=True,
+                   delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen"',
+                   delete_title=_("“%(name)s” verwijderen?", name=a.name),
+                   delete_confirm=record_head.delete_consequence,
+                   delete_refused=record_head.delete_refusal,
+                   delete_refused_title=_("“%(name)s” kan niet verwijderd worden", name=a.name)) }}
+  {% endif %}
 </div>
 
 

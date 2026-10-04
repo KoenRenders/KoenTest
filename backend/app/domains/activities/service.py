@@ -945,6 +945,10 @@ def delete_activity(db: Session, activity_id: int, *, actor: str | None = None) 
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if activity is None:
         return False
+    # #1561: here and not in the screen, so the JSON API refuses too.
+    refusal = delete_refusal(db, activity_id)
+    if refusal:
+        raise ActiviteitFout(refusal)
     for d in activity.dates:
         snapshot_activity_date(
             db, d, operation="delete", action="activity_deleted", source="admin_manual", actor=actor
@@ -2615,6 +2619,44 @@ def registrations_without_component_count(db: Session, activity_id: int) -> int:
     )
 
 
+def delete_refusal(db: Session, activity_id: int) -> str | None:
+    """Why this activity cannot be deleted, or None when it can (#1561).
+
+    **A new business rule (Koen, 4 October 2026):** an activity with at least one
+    registration that is not deleted cannot be deleted. Until then the delete
+    took the registrations and their lines along. Calling the activity off is the
+    way to stop one that people registered for.
+    """
+    from app.i18n import _
+
+    registrations = (
+        db.query(func.count(Registration.id))
+        .filter(Registration.activity_id == activity_id)
+        .scalar()
+        or 0
+    )
+    if not registrations:
+        return None
+    if registrations == 1:
+        return _(
+            "De activiteit heeft 1 inschrijving en kan niet verwijderd worden. "
+            "Gaat ze niet door, gebruik dan “Activiteit annuleren”."
+        )
+    return _(
+        "De activiteit heeft %(num)d inschrijvingen en kan niet verwijderd worden. "
+        "Gaat ze niet door, gebruik dan “Activiteit annuleren”."
+    ) % {"num": registrations}
+
+
+def delete_consequence() -> str:
+    """What deleting an activity does, in the words of the delete dialog (#1561).
+    True to `delete_activity`: its dates, components and products go with it;
+    one with registrations is refused before it comes to this."""
+    from app.i18n import _
+
+    return _("De activiteit verdwijnt met haar datums, onderdelen en producten.")
+
+
 def record_kop_ctx(
     db: Session,
     activiteit: Activity | ActivityResponse,
@@ -2646,6 +2688,7 @@ def record_kop_ctx(
 
     # #1428: the status the header shows and the state action in its menu.
     pub = publication(db, activiteit.id)
+    refusal = delete_refusal(db, activiteit.id)
     ontwerpen = designs_for_activity(db, activiteit.id)
     if not ontwerpen:
         designs_href = f"/admin/ontwerpen/nieuw?activity_id={activiteit.id}"
@@ -2702,6 +2745,18 @@ def record_kop_ctx(
             "verb": "state",
             "label": _("Publiceren") if pub.draft else _("Terug naar concept"),
             "attrs": f'hx-post="{base}/status" hx-vals=\'{{"status": "{target.value}"}}\'',
+            # #1561 (§3.18): a state command names its consequence first, and
+            # says afterwards that it happened.
+            "confirm": _(
+                "De activiteit komt op de publieke site te staan en kan inschrijvingen krijgen."
+            )
+            if pub.draft
+            else _(
+                "De activiteit verdwijnt van de publieke site tot je ze opnieuw publiceert. "
+                "Bestaande inschrijvingen en betalingen blijven staan."
+            ),
+            "confirm_ok": _("Publiceren") if pub.draft else _("Terug naar concept"),
+            "toast": _("Gepubliceerd") if pub.draft else _("Teruggezet naar concept"),
         }
     )
     # #1558: calling the activity off is an action, not a field. Its two labels
@@ -2713,6 +2768,11 @@ def record_kop_ctx(
                 "verb": "cancel",
                 "label": _("Annulering intrekken"),
                 "attrs": f'hx-post="{base}/annulering" hx-vals=\'{{"cancelled": "0"}}\'',
+                "confirm": _(
+                    "De activiteit is dan niet langer geannuleerd en neemt opnieuw inschrijvingen aan."
+                ),
+                "confirm_ok": _("Annulering intrekken"),
+                "toast": _("Annulering ingetrokken"),
             }
         )
     else:
@@ -2726,6 +2786,8 @@ def record_kop_ctx(
                     "Deze activiteit annuleren? Ze neemt dan geen inschrijvingen meer aan. "
                     "Bestaande inschrijvingen en betalingen blijven staan."
                 ),
+                "confirm_ok": _("Activiteit annuleren"),
+                "toast": _("Activiteit geannuleerd"),
             }
         )
     actions += [
@@ -2735,6 +2797,18 @@ def record_kop_ctx(
             "href": f"/admin/media/nieuw?kind=activity_photo&activity_id={activiteit.id}",
         },
         {"kind": "tool", "label": _("Design Studio"), "href": designs_href},
+        # #1561: in read mode here, in edit mode in the action bar — the same
+        # question with the same consequence either way.
+        {
+            "kind": "delete",
+            "label": _("Verwijderen"),
+            "attrs": f'hx-post="{base}/verwijderen"',
+            "confirm": delete_consequence(),
+            "confirm_title": _("“%(name)s” verwijderen?") % {"name": activiteit.name},
+            "confirm_ok": _("Definitief verwijderen"),
+            # Refused: the item says why instead of asking.
+            "disabled": refusal,
+        },
     ]
     return {
         "record_tabs": record_tabs(db, activiteit, viewer_email, actief, reg_count=reg_count),
@@ -2749,6 +2823,9 @@ def record_kop_ctx(
             "badges": badges,
             "facts": facts,
             "primary": {"label": _("Bewerken"), "href": f"{base}?bewerken=1"},
+            # #1561: what the delete dialog says, for the bar of the editor too.
+            "delete_consequence": delete_consequence(),
+            "delete_refusal": refusal,
             "actions": actions,
         },
     }

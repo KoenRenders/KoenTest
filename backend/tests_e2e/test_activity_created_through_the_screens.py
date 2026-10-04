@@ -173,7 +173,7 @@ def test_an_activity_created_through_the_screens_is_open_for_registration(admin)
             row.locator('[data-repeating-group] input[name$=".price"]').fill(PRICE_TYPED)
 
         with _step("step 3 (opslaan)"):
-            page.click('[data-provisional-bar] button:has-text("Opslaan")')
+            page.click("[data-action-bar] [data-form-save]")
             page.wait_for_selector('[data-form-flow][data-mode="read"]')
             pagina_klaar(page)
             expect(page.locator("#aa-detail")).to_contain_text(component)
