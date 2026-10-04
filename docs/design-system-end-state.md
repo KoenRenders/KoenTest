@@ -745,12 +745,21 @@ page). **The newsletter's choices are three, not two** (Koen, 4 October
 2026): *Voorbije activiteiten* (the look back), *Uitgelicht* (the coming
 activities told in detail, at most three, each an activity block with
 poster, description and registration link) and *In de kalender* (the
-other coming activities, the next nine by default, one calendar block that
-stands in every letter). The assistant writes a look-back, a piece per
+coming activities, the next nine by default, **the highlighted ones
+included** — the calendar lists everything once more in a row; one
+calendar block that stands in every letter). The assistant writes a look-back, a piece per
 highlighted activity and adds the calendar as one block — never a detail
 block per calendar activity, which is what today's proposal does and what
 makes the organiser delete six of them. "Activiteit invoegen" and
-"Kalender invoegen" by hand read the same three choices. On a module the assistant does not know the trigger is dimmed but
+"Kalender invoegen" by hand read the same three choices. On the page
+(decided without a drawing, Koen, 4 October 2026): three chip groups with
+their counts in brackets — *Voorbije activiteiten (4)* all ticked by
+default with "+ Toevoegen" for an older one; *Uitgelicht (2 van 3)* where
+"+ Toevoegen" picks from the coming activities and is dimmed at three, ×
+removes the highlight only; *In de kalender (9)* where × removes one and
+"+ Toevoegen" adds a further one; under them the line on the meeting
+reports; the panel's context line says "over Nieuwsbrief oktober · 2
+uitgelicht, 9 in de kalender". On a module the assistant does not know the trigger is dimmed but
 focusable and opens only "Raakje kent deze gegevens nog niet". **A
 proposal for the form**: the fields it touches get a brand line, the brand
 tint and "Voorstel · nog niet toegepast"; the panel says "3 velden
