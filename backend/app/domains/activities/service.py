@@ -2569,7 +2569,7 @@ def record_kop_ctx(
     base = f"/admin/activiteiten/{activiteit.id}"
     # The screen says what it has; the macro places it. Record actions in the
     # norm's order (kopiëren … terug naar concept), tools under a divider.
-    # "Verwijderen" joins with K7, "Annuleren" with K4.
+    # "Verwijderen" joins with #1561.
     actions: list[dict] = [
         {"kind": "record", "verb": "copy", "label": _("Kopiëren"), "href": f"{base}/kopieren"},
     ]
@@ -2583,6 +2583,30 @@ def record_kop_ctx(
             "attrs": f'hx-post="{base}/status" hx-vals=\'{{"status": "{target.value}"}}\'',
         }
     )
+    # #1558: calling the activity off is an action, not a field. Its two labels
+    # and the question stand here and nowhere else.
+    if activiteit.is_cancelled:
+        actions.append(
+            {
+                "kind": "record",
+                "verb": "cancel",
+                "label": _("Annulering intrekken"),
+                "attrs": f'hx-post="{base}/annulering" hx-vals=\'{{"cancelled": "0"}}\'',
+            }
+        )
+    else:
+        actions.append(
+            {
+                "kind": "record",
+                "verb": "cancel",
+                "label": _("Activiteit annuleren"),
+                "attrs": f'hx-post="{base}/annulering" hx-vals=\'{{"cancelled": "1"}}\'',
+                "confirm": _(
+                    "Deze activiteit annuleren? Ze neemt dan geen inschrijvingen meer aan. "
+                    "Bestaande inschrijvingen en betalingen blijven staan."
+                ),
+            }
+        )
     actions += [
         {
             "kind": "tool",

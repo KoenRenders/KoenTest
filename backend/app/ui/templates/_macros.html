@@ -138,6 +138,7 @@
   "chevron-up": '<path d="m18 15-6-6-6 6"/>',
   "chevron-down": '<path d="m6 9 6 6 6-6"/>',
   "chevron-left": '<path d="m15 18-6-6 6-6"/>',
+  "chevron-right": '<path d="m9 18 6-6-6-6"/>',
   "arrow-up-right": '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
   "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
   "arrow-down": '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
@@ -412,7 +413,8 @@
    - `primary`: {label, href} or {label, attrs} — one, never more.
    - `actions`: [{kind, label, href|attrs, verb?, confirm?}]. `kind` is "record"
      (placed in the fixed order of `verb`: copy, print, export, send, state — the
-     record's state action, such as publish or back to draft; a
+     record's state action, such as publish or back to draft — and cancel, calling
+     the record off or taking that back; a
      record action without one of these verbs follows them), "tool" (under a
      divider) or "delete" (last, red, after a divider). The screen says what it
      has; the macro places it. A `btn_*` beside this macro in a record head is
@@ -430,7 +432,7 @@
 {% macro record_header(title, badges=[], facts=[], primary=None, actions=[], back=None, editing=False) -%}
 {# `caller is defined`, not `if caller` (#643): StrictUndefined. #}
 {% set _extra = (caller() if caller is defined else "")|trim %}
-{% set _verbs = ["copy", "print", "export", "send", "state"] %}
+{% set _verbs = ["copy", "print", "export", "send", "state", "cancel"] %}
 {% set _records = actions|selectattr("kind", "equalto", "record")|list %}
 {% set _tools = actions|selectattr("kind", "equalto", "tool")|list %}
 {% set _deletes = actions|selectattr("kind", "equalto", "delete")|list %}
@@ -501,6 +503,196 @@
   {% endfor %}
 </nav>
 {% endif %}
+{%- endmacro %}
+
+{# ── The form: sections, the grid and the field (CR-11 block 6, #1558;
+   design-system-end-state §1.3, §1.4, §3.1, §3.2, §3.4, §3.5) ─────────────────
+
+   `record_columns` — the reading group of a record page: a form column of
+   768 px, 24 px, a summary column of 300 px (1 092 px), left-aligned against the
+   page margin and never centred, so a form starts on the same x as a list, the
+   title and the tabs. The summary stands beside the form while the form keeps
+   640 px (a frame of 964 px); narrower, it goes above the form.
+   `aside` is the summary's HTML (`{% set %}` … `{% endset %}`); the caller is the
+   form column. A screen sets no width of its own. #}
+{% macro record_columns(aside=None) -%}
+<div data-record-frame class="record-frame">
+<div data-record-columns class="record-columns">
+  <div data-form-column class="record-form-column">{{ caller() }}</div>
+  {% if aside %}<aside data-summary-column class="record-summary-column">{{ aside }}</aside>{% endif %}
+</div>
+</div>
+{%- endmacro %}
+
+{# `section(title)` — one card per section, never a nested card: the heading
+   (16 px semibold), 16 px to the first field, the fields on the form grid — four
+   tracks, 12 px apart, one column when the card is narrower than 532 px inside
+   (two half fields of 260 px). 32 px between sections. A template writes no
+   distance: the grid and the section do. #}
+{% macro section(title, id=None) -%}
+<section data-form-section{% if id %} id="{{ id }}"{% endif %} class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+  <h2 class="text-base font-semibold leading-6 text-ink mb-4">{{ title }}</h2>
+  <div data-form-grid class="form-grid">{{ caller() }}</div>
+</section>
+{%- endmacro %}
+
+{# `rare_settings(title, summary)` — one closed section in the LAST slot of the
+   form: what is rarely set (external links, a poster address). Closed by
+   default; the one-line `summary` says what is set inside ("2 externe links"),
+   `note` why it is discouraged. The fields inside are `field` calls; they may
+   name the form they belong to (`form=`), because the last slot can lie outside
+   the form element. A `rare_settings` followed by a `section` is red. #}
+{% macro rare_settings(title, summary="", note="", open=False) -%}
+<details data-rare-settings class="form-section group bg-surface border border-line rounded-2xl shadow-sm p-4"{% if open %} open{% endif %}>
+  <summary class="flex items-center gap-2 min-h-11 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+    {{ icon("chevron-right", 16, "shrink-0 transition-transform group-open:rotate-90") }}
+    <span><span class="block text-base font-semibold leading-6 text-ink">{{ title }}</span>{% if summary %}<span data-rare-summary class="block text-[13px] text-ink-soft">{{ summary }}</span>{% endif %}</span>
+  </summary>
+  {% if note %}<p class="mt-2 text-[13px] text-ink-soft">{{ note }}</p>{% endif %}
+  <div data-form-grid class="form-grid mt-4">{{ caller() }}</div>
+</details>
+{%- endmacro %}
+
+{# `field(name, label, kind, …)` — the only way to a form control.
+
+   One block on the grid: the label above (14 px medium, a red asterisk when
+   required), the control (40 px, 44 on a phone, radius 6), the help under it
+   (13 px, grey), the error under the control in danger with the border coloured.
+   `edit=False` is read mode: the same block in the same place with the value
+   as text — "—" when empty, a switch in words ("ja" / "nee") — and no border
+   around it.
+
+   **The kind decides the width.** `url`, `email`, `textarea` and `upload` are
+   always full; `text`, `slug`, `phone`, `select`, `switch`, `segmented`,
+   `number`, `date` and `time` are half; `checkbox_group` and `radio_group` are
+   full. `span` may widen a short field ("full") or make a number, date, time,
+   select or switch a quarter; it never narrows a long one — the macro ignores
+   that and `tests/test_form_field_gate.py` is red. `long=True` makes a text
+   field full.
+
+   - `select`, `segmented`, `radio_group`, `checkbox_group`: `options` is
+     [(value, label)] and `value` the chosen one (a list for a checkbox group);
+     a radio option may carry a third item, its line of help.
+   - `number`: `unit` is drawn inside the control, at the left ("€").
+   - `switch`: the kit's one switch, `ui.switch` (#1568) — the knob at the left,
+     the label at its right, 8 px apart. It applies on Opslaan like any field.
+   - `upload`: the kit's own button "Bestand kiezen" with its icon, never the
+     browser's; `current_url` / `current_label` name what hangs there,
+     `delete_attrs` removes it.
+   - `slug`: a URL name — no auto-capitalisation, no spell check.
+   - `form`: the id of the form a control outside that form belongs to.
+   - `display`: what read mode shows instead of the raw value — a date in
+     words, an amount with its comma.
+   - `help_in_read`: the help also stands under the value in read mode — for a
+     promise the reader must see where the text is read, not only where it is
+     typed (the internal note).
+   - `preview_url` (upload): a small picture of what hangs there, while editing. #}
+{% set _field_full = ["url", "email", "textarea", "upload", "checkbox_group", "radio_group"] %}
+{% set _field_quarter_ok = ["number", "date", "time", "select", "switch"] %}
+{% set _field_control = "block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed" %}
+{% macro field(name, label, kind="text", value="", edit=True, span=None, long=False, required=False,
+               help=None, error=None, placeholder="", unit=None, options=[], id=None, attrs="",
+               rows=3, form=None, accept="image/*,application/pdf", current_url=None,
+               current_label=None, delete_attrs="", delete_confirm=None, disabled=False,
+               display=None, help_in_read=False, preview_url=None) -%}
+{%- set _id = id or name -%}
+{%- if kind in _field_full or (kind == "text" and long) -%}{%- set _span = "full" -%}
+{%- elif span == "full" -%}{%- set _span = "full" -%}
+{%- elif span == "quarter" and kind in _field_quarter_ok -%}{%- set _span = "quarter" -%}
+{%- else -%}{%- set _span = "half" -%}{%- endif -%}
+{%- set _line = "border-red-700" if error else "border-control-line" -%}
+{%- set _common -%}
+id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if required %} required{% endif %}{% if disabled %} disabled{% endif %}{% if error %} aria-invalid="true" aria-describedby="{{ _id }}-error"{% elif help %} aria-describedby="{{ _id }}-help"{% endif %} {{ attrs|safe }}
+{%- endset -%}
+{%- set _chosen = {} -%}{%- for o in options -%}{%- set _ = _chosen.update({o[0]: o[1]}) -%}{%- endfor -%}
+<div data-field="{{ name }}" data-kind="{{ kind }}" data-span="{{ _span }}" class="min-w-0">
+  {% if not edit %}
+  <p class="text-sm font-medium leading-[21px] text-ink mb-1">{{ label }}</p>
+  <p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">
+    {%- if display is not none %}{{ display or "—" }}
+    {%- elif kind == "switch" %}{{ _("ja") if value else _("nee") }}
+    {%- elif kind == "upload" %}{% if current_url %}<a href="{{ current_url }}" target="_blank" rel="noopener" class="text-blue-500 underline">{{ current_label or _("Huidige bijlage bekijken") }}</a>{% else %}—{% endif %}
+    {%- elif kind == "checkbox_group" %}{% set _labels = [] %}{% for o in options if o[0] in (value or []) %}{% set _ = _labels.append(o[1]) %}{% endfor %}{{ _labels|join(", ") or "—" }}
+    {%- elif kind in ("select", "segmented", "radio_group") %}{{ (_chosen.get(value) if value else "") or "—" }}
+    {%- elif kind == "url" and value %}<a href="{{ value }}" target="_blank" rel="noopener" class="text-blue-500 underline">{{ value }}</a>
+    {%- elif kind == "email" and value %}<a href="mailto:{{ value }}" class="text-blue-500 underline">{{ value }}</a>
+    {%- elif value is none or value == "" %}—
+    {%- else %}{% if unit %}{{ unit }} {% endif %}{{ value }}{% endif -%}
+  </p>
+  {% elif kind == "switch" %}
+  {# The kit's one switch (#1568); its help and its link to the help are its own. #}
+  {#- Beside a labelled field the switch stands on the control's line, not on
+      the label's: 25 px down (label and its gap), centred in the 40 px of a
+      control. On a phone it is its own row of 44 px. -#}
+  <div class="md:pt-[25px] md:[&_label]:min-h-10">{{ switch(name, label, checked=value, id=_id, help=help, form=form, disabled=disabled, attrs=attrs) }}</div>
+  {% else %}
+  {% if kind in ("segmented", "radio_group", "checkbox_group") %}
+  <p id="{{ _id }}-label" class="text-sm font-medium leading-[21px] text-ink mb-1">{{ label }}{% if required %} <span class="text-red-600">*</span>{% endif %}</p>
+  {% else %}
+  <label for="{{ _id }}" class="block text-sm font-medium leading-[21px] text-ink mb-1">{{ label }}{% if required %} <span class="text-red-600">*</span>{% endif %}</label>
+  {% endif %}
+  {% if kind == "textarea" %}
+  {# The kit's own textarea: it grows with its text (#1027). #}
+  {%- set _area_attrs -%}
+  {% if form %}form="{{ form }}" {% endif %}{% if disabled %}disabled {% endif %}{% if error %}aria-invalid="true" aria-describedby="{{ _id }}-error" {% elif help %}aria-describedby="{{ _id }}-help" {% endif %}{{ attrs|safe }}
+  {%- endset %}
+  {{ textarea_control(name, id=_id, value=value or "", rows=rows, required=required, placeholder=placeholder, attrs=_area_attrs,
+                      base="block w-full min-w-0 rounded-md border " ~ _line ~ " bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus") }}
+  {% elif kind == "select" %}
+  <select class="{{ _field_control }} {{ _line }} pr-2" {{ _common }}>
+    {% for o in options %}<option value="{{ o[0] }}"{% if o[0] == value %} selected{% endif %}>{{ o[1] }}</option>{% endfor %}
+  </select>
+  {% elif kind == "segmented" %}
+  <div role="radiogroup" aria-labelledby="{{ _id }}-label" class="flex w-full">
+    {% for o in options %}
+    <label class="relative flex flex-1 items-center justify-center min-h-11 md:min-h-10 px-3 border border-control-line text-sm font-medium cursor-pointer first:rounded-l-md last:rounded-r-md [&:not(:first-child)]:border-l-0 has-[:checked]:bg-blue-50 has-[:checked]:text-blue-700 has-[:checked]:font-semibold has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-focus">
+      <input type="radio" name="{{ name }}" value="{{ o[0] }}"{% if form %} form="{{ form }}"{% endif %} class="sr-only"{% if o[0] == value %} checked{% endif %}>{{ o[1] }}
+    </label>
+    {% endfor %}
+  </div>
+  {% elif kind == "radio_group" %}
+  <div role="radiogroup" aria-labelledby="{{ _id }}-label" class="grid gap-1">
+    {% for o in options %}
+    <label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
+      <input type="radio" name="{{ name }}" value="{{ o[0] }}"{% if form %} form="{{ form }}"{% endif %} class="mt-0.5 h-[18px] w-[18px] shrink-0"{% if o[0] == value %} checked{% endif %}>
+      <span><span class="font-medium text-ink">{{ o[1] }}</span>{% if o|length > 2 and o[2] %}<span class="block text-[13px] text-ink-soft">{{ o[2] }}</span>{% endif %}</span>
+    </label>
+    {% endfor %}
+  </div>
+  {% elif kind == "checkbox_group" %}
+  <div role="group" aria-labelledby="{{ _id }}-label" class="flex flex-wrap gap-x-5">
+    {% for o in options %}
+    <label class="flex items-center gap-2 min-h-11 md:min-h-10 text-sm font-medium cursor-pointer">
+      <input type="checkbox" name="{{ name }}" value="{{ o[0] }}"{% if form %} form="{{ form }}"{% endif %} class="h-[18px] w-[18px] shrink-0"{% if o[0] in (value or []) %} checked{% endif %}>{{ o[1] }}
+    </label>
+    {% endfor %}
+  </div>
+  {% elif kind == "upload" %}
+  <div data-upload class="flex flex-wrap items-center gap-3" x-data="{ chosen: '' }">
+    <label class="relative inline-flex items-center gap-2 min-h-11 md:min-h-10 px-3 rounded-md border border-control-line bg-surface text-sm font-medium text-ink cursor-pointer hover:bg-surface-2 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-focus">
+      {{ icon("upload", 16) }}<span>{{ _("Bestand kiezen") }}</span>
+      <input type="file" accept="{{ accept }}" class="absolute inset-0 h-full w-full opacity-0 cursor-pointer" @change="chosen = $event.target.files.length ? $event.target.files[0].name : ''" {{ _common }}>
+    </label>
+    <span data-upload-chosen class="min-w-0 text-[13px] text-ink-soft [overflow-wrap:anywhere]" x-text="chosen" x-show="chosen" x-cloak></span>
+    {% if current_url %}
+    <span class="flex flex-wrap items-center gap-2 min-w-0" x-show="!chosen">
+      <a href="{{ current_url }}" target="_blank" rel="noopener" class="text-sm text-blue-500 underline [overflow-wrap:anywhere]">{{ current_label or _("Huidige bijlage bekijken") }}</a>
+      {% if delete_attrs %}{{ link_action(_("Verwijderen"), attrs=delete_attrs, confirm=delete_confirm, cls="text-red-700") }}{% endif %}
+    </span>
+    {% endif %}
+  </div>
+  {% else %}
+  {%- set _types = {"email": "email", "phone": "tel", "number": "number", "date": "date", "time": "time", "url": "url"} -%}
+  {% if unit %}<div class="relative"><span aria-hidden="true" class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-soft">{{ unit }}</span>{% endif %}
+  <input type="{{ _types.get(kind, 'text') }}"{% if value is not none and value != "" %} value="{{ value }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if kind == "slug" %} autocapitalize="none" autocorrect="off" spellcheck="false"{% endif %}{% if kind == "number" %} inputmode="decimal"{% endif %}
+         class="{{ _field_control }} {{ _line }}{% if unit %} pl-8{% endif %}{% if kind == 'number' %} tabular-nums{% endif %}" {{ _common }}>
+  {% if unit %}</div>{% endif %}
+  {% endif %}
+  {% endif %}
+  {% if edit and kind == "upload" and preview_url %}<img src="{{ preview_url }}" alt="" class="mt-2 max-h-40 w-auto rounded-md border border-line">{% endif %}
+  {% if edit and error %}<p id="{{ _id }}-error" data-field-error class="mt-1 text-[13px] leading-[19.5px] text-red-700 [overflow-wrap:anywhere]">{{ error }}</p>
+  {% elif help and (edit or help_in_read) and not (edit and kind == "switch") %}<p id="{{ _id }}-help" data-field-help class="mt-1 text-[13px] leading-[19.5px] text-ink-soft [overflow-wrap:anywhere]">{{ help }}</p>{% endif %}
+</div>
 {%- endmacro %}
 
 {# ── Uploadveld (#623) ────────────────────────────────────────────────────────
@@ -843,9 +1035,11 @@
    counts the border now (`rand`): with `border-box`, `scrollHeight` alone left the
    box 2 px short, with a scrollbar on every grown field. #}
 {% macro textarea_control(name, id=None, value="", rows=4, required=False,
-                          placeholder="", cls="", attrs="", autogrow=True, max_px=400) -%}
+                          placeholder="", cls="", attrs="", autogrow=True, max_px=400, base=None) -%}
+{#- `base` (#1558): `field` hands its own control classes, so a textarea in a
+    form section has the field's line, radius and focus ring and still grows. -#}
 <textarea{% if name %} name="{{ name }}"{% endif %} id="{{ id or name }}" rows="{{ rows }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}
-          class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}"
+          class="{{ base if base else _basis(cls) }}{% if cls %} {{ cls }}{% endif %}"
           {% if autogrow %}x-data="{ bodem: 0,
               init() { this.groei(); if (this.bodem) return;
                        const vak = this.$el, zelf = this;
@@ -2244,14 +2438,17 @@
    and carries `off_value`; ticked, the checkbox follows it with `on_value`, and
    the last value of a name is the one the server reads. `help` stands under the
    switch and is linked to it with `aria-describedby`. #}
-{% macro switch(name, label, checked=False, on_value="1", off_value="", id=None, help=None) -%}
+{% macro switch(name, label, checked=False, on_value="1", off_value="", id=None, help=None, form=None, disabled=False, attrs="") -%}
+{#- #1558: `field(kind="switch")` renders this macro, so a form section and a
+    settings card show the same switch. `form` names the form of a switch that
+    stands outside it; `attrs` goes to the checkbox. -#}
 {% set _id = id or name %}
 <div data-switch>
   <label for="{{ _id }}" class="inline-flex min-h-11 md:min-h-0 cursor-pointer items-center gap-2">
-    <input type="hidden" name="{{ name }}" value="{{ off_value }}">
-    <input type="checkbox" role="switch" name="{{ name }}" id="{{ _id }}" value="{{ on_value }}" class="peer sr-only"{% if checked %} checked{% endif %}{% if help %} aria-describedby="{{ _id }}-hulp"{% endif %}>
-    <span aria-hidden="true" class="relative h-6 w-11 shrink-0 rounded-full bg-gray-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-brand-ocean peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-200 peer-focus-visible:ring-offset-2"></span>
-    <span class="text-sm font-medium text-ink">{{ label }}</span>
+    <input type="hidden" name="{{ name }}" value="{{ off_value }}"{% if form %} form="{{ form }}"{% endif %}{% if disabled %} disabled{% endif %}>
+    <input type="checkbox" role="switch" name="{{ name }}" id="{{ _id }}" value="{{ on_value }}" class="peer sr-only"{% if form %} form="{{ form }}"{% endif %}{% if disabled %} disabled{% endif %}{% if checked %} checked{% endif %}{% if help %} aria-describedby="{{ _id }}-hulp"{% endif %} {{ attrs|safe }}>
+    <span data-switch-track aria-hidden="true" class="relative h-6 w-11 shrink-0 rounded-full bg-gray-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-brand-ocean peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-200 peer-focus-visible:ring-offset-2"></span>
+    <span data-switch-label class="text-sm font-medium text-ink">{{ label }}</span>
   </label>
   {% if help %}<p id="{{ _id }}-hulp" class="mt-1 text-xs text-ink-soft">{{ help }}</p>{% endif %}
 </div>

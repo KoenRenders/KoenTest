@@ -221,6 +221,7 @@ def _detail_response(
     toast: bool = False,
     organiser_query: str = "",
     organiser_candidates: list | None = None,
+    read_mode: bool = False,
 ) -> HTMLResponse:
     from app.domains.activities.api import get_activity_detail
 
@@ -256,7 +257,15 @@ def _detail_response(
         # Alleen op het FRAGMENT-antwoord: de volledige pagina rendert de kop
         # zelf al — een oob-blok zou hem daar dubbel zetten.
         ctx["oob_kop"] = True
-    return templates.TemplateResponse(request, "_aa_detail.html", ctx)
+    headers = {}
+    if read_mode and "way_back" in ctx:
+        # #1558: the page was in its edit state (`?bewerken=1`); after the save
+        # it reads again, and the address says so — a reload must not reopen
+        # the editor.
+        ctx["head_editing"] = False
+        keep = ctx["way_back"]["keep"]
+        headers["HX-Push-Url"] = f"{NAV}/{activity_id}" + (f"?{keep}" if keep else "")
+    return templates.TemplateResponse(request, "_aa_detail.html", ctx, headers=headers)
 
 
 @router.get("/admin/activiteiten", response_class=HTMLResponse)
@@ -367,6 +376,31 @@ def activity_status_submit(
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     # The header sits on every tab of the activity; the page that pressed the
     # button reloads, so the badge and the button show the new status.
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
+@router.post(
+    "/admin/activiteiten/{activity_id}/annulering",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def activity_cancellation_submit(
+    activity_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    cancelled: str = Form(""),
+) -> Response:
+    """Call the activity off, or take that back (#1558): a record action in the
+    head's menu, where it was a checkbox in the form."""
+    from app.domains.activities import service
+
+    changed = service.update_activity(
+        db, activity_id, {"is_cancelled": cancelled == "1"}, actor=email
+    )
+    if changed is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    # The badge sits in the head of every tab; the page that asked reloads.
     return Response(status_code=204, headers={"HX-Refresh": "true"})
 
 
@@ -540,7 +574,6 @@ async def activiteit_bijwerken(
     poster_url: str = Form(""),
     slug: str = Form(""),
     members_only: str = Form(""),
-    is_cancelled: str = Form(""),
     target_audience: str = Form(""),
     file: Optional[UploadFile] = File(None),
 ) -> Response:
@@ -559,8 +592,10 @@ async def activiteit_bijwerken(
         location=location.strip() or None,
         poster_url=poster_url.strip() or None,
         members_only=bool(members_only),
-        is_cancelled=bool(is_cancelled),
     ).model_dump(exclude_none=True)
+    # #1558: "Geannuleerd" is no field of this form any more — it is the record
+    # action "Activiteit annuleren" (`activity_cancellation_submit`). The key stays
+    # out of `velden`, or a save would silently take a cancellation back.
     # #884: de slug staat BUITEN `exclude_none`, want leegmaken is een geldige keuze —
     # dan verdwijnt de vriendelijke URL en blijft alleen de nummer-URL over. Hij volgt
     # de naam niet: wie hem wijzigt, doet dat met de waarschuwing op het scherm.
@@ -588,7 +623,8 @@ async def activiteit_bijwerken(
     # #742: alleen deze afsluitende "Opslaan" bevestigt. De andere mutaties op dit
     # scherm (een datum toevoegen, een onderdeel bijwerken, een affiche wissen) zijn
     # deelacties en krijgen géén toast — dezelfde grens als bij #717.
-    return _detail_response(request, db, activity_id, toast=True)
+    # #1558: a save ends the edit state — the fiche comes back to read.
+    return _detail_response(request, db, activity_id, toast=True, read_mode=True)
 
 
 @router.post(

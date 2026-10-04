@@ -267,3 +267,29 @@ def test_the_frame_reads_the_page_address_of_a_fragment_request(db_session):
     assert via_htmx == frame
 
     assert record_frame(request(""), db_session, LIST)["head_editing"] is False
+
+
+def test_a_boosted_navigation_reads_its_own_address(db_session):
+    """#1558: "Annuleren" in the editor is a boosted link to the record without
+    `?bewerken=1`. htmx sends the page being left as `HX-Current-URL`; merged in,
+    the editor opened again and a way back was inherited from the other page.
+
+    Proven red by dropping the `hx-boosted` branch from `record_frame`.
+    """
+    from starlette.requests import Request
+
+    leaving = b"http://testserver/admin/activiteiten/3?bewerken=1&terug=%2Fadmin%2Fbetalingen"
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/admin/activiteiten/3",
+        "query_string": b"",
+        "headers": [
+            (b"hx-current-url", leaving),
+            (b"hx-request", b"true"),
+            (b"hx-boosted", b"true"),
+        ],
+    }
+    frame = record_frame(Request(scope), db_session, LIST)
+    assert frame["head_editing"] is False
+    assert frame["way_back"] == {"label": "Activiteiten", "href": LIST, "keep": ""}

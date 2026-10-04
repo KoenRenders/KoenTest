@@ -110,7 +110,8 @@ def test_the_header_and_the_edit_form(phone):
     publish.wait_for(state="visible")
     assert publish.count() == 1
     page.keyboard.press("Escape")
-    page.get_by_role("button", name="Bewerken").first.click()
+    # #1558: "Bewerken" in the head turns the whole fiche into its editor.
+    page.locator('[data-head-controls] a:has-text("Bewerken")').click()
     select = page.locator("#target_audience")
     select.wait_for(state="visible")
     box = select.bounding_box()
