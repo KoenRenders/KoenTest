@@ -523,7 +523,7 @@ class Activiteitdetail:
             # naar /nieuw en staat bovenaan. Alleen een link naar een echt id telt.
             pad = self.page.evaluate(
                 r"""Array.from(document.querySelectorAll('a[href]'))
-                        .map(a => a.getAttribute('href'))
+                        .map(a => a.getAttribute('href').split('?')[0])
                         .find(h => /^\/admin\/activiteiten\/\d+$/.test(h)) || null"""
             )
             if not pad:

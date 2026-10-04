@@ -2519,9 +2519,11 @@ def record_kop_ctx(
     from app.config import settings
     from app.domains.activities.models import ActivityStatus
     from app.domains.designstudio.api import designs_for_activity
-    from app.kernel.tenant_config import tenant_admin_chat_enabled
+    from app.i18n import _, long_date
+    from app.kernel.codes import code_label, tone
+    from app.kernel.tenant_config import tenant_admin_chat_enabled, tenant_base_url
 
-    # #1428: the status the header shows and its button changes.
+    # #1428: the status the header shows and the state action in its menu.
     pub = publication(db, activiteit.id)
     ontwerpen = designs_for_activity(db, activiteit.id)
     if not ontwerpen:
@@ -2530,20 +2532,80 @@ def record_kop_ctx(
         designs_href = f"/admin/ontwerpen/{ontwerpen[0].id}"
     else:
         designs_href = f"/admin/ontwerpen?activity_id={activiteit.id}"
+
+    # CR-11 block 5 (#1557): the head is data for `ui.record_header`. The status
+    # first; the audience after it, in grey (no tone).
+    if activiteit.is_cancelled:
+        status = {"label": _("Geannuleerd"), "tone": "red"}
+    else:
+        status = {
+            "label": code_label("activity_status", pub.status),
+            "tone": tone("activity_status", pub.status),
+        }
+    badges = [
+        status,
+        {"label": _("Enkel leden") if activiteit.members_only else _("Iedereen welkom")},
+    ]
+    # date · time · place · reference — full words at every width.
+    facts: list[dict] = []
+    if activiteit.dates:
+        first = activiteit.dates[0]
+        facts.append({"text": long_date(first.start_date)})
+        if first.start_time:
+            time = first.start_time.strftime("%H:%M")
+            if first.end_time:
+                time += "–" + first.end_time.strftime("%H:%M")
+            facts.append({"text": time})
+    if activiteit.location:
+        facts.append({"text": activiteit.location})
+    if not pub.draft:
+        facts.append(
+            {
+                "text": _("Publieke pagina"),
+                "kind": "reference",
+                "href": f"{tenant_base_url(db)}/activiteiten/{activiteit.slug or activiteit.id}",
+            }
+        )
+    base = f"/admin/activiteiten/{activiteit.id}"
+    # The screen says what it has; the macro places it. Record actions in the
+    # norm's order (kopiëren … terug naar concept), tools under a divider.
+    # "Verwijderen" joins with K7, "Annuleren" with K4.
+    actions: list[dict] = [
+        {"kind": "record", "verb": "copy", "label": _("Kopiëren"), "href": f"{base}/kopieren"},
+    ]
+    # The state slot (#1428): one action, to the other status.
+    target = ActivityStatus.PUBLISHED if pub.draft else ActivityStatus.DRAFT
+    actions.append(
+        {
+            "kind": "record",
+            "verb": "state",
+            "label": _("Publiceren") if pub.draft else _("Terug naar concept"),
+            "attrs": f'hx-post="{base}/status" hx-vals=\'{{"status": "{target.value}"}}\'',
+        }
+    )
+    actions += [
+        {
+            "kind": "tool",
+            "label": _("Foto's uploaden"),
+            "href": f"/admin/media/nieuw?kind=activity_photo&activity_id={activiteit.id}",
+        },
+        {"kind": "tool", "label": _("Design Studio"), "href": designs_href},
+    ]
     return {
         "record_tabs": record_tabs(db, activiteit, viewer_email, actief, reg_count=reg_count),
-        # Golf 10 (#913): de "AI · Activiteit"-knop bestaat alleen als Raakje voor
-        # beheer aan staat — één bron (kernel, CR-07 §6.3), geen eigen vlag ernaast.
-        "raakje_admin": tenant_admin_chat_enabled(db),
-        # #1075: the overlay carries the same microphone as every other Raakje,
-        # and the button needs to know which speech path to take — read from the
-        # configuration here, the same value the reporting Raakje passes on.
-        "stt_mode": settings.stt_mode,
-        "designs_href": designs_href,
-        # #1428: "Concept" on the title line, and the one status change the
-        # header's button makes — decided here, so the template compares no code.
+        # #1428: "Concept" on the summary card too.
         "publication": pub,
-        "status_next": (ActivityStatus.PUBLISHED if pub.draft else ActivityStatus.DRAFT).value,
+        # The per-screen assistant overlay (#975) and its speech path (#1075). It
+        # stays in the head until the shell's panel takes it over (#1562).
+        "raakje_admin": tenant_admin_chat_enabled(db),
+        "stt_mode": settings.stt_mode,
+        "record_head": {
+            "title": activiteit.name,
+            "badges": badges,
+            "facts": facts,
+            "primary": {"label": _("Bewerken"), "href": f"{base}?bewerken=1"},
+            "actions": actions,
+        },
     }
 
 
@@ -2571,12 +2633,14 @@ def record_tabs(
         reg_count = registration_count_for(db, activiteit.id)
     tabs = [
         {
-            "label": _("Overzicht"),
+            # CR-11 block 5 (#1557): "Gegevens" first, on every entity.
+            "label": _("Gegevens"),
             "href": f"/admin/activiteiten/{activiteit.id}",
             "active": actief == "overzicht",
         },
         {
-            "label": _("Inschrijvingen") + f" {reg_count}",
+            "label": _("Inschrijvingen"),
+            "count": reg_count,
             "href": f"/admin/activiteiten/{activiteit.id}/inschrijvingen",
             "active": actief == "inschrijvingen",
         },
@@ -2585,7 +2649,8 @@ def record_tabs(
         n = count_registration_records_by_activity(db, activiteit.id)
         tabs.append(
             {
-                "label": _("Betalingen") + f" {n}",
+                "label": _("Betalingen"),
+                "count": n,
                 "href": f"/admin/activiteiten/{activiteit.id}/betalingen",
                 "active": actief == "betalingen",
             }

@@ -122,7 +122,7 @@ def _measure(page, screen: str, width: int) -> dict:
         page.goto("/admin/activiteiten")
         path = page.evaluate(
             r"""Array.from(document.querySelectorAll('a[href]'))
-                    .map(a => a.getAttribute('href'))
+                    .map(a => a.getAttribute('href').split('?')[0])
                     .find(h => /^\/admin\/activiteiten\/\d+$/.test(h)) || null"""
         )
         assert path, "no activity in the list to open the payments tab of"

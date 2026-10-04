@@ -79,18 +79,21 @@ def test_copy_from_the_header_to_the_new_activity(phone):
     _, page, activity_id = phone
     page.goto(f"/admin/activiteiten/{activity_id}")
     pagina_klaar(page)
-    # Koen, 1 October 2026: "Kopiëren" is a button in the header's row, beside
-    # Design Studio. That row is wider than a phone on master already (685 px at
-    # 390, #1387); Koen accepts that it grows, so the width is recorded, not held.
-    button = page.get_by_role("link", name="Kopiëren", exact=True)
+    # CR-11 block 5 (#1557): "Kopiëren" is the first record action of the head's
+    # Acties menu, above the tools (Design Studio). The row of buttons it stood in
+    # was wider than a phone (685 px at 390, #1387); the page now fits.
+    page.click("[data-actions-trigger]")
+    button = page.get_by_role("menuitem", name="Kopiëren", exact=True)
+    button.wait_for(state="visible")
     box = button.bounding_box()
-    studio = page.get_by_role("link", name="Design Studio").bounding_box()
+    studio = page.get_by_role("menuitem", name="Design Studio").bounding_box()
     width = page.evaluate(WIDTH)
     print("MEASURE header", {"button": box, "design_studio": studio, "page": width})
     _shot(page, "recordkop")
-    assert box and studio, "both buttons are in the header"
-    assert abs(box["y"] - studio["y"]) <= 1, "the button sits in the row beside Design Studio"
-    assert 32 <= box["height"] <= 48, f"a button on one line: {box}"
+    assert box and studio, "both are in the menu"
+    assert box["y"] < studio["y"], "the record action stands above the tools"
+    assert box["height"] >= 44, f"a touch target: {box}"
+    assert width[0] <= width[1], f"the record page is wider than the phone: {width}"
 
     link = button
     link.click()

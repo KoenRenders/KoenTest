@@ -44,13 +44,22 @@ def _activiteit_met_inschrijvingen(client, db_session, namen=("Rec Anna", "Rec B
     return activity, component
 
 
+def _tab_count(html: str, label: str) -> str | None:
+    """The count `related_tabs` shows in brackets after a tab's label (#1557)."""
+    import re
+
+    m = re.search(re.escape(label) + r"<span[^>]*>\((\d+)\)</span>", html)
+    return m.group(1) if m else None
+
+
 def test_overzicht_draagt_tabs_met_aantallen(client, db_session):
     activity, component = _activiteit_met_inschrijvingen(client, db_session)
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
 
-    assert ">Overzicht</a>" in html
-    assert "Inschrijvingen 2" in html
+    # CR-11 block 5 (#1557): "Gegevens" first, the count in brackets.
+    assert ">Gegevens</a>" in html
+    assert _tab_count(html, "Inschrijvingen") == "2"
     assert f'href="/admin/activiteiten/{activity.id}/inschrijvingen"' in html
 
 
@@ -63,7 +72,7 @@ def test_admin_zonder_finance_ziet_de_betalingen_tab_wel(client, db_session):
     waarde = make_session_value("bestuurslid@example.com")
     client.cookies.set(SESSION_COOKIE, waarde)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
-    assert "Inschrijvingen 2" in html
+    assert _tab_count(html, "Inschrijvingen") == "2"
     assert f"/admin/activiteiten/{activity.id}/betalingen" in html
 
 
@@ -75,7 +84,7 @@ def test_finance_ziet_de_betalingen_tab(client, db_session):
     html = client.get(f"/admin/activiteiten/{activity.id}").text
     # Feedbackronde 15 sep: de tab is de INGEBEDDE pagina onder het record.
     assert f'href="/admin/activiteiten/{activity.id}/betalingen"' in html
-    assert "Betalingen 2" in html  # twee inschrijvingen, elk één betaalrecord
+    assert _tab_count(html, "Betalingen") == "2"  # twee inschrijvingen, elk één betaalrecord
 
 
 def test_de_rail_toont_bezetting(client, db_session):
