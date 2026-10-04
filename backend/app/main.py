@@ -6,10 +6,12 @@ from urllib.parse import parse_qs
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.encoders import jsonable_encoder
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import soft_delete  # noqa: F401 - registreert de globale soft-delete-filter
 from app.config import settings
@@ -509,6 +511,20 @@ async def _validation_error_handler(request: Request, exc: RequestValidationErro
     # van custom validators) serialiseerbaar — net zoals FastAPI's eigen
     # handler. Zonder dit faalt json.dumps met een 500 i.p.v. een nette 422.
     return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """#1583: a signed-in user refused on an admin screen gets a calm page, not a
+    bare JSON body. Everything else — the API, a fragment, a write, any other
+    status — keeps FastAPI's own answer."""
+    if exc.status_code == 403:
+        from app.ui.no_access import no_access_page
+
+        page = no_access_page(request)
+        if page is not None:
+            return page
+    return await http_exception_handler(request, exc)
 
 
 @app.exception_handler(Exception)
