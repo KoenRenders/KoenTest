@@ -161,12 +161,12 @@ def platform_host(monkeypatch):
 
 
 def _landing_groups(client) -> dict[str, list[str]]:
+    """The platform home's list of accounts and sites (#1543: the `{{tenants}}`
+    placeholder on its CMS page): each `<h3>` with the link texts of its `<ul>`."""
     html = client.get("/", headers={"host": PLATFORM_HOST}).text
-    main = html.split("Aanmelden als platformbeheerder")[0]
-    parts = re.split(r"<h2[^>]*>\s*(.*?)\s*</h2>", main, flags=re.S)
     return {
-        parts[i]: re.findall(r'<span class="font-semibold text-ink">(.*?)</span>', parts[i + 1])
-        for i in range(1, len(parts), 2)
+        m.group(1): re.findall(r'<a href="[^"]*"[^>]*>(.*?)</a>', m.group(2))
+        for m in re.finditer(r"<h3>(.*?)</h3><ul>(.*?)</ul>", html, re.S)
     }
 
 

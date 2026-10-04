@@ -454,16 +454,18 @@ def list_units(db, *, alleen_actief: bool = False):
     return query.order_by(Organization.id).all()
 
 
-def active_units_by_account(db):
-    """The active tenants, grouped by the active ACCOUNT they belong to (#1525).
+def active_sites_by_account(db):
+    """The active sites, grouped by the active ACCOUNT they belong to (#1525,
+    #1543): the tenants (UNITs), and the PLATFORM organisation once it hangs
+    under an account (#1542) — Koen: it may be listed there.
 
-    A list of ``(account, units)``: ``account`` an ACCOUNT organisation, or None
+    A list of ``(account, sites)``: ``account`` an ACCOUNT organisation, or None
     for the tenants that belong to no active account — a tenant may be created
-    without one, and a live tenant must not vanish from the platform's landing.
-    Accounts without an active tenant are left out. The groups follow the
-    account's name, the None group last; the units within a group keep the
-    order of ``list_units`` and are sorted by their display name by the caller,
-    which knows it.
+    without one, and a live tenant must not vanish from the list. The platform
+    without an account is not a site in this sense and is left out. Accounts
+    without an active site are left out. The groups follow the account's name,
+    the None group last; the sites within a group are sorted by the caller,
+    which knows their display names.
     """
     from app.domains.mdm.models import Organization
 
@@ -477,6 +479,9 @@ def active_units_by_account(db):
     for unit in list_units(db, alleen_actief=True):
         key = unit.parent_id if unit.parent_id in accounts else None
         groups.setdefault(key, []).append(unit)
+    platform = platform_org(db)
+    if platform is not None and platform.is_active and platform.parent_id in accounts:
+        groups.setdefault(platform.parent_id, []).append(platform)
     named = sorted(
         ((accounts[k], units) for k, units in groups.items() if k is not None),
         key=lambda group: (group[0].name.casefold(), group[0].id),

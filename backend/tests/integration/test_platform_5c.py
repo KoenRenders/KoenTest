@@ -16,30 +16,27 @@ def test_resolve_request_volgorde():
     # pad-prefix wint en herschrijft het pad
     assert resolve_request(
         "platform.example", "/raakvoorbeeldafdeling/activiteiten", None, hosts, platform
-    ) == (TENANT_VOORBEELD_ID, "/activiteiten", False)
+    ) == (TENANT_VOORBEELD_ID, "/activiteiten")
     assert resolve_request("platform.example", "/raakmillegem", None, hosts, platform) == (
         TENANT_MILLEGEM_ID,
         "/",
-        False,
     )
     # hostname
     assert resolve_request("www.raakmillegem.be", "/x", None, hosts, platform) == (
         TENANT_MILLEGEM_ID,
         None,
-        False,
     )
     # cookie houdt navigatie op de tenant (enkel platform-hosts)
     assert resolve_request(
         "platform.example", "/activiteiten", "raakvoorbeeldafdeling", hosts, platform
-    ) == (TENANT_VOORBEELD_ID, None, False)
+    ) == (TENANT_VOORBEELD_ID, None)
     assert resolve_request(
         "raakmillegem.be", "/activiteiten", "raakvoorbeeldafdeling", hosts, platform
-    ) == (TENANT_MILLEGEM_ID, None, False)
-    # platform-wortel = landing
+    ) == (TENANT_MILLEGEM_ID, None)
+    # platform-wortel: zonder platform-rij de standaardtenant (#1543: geen landingsvlag meer)
     assert resolve_request("platform.example", "/", None, hosts, platform) == (
         DEFAULT_TENANT_ID,
         None,
-        True,
     )
 
 

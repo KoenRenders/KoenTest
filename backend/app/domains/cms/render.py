@@ -176,6 +176,10 @@ PLACEHOLDER_LABELS = {
     "half_price_start": "Startdatum halftarief (bv. 16 april)",
     "half_price_end": "Einddatum halftarief (bv. 16 september)",
     "next_year_from": "Vanaf deze datum lid voor volgend jaar (bv. 17 september)",
+    # #1543: a list, not a value — see `_sites_html`. The second takes an account's
+    # code after the colon; the colon is the only parameter form there is.
+    "tenants": "De accounts met hun sites, met links (zonder account: onder Overige)",
+    "tenants:raak": "De sites van één account; vervang raak door de code van het account",
 }
 
 _MAANDEN = [
@@ -224,12 +228,78 @@ def _values() -> Dict[str, str]:
     }
 
 
-def render_cms_content(content: Optional[str]) -> Optional[str]:
+#: `{{tenants}}` and `{{tenants:<account code>}}` (#1543). The colon is the one
+#: parameter form the placeholders have; measured before it was added, they had
+#: none — `{{code}}` was a plain replacement from a fixed dict.
+_SITES = re.compile(r"\{\{tenants(?::([a-z0-9-]+))?\}\}")
+
+
+def _sites_html(account_code: Optional[str], db=None) -> str:
+    """The accounts with their active sites, as linked lists (#1543).
+
+    Without a code: every active account with a heading, and "Overige" last for
+    the tenants without one, as the landing of #1525 listed them. With a code:
+    that account's sites only, without a heading; an unknown or inactive code
+    renders nothing. The platform appears under its account when it has one
+    (#1542). Names and addresses are escaped here, because this HTML is placed
+    AFTER the sanitiser: it is built in code, not typed by an author, and it
+    carries `hx-boost="false"`, which an author may not. A link in this list goes
+    to another site; boosted, the site shell would swap only `#main` and keep this
+    site's header around the other's page (measured in the e2e, #1543).
+
+    `db` is the request's session where the caller has one — the public screens
+    pass it — so the list costs no connection of its own and sees what the
+    request sees. Without it (the editor's legend, the JSON API, the assistant's
+    context) a short session of its own.
+    """
+    from html import escape
+
+    from app.database import SessionLocal
+    from app.domains.mdm.api import OrganizationType, active_sites_by_account
+    from app.i18n import _
+    from app.kernel.tenant_config import platform_home_url, tenant_display_name, tenant_home_url
+
+    own = db is None
+    if own:
+        db = SessionLocal()
+    try:
+        parts = []
+        for account, sites in active_sites_by_account(db):
+            if account_code is not None and (account is None or account.code != account_code):
+                continue
+            links = sorted(
+                (
+                    tenant_display_name(db, tenant_id=s.id),
+                    platform_home_url(db, s.id)
+                    if s.org_type is OrganizationType.PLATFORM
+                    else tenant_home_url(db, tenant_id=s.id, code=s.code),
+                )
+                for s in sites
+            )
+            items = "".join(
+                f'<li><a href="{escape(url)}">{escape(name)}</a></li>' for name, url in links
+            )
+            heading = (
+                ""
+                if account_code
+                else f"<h3>{escape(account.name if account else _('Overige'))}</h3>"
+            )
+            parts.append(f"{heading}<ul>{items}</ul>")
+        return f'<div hx-boost="false">{"".join(parts)}</div>' if parts else ""
+    finally:
+        if own:
+            db.close()
+
+
+def render_cms_content(content: Optional[str], db=None) -> Optional[str]:
     """Vervang elke ``{{code}}`` door de bijbehorende configuratiewaarde en
-    sanitize het resultaat (#476) — dé functie op elk publiek CMS-renderpunt."""
+    sanitize het resultaat (#476) — dé functie op elk publiek CMS-renderpunt.
+    `db` (#1543): the request's session, for the sites placeholder."""
     if not content:
         return content
     for code, value in _values().items():
         content = content.replace(f"{{{{{code}}}}}", value)
     # Before sanitisation (#1173): that step removes the figure holding the alt.
-    return sanitize_cms_html(image_attributes_from_attachment(content))
+    content = sanitize_cms_html(image_attributes_from_attachment(content)) or ""
+    # After it (#1543): the sites list is built and escaped in code — see `_sites_html`.
+    return _SITES.sub(lambda m: _sites_html(m.group(1), db), content)

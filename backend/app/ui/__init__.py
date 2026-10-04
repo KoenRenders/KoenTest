@@ -977,7 +977,7 @@ def site_context(db, request=None) -> dict:
     footer = get_published_page(db, "site-footer")
     footer_block = None
     if footer is not None:
-        footer_block = {"content": render_cms_content(footer.content or "")}
+        footer_block = {"content": render_cms_content(footer.content or "", db)}
     # #1057: de footer toont alleen de logo's die daarvoor aangevinkt zijn. De
     # Design Studio blijft élk actief sponsorlogo aanbieden — dat is met opzet: een
     # logo dat niet in de footer hoort, hoort daarom nog niet van de affiche geweerd.
@@ -1054,9 +1054,12 @@ def site_context(db, request=None) -> dict:
         # CR-19 (#1496): what the header shows without a logo. A company shows
         # its own name; an association the RaaK wordmark (None). The rule is
         # here, so the template shows a value and never asks for the kind.
+        # #1543: the platform too shows its own name — it is in the site shell
+        # since its home became a page, and it carries no Raak brand (#821).
         "site_wordmark": (
             tenant_display_name(db)
-            if organisatie is not None and organisatie.kind is TenantKind.COMPANY
+            if organisatie is not None
+            and organisatie.kind in (TenantKind.COMPANY, TenantKind.PLATFORM)
             else None
         ),
         # #924: de sociale links komen uit de ORGANISATIE en niet meer uit de
