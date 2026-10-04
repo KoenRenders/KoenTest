@@ -168,6 +168,7 @@
   "chart-bar": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/>',
   "chart-line": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m7 15 4-5 3 3 5-7"/>',
   "chart-stacked": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="13" width="4" height="4"/><rect x="7" y="9" width="4" height="4"/><rect x="15" y="11" width="4" height="6"/><rect x="15" y="7" width="4" height="4"/>',
+  "arrow-up-down": '<path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/>',
   "filter": '<path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/>',
   "ellipsis": '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   "sparkles": '<path d="M12 3 10.1 8.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M19 17v4"/><path d="M17 19h4"/>',
@@ -2359,9 +2360,19 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
      `⋯` never repeats a button that is visible elsewhere.
    * `hidden`: (name, value) pairs that travel with every request (a scope).
    * `cls`: for a screen that puts something BESIDE the toolbar (`filter_bar`'s
-     `cls`, #1115) — the form is then the flex child itself. #}
+     `cls`, #1115) — the form is then the flex child itself.
+   * `sort` / `sort_options` (K2, #1556): the list's sort is a hidden field of
+     this form (`sort`, "naam" or "-naam" for descending, empty for the list's
+     own order), so a search or a filter keeps it. A column head changes it with
+     a link of its own (`ui.table_head`), and the fragment refreshes the field
+     out-of-band. On a phone the head is not on the screen: there "Sorteren"
+     stands under `⋯`, a mirror without a name that sets the field.
+   * `columns` (K2): the column chooser under `⋯` → Kolommen, a list of
+     {key, label, mode}: per optional column Automatisch / Tonen / Verbergen,
+     a field `kol_<key>` of the form, so the choice lives in the URL. #}
 {% macro toolbar(hx_get, hx_target, id, segments=[], status_name="status", status_current="", status_legend="",
-                 q="", search_placeholder="", page=1, per_page=50, total=0, page_sizes=[], menu=[], hidden=[], cls="") -%}
+                 q="", search_placeholder="", page=1, per_page=50, total=0, page_sizes=[], menu=[], hidden=[], cls="",
+                 sort=None, sort_options=[], columns=[]) -%}
 {% set _filters = caller() if caller is defined else "" %}
 <form id="{{ id }}" data-toolbar class="relative mb-3 flex flex-wrap items-center gap-2 min-w-0{% if cls %} {{ cls }}{% endif %}"
       hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="innerHTML"
@@ -2391,8 +2402,8 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {% for n in page_sizes %}<option value="{{ n }}"{% if n == per_page %} selected{% endif %}>{{ n }}</option>{% endfor %}
   {% endcall %}
   {% endif %}
-  {% if menu or page_sizes %}
-  <div class="relative{{ '' if menu else ' md:hidden' }}" x-data="{ open: false }" @keydown.escape="open = false">
+  {% if menu or page_sizes or columns or sort_options %}
+  <div class="relative{{ '' if (menu or columns) else ' md:hidden' }}" x-data="{ open: false }" @keydown.escape="open = false">
     <button type="button" data-more-button class="{{ btn_class('secondary', 'sm') }} h-11 w-11 md:h-9 md:w-9 inline-grid place-items-center !px-0" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="{{ _('Meer acties') }}">{{ icon('ellipsis') }}</button>
     <div data-more-menu x-show="open" x-cloak @click.outside="open = false" role="menu"
          class="absolute right-0 z-20 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col rounded-card border border-line bg-white p-2 shadow-lg">
@@ -2404,8 +2415,30 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
       <a role="menuitem" href="{{ m.href }}" class="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-ink hover:bg-surface-2"{% if m.get('attrs') %} {{ m.attrs|safe }}{% endif %}>{% if m.get('icon') %}{{ icon(m.icon) }}{% endif %}{{ m.label }}</a>
       {% endif %}
       {% endfor %}
+      {% if columns %}
+      <details data-columns-chooser class="hidden md:block{{ ' mt-2 border-t border-line pt-2' if menu }}">
+        <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg px-3 text-sm text-ink hover:bg-surface-2">{{ icon('table') }}{{ _("Kolommen") }}</summary>
+        <div class="flex flex-col gap-2 px-3 pb-2 pt-1">
+          {% for c in columns %}
+          <label class="flex items-center justify-between gap-2 text-xs text-ink-soft">{{ c.label }}
+            {% call select_control("kol_" ~ c.key, cls="w-32", attrs='data-column-mode="' ~ c.key ~ '"') %}
+              {% for value, text in [("auto", _("Automatisch")), ("show", _("Tonen")), ("hide", _("Verbergen"))] %}<option value="{{ value }}"{% if c.mode == value %} selected{% endif %}>{{ text }}</option>{% endfor %}
+            {% endcall %}
+          </label>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+      {% if sort_options %}
+      <label class="md:hidden flex flex-col gap-1 px-3 py-2 text-xs text-ink-soft{{ ' mt-2 border-t border-line pt-3' if menu }}">{{ _("Sorteren") }}
+        {# An empty name: the mirror is never sent; it sets the one sort field. #}
+        {% call select_control("", cls="w-full", attrs='data-sort-mirror @change="const f = $el.closest(\'form\').querySelector(\'[data-sort-field]\'); f.value = $event.target.value; open = false; $event.stopPropagation(); $el.closest(\'form\').requestSubmit()"') %}
+          {% for value, text in sort_options %}<option value="{{ value }}"{% if (sort or "") == value %} selected{% endif %}>{{ text }}</option>{% endfor %}
+        {% endcall %}
+      </label>
+      {% endif %}
       {% if page_sizes %}
-      <label class="md:hidden flex flex-col gap-1 px-3 py-2 text-xs text-ink-soft{{ ' mt-2 border-t border-line pt-3' if menu }}">{{ _("Per pagina") }}
+      <label class="md:hidden flex flex-col gap-1 px-3 py-2 text-xs text-ink-soft{{ ' mt-2 border-t border-line pt-3' if menu and not sort_options }}">{{ _("Per pagina") }}
         {# An empty name: the mirror is never sent. #}
         {% call select_control("", cls="w-full", attrs='data-page-size-mirror @change="const size = $el.closest(\'form\').querySelector(\'[data-page-size]\'); size.value = $event.target.value; size.dispatchEvent(new Event(\'change\', { bubbles: true })); open = false; $event.stopPropagation()"') %}
           {% for n in page_sizes %}<option value="{{ n }}"{% if n == per_page %} selected{% endif %}>{{ n }}</option>{% endfor %}
@@ -2416,13 +2449,15 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   </div>
   {% endif %}
   {% for name, value in hidden %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+  {% if sort is not none %}<input type="hidden" id="{{ id }}-sort" name="sort" value="{{ sort }}" data-sort-field>{% endif %}
 </form>
 {%- endmacro %}
 
 {# What a list fragment sends along for the toolbar that stands outside it: the
    count, and the count of every segment that carries one. Same `id` as the
    toolbar's. #}
-{% macro toolbar_oob(id, segments=[], page=1, per_page=50, total=0) -%}
+{% macro toolbar_oob(id, segments=[], page=1, per_page=50, total=0, sort=None) -%}
+{% if sort is not none %}<input type="hidden" id="{{ id }}-sort" name="sort" value="{{ sort }}" data-sort-field hx-swap-oob="true">{% endif %}
 <span id="{{ id }}-count" hx-swap-oob="true" data-toolbar-count class="ml-auto whitespace-nowrap text-xs tabular-nums text-ink-soft">{{ range_text(page, per_page, total) }}</span>
 {% for s in segments %}{% if s.get('count') is not none %}<span id="{{ id }}-n-{{ s.value }}" hx-swap-oob="true" class="tabular-nums">({{ s.count }})</span>{% endif %}{% endfor %}
 {%- endmacro %}
@@ -2452,4 +2487,116 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   </label>
   {% if help %}<p id="{{ _id }}-hulp" class="mt-1 text-xs text-ink-soft">{{ help }}</p>{% endif %}
 </div>
+{%- endmacro %}
+
+{# ══ The list's table (CR-11 pilot A, K2 — #1556) ═════════════════════════════
+   Block 4 (Koen, 2 October 2026); norm: `docs/design-system-end-state.md` §2.1.
+   The geometry that needs a container query lives in `scripts/build-css.sh`
+   (`.data-table`); these macros write the attributes it reads. Betalingen is
+   the pilot; the other lists follow in the roll-out. #}
+
+{# The frame and the head. `columns` is a list of
+   {key, label, cell, num?, priority?, sort_url?, sort_page_url?, sorted?}:
+   - `cell` is the column's part in a stacked row on a phone: "name", "context",
+     "status", "amount", "extra" (not shown stacked) or "actions";
+   - `priority` 1 or 2 marks an optional column, the order in which it leaves as
+     the list gets narrower; `modes` says per priority auto | show | hide (the
+     column chooser, from the URL);
+   - a sortable column is a link (`sort_url`, the fragment; `sort_page_url`, the
+     page): a double arrow while it does not sort, one arrow in its direction
+     when it does (`sorted`: "asc" | "desc"), and `aria-sort` on that one only.
+     A sort keeps search, filters and page size and goes to page 1 — the URL is
+     the route's, and it carries the whole state itself: `hx-include="unset"`,
+     because a list holder that includes the toolbar's form would send that
+     form's own `sort` field after the link's, and the last one wins (measured
+     in the browser: the click pushed `sort=naam` and the list did not move). Numbers and amounts are right-aligned with tabular digits.
+   The head is 36 px, `ink-soft` on `surface-2`. The call body holds the
+   `<tbody>`s.
+
+   The widths are the kit's, by the column's part (the table's layout is fixed,
+   see the CSS): context 24 %, status 132 px, a number 104 px, the actions
+   156 px, and the name takes the rest. They stand HERE as literal classes:
+   the CSS build reads templates, not Python, so a width class handed over by a
+   view is never generated (measured: seven columns of equal width). #}
+{% macro data_table(columns, modes={}, hx_target="", caption="") -%}
+<div class="data-table-frame mb-4 rounded-card border border-line bg-white" data-table-frame>
+  <table class="data-table text-sm" data-p1="{{ modes.get(1, 'auto') }}" data-p2="{{ modes.get(2, 'auto') }}">
+    {% if caption %}<caption class="sr-only">{{ caption }}</caption>{% endif %}
+    <thead>
+      <tr>
+        {% for c in columns %}
+        <th scope="col" data-cell="{{ c.cell }}"{% if c.get('priority') %} data-p="{{ c.priority }}"{% endif %}{% if c.get('sorted') %} aria-sort="{{ 'ascending' if c.sorted == 'asc' else 'descending' }}"{% endif %}
+            class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card {{ 'text-right' if c.get('num') else 'text-left' }} {{ 'w-[104px]' if c.get('num') else {'context': 'w-[24%]', 'status': 'w-[132px]', 'actions': 'w-[156px]'}.get(c.cell, '') }}">
+          {% if c.get("sort_url") %}
+          <a href="{{ c.get('sort_page_url') or c.sort_url }}" hx-get="{{ c.sort_url }}"{% if hx_target %} hx-target="{{ hx_target }}" hx-swap="innerHTML"{% endif %} hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="{{ c.key }}"
+             class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 {{ 'justify-end' if c.get('num') else '' }} {{ 'font-semibold text-blue-700' if c.get('sorted') else '' }}">{{ c.label }}{{ icon("arrow-up" if c.get("sorted") == "asc" else ("arrow-down" if c.get("sorted") == "desc" else "arrow-up-down"), 14) }}</a>
+          {% elif c.cell == "actions" %}<span class="sr-only">{{ c.label }}</span>
+          {% else %}{{ c.label }}{% endif %}
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    {{ caller() }}
+  </table>
+</div>
+{%- endmacro %}
+
+{# The row's own link, in its first cell: its click area covers the row (CSS),
+   so a click on the amount opens the record too. `sub` is the grey line under
+   it (a reference number). Never "Bewerken" in a row: the row is the way in. #}
+{% macro row_link(label, href, sub=None, cls="") -%}
+<a href="{{ href }}" data-row-link class="font-semibold text-ink hover:no-underline{% if cls %} {{ cls }}{% endif %}">{{ label }}</a>
+{% if sub %}<small class="block font-mono text-xs font-normal text-ink-soft">{{ sub }}</small>{% endif %}
+{%- endmacro %}
+
+{# What a row may carry beside its link (block 4, Q35): **at most one visible
+   action** — the positive action of the row's state ("Bevestig" on an open
+   booking), a secondary button of 32 px — and `⋯` with the rest. The cell
+   stays empty where the row has neither; `⋯` stands at the right edge, so the
+   `⋯` of every row aligns.
+   `action`: {label, attrs, confirm?} or None. `items`: a list of
+   {label, href?|attrs?, confirm?, kind?}; a `kind="delete"` item goes last,
+   red, after a divider. #}
+{% macro row_actions_cell(action=None, items=[], label="") -%}
+{# `.get`, not `selectattr`: an item without a `kind` is an ordinary one, and
+   StrictUndefined refuses the attribute test on it. #}
+{% set _rest = [] %}{% set _deletes = [] %}
+{% for m in items %}{% if m.get("kind") == "delete" %}{% set _ignore = _deletes.append(m) %}{% else %}{% set _ignore = _rest.append(m) %}{% endif %}{% endfor %}
+{# The Alpine state sits on the wrapper, and an open menu lifts the wrapper:
+   every row's wrapper is its own stacking level (`data-above-row`), so without
+   the lift the `⋯` of the next row shows through the menu (seen on the 1440 px
+   screenshot of K2). #}
+<div data-above-row data-row-controls class="flex items-center justify-end gap-2"
+     x-data="{ open: false }" :style="open ? 'z-index: 30' : ''" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+  {% if action %}
+  <button type="button" data-row-action class="{{ btn_class('secondary', 'sm') }} h-11 md:h-8 whitespace-nowrap" hx-disabled-elt="this" {{ action.attrs|safe }}{% if action.get("confirm") %} data-confirm="{{ action.confirm }}"{% endif %}>{{ action.label }}</button>
+  {% endif %}
+  {% if items %}
+  <div class="relative">
+    <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+            class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink"
+            aria-label="{{ _('Meer acties') }}{% if label %}: {{ label }}{% endif %}" @click="open = !open">{{ icon("ellipsis") }}</button>
+    <div x-show="open" x-cloak @click.outside="open = false" role="menu" data-row-menu
+         class="absolute right-0 z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
+      {% for m in _rest %}
+      {% if m.get("href") %}<a role="menuitem" href="{{ m.href }}" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline">{{ m.label }}</a>
+      {% else %}<button role="menuitem" type="button" class="flex min-h-11 w-full items-center px-3 text-left text-sm text-ink hover:bg-surface-2" hx-disabled-elt="this" {{ m.get("attrs", "")|safe }}{% if m.get("confirm") %} data-confirm="{{ m.confirm }}"{% endif %}>{{ m.label }}</button>{% endif %}
+      {% endfor %}
+      {% if _deletes %}
+      {% if _rest %}<div data-menu-divider class="my-1 border-t border-line"></div>{% endif %}
+      {% for m in _deletes %}
+      <button role="menuitem" type="button" class="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm text-red-700 hover:bg-surface-2" hx-disabled-elt="this" {{ m.get("attrs", "")|safe }}{% if m.get("confirm") %} data-confirm="{{ m.confirm }}"{% endif %}>{{ icon("trash-2") }}{{ m.label }}</button>
+      {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{%- endmacro %}
+
+{# An amount as a list shows it: the sign before the euro sign ("− € 15,00"),
+   tabular digits. Never coloured by itself; a caller that shows a balance
+   passes `warning=True` when it is not zero (Q36). #}
+{% macro amount(value, warning=False) -%}
+<span class="tabular-nums whitespace-nowrap{{ ' font-semibold text-brand-warning' if warning }}">{% if value < 0 %}− {% endif %}€ {{ geld(value|abs) }}</span>
 {%- endmacro %}

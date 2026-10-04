@@ -154,7 +154,7 @@ def test_warning_is_the_real_orange_on_payments(browser_and_session):
     colours = page.evaluate(
         """() => ({
       badge: [...document.querySelectorAll('span')].filter(s => s.textContent.trim() === 'Openstaand').map(s => getComputedStyle(s).color),
-      open_amount: [...document.querySelectorAll('strong, div')].filter(e => e.className.includes && e.className.includes('text-orange-700')).map(e => getComputedStyle(e).color),
+      open_amount: [...document.querySelectorAll('[data-balance] span')].filter(e => e.className.includes && e.className.includes('text-brand-warning')).map(e => getComputedStyle(e).color),
     })"""
     )
     print("MEASURE warning", colours)

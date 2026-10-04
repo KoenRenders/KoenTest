@@ -75,7 +75,7 @@
 {% if rec.is_paid and not rec.is_refund %}
 {# Registering a refund makes a new booking with an amount to pay back; paying it
    out is then done on that booking's own page (#617-2b). #}
-<section class="mb-6 max-w-2xl" data-booking-refund>
+<section id="terugbetaling" class="mb-6 max-w-2xl scroll-mt-24" data-booking-refund>
   {{ ui.section_header(_("Terugbetaling registreren")) }}
   <form class="grid grid-cols-1 gap-3 rounded-card border border-gray-200 bg-white p-4 sm:grid-cols-3"
         hx-post="/admin/betalingen/{{ rec.id }}/refund" hx-target="body" hx-swap="innerHTML" hx-headers='{"X-Booking-Page": "{{ rec.id }}"}'>

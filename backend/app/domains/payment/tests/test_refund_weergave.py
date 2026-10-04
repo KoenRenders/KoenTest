@@ -70,10 +70,18 @@ def test_openstaande_refund_zegt_niet_terugbetaald(client, db_session):
 
 
 def test_uitbetaalde_refund_zegt_wel_terugbetaald(client, db_session):
-    _charge_met_refund(db_session, "paid")
+    """K2 (#1556): on the list a paid-out refund is a row "Terugbetaling" with
+    the badge "Vereffend"; the word "Terugbetaald" stands on its own page, over
+    the amount that went back. (Until K2 this test found the word in the label
+    of the row's unfolded editor.)"""
+    _charge, refund = _charge_met_refund(db_session, "paid")
     _login(client)
 
-    assert "Terugbetaald" in client.get("/admin/betalingen/lijst").text
+    html = client.get("/admin/betalingen/lijst").text
+    row = html[html.index(f'href="/admin/betalingen/{refund.id}?terug=') :]
+    row = row[: row.index("</tr>")]
+    assert "Terugbetaling" in row and "Vereffend" in row
+    assert ">Terugbetaald<" in client.get(f"/admin/betalingen/{refund.id}").text
 
 
 def test_geen_rauwe_statuscodes_in_de_editors(client, db_session):
@@ -82,7 +90,9 @@ def test_geen_rauwe_statuscodes_in_de_editors(client, db_session):
     _charge_met_refund(db_session, "pending")
     _login(client)
 
-    html = client.get("/admin/betalingen/lijst").text
+    # K2 (#1556): the editor moved from the row's unfold to the booking's page.
+    charge = db_session.query(PaymentRecord).filter(PaymentRecord.type == "charge").first()
+    html = client.get(f"/admin/betalingen/{charge.id}").text
     assert "In afwachting" in html
     assert ">pending<" not in html and ">cancelled<" not in html
 
@@ -98,7 +108,8 @@ def test_totaalregel_telt_charge_en_refunds_samen(client, db_session):
     # Het teken doet het werk (#617-2c): een negatief saldo betekent dat wij
     # moeten terugstorten. Sinds golf 10 is de totaalregel een tabelrij zonder
     # "Saldo:"-label — de kolomkop draagt dat woord.
-    assert "€ -27,50" in html
+    # K2 (#1556): the sign stands before the euro sign.
+    assert "− € 27,50" in html
 
 
 def test_geen_totaalregel_zonder_refunds(client, db_session):

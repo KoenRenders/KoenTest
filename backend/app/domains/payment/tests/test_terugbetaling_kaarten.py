@@ -269,7 +269,7 @@ def test_meerdere_charges_geven_een_totaalregel(client, db_session):
 
     html = client.get("/admin/betalingen/lijst").text
     assert html.count("Totaal inschrijving") == 1, "één regel per inschrijving"
-    assert "€ 81,00" in html and "€ 86,00" in html and "€ -5,00" in html
+    assert "€ 81,00" in html and "€ 86,00" in html and "− € 5,00" in html
 
 
 def test_refund_met_uitbetaald_bedrag_maar_status_pending(client, db_session):
@@ -291,4 +291,4 @@ def test_refund_met_uitbetaald_bedrag_maar_status_pending(client, db_session):
 
     html = client.get("/admin/betalingen/lijst").text
     assert "Terug te betalen" in html, "de badge volgt de status"
-    assert "-5,00" in html, "Ontvangen hoort zichtbaar te zijn"
+    assert "− € 5,00" in html, "Ontvangen hoort zichtbaar te zijn"

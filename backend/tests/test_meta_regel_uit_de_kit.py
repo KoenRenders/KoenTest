@@ -81,7 +81,11 @@ def test_het_betalingenscherm_gebruikt_de_macro():
     ze zou groen blijven terwijl het sjabloon zijn eigen kopie hield."""
     bron = BETALINGEN_LIJST.read_text()
 
-    assert "ui.list_meta(" in bron, "Betalingen roept de kit-macro niet aan"
+    # K2 (#1556): Betalingen no longer has a meta line at all — the toolbar
+    # counts and the column head says the order. What this test guarded stays
+    # true in its strongest form: no hand-written copy of the line either. The
+    # macro itself lives on for the lists that have not moved yet.
+    assert "ui.list_meta(" not in bron
     assert "flex items-center justify-between gap-3 text-[11px]" not in bron, (
         "de handgeschreven meta-regel staat er nog"
     )

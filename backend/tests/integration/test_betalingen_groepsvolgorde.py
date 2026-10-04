@@ -265,10 +265,10 @@ def test_de_badge_en_de_totaalregel_zijn_niet_langer_dezelfde_tekst(client, db_s
 
     html = client.get("/admin/betalingen?context=all").text
     assert html.count("Nog uit te betalen") == 1, "de totaalregel"
-    # 2 en niet 1 sinds F4 (#996): de badge staat één keer in de Status-kolom
-    # (desktop) en één keer in het mobiele naamblok (md:hidden) — per
-    # kijkbreedte is er precies één zichtbaar.
-    assert html.count(">Terug te betalen<") == 2, "de statusbadge"
+    # 1 again since K2 (#1556): the table stacks its own cells on a phone, so
+    # the badge is one element at every width — the second copy of F4 (#996), in
+    # a phone-only block under the name, is gone.
+    assert html.count(">Terug te betalen<") == 1, "de statusbadge"
 
 
 # ── 5. De statusbadge staat op elke kaart uiterst rechts (#686) ──────────────

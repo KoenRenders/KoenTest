@@ -90,7 +90,19 @@ class BetalingenView(ViewModel):
     kaart_status: dict[str, tuple[str, str]]
 
     # Rol en beveiliging.
-    is_finance: bool
+    # K2 (#1556): may this user change payments (FINANCE or OPERATOR)? The
+    # rows carry their action and menu already decided by it; the template
+    # asks nothing itself.
+    may_mutate: bool
+    # The table: the head's columns, the column chooser's choice per priority
+    # and per optional column, the sort and its options for a phone, and the
+    # sentence of the empty state.
+    columns: list[dict[str, Any]]
+    column_modes: dict[int, str]
+    column_choices: list[dict[str, Any]]
+    sort: str
+    sort_options: list[tuple[str, str]]
+    empty_reason: str
     csrf_token: str
 
     # Alleen de volledige pagina draagt de navigatie; het fragment niet.

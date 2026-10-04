@@ -1726,7 +1726,8 @@ def test_een_verwijderknop_kiest_haar_maat():
             geteld += 1
             if "size=" not in argumenten:
                 fouten.append(f"{rel}:{regel}")
-    assert geteld >= 10, (
+    # 9 since K2 (#1556): the payments row lost its unfold, and with it one call.
+    assert geteld >= 9, (
         f"maar {geteld} btn_danger-oproepen gevonden — de zoekopdracht mist er, "
         "een gate die nergens kijkt bewaakt niets"
     )
@@ -1743,10 +1744,6 @@ def test_een_verwijderknop_kiest_haar_maat():
 # #1090 haalde de gebruikersrij, het rapportpaneel, de organisatoren en de
 # optierij van de formulierbouwer eraf; dit is wat er rest.
 HANDGEROLDE_CLUSTERS = {
-    "domains/payment/templates/_betalingen_lijst.html": "bouwt het patroon correct na (Verwijderen apart links, Annuleren, Opslaan, "
-    "alles sm) omdat de rij óók 'Status verversen' en een invoerveld draagt, "
-    "wat action_bar niet kent — bij een volgende wijziging aan de volgorde "
-    "moet dit bestand apart mee",
     "ui/templates/design_system.html": "de kitpagina demonstreert het rauwe knoppenpaar naast de actiebalk; "
     "documentatie, geen scherm",
 }

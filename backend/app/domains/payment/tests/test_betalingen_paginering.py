@@ -222,11 +222,10 @@ def test_de_tellingen_bewegen_niet_bij_het_bladeren(client, db_session):
 
     een, twee = _lijst(client), _lijst(client, page=2)
 
-    # De meta-regel, de totaalregel en de band tellen de BOEKINGEN van de hele
-    # selectie — even vaak op pagina 1 als op pagina 2, en nergens 50.
-    aantal_een = een.count(f"{AANTAL} boekingen")
-    assert aantal_een and aantal_een == twee.count(f"{AANTAL} boekingen")
-    assert f"{PER_PAGE} boekingen" not in een, "een teller volgt de pagina"
+    # K2 (#1556): the meta line with its count of bookings is gone — the
+    # toolbar's count says how many groups, on page 1 as on page 2.
+    assert f"1–{PER_PAGE} van {AANTAL}" in een
+    assert f"{PER_PAGE + 1}–{AANTAL} van {AANTAL}" in twee
 
     # K1 (#1555): the count on the segment "Openstaand" comes from the same
     # selection — 20 paid, the rest open — and travels out-of-band with the

@@ -21,6 +21,20 @@ partials they include, and refuses what the blocks 2 and 3 decided against
 6. **anything beside the toolbar** — a per-screen `AI ·` button
    (`raakje.overlay`), except the screens named in `BESIDE_THE_TOOLBAR`.
 
+Since K2 (#1556, block 4) the list fragment — the table itself — has rules too:
+
+7. **"Bewerken" in a row** — the row is the way in (B7 test 6);
+8. **a row control of its own** — a `btn_*`, a `link_action`, the old
+   `row_actions` or a raw `<button>` in a row: a row shows at most one action
+   and `⋯`, and `ui.row_actions_cell` draws both;
+9. **a coloured Bedrag** — a `data-amount` cell with a colour class or a
+   `warning=` (Q36: Bedrag never coloured, also when negative);
+10. **a Saldo without its warning** — a `data-balance` cell that does not pass
+    `warning=` (Q36: a balance that is not zero takes the warning tone);
+11. **a key figure drawn by hand** — `data-figure` markup in a template: a figure
+    comes from `ui.figures`, which makes it plain text and never a link or a
+    button (B7 test 5).
+
 `BESIDE_THE_TOOLBAR` is a list that may only shrink. Its one entry is the
 "AI · Betalingen" button: it stays outside the toolbar, at the right of its row,
 until K8 (#1562) lets the shell's Assistent panel read the screen's selection
@@ -28,8 +42,7 @@ until K8 (#1562) lets the shell's Assistent panel read the screen's selection
 call must leave the list.
 
 The list fragment that a screen swaps (`_betalingen_lijst.html`) holds the
-table and its row editors; rule 2 does not read it — a status select in a row's
-edit form is no filter. K2 (#1556) owns the table.
+table; rule 2 does not read it, rules 7–10 read only it.
 
 Proven red, additively — each rule on a throwaway template text that adds one
 violation to a clean one (`test_every_rule_refuses_its_violation`); and the
@@ -121,6 +134,22 @@ def violations(name: str, text: str) -> list[str]:
             found.append(f"{name}: ui.pager without count=False and push=True (rule 5)")
     if "raakje.overlay(" in text and name not in BESIDE_THE_TOOLBAR:
         found.append(f"{name}: a per-screen AI button beside the toolbar (rule 6)")
+    if name in LIST_FRAGMENTS:
+        if "ui.edit_toggle(" in text or re.search(r"_\(\s*[\"']Bewerken[\"']\s*\)", text):
+            found.append(f'{name}: "Bewerken" in a row — the row is the way in (rule 7)')
+        if re.search(
+            r"ui\.btn_\w+\(|ui\.button\(|ui\.link_action\(|ui\.row_actions\(|<button\b", text
+        ):
+            found.append(f"{name}: a row control outside ui.row_actions_cell (rule 8)")
+        for line in text.splitlines():
+            if "data-amount" in line and (
+                "warning=" in line or re.search(r"text-(red|orange|teal|green|brand)", line)
+            ):
+                found.append(f"{name}: a coloured Bedrag (rule 9)")
+            if "data-balance" in line and "ui.amount(" in line and "warning=" not in line:
+                found.append(f"{name}: a Saldo without its warning (rule 10)")
+    if "data-figure" in text:
+        found.append(f"{name}: a key figure drawn by hand — use ui.figures (rule 11)")
     return found
 
 
@@ -180,6 +209,54 @@ def test_a_checkbox_group_in_the_toolbar_is_refused():
     )
     found = violations("_throwaway.html", inside)
     assert len(found) == 1 and "rule 3" in found[0], found
+
+
+ROW = """<tr data-row><td data-cell="name">{{ ui.row_link(k.name, k.href) }}</td>
+<td data-cell="amount" data-amount>{{ ui.amount(k.bedrag) }}</td>
+<td data-cell="extra" data-balance>{{ ui.amount(k.saldo, warning=k.saldo != 0) }}</td>
+<td data-cell="actions">{{ ui.row_actions_cell(k.action, k.menu) }}</td></tr>"""
+
+
+@pytest.mark.parametrize(
+    "addition, rule",
+    [
+        ('{{ ui.edit_toggle("open") }}', "rule 7"),
+        ('<a href="/x">{{ _("Bewerken") }}</a>', "rule 7"),
+        ('{{ ui.link_action(_("Inschrijving"), href="/i") }}', "rule 8"),
+        ('{{ ui.btn_secondary(_("Bevestig"), size="sm") }}', "rule 8"),
+        ("{{ ui.row_actions([a, b], max_visible=2) }}", "rule 8"),
+        ('<td data-amount class="text-orange-700">{{ ui.amount(k.bedrag) }}</td>', "rule 9"),
+        ("<td data-amount>{{ ui.amount(k.bedrag, warning=True) }}</td>", "rule 9"),
+        ("<td data-balance>{{ ui.amount(k.saldo) }}</td>", "rule 10"),
+    ],
+)
+def test_every_table_rule_refuses_its_violation(addition, rule):
+    """The table's rules read the list fragment only; each proven by adding one
+    violation to a clean row."""
+    fragment = next(iter(LIST_FRAGMENTS))
+    assert violations(fragment, ROW) == []
+    found = violations(fragment, ROW + "\n" + addition)
+    assert len(found) == 1 and rule in found[0], found
+
+
+def test_a_key_figure_drawn_by_hand_is_refused():
+    by_hand = '<a href="/x"><dd data-figure>€ 9,00</dd></a>'
+    found = violations("_throwaway.html", CLEAN + "\n" + by_hand)
+    assert len(found) == 1 and "rule 11" in found[0], found
+
+
+def test_the_gate_reads_the_table_of_the_pilot_screen():
+    """Rules 7–10 must find something to read: the fragment carries the row
+    link, an amount cell, a balance cell with its warning and the actions cell."""
+    fragment = list_page_templates()["_betalingen_lijst.html"]
+    for piece in (
+        "ui.row_link(",
+        "data-amount",
+        "data-balance",
+        "warning=",
+        "ui.row_actions_cell(",
+    ):
+        assert piece in fragment, piece
 
 
 def test_a_comment_that_names_a_macro_is_not_a_violation():

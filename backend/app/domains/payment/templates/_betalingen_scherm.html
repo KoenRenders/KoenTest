@@ -39,7 +39,8 @@
                      segments=segments, status_name="zicht", status_current=zicht, status_legend=_("Status"),
                      q=q, search_placeholder=_("Zoek op naam, OGM of omschrijving…"),
                      page=page, per_page=per_page, total=totaal_groepen, page_sizes=page_sizes,
-                     menu=toolbar_menu, hidden=toolbar_hidden, cls="basis-full md:basis-0 md:flex-1") %}
+                     menu=toolbar_menu, hidden=toolbar_hidden, cls="basis-full md:basis-0 md:flex-1",
+                     sort=sort, sort_options=sort_options, columns=column_choices) %}
     {% if not embedded %}
     <div class="flex flex-col gap-1">
       {{ ui.label(_("Betalingscontext"), "bt-context") }}

@@ -128,6 +128,11 @@ templates.env.filters["maandkort"] = _maandkort
 from app.kernel.geld import bedrag as _bedrag  # noqa: E402
 
 templates.env.filters["geld"] = _bedrag
+# Also as a global, for the kit: a FILTER is resolved when a template is compiled,
+# so `|geld` inside `_macros.html` breaks every environment that loads the kit
+# without this filter (the hand-built ones of the shell tests); a global is
+# looked up only when the macro runs (`ui.amount`, #1556).
+templates.env.globals["geld"] = _bedrag
 
 
 # Een meetwaarde per opmaaksoort (#875): `{{ waarde|meetwaarde(c.format) }}`. Eén

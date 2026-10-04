@@ -263,13 +263,23 @@ def test_back_from_a_booking_finds_the_list_as_it_was_left(browser):
     assert "zicht=openstaand" in left_at and "q=Marie" in left_at
     assert _count(page) == "1–1 van 1"
 
-    page.locator("#betalingen-lijst").get_by_role("link", name="Inschrijving").first.click()
+    # K2 (#1556): "Inschrijving openen" stands under the row's ⋯. The record it
+    # opens is led back to the list as it was left, with the booking it came
+    # from named in the address (`boeking=`, #1557) — the list's own state is
+    # unchanged. (The row itself opens the booking's page, and from there the
+    # way back is the exact address: `test_betalingen_table.py`.)
+    page.locator("#betalingen-lijst [data-row-menu-trigger]").first.click()
+    item = (
+        page.locator("#betalingen-lijst").get_by_role("menuitem", name="Inschrijving openen").first
+    )
+    item.wait_for(state="visible")
+    item.click()
     pagina_klaar(page)
     assert "/admin/inschrijvingen/" in page.url
     page.locator("a[href^='/admin/betalingen?']").first.click()
     pagina_klaar(page)
 
-    assert page.url == left_at, "the way back lost the list's state"
+    assert page.url.startswith(left_at + "&boeking="), "the way back lost the list's state"
     assert page.locator("[data-status-filter] input[value=openstaand]").is_checked()
     assert page.locator("input[name=q]").input_value() == "Marie"
     assert _count(page) == "1–1 van 1"

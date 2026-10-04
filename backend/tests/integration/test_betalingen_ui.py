@@ -129,7 +129,10 @@ def test_geneste_refund_heeft_bewerken_editor(client, db_session):
 
     _login(client)
     html = client.get("/admin/betalingen/lijst").text
-    # De geneste refund-regel biedt de bewerk-editor aan (post naar zijn eigen id).
+    # K2 (#1556): the nested refund row opens the refund's own page, which
+    # carries the editor (the unfold under the row is gone).
+    assert f'href="/admin/betalingen/{refund.id}?terug=' in html
+    html = client.get(f"/admin/betalingen/{refund.id}").text
     assert f"/admin/betalingen/{refund.id}/bewerken" in html
 
 

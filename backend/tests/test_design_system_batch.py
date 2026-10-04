@@ -118,11 +118,13 @@ def test_row_actions_verbergt_extra_achter_menu():
 def test_betalingen_lijst_heeft_geen_statusstreep():
     inhoud = (APP / "domains" / "payment" / "templates" / "_betalingen_lijst.html").read_text()
     assert "border-l-4" not in inhoud and "_stripe" not in inhoud
-    # Sinds golf 10 (#913) geen ui.row_actions meer: de rij draagt de opener
-    # (edit_toggle) plus één snelactie, en verwijderen woont in de
-    # bewerk-uitklaprij (A2) — een ⋯-menu zou in de overflow-container clippen.
-    assert "ui.edit_toggle" in inhoud
-    assert 'ui.btn_danger(_("Verwijderen")' in inhoud
+    # K2 (#1556, block 4): the row is the way in — no opener, no unfold. A row
+    # carries at most one action and `⋯` (`ui.row_actions_cell`); delete is the
+    # last item of that menu. The table no longer scrolls sideways, so the menu
+    # cannot be clipped — the reason golf 10 (#913) kept it out.
+    assert "ui.edit_toggle" not in inhoud and "ui.btn_danger" not in inhoud
+    assert "ui.row_actions_cell(" in inhoud
+    assert "overflow-x-auto" not in inhoud
 
 
 # ── #597 werkbank full-page ───────────────────────────────────────────────────
