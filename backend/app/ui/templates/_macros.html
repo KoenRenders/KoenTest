@@ -209,6 +209,14 @@
 <div class="sticky top-0 z-50 h-6 leading-6 bg-orange-500 text-white text-center text-xs font-semibold">{{ omgeving|upper }} — testomgeving (geen productie)</div>
 {%- endmacro %}
 
+{# A site as a card that is a link as a whole (#1566): the name in semibold, the
+   address under it, small and grey, and it may break. The card of the former
+   platform landing; `{{tenants}}` renders its sites with it. The `!` utilities
+   win from `.cms-content a`, which would colour and underline the whole card. #}
+{% macro site_card(name, url) -%}
+<a href="{{ url }}" data-site-card class="block bg-white border border-gray-200 rounded-2xl p-5 !no-underline hover:shadow-md transition-shadow"><span class="block font-semibold !text-ink">{{ name }}</span><span class="block text-sm text-gray-500 mt-1 break-all">{{ url }}</span></a>
+{%- endmacro %}
+
 {% macro card(id=None) -%}
 <div{% if id %} id="{{ id }}" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 scroll-mt-24"{% else %} class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6"{% endif %}>{{ caller() }}</div>
 {%- endmacro %}

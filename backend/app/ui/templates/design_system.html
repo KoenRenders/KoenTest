@@ -689,6 +689,18 @@
   {{ ui.back_link(_("Alle activiteiten"), "/admin/activiteiten") }}
 {% endcall %}
 
+{# ── 12d. The site card (#1566) ─────────────────────────────────────────────── #}
+{{ ui.section_header(_("12d · Sitekaart"), cls="mt-10") }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("Een site als kaart die in haar geheel een link is: de naam, en het adres eronder. De placeholder voor de sites van een account toont ze zo, één kolom op een telefoon en twee vanaf een breder scherm.") }}
+  </p>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    {{ ui.site_card(_("Voorbeeldclub"), "https://voorbeeldclub.example.test") }}
+    {{ ui.site_card(_("Voorbeeldatelier"), "https://voorbeeldatelier.example.test") }}
+  </div>
+{% endcall %}
+
 {# ── 13. Tabs ──────────────────────────────────────────────────────────────── #}
 {{ ui.section_header(_("13 · Tabs"), cls="mt-10") }}
 {% call ui.card() %}

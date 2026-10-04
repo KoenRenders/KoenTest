@@ -1,0 +1,18 @@
+{% import "_macros.html" as ui %}
+{# What the `{{tenants}}` placeholder renders (#1543, cards since #1566): per
+   account its name as a heading, then its sites as cards in a grid — one column
+   on a phone, two from `sm`. `groups` comes from `cms.render._sites_html`:
+   [{heading (None for the one-account form), sites: [{name, url}]}].
+
+   Placed AFTER the sanitiser, so it may carry what an author may not:
+   `hx-boost="false"` — a card leads to another site, and boosted the shell would
+   keep this site's header around the other's page. Jinja escapes the names and
+   addresses. #}
+<div hx-boost="false" data-tenant-sites>
+  {% for group in groups %}
+  {% if group.heading %}<h3>{{ group.heading }}</h3>{% endif %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 mb-8">
+    {% for site in group.sites %}{{ ui.site_card(site.name, site.url) }}{% endfor %}
+  </div>
+  {% endfor %}
+</div>
