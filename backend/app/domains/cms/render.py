@@ -235,35 +235,35 @@ _SITES = re.compile(r"\{\{tenants(?::([a-z0-9-]+))?\}\}")
 
 
 def _sites_html(account_code: Optional[str], db=None) -> str:
-    """The accounts with their active sites, as linked lists (#1543).
+    """The accounts with their active sites, each site a card (#1543, #1566).
 
     Without a code: every active account with a heading, and "Overige" last for
     the tenants without one, as the landing of #1525 listed them. With a code:
     that account's sites only, without a heading; an unknown or inactive code
     renders nothing. The platform appears under its account when it has one
-    (#1542). Names and addresses are escaped here, because this HTML is placed
-    AFTER the sanitiser: it is built in code, not typed by an author, and it
-    carries `hx-boost="false"`, which an author may not. A link in this list goes
-    to another site; boosted, the site shell would swap only `#main` and keep this
-    site's header around the other's page (measured in the e2e, #1543).
+    (#1542). The HTML comes from `_tenant_sites.html` (the card is the kit's
+    `site_card`), where Jinja escapes names and addresses; it is placed AFTER
+    the sanitiser: it is built in code, not typed by an author, and it carries
+    `hx-boost="false"`, which an author may not. A card goes to another site;
+    boosted, the site shell would swap only `#main` and keep this site's header
+    around the other's page (measured in the e2e, #1543).
 
     `db` is the request's session where the caller has one — the public screens
     pass it — so the list costs no connection of its own and sees what the
     request sees. Without it (the editor's legend, the JSON API, the assistant's
     context) a short session of its own.
     """
-    from html import escape
-
     from app.database import SessionLocal
     from app.domains.mdm.api import OrganizationType, active_sites_by_account
     from app.i18n import _
     from app.kernel.tenant_config import platform_home_url, tenant_display_name, tenant_home_url
+    from app.ui import templates
 
     own = db is None
     if own:
         db = SessionLocal()
     try:
-        parts = []
+        groups = []
         for account, sites in active_sites_by_account(db):
             if account_code is not None and (account is None or account.code != account_code):
                 continue
@@ -276,16 +276,13 @@ def _sites_html(account_code: Optional[str], db=None) -> str:
                 )
                 for s in sites
             )
-            items = "".join(
-                f'<li><a href="{escape(url)}">{escape(name)}</a></li>' for name, url in links
+            heading = None if account_code else (account.name if account else _("Overige"))
+            groups.append(
+                {"heading": heading, "sites": [{"name": name, "url": url} for name, url in links]}
             )
-            heading = (
-                ""
-                if account_code
-                else f"<h3>{escape(account.name if account else _('Overige'))}</h3>"
-            )
-            parts.append(f"{heading}<ul>{items}</ul>")
-        return f'<div hx-boost="false">{"".join(parts)}</div>' if parts else ""
+        if not groups:
+            return ""
+        return templates.env.get_template("_tenant_sites.html").render(groups=groups).strip()
     finally:
         if own:
             db.close()
@@ -301,5 +298,5 @@ def render_cms_content(content: Optional[str], db=None) -> Optional[str]:
         content = content.replace(f"{{{{{code}}}}}", value)
     # Before sanitisation (#1173): that step removes the figure holding the alt.
     content = sanitize_cms_html(image_attributes_from_attachment(content)) or ""
-    # After it (#1543): the sites list is built and escaped in code — see `_sites_html`.
+    # After it (#1543): the site cards are built and escaped in code — see `_sites_html`.
     return _SITES.sub(lambda m: _sites_html(m.group(1), db), content)

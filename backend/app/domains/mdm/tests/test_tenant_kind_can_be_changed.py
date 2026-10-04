@@ -162,11 +162,12 @@ def platform_host(monkeypatch):
 
 def _landing_groups(client) -> dict[str, list[str]]:
     """The platform home's list of accounts and sites (#1543: the `{{tenants}}`
-    placeholder on its CMS page): each `<h3>` with the link texts of its `<ul>`."""
+    placeholder on its CMS page): each `<h3>` with the site names of the cards in
+    its grid (#1566)."""
     html = client.get("/", headers={"host": PLATFORM_HOST}).text
     return {
-        m.group(1): re.findall(r'<a href="[^"]*"[^>]*>(.*?)</a>', m.group(2))
-        for m in re.finditer(r"<h3>(.*?)</h3><ul>(.*?)</ul>", html, re.S)
+        m.group(1): re.findall(r"<a [^>]*data-site-card[^>]*><span[^>]*>(.*?)</span>", m.group(2))
+        for m in re.finditer(r"<h3>(.*?)</h3>\s*<div class=\"grid[^>]*>(.*?)</div>", html, re.S)
     }
 
 

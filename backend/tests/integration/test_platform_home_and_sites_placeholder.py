@@ -55,12 +55,18 @@ def _pages(db, tenant_id: int) -> dict[str, CmsPage]:
 
 
 def _groups(html: str) -> dict[str | None, list[str]]:
-    """The placeholder's output: each `<h3>` with the link texts of its `<ul>`; a
-    list without a heading under None."""
+    """The placeholder's output: each `<h3>` with the site names of the cards in
+    its grid (#1566); a grid without a heading under None."""
     groups: dict[str | None, list[str]] = {}
-    for m in re.finditer(r"(?:<h3>(.*?)</h3>)?<ul>(.*?)</ul>", html, re.S):
-        if "<a href" in m.group(2):
-            groups[m.group(1)] = re.findall(r"<a href=\"[^\"]*\"[^>]*>(.*?)</a>", m.group(2))
+    for block in re.findall(
+        r"<div hx-boost=\"false\" data-tenant-sites>.*?</div>\s*</div>", html, re.S
+    ):
+        for m in re.finditer(
+            r"(?:<h3>(.*?)</h3>\s*)?<div class=\"grid[^>]*>(.*?)</div>", block, re.S
+        ):
+            groups[m.group(1)] = re.findall(
+                r"<a [^>]*data-site-card[^>]*><span[^>]*>(.*?)</span>", m.group(2)
+            )
     return groups
 
 
@@ -149,7 +155,39 @@ def test_the_placeholder_on_a_department_page(client, db_session):
     )
     assert "Raak Millegem" in groups["Raak"]
     assert _groups(one) == {None: ["Clubhuis"]}, "one account, without a heading"
-    assert everything.count('<div hx-boost="false">') == 1, "a link to another site is not boosted"
+    assert everything.count('<div hx-boost="false" data-tenant-sites>') == 1, (
+        "a link to another site is not boosted"
+    )
+
+
+def test_each_site_is_a_card_that_is_a_link_as_a_whole(client, db_session):
+    """#1566: one card link per site — its name, and its address under it — in a
+    grid per account, and no list. Both forms of the placeholder. Red against
+    master, where the placeholder rendered `<ul><li><a>`."""
+    account = create_account(db_session, name="Account Acht", code="acht-1566")
+    create_tenant(db_session, name="Atelier <Noord>", code="atelier-1566", parent_id=account.id)
+    create_tenant(db_session, name="Buurthuis", code="buurthuis-1566", parent_id=account.id)
+    db_session.commit()
+    _department_page(db_session, "<p>{{tenants}}</p><p>---</p><p>{{tenants:acht-1566}}</p>")
+
+    html = client.get("/onze-netwerk-1543").text
+    for part in html.split("---", 1):
+        block = re.search(r"data-tenant-sites>(.*?)</div>\s*</div>", part, re.S).group(1)
+        assert "<ul" not in block and "<li" not in block
+        cards = re.findall(
+            r'<a href="([^"]+)" data-site-card[^>]*><span[^>]*>(.*?)</span><span[^>]*>(.*?)</span></a>',
+            block,
+        )
+        names = [name for _url, name, _address in cards]
+        assert block.count("<a ") == len(cards), "every link in the block is a card"
+        assert "Buurthuis" in names and "Atelier &lt;Noord&gt;" in names, "names are escaped"
+        assert all(url == address and url for url, _name, address in cards), (
+            "the address under the name"
+        )
+        assert "grid-cols-1 sm:grid-cols-2" in block
+    assert len(re.findall(r"data-site-card", html.split("---", 1)[1])) == 2, (
+        "one account: its two sites"
+    )
 
 
 def test_the_placeholder_leaves_the_platform_out_without_an_account(client, db_session):
