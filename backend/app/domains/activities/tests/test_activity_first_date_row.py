@@ -137,14 +137,22 @@ def _post_create(client, db, headers):
 
 
 def _post_add_date(client, db, headers):
+    # Since #1559 a date is added and edited through the fiche's one save.
+    from tests._fiche import Fiche
+
     activity = _create_activity(client, db, headers)
-    return client.post(f"/admin/activiteiten/{activity.id}/datums", headers=headers, data=REVERSED)
+    fiche = Fiche(db, activity.id)
+    fiche.add("d", **REVERSED)
+    return fiche.post(client, headers)
 
 
 def _post_edit_date(client, db, headers):
+    from tests._fiche import Fiche
+
     activity = _create_activity(client, db, headers)
-    path = f"/admin/activiteiten/{activity.id}/datums/{activity.dates[0].id}"
-    return client.post(path, headers=headers, data=REVERSED)
+    fiche = Fiche(db, activity.id)
+    fiche.set("d", activity.dates[0].id, **REVERSED)
+    return fiche.post(client, headers)
 
 
 @pytest.mark.parametrize(

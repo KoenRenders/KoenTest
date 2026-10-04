@@ -875,38 +875,8 @@
   "response_class": "HTMLResponse",
   "response_model": "None"
  },
- "POST /admin/activiteiten/{activity_id}/affiche": {
-  "endpoint": "app.domains.activities.admin_ui.affiche_uploaden",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/affiche/verwijderen": {
-  "endpoint": "app.domains.activities.admin_ui.affiche_verwijderen",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
  "POST /admin/activiteiten/{activity_id}/annulering": {
   "endpoint": "app.domains.activities.admin_ui.activity_cancellation_submit",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/datums": {
-  "endpoint": "app.domains.activities.admin_ui.datum_toevoegen",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/datums/{date_id}": {
-  "endpoint": "app.domains.activities.admin_ui.datum_bijwerken",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/datums/{date_id}/verwijderen": {
-  "endpoint": "app.domains.activities.admin_ui.datum_verwijderen",
   "openapi": null,
   "response_class": "HTMLResponse",
   "response_model": "None"
@@ -937,90 +907,6 @@
  },
  "POST /admin/activiteiten/{activity_id}/kopieren": {
   "endpoint": "app.domains.activities.admin_ui.copy_activity_submit",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/onderdelen": {
-  "endpoint": "app.domains.activities.admin_ui.onderdeel_toevoegen",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/onderdelen/{component_id}": {
-  "endpoint": "app.domains.activities.admin_ui.onderdeel_bijwerken",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/onderdelen/{component_id}/info": {
-  "endpoint": "app.domains.activities.admin_ui.onderdeel_info_uploaden",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/onderdelen/{component_id}/info/verwijderen": {
-  "endpoint": "app.domains.activities.admin_ui.onderdeel_info_verwijderen",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/onderdelen/{component_id}/producten": {
-  "endpoint": "app.domains.activities.admin_ui.product_toevoegen",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/onderdelen/{component_id}/producten/{product_id}": {
-  "endpoint": "app.domains.activities.admin_ui.product_bijwerken",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/onderdelen/{component_id}/producten/{product_id}/verplaats": {
-  "endpoint": "app.domains.activities.admin_ui.product_verplaatsen",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/onderdelen/{component_id}/producten/{product_id}/verwijderen": {
-  "endpoint": "app.domains.activities.admin_ui.product_verwijderen",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/onderdelen/{component_id}/verplaats": {
-  "endpoint": "app.domains.activities.admin_ui.onderdeel_verplaatsen",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/onderdelen/{component_id}/verwijderen": {
-  "endpoint": "app.domains.activities.admin_ui.onderdeel_verwijderen",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/organisatoren": {
-  "endpoint": "app.domains.activities.admin_ui.organisator_toevoegen",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/organisatoren/{organiser_id}": {
-  "endpoint": "app.domains.activities.admin_ui.organisator_bijwerken",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/organisatoren/{organiser_id}/verplaats": {
-  "endpoint": "app.domains.activities.admin_ui.move_organiser_route",
-  "openapi": null,
-  "response_class": "HTMLResponse",
-  "response_model": "None"
- },
- "POST /admin/activiteiten/{activity_id}/organisatoren/{organiser_id}/verwijderen": {
-  "endpoint": "app.domains.activities.admin_ui.organisator_verwijderen",
   "openapi": null,
   "response_class": "HTMLResponse",
   "response_model": "None"

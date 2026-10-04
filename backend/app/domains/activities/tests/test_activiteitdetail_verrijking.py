@@ -45,8 +45,9 @@ def test_het_detail_toont_ook_voorbije_datums(client, db_session):
     assert toekomst in datums
 
     _login(client)
-    html = client.get(f"/admin/activiteiten/{activity.id}").text
-    assert verleden.strftime("%d-%m-%Y") in html
+    # In the editor a date is its field's value (#1559).
+    html = client.get(f"/admin/activiteiten/{activity.id}?bewerken=1").text
+    assert f'value="{verleden.isoformat()}"' in html
 
 
 def test_het_detail_draagt_dezelfde_verrijking_als_de_lijst(client, db_session):

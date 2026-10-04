@@ -484,7 +484,7 @@ def controlhoogtes(page, container_selector: str) -> dict:
     """
     hoogtes: dict = {}
     velden = page.locator(
-        f"{container_selector} input:not([type=checkbox]):not([type=hidden]), "
+        f"{container_selector} input:not([type=checkbox]):not([type=hidden]):not([type=file]), "
         f"{container_selector} select"
     )
     for i in range(velden.count()):
@@ -501,9 +501,8 @@ def controlhoogtes(page, container_selector: str) -> dict:
 class Activiteitdetail:
     """/admin/activiteiten/<id> — het scherm waarop #649 gemeld werd.
 
-    De datumsectie is er het kleinste bewerkformulier op: één regel, één
-    Bewerken-knop, één Opslaan. Precies de POST die op HDEV elf keer 403 gaf
-    zonder dat er iets op het scherm veranderde.
+    The POST of this screen gave eleven 403's on HDEV without anything
+    changing on screen. Since #1559 that POST is the fiche's one save.
     """
 
     def __init__(self, page):
@@ -532,21 +531,20 @@ class Activiteitdetail:
         self.page.wait_for_selector("#aa-detail", timeout=5000)
         return True
 
-    def datumregel(self):
-        """De eerste datumregel — herkenbaar aan haar eigen bewerkformulier."""
-        return self.page.locator('form[hx-post*="/datums/"]').first
+    def bewerk(self):
+        """Open the fiche in edit mode. Since #1559 the page has one form and one
+        save; a row has no edit form of its own."""
+        self.page.goto(self.page.url.split("?")[0] + "?bewerken=1")
+        self.page.wait_for_selector('[data-form-flow][data-mode="edit"]', timeout=5000)
+        pagina_klaar(self.page)
 
-    def bewerk_de_eerste_datum(self):
-        """Klap het bewerkformulier van de eerste datumregel open."""
-        rij = self.datumregel().locator("xpath=..")
-        rij.get_by_role("button", name="Bewerken").first.click()
+    def datumregel(self):
+        """The first date row of the Datums group."""
+        return self.page.locator("#aa-group-dates > [data-group-rows] > [data-group-row]").first
 
     def bewaar(self):
-        """Sinds de kop-herziening van golf 6 (#913) staat Opslaan niet meer ín
-        de datumvorm maar in het kop-cluster van de rij, via het HTML
-        form=-attribuut aan de vorm gekoppeld — dus zoeken op die koppeling."""
-        form_id = self.datumregel().get_attribute("id")
-        self.page.locator(f'button[form="{form_id}"]').first.click()
+        """The fiche's one save."""
+        self.page.click('[data-provisional-bar] button:has-text("Opslaan")')
 
     def breek_het_csrf_token(self) -> None:
         """Vervang het CSRF-token door een ongeldige waarde.
@@ -562,8 +560,8 @@ class Activiteitdetail:
         )
 
     def datum_leesregel(self):
-        """De tekstregel met de datum — die hoort te verdwijnen tijdens bewerken (#648)."""
-        return self.datumregel().locator('xpath=../div/span[@x-show="!edit"]').first
+        """The date in words, as read mode shows it (#648: gone while editing)."""
+        return self.page.locator("#aa-group-dates [data-date-line]").first
 
     def foutmeldingen(self):
         """De meldingen die htmx_ux() in de toast-host zet (#649)."""

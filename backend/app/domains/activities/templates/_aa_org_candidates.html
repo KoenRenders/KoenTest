@@ -1,0 +1,20 @@
+{% import "_macros.html" as ui %}
+{# The candidates of the organiser search (#1004, #1559): members by name, with
+   the address the mails would go to (#1353) so two namesakes are told apart.
+   "Toevoegen" adds a row to the fiche's organisers in the page — nothing is
+   written until the fiche is saved. #}
+{% if organiser_query %}
+<ul data-organiser-candidates class="mt-2 divide-y divide-line">
+  {% for match in organiser_candidates %}
+  <li data-pick-item class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+    <span class="min-w-0 [overflow-wrap:anywhere]">{{ match.person.first_name }} {{ match.person.last_name }}{% if match.email %} <span class="text-ink-soft">· {{ match.email }}</span>{% endif %}</span>
+    {{ ui.btn_secondary(_("Toevoegen"), size="sm",
+         attrs=('data-group-pick="o_order" data-pick="'|safe) ~ ({"__NAME__": match.person.first_name ~ " " ~ match.person.last_name,
+                                                                 "__HREF__": "/admin/leden/gezin/" ~ organiser_households.get(match.person.id, ""),
+                                                                 "__PERSON__": match.person.id|string}|tojson|forceescape) ~ ('"'|safe)) }}
+  </li>
+  {% else %}
+  <li class="py-2 text-sm text-ink-soft">{{ _("Geen leden gevonden.") }}</li>
+  {% endfor %}
+</ul>
+{% endif %}

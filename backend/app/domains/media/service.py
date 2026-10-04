@@ -639,13 +639,19 @@ async def store_activity_poster(db, activity_id: int, file, background_tasks):
 
 def delete_activity_poster(db, activity_id: int) -> None:
     """Hard delete: dat neemt de geëxtraheerde tekst vanzelf mee (#206)."""
+    drop_activity_poster(db, activity_id)
+    db.commit()
+
+
+def drop_activity_poster(db, activity_id: int) -> None:
+    """Remove an activity's poster without committing (#1559: the fiche removes
+    it in the transaction of its one save)."""
     for asset in (
         db.query(MediaAsset)
         .filter(MediaAsset.kind == MediaKind.ACTIVITY_POSTER, MediaAsset.activity_id == activity_id)
         .all()
     ):
         db.delete(asset)
-    db.commit()
 
 
 def reextract_text(db, asset_id: int, background_tasks) -> dict:
@@ -664,7 +670,16 @@ def reextract_text(db, asset_id: int, background_tasks) -> dict:
 
 
 async def replace_component_info(db, component_id: int, file, background_tasks):
-    """Vervang het info-document van een onderdeel.
+    """Replace a component's info document and commit — the door of media's own
+    route. The activity fiche stores through `store_component_info` (#1559)."""
+    stored = await store_component_info(db, component_id, file, background_tasks)
+    db.commit()  # the door of the component screens (CR-13 phase 4)
+    return stored
+
+
+async def store_component_info(db, component_id: int, file, background_tasks):
+    """Vervang het info-document van een onderdeel, zonder commit (#1559: the
+    fiche saves its attachments in the transaction of its one save).
 
     Ook info-PDF's leveren context voor Raakje, dus de tekstextractie loopt hier
     net zo goed op de achtergrond (#206).
@@ -684,12 +699,17 @@ async def replace_component_info(db, component_id: int, file, background_tasks):
         component_id=component_id,
         title_base=f"{activiteit_naam} - {component.name} - info",
     )
-    db.commit()  # the door of the component screens (CR-13 phase 4)
     background_tasks.add_task(update_media_extracted_text, asset.id)
     return meta(asset)
 
 
 def delete_component_info(db, component_id: int) -> None:
+    drop_component_info(db, component_id)
+    db.commit()
+
+
+def drop_component_info(db, component_id: int) -> None:
+    """Hard-delete a component's info document, without committing (#1559)."""
     for asset in (
         db.query(MediaAsset)
         .filter(
@@ -698,7 +718,6 @@ def delete_component_info(db, component_id: int) -> None:
         .all()
     ):
         db.delete(asset)
-    db.commit()
 
 
 def activity_image_path(db, activity_id: int) -> Optional[str]:

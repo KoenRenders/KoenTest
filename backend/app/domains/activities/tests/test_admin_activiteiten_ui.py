@@ -32,79 +32,18 @@ def test_admin_activiteit_aanmaken_en_detail(client, db_session):
     assert detail.status_code == 200 and "Millegem" in detail.text and "Datums" in detail.text
 
 
-def test_admin_onderdeel_en_product_flow(client, db_session):
-    csrf = _login(client)
-    client.post(
-        "/admin/activiteiten",
-        data={"name": "Kermis", "start_date": "2031-08-01"},
-        headers={"X-CSRF-Token": csrf},
-    )
-    from app.domains.activities.api import Activity
-
-    activity = db_session.query(Activity).filter(Activity.name == "Kermis").one()
-
-    comp = client.post(
-        f"/admin/activiteiten/{activity.id}/onderdelen",
-        data={"name": "Eetstand", "max_participants": "50"},
-        headers={"X-CSRF-Token": csrf},
-    )
-    assert comp.status_code == 200 and "Eetstand" in comp.text
-
-    db_session.expire_all()
-    component = activity.sub_registrations[0]
-    prod = client.post(
-        f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/producten",
-        data={"name": "Pannenkoeken", "price": "5,00"},
-        headers={"X-CSRF-Token": csrf},
-    )
-    assert prod.status_code == 200 and "Pannenkoeken" in prod.text and "5,00" in prod.text
-
-
-def test_product_afrekening_keuze(client, db_session):
-    """#507: de expliciete 'Afrekening'-keuze (Betalend/Gratis/Ter plaatse) zet
-    is_free/pay_on_site; de prijs blijft los invulbaar."""
-    from app.domains.activities.api import ActivityProduct
-
-    activity, component, _p = seed_activity_with_product(db_session, price="10.00")
-    csrf = _login(client)
-    base = f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/producten"
-
-    client.post(
-        base,
-        data={"name": "Gratis drankje", "price": "3,00", "afrekening": "gratis"},
-        headers={"X-CSRF-Token": csrf},
-    )
-    client.post(
-        base,
-        data={"name": "Frietjes", "price": "4,00", "afrekening": "ter_plaatse"},
-        headers={"X-CSRF-Token": csrf},
-    )
-    client.post(
-        base,
-        data={"name": "Pintje", "price": "2,50", "afrekening": "betalend"},
-        headers={"X-CSRF-Token": csrf},
-    )
-    db_session.expire_all()
-
-    def _prod(naam):
-        return db_session.query(ActivityProduct).filter(ActivityProduct.name == naam).one()
-
-    assert _prod("Gratis drankje").is_free is True and _prod("Gratis drankje").pay_on_site is False
-    assert _prod("Frietjes").pay_on_site is True and _prod("Frietjes").is_free is False
-    assert _prod("Pintje").is_free is False and _prod("Pintje").pay_on_site is False
-
-
 def test_activiteit_geneste_producten_paneel(client, db_session):
-    """#509: producten renderen in een genest subpaneel (inspringing + linkerrand)
-    onder hun onderdeel, met een 'Onderdelen'-sectiekop en 'Producten'-mini-kop."""
+    """#509: products stand under their component, indented behind a line — since
+    #1559 as the child group of the kit's repeating group (no nested card)."""
     activity, component, product = seed_activity_with_product(db_session)
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
-    # _() levert Markup, dus de & staat rauw in de uitvoer (#514-familie).
-    assert ">Onderdelen & producten<" in html  # sectiekop, feedbackronde 15 sep
-    assert ">Producten<" in html  # nested_panel-mini-kop
-    assert "border-l-2 border-blue-200" in html  # geneste-paneel-inspringing
-    assert product.name in html
+    assert ">Onderdelen</h2>" in html
+    components = html[html.index('id="aa-group-components"') :]
+    child = components[components.index(f'data-repeating-group="p_order.{component.id}"') :]
+    assert 'class="group-child"' in child.split(">", 1)[0] + ">"
+    assert ">Producten</h3>" in child
+    assert product.name in child
 
 
 def test_activiteit_affiche_upload_in_edit_modus(client, db_session):

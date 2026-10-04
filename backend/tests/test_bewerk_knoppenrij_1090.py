@@ -30,28 +30,24 @@ de rendertest op de volgorde én de maat.
 from __future__ import annotations
 
 import re
-from datetime import date
 from pathlib import Path
 
 import pytest
 
-from app.domains.activities.api import Activity, add_organiser
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
-from app.domains.mdm.api import Member, MemberPerson, Person
 from app.ui import templates
 from tests._reporting_seed import seed
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
 
-DOMAINS = Path(__file__).resolve().parents[2] / "app" / "domains"
+DOMAINS = Path(__file__).resolve().parents[1] / "app" / "domains"
 
 # Scherm → (template, het blok waarin het cluster hoort, handgerolde vormen die
 # er niet meer mogen staan).
 SCHERMEN = {
     "gebruikers": "auth/templates/_gu_lijst.html",
     "rapportpaneel": "reporting/templates/_rp_paneel.html",
-    "organisatoren": "activities/templates/_aa_organisatoren.html",
     "optierij": "forms/templates/_fb_builder.html",
 }
 HANDGEROLD = (
@@ -74,18 +70,6 @@ def test_het_cluster_komt_uit_de_macro(scherm):
     assert "ui.action_bar(" in bron, f"{scherm}: geen ui.action_bar"
     for vorm in HANDGEROLD:
         assert vorm not in bron, f"{scherm}: bouwt nog een eigen {vorm}"
-
-
-def test_bij_de_organisatoren_staat_het_cluster_in_de_kopregel_naast_de_opener():
-    """§2.4: het cluster vervangt de opener op dezelfde regel — niet in de vorm
-    eronder, waar het tot #1090 stond."""
-    bron = (DOMAINS / SCHERMEN["organisatoren"]).read_text()
-    opener = bron.index('ui.edit_toggle("edit")')
-    cluster = bron.index('ui.action_bar(form="org-"')
-    vorm = bron.index('<form id="org-{{ o.id }}"')
-    assert opener < cluster < vorm, (
-        "het cluster hoort in de kopregel, na de opener en vóór de bewerkvorm"
-    )
 
 
 # ── Gerenderd ────────────────────────────────────────────────────────────────
@@ -154,30 +138,6 @@ def test_het_rapportpaneel_rendert_het_cluster_in_volgorde(client, db_session):
     (cluster,) = _clusters(html)
     # Een nieuw rapport heeft niets te verwijderen; Opslaan staat wel rechts.
     _controleer_cluster(cluster, met_verwijderen=False)
-
-
-def test_de_organisatorrij_rendert_het_cluster_in_volgorde(client, db_session):
-    activiteit = Activity(name="Quiz met organisator")
-    db_session.add(activiteit)
-    db_session.flush()
-    persoon = Person(
-        date_of_birth=date(1980, 1, 1), gender_code="M", first_name="Els", last_name="Trekker"
-    )
-    db_session.add(persoon)
-    db_session.flush()
-    gezin = Member()
-    db_session.add(gezin)
-    db_session.flush()
-    db_session.add(MemberPerson(member_id=gezin.id, person_id=persoon.id, relation_type="HOOFDLID"))
-    db_session.flush()
-    rij = add_organiser(db_session, activiteit.id, persoon.id)
-    _login(client, db_session)
-
-    html = client.get(f"/admin/activiteiten/{activiteit.id}").text
-    clusters = [c for c in _clusters(html) if f"/organisatoren/{rij.id}/verwijderen" in c]
-    assert len(clusters) == 1, "geen cluster voor de organisator"
-    _controleer_cluster(clusters[0], met_verwijderen=True)
-    assert f'form="org-{rij.id}"' in clusters[0], "Opslaan is niet aan de vorm gebonden"
 
 
 def test_de_optierij_rendert_het_cluster_in_volgorde(client, db_session, admin_headers):

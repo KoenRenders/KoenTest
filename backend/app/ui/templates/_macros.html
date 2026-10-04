@@ -139,6 +139,7 @@
   "chevron-down": '<path d="m6 9 6 6 6-6"/>',
   "chevron-left": '<path d="m15 18-6-6 6-6"/>',
   "chevron-right": '<path d="m9 18 6-6-6-6"/>',
+  "grip-vertical": '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
   "arrow-up-right": '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
   "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
   "arrow-down": '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
@@ -587,7 +588,12 @@
    - `help_in_read`: the help also stands under the value in read mode — for a
      promise the reader must see where the text is read, not only where it is
      typed (the internal note).
-   - `preview_url` (upload): a small picture of what hangs there, while editing. #}
+   - `preview_url` (upload): a small picture of what hangs there, while editing.
+   - `beside_field` (switch): the switch shares its row with a labelled field
+     and stands on that field's control line.
+   - `delete_name` (upload): "Verwijderen" beside what hangs there does not
+     delete it — it marks it (a hidden field of this name becomes "1") and the
+     form's save removes it; until then it can be taken back. #}
 {% set _field_full = ["url", "email", "textarea", "upload", "checkbox_group", "radio_group"] %}
 {% set _field_quarter_ok = ["number", "date", "time", "select", "switch"] %}
 {% set _field_control = "block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed" %}
@@ -595,7 +601,8 @@
                help=None, error=None, placeholder="", unit=None, options=[], id=None, attrs="",
                rows=3, form=None, accept="image/*,application/pdf", current_url=None,
                current_label=None, delete_attrs="", delete_confirm=None, disabled=False,
-               display=None, help_in_read=False, preview_url=None) -%}
+               display=None, help_in_read=False, preview_url=None, delete_name=None,
+               beside_field=False) -%}
 {%- set _id = id or name -%}
 {%- if kind in _field_full or (kind == "text" and long) -%}{%- set _span = "full" -%}
 {%- elif span == "full" -%}{%- set _span = "full" -%}
@@ -622,10 +629,11 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   </p>
   {% elif kind == "switch" %}
   {# The kit's one switch (#1568); its help and its link to the help are its own. #}
-  {#- Beside a labelled field the switch stands on the control's line, not on
-      the label's: 25 px down (label and its gap), centred in the 40 px of a
-      control. On a phone it is its own row of 44 px. -#}
-  <div class="md:pt-[25px] md:[&_label]:min-h-10">{{ switch(name, label, checked=value, id=_id, help=help, form=form, disabled=disabled, attrs=attrs) }}</div>
+  {#- `beside_field`: sharing its row with a labelled field, the switch stands
+      on the control's line, not on the label's — 25 px down (label and its gap),
+      centred in the 40 px of a control. A row of switches alone needs no such
+      room. On a phone a switch is its own row of 44 px either way. -#}
+  <div{% if beside_field %} class="md:pt-[25px] md:[&_label]:min-h-10"{% endif %}>{{ switch(name, label, checked=value, id=_id, help=help, form=form, disabled=disabled, attrs=attrs) }}</div>
   {% else %}
   {% if kind in ("segmented", "radio_group", "checkbox_group") %}
   <p id="{{ _id }}-label" class="text-sm font-medium leading-[21px] text-ink mb-1">{{ label }}{% if required %} <span class="text-red-600">*</span>{% endif %}</p>
@@ -669,17 +677,24 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {% endfor %}
   </div>
   {% elif kind == "upload" %}
-  <div data-upload class="flex flex-wrap items-center gap-3" x-data="{ chosen: '' }">
+  <div data-upload class="flex flex-wrap items-center gap-3" x-data="{ chosen: '', drop: false }">
     <label class="relative inline-flex items-center gap-2 min-h-11 md:min-h-10 px-3 rounded-md border border-control-line bg-surface text-sm font-medium text-ink cursor-pointer hover:bg-surface-2 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-focus">
       {{ icon("upload", 16) }}<span>{{ _("Bestand kiezen") }}</span>
       <input type="file" accept="{{ accept }}" class="absolute inset-0 h-full w-full opacity-0 cursor-pointer" @change="chosen = $event.target.files.length ? $event.target.files[0].name : ''" {{ _common }}>
     </label>
     <span data-upload-chosen class="min-w-0 text-[13px] text-ink-soft [overflow-wrap:anywhere]" x-text="chosen" x-show="chosen" x-cloak></span>
     {% if current_url %}
-    <span class="flex flex-wrap items-center gap-2 min-w-0" x-show="!chosen">
+    <span class="flex flex-wrap items-center gap-2 min-w-0" x-show="!chosen && !drop">
       <a href="{{ current_url }}" target="_blank" rel="noopener" class="text-sm text-blue-500 underline [overflow-wrap:anywhere]">{{ current_label or _("Huidige bijlage bekijken") }}</a>
-      {% if delete_attrs %}{{ link_action(_("Verwijderen"), attrs=delete_attrs, confirm=delete_confirm, cls="text-red-700") }}{% endif %}
+      {% if delete_name %}{{ link_action(_("Verwijderen"), attrs='data-upload-drop @click="drop = true"', cls="text-red-700") }}
+      {% elif delete_attrs %}{{ link_action(_("Verwijderen"), attrs=delete_attrs, confirm=delete_confirm, cls="text-red-700") }}{% endif %}
     </span>
+    {% if delete_name %}
+    <span class="flex flex-wrap items-center gap-2 min-w-0 text-[13px] text-ink-soft" x-show="drop && !chosen" x-cloak>
+      {{ _("Wordt verwijderd bij Opslaan.") }} {{ link_action(_("Ongedaan maken"), attrs='@click="drop = false"') }}
+    </span>
+    <input type="hidden" name="{{ delete_name }}"{% if form %} form="{{ form }}"{% endif %} :value="drop && !chosen ? '1' : ''" value="">
+    {% endif %}
     {% endif %}
   </div>
   {% else %}
@@ -694,6 +709,126 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% if edit and error %}<p id="{{ _id }}-error" data-field-error class="mt-1 text-[13px] leading-[19.5px] text-red-700 [overflow-wrap:anywhere]">{{ error }}</p>
   {% elif help and (edit or help_in_read) and not (edit and kind == "switch") %}<p id="{{ _id }}-help" data-field-help class="mt-1 text-[13px] leading-[19.5px] text-ink-soft [overflow-wrap:anywhere]">{{ help }}</p>{% endif %}
 </div>
+{%- endmacro %}
+
+{# ── The repeating group (CR-11 block 7, #1559; design-system-end-state §3.3) ──
+
+   Rows of a record — dates, components with their products, organisers,
+   e-mail addresses. Two variants:
+
+   - **simple**: one compact row per item, the fields inline. The labels stand
+     ONCE, as a column head above the first row (`columns`), never per row; on a
+     phone, where the fields stack and no head is possible, each field shows its
+     own label under a first line with the handle and `⋯`.
+   - **composite**: a title line (the item's name, a tag, `⋯`), the fields under
+     it, and — when it has one — a child group (`child=True`: indented behind a
+     vertical line, no card, no nested box). The drag handle stands in a fixed
+     gutter at the left of the whole block; title, fields and the separator line
+     share one left edge to the right of it.
+
+   `edit=False` is read mode: no handle, no `⋯`, no add button. In edit mode
+   "+ …" stands at the heading's right and adds the group's `template` (a row
+   rendered with `token` as its key) in place, with the focus on its first
+   field. Rows are added, moved, duplicated and removed in the page
+   (`static/repeating-group.js`) and written by the form's one save — so
+   removing a row asks no confirmation: "Annuleren" undoes it.
+
+   `footer` is what stands under the rows in edit mode — the member search an
+   organiser is picked from: a button there with `data-group-pick="<name>"` and
+   `data-pick='{"<token>": "<value>"}'` adds the group's template with those
+   tokens filled in.
+
+   `name` is the name of the order field every row carries (`d_order`): the
+   server reads the rows in the order of that field. `count` is the number of
+   rows, for the empty line. A screen writes no row structure of its own: a
+   handle, a row menu or an up/down button outside these macros is red
+   (`tests/test_repeating_group_gate.py`). #}
+{% macro repeating_group(title, name, token="__KEY__", add_label=None, edit=False, empty="",
+                         variant="simple", columns=[], child=False, count=0, template="",
+                         handle=False, hint=None, id=None, footer="") -%}
+{%- set _tag = "div" if child else "section" -%}
+<{{ _tag }} data-repeating-group="{{ name }}" data-variant="{{ variant }}" data-token="{{ token }}"{% if id %} id="{{ id }}"{% endif %}
+   class="{% if child %}group-child{% else %}form-section bg-surface border border-line rounded-2xl shadow-sm p-4{% endif %}">
+  <div class="flex items-center justify-between gap-3 min-h-9{% if not child %} mb-2{% endif %}">
+    {% if child %}<h3 class="text-base font-semibold leading-6 text-ink">{{ title }}</h3>
+    {% else %}<h2 class="text-base font-semibold leading-6 text-ink">{{ title }}</h2>{% endif %}
+    {% if edit and add_label %}
+    <button type="button" data-group-add class="{{ btn_class('secondary', 'sm') }} inline-flex items-center gap-1 min-h-11 md:min-h-9">{{ icon("plus", 16) }}{{ add_label }}</button>
+    {% endif %}
+  </div>
+  {% if hint %}<p class="mb-3 text-[13px] text-ink-soft">{{ hint }}</p>{% endif %}
+  {% if edit and variant == "simple" and columns %}
+  <div data-group-head aria-hidden="true" class="group-head{% if handle %} group-head--handle{% endif %}"{% if not count %} hidden{% endif %}>
+    <div class="form-grid">
+      {% for c in columns %}<span data-span="{{ c.get('span', 'half') }}" class="text-sm font-medium leading-[21px] text-ink">{{ c.label }}{% if c.get('required') %} <span class="text-red-600">*</span>{% endif %}</span>{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  <div data-group-rows class="group-rows">{{ caller() }}</div>
+  <p data-group-empty class="text-sm text-ink-soft"{% if count %} hidden{% endif %}>{{ empty }}</p>
+  {% if edit and footer %}<div data-group-footer class="mt-3">{{ footer }}</div>{% endif %}
+  {% if edit and template %}<template data-group-template>{{ template }}</template>{% endif %}
+</{{ _tag }}>
+{%- endmacro %}
+
+{# The row's `⋯`: Omhoog · Omlaag · Dupliceren | Verwijderen (red, last). `menu`
+   names what this row offers; a list without an order has no up and down, a
+   member is not duplicated. #}
+{% macro _row_menu(menu, label) -%}
+<div class="relative shrink-0" x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+  <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="{{ _('Acties voor %(row)s', row=label) }}"
+          class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open">{{ icon("ellipsis", 18) }}</button>
+  <div x-show="open" x-cloak @click.outside="open = false" @click="open = false" role="menu" data-row-menu
+       class="absolute right-0 z-30 mt-1 w-48 py-1 bg-white border border-line rounded-lg shadow-lg">
+    {% for a, text in [("up", _("Omhoog")), ("down", _("Omlaag")), ("duplicate", _("Dupliceren"))] if a in menu %}
+    <button type="button" role="menuitem" data-row-action="{{ a }}" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2 disabled:text-ink-soft disabled:opacity-60 disabled:cursor-not-allowed">{{ text }}</button>
+    {% endfor %}
+    {% if "remove" in menu %}
+    {% if menu|length > 1 %}<div class="my-1 border-t border-line"></div>{% endif %}
+    <button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2">{{ _("Verwijderen") }}</button>
+    {% endif %}
+  </div>
+</div>
+{%- endmacro %}
+
+{# One row of a repeating group. `group` is the group's `name`, `key` the row's
+   key (its id, or the group's token in the template). The caller is the row's
+   fields: for a simple row the `field` calls themselves (the macro lays them on
+   the grid); for a composite item everything under the title line — a
+   `form_grid` with its fields, then its child group.
+
+   `title` is the composite item's heading (in edit mode it follows the field
+   marked `data-row-title-source`); `title_href` makes it a jump link; `tag` is
+   a badge beside it ("op de affiche", "hoofdadres"). `handle` only where the
+   order means something. `label` names the row for its menu's accessible name. #}
+{% macro group_row(group, key, edit=False, variant="simple", handle=False,
+                   menu=["up", "down", "duplicate", "remove"], title="", title_href=None, tag=None, label="") -%}
+<div data-group-row data-row-key="{{ key }}" class="group-row group-row--{{ variant }}{% if edit %} group-row--edit{% endif %}{% if edit and handle %} group-row--handle{% endif %}">
+  {% if edit %}<input type="hidden" name="{{ group }}" value="{{ key }}" data-row-order>{% endif %}
+  {% if edit and handle %}<span data-row-handle aria-hidden="true" title="{{ _('Verslepen') }}" class="group-handle">{{ icon("grip-vertical", 16) }}</span>{% endif %}
+  <div data-row-body class="group-body min-w-0">
+    {% if variant == "composite" %}
+    <div data-row-title-line class="flex items-center justify-between gap-2 min-h-11">
+      <span class="flex flex-wrap items-center gap-2 min-w-0">
+        {% if title_href %}{{ reference(title, title_href, "font-semibold") }}
+        {% else %}<h3 data-row-title="{{ title }}" class="min-w-0 text-base font-semibold leading-6 text-ink [overflow-wrap:anywhere]">{{ title }}</h3>{% endif %}
+        {% if tag %}{{ badge(tag.label, tag.get("tone") or "gray") }}{% endif %}
+      </span>
+      {% if edit and menu %}{{ _row_menu(menu, label or title) }}{% endif %}
+    </div>
+    {{ caller() }}
+    {% else %}
+    <div data-form-grid class="form-grid">{{ caller() }}</div>
+    {% endif %}
+  </div>
+  {% if edit and menu and variant == "simple" %}{{ _row_menu(menu, label or title) }}{% endif %}
+</div>
+{%- endmacro %}
+
+{# The grid of fields on its own — inside a composite item, where the section's
+   grid is not there to hold them. #}
+{% macro form_grid() -%}
+<div data-form-grid class="form-grid">{{ caller() }}</div>
 {%- endmacro %}
 
 {# ── Uploadveld (#623) ────────────────────────────────────────────────────────

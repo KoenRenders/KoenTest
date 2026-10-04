@@ -312,28 +312,29 @@ def test_de_export_blijft_een_download(admin_page):
 
 
 def test_bewerken_vervangt_de_datumregel(admin_page):
-    """#648: het formulier komt op de plaats van de leesregel, niet eronder.
+    """#648: the fields take the place of the read line, not a place beside it.
 
-    Alleen een browser kan dit bewijzen: server en markup zijn beide in orde: het
-    is Alpine dat de leesregel moet wegschakelen. Stond de `x-show` er niet, dan
-    zag je dezelfde datum twee keer — als tekst én in de invulvelden.
+    Since #1559 the fiche is read or edited as a whole: read mode shows the date
+    in words, edit mode shows its fields — never the same date twice.
     """
     from tests_e2e.schermen import Activiteitdetail
 
     scherm = Activiteitdetail(admin_page)
     if not scherm.open_eerste():
         _ontbreekt("geen activiteit om te openen")
-    if scherm.datumregel().count() == 0:
+    leesregel = scherm.datum_leesregel()
+    if leesregel.count() == 0:
         _ontbreekt("de activiteit heeft geen datumregel om te bewerken")
 
-    leesregel = scherm.datum_leesregel()
     assert leesregel.is_visible(), "de datum hoort in leesstand zichtbaar te zijn"
     datum = leesregel.inner_text().strip()
 
-    scherm.bewerk_de_eerste_datum()
+    scherm.bewerk()
 
     # Both must BECOME so; `expect` waits for it instead of guessing a time.
-    expect(scherm.datumregel(), "het bewerkformulier ging niet open").to_be_visible()
+    expect(
+        scherm.datumregel().locator("input[type=date]").first, "de datumvelden staan er niet"
+    ).to_be_visible()
     expect(
         leesregel, f"de leesregel {datum!r} blijft staan naast het bewerkformulier (#648)"
     ).to_be_hidden()

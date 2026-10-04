@@ -827,7 +827,7 @@
     {{ ui.field("kit_date" ~ loop.index, _("Datum"), kind="date", value="2031-06-14", span="quarter", edit=_edit, display=_("14 juni 2031")) }}
     {{ ui.field("kit_time" ~ loop.index, _("Uur"), kind="time", value="14:00", span="quarter", edit=_edit) }}
     {{ ui.field("kit_audience" ~ loop.index, _("Doelpubliek"), kind="select", value="families", options=_kit_audience, edit=_edit) }}
-    {{ ui.field("kit_members" ~ loop.index, _("Enkel leden"), kind="switch", value=True, edit=_edit) }}
+    {{ ui.field("kit_members" ~ loop.index, _("Enkel leden"), kind="switch", value=True, edit=_edit, beside_field=True) }}
     {{ ui.field("kit_view" ~ loop.index, _("Weergave"), kind="segmented", value="table", options=_kit_view, edit=_edit) }}
     {{ ui.field("kit_days" ~ loop.index, _("Dagen"), kind="checkbox_group", value=["sat", "sun"], options=_kit_days, edit=_edit) }}
     {{ ui.field("kit_pay" ~ loop.index, _("Betaalwijze"), kind="radio_group", value="online", options=_kit_pay, edit=_edit) }}
@@ -839,6 +839,63 @@
     {{ ui.field("kit_poster_url" ~ loop.index, _("Poster-URL"), kind="url", value="https://voorbeeld.example.test/affiche.pdf", edit=_edit) }}
   {% endcall %}
 {% endcall %}
+</div>
+{% endfor %}
+
+{# ── 13d. The repeating group (CR-11 block 7, #1559) ─────────────────────────
+   A simple group (dates: the labels once, as a column head) and a composite one
+   (a component with its products as a child group), to edit and to read. The
+   rows are added, moved, duplicated and removed in the page. #}
+{{ ui.section_header(_("13d · Herhalende groep"), cls="mt-10") }}
+<p class="text-sm text-gray-600 mb-3">
+  {{ _("Rijen van een record: eenvoudig (de labels één keer als kolomkop) of samengesteld (kopregel, velden, een kindgroep achter een lijn). Toevoegen, verplaatsen, dupliceren en weghalen gebeurt in de pagina; het ene Opslaan van het formulier schrijft de rijen. Een rij weghalen vraagt daarom geen bevestiging.") }}
+</p>
+{% macro _kit_date(key, value, van, edit) %}
+{% call ui.group_row("kit_d_order", key, edit=edit, menu=["duplicate", "remove"], label=_("deze datum")) %}
+  {% if edit %}
+  {{ ui.field("kit_d." ~ key ~ ".start_date", _("Datum"), kind="date", id="kit-d-" ~ key ~ "-start_date", span="quarter", required=True, value=value) }}
+  {{ ui.field("kit_d." ~ key ~ ".start_time", _("Van"), kind="time", id="kit-d-" ~ key ~ "-start_time", span="quarter", value=van) }}
+  {{ ui.field("kit_d." ~ key ~ ".end_date", _("Einddatum"), kind="date", id="kit-d-" ~ key ~ "-end_date", span="quarter") }}
+  {{ ui.field("kit_d." ~ key ~ ".end_time", _("Tot"), kind="time", id="kit-d-" ~ key ~ "-end_time", span="quarter") }}
+  {% else %}<p data-span="full" class="text-sm leading-[21px] text-ink">{{ _("zaterdag 14 juni 2031") }} · {{ van }}</p>{% endif %}
+{% endcall %}
+{% endmacro %}
+{% macro _kit_product(key, name, price, edit) %}
+{% call ui.group_row("kit_p_order", key, edit=edit, variant="composite" if edit else "simple", handle=True, title=name, label=name) %}
+  {% if edit %}
+  {% call ui.form_grid() %}
+    {{ ui.field("kit_p." ~ key ~ ".name", _("Naam"), id="kit-p-" ~ key ~ "-name", required=True, value=name, attrs="data-row-title-source") }}
+    {{ ui.field("kit_p." ~ key ~ ".price", _("Prijs"), kind="number", unit="€", id="kit-p-" ~ key ~ "-price", span="quarter", value=price) }}
+    {{ ui.field("kit_p." ~ key ~ ".free", _("Gratis"), kind="switch", id="kit-p-" ~ key ~ "-free", span="quarter", beside_field=True) }}
+  {% endcall %}
+  {% else %}<p data-span="full" class="text-sm leading-[21px] text-ink">{{ name }} · €&nbsp;{{ price }}</p>{% endif %}
+{% endcall %}
+{% endmacro %}
+{% for _edit in [True, False] %}
+<p class="text-sm font-medium text-ink mt-6 mb-2">{{ _("Bewerken") if _edit else _("Lezen") }}</p>
+<div data-kit-groups="{{ 'edit' if _edit else 'read' }}" class="form-flow max-w-[768px]">
+  {% set _tpl %}{% if _edit %}{{ _kit_date("__KD__", "", "", True) }}{% endif %}{% endset %}
+  {% call ui.repeating_group(_("Datums"), "kit_d_order", token="__KD__", add_label=_("Datum"), edit=_edit, empty=_("Nog geen datums."), count=2, template=_tpl,
+                             columns=[{"label": _("Datum"), "span": "quarter", "required": True}, {"label": _("Van"), "span": "quarter"},
+                                      {"label": _("Einddatum"), "span": "quarter"}, {"label": _("Tot"), "span": "quarter"}]) %}
+    {{ _kit_date("kd1" ~ loop.index, "2031-06-14", "14:00", _edit) }}
+    {{ _kit_date("kd2" ~ loop.index, "2031-06-21", "10:00", _edit) }}
+  {% endcall %}
+  {% call ui.repeating_group(_("Onderdelen"), "kit_c_order", token="__KC__", add_label=_("Onderdeel"), edit=_edit, variant="composite", empty=_("Nog geen onderdelen."), count=1) %}
+    {% call ui.group_row("kit_c_order", "kc1" ~ loop.index, edit=_edit, variant="composite", handle=True, title=_("Wandeling"), label=_("Wandeling"),
+                         tag={"label": _("hoofdonderdeel")}) %}
+      {% call ui.form_grid() %}
+        {{ ui.field("kit_c_max" ~ loop.index, _("Maximum"), kind="number", span="quarter", value=80, edit=_edit) }}
+        {{ ui.field("kit_c_team" ~ loop.index, _("Ploegnaam vereist"), kind="switch", edit=_edit, beside_field=True) }}
+      {% endcall %}
+      {% set _ptpl %}{% if _edit %}{{ _kit_product("__KP__", "", "", True) }}{% endif %}{% endset %}
+      {% call ui.repeating_group(_("Producten"), "kit_p_order", token="__KP__", add_label=_("Product"), edit=_edit, variant="composite", child=True,
+                                 empty=_("Nog geen producten."), count=2, template=_ptpl) %}
+        {{ _kit_product("kp1" ~ loop.index, _("Soep"), "5.00", _edit) }}
+        {{ _kit_product("kp2" ~ loop.index, _("Brood"), "2.00", _edit) }}
+      {% endcall %}
+    {% endcall %}
+  {% endcall %}
 </div>
 {% endfor %}
 

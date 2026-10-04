@@ -8,18 +8,15 @@ router-functies als servicelaag; sessie-auth + CSRF zoals de andere schermen.
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal, InvalidOperation
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional
 
 from fastapi import (
     APIRouter,
     BackgroundTasks,
     Depends,
-    File,
     Form,
     HTTPException,
     Request,
-    UploadFile,
 )
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import ValidationError
@@ -50,48 +47,6 @@ register_tones(
 )
 
 NAV = "/admin/activiteiten"
-
-
-def _decimal(value: str, default: str = "0") -> Decimal:
-    try:
-        return Decimal((value or default).replace(",", "."))
-    except InvalidOperation:
-        raise HTTPException(status_code=400, detail=_("Ongeldig bedrag."))
-
-
-def _opt_int(value: str) -> Optional[int]:
-    value = (value or "").strip()
-    return int(value) if value else None
-
-
-def _opt_str(value: str) -> Optional[str]:
-    value = (value or "").strip()
-    return value or None
-
-
-def _upload_error(exc: Exception) -> str:
-    """Toon de upload-fout aan de beheerder i.p.v. ze stil te laten mislukken (htmx
-    swapt niet op een 4xx). Bij een niet-ondersteund type een concrete hint —
-    o.a. iPhone-HEIC-foto's worden niet aanvaard.
-
-    Neemt zowel een HTTPException (uit de router-laag) als een gewone
-    service-fout: sinds #635 I gooit de mediaservice `MediaFout`/`LookupError`.
-    """
-    detail = str(getattr(exc, "detail", exc))
-    if "bestandstype" in detail.lower():
-        return (
-            detail
-            + " — "
-            + _("gebruik een PNG, JPG, WEBP, GIF of PDF (een iPhone-HEIC-foto werkt niet).")
-        )
-    return detail
-
-
-def _verplaats(db: Session, siblings: Sequence[Any], item_id: int, richting: str) -> None:
-    """Herorden broers/zussen via ``sort_order`` (#635 E/I)."""
-    from app.domains.activities.api import move_within
-
-    move_within(db, siblings, item_id, richting)
 
 
 SCOPES = ("upcoming", "archived", "all")
@@ -169,10 +124,12 @@ def _aa_detail_ctx(
     # dus ze blijven bereikbaar — de reden achter #650 blijft gedekt.
     from app.domains.activities.api import (
         board_notes,
+        booked_per_component,
         organisers_for,
         question_forms,
     )
     from app.domains.designstudio.api import on_the_poster
+    from app.domains.mdm.api import household_ids
 
     organisers = organisers_for(db, activiteit.id)
     vraagformulieren, gekozen_formulier = question_forms(db, activiteit.id)
@@ -186,8 +143,11 @@ def _aa_detail_ctx(
         "contact_count": sum(1 for o in organisers if o.is_contact),
         # #1433: who the poster names, asked of Design Studio — the rule is theirs.
         "poster_ids": {o.id for o in on_the_poster(organisers)},
-        "organiser_query": organiser_query,
-        "organiser_candidates": organiser_candidates or [],
+        # #1559: the occupancy stands on the component itself in read mode
+        # (the same count as the full-check, #451).
+        "component_booked": booked_per_component(db, [activiteit.id]),
+        # #1559: an organiser's name is a jump link to the household.
+        "organiser_households": household_ids(db, [o.person_id for o in organisers]),
         # #1028: de interne nota komt NIET uit `activiteit` — dat is
         # `ActivityResponse`, en dat schema is óók het publieke JSON-antwoord. Een
         # veld erbij zou de nota meteen publiek maken. Ze reist apart, en alleen
@@ -539,23 +499,6 @@ def activiteit_aanmaken(
     return Response(status_code=204, headers={"HX-Redirect": f"/admin/activiteiten/{nieuw.id}"})
 
 
-def _datum_of_none(ruw: str) -> date | None:
-    """Een `<input type="date">`-waarde als datum, of None wanneer leeg.
-
-    Een ongeldige waarde (een browser zonder datumkiezer laat tekst toe) wordt
-    geweigerd met een leesbare melding in plaats van een 500.
-    """
-    from datetime import date
-
-    waarde = (ruw or "").strip()
-    if not waarde:
-        return None
-    try:
-        return date.fromisoformat(waarde)
-    except ValueError:
-        raise HTTPException(status_code=422, detail=_("Ongeldige datum voor 'Inschrijven tot'."))
-
-
 @router.post(
     "/admin/activiteiten/{activity_id}",
     response_class=HTMLResponse,
@@ -567,64 +510,60 @@ async def activiteit_bijwerken(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-    name: str = Form(""),
-    location: str = Form(""),
-    description: str = Form(""),
-    board_notes: str = Form(""),
-    poster_url: str = Form(""),
-    slug: str = Form(""),
-    members_only: str = Form(""),
-    target_audience: str = Form(""),
-    file: Optional[UploadFile] = File(None),
 ) -> Response:
-    """Bewerkt de activiteit; één "Opslaan" bewaart tekstvelden én de affiche (#623).
+    """The one "Opslaan" of the fiche (#1559): its sections, its dates, its
+    components with their products, its organisers and its attachments, written
+    in one transaction by `activities.fiche.save_fiche`.
 
-    `poster_url` was uit het scherm verdwenen terwijl het veld op het model en in de
-    schemas bleef bestaan — je kon alleen nog uploaden. Beide horen in dezelfde vorm,
-    zoals in v1.14: een geüploade affiche primeert op de URL (#223).
+    Until #1559 every row had a route of its own — nineteen of them, each with
+    its own commit. The form is read by name (`fiche_form`), because its rows are
+    not a fixed list of parameters.
+
+    A refusal writes nothing and leaves the form as it was typed: the answer is
+    the reason alone, placed in the fiche's message line. A re-rendered form
+    would throw away every row added or changed in the page.
     """
     from app.domains.activities import service
-    from app.domains.media.api import replace_activity_poster
-    from app.schemas.activity import ActivityUpdate
+    from app.domains.activities.fiche import ContactConfirmation, save_fiche
+    from app.domains.activities.fiche_form import fiche_from_form
 
-    velden = ActivityUpdate(
-        name=name.strip() or None,
-        location=location.strip() or None,
-        poster_url=poster_url.strip() or None,
-        members_only=bool(members_only),
-    ).model_dump(exclude_none=True)
-    # #1558: "Geannuleerd" is no field of this form any more — it is the record
-    # action "Activiteit annuleren" (`activity_cancellation_submit`). The key stays
-    # out of `velden`, or a save would silently take a cancellation back.
-    # #884: de slug staat BUITEN `exclude_none`, want leegmaken is een geldige keuze —
-    # dan verdwijnt de vriendelijke URL en blijft alleen de nummer-URL over. Hij volgt
-    # de naam niet: wie hem wijzigt, doet dat met de waarschuwing op het scherm.
-    velden["slug"] = slug.strip() or None
-    # #1016: like the slug, outside `exclude_none` — clearing the description is
-    # a valid choice and must reach the column.
-    velden["description"] = description.strip() or None
-    # #1028: de interne nota, zelfde behandeling als de omschrijving — leegmaken
-    # is een geldige keuze en moet de kolom bereiken.
-    velden["board_notes"] = board_notes.strip() or None
-    # #1428: one audience or none; emptying it is a valid choice.
-    velden["target_audience"] = target_audience.strip() or None
+    form = await request.form()
+    poster = form.get("file")
     try:
-        bijgewerkt = service.update_activity(db, activity_id, velden, actor=email)
+        fiche, component_files = fiche_from_form(form)
+        saved = await save_fiche(
+            db,
+            activity_id,
+            fiche,
+            actor=email,
+            poster=None if isinstance(poster, str) else poster,
+            component_files=component_files,
+            background_tasks=background_tasks,
+        )
+    except ContactConfirmation as question:
+        return _refusal(request, str(question), confirm=True)
     except service.ActiviteitFout as fout:
-        return _detail_response(request, db, activity_id, error=str(fout))
-    if bijgewerkt is None:
+        return _refusal(request, str(fout))
+    if saved is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
-
-    if file is not None and file.filename:
-        try:
-            await replace_activity_poster(db, activity_id, file, background_tasks)
-        except (LookupError, HTTPException) as exc:
-            return _detail_response(request, db, activity_id, error=_upload_error(exc))
-    # #742: alleen deze afsluitende "Opslaan" bevestigt. De andere mutaties op dit
-    # scherm (een datum toevoegen, een onderdeel bijwerken, een affiche wissen) zijn
-    # deelacties en krijgen géén toast — dezelfde grens als bij #717.
-    # #1558: a save ends the edit state — the fiche comes back to read.
+    # #742: this closing "Opslaan" confirms. #1558: and it ends the edit state.
     return _detail_response(request, db, activity_id, toast=True, read_mode=True)
+
+
+def _refusal(request: Request, message: str, *, confirm: bool = False) -> Response:
+    """Why the save was refused, for the fiche's message line — and nothing else,
+    so the form keeps what was typed. An HTML 422 is swapped (#1515); the two
+    headers send it to that line instead of to the form's own target."""
+    # `confirm`: the refusal is a question; the answer carries the button that
+    # confirms and saves again.
+    refusal = {"error": message, "confirm": confirm}
+    return templates.TemplateResponse(
+        request,
+        "_aa_refusal.html",
+        refusal,
+        status_code=422,
+        headers={"HX-Retarget": "#aa-fiche-message", "HX-Reswap": "innerHTML show:top"},
+    )
 
 
 @router.post(
@@ -649,482 +588,10 @@ def activiteit_verwijderen(
 # ── Datums ─────────────────────────────────────────────────────────────────────
 
 
-@router.post(
-    "/admin/activiteiten/{activity_id}/datums",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def datum_toevoegen(
-    activity_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    start_date: str = Form(...),
-    end_date: str = Form(""),
-    start_time: str = Form(""),
-    end_time: str = Form(""),
-) -> Response:
-    from app.domains.activities import service
-    from app.schemas.activity import ActivityDateCreate
-
-    gegevens = ActivityDateCreate(
-        start_date=start_date,
-        end_date=end_date or None,
-        start_time=start_time or None,
-        end_time=end_time or None,
-    )
-    # #792: the same coherence rule as on the create screen — it sits on the object, so
-    # this screen inherits it. Only the translation into HTTP belongs to the entrance,
-    # which is why that part lives here.
-    try:
-        added = service.add_activity_date(db, activity_id, gegevens, actor=email)
-    except service.ActiviteitFout as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-    if added is None:
-        raise HTTPException(status_code=404, detail=_("Activity not found"))
-    return _detail_response(request, db, activity_id)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/datums/{date_id}",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def datum_bijwerken(
-    activity_id: int,
-    date_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    start_date: str = Form(...),
-    end_date: str = Form(""),
-    start_time: str = Form(""),
-    end_time: str = Form(""),
-) -> Response:
-    """Bestaande datum (incl. begin-/einduur) bewerken — v1.14-pariteit."""
-    from app.domains.activities import service
-    from app.schemas.activity import ActivityDateUpdate
-
-    velden = ActivityDateUpdate(
-        start_date=start_date,
-        end_date=end_date or None,
-        start_time=start_time or None,
-        end_time=end_time or None,
-    ).model_dump(exclude_unset=True)
-    try:
-        updated = service.update_activity_date(db, activity_id, date_id, velden, actor=email)
-    except service.ActiviteitFout as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-    if updated is None:
-        raise HTTPException(status_code=404, detail=_("Date not found"))
-    return _detail_response(request, db, activity_id)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/datums/{date_id}/verwijderen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def datum_verwijderen(
-    activity_id: int,
-    date_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-) -> Response:
-    from app.domains.activities import service
-
-    if not service.delete_activity_date(db, activity_id, date_id, actor=email):
-        raise HTTPException(status_code=404, detail=_("Date not found"))
-    return _detail_response(request, db, activity_id)
-
-
 # ── Onderdelen ─────────────────────────────────────────────────────────────────
 
 
-@router.post(
-    "/admin/activiteiten/{activity_id}/onderdelen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-async def onderdeel_toevoegen(
-    activity_id: int,
-    request: Request,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    name: str = Form(...),
-    team_name_required: str = Form(""),
-    max_participants: str = Form(""),
-    registration_closes_on: str = Form(""),
-    external_register_url: str = Form(""),
-    external_registrations_url: str = Form(""),
-    info_url: str = Form(""),
-    file: Optional[UploadFile] = File(None),
-) -> Response:
-    """Maakt het onderdeel; één "Toevoegen" bewaart de velden én de info-bijlage.
-
-    De bijlage kon tot #715 pas ná het aanmaken opgeladen worden, via "Bewerken".
-    Het toevoegformulier toonde enkel URL-velden en wekte zo de indruk dat een
-    externe URL de enige weg was. Zelfde leest als ``onderdeel_bijwerken`` (#654):
-    eerst de velden, dan het bestand als er een meegestuurd is.
-    """
-    from app.domains.activities import service
-    from app.domains.media.api import replace_component_info
-    from app.schemas.activity import ComponentCreate
-
-    gegevens = ComponentCreate(
-        name=name.strip(),
-        team_name_required=bool(team_name_required),
-        max_participants=_opt_int(max_participants),
-        registration_closes_on=_datum_of_none(registration_closes_on),
-        external_register_url=_opt_str(external_register_url),
-        external_registrations_url=_opt_str(external_registrations_url),
-        info_url=_opt_str(info_url),
-    )
-    component = service.add_component(db, activity_id, gegevens, actor=email)
-    if component is None:
-        raise HTTPException(status_code=404, detail=_("Activity not found"))
-
-    if file is not None and file.filename:
-        try:
-            await replace_component_info(db, component.id, file, background_tasks)
-        except (LookupError, HTTPException) as exc:
-            return _detail_response(request, db, activity_id, error=_upload_error(exc))
-    return _detail_response(request, db, activity_id)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-async def onderdeel_bijwerken(
-    activity_id: int,
-    component_id: int,
-    request: Request,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    name: str = Form(...),
-    team_name_required: str = Form(""),
-    max_participants: str = Form(""),
-    registration_closes_on: str = Form(""),
-    external_register_url: str = Form(""),
-    external_registrations_url: str = Form(""),
-    info_url: str = Form(""),
-    form_id: str = Form(""),
-    file: Optional[UploadFile] = File(None),
-) -> Response:
-    """Bewerkt het onderdeel; één "Opslaan" bewaart tekstvelden én de info-bijlage.
-
-    §2.12 verbood een eigen submit-knop bij het uploadveld al, maar dat was in #623
-    alleen op de activiteit toegepast. Het onderdeel hield twee vormen naar twee
-    endpoints en dus twee "Opslaan"-knoppen onder elkaar (#654). Zelfde leest als
-    activiteit_bijwerken: eerst de velden, dan het bestand als er een meegestuurd is.
-
-    De verwijderknop naast de bijlage blijft een aparte actie (/info/verwijderen):
-    verwijderen is geen bewaarhandeling en hoort niet onder de gedeelde "Opslaan".
-    """
-    from app.domains.activities import service
-    from app.domains.media.api import replace_component_info
-    from app.schemas.activity import ComponentUpdate
-
-    velden = ComponentUpdate(
-        name=name.strip(),
-        team_name_required=bool(team_name_required),
-        max_participants=_opt_int(max_participants),
-        external_register_url=_opt_str(external_register_url),
-        external_registrations_url=_opt_str(external_registrations_url),
-        info_url=_opt_str(info_url),
-    ).model_dump(exclude_unset=True)
-    # #1053: zelfde behandeling als de slug op de activiteit — leeg betekent "geen
-    # uiterste datum", en dat moet een bestaande kunnen wissen. Dus buiten
-    # `exclude_unset` om, met de waarde die het formulier werkelijk stuurde.
-    velden["registration_closes_on"] = _datum_of_none(registration_closes_on)
-    # CR-14 phase 2: "Extra vragen" — empty detaches, like the deadline above.
-    velden["form_id"] = _opt_int(form_id)
-    try:
-        bijgewerkt = service.update_component(db, activity_id, component_id, velden, actor=email)
-    except service.ActiviteitFout as fout:
-        return _detail_response(request, db, activity_id, error=str(fout))
-    if bijgewerkt is None:
-        raise HTTPException(status_code=404, detail=_("Component not found"))
-
-    if file is not None and file.filename:
-        try:
-            await replace_component_info(db, component_id, file, background_tasks)
-        except (LookupError, HTTPException) as exc:
-            return _detail_response(request, db, activity_id, error=_upload_error(exc))
-    return _detail_response(request, db, activity_id)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}/verwijderen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def onderdeel_verwijderen(
-    activity_id: int,
-    component_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-) -> Response:
-    from app.domains.activities import service
-
-    if not service.delete_component(db, activity_id, component_id, actor=email):
-        raise HTTPException(status_code=404, detail=_("Component not found"))
-    return _detail_response(request, db, activity_id)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}/verplaats",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def onderdeel_verplaatsen(
-    activity_id: int,
-    component_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    richting: str = Form("omhoog"),
-) -> Response:
-    """Onderdeel omhoog/omlaag herordenen (sort_order-wissel) — #451."""
-    from app.domains.activities.api import get_activity
-
-    activity = get_activity(db, activity_id)
-    if activity is None:
-        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
-    _verplaats(db, list(activity.sub_registrations), component_id, richting)
-    return _detail_response(request, db, activity_id)
-
-
 # ── Producten ──────────────────────────────────────────────────────────────────
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}/producten",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def product_toevoegen(
-    activity_id: int,
-    component_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    name: str = Form(...),
-    price: str = Form("0"),
-    member_price: str = Form(""),
-    afrekening: str = Form("betalend"),
-    max_participants: str = Form(""),
-    is_active: str = Form(""),
-) -> Response:
-    from app.domains.activities import service
-    from app.schemas.activity import ProductCreate
-
-    bedrag = _decimal(price)
-    gegevens = ProductCreate(
-        name=name.strip(),
-        price=bedrag,
-        member_price=_decimal(member_price) if member_price.strip() else None,
-        is_free=(afrekening == "gratis"),
-        pay_on_site=(afrekening == "ter_plaatse"),
-        is_active=bool(is_active),
-        max_participants=_opt_int(max_participants),
-    )
-    try:
-        product = service.add_product(db, activity_id, component_id, gegevens, actor=email)
-    except service.ActiviteitFout as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-    if product is None:
-        raise HTTPException(status_code=404, detail=_("Component not found"))
-    return _detail_response(request, db, activity_id)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}/producten/{product_id}/verwijderen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def product_verwijderen(
-    activity_id: int,
-    component_id: int,
-    product_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-) -> Response:
-    from app.domains.activities import service
-
-    if not service.delete_product(db, component_id, product_id, actor=email):
-        raise HTTPException(status_code=404, detail=_("Product not found"))
-    return _detail_response(request, db, activity_id)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}/producten/{product_id}/verplaats",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def product_verplaatsen(
-    activity_id: int,
-    component_id: int,
-    product_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    richting: str = Form("omhoog"),
-) -> Response:
-    """Product omhoog/omlaag herordenen binnen zijn onderdeel (sort_order) — #451."""
-    from app.domains.activities.api import get_component
-
-    component = get_component(db, component_id, activity_id=activity_id)
-    if component is None:
-        raise HTTPException(status_code=404, detail=_("Onderdeel niet gevonden"))
-    _verplaats(db, list(component.products), product_id, richting)
-    return _detail_response(request, db, activity_id)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}/producten/{product_id}",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def product_bijwerken(
-    activity_id: int,
-    component_id: int,
-    product_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    name: str = Form(...),
-    price: str = Form("0"),
-    member_price: str = Form(""),
-    afrekening: str = Form("betalend"),
-    max_participants: str = Form(""),
-    is_active: str = Form(""),
-) -> Response:
-    """Product bijwerken incl. prijs/ledenprijs (#451) en publieke boekbaarheid (#1191).
-
-    `is_active` arrives as a checkbox: present = on, absent = off. The form always
-    renders it, so its absence here is a real choice and not a missing field.
-    """
-    from app.domains.activities import service
-    from app.schemas.activity import ProductUpdate
-
-    bedrag = _decimal(price)
-    velden = ProductUpdate(
-        name=name.strip(),
-        price=bedrag,
-        member_price=_decimal(member_price) if member_price.strip() else None,
-        is_free=(afrekening == "gratis"),
-        pay_on_site=(afrekening == "ter_plaatse"),
-        is_active=bool(is_active),
-        max_participants=_opt_int(max_participants),
-    ).model_dump(exclude_unset=True)
-    try:
-        product = service.update_product(db, component_id, product_id, velden, actor=email)
-    except service.ActiviteitFout as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-    if product is None:
-        raise HTTPException(status_code=404, detail=_("Product not found"))
-    return _detail_response(request, db, activity_id)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/affiche",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-async def affiche_uploaden(
-    activity_id: int,
-    request: Request,
-    background_tasks: BackgroundTasks,
-    file: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-) -> Response:
-    """Affiche (poster) uploaden vanuit de activiteiten-admin (#451)."""
-    from app.domains.media.api import replace_activity_poster
-
-    if file is not None and file.filename:
-        try:
-            await replace_activity_poster(db, activity_id, file, background_tasks)
-        except (LookupError, HTTPException) as exc:
-            return _detail_response(request, db, activity_id, error=_upload_error(exc))
-    return _detail_response(request, db, activity_id)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/affiche/verwijderen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def affiche_verwijderen(
-    activity_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-) -> Response:
-    """Bestaande affiche verwijderen (#623).
-
-    Ontbrak volledig: je kon een verkeerd bestand alleen overschrijven, niet weghalen.
-    Loopt via de bestaande media-facade, zodat het asset-record én zijn
-    extracted_text in één keer weg zijn (#206) — geen tweede verwijderpad.
-    """
-    from app.domains.media.api import delete_activity_poster
-
-    delete_activity_poster(db, activity_id)
-    return _detail_response(request, db, activity_id)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}/info/verwijderen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def onderdeel_info_verwijderen(
-    activity_id: int,
-    component_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-) -> Response:
-    """Info-bijlage van een onderdeel verwijderen (#623), via dezelfde media-facade."""
-    from app.domains.media.api import delete_component_info
-
-    delete_component_info(db, component_id)
-    return _detail_response(request, db, activity_id)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}/info",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-async def onderdeel_info_uploaden(
-    activity_id: int,
-    component_id: int,
-    request: Request,
-    background_tasks: BackgroundTasks,
-    file: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-) -> Response:
-    """Info-bijlage (afbeelding of PDF) per onderdeel uploaden (#451).
-
-    Heette "reglement" tot #623; één woord voor één ding (§2.13)."""
-    from app.domains.media.api import replace_component_info
-
-    if file is not None and file.filename:
-        try:
-            await replace_component_info(db, component_id, file, background_tasks)
-        except (LookupError, HTTPException) as exc:
-            return _detail_response(request, db, activity_id, error=_upload_error(exc))
-    return _detail_response(request, db, activity_id)
 
 
 # ── Gedeelde inschrijving-detail (betalingen + activiteiten-admin, #455/#451) ──
@@ -2111,142 +1578,21 @@ def organisatoren_zoeken(
     email: str = Depends(require_admin_ui),
     organiser_q: str = "",
 ) -> Response:
-    """De kandidatenlijst van de kiezer — alleen leden (#1004).
+    """The candidates of the organiser search — members only (#1004).
 
-    Zoeken gebeurt met `search_persons` uit mdm (#1006), dezelfde functie als de
-    vergaderkring; `members_only` is hier wél aan, want een organisator is een lid.
+    Searching is `search_persons` of mdm (#1006), the function the meeting circle
+    uses; `members_only`, because an organiser is a member. Since #1559 the answer
+    is the list of candidates alone: picking one adds a row to the fiche in the
+    page, and the one save writes it.
     """
     from app.domains.activities.api import organisers_for
-    from app.domains.mdm.api import search_persons
+    from app.domains.mdm.api import household_ids, search_persons
 
-    bezet = {o.person_id for o in organisers_for(db, activity_id)}
-    kandidaten = search_persons(db, organiser_q, members_only=True, exclude_ids=bezet)
-    return _detail_response(
-        request, db, activity_id, organiser_query=organiser_q, organiser_candidates=kandidaten
-    )
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/organisatoren",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def organisator_toevoegen(
-    activity_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    person_id: int = Form(...),
-) -> Response:
-    from app.domains.activities import service
-
-    try:
-        service.add_organiser(db, activity_id, person_id)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    except service.ActiviteitFout as fout:
-        return _detail_response(request, db, activity_id, error=str(fout))
-    return _detail_response(request, db, activity_id, toast=True)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/organisatoren/{organiser_id}",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def organisator_bijwerken(
-    activity_id: int,
-    organiser_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    is_contact: str = Form(""),
-    email_override: str = Form(""),
-    mobile_override: str = Form(""),
-    show_email: str = Form(""),
-    show_mobile: str = Form(""),
-    bevestigd: str = Form(""),
-) -> Response:
-    """Het vinkje en de twee overrides.
-
-    Het laatste vinkje weghalen vraagt een bevestiging, en die is een SERVERregel
-    (#1004): zonder `bevestigd` gebeurt er niets. Alleen een dialoog in het scherm
-    zou betekenen dat een tweede scherm of een script de contactpersoon stil kan
-    laten verdwijnen — en dan tonen de affiches ineens de gegevens van Raak.
-    """
-    from app.domains.activities import service
-    from app.domains.activities.api import organisers_for
-
-    aan = bool(is_contact)
-    huidig = organisers_for(db, activity_id)
-    rij = next((o for o in huidig if o.id == organiser_id), None)
-    if rij is None:
-        raise HTTPException(status_code=404, detail=_("Organisator niet gevonden"))
-    laatste = rij.is_contact and sum(1 for o in huidig if o.is_contact) == 1
-    if laatste and not aan and not bevestigd:
-        return _detail_response(
-            request,
-            db,
-            activity_id,
-            error=_(
-                "Zonder contactpersoon tonen de affiches de website, het e-mailadres "
-                "en het gsm-nummer van Raak. Bevestig om door te gaan."
-            ),
-        )
-    service.update_organiser(
-        db,
-        activity_id,
-        organiser_id,
-        {
-            "is_contact": aan,
-            "email_override": email_override,
-            "mobile_override": mobile_override,
-            # #1032: een vinkje dat niet meekomt, staat uit. Het formulier stuurt de
-            # drie altijd mee, dus afwezig betekent hier echt "uitgezet".
-            "show_email": bool(show_email),
-            "show_mobile": bool(show_mobile),
-        },
-    )
-    return _detail_response(request, db, activity_id, toast=True)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/organisatoren/{organiser_id}/verplaats",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def move_organiser_route(
-    activity_id: int,
-    organiser_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    richting: str = Form(""),
-) -> Response:
-    """One place up or down (#1433); the order decides who makes the poster."""
-    from app.domains.activities.api import move_organiser
-
-    try:
-        move_organiser(db, activity_id, organiser_id, richting)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Organisator niet gevonden"))
-    return _detail_response(request, db, activity_id)
-
-
-@router.post(
-    "/admin/activiteiten/{activity_id}/organisatoren/{organiser_id}/verwijderen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def organisator_verwijderen(
-    activity_id: int,
-    organiser_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-) -> Response:
-    from app.domains.activities import service
-
-    if not service.remove_organiser(db, activity_id, organiser_id):
-        raise HTTPException(status_code=404, detail=_("Organisator niet gevonden"))
-    return _detail_response(request, db, activity_id, toast=True)
+    taken = {o.person_id for o in organisers_for(db, activity_id)}
+    candidates = search_persons(db, organiser_q, members_only=True, exclude_ids=taken)
+    found = {
+        "organiser_query": organiser_q,
+        "organiser_candidates": candidates,
+        "organiser_households": household_ids(db, [c.person.id for c in candidates]),
+    }
+    return templates.TemplateResponse(request, "_aa_org_candidates.html", found)

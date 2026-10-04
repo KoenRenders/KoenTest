@@ -63,8 +63,10 @@ HINT = (
     "Uit: het product verdwijnt van het publieke formulier, maar het bestuur "
     "kan het nog toevoegen aan een bestaande inschrijving."
 )
-# Twee plaatsen: de bewerkrij van het bestaande product en de aanmaakrij eronder.
-PLAATSEN = 2
+# Three places since #1559: the row of the existing product, the row template
+# "+ Product" adds under this component, and the one inside the template a new
+# component is made from. All three come from the one row macro.
+PLAATSEN = 3
 
 
 @pytest.fixture
@@ -91,9 +93,11 @@ def activiteit_met_product(db_session):
     return a
 
 
-def _scherm(client, activiteit) -> str:
+def _scherm(client, activiteit, lezen: bool = False) -> str:
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-    antwoord = client.get(f"/admin/activiteiten/{activiteit.id}")
+    # The switch stands in the editor (#1559: `?bewerken=1`); the badge in the
+    # read state, beside the product's line.
+    antwoord = client.get(f"/admin/activiteiten/{activiteit.id}" + ("" if lezen else "?bewerken=1"))
     assert antwoord.status_code == 200, antwoord.status_code
     return antwoord.text
 
@@ -152,7 +156,7 @@ def test_de_badge_verschijnt_alleen_bij_een_product_dat_niet_publiek_is(
     """
     from app.domains.activities.api import ActivityProduct
 
-    html = _scherm(client, activiteit_met_product)
+    html = _scherm(client, activiteit_met_product, lezen=True)
     assert BADGE not in html, "een publiek zichtbaar product draagt een 'Niet publiek'-badge"
 
     product = (
@@ -161,7 +165,7 @@ def test_de_badge_verschijnt_alleen_bij_een_product_dat_niet_publiek_is(
     product.is_active = False
     db_session.flush()
 
-    html = _scherm(client, activiteit_met_product)
+    html = _scherm(client, activiteit_met_product, lezen=True)
     assert BADGE in html, f"een product dat niet publiek staat, draagt geen {BADGE!r}-badge"
 
 

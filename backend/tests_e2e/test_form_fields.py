@@ -41,7 +41,8 @@ _FRAME = """() => {
     head: r(q('[data-record-head]')), tabs: r(q('[data-related-tabs]')),
     form: r(q('[data-form-column]')), summary: r(q('[data-summary-column]')),
     mode: q('[data-form-flow]').dataset.mode,
-    blocks: [...q('[data-form-flow]').children].filter(e => e.checkVisibility() && e.getBoundingClientRect().height > 0)
+    // the one form is `display:contents` (#1559): its children are the flow's blocks
+    blocks: [...q('[data-form-flow]').children].flatMap(e => e.matches('form') ? [...e.children] : [e]).filter(e => e.checkVisibility() && e.getBoundingClientRect().height > 0)
       .map(e => e.matches('[data-rare-settings]') ? 'rare' : e.matches('[data-provisional-bar]') ? 'bar' : e.matches('[data-form-section]') ? 'section' : e.matches('form') ? 'form' : 'card'),
     sections: [...document.querySelectorAll('[data-form-flow] [data-form-section]')].map(s => ({title: s.querySelector('h2').innerText, ...r(s)})),
     fields: [...document.querySelectorAll('#aa-section-activity [data-field], #aa-section-audience [data-field], #aa-section-internal [data-field]')].map(f => ({name: f.dataset.field, ...r(f)})),

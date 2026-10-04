@@ -15,14 +15,13 @@ component and one product under a name no other test uses — and removes them
 again, because the e2e tests share their seed (#1241: a leftover row shifted
 another test's first match).
 
-Broken on purpose to check this test can go red (run, then restored), one per
-admin screen, each an additive change to the route:
+Broken on purpose to check this test can go red (run, then restored), each an
+additive change:
   - `activiteit_aanmaken` refuses every request with a 422 → fails at
     "step 1 (Nieuwe activiteit)";
-  - `onderdeel_toevoegen` returns the detail without calling `add_component` →
-    fails at "step 2 (onderdeel toevoegen)";
-  - `product_toevoegen` returns the detail without calling `add_product` →
-    fails at "step 3 (product toevoegen)".
+  - since #1559 the component and its product go with the fiche's one save:
+    `save_fiche` handing no component to `_save_components` → fails at
+    "step 3 (opslaan)".
 """
 
 import os
@@ -38,9 +37,11 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, htmx_afgerond, login_als_admin, open_registration  # noqa: E402
+from tests_e2e.schermen import BASE, login_als_admin, open_registration, pagina_klaar  # noqa: E402
 
-PRICE_TYPED = "12,50"  # as a Belgian board member types it
+# The price is a number field since #1559: the browser takes the comma of its own
+# locale and sends a point, which is what a script has to give it.
+PRICE_TYPED = "12.50"
 PRICE = Decimal("12.50")
 PRICE_SHOWN = "€12,50"  # as the public form renders it
 
@@ -112,6 +113,19 @@ def _count_in_a_fresh_session(name: str):
         db.close()
 
 
+def _component_id(activity_id: int) -> int:
+    """The one component the save wrote, read in a session of our own."""
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.activities.api import ActivitySubRegistration
+
+    db = SessionLocal()
+    try:
+        return db.query(ActivitySubRegistration).filter_by(activity_id=activity_id).one().id
+    finally:
+        db.close()
+
+
 def _remove(name: str) -> None:
     """Take the activity out again through the service, in a session of our own."""
     import app.models  # noqa: F401
@@ -145,32 +159,26 @@ def test_an_activity_created_through_the_screens_is_open_for_registration(admin)
             # The record opens in its read state (#1558), the name in its own field.
             expect(page.locator('#aa-detail [data-field="name"] [data-value]')).to_have_text(name)
 
-        with _step("step 2 (onderdeel toevoegen)"):
-            page.get_by_role("button", name="+ Onderdeel").click()
-            page.fill("#nc-name", component)
-            add_component = page.locator(
-                f"form[hx-post='/admin/activiteiten/{activity_id}/onderdelen']"
-            )
-            with htmx_afgerond(page):
-                add_component.get_by_role("button", name="Toevoegen").click()
-            product_form = page.locator(
-                f"form[hx-post^='/admin/activiteiten/{activity_id}/onderdelen/'][hx-post$='/producten']"
-            )
-            expect(product_form).to_have_count(1)
-            component_id = int(
-                re.search(
-                    r"/onderdelen/(\d+)/producten", product_form.get_attribute("hx-post")
-                ).group(1)
-            )
-            expect(page.locator("#aa-detail")).to_contain_text(component)
+        with _step("step 2 (onderdeel en product, in de pagina)"):
+            # Since #1559 the fiche has one save: the component and its product are
+            # rows added in the page, and nothing is sent until "Opslaan".
+            page.goto(f"/admin/activiteiten/{activity_id}?bewerken=1")
+            pagina_klaar(page)
+            page.locator("#aa-group-components > div > [data-group-add]").click()
+            page.keyboard.type(component)
+            row = page.locator("#aa-group-components > [data-group-rows] > [data-group-row]")
+            expect(row).to_have_count(1)
+            row.locator("[data-repeating-group] [data-group-add]").click()
+            page.keyboard.type(product)
+            row.locator('[data-repeating-group] input[name$=".price"]').fill(PRICE_TYPED)
 
-        with _step("step 3 (product toevoegen)"):
-            page.get_by_role("button", name="+ Product").click()
-            page.fill(f"#pname-{component_id}", product)
-            page.fill(f"#pprice-{component_id}", PRICE_TYPED)
-            with htmx_afgerond(page):
-                product_form.get_by_role("button", name="Toevoegen").click()
+        with _step("step 3 (opslaan)"):
+            page.click('[data-provisional-bar] button:has-text("Opslaan")')
+            page.wait_for_selector('[data-form-flow][data-mode="read"]')
+            pagina_klaar(page)
+            expect(page.locator("#aa-detail")).to_contain_text(component)
             expect(page.locator("#aa-detail")).to_contain_text(product)
+            component_id = _component_id(activity_id)
 
         with _step("step 4 (publiek zichtbaar, met product en prijs)"):
             page.goto("/activiteiten")

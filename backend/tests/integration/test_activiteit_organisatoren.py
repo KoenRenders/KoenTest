@@ -176,43 +176,6 @@ def test_nobody_is_a_contact_person_until_ticked(db_session, activiteit):
 # ── Alleen leden, via de route ───────────────────────────────────────────────
 
 
-def test_only_members_can_become_organiser(client, db_session, activiteit):
-    """Through the route: the picker only SHOWS members, and a post skips it."""
-    geen_lid = _persoon(db_session, "Nina", "Ondersteuner", lid=False)
-    csrf = _login(client)
-
-    resp = client.post(
-        f"/admin/activiteiten/{activiteit.id}/organisatoren",
-        data={"person_id": geen_lid.id},
-        headers={"X-CSRF-Token": csrf},
-    )
-
-    assert resp.status_code == 200
-    assert "Alleen leden" in resp.text
-    assert organisers_for(db_session, activiteit.id) == []
-
-
-def test_the_picker_offers_members_and_skips_who_is_already_there(client, db_session, activiteit):
-    lid = _persoon(db_session, "Mia", "Zoekbaar")
-    _persoon(db_session, "Nina", "Zoekbaar", lid=False)
-    _login(client)
-
-    html = client.get(
-        f"/admin/activiteiten/{activiteit.id}/organisatoren",
-        params={"organiser_q": "zoekbaar"},
-        headers={"HX-Request": "true"},
-    ).text
-    assert "Mia" in html and "Nina" not in html
-
-    add_organiser(db_session, activiteit.id, lid.id)
-    html = client.get(
-        f"/admin/activiteiten/{activiteit.id}/organisatoren",
-        params={"organiser_q": "zoekbaar"},
-        headers={"HX-Request": "true"},
-    ).text
-    assert "Geen lid gevonden" in html
-
-
 # ── De bevestiging bij het laatste vinkje, via de route ──────────────────────
 
 
@@ -224,39 +187,6 @@ def _post_vinkje(client, csrf, activiteit, organiser_id, **extra):
         data=data,
         headers={"X-CSRF-Token": csrf},
     )
-
-
-def test_the_last_tick_needs_a_confirmation(client, db_session, activiteit):
-    rij = add_organiser(db_session, activiteit.id, _persoon(db_session, "Els", "Contact").id)
-    update_organiser(db_session, activiteit.id, rij.id, {"is_contact": True})
-    csrf = _login(client)
-
-    zonder = _post_vinkje(client, csrf, activiteit, rij.id)
-    assert zonder.status_code == 200
-    assert "Zonder contactpersoon" in zonder.text
-    db_session.expire_all()
-    assert organisers_for(db_session, activiteit.id)[0].is_contact is True, (
-        "het vinkje verdween zonder bevestiging"
-    )
-
-    met = _post_vinkje(client, csrf, activiteit, rij.id, bevestigd="1")
-    assert met.status_code == 200
-    db_session.expire_all()
-    assert organisers_for(db_session, activiteit.id)[0].is_contact is False
-
-
-def test_unticking_one_of_two_needs_no_confirmation(client, db_session, activiteit):
-    eerste = add_organiser(db_session, activiteit.id, _persoon(db_session, "A", "Een").id)
-    tweede = add_organiser(db_session, activiteit.id, _persoon(db_session, "B", "Twee").id)
-    for rij in (eerste, tweede):
-        update_organiser(db_session, activiteit.id, rij.id, {"is_contact": True})
-    csrf = _login(client)
-
-    _post_vinkje(client, csrf, activiteit, eerste.id)
-
-    db_session.expire_all()
-    aangevinkt = [o.is_contact for o in organisers_for(db_session, activiteit.id)]
-    assert aangevinkt == [False, True]
 
 
 # ── De publieke kant verandert niet ──────────────────────────────────────────
@@ -343,34 +273,6 @@ def test_an_override_does_not_leak_when_the_tick_is_off(db_session, activiteit):
     )
 
 
-def test_the_screen_shows_the_two_ticks_and_saves_them(client, db_session, activiteit):
-    person = _persoon(db_session, "Els", "Bereikbaar", email="els@example.org")
-    rij = add_organiser(db_session, activiteit.id, person.id)
-    csrf = _login(client)
-
-    html = client.get(f"/admin/activiteiten/{activiteit.id}").text
-    assert "e-mailadres op de affiche" in html and "gsm-nummer op de affiche" in html
-
-    # Zoals het scherm post: aangevinkt komt mee, uitgevinkt komt níet mee.
-    resp = client.post(
-        f"/admin/activiteiten/{activiteit.id}/organisatoren/{rij.id}",
-        data={
-            "is_contact": "1",
-            "email_override": "",
-            "mobile_override": "",
-            "show_mobile": "1",
-            "bevestigd": "1",
-        },
-        headers={"X-CSRF-Token": csrf},
-    )
-
-    assert resp.status_code == 200
-    db_session.expire_all()
-    [zicht] = organisers_for(db_session, activiteit.id)
-    assert (zicht.show_email, zicht.show_mobile) == (False, True)
-    assert zicht.email == "" and zicht.is_contact is True
-
-
 def test_who_is_no_contact_person_shows_nothing_anyway(db_session, activiteit):
     """De vlaggen zijn alleen zinvol bij een contactpersoon — het scherm toont ze
     daar dan ook naar. Wie niet aangevinkt staat, komt sowieso niet op de affiche."""
@@ -400,56 +302,6 @@ def test_who_is_no_contact_person_shows_nothing_anyway(db_session, activiteit):
 
 def _rij_html(client, activiteit) -> str:
     return client.get(f"/admin/activiteiten/{activiteit.id}").text
-
-
-def test_de_leesregel_toont_geen_invoervelden(client, db_session, activiteit):
-    person = _persoon(db_session, "Els", "Bereikbaar", email="els@example.org")
-    rij = add_organiser(db_session, activiteit.id, person.id)
-    update_organiser(db_session, activiteit.id, rij.id, {"is_contact": True})
-    _login(client)
-
-    html = _rij_html(client, activiteit)
-
-    assert "Els Bereikbaar" in html and "contactpersoon" in html
-    assert "els@example.org" in html, "de leesregel zegt wat er op de affiche komt"
-    # De invoervelden bestaan wel in de DOM, maar in een blok dat dicht begint.
-    vorm = html.split(
-        'hx-post="/admin/activiteiten/%d/organisatoren/%d"' % (activiteit.id, rij.id)
-    )[0]
-    assert 'x-show="edit" style="display: none"' in html, (
-        "de bewerkvorm begint niet dicht; dan verandert er niets zichtbaar na "
-        "Bewaren — de melding van #1033"
-    )
-    assert "org-mail-" not in vorm, "een invoerveld staat buiten de bewerkvorm"
-
-
-def test_na_bewaren_komt_de_rij_dicht_terug(client, db_session, activiteit):
-    """Het antwoord op Bewaren is hetzelfde fragment, en dat rendert dicht.
-
-    Daarom is dit te toetsen zonder browser: de server bepaalt de beginstand.
-    """
-    person = _persoon(db_session, "Els", "Bereikbaar", email="els@example.org")
-    rij = add_organiser(db_session, activiteit.id, person.id)
-    csrf = _login(client)
-
-    antwoord = client.post(
-        f"/admin/activiteiten/{activiteit.id}/organisatoren/{rij.id}",
-        data={
-            "is_contact": "1",
-            "email_override": "",
-            "mobile_override": "",
-            "show_email": "1",
-            "show_mobile": "1",
-            "bevestigd": "1",
-        },
-        headers={"X-CSRF-Token": csrf},
-    )
-
-    assert antwoord.status_code == 200
-    assert 'x-show="edit" style="display: none"' in antwoord.text, (
-        "de rij komt open terug; dan lijkt Bewaren niets te doen"
-    )
-    assert "contactpersoon" in antwoord.text, "en de leesregel toont de nieuwe stand"
 
 
 # ── The order, changed with arrows (#1433) ────────────────────────────────────
@@ -498,20 +350,24 @@ def test_a_copy_keeps_the_changed_order(db_session, activiteit):
     assert [r.person_id for r in organisers_for(db_session, copy.id)] == original
 
 
-def test_the_card_marks_the_poster_three_and_carries_44_px_arrows(client, db_session, activiteit):
+def test_the_group_marks_the_poster_three_and_orders_through_the_row_menu(
+    client, db_session, activiteit
+):
     """The first three contacts read "op de affiche", a fourth contact says why
-    it is not; the arrows are the kit's `reorder` at touch size, the first one's
-    "up" and the last one's "down" disabled."""
+    it is not. Since #1559 the order is changed with the handle and the row menu
+    (Omhoog · Omlaag) of the kit's repeating group, in the page; the arrows of the
+    card are gone with the card."""
     import re
 
     _six_contacts(db_session, activiteit)
     db_session.commit()
     _login(client)
-    html = client.get(f"/admin/activiteiten/{activiteit.id}").text
-    card = html[html.index("Organisatoren") :]
-    assert card.count(">op de affiche<") == 3
-    assert card.count("niet op de affiche: alleen de eerste drie") == 3
-    arrows = re.findall(r'<button type="button" class="[^"]*min-w-11 min-h-11[^"]*"[^>]*>', card)
-    assert len(arrows) == 12, len(arrows)
-    # The attribute, not the `disabled:opacity-30` in the class.
-    assert sum(bool(re.search(r'"\s+disabled[\s>]', b)) for b in arrows) == 2
+    html = client.get(f"/admin/activiteiten/{activiteit.id}?bewerken=1").text
+    start = html.index('id="aa-group-organisers"')
+    group = html[start : html.index("<template", start)]
+    assert group.count(">op de affiche<") == 3
+    assert group.count("niet op de affiche: alleen de eerste drie") == 3
+    assert group.count("data-row-handle") == 6, "a handle per organiser: the order means something"
+    assert len(re.findall(r'data-row-action="up"', group)) == 6
+    assert len(re.findall(r'data-row-action="down"', group)) == 6
+    assert 'data-row-action="duplicate"' not in group, "a member is not duplicated"
