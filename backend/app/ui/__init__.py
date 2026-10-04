@@ -1046,7 +1046,7 @@ def site_context(db, request=None) -> dict:
     from app.domains.media.api import MediaAsset, MediaKind, media_url
     from app.i18n import _
     from app.kernel.modules import ModuleCode
-    from app.kernel.tenant_config import _actieve_tenant
+    from app.kernel.tenant_config import _actieve_tenant, tenant_public_chat_enabled
 
     # Dezelfde tenantresolutie als de rest van de configuratie (#924): buiten een
     # verzoek — een script, een test — is er geen context, en dan hoort de
@@ -1140,8 +1140,10 @@ def site_context(db, request=None) -> dict:
         ],
         "current_year": date.today().year,
         # CR-19 (#1477): and only with the chatbot module on for this tenant —
-        # the bubble would otherwise post to a route that answers 404.
-        "chat_enabled": settings.chat_enabled and module_enabled(ModuleCode.CHATBOT),
+        # the bubble would otherwise post to a route that answers 404. #1568: and
+        # with the tenant's own switch for the public site on; one rule
+        # (`tenant_public_chat_enabled`), which the chat endpoints read too.
+        "chat_enabled": tenant_public_chat_enabled(db) and module_enabled(ModuleCode.CHATBOT),
         "stt_mode": settings.stt_mode,  # spraakinvoer in de widget (#567)
         "gebruiker": _huidige_gebruiker(db, request),
         # Branding per tenant (#407/#519): naam/tagline/Facebook uit de

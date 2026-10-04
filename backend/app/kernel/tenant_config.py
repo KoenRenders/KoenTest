@@ -477,7 +477,52 @@ def tenant_admin_chat_enabled(db: Session, tenant_id: int | None = None) -> bool
 
     if not settings.admin_chat_enabled:
         return False
-    return (get_setting(db, "admin_chat_enabled", tenant_id=tenant_id) or "") == "1"
+    return switch_is_on(
+        "admin_chat_enabled", get_setting(db, "admin_chat_enabled", tenant_id=tenant_id)
+    )
+
+
+def tenant_public_chat_enabled(db: Session, tenant_id: int | None = None) -> bool:
+    """May a visitor of this tenant's site ask Raakje a question? (#1568)
+
+    The same two switches in a row as the back office's: the environment sets
+    ``CHAT_ENABLED``, and the tenant sets its own beside it. The site shell (the
+    bell) and the public chat endpoints both ask this, so a tenant that switched
+    it off has an endpoint that refuses, not only a bell that hides. Whether the
+    tenant has the Assistent module at all is the module gate's question — a
+    route of a module that is off answers 404 before it gets here.
+
+    Until #1568 the tenant had one choice, the module as a whole, so it could
+    not switch the public Raakje off without losing the back-office one. **On is
+    the default**: a tenant that never saved the setting keeps what it had with
+    the module on, and only an explicit "0" switches it off.
+    """
+    from app.config import settings
+
+    if not settings.chat_enabled:
+        return False
+    return switch_is_on(
+        "public_chat_enabled", get_setting(db, "public_chat_enabled", tenant_id=tenant_id)
+    )
+
+
+#: The tenant settings that are a yes or a no (#1568): the value stored for on,
+#: the value stored for off, and what a tenant that never saved it has. The
+#: tenant editor shows each as a switch and sends one of the two values; the
+#: rules above read them through `switch_is_on`, so the editor and the rule
+#: cannot disagree about what "on" is. `admin_chat_enabled` keeps the values it
+#: always had ("1", or empty).
+SWITCH_SETTINGS: dict[str, tuple[str, str, bool]] = {
+    "admin_chat_enabled": ("1", "", False),
+    "public_chat_enabled": ("1", "0", True),
+}
+
+
+def switch_is_on(key: str, value: str | None) -> bool:
+    """Is this stored value of a switch setting "on"?"""
+    on, off, default_on = SWITCH_SETTINGS[key]
+    stored = value or ""
+    return stored != off if default_on else stored == on
 
 
 def tenant_language(db: Session, tenant_id: int | None = None) -> str:

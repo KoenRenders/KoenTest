@@ -99,11 +99,18 @@
       </div>
       {% endif %}
       {% for key, label, hulp in card.settings %}
+      {% if key in schakelaars %}
+      {# #1568: a yes-or-no setting is a switch (CR-11 Q13), not a text field
+         that takes "1". #}
+      {{ ui.switch(key, label, checked=schakelaars[key].on, on_value=schakelaars[key].on_value,
+                   off_value=schakelaars[key].off_value, help=hulp) }}
+      {% else %}
       <div>
         {{ ui.label(label, key) }}
         <input name="{{ key }}" id="{{ key }}" value="{{ waarden[key] }}" class="w-full">
         <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p>
       </div>
+      {% endif %}
       {% endfor %}
       {% for key, label, hulp in card.secrets %}
       <div>

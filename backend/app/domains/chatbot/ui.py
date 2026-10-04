@@ -23,6 +23,7 @@ from app.domains.auth.api import (
 )
 from app.domains.chatbot.render import render_answer_markdown
 from app.i18n import _
+from app.kernel.tenant_config import tenant_public_chat_enabled
 from app.limiter import chat_limiter
 from app.ui import admin_nav, templates
 
@@ -57,7 +58,9 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db), vraag: str = F
     from app.domains.chatbot.service import run_public_chat
 
     vraag = vraag.strip()
-    if not settings.chat_enabled:
+    # #1568: the environment's switch and the tenant's, one rule — the same the
+    # site shell reads for the bell.
+    if not tenant_public_chat_enabled(db):
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     if not vraag:
         return templates.TemplateResponse(
