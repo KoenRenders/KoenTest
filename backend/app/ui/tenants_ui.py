@@ -30,6 +30,7 @@ from app.domains.auth.api import (  # noqa: F401
 )
 from app.domains.mdm.api import OrganizationType
 from app.i18n import _
+from app.kernel.tenant_config import SWITCH_SETTINGS, switch_is_on
 from app.ui import admin_nav, filterparams, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
@@ -90,11 +91,19 @@ BEKENDE_SLEUTELS = [
     ("umami_website_id", "Umami Website-ID", "Het Umami-site-ID (geen secret)."),
     ("max_item_quantity", "Max. aantal per item", "Inschrijvingslimiet per item. Default 50."),
     ("max_registrations_per_email", "Max. inschrijvingen per e-mail", "Per activiteit. Default 3."),
+    # #1568: the two Raakje settings are switches (`SWITCH_SETTINGS` in
+    # `kernel.tenant_config`), independent of each other.
     (
         "admin_chat_enabled",
         "Raakje in de backoffice",
-        "'1' = het bestuur mag Raakje vragen stellen over de eigen cijfers. Leeg = uit. "
+        "Het bestuur mag Raakje vragen stellen over de eigen cijfers. "
         "Werkt enkel als ADMIN_CHAT_ENABLED ook aan staat (#917).",
+    ),
+    (
+        "public_chat_enabled",
+        "Raakje op de publieke site",
+        "Bezoekers zien de Raakje-bel en mogen vragen stellen. "
+        "Werkt enkel als CHAT_ENABLED ook aan staat.",
     ),
 ]
 
@@ -379,6 +388,13 @@ def _editor_ctx(
         # A module without a card keeps its state through the one Opslaan.
         "kept_modules": sorted(c.value for c in _hidden_cards(unit) if c.value in stored_on),
         "waarden": waarden,
+        # #1568: which settings are a switch, and whether each is on — by the
+        # rule that reads them (`switch_is_on`), not by a comparison here.
+        "schakelaars": {
+            key: {"on": switch_is_on(key, waarden[key]), "on_value": on, "off_value": off}
+            for key, (on, off, _default) in SWITCH_SETTINGS.items()
+            if key in waarden
+        },
         "secrets_gezet": secrets_gezet,
         "error": None,
         "opgeslagen": False,
@@ -533,6 +549,8 @@ async def _save(request: Request, db: Session, tenant_id: int, email: str, *, ow
         # #797: the typed values stay; throwing them away makes the message worse
         # than the mistake.
         ctx["waarden"] = {**ctx["waarden"], **{k: v for k, v in form.items() if k in labels}}
+        for key, switch in ctx["schakelaars"].items():
+            switch["on"] = switch_is_on(key, str(ctx["waarden"][key]))
         return ctx
 
     # #971: enkel nog de instellingen van de site. Wat de organisatie IS, wordt op

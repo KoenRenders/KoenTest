@@ -244,6 +244,16 @@
 {% endcall %}
 
 {# ── 6b. Veldsoorten van de formulierenbouwer ──────────────────────────────── #}
+{# #1568: the switch, for a yes-or-no setting in an edit form (CR-11 Q13). #}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">{{ _("Een schakelaar voor een ja-of-nee-instelling: de knop links, het label rechts. Hij geldt pas na Opslaan.") }}</p>
+  <div class="space-y-4">
+    {{ ui.switch("ds_schakelaar_aan", _("Raakje op de publieke site"), checked=True, on_value="1", off_value="0", help=_("Bezoekers zien de Raakje-bel en mogen vragen stellen.")) }}
+    {{ ui.switch("ds_schakelaar_uit", _("Raakje in de backoffice")) }}
+  </div>
+  <p class="text-xs text-gray-500 mt-3"><code>ui.switch(name, label, checked=…, on_value=…, off_value=…, help=…)</code></p>
+{% endcall %}
+
 {{ ui.section_header(_("6b · Veldsoorten van een formulier"),
                      _("Naar de formulierbouwer"), action_href="/admin/formulieren") }}
 {% call ui.card() %}

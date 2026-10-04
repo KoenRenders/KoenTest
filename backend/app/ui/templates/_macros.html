@@ -2232,3 +2232,27 @@
 <span id="{{ id }}-count" hx-swap-oob="true" data-toolbar-count class="ml-auto whitespace-nowrap text-xs tabular-nums text-ink-soft">{{ range_text(page, per_page, total) }}</span>
 {% for s in segments %}{% if s.get('count') is not none %}<span id="{{ id }}-n-{{ s.value }}" hx-swap-oob="true" class="tabular-nums">({{ s.count }})</span>{% endif %}{% endfor %}
 {%- endmacro %}
+
+{# ── Switch (CR-11 Q13, block 6; end state §3.5 — first used by #1568) ────────
+   A yes or a no in an edit form, applied on Opslaan like any field. **The knob
+   at the left, the label at its right**, 8 px apart, as a checkbox reads. A
+   checkbox with `role="switch"`, so a screen reader says "aan" or "uit" and the
+   space bar toggles it; the track is decoration.
+
+   An unticked checkbox sends nothing, and "nothing" is not "off" for a form that
+   saves only what it receives — so a hidden field with the same name goes first
+   and carries `off_value`; ticked, the checkbox follows it with `on_value`, and
+   the last value of a name is the one the server reads. `help` stands under the
+   switch and is linked to it with `aria-describedby`. #}
+{% macro switch(name, label, checked=False, on_value="1", off_value="", id=None, help=None) -%}
+{% set _id = id or name %}
+<div data-switch>
+  <label for="{{ _id }}" class="inline-flex min-h-11 md:min-h-0 cursor-pointer items-center gap-2">
+    <input type="hidden" name="{{ name }}" value="{{ off_value }}">
+    <input type="checkbox" role="switch" name="{{ name }}" id="{{ _id }}" value="{{ on_value }}" class="peer sr-only"{% if checked %} checked{% endif %}{% if help %} aria-describedby="{{ _id }}-hulp"{% endif %}>
+    <span aria-hidden="true" class="relative h-6 w-11 shrink-0 rounded-full bg-gray-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-brand-ocean peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-200 peer-focus-visible:ring-offset-2"></span>
+    <span class="text-sm font-medium text-ink">{{ label }}</span>
+  </label>
+  {% if help %}<p id="{{ _id }}-hulp" class="mt-1 text-xs text-ink-soft">{{ help }}</p>{% endif %}
+</div>
+{%- endmacro %}

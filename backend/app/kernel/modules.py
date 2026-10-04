@@ -178,7 +178,7 @@ MODULES: tuple[Module, ...] = (
         admin_items=(("/admin/ai-context", "Raakje"), ("/admin/rapporten/raakje", "AI · Raakje")),
         route_prefixes=("/api/v1/chat", "/admin/ai-context", "/raakje/"),
         record_tables=("ai.chatbot_info",),
-        tenant_settings=("admin_chat_enabled",),
+        tenant_settings=("admin_chat_enabled", "public_chat_enabled"),
     ),
     Module(
         M.PAYMENT,
