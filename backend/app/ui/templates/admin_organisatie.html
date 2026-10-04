@@ -22,6 +22,10 @@
 
 {{ ui.error_banner(error) }}
 {% if toast_opgeslagen %}{{ ui.toast(_("Opgeslagen.")) }}{% endif %}
+{# #1550: the site shows another organisation of its account; its data lives there. #}
+{% if read_only %}
+<p class="text-sm text-ink-soft mb-4" data-read-only>{{ _("Deze site toont de gegevens van %(naam)s. Je bewerkt ze bij die organisatie; hier staan ze alleen ter inzage.", naam=organisatie.name) }}</p>
+{% endif %}
 
 {# Gegroepeerd per TABEL, en dat is geen opmaakkeuze (#971): tot nu toe stonden
    rekeningnummer, btw-nummer en Facebook onder elkaar alsof ze hetzelfde soort ding
@@ -30,6 +34,7 @@
 {# #1535: the target literally per scope — the rules gate walks it to its route. #}
 <form id="org-form" {% if own %}hx-post="/admin/organisatie"{% else %}hx-post="/admin/organisaties/{{ organization_id }}"{% endif %}
       hx-target="body" hx-swap="innerHTML" class="space-y-6 max-w-2xl">
+<fieldset class="space-y-6 min-w-0"{% if read_only %} disabled{% endif %}>
 
   <section>
     {{ ui.section_header(_("Naam en rechtsvorm")) }}
@@ -106,9 +111,10 @@
     </div>
   </section>
 
+</fieldset>
   {# Annuleren haalt het bewaarde scherm opnieuw op (#1089). Het formulier
      vervangt bij opslaan de hele body, dus een gewone link naar dezelfde
      pagina geeft precies wat een geslaagde opslag ook toont. #}
-  {{ ui.action_bar(form="org-form", cancel_href=cancel_href) }}
+  {% if not read_only %}{{ ui.action_bar(form="org-form", cancel_href=cancel_href) }}{% endif %}
 </form>
 {% endblock %}

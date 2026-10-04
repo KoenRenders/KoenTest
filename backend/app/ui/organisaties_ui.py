@@ -144,7 +144,9 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     }
 
 
-def _editor_ctx(request: Request, db: Session, organization_id: int, *, own=False) -> dict:
+def _editor_ctx(
+    request: Request, db: Session, organization_id: int, *, own=False, read_only=False
+) -> dict:
     """The organisation editor's context. `own` (#1535) is a tenant workspace's
     "Onze organisatie": the same fields and the same save, for this workspace's
     own organisation only; only where it posts and leads differs."""
@@ -172,6 +174,8 @@ def _editor_ctx(request: Request, db: Session, organization_id: int, *, own=Fals
         "heeft_site": heeft_site,
         # #1535: where this editor posts and leads, per scope.
         "own": own,
+        # #1550: another organisation's data, shown where this site shows it.
+        "read_only": read_only,
         "back_href": None if own else "/admin/organisaties",
         "cancel_href": "/admin/organisatie" if own else f"/admin/organisaties/{organization_id}",
         "site_href": "/admin/instellingen" if own else f"/admin/tenants/{organization_id}",
@@ -283,12 +287,27 @@ def own_organisation(
     request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
 ):
     """ "Onze organisatie" (#1535): the tenant workspace's own organisation, for
-    its ADMIN and the operator — and nothing of another organisation."""
+    its ADMIN and the operator — and nothing of another organisation.
+
+    #1550: the organisation behind the site. When the operator pointed the site
+    at another organisation of its account, that one is shown, read-only, with
+    the line that says where it is edited: its data is never copied here."""
+    org_id, editable = _own_organisation(db)
     return templates.TemplateResponse(
         request,
         "admin_organisatie.html",
-        _editor_ctx(request, db, require_tenant_workspace(db), own=True),
+        _editor_ctx(request, db, org_id, own=True, read_only=not editable),
     )
+
+
+def _own_organisation(db: Session) -> tuple[int, bool]:
+    """The organisation "Onze organisatie" shows (#1550), and whether this
+    workspace may edit it: only its own row."""
+    from app.kernel.tenant_config import site_organization_id
+
+    tenant = require_tenant_workspace(db)
+    org_id = site_organization_id(db, tenant)
+    return org_id, org_id == tenant
 
 
 @router.post(
@@ -297,7 +316,13 @@ def own_organisation(
 async def own_organisation_save(
     request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
 ):
-    return await _save(request, db, require_tenant_workspace(db), own=True)
+    org_id, editable = _own_organisation(db)
+    if not editable:
+        raise HTTPException(
+            status_code=403,
+            detail=_("Deze gegevens komen van een andere organisatie; je bewerkt ze daar."),
+        )
+    return await _save(request, db, org_id, own=True)
 
 
 async def _save(request: Request, db: Session, organization_id: int, *, own: bool):

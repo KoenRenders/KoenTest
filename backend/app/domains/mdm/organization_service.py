@@ -405,6 +405,8 @@ def organization_options(db) -> list[dict]:
             # and a member equals no string it is compared with (CR-12 phase 2).
             "org_type": code_of(r.org_type),
             "is_active": r.is_active,
+            # #1550: the tenant editor offers the organisations of one account.
+            "parent_id": r.parent_id,
             "legal_form": r.legal_form or "",
         }
         for r in rijen

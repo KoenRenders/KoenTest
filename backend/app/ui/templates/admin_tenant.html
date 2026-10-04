@@ -46,6 +46,14 @@
         {% if not account_value %}<option value="" selected>{{ _("Geen account") }}</option>{% endif %}
         {% for value, name in account_options %}<option value="{{ value }}"{% if value == account_value %} selected{% endif %}>{{ name }}</option>{% endfor %}
       {% endcall %}</div>
+    {# #1550: whose data the site shows — never an organisation of another account. #}
+    {% if site_org_options %}
+    <div class="mt-4">{{ ui.label(_("Organisatie achter de site"), "t-site-org") }}
+      {% call ui.select_control("site_organization_id", cls="w-full", attrs='id="t-site-org"') %}
+        {% for value, name in site_org_options %}<option value="{{ value }}"{% if value == site_org_value %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      {% endcall %}
+      <p class="text-xs text-ink-soft mt-1">{{ _("De voettekst, Onze organisatie en de mails tonen de gegevens van deze organisatie. Alleen organisaties van het eigen account.") }}</p></div>
+    {% endif %}
   </section>
   {% endif %}
   {% if modules_editable %}

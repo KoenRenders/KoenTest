@@ -212,6 +212,7 @@ def save_tenant(
     modules: Iterable[str] | None,
     kind: str | None = None,
     account: str | None = None,
+    site_organization: str | None = None,
     actor: str | None = None,
 ) -> None:
     """The tenant editor's one Opslaan (#1498): the module set and the settings
@@ -232,6 +233,11 @@ def save_tenant(
 
     new_kind = _checked_kind(db, tenant_id, kind) if kind is not None else None
     new_parent = _checked_account(db, tenant_id, account) if account is not None else None
+    # #1550: checked against the account the tenant will have after this save.
+    from app.domains.mdm.models import Organization
+
+    parent_after = new_parent if account is not None else db.get(Organization, tenant_id).parent_id
+    site_org = _checked_site_organization(db, tenant_id, site_organization, parent_after)
     chosen = _checked_modules(modules) if modules is not None else None
     _write_settings(db, tenant_id, form, known=known, secret=secret)
     if chosen is not None:
@@ -240,6 +246,7 @@ def save_tenant(
         _write_kind(db, tenant_id, new_kind, actor=actor)
     if account is not None:
         _write_account(db, tenant_id, new_parent, actor=actor)
+    _write_site_organization(db, tenant_id, site_org, actor=actor)
     db.commit()
     invalidate_tenant_codes()
 
@@ -281,6 +288,69 @@ def _checked_account(db, tenant_id: int, account: str) -> int | None:
     if parent is None or parent.org_type is not OrganizationType.ACCOUNT or not parent.is_active:
         raise TenantFout("Kies een actief account.")
     return parent.id
+
+
+def _checked_site_organization(
+    db, tenant_id: int, value: str | None, parent_id: int | None
+) -> int | None:
+    """The organisation behind the tenant's site after this save (#1550): None
+    for its own row, else the account or another organisation of that account —
+    never one of another account (Koen: no data across accounts).
+
+    `value` is what the form sent: "" for its own row, an id, or None when the
+    form sent nothing; then the current choice stays, unless the account moves
+    away from under it — a choice outside the new account falls back to the
+    tenant's own row (and is logged by `_write_site_organization`).
+    """
+    from app.domains.mdm.models import Organization
+
+    org = db.get(Organization, tenant_id)
+    if value is None:
+        chosen = org.site_organization_id
+    elif value == "":
+        chosen = None
+    elif value.isdigit():
+        chosen = int(value)
+    else:
+        raise TenantFout("Kies een organisatie van het eigen account.")
+    if chosen is None or chosen == tenant_id:
+        return None
+    other = db.get(Organization, chosen)
+    within = (
+        parent_id is not None
+        and other is not None
+        and other.deleted_at is None
+        and (other.id == parent_id or other.parent_id == parent_id)
+    )
+    if within:
+        return chosen
+    if value is None:
+        return None
+    raise TenantFout("Kies een organisatie van het eigen account.")
+
+
+def _write_site_organization(db, tenant_id: int, chosen: int | None, *, actor: str | None) -> None:
+    """Point the tenant's site at an organisation; a change is logged (#1550),
+    like the account and the kind (#1533)."""
+    from app.domains.mdm.models import Organization
+
+    org = db.get(Organization, tenant_id)
+    old = org.site_organization_id
+    if old == chosen:
+        return
+    org.site_organization_id = chosen
+
+    def code(org_id):
+        return db.get(Organization, org_id).code if org_id is not None else None
+
+    logger.info(
+        "tenant site organisation changed: tenant=%s code=%s %s -> %s by %s",
+        org.id,
+        org.code,
+        code(old),
+        code(chosen),
+        actor or "unknown",
+    )
 
 
 def _write_account(db, tenant_id: int, parent_id: int | None, *, actor: str | None) -> None:

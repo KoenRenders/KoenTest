@@ -451,8 +451,9 @@ def _organisers(db: Session, activity_id: int) -> list[Contact]:
 
 def _association(db: Session) -> dict[str, str]:
     from app.domains.mdm.api import organization_details
+    from app.kernel.tenant_config import site_organization_id
 
-    details = organization_details(db, _tenant())
+    details = organization_details(db, site_organization_id(db, _tenant()))  # #1550
     website = (details.get("website") or "").strip()
     for prefix in ("https://", "http://"):
         if website.startswith(prefix):
