@@ -128,7 +128,7 @@ Other settings, next to and separate from the public `CHAT_*` family:
 lookup), `ADMIN_CHAT_DAILY_CHAR_BUDGET` (per **signed-in admin**, not per IP),
 `ADMIN_CHAT_MAX_TOOL_ROUNDS`, `ADMIN_CHAT_MAX_ROWS`, `ADMIN_CHAT_TIMEOUT_SECONDS`.
 
-The way in is one button on `/admin/rapporten`; there is no menu entry of its own.
+The way in is the **Assistent** trigger in the admin top bar (CR-11 K8, #1562, October 2026), which opens the panel with the screen's context — a record, a list with its filter, otherwise the tenant; the assistant page `/admin/rapporten/raakje` and the per-screen overlays are gone, and there is no menu entry. See `design-system.md` §2.11.
 
 ## Before it may be switched on anywhere beyond HDEV
 

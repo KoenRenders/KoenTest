@@ -20,8 +20,11 @@ what refuses a deviation. A builder reads 2 and 5 to know what a screen is,
 
 **Folded into `design-system.md`**: §1 on 2 October 2026 (block 1, #1482);
 §2.1, §3.7, §3.8, §3.13 (K1, #1555) and §3.9, §3.11, §3.12 (K3, #1557) on
-4 October 2026 — into `design-system.md` §2.3, §3.2, §3.4 and P3. Phase 0
-folds the rest per merge. For block 1: §1.1 → §1.1a there, §1.2 and §1.6 →
+4 October 2026 — into `design-system.md` §2.3, §3.2, §3.4 and P3; §2.2,
+§3.1–§3.6, §3.10 (K2, K4–K7), §3.15 (K8), §6 (K9) and §2.5 (P1) on 5 October
+2026 — into `design-system.md` §0, §1.2, §1.6, §2.2, §2.3, §2.4, §2.7, §2.11,
+§3.4, §5, §7 and §13. Phase 0 folds the rest per merge (P2, P3 next). For
+block 1: §1.1 → §1.1a there, §1.2 and §1.6 →
 §1.2–§1.3, §1.5 → §1.4, §1.4 → §1.6 (the admin frame). This section stays as
 the design intent; where the two differ, `design-system.md` says what runs.
 
@@ -968,6 +971,16 @@ The current P1–P12 stay; four change and four are added.
 ---
 
 ## 5. Classification — every screen, its kind and its shape
+
+**Standing on 5 October 2026** (K9, #1563, `backend/tests/ui_baseline.py` —
+the raw material for the roll-out slices: a screen's entries are what its
+slice removes): raw form elements 105 in 29 files · raw checkboxes 24 in 12 ·
+spacing on a field 76 in 22 · raw surfaces 95 in 50 · extra head buttons 20
+in 12 · hand-drawn tiles 3 in 3 · sideways scroll 9 in 8 · nowrap rows 7 in
+3 · admin pages straight on the shell 60 in 60; the pilot screens at zero
+everywhere. Against A2's counts of 1 October: raw elements 456 → 236 with
+hidden inputs, 105 without; raw surfaces 224 → 95; the 1 215 spacing classes
+could not be reconstructed by one definition.
 
 Measured on `master` after v2.11.0 (2 October 2026, HEAD 5e52292e) and
 written as the end state: the **kind** and the **shape** are fixed here;
