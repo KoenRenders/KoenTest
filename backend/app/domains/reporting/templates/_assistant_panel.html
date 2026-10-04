@@ -5,4 +5,5 @@
    does not know, only the sentence that says so. #}
 {{ panel.inner(_("Assistent"), ctx.label, ctx.post_url, "assistent-gesprek", "assistent-vraag", stt_mode,
                key=ctx.key, suggestions=ctx.suggestions, blocked=ctx.blocked,
-               history_id="rp-raakje-historie") }}
+               history_id="rp-raakje-historie" if not ctx.history_url else "",
+               include=ctx.include, vals=ctx.vals, history_url=ctx.history_url) }}

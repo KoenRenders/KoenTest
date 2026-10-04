@@ -28,8 +28,11 @@ from app.domains.auth.api import (
 )
 from app.domains.newsletter import api as nb
 from app.domains.newsletter.viewmodels import (
+    NewsletterAppliedView,
     NewsletterArchiveView,
+    NewsletterChoicesView,
     NewsletterComposeView,
+    NewsletterConversationView,
     NewsletterListView,
     NewsletterPickerView,
     NewsletterSendView,
@@ -434,15 +437,79 @@ def settings_save(
 # ── One letter ───────────────────────────────────────────────────────────────
 
 
-def _turns(messages: list) -> list[list]:
-    """The conversation as turns — a question and its answer — newest first."""
-    turns: list[list] = []
+def _choices(db: Session, letter) -> list[dict]:
+    """The three groups as the page shows them (#1562)."""
+    chosen = nb.choices_of(db, letter)
+    facts = nb.activity_facts(db, chosen.all_ids, base_url=_base_url(db))
+
+    def group(key: str, title: str, hint: str, ids, can_add: bool = True) -> dict:
+        items = [facts[i] for i in ids if i in facts]
+        return {"key": key, "title": title, "hint": hint, "items": items, "can_add": can_add}
+
+    return [
+        group(
+            "past",
+            _("Voorbije activiteiten"),
+            _("Wat doorging sinds de vorige nieuwsbrief: Raakje blikt erop terug."),
+            chosen.past,
+        ),
+        group(
+            "featured",
+            _("Uitgelicht"),
+            _("Hoogstens drie. Elk wordt een blok met affiche, omschrijving en inschrijflink."),
+            chosen.featured,
+            can_add=len(chosen.featured) < nb.FEATURED_MAX,
+        ),
+        group(
+            "calendar",
+            _("In de kalender"),
+            _("Eén blok met een regel per activiteit; de uitgelichte staan er ook in."),
+            chosen.calendar,
+        ),
+    ]
+
+
+def _proposal_fields(shown: dict) -> list[dict]:
+    """Which fields of the page a proposal touches — for marking them while it
+    is offered. The values come with Toepassen (`raakje_apply`)."""
+    fields = []
+    if shown.get("subject"):
+        fields.append({"name": "subject", "label": _("Onderwerp")})
+    if shown.get("preview"):
+        fields.append({"name": "preview_text", "label": _("Voorbeeldtekst")})
+    fields.append({"name": "body_html", "label": _("Inhoud")})
+    return fields
+
+
+def _turn_views(db: Session, letter, messages: list) -> list[dict]:
+    """The conversation as turns — a question and its answer — oldest first, as
+    the panel reads them."""
+    turns: list[dict] = []
     for message in messages:
         if message.role == nb.MessageRole.AUTHOR or not turns:
-            turns.append([message])
-        else:
-            turns[-1].append(message)
-    return list(reversed(turns))
+            turns.append({"question": "", "answer": "", "proposal": None, "failed": False})
+        turn = turns[-1]
+        if message.role == nb.MessageRole.AUTHOR:
+            turn["question"] = message.text
+            continue
+        turn["answer"] = message.text
+        if message.proposal:
+            shown = nb.display_proposal(db, letter, message)
+            shown["fields"] = _proposal_fields(shown)
+            # What the screen needs, decided here and not compared in the
+            # template (§B4.7): may it still be applied, and if not, why.
+            status = shown.get("status")
+            shown["open"] = status == "open" and not shown.get("stale")
+            if status == "applied":
+                shown["closed_text"] = _("Toegepast.")
+            elif status == "open":
+                shown["closed_text"] = _(
+                    "De brief veranderde sinds dit voorstel. Vraag het opnieuw."
+                )
+            else:
+                shown["closed_text"] = _("Voorstel genegeerd.")
+            turn["proposal"] = shown
+    return turns
 
 
 def _compose_view(
@@ -451,10 +518,7 @@ def _compose_view(
     letter,
     error: Optional[str] = None,
     notice: Optional[str] = None,
-    raakje_error: Optional[str] = None,
-    apply_html: str = "",
-    apply_placement: str = "",
-    apply_range: str = "",
+    choices_error: Optional[str] = None,
 ) -> NewsletterComposeView:
     counts = nb.audience_counts(db)
     # (code, label, count, hint): the count is on the button, the hint in the
@@ -498,40 +562,37 @@ def _compose_view(
                 _("Bevestigde abonnees; elke mail heeft een uitschrijflink"),
             )
         ]
-    raakje = _raakje_enabled(db)
-    past: list = []
-    coming: list = []
-    report_count = 0
-    messages = nb.messages_of(db, letter) if raakje else []
-    if raakje:
-        facts = nb.activity_facts(db, letter.draft_activity_ids, base_url=_base_url(db))
-        chosen = sorted(
-            (facts[i] for i in letter.draft_activity_ids if i in facts), key=lambda f: f.start
-        )
-        past = [f for f in chosen if f.is_past]
-        coming = [f for f in chosen if not f.is_past]
-        report_count = len(nb.reports_since_previous_letter(db))
     return NewsletterComposeView(
         letter=letter,
         counts=counts,
         audience_options=options,
         audience=code_of(letter.audience) or "",
         saved_at=_moment(letter.updated_at),
-        raakje_enabled=raakje,
-        past_activities=past,
-        coming_activities=coming,
-        report_count=report_count,
-        turns=_turns(messages),
-        by_author={m.id: m.role is nb.MessageRole.AUTHOR for m in messages},
-        proposals={m.id: nb.display_proposal(db, letter, m) for m in messages if m.proposal},
+        raakje_enabled=_raakje_enabled(db),
+        choices=_choices(db, letter),
+        report_count=len(nb.reports_since_previous_letter(db)),
         csrf_token=_csrf(request),
         error=error,
         notice=notice,
-        raakje_error=raakje_error,
-        apply_html=apply_html,
-        apply_placement=apply_placement,
-        apply_range=apply_range,
+        choices_error=choices_error,
         nav_items=admin_nav(NAV),
+    )
+
+
+def _choices_response(
+    request: Request, db: Session, letter, error: Optional[str] = None
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "_nb_keuzes.html",
+        NewsletterChoicesView(
+            letter=letter,
+            choices=_choices(db, letter),
+            report_count=len(nb.reports_since_previous_letter(db)),
+            raakje_enabled=_raakje_enabled(db),
+            csrf_token=_csrf(request),
+            choices_error=error,
+        ).as_context(),
     )
 
 
@@ -632,23 +693,73 @@ def activity_picker(
     q: str = "",
     purpose: str = "insert",
 ):
-    """The picker: every coming activity. `purpose` says what a click does —
-    insert a line in the editor, or give the activity to Raakje."""
+    """The picker. `purpose` says what a click does: put the activity in one of
+    the letter's three groups (`past`, `featured`, `calendar`), or (`insert`) put
+    a block of a FEATURED activity at the cursor — "Activiteit invoegen" reads
+    the same groups the page shows (#1562)."""
     letter = _letter_or_404(db, newsletter_id)
-    purpose = purpose if purpose in ("insert", "calendar", "raakje", "raakje-voorbij") else "insert"
-    spans = nb.insertable_activities(db, query=q, past=purpose == "raakje-voorbij")
+    purpose = purpose if purpose in ("insert", *nb.GROUPS) else "insert"
+    if purpose == "insert":
+        featured = nb.choices_of(db, letter).featured
+        facts = nb.activity_facts(db, featured, base_url=_base_url(db))
+        items = [
+            {"id": i, "name": facts[i].name, "date": nb.short_date(facts[i].start)}
+            for i in featured
+            if i in facts
+        ]
+    else:
+        spans = nb.insertable_activities(db, query=q, past=purpose == "past")
+        items = [
+            {"id": s.activity.id, "name": s.activity.name, "date": nb.short_date(s.start)}
+            for s in spans
+        ]
     view = NewsletterPickerView(
-        letter=letter,
-        spans=spans,
-        q=q,
-        purpose=purpose,
-        dates={s.activity.id: nb.short_date(s.start) for s in spans},
-        # The calendar opens with the coming weeks ticked; everything further
-        # ahead is there to add (Koen, 19 September 2026).
-        ticked=nb.calendar_default_ids(db) if purpose == "calendar" else [],
-        csrf_token=_csrf(request),
+        letter=letter, items=items, q=q, purpose=purpose, csrf_token=_csrf(request)
     )
     return templates.TemplateResponse(request, "_nb_kiezer.html", view.as_context())
+
+
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/keuzes/{group}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def choice_add(
+    newsletter_id: int,
+    group: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    activity_id: int = Form(...),
+):
+    """Put an activity in one of the three groups (#1562)."""
+    letter = _letter_or_404(db, newsletter_id)
+    try:
+        nb.set_choice(db, letter, group, activity_id, chosen=True)
+    except nb.NewsletterError as exc:
+        return _choices_response(request, db, letter, error=str(exc))
+    return _choices_response(request, db, letter)
+
+
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/keuzes/{group}/{activity_id:int}/weg",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def choice_remove(
+    newsletter_id: int,
+    group: str,
+    activity_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
+    letter = _letter_or_404(db, newsletter_id)
+    try:
+        nb.set_choice(db, letter, group, activity_id, chosen=False)
+    except nb.NewsletterError as exc:
+        return _choices_response(request, db, letter, error=str(exc))
+    return _choices_response(request, db, letter)
 
 
 @router.get(
@@ -682,12 +793,11 @@ def insert_calendar(
     newsletter_id: int,
     db: Session = Depends(get_db),
     _email: str = Depends(require_admin_ui),
-    ids: str = "",
 ):
-    """The calendar lines. `ids` holds the author's choice; empty means the
-    coming weeks, the same list the picker ticks."""
-    _letter_or_404(db, newsletter_id)
-    chosen = [int(i) for i in ids.split(",") if i.strip().isdigit()] or None
+    """The calendar block: one line per activity of the letter's calendar group
+    — the group the page shows (#1562), no second choice in a picker."""
+    letter = _letter_or_404(db, newsletter_id)
+    chosen = list(nb.choices_of(db, letter).calendar)
     return HTMLResponse(nb.calendar_html(db, base_url=_base_url(db), activity_ids=chosen))
 
 
@@ -907,54 +1017,33 @@ def _raakje_letter(db: Session, newsletter_id: int):
     return _letter_or_404(db, newsletter_id)
 
 
-def _panel(request: Request, db: Session, letter, **extra) -> HTMLResponse:
+#: The header that tells the panel a question was not answered, so its field
+#: keeps the question (the same one the reporting assistant sends).
+NOT_ANSWERED = {"X-Raakje-Failed": "1"}
+
+
+def _conversation(
+    request: Request, db: Session, letter, turns: list[dict], *, failed: bool = False
+) -> HTMLResponse:
     return templates.TemplateResponse(
-        request, "_nb_raakje.html", _compose_view(request, db, letter, **extra).as_context()
+        request,
+        "_nb_gesprek.html",
+        NewsletterConversationView(letter=letter, turns=turns).as_context(),
+        headers=NOT_ANSWERED if failed else None,
     )
 
 
-@router.post(
-    "/admin/nieuwsbrieven/{newsletter_id:int}/raakje/activiteit",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def raakje_add_activity(
+@router.get("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/gesprek", response_class=HTMLResponse)
+def raakje_conversation(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
     _email: str = Depends(require_admin_ui),
-    activity_id: int = Form(...),
 ):
+    """The conversation the draft keeps, for the Assistent's panel when it opens
+    beside the letter (#1562)."""
     letter = _raakje_letter(db, newsletter_id)
-    nb.set_draft_sources(
-        db,
-        letter,
-        activity_ids=[*letter.draft_activity_ids, activity_id],
-        meeting_ids=letter.draft_meeting_ids,
-    )
-    return _panel(request, db, letter)
-
-
-@router.post(
-    "/admin/nieuwsbrieven/{newsletter_id:int}/raakje/activiteit/{activity_id:int}/weg",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def raakje_remove_activity(
-    newsletter_id: int,
-    activity_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
-):
-    letter = _raakje_letter(db, newsletter_id)
-    nb.set_draft_sources(
-        db,
-        letter,
-        activity_ids=[i for i in letter.draft_activity_ids if i != activity_id],
-        meeting_ids=letter.draft_meeting_ids,
-    )
-    return _panel(request, db, letter)
+    return _conversation(request, db, letter, _turn_views(db, letter, nb.messages_of(db, letter)))
 
 
 @router.post(
@@ -967,29 +1056,41 @@ def raakje_ask(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-    instruction: str = Form(""),
+    vraag: str = Form(""),
     body_html: str = Form(""),
     selection: str = Form(""),
     selection_range: str = Form(""),
     before_cursor: str = Form(""),
 ):
-    """One turn with Raakje. The current text is saved first, so the proposal
-    works on what the author sees."""
+    """One turn with Raakje, asked from the Assistent's panel: the answer is the
+    new turn alone, added under the conversation. The current text is saved
+    first, so the proposal works on what the author sees."""
     from app.domains.chatbot.api import ChatTimeout, SeamBlocked, admin_chat_char_budget
 
     letter = _raakje_letter(db, newsletter_id)
+
+    def failed(message: str) -> HTMLResponse:
+        nb.record_turn(db, letter, author_text=vraag, error=message)
+        turn = {"question": vraag, "answer": message, "proposal": None, "failed": True}
+        return _conversation(request, db, letter, [turn], failed=True)
+
     try:
         nb.update_draft(
-            db, letter, subject=letter.subject, body_html=body_html, audience=letter.audience
+            db,
+            letter,
+            subject=letter.subject,
+            body_html=body_html,
+            audience=letter.audience,
+            preview_text=letter.preview_text,
         )
     except nb.NewsletterError as exc:
-        return _panel(request, db, letter, raakje_error=str(exc))
-    admin_chat_char_budget.charge(request, max(len(instruction), 1), key=email)
+        return failed(str(exc))
+    admin_chat_char_budget.charge(request, max(len(vraag), 1), key=email)
     try:
         turn = nb.ask_raakje(
             db,
             letter,
-            instruction=instruction,
+            instruction=vraag,
             actor=email,
             base_url=_base_url(db),
             selection=selection,
@@ -997,15 +1098,16 @@ def raakje_ask(
             before_cursor=before_cursor,
         )
     except (nb.DraftingError, SeamBlocked, ChatTimeout) as exc:
-        nb.record_turn(db, letter, author_text=instruction, error=str(exc))
-        return _panel(request, db, letter, raakje_error=str(exc))
+        return failed(str(exc))
     except Exception:
         logger.exception("Raakje kon geen nieuwsbriefvoorstel maken (brief %s)", letter.id)
-        message = _("Sorry, dat lukte niet. Probeer het opnieuw of zeg het anders.")
-        nb.record_turn(db, letter, author_text=instruction, error=message)
-        return _panel(request, db, letter, raakje_error=message)
-    nb.record_turn(db, letter, author_text=instruction, turn=turn)
-    return _panel(request, db, letter)
+        return failed(
+            _("Raakje kon geen antwoord geven — probeer het opnieuw. Je vraag staat er nog.")
+        )
+    answer = nb.record_turn(db, letter, author_text=vraag, turn=turn)
+    turns = _turn_views(db, letter, [answer])
+    turns[-1]["question"] = vraag
+    return _conversation(request, db, letter, turns)
 
 
 @router.post(
@@ -1020,15 +1122,17 @@ async def raakje_apply(
     db: Session = Depends(get_db),
     _email: str = Depends(require_admin_ui),
 ):
-    """Apply a proposal. A marked sentence stays out unless it was ticked
-    "klopt, behouden" (CR-05 §3.16)."""
+    """Toepassen: the final values for the form. A marked sentence stays out
+    unless it was ticked "klopt, behouden" (CR-05 §3.16). Nothing of the proposal
+    is written here — the answer goes into the form's fields (#1562: the subject
+    and the preview text too), and the page's own autosave stores them."""
     letter = _raakje_letter(db, newsletter_id)
     message = nb.get_drafting_message(db, letter, message_id)
     if message is None or not message.proposal:
         raise HTTPException(status_code=404, detail=_("Voorstel niet gevonden."))
     form = await request.form()
     keep = {int(str(v)) for v in form.getlist("keep") if str(v).isdigit()}
-    placement = str(form.get("placement") or "replace")
+    shown = _proposal_fields(nb.display_proposal(db, letter, message))
     try:
         applied = nb.apply_proposal(
             db,
@@ -1037,17 +1141,43 @@ async def raakje_apply(
             keep=keep,
             body_html=str(form.get("body_html") or ""),
             base_url=_base_url(db),
-            placement=placement,
         )
     except nb.DraftingError as exc:
-        return _panel(request, db, letter, raakje_error=str(exc))
-    return _panel(
-        request,
-        db,
-        letter,
-        apply_html=applied.html,
-        apply_placement=applied.placement,
-        apply_range=",".join(str(n) for n in applied.range or []),
+        return templates.TemplateResponse(
+            request,
+            "_nb_toegepast.html",
+            NewsletterAppliedView(fields=shown, refusal=str(exc)).as_context(),
+        )
+    fields: list[dict] = []
+    if applied.subject:
+        fields.append(
+            {
+                "name": "subject",
+                "label": _("Onderwerp"),
+                "value": applied.subject,
+                "base": applied.base_subject,
+            }
+        )
+    if applied.preview:
+        fields.append(
+            {
+                "name": "preview_text",
+                "label": _("Voorbeeldtekst"),
+                "value": applied.preview,
+                "base": applied.base_preview,
+            }
+        )
+    fields.append(
+        {
+            "name": "body_html",
+            "label": _("Inhoud"),
+            "value": applied.html,
+            "placement": applied.placement,
+            "range": applied.range,
+        }
+    )
+    return templates.TemplateResponse(
+        request, "_nb_toegepast.html", NewsletterAppliedView(fields=fields).as_context()
     )
 
 
@@ -1067,4 +1197,5 @@ def raakje_dismiss(
     message = nb.get_drafting_message(db, letter, message_id)
     if message is not None:
         nb.dismiss_proposal(db, message)
-    return _panel(request, db, letter)
+    # Negeren is handled in the page (#1562); the server only remembers it.
+    return Response(status_code=204)

@@ -184,8 +184,10 @@ def test_een_voorstel_komt_op_de_cursor_of_over_de_selectie(admin_page):
     where the cursor stands, a rewrite replaces the selection — through Trix,
     so undo still works.
 
-    The server side is tested with a scripted model; here the panel's answer is
-    simulated by placing the same <template> the route renders.
+    The server side is tested with a scripted model; here the answer to
+    Toepassen is simulated by placing the same block the route renders: since
+    #1562 the kit's proposal block (`data-form-proposal`, `data-proposal-auto`),
+    with the placement on the field `body_html`.
     """
     page = admin_page
     page.get_by_role("button", name="+ Nieuwe nieuwsbrief").click()
@@ -195,21 +197,23 @@ def test_een_voorstel_komt_op_de_cursor_of_over_de_selectie(admin_page):
         "() => document.getElementById('nb-trix').editor.loadHTML('<div>Een twee drie.</div>')"
     )
 
-    def pas_toe(html, plaats, bereik=""):
+    def pas_toe(html, plaats, bereik=None):
         page.evaluate(
             """([html, plaats, bereik]) => {
-            const t = document.createElement('template');
-            t.id = 'nb-toepassen'; t.setAttribute('data-plaatsing', plaats);
-            t.setAttribute('data-bereik', bereik); t.innerHTML = html;
-            document.body.appendChild(t);
-            document.body.dispatchEvent(new CustomEvent('htmx:afterSettle'));
+            const block = document.createElement('form');
+            block.setAttribute('data-form-proposal', ''); block.setAttribute('data-proposal-auto', '');
+            block.innerHTML = '<script type="application/json" data-proposal-fields></scr' + 'ipt><p data-proposal-result hidden></p>';
+            block.querySelector('[data-proposal-fields]').textContent = JSON.stringify(
+              [{name: 'body_html', label: 'Inhoud', value: html, placement: plaats, range: bereik}]);
+            document.body.appendChild(block);
+            window.raakFormProposal.scan();
         }""",
             [html, plaats, bereik],
         )
 
     tekst = "() => document.getElementById('nb-trix').editor.getDocument().toString()"
     page.evaluate("() => document.getElementById('nb-trix').editor.setSelectedRange([4, 8])")
-    pas_toe("<div>TWEE</div>", "selection", "4,8")
+    pas_toe("<div>TWEE</div>", "selection", [4, 8])
     assert page.evaluate(tekst).startswith("Een TWEE drie.")
 
     page.evaluate("() => document.getElementById('nb-trix').editor.setSelectedRange([0, 0])")
@@ -220,13 +224,16 @@ def test_een_voorstel_komt_op_de_cursor_of_over_de_selectie(admin_page):
     page.evaluate("() => document.getElementById('nb-trix').editor.undo()")
     assert not page.evaluate(tekst).startswith("Bovenaan."), "ongedaan maken werkt niet"
 
+    pas_toe("<div>Een hele nieuwe brief.</div>", "replace")
+    assert page.evaluate(tekst).strip() == "Een hele nieuwe brief."
+    assert page.locator('[data-field="body_html"][data-proposal-applied]').count() == 1
 
-def test_voor_wie_is_een_regel_hoog_en_lijnt_uit_met_de_rechterkolom(admin_page):
+
+def test_voor_wie_is_een_regel_hoog_en_de_editor_heeft_de_volle_breedte(admin_page):
     """Koen, 17 September 2026: the audience choice stood in the way next to
-    Raakje, and sat lower than the right column.
-
-    Broken on purpose: the hidden CSRF field back as the form's first child →
-    `space-y-4` pushes the card 16 px down and the alignment assertion fails.
+    Raakje. Since #1562 there is no column beside the editor — the conversation
+    is in the Assistent's panel, the choices stand above — so the card keeps its
+    one line and the form takes the whole content width.
     """
     page = admin_page
     page.get_by_role("button", name="+ Nieuwe nieuwsbrief").click()
@@ -234,10 +241,13 @@ def test_voor_wie_is_een_regel_hoog_en_lijnt_uit_met_de_rechterkolom(admin_page)
     _klikbaar(page, "#nb-onderwerp")
 
     maten = page.evaluate("""() => {
-        const links = document.querySelector('#nb-formulier fieldset').getBoundingClientRect();
-        const rechts = document.querySelector('#nb-formulier').parentElement.children[1]
-                               .firstElementChild.getBoundingClientRect();
-        return {links: links.top, rechts: rechts.top, hoogte: links.height};
+        const r = e => e.getBoundingClientRect();
+        const form = document.getElementById('nb-formulier'), keuzes = document.getElementById('nb-keuzes');
+        return {hoogte: r(form.querySelector('fieldset')).height, form: [r(form).left, r(form).width],
+                keuzes: [r(keuzes).left, r(keuzes).width], kolom: !!document.getElementById('nb-raakje'),
+                onder: r(form).top >= r(keuzes).bottom};
     }""")
-    assert abs(maten["links"] - maten["rechts"]) <= 1, maten
     assert maten["hoogte"] < 110, f"de keuze is {maten['hoogte']} px hoog"
+    assert not maten["kolom"], "no column of Raakje beside the editor"
+    assert maten["form"] == maten["keuzes"], "the editor is as wide as the choices above it"
+    assert maten["onder"], "the choices stand above the form"

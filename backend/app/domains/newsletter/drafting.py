@@ -323,7 +323,7 @@ def gather_sources(
         if notes:
             line += f": {notes}"
         points.append(scrub(line, names))
-    activity_ids = list(letter.draft_activity_ids or [])
+    activity_ids = nb.choices_of(db, letter).all_ids
     facts = nb.activity_facts(db, activity_ids, base_url=base_url)
     return Sources(
         activity_ids=activity_ids,
@@ -367,7 +367,7 @@ VASTE REGELS
 
 ANTWOORD
 Antwoord met één JSON-object en niets anders.
-- Voor een volledige brief: {"reply": "één korte zin voor de auteur", "subject": "onderwerp", "paragraphs": ["regel", "..."]}
+- Voor een volledige brief: {"reply": "één korte zin voor de auteur", "subject": "onderwerp", "preview": "één zin die het postvak naast het onderwerp toont, hoogstens 200 tekens, zonder aanhef", "paragraphs": ["regel", "..."]}
 - Vraagt de auteur uitdrukkelijk de HELE brief (opnieuw) te schrijven, geef dan een volledige brief, ook als er al tekst staat.
 - Voor een stuk tekst: {"reply": "één korte zin", "text": "de tekst"}
   Als de auteur tekst SELECTEERDE, herschrijf je alleen die tekst: je antwoord vervangt de selectie, dus geef enkel de nieuwe versie van dat stuk.
@@ -806,6 +806,10 @@ def _range(raw: str) -> Optional[list[int]]:
     return [start, end] if 0 <= start < end else None
 
 
+#: The preview text's limit — the field's own (`maxlength`).
+PREVIEW_MAX = 200
+
+
 def build_proposal(
     db: Session,
     letter: Newsletter,
@@ -836,9 +840,17 @@ def build_proposal(
     ]
     ops[0]["html"] = _paragraph_html(text, facts, db=db, base_url=base_url)
     subject = data.get("subject") if mode == MODE_LETTER else None
+    preview = data.get("preview") if mode == MODE_LETTER else None
     return {
         "kind": mode,
         "subject": scrub(str(subject), names).strip()[:500] if subject else None,
+        # #1562: the line the inbox shows beside the subject, proposed with a
+        # whole letter; its limit is the field's.
+        "preview": scrub(str(preview), names).strip()[:PREVIEW_MAX] if preview else None,
+        # What the two one-line fields held when this was asked: a proposal
+        # fills a field only while it still holds that (its base).
+        "base_subject": letter.subject or "",
+        "base_preview": letter.preview_text or "",
         "operations": ops,
         "marks": _attach(raw_marks, {0: text}),
         "facts": sorted(facts),
@@ -946,6 +958,13 @@ class Applied:
     html: str
     placement: str  # "replace" (whole letter), "cursor" or "selection"
     range: Optional[list[int]] = None
+    #: #1562: the subject and the preview text a whole letter proposes, each with
+    #: the value its field held when the proposal was asked. The form takes
+    #: them; the server writes neither.
+    subject: Optional[str] = None
+    base_subject: str = ""
+    preview: Optional[str] = None
+    base_preview: str = ""
 
 
 def apply(
@@ -956,7 +975,6 @@ def apply(
     keep: set[int],
     body_html: str,
     base_url: str,
-    placement: str = "replace",
 ) -> Applied:
     """The HTML the editor takes over, and where it goes.
 
@@ -964,6 +982,10 @@ def apply(
     (CR-05 §3.16, layer 5). The server never rewrites the letter itself for a
     piece of text: the editor inserts it at the cursor or over the selection,
     through Trix, so undo keeps working and autosave stores the result.
+    Since #1562 the placement follows the kind of proposal (a whole letter
+    replaces, a piece goes to the cursor, a rewrite over the selection), and
+    the subject and the preview text go into their fields: only the form
+    saves them. What went is "a whole letter at the cursor".
 
     A replacement is refused when the letter changed since the proposal was
     made: the remembered selection would point at other text.
@@ -981,22 +1003,24 @@ def apply(
     operation = (proposal.get("operations") or [{}])[0]
     kind = proposal.get("kind")
     text = _without(operation.get("text") or "", drop)
-    if kind == MODE_LETTER and placement != "cursor":
+    if kind == MODE_LETTER:
         # Koen, 20 September 2026: he asked Raakje for the closing and got it
         # twice — because the portal puts one under every whole letter anyway.
         # The portal stays the only one that writes it.
         text = _CLOSING_MARKER.sub("", text)
     html = _paragraph_html(text, facts, db=db, base_url=base_url)
 
-    if kind == MODE_LETTER and placement != "cursor":
+    if kind == MODE_LETTER:
         # A whole letter gets its greeting and its closing from the portal, each
         # set apart by a blank line (Koen, 17 September 2026).
         result = Applied(
             html=nb.greeting_html() + BLANK + html + BLANK + nb.closing_html(db),
             placement="replace",
+            subject=proposal.get("subject"),
+            base_subject=proposal.get("base_subject") or "",
+            preview=proposal.get("preview"),
+            base_preview=proposal.get("base_preview") or "",
         )
-        if proposal.get("subject"):
-            letter.subject = proposal["subject"]
     elif kind == MODE_REPLACE:
         if proposal.get("snapshot") != nb_snapshot(letter.body_html) or not proposal.get("range"):
             raise DraftingError(
@@ -1008,8 +1032,6 @@ def apply(
         result = Applied(html=html, placement="selection", range=proposal["range"])
     else:
         result = Applied(html=html, placement="cursor")
-        if kind == MODE_LETTER and proposal.get("subject") and not letter.subject:
-            letter.subject = proposal["subject"]
 
     proposal["status"] = "applied"
     proposal["kept"] = sorted(keep)
@@ -1125,6 +1147,7 @@ def display(db: Session, letter: Newsletter, message: DraftingMessage) -> dict[s
         "kind": proposal.get("kind"),
         "status": proposal.get("status"),
         "subject": proposal.get("subject"),
+        "preview": proposal.get("preview"),
         "operations": operations,
         "unverified": bool(proposal.get("unverified")),
         "stale": kind == MODE_REPLACE and not unchanged,

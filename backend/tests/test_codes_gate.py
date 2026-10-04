@@ -789,6 +789,27 @@ def test_the_ratchet_table_is_measurable_and_gets_printed(capsys, db_session):
 # ── The gate can go red itself ───────────────────────────────────────────────
 
 
+def _the_template_walk_still_finds_a_comparison() -> None:
+    """Without an exemption to find: the walk covers the templates (more than a
+    hundred), and a real template that reads as `x.status == "open"` is a hit."""
+    import tests.test_codes_gate as gate
+
+    files = list(_template_files())
+    assert len(files) > 100, f"the template walk covers {len(files)} files — it looks nowhere"
+
+    class Probe(type(files[0])):
+        def read_text(self, *args, **kwargs):  # noqa: ARG002
+            return '{% if proposal.status == "open" %}x{% endif %}'
+
+    original = gate._template_files
+    gate._template_files = lambda: [Probe(files[0])]
+    try:
+        found = collect_template_comparisons()
+    finally:
+        gate._template_files = original
+    assert [key.rsplit(":", 1)[1] for key in found] == ["status==open"], found
+
+
 @pytest.mark.parametrize("name", [n for n in HARD if n in PERMANENT])
 def test_every_hard_gate_looks_somewhere(name):
     """#678 again, for a gate at zero: "found nothing" must not be the same as
@@ -797,6 +818,12 @@ def test_every_hard_gate_looks_somewhere(name):
     in the right way."""
     found = set(COLLECTORS[name]())
     exempt = set(_permanent(name))
+    if not exempt and name == "TEMPLATE_COMPARISONS":
+        # #1562 took the last exemption away (the newsletter's proposal column):
+        # the proof is then the walk itself — it reads the templates, and it
+        # recognises a comparison when one of them holds one.
+        _the_template_walk_still_finds_a_comparison()
+        return
     assert exempt, f"`{name}` has no exemption left to prove its walk with"
     assert found >= exempt, (
         f"`{name}` no longer finds its own exemptions — the collector has fallen "

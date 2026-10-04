@@ -1,0 +1,8 @@
+{% import "_macros.html" as ui %}
+{# The answer to Toepassen (#1562): the final values, which the kit's script
+   puts into the form as this block arrives — or why it could not be applied. #}
+{% if refusal %}
+{{ ui.form_proposal(fields, closed_text=refusal) }}
+{% else %}
+{{ ui.form_proposal(fields, auto=True, applied_note=_("Ingevuld door Assistent")) }}
+{% endif %}

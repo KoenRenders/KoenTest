@@ -20,9 +20,13 @@ assistant page and the per-screen `AI ·` buttons do not exist.
    public route only; which tools that route may use is
    `test_public_tool_boundary_gate.py`'s to guard.
 
-The newsletter's own drafting panel (`_nb_raakje.html`) stays a column of the
-newsletter page until PR 2 puts it on the proposal mechanism; it carries no AI
-button and no frame, so no rule here names it.
+Since PR 2 the newsletter's conversation stands in this panel too (its own
+context branch; `_nb_gesprek.html` renders its turns), and its column
+(`_nb_raakje.html`) is gone. A turn there may carry the kit's proposal block with
+a "klopt, behouden" tick per unsupported passage: that is decision 10's row 9 —
+a choice about the PROPOSAL, default off — and not a selector of what the
+conversation is about, which rule 4 is for. The panel's own templates still
+carry none.
 
 Proven red, additively — each rule on a throwaway text that adds one violation
 to a clean one — and the gate counts what it read.

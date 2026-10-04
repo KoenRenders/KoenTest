@@ -1153,6 +1153,9 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
         sink_for(email),
     )
     deadline = time.monotonic() + settings.admin_chat_timeout_seconds
+    # #1562: the reports the model runs in this turn, for the figure or the
+    # small table the panel shows beside its words.
+    seen: list = []
     try:
         antwoord = run_chat(
             db,
@@ -1160,7 +1163,7 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
             provider,
             max_rounds=settings.admin_chat_max_tool_rounds,
             tools=tool_specs(),
-            dispatch=dispatcher(tenant_id=tenant, scope=scope),
+            dispatch=dispatcher(tenant_id=tenant, scope=scope, seen=seen),
             deadline=deadline,
         )
     except (SeamBlocked, ChatTimeout) as gestopt:
@@ -1202,6 +1205,25 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
         {"role": "user", "content": verstuurd},
         {"role": "assistant", "content": antwoord},
     ]
+    from app.domains.reporting.assistant_answer import structured
+
+    # The scope in the reader's words: the record by its name, a list as the
+    # selection on the screen — never the id its forced filter stands on.
+    scope_label = ""
+    scope_keys: frozenset[str] = frozenset()
+    if scope is not None:
+        from app.domains.reporting.assistant import activity_name
+
+        scope_keys = frozenset(str(f.get("object") or "") for f in scope.filters)
+        if scope.activity_id is not None:
+            scope_label = activity_name(db, tenant_id=tenant, activity_id=scope.activity_id) or ""
+        else:
+            scope_label = _("de selectie op het scherm")
+    shown = structured(seen, scope_label=scope_label, scope_keys=scope_keys)
+    more_href = ""
+    if shown.selection is not None:
+        # The same selection in the reporting panel: the list behind the answer.
+        more_href = "/admin/rapporten?" + _query_string(_state_from_selection(shown.selection))
     return templates.TemplateResponse(
         request,
         "_rp_raakje_antwoord.html",
@@ -1211,6 +1233,9 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
             error="",
             payload=_last_payload(provider),
             history=_history_out(turns),
+            figure=shown.figure,
+            table=shown.table,
+            more_href=more_href,
         ).as_context(),
     )
 

@@ -48,6 +48,7 @@ ASK = "/admin/rapporten/raakje"
 _GENERAL_PATHS = ("/admin", "/admin/dashboard")
 
 _ACTIVITY = re.compile(r"^/admin/activiteiten/(\d+)(?:/|$)")
+_NEWSLETTER = re.compile(r"^/admin/nieuwsbrieven/(\d+)$")
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,13 @@ class AssistantContext:
     post_url: str = ""
     suggestions: tuple[str, ...] = ()
     blocked: str = ""
+    #: #1562 PR 2 — a screen whose conversation is about what stands ON it:
+    #: fields of the screen that travel with a question (`hx-include`, and
+    #: `hx-vals` as a `js:` expression), and where the turns the server keeps
+    #: for this record are loaded from.
+    include: str = ""
+    vals: str = ""
+    history_url: str = ""
 
     @property
     def can_ask(self) -> bool:
@@ -111,6 +119,45 @@ def _activity(db: Session, activity_id: int) -> AssistantContext | None:
             _("Hoeveel staat er nog open?"),
             _("Wie heeft nog niet betaald?"),
         ),
+    )
+
+
+#: What the newsletter page sends along with a question: the text as it stands
+#: in the editor, the selection and what stands before the cursor — Raakje
+#: rewrites the selection or writes for that spot (Koen, 17 September 2026).
+_NEWSLETTER_FIELDS = "#nb-inhoud"
+_NEWSLETTER_VALS = (
+    'js:{selection: window.nbSelectie ? nbSelectie() : "", '
+    'selection_range: window.nbBereik ? nbBereik() : "", '
+    'before_cursor: window.nbVoorCursor ? nbVoorCursor() : ""}'
+)
+
+
+def _newsletter(db: Session, newsletter_id: int) -> AssistantContext | None:
+    """The draft of a newsletter: Raakje writes along (CR-05 §3.15), since #1562
+    in this panel. The newsletter's facade says whether there is a draft to
+    write for; None for a letter that is sent or does not exist."""
+    from app.domains.newsletter.api import draft_subject
+
+    subject = draft_subject(db, newsletter_id)
+    if subject is None:
+        return None
+    base = f"/admin/nieuwsbrieven/{newsletter_id}/raakje"
+    return AssistantContext(
+        key=f"newsletter:{newsletter_id}",
+        available=True,
+        label=_("over de nieuwsbrief “%(name)s”") % {"name": subject}
+        if subject
+        else _("over deze nieuwsbrief"),
+        post_url=f"{base}/vraag",
+        suggestions=(
+            _("Schrijf een voorstel voor de hele brief."),
+            _("Maak de geselecteerde tekst korter."),
+            _("Schrijf een stuk voor waar mijn cursor staat."),
+        ),
+        include=_NEWSLETTER_FIELDS,
+        vals=_NEWSLETTER_VALS,
+        history_url=f"{base}/gesprek",
     )
 
 
@@ -182,6 +229,14 @@ def context_for(db: Session, url: str, *, tenant_id: int) -> AssistantContext:
     parts = urlsplit(url or "")
     path = parts.path.rstrip("/") or "/admin"
     state = dict(parse_qsl(parts.query, keep_blank_values=True))
+    # A module whose facade offers the assistant a command (§B4.9): the
+    # newsletter's proposer, on the draft it writes for. Asked before the
+    # rule of the reporting universe, which the newsletter is not in.
+    letter = _NEWSLETTER.match(path)
+    if letter:
+        found = _newsletter(db, int(letter.group(1)))
+        if found is not None:
+            return found
     if not module_knows_the_assistant(serving_module(path), path):
         return AssistantContext(
             key="unknown",

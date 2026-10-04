@@ -1,0 +1,60 @@
+{% import "_macros.html" as ui %}
+{% import "_raakje_ballon.html" as ballon %}
+{# Turns of the conversation with Raakje about this draft, for the Assistent's
+   panel (CR-11 block 10, #1562): all of them when the panel opens beside the
+   letter, the new one after a question. A proposal is the kit's block
+   (`ui.form_proposal`): the fields it touches are marked on the page, Toepassen
+   asks the server for the final text — a marked passage stays out unless
+   "klopt, behouden" is ticked (CR-05 §3.16, default off) — and the form takes
+   it; the page's own autosave stores it.
+
+   The server puts the same classes in a proposal as the legend below:
+   <mark class="bg-yellow-100 text-ink rounded px-0.5"> for a mark and
+   <span class="text-ink-soft italic"> for a filled-in activity line. #}
+{% for turn in turns %}
+{% if turn.question %}
+<div class="text-right"><span class="{{ ballon.van_bezoeker() }}">{{ turn.question }}</span></div>
+{% endif %}
+<div data-newsletter-turn{% if turn.failed %} data-turn-failed{% endif %}>
+  {% if turn.answer %}<div data-raakje-answer class="{{ ballon.van_raakje() }}">{{ turn.answer }}</div>{% endif %}
+  {% if turn.proposal %}
+  {% set p = turn.proposal %}
+  {% set _open = p.open %}
+  {% set _body %}
+    {% if p.subject %}<p class="mt-2"><span class="font-semibold">{{ _("Onderwerp") }}:</span> {{ p.subject }}</p>{% endif %}
+    {% if p.preview %}<p><span class="font-semibold">{{ _("Voorbeeldtekst") }}:</span> {{ p.preview }}</p>{% endif %}
+    {% for op in p.operations %}
+    <div class="mt-2">
+      <p class="font-semibold">{{ op.label }}</p>
+      {% if op.old %}<p class="text-ink-soft line-through">{{ op.old }}</p>{% endif %}
+      {% if op.new_html %}<div class="mt-1 text-ink">{{ op.new_html|safe }}</div>{% endif %}
+      {# Koen, 21 september 2026: each mark in its own block, with the SENTENCE
+         it is about above it. #}
+      {% for mark in op.marks %}
+      <div data-proposal-mark class="mt-2 border-l-2 border-yellow-300 pl-2">
+        <p class="text-ink">«{{ mark.sentence }}»</p>
+        <p class="text-brand-danger mt-0.5">{{ ui.icon("x", 12) }} {{ mark.reason }} — {{ _("wordt weggelaten") }}</p>
+        {% if _open %}
+        <label class="flex items-center gap-1.5 mt-0.5 min-h-11 md:min-h-0"><input type="checkbox" name="keep" value="{{ mark.id }}"> {{ _("klopt, behouden") }}</label>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    {% if p.unverified %}<p class="text-brand-danger mt-2">{{ _("De controle tegen de bronnen lukte niet: lees dit voorstel extra goed na.") }}</p>{% endif %}
+  {% endset %}
+  {% if _open %}
+  {{ ui.form_proposal(p.fields, extra=_body, include="#nb-inhoud",
+                      apply_url="/admin/nieuwsbrieven/" ~ letter.id ~ "/raakje/" ~ p.id ~ "/toepassen",
+                      dismiss_url="/admin/nieuwsbrieven/" ~ letter.id ~ "/raakje/" ~ p.id ~ "/weigeren",
+                      applied_note=_("Ingevuld door Assistent")) }}
+  {% else %}
+  {{ ui.form_proposal(p.fields, extra=_body, closed_text=p.closed_text) }}
+  {% endif %}
+  {% endif %}
+</div>
+{% endfor %}
+{% if not turns %}
+<div><div class="{{ ballon.van_raakje() }}">{{ _("Vertel wat de brief moet zeggen, of vraag een voorstel voor de hele brief. Raakje verstuurt nooit en ziet niet wie de brief krijgt. Datums, plaatsen en links vult het portaal zelf in; wat nergens in de gegevens staat, wordt gemarkeerd.") }}
+  <mark class="bg-yellow-100 text-ink rounded px-0.5">{{ _("Zo ziet een markering eruit.") }}</mark></div></div>
+{% endif %}

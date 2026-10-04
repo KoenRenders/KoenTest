@@ -157,8 +157,10 @@ def test_w7_a_send_button_leads_or_names_its_consequence(phone, path, shot):
 def test_w13_the_reports_are_a_line_not_a_choice(phone):
     page, data = phone
     _open(page, f"/admin/nieuwsbrieven/{data['letter']}", "w7-w13-nieuwsbrief")
-    panel = page.locator("#nb-raakje")
-    assert panel.count() == 1, "Raakje's panel is on the page"
+    # #1562: the line stands with the letter's choices on the page; Raakje's
+    # column is gone (the conversation is in the Assistent's panel).
+    panel = page.locator("#nb-keuzes")
+    assert panel.count() == 1 and page.locator("#nb-raakje").count() == 0
     boxes = panel.locator('input[type="checkbox"][name="meeting_id"]').count()
     line = panel.get_by_text(re.compile(r"sinds de vorige nieuwsbrief")).first.inner_text()
     print("MEASURE W13", boxes, repr(line))

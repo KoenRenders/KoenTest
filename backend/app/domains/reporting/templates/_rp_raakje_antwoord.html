@@ -13,7 +13,35 @@
 {% else %}
 {# `data-raakje-answer`: hieraan hangt tts.js zijn voorleesknopje, en hierop leest
    hij de tekst uit — hetzelfde haakje als bij de publieke Raakje (#917). #}
-<div><div data-raakje-answer class="{{ ballon.van_raakje() }}">{{ antwoord | raakje_md | safe }}</div></div>
+<div><div data-raakje-answer class="{{ ballon.van_raakje() }}">{{ antwoord | raakje_md | safe }}
+  {# CR-11 block 10 (#1562, §3.15): what the last report of this turn shows beside
+     the words — the engine's own result, formatted by the kit like every report
+     value. A figure large, with its range and source; or a small table with the
+     way to the whole list. #}
+  {% if figure %}
+  <div data-answer-figure class="mt-3 border-t border-line pt-3">
+    <p class="text-[13px] text-ink-soft">{{ figure.label }}</p>
+    <p data-figure-value class="text-[28px] leading-9 font-semibold tabular-nums text-ink">{{ ui.value_cell(figure.value, figure.format) }}</p>
+    <p data-figure-range class="text-[13px] text-ink-soft">{{ _("Bereik") }}: {{ figure.range }}</p>
+    <p data-figure-source class="text-[13px] text-ink-soft">{{ _("Bron") }}: {% if more_href %}<a href="{{ more_href }}" class="text-blue-500 underline">{{ figure.source }}</a>{% else %}{{ figure.source }}{% endif %}</p>
+  </div>
+  {% elif table %}
+  <div data-answer-table class="mt-3 border-t border-line pt-3">
+    <div class="overflow-x-auto">
+      <table class="w-full text-[13px]">
+        <thead><tr>{% for column in table.columns %}<th scope="col" class="py-1 pr-3 font-medium text-ink-soft {{ 'text-right' if column.numeric else 'text-left' }}">{{ column.name }}</th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for row in table.rows %}
+          <tr class="border-t border-line">{% for cell in row %}{% set column = table.columns[loop.index0] %}<td class="py-1 pr-3{% if column.numeric %} text-right tabular-nums{% endif %}">{{ ui.value_cell(cell, column.format) }}</td>{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-2 text-[13px] text-ink-soft">{{ _("Bereik") }}: {{ table.range }}</p>
+    {% if more_href %}<p class="mt-1"><a data-answer-more href="{{ more_href }}" class="text-[13px] font-medium text-blue-500 underline">{{ _("Bekijk alle %(num)d %(noun)s", num=table.total, noun=table.noun) }}</a></p>{% endif %}
+  </div>
+  {% endif %}
+</div></div>
 {% endif %}
 {% if payload %}
 {# "Wat zag Mistral" (CR-07 §5.7). Een belofte die de beheerder niet kan nakijken,

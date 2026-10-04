@@ -93,12 +93,17 @@ def test_eigen_plafond_blijft_en_de_optout_groeit_niet(client):
 
 
 def test_de_twee_bewuste_afwijkingen_staan_met_reden_in_de_bron():
-    """Het Raakje-veld houdt zijn plafond van 240; de verborgen HTML-bron-editor
-    van de pagina-editor groeit niet (x-init zou op een verborgen element
-    scrollHeight 0 lezen en de hoogte op nul pinnen)."""
-    raakje = (TEMPLATES / "domains/newsletter/templates/_nb_raakje.html").read_text()
-    assert "max_px=240" in raakje
-    assert "ui.autogrow" not in raakje  # niet én de standaard én de oude attrs
+    """De voorbeeldtekst van de nieuwsbrief groeit tot een plafond van 160; de
+    verborgen HTML-bron-editor van de pagina-editor groeit niet (x-init zou op
+    een verborgen element scrollHeight 0 lezen en de hoogte op nul pinnen).
+
+    Until #1562 the first one was Raakje's question field in the newsletter's
+    column (ceiling 240); that field is the Assistent panel's now, and the
+    newsletter's own growing field with a ceiling is its preview text."""
+    brief = (TEMPLATES / "domains/newsletter/templates/admin_nieuwsbrief.html").read_text()
+    preview = brief[brief.index('ui.textarea_control("preview_text"') :][:400]
+    assert "max_px=160" in preview
+    assert "ui.autogrow" not in preview  # niet én de standaard én de oude attrs
 
     cp = (TEMPLATES / "domains/cms/templates/_cp_detail.html").read_text()
     bron_editor = cp[cp.index('id="cp-htmlsrc"') - 400 : cp.index('id="cp-htmlsrc"') + 400]
