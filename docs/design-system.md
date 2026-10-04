@@ -10,6 +10,9 @@
 > silently.
 >
 > Enforcement: `backend/tests/test_ui_conventions_gate.py` (mechanical rules),
+`test_ui_ratchets.py` with `ui_baseline.py` (CR-11 K9, #1563: ten rules of
+B7, one exact number per template, the pilot screens at zero, a number may
+only fall),
 > `test_layer_gate.py` and `test_template_variables_gate.py` (where logic lives),
 > the `design-conformiteit-bewaker` agent (judgement, on request). Measured state:
 > `docs/ui-conformiteit.md`.
@@ -29,6 +32,10 @@ change to all four, in one pull request.
 
 | Date | Decision | Issue |
 |---|---|---|
+| 5 Oct 2026 | **CR-11 pilot B, P1 — the public shell**: the band in the tenant's colour with the logo, Fraunces for the public headings, the drawer over the page, one account menu on the first name, the footer as one row (newsletter · social links · sponsors) with the legal line carrying the organisation's details; `site-footer` no longer rendered. Folded from the end state §2.5 into §1.2, §1.6, §7. | #1588 |
+| 5 Oct 2026 | **CR-11 K9 — the gates as ratchets**: `test_ui_ratchets.py` + `ui_baseline.py`, ten rules with one exact number per template, the pilot at zero; the standings in §13. Two older tests that demand what B7 refuses stay until the roll-out slice that moves their lists (CR-11 B10, 5 Oct). | #1563 |
+| 5 Oct 2026 | **CR-11 K8 — the Assistent as a panel**: one trigger in the top bar, the panel with the screen's context, the assistant page and the `AI ·` overlays gone, the public bell on the same component, the proposal-to-form mechanism with the newsletter on it. Folded from §3.15 into §1.6 and §2.11. | #1562 |
+| 5 Oct 2026 | **CR-11 pilot A, K2 and K4–K7**: the kit table on Betalingen (one row action, the row as the way in, stacked rows with the balance under the amount); the record form on `field`, `section`, `repeating_group`, `rare_settings` with one save of the record and its groups, the sticky action bar and every state, the summary card on Gegevens only and the list tabs; the booking's record page; the calm "geen toegang" page. Folded from §2.2, §3.1–§3.6, §3.10 into §2.2, §2.3, §2.4, §2.7, §3.4, §5. | #1556, #1558–#1561, #1574, #1582, #1583, #1587 |
 | 4 Oct 2026 | **CR-11 pilot A, K1 and K3**: the list head and toolbar (`figures`, `status_filter`, `toolbar`, `pager`, the `list_page` layout; Betalingen on it) and the record head (`record_header` with actions as data, `reference`, `related_tabs`, the way back naming its origin; the activity on it); the dense-list recipe and the hand-built heads are superseded on migrated screens. Folded from the end state §2.1, §3.7–§3.9, §3.11–§3.13. | #1555, #1557 |
 | 2 Oct 2026 | **CR-11 block 1, the admin frame**: the admin shell gets its own token set under `body[data-shell="admin"]` — the Atelier palette (muted blue `37 78 115`, cool grey ground, a light sidebar, warning a real orange `194 65 12`), Inter only, cards 10 px / controls 6 px, margins 24/32 px, a 224 px sidebar that becomes a 64 px rail below 1 440 and a drawer below 768, a 64 px top bar with the Assistent and account buttons; the house style leaves the back office; the public shell keeps its values until the first public block. Folded from the end state §1 (CR-11 phase 0). | #1482 |
 | Jul 2026 | Postal code is always a `<select>` from the lookup table, never free text | — |
@@ -179,14 +186,17 @@ Rules that follow:
 
 ### 1.2 Typography
 
-**Public shell:** Radio Canada Big for headings (display, `font-brand`), Inter
-for body and tables — a deliberate readability deviation from the brand guide,
-which asks for Radio Canada Big everywhere. Both vendored under `/static`,
-never from a CDN. The header (RaaK + tagline) is entirely `font-brand`; the
-wordmark is **RaaK**. Decided for the first public block (CR-11 block 1, 2
-October 2026, not yet built): Fraunces (variable serif, OFL, vendored) for
-the public site's headings and poster areas, Inter for every field, button
-and control.
+**Public shell (since P1, #1588, CR-11 pilot B, merged 5 October 2026):**
+**Fraunces** (weight 650, the Latin subset, OFL, vendored under `/static/fonts`)
+for the public site's headings — `font-brand` resolves to Fraunces under
+`body[data-shell="site"]`, Radio Canada Big left — and **Inter** for body,
+tables and every field, button and control: the readability deviation from
+the brand guide stands. The header shows the tenant's **logo as one image**
+at every width; without a logo the tenant's name; the typed "RaaK" wordmark
+and the tagline under it are gone (decision 11; the tagline lives on in the
+logo's alt, the title and the Open Graph description). Never a font from a
+CDN. The whole public site follows the shell's tokens: headings in ink and
+Fraunces, the blue calmer, cards 14 px, controls 6 px.
 
 **Admin shell (#1482):** Inter only — `font-brand` is a token (`--font-brand`)
 that resolves to Inter under `body[data-shell="admin"]`, so the wordmark and
@@ -359,8 +369,9 @@ The shell of the back office, as built on 2 October 2026 from the end state
   the width.
 - **The top bar**: 64 px; menu button (phone only), the page title's room,
   the search's room, the **Assistent** button (bordered, `sparkles` + the
-  word; it opens `/admin/rapporten/raakje` under the same rule as its menu
-  item), the account button (initials + chevron, also on a phone; its menu
+  word; since K8 (#1562) it opens the Assistent panel with the screen's
+  context — §2.11 — and is dimmed where the module's objects are not in the
+  reporting universe; it linked to the assistant page until then), the account button (initials + chevron, also on a phone; its menu
   holds "Aangemeld als …", Mijn profiel, Werkruimte wisselen, **Naar de
   site**, Uitloggen). As built: the title room and the search room are
   reserved and empty — no global search exists yet, and the `h1` stays in
@@ -372,8 +383,8 @@ The shell of the back office, as built on 2 October 2026 from the end state
   wider; a document page 768 px centred. Breakpoints follow the content:
   the summary moves above the content below a 640 px content column, a
   form grid goes to one column when a half field would be under 260 px.
-- **The public site is untouched** by this block (byte-identical at the
-  merge); its shell changes with the first public block.
+- **The public site was untouched** by this block (byte-identical at the
+  merge); its shell changed with P1 (#1588) — §7.
 
 ### 1.5 Print and social — the Design Studio (CR-10, #1007)
 
@@ -424,6 +435,29 @@ Import with `{% import "_macros.html" as ui %}`.
   (paid, open) stays a status chip (§2.5).
 
 ### 2.2 Form fields — one family (#659, #663; consolidated in wave 0b, #913)
+
+**Since K4 (#1558, CR-11 pilot A, merged 4 October 2026) a record form is
+built from `ui.field(name, label, kind, …)`, `ui.section(title)` and the
+form grid**, and the activity is the first: the field renders label (14 px
+medium, above), control (40 px, 44 on a phone, radius 6), help (13 px) and
+error (under the control, in the danger tone, the border coloured) in one
+block; `required` marks the label with the red asterisk; **the kind decides
+the width** — `url`, `email`, `textarea` and rich text always full, `number`,
+`date`, `time`, a code, a short `select` and `switch` half or quarter, `text`
+half unless long; a template may widen a short field and never narrow a long
+one. A section is one card per meaningful section, never a nested card,
+16 px from its heading to the first field, 32 px between sections; fields
+share a row only when read together (street · number · bus; from · to). The
+**switch** (`ui.switch` of #1568, used by `field(kind=switch)`) has its knob
+at the left and the label at its right; in read mode a boolean is words
+("Enkel leden: ja"), an empty field reads "—" in its place (reverses #1139).
+The rare settings (`rare_settings`) are the closed last section, placed by
+the layout above the action bar. The activity's sections are Activiteit ·
+Publiek · Intern; "Geannuleerd" is no field but the record actions
+"Activiteit annuleren" and "Annulering intrekken". No raw `<label>`,
+`<input>`, `<select>` or `<textarea>` in a template on the kit; elsewhere the
+ratchet `RAW_FORM_ELEMENTS` (105 in 29 files on 5 October 2026) may only
+fall. The family below is what the screens not yet migrated use.
 
 - **`ui.input_control` / `select_control` / `textarea_control`** is the one
   field family: you set label (`ui.label`), id and width yourself. Explicit
@@ -505,7 +539,22 @@ superseded on every screen that moves to the layout:
   way back returns to it.
 - **As built** (master CLI at the merge): the embedded payment tabs under
   an activity got the toolbar now and keep their figures until K6; the
-  "AI · Betalingen" button stays until K8 as a named exception.
+  "AI · Betalingen" button stayed until K8 as a named exception and went
+  with it.
+- **Since K2 (#1556, merged 4 October 2026) the table of the `list_page`
+  is the kit's** (`ui.table`), Betalingen first: sort in the head; **the row
+  is the way in** — a row on a top-level list opens the record page (P8; a
+  booking got its own page `/admin/betalingen/<id>` with #1574, where FINANCE
+  and OPERATOR mutate); **one visible row action**, the positive action of
+  the row's state ("Bevestig" on an open booking), plus `⋯`, following
+  `may_mutate_payments`; the column chooser in the URL; column thresholds
+  1 100 and 980 px (not the prototype's 1 240 / 1 120 — seven columns at
+  1 440 px); group rows marked `↳`; Saldo in the warning tone when ≠ 0,
+  Bedrag never coloured; a person's name links to the booking; "Terugbetaald"
+  is no word on the list. **Below 900 px the rows stack**, and a stacked row
+  shows the balance under the amount when it differs (`ui.amount(value,
+  balance=…)`, #1582: "nog € 20,00", "terug € 5,00"; nothing extra when fully
+  open or settled). The embedded payment tabs follow.
 
 - **Default list = table** in a `card` with `overflow-x-auto`; cards only for
   hierarchical or visual content (§9). Row height ~50 px, subtle hover.
@@ -561,6 +610,12 @@ superseded on every screen that moves to the layout:
   spinner (#702).
 
 ### 2.4 Row actions (#722, #698)
+
+**On the kit table (K2, #1556) a row shows at most one inline action — the
+positive action of its state — plus `⋯`; the cell stays empty where the row
+has none** (the fixed UI decision in `AGENTS.md`, Koen, 2 October 2026).
+The `row_actions` family below, with its cap of two, is what the lists not
+yet on the kit table use.
 
 - **List rows**: 2–3 actions visible, the rest under `⋯` (`row_actions`,
   `max_visible` default 2). A guideline, not a hard cap; with few rows on a wide
@@ -646,6 +701,29 @@ picker → current attachment (link + delete) → hint**. Macro
   (#223).
 
 ### 2.7 Notifications, modal, toast, confirm
+
+**Since K7 (#1561, CR-11 pilot A, merged 4 October 2026) a record form on
+the kit has every state designed**, the activity first: the **action bar**
+(`ui.action_bar`) under the form column, 64 px, white with a thin top line,
+sticky also on a desktop (16 px above the window's bottom, in the flow at
+the form's end), only in edit mode; Verwijderen red at the left, Annuleren as
+text, Opslaan the one filled primary; on a phone 121 px with Opslaan full
+width on the first line. **Validation**: a banner above the form — "Opslaan
+kan nog niet: controleer n velden." with a link per field and "Je andere
+wijzigingen zijn behouden." — every refusal at once with its place, the
+first refused field focused, the values kept. **Busy**: "Opslaan…" with a
+spinner, the form blocked but readable. **Failed**: the reason stands in the
+form, never in a toast. **After success**: read mode and the toast
+"Opgeslagen ✓" (4 s). **Annuleren with changes**: "Wijzigingen weggooien?"
+with *Verder bewerken* filled and focused; **leaving with changes** (the way
+back, a tab, the sidebar): "Deze pagina verlaten?" with *Blijven* filled, the
+browser's prompt on closing the tab — from a dirty tracker in the kit; the
+kit's dialog focuses the safe button on both shells. **Keyboard**: Ctrl/⌘+S
+saves in edit mode, Enter in a one-line field submits, Esc closes only the
+top-most dialog or menu. **No access** (#1583): a 403 on a browser GET under
+`/admin` by a signed-in user renders a calm page — one sentence, one button
+to where signing in would have led — with the status still 403; the JSON
+API, fragments and writes keep their plain answer.
 
 - `ui.error_banner()` — red, `bg-red-50 text-red-700 rounded-lg p-3`, at the
   top of the page or form. Stays until the cause is fixed.
@@ -747,9 +825,43 @@ Three kinds, as server-rendered SVG: `ui.chart_bar`, `ui.chart_line`,
 
 ### 2.11 Raakje — one assistant, one set of controls (#1075)
 
-Raakje appears in three places: the public widget on every site page (the
-floating bell), the assistant page `/admin/rapporten/raakje`, and the record
-overlays (`AI · Activiteit`, `AI · Betalingen`). There was a fourth — the public
+**Since K8 (#1562, CR-11 block 10, merged 4 and 5 October 2026) Raakje has
+one surface on each side.** In the admin the **Assistent** trigger in the top
+bar (§1.6) opens a panel — `_raakje_frame.html`, `_raakje_panel.html`,
+`static/raakje-panel.js` — docked 400 px at the right from 1 440 px with the
+content moved aside, a dialog of at most 560 × 720 px below that width, a
+sheet of 560 px on a phone; X or Escape closes and returns the focus, a click
+beside it does not. **The context is the screen's**
+(`reporting/assistant_context.py`): a record, a list with its filter and the
+number of bookings, otherwise the tenant — from the address, never from the
+panel; a list state that cannot be carried over is refused with its reason.
+The trigger is active where the module's objects are in the reporting
+universe (from the module registry), dimmed elsewhere with "Raakje kent deze
+gegevens nog niet", absent with the tenant's switch off or for a role that
+may not ask. **Gone**: the assistant page `/admin/rapporten/raakje` (301 to
+the reports list), its menu item, the button on the reports list, the
+per-screen overlays `AI · Activiteit` and `AI · Betalingen`. **The public
+bell** (56 px, a window of 400 × 640 px above it on a desktop, the sheet on a
+phone) runs on the same component with the public toolset only; its greeting
+"Hallo, ik ben Raakje! 👋 …" stays. **A proposal for the form**
+(`ui.form_proposal`, `static/form-proposal.js`): field names, values and the
+value each field had when asked; Toepassen fills the form and sends nothing,
+a field changed meanwhile is left alone and named, only the form's own save
+writes. The newsletter's choices stand on its page in three groups (Voorbije
+activiteiten · Uitgelicht · In de kalender, one JSON column that reads both
+forms); its proposer runs on the mechanism (subject, preview text, content; a
+marked passage stays out unless ticked). **Answers**: the last report the
+model ran is shown as a figure with its range and source, or as a small table
+with the way to the whole list; a failed answer says "Raakje kon geen antwoord
+geven — probeer het opnieuw. Je vraag staat er nog." and keeps the question.
+Gates: `test_assistant_gate.py` (an AI button of its own, a link to the old
+page, a second panel, a selector in the panel, an admin address in the public
+component), `test_assistant_panel.py` (unit and e2e). What follows describes
+the controls, which K8 kept, and — as history — the overlays it removed.
+
+Until K8 Raakje appeared in three places: the public widget on every site
+page (the floating bell), the assistant page `/admin/rapporten/raakje`, and
+the record overlays (`AI · Activiteit`, `AI · Betalingen`). There was a fourth — the public
 page `/raakje` — until #1120: nothing in the application linked to it and Umami
 measured zero visits in three months, so it was removed. Its endpoint
 `POST /raakje/vraag` stayed, because the bell posts there. The owner's rule for them, 20 September
@@ -785,7 +897,8 @@ reach one even with a forged call. A behaviour that the public Raakje may not
 have (looking up a member) is a toolset decision, taken in the route — never a
 missing button.
 
-**One name, one icon** (#1117, 21 September 2026). Every way in is called
+**One name, one icon** (#1117, 21 September 2026; since K8 the one way in
+is "Assistent", and the rest of this paragraph is history). Every way in was called
 `AI · <Scherm>` and carries the `sparkles` icon before its label, through
 `lead_icon` on the kit button — never hand-written markup. The suffix says what
 the scope is: `AI · Activiteit` is Raakje *here, about this record*,
@@ -795,8 +908,8 @@ itself, with no screen behind it. That last one has its own menu item in
 activities and tasks, so parking it under *Rapporten* would shrink it to one of
 its subjects.
 
-**One modal, one row of controls** (#1115). The record screens show Raakje
-through the shared overlay (`ui/templates/_raakje_overlay.html`); they do not
+**One modal, one row of controls** (#1115; history — the overlay went with
+K8). The record screens showed Raakje through the shared overlay (`ui/templates/_raakje_overlay.html`); they do not
 build their own. The input row has exactly one difference left, as a parameter:
 the public widget sends with an icon, the back office with the word *Vraag*.
 Everything else — the microphone, the alignment, the growing field — is one
@@ -809,14 +922,11 @@ exactly how *Vraag* on Betalingen came to do nothing. A screen that puts a butto
 beside its filter bar passes `cls="flex-1 min-w-0"` to the bar and places the
 button next to it.
 
-Gates: `test_raakje_controls_shared.py` (every surface uses the partials, and the
-record screens use the shared overlay), `test_raakje_naam_en_icoon_1117.py` (the
-name and the icon on the rendered button, the menu item, the page), and
-`test_geen_genest_formulier.py` (no `<form>` inside a `<form>` on the rendered
-screens). In the browser: the dictation e2e, and
-`tests_e2e/test_raakje_overlay_op_betalingen.py` (the question is answered, the
-three controls share a bottom edge, two Raakje entries share one read-aloud
-state).
+Gates today: `test_assistant_gate.py` and `test_assistant_panel.py` (above),
+`test_raakje_ballon.py`, `test_raakje_naam_en_icoon_1117.py` (the name and the
+icon on the rendered trigger), `test_raakje_widget_details.py`; in the browser
+`tests_e2e/test_assistant_panel.py`, `test_raakje_invoer.py` and the dictation
+e2e. The gates that checked the overlays went with the overlays (K8).
 
 ## 3. Screen types
 
@@ -900,11 +1010,35 @@ macro supports it; the activity gets it with K7); a `btn_*` in a head
 outside the macro is red. On a phone the title goes first, the two
 controls drop under it. `ui.related_tabs(tabs)`: Gegevens first, the
 related lists with their count in brackets, a 2 px underline, never a
-bordered group. As built: the activity's primary "Bewerken" opens the
-same page with `?bewerken=1` while the sections keep their own toggles
-until K4/K7; "Annuleren" waits for K4; the "AI · Activiteit" overlay
-stays after Acties as a named exception until K8 and costs a second
-button row at 390 px.
+bordered group.
+
+**Since K4–K7 (#1558, #1559, #1560, #1561, merged 4 October 2026) the
+activity is the whole record page of the end state**: "Bewerken" turns the
+page into the editor (`?bewerken=1`), the sections Activiteit · Publiek ·
+Intern on `ui.section` with the closed last section for the rare settings;
+read mode shows every field in its place, an empty one as "—". The groups
+Datums · Onderdelen (with Producten as child group) · Organisatoren on
+`ui.repeating_group`: dates without a handle; organisers a composite,
+ordered item with their contact switch, show flags and overrides (Koen's
+option b — the order and the flags decide the poster); a component shows
+its occupancy and "t/m" in read mode. **One save** writes the record with
+its groups in one transaction (`activities.api.save_activity`; nineteen row
+routes gone, the JSON API on the same service), with three rules in the
+service (422 on the API): a component with a live registration and a
+product on a registration cannot be removed; **an activity with a live
+registration cannot be deleted** — shown in Acties before any click,
+pointing to "Activiteit annuleren"; an empty name is refused. "Geannuleerd"
+is no field but the actions "Activiteit annuleren" (a confirmation naming
+the consequence) and "Annulering intrekken". The sticky action bar and every
+state of §2.7. The summary card only on Gegevens (the Publicatie card gone);
+the registrations tab as group rows per component with a read-only unfold
+and "Inschrijving openen ↗"; the embedded payments tab with its own address;
+the figures band stays on the household and registration tabs until pilot
+B; the first registration row at y 425. A message line that holds nothing
+is no part of the form flow (#1587). The "AI · Activiteit" overlay went with
+K8.
+
+For the screens not yet on the kit:
 
 From a list, "Bewerken" opens the editor. Complex records (activity, form,
 member) use the full-page editor; one-line records (media, users) may be edited
@@ -1184,12 +1318,12 @@ while it is an intention is worse than no rule.
 | Save without unexpected page jumps (htmx) | in place; scroll/focus after save unspecified (P1) |
 | Visible loading state; the button locks after click | in place (macro) |
 | Navigation swaps the content, not the shell; progress bar | in place (`hx-boost` in 25 templates, `htmx_ux`) |
-| Clear toast after saving | in place for 6 of 92 mutating routes; the rest is #760 |
-| Warning on unsaved changes | **not built** — no `beforeunload` anywhere; keep as intention or drop (§12) |
+| Clear toast after saving | in place for 6 of 92 mutating routes; the rest is #760 — and every record on the kit's action bar (K7, #1561) |
+| Warning on unsaved changes | built on the kit's record form since K7 (#1561): the dirty tracker, the discard and leave dialogs, the browser prompt on closing the tab; the other screens follow with the roll-out |
 | Filters preserved after returning or polling | not verified |
 | Filters and search apply live, no apply button | in place |
 | Empty-state copy: one sentence per case | in place (macro) |
-| Errors beside the relevant field | in place (macro) |
+| Errors beside the relevant field | in place (macro); on a kit form all at once, with the banner (K7) |
 | Destructive actions never next to the primary action | gate rule (#722) |
 | Visible keyboard focus and correct tab order | not verified |
 | Smart default values (media defaults to Activiteitenfoto, #708) | per screen |
@@ -1220,13 +1354,34 @@ Fixed words, everywhere: **Opslaan** (create and edit; never "Bewaar",
 
 Same kit, warmer expression. Specifics beyond §3.1:
 
+- **The public shell since P1** (#1588, CR-11 pilot B, merged 5 October
+  2026; decision 11): the band in the tenant's `site_header_color` (the
+  default unchanged), 64 px on a phone, 112 px from 768 px (two rows), 80 px
+  from 1 200 px; **sticky** at y 0 with the environment banner in the flow
+  above it; the tenant's logo as one image, else its name (§1.2); the links
+  inline from 768 px, the active page with a 2 px underline; below 768 px a
+  **360 px white drawer over the page** — a close button where the menu button
+  was, 48 px rows, Escape and the backdrop close it, the page behind it inert,
+  the bell inert and hidden meanwhile. **The account** on the member's first
+  name opens one menu — Mijn gezin · Admin (for who the back office admits) ·
+  Uitloggen; "Inloggen" without a session; one list for the bar and the drawer
+  (`_site_account.html`). **The footer** shares the container of header and
+  content (358 / 720 / 1 248 px): one row — the newsletter's call "Nieuws uit
+  <plaats>" ("Nieuws van <naam>" without an address) with the one yellow
+  "Aanmelden" (it left the home page), "Volg ons" with the social links (24 px
+  in 44 px targets), the sponsors (at most 144 × 64 px) — and the **legal line
+  with the organisation's details**, each once and only when filled in, from
+  the organisation the site shows; the CMS block `site-footer` is no longer
+  rendered (it stays as data); 88 px free under the legal line for the bell.
+  Gate `test_public_shell_gate.py`. The public forms follow with P2 and P3.
 - **CTA hierarchy**: the core action of a page is always `btn-primary`
   (`btn-sm` in a list); secondary `btn-secondary`; tertiary (Info ↗, "Wie doet
   er mee?") may stay a text link. "Wie doet er mee?" is one compact inline line
   in `text-xs text-gray-600`: *N ingeschreven — naam · naam* — never a vertical
   list, never a wide inline block (#601).
-- **Registration is a narrow modal** (`max-w-md`, × / Esc / backdrop) — never an
-  inline tinted block that widens the card.
+- **Registration is one page** (CR-14 §B4.1): the public route in the site
+  shell, the board route with the same content in the admin shell; never a
+  modal.
 - **Payment flow**: default method online (Mollie); on success with a
   `checkout_url` a **hard redirect** via the `HX-Redirect` header, never a
   client-side navigation. Cancelled → back to the source, or `/`. Widget copy:
@@ -1236,9 +1391,11 @@ Same kit, warmer expression. Specifics beyond §3.1:
 - **Navigation** marks the active link (underline or fixed background) with a
   text cue for screen readers — colour alone is not a marking (#608).
 - **Tenant branding is configuration, never a hard-coded default** (#519):
-  tagline, social links and the privacy link come from tenant settings; empty
-  means not shown. Fixed inline content (`site-footer`, `home-intro`) is
-  addressed by a fixed slug and edited per tenant in the CMS (#457).
+  the logo, the header colour, the social links and the sponsors come from
+  tenant settings and media; empty means not shown; the privacy page is a
+  page's flag "in de voettekst" (#1569). Fixed inline content (`home-intro`)
+  is addressed by a fixed slug and edited per tenant in the CMS (#457);
+  `site-footer` is no longer rendered since P1.
 - **CMS editor is Trix**, vendored under `/static/vendor` (no CDN, no data
   leaving the EU); file attachments disabled; stored HTML is sanitised
   server-side at every render point (#476, #520).
@@ -1416,3 +1573,5 @@ and sections update per execution issue (see the execution note in §0).
 | "Opslaan" also called "Bewaar" / "Toevoegen" | always "Opslaan" | gate (terminology) |
 | Loose hex codes in templates | tokens only | gate |
 | Three style assets (stijlgids / ui-conventies / spec) plus an HTML mock | this document + the live route | this document; route #783 |
+| Raw form elements outside `ui.field` | zero (B7 test 8) | ratchet `ui_baseline.py` (K9, #1563): 105 in 29 files on 5 Oct 2026, the pilot screens at zero; the roll-out slices lower it |
+| Raw checkboxes · spacing on a field · raw surfaces · extra head buttons · hand-drawn tiles · sideways scroll · nowrap rows · admin pages straight on the shell | zero each | ratchets: 24/12 · 76/22 · 95/50 · 20/12 · 3/3 · 9/8 · 7/3 · 60/60 (count/files, 5 Oct 2026); against A2's 1 October counts: raw elements 456 → 236 with hidden inputs (105 without), raw surfaces 224 → 95; the 1 215 spacing classes could not be reconstructed by one definition |
