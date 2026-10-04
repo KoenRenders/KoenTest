@@ -623,7 +623,14 @@ on Gegevens**; a list tab has none (block 8, Koen, 4 October 2026). [25]
 The record's name as a link to its detail, `arrow-up-right` after it,
 `text-blue-500` underlined, the way back preserved. The only way a field
 that *is* another record is rendered; a name in blue always goes to the
-record it names. [20, 30]
+record it names. **Everywhere** (Koen, 4 Oct 2026, Q56): in a record's
+facts line and form (block 5), in an unfolded row (block 8) and **inside a
+list row** — a row's first cell opens the row's own record without an
+arrow, every other record named in the row (the activity under Context,
+the household behind a booking) is its own jump link beside the row link,
+as block 4 drew the Context cell. A person has no page (Q28): a person's
+name goes to the household page with that person's row opened. A name of
+another record rendered as plain text is red (C6). [20, 30]
 
 ### 3.12 `related_tabs(tabs)`
 
