@@ -402,6 +402,41 @@ empty; the rows are committed with the screen's save, never on their own.
 Instances: contact details, addresses, activity dates, components,
 products, form options, order lines. [1, 50]
 
+**Decided with block 7** (Koen, 4 October 2026, on ChatGPT's brief-07
+answer): a **simple row** has the drag handle (`grip-vertical`, 44 px)
+at the left where the order matters, the fields inline at 768 px (a date:
+datum · van · tot; an e-mail: the address and its tag; an organiser: the
+name as a jump link), `⋯` at the right, 12 px between rows with a thin
+line in that space; on a phone the fields stack under a first line with
+handle and `⋯`. A **composite item** (a component) has a title line
+(handle, name, `⋯`), its fields in the grid under it, and its child group
+(**Producten**, with its own "+ Product") indented 16 px behind a vertical
+line (12 px on a phone) — no card, no background, no nested box; a product
+row is naam half · prijs kwart · ledenprijs kwart with gratis and ter
+plaatse betalen as switches on the next line; in read mode a product is
+two short lines ("Soep · € 5,00 · leden € 4,00" / "Gratis: nee · Ter
+plaatse betalen: ja"), and the item's name is its heading, not repeated
+as a field; the item's rare settings go to the form's one collapsed slot.
+**Adding** ("+ Datum", "+ Onderdeel", "+ Product", "+ Organisator" at the
+heading's right, edit mode only) inserts an empty row in place with the
+focus on its first field; an organiser is added through a **member search
+inside the group** (type a name, pick a member), never a dialog, never
+free text. **The empty group** says "Nog geen datums." and in edit mode
+keeps only the heading's add button. **The row's `⋯`**: Omhoog · Omlaag ·
+Dupliceren | Verwijderen (red, last); Dupliceren not for members and
+e-mail addresses; a duplicated component takes its products; Omhoog is
+disabled on the first row, Omlaag on the last; while dragging, the origin
+stays as a dotted space, the row gets a brand border and shadow, a brand
+line marks the drop. **Removing a row inside an unsaved form asks no
+confirmation** — Annuleren undoes it; the kit's "definitief verwijderen"
+dialog is for deleting a record, and whether a component with
+registrations may go is the service's answer at Opslaan, shown on the
+row (Koen's correction). **The one-among-many tag** ("hoofdadres", 4 px)
+shows in both modes; another row takes it over through "Maak hoofdadres"
+in its `⋯`; the main row's `⋯` has no Verwijderen. Measured at 1 440 px:
+Onderdelen with two components (one with two products) 719 px read /
+1 380 px edit; a date row 46 / 65 px; an organiser row 44 px.
+
 ### 3.4 `rare_settings(title, summary)` — placed by the layout, last
 
 A collapsed section in the **last slot of the form layout** — after every
