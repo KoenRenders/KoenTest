@@ -238,25 +238,22 @@ def _write_organization_details(db, organization_id: int, form: Mapping) -> None
 
 def _enterprise_number(text: str) -> str:
     """The ten digits of an enterprise number in any usual spelling, or a refusal
-    on the field with the reason (#1517)."""
-    from app.domains.mdm.enterprise_number import (
-        EnterpriseNumber,
-        InvalidEnterpriseNumber,
-        WrongCheckDigits,
-    )
+    on the field (#1517). The check is of the structure — ten digits, a leading 0
+    or 1, the check number — not of whether the KBO knows the number, and every
+    structural refusal reads the same (#1549, Koen's text): explaining the
+    arithmetic read as technical, and the hint below the field gives the shape."""
+    from app.domains.mdm.enterprise_number import EnterpriseNumber, InvalidEnterpriseNumber
 
     try:
         return EnterpriseNumber.parse(text).digits
-    except WrongCheckDigits:
-        reason = _(
-            "Het controlegetal klopt niet: de laatste twee cijfers horen 97 min de eerste "
-            "acht modulo 97 te zijn. Kijk het nummer na."
-        )
     except InvalidEnterpriseNumber:
-        reason = _(
-            "Een ondernemingsnummer heeft tien cijfers en begint met 0 of 1, bv. 0123.456.749."
-        )
-    raise OngeldigeInstelling({"enterprise_number": reason})
+        raise OngeldigeInstelling(
+            {
+                "enterprise_number": _(
+                    "Dit ondernemingsnummer heeft niet de juiste structuur. Kijk het na."
+                )
+            }
+        ) from None
 
 
 def _vat_number(text: str) -> str:
@@ -264,12 +261,9 @@ def _vat_number(text: str) -> str:
     (#1545). A Belgian VAT number is the enterprise number with `BE` in front;
     written without a country, it is read as Belgian. Another country's number
     (two other letters in front) is not checked and is stored as typed — its
-    rules are its own country's."""
-    from app.domains.mdm.enterprise_number import (
-        EnterpriseNumber,
-        InvalidEnterpriseNumber,
-        WrongCheckDigits,
-    )
+    rules are its own country's. A refusal reads like the enterprise number's
+    (#1549)."""
+    from app.domains.mdm.enterprise_number import EnterpriseNumber, InvalidEnterpriseNumber
 
     typed = text.strip()
     compact = re.sub(r"[\s.\-]", "", typed)
@@ -277,17 +271,10 @@ def _vat_number(text: str) -> str:
         return typed
     try:
         return "BE" + EnterpriseNumber.parse(compact).digits
-    except WrongCheckDigits:
-        reason = _(
-            "Het controlegetal klopt niet: een Belgisch btw-nummer is BE en het "
-            "ondernemingsnummer. Kijk het nummer na."
-        )
     except InvalidEnterpriseNumber:
-        reason = _(
-            "Een Belgisch btw-nummer is BE en tien cijfers, bv. BE 0123.456.749. "
-            "Een buitenlands nummer begint met de code van zijn land."
-        )
-    raise OngeldigeInstelling({"vat_number": reason})
+        raise OngeldigeInstelling(
+            {"vat_number": _("Dit btw-nummer heeft niet de juiste structuur. Kijk het na.")}
+        ) from None
 
 
 def _bewaar_rekening(db, organization_id: int, form: Mapping) -> None:
