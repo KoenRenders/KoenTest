@@ -350,6 +350,36 @@ def list_units(db, *, alleen_actief: bool = False):
     return query.order_by(Organization.id).all()
 
 
+def active_units_by_account(db):
+    """The active tenants, grouped by the active ACCOUNT they belong to (#1525).
+
+    A list of ``(account, units)``: ``account`` an ACCOUNT organisation, or None
+    for the tenants that belong to no active account — a tenant may be created
+    without one, and a live tenant must not vanish from the platform's landing.
+    Accounts without an active tenant are left out. The groups follow the
+    account's name, the None group last; the units within a group keep the
+    order of ``list_units`` and are sorted by their display name by the caller,
+    which knows it.
+    """
+    from app.domains.mdm.models import Organization
+
+    accounts = {
+        a.id: a
+        for a in db.query(Organization).filter(
+            Organization.org_type == OrganizationType.ACCOUNT, Organization.is_active.is_(True)
+        )
+    }
+    groups: dict[int | None, list] = {}
+    for unit in list_units(db, alleen_actief=True):
+        key = unit.parent_id if unit.parent_id in accounts else None
+        groups.setdefault(key, []).append(unit)
+    named = sorted(
+        ((accounts[k], units) for k, units in groups.items() if k is not None),
+        key=lambda group: (group[0].name.casefold(), group[0].id),
+    )
+    return named + ([(None, groups[None])] if None in groups else [])
+
+
 def platform_org(db):
     """The PLATFORM organization, or None if this database has none (#854).
 
