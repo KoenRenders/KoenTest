@@ -102,7 +102,7 @@ def test_the_registry_has_the_platforms_own_entry():
     }
 
 
-def test_a_new_tenant_is_never_a_platform(client, db_session, platform_host):
+def test_a_new_tenant_is_never_a_platform(client, platform_workspace, db_session, platform_host):
     with pytest.raises(TenantFout):
         create_tenant(db_session, name="Tweede platform", code="tweede-platform", kind="PLATFORM")
 
@@ -112,7 +112,7 @@ def test_a_new_tenant_is_never_a_platform(client, db_session, platform_host):
     assert 'value="PLATFORM"' not in form, "a new tenant can be made a platform"
 
 
-def test_the_tenant_editor_shows_the_platforms_kind(client, db_session):
+def test_the_tenant_editor_shows_the_platforms_kind(client, platform_workspace, db_session):
     _operator(client, db_session)
     html = client.get(f"/admin/tenants/{_platform(db_session).id}").text
 

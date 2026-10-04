@@ -43,14 +43,15 @@ def test_macros_render_and_escape():
 
 
 def test_admin_nav_info_onderaan_en_een_tenant_item():
-    """#505: 'Info' staat onderaan. #581: één item voor tenants — de aparte
-    'Instellingen' is opgegaan in /admin/tenants, dus twee nav-items voor
-    hetzelfde object bestaan niet meer."""
+    """#505: 'Info' staat onderaan. #581: één item per object — and since #1535 the
+    object depends on the workspace: a tenant workspace (the default here) has its
+    own "Instellingen" and no Tenants; never both for the same site."""
     from app.ui import admin_nav
 
     hrefs = [i["href"] for groep in admin_nav("/admin/werkbank") for i in groep["items"]]
-    assert "/admin/instellingen" not in hrefs
-    assert hrefs.index("/admin/tenants") < hrefs.index("/admin/info")
+    assert "/admin/tenants" not in hrefs
+    assert hrefs.index("/admin/instellingen") < hrefs.index("/admin/info")
+    assert hrefs[-1] == "/admin/info"
 
 
 def test_admin_shell_heeft_uitloggen_en_sticky_sidebar():

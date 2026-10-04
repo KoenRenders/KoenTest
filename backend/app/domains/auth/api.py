@@ -61,10 +61,16 @@ from app.domains.auth.session import (  # noqa: F401
     require_finance_mutation,
     require_finance_ui,
     require_operator_ui,
+    require_platform_operator_ui,
+    require_tenant_workspace,
     session_cookie_secure,
     set_session_cookie,
 )
-from app.domains.auth.users import list_assignable_roles, role_options  # noqa: F401
+from app.domains.auth.users import (  # noqa: F401
+    is_platform_workspace,
+    list_assignable_roles,
+    role_options,
+)
 
 __all__ = [
     "check_otp",
@@ -111,6 +117,9 @@ __all__ = [
     "may_use_admin_assistant",
     "require_finance_ui",
     "require_operator_ui",
+    "require_platform_operator_ui",
+    "require_tenant_workspace",
+    "is_platform_workspace",
     "require_csrf",
     "session_cookie_secure",
     "set_session_cookie",

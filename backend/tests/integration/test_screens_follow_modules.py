@@ -199,7 +199,9 @@ def test_a_company_footer_says_partners(db_session):
 # ── The tenant editor: settings of a module that is off ─────────────────────
 
 
-def test_the_editor_hides_the_settings_of_modules_that_are_off_and_keeps_them(client, db_session):
+def test_the_editor_hides_the_settings_of_modules_that_are_off_and_keeps_them(
+    client, platform_workspace, db_session
+):
     from app.domains.auth.api import csrf_token_for
     from app.domains.auth.models import User, UserRole
     from app.domains.mdm.api import create_tenant

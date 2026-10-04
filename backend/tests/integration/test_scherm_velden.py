@@ -123,7 +123,7 @@ def _organisatieformulier() -> dict[str, str]:
 
 
 @pytest.fixture
-def opgeslagen(client, db_session):
+def opgeslagen(client, platform_workspace, db_session):
     csrf = _operator(client, db_session)
     antwoord = client.post(
         f"/admin/tenants/{TENANT}", data=_volledig_formulier(), headers={"X-CSRF-Token": csrf}
@@ -133,7 +133,7 @@ def opgeslagen(client, db_session):
 
 
 @pytest.fixture
-def organisatie_opgeslagen(client, db_session):
+def organisatie_opgeslagen(client, platform_workspace, db_session):
     csrf = _operator(client, db_session)
     antwoord = client.post(
         f"/admin/organisaties/{TENANT}",
@@ -178,7 +178,7 @@ def test_elke_bekende_instelling_is_invulbaar(key, label, opgeslagen, db_session
     )
 
 
-def test_elke_geheime_sleutel_wordt_bewaard(client, db_session):
+def test_elke_geheime_sleutel_wordt_bewaard(client, platform_workspace, db_session):
     """Geheimen doen niet mee aan de terugleesstap — ze worden bewust nooit
     teruggetoond. Dát ze aankomen is wel te toetsen."""
     csrf = _operator(client, db_session)
@@ -197,7 +197,7 @@ def test_elke_geheime_sleutel_wordt_bewaard(client, db_session):
         )
 
 
-def test_de_naam_staat_op_het_scherm(client, db_session):
+def test_de_naam_staat_op_het_scherm(client, platform_workspace, db_session):
     """De regressie van #954, met zoveel woorden vastgepind.
 
     Bewust hardgecodeerd, en dat is geen slordigheid: de parametrische test
@@ -234,7 +234,9 @@ def test_de_lijsten_overlappen_niet(db_session):
 # ── De naam mag niet leeg ──────────────────────────────────────────────────
 
 
-def test_een_lege_naam_wordt_geweigerd_met_een_zichtbare_melding(client, db_session):
+def test_een_lege_naam_wordt_geweigerd_met_een_zichtbare_melding(
+    client, platform_workspace, db_session
+):
     """`organizations.name` voedt de paginatitel, de afzender en de footer.
 
     Sinds #945 heeft `tenant_display_name` geen terugval meer achter de
@@ -254,7 +256,7 @@ def test_een_lege_naam_wordt_geweigerd_met_een_zichtbare_melding(client, db_sess
     assert "paginatitel" in antwoord.text, "de melding zegt niet waaróm een lege naam niet kan"
 
 
-def test_een_geweigerde_naam_laat_de_rest_ongemoeid(client, db_session):
+def test_een_geweigerde_naam_laat_de_rest_ongemoeid(client, platform_workspace, db_session):
     """Eerst weigeren, dan pas schrijven.
 
     Zou de rechtsvorm al bewaard zijn wanneer de naam afketst, dan is de opslag
@@ -291,7 +293,7 @@ def test_een_geweigerde_naam_laat_de_rest_ongemoeid(client, db_session):
     )
 
 
-def test_de_naam_wijzigen_verandert_de_paginatitel(client, db_session):
+def test_de_naam_wijzigen_verandert_de_paginatitel(client, platform_workspace, db_session):
     """Waarom het veld ertoe doet, in plaats van dat het er alleen staat.
 
     De naam voedt sinds #945 de schil. Deze test valt om zodra iemand de

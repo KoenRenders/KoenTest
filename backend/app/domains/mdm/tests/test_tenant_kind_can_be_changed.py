@@ -39,7 +39,11 @@ RAAK = re.compile(r'aria-label="Raak">R<span class="text-\[1\.3em\]">aa</span>K<
 
 
 def _home_header(client) -> str:
-    html = client.get("/").text
+    # #1535: the test runs on the platform host; Raak Millegem is reached by its prefix.
+    html = client.get("/raakmillegem/").text
+    # The prefix sets the workspace cookie (#889), which would win on the platform
+    # host for the next request; this test goes on as the operator on the platform.
+    client.cookies.delete("raak_tenant")
     start = html.index("<header")
     return html[start : html.index("</header>", start)]
 
@@ -69,7 +73,7 @@ def _company(db) -> Organization:
     return org
 
 
-def test_an_operator_makes_a_company_an_association(client, db_session, caplog):
+def test_an_operator_makes_a_company_an_association(client, platform_workspace, db_session, caplog):
     # The default tenant, so the public header is served on "/" (as #1496 measures it).
     org = db_session.get(Organization, TENANT_MILLEGEM_ID)
     org.kind = TenantKind.COMPANY
@@ -108,7 +112,9 @@ def test_an_operator_makes_a_company_an_association(client, db_session, caplog):
     assert RAAK.search(header) and 'aria-label="Bakkerij Soort"' not in header
 
 
-def test_platform_is_never_chosen_and_the_platforms_kind_is_fixed(client, db_session):
+def test_platform_is_never_chosen_and_the_platforms_kind_is_fixed(
+    client, platform_workspace, db_session
+):
     org = _company(db_session)
     csrf = _login(client, db_session, "operator2-1533@example.com", "OPERATOR")
 
@@ -132,7 +138,7 @@ def test_platform_is_never_chosen_and_the_platforms_kind_is_fixed(client, db_ses
     assert db_session.get(Organization, platform.id).kind is TenantKind.PLATFORM
 
 
-def test_an_admin_cannot_change_a_kind(client, db_session):
+def test_an_admin_cannot_change_a_kind(client, platform_workspace, db_session):
     org = _company(db_session)
     csrf = _login(client, db_session, "admin-1533@example.com", "ADMIN")
     assert _save(client, csrf, org.id, kind="VERENIGING").status_code == 403
@@ -164,7 +170,9 @@ def _landing_groups(client) -> dict[str, list[str]]:
     }
 
 
-def test_an_operator_moves_a_tenant_to_another_account(client, db_session, platform_host, caplog):
+def test_an_operator_moves_a_tenant_to_another_account(
+    client, platform_workspace, db_session, platform_host, caplog
+):
     first = create_account(db_session, name="Account Een", code="een-1533")
     second = create_account(db_session, name="Account Twee", code="twee-1533")
     org = create_tenant(db_session, name="Proefclub", code="proefclub-1533", parent_id=first.id)
@@ -196,7 +204,9 @@ def test_an_operator_moves_a_tenant_to_another_account(client, db_session, platf
     assert "Account Een" not in groups, "an account left without a tenant drops off"
 
 
-def test_only_an_active_account_is_taken_and_the_platform_has_none(client, db_session):
+def test_only_an_active_account_is_taken_and_the_platform_has_none(
+    client, platform_workspace, db_session
+):
     gone = create_account(db_session, name="Account Weg", code="weg-1533")
     gone.is_active = False
     org = _company(db_session)

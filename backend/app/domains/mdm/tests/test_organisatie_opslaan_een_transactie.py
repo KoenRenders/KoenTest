@@ -49,7 +49,7 @@ def _sql(statement: str, **params):
 
 
 @pytest.fixture
-def real_request(client):
+def real_request(client, platform_workspace):
     """The route runs on a session of its own, closed after the request."""
 
     def _own_session():

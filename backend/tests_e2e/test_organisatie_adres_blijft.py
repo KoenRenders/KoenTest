@@ -23,7 +23,7 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import PLATFORM, login_met_sessie, pagina_klaar  # noqa: E402
 
 ORGANISATION_ID = 1  # the legal entity: an editor, no site of its own
 WIDTH = 390
@@ -53,8 +53,9 @@ def page(operator):
     with sync_playwright() as pw:
         exe = os.environ.get("E2E_CHROMIUM_PATH")
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
-        p = browser.new_page(base_url=BASE, viewport={"width": WIDTH, "height": 844})
-        login_met_sessie(p, operator)
+        # #1535: platform administration answers in the platform workspace only.
+        p = browser.new_page(base_url=PLATFORM, viewport={"width": WIDTH, "height": 844})
+        login_met_sessie(p, operator, PLATFORM)
         yield p
         browser.close()
 

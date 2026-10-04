@@ -28,7 +28,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import BASE, PLATFORM, login_met_sessie, pagina_klaar  # noqa: E402
 
 _STATE = """() => ({
   banners: [...document.querySelectorAll('#main [role=alert]')].map(e => e.innerText),
@@ -47,6 +47,8 @@ def page():
         b = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         p = b.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
         login_met_sessie(p, make_session_value(SEEDED_ADMIN_EMAIL))
+        # #1535: platform administration answers in the platform workspace only.
+        login_met_sessie(p, make_session_value(SEEDED_ADMIN_EMAIL), PLATFORM)
         yield p
         b.close()
 
@@ -58,9 +60,10 @@ def _submit(page, button, url_part: str):
     return answer.value.status, page.evaluate(_STATE)
 
 
-def _first_link(page, prefix: str) -> str:
-    page.goto(prefix)
+def _first_link(page, url: str) -> str:
+    page.goto(url)
     pagina_klaar(page)
+    prefix = "/" + url.split("://", 1)[-1].split("/", 1)[-1]
     return page.locator(f"a[href^='{prefix}/']:not([href$='/nieuw'])").first.get_attribute("href")
 
 
@@ -75,7 +78,7 @@ def _assert_shown(status, state, reason: str):
 
 
 def test_the_organisation_shows_why(page):
-    adres = _first_link(page, "/admin/organisaties")
+    adres = PLATFORM + _first_link(page, PLATFORM + "/admin/organisaties")
     page.goto(adres)
     pagina_klaar(page)
     voor = page.locator("#street").input_value()
@@ -94,9 +97,9 @@ def test_the_organisation_shows_why(page):
 def test_the_tenant_editor_shows_why(page):
     # A unit, not the list's first row: that is the platform, which has
     # Activiteiten off since #1523.
-    page.goto("/admin/tenants")
+    page.goto(PLATFORM + "/admin/tenants")
     pagina_klaar(page)
-    adres = (
+    adres = PLATFORM + (
         page.locator("a[href^='/admin/tenants/']:not([href$='/nieuw'])")
         .filter(has_text="Raak Millegem")
         .first.get_attribute("href")

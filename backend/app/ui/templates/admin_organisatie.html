@@ -2,12 +2,12 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ organisatie.name }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
-{{ ui.back_link(_("Alle organisaties"), "/admin/organisaties") }}
+{{ ui.back_link(_("Alle organisaties"), back_href) }}
 {% call ui.page_header(organisatie.name, organisatie.org_type|code_label("organization_type") ~ " · " ~ organisatie.code) %}
   {% if heeft_site %}
   {# De site van deze organisatie. Niet dezelfde velden: dáár staan mail, Umami,
      taal en lidgeld — de instellingen van de site, niet wat de organisatie IS. #}
-  {{ ui.btn_secondary(_("Instellingen van de site"), href="/admin/tenants/" ~ organisatie.id) }}
+  {{ ui.btn_secondary(_("Instellingen van de site"), href=site_href) }}
   {% endif %}
 {% endcall %}
 
@@ -18,7 +18,8 @@
    rekeningnummer, btw-nummer en Facebook onder elkaar alsof ze hetzelfde soort ding
    waren. Het zijn rijen in vier verschillende tabellen, en het scherm hoort te laten
    zien hoe het model in elkaar zit. #}
-<form id="org-form" hx-post="/admin/organisaties/{{ organization_id }}"
+{# #1535: the target literally per scope — the rules gate walks it to its route. #}
+<form id="org-form" {% if own %}hx-post="/admin/organisatie"{% else %}hx-post="/admin/organisaties/{{ organization_id }}"{% endif %}
       hx-target="body" hx-swap="innerHTML" class="space-y-6 max-w-2xl">
 
   <section>
@@ -105,6 +106,6 @@
   {# Annuleren haalt het bewaarde scherm opnieuw op (#1089). Het formulier
      vervangt bij opslaan de hele body, dus een gewone link naar dezelfde
      pagina geeft precies wat een geslaagde opslag ook toont. #}
-  {{ ui.action_bar(form="org-form", cancel_href="/admin/organisaties/" ~ organization_id) }}
+  {{ ui.action_bar(form="org-form", cancel_href=cancel_href) }}
 </form>
 {% endblock %}

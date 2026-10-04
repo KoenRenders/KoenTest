@@ -155,7 +155,7 @@ def test_record_counts_count_this_tenants_live_records(db_session):
 
 
 def test_the_editor_shows_the_kind_and_the_modules_and_refuses_a_missing_dependency(
-    client, db_session
+    client, platform_workspace, db_session
 ):
     csrf = _operator(client, db_session)
     org = create_tenant(db_session, name="Editorproef", code="ed-1478", kind=TenantKind.COMPANY)
@@ -187,7 +187,9 @@ def test_the_editor_shows_the_kind_and_the_modules_and_refuses_a_missing_depende
     assert enabled_modules(org.id, db=db_session) == COMPANY | {"newsletter"}
 
 
-def test_the_new_tenant_page_is_operator_only_and_offers_the_kind(client, db_session):
+def test_the_new_tenant_page_is_operator_only_and_offers_the_kind(
+    client, platform_workspace, db_session
+):
     user = db_session.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).one()
     db_session.query(UserRole).filter_by(user_id=user.id, role_code="OPERATOR").delete()
     db_session.commit()

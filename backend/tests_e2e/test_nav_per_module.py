@@ -79,8 +79,9 @@ def browser_and_company():
     with sync_playwright() as pw:
         exe = os.environ.get("E2E_CHROMIUM_PATH")
         b = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
-        page = b.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
-        login_met_sessie(page, make_session_value(SEEDED_ADMIN_EMAIL))
+        # #1535: platform administration answers in the platform workspace only.
+        page = b.new_page(base_url=PLATFORM, viewport={"width": 1440, "height": 900})
+        login_met_sessie(page, make_session_value(SEEDED_ADMIN_EMAIL), PLATFORM)
         page.goto("/admin/tenants/nieuw")
         pagina_klaar(page)
         page.locator("label:has(input[name=kind][value=BEDRIJF])").click()

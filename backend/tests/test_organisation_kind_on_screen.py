@@ -62,7 +62,9 @@ def _card(html: str, organisation_id: int) -> str:
     return html[start : html.index("</div>\n  </div>", start)]
 
 
-def test_the_list_badge_names_the_kind_and_colours_the_account(client, db_session):
+def test_the_list_badge_names_the_kind_and_colours_the_account(
+    client, platform_workspace, db_session
+):
     _login(client, db_session)
     html = client.get("/admin/organisaties").text
 
@@ -72,7 +74,7 @@ def test_the_list_badge_names_the_kind_and_colours_the_account(client, db_sessio
     assert re.search(r">afdeling<", unit) and "bg-blue-100" not in unit, unit
 
 
-def test_the_kind_filter_keeps_only_that_kind(client, db_session):
+def test_the_kind_filter_keeps_only_that_kind(client, platform_workspace, db_session):
     _login(client, db_session)
     html = client.get("/admin/organisaties?org_type=UNIT").text
 
@@ -80,7 +82,7 @@ def test_the_kind_filter_keeps_only_that_kind(client, db_session):
     assert f'href="/admin/organisaties/{_id_of(db_session, "ACCOUNT")}"' not in html
 
 
-def test_the_editor_of_a_unit_links_to_its_site_settings(client, db_session):
+def test_the_editor_of_a_unit_links_to_its_site_settings(client, platform_workspace, db_session):
     _login(client, db_session)
     unit = _id_of(db_session, "UNIT")
     account = _id_of(db_session, "ACCOUNT")
@@ -91,7 +93,7 @@ def test_the_editor_of_a_unit_links_to_its_site_settings(client, db_session):
     )
 
 
-def test_the_tenant_list_marks_the_platform(client, db_session):
+def test_the_tenant_list_marks_the_platform(client, platform_workspace, db_session):
     _login(client, db_session, operator=True)
     html = client.get("/admin/tenants").text
     code = db_session.execute(

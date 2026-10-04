@@ -89,7 +89,9 @@ def test_an_admin_of_a_gets_403_in_b(client, two_workspaces):
     assert client.get(f"{B}/admin/gebruikers").status_code == 403
 
 
-def test_the_overview_is_the_operators_and_lists_every_row(client, db_session, two_workspaces):
+def test_the_overview_is_the_operators_and_lists_every_row(
+    client, platform_workspace, db_session, two_workspaces
+):
     _as(client, two_workspaces["admin_a"])
     assert client.get("/admin/gebruikers/alle-werkruimtes").status_code == 403
 

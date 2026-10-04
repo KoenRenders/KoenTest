@@ -55,7 +55,7 @@ def _opslaan(client, csrf, tenant_id, **velden):
     return client.post(f"/admin/tenants/{tenant_id}", data=velden, headers={"X-CSRF-Token": csrf})
 
 
-def test_een_komma_wordt_aanvaard_en_genormaliseerd(client, db_session):
+def test_een_komma_wordt_aanvaard_en_genormaliseerd(client, platform_workspace, db_session):
     """`17,50` hoort gewoon te werken — dat is de notatie die het scherm toont."""
     from app.kernel.tenant_config import get_setting, tenant_membership_config
 
@@ -74,7 +74,7 @@ def test_een_komma_wordt_aanvaard_en_genormaliseerd(client, db_session):
     assert tenant_membership_config(db_session, tid)["price_half"] == Decimal("17.50")
 
 
-def test_onzin_wordt_geweigerd_en_bereikt_de_databank_niet(client, db_session):
+def test_onzin_wordt_geweigerd_en_bereikt_de_databank_niet(client, platform_workspace, db_session):
     """De melding noemt het veld, want een scherm met twintig velden en 'er ging iets
     mis' is precies wat de storing zo duur maakte."""
     from app.kernel.tenant_config import get_setting
@@ -92,7 +92,7 @@ def test_onzin_wordt_geweigerd_en_bereikt_de_databank_niet(client, db_session):
     )
 
 
-def test_de_ingetypte_waarden_blijven_staan_na_een_fout(client, db_session):
+def test_de_ingetypte_waarden_blijven_staan_na_een_fout(client, platform_workspace, db_session):
     """Anders veegt één tikfout het hele scherm leeg en is de melding erger dan de fout."""
     csrf = _operator(client, db_session)
     tid = _tenant_id(db_session)
@@ -103,7 +103,7 @@ def test_de_ingetypte_waarden_blijven_staan_na_een_fout(client, db_session):
     assert "Onze eigen leuze" in resp.text
 
 
-def test_een_geheel_getalveld_weigert_een_bedrag(client, db_session):
+def test_een_geheel_getalveld_weigert_een_bedrag(client, platform_workspace, db_session):
     """`payment_term_days` is een aantal dagen; `7,5` hoort daar niet in."""
     csrf = _operator(client, db_session)
     tid = _tenant_id(db_session)
@@ -114,7 +114,7 @@ def test_een_geheel_getalveld_weigert_een_bedrag(client, db_session):
     assert "Betaaltermijn" in resp.text
 
 
-def test_niets_wordt_geschreven_als_een_ander_veld_faalt(client, db_session):
+def test_niets_wordt_geschreven_als_een_ander_veld_faalt(client, platform_workspace, db_session):
     """Alles-of-niets. Half opgeslagen is verwarrender dan niet opgeslagen: dan klopt
     het scherm niet meer met de databank en weet je niet welke helft je opnieuw moet
     intypen."""
@@ -132,7 +132,7 @@ def test_niets_wordt_geschreven_als_een_ander_veld_faalt(client, db_session):
 
 
 def test_een_onleesbare_waarde_in_de_databank_legt_de_homepage_niet_plat(
-    client, db_session, caplog
+    client, platform_workspace, db_session, caplog
 ):
     """Het vangnet. De waarde gaat RECHTSTREEKS in de databank — via het formulier
     zou hij nu geweigerd worden en toetsen we de eerste laag opnieuw."""

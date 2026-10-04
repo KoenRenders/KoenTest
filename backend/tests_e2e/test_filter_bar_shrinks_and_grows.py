@@ -43,16 +43,23 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_als_admin, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    PLATFORM,
+    login_als_admin,
+    login_met_sessie,
+    pagina_klaar,
+)
 
 #: Every screen with a `ui.filter_bar` that the e2e seed can open. `TAB` is the
 #: payments tab of the first activity in the list.
 TAB = "activiteit-tab"
 SCREENS = [
-    "/admin/tenants",
+    # #1535: Tenants and Organisaties answer in the platform workspace only.
+    PLATFORM + "/admin/tenants",
     "/admin/e-maillog",
     "/admin/vergaderingen",
-    "/admin/organisaties",
+    PLATFORM + "/admin/organisaties",
     "/admin/paginas",
     "/admin/ledenwijzigingen",
     "/admin/betalingen",
@@ -104,6 +111,7 @@ def browser_page():
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         page = browser.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
         login_als_admin(page, email, make_session_value(email))
+        login_met_sessie(page, make_session_value(email), PLATFORM)
         yield page
         browser.close()
 

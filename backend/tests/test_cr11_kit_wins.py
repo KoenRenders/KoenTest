@@ -121,7 +121,7 @@ def test_the_list_pages_are_the_headers_with_a_create_button():
 # ── W5: no header button that only repeats the menu ──────────────────────────
 
 
-def test_the_organisations_header_links_to_no_other_module(client, db_session):
+def test_the_organisations_header_links_to_no_other_module(client, platform_workspace, db_session):
     _login(client)
     html = client.get("/admin/organisaties").text
     header = _element(html, "<div data-page-header")

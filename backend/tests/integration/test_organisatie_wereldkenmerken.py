@@ -362,7 +362,7 @@ def test_org_type_is_untouched(db_session):
 # ── 6. De velden zijn ergens te bewerken ────────────────────────────────────
 
 
-def test_the_organisation_fields_have_a_screen(client, db_session):
+def test_the_organisation_fields_have_a_screen(client, platform_workspace, db_session):
     """De fout die ik zelf maakte, en die erger was dan wat ze verving.
 
     Bij de eerste twee omschakelingen verdwenen IBAN, begunstigde en de sociale

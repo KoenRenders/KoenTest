@@ -110,7 +110,8 @@ def test_de_oude_knop_is_verdwenen(client, admin_headers):
     form = _formulier(client, admin_headers)
     _login(client)
     html = _bouwer(client, form["id"])
-    assert ">Instellingen<" not in html
+    # #1535: the menu has an "Instellingen" item of its own; the button is in #main.
+    assert ">Instellingen<" not in html.split('id="main"', 1)[1]
 
 
 # ── 2. De links op één regel ───────────────────────────────────────────────

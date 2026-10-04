@@ -188,12 +188,12 @@ SCHERMEN = [
 
 
 @pytest.mark.parametrize("pad,verwacht", SCHERMEN, ids=[p for p, _ in SCHERMEN])
-def test_zoek_en_filters_staan_in_een_rij(client, db_session, pad, verwacht):
+def test_zoek_en_filters_staan_in_een_rij(client, workspace_host, db_session, pad, verwacht):
     """Zoekveld en filters horen onder hetzelfde directe kind van de filterbalk."""
     _login(client, db_session)
     _seed(db_session)
 
-    resp = client.get(pad)
+    resp = client.get(pad, headers=workspace_host(pad))
     assert resp.status_code == 200, resp.text
     controls = meet(resp.text)
 

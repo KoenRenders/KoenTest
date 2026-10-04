@@ -228,7 +228,7 @@ def test_wijzigingen_heeft_geen_toon_knop_meer_en_filtert_live(client):
 # ── Tenants (#584-rest) ───────────────────────────────────────────────────────
 
 
-def test_tenants_knop_is_primair_en_htmx_geeft_het_fragment(client):
+def test_tenants_knop_is_primair_en_htmx_geeft_het_fragment(client, platform_workspace):
     _login(client)
     pagina = client.get("/admin/tenants")
     assert pagina.status_code == 200

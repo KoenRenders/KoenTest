@@ -58,7 +58,9 @@ def _accounts(db_session, code: str) -> list[Organization]:
     return db_session.query(Organization).filter(Organization.code == code).all()
 
 
-def test_an_operator_creates_an_account_and_lands_on_its_screen(client, db_session):
+def test_an_operator_creates_an_account_and_lands_on_its_screen(
+    client, platform_workspace, db_session
+):
     headers = _login(client, db_session, operator=True)
 
     form = client.get("/admin/organisaties/nieuw")
@@ -83,7 +85,7 @@ def test_an_operator_creates_an_account_and_lands_on_its_screen(client, db_sessi
     assert screen.status_code == 200 and "Bakkerij Peeters" in screen.text
 
 
-def test_an_admin_is_refused_on_get_and_on_post(client, db_session):
+def test_an_admin_is_refused_on_get_and_on_post(client, platform_workspace, db_session):
     headers = _login(client, db_session, operator=False)
 
     assert client.get("/admin/organisaties/nieuw").status_code == 403
@@ -96,7 +98,9 @@ def test_an_admin_is_refused_on_get_and_on_post(client, db_session):
 
 
 @pytest.mark.parametrize("code", ["dubbel-1495", "raakmillegem"])
-def test_a_code_that_exists_is_refused_with_a_readable_message(client, db_session, code):
+def test_a_code_that_exists_is_refused_with_a_readable_message(
+    client, platform_workspace, db_session, code
+):
     """Unique over every organisation: another account's code and a tenant's."""
     if code == "dubbel-1495":
         create_account(db_session, name="Eerste", code=code)
@@ -116,7 +120,7 @@ def test_a_code_that_exists_is_refused_with_a_readable_message(client, db_sessio
     assert db_session.query(Organization).count() == before
 
 
-def test_new_tenant_offers_the_account_and_hangs_under_it(client, db_session):
+def test_new_tenant_offers_the_account_and_hangs_under_it(client, platform_workspace, db_session):
     account = create_account(db_session, name="Bakkerij Janssens", code="bakkerij-janssens")
     headers = _login(client, db_session, operator=True)
 

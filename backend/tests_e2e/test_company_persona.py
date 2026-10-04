@@ -81,8 +81,9 @@ def operator() -> str:
 
 def _page(browser, session=None, width=1440, base=BASE):
     page = browser.new_page(base_url=base, viewport={"width": width, "height": 1000})
+    login_url = base
     if session:
-        login_met_sessie(page, session)
+        login_met_sessie(page, session, login_url)
     return page
 
 
@@ -97,7 +98,7 @@ def company(browser, operator) -> dict:
     from app.domains.forms.models import Form, FormField, FormSection
     from app.domains.mdm.api import Organization
 
-    page = _page(browser, operator)
+    page = _page(browser, operator, base=PLATFORM)  # #1535: Tenants, on the platform
     page.goto("/admin/tenants/nieuw")
     pagina_klaar(page)
     page.get_by_text("Bedrijf", exact=True).click()
@@ -163,7 +164,7 @@ def test_1_the_operator_creates_a_company(company):
 
 
 def test_2_its_editor_ticks_the_company_modules(browser, operator, company):
-    page = _page(browser, operator)
+    page = _page(browser, operator, base=PLATFORM)  # #1535: Tenants, on the platform
     page.goto(f"/admin/tenants/{company['id']}")
     pagina_klaar(page)
     ticked = set(

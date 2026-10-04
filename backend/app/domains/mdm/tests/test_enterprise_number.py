@@ -96,7 +96,7 @@ def test_a_bad_number_is_refused_and_nothing_is_written(db_session, text, reason
 
 
 @pytest.mark.ui_serverrendered
-def test_the_screen_names_the_field_and_the_reason(client, db_session):
+def test_the_screen_names_the_field_and_the_reason(client, platform_workspace, db_session):
     account = create_account(db_session, name="Bakkerij", code="bakkerij-scherm")
     user = db_session.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).one()
     if not db_session.query(UserRole).filter_by(user_id=user.id, role_code="OPERATOR").first():
