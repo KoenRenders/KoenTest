@@ -200,6 +200,22 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     }
 
 
+def _site_org_options(db: Session, unit) -> list[tuple[str, str]]:
+    """The organisations a tenant's site may show (#1550): its own data first,
+    then its account and the account's other organisations; none without an
+    account."""
+    from app.domains.mdm.api import organization_options
+
+    if unit.parent_id is None:
+        return []
+    others = [
+        (str(o["id"]), o["name"])
+        for o in organization_options(db)
+        if o["id"] != unit.id and (o["id"] == unit.parent_id or o["parent_id"] == unit.parent_id)
+    ]
+    return [("", _("Eigen gegevens (%(naam)s)") % {"naam": unit.name}), *others]
+
+
 def _account_names(db: Session, units) -> dict[int, str]:
     """Each listed site's account name, by the site's id (#1542)."""
     from app.domains.mdm.api import organization_options
@@ -342,6 +358,10 @@ def _editor_ctx(
         if unit.org_type in (OrganizationType.UNIT, OrganizationType.PLATFORM) and not own
         else [],
         "account_value": str(unit.parent_id) if unit.parent_id is not None else "",
+        # #1550: whose data the site shows — its own, or another organisation of
+        # its account (the account included); only once it has an account.
+        "site_org_options": _site_org_options(db, unit) if not own else [],
+        "site_org_value": str(unit.site_organization_id or ""),
         "cards": _cards(db, unit, modules_on=on, refused=refused),
         # A module without a card keeps its state through the one Opslaan.
         "kept_modules": sorted(c.value for c in _hidden_cards(unit) if c.value in stored_on),
@@ -481,7 +501,10 @@ async def _save(request: Request, db: Session, tenant_id: int, email: str, *, ow
         raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
     sleutels, geheim = _settings_of(unit)
     form = await request.form()
-    if own and any(k in form for k in ("modules_shown", "modules", "kind", "account_id")):
+    if own and any(
+        k in form
+        for k in ("modules_shown", "modules", "kind", "account_id", "site_organization_id")
+    ):
         raise HTTPException(
             status_code=403,
             detail=_("Modules, type en account beheert de platformbeheerder."),
@@ -512,6 +535,9 @@ async def _save(request: Request, db: Session, tenant_id: int, email: str, *, ow
             # #1533: only what the form sends; the platform's editor sends none.
             kind=str(form["kind"]) if "kind" in form else None,
             account=str(form["account_id"]) if "account_id" in form else None,
+            site_organization=str(form["site_organization_id"])
+            if "site_organization_id" in form
+            else None,
             actor=email,
         )
     except ModuleRefused as fout:

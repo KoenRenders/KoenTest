@@ -610,6 +610,11 @@ class Organization(SoftDeleteMixin, Base):
 
     id = Column(Integer, primary_key=True)
     parent_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=True)
+    # #1550: on a tenant, the organisation whose data its site shows (footer,
+    # "Onze organisatie", mails) when that is not its own row: the account, or
+    # another organisation of that account. NULL = its own row. Read only
+    # through `kernel.tenant_config.site_organization_id`.
+    site_organization_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=True)
     # ACCOUNT | UNIT | PLATFORM — CHECK in migratie 078, uitgebreid in 097.
     # Dit is de ROL die de organisatie speelt in het platform; de kolommen
     # hieronder zeggen wat ze IS in de wereld (#924). Twee assen, één ding.
@@ -644,7 +649,8 @@ class Organization(SoftDeleteMixin, Base):
         EnumColumn(TenantKind, length=20), ForeignKey("mdm.tenant_kind_codes.code"), nullable=True
     )
 
-    parent = relationship("Organization", remote_side=[id])
+    # #1550: two keys to this table now — the parent is `parent_id`.
+    parent = relationship("Organization", remote_side=[id], foreign_keys=[parent_id])
 
     # Elf kolommen stonden hier tot #945: `enterprise_number`, `vat_number`,
     # `email`, `phone`, `website`, `payment_iban`, `payment_beneficiary`,

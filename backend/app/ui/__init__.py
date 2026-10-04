@@ -959,6 +959,19 @@ def site_context(db, request=None) -> dict:
         .execution_options(include_all_tenants=True)
         .one_or_none()
     )
+    # #1550: whose data the site shows. The tenant's kind stays the tenant's own
+    # (wordmark, sponsor heading); the footer and its links show this one.
+    from app.kernel.tenant_config import site_organization_id
+
+    bron_id = site_organization_id(db)
+    bron = (
+        organisatie
+        if organisatie is not None and organisatie.id == bron_id
+        else db.query(Organization)
+        .filter(Organization.id == bron_id)
+        .execution_options(include_all_tenants=True)
+        .one_or_none()
+    )
 
     pages = (
         db.query(CmsPage)
@@ -1069,11 +1082,11 @@ def site_context(db, request=None) -> dict:
         # #945: en ze zijn een lijst geworden. Drie contextsleutels werden er
         # één, want drie sleutels zijn drie sjabloonregels en dus precies de
         # kolom-per-netwerk die dit issue opruimt.
-        "sociale_links": _sociale_links(db, organisatie),
+        "sociale_links": _sociale_links(db, bron),
         # Het organisatieblok in de footer (#924). Het CMS-blok blijft eronder
         # staan: `site-footer` is vrije tekst en een migratie kan een adres
         # niet van een zin onderscheiden, dus er verdwijnt niets.
-        "organisatie": _footer_organisatie(db, organisatie),
+        "organisatie": _footer_organisatie(db, bron),
         # De link naar de nieuwsbrief onderaan de HOMEPAGINA (#984, bijgesteld
         # op 19 september 2026). Niet op het platform: dat heeft geen leden en
         # verstuurt geen nieuwsbrief.

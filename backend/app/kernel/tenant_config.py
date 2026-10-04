@@ -334,6 +334,24 @@ def _organisatie(db: Session, tenant_id: int | None = None):
     ).first()
 
 
+def site_organization_id(db: Session, tenant_id: int | None = None) -> int:
+    """The organisation whose data a tenant's site shows (#1550).
+
+    The tenant's own row unless the operator pointed it at another organisation
+    of its account (`site_organization_id`). Everything that shows who runs the
+    site — the footer, "Onze organisatie", the bank account in the mails, the
+    newsletter's address line, a poster's details — asks this, so the data is
+    never copied and a change on the organisation reaches every site that shows
+    it. SQL with the column written out, like `_organisatie` below.
+    """
+    tenant = _actieve_tenant(tenant_id)
+    row = db.execute(
+        text("SELECT site_organization_id FROM mdm.organizations WHERE id = :id"),
+        {"id": tenant},
+    ).first()
+    return row.site_organization_id if row and row.site_organization_id else tenant
+
+
 def _eerste_rekening(db: Session, tenant_id: int | None = None):
     """De eerste rekening van deze organisatie (#945), of None.
 
@@ -347,7 +365,8 @@ def _eerste_rekening(db: Session, tenant_id: int | None = None):
             "WHERE organization_id = :id AND deleted_at IS NULL "
             "ORDER BY sort_order, id LIMIT 1"
         ),
-        {"id": _actieve_tenant(tenant_id)},
+        # #1550: the account of the organisation behind the site.
+        {"id": site_organization_id(db, tenant_id)},
     ).first()
 
 
