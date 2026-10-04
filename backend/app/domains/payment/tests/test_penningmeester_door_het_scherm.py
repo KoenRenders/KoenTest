@@ -150,7 +150,9 @@ def test_P5_uitbetaling_registreren_brengt_de_groep_op_nul(client, db_session):
         note="",
     )
 
-    assert "Terugbetaald" in html
+    # K2 (#1556): a paid-out refund reads "Vereffend" on its row; the word
+    # "Terugbetaald" was the label of the unfolded editor, which is gone.
+    assert "Vereffend" in html and "Terugbetaling" in html
     netto = sum(
         (Decimal(str(r.amount_paid or 0)) for r in get_records_for(db_session, *PAYABLE)),
         Decimal("0"),

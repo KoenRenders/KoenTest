@@ -599,6 +599,47 @@
   </p>
 {% endcall %}
 
+{# ── 8f. The list's table (CR-11 pilot A, K2 — #1556) ───────────────────────── #}
+{{ ui.section_header(_("8f · De tabel van een lijst"), _("Naar de betalingen"), action_href="/admin/betalingen", cls="mt-10") }}
+<p class="text-sm text-gray-600 mb-3">
+  {{ _("De rij is de ingang: een klik ergens op de rij opent het record. Een rij toont hoogstens één actie, de rest staat onder ⋯. Een bedrag kleurt nooit; een saldo dat niet nul is, wel.") }}
+</p>
+{% call ui.data_table([
+     {"key": "naam", "label": _("Boeking"), "cell": "name", "sort_url": "/admin/design-system", "sorted": "asc"},
+     {"key": "context", "label": _("Context"), "cell": "context", "priority": 2, "sort_url": "/admin/design-system"},
+     {"key": "status", "label": _("Status"), "cell": "status"},
+     {"key": "bedrag", "label": _("Bedrag"), "cell": "amount", "num": True, "sort_url": "/admin/design-system"},
+     {"key": "ontvangen", "label": _("Ontvangen"), "cell": "extra", "num": True, "priority": 1},
+     {"key": "saldo", "label": _("Saldo"), "cell": "extra", "num": True},
+     {"key": "acties", "label": _("Acties"), "cell": "actions"}], caption=_("Voorbeeldtabel")) %}
+  <tbody>
+    <tr data-row class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link("An Voorbeeld", "/admin/design-system", sub="+++000/0000/00097+++") }}</td>
+      <td data-cell="context" data-p="2" class="border-b border-line px-3 py-2"><span data-above-row>{{ ui.reference(_("Herfstwandeling"), "/admin/design-system") }}</span>
+        <div class="text-xs text-ink-soft">{{ _("Overschrijving") }}</div></td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(_("Openstaand"), "yellow") }}</td>
+      <td data-cell="amount" class="border-b border-line px-3 py-2 text-right">{{ ui.amount(40) }}</td>
+      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right">{{ ui.amount(0) }}</td>
+      <td data-cell="extra" class="border-b border-line px-3 py-2 text-right">{{ ui.amount(40, warning=True) }}</td>
+      <td data-cell="actions" class="border-b border-line px-3 py-2">{{ ui.row_actions_cell({"label": _("Bevestig"), "attrs": ""}, [{"label": _("Inschrijving openen"), "href": "/admin/design-system"}, {"kind": "delete", "label": _("Verwijderen"), "attrs": ""}], label="An Voorbeeld") }}</td>
+    </tr>
+    <tr data-row class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2 pl-9"><span class="text-ink-soft" aria-hidden="true">↳</span> {{ ui.row_link("An Voorbeeld", "/admin/design-system", sub="+++000/0000/00098+++") }}</td>
+      <td data-cell="context" data-p="2" class="border-b border-line px-3 py-2"><span data-above-row>{{ ui.reference(_("Herfstwandeling"), "/admin/design-system") }}</span>
+        <div class="text-xs text-ink-soft">{{ _("Terugbetaling") }} · {{ _("Overschrijving") }}</div></td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(_("Vereffend"), "green", met_vinkje=True) }}</td>
+      <td data-cell="amount" class="border-b border-line px-3 py-2 text-right">{{ ui.amount(-15) }}</td>
+      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right">{{ ui.amount(-15) }}</td>
+      <td data-cell="extra" class="border-b border-line px-3 py-2 text-right">{{ ui.amount(0) }}</td>
+      <td data-cell="actions" class="border-b border-line px-3 py-2">{{ ui.row_actions_cell(None, [{"label": _("Inschrijving openen"), "href": "/admin/design-system"}], label="An Voorbeeld") }}</td>
+    </tr>
+  </tbody>
+{% endcall %}
+<p class="text-xs text-gray-500 mb-2">
+  <code>ui.data_table(columns, modes)</code> · <code>ui.row_link(label, href, sub)</code> ·
+  <code>ui.row_actions_cell(action, items)</code> · <code>ui.amount(value, warning)</code>
+</p>
+
 {{ ui.section_header(_("9 · Leeg en ladend"), cls="mt-10") }}
 {% call ui.card() %}
   {{ ui.empty_state(_("Nog geen inschrijvingen voor deze activiteit.")) }}

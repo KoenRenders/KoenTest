@@ -174,11 +174,11 @@ def test_zicht_overleeft_een_filterwissel(client, db_session):
     assert 'hx-include="#bt-filter"' in scherm
 
 
-def test_uitklap_expressies_citeren_het_record_id(client, db_session):
-    """Het record-id is een UUID-string: onaangehaald is `open === 51b9…` geen
-    geldig JavaScript en klapte er niets uit (gevonden bij de golf-10-
-    schermafdrukken, met werkende unit-tests ernaast — die toetsten alleen
-    markup-aanwezigheid, niet de geldigheid van de expressie)."""
+def test_de_rij_is_de_ingang_en_er_klapt_niets_meer_uit(client, db_session):
+    """K2 (#1556): the unfold under a row is gone, and with it the Alpine
+    expressions this test used to guard (a record id is a UUID string and had to
+    be quoted in them). The row is the way in now: its link opens the booking's
+    page, and no row says "Bewerken"."""
     from app.domains.auth.api import User, UserRole
     from tests.conftest import SEEDED_ADMIN_EMAIL as _admin
 
@@ -190,10 +190,16 @@ def test_uitklap_expressies_citeren_het_record_id(client, db_session):
     _login(client)
 
     html = client.get("/admin/betalingen/lijst").text
-    assert "open === '" in html and "terug === '" in html
-    import re
-
-    assert not re.search(r"open === [^'\"]", html.replace("open === '", ""))
+    assert "open ===" not in html and "terug ===" not in html
+    assert "Bewerken" not in html
+    assert (
+        len(
+            re.findall(
+                r'<a href="/admin/betalingen/[0-9a-f-]{36}\?terug=[^"]*" data-row-link', html
+            )
+        )
+        == 3
+    )
 
 
 def test_export_draagt_het_zicht(client, db_session):

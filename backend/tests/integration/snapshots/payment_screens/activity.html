@@ -93,7 +93,27 @@
  class="absolute right-0 z-20 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col rounded-card border border-line bg-white p-2 shadow-lg">
 <button type="button" role="menuitem" class="flex min-h-11 items-center gap-2 rounded-lg px-3 text-left text-sm text-ink hover:bg-surface-2"
  @click="open = false; window.location = '/admin/betalingen/export?' + new URLSearchParams(new FormData($el.closest('form'))).toString()"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Export (.ods)</button>
-<label class="md:hidden flex flex-col gap-1 px-3 py-2 text-xs text-ink-soft mt-2 border-t border-line pt-3">Per pagina
+<details data-columns-chooser class="hidden md:block mt-2 border-t border-line pt-2">
+<summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg px-3 text-sm text-ink hover:bg-surface-2"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>Kolommen</summary>
+<div class="flex flex-col gap-2 px-3 pb-2 pt-1">
+<label class="flex items-center justify-between gap-2 text-xs text-ink-soft">Ontvangen
+ <select name="kol_ontvangen" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-32" data-column-mode="ontvangen">
+<option value="auto" selected>Automatisch</option><option value="show">Tonen</option><option value="hide">Verbergen</option>
+</select>
+</label>
+<label class="flex items-center justify-between gap-2 text-xs text-ink-soft">Context
+ <select name="kol_context" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-32" data-column-mode="context">
+<option value="auto" selected>Automatisch</option><option value="show">Tonen</option><option value="hide">Verbergen</option>
+</select>
+</label>
+</div>
+</details>
+<label class="md:hidden flex flex-col gap-1 px-3 py-2 text-xs text-ink-soft mt-2 border-t border-line pt-3">Sorteren
+ <select name="" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" data-sort-mirror @change="const f = $el.closest('form').querySelector('[data-sort-field]'); f.value = $event.target.value; open = false; $event.stopPropagation(); $el.closest('form').requestSubmit()">
+<option value="" selected>Recentste eerst</option><option value="naam">Naam (A–Z)</option><option value="-naam">Naam (Z–A)</option><option value="context">Context (A–Z)</option><option value="status">Status</option><option value="-bedrag">Bedrag (hoog–laag)</option><option value="bedrag">Bedrag (laag–hoog)</option><option value="-saldo">Saldo (hoog–laag)</option>
+</select>
+</label>
+<label class="md:hidden flex flex-col gap-1 px-3 py-2 text-xs text-ink-soft">Per pagina
  <select name="" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" data-page-size-mirror @change="const size = $el.closest('form').querySelector('[data-page-size]'); size.value = $event.target.value; size.dispatchEvent(new Event('change', { bubbles: true })); open = false; $event.stopPropagation()">
 <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
 </select>
@@ -101,444 +121,297 @@
 </div>
 </div>
 <input type="hidden" name="activiteit" value="<ACTIVITY>"><input type="hidden" name="scope_stil" value="1">
+<input type="hidden" id="bt-filter-sort" name="sort" value="" data-sort-field>
 </form>
 </div>
 <div id="betalingen-lijst"
  hx-get="/admin/betalingen/lijst" hx-trigger="betalingen-ververst from:body"
  hx-include="#bt-filter" hx-swap="innerHTML"
  hx-headers='{"X-Betalingen-Scope": "activiteit=<ACTIVITY>\u0026scope_stil=1"}'>
-<div class="my-2.5 flex items-center justify-between gap-3 text-[11px] text-ink-soft">
-<span>7 boekingen · recentste eerst, gegroepeerd per inschrijving</span>
-<span>EUR · alleen FINANCE kan bevestigen</span>
-</div>
-<div class="mb-4 rounded-card border border-gray-200 bg-white shadow-sm overflow-x-auto">
-<table class="w-full text-xs">
+<div class="data-table-frame mb-4 rounded-card border border-line bg-white" data-table-frame>
+<table class="data-table text-sm" data-p1="auto" data-p2="auto">
+<caption class="sr-only">Betalingen</caption>
 <thead>
-<tr class="bg-gray-50 text-xs text-ink-soft text-left">
-<th scope="col" class="px-3 py-2 font-medium">Naam / referentie</th>
-<th scope="col" class="px-3 py-2 font-medium">Context</th>
-<th scope="col" class="px-3 py-2 font-medium hidden md:table-cell">Status</th>
-<th scope="col" class="px-2 py-2 font-medium text-right">Bedrag</th>
-<th scope="col" class="px-2 py-2 font-medium text-right hidden md:table-cell">Ontvangen</th>
-<th scope="col" class="px-2 py-2 font-medium text-right hidden md:table-cell">Saldo</th>
-<th scope="col" class="px-3 py-2 font-medium text-right w-px">Acties</th>
+<tr>
+<th scope="col" data-cell="name"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left ">
+<a href="/admin/betalingen?zicht=alle&amp;activiteit=<ACTIVITY>&amp;scope_stil=1&amp;sort=naam" hx-get="/admin/betalingen/lijst?zicht=alle&amp;activiteit=<ACTIVITY>&amp;scope_stil=1&amp;sort=naam" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="naam"
+ class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Boeking<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
+</th>
+<th scope="col" data-cell="context" data-p="2"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[24%]">
+<a href="/admin/betalingen?zicht=alle&amp;activiteit=<ACTIVITY>&amp;scope_stil=1&amp;sort=context" hx-get="/admin/betalingen/lijst?zicht=alle&amp;activiteit=<ACTIVITY>&amp;scope_stil=1&amp;sort=context" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="context"
+ class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Context<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
+</th>
+<th scope="col" data-cell="status"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[132px]">
+<a href="/admin/betalingen?zicht=alle&amp;activiteit=<ACTIVITY>&amp;scope_stil=1&amp;sort=status" hx-get="/admin/betalingen/lijst?zicht=alle&amp;activiteit=<ACTIVITY>&amp;scope_stil=1&amp;sort=status" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="status"
+ class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Status<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
+</th>
+<th scope="col" data-cell="amount"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right w-[104px]">
+<a href="/admin/betalingen?zicht=alle&amp;activiteit=<ACTIVITY>&amp;scope_stil=1&amp;sort=bedrag" hx-get="/admin/betalingen/lijst?zicht=alle&amp;activiteit=<ACTIVITY>&amp;scope_stil=1&amp;sort=bedrag" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="bedrag"
+ class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 justify-end ">Bedrag<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
+</th>
+<th scope="col" data-cell="extra" data-p="1"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right w-[104px]">
+ Ontvangen
+ </th>
+<th scope="col" data-cell="extra"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right w-[104px]">
+<a href="/admin/betalingen?zicht=alle&amp;activiteit=<ACTIVITY>&amp;scope_stil=1&amp;sort=saldo" hx-get="/admin/betalingen/lijst?zicht=alle&amp;activiteit=<ACTIVITY>&amp;scope_stil=1&amp;sort=saldo" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="saldo"
+ class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 justify-end ">Saldo<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
+</th>
+<th scope="col" data-cell="actions"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[156px]">
+<span class="sr-only">Acties</span>
+</th>
 </tr>
 </thead>
-<tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
- data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:refunded>' ? null : '<REC:refunded>'; terug = null }">
-<td class="px-3 py-2 ">
-<span class="font-medium">Deelnemer other</span>
-<div class="md:hidden mt-1 flex items-center gap-2">
+<tbody>
+<tr data-row class="align-middle">
+<td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
+<a href="/admin/betalingen/<REC:refunded>?terug=/admin/betalingen" data-row-link class="font-semibold text-ink hover:no-underline">Deelnemer other</a>
+</td>
+<td data-cell="context" data-p="2" class="border-b border-line px-3 py-2">
+<span data-above-row><a href="/admin/activiteiten/<ACTIVITY>?terug=/admin/betalingen%3Fboeking%3D<REC:refunded>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline ">Betaalkarakter — Deelname<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></span>
+<div class="max-w-[22rem] truncate text-xs text-ink-soft">Terugbetaling · Overschrijving</div>
+</td>
+<td data-cell="status" class="border-b border-line px-3 py-2">
 <span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
-<strong class="tabular-nums text-ink-soft">€ 0,00</strong>
+</td>
+<td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">− € 4,00</span></td>
+<td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">− € 4,00</span></td>
+<td data-cell="extra" data-balance class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 0,00</span></td>
+<td data-cell="actions" class="border-b border-line px-3 py-2">
+<div data-above-row data-row-controls class="flex items-center justify-end gap-2"
+ x-data="{ open: false }" :style="open ? 'z-index: 30' : ''" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<div class="relative">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+ class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink"
+ aria-label="Meer acties: Deelnemer other" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
+<a role="menuitem" href="/admin/inschrijvingen/<R:other>?terug=/admin/betalingen%3Fboeking%3D<REC:refunded>" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline">Inschrijving openen</a>
 </div>
-</td>
-<td class="px-3 py-2">
-<div>Betaalkarakter — Deelname</div>
-<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Terugbetaling · Overschrijving</div>
-</td>
-<td class="px-3 py-2 hidden md:table-cell">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
-</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ -4,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ -4,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-ink-soft">€ 0,00</strong></td>
-<td class="px-3 py-2 w-px">
-<div class="flex justify-end gap-2 items-center whitespace-nowrap">
-<a href="/admin/inschrijvingen/<R:other>?terug=/admin/betalingen" class="text-xs font-medium text-link hover:underline whitespace-nowrap">Inschrijving</a>
-<button type="button" x-show="open !== &#39;<REC:refunded>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:refunded>&#39;; terug = null">Bewerken</button>
+</div>
 </div>
 </td>
 </tr>
-<tr x-show="open === '<REC:refunded>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<div class="flex flex-wrap gap-2 items-end">
-<form class="flex flex-wrap gap-2 items-end flex-1"
- x-data="{ status: 'paid', bedrag: '4,00' }"
- hx-post="/admin/betalingen/<REC:refunded>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label class="block text-xs text-gray-500">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '4,00'">
-<option value="pending" >In afwachting</option>
-<option value="paid" >Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
-</select></div>
-<div>
-<label class="block text-xs text-gray-500">Terugbetaald bedrag</label>
-<input type="text" name="amount_paid" id="ap-<REC:refunded>" placeholder="0,00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
-</div>
-<input type="text" name="note" id="note-<REC:refunded>" placeholder="Opmerking"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto"></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
-<p class="w-full order-last text-xs text-gray-400">Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.</p>
-</form>
-</div>
+<tr data-row class="align-middle">
+<td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
+<a href="/admin/betalingen/<REC:failed>?terug=/admin/betalingen" data-row-link class="font-semibold text-ink hover:no-underline">Deelnemer other</a>
 </td>
-</tr>
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
- data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:failed>' ? null : '<REC:failed>'; terug = null }">
-<td class="px-3 py-2 ">
-<span class="font-medium">Deelnemer other</span>
-<div class="md:hidden mt-1 flex items-center gap-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-red-100 text-red-800">Mislukt</span>
-<strong class="tabular-nums text-orange-700">€ 20,00</strong>
-</div>
+<td data-cell="context" data-p="2" class="border-b border-line px-3 py-2">
+<span data-above-row><a href="/admin/activiteiten/<ACTIVITY>?terug=/admin/betalingen%3Fboeking%3D<REC:failed>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline ">Betaalkarakter — Deelname<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></span>
+<div class="max-w-[22rem] truncate text-xs text-ink-soft">Overschrijving</div>
 </td>
-<td class="px-3 py-2">
-<div>Betaalkarakter — Deelname</div>
-<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Overschrijving</div>
-</td>
-<td class="px-3 py-2 hidden md:table-cell">
+<td data-cell="status" class="border-b border-line px-3 py-2">
 <span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-red-100 text-red-800">Mislukt</span>
 </td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 20,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 0,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-orange-700">€ 20,00</strong></td>
-<td class="px-3 py-2 w-px">
-<div class="flex justify-end gap-2 items-center whitespace-nowrap">
-<a href="/admin/inschrijvingen/<R:other>?terug=/admin/betalingen" class="text-xs font-medium text-link hover:underline whitespace-nowrap">Inschrijving</a>
-<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" data-confirm="Als volledig betaald bevestigen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:failed>/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Bevestig</button>
-<button type="button" x-show="open !== &#39;<REC:failed>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:failed>&#39;; terug = null">Bewerken</button>
+<td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span></td>
+<td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 0,00</span></td>
+<td data-cell="extra" data-balance class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap font-semibold text-brand-warning">€ 20,00</span></td>
+<td data-cell="actions" class="border-b border-line px-3 py-2">
+<div data-above-row data-row-controls class="flex items-center justify-end gap-2"
+ x-data="{ open: false }" :style="open ? 'z-index: 30' : ''" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<button type="button" data-row-action class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 h-11 md:h-8 whitespace-nowrap" hx-disabled-elt="this" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-post="/admin/betalingen/<REC:failed>/bevestigen" data-confirm="Als volledig betaald bevestigen?">Bevestig</button>
+<div class="relative">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+ class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink"
+ aria-label="Meer acties: Deelnemer other" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
+<a role="menuitem" href="/admin/inschrijvingen/<R:other>?terug=/admin/betalingen%3Fboeking%3D<REC:failed>" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline">Inschrijving openen</a>
+<div data-menu-divider class="my-1 border-t border-line"></div>
+<button role="menuitem" type="button" class="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm text-red-700 hover:bg-surface-2" hx-disabled-elt="this" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-post="/admin/betalingen/<REC:failed>/verwijderen" data-confirm="Deze betaling verwijderen?"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Verwijderen</button>
+</div>
+</div>
 </div>
 </td>
 </tr>
-<tr x-show="open === '<REC:failed>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<div class="flex flex-wrap gap-2 items-end">
-<form class="flex flex-wrap gap-2 items-end flex-1"
- x-data="{ status: 'failed', bedrag: '' }"
- hx-post="/admin/betalingen/<REC:failed>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label class="block text-xs text-gray-500">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '20,00'">
-<option value="pending" >In afwachting</option>
-<option value="paid" >Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
-</select></div>
-<div>
-<label class="block text-xs text-gray-500">Betaald bedrag</label>
-<input type="text" name="amount_paid" id="ap-<REC:failed>" placeholder="0,00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
-</div>
-<input type="text" name="note" id="note-<REC:failed>" placeholder="Opmerking"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" data-confirm="Deze betaling verwijderen (uit het saldo)?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:failed>/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Verwijderen</button></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
-</form>
-</div>
+<tr data-row class="align-middle">
+<td data-cell="name" class="h-[57px] border-b border-line px-3 py-2 pl-9">
+<span class="text-ink-soft" aria-hidden="true">↳</span>
+<a href="/admin/betalingen/<REC:cancelled>?terug=/admin/betalingen" data-row-link class="font-semibold text-ink hover:no-underline">Deelnemer other</a>
+<div class="text-xs text-ink-soft">Bijkomende vordering op dezelfde inschrijving</div>
 </td>
-</tr>
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
- data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:cancelled>' ? null : '<REC:cancelled>'; terug = null }">
-<td class="px-3 py-2 pl-9">
-<span class="text-gray-400" aria-hidden="true">↳</span>
-<span class="font-medium">Deelnemer other</span>
-<div class="text-[11px] text-ink-soft">Bijkomende vordering op dezelfde inschrijving</div>
-<div class="md:hidden mt-1 flex items-center gap-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-gray-100 text-gray-600">Geannuleerd</span>
-<strong class="tabular-nums text-orange-700">€ 20,00</strong>
-</div>
+<td data-cell="context" data-p="2" class="border-b border-line px-3 py-2">
+<span data-above-row><a href="/admin/activiteiten/<ACTIVITY>?terug=/admin/betalingen%3Fboeking%3D<REC:cancelled>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline ">Betaalkarakter — Deelname<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></span>
+<div class="max-w-[22rem] truncate text-xs text-ink-soft">Overschrijving</div>
 </td>
-<td class="px-3 py-2">
-<div>Betaalkarakter — Deelname</div>
-<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Overschrijving</div>
-</td>
-<td class="px-3 py-2 hidden md:table-cell">
+<td data-cell="status" class="border-b border-line px-3 py-2">
 <span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-gray-100 text-gray-600">Geannuleerd</span>
 </td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 20,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 0,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-orange-700">€ 20,00</strong></td>
-<td class="px-3 py-2 w-px">
-<div class="flex justify-end gap-2 items-center whitespace-nowrap">
-<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" data-confirm="Als volledig betaald bevestigen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:cancelled>/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Bevestig</button>
-<button type="button" x-show="open !== &#39;<REC:cancelled>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:cancelled>&#39;; terug = null">Bewerken</button>
+<td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span></td>
+<td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 0,00</span></td>
+<td data-cell="extra" data-balance class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap font-semibold text-brand-warning">€ 20,00</span></td>
+<td data-cell="actions" class="border-b border-line px-3 py-2">
+<div data-above-row data-row-controls class="flex items-center justify-end gap-2"
+ x-data="{ open: false }" :style="open ? 'z-index: 30' : ''" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<button type="button" data-row-action class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 h-11 md:h-8 whitespace-nowrap" hx-disabled-elt="this" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-post="/admin/betalingen/<REC:cancelled>/bevestigen" data-confirm="Als volledig betaald bevestigen?">Bevestig</button>
+<div class="relative">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+ class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink"
+ aria-label="Meer acties: Deelnemer other" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
+<a role="menuitem" href="/admin/inschrijvingen/<R:other>?terug=/admin/betalingen%3Fboeking%3D<REC:cancelled>" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline">Inschrijving openen</a>
+<div data-menu-divider class="my-1 border-t border-line"></div>
+<button role="menuitem" type="button" class="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm text-red-700 hover:bg-surface-2" hx-disabled-elt="this" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-post="/admin/betalingen/<REC:cancelled>/verwijderen" data-confirm="Deze betaling verwijderen?"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Verwijderen</button>
+</div>
+</div>
 </div>
 </td>
 </tr>
-<tr x-show="open === '<REC:cancelled>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<div class="flex flex-wrap gap-2 items-end">
-<form class="flex flex-wrap gap-2 items-end flex-1"
- x-data="{ status: 'cancelled', bedrag: '' }"
- hx-post="/admin/betalingen/<REC:cancelled>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label class="block text-xs text-gray-500">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '20,00'">
-<option value="pending" >In afwachting</option>
-<option value="paid" >Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
-</select></div>
-<div>
-<label class="block text-xs text-gray-500">Betaald bedrag</label>
-<input type="text" name="amount_paid" id="ap-<REC:cancelled>" placeholder="0,00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
-</div>
-<input type="text" name="note" id="note-<REC:cancelled>" placeholder="Opmerking"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" data-confirm="Deze betaling verwijderen (uit het saldo)?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:cancelled>/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Verwijderen</button></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
-</form>
-</div>
-</td>
-</tr>
-<tr class="bg-gray-50/60">
-<td colspan="3" class="px-3 py-2 font-medium text-ink-soft">Totaal inschrijving</td>
-<td class="px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap">€ 36,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ -4,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-orange-700 font-medium">€ 40,00</td>
-<td></td>
+<tr data-sum class="bg-surface-2 text-xs text-ink-soft">
+<th scope="row" data-cell="name" class="h-9 border-b border-line px-3 py-1 text-left font-medium">Totaal inschrijving</th>
+<td data-cell="context" data-p="2" class="border-b border-line px-3 py-1"></td>
+<td data-cell="status" class="border-b border-line px-3 py-1"></td>
+<td data-cell="amount" class="border-b border-line px-3 py-1 text-right font-medium"><span class="tabular-nums whitespace-nowrap">€ 36,00</span></td>
+<td data-cell="extra" data-p="1" class="border-b border-line px-3 py-1 text-right"><span class="tabular-nums whitespace-nowrap">− € 4,00</span></td>
+<td data-cell="extra" data-balance class="border-b border-line px-3 py-1 text-right"><span class="tabular-nums whitespace-nowrap font-semibold text-brand-warning">€ 40,00</span></td>
+<td data-cell="actions" class="border-b border-line px-3 py-1"></td>
 </tr>
 </tbody>
-<tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
- data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:open>' ? null : '<REC:open>'; terug = null }">
-<td class="px-3 py-2 ">
-<span class="font-medium">Deelnemer open</span>
-<div class="md:hidden mt-1 flex items-center gap-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Openstaand</span>
-<strong class="tabular-nums text-orange-700">€ 20,00</strong>
-</div>
+<tbody class="[&>tr:first-child>td]:border-t [&>tr:first-child>td]:border-t-gray-300">
+<tr data-row class="align-middle">
+<td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
+<a href="/admin/betalingen/<REC:open>?terug=/admin/betalingen" data-row-link class="font-semibold text-ink hover:no-underline">Deelnemer open</a>
 </td>
-<td class="px-3 py-2">
-<div>Betaalkarakter — Deelname</div>
-<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Overschrijving</div>
+<td data-cell="context" data-p="2" class="border-b border-line px-3 py-2">
+<span data-above-row><a href="/admin/activiteiten/<ACTIVITY>?terug=/admin/betalingen%3Fboeking%3D<REC:open>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline ">Betaalkarakter — Deelname<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></span>
+<div class="max-w-[22rem] truncate text-xs text-ink-soft">Overschrijving</div>
 </td>
-<td class="px-3 py-2 hidden md:table-cell">
+<td data-cell="status" class="border-b border-line px-3 py-2">
 <span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Openstaand</span>
 </td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 20,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 0,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-orange-700">€ 20,00</strong></td>
-<td class="px-3 py-2 w-px">
-<div class="flex justify-end gap-2 items-center whitespace-nowrap">
-<a href="/admin/inschrijvingen/<R:open>?terug=/admin/betalingen" class="text-xs font-medium text-link hover:underline whitespace-nowrap">Inschrijving</a>
-<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" data-confirm="Als volledig betaald bevestigen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:open>/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Bevestig</button>
-<button type="button" x-show="open !== &#39;<REC:open>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:open>&#39;; terug = null">Bewerken</button>
+<td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span></td>
+<td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 0,00</span></td>
+<td data-cell="extra" data-balance class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap font-semibold text-brand-warning">€ 20,00</span></td>
+<td data-cell="actions" class="border-b border-line px-3 py-2">
+<div data-above-row data-row-controls class="flex items-center justify-end gap-2"
+ x-data="{ open: false }" :style="open ? 'z-index: 30' : ''" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<button type="button" data-row-action class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 h-11 md:h-8 whitespace-nowrap" hx-disabled-elt="this" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-post="/admin/betalingen/<REC:open>/bevestigen" data-confirm="Als volledig betaald bevestigen?">Bevestig</button>
+<div class="relative">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+ class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink"
+ aria-label="Meer acties: Deelnemer open" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
+<a role="menuitem" href="/admin/inschrijvingen/<R:open>?terug=/admin/betalingen%3Fboeking%3D<REC:open>" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline">Inschrijving openen</a>
+<div data-menu-divider class="my-1 border-t border-line"></div>
+<button role="menuitem" type="button" class="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm text-red-700 hover:bg-surface-2" hx-disabled-elt="this" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-post="/admin/betalingen/<REC:open>/verwijderen" data-confirm="Deze betaling verwijderen?"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Verwijderen</button>
 </div>
-</td>
-</tr>
-<tr x-show="open === '<REC:open>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<div class="flex flex-wrap gap-2 items-end">
-<form class="flex flex-wrap gap-2 items-end flex-1"
- x-data="{ status: 'pending', bedrag: '' }"
- hx-post="/admin/betalingen/<REC:open>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label class="block text-xs text-gray-500">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '20,00'">
-<option value="pending" >In afwachting</option>
-<option value="paid" >Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
-</select></div>
-<div>
-<label class="block text-xs text-gray-500">Betaald bedrag</label>
-<input type="text" name="amount_paid" id="ap-<REC:open>" placeholder="0,00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
 </div>
-<input type="text" name="note" id="note-<REC:open>" placeholder="Opmerking"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" data-confirm="Deze betaling verwijderen (uit het saldo)?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:open>/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Verwijderen</button></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
-</form>
 </div>
 </td>
 </tr>
 </tbody>
-<tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
- data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:partial>' ? null : '<REC:partial>'; terug = null }">
-<td class="px-3 py-2 ">
-<span class="font-medium">Deelnemer partial</span>
-<div class="md:hidden mt-1 flex items-center gap-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-orange-100 text-orange-800">Deels betaald</span>
-<strong class="tabular-nums text-orange-700">€ 15,00</strong>
-</div>
+<tbody class="[&>tr:first-child>td]:border-t [&>tr:first-child>td]:border-t-gray-300">
+<tr data-row class="align-middle">
+<td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
+<a href="/admin/betalingen/<REC:partial>?terug=/admin/betalingen" data-row-link class="font-semibold text-ink hover:no-underline">Deelnemer partial</a>
 </td>
-<td class="px-3 py-2">
-<div>Betaalkarakter — Deelname</div>
-<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Overschrijving</div>
+<td data-cell="context" data-p="2" class="border-b border-line px-3 py-2">
+<span data-above-row><a href="/admin/activiteiten/<ACTIVITY>?terug=/admin/betalingen%3Fboeking%3D<REC:partial>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline ">Betaalkarakter — Deelname<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></span>
+<div class="max-w-[22rem] truncate text-xs text-ink-soft">Overschrijving</div>
 </td>
-<td class="px-3 py-2 hidden md:table-cell">
+<td data-cell="status" class="border-b border-line px-3 py-2">
 <span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-orange-100 text-orange-800">Deels betaald</span>
 </td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 20,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 5,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-orange-700">€ 15,00</strong></td>
-<td class="px-3 py-2 w-px">
-<div class="flex justify-end gap-2 items-center whitespace-nowrap">
-<a href="/admin/inschrijvingen/<R:partial>?terug=/admin/betalingen" class="text-xs font-medium text-link hover:underline whitespace-nowrap">Inschrijving</a>
-<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" data-confirm="Als volledig betaald bevestigen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:partial>/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Bevestig</button>
-<button type="button" x-show="open !== &#39;<REC:partial>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:partial>&#39;; terug = null">Bewerken</button>
+<td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span></td>
+<td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 5,00</span></td>
+<td data-cell="extra" data-balance class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap font-semibold text-brand-warning">€ 15,00</span></td>
+<td data-cell="actions" class="border-b border-line px-3 py-2">
+<div data-above-row data-row-controls class="flex items-center justify-end gap-2"
+ x-data="{ open: false }" :style="open ? 'z-index: 30' : ''" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<button type="button" data-row-action class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 h-11 md:h-8 whitespace-nowrap" hx-disabled-elt="this" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-post="/admin/betalingen/<REC:partial>/bevestigen" data-confirm="Als volledig betaald bevestigen?">Bevestig</button>
+<div class="relative">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+ class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink"
+ aria-label="Meer acties: Deelnemer partial" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
+<a role="menuitem" href="/admin/inschrijvingen/<R:partial>?terug=/admin/betalingen%3Fboeking%3D<REC:partial>" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline">Inschrijving openen</a>
 </div>
-</td>
-</tr>
-<tr x-show="open === '<REC:partial>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<div class="flex flex-wrap gap-2 items-end">
-<form class="flex flex-wrap gap-2 items-end flex-1"
- x-data="{ status: 'pending', bedrag: '5,00' }"
- hx-post="/admin/betalingen/<REC:partial>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label class="block text-xs text-gray-500">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '20,00'">
-<option value="pending" >In afwachting</option>
-<option value="paid" >Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
-</select></div>
-<div>
-<label class="block text-xs text-gray-500">Betaald bedrag</label>
-<input type="text" name="amount_paid" id="ap-<REC:partial>" placeholder="0,00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
 </div>
-<input type="text" name="note" id="note-<REC:partial>" placeholder="Opmerking"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto"></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
-</form>
 </div>
 </td>
 </tr>
 </tbody>
-<tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
- data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:paid>' ? null : '<REC:paid>'; terug = null }">
-<td class="px-3 py-2 ">
-<span class="font-medium">Deelnemer paid</span>
-<div class="md:hidden mt-1 flex items-center gap-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
-<strong class="tabular-nums text-ink-soft">€ 0,00</strong>
-</div>
+<tbody class="[&>tr:first-child>td]:border-t [&>tr:first-child>td]:border-t-gray-300">
+<tr data-row class="align-middle">
+<td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
+<a href="/admin/betalingen/<REC:paid>?terug=/admin/betalingen" data-row-link class="font-semibold text-ink hover:no-underline">Deelnemer paid</a>
 </td>
-<td class="px-3 py-2">
-<div>Betaalkarakter — Deelname</div>
-<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Overschrijving</div>
+<td data-cell="context" data-p="2" class="border-b border-line px-3 py-2">
+<span data-above-row><a href="/admin/activiteiten/<ACTIVITY>?terug=/admin/betalingen%3Fboeking%3D<REC:paid>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline ">Betaalkarakter — Deelname<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></span>
+<div class="max-w-[22rem] truncate text-xs text-ink-soft">Overschrijving</div>
 </td>
-<td class="px-3 py-2 hidden md:table-cell">
+<td data-cell="status" class="border-b border-line px-3 py-2">
 <span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
 </td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 20,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 20,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-ink-soft">€ 0,00</strong></td>
-<td class="px-3 py-2 w-px">
-<div class="flex justify-end gap-2 items-center whitespace-nowrap">
-<a href="/admin/inschrijvingen/<R:paid>?terug=/admin/betalingen" class="text-xs font-medium text-link hover:underline whitespace-nowrap">Inschrijving</a>
-<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" hx-disabled-elt="this" @click="terug = terug === '<REC:paid>' ? null : '<REC:paid>'; open = null">Terugbetaling</button>
-<button type="button" x-show="open !== &#39;<REC:paid>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:paid>&#39;; terug = null">Bewerken</button>
+<td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span></td>
+<td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span></td>
+<td data-cell="extra" data-balance class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 0,00</span></td>
+<td data-cell="actions" class="border-b border-line px-3 py-2">
+<div data-above-row data-row-controls class="flex items-center justify-end gap-2"
+ x-data="{ open: false }" :style="open ? 'z-index: 30' : ''" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<div class="relative">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+ class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink"
+ aria-label="Meer acties: Deelnemer paid" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
+<a role="menuitem" href="/admin/betalingen/<REC:paid>?terug=/admin/betalingen#terugbetaling" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline">Terugbetaling</a>
+<a role="menuitem" href="/admin/inschrijvingen/<R:paid>?terug=/admin/betalingen%3Fboeking%3D<REC:paid>" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline">Inschrijving openen</a>
+</div>
+</div>
 </div>
 </td>
 </tr>
-<tr x-show="open === '<REC:paid>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<div class="flex flex-wrap gap-2 items-end">
-<form class="flex flex-wrap gap-2 items-end flex-1"
- x-data="{ status: 'paid', bedrag: '20,00' }"
- hx-post="/admin/betalingen/<REC:paid>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label class="block text-xs text-gray-500">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '20,00'">
-<option value="pending" >In afwachting</option>
-<option value="paid" >Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
-</select></div>
-<div>
-<label class="block text-xs text-gray-500">Betaald bedrag</label>
-<input type="text" name="amount_paid" id="ap-<REC:paid>" placeholder="0,00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
-</div>
-<input type="text" name="note" id="note-<REC:paid>" placeholder="Opmerking"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto"></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
-</form>
-</div>
+<tr data-row class="align-middle">
+<td data-cell="name" class="h-[57px] border-b border-line px-3 py-2 pl-9">
+<span class="text-ink-soft" aria-hidden="true">↳</span>
+<a href="/admin/betalingen/<REC:refund_due>?terug=/admin/betalingen" data-row-link class="font-semibold text-ink hover:no-underline">Deelnemer paid</a>
 </td>
-</tr>
-<tr x-show="terug === '<REC:paid>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<form class="flex flex-wrap gap-2 items-end"
- hx-post="/admin/betalingen/<REC:paid>/refund" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label for="rf-amount-<REC:paid>" class="block text-sm font-medium text-gray-700 mb-1">Terug te betalen bedrag <span class="text-red-600">*</span></label>
-<input type="text" name="amount" id="rf-amount-<REC:paid>" placeholder="Bedrag" required
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" inputmode="decimal"></div>
-<input type="text" name="note" id="rf-note-<REC:paid>" placeholder="Reden"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto"></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="terug = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Registreren</button>
-</form>
+<td data-cell="context" data-p="2" class="border-b border-line px-3 py-2">
+<span data-above-row><a href="/admin/activiteiten/<ACTIVITY>?terug=/admin/betalingen%3Fboeking%3D<REC:refund_due>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline ">Betaalkarakter — Deelname<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></span>
+<div class="max-w-[22rem] truncate text-xs text-ink-soft">Terugbetaling · Overschrijving</div>
 </td>
-</tr>
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40 cursor-pointer"
- data-row-opens @click="if (!$event.target.closest('a,button,input,select,textarea,label')) { open = open === '<REC:refund_due>' ? null : '<REC:refund_due>'; terug = null }">
-<td class="px-3 py-2 pl-9">
-<span class="text-gray-400" aria-hidden="true">↳</span>
-<span class="font-medium">Deelnemer paid</span>
-<div class="md:hidden mt-1 flex items-center gap-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Terug te betalen</span>
-<strong class="tabular-nums text-teal-700">€ -5,00</strong>
-</div>
-</td>
-<td class="px-3 py-2">
-<div>Betaalkarakter — Deelname</div>
-<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Terugbetaling · Overschrijving</div>
-</td>
-<td class="px-3 py-2 hidden md:table-cell">
+<td data-cell="status" class="border-b border-line px-3 py-2">
 <span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Terug te betalen</span>
 </td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ -5,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 0,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-teal-700">€ -5,00</strong></td>
-<td class="px-3 py-2 w-px">
-<div class="flex justify-end gap-2 items-center whitespace-nowrap">
-<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" data-confirm="Als volledig terugbetaald bevestigen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:refund_due>/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Bevestig</button>
-<button type="button" x-show="open !== &#39;<REC:refund_due>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:refund_due>&#39;; terug = null">Bewerken</button>
+<td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">− € 5,00</span></td>
+<td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 0,00</span></td>
+<td data-cell="extra" data-balance class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap font-semibold text-brand-warning">− € 5,00</span></td>
+<td data-cell="actions" class="border-b border-line px-3 py-2">
+<div data-above-row data-row-controls class="flex items-center justify-end gap-2"
+ x-data="{ open: false }" :style="open ? 'z-index: 30' : ''" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<button type="button" data-row-action class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 h-11 md:h-8 whitespace-nowrap" hx-disabled-elt="this" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-post="/admin/betalingen/<REC:refund_due>/bevestigen" data-confirm="Als volledig terugbetaald bevestigen?">Bevestig</button>
+<div class="relative">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+ class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink"
+ aria-label="Meer acties: Deelnemer paid" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
+<a role="menuitem" href="/admin/inschrijvingen/<R:paid>?terug=/admin/betalingen%3Fboeking%3D<REC:refund_due>" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline">Inschrijving openen</a>
+<div data-menu-divider class="my-1 border-t border-line"></div>
+<button role="menuitem" type="button" class="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm text-red-700 hover:bg-surface-2" hx-disabled-elt="this" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-post="/admin/betalingen/<REC:refund_due>/verwijderen" data-confirm="Deze terugbetaling verwijderen?"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Verwijderen</button>
+</div>
+</div>
 </div>
 </td>
 </tr>
-<tr x-show="open === '<REC:refund_due>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<div class="flex flex-wrap gap-2 items-end">
-<form class="flex flex-wrap gap-2 items-end flex-1"
- x-data="{ status: 'pending', bedrag: '' }"
- hx-post="/admin/betalingen/<REC:refund_due>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label class="block text-xs text-gray-500">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '5,00'">
-<option value="pending" >In afwachting</option>
-<option value="paid" >Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
-</select></div>
-<div>
-<label class="block text-xs text-gray-500">Terugbetaald bedrag</label>
-<input type="text" name="amount_paid" id="ap-<REC:refund_due>" placeholder="0,00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
-</div>
-<input type="text" name="note" id="note-<REC:refund_due>" placeholder="Opmerking"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" data-confirm="Deze terugbetaling verwijderen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:refund_due>/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Verwijderen</button></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
-<p class="w-full order-last text-xs text-gray-400">Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.</p>
-</form>
-</div>
-</td>
-</tr>
-<tr class="bg-gray-50/60">
-<td colspan="3" class="px-3 py-2 font-medium text-ink-soft">Totaal inschrijving <span class="text-teal-700">· Nog uit te betalen: € 5,00</span></td>
-<td class="px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap">€ 15,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 20,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-teal-700 font-medium">€ -5,00</td>
-<td></td>
+<tr data-sum class="bg-surface-2 text-xs text-ink-soft">
+<th scope="row" data-cell="name" class="h-9 border-b border-line px-3 py-1 text-left font-medium">Totaal inschrijving · Nog uit te betalen: € 5,00</th>
+<td data-cell="context" data-p="2" class="border-b border-line px-3 py-1"></td>
+<td data-cell="status" class="border-b border-line px-3 py-1"></td>
+<td data-cell="amount" class="border-b border-line px-3 py-1 text-right font-medium"><span class="tabular-nums whitespace-nowrap">€ 15,00</span></td>
+<td data-cell="extra" data-p="1" class="border-b border-line px-3 py-1 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span></td>
+<td data-cell="extra" data-balance class="border-b border-line px-3 py-1 text-right"><span class="tabular-nums whitespace-nowrap font-semibold text-brand-warning">− € 5,00</span></td>
+<td data-cell="actions" class="border-b border-line px-3 py-1"></td>
 </tr>
 </tbody>
 </table>

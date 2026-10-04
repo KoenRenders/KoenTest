@@ -269,6 +269,80 @@ def _kaart(rec) -> dict:
     }
 
 
+#: The columns the payments table sorts on (K2, #1556): the key in the URL →
+#: the value of a group's main row. Amounts sort as numbers, text without case.
+SORT_KEYS = {
+    "naam": lambda r, badges: (r.contact_name or "").casefold(),
+    "context": lambda r, badges: ((r.description or "").casefold(), r.component_name or ""),
+    "status": lambda r, badges: badges.get(_kaart(r)["status"], ("",))[0].casefold(),
+    "bedrag": lambda r, badges: Decimal(str(r.amount)),
+    "saldo": lambda r, badges: Decimal(str(r.amount)) - Decimal(str(r.amount_paid or 0)),
+}
+
+#: The optional columns and the priority with which each leaves a narrow list
+#: (decision 04, point 6): Ontvangen first, then Context.
+OPTIONAL_COLUMNS = {"ontvangen": 1, "context": 2}
+COLUMN_MODES = ("auto", "show", "hide")
+
+
+def _row(rec, return_url: str, may_mutate: bool, *, is_context=False, is_extra=False) -> dict:
+    """One row of the payments table (K2, #1556): the record's figures, where the
+    row leads, the context as a reference, the one visible action and the menu.
+
+    The row opens the booking's page with the list as its way back. A record the
+    row names — the activity or the household under Context, the registration in
+    the menu — is opened with the list AND this booking as its origin
+    (`boeking=`), so its way back says "Betaling van <naam>" (#1557).
+    """
+    from urllib.parse import quote
+
+    card = _kaart(rec) | {"is_context": is_context, "is_extra": is_extra}
+    back = quote(return_url, safe="/")
+    from_booking = quote(
+        f"{return_url}{'&' if '?' in return_url else '?'}{BOOKING_PARAM}={rec.id}", safe="/"
+    )
+    page = f"{BOOKINGS}/{rec.id}?terug={back}"
+    context_href = None
+    if rec.activity_id:
+        context_href = f"/admin/activiteiten/{rec.activity_id}?terug={from_booking}"
+    elif rec.family_id:
+        context_href = f"/admin/leden/gezin/{rec.family_id}?terug={from_booking}"
+
+    action = None
+    menu: list[dict] = []
+    post = f'hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-post="{BOOKINGS}/{rec.id}'
+    if not is_context:
+        if may_mutate and not rec.is_paid:
+            action = {
+                "label": _("Bevestig"),
+                "attrs": f'{post}/bevestigen"',
+                "confirm": _("Als volledig terugbetaald bevestigen?")
+                if rec.is_refund
+                else _("Als volledig betaald bevestigen?"),
+            }
+        if may_mutate and rec.is_paid and not rec.is_refund:
+            menu.append({"label": _("Terugbetaling"), "href": f"{page}#terugbetaling"})
+        if rec.is_registration and rec.payable_id:
+            menu.append(
+                {
+                    "label": _("Inschrijving openen"),
+                    "href": f"/admin/inschrijvingen/{rec.payable_id}?terug={from_booking}",
+                }
+            )
+        if may_mutate and card["mag_verwijderen"]:
+            menu.append(
+                {
+                    "kind": "delete",
+                    "label": _("Verwijderen"),
+                    "attrs": f'{post}/verwijderen"',
+                    "confirm": _("Deze terugbetaling verwijderen?")
+                    if rec.is_refund
+                    else _("Deze betaling verwijderen?"),
+                }
+            )
+    return card | {"href": page, "context_href": context_href, "action": action, "menu": menu}
+
+
 def _status_badges() -> dict:
     """Label and tone of the badge per derived status (`service.derived_status`).
     One place for the list and the booking page (#1574); built per request, so
@@ -343,6 +417,16 @@ def _view(
     openstaand = False
     zicht = _zicht(stand)
     per_page = per_page_from(stand.get("per_page"))
+    # K2 (#1556): the sort ("naam", or "-naam" for descending; empty is the
+    # list's own order, most recent first) and the column chooser's choice per
+    # optional column. Anything else falls back to the default.
+    sort = (stand.get("sort") or "").strip()
+    if sort.lstrip("-") not in SORT_KEYS:
+        sort = ""
+    column_modes = {
+        key: mode if (mode := (stand.get(f"kol_{key}") or "auto")) in COLUMN_MODES else "auto"
+        for key in OPTIONAL_COLUMNS
+    }
     # #704: `?record=<id>` toont die ene betaling, ongeacht de andere filters.
     # Zo landt een werkbanktaak op de kaart die ze bedoelt, ook als die buiten
     # het huidige filter valt. Alleen hier en niet in de export: een export van
@@ -488,6 +572,7 @@ def _view(
         ("q", q) if q else None,
         ("context", context) if context != "all" else None,
         ("per_page", str(per_page)) if per_page != PER_PAGE else None,
+        *[(f"kol_{k}", m) for k, m in column_modes.items() if m != "auto"],
     ]
     if inschrijving_id:
         _tabstand.append(("inschrijving", inschrijving_id))
@@ -516,13 +601,21 @@ def _view(
     # #1059: dezelfde stand als de tabs, plus het actieve zicht. De macro plakt er
     # `&page=N` achter. Bewust zonder `hx-include`: de filterbalk serialiseert
     # geen `page`, dus meesturen zou de knop zijn eigen keuze laten overschrijven.
-    pager_url = (
-        f"/admin/betalingen/lijst?{urlencode([('zicht', zicht)] + [p for p in _tabstand if p])}"
-    )
+    _state = [("zicht", zicht)] + [p for p in _tabstand if p]
+    pager_url = f"/admin/betalingen/lijst?{urlencode(_state + ([('sort', sort)] if sort else []))}"
 
     # `records` erbij zodat een gefilterde terugbetaling haar charge als context
     # kan meenemen (#668); die telt niet mee in de totalen.
     groepen = group_cards(zichtbaar, records)
+    # K2 (#1556): a sort orders the GROUPS, each by its main row, and a group
+    # stays together (decision 04, point 1). Without a sort the order is
+    # `group_cards`' own: most recent first.
+    if sort:
+        badges = _status_badges()
+        groepen.sort(
+            key=lambda g: SORT_KEYS[sort.lstrip("-")](g["kaarten"][0]["charge"], badges),
+            reverse=sort.startswith("-"),
+        )
     # #1059: pas hier snijden, en op GROEPEN. Het snijden gebeurt vóór de
     # kaartopmaak hieronder, zodat die alleen het zichtbare deel kost; de
     # tellingen erboven (kpi, tabaantallen, matrix) zijn al berekend over de
@@ -546,14 +639,74 @@ def _view(
     )
     return_url = "/admin/betalingen" + (f"?{_query}" if _query and not stil else "")
     groepen = groepen[(page - 1) * per_page : page * per_page]
+    may_mutate = may_mutate_payments(db, email)
     for groep in groepen:
         groep["kaarten"] = [
             (
-                _kaart(k["charge"]) | {"is_context": k["is_context"], "is_extra": k["is_extra"]},
-                [_kaart(x) for x in k["refunds"]],
+                _row(
+                    k["charge"],
+                    return_url,
+                    may_mutate,
+                    is_context=k["is_context"],
+                    is_extra=k["is_extra"],
+                ),
+                [_row(x, return_url, may_mutate) for x in k["refunds"]],
             )
             for k in groep["kaarten"]
         ]
+
+    # The table's columns (K2): the head's labels, which column sorts and where
+    # its link leads, and the two optional ones with their priority — Ontvangen
+    # leaves first, then Context.
+    def _sort_urls(key: str) -> dict:
+        nxt = f"-{key}" if sort == key else key
+        query = urlencode(_state + [("sort", nxt)])
+        return {
+            "sort_url": f"/admin/betalingen/lijst?{query}",
+            "sort_page_url": f"/admin/betalingen?{query}",
+            "sorted": ("desc" if sort.startswith("-") else "asc")
+            if sort.lstrip("-") == key
+            else None,
+        }
+
+    columns = [
+        {"key": "naam", "label": _("Boeking"), "cell": "name", **_sort_urls("naam")},
+        {
+            "key": "context",
+            "label": _("Context"),
+            "cell": "context",
+            "priority": 2,
+            **_sort_urls("context"),
+        },
+        {
+            "key": "status",
+            "label": _("Status"),
+            "cell": "status",
+            **_sort_urls("status"),
+        },
+        {
+            "key": "bedrag",
+            "label": _("Bedrag"),
+            "cell": "amount",
+            "num": True,
+            **_sort_urls("bedrag"),
+        },
+        {
+            "key": "ontvangen",
+            "label": _("Ontvangen"),
+            "cell": "extra",
+            "num": True,
+            "priority": 1,
+        },
+        {
+            "key": "saldo",
+            "label": _("Saldo"),
+            "cell": "extra",
+            "num": True,
+            **_sort_urls("saldo"),
+        },
+        {"key": "acties", "label": _("Acties"), "cell": "actions"},
+    ]
 
     # Gegroepeerde context-filter (#549): dezelfde grouped_filter-macro als de
     # Werkbank. Heterogene groepen (jaren/onderdelen) → (value, label)-tuples.
@@ -644,7 +797,36 @@ def _view(
         jaren=_jaren,
         context_top=context_top,
         context_groups=context_groups,
-        is_finance="FINANCE" in get_user_roles(db, email),
+        may_mutate=may_mutate,
+        columns=columns,
+        column_modes={priority: column_modes[key] for key, priority in OPTIONAL_COLUMNS.items()},
+        column_choices=[
+            {"key": "ontvangen", "label": _("Ontvangen"), "mode": column_modes["ontvangen"]},
+            {"key": "context", "label": _("Context"), "mode": column_modes["context"]},
+        ],
+        sort=sort,
+        sort_options=[
+            ("", _("Recentste eerst")),
+            ("naam", _("Naam (A–Z)")),
+            ("-naam", _("Naam (Z–A)")),
+            ("context", _("Context (A–Z)")),
+            ("status", _("Status")),
+            ("-bedrag", _("Bedrag (hoog–laag)")),
+            ("bedrag", _("Bedrag (laag–hoog)")),
+            ("-saldo", _("Saldo (hoog–laag)")),
+        ],
+        # The one sentence of the empty state: what made the list empty.
+        empty_reason=(
+            _("Geen betalingen gevonden voor “%(q)s”.") % {"q": q}
+            if q
+            else _("Geen openstaande betalingen.")
+            if zicht == "openstaand"
+            else _("Geen betalingen in deze context.")
+            if context != "all"
+            else _("Geen betalingen voor deze selectie.")
+            if scope
+            else _("Er zijn nog geen betalingen.")
+        ),
         raakje_scherm=_raakje_op_dit_scherm(db, email),
         stt_mode=_stt_mode(),
         csrf_token=csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
@@ -855,7 +1037,7 @@ def _booking_view(
     here = f"{BOOKINGS}/{rec.id}" + (f"?{keep}" if keep else "")
     # A record opened from here leads back to this page, which keeps its own way
     # back (`keep`) — so the origin survives two steps.
-    back_here = quote(here, safe="")
+    back_here = quote(here, safe="/")
     may_mutate = may_mutate_payments(db, email)
     badges = _status_badges()
     labels = _status_labels()

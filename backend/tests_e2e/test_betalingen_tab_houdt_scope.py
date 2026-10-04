@@ -86,7 +86,13 @@ def page(two_activities):
 
 
 def _records(page) -> set[str]:
-    return set(re.findall(r"open === '([^']+)'", page.inner_html("#betalingen-lijst")))
+    # K2 (#1556): a row is its link to the booking's page.
+    return set(
+        re.findall(
+            r'href="/admin/betalingen/([0-9a-f-]{36})\?terug=[^"]*" data-row-link',
+            page.inner_html("#betalingen-lijst"),
+        )
+    )
 
 
 def test_confirming_on_the_activity_tab_keeps_the_activity(page, two_activities):

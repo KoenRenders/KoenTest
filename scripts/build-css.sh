@@ -275,6 +275,59 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .form-grid>[data-span="half"]{grid-column:span 2}
 .form-grid>[data-span="quarter"]{grid-column:span 1}
 @container (max-width:531.98px){.form-grid>[data-span]{grid-column:1/-1}}
+/* ── CR-11 block 4 (#1556): the list's table ────────────────────────────────
+   design-system-end-state §2.1 (the list, the row as the way in). What the
+   utility classes cannot say: the row's click area, and what the table does
+   by the width of the LIST (a container query) instead of the window — a list
+   beside an open panel is narrower than its window. Outside @layer, like the
+   frame above: the selectors are data attributes the kit's macros write.
+
+   - The row is the way in: the link in the first cell (`data-row-link`) lays
+     its click area over the whole row; what must stay clickable itself — a
+     reference, the row's one action, its menu — sits above it
+     (`data-above-row`). No nested anchors.
+   - Optional columns leave by list width in a fixed order: priority 1 below
+     1 100 px, priority 2 below 980 px (`data-p` on the cells). The prototype
+     of brief 04 put them at 1 240 and 1 120; the issue asks seven columns on a
+     1 440 px window, where the list is 1 168 px wide, so both moved down. The table says
+     per priority whether that is automatic, always shown or always hidden
+     (`data-p1`, `data-p2`: auto | show | hide) — the column chooser.
+   - `table-layout:fixed`: the columns take the widths the screen gives them
+     and the first one the rest, so a column the chooser forces to show on a
+     narrow list makes the others tighter — never the page wider (measured:
+     with an automatic layout, "Tonen" at 988 px gave a page of 1 182 px).
+   - Below 900 px the table is one continuous list of stacked rows, no cards:
+     name and reference, the context, then the badge and the amount on one
+     line, the row's action and `⋯` at the top right. The head stays for a
+     screen reader. Never a horizontal scroll. */
+.data-table-frame{container-type:inline-size;container-name:datatable}
+.data-table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+.data-table th,.data-table td{overflow-wrap:anywhere}
+.data-table [data-row]{position:relative}
+.data-table [data-row]:hover{background:rgb(var(--c-surface-2))}
+.data-table [data-row-link]::after{content:"";position:absolute;inset:0;z-index:1;cursor:pointer}
+.data-table [data-row-link]:focus-visible{outline:none}
+.data-table [data-row-link]:focus-visible::after{outline:2px solid rgb(var(--c-blue-600));outline-offset:-3px}
+.data-table [data-above-row]{position:relative;z-index:2}
+.data-table[data-p1="hide"] [data-p="1"],.data-table[data-p2="hide"] [data-p="2"]{display:none}
+@container datatable (max-width:1099px){.data-table[data-p1="auto"] [data-p="1"]{display:none}}
+@container datatable (max-width:979px){.data-table[data-p2="auto"] [data-p="2"]{display:none}}
+@container datatable (max-width:899px){
+  .data-table,.data-table tbody{display:block}
+  .data-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  .data-table tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:12px;border-bottom:1px solid rgb(var(--c-line))}
+  .data-table tbody:last-child tr:last-child{border-bottom:0}
+  .data-table td,.data-table th{display:block;width:auto;height:auto;border:0;padding:0}
+  .data-table [data-cell="name"]{grid-column:1;grid-row:1}
+  .data-table [data-cell="actions"]{grid-column:2;grid-row:1}
+  .data-table [data-cell="context"]{display:block!important;grid-column:1/-1;grid-row:2}
+  .data-table[data-p2="hide"] [data-cell="context"]{display:none!important}
+  .data-table [data-cell="status"]{grid-column:1;grid-row:3;align-self:center}
+  .data-table [data-cell="amount"]{grid-column:2;grid-row:3;align-self:center}
+  .data-table [data-cell="extra"]{display:none!important}
+  .data-table [data-sum] [data-cell="context"],.data-table [data-sum] [data-cell="status"],.data-table [data-sum] [data-cell="actions"]{display:none!important}
+  .data-table [data-sum] [data-cell="amount"]{grid-row:1}
+}
 .nav-drawer-only,.nav-when-rail{display:none}
 html.nav-rail .admin-sidebar:not(.is-open) .nav-label{display:none}
 html.nav-rail .admin-sidebar:not(.is-open) .nav-rail-mark{display:block}

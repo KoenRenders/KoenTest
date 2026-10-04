@@ -53,9 +53,19 @@ def test_the_contact_name_is_plain_text_and_details_is_the_way_in():
 
 
 def test_a_payment_row_opens_on_a_click_but_not_through_a_control():
+    """W11 (#1391) made a click anywhere on the row unfold its editor, through an
+    Alpine handler that skipped clicks on a control. K2 (#1556, block 4) keeps
+    the rule — the whole row opens — and changes the way: the name is the row's
+    link (`ui.row_link`) and its click area covers the row; what must stay
+    clickable itself sits above it (`data-above-row`). The row opens the
+    booking's page; nothing unfolds. That the click works on the amount is
+    measured in a browser (`tests_e2e/test_betalingen_table.py`)."""
     text = (APP / "domains/payment/templates/_betalingen_lijst.html").read_text()
-    row = text[text.index("{% macro _rij(") :]
-    row = row[: row.index("</td>")]
-    assert "data-row-opens" in row and "@click=" in row
-    assert "closest('a,button,input,select,textarea,label')" in row
-    assert "open = open === '{{ r.id }}' ? null : '{{ r.id }}'" in row
+    row = text[text.index("{% macro _rij(") : text.index("{% endmacro %}")]
+    assert "<tr data-row" in row and "ui.row_link(" in row
+    assert "@click=" not in row and "data-row-opens" not in row
+    assert "data-above-row" in row, "the reference under Context is not above the row's link"
+    macros = (APP / "ui/templates/_macros.html").read_text()
+    css = (APP.parent.parent / "scripts/build-css.sh").read_text()
+    assert "data-row-link" in macros
+    assert '[data-row-link]::after{content:"";position:absolute;inset:0' in css

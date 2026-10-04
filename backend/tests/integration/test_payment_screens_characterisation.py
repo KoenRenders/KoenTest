@@ -22,6 +22,16 @@ table line (`<table`, `<tbody`, `<tr`, `<th`, `<td`) — the rows, their states 
 their grouping render as they did. Inside the rows one thing changed, three times,
 on the "Openstaand" screen: the link "Inschrijving" now carries the list's state
 in its `?terug=` (the way back, CR-11 B7 test 21).
+
+**Re-recorded again with K2 (#1556)**, on purpose: the table itself moved onto the
+kit (`ui.data_table`), the unfold under a row went, the row became a link. Here
+every table line changed, so "none changed" cannot be the check. Read instead,
+per screen, old against new: the number of booking rows (activity 7, all 8,
+all_open 6, family 3, list 8, registration_paid 2, registration_partial 1) and
+of "Totaal inschrijving" rows (2, 2, 1, 1, 2, 1, 0) is the same, and every row
+carries the badge of its state exactly once — the old screens showed each
+status more often only because the phone copy of the badge and the status
+select of each unfolded editor repeated it.
 """
 
 from __future__ import annotations
