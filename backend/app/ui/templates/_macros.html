@@ -2012,7 +2012,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    enkele correcte manier om er een link van te maken. Daarom hier gerepareerd en
    niet bij de aanroepers. #}
 {% macro section_header(title, action_label=None, action_attrs="", action_href=None, cls="") -%}
-<div class="flex items-center justify-between mb-3{% if cls %} {{ cls }}{% endif %}">
+<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-3{% if cls %} {{ cls }}{% endif %}">
   <h3 class="text-xl font-semibold text-kop">{{ title }}</h3>
   {% if action_label %}{{ btn_secondary(action_label, type="button", href=action_href,
                                         attrs=action_attrs, size="sm", cls="whitespace-nowrap") }}{% endif %}
@@ -2664,7 +2664,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% for s in segments %}
   <label class="relative flex flex-1 md:flex-none cursor-pointer{{ ' border-l border-line' if not loop.first }}">
     <input type="radio" name="{{ name }}" value="{{ s.value }}" class="peer absolute inset-0 h-full w-full m-0 opacity-0 cursor-pointer"{% if s.value == current %} checked{% endif %}>
-    <span class="flex w-full items-center justify-center gap-1 px-3 whitespace-nowrap text-sm font-medium text-ink-soft hover:bg-surface-2 peer-checked:bg-blue-50 peer-checked:text-blue-700 peer-checked:font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-blue-600 peer-focus-visible:z-10 {{ 'rounded-l-[7px]' if loop.first }} {{ 'rounded-r-[7px]' if loop.last }}">{{ s.label }}{% if s.get('count') is not none %} <span id="{{ id }}-n-{{ s.value }}" class="tabular-nums">({{ s.count }})</span>{% endif %}</span>
+    <span class="flex w-full items-center justify-center gap-1 px-2 md:px-3 whitespace-nowrap text-sm font-medium text-ink-soft hover:bg-surface-2 peer-checked:bg-blue-50 peer-checked:text-blue-700 peer-checked:font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-blue-600 peer-focus-visible:z-10 {{ 'rounded-l-[7px]' if loop.first }} {{ 'rounded-r-[7px]' if loop.last }}">{{ s.label }}{% if s.get('count') is not none %} <span id="{{ id }}-n-{{ s.value }}" class="tabular-nums">({{ s.count }})</span>{% endif %}</span>
   </label>
   {% endfor %}
 </fieldset>

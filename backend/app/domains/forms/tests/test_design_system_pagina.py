@@ -41,22 +41,10 @@ PAGINA = (UI / "design_system.html").read_text()
 
 # Macro's zonder eigen uiterlijk, elk met de reden waarom ze geen demo krijgen.
 GEEN_DEMO = {
-    "btn_class": "levert een klassenreeks, geen element — staat als tekst bij de knoppen",
-    "button": "de generieke vorm; de vier btn_*-varianten tonen hem",
-    "icon": "de iconensectie toont de volledige set al",
     "clipboard_js": "script, geen component",
     "htmx_ux": "script, geen component",
-    "toast_host": "hoort in de schil; twee hosts op één pagina vangen elkaars toasts op",
-    "confirm_host": "idem — de schil draagt hem",
-    "toast_oob": "een out-of-band antwoordfragment, geen zichtbaar element op deze pagina",
     "toolbar_oob": "an out-of-band fragment for the toolbar; the toolbar itself is in section 8e",
     "env_banner": "de schil toont hem al bovenaan elke omgeving behalve PROD",
-    "card": "het omhulsel van elke sectie hieronder — overal in gebruik",
-    "page_header": "staat bovenaan deze pagina zelf",
-    "section_header": "scheidt de secties van deze pagina zelf",
-    "loading": "staat in de sectie 'Leeg en ladend'",
-    "empty_state": "idem",
-    "search": "staat in de filterbalk van het lijstscherm",
     "form_guard_fields": "onzichtbaar bedoeld: een honingpot en een verborgen tijdstip (#1297)",
 }
 
@@ -91,6 +79,18 @@ def test_de_uitzonderingen_bestaan_nog():
     assert not verdwenen, (
         f"deze namen staan in de uitzonderingenlijst maar niet meer in de kit: {verdwenen}"
     )
+
+
+def test_no_exemption_for_a_macro_that_is_on_the_page():
+    """#1563 — twelve of the seventeen exemptions were for macros the page calls
+    (`card` twenty-eight times). An exemption nobody needs still switches the rule
+    off: take the demo away later and nothing is red.
+
+    Proven red by putting `"card": "…"` back in `GEEN_DEMO`.
+    """
+    unneeded = sorted(name for name in GEEN_DEMO if f"ui.{name}(" in PAGINA)
+
+    assert not unneeded, f"these macros are on the page; remove them from GEEN_DEMO: {unneeded}"
 
 
 def test_elke_veldsoort_heeft_een_voorbeeld():
@@ -300,6 +300,38 @@ def test_de_kleurtokens_komen_uit_de_gegenereerde_css(client, db_session):
 
     assert resp.status_code == 200
     assert "var(--" in resp.text, "er wordt geen enkel token uit de CSS getoond"
+
+
+def test_every_colour_the_kit_uses_is_a_token_on_the_page():
+    """#1563 — the token list is right when nothing the kit paints with is
+    missing from it. A colour name a macro uses (`text-ink-soft`,
+    `border-control-line`) that the generated css defines as a custom property
+    must be one of the tokens the page shows, under its own name or as the
+    admin shell's `c-…` override.
+
+    Proven red by letting `_tokens()` skip `ink-soft` under both its names; with
+    only the readable name skipped the test stays green, rightly: the page still
+    shows the colour as the shell's `c-ink-soft`.
+    """
+    from app.ui.design_system_ui import _tokens
+
+    css = (UI.parent.parent / "static" / "app.css").read_text()
+    defined = set(re.findall(r"--(?:c-)?([a-z][a-z0-9-]*?):", css))
+    shown = {name.removeprefix("c-") for name, _value, _shell in _tokens()}
+    used = set(
+        re.findall(
+            r"(?:text|bg|border|ring|outline|divide)-([a-z]+(?:-[a-z]+)*)(?=[\s\"'/])", MACROS
+        )
+    )
+    assert len(shown) >= 20, f"only {len(shown)} tokens read from app.css — is the css built?"
+    kit_colours = used & defined
+    assert len(kit_colours) >= 8, (
+        f"only {sorted(kit_colours)} recognised — the pattern looks nowhere"
+    )
+
+    missing = sorted(kit_colours - shown)
+
+    assert not missing, f"the kit paints with these, the token list does not show them: {missing}"
 
 
 def test_systeeminfo_verwijst_naar_de_pagina(client, db_session):

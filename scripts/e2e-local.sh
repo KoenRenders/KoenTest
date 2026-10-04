@@ -83,7 +83,7 @@ if ! docker inspect -f '{{.State.Running}}' "$NAAM" >/dev/null 2>&1; then
     -e DATABASE_URL="$URL" \
     -e SECRET_KEY="e2e-lokaal-secret-lang-genoeg-voor-hs256" \
     -u root "$IMAGE" sleep infinity >/dev/null
-  docker exec "$NAAM" pip install -q pytest playwright
+  docker exec "$NAAM" pip install -q -r requirements-e2e.txt
   docker exec "$NAAM" playwright install --with-deps chromium >/dev/null
 fi
 
