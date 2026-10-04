@@ -174,12 +174,14 @@ def test_het_linkveld_volgt_de_soortkeuze(client, db_session):
 # ── 3. De standaardsoort (#708) ────────────────────────────────────────────
 
 
-def test_de_medialijst_opent_op_activiteitenfotos(client, db_session):
+def test_de_medialijst_opent_op_een_tak_en_uploaden_op_activiteitenfotos(client, db_session):
+    """#1527: landing shows no list until a branch is chosen (#891), so the
+    upload carries no kind from it — and the upload page then starts at the
+    everyday kind, activity photo (#708), as the next test holds."""
     _login(client)
     html = client.get("/admin/media").text
-    assert 'href="/admin/media/nieuw?kind=activity_photo"' in html, (
-        "de lijst geeft nog sponsor door aan het uploadscherm"
-    )
+    assert "Kies een tak in de boom" in html
+    assert 'href="/admin/media/nieuw?"' in html, "no branch, so no kind travels along"
 
 
 def test_het_uploadscherm_staat_standaard_op_activiteitenfoto(client, db_session):

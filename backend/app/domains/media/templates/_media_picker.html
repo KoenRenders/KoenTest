@@ -29,12 +29,8 @@
         {% if branch_chosen %}{{ boomdelen.link(_("Alles"), alles_href, False, target=target) }}{% endif %}
         {{ boomdelen.tak(_("Activiteiten"), boom.activiteiten, _("Nog niets."), target) }}
         {{ boomdelen.tak(_("Affiches"), boom.affiches, _("Nog niets."), target) }}
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wide text-ink-soft">{{ _("Logo's") }}</p>
-          <ul class="mt-1 space-y-0.5">
-            {% for l in logo_links %}<li>{{ boomdelen.link(l.naam, l.href, l.actief, target=target) }}</li>{% endfor %}
-          </ul>
-        </div>
+        {{ boomdelen.tak(_("Ontwerpbeelden"), boom.ontwerpen, _("Nog niets."), target, los=boom.ontwerpen_los) }}
+        {{ boomdelen.soorten(boom.soorten, target) }}
         <div>
           <p class="text-xs font-semibold uppercase tracking-wide text-ink-soft">{{ _("Tags") }}</p>
           {% if boom.tags %}<div class="mt-1">{{ boomdelen.tags(boom.tags, target) }}</div>

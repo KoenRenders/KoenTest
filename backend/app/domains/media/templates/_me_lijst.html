@@ -80,19 +80,23 @@
 
            `first`/`last` komen uit de EIGEN GROEP van het item en niet uit de lijst:
            ongefilterd staan de foto's van alle activiteiten door elkaar. #}
+        {# #1527: no arrows in "Alles" — an order holds within one album only. #}
+        {% if not alles_actief %}
         <label class="flex items-center gap-1">{{ _("Volgorde") }}
           {{ ui.reorder(
                up_attrs='hx-post="/admin/media/' ~ a.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog","kind":"' ~ kind ~ '","q":"' ~ q ~ '","filter_activity_id":"' ~ (activity_id or "") ~ '","filter_tag":"' ~ (tag or "") ~ '","filter_year":"' ~ (year or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML"',
                down_attrs='hx-post="/admin/media/' ~ a.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag","kind":"' ~ kind ~ '","q":"' ~ q ~ '","filter_activity_id":"' ~ (activity_id or "") ~ '","filter_tag":"' ~ (tag or "") ~ '","filter_year":"' ~ (year or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML"',
                first=a.is_first, last=a.is_last) }}
         </label>
+        {% endif %}
         <label class="flex items-center gap-1"><input type="checkbox" name="is_active" value="1" {% if a.is_active %}checked{% endif %}> {{ _("Actief") }}</label>
         {# #1057: alleen bij een sponsorlogo — elders betekent de kolom niets en zou
            een vinkje een keuze suggereren die nergens gelezen wordt. #}
         {% if a.is_sponsor %}
         <label class="flex items-center gap-1" title="{{ _("Uit: het logo blijft beschikbaar voor affiches, maar staat niet onder de publieke pagina's.") }}"><input type="checkbox" name="show_in_footer" value="1" {% if a.show_in_footer %}checked{% endif %}> {{ _("In de footer") }}</label>
         {% endif %}
-        <span class="text-xs text-gray-400">{{ a.width }}×{{ a.height }}</span>
+        {# #1527: "Alles" shows pictures without known dimensions too. #}
+        {% if a.width and a.height %}<span class="text-xs text-gray-400">{{ a.width }}×{{ a.height }}</span>{% endif %}
       </div>
       {# CR-15 #1471: where the picture is used, derived from the designs and the
          pages; unfolded on a click, and open on the card whose delete was just
@@ -110,6 +114,12 @@
   </form>
   {% endfor %}
 </div>
+{# #1527: "Alles" pages by 60, like the picker. #}
+{% if alles_actief %}{{ ui.pager(page, per_page, total, hx_get=pager_url, hx_target="#me-lijst") }}{% endif %}
+{% elif kies_tak %}
+{# #1527: landing on the library is a starting point, as #891 decided for the
+   photos: the tree says where to look, "Alles" included. #}
+{{ ui.empty_state(_("Kies een tak in de boom om de beelden te zien.")) }}
 {% elif kies_eerst %}
 {# #891: een BEGINPUNT en geen weigering — dus een lege staat die zegt wat er van je
    verwacht wordt, geen foutmelding. Zonder gekozen activiteit stond hier een lijst van
@@ -123,11 +133,8 @@
    en een oob-blok zou hem daar dubbel zetten. #}
 {% if oob_uploadknop|default(false) %}
 <span id="me-uploadknop" hx-swap-oob="true">
-  {{ ui.btn_primary(_("+ Uploaden"), href="/admin/media/nieuw?" ~ filterstand) }}
+  {{ ui.btn_primary(_("+ Uploaden"), href=upload_href) }}
 </span>
-{# #1291: the activity filter follows the kind the same way — gone for any other
-   kind, back at "Alle activiteiten" for activity photos. #}
-<span id="media-activity-filter" class="contents" hx-swap-oob="true">{% include "_media_activity_filter.html" %}</span>
 {# #1470: the tree follows too — the year filter narrows its activity branches. #}
 <aside id="me-boom" class="mb-4 lg:mb-0" hx-swap-oob="true">{% include "_me_boom.html" %}</aside>
 {% endif %}

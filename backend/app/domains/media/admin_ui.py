@@ -36,6 +36,11 @@ NAV = "/admin/media"
 # lijkt de wijziging niet te werken.
 STANDAARD_KIND = "activity_photo"  # the code; see MediaKind.ACTIVITY_PHOTO
 
+# #1527: "Alles" at the top of the tree — the whole library, as a choice and not
+# where you land (#891: landing on a big list of photos is pointless). In pages,
+# like the picker, and without the arrows: an order holds within one album only.
+ALL = "alles"
+
 # CR-15 #1471: the "in gebruik" filter. A list with an explicit empty value and
 # not a checkbox: the filter is read through `filterparams`, which keeps a value
 # from the current URL unless the request sends its own — an unticked box sends
@@ -55,7 +60,12 @@ def _activity_filter(kind: str, activity_id: Optional[int]) -> Optional[int]:
     from app.domains.media.api import MediaKind
 
     # #1470: posters hang off an activity too — their own branch in the tree.
-    met_activiteit = {MediaKind.ACTIVITY_PHOTO.value, MediaKind.ACTIVITY_POSTER.value}
+    # #1527: and design pictures, under Ontwerpbeelden.
+    met_activiteit = {
+        MediaKind.ACTIVITY_PHOTO.value,
+        MediaKind.ACTIVITY_POSTER.value,
+        MediaKind.DESIGN_IMAGE.value,
+    }
     return activity_id if kind in met_activiteit else None
 
 
@@ -84,11 +94,13 @@ def _filterstand(
     """
     from urllib.parse import urlencode
 
-    params: list[tuple[str, str]] = [("kind", kind)]
+    # #1527: no kind is a place too — the landing, or a tag across kinds.
+    params: list[tuple[str, str]] = [("kind", kind)] if kind else []
     if q:
         params.append(("q", q))
     activity_id = _activity_filter(kind, activity_id)
-    if activity_id:
+    # `is not None`: 0 is a place too — "Zonder activiteit" (#1527).
+    if activity_id is not None:
         params.append(("activity_id", str(activity_id)))
     # #1470: the chosen tag and year are part of "where I was" too.
     if tag_id:
@@ -108,8 +120,9 @@ def _tree(
     *,
     by_kind: dict,
     tags: list,
-    href: "Callable[[str, int], str]",
-    chosen: "Callable[[str, int], bool]",
+    href: "Callable[[str, int | str], str]",
+    chosen: "Callable[[str, int | str], bool]",
+    kind_labels: dict[str, str],
 ) -> dict:
     """The library's tree (CR-15 §C4.2, #1470): two branches derived from the
     activity — its album photos and, apart, its posters (Q10) — and the board's
@@ -122,24 +135,37 @@ def _tree(
 
     One builder for two screens (#1472): the library and the picker show the same
     tree and differ only in where a node leads. `href(node_kind, id)` and
-    `chosen(node_kind, id)` say that, with `node_kind` "photos", "posters" or
-    "tag".
+    `chosen(node_kind, id)` say that, with `node_kind` "photos", "posters", "tag"
+    or "kind" (its id then the kind's code).
+
+    #1527: the kinds that hang off no activity — Logo's, Paginabeelden — are
+    branches too, from `media.api.KIND_GROUPS`, the one source both trees read. A
+    branch of one kind is one link with the branch's name; a branch of several
+    lists them by their kind's word. Ontwerpbeelden is a branch per year and
+    activity, like Affiches, with "Zonder activiteit" for the ones of none
+    (Koen's addition to #1527).
     """
     from app.domains.media.api import MediaKind
 
+    deleted = _("Verwijderd")
+
     def branch(soort: MediaKind, node_kind: str) -> list[dict]:
         met = by_kind.get(soort, set())
-        per_jaar: dict[int, list[dict]] = {}
+        per_jaar: dict[int | str, list[dict]] = {}
         for a in alle_activiteiten:
-            if a["id"] in met and a["jaar"] and (year is None or a["jaar"] == year):
-                per_jaar.setdefault(a["jaar"], []).append(
+            # #1527: a deleted activity (no date left) under "Verwijderd", last.
+            jaar = deleted if a.get("verwijderd") else a["jaar"]
+            if a["id"] in met and jaar and (year is None or jaar == year):
+                per_jaar.setdefault(jaar, []).append(
                     {
                         "naam": a["naam"],
                         "href": href(node_kind, a["id"]),
                         "actief": chosen(node_kind, a["id"]),
                     }
                 )
-        jaren = sorted(per_jaar, reverse=True)
+        jaren = sorted((j for j in per_jaar if j != deleted), reverse=True)
+        if deleted in per_jaar:
+            jaren.append(deleted)
         met_keuze = next((j for j in jaren if any(a["actief"] for a in per_jaar[j])), None)
         open_jaar = met_keuze if met_keuze is not None else (jaren[0] if jaren else None)
         return [
@@ -160,9 +186,37 @@ def _tree(
             "kinderen": [tag_node(child) for child in node.children],
         }
 
+    from app.domains.media.api import KIND_GROUPS, WITHOUT_ACTIVITY
+
+    group_names = {"logos": _("Logo's"), "pages": _("Paginabeelden")}
+
+    def kind_link(name: str, code: str) -> dict:
+        return {"naam": name, "href": href("kind", code), "actief": chosen("kind", code)}
+
+    soorten: list[dict] = []
+    for key, kinds in KIND_GROUPS:
+        if len(kinds) == 1:
+            soorten.append({"naam": None, "links": [kind_link(group_names[key], kinds[0].value)]})
+        else:
+            soorten.append(
+                {
+                    "naam": group_names[key],
+                    "links": [kind_link(kind_labels.get(k.value, k.value), k.value) for k in kinds],
+                }
+            )
+
     return {
         "activiteiten": branch(MediaKind.ACTIVITY_PHOTO, "photos"),
         "affiches": branch(MediaKind.ACTIVITY_POSTER, "posters"),
+        # #1527 (Koen): design pictures per year and activity, like posters, and
+        # those of no activity apart.
+        "ontwerpen": branch(MediaKind.DESIGN_IMAGE, "designs"),
+        "ontwerpen_los": {
+            "naam": _("Zonder activiteit"),
+            "href": href("designs", WITHOUT_ACTIVITY),
+            "actief": chosen("designs", WITHOUT_ACTIVITY),
+        },
+        "soorten": soorten,
         "tags": [tag_node(node) for node in tags],
     }
 
@@ -171,12 +225,18 @@ def _library_href(year: Optional[int]):
     """Where a node of the library's tree leads: the library, on that branch."""
     from app.domains.media.api import MediaKind
 
-    kinds = {"photos": MediaKind.ACTIVITY_PHOTO.value, "posters": MediaKind.ACTIVITY_POSTER.value}
+    kinds = {
+        "photos": MediaKind.ACTIVITY_PHOTO.value,
+        "posters": MediaKind.ACTIVITY_POSTER.value,
+        "designs": MediaKind.DESIGN_IMAGE.value,
+    }
 
-    def href(node_kind: str, node_id: int) -> str:
+    def href(node_kind: str, node_id: int | str) -> str:
         if node_kind == "tag":
-            return "/admin/media?" + _filterstand(STANDAARD_KIND, tag_id=node_id, year=year)
-        return "/admin/media?" + _filterstand(kinds[node_kind], activity_id=node_id, year=year)
+            return "/admin/media?" + _filterstand("", tag_id=int(node_id), year=year)
+        if node_kind == "kind":
+            return "/admin/media?" + _filterstand(str(node_id), year=year)
+        return "/admin/media?" + _filterstand(kinds[node_kind], activity_id=int(node_id), year=year)
 
     return href
 
@@ -184,11 +244,17 @@ def _library_href(year: Optional[int]):
 def _library_chosen(kind: str, activity_id: Optional[int], tag_id: Optional[int]):
     from app.domains.media.api import MediaKind
 
-    kinds = {"photos": MediaKind.ACTIVITY_PHOTO.value, "posters": MediaKind.ACTIVITY_POSTER.value}
+    kinds = {
+        "photos": MediaKind.ACTIVITY_PHOTO.value,
+        "posters": MediaKind.ACTIVITY_POSTER.value,
+        "designs": MediaKind.DESIGN_IMAGE.value,
+    }
 
-    def chosen(node_kind: str, node_id: int) -> bool:
+    def chosen(node_kind: str, node_id: int | str) -> bool:
         if node_kind == "tag":
             return node_id == tag_id
+        if node_kind == "kind":
+            return tag_id is None and kind == node_id
         return tag_id is None and kind == kinds[node_kind] and activity_id == node_id
 
     return chosen
@@ -214,10 +280,12 @@ def _lijst_ctx(
     tag_id: Optional[int] = None,
     year: Optional[int] = None,
     refused: Optional[int] = None,
+    page: int = 1,
 ) -> dict:
     from app.domains.activities.api import activity_names, activity_options
     from app.domains.media.api import (
         MEDIA_KIND,
+        PICK_PAGE_SIZE,
         VALID_KINDS,
         MediaKind,
         activities_by_kind,
@@ -230,10 +298,14 @@ def _lijst_ctx(
     from app.ui import filterparams
 
     # #1470: posters can be LOOKED at here — their branch in the tree — but are
-    # not uploaded here: they belong to the activity's own screen. So the list
-    # and its kind choice know one more kind than the upload does.
-    bekijkbaar = {k.value for k in VALID_KINDS} | {MediaKind.ACTIVITY_POSTER.value}
-    actief_kind = kind if kind in bekijkbaar else STANDAARD_KIND
+    # not uploaded here: they belong to the activity's own screen. #1527: design
+    # pictures have their branch now too. An unknown kind is no branch: the
+    # landing, "Kies een tak".
+    soorten = {k.value for k in VALID_KINDS} | {
+        MediaKind.ACTIVITY_POSTER.value,
+        MediaKind.DESIGN_IMAGE.value,
+    }
+    actief_kind = kind if kind in soorten | {ALL} else ""
     if activity_id is None:
         # GET: het filter staat in de querystring. Bij een mutatie (POST) geeft de
         # kaart hem als verborgen veld mee, zodat het filter niet wegvalt.
@@ -274,7 +346,12 @@ def _lijst_ctx(
     # still offers that activity — the only way to reach its album here.
     levend = {a["id"] for a in activiteiten}
     activiteiten += [
-        {"id": aid, "naam": _("%(naam)s (verwijderd)") % {"naam": naam.name}, "jaar": None}
+        {
+            "id": aid,
+            "naam": _("%(naam)s (verwijderd)") % {"naam": naam.name},
+            "jaar": None,
+            "verwijderd": True,
+        }
         for aid, naam in sorted(activity_names(db, aids - levend).items())
         if naam.is_deleted
     ]
@@ -307,10 +384,17 @@ def _lijst_ctx(
         and activity_id is None
         and not in_use_only
     )
+    # #1527: landing on the library shows no list until a branch is chosen; "In
+    # gebruik" is a choice too, and then spans every kind.
+    kies_tak = tag_id is None and actief_kind == "" and not in_use_only
     if tag_id is not None:
         assets = list_media_with_tag(db, tag_id)
+    elif kies_eerst or kies_tak:
+        assets = []
+    elif actief_kind in (ALL, ""):
+        assets = [a for a in list_media(db) if a["kind"] in soorten]
     else:
-        assets = [] if kies_eerst else list_media(db, kind=actief_kind, activity_id=activity_id)
+        assets = list_media(db, kind=actief_kind, activity_id=activity_id)
     # #1470: the year filter keeps the pictures of that year's activities; a
     # picture of no activity (a sponsor, a page picture) is not dated by it.
     jaar_van = {a["id"]: a["jaar"] for a in alle_activiteiten}
@@ -334,6 +418,13 @@ def _lijst_ctx(
         asset["uses_open"] = asset["id"] == refused
     if in_use_only:
         assets = [a for a in assets if a["uses"]]
+    # #1527: "Alles" in pages of 60, like the picker — the whole library is
+    # hundreds of pictures.
+    total = len(assets)
+    pages = max(1, -(-total // PICK_PAGE_SIZE))
+    page = min(max(1, page), pages)
+    if actief_kind == ALL:
+        assets = assets[(page - 1) * PICK_PAGE_SIZE : page * PICK_PAGE_SIZE]
     herkomst = activity_names(db, {a["activity_id"] for a in assets if a["activity_id"]})
     for asset in assets:
         naam = herkomst.get(asset["activity_id"])
@@ -343,9 +434,9 @@ def _lijst_ctx(
     # `media_kind`, one name per kind. The short chip label "Pagina" of #1173 is
     # gone with #1194: the filter is a list now, so the row no longer runs out of
     # room and the kind carries its one name again. Order: the label table's.
-    toonbaar = {k.value for k in VALID_KINDS}
+    # #1527: design pictures can be uploaded here too — from their branch.
+    toonbaar = {k.value for k in VALID_KINDS} | {MediaKind.DESIGN_IMAGE.value}
     alle_labels = code_labels(MEDIA_KIND.name)
-    kind_options = [(k, w) for k, w in alle_labels if k in bekijkbaar]
     upload_kind_options = [(k, w) for k, w in alle_labels if k in toonbaar]
     # #882: de pijltjes moeten weten of dit item het eerste of laatste van ZIJN GROEP
     # is — niet van de lijst. Ongefilterd staan de foto's van alle activiteiten door
@@ -370,13 +461,12 @@ def _lijst_ctx(
         "gebruik": IN_USE if in_use_only else "",
         "gebruik_options": [("", _("In gebruik of niet")), (IN_USE, _("Alleen in gebruik"))],
         "kies_eerst": kies_eerst,
+        "kies_tak": kies_tak,
         "kind": actief_kind,
-        "kind_options": kind_options,
         "upload_kind_options": upload_kind_options,
         # Decided here, so the templates compare no code with a literal.
         "is_activity_photo": actief_kind == MediaKind.ACTIVITY_PHOTO.value,
         "activity_id": activity_id,
-        "activiteiten": activiteiten,
         "alle_activiteiten": alle_activiteiten,
         # Waar je stond, als één waarde (#962). Het sjabloon plakt er een pad
         # voor en stelt niets zelf samen — de knop die hem vergat, is de reden
@@ -384,13 +474,31 @@ def _lijst_ctx(
         "filterstand": _filterstand(actief_kind, q, activity_id, tag_id, year),
         "csrf_token": csrf_from_request(request),
         # #1470: the tree, the chosen tag and year, and the tags as choices.
+        # #1527: the tree is the only way to an album now, so it carries the
+        # activities that were deleted too (CR-15 §C4.7, #1471).
         "boom": _tree(
-            alle_activiteiten,
+            alle_activiteiten + [a for a in activiteiten if a.get("verwijderd")],
             year,
             by_kind=by_kind,
             tags=index.tree,
             href=_library_href(year),
             chosen=_library_chosen(actief_kind, activity_id, tag_id),
+            kind_labels=dict(alle_labels),
+        ),
+        # #1527: "Alles" above the tree, and its pages.
+        "alles_href": "/admin/media?" + _filterstand(ALL, year=year),
+        "alles_actief": actief_kind == ALL,
+        "page": page,
+        "per_page": PICK_PAGE_SIZE,
+        "pages": pages if actief_kind == ALL else 1,
+        "total": total,
+        "pager_url": "/admin/media?" + _filterstand(ALL, q, year=year),
+        # #1527: "+ Uploaden" starts from the chosen branch — on Affiches at the
+        # activity's own poster screen, the one place that replaces a poster.
+        "upload_href": (
+            f"/admin/activiteiten/{activity_id}"
+            if tag_id is None and actief_kind == MediaKind.ACTIVITY_POSTER.value and activity_id
+            else "/admin/media/nieuw?" + _filterstand(actief_kind, q, activity_id, tag_id, year)
         ),
         "tag": tag_id,
         "tag_naam": tag_naam.get(tag_id, "") if tag_id else "",
@@ -414,10 +522,11 @@ def _lijst_response(
     tag_id: Optional[int] = None,
     year: Optional[int] = None,
     refused: Optional[int] = None,
+    page: int = 1,
 ):
     """Enkel de kaarten (C1, #588): kop, knop en filterbalk staan op de pagina.
     `refused`: the card whose delete was refused opens its list of uses (#1471)."""
-    ctx = _lijst_ctx(request, db, kind, q, activity_id, tag_id, year, refused)
+    ctx = _lijst_ctx(request, db, kind, q, activity_id, tag_id, year, refused, page)
     ctx["error"] = error
     # #1138: de uploadknop staat buiten dit fragment en reist out-of-band mee.
     # Alleen hier en niet in de paginaroute: daar rendert het sjabloon hem zelf.
@@ -428,19 +537,25 @@ def _lijst_response(
 @router.get("/admin/media", response_class=HTMLResponse)
 def admin_media(
     request: Request,
-    kind: str = STANDAARD_KIND,
+    kind: str = "",
     q: str = "",
+    page: int = 1,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
+    # #1527: no kind is the landing — "Kies een tak in de boom" (#891).
     # htmx (de filterbalk) krijgt enkel de kaarten terug: een pagina-swap zou het
     # zoekveld tijdens het typen vervangen.
     if is_fragment_request(request):
-        return _lijst_response(request, db, kind, q=q)
+        return _lijst_response(request, db, kind, q=q, page=page)
     return templates.TemplateResponse(
         request,
         "admin_media.html",
-        {"nav_items": admin_nav(NAV), "error": None, **_lijst_ctx(request, db, kind, q)},
+        {
+            "nav_items": admin_nav(NAV),
+            "error": None,
+            **_lijst_ctx(request, db, kind, q, page=page),
+        },
     )
 
 
@@ -454,12 +569,30 @@ def media_nieuw(
     de huidige filterstand komen daaruit, zodat je na het uploaden terugkeert in
     dezelfde filtering.
     """
-    # `kind` uit de query, zodat "+ Uploaden" vanaf de foto-filter meteen de
-    # activiteit-dropdown toont (die hoort enkel bij activity_photo).
-    kind = (request.query_params.get("kind") or STANDAARD_KIND).strip()
-    ctx = _lijst_ctx(request, db, kind=kind)
+    # #1527: the branch you came from is the form's starting point — the kind,
+    # the activity, the tag — visible and changeable. Without a kind of its own
+    # (the landing, "Alles", a year, a tag) the kind starts at activity photo.
+    ctx = _lijst_ctx(request, db, kind=(request.query_params.get("kind") or "").strip())
+    ctx["tak"] = _branch_of(ctx)
+    ctx["upload_kind"] = _upload_kind(ctx["kind"], ctx["upload_kind_options"])
     ctx["nav_items"] = admin_nav(NAV)
     return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
+
+
+def _branch_of(ctx: dict) -> dict:
+    """The branch the library showed, to return to after an upload (#1527)."""
+    return {
+        "kind": ctx["kind"],
+        "activity_id": ctx["activity_id"] or "",
+        "tag": ctx["tag"] or "",
+        "year": ctx["year"] or "",
+    }
+
+
+def _upload_kind(kind: str, options: list) -> str:
+    """The kind the upload form starts with: the branch's, if it can be uploaded
+    here; else activity photo, the everyday one (#708)."""
+    return kind if kind in {k for k, _w in options} else STANDAARD_KIND
 
 
 @router.post("/admin/media", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
@@ -473,7 +606,10 @@ async def media_uploaden(
     title: str = Form(""),
     link_url: str = Form(""),
     q: str = Form(""),
+    filter_kind: str = Form(""),
     filter_activity_id: Optional[int] = Form(None),
+    filter_tag: Optional[int] = Form(None),
+    filter_year: Optional[int] = Form(None),
     tag_ids: List[int] = Form([]),
 ):
     from app.domains.media.api import MediaFout, set_asset_tags, upload_media
@@ -494,7 +630,17 @@ async def media_uploaden(
     except (LookupError, MediaFout) as exc:
         # Op het aanmaakscherm blijven mét de fout (#627): een fragment terugsturen
         # naar een pagina die geen lijst toont, laat de gebruiker in het ongewisse.
-        ctx = _lijst_ctx(request, db, kind=kind, q=q, activity_id=filter_activity_id)
+        ctx = _lijst_ctx(
+            request,
+            db,
+            kind=filter_kind,
+            q=q,
+            activity_id=filter_activity_id,
+            tag_id=filter_tag,
+            year=filter_year,
+        )
+        ctx["tak"] = _branch_of(ctx)
+        ctx["upload_kind"] = _upload_kind(kind, ctx["upload_kind_options"])
         ctx["nav_items"] = admin_nav(NAV)
         ctx["error"] = str(exc)
         return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
@@ -506,8 +652,40 @@ async def media_uploaden(
     # `kind` is dat van de UPLOAD en niet van het filter waar je vandaan kwam: schakel
     # je op dit scherm om naar een sponsorlogo, dan hoort de lijst te tonen wat je net
     # toevoegde en niet de filtering waarin het onzichtbaar is.
-    terug = _filterstand(kind, q, filter_activity_id)
+    terug = _back_after_upload(
+        kind, activity_id, tag_ids, q, filter_kind, filter_activity_id, filter_tag, filter_year
+    )
     return Response(status_code=204, headers={"HX-Redirect": f"/admin/media?{terug}"})
+
+
+def _back_after_upload(
+    kind: str,
+    activity_id: Optional[int],
+    tag_ids: List[int],
+    q: str,
+    filter_kind: str,
+    filter_activity_id: Optional[int],
+    filter_tag: Optional[int],
+    filter_year: Optional[int],
+) -> str:
+    """Where an upload returns (#1527): the branch it started from, when the new
+    picture is in it — a tag it carries, "Alles", or the same kind (and the same
+    activity, for an album). Changed on the form to a place outside that branch,
+    the upload returns to its own place, where it can be seen (#962)."""
+    in_branch = (
+        (filter_tag is not None and filter_tag in tag_ids)
+        or filter_kind == ALL
+        or (
+            filter_tag is None
+            and filter_kind == kind
+            # "Zonder activiteit" (0) is the place of a picture with none.
+            and (_activity_filter(kind, filter_activity_id) or None)
+            == (_activity_filter(kind, activity_id) or None)
+        )
+    )
+    if in_branch:
+        return _filterstand(filter_kind, q, filter_activity_id, filter_tag, filter_year)
+    return _filterstand(kind, q, activity_id)
 
 
 # ── Tags (CR-15 §C4.2, #1470) ────────────────────────────────────────────────
@@ -727,7 +905,7 @@ def _picker_url(field: str, for_activity_id: Optional[int], **state) -> str:
     pairs = [("field", field)]
     if for_activity_id:
         pairs.append(("for_activity_id", str(for_activity_id)))
-    for key in ("q", "year", "tag", "photos_of", "posters_of", "kind"):
+    for key in ("q", "year", "tag", "photos_of", "posters_of", "designs_of", "kind"):
         value = state.get(key)
         if value not in (None, ""):
             pairs.append((key, str(value)))
@@ -747,6 +925,7 @@ def media_picker(
     tag: Optional[int] = None,
     photos_of: Optional[int] = None,
     posters_of: Optional[int] = None,
+    designs_of: Optional[int] = None,
     kind: str = "",
     page: int = 1,
     db: Session = Depends(get_db),
@@ -776,6 +955,7 @@ def media_picker(
         tag_id=tag,
         photos_of=photos_of,
         posters_of=posters_of,
+        designs_of=designs_of,
         kind=branch_kind,
         page=page,
     )
@@ -784,10 +964,17 @@ def media_picker(
         for o in activity_options(db)
     ]
     by_kind = activities_by_kind(db)
-    branch_state = {"photos": "photos_of", "posters": "posters_of", "tag": "tag", "kind": "kind"}
+    branch_state = {
+        "photos": "photos_of",
+        "posters": "posters_of",
+        "designs": "designs_of",
+        "tag": "tag",
+        "kind": "kind",
+    }
     current = {
         "photos_of": photos_of,
         "posters_of": posters_of,
+        "designs_of": designs_of,
         "tag": tag,
         "kind": branch_kind.value if branch_kind else None,
     }
@@ -826,17 +1013,9 @@ def media_picker(
                 tags=tag_index(db).tree,
                 href=href,
                 chosen=chosen,
+                # #1527: the kind branches from the same builder as the library.
+                kind_labels=labels,
             ),
-            # #1473: Logo's — sponsors and the association's logo hang off no
-            # activity, so they get a branch per kind.
-            "logo_links": [
-                {
-                    "naam": labels.get(k.value, k.value),
-                    "href": href("kind", k.value),
-                    "actief": chosen("kind", k.value),
-                }
-                for k in KIND_BRANCHES
-            ],
             "alles_href": _picker_url(field, for_activity_id, q=q, year=chosen_year),
             "branch_chosen": any(v is not None for v in current.values()),
             "pager_url": _picker_url(field, for_activity_id, q=q, year=chosen_year, **current),

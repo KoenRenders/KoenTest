@@ -269,15 +269,17 @@ def test_a_page_image_is_offered_by_the_media_library(client, db_session):
     **#1194 ended that stopgap**: the filter is a select list now, which grows
     with the number of kinds, so the kind carries its one full name in both
     places. Broken on purpose: the "Pagina" override put back into the filter
-    options → the first assert fails.
+    options → the first assert fails. **#1527 moved the choice into the tree**,
+    so the library offers the kind as its branch "Paginabeelden".
     """
     _login(client, db_session)
 
     code = PAGE_IMAGE_KIND.value
     lijst = client.get(f"/admin/media?kind={code}").text
-    assert re.search(rf'<option value="{code}"[^>]*>\s*Pagina-afbeelding\s*</option>', lijst), (
-        "the filter list does not offer the kind under its one full name (#1194)"
-    )
+    # #1527: the tree offers the kind now, as its branch "Paginabeelden".
+    assert re.search(
+        rf'href="/admin/media\?kind={code}"[^>]*>\s*<span[^>]*>Paginabeelden<', lijst
+    ), "the library tree does not offer page pictures as a branch (#1527)"
     assert ">Pagina<" not in lijst, "the stopgap short label of #1173 came back"
 
     nieuw = client.get("/admin/media/nieuw").text
