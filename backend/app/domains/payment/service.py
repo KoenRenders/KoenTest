@@ -334,6 +334,67 @@ def count_registration_records_by_activity(db: Session, activity_id: int) -> int
     )
 
 
+def registration_payment_states(db: Session, registration_ids) -> dict[int, dict]:
+    """Per registration what its bookings say together (CR-11 K6, #1560): the
+    amounts and one state — ``"open"`` while a booking still has money to move
+    (the same test as the Betalingen list's *Openstaand*, `matches_zicht`),
+    ``"settled"`` when it has bookings and none is open. A registration without
+    a booking (nothing to pay) is not in the result.
+
+    One query for the whole list: the Inschrijvingen tab shows a state per row
+    and may not ask per row.
+    """
+    ids = list(registration_ids)
+    if not ids:
+        return {}
+    records = (
+        db.query(PaymentRecord)
+        .filter(
+            PaymentRecord.payable_type == PayableType.REGISTRATION,
+            PaymentRecord.payable_id.in_(ids),
+        )
+        .all()
+    )
+    per_registration: dict[int, list] = {}
+    for record in records:
+        per_registration.setdefault(record.payable_id, []).append(record)
+    states = {}
+    for registration_id, own in per_registration.items():
+        live = [r for r in own if not _is_lege_vordering(r)]
+        if not live:
+            continue
+        states[registration_id] = {
+            **aggregate(live),
+            "state": "open" if any(matches_zicht(r, "openstaand") for r in live) else "settled",
+        }
+    return states
+
+
+def registration_balance_by_activity(db: Session, activity_id: int) -> Decimal:
+    """What is still open on an activity's registrations, signed: the sum of
+    every booking's amount minus what was booked as received — the same sum as
+    `aggregate(...)["saldo"]` over those records (CR-11 K6, #1560: "Openstaand"
+    on the record's summary card). One aggregate row, like the count beside it:
+    the record page may not scale with the number of registrations (#651)."""
+    from sqlalchemy import func
+
+    from app.domains.activities.api import Registration
+
+    sub = db.query(Registration.id).filter(Registration.activity_id == activity_id)
+    due, paid = (
+        db.query(
+            func.coalesce(func.sum(PaymentRecord.amount), 0),
+            func.coalesce(func.sum(PaymentRecord.amount_paid), 0),
+        )
+        .filter(
+            PaymentRecord.payable_type == PayableType.REGISTRATION,
+            PaymentRecord.payable_id.in_(sub),
+        )
+        .one()
+    )
+    return _bedrag(due) - _bedrag(paid)
+
+
 def open_refund_amount(db: Session, payable_type: PayableType | str, payable_id: int) -> Decimal:
     """What is waiting to be refunded on this payable, as a positive amount (#1494):
     the refunds not confirmed yet (`amount_paid` empty). A screen says it after an

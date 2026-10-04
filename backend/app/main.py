@@ -408,7 +408,10 @@ async def _filter_push_url(request: Request, call_next):
         if pad.endswith("/lijst"):
             pad = pad[: -len("/lijst")]
         query = request.url.query
-        response.headers["HX-Push-Url"] = f"{pad}?{query}" if query else pad
+        # A route that knows a better address has set it already (the embedded
+        # Betalingen tab of a record, #1560).
+        if "HX-Push-Url" not in response.headers:
+            response.headers["HX-Push-Url"] = f"{pad}?{query}" if query else pad
     return response
 
 

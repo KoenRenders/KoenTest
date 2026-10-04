@@ -6,15 +6,17 @@
    CR-11 pilot A, K1 (#1555): on /admin/betalingen the key figures moved into
    the title row (`ui.figures`, refreshed out-of-band as `#list-figures`) and
    the status tabs became the toolbar's status filter, so here only the scope
-   line is left. An **embedded** Betalingen tab (activity, family,
-   registration) has no title row of its own: its figures stay here, as they
-   were, until K6 (#1560) puts them into the record's summary. #}
+   line is left. An **embedded** Betalingen tab has no title row of its own.
+   The activity's figures stand on its summary card (K6, #1560); the tab of a
+   household and of a registration keeps the band below until pilot B. #}
 {% if scope and not scope.get("stil") %}
 {% call ui.scope_regel(scope.alles_url) %}{{ scope.soort }}{% if scope.titel %} <a class="font-medium hover:underline" href="{{ scope.titel_url }}">{{ scope.titel }}</a>{% endif %}{% endcall %}
 {% endif %}
 
-{% if embedded %}
-{# The figures of an embedded tab — until K6. Counted over the selection before
+{% if show_band %}
+{# The figures of an embedded tab that has no summary card yet (the household
+   and the registration, until pilot B; the activity's stand on its summary
+   card since K6, #1560). Counted over the selection before
    the status filter: the filter cuts the table, not these figures. Orange is
    this screen's fixed meaning "money still has to move" (#1391, W1). #}
 <div class="kpi-strip mb-4 md:max-w-3xl flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">

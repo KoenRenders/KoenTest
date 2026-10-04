@@ -228,7 +228,10 @@ def gevulde_databank(client, db_session):
 # ontwerpen van déze activiteit. Eén query, die niet meeschaalt met het aantal
 # activiteiten — het scherm toont het aantal en kiest de bestemming, dus het moet
 # ze tellen. Gemeten met een warme cache, zoals de opmerking in de test zegt.
-BUDGET_ACTIVITEITDETAIL = 19
+# 19 → 20 on 4 October 2026 (#1560, K6): the summary card shows "Openstaand",
+# one aggregate row over the activity's bookings — a query that does not grow
+# with the number of registrations.
+BUDGET_ACTIVITEITDETAIL = 20
 RIJEN_ACTIVITEITDETAIL = 20
 
 

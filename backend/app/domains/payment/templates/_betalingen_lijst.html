@@ -30,7 +30,9 @@
 {% set _child = kind or k.get('is_extra') %}
 <tr data-row class="align-middle{{ ' text-ink-soft' if k.get('is_context') }}">
   <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2{{ ' pl-9' if _child }}">
-    {% if _child %}<span class="text-ink-soft" aria-hidden="true">↳</span> {% endif %}{{ ui.row_link(r.contact_name or "—", k.href, sub=r.structured_communication) }}
+    {# K6 (#1560): on a record's tab the row unfolds in place (P8); on the
+       list itself it is the way in to the booking's page. #}
+    {% if _child %}<span class="text-ink-soft" aria-hidden="true">↳</span> {% endif %}{% if k.unfolds %}{{ ui.row_toggle(r.contact_name or "—", k.key, sub=r.structured_communication) }}{% else %}{{ ui.row_link(r.contact_name or "—", k.href, sub=r.structured_communication) }}{% endif %}
     {% if k.get('is_context') %}<div class="text-xs text-ink-soft">{{ _("Ter context — valt buiten het filter") }}</div>{% endif %}
     {% if k.get('is_extra') %}<div class="text-xs text-ink-soft">{{ _("Bijkomende vordering op dezelfde inschrijving") }}</div>{% endif %}
   </td>
@@ -56,10 +58,25 @@
     {% if k.action or k.menu %}{{ ui.row_actions_cell(k.action, k.menu, label=r.contact_name or "") }}{% endif %}
   </td>
 </tr>
+{% if k.unfolds %}
+{# Read-only, and no "Bewerken" (Q42): the booking's own page edits. #}
+{% call ui.row_detail(k.key, 7, open={"label": _("Betaling openen"), "href": k.href}) %}
+  {% call ui.row_part(_("Boeking")) %}
+    <div>{{ r.contact_name or "—" }}</div>
+    <div class="text-ink-soft">{% if r.is_refund %}{{ _("Terugbetaling") }} · {% endif %}{{ r.method | code_label("payment_method") }} · {{ r.created_at|kortedatum }}</div>
+    {% if r.note %}<div class="text-ink-soft">{{ r.note }}</div>{% endif %}
+  {% endcall %}
+  {% call ui.row_part(_("Bedrag en ontvangst")) %}
+    <div>{{ _("Bedrag") }}: {{ ui.amount(k.bedrag) }}</div>
+    <div>{{ _("Ontvangen") }}: {{ ui.amount(_ontvangen) }}</div>
+    <div>{{ _("Saldo") }}: {{ ui.amount(_saldo, warning=_saldo != 0) }}</div>
+  {% endcall %}
+{% endcall %}
+{% endif %}
 {% endmacro %}
 
 {% if groepen %}
-{% call ui.data_table(columns, modes=column_modes, hx_target="#betalingen-lijst", caption=_("Betalingen")) %}
+{% call ui.data_table(columns, modes=column_modes, hx_target="#betalingen-lijst", caption=_("Betalingen"), open_row=open_row) %}
     {# One tbody per registration: all its bookings and refunds, with one sum
        row (#617-2e/#682). A group's first line is heavier than the lines inside
        it, so begin and end read at a glance. #}

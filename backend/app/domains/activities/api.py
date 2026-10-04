@@ -193,6 +193,21 @@ def deadline_is_near(deadline: date | None) -> bool:
     return _impl(deadline)
 
 
+def registration_table(db: Session, groups: list[dict], **kwargs: Any) -> dict:
+    """The registrations table of a record's tab (CR-11 K6, #1560) — see
+    `registration_table.registration_table`."""
+    from app.domains.activities.registration_table import registration_table as _impl
+
+    return _impl(db, groups, **kwargs)
+
+
+def parse_registration_sort(sort: str, direction: str = "") -> str:
+    """The sort of the registrations table as its toolbar carries it."""
+    from app.domains.activities.registration_table import parse_sort as _impl
+
+    return _impl(sort, direction)
+
+
 def enrich_registration(registration: Registration, activity: Activity) -> dict:
     """Een inschrijving met haar activiteit- en productcontext, zoals het
     beheerscherm ze toont. Implementatie in de service (#679, batch 6)."""
@@ -325,6 +340,8 @@ __all__ = [
     "quote_registration",
     "quote_registration_products",
     "enrich_registration",
+    "registration_table",
+    "parse_registration_sort",
     "get_activity_detail",
     "list_activities",
     "move_within",

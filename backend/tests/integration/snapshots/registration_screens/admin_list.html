@@ -39,87 +39,203 @@
 <a href="/admin/activiteiten/<ACTIVITY>/betalingen"
  class="inline-flex items-center gap-1 min-h-11 border-b-2 text-sm border-transparent text-ink-soft hover:text-blue-700">Betalingen<span class="text-[13px] font-medium tabular-nums">(1)</span></a>
 </nav>
-<div class="mb-4"><a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen/nieuw" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >+ Inschrijving toevoegen</a></div>
-<div class="space-y-4">
-<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ uitgeklapt: true }">
-<div class="flex flex-wrap items-center justify-between gap-2">
-<button type="button" class="inline-flex items-center gap-1.5 text-xl font-semibold text-kop text-left"
- @click="uitgeklapt = !uitgeklapt" :aria-expanded="uitgeklapt">
-<span x-show="uitgeklapt"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span><span x-show="!uitgeklapt" x-cloak class="-rotate-90"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
- Ploegen <span class="text-sm font-normal text-ink-soft">1</span>
-</button>
-<div class="flex flex-wrap items-center gap-3 ml-auto">
-<a href="/admin/activiteiten/<ACTIVITY>/onderdelen/<C:team>/export" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-boost="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Export</a>
+<div class="relative flex flex-wrap items-start gap-x-3">
+<form id="reg-filter" data-toolbar class="relative mb-3 flex flex-wrap items-center gap-2 min-w-0 basis-full md:basis-0 md:flex-1"
+ hx-get="/admin/activiteiten/<ACTIVITY>/inschrijvingen/lijst" hx-target="#inschrijvingen-lijst" hx-swap="innerHTML"
+ hx-trigger="change[!event.target.closest('[data-filters-panel]')&&event.target.type!=='search'], input changed delay:400ms from:find input[type=search], submit"
+ hx-headers='{"X-Raak-Filter": "1"}'>
+<div class="basis-full md:basis-auto min-w-0"><fieldset data-status-filter class="m-0 p-0 min-w-0 flex items-stretch shrink-0 h-11 md:h-9 rounded-lg border border-gray-300 bg-white">
+<legend class="sr-only">Status</legend>
+<label class="relative flex flex-1 md:flex-none cursor-pointer">
+<input type="radio" name="zicht" value="alle" class="peer absolute inset-0 h-full w-full m-0 opacity-0 cursor-pointer" checked>
+<span class="flex w-full items-center justify-center gap-1 px-3 whitespace-nowrap text-sm font-medium text-ink-soft hover:bg-surface-2 peer-checked:bg-blue-50 peer-checked:text-blue-700 peer-checked:font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-blue-600 peer-focus-visible:z-10 rounded-l-[7px] ">Alle</span>
+</label>
+<label class="relative flex flex-1 md:flex-none cursor-pointer border-l border-line">
+<input type="radio" name="zicht" value="openstaand" class="peer absolute inset-0 h-full w-full m-0 opacity-0 cursor-pointer">
+<span class="flex w-full items-center justify-center gap-1 px-3 whitespace-nowrap text-sm font-medium text-ink-soft hover:bg-surface-2 peer-checked:bg-blue-50 peer-checked:text-blue-700 peer-checked:font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-blue-600 peer-focus-visible:z-10 rounded-r-[7px]">Openstaand <span id="reg-filter-n-openstaand" class="tabular-nums">(1)</span></span>
+</label>
+</fieldset></div>
+<div data-toolbar-search class="relative basis-full md:basis-[180px] md:min-w-[180px] md:max-w-[480px] flex-1">
+<input type="search" name="q" value="" placeholder="Zoek op naam of e-mail…" aria-label="Zoek op naam of e-mail…" class="w-full pl-10">
+<button type="submit" class="absolute inset-y-0 left-0 grid w-10 place-items-center rounded-l-lg text-ink-soft hover:text-ink" aria-label="Zoeken"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
+</div>
+<span id="reg-filter-count" data-toolbar-count class="ml-auto whitespace-nowrap text-xs tabular-nums text-ink-soft">1–2 van 2</span>
+<div class="relative md:hidden" x-data="{ open: false }" @keydown.escape="open = false">
+<button type="button" data-more-button class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 h-11 w-11 md:h-9 md:w-9 inline-grid place-items-center !px-0" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="Meer acties"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div data-more-menu x-show="open" x-cloak @click.outside="open = false" role="menu"
+ class="absolute right-0 z-20 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col rounded-card border border-line bg-white p-2 shadow-lg">
+<label class="md:hidden flex flex-col gap-1 px-3 py-2 text-xs text-ink-soft">Sorteren
+ <select name="" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" data-sort-mirror @change="const f = $el.closest('form').querySelector('[data-sort-field]'); f.value = $event.target.value; open = false; $event.stopPropagation(); $el.closest('form').requestSubmit()">
+<option value="datum" selected>Oudste eerst</option><option value="-datum">Recentste eerst</option><option value="naam">Naam A–Z</option><option value="-naam">Naam Z–A</option>
+</select>
+</label>
 </div>
 </div>
-<div x-show="uitgeklapt" class="overflow-x-auto mt-2">
-<table class="min-w-full text-sm">
+<input type="hidden" id="reg-filter-sort" name="sort" value="datum" data-sort-field>
+</form>
+<div class="absolute bottom-3 left-0 md:static md:mb-3"><a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen/nieuw" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 h-11 md:h-9" >+ Inschrijving toevoegen</a></div>
+</div>
+<div id="inschrijvingen-lijst">
+<div class="data-table-frame mb-4 rounded-card border border-line bg-white" data-table-frame
+ x-data="{ openRow: '' }">
+<table class="data-table text-sm" data-p1="auto" data-p2="auto">
+<caption class="sr-only">Inschrijvingen</caption>
 <thead>
-<tr class="text-left text-gray-500 border-b border-gray-200">
-<th scope="col" aria-sort="ascending" class="px-4 py-3 text-left">
-<a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=datum&amp;richting=desc" hx-get="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=datum&amp;richting=desc" hx-swap="innerHTML"
- class="inline-flex items-center gap-1 hover:underline">Datum<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></a>
+<tr>
+<th scope="col" data-cell="name"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left ">
+<a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=naam" hx-get="/admin/activiteiten/<ACTIVITY>/inschrijvingen/lijst?sort=naam" hx-target="#inschrijvingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="naam"
+ class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Naam<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
 </th>
-<th scope="col" class="px-4 py-3 text-left">
-<a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=naam&amp;richting=asc" hx-get="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=naam&amp;richting=asc" hx-swap="innerHTML"
- class="inline-flex items-center gap-1 hover:underline">Naam</a>
+<th scope="col" data-cell="context"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[24%]">
+ Contact
+ </th>
+<th scope="col" data-cell="date" aria-sort="ascending"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[112px]">
+<a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=-datum" hx-get="/admin/activiteiten/<ACTIVITY>/inschrijvingen/lijst?sort=-datum" hx-target="#inschrijvingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="datum"
+ class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 font-semibold text-blue-700">Datum<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></a>
 </th>
-<th class="px-4 py-3">Contact</th>
-<th class="px-4 py-3">Producten</th>
-<th class="px-4 py-3"></th>
+<th scope="col" data-cell="more"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[26%]">
+ Producten
+ </th>
+<th scope="col" data-cell="status"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[132px]">
+ Status
+ </th>
 </tr>
 </thead>
-<tbody>
-<tr class="border-b border-gray-100">
-<td class="px-4 py-2 whitespace-nowrap">01-02-2099</td>
-<td class="px-4 py-2">Karel Karakter <span class="text-gray-500">(De Karakters)</span></td>
-<td class="px-4 py-2">karakter@example.org · 0470 00 00 01</td>
-<td class="px-4 py-2">2× Product paid, 1× Product free, 1× Product on_site</td>
-<td class="px-4 py-2 text-right"><a href="/admin/inschrijvingen/<R:member>?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>%2Finschrijvingen%3Fsort%3Ddatum%26richting%3Dasc" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >Details</a></td>
+<tbody data-group id="reg-group-0" x-data="{ shown: true }" :data-collapsed="(!shown).toString()">
+<tr data-group-row class="bg-surface-2">
+<th scope="rowgroup" data-cell="name" colspan="4" class="h-11 border-b border-line px-3 py-0 text-left text-sm font-semibold text-ink">
+<span class="flex flex-wrap items-center gap-x-3">
+<button type="button" data-group-toggle class="inline-flex min-h-11 items-center gap-2 text-left" @click="shown = !shown" :aria-expanded="shown.toString()">
+<span class="shrink-0 transition-transform" :class="shown ? 'rotate-90' : ''"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
+<span>Ploegen <span data-group-count class="font-normal tabular-nums text-ink-soft">(1)</span></span>
+</button>
+</span>
+</th>
+<td data-cell="actions" class="border-b border-line px-3 py-0">
+<div data-above-row data-row-controls class="flex items-center justify-end gap-2"
+ x-data="{ open: false }" :style="open ? 'z-index: 30' : ''" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<div class="relative">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+ class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink"
+ aria-label="Meer acties: Ploegen" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
+<a role="menuitem" href="/admin/activiteiten/<ACTIVITY>/onderdelen/<C:team>/export" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline" hx-boost="false">Exporteren</a>
+</div>
+</div>
+</div></td>
+</tr>
+<tr data-row class="align-middle">
+<td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
+<button type="button" data-row-toggle="<R:member>" aria-controls="row-detail-<R:member>"
+ class="inline-flex items-center gap-2 text-left font-semibold text-ink"
+ @click="openRow = (openRow === '<R:member>' ? '' : '<R:member>')" :aria-expanded="(openRow === '<R:member>').toString()">
+<span class="shrink-0 text-ink-soft transition-transform" :class="openRow === '<R:member>' ? 'rotate-90' : ''"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
+<span>Karel Karakter (De Karakters)</span>
+</button>
+</td>
+<td data-cell="context" class="border-b border-line px-3 py-2">
+<a data-above-row href="mailto:karakter@example.org" class="text-blue-500 underline">karakter@example.org</a>
+<div class="text-xs text-ink-soft">0470 00 00 01</div>
+</td>
+<td data-cell="date" class="whitespace-nowrap border-b border-line px-3 py-2 tabular-nums">01-02-2099</td>
+<td data-cell="more" class="border-b border-line px-3 py-2">2 × Product paid · 1 × Product free · 1 × Product on_site</td>
+<td data-cell="status" class="border-b border-line px-3 py-2"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Openstaand</span></td>
+</tr>
+<tr data-row-detail id="row-detail-<R:member>" x-show="openRow === '<R:member>'" x-cloak>
+<td colspan="5" class="border-b border-l-[3px] border-b-line border-l-brand-ocean bg-white px-4 py-4">
+<div data-row-parts class="row-parts">
+<div data-row-part class="min-w-0 text-sm"><div class="mb-1 font-semibold text-ink">Contact</div>
+<div>Karel Karakter</div>
+<div><a href="mailto:karakter@example.org" class="text-blue-500 underline">karakter@example.org</a></div>
+<div>0470 00 00 01</div>
+</div>
+<div data-row-part class="min-w-0 text-sm"><div class="mb-1 font-semibold text-ink">Producten</div>
+<div>2 × Product paid</div><div>1 × Product free</div><div>1 × Product on_site</div>
+</div>
+<div data-row-part class="min-w-0 text-sm"><div class="mb-1 font-semibold text-ink">Antwoorden</div>
+<div>—</div>
+</div>
+<div data-row-part class="min-w-0 text-sm"><div class="mb-1 font-semibold text-ink">Betaling</div>
+<div class="mb-1"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Openstaand</span></div>
+<div>Bedrag: <span class="tabular-nums whitespace-nowrap">€ 20,00</span></div>
+<div>Ontvangen: <span class="tabular-nums whitespace-nowrap">€ 5,00</span></div>
+<div>Saldo: <span class="tabular-nums whitespace-nowrap font-semibold text-brand-warning">€ 15,00</span></div>
+</div>
+</div>
+<div class="mt-4 text-sm"><a href="/admin/inschrijvingen/<R:member>?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>%2Finschrijvingen%3Frij%3D<R:member>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline ">Inschrijving openen<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></div>
+</td>
+</tr>
+</tbody>
+<tbody data-group id="reg-group-1" x-data="{ shown: true }" :data-collapsed="(!shown).toString()">
+<tr data-group-row class="bg-surface-2">
+<th scope="rowgroup" data-cell="name" colspan="4" class="h-11 border-b border-line px-3 py-0 text-left text-sm font-semibold text-ink">
+<span class="flex flex-wrap items-center gap-x-3">
+<button type="button" data-group-toggle class="inline-flex min-h-11 items-center gap-2 text-left" @click="shown = !shown" :aria-expanded="shown.toString()">
+<span class="shrink-0 transition-transform" :class="shown ? 'rotate-90' : ''"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
+<span>Los <span data-group-count class="font-normal tabular-nums text-ink-soft">(1)</span></span>
+</button>
+</span>
+</th>
+<td data-cell="actions" class="border-b border-line px-3 py-0">
+<div data-above-row data-row-controls class="flex items-center justify-end gap-2"
+ x-data="{ open: false }" :style="open ? 'z-index: 30' : ''" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<div class="relative">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+ class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink"
+ aria-label="Meer acties: Los" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
+<a role="menuitem" href="/admin/activiteiten/<ACTIVITY>/onderdelen/<C:plain>/export" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline" hx-boost="false">Exporteren</a>
+</div>
+</div>
+</div></td>
+</tr>
+<tr data-row class="align-middle">
+<td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
+<button type="button" data-row-toggle="<R:guest>" aria-controls="row-detail-<R:guest>"
+ class="inline-flex items-center gap-2 text-left font-semibold text-ink"
+ @click="openRow = (openRow === '<R:guest>' ? '' : '<R:guest>')" :aria-expanded="(openRow === '<R:guest>').toString()">
+<span class="shrink-0 text-ink-soft transition-transform" :class="openRow === '<R:guest>' ? 'rotate-90' : ''"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
+<span>Gast Gastmans</span>
+</button>
+</td>
+<td data-cell="context" class="border-b border-line px-3 py-2">
+<a data-above-row href="mailto:gast@example.org" class="text-blue-500 underline">gast@example.org</a>
+<div class="text-xs text-ink-soft">0470 00 00 02</div>
+</td>
+<td data-cell="date" class="whitespace-nowrap border-b border-line px-3 py-2 tabular-nums">02-02-2099</td>
+<td data-cell="more" class="border-b border-line px-3 py-2">3 × Product plain</td>
+<td data-cell="status" class="border-b border-line px-3 py-2"></td>
+</tr>
+<tr data-row-detail id="row-detail-<R:guest>" x-show="openRow === '<R:guest>'" x-cloak>
+<td colspan="5" class="border-b border-l-[3px] border-b-line border-l-brand-ocean bg-white px-4 py-4">
+<div data-row-parts class="row-parts">
+<div data-row-part class="min-w-0 text-sm"><div class="mb-1 font-semibold text-ink">Contact</div>
+<div>Gast Gastmans</div>
+<div><a href="mailto:gast@example.org" class="text-blue-500 underline">gast@example.org</a></div>
+<div>0470 00 00 02</div>
+</div>
+<div data-row-part class="min-w-0 text-sm"><div class="mb-1 font-semibold text-ink">Producten</div>
+<div>3 × Product plain</div>
+</div>
+<div data-row-part class="min-w-0 text-sm"><div class="mb-1 font-semibold text-ink">Antwoorden</div>
+<div>—</div>
+</div>
+<div data-row-part class="min-w-0 text-sm"><div class="mb-1 font-semibold text-ink">Betaling</div>
+<div class="text-ink-soft">Niets te betalen.</div>
+</div>
+</div>
+<div class="mt-4 text-sm"><a href="/admin/inschrijvingen/<R:guest>?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>%2Finschrijvingen%3Frij%3D<R:guest>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline ">Inschrijving openen<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></div>
+</td>
 </tr>
 </tbody>
 </table>
-</div>
-</div>
-<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ uitgeklapt: true }">
-<div class="flex flex-wrap items-center justify-between gap-2">
-<button type="button" class="inline-flex items-center gap-1.5 text-xl font-semibold text-kop text-left"
- @click="uitgeklapt = !uitgeklapt" :aria-expanded="uitgeklapt">
-<span x-show="uitgeklapt"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span><span x-show="!uitgeklapt" x-cloak class="-rotate-90"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
- Los <span class="text-sm font-normal text-ink-soft">1</span>
-</button>
-<div class="flex flex-wrap items-center gap-3 ml-auto">
-<a href="/admin/activiteiten/<ACTIVITY>/onderdelen/<C:plain>/export" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-boost="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Export</a>
-</div>
-</div>
-<div x-show="uitgeklapt" class="overflow-x-auto mt-2">
-<table class="min-w-full text-sm">
-<thead>
-<tr class="text-left text-gray-500 border-b border-gray-200">
-<th scope="col" aria-sort="ascending" class="px-4 py-3 text-left">
-<a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=datum&amp;richting=desc" hx-get="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=datum&amp;richting=desc" hx-swap="innerHTML"
- class="inline-flex items-center gap-1 hover:underline">Datum<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></a>
-</th>
-<th scope="col" class="px-4 py-3 text-left">
-<a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=naam&amp;richting=asc" hx-get="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=naam&amp;richting=asc" hx-swap="innerHTML"
- class="inline-flex items-center gap-1 hover:underline">Naam</a>
-</th>
-<th class="px-4 py-3">Contact</th>
-<th class="px-4 py-3">Producten</th>
-<th class="px-4 py-3"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="border-b border-gray-100">
-<td class="px-4 py-2 whitespace-nowrap">02-02-2099</td>
-<td class="px-4 py-2">Gast Gastmans</td>
-<td class="px-4 py-2">gast@example.org · 0470 00 00 02</td>
-<td class="px-4 py-2">3× Product plain</td>
-<td class="px-4 py-2 text-right"><a href="/admin/inschrijvingen/<R:guest>?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>%2Finschrijvingen%3Fsort%3Ddatum%26richting%3Dasc" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >Details</a></td>
-</tr>
-</tbody>
-</table>
-</div>
 </div>
 </div>
 </div>

@@ -362,18 +362,18 @@ def gezin_inschrijvingen_tab(
     family_id: int,
     request: Request,
     sort: str = "datum",
-    richting: str = "asc",
+    richting: str = "",
+    rij: str = "",
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
-    """De Inschrijvingen-tab van de gezinspagina (Koen, 15 sep — verving de
-    Wijzigingen-tab): wat dit gezin ingeschreven heeft, per activiteit
-    gegroepeerd, op basis van de personen van het gezin (person_id én de
-    e-mail-terugval voor gastinschrijvingen — dezelfde ene bron als de
-    Betalingen-tab)."""
-    from urllib.parse import quote
-
-    from app.domains.activities.api import INSCHRIJVING_SORT_VELDEN
+    """The Inschrijvingen tab of the household's page (Koen, 15 September — it
+    replaced the Wijzigingen tab): what this household registered for, grouped
+    per activity, from the household's persons (person_id and the e-mail
+    fallback for guest registrations — the same one source as the Betalingen
+    tab). The table is the one of the activity's tab (K6, #1560); the toolbar
+    and the rest of the household's page are pilot B."""
+    from app.domains.activities.api import parse_registration_sort, registration_table
     from app.domains.mdm.api import family_registrations, gezin_tabs
     from app.domains.membership.api import get_family
 
@@ -383,23 +383,15 @@ def gezin_inschrijvingen_tab(
         family = None
     if family is None:
         raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
-    # Normaliseren vóór de URL-bouw: een vervalste sort/richting mag nooit
-    # rauw in sorteer_urls of de terugweg belanden (zelfde regel als de
-    # activiteitstab, die de gevalideerde waarden uit de helper terugkrijgt).
-    if sort not in INSCHRIJVING_SORT_VELDEN:
-        sort = "datum"
-    richting = "desc" if richting == "desc" else "asc"
-    groepen = family_registrations(db, family_id, sort, richting)
-    # Zelfde sorteer- en terug-machinerie als de activiteitstab: het gedeelde
-    # sjabloon verwacht exact hetzelfde contract.
-    basis = f"/admin/leden/gezin/{family_id}/inschrijvingen"
-    sorteer_urls = {
-        naam: (
-            f"{basis}?sort={naam}&richting="
-            + ("desc" if sort == naam and richting == "asc" else "asc")
-        )
-        for naam in INSCHRIJVING_SORT_VELDEN
-    }
+    table = registration_table(
+        db,
+        family_registrations(db, family_id),
+        page_url=f"/admin/leden/gezin/{family_id}/inschrijvingen",
+        # A forged sort never reaches a link: the builder validates it.
+        sort=parse_registration_sort(sort, richting),
+        open_row=rij,
+        sub_is_component=True,
+    )
     return templates.TemplateResponse(
         request,
         "admin_gezin_inschrijvingen.html",
@@ -407,13 +399,9 @@ def gezin_inschrijvingen_tab(
             "nav_items": admin_nav(NAV),
             "family": family,
             "record_tabs": gezin_tabs(db, family, email, "inschrijvingen"),
-            "groepen": groepen,
-            "toon_onderdeel": True,
-            "totaal": sum(g["aantal"] for g in groepen),
-            "sort": sort,
-            "richting": richting,
-            "sorteer_urls": sorteer_urls,
-            "terug": quote(f"{basis}?sort={sort}&richting={richting}", safe=""),
+            **table,
+            # No list fragment of its own: a sort link is the page.
+            "reg_target": "",
             "csrf_token": csrf_from_request(request),
         },
     )

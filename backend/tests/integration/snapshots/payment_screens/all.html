@@ -107,7 +107,8 @@
  hx-get="/admin/betalingen/lijst" hx-trigger="betalingen-ververst from:body"
  hx-include="#bt-filter" hx-swap="innerHTML"
  >
-<div class="data-table-frame mb-4 rounded-card border border-line bg-white" data-table-frame>
+<div class="data-table-frame mb-4 rounded-card border border-line bg-white" data-table-frame
+ x-data="{ openRow: '' }">
 <table class="data-table text-sm" data-p1="auto" data-p2="auto">
 <caption class="sr-only">Betalingen</caption>
 <thead>

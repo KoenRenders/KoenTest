@@ -1152,19 +1152,16 @@ def family_registration_count(db, family_id: int) -> int:
     return db.query(func.count(Registration.id)).filter(Registration.id.in_(ids)).scalar() or 0
 
 
-def family_registrations(
-    db, family_id: int, sort: str = "datum", richting: str = "asc"
-) -> list[dict]:
-    """De inschrijvingen van een gezin, per activiteit gegroepeerd (feedback
-    15 sep, verving de Wijzigingen-tab): recentste activiteit eerst. De
-    groepen volgen het contract van `_inschrijvingen_groepen.html` — het
-    gedeelde sjabloon met de activiteitstab (unificatie, zelfde dag) — en
-    binnen elke groep sorteert dezelfde whitelist-helper als daar."""
-    from app.domains.activities.api import (
-        Registration,
-        enrich_registration,
-        sorteer_inschrijvingen,
-    )
+def family_registrations(db, family_id: int) -> list[dict]:
+    """The registrations of a household, grouped per activity, most recent
+    activity first (feedback of 15 September; it replaced the Wijzigingen tab).
+
+    The groups are the input of `activities.api.registration_table` — the one
+    builder the activity's tab uses too (K6, #1560): each group names its
+    activity, carries the jump link to it, and holds the enriched rows. Sorting
+    inside a group is the builder's."""
+    from app.domains.activities.api import Registration, enrich_registration
+    from app.i18n import _
 
     ids = _family_registration_ids(db, family_id)
     if not ids:
@@ -1175,35 +1172,35 @@ def family_registrations(
         .order_by(Registration.id.desc())
         .all()
     )
-    per_activiteit: dict = {}
+    per_activity: dict = {}
     for reg in regs:
-        # Defensief: een inschrijving waarvan de activiteit niet meer zichtbaar
-        # is (soft-deleted) hoort de tab niet te laten crashen; ze staat dan
-        # ook niet in een deelnamelijst.
+        # Defensive: a registration whose activity is no longer visible
+        # (soft-deleted) must not crash the tab; it is not on a list of
+        # participants either.
         if reg.activity is None:
             continue
-        per_activiteit.setdefault(reg.activity, []).append(enrich_registration(reg, reg.activity))
+        per_activity.setdefault(reg.activity, []).append(enrich_registration(reg, reg.activity))
 
-    def _laatste_datum(activity):
-        datums = [
-            (d.end_date or d.start_date) for d in activity.dates if d.start_date or d.end_date
-        ]
-        return max(datums) if datums else None
+    def _last_date(activity):
+        dates = [(d.end_date or d.start_date) for d in activity.dates if d.start_date or d.end_date]
+        return max(dates) if dates else None
 
-    groepen = [
+    ordered = sorted(
+        per_activity.items(),
+        key=lambda pair: (
+            _last_date(pair[0]) is not None,
+            _last_date(pair[0]) or date.min,
+        ),
+        reverse=True,
+    )
+    return [
         {
-            "naam": a.name,
-            "aantal": len(rijen),
-            "regs": sorteer_inschrijvingen(rijen, sort, richting)[0],
-            "titel_url": f"/admin/activiteiten/{a.id}",
-            "export_href": None,
-            "boek_href": None,
-            "datum": _laatste_datum(a),
+            "name": activity.name,
+            "regs": rows,
+            "link": {"label": _("Open activiteit"), "href": f"/admin/activiteiten/{activity.id}"},
         }
-        for a, rijen in per_activiteit.items()
+        for activity, rows in ordered
     ]
-    groepen.sort(key=lambda g: (g["datum"] is not None, g["datum"] or date.min), reverse=True)
-    return groepen
 
 
 def create_person_for_circle(

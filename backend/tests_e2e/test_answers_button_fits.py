@@ -71,16 +71,25 @@ def test_the_answers_button_stays_in_its_card(browser, setup, width):
         login_met_sessie(page, setup["session"])
         page.goto(f"/admin/activiteiten/{setup['activity']}/inschrijvingen")
         pagina_klaar(page)
+        # K6 (#1560): the groups are rows of one table, and "Antwoorden" stands
+        # under the group row's ⋯ (Q41). What must still hold is what #1382
+        # measured: with a long component name nothing leaves its box — the
+        # item inside its menu, the menu and the table inside the screen.
+        page.locator("[data-group-row] [data-row-menu-trigger]").first.click()
+        page.locator("[data-group-row] [data-row-menu]").first.wait_for(state="visible")
         m = page.evaluate(
-            """() => { const a = [...document.querySelectorAll('a')]
+            """() => { const a = [...document.querySelectorAll('[data-group-row] [role=menuitem]')]
                  .find(x => x.innerText.trim() === 'Antwoorden');
-               if (!a) return null;
-               const r = a.getBoundingClientRect(), c = a.closest('.rounded-2xl').getBoundingClientRect();
+               if (!a || !a.checkVisibility()) return null;
+               const r = a.getBoundingClientRect(), c = a.closest('[data-row-menu]').getBoundingClientRect();
+               const t = document.querySelector('[data-table-frame]').getBoundingClientRect();
                return {btn: [Math.round(r.left), Math.round(r.right)],
-                       card: [Math.round(c.left), Math.round(c.right)], vw: innerWidth}; }"""
+                       card: [Math.round(c.left), Math.round(c.right)],
+                       table: [Math.round(t.left), Math.round(t.right)], vw: innerWidth}; }"""
         )
-        assert m is not None, "no button Antwoorden on the overview"
+        assert m is not None, "no item Antwoorden under the group's menu"
+        assert 0 <= m["table"][0] and m["table"][1] <= m["vw"], m
         assert m["card"][0] <= m["btn"][0] and m["btn"][1] <= m["card"][1], m
-        assert m["card"][1] <= m["vw"], m
+        assert 0 <= m["card"][0] and m["card"][1] <= m["vw"], m
     finally:
         context.close()

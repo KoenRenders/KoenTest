@@ -78,11 +78,13 @@ def test_actieve_kop_draagt_chevron_en_ariasort(client, db_session):
         f"/admin/activiteiten/{activity.id}/inschrijvingen?sort=naam&richting=asc"
     ).text
     assert 'aria-sort="ascending"' in html
-    # De chevron-up van ui.icon() — het svg-pad, want de naam staat niet in de
-    # output (zelfde toets als de golf 3-referentie).
-    assert 'd="m18 15-6-6-6 6"' in html
-    # De actieve kop biedt de omgekeerde richting aan.
-    assert "sort=naam&amp;richting=desc" in html
+    # The arrow-up of ui.icon() — the svg path, because the name is not in the
+    # output. K6 (#1560): the kit's table head draws an arrow, not a chevron.
+    assert 'd="m5 12 7-7 7 7"' in html
+    # De actieve kop biedt de omgekeerde richting aan. K6 (#1560): the sort is
+    # one field, as the toolbar carries it — "-naam" is descending; the older
+    # pair `sort` + `richting` is still read.
+    assert "/inschrijvingen?sort=-naam" in html
 
 
 def test_verwijderen_keert_terug_naar_de_activiteit(client, db_session):

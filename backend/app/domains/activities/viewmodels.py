@@ -85,24 +85,39 @@ class AdminInschrijvingView(ViewModel):
 
 
 @dataclass(frozen=True, kw_only=True)
-class AdminActiviteitInschrijvingenView(ViewModel):
-    """`admin_activiteit_inschrijvingen.html` — de Inschrijvingen-tab van de
-    recordpagina (golf 8, #913): alle inschrijvingen over de onderdelen heen,
-    sinds 15 sep via het gedeelde `_inschrijvingen_groepen.html` (één bron
-    met de gezinstab; de activiteit groepeert per onderdeel, dus zonder
-    Onderdeel-kolom)."""
+class ActivityRegistrationsListView(ViewModel):
+    """`_aa_inschrijvingen_lijst.html` — the registrations table of the
+    activity's tab (CR-11 K6, #1560), everything from
+    `activities.api.registration_table`."""
 
-    toon_onderdeel: bool
+    # Groups with their rows: per row the badge, the answers and the payment are
+    # decided by the builder; the template shows them.
+    reg_groups: list[dict[str, Any]]
+    reg_columns: list[dict[str, Any]]
+    reg_total: int
+    reg_per_page: int
+    # The one unfolded row, from `rij=` in the URL: the way back from a
+    # registration's page lands on the row it left.
+    reg_open_row: str
+    reg_view: str
+    reg_q: str
+    reg_sort: str
+    reg_segments: list[dict[str, Any]]
+    reg_sort_options: list[tuple[str, str]]
+    reg_empty: str
+    # The list holder a sort link swaps.
+    reg_target: str
+    # True on a fragment answer: the toolbar's count and sort travel along.
+    reg_oob: bool = False
+
+
+@dataclass(frozen=True, kw_only=True)
+class AdminActiviteitInschrijvingenView(ActivityRegistrationsListView):
+    """`admin_activiteit_inschrijvingen.html` — the Inschrijvingen tab of the
+    record page (golf 8, #913; K6, #1560): the record's head and tabs, the
+    embedded toolbar and the registrations table."""
+
     a: Any
-    # Feedbackronde 2: per onderdeel gegroepeerd — {naam, aantal, regs,
-    # export_href (None bij "Zonder onderdeel")}.
-    groepen: list[dict[str, Any]]
-    totaal: int
-    sort: str
-    richting: str
-    sorteer_urls: dict[str, str]
-    # A7-retourcontext (url-ge-encodeerd) die de naamlinks meegeven.
-    terug: str
     record_tabs: list[dict[str, Any]]
     # CR-11 block 5 (#1557): the head as data for `ui.record_header` — title,
     # badges, facts, the primary and the actions — from `record_kop_ctx`; the way
