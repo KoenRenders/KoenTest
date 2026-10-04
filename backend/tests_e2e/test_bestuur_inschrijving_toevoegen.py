@@ -19,7 +19,7 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import BASE, htmx_stil, login_met_sessie, pagina_klaar  # noqa: E402
 
 WIDTH = 390
 
@@ -75,7 +75,16 @@ def test_the_board_adds_a_registration_on_a_phone(page, setup):
     naam = f"Bestuur {secrets.token_hex(2)}"
     page.fill("#contact_name", naam)
     page.fill("#contact_email", "bestuur-e2e@example.org")
-    page.fill("#phone", "0470000000")
+    # The e-mail address changes when the focus leaves it, and the board's form
+    # then asks the price block again (`…/nieuw/prijzen`, #1284). htmx puts the
+    # focus back on the field of the same id after that swap, so a quantity typed
+    # while the answer is under way lands in the NEW field, before its opening
+    # "1": "81" instead of "8", refused as above the maximum. That was this
+    # test's four-in-five failure in CI (4 October 2026): wait for the price
+    # block before typing in it.
+    with page.expect_response(lambda r: r.url.endswith("/nieuw/prijzen")):
+        page.fill("#phone", "0470000000")
+    htmx_stil(page)
     page.fill(f"#product-{setup['product']}", "8")
     page.fill("#remarks", "Acht namen van de papieren lijst")
     opslaan = page.get_by_role("button", name="Inschrijving toevoegen")
