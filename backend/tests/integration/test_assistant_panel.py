@@ -446,3 +446,115 @@ def test_a_failed_answer_says_so_and_keeps_the_question(
         in answer.text
     )
     assert "data-raakje-answer" not in answer.text, "an answer where there was none"
+
+
+# ── #1562 PR 2: the answer shows the report behind it ───────────────────────
+
+
+def _scripted(monkeypatch, calls, words="Dat staat hieronder."):
+    """The chat loop replaced by a script: it runs these `run_report` calls
+    through the route's own dispatcher (the real engine, the real scope) and
+    answers with `words` — what a model does, without a model."""
+    import app.domains.chatbot.api as chatbot_api
+
+    def run(db, messages, provider, *, dispatch, **_kwargs):
+        for arguments in calls:
+            result = dispatch("run_report", arguments, db)
+            assert '"error"' not in result, f"the scripted report was refused: {result}"
+        return words
+
+    monkeypatch.setattr(chatbot_api, "run_chat", run)
+
+
+def _ask_the_panel(client, path="/admin/rapporten/raakje"):
+    csrf = _login(client)
+    return client.post(
+        path, data={"vraag": "Hoeveel?", "historie": "[]"}, headers={"X-CSRF-Token": csrf}
+    )
+
+
+def test_one_figure_stands_large_in_the_balloon_with_its_range_and_source(
+    client, db_session, switched_on, world, monkeypatch
+):
+    """Decision 10: an amount large in the balloon, with range and source — the
+    engine's own result, not the model's words. Three open bookings of 20, 5 and
+    10. Proven red by leaving `seen` out of the dispatcher: the balloon holds the
+    words alone."""
+    _scripted(
+        monkeypatch,
+        [{"objects": ["payment_open_amount"]}],
+        words="Er staat nog 35 euro open.",
+    )
+    answer = _ask_the_panel(client)
+    assert answer.status_code == 200, answer.text[:300]
+    html = answer.text
+    assert "Er staat nog 35 euro open." in html, "the words stay"
+    figure = html[html.index("data-answer-figure") :]
+    value = re.search(r"data-figure-value[^>]*>(.*?)</p>", figure, re.S).group(1)
+    assert "35,00" in value and "€" in value, value
+    assert "text-[28px]" in figure[: figure.index("</p>")] or "text-[28px]" in figure[:600]
+    assert re.search(r"data-figure-range[^>]*>Bereik: alles<", figure), "no filter: everything"
+    source = re.search(r"data-figure-source[^>]*>(.*?)</p>", figure, re.S).group(1)
+    assert "Rapportering · Betalingen" in source and 'href="/admin/rapporten?' in source
+    assert "data-answer-table" not in html
+
+
+def test_several_rows_are_a_small_table_with_the_way_to_the_whole_list(
+    client, db_session, switched_on, world, monkeypatch
+):
+    """Four bookings: a table of at most five rows and "Bekijk alle n …", which
+    opens the same selection in the reporting panel. Proven red by linking to the
+    panel without the selection: the list behind the answer is every row."""
+    for index in range(4):
+        reg = db_session.query(Registration).first()
+        _booking(db_session, reg, "7.00", minutes=10 + index)
+    db_session.commit()
+    _scripted(
+        monkeypatch,
+        [{"objects": ["payment_record", "payment_status"], "layout": "detail"}],
+    )
+    html = _ask_the_panel(client).text
+    table = html[html.index("data-answer-table") :]
+    assert table.count("<tr") == 1 + 5, "the head and five rows of the eight"
+    more = re.search(r'<a data-answer-more href="([^"]+)"[^>]*>([^<]+)</a>', table)
+    assert more.group(2) == "Bekijk alle 8 betalingen"
+    assert more.group(1).startswith("/admin/rapporten?")
+    assert "object=payment_record" in more.group(1) and "layout=detail" in more.group(1)
+    assert "data-answer-figure" not in html
+    # The address really opens that selection.
+    panel = client.get(more.group(1).replace("&amp;", "&"))
+    assert panel.status_code == 200
+
+
+def test_an_answer_without_a_report_is_words_alone(client, switched_on, world, monkeypatch):
+    _scripted(monkeypatch, [], words="Dat weet ik niet.")
+    html = _ask_the_panel(client).text
+    assert "Dat weet ik niet." in html
+    assert "data-answer-figure" not in html and "data-answer-table" not in html
+
+
+def test_the_figure_of_a_record_is_counted_inside_its_scope(
+    client, db_session, switched_on, world, monkeypatch
+):
+    """Asked beside an activity, the figure is that activity's — the route's
+    scope binds the report, and the range says so."""
+    other, component, _p = seed_activity_with_product(db_session, price="10.00")
+    reg = Registration(
+        contact_name="Cas Voorbeeld",
+        contact_email="cas@example.org",
+        phone="0470000000",
+        activity_id=other.id,
+        component_id=component.id,
+        registration_type="INDIVIDUAL",
+    )
+    db_session.add(reg)
+    db_session.flush()
+    _booking(db_session, reg, "500.00", minutes=20)
+    db_session.commit()
+    _scripted(monkeypatch, [{"objects": ["payment_amount"]}])
+    activity = world["activity"].id
+    html = _ask_the_panel(client, f"/admin/rapporten/raakje/activiteit/{activity}").text
+    value = re.search(r"data-figure-value[^>]*>(.*?)</p>", html, re.S).group(1)
+    assert "65,00" in value, f"20 + 5 + 10 + 30 of this activity, not the other's 500: {value}"
+    scope = re.search(r"data-figure-range[^>]*>Bereik: ([^<]+)<", html).group(1)
+    assert scope != "alles" and "Herfstwandeling" in scope, f"the range names the record: {scope}"

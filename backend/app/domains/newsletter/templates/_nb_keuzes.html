@@ -1,0 +1,45 @@
+{% import "_macros.html" as ui %}
+{# What the letter is about, in three groups (CR-11 block 10, #1562; decision 10,
+   row 41 — Koen, 4 October 2026). They stood in Raakje's column as two groups;
+   they are the page's own choices now: Raakje's proposal, "Activiteit invoegen"
+   and "Kalender invoegen" all read these three. Each group's title carries its
+   count; a chip takes an activity out, "Toevoegen" opens the picker under it. #}
+<div data-letter-choices class="bg-surface border border-line rounded-2xl p-5 space-y-4">
+  <div>
+    <h2 class="font-semibold text-blue-700">{{ _("Waarover gaat de brief?") }}</h2>
+    <p class="text-sm text-ink-soft mt-0.5">{{ _("Deze keuzes gelden voor de hele brief: voor het voorstel van Raakje, voor “Activiteit invoegen” en voor “Kalender invoegen”.") }}</p>
+  </div>
+  {% if choices_error %}{{ ui.error_banner(choices_error) }}{% endif %}
+  {% for group in choices %}
+  <div data-choice-group="{{ group.key }}">
+    <p class="text-sm font-semibold"><span data-choice-title>{{ group.title }}</span> <span data-choice-count class="text-ink-soft font-normal">({{ group["items"]|length }})</span></p>
+    <p class="text-xs text-ink-soft">{{ group.hint }}</p>
+    <div class="flex flex-wrap gap-1.5 mt-1.5 items-center">
+      {% for fact in group["items"] %}
+      <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/keuzes/{{ group.key }}/{{ fact.id }}/weg"
+            hx-target="#nb-keuzes" hx-swap="innerHTML" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" data-choice="{{ fact.id }}" class="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 min-h-11 md:min-h-7"
+                aria-label="{{ _("%(naam)s weghalen", naam=fact.name) }}">{{ fact.name }} {{ ui.icon("x", 12) }}</button>
+      </form>
+      {% else %}
+      <span class="text-sm text-ink-soft">{{ _("Geen.") }}</span>
+      {% endfor %}
+      {% if group.can_add %}
+      {{ ui.btn_outline(_("Toevoegen"), lead_icon="plus", size="xs",
+                        attrs='data-choice-add hx-get="/admin/nieuwsbrieven/' ~ letter.id ~ '/activiteiten?purpose=' ~ group.key ~ '" hx-target="#nb-keuzes-kiezer-' ~ group.key ~ '" hx-swap="innerHTML"') }}
+      {% endif %}
+    </div>
+    <div id="nb-keuzes-kiezer-{{ group.key }}"></div>
+  </div>
+  {% endfor %}
+  {# CR-11 W13 (#1391): the reports are not a choice. Raakje always reads every
+     report since the previous letter, and this line says how many. #}
+  {% if raakje_enabled %}
+  <div data-choice-reports>
+    <p class="text-sm font-semibold">{{ _("Vergaderverslagen") }}</p>
+    <p class="text-sm">{% if report_count %}{{ ngettext("%(num)s verslag sinds de vorige nieuwsbrief gaat mee.", "%(num)s verslagen sinds de vorige nieuwsbrief gaan mee.", report_count) }}{% else %}{{ _("Geen verslagen sinds de vorige nieuwsbrief.") }}{% endif %}</p>
+    <p class="text-xs text-ink-soft">{{ _("Raakje haalt eruit wat lezers aanbelangt — wat goed ging, een verbetering tegenover vorig jaar. Namen gaan nooit mee.") }}</p>
+  </div>
+  {% endif %}
+</div>

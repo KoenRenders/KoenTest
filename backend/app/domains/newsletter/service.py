@@ -11,6 +11,7 @@ import html as html_lib
 import logging
 import re
 import secrets
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
@@ -509,16 +510,90 @@ def reports_since_previous_letter(db: Session, today: Optional[date] = None) -> 
     return [m.id for m in sent_reports(db, limit=200) if m.meeting_date >= since]
 
 
-def default_sources(db: Session, today: Optional[date] = None) -> tuple[list[int], list[int]]:
-    """What a new letter starts with for Raakje (Koen, 17 September 2026).
+def draft_subject(db: Session, newsletter_id: int) -> Optional[str]:
+    """The subject of this DRAFT ("" when it has none yet) — None when there is no
+    such letter or it is sent. For the Assistent's panel (#1562): Raakje writes
+    along on a draft only."""
+    letter = get_newsletter(db, newsletter_id)
+    if letter is None or letter.status != LetterStatus.DRAFT:
+        return None
+    return letter.subject or ""
 
-    - the activities that took place since the previous letter went out — or in
-      the last three months when there is none;
-    - the activities of the coming three months.
 
-    The author can remove any of them. The meeting reports are no longer part of
-    the draft's choice (CR-11 W13): `reports_since_previous_letter` decides them
-    when Raakje is asked, so the list stays empty here.
+# ── What the letter is about: three groups (CR-11 block 10, #1562) ───────────
+# Decided by Koen on 4 October 2026 (decision 10, row 41): the choices stand on
+# the newsletter page itself, in three groups — the activities that took place,
+# the featured ones (each an activity block in the letter), and the calendar
+# (one block of compact lines). The same three groups feed Raakje's proposal,
+# "Activiteit invoegen" and "Kalender invoegen".
+
+#: At most this many activities are featured.
+FEATURED_MAX = 3
+#: The calendar of a new letter starts with this many coming activities, the
+#: featured ones among them.
+CALENDAR_DEFAULT = 9
+
+GROUPS = ("past", "featured", "calendar")
+
+
+@dataclass(frozen=True)
+class Choices:
+    """The activities a letter is about, per group, each in the order of its dates."""
+
+    past: tuple[int, ...] = ()
+    featured: tuple[int, ...] = ()
+    calendar: tuple[int, ...] = ()
+
+    @property
+    def all_ids(self) -> list[int]:
+        return sorted({*self.past, *self.featured, *self.calendar})
+
+    def as_stored(self) -> dict[str, list[int]]:
+        return {group: list(getattr(self, group)) for group in GROUPS}
+
+
+def _by_date(db: Session, ids, today: Optional[date] = None) -> list:
+    """These activities' facts, soonest first; an id that no longer exists drops out."""
+    facts = activity_facts(db, list(ids), base_url="", today=today)
+    return sorted(
+        (facts[i] for i in dict.fromkeys(ids) if i in facts), key=lambda f: (f.start, f.id)
+    )
+
+
+def _from_one_list(db: Session, ids, today: Optional[date] = None) -> Choices:
+    """The three groups of a letter that still holds ONE list — every letter
+    from before #1562: what took place is the past; of what is coming, the first
+    three are featured and all of it stands in the calendar."""
+    known = _by_date(db, ids, today)
+    coming = [f.id for f in known if not f.is_past]
+    return Choices(
+        past=tuple(f.id for f in known if f.is_past),
+        featured=tuple(coming[:FEATURED_MAX]),
+        calendar=tuple(coming),
+    )
+
+
+def choices_of(db: Session, letter: Newsletter, today: Optional[date] = None) -> Choices:
+    """The letter's three groups. The one reader of `draft_activity_ids`: it
+    takes the three groups as stored, and the single list of an older letter —
+    which it reads and **never rewrites**: a letter nobody touches keeps its
+    stored form (the release before this one cannot read the new one)."""
+    stored = letter.draft_activity_ids
+    if isinstance(stored, dict):
+        return Choices(*(tuple(int(i) for i in (stored.get(group) or [])) for group in GROUPS))
+    return _from_one_list(db, list(stored or []), today)
+
+
+def default_choices(db: Session, today: Optional[date] = None) -> Choices:
+    """What a new letter starts with (Koen, 17 September and 4 October 2026):
+
+    - *past*: the activities that took place since the previous letter went out
+      — or in the last three months when there is none;
+    - *featured*: the first three of the coming three months;
+    - *calendar*: the next nine coming activities, the featured ones among them.
+
+    The author can change every group. The meeting reports are not a choice
+    (CR-11 W13): `reports_since_previous_letter` decides them when Raakje is asked.
     """
     from app.domains.activities.api import activities_active_between, activities_from
 
@@ -526,20 +601,59 @@ def default_sources(db: Session, today: Optional[date] = None) -> tuple[list[int
     since = _since_previous_letter(db, today)
     until = _months_later(today, MONTHS_AHEAD)
     past = [s.activity.id for s in activities_active_between(db, since, today, published_only=True)]
-    coming = [
-        s.activity.id for s in activities_from(db, today, published_only=True) if s.start <= until
-    ]
-    return sorted(set(past) | set(coming)), []
+    coming = list(activities_from(db, today, published_only=True))
+    featured = [s.activity.id for s in coming if s.start <= until][:FEATURED_MAX]
+    calendar = [s.activity.id for s in coming][:CALENDAR_DEFAULT]
+    calendar += [i for i in featured if i not in calendar]
+    return Choices(past=tuple(past), featured=tuple(featured), calendar=tuple(calendar))
+
+
+def set_choice(
+    db: Session, letter: Newsletter, group: str, activity_id: int, *, chosen: bool
+) -> Choices:
+    """Put an activity in a group, or take it out. This — and only this — writes
+    the three groups: from the first choice on the letter holds the new form."""
+    _refuse_unless_draft(letter)
+    if group not in GROUPS:
+        raise NewsletterError(_("Onbekende groep."))
+    current = choices_of(db, letter)
+    groups = {name: list(getattr(current, name)) for name in GROUPS}
+    if not chosen:
+        groups[group] = [i for i in groups[group] if i != activity_id]
+    elif activity_id not in groups[group]:
+        if group == "featured" and len(groups["featured"]) >= FEATURED_MAX:
+            raise NewsletterError(
+                _("Er kunnen hoogstens drie activiteiten uitgelicht zijn. Haal er eerst één weg.")
+            )
+        groups[group].append(activity_id)
+        # A featured activity stands in the calendar too.
+        if group == "featured" and activity_id not in groups["calendar"]:
+            groups["calendar"].append(activity_id)
+    new = Choices(**{name: tuple(f.id for f in _by_date(db, ids)) for name, ids in groups.items()})
+    letter.draft_activity_ids = new.as_stored()
+    db.commit()
+    return new
+
+
+def set_draft_sources(
+    db: Session, letter: Newsletter, *, activity_ids: list[int], meeting_ids: list[int]
+) -> None:
+    """Give the letter these activities at once, sorted into the three groups by
+    their dates (what `_from_one_list` does for an older letter) — for a caller
+    that has a list and no groups."""
+    _refuse_unless_draft(letter)
+    letter.draft_activity_ids = _from_one_list(db, [int(i) for i in activity_ids]).as_stored()
+    letter.draft_meeting_ids = sorted({int(i) for i in meeting_ids})
+    db.commit()
 
 
 def create_newsletter(db: Session, *, created_by: str) -> Newsletter:
-    activity_ids, meeting_ids = default_sources(db)
     letter = Newsletter(
         created_by=created_by,
         subject="",
         body_html="",
-        draft_activity_ids=activity_ids,
-        draft_meeting_ids=meeting_ids,
+        draft_activity_ids=default_choices(db).as_stored(),
+        draft_meeting_ids=[],
     )
     db.add(letter)
     db.commit()
@@ -588,16 +702,6 @@ def update_draft(
     db.commit()
 
 
-def set_draft_sources(
-    db: Session, letter: Newsletter, *, activity_ids: list[int], meeting_ids: list[int]
-) -> None:
-    """What Raakje writes about: the chosen activities and ticked reports."""
-    _refuse_unless_draft(letter)
-    letter.draft_activity_ids = sorted({int(i) for i in activity_ids})
-    letter.draft_meeting_ids = sorted({int(i) for i in meeting_ids})
-    db.commit()
-
-
 # ── What a copy takes along (#1464) ──────────────────────────────────────────
 NEWSLETTER_COPY = CopyPlan(
     model=Newsletter,
@@ -641,7 +745,7 @@ def copy_newsletter(db: Session, letter: Newsletter, *, created_by: str) -> News
     values = NEWSLETTER_COPY.values(letter)
     # The lists as new lists: two rows never share one mutable object.
     for column in ("draft_activity_ids", "draft_meeting_ids"):
-        values[column] = list(values[column] or [])
+        values[column] = deepcopy(values[column] or [])
     copy = Newsletter(**values, audience=None, created_by=created_by, copied_from_id=letter.id)
     db.add(copy)
     db.commit()
@@ -1101,21 +1205,6 @@ def photos_line_html(facts: ActivityFacts) -> str:
         f'<a href="{esc(facts.photos_url)}">'
         f"{esc(_('Bekijk de foto’s van %(naam)s') % {'naam': facts.name})}</a>"
     )
-
-
-def calendar_default_ids(db: Session, *, today: Optional[date] = None) -> list[int]:
-    """What the calendar proposes: the coming weeks, soonest first (#984).
-
-    A separate function because the picker ticks exactly these boxes and the
-    insert uses exactly this list — two places that must not drift apart.
-    """
-    from app.domains.activities.api import activities_from
-
-    start = today or date.today()
-    until = start + timedelta(weeks=CALENDAR_WEEKS)
-    return [
-        s.activity.id for s in activities_from(db, start, published_only=True) if s.start <= until
-    ]
 
 
 def calendar_html(

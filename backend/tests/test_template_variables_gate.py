@@ -30,8 +30,11 @@ from app.domains.meetings.viewmodels import (
     MeetingSendView,
 )
 from app.domains.newsletter.viewmodels import (
+    NewsletterAppliedView,
     NewsletterArchiveView,
+    NewsletterChoicesView,
     NewsletterComposeView,
+    NewsletterConversationView,
     NewsletterListView,
     NewsletterPickerView,
     NewsletterSendView,
@@ -71,7 +74,9 @@ VIEWMODELS = {
     "_nb_lijst.html": NewsletterListView,
     "admin_nieuwsbrief.html": NewsletterComposeView,
     "_nb_bewaard.html": NewsletterComposeView,
-    "_nb_raakje.html": NewsletterComposeView,
+    "_nb_keuzes.html": NewsletterChoicesView,
+    "_nb_gesprek.html": NewsletterConversationView,
+    "_nb_toegepast.html": NewsletterAppliedView,
     "_nb_kiezer.html": NewsletterPickerView,
     "admin_nieuwsbrief_archief.html": NewsletterArchiveView,
     "_nb_afleveringen.html": NewsletterArchiveView,

@@ -192,3 +192,9 @@ class AssistantTurnView(ViewModel):
     error: str
     payload: str
     history: str
+    # #1562 (§3.15): what the last report of this turn shows beside the words
+    # — a figure, or a small table with the address of the whole list
+    # (`assistant_answer`). None when the turn ran no report.
+    figure: Any = None
+    table: Any = None
+    more_href: str = ""

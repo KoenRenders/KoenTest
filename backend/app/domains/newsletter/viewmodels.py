@@ -40,44 +40,64 @@ class NewsletterComposeView(ViewModel):
     #: The letter's own audience as a code, to tick the right radio.
     audience: str
     saved_at: str
-    # Raakje (CR-05 §3.15): off when the back-office switch is off.
+    # Raakje (CR-05 §3.15): off when the back-office switch is off. Since #1562
+    # the conversation stands in the Assistent's panel, not on this page.
     raakje_enabled: bool
-    # What Raakje writes about (Koen, 17 September 2026): past and coming
-    # activities, and how many whole meeting reports go along (CR-11 W13: every
-    # report since the previous letter, no longer a tick per report).
-    past_activities: list[Any]
-    coming_activities: list[Any]
+    # What the letter is about, in three groups (#1562): per group its key, its
+    # title, a hint, the chosen activities' facts and whether one more may join.
+    choices: list[dict[str, Any]]
+    # How many whole meeting reports go along (CR-11 W13).
     report_count: int
-    # The conversation as turns (question, answer), newest turn first.
-    turns: list[Any]
-    # Per message id: is this the author's own line, or Raakje's answer? The
-    # screen draws two different bubbles; it does not compare codes (§B4.7).
-    by_author: dict[int, bool]
-    # Per Raakje message id: the proposal as the screen shows it.
-    proposals: dict[int, Any]
     csrf_token: str
     error: Optional[str] = None
     notice: Optional[str] = None
-    raakje_error: Optional[str] = None
-    # After "Toepassen": the HTML the editor takes over, and where it goes.
-    apply_html: str = ""
-    apply_placement: str = ""
-    apply_range: str = ""
+    choices_error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True, kw_only=True)
-class NewsletterPickerView(ViewModel):
-    """`_nb_kiezer.html` — the activity picker, for inserting or for Raakje."""
+class NewsletterChoicesView(ViewModel):
+    """`_nb_keuzes.html` — the three groups, after a choice changed."""
 
     letter: Any
-    spans: list[Any]
-    dates: dict[int, str]
+    choices: list[dict[str, Any]]
+    report_count: int
+    raakje_enabled: bool
+    csrf_token: str
+    choices_error: Optional[str] = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class NewsletterPickerView(ViewModel):
+    """`_nb_kiezer.html` — the activity picker: for one of the three groups, or
+    (`insert`) the featured activities to put a block of at the cursor."""
+
+    letter: Any
+    #: `{id, name, date}` per activity offered.
+    items: list[dict[str, Any]]
     q: str
     purpose: str
-    # Which boxes start ticked — only the calendar uses this.
-    ticked: list[int]
     csrf_token: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class NewsletterConversationView(ViewModel):
+    """`_nb_gesprek.html` — turns of the conversation with Raakje, for the
+    Assistent's panel: all of them when the panel opens, the new one after a
+    question. Per turn: `question`, `answer`, `failed` and, with a proposal, the
+    proposal as the screen shows it (`drafting.display`) with its `fields`."""
+
+    letter: Any
+    turns: list[dict[str, Any]]
+
+
+@dataclass(frozen=True, kw_only=True)
+class NewsletterAppliedView(ViewModel):
+    """`_nb_toegepast.html` — the answer to Toepassen: the final values for the
+    form, or why the proposal could not be applied."""
+
+    fields: list[dict[str, Any]]
+    refusal: Optional[str] = None
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -617,14 +617,21 @@ def test_met_raakje_uit_is_er_geen_paneel_en_werkt_de_rest(client, db_session, m
 
 
 def test_het_gesprek_via_het_scherm(client, db_session, monkeypatch, raakje):
-    """Ask → the proposal shows with its mark → apply → the editor gets the text."""
+    """Ask → the turn shows the proposal with its mark → Toepassen gives the form
+    its final values, the marked sentence left out. Since #1562 the conversation
+    stands in the Assistent's panel: the answer is the new turn alone, and
+    Toepassen answers with the kit's proposal block (`auto`), which the page
+    applies — the server writes none of it."""
+    import json
+    import re
+
     headers = _login(client)
     _switch(db_session, monkeypatch, True)
     brood = _activity(db_session, "Brood & Spelen")
     letter = _letter(db_session)
 
     kies = client.post(
-        f"/admin/nieuwsbrieven/{letter.id}/raakje/activiteit",
+        f"/admin/nieuwsbrieven/{letter.id}/keuzes/featured",
         headers=headers,
         data={"activity_id": str(brood.id)},
     )
@@ -637,23 +644,51 @@ def test_het_gesprek_via_het_scherm(client, db_session, monkeypatch, raakje):
     antwoord = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
         headers=headers,
-        data={"instruction": "Een feestelijke brief", "body_html": ""},
+        data={"vraag": "Een feestelijke brief", "body_html": ""},
     )
+    assert "X-Raakje-Failed" not in antwoord.headers
+    assert "Een feestelijke brief" in antwoord.text, "the question stands in the turn"
+    assert "data-form-flow" not in antwoord.text and "<html" not in antwoord.text, "a turn, no page"
     assert "staat niet in de flyer" in antwoord.text
     assert "klopt, behouden" in antwoord.text
     assert "bg-yellow-100" in antwoord.text
-
+    keep = re.search(r'<input type="checkbox" name="keep"[^>]*>', antwoord.text).group(0)
+    assert "checked" not in keep, "a marked passage stays out unless it is ticked"
+    block = re.search(r"<form data-form-proposal[^>]*>", antwoord.text).group(0)
     message = [m for m in nb.messages_of(db_session, letter) if m.proposal][-1]
+    assert (
+        f'data-proposal-apply-url="/admin/nieuwsbrieven/{letter.id}/raakje/{message.id}/toepassen"'
+        in block
+    )
+    assert 'data-proposal-include="#nb-inhoud"' in block and "data-proposal-auto" not in block
+
+    subject_before = letter.subject
     toegepast = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/raakje/{message.id}/toepassen",
         headers=headers,
-        data={"body_html": "", "placement": "replace"},
+        data={"body_html": ""},
     )
-    assert 'id="nb-toepassen"' in toegepast.text
-    sjabloon = toegepast.text.split('id="nb-toepassen"')[1].split("</template>")[0]
-    assert "Kom naar Brood" in sjabloon
-    assert "zaklopen" not in sjabloon
-    assert "toegepast" in toegepast.text
+    assert "data-proposal-auto" in toegepast.text
+    fields = json.loads(
+        re.search(
+            r"<script type=\"application/json\" data-proposal-fields>(.*?)</script>",
+            toegepast.text,
+            re.S,
+        ).group(1)
+    )
+    body = next(f for f in fields if f["name"] == "body_html")
+    assert "Kom naar Brood" in body["value"]
+    assert "zaklopen" not in body["value"]
+    assert body["placement"] == "replace" and "base" not in body
+    assert [f["name"] for f in fields][-1] == "body_html"
+    db_session.refresh(letter)
+    assert letter.subject == subject_before, "Toepassen writes no subject: the form does"
+    assert message.proposal["status"] == "applied"
+
+    # the conversation the panel loads when it opens: both sides, the proposal closed
+    gesprek = client.get(f"/admin/nieuwsbrieven/{letter.id}/raakje/gesprek").text
+    assert "Een feestelijke brief" in gesprek and "Toegepast." in gesprek
+    assert "data-proposal-apply" not in gesprek, "an applied proposal offers nothing"
 
 
 def test_versturen_ruimt_het_gesprek_op(db_session, raakje, monkeypatch):
@@ -750,10 +785,11 @@ def test_de_prompt_vraagt_correct_nederlands_en_laat_aanhef_en_groet_aan_het_por
 
 
 def test_een_nieuwe_brief_start_met_voorbije_en_volgende_activiteiten(db_session, monkeypatch):
-    """Past: what took place since the previous letter went out. Coming: the
-    next three months. Older and further activities are left for the picker.
+    """Past: what took place since the previous letter went out. Featured: the
+    first of the next three months. Calendar: the next nine, however far. Older
+    activities are left for the picker.
 
-    Broken on purpose: `default_sources` ignoring the previous letter (always
+    Broken on purpose: `default_choices` ignoring the previous letter (always
     three months back) → the activity from before that letter is included and
     this test fails.
     """
@@ -773,11 +809,13 @@ def test_een_nieuwe_brief_start_met_voorbije_en_volgende_activiteiten(db_session
     te_ver = _activity(db_session, "Te ver", days_ahead=120)
 
     letter = nb.create_newsletter(db_session, created_by="s@example.org")
+    chosen = nb.choices_of(db_session, letter)
 
-    assert sindsdien.id in letter.draft_activity_ids
-    assert binnenkort.id in letter.draft_activity_ids
-    assert voor_de_vorige.id not in letter.draft_activity_ids
-    assert te_ver.id not in letter.draft_activity_ids
+    assert sindsdien.id in chosen.past
+    assert voor_de_vorige.id not in chosen.all_ids
+    assert binnenkort.id in chosen.featured and binnenkort.id in chosen.calendar
+    assert te_ver.id not in chosen.featured, "featured looks three months ahead"
+    assert te_ver.id in chosen.calendar, "the calendar takes the next nine, however far"
 
 
 def test_een_voorbije_activiteit_krijgt_geen_inschrijflink(db_session):
@@ -796,9 +834,11 @@ def test_de_prompt_vraagt_eerst_terugblik_dan_vooruitblik():
     assert "INTERN" in prompt
 
 
-def test_de_nieuwste_beurt_staat_bovenaan(client, db_session, monkeypatch, raakje):
-    """Koen, 17 September 2026: older conversations move down; within a turn the
-    question stays above its answer."""
+def test_het_gesprek_leest_van_oud_naar_nieuw(client, db_session, monkeypatch, raakje):
+    """In the Assistent's panel a conversation reads downwards, like every other
+    one there (#1562) — in the old column the newest turn stood on top (Koen, 17
+    September 2026). Within a turn the question stays above its answer; a
+    question's answer is that turn alone."""
     headers = _login(client)
     _switch(db_session, monkeypatch, True)
     letter = _letter(db_session)
@@ -812,21 +852,22 @@ def test_de_nieuwste_beurt_staat_bovenaan(client, db_session, monkeypatch, raakj
     client.post(
         f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
         headers=headers,
-        data={"instruction": "Vraag een", "body_html": ""},
+        data={"vraag": "Vraag een", "body_html": ""},
     )
-    html = client.post(
+    tweede = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
         headers=headers,
-        data={"instruction": "Vraag twee", "body_html": "<div>Er staat al tekst.</div>"},
+        data={"vraag": "Vraag twee", "body_html": "<div>Er staat al tekst.</div>"},
     ).text
+    assert "Vraag een" not in tweede and tweede.index("Vraag twee") < tweede.index("Antwoord twee")
 
+    html = client.get(f"/admin/nieuwsbrieven/{letter.id}/raakje/gesprek").text
     assert (
-        html.index("Vraag twee")
-        < html.index("Antwoord twee")
-        < html.index("Vraag een")
+        html.index("Vraag een")
         < html.index("Antwoord een")
+        < html.index("Vraag twee")
+        < html.index("Antwoord twee")
     )
-    assert html.index("Gesprek met Raakje") < html.index("Vraag twee")
 
 
 # ── Raakje kan alles wat de knoppen kunnen (Koen, 19 September 2026) ─────────
@@ -969,7 +1010,7 @@ def test_elke_markering_toont_de_zin_waarover_ze_gaat(db_session, client, raakje
     """Koen, 21 september 2026: met vier vinkjes onder elkaar wist hij niet meer
     welk vinkje bij welke bewering hoorde.
 
-    Broken on purpose: de regel met `mark.sentence` uit `_nb_raakje.html` → het
+    Broken on purpose: de regel met `mark.sentence` uit `_nb_gesprek.html` → het
     vinkje staat er weer zonder zijn zin en deze test faalt.
     """
     _switch(db_session, monkeypatch, True)  # zonder de schakelaar is er geen paneel
@@ -979,7 +1020,8 @@ def test_elke_markering_toont_de_zin_waarover_ze_gaat(db_session, client, raakje
     drafting.record(db_session, letter, author_text="schrijf de brief", turn=turn)
     _login(client)
 
-    scherm = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
+    # #1562: the conversation stands in the Assistent's panel, which loads it here.
+    scherm = client.get(f"/admin/nieuwsbrieven/{letter.id}/raakje/gesprek").text
 
     zinnen = [m["sentence"] for m in turn.proposal["marks"]]
     assert zinnen, "de controle hoort hier iets te markeren"
@@ -1002,6 +1044,7 @@ def test_het_paneel_toont_de_verslagen_als_regel_zonder_keuze(client, db_session
 
     html = client.get(f"/admin/nieuwsbrieven/{letter.id}", headers=headers).text
 
-    assert 'id="nb-raakje"' in html, "the panel is on the page"
+    assert "data-choice-reports" in html, "the line stands with the letter's choices (#1562)"
+    assert 'id="nb-raakje"' not in html, "the column is gone: the conversation is in the panel"
     assert 'name="meeting_id"' not in html
     assert "1 verslag sinds de vorige nieuwsbrief gaat mee." in html

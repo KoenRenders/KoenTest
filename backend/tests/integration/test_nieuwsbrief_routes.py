@@ -554,30 +554,40 @@ def test_het_voorbeeld_toont_de_brief_zoals_hij_aankomt(client, db_session):
     assert 'class="nb-blok-titel" style=' in voorbeeld.text, "de opmaak staat erop"
 
 
-def test_de_kalender_neemt_alleen_wat_je_aanvinkt(client, db_session):
-    """Koen, 19 september 2026: de kalender blijft compacte regels, maar je
-    kiest wat erin staat — een activiteit verderop mag mee.
+def test_de_kalender_is_de_kalendergroep_van_de_brief(client, db_session):
+    """Koen, 19 september 2026: de kalender blijft compacte regels, maar je kiest
+    wat erin staat. Since #1562 that choice is the letter's own calendar group —
+    the group the page shows — and "Kalender invoegen" places exactly it.
 
-    Broken on purpose: `ids` niet doorgegeven aan `calendar_html` → de kalender
-    negeert de keuze en deze test faalt op de tweede activiteit.
+    Broken on purpose: the route handing no ids to `calendar_html` → the calendar
+    ignores the group and this test fails on the activity that was taken out.
     """
-    _login(client)
+    headers = _login(client)
     dichtbij = _activity(db_session, "Rumproefavond", date.today() + timedelta(days=10))
     ver = _activity(db_session, "Kerstmarkt", date.today() + timedelta(days=120))
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
 
-    kiezer = client.get(f"/admin/nieuwsbrieven/{letter.id}/activiteiten?purpose=calendar")
-    assert kiezer.status_code == 200
-    assert "nb-kal-vinkje" in kiezer.text, "de kalenderkeuze staat op vinkjes"
-    vinkjes = kiezer.text.split('class="nb-kal-vinkje"')
-    assert f'value="{dichtbij.id}"' in kiezer.text and f'value="{ver.id}"' in kiezer.text
-    assert len(vinkjes) == 3, "beide activiteiten staan in de lijst"
-
-    gekozen = client.get(
-        f"/admin/nieuwsbrieven/{letter.id}/invoegen/kalender?ids={dichtbij.id},{ver.id}"
-    )
-    assert "Rumproefavond" in gekozen.text and "Kerstmarkt" in gekozen.text
-
     standaard = client.get(f"/admin/nieuwsbrieven/{letter.id}/invoegen/kalender")
-    assert "Rumproefavond" in standaard.text
-    assert "Kerstmarkt" not in standaard.text, "zonder keuze alleen de komende weken"
+    assert "Rumproefavond" in standaard.text and "Kerstmarkt" in standaard.text, (
+        "a new letter's calendar holds the next nine, however far"
+    )
+
+    weg = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/keuzes/calendar/{ver.id}/weg", headers=headers
+    )
+    assert weg.status_code == 200
+    gekozen = client.get(f"/admin/nieuwsbrieven/{letter.id}/invoegen/kalender")
+    assert "Rumproefavond" in gekozen.text and "Kerstmarkt" not in gekozen.text
+
+    kiezer = client.get(f"/admin/nieuwsbrieven/{letter.id}/activiteiten?purpose=calendar")
+    assert kiezer.status_code == 200 and "nb-kal-vinkje" not in kiezer.text
+    assert f'name="activity_id" value="{ver.id}"' in kiezer.text
+    assert f'hx-post="/admin/nieuwsbrieven/{letter.id}/keuzes/calendar"' in kiezer.text
+    client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/keuzes/calendar",
+        headers=headers,
+        data={"activity_id": str(ver.id)},
+    )
+    terug = client.get(f"/admin/nieuwsbrieven/{letter.id}/invoegen/kalender")
+    assert "Kerstmarkt" in terug.text
+    assert dichtbij.id in nb.choices_of(db_session, letter).calendar

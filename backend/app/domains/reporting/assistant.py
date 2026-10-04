@@ -761,7 +761,11 @@ def run_report(
     tenant_id: int,
     max_rows: int,
     scope: Optional["Scope"] = None,
+    seen: Optional[list] = None,
 ) -> dict[str, Any]:
+    # `seen` (#1562): the route's list of the reports run in this turn — the
+    # panel shows the last one as a figure or a small table beside the answer
+    # (`assistant_answer`). The model gets exactly what it got before.
     objects = [str(k) for k in (arguments.get("objects") or [])]
     if not objects:
         return {"error": "Geef minstens één object mee."}
@@ -799,12 +803,18 @@ def run_report(
         # `with_entities`: the engine adds the hidden entity id the tokenisation
         # needs (CR-07 §5.2). The panel asks for the same selection without it —
         # see `build_query` for why that difference is deliberate.
-        result = run_validated(db, selection, tenant_id=tenant_id, with_entities=True)
+        result = run_validated(
+            db, selection, tenant_id=tenant_id, with_entities=True, with_count=seen is not None
+        )
     except SelectionError as fout:
         # The engine's refusals already name the object and the reason (#680), so
         # they go to the model verbatim — it reads them and tries something else.
         return {"error": str(fout) + _wat_bestaat_er_wel(str(fout), objects)}
 
+    if seen is not None:
+        from app.domains.reporting.assistant_answer import SeenReport
+
+        seen.append(SeenReport(selection=selection, result=result))
     zichtbaar = _tokenise_rows(result, result.rows[:max_rows])
     rows = [{c.key: row.get(c.key) for c in result.columns} for row in zichtbaar]
     out: dict[str, Any] = {
@@ -1146,6 +1156,10 @@ def _activity_name(db: Session, *, tenant_id: int, activity_id: int) -> Optional
     ).scalar()
 
 
+#: Public since #1562: the route says a record scope by its name.
+activity_name = _activity_name
+
+
 def _activity_label(db: Session, *, tenant_id: int, activity_id: int) -> Optional[str]:
     """De naam van een activiteit zoals ze de **systeemprompt** in mag (#1126).
 
@@ -1298,7 +1312,13 @@ def tool_specs() -> list[dict[str, Any]]:
 # ── Dispatch (the security boundary of this pack) ─────────────────────────────
 
 
-def dispatcher(*, tenant_id: int, max_rows: int = 0, scope: Optional["Scope"] = None):
+def dispatcher(
+    *,
+    tenant_id: int,
+    max_rows: int = 0,
+    scope: Optional["Scope"] = None,
+    seen: Optional[list] = None,
+):
     """A dispatcher bound to one tenant — the shape the shared loop expects.
 
     The tenant is bound here and cannot be reached by the model: it comes from the
@@ -1332,7 +1352,9 @@ def dispatcher(*, tenant_id: int, max_rows: int = 0, scope: Optional["Scope"] = 
                     return _scoped_read_tool(db, name, args, activity_id=record_id)
                 return execute_read_tool(name, args, db)
             if name == "run_report":
-                result = run_report(db, args, tenant_id=tenant_id, max_rows=cap, scope=scope)
+                result = run_report(
+                    db, args, tenant_id=tenant_id, max_rows=cap, scope=scope, seen=seen
+                )
             elif scope is not None:
                 result = _scoped_values(db, args, tenant_id=tenant_id, scope=scope, max_rows=cap)
             else:

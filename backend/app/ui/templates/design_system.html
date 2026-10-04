@@ -977,6 +977,29 @@
     {{ ui.btn_secondary(_("Dialoog: toestandscommando"), size="sm", attrs='@click="const d = $el.closest(`[data-kit-dialog]`).dataset; $store.confirm.ask(() => {}, d.text, d.ok, {title: d.title, tone: d.tone, cancelLabel: d.stay})"') }}</span>
 </div>
 
+{# ── 13f. A proposal for the form (CR-11 block 10, #1562) ───────────────────
+   The Assistent proposes values; the fields it touches are marked; Toepassen
+   fills them in the form and nothing is saved. A field changed meanwhile is
+   left alone and named. #}
+{{ ui.section_header(_("13f · Voorstel voor het formulier"), cls="mt-10") }}
+<p class="text-sm text-gray-600 mb-3">
+  {{ _("De Assistent stelt waarden voor: de betrokken velden krijgen een blauwe lijn en “Voorstel · nog niet toegepast”. Toepassen vult ze in het formulier; alleen Opslaan bewaart. Een veld dat je intussen wijzigde, blijft staan en wordt genoemd.") }}
+</p>
+<div data-kit-proposal class="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px] max-w-[1100px] items-start">
+  {% call ui.form_grid() %}
+    {{ ui.field("kit_prop_name", _("Naam"), id="kit-prop-name", value=_("Wandeling")) }}
+    {{ ui.field("kit_prop_place", _("Locatie"), id="kit-prop-place", value=_("Parochiezaal")) }}
+    {{ ui.field("kit_prop_text", _("Omschrijving"), kind="textarea", id="kit-prop-text", value=_("Samen op pad.")) }}
+  {% endcall %}
+  <div class="rounded-lg border border-line bg-surface p-3">
+    <p class="text-sm text-ink">{{ _("Zo ziet een voorstel eruit in het paneel:") }}</p>
+    {{ ui.form_proposal([
+         {"name": "kit_prop_name", "label": _("Naam"), "value": _("Herfstwandeling met soep"), "base": _("Wandeling")},
+         {"name": "kit_prop_place", "label": _("Locatie"), "value": _("Parochiezaal, Dorpsstraat"), "base": _("Parochiezaal")},
+         {"name": "kit_prop_text", "label": _("Omschrijving"), "value": _("Een wandeling van acht kilometer, met soep achteraf."), "base": _("Samen op pad.")}]) }}
+  </div>
+</div>
+
 {# ── 14. Publieke schil ────────────────────────────────────────────────────── #}
 {{ ui.section_header(_("14 · Publieke schil"), _("Naar de publieke activiteiten"), action_href="/activiteiten", action_attrs='hx-boost="false"', cls="mt-10") }}
 {% call ui.card() %}

@@ -437,6 +437,12 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .record-bar-cancel{grid-column:2;grid-row:2;justify-self:end;margin:0}
   .form-flow:has(>.record-bar){padding-bottom:24px}
 }
+/* CR-11 block 10 (#1562), §3.15: a field the Assistent proposes a value for —
+   a blue line and the brand tint on its control, the note under it. The same
+   look once applied; the note's words say which of the two it is. */
+[data-field][data-proposed] :is(input:not([type=hidden]),select,textarea,trix-editor),[data-field][data-proposal-applied] :is(input:not([type=hidden]),select,textarea,trix-editor){border-left:3px solid rgb(var(--c-blue-600));background-color:rgb(var(--c-blue-50))}
+[data-form-proposal] [hidden]{display:none!important}
+[data-proposal-note]{margin-top:4px;font-size:13px;line-height:19.5px;color:rgb(var(--c-blue-700));overflow-wrap:anywhere}
 /* The toast in the admin (§3.18): under the top bar at the right on a desktop,
    at the bottom on a phone; "saved" is white on ink. */
 body[data-shell="admin"] #toasts{top:96px}

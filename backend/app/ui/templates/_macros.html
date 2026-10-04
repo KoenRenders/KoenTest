@@ -1761,6 +1761,49 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 </script>
 {%- endmacro %}
 
+{# ── A proposal for the form (CR-11 block 10, #1562, §3.15) ───────────────────
+   The block the Assistent's panel shows for a proposal: "n velden ingevuld als
+   voorstel" with Toepassen / Negeren. `fields` = [{name, label, value, base}]:
+   `name` is the screen's field (`data-field`), `base` the value that field had
+   when the proposal was asked — Toepassen fills a field only while it still
+   holds its base, and names the ones it left alone. `static/form-proposal.js`
+   marks the fields and applies; nothing here writes to the database.
+   `apply_url`: the server gives the final values on Toepassen (the newsletter's
+   kept passages); its answer is this block again with `auto=True`.
+   `applied_note`: the note under an applied field — a document that saves by
+   itself does not say "nog niet opgeslagen". `extra` (rendered markup, from a
+   `{% set %}` block) stands between the summary and the buttons.
+   For a screen that keeps its conversation: `include` names fields of the
+   screen that go to `apply_url` with Toepassen, `dismiss_url` hears Negeren,
+   and `closed_text` renders a proposal that is done with — its outcome, no
+   buttons, no marks. A field may carry `placement` ("cursor" or "selection"
+   with `range`) for a rich text; without a `base` it is not compared. #}
+{% macro form_proposal(fields, apply_url=None, auto=False, applied_note=None, extra="", dismiss_url=None, include=None, closed_text=None) -%}
+{#- `hx-boost="false"`: the block is a form inside the shell's boost; its Toepassen request
+    would otherwise be taken for a navigation and replace the page (measured). -#}
+<form data-form-proposal onsubmit="return false" hx-boost="false" hx-push-url="false"{% if auto %} data-proposal-auto{% endif %}{% if apply_url %} data-proposal-apply-url="{{ apply_url }}"{% endif %}
+      {% if dismiss_url %}data-proposal-dismiss-url="{{ dismiss_url }}"{% endif %}{% if include %} data-proposal-include="{{ include }}"{% endif %}{% if closed_text is not none %} data-proposal-state="closed"{% endif %}
+      data-word-proposed="{{ _('Voorstel · nog niet toegepast') }}"
+      data-word-applied="{{ applied_note or _('Ingevuld door Assistent · nog niet opgeslagen') }}"
+      data-word-done-one="{{ _('1 veld ingevuld.') }}" data-word-done-many="{{ _('{n} velden ingevuld.') }}"
+      data-word-skipped-one="{{ _('1 veld overgeslagen: intussen gewijzigd ({fields}).') }}"
+      data-word-skipped-many="{{ _('{n} velden overgeslagen: intussen gewijzigd ({fields}).') }}"
+      data-word-dismissed="{{ _('Voorstel genegeerd.') }}" data-word-replaced="{{ _('Vervangen door een nieuwer voorstel.') }}"
+      class="mt-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-[13px] leading-[19.5px] text-ink">
+  <script type="application/json" data-proposal-fields>{{ fields|tojson }}</script>
+  <p data-proposal-summary class="font-semibold">{% if fields|length == 1 %}{{ _("1 veld ingevuld als voorstel") }}{% else %}{{ _("%(num)d velden ingevuld als voorstel", num=fields|length) }}{% endif %}</p>
+  <p data-proposal-labels class="text-ink-soft">{{ fields|map(attribute="label")|join(" · ") }}</p>
+  {{ extra }}
+  {% if closed_text is none %}
+  <div data-proposal-actions class="mt-2 flex flex-wrap gap-2">
+    <button type="button" data-proposal-apply class="{{ btn_class('primary', 'sm') }}">{{ _("Toepassen") }}</button>
+    <button type="button" data-proposal-dismiss class="{{ btn_class('text', 'sm') }}">{{ _("Negeren") }}</button>
+  </div>
+  {% endif %}
+  <p data-proposal-result{% if closed_text is none %} hidden{% endif %} class="mt-2 text-ink-soft">{{ closed_text or "" }}</p>
+</form>
+{%- endmacro %}
+
 {# ── Why a save was refused (CR-11 block 9, #1561, §3.18) ─────────────────────
    The banner at the top of the form. `errors` are objects with `field` (the
    form's name of a field or a row; empty for the form as a whole) and `message`.

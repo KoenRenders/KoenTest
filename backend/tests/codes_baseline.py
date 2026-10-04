@@ -114,22 +114,9 @@ LABELS_NOT_A_VOCABULARY: dict[str, str] = {
 #: whose comparison does not exist turned the target test red, and dropping
 #: `kind==insert` from here turned the template ratchet red on that line.
 TEMPLATE_COMPARISONS_NOT_A_CODE: dict[str, str] = {
-    # Koen, 26 September 2026 (CR-12 note 6): Raakje's newsletter proposals.
-    **{
-        f"app/domains/newsletter/templates/_nb_raakje.html:{key}": (
-            "A Raakje proposal is a JSON object on a chat message, written by the "
-            "drafting code while the letter is being written; its `kind` and "
-            "`status` are stored in no column, so there is nothing for a foreign "
-            "key to guard and a code list would only add a table."
-        )
-        for key in (
-            "kind==insert",
-            "kind==letter",
-            "kind==replace",
-            "status==applied",
-            "status==open",
-        )
-    },
+    # Empty since #1562: the newsletter's proposal column (`_nb_raakje.html`) compared
+    # a proposal's `kind` and `status` in the template; its successor gets what it
+    # shows from the route (`_turn_views`), so the five exemptions went with it.
 }
 
 #: Comparisons the vocabulary net catches that compare no code of ours.
