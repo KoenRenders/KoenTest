@@ -95,8 +95,8 @@ binding: each step has one use, applied by a macro, never by a template.
 | Layout | Desktop | Phone (< 768 px) |
 |---|---|---|
 | list page | the full content width beside the sidebar, no `max-w`: a list grows with the screen (block 1 replaces the 1 280 px box here before) | one column, 16 px gutters |
-| record page | the full frame; inside it one **reading group** of 768 px form column + 24 px gap + 300 px summary column (1 092 px), centred when the frame is wider | one column, 16 px gutters; the summary as a strip above |
-| document page | reading width 768 px, centred | one column, 16 px gutters |
+| record page | the full frame; inside it one **reading group** of 768 px form column + 24 px gap + 300 px summary column (1 092 px), **left-aligned against the page margin** — never centred — so a form starts on the same x as a list, the title and the tabs; the space beyond the summary stays empty on a wide screen (Koen, 4 Oct 2026, correcting block 1's "centred when the frame is wider") | one column, 16 px gutters; the summary as a strip under the tabs |
+| document page | reading width 768 px, left-aligned like the record page | one column, 16 px gutters |
 
 **Two priorities, one kit** (Koen, 2 October 2026): the public site is
 designed phone-first — 390 px is where a public page is drawn first and
@@ -289,7 +289,12 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
 - **The way back** on the first line, to the list it came from **as it was
   left** — the same filter, search, sort and page: the list's state is its
   URL, a row's link carries it, and the layout returns to it (a local path
-  only; the list's default when the record was opened from elsewhere). A
+  only). **It names its origin** (block 5, Koen, 3 October 2026): "‹
+  Activiteiten" from the list, "‹ Betaling van Emma Vermeulen" from a jump
+  link on a booking, "‹ Zoekresultaten" from the search, the entity's list
+  name when opened from nowhere; the navigation layer hands `return_to` and
+  its label to the record macro, never the browser's back. 14 px, brand
+  tint, `chevron-left`, a 28 px target on a desktop and 44 on a phone. A
   screen never writes this link itself. [28, 57]
 - **The record header:** the title with its badges on the title line,
   status first; the facts line under it, every reference a jump link; at
@@ -298,12 +303,23 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   the fields it edits. [39, 29, 20]
 - **The summary card** at the right of the content column, `max-w-xs`:
   the state, two or three figures, the main action; on a phone a compact
-  strip above the tabs. [25]
+  strip under the tabs, above the content. **Only on the Gegevens tab**
+  (block 8, Koen, 4 October 2026): a list tab — Personen, Inschrijvingen,
+  Betalingen — has no card and no strip, so the list starts directly under
+  the tabs at the full width; the record's figures are read on Gegevens.
+  [25]
 - **The tabs:** "Gegevens" first, then the related lists in the same order
   on every entity (Inschrijvingen · Betalingen · …), each with its count.
   A related-list tab is the list layout in its **embedded rendering**: no
-  page header, no tiles (the summary carries the figures), one toolbar row,
-  the table; a row there unfolds in place with a jump link to its page.
+  page header, no figures, no summary card, one toolbar row, the table; a
+  row there **unfolds in place, read-only** (the registration: Contact ·
+  Producten · Antwoorden · Betaling side by side, stacked on a phone; the
+  chevron turns, a 3 px line at the left, one open row per list) with a
+  jump link "Inschrijving openen ↗" to its own page — **no Bewerken in the
+  unfolded row**: editing is the record page's (block 8, Koen, 4 October
+  2026). Registrations are **one table with a collapsible group row per
+  component** (chevron, name, count, `⋯` with Exporteren and Antwoorden),
+  per activity on the household with a jump link in the group row (Q41).
   The header, tabs and summary do not move between tabs; only the content
   column is narrow or wide. [19, 27, 29, 26]
 - **Read mode** shows data and navigation, nothing that edits: every
@@ -359,7 +375,10 @@ Renders label, control, help text and error in one block on the grid;
 `required` marks the label; the error sits under the control in
 `brand-danger`, the field's border coloured. `kind` is one of `text`,
 `textarea`, `number`, `email`, `phone`, `date`, `select`, `switch`,
-`segmented`, `checkbox_group`, `radio_group`, `upload`, `url`. **The kind
+`segmented`, `checkbox_group`, `radio_group`, `upload`, `url`, and `slug`
+(a URL name such as `herfstwandeling-met-soep`: half width, no
+auto-capitalisation — distinct from `url`, which is a full address and
+always full width; block 6, 4 Oct 2026). **The kind
 decides the width:** `url`, `email`, `textarea` and rich text are always
 full; `number`, `date`, `time`, a code, a short `select` and `switch` are
 half or quarter; `text` is half unless `long=True`; a template may widen a
@@ -370,7 +389,8 @@ template. [23, 24, 54]
 ### 3.2 `form_grid` and `section(title)`
 
 A section is a heading (`text-base font-semibold`) over a two-column grid
-at reading width; a field spans half by default, `span="full"` for long
+at reading width — **one card per section, never a nested card**, 16 px
+from the heading to the first field (block 6); a field spans half by default, `span="full"` for long
 content, `span="quarter"` for a number or code; one column on a phone.
 Fields that describe one thing share a section; fields share a row only
 when read together (street · number · bus; price · member price; from ·
@@ -393,6 +413,51 @@ empty; the rows are committed with the screen's save, never on their own.
 Instances: contact details, addresses, activity dates, components,
 products, form options, order lines. [1, 50]
 
+**Decided with block 7** (Koen, 4 October 2026, on ChatGPT's brief-07
+answer): a **simple row** has the drag handle (`grip-vertical`, 44 px)
+at the left where the order matters, the fields inline at 768 px (a date:
+**Datum · Van · Einddatum · Tot**, four quarter fields — the end date is
+optional and empty means the same day; ChatGPT's draft forgot it, the
+model has `end_date`; Koen, 4 Oct 2026; an e-mail: the address and its
+tag; an organiser: the name as a jump link). **The labels of a simple row
+stand once**, as a column head above the first row, never repeated per row
+(row 1, the e-mail addresses; Koen again on 4 Oct 2026 when ChatGPT
+repeated Datum · Van · Tot on every date row); on a phone, where the fields
+stack and no head is possible, each field carries its label, `⋯` at the right, 12 px between rows with a thin
+line in that space; on a phone the fields stack under a first line with
+handle and `⋯`. A **composite item** (a component, a product) has **its drag handle in a
+fixed gutter at the left of the whole block, and its title line, its fields
+and the separator line to the next item share one left edge to the right of
+that gutter** — never fields that start left of the handle (ChatGPT's draft
+did; Koen, 4 Oct 2026, Q50); the title line (name, `⋯`), its fields in the
+grid under it, and its child group
+(**Producten**, with its own "+ Product") indented 16 px behind a vertical
+line (12 px on a phone) — no card, no background, no nested box; a product
+row is naam half · prijs kwart · ledenprijs kwart with gratis and ter
+plaatse betalen as switches on the next line; in read mode a product is
+two short lines ("Soep · € 5,00 · leden € 4,00" / "Gratis: nee · Ter
+plaatse betalen: ja"), and the item's name is its heading, not repeated
+as a field; the item's rare settings go to the form's one collapsed slot.
+**Adding** ("+ Datum", "+ Onderdeel", "+ Product", "+ Organisator" at the
+heading's right, edit mode only) inserts an empty row in place with the
+focus on its first field; an organiser is added through a **member search
+inside the group** (type a name, pick a member), never a dialog, never
+free text. **The empty group** says "Nog geen datums." and in edit mode
+keeps only the heading's add button. **The row's `⋯`**: Omhoog · Omlaag ·
+Dupliceren | Verwijderen (red, last); Dupliceren not for members and
+e-mail addresses; a duplicated component takes its products; Omhoog is
+disabled on the first row, Omlaag on the last; while dragging, the origin
+stays as a dotted space, the row gets a brand border and shadow, a brand
+line marks the drop. **Removing a row inside an unsaved form asks no
+confirmation** — Annuleren undoes it; the kit's "definitief verwijderen"
+dialog is for deleting a record, and whether a component with
+registrations may go is the service's answer at Opslaan, shown on the
+row (Koen's correction). **The one-among-many tag** ("hoofdadres", 4 px)
+shows in both modes; another row takes it over through "Maak hoofdadres"
+in its `⋯`; the main row's `⋯` has no Verwijderen. Measured at 1 440 px:
+Onderdelen with two components (one with two products) 719 px read /
+1 380 px edit; a date row 46 / 65 px; an organiser row 44 px.
+
 ### 3.4 `rare_settings(title, summary)` — placed by the layout, last
 
 A collapsed section in the **last slot of the form layout** — after every
@@ -407,8 +472,12 @@ external links, the activity's poster URL. [3, 53]
 
 ### 3.5 Controls
 
-- **`switch`** for a boolean setting; label at the left, "aan"/"uit" for
-  the screen reader; disabled in read mode, showing its state. [8]
+- **`switch`** for a boolean setting — also inside an edit form that applies
+  only on Opslaan (Q13, Koen, 3 Oct 2026); **the knob at the left, the label
+  at its right**, 8 px apart, as a checkbox reads, so two half-width switches
+  on one row never put a knob beside the wrong label (block 6, Koen, 4 Oct
+  2026, reversing "label at the left"); "aan"/"uit" for the screen reader;
+  in read mode it is words ("Enkel leden: ja"), never a disabled control. [8]
 - **`segmented`** for two or three exclusive options (table · cards;
   nu · later). [2]
 - **`checkbox_group`** for several out of a list, and a single checkbox for
@@ -426,9 +495,26 @@ One per screen (or per sub-record with its own lifecycle). Right-aligned:
 "Annuleren" as a text button, "Opslaan" as the primary; "Verwijderen" as a
 red text action at the far left. Labels are the macro's defaults; a custom
 primary label only for a named consequence ("Definitief importeren",
-"Verstuur naar 312 abonnees"). `sm`. Sticky at the bottom on a phone,
-primary full width. Never in a card header, never inside a repeating-group
-row. [22, 46, 50]
+"Verstuur naar 312 abonnees"). `sm`. Never in a card header, never inside
+a repeating-group row. [22, 46, 50]
+
+**Decided with block 9** (Koen, 4 October 2026, on ChatGPT's brief-09
+answer): the bar is 64 px high, as wide as the form column, white with a
+thin top line, under the last section (the collapsed rare settings), 24 px
+below it; **sticky on a desktop too** — 16 px above the window's bottom
+while the form is longer than the window, in the flow at the form's end;
+only in edit mode; in edit mode Verwijderen lives in the bar and not also in
+Acties (in read mode in Acties). On a phone: 121 px at the bottom, Opslaan
+full width on the first line (44 px), Verwijderen left and Annuleren right
+on the second, the content padded by bar height + 24 px. **One save**
+writes the record with its groups (dates, components, products,
+organisers) in one transaction — a card is not a transaction boundary; a
+sub-record with its own lifecycle (a payment, a registration line, a
+membership) saves on its own screen; the household's board-member select
+no longer saves at once but with the household. **Keyboard**: Ctrl/⌘+S
+saves while in edit mode (the browser's save-page is suppressed), Enter in
+a one-line field submits as the browser does, Esc closes the top-most
+dialog or menu only — never the form, so no change is lost by one key.
 
 ### 3.7 `pager(page, size, total)`
 
@@ -487,24 +573,73 @@ menu). First applied to the activity's head (#1387) and the "Kopiëren" of
 #1397, whose place was decided four times before this rule existed. [39,
 51]
 
+**Decided with block 6** (Koen, 4 October 2026): a state of the record is
+never a form field — "Geannuleerd" leaves the activity's form and becomes
+the record action **"Annuleren"** in Acties, next to "Terug naar concept";
+the status badge then says Geannuleerd.
+
+**Decided with block 5** (Koen, 3 October 2026, on ChatGPT's brief-05
+answer): the title line is 36 px on a desktop (title 30 px, badges beside
+it, status first, the others in `ink-soft` on `surface-2`, 4 px radius), the
+facts line 24 px, 8 px between them; a long title stays on one line and
+the badges move to a second line inside the title group (68 px), the two
+controls stay top right; the facts line reads date · time · place ·
+reference, the reference with `arrow-up-right`, an e-mail a real
+`mailto:`; **on a phone the facts keep their full words** — "zondag 1
+november 2026 · 14:00 · Miloheem · Publieke pagina" wraps to a second
+line rather than becoming "1 nov · 14u · Publiek" (Koen refused the
+abbreviations) — and the reference's target is 44 px; on a phone the
+title takes the full width, the badges under it, then Bewerken and Acties
+on a line of their own at the right, unless a short title fits beside
+them ("Quiz"). **"Acties ▾"**: 272 px, anchored right, 8 px under the
+button; the activity's menu is Kopiëren · Terug naar concept | Foto's
+uploaden · Design Studio | Verwijderen (red); the general order of record
+actions is kopiëren, afdrukken, exporteren, versturen, heropenen / terug
+naar concept, only the available ones shown; Escape returns the focus to
+Acties. **Edit mode**: a badge "Bewerken" in the title group after the
+status, the primary button gone, Acties stays; Opslaan and Annuleren live
+in the action bar (block 9), never a second time in the head. **A record
+without tabs** (a page, a user) has no empty tab line: the content follows
+the facts. Measured: the first content line at y = 286 on 1 920 × 1 080
+(318 with a long title and three badges), visible on 390 × 844 with the
+summary strip above it.
+
 ### 3.10 `summary_card(state, figures, action)`
 
-Right column on a desktop (`max-w-xs`, `surface-card`), a strip above the
-tabs on a phone: the state badge, up to three figures with labels, one
-action. [25]
+Right column on a desktop (300 px in the reading group, `surface-card`,
+16 px padding, 12 px between parts), a strip under the tabs on a phone
+(358 px, 12 px padding, badge and action icon on the first line, the
+figures on the second, about 130 px): the state badge first, up to three
+figures (24 px semibold, labels 13 px, tabular amounts, an open balance in
+`warning`), one action (the activity: the public link with its copy
+button, which confirms "Gekopieerd" beside itself). The activity: Gepubliceerd ·
+Inschrijvingen · Deelnemers · Openstaand · the link; the household:
+Lidmaatschap <year> · Personen · Openstaand. Toegang is the head's badge and
+a form field, Inschrijven tot and Bezetting belong to the component. **Only
+on Gegevens**; a list tab has none (block 8, Koen, 4 October 2026). [25]
 
 ### 3.11 `reference(record)` — the jump link
 
 The record's name as a link to its detail, `arrow-up-right` after it,
 `text-blue-500` underlined, the way back preserved. The only way a field
 that *is* another record is rendered; a name in blue always goes to the
-record it names. [20, 30]
+record it names. **Everywhere** (Koen, 4 Oct 2026, Q56): in a record's
+facts line and form (block 5), in an unfolded row (block 8) and **inside a
+list row** — a row's first cell opens the row's own record without an
+arrow, every other record named in the row (the activity under Context,
+the household behind a booking) is its own jump link beside the row link,
+as block 4 drew the Context cell. A person has no page (Q28): a person's
+name goes to the household page with that person's row opened. A name of
+another record rendered as plain text is red (C6). [20, 30]
 
 ### 3.12 `related_tabs(tabs)`
 
 The tab bar of the record page: "Gegevens" first, then the related lists
 with counts, the same order per entity across the portal (defined once per
-entity in Part 5). **Tabs — an underline under the active item — are
+entity in Part 5). Labels 14 px, counts 13 px tabular, the active tab a
+2 px underline in the brand colour, the bar 45 px with its bottom line; no
+border around the group, no filled active tab, no rounded corners (block 5,
+3 October 2026). **Tabs — an underline under the active item — are
 navigation inside a record and nothing else**: they lead from a record to
 its linked objects, the content below switches, the place stays. A tab bar
 never appears in a list's toolbar, and a list's status filter never looks
@@ -529,7 +664,10 @@ shapes of today — Leden's pills, Activiteiten's pills, Betalingen's tabs
 with counts). **Which segments is a choice per list**, written in §5, not
 a formula: a segment is a state the board acts on; a done state gets no
 segment; "Alle" is not mandatory. **A segment carries its count** where
-the state is acted on — "Openstaand 3" — computed with the search and
+the state is acted on — **"Openstaand (3)", the count in brackets, the
+one way a count follows a name anywhere: a segment, a record's tab
+("Inschrijvingen (23)"), a group row ("Wandeling (18)")** (Koen, 4 Oct
+2026) — computed with the search and
 the other filters of that moment, so the count is what the click yields;
 "Alle" carries none (the toolbar's count says n); a zero stays ("nothing
 to do" is information). Decided: Betalingen *Alle | Openstaand n*; Leden
@@ -583,6 +721,72 @@ kent deze gegevens nog niet". The screen owns its selections; the panel
 reads them. The assistant page and the per-screen `AI ·` buttons do not
 exist. [32, 33, 41]
 
+**Decided with block 10** (Koen, 4 October 2026, on ChatGPT's brief-10
+answer, as drawn): the panel is **400 px, docked at the right under the
+top bar to the window's bottom**, on `surface-card` with a thin line; the
+head "Assistent" with the read-aloud toggle and close, the context under
+it in full ("over Herfstwandeling met soep", "over 8 openstaande
+betalingen (filter Openstaand)", "over Raak Millegem" without a record);
+the conversation in the kit's balloons with its own scroll; **three
+suggestions of the screen** as text lines above the question field; the
+field from 44 to 120 px with the microphone and the send button, Enter
+sends, Shift+Enter breaks. **The content moves aside, it is not covered**:
+at 1 920 px the whole reading group fits beside the panel; at 1 440 px
+exactly 768 px remain, the summary becomes the strip above the form and
+the form keeps its width; a list beside the panel at 1 440 px falls back
+to its stacked rows (list width under 900) — accepted, the panel is
+occasional and closing restores the room. **Below 1 440 px** a centred
+dialog of at most 560 × 720 px (the background blocked); **at 390 px** a
+sheet of 560 px from y = 284 with a handle, the title and badges visible
+above it; X or Escape closes and returns the focus; a click beside the
+panel does not close it. **No selectors in the panel**: the screen owns
+them (the newsletter's activities and reports stand on the newsletter
+page). **The newsletter's choices are three, not two** (Koen, 4 October
+2026): *Voorbije activiteiten* (the look back), *Uitgelicht* (the coming
+activities told in detail, at most three, each an activity block with
+poster, description and registration link) and *In de kalender* (the
+coming activities, the next nine by default, **the highlighted ones
+included** — the calendar lists everything once more in a row; one
+calendar block that stands in every letter). The assistant writes a look-back, a piece per
+highlighted activity and adds the calendar as one block — never a detail
+block per calendar activity, which is what today's proposal does and what
+makes the organiser delete six of them. "Activiteit invoegen" and
+"Kalender invoegen" by hand read the same three choices. On the page
+(decided without a drawing, Koen, 4 October 2026): three chip groups with
+their counts in brackets — *Voorbije activiteiten (4)* all ticked by
+default with "+ Toevoegen" for an older one; *Uitgelicht (2 van 3)* where
+"+ Toevoegen" picks from the coming activities and is dimmed at three, ×
+removes the highlight only; *In de kalender (9)* where × removes one and
+"+ Toevoegen" adds a further one; under them the line on the meeting
+reports; the panel's context line says "over Nieuwsbrief oktober · 2
+uitgelicht, 9 in de kalender". On a module the assistant does not know the trigger is dimmed but
+focusable and opens only "Raakje kent deze gegevens nog niet". **A
+proposal for the form**: the fields it touches get a brand line, the brand
+tint and "Voorstel · nog niet toegepast"; the panel says "3 velden
+ingevuld als voorstel" with Toepassen and Negeren; Toepassen writes the
+values into the fields ("Ingevuld door Assistent · nog niet opgeslagen"),
+the one Opslaan of the action bar saves; a proposal carries the field
+names, the values and the version it was based on, and never silently
+overwrites a change made meanwhile; Negeren removes it and keeps the
+user's own changes. **A reviewable proposal** (the newsletter today): a
+proposal whose text carries passages the assistant could not ground
+shows them in the panel marked, each with "klopt, behouden" unticked —
+omitted by default — and Toepassen writes the text with the kept passages
+(the rule of "AI-antwoord: dubbelcheck tegen bronnen"). A proposal may
+fill **any field the screen declares** — on the newsletter: Onderwerp,
+Voorbeeldtekst (a growing field) and Inhoud together — not only the
+body. **Answers**: a figure large in the balloon with its range and source;
+a small table (two columns, a few rows) with a link to the full list
+state ("Bekijk alle 8 betalingen"); loading "Raakje zoekt het voor je
+uit…"; failed "Raakje kon geen antwoord geven — probeer het opnieuw. Je
+vraag staat er nog.", no invented figures. **The public bell**: 56 px at
+the bottom right; at 1 440 px a compact window of 400 × 640 px above it,
+on a phone the same sheet; the tenant's name; headings in Fraunces; three
+public suggestions; one component in the DOM for both shells, the public
+toolset only. Measured: the panel 400 × 1 016 px; remaining content
+1 232 px at 1 920 and 768 px at 1 440; the question field at y = 992
+(desktop) and 760 (phone); no overflow in Firefox and Chromium.
+
 ### 3.16 `rich_text(name, inserts=[…])`
 
 One toolbar for every rich-text field: format groups, lists, link,
@@ -600,15 +804,35 @@ whose label names the consequence; leaving before it changes nothing.
 
 ### 3.18 States — designed, not left to chance
 
-Every layout has these states drawn in the design-system page: a
-**validation error** on save (the bar stays, the banner at the top of the
-form, the first refused field scrolled into view and marked, every typed
-value kept); **saving** (the primary shows a spinner and is disabled, the
-form stays editable-looking but locked); **save failed** (the error banner
-with the reason, P7, nothing lost); **empty** (one sentence and the create
-action, §2.8); **no access** (the page says so and offers the way back);
-**autosave** on a document ("opgeslagen om 21:14", "opslaan…",
-"niet opgeslagen — opnieuw proberen" in the facts line).
+Every layout has these states drawn in the design-system page, decided
+with block 9 (Koen, 4 October 2026): a **validation error** on save — the
+bar stays, a banner at the top of the form ("Opslaan kan nog niet:
+controleer 2 velden.", each error a link to its field, "Je andere
+wijzigingen zijn behouden."; soft danger tint, 3 px accent left, 16 px
+padding), the first refused field scrolled into view and focused with its
+message under it and a coloured border, every typed value kept; **saving**
+— "Opslaan…" with a spinner on the primary, the whole form inert but
+looking the same; **save failed** — "Opslaan is niet gelukt." with the
+reason, nothing lost, no toast, the button Opslaan again; **saved** — the
+record in read mode, the toast "Opgeslagen" with a check on `ink`, 4 s,
+top right under the top bar on a desktop and at the bottom on a phone;
+**cancel with changes** — "Wijzigingen weggooien?" with *Verder bewerken*
+(focused, **filled**) and *Wijzigingen weggooien* (outline); **leaving
+with changes** on a navigation click — "Deze pagina verlaten?" with
+*Blijven* (focused, filled) and *Weggooien* (outline) that performs the
+original click; never a third "Opslaan en verlaten"; the browser's own
+prompt on closing the tab; **delete** — the kit's dialog naming the
+record, Annuleren focused, "Definitief verwijderen" filled red, the
+consequence sentence true to the service (a C1 premise: what a delete
+does with registrations and payments, or whether it is refused); **a state
+command** from Acties or a row (Terug naar concept, Activiteit annuleren,
+Bevestig) — a lighter dialog naming its consequence with a filled brand
+button, then a toast and the changed status badge; **empty** (one sentence
+and the create action); **no access** — a quiet page with one sentence
+and "Terug naar <lijst>", no record data; **autosave** on a document
+("opgeslagen om 21:14", "opslaan…", "niet opgeslagen — opnieuw proberen"
+in the facts line, no action bar; "opgeslagen" only after the server
+confirmed the latest version).
 
 ### 3.19 Buttons — the hierarchy and the words
 
@@ -694,9 +918,9 @@ says so, and the default order is the one named above.
 
 | Screen | Today | End state: header facts · summary card · tabs | Save | Repeating groups · rare section |
 |---|---|---|---|---|
-| Activiteit | hand-built head with six buttons; per-card edit toggles (activity, each date, component, product, organiser); right rail Publicatie / Deel / Bezetting; tabs Overzicht · Inschrijvingen · Betalingen; `<details>` external links | status first, then access badge; facts: dates · time · location · organiser (jump link) · poster from the Design Studio; summary: state, registrations, children or participants, open balance, the share link; tabs Gegevens · Inschrijvingen · Betalingen; primary Bewerken, menu Acties (Kopiëren, Publiceren, Design Studio, Foto's, Verwijderen) | one save (pilot A) | dates (simple), components (composite, with products), organisers (simple); Externe koppelingen last |
+| Activiteit | hand-built head with six buttons; per-card edit toggles (activity, each date, component, product, organiser); right rail Publicatie / Deel / Bezetting; tabs Overzicht · Inschrijvingen · Betalingen; `<details>` external links | status first, then access badge; facts: dates · time · location · organiser (jump link) · poster from the Design Studio; summary: state, registrations, children or participants, open balance, the share link; tabs Gegevens · Inschrijvingen · Betalingen; primary Bewerken, menu Acties (Kopiëren, Publiceren, Design Studio, Foto's, Verwijderen) | one save (pilot A) | **sections decided with block 6 (Koen, 4 Oct 2026)**: *Activiteit* (naam, vriendelijke URL as `slug`, locatie, omschrijving, affiche — the poster is public, not internal) · *Publiek* (doelpubliek, enkel leden — one word for the badge and the field) · *Intern* (interne nota only) · the repeating groups: dates (simple), components (composite, **with their products inside**), organisers (simple, a list of members — no roles: they do not exist); Externe koppelingen last; "Geannuleerd" is not a field but the record action "Annuleren"; the component keeps its select "Extra vragen: <formulier>" — "nu / later" is the registrant's choice (CR-14), not a setting |
 | Inschrijving | page_header with facts; one panel; edit toggle; two action bars (main, answers); tabs Overzicht · Betalingen | contact name; facts: activity (jump link) · component · registered on; summary: state, total, paid, balance; tabs Gegevens · Betalingen | one save (the answers form folds into it) | product lines, answers; none rare |
-| Gezin (household) | head with Verwijderen; person cards with toggles; address card; bestuurslid; lidmaatschappen; tabs Overzicht · Inschrijvingen · Betalingen | household name; facts: address · persons · membership year (badge); summary: membership state, persons, open balance; tabs Gegevens · Personen · Inschrijvingen · Betalingen | one save (pilot B, the admin side) | persons (composite, each with e-mail addresses as a simple group), memberships; none rare |
+| Gezin (household) | head with Verwijderen; person cards with toggles; address card; bestuurslid; lidmaatschappen; tabs Overzicht · Inschrijvingen · Betalingen | household name; facts: address · the household's e-mail (jump link); summary on Gegevens: Lidmaatschap <year> badge, Personen, Openstaand; tabs Gegevens · Personen · Inschrijvingen · Betalingen; **Personen is a table** (Naam · Relatie · Geboortedatum · E-mail · Gsm) whose row unfolds in place to the person's fields and e-mail addresses — a person has no page (Q28); the relation reads **Hoofdlid**, Partner, Kind — never "Contactpersoon" (block 8, Koen, 4 Oct 2026) | one save (pilot B, the admin side) | Gegevens: a section **Adres** (straat · nummer · bus · postcode — the address is the household's, shown in the facts line and edited here), Bestuurslid, then the groups: persons (composite, each with e-mail addresses as a simple group), memberships; none rare |
 | Persoon | **no page**: a card on the household page | stays a card on the household page (Koen, 2 Oct 2026, Q28) | — | e-mail addresses |
 | Formulier | builder with edit toggle per settings, section, field; option rows with bars; JSON import panel; tabs Formulier · Inzendingen · Resultaten | title with status badge; facts: share link (copy) · submissions · last submission; summary: state, submissions, open since; tabs Opbouw · Inzendingen · Resultaten; menu Acties (Bekijk, Afdruk, Definitie exporteren, Definitie importeren…) | **the builder keeps per-section editing** — a declared exception (Koen, 2 Oct 2026, Q28) | sections (composite, with fields), options (simple); JSON import last |
 | Nieuwsbrief | autosave body; audience radios; insert buttons; Raakje panel right; Versturen on its own page; no tabs | **document**: subject as the title, facts: audience · state · last saved; header editor (audience, subject, preview text); body autosaved; primary Versturen…, menu Acties (Voorbeeld, Testmail, Kopiëren, Verwijderen); the Raakje panel docked | autosave + header editor | none; none |
