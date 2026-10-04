@@ -435,7 +435,7 @@ def test_the_screen_round_trips_through_three_tables(db_session, organisatie):
             "legal_form": "VZW",
             # #1517: a number whose check holds; stored as its ten digits.
             "enterprise_number": " 0123.456.749 ",
-            "vat_number": "BE0123456789",
+            "vat_number": "BE 0123.456.749",  # #1545: checked, stored as BE + ten digits
             "email": "bestuur@example.com",
             "phone": "014 00 00 00",
             "website": "https://example.com",
@@ -451,7 +451,7 @@ def test_the_screen_round_trips_through_three_tables(db_session, organisatie):
     uit = organization_details(db_session, organisatie.id)
     assert uit["legal_form"] == "VZW"
     assert uit["enterprise_number"] == "0123456749", "getrimd en in normaalvorm (#1517)"
-    assert uit["vat_number"] == "BE0123456789"
+    assert uit["vat_number"] == "BE0123456749"
     assert uit["email"] == "bestuur@example.com"
     assert uit["payment_iban"] == "BE68 5390 0754 7034", "en getrimd"
     assert uit["payment_bic"] == "GKCCBEBB"

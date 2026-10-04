@@ -1,6 +1,15 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ organisatie.name }} — {{ _("Raak beheer") }}{% endblock %}
+{#- One field of the groups below, with its refusal on it (#1545): the banner
+    above the form is out of view when you press Opslaan at its bottom. -#}
+{% macro veld(key, label, hulp) -%}
+<div>{{ ui.label(label, "org-" ~ key) }}
+  {{ ui.input_control(key, id="org-" ~ key, value=velden[key], cls="w-full",
+                      attrs=ui.field_error_attrs("org-" ~ key, veld_fouten.get(key))) }}
+  {{ ui.field_error("org-" ~ key, veld_fouten.get(key)) }}
+  <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p></div>
+{%- endmacro %}
 {% block content %}
 {{ ui.back_link(_("Alle organisaties"), back_href) }}
 {% call ui.page_header(organisatie.name, organisatie.org_type|code_label("organization_type") ~ " · " ~ organisatie.code) %}
@@ -71,9 +80,7 @@
        onderscheid suggereren dat het model niet maakt. #}
     <div class="space-y-3">
       {% for key, label, hulp in contactgroep %}
-      <div>{{ ui.label(label, "org-" ~ key) }}
-        {{ ui.input_control(key, id="org-" ~ key, value=velden[key], cls="w-full") }}
-        <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p></div>
+      {{ veld(key, label, hulp) }}
       {% endfor %}
     </div>
   </section>
@@ -85,9 +92,7 @@
        databank, dan bewerkt dit de eerste en blijft de tweede ongemoeid. #}
     <div class="space-y-3">
       {% for key, label, hulp in rekeninggroep %}
-      <div>{{ ui.label(label, "org-" ~ key) }}
-        {{ ui.input_control(key, id="org-" ~ key, value=velden[key], cls="w-full") }}
-        <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p></div>
+      {{ veld(key, label, hulp) }}
       {% endfor %}
     </div>
   </section>
@@ -96,9 +101,7 @@
     {{ ui.section_header(_("Nummers")) }}
     <div class="space-y-3">
       {% for key, label, hulp in nummergroep %}
-      <div>{{ ui.label(label, "org-" ~ key) }}
-        {{ ui.input_control(key, id="org-" ~ key, value=velden[key], cls="w-full") }}
-        <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p></div>
+      {{ veld(key, label, hulp) }}
       {% endfor %}
     </div>
   </section>

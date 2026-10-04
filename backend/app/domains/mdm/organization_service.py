@@ -26,6 +26,7 @@ ongemoeid — nooit stilzwijgend overschrijven of verwijderen.
 
 from __future__ import annotations
 
+import re
 from typing import Mapping
 
 from app.domains.mdm.codes import CONTACT
@@ -175,6 +176,9 @@ def _write_organization_details(db, organization_id: int, form: Mapping) -> None
     # a refused number leaves the organisation untouched.
     if (form.get("enterprise_number") or "").strip():
         form = {**form, "enterprise_number": _enterprise_number(form["enterprise_number"])}
+    # #1545: the Belgian VAT number too — BE and the enterprise number.
+    if (form.get("vat_number") or "").strip():
+        form = {**form, "vat_number": _vat_number(form["vat_number"])}
 
     # Eerst weigeren, dan pas schrijven: een afgekeurde opslag mag niet half
     # doorgevoerd zijn. `name` voedt sinds #945 de paginatitel, de afzender van
@@ -253,6 +257,37 @@ def _enterprise_number(text: str) -> str:
             "Een ondernemingsnummer heeft tien cijfers en begint met 0 of 1, bv. 0123.456.749."
         )
     raise OngeldigeInstelling({"enterprise_number": reason})
+
+
+def _vat_number(text: str) -> str:
+    """A Belgian VAT number as `BE` and the ten digits, or a refusal on the field
+    (#1545). A Belgian VAT number is the enterprise number with `BE` in front;
+    written without a country, it is read as Belgian. Another country's number
+    (two other letters in front) is not checked and is stored as typed — its
+    rules are its own country's."""
+    from app.domains.mdm.enterprise_number import (
+        EnterpriseNumber,
+        InvalidEnterpriseNumber,
+        WrongCheckDigits,
+    )
+
+    typed = text.strip()
+    compact = re.sub(r"[\s.\-]", "", typed)
+    if re.match(r"[A-Za-z]{2}", compact) and compact[:2].upper() != "BE":
+        return typed
+    try:
+        return "BE" + EnterpriseNumber.parse(compact).digits
+    except WrongCheckDigits:
+        reason = _(
+            "Het controlegetal klopt niet: een Belgisch btw-nummer is BE en het "
+            "ondernemingsnummer. Kijk het nummer na."
+        )
+    except InvalidEnterpriseNumber:
+        reason = _(
+            "Een Belgisch btw-nummer is BE en tien cijfers, bv. BE 0123.456.749. "
+            "Een buitenlands nummer begint met de code van zijn land."
+        )
+    raise OngeldigeInstelling({"vat_number": reason})
 
 
 def _bewaar_rekening(db, organization_id: int, form: Mapping) -> None:
