@@ -66,6 +66,9 @@ cat > "$TMP/in.css" << 'CSS'
    een externe font-CDN ziet het IP van elke bezoeker — Europe-First/GDPR. woff2
    eerst, ttf als terugval voor oude browsers; font-display:swap zodat tekst
    meteen leesbaar is. */
+/* CR-11 pilot B (#1588): Fraunces, the public site's heading face (§1.6) — one
+   weight (650), the Latin subset, OFL (static/fonts/OFL-Fraunces.txt). */
+@font-face{font-family:"Fraunces";src:url("/static/fonts/Fraunces-latin.woff") format("woff");font-weight:650;font-style:normal;font-display:swap}
 @font-face{font-family:"Inter";src:url("/static/fonts/Inter-Regular.woff2") format("woff2"),url("/static/fonts/Inter-Regular.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Inter";src:url("/static/fonts/Inter-Medium.woff2") format("woff2"),url("/static/fonts/Inter-Medium.ttf") format("truetype");font-weight:500;font-style:normal;font-display:swap}
 @font-face{font-family:"Inter";src:url("/static/fonts/Inter-SemiBold.woff2") format("woff2"),url("/static/fonts/Inter-SemiBold.ttf") format("truetype");font-weight:600;font-style:normal;font-display:swap}
@@ -113,18 +116,39 @@ cat > "$TMP/in.css" << 'CSS'
      nu Cobalt; het per-schil-mechanisme blijft staan voor de dag dat ze weer
      uiteen willen. Die dag kwam met CR-11 block 1 (#1482): the admin shell has
      its own block below, and this one is the site's alone. */
+  /* CR-11 pilot B (#1588): the public site in palette Atelier (decision 01,
+     §1.1): the same brand blue and cool greys as the back office, plus the ONE
+     warm accent `238 193 94` (text `37 44 53`) for the site's one call to
+     action. Tailwind's scales are redefined, so no template changes: blue
+     around the brand, gray as the Atelier neutrals. Radius: controls 6 px,
+     cards 14 px. Headings in Fraunces, everything else Inter (§1.6); the
+     wordmark's face (`font-brand`) is Fraunces too — Radio Canada Big left
+     with the house style.
+     `--c-site-header` is the header's band WITHOUT a tenant colour: what it was
+     before these tokens (36 75 197), so a tenant that set nothing keeps its
+     header (`site_header_color` overrides it as before). */
   body[data-shell="site"]{
-        --c-blue-50:234 240 255;--c-blue-100:220 230 253;--c-blue-200:189 207 250;--c-blue-300:150 175 244;--c-blue-400:100 136 234;--c-blue-500:61 99 218;--c-blue-600:44 83 206;--c-blue-700:36 75 197;--c-blue-800:29 60 158;--c-blue-900:23 46 119;--c-blue-950:15 29 75;
-        --c-brand:36 75 197;--c-brand-ocean:36 75 197;--c-brand-ocean-hover:29 60 158;
-        --c-link:36 75 197;
-        --c-ink:25 38 56;--c-ink-soft:83 97 116;
-        --c-line:210 217 227;--c-ground:244 246 250;--c-surface-2:239 243 250}
-  /* Kopkleur per schil (golf 8-feedbackronde 3, 15 sep 2026): het beheer volgt
-     de Cobalt-mockup — koppen in ink, blauw is voor acties/links/selectie. De
-     publieke schil houdt de merkblauwe koppen tot de golf 10-tokenronde die
-     kant expliciet langsgaat. Templates schrijven text-kop en weten van geen
-     schil. */
-  body[data-shell="site"]{--c-kop:36 75 197}
+        --c-blue-50:230 239 247;--c-blue-100:210 224 236;--c-blue-200:156 184 210;--c-blue-300:118 152 182;--c-blue-400:72 116 154;--c-blue-500:25 95 157;--c-blue-600:31 70 110;--c-blue-700:37 78 115;--c-blue-800:25 57 88;--c-blue-900:20 45 70;--c-blue-950:12 28 45;
+        --c-brand:37 78 115;--c-brand-ocean:37 78 115;--c-brand-ocean-hover:25 57 88;
+        --c-accent:238 193 94;--c-on-accent:37 44 53;
+        --c-site-header:36 75 197;
+        --c-link:37 78 115;--c-kop:33 45 58;
+        --c-ink:33 45 58;--c-ink-soft:83 99 115;
+        --c-line:216 224 230;--c-ground:244 246 248;--c-surface:255 255 255;--c-surface-2:240 243 246;
+        --c-control-line:126 143 158;--c-focus:25 95 157;
+        --c-gray-50:244 246 248;--c-gray-100:240 243 246;--c-gray-200:216 224 230;--c-gray-300:190 201 210;--c-gray-400:126 143 158;--c-gray-500:83 99 115;--c-gray-600:83 99 115;--c-gray-700:50 66 81;--c-gray-800:33 45 58;--c-gray-900:33 45 58;--c-gray-950:20 28 36;
+        --r-lg:6px;--r-xl:10px;--r-2xl:14px;
+        --font-brand:"Fraunces",Georgia,serif}
+  /* The readable aliases are resolved where they are declared (:root), so the
+     shell declares them again — otherwise `var(--brand-ocean)` in the CMS
+     content rules would stay the root's blue (measured: a CMS heading in
+     0 81 164 on the platform home). */
+  body[data-shell="site"]{
+        --brand-ocean:rgb(var(--c-brand-ocean));--primary:rgb(var(--c-brand-ocean));--primary-hover:rgb(var(--c-brand-ocean-hover));--link:rgb(var(--c-link));
+        --ground:rgb(var(--c-ground));--surface:rgb(var(--c-surface));--surface-2:rgb(var(--c-surface-2));
+        --ink:rgb(var(--c-ink));--ink-soft:rgb(var(--c-ink-soft));--line:rgb(var(--c-line))}
+  body[data-shell="site"] :is(h1,h2,h3){font-family:"Fraunces",Georgia,serif;font-weight:650}
+  body[data-shell="site"] .cms-content :is(h1,h2){color:rgb(var(--c-kop))}
   /* ── CR-11 block 1 (#1482): the admin shell in palette Atelier ─────────────
      Decided by Koen on 2 October 2026; the norm is design-system-end-state.md
      §1.1, §1.2, §1.6. The brand blue 37 78 115 carries action and selection, the
@@ -435,6 +459,67 @@ html.nav-rail .admin-sidebar:not(.is-open) .nav-heading{height:8px;padding:0;bor
 html.nav-rail .nav-when-rail{display:inline-flex}
 html.nav-rail .nav-when-wide{display:none}
 .admin-backdrop{position:fixed;inset:0;z-index:40;background:rgb(var(--c-ink)/.32)}
+/* ── The public shell (CR-11 pilot B, P1 — #1588; end state §2.5) ───────────────
+   Block 11 (Koen, 4 October 2026). One container for the header, the content
+   and the footer: 16 px gutters on a phone, 24 from 768 px, 32 from 1 200 px,
+   at most 1 248 px — so the footer no longer sticks out of the content.
+
+   The header is the band in the tenant's colour (`--c-site-header`, or the
+   tenant's own through a style attribute), sticky at y 0: 64 px on a phone
+   (brand and menu button), 112 px from 768 px (brand and account on a row of
+   64, the pages on a row of 48), 80 px from 1 200 px (one row: brand, pages,
+   account). The environment banner stands above it in the document flow and
+   scrolls away.
+
+   The drawer (below 768 px): 360 px, white, OVER the page — nothing moves —
+   with the backdrop under it; the page behind it is inert.
+
+   The footer: white, one row of three columns from 1 200 px (newsletter ·
+   social links · sponsors), two from 768 px, stacked on a phone; under it the
+   legal line. 88 px stay free under the legal line for the bell. On a short
+   page the footer stands at the bottom of the window. */
+.site-container{width:calc(100% - 32px);max-width:1248px;margin-inline:auto}
+/* A short page keeps its footer at the bottom of the window (measured: the
+   company's home at 390 px ended at y 458 with the ground under the footer). */
+body[data-shell="site"]{display:flex;flex-direction:column;min-height:100vh}
+body[data-shell="site"]>main{flex:1 0 auto}
+.site-header{position:sticky;top:0;z-index:40;background:rgb(var(--c-site-header));color:#fff}
+.site-header-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"brand menu";align-items:center;gap:0 16px;height:64px}
+.site-brand{grid-area:brand;display:flex;align-items:center;min-height:44px;min-width:0;color:inherit}
+.site-brand img{height:48px;width:auto;max-width:100%;object-fit:contain}
+.site-menu-button{grid-area:menu}
+.site-pages,.site-account{display:none}
+.site-header a:focus-visible,.site-header button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.site-drawer{position:fixed;inset:0 0 0 auto;z-index:50;display:flex;flex-direction:column;width:360px;max-width:calc(100vw - 24px);height:100dvh;padding:0 16px 24px;overflow-y:auto;background:rgb(var(--c-surface));color:rgb(var(--c-ink));box-shadow:0 12px 40px rgb(var(--c-ink)/.16)}
+.site-drawer-backdrop{position:fixed;inset:0;z-index:45;background:rgb(var(--c-ink)/.32)}
+.site-drawer-row{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:12px;border-radius:6px;font-size:16px;color:rgb(var(--c-ink));text-align:left}
+.site-drawer-row:hover{background:rgb(var(--c-surface-2));text-decoration:none}
+.site-drawer-row[aria-current="page"]{background:rgb(var(--c-blue-50));color:rgb(var(--c-brand));font-weight:600;text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:2px}
+.site-footer{margin-top:48px;background:rgb(var(--c-surface))}
+.site-footer-core{border-top:1px solid rgb(var(--c-line));padding-block:48px 24px}
+.site-footer-core[data-bell]{padding-bottom:88px}
+.site-footer-row{display:grid;grid-template-columns:minmax(0,1fr);gap:32px}
+.site-footer-row h2{font-size:18px;line-height:1.2;margin-bottom:12px;color:rgb(var(--c-ink))}
+.site-legal{margin-top:32px;padding-top:16px;border-top:1px solid rgb(var(--c-line));font-size:14px;line-height:24px;color:rgb(var(--c-ink-soft));overflow-wrap:anywhere}
+.site-legal a{text-decoration:underline;text-underline-offset:4px}
+.site-sponsor{display:flex;align-items:center;justify-content:center;width:144px;height:64px;padding:8px;border:1px solid rgb(var(--c-line));border-radius:6px;background:rgb(var(--c-surface))}
+.site-sponsor img{max-width:100%;max-height:100%;object-fit:contain}
+@media (min-width:768px){
+  .site-container{width:calc(100% - 48px)}
+  .site-header-grid{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:64px 48px;grid-template-areas:"brand account" "pages pages";height:112px}
+  .site-menu-button{display:none}
+  .site-pages{grid-area:pages;display:flex;align-items:center;gap:4px;height:48px;min-width:0}
+  .site-account{grid-area:account;display:flex;align-items:center;gap:8px}
+  .site-footer{margin-top:64px}
+  .site-footer-core{padding-top:64px}
+  .site-footer-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (min-width:1200px){
+  .site-container{width:calc(100% - 64px)}
+  .site-header-grid{grid-template-columns:minmax(0,1fr) auto auto;grid-template-rows:80px;grid-template-areas:"brand pages account";gap:24px;height:80px}
+  .site-pages{height:auto}
+  .site-footer-row{grid-template-columns:1.3fr .8fr 1fr;gap:48px}
+}
 /* ── The Assistent panel (CR-11 pilot A, K8 — #1562; end state §3.15) ──────────
    One component, `_raakje_panel.html`, in two modes.
 

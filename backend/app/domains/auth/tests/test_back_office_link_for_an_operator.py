@@ -12,6 +12,12 @@ second copy of the set in the header would stay behind and turn it red.
 
 Red against master: the operator saw no link, and the widened set reached
 the back office but not the header.
+
+Since #1588 (CR-11 pilot B) the link is no separate yellow "Admin" beside the
+navigation: it is the item `data-account-item="admin"` of the account's one
+list (`_site_account.html`), rendered twice — in the menu behind the first name
+and in the drawer. Who is not admitted has no link to `/admin` on the page at
+all.
 """
 
 from __future__ import annotations
@@ -26,7 +32,27 @@ from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
 
-LINK = re.compile(r'<a href="/admin" hx-boost="false"[^>]*>\s*Admin\s*</a>')
+LINK = re.compile(
+    r'<a href="/admin" hx-boost="false" data-account-item="admin"[^>]*>(?:<svg\b.*?</svg>)?Admin</a>',
+    re.S,
+)
+
+
+def _links(html: str) -> dict[str, int]:
+    """How often the back-office link stands in the menu and in the drawer."""
+    menu = html[html.index("data-account-menu") :]
+    menu = menu[: menu.index("</header>")]
+    drawer = html[html.index("data-drawer-account") :]
+    drawer = drawer[: drawer.index("<main")]
+    found = {"menu": len(LINK.findall(menu)), "drawer": len(LINK.findall(drawer))}
+    assert html.count('href="/admin"') == sum(found.values()), (
+        "a link to the back office stands outside the account's list"
+    )
+    return found
+
+
+SHOWN = {"menu": 1, "drawer": 1}
+ABSENT = {"menu": 0, "drawer": 0}
 
 
 def _user(db, email: str, *roles: str) -> str:
@@ -50,13 +76,13 @@ def _home_as(client, email: str) -> str:
 def test_an_operator_sees_the_back_office_link(client, db_session):
     email = _user(db_session, "operator-1499@example.com", "OPERATOR")
 
-    assert LINK.search(_home_as(client, email)), "an operator has no way into the back office"
+    assert _links(_home_as(client, email)) == SHOWN, "an operator has no way into the back office"
 
 
 def test_an_admin_still_sees_it(client, db_session):
     email = _user(db_session, "admin-1499@example.com", "ADMIN")
 
-    assert LINK.search(_home_as(client, email))
+    assert _links(_home_as(client, email)) == SHOWN
 
 
 def test_a_member_without_a_role_does_not(client, db_session):
@@ -66,18 +92,20 @@ def test_a_member_without_a_role_does_not(client, db_session):
     html = _home_as(client, "lid-1499@example.com")
 
     assert "/leden/gezin" in html, "the member's own link is there, so the header rendered for them"
-    assert not LINK.search(html), "a member without a back-office role sees the back-office link"
+    assert _links(html) == ABSENT, "a member without a back-office role sees the back-office link"
+    assert 'data-account-item="admin"' not in html
+    assert html.count('data-account-item="member"') == 2, "Mijn gezin, in the menu and the drawer"
 
 
 def test_the_link_and_the_guard_read_one_set(client, db_session, monkeypatch):
     """Widen `require_admin_ui`'s set by FINANCE: a FINANCE-only user now
     passes the guard — and the header follows without being told."""
     email = _user(db_session, "finance-1499@example.com", "FINANCE")
-    assert not LINK.search(_home_as(client, email)), "FINANCE alone is not admitted today"
+    assert _links(_home_as(client, email)) == ABSENT, "FINANCE alone is not admitted today"
 
     monkeypatch.setattr(auth_session, "_GENERAL_ADMIN_ROLES", {"ADMIN", "OPERATOR", "FINANCE"})
 
     # A screen behind `require_admin_ui` alone (`/admin/gebruikers` adds a
     # check of its own with a literal copy of the set).
     assert client.get("/admin/design-system").status_code == 200, "the guard reads the widened set"
-    assert LINK.search(_home_as(client, email)), "the header kept its own copy of the set"
+    assert _links(_home_as(client, email)) == SHOWN, "the header kept its own copy of the set"

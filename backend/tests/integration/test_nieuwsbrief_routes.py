@@ -453,18 +453,27 @@ def test_automatisch_bewaren_maakt_het_formulier_niet_onklikbaar(client, db_sess
     assert 'hx-indicator="#nb-bewaard"' in formulier
 
 
-def test_de_nieuwsbrief_staat_alleen_als_link_op_de_homepagina(client, db_session):
+def test_de_nieuwsbrief_staat_alleen_als_link_in_de_voet(client, db_session):
     """Koen, 19 September 2026: the signup block stood under every public page,
-    a sent contact form included. Only the home page links to the newsletter.
+    a sent contact form included. The form lives on `/nieuwsbrief` only.
+
+    #1588 (CR-11 pilot B) moved the call from the home page (`#nb-home-link`)
+    to the footer of every public page: one link, `#nb-voet-link`, in the
+    newsletter column — a link, never the form.
 
     Broken on purpose: the include put back in `site_base.html` → the form is on
-    every page again and the first two assertions fail.
+    every page again and the `nb-voet` assertions fail.
     """
     home = client.get("/").text
-    assert 'id="nb-home-link"' in home
-    assert 'id="nb-voet"' not in home, "geen inschrijfformulier in de voet"
-    for pad in ("/activiteiten", "/lid-worden", "/berichten"):
-        assert 'id="nb-voet"' not in client.get(pad).text, pad
+    assert 'id="nb-home-link"' not in home, "the call left the home page (#1588)"
+    for pad in ("/", "/activiteiten", "/lid-worden", "/berichten"):
+        html = client.get(pad).text
+        assert 'id="nb-voet"' not in html, f"geen inschrijfformulier in de voet: {pad}"
+        footer = html[html.index("<footer") : html.index("</footer>")]
+        column = footer[footer.index("data-footer-newsletter") : footer.index("</section>")]
+        assert column.count('id="nb-voet-link" href="/nieuwsbrief"') == 1, pad
+        assert html.count('id="nb-voet-link"') == 1, pad
+        assert "<form" not in footer and 'name="email"' not in footer, pad
 
     pagina = client.get("/nieuwsbrief").text
     assert pagina.count('name="email"') == 1

@@ -11,6 +11,12 @@ chosen from the active accounts, logged the same way; the platform landing of
 
 Red against master: the editor showed the kind as text and ignored a posted
 `kind`, so the BEDRIJF stayed a BEDRIJF and its header kept its name.
+
+Since #1588 (CR-11 pilot B, decision 11: no typed wordmark) the header shows
+the tenant's name for an association too, so it no longer tells the two kinds
+apart. What the public site still says differently per kind is the heading of
+the sponsor column in the footer — "Partners" for a company, "Met steun van"
+for an association — and that is what the first test reads now.
 """
 
 from __future__ import annotations
@@ -29,23 +35,50 @@ from app.domains.mdm.api import (
     create_tenant,
     enabled_modules,
 )
+from app.domains.media.api import MediaAsset, MediaKind
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
 
 pytestmark = pytest.mark.ui_serverrendered
 
 COMPANY = {"cms", "media", "forms", "workflow"}
-# The association's wordmark without a logo (#1496), as test_company_wordmark reads it.
+# The typed RaaK wordmark of before #1588, as test_company_wordmark reads it: gone.
 RAAK = re.compile(r'aria-label="Raak">R<span class="text-\[1\.3em\]">aa</span>K</span>')
 
 
-def _home_header(client) -> str:
+def _home(client) -> str:
     # #1535: the test runs on the platform host; Raak Millegem is reached by its prefix.
     html = client.get("/raakmillegem/").text
     # The prefix sets the workspace cookie (#889), which would win on the platform
     # host for the next request; this test goes on as the operator on the platform.
     client.cookies.delete("raak_tenant")
+    return html
+
+
+def _home_header(html: str) -> str:
     start = html.index("<header")
     return html[start : html.index("</header>", start)]
+
+
+def _sponsor_heading(html: str) -> str:
+    """The heading of the footer's sponsor column — the words follow the kind."""
+    column = html[html.index("data-footer-sponsors") :]
+    return re.search(r"<h2>([^<]*)</h2>", column).group(1)
+
+
+def _footer_sponsor(db) -> None:
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+    asset = MediaAsset(
+        kind=MediaKind.SPONSOR,
+        data=png,
+        content_type="image/png",
+        byte_size=len(png),
+        title="sponsor",
+        sort_order=0,
+        is_active=True,
+        show_in_footer=True,
+    )
+    asset.tenant_id = TENANT_MILLEGEM_ID
+    db.add(asset)
 
 
 def _login(client, db, email: str, role: str) -> str:
@@ -78,9 +111,12 @@ def test_an_operator_makes_a_company_an_association(client, platform_workspace, 
     org = db_session.get(Organization, TENANT_MILLEGEM_ID)
     org.kind = TenantKind.COMPANY
     org.name = "Bakkerij Soort"
+    _footer_sponsor(db_session)
     db_session.commit()
     modules_before = enabled_modules(org.id, db=db_session)
-    assert 'aria-label="Bakkerij Soort"' in _home_header(client), "a company shows its name"
+    before = _home(client)
+    assert 'aria-label="Bakkerij Soort"' in _home_header(before), "a company shows its name"
+    assert _sponsor_heading(before) == "Partners", "a company has partners"
     csrf = _login(client, db_session, "operator-1533@example.com", "OPERATOR")
 
     editor = client.get(f"/admin/tenants/{org.id}").text
@@ -108,8 +144,12 @@ def test_an_operator_makes_a_company_an_association(client, platform_workspace, 
     ]
 
     client.cookies.clear()
-    header = _home_header(client)
-    assert RAAK.search(header) and 'aria-label="Bakkerij Soort"' not in header
+    after = _home(client)
+    assert _sponsor_heading(after) == "Met steun van", "the public site follows the new kind"
+    header = _home_header(after)
+    # #1588: an association shows its name as well; the typed wordmark is gone.
+    assert 'aria-label="Bakkerij Soort">Bakkerij Soort</span>' in header
+    assert not RAAK.search(header)
 
 
 def test_platform_is_never_chosen_and_the_platforms_kind_is_fixed(

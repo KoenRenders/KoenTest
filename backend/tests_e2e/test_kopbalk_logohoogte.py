@@ -1,28 +1,20 @@
-"""E2E: de kopbalk ruilt padding in voor logohoogte (#1156).
+"""E2E: the public header's band and the logo in it (#1156, #1588).
 
-Koen vroeg tijdens zijn HDEV-ronde hoeveel groter het logo kon zonder de balk
-hoger te maken. Een deel van de kleinheid zat in het bestand (dat snijdt hij zelf
-bij), een deel in de balk: de padding nam ruimte die het logo niet kreeg.
+#1156 traded the band's padding for logo height. CR-11 pilot B (#1588, decision
+11) fixed the band itself: 64 px on a phone, 80 px at 1 440 (112 at 768, in two
+rows — `test_public_shell.py`), and the logo one image of 48 px at every width.
+What #1156 asked still holds and is measured here in a browser, because this is
+layout:
 
-**Dit is opmaak, dus het bewijs is een meting in een browser.** Hier staan de
-hoogtes die de browser écht rendert, niet de klassen die ze zouden moeten
-opleveren — een test op `py-2` staat ook groen als de balk intussen door iets
-anders hoger wordt.
+- the band has its height WITH a logo, and the same height WITHOUT one — a logo
+  never makes the header taller;
+- the logo is 48 px high and fits the lowest band with air above and under it;
+  on a phone that is still more than the 40 px it had before #1156;
+- the menu button keeps its 44 px (#804).
 
-De vier waarden hieronder zijn gemeten op 21 september 2026, vóór de wijziging,
-op deze pagina met een logo in de media:
-
-    breed (1440)  balk 80 px, logo 48 px
-    telefoon (390) balk 76 px, logo 40 px, menuknop 44 px
-
-Dat de balk even hoog blijft, is de eis. Maar die eis slaagt óók als er niets
-gebeurt — daarom staat er een aparte test op dát het logo gegroeid is, met de
-oude hoogtes als ondergrens.
-
-Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
-`--lucht` terug op 16px → het logo zakt naar 48/40 en `test_het_logo_is_groter`
-valt om op beide breedtes; `min-w-11 min-h-11` van de menuknop vervangen door de
-padding-variabele → `test_het_aanraakvlak_blijft` valt om op 16 px.
+Proven red (measured, on this branch): the logo's CSS height set to 72 px → the
+logo test fails (it no longer fits the band, whose height is the grid's); the
+menu button's `w-11 h-11` removed → the touch-target test fails.
 """
 
 import os
@@ -38,11 +30,12 @@ from tests_e2e.schermen import BASE, pagina_klaar  # noqa: E402
 BREED = {"width": 1440, "height": 900}
 TELEFOON = {"width": 390, "height": 844}
 
-# Gemeten vóór de wijziging. De balk mag niet veranderen; het logo moet erboven.
-BALK = {"breed": 80.0, "telefoon": 76.0}
-OUD_LOGO = {"breed": 48.0, "telefoon": 40.0}
+# The band's heights (#1588) and the logo's one height.
+BALK = {"breed": 80.0, "telefoon": 64.0}
+LOGO = 48.0
+# What a phone showed before #1156: the logo may never fall back to it.
+OUD_LOGO_TELEFOON = 40.0
 AANRAAKVLAK = 44.0  # #804: de ondergrens voor een vinger
-BALK_ZONDER_LOGO = {"breed": 71.0, "telefoon": 76.0}
 
 
 def _logo_bytes() -> bytes:
@@ -107,13 +100,13 @@ def _kopbalk(page, viewport):
     page.set_viewport_size(viewport)
     page.goto("/")
     pagina_klaar(page)
-    rij = page.locator("header nav > div").first
+    rij = page.locator("header.site-header").first
     expect(rij, "de kopbalk staat er niet").to_be_visible()
     return rij.bounding_box()
 
 
 def test_de_balk_blijft_even_hoog(page, logo_in_de_kopbalk):
-    """De eis uit het issue: op beide breedtes exact de hoogte van vandaag."""
+    """With a logo the band has exactly its height, at both widths."""
     for naam, viewport in (("breed", BREED), ("telefoon", TELEFOON)):
         hoogte = _kopbalk(page, viewport)["height"]
         assert abs(hoogte - BALK[naam]) <= 1, (
@@ -123,28 +116,21 @@ def test_de_balk_blijft_even_hoog(page, logo_in_de_kopbalk):
 
 
 def test_het_logo_is_groter(page, logo_in_de_kopbalk):
-    """Zonder deze test slaagt de vorige ook als er niets gebeurt.
-
-    De balk even hoog laten is immers gratis: dat is de toestand van vandaag.
-    Wat bewezen moet worden is de rúil — het logo krijgt de ruimte die de
-    padding afstaat.
-    """
+    """The band keeping its height is free when nothing shows a logo: this is
+    the proof that the logo is there, at its one height, and fits the band."""
     for naam, viewport in (("breed", BREED), ("telefoon", TELEFOON)):
         balk = _kopbalk(page, viewport)
         logo = page.locator("header img").first
         expect(logo, "de kopbalk toont geen logo; dan meet deze test niets").to_be_visible()
-        hoogte = logo.bounding_box()["height"]
+        vak = logo.bounding_box()
 
-        assert hoogte > OUD_LOGO[naam], (
-            f"het logo is op {naam} niet gegroeid: {hoogte:.0f}px, was "
-            f"{OUD_LOGO[naam]:.0f}px (#1156)"
-        )
-        # En het is de balk die de ruimte geeft: wat overblijft na de padding
-        # boven en onder. Gemeten 64px breed en 60px op een telefoon.
-        assert abs(hoogte - (balk["height"] - 16)) <= 1, (
-            f"het logo ({hoogte:.0f}px) vult de balk ({balk['height']:.0f}px) niet "
-            "tot op de padding na; dan is de hoogte niet meer afgeleid"
-        )
+        assert abs(vak["height"] - LOGO) <= 1, f"het logo is op {naam} {vak['height']:.0f}px"
+        # Inside the band, with at least 8 px above and under it.
+        assert (
+            vak["y"] - balk["y"] >= 7
+            and (balk["y"] + balk["height"]) - (vak["y"] + vak["height"]) >= 7
+        ), f"het logo ({vak}) past niet in de balk ({balk}) op {naam}"
+    assert LOGO > OUD_LOGO_TELEFOON
 
 
 def test_het_aanraakvlak_van_de_menuknop_blijft(page, logo_in_de_kopbalk):
@@ -154,7 +140,7 @@ def test_het_aanraakvlak_van_de_menuknop_blijft(page, logo_in_de_kopbalk):
     wordt mag haar niet meenemen.
     """
     _kopbalk(page, TELEFOON)
-    knop = page.locator("header button[aria-label]").first
+    knop = page.locator("header [data-menu-button]").first
     expect(knop, "de menuknop staat er niet op telefoonbreedte").to_be_visible()
 
     vlak = knop.bounding_box()
@@ -169,14 +155,12 @@ def test_het_aanraakvlak_van_de_menuknop_blijft(page, logo_in_de_kopbalk):
 
 
 def test_zonder_logo_blijft_de_kopbalk_zoals_ze_was(page, logo_in_de_kopbalk):
-    """De woordmerk-tak valt buiten dit issue en mag dus niet verschuiven.
+    """Without a logo the header shows the tenant's name, and the band is the
+    same height as with one (#1588: the band's height is the grid's, not the
+    content's).
 
-    De padding draagt beide takken. Gemeten zonder logo: 71px breed (woordmerk 39
-    + 2 × 16) en 76px op een telefoon (menuknop 44 + 2 × 16). Zou de padding daar
-    mee krimpen, dan zakte die balk naar 55px.
-
-    Het logo gaat hier even weg en komt daarna terug, zodat de rest van dit
-    bestand blijft meten wat het denkt te meten.
+    The logo leaves for a moment and comes back, so the rest of this file keeps
+    measuring what it thinks it measures.
     """
     from app.database import SessionLocal
     from app.domains.media.api import MediaAsset
@@ -197,10 +181,9 @@ def test_zonder_logo_blijft_de_kopbalk_zoals_ze_was(page, logo_in_de_kopbalk):
         for naam, viewport in (("breed", BREED), ("telefoon", TELEFOON)):
             balk = _kopbalk(page, viewport)
             assert page.locator("header img").count() == 0, "er staat toch een logo"
-            assert abs(balk["height"] - BALK_ZONDER_LOGO[naam]) <= 1, (
-                f"de woordmerk-balk is op {naam} {balk['height']:.0f}px geworden in "
-                f"plaats van {BALK_ZONDER_LOGO[naam]:.0f}px; die tak hoort niet mee "
-                "te veranderen (#1156)"
+            assert abs(balk["height"] - BALK[naam]) <= 1, (
+                f"zonder logo is de balk op {naam} {balk['height']:.0f}px in plaats van "
+                f"{BALK[naam]:.0f}px"
             )
     finally:
         db = SessionLocal()

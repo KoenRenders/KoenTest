@@ -13,10 +13,17 @@ Broken to see them red (measured):
   the colour test too (`#005D29` is then stored as typed);
 - `tenant_site_header_color` returning the raw setting → the read-side test
   fails with the injected text on the home page;
-- the `style` removed from the <nav> in `site_base.html` → the colour test fails.
+- the `style` removed from the <header> in `site_base.html` → the colour test fails.
+
+Since #1588 (CR-11 pilot B) the band is `<header class="site-header">`: without a
+setting it carries NO style attribute and its colour is the CSS token
+`--c-site-header`; with one the style stands on the <header> — which has no id
+and is never an out-of-band target, so htmx' settle cannot reset it. The drawer
+is white and stands outside the band.
 """
 
 import re
+from pathlib import Path
 
 import pytest
 
@@ -31,7 +38,8 @@ from app.kernel.tenant_config import (
 
 pytestmark = pytest.mark.ui_serverrendered
 
-KAAL_NAV = '<nav class="bg-blue-700 text-white shadow-md" x-data="{ open: false }">'
+BARE_HEADER = '<header class="site-header" :inert="menu">'
+BUILD_CSS = Path(__file__).resolve().parents[2] / "scripts" / "build-css.sh"
 
 
 def _operator(client, db_session, email="op-kopkleur@example.com"):
@@ -59,31 +67,49 @@ def _opgeslagen(db_session):
     return get_setting(db_session, SITE_HEADER_COLOR_KEY, tenant_id=DEFAULT_TENANT_ID)
 
 
-def _nav(html: str) -> str:
-    """The public header, from <nav> to </nav> — the mobile menu included."""
-    m = re.search(r"<nav\b.*?</nav>", html, re.S)
-    assert m, "no <nav> in the page"
+def _header(html: str) -> str:
+    """The public header, from <header> to </header>."""
+    m = re.search(r"<header\b.*?</header>", html, re.S)
+    assert m, "no <header> in the page"
     return m.group(0)
 
 
-def test_without_a_setting_the_header_is_exactly_as_today(client):
+def test_without_a_setting_the_header_takes_the_shell_colour(client):
+    """No style attribute, and the band's colour is the token `--c-site-header`."""
     html = client.get("/").text
-    assert KAAL_NAV in html
+    assert BARE_HEADER in html
+    assert "background-color:" not in _header(html)
+
+    css = BUILD_CSS.read_text()
+    assert len(re.findall(r"--c-site-header:36 75 197;", css)) == 1, "the token's one value"
+    (rule,) = re.findall(r"(?m)^\.site-header\{([^}]*)\}", css)
+    assert "background:rgb(var(--c-site-header))" in rule.split(";")
+    assert "color:#fff" in rule.split(";"), "the text on the band is white"
 
 
-def test_a_colour_covers_the_header_and_its_mobile_menu(client, db_session):
+def test_a_colour_covers_the_header_band(client, db_session):
+    """The style stands on the <header>; the links and the account sit inside it.
+
+    Until #1588 it stood on the <nav>, which also held the mobile menu. The
+    drawer is white now and stands outside the band, and neither element with
+    an id (the out-of-band targets) carries the colour.
+    """
     csrf = _operator(client, db_session)
     resp = _opslaan(client, csrf, "#005D29")
     assert resp.status_code == 200, resp.text[:300]
     assert _opgeslagen(db_session) == "#005d29"
 
     client.cookies.clear()
-    nav = _nav(client.get("/").text)
-    assert nav.startswith(
-        '<nav class="bg-blue-700 text-white shadow-md" style="background-color: #005d29"'
+    html = client.get("/").text
+    header = _header(html)
+    assert header.startswith(
+        '<header class="site-header" style="background-color: #005d29" :inert="menu">'
     )
-    assert 'id="site-nav-mobiel"' in nav, "the mobile menu sits inside the coloured nav"
-    assert 'id="site-nav-breed"' in nav
+    assert html.count("#005d29") == 1, "the colour stands once, on the band"
+    assert '<nav id="site-nav-breed" class="site-pages"' in header
+    assert "data-site-account" in header and "data-site-brand" in header
+    assert 'id="site-nav-mobiel"' not in header, "the drawer is not part of the band"
+    assert 'id="site-nav-mobiel"' in html
 
 
 def test_an_empty_value_goes_back_to_the_shell_colour(client, db_session):
@@ -92,7 +118,7 @@ def test_an_empty_value_goes_back_to_the_shell_colour(client, db_session):
     _opslaan(client, csrf, "")
     assert _opgeslagen(db_session) is None
     client.cookies.clear()
-    assert KAAL_NAV in client.get("/").text
+    assert BARE_HEADER in client.get("/").text
 
 
 @pytest.mark.parametrize(
@@ -142,7 +168,7 @@ def test_a_bad_value_that_reached_the_table_another_way_never_reaches_a_page(cli
     db_session.flush()
 
     html = client.get("/").text
-    assert KAAL_NAV in html
+    assert BARE_HEADER in html
     assert "url(x)" not in html
 
 

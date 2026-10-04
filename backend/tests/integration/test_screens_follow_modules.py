@@ -91,7 +91,10 @@ def _tiles(html: str) -> set[str]:
 def test_an_association_renders_as_before(client, db_session, modules):
     home = client.get("/").text
     assert 'lid-worden"' in home and "per gezin" in home and "Activiteiten</h2>" in home
-    assert "Contacteer ons" in home and 'id="nb-home-link"' in home
+    # #1588: the newsletter call left the home page for the footer of every
+    # public page (`#nb-voet-link`).
+    assert "Contacteer ons" in home and 'id="nb-voet-link"' in home
+    assert "data-footer-newsletter" in home and 'id="nb-home-link"' not in home
     assert _sitemap(client) == SITEMAP_BEFORE
     _admin(client)
     assert _tiles(client.get("/admin").text) == set(TILES)
@@ -118,7 +121,8 @@ def test_a_company_home_page_has_no_fee_no_cards_and_no_newsletter(client, modul
     assert 'lid-worden"' not in home and "per gezin" not in home
     assert "Activiteiten</h2>" not in home
     assert "Contacteer ons" in home, "forms is on"
-    assert 'id="nb-home-link"' not in home, "the newsletter module is off"
+    assert 'id="nb-voet-link"' not in home, "the newsletter module is off"
+    assert "data-footer-newsletter" not in home, "and its footer column goes with it"
 
 
 def test_the_chat_bubble_needs_the_chatbot_module(db_session, monkeypatch, modules):

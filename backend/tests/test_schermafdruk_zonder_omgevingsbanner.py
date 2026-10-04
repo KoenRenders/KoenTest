@@ -75,16 +75,27 @@ def test_zonder_de_vlag_staat_de_balk_er_nog_in_de_beheerschil(client, db_sessio
     assert BANNER in _beheer(client, db_session)
 
 
-def test_de_inhoud_schuift_mee_omhoog_als_de_balk_wegvalt(client):
-    """Zonder balk hoort de header weer op `top-0` te beginnen (#610).
+def test_the_header_is_the_same_with_and_without_the_banner(client):
+    """Without the banner no gap of 24 px (`h-6`) may stay above the header (#610).
 
-    Anders staat er een gat van 24px (`h-6`) waar de inhoud onder de header door
-    scrolt — zichtbaar op elke afdruk, en dan is de balk vervangen door een streep
-    niets.
+    Since #1588 the banner stands in the document flow on the public shell and
+    the header sticks at y 0 through `.site-header`, so nothing has to move: the
+    header's opening tag is the same on a screenshot and on the screen, and no
+    offset for the banner's height exists in either.
     """
-    html = _publiek(client, VLAG)
-    assert "sticky top-0 z-40" in html, "de header begint niet bovenaan"
-    assert "top-6" not in html, "de offset voor de bannerhoogte staat er nog"
+    import re
+
+    def header_tag(html: str) -> str:
+        found = re.search(r"<header\b[^>]*>", html)
+        assert found, "the header was not found"
+        return found.group(0)
+
+    opname = _publiek(client, VLAG)
+    scherm = _publiek(client)
+    assert "data-env-banner" not in opname and "data-env-banner" in scherm
+    assert header_tag(opname) == header_tag(scherm) == '<header class="site-header" :inert="menu">'
+    for html in (opname, scherm):
+        assert "top-6" not in html, "de offset voor de bannerhoogte staat er nog"
 
 
 @pytest.mark.parametrize("omgeving", ["hdev", "uat"])

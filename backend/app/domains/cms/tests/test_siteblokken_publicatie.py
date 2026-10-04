@@ -15,6 +15,12 @@ zonder `show_in_nav` uit te zetten levert een menu-item **"site-footer"** in de
 publieke navigatie op. Op PROD stond die vlag namelijk op true; dat viel nooit op,
 want de navigatie eist `is_published AND show_in_nav`.
 
+**Since #1588 (CR-11 pilot B) the public shell no longer renders `site-footer`
+at all**: the organisation's details stand in the footer's legal line, from the
+entity, and the block stays as data. The pair below therefore holds for
+`home-intro` only; for the footer both halves now say "not on the site", and
+the second one also holds that the block's row is kept.
+
 Kapotgemaakt om te controleren dat deze tests rood kunnen worden (lokaal):
   * `get_published_page` in `site_context` terug op een eigen query zonder de
     publicatievlag → de footertest valt om;
@@ -65,13 +71,21 @@ def test_een_niet_gepubliceerde_footer_staat_niet_op_de_site(client, db_session)
     assert FOOTERTEKST not in resp.text
 
 
-def test_een_gepubliceerde_footer_staat_er_wel(client, db_session):
-    """De tegenhanger. Zonder haar zou "footer voorgoed weg" ook groen staan."""
-    _blok(db_session, "site-footer", FOOTERTEKST, gepubliceerd=True)
+def test_a_published_footer_block_is_not_rendered_either(client, db_session):
+    """#1588: the free block `site-footer` is no longer rendered, published or
+    not — the footer shows the organisation's details from one source. Nothing
+    is deleted: the block stays as data, readable in the back office.
+    """
+    rijen = _blok(db_session, "site-footer", FOOTERTEKST, gepubliceerd=True)
 
     resp = client.get("/")
 
-    assert FOOTERTEKST in resp.text
+    assert resp.status_code == 200
+    assert "data-footer-line" in resp.text, "the footer itself rendered"
+    assert FOOTERTEKST not in resp.text, "the free footer block is rendered again"
+    db_session.expire_all()
+    kept = db_session.query(CmsPage).filter(CmsPage.slug == "site-footer").all()
+    assert len(kept) == len(rijen) and all(FOOTERTEKST in p.content for p in kept)
 
 
 # ── De home-intro ────────────────────────────────────────────────────────────
@@ -103,11 +117,17 @@ def test_een_gepubliceerde_footer_hoort_niet_in_het_menu(client, db_session):
     je hem zonder het tweede, dan verschijnt er een menu-item "site-footer" — het ene
     gerepareerd, het andere gebroken.
     """
+    # The slug alone says nothing since #1588: `site-footer` is also the CSS
+    # class of the <footer>. What counts is the LINK to the block's page.
+    link = 'href="/site-footer"'
+    _blok(db_session, "site-footer", FOOTERTEKST, gepubliceerd=True, in_nav=True)
+    assert link in client.get("/").text, "the counter-proof: with the flag on it is a menu item"
+
     _blok(db_session, "site-footer", FOOTERTEKST, gepubliceerd=True, in_nav=False)
 
     resp = client.get("/")
 
-    assert "site-footer" not in resp.text, "de footer staat als menu-item in de publieke navigatie"
+    assert link not in resp.text, "de footer staat als menu-item in de publieke navigatie"
 
 
 def test_de_migratie_publiceert_de_twee_blokken_en_haalt_de_footer_uit_het_menu(db_session):

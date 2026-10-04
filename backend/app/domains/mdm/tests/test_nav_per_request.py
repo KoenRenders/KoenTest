@@ -50,8 +50,17 @@ def modules_of(monkeypatch):
 
 
 def _hrefs(html: str, nav_id: str) -> list[str]:
-    # Closed on its own tag: the admin menus are <nav>s with <div>s inside, the
-    # public ones <div>s with only links inside.
+    if nav_id == "site-nav-mobiel":
+        # #1588: the drawer is a dialog with more than links in it. Its page
+        # links are the <nav> inside, above the divider of the account.
+        start = html.find('<div id="site-nav-mobiel"')
+        assert start >= 0, "no #site-nav-mobiel on the page"
+        pages = html[start : html.index("data-drawer-account", start)]
+        block = re.search(r"<nav\b.*?</nav>", pages, re.S)
+        assert block, "the drawer has no navigation"
+        return re.findall(r'href="([^"#]+)"', block.group(0))
+    # Closed on its own tag: the admin menus and the public header's row are
+    # <nav>s (the admin ones with <div>s inside).
     block = re.search(rf'<(nav|div) id="{nav_id}".*?</\1>', html, re.S)
     assert block, f"no #{nav_id} on the page"
     return re.findall(r'href="([^"#]+)"', block.group(0))

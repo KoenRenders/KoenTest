@@ -520,17 +520,23 @@ SITE_BASE = APP / "ui" / "templates" / "site_base.html"
 PUBLIEKE_FORMULIEREN = ("formulier.html",)
 
 
-def test_woordmerk_schaalt_op_de_fontmetriek():
-    """De "aa" hoort exact op kapitaalhoogte te staan.
+def test_the_public_header_has_no_typed_wordmark():
+    """Without a logo the header shows the tenant's NAME, never a typed wordmark.
 
-    Radio Canada Big: capHeight 690, xHeight 530 op 1000 units per em → 690/530 = 1.30.
-    Met 1.4 stond de "aa" 7,5 % te hoog (#625). Deze regel legt de waarde vast; wijzigt
-    het display-font, dan herbereken je de factor en pas je deze test mee aan — dat is
-    het moment waarop je erover hoort na te denken.
+    Until #1588 this rule pinned the scale of the enlarged "aa" in the typed
+    RaaK wordmark (1.3em = capHeight/xHeight of Radio Canada Big, #625). CR-11
+    decision 11 removed the typed wordmark — the display face is Fraunces now and
+    the logo carries the brand — so what is guarded is that no font-metric
+    construction comes back, and that both no-logo branches render the name.
     """
-    inhoud = SITE_BASE.read_text()
-    assert "text-[1.3em]" in inhoud, "de aa-schaal hoort 1.3em te zijn (capHeight/xHeight)"
-    assert "text-[1.4em]" not in inhoud
+    inhoud = _zonder_commentaar(SITE_BASE)
+    for rest in (">aa</span>", "text-[1.3em]", "text-[1.4em]", 'aria-label="Raak"'):
+        assert rest not in inhoud, f"the typed wordmark is back in the public shell: {rest}"
+    merk = inhoud[inhoud.index("data-site-brand") :]
+    merk = merk[: merk.index("</a>")]
+    for naam in ("site_wordmark", "site_name"):
+        assert f'aria-label="{{{{ {naam} }}}}">{{{{ {naam} }}}}</span>' in merk, naam
+    assert merk.count('<span class="font-brand ') == 2, "the name stands in the display face"
 
 
 def _sociale_iconen() -> list[str]:
@@ -542,9 +548,11 @@ def _sociale_iconen() -> list[str]:
     ]
 
 
-def test_sociale_footer_iconen_zijn_32px():
-    """v1.14 had w-8; in v2.0 stonden ze op w-6 en werd Instagram onleesbaar — dat
-    glyph heeft de meeste interne detaillering en loopt op 24px dicht (#626).
+def test_social_footer_icons_are_24px_in_44px_targets():
+    """#1588 (CR-11 pilot B, end state §2.5): icons of 24 px (`w-6 h-6`), each in
+    a touch target of 44 px (`w-11 h-11`). Until then they were 32 px (`w-8`,
+    #626) without a target of their own; the glyph keeps its cropped viewBox, so
+    Instagram fills its box at 24 px as well (#744, the test below).
 
     **Gelijke klassen zijn niet genoeg, en deze regel dekt dat ook niet af.** Ze
     bewaakt even grote VAKJES; het oog telt inkt. Bij #744 stonden alle drie netjes
@@ -558,8 +566,17 @@ def test_sociale_footer_iconen_zijn_32px():
     """
     sociale = _sociale_iconen()
     assert len(sociale) >= 3, "de drie sociale iconen zijn niet gevonden"
-    fouten = [r.strip()[:70] for r in sociale if "w-8 h-8" not in r]
-    assert not fouten, "footer-iconen horen w-8 h-8 te zijn:\n  " + "\n  ".join(fouten)
+    fouten = [r.strip()[:70] for r in sociale if 'class="w-6 h-6"' not in r]
+    assert not fouten, "footer-iconen horen w-6 h-6 te zijn:\n  " + "\n  ".join(fouten)
+
+    inhoud = _zonder_commentaar(SITE_BASE)
+    kolom = inhoud[inhoud.index("data-footer-social") :]
+    kolom = kolom[: kolom.index("</section>")]
+    links = re.findall(r"<a\b[^>]*>", kolom, re.S)
+    assert len(links) == 1, "one link per network, rendered in the loop"
+    klassen = re.search(r'class="([^"]*)"', links[0]).group(1).split()
+    assert "w-11" in klassen and "h-11" in klassen, "the icon's target is not 44 px"
+    assert 'aria-label="{{ link.label }}"' in links[0]
 
 
 def test_de_bijgesneden_viewboxen_blijven_staan():

@@ -23,6 +23,7 @@ door een dubbel, zodat er geen SMTP aan te pas komt.
 """
 
 import base64
+import re
 from datetime import date, time
 
 import pytest
@@ -809,13 +810,21 @@ def test_het_logo_verschijnt_ook_in_de_publieke_header(client, db_session):
     """Hetzelfde logo dat de PDF gebruikt, staat ook in de kop van de site.
 
     Dat is de reden dat het bij de media hoort en niet in de vergadermodule: de
-    vereniging uploadt het één keer. Zonder logo blijft het woordmerk staan — de
+    vereniging uploadt het één keer. Without a logo the tenant's NAME stands in
+    its place (#1588, CR-11 decision 11: no typed wordmark) — de
     kop mag nooit leeg zijn, ook niet bij een verse tenant.
     """
     from app.domains.media.api import MediaAsset
 
-    zonder = client.get("/").text
-    assert 'aria-label="Raak"' in zonder, "zonder logo hoort het woordmerk er te staan"
+    def brand(html: str) -> str:
+        start = html.index("data-site-brand")
+        return html[start : html.index("</a>", start)]
+
+    zonder = brand(client.get("/").text)
+    assert re.search(r'<span class="font-brand[^"]*" aria-label="([^"]+)">\1</span>', zonder), (
+        "zonder logo hoort de naam er te staan"
+    )
+    assert "<img" not in zonder
 
     png = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -824,9 +833,9 @@ def test_het_logo_verschijnt_ook_in_de_publieke_header(client, db_session):
     db_session.add(logo)
     db_session.flush()
 
-    met = client.get("/").text
-    assert f"/api/v1/media/{logo.id}" in met, "de header pakte het logo niet op"
-    assert 'aria-label="Raak"' not in met, "het woordmerk hoort dan te wijken"
+    met = brand(client.get("/").text)
+    assert f'<img src="/api/v1/media/{logo.id}"' in met, "de header pakte het logo niet op"
+    assert "font-brand" not in met, "de naam hoort dan te wijken"
 
 
 # ── 15. Wanneer en waar, in onderwerp én tekst ───────────────────────────────

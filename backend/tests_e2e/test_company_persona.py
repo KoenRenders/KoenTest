@@ -232,13 +232,16 @@ def test_5_a_visitor_sees_the_seeded_site(browser, company):
         )
         if t.strip()
     }
+    account = page.locator("[data-site-account]").inner_text().strip()
     page.close()
     assert f"Welkom bij {NAME}" in main, "the seeded home text"
-    assert NAME in footer, "the seeded footer block"
+    assert NAME in footer, "the tenant's name in the legal line"
     assert "Word lid" not in main, "no membership band"
     assert "Inschrijven" not in main and "Activiteiten" not in main, "no activity cards"
-    # Home · Aanmelden, plus the page the tenant itself published (step 8's).
-    assert nav == {"Home", "Vragen", "Aanmelden"}, nav
+    # Home, plus the page the tenant itself published (step 8's); the way to
+    # sign in stands in the account's place and reads "Inloggen" (#1588).
+    assert nav == {"Home", "Vragen"}, nav
+    assert account == "Inloggen", account
 
 
 @pytest.mark.parametrize("path", ["activiteiten", "lid-worden", "fotos"])

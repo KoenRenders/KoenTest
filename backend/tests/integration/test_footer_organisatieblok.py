@@ -1,15 +1,14 @@
-"""De footer leest de organisatie, en wat de tenant schreef blijft staan (#924).
+"""De footer leest de organisatie (#924).
 
 Tweede van de drie omschakelingen. De sociale links verhuizen mee — een
 Facebook-pagina van een vereniging bestaat ook als ze geen site heeft, en dat is de
 beslisregel uit het issue.
 
-**Het CMS-blok wordt niet opgeruimd, en dat is de belangrijkste eigenschap van deze
-stap.** `site-footer` is een vrije CMS-pagina: een migratie kan een adresblok niet
-onderscheiden van een zin die iemand geschreven heeft. Het organisatieblok komt uit
-de entiteit en het CMS-blok blijft eronder staan, zodat er bij de deploy niets
-verdwijnt. Of dat blok daarna weg mag, is een beslissing ná het bekijken van een
-omgeving.
+Since #1588 (CR-11 pilot B) the organisation's details stand ONCE, in the
+footer's legal line (`data-legal="address|email|phone|iban"`), and the free CMS
+block `site-footer` is no longer rendered. The block is not cleaned up: a
+migration cannot tell an address block from a sentence someone wrote, so it stays
+as data.
 """
 
 from __future__ import annotations
@@ -84,13 +83,21 @@ def test_the_footer_shows_the_organisation_block(client, db_session, met_adres):
     assert "bestuur@example.com" in html
     assert "014 00 00 00" in html
     assert "BE68 5390 0754 7034" in html
+    # #1588: each detail stands once, in the legal line — the separate centred
+    # organisation block is gone.
+    assert html.count("Kerkstraat 12 bus 3") == 1
+    assert html.count("BE68 5390 0754 7034") == 1
+    line = html[html.index("data-footer-line") : html.index("</footer>")]
+    for kind in ("address", "email", "phone", "iban"):
+        assert line.count(f'data-legal="{kind}"') == 1, kind
+    assert html.count("data-legal=") == 4
 
 
-def test_what_the_tenant_wrote_stays(client, db_session, met_adres):
-    """De eigenschap waar deze stap op valt of staat.
-
-    Een vrije CMS-footer kan van alles bevatten — openingsuren, een bedankje, een
-    zin over de wijk. Het organisatieblok komt erbij, niet in de plaats.
+def test_the_free_footer_block_is_no_longer_rendered(client, db_session, met_adres):
+    """#1588 (CR-11 pilot B) stopped rendering the free CMS block `site-footer`:
+    the organisation's details stand in the legal line, from one source. The
+    block stays as data — nothing is deleted, so what the tenant wrote can
+    still be read and moved in the back office.
     """
     from app.domains.cms.api import CmsPage
 
@@ -109,11 +116,15 @@ def test_what_the_tenant_wrote_stays(client, db_session, met_adres):
     db_session.commit()
 
     html = client.get("/aanmelden").text
-    assert "Elke woensdag open vanaf 19u." in html, (
-        "wat de tenant zelf schreef hoort te blijven staan; verdwijnt het, dan "
-        "raakt een omgeving bij de deploy tekst kwijt die niemand terug kan halen"
+    assert "Elke woensdag open vanaf 19u." not in html, (
+        "the free footer block is rendered again; since #1588 the footer shows "
+        "the organisation's details from the entity only"
     )
-    assert "Kerkstraat 12 bus 3" in html, "en het organisatieblok staat erbij"
+    footer = html[html.index("<footer") : html.index("</footer>")]
+    assert '<span data-legal="address">Kerkstraat 12 bus 3, 2400 Mol</span>' in footer
+    db_session.expire_all()
+    kept = db_session.query(CmsPage).filter(CmsPage.slug == "site-footer").one()
+    assert kept.content == "Elke woensdag open vanaf 19u.", "the block stays as data"
 
 
 def test_an_empty_organisation_renders_no_block(client, db_session, organisatie):
