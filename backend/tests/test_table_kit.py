@@ -158,6 +158,34 @@ def test_an_amount_is_never_coloured_and_carries_its_sign_before_the_euro():
     assert "tabular-nums" in plain
 
 
+def test_an_amount_carries_its_balance_only_when_it_says_something():
+    """#1582: a stacked row has no Saldo column, so the amount carries the
+    balance under it — when it differs from the amount and is not zero.
+
+    Proven red (on this branch, restored after): the condition reduced to
+    "not zero" → the fully-open case fails; the `data-stacked-only` mark left
+    off → the mark assertion fails (a wide list would show the balance twice)."""
+    cells = _render(
+        "{{ ui.amount(40, balance=20) }}|{{ ui.amount(40, balance=40) }}|"
+        "{{ ui.amount(40, balance=0) }}|{{ ui.amount(40) }}|{{ ui.amount(40, balance=-5) }}|"
+        "{{ ui.amount(-15, balance=-15) }}"
+    ).split("|")
+    partly, open_, settled, plain, overpaid, refund_due = cells
+    # Partly paid: "nog € 20,00" under the amount, in the warning tone — and
+    # only in a stacked row.
+    assert "€ 40,00" in partly and "nog € 20,00" in partly
+    extra = re.search(r"<span data-stacked-only data-stacked-balance[^>]*>", partly).group(0)
+    assert "text-brand-warning" in extra and "block" in extra
+    # The amount itself stays uncoloured (Q36).
+    first = partly.split("<span data-stacked-only")[0]
+    assert "text-brand-warning" not in first
+    # Fully open, settled, or no balance given: nothing extra.
+    for cell in (open_, settled, plain, refund_due):
+        assert "data-stacked-balance" not in cell, cell
+    # Too much received: what goes back, as a positive amount with its word.
+    assert "terug € 5,00" in overpaid and "−" not in overpaid.split("data-stacked-balance")[1]
+
+
 TOOLBAR = """{% call ui.toolbar("/lijst", "#lijst", "t", page=1, per_page=50, total=3,
      sort="-naam", sort_options=options, columns=columns) %}{% endcall %}"""
 

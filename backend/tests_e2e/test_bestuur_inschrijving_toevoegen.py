@@ -84,6 +84,23 @@ def test_the_board_adds_a_registration_on_a_phone(page, setup):
         "the form scrolls sideways on a phone"
     )
 
+    posts: list[str] = []
+    page.on(
+        "request", lambda r: posts.append(r.url.rsplit("/", 1)[-1]) if r.method == "POST" else None
+    )
     opslaan.click()
-    page.wait_for_url("**/admin/inschrijvingen/*", timeout=10_000)
+    try:
+        page.wait_for_url("**/admin/inschrijvingen/*", timeout=10_000)
+    except Exception:
+        # This test failed in CI without saying why (four runs of five on one
+        # branch, 4 October 2026): the wait timed out and nothing was known about
+        # the page. Say what stands on it — a refusal has a message, a click that
+        # never landed has no POST.
+        raise AssertionError(
+            "no redirect to the registration after the save: "
+            f"url={page.url!r} posts_after_click={posts} "
+            f"quantity={page.locator(f'#product-{setup["product"]}').input_value()!r} "
+            f"alerts={[t[:160] for t in page.locator('[role=alert], [data-field-error]').all_inner_texts()]} "
+            f"busy={page.evaluate('() => [...document.querySelectorAll(".htmx-request")].map(e => e.id || e.tagName)')}"
+        ) from None
     expect(page.get_by_text(naam).first).to_be_visible()

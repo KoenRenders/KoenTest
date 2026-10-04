@@ -3043,7 +3043,18 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 
 {# An amount as a list shows it: the sign before the euro sign ("− € 15,00"),
    tabular digits. Never coloured by itself; a caller that shows a balance
-   passes `warning=True` when it is not zero (Q36). #}
-{% macro amount(value, warning=False) -%}
+   passes `warning=True` when it is not zero (Q36).
+
+   `balance` (#1582, Koen, 4 October 2026): what is still open on this amount.
+   A stacked row has no Saldo column, so the amount carries it: **under the
+   amount, in the warning tone, when it differs from the amount and is not
+   zero** — "nog € 20,00" of a booking that is partly paid, "terug € 5,00" of
+   one that received too much. Fully open (the balance is the amount) and
+   settled (zero) show nothing extra. Only in a stacked row (`data-stacked-only`,
+   the CSS of `.data-table`): a wide list has the column. #}
+{% macro amount(value, warning=False, balance=None) -%}
 <span class="tabular-nums whitespace-nowrap{{ ' font-semibold text-brand-warning' if warning }}">{% if value < 0 %}− {% endif %}€ {{ geld(value|abs) }}</span>
+{%- if balance is not none and balance != 0 and balance != value %}
+<span data-stacked-only data-stacked-balance class="block text-xs font-semibold tabular-nums whitespace-nowrap text-brand-warning">{{ _("nog") if balance > 0 else _("terug") }} € {{ geld(balance|abs) }}</span>
+{%- endif %}
 {%- endmacro %}

@@ -347,6 +347,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .data-table th,.data-table td{overflow-wrap:anywhere}
 .data-table [data-row]{position:relative}
 .data-table [data-row]:hover{background:rgb(var(--c-surface-2))}
+.data-table [data-stacked-only]{display:none}
 .data-table [data-row-link]::after{content:"";position:absolute;inset:0;z-index:1;cursor:pointer}
 .data-table [data-row-toggle]::after{content:"";position:absolute;inset:0;z-index:1;cursor:pointer}
 .data-table [data-row-toggle]:focus-visible{outline:none}
@@ -373,6 +374,8 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .data-table [data-cell="status"]{grid-column:1;grid-row:3;align-self:center}
   .data-table [data-cell="amount"]{grid-column:2;grid-row:3;align-self:center}
   .data-table [data-cell="extra"]{display:none!important}
+  .data-table [data-stacked-only]{display:block}
+  .data-table [data-cell="amount"]{text-align:right}
   .data-table [data-cell="date"]{grid-column:2;grid-row:3;align-self:center}
   .data-table [data-cell="more"]{grid-column:1/-1;grid-row:4}
   .data-table [data-group-row]{align-items:center;padding:0 12px}

@@ -16,6 +16,9 @@
      row, and the text links Inschrijving · Bevestig · Bewerken, are gone.
    - **One visible action**: "Bevestig" on a booking that is still open, beside
      `⋯`, which holds the rest. The view decides both per row (`payment.ui._row`).
+   - **On a phone** (#1582): the stacked row has no Saldo column, so a balance
+     that differs from the amount stands under the amount ("nog € 20,00"), in
+     the row and in the sum row — `ui.amount(…, balance=…)`.
    - **Colour** (Q36): the status is a badge; Bedrag is never coloured, a refund
      is a negative amount in ink; a Saldo that is not zero takes the warning
      tone, positive and negative, also in the sum row.
@@ -51,7 +54,7 @@
      (F1, #996). #}
   {% set _ontvangen = k.ontvangen if k.ontvangen is not none else 0 %}
   {% set _saldo = k.saldo if k.saldo is not none else k.bedrag %}
-  <td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right">{{ ui.amount(k.bedrag) }}</td>
+  <td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right">{{ ui.amount(k.bedrag, balance=_saldo) }}</td>
   <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right">{{ ui.amount(_ontvangen) }}</td>
   <td data-cell="extra" data-balance class="border-b border-line px-3 py-2 text-right">{{ ui.amount(_saldo, warning=_saldo != 0) }}</td>
   <td data-cell="actions" class="border-b border-line px-3 py-2">
@@ -98,7 +101,7 @@
         <th scope="row" data-cell="name" class="h-9 border-b border-line px-3 py-1 text-left font-medium">{{ _("Totaal inschrijving") }}{% if groep.terug_te_betalen > 0 %} · {{ _("Nog uit te betalen") }}: € {{ groep.terug_te_betalen|geld }}{% endif %}</th>
         <td data-cell="context" data-p="2" class="border-b border-line px-3 py-1"></td>
         <td data-cell="status" class="border-b border-line px-3 py-1"></td>
-        <td data-cell="amount" class="border-b border-line px-3 py-1 text-right font-medium">{{ ui.amount(groep.totaal.due) }}</td>
+        <td data-cell="amount" class="border-b border-line px-3 py-1 text-right font-medium">{{ ui.amount(groep.totaal.due, balance=groep.totaal.saldo) }}</td>
         <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-1 text-right">{{ ui.amount(groep.totaal.paid) }}</td>
         <td data-cell="extra" data-balance class="border-b border-line px-3 py-1 text-right">{{ ui.amount(groep.totaal.saldo, warning=groep.totaal.saldo != 0) }}</td>
         <td data-cell="actions" class="border-b border-line px-3 py-1"></td>
