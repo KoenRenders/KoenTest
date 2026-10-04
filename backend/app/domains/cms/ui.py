@@ -22,48 +22,6 @@ router = APIRouter(include_in_schema=False)
 def homepage(request: Request, db: Session = Depends(get_db)):
     from app.domains.activities.api import list_activities
 
-    if request.state.platform_landing:
-        # platform.example-wortel (§7, 5c): de "Raak Digital Platform"-landing met de
-        # actieve afdelingen; units draaien op hun eigen adres of pad-prefix.
-        # #1525: per account, and the text above it is the platform's own
-        # home-intro, which the operator edits under Pagina's.
-        from app.domains.mdm.api import active_units_by_account, module_enabled
-        from app.kernel.modules import ModuleCode
-        from app.kernel.tenant_config import tenant_display_name, tenant_home_url
-
-        # #860: `tenant_home_url` en niet `tenant_base_url` — dit is de vraag "waar
-        # woont die afdeling", niet "waar breng je mij terug". Een afdeling mét eigen
-        # host krijgt dus haar eigen domein (uit TENANT_HOSTNAMES) en niet
-        # <platform-host>/<code>; zonder eigen host wordt haar adres afgeleid uit de
-        # host waarop JIJ binnenkwam. Dat laatste is wat Koen zag misgaan: de kaart
-        # "Raak Voorbeeldafdeling" wees naar het adres van Millegem.
-        accounts = [
-            {
-                "name": account.name if account is not None else _("Overige"),
-                "tenants": sorted(
-                    (
-                        {
-                            "naam": tenant_display_name(db, tenant_id=u.id),
-                            "url": tenant_home_url(db, tenant_id=u.id, code=u.code),
-                        }
-                        for u in units
-                    ),
-                    key=lambda t: t["naam"].casefold(),
-                ),
-            }
-            for account, units in active_units_by_account(db)
-        ]
-        intro = get_published_page(db, "home-intro") if module_enabled(ModuleCode.CMS) else None
-        return templates.TemplateResponse(
-            request,
-            "platform_landing.html",
-            {
-                "accounts": accounts,
-                "intro_html": render_cms_content(intro.content) if intro else None,
-                "current_year": site_context(db, request)["current_year"],
-            },
-        )
-
     # #727: `is_published` geldt ook voor de blokken die de site zelf invult. Er
     # stond een vinkje "Gepubliceerd" op het beheerscherm dat niets deed — uitzetten
     # veranderde niets aan de homepagina. Gepubliceerd → getoond, niet gepubliceerd
@@ -96,7 +54,7 @@ def homepage(request: Request, db: Session = Depends(get_db)):
         "home.html",
         {
             **site_context(db, request),
-            "intro_html": render_cms_content(intro.content or "") if intro else None,
+            "intro_html": render_cms_content(intro.content or "", db) if intro else None,
             "toon_lidgeld": toon_lidgeld,
             # #1509: and only when the contact form can take a message — a
             # tenant without it had a button that led nowhere.
@@ -194,7 +152,7 @@ def _render_page(request: Request, db: Session, page):
         {
             **site_context(db, request),
             "page": page,
-            "content_html": render_cms_content(page.content or ""),
+            "content_html": render_cms_content(page.content or "", db),
             # #924: één vaste slug krijgt het contactblok uit de organisatie, zoals de
             # footer er een krijgt. Geen shortcode en geen nieuwe pagina: er ís geen
             # contactpagina, en een blok dat van een paginanaam afhangt werkt niet voor

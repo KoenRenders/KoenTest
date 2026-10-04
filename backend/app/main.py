@@ -312,7 +312,7 @@ async def _tenant_context(request: Request, call_next):
     # zonder codewijziging. Gecachet, dus geen query-per-request na de eerste.
     codes = tenant_codes()
     platform_hosts = {h.strip().lower() for h in settings.platform_hosts.split(",") if h.strip()}
-    tenant, nieuw_pad, platform_landing = resolve_request(
+    tenant, nieuw_pad = resolve_request(
         request.headers.get("host"),
         request.url.path,
         request.cookies.get("raak_tenant"),
@@ -326,7 +326,6 @@ async def _tenant_context(request: Request, call_next):
     )
     if nieuw_pad is not None:
         request.scope["path"] = nieuw_pad
-    request.scope["state"]["platform_landing"] = platform_landing
     from app.i18n import DEFAULT_LOCALE, current_locale
 
     taal = DEFAULT_LOCALE

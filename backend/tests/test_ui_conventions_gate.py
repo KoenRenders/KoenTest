@@ -745,7 +745,8 @@ def test_kpi_kaarten_zijn_wit():
 # de plaats van iets in de template-boom.
 
 # De schillen: alleen dáár horen <script src>-tags en boost-attributen.
-SCHILLEN = {"site_base.html", "admin_base.html", "public_base.html", "platform_landing.html"}
+# #1543: platform_landing.html is gone — the platform home is an ordinary page.
+SCHILLEN = {"site_base.html", "admin_base.html", "public_base.html"}
 
 # Routes waarvan het antwoord geen te swappen HTML is.
 GEEN_HTML_ANTWOORD = re.compile(r'href="[^"]*(/export|/json|/afmelden|\.md)\b')
@@ -1264,7 +1265,7 @@ def test_de_echte_sluitknoppen_blijven_bestaan():
 
 
 # Alleen de twee schillen die sinds #714 navigatie out-of-band sturen. Bewust een
-# eigen naam: `SCHILLEN` hierboven is ruimer (ook public_base en platform_landing)
+# eigen naam: `SCHILLEN` hierboven is ruimer (ook public_base)
 # en wordt door de script-regel gebruikt.
 NAV_SCHILLEN = ("site_base.html", "admin_base.html")
 

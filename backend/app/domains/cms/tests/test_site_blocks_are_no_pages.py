@@ -70,9 +70,13 @@ def test_the_sitemap_lists_pages_and_no_blocks(client, site):
 def test_the_sitemap_keeps_every_real_page(client, db_session, site):
     """Every published row that is not a block is listed — compared with the
     rows themselves, so a page that goes missing turns this red."""
+    # This tenant's rows: the sitemap is one site's, and since #1543 the platform
+    # has a real page of its own (its home), which is not Raak Millegem's.
     published = {
         f"/{p.slug}"
-        for p in db_session.query(CmsPage).filter(CmsPage.is_published.is_(True)).all()
+        for p in db_session.query(CmsPage)
+        .filter(CmsPage.is_published.is_(True), CmsPage.tenant_id == TENANT_MILLEGEM_ID)
+        .all()
         if p.slug not in SITE_BLOCK_SLUGS
     }
     assert {"/over-ons", "/voorwaarden", "/privacy"} <= published

@@ -293,6 +293,26 @@ def tenant_home_url(db: Session, tenant_id: int | None = None, *, code: str | No
     return f"{origin}/{code}" if code else origin
 
 
+def platform_home_url(db: Session, platform_id: int) -> str:
+    """Where the platform lives (#1543), for a link to it from any site.
+
+    `tenant_home_url` answers from the request's own origin when a tenant has no
+    host of its own, and on a department's page that origin is the department.
+    The platform's host is the routing's, as a department's own host is
+    (`TENANT_HOSTNAMES`, #860): the first of `PLATFORM_HOSTS`. A stored
+    `base_url` that serves this environment wins, as for any tenant.
+    """
+    from app.config import settings
+
+    stored = (get_setting(db, "base_url", tenant_id=platform_id) or "").strip()
+    if stored and _origin_serves_this_environment(stored):
+        return stored.rstrip("/")
+    hosts = [h.strip() for h in settings.platform_hosts.split(",") if h.strip()]
+    if hosts:
+        return _origin_voor(hosts[0])
+    return settings.frontend_url.rstrip("/")
+
+
 def _organisatie(db: Session, tenant_id: int | None = None):
     """De organisatie achter deze tenant (#924).
 

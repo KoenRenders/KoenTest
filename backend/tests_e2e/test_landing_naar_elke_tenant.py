@@ -110,12 +110,13 @@ def test_doorklikken_komt_bij_de_juiste_afdeling_uit(pagina, code, naam):
         f"de kaart van {code} komt uit bij een andere afdeling — op het scherm staat "
         f"niet '{naam}'.\n{tekst[:300]}"
     )
-    # Op de SCHIL en niet op de tekst: de demo-afdeling noemt "het Raak Digital Platform"
-    # in haar eigen intro, dus een tekstvondst zou hier een bevinding over inhoud zijn en
-    # niet over waar je staat. `data-shell` is wat het antwoord zelf over zijn schil zegt.
-    assert pagina.locator("body").get_attribute("data-shell") != "platform", (
-        "je staat nog op de landingspagina; de klik heeft je nergens gebracht"
-    )
+    # #1543: the platform's home is in the site shell too, so `data-shell` no longer
+    # tells the two apart. The header does: a boosted click swapped only #main and
+    # kept the platform's header around the afdeling's page (measured in this test).
+    # Not its text: an association without a logo shows the RaaK wordmark there
+    # (#1496). Its home link: `path_for("/")` of the afdeling is `/<code>/`.
+    thuis = pagina.locator("header a").first.get_attribute("href") or ""
+    assert thuis.rstrip("/").endswith(code), f"de kop is niet die van de afdeling: {thuis!r}"
 
 
 def test_de_terugweg_houdt_je_op_dezelfde_afdeling(pagina):
