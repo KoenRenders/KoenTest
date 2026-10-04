@@ -734,7 +734,16 @@ sheet of 560 px from y = 284 with a handle, the title and badges visible
 above it; X or Escape closes and returns the focus; a click beside the
 panel does not close it. **No selectors in the panel**: the screen owns
 them (the newsletter's activities and reports stand on the newsletter
-page). On a module the assistant does not know the trigger is dimmed but
+page). **The newsletter's choices are three, not two** (Koen, 4 October
+2026): *Voorbije activiteiten* (the look back), *Uitgelicht* (the coming
+activities told in detail, at most three, each an activity block with
+poster, description and registration link) and *In de kalender* (the
+other coming activities, the next nine by default, one calendar block that
+stands in every letter). The assistant writes a look-back, a piece per
+highlighted activity and adds the calendar as one block — never a detail
+block per calendar activity, which is what today's proposal does and what
+makes the organiser delete six of them. "Activiteit invoegen" and
+"Kalender invoegen" by hand read the same three choices. On a module the assistant does not know the trigger is dimmed but
 focusable and opens only "Raakje kent deze gegevens nog niet". **A
 proposal for the form**: the fields it touches get a brand line, the brand
 tint and "Voorstel · nog niet toegepast"; the panel says "3 velden
