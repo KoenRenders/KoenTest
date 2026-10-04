@@ -32,23 +32,13 @@ VERWACHT = {
 
 
 def _kaart_status(client):
-    """De tonen zoals het scherm ze meekrijgt, uit het view-model zelf."""
+    """The tones as the screens get them: from the one function the payments list
+    and the booking page both read (`_status_badges`, #1574). Until then this
+    test parsed the source text of the view for a `kaart_status={` literal."""
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-    import inspect
-
     from app.domains.payment import ui as betalingen_ui
 
-    bron = inspect.getsource(betalingen_ui)
-    start = bron.index("kaart_status={")
-    einde = bron.index("}", start)
-    blok = bron[start:einde]
-    tonen = {}
-    for regel in blok.splitlines():
-        if '": (' not in regel:
-            continue
-        sleutel = regel.split('"')[1]
-        tonen[sleutel] = regel.rsplit('"', 2)[1]
-    return tonen
+    return {status: tone for status, (_label, tone) in betalingen_ui._status_badges().items()}
 
 
 def test_elke_afgeleide_status_heeft_de_afgesproken_toon(client):

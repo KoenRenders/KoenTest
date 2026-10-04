@@ -1,0 +1,9 @@
+{% import "_macros.html" as ui %}
+{# A booking's record head (#1574): one macro, its actions as data — the title
+   names the booking, the badge its status, the facts line its context as a jump
+   link (CR-11 Q56). The primary is "Bevestig" on a booking that is still open,
+   for who may change payments; "Status verversen" and "Verwijderen" stand under
+   Acties. `record_head` and `way_back` come from `payment.ui._booking_view`. #}
+{{ ui.record_header(record_head.title, badges=record_head.badges, facts=record_head.facts,
+                    primary=record_head.primary, actions=record_head.actions, back=way_back,
+                    editing=head_editing) }}

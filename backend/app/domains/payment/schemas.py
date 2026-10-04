@@ -90,6 +90,9 @@ class EnrichedPaymentRecord(PaymentRecordResponse):
     component_id: Optional[int] = None  # voor de penningmeester-filter (#90)
     component_name: Optional[str] = None
     membership_year: Optional[int] = None  # lidgeld-jaar voor de jaarfilter (#308)
+    # The household behind a membership booking, for the jump link on the booking
+    # page (#1574, CR-11 Q56).
+    family_id: Optional[int] = None
     items: list = []
 
 
