@@ -4,7 +4,7 @@
 **Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · on hold — Koen answers B8
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
-**Reading:** A 1491 words · B 2493 · C 4541 — measured on 4 October 2026 with the template's count; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1497 words · B 2499 · C 4727 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -105,21 +105,21 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 | # | Requirement | MoSCoW | Source |
 |---|---|---|---|
 | R1 | A page can hold a table, and the table survives every later edit. | Must | Koen, 1 Oct |
-| R2 | A page is built from parts the organiser understands — text, table, picture, columns, button, callout, link card — each added, moved and removed on its own. | Must | Koen's seven points |
-| R3 | A page has a draft and a published version; the draft can be previewed, also on a phone; publishing keeps the previous version, restorable. | Must | author, confirmed 4 Oct |
-| R4 | A picture from the library can sit beside the text with a caption; its corners and shadow are the site's, never in the file. | Should | Koen, 4 Oct |
+| R2 | A page is built from parts the organiser understands — text, table, picture, columns, button, callout, link card — each added, moved and removed on its own. | Must | Koen, 1 Oct |
+| R3 | A page has a draft and a published version, previewable; publishing keeps the previous version, restorable. | Must | Koen, 4 Oct |
+| R4 | A library picture sits beside the text with a caption; its corners and shadow are the site's, never in the file. | Should | Koen, 4 Oct |
 | R5 | A price or a date is placed as a value, not typed as a code, and shows the current value. | Should | author |
-| R6 | The newsletter and the notes use the same editor with the parts that make sense there; a letter still arrives as a mail every program shows. | Must | Koen, 1 Oct |
-| R7 | Writing and reading work on a phone. | Must | Koen, 1 Oct |
+| R6 | The newsletter and the notes on the same editor; a letter still arrives as a mail every program shows. | Could | Koen, 1 Oct; Could 4 Oct |
+| R7 | Reading works on a phone; writing there is a Could — the editor must open and save, no comfort required. | Must / Could | Koen, 1 Oct; writing Could 4 Oct |
 | R8 | The menu groups pages under sections, carries an external link, and the footer has its own short menu. | **Should** | Koen, 4 Oct (was Could) |
-| R9 | The editor and everything it loads are served by the portal itself, from Europe, with no data leaving. | Must | Europe First, CSP, zero Node |
+| R9 | The editor and everything it loads are served by the portal, from Europe; no data leaves. | Must | Europe First, CSP, zero Node |
 | R10 | No site builder: the organiser chooses blocks, the kit chooses the pixels. | Must (limit) | Koen, 1 and 4 Oct |
 | R11 | Embedded video or maps from outside. | Won't | the CSP forbids frames; a link card instead |
 | R12 | Reporting on pages. | Won't | Umami counts visits |
 | R13 | A form of the forms module can be placed on a page, beside text. | Should | Koen, 4 Oct |
 | R14 | A row of clickable cards, each a link to a page or elsewhere. | Should | Koen, 4 Oct |
-| R15 | Content in more than one language: Dutch first, a second later without rebuilding; the visitor sees their language with a fallback. | Should | Koen, 4 Oct |
-| R16 | A page's content can be exported and imported as JSON, into the draft, validated, never straight to live. | Should | Koen, 4 Oct |
+| R15 | Content in more than one language: Dutch first, English soon, without rebuilding; the visitor sees their language with a fallback. | Should | Koen, 4 Oct |
+| R16 | A page can be created, changed and published from outside as JSON (a script, an AI agent from a CLI), with the screen's validation and history, under an API key. | Should | Koen, 4 Oct |
 | R17 | The association's sites do not change: their pages render identically after the migration. | Must (limit) | Koen, 4 Oct |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
@@ -136,15 +136,15 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 | # | Criterion | R |
 |---|---|---|
 | AC1 | A table is added, published, edited and published again; still a table, also on a phone. | R1, R7 |
-| AC2 | A page with a heading, a text, a picture beside the text, two columns and a button; blocks move and go; the picture has the site's corners and shadow. | R2, R4 |
-| AC3 | An edit does not change the site until "Publiceren"; the preview shows the draft; the previous version can be restored. | R3 |
+| AC2 | A page with heading, text, a picture beside the text, two columns and a button; blocks move and go; the picture has the site's corners and shadow. | R2, R4 |
+| AC3 | An edit does not change the site until "Publiceren"; the preview shows the draft; the previous version is restorable. | R3 |
 | AC4 | The membership price is placed as a value and follows the setting. | R5 |
-| AC5 | The newsletter and the notes use the same editor; a letter with an activity block arrives as before. | R6 |
-| AC6 | On a phone a block is added and edited; nothing scrolls sideways. | R7 |
+| AC5 | (Could) The newsletter and the notes on the same editor; an activity block arrives as before. | R6 |
+| AC6 | On a phone the editor opens, adds a block and saves; nothing scrolls sideways. | R7 |
 | AC7 | The editor loads from the portal only; no CSP violation. | R9 |
-| AC8 | A contact page: a form at the left, the details at the right; a submission lands in the workbench; on a phone the form first. | R13 |
-| AC9 | A section heading over three cards, each a link to a page or elsewhere; the whole card is the target; one per row on a phone. | R14 |
-| AC10 | Export, change, import: the draft changes, the site not; an unknown block is refused by name. | R16 |
+| AC8 | A contact page: form left, details right; a submission lands in the workbench; on a phone the form first. | R13 |
+| AC9 | A section heading over three cards, each a link; the whole card is the target; one per row on a phone. | R14 |
+| AC10 | From a CLI with an API key a page is created, written and published; Terugzetten undoes it; an unknown block is refused by name. | R16 |
 | AC11 | Every page of the association renders the same before and after the migration. | R17 |
 | AC12 | A page under its section; an external item links out; a footer item in the footer only. | R8 |
 
@@ -154,21 +154,21 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
-A page becomes a **structured document**: a tree of blocks in a known schema, stored as JSON, rendered by the portal to the site, to mail-safe HTML and to print. One vendored editor edits that tree with one toolbar; three places, a block set each. A page has a draft and a published document, a preview, a history, and its title and documents in a **translation row per language**. Pictures come through CR-15's picker and get their look from the kit; a form block places a form of the forms module; a cards block holds link cards; the menu groups pages under sections; a document can be exported and imported as JSON into the draft, validated. The association's pages convert losslessly and render identically.
+A page becomes a **structured document**: a tree of blocks in a known schema, stored as JSON, rendered by the portal to the site, to mail and to print. One vendored editor, one toolbar, a block set per place. A page has a draft and a published document, a preview, a history, and its title and documents in a **translation row per language**. Pictures come through CR-15's picker, styled by the kit; a form block places a form; a cards block holds link cards; the menu groups pages under sections; a page can be created, changed and published from outside as JSON, validated, with the same history as the screen. The association's pages convert losslessly and render identically.
 
 Decisions, each with the rejected alternative (the reasoning in C4):
 
 - **Structure stored, HTML rendered** (C4.2). Rejected: keep storing editor HTML and sanitise. Only a structure renders four ways and survives edits.
 - **One document with block nodes** (C4.2). Rejected: a `page_blocks` table. A document editor already gives selection, reordering, undo.
-- **The editor: TipTap (Germany, MIT) recommended; CKEditor 5 (Poland, GPL/commercial) the alternative** (C4.1, with the comparison). Rejected: Trix (no document model), bare ProseMirror (too low-level), the non-EU editors. One spike decides.
-- **Vendored bundle, zero Node in the repository's build** (C4.1). Rejected: a CDN or a Node build in the repo.
+- **The editor: TipTap (Germany, MIT) recommended; CKEditor 5 (Poland, GPL/commercial) the alternative** (C4.1). Rejected: Trix (no document model), bare ProseMirror, the non-EU editors. One spike decides.
+- **Vendored bundle, zero Node in the repository's build** (C4.1). Rejected: a CDN or a Node build.
 - **Draft and published as two documents, versions through `*_history`** (C4.3). Rejected: live on save.
 - **Value blocks instead of placeholder codes** (C4.4).
 - **The kit styles a picture; the file stays clean** (C4.8). Rejected: corners and shadow baked into the image.
 - **A form on a page is a block that renders the forms module's form** (C4.9). Rejected: intro and side texts inside the forms module.
 - **Cards are a block of link cards; a card is a link** (C4.9). Rejected: hover reveals, labels as filters.
 - **Content per language is a translation row, from phase 1** (C4.10). Rejected: columns per language.
-- **One JSON door, into the draft, validated** (C4.11). Rejected: a direct write to the published document.
+- **One JSON door, validated, with the screen's history** (C4.11). Rejected: a write that bypasses the history.
 - **No site builder** (C4.7); **the association's sites unchanged** (C4.12).
 
 ### B1.1 Functional analysis — the derived requirements
@@ -184,13 +184,13 @@ Decisions, each with the rejected alternative (the reasoning in C4):
 | F7 | Voorbeeld renders the draft; Publiceren copies draft → published with a history row; Terugzetten restores into the draft. | R3 |
 | F8 | Public page at reading width; a table scrolls inside its block on a phone; columns stack, the form first. | R7 |
 | F9 | Newsletter set (text, figure, button, activity, calendar, closing) replacing the markers; the page's three choices decide the blocks — *Uitgelicht* an activity block each, *In de kalender* one calendar block (CR-11 Q55). Notes set: text, lists, table; autosave. | R6 |
-| F10 | Menu: `parent_id`, `menu_label`, `external_url`, `in_footer`; sections in the site menu; the way back names the section. | R8 |
+| F10 | Menu: `parent_id`, `external_url`, `in_footer` on the page, `menu_label` in the translation row; sections in the site menu; the way back names the section. | R8, R15 |
 | F11 | Migration: HTML parsed into the schema; a page that does not parse losslessly is listed and keeps its HTML; screenshots before and after. | R1, R17 |
 | F12 | CR-11 gate 14 widened to the new editor; a schema change is a change of `cms/schema.py` only. | R6, R9 |
 | F13 | The form block renders the chosen form through `forms.api`, same fields, validation and submission; a deleted form renders nothing. | R13 |
 | F14 | The cards block: heading and link cards, two or three per row, one on a phone; the whole card the link; the target a page of the site or a URL. | R14 |
 | F15 | The visitor's language when a published translation exists, else the tenant's; the switch only when a second language has content. | R15 |
-| F16 | Export and import (JSON) on the page; `PUT /api/v1/cms/pages/{id}/draft` with an API key; the schema served as JSON Schema. | R16 |
+| F16 | Export and import (JSON) on the page; the API with an API key: list and create pages, read and write the draft, **publish**, and the reference lists an agent needs (the schema as JSON Schema, placeholders, media ids, form ids). | R16 |
 
 ## B2. Fit with the process and the requirements — for the business
 
@@ -253,7 +253,7 @@ Legend: green cms · yellow kit · blue media · purple forms · grey kernel · 
 
 **Walkthrough on HDEV** (the organiser; a visitor for 4, 10 and 11) — the detailed steps are C9's annex:
 
-1 A page as blocks. 2 A table added, published, edited, published: still a table. 3 Heading, text, picture beside the text, columns, button; blocks move; the picture has corners and shadow. 4 A visitor on a phone: the table scrolls inside its block. 5 An edit not published: the site unchanged; Voorbeeld, Publiceren, Geschiedenis, Terugzetten. 6 A value block follows the setting. 7 The newsletter on the same editor; an activity block in a test mail. 8 The notes on the same editor. 9 No CSP violation. 10 A contact page with the form block; a submission in the workbench. 11 A cards page; each card a link. 12 Export, change, import; an unknown block refused by name. 13 The association's pages identical before and after. 14 A section in the menu, an external item, a footer item.
+1 A page as blocks. 2 A table added, published, edited, published: still a table. 3 Heading, text, picture beside the text, columns, button; the picture has corners and shadow. 4 A visitor on a phone: the table scrolls inside its block. 5 An unpublished edit leaves the site unchanged; Voorbeeld, Publiceren, Geschiedenis, Terugzetten. 6 A value block follows the setting. 7 (Could) The newsletter and the notes on the same editor. 8 —. 9 No CSP violation. 10 A contact page with the form block; a submission in the workbench. 11 A cards page; each card a link. 12 From a CLI: create, write, publish; an unknown block refused. 13 The association's pages identical before and after. 14 A section in the menu, an external item, a footer item.
 
 ## B3. The whole across the modules — for the architect
 
@@ -350,7 +350,7 @@ erDiagram
   CMS_PAGE }o--o{ FORM : "form block (soft)"
 ```
 
-Who calls whom: the admin screens call the cms service and render the editor through the kit macro (`cms.api.schema_for`); the public page and the newsletter call `cms.api.render_document`; a figure goes through `media.api`, a form block through `forms.api`, a value through `kernel.tenant_config`. New dependencies: cms → forms.api, newsletter → cms.api. Publish is one transaction. Impact: one new table, one history table, four menu columns, two new routes.
+Who calls whom: the admin screens call the cms service and render the editor through the kit macro; the public page and the newsletter call `cms.api.render_document`; a figure goes through `media.api`, a form block through `forms.api`, a value through `kernel.tenant_config`. New dependencies: cms → forms.api, newsletter → cms.api. Publish is one transaction. Impact: a translation table, a history table, menu columns, API routes.
 
 ## B4. Rules this change needs an exception from — decided once, here
 
@@ -368,10 +368,10 @@ Who calls whom: the admin screens call the cms service and render the editor thr
 | Module | Ph 0 spike | Ph 1 pages | Ph 2 blocks | Ph 3 letter, notes | Ph 4 menu | Ph 5 languages | Total |
 |---|---|---|---|---|---|---|---|
 | ui (kit) | 1 | 2 | 1.5 | 0.5 | — | 0.5 | 5.5 |
-| cms | — | 5 | 3 | 0.5 | 1 | 2 | 11.5 |
+| cms | — | 5 | 4 | 0.5 | 1 | 2 | 12.5 |
 | forms; newsletter, meetings | — | — | 0.5 | 2.5 | — | — | 3 |
 | tests | 0.5 | 1.5 | 1.5 | 1 | 0.25 | 0.5 | 5.25 |
-| **Total** | **1.5** | **8.5** | **6.5** | **4.5** | **1.25** | **3** | **~25 CLI-days** |
+| **Total** | **1.5** | **8.5** | **7.5** | **4.5** | **1.25** | **3** | **~26 CLI-days** (~21.5 without phase 3) |
 
 Purchases: none with TipTap; CKEditor 5 needs the GPL terms or a licence (Q1). **Running cost:** none. **Operations:** no env var; the bundle upgraded like htmx; one contract migration.
 
@@ -379,31 +379,31 @@ Purchases: none with TipTap; CKEditor 5 needs the GPL terms or a licence (Q1). *
 
 | Phase | Delivers | Migration | Failure paths that change | Validation |
 |---|---|---|---|---|
-| **0 — the spike** | TipTap and CKEditor 5 vendored on a throwaway branch; a table round trip, a custom node, the CSP, a phone measured; Koen decides Q1 | none | none | C8 |
+| **0 — the spike** | TipTap and CKEditor 5 on a throwaway branch; a table round trip, a custom node, the CSP, a phone; Koen decides Q1 | none | none | C8 |
 | **1 — pages as documents** | the schema; the editor macro; the page screen with draft, publish, history, preview; the renderer and the reading-width page; `page_translations`; value blocks; the picker; JSON export and import, the schema served; the lossless migration | additive | a page is no longer live on save; an unknown block refused by name | AC1, AC3, AC4, AC6, AC7, AC10, AC11 |
-| **2 — the blocks** | table (full), columns with alignment, button, callout, link card, **cards**, **form**, gallery; the API draft route | none | a deleted form renders nothing | AC2, AC8, AC9 |
-| **3 — the letter and the notes** | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes; lazy conversion | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
+| **2 — the blocks** | table (full), columns with alignment, button, callout, link card, **cards**, **form**, gallery; the API: pages, draft, publish, reference lists | none | a deleted form renders nothing | AC2, AC8, AC9 |
+| **3 — the letter and the notes** (Could, last) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes; until then two editors coexist, a named exception on gate 14 | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
 | **4 — the menu** (Should) | parent, label, external link, footer menu | additive | none | AC12 |
-| **5 — a second language** (Could) | the language selector, a second translation row, the fallback, the public switch | none | a page without a translation falls back | walkthrough |
+| **5 — a second language** (Should, after phase 2) | the language selector, a second translation row with its menu label, `/en/`, the fallback, the public switch | none | a page without a translation falls back | walkthrough |
 | **later** | drop `content` two releases after phase 1 | contract | — | — |
 
-Dependencies: CR-15's picker is built; the layouts come from CR-11 pilot A or are carried by phase 1 for the page screen alone; a company tenant exists through CR-19. Phase 0 can start now.
+Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11 pilot A or is carried by phase 1; a company tenant exists (CR-19). Phase 0 can start now. **Order** (Koen, 4 Oct 2026): 0 → 1 → 2 → 5 → 4 → 3.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
 1. **The rule.** *Content a person writes in the portal is stored as a structured document against one schema and rendered by the portal; a screen never stores or trusts browser HTML, never draws its own editor toolbar, never adds a block outside the schema; the look of a block is the kit's, never the content's.* Lives in `docs/design-system.md` and, one sentence, in `docs/code-style.md`.
 2. **Reach and baseline.** Three editor variants today; after this one macro, one schema, three sets; four workarounds to zero.
 
-**The gate, in one line:** a node outside the schema is refused on save and on import; toolbar markup outside the macro is red; an unpinned or unvendored script is red; a changed association page is red (C6 2, 3, 14, 19).
+**The gate:** a node outside the schema is refused on save and on import; toolbar markup outside the macro is red; an unpinned or unvendored script is red; a changed association page is red (C6 2, 3, 14, 19).
 
 ## B8. Open decisions — what the approver still decides
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q1 | The editor: TipTap (MIT, a committed bundle) or CKEditor 5 (GPL or commercial, official zip)? | TipTap, after the spike (C4.1). | a licence question or none |
-| Q2 | The menu with sections, external link and footer as a Should in phase 4 — confirmed? | Yes: a company site has sections. | phase 4 |
-| Q6 | Start the spike now, independent of the GUI pilot? | Yes. | the first sub-issue of #1427 |
-| Q8 | The activity's description on the same editor later? | Yes, after phase 1. | a later phase |
+| Q1 | The editor: TipTap (MIT) or CKEditor 5 (GPL or commercial)? | TipTap, after the spike (C4.1). | a licence question or none |
+| Q2 | The menu as a Should in phase 4 — confirmed? | Yes: a company site has sections. | phase 4 |
+| Q6 | Start the spike now? | Yes. | the first sub-issue of #1427 |
+| Q8 | The activity's description on the same editor later? | Yes, later. | later |
 | Q9 | Merged cells in tables? | Not in phase 1. | the table node |
 | Q10 | Form block and cards block in phase 2? | Yes. | phase 1 stays smaller |
 | Q11 | A second language: only the public content, or also the app's words? | Only the content. | an extra issue or none |
@@ -416,12 +416,9 @@ Dependencies: CR-15's picker is built; the layouts come from CR-11 pilot A or ar
 | 16 Sep 2026 | One `ui.rich_text` macro for every editor (CR-05). | Koen |
 | 30 Sep 2026 | A block editor is its own change request (CR-11). | Koen |
 | 1 Oct 2026 | Web content management as a whole, talked through first; no site builder. | Koen |
-| 4 Oct 2026 | **The frame**: the association's sites do not change; the subject is a company tenant's public site, kept abstract. | Koen |
-| 4 Oct 2026 | Form block (R13); cards block (R14); pictures styled by the kit (R4); columns middle-aligned beside a figure. | Koen |
-| 4 Oct 2026 | Content per language as a translation row from phase 1; the public site only (R15). | Koen |
-| 4 Oct 2026 | A JSON door for a page's content, into the draft, validated (R16). | Koen |
-| 4 Oct 2026 | The menu from Could to Should (R8). | Koen |
-| 4 Oct 2026 | The newsletter's three activity choices decide the blocks (F9, CR-11 Q55). | Koen |
+| 4 Oct 2026 | **The frame**: the association's sites do not change; the subject is a company tenant's site, kept abstract. | Koen |
+| 4 Oct 2026 | Form block (R13), cards block (R14), kit-styled pictures (R4), columns middle beside a figure; a translation row from phase 1 (R15); a JSON door (R16); the menu to Should (R8); the three newsletter choices decide the blocks (F9). | Koen |
+| 4 Oct 2026 | **Six answers**: R6 and writing on a phone to Could; R12 stays Won't; cards are layout (R14); English soon — phase 5 after phase 2, `/en/` prefix (R15); the JSON door also creates and publishes, for a CLI (R16). | Koen |
 | 1 Oct 2026 | *Proposed:* C4.1–C4.7; TipTap recommended, decided after the spike. | author |
 
 ---
@@ -460,8 +457,8 @@ Dependencies: CR-15's picker is built; the layouts come from CR-11 pilot A or ar
 #### cms (phases 1, 2, 4, 5)
 
 - **Screens:** `/admin/paginas/{id}` on the document layout (CR-11 blocks 5 and 9): title and slug in the header editor, a language selector (one language shown at a time; phase 1 shows the tenant's), the document with autosave of the draft, the actions Voorbeeld · Publiceren · Geschiedenis, and in Acties: Document exporteren (JSON) · Document importeren (JSON); `/voorbeeld` renders the draft with a width switch; `/geschiedenis` lists versions with "Terugzetten"; the list shows a draft badge and, in phase 5, the languages a page has.
-- **Code:** `schema.py` (the schema as data: node types, attributes, sets; exported as JSON Schema); `render.py` (three targets; the form node calls `forms.api.render_embedded`; the cards node resolves page references to URLs; nh3 on the result); `service.save_draft`, `publish`, `restore`, `versions`, `parse_html` (F11), `import_draft(page_id, language, document)` (validation, then save_draft), `export_document`; `api.py` exports `schema_for`, `render_document`, `placeholders`, `import_draft`; `router.py` adds `PUT /api/v1/cms/pages/{id}/draft` (API key, `?language=`) and `GET /api/v1/cms/schema`.
-- **Database:** phase 1, additive: `cms.page_translations (page_id INT NOT NULL REFERENCES cms.cms_pages(id) ON DELETE CASCADE, language VARCHAR(5) NOT NULL REFERENCES mdm.language_codes(code), title VARCHAR(200) NOT NULL, draft_json JSONB NULL, published_json JSONB NULL, published_at TIMESTAMPTZ NULL, published_by VARCHAR(255) NULL, PRIMARY KEY (page_id, language))`; `cms.cms_page_history (id, page_id FK CASCADE, language VARCHAR(5) NOT NULL, action VARCHAR(20) NOT NULL CHECK (action IN ('published','restored')), document JSONB NOT NULL, at TIMESTAMPTZ NOT NULL, by VARCHAR(255))`; the migration moves `title` and `content` (parsed) into the row of the tenant's language; `cms_pages.title` kept one release, then dropped with `content`; phase 4: `parent_id INT NULL`, `menu_label VARCHAR(80) NULL`, `external_url VARCHAR(500) NULL`, `in_footer BOOL NOT NULL DEFAULT false`. Check the CHECK constraints of `cms_pages` before touching flags (the `media_assets.kind` lesson).
+- **Code:** `schema.py` (the schema as data: node types, attributes, sets; exported as JSON Schema); `render.py` (three targets; the form node calls `forms.api.render_embedded`; the cards node resolves page references to URLs; nh3 on the result); `service.save_draft`, `publish`, `restore`, `versions`, `parse_html` (F11), `import_draft(page_id, language, document)` (validation, then save_draft), `export_document`; `api.py` exports `schema_for`, `render_document`, `placeholders`, `import_draft`, `create_page`, `publish` (also from the API), `references`; `router.py` adds `PUT /api/v1/cms/pages/{id}/draft` (API key, `?language=`) and `GET /api/v1/cms/schema`.
+- **Database:** phase 1, additive: `cms.page_translations (page_id INT NOT NULL REFERENCES cms.cms_pages(id) ON DELETE CASCADE, language VARCHAR(5) NOT NULL REFERENCES mdm.language_codes(code), title VARCHAR(200) NOT NULL, menu_label VARCHAR(80) NULL, draft_json JSONB NULL, published_json JSONB NULL, published_at TIMESTAMPTZ NULL, published_by VARCHAR(255) NULL, PRIMARY KEY (page_id, language))`; `cms.cms_page_history (id, page_id FK CASCADE, language VARCHAR(5) NOT NULL, action VARCHAR(20) NOT NULL CHECK (action IN ('published','restored')), document JSONB NOT NULL, at TIMESTAMPTZ NOT NULL, by VARCHAR(255))`; the migration moves `title` and `content` (parsed) into the row of the tenant's language; `cms_pages.title` kept one release, then dropped with `content`; phase 4: `parent_id INT NULL`, `menu_label VARCHAR(80) NULL`, `external_url VARCHAR(500) NULL`, `in_footer BOOL NOT NULL DEFAULT false`. Check the CHECK constraints of `cms_pages` before touching flags (the `media_assets.kind` lesson).
 - **Templates:** `admin_pagina.html` and `_cp_detail.html` shrink to the layout plus the macro; `cms_pagina.html` on the reading width; the public menu renders sections (phase 4); the public header renders the language switch when a second language has published content (phase 5).
 - **Tests:** C6 1, 2, 4, 5, 6, 8, 12, 13, 16, 18, 19, 20.
 
@@ -534,7 +531,7 @@ The five placeholders become a **value block** chosen from "Blok invoegen ▾ �
 
 ### C4.6 Mobile first, reading and writing
 
-Reading: reading width (768 px); a table scrolls inside its own block on a phone (CR-11 Q14's declared exception); a figure beside text stacks under it below 640 px; columns stack with the form first; cards one per row. Writing: block-at-a-time; the sticky toolbar; "Blok invoegen ▾" as a bottom sheet; a 44 px block handle. The spike measures typing a table on a phone.
+Reading: reading width (768 px); a table scrolls inside its own block on a phone (CR-11 Q14's declared exception); a figure beside text stacks under it below 640 px; columns stack with the form first; cards one per row. Writing on a phone is a Could (Koen, 4 October 2026): the editor must open, not scroll sideways and save there; the bottom sheet for "Blok invoegen ▾", the 44 px handle and typing a table on a phone are comfort, not a gate. The spike measures that the editor works on a phone, not how well.
 
 ### C4.7 Not a site builder
 
@@ -546,15 +543,15 @@ A figure, a card's picture and a gallery item render with the public card radius
 
 ### C4.9 A form on a page, and cards
 
-**Form block**: a node holding a form id of the tenant; the renderer asks `forms.api.render_embedded` for the form's fields and submission route, so the page shows the same form the forms module shows on its own page — same validation, same thank-you, same submission into the workbench; two renderings of one definition, no copy. Placed in two columns it gives the contact page: the form at the left, the details and a callout at the right, the form first on a phone. **Cards block**: a heading and a list of link cards (icon from the kit's vocabulary or a picture, title, one line, labels as plain text); two or three per row, one on a phone; the whole card is the link (the stretched-link pattern); a card's target is a page chosen from the site's pages — a reference that survives a slug change — or an outside URL. No hover reveal: a card that is a link says so with its cursor and focus; a phone has no hover. Labels do not filter: a page is not a list.
+**Form block**: a node holding a form id of the tenant; the renderer asks `forms.api.render_embedded` for the form's fields and submission route, so the page shows the same form the forms module shows on its own page — same validation, same thank-you, same submission into the workbench; two renderings of one definition, no copy. Placed in two columns it gives the contact page: the form at the left, the details and a callout at the right, the form first on a phone. **Cards block**: layout, not data (Koen, 4 October 2026) — the author types each card's title and line and picks its icon or picture; nothing is pulled from a record; a heading and a list of link cards (icon from the kit's vocabulary or a picture, title, one line, labels as plain text); two or three per row, one on a phone; the whole card is the link (the stretched-link pattern); a card's target is a page chosen from the site's pages — a reference that survives a slug change — or an outside URL. No hover reveal: a card that is a link says so with its cursor and focus; a phone has no hover. Labels do not filter: a page is not a list.
 
 ### C4.10 Content per language
 
-"Build what is needed in the shape that grows": a page's title and documents live in `page_translations` keyed by (page, language) from phase 1, with the tenant's language as the only row; a second language is a row, not a column. The site serves the visitor's language (the browser's `Accept-Language` or the switch) when a published translation exists, else the tenant's language; the switch appears only when a second language has published content. One slug per page, the language in a prefix (`/en/…`) — or a slug per language — is the one open question for phase 5. The app's own words (gettext) and the back office stay Dutch unless Koen asks (Q11); code-list labels already exist per language.
+"Build what is needed in the shape that grows": a page's title and documents live in `page_translations` keyed by (page, language) from phase 1, with the tenant's language as the only row; a second language is a row, not a column. The site serves the visitor's language (the browser's `Accept-Language` or the switch) when a published translation exists, else the tenant's language; the switch appears only when a second language has published content. One slug per page, the language as a prefix (`/en/…`) — decided now that phase 5 moves up (Koen wants English soon, 4 October 2026): the switch stays on the same page and a link survives a translation; the menu label lives in the translation row. The forms module's forms, the newsletter and the site name stay single-language — outside this change. The app's own words (gettext) and the back office stay Dutch unless Koen asks (Q11); code-list labels already exist per language.
 
 ### C4.11 One JSON door
 
-A page's document is data, and data has a door: export (draft or published) and import into the draft, through the screen and through `PUT /api/v1/cms/pages/{id}/draft` with an API key — the same validation as the editor's save, an unknown block or attribute refused with its name, a media reference that does not exist refused, nothing stripped silently. The schema is served as one JSON Schema file so a script or an AI knows the blocks before it writes. Publishing stays a person's act, with the preview before it. The Assistent (CR-11 block 10), when it writes a page, uses the same door: one validation, one draft.
+A page's document is data, and data has a door: export (draft or published) and import into the draft, through the screen and through `PUT /api/v1/cms/pages/{id}/draft` with an API key — the same validation as the editor's save, an unknown block or attribute refused with its name, a media reference that does not exist refused, nothing stripped silently. The schema is served as one JSON Schema file so a script or an AI knows the blocks before it writes. Publishing from outside is allowed too (Koen, 4 October 2026: a Claude Code CLI must be able to change and publish pages): `POST /api/v1/cms/pages/{id}/publish` runs the same `publish` as the button — one history row, so a wrong publish is one Terugzetten away — and the API lists and creates pages, so a whole site can be written from a CLI. What an agent needs to write a valid document is served next to the schema: the placeholders, the media ids and the form ids of the tenant. The Assistent (CR-11 block 10) uses the same door.
 
 ### C4.12 The association's sites do not change
 
@@ -583,7 +580,7 @@ The stored content is a JSON document validated against the schema on save and o
 15. **The bar does not cover a field** at 390 px.
 16. **The form block.** A page with a form node renders the form's fields; a submission from the page lands as a submission of that form (workbench) with the page as return target; a form id of another tenant or a deleted form renders nothing on the site and a notice in the admin preview; a tenant without the forms module cannot insert the block.
 17. **Cards.** Three cards render as links (the whole card, `a` with the stretched pattern); a card to a page follows a slug change; one per row at 390 px (DOM measurement).
-18. **The JSON door.** Export → import round-trips a document unchanged; a document with an unknown block is refused with "Onbekend blok: <name>" and the draft untouched; the API route refuses without a key and cannot write `published_json`; a media id that does not exist is refused.
+18. **The JSON door.** Export → import round-trips a document unchanged; a document with an unknown block is refused with "Onbekend blok: <name>" and the draft untouched; the API refuses without a key; publishing through the API writes exactly one history row like the button, and Terugzetten undoes it; a media id that does not exist is refused.
 19. **The association unchanged.** A screenshot per seeded association page before and after the migration, compared pixel-exact (the e2e screenshot set); red on any difference.
 20. **Language fallback.** A page with a translation in the tenant's language only renders that language for a visitor asking for another; with two published translations each visitor sees their own; a draft in the second language is not served.
 
@@ -629,8 +626,8 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 | Q11 | 4 Oct 2026 | A text beside a contact form, as on an outside site Koen showed? (Koen) | A **form block** (R13, C4.9) in two columns: the forms module's form rendered inside the page, submissions as today; not intro and side texts inside the forms module. Phase 2 (B8 Q10). |
 | Q12 | 4 Oct 2026 | Something decent graphically — a picture with rounded corners and a shadow: in the CMS or in an image editor? (Koen) | In the kit (R4, C4.8): every picture gets the site's radius and shadow by rule; the file stays clean because it also serves the poster and the mail. A photo beside a heading, a text and a button is the columns block with middle alignment. |
 | Q13 | 4 Oct 2026 | Clickable cards, to a sub-page for instance? (Koen) | A **cards block** of link cards (R14, C4.9); a card's target is a page chosen from the list or an outside URL; sections with pages under them are the menu of phase 4 (R8, now a Should). |
-| Q14 | 4 Oct 2026 | Multilingual content, Dutch first, English foreseen? (Koen) | Three layers: the app's words (gettext, one catalogue), code-list labels (already per language), content (none). Content gets a translation row per language from phase 1 (R15, C4.10); the switch and a second language in phase 5; the back office stays Dutch unless asked (B8 Q11). |
-| Q15 | 4 Oct 2026 | Content changed from outside through JSON, in the age of AI — a Should? (Koen) | Yes (R16, C4.11): export and import into the draft through the screen and the API, validated against the served schema; publishing stays a person's act; the Assistent uses the same door later. |
+| Q14 | 4 Oct 2026 | Multilingual content, Dutch first, English foreseen? (Koen) | Three layers: the app's words (gettext, one catalogue), code-list labels (already per language), content (none). Content gets a translation row per language from phase 1 (R15, C4.10); the switch and a second language in phase 5; the back office stays Dutch unless asked (B8 Q11). Added 4 Oct: English soon — phase 5 moves to right after phase 2; the `/en/` prefix decided (C4.10). |
+| Q15 | 4 Oct 2026 | Content changed from outside through JSON, in the age of AI — a Should? (Koen) | Yes (R16, C4.11): export and import into the draft through the screen and the API, validated against the served schema; since 4 Oct the door also creates and publishes (C4.11): a Claude Code CLI must be able to change and publish pages; the Assistent uses the same door later. |
 | Q16 | 4 Oct 2026 | Screenshots of the outside examples in the document? (Koen) | No: described in words in A5, abstract, no name — the repository is public. Concepts for C9 go in Koen's project folder, never in the repository. |
 
 ## Non-goals — deliberately outside this change

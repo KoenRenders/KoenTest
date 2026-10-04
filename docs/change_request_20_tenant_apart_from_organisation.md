@@ -1,10 +1,10 @@
 # Change Request 20 — A tenant is its own thing, apart from the organisation whose data it shows
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 4 October 2026 · on hold — Koen walks through it; nothing is built; not on a release
+**Status:** shaped on 4 October 2026 · decided by Koen on 4 October 2026 (B8 answered: one release) · nothing is built; not on a release
 **Tracking issue:** #1578 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the mdm domain (`mdm.organizations` and everything that reads it as a tenant), the kernel's tenancy (`TenantMixin`, the resolver, `kernel_tenant_settings`, `mdm.tenant_modules`), the auth roles per workspace, the platform screens Tenants and Organisaties, the reporting universe; every tenant-scoped table by its key, none by its content.
-**Reading:** A 1410 words · B 2161 · C 2009 — words to read, drawings excluded, measured on 4 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1422 words · B 2047 · C 2049 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -109,7 +109,7 @@ The words the user reads: "Tenant", "Organisatie", "Account", "Toont de gegevens
 | R4 | Nothing a member, visitor or board member sees or does changes; every site keeps its data, address, roles and hostnames. | Must (limit) | author |
 | R5 | An account stays what it is — the customer, a party with that role; tenants hang under it; no data crosses accounts. | Must | CR-19 B9 |
 | R6 | The split keeps the door open to an account workspace with access to its tenants' members. | Should | CR-19 B9 |
-| R7 | The migration runs on PROD under expand/contract without downtime and with a tested rollback. | Must | AGENTS.md |
+| R7 | The migration runs on PROD in one release, after a checked dump and a tested restore (the expand/contract rule set aside here — B4). | Must | Koen, 4 Oct |
 | R8 | Hiding tenants from the list of organisations as a stop-gap. | Won't | Koen, 4 Oct |
 | R9 | Invoicing, billing or a customer portal for accounts. | Won't | author |
 
@@ -139,7 +139,7 @@ The words the user reads: "Tenant", "Organisatie", "Account", "Toont de gegevens
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
-A new table **`mdm.tenants`** carries what a site is: `id`, `code`, `kind`, `account_id` (a party with the customer role), `organization_id` (the party the site shows), `site_name`, `is_active`, the platform flag. **`mdm.organizations` becomes the party only**: name, legal form, identifications, addresses, contacts, bank accounts, persons; `org_type` shrinks to the party's role (customer or shown party — or goes), `code`, `kind`, `site_organization_id`, `site_name` and the platform row leave it. **Every tenant-scoped table keeps its `tenant_id` and its values**: the tenant rows are created **with the same ids** as today's UNIT and PLATFORM rows, so 64 tables, 464 references and 198 migrations change nothing — the column gains a foreign key it never had. Settings, modules, roles and the resolver point at tenants. Expand/contract over two releases; the organisation rows that were tenants are deleted at the contract step, the borrowed-data tenants first.
+A new table **`mdm.tenants`** carries what a site is: `id`, `code`, `kind`, `account_id` (a party with the customer role), `organization_id` (the party the site shows), `site_name`, `is_active`, the platform flag. **`mdm.organizations` becomes the party only**: name, legal form, identifications, addresses, contacts, bank accounts, persons; `org_type` shrinks to the party's role (customer or party), `code`, `kind`, `site_organization_id`, `site_name` and the platform row leave it. **Every tenant-scoped table keeps its `tenant_id` and its values**: the tenant rows are created **with the same ids** as today's UNIT and PLATFORM rows, so 64 tables, 464 references and 198 migrations change nothing — the column gains a foreign key it never had. Settings, modules, roles and the resolver point at tenants. One release, one migration (Koen, 4 October 2026): the table, the keys, the drop of the tenant columns and the soft delete of the organisation rows that were borrowed-data tenants, in that order.
 
 Decisions, each with the rejected alternative (the reasoning in C4):
 
@@ -148,7 +148,7 @@ Decisions, each with the rejected alternative (the reasoning in C4):
 - **The platform is a tenant** (C4.3). Rejected alternative: a third thing. The platform has a site, settings and modules — it is a tenant whose kind is PLATFORM and that shows the operator's party.
 - **Delete a party by rule, soft** (C4.4). Rejected alternative: cascade. A party referenced by a tenant refuses; its own details (addresses, contacts, accounts, identifications, persons) go with it, soft.
 - **Codes and hostnames stay on the tenant** (C4.5). Rejected alternative: on the party. A hostname serves a site.
-- **Two releases, expand then contract** (C4.6). Rejected alternative: one migration. UAT and PROD share one shape per release; the old column must survive one release so a rollback is a redeploy.
+- **One release, one migration** (C4.6). Rejected alternative: expand/contract over two releases, the project's rule. Koen chose one release; the safety is the checked dump and `raak restore-test` before the deploy, not a redeploy of the previous tag.
 
 ### B1.1 Functional analysis — the derived requirements
 
@@ -156,11 +156,11 @@ Decisions, each with the rejected alternative (the reasoning in C4):
 |---|---|---|
 | F1 | `mdm.tenants (id PK — the former organisation id, code UNIQUE, kind FK tenant_kind_codes, account_id FK organizations NULL for the platform, organization_id FK organizations NOT NULL, site_name, is_active, is_platform BOOL, created_at, updated_at)`; `tenant_modules.tenant_id` and `kernel_tenant_settings.tenant_id` get FKs to it; `UserRole.tenant_id` too (nullable stays). | R1, R4 |
 | F2 | `TenantMixin.tenant_id` gains `ForeignKey("mdm.tenants.id")` on every table, added in the expand migration as NOT VALID then validated — the isolation is in the key at last. | R4 |
-| F3 | `organizations` keeps the party: `name`, `legal_form`, `is_active`, timestamps, `parent_id` (an organisational hierarchy if wanted — or dropped, Q3); `org_type` becomes `role` (`CUSTOMER`, `PARTY`) or is dropped (Q2); `code`, `kind`, `site_organization_id`, `site_name` dropped at the contract step. | R2 |
+| F3 | `organizations` keeps the party: `name`, `legal_form`, `is_active`, timestamps, `parent_id` dropped (Q3); `org_type` becomes `role` (`CUSTOMER`, `PARTY`) (Q2); `code`, `kind`, `site_organization_id`, `site_name` dropped in the same migration. | R2 |
 | F4 | The resolver (`tenancy.resolve_tenant`, `tenant_codes()`, `TENANT_HOSTNAMES`) reads tenants; `platform_tenant_id` the tenant with `is_platform`; `tenant_config.site_organization_id` becomes `tenants.organization_id`; `tenant_display_name` and `site_name_default` read the tenant then its party. | R1, R4 |
 | F5 | Platform screens: Tenants (list, editor with kind, modules, account, organisation shown, site name) on tenants; Organisaties (list, editor, **Verwijderen** with the refusal naming the tenants) on parties; the tenant editor offers a party of its account or "nieuwe organisatie". | R1, R3 |
 | F6 | `mdm.api`: `tenants()`, `tenant(id)`, `create_tenant(…)` (writes a tenant, never a party), `delete_organization(id)` refusing when referenced; the facade is the only writer. | R1, R2 |
-| F7 | Migration: expand — create tenants from UNIT and PLATFORM rows with the same ids, copy code/kind/site_name/account (= parent_id)/organisation (= site_organization_id or self), repoint FKs, add the mixin FKs; the app reads tenants; contract (one release later) — drop the tenant columns from organizations, soft-delete the organisation rows of tenants that showed another party, keep the rows of tenants that were their own party (now the party they show). | R7 |
+| F7 | Migration, one file: create tenants from UNIT and PLATFORM rows with the same ids, copy code/kind/site_name/account (= parent_id)/organisation (= site_organization_id or self); repoint the FKs of settings, modules and roles; add the mixin FKs; then drop `code`, `kind`, `site_organization_id`, `site_name` and `parent_id` from organizations, turn `org_type` into the party's role, soft-delete the organisation rows of tenants that showed another party, keep the rows of tenants that were their own party (now the party they show). | R7 |
 | F8 | The account workspace of CR-19 B9 stays a query: tenants with one `account_id`; no schema reserved for it. | R6 |
 | F9 | Reporting: the universe's organisation joins keep working (they join on `tenant_id`); a "tenant" folder lists tenants, an "organisatie" folder parties — one source each. | R3 |
 
@@ -205,7 +205,7 @@ Legend: green mdm · grey kernel · yellow every domain (by key only) · blue au
 | R4 nothing changes for a user | F2, F4, F7 | 6, 7, 8 | AC1, AC6 |
 | R5 the account a party | F1 | 2 | AC2 |
 | R6 the door stays open | F8 | — | — |
-| R7 expand/contract | F7 | 9 | — (the deploy) |
+| R7 one release | F7 | 9 | — (the deploy) |
 
 **Walkthrough on HDEV** (the operator; a board member for 6):
 
@@ -226,7 +226,7 @@ flowchart TB
     m2[organizations: party only; delete_organization — changed]:::chg
     m3[api: tenants, create_tenant, delete_organization — changed]:::chg
     m4[platform screens Tenants and Organisaties — changed]:::chg
-    m5[migrations: expand, then contract — new]:::new
+    m5[migration: one file, expand and contract together — new]:::new
   end
   subgraph kernel[kernel]
     k1[tenancy: resolver and tenant_codes on tenants; TenantMixin FK — changed]:::chg
@@ -274,8 +274,7 @@ erDiagram
     int id PK
     string name
     string legal_form
-    string role "CUSTOMER | PARTY (Q2)"
-    int parent_id "Q3"
+    string role "CUSTOMER | PARTY"
     bool is_active
   }
   ORGANIZATION_IDENTIFICATION { int organization_id FK }
@@ -306,49 +305,43 @@ Who calls whom: the middleware resolves host → path → default to a tenant th
 
 | Rule (where) | What the design does instead | Temporary until … / the new rule | Decided |
 |---|---|---|---|
-| Expand/contract, one shape per release (#1255) | the tenant columns on organizations survive one release; the app reads tenants from the expand release on | the rule applied | — |
+| Expand/contract, one shape per release (#1255) | one migration adds the tenant table and drops the tenant columns from organizations in the same release; the previous tag cannot run on the result | this change only; the rule stands for the next one. Safety: a checked dump and `raak restore-test` before the deploy; the deploy stops instead of rolling back (#1203) | Koen, 4 Oct 2026 |
 | "Never modify a merged migration" | two new migrations; the 25 old ones that mention organizations stay | the rule applied | — |
 | Model on standards: a party is `cac:Party` (AGENTS.md) | the party keeps its repeatable tables; the tenant is not a party | the rule applied, the reason the change exists | — |
-| Data operations through the app, never raw SQL | the expand migration copies rows itself (schema work, not an operation); the soft delete of the old rows at contract runs as a migration step with a count in the log | the rule applied | — |
+| Data operations through the app, never raw SQL | the migration copies rows itself (schema work, not an operation); the soft delete of the old rows runs as a migration step with a count in the log | the rule applied | — |
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-| Module | Ph 1 expand | Ph 2 screens | Ph 3 contract | Total |
-|---|---|---|---|---|
-| mdm (model, api, migration) | 2 | 1 | 1 | 4 |
-| kernel (tenancy, config, modules) | 1.5 | — | 0.5 | 2 |
-| auth, reporting | 0.5 | 0.5 | — | 1 |
-| platform screens | — | 2 | — | 2 |
-| tests, screenshots, smoke per tenant | 1.5 | 1 | 0.5 | 3 |
-| **Total** | **5.5** | **4.5** | **2** | **~12 CLI-days** |
+| Module | Ph 1 model and migration | Ph 2 screens | Total |
+|---|---|---|---|
+| mdm (model, api, migration) | 3 | 1 | 4 |
+| kernel (tenancy, config, modules) | 2 | — | 2 |
+| auth, reporting | 0.5 | 0.5 | 1 |
+| platform screens | — | 2 | 2 |
+| tests, screenshots, smoke per tenant | 2 | 1 | 3 |
+| **Total** | **7.5** | **4.5** | **~12 CLI-days** |
 
-**Running cost:** none. **Operations:** two migrations in two releases; before the expand release a checked backup and `raak restore-test`; the smoke per tenant (`SMOKE_TENANT`) extended to every tenant's home and footer; no env var — `TENANT_HOSTNAMES` keeps host=code.
+**Running cost:** none. **Operations:** one migration in one release; before the deploy a checked backup and `raak restore-test`; the smoke per tenant (`SMOKE_TENANT`) extended to every tenant's home and footer; no env var — `TENANT_HOSTNAMES` keeps host=code.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
 | Phase | Delivers | Migration | Failure paths that change | Validation |
 |---|---|---|---|---|
-| **1 — expand** | `mdm.tenants` filled with the same ids; the FKs; the resolver, settings, modules and roles on tenants; `tenant_config` reads the tenant then its party; the organisation columns still present and still written for one release (double write) | additive (`NOT VALID` FKs validated in the same migration, measured on a PROD-sized dump) | a request for an unknown code answers as today; a tenant without a party refuses to render with a named error | AC1, AC6 |
+| **1 — model and migration** | `mdm.tenants` filled with the same ids; the FKs; the resolver, settings, modules and roles on tenants; `tenant_config` reads the tenant then its party; the tenant columns dropped from organizations and the borrowed-data organisation rows soft-deleted in the same migration | one migration: the additive part first, then the contract part (`NOT VALID` FKs validated in it, measured on a PROD-sized dump) | a request for an unknown code answers as today; a tenant without a party refuses to render with a named error | AC1, AC6 |
 | **2 — the screens** | Tenants and Organisaties on their own records; create a tenant; delete a party with its refusal; "gebruikt door n tenants"; the reporting folders | none | the refusal names the tenants | AC2–AC5 |
-| **3 — contract** | drop `code`, `kind`, `site_organization_id`, `site_name`, the tenant meaning of `org_type` from organizations; soft-delete the organisation rows that were borrowed-data tenants; the double write off | contract, one release after phase 1 | none | AC1 again |
 
-Dependencies: none on other change requests; CR-11's roll-out moves the two screens to the kit's layouts whenever it comes. Order of the three in the document's Q&A: phase 1 and 2 may ship in one release; phase 3 never with phase 1.
+Dependencies: none on other change requests; CR-11's roll-out moves the two screens to the kit's layouts whenever it comes. Both phases ship in one release, the contract part included (Q4, Koen).
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
 1. **The rule.** *A tenant is a site; an organisation is a party; a tenant-scoped row points at a tenant by a foreign key.* Lives in `docs/architecture.md` §5 (tenancy) and in the organisation's docstring, which today explains the confusion instead of the rule.
 2. **Reach and baseline.** 64 tenant-scoped models, 464 references, no foreign key on any of them (measured 4 October 2026); after phase 1: every one with a key.
 
-**The gate:** a model with `TenantMixin` whose `tenant_id` has no foreign key is red (test 7); `mdm.api.create_tenant` is the only writer of a tenant (the facade gate); an organisation row with a tenant column after phase 3 is red (test 9).
+**The gate:** a model with `TenantMixin` whose `tenant_id` has no foreign key is red (test 7); `mdm.api.create_tenant` is the only writer of a tenant (the facade gate); a tenant column on `organizations` is red (test 9).
 
 ## B8. Open decisions — what the approver still decides
 
-| # | Question | Recommendation | What the answer changes |
-|---|---|---|---|
-| Q1 | Keep today's organisation ids as the tenant ids (no rewrite of 64 tables)? | Yes — the whole cost of this change hangs on it. | F1, F7 |
-| Q2 | `org_type` on the party: keep as a role (`CUSTOMER` for an account, `PARTY` for the rest) or drop it and derive "is an account" from `tenants.account_id`? | Keep a role column: an account without tenants yet is still a customer. | F3 |
-| Q3 | `parent_id` on the party (an organisational tree): keep or drop? | Drop at phase 3 — nothing reads it once tenants carry their account; a hierarchy of parties returns when a feature needs it. | F3, phase 3 |
-| Q4 | Phases 1 and 2 in one release, or 1 first? | One release: the screens are what makes the split visible; without them the expand changes nothing an operator sees. | B6 |
+None. Koen answered Q1–Q4 on 4 October 2026 (B9, the Q&A log): the same ids, `org_type` kept as the party's role, `parent_id` dropped, and everything in one release.
 
 ## B9. Decisions log — dated answers
 
@@ -358,6 +351,7 @@ Dependencies: none on other change requests; CR-11's roll-out moves the two scre
 | 2 Oct 2026 | CR-19: a tenant has a kind and modules; the account is the customer; a tenant's shown organisation may differ from its account (#1550). | Koen |
 | 4 Oct 2026 | "That the tenant really is the tenant, not the organisation": a tenant under an account and under an organisation; the stop-gap (hiding) refused; a change request, not an issue. | Koen, via the master CLI |
 | 4 Oct 2026 | *Proposed:* same ids, a new `tenants` table, the party kept, the account a party with a role, the platform a tenant, soft delete by rule, expand/contract over two releases. | author |
+| 4 Oct 2026 | Q1–Q4: as proposed — same ids, the role column kept, `parent_id` dropped — **but everything in one release, the contract part included**; the expand/contract rule set aside for this change (B4), as for CR-19. | Koen |
 
 ---
 
@@ -381,9 +375,9 @@ Dependencies: none on other change requests; CR-11's roll-out moves the two scre
 
 #### mdm (phases 1–3)
 
-- **Model:** `Tenant` (`mdm.tenants`) per F1; `Organization` loses its tenant meaning in the code at phase 1 (the columns stay until phase 3); `TenantKind` moves to the tenant; `OrganizationType` becomes the party's role (Q2).
+- **Model:** `Tenant` (`mdm.tenants`) per F1; `Organization` loses its tenant meaning and its tenant columns in phase 1; `TenantKind` moves to the tenant; `OrganizationType` becomes the party's role (Q2).
 - **Facade (`api.py`):** `tenants()`, `tenant(id)`, `tenant_by_code(code)`, `platform_tenant_id()`, `create_tenant(code, kind, account_id, organization_id, site_name, modules)`, `set_modules` unchanged in signature, `organizations()` (parties only), `delete_organization(id)` → refuses with the tenants' names when referenced, soft-deletes the party and its details otherwise.
-- **Migrations:** phase 1 `alembic revision -m "tenants apart from organisations: expand"` — create `mdm.tenants`; insert from organizations where `org_type IN ('UNIT','PLATFORM')` with the same `id`, `code`, `kind`, `site_name`, `is_active`, `account_id = parent_id`, `organization_id = COALESCE(site_organization_id, id)`, `is_platform = (org_type = 'PLATFORM')`; `SELECT setval` on the sequence; add FKs on `tenant_modules`, `kernel_tenant_settings`, `auth user_roles` (nullable), and on every `TenantMixin` table as `NOT VALID` + `VALIDATE CONSTRAINT`; the mixin declares the FK. Phase 3 `… : contract` — drop the five columns, soft-delete the borrowed-data organisation rows (log the count), drop `parent_id` if Q3 says so. Check the CHECK constraints on `organizations` first (the `media_assets.kind` lesson).
+- **Migration:** one file, `alembic revision -m "tenants apart from organisations"` — create `mdm.tenants`; insert from organizations where `org_type IN ('UNIT','PLATFORM')` with the same `id`, `code`, `kind`, `site_name`, `is_active`, `account_id = parent_id`, `organization_id = COALESCE(site_organization_id, id)`, `is_platform = (org_type = 'PLATFORM')`; `SELECT setval` on the sequence; add FKs on `tenant_modules`, `kernel_tenant_settings`, `auth user_roles` (nullable), and on every `TenantMixin` table as `NOT VALID` + `VALIDATE CONSTRAINT`; the mixin declares the FK; then, in the same file, drop `code`, `kind`, `site_organization_id`, `site_name` and `parent_id`, rename `org_type` to the party's role, and soft-delete the borrowed-data organisation rows (log the count). Check the CHECK constraints on `organizations` first (the `media_assets.kind` lesson).
 - **Screens:** `tenants_ui.py` (list, editor, nieuw) on `Tenant`; `organisaties_ui.py` (list with "gebruikt door n tenants", editor, Verwijderen with the refusal) on parties; the tenant editor's organisation select lists the account's parties plus "nieuwe organisatie".
 - **Tests:** C6 1–5, 9.
 
@@ -417,7 +411,7 @@ Dependencies: none on other change requests; CR-11's roll-out moves the two scre
 | Code lists | `tenant_kind` moves to the tenant; `organization_type` becomes the party's role or goes (Q2) |
 | Events and handlers | no; `tenant_id` on an event payload keeps its value |
 | Mail templates | the footer and signature read the party through the tenant — same output |
-| Migration: additive or contract | phase 1 additive (+ FK validation), phase 3 contract, one release apart |
+| Migration: additive or contract | both in one migration and one release (Koen, 4 Oct 2026; B4); the checked dump and the restore test come first |
 | Tenant settings | keyed by tenant id as today; no key changes |
 | Env vars | none; `TENANT_HOSTNAMES` unchanged (host=code) |
 | JSON routes and API callers | `/api/v1/tenants` (if any) returns tenants; organisation endpoints return parties; measure callers first |
@@ -446,9 +440,9 @@ A party a tenant points at (as shown organisation or as account) refuses with th
 
 `TENANT_HOSTNAMES` maps a host to a code; a code names a site. Both belong to the tenant. A party has no code: it has identifications (enterprise number, VAT) in their own table, as the standard says.
 
-### C4.6 Two releases
+### C4.6 One release, by decision
 
-Phase 1 adds the table and the keys and switches the readers; the old columns stay and are written for one release (double write in `create_tenant` and the editor), so a rollback is "deploy the previous tag" and nothing is lost. Phase 3 drops the columns and soft-deletes the organisation rows that were borrowed-data tenants (the brand site, the platform) — the rows of tenants that were their own party stay, as the party they show. Never in one release: UAT and PROD share one shape.
+The project's rule is expand/contract: the old columns survive one release so a rollback is a redeploy of the previous tag. Koen chose one release for this change (4 October 2026), as he did for CR-19: the migration that creates the tenants also drops the tenant columns from `organizations` and soft-deletes the organisation rows that were borrowed-data tenants (the brand site, the platform); the rows of tenants that were their own party stay, as the party they show. What replaces the rollback: a checked dump and `raak restore-test` before the deploy, a deploy that stops instead of rolling back (#1203), and the per-tenant screenshot comparison on HDEV before the tag. B4 records the exception; the rule stands for the next change.
 
 ## C5. Privacy and security — the mechanics behind A7
 
@@ -464,7 +458,7 @@ Tenant isolation rests on `tenant_id`; this change gives that column the foreign
 6. **The resolver.** Host, path prefix and default resolve to the same tenant ids as before the migration (a table of hosts and codes from the seed, asserted before and after).
 7. **The key exists.** Every model with `TenantMixin` has a foreign key on `tenant_id` to `mdm.tenants` (introspection); red on master today.
 8. **Settings, modules, roles.** A tenant's settings, modules and roles read unchanged after the migration (a snapshot of the seed before, compared after).
-9. **Contract.** After phase 3 no tenant column exists on `organizations` (introspection); the borrowed-data rows are soft-deleted and counted.
+9. **Contract.** After the migration no tenant column exists on `organizations` (introspection); the borrowed-data rows are soft-deleted and counted.
 10. **The seed.** The test seed creates tenants and parties; a test writing a `tenant_id` that no tenant has fails on the key (proven by one).
 11. **Screens unchanged.** The e2e screenshots of every tenant's home, footer and admin menu are identical before and after phase 1 (the comparison of CR-17 test 19, reused).
 
@@ -472,7 +466,7 @@ Tenant isolation rests on `tenant_id`; this change gives that column the foreign
 
 ## C7. The gate — what refuses a deviation from now on
 
-Test 7 is hard from phase 1: a `TenantMixin` model without the foreign key is red. The facade gate keeps `create_tenant` and `delete_organization` the only writers. Test 9 is hard from phase 3. What stays with judgment: whether a new thing is a tenant, a party or a role on a party — decided in this document's Q&A.
+Test 7 is hard from phase 1: a `TenantMixin` model without the foreign key is red. The facade gate keeps `create_tenant` and `delete_organization` the only writers. Test 9 is hard from the same release. What stays with judgment: whether a new thing is a tenant, a party or a role on a party — decided in this document's Q&A.
 
 ## C8. Prototype findings — what was measured before the build
 
@@ -484,7 +478,7 @@ Waived in the author's proposal: the two platform screens are a list and a recor
 
 ## C10. Close-out at the release
 
-Not yet: on hold, nothing built. Filled in when the release that builds phase 3 runs on PROD (release step 14).
+Not yet: on hold, nothing built. Filled in when the release runs on PROD (release step 14).
 
 ---
 
@@ -492,10 +486,10 @@ Not yet: on hold, nothing built. Filled in when the release that builds phase 3 
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
-| Q1 | 4 Oct 2026 | Keep the organisation ids as the tenant ids? (author) | *Proposed:* yes (C4.1). *Koen decides.* |
-| Q2 | 4 Oct 2026 | What becomes of `org_type` on the party? (author) | *Proposed:* a role column, CUSTOMER or PARTY (C4.2). *Koen decides.* |
-| Q3 | 4 Oct 2026 | Keep `parent_id` on the party? (author) | *Proposed:* drop at phase 3. *Koen decides.* |
-| Q4 | 4 Oct 2026 | Phases 1 and 2 in one release? (author) | *Proposed:* yes; phase 3 one release later. *Koen decides.* |
+| Q1 | 4 Oct 2026 | Keep the organisation ids as the tenant ids? (author) | Yes (Koen, 4 Oct 2026; C4.1). |
+| Q2 | 4 Oct 2026 | What becomes of `org_type` on the party? (author) | A role column, CUSTOMER or PARTY (Koen, 4 Oct 2026; C4.2). |
+| Q3 | 4 Oct 2026 | Keep `parent_id` on the party? (author) | Dropped, in the one migration (Koen, 4 Oct 2026). |
+| Q4 | 4 Oct 2026 | Phases 1 and 2 in one release? (author) | Yes — and the contract part with them: everything in one release (Koen, 4 Oct 2026; C4.6, B4). |
 | Q5 | 4 Oct 2026 | Why not the smaller step (hide tenants from the list)? (master CLI) | Koen refused it: it hides the symptom and keeps the row that cannot be deleted. |
 | Q6 | 4 Oct 2026 | Does the split close the door to an account workspace (CR-19 B9)? (#1578) | No: the workspace is a query over tenants with one `account_id`; the model needs nothing reserved. |
 
@@ -513,5 +507,5 @@ Not yet: on hold, nothing built. Filled in when the release that builds phase 3 
 - **CR-19 (#1468)** — kinds and modules per tenant; the shown organisation (#1550); `site_name` (#1546); the direction on accounts (B9); this change gives those a home.
 - **#1569** — the footer page as a page's flag, untouched.
 - **#406, #854, #963** — the tenancy phase, the platform row, roles per workspace: the three steps that put the tenant on the organisation row.
-- **#1255** — expand/contract.
+- **#1255** — expand/contract, set aside for this change (B4).
 - **AGENTS.md, "Modelleer op standaarden"** — the party as `cac:Party`; the reason the organisation keeps its repeatable tables and loses the tenant.
