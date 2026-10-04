@@ -4,7 +4,7 @@
 **Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · on hold — Koen answers B8
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
-**Reading:** A 1491 words · B 2508 · C 4541 — measured on 4 October 2026 with the template's count; the budget is A ≤ 1 500, B ≤ 2 500 — **still over; trim pending**
+**Reading:** A 1491 words · B 2504 · C 4541 — measured on 4 October 2026 with the template's count; the budget is A ≤ 1 500, B ≤ 2 500 — **still over; trim pending**
 
 ---
 
@@ -230,7 +230,7 @@ flowchart LR
   classDef nl fill:#fce7f3,stroke:#be185d
 ```
 
-Legend: green cms · yellow the kit · blue media · purple forms · grey kernel · pink newsletter.
+Legend: green cms · yellow kit · blue media · purple forms · grey kernel · pink newsletter.
 
 **Traceability matrix**
 
@@ -379,7 +379,7 @@ Purchases: none with TipTap; CKEditor 5 needs the GPL terms or a licence (Q1). *
 
 | Phase | Delivers | Migration | Failure paths that change | Validation |
 |---|---|---|---|---|
-| **0 — the spike** | TipTap and CKEditor 5 vendored on a throwaway branch; a table round trip, a custom figure node, the CSP, typing on a phone measured; Koen decides Q1 | none | none | C8 |
+| **0 — the spike** | TipTap and CKEditor 5 vendored on a throwaway branch; a table round trip, a custom node, the CSP, a phone measured; Koen decides Q1 | none | none | C8 |
 | **1 — pages as documents** | the schema; the editor macro; the page screen with draft, publish, history, preview; the renderer and the reading-width page; `page_translations`; value blocks; the picker; JSON export and import, the schema served; the lossless migration | additive | a page is no longer live on save; an unknown block refused by name | AC1, AC3, AC4, AC6, AC7, AC10, AC11 |
 | **2 — the blocks** | table (full), columns with alignment, button, callout, link card, **cards**, **form**, gallery; the API draft route | none | a deleted form renders nothing | AC2, AC8, AC9 |
 | **3 — the letter and the notes** | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes; lazy conversion | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
