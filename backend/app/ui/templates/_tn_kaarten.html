@@ -10,13 +10,14 @@
       <div>
         <div class="font-semibold text-ink">{{ u.name }}</div>
         {# #854: het platform staat in deze lijst omdat het dezelfde instellingen
-           draagt als een afdeling, maar het is er geen. Vandaar de badge én de code
-           ZONDER schuine streep: `/platform` opent geen site, want `tenant_lookup`
-           filtert op UNIT. Een pad tonen dat niet bestaat, stuurt je zoeken. #}
+           draagt als een afdeling, maar het is er geen. Vandaar de code ZONDER
+           schuine streep: `/platform` opent geen site, want `tenant_lookup`
+           filtert op UNIT. Een pad tonen dat niet bestaat, stuurt je zoeken.
+           #1533: its badge is its kind's ("Platform", #1523); the separate blue
+           "platform" badge said the same thing twice. #}
         <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
           {% if u.id == platform_id %}
           <span class="font-mono text-xs text-ink-soft">{{ u.code }}</span>
-          {{ ui.badge(_("platform"), "blue") }}
           {% else %}
           <span class="font-mono text-xs text-ink-soft">/{{ u.code }}</span>
           {% endif %}

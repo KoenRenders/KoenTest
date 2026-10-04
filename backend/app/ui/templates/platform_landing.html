@@ -35,7 +35,8 @@
       {% for a in account.tenants %}
       <a href="{{ a.url }}" class="block bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
         <span class="font-semibold text-ink">{{ a.naam }}</span>
-        <span class="block text-sm text-gray-500 mt-1">{{ a.url }}</span>
+        {# #1533: a long address breaks inside the card instead of running past it. #}
+        <span class="block text-sm text-gray-500 mt-1 break-all">{{ a.url }}</span>
       </a>
       {% endfor %}
     </div>

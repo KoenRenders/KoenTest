@@ -8,7 +8,7 @@ kept comparing it with a string, and a member equals none:
 | organisation list | the badge word and its colour | "organizationtype.account", never blue |
 | organisation list | the filter on kind | every filter shows nothing |
 | organisation editor | the link to the site settings | gone for every unit |
-| tenant list | the platform badge, the code without a slash | the platform as `/platform` |
+| tenant list | the platform's kind badge (#1533), the code without a slash | the platform as `/platform` |
 
 These tests describe the behaviour of master (v2.6.0, before phase 2). They
 were run there first — green — and all four were red on this branch before
@@ -101,4 +101,6 @@ def test_the_tenant_list_marks_the_platform(client, db_session):
     assert f">{code}</span>" in html and f">/{code}</span>" not in html, (
         "the platform opens no site, so its code carries no slash"
     )
-    assert ">platform</span>" in html
+    # #1533: one badge, the kind's; the old blue "platform" badge is gone.
+    # `>platform</span>` once: the code itself (its code is "platform"), no second badge.
+    assert html.count(">Platform</span>") == 1 and html.count(">platform</span>") == 1
