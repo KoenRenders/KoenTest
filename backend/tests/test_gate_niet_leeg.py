@@ -62,6 +62,9 @@ GATE_BESTANDEN = [
     "test_test_email_domains_gate.py",
     # #1287: the one product row, over activities/templates.
     "test_one_product_row_gate.py",
+    # #1563: the UI ratchets count per template; an empty walk would read as
+    # every count at zero.
+    "test_ui_ratchets.py",
     # Geen `test_`-bestand: de migratiepoort (#951) leest haar bestanden in
     # `_migratieketen.py`, omdat `conftest` diezelfde controle draait vóór
     # `alembic upgrade head`. De glob staat daar, dus daar hoort de niet-leeg-

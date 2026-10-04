@@ -430,7 +430,7 @@
 
 {# ── 9. Lege en ladende toestand ───────────────────────────────────────────── #}
 {# ── 8b2. Meetwaarden ─────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("8b · Meetwaarden per soort"), cls="mt-10") }}
+{{ ui.section_header(_("8b2 · Meetwaarden per soort"), cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("Eén cel per opmaaksoort die de universe declareert (#875). Vóór deze macro kende het paneel alleen geld en drukte de rest rauw af — een gemiddelde kwam als 0E-20 op het scherm. Elke soort hoort hier te staan; een soort zonder weergave laat de gate in test_reporting_number_format.py falen.") }}
@@ -588,7 +588,8 @@
   {% endcall %}
   <div id="ds-lijst-werkbalk"></div>
   <p class="text-sm text-gray-600 mt-4 mb-2">{{ _("De statusfilter los, met drie segmenten:") }}</p>
-  <div class="inline-block">
+  {# On a phone the card's padding leaves 308 px and the three segments need 333: the demo takes the room a toolbar has. #}
+  <div class="inline-block -mx-5 md:mx-0">
   {{ ui.status_filter("ds_status", [{"value": "actief", "label": _("Actief"), "count": 107}, {"value": "vernieuwen", "label": _("Te vernieuwen"), "count": 38}, {"value": "opgezegd", "label": _("Opgezegd")}], "actief", _("Status"), id="ds-status") }}
   </div>
   <p class="text-xs text-gray-500 mt-3">
@@ -737,13 +738,17 @@
 {# ── 12. Detailscherm ──────────────────────────────────────────────────────── #}
 {{ ui.section_header(_("12 · Detailscherm"), cls="mt-10") }}
 {% call ui.card() %}
-  <div class="flex items-center justify-between mb-3">
+  <div class="flex items-center justify-between mb-3" x-data="{ edit: false }">
     <h3 class="text-lg font-semibold">{{ _("Voorbeeldactiviteit") }}</h3>
     {{ ui.edit_toggle("edit") }}
   </div>
   {% call ui.nested_panel(_("Onderdelen"), _("Toevoegen"), 'href="#"') %}
+    {# `section_bar` reads `sedit`, the state of the card it sits in (#1563: the
+       demo had no card, so the page threw "sedit is not defined"). #}
+    <div x-data="{ sedit: false }">
     {{ ui.section_bar(_("Wandeling"), up_attrs='href="#"', down_attrs='href="#"',
                       edit_attrs='href="#"', delete_attrs='href="#"', first=True) }}
+    </div>
     <div class="mt-2">{{ ui.reorder(up_attrs='href="#"', down_attrs='href="#"', first=True) }}</div>
   {% endcall %}
   {# `detail_disclosure` laadt in een doel dat op dezelfde pagina moet bestaan — de

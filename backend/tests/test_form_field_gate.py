@@ -4,10 +4,9 @@
 
 - a form control comes from `ui.field`; a raw `<label>`, `<input>`, `<select>` or
   `<textarea>` in a domain template is the old way. Inside a kit `section` it is
-  red outright; across the domain templates the counts are a ratchet — today's
-  number, which may only fall (the screens move onto the kit one by one);
-- a raw `type="checkbox"` is counted the same way: a boolean setting is a
-  `switch`, several out of a list a `checkbox_group`;
+  red outright. Across the templates the counts — raw elements, raw checkboxes —
+  are ratchets per file in `test_ui_ratchets.py` (#1563), which replaced the two
+  integers that stood here with room to grow;
 - the kind decides the width: a `url`, `email`, `textarea` or `upload` field with
   `span="half"` or `span="quarter"` is red;
 - `rare_settings` is the last slot: a `section` after it is red.
@@ -21,16 +20,9 @@ from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1] / "app"
 
-#: Raw form elements in the domain templates on 4 October 2026, after the
-#: activity's three sections moved onto `ui.field`. May only fall: lower the
-#: number in the change that removes some. (`type="hidden"` is no control.)
-RAW_ELEMENTS_BASELINE = 112
-RAW_CHECKBOX_BASELINE = 30
-
 FULL_KINDS = {"url", "email", "textarea", "upload", "checkbox_group", "radio_group"}
 
 _RAW = re.compile(r"<(label|select|textarea)\b|<input\b(?![^>]*type=\"hidden\")")
-_RAW_CHECKBOX = re.compile(r"<input\b[^>]*type=\"checkbox\"")
 
 
 def _without_comments(text: str) -> str:
@@ -120,29 +112,6 @@ def test_no_raw_form_element_inside_a_kit_section():
     `_aa_detail.html`."""
     found = [v for rel, text in _all_templates().items() for v in raw_in_sections(rel, text)]
     assert found == []
-
-
-def test_the_raw_form_elements_only_fall():
-    count = sum(len(_RAW.findall(text)) for text in _domain_templates().values())
-    assert count <= RAW_ELEMENTS_BASELINE, (
-        f"{count} raw <label>/<input>/<select>/<textarea> in the domain templates, the baseline is "
-        f"{RAW_ELEMENTS_BASELINE}: a form control comes from `ui.field` (§3.1)."
-    )
-    assert count >= RAW_ELEMENTS_BASELINE - 20, (
-        f"{count} left, the baseline still says {RAW_ELEMENTS_BASELINE}: lower it, or the room you "
-        "made is free for the next raw element."
-    )
-
-
-def test_the_raw_checkboxes_only_fall():
-    count = sum(len(_RAW_CHECKBOX.findall(text)) for text in _domain_templates().values())
-    assert count <= RAW_CHECKBOX_BASELINE, (
-        f"{count} raw checkboxes in the domain templates, the baseline is {RAW_CHECKBOX_BASELINE}: "
-        "a boolean setting is a `switch` field, several out of a list a `checkbox_group` (§3.5)."
-    )
-    assert count >= RAW_CHECKBOX_BASELINE - 8, (
-        f"{count} left, the baseline still says {RAW_CHECKBOX_BASELINE}: lower it."
-    )
 
 
 def test_no_long_field_is_narrowed():

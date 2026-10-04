@@ -1,0 +1,11 @@
+# What the browser tests (tests_e2e/) need on top of requirements.txt (#1563).
+#
+# Playwright is pinned because each release ships its own Chromium build: the
+# pixel comparison of CR-11 B7 test 11 compares a screen with yesterday's, and a
+# browser that changes underneath it makes every screen differ at once. Raising
+# this pin is a change of its own, with the baselines renewed in the same PR.
+#
+# The versions are the ones CI and the local helper installed unpinned on
+# 5 October 2026.
+playwright==1.63.0
+pytest==9.1.1
