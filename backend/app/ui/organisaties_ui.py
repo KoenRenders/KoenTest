@@ -90,8 +90,14 @@ REKENINGGROEP = [
 ]
 
 NUMMERGROEP = [
-    ("enterprise_number", "Ondernemingsnummer", "Bv. 0123.456.789."),
-    ("vat_number", "Btw-nummer", "Optioneel."),
+    # #1545: an example whose check number holds (97 − 01234567 % 97 = 49).
+    ("enterprise_number", "Ondernemingsnummer", "Bv. 0123.456.749."),
+    # #1545: a Belgian VAT number is checked; another country's is kept as typed.
+    (
+        "vat_number",
+        "Btw-nummer",
+        "Optioneel. Bv. BE 0123.456.749; een buitenlands nummer bewaren we zoals getypt.",
+    ),
 ]
 
 # CR-12 phase 2: the words of the organisation kind come from its label table;
@@ -177,6 +183,8 @@ def _editor_ctx(request: Request, db: Session, organization_id: int, *, own=Fals
         "rekeninggroep": REKENINGGROEP,
         "nummergroep": NUMMERGROEP,
         "error": None,
+        # #1545: a refusal per field, shown on it.
+        "veld_fouten": {},
         "toast_opgeslagen": False,
         "csrf_token": csrf_from_request(request),
     }
@@ -317,6 +325,8 @@ async def _save(request: Request, db: Session, organization_id: int, *, own: boo
             }
         )
         ctx["error"] = " ".join(f"{labels.get(k, k)}: {m}" for k, m in fout.fouten.items())
+        # #1545: and on the field itself — the banner is at the top of a long form.
+        ctx["veld_fouten"] = dict(fout.fouten)
         ctx["velden"] = {**ctx["velden"], **{k: v for k, v in form.items() if k in ctx["velden"]}}
         ctx["adres"] = {**ctx["adres"], **{k: v for k, v in form.items() if k in ctx["adres"]}}
         # 422 is the right status; since #1515 the shells swap an HTML 422
