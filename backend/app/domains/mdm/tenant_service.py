@@ -18,10 +18,13 @@ ligt in de service, niet in het scherm — zo geldt ze voor élke ingang en niet
 alleen voor de route die er toevallig aan dacht.
 """
 
+import logging
 import re
 from typing import Iterable, Mapping
 
 from app.domains.mdm.models import OrganizationType, TenantKind
+
+logger = logging.getLogger(__name__)
 
 _CODE = re.compile(r"[a-z0-9-]+")
 
@@ -207,21 +210,117 @@ def save_tenant(
     known: Iterable[str],
     secret: Iterable[str],
     modules: Iterable[str] | None,
+    kind: str | None = None,
+    account: str | None = None,
+    actor: str | None = None,
 ) -> None:
     """The tenant editor's one Opslaan (#1498): the module set and the settings
     in ONE transaction. Both are checked before anything is written — a refused
     dependency (`ModuleRefused`) or an invalid value (`OngeldigeInstelling`)
     saves nothing. Switching a module off deletes nothing: its settings stay,
     as they are on the form. `modules=None` leaves the module set as it is.
-    Commits, and clears the cached module sets."""
+    Commits, and clears the cached module sets.
+
+    #1533: `kind` changes the tenant's kind in the same transaction, checked
+    first like the rest (`_checked_kind`); None leaves it as it is. The modules
+    do not follow a new kind — the kind sets the starting modules at creation
+    only, and what the tenant has switched on since is its own.
+
+    `account` moves the tenant under another active ACCOUNT, the same way: its
+    id as text, "" for none, None to leave it. Modules and data stay."""
     from app.domains.mdm.tenant_lookup import invalidate_tenant_codes
 
+    new_kind = _checked_kind(db, tenant_id, kind) if kind is not None else None
+    new_parent = _checked_account(db, tenant_id, account) if account is not None else None
     chosen = _checked_modules(modules) if modules is not None else None
     _write_settings(db, tenant_id, form, known=known, secret=secret)
     if chosen is not None:
         _write_modules(db, tenant_id, chosen)
+    if new_kind is not None:
+        _write_kind(db, tenant_id, new_kind, actor=actor)
+    if account is not None:
+        _write_account(db, tenant_id, new_parent, actor=actor)
     db.commit()
     invalidate_tenant_codes()
+
+
+def _checked_kind(db, tenant_id: int, kind: str) -> TenantKind:
+    """The kind a tenant may be given (#1533), refused before anything is
+    written: one of `CREATABLE_TENANT_KINDS`, on a UNIT. The platform's kind is
+    fixed — there is one platform, and it is never an association or a company."""
+    from app.domains.mdm.models import Organization
+
+    org = db.get(Organization, tenant_id)
+    if org is None or org.org_type is not OrganizationType.UNIT:
+        raise TenantFout("Het type van het platform ligt vast.")
+    try:
+        chosen = TenantKind(kind)
+    except ValueError:
+        raise TenantFout("Kies het type: vereniging of bedrijf.") from None
+    if chosen not in CREATABLE_TENANT_KINDS:
+        raise TenantFout("Kies het type: vereniging of bedrijf.")
+    return chosen
+
+
+def _checked_account(db, tenant_id: int, account: str) -> int | None:
+    """The account a tenant may be moved under (#1533), refused before anything
+    is written: an active ACCOUNT (#1495), or "" for none, on a UNIT only."""
+    from app.domains.mdm.models import Organization
+
+    org = db.get(Organization, tenant_id)
+    if org is None or org.org_type is not OrganizationType.UNIT:
+        raise TenantFout("Het platform hangt onder geen account.")
+    if account == "":
+        return None
+    parent = db.get(Organization, int(account)) if account.isdigit() else None
+    if parent is None or parent.org_type is not OrganizationType.ACCOUNT or not parent.is_active:
+        raise TenantFout("Kies een actief account.")
+    return parent.id
+
+
+def _write_account(db, tenant_id: int, parent_id: int | None, *, actor: str | None) -> None:
+    """Hang the tenant under the account; a change is logged (#1533), like the
+    kind: there is no history table for organisations."""
+    from app.domains.mdm.models import Organization
+
+    org = db.get(Organization, tenant_id)
+    old = org.parent_id
+    if old == parent_id:
+        return
+    org.parent_id = parent_id
+
+    def code(org_id):
+        return db.get(Organization, org_id).code if org_id is not None else None
+
+    logger.info(
+        "tenant account changed: tenant=%s code=%s %s -> %s by %s",
+        org.id,
+        org.code,
+        code(old),
+        code(parent_id),
+        actor or "unknown",
+    )
+
+
+def _write_kind(db, tenant_id: int, kind: TenantKind, *, actor: str | None) -> None:
+    """Give the tenant its kind; a change is logged (#1533). There is no history
+    table for organisations or tenant settings, so the application log is where
+    the change is recorded: who, which tenant, the old and the new kind."""
+    from app.domains.mdm.models import Organization
+
+    org = db.get(Organization, tenant_id)
+    old = org.kind
+    if old is kind:
+        return
+    org.kind = kind
+    logger.info(
+        "tenant kind changed: tenant=%s code=%s %s -> %s by %s",
+        org.id,
+        org.code,
+        old.value if old is not None else None,
+        kind.value,
+        actor or "unknown",
+    )
 
 
 # #797: welke instellingen een getal moeten zijn. Een tenant-instelling is door

@@ -173,8 +173,6 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     elif status == "inactief":
         units = [u for u in units if not u.is_active]
     accounts = list_accounts(db)
-    from app.domains.mdm.api import CREATABLE_TENANT_KINDS
-
     kinds = _kind_labels()
     return {
         "nav_items": admin_nav("/admin/tenants"),
@@ -183,11 +181,7 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
         # own kind too, since #1523.
         "kind_of": {u.id: kinds[u.kind.value] for u in units if u.kind is not None},
         # #1523: a new tenant takes one of the creatable kinds, never PLATFORM.
-        "kind_options": [
-            (code, label)
-            for code, label in kinds.items()
-            if code in {k.value for k in CREATABLE_TENANT_KINDS}
-        ],
+        "kind_options": _creatable_kind_options(),
         # #854: the platform is in this list but is no unit; the screen marks
         # it. Decided here, because a template comparing the member with
         # "PLATFORM" is always false (CR-12 phase 2).
@@ -199,6 +193,15 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
         "opgeslagen": False,
         "csrf_token": csrf_from_request(request),
     }
+
+
+def _creatable_kind_options() -> list[tuple[str, str]]:
+    """The kinds a tenant may take, as (code, label): never PLATFORM (#1523).
+    One list for the new-tenant form and the editor (#1533)."""
+    from app.domains.mdm.api import CREATABLE_TENANT_KINDS
+
+    creatable = {k.value for k in CREATABLE_TENANT_KINDS}
+    return [(code, label) for code, label in _kind_labels().items() if code in creatable]
 
 
 def _kind_labels() -> dict[str, str]:
@@ -284,7 +287,7 @@ def _cards(db: Session, unit, *, modules_on, refused=None) -> list[dict]:
 def _editor_ctx(
     request: Request, db: Session, tenant_id: int, *, modules_on=None, refused=None
 ) -> dict:
-    from app.domains.mdm.api import enabled_modules
+    from app.domains.mdm.api import enabled_modules, list_accounts
     from app.domains.mdm.api import secrets_gezet as _secrets_gezet
     from app.kernel.tenant_config import get_setting
 
@@ -302,8 +305,17 @@ def _editor_ctx(
         "nav_items": admin_nav("/admin/tenants"),
         "unit": unit,
         "tenant_id": tenant_id,
-        # CR-19 (#1478): the kind is chosen once, at creation, and shown here.
         "kind_label": _kind_labels().get(unit.kind.value) if unit.kind is not None else None,
+        # #1533: a unit's kind can be changed here, between the creatable kinds;
+        # the platform's is fixed and only shown (`kind_label`).
+        "kind_options": _creatable_kind_options() if unit.org_type is OrganizationType.UNIT else [],
+        "kind_value": unit.kind.value if unit.kind is not None else None,
+        # #1533 (Koen): beside the kind, the account the tenant hangs under, chosen
+        # from the active accounts (#1495); "" only while it has none.
+        "account_options": [(str(a.id), a.name) for a in list_accounts(db)]
+        if unit.org_type is OrganizationType.UNIT
+        else [],
+        "account_value": str(unit.parent_id) if unit.parent_id is not None else "",
         "cards": _cards(db, unit, modules_on=on, refused=refused),
         # A module without a card keeps its state through the one Opslaan.
         "kept_modules": sorted(c.value for c in _hidden_cards(unit) if c.value in stored_on),
@@ -441,6 +453,10 @@ async def tenant_opslaan(
             known=[key for key, _l, _h in sleutels if key in form],
             secret=[key for key, _l, _h in geheim],
             modules=modules,
+            # #1533: only what the form sends; the platform's editor sends none.
+            kind=str(form["kind"]) if "kind" in form else None,
+            account=str(form["account_id"]) if "account_id" in form else None,
+            actor=email,
         )
     except ModuleRefused as fout:
         ctx = again(refused=(fout.module, _(str(fout))))

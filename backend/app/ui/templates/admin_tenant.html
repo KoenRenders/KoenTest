@@ -15,7 +15,7 @@
 
 <p class="text-sm text-ink-soft mb-4">
   {{ _("Code") }}: <span class="font-mono">/{{ unit.code }}</span>
-  {% if kind_label %} · {{ _("Type") }}: {{ kind_label }}{% endif %}
+  {% if kind_label and not kind_options %} · {{ _("Type") }}: {{ kind_label }}{% endif %}
 </p>
 
 {# CR-19 (#1498): one card per module, its checkbox in the card's header, and one
@@ -30,6 +30,20 @@
 </div>
 <form id="tn-form" hx-post="/admin/tenants/{{ tenant_id }}" hx-target="body" hx-swap="innerHTML"
       class="space-y-4 max-w-2xl">
+  {# #1533: the kind, saved with the one Opslaan; the modules do not follow it. #}
+  {% if kind_options %}
+  <section class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" data-tenant-kind>
+    {{ ui.label(_("Type"), "t-kind") }}
+    {{ ui.chips("kind", kind_options, kind_value) }}
+    <p class="text-xs text-ink-soft mt-1">{{ _("De modules blijven zoals ze zijn; pas ze hieronder aan als het nieuwe type andere nodig heeft.") }}</p>
+    {# #1533 (Koen): the account it hangs under; modules and data stay. #}
+    <div class="mt-4">{{ ui.label(_("Account"), "t-account") }}
+      {% call ui.select_control("account_id", cls="w-full", attrs='id="t-account"') %}
+        {% if not account_value %}<option value="" selected>{{ _("Geen account") }}</option>{% endif %}
+        {% for value, name in account_options %}<option value="{{ value }}"{% if value == account_value %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      {% endcall %}</div>
+  </section>
+  {% endif %}
   <p class="text-xs text-ink-soft">{{ _("Vink een module aan of uit in haar kaart. Het getal is hoeveel gegevens de module voor deze tenant bewaart: uitzetten wist niets, aanzetten toont alles weer.") }}</p>
   <input type="hidden" name="modules_shown" value="1">
   {% for m in kept_modules %}<input type="hidden" name="modules" value="{{ m }}">{% endfor %}

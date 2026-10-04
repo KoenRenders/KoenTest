@@ -161,7 +161,8 @@ def test_the_editor_shows_the_kind_and_the_modules_and_refuses_a_missing_depende
     org = create_tenant(db_session, name="Editorproef", code="ed-1478", kind=TenantKind.COMPANY)
 
     page = client.get(f"/admin/tenants/{org.id}").text
-    assert "Type: Bedrijf" in page
+    # #1533: the kind is a choice now, BEDRIJF ticked.
+    assert re.search(r'name="kind" value="BEDRIJF"[^>]*checked', page)
     assert _ticked(page) == COMPANY
     # #1498: the count stands in each module's card header.
     assert re.search(r'data-card="cms".*?2 gegevens', page, re.S), "the two seeded site blocks"

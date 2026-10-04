@@ -171,10 +171,11 @@ def test_2_its_editor_ticks_the_company_modules(browser, operator, company):
             'input[type="checkbox"][name="modules"]:checked', "els => els.map(e => e.value)"
         )
     )
-    text = page.locator("main").inner_text()
+    # #1533: the kind is a choice in the editor now, BEDRIJF ticked.
+    kind = page.eval_on_selector('input[name="kind"]:checked', "e => e.value")
     page.close()
     assert ticked == COMPANY_MODULES
-    assert "Type: Bedrijf" in text
+    assert kind == "BEDRIJF"
 
 
 def test_3_its_admin_sees_only_the_menu_of_its_modules(browser, company):
