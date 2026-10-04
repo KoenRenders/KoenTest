@@ -204,6 +204,15 @@ def may_view_payments(db: Session, email: str) -> bool:
     return bool(set(get_user_roles(db, email)) & set(_PAYMENTS_VIEW_ROLES))
 
 
+def may_mutate_payments(db: Session, email: str) -> bool:
+    """May this user change a payment — confirm, refund, edit, delete? FINANCE or
+    OPERATOR (#83/#530). The question `require_finance_mutation` enforces, for a
+    screen that shows the actions only to who may use them (#1574)."""
+    from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
+
+    return bool(_PAYMENTS_MUTATE_ROLES & set(get_user_roles(db, email)))
+
+
 def require_finance_mutation(db: Session, email: str) -> None:
     """Betaal-MUTATIES (bevestigen/terugbetalen/bewerken/verwijderen): FINANCE of
     OPERATOR (#83/#530).
@@ -213,9 +222,7 @@ def require_finance_mutation(db: Session, email: str) -> None:
     omdat autorisatie één plek hoort te hebben — `payment/ui.py` had er een eigen
     kopie van (#635 punt 10).
     """
-    from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
-
-    if not (_PAYMENTS_MUTATE_ROLES & set(get_user_roles(db, email))):
+    if not may_mutate_payments(db, email):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=_("Alleen FINANCE mag betalingen wijzigen."),

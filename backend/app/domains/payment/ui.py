@@ -21,6 +21,7 @@ from app.domains.auth.api import (
     SESSION_COOKIE,
     csrf_token_for,
     get_user_roles,
+    may_mutate_payments,
     require_csrf,
     require_finance_mutation,
     require_finance_ui,
@@ -35,7 +36,7 @@ from app.domains.payment.service import (
     verwijder_betaling,
     zet_betaalstatus,
 )
-from app.domains.payment.viewmodels import BetalingenView
+from app.domains.payment.viewmodels import BetalingenView, BookingView
 from app.i18n import _
 from app.kernel.codes import code_labels
 from app.kernel.geld import bedrag as geld
@@ -54,14 +55,17 @@ BOOKING_PARAM = "boeking"
 
 
 def _booking_origin(db: Session, url: str) -> str | None:
-    """ "Betaling van <naam>" for a way back that leads to one booking on the
-    payments list (`?boeking=<id>`); None without one, so the list's menu name
-    stands."""
+    """ "Betaling van <naam>" for a way back that leads to one booking: its own
+    page (`/admin/betalingen/<id>`, #1574) or its row on the payments list
+    (`?boeking=<id>`); None without one, so the list's menu name stands."""
     from urllib.parse import parse_qs, urlsplit
 
     from app.domains.payment.api import enriched_records
 
-    booking = parse_qs(urlsplit(url).query).get(BOOKING_PARAM, [""])[0]
+    parts = urlsplit(url)
+    booking = parse_qs(parts.query).get(BOOKING_PARAM, [""])[0] or (
+        parts.path.removeprefix("/admin/betalingen").strip("/")
+    )
     if not booking:
         return None
     # The same enrichment the list shows, so the name is the row's name.
@@ -74,9 +78,7 @@ register_origin("/admin/betalingen", _booking_origin)
 router = APIRouter(include_in_schema=False)
 
 
-def _uitvoeren(
-    bewerking, request: Request, db: Session, email: str, *args, **kwargs
-) -> HTMLResponse:
+def _uitvoeren(bewerking, request: Request, db: Session, email: str, *args, **kwargs) -> Response:
     """Voer één schermbewerking uit en geef de lijst terug — met de reden bij een
     weigering.
 
@@ -109,6 +111,11 @@ def _uitvoeren(
         raise HTTPException(status_code=404, detail=str(exc) or _("Betaling niet gevonden."))
     except BetalingFout as exc:
         fout = str(exc)
+    # #1574: a form on a booking page says so (`X-Booking-Page`), and gets that
+    # page back instead of the list.
+    booking_page = request.headers.get("x-booking-page")
+    if booking_page:
+        return _booking_answer(request, db, email, booking_page, error=fout)
     context = _view(request, db, email, **_scope_from_request(request)).as_context()
     context["error"] = fout
     # Fragmentantwoord: band + tabs reizen out-of-band mee (zie de partial).
@@ -233,6 +240,65 @@ def _stt_mode() -> str:
     return settings.stt_mode
 
 
+def _kaart(rec) -> dict:
+    """Per kaart de geldregel én of ze verwijderbaar is (#617-2a).
+
+    `Ontvangen`/`Saldo` vallen weg zolang er niets uitbetaald is — € 0,00 tonen
+    suggereert dat er al iets gebeurd is. Wél tonen zodra `amount_paid` gevuld is,
+    **ongeacht de status**: in bestaande data staan refunds met status `pending`
+    én een uitbetaald bedrag (gevolg van de bug uit §2-0b), en die moeten leesbaar
+    blijven. De labels zijn op elke kaart dezelfde drie woorden; het teken doet
+    het werk.
+    """
+    from app.domains.payment.api import derived_status, may_delete
+
+    betaald = None if rec.amount_paid is None else Decimal(str(rec.amount_paid))
+    return {
+        "rec": rec,
+        "bedrag": Decimal(str(rec.amount)),
+        "ontvangen": betaald,
+        "saldo": None if betaald is None else Decimal(str(rec.amount)) - betaald,
+        "mag_verwijderen": may_delete(rec),
+        # Afgeleide status uit de service — de template leidt niets meer af.
+        "status": derived_status(rec),
+        # CR-12 §B4.7: "is this card settled?" used to be
+        # `k.status == "paid"` in the template. That is a derived state
+        # and not a code, but the comparison belongs here and not there:
+        # one place where the rule lives, and testable.
+        "is_settled": derived_status(rec) == "paid",
+    }
+
+
+def _status_badges() -> dict:
+    """Label and tone of the badge per derived status (`service.derived_status`).
+    One place for the list and the booking page (#1574); built per request, so
+    `_()` follows the tenant's language."""
+    return {
+        "paid": (_("Vereffend"), "green"),
+        # Geel, gelijk aan "Openstaand" (#660): het is hetzelfde soort
+        # toestand — er moet nog geld bewegen, alleen de richting verschilt.
+        # Die richting lees je af aan de aparte type-badge "Terugbetaling",
+        # die sinds #660 oranje is. Zonder deze stap stonden er twee oranje
+        # badges naast elkaar op één kaart. "Deels betaald" blijft oranje;
+        # dat is een andere situatie.
+        "refund_due": (_("Terug te betalen"), "yellow"),
+        "partial": (_("Deels betaald"), "orange"),
+        "pending": (_("Openstaand"), "yellow"),
+        "failed": (_("Mislukt"), "red"),
+        "cancelled": (_("Geannuleerd"), "gray"),
+    }
+
+
+def _status_labels() -> dict:
+    """The words for a status, for the editors of the list and of the booking
+    page — never a raw code on the screen (§2.12)."""
+    return {
+        "all": _("Alle statussen"),
+        "openstaand": _("Openstaand saldo"),
+        **dict(code_labels("payment_status")),
+    }
+
+
 def _view(
     request: Request,
     db: Session,
@@ -258,11 +324,9 @@ def _view(
     from app.domains.payment.api import (
         aggregate,
         apply_zicht,
-        derived_status,
         enriched_records,
         filter_records,
         group_cards,
-        may_delete,
         open_sides,
     )
 
@@ -456,32 +520,6 @@ def _view(
         f"/admin/betalingen/lijst?{urlencode([('zicht', zicht)] + [p for p in _tabstand if p])}"
     )
 
-    def _kaart(rec) -> dict:
-        """Per kaart de geldregel én of ze verwijderbaar is (#617-2a).
-
-        `Ontvangen`/`Saldo` vallen weg zolang er niets uitbetaald is — € 0,00 tonen
-        suggereert dat er al iets gebeurd is. Wél tonen zodra `amount_paid` gevuld is,
-        **ongeacht de status**: in bestaande data staan refunds met status `pending`
-        én een uitbetaald bedrag (gevolg van de bug uit §2-0b), en die moeten leesbaar
-        blijven. De labels zijn op elke kaart dezelfde drie woorden; het teken doet
-        het werk.
-        """
-        betaald = None if rec.amount_paid is None else Decimal(str(rec.amount_paid))
-        return {
-            "rec": rec,
-            "bedrag": Decimal(str(rec.amount)),
-            "ontvangen": betaald,
-            "saldo": None if betaald is None else Decimal(str(rec.amount)) - betaald,
-            "mag_verwijderen": may_delete(rec),
-            # Afgeleide status uit de service — de template leidt niets meer af.
-            "status": derived_status(rec),
-            # CR-12 §B4.7: "is this card settled?" used to be
-            # `k.status == "paid"` in the template. That is a derived state
-            # and not a code, but the comparison belongs here and not there:
-            # one place where the rule lives, and testable.
-            "is_settled": derived_status(rec) == "paid",
-        }
-
     # `records` erbij zodat een gefilterde terugbetaling haar charge als context
     # kan meenemen (#668); die telt niet mee in de totalen.
     groepen = group_cards(zichtbaar, records)
@@ -549,28 +587,11 @@ def _view(
         # The two filter options at the top are *not* codes: "all statuses"
         # and "outstanding balance" are ways of looking, not values that sit
         # in the column. So they keep going through `_()`.
-        status_labels={
-            "all": _("Alle statussen"),
-            "openstaand": _("Openstaand saldo"),
-            **dict(code_labels("payment_status")),
-        },
+        status_labels=_status_labels(),
         # Badge per afgeleide status (service.derived_status). Label + kleur horen
         # bij de weergave en dus hier; wélke status het is, beslist de service —
         # "Deels betaald" werd vroeger in de template zelf uitgerekend (#635-9).
-        kaart_status={
-            "paid": (_("Vereffend"), "green"),
-            # Geel, gelijk aan "Openstaand" (#660): het is hetzelfde soort
-            # toestand — er moet nog geld bewegen, alleen de richting verschilt.
-            # Die richting lees je af aan de aparte type-badge "Terugbetaling",
-            # die sinds #660 oranje is. Zonder deze stap stonden er twee oranje
-            # badges naast elkaar op één kaart. "Deels betaald" blijft oranje;
-            # dat is een andere situatie.
-            "refund_due": (_("Terug te betalen"), "yellow"),
-            "partial": (_("Deels betaald"), "orange"),
-            "pending": (_("Openstaand"), "yellow"),
-            "failed": (_("Mislukt"), "red"),
-            "cancelled": (_("Geannuleerd"), "gray"),
-        },
+        kaart_status=_status_badges(),
         status=status,
         openstaand=openstaand,
         q=q,
@@ -785,6 +806,205 @@ def betalingen_export(
         media_type="application/vnd.oasis.opendocument.spreadsheet",
         headers={"Content-Disposition": 'attachment; filename="betalingen-en-vorderingen.ods"'},
     )
+
+
+# ── The booking page (#1574, CR-11 pilot A) ────────────────────────────────────
+#
+# A payments row opens a record page (CR-11 block 4: the row is the way in), and
+# that page carries what the unfold under the row carried: the booking's data,
+# its edit form, the refund form and the actions of the head. Nothing new: every
+# form posts to the route the unfold posted to, with `X-Booking-Page`, so
+# `_uitvoeren` answers with this page instead of the list.
+
+BOOKINGS = "/admin/betalingen"
+
+
+def _page_post(record_id, action: str) -> str:
+    """The htmx attributes of a control on a booking page that posts `action`
+    for this booking and gets the page back."""
+    return (
+        f'hx-post="{BOOKINGS}/{record_id}/{action}" hx-target="body" hx-swap="innerHTML" '
+        f'hx-headers=\'{{"X-Booking-Page": "{record_id}"}}\''
+    )
+
+
+def _booking_view(
+    request: Request,
+    db: Session,
+    email: str,
+    record_id: str,
+    *,
+    error: str | None = None,
+    saved: bool = False,
+) -> BookingView | None:
+    """The view-model of one booking's page, or None when there is no such
+    booking (any more)."""
+    from urllib.parse import quote
+
+    from app.domains.payment.api import enriched_records
+    from app.ui import record_frame
+
+    # The same enrichment the list shows, so the page names what the row named.
+    records = enriched_records(db)
+    rec = next((r for r in records if str(r.id) == record_id), None)
+    if rec is None:
+        return None
+    card = _kaart(rec)
+    frame = record_frame(request, db, BOOKINGS)
+    keep = frame["way_back"]["keep"]
+    here = f"{BOOKINGS}/{rec.id}" + (f"?{keep}" if keep else "")
+    # A record opened from here leads back to this page, which keeps its own way
+    # back (`keep`) — so the origin survives two steps.
+    back_here = quote(here, safe="")
+    may_mutate = may_mutate_payments(db, email)
+    badges = _status_badges()
+    labels = _status_labels()
+    name = rec.contact_name or "—"
+
+    def _status_badge(r) -> tuple[str, str]:
+        return badges.get(_kaart(r)["status"], (labels.get(str(r.status_code), ""), "gray"))
+
+    def _booking_link(r) -> dict:
+        label, tone = _status_badge(r)
+        return {
+            "label": _("Terugbetaling") if r.is_refund else _("Betaling"),
+            "href": f"{BOOKINGS}/{r.id}?terug={back_here}",
+            "amount": Decimal(str(r.amount)),
+            "status_label": label,
+            "status_tone": tone,
+        }
+
+    # The facts line: the context as a jump link to its record (CR-11 Q56) — the
+    # activity of a registration booking, the household of a membership booking —
+    # then the registration itself and the structured communication.
+    context = rec.description or _("Betaling")
+    if rec.component_name:
+        context = f"{context} — {rec.component_name}"
+    facts: list[dict] = []
+    if rec.activity_id:
+        facts.append(
+            {
+                "text": context,
+                "href": f"/admin/activiteiten/{rec.activity_id}?terug={back_here}",
+                "kind": "reference",
+            }
+        )
+    elif rec.family_id:
+        facts.append(
+            {
+                "text": context,
+                "href": f"/admin/leden/gezin/{rec.family_id}?terug={back_here}",
+                "kind": "reference",
+            }
+        )
+    else:
+        facts.append({"text": context})
+    if rec.is_registration and rec.payable_id:
+        facts.append(
+            {
+                "text": _("Inschrijving"),
+                "href": f"/admin/inschrijvingen/{rec.payable_id}?terug={back_here}",
+                "kind": "reference",
+            }
+        )
+    if rec.structured_communication:
+        facts.append({"text": rec.structured_communication})
+
+    status_label, status_tone = _status_badge(rec)
+    primary = None
+    actions: list[dict] = []
+    if may_mutate:
+        if not rec.is_paid:
+            question = (
+                _("Als volledig terugbetaald bevestigen?")
+                if rec.is_refund
+                else _("Als volledig betaald bevestigen?")
+            )
+            primary = {
+                "label": _("Bevestig"),
+                "attrs": f'{_page_post(rec.id, "bevestigen")} data-confirm="{question}"',
+            }
+        if rec.is_online:
+            actions.append(
+                {
+                    "kind": "record",
+                    "verb": "state",
+                    "label": _("Status verversen"),
+                    "attrs": _page_post(rec.id, "verversen"),
+                }
+            )
+        if card["mag_verwijderen"]:
+            actions.append(
+                {
+                    "kind": "delete",
+                    "label": _("Verwijderen"),
+                    "attrs": _page_post(rec.id, "verwijderen"),
+                    "confirm": _("Deze terugbetaling verwijderen?")
+                    if rec.is_refund
+                    else _("Deze betaling verwijderen?"),
+                }
+            )
+
+    parent = next((r for r in records if rec.refund_of_id and r.id == rec.refund_of_id), None)
+    return BookingView(
+        rec=rec,
+        card=card,
+        record_head={
+            "title": (
+                _("Terugbetaling aan %(name)s") if rec.is_refund else _("Betaling van %(name)s")
+            )
+            % {"name": name},
+            "badges": [{"label": status_label, "tone": status_tone}],
+            "facts": facts,
+            "primary": primary,
+            "actions": actions,
+        },
+        way_back=frame["way_back"],
+        parent=_booking_link(parent) if parent is not None else None,
+        refunds=[_booking_link(r) for r in records if r.refund_of_id == rec.id],
+        may_mutate=may_mutate,
+        status_labels=labels,
+        method_label=dict(code_labels("payment_method")).get(
+            str(getattr(rec.method, "value", rec.method)), ""
+        ),
+        here=here,
+        csrf_token=csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
+        nav_items=admin_nav(BOOKINGS, roles=get_user_roles(db, email)),
+        error=error,
+        toast_opgeslagen=saved,
+    )
+
+
+def _booking_answer(
+    request: Request, db: Session, email: str, record_id: str, *, error: str | None
+) -> Response:
+    """What a mutation from a booking page answers: the page again, with the
+    reason of a refusal — or, when the booking is gone (it was deleted), the way
+    back the page had."""
+    from app.ui import record_frame
+
+    view = _booking_view(request, db, email, record_id, error=error, saved=error is None)
+    if view is None:
+        return Response(
+            status_code=204,
+            headers={"HX-Redirect": record_frame(request, db, BOOKINGS)["way_back"]["href"]},
+        )
+    return templates.TemplateResponse(request, "betaling.html", view.as_context())
+
+
+@router.get("/admin/betalingen/{record_id}", response_class=HTMLResponse)
+def booking_page(
+    record_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_finance_ui),
+):
+    """The record page of one booking (#1574). Who may see the payments list may
+    see it; only FINANCE and OPERATOR get its actions."""
+    view = _booking_view(request, db, email, record_id)
+    if view is None:
+        raise HTTPException(status_code=404, detail=_("Betaling niet gevonden."))
+    return templates.TemplateResponse(request, "betaling.html", view.as_context())
 
 
 @router.post(
