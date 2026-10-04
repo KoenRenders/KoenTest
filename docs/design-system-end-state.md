@@ -386,11 +386,13 @@ letters and things that drop out is no gain."
   beside it; *Inloggen* in that place without a session; in the drawer under
   a divider on a phone. The admin's `account_menu` (§3.14) keeps its
   initials; the public one shows the name.
-- **Footer**, top to bottom: the newsletter row (heading, the sentence, the
-  button *Aanmelden* as the one yellow call to action); the social links
-  (24 px icons in 44 px targets) and *Met steun van* (logos in at most
-  144 × 64 px, never yellow) — placement to be confirmed; then **the legal
-  line carrying the organisation's details**: *© 2026 Raak Millegem ·
+- **Footer**: one row of three columns on a desktop — **left the newsletter**
+  (heading, the sentence, the button *Aanmelden* as the one yellow call to
+  action), then the social links (24 px icons in 44 px targets), then *Met
+  steun van* (logos in at most 144 × 64 px, never yellow); stacked in that
+  order on a phone (Koen, 4 October 2026: the newsletter beside the social
+  icons, not a row of its own); under it **the legal line carrying the
+  organisation's details**: *© 2026 Raak Millegem ·
   street, postal code and town · e-mail · phone · account number ·
   Privacyverklaring*, wrapping where it must. No separate contact block.
   One source: the organisation the site shows (#1550, the party of CR-20);
@@ -406,6 +408,58 @@ letters and things that drop out is no gain."
   published content; 48 px from content to footer on a phone, 64 px above.
 
 [CR-11 B10 and Q58, 4 October 2026; beslissing 11 in Koen's project folder]
+
+### 2.6 The public form page (pilot B, decided 4 October 2026)
+
+Decided by Koen on ChatGPT's brief-12 answer, as drawn, for the five
+public forms — register, a public form, Word lid, renew, Mijn gezin:
+
+- **One frame**: a 768 px column, **centred** on a desktop (the admin
+  records stay left-aligned, §2.2), 720 px on a tablet, 358 px on a phone;
+  the title in Fraunces (32 / 40 px), everything else Inter; one card per
+  section (radius 14, 16 px padding), 32 px between cards, 12 px between
+  fields; the kit's `field` macro, no public variant. **No "* Verplicht
+  veld" legend**: the red asterisk on the label is enough.
+- **Register** (CR-14 B4.1 kept): Contact with the member nudge as a quiet
+  brand block, only here → Je deelname (products as rows with a 44 px
+  stepper, on a desktop too; "Wie doet er mee?" a compact inline link) →
+  the questions, with radios *Nu invullen / Later* → Betalen → the button.
+- **Payment method required** on register, Word lid and renew: two vertical
+  radios, *Online betalen* and *Overschrijving*, each with its explanation
+  under it. The primary names the next step: *Inschrijven en betalen /
+  Inschrijven*, *Word lid en betaal / Word lid*, *Vernieuwen en betalen /
+  Lidmaatschap vernieuwen*. The screen never reports a successful online
+  payment before the provider confirms it.
+- **A public form**: a name card with the form's name and intro, then
+  Contact and the questions in section cards, labels 14 px medium (one
+  label style), *Verzenden* in the action bar, then its own thank-you page.
+  **One long page, no steps**, however many sections.
+- **Word lid**: the household as a composite repeating group (§3.3: the
+  head open, partner and child collapsed, no handle, "+ Gezinslid
+  toevoegen" in the group head); the e-mail addresses as a simple group with
+  the *hoofdadres* tag; the address grid; the price line and the payment
+  choice in the last card; no nudge; no wizard — the sticky bar carries
+  the one action down a 2 100 px page on a phone.
+- **Renew**: the status line, the membership card with price, validity and
+  the payment radios, the button, then the household summary; renewing is
+  its own act. **Mijn gezin**: edit mode with one *Bewerken* badge and one
+  *Opslaan*; then read mode with the same sections ("—" for empty) and one
+  *Bewerken* in the head; the toast "Opgeslagen ✓" for four seconds.
+- **The primary is brand blue** in both shells; yellow stays with the
+  newsletter's *Aanmelden* only. The action bar of §3.6: 64 px on a desktop
+  (primary right, *Annuleren* as text), the 121 px kit bar on a phone with a
+  358 × 44 px button. **The bell sits 16 px above the visible action bar**
+  on a phone and a tablet and returns to the bottom edge when the bar is out
+  of view.
+- **States** as §3.18 — the banner "Verzenden kan nog niet: controleer n
+  velden." with a link per field, red border and message under each refused
+  field, focus on the first, labels stay ink; busy, failed, the leave
+  dialog with *Blijven* safe; the browser's own validation bubbles off so
+  the message is always the kit's.
+- Measured: the first field at y 399–408 on a phone before the legend went;
+  controls 44 / 40 px; the footer 820 px on a phone, 480 on a desktop.
+
+[CR-11 B10 and Q59, 4 October 2026; beslissing 12]
 
 ---
 
@@ -988,9 +1042,9 @@ says so, and the default order is the one named above.
 | Home | blue intro band with CMS text, price, Word lid / Mijn gezin, then the activity cards | own composition: the intro as a CMS document block, the coming activities as cards, one featured activity if the board asks (P4) |
 | Activiteiten (agenda) and Archief | cards per year with per-component actions | cards by poster, grouped per month or year; one action per activity ("Inschrijven" leads to the activity page or straight to the form when there is one component) |
 | Activiteit | h1 with badges, facts, description, one block per component, poster aside | own composition (concept 09): poster, key facts, what to expect, who is coming, the sticky price-and-button card, the nudge |
-| Inschrijven | page with component choice, nudge, contact, products, questions, pay | the form page at reading width (CR-14 §B4.1, P1–P15 parity); the nudge above the contact fields (W17) |
-| Word lid | nudge, person rows, address, payment | the form page; the person rows a repeating group (pilot B) |
-| Formulier | name/e-mail card, section cards paged ‹ › | the form page; sections as steps where long |
+| Inschrijven | page with component choice, nudge, contact, products, questions, pay | §2.6: the centred 768 px form page; the nudge above the contact fields; Nu/Later for the questions; the payment radios; "Inschrijven en betalen" |
+| Word lid | nudge, person rows, address, payment | §2.6: the composite repeating group, the e-mail group, the address grid, the price card with the payment radios; no nudge, no wizard |
+| Formulier | name/e-mail card, section cards paged ‹ › | §2.6: the name card, Contact, the sections as cards on one long page — no steps; its own thank-you page |
 | Mijn gezin | membership card, person cards with edit toggles and e-mail rows, add card; **no registrations or payments** | the family portal as overview and details: Gezin · Onze inschrijvingen (with the payment state) · Betalingen; one save per the household record rule (pilot B) |
 | Foto's and an album | album cards per year; thumbnail grid | cards (the picture is the content); the album grid with the lightbox; clearance honoured (CR-15) |
 | Bedankt, Betaling ontvangen, Inloglink verlopen | one-card pages | one-card pages, the same card |
