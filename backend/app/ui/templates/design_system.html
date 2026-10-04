@@ -658,6 +658,42 @@
               {"label": _("Inschrijvingen"), "href": "/admin/design-system", "active": False}]) }}
 {% endcall %}
 
+{# ── 13b. The record head (CR-11 block 5, #1557) ─────────────────────────────
+   The three action groups, delete included: the activity's own menu gets its
+   delete item with #1561, so this is where the full menu is seen and tested. #}
+{{ ui.section_header(_("13b · Recordkop"), cls="mt-10") }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("De kop van een recordpagina: de weg terug benoemt de herkomst, de status staat eerst, rechts één primaire knop en één Acties-menu. Het scherm geeft zijn acties als data; de macro plaatst ze — recordacties, dan tools, Verwijderen als laatste in het rood.") }}
+  </p>
+  <div data-kit-record-head>
+  {{ ui.record_header(
+       _("Zomerfeest op het dorpsplein"),
+       badges=[{"label": _("Gepubliceerd"), "tone": "green"}, {"label": _("Iedereen welkom")}],
+       facts=[{"text": _("zaterdag 14 juni 2031")}, {"text": "14:00–17:30"}, {"text": _("Dorpsplein")},
+              {"text": _("Publieke pagina"), "kind": "reference", "href": "/admin/design-system"}],
+       primary={"label": _("Bewerken"), "href": "/admin/design-system"},
+       actions=[{"kind": "record", "verb": "copy", "label": _("Kopiëren"), "href": "/admin/design-system"},
+                {"kind": "record", "verb": "reopen", "label": _("Terug naar concept"), "href": "/admin/design-system"},
+                {"kind": "tool", "label": _("Foto's uploaden"), "href": "/admin/design-system"},
+                {"kind": "tool", "label": _("Design Studio"), "href": "/admin/design-system"},
+                {"kind": "delete", "label": _("Verwijderen"), "href": "/admin/design-system"}],
+       back={"label": _("Activiteiten"), "href": "/admin/design-system"}) }}
+  {{ ui.related_tabs([{"label": _("Gegevens"), "href": "/admin/design-system", "active": True},
+                      {"label": _("Inschrijvingen"), "count": 23, "href": "/admin/design-system", "active": False},
+                      {"label": _("Betalingen"), "count": 21, "href": "/admin/design-system", "active": False}]) }}
+  </div>
+  <p class="text-sm text-gray-600 mt-4 mb-3">{{ _("In bewerkmodus: de badge Bewerken na de status, geen primaire knop; Acties blijft.") }}</p>
+  {{ ui.record_header(
+       _("Zomerfeest op het dorpsplein"),
+       badges=[{"label": _("Gepubliceerd"), "tone": "green"}, {"label": _("Iedereen welkom")}],
+       primary={"label": _("Bewerken"), "href": "/admin/design-system"},
+       actions=[{"kind": "record", "verb": "copy", "label": _("Kopiëren"), "href": "/admin/design-system"}],
+       editing=True) }}
+  <p class="text-sm text-gray-600 mt-4 mb-2">{{ _("Een veld dat een ander record ís, is een verwijzing: de naam als link met de pijl.") }}</p>
+  <p class="text-sm">{{ ui.reference(_("Gezin Voorbeeld"), "/admin/design-system") }}</p>
+{% endcall %}
+
 {# ── 14. Publieke schil ────────────────────────────────────────────────────── #}
 {{ ui.section_header(_("14 · Publieke schil"), _("Naar de publieke activiteiten"), action_href="/activiteiten", action_attrs='hx-boost="false"', cls="mt-10") }}
 {% call ui.card() %}

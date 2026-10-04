@@ -38,7 +38,30 @@ from app.domains.payment.service import (
 from app.domains.payment.viewmodels import BetalingenView
 from app.i18n import _
 from app.kernel.codes import code_labels
-from app.ui import admin_nav, filterparams, templates
+from app.ui import admin_nav, filterparams, register_origin, templates
+
+#: The query parameter that names one booking on the payments list, as the origin
+#: of a record opened from it (#1557). The list keeps its own state beside it.
+BOOKING_PARAM = "boeking"
+
+
+def _booking_origin(db: Session, url: str) -> str | None:
+    """ "Betaling van <naam>" for a way back that leads to one booking on the
+    payments list (`?boeking=<id>`); None without one, so the list's menu name
+    stands."""
+    from urllib.parse import parse_qs, urlsplit
+
+    from app.domains.payment.api import enriched_records
+
+    booking = parse_qs(urlsplit(url).query).get(BOOKING_PARAM, [""])[0]
+    if not booking:
+        return None
+    # The same enrichment the list shows, so the name is the row's name.
+    name = next((r.contact_name for r in enriched_records(db) if str(r.id) == booking), None)
+    return _("Betaling van %(name)s") % {"name": name} if name else None
+
+
+register_origin("/admin/betalingen", _booking_origin)
 
 router = APIRouter(include_in_schema=False)
 
@@ -581,6 +604,9 @@ def activiteit_betalingen_tab(
     # naast dezelfde samenstelling in `activities.admin_ui`; een sleutel erbij ging
     # dan onvermijdelijk op één van de twee plekken ontbreken.
     ctx.update(record_kop_ctx(db, activiteit, email, "betalingen"))
+    from app.ui import record_frame
+
+    ctx.update(record_frame(request, db, "/admin/activiteiten"))  # #1557
     return templates.TemplateResponse(request, "admin_activiteit_betalingen.html", ctx)
 
 

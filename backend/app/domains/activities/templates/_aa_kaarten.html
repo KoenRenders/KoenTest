@@ -4,7 +4,7 @@
 {% if activities %}
 <div class="space-y-3">
   {% for a in activities %}
-  <a href="/admin/activiteiten/{{ a.id }}"
+  <a href="/admin/activiteiten/{{ a.id }}?terug={{ list_url|urlencode }}"
      class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
     <div class="flex items-start justify-between gap-3">
       <div>

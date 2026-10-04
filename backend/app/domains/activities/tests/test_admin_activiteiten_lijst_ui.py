@@ -95,11 +95,12 @@ def test_kaart_linkt_naar_de_paginabrede_editor(client, db_session):
     _login(client)
     a = _activiteit(db_session, "Kaartlink", "Zaal", 5)
     lijst = client.get("/admin/activiteiten").text
-    assert f'href="/admin/activiteiten/{a.id}"' in lijst
+    # #1557: with the list as it stands, for the record's way back.
+    assert f'href="/admin/activiteiten/{a.id}?terug=/admin/activiteiten"' in lijst
 
     pagina = client.get(f"/admin/activiteiten/{a.id}")
     assert pagina.status_code == 200
-    assert "Alle activiteiten" in pagina.text  # terugkeerlink van de editor
+    assert 'data-way-back href="/admin/activiteiten"' in pagina.text  # the way back (#1557)
     assert 'id="aa-detail"' in pagina.text
 
 

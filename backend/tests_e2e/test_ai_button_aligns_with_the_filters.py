@@ -122,7 +122,7 @@ def _open(page, scherm: str, breedte: int = 1440):
         page.goto("/admin/activiteiten")
         pad = page.evaluate(
             r"""Array.from(document.querySelectorAll('a[href]'))
-                    .map(a => a.getAttribute('href'))
+                    .map(a => a.getAttribute('href').split('?')[0])
                     .find(h => /^\/admin\/activiteiten\/\d+$/.test(h)) || null"""
         )
         if not pad:

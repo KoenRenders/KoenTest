@@ -137,6 +137,7 @@
   "link": '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   "chevron-up": '<path d="m18 15-6-6-6 6"/>',
   "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+  "chevron-left": '<path d="m15 18-6-6 6-6"/>',
   "arrow-up-right": '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
   "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
   "arrow-down": '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
@@ -379,6 +380,119 @@
    `Markup.format` en nooit `~`-concatenatie — één `Markup`-operand (en `_()`
    levert er een) escapet anders alle andere operanden en de tag verschijnt als
    tekst. De uitvoer-gate in test_design_system_pagina bewaakt die klasse. #}
+{# ── The record head (CR-11 block 5, #1557; design-system-end-state §2.2, §3.9,
+   §3.11, §3.12) ────────────────────────────────────────────────────────────
+
+   `reference` — the jump link (§3.11): another record's name as a link to its
+   detail, with `arrow-up-right`. The only way a field that IS another record is
+   rendered. #}
+{% macro reference(label, href, cls="") -%}
+<a href="{{ href }}" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline {{ cls }}">{{ label }}{{ icon("arrow-up-right", 14) }}</a>
+{%- endmacro %}
+
+{# `record_header` — the head of a record page, its actions as data (§3.9).
+
+   - `back`: {label, href} from `app.ui.way_back` — the way back names its origin
+     and a screen never writes that link itself (§2.2).
+   - `badges`: [{label, tone}], the status first; the screen passes the others
+     without a tone (grey). `editing=True` adds the badge "Bewerken" after the
+     status and takes the primary away; Acties stays.
+   - `facts`: [{text}] or [{text, href, kind}] with kind "reference" (a jump link)
+     or "mail" (a real `mailto:`); the full words at every width.
+   - `primary`: {label, href} or {label, attrs} — one, never more.
+   - `actions`: [{kind, label, href|attrs, verb?, confirm?}]. `kind` is "record"
+     (placed in the fixed order of `verb`: copy, print, export, send, state — the
+     record's state action, such as publish or back to draft; a
+     record action without one of these verbs follows them), "tool" (under a
+     divider) or "delete" (last, red, after a divider). The screen says what it
+     has; the macro places it. A `btn_*` beside this macro in a record head is
+     red (`tests/test_record_header_gate.py`).
+   - A `{% call %}` body is rendered after Acties — last, as the head had it, so
+     the primary and Acties stay together when a phone wraps the row. It exists for one
+     thing, the per-screen assistant overlay, until the shell's panel replaces
+     it (#1562); the gate allows no other caller.
+
+   On a phone the title goes first: the title group takes the row, and the two
+   controls stay beside it only while a short title leaves them room; otherwise
+   they take a line of their own under it, at the right. The flex rules are the
+   prototype's (brief 05): the group may grow but not shrink on a phone, and from
+   `md` it shares the row and never gets narrower than 360 px. #}
+{% macro record_header(title, badges=[], facts=[], primary=None, actions=[], back=None, editing=False) -%}
+{# `caller is defined`, not `if caller` (#643): StrictUndefined. #}
+{% set _extra = (caller() if caller is defined else "")|trim %}
+{% set _verbs = ["copy", "print", "export", "send", "state"] %}
+{% set _records = actions|selectattr("kind", "equalto", "record")|list %}
+{% set _tools = actions|selectattr("kind", "equalto", "tool")|list %}
+{% set _deletes = actions|selectattr("kind", "equalto", "delete")|list %}
+{% macro _item(a, danger=False) -%}
+{% set _cls = "flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 " ~ ("text-red-700" if danger else "text-ink") %}
+{% if a.get("href") %}<a role="menuitem" href="{{ a.href }}" class="{{ _cls }}">{{ a.label }}</a>
+{% else %}<button role="menuitem" type="button" class="{{ _cls }}" {{ a.get("attrs", "")|safe }}{% if a.get("confirm") %} data-confirm="{{ a.confirm }}"{% endif %}>{{ a.label }}</button>{% endif %}
+{%- endmacro %}
+<header data-record-head class="mb-3">
+  {% if back and back.href %}
+  <a data-way-back href="{{ back.href }}" class="inline-flex items-center gap-1 min-h-11 md:min-h-7 mb-2 max-w-full text-sm text-blue-500 hover:underline [overflow-wrap:anywhere]">{{ icon("chevron-left", 16, "shrink-0") }}<span>{{ back.label }}</span></a>
+  {% endif %}
+  <div class="flex flex-wrap items-start gap-x-4 gap-y-3">
+    <div data-title-group class="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 max-w-full flex-[1_0_auto] md:flex-[1_1_0%] md:min-w-[min(100%,360px)]">
+      <h1 tabindex="-1" class="min-w-0 max-w-full text-[28px] md:text-3xl leading-9 font-semibold text-kop [overflow-wrap:anywhere]">{{ title }}</h1>
+      {% if badges or editing %}
+      <span data-badges class="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
+        {% for b in badges %}{{ badge(b.label, b.get("tone") or "gray") }}{% if loop.first and editing %}{{ badge(_("Bewerken"), "blue") }}{% endif %}{% endfor %}
+        {% if editing and not badges %}{{ badge(_("Bewerken"), "blue") }}{% endif %}
+      </span>
+      {% endif %}
+    </div>
+    {% if (primary and not editing) or actions or _extra %}
+    <div data-head-controls class="flex flex-wrap justify-end items-center gap-2 ml-auto shrink-0 max-w-full">
+      {% if primary and not editing %}
+      {{ button(primary.label, variant="primary", type="button", href=primary.get("href"), size="sm", attrs=primary.get("attrs", ""), cls="min-h-11 md:min-h-9") }}
+      {% endif %}
+      {% if actions %}
+      <div class="relative" x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+        <button type="button" x-ref="trigger" data-actions-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+                class="{{ btn_class('secondary', 'sm') }} min-h-11 md:min-h-9 inline-flex items-center gap-1" @click="open = !open">{{ _("Acties") }}{{ icon("chevron-down", 14) }}</button>
+        <div x-show="open" x-cloak @click.outside="open = false" role="menu" data-actions-menu
+             class="absolute right-0 z-30 mt-2 w-[272px] max-w-[calc(100vw-2rem)] max-h-[65dvh] overflow-auto py-1 bg-white border border-line rounded-lg shadow-lg">
+          {% for v in _verbs %}{% for a in _records if a.get("verb") == v %}{{ _item(a) }}{% endfor %}{% endfor %}
+          {% for a in _records if a.get("verb") not in _verbs %}{{ _item(a) }}{% endfor %}
+          {% if _tools %}{% if _records %}<div data-menu-divider class="my-1 border-t border-line"></div>{% endif %}{% for a in _tools %}{{ _item(a) }}{% endfor %}{% endif %}
+          {% if _deletes %}{% if _records or _tools %}<div data-menu-divider class="my-1 border-t border-line"></div>{% endif %}{% for a in _deletes %}{{ _item(a, danger=True) }}{% endfor %}{% endif %}
+        </div>
+      </div>
+      {% endif %}
+      {{ _extra|safe }}
+    </div>
+    {% endif %}
+  </div>
+  {% if facts %}
+  <p data-facts class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 md:min-h-6 text-sm text-ink-soft">
+    {% for f in facts %}{% if not loop.first %}<span aria-hidden="true">·</span>{% endif %}
+    {% if f.get("kind") == "reference" %}{{ reference(f.text, f.href, "min-h-11 md:min-h-6") }}
+    {% elif f.get("kind") == "mail" %}<a href="mailto:{{ f.text }}" class="text-blue-500 underline hover:no-underline">{{ f.text }}</a>
+    {% else %}<span>{{ f.text }}</span>{% endif %}{% endfor %}
+  </p>
+  {% endif %}
+</header>
+{%- endmacro %}
+
+{# `related_tabs` — navigation inside a record (§3.12): "Gegevens" first, then the
+   related lists with their count in brackets. An underline of 2 px under the
+   active tab, a bar of 45 px with its bottom line; no border around the group, no
+   filled tab — visibly different from a list's status filter. `keep` is the query
+   every tab carries on (the way back), so the head does not change between tabs.
+   A record without tabs has no empty tab line. #}
+{% macro related_tabs(tabs, keep="") -%}
+{% if tabs %}
+<nav data-related-tabs class="flex items-stretch gap-3 md:gap-5 mb-3 border-b border-line overflow-x-auto whitespace-nowrap">
+  {% for t in tabs %}
+  <a href="{{ t.href }}{% if keep %}?{{ keep }}{% endif %}"{% if t.active %} aria-current="page"{% endif %}
+     class="inline-flex items-center gap-1 min-h-11 border-b-2 text-sm {% if t.active %}border-blue-700 text-blue-700 font-semibold{% else %}border-transparent text-ink-soft hover:text-blue-700{% endif %}">{{ t.label }}{% if t.get("count") is not none %}<span class="text-[13px] font-medium tabular-nums">({{ t.count }})</span>{% endif %}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+{%- endmacro %}
+
 {# ── Uploadveld (#623) ────────────────────────────────────────────────────────
    Eén vorm voor de drie plekken waar een bestand bij een record hoort
    (activiteitaffiche, onderdeel-info, media). Die zagen er alle drie anders uit.

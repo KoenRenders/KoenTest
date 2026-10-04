@@ -3,7 +3,7 @@
 Measured:
 - the card on /admin/activiteiten carries "Concept" and the audience in full,
   on or under the date line, and stays within the width;
-- the record header carries "Concept" and the button "Publiceren";
+- the record header carries "Concept", and "Publiceren" in its Acties menu;
 - the edit form offers the audience choice, within the width;
 - a draft says one status: no "actief" beside "Concept" in the header, and
   "Concept" as the status in the Publicatie card, within the width.
@@ -30,7 +30,7 @@ PHONE = {"width": 390, "height": 900}
 WIDTH = "() => [document.documentElement.scrollWidth, innerWidth]"
 
 _CARD = """(id) => {
-  const card = document.querySelector(`a[href="/admin/activiteiten/${id}"]`);
+  const card = document.querySelector(`a[href^="/admin/activiteiten/${id}?"]`);
   const r = e => { const b = e.getBoundingClientRect(); return {x: Math.round(b.x), y: Math.round(b.y), right: Math.round(b.right), bottom: Math.round(b.bottom)}; };
   const spans = [...card.querySelectorAll('span')];
   const find = t => spans.find(s => s.textContent.trim() === t);
@@ -89,7 +89,7 @@ def test_the_card_carries_concept_and_the_audience(phone):
     m = page.evaluate(_CARD, activity_id)
     width = page.evaluate(WIDTH)
     print("MEASURE card", m, "page", width)
-    page.locator(f'a[href="/admin/activiteiten/{activity_id}"]').scroll_into_view_if_needed()
+    page.locator(f'a[href^="/admin/activiteiten/{activity_id}?"]').scroll_into_view_if_needed()
     _shot(page, "kaart")
     assert m["concept"] and m["audience"], m
     assert m["card"]["right"] <= 390 and width[0] <= width[1], (m, width)
@@ -101,10 +101,15 @@ def test_the_header_and_the_edit_form(phone):
     page, activity_id = phone
     page.goto(f"/admin/activiteiten/{activity_id}")
     pagina_klaar(page)
-    header = page.locator("h1")
-    publish = page.get_by_role("button", name="Publiceren")
+    # CR-11 block 5 (#1557): the badges stand beside the title, and publishing is
+    # the state action in the Acties menu.
+    header = page.locator("[data-title-group]")
     assert "Concept" in header.inner_text()
+    page.click("[data-actions-trigger]")
+    publish = page.get_by_role("menuitem", name="Publiceren")
+    publish.wait_for(state="visible")
     assert publish.count() == 1
+    page.keyboard.press("Escape")
     page.get_by_role("button", name="Bewerken").first.click()
     select = page.locator("#target_audience")
     select.wait_for(state="visible")
@@ -120,7 +125,7 @@ def test_the_header_and_the_edit_form(phone):
 
 _STATUS = """() => {
   const r = e => { const b = e.getBoundingClientRect(); return [Math.round(b.x), Math.round(b.right), Math.round(b.y)]; };
-  const badges = [...document.querySelector('h1').querySelectorAll('span span, span > *')]
+  const badges = [...document.querySelectorAll('[data-record-head] [data-badges] > *')]
     .map(e => e.textContent.trim()).filter(t => t);
   const dt = [...document.querySelectorAll('dt')].find(e => e.textContent.trim() === 'Status');
   const dd = dt && dt.nextElementSibling;

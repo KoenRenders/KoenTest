@@ -200,9 +200,11 @@ def test_the_board_sees_the_draft_and_sets_its_audience(client, db_session):
 
 
 def _header_and_card(client, activity_id: int) -> tuple[str, str]:
-    """The title line and the "Status" row of the Publicatie card, as HTML."""
+    """The title group of the record head and the "Status" row of the Publicatie
+    card, as HTML."""
     page = client.get(f"/admin/activiteiten/{activity_id}").text
-    header = page[page.index("<h1") : page.index("</h1>")]
+    start = page.index("data-title-group")
+    header = page[start : page.index("data-head-controls", start)]
     card = page[page.index(">Publicatie<") :]
     row = card[card.index(">Status<") : card.index(">Toegang<")]
     return header, row
@@ -225,11 +227,13 @@ def test_a_draft_says_one_status_in_its_header_and_its_card(client, db_session):
     assert ">Concept<" in row and ">actief<" not in row, row
 
     header, row = _header_and_card(client, published.id)
-    assert ">actief<" in header and ">Concept<" not in header, header
+    # CR-11 block 5 (#1557): the head says the publication status, first.
+    assert ">Gepubliceerd<" in header and ">Concept<" not in header, header
+    assert ">actief<" not in header, header
     assert ">Gepubliceerd<" in row, row
 
     published.is_cancelled = True
     db_session.commit()
     header, row = _header_and_card(client, published.id)
-    assert ">geannuleerd<" in header and ">actief<" not in header, header
+    assert ">Geannuleerd<" in header and ">Gepubliceerd<" not in header, header
     assert ">Gepubliceerd<" in row and ">geannuleerd<" in row, row

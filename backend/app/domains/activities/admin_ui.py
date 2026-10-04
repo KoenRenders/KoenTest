@@ -250,7 +250,7 @@ def _detail_response(
     email = read_session_value(request.cookies.get(SESSION_COOKIE))
     if email:
         reg_count = registration_count_for(db, activity_id)
-        ctx.update(_record_tabs(activiteit, reg_count, db, email, "overzicht"))
+        ctx.update(_record_tabs(activiteit, reg_count, db, email, "overzicht", request))
         ctx.update(_record_rail(db, activiteit))
         ctx["deellink"] = f"{tenant_base_url(db)}/activiteiten/{activiteit.slug or activity_id}"
         # Alleen op het FRAGMENT-antwoord: de volledige pagina rendert de kop
@@ -280,10 +280,14 @@ def admin_activiteiten(
     # sneuvelt het zoekveld (en de focus) bij elke aanslag.
     fragment = is_fragment_request(request)
     from app.domains.activities.api import publication_of
+    from app.ui import list_return
 
     view = AdminActiviteitenView(
         **lijst,
         **_kpi(kpi_bron),
+        # #1557: a card hands the list as it stands to the record it opens, so
+        # the record's way back returns to the same search and scope.
+        list_url=list_return(NAV, scope=scope if scope != "upcoming" else "", q=q.strip()),
         # #1428: "Concept" and the audience on the cards.
         publication=publication_of(db, [a.id for a in lijst["activities"]]),
         csrf_token=csrf_from_request(request),
@@ -443,7 +447,7 @@ def admin_activiteit_detail(
         {
             "nav_items": admin_nav(NAV),
             **_aa_detail_ctx(request, db, activiteit),
-            **_record_tabs(activiteit, reg_count, db, email, "overzicht"),
+            **_record_tabs(activiteit, reg_count, db, email, "overzicht", request),
             **_record_rail(db, activiteit),
             # De deellink (ronde 6): het kanonieke adres /activiteiten/<slug|nr> —
             # tijdsbestendig: de route stuurt zelf door naar de komende lijst of
@@ -1622,15 +1626,22 @@ def inschrijving_regel_bijwerken(
 # de gezinstab sorteert sinds de unificatie met exact dezelfde sleutels.
 
 
-def _record_tabs(activiteit: Any, reg_count: int, db: Session, email: str, actief: str) -> dict:
+def _record_tabs(
+    activiteit: Any, reg_count: int, db: Session, email: str, actief: str, request: Request
+) -> dict:
     """Doorgeefluik naar de ene bouwer van de recordkop-context (#1070).
 
     Stelde tot dan zelf twee sleutels samen, en `payment.ui` deed hetzelfde nog
     eens — zie `service.record_kop_ctx` voor waarom dat één plek geworden is.
     """
     from app.domains.activities.api import record_kop_ctx
+    from app.ui import record_frame
 
-    return record_kop_ctx(db, activiteit, email, actief, reg_count=reg_count)
+    return {
+        **record_kop_ctx(db, activiteit, email, actief, reg_count=reg_count),
+        # #1557: the way back and the edit state, from the request.
+        **record_frame(request, db, NAV),
+    }
 
 
 def _record_rail(db: Session, activiteit: Any) -> dict:
@@ -1947,7 +1958,7 @@ def activiteit_inschrijvingen_tab(
         sorteer_urls=sorteer_urls,
         terug=terug,
         toon_onderdeel=False,
-        **_record_tabs(activiteit, len(regs), db, email, "inschrijvingen"),
+        **_record_tabs(activiteit, len(regs), db, email, "inschrijvingen", request),
         csrf_token=csrf_from_request(request),
         nav_items=admin_nav(NAV),
     )

@@ -8,6 +8,7 @@ de UI-kit-macro's en de shells (base-layouts).
 
 import hashlib
 import logging
+from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
 
@@ -206,6 +207,91 @@ def veilige_terug(waarde: str | None, fallback: str) -> str:
     ):
         return fallback
     return waarde
+
+
+# ── The way back of a record page (CR-11 block 5, #1557) ────────────────────
+#
+# A record page's first line leads back to where the visitor came from, as it was
+# left, and names it: "‹ Activiteiten" from the list (with its filter in the URL),
+# "‹ Betaling van …" from a booking. The origin travels as `?terug=<local path>`
+# on the link that opened the record; this is the one place that turns it into a
+# label and an href. A screen never writes that link itself.
+
+#: (path prefix, labeler(db, url) -> str | None). A domain registers the origins
+#: only it can name — a booking's "Betaling van <naam>" is the payment domain's.
+_ORIGIN_LABELERS: list[tuple[str, Callable[..., str | None]]] = []
+
+
+def register_origin(prefix: str, labeler: Callable[..., str | None]) -> None:
+    """Let a domain name an origin under `prefix` (a local path). `labeler(db,
+    url)` returns the label, or None to leave it to the list's menu name."""
+    if (prefix, labeler) not in _ORIGIN_LABELERS:
+        _ORIGIN_LABELERS.append((prefix, labeler))
+
+
+def _menu_name(href: str) -> str | None:
+    """The menu label of the list `href` lives under: the longest menu path it
+    starts with."""
+    from app.i18n import _
+
+    path = href.split("?")[0].split("#")[0]
+    best = max(
+        ((h, label) for h, label in _ADMIN_NAV if path == h or path.startswith(h + "/")),
+        key=lambda item: len(item[0]),
+        default=None,
+    )
+    return _(best[1]) if best else None
+
+
+def way_back(db, terug: str | None, list_href: str) -> dict:
+    """The way back of a record page: `{label, href, keep}`.
+
+    `list_href` is the entity's list — where the record leads back to when it was
+    opened from nowhere. With a valid `terug` (a local path, `veilige_terug`)
+    the link goes there instead and is named after it: a registered origin's own
+    label, else the menu name of the list it points into. `keep` is the query
+    the record's own links carry on (`terug=…`), so the origin survives a tab
+    change and the edit state.
+    """
+    from urllib.parse import urlencode
+
+    origin = veilige_terug(terug, "")
+    href = origin or list_href
+    label = None
+    if origin:
+        path = origin.split("?")[0].split("#")[0]
+        for prefix, labeler in _ORIGIN_LABELERS:
+            if path == prefix or path.startswith(prefix + "/"):
+                label = labeler(db, origin)
+                if label:
+                    break
+    label = label or _menu_name(href) or _menu_name(list_href) or ""
+    return {"label": label, "href": href, "keep": urlencode({"terug": origin}) if origin else ""}
+
+
+def record_frame(request, db, list_href: str) -> dict:
+    """What a record page's head needs from the request (#1557): the way back and
+    whether the page is in its edit state (`?bewerken=1`).
+
+    Read through `filterparams`, so a fragment answer that carries the head along
+    out of band — a save inside the record — still knows both: htmx sends the
+    page's own URL as `HX-Current-URL`, and the save's own URL has neither.
+    """
+    params = filterparams(request)
+    return {
+        "way_back": way_back(db, params.get("terug"), list_href),
+        "head_editing": params.get("bewerken") == "1",
+    }
+
+
+def list_return(path: str, **state) -> str:
+    """The address a list hands its rows as their way back: the list's page path
+    with its state — only what differs from empty, so a plain list stays a plain
+    path."""
+    from urllib.parse import urlencode
+
+    query = urlencode({k: v for k, v in state.items() if v not in (None, "")})
+    return f"{path}?{query}" if query else path
 
 
 # #718: de navigatiebalk van een schil reist out-of-band mee (#714) — maar dat mag

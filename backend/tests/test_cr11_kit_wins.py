@@ -168,10 +168,10 @@ def test_the_opened_menu_starts_with_who_is_signed_in(client, db_session):
 
 # ── W16: every record page starts with the way back ──────────────────────────
 
+# The activity's three pages left this list with #1557: their way back is drawn
+# by `ui.record_header`, and `test_record_header_gate.py` pins that the head is
+# the first thing they render.
 RECORD_PAGES = [
-    "domains/activities/templates/admin_activiteit.html",
-    "domains/activities/templates/admin_activiteit_inschrijvingen.html",
-    "domains/payment/templates/admin_activiteit_betalingen.html",
     "domains/mdm/templates/leden_gezin.html",
     "domains/mdm/templates/admin_gezin_inschrijvingen.html",
     "domains/payment/templates/admin_gezin_betalingen.html",
