@@ -322,7 +322,7 @@ def _editor_ctx(
     administration (#1533). Only the scope and those two differ."""
     from app.domains.mdm.api import enabled_modules, list_accounts
     from app.domains.mdm.api import secrets_gezet as _secrets_gezet
-    from app.kernel.tenant_config import get_setting
+    from app.kernel.tenant_config import get_setting, site_name_default
 
     unit = next((u for u in _units(db) if u.id == tenant_id), None)
     if unit is None:
@@ -362,6 +362,10 @@ def _editor_ctx(
         # its account (the account included); only once it has an account.
         "site_org_options": _site_org_options(db, unit) if not own else [],
         "site_org_value": str(unit.site_organization_id or ""),
+        # #1546: the site's own name, and the organisation's name it falls back to
+        # (the placeholder), in both scopes — the tenant's ADMIN may set it too.
+        "site_name_value": unit.site_name or "",
+        "site_name_default": site_name_default(db, tenant_id),
         "cards": _cards(db, unit, modules_on=on, refused=refused),
         # A module without a card keeps its state through the one Opslaan.
         "kept_modules": sorted(c.value for c in _hidden_cards(unit) if c.value in stored_on),
@@ -538,6 +542,7 @@ async def _save(request: Request, db: Session, tenant_id: int, email: str, *, ow
             site_organization=str(form["site_organization_id"])
             if "site_organization_id" in form
             else None,
+            site_name=str(form["site_name"]) if "site_name" in form else None,
             actor=email,
         )
     except ModuleRefused as fout:

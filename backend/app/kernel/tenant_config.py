@@ -387,8 +387,27 @@ def tenant_display_name(db: Session, tenant_id: int | None = None) -> str:
     De letterlijke terugval "Raak Millegem" blijft staan voor het geval er géén
     organisatie is — dat is geen tenant en dan is elke naam fout, maar een lege
     paginatitel is erger.
+
+    #1546: that brand name came — as a column, `site_name`, on the tenant's row.
+    Filled in, it is the site's name. Empty, the site shows the name of the
+    organisation behind it (#1550; its own row by default), so a site under an
+    organisation follows that organisation's name when it changes. Every place
+    the site names itself reads this function, never the column.
     """
-    organisatie = _organisatie(db, tenant_id)
+    row = db.execute(
+        text("SELECT site_name FROM mdm.organizations WHERE id = :id AND deleted_at IS NULL"),
+        {"id": _actieve_tenant(tenant_id)},
+    ).first()
+    if row is not None and (row.site_name or "").strip():
+        return row.site_name.strip()
+    return site_name_default(db, tenant_id)
+
+
+def site_name_default(db: Session, tenant_id: int | None = None) -> str:
+    """The name a site shows while its own "Naam van de site" is empty (#1546):
+    the organisation behind the site (#1550). The editor shows it as the field's
+    placeholder, so the operator sees which name is used."""
+    organisatie = _organisatie(db, site_organization_id(db, tenant_id))
     return organisatie.name if organisatie else "Raak Millegem"
 
 

@@ -213,6 +213,7 @@ def save_tenant(
     kind: str | None = None,
     account: str | None = None,
     site_organization: str | None = None,
+    site_name: str | None = None,
     actor: str | None = None,
 ) -> None:
     """The tenant editor's one Opslaan (#1498): the module set and the settings
@@ -247,6 +248,8 @@ def save_tenant(
     if account is not None:
         _write_account(db, tenant_id, new_parent, actor=actor)
     _write_site_organization(db, tenant_id, site_org, actor=actor)
+    if site_name is not None:
+        _write_site_name(db, tenant_id, site_name)
     db.commit()
     invalidate_tenant_codes()
 
@@ -327,6 +330,17 @@ def _checked_site_organization(
     if value is None:
         return None
     raise TenantFout("Kies een organisatie van het eigen account.")
+
+
+def _write_site_name(db, tenant_id: int, value: str) -> None:
+    """The name the tenant's site shows (#1546); empty clears it, so the site
+    shows its organisation's name again."""
+    from app.domains.mdm.models import Organization
+
+    name = value.strip()
+    if len(name) > 255:
+        raise TenantFout("De naam van de site is te lang (maximaal 255 tekens).")
+    db.get(Organization, tenant_id).site_name = name or None
 
 
 def _write_site_organization(db, tenant_id: int, chosen: int | None, *, actor: str | None) -> None:
