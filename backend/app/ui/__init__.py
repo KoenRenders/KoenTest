@@ -490,6 +490,10 @@ _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
             # dit menu; net zij is de vzw met een ondernemingsnummer.
             ("/admin/organisaties", "Organisaties"),
             ("/admin/tenants", "Tenants"),
+            # #1535: a tenant workspace's own organisation and site settings, in
+            # the place where the platform workspace has Organisaties and Tenants.
+            ("/admin/organisatie", "Onze organisatie"),
+            ("/admin/instellingen", "Instellingen"),
             # GEEN Design system hier (#878). De balk is voor schermen waar een bestuurder
             # werk doet; `/admin/design-system` is naslag over knoppen, kleuren en afstanden —
             # nuttig bij het bouwen, niet bij het besturen. De route blijft bestaan achter
@@ -542,8 +546,29 @@ _ADMIN_NAV_ICONS: dict[str, str] = {
     "/admin/e-maillog": "inbox",
     "/admin/organisaties": "building-2",
     "/admin/tenants": "globe",
+    # #1535: one meaning per glyph — the own organisation is an organisation, and
+    # it never stands in the same menu as Organisaties.
+    "/admin/organisatie": "building-2",
+    "/admin/instellingen": "settings",
     "/admin/info": "info",
 }
+
+#: #1535: the items of one workspace kind only. Platform administration —
+#: every tenant, every organisation — is in the platform workspace's menu; a
+#: tenant workspace has its own organisation and settings in their place.
+PLATFORM_ONLY_ITEMS = frozenset({"/admin/organisaties", "/admin/tenants"})
+TENANT_ONLY_ITEMS = frozenset({"/admin/organisatie", "/admin/instellingen"})
+
+
+def _on_platform_workspace() -> bool:
+    """Is this request in the platform workspace? From the cached platform id
+    and the request's tenant: the menu is built on every page, without a query."""
+    from app.domains.mdm.api import platform_tenant_id
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+
+    platform = platform_tenant_id()
+    return platform is not None and (current_tenant_id.get() or DEFAULT_TENANT_ID) == platform
+
 
 #: The full menu, every module on — what a VERENIGING sees.
 _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = _resolve_layout()
@@ -656,8 +681,16 @@ def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
     from app.kernel.modules import nav_item_shown
 
     enabled = modules if modules is not None else current_enabled_modules()
+    hidden = TENANT_ONLY_ITEMS if _on_platform_workspace() else PLATFORM_ONLY_ITEMS
     groepen = [
-        (label, [(h, lbl) for h, lbl in items if nav_item_shown("admin_items", h, enabled)])
+        (
+            label,
+            [
+                (h, lbl)
+                for h, lbl in items
+                if h not in hidden and nav_item_shown("admin_items", h, enabled)
+            ],
+        )
         for label, items in _ADMIN_NAV_GROEPEN
     ]
     from app.domains.auth.api import admits_admin_ui

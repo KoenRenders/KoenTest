@@ -237,6 +237,29 @@ def require_operator_ui(db: Session, email: str) -> None:
         )
 
 
+def require_platform_operator_ui(db: Session, email: str) -> None:
+    """Platform administration (#1535): Tenants, Organisaties, a new account and
+    the overview of every workspace. It lives in the platform workspace only —
+    in a tenant workspace these screens answer 404, for the operator too, so a
+    workspace shows nothing of the others — and there it is OPERATOR-only."""
+    from app.domains.auth.users import is_platform_workspace  # lazy: vermijdt cykel
+
+    if not is_platform_workspace(db):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_("Niet gevonden."))
+    require_operator_ui(db, email)
+
+
+def require_tenant_workspace(db: Session) -> int:
+    """The tenant of this workspace, for its own screens (#1535): "Onze
+    organisatie" and "Instellingen". The platform has neither — it is
+    administered through Tenants and Organisaties — so there they answer 404."""
+    from app.domains.auth.users import _actieve_werkruimte, is_platform_workspace
+
+    if is_platform_workspace(db):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_("Niet gevonden."))
+    return _actieve_werkruimte()
+
+
 def require_csrf(request: Request) -> None:
     """Dubbel-submit-CSRF voor POST's op server-pagina's: token in header
     (htmx) of formulierveld moet matchen met de sessie-afgeleide waarde.

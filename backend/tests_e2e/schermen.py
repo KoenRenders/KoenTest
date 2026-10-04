@@ -170,8 +170,11 @@ def open_de_raakje_bel(page, pad: str = "/"):
     return page.locator("#raakje-widget-vraag")
 
 
-def login_met_sessie(page, sessiewaarde: str) -> None:
+def login_met_sessie(page, sessiewaarde: str, url: str = BASE) -> None:
     """Zet de sessiecookie rechtstreeks.
+
+    `url` is the host the cookie belongs to: `PLATFORM` for platform
+    administration, which answers only in the platform workspace (#1535).
 
     Sneller en minder broos dan de OTP-flow doorlopen, en die flow wordt elders al
     getest (test_fase1_ui). Wie de login zélf wil dekken, doet dat in een eigen test.
@@ -185,7 +188,7 @@ def login_met_sessie(page, sessiewaarde: str) -> None:
             {
                 "name": "raak_session",
                 "value": sessiewaarde,
-                "url": BASE,
+                "url": url,
                 "http_only": True,
                 "same_site": "Lax",
             }

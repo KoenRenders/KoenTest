@@ -63,17 +63,26 @@ def _post(client, db, organization_id: int, **velden):
     )
 
 
+def _post_own(client, db, **velden):
+    """Raak Millegem's own organisation, from its own workspace (#1535): the
+    member screens these tests go on to use are Raak Millegem's too."""
+    csrf = _operator(client, db)
+    return client.post("/admin/organisatie", data=velden, headers={"X-CSRF-Token": csrf})
+
+
 # ── Het gat: de organisatie die geen tenant is ───────────────────────────────
 
 
-def test_the_organisation_that_is_not_a_tenant_is_in_the_list(client, db_session):
+def test_the_organisation_that_is_not_a_tenant_is_in_the_list(
+    client, platform_workspace, db_session
+):
     _operator(client, db_session)
     html = client.get("/admin/organisaties").text
     assert "Raak" in html
     assert f"/admin/organisaties/{ACCOUNT_ID}" in html
 
 
-def test_the_legal_form_of_the_account_can_be_changed(client, db_session):
+def test_the_legal_form_of_the_account_can_be_changed(client, platform_workspace, db_session):
     """De eerste test van dit issue: lukt dit, dan werkt het fundament.
 
     Raak vzw staat niet op `/admin/tenants` — ze draait geen site — en haar
@@ -91,7 +100,7 @@ def test_the_legal_form_of_the_account_can_be_changed(client, db_session):
     assert rij == "VZW"
 
 
-def test_the_tenant_screen_does_not_know_this_organisation(client, db_session):
+def test_the_tenant_screen_does_not_know_this_organisation(client, platform_workspace, db_session):
     """En de tegenproef: dit is waarom het scherm bestaat.
 
     Zou `/admin/tenants/1` óók werken, dan was er geen gat en geen issue.
@@ -119,10 +128,9 @@ def test_the_member_screens_keep_working(client, db_session):
     _operator(client, db_session)
 
     # Een organisatieadres wegschrijven — precies het werk dat dit kan breken.
-    _post(
+    _post_own(
         client,
         db_session,
-        MILLEGEM_ID,
         name="Raak Millegem",
         street="Verenigingsstraat",
         house_number="1",
@@ -157,10 +165,9 @@ def test_a_member_address_still_saves(client, db_session, postcode):
     )
     db_session.flush()
 
-    _post(
+    _post_own(
         client,
         db_session,
-        MILLEGEM_ID,
         name="Raak Millegem",
         street="Verenigingsstraat",
         house_number="1",
@@ -314,7 +321,7 @@ def test_the_payment_instructions_a_member_reads_come_from_the_organisation(clie
 # ── De codelijst, en wat er NIET overschreven wordt ──────────────────────────
 
 
-def test_the_legal_form_dropdown_grows_with_the_code_list(client, db_session):
+def test_the_legal_form_dropdown_grows_with_the_code_list(client, platform_workspace, db_session):
     """Uit `mdm.legal_form_codes` en niet uit een lijst in de template.
 
     Een rij toevoegen en de dropdown groeit mee, zonder codewijziging. Dat is de
@@ -351,7 +358,7 @@ def test_the_legal_form_dropdown_grows_with_the_code_list(client, db_session):
     assert "Stichting" in html
 
 
-def test_a_second_bank_account_survives_a_save(client, db_session):
+def test_a_second_bank_account_survives_a_save(client, platform_workspace, db_session):
     """Het model laat er meer toe, het scherm biedt er één (#971).
 
     Staat er ooit een tweede rekening, dan bewerkt het scherm de eerste en laat het
@@ -390,7 +397,7 @@ def test_a_second_bank_account_survives_a_save(client, db_session):
 # ── Het adres, in de vorm van de leden ───────────────────────────────────────
 
 
-def test_the_address_round_trips(client, db_session):
+def test_the_address_round_trips(client, platform_workspace, db_session):
     _post(
         client,
         db_session,
@@ -409,7 +416,7 @@ def test_the_address_round_trips(client, db_session):
     assert 'value="B"' in html
 
 
-def test_clearing_street_and_number_removes_the_address(client, db_session):
+def test_clearing_street_and_number_removes_the_address(client, platform_workspace, db_session):
     _post(
         client,
         db_session,
@@ -430,7 +437,9 @@ def test_clearing_street_and_number_removes_the_address(client, db_session):
     assert aantal == 0
 
 
-def test_the_address_form_has_the_shape_of_the_member_screen(client, db_session):
+def test_the_address_form_has_the_shape_of_the_member_screen(
+    client, platform_workspace, db_session
+):
     """Vier kolommen, straat over twee, postcode als dropdown over de volle breedte.
 
     Een vastgelegde UI-beslissing (CLAUDE.md), overgenomen en niet opnieuw bedacht.

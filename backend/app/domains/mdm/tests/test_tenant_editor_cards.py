@@ -71,7 +71,7 @@ def _form(page_html: str) -> dict:
     return data
 
 
-def test_every_setting_sits_in_exactly_its_owners_card(client, db_session):
+def test_every_setting_sits_in_exactly_its_owners_card(client, platform_workspace, db_session):
     _operator(client, db_session)
     tenant = create_tenant(db_session, name="Kaartenclub", code="kaarten-1498")
     cards = _cards(client.get(f"/admin/tenants/{tenant.id}").text)
@@ -91,14 +91,14 @@ def test_every_registry_setting_has_a_field():
     assert not owned - set(EVERY_KEY), owned - set(EVERY_KEY)
 
 
-def test_the_assistant_card_uses_the_house_word(client, db_session):
+def test_the_assistant_card_uses_the_house_word(client, platform_workspace, db_session):
     _operator(client, db_session)
     tenant = create_tenant(db_session, name="Woordclub", code="woord-1498")
     card = _cards(client.get(f"/admin/tenants/{tenant.id}").text)["chatbot"]
     assert ">Assistent</span>" in card and "Raakje" not in card.split("</label>")[0]
 
 
-def test_one_save_writes_a_module_and_a_setting_together(client, db_session):
+def test_one_save_writes_a_module_and_a_setting_together(client, platform_workspace, db_session):
     headers = _operator(client, db_session)
     tenant = create_tenant(
         db_session, name="Bakkerij", code="bakkerij-1498", kind=TenantKind.COMPANY
@@ -115,7 +115,7 @@ def test_one_save_writes_a_module_and_a_setting_together(client, db_session):
     assert get_setting(db_session, "tagline", tenant_id=tenant.id) == "Brood en banket"
 
 
-def test_a_refused_dependency_saves_nothing(client, db_session):
+def test_a_refused_dependency_saves_nothing(client, platform_workspace, db_session):
     headers = _operator(client, db_session)
     tenant = create_tenant(db_session, name="Garage", code="garage-1498", kind=TenantKind.COMPANY)
     before = enabled_modules(tenant.id, db=db_session)
@@ -133,7 +133,7 @@ def test_a_refused_dependency_saves_nothing(client, db_session):
     assert get_setting(db_session, "tagline", tenant_id=tenant.id) in (None, "")
 
 
-def test_switching_a_module_off_keeps_its_settings(client, db_session):
+def test_switching_a_module_off_keeps_its_settings(client, platform_workspace, db_session):
     headers = _operator(client, db_session)
     tenant = create_tenant(db_session, name="Turnclub", code="turn-1498")
     set_setting(db_session, "membership_price_full", "40.00", tenant_id=tenant.id)
@@ -162,7 +162,9 @@ def test_switching_a_module_off_keeps_its_settings(client, db_session):
     assert get_setting(db_session, "membership_price_full", tenant_id=tenant.id) == "40.00"
 
 
-def test_a_platform_has_no_membership_card_and_keeps_its_state(client, db_session):
+def test_a_platform_has_no_membership_card_and_keeps_its_state(
+    client, platform_workspace, db_session
+):
     headers = _operator(client, db_session)
     platform = platform_tenant_id(db_session)
     if platform is None:

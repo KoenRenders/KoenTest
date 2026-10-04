@@ -22,6 +22,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
 from app.ui import _ADMIN_NAV
 from tests.conftest import (
+    PLATFORM_TEST_HOST,
     SEEDED_ADMIN_EMAIL,
     create_test_family,
     seed_activity_with_product,
@@ -29,6 +30,30 @@ from tests.conftest import (
 )
 
 pytestmark = pytest.mark.ui_serverrendered
+
+#: The screens whose route guards with `require_platform_operator_ui` (#1535): they
+#: answer in the platform workspace only, so the gate opens them on the platform
+#: host. Read from the source by `_admin_gets_zonder_parameter`, like the paths.
+_PLATFORM_ONLY: set[str] = set()
+
+
+@pytest.fixture(autouse=True)
+def _platform_host(monkeypatch):
+    """A platform host for the gate to open the platform's screens on (#1535)."""
+    from app.config import settings
+    from app.domains.mdm.api import invalidate_tenant_codes
+
+    monkeypatch.setattr(settings, "platform_hosts", PLATFORM_TEST_HOST)
+    invalidate_tenant_codes()
+    yield
+    invalidate_tenant_codes()
+
+
+def _host(pad: str) -> dict[str, str]:
+    """The host header that puts `pad` in its own workspace (#1535)."""
+    _admin_gets_zonder_parameter()
+    return {"host": PLATFORM_TEST_HOST} if pad in _PLATFORM_ONLY else {}
+
 
 # hx-post=&#34;…&#34; — htmx ziet dan geen bruikbare waarde en de knop is inert.
 GEESCAPED = re.compile(
@@ -186,18 +211,21 @@ def _admin_gets_zonder_parameter() -> list[str]:
                     continue
                 if route.startswith("/admin") and "{" not in route:
                     paden.add(route)
+                    if "require_platform_operator_ui" in ast.unparse(knoop):
+                        _PLATFORM_ONLY.add(route)
+    assert _PLATFORM_ONLY, "no platform screen found — the gate would open them all as a tenant"
     return sorted(paden)
 
 
 def _open(client, pad: str):
     """De HTML van een adminpagina, of None als ze voor deze sessie niet open gaat.
 
-    Een 301 (`/admin/instellingen` ging op in /admin/tenants) of een 403 (tenants is
+    Een redirect of een 403 (tenants is
     OPERATOR-only) is geen renderfout — dat scherm bestaat gewoon niet voor deze
     gebruiker. Álles daarbuiten wél: een 404 of een 500 hoort deze gate rood te
     maken, want dan is er iets stuk.
     """
-    resp = client.get(pad)
+    resp = client.get(pad, headers=_host(pad))
     if resp.status_code in (301, 302, 307, 308, 401, 403):
         return None
     assert resp.status_code == 200, f"{pad} → {resp.status_code}"
@@ -293,7 +321,7 @@ def test_de_gate_dekt_alle_menu_items(client, gevulde_admin):
     scherm dat 500't valt hier op in plaats van in productie."""
     assert len(_ADMIN_NAV) >= 13
     for pad, _label in _ADMIN_NAV:
-        assert client.get(pad).status_code == 200, f"{pad} rendert niet"
+        assert client.get(pad, headers=_host(pad)).status_code == 200, f"{pad} rendert niet"
 
 
 def test_de_gate_ziet_ook_de_aanmaakschermen(client, gevulde_admin):

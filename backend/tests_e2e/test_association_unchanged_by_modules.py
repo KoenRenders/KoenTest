@@ -44,6 +44,16 @@ _HOME = """() => ({
   footer: (document.querySelector('footer') || {innerText: ''}).innerText
     .split('\\n').map(s => s.trim()).filter(Boolean),
 })"""
+#: The changes since v2.12.0 that are decisions, not a module taking something
+#: away — applied to the recording before the comparison, so the recording stays
+#: what v2.12.0 showed and every change is named here, with its issue.
+#: #1535 (Koen): platform administration is the platform's menu; a tenant
+#: workspace has its own organisation and settings in their place.
+DELIBERATE_MENU_CHANGES = {
+    "/admin/organisaties Organisaties": "/admin/organisatie Onze organisatie",
+    "/admin/tenants Tenants": "/admin/instellingen Instellingen",
+}
+
 _YEAR = re.compile(r"\b20\d\d\b")
 #: A tile's value — a count or an amount — is data, not what a module shows.
 _VALUE = re.compile(r"^[€\d\s.,%-]+$")
@@ -126,6 +136,9 @@ def test_the_association_shows_what_it_showed_on_v2_12_0(browser):
     from tests_e2e.schermen import BASE
 
     before = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+    menu = before["shown"]["menu"]
+    assert set(DELIBERATE_MENU_CHANGES) <= set(menu), "a deliberate change names no recorded item"
+    before["shown"]["menu"] = sorted(DELIBERATE_MENU_CHANGES.get(item, item) for item in menu)
     now = extract(browser, BASE, make_session_value(SEEDED_ADMIN_EMAIL))
 
     assert set(now) == set(before["shown"]), "the snapshot and the extraction disagree on shape"

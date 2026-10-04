@@ -26,10 +26,11 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
+from urllib.parse import urljoin
 
 from playwright.sync_api import sync_playwright
 
-from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar
+from tests_e2e.schermen import BASE, PLATFORM, login_met_sessie, pagina_klaar
 
 # The audience decides the primary width (CR-08): public screens are judged on
 # a phone, admin screens on a desktop. Both widths are captured for every
@@ -153,7 +154,7 @@ def _open_first_link(page, text: str, url_glob: str) -> None:
     href = link.get_attribute("href")
     if not href:
         raise RuntimeError(f"link {text!r} has no href")
-    page.goto(href)
+    page.goto(urljoin(page.url, href))  # on the host the list was on (#1535)
     page.wait_for_url(url_glob, timeout=5000)
     page.wait_for_load_state("networkidle")
 
@@ -239,7 +240,7 @@ SCREENS: tuple[Screen, ...] = (
     # kind and the reduced module set, and the site it starts with.
     Screen(
         "admin-tenant-bedrijf",
-        "/admin/tenants",
+        PLATFORM + "/admin/tenants",  # #1535: platform administration
         admin=True,
         action=lambda page: _open_first_link(page, "Voorbeeldbedrijf", "**/admin/tenants/*"),
     ),
@@ -325,6 +326,7 @@ def _zet_sessie(page, waarde: Optional[str]) -> None:
     page.context.clear_cookies()
     if waarde:
         login_met_sessie(page, waarde)
+        login_met_sessie(page, waarde, PLATFORM)  # #1535: the platform screens
 
 
 def _capture(page, screen: Screen, width: dict, out_dir: Path) -> Path:

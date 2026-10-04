@@ -15,7 +15,7 @@ mdm-/kernel-facades.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -25,6 +25,8 @@ from app.domains.auth.api import (  # noqa: F401
     require_admin_ui,
     require_csrf,
     require_operator_ui,
+    require_platform_operator_ui,
+    require_tenant_workspace,
 )
 from app.domains.mdm.api import OrganizationType
 from app.i18n import _
@@ -285,8 +287,12 @@ def _cards(db: Session, unit, *, modules_on, refused=None) -> list[dict]:
 
 
 def _editor_ctx(
-    request: Request, db: Session, tenant_id: int, *, modules_on=None, refused=None
+    request: Request, db: Session, tenant_id: int, *, modules_on=None, refused=None, own=False
 ) -> dict:
+    """The tenant editor's context. `own` (#1535) is the tenant workspace's own
+    "Instellingen": the same cards and the same save, with the modules shown
+    read-only and without the kind and account, which are platform
+    administration (#1533). Only the scope and those two differ."""
     from app.domains.mdm.api import enabled_modules, list_accounts
     from app.domains.mdm.api import secrets_gezet as _secrets_gezet
     from app.kernel.tenant_config import get_setting
@@ -302,18 +308,26 @@ def _editor_ctx(
     }
     secrets_gezet = _secrets_gezet(db, tenant_id, [key for key, _label, _hulp in geheim])
     return {
-        "nav_items": admin_nav("/admin/tenants"),
+        "nav_items": admin_nav("/admin/instellingen" if own else "/admin/tenants"),
         "unit": unit,
         "tenant_id": tenant_id,
+        # #1535: where this editor posts and leads, per scope.
+        "own": own,
+        "back_href": None if own else "/admin/tenants",
+        "cancel_href": "/admin/instellingen" if own else "/admin/tenants",
+        "org_href": "/admin/organisatie" if own else f"/admin/organisaties/{tenant_id}",
+        "modules_editable": not own,
         "kind_label": _kind_labels().get(unit.kind.value) if unit.kind is not None else None,
         # #1533: a unit's kind can be changed here, between the creatable kinds;
         # the platform's is fixed and only shown (`kind_label`).
-        "kind_options": _creatable_kind_options() if unit.org_type is OrganizationType.UNIT else [],
+        "kind_options": _creatable_kind_options()
+        if unit.org_type is OrganizationType.UNIT and not own
+        else [],
         "kind_value": unit.kind.value if unit.kind is not None else None,
         # #1533 (Koen): beside the kind, the account the tenant hangs under, chosen
         # from the active accounts (#1495); "" only while it has none.
         "account_options": [(str(a.id), a.name) for a in list_accounts(db)]
-        if unit.org_type is OrganizationType.UNIT
+        if unit.org_type is OrganizationType.UNIT and not own
         else [],
         "account_value": str(unit.parent_id) if unit.parent_id is not None else "",
         "cards": _cards(db, unit, modules_on=on, refused=refused),
@@ -327,20 +341,36 @@ def _editor_ctx(
     }
 
 
-@router.get("/admin/instellingen")
-def instellingen_verhuisd():
-    """De aparte Instellingen-pagina is opgegaan in /admin/tenants (#581).
-
-    301 in plaats van verwijderen: bestaande bladwijzers en links blijven werken.
+@router.get("/admin/instellingen", response_class=HTMLResponse)
+def own_settings(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
+    """The tenant workspace's own site settings (#1535), for its ADMIN and the
+    operator: the tenant editor of this workspace's tenant, its secrets included
+    (never shown back), the modules read-only. Until #1535 this address was a
+    301 to /admin/tenants (#581), which is platform administration now.
     """
-    return RedirectResponse("/admin/tenants", status_code=301)
+    return templates.TemplateResponse(
+        request,
+        "admin_tenant.html",
+        _editor_ctx(request, db, require_tenant_workspace(db), own=True),
+    )
+
+
+@router.post(
+    "/admin/instellingen", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
+)
+async def own_settings_save(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
+    return await _save(request, db, require_tenant_workspace(db), email, own=True)
 
 
 @router.get("/admin/tenants", response_class=HTMLResponse)
 def tenants(
     request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
 ):
-    require_operator_ui(db, email)
+    require_platform_operator_ui(db, email)
     # De filterbalk haalt enkel de kaarten op; een pagina-swap zou het zoekveld
     # tijdens het typen vervangen en de focus wegnemen.
     sjabloon = "_tn_kaarten.html" if is_fragment_request(request) else "admin_tenants.html"
@@ -359,7 +389,7 @@ def tenant_nieuw(
     ADMIN could open the form, which leaked the accounts list and promised a
     save that was then refused.
     """
-    require_operator_ui(db, email)
+    require_platform_operator_ui(db, email)
     return templates.TemplateResponse(request, "admin_tenant_nieuw.html", _lijst_ctx(request, db))
 
 
@@ -370,7 +400,7 @@ def tenant_editor(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
-    require_operator_ui(db, email)
+    require_platform_operator_ui(db, email)
     return templates.TemplateResponse(
         request, "admin_tenant.html", _editor_ctx(request, db, tenant_id)
     )
@@ -389,7 +419,7 @@ def tenant_aanmaken(
 ):
     from app.domains.mdm.api import TenantFout, create_tenant
 
-    require_operator_ui(db, email)
+    require_platform_operator_ui(db, email)
     try:
         create_tenant(
             db,
@@ -422,14 +452,28 @@ async def tenant_opslaan(
     transaction (`save_tenant`); "Modules bewaren" and its route are gone. A
     refusal shows the form again as it was sent, with the 422 both routes gave
     (#797, #1478); whether htmx shows a 4xx is an open question to Koen."""
+    require_platform_operator_ui(db, email)
+    return await _save(request, db, tenant_id, email, own=False)
+
+
+async def _save(request: Request, db: Session, tenant_id: int, email: str, *, own: bool):
+    """One save path for both scopes (#1535): the same `save_tenant`. The own
+    scope saves the settings only; the module switch, the kind and the account
+    are the operator's, on the platform, and a form that sends them is refused
+    with 403 rather than quietly ignored.
+    """
     from app.domains.mdm.api import ModuleRefused, OngeldigeInstelling, TenantFout, save_tenant
 
-    require_operator_ui(db, email)
     unit = next((u for u in _units(db) if u.id == tenant_id), None)
     if unit is None:
         raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
     sleutels, geheim = _settings_of(unit)
     form = await request.form()
+    if own and any(k in form for k in ("modules_shown", "modules", "kind", "account_id")):
+        raise HTTPException(
+            status_code=403,
+            detail=_("Modules, type en account beheert de platformbeheerder."),
+        )
     # Only what the form carries is saved: a key that is not on it is left
     # alone, never emptied, and the module set only when the form sent its
     # checkboxes (`modules_shown`) — an empty list then means "all off".
@@ -437,7 +481,7 @@ async def tenant_opslaan(
     labels = {key: label for key, label, _h in BEKENDE_SLEUTELS}
 
     def again(**kwargs) -> dict:
-        ctx = _editor_ctx(request, db, tenant_id, modules_on=modules, **kwargs)
+        ctx = _editor_ctx(request, db, tenant_id, modules_on=modules, own=own, **kwargs)
         # #797: the typed values stay; throwing them away makes the message worse
         # than the mistake.
         ctx["waarden"] = {**ctx["waarden"], **{k: v for k, v in form.items() if k in labels}}
@@ -469,7 +513,7 @@ async def tenant_opslaan(
         ctx = again()
         ctx["error"] = " ".join(f"{labels.get(k, k)}: {m}" for k, m in fout.fouten.items())
         return templates.TemplateResponse(request, "admin_tenant.html", ctx, status_code=422)
-    ctx = _editor_ctx(request, db, tenant_id)
+    ctx = _editor_ctx(request, db, tenant_id, own=own)
     # #742: een toast in plaats van de bestaande success_banner. §2.9 schrijft één
     # bevestigingspatroon voor; twee vormen naast elkaar is precies de inconsistentie
     # die dat issue wegneemt.

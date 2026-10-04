@@ -54,7 +54,8 @@ from app.domains.auth.api import (
     csrf_from_request,
     require_admin_ui,
     require_csrf,
-    require_operator_ui,
+    require_platform_operator_ui,
+    require_tenant_workspace,
 )
 from app.domains.mdm.api import ORGANIZATION_TYPE, OrganizationType
 from app.i18n import _
@@ -137,7 +138,10 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     }
 
 
-def _editor_ctx(request: Request, db: Session, organization_id: int) -> dict:
+def _editor_ctx(request: Request, db: Session, organization_id: int, *, own=False) -> dict:
+    """The organisation editor's context. `own` (#1535) is a tenant workspace's
+    "Onze organisatie": the same fields and the same save, for this workspace's
+    own organisation only; only where it posts and leads differs."""
     from app.domains.mdm.api import (
         legal_form_options,
         list_postal_codes,
@@ -156,10 +160,15 @@ def _editor_ctx(request: Request, db: Session, organization_id: int) -> dict:
     heeft_site = organisatie["org_type"] in ("UNIT", "PLATFORM")
 
     return {
-        "nav_items": admin_nav(NAV),
+        "nav_items": admin_nav("/admin/organisatie" if own else NAV),
         "organisatie": organisatie,
         "organization_id": organization_id,
         "heeft_site": heeft_site,
+        # #1535: where this editor posts and leads, per scope.
+        "own": own,
+        "back_href": None if own else "/admin/organisaties",
+        "cancel_href": "/admin/organisatie" if own else f"/admin/organisaties/{organization_id}",
+        "site_href": "/admin/instellingen" if own else f"/admin/tenants/{organization_id}",
         "velden": organization_details(db, organization_id),
         "adres": organization_address(db, organization_id),
         "postal_codes": list_postal_codes(db),
@@ -177,7 +186,7 @@ def _editor_ctx(request: Request, db: Session, organization_id: int) -> dict:
 def organisaties(
     request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
 ):
-    require_operator_ui(db, email)
+    require_platform_operator_ui(db, email)
     sjabloon = "_org_kaarten.html" if is_fragment_request(request) else "admin_organisaties.html"
     return templates.TemplateResponse(request, sjabloon, _lijst_ctx(request, db))
 
@@ -198,7 +207,7 @@ def new_account_form(
     request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
 ):
     """ "Nieuw account" (CR-19, #1495): OPERATOR only, on GET as on POST."""
-    require_operator_ui(db, email)
+    require_platform_operator_ui(db, email)
     return templates.TemplateResponse(
         request, "admin_organisatie_nieuw.html", _new_account_ctx(request)
     )
@@ -218,7 +227,7 @@ def create_account_route(
     is filled in. A refusal shows the form again with what was typed."""
     from app.domains.mdm.api import TenantFout, create_account
 
-    require_operator_ui(db, email)
+    require_platform_operator_ui(db, email)
     try:
         account = create_account(db, name=name, code=code)
     except TenantFout as fout:
@@ -240,7 +249,7 @@ def organisatie_editor(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
-    require_operator_ui(db, email)
+    require_platform_operator_ui(db, email)
     return templates.TemplateResponse(
         request, "admin_organisatie.html", _editor_ctx(request, db, organization_id)
     )
@@ -257,9 +266,37 @@ async def organisatie_opslaan(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
+    require_platform_operator_ui(db, email)
+    return await _save(request, db, organization_id, own=False)
+
+
+@router.get("/admin/organisatie", response_class=HTMLResponse)
+def own_organisation(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
+    """ "Onze organisatie" (#1535): the tenant workspace's own organisation, for
+    its ADMIN and the operator — and nothing of another organisation."""
+    return templates.TemplateResponse(
+        request,
+        "admin_organisatie.html",
+        _editor_ctx(request, db, require_tenant_workspace(db), own=True),
+    )
+
+
+@router.post(
+    "/admin/organisatie", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
+)
+async def own_organisation_save(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
+    return await _save(request, db, require_tenant_workspace(db), own=True)
+
+
+async def _save(request: Request, db: Session, organization_id: int, *, own: bool):
+    """One save path for both scopes (#1535): `save_organization`, one
+    transaction for the whole form (#1244)."""
     from app.domains.mdm.api import OngeldigeInstelling, save_organization
 
-    require_operator_ui(db, email)
     form = await request.form()
     try:
         # #1244: one transaction for the whole form — see `save_organization`.
@@ -268,7 +305,7 @@ async def organisatie_opslaan(
         # #797: het formulier terug tonen mét de ingetypte waarden. Ze wegwerpen zou
         # betekenen dat één tikfout het hele scherm leegveegt, en dan is de melding
         # erger dan de fout.
-        ctx = _editor_ctx(request, db, organization_id)
+        ctx = _editor_ctx(request, db, organization_id, own=own)
         labels = {key: label for key, label, _h in (*CONTACTGROEP, *REKENINGGROEP, *NUMMERGROEP)}
         labels.update(
             {
@@ -286,6 +323,6 @@ async def organisatie_opslaan(
         # (`ui.htmx_ux`), so the form with its banner reaches the screen.
         return templates.TemplateResponse(request, "admin_organisatie.html", ctx, status_code=422)
 
-    ctx = _editor_ctx(request, db, organization_id)
+    ctx = _editor_ctx(request, db, organization_id, own=own)
     ctx["toast_opgeslagen"] = True
     return templates.TemplateResponse(request, "admin_organisatie.html", ctx)

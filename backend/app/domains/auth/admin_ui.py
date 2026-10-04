@@ -155,8 +155,9 @@ def _lijst_ctx(
         "op_platform": op_platform,
         "werkruimtes": werkruimtes,
         "toon_operator": op_platform and is_operator,
-        # #1500: the way to the overview of every workspace, for an operator.
-        "toon_overzicht": is_operator,
+        # #1500: the way to the overview of every workspace, for an operator;
+        # #1535: in the platform workspace only, where the overview lives.
+        "toon_overzicht": is_operator and op_platform,
         # Filteropties per request: _() volgt de taal van de tenant.
         # Sinds #1079 één keuzelijst i.p.v. knoppen: het aantal rollen is
         # data-gedreven en groeit mee met de codetabel, dus een rij knoppen
@@ -210,11 +211,12 @@ def admin_gebruikers(
 def access_overview_page(
     request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
 ):
-    """Every account, every workspace, every role — read-only, OPERATOR only (#1500)."""
-    from app.domains.auth.api import require_operator_ui
+    """Every account, every workspace, every role — read-only, OPERATOR only (#1500),
+    in the platform workspace only (#1535)."""
+    from app.domains.auth.api import require_platform_operator_ui
     from app.domains.auth.users import access_overview
 
-    require_operator_ui(db, email)
+    require_platform_operator_ui(db, email)
     return templates.TemplateResponse(
         request,
         "admin_gebruikers_overzicht.html",

@@ -308,8 +308,10 @@
    op zes schermen en als knop op twee — negen keer dezelfde regel overtypen is
    hoe de ene op een dag een ander teken of een andere kleur krijgt. Hier één
    keer; de bestaande kopieën mogen er in een aparte veeg naartoe. #}
+{# #1535: without an href, nothing — a workspace's own settings and organisation
+   are one record with no list to go back to, rendered by the same editor. #}
 {% macro back_link(label, href) -%}
-<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="{{ href }}">‹ {{ label }}</a></p>
+{% if href %}<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="{{ href }}">‹ {{ label }}</a></p>{% endif %}
 {%- endmacro %}
 
 {# The page header: title and subtitle left, the actions right (#1391, CR-11).
