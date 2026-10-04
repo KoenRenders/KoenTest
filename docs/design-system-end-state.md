@@ -368,8 +368,9 @@ keeps its cards: the poster is the content. [9, 12, 21; CR-14 B4.1]
 ### 2.5 The public shell — header and footer (pilot B, decided 4 October 2026)
 
 Decided by Koen on ChatGPT's brief-11 answer, against its recommendation:
-the **brand-blue band stays** (its background a brand token, so another
-tenant may choose a light header) and **the logo stays** — top left, one
+the **coloured band stays, in the colour the tenant configures**
+(`site_header_color` in the tenant settings, as today; no new brand token)
+and **the logo stays** — top left, one
 image from the tenant's brand file at every width; no typed wordmark, no
 separate town name, no tagline that appears from 1 200 px. "Playing with
 letters and things that drop out is no gain."
