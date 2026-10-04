@@ -108,26 +108,24 @@ def test_activiteit_geneste_producten_paneel(client, db_session):
 
 
 def test_activiteit_affiche_upload_in_edit_modus(client, db_session):
-    """#503: het affiche-blok zit in de edit-vorm (x-show="edit"), niet in read-modus;
-    de activiteitkaart heeft een Annuleren-affordance naast Opslaan.
-
-    Sinds #623 is dat GEEN aparte upload-vorm meer: het bestandsveld staat in dezelfde
-    vorm als naam, locatie en poster-URL, zodat één "Opslaan" allebei bewaart. De
-    x-show="edit"-gating blijft, en dat is wat deze test bewaakt.
-    """
+    """#503/#623, since #1558: the file field sits in the same form as name,
+    location and description, so one "Opslaan" keeps them all — and that form
+    exists only in the edit state of the page (`?bewerken=1`). The read state
+    carries no form and no file field; the edit state carries "Annuleren" beside
+    "Opslaan"."""
     activity, component, _p = seed_activity_with_product(db_session)
     _login(client)
-    html = client.get(f"/admin/activiteiten/{activity.id}").text
-    assert ">Annuleren<" in html
+    read = client.get(f"/admin/activiteiten/{activity.id}").text
+    assert 'id="aa-act-form"' not in read and 'id="upl-file"' not in read
 
-    # De bewerkvorm draagt x-show="edit" én het bestandsveld.
-    bewerkvorm = [
-        stuk.split("</form>")[0]
-        for stuk in html.split("<form")[1:]
-        if 'x-show="edit"' in stuk.split(">")[0] and 'name="poster_url"' in stuk
-    ]
-    assert bewerkvorm, 'de bewerkvorm met poster-URL staat niet achter x-show="edit"'
-    assert 'type="file"' in bewerkvorm[0], "het bestandsveld hoort in diezelfde vorm"
+    html = client.get(f"/admin/activiteiten/{activity.id}?bewerken=1").text
+    assert ">Annuleren<" in html and ">Opslaan<" in html
+    form = html.split('<form id="aa-act-form"', 1)[1].split("</form>", 1)[0]
+    assert 'type="file"' in form, "the file field belongs in that form"
+    assert 'name="name"' in form and 'name="description"' in form
+    # The poster address sits in the closed last section, outside the form
+    # element, and names the form it belongs to.
+    assert 'name="poster_url" form="aa-act-form"' in html
 
 
 def test_admin_inschrijvingen_en_export(client, db_session):

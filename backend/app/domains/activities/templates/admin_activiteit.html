@@ -9,16 +9,14 @@
 <div id="aa-recordkop">
   {% include "_aa_recordkop.html" %}
 </div>
-<div class="grid grid-cols-1 xl:grid-cols-[1fr,20rem] gap-6 items-start">
-  <div id="aa-detail" class="min-w-0">
+{# CR-11 block 6 (#1558): the reading group — the form column and, beside it,
+   the rail (publication and occupancy, from data already loaded). The rail
+   stands outside #aa-detail, so a fragment swap leaves it; a save sends it along
+   out of band. #}
+{% set _rail %}<div id="aa-rail" class="space-y-4">{% include "_aa_rail.html" %}</div>{% endset %}
+{% call ui.record_columns(aside=_rail) %}
+  <div id="aa-detail">
     {% include "_aa_detail.html" %}
   </div>
-  {# De rechterrail: publicatie-info en bezetting, uit al geladen data. Buiten
-     #aa-detail, dus fragment-swaps raken haar niet; een paginalading ververst. #}
-  <aside class="space-y-4 xl:sticky xl:top-4">
-    <div id="aa-rail">
-      {% include "_aa_rail.html" %}
-    </div>
-  </aside>
-</div>
+{% endcall %}
 {% endblock %}

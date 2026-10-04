@@ -18,6 +18,7 @@
  class="absolute right-0 z-30 mt-2 w-[272px] max-w-[calc(100vw-2rem)] max-h-[65dvh] overflow-auto py-1 bg-white border border-line rounded-lg shadow-lg">
 <a role="menuitem" href="/admin/activiteiten/<ACTIVITY>/kopieren" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink">Kopiëren</a>
 <button role="menuitem" type="button" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink" hx-post="/admin/activiteiten/<ACTIVITY>/status" hx-vals='{"status": "draft"}'>Terug naar concept</button>
+<button role="menuitem" type="button" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink" hx-post="/admin/activiteiten/<ACTIVITY>/annulering" hx-vals='{"cancelled": "1"}' data-confirm="Deze activiteit annuleren? Ze neemt dan geen inschrijvingen meer aan. Bestaande inschrijvingen en betalingen blijven staan.">Activiteit annuleren</button>
 <div data-menu-divider class="my-1 border-t border-line"></div>
 <a role="menuitem" href="/admin/media/nieuw?kind=activity_photo&amp;activity_id=<ACTIVITY>" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink">Foto&#39;s uploaden</a>
 <a role="menuitem" href="/admin/ontwerpen/nieuw?activity_id=<ACTIVITY>" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink">Design Studio</a>

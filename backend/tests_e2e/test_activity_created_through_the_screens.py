@@ -142,8 +142,8 @@ def test_an_activity_created_through_the_screens_is_open_for_registration(admin)
             page.locator("form[hx-post='/admin/activiteiten'] button[type=submit]").first.click()
             page.wait_for_url(re.compile(r"/admin/activiteiten/\d+$"), timeout=10_000)
             activity_id = int(page.url.rstrip("/").rsplit("/", 1)[1])
-            # The editor opens with the name in its own field, not as text.
-            expect(page.locator("#aa-detail #name")).to_have_value(name)
+            # The record opens in its read state (#1558), the name in its own field.
+            expect(page.locator('#aa-detail [data-field="name"] [data-value]')).to_have_text(name)
 
         with _step("step 2 (onderdeel toevoegen)"):
             page.get_by_role("button", name="+ Onderdeel").click()

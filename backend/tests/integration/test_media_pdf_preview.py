@@ -131,7 +131,8 @@ def test_het_beheerscherm_toont_de_affiche(client, db_session):
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
 
-    scherm = client.get(f"/admin/activiteiten/{activity.id}").text
+    # #1558: the preview stands beside the upload, so in the edit state.
+    scherm = client.get(f"/admin/activiteiten/{activity.id}?bewerken=1").text
     assert "/thumb" in scherm, "de affiche hoort als voorbeeld op het scherm te staan"
 
 

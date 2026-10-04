@@ -87,7 +87,9 @@ def _open_activiteit(admin_page):
     scherm = Activiteitdetail(admin_page)
     if not scherm.open_eerste():
         _ontbreekt("geen activiteit om te openen")
-    admin_page.locator('button:has-text("Bewerken")').first.click()
+    # #1558: the fiche edits as a whole — "Bewerken" in the record head.
+    admin_page.locator('[data-head-controls] a:has-text("Bewerken")').click()
+    admin_page.wait_for_selector('[data-form-flow][data-mode="edit"]')
     pagina_klaar(admin_page)
     return scherm
 

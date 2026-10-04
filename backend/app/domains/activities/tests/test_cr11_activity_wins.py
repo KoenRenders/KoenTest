@@ -54,7 +54,9 @@ def _component(db, activity, name="Deelname", **extra):
 
 
 def _details(html: str) -> list[str]:
-    return re.findall(r"<details[^>]*data-external-links.*?</details>", html, flags=re.S)
+    return re.findall(
+        r"<details[^>]*data-(?:external-links|rare-settings).*?</details>", html, flags=re.S
+    )
 
 
 # ── W2 ───────────────────────────────────────────────────────────────────────
@@ -74,17 +76,20 @@ def test_the_external_links_are_folded_and_counted(client, db_session):
     )
     db_session.commit()
     _login(client)
-    html = client.get(f"/admin/activiteiten/{a.id}").text
+    html = client.get(f"/admin/activiteiten/{a.id}?bewerken=1").text
 
     folds = _details(html)
-    # The activity's fold, the add-component fold and one per component.
+    # The activity's fold (the kit's `rare_settings` since #1558), the
+    # add-component fold and one per component.
     assert len(folds) == 4, len(folds)
     assert not any(re.match(r"<details[^>]*\bopen\b", f) for f in folds), "a fold starts open"
     summaries = [re.search(r"<summary.*?</summary>", f, flags=re.S).group(0) for f in folds]
     assert sum("2 externe links" in s for s in summaries) == 1
     assert sum("1 externe link<" in s for s in summaries) == 1, "the poster URL's fold"
     # Every external URL field lives inside a fold.
-    outside = re.sub(r"<details[^>]*data-external-links.*?</details>", "", html, flags=re.S)
+    outside = re.sub(
+        r"<details[^>]*data-(?:external-links|rare-settings).*?</details>", "", html, flags=re.S
+    )
     for name in ("external_register_url", "external_registrations_url", "info_url", "poster_url"):
         assert f'name="{name}"' not in outside, f"{name} outside the fold"
 

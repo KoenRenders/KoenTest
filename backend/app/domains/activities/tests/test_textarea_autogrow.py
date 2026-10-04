@@ -68,7 +68,7 @@ def test_omschrijving_groeit_en_naam_niet(client, db_session):
     db_session.commit()
     _login(client)
 
-    html = client.get(f"/admin/activiteiten/{a.id}").text
+    html = client.get(f"/admin/activiteiten/{a.id}?bewerken=1").text
     assert GROEI in _veld(html, "description")
     # Het plafond staat sinds #1037 in `groei()`, met de ondergrens ernaast.
     assert "this.bodem), 400)" in _veld(html, "description")

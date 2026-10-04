@@ -48,32 +48,36 @@ def _kaart(client, activiteit) -> str:
 
 
 def _leesdeel(html: str) -> str:
-    """Het deel van de activiteitkaart dat in leesmodus zichtbaar is.
+    """The three sections of the fiche as the READ state of the page renders them.
 
-    Geknipt vóór `<form id="aa-act-form"`, de bewerkvorm met `x-show="edit"`.
-    Wat daarna komt ziet de gebruiker pas na een klik op Bewerken.
-
-    De twee asserties zijn er omdat een knipfunctie die niets vindt een lege
-    string teruggeeft — en dan slaagt élke "staat er niet in"-assertie zonder
-    dat er iets gemeten is.
+    Since #1558 reading and editing are two states of the page (`?bewerken=1`),
+    not a read layer above a hidden form. The two assertions stay for the reason
+    they were written: a cutting function that finds nothing returns an empty
+    string, and then every "is not in it" assertion passes without measuring.
     """
-    merk = '<form id="aa-act-form"'
-    assert merk in html, "de bewerkvorm staat niet in het antwoord; knippen heeft geen zin"
-    lees = html.split(merk)[0]
-    assert "Activiteit</h2>" in lees, "het leesdeel bevat de kaartkop niet — verkeerd geknipt"
+    assert 'data-mode="read"' in html, "this is not the read state of the page"
+    assert '<form id="aa-act-form"' not in html, "the read state carries no edit form"
+    start = html.index('id="aa-section-activity"')
+    lees = html[start : html.index("Datums", start)]
+    assert "Activiteit</h2>" in lees, "the cut misses the section heading"
     return lees
+
+
+def _value(lees: str, field: str) -> str:
+    """What the read state shows as the value of one field."""
+    block = lees[lees.index(f'data-field="{field}"') :]
+    return block[block.index("data-value") :].split("</p>", 1)[0].split(">", 1)[1].strip()
 
 
 # ── 1. De kaart toont wat ze bevat ──────────────────────────────────────────
 
 
 def test_description_and_internal_note_are_visible_without_clicking(client, db_session, activiteit):
-    """Het gemelde geval.
+    """The reported case (#1139): what the fiche holds is read without a click.
 
-    Tegenproef: de twee leesregels uit `_aa_detail.html` gehaald → beide
-    asserties falen. Tegelijk bleef `OMSCHRIJVING in html` (dus zónder knippen)
-    gewoon waar, want de tekst staat als `value` in de bewerkvorm — dat is de
-    test die dit issue niet zou hebben gevonden.
+    Counter-proof at the time: the two read lines removed → both assertions
+    fail, while `OMSCHRIJVING in html` stayed true through the hidden form. The
+    hidden form is gone; the values are read from the fields' read blocks.
     """
     activiteit.description = OMSCHRIJVING
     activiteit.board_notes = NOTA
@@ -81,8 +85,8 @@ def test_description_and_internal_note_are_visible_without_clicking(client, db_s
     _login(client)
 
     lees = _leesdeel(_kaart(client, activiteit))
-    assert OMSCHRIJVING in lees, "de omschrijving staat niet in de leesweergave"
-    assert NOTA in lees, "de interne nota staat niet in de leesweergave"
+    assert _value(lees, "description") == OMSCHRIJVING
+    assert _value(lees, "board_notes") == NOTA
 
 
 def test_the_internal_note_is_recognisably_internal_in_read_mode(client, db_session, activiteit):
@@ -97,10 +101,12 @@ def test_the_internal_note_is_recognisably_internal_in_read_mode(client, db_sess
     _login(client)
 
     lees = _leesdeel(_kaart(client, activiteit))
-    assert "Interne nota" in lees
-    assert "Alleen het bestuur ziet dit" in lees, (
-        "de leesweergave zegt niet dat deze tekst intern is"
+    note = lees[lees.index('data-field="board_notes"') :]
+    assert "Interne nota" in note
+    assert "Alleen het bestuur ziet dit" in note, (
+        "the read state does not say this text is internal"
     )
+    assert "Intern</h2>" in lees, "and it stands in its own section"
 
 
 def test_the_promise_about_the_internal_note_lives_in_one_place():
@@ -133,56 +139,80 @@ def test_the_promise_about_the_internal_note_lives_in_one_place():
     )
 
 
-# ── 2. Leeg blijft leeg, en zegt dat ────────────────────────────────────────
+# ── 2. Empty is "—", in its place ───────────────────────────────────────────
 
 
-def test_an_empty_card_says_so_instead_of_showing_blank_rows(client, db_session, activiteit):
-    """Zonder omschrijving, nota of affiche: één zin, geen lege labelregels.
-
-    Een leeg veld als lege regel tonen maakt de kaart opnieuw een kader zonder
-    inhoud — precies de klacht waar F33 (#996) al op stuitte.
-    """
+def test_an_empty_field_shows_a_dash_in_its_own_place(client, db_session, activiteit):
+    """Decision 06 (4 October 2026) reverses #1139's "leave an empty field out":
+    the read state shows every field the editor has, in the same order, an empty
+    one as "—" — so nothing moves when you start editing. The sentence "Nog niets
+    ingevuld" went with the card it explained."""
     _login(client)
     lees = _leesdeel(_kaart(client, activiteit))
 
-    assert "Nog niets ingevuld" in lees
-    assert "Omschrijving:" not in lees, "een leeg veld hoort weggelaten, niet leeg getoond"
-    assert "Interne nota:" not in lees
-
-
-def test_a_card_with_content_drops_the_empty_state_sentence(client, db_session, activiteit):
-    """De terugvalzin hoort bij de KAART, niet bij de affiche.
-
-    Vroeger stond "Nog geen affiche" er ook wanneer de kaart verder vol stond;
-    met een omschrijving erin is de kaart niet leeg en is die zin ruis. Zonder
-    deze test zou een terugvalzin die altijd meekomt ook groen staan.
-    """
-    activiteit.description = OMSCHRIJVING
-    db_session.commit()
-    _login(client)
-
-    lees = _leesdeel(_kaart(client, activiteit))
-    assert OMSCHRIJVING in lees
     assert "Nog niets ingevuld" not in lees
+    for field in ("slug", "description", "file", "target_audience", "board_notes"):
+        assert _value(lees, field) == "—", field
+    assert _value(lees, "name") == "Neteroute" and _value(lees, "location") == "Millegem"
+    assert _value(lees, "members_only") == "nee", "a setting reads in words"
+    assert "Alleen het bestuur ziet dit" not in lees, "no promise about a note that is not there"
 
 
-# ── 3. De bewerkmodus verandert niet ────────────────────────────────────────
+# ── 3. Read whole, edit whole (B7 test 2) ───────────────────────────────────
+
+FIELDS = [
+    "name",
+    "slug",
+    "location",
+    "description",
+    "file",
+    "target_audience",
+    "members_only",
+    "board_notes",
+]
 
 
-def test_edit_mode_keeps_the_same_fields_in_the_same_places(client, db_session, activiteit):
-    """Buiten scope van #1139, dus hier vastgepind.
+def _fields(html: str) -> list[str]:
+    import re
 
-    De leesweergave is ernaast gezet, niet in de plaats van: dezelfde velden,
-    dezelfde vorm, dezelfde waarden.
+    start = html.index('id="aa-section-activity"')
+    return re.findall(r'data-field="(\w+)"', html[start : html.index("Datums", start)])
+
+
+def test_read_and_edit_show_the_same_fields_in_the_same_order(client, db_session, activiteit):
+    """The same sections, the same fields, the same order in both states; the
+    edit state holds a control for each and the values that were read.
+
+    Proven red by removing the location field from the template only while
+    editing (`{% if not _edit %}` around it): the two lists differ.
     """
     activiteit.description = OMSCHRIJVING
     activiteit.board_notes = NOTA
     db_session.commit()
     _login(client)
 
-    html = _kaart(client, activiteit)
-    vorm = html.split('<form id="aa-act-form"', 1)[1]
-    for veld in ("name", "slug", "location", "description", "board_notes", "poster_url"):
-        assert f'id="{veld}"' in vorm, f"{veld} verdween uit de bewerkvorm"
-    # En de waarden staan er nog in, niet alleen de velden.
+    read = _kaart(client, activiteit)
+    edit = client.get(f"/admin/activiteiten/{activiteit.id}?bewerken=1").text
+    assert _fields(read) == FIELDS
+    assert _fields(edit) == FIELDS
+    for heading in ("Activiteit</h2>", "Publiek</h2>", "Intern</h2>"):
+        assert heading in read and heading in edit
+    assert read.index("Activiteit</h2>") < read.index("Publiek</h2>") < read.index("Intern</h2>")
+
+    vorm = edit.split('<form id="aa-act-form"', 1)[1].split("</form>", 1)[0]
+    for veld in (
+        "name",
+        "slug",
+        "location",
+        "description",
+        "board_notes",
+        "target_audience",
+        "members_only",
+    ):
+        assert f'name="{veld}"' in vorm, f"{veld} is missing from the edit form"
+    assert 'id="upl-file"' in vorm
     assert OMSCHRIJVING in vorm and NOTA in vorm
+    # The closed last section comes after everything, in both states.
+    for html in (read, edit):
+        assert html.index("data-rare-settings") > html.index("Organisatoren")
+    assert 'name="poster_url" form="aa-act-form"' in edit
