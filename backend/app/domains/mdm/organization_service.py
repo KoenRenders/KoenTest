@@ -170,6 +170,12 @@ def _write_organization_details(db, organization_id: int, form: Mapping) -> None
     if rij is None:
         return
 
+    # #1517: the enterprise number is checked (ten digits, its check number) and
+    # stored in one form, the ten digits of ISO 6523 ICD 0208 — first of all, so
+    # a refused number leaves the organisation untouched.
+    if (form.get("enterprise_number") or "").strip():
+        form = {**form, "enterprise_number": _enterprise_number(form["enterprise_number"])}
+
     # Eerst weigeren, dan pas schrijven: een afgekeurde opslag mag niet half
     # doorgevoerd zijn. `name` voedt sinds #945 de paginatitel, de afzender van
     # mails en de footer, en `tenant_display_name` heeft geen terugval meer
@@ -224,6 +230,29 @@ def _write_organization_details(db, organization_id: int, form: Mapping) -> None
         )
 
     _bewaar_rekening(db, organization_id, form)
+
+
+def _enterprise_number(text: str) -> str:
+    """The ten digits of an enterprise number in any usual spelling, or a refusal
+    on the field with the reason (#1517)."""
+    from app.domains.mdm.enterprise_number import (
+        EnterpriseNumber,
+        InvalidEnterpriseNumber,
+        WrongCheckDigits,
+    )
+
+    try:
+        return EnterpriseNumber.parse(text).digits
+    except WrongCheckDigits:
+        reason = _(
+            "Het controlegetal klopt niet: de laatste twee cijfers horen 97 min de eerste "
+            "acht modulo 97 te zijn. Kijk het nummer na."
+        )
+    except InvalidEnterpriseNumber:
+        reason = _(
+            "Een ondernemingsnummer heeft tien cijfers en begint met 0 of 1, bv. 0123.456.749."
+        )
+    raise OngeldigeInstelling({"enterprise_number": reason})
 
 
 def _bewaar_rekening(db, organization_id: int, form: Mapping) -> None:

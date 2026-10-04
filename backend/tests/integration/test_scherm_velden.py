@@ -64,6 +64,8 @@ TENANT = TENANT_VOORBEELD_ID
 # stil overgeslagen te worden.
 BIJZONDERE_WAARDEN = {
     "legal_form": "VZW",
+    # #1517: a checked enterprise number, in its stored form (ten digits).
+    "enterprise_number": "0123456749",
     "mail_mode": "log_only",
     "noindex": "1",
     "language": "nl_BE",
