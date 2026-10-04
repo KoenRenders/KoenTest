@@ -11,6 +11,16 @@ as nothing to do. Nothing open: € 0,00.
 Proven red: the tfoot put back → the "Netto" count is 2; `open_sides` summing
 the signed balances (a net) → the 120/120 case says 0/0; the old single tile
 put back → the four-tile test fails.
+
+CR-11 pilot A, K1 (#1555; block 2, Koen, 2 October 2026): on /admin/betalingen
+the tiles became three **key figures** in the title row, plain text — Netto te
+betalen · Nog te ontvangen · Nog terug te betalen. The tile "Ontvangen" and the
+counts of bookings under each amount are gone (the toolbar's count shows n). A
+figure takes the `warning` tint only while its amount is open. The embedded
+Betalingen tab of a record keeps its band until K6 (#1560).
+
+Proven red on the figures: `warning` always set in the view → the two "in ink"
+tests fail.
 """
 
 import re
@@ -82,50 +92,47 @@ def _add(db, amount, *, type_, status, paid=None):
     db.flush()
 
 
-def _tile(html: str, side: str) -> str:
-    block = html[html.index(f'data-open-side="{side}"') :]
-    return block[: block.index("</div>\n  </div>")]
+def _figures(html: str) -> dict[str, tuple[str, bool]]:
+    """The key figures of the title row: label → (value, has the warning tint)."""
+    head = html[html.index("data-list-head") : html.index("data-toolbar")]
+    found = re.findall(
+        r'<dd data-figure class="([^"]*)">([^<]*)</dd>\s*<dt data-figure-label[^>]*>([^<]*)</dt>',
+        head,
+    )
+    return {label: (value, "text-brand-warning" in cls) for cls, value, label in found}
 
 
-def test_the_screen_has_four_tiles_and_the_totals_once(client, db_session):
+def test_the_screen_has_three_figures_and_the_totals_once(client, db_session):
     _add(db_session, "120", type_="charge", status="pending")
     _add(db_session, "-120", type_="refund", status="pending")
     _login_finance(client, db_session)
     html = client.get("/admin/betalingen").text
 
-    # On the screen, not in a tile label's `title` that repeats it (#1432).
+    # On the screen, not in a figure's `title` that repeats it (#1432).
     visible = re.sub(r'title="[^"]*"', "", html)
     assert visible.count("Netto") == 1, "the net amount stands more than once"
     assert "Financieel overzicht" not in html and "<tfoot" not in html
     assert "Nog af te handelen" not in html, "the combined tile is back"
-    for label in ("Netto te betalen", "Ontvangen", "Nog te ontvangen", "Nog terug te betalen"):
-        assert label in html, label
-    for side in ("receive", "refund"):
-        tile = _tile(html, side)
-        assert len(re.findall(r"€ [\d.,-]+", tile)) == 1, f"{side}: not one amount"
-        assert "boekingen" in tile, f"{side}: no count of bookings"
-        assert "text-orange-700" in tile, f"{side}: open but not orange"
+    assert "kpi-strip" not in html, "the band of tiles is back beside the figures"
+    figures = _figures(html)
+    assert list(figures) == ["Netto te betalen", "Nog te ontvangen", "Nog terug te betalen"]
+    # Two sides, never their net: € 120 to receive and € 120 to refund.
+    assert figures["Nog te ontvangen"] == ("€ 120,00", True)
+    assert figures["Nog terug te betalen"] == ("€ 120,00", True)
+    assert figures["Netto te betalen"][1] is False, "the net is never tinted"
 
 
-def _render(**kpi) -> str:
-    from app.ui import templates
-
-    base = {"due": Decimal("0"), "paid": Decimal("0"), "boekingen": 0}
-    return templates.env.get_template("_bt_boven.html").render(
-        scope=None, zicht="alle", zichten=[], kpi={**base, **kpi}
-    )
-
-
-def test_nothing_open_shows_zero_on_both_tiles_in_ink():
-    html = _render(**_sides("0", "0", 0, 0))
-    for side in ("receive", "refund"):
-        tile = _tile(html, side)
-        assert "€ 0,00" in tile and "0 boekingen" in tile
-        assert "text-orange-700" not in tile
+def test_nothing_open_shows_zero_on_both_figures_in_ink(client, db_session):
+    _add(db_session, "20", type_="charge", status="paid", paid="20")
+    _login_finance(client, db_session)
+    figures = _figures(client.get("/admin/betalingen").text)
+    assert figures["Nog te ontvangen"] == ("€ 0,00", False)
+    assert figures["Nog terug te betalen"] == ("€ 0,00", False)
 
 
-def test_only_the_open_side_turns_orange():
-    html = _render(**_sides("0", "9", 0, 2))
-    assert "text-orange-700" not in _tile(html, "receive")
-    refund = _tile(html, "refund")
-    assert "text-orange-700" in refund and "€ 9,00" in refund and "2 boekingen" in refund
+def test_only_the_open_side_takes_the_warning_tint(client, db_session):
+    _add(db_session, "-9", type_="refund", status="pending")
+    _login_finance(client, db_session)
+    figures = _figures(client.get("/admin/betalingen").text)
+    assert figures["Nog te ontvangen"] == ("€ 0,00", False)
+    assert figures["Nog terug te betalen"] == ("€ 9,00", True)

@@ -178,6 +178,18 @@ def _confirm_attrs(type_label, name) -> str:
 templates.env.globals["confirm_attrs"] = _confirm_attrs
 
 
+def checked_figures(items) -> list:
+    """The items of `ui.figures` as `KeyFigure`s (`docs/design-system-end-state.md`
+    §3.8). The value object refuses an item that carries two figures — a
+    `TypeError` at render (CR-11 B7 test 18)."""
+    from app.kernel.key_figure import KeyFigure
+
+    return [i if isinstance(i, KeyFigure) else KeyFigure(**i) for i in items]
+
+
+templates.env.globals["checked_figures"] = checked_figures
+
+
 # Gezinslabel (golf 9, #913): één bron voor "hoe heet dit gezin op het scherm"
 # — de HOOFDLID-selectie stond in vijf kopieën (Jinja, mdm/ui 2x,
 # payment-verrijking, audit-resolver).

@@ -39,7 +39,6 @@
  class="inline-flex items-center gap-1 min-h-11 border-b-2 text-sm border-blue-700 text-blue-700 font-semibold">Betalingen<span class="text-[13px] font-medium tabular-nums">(7)</span></a>
 </nav>
 <div id="bt-boven">
-<input type="hidden" name="zicht" value="alle" form="bt-filter">
 <div class="kpi-strip mb-4 md:max-w-3xl flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
 <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
 <div class="text-[11px] text-ink-soft" title="Netto te betalen">Netto te betalen <span class="md:hidden">· 7 boekingen</span></div>
@@ -62,37 +61,43 @@
 <div class="hidden md:block text-[11px] text-ink-soft">1 boekingen</div>
 </div>
 </div>
-<div class="border-b border-gray-200 mb-6">
-<nav class="-mb-px flex gap-6 text-sm overflow-x-auto whitespace-nowrap">
-<a href="/admin/betalingen?zicht=alle&amp;activiteit=<ACTIVITY>&amp;scope_stil=1" hx-get="/admin/betalingen/lijst?zicht=alle&activiteit=<ACTIVITY>&scope_stil=1" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-blue-700 text-blue-700 font-semibold">Alle <span class="font-normal text-xs text-gray-400">7</span></a>
-<a href="/admin/betalingen?zicht=openstaand&amp;activiteit=<ACTIVITY>&amp;scope_stil=1" hx-get="/admin/betalingen/lijst?zicht=openstaand&activiteit=<ACTIVITY>&scope_stil=1" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Openstaand <span class="font-normal text-xs text-gray-400">5</span></a>
-<a href="/admin/betalingen?zicht=betaald&amp;activiteit=<ACTIVITY>&amp;scope_stil=1" hx-get="/admin/betalingen/lijst?zicht=betaald&activiteit=<ACTIVITY>&scope_stil=1" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Betaald <span class="font-normal text-xs text-gray-400">2</span></a>
-<a href="/admin/betalingen?zicht=terugbetaald&amp;activiteit=<ACTIVITY>&amp;scope_stil=1" hx-get="/admin/betalingen/lijst?zicht=terugbetaald&activiteit=<ACTIVITY>&scope_stil=1" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Terugbetaald <span class="font-normal text-xs text-gray-400">2</span></a>
-</nav>
 </div>
+<div class="flex flex-wrap items-start md:items-stretch gap-x-3">
+<form id="bt-filter" data-toolbar class="relative mb-3 flex flex-wrap items-center gap-2 min-w-0 basis-full md:basis-0 md:flex-1"
+ hx-get="/admin/betalingen/lijst" hx-target="#betalingen-lijst" hx-swap="innerHTML"
+ hx-trigger="change[!event.target.closest('[data-filters-panel]')&&event.target.type!=='search'], input changed delay:400ms from:find input[type=search], submit"
+ hx-headers='{"X-Raak-Filter": "1"}'>
+<div class="basis-full md:basis-auto min-w-0"><fieldset data-status-filter class="m-0 p-0 min-w-0 flex items-stretch shrink-0 h-11 md:h-9 rounded-lg border border-gray-300 bg-white">
+<legend class="sr-only">Status</legend>
+<label class="relative flex flex-1 md:flex-none cursor-pointer">
+<input type="radio" name="zicht" value="alle" class="peer absolute inset-0 h-full w-full m-0 opacity-0 cursor-pointer" checked>
+<span class="flex w-full items-center justify-center gap-1 px-3 whitespace-nowrap text-sm font-medium text-ink-soft hover:bg-surface-2 peer-checked:bg-blue-50 peer-checked:text-blue-700 peer-checked:font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-blue-600 peer-focus-visible:z-10 rounded-l-[7px] ">Alle</span>
+</label>
+<label class="relative flex flex-1 md:flex-none cursor-pointer border-l border-line">
+<input type="radio" name="zicht" value="openstaand" class="peer absolute inset-0 h-full w-full m-0 opacity-0 cursor-pointer">
+<span class="flex w-full items-center justify-center gap-1 px-3 whitespace-nowrap text-sm font-medium text-ink-soft hover:bg-surface-2 peer-checked:bg-blue-50 peer-checked:text-blue-700 peer-checked:font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-blue-600 peer-focus-visible:z-10 rounded-r-[7px]">Openstaand <span id="bt-filter-n-openstaand" class="tabular-nums">(4)</span></span>
+</label>
+</fieldset></div>
+<div data-toolbar-search class="relative basis-full md:basis-[180px] md:min-w-[180px] md:max-w-[480px] flex-1">
+<input type="search" name="q" value="" placeholder="Zoek op naam, OGM of omschrijving…" aria-label="Zoek op naam, OGM of omschrijving…" class="w-full pl-10">
+<button type="submit" class="absolute inset-y-0 left-0 grid w-10 place-items-center rounded-l-lg text-ink-soft hover:text-ink" aria-label="Zoeken"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
 </div>
-<div class="flex flex-wrap items-start md:items-stretch gap-3">
-<form id="bt-filter" class="mb-4 flex flex-col gap-3 flex-1" hx-get="/admin/betalingen/lijst" hx-target="#betalingen-lijst"
- hx-swap="innerHTML" hx-trigger="change, keyup changed delay:400ms from:input[type=search]"
- hx-headers='{"X-Raak-Filter": "1"}'
- onsubmit="return false">
-<div class="flex flex-wrap gap-3 items-center">
-<div class="flex-1 min-w-[14rem]">
-<div class="relative">
-<input type="search" name="q" value="" placeholder="Zoek op naam, OGM of omschrijving…"
- aria-label="Zoek op naam, OGM of omschrijving…"
- class="w-full sm:w-64 pl-9"
- >
-<span class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft pointer-events-none"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
-</div></div>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none" >
-<option value="all" selected>Alle statussen</option>
-<option value="pending" >In afwachting</option>
-<option value="paid" >Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
+<span id="bt-filter-count" data-toolbar-count class="ml-auto whitespace-nowrap text-xs tabular-nums text-ink-soft">1–4 van 4</span>
+<select name="per_page" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none hidden md:block w-[4.5rem]" aria-label="Per pagina" data-page-size>
+<option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
 </select>
-<a href="/admin/betalingen/export?context=all&amp;status=all&amp;zicht=alle&amp;activiteit=<ACTIVITY>" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-boost="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Export (.ods)</a>
+<div class="relative" x-data="{ open: false }" @keydown.escape="open = false">
+<button type="button" data-more-button class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 h-11 w-11 md:h-9 md:w-9 inline-grid place-items-center !px-0" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="Meer acties"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div data-more-menu x-show="open" x-cloak @click.outside="open = false" role="menu"
+ class="absolute right-0 z-20 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col rounded-card border border-line bg-white p-2 shadow-lg">
+<button type="button" role="menuitem" class="flex min-h-11 items-center gap-2 rounded-lg px-3 text-left text-sm text-ink hover:bg-surface-2"
+ @click="open = false; window.location = '/admin/betalingen/export?' + new URLSearchParams(new FormData($el.closest('form'))).toString()"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Export (.ods)</button>
+<label class="md:hidden flex flex-col gap-1 px-3 py-2 text-xs text-ink-soft mt-2 border-t border-line pt-3">Per pagina
+ <select name="" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" data-page-size-mirror @change="const size = $el.closest('form').querySelector('[data-page-size]'); size.value = $event.target.value; size.dispatchEvent(new Event('change', { bubbles: true })); open = false; $event.stopPropagation()">
+<option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
+</select>
+</label>
+</div>
 </div>
 <input type="hidden" name="activiteit" value="<ACTIVITY>"><input type="hidden" name="scope_stil" value="1">
 </form>

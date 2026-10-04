@@ -551,6 +551,44 @@
   <p class="text-xs text-gray-500 mt-2"><code>ui.sort_th(label, url, active=…, direction=…, include="#filters")</code> — {{ _("de route bewaakt de whitelist en de tiebreaker (#761).") }}</p>
 {% endcall %}
 
+{# ── 8e. The list page: key figures and toolbar (CR-11 pilot A, K1 — #1555) ── #}
+{{ ui.section_header(_("8e · Lijstpagina: kerncijfers en werkbalk"), _("Naar de betalingen"), action_href="/admin/betalingen", cls="mt-10") }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("Een lijstpagina heeft twee regels boven de tabel: de titelrij met de kerncijfers, en de werkbalk. Een kerncijfer lees je; filteren doe je met de statusfilter in de werkbalk.") }}
+  </p>
+  <div class="mb-5 flex flex-wrap items-center gap-x-5 gap-y-3">
+    <div class="text-3xl font-bold text-kop">{{ _("Betalingen") }}</div>
+    {{ ui.figures([
+        {"value": "€ 1.234,56", "label": _("Netto te betalen"), "title": _("Wat er in deze selectie te betalen is.")},
+        {"value": "€ 312,56", "label": _("Nog te ontvangen"), "warning": True},
+        {"value": "€ 0,00", "label": _("Nog terug te betalen")},
+    ]) }}
+  </div>
+  {% call ui.toolbar("/admin/design-system", "#ds-lijst-werkbalk", "ds-werkbalk",
+                     segments=[{"value": "alle", "label": _("Alle")}, {"value": "openstaand", "label": _("Openstaand"), "count": 3}],
+                     status_name="ds_zicht", status_current="alle", status_legend=_("Status"),
+                     search_placeholder=_("Zoek op naam, OGM of omschrijving…"),
+                     page=1, per_page=50, total=312, page_sizes=[25, 50, 100],
+                     menu=[{"label": _("Export (.ods)"), "href": "/admin/design-system", "icon": "download"}]) %}
+    <div class="flex flex-col gap-1">
+      {{ ui.label(_("Betalingscontext"), "ds-werkbalk-context") }}
+      {{ ui.grouped_filter("ds_context", [("all", _("Alle betalingen"))], {}, current="all", id="ds-werkbalk-context") }}
+    </div>
+  {% endcall %}
+  <div id="ds-lijst-werkbalk"></div>
+  <p class="text-sm text-gray-600 mt-4 mb-2">{{ _("De statusfilter los, met drie segmenten:") }}</p>
+  <div class="inline-block">
+  {{ ui.status_filter("ds_status", [{"value": "actief", "label": _("Actief"), "count": 107}, {"value": "vernieuwen", "label": _("Te vernieuwen"), "count": 38}, {"value": "opgezegd", "label": _("Opgezegd")}], "actief", _("Status"), id="ds-status") }}
+  </div>
+  <p class="text-xs text-gray-500 mt-3">
+    <code>ui.figures(items)</code> · <code>ui.toolbar(…)</code> · <code>ui.status_filter(…)</code> —
+    {{ _("de telling komt uit") }} <code>ui.range_text(page, per_page, total)</code>:
+    “{{ ui.range_text(1, 50, 312) }}”, {{ _("leeg") }} “{{ ui.range_text(1, 50, 0) }}”.
+    {{ _("Onderaan de lijst staan alleen de bladerknoppen:") }} <code>ui.pager(…, count=False)</code>.
+  </p>
+{% endcall %}
+
 {{ ui.section_header(_("9 · Leeg en ladend"), cls="mt-10") }}
 {% call ui.card() %}
   {{ ui.empty_state(_("Nog geen inschrijvingen voor deze activiteit.")) }}

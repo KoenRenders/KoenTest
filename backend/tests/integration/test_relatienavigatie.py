@@ -117,7 +117,11 @@ def test_export_draagt_de_scope_mee(client, db_session):
     db_session.commit()
     _login(client)
     html = client.get(f"/admin/betalingen?inschrijving={anna.id}").text
-    assert f"&amp;inschrijving={anna.id}" in html  # in de exportknop-href
+    # K1 (#1555): Export stands under the toolbar's `⋯` and opens with the
+    # toolbar's own fields as its query — so the scope must be one of them.
+    toolbar = html[html.index('<form id="bt-filter"') : html.index("</form>")]
+    assert f'<input type="hidden" name="inschrijving" value="{anna.id}">' in toolbar
+    assert "/admin/betalingen/export?' + new URLSearchParams(new FormData(" in toolbar
     export = client.get(f"/admin/betalingen/export?inschrijving={anna.id}")
     assert export.status_code == 200
     # .ods is een zip; de celinhoud zit in content.xml — Anna's OGM erin, Berts niet.

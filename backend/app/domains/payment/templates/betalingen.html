@@ -1,14 +1,10 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Betalingen — Raak") }}{% endblock %}
-{# Cobalt groeit over de volle breedte (#996): de 5xl-grens is voor leesbare
-   formulieren, niet voor een dichte financiële tabel. #}
-{% block content_width %}max-w-none{% endblock %}
-{% block content %}
-{# Cobalt-referentie (#996, Koens nabouw-vraag): breadcrumb, korte titel en de
-   referentie-ondertitel; de FINANCE-zin staat in de meta-regel boven de
-   tabel, zoals de mockup. #}
-<div class="text-[11px] text-ink-soft mb-2">{{ _("Financieel") }} › {{ _("Betalingen") }}</div>
-{{ ui.page_header(_("Betalingen"), _("Vorderingen, ontvangsten en terugbetalingen op één plek.")) }}
-{% include "_betalingen_scherm.html" %}
-{% endblock %}
+{# CR-11 pilot A, K1 (#1555): Betalingen on the `list_page` layout. The title
+   row carries the title and the three key figures and no button — nothing is
+   created here; the breadcrumb and the explanation line are gone (end state
+   §2.1, §5.1). Export lives under the toolbar's `⋯`. #}
+{% block list_title %}{{ _("Betalingen") }}{% endblock %}
+{% block list_figures %}{{ ui.figures(figures) }}{% endblock %}
+{% block list_body %}{% include "_betalingen_scherm.html" %}{% endblock %}

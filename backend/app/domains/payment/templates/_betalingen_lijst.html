@@ -90,7 +90,7 @@
        van de betaling. "Bevestig" kort — de bevestigingsvraag zegt de rest. #}
     <div class="flex justify-end gap-2 items-center whitespace-nowrap">
       {% if r.is_registration and r.payable_id and not (kind or k.get('is_extra')) %}
-      {{ ui.link_action(_("Inschrijving"), href="/admin/inschrijvingen/" ~ r.payable_id ~ "?terug=/admin/betalingen") }}
+      {{ ui.link_action(_("Inschrijving"), href="/admin/inschrijvingen/" ~ r.payable_id ~ "?terug=" ~ (return_url | urlencode)) }}
       {% endif %}
       {# #661: de snelkoppeling voor het meest voorkomende geval; de vraag
          blijft per type — op een terugbetaling vertrekt er geld. #}
@@ -271,8 +271,11 @@
 
    Geen `include`: `pager_url` draagt de filterstand al, net als de tab-URL's. De
    filterbalk stuurt géén `page` mee, dus een filterwissel begint weer op 1. #}
+{# K1 (#1555): the count stands in the toolbar; here the two buttons only, and
+   the page they ask for lands in the URL (`push`), so the way back from a
+   booking finds the same page. #}
 {{ ui.pager(page, per_page=per_page, total=totaal_groepen,
-            hx_get=pager_url, hx_target="#betalingen-lijst") }}
+            hx_get=pager_url, hx_target="#betalingen-lijst", count=False, push=True) }}
 {% else %}
 {{ ui.empty_state(_("Geen betalingen voor deze filter.")) }}
 {% endif %}
@@ -285,4 +288,9 @@
 <div id="bt-boven" hx-swap-oob="true">
   {% include "_bt_boven.html" %}
 </div>
+{# K1 (#1555): the toolbar stands outside this fragment too — its count and
+   the count on a segment follow the list — and so does the title row with
+   the key figures, which an embedded tab does not have. #}
+{{ ui.toolbar_oob("bt-filter", segments=segments, page=page, per_page=per_page, total=totaal_groepen) }}
+{% if not embedded %}<div id="list-figures" hx-swap-oob="innerHTML">{{ ui.figures(figures) }}</div>{% endif %}
 {% endif %}

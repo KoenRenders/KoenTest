@@ -228,17 +228,15 @@ def test_de_tellingen_bewegen_niet_bij_het_bladeren(client, db_session):
     assert aantal_een and aantal_een == twee.count(f"{AANTAL} boekingen")
     assert f"{PER_PAGE} boekingen" not in een, "een teller volgt de pagina"
 
-    # De tabaantallen komen uit dezelfde zicht-basis: 20 betaald, de rest open.
-    def _tabaantal(html, label):
-        import re
-
-        m = re.search(rf"{label}\s*<span[^>]*>(\d+)</span>", html)
-        assert m, f"tab {label!r} niet gevonden"
-        return int(m.group(1))
+    # K1 (#1555): the count on the segment "Openstaand" comes from the same
+    # selection — 20 paid, the rest open — and travels out-of-band with the
+    # fragment, the same on page 1 and on page 2.
+    import re
 
     for html in (een, twee):
-        assert _tabaantal(html, "Openstaand") == AANTAL - 20
-        assert _tabaantal(html, "Betaald") == 20
+        m = re.search(r'id="bt-filter-n-openstaand"[^>]*>\((\d+)\)<', html)
+        assert m, "the segment's count is not in the fragment"
+        assert int(m.group(1)) == AANTAL - 20
 
 
 def test_de_export_draait_de_volledige_selectie(client, db_session):
@@ -270,13 +268,17 @@ def test_bladeren_behoudt_het_zicht_en_de_filter(client, db_session):
     _groepen(db_session, open_vanaf=20)
     _login(client)
 
-    html = _lijst(client, zicht="openstaand")
+    # K1 (#1555): 25 per page, so "Openstaand" (AANTAL − 20 groups) has a second page —
+    # and the page size is one more thing the button must carry.
+    html = _lijst(client, zicht="openstaand", per_page=25)
 
+    assert f"1–25 van {AANTAL - 20}" in html
     assert "zicht=openstaand" in html, "de bladerknop verliest het actieve tab"
+    assert "per_page=25" in html, "the pager button loses the page size"
     # En het werkt ook echt: pagina 2 van het openstaand-tab toont geen betaalde.
-    twee = _zichtbare_ids(_lijst(client, zicht="openstaand", page=2))
+    twee = _zichtbare_ids(_lijst(client, zicht="openstaand", per_page=25, page=2))
     betaalde = {EERSTE_ID + i for i in range(20)}
-    assert twee and not (twee & betaalde)
+    assert len(twee) == AANTAL - 20 - 25 and not (twee & betaalde)
 
 
 def test_een_filterwissel_begint_weer_op_pagina_een(client, db_session):
@@ -345,3 +347,35 @@ def test_een_pagina_voorbij_het_einde_valt_terug_op_de_laatste(client, db_sessio
     html = _lijst(client, page=99)
 
     assert _zichtbare_ids(html) == _zichtbare_ids(_lijst(client, page=2))
+
+
+def test_de_terugweg_draagt_de_lijststand(client, db_session):
+    """K1 (#1555; CR-11 B7 test 21, R14): the link from a row to its registration
+    carries the list as it was left — segment, page size and page — so the way
+    back from the registration lands on the same rows. It is the address the
+    browser shows: the request's own query on the page path. A list without a
+    choice keeps the bare address; a mutation takes it from `HX-Current-URL`."""
+    _groepen(db_session, open_vanaf=20)
+    csrf = _login(client)
+
+    html = _lijst(client, zicht="openstaand", per_page=25, page=2)
+    assert "?terug=/admin/betalingen%3Fzicht%3Dopenstaand%26per_page%3D25%26page%3D2" in html, (
+        "the way back loses the list's state"
+    )
+    assert '?terug=/admin/betalingen"' in _lijst(client)
+
+    eerste = db_session.query(PaymentRecord).filter(PaymentRecord.status == "pending").first()
+    na = client.post(
+        f"/admin/betalingen/{eerste.id}/bevestigen",
+        headers={
+            "X-CSRF-Token": csrf,
+            "HX-Request": "true",
+            "HX-Current-URL": "http://testserver/admin/betalingen?zicht=openstaand&q=",
+        },
+    )
+    assert na.status_code == 200, na.text[:200]
+    assert "?terug=/admin/betalingen%3Fzicht%3Dopenstaand%26q%3D" in na.text, (
+        "<table" in na.text,
+        "Geen betalingen" in na.text,
+        na.text.count("Bevestig"),
+    )

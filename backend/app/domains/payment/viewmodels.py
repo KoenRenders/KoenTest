@@ -41,7 +41,17 @@ class BetalingenView(ViewModel):
     # Golf 10 (#913): het actieve statustab-zicht, de tabs zelf (label, aantal,
     # fragment-URL, actief) en de kengetallenband boven de tabel.
     zicht: str
-    zichten: list[dict[str, Any]]
+    # K1 (#1555): the list kit. The status filter's segments (value, label and,
+    # where the state is acted on, a count), the key figures of the title row,
+    # the page sizes on offer, the actions under `⋯`, the hidden fields that
+    # carry a scope with every toolbar request, and whether this is the
+    # embedded rendering inside a record (no title row, no Filters).
+    segments: list[dict[str, Any]]
+    figures: list[dict[str, Any]]
+    page_sizes: list[int]
+    toolbar_menu: list[dict[str, Any]]
+    toolbar_hidden: list[tuple[str, str]]
+    embedded: bool
     kpi: dict[str, Any]
     # #996: band + tabs (#bt-boven) reizen alleen op fragmentantwoorden
     # out-of-band mee; de volledige pagina rendert ze zelf.
@@ -56,6 +66,9 @@ class BetalingenView(ViewModel):
     # geen `hx-include` op de filterbalk, want die zou de paginakeuze overschrijven
     # met wat er toevallig in het formulier staat.
     pager_url: str = ""
+    # K1 (#1555): the address of this list with its state, for the way back
+    # from a row's registration (`?terug=`).
+    return_url: str = "/admin/betalingen"
     # #1060: staat de beheer-assistent aan én mag deze gebruiker hem aanspreken?
     # Twee vragen, één antwoord: een ingang die op een 403 uitkomt is erger dan
     # geen ingang. Het betalingenscherm laat FINANCE binnen, de assistent niet.

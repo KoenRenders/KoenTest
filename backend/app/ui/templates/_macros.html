@@ -167,6 +167,8 @@
   "chart-bar": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/>',
   "chart-line": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m7 15 4-5 3 3 5-7"/>',
   "chart-stacked": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="13" width="4" height="4"/><rect x="7" y="9" width="4" height="4"/><rect x="15" y="11" width="4" height="6"/><rect x="15" y="7" width="4" height="4"/>',
+  "filter": '<path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/>',
+  "ellipsis": '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   "sparkles": '<path d="M12 3 10.1 8.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M19 17v4"/><path d="M17 19h4"/>',
   "list": '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>'} -%}
 {#- #762: een enkel icoon krijgt een eigen viewBox. Alle vakjes zijn even groot,
@@ -884,7 +886,13 @@
    die groeien zegt een reeks knoppen weinig en breekt ze op mobiel. Verbergt
    zichzelf als alles op één pagina past, zodat een lijst met drie rijen geen
    navigatie krijgt. #}
-{% macro pager(page, per_page, total, hx_get="", hx_target="", include="", param="page") -%}
+{# "x–y van n", the one wording of a list's count (#1391 W8; end state §3.7):
+   an empty list says "0–0 van 0". #}
+{% macro range_text(page, per_page, total) -%}
+{% if total %}{{ (page - 1) * per_page + 1 }}–{{ [page * per_page, total] | min }}{% else %}0–0{% endif %} {{ _("van") }} {{ total }}
+{%- endmacro %}
+
+{% macro pager(page, per_page, total, hx_get="", hx_target="", include="", param="page", count=True, push=False) -%}
 {# One wording: "x–y van n" (#1391, CR-11 W8). The "Pagina n" mode for lists
    that fetched one row extra instead of counting is gone — every list that
    pages now counts, because "page 3" does not tell anyone how far they are.
@@ -895,15 +903,22 @@
 {% set _prev = page > 1 %}
 {% set _next = page < pages %}
 {% if _prev or _next %}
-<nav class="flex items-center justify-between gap-3 mt-3 text-sm" aria-label="Paginering">
-  <span class="text-ink-soft">{{ (page - 1) * per_page + 1 }}–{{ [page * per_page, total] | min }} van {{ total }}</span>
-  <span class="flex gap-1">
+{# CR-11 K1 (#1555, end state §3.7): two renderings from this one macro. On a
+   `list_page` the count stands in the toolbar (`range_text`, through
+   `ui.toolbar`), so the bottom carries the two buttons only (`count=False`):
+   right-aligned on a desktop, at the two edges on a phone. `push=True` marks
+   the request like a filter, so the page lands in the URL and the way back
+   finds it (B7 test 21). #}
+<nav data-pager class="flex items-center {{ 'justify-between' if count else 'justify-between md:justify-end' }} gap-3 mt-3 text-sm" aria-label="Paginering">
+  {% if count %}<span class="text-ink-soft">{{ range_text(page, per_page, total) }}</span>{% endif %}
+  <span class="{{ 'flex gap-1' if count else 'contents md:flex md:gap-2' }}">
     {% for label, target, enabled in [("‹ Vorige", page - 1, _prev), ("Volgende ›", page + 1, _next)] %}
     <button type="button"
             class="px-3 py-1.5 rounded-lg border {{ 'border-gray-300 hover:bg-gray-50' if enabled else 'border-gray-200 text-gray-400 cursor-not-allowed' }}"
             {% if enabled %}hx-get="{{ hx_get }}{{ '&' if '?' in hx_get else '?' }}{{ param }}={{ target }}"
               {% if hx_target %}hx-target="{{ hx_target }}" hx-swap="innerHTML"{% endif %}
               {% if include %}hx-include="{{ include }}"{% endif %}
+              {% if push %}hx-headers='{"X-Raak-Filter": "1"}'{% endif %}
             {% else %}disabled aria-disabled="true"{% endif %}>{{ label }}</button>
     {% endfor %}
   </span>
@@ -1354,8 +1369,8 @@
 </script>
 {%- endmacro %}
 
-{% macro grouped_filter(name, top_options=[], groups={}, current="", hx_get="", hx_target="") -%}
-<select name="{{ name }}" class="{{ _control_base }}"
+{% macro grouped_filter(name, top_options=[], groups={}, current="", hx_get="", hx_target="", id=None) -%}
+<select name="{{ name }}"{% if id %} id="{{ id }}"{% endif %} class="{{ _control_base }}"
         {% if hx_get %}hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="innerHTML" hx-trigger="change"{% endif %}>
   {% for value, display in top_options %}<option value="{{ value }}" {% if current == value %}selected{% endif %}>{{ display }}</option>{% endfor %}
   {% for glabel, opts in groups.items() %}
@@ -2056,4 +2071,156 @@
   {% endif %}{% endfor %}
   {% endfor %}
 </svg>
+{%- endmacro %}
+
+{# ══ The list kit (CR-11 pilot A, K1 — #1555) ═════════════════════════════════
+   The title row and the toolbar of a `list_page` (`list_page.html`), as decided
+   in blocks 2 and 3 (Koen, 2 October 2026). Norm: `docs/design-system-end-state.md`
+   §2.1, §3.7, §3.8, §3.13. Betalingen is the pilot screen; the other lists move
+   onto it in the roll-out. #}
+
+{# ── Key figures (§3.8) ───────────────────────────────────────────────────────
+   Plain text in the title row: one figure, one short label under it, a thin
+   divider between two figures. No card, no hover, **not a link** — a figure is
+   read; the rows it counts are found with the toolbar's status filter. `items`
+   is a list of {value, label, title?, warning?}; `checked_figures` refuses an
+   item that carries two figures (a `TypeError` at render, B7 test 18).
+
+   On a phone the figures sit on one line under the title and wrap to a second
+   when they must. The outer box clips the divider of a figure that starts a
+   line (the list is pulled one divider-and-padding to the left), so a wrapped
+   line never opens with a loose stripe; from `md` the first divider shows — it
+   separates the title from the figures. #}
+{% macro figures(items) -%}
+{%- set _items = checked_figures(items) -%}
+<div data-figures class="overflow-hidden md:overflow-visible min-w-0">
+  <dl class="m-0 flex flex-wrap items-start gap-y-2 -ml-[17px] md:ml-0">
+    {% for f in _items %}
+    <div class="flex flex-col min-w-0 border-l border-line px-4" title="{{ f.title }}">
+      <dd data-figure class="order-first m-0 text-2xl leading-[30px] font-semibold tracking-tight tabular-nums whitespace-nowrap {{ 'text-brand-warning' if f.warning else 'text-ink' }}">{{ f.value }}</dd>
+      <dt data-figure-label class="text-[13px] leading-5 text-ink-soft whitespace-nowrap overflow-hidden text-ellipsis">{{ f.label }}</dt>
+    </div>
+    {% endfor %}
+  </dl>
+</div>
+{%- endmacro %}
+
+{# ── Status filter (§3.13) ────────────────────────────────────────────────────
+   A segmented control: one bordered group, one segment chosen, on the brand
+   tint; 36 px high like a button, 44 on a phone. A `fieldset` of radio inputs —
+   Tab enters, the arrows choose — so it reads as a control and never as
+   navigation: tabs are a record's way to its linked objects and nothing else.
+   `segments` is a list of {value, label, count?}; a count stands in brackets
+   after the name ("Openstaand (3)", Q54) and lives in its own element
+   (`<id>-n-<value>`), so a list fragment can refresh it out-of-band
+   (`toolbar_oob`) without replacing the radio that has the focus. #}
+{% macro status_filter(name, segments, current, legend, id="status") -%}
+<fieldset data-status-filter class="m-0 p-0 min-w-0 flex items-stretch shrink-0 h-11 md:h-9 rounded-lg border border-gray-300 bg-white">
+  <legend class="sr-only">{{ legend }}</legend>
+  {% for s in segments %}
+  <label class="relative flex flex-1 md:flex-none cursor-pointer{{ ' border-l border-line' if not loop.first }}">
+    <input type="radio" name="{{ name }}" value="{{ s.value }}" class="peer absolute inset-0 h-full w-full m-0 opacity-0 cursor-pointer"{% if s.value == current %} checked{% endif %}>
+    <span class="flex w-full items-center justify-center gap-1 px-3 whitespace-nowrap text-sm font-medium text-ink-soft hover:bg-surface-2 peer-checked:bg-blue-50 peer-checked:text-blue-700 peer-checked:font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-blue-600 peer-focus-visible:z-10 {{ 'rounded-l-[7px]' if loop.first }} {{ 'rounded-r-[7px]' if loop.last }}">{{ s.label }}{% if s.get('count') is not none %} <span id="{{ id }}-n-{{ s.value }}" class="tabular-nums">({{ s.count }})</span>{% endif %}</span>
+  </label>
+  {% endfor %}
+</fieldset>
+{%- endmacro %}
+
+{# ── Toolbar (§3.13) ──────────────────────────────────────────────────────────
+   The list's second row: the same five things in the same order at every width
+   — status filter · search · Filters · count with page size · `⋯`. One row on
+   a desktop; on a phone the row wraps to three lines (status / search /
+   Filters, count and `⋯`). Nothing stands in two places and nothing changes
+   place by device.
+
+   One form, like `filter_bar`: it sends every field together and marks the
+   request with `X-Raak-Filter`, so the server pushes the page URL with the
+   list's state (`main.py:_filter_push_url`) and the way back finds the list as
+   it was left. It stands OUTSIDE the list fragment, so the search field is not
+   replaced under the fingers; what changes with the list — the count, a
+   segment's count — is refreshed out-of-band by `toolbar_oob`.
+
+   * `segments` / `status_*`: the status filter; a change sends the form.
+   * the search: the magnifier is its submit, typing sends after a pause
+     (`input`, so a paste and the field's own clear count too; its `change` on
+     leaving the field is not a second request).
+   * the call body: the selects of **Filters** — always one button with a panel
+     and one Toepassen, also with a single select, also at 1 920 px. A change
+     inside the panel waits for Toepassen. No body, no button (the embedded
+     rendering inside a record: the record is the context).
+   * the count "x–y van n" with the page size (`page_sizes`); on a phone the
+     page size is chosen under `⋯` — a mirror without a name that sets the one
+     real field, so the form never sends the size twice.
+   * `menu`: the screen's secondary actions under `⋯`, a list of
+     {label, href?, icon?, with_state?, attrs?}. `with_state=True` opens `href`
+     with the form's fields as its query — an export of what the list shows.
+     `⋯` never repeats a button that is visible elsewhere.
+   * `hidden`: (name, value) pairs that travel with every request (a scope).
+   * `cls`: for a screen that puts something BESIDE the toolbar (`filter_bar`'s
+     `cls`, #1115) — the form is then the flex child itself. #}
+{% macro toolbar(hx_get, hx_target, id, segments=[], status_name="status", status_current="", status_legend="",
+                 q="", search_placeholder="", page=1, per_page=50, total=0, page_sizes=[], menu=[], hidden=[], cls="") -%}
+{% set _filters = caller() if caller is defined else "" %}
+<form id="{{ id }}" data-toolbar class="relative mb-3 flex flex-wrap items-center gap-2 min-w-0{% if cls %} {{ cls }}{% endif %}"
+      hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="innerHTML"
+      hx-trigger="change[!event.target.closest('[data-filters-panel]')&&event.target.type!=='search'], input changed delay:400ms from:find input[type=search], submit"
+      hx-headers='{"X-Raak-Filter": "1"}'>
+  {% if segments %}
+  <div class="basis-full md:basis-auto min-w-0">{{ status_filter(status_name, segments, status_current, status_legend, id=id) }}</div>
+  {% endif %}
+  <div data-toolbar-search class="relative basis-full md:basis-[180px] md:min-w-[180px] md:max-w-[480px] flex-1">
+    <input type="search" name="q" value="{{ q }}" placeholder="{{ search_placeholder }}" aria-label="{{ search_placeholder }}" class="w-full pl-10">
+    <button type="submit" class="absolute inset-y-0 left-0 grid w-10 place-items-center rounded-l-lg text-ink-soft hover:text-ink" aria-label="{{ _('Zoeken') }}">{{ icon('search') }}</button>
+  </div>
+  {% if _filters | trim %}
+  <div class="relative" x-data="{ open: false }" @keydown.escape="open = false">
+    <button type="button" data-filters-button class="{{ btn_class('secondary', 'sm') }} h-11 md:h-9 inline-flex items-center gap-2" @click="open = !open" :aria-expanded="open" aria-haspopup="dialog">{{ icon('filter') }}{{ _("Filters") }}</button>
+    <div data-filters-panel x-show="open" x-cloak @click.outside="open = false"
+         class="absolute left-0 md:left-auto md:right-0 z-20 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 rounded-card border border-line bg-white p-4 shadow-lg">
+      <div class="text-sm font-semibold text-ink">{{ _("Filters") }}</div>
+      {{ _filters }}
+      {{ btn_primary(_("Toepassen"), size="sm", attrs='@click="open = false"', cls="justify-center") }}
+    </div>
+  </div>
+  {% endif %}
+  <span id="{{ id }}-count" data-toolbar-count class="ml-auto whitespace-nowrap text-xs tabular-nums text-ink-soft">{{ range_text(page, per_page, total) }}</span>
+  {% if page_sizes %}
+  {% call select_control("per_page", cls="hidden md:block w-[4.5rem]", attrs="data-page-size", aria_label=_("Per pagina")) %}
+    {% for n in page_sizes %}<option value="{{ n }}"{% if n == per_page %} selected{% endif %}>{{ n }}</option>{% endfor %}
+  {% endcall %}
+  {% endif %}
+  {% if menu or page_sizes %}
+  <div class="relative{{ '' if menu else ' md:hidden' }}" x-data="{ open: false }" @keydown.escape="open = false">
+    <button type="button" data-more-button class="{{ btn_class('secondary', 'sm') }} h-11 w-11 md:h-9 md:w-9 inline-grid place-items-center !px-0" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="{{ _('Meer acties') }}">{{ icon('ellipsis') }}</button>
+    <div data-more-menu x-show="open" x-cloak @click.outside="open = false" role="menu"
+         class="absolute right-0 z-20 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col rounded-card border border-line bg-white p-2 shadow-lg">
+      {% for m in menu %}
+      {% if m.get('with_state') %}
+      <button type="button" role="menuitem" class="flex min-h-11 items-center gap-2 rounded-lg px-3 text-left text-sm text-ink hover:bg-surface-2"
+              @click="open = false; window.location = '{{ m.href }}?' + new URLSearchParams(new FormData($el.closest('form'))).toString()">{% if m.get('icon') %}{{ icon(m.icon) }}{% endif %}{{ m.label }}</button>
+      {% else %}
+      <a role="menuitem" href="{{ m.href }}" class="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-ink hover:bg-surface-2"{% if m.get('attrs') %} {{ m.attrs|safe }}{% endif %}>{% if m.get('icon') %}{{ icon(m.icon) }}{% endif %}{{ m.label }}</a>
+      {% endif %}
+      {% endfor %}
+      {% if page_sizes %}
+      <label class="md:hidden flex flex-col gap-1 px-3 py-2 text-xs text-ink-soft{{ ' mt-2 border-t border-line pt-3' if menu }}">{{ _("Per pagina") }}
+        {# An empty name: the mirror is never sent. #}
+        {% call select_control("", cls="w-full", attrs='data-page-size-mirror @change="const size = $el.closest(\'form\').querySelector(\'[data-page-size]\'); size.value = $event.target.value; size.dispatchEvent(new Event(\'change\', { bubbles: true })); open = false; $event.stopPropagation()"') %}
+          {% for n in page_sizes %}<option value="{{ n }}"{% if n == per_page %} selected{% endif %}>{{ n }}</option>{% endfor %}
+        {% endcall %}
+      </label>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  {% for name, value in hidden %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+</form>
+{%- endmacro %}
+
+{# What a list fragment sends along for the toolbar that stands outside it: the
+   count, and the count of every segment that carries one. Same `id` as the
+   toolbar's. #}
+{% macro toolbar_oob(id, segments=[], page=1, per_page=50, total=0) -%}
+<span id="{{ id }}-count" hx-swap-oob="true" data-toolbar-count class="ml-auto whitespace-nowrap text-xs tabular-nums text-ink-soft">{{ range_text(page, per_page, total) }}</span>
+{% for s in segments %}{% if s.get('count') is not none %}<span id="{{ id }}-n-{{ s.value }}" hx-swap-oob="true" class="tabular-nums">({{ s.count }})</span>{% endif %}{% endfor %}
 {%- endmacro %}
