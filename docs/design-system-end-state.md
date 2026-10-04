@@ -365,6 +365,47 @@ width, centred, with the same surfaces, grid and action bar as the admin,
 and the member nudge above the contact fields. The public activity list
 keeps its cards: the poster is the content. [9, 12, 21; CR-14 B4.1]
 
+### 2.5 The public shell — header and footer (pilot B, decided 4 October 2026)
+
+Decided by Koen on ChatGPT's brief-11 answer, against its recommendation:
+the **brand-blue band stays** (its background a brand token, so another
+tenant may choose a light header) and **the logo stays** — top left, one
+image from the tenant's brand file at every width; no typed wordmark, no
+separate town name, no tagline that appears from 1 200 px. "Playing with
+letters and things that drop out is no gain."
+
+- **Menu**: the links inline at 768 and 1 440 px, the active page with a
+  2 px underline; at 390 px a menu button and a **drawer** over the page —
+  360 px, white, a real close button where the menu button was, 48 px rows,
+  Escape and the backdrop close it, focus trapped, the page inert. A
+  section with pages under it gets a chevron and a small list later (CR-17
+  phase 4). One navigation source (modules plus CMS pages), as today.
+- **Account**: the member's first name with a chevron opens one menu —
+  *Mijn gezin · Admin (board member) · Uitloggen*; no separate Admin link
+  beside it; *Inloggen* in that place without a session; in the drawer under
+  a divider on a phone. The admin's `account_menu` (§3.14) keeps its
+  initials; the public one shows the name.
+- **Footer**, top to bottom: the newsletter row (heading, the sentence, the
+  button *Aanmelden* as the one yellow call to action); the social links
+  (24 px icons in 44 px targets) and *Met steun van* (logos in at most
+  144 × 64 px, never yellow) — placement to be confirmed; then **the legal
+  line carrying the organisation's details**: *© 2026 Raak Millegem ·
+  street, postal code and town · e-mail · phone · account number ·
+  Privacyverklaring*, wrapping where it must. No separate contact block.
+  One source: the organisation the site shows (#1550, the party of CR-20);
+  the free-text CMS block `site-footer` goes; the legal line reads the
+  pages flagged "in de voettekst" (#1569). Left-aligned on a phone on the
+  16 px margin; the same 1 248 px container as the header at 1 440 px, so
+  the footer no longer sticks out 16 px.
+- **Not contested, as drawn**: the header sticky at 64 px on a phone (to be
+  confirmed), 112 px at 768 and 80 px at 1 440; the environment banner in
+  the document flow above the header, scrolling away; the bell 56 px with
+  88 px kept free under the legal line; the language switch at the bottom
+  of the drawer and right of the account, only when a second language has
+  published content; 48 px from content to footer on a phone, 64 px above.
+
+[CR-11 B10 and Q58, 4 October 2026; beslissing 11 in Koen's project folder]
+
 ---
 
 ## 3. Components
@@ -785,7 +826,9 @@ state ("Bekijk alle 8 betalingen"); loading "Raakje zoekt het voor je
 uit…"; failed "Raakje kon geen antwoord geven — probeer het opnieuw. Je
 vraag staat er nog.", no invented figures. **The public bell**: 56 px at
 the bottom right; at 1 440 px a compact window of 400 × 640 px above it,
-on a phone the same sheet; the tenant's name; headings in Fraunces; three
+on a phone the same sheet; the tenant's name; headings in Fraunces; **the
+greeting stays as it is today, waving hand included** — "Hallo, ik ben
+Raakje! 👋 …" (Koen, 4 October 2026: he wants to keep it); three
 public suggestions; one component in the DOM for both shells, the public
 toolset only. Measured: the panel 400 × 1 016 px; remaining content
 1 232 px at 1 920 and 768 px at 1 440; the question field at y = 992
@@ -940,6 +983,7 @@ says so, and the default order is the one named above.
 
 | Page | Today | End state (pilot B designs the flows) |
 |---|---|---|
+| Header and footer | blue band with the logo and inline links; Mijn gezin, Admin, Uitloggen as loose links; a footer with the contact details twice (organisation block and CMS block) and the newsletter line above it | §2.5: the band and the logo stay; the drawer on a phone; one account menu; the footer as newsletter row · socials and sponsors · legal line with the organisation's details from one source |
 | Home | blue intro band with CMS text, price, Word lid / Mijn gezin, then the activity cards | own composition: the intro as a CMS document block, the coming activities as cards, one featured activity if the board asks (P4) |
 | Activiteiten (agenda) and Archief | cards per year with per-component actions | cards by poster, grouped per month or year; one action per activity ("Inschrijven" leads to the activity page or straight to the form when there is one component) |
 | Activiteit | h1 with badges, facts, description, one block per component, poster aside | own composition (concept 09): poster, key facts, what to expect, who is coming, the sticky price-and-button card, the nudge |
