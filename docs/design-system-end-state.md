@@ -18,8 +18,10 @@ what refuses a deviation. A builder reads 2 and 5 to know what a screen is,
 
 ## 1. Tokens
 
-**Folded into `design-system.md` §1 on 2 October 2026** (CR-11 phase 0, after
-block 1 was built and merged as #1482): §1.1 → §1.1a there, §1.2 and §1.6 →
+**Folded into `design-system.md`**: §1 on 2 October 2026 (block 1, #1482);
+§2.1, §3.7, §3.8, §3.13 (K1, #1555) and §3.9, §3.11, §3.12 (K3, #1557) on
+4 October 2026 — into `design-system.md` §2.3, §3.2, §3.4 and P3. Phase 0
+folds the rest per merge. For block 1: §1.1 → §1.1a there, §1.2 and §1.6 →
 §1.2–§1.3, §1.5 → §1.4, §1.4 → §1.6 (the admin frame). This section stays as
 the design intent; where the two differ, `design-system.md` says what runs.
 
@@ -351,8 +353,10 @@ document is sent. [4, 15, 39, 42]
 The three layouts are the admin's. The public site shares the tokens,
 the fields, the buttons, the surfaces and the messages, and keeps its own
 page shapes, designed around the visitor's tasks (discover, judge, register,
-check) in pilot B — a public activity page and "Mijn gezin" are more than
-a form page and get their own composition there. Today the site shell
+check) in pilot B — **narrowed by Koen on 4 October 2026 (CR-11 Q57) to
+the public header and footer and the consistent embedding of the public
+forms** (register, a public form, become a member, renew, update details);
+the activity page, the photos and the home's body keep their composition. Today the site shell
 (`site_base.html`) hosts two shapes: a **card list** (the
 activities with their posters, the photo albums) and a **form page**
 (register for an activity, become a member, a public form, the family
