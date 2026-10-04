@@ -26,7 +26,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import BASE, htmx_afgerond, login_met_sessie, pagina_klaar  # noqa: E402
 
 NAME = "Veldentest met soep"
 
@@ -311,4 +311,76 @@ def test_cancelling_asks_first_and_shows_in_the_head(setup):
     # #1561: every state command names its consequence first.
     page.click("[data-dialog]:visible [data-dialog-ok]")
     page.wait_for_selector('[data-badges]:not(:has-text("Geannuleerd"))')
+    page.close()
+
+
+# ── #1587: the first card and the summary card start on one line ─────────────
+
+_TOPS = """() => [...document.querySelectorAll('[data-record-columns]')].filter(c => c.querySelector(':scope > [data-summary-column]')).map(c => {
+  const shown = e => e.checkVisibility() && e.getBoundingClientRect().height > 0;
+  const firstCard = column => {
+    // the first thing that is drawn, however deep the wrappers and whatever
+    // empty or `contents` element stands before it
+    const walk = e => { for (const k of e.children) { const s = getComputedStyle(k);
+        if (s.display === 'none') continue;
+        if (s.display !== 'contents' && shown(k) && (s.borderTopWidth !== '0px' || s.backgroundColor !== 'rgba(0, 0, 0, 0)')) return k;
+        const deep = walk(k); if (deep) return deep; } return null; };
+    return walk(column);
+  };
+  const form = firstCard(c.querySelector(':scope > [data-form-column]')), summary = firstCard(c.querySelector(':scope > [data-summary-column]'));
+  const top = e => Math.round((e.getBoundingClientRect().top + scrollY) * 10) / 10;
+  return {form: top(form), summary: top(summary), beside: form.getBoundingClientRect().right <= summary.getBoundingClientRect().left,
+          form_is: form.id || form.tagName, columns: top(c)};
+})"""
+
+
+@pytest.mark.parametrize("width", [1440, 1920])
+@pytest.mark.parametrize("suffix", ["", "?bewerken=1"])
+def test_the_first_card_starts_where_the_summary_card_starts(setup, width, suffix):
+    """#1587: seen on HDEV — the card "Activiteit" began 32 px below the summary
+    beside it. Measured: the flow's empty message line was its first child and
+    took the section gap. Proven red by taking the kit's rule for an empty
+    message line out of the stylesheet: 32 px at both widths, in both modes."""
+    page = _page(setup, width, f"/admin/activiteiten/{setup[2]}{suffix}")
+    tops = page.evaluate(_TOPS)
+    print("MEASURE tops", width, suffix or "read", tops)
+    assert len(tops) == 1, "the fiche has one pair of columns"
+    pair = tops[0]
+    assert pair["beside"], "the two cards stand beside each other at this width"
+    assert pair["form_is"] == "aa-section-activity", pair
+    assert abs(pair["form"] - pair["summary"]) <= 1, pair
+    assert abs(pair["form"] - pair["columns"]) <= 1, "no room above the first card"
+    page.close()
+
+
+def test_a_message_in_the_flow_takes_its_place_again(setup):
+    """The rule hides only an EMPTY message line: a refusal still stands above
+    the first card, with the section gap under it."""
+    page = _page(setup, 1440, f"/admin/activiteiten/{setup[2]}?bewerken=1")
+    page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
+    hidden = page.evaluate("getComputedStyle(document.getElementById('aa-fiche-message')).display")
+    assert hidden == "none"
+    page.fill("#name", "")
+    with htmx_afgerond(page):
+        page.click("[data-action-bar] [data-form-save]")
+    page.locator("#aa-fiche-message [data-save-refusal]").wait_for()
+    box = page.evaluate(
+        """() => { const m = document.getElementById('aa-fiche-message').getBoundingClientRect(), s = document.getElementById('aa-section-activity').getBoundingClientRect();
+                 return {height: Math.round(m.height), gap: Math.round(s.top - m.bottom)}; }"""
+    )
+    assert box["height"] > 40 and box["gap"] == 32, box
+    page.close()
+
+
+@pytest.mark.parametrize("width", [1440, 1920])
+def test_the_kit_pages_column_pairs_start_on_one_line(setup, width):
+    """The kit's own demos of a form beside a summary card."""
+    page = _page(setup, width, "/admin/design-system")
+    tops = page.evaluate(_TOPS)
+    print("MEASURE kit tops", width, tops)
+    assert len(tops) >= 2, "the kit shows the record columns at least twice"
+    for pair in tops:
+        if pair["beside"]:
+            assert abs(pair["form"] - pair["summary"]) <= 1, pair
+    assert any(pair["beside"] for pair in tops), "nothing measured"
     page.close()

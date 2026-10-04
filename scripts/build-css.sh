@@ -267,6 +267,12 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .record-columns{display:grid;grid-template-columns:minmax(0,768px);gap:24px;align-items:start}
 .record-form-column{min-width:0}
 .form-flow{display:grid;gap:32px;min-width:0}
+/* #1587: the flow's message line (where a refused or failed save stands) is a
+   child of the flow, and an empty one still took the 32 px gap under it — the
+   first card then started 32 px below the summary card beside it. Empty, it
+   is no part of the flow. `:has`, not `:empty`: the template leaves white
+   space in it. */
+.form-flow>[data-form-message]:not(:has(*)){display:none}
 .record-summary-column{min-width:0;order:-1}
 @container (min-width:964px){.record-columns:has(>.record-summary-column){grid-template-columns:minmax(0,768px) 300px}.record-summary-column{order:0}}
 .summary-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;align-items:center}

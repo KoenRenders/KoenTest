@@ -83,6 +83,16 @@ def form_contract(rel: str, text: str) -> list[str]:
             found.append(f"{rel}: a record form without its message line (`data-message`)")
         if "novalidate" not in tag:
             found.append(f"{rel}: a record form without `novalidate` — the save names the fields")
+        # #1587: the message line is a child of the form flow; only the kit's
+        # `data-form-message` keeps an empty one out of the flow's rhythm.
+        target = re.search(r'data-message="#([^"]+)"', tag)
+        if target:
+            line = re.search(rf'<[a-z]+\b[^>]*id="{re.escape(target.group(1))}"[^>]*>', text)
+            if line is None or "data-form-message" not in line.group(0):
+                found.append(
+                    f"{rel}: the message line is not the kit's (`data-form-message`) — "
+                    "empty, it pushes the first card down"
+                )
     return found
 
 
@@ -266,6 +276,7 @@ def test_the_dialog_has_three_tones_and_the_safe_button_is_focused():
 # ── The red proofs, kept ─────────────────────────────────────────────────────
 
 CLEAN = (
+    '<div id="m" data-form-message></div>'
     '<form id="f" data-record-form data-message="#m" novalidate hx-post="/x">'
     "{{ ui.field('name', 'Naam') }}</form>"
     '{{ ui.search(hx_get="/zoek", hx_target="#k") }}'
@@ -315,4 +326,8 @@ def test_a_record_form_without_its_contract_is_red():
     ]
     assert _all(CLEAN.replace(" novalidate", "")) == [
         "x.html: a record form without `novalidate` — the save names the fields"
+    ]
+    assert _all(CLEAN.replace(" data-form-message", "")) == [
+        "x.html: the message line is not the kit's (`data-form-message`) — "
+        "empty, it pushes the first card down"
     ]
