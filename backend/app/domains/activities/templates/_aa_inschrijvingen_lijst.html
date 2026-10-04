@@ -1,0 +1,8 @@
+{% import "_macros.html" as ui %}
+{# The list fragment of the activity's Inschrijvingen tab (K6, #1560): the
+   shared table, and — on a fragment answer — what the toolbar outside it shows
+   about the list: the count, the count on "Openstaand" and the sort. #}
+{% include "_inschrijvingen_groepen.html" %}
+{% if reg_oob|default(false) %}
+{{ ui.toolbar_oob("reg-filter", segments=reg_segments, page=1, per_page=reg_per_page, total=reg_total, sort=reg_sort) }}
+{% endif %}

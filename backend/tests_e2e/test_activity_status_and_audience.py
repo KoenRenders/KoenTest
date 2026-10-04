@@ -6,7 +6,7 @@ Measured:
 - the record header carries "Concept", and "Publiceren" in its Acties menu;
 - the edit form offers the audience choice, within the width;
 - a draft says one status: no "actief" beside "Concept" in the header, and
-  "Concept" as the status in the Publicatie card, within the width.
+  "Concept" as the state of the summary card (K6, #1560), within the width.
 
 Screenshots go outside the repo. Proven red against master `cbe40e28` (served
 from an export of it): it fails at its setup, since the column `status` does
@@ -128,8 +128,9 @@ _STATUS = """() => {
   const r = e => { const b = e.getBoundingClientRect(); return [Math.round(b.x), Math.round(b.right), Math.round(b.y)]; };
   const badges = [...document.querySelectorAll('[data-record-head] [data-badges] > *')]
     .map(e => e.textContent.trim()).filter(t => t);
-  const dt = [...document.querySelectorAll('dt')].find(e => e.textContent.trim() === 'Status');
-  const dd = dt && dt.nextElementSibling;
+  // K6 (#1560): the state of the summary card (it was the "Status" row of the
+  // Publicatie card).
+  const dd = document.querySelector('[data-summary-card] [data-summary-state]');
   return {header: [...new Set(badges)], status: dd && dd.textContent.trim(), box: dd && r(dd)};
 }"""
 
@@ -140,7 +141,7 @@ def test_a_draft_says_one_status(phone):
     pagina_klaar(page)
     m = page.evaluate(_STATUS)
     print("MEASURE status", m)
-    page.locator("dt", has_text="Status").first.scroll_into_view_if_needed()
+    page.locator("[data-summary-state]").first.scroll_into_view_if_needed()
     _shot(page, "publicatiekaart")
     assert "Concept" in m["header"] and "actief" not in m["header"], m
     assert m["status"] == "Concept", m

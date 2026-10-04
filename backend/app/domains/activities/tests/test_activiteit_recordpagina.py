@@ -88,10 +88,17 @@ def test_finance_ziet_de_betalingen_tab(client, db_session):
 
 
 def test_de_rail_toont_bezetting(client, db_session):
+    """K6 (#1560): the card "Publicatie" became the record's summary card, and
+    the occupancy stands on the component itself (#1559): "Bezetting" with the
+    count, or "2 / 20" with a maximum."""
     activity, component = _activiteit_met_inschrijvingen(client, db_session)
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
+    assert "data-summary-card" in html and ">Publicatie<" not in html
     assert "Bezetting" in html and component.name in html
+    component.max_participants = 20
+    db_session.commit()
+    assert "2 / 20" in client.get(f"/admin/activiteiten/{activity.id}").text
     # "Inschrijvingen totaal" verdween op Koens vraag (15 sep): het aantal
     # staat al op de tab.
     assert "Inschrijvingen totaal" not in html
@@ -244,7 +251,8 @@ def test_opslaan_ververst_kop_en_rail_out_of_band(client, db_session):
     assert r.status_code == 200
     assert 'id="aa-recordkop" hx-swap-oob="true"' in r.text
     assert 'id="aa-rail" hx-swap-oob="true"' in r.text
-    assert "Vernieuwde naam" in r.text and "Bezetting" in r.text
+    # K6 (#1560): what travels in #aa-rail is the summary card.
+    assert "Vernieuwde naam" in r.text and "data-summary-card" in r.text
 
 
 def test_raakje_knop_volgt_de_beheerassistent_schakelaar(client, db_session, monkeypatch):

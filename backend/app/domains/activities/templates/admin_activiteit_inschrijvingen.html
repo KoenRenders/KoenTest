@@ -2,16 +2,29 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ a.name }} — {{ _("Inschrijvingen") }}{% endblock %}
 {% block content %}
-{# De Inschrijvingen-tab van de recordpagina (golf 8, feedbackronde 2 van
-   15 sep 2026): per onderdeel gegroepeerd, open/dichtklapbaar (standaard
-   open — dichtgeklapt zou de tab leeg laten lijken), met een exportknop per
-   groep. De sortering (golf 4-machinerie) geldt binnen elke groep; de
-   rij-knop "Details" opent de inschrijvingspagina in leesmodus — daar staat
-   de consistente Bewerken-opener (feedback 15 sep). #}
+{# The Inschrijvingen tab of the activity's record page (CR-11 pilot A, K6 —
+   #1560; end state §2.2): the list layout in its embedded rendering. No page
+   header, no figures, no summary card, no context filter — the record is the
+   context: one toolbar row directly under the tabs, then the table at the full
+   width. #}
 {% include "_aa_recordkop.html" %}
-{# #1192: the board adds a registration itself. Here and not in the shared group
-   template below, which the family tab uses too. #}
-<div class="mb-4">{{ ui.btn_secondary(_("+ Inschrijving toevoegen"), href="/admin/activiteiten/" ~ a.id ~ "/inschrijvingen/nieuw", size="sm") }}</div>
-{# Gedeeld met de gezinstab (Koens unificatievraag, 15 sep): één bron. #}
-{% include "_inschrijvingen_groepen.html" %}
+{# The toolbar and, at the right of its row, the tab's one primary button
+   (#1192: the board adds a registration itself). The button stands beside the
+   toolbar and not in it — the toolbar holds what reads and filters the list.
+   On a phone it takes the free left half of the toolbar's last line (the count
+   and `⋯` stand at its right): a line of its own cost 56 px and pushed the
+   first registration half off the first screen (measured at 390 × 844: row at
+   y 721 of 844). #}
+<div class="relative flex flex-wrap items-start gap-x-3">
+  {% call ui.toolbar("/admin/activiteiten/" ~ a.id ~ "/inschrijvingen/lijst", "#inschrijvingen-lijst", "reg-filter",
+                     segments=reg_segments, status_name="zicht", status_current=reg_view, status_legend=_("Status"),
+                     q=reg_q, search_placeholder=_("Zoek op naam of e-mail…"),
+                     page=1, per_page=reg_per_page, total=reg_total,
+                     cls="basis-full md:basis-0 md:flex-1",
+                     sort=reg_sort, sort_options=reg_sort_options) %}{% endcall %}
+  <div class="absolute bottom-3 left-0 md:static md:mb-3">{{ ui.btn_primary(_("+ Inschrijving toevoegen"), href="/admin/activiteiten/" ~ a.id ~ "/inschrijvingen/nieuw", size="sm", cls="h-11 md:h-9") }}</div>
+</div>
+<div id="inschrijvingen-lijst">
+  {% include "_aa_inschrijvingen_lijst.html" %}
+</div>
 {% endblock %}

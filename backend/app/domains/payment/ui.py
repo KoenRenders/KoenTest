@@ -53,6 +53,13 @@ from app.ui import (
 #: of a record opened from it (#1557). The list keeps its own state beside it.
 BOOKING_PARAM = "boeking"
 
+#: The address of the embedded Betalingen tab per scope (K6, #1560).
+_TAB_PATHS = {
+    "activiteit": "/admin/activiteiten/{id}/betalingen",
+    "gezin": "/admin/leden/gezin/{id}/betalingen",
+    "inschrijving": "/admin/inschrijvingen/{id}/betalingen",
+}
+
 
 def _booking_origin(db: Session, url: str) -> str | None:
     """ "Betaling van <naam>" for a way back that leads to one booking: its own
@@ -285,7 +292,9 @@ OPTIONAL_COLUMNS = {"ontvangen": 1, "context": 2}
 COLUMN_MODES = ("auto", "show", "hide")
 
 
-def _row(rec, return_url: str, may_mutate: bool, *, is_context=False, is_extra=False) -> dict:
+def _row(
+    rec, return_url: str, may_mutate: bool, *, is_context=False, is_extra=False, unfolds=False
+) -> dict:
     """One row of the payments table (K2, #1556): the record's figures, where the
     row leads, the context as a reference, the one visible action and the menu.
 
@@ -293,6 +302,11 @@ def _row(rec, return_url: str, may_mutate: bool, *, is_context=False, is_extra=F
     row names — the activity or the household under Context, the registration in
     the menu — is opened with the list AND this booking as its origin
     (`boeking=`), so its way back says "Betaling van <naam>" (#1557).
+
+    `unfolds` (K6, #1560): on a record's tab the row does not open a page, it
+    unfolds in place with "Betaling openen ↗" (P8). The booking's page then
+    leads back to the tab WITH the booking named, so the tab opens that row
+    again — the way back lands on the row it left.
     """
     from urllib.parse import quote
 
@@ -301,7 +315,7 @@ def _row(rec, return_url: str, may_mutate: bool, *, is_context=False, is_extra=F
     from_booking = quote(
         f"{return_url}{'&' if '?' in return_url else '?'}{BOOKING_PARAM}={rec.id}", safe="/"
     )
-    page = f"{BOOKINGS}/{rec.id}?terug={back}"
+    page = f"{BOOKINGS}/{rec.id}?terug={from_booking if unfolds else back}"
     context_href = None
     if rec.activity_id:
         context_href = f"/admin/activiteiten/{rec.activity_id}?terug={from_booking}"
@@ -340,7 +354,14 @@ def _row(rec, return_url: str, may_mutate: bool, *, is_context=False, is_extra=F
                     else _("Deze betaling verwijderen?"),
                 }
             )
-    return card | {"href": page, "context_href": context_href, "action": action, "menu": menu}
+    return card | {
+        "href": page,
+        "context_href": context_href,
+        "action": action,
+        "menu": menu,
+        "unfolds": unfolds,
+        "key": str(rec.id),
+    }
 
 
 def _status_badges() -> dict:
@@ -566,7 +587,7 @@ def _view(
     # Tab-URLs server-side opgebouwd mét de actieve filterstand: de tabs staan
     # in het fragment (verse aantallen bij elke filterwissel) en een link die
     # zijn stand zelf draagt heeft geen hx-include-samenloop met de filterbalk.
-    from urllib.parse import urlencode, urlsplit
+    from urllib.parse import parse_qsl, urlencode, urlsplit
 
     _tabstand: list = [
         ("q", q) if q else None,
@@ -637,7 +658,23 @@ def _view(
         if request.method == "GET"
         else urlsplit(request.headers.get("hx-current-url") or "").query
     )
-    return_url = "/admin/betalingen" + (f"?{_query}" if _query and not stil else "")
+    # K6 (#1560): an embedded tab has its own address — the record's tab path
+    # with the list's state — so a row's way back leads to the tab, not to the
+    # payments list. The scope is the path there, not a parameter; and the
+    # booking a visitor came back to is not part of the list's state (a second
+    # `boeking=` would name the wrong row).
+    _own = [
+        pair
+        for pair in parse_qsl(_query, keep_blank_values=True)
+        if pair[0] != BOOKING_PARAM
+        and not (stil and pair[0] in ("activiteit", "gezin", "inschrijving", "scope_stil"))
+    ]
+    list_path = "/admin/betalingen"
+    if stil and scope is not None:
+        tab_path = _TAB_PATHS.get(str(scope.get("param_naam")))
+        if tab_path:
+            list_path = tab_path.format(id=scope["param_waarde"])
+    return_url = list_path + (f"?{urlencode(_own)}" if _own else "")
     groepen = groepen[(page - 1) * per_page : page * per_page]
     may_mutate = may_mutate_payments(db, email)
     for groep in groepen:
@@ -649,8 +686,9 @@ def _view(
                     may_mutate,
                     is_context=k["is_context"],
                     is_extra=k["is_extra"],
+                    unfolds=stil,
                 ),
-                [_row(x, return_url, may_mutate) for x in k["refunds"]],
+                [_row(x, return_url, may_mutate, unfolds=stil) for x in k["refunds"]],
             )
             for k in groep["kaarten"]
         ]
@@ -787,6 +825,12 @@ def _view(
         ],
         toolbar_hidden=toolbar_hidden,
         embedded=stil,
+        # K6 (#1560): the activity's figures stand on its summary card
+        # (Gegevens); the household and the registration keep the band until
+        # pilot B gives them a summary.
+        show_band=stil and not activiteit_id,
+        # The row a visitor came back to, unfolded again.
+        open_row=(stand.get(BOOKING_PARAM) or "") if stil else "",
         kpi=kpi,
         page=page,
         per_page=per_page,
@@ -944,7 +988,13 @@ def betalingen_lijst(
 ):
     ctx = _view(request, db, email).as_context()
     ctx["oob_boven"] = True
-    return templates.TemplateResponse(request, "_betalingen_lijst.html", ctx)
+    response = templates.TemplateResponse(request, "_betalingen_lijst.html", ctx)
+    # K6 (#1560): on a record's tab the address that holds the list's state is
+    # the tab's, not the payments list's (`main.py:_filter_push_url` keeps a
+    # push that is already set).
+    if ctx["embedded"] and request.headers.get("X-Raak-Filter") == "1":
+        response.headers["HX-Push-Url"] = ctx["return_url"]
+    return response
 
 
 @router.get("/admin/betalingen/export")

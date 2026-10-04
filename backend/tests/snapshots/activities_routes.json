@@ -405,6 +405,12 @@
   "response_class": "HTMLResponse",
   "response_model": "None"
  },
+ "GET /admin/activiteiten/{activity_id}/inschrijvingen/lijst": {
+  "endpoint": "app.domains.activities.admin_ui.activity_registrations_list",
+  "openapi": null,
+  "response_class": "HTMLResponse",
+  "response_model": "None"
+ },
  "GET /admin/activiteiten/{activity_id}/inschrijvingen/nieuw": {
   "endpoint": "app.domains.activities.admin_ui.inschrijving_nieuw",
   "openapi": null,

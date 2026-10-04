@@ -10,10 +10,11 @@
   {% include "_aa_recordkop.html" %}
 </div>
 {# CR-11 block 6 (#1558): the reading group — the form column and, beside it,
-   the rail (publication and occupancy, from data already loaded). The rail
-   stands outside #aa-detail, so a fragment swap leaves it; a save sends it along
-   out of band. #}
-{% set _rail %}<div id="aa-rail" class="space-y-4">{% include "_aa_rail.html" %}</div>{% endset %}
+   the record's summary (K6, #1560: `ui.summary_card`; a strip under the tabs on
+   a phone). Only this tab has it: a list tab starts directly under the tabs.
+   The summary stands outside #aa-detail, so a fragment swap leaves it; a save
+   sends it along out of band. #}
+{% set _rail %}<div id="aa-rail">{% include "_aa_rail.html" %}</div>{% endset %}
 {% call ui.record_columns(aside=_rail) %}
   <div id="aa-detail">
     {% include "_aa_detail.html" %}

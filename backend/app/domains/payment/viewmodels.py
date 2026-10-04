@@ -52,6 +52,10 @@ class BetalingenView(ViewModel):
     toolbar_menu: list[dict[str, Any]]
     toolbar_hidden: list[tuple[str, str]]
     embedded: bool
+    # K6 (#1560): the figures band above an embedded list — not on the
+    # activity, whose summary card carries them — and the unfolded row.
+    show_band: bool
+    open_row: str
     kpi: dict[str, Any]
     # #996: band + tabs (#bt-boven) reizen alleen op fragmentantwoorden
     # out-of-band mee; de volledige pagina rendert ze zelf.

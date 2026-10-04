@@ -2027,8 +2027,22 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     ['htmx:afterRequest', 'htmx:responseError', 'htmx:sendError'].forEach(function (evt) {
       body.addEventListener(evt, function () { body.classList.remove('htmx-loading'); });
     });
+    // K6 (#1560): a list that opens on one unfolded row (the way back from a
+    // record) brings that row into view and gives it the focus. True when it did.
+    window.raakOpenRij = function (frame) {
+      if (!frame || !frame.dataset.openRow) return false;
+      var rij = Array.prototype.find.call(frame.querySelectorAll('[data-row-toggle]'), function (b) {
+        return b.dataset.rowToggle === frame.dataset.openRow;
+      });
+      if (!rij) return false;
+      rij.scrollIntoView({ block: 'center' });
+      rij.focus({ preventScroll: true });
+      return true;
+    };
     body.addEventListener('htmx:afterSettle', function (e) {
       if (!e.detail.boosted) return;
+      // The row a visitor came back to wins from the title.
+      if (window.raakOpenRij(document.querySelector('#main [data-open-row]'))) return;
       var h = document.querySelector('#main h1');
       if (h) h.focus();
     });
@@ -2644,7 +2658,10 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
      the route's, and it carries the whole state itself: `hx-include="unset"`,
      because a list holder that includes the toolbar's form would send that
      form's own `sort` field after the link's, and the last one wins (measured
-     in the browser: the click pushed `sort=naam` and the list did not move). Numbers and amounts are right-aligned with tabular digits.
+     in the browser: the click pushed `sort=naam` and the list did not move).
+     Without an `hx_target` the link is a plain one to the page (a tab without
+     a list fragment of its own). Numbers and amounts are right-aligned with
+     tabular digits.
    The head is 36 px, `ink-soft` on `surface-2`. The call body holds the
    `<tbody>`s.
 
@@ -2653,17 +2670,24 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    156 px, and the name takes the rest. They stand HERE as literal classes:
    the CSS build reads templates, not Python, so a width class handed over by a
    view is never generated (measured: seven columns of equal width). #}
-{% macro data_table(columns, modes={}, hx_target="", caption="") -%}
-<div class="data-table-frame mb-4 rounded-card border border-line bg-white" data-table-frame>
+{% macro data_table(columns, modes={}, hx_target="", caption="", open_row="") -%}
+{# `openRow` is the ONE unfolded row of this list (K6, #1560): a second toggle
+   closes the first. `open_row` opens a row from the URL — the way back from a
+   record lands on the row it left: unfolded, in view and with the focus
+   (`raakOpenRij` in `htmx_ux`, which also runs after a boosted navigation,
+   where the shell would otherwise put the focus on the page's title). #}
+<div class="data-table-frame mb-4 rounded-card border border-line bg-white" data-table-frame
+     x-data="{ openRow: '{{ open_row }}' }"{% if open_row %} data-open-row="{{ open_row }}"
+     x-init="$nextTick(() => window.raakOpenRij && window.raakOpenRij($el))"{% endif %}>
   <table class="data-table text-sm" data-p1="{{ modes.get(1, 'auto') }}" data-p2="{{ modes.get(2, 'auto') }}">
     {% if caption %}<caption class="sr-only">{{ caption }}</caption>{% endif %}
     <thead>
       <tr>
         {% for c in columns %}
         <th scope="col" data-cell="{{ c.cell }}"{% if c.get('priority') %} data-p="{{ c.priority }}"{% endif %}{% if c.get('sorted') %} aria-sort="{{ 'ascending' if c.sorted == 'asc' else 'descending' }}"{% endif %}
-            class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card {{ 'text-right' if c.get('num') else 'text-left' }} {{ 'w-[104px]' if c.get('num') else {'context': 'w-[24%]', 'status': 'w-[132px]', 'actions': 'w-[156px]'}.get(c.cell, '') }}">
+            class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card {{ 'text-right' if c.get('num') else 'text-left' }} {{ 'w-[104px]' if c.get('num') else {'context': 'w-[24%]', 'status': 'w-[132px]', 'actions': 'w-[156px]', 'date': 'w-[112px]', 'more': 'w-[26%]'}.get(c.cell, '') }}">
           {% if c.get("sort_url") %}
-          <a href="{{ c.get('sort_page_url') or c.sort_url }}" hx-get="{{ c.sort_url }}"{% if hx_target %} hx-target="{{ hx_target }}" hx-swap="innerHTML"{% endif %} hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="{{ c.key }}"
+          <a href="{{ c.get('sort_page_url') or c.sort_url }}"{% if hx_target %} hx-get="{{ c.sort_url }}" hx-target="{{ hx_target }}" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}'{% endif %} data-sort="{{ c.key }}"
              class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 {{ 'justify-end' if c.get('num') else '' }} {{ 'font-semibold text-blue-700' if c.get('sorted') else '' }}">{{ c.label }}{{ icon("arrow-up" if c.get("sorted") == "asc" else ("arrow-down" if c.get("sorted") == "desc" else "arrow-up-down"), 14) }}</a>
           {% elif c.cell == "actions" %}<span class="sr-only">{{ c.label }}</span>
           {% else %}{{ c.label }}{% endif %}
@@ -2714,7 +2738,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     <div x-show="open" x-cloak @click.outside="open = false" role="menu" data-row-menu
          class="absolute right-0 z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
       {% for m in _rest %}
-      {% if m.get("href") %}<a role="menuitem" href="{{ m.href }}" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline">{{ m.label }}</a>
+      {% if m.get("href") %}<a role="menuitem" href="{{ m.href }}" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline"{% if m.get("attrs") %} {{ m.attrs|safe }}{% endif %}>{{ m.label }}</a>
       {% else %}<button role="menuitem" type="button" class="flex min-h-11 w-full items-center px-3 text-left text-sm text-ink hover:bg-surface-2" hx-disabled-elt="this" {{ m.get("attrs", "")|safe }}{% if m.get("confirm") %} data-confirm="{{ m.confirm }}"{% endif %}>{{ m.label }}</button>{% endif %}
       {% endfor %}
       {% if _deletes %}
@@ -2727,6 +2751,102 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   </div>
   {% endif %}
 </div>
+{%- endmacro %}
+
+{# ══ The related list inside a record (CR-11 pilot A, K6 — #1560) ═════════════
+   Block 8 (Koen, 4 October 2026); norm: end state §2.2. On a record's tab the
+   list is the table above in its embedded rendering, and two things differ
+   from a top-level list: the rows may stand in **collapsible groups**, and a
+   row **unfolds in place** instead of opening a page (P8). #}
+
+{# One group of rows: a `<tbody>` with its group row first — chevron, name, the
+   count in brackets, an optional jump link (`link`: {label, href}, the
+   activity on a household's tab) and `⋯` with the group's actions (`items`, as
+   `row_actions_cell`). The grouping is data, not layout (Q41): the rows stay
+   rows of the same table. A collapsed group hides its rows — an unfolded one
+   among them too — and shows them again as they were. `colspan` is the
+   table's number of columns. #}
+{% macro table_group(name, count, colspan, items=[], link=None, id="") -%}
+<tbody data-group{% if id %} id="{{ id }}"{% endif %} x-data="{ shown: true }" :data-collapsed="(!shown).toString()">
+  <tr data-group-row class="bg-surface-2">
+    <th scope="rowgroup" data-cell="name" colspan="{{ colspan - 1 }}" class="h-11 border-b border-line px-3 py-0 text-left text-sm font-semibold text-ink">
+      <span class="flex flex-wrap items-center gap-x-3">
+        <button type="button" data-group-toggle class="inline-flex min-h-11 items-center gap-2 text-left" @click="shown = !shown" :aria-expanded="shown.toString()">
+          <span class="shrink-0 transition-transform" :class="shown ? 'rotate-90' : ''">{{ icon("chevron-right", 16) }}</span>
+          <span>{{ name }} <span data-group-count class="font-normal tabular-nums text-ink-soft">({{ count }})</span></span>
+        </button>
+        {% if link %}<span class="text-[13px] font-normal">{{ reference(link.label, link.href) }}</span>{% endif %}
+      </span>
+    </th>
+    <td data-cell="actions" class="border-b border-line px-3 py-0">{% if items %}{{ row_actions_cell(None, items, label=name) }}{% endif %}</td>
+  </tr>
+  {{ caller() }}
+</tbody>
+{%- endmacro %}
+
+{# The first cell of a row that unfolds: a button, not a link — the row does
+   not leave the page. Its click area covers the row (CSS, as `row_link`); a
+   reference or a mail address in the row sits above it (`data-above-row`).
+   The chevron turns when the row is open. `key` names the row in its list. #}
+{% macro row_toggle(label, key, sub=None) -%}
+<button type="button" data-row-toggle="{{ key }}" aria-controls="row-detail-{{ key }}"
+        class="inline-flex items-center gap-2 text-left font-semibold text-ink"
+        @click="openRow = (openRow === '{{ key }}' ? '' : '{{ key }}')" :aria-expanded="(openRow === '{{ key }}').toString()">
+  <span class="shrink-0 text-ink-soft transition-transform" :class="openRow === '{{ key }}' ? 'rotate-90' : ''">{{ icon("chevron-right", 16) }}</span>
+  <span>{{ label }}{% if sub %}<small class="block font-mono text-xs font-normal text-ink-soft">{{ sub }}</small>{% endif %}</span>
+</button>
+{%- endmacro %}
+
+{# The unfolded row: read-only parts side by side (`row_part`), stacked on a
+   phone, a 3 px line at the left, and under them the jump link to the row's
+   own page (`open`: {label, href}). **No "Bewerken" here** (Q42): editing is
+   the record page's. #}
+{% macro row_detail(key, colspan, open=None) -%}
+<tr data-row-detail id="row-detail-{{ key }}" x-show="openRow === '{{ key }}'" x-cloak>
+  <td colspan="{{ colspan }}" class="border-b border-l-[3px] border-b-line border-l-brand-ocean bg-white px-4 py-4">
+    <div data-row-parts class="row-parts">{{ caller() }}</div>
+    {% if open %}<div class="mt-4 text-sm">{{ reference(open.label, open.href) }}</div>{% endif %}
+  </td>
+</tr>
+{%- endmacro %}
+
+{% macro row_part(title) -%}
+<div data-row-part class="min-w-0 text-sm"><div class="mb-1 font-semibold text-ink">{{ title }}</div>{{ caller() }}</div>
+{%- endmacro %}
+
+{# ══ The record's summary (CR-11 pilot A, K6 — #1560; end state §3.10) ═════════
+   One macro, two shapes by the width of the record's frame (CSS): a card of
+   300 px in the right column on a desktop, a strip under the tabs on a phone
+   (badge and the action's icon on the first line, the figures on the second).
+   **Only on the Gegevens tab**: a list tab has neither
+   (`tests/test_summary_card_gate.py`).
+
+   * `state`: {label, tone} — the badge, first.
+   * `figures`: up to three {label, value, warning?}; in the card the first two
+     stand side by side and a third under them, label left, value right. An
+     open balance that is not zero takes the warning tone.
+   * `action`: {href, text, label} — the public link with the copy button
+     (`copy_button`: one press copies, the check mark shows in place; never a
+     screen, never a toast — Q49). `text` is the address as it is read; when
+     the browser refuses the copy, the helper selects it (`data-copy-bron`). #}
+{% macro summary_card(state=None, figures=[], action=None) -%}
+<section data-summary-card class="summary-card rounded-card border border-line bg-surface shadow-sm" aria-label="{{ _('Samenvatting') }}">
+  {% if state %}<div data-summary-state>{{ badge(state.label, state.get("tone", "gray")) }}</div>{% endif %}
+  <dl data-summary-figures class="m-0">
+    {% for f in figures[:3] %}
+    <div data-summary-figure>
+      <dt class="text-[13px] leading-5 text-ink-soft">{{ f.label }}</dt>
+      <dd class="m-0 text-2xl font-semibold leading-[30px] tracking-tight tabular-nums whitespace-nowrap {{ 'text-brand-warning' if f.get('warning') else 'text-ink' }}">{{ f.value }}</dd>
+    </div>
+    {% endfor %}
+  </dl>
+  {% if action %}
+  <div data-summary-action>
+    <a data-summary-link data-copy-bron="{{ action.href }}" href="{{ action.href }}" target="_blank" rel="noopener" class="min-w-0 truncate text-[13px] text-blue-500 underline">{{ action.text }}</a>
+    {{ copy_button(action.href, action.label) }}
+  </div>
+  {% endif %}
+</section>
 {%- endmacro %}
 
 {# An amount as a list shows it: the sign before the euro sign ("− € 15,00"),

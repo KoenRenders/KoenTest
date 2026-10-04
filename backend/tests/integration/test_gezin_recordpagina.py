@@ -152,7 +152,8 @@ def test_inschrijvingen_tab_groepeert_per_activiteit(client, db_session):
     assert "Rita Recordmans" in html  # de rij (contact_name)
     assert "Anderman" not in html, "een ander gezin lekt de scope in"
     assert f'href="/admin/activiteiten/{reg.activity_id}"' in html  # groepskop
-    assert ">Details<" in html
+    # K6 (#1560): the row unfolds, and "Inschrijving openen" leads to its page.
+    assert f'data-row-toggle="{reg.id}"' in html and ">Details<" not in html
     assert f"/admin/inschrijvingen/{reg.id}?terug=" in html
     # De oude Wijzigingen-tab is echt weg, niet enkel verstopt.
     assert client.get(f"/admin/leden/gezin/{m.id}/wijzigingen").status_code == 404
@@ -268,9 +269,8 @@ def test_inschrijvingen_tab_sorteert_binnen_de_groep(client, db_session):
     basis = f"/admin/leden/gezin/{m.id}/inschrijvingen"
 
     def namen(html):
-        # The name cell of the registrations table: plain text since #1391 (W11),
-        # "Details" is the link into the registration.
-        return re.findall(r'<td class="px-4 py-2">(Aaa Eerst|Rita Recordmans)\b', html)
+        # The name cell of the registrations table: the row's toggle (K6, #1560).
+        return re.findall(r"data-row-toggle=.*?<span>(Aaa Eerst|Rita Recordmans)", html, re.S)
 
     assert namen(client.get(f"{basis}?sort=naam&richting=asc").text) == [
         "Aaa Eerst",
@@ -294,6 +294,9 @@ def test_beide_tabs_renderen_het_gedeelde_sjabloon():
     basis = Path(__file__).resolve().parents[2] / "app" / "domains"
     act = (basis / "activities" / "templates" / "admin_activiteit_inschrijvingen.html").read_text()
     gez = (basis / "mdm" / "templates" / "admin_gezin_inschrijvingen.html").read_text()
+    # K6 (#1560): the activity's tab includes it through its list fragment (a
+    # search or a sort asks the list alone).
+    act += (basis / "activities" / "templates" / "_aa_inschrijvingen_lijst.html").read_text()
     for pagina in (act, gez):
         assert '{% include "_inschrijvingen_groepen.html" %}' in pagina
         assert "<table" not in pagina, "de tabel hoort alleen in het gedeelde sjabloon"

@@ -206,14 +206,13 @@ def _detail_response(
     # gevalideerd heeft.
     from app.domains.activities.api import registration_count_for
     from app.domains.auth.api import read_session_value
-    from app.kernel.tenant_config import tenant_base_url
 
     email = read_session_value(request.cookies.get(SESSION_COOKIE))
     if email:
         reg_count = registration_count_for(db, activity_id)
-        ctx.update(_record_tabs(activiteit, reg_count, db, email, "overzicht", request))
-        ctx.update(_record_rail(db, activiteit))
-        ctx["deellink"] = f"{tenant_base_url(db)}/activiteiten/{activiteit.slug or activity_id}"
+        tabs = _record_tabs(activiteit, reg_count, db, email, "overzicht", request)
+        ctx.update(tabs)
+        ctx.update(_record_summary(db, activiteit, tabs, reg_count, ctx["component_booked"]))
         # Alleen op het FRAGMENT-antwoord: de volledige pagina rendert de kop
         # zelf al — een oob-blok zou hem daar dubbel zetten.
         ctx["oob_kop"] = True
@@ -432,22 +431,18 @@ def admin_activiteit_detail(
     if activiteit is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     from app.domains.activities.api import registration_count_for
-    from app.kernel.tenant_config import tenant_base_url
 
     reg_count = registration_count_for(db, activity_id)
+    detail = _aa_detail_ctx(request, db, activiteit)
+    tabs = _record_tabs(activiteit, reg_count, db, email, "overzicht", request)
     return templates.TemplateResponse(
         request,
         "admin_activiteit.html",
         {
             "nav_items": admin_nav(NAV),
-            **_aa_detail_ctx(request, db, activiteit),
-            **_record_tabs(activiteit, reg_count, db, email, "overzicht", request),
-            **_record_rail(db, activiteit),
-            # De deellink (ronde 6): het kanonieke adres /activiteiten/<slug|nr> —
-            # tijdsbestendig: de route stuurt zelf door naar de komende lijst of
-            # het archief, dus een vooraf gedeelde link blijft ná het evenement
-            # werken.
-            "deellink": (f"{tenant_base_url(db)}/activiteiten/{activiteit.slug or activity_id}"),
+            **detail,
+            **tabs,
+            **_record_summary(db, activiteit, tabs, reg_count, detail["component_booked"]),
         },
     )
 
@@ -1147,37 +1142,59 @@ def _record_tabs(
     }
 
 
-def _record_rail(db: Session, activiteit: Any) -> dict:
-    """De rechterrail van de recordpagina: publicatie-info en bezetting per
-    onderdeel — via dezelfde telling als de volzet-berekening (#451), in één
-    query (#651: het detailscherm haalt niet de hele boom op)."""
-    from app.domains.activities.api import booked_per_component
+def _record_summary(
+    db: Session, activiteit: Any, tabs: dict, reg_count: int, occupancy: dict[int, int]
+) -> dict:
+    """The summary card of the Gegevens tab (CR-11 K6, #1560; end state §3.10):
+    the publication state, Inschrijvingen · Deelnemers · Openstaand, and the
+    public link with its copy button. It replaces the card "Publicatie":
+    Toegang is the head's badge and a form field, Inschrijven tot and Bezetting
+    belong to the component (its row on the form).
 
-    bezetting = booked_per_component(db, [activiteit.id])
-    onderdelen = [
-        {
-            "naam": c.name,
-            "bezet": bezetting.get(c.id, 0),
-            "max": c.max_participants,
+    Counted, never listed (#651: the record page does not fetch the tree):
+    `reg_count` is the tab's count and `occupancy` the one the component rows
+    show (the same count as the full-up test, #451) — both asked once per
+    request — and the open balance is one aggregate row. "Openstaand" only for
+    who may see payments (#544): exactly who gets the Betalingen tab, so the
+    answer is read from `tabs` (the head's context) and not asked again."""
+    from app.domains.activities.api import publication
+    from app.domains.payment.api import registration_balance_by_activity
+    from app.kernel.codes import code_label, tone
+    from app.kernel.geld import bedrag as money
+    from app.kernel.tenant_config import tenant_base_url
+
+    pub = publication(db, activiteit.id)
+    if activiteit.is_cancelled:
+        state = {"label": _("Geannuleerd"), "tone": "red"}
+    else:
+        state = {
+            "label": code_label("activity_status", pub.status),
+            "tone": tone("activity_status", pub.status),
         }
-        for c in activiteit.sub_registrations
+    figures: list[dict[str, Any]] = [
+        {"label": _("Inschrijvingen"), "value": str(reg_count)},
+        {
+            "label": _("Deelnemers"),
+            "value": str(sum(occupancy.get(c.id, 0) for c in activiteit.sub_registrations)),
+        },
     ]
-    # #1053: de uiterste datum hoort bij het onderdeel, maar de rail vat de
-    # activiteit samen. Eén datum wanneer élk onderdeel dezelfde heeft (het
-    # gewone geval), anders een verwijzing naar de onderdelen eronder. De keuze
-    # valt HIER en niet in het sjabloon — zie `shared_deadline`.
-    from app.domains.activities.api import open_deadlines, shared_deadline
-
-    samen = shared_deadline(activiteit)
-    # "Inschrijvingen totaal" verdween op Koens vraag (15 sep): het aantal
-    # staat al op de tab.
-    return {
-        "rail_onderdelen": onderdelen,
-        "rail_deadline": samen,
-        # #1070: het Affiche-blok is naar de recordkop verhuisd, waar de
-        # knop op álle tabs staat in plaats van alleen op Overzicht.
-        "rail_deadline_verschilt": samen is None and bool(open_deadlines(activiteit)),
-    }
+    if any(tab["href"].endswith("/betalingen") for tab in tabs["record_tabs"]):
+        balance = registration_balance_by_activity(db, activiteit.id)
+        figures.append(
+            {"label": _("Openstaand"), "value": "€ " + money(balance), "warning": balance != 0}
+        )
+    action = None
+    if not pub.draft:
+        # The canonical address /activiteiten/<slug|nr>: the route itself leads
+        # on to the coming list or the archive, so a link shared beforehand
+        # keeps working after the event.
+        href = f"{tenant_base_url(db)}/activiteiten/{activiteit.slug or activiteit.id}"
+        action = {
+            "href": href,
+            "text": href.split("://", 1)[-1],
+            "label": _("Kopieer de publieke link"),
+        }
+    return {"summary": {"state": state, "figures": figures, "action": action}}
 
 
 def _board_form_page(
@@ -1376,98 +1393,116 @@ async def inschrijving_nieuw_opslaan(
     return response
 
 
+def _registrations_ctx(db: Session, activiteit: Any, request: Request) -> dict:
+    """The registrations table of the activity's tab (K6, #1560), from the
+    list's state — the URL's, or `HX-Current-URL` after a fragment request.
+
+    Grouped per component, and "Zonder onderdeel" last so those stay reachable
+    (the reason behind #650). Exporteren and Antwoorden stand under the group
+    row's `⋯` (Q41)."""
+    from app.domains.activities.api import (
+        parse_registration_sort,
+        registration_table,
+        registrations_for,
+    )
+    from app.ui import filterparams
+
+    stand = filterparams(request)
+    regs = registrations_for(db, activiteit.id, alle=True) or []
+    base = f"/admin/activiteiten/{activiteit.id}"
+    groups = []
+    for c in activiteit.sub_registrations:
+        items = [
+            {
+                "label": _("Exporteren"),
+                "href": f"{base}/onderdelen/{c.id}/export",
+                "attrs": 'hx-boost="false"',
+            }
+        ]
+        # CR-14 F14: the answers of a component that asks questions.
+        if c.form_id is not None:
+            items.append(
+                {
+                    "label": _("Antwoorden"),
+                    "href": f"{base}/onderdelen/{c.id}/antwoorden",
+                    "attrs": 'hx-boost="false" target="_blank"',
+                }
+            )
+        groups.append(
+            {
+                "name": c.name,
+                "regs": [r for r in regs if r["component_id"] == c.id],
+                "items": items,
+            }
+        )
+    without = [r for r in regs if r["component_id"] is None]
+    if without:
+        groups.append({"name": _("Zonder onderdeel"), "regs": without})
+    return {
+        **registration_table(
+            db,
+            groups,
+            page_url=f"{base}/inschrijvingen",
+            fragment_url=f"{base}/inschrijvingen/lijst",
+            view=stand.get("zicht", "alle"),
+            q=stand.get("q", ""),
+            sort=parse_registration_sort(stand.get("sort", "datum"), stand.get("richting", "")),
+            open_row=stand.get("rij", ""),
+        ),
+        "reg_target": "#inschrijvingen-lijst",
+        "reg_count": len(regs),
+    }
+
+
 @router.get("/admin/activiteiten/{activity_id}/inschrijvingen", response_class=HTMLResponse)
 def activiteit_inschrijvingen_tab(
     activity_id: int,
     request: Request,
-    sort: str = "datum",
-    richting: str = "asc",
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ) -> Response:
-    """De Inschrijvingen-tab van de recordpagina (golf 8, #913): álle
-    inschrijvingen van de activiteit, over de onderdelen heen, met een
-    Onderdeel-kolom en de golf 4-sorteermachinerie."""
-    from urllib.parse import quote
-
-    from app.domains.activities.api import (
-        INSCHRIJVING_SORT_VELDEN,
-        get_activity,
-        registrations_for,
-        sorteer_inschrijvingen,
-    )
+    """The Inschrijvingen tab of the record page (golf 8, #913; K6, #1560): every
+    registration of the activity in one table, a collapsible group row per
+    component, under the toolbar of the embedded list."""
+    from app.domains.activities.api import get_activity
     from app.domains.activities.viewmodels import AdminActiviteitInschrijvingenView
 
     activiteit = get_activity(db, activity_id)
     if activiteit is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
-    regs = registrations_for(db, activity_id, alle=True) or []
-    regs, sort, richting = sorteer_inschrijvingen(regs, sort, richting)
-
-    # Feedbackronde 2 (15 sep): gegroepeerd per onderdeel, open/dichtklapbaar,
-    # met een exportknop per groep — de Overzicht-knoppen zijn hierheen
-    # verhuisd. De sortering geldt bínnen elke groep. "Zonder onderdeel"
-    # achteraan: zo blijven ook die bereikbaar (de reden achter #650).
-    # Groepssleutels altijd compleet (datum/titel_url None): het gedeelde
-    # sjabloon rendert onder StrictUndefined.
-    groepen = []
-    for c in activiteit.sub_registrations:
-        rijen = [r for r in regs if r["component_id"] == c.id]
-        groepen.append(
-            {
-                "naam": c.name,
-                "aantal": len(rijen),
-                "regs": rijen,
-                "export_href": (f"/admin/activiteiten/{activity_id}/onderdelen/{c.id}/export"),
-                # CR-14 F14: the book, for a component that asks questions.
-                "boek_href": (
-                    f"/admin/activiteiten/{activity_id}/onderdelen/{c.id}/antwoorden"
-                    if c.form_id is not None
-                    else None
-                ),
-                "titel_url": None,
-                "datum": None,
-            }
-        )
-    zonder = [r for r in regs if r["component_id"] is None]
-    if zonder:
-        groepen.append(
-            {
-                "naam": _("Zonder onderdeel"),
-                "aantal": len(zonder),
-                "regs": zonder,
-                "export_href": None,
-                "boek_href": None,
-                "titel_url": None,
-                "datum": None,
-            }
-        )
-
-    basis = f"/admin/activiteiten/{activity_id}/inschrijvingen"
-    sorteer_urls = {
-        naam: (
-            f"{basis}?sort={naam}&richting="
-            + ("desc" if sort == naam and richting == "asc" else "asc")
-        )
-        for naam in INSCHRIJVING_SORT_VELDEN
-    }
-    terug = quote(f"{basis}?sort={sort}&richting={richting}", safe="")
+    ctx = _registrations_ctx(db, activiteit, request)
+    reg_count = ctx.pop("reg_count")
     vm = AdminActiviteitInschrijvingenView(
         a=activiteit,
-        groepen=groepen,
-        totaal=len(regs),
-        sort=sort,
-        richting=richting,
-        sorteer_urls=sorteer_urls,
-        terug=terug,
-        toon_onderdeel=False,
-        **_record_tabs(activiteit, len(regs), db, email, "inschrijvingen", request),
+        **ctx,
+        **_record_tabs(activiteit, reg_count, db, email, "inschrijvingen", request),
         csrf_token=csrf_from_request(request),
         nav_items=admin_nav(NAV),
     )
     return templates.TemplateResponse(
         request, "admin_activiteit_inschrijvingen.html", vm.as_context()
     )
+
+
+@router.get("/admin/activiteiten/{activity_id}/inschrijvingen/lijst", response_class=HTMLResponse)
+def activity_registrations_list(
+    activity_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+) -> Response:
+    """The list alone, for the toolbar and a sort link: the table, and
+    out-of-band the toolbar's count, the count on "Openstaand" and the sort."""
+    from app.domains.activities.api import get_activity
+    from app.domains.activities.viewmodels import ActivityRegistrationsListView
+
+    activiteit = get_activity(db, activity_id)
+    if activiteit is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    ctx = _registrations_ctx(db, activiteit, request)
+    ctx.pop("reg_count")
+    vm = ActivityRegistrationsListView(**ctx, reg_oob=True)
+    return templates.TemplateResponse(request, "_aa_inschrijvingen_lijst.html", vm.as_context())
 
 
 @router.post(

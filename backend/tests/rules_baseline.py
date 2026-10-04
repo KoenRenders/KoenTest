@@ -298,7 +298,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "domains/mdm/organization_service.py::_bewaar_rekening",
         "domains/mdm/organization_service.py::_organisatie",
         "domains/mdm/organization_service.py::_zet_lijstrij",
-        "domains/mdm/service.py::_laatste_datum",
         "domains/mdm/service.py::_persoon_of_404",
         "domains/mdm/service.py::_waarde",
         "domains/mdm/service.py::gezin_tabs",

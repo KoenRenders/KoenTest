@@ -1,46 +1,11 @@
 {% import "_macros.html" as ui %}
-{# De rechterrail van de activiteit (golf 8/9, #913). Gedeeld: de pagina
-   rendert hem in #aa-rail, en _aa_detail.html stuurt hem out-of-band mee
-   na elke mutatie — anders bleef hij op de oude stand staan (HDEV-melding
-   15 sep: kop en rail verversden niet na Opslaan). #}
-    {% call ui.card() %}
-      <h3 class="font-semibold mb-2">{{ _("Publicatie") }}</h3>
-      {# Label-waarde zoals de mockup: links het label, rechts de waarde. #}
-      <dl class="text-sm space-y-1 mb-3">
-        <div class="flex justify-between gap-2"><dt class="text-ink-soft">{{ _("Status") }}</dt>
-          {# #1428: the card is about publication, so its status is the
-             publication status — Concept or Gepubliceerd. "actief" (not
-             cancelled) contradicted a draft here; a cancellation is its own badge. #}
-          <dd>{{ ui.badge(publication.status|code_label("activity_status"), publication.status|tone("activity_status")) }}{% if a.is_cancelled %} {{ ui.badge(_("geannuleerd"), "red") }}{% endif %}</dd></div>
-        <div class="flex justify-between gap-2"><dt class="text-ink-soft">{{ _("Toegang") }}</dt>
-          <dd>{% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% else %}{{ ui.badge(_("iedereen welkom")) }}{% endif %}</dd></div>
-        {# #974: zichtbaar in de detailweergave, met de toestand zoals de service
-           ze beslist — niet opnieuw uitgerekend in het sjabloon. #1053: de datum
-           hoort bij het onderdeel, dus de rail toont ze alleen wanneer ze voor élk
-           onderdeel dezelfde is; verschillen ze, dan staan ze bij de onderdelen. #}
-        <div class="flex justify-between gap-2"><dt class="text-ink-soft">{{ _("Inschrijven tot") }}</dt>
-          <dd>{% if rail_deadline %}{{ rail_deadline | langedatum }}{% if a.registration_closed %} {{ ui.badge(_("afgesloten"), "gray") }}{% endif %}{% elif rail_deadline_verschilt %}{{ _("verschilt per onderdeel") }}{% else %}—{% endif %}</dd></div>
-      </dl>
-      {# Deel de activiteit (feedbackronde): de publieke lijst, verankerd op deze
-         kaart. Een echte activiteitspagina bestaat nog niet — zie het
-         issuevoorstel in golfpakket-8. #}
-      <h3 class="font-semibold mb-1">{{ _("Deel de activiteit") }}</h3>
-      <div class="flex items-center gap-2 mb-3 text-xs">
-        <span class="font-mono bg-surface-2 border border-line rounded px-2 py-1 truncate">{{ deellink }}</span>
-        {{ ui.copy_button(deellink, _("Kopieer de link")) }}
-      </div>
-      {# #1070: het kopje *Affiche* stond hier met de sprong naar de Design Studio
-         (#1049). Die knop staat nu in de recordkop, waar hij op élke tab
-         meereist; het kopje bestond alleen voor die ene knop. #}
-      <h3 class="font-semibold mb-1">{{ _("Bezetting") }}</h3>
-      {% if rail_onderdelen %}
-      <dl class="text-sm space-y-1">
-        {% for o in rail_onderdelen %}
-        <div class="flex justify-between gap-2"><dt class="text-ink-soft truncate">{{ o.naam }}</dt>
-          <dd class="whitespace-nowrap">{{ o.bezet }}{% if o.max %} / {{ o.max }}{% endif %}</dd></div>
-        {% endfor %}
-      </dl>
-      {% else %}
-      <p class="text-sm text-ink-soft">{{ _("Nog geen onderdelen.") }}</p>
-      {% endif %}
-    {% endcall %}
+{# The summary of the activity (CR-11 pilot A, K6 — #1560): `ui.summary_card`,
+   on the Gegevens tab only. The page renders it in #aa-rail, and
+   `_aa_detail.html` sends it along out-of-band after every mutation — a save
+   changes the state and the figures (HDEV report of 15 September: head and
+   rail did not refresh after Opslaan).
+
+   It replaces the card "Publicatie" (golf 8/9, #913): Toegang is the head's
+   badge and a form field, Inschrijven tot and Bezetting stand on the
+   component's row. #}
+{{ ui.summary_card(summary.state, summary.figures, summary.action) }}

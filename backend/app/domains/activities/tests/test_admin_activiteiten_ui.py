@@ -87,13 +87,18 @@ def test_admin_inschrijvingen_en_export(client, db_session):
     # #650-waarborg (zien waarvoor iemand ingeschreven is) zit in de groepskop.
     lijst = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen")
     assert lijst.status_code == 200 and "Jef" in lijst.text
-    # Feedback 15 sep (tweede ronde): de rij draagt één "Details" naar de
-    # pagina in LEESmodus — daar staat de consistente Bewerken-opener, met
-    # Verwijderen in het cluster. Direct Verwijderen blijft van de rij weg.
+    # K6 (#1560): the row unfolds in place, read-only, and "Inschrijving
+    # openen" leads to the page in READ mode — there stands the Bewerken
+    # opener, with Verwijderen in its cluster. No "Details" button, no
+    # "Bewerken" and no direct Verwijderen in the row.
     from app.domains.activities.api import Registration
 
     reg = db_session.query(Registration).filter(Registration.contact_name == "Jef").one()
-    assert ">Details<" in lijst.text
+    assert (
+        ">Details<" not in lijst.text
+        and ">Bewerken<" not in lijst.text.split("data-table-frame")[1]
+    )
+    assert f'data-row-toggle="{reg.id}"' in lijst.text
     assert f'href="/admin/inschrijvingen/{reg.id}?terug=' in lijst.text
     assert "bewerk=1" not in lijst.text
     assert ">Verwijderen<" not in lijst.text

@@ -47,9 +47,14 @@ def test_the_pages_card_is_one_stretched_link_with_the_arrows_above_it():
 
 
 def test_the_contact_name_is_plain_text_and_details_is_the_way_in():
+    """W11 (#1391): a name as a link raises the expectation of going to the
+    person, so "Details" was the way in. K6 (#1560, block 8) keeps the first
+    half — the name is no link — and replaces the button: the row unfolds
+    (`ui.row_toggle`) and "Inschrijving openen" in it leads to the page."""
     text = (APP / "domains/activities/templates/_inschrijvingen_groepen.html").read_text()
-    assert "{{ r.contact_name }}</a>" not in text
-    assert 'ui.btn_secondary(_("Details")' in text
+    assert "{{ r.contact_name }}</a>" not in text and "ui.row_link(" not in text
+    assert "ui.row_toggle(" in text and '_("Inschrijving openen")' in text
+    assert '_("Details")' not in text
 
 
 def test_a_payment_row_opens_on_a_click_but_not_through_a_control():

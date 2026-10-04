@@ -56,6 +56,8 @@ from app.domains.payment.service import (  # noqa: F401
     reconcile_registration_charges,
     refresh_record_status,
     registration_balance,
+    registration_balance_by_activity,
+    registration_payment_states,
     set_payment_status,
     void_payment_record,
 )
@@ -101,6 +103,8 @@ __all__ = [
     "reconcile_charges",
     "reconcile_registration_charges",
     "registration_balance",
+    "registration_balance_by_activity",
+    "registration_payment_states",
     "refresh_record_status",
     "set_payment_status",
     "void_payment_record",

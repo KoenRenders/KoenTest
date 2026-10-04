@@ -65,8 +65,9 @@ def test_de_groep_is_dichtklapbaar_met_toestand(client, db_session):
     activity, comp, _reg = _met_inschrijving(client, db_session)
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen").text
-    assert ':aria-expanded="uitgeklapt"' in html, "de groepkop meldt zijn stand niet"
-    assert 'x-data="{ uitgeklapt: true }"' in html, "de groep hoort standaard open"
+    # K6 (#1560): the group is a row of the table (`ui.table_group`).
+    assert ':aria-expanded="shown.toString()"' in html, "de groepkop meldt zijn stand niet"
+    assert 'x-data="{ shown: true }"' in html, "de groep hoort standaard open"
 
 
 def test_geen_inline_paneel_meer(client, db_session):
@@ -94,7 +95,10 @@ def test_de_rijknop_heet_details_en_opent_leesmodus(client, db_session):
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen").text
 
-    assert ">Details<" in html
+    # K6 (#1560): the button "Details" became the jump link in the unfolded
+    # row; it still lands in READ mode.
+    assert f'href="/admin/inschrijvingen/{reg}?terug=' in html and "Inschrijving openen" in html
+    assert ">Details<" not in html
     assert ">Verwijderen<" not in html
     pagina = client.get(f"/admin/inschrijvingen/{reg}?bewerk=1").text
     assert "{ edit: true }" not in pagina, "bewerk=1 hoort geen bewerkmodus meer te openen"

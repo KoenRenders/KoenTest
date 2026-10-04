@@ -200,13 +200,13 @@ def test_the_board_sees_the_draft_and_sets_its_audience(client, db_session):
 
 
 def _header_and_card(client, activity_id: int) -> tuple[str, str]:
-    """The title group of the record head and the "Status" row of the Publicatie
-    card, as HTML."""
+    """The title group of the record head and the state of the summary card
+    (K6, #1560 — it was the "Status" row of the Publicatie card), as HTML."""
     page = client.get(f"/admin/activiteiten/{activity_id}").text
     start = page.index("data-title-group")
     header = page[start : page.index("data-head-controls", start)]
-    card = page[page.index(">Publicatie<") :]
-    row = card[card.index(">Status<") : card.index(">Toegang<")]
+    card = page[page.index("data-summary-state") :]
+    row = card[: card.index("data-summary-figures")]
     return header, row
 
 
@@ -236,4 +236,6 @@ def test_a_draft_says_one_status_in_its_header_and_its_card(client, db_session):
     db_session.commit()
     header, row = _header_and_card(client, published.id)
     assert ">Geannuleerd<" in header and ">Gepubliceerd<" not in header, header
-    assert ">Gepubliceerd<" in row and ">geannuleerd<" in row, row
+    # K6 (#1560): the card says one state, the head's — a cancelled activity
+    # reads "Geannuleerd" there too (the Publicatie card showed both badges).
+    assert ">Geannuleerd<" in row and ">Gepubliceerd<" not in row, row

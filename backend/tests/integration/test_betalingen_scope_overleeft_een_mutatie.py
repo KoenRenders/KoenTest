@@ -93,11 +93,11 @@ def world(client, db_session):
 
 def _record_ids(html: str) -> set[str]:
     """The records a list shows: every row has its own edit panel."""
-    # K2 (#1556): a row is its link to the booking's page (the unfold, whose
-    # Alpine expression carried the id, is gone).
+    # K2 (#1556): a row is its link to the booking's page. K6 (#1560): on a
+    # record's tab it is a toggle that unfolds the row in place.
     return set(
         re.findall(r'href="/admin/betalingen/([0-9a-f-]{36})\?terug=[^"]*" data-row-link', html)
-    )
+    ) | set(re.findall(r'data-row-toggle="([0-9a-f-]{36})"', html))
 
 
 def _list_headers(html: str) -> dict:
