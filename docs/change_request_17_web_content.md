@@ -4,7 +4,7 @@
 **Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · on hold — Koen answers B8
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
-**Reading:** A 1491 words · B 2504 · C 4541 — measured on 4 October 2026 with the template's count; the budget is A ≤ 1 500, B ≤ 2 500 — **still over; trim pending**
+**Reading:** A 1491 words · B 2493 · C 4541 — measured on 4 October 2026 with the template's count; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -414,9 +414,9 @@ Dependencies: CR-15's picker is built; the layouts come from CR-11 pilot A or ar
 |---|---|---|
 | 18 Jul 2026 | Trix as the CMS editor, self-hosted, zero Node (#520). | Koen |
 | 16 Sep 2026 | One `ui.rich_text` macro for every editor (CR-05). | Koen |
-| 30 Sep 2026 | A block editor is its own change request; TipTap the EU candidate (CR-11). | Koen |
+| 30 Sep 2026 | A block editor is its own change request (CR-11). | Koen |
 | 1 Oct 2026 | Web content management as a whole, talked through first; no site builder. | Koen |
-| 4 Oct 2026 | **The frame**: the association's sites do not change; the subject is the public site of a company tenant, kept abstract, no screenshots in the document. | Koen |
+| 4 Oct 2026 | **The frame**: the association's sites do not change; the subject is a company tenant's public site, kept abstract. | Koen |
 | 4 Oct 2026 | Form block (R13); cards block (R14); pictures styled by the kit (R4); columns middle-aligned beside a figure. | Koen |
 | 4 Oct 2026 | Content per language as a translation row from phase 1; the public site only (R15). | Koen |
 | 4 Oct 2026 | A JSON door for a page's content, into the draft, validated (R16). | Koen |
