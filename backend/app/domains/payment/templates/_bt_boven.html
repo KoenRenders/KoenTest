@@ -1,29 +1,22 @@
 {% import "_macros.html" as ui %}
-{# Kengetallenband + statustabs (Cobalt-volgorde, #996). Gedeeld: de
-   pagina rendert dit in #bt-boven; _betalingen_lijst.html stuurt het
-   out-of-band mee met elk fragment, zodat de aantallen elke filterwissel
-   volgen. KPI-bedragen neutraal in inkt; alleen een open saldo kleurt —
-   ORANJE, niet Cobalts blauw: Koens uitzondering, oranje is hier de
-   vaste betekenis "er moet nog geld bewegen". #}
+{# What stands above the toolbar and changes with the list. The page renders it
+   in #bt-boven; `_betalingen_lijst.html` sends it along out-of-band with every
+   fragment.
+
+   CR-11 pilot A, K1 (#1555): on /admin/betalingen the key figures moved into
+   the title row (`ui.figures`, refreshed out-of-band as `#list-figures`) and
+   the status tabs became the toolbar's status filter, so here only the scope
+   line is left. An **embedded** Betalingen tab (activity, family,
+   registration) has no title row of its own: its figures stay here, as they
+   were, until K6 (#1560) puts them into the record's summary. #}
 {% if scope and not scope.get("stil") %}
 {% call ui.scope_regel(scope.alles_url) %}{{ scope.soort }}{% if scope.titel %} <a class="font-medium hover:underline" href="{{ scope.titel_url }}">{{ scope.titel }}</a>{% endif %}{% endcall %}
 {% endif %}
 
-{# Golf 10 (#913): het actieve tab-zicht reist met elke filterwissel mee. Het
-   veld staat ín het fragment (vers na elke tabklik) maar hoort via het
-   form-attribuut bij de filterbalk erbuiten — anders viel de lijst bij de
-   eerstvolgende zoekterm terug op "Alle". #}
-<input type="hidden" name="zicht" value="{{ zicht }}" form="bt-filter">
-
-{# De kengetallenband (golf 10, #913 — Cobalt `summary-strip`). Telt over de
-   zicht-BASIS: de tabs snijden de tabel eronder, niet deze cijfers — anders
-   zegt het tab "Betaald" dat er € 0 openstaat. #}
-{# F5 (#996): mobiel drie compacte regels (label links, bedrag rechts) in
-   één kaart; op md+ de vertrouwde kolomindeling. Eén markup met responsieve
-   klassen — geen tweede band die kan gaan afwijken. #}
-{# Compact links (Koen, 19 sep, uit het echte gebruik): op volle breedte
-   dreven de drie cijfers zo ver uiteen dat het overzicht verdween — het oog
-   hoort ze in één blik te vangen. #}
+{% if embedded %}
+{# The figures of an embedded tab — until K6. Counted over the selection before
+   the status filter: the filter cuts the table, not these figures. Orange is
+   this screen's fixed meaning "money still has to move" (#1391, W1). #}
 <div class="kpi-strip mb-4 md:max-w-3xl flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
   <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
     <div class="text-[11px] text-ink-soft" title="{{ _("Netto te betalen") }}">{{ _("Netto te betalen") }} <span class="md:hidden">· {{ kpi.boekingen }} {{ _("boekingen") }}</span></div>
@@ -35,13 +28,6 @@
     <div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ {{ kpi.paid|geld }}</div>
     <div class="hidden md:block text-[11px] text-ink-soft">{{ _("Na terugbetalingen") }}</div>
   </div>
-  {# #1391 (CR-11 W1, Q19; two tiles since Koen's validation, 1 October 2026):
-     the totals live in the tiles and nowhere else on the screen. What is still
-     to come in and what is still to go back are two tiles, each one amount the
-     size of the others and its own number of bookings, and never a net: € 120
-     to receive and € 120 to refund is two things to do. Nothing open: € 0,00.
-     A tile turns orange as soon as its amount is open — orange is this
-     screen's fixed meaning "money still has to move". #}
   <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block" data-open-side="receive">
     <div class="text-[11px] text-ink-soft" title="{{ _("Nog te ontvangen") }}">{{ _("Nog te ontvangen") }} <span class="md:hidden">· {{ kpi.receive_count }} {{ _("boekingen") }}</span></div>
     <div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums {{ 'text-orange-700' if kpi.to_receive > 0 else 'text-ink' }}">€ {{ kpi.to_receive|geld }}</div>
@@ -53,25 +39,4 @@
     <div class="hidden md:block text-[11px] text-ink-soft">{{ kpi.refund_count }} {{ _("boekingen") }}</div>
   </div>
 </div>
-
-{# Statustabs met aantallen (golf 10, #913). In het fragment, zodat de
-   aantallen elke filterwissel meebewegen; elke tab draagt zijn volledige
-   filterstand in zijn eigen URL. hx-include="unset" is verplicht: de tabs
-   staan in #betalingen-lijst en zouden anders diens include-form erven,
-   waarvan het oude zicht-veld het nieuwe uit de tab-URL overschrijft. De
-   href is de volwaardige pagina (werkt zonder JS), de hx-get het fragment.
-
-   De tab merkt zich met `X-Raak-Filter`, net als de filterbalk: dan zet de
-   middleware het PAGINA-adres mét zicht in de adresbalk, en stuurt htmx dat
-   daarna bij élk verzoek mee als `HX-Current-URL`. Zonder die kop leefde het
-   zicht alleen in het geswapte fragment — en dan viel het weg bij de eerste
-   mutatie: "bevestig" vanaf het tabblad Openstaand bracht je terug op Alle,
-   omdat de POST geen formuliervelden draagt en de URL het zicht niet kende
-   (Koen, 21 september 2026). Dat de filterstand een mutatie moet overleven,
-   staat al in de docstring van die middleware; de tabs deden alleen niet mee. #}
-{% set _tabitems = [] %}
-{% for z in zichten %}
-{% set _ignore = _tabitems.append({"label": z.label, "href": z.page_url, "active": z.actief, "count": z.count,
-                                   "attrs": 'hx-get="' ~ z.url ~ '" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers=\'{"X-Raak-Filter":"1"}\''}) %}
-{% endfor %}
-{{ ui.tabs(_tabitems) }}
+{% endif %}

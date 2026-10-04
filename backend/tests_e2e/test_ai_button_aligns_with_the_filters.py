@@ -148,8 +148,12 @@ def _midden(element, naam: str) -> float:
 def _controls(page):
     return {
         "zoekveld": page.locator("#bt-filter input[type=search]").first,
-        "statuskeuzelijst": page.locator("#bt-filter select[name=status]").first,
-        "Export": page.get_by_role("link", name="Export (.ods)").first,
+        # K1 (#1555): the row is the toolbar now — the status filter, Filters
+        # (not on an embedded tab) and `⋯`; the status select and the Export
+        # button left it.
+        "statusfilter": page.locator("#bt-filter [data-status-filter]").first,
+        "Filters": page.locator("#bt-filter [data-filters-button]").first,
+        "meer": page.locator("#bt-filter [data-more-button]").first,
     }
 
 

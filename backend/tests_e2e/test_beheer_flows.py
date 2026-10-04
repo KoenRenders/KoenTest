@@ -297,9 +297,13 @@ def test_de_export_blijft_een_download(admin_page):
     er zichtbaar niets.
     """
     Betalingenscherm(admin_page).open()
-    knop = admin_page.get_by_role("link", name="Export")
+    # K1 (#1555): Export stands under the toolbar's `⋯` and opens with the
+    # toolbar's fields as its query — a navigation, so still a file and no swap.
+    knop = admin_page.locator("[data-more-menu] [role=menuitem]", has_text="Export")
     if knop.count() == 0:
         _ontbreekt("geen exportknop op dit scherm")
+    admin_page.locator("[data-more-button]").first.click()
+    knop.first.wait_for(state="visible")
 
     with admin_page.expect_download(timeout=10000) as download:
         knop.first.click()

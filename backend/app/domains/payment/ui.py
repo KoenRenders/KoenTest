@@ -38,7 +38,15 @@ from app.domains.payment.service import (
 from app.domains.payment.viewmodels import BetalingenView
 from app.i18n import _
 from app.kernel.codes import code_labels
-from app.ui import admin_nav, filterparams, register_origin, templates
+from app.kernel.geld import bedrag as geld
+from app.ui import (
+    PER_PAGE_OPTIONS,
+    admin_nav,
+    filterparams,
+    per_page_from,
+    register_origin,
+    templates,
+)
 
 #: The query parameter that names one booking on the payments list, as the origin
 #: of a record opened from it (#1557). The list keeps its own state beside it.
@@ -164,7 +172,25 @@ def _gezin_scope(db: Session, family_id: int):
 #: Groepen per pagina (#1059). Vijftig, zoals elke andere beheerlijst
 #: (`docs/design-system.md` §2.3) — en GROEPEN en geen rijen, want een
 #: inschrijving met vier boekingen mag niet over twee pagina's breken.
+#: Since K1 (#1555) the toolbar offers 25 · 50 · 100 (`app.ui.PER_PAGE_OPTIONS`);
+#: this is the default, and still groups.
 PER_PAGE = 50
+
+#: The segments of the status filter (CR-11 block 3, Koen, 2 October 2026):
+#: *Alle | Openstaand (n)*. A segment is a state the board acts on; Betaald and
+#: Terugbetaald are done and get none.
+ZICHTEN = ("alle", "openstaand")
+
+
+def _zicht(stand: dict) -> str:
+    """The chosen segment. An unknown value — also "betaald" or "terugbetaald"
+    from a link of before K1 — falls back to "alle" and never fakes a segment;
+    the old `status=openstaand` and `openstaand=1` still land on Openstaand."""
+    zicht = (stand.get("zicht") or "").strip()
+    if zicht in ZICHTEN:
+        return zicht
+    legacy = stand.get("openstaand") == "1" or (stand.get("status") or "") == "openstaand"
+    return "openstaand" if legacy and not zicht else "alle"
 
 
 def _paginakeuze(request, stand: dict) -> int:
@@ -232,7 +258,6 @@ def _view(
     from app.domains.payment.api import (
         aggregate,
         apply_zicht,
-        count_zichten,
         derived_status,
         enriched_records,
         filter_records,
@@ -245,21 +270,15 @@ def _view(
     # Eén gedeelde helper voor de vier modules die hun filter zo lezen.
     stand = filterparams(request)
     context = (stand.get("context") or "all").strip()
-    status = (stand.get("status") or "all").strip()
     q = (stand.get("q") or "").strip()
-    # #669: eigen schakelaar naast de statuskeuzelijst. De oude waarde
-    # status=openstaand blijft werken (bestaande links, opgeslagen export-URL's) en
-    # zet de schakelaar aan.
-    openstaand = stand.get("openstaand") == "1" or status == "openstaand"
-    if status == "openstaand":
-        status = "all"
-    # Golf 10 (#913): de statustabs. Een oude openstaand-link (of -export-URL)
-    # landt op het Openstaand-tab, zodat hij hetzelfde blijft tonen; een
-    # onbekende waarde valt terug op "alle" en vervalst nooit een tab.
-    zicht = (stand.get("zicht") or "").strip()
-    if zicht not in ("alle", "openstaand", "betaald", "terugbetaald"):
-        zicht = "openstaand" if openstaand else "alle"
+    # K1 (#1555): the status select is gone (decision 03, point 4), so a
+    # `status=` in an old link is ignored — the list would otherwise filter on
+    # something no control on the screen shows. A status filter that returns is
+    # one more select in the Filters panel and this one line.
+    status = "all"
     openstaand = False
+    zicht = _zicht(stand)
+    per_page = per_page_from(stand.get("per_page"))
     # #704: `?record=<id>` toont die ene betaling, ongeacht de andere filters.
     # Zo landt een werkbanktaak op de kaart die ze bedoelt, ook als die buiten
     # het huidige filter valt. Alleen hier en niet in de export: een export van
@@ -328,7 +347,6 @@ def _view(
         registration_id=inschrijving_id,
         payables=scope_payables,
     )
-    telling = count_zichten(zicht_basis)
     zichtbaar = zicht_basis if record_id else apply_zicht(zicht_basis, zicht)
 
     # De scope-regel (P13): benoemt de scope en linkt naar het record zelf, met
@@ -400,12 +418,12 @@ def _view(
     # Tab-URLs server-side opgebouwd mét de actieve filterstand: de tabs staan
     # in het fragment (verse aantallen bij elke filterwissel) en een link die
     # zijn stand zelf draagt heeft geen hx-include-samenloop met de filterbalk.
-    from urllib.parse import urlencode
+    from urllib.parse import urlencode, urlsplit
 
     _tabstand: list = [
         ("q", q) if q else None,
         ("context", context) if context != "all" else None,
-        ("status", status) if status != "all" else None,
+        ("per_page", str(per_page)) if per_page != PER_PAGE else None,
     ]
     if inschrijving_id:
         _tabstand.append(("inschrijving", inschrijving_id))
@@ -415,24 +433,22 @@ def _view(
         _tabstand.append(("gezin", gezin_id))
     if stil:
         _tabstand.append(("scope_stil", "1"))
-    zichten = []
-    for _zkey, _zlabel in (
-        ("alle", _("Alle")),
-        ("openstaand", _("Openstaand")),
-        ("betaald", _("Betaald")),
-        ("terugbetaald", _("Terugbetaald")),
-    ):
-        _qs = urlencode([("zicht", _zkey)] + [p for p in _tabstand if p])
-        zichten.append(
-            {
-                "key": _zkey,
-                "label": _zlabel,
-                "count": telling[_zkey],
-                "url": f"/admin/betalingen/lijst?{_qs}",
-                "page_url": f"/admin/betalingen?{_qs}",
-                "actief": _zkey == zicht,
-            }
-        )
+    # The status filter (K1, #1555). "Openstaand" carries its count, and the
+    # count is what the click yields: registration groups, the unit of the
+    # toolbar's "x–y van n", counted with the search and the context filter of
+    # this moment. "Alle" carries none — the toolbar's count says n.
+    segments: list[dict] = [
+        {"value": "alle", "label": _("Alle")},
+        {
+            "value": "openstaand",
+            "label": _("Openstaand"),
+            "count": len(group_cards(apply_zicht(zicht_basis, "openstaand"), records)),
+        },
+    ]
+    # The scope travels with every request of the toolbar, as hidden fields.
+    toolbar_hidden = [p for p in _tabstand if p and p[0] in ("inschrijving", "activiteit", "gezin")]
+    if stil:
+        toolbar_hidden.append(("scope_stil", "1"))
     # #1059: dezelfde stand als de tabs, plus het actieve zicht. De macro plakt er
     # `&page=N` achter. Bewust zonder `hx-include`: de filterbalk serialiseert
     # geen `page`, dus meesturen zou de knop zijn eigen keuze laten overschrijven.
@@ -474,11 +490,24 @@ def _view(
     # tellingen erboven (kpi, tabaantallen, matrix) zijn al berekend over de
     # volledige selectie en blijven dus onaangeroerd.
     totaal_groepen = len(groepen)
-    paginas = max(1, -(-totaal_groepen // PER_PAGE))
+    paginas = max(1, -(-totaal_groepen // per_page))
     # Een verwijdering kan de laatste groep van de laatste pagina weghalen; dan
     # is "pagina 4" van zonet er geen meer.
     page = min(page, paginas)
-    groepen = groepen[(page - 1) * PER_PAGE : page * PER_PAGE]
+    # The way back from a row's registration (CR-11 B7 test 21, R14): the list
+    # as it was left — segment, search, context, page size and page — and that
+    # is the address the browser shows, not one rebuilt here. A GET carries it
+    # as its own query (the toolbar and the pager push exactly that onto the
+    # page path, `main.py:_filter_push_url`); a mutation posts without one, and
+    # then `HX-Current-URL` is the address. An embedded tab keeps today's
+    # address until K6 (#1560) gives the record its own.
+    _query = (
+        request.url.query
+        if request.method == "GET"
+        else urlsplit(request.headers.get("hx-current-url") or "").query
+    )
+    return_url = "/admin/betalingen" + (f"?{_query}" if _query and not stil else "")
+    groepen = groepen[(page - 1) * per_page : page * per_page]
     for groep in groepen:
         groep["kaarten"] = [
             (
@@ -547,12 +576,49 @@ def _view(
         q=q,
         scope=scope,
         zicht=zicht,
-        zichten=zichten,
+        segments=segments,
+        # The three key figures of the title row (block 2, Koen, 2 October
+        # 2026): each one figure, the `warning` tint only on an open amount
+        # above zero. Counted over the selection before the status filter, like
+        # the band they replace — the filter cuts the table, not the figures.
+        figures=[
+            {
+                "value": f"€ {geld(kpi['due'])}",
+                "label": _("Netto te betalen"),
+                "title": _("Wat er in deze selectie te betalen is, na terugbetalingen."),
+            },
+            {
+                "value": f"€ {geld(kpi['to_receive'])}",
+                "label": _("Nog te ontvangen"),
+                "title": _("Wat er in deze selectie nog moet binnenkomen."),
+                "warning": kpi["to_receive"] > 0,
+            },
+            {
+                "value": f"€ {geld(kpi['to_refund'])}",
+                "label": _("Nog terug te betalen"),
+                "title": _("Wat er in deze selectie nog terugbetaald moet worden."),
+                "warning": kpi["to_refund"] > 0,
+            },
+        ],
+        page_sizes=list(PER_PAGE_OPTIONS),
+        # Under `⋯`: the export of what the list shows — the toolbar's fields
+        # travel as its query.
+        toolbar_menu=[
+            {
+                "label": _("Export (.ods)"),
+                "href": "/admin/betalingen/export",
+                "icon": "download",
+                "with_state": True,
+            }
+        ],
+        toolbar_hidden=toolbar_hidden,
+        embedded=stil,
         kpi=kpi,
         page=page,
-        per_page=PER_PAGE,
+        per_page=per_page,
         totaal_groepen=totaal_groepen,
         pager_url=pager_url,
+        return_url=return_url,
         componenten=_comp,
         jaren=_jaren,
         context_top=context_top,
@@ -690,15 +756,11 @@ def betalingen_export(
     # beeld en bestand.
     stand = filterparams(request)
     context = (stand.get("context") or "all").strip()
-    status = (stand.get("status") or "all").strip()
-    openstaand = stand.get("openstaand") == "1" or status == "openstaand"
-    if status == "openstaand":
-        status = "all"
-    # Golf 10 (#913): het tab-zicht reist mee — zelfde afleiding als _view.
-    zicht = (stand.get("zicht") or "").strip()
-    if zicht not in ("alle", "openstaand", "betaald", "terugbetaald"):
-        zicht = "openstaand" if openstaand else "alle"
+    # K1 (#1555): the same derivation as `_view` — the status select is gone,
+    # the segment travels.
+    status = "all"
     openstaand = False
+    zicht = _zicht(stand)
     # P13 (golf 5, #913): de recordscope reist mee, zoals elke filterstand —
     # dezelfde cijfercontrole als in _view.
     inschrijving_id = (stand.get("inschrijving") or "").strip()

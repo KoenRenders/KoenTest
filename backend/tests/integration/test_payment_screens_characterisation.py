@@ -13,6 +13,15 @@ The world holds one record in every state the screens tell apart: paid, partly
 paid, open, a refund still to pay out, a paid-out refund, failed, cancelled — on
 registrations and on a membership — so every branch of `derived_status` and of the
 card grouping is on a screen.
+
+**Re-recorded with CR-11 pilot A, K1 (#1555)**, on purpose: the title row, the
+band of tiles, the status tabs and the filter bar became the key figures and the
+toolbar, and the pager lost its count. Read before committing, as
+`tests/_snapshot.py` asks: of the changed lines in the seven snapshots, none is a
+table line (`<table`, `<tbody`, `<tr`, `<th`, `<td`) — the rows, their states and
+their grouping render as they did. Inside the rows one thing changed, three times,
+on the "Openstaand" screen: the link "Inschrijving" now carries the list's state
+in its `?terug=` (the way back, CR-11 B7 test 21).
 """
 
 from __future__ import annotations

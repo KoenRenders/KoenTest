@@ -29,10 +29,20 @@ simulatie en niet de knop. Een test die het onderwerp omzeilt, overleeft het
 verwijderen ervan. Daarom leest `_tabknop` de `hx-get` én de `hx-headers` nu uit
 de gerenderde opmaak; wat de browser zou versturen, komt uit het scherm en niet
 uit dit bestand.
+
+**CR-11 pilot A, K1 (#1555).** The status tabs became the toolbar's status
+filter: a radio in the toolbar's form, and the form marks its requests with
+`X-Raak-Filter`. The road is the same and so is the lesson: `_toolbar_request`
+reads the form's `hx-get` and `hx-headers` from the rendered markup. Proven red
+on this form: with `hx-headers` taken out of `ui.toolbar`, both tests fail (no
+`HX-Push-Url`; the confirmed booking is still in the list, which fell back to
+"Alle"). Only "Openstaand" is left to choose — Betaald and Terugbetaald have no
+segment any more.
 """
 
 from __future__ import annotations
 
+import json
 import re
 from decimal import Decimal
 
@@ -43,8 +53,6 @@ from app.domains.payment.api import PaymentRecord
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
-
-ZICHTEN = ("openstaand", "betaald", "terugbetaald")
 
 
 def _finance(db):
@@ -63,32 +71,19 @@ def _login(client, db):
     return {"X-CSRF-Token": csrf_token_for(waarde)}
 
 
-def _tabknop(html: str, zicht: str) -> tuple[str, dict]:
-    """Wat de browser zou doen als je dít tabblad aanklikt.
-
-    De `hx-get` én de `hx-headers` komen uit de GERENDERDE opmaak, niet uit deze
-    test. Dat is het verschil tussen een simulatie en een aanname: zet ik de kop
-    zelf, dan blijft de test groen terwijl de knop hem niet draagt — en dat is
-    precies wat er bij de eerste versie van dit bestand gebeurde.
-    """
-    import json
-
-    tag = re.search(rf'<a[^>]*hx-get="[^"]*zicht={zicht}[^"]*"[^>]*>', html)
-    assert tag, f"geen tabknop gevonden voor zicht={zicht}"
-    tekst = tag.group(0).replace("&amp;", "&")
-    url = re.search(r'hx-get="([^"]+)"', tekst).group(1)
-    koppen = re.search(r"hx-headers='([^']+)'", tekst)
-    return url, (json.loads(koppen.group(1)) if koppen else {})
-
-
-def _actief_tabblad(html: str) -> str | None:
-    """Welk tabblad draagt de actieve opmaak? Eén per antwoord."""
-    actief = [
-        z
-        for z, klasse in re.findall(r'zicht=(\w+)[^>]*class="([^"]*)"', html)
-        if "font-semibold" in klasse
-    ]
-    return actief[0] if actief else None
+def _toolbar_request(html: str, zicht: str) -> tuple[str, dict]:
+    """What the browser sends when this segment is chosen: the toolbar form's
+    own `hx-get` and `hx-headers`, read from the RENDERED markup, with the
+    form's fields as the query. Setting the header here by hand would keep the
+    test green while the form does not carry it — which is what happened to the
+    first version of this file."""
+    form = re.search(r'<form id="bt-filter"[^>]*>', html)
+    assert form, "the toolbar form is not on the page"
+    assert f'name="zicht" value="{zicht}"' in html, f"no segment for zicht={zicht}"
+    tag = form.group(0)
+    url = re.search(r'hx-get="([^"]+)"', tag).group(1)
+    koppen = re.search(r"hx-headers='([^']+)'", tag)
+    return f"{url}?zicht={zicht}&q=", (json.loads(koppen.group(1)) if koppen else {})
 
 
 @pytest.fixture
@@ -106,15 +101,15 @@ def openstaande_betaling(db_session):
     return rij
 
 
-def test_de_tab_zet_zijn_zicht_in_de_adresbalk(client, db_session, openstaande_betaling):
-    """De reparatie zelf: een tabklik pusht het pagina-adres mét zicht.
+def test_het_segment_zet_zijn_zicht_in_de_adresbalk(client, db_session, openstaande_betaling):
+    """Choosing a segment pushes the page address with the segment in it.
 
-    Zonder deze kop weet het volgende verzoek niet waar je stond — en dat
-    'volgende verzoek' is elke bevestiging, elke terugbetaling, elke wijziging.
+    Without that the next request does not know where you stood — and that
+    'next request' is every confirmation, every refund, every change.
     """
     _login(client, db_session)
     pagina = client.get("/admin/betalingen").text
-    url, koppen = _tabknop(pagina, "openstaand")
+    url, koppen = _toolbar_request(pagina, "openstaand")
 
     antwoord = client.get(
         url,
@@ -125,27 +120,22 @@ def test_de_tab_zet_zijn_zicht_in_de_adresbalk(client, db_session, openstaande_b
         },
     )
 
-    assert antwoord.headers.get("HX-Push-Url") == "/admin/betalingen?zicht=openstaand", (
-        "de tabknop draagt geen X-Raak-Filter, dus de middleware duwt niets — en "
-        f"dan weet het volgende verzoek niet waar je stond. Koppen: {koppen}"
+    assert antwoord.headers.get("HX-Push-Url") == "/admin/betalingen?zicht=openstaand&q=", (
+        "the toolbar carries no X-Raak-Filter, so the middleware pushes nothing — and "
+        f"then the next request does not know where you stood. Headers: {koppen}"
     )
 
 
-@pytest.mark.parametrize("zicht", ZICHTEN)
-def test_een_bevestiging_laat_je_op_hetzelfde_tabblad(
-    client, db_session, openstaande_betaling, zicht
-):
-    """Koens melding, voor elk tabblad — hij vroeg expliciet om de andere ook.
-
-    De volgorde is de zijne: pagina laden, tabblad kiezen, bevestigen. De URL
-    die de mutatie meestuurt is die welke de TAB pushte, niet één die wij
-    verzinnen.
-    """
+def test_een_bevestiging_laat_je_op_openstaand(client, db_session, openstaande_betaling):
+    """Koen's report, in his order: load the page, choose Openstaand, confirm.
+    The URL the mutation sends along is the one the TOOLBAR pushed, not one made
+    up here. After the confirmation the list is still "Openstaand": the booking
+    that was just paid has left it. On "Alle" it would still be there."""
     kop = _login(client, db_session)
     pagina = client.get("/admin/betalingen").text
-    url, koppen = _tabknop(pagina, zicht)
+    url, koppen = _toolbar_request(pagina, "openstaand")
 
-    tabklik = client.get(
+    keuze = client.get(
         url,
         headers={
             **koppen,
@@ -153,15 +143,18 @@ def test_een_bevestiging_laat_je_op_hetzelfde_tabblad(
             "HX-Current-URL": "http://testserver/admin/betalingen",
         },
     )
-    # Wat de browser hierna in de adresbalk heeft staan — en dus meestuurt.
-    geduwd = tabklik.headers.get("HX-Push-Url", "/admin/betalingen")
+    rij = f"/admin/betalingen/{openstaande_betaling.id}/bevestigen"
+    assert rij in keuze.text, "the open booking is not on Openstaand, so this proves nothing"
+    # What the browser has in its address bar after this — and so sends along.
+    geduwd = keuze.headers.get("HX-Push-Url", "/admin/betalingen")
 
     na = client.post(
-        f"/admin/betalingen/{openstaande_betaling.id}/bevestigen",
+        rij,
         headers={**kop, "HX-Request": "true", "HX-Current-URL": f"http://testserver{geduwd}"},
     )
 
     assert na.status_code == 200, na.text[:300]
-    assert _actief_tabblad(na.text) == zicht, (
-        f"na de bevestiging staat '{_actief_tabblad(na.text)}' actief in plaats van '{zicht}'"
+    assert f"/admin/betalingen/{openstaande_betaling.id}/" not in na.text, (
+        "after the confirmation the paid booking is still listed: the list fell back to Alle"
     )
+    assert re.search(r'id="bt-filter-count"[^>]*>\s*0–0 van 0\s*<', na.text)

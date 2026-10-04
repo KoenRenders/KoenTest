@@ -157,8 +157,10 @@ def test_betalingen_activiteitscope_toont_enkel_deze_activiteit(client, db_sessi
     assert "Ander Feest" not in html
     assert "Alle bekijken" in html
     assert f'name="activiteit" value="{a1.id}"' in html
-    # De exportknop draagt de scope mee.
-    assert f"&amp;activiteit={a1.id}" in html
+    # De export draagt de scope mee: K1 (#1555) zette hem onder `⋯`, waar hij
+    # opent met de velden van de werkbalk — en de scope is er één van (de regel
+    # hierboven).
+    assert "/admin/betalingen/export?' + new URLSearchParams(new FormData(" in html
 
 
 def test_betalingen_activiteitscope_vervalst_id_lekt_niets(client, db_session):

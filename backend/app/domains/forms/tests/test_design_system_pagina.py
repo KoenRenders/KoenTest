@@ -49,6 +49,7 @@ GEEN_DEMO = {
     "toast_host": "hoort in de schil; twee hosts op één pagina vangen elkaars toasts op",
     "confirm_host": "idem — de schil draagt hem",
     "toast_oob": "een out-of-band antwoordfragment, geen zichtbaar element op deze pagina",
+    "toolbar_oob": "an out-of-band fragment for the toolbar; the toolbar itself is in section 8e",
     "env_banner": "de schil toont hem al bovenaan elke omgeving behalve PROD",
     "card": "het omhulsel van elke sectie hieronder — overal in gebruik",
     "page_header": "staat bovenaan deze pagina zelf",
