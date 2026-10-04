@@ -188,6 +188,7 @@ from app.domains.forms.service import (  # noqa: E402,F401
     delete_submission,
     export_definition,
     find_form,
+    form_button_target,
     form_page_context,
     form_questions,
     get_form,

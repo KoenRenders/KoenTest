@@ -180,6 +180,10 @@ PLACEHOLDER_LABELS = {
     # code after the colon; the colon is the only parameter form there is.
     "tenants": "De accounts met hun sites, met links (zonder account: onder Overige)",
     "tenants:raak": "De sites van één account; vervang raak door de code van het account",
+    # #1567: a button to one of this tenant's forms, by its slug; the label after
+    # the bar is optional (without it, the form's title).
+    "form:berichten": "Een knop naar een formulier; vervang berichten door de slug van het formulier",
+    "form:berichten|Contacteer ons": "Dezelfde knop met een eigen tekst na het streepje",
 }
 
 _MAANDEN = [
@@ -288,6 +292,51 @@ def _sites_html(account_code: Optional[str], db=None) -> str:
             db.close()
 
 
+#: `{{form:<slug>}}` and `{{form:<slug>|<button label>}}` (#1567), in the
+#: family of `{{tenants}}`: a parameter after the colon, built after the
+#: sanitiser. The label runs to the closing braces and holds none itself.
+_FORM = re.compile(r"\{\{form:([a-z0-9]+(?:[-_][a-z0-9]+)*)(?:\|([^{}]*))?\}\}")
+
+
+def _form_button_html(slug: str, label: Optional[str], db=None) -> str:
+    """A button to this tenant's form `slug`, or nothing (#1567).
+
+    Nothing — never the raw code and never a button that leads nowhere — when
+    the form does not exist in this tenant, is not open, or (the contact form)
+    cannot take a message: `forms.api.form_button_target` decides. Without a
+    label the button carries the form's title.
+
+    The button is the kit's (`ui.btn_secondary`), so it looks like the one on
+    the association's home. The label is text: what an author typed arrives
+    here already through the sanitiser, with its entities; it is unescaped once
+    and the macro escapes it again, so markup in a label shows as typed and is
+    never executed. The address gets the tenant's prefix (`path_for`).
+    """
+    from app.database import SessionLocal
+    from app.domains.forms.api import form_button_target
+    from app.ui import path_for, templates
+
+    own = db is None
+    if own:
+        db = SessionLocal()
+    try:
+        target = form_button_target(db, slug)
+    finally:
+        if own:
+            db.close()
+    if target is None:
+        return ""
+    title, path = target
+    text = unescape(label).strip() if label and label.strip() else title
+    # The macro module's attributes are the macros; mypy knows only the class.
+    button = getattr(templates.env.get_template("_macros.html").module, "btn_secondary")
+    return (
+        # A span, not a block: an author types the code inside a paragraph.
+        f'<span data-form-button="{escape(slug)}" class="inline-block">'
+        f"{button(text, href=path_for(path))}</span>"
+    )
+
+
 def render_cms_content(content: Optional[str], db=None) -> Optional[str]:
     """Vervang elke ``{{code}}`` door de bijbehorende configuratiewaarde en
     sanitize het resultaat (#476) — dé functie op elk publiek CMS-renderpunt.
@@ -299,4 +348,6 @@ def render_cms_content(content: Optional[str], db=None) -> Optional[str]:
     # Before sanitisation (#1173): that step removes the figure holding the alt.
     content = sanitize_cms_html(image_attributes_from_attachment(content)) or ""
     # After it (#1543): the site cards are built and escaped in code — see `_sites_html`.
-    return _SITES.sub(lambda m: _sites_html(m.group(1), db), content)
+    content = _SITES.sub(lambda m: _sites_html(m.group(1), db), content)
+    # And the form buttons (#1567), the same way.
+    return _FORM.sub(lambda m: _form_button_html(m.group(1), m.group(2), db), content)
