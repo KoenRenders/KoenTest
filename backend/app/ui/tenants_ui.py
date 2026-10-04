@@ -185,6 +185,8 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
         # #1542 (Koen): the account each site hangs under, the platform included
         # once it has one; no account, no badge.
         "account_of": _account_names(db, units),
+        # #1554: the organisation behind the site, where it is not the tenant's own.
+        "site_org_of": _site_org_names(db, units),
         # #1523: a new tenant takes one of the creatable kinds, never PLATFORM.
         "kind_options": _creatable_kind_options(),
         # #854: the platform is in this list but is no unit; the screen marks
@@ -222,6 +224,18 @@ def _account_names(db: Session, units) -> dict[int, str]:
 
     names = {o["id"]: o["name"] for o in organization_options(db) if o["org_type"] == "ACCOUNT"}
     return {u.id: names[u.parent_id] for u in units if u.parent_id in names}
+
+
+def _site_org_names(db: Session, units) -> dict[int, str]:
+    """The name of the organisation behind each listed site, by the site's id,
+    for the sites that show another organisation's data (#1554). Asked of the
+    resolver the footer uses (#1550), so the card and the site cannot disagree;
+    a site on its own data is left out."""
+    from app.kernel.tenant_config import site_name_default, site_organization_id
+
+    return {
+        u.id: site_name_default(db, u.id) for u in units if site_organization_id(db, u.id) != u.id
+    }
 
 
 def _creatable_kind_options() -> list[tuple[str, str]]:

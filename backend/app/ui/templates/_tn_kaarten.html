@@ -9,6 +9,12 @@
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="font-semibold text-ink">{{ u.name }}</div>
+        {# #1554 (Koen): the organisation behind the site (#1550), only when it is
+           not the tenant's own — a grey line, not a badge, so it is not taken
+           for the blue account badge. #}
+        {% if u.id in site_org_of %}
+        <div class="text-sm text-ink-soft" data-site-org>{{ _("Organisatie: %(naam)s", naam=site_org_of[u.id]) }}</div>
+        {% endif %}
         {# #854: het platform staat in deze lijst omdat het dezelfde instellingen
            draagt als een afdeling, maar het is er geen. Vandaar de code ZONDER
            schuine streep: `/platform` opent geen site, want `tenant_lookup`
