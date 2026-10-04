@@ -33,6 +33,12 @@ from app.domains.mdm.api import (
 )
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
+# #1549 (Koen's text): one message per number for every structural refusal.
+REFUSED = {
+    "enterprise_number": "Dit ondernemingsnummer heeft niet de juiste structuur. Kijk het na.",
+    "vat_number": "Dit btw-nummer heeft niet de juiste structuur. Kijk het na.",
+}
+
 
 @pytest.mark.parametrize(
     "spelling", ["BE 0123.456.749", "BE0123456749", "be0123456749", "0123 456 749"]
@@ -50,29 +56,25 @@ def test_a_foreign_vat_number_is_kept_as_typed(db_session):
 
 
 @pytest.mark.parametrize(
-    "text, reason",
-    [("BE 123", "BE en tien cijfers"), ("BE 0123.456.789", "controlegetal klopt niet")],
+    "text",
+    ["BE 0123.456.789", "BE 0123.456.abc", "BE 123", "BE 01234567490"],
+    ids=["check-number", "letters", "too-short", "too-long"],
 )
-def test_a_bad_belgian_vat_number_is_refused_and_nothing_is_written(db_session, text, reason):
+def test_a_bad_belgian_vat_number_is_refused_and_nothing_is_written(db_session, text):
     account = create_account(db_session, name="Bakkerij", code="bakkerij-btw-fout")
     with pytest.raises(OngeldigeInstelling) as refused:
         save_organization(db_session, account.id, {"name": "Nieuwe naam", "vat_number": text})
-    assert reason in refused.value.fouten["vat_number"]
+    assert refused.value.fouten["vat_number"] == REFUSED["vat_number"]
     assert db_session.get(Organization, account.id).name == "Bakkerij"
     assert not organization_details(db_session, account.id)["vat_number"]
 
 
 @pytest.mark.ui_serverrendered
 @pytest.mark.parametrize(
-    "field, text, reason",
-    [
-        ("enterprise_number", "123", "tien cijfers"),
-        ("vat_number", "BE 0123.456.789", "controlegetal klopt niet"),
-    ],
+    "field, text",
+    [("enterprise_number", "123"), ("vat_number", "BE 0123.456.789")],
 )
-def test_the_reason_stands_below_its_field(
-    client, platform_workspace, db_session, field, text, reason
-):
+def test_the_reason_stands_below_its_field(client, platform_workspace, db_session, field, text):
     account = create_account(
         db_session, name="Bakkerij", code=f"bakkerij-veld-{field.replace('_', '-')}"
     )
@@ -94,7 +96,7 @@ def test_the_reason_stands_below_its_field(
     field_at = html.index(f'id="org-{field}"')
     error_at = html.index(f'id="org-{field}-fout"')
     assert field_at < error_at, "the reason stands below its field"
-    assert reason in html[error_at : html.index("</p>", error_at)]
+    assert REFUSED[field] in html[error_at : html.index("</p>", error_at)]
     tag = html[html.rindex("<input", 0, field_at) : html.index(">", field_at)]
     assert 'aria-invalid="true"' in tag
     assert f'aria-describedby="org-{field}-fout"' in tag

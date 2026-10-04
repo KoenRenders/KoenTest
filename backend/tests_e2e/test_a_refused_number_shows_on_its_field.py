@@ -84,7 +84,11 @@ def test_the_reason_stands_on_the_field_in_view(browser_context, screen, field, 
     error = page.evaluate(_IN_VIEW, f"org-{field}-fout")
     print("MEASURE", screen, field, error)
     assert error, "no reason below the field"
-    assert "controlegetal klopt niet" in error["text"]
+    # #1549 (Koen's text): one message for every structural refusal.
+    assert (
+        error["text"]
+        == f"Dit {'ondernemingsnummer' if field == 'enterprise_number' else 'btw-nummer'} heeft niet de juiste structuur. Kijk het na."
+    )
     assert 0 <= error["top"] and error["bottom"] <= error["height"], (
         f"the reason is out of view: {error}"
     )

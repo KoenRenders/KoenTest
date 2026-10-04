@@ -39,6 +39,8 @@ from app.domains.mdm.enterprise_number import (
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 VALID = "0123456749"  # 97 - 01234567 % 97 = 49
+# #1549 (Koen's text): one message for every structural refusal.
+REFUSED = "Dit ondernemingsnummer heeft niet de juiste structuur. Kijk het na."
 
 
 @pytest.mark.parametrize(
@@ -79,16 +81,17 @@ def test_a_valid_number_is_stored_as_its_ten_digits(db_session, spelling):
 
 
 @pytest.mark.parametrize(
-    ("text", "reason"),
-    [("123", "tien cijfers"), ("0123.456.789", "controlegetal klopt niet")],
+    "text",
+    ["0123.456.789", "0123.456.abc", "123", "01234567490"],
+    ids=["check-number", "letters", "too-short", "too-long"],
 )
-def test_a_bad_number_is_refused_and_nothing_is_written(db_session, text, reason):
+def test_a_bad_number_is_refused_and_nothing_is_written(db_session, text):
     account = create_account(db_session, name="Bakkerij", code="bakkerij-1517")
     with pytest.raises(OngeldigeInstelling) as refused:
         save_organization(
             db_session, account.id, {"name": "Nieuwe naam", "enterprise_number": text}
         )
-    assert reason in refused.value.fouten["enterprise_number"]
+    assert refused.value.fouten["enterprise_number"] == REFUSED
     # Refused first of all: nothing of the form touched the organisation, not
     # even in this session.
     assert db_session.get(Organization, account.id).name == "Bakkerij"
@@ -111,5 +114,5 @@ def test_the_screen_names_the_field_and_the_reason(client, platform_workspace, d
         headers={"X-CSRF-Token": csrf_token_for(value)},
     )
 
-    assert "Ondernemingsnummer: Een ondernemingsnummer heeft tien cijfers" in answer.text
+    assert f"Ondernemingsnummer: {REFUSED}" in answer.text
     assert 'value="123"' in answer.text, "what was typed stays in the field"

@@ -571,8 +571,8 @@
   {# #1545: the refusal of one field, below it — in view where the banner is not. #}
   <div class="mt-4 max-w-sm">{{ ui.label(_("Ondernemingsnummer"), "ds-fout") }}
     {{ ui.input_control("ds_fout", id="ds-fout", value="0123.456.789", cls="w-full",
-                        attrs=ui.field_error_attrs("ds-fout", _("Het controlegetal klopt niet."))) }}
-    {{ ui.field_error("ds-fout", _("Het controlegetal klopt niet.")) }}</div>
+                        attrs=ui.field_error_attrs("ds-fout", _("Dit ondernemingsnummer heeft niet de juiste structuur. Kijk het na."))) }}
+    {{ ui.field_error("ds-fout", _("Dit ondernemingsnummer heeft niet de juiste structuur. Kijk het na.")) }}</div>
   <div class="mt-4 space-y-2">
     {{ ui.toast(_("Opgeslagen."), kind="success") }}
     {{ ui.toast(_("Er ging iets mis."), kind="error") }}
