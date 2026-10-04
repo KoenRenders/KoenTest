@@ -22,6 +22,8 @@
           <span class="font-mono text-xs text-ink-soft">/{{ u.code }}</span>
           {% endif %}
           {% if u.id in kind_of %}{{ ui.badge(kind_of[u.id]) }}{% endif %}
+          {# #1542: the account it hangs under, blue as an account in Organisaties. #}
+          {% if u.id in account_of %}{{ ui.badge(account_of[u.id], "blue") }}{% endif %}
           {% if u.is_active %}{{ ui.badge(_("actief"), "green") }}{% else %}{{ ui.badge(_("inactief")) }}{% endif %}
         </div>
       </div>

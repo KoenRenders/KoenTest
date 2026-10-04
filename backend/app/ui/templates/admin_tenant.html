@@ -31,14 +31,17 @@
 {# #1535: the target literally per scope — the rules gate walks it to its route. #}
 <form id="tn-form" {% if own %}hx-post="/admin/instellingen"{% else %}hx-post="/admin/tenants/{{ tenant_id }}"{% endif %} hx-target="body" hx-swap="innerHTML"
       class="space-y-4 max-w-2xl">
-  {# #1533: the kind, saved with the one Opslaan; the modules do not follow it. #}
-  {% if kind_options %}
+  {# #1533: the kind, saved with the one Opslaan; the modules do not follow it.
+     #1542: the platform has the account only — its kind is fixed (shown above). #}
+  {% if kind_options or account_options %}
   <section class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" data-tenant-kind>
+    {% if kind_options %}
     {{ ui.label(_("Type"), "t-kind") }}
     {{ ui.chips("kind", kind_options, kind_value) }}
     <p class="text-xs text-ink-soft mt-1">{{ _("De modules blijven zoals ze zijn; pas ze hieronder aan als het nieuwe type andere nodig heeft.") }}</p>
+    {% endif %}
     {# #1533 (Koen): the account it hangs under; modules and data stay. #}
-    <div class="mt-4">{{ ui.label(_("Account"), "t-account") }}
+    <div{% if kind_options %} class="mt-4"{% endif %}>{{ ui.label(_("Account"), "t-account") }}
       {% call ui.select_control("account_id", cls="w-full", attrs='id="t-account"') %}
         {% if not account_value %}<option value="" selected>{{ _("Geen account") }}</option>{% endif %}
         {% for value, name in account_options %}<option value="{{ value }}"{% if value == account_value %} selected{% endif %}>{{ name }}</option>{% endfor %}

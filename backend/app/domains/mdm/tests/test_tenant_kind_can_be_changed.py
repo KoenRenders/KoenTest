@@ -204,7 +204,7 @@ def test_an_operator_moves_a_tenant_to_another_account(
     assert "Account Een" not in groups, "an account left without a tenant drops off"
 
 
-def test_only_an_active_account_is_taken_and_the_platform_has_none(
+def test_only_an_active_account_is_taken_for_a_tenant_and_for_the_platform(
     client, platform_workspace, db_session
 ):
     gone = create_account(db_session, name="Account Weg", code="weg-1533")
@@ -224,7 +224,97 @@ def test_only_an_active_account_is_taken_and_the_platform_has_none(
         .execution_options(include_all_tenants=True)
         .one()
     )
-    assert 'name="account_id"' not in client.get(f"/admin/tenants/{platform.id}").text
+    # #1542: the platform may hang under an account — an active one, as any tenant.
+    editor = client.get(f"/admin/tenants/{platform.id}").text
+    assert 'name="account_id"' in editor and 'name="kind"' not in editor, "account yes, kind no"
     refused = _save(client, csrf, platform.id, account_id=str(gone.id))
     assert refused.status_code == 422
-    assert "Het platform hangt onder geen account." in refused.text
+    assert "Kies een actief account." in refused.text
+    db_session.expire_all()
+    assert db_session.get(Organization, platform.id).parent_id is None
+
+
+# ── #1542: the platform under an account ─────────────────────────────────────
+
+
+def _the_platform(db) -> Organization:
+    return (
+        db.query(Organization)
+        .filter(Organization.org_type == OrganizationType.PLATFORM)
+        .execution_options(include_all_tenants=True)
+        .one()
+    )
+
+
+def test_the_platform_hangs_under_an_account_and_stays_the_platform(
+    client, platform_workspace, db_session, caplog
+):
+    """The platform under an account that also holds a tenant (#1542). The
+    platform keeps its kind, its modules and its resolution. Whether a list of
+    accounts shows the platform is #1543's to decide; here only that the tenant
+    stands under its account.
+    """
+    from app.domains.mdm.api import enabled_modules
+
+    account = create_account(db_session, name="Account Drie", code="drie-1542")
+    create_tenant(db_session, name="Merkclub", code="merkclub-1542", parent_id=account.id)
+    db_session.commit()
+    platform = _the_platform(db_session)
+    modules_before = enabled_modules(platform.id, db=db_session)
+    csrf = _login(client, db_session, "operator5-1542@example.com", "OPERATOR")
+
+    with caplog.at_level(logging.INFO, logger="app.domains.mdm.tenant_service"):
+        saved = _save(client, csrf, platform.id, account_id=str(account.id))
+    assert saved.status_code == 200, saved.text[-400:]
+    db_session.expire_all()
+    platform = _the_platform(db_session)
+    assert platform.parent_id == account.id
+    assert platform.kind is TenantKind.PLATFORM
+    assert enabled_modules(platform.id, db=db_session) == modules_before, "its own modules"
+    assert any(
+        f"tenant account changed: tenant={platform.id} code={platform.code} None -> drie-1542"
+        in r.getMessage()
+        for r in caplog.records
+    )
+
+    client.cookies.clear()
+    groups = _landing_groups(client)
+    print("MEASURE", groups)
+    assert "Merkclub" in groups["Account Drie"], "the tenant under its account"
+
+    # The platform host still resolves to the platform: its menu, not a tenant's.
+    csrf = _login(client, db_session, "operator6-1542@example.com", "OPERATOR")
+    menu = client.get("/admin").text
+    assert 'href="/admin/tenants"' in menu and 'href="/admin/instellingen"' not in menu
+
+
+def test_an_admin_cannot_change_the_platforms_account(client, platform_workspace, db_session):
+    account = create_account(db_session, name="Account Vier", code="vier-1542")
+    db_session.commit()
+    platform = _the_platform(db_session)
+    csrf = _login(client, db_session, "admin-1542@example.com", "ADMIN")
+    assert _save(client, csrf, platform.id, account_id=str(account.id)).status_code == 403
+    db_session.expire_all()
+    assert _the_platform(db_session).parent_id is None
+
+
+def test_the_tenant_list_shows_each_sites_account(client, platform_workspace, db_session):
+    """#1542 (Koen): an account badge beside the kind badge, the platform's too once
+    it has an account; a site without an account has no account badge."""
+    account = create_account(db_session, name="Account Zeven", code="zeven-1542")
+    create_tenant(db_session, name="Zevenclub", code="zevenclub-1542", parent_id=account.id)
+    create_tenant(db_session, name="Losse Zeven", code="los-zeven-1542")
+    platform = _the_platform(db_session)
+    platform.parent_id = account.id
+    db_session.commit()
+    _login(client, db_session, "operator7-1542@example.com", "OPERATOR")
+
+    html = client.get("/admin/tenants").text
+
+    def card(name: str) -> str:
+        start = html.index(f'text-ink">{name}</div>')  # the card, not the sidebar brand
+        return html[start : html.index("</a>", start)]
+
+    assert ">Account Zeven</span>" in card("Zevenclub")
+    assert ">Account Zeven</span>" in card(platform.name), "the platform's account too"
+    assert "Account" not in card("Losse Zeven"), "no account, no badge"
