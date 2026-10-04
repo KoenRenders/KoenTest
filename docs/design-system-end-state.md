@@ -485,9 +485,26 @@ One per screen (or per sub-record with its own lifecycle). Right-aligned:
 "Annuleren" as a text button, "Opslaan" as the primary; "Verwijderen" as a
 red text action at the far left. Labels are the macro's defaults; a custom
 primary label only for a named consequence ("Definitief importeren",
-"Verstuur naar 312 abonnees"). `sm`. Sticky at the bottom on a phone,
-primary full width. Never in a card header, never inside a repeating-group
-row. [22, 46, 50]
+"Verstuur naar 312 abonnees"). `sm`. Never in a card header, never inside
+a repeating-group row. [22, 46, 50]
+
+**Decided with block 9** (Koen, 4 October 2026, on ChatGPT's brief-09
+answer): the bar is 64 px high, as wide as the form column, white with a
+thin top line, under the last section (the collapsed rare settings), 24 px
+below it; **sticky on a desktop too** — 16 px above the window's bottom
+while the form is longer than the window, in the flow at the form's end;
+only in edit mode; in edit mode Verwijderen lives in the bar and not also in
+Acties (in read mode in Acties). On a phone: 121 px at the bottom, Opslaan
+full width on the first line (44 px), Verwijderen left and Annuleren right
+on the second, the content padded by bar height + 24 px. **One save**
+writes the record with its groups (dates, components, products,
+organisers) in one transaction — a card is not a transaction boundary; a
+sub-record with its own lifecycle (a payment, a registration line, a
+membership) saves on its own screen; the household's board-member select
+no longer saves at once but with the household. **Keyboard**: Ctrl/⌘+S
+saves while in edit mode (the browser's save-page is suppressed), Enter in
+a one-line field submits as the browser does, Esc closes the top-most
+dialog or menu only — never the form, so no change is lost by one key.
 
 ### 3.7 `pager(page, size, total)`
 
@@ -701,15 +718,35 @@ whose label names the consequence; leaving before it changes nothing.
 
 ### 3.18 States — designed, not left to chance
 
-Every layout has these states drawn in the design-system page: a
-**validation error** on save (the bar stays, the banner at the top of the
-form, the first refused field scrolled into view and marked, every typed
-value kept); **saving** (the primary shows a spinner and is disabled, the
-form stays editable-looking but locked); **save failed** (the error banner
-with the reason, P7, nothing lost); **empty** (one sentence and the create
-action, §2.8); **no access** (the page says so and offers the way back);
-**autosave** on a document ("opgeslagen om 21:14", "opslaan…",
-"niet opgeslagen — opnieuw proberen" in the facts line).
+Every layout has these states drawn in the design-system page, decided
+with block 9 (Koen, 4 October 2026): a **validation error** on save — the
+bar stays, a banner at the top of the form ("Opslaan kan nog niet:
+controleer 2 velden.", each error a link to its field, "Je andere
+wijzigingen zijn behouden."; soft danger tint, 3 px accent left, 16 px
+padding), the first refused field scrolled into view and focused with its
+message under it and a coloured border, every typed value kept; **saving**
+— "Opslaan…" with a spinner on the primary, the whole form inert but
+looking the same; **save failed** — "Opslaan is niet gelukt." with the
+reason, nothing lost, no toast, the button Opslaan again; **saved** — the
+record in read mode, the toast "Opgeslagen" with a check on `ink`, 4 s,
+top right under the top bar on a desktop and at the bottom on a phone;
+**cancel with changes** — "Wijzigingen weggooien?" with *Verder bewerken*
+(focused, **filled**) and *Wijzigingen weggooien* (outline); **leaving
+with changes** on a navigation click — "Deze pagina verlaten?" with
+*Blijven* (focused, filled) and *Weggooien* (outline) that performs the
+original click; never a third "Opslaan en verlaten"; the browser's own
+prompt on closing the tab; **delete** — the kit's dialog naming the
+record, Annuleren focused, "Definitief verwijderen" filled red, the
+consequence sentence true to the service (a C1 premise: what a delete
+does with registrations and payments, or whether it is refused); **a state
+command** from Acties or a row (Terug naar concept, Activiteit annuleren,
+Bevestig) — a lighter dialog naming its consequence with a filled brand
+button, then a toast and the changed status badge; **empty** (one sentence
+and the create action); **no access** — a quiet page with one sentence
+and "Terug naar <lijst>", no record data; **autosave** on a document
+("opgeslagen om 21:14", "opslaan…", "niet opgeslagen — opnieuw proberen"
+in the facts line, no action bar; "opgeslagen" only after the server
+confirmed the latest version).
 
 ### 3.19 Buttons — the hierarchy and the words
 
