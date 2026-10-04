@@ -139,17 +139,23 @@ def test_werkbank_lijst_klikt_door_naar_full_page():
 # ── #598 microcopy ────────────────────────────────────────────────────────────
 
 
-def test_header_woordmerk_is_raak():
-    """Header-woordmerk = 'RaaK' (kapitale R/K, aa vergroot), niet 'RAAK' via uppercase (#605).
+def test_header_shows_the_name_as_typed_not_in_capitals():
+    """Without a logo the header shows the tenant's name as it is written, not
+    in all caps (#605).
 
-    De schaalfactor is 1.3em sinds #625: capHeight 690 / xHeight 530 van Radio Canada
-    Big zet de "aa" exact op kapitaalhoogte. Met de vorige 1.4 stond ze 7,5 % te hoog.
+    Until #1588 this was the typed "RaaK" wordmark with an enlarged "aa" (#625).
+    CR-11 decision 11 dropped the typed wordmark: the name stands there in the
+    display face, in its own spelling — so `uppercase` stays out of the brand.
     """
     site = (APP / "ui" / "templates" / "site_base.html").read_text()
-    assert 'R<span class="text-[1.3em]">aa</span>K' in site
-    for regel in site.splitlines():
-        if ">aa</span>K" in regel:
-            assert "uppercase" not in regel  # geen all-caps meer op het woordmerk
+    assert ">aa</span>K" not in site, "the typed wordmark is back"
+    brand = site[site.index("data-site-brand") :]
+    brand = brand[: brand.index("</a>")]
+    names = [regel for regel in brand.splitlines() if "<span" in regel]
+    assert len(names) == 2, "the two no-logo branches: the wordmark name and the site name"
+    for regel in names:
+        assert "font-brand" in regel
+        assert "uppercase" not in regel  # geen all-caps op de naam
 
 
 def test_link_tint_token_en_cms_link():

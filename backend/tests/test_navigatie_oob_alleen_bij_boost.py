@@ -16,7 +16,7 @@ waarop alles steunt: het attribuut staat er enkel bij een gebooste navigatie. El
 test is daarom een **paar**: hetzelfde verzoek, één keer met en één keer zonder de
 `HX-Boosted`-header, en verder identiek. Het verschil ís het bewijs.
 
-Er wordt bewust op de hele geopende tag getoetst (`<div id="site-nav-breed" class=`)
+Er wordt bewust op de hele geopende tag getoetst (`<nav id="site-nav-breed" class=`)
 en niet op de losse string `hx-swap-oob`: dat laatste komt sinds #717 ook elders in
 antwoorden voor (de toast), en een assert die daarop struikelt zou over iets anders
 gaan dan waarover hij beweert te gaan.
@@ -37,8 +37,12 @@ pytestmark = pytest.mark.ui_serverrendered
 LID_EMAIL = "portaal718@example.com"
 
 # De geopende tag zoals de schil hem rendert, met en zonder het attribuut.
-PUBLIEK_ZONDER = '<div id="site-nav-breed" class='
-PUBLIEK_MET = '<div id="site-nav-breed" hx-swap-oob="true" class='
+# #1588: the wide list is a <nav> now, and the drawer (`site-nav-mobiel`) is the
+# second container that travels out of band — both are checked, as a pair.
+PUBLIEK_ZONDER = '<nav id="site-nav-breed" class='
+PUBLIEK_MET = '<nav id="site-nav-breed" hx-swap-oob="true" class='
+MOBIEL_ZONDER = '<div id="site-nav-mobiel" x-show='
+MOBIEL_MET = '<div id="site-nav-mobiel" hx-swap-oob="true" x-show='
 BEHEER_ZONDER = '<nav id="admin-nav-zijbalk" class='
 BEHEER_MET = '<nav id="admin-nav-zijbalk" hx-swap-oob="true" class='
 
@@ -69,6 +73,7 @@ def test_de_publieke_schil_stuurt_de_navigatie_alleen_out_of_band_bij_een_boost(
     assert gewoon.status_code == 200, gewoon.text
     assert PUBLIEK_ZONDER in gewoon.text, "de navigatie hoort gewoon in de pagina"
     assert PUBLIEK_MET not in gewoon.text
+    assert MOBIEL_ZONDER in gewoon.text and MOBIEL_MET not in gewoon.text
 
     geboost = client.get("/leden/gezin", headers=GEBOOST)
     assert geboost.status_code == 200, geboost.text
@@ -76,6 +81,8 @@ def test_de_publieke_schil_stuurt_de_navigatie_alleen_out_of_band_bij_een_boost(
         "zonder dit attribuut volgt de actieve markering een gebooste navigatie niet "
         "meer — dat is wat #714 oploste"
     )
+    assert MOBIEL_MET in geboost.text and MOBIEL_ZONDER not in geboost.text
+    assert PUBLIEK_ZONDER not in geboost.text
 
 
 def test_een_body_swap_krijgt_de_navigatie_mee_in_het_antwoord(client, db_session):
@@ -106,6 +113,7 @@ def test_een_body_swap_krijgt_de_navigatie_mee_in_het_antwoord(client, db_sessio
         "out-of-band bij een body-swap: htmx haalt de navigatie er dan uit en het "
         "lichaam wordt zonder menubalk vervangen"
     )
+    assert MOBIEL_ZONDER in resp.text and MOBIEL_MET not in resp.text
 
 
 # ── De beheerschil ───────────────────────────────────────────────────────────

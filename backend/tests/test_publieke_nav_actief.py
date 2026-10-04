@@ -62,9 +62,23 @@ def test_home_licht_niet_op_elders(client):
 
 
 def test_inactieve_links_dragen_de_zachte_tint(client):
-    """Zachtblauw = inactief. De token (blue-100 = #d2e3f6), niet de hex uit de mock."""
+    """An inactive link is white at 90 % on the band, the active one full white,
+    semibold and underlined — #1588 replaced the soft blue (`text-blue-100`) by it.
+    """
     html = client.get("/").text
-    assert 'href="/fotos" class="hover:underline text-blue-100"' in html
+    nav = html[html.index('<nav id="site-nav-breed"') :]
+    nav = nav[: nav.index("</nav>")]
+    fotos = re.search(r'<a href="/fotos" class="([^"]*)"([^>]*)>', nav)
+    assert fotos, "the Foto's link is not in the header's row"
+    assert "text-white/90" in fotos.group(1).split()
+    assert "underline" not in fotos.group(1).split() and "aria-current" not in fotos.group(2)
+    home = re.search(r'<a href="/" class="([^"]*)" aria-current="page">', nav)
+    assert home, "the active link is not marked"
+    assert {"text-white", "font-semibold", "underline", "decoration-2"} <= set(
+        home.group(1).split()
+    )
+    assert "text-white/90" not in home.group(1).split()
+    assert "text-blue-100" not in html
 
 
 def test_desktop_en_mobiel_krijgen_dezelfde_markering(client):

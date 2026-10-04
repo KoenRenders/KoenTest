@@ -6,6 +6,10 @@ holds the name and the tagline, and the header repeated the tagline as text.
 With a logo the visible tagline goes; it moves into the logo's alt so a screen
 reader still reads it. The <title> keeps it either way — that is text, not image.
 
+Since #1588 (CR-11 pilot B, decision 11: no typed wordmark, no tagline) the
+header shows no tagline as text without a logo either: the name stands there in
+the display font, and the tagline lives in the <title> and the description.
+
 Broken to see it red (measured): the tagline line moved back outside the
 logo/wordmark choice in `site_base.html` → the first test fails.
 """
@@ -31,9 +35,13 @@ def test_with_a_logo_the_tagline_is_in_the_alt_and_not_as_text():
     assert kop.count(LEUZE) == 1, "the tagline appears in the header outside the alt"
 
 
-def test_without_a_logo_the_tagline_stays_as_today():
+def test_without_a_logo_the_header_shows_the_name_and_no_tagline():
+    """#1588: decision 11 of CR-11 took the tagline out of the header for good."""
     kop = _header(_render(site_tagline=LEUZE, site_logo_url=None))
-    assert KOPREGEL in kop
+    assert KOPREGEL not in kop
+    assert LEUZE not in kop, "the tagline is back in the header"
+    assert 'aria-label="Raak Voorbeeld">Raak Voorbeeld</span>' in kop
+    assert "<img" not in kop
 
 
 def test_the_title_carries_the_tagline_in_both_cases():

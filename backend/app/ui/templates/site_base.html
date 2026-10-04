@@ -1,29 +1,22 @@
 {% import "_macros.html" as ui %}
-{# Actieve-link-markering in de publieke nav (#608, §B2.10). Zachtblauw = inactief,
-   wit + onderlijn = de pagina waar je staat, zodat het tintverschil werk doet i.p.v.
-   decoratie te zijn. Kleur alleen volstaat niet (§5), vandaar de onderlijn én
-   `aria-current="page"` voor de schermlezer.
-
-   `blue-100` is de token, niet de hex uit de mock: het blue-palet is in
-   build-css.sh herschaald rond Ocean Blue, dus dit is #d2e3f6 (5,92:1 op merkblauw).
-
-   Eén macro voor de desktop- én de mobiele lijst — die twee liepen anders uit elkaar.
-   `pad` wordt expliciet doorgegeven i.p.v. request uit de context te vissen, zodat de
-   macro los testbaar is.
-
-   `match` bestaat omdat een href niet altijd het pad is waar je belandt: /archief is
-   een 302 naar /activiteiten/archief (URL-pariteit met React, #405-e). Zonder dat
-   argument zou die link nooit oplichten. #}
-{% macro navlink(pad, href, label, exact=False, match=None) -%}
+{% import "_site_account.html" as account %}
+{# The active page in the public navigation (#608, §B2.10): white with a 2 px
+   underline and `aria-current="page"` for a screen reader; an inactive link is
+   white at 90 %. Colour alone is not enough (§5), hence the underline. #}
+{# One link of the site's navigation. In the header's row (from 768 px): white on
+   the band, the active page with a 2 px underline. In the drawer (`drawer`): a
+   row of 48 px (`site-drawer-row`), which closes the drawer on its way. #}
+{% macro navlink(pad, href, label, exact=False, match=None, drawer=False) -%}
 {%- set _m = match or href -%}
 {%- set _actief = (pad == _m) if exact else (pad == _m or pad.startswith(_m ~ "/")) -%}
 {# #889: de VERGELIJKING blijft op het kale pad — de middleware heeft de prefix er al
    afgehaald voor `_pad`. Alleen wat de bezoeker aanklikt draagt hem. #}
-<a href="{{ path_for(href) }}" class="hover:underline {% if _actief %}text-white font-semibold underline underline-offset-4 decoration-2{% else %}text-blue-100{% endif %}"{% if _actief %} aria-current="page"{% endif %}>{{ label }}</a>
+{% if drawer %}<a href="{{ path_for(href) }}" class="site-drawer-row"{% if _actief %} aria-current="page"{% endif %} @click="menu = false">{{ label }}</a>
+{% else %}<a href="{{ path_for(href) }}" class="inline-flex items-center min-h-11 px-3 rounded-md text-sm hover:bg-white/10 hover:no-underline {% if _actief %}text-white font-semibold underline underline-offset-8 decoration-2{% else %}text-white/90{% endif %}"{% if _actief %} aria-current="page"{% endif %}>{{ label }}</a>{% endif %}
 {%- endmacro %}
 {# SiteShell (React-exit #405, §21): de volwaardige publieke schil — navigatie
-   (CMS-pagina's server-side), inhoud en footer (site-footer-blok + sponsors).
-   Routes leveren `nav_pages`, `footer_block` en `sponsors` via
+   (CMS-pagina's server-side), inhoud en footer (de rij en de juridische regel, #1588).
+   Routes leveren `nav_pages`, `legal_parts` en `sponsors` via
    app.ui.site_context(). #}
 <!DOCTYPE html>
 <html lang="nl-BE">
@@ -129,13 +122,13 @@
 {# hx-boost (#634): zie admin_base voor de redenering. De publieke schil boost op
    dezelfde manier; links naar de andere schil (/admin) en /afmelden zetten het uit. #}
 <body class="bg-ground min-h-screen text-ink" data-shell="site" hx-boost="true"
-      hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
-  {# Omgevingsbanner (#464) moet blijven staan bij het scrollen (#610): hij is zelf
-     sticky, en het element eronder start op de bannerhoogte. Op PROD is er geen
-     banner, dus daar weer top-0 — anders scrolt de inhoud door een gat van 24px.
-     Beide klassen staan letterlijk in de template, anders genereert Tailwind ze niet. #}
+      hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'
+      x-data="{ menu: false }" @keydown.escape.window="if (menu) { menu = false; $nextTick(() => $refs.menuButton.focus()) }">
+  {# The environment banner (#464) stands ABOVE the header in the document flow
+     and scrolls away; the header sticks at y 0 (CR-11 pilot B, #1588 — until
+     then the banner was sticky itself and the header started under it, #610). #}
   {% set env_bar = omgeving and omgeving != 'prod' and not is_screenshot() %}
-  {% if env_bar %}{{ ui.env_banner(omgeving) }}{% endif %}
+  {% if env_bar %}{{ ui.env_banner(omgeving, sticky=False) }}{% endif %}
   {# `request is defined` omdat site_base ook los gerenderd wordt (zonder
      FastAPI-context) in test_footer_branding; dan markeert er simpelweg niets. #}
   {% set _pad = request.url.path if request is defined else "" %}
@@ -146,191 +139,181 @@
      lichaam wordt daarna vervangen door wat overblijft — zonder menubalk. Zie
      `nav_oob` in app/ui/__init__.py. #}
   {% set _oob = nav_oob(request) if request is defined else False %}
-  <header class="sticky {{ 'top-6' if env_bar else 'top-0' }} z-40">
-    {# #992: the tenant's header colour, when set, overrides bg-blue-700 on the
-       <nav> — which holds both the wide and the mobile menu, so one place covers
-       both. On the <nav> and not on #site-nav-mobiel: the nav has no id and is
-       never an oob target, so htmx' settle (#726) cannot reset it, and a full
-       render always carries the right value. Validated as #rrggbb on write AND
-       on read (`tenant_site_header_color`), because this is a style attribute. #}
-    <nav class="bg-blue-700 text-white shadow-md"{% if site_header_color %} style="background-color: {{ site_header_color }}"{% endif %} x-data="{ open: false }">
-      {# #1156: mét logo ruilt de balk verticale padding in voor logohoogte.
-
-         De balkhoogte is de INVARIANT — gemeten in een browser: 80 px op een
-         breed scherm, 76 px op een telefoon — en ze staat hier als `--balk`. De
-         padding is de keuze (`--lucht`), en het logo krijgt wat er overblijft:
-         `--balk - 2 × --lucht`. Zo kan de ruil niet uit de pas lopen. Zet de
-         padding anders, dan compenseert het logo en blijft de balk even hoog;
-         een derde getal voor de logohoogte zou dat juist stukmaken.
-
-         Alleen mét logo, want de padding draagt óók de woordmerk-tak, en die is
-         een andere hoogte: gemeten 71 px breed (woordmerk 39 + 2 × 16). Zou de
-         padding daar mee krimpen, dan zakte die balk naar 55 px — een wijziging
-         die dit issue uitdrukkelijk niet vraagt. Zonder logo blijft alles dus
-         precies zoals het was. #}
-      <div class="max-w-7xl mx-auto px-4 flex items-center justify-between
-                  {% if site_logo_url %}[--balk:76px] md:[--balk:80px] [--lucht:8px] py-[var(--lucht)]{% else %}py-4{% endif %}">
-        <a href="{{ path_for("/") }}" class="hover:opacity-80">
-          {# Woordmerk "RaaK" (huisstijl): kapitale R en K, kleine "aa" opgetrokken naar
-             kapitaalhoogte via een grotere fontsize (#605). Radio Canada Big (font-brand).
-             aria-label houdt het leesbaar als "Raak" voor schermlezers.
-
-             De factor komt uit de fontmetriek, niet uit een schatting (#625):
-             Radio Canada Big heeft capHeight 690 en xHeight 530 op 1000 units per em,
-             dus 690/530 = 1.30 zet de "aa" exact op kapitaalhoogte. Met de vorige 1.4
-             stond ze 7,5 % te hoog. Wijzigt het display-font, herbereken deze factor.
-             De arbitraire waarde moet LETTERLIJK hier staan, anders genereert Tailwind
-             de klasse niet. #}
-          {# Staat er een logo bij de media, dan toont de header dát; anders het
-             woordmerk hieronder. Dezelfde bron als de vergader-PDF (#258), zodat
-             de vereniging haar logo één keer uploadt. De hoogte is begrensd zodat
-             een groot bestand de balk niet oprekt. #}
-          {# #1001: a logo usually carries the name and the tagline itself, so with a
-             logo the tagline is not repeated as text. It moves into the alt, or a
-             screen reader would read it nowhere. The <title> and og:description
-             keep it — that is text, not image. No "show tagline" switch: the logo
-             is the signal. #}
-          {% if site_logo_url %}
-          {# De hoogte is AFGELEID van de balk hierboven (was `h-10 md:h-12`, dus
-             40 en 48 px): balkhoogte min de padding boven en onder. Dat is de
-             ruil uit #1156 — het logo neemt de ruimte die de padding afstaat. #}
-          <img src="{{ site_logo_url }}" alt="{{ site_name }}{% if site_tagline %} — {{ site_tagline }}{% endif %}" class="h-[calc(var(--balk)_-_2_*_var(--lucht))] w-auto">
-          {% else %}
-          {# CR-19 (#1496): a company without a logo shows its own name, in the
-             wordmark's font and height, not the association's brand. The line is
-             1.3em high, the size of RaaK's "aa" below: measured, RaaK stands 39 px
-             and a name at `leading-none` 30 px, which made the bar 9 px lower.
-             On a phone a smaller size and at most two lines: a long name broke
-             over three at 390 px and made the bar 149 px, pushing the content
-             off the first screen. The whole name stays in the aria-label. No
-             `block`: it would undo the `display` that `line-clamp` sets. #}
-          {% if site_wordmark %}
-          <span class="font-brand font-bold tracking-tight text-2xl/[1.3] line-clamp-2 md:text-3xl/[1.3] md:line-clamp-none" aria-label="{{ site_wordmark }}">{{ site_wordmark }}</span>
-          {% else %}
-          <span class="flex items-baseline font-brand font-bold tracking-tight leading-none text-3xl" aria-label="{{ _('Raak') }}">R<span class="text-[1.3em]">aa</span>K</span>
-          {% endif %}
-          {# #804: `text-base md:text-sm` — mobiel-eerst. Zie §1.2a van het
-             design-system: 14 px is een bijschrift op een breed scherm en leestekst
-             op een telefoon, en 80% van het bezoek is mobiel. #}
-          {% if site_tagline %}<span class="block font-brand text-base md:text-sm font-medium text-yellow-300">{{ site_tagline }}</span>{% endif %}
-          {% endif %}
-        </a>
-        {# #804: een ICOON en geen tekstteken. `☰` erfde de dikte en de hoogte van het
-             lettertype van het toestel, dus het oogde dun naast een woordmerk van 30 px
-             en was niet betrouwbaar te schalen. Het aanraakvlak is 44 px (`min-w-11
-             min-h-11`) — dat is de ondergrens voor een vinger; het icoon zelf mag
-             kleiner. #}
-        <button class="md:hidden inline-flex items-center justify-center min-w-11 min-h-11 rounded hover:opacity-80"
-                @click="open = !open" aria-label="{{ _("Menu") }}">{{ ui.icon("menu", 24) }}</button>
-        {# #714: zelfde oorzaak als in de beheerschil, tweede symptoom — "Home" bleef
-           onderstreept terwijl je op /leden/gezin stond. Out-of-band, zodat de
-           "welk item is actief"-regel blijft waar ze hoort: in `navlink`. #}
-        <div id="site-nav-breed"{% if _oob %} hx-swap-oob="true"{% endif %} class="hidden md:flex gap-5 items-center text-sm">
-          {{ navlink(_pad, "/", _("Home"), exact=True) }}
-          {% for n in public_nav %}{{ navlink(_pad, n.href, n.label, match=n.match) }}
-          {% endfor %}
-          {% for p in nav_pages|default([]) %}
-          {{ navlink(_pad, "/" ~ p.slug, p.title) }}
-          {% endfor %}
-          {% if gebruiker %}
-          {% if gebruiker.is_member %}{% for n in member_nav %}{{ navlink(_pad, n.href, n.label) }}{% endfor %}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" hx-boost="false" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
-          <a href="{{ path_for("/afmelden") }}" hx-boost="false" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
-          {% else %}
-          <a href="{{ path_for("/aanmelden") }}" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
-          {% endif %}
-        </div>
-      </div>
-      {# #714: ook de tweede rendering — op een telefoon is dit de enige die je ziet. #}
-      {# #737: `style="display: none"` staat er letterlijk bij (§2.9b). Dit element heeft een `id` én wordt door Alpine verborgen, dus htmx' settle zet bij een swap de attributen van het serverantwoord terug en wist de inline style die Alpine er net op zette (#726). Verborgen is hier de juiste beginstand: `open` begint op false. #}
-      <div id="site-nav-mobiel"{% if _oob %} hx-swap-oob="true"{% endif %} x-show="open" style="display: none" x-cloak x-transition.opacity.duration.150ms class="md:hidden px-4 pb-4 flex flex-col gap-2 text-base">
+  {# ── The header (CR-11 pilot B, P1 — #1588; end state §2.5) ──────────────────
+     The band in the tenant's colour: `site_header_color` when the tenant set
+     one (#992; validated as #rrggbb on write AND on read, because this is a
+     style attribute), otherwise the shell's own (`--c-site-header`). 64 px on a
+     phone, 112 px from 768 px (two rows), 80 px from 1 200 px — the geometry is
+     `.site-header` in `scripts/build-css.sh`. The style stands on the <header>,
+     which has no id and is never an oob target, so htmx' settle (#726) cannot
+     reset it. While the drawer is open the page behind it is inert. #}
+  <header class="site-header"{% if site_header_color %} style="background-color: {{ site_header_color }}"{% endif %} :inert="menu">
+    <div class="site-container site-header-grid">
+      {# Top left the tenant's LOGO, one image at every width; without one, its
+         name (#1496 — for every kind of tenant since #1588).
+         No typed wordmark beside a logo, no town name, no tagline that appears
+         from some width: the logo usually carries both, and the alt says them
+         (#1001). #}
+      <a href="{{ path_for("/") }}" class="site-brand hover:opacity-90" data-site-brand>
+        {% if site_logo_url %}
+        <img src="{{ site_logo_url }}" alt="{{ site_name }}{% if site_tagline %} — {{ site_tagline }}{% endif %}">
+        {% elif site_wordmark %}
+        <span class="font-brand text-2xl/[1.2] line-clamp-2 md:text-[28px]/[1.2] md:line-clamp-1" aria-label="{{ site_wordmark }}">{{ site_wordmark }}</span>
+        {% else %}
+        <span class="font-brand text-2xl/[1.2] line-clamp-2 md:text-[28px]/[1.2] md:line-clamp-1" aria-label="{{ site_name }}">{{ site_name }}</span>
+        {% endif %}
+      </a>
+      {# #714: de actieve markering reist out-of-band mee met een gebooste
+         navigatie, zodat de "welk item is actief"-regel in `navlink` blijft. One
+         navigation source: the module registry and the CMS pages, as before. #}
+      <nav id="site-nav-breed"{% if _oob %} hx-swap-oob="true"{% endif %} class="site-pages" aria-label="{{ _('Navigatie') }}">
         {{ navlink(_pad, "/", _("Home"), exact=True) }}
         {% for n in public_nav %}{{ navlink(_pad, n.href, n.label, match=n.match) }}
         {% endfor %}
         {% for p in nav_pages|default([]) %}
         {{ navlink(_pad, "/" ~ p.slug, p.title) }}
         {% endfor %}
+      </nav>
+      {# The account: the member's first name with a chevron opens ONE menu —
+         Mijn gezin · Admin · Uitloggen; without a session "Inloggen" stands in
+         its place. No separate Admin link beside it. #}
+      <div class="site-account" data-site-account>
         {% if gebruiker %}
-        {% if gebruiker.is_member %}{% for n in member_nav %}{{ navlink(_pad, n.href, n.label) }}{% endfor %}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" hx-boost="false" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
-        <a href="{{ path_for("/afmelden") }}" hx-boost="false" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
+        <div class="relative" x-data="{ acc: false }" @keydown.escape="if (acc) { acc = false; $refs.account.focus() }">
+          <button type="button" x-ref="account" data-account-button @click="acc = !acc"
+                  class="inline-flex items-center gap-1 min-h-11 px-3 rounded-md text-sm hover:bg-white/10"
+                  aria-haspopup="menu" :aria-expanded="acc.toString()" aria-expanded="false">
+            <span class="max-w-[12rem] truncate">{{ gebruiker.voornaam }}</span>{{ ui.icon("chevron-down", 16) }}
+          </button>
+          <div x-show="acc" x-cloak style="display: none" @click.outside="acc = false" data-account-menu role="menu"
+               class="absolute right-0 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface py-1 text-ink shadow-lg">
+            <p class="px-4 pt-2 pb-1 text-xs text-ink-soft truncate" title="{{ gebruiker.naam }}">{{ gebruiker.naam }}</p>
+            {{ account.items(gebruiker, member_nav, "flex items-center gap-3 min-h-11 px-4 text-sm text-ink hover:bg-surface-2 hover:no-underline") }}
+          </div>
+        </div>
         {% else %}
-        <a href="{{ path_for("/aanmelden") }}" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
+        <a href="{{ path_for("/aanmelden") }}" data-sign-in class="inline-flex items-center gap-2 min-h-11 px-3 rounded-md text-sm hover:bg-white/10 hover:no-underline">{{ _("Inloggen") }}</a>
         {% endif %}
       </div>
-    </nav>
+      {# #804: an ICON and a touch target of 44 px. The close button of the
+         drawer stands at this same place. #}
+      <button type="button" x-ref="menuButton" data-menu-button
+              class="site-menu-button inline-flex items-center justify-center w-11 h-11 rounded-md hover:bg-white/10"
+              @click="menu = true; $nextTick(() => $refs.menuClose.focus())" aria-haspopup="dialog"
+              :aria-expanded="menu.toString()" aria-expanded="false" aria-controls="site-nav-mobiel"
+              aria-label="{{ _("Menu") }}">{{ ui.icon("menu", 24) }}</button>
+    </div>
   </header>
-  <main id="main" class="max-w-7xl mx-auto px-4 py-8">
+  {# ── The drawer (below 768 px): 360 px, white, OVER the page — the content
+     does not move — a real close button where the menu button was, rows of
+     48 px; Escape and the backdrop close it; the page behind it is inert, so
+     the focus stays inside. Under a divider the member's name with the same
+     account items as the desktop menu. The place of the language switch
+     (CR-17) is at the bottom, rendered only when a second language has
+     published content — not today.
+     #737: `style="display: none"` literally (§2.9b): this element has an `id`
+     AND is hidden by Alpine, so htmx' settle puts the server's attributes back
+     and wipes the inline style Alpine set (#726). Hidden is the right start. #}
+  <div class="site-drawer-backdrop md:hidden" x-show="menu" x-cloak style="display: none" @click="menu = false" aria-hidden="true"></div>
+  <div id="site-nav-mobiel"{% if _oob %} hx-swap-oob="true"{% endif %} x-show="menu" style="display: none" x-cloak
+       class="site-drawer md:hidden" role="dialog" aria-modal="true" aria-label="{{ _('Menu') }}">
+    <div class="flex items-center justify-between min-h-16 mb-3 pl-3">
+      <strong class="font-brand text-2xl">{{ _("Menu") }}</strong>
+      <button type="button" x-ref="menuClose" data-menu-close class="inline-flex items-center justify-center w-11 h-11 rounded-md bg-surface-2 hover:bg-gray-200"
+              @click="menu = false; $nextTick(() => $refs.menuButton.focus())" aria-label="{{ _('Menu sluiten') }}">{{ ui.icon("x", 20) }}</button>
+    </div>
+    <nav class="flex flex-col gap-1" aria-label="{{ _('Navigatie') }}">
+      {{ navlink(_pad, "/", _("Home"), exact=True, drawer=True) }}
+      {% for n in public_nav %}{{ navlink(_pad, n.href, n.label, match=n.match, drawer=True) }}
+      {% endfor %}
+      {% for p in nav_pages|default([]) %}
+      {{ navlink(_pad, "/" ~ p.slug, p.title, drawer=True) }}
+      {% endfor %}
+    </nav>
+    <div class="mt-6 border-t border-line pt-6" data-drawer-account>
+      {% if gebruiker %}
+      <p class="px-3 mb-2 text-sm text-ink-soft break-words">{{ gebruiker.naam }}</p>
+      {{ account.items(gebruiker, member_nav, "site-drawer-row", close="menu = false") }}
+      {% else %}
+      <a href="{{ path_for("/aanmelden") }}" data-sign-in class="site-drawer-row" @click="menu = false">{{ ui.icon("log-in", 18) }}{{ _("Inloggen") }}</a>
+      {% endif %}
+    </div>
+  </div>
+  <main id="main" class="site-container py-8" :inert="menu">
     {% block content %}{% endblock %}
   </main>
-  <footer class="max-w-7xl mx-auto px-4 mt-16 border-t border-gray-200 pt-10 pb-6">
-    {# Sociale links als iconen (#491): inline SVG (zelf-gehost, geen dependency).
-
-       #744: de drie vakjes zijn even groot (`w-8 h-8`, bewaakt sinds #626), maar het
-       oog telt inkt en geen vakjes. Gemeten met getBBox() in een echte browser vulde
-       Facebook 100% van zijn vak, Instagram 82% breed / 86% hoog en TikTok 66% / 77%
-       — en Instagram is bovendien een dunne omtrek waar Facebook een massieve schijf
-       is. Vandaar dat Instagram klein oogde.
-
-       De viewBox is daarom bijgesneden tot de omhullende van de vorm, zodat elk
-       icoon zijn vak vult. Bewust NIET een grotere klasse voor één icoon: dan vecht
-       je met de gate uit #626 en krijg je per-icoon-uitzonderingen die zich
-       vermenigvuldigen zodra er een vierde netwerk bijkomt. `preserveAspectRatio`
-       staat op zijn standaard, dus een niet-vierkante viewBox vervormt niets — de
-       langste zijde vult het vak. #}
-    {# #945: de links komen uit `contact_details` en zijn dus een lijst. Een
-       vijfde netwerk is daarmee één rij in de codelijst — geen kolom, geen
-       migratie, geen sjabloonregel. Het icoon hieronder is het enige wat een
-       nieuw netwerk nog kost, en zonder eigen icoon valt het terug op het
-       generieke link-glyph in plaats van niets te tonen. #}
+  {# ── The footer (CR-11 pilot B, P1 — #1588; end state §2.5) ──────────────────
+     The same container as the header. ONE row of three columns on a desktop,
+     stacked in this order on a phone: the newsletter (the site's one yellow
+     call to action), the social links, the sponsors; a column without content
+     goes with its heading. Under it the legal line with the organisation's
+     details — one source, the organisation the site shows (#1550); the free
+     CMS block `site-footer` is no longer rendered (it stays as data). #}
+  <footer class="site-footer" :inert="menu">
+    <div class="site-container site-footer-core"{% if chat_zichtbaar %} data-bell{% endif %}>
     {% set social_icons = {
-      "FACEBOOK": '<svg viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8" aria-hidden="true"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/></svg>',
-      "INSTAGRAM": '<svg viewBox="2.15 2.16 19.7 20.72" fill="currentColor" class="w-8 h-8" aria-hidden="true"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.42.56.21.96.47 1.38.9.43.42.69.82.9 1.38.17.43.37 1.06.42 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.42 2.23-.21.56-.47.96-.9 1.38-.42.43-.82.69-1.38.9-.43.17-1.06.37-2.23.42-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.42a3.72 3.72 0 01-1.38-.9 3.72 3.72 0 01-.9-1.38c-.17-.43-.37-1.06-.42-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.42-2.23.21-.56.47-.96.9-1.38.42-.43.82-.69 1.38-.9.43-.17 1.06-.37 2.23-.42C8.42 2.17 8.8 2.16 12 2.16zm0 1.44c-3.14 0-3.51.01-4.75.07-1.15.05-1.77.24-2.19.4-.55.21-.94.47-1.35.88-.41.41-.67.8-.88 1.35-.16.42-.35 1.04-.4 2.19-.06 1.24-.07 1.61-.07 4.75s.01 3.51.07 4.75c.05 1.15.24 1.77.4 2.19.21.55.47.94.88 1.35.41.41.8.67 1.35.88.42.16 1.04.35 2.19.4 1.24.06 1.61.07 4.75.07s3.51-.01 4.75-.07c1.15-.05 1.77-.24 2.19-.4.55-.21.94-.47 1.35-.88.41-.41.67-.8.88-1.35.16-.42.35-1.04.4-2.19.06-1.24.07-1.61.07-4.75s-.01-3.51-.07-4.75c-.05-1.15-.24-1.77-.4-2.19a3.62 3.62 0 00-.88-1.35 3.62 3.62 0 00-1.35-.88c-.42-.16-1.04-.35-2.19-.4-1.24-.06-1.61-.07-4.75-.07zm0 3.68a4.72 4.72 0 100 9.44 4.72 4.72 0 000-9.44zm0 7.79a3.07 3.07 0 110-6.14 3.07 3.07 0 010 6.14zm6.01-7.98a1.1 1.1 0 11-2.2 0 1.1 1.1 0 012.2 0z"/></svg>',
-      "TIKTOK": '<svg viewBox="3.8 3 15.85 18.39" fill="currentColor" class="w-8 h-8" aria-hidden="true"><path d="M16.6 5.82a4.28 4.28 0 01-1.06-2.82h-3.2v12.9a2.59 2.59 0 01-2.59 2.5 2.59 2.59 0 01-2.59-2.59 2.59 2.59 0 013.36-2.47V9.9a5.87 5.87 0 00-.77-.05A5.79 5.79 0 003.8 15.6a5.79 5.79 0 005.75 5.79 5.79 5.79 0 005.79-5.79V9.01a7.35 7.35 0 004.31 1.38V7.18a4.28 4.28 0 01-2.84-1.36z"/></svg>',
+      "FACEBOOK": '<svg viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6" aria-hidden="true"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/></svg>',
+      "INSTAGRAM": '<svg viewBox="2.15 2.16 19.7 20.72" fill="currentColor" class="w-6 h-6" aria-hidden="true"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.42.56.21.96.47 1.38.9.43.42.69.82.9 1.38.17.43.37 1.06.42 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.42 2.23-.21.56-.47.96-.9 1.38-.42.43-.82.69-1.38.9-.43.17-1.06.37-2.23.42-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.42a3.72 3.72 0 01-1.38-.9 3.72 3.72 0 01-.9-1.38c-.17-.43-.37-1.06-.42-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.42-2.23.21-.56.47-.96.9-1.38.42-.43.82-.69 1.38-.9.43-.17 1.06-.37 2.23-.42C8.42 2.17 8.8 2.16 12 2.16zm0 1.44c-3.14 0-3.51.01-4.75.07-1.15.05-1.77.24-2.19.4-.55.21-.94.47-1.35.88-.41.41-.67.8-.88 1.35-.16.42-.35 1.04-.4 2.19-.06 1.24-.07 1.61-.07 4.75s.01 3.51.07 4.75c.05 1.15.24 1.77.4 2.19.21.55.47.94.88 1.35.41.41.8.67 1.35.88.42.16 1.04.35 2.19.4 1.24.06 1.61.07 4.75.07s3.51-.01 4.75-.07c1.15-.05 1.77-.24 2.19-.4.55-.21.94-.47 1.35-.88.41-.41.67-.8.88-1.35.16-.42.35-1.04.4-2.19.06-1.24.07-1.61.07-4.75s-.01-3.51-.07-4.75c-.05-1.15-.24-1.77-.4-2.19a3.62 3.62 0 00-.88-1.35 3.62 3.62 0 00-1.35-.88c-.42-.16-1.04-.35-2.19-.4-1.24-.06-1.61-.07-4.75-.07zm0 3.68a4.72 4.72 0 100 9.44 4.72 4.72 0 000-9.44zm0 7.79a3.07 3.07 0 110-6.14 3.07 3.07 0 010 6.14zm6.01-7.98a1.1 1.1 0 11-2.2 0 1.1 1.1 0 012.2 0z"/></svg>',
+      "TIKTOK": '<svg viewBox="3.8 3 15.85 18.39" fill="currentColor" class="w-6 h-6" aria-hidden="true"><path d="M16.6 5.82a4.28 4.28 0 01-1.06-2.82h-3.2v12.9a2.59 2.59 0 01-2.59 2.5 2.59 2.59 0 01-2.59-2.59 2.59 2.59 0 013.36-2.47V9.9a5.87 5.87 0 00-.77-.05A5.79 5.79 0 003.8 15.6a5.79 5.79 0 005.75 5.79 5.79 5.79 0 005.79-5.79V9.01a7.35 7.35 0 004.31 1.38V7.18a4.28 4.28 0 01-2.84-1.36z"/></svg>',
     } %}
-    <div class="flex justify-center gap-5 mb-6 text-gray-500">
-      {% for link in sociale_links %}
-      <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ link.label }}" class="hover:text-blue-700">
-        {% if link.code in social_icons %}{{ social_icons[link.code]|safe }}{% else %}
-        <svg viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8" aria-hidden="true"><path d="M10.6 13.4a1 1 0 001.4 0l3.5-3.5a3 3 0 10-4.2-4.3l-1 1a1 1 0 101.4 1.5l1-1a1 1 0 111.4 1.4l-3.5 3.5a1 1 0 000 1.4zm2.8-2.8a1 1 0 00-1.4 0l-3.5 3.5a3 3 0 104.2 4.3l1-1a1 1 0 10-1.4-1.5l-1 1a1 1 0 11-1.4-1.4l3.5-3.5a1 1 0 000-1.4z"/></svg>
+      {% if nieuwsbrief_inschrijven or sociale_links or sponsors %}
+      <div class="site-footer-row" data-footer-row>
+        {# The newsletter's one call (it left the home page, where it was a text
+           link since 19 September 2026): the heading, the sentence, the button. #}
+        {% if nieuwsbrief_inschrijven %}
+        <section data-footer-newsletter>
+          <h2>{{ newsletter_heading }}</h2>
+          <p class="text-ink-soft mb-4">{{ _("Af en toe een mail met wat er bij ons te beleven valt.") }}</p>
+          <a id="nb-voet-link" href="{{ path_for('/nieuwsbrief') }}"
+             class="inline-flex items-center gap-2 min-h-11 px-4 rounded-lg font-semibold bg-[rgb(var(--c-accent))] text-[rgb(var(--c-on-accent))] hover:no-underline hover:shadow-[inset_0_0_0_1px_rgb(var(--c-on-accent))]">{{ _("Aanmelden") }}</a>
+        </section>
         {% endif %}
-      </a>
-      {% endfor %}
+        {# #945: de links komen uit `contact_details` en zijn een lijst; zonder
+           eigen icoon valt een netwerk terug op het generieke link-glyph. Icons of
+           24 px in targets of 44 px, `ink-soft`, the brand on hover. #}
+        {% if sociale_links %}
+        <section data-footer-social>
+          <h2>{{ _("Volg ons") }}</h2>
+          <div class="flex flex-wrap gap-2">
+            {% for link in sociale_links %}
+            <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ link.label }}"
+               class="grid place-items-center w-11 h-11 rounded-lg border border-line text-ink-soft hover:text-blue-700 hover:border-blue-200 hover:bg-blue-50">
+              {% if link.code in social_icons %}{{ social_icons[link.code]|safe }}{% else %}
+              <svg viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6" aria-hidden="true"><path d="M10.6 13.4a1 1 0 001.4 0l3.5-3.5a3 3 0 10-4.2-4.3l-1 1a1 1 0 101.4 1.5l1-1a1 1 0 111.4 1.4l-3.5 3.5a1 1 0 000 1.4zm2.8-2.8a1 1 0 00-1.4 0l-3.5 3.5a3 3 0 104.2 4.3l1-1a1 1 0 10-1.4-1.5l-1 1a1 1 0 11-1.4-1.4l3.5-3.5a1 1 0 000-1.4z"/></svg>
+              {% endif %}
+            </a>
+            {% endfor %}
+          </div>
+        </section>
+        {% endif %}
+        {# #1057: only the logos ticked for the footer; each in at most
+           144 × 64 px, never on yellow. #}
+        {% if sponsors %}
+        <section data-footer-sponsors>
+          <h2>{{ sponsors_kop }}</h2>
+          <div class="flex flex-wrap gap-3">
+            {% for s in sponsors %}
+            {% if s.link_url %}<a href="{{ s.link_url }}" target="_blank" rel="noopener noreferrer" class="site-sponsor">{% else %}<span class="site-sponsor">{% endif %}
+            <img src="{{ s.url }}" alt="{{ s.title or 'sponsor' }}">
+            {% if s.link_url %}</a>{% else %}</span>{% endif %}
+            {% endfor %}
+          </div>
+        </section>
+        {% endif %}
+      </div>
+      {% endif %}
+      {# The legal line: © year and name, then what the organisation has —
+         address, e-mail, phone, account number — and the pages that carry "Toon
+         in de voettekst" (#1569). A detail that is not filled in is left out
+         with its separator; nothing stands twice. #}
+      <p class="site-legal{{ '' if (nieuwsbrief_inschrijven or sociale_links or sponsors) else ' !mt-0 !border-t-0 !pt-0' }}" data-footer-line>© {{ current_year }} {{ site_name }}
+        {%- for part in legal_parts %} · {% if part.href %}<a href="{{ part.href }}" data-legal="{{ part.kind }}">{{ part.text }}</a>{% else %}<span data-legal="{{ part.kind }}">{{ part.text }}</span>{% endif %}{% endfor %}
+        {%- for p in footer_pages|default([]) %} · <a href="{{ path_for('/' ~ p.slug) }}" data-footer-page>{{ p.title }}</a>{% endfor %}</p>
     </div>
-    {# #924: het organisatieblok komt uit de entiteit. Het CMS-blok blijft eronder
-       staan: `site-footer` is vrije tekst en een migratie kan een adresblok niet
-       onderscheiden van een zin die iemand schreef, dus er verdwijnt niets. Of dat
-       blok daarna weg mag, beslissen we ná het bekijken van een omgeving. #}
-    {% if organisatie %}
-    <div class="text-center text-base md:text-sm text-gray-600 mb-6">
-      <p class="font-semibold text-ink">{{ organisatie.name }}</p>
-      {% for regel in organisatie.address_lines %}<p>{{ regel }}</p>{% endfor %}
-      {% if organisatie.email %}<p><a href="mailto:{{ organisatie.email }}" class="hover:text-blue-700 hover:underline">{{ organisatie.email }}</a></p>{% endif %}
-      {% if organisatie.phone %}<p>{{ organisatie.phone }}</p>{% endif %}
-      {% if organisatie.iban %}<p>{{ _("Rekeningnummer") }}: {{ organisatie.iban }}{% if organisatie.bic %} ({{ organisatie.bic }}){% endif %}</p>{% endif %}
-    </div>
-    {% endif %}
-    {# De nieuwsbrief staat NIET in deze voet (Koen, 19 september 2026): een
-       inschrijfformulier onder élke pagina — ook onder een verzonden formulier —
-       staat in de weg. Alleen de homepagina draagt er een link naar. #}
-    {% if footer_block and footer_block.content %}
-    <div class="cms-content text-center text-base md:text-sm text-gray-600 mb-6">{{ footer_block.content | safe }}</div>
-    {% endif %}
-    {% if sponsors %}
-    {# #492: label boven de sponsorlogo's. #}
-    <p class="text-center text-xs uppercase tracking-wide text-gray-400 mb-3">{{ sponsors_kop }}</p>
-    <div class="flex flex-wrap justify-center items-center gap-6 mb-6">
-      {% for s in sponsors %}
-      {% if s.link_url %}<a href="{{ s.link_url }}" target="_blank" rel="noopener noreferrer">{% endif %}
-      <img src="{{ s.url }}" alt="{{ s.title or 'sponsor' }}" class="h-12 w-auto">
-      {% if s.link_url %}</a>{% endif %}
-      {% endfor %}
-    </div>
-    {% endif %}
-    {# #1569: the published pages that carry "Toon in de voettekst", by their
-       order — a page of this site, so an ordinary link by its title. Before, one
-       typed address from the tenant setting `privacy_url` (#493). #}
-    <p class="text-center text-xs text-gray-400" data-footer-line>© {{ current_year }} {{ site_name }}{% for p in footer_pages|default([]) %} · <a href="{{ path_for('/' ~ p.slug) }}" data-footer-page class="hover:text-blue-700 hover:underline">{{ p.title }}</a>{% endfor %}</p>
   </footer>
-  {% if chat_zichtbaar %}{% include "_raakje_widget.html" %}{% endif %}
+  {# While the drawer is open the bell is part of the page behind it: inert and
+     out of sight (#1588), so the focus stays in the drawer. #}
+  {% if chat_zichtbaar %}<div :inert="menu" x-show="!menu">{% include "_raakje_widget.html" %}</div>{% endif %}
   {# Vaste landingsplek voor toasts (#528 as C); htmx stuurt ze out-of-band mee. #}
   {{ ui.toast_host() }}
   {# In-app bevestig-modal (#595): vervangt het browser-confirm(). #}

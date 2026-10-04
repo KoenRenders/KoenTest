@@ -57,6 +57,27 @@ DELIBERATE_MENU_CHANGES: dict[str, str | None] = {
     "/admin/rapporten/raakje AI · Raakje": None,
 }
 
+#: CR-11 pilot B, P1 (#1588, decision 11, Koen): the public shell was redesigned
+#: — a decision, not a module taking something away. Per part of the home: what
+#: left the recording and what joined it. The header shows the tenant's name
+#: instead of the typed wordmark and says "Inloggen"; the newsletter's call
+#: moved from the home page into the footer's row, under its own heading.
+DELIBERATE_HOME_CHANGES: dict[str, dict[str, list[str]]] = {
+    "home_nav": {"gone": ["Aanmelden", "RaaK"], "new": ["Inloggen", "Raak Millegem"]},
+    "home_headings": {"gone": [], "new": ["Nieuws van Raak Millegem"]},
+    "home_buttons": {"gone": ["Nieuwsbrief"], "new": []},
+}
+#: The footer as a whole: the separate organisation block and the free CMS block
+#: `site-footer` (the address and the e-mail line of the recording) are gone;
+#: the organisation's details stand in the legal line, from the entity — the
+#: seeded organisation has an account number and no address.
+DELIBERATE_FOOTER = [
+    "Nieuws van Raak Millegem",
+    "Af en toe een mail met wat er bij ons te beleven valt.",
+    "Aanmelden",
+    "© <jaar> Raak Millegem · BE00 1234 5678 9012",
+]
+
 _YEAR = re.compile(r"\b20\d\d\b")
 #: A tile's value — a count or an amount — is data, not what a module shows.
 _VALUE = re.compile(r"^[€\d\s.,%-]+$")
@@ -144,6 +165,16 @@ def test_the_association_shows_what_it_showed_on_v2_12_0(browser):
     before["shown"]["menu"] = sorted(
         changed for item in menu if (changed := DELIBERATE_MENU_CHANGES.get(item, item)) is not None
     )
+    for part, change in DELIBERATE_HOME_CHANGES.items():
+        recorded = before["shown"][part]
+        assert set(change["gone"]) <= set(recorded), (
+            f"{part}: a deliberate change names no recorded item"
+        )
+        before["shown"][part] = sorted((set(recorded) - set(change["gone"])) | set(change["new"]))
+    assert before["shown"]["footer"] != DELIBERATE_FOOTER, (
+        "the footer's deliberate change is the recording"
+    )
+    before["shown"]["footer"] = DELIBERATE_FOOTER
     now = extract(browser, BASE, make_session_value(SEEDED_ADMIN_EMAIL))
 
     assert set(now) == set(before["shown"]), "the snapshot and the extraction disagree on shape"

@@ -55,7 +55,8 @@ def test_de_kopkleur_blijft_na_navigeren_en_in_het_mobiele_menu(groene_kop):
         try:
             page = browser.new_page(base_url=BASE, viewport=TELEFOON)
             page.goto("/")
-            kop = page.locator("header nav")
+            # #1588: the band is the <header> itself (it was the <nav> in it).
+            kop = page.locator("header.site-header")
             expect(kop).to_have_css("background-color", GROEN)
 
             # A boosted navigation: #site-nav-mobiel comes along out of band.
@@ -67,8 +68,9 @@ def test_de_kopkleur_blijft_na_navigeren_en_in_het_mobiele_menu(groene_kop):
             page.get_by_role("button", name="Menu").click()
             menu = page.locator("#site-nav-mobiel")
             expect(menu).to_be_visible()
-            # The menu has no background of its own: what you see is the nav's.
-            expect(menu).to_have_css("background-color", "rgba(0, 0, 0, 0)")
+            # #1588: the menu is a white drawer over the page, never the band's
+            # colour; the band behind it keeps the tenant's.
+            expect(menu).to_have_css("background-color", "rgb(255, 255, 255)")
             expect(kop).to_have_css("background-color", GROEN)
         finally:
             browser.close()

@@ -866,12 +866,17 @@ def _huidige_gebruiker(db, request) -> dict | None:
         if not email:
             return None
         naam = email
+        voornaam = email.split("@")[0]
         person = login_person_for_email(db, email)
         if person is not None:
             naam = f"{person.first_name} {person.last_name}".strip() or email
+            voornaam = (person.first_name or "").strip() or naam
         return {
             "email": email,
             "naam": naam,
+            # #1588: the header's account button says the first name; the menu
+            # and the drawer the full one.
+            "voornaam": voornaam,
             # #1499: whoever `require_admin_ui` admits — an operator too, who
             # holds OPERATOR everywhere and ADMIN on no tenant. The same set,
             # asked of the auth domain, not a copy of it here.
@@ -914,11 +919,13 @@ def _footer_organisatie(db, organisatie) -> dict | None:
         .one_or_none()
     )
     regels: list[str] = []
+    gemeente = None
     if adres is not None:
         bus = f" bus {adres.bus_number}" if adres.bus_number else ""
         regels.append(f"{adres.street} {adres.house_number}{bus}")
         if adres.postal_code is not None:
             regels.append(f"{adres.postal_code.postal_code} {adres.postal_code.municipality}")
+            gemeente = adres.postal_code.municipality
     # `include_all_tenants=True`: `tenant_id` is op een organisatierij niet de
     # scope (zie `ContactDetail`), dus de gewone filter zou hier het verkeerde
     # antwoord geven in plaats van geen.
@@ -946,6 +953,8 @@ def _footer_organisatie(db, organisatie) -> dict | None:
     blok = {
         "name": organisatie.name,
         "address_lines": regels,
+        # #1588: the town, for the footer's "Nieuws uit <plaats>".
+        "municipality": gemeente,
         "email": contacten.get("EMAIL") or None,
         "phone": contacten.get("PHONE") or None,
         "iban": (rekening.iban if rekening else None) or None,
@@ -953,6 +962,44 @@ def _footer_organisatie(db, organisatie) -> dict | None:
     }
     heeft_inhoud = regels or blok["email"] or blok["phone"] or blok["iban"] or blok["bic"]
     return blok if heeft_inhoud else None
+
+
+def legal_parts(organisation: dict | None) -> list[dict]:
+    """What the footer's legal line says about the organisation after "© year
+    name" (CR-11 pilot B, #1588; end state §2.5): the address on one line, the
+    e-mail address, the phone number, the account number — each only when it is
+    filled in, so a missing one leaves no empty separator, and each ONCE (the
+    footer has no separate contact block any more).
+
+    One source: the organisation the site shows (`_footer_organisatie`, #1550).
+    `kind` names the part for the template and the tests; `href` makes the
+    e-mail address and the phone number links."""
+    if not organisation:
+        return []
+    parts: list[dict] = []
+    if organisation["address_lines"]:
+        parts.append({"kind": "address", "text": ", ".join(organisation["address_lines"])})
+    if organisation["email"]:
+        parts.append(
+            {
+                "kind": "email",
+                "text": organisation["email"],
+                "href": f"mailto:{organisation['email']}",
+            }
+        )
+    if organisation["phone"]:
+        parts.append(
+            {
+                "kind": "phone",
+                "text": organisation["phone"],
+                "href": "tel:"
+                + "".join(c for c in organisation["phone"] if c.isdigit() or c == "+"),
+            }
+        )
+    if organisation["iban"]:
+        bic = f" ({organisation['bic']})" if organisation["bic"] else ""
+        parts.append({"kind": "iban", "text": f"{organisation['iban']}{bic}"})
+    return [{"href": None, **part} for part in parts]
 
 
 def _externe_url(waarde: str) -> str | None:
@@ -1062,11 +1109,12 @@ def _public_nav(field: str) -> list[dict]:
 
 def site_context(db, request=None) -> dict:
     """Gedeelde context van de SiteShell (site_base.html): navigatie-pagina's,
-    footer-blok en sponsors. Eén plek, elke publieke route neemt hem mee."""
+    de voet (nieuwsbrief, sociale links, sponsors, de juridische regel). Eén
+    plek, elke publieke route neemt hem mee."""
     from datetime import date
 
     from app.domains.auth.api import csrf_from_request
-    from app.domains.cms.api import CmsPage, render_cms_content
+    from app.domains.cms.api import CmsPage
     from app.domains.mdm.api import Organization, OrganizationType, TenantKind, module_enabled
     from app.domains.media.api import MediaAsset, MediaKind, media_url
     from app.i18n import _
@@ -1113,15 +1161,11 @@ def site_context(db, request=None) -> dict:
         .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
         .all()
     )
-    # #727: via de domeinfacade en niet met een eigen query — die keek langs
-    # `is_published` heen, dus de footer stond op elke publieke pagina terwijl het
-    # beheerscherm hem als niet-gepubliceerd toonde.
-    from app.domains.cms.api import get_published_page
-
-    footer = get_published_page(db, "site-footer")
-    footer_block = None
-    if footer is not None:
-        footer_block = {"content": render_cms_content(footer.content or "", db)}
+    # CR-11 pilot B (#1588): the free CMS block `site-footer` is no longer
+    # rendered — the footer's legal line carries the organisation's details from
+    # the entity, one source. The block stays as data until it is removed in the
+    # back office.
+    footer_organisation = _footer_organisatie(db, bron)
     # #1057: de footer toont alleen de logo's die daarvoor aangevinkt zijn. De
     # Design Studio blijft élk actief sponsorlogo aanbieden — dat is met opzet: een
     # logo dat niet in de footer hoort, hoort daarom nog niet van de affiche geweerd.
@@ -1158,7 +1202,15 @@ def site_context(db, request=None) -> dict:
         # what a module that is off lists or serves is not there.
         "public_nav": _public_nav("public_items"),
         "member_nav": _public_nav("member_items"),
-        "footer_block": footer_block,
+        # #1588: the legal line's parts, and the newsletter column's heading —
+        # "Nieuws uit <plaats>" with the organisation's town, otherwise the
+        # tenant's name.
+        "legal_parts": legal_parts(footer_organisation),
+        "newsletter_heading": (
+            _("Nieuws uit %(place)s") % {"place": footer_organisation["municipality"]}
+            if footer_organisation and footer_organisation["municipality"]
+            else _("Nieuws van %(name)s") % {"name": tenant_display_name(db)}
+        ),
         # #1473: the address comes from media; the footer writes none itself.
         "sponsors": [
             {"title": s.title, "link_url": s.link_url, "url": media_url(s.id)} for s in sponsors
@@ -1199,8 +1251,9 @@ def site_context(db, request=None) -> dict:
         # browser haalt het gewoon op, en de mediaroute cachet het al.
         "site_logo_url": _site_logo_url(db),
         # CR-19 (#1496): what the header shows without a logo. A company shows
-        # its own name; an association the RaaK wordmark (None). The rule is
-        # here, so the template shows a value and never asks for the kind.
+        # its own name. #1588: an association shows its name too (the typed
+        # RaaK wordmark left with decision 11), so None only says "no name of
+        # its own" and the template falls back on `site_name`.
         # #1543: the platform too shows its own name — it is in the site shell
         # since its home became a page, and it carries no Raak brand (#821).
         "site_wordmark": (
@@ -1217,13 +1270,13 @@ def site_context(db, request=None) -> dict:
         # één, want drie sleutels zijn drie sjabloonregels en dus precies de
         # kolom-per-netwerk die dit issue opruimt.
         "sociale_links": _sociale_links(db, bron),
-        # Het organisatieblok in de footer (#924). Het CMS-blok blijft eronder
-        # staan: `site-footer` is vrije tekst en een migratie kan een adres
-        # niet van een zin onderscheiden, dus er verdwijnt niets.
-        "organisatie": _footer_organisatie(db, bron),
-        # De link naar de nieuwsbrief onderaan de HOMEPAGINA (#984, bijgesteld
-        # op 19 september 2026). Niet op het platform: dat heeft geen leden en
-        # verstuurt geen nieuwsbrief.
+        # The organisation's details (#924). The footer shows them in its legal
+        # line (`legal_parts`, #1588); a CMS page may show them as a contact
+        # block. The free `site-footer` block is no longer rendered.
+        "organisatie": footer_organisation,
+        # The newsletter's call, in the footer's row since #1588 (it was a link
+        # at the bottom of the home page, #984). Not on the platform: it has no
+        # members and sends no newsletter.
         # CR-19 C6 test 11: the member, not the string. `org_type` is a CodeEnum,
         # which never equals "PLATFORM", so the platform showed the link too.
         # CR-19 (#1477): and only with the newsletter module on.

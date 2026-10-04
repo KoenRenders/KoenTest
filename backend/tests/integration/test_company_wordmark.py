@@ -1,8 +1,12 @@
 """CR-19 #1496 — a company's site shows its own name at the top, not RaaK.
 
-Without a logo, a tenant of kind BEDRIJF shows its name as a text wordmark where
-an association shows the RaaK wordmark (`R<span>aa</span>K`, read as "Raak").
+Without a logo, a tenant of kind BEDRIJF shows its name as a text wordmark.
 With a logo, every tenant shows the logo. Measured on the home page as served.
+
+Since #1588 (CR-11 pilot B, decision 11: no typed wordmark) an association
+without a logo shows its own name the same way; the typed RaaK wordmark
+(`R<span>aa</span>K`, read as "Raak") is rendered for no tenant any more, and
+`RAAK` below guards that it does not come back.
 
 Proven red against master `233ac85c`: the company test fails — the header shows
 the RaaK wordmark for every tenant without a logo.
@@ -62,13 +66,18 @@ def test_a_company_without_a_logo_shows_its_name(client, db_session):
     assert not RAAK.search(header), "the association's wordmark on a company site"
 
 
-def test_an_association_without_a_logo_keeps_the_raak_wordmark(client, db_session):
+def test_an_association_without_a_logo_shows_its_name(client, db_session):
+    """#1588 replaced the typed RaaK wordmark by the tenant's own name in the
+    display font (CR-11 decision 11: no typed wordmark, no tagline)."""
     _make(db_session, TenantKind.ASSOCIATION, "Raak Millegem")
 
     header = _home_header(client)
 
-    assert RAAK.search(header)
-    assert 'aria-label="Raak Millegem"' not in header
+    brand = header[header.index("data-site-brand") : header.index("</a>")]
+    assert 'aria-label="Raak Millegem">Raak Millegem</span>' in brand
+    assert "font-brand" in brand
+    assert "<img" not in brand
+    assert not RAAK.search(header), "the typed RaaK wordmark is gone (#1588)"
 
 
 @pytest.mark.parametrize("kind", [TenantKind.COMPANY, TenantKind.ASSOCIATION])

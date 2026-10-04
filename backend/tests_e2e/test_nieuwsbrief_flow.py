@@ -164,8 +164,10 @@ def test_inschrijven_via_de_link_op_de_homepagina_op_een_telefoon(browser):
     try:
         page.goto("/")
         assert page.locator("#nb-voet").count() == 0, "geen inschrijfblok in de voet"
-        _klikbaar(page, "#nb-home-link")
-        page.locator("#nb-home-link").click()
+        # #1588: the call stands in the footer of every page (it was a link at
+        # the bottom of the home page).
+        _klikbaar(page, "#nb-voet-link")
+        page.locator("#nb-voet-link").click()
         page.wait_for_selector("#nb-publiek", timeout=5_000)
         _klikbaar(page, "#nb-email")
         page.fill("#nb-email", "e2e-nieuwsbrief@example.org")

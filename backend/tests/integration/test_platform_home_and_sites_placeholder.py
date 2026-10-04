@@ -98,7 +98,9 @@ def test_the_platform_home_is_its_cms_page_without_a_home_intro(platform_workspa
     assert 'data-shell="site"' in html, "the ordinary site shell"
     assert "Eén platform voor verenigingen en organisaties" in html
     assert "Raak Millegem" in _groups(html).get("Raak", []), "the list where the landing had it"
-    assert 'href="/aanmelden"' in html and "Aanmelden" in html
+    # #1588: the sign-in link reads "Inloggen" — in the header and in the drawer.
+    assert html.count('<a href="/aanmelden" data-sign-in') == 2
+    assert html.count("Inloggen</a>") == 2
     assert client.get("/aanmelden").status_code == 200, "sign-in answers on the platform host"
 
 

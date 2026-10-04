@@ -25,7 +25,6 @@ def _render(**overrides):
         nav_pages=[],
         sponsors=[],
         gebruiker=None,
-        footer_block=None,
         current_year=2026,
         chat_enabled=False,
         canonical_url=None,

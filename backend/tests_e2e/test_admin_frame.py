@@ -164,10 +164,12 @@ def test_warning_is_the_real_orange_on_payments(browser_and_session):
     assert colours["open_amount"] and set(colours["open_amount"]) == {"rgb(194, 65, 12)"}, colours
 
 
-def test_the_public_site_keeps_its_tokens(browser_and_session):
-    """The home page's own values: the admin's palette, radius and face did not
-    reach the site. They are master's: the screenshot set of all 26 public
-    screens is byte-identical before (b5a80a38) and after this block."""
+def test_the_public_site_has_its_own_tokens(browser_and_session):
+    """The home page's own values. Until CR-11 pilot B (#1588) they were the
+    older Cobalt set, untouched by the admin's block; since then the public
+    shell carries the Atelier palette too (decision 01), with its own header
+    band (the tenant's colour, or 36 75 197 without one) and Fraunces for its
+    headings — the body stays Inter."""
     b, _session = browser_and_session
     page = b.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
     page.goto("/")
@@ -175,16 +177,18 @@ def test_the_public_site_keeps_its_tokens(browser_and_session):
     s = page.evaluate(
         """() => {
       const cs = (sel, p) => { const e = document.querySelector(sel); return e ? getComputedStyle(e)[p] : null; };
-      return {body: cs('body', 'backgroundColor'), header: cs('header > nav', 'backgroundColor'),
-              font: cs('body', 'fontFamily'), ink: cs('main', 'color')};
+      return {body: cs('body', 'backgroundColor'), header: cs('header.site-header', 'backgroundColor'),
+              font: cs('body', 'fontFamily'), ink: cs('main', 'color'),
+              heading: (cs('main h2', 'fontFamily') || '').split(',')[0]};
     }"""
     )
     print("MEASURE public", s)
     page.close()
 
     assert s == {
-        "body": "rgb(244, 246, 250)",
+        "body": "rgb(244, 246, 248)",
         "header": "rgb(36, 75, 197)",
         "font": "Inter, system-ui, sans-serif",
-        "ink": "rgb(25, 38, 56)",
+        "ink": "rgb(33, 45, 58)",
+        "heading": "Fraunces",
     }, s
