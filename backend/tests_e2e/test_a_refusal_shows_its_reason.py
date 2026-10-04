@@ -92,7 +92,15 @@ def test_the_organisation_shows_why(page):
 
 
 def test_the_tenant_editor_shows_why(page):
-    adres = _first_link(page, "/admin/tenants")
+    # A unit, not the list's first row: that is the platform, which has
+    # Activiteiten off since #1523.
+    page.goto("/admin/tenants")
+    pagina_klaar(page)
+    adres = (
+        page.locator("a[href^='/admin/tenants/']:not([href$='/nieuw'])")
+        .filter(has_text="Raak Millegem")
+        .first.get_attribute("href")
+    )
     page.goto(adres)
     pagina_klaar(page)
     activities = page.locator("#tn-form input[type=checkbox][value=activities]").first

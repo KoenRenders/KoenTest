@@ -173,13 +173,21 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     elif status == "inactief":
         units = [u for u in units if not u.is_active]
     accounts = list_accounts(db)
+    from app.domains.mdm.api import CREATABLE_TENANT_KINDS
+
     kinds = _kind_labels()
     return {
         "nav_items": admin_nav("/admin/tenants"),
         "units": units,
-        # CR-19 (#1478): the kind of each tenant, as its label; the platform has none.
+        # CR-19 (#1478): the kind of each tenant, as its label — the platform's
+        # own kind too, since #1523.
         "kind_of": {u.id: kinds[u.kind.value] for u in units if u.kind is not None},
-        "kind_options": list(kinds.items()),
+        # #1523: a new tenant takes one of the creatable kinds, never PLATFORM.
+        "kind_options": [
+            (code, label)
+            for code, label in kinds.items()
+            if code in {k.value for k in CREATABLE_TENANT_KINDS}
+        ],
         # #854: the platform is in this list but is no unit; the screen marks
         # it. Decided here, because a template comparing the member with
         # "PLATFORM" is always false (CR-12 phase 2).

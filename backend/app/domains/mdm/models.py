@@ -76,13 +76,17 @@ class TenantKind(CodeEnum):
     The operator chooses it once, in words a person uses; it gives a new tenant
     its module set (`app/kernel/modules.py`, `DEFAULTS`). Next to `legal_form`
     and not instead of it: the legal form is about law — a company can run a
-    club — the kind about what the site is for. Only on UNIT rows, the ones that
-    are tenants; NULL on ACCOUNT and PLATFORM. No standard has a home for "kind
-    of site" (UBL's `PartyLegalEntity` holds the legal form), so this one is ours.
+    club — the kind about what the site is for. On UNIT rows, the tenants, and
+    since #1523 on the PLATFORM row (its own kind, PLATFORM); NULL on ACCOUNT. No
+    standard has a home for "kind of site" (UBL's `PartyLegalEntity` holds the
+    legal form), so this one is ours.
     """
 
     ASSOCIATION = "VERENIGING"
     COMPANY = "BEDRIJF"
+    #: The platform's own kind (#1523): there is one platform, so a new tenant
+    #: never takes it (`tenant_service.CREATABLE_TENANT_KINDS`).
+    PLATFORM = "PLATFORM"
 
 
 class LegalForm(CodeEnum):

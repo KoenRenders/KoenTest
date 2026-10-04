@@ -134,6 +134,7 @@ from app.domains.mdm.tenant_lookup import (  # noqa: F401
     tenant_codes,
 )
 from app.domains.mdm.tenant_service import (  # noqa: F401
+    CREATABLE_TENANT_KINDS,
     ModuleRefused,
     OngeldigeInstelling,
     TenantFout,
@@ -175,6 +176,7 @@ __all__ = [
     "person_name_parts",
     "OngeldigeInstelling",
     "TenantFout",
+    "CREATABLE_TENANT_KINDS",
     "admin_code_lists",
     "import_commit",
     "import_preview",
