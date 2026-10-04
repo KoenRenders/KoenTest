@@ -419,7 +419,11 @@ at the left where the order matters, the fields inline at 768 px (a date:
 **Datum · Van · Einddatum · Tot**, four quarter fields — the end date is
 optional and empty means the same day; ChatGPT's draft forgot it, the
 model has `end_date`; Koen, 4 Oct 2026; an e-mail: the address and its
-tag; an organiser: the name as a jump link), `⋯` at the right, 12 px between rows with a thin
+tag; an organiser: the name as a jump link). **The labels of a simple row
+stand once**, as a column head above the first row, never repeated per row
+(row 1, the e-mail addresses; Koen again on 4 Oct 2026 when ChatGPT
+repeated Datum · Van · Tot on every date row); on a phone, where the fields
+stack and no head is possible, each field carries its label, `⋯` at the right, 12 px between rows with a thin
 line in that space; on a phone the fields stack under a first line with
 handle and `⋯`. A **composite item** (a component) has a title line
 (handle, name, `⋯`), its fields in the grid under it, and its child group
