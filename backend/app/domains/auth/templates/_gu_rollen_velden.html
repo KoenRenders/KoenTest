@@ -24,6 +24,8 @@
   {% endif %}
 </div>
 {% else %}
+{# #1500: a platform-wide role holds here too; it is shown, not edited here. #}
+{% if operator_aan %}<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{{ _("OPERATOR · alle werkruimtes") }}</span>{% endif %}
 {% for rc in role_codes %}
 <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="role_codes" value="{{ rc.code }}" {% if rc.code in sel %}checked{% endif %}> {{ rc.code }}</label>
 {% endfor %}

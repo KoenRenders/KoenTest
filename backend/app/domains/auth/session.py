@@ -120,6 +120,18 @@ _PAYMENTS_VIEW_ROLES = {"ADMIN", "FINANCE", "OPERATOR"}
 _PAYMENTS_MUTATE_ROLES = {"FINANCE", "OPERATOR"}
 
 
+def admits_admin_ui(roles) -> bool:
+    """Would `require_admin_ui` let someone with these roles in? (#1499)
+
+    For a place that shows the way in — the public header's back-office link —
+    and must not keep its own copy of the set: an operator holds OPERATOR on
+    every tenant and ADMIN on none, and a link that asked for ADMIN alone hid
+    the back office from them. Reads `_GENERAL_ADMIN_ROLES` when called, the
+    set `require_admin_ui` checks.
+    """
+    return bool(_GENERAL_ADMIN_ROLES & set(roles))
+
+
 def _require_ui_roles(request: Request, db: Session, allowed: set[str]) -> str:
     """Identiteit + rolcheck voor server-rendered schermen. Zonder geldige sessie:
     een 401-pagina-redirect naar de login (303 via HTTPException zou de htmx-flow
@@ -192,6 +204,15 @@ def may_view_payments(db: Session, email: str) -> bool:
     return bool(set(get_user_roles(db, email)) & set(_PAYMENTS_VIEW_ROLES))
 
 
+def may_mutate_payments(db: Session, email: str) -> bool:
+    """May this user change a payment — confirm, refund, edit, delete? FINANCE or
+    OPERATOR (#83/#530). The question `require_finance_mutation` enforces, for a
+    screen that shows the actions only to who may use them (#1574)."""
+    from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
+
+    return bool(_PAYMENTS_MUTATE_ROLES & set(get_user_roles(db, email)))
+
+
 def require_finance_mutation(db: Session, email: str) -> None:
     """Betaal-MUTATIES (bevestigen/terugbetalen/bewerken/verwijderen): FINANCE of
     OPERATOR (#83/#530).
@@ -201,9 +222,7 @@ def require_finance_mutation(db: Session, email: str) -> None:
     omdat autorisatie één plek hoort te hebben — `payment/ui.py` had er een eigen
     kopie van (#635 punt 10).
     """
-    from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
-
-    if not (_PAYMENTS_MUTATE_ROLES & set(get_user_roles(db, email))):
+    if not may_mutate_payments(db, email):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=_("Alleen FINANCE mag betalingen wijzigen."),
@@ -223,6 +242,29 @@ def require_operator_ui(db: Session, email: str) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail=_("Alleen de platformbeheerder (OPERATOR) mag tenants beheren."),
         )
+
+
+def require_platform_operator_ui(db: Session, email: str) -> None:
+    """Platform administration (#1535): Tenants, Organisaties, a new account and
+    the overview of every workspace. It lives in the platform workspace only —
+    in a tenant workspace these screens answer 404, for the operator too, so a
+    workspace shows nothing of the others — and there it is OPERATOR-only."""
+    from app.domains.auth.users import is_platform_workspace  # lazy: vermijdt cykel
+
+    if not is_platform_workspace(db):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_("Niet gevonden."))
+    require_operator_ui(db, email)
+
+
+def require_tenant_workspace(db: Session) -> int:
+    """The tenant of this workspace, for its own screens (#1535): "Onze
+    organisatie" and "Instellingen". The platform has neither — it is
+    administered through Tenants and Organisaties — so there they answer 404."""
+    from app.domains.auth.users import _actieve_werkruimte, is_platform_workspace
+
+    if is_platform_workspace(db):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_("Niet gevonden."))
+    return _actieve_werkruimte()
 
 
 def require_csrf(request: Request) -> None:

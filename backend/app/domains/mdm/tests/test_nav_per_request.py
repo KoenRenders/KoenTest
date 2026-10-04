@@ -28,7 +28,7 @@ from app.domains.mdm import tenant_lookup
 from app.domains.mdm.api import invalidate_tenant_codes
 from app.kernel.modules import DEFAULTS, MODULES, ModuleCode, current_modules, nav_item_shown
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
-from app.ui import _ADMIN_NAV, _ADMIN_NAV_LAYOUT, _public_nav, admin_nav
+from app.ui import _ADMIN_NAV, _ADMIN_NAV_LAYOUT, PLATFORM_ONLY_ITEMS, _public_nav, admin_nav
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -87,7 +87,8 @@ def test_an_association_sees_the_full_menu_as_before(client, modules_of):
     """C6 test 4: every item of the layout, in its order — the one rendering a
     desktop and a phone share since #1482."""
     html = _admin_page(client, modules_of, EVERY)
-    full = [href for href, _label in _ADMIN_NAV]
+    # #1535: a tenant workspace — platform administration is the platform's menu.
+    full = [href for href, _label in _ADMIN_NAV if href not in PLATFORM_ONLY_ITEMS]
 
     assert [h for h in _hrefs(html, "admin-nav-zijbalk") if h in full] == full
 

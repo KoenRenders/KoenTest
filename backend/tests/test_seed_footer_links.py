@@ -32,6 +32,39 @@ def test_seed_vult_de_vier_links_en_zet_de_marker(db_session):
     assert _millegem(db_session, MARKER) == "1"
 
 
+def _in_footer(db) -> bool:
+    """The seeded privacy page's flag, read through SQL: this file tests the
+    seed script, not a domain."""
+    from sqlalchemy import text
+
+    return db.execute(
+        text("SELECT show_in_footer FROM cms.cms_pages WHERE tenant_id = :t AND slug = 'privacy'"),
+        {"t": TENANT_MILLEGEM_ID},
+    ).scalar_one()
+
+
+def test_the_seed_puts_the_privacy_page_in_the_footer_once(db_session):
+    """#1569: the seed no longer sets a `privacy_url`; on a fresh environment it
+    ticks "Toon in de voettekst" on the seeded privacy page. Once: unticked in the
+    page editor afterwards, a restart leaves it unticked."""
+    from sqlalchemy import text
+
+    assert _in_footer(db_session) is False
+    seed_footer_links(db_session)
+    assert _in_footer(db_session) is True
+    assert _millegem(db_session, "privacy_url") is None
+
+    db_session.execute(
+        text(
+            "UPDATE cms.cms_pages SET show_in_footer = false WHERE tenant_id = :t AND slug = 'privacy'"
+        ),
+        {"t": TENANT_MILLEGEM_ID},
+    )
+    db_session.commit()
+    assert seed_footer_links(db_session) is None
+    assert _in_footer(db_session) is False
+
+
 def test_tweede_aanroep_doet_niets(db_session):
     seed_footer_links(db_session)
     assert seed_footer_links(db_session) is None

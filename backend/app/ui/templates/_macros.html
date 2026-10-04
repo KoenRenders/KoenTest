@@ -137,6 +137,7 @@
   "link": '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   "chevron-up": '<path d="m18 15-6-6-6 6"/>',
   "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+  "chevron-left": '<path d="m15 18-6-6 6-6"/>',
   "arrow-up-right": '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
   "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
   "arrow-down": '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
@@ -166,6 +167,8 @@
   "chart-bar": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/>',
   "chart-line": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m7 15 4-5 3 3 5-7"/>',
   "chart-stacked": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="13" width="4" height="4"/><rect x="7" y="9" width="4" height="4"/><rect x="15" y="11" width="4" height="6"/><rect x="15" y="7" width="4" height="4"/>',
+  "filter": '<path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/>',
+  "ellipsis": '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   "sparkles": '<path d="M12 3 10.1 8.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M19 17v4"/><path d="M17 19h4"/>',
   "list": '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>'} -%}
 {#- #762: een enkel icoon krijgt een eigen viewBox. Alle vakjes zijn even groot,
@@ -206,6 +209,14 @@
 <div class="sticky top-0 z-50 h-6 leading-6 bg-orange-500 text-white text-center text-xs font-semibold">{{ omgeving|upper }} — testomgeving (geen productie)</div>
 {%- endmacro %}
 
+{# A site as a card that is a link as a whole (#1566): the name in semibold, the
+   address under it, small and grey, and it may break. The card of the former
+   platform landing; `{{tenants}}` renders its sites with it. The `!` utilities
+   win from `.cms-content a`, which would colour and underline the whole card. #}
+{% macro site_card(name, url) -%}
+<a href="{{ url }}" data-site-card class="block bg-white border border-gray-200 rounded-2xl p-5 !no-underline hover:shadow-md transition-shadow"><span class="block font-semibold !text-ink">{{ name }}</span><span class="block text-sm text-gray-500 mt-1 break-all">{{ url }}</span></a>
+{%- endmacro %}
+
 {% macro card(id=None) -%}
 <div{% if id %} id="{{ id }}" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 scroll-mt-24"{% else %} class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6"{% endif %}>{{ caller() }}</div>
 {%- endmacro %}
@@ -242,6 +253,20 @@
 {# Foutbanner (B2-conventie: banner boven het formulier, geen alert()). #}
 {% macro error_banner(message) -%}
 {% if message %}<div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-800" role="alert">{{ message }}</div>{% endif %}
+{%- endmacro %}
+
+{# The refusal of one field, below it (#1545; design system: "error inline below
+   the field, error via `aria-describedby`"). The field itself carries
+   `field_error_attrs(id, message)`, so a screen reader reads the reason with it.
+   A banner at the top of a long form is out of view when you press Opslaan at
+   its bottom — measured on the organisation screen, where it read as "nothing
+   happened". #}
+{% macro field_error(id, message) -%}
+{% if message %}<p id="{{ id }}-fout" class="mt-1 text-sm text-red-700" role="alert">{{ message }}</p>{% endif %}
+{%- endmacro %}
+
+{% macro field_error_attrs(id, message) -%}
+{% if message %}aria-invalid="true" aria-describedby="{{ id }}-fout"{% endif %}
 {%- endmacro %}
 
 {% macro success_banner(message) -%}
@@ -308,8 +333,10 @@
    op zes schermen en als knop op twee — negen keer dezelfde regel overtypen is
    hoe de ene op een dag een ander teken of een andere kleur krijgt. Hier één
    keer; de bestaande kopieën mogen er in een aparte veeg naartoe. #}
+{# #1535: without an href, nothing — a workspace's own settings and organisation
+   are one record with no list to go back to, rendered by the same editor. #}
 {% macro back_link(label, href) -%}
-<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="{{ href }}">‹ {{ label }}</a></p>
+{% if href %}<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="{{ href }}">‹ {{ label }}</a></p>{% endif %}
 {%- endmacro %}
 
 {# The page header: title and subtitle left, the actions right (#1391, CR-11).
@@ -363,6 +390,119 @@
    `Markup.format` en nooit `~`-concatenatie — één `Markup`-operand (en `_()`
    levert er een) escapet anders alle andere operanden en de tag verschijnt als
    tekst. De uitvoer-gate in test_design_system_pagina bewaakt die klasse. #}
+{# ── The record head (CR-11 block 5, #1557; design-system-end-state §2.2, §3.9,
+   §3.11, §3.12) ────────────────────────────────────────────────────────────
+
+   `reference` — the jump link (§3.11): another record's name as a link to its
+   detail, with `arrow-up-right`. The only way a field that IS another record is
+   rendered. #}
+{% macro reference(label, href, cls="") -%}
+<a href="{{ href }}" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline {{ cls }}">{{ label }}{{ icon("arrow-up-right", 14) }}</a>
+{%- endmacro %}
+
+{# `record_header` — the head of a record page, its actions as data (§3.9).
+
+   - `back`: {label, href} from `app.ui.way_back` — the way back names its origin
+     and a screen never writes that link itself (§2.2).
+   - `badges`: [{label, tone}], the status first; the screen passes the others
+     without a tone (grey). `editing=True` adds the badge "Bewerken" after the
+     status and takes the primary away; Acties stays.
+   - `facts`: [{text}] or [{text, href, kind}] with kind "reference" (a jump link)
+     or "mail" (a real `mailto:`); the full words at every width.
+   - `primary`: {label, href} or {label, attrs} — one, never more.
+   - `actions`: [{kind, label, href|attrs, verb?, confirm?}]. `kind` is "record"
+     (placed in the fixed order of `verb`: copy, print, export, send, state — the
+     record's state action, such as publish or back to draft; a
+     record action without one of these verbs follows them), "tool" (under a
+     divider) or "delete" (last, red, after a divider). The screen says what it
+     has; the macro places it. A `btn_*` beside this macro in a record head is
+     red (`tests/test_record_header_gate.py`).
+   - A `{% call %}` body is rendered after Acties — last, as the head had it, so
+     the primary and Acties stay together when a phone wraps the row. It exists for one
+     thing, the per-screen assistant overlay, until the shell's panel replaces
+     it (#1562); the gate allows no other caller.
+
+   On a phone the title goes first: the title group takes the row, and the two
+   controls stay beside it only while a short title leaves them room; otherwise
+   they take a line of their own under it, at the right. The flex rules are the
+   prototype's (brief 05): the group may grow but not shrink on a phone, and from
+   `md` it shares the row and never gets narrower than 360 px. #}
+{% macro record_header(title, badges=[], facts=[], primary=None, actions=[], back=None, editing=False) -%}
+{# `caller is defined`, not `if caller` (#643): StrictUndefined. #}
+{% set _extra = (caller() if caller is defined else "")|trim %}
+{% set _verbs = ["copy", "print", "export", "send", "state"] %}
+{% set _records = actions|selectattr("kind", "equalto", "record")|list %}
+{% set _tools = actions|selectattr("kind", "equalto", "tool")|list %}
+{% set _deletes = actions|selectattr("kind", "equalto", "delete")|list %}
+{% macro _item(a, danger=False) -%}
+{% set _cls = "flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 " ~ ("text-red-700" if danger else "text-ink") %}
+{% if a.get("href") %}<a role="menuitem" href="{{ a.href }}" class="{{ _cls }}">{{ a.label }}</a>
+{% else %}<button role="menuitem" type="button" class="{{ _cls }}" {{ a.get("attrs", "")|safe }}{% if a.get("confirm") %} data-confirm="{{ a.confirm }}"{% endif %}>{{ a.label }}</button>{% endif %}
+{%- endmacro %}
+<header data-record-head class="mb-3">
+  {% if back and back.href %}
+  <a data-way-back href="{{ back.href }}" class="inline-flex items-center gap-1 min-h-11 md:min-h-7 mb-2 max-w-full text-sm text-blue-500 hover:underline [overflow-wrap:anywhere]">{{ icon("chevron-left", 16, "shrink-0") }}<span>{{ back.label }}</span></a>
+  {% endif %}
+  <div class="flex flex-wrap items-start gap-x-4 gap-y-3">
+    <div data-title-group class="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 max-w-full flex-[1_0_auto] md:flex-[1_1_0%] md:min-w-[min(100%,360px)]">
+      <h1 tabindex="-1" class="min-w-0 max-w-full text-[28px] md:text-3xl leading-9 font-semibold text-kop [overflow-wrap:anywhere]">{{ title }}</h1>
+      {% if badges or editing %}
+      <span data-badges class="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
+        {% for b in badges %}{{ badge(b.label, b.get("tone") or "gray") }}{% if loop.first and editing %}{{ badge(_("Bewerken"), "blue") }}{% endif %}{% endfor %}
+        {% if editing and not badges %}{{ badge(_("Bewerken"), "blue") }}{% endif %}
+      </span>
+      {% endif %}
+    </div>
+    {% if (primary and not editing) or actions or _extra %}
+    <div data-head-controls class="flex flex-wrap justify-end items-center gap-2 ml-auto shrink-0 max-w-full">
+      {% if primary and not editing %}
+      {{ button(primary.label, variant="primary", type="button", href=primary.get("href"), size="sm", attrs=primary.get("attrs", ""), cls="min-h-11 md:min-h-9") }}
+      {% endif %}
+      {% if actions %}
+      <div class="relative" x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+        <button type="button" x-ref="trigger" data-actions-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+                class="{{ btn_class('secondary', 'sm') }} min-h-11 md:min-h-9 inline-flex items-center gap-1" @click="open = !open">{{ _("Acties") }}{{ icon("chevron-down", 14) }}</button>
+        <div x-show="open" x-cloak @click.outside="open = false" role="menu" data-actions-menu
+             class="absolute right-0 z-30 mt-2 w-[272px] max-w-[calc(100vw-2rem)] max-h-[65dvh] overflow-auto py-1 bg-white border border-line rounded-lg shadow-lg">
+          {% for v in _verbs %}{% for a in _records if a.get("verb") == v %}{{ _item(a) }}{% endfor %}{% endfor %}
+          {% for a in _records if a.get("verb") not in _verbs %}{{ _item(a) }}{% endfor %}
+          {% if _tools %}{% if _records %}<div data-menu-divider class="my-1 border-t border-line"></div>{% endif %}{% for a in _tools %}{{ _item(a) }}{% endfor %}{% endif %}
+          {% if _deletes %}{% if _records or _tools %}<div data-menu-divider class="my-1 border-t border-line"></div>{% endif %}{% for a in _deletes %}{{ _item(a, danger=True) }}{% endfor %}{% endif %}
+        </div>
+      </div>
+      {% endif %}
+      {{ _extra|safe }}
+    </div>
+    {% endif %}
+  </div>
+  {% if facts %}
+  <p data-facts class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 md:min-h-6 text-sm text-ink-soft">
+    {% for f in facts %}{% if not loop.first %}<span aria-hidden="true">·</span>{% endif %}
+    {% if f.get("kind") == "reference" %}{{ reference(f.text, f.href, "min-h-11 md:min-h-6") }}
+    {% elif f.get("kind") == "mail" %}<a href="mailto:{{ f.text }}" class="text-blue-500 underline hover:no-underline">{{ f.text }}</a>
+    {% else %}<span>{{ f.text }}</span>{% endif %}{% endfor %}
+  </p>
+  {% endif %}
+</header>
+{%- endmacro %}
+
+{# `related_tabs` — navigation inside a record (§3.12): "Gegevens" first, then the
+   related lists with their count in brackets. An underline of 2 px under the
+   active tab, a bar of 45 px with its bottom line; no border around the group, no
+   filled tab — visibly different from a list's status filter. `keep` is the query
+   every tab carries on (the way back), so the head does not change between tabs.
+   A record without tabs has no empty tab line. #}
+{% macro related_tabs(tabs, keep="") -%}
+{% if tabs %}
+<nav data-related-tabs class="flex items-stretch gap-3 md:gap-5 mb-3 border-b border-line overflow-x-auto whitespace-nowrap">
+  {% for t in tabs %}
+  <a href="{{ t.href }}{% if keep %}?{{ keep }}{% endif %}"{% if t.active %} aria-current="page"{% endif %}
+     class="inline-flex items-center gap-1 min-h-11 border-b-2 text-sm {% if t.active %}border-blue-700 text-blue-700 font-semibold{% else %}border-transparent text-ink-soft hover:text-blue-700{% endif %}">{{ t.label }}{% if t.get("count") is not none %}<span class="text-[13px] font-medium tabular-nums">({{ t.count }})</span>{% endif %}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+{%- endmacro %}
+
 {# ── Uploadveld (#623) ────────────────────────────────────────────────────────
    Eén vorm voor de drie plekken waar een bestand bij een record hoort
    (activiteitaffiche, onderdeel-info, media). Die zagen er alle drie anders uit.
@@ -754,7 +894,13 @@
    die groeien zegt een reeks knoppen weinig en breekt ze op mobiel. Verbergt
    zichzelf als alles op één pagina past, zodat een lijst met drie rijen geen
    navigatie krijgt. #}
-{% macro pager(page, per_page, total, hx_get="", hx_target="", include="", param="page") -%}
+{# "x–y van n", the one wording of a list's count (#1391 W8; end state §3.7):
+   an empty list says "0–0 van 0". #}
+{% macro range_text(page, per_page, total) -%}
+{% if total %}{{ (page - 1) * per_page + 1 }}–{{ [page * per_page, total] | min }}{% else %}0–0{% endif %} {{ _("van") }} {{ total }}
+{%- endmacro %}
+
+{% macro pager(page, per_page, total, hx_get="", hx_target="", include="", param="page", count=True, push=False) -%}
 {# One wording: "x–y van n" (#1391, CR-11 W8). The "Pagina n" mode for lists
    that fetched one row extra instead of counting is gone — every list that
    pages now counts, because "page 3" does not tell anyone how far they are.
@@ -765,15 +911,22 @@
 {% set _prev = page > 1 %}
 {% set _next = page < pages %}
 {% if _prev or _next %}
-<nav class="flex items-center justify-between gap-3 mt-3 text-sm" aria-label="Paginering">
-  <span class="text-ink-soft">{{ (page - 1) * per_page + 1 }}–{{ [page * per_page, total] | min }} van {{ total }}</span>
-  <span class="flex gap-1">
+{# CR-11 K1 (#1555, end state §3.7): two renderings from this one macro. On a
+   `list_page` the count stands in the toolbar (`range_text`, through
+   `ui.toolbar`), so the bottom carries the two buttons only (`count=False`):
+   right-aligned on a desktop, at the two edges on a phone. `push=True` marks
+   the request like a filter, so the page lands in the URL and the way back
+   finds it (B7 test 21). #}
+<nav data-pager class="flex items-center {{ 'justify-between' if count else 'justify-between md:justify-end' }} gap-3 mt-3 text-sm" aria-label="Paginering">
+  {% if count %}<span class="text-ink-soft">{{ range_text(page, per_page, total) }}</span>{% endif %}
+  <span class="{{ 'flex gap-1' if count else 'contents md:flex md:gap-2' }}">
     {% for label, target, enabled in [("‹ Vorige", page - 1, _prev), ("Volgende ›", page + 1, _next)] %}
     <button type="button"
             class="px-3 py-1.5 rounded-lg border {{ 'border-gray-300 hover:bg-gray-50' if enabled else 'border-gray-200 text-gray-400 cursor-not-allowed' }}"
             {% if enabled %}hx-get="{{ hx_get }}{{ '&' if '?' in hx_get else '?' }}{{ param }}={{ target }}"
               {% if hx_target %}hx-target="{{ hx_target }}" hx-swap="innerHTML"{% endif %}
               {% if include %}hx-include="{{ include }}"{% endif %}
+              {% if push %}hx-headers='{"X-Raak-Filter": "1"}'{% endif %}
             {% else %}disabled aria-disabled="true"{% endif %}>{{ label }}</button>
     {% endfor %}
   </span>
@@ -1083,13 +1236,15 @@
    picker (`/admin/media/kiezer`, `media.api.pick_options`): the tree, search and
    the year, thumbnails in pages of 60, last year's photos first for a copied
    activity (`for_activity_id`). Choosing sets the field, shows the thumbnail and
-   closes the modal. The hidden initial state is in the server markup (§8.1).
+   closes the modal: the fragment announces the choice as `media-picked` (#1474),
+   which a screen with its own modal — the CMS page — reads the same way. The hidden initial state is in the server markup (§8.1).
    `clearable` (#1473): a "Weghalen" link empties the choice — a design slot may
    hold no picture; off by default, so a field that needs one never offers it. #}
 {% macro media_picker(name, value=None, value_thumb=None, for_activity_id=None,
                       label=None, title=None, clearable=False) -%}
 {% set adres = "/admin/media/kiezer?field=" ~ name ~ ("&for_activity_id=" ~ for_activity_id if for_activity_id else "") %}
-<div class="space-y-2" x-data="{ open: false, chosen: '{{ value or '' }}', thumb: '{{ value_thumb or '' }}' }">
+<div class="space-y-2" x-data="{ open: false, chosen: '{{ value or '' }}', thumb: '{{ value_thumb or '' }}' }"
+     @media-picked="chosen = $event.detail.id; thumb = $event.detail.thumb; open = false">
   <input type="hidden" name="{{ name }}" value="{{ value or '' }}" :value="chosen">
   <div class="flex items-center gap-3">
     {# #1473: the thumbnail's place is always there, empty or not, so pickers under
@@ -1222,8 +1377,8 @@
 </script>
 {%- endmacro %}
 
-{% macro grouped_filter(name, top_options=[], groups={}, current="", hx_get="", hx_target="") -%}
-<select name="{{ name }}" class="{{ _control_base }}"
+{% macro grouped_filter(name, top_options=[], groups={}, current="", hx_get="", hx_target="", id=None) -%}
+<select name="{{ name }}"{% if id %} id="{{ id }}"{% endif %} class="{{ _control_base }}"
         {% if hx_get %}hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="innerHTML" hx-trigger="change"{% endif %}>
   {% for value, display in top_options %}<option value="{{ value }}" {% if current == value %}selected{% endif %}>{{ display }}</option>{% endfor %}
   {% for glabel, opts in groups.items() %}
@@ -1575,6 +1730,18 @@
       });
       host.appendChild(melding);
     }
+    // #1515: a refusal that renders its form again, with the reason in a
+    // banner, answers 422 with HTML. htmx 2 swaps no 4xx answer, so the reason
+    // never reached the screen — the user saw only the generic toast below.
+    // An HTML 422 is swapped like a 200; a JSON 422 (a validation error of the
+    // API) keeps the error path, since swapping JSON into a screen helps no one.
+    body.addEventListener('htmx:beforeSwap', function (e) {
+      var xhr = e.detail.xhr;
+      if (xhr && xhr.status === 422 && /text\/html/.test(xhr.getResponseHeader('Content-Type') || '')) {
+        e.detail.shouldSwap = true;
+        e.detail.isError = false;
+      }
+    });
     body.addEventListener('htmx:responseError', function (e) {
       if (e.detail.boosted) { window.location.assign(e.detail.pathInfo.finalRequestPath); return; }
       var status = (e.detail.xhr && e.detail.xhr.status) || 0;
@@ -1912,4 +2079,180 @@
   {% endif %}{% endfor %}
   {% endfor %}
 </svg>
+{%- endmacro %}
+
+{# ══ The list kit (CR-11 pilot A, K1 — #1555) ═════════════════════════════════
+   The title row and the toolbar of a `list_page` (`list_page.html`), as decided
+   in blocks 2 and 3 (Koen, 2 October 2026). Norm: `docs/design-system-end-state.md`
+   §2.1, §3.7, §3.8, §3.13. Betalingen is the pilot screen; the other lists move
+   onto it in the roll-out. #}
+
+{# ── Key figures (§3.8) ───────────────────────────────────────────────────────
+   Plain text in the title row: one figure, one short label under it, a thin
+   divider between two figures. No card, no hover, **not a link** — a figure is
+   read; the rows it counts are found with the toolbar's status filter. `items`
+   is a list of {value, label, title?, warning?}; `checked_figures` refuses an
+   item that carries two figures (a `TypeError` at render, B7 test 18).
+
+   On a phone the figures sit on one line under the title and wrap to a second
+   when they must. The outer box clips the divider of a figure that starts a
+   line (the list is pulled one divider-and-padding to the left), so a wrapped
+   line never opens with a loose stripe; from `md` the first divider shows — it
+   separates the title from the figures. #}
+{% macro figures(items) -%}
+{%- set _items = checked_figures(items) -%}
+<div data-figures class="overflow-hidden md:overflow-visible min-w-0">
+  <dl class="m-0 flex flex-wrap items-start gap-y-2 -ml-[17px] md:ml-0">
+    {% for f in _items %}
+    <div class="flex flex-col min-w-0 border-l border-line px-4" title="{{ f.title }}">
+      <dd data-figure class="order-first m-0 text-2xl leading-[30px] font-semibold tracking-tight tabular-nums whitespace-nowrap {{ 'text-brand-warning' if f.warning else 'text-ink' }}">{{ f.value }}</dd>
+      <dt data-figure-label class="text-[13px] leading-5 text-ink-soft whitespace-nowrap overflow-hidden text-ellipsis">{{ f.label }}</dt>
+    </div>
+    {% endfor %}
+  </dl>
+</div>
+{%- endmacro %}
+
+{# ── Status filter (§3.13) ────────────────────────────────────────────────────
+   A segmented control: one bordered group, one segment chosen, on the brand
+   tint; 36 px high like a button, 44 on a phone. A `fieldset` of radio inputs —
+   Tab enters, the arrows choose — so it reads as a control and never as
+   navigation: tabs are a record's way to its linked objects and nothing else.
+   `segments` is a list of {value, label, count?}; a count stands in brackets
+   after the name ("Openstaand (3)", Q54) and lives in its own element
+   (`<id>-n-<value>`), so a list fragment can refresh it out-of-band
+   (`toolbar_oob`) without replacing the radio that has the focus. #}
+{% macro status_filter(name, segments, current, legend, id="status") -%}
+<fieldset data-status-filter class="m-0 p-0 min-w-0 flex items-stretch shrink-0 h-11 md:h-9 rounded-lg border border-gray-300 bg-white">
+  <legend class="sr-only">{{ legend }}</legend>
+  {% for s in segments %}
+  <label class="relative flex flex-1 md:flex-none cursor-pointer{{ ' border-l border-line' if not loop.first }}">
+    <input type="radio" name="{{ name }}" value="{{ s.value }}" class="peer absolute inset-0 h-full w-full m-0 opacity-0 cursor-pointer"{% if s.value == current %} checked{% endif %}>
+    <span class="flex w-full items-center justify-center gap-1 px-3 whitespace-nowrap text-sm font-medium text-ink-soft hover:bg-surface-2 peer-checked:bg-blue-50 peer-checked:text-blue-700 peer-checked:font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-blue-600 peer-focus-visible:z-10 {{ 'rounded-l-[7px]' if loop.first }} {{ 'rounded-r-[7px]' if loop.last }}">{{ s.label }}{% if s.get('count') is not none %} <span id="{{ id }}-n-{{ s.value }}" class="tabular-nums">({{ s.count }})</span>{% endif %}</span>
+  </label>
+  {% endfor %}
+</fieldset>
+{%- endmacro %}
+
+{# ── Toolbar (§3.13) ──────────────────────────────────────────────────────────
+   The list's second row: the same five things in the same order at every width
+   — status filter · search · Filters · count with page size · `⋯`. One row on
+   a desktop; on a phone the row wraps to three lines (status / search /
+   Filters, count and `⋯`). Nothing stands in two places and nothing changes
+   place by device.
+
+   One form, like `filter_bar`: it sends every field together and marks the
+   request with `X-Raak-Filter`, so the server pushes the page URL with the
+   list's state (`main.py:_filter_push_url`) and the way back finds the list as
+   it was left. It stands OUTSIDE the list fragment, so the search field is not
+   replaced under the fingers; what changes with the list — the count, a
+   segment's count — is refreshed out-of-band by `toolbar_oob`.
+
+   * `segments` / `status_*`: the status filter; a change sends the form.
+   * the search: the magnifier is its submit, typing sends after a pause
+     (`input`, so a paste and the field's own clear count too; its `change` on
+     leaving the field is not a second request).
+   * the call body: the selects of **Filters** — always one button with a panel
+     and one Toepassen, also with a single select, also at 1 920 px. A change
+     inside the panel waits for Toepassen. No body, no button (the embedded
+     rendering inside a record: the record is the context).
+   * the count "x–y van n" with the page size (`page_sizes`); on a phone the
+     page size is chosen under `⋯` — a mirror without a name that sets the one
+     real field, so the form never sends the size twice.
+   * `menu`: the screen's secondary actions under `⋯`, a list of
+     {label, href?, icon?, with_state?, attrs?}. `with_state=True` opens `href`
+     with the form's fields as its query — an export of what the list shows.
+     `⋯` never repeats a button that is visible elsewhere.
+   * `hidden`: (name, value) pairs that travel with every request (a scope).
+   * `cls`: for a screen that puts something BESIDE the toolbar (`filter_bar`'s
+     `cls`, #1115) — the form is then the flex child itself. #}
+{% macro toolbar(hx_get, hx_target, id, segments=[], status_name="status", status_current="", status_legend="",
+                 q="", search_placeholder="", page=1, per_page=50, total=0, page_sizes=[], menu=[], hidden=[], cls="") -%}
+{% set _filters = caller() if caller is defined else "" %}
+<form id="{{ id }}" data-toolbar class="relative mb-3 flex flex-wrap items-center gap-2 min-w-0{% if cls %} {{ cls }}{% endif %}"
+      hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="innerHTML"
+      hx-trigger="change[!event.target.closest('[data-filters-panel]')&&event.target.type!=='search'], input changed delay:400ms from:find input[type=search], submit"
+      hx-headers='{"X-Raak-Filter": "1"}'>
+  {% if segments %}
+  <div class="basis-full md:basis-auto min-w-0">{{ status_filter(status_name, segments, status_current, status_legend, id=id) }}</div>
+  {% endif %}
+  <div data-toolbar-search class="relative basis-full md:basis-[180px] md:min-w-[180px] md:max-w-[480px] flex-1">
+    <input type="search" name="q" value="{{ q }}" placeholder="{{ search_placeholder }}" aria-label="{{ search_placeholder }}" class="w-full pl-10">
+    <button type="submit" class="absolute inset-y-0 left-0 grid w-10 place-items-center rounded-l-lg text-ink-soft hover:text-ink" aria-label="{{ _('Zoeken') }}">{{ icon('search') }}</button>
+  </div>
+  {% if _filters | trim %}
+  <div class="relative" x-data="{ open: false }" @keydown.escape="open = false">
+    <button type="button" data-filters-button class="{{ btn_class('secondary', 'sm') }} h-11 md:h-9 inline-flex items-center gap-2" @click="open = !open" :aria-expanded="open" aria-haspopup="dialog">{{ icon('filter') }}{{ _("Filters") }}</button>
+    <div data-filters-panel x-show="open" x-cloak @click.outside="open = false"
+         class="absolute left-0 md:left-auto md:right-0 z-20 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 rounded-card border border-line bg-white p-4 shadow-lg">
+      <div class="text-sm font-semibold text-ink">{{ _("Filters") }}</div>
+      {{ _filters }}
+      {{ btn_primary(_("Toepassen"), size="sm", attrs='@click="open = false"', cls="justify-center") }}
+    </div>
+  </div>
+  {% endif %}
+  <span id="{{ id }}-count" data-toolbar-count class="ml-auto whitespace-nowrap text-xs tabular-nums text-ink-soft">{{ range_text(page, per_page, total) }}</span>
+  {% if page_sizes %}
+  {% call select_control("per_page", cls="hidden md:block w-[4.5rem]", attrs="data-page-size", aria_label=_("Per pagina")) %}
+    {% for n in page_sizes %}<option value="{{ n }}"{% if n == per_page %} selected{% endif %}>{{ n }}</option>{% endfor %}
+  {% endcall %}
+  {% endif %}
+  {% if menu or page_sizes %}
+  <div class="relative{{ '' if menu else ' md:hidden' }}" x-data="{ open: false }" @keydown.escape="open = false">
+    <button type="button" data-more-button class="{{ btn_class('secondary', 'sm') }} h-11 w-11 md:h-9 md:w-9 inline-grid place-items-center !px-0" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="{{ _('Meer acties') }}">{{ icon('ellipsis') }}</button>
+    <div data-more-menu x-show="open" x-cloak @click.outside="open = false" role="menu"
+         class="absolute right-0 z-20 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col rounded-card border border-line bg-white p-2 shadow-lg">
+      {% for m in menu %}
+      {% if m.get('with_state') %}
+      <button type="button" role="menuitem" class="flex min-h-11 items-center gap-2 rounded-lg px-3 text-left text-sm text-ink hover:bg-surface-2"
+              @click="open = false; window.location = '{{ m.href }}?' + new URLSearchParams(new FormData($el.closest('form'))).toString()">{% if m.get('icon') %}{{ icon(m.icon) }}{% endif %}{{ m.label }}</button>
+      {% else %}
+      <a role="menuitem" href="{{ m.href }}" class="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-ink hover:bg-surface-2"{% if m.get('attrs') %} {{ m.attrs|safe }}{% endif %}>{% if m.get('icon') %}{{ icon(m.icon) }}{% endif %}{{ m.label }}</a>
+      {% endif %}
+      {% endfor %}
+      {% if page_sizes %}
+      <label class="md:hidden flex flex-col gap-1 px-3 py-2 text-xs text-ink-soft{{ ' mt-2 border-t border-line pt-3' if menu }}">{{ _("Per pagina") }}
+        {# An empty name: the mirror is never sent. #}
+        {% call select_control("", cls="w-full", attrs='data-page-size-mirror @change="const size = $el.closest(\'form\').querySelector(\'[data-page-size]\'); size.value = $event.target.value; size.dispatchEvent(new Event(\'change\', { bubbles: true })); open = false; $event.stopPropagation()"') %}
+          {% for n in page_sizes %}<option value="{{ n }}"{% if n == per_page %} selected{% endif %}>{{ n }}</option>{% endfor %}
+        {% endcall %}
+      </label>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  {% for name, value in hidden %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+</form>
+{%- endmacro %}
+
+{# What a list fragment sends along for the toolbar that stands outside it: the
+   count, and the count of every segment that carries one. Same `id` as the
+   toolbar's. #}
+{% macro toolbar_oob(id, segments=[], page=1, per_page=50, total=0) -%}
+<span id="{{ id }}-count" hx-swap-oob="true" data-toolbar-count class="ml-auto whitespace-nowrap text-xs tabular-nums text-ink-soft">{{ range_text(page, per_page, total) }}</span>
+{% for s in segments %}{% if s.get('count') is not none %}<span id="{{ id }}-n-{{ s.value }}" hx-swap-oob="true" class="tabular-nums">({{ s.count }})</span>{% endif %}{% endfor %}
+{%- endmacro %}
+
+{# ── Switch (CR-11 Q13, block 6; end state §3.5 — first used by #1568) ────────
+   A yes or a no in an edit form, applied on Opslaan like any field. **The knob
+   at the left, the label at its right**, 8 px apart, as a checkbox reads. A
+   checkbox with `role="switch"`, so a screen reader says "aan" or "uit" and the
+   space bar toggles it; the track is decoration.
+
+   An unticked checkbox sends nothing, and "nothing" is not "off" for a form that
+   saves only what it receives — so a hidden field with the same name goes first
+   and carries `off_value`; ticked, the checkbox follows it with `on_value`, and
+   the last value of a name is the one the server reads. `help` stands under the
+   switch and is linked to it with `aria-describedby`. #}
+{% macro switch(name, label, checked=False, on_value="1", off_value="", id=None, help=None) -%}
+{% set _id = id or name %}
+<div data-switch>
+  <label for="{{ _id }}" class="inline-flex min-h-11 md:min-h-0 cursor-pointer items-center gap-2">
+    <input type="hidden" name="{{ name }}" value="{{ off_value }}">
+    <input type="checkbox" role="switch" name="{{ name }}" id="{{ _id }}" value="{{ on_value }}" class="peer sr-only"{% if checked %} checked{% endif %}{% if help %} aria-describedby="{{ _id }}-hulp"{% endif %}>
+    <span aria-hidden="true" class="relative h-6 w-11 shrink-0 rounded-full bg-gray-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-brand-ocean peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-200 peer-focus-visible:ring-offset-2"></span>
+    <span class="text-sm font-medium text-ink">{{ label }}</span>
+  </label>
+  {% if help %}<p id="{{ _id }}-hulp" class="mt-1 text-xs text-ink-soft">{{ help }}</p>{% endif %}
+</div>
 {%- endmacro %}

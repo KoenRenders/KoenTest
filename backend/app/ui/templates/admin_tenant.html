@@ -5,71 +5,129 @@
 {# Paginabrede editor van één tenant (#581). Alle settings die vroeger op
    /admin/instellingen stonden, nu zonder afdelingskiezer: welke tenant je bewerkt
    volgt uit de URL. #}
-{{ ui.back_link(_("Alle tenants"), "/admin/tenants") }}
+{{ ui.back_link(_("Alle tenants"), back_href) }}
 {% call ui.page_header(unit.name, _("Instellingen van deze site. Een leeg veld = de standaardwaarde (Millegem/.env).")) %}
   {# #971: de weg naar de organisatie erachter. Naam, rechtsvorm, adres, rekening en
      nummers staan daar — dit scherm gaat over de site. #}
-  {{ ui.btn_secondary(_("De organisatie"), href="/admin/organisaties/" ~ tenant_id, size="sm") }}
+  {{ ui.btn_secondary(_("De organisatie"), href=org_href, size="sm") }}
 {% endcall %}
 {{ ui.error_banner(error) }}
 
 <p class="text-sm text-ink-soft mb-4">
   {{ _("Code") }}: <span class="font-mono">/{{ unit.code }}</span>
-  {% if kind_label %} · {{ _("Type") }}: {{ kind_label }}{% endif %}
+  {% if kind_label and not kind_options %} · {{ _("Type") }}: {{ kind_label }}{% endif %}
 </p>
 
-{# CR-19 (#1478): which modules this tenant has on. The count beside each is
-   what becomes unreachable when it goes off — nothing is deleted, and it comes
-   back when the module is switched on again. Its own form: the module set is
-   one decision, the settings below another. #}
-<form hx-post="/admin/tenants/{{ tenant_id }}/modules" hx-target="body" hx-swap="innerHTML"
-      class="max-w-2xl mb-6 space-y-3">
-  {{ ui.section_header(_("Modules")) }}
-  {{ ui.error_banner(modules_error) }}
-  <p class="text-xs text-ink-soft">{{ _("Tussen haakjes: hoeveel gegevens de module voor deze tenant bewaart. Uitzetten wist niets; aanzetten toont alles weer.") }}</p>
-  {{ ui.checkbox_group("modules", labelled=module_options, current=modules_on, aria_label=_("Modules")) }}
-  {{ ui.btn_primary(_("Modules bewaren"), type="submit", size="sm") }}
-</form>
-
-{# Golf 6, kop-herziening: alles bovenaan, sticky — drie onbegrensde secties. #}
+{# CR-19 (#1498): one card per module, its checkbox in the card's header, and one
+   Opslaan for the page — the module set and the settings in one transaction.
+   Which setting belongs on which card is the registry's (`tenant_settings`),
+   decided in `_cards`; this template only lays the cards out. A ticked box
+   shows the card's settings, an unticked one folds them away: they stay on
+   the form, so switching a module off keeps its values (#1478 deletes
+   nothing). "Site" holds what no module owns and has no checkbox. #}
 <div class="max-w-2xl sticky top-0 z-20 bg-ground py-2">
-  {{ ui.action_bar(form="tn-form", cancel_href="/admin/tenants") }}
+  {{ ui.action_bar(form="tn-form", cancel_href=cancel_href) }}
 </div>
-<form id="tn-form" hx-post="/admin/tenants/{{ tenant_id }}" hx-target="body" hx-swap="innerHTML"
+{# #1535: the target literally per scope — the rules gate walks it to its route. #}
+<form id="tn-form" {% if own %}hx-post="/admin/instellingen"{% else %}hx-post="/admin/tenants/{{ tenant_id }}"{% endif %} hx-target="body" hx-swap="innerHTML"
       class="space-y-4 max-w-2xl">
-  {# #971: de organisatievelden stonden hier en zijn verhuisd. Wat dit scherm is,
-     staat nu in de kop: de instellingen van de SITE. Wat de organisatie IS — naam,
-     rechtsvorm, adres, rekening, nummers — bewerk je op `/admin/organisaties`, en
-     alleen daar. Twee schermen voor één feit is dezelfde duplicatie die #924 en
-     #945 uit de kolommen haalden.
-
-     De link staat in de kop van dit scherm en niet hier, zodat hij ook zichtbaar
-     is zonder naar beneden te scrollen. #}
-  {{ ui.section_header(_("Instellingen van deze site")) }}
-  {% for key, label, hulp in sleutels %}
-  <div>
-    {{ ui.label(label, key) }}
-    <input name="{{ key }}" id="{{ key }}" value="{{ waarden[key] }}" class="w-full">
-    <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p>
-  </div>
-  {% endfor %}
-  <div class="border-t border-line pt-4">
-    {{ ui.section_header(_("Secrets")) }}
-    {% for key, label, hulp in geheime_sleutels %}
-    <div class="mb-4">
-      {{ ui.label(label, key) }}
-      <input type="password" name="{{ key }}" id="{{ key }}" autocomplete="off"
-             placeholder="{{ _('•••• (gezet — leeg laten = ongewijzigd)') if secrets_gezet[key] else _('niet gezet — .env-default geldt') }}"
-             class="w-full">
-      <label class="flex items-center gap-2 text-sm mt-1">
-        <input type="checkbox" name="{{ key }}_wissen" value="1"> {{ _("Wissen (terug naar de .env-default)") }}
+  {# #1533: the kind, saved with the one Opslaan; the modules do not follow it.
+     #1542: the platform has the account only — its kind is fixed (shown above). #}
+  {% if kind_options or account_options %}
+  <section class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" data-tenant-kind>
+    {% if kind_options %}
+    {{ ui.label(_("Type"), "t-kind") }}
+    {{ ui.chips("kind", kind_options, kind_value) }}
+    <p class="text-xs text-ink-soft mt-1">{{ _("De modules blijven zoals ze zijn; pas ze hieronder aan als het nieuwe type andere nodig heeft.") }}</p>
+    {% endif %}
+    {# #1533 (Koen): the account it hangs under; modules and data stay. #}
+    <div{% if kind_options %} class="mt-4"{% endif %}>{{ ui.label(_("Account"), "t-account") }}
+      {% call ui.select_control("account_id", cls="w-full", attrs='id="t-account"') %}
+        {% if not account_value %}<option value="" selected>{{ _("Geen account") }}</option>{% endif %}
+        {% for value, name in account_options %}<option value="{{ value }}"{% if value == account_value %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      {% endcall %}</div>
+    {# #1550: whose data the site shows — never an organisation of another account. #}
+    {% if site_org_options %}
+    <div class="mt-4">{{ ui.label(_("Organisatie achter de site"), "t-site-org") }}
+      {% call ui.select_control("site_organization_id", cls="w-full", attrs='id="t-site-org"') %}
+        {% for value, name in site_org_options %}<option value="{{ value }}"{% if value == site_org_value %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      {% endcall %}
+      <p class="text-xs text-ink-soft mt-1">{{ _("De voettekst, Onze organisatie en de mails tonen de gegevens van deze organisatie. Alleen organisaties van het eigen account.") }}</p></div>
+    {% endif %}
+  </section>
+  {% endif %}
+  {% if modules_editable %}
+  <p class="text-xs text-ink-soft">{{ _("Vink een module aan of uit in haar kaart. Het getal is hoeveel gegevens de module voor deze tenant bewaart: uitzetten wist niets, aanzetten toont alles weer.") }}</p>
+  <input type="hidden" name="modules_shown" value="1">
+  {% for m in kept_modules %}<input type="hidden" name="modules" value="{{ m }}">{% endfor %}
+  {% else %}
+  {# #1535: the tenant's own settings; which modules are on is the operator's. #}
+  <p class="text-xs text-ink-soft">{{ _("Welke modules aan staan, beslist de platformbeheerder. Het getal is hoeveel gegevens de module voor deze site bewaart.") }}</p>
+  {% endif %}
+  {% for card in cards %}
+  <section class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" data-card="{{ card.code or 'site' }}"
+           {% if card.code %}x-data="{ on: {{ 'true' if card.on else 'false' }} }"{% endif %}>
+    <div class="flex items-center justify-between gap-3">
+      {% if card.code and not modules_editable %}
+      <span class="flex min-h-11 items-center gap-3">
+        <span class="text-base font-semibold text-ink">{{ card.label }}</span>
+        {% if card.on %}{{ ui.badge(_("aan"), "green") }}{% else %}{{ ui.badge(_("uit")) }}{% endif %}
+      </span>
+      {% if card.count is not none %}<span class="shrink-0 text-xs text-ink-soft">{{ _("%(n)s gegevens", n=card.count) }}</span>{% endif %}
+      {% elif card.code %}
+      <label class="flex min-h-11 cursor-pointer items-center gap-3">
+        <input type="checkbox" name="modules" value="{{ card.code }}" class="h-4 w-4 shrink-0" x-model="on"
+               {% if card.on %}checked{% endif %}>
+        <span class="text-base font-semibold text-ink">{{ card.label }}</span>
       </label>
-      <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p>
+      {% if card.count is not none %}<span class="shrink-0 text-xs text-ink-soft">{{ _("%(n)s gegevens", n=card.count) }}</span>{% endif %}
+      {% else %}
+      <h2 class="text-base font-semibold text-ink">{{ card.label }}</h2>
+      {% endif %}
     </div>
-    {% endfor %}
-  </div>
-  {# §2.8, #664: bewerken kreeg een teruglink in plaats van Annuleren; de zes
-     aanmaakschermen doen het wel goed. #}
+    {{ ui.error_banner(card.error) }}
+    {# #1535: read-only, a module that is off shows no settings to fill in. #}
+    {% if (card.settings or card.secrets) and (modules_editable or card.on or not card.code) %}
+    <div class="mt-3 space-y-4"{% if card.code %} x-show="on"{% if not card.on %} style="display: none"{% endif %}{% endif %}>
+      {# #1546: the site's own name, above Tagline; empty = the organisation's,
+         shown softly as the placeholder (as the poster title of #1461). #}
+      {% if not card.code %}
+      <div>
+        {{ ui.label(_("Naam van de site"), "site_name") }}
+        <input name="site_name" id="site_name" value="{{ site_name_value }}" placeholder="{{ site_name_default }}" class="w-full">
+        <p class="text-xs text-ink-soft mt-1">{{ _("Staat in de kop, de titel van het tabblad, de voettekst en de mails. Leeg = de naam van de organisatie achter de site.") }}</p>
+      </div>
+      {% endif %}
+      {% for key, label, hulp in card.settings %}
+      {% if key in schakelaars %}
+      {# #1568: a yes-or-no setting is a switch (CR-11 Q13), not a text field
+         that takes "1". #}
+      {{ ui.switch(key, label, checked=schakelaars[key].on, on_value=schakelaars[key].on_value,
+                   off_value=schakelaars[key].off_value, help=hulp) }}
+      {% else %}
+      <div>
+        {{ ui.label(label, key) }}
+        <input name="{{ key }}" id="{{ key }}" value="{{ waarden[key] }}" class="w-full">
+        <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p>
+      </div>
+      {% endif %}
+      {% endfor %}
+      {% for key, label, hulp in card.secrets %}
+      <div>
+        {{ ui.label(label, key) }}
+        <input type="password" name="{{ key }}" id="{{ key }}" autocomplete="off"
+               placeholder="{{ _('•••• (gezet — leeg laten = ongewijzigd)') if secrets_gezet[key] else _('niet gezet — .env-default geldt') }}"
+               class="w-full">
+        <label class="flex items-center gap-2 text-sm mt-1">
+          <input type="checkbox" name="{{ key }}_wissen" value="1"> {{ _("Wissen (terug naar de .env-default)") }}
+        </label>
+        <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  {% endfor %}
 </form>
 
 {# #742/#748: dit scherm stuurt een VOLLEDIGE pagina terug (hx-target="body"), dus

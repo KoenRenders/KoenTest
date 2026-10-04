@@ -99,7 +99,7 @@ def test_the_setting_is_gone_from_the_settings_screen():
     assert "payment_beneficiary" not in sleutels
     # En de instellingen die er wél horen, staan er nog — anders toetst de regel
     # hierboven alleen dat de lijst leeg is.
-    assert {"mail_mode", "language", "privacy_url"} <= sleutels
+    assert {"mail_mode", "language"} <= sleutels
 
 
 def test_the_env_stays_the_safety_net(db_session, organisatie):
@@ -362,7 +362,7 @@ def test_org_type_is_untouched(db_session):
 # ── 6. De velden zijn ergens te bewerken ────────────────────────────────────
 
 
-def test_the_organisation_fields_have_a_screen(client, db_session):
+def test_the_organisation_fields_have_a_screen(client, platform_workspace, db_session):
     """De fout die ik zelf maakte, en die erger was dan wat ze verving.
 
     Bij de eerste twee omschakelingen verdwenen IBAN, begunstigde en de sociale

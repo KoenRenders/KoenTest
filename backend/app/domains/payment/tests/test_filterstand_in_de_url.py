@@ -85,7 +85,8 @@ def test_zonder_de_filterbalk_wordt_er_niets_geduwd(client, db_session):
     "stand,verborgen",
     [
         ("context=membership", "35.00"),
-        ("status=pending", "35.00"),
+        # K1 (#1555): the status select is gone; the segment is the status filter.
+        ("zicht=openstaand", "35.00"),
         ("q=zzz-bestaat-niet", "35.00"),
     ],
 )

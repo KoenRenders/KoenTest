@@ -28,20 +28,12 @@ screen that is never reached through one.
 
 import pytest
 
+from tests.conftest import PLATFORM_HOST
+
 pytestmark = pytest.mark.ui_serverrendered
 
-PLATFORM_HOST = "platform.example.test"
-
-
-@pytest.fixture
-def platform_host(monkeypatch):
-    from app.config import settings
-    from app.domains.mdm.api import invalidate_tenant_codes
-
-    monkeypatch.setattr(settings, "platform_hosts", PLATFORM_HOST)
-    invalidate_tenant_codes()
-    yield PLATFORM_HOST
-    invalidate_tenant_codes()
+# The platform host and its fixture live in `tests/conftest.py` since #1509: a
+# second test reaches a tenant by its prefix too.
 
 
 def test_home_keeps_you_at_the_afdeling(client, db_session, platform_host):

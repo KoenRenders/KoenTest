@@ -10,7 +10,9 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
+    PrimaryKeyConstraint,
     String,
     Text,
 )
@@ -141,9 +143,13 @@ class WorkflowDefinition(TenantMixin, Base):
     data-gedreven (permissies-als-data, §5.7)."""
 
     __tablename__ = "workflow_definitions"
-    __table_args__ = {"schema": "workflow"}
+    # #1509: the key is (tenant_id, code) — every tenant has its own "bericht".
+    __table_args__ = (
+        PrimaryKeyConstraint("tenant_id", "code", name="pk_workflow_definitions"),
+        {"schema": "workflow"},
+    )
 
-    code = Column(String(50), primary_key=True)
+    code = Column(String(50), nullable=False)
     name = Column(String(200), nullable=False)
     steps = Column(JSON, nullable=False, default=list)
     created_at = Column(
@@ -156,14 +162,20 @@ class WorkflowInstance(TenantMixin, Base):
     (soft-ref). ``current_step`` is de index in de definitie-stappen."""
 
     __tablename__ = "workflow_instances"
-    __table_args__ = {"schema": "workflow"}
+    # #1509: a run follows a definition of its own tenant.
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "definition_code"],
+            ["workflow.workflow_definitions.tenant_id", "workflow.workflow_definitions.code"],
+            name="fk_workflow_instances_tenant_definition",
+        ),
+        {"schema": "workflow"},
+    )
 
     id = Column(Integer, primary_key=True)
-    # CR-12 phase 4 residue: the definition this run follows. Its table already
-    # exists — the code is the primary key there — so this is a key, not a list.
-    definition_code = Column(
-        String(50), ForeignKey("workflow.workflow_definitions.code"), nullable=False, index=True
-    )
+    # CR-12 phase 4 residue: the definition this run follows, a key and not a
+    # list. With the tenant since #1509 (the foreign key above).
+    definition_code = Column(String(50), nullable=False, index=True)
     subject_type: Mapped[SubjectType] = mapped_column(
         EnumColumn(SubjectType, length=50),
         ForeignKey("workflow.subject_type_codes.code"),

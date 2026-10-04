@@ -1,25 +1,40 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ organisatie.name }} — {{ _("Raak beheer") }}{% endblock %}
+{#- One field of the groups below, with its refusal on it (#1545): the banner
+    above the form is out of view when you press Opslaan at its bottom. -#}
+{% macro veld(key, label, hulp) -%}
+<div>{{ ui.label(label, "org-" ~ key) }}
+  {{ ui.input_control(key, id="org-" ~ key, value=velden[key], cls="w-full",
+                      attrs=ui.field_error_attrs("org-" ~ key, veld_fouten.get(key))) }}
+  {{ ui.field_error("org-" ~ key, veld_fouten.get(key)) }}
+  <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p></div>
+{%- endmacro %}
 {% block content %}
-{{ ui.back_link(_("Alle organisaties"), "/admin/organisaties") }}
+{{ ui.back_link(_("Alle organisaties"), back_href) }}
 {% call ui.page_header(organisatie.name, organisatie.org_type|code_label("organization_type") ~ " · " ~ organisatie.code) %}
   {% if heeft_site %}
   {# De site van deze organisatie. Niet dezelfde velden: dáár staan mail, Umami,
      taal en lidgeld — de instellingen van de site, niet wat de organisatie IS. #}
-  {{ ui.btn_secondary(_("Instellingen van de site"), href="/admin/tenants/" ~ organisatie.id) }}
+  {{ ui.btn_secondary(_("Instellingen van de site"), href=site_href) }}
   {% endif %}
 {% endcall %}
 
 {{ ui.error_banner(error) }}
 {% if toast_opgeslagen %}{{ ui.toast(_("Opgeslagen.")) }}{% endif %}
+{# #1550: the site shows another organisation of its account; its data lives there. #}
+{% if read_only %}
+<p class="text-sm text-ink-soft mb-4" data-read-only>{{ _("Deze site toont de gegevens van %(naam)s. Je bewerkt ze bij die organisatie; hier staan ze alleen ter inzage.", naam=organisatie.name) }}</p>
+{% endif %}
 
 {# Gegroepeerd per TABEL, en dat is geen opmaakkeuze (#971): tot nu toe stonden
    rekeningnummer, btw-nummer en Facebook onder elkaar alsof ze hetzelfde soort ding
    waren. Het zijn rijen in vier verschillende tabellen, en het scherm hoort te laten
    zien hoe het model in elkaar zit. #}
-<form id="org-form" hx-post="/admin/organisaties/{{ organization_id }}"
+{# #1535: the target literally per scope — the rules gate walks it to its route. #}
+<form id="org-form" {% if own %}hx-post="/admin/organisatie"{% else %}hx-post="/admin/organisaties/{{ organization_id }}"{% endif %}
       hx-target="body" hx-swap="innerHTML" class="space-y-6 max-w-2xl">
+<fieldset class="space-y-6 min-w-0"{% if read_only %} disabled{% endif %}>
 
   <section>
     {{ ui.section_header(_("Naam en rechtsvorm")) }}
@@ -70,9 +85,7 @@
        onderscheid suggereren dat het model niet maakt. #}
     <div class="space-y-3">
       {% for key, label, hulp in contactgroep %}
-      <div>{{ ui.label(label, "org-" ~ key) }}
-        {{ ui.input_control(key, id="org-" ~ key, value=velden[key], cls="w-full") }}
-        <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p></div>
+      {{ veld(key, label, hulp) }}
       {% endfor %}
     </div>
   </section>
@@ -84,9 +97,7 @@
        databank, dan bewerkt dit de eerste en blijft de tweede ongemoeid. #}
     <div class="space-y-3">
       {% for key, label, hulp in rekeninggroep %}
-      <div>{{ ui.label(label, "org-" ~ key) }}
-        {{ ui.input_control(key, id="org-" ~ key, value=velden[key], cls="w-full") }}
-        <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p></div>
+      {{ veld(key, label, hulp) }}
       {% endfor %}
     </div>
   </section>
@@ -95,16 +106,15 @@
     {{ ui.section_header(_("Nummers")) }}
     <div class="space-y-3">
       {% for key, label, hulp in nummergroep %}
-      <div>{{ ui.label(label, "org-" ~ key) }}
-        {{ ui.input_control(key, id="org-" ~ key, value=velden[key], cls="w-full") }}
-        <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p></div>
+      {{ veld(key, label, hulp) }}
       {% endfor %}
     </div>
   </section>
 
+</fieldset>
   {# Annuleren haalt het bewaarde scherm opnieuw op (#1089). Het formulier
      vervangt bij opslaan de hele body, dus een gewone link naar dezelfde
      pagina geeft precies wat een geslaagde opslag ook toont. #}
-  {{ ui.action_bar(form="org-form", cancel_href="/admin/organisaties/" ~ organization_id) }}
+  {% if not read_only %}{{ ui.action_bar(form="org-form", cancel_href=cancel_href) }}{% endif %}
 </form>
 {% endblock %}

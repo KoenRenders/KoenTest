@@ -121,12 +121,16 @@ def test_the_list_pages_are_the_headers_with_a_create_button():
 # ── W5: no header button that only repeats the menu ──────────────────────────
 
 
-def test_the_organisations_header_links_to_no_other_module(client, db_session):
+def test_the_organisations_header_links_to_no_other_module(client, platform_workspace, db_session):
     _login(client)
     html = client.get("/admin/organisaties").text
     header = _element(html, "<div data-page-header")
     assert "Organisaties" in header, "the measurement found the wrong header"
-    assert "href=" not in header and "Naar de tenants" not in html
+    # #1495: "+ Nieuw account" is the screen's own primary action, not a link to
+    # another module — what this test is about.
+    links = re.findall(r'href="([^"]*)"', header)
+    assert all(link.startswith("/admin/organisaties") for link in links), links
+    assert "Naar de tenants" not in html
 
 
 def test_the_raakje_report_header_links_to_no_other_module(client, db_session):
@@ -164,10 +168,10 @@ def test_the_opened_menu_starts_with_who_is_signed_in(client, db_session):
 
 # ── W16: every record page starts with the way back ──────────────────────────
 
+# The activity's three pages left this list with #1557: their way back is drawn
+# by `ui.record_header`, and `test_record_header_gate.py` pins that the head is
+# the first thing they render.
 RECORD_PAGES = [
-    "domains/activities/templates/admin_activiteit.html",
-    "domains/activities/templates/admin_activiteit_inschrijvingen.html",
-    "domains/payment/templates/admin_activiteit_betalingen.html",
     "domains/mdm/templates/leden_gezin.html",
     "domains/mdm/templates/admin_gezin_inschrijvingen.html",
     "domains/payment/templates/admin_gezin_betalingen.html",

@@ -10,8 +10,24 @@ De testfuncties lezen dan als scenario's, niet als klikinstructies.
 
 import os
 from contextlib import contextmanager
+from urllib.parse import urlsplit, urlunsplit
 
 BASE = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
+
+# The platform host of the e2e app (`PLATFORM_HOSTS=platform.localhost`): where a
+# tenant is reached by its path prefix, as on PROD. The host is REPLACED, not
+# searched: CI runs on `localhost` and the local runner on `127.0.0.1`, and a
+# `replace()` of one of the two works on one machine and quietly not on the other.
+_SPLIT = urlsplit(BASE)
+PLATFORM = urlunsplit(
+    (
+        _SPLIT.scheme,
+        f"platform.localhost:{_SPLIT.port}" if _SPLIT.port else "platform.localhost",
+        _SPLIT.path,
+        "",
+        "",
+    )
+)
 
 
 # ── Waiting on htmx, not on the clock (#997) ─────────────────────────────────
@@ -108,6 +124,22 @@ def open_registration(page, activity_id: int, component_id: int) -> None:
     pagina_klaar(page)
 
 
+def pagina_beeld_in_kiezer(dialoog, titel: str = "E2E-schermafdruk aanmelden"):
+    """The seeded page picture in the CMS image dialog (#1474).
+
+    Since #1474 the dialog shows the kit's picker over the whole library: it
+    loads when the dialog opens, and the page picture is one of many, so it is
+    found by its title after the picker has loaded. Returns the locator; it
+    counts 0 when the picture is not there, which the callers report.
+    """
+    knop = dialoog.locator(f"button[data-url][data-title='{titel}']").first
+    try:
+        knop.wait_for(timeout=10_000)
+    except Exception:  # noqa: BLE001 - the caller reports a missing picture
+        pass
+    return knop
+
+
 def htmx_stil(page, *, timeout: int = 10_000) -> None:
     """Wait until nothing htmx started is still running — after a page load.
 
@@ -138,8 +170,11 @@ def open_de_raakje_bel(page, pad: str = "/"):
     return page.locator("#raakje-widget-vraag")
 
 
-def login_met_sessie(page, sessiewaarde: str) -> None:
+def login_met_sessie(page, sessiewaarde: str, url: str = BASE) -> None:
     """Zet de sessiecookie rechtstreeks.
+
+    `url` is the host the cookie belongs to: `PLATFORM` for platform
+    administration, which answers only in the platform workspace (#1535).
 
     Sneller en minder broos dan de OTP-flow doorlopen, en die flow wordt elders al
     getest (test_fase1_ui). Wie de login zélf wil dekken, doet dat in een eigen test.
@@ -153,7 +188,7 @@ def login_met_sessie(page, sessiewaarde: str) -> None:
             {
                 "name": "raak_session",
                 "value": sessiewaarde,
-                "url": BASE,
+                "url": url,
                 "http_only": True,
                 "same_site": "Lax",
             }
@@ -488,7 +523,7 @@ class Activiteitdetail:
             # naar /nieuw en staat bovenaan. Alleen een link naar een echt id telt.
             pad = self.page.evaluate(
                 r"""Array.from(document.querySelectorAll('a[href]'))
-                        .map(a => a.getAttribute('href'))
+                        .map(a => a.getAttribute('href').split('?')[0])
                         .find(h => /^\/admin\/activiteiten\/\d+$/.test(h)) || null"""
             )
             if not pad:

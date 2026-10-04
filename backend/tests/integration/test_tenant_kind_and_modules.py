@@ -10,6 +10,8 @@ not import. The three gate-like rules are also broken on this branch on purpose
 
 from __future__ import annotations
 
+import re
+
 import pytest
 from sqlalchemy import text as sql
 
@@ -90,10 +92,13 @@ def test_an_unknown_kind_is_refused(db_session):
 
 
 def test_every_existing_unit_is_an_association_and_nothing_else_has_a_kind(db_session):
+    """Every UNIT an association; the PLATFORM its own kind since #1523
+    (migration 191); an ACCOUNT none."""
     rows = db_session.execute(sql("SELECT org_type, kind FROM mdm.organizations")).all()
-    assert {r.org_type for r in rows} >= {"UNIT", "ACCOUNT"}
+    assert {r.org_type for r in rows} >= {"UNIT", "ACCOUNT", "PLATFORM"}
+    expected = {"UNIT": "VERENIGING", "PLATFORM": "PLATFORM"}
     for org_type, kind in rows:
-        assert kind == ("VERENIGING" if org_type == "UNIT" else None), (org_type, kind)
+        assert kind == expected.get(org_type), (org_type, kind)
 
 
 # ── C6 test 3: dependencies ─────────────────────────────────────────────────
@@ -150,20 +155,23 @@ def test_record_counts_count_this_tenants_live_records(db_session):
 
 
 def test_the_editor_shows_the_kind_and_the_modules_and_refuses_a_missing_dependency(
-    client, db_session
+    client, platform_workspace, db_session
 ):
     csrf = _operator(client, db_session)
     org = create_tenant(db_session, name="Editorproef", code="ed-1478", kind=TenantKind.COMPANY)
 
     page = client.get(f"/admin/tenants/{org.id}").text
-    assert "Type: Bedrijf" in page
+    # #1533: the kind is a choice now, BEDRIJF ticked.
+    assert re.search(r'name="kind" value="BEDRIJF"[^>]*checked', page)
     assert _ticked(page) == COMPANY
-    assert "Pagina&#39;s (2)" in page, "the two seeded site blocks, counted"
-    assert "Activiteiten (0)" in page
+    # #1498: the count stands in each module's card header.
+    assert re.search(r'data-card="cms".*?2 gegevens', page, re.S), "the two seeded site blocks"
+    assert re.search(r'data-card="activities".*?0 gegevens', page, re.S)
 
+    # #1498: one Opslaan for modules and settings; the refusal on the card concerned.
     refused = client.post(
-        f"/admin/tenants/{org.id}/modules",
-        data={"modules": ["cms", "designstudio"]},
+        f"/admin/tenants/{org.id}",
+        data={"modules_shown": "1", "modules": ["cms", "designstudio"]},
         headers={"X-CSRF-Token": csrf, "HX-Request": "true"},
     )
     assert refused.status_code == 422
@@ -171,15 +179,17 @@ def test_the_editor_shows_the_kind_and_the_modules_and_refuses_a_missing_depende
     assert enabled_modules(org.id, db=db_session) == COMPANY
 
     saved = client.post(
-        f"/admin/tenants/{org.id}/modules",
-        data={"modules": ["cms", "media", "forms", "workflow", "newsletter"]},
+        f"/admin/tenants/{org.id}",
+        data={"modules_shown": "1", "modules": ["cms", "media", "forms", "workflow", "newsletter"]},
         headers={"X-CSRF-Token": csrf, "HX-Request": "true"},
     )
     assert saved.status_code == 200
     assert enabled_modules(org.id, db=db_session) == COMPANY | {"newsletter"}
 
 
-def test_the_new_tenant_page_is_operator_only_and_offers_the_kind(client, db_session):
+def test_the_new_tenant_page_is_operator_only_and_offers_the_kind(
+    client, platform_workspace, db_session
+):
     user = db_session.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).one()
     db_session.query(UserRole).filter_by(user_id=user.id, role_code="OPERATOR").delete()
     db_session.commit()

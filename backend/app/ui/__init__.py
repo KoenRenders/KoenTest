@@ -8,6 +8,7 @@ de UI-kit-macro's en de shells (base-layouts).
 
 import hashlib
 import logging
+from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
 
@@ -177,6 +178,18 @@ def _confirm_attrs(type_label, name) -> str:
 templates.env.globals["confirm_attrs"] = _confirm_attrs
 
 
+def checked_figures(items) -> list:
+    """The items of `ui.figures` as `KeyFigure`s (`docs/design-system-end-state.md`
+    §3.8). The value object refuses an item that carries two figures — a
+    `TypeError` at render (CR-11 B7 test 18)."""
+    from app.kernel.key_figure import KeyFigure
+
+    return [i if isinstance(i, KeyFigure) else KeyFigure(**i) for i in items]
+
+
+templates.env.globals["checked_figures"] = checked_figures
+
+
 # Gezinslabel (golf 9, #913): één bron voor "hoe heet dit gezin op het scherm"
 # — de HOOFDLID-selectie stond in vijf kopieën (Jinja, mdm/ui 2x,
 # payment-verrijking, audit-resolver).
@@ -206,6 +219,91 @@ def veilige_terug(waarde: str | None, fallback: str) -> str:
     ):
         return fallback
     return waarde
+
+
+# ── The way back of a record page (CR-11 block 5, #1557) ────────────────────
+#
+# A record page's first line leads back to where the visitor came from, as it was
+# left, and names it: "‹ Activiteiten" from the list (with its filter in the URL),
+# "‹ Betaling van …" from a booking. The origin travels as `?terug=<local path>`
+# on the link that opened the record; this is the one place that turns it into a
+# label and an href. A screen never writes that link itself.
+
+#: (path prefix, labeler(db, url) -> str | None). A domain registers the origins
+#: only it can name — a booking's "Betaling van <naam>" is the payment domain's.
+_ORIGIN_LABELERS: list[tuple[str, Callable[..., str | None]]] = []
+
+
+def register_origin(prefix: str, labeler: Callable[..., str | None]) -> None:
+    """Let a domain name an origin under `prefix` (a local path). `labeler(db,
+    url)` returns the label, or None to leave it to the list's menu name."""
+    if (prefix, labeler) not in _ORIGIN_LABELERS:
+        _ORIGIN_LABELERS.append((prefix, labeler))
+
+
+def _menu_name(href: str) -> str | None:
+    """The menu label of the list `href` lives under: the longest menu path it
+    starts with."""
+    from app.i18n import _
+
+    path = href.split("?")[0].split("#")[0]
+    best = max(
+        ((h, label) for h, label in _ADMIN_NAV if path == h or path.startswith(h + "/")),
+        key=lambda item: len(item[0]),
+        default=None,
+    )
+    return _(best[1]) if best else None
+
+
+def way_back(db, terug: str | None, list_href: str) -> dict:
+    """The way back of a record page: `{label, href, keep}`.
+
+    `list_href` is the entity's list — where the record leads back to when it was
+    opened from nowhere. With a valid `terug` (a local path, `veilige_terug`)
+    the link goes there instead and is named after it: a registered origin's own
+    label, else the menu name of the list it points into. `keep` is the query
+    the record's own links carry on (`terug=…`), so the origin survives a tab
+    change and the edit state.
+    """
+    from urllib.parse import urlencode
+
+    origin = veilige_terug(terug, "")
+    href = origin or list_href
+    label = None
+    if origin:
+        path = origin.split("?")[0].split("#")[0]
+        for prefix, labeler in _ORIGIN_LABELERS:
+            if path == prefix or path.startswith(prefix + "/"):
+                label = labeler(db, origin)
+                if label:
+                    break
+    label = label or _menu_name(href) or _menu_name(list_href) or ""
+    return {"label": label, "href": href, "keep": urlencode({"terug": origin}) if origin else ""}
+
+
+def record_frame(request, db, list_href: str) -> dict:
+    """What a record page's head needs from the request (#1557): the way back and
+    whether the page is in its edit state (`?bewerken=1`).
+
+    Read through `filterparams`, so a fragment answer that carries the head along
+    out of band — a save inside the record — still knows both: htmx sends the
+    page's own URL as `HX-Current-URL`, and the save's own URL has neither.
+    """
+    params = filterparams(request)
+    return {
+        "way_back": way_back(db, params.get("terug"), list_href),
+        "head_editing": params.get("bewerken") == "1",
+    }
+
+
+def list_return(path: str, **state) -> str:
+    """The address a list hands its rows as their way back: the list's page path
+    with its state — only what differs from empty, so a plain list stays a plain
+    path."""
+    from urllib.parse import urlencode
+
+    query = urlencode({k: v for k, v in state.items() if v not in (None, "")})
+    return f"{path}?{query}" if query else path
 
 
 # #718: de navigatiebalk van een schil reist out-of-band mee (#714) — maar dat mag
@@ -490,6 +588,10 @@ _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
             # dit menu; net zij is de vzw met een ondernemingsnummer.
             ("/admin/organisaties", "Organisaties"),
             ("/admin/tenants", "Tenants"),
+            # #1535: a tenant workspace's own organisation and site settings, in
+            # the place where the platform workspace has Organisaties and Tenants.
+            ("/admin/organisatie", "Onze organisatie"),
+            ("/admin/instellingen", "Instellingen"),
             # GEEN Design system hier (#878). De balk is voor schermen waar een bestuurder
             # werk doet; `/admin/design-system` is naslag over knoppen, kleuren en afstanden —
             # nuttig bij het bouwen, niet bij het besturen. De route blijft bestaan achter
@@ -542,8 +644,29 @@ _ADMIN_NAV_ICONS: dict[str, str] = {
     "/admin/e-maillog": "inbox",
     "/admin/organisaties": "building-2",
     "/admin/tenants": "globe",
+    # #1535: one meaning per glyph — the own organisation is an organisation, and
+    # it never stands in the same menu as Organisaties.
+    "/admin/organisatie": "building-2",
+    "/admin/instellingen": "settings",
     "/admin/info": "info",
 }
+
+#: #1535: the items of one workspace kind only. Platform administration —
+#: every tenant, every organisation — is in the platform workspace's menu; a
+#: tenant workspace has its own organisation and settings in their place.
+PLATFORM_ONLY_ITEMS = frozenset({"/admin/organisaties", "/admin/tenants"})
+TENANT_ONLY_ITEMS = frozenset({"/admin/organisatie", "/admin/instellingen"})
+
+
+def _on_platform_workspace() -> bool:
+    """Is this request in the platform workspace? From the cached platform id
+    and the request's tenant: the menu is built on every page, without a query."""
+    from app.domains.mdm.api import platform_tenant_id
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+
+    platform = platform_tenant_id()
+    return platform is not None and (current_tenant_id.get() or DEFAULT_TENANT_ID) == platform
+
 
 #: The full menu, every module on — what a VERENIGING sees.
 _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = _resolve_layout()
@@ -656,11 +779,22 @@ def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
     from app.kernel.modules import nav_item_shown
 
     enabled = modules if modules is not None else current_enabled_modules()
+    hidden = TENANT_ONLY_ITEMS if _on_platform_workspace() else PLATFORM_ONLY_ITEMS
     groepen = [
-        (label, [(h, lbl) for h, lbl in items if nav_item_shown("admin_items", h, enabled)])
+        (
+            label,
+            [
+                (h, lbl)
+                for h, lbl in items
+                if h not in hidden and nav_item_shown("admin_items", h, enabled)
+            ],
+        )
         for label, items in _ADMIN_NAV_GROEPEN
     ]
-    if roles is not None and not ({"ADMIN", "OPERATOR"} & set(roles)):
+    from app.domains.auth.api import admits_admin_ui
+
+    # #1513: who is not admitted to the general back office sees payments only.
+    if roles is not None and not admits_admin_ui(roles):
         # FINANCE-only: één ongelabelde groep met enkel Betalingen.
         groepen = [
             (
@@ -671,6 +805,9 @@ def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
     return [
         {
             "label": _(label) if label else None,
+            # #1526: the untranslated label names the group in the browser's
+            # memory of what is folded; a translation must not forget it.
+            "key": label,
             "items": [
                 {
                     "href": href,
@@ -694,6 +831,7 @@ def _huidige_gebruiker(db, request) -> dict | None:
     try:
         from app.domains.auth.api import (
             SESSION_COOKIE,
+            admits_admin_ui,
             get_user_roles,
             login_person_for_email,
             read_session_value,
@@ -709,7 +847,10 @@ def _huidige_gebruiker(db, request) -> dict | None:
         return {
             "email": email,
             "naam": naam,
-            "is_admin": "ADMIN" in get_user_roles(db, email),
+            # #1499: whoever `require_admin_ui` admits — an operator too, who
+            # holds OPERATOR everywhere and ADMIN on no tenant. The same set,
+            # asked of the auth domain, not a copy of it here.
+            "is_admin": admits_admin_ui(get_user_roles(db, email)),
             "is_member": person is not None,
         }
     except Exception:
@@ -905,7 +1046,7 @@ def site_context(db, request=None) -> dict:
     from app.domains.media.api import MediaAsset, MediaKind, media_url
     from app.i18n import _
     from app.kernel.modules import ModuleCode
-    from app.kernel.tenant_config import _actieve_tenant
+    from app.kernel.tenant_config import _actieve_tenant, tenant_public_chat_enabled
 
     # Dezelfde tenantresolutie als de rest van de configuratie (#924): buiten een
     # verzoek — een script, een test — is er geen context, en dan hoort de
@@ -913,6 +1054,19 @@ def site_context(db, request=None) -> dict:
     organisatie = (
         db.query(Organization)
         .filter(Organization.id == _actieve_tenant(None))
+        .execution_options(include_all_tenants=True)
+        .one_or_none()
+    )
+    # #1550: whose data the site shows. The tenant's kind stays the tenant's own
+    # (wordmark, sponsor heading); the footer and its links show this one.
+    from app.kernel.tenant_config import site_organization_id
+
+    bron_id = site_organization_id(db)
+    bron = (
+        organisatie
+        if organisatie is not None and organisatie.id == bron_id
+        else db.query(Organization)
+        .filter(Organization.id == bron_id)
         .execution_options(include_all_tenants=True)
         .one_or_none()
     )
@@ -926,6 +1080,14 @@ def site_context(db, request=None) -> dict:
         .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
         .all()
     )
+    # #1569: the pages that say themselves that they stand in the footer. One
+    # list for the footer and for the newsletter form's small print.
+    footer_pages = (
+        db.query(CmsPage)
+        .filter(CmsPage.is_published.is_(True), CmsPage.show_in_footer.is_(True))
+        .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
+        .all()
+    )
     # #727: via de domeinfacade en niet met een eigen query — die keek langs
     # `is_published` heen, dus de footer stond op elke publieke pagina terwijl het
     # beheerscherm hem als niet-gepubliceerd toonde.
@@ -934,7 +1096,7 @@ def site_context(db, request=None) -> dict:
     footer = get_published_page(db, "site-footer")
     footer_block = None
     if footer is not None:
-        footer_block = {"content": render_cms_content(footer.content or "")}
+        footer_block = {"content": render_cms_content(footer.content or "", db)}
     # #1057: de footer toont alleen de logo's die daarvoor aangevinkt zijn. De
     # Design Studio blijft élk actief sponsorlogo aanbieden — dat is met opzet: een
     # logo dat niet in de footer hoort, hoort daarom nog niet van de affiche geweerd.
@@ -966,6 +1128,7 @@ def site_context(db, request=None) -> dict:
 
     return {
         "nav_pages": pages,
+        "footer_pages": footer_pages,
         # CR-19 (#1476): the module links of the header, from the registry —
         # what a module that is off lists or serves is not there.
         "public_nav": _public_nav("public_items"),
@@ -977,8 +1140,10 @@ def site_context(db, request=None) -> dict:
         ],
         "current_year": date.today().year,
         # CR-19 (#1477): and only with the chatbot module on for this tenant —
-        # the bubble would otherwise post to a route that answers 404.
-        "chat_enabled": settings.chat_enabled and module_enabled(ModuleCode.CHATBOT),
+        # the bubble would otherwise post to a route that answers 404. #1568: and
+        # with the tenant's own switch for the public site on; one rule
+        # (`tenant_public_chat_enabled`), which the chat endpoints read too.
+        "chat_enabled": tenant_public_chat_enabled(db) and module_enabled(ModuleCode.CHATBOT),
         "stt_mode": settings.stt_mode,  # spraakinvoer in de widget (#567)
         "gebruiker": _huidige_gebruiker(db, request),
         # Branding per tenant (#407/#519): naam/tagline/Facebook uit de
@@ -1008,6 +1173,17 @@ def site_context(db, request=None) -> dict:
         # media en niet in de vergadermodule. Als URL en niet als bytes: de
         # browser haalt het gewoon op, en de mediaroute cachet het al.
         "site_logo_url": _site_logo_url(db),
+        # CR-19 (#1496): what the header shows without a logo. A company shows
+        # its own name; an association the RaaK wordmark (None). The rule is
+        # here, so the template shows a value and never asks for the kind.
+        # #1543: the platform too shows its own name — it is in the site shell
+        # since its home became a page, and it carries no Raak brand (#821).
+        "site_wordmark": (
+            tenant_display_name(db)
+            if organisatie is not None
+            and organisatie.kind in (TenantKind.COMPANY, TenantKind.PLATFORM)
+            else None
+        ),
         # #924: de sociale links komen uit de ORGANISATIE en niet meer uit de
         # tenant-instellingen. Een Facebook-pagina van een vereniging bestaat
         # los van haar site — de beslisregel uit het issue. Enkel tonen als
@@ -1015,11 +1191,11 @@ def site_context(db, request=None) -> dict:
         # #945: en ze zijn een lijst geworden. Drie contextsleutels werden er
         # één, want drie sleutels zijn drie sjabloonregels en dus precies de
         # kolom-per-netwerk die dit issue opruimt.
-        "sociale_links": _sociale_links(db, organisatie),
+        "sociale_links": _sociale_links(db, bron),
         # Het organisatieblok in de footer (#924). Het CMS-blok blijft eronder
         # staan: `site-footer` is vrije tekst en een migratie kan een adres
         # niet van een zin onderscheiden, dus er verdwijnt niets.
-        "organisatie": _footer_organisatie(db, organisatie),
+        "organisatie": _footer_organisatie(db, bron),
         # De link naar de nieuwsbrief onderaan de HOMEPAGINA (#984, bijgesteld
         # op 19 september 2026). Niet op het platform: dat heeft geen leden en
         # verstuurt geen nieuwsbrief.
@@ -1038,8 +1214,6 @@ def site_context(db, request=None) -> dict:
             if organisatie is not None and organisatie.kind is TenantKind.COMPANY
             else _("Met steun van")
         ),
-        # Privacyverklaring-link per tenant (#493, raakt #453): leeg = niet tonen.
-        "privacy_url": get_setting(db, "privacy_url") or None,
         # SEO (#454): canonieke origin + huidige canonical-URL voor OG/canonical.
         "base_url": base_url,
         # Webstatistieken (#176/#808). Beide of geen van beide — zie

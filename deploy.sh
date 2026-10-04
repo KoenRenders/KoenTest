@@ -32,24 +32,31 @@ shift
 #          separately through deploy-caddy.sh
 # KETEN_GATE / LOG_GATE  post-check (#604): 1 = gate (a failure rolls back on the
 #          environments that have ROLLBACK=1), 0 = reporting only. See "Post-check".
+# SMOKE_TENANT   the association the smoke test checks, by its path prefix (#1530):
+#          the bare host may be the platform, which has activities and payment off.
+# SMOKE_PLATFORM 1 = also check that the bare host is the platform (health 200, a
+#          module that is off 404); only where the bare host is known to be it.
 case "$ENV" in
   hdev)
     COMPOSE="docker-compose.hdev.yml"; ENVFILE=".env.hdev"
     SOURCE="master"; BACKUP=0; ROLLBACK=0; CADDY="own"
     KETEN_GATE=0; LOG_GATE=0
     SMOKE_BASE_DEFAULT="http://localhost:8081"
+    SMOKE_TENANT="raakmillegem"; SMOKE_PLATFORM=1
     ;;
   uat)
     COMPOSE="docker-compose.uat.yml"; ENVFILE=".env.uat"
     SOURCE="tag"; BACKUP=1; ROLLBACK=1; CADDY="shared"
     KETEN_GATE=1; LOG_GATE=0
     SMOKE_BASE_DEFAULT=""
+    SMOKE_TENANT="raakmillegem"; SMOKE_PLATFORM=0
     ;;
   prod)
     COMPOSE="docker-compose.prod.yml"; ENVFILE=".env.prod"
     SOURCE="tag"; BACKUP=1; ROLLBACK=1; CADDY="shared"
     KETEN_GATE=1; LOG_GATE=0
     SMOKE_BASE_DEFAULT=""
+    SMOKE_TENANT="raakmillegem"; SMOKE_PLATFORM=0
     ;;
   *)
     echo "ERROR: unknown environment '$ENV' — choose hdev, uat or prod." >&2
@@ -258,6 +265,17 @@ if [ -z "$SMOKE_BASE" ]; then
   exit 0
 fi
 
+# #1530: the smoke test names the tenant it checks. A path prefix wins over the host
+# in the tenant resolution, on every path including /api, so `<site>/<code>` is that
+# association whatever the bare host resolves to. Since #1523 the bare HDEV host is
+# the platform, where /api/v1/activities is absent by design. The checks themselves
+# are unchanged.
+SMOKE_SITE="${SMOKE_BASE%/}"
+SMOKE_BASE="${SMOKE_SITE}/${SMOKE_TENANT}"
+PLATFORM_BASE=""
+[ "$SMOKE_PLATFORM" = "1" ] && PLATFORM_BASE="$SMOKE_SITE"
+echo "Smoke target: ${SMOKE_BASE}${PLATFORM_BASE:+ (platform: ${PLATFORM_BASE})}"
+
 # Wait until the site answers before the smoke test starts (#800). This loop used to
 # sit INSIDE the `own` branch and polled `$SMOKE_BASE_DEFAULT` — which is empty on UAT
 # and PROD, so there it never ran. The protection sat on the environment that needs it
@@ -280,7 +298,8 @@ done
 
 SMOKE_RESULT_FILE="$(mktemp)"
 FAAL=""
-if ! SMOKE_RESULT_FILE="$SMOKE_RESULT_FILE" BASE="$SMOKE_BASE" ./tests/run-all.sh; then
+if ! SMOKE_RESULT_FILE="$SMOKE_RESULT_FILE" BASE="$SMOKE_BASE" PLATFORM_BASE="$PLATFORM_BASE" \
+    ./tests/run-all.sh; then
   FAAL="SMOKE"
   # Not judged — the smoke test already failed — but measured, so the summary block
   # below is complete on the failure path too.

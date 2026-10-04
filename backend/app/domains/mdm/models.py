@@ -76,13 +76,17 @@ class TenantKind(CodeEnum):
     The operator chooses it once, in words a person uses; it gives a new tenant
     its module set (`app/kernel/modules.py`, `DEFAULTS`). Next to `legal_form`
     and not instead of it: the legal form is about law — a company can run a
-    club — the kind about what the site is for. Only on UNIT rows, the ones that
-    are tenants; NULL on ACCOUNT and PLATFORM. No standard has a home for "kind
-    of site" (UBL's `PartyLegalEntity` holds the legal form), so this one is ours.
+    club — the kind about what the site is for. On UNIT rows, the tenants, and
+    since #1523 on the PLATFORM row (its own kind, PLATFORM); NULL on ACCOUNT. No
+    standard has a home for "kind of site" (UBL's `PartyLegalEntity` holds the
+    legal form), so this one is ours.
     """
 
     ASSOCIATION = "VERENIGING"
     COMPANY = "BEDRIJF"
+    #: The platform's own kind (#1523): there is one platform, so a new tenant
+    #: never takes it (`tenant_service.CREATABLE_TENANT_KINDS`).
+    PLATFORM = "PLATFORM"
 
 
 class LegalForm(CodeEnum):
@@ -606,6 +610,11 @@ class Organization(SoftDeleteMixin, Base):
 
     id = Column(Integer, primary_key=True)
     parent_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=True)
+    # #1550: on a tenant, the organisation whose data its site shows (footer,
+    # "Onze organisatie", mails) when that is not its own row: the account, or
+    # another organisation of that account. NULL = its own row. Read only
+    # through `kernel.tenant_config.site_organization_id`.
+    site_organization_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=True)
     # ACCOUNT | UNIT | PLATFORM — CHECK in migratie 078, uitgebreid in 097.
     # Dit is de ROL die de organisatie speelt in het platform; de kolommen
     # hieronder zeggen wat ze IS in de wereld (#924). Twee assen, één ding.
@@ -618,6 +627,11 @@ class Organization(SoftDeleteMixin, Base):
     # Stabiele technische naam (bv. "raakmillegem") — uniek.
     code = Column(String(50), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
+    # #1546: on a tenant, the name its site shows (wordmark, tab, footer, mails,
+    # the list of sites), when it differs from the organisation's. NULL = the name
+    # of the organisation behind the site (#1550). Read only through
+    # `kernel.tenant_config.tenant_display_name`.
+    site_name = Column(String(255), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(
@@ -640,7 +654,8 @@ class Organization(SoftDeleteMixin, Base):
         EnumColumn(TenantKind, length=20), ForeignKey("mdm.tenant_kind_codes.code"), nullable=True
     )
 
-    parent = relationship("Organization", remote_side=[id])
+    # #1550: two keys to this table now — the parent is `parent_id`.
+    parent = relationship("Organization", remote_side=[id], foreign_keys=[parent_id])
 
     # Elf kolommen stonden hier tot #945: `enterprise_number`, `vat_number`,
     # `email`, `phone`, `website`, `payment_iban`, `payment_beneficiary`,

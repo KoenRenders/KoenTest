@@ -177,15 +177,22 @@ def list_activity_photos(db, activity_id: int) -> list[dict]:
 
 
 def list_media(
-    db, *, kind: MediaKind | str | None = None, activity_id: Optional[int] = None
+    db,
+    *,
+    kind: MediaKind | str | None = None,
+    activity_id: Optional[int] = None,
 ) -> list[dict]:
+    """The pictures of a kind, of an activity — or, with `WITHOUT_ACTIVITY`, of
+    none (#1527)."""
     query = db.query(MediaAsset)
     if kind:
         soort = as_media_kind(kind)
         if soort is None:
             return []
         query = query.filter(MediaAsset.kind == soort)
-    if activity_id is not None:
+    if activity_id == WITHOUT_ACTIVITY:
+        query = query.filter(MediaAsset.activity_id.is_(None))
+    elif activity_id is not None:
         query = query.filter(MediaAsset.activity_id == activity_id)
     rijen = query.order_by(MediaAsset.sort_order.asc(), MediaAsset.id.desc()).all()
     return [meta(a) for a in rijen]
@@ -1028,9 +1035,19 @@ PICKABLE_KINDS = (
     MediaKind.SPONSOR,
     MediaKind.TENANT_LOGO,
 )
-#: The kinds with a branch of their own in the picker's tree (Logo's): they hang
-#: off no activity, so the activity branches never reach them (#1473).
-KIND_BRANCHES = (MediaKind.SPONSOR, MediaKind.TENANT_LOGO)
+#: The tree's branches for the kinds that hang off no activity, so the activity
+#: branches never reach them (#1473, #1527): per branch a key and its kinds. ONE
+#: source for the library and the picker — both trees read it, through `_tree`.
+KIND_GROUPS: tuple[tuple[str, tuple[MediaKind, ...]], ...] = (
+    ("logos", (MediaKind.SPONSOR, MediaKind.TENANT_LOGO)),
+    ("pages", (MediaKind.PAGE_IMAGE,)),
+)
+#: Design pictures are a branch per activity, like posters (Koen, #1527):
+#: Ontwerpbeelden › year › activity, and this "activity" for the ones of none —
+#: "Zonder activiteit". No activity has id 0.
+WITHOUT_ACTIVITY = 0
+#: Every kind with a branch of its own, derived from `KIND_GROUPS`.
+KIND_BRANCHES = tuple(kind for _key, kinds in KIND_GROUPS for kind in kinds)
 PICK_PAGE_SIZE = 60
 
 
@@ -1081,6 +1098,10 @@ class PickItem(NamedTuple):
     thumb_url: str
     #: "<activity> (<year>)" for a picture of an activity, else "".
     origin: str
+    #: The picture itself and its size (#1474): the CMS places it in a page.
+    url: str = ""
+    width: Optional[int] = None
+    height: Optional[int] = None
 
 
 class PickGroup(NamedTuple):
@@ -1114,6 +1135,7 @@ def pick_options(
     tag_id: Optional[int] = None,
     photos_of: Optional[int] = None,
     posters_of: Optional[int] = None,
+    designs_of: Optional[int] = None,
     kind: Optional[MediaKind] = None,
     page: int = 1,
 ) -> PickOptions:
@@ -1125,7 +1147,7 @@ def pick_options(
       re-uploaded because the old offer showed only the activity's own photos.
     - **A branch of the tree:** `photos_of` an activity (its album photos and
       design images), `posters_of` an activity (Affiches — the only place a
-      poster is offered), a `kind` of `KIND_BRANCHES` (Logo's), or a tag with
+      poster is offered), a `kind` of `KIND_BRANCHES` (Logo's, Paginabeelden, Ontwerpbeelden), or a tag with
       the tags below it. A poster that is a PDF is never offered (`_offered`).
     - **Search** matches the title, the activity's name and a tag's name; the
       **year** keeps the pictures of activities dated in that year. They combine.
@@ -1140,16 +1162,29 @@ def pick_options(
     kinds: tuple[MediaKind, ...] = PICKABLE_KINDS
     if posters_of is not None:
         kinds = (MediaKind.ACTIVITY_POSTER,)
+    elif designs_of is not None:
+        kinds = (MediaKind.DESIGN_IMAGE,)
     elif kind in KIND_BRANCHES:
         kinds = (kind,)
     rows = (
-        db.query(MediaAsset.id, MediaAsset.kind, MediaAsset.activity_id, MediaAsset.title)
+        db.query(
+            MediaAsset.id,
+            MediaAsset.kind,
+            MediaAsset.activity_id,
+            MediaAsset.title,
+            MediaAsset.width,
+            MediaAsset.height,
+        )
         .filter(_offered(), MediaAsset.kind.in_(kinds))
         .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.desc())
         .all()
     )
     if posters_of is not None:
         rows = [r for r in rows if r.activity_id == posters_of]
+    elif designs_of is not None:
+        # #1527: Ontwerpbeelden › an activity, or "Zonder activiteit".
+        wanted = None if designs_of == WITHOUT_ACTIVITY else designs_of
+        rows = [r for r in rows if r.activity_id == wanted]
     elif photos_of is not None:
         rows = [
             r
@@ -1182,12 +1217,24 @@ def pick_options(
         if r.activity_id in activities:
             name, jaar = activities[r.activity_id]
             origin = f"{name} ({jaar})" if jaar else name
-        return PickItem(r.id, r.title or "", f"/api/v1/media/{r.id}/thumb", origin)
+        return PickItem(
+            r.id,
+            r.title or "",
+            media_url(r.id, thumb=True),
+            origin,
+            url=media_url(r.id),
+            width=r.width,
+            height=r.height,
+        )
 
     ordered: list[tuple[str, PickItem]] = []
     taken: set[int] = set()
     branch_chosen = (
-        posters_of is not None or photos_of is not None or tag_id is not None or kind is not None
+        posters_of is not None
+        or photos_of is not None
+        or designs_of is not None
+        or tag_id is not None
+        or kind is not None
     )
     if for_activity_id is not None and not branch_chosen:
         from app.domains.activities.api import predecessors_of

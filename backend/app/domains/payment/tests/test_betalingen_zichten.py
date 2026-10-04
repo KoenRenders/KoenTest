@@ -3,8 +3,15 @@
 Een zicht is een afgeleide doorsnede naast de statuskolom (#669 blijft gelden:
 ze combineren met EN). De tab-aantallen tellen over de zicht-loze basis; de
 export draagt het actieve zicht mee, anders exporteert "Openstaand" stil alles.
+
+CR-11 pilot A, K1 (#1555): the tabs became the toolbar's status filter, a
+segmented control with two segments — *Alle | Openstaand (n)* — and the status
+select is gone. The tests below follow: a link of before K1 with `zicht=betaald`
+or `status=failed` shows everything instead of filtering on something no control
+on the screen shows; the count on "Openstaand" is what the click yields.
 """
 
+import re
 from decimal import Decimal
 
 import pytest
@@ -72,19 +79,34 @@ def test_zicht_openstaand_snijdt_de_tabel(client, db_session):
 
     assert _rijen("alle") == {9001, 9002, 9003}
     assert _rijen("openstaand") == {9001, 9003}  # open vordering + open refund
-    assert _rijen("betaald") == {9002}
-    assert _rijen("terugbetaald") == {9003}
+    # K1 (#1555): no segment for a done state; an old link falls back to "alle".
+    assert _rijen("betaald") == {9001, 9002, 9003}
+    assert _rijen("terugbetaald") == {9001, 9002, 9003}
 
 
-def test_tabaantallen_tellen_over_de_zichtloze_basis(client, db_session):
-    """Op het Betaald-tab blijven de andere tabs hun eigen aantal dragen —
-    zouden ze over de gesneden set tellen, dan stond overal hetzelfde getal."""
+def _segment(html: str, value: str) -> str:
+    """The label of one segment of the status filter, radio and text."""
+    at = html.index(f'name="zicht" value="{value}"')
+    return html[at : html.index("</label>", at)]
+
+
+def test_het_segment_openstaand_telt_wat_de_klik_oplevert(client, db_session):
+    """K1 (#1555): "Openstaand (n)" counts over the selection BEFORE the status
+    filter — on "Alle" as on "Openstaand" itself — and n is the number the
+    toolbar's count shows after the click. "Alle" carries no count."""
     _drie_boekingen(db_session)
     _login(client)
 
-    html = client.get("/admin/betalingen/lijst?zicht=betaald").text
-    for stuk in (">Alle <", ">Openstaand <", ">Betaald <", ">Terugbetaald <"):
-        assert stuk in html
+    for zicht in ("alle", "openstaand"):
+        pagina = client.get(f"/admin/betalingen?zicht={zicht}").text
+        assert re.search(r"Openstaand\s*<span[^>]*>\(2\)</span>", _segment(pagina, "openstaand"))
+        assert "(" not in re.sub(r"<[^>]+>", "", _segment(pagina, "alle"))
+    na_de_klik = client.get("/admin/betalingen/lijst?zicht=openstaand").text
+    assert re.search(r'id="bt-filter-count"[^>]*>\s*1–2 van 2\s*<', na_de_klik)
+    # The fragment refreshes the segment's count out-of-band: the toolbar stands
+    # outside it.
+    assert re.search(r'id="bt-filter-n-openstaand" hx-swap-oob="true"[^>]*>\(2\)<', na_de_klik)
+    assert 'role="tablist"' not in client.get("/admin/betalingen").text
     # 3 boekingen totaal, 2 open (vordering + refund), 1 vereffend, 1 refund.
     from app.domains.payment.api import count_zichten, enriched_records
 
@@ -97,10 +119,11 @@ def test_tabaantallen_tellen_over_de_zichtloze_basis(client, db_session):
     ) == (3, 2, 1, 1)
 
 
-def test_zicht_combineert_met_de_statuskolom(client, db_session):
-    """#669 blijft overeind: het Openstaand-tab en de statuskeuzelijst zijn
-    twee dimensies en combineren met EN — open posten onder de mislukte
-    betalingen blijft een stelbare vraag."""
+def test_een_oude_statuslink_filtert_niet_meer(client, db_session):
+    """K1 (#1555): the status select is gone (decision 03, point 4), so
+    `status=failed` in an old link is ignored — the list would otherwise filter
+    on something no control on the screen shows. (Until K1 this test held the
+    opposite, #669: the tab and the status select combined with AND.)"""
     _drie_boekingen(db_session)
     db_session.add(
         PaymentRecord(
@@ -117,7 +140,11 @@ def test_zicht_combineert_met_de_statuskolom(client, db_session):
 
     html = client.get("/admin/betalingen/lijst?zicht=openstaand&status=failed").text
     assert "/admin/inschrijvingen/9004?" in html
-    assert "/admin/inschrijvingen/9001?" not in html
+    assert "/admin/inschrijvingen/9001?" in html
+    assert (
+        'name="status"'
+        not in client.get("/admin/betalingen").text.split('id="betalingen-lijst"')[0]
+    )
 
 
 def test_oude_openstaand_link_landt_op_het_tab(client, db_session):
@@ -127,25 +154,23 @@ def test_oude_openstaand_link_landt_op_het_tab(client, db_session):
     _login(client)
 
     html = client.get("/admin/betalingen/lijst?openstaand=1").text
-    assert 'name="zicht" value="openstaand"' in html
     assert "/admin/inschrijvingen/9002?" not in html
+    pagina = client.get("/admin/betalingen?openstaand=1").text
+    assert "checked" in _segment(pagina, "openstaand").split(">")[0]
+    assert "checked" not in _segment(pagina, "alle").split(">")[0]
 
 
 def test_zicht_overleeft_een_filterwissel(client, db_session):
-    """Het verborgen veld hoort via het form-attribuut bij de filterbalk: bij
-    de eerstvolgende zoekterm reist het actieve tab mee in plaats van stil op
-    "Alle" terug te vallen."""
+    """The chosen segment is a field of the toolbar's own form (K1, #1555), so
+    the next search term sends it along instead of falling back to "Alle"; and
+    the list holder refreshes with that form's fields."""
     _drie_boekingen(db_session)
     _login(client)
 
-    html = client.get("/admin/betalingen/lijst?zicht=betaald").text
-    assert '<input type="hidden" name="zicht" value="betaald" form="bt-filter">' in html
-    # De tabs doorbreken de include-overerving van #betalingen-lijst: zonder
-    # "unset" reisde het oude zicht-veld (en zelfs de status-selects van de
-    # verborgen bewerk-formulieren) mee en overschreef het de tab-URL —
-    # gevonden bij de golf-10-schermafdrukken.
-    assert 'hx-include="unset"' in html
-    scherm = client.get("/admin/betalingen").text
+    scherm = client.get("/admin/betalingen?zicht=openstaand").text
+    toolbar = scherm[scherm.index('<form id="bt-filter"') : scherm.index("</form>")]
+    assert "checked" in _segment(toolbar, "openstaand").split(">")[0]
+    assert 'name="q"' in toolbar
     assert 'hx-include="#bt-filter"' in scherm
 
 

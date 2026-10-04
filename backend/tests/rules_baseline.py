@@ -596,7 +596,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "ui/system_ui.py::_werkruimte_namen",
         "ui/system_ui.py::admin_werkruimte_wisselen",
         "ui/tenants_ui.py::_lijst_ctx",
-        "ui/tenants_ui.py::instellingen_verhuisd",
         "ui/tenants_ui.py::tenant_aanmaken",
         "ui/tenants_ui.py::tenant_nieuw",
         "ui/tenants_ui.py::tenant_opslaan",

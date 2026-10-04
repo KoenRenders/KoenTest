@@ -1345,6 +1345,7 @@ def enriched_records(db: Session) -> list:
     for r in records:
         contact_name = description = None
         activity_id = component_id = component_name = membership_year = None
+        family_id = None
         reg_items: list = []
 
         if r.payable_type == PayableType.REGISTRATION:
@@ -1376,6 +1377,7 @@ def enriched_records(db: Session) -> list:
             membership_year = ms.year if ms else None
             if ms is not None:
                 contact_name = hoofdlid_naam.get(ms.member_id)
+                family_id = ms.member_id
 
         resultaat.append(
             EnrichedPaymentRecord(
@@ -1386,6 +1388,7 @@ def enriched_records(db: Session) -> list:
                 component_id=component_id,
                 component_name=component_name,
                 membership_year=membership_year,
+                family_id=family_id,
                 items=reg_items,
                 amount=r.amount,
                 amount_paid=r.amount_paid,

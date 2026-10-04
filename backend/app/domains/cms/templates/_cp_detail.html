@@ -49,7 +49,13 @@
          uit de werkbalk die de editor zelf bij een geselecteerde bijlage toont
          (zie `admin_pagina.html`); die knop kan Alpine niet rechtstreeks
          aanspreken, dus hij stuurt een event en dit blok vangt het op. #}
+      {# #1474: a picture is chosen in the kit's picker; it announces the choice
+         as `media-picked` with its url, size and title. #}
       <div x-data="{ src: false, picker: false, chosen: null, altText: '', maat: 'vol', bewerken: false }"
+           @media-picked="chosen = { url: $event.detail.url,
+                                     width: Number($event.detail.width) || null,
+                                     height: Number($event.detail.height) || null };
+                          altText = $event.detail.title"
            class="[&_trix-toolbar]:sticky [&_trix-toolbar]:top-[calc(var(--cp-kop,0px)+var(--cp-balk,0px))] [&_trix-toolbar]:z-10 [&_trix-toolbar]:bg-white"
            @raak-beeld-bewerken.window="bewerken = true; picker = true;
                                         chosen = { url: $event.detail.url,
@@ -129,27 +135,21 @@
            De alt is verplicht: een uitlegpagina zonder alternatieve tekst is
            onbruikbaar met een schermlezer. Hij begint op de titel uit de
            bibliotheek en blijft bewerkbaar; zonder alt blijft Invoegen uit. #}
-        {% call ui.modal("picker", _("Afbeelding"), max_w="max-w-2xl") %}
+        {% call ui.modal("picker", _("Afbeelding"), max_w="max-w-5xl") %}
           {# De kop zegt wat je aan het doen bent; bij bewerken staat de huidige
              afbeelding al geselecteerd en zijn alt en maat ingevuld. #}
           <p class="text-sm text-gray-600 mb-3" x-show="!bewerken">{{ _("Kies een afbeelding uit de bibliotheek.") }}</p>
           <p class="text-sm text-gray-600 mb-3" x-show="bewerken" x-cloak>{{ _("Wijzig de maat of de alternatieve tekst van deze afbeelding.") }}</p>
-          {% if page_images %}
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {% for beeld in page_images %}
-            <button type="button"
-                    class="block w-full text-left border rounded-lg overflow-hidden hover:border-blue-500"
-                    :class="chosen && chosen.url === '{{ beeld.url }}' ? 'border-blue-700 ring-2 ring-blue-500' : 'border-gray-200'"
-                    data-url="{{ beeld.url }}" data-width="{{ beeld.width or '' }}"
-                    data-height="{{ beeld.height or '' }}" data-title="{{ beeld.title or '' }}"
-                    @click="chosen = { url: $el.dataset.url,
-                                       width: Number($el.dataset.width) || null,
-                                       height: Number($el.dataset.height) || null };
-                            altText = $el.dataset.title">
-              <img src="{{ beeld.thumb_url }}" alt="" class="w-full h-24 object-contain bg-gray-50">
-              <span class="block px-2 py-1 text-xs text-gray-600 truncate">{{ beeld.title or _("Zonder titel") }}</span>
-            </button>
-            {% endfor %}
+          {# #1474 (CR-15 §C2 cms): the kit's picker over the whole library — an
+             album photo of the Sint as well as a page picture — instead of only
+             the `page_image` rows. Loaded when the dialog opens; its links reload
+             it in place. Placing a picture puts a reference in the page: no new
+             media row (C6 test 2). Its empty state offers the upload, as before. #}
+          <div id="mp-cp-beeld" class="min-h-[12rem]" hx-get="/admin/media/kiezer?field=cp-beeld" hx-target="this"
+               hx-trigger="intersect once" hx-swap="innerHTML">{{ ui.loading() }}</div>
+          <div class="mt-4 flex items-center gap-3" x-show="chosen" x-cloak>
+            <img data-cp-gekozen :src="chosen ? chosen.url : ''" alt="" class="h-16 w-16 rounded-lg border border-gray-200 object-cover bg-gray-50">
+            <span class="text-sm text-gray-600">{{ _("Gekozen afbeelding") }}</span>
           </div>
           <div class="mt-4">
             {{ ui.label(_("Alternatieve tekst"), "cp-alt", required=True) }}
@@ -202,11 +202,6 @@
                                     ' @click="updatePageImage(chosen, altText, maat); picker = false"'
                                     ' :disabled="!chosen || !altText.trim()"') }}
           </div>
-          {% else %}
-          {{ ui.empty_state(_("Er staan nog geen pagina-afbeeldingen in de bibliotheek."),
-                            action_label=_("Afbeelding opladen"),
-                            action_href="/admin/media/nieuw?kind=page_image") }}
-          {% endif %}
         {% endcall %}
       </div>
       <p class="text-xs text-gray-400 mt-1">{{ _("Opmaak via de werkbalk (incl. H2/H3); of bewerk de HTML-bron. De opgeslagen HTML wordt server-side veilig gesanitiseerd.") }}</p></div>
@@ -215,6 +210,9 @@
       <label class="flex items-center gap-2"><input type="checkbox" name="show_in_nav" value="1" {% if p.show_in_nav %}checked{% endif %}> {{ _("In navigatie") }}</label>
       {# CR-19 (#1477): the home page of the site; another page loses the flag. #}
       <label class="flex items-center gap-2"><input type="checkbox" name="is_home" value="1" {% if p.is_home %}checked{% endif %}> {{ _("Homepagina") }}</label>
+      {# #1569: listed in the site's footer when published — where the privacy
+         link stood. #}
+      <label class="flex items-center gap-2"><input type="checkbox" name="show_in_footer" value="1" {% if p.show_in_footer %}checked{% endif %}> {{ _("Toon in de voettekst") }}</label>
       {# #745: het getalveld "Volgorde" is hier weg. De volgorde zet je met de
          pijltjes in de lijst; twee bedieningen voor hetzelfde ding kunnen elkaar
          tegenspreken, en dit veld dwong je bovendien het nummer van de pagina

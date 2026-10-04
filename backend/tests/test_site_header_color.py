@@ -47,7 +47,8 @@ def _operator(client, db_session, email="op-kopkleur@example.com"):
 
 def _opslaan(client, csrf, kleur):
     return client.post(
-        f"/admin/tenants/{DEFAULT_TENANT_ID}",
+        # #1535: the workspace's own settings — Raak Millegem, on the default host.
+        "/admin/instellingen",
         data={SITE_HEADER_COLOR_KEY: kleur},
         headers={"X-CSRF-Token": csrf},
     )

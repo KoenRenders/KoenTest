@@ -45,31 +45,19 @@ one source for that address — and not here.
 
 import os
 import sys
-from urllib.parse import urlsplit, urlunsplit
 
 import pytest
 from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE  # noqa: E402
+from tests_e2e.schermen import PLATFORM  # noqa: E402
 
 # Dezelfde poort als de rest van de suite, andere hostnaam: zo is de landing bereikbaar
 # zonder dat élk ander e2e-verzoek een platformverzoek wordt.
 #
-# De host wordt VERVANGEN en niet gezocht: CI draait op `localhost` en de lokale runner op
-# `127.0.0.1`. Een `replace()` op één van die twee werkt op de ene machine en stilletjes
-# niet op de andere — en daar viel deze test dan ook over, precies zoals bedoeld.
-_SPLIT = urlsplit(BASE)
-PLATFORM = urlunsplit(
-    (
-        _SPLIT.scheme,
-        f"platform.localhost:{_SPLIT.port}" if _SPLIT.port else "platform.localhost",
-        _SPLIT.path,
-        "",
-        "",
-    )
-)
+# De platformhost (`PLATFORM`) komt uit `schermen.py` sinds #1477: de bedrijfsflow
+# heeft hem ook nodig, en twee kopieën lopen uit elkaar.
 
 
 @pytest.fixture(scope="module")
@@ -122,12 +110,13 @@ def test_doorklikken_komt_bij_de_juiste_afdeling_uit(pagina, code, naam):
         f"de kaart van {code} komt uit bij een andere afdeling — op het scherm staat "
         f"niet '{naam}'.\n{tekst[:300]}"
     )
-    # Op de SCHIL en niet op de tekst: de demo-afdeling noemt "het Raak Digital Platform"
-    # in haar eigen intro, dus een tekstvondst zou hier een bevinding over inhoud zijn en
-    # niet over waar je staat. `data-shell` is wat het antwoord zelf over zijn schil zegt.
-    assert pagina.locator("body").get_attribute("data-shell") != "platform", (
-        "je staat nog op de landingspagina; de klik heeft je nergens gebracht"
-    )
+    # #1543: the platform's home is in the site shell too, so `data-shell` no longer
+    # tells the two apart. The header does: a boosted click swapped only #main and
+    # kept the platform's header around the afdeling's page (measured in this test).
+    # Not its text: an association without a logo shows the RaaK wordmark there
+    # (#1496). Its home link: `path_for("/")` of the afdeling is `/<code>/`.
+    thuis = pagina.locator("header a").first.get_attribute("href") or ""
+    assert thuis.rstrip("/").endswith(code), f"de kop is niet die van de afdeling: {thuis!r}"
 
 
 def test_de_terugweg_houdt_je_op_dezelfde_afdeling(pagina):

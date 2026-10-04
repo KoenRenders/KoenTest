@@ -177,10 +177,16 @@ def test_gebruikers_zoeken_en_rolfilter(client, db_session):
 
 
 def test_gebruikers_actieffilter_en_htmx_fragment(client, db_session):
-    from app.domains.auth.models import User
+    from app.domains.auth.models import User, UserRole
+    from app.kernel.tenancy import TENANT_MILLEGEM_ID
 
     _login(client)
-    db_session.add(User(email="slaper@example.com", is_active=False))
+    # #1500: a workspace lists the accounts with a role in it, so the sleeper
+    # holds one here; the filter on active is what this test is about.
+    slaper = User(email="slaper@example.com", is_active=False)
+    db_session.add(slaper)
+    db_session.flush()
+    db_session.add(UserRole(user_id=slaper.id, role_code="FINANCE", tenant_id=TENANT_MILLEGEM_ID))
     db_session.commit()
 
     inactief = client.get("/admin/gebruikers", params={"actief": "nee"})
@@ -222,7 +228,7 @@ def test_wijzigingen_heeft_geen_toon_knop_meer_en_filtert_live(client):
 # ── Tenants (#584-rest) ───────────────────────────────────────────────────────
 
 
-def test_tenants_knop_is_primair_en_htmx_geeft_het_fragment(client):
+def test_tenants_knop_is_primair_en_htmx_geeft_het_fragment(client, platform_workspace):
     _login(client)
     pagina = client.get("/admin/tenants")
     assert pagina.status_code == 200

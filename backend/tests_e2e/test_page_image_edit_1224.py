@@ -63,7 +63,12 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, Paginascherm, login_met_sessie  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    Paginascherm,
+    login_met_sessie,
+    pagina_beeld_in_kiezer,
+)
 
 EERSTE_ALT = "Eerste alternatieve tekst"
 NIEUWE_ALT = "Bijgewerkte alternatieve tekst"
@@ -101,7 +106,7 @@ def _voeg_in(page, scherm, *, alt: str, maat: str) -> None:
     page.get_by_role("button", name="Afbeelding").first.click()
     dialoog = page.get_by_role("dialog")
     expect(dialoog, "het dialoogje ging niet open").to_be_visible()
-    keuze = dialoog.locator("button[data-url]").first
+    keuze = pagina_beeld_in_kiezer(dialoog)
     if keuze.count() == 0:
         _ontbreekt("geen pagina-afbeelding in de bibliotheek")
     keuze.click()
@@ -153,12 +158,12 @@ def test_de_dialoog_opent_met_de_huidige_alt_en_maat(editor, verse_pagina):
     assert dialoog.locator("#cp-alt").input_value() == EERSTE_ALT, (
         "de alt is niet voorgevuld met de huidige waarde"
     )
-    gekozen = dialoog.locator("button[data-url]").evaluate_all(
-        "els => els.filter(e => e.className.includes('border-blue-700')).length"
-    )
-    assert gekozen == 1, (
-        f"{gekozen} afbeeldingen staan als gekozen gemarkeerd, 1 verwacht — de "
-        "dialoog opent niet op de afbeelding die je aanklikte"
+    # Since #1474 the dialog shows the current picture as its own preview under
+    # the kit's picker (the picker itself marks no choice).
+    voorbeeld = dialoog.locator("img[data-cp-gekozen]")
+    expect(voorbeeld, "de dialoog toont geen gekozen afbeelding").to_be_visible()
+    assert "/api/v1/media/" in (voorbeeld.get_attribute("src") or ""), (
+        "de dialoog opent niet op de afbeelding die je aanklikte"
     )
 
 

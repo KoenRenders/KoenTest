@@ -1,0 +1,11 @@
+{% extends "admin_base.html" %}
+{% block title %}{{ record_head.title }} — {{ _("Betalingen") }}{% endblock %}
+{% block content %}
+{# The record page of one booking (#1574, CR-11 pilot A): a payments row opens
+   it. The head is the kit's (`_bt_recordkop.html`), the content what the
+   unfold under the row carried (`_bt_boeking.html`). This page draws nothing
+   itself: a control beside the record head is red
+   (`tests/test_record_header_gate.py`). #}
+{% include "_bt_recordkop.html" %}
+{% include "_bt_boeking.html" %}
+{% endblock %}

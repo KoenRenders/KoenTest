@@ -44,6 +44,8 @@ TILES = (
     "Openstaand saldo",
 )
 # The association's sitemap on the old code, as paths (order is not meaning).
+# Without `/home-intro` and `/site-footer` since #1510: they are site blocks,
+# not pages; every other path of the old sitemap stays.
 SITEMAP_BEFORE = {
     "/",
     "/activiteiten",
@@ -51,9 +53,7 @@ SITEMAP_BEFORE = {
     "/fotos",
     "/lid-worden",
     "/berichten",
-    "/home-intro",
     "/privacy",
-    "/site-footer",
 }
 
 
@@ -139,8 +139,21 @@ def test_the_chat_bubble_needs_the_chatbot_module(db_session, monkeypatch, modul
 def test_the_sitemap_lists_only_the_paths_of_modules_that_are_on(client, modules):
     modules(COMPANY)
     paths = _sitemap(client)
-    assert {"/activiteiten", "/activiteiten/archief", "/lid-worden"}.isdisjoint(paths)
-    assert {"/", "/fotos", "/berichten"} <= paths
+    # /fotos is Media's route but the albums of activities: it needs both, as
+    # its menu item does (C6 test 13 found it in the sitemap of a company).
+    assert {"/activiteiten", "/activiteiten/archief", "/lid-worden", "/fotos"}.isdisjoint(paths)
+    assert {"/", "/berichten"} <= paths
+
+
+def test_the_photo_albums_need_activities_as_well_as_media(client, modules):
+    """The public album routes are served by Media and guarded for Activiteiten
+    too (`require_module(MEDIA, also=(ACTIVITIES,))`, #1477): a company, with
+    Media on and Activiteiten off, finds no /fotos; an association does."""
+    modules(COMPANY)
+    assert client.get("/fotos").status_code == 404
+    modules(EVERY)
+    assert client.get("/fotos").status_code == 200
+    assert "/fotos" in _sitemap(client)
 
 
 def test_the_dashboard_shows_only_the_tiles_of_modules_that_are_on(client, modules):
@@ -186,7 +199,9 @@ def test_a_company_footer_says_partners(db_session):
 # ── The tenant editor: settings of a module that is off ─────────────────────
 
 
-def test_the_editor_hides_the_settings_of_modules_that_are_off_and_keeps_them(client, db_session):
+def test_the_editor_hides_the_settings_of_modules_that_are_off_and_keeps_them(
+    client, platform_workspace, db_session
+):
     from app.domains.auth.api import csrf_token_for
     from app.domains.auth.models import User, UserRole
     from app.domains.mdm.api import create_tenant
@@ -202,14 +217,17 @@ def test_the_editor_hides_the_settings_of_modules_that_are_off_and_keeps_them(cl
     client.cookies.set(SESSION_COOKIE, session)
 
     company_page = client.get(f"/admin/tenants/{company.id}").text
-    for key in (
-        "membership_price_full",
-        "max_item_quantity",
-        "payment_term_days",
-        "mollie_api_key",
-        "admin_chat_enabled",
+    # #1498: a module that is off keeps its card; its settings are folded away
+    # in it (still on the form, so a save keeps them), not left out.
+    for card, key in (
+        ("membership", "membership_price_full"),
+        ("activities", "max_item_quantity"),
+        ("payment", "payment_term_days"),
+        ("payment", "mollie_api_key"),
+        ("chatbot", "admin_chat_enabled"),
     ):
-        assert f'name="{key}"' not in company_page, key
+        body = re.search(rf'data-card="{card}".*?</section>', company_page, re.S).group(0)
+        assert f'name="{key}"' in body and 'x-show="on" style="display: none"' in body, key
     assert 'name="tagline"' in company_page
     association_page = client.get(f"/admin/tenants/{association.id}").text
     assert 'name="membership_price_full"' in association_page

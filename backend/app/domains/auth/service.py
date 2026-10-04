@@ -74,8 +74,11 @@ def landing_for(db: Session, email: str) -> str:
     code step and the mail link each carried a copy. A page that asked comes
     first — the caller passes this as the fallback of `veilige_terug`.
     """
+    from app.domains.auth.session import admits_admin_ui  # lazy: session imports this module
+
     roles = set(get_user_roles(db, email))
-    if {"ADMIN", "OPERATOR"} & roles:
+    # #1513: the back office's own set decides who lands in it.
+    if admits_admin_ui(roles):
         return "/admin/werkbank"
     if "FINANCE" in roles:
         return "/admin/betalingen"

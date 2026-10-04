@@ -26,6 +26,7 @@ ongemoeid — nooit stilzwijgend overschrijven of verwijderen.
 
 from __future__ import annotations
 
+import re
 from typing import Mapping
 
 from app.domains.mdm.codes import CONTACT
@@ -170,6 +171,15 @@ def _write_organization_details(db, organization_id: int, form: Mapping) -> None
     if rij is None:
         return
 
+    # #1517: the enterprise number is checked (ten digits, its check number) and
+    # stored in one form, the ten digits of ISO 6523 ICD 0208 — first of all, so
+    # a refused number leaves the organisation untouched.
+    if (form.get("enterprise_number") or "").strip():
+        form = {**form, "enterprise_number": _enterprise_number(form["enterprise_number"])}
+    # #1545: the Belgian VAT number too — BE and the enterprise number.
+    if (form.get("vat_number") or "").strip():
+        form = {**form, "vat_number": _vat_number(form["vat_number"])}
+
     # Eerst weigeren, dan pas schrijven: een afgekeurde opslag mag niet half
     # doorgevoerd zijn. `name` voedt sinds #945 de paginatitel, de afzender van
     # mails en de footer, en `tenant_display_name` heeft geen terugval meer
@@ -224,6 +234,47 @@ def _write_organization_details(db, organization_id: int, form: Mapping) -> None
         )
 
     _bewaar_rekening(db, organization_id, form)
+
+
+def _enterprise_number(text: str) -> str:
+    """The ten digits of an enterprise number in any usual spelling, or a refusal
+    on the field (#1517). The check is of the structure — ten digits, a leading 0
+    or 1, the check number — not of whether the KBO knows the number, and every
+    structural refusal reads the same (#1549, Koen's text): explaining the
+    arithmetic read as technical, and the hint below the field gives the shape."""
+    from app.domains.mdm.enterprise_number import EnterpriseNumber, InvalidEnterpriseNumber
+
+    try:
+        return EnterpriseNumber.parse(text).digits
+    except InvalidEnterpriseNumber:
+        raise OngeldigeInstelling(
+            {
+                "enterprise_number": _(
+                    "Dit ondernemingsnummer heeft niet de juiste structuur. Kijk het na."
+                )
+            }
+        ) from None
+
+
+def _vat_number(text: str) -> str:
+    """A Belgian VAT number as `BE` and the ten digits, or a refusal on the field
+    (#1545). A Belgian VAT number is the enterprise number with `BE` in front;
+    written without a country, it is read as Belgian. Another country's number
+    (two other letters in front) is not checked and is stored as typed — its
+    rules are its own country's. A refusal reads like the enterprise number's
+    (#1549)."""
+    from app.domains.mdm.enterprise_number import EnterpriseNumber, InvalidEnterpriseNumber
+
+    typed = text.strip()
+    compact = re.sub(r"[\s.\-]", "", typed)
+    if re.match(r"[A-Za-z]{2}", compact) and compact[:2].upper() != "BE":
+        return typed
+    try:
+        return "BE" + EnterpriseNumber.parse(compact).digits
+    except InvalidEnterpriseNumber:
+        raise OngeldigeInstelling(
+            {"vat_number": _("Dit btw-nummer heeft niet de juiste structuur. Kijk het na.")}
+        ) from None
 
 
 def _bewaar_rekening(db, organization_id: int, form: Mapping) -> None:
@@ -354,6 +405,8 @@ def organization_options(db) -> list[dict]:
             # and a member equals no string it is compared with (CR-12 phase 2).
             "org_type": code_of(r.org_type),
             "is_active": r.is_active,
+            # #1550: the tenant editor offers the organisations of one account.
+            "parent_id": r.parent_id,
             "legal_form": r.legal_form or "",
         }
         for r in rijen

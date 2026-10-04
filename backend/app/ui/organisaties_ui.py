@@ -45,8 +45,8 @@ rust — nooit stilzwijgend overschrijven of verwijderen.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -54,7 +54,8 @@ from app.domains.auth.api import (
     csrf_from_request,
     require_admin_ui,
     require_csrf,
-    require_operator_ui,
+    require_platform_operator_ui,
+    require_tenant_workspace,
 )
 from app.domains.mdm.api import ORGANIZATION_TYPE, OrganizationType
 from app.i18n import _
@@ -89,8 +90,14 @@ REKENINGGROEP = [
 ]
 
 NUMMERGROEP = [
-    ("enterprise_number", "Ondernemingsnummer", "Bv. 0123.456.789."),
-    ("vat_number", "Btw-nummer", "Optioneel."),
+    # #1545: an example whose check number holds (97 − 01234567 % 97 = 49).
+    ("enterprise_number", "Ondernemingsnummer", "Bv. 0123.456.749."),
+    # #1545: a Belgian VAT number is checked; another country's is kept as typed.
+    (
+        "vat_number",
+        "Btw-nummer",
+        "Optioneel. Bv. BE 0123.456.749; een buitenlands nummer bewaren we zoals getypt.",
+    ),
 ]
 
 # CR-12 phase 2: the words of the organisation kind come from its label table;
@@ -137,7 +144,12 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     }
 
 
-def _editor_ctx(request: Request, db: Session, organization_id: int) -> dict:
+def _editor_ctx(
+    request: Request, db: Session, organization_id: int, *, own=False, read_only=False
+) -> dict:
+    """The organisation editor's context. `own` (#1535) is a tenant workspace's
+    "Onze organisatie": the same fields and the same save, for this workspace's
+    own organisation only; only where it posts and leads differs."""
     from app.domains.mdm.api import (
         legal_form_options,
         list_postal_codes,
@@ -156,10 +168,17 @@ def _editor_ctx(request: Request, db: Session, organization_id: int) -> dict:
     heeft_site = organisatie["org_type"] in ("UNIT", "PLATFORM")
 
     return {
-        "nav_items": admin_nav(NAV),
+        "nav_items": admin_nav("/admin/organisatie" if own else NAV),
         "organisatie": organisatie,
         "organization_id": organization_id,
         "heeft_site": heeft_site,
+        # #1535: where this editor posts and leads, per scope.
+        "own": own,
+        # #1550: another organisation's data, shown where this site shows it.
+        "read_only": read_only,
+        "back_href": None if own else "/admin/organisaties",
+        "cancel_href": "/admin/organisatie" if own else f"/admin/organisaties/{organization_id}",
+        "site_href": "/admin/instellingen" if own else f"/admin/tenants/{organization_id}",
         "velden": organization_details(db, organization_id),
         "adres": organization_address(db, organization_id),
         "postal_codes": list_postal_codes(db),
@@ -168,6 +187,8 @@ def _editor_ctx(request: Request, db: Session, organization_id: int) -> dict:
         "rekeninggroep": REKENINGGROEP,
         "nummergroep": NUMMERGROEP,
         "error": None,
+        # #1545: a refusal per field, shown on it.
+        "veld_fouten": {},
         "toast_opgeslagen": False,
         "csrf_token": csrf_from_request(request),
     }
@@ -177,9 +198,60 @@ def _editor_ctx(request: Request, db: Session, organization_id: int) -> dict:
 def organisaties(
     request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
 ):
-    require_operator_ui(db, email)
+    require_platform_operator_ui(db, email)
     sjabloon = "_org_kaarten.html" if is_fragment_request(request) else "admin_organisaties.html"
     return templates.TemplateResponse(request, sjabloon, _lijst_ctx(request, db))
+
+
+def _new_account_ctx(request: Request, *, name: str = "", code: str = "", error=None) -> dict:
+    return {
+        "nav_items": admin_nav(NAV),
+        "name": name,
+        "code": code,
+        "error": error,
+        "csrf_token": csrf_from_request(request),
+    }
+
+
+# Declared before `/{organization_id}`: FastAPI matches in declaration order.
+@router.get("/admin/organisaties/nieuw", response_class=HTMLResponse)
+def new_account_form(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
+    """ "Nieuw account" (CR-19, #1495): OPERATOR only, on GET as on POST."""
+    require_platform_operator_ui(db, email)
+    return templates.TemplateResponse(
+        request, "admin_organisatie_nieuw.html", _new_account_ctx(request)
+    )
+
+
+@router.post(
+    "/admin/organisaties", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
+)
+def create_account_route(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    name: str = Form(""),
+    code: str = Form(""),
+):
+    """Creates the account and lands on its organisation screen, where the rest
+    is filled in. A refusal shows the form again with what was typed."""
+    from app.domains.mdm.api import TenantFout, create_account
+
+    require_platform_operator_ui(db, email)
+    try:
+        account = create_account(db, name=name, code=code)
+    except TenantFout as fout:
+        # 200, not 422: htmx swaps no 4xx answer, and the banner would not show.
+        ctx = _new_account_ctx(request, name=name, code=code, error=_(str(fout)))
+        return templates.TemplateResponse(request, "admin_organisatie_nieuw.html", ctx)
+    target = f"/admin/organisaties/{account.id}"
+    # As in meetings: a boosted form is an htmx request, and `HX-Redirect` makes
+    # the browser really navigate, so the address bar follows.
+    if request.headers.get("HX-Request"):
+        return Response(status_code=204, headers={"HX-Redirect": target})
+    return RedirectResponse(target, status_code=303)
 
 
 @router.get("/admin/organisaties/{organization_id}", response_class=HTMLResponse)
@@ -189,7 +261,7 @@ def organisatie_editor(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
-    require_operator_ui(db, email)
+    require_platform_operator_ui(db, email)
     return templates.TemplateResponse(
         request, "admin_organisatie.html", _editor_ctx(request, db, organization_id)
     )
@@ -206,9 +278,58 @@ async def organisatie_opslaan(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
+    require_platform_operator_ui(db, email)
+    return await _save(request, db, organization_id, own=False)
+
+
+@router.get("/admin/organisatie", response_class=HTMLResponse)
+def own_organisation(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
+    """ "Onze organisatie" (#1535): the tenant workspace's own organisation, for
+    its ADMIN and the operator — and nothing of another organisation.
+
+    #1550: the organisation behind the site. When the operator pointed the site
+    at another organisation of its account, that one is shown, read-only, with
+    the line that says where it is edited: its data is never copied here."""
+    org_id, editable = _own_organisation(db)
+    return templates.TemplateResponse(
+        request,
+        "admin_organisatie.html",
+        _editor_ctx(request, db, org_id, own=True, read_only=not editable),
+    )
+
+
+def _own_organisation(db: Session) -> tuple[int, bool]:
+    """The organisation "Onze organisatie" shows (#1550), and whether this
+    workspace may edit it: only its own row."""
+    from app.kernel.tenant_config import site_organization_id
+
+    tenant = require_tenant_workspace(db)
+    org_id = site_organization_id(db, tenant)
+    return org_id, org_id == tenant
+
+
+@router.post(
+    "/admin/organisatie", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
+)
+async def own_organisation_save(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
+    org_id, editable = _own_organisation(db)
+    if not editable:
+        raise HTTPException(
+            status_code=403,
+            detail=_("Deze gegevens komen van een andere organisatie; je bewerkt ze daar."),
+        )
+    return await _save(request, db, org_id, own=True)
+
+
+async def _save(request: Request, db: Session, organization_id: int, *, own: bool):
+    """One save path for both scopes (#1535): `save_organization`, one
+    transaction for the whole form (#1244)."""
     from app.domains.mdm.api import OngeldigeInstelling, save_organization
 
-    require_operator_ui(db, email)
     form = await request.form()
     try:
         # #1244: one transaction for the whole form — see `save_organization`.
@@ -217,7 +338,7 @@ async def organisatie_opslaan(
         # #797: het formulier terug tonen mét de ingetypte waarden. Ze wegwerpen zou
         # betekenen dat één tikfout het hele scherm leegveegt, en dan is de melding
         # erger dan de fout.
-        ctx = _editor_ctx(request, db, organization_id)
+        ctx = _editor_ctx(request, db, organization_id, own=own)
         labels = {key: label for key, label, _h in (*CONTACTGROEP, *REKENINGGROEP, *NUMMERGROEP)}
         labels.update(
             {
@@ -229,10 +350,14 @@ async def organisatie_opslaan(
             }
         )
         ctx["error"] = " ".join(f"{labels.get(k, k)}: {m}" for k, m in fout.fouten.items())
+        # #1545: and on the field itself — the banner is at the top of a long form.
+        ctx["veld_fouten"] = dict(fout.fouten)
         ctx["velden"] = {**ctx["velden"], **{k: v for k, v in form.items() if k in ctx["velden"]}}
         ctx["adres"] = {**ctx["adres"], **{k: v for k, v in form.items() if k in ctx["adres"]}}
+        # 422 is the right status; since #1515 the shells swap an HTML 422
+        # (`ui.htmx_ux`), so the form with its banner reaches the screen.
         return templates.TemplateResponse(request, "admin_organisatie.html", ctx, status_code=422)
 
-    ctx = _editor_ctx(request, db, organization_id)
+    ctx = _editor_ctx(request, db, organization_id, own=own)
     ctx["toast_opgeslagen"] = True
     return templates.TemplateResponse(request, "admin_organisatie.html", ctx)

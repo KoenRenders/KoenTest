@@ -23,7 +23,10 @@
   {# Het enige publieke formulier dat geen htmx gebruikt: een gewone POST met
      server-rendered antwoord. Buiten hx-boost (#634) houden zodat de
      verzend-flow (en de URL in de geschiedenis) exact blijft zoals ze was. #}
-  <form method="post" action="{{ form_action }}{% if edit_token|default(None) %}/edit/{{ edit_token }}{% endif %}"
+  {# #1477: through `path_for` — a form of a tenant reached by its path prefix
+     posted to the bare path and landed at the default tenant ("Formulier niet
+     gevonden"); found by C6 test 13. The routes pass bare paths. #}
+  <form method="post" action="{{ path_for(form_action) }}{% if edit_token|default(None) %}/edit/{{ edit_token }}{% endif %}"
         hx-boost="false" class="space-y-6"
         {# #724: Verzenden is geen `next()`, dus de laatste stap heeft haar eigen
            controle nodig — anders verschuift het probleem naar het einde. #}

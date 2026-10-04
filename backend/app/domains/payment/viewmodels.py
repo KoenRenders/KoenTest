@@ -41,7 +41,17 @@ class BetalingenView(ViewModel):
     # Golf 10 (#913): het actieve statustab-zicht, de tabs zelf (label, aantal,
     # fragment-URL, actief) en de kengetallenband boven de tabel.
     zicht: str
-    zichten: list[dict[str, Any]]
+    # K1 (#1555): the list kit. The status filter's segments (value, label and,
+    # where the state is acted on, a count), the key figures of the title row,
+    # the page sizes on offer, the actions under `⋯`, the hidden fields that
+    # carry a scope with every toolbar request, and whether this is the
+    # embedded rendering inside a record (no title row, no Filters).
+    segments: list[dict[str, Any]]
+    figures: list[dict[str, Any]]
+    page_sizes: list[int]
+    toolbar_menu: list[dict[str, Any]]
+    toolbar_hidden: list[tuple[str, str]]
+    embedded: bool
     kpi: dict[str, Any]
     # #996: band + tabs (#bt-boven) reizen alleen op fragmentantwoorden
     # out-of-band mee; de volledige pagina rendert ze zelf.
@@ -56,6 +66,9 @@ class BetalingenView(ViewModel):
     # geen `hx-include` op de filterbalk, want die zou de paginakeuze overschrijven
     # met wat er toevallig in het formulier staat.
     pager_url: str = ""
+    # K1 (#1555): the address of this list with its state, for the way back
+    # from a row's registration (`?terug=`).
+    return_url: str = "/admin/betalingen"
     # #1060: staat de beheer-assistent aan én mag deze gebruiker hem aanspreken?
     # Twee vragen, één antwoord: een ingang die op een 403 uitkomt is erger dan
     # geen ingang. Het betalingenscherm laat FINANCE binnen, de assistent niet.
@@ -90,3 +103,38 @@ class BetalingenView(ViewModel):
     # over en die kijkt nooit in het antwoord. Nu gaat de lijst terug mét de reden,
     # als 200, precies zoals het inschrijvingenpaneel het al deed.
     error: str | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class BookingView(ViewModel):
+    """`betaling.html` — the record page of one booking (#1574).
+
+    The row of the payments list opens it (CR-11 block 4: the row is the way in),
+    and it carries what the unfold under the row carried: the booking's data, its
+    edit form, the refund form and the two actions of the head.
+    """
+
+    #: The enriched record, and its figures as the list shows them (amount,
+    #: received, balance, derived status, may it be deleted).
+    rec: Any
+    card: dict[str, Any]
+    #: The head: `ui.record_header`'s title, badges, facts, primary and actions.
+    record_head: dict[str, Any]
+    way_back: dict[str, Any]
+    head_editing: bool = False
+    #: The charge this refund belongs to, and the refunds of this charge — each a
+    #: {label, href, amount, status_label, status_tone}.
+    parent: dict[str, Any] | None = None
+    refunds: list[dict[str, Any]] = field(default_factory=list)
+    #: May this user change payments (FINANCE or OPERATOR)? Without it the page
+    #: is read-only: no primary, no actions, no forms.
+    may_mutate: bool = False
+    status_labels: dict[str, str]
+    method_label: str
+    #: This page's own address with its way back, where its forms return to.
+    here: str
+    csrf_token: str
+    nav_items: list[dict[str, Any]] = field(default_factory=list)
+    error: str | None = None
+    #: A full-page answer after a save shows the toast itself (#748).
+    toast_opgeslagen: bool = False

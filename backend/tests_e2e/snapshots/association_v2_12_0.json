@@ -1,0 +1,62 @@
+{
+ "recorded_on": "v2.12.0 (55f30627)",
+ "shown": {
+  "menu": [
+   "/admin Dashboard",
+   "/admin/activiteiten Activiteiten",
+   "/admin/ai-context Raakje",
+   "/admin/betalingen Betalingen",
+   "/admin/e-maillog E-maillog",
+   "/admin/formulieren Formulieren",
+   "/admin/gebruikers Gebruikers",
+   "/admin/info Info",
+   "/admin/leden Leden",
+   "/admin/ledenwijzigingen Wijzigingen",
+   "/admin/media Media",
+   "/admin/nieuwsbrieven Nieuwsbrief",
+   "/admin/ontwerpen Design Studio",
+   "/admin/organisaties Organisaties",
+   "/admin/paginas Pagina's",
+   "/admin/rapporten Rapporten",
+   "/admin/rapporten/raakje AI · Raakje",
+   "/admin/tenants Tenants",
+   "/admin/vergaderingen Vergaderingen",
+   "/admin/werkbank Werkbank"
+  ],
+  "dashboard_tiles": [
+   "Gezinnen",
+   "Actieve gezinnen",
+   "Personen (actief lid)",
+   "Komende activiteiten",
+   "Open taken (werkbank)",
+   "Openstaand saldo"
+  ],
+  "home_nav": [
+   "Aanmelden",
+   "Archief",
+   "Foto's",
+   "Home",
+   "RaaK"
+  ],
+  "home_headings": [
+   "<activiteit>",
+   "<jaar>",
+   "Activiteiten"
+  ],
+  "home_buttons": [
+   "<activiteit>",
+   "Contacteer ons",
+   "Inschrijven",
+   "Nieuwsbrief",
+   "Wie doet er mee?Verberg",
+   "Word lid"
+  ],
+  "footer": [
+   "Raak Millegem",
+   "Rekeningnummer: BE00 1234 5678 9012",
+   "Raak Millegem · Dorpsstraat 1, 2400 Mol",
+   "📧 info@example.com",
+   "© <jaar> Raak Millegem"
+  ]
+ }
+}

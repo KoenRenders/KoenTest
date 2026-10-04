@@ -116,9 +116,10 @@ def test_signing_in_works_without_the_membership_module(client, modules_of):
     assert expired.status_code == 401, "the expired-link page, not a 404"
 
 
-def test_every_unit_and_the_platform_are_seeded_full(db_session):
-    """C6 test 2, the seed: every UNIT and the PLATFORM have every module; an
-    ACCOUNT has none — it never serves a request."""
+def test_every_unit_is_seeded_full_and_the_platform_with_its_own_set(db_session):
+    """C6 test 2, the seed: every UNIT has every module; an ACCOUNT has none — it
+    never serves a request. The PLATFORM had every module too, until #1523 gave
+    it its own kind and set (migration 191, `DEFAULTS["PLATFORM"]`)."""
     rows = db_session.execute(
         sql(
             "SELECT o.org_type, o.id, array_agg(m.module_code ORDER BY m.module_code) "
@@ -129,8 +130,11 @@ def test_every_unit_and_the_platform_are_seeded_full(db_session):
     assert {r.org_type for r in rows} >= {"UNIT", "ACCOUNT"}
     for org_type, org_id, codes in rows:
         got = frozenset(c for c in codes if c)
-        if org_type in ("UNIT", "PLATFORM"):
+        if org_type == "UNIT":
             assert got == EVERY, f"{org_type} {org_id}: {sorted(got)}"
+        elif org_type == "PLATFORM":
+            platform = frozenset(code.value for code in DEFAULTS["PLATFORM"])
+            assert got == platform, f"{org_type} {org_id}: {sorted(got)}"
         else:
             assert got == frozenset(), f"{org_type} {org_id}: {sorted(got)}"
 

@@ -1,0 +1,90 @@
+{% import "_macros.html" as ui %}
+{# The content of a booking's page (#1574): what the unfold under a payments row
+   carried, and nothing new — the figures, the edit form (status, amount received,
+   note) and, on a paid charge, the refund form. The forms post to the routes the
+   unfold posted to; `X-Booking-Page` makes the answer this page again.
+
+   Amounts as on the list: Bedrag never coloured, a Saldo that is not zero in the
+   warning tone (CR-11 Q36). The amount of a refund is typed positive, as on the
+   list (#617): the route turns the sign. #}
+{{ ui.error_banner(error) }}
+
+{% set _ontvangen = card.ontvangen if card.ontvangen is not none else 0 %}
+{% set _saldo = card.saldo if card.saldo is not none else card.bedrag %}
+<section class="mb-6 max-w-2xl rounded-card border border-gray-200 bg-white p-4" data-booking-figures>
+  <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+    <div><dt class="text-xs text-ink-soft">{{ _("Bedrag") }}</dt>
+      <dd class="tabular-nums text-ink" data-amount>€ {{ card.bedrag|geld }}</dd></div>
+    <div><dt class="text-xs text-ink-soft">{{ _("Terugbetaald") if rec.is_refund else _("Ontvangen") }}</dt>
+      <dd class="tabular-nums text-ink">€ {{ _ontvangen|geld }}</dd></div>
+    <div><dt class="text-xs text-ink-soft">{{ _("Saldo") }}</dt>
+      <dd class="tabular-nums font-semibold {{ 'text-brand-warning' if _saldo != 0 else 'text-ink' }}" data-balance>€ {{ _saldo|geld }}</dd></div>
+    <div><dt class="text-xs text-ink-soft">{{ _("Wijze") }}</dt>
+      <dd class="text-ink">{{ method_label or "—" }}</dd></div>
+    <div><dt class="text-xs text-ink-soft">{{ _("Aangemaakt") }}</dt>
+      <dd class="text-ink">{{ rec.created_at.strftime("%d/%m/%Y") }}</dd></div>
+    {% if rec.note %}
+    <div class="col-span-2 sm:col-span-3"><dt class="text-xs text-ink-soft">{{ _("Opmerking") }}</dt>
+      <dd class="text-ink">{{ rec.note }}</dd></div>
+    {% endif %}
+    {% if parent %}
+    <div class="col-span-2 sm:col-span-3"><dt class="text-xs text-ink-soft">{{ _("Terugbetaling van") }}</dt>
+      <dd>{{ ui.reference(parent.label ~ " · € " ~ (parent.amount|geld), parent.href) }}</dd></div>
+    {% endif %}
+  </dl>
+</section>
+
+{% if refunds %}
+<section class="mb-6 max-w-2xl" data-booking-refunds>
+  {{ ui.section_header(_("Terugbetalingen")) }}
+  <ul class="divide-y divide-gray-100 rounded-card border border-gray-200 bg-white text-sm">
+    {% for r in refunds %}
+    <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-2">
+      {{ ui.reference(r.label ~ " · € " ~ (r.amount|geld), r.href) }}
+      {{ ui.badge(r.status_label, r.status_tone) }}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if may_mutate %}
+<section class="mb-6 max-w-2xl" data-booking-edit>
+  {{ ui.section_header(_("Boeking bewerken")) }}
+  <form class="grid grid-cols-1 gap-3 rounded-card border border-gray-200 bg-white p-4 sm:grid-cols-3"
+        x-data="{ status: '{{ rec.status_code }}', bedrag: '{{ (rec.amount_paid|abs)|geld if rec.amount_paid is not none else '' }}' }"
+        hx-post="/admin/betalingen/{{ rec.id }}/bewerken" hx-target="body" hx-swap="innerHTML" hx-headers='{"X-Booking-Page": "{{ rec.id }}"}'>
+    <div>{{ ui.label(_("Status"), "bk-status") }}
+      {% call ui.select_control("status", cls="w-full", attrs='id="bk-status" x-model="status" @change="if (status === \'paid\' && !bedrag) bedrag = \'' ~ (rec.amount|abs)|geld ~ '\'"') %}
+        {% for s in ["pending", "paid", "failed", "cancelled"] %}
+        <option value="{{ s }}" {% if rec.status_code == s %}selected{% endif %}>{{ status_labels[s] }}</option>
+        {% endfor %}
+      {% endcall %}</div>
+    <div>{{ ui.label(_("Terugbetaald bedrag") if rec.is_refund else _("Betaald bedrag"), "bk-amount-paid") }}
+      {{ ui.input_control("amount_paid", id="bk-amount-paid", placeholder="0,00", cls="w-full", attrs='x-model="bedrag" inputmode="decimal"') }}</div>
+    <div>{{ ui.label(_("Opmerking"), "bk-note") }}
+      {{ ui.input_control("note", id="bk-note", cls="w-full") }}</div>
+    {% if rec.is_refund %}
+    <p class="text-xs text-ink-soft sm:col-span-3">{{ _("Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.") }}</p>
+    {% endif %}
+    {# Annuleren loads the page again, so what was typed is gone (§2.8). #}
+    {{ ui.action_bar(cancel_href=here, cls="sm:col-span-3") }}
+  </form>
+</section>
+
+{% if rec.is_paid and not rec.is_refund %}
+{# Registering a refund makes a new booking with an amount to pay back; paying it
+   out is then done on that booking's own page (#617-2b). #}
+<section class="mb-6 max-w-2xl" data-booking-refund>
+  {{ ui.section_header(_("Terugbetaling registreren")) }}
+  <form class="grid grid-cols-1 gap-3 rounded-card border border-gray-200 bg-white p-4 sm:grid-cols-3"
+        hx-post="/admin/betalingen/{{ rec.id }}/refund" hx-target="body" hx-swap="innerHTML" hx-headers='{"X-Booking-Page": "{{ rec.id }}"}'>
+    <div>{{ ui.label(_("Terug te betalen bedrag"), "bk-refund-amount", required=True) }}
+      {{ ui.input_control("amount", id="bk-refund-amount", required=True, placeholder="0,00", cls="w-full", attrs='inputmode="decimal"') }}</div>
+    <div class="sm:col-span-2">{{ ui.label(_("Reden"), "bk-refund-note") }}
+      {{ ui.input_control("note", id="bk-refund-note", cls="w-full") }}</div>
+    {{ ui.action_bar(save_label=_("Registreren"), cancel_href=here, cls="sm:col-span-3") }}
+  </form>
+</section>
+{% endif %}
+{% endif %}

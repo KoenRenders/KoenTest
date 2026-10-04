@@ -20,14 +20,15 @@ PASS=0; FAIL=0; SKIP=0
 declare -a PROBLEM_NAMES PROBLEM_OUTPUT
 
 shopt -s nullglob
-for script in smoke/*.sh flows/*.sh; do
+# #1530: the platform's own checks run only where deploy.sh names the platform.
+for script in smoke/*.sh flows/*.sh ${PLATFORM_BASE:+platform/*.sh}; do
   [ "$(basename "$script")" = "lib.sh" ] && continue
   # Toon de DESC-zin uit het script (één zin die zegt wat het garandeert),
   # met de bestandsnaam als terugval.
   desc=$(sed -n 's/^DESC="\(.*\)"$/\1/p' "$script" | head -n1)
   label="${desc:-$script}"
 
-  out=$(BASE="$BASE" ADMIN_TOKEN="${ADMIN_TOKEN:-}" bash "$script" 2>&1)
+  out=$(BASE="$BASE" PLATFORM_BASE="${PLATFORM_BASE:-}" ADMIN_TOKEN="${ADMIN_TOKEN:-}" bash "$script" 2>&1)
   code=$?
   case "$code" in
     0)

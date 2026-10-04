@@ -1056,6 +1056,12 @@ supply an SVG rather than approximating one.
 - **Row actions:** `row_actions` caps at `max_visible` (default 2). List screens
   show 2–3 inline plus `⋯`; **detail screens and toolbars have no cap** and may
   show everything inline. Do not force a `⋯` menu onto a detail header.
+  **From the table of CR-11 block 4 on** (Koen, 2 October 2026; applies to a
+  list once it moves onto that kit macro, not to today's `row_actions` calls):
+  a list row shows **at most one** inline action — the positive action of the
+  row's state, e.g. *Bevestig* on an open booking — plus `⋯`; the cell stays
+  empty where the row has none. Detail screens and toolbars keep no cap. Norm:
+  `docs/design-system-end-state.md` §2.1, CR-11 B10 and Q35.
 - **Confirmation copy:** `confirm_attrs(type, name)` is for real "delete this
   object" dialogs only. A confirmation that is not a delete ("Bevestig betaald?",
   "Opnieuw inlezen?", "Importeren?"), or one that spells out a consequence ("… uit

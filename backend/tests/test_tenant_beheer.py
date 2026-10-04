@@ -34,7 +34,7 @@ def _zonder_operator(db_session):
     db_session.commit()
 
 
-def test_lijst_en_editor_zijn_operator_only(client, db_session):
+def test_lijst_en_editor_zijn_operator_only(client, platform_workspace, db_session):
     """Beide schermen zitten achter dezelfde poort — de editor is niet de zwakke plek."""
     assert sent_to_sign_in(client, "/admin/tenants")
     assert sent_to_sign_in(client, f"/admin/tenants/{TENANT_VOORBEELD_ID}")
@@ -45,7 +45,7 @@ def test_lijst_en_editor_zijn_operator_only(client, db_session):
     assert client.get(f"/admin/tenants/{TENANT_VOORBEELD_ID}").status_code == 403
 
 
-def test_opslaan_via_de_editor_is_ook_operator_only(client, db_session):
+def test_opslaan_via_de_editor_is_ook_operator_only(client, platform_workspace, db_session):
     """Een ADMIN zonder OPERATOR mag settings niet wijzigen — ook niet met een geldig CSRF-token."""
     _zonder_operator(db_session)
     csrf = _login(client, db_session, operator=False)
@@ -58,15 +58,17 @@ def test_opslaan_via_de_editor_is_ook_operator_only(client, db_session):
     assert get_setting(db_session, "display_name", tenant_id=TENANT_VOORBEELD_ID) != "Gekaapt"
 
 
-def test_oude_instellingen_url_leidt_door(client, db_session):
-    """De aparte Instellingen-pagina is opgegaan in /admin/tenants; bladwijzers blijven werken."""
+def test_instellingen_is_the_workspaces_own_settings_again(client, db_session):
+    """Until #1535 /admin/instellingen was a 301 to Tenants (#581). Tenants is
+    platform administration now, and this address is the workspace's own settings:
+    in Raak Millegem's workspace, Raak Millegem's editor, no longer a redirect."""
     _login(client, db_session, operator=True)
     resp = client.get("/admin/instellingen", follow_redirects=False)
-    assert resp.status_code == 301
-    assert resp.headers["location"] == "/admin/tenants"
+    assert resp.status_code == 200
+    assert 'hx-post="/admin/instellingen"' in resp.text
 
 
-def test_lijst_toont_units_en_linkt_naar_de_editor(client, db_session):
+def test_lijst_toont_units_en_linkt_naar_de_editor(client, platform_workspace, db_session):
     _login(client, db_session, operator=True)
     resp = client.get("/admin/tenants")
     assert resp.status_code == 200
@@ -75,7 +77,7 @@ def test_lijst_toont_units_en_linkt_naar_de_editor(client, db_session):
     assert 'name="tenant"' not in resp.text
 
 
-def test_zoeken_filtert_de_lijst(client, db_session):
+def test_zoeken_filtert_de_lijst(client, platform_workspace, db_session):
     _login(client, db_session, operator=True)
     alles = client.get("/admin/tenants").text
     assert f'href="/admin/tenants/{TENANT_VOORBEELD_ID}"' in alles
@@ -83,7 +85,7 @@ def test_zoeken_filtert_de_lijst(client, db_session):
     assert f'href="/admin/tenants/{TENANT_VOORBEELD_ID}"' not in geen
 
 
-def test_settings_persisteren_en_secret_blijft_geheim(client, db_session):
+def test_settings_persisteren_en_secret_blijft_geheim(client, platform_workspace, db_session):
     csrf = _login(client, db_session, operator=True)
     resp = client.get(f"/admin/tenants/{TENANT_VOORBEELD_ID}")
     # Op een invoerveld dat dit scherm draagt en niet op de kop: die zei tot #971
@@ -128,7 +130,7 @@ def test_settings_persisteren_en_secret_blijft_geheim(client, db_session):
     )
 
 
-def test_onbekende_tenant_geeft_404(client, db_session):
+def test_onbekende_tenant_geeft_404(client, platform_workspace, db_session):
     _login(client, db_session, operator=True)
     assert client.get("/admin/tenants/999999").status_code == 404
 

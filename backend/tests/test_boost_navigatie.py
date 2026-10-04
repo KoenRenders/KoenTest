@@ -82,7 +82,7 @@ def test_beide_schillen_dragen_een_main(client):
         assert 'id="main"' in client.get(pad).text, f"{pad} mist #main"
 
 
-def test_een_gebooste_navigatie_krijgt_de_hele_pagina_geen_fragment(client):
+def test_een_gebooste_navigatie_krijgt_de_hele_pagina_geen_fragment(client, workspace_host):
     """De val van #634: `HX-Request` alleen onderscheidt de twee niet.
 
     Lijstschermen vertakken op "is dit een htmx-verzoek?" om bij zoeken/filteren
@@ -103,7 +103,7 @@ def test_een_gebooste_navigatie_krijgt_de_hele_pagina_geen_fragment(client):
         "/admin/tenants",
         "/admin/ledenwijzigingen",
     ):
-        geboost = client.get(pad, headers=BOOST)
+        geboost = client.get(pad, headers={**BOOST, **workspace_host(pad)})
         assert geboost.status_code == 200, pad
         assert 'id="main"' in geboost.text, f"{pad} gaf een fragment op een gebooste navigatie"
         assert "<html" in geboost.text.lower(), pad
@@ -121,10 +121,10 @@ FRAGMENTSCHERMEN = (
 
 
 @pytest.mark.parametrize("pad", FRAGMENTSCHERMEN)
-def test_een_gewoon_htmx_verzoek_krijgt_nog_steeds_het_fragment(client, pad):
+def test_een_gewoon_htmx_verzoek_krijgt_nog_steeds_het_fragment(client, workspace_host, pad):
     """De keerzijde: zoeken en filteren mogen geen hele pagina terugsturen, anders
     nestelt de lijst zichzelf in de lijst."""
     _login(client)
-    fragment = client.get(pad, headers={"HX-Request": "true"})
+    fragment = client.get(pad, headers={"HX-Request": "true", **workspace_host(pad)})
     assert fragment.status_code == 200, pad
     assert "<html" not in fragment.text.lower(), f"{pad} gaf een hele pagina op een fragmentverzoek"

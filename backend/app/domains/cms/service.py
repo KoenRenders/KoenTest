@@ -21,6 +21,29 @@ class SlugBestaatAl(ValueError):
     verdringen. Geen HTTPException: de service kent geen HTTP."""
 
 
+#: The site blocks: published rows the site renders inside other pages (the
+#: home page shows `home-intro`, the shell `site-footer`), not pages of their
+#: own (#1510). A block is known by its slug and nothing else — measured: no
+#: kind exists, and `show_in_nav=False` also marks real pages such as
+#: `privacy`. `seed_site_blocks` seeds exactly these.
+SITE_BLOCK_SLUGS: tuple[str, ...] = ("home-intro", "site-footer")
+
+
+def is_page(slug: str) -> bool:
+    """Is a published row at this slug a page a visitor lands on? (#1510)
+
+    The one test the sitemap and the public page route share: a site block is
+    not, so it is neither listed in the sitemap nor served at its own address.
+    """
+    return slug not in SITE_BLOCK_SLUGS
+
+
+def published_page(db, slug: str) -> Optional[CmsPage]:
+    """The page at this slug for a visitor, or None: published, and a page —
+    a site block's slug answers 404 like an unknown one (#1510)."""
+    return get_published_page(db, slug) if is_page(slug) else None
+
+
 def get_published_page(db, slug: str) -> Optional[CmsPage]:
     """Een gepubliceerde pagina op slug, of None.
 
@@ -38,12 +61,13 @@ def published_home_page(db) -> Optional[CmsPage]:
 
 
 def published_slugs(db) -> list[str]:
-    """De slugs die in de sitemap horen."""
+    """De slugs die in de sitemap horen: published pages, not site blocks (#1510)."""
     return [
         p.slug
         for p in (
             db.query(CmsPage).filter(CmsPage.is_published.is_(True)).order_by(CmsPage.slug).all()
         )
+        if is_page(p.slug)
     ]
 
 
@@ -115,14 +139,16 @@ def seed_site_blocks(db, tenant_id: int, name: str) -> None:
     """
     from html import escape
 
-    blocks = (
-        (
-            "home-intro",
+    seeded = {
+        "home-intro": (
             "Welkom",
             f"<p>Welkom bij {escape(name)}. Deze tekst past u aan onder Pagina's.</p>",
         ),
-        ("site-footer", "Voettekst", f"<p>{escape(name)}</p>"),
-    )
+        "site-footer": ("Voettekst", f"<p>{escape(name)}</p>"),
+    }
+    # #1510: the seed is the block list's — a block seeded and not listed would
+    # show up in the sitemap as a page.
+    blocks = [(slug, *seeded[slug]) for slug in SITE_BLOCK_SLUGS]
     existing = {
         slug
         for (slug,) in db.query(CmsPage.slug)

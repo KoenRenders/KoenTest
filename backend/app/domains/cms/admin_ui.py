@@ -72,18 +72,12 @@ def _editor_ctx(request: Request, db: Session, page) -> dict:
     third copy of the same keys. One source; each caller adds only what differs.
     """
     from app.domains.cms.api import placeholders
-    from app.domains.media.api import PAGE_IMAGE_KIND, list_media
 
+    # #1474: the insert button's library is the kit's picker, loaded when the
+    # dialog opens (`/admin/media/kiezer`) — no list of page pictures here.
     return {
         "p": page,
         "placeholders": placeholders(),
-        # #1173: the library the insert button offers. Rendered with the screen
-        # rather than fetched when the dialog opens — there is a handful of these,
-        # and `meta()` already carries the thumbnail URL and the dimensions, so a
-        # separate route would only add a second place that builds the same URL.
-        "page_images": [
-            a for a in list_media(db, kind=PAGE_IMAGE_KIND) if a.get("is_active", True)
-        ],
         "csrf_token": csrf_from_request(request),
         "error": None,
     }
@@ -195,6 +189,7 @@ def pagina_bijwerken(
     is_published: str = Form(""),
     show_in_nav: str = Form(""),
     is_home: str = Form(""),
+    show_in_footer: str = Form(""),
     sort_order: str | None = Form(None),
 ):
     from app.domains.cms.api import update_page
@@ -219,6 +214,7 @@ def pagina_bijwerken(
         is_published=bool(is_published),
         show_in_nav=bool(show_in_nav),
         is_home=bool(is_home),
+        show_in_footer=bool(show_in_footer),
         sort_order=volgorde,
     )
     update_page(db, page_id, data)
@@ -313,7 +309,7 @@ def pagina_voorbeeld(
         {
             **site_context(db, request),
             "page": page,
-            "content_html": render_cms_content(page.content or ""),
+            "content_html": render_cms_content(page.content or "", db),
             # #924: het voorbeeld toont wat de bezoeker ziet, dus ook het contactblok
             # op de privacypagina. Expliciet meegeven en niet aan de sjabloon
             # overlaten: een sjabloon dat om iets vraagt wat zijn aanroeper niet

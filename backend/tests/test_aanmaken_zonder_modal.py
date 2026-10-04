@@ -51,18 +51,22 @@ def _login(client, db):
 
 
 @pytest.mark.parametrize("lijst,nieuw,veld", SCHERMEN)
-def test_het_aanmaakscherm_bestaat_en_toont_zijn_velden(client, db_session, lijst, nieuw, veld):
+def test_het_aanmaakscherm_bestaat_en_toont_zijn_velden(
+    client, workspace_host, db_session, lijst, nieuw, veld
+):
     _login(client, db_session)
-    resp = client.get(nieuw)
+    resp = client.get(nieuw, headers=workspace_host(nieuw))
     assert resp.status_code == 200, f"{nieuw} → {resp.status_code}"
     assert veld in resp.text, f"{nieuw} mist {veld}"
 
 
 @pytest.mark.parametrize("lijst,nieuw,veld", SCHERMEN)
-def test_de_lijst_linkt_ernaartoe_en_bevat_geen_formulier(client, db_session, lijst, nieuw, veld):
+def test_de_lijst_linkt_ernaartoe_en_bevat_geen_formulier(
+    client, workspace_host, db_session, lijst, nieuw, veld
+):
     """De knop is een link; het aanmaakformulier staat niet meer in de lijst."""
     _login(client, db_session)
-    html = client.get(lijst).text
+    html = client.get(lijst, headers=workspace_host(lijst)).text
     assert f'href="{nieuw}' in html, f"{lijst} linkt niet naar {nieuw}"
     # Niet op x-data toetsen: de mobiele nav in de AdminShell gebruikt dezelfde
     # Alpine-vlag. Het bewijs is dat het aanmaakveld er niet meer staat.

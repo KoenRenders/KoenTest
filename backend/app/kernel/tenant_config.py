@@ -293,6 +293,26 @@ def tenant_home_url(db: Session, tenant_id: int | None = None, *, code: str | No
     return f"{origin}/{code}" if code else origin
 
 
+def platform_home_url(db: Session, platform_id: int) -> str:
+    """Where the platform lives (#1543), for a link to it from any site.
+
+    `tenant_home_url` answers from the request's own origin when a tenant has no
+    host of its own, and on a department's page that origin is the department.
+    The platform's host is the routing's, as a department's own host is
+    (`TENANT_HOSTNAMES`, #860): the first of `PLATFORM_HOSTS`. A stored
+    `base_url` that serves this environment wins, as for any tenant.
+    """
+    from app.config import settings
+
+    stored = (get_setting(db, "base_url", tenant_id=platform_id) or "").strip()
+    if stored and _origin_serves_this_environment(stored):
+        return stored.rstrip("/")
+    hosts = [h.strip() for h in settings.platform_hosts.split(",") if h.strip()]
+    if hosts:
+        return _origin_voor(hosts[0])
+    return settings.frontend_url.rstrip("/")
+
+
 def _organisatie(db: Session, tenant_id: int | None = None):
     """De organisatie achter deze tenant (#924).
 
@@ -314,6 +334,24 @@ def _organisatie(db: Session, tenant_id: int | None = None):
     ).first()
 
 
+def site_organization_id(db: Session, tenant_id: int | None = None) -> int:
+    """The organisation whose data a tenant's site shows (#1550).
+
+    The tenant's own row unless the operator pointed it at another organisation
+    of its account (`site_organization_id`). Everything that shows who runs the
+    site — the footer, "Onze organisatie", the bank account in the mails, the
+    newsletter's address line, a poster's details — asks this, so the data is
+    never copied and a change on the organisation reaches every site that shows
+    it. SQL with the column written out, like `_organisatie` below.
+    """
+    tenant = _actieve_tenant(tenant_id)
+    row = db.execute(
+        text("SELECT site_organization_id FROM mdm.organizations WHERE id = :id"),
+        {"id": tenant},
+    ).first()
+    return row.site_organization_id if row and row.site_organization_id else tenant
+
+
 def _eerste_rekening(db: Session, tenant_id: int | None = None):
     """De eerste rekening van deze organisatie (#945), of None.
 
@@ -327,7 +365,8 @@ def _eerste_rekening(db: Session, tenant_id: int | None = None):
             "WHERE organization_id = :id AND deleted_at IS NULL "
             "ORDER BY sort_order, id LIMIT 1"
         ),
-        {"id": _actieve_tenant(tenant_id)},
+        # #1550: the account of the organisation behind the site.
+        {"id": site_organization_id(db, tenant_id)},
     ).first()
 
 
@@ -348,8 +387,27 @@ def tenant_display_name(db: Session, tenant_id: int | None = None) -> str:
     De letterlijke terugval "Raak Millegem" blijft staan voor het geval er géén
     organisatie is — dat is geen tenant en dan is elke naam fout, maar een lege
     paginatitel is erger.
+
+    #1546: that brand name came — as a column, `site_name`, on the tenant's row.
+    Filled in, it is the site's name. Empty, the site shows the name of the
+    organisation behind it (#1550; its own row by default), so a site under an
+    organisation follows that organisation's name when it changes. Every place
+    the site names itself reads this function, never the column.
     """
-    organisatie = _organisatie(db, tenant_id)
+    row = db.execute(
+        text("SELECT site_name FROM mdm.organizations WHERE id = :id AND deleted_at IS NULL"),
+        {"id": _actieve_tenant(tenant_id)},
+    ).first()
+    if row is not None and (row.site_name or "").strip():
+        return row.site_name.strip()
+    return site_name_default(db, tenant_id)
+
+
+def site_name_default(db: Session, tenant_id: int | None = None) -> str:
+    """The name a site shows while its own "Naam van de site" is empty (#1546):
+    the organisation behind the site (#1550). The editor shows it as the field's
+    placeholder, so the operator sees which name is used."""
+    organisatie = _organisatie(db, site_organization_id(db, tenant_id))
     return organisatie.name if organisatie else "Raak Millegem"
 
 
@@ -419,7 +477,52 @@ def tenant_admin_chat_enabled(db: Session, tenant_id: int | None = None) -> bool
 
     if not settings.admin_chat_enabled:
         return False
-    return (get_setting(db, "admin_chat_enabled", tenant_id=tenant_id) or "") == "1"
+    return switch_is_on(
+        "admin_chat_enabled", get_setting(db, "admin_chat_enabled", tenant_id=tenant_id)
+    )
+
+
+def tenant_public_chat_enabled(db: Session, tenant_id: int | None = None) -> bool:
+    """May a visitor of this tenant's site ask Raakje a question? (#1568)
+
+    The same two switches in a row as the back office's: the environment sets
+    ``CHAT_ENABLED``, and the tenant sets its own beside it. The site shell (the
+    bell) and the public chat endpoints both ask this, so a tenant that switched
+    it off has an endpoint that refuses, not only a bell that hides. Whether the
+    tenant has the Assistent module at all is the module gate's question — a
+    route of a module that is off answers 404 before it gets here.
+
+    Until #1568 the tenant had one choice, the module as a whole, so it could
+    not switch the public Raakje off without losing the back-office one. **On is
+    the default**: a tenant that never saved the setting keeps what it had with
+    the module on, and only an explicit "0" switches it off.
+    """
+    from app.config import settings
+
+    if not settings.chat_enabled:
+        return False
+    return switch_is_on(
+        "public_chat_enabled", get_setting(db, "public_chat_enabled", tenant_id=tenant_id)
+    )
+
+
+#: The tenant settings that are a yes or a no (#1568): the value stored for on,
+#: the value stored for off, and what a tenant that never saved it has. The
+#: tenant editor shows each as a switch and sends one of the two values; the
+#: rules above read them through `switch_is_on`, so the editor and the rule
+#: cannot disagree about what "on" is. `admin_chat_enabled` keeps the values it
+#: always had ("1", or empty).
+SWITCH_SETTINGS: dict[str, tuple[str, str, bool]] = {
+    "admin_chat_enabled": ("1", "", False),
+    "public_chat_enabled": ("1", "0", True),
+}
+
+
+def switch_is_on(key: str, value: str | None) -> bool:
+    """Is this stored value of a switch setting "on"?"""
+    on, off, default_on = SWITCH_SETTINGS[key]
+    stored = value or ""
+    return stored != off if default_on else stored == on
 
 
 def tenant_language(db: Session, tenant_id: int | None = None) -> str:

@@ -183,6 +183,50 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
+PLATFORM_TEST_HOST = "platform.example.test"
+
+
+@pytest.fixture
+def platform_workspace(client, monkeypatch):
+    """Requests from `client` land in the platform workspace (#1535).
+
+    Platform administration — Tenants, Organisaties, a new account, the
+    overview of every workspace — answers only there; on the default host a
+    request is Raak Millegem's and those screens are a 404. This makes the test
+    host a platform host and sends every request of `client` to it.
+    """
+    from app.config import settings
+    from app.domains.mdm.api import invalidate_tenant_codes
+
+    monkeypatch.setattr(settings, "platform_hosts", PLATFORM_TEST_HOST)
+    invalidate_tenant_codes()
+    client.headers["host"] = PLATFORM_TEST_HOST
+    yield client
+    invalidate_tenant_codes()
+
+
+@pytest.fixture
+def workspace_host(monkeypatch):
+    """For a test that walks a list of admin paths of both kinds (#1535): a
+    function giving the headers that put a path in its own workspace — the
+    platform host for platform administration, nothing for a tenant's screens.
+    Which paths are the platform's comes from the menu (`PLATFORM_ONLY_ITEMS`)."""
+    from app.config import settings
+    from app.domains.mdm.api import invalidate_tenant_codes
+    from app.ui import PLATFORM_ONLY_ITEMS
+
+    monkeypatch.setattr(settings, "platform_hosts", PLATFORM_TEST_HOST)
+    invalidate_tenant_codes()
+
+    def headers(path: str) -> dict[str, str]:
+        base = path.split("?")[0]
+        on_platform = any(base == p or base.startswith(p + "/") for p in PLATFORM_ONLY_ITEMS)
+        return {"host": PLATFORM_TEST_HOST} if on_platform else {}
+
+    yield headers
+    invalidate_tenant_codes()
+
+
 @pytest.fixture
 def admin_headers():
     """Authorization-header voor de in migratie 014 geseede admin."""
@@ -447,3 +491,19 @@ def seed_question_form(db, title="Sint 2026", **settings):
     db.commit()
     db.refresh(form)
     return form
+
+
+#: A host from `PLATFORM_HOSTS` in a test: where a tenant is reached by its path
+#: prefix, as on PROD (#889). Moved here with #1509.
+PLATFORM_HOST = "platform.example.test"
+
+
+@pytest.fixture
+def platform_host(monkeypatch):
+    from app.config import settings
+    from app.domains.mdm.api import invalidate_tenant_codes
+
+    monkeypatch.setattr(settings, "platform_hosts", PLATFORM_HOST)
+    invalidate_tenant_codes()
+    yield PLATFORM_HOST
+    invalidate_tenant_codes()

@@ -7,13 +7,14 @@ settings i.p.v. NEXT_PUBLIC_*-variabelen.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import csrf_from_request, require_admin_ui
 from app.domains.reporting.api import DASHBOARD_TEGELS
+from app.i18n import _
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 from app.ui import admin_nav, templates
 
@@ -193,10 +194,12 @@ def admin_werkruimte_wisselen(
 
     def _href(t: int) -> str:
         # Afdelingen wisselen via de padprefix (§7 — werkt ook wanneer alle
-        # werkruimtes op één host wonen); het platform kent geen prefix
-        # (tenant_codes bevat alleen UNITs) en gaat via zijn eigen host.
+        # werkruimtes op één host wonen), en die zet de tenant-cookie (#889).
+        # #1536: the platform has no prefix, and on a platform host that cookie
+        # wins over it; so its choice goes through the switch route below, which
+        # clears the cookie, on the platform's own origin where the cookie lives.
         if t == platform:
-            return f"{tenant_base_url(db, tenant_id=t)}/admin"
+            return f"{tenant_base_url(db, tenant_id=t)}/admin/werkruimte-wisselen/{t}"
         return f"/{codes.get(t, '')}/admin"
 
     keuzes = [
@@ -208,6 +211,33 @@ def admin_werkruimte_wisselen(
         "admin_werkruimte_wisselen.html",
         {"nav_items": admin_nav(""), "keuzes": keuzes, "csrf_token": csrf_from_request(request)},
     )
+
+
+@router.get("/admin/werkruimte-wisselen/{tenant_id}")
+def admin_switch_workspace(
+    tenant_id: int, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
+    """Switch to one workspace (#1536), explicitly.
+
+    The switcher linked the platform to its bare host. But on a platform host the
+    `raak_tenant` cookie wins over the platform (`resolve_request`), so a browser
+    that had visited a department through its prefix (#889) landed back in it.
+    Here the platform is chosen by clearing the cookie; a department by its
+    prefix, as the switcher's own links do. Ordinary navigation keeps the cookie.
+
+    Only a workspace the account has a role in (`_mijn_werkruimtes`, as the list
+    above); any other id is a 404, so the route tells nothing about which exist.
+    """
+    from app.domains.mdm.api import list_manageable_tenants, platform_tenant_id
+
+    if tenant_id not in {t for t, _naam in _mijn_werkruimtes(db, email)}:
+        raise HTTPException(status_code=404, detail=_("Onbekende werkruimte"))
+    if tenant_id == platform_tenant_id(db):
+        response = RedirectResponse("/admin", status_code=303)
+        response.delete_cookie("raak_tenant")
+        return response
+    codes = {org.id: org.code for org in list_manageable_tenants(db)}
+    return RedirectResponse(f"/{codes[tenant_id]}/admin", status_code=303)
 
 
 @router.get("/admin/info", response_class=HTMLResponse)

@@ -49,9 +49,11 @@ from app.domains.auth.service import (  # noqa: F401
 from app.domains.auth.session import (  # noqa: F401
     SESSION_COOKIE,
     admin_user_by_email,
+    admits_admin_ui,
     csrf_from_request,
     csrf_token_for,
     make_session_value,
+    may_mutate_payments,
     may_use_admin_assistant,
     may_view_payments,
     read_session_value,
@@ -60,10 +62,16 @@ from app.domains.auth.session import (  # noqa: F401
     require_finance_mutation,
     require_finance_ui,
     require_operator_ui,
+    require_platform_operator_ui,
+    require_tenant_workspace,
     session_cookie_secure,
     set_session_cookie,
 )
-from app.domains.auth.users import list_assignable_roles, role_options  # noqa: F401
+from app.domains.auth.users import (  # noqa: F401
+    is_platform_workspace,
+    list_assignable_roles,
+    role_options,
+)
 
 __all__ = [
     "check_otp",
@@ -99,16 +107,21 @@ __all__ = [
     "require_roles",
     "SESSION_COOKIE",
     "admin_user_by_email",
+    "admits_admin_ui",
     "csrf_from_request",
     "csrf_token_for",
     "make_session_value",
     "read_session_value",
     "require_admin_ui",
+    "may_mutate_payments",
     "require_finance_mutation",
     "may_view_payments",
     "may_use_admin_assistant",
     "require_finance_ui",
     "require_operator_ui",
+    "require_platform_operator_ui",
+    "require_tenant_workspace",
+    "is_platform_workspace",
     "require_csrf",
     "session_cookie_secure",
     "set_session_cookie",

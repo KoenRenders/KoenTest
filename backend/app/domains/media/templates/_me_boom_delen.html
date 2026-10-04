@@ -18,7 +18,8 @@
   {% endfor %}
 </ul>
 {%- endmacro %}
-{% macro tak(titel, jaren, leeg, target=None) -%}
+{#- `los`: one more link after the years — Ontwerpbeelden' "Zonder activiteit" (#1527). -#}
+{% macro tak(titel, jaren, leeg, target=None, los=None) -%}
 <details class="group" open>
   <summary class="cursor-pointer list-none text-xs font-semibold uppercase tracking-wide text-ink-soft [&::-webkit-details-marker]:hidden">{{ titel }}</summary>
   {% if jaren %}
@@ -34,8 +35,23 @@
     </li>
     {% endfor %}
   </ul>
-  {% else %}
+  {% elif not los %}
   <p class="mt-1 px-2 text-sm text-ink-soft">{{ leeg }}</p>
   {% endif %}
+  {% if los %}<div class="mt-1">{{ link(los.naam, los.href, los.actief, target=target) }}</div>{% endif %}
 </details>
+{%- endmacro %}
+{#- #1527: the branches of the kinds that hang off no activity — Logo's,
+    Paginabeelden, Ontwerpbeelden — one markup for the library and the picker.
+    A branch of one kind is one link with the branch's name; a branch of several
+    has a heading and a link per kind. -#}
+{% macro soorten(groepen, target=None) -%}
+{% for g in groepen %}
+<div>
+  {% if g.naam %}<p class="text-xs font-semibold uppercase tracking-wide text-ink-soft">{{ g.naam }}</p>{% endif %}
+  <ul class="{{ 'mt-1 ' if g.naam else '' }}space-y-0.5">
+    {% for l in g.links %}<li>{{ link(l.naam, l.href, l.actief, target=target) }}</li>{% endfor %}
+  </ul>
+</div>
+{% endfor %}
 {%- endmacro %}

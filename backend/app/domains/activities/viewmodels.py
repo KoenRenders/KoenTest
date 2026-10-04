@@ -22,6 +22,8 @@ class AdminActiviteitenView(ViewModel):
     activities: list[Any]
     scope: str
     q: str
+    # #1557: this list as it stands, for the way back of the record a card opens.
+    list_url: str
     # Kengetallen (#528). Ze tellen wat er openstaat, niet wat er toevallig
     # gefilterd is: een zoekterm mag "Open inschrijving" niet doen dalen.
     kpi_open: int
@@ -102,19 +104,18 @@ class AdminActiviteitInschrijvingenView(ViewModel):
     # A7-retourcontext (url-ge-encodeerd) die de naamlinks meegeven.
     terug: str
     record_tabs: list[dict[str, Any]]
-    # Golf 10 (#913): staat de beheer-assistent aan? Stuurt de
-    # "AI · Activiteit"-knop in de recordkop.
+    # CR-11 block 5 (#1557): the head as data for `ui.record_header` — title,
+    # badges, facts, the primary and the actions — from `record_kop_ctx`; the way
+    # back and the edit state from `app.ui.record_frame`.
+    record_head: dict[str, Any]
+    way_back: dict[str, str]
+    head_editing: bool
+    # The per-screen assistant overlay in the head and its speech path (#975,
+    # #1075), from `record_kop_ctx`; both go with the shell's panel (#1562).
     raakje_admin: bool
-    # #1075: which speech path the overlay's microphone uses; from the
-    # configuration via `record_kop_ctx`, like the reporting Raakje's view-model.
     stt_mode: str
-    # #1070: de bestemming van de Designs-knop in diezelfde kop. Eén label, drie
-    # bestemmingen — de keuze valt in `record_kop_ctx`, niet in het sjabloon.
-    designs_href: str
-    # #1428: "Concept" in the header and the status its button sets — both from
-    # `record_kop_ctx`.
+    # #1428: "Concept" on the summary card, from `record_kop_ctx`.
     publication: Any
-    status_next: str
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 

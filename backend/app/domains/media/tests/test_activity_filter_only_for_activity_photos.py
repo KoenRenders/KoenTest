@@ -12,8 +12,8 @@ The rule already existed in one place — `_filterstand` left the activity out o
 - the context of a sponsor list carries no activity, and all sponsors are in it;
 - a URL with `kind=sponsor&activity_id=…` shows all sponsors: the server decides,
   not only the filter bar;
-- the fragment the filter bar gets back replaces the activity list out-of-band —
-  empty for a sponsor, back at "Alle activiteiten" for activity photos;
+- the fragment the filter bar gets back carries the tree out-of-band and, since
+  #1527, no activity list: the tree chooses the activity;
 - and the activity filter still works where it belongs.
 
 Proven red (29 September 2026):
@@ -119,18 +119,13 @@ def test_a_url_with_an_activity_shows_all_sponsors(client, db_session, media):
     assert "sponsor-bakker" in page and "sponsor-garage" in page
 
 
-def test_the_fragment_replaces_the_activity_list_out_of_band(client, db_session, media):
+def test_the_fragment_carries_the_tree_and_no_activity_list(client, db_session, media):
+    """#1527: the activity list is gone — the tree chooses the activity — so the
+    fragment no longer replaces it; it replaces the tree, which follows."""
     _login(client, db_session)
 
     sponsors = client.get(f"/admin/media?kind=sponsor&activity_id={media}", headers=FRAGMENT).text
     assert "sponsor-bakker" in sponsors and "sponsor-garage" in sponsors
-    anchor = sponsors.split('id="media-activity-filter"', 1)
-    assert len(anchor) == 2, "the fragment does not replace the activity list"
-    assert 'hx-swap-oob="true"' in anchor[1].split(">", 1)[0]
-    assert 'name="activity_id"' not in anchor[1], "the activity list stays for sponsors"
-
-    photos = client.get("/admin/media?kind=activity_photo", headers=FRAGMENT).text
-    anchor = photos.split('id="media-activity-filter"', 1)[1]
-    select = anchor.split("</select>", 1)[0]
-    assert 'name="activity_id"' in select, "the activity list does not come back"
-    assert "selected" not in select, "it comes back with an activity chosen"
+    assert 'id="media-activity-filter"' not in sponsors
+    tree = sponsors.split('id="me-boom"', 1)
+    assert len(tree) == 2 and 'hx-swap-oob="true"' in tree[1].split(">", 1)[0]

@@ -116,9 +116,10 @@ def resolve_request(
     platform_hosts: set[str],
     codes: dict[str, int] | None = None,
     platform_tenant: int | None = None,
-) -> tuple[int, str | None, bool]:
+) -> tuple[int, str | None]:
     """Volledige request-resolutie (§7, 5c): geeft (tenant_id, herschreven pad
-    of None, platform-landing?).
+    of None). The third value, "is this the platform's landing?", went with the
+    landing itself (#1543): the platform's `/` is its own home page now.
 
     - Pad-prefix (``/raakvoorbeeldafdeling/...``) wint van alles: de prefix
       wordt van het pad gestript (de app kent maar één routetabel) en de
@@ -126,7 +127,8 @@ def resolve_request(
       paden zonder prefix) op dezelfde tenant blijft.
     - Daarna hostname, dan de tenant-cookie (enkel op platform-hosts), dan
       de platform-tenant als de host er een is, en anders de default (Millegem).
-    - De wortel van een platform-host (platform.example, "/") is de landingspagina.
+    - De wortel van een platform-host (platform.example, "/") is de startpagina
+      van het platform: een gewone CMS-pagina sinds #1543.
 
     ``platform_tenant`` is het id van de PLATFORM-organisatie (#854). Een
     platform-host resolvet daarnaartoe op **elk** pad, niet alleen op ``/``. Daarvóór
@@ -144,19 +146,19 @@ def resolve_request(
     eerste = path.lstrip("/").split("/", 1)[0].lower()
     if eerste in codes:
         rest = path.lstrip("/")[len(eerste) :] or "/"
-        return codes[eerste], rest, False
+        return codes[eerste], rest
     code = hostname_map.get(genormaliseerd)
     if code in codes:
-        return codes[code], None, False
+        return codes[code], None
     if genormaliseerd in platform_hosts:
         # De cookie blijft vóór de platform-tenant staan, en dat is met opzet: wie via
         # een pad-prefix bij een afdeling binnenkwam, hoort daar te blijven als hij
         # daarna een absoluut pad volgt. Zonder cookie is de host het enige signaal,
         # en dan is dit het platform.
         if path != "/" and cookie_code in codes:
-            return codes[cookie_code], None, False
-        return (platform_tenant or DEFAULT_TENANT_ID), None, path == "/"
-    return DEFAULT_TENANT_ID, None, False
+            return codes[cookie_code], None
+        return (platform_tenant or DEFAULT_TENANT_ID), None
+    return DEFAULT_TENANT_ID, None
 
 
 def parse_hostname_map(raw: str) -> dict[str, str]:

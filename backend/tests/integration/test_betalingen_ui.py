@@ -184,13 +184,18 @@ def test_betalingen_zoekt_op_naam_ogm_en_omschrijving(client, db_session):
 
 def test_betalingen_zoek_werkt_binnen_het_statusfilter(client, db_session):
     """De zoekterm mag geen records terugtoveren die het filter net uitsloot."""
-    _registratie_record(db_session, "Cara Claes", "25.00", "+++111/1111/11111+++", status="paid")
+    betaald = _registratie_record(
+        db_session, "Cara Claes", "25.00", "+++111/1111/11111+++", status="paid"
+    )
+    # "Openstaand" looks at the balance, so the paid one must really be settled.
+    betaald.amount_paid = Decimal("25.00")
     _registratie_record(db_session, "Cara Claes", "30.00", "+++222/2222/22222+++", status="pending")
     db_session.commit()
     _login(client)
 
-    html = client.get("/admin/betalingen/lijst", params={"q": "cara", "status": "paid"}).text
-    assert "25,00" in html and "30,00" not in html
+    # K1 (#1555): the status select is gone; the status filter is the segment.
+    html = client.get("/admin/betalingen/lijst", params={"q": "cara", "zicht": "openstaand"}).text
+    assert "30,00" in html and "25,00" not in html
 
 
 def test_betalingen_zoekveld_staat_op_de_pagina_niet_in_het_fragment(client, db_session):
@@ -221,6 +226,10 @@ def test_netto_rij_telt_negatieve_refunds_op(client, db_session):
 
     # Since #1391 (CR-11 W1) the totals stand once, in the tiles: the net row
     # under the table is gone, and the same arithmetic reads from the tiles.
-    tegels = html[html.index("Netto te betalen") : html.index("Nog te ontvangen")]
-    assert tegels.count("€ 9,00") == 2  # Netto te betalen én Ontvangen: 18 + (−9)
+    # K1 (#1555): the tiles are key figures in the title row, the value above
+    # its label; the tile "Ontvangen" is gone.
+    import re
+
+    netto = re.search(r">([^<]*)</dd>\s*<dt[^>]*>Netto te betalen<", html)
+    assert netto and netto.group(1) == "€ 9,00"  # 18 + (−9)
     assert "27,00" not in html

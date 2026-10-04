@@ -171,11 +171,14 @@ MODULES: tuple[Module, ...] = (
     ),
     Module(
         M.CHATBOT,
-        "Raakje",
+        # The house word since CR-11 block 1 (#1482): the module is "Assistent";
+        # Raakje is the name of the assistant on the public site, not of the
+        # module. The tenant editor's card and its refusals read this (#1498).
+        "Assistent",
         admin_items=(("/admin/ai-context", "Raakje"), ("/admin/rapporten/raakje", "AI · Raakje")),
         route_prefixes=("/api/v1/chat", "/admin/ai-context", "/raakje/"),
         record_tables=("ai.chatbot_info",),
-        tenant_settings=("admin_chat_enabled",),
+        tenant_settings=("admin_chat_enabled", "public_chat_enabled"),
     ),
     Module(
         M.PAYMENT,
@@ -277,11 +280,16 @@ UNCOUNTED: dict[ModuleCode, str] = {
     M.REPORTING: "a terminus: its schema is addressed only from its own domain",
 }
 
-#: The modules a new tenant starts with, per kind (CR-19 §C2 kernel). The kind
-#: itself arrives with #1478; until then every tenant is a VERENIGING.
+#: The modules a tenant starts with, per kind (CR-19 §C2 kernel; #1478), and
+#: the platform's own set (#1523).
 DEFAULTS: dict[str, frozenset[ModuleCode]] = {
     "VERENIGING": frozenset(ModuleCode),
     "BEDRIJF": frozenset({M.CMS, M.MEDIA, M.FORMS, M.WORKFLOW}),
+    # #1523: the platform — pages, media, forms and the workbench, for help
+    # pages and a contact or request form. Equal to BEDRIJF's today ("op dit
+    # moment dus dezelfde scope als bedrijf", Koen) but its own entry: the two
+    # kinds will grow apart, and then one line changes, not a shared constant.
+    "PLATFORM": frozenset({M.CMS, M.MEDIA, M.FORMS, M.WORKFLOW}),
 }
 
 
@@ -325,8 +333,14 @@ def record_counts(db, tenant_id: int) -> dict[ModuleCode, int]:
 current_modules: ContextVar[frozenset[str] | None] = ContextVar("current_modules", default=None)
 
 
-def require_module(code: ModuleCode):
+def require_module(code: ModuleCode, also: tuple[ModuleCode, ...] = ()):
     """A FastAPI dependency: 404 when `code` is off for the resolved tenant.
+
+    `also`: modules the router's pages need as well, though `code` serves them —
+    the rule `nav_item_shown` applies to a menu item, applied to the route
+    (#1477). Media serves the photo albums, but they are the albums of
+    activities: without Activiteiten, /fotos is not found either. The router
+    still has one owner, `code`; `also` only adds a condition.
 
     404 and not 403: for that tenant the pages do not exist (§C4.3). Applied
     at include time in `main.py`, so it runs before any role guard of the
@@ -339,9 +353,10 @@ def require_module(code: ModuleCode):
 
     def guard() -> None:
         enabled = current_modules.get()
-        if enabled is not None and code.value not in enabled:
+        if enabled is not None and any(c.value not in enabled for c in (code, *also)):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_("Niet gevonden"))
 
     guard.module_code = code  # type: ignore[attr-defined]
+    guard.also = also  # type: ignore[attr-defined]
     guard.__name__ = f"require_module_{code.value}"
     return guard

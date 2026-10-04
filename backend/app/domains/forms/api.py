@@ -63,8 +63,10 @@ def submit_bericht(
     from app.kernel.contracts.forms import SubmissionCreated
     from app.kernel.events import publish
 
-    form = db.query(Form).filter(Form.slug == CONTACT_FORM_SLUG).first()
-    if form is None or not form.fields:
+    # #1509: the one rule — a form that cannot be sent is no form.
+
+    form = contact_form(db)
+    if form is None:
         return None
     # De invariant gold "voor élke ingang", maar juist deze riep hem niet aan
     # (#635-2). De chatbot schrijft hier ook naartoe, dus een leeg bericht of een
@@ -176,6 +178,7 @@ from app.domains.forms.service import (  # noqa: E402,F401
     assert_submitter,
     attach_refusal,
     attachable_forms,
+    contact_form,
     create_form,
     deellink_pad,
     delete_field,
@@ -198,6 +201,7 @@ from app.domains.forms.service import (  # noqa: E402,F401
     move_section,
     normaliseer_slug,
     question_groups,
+    seed_contact_form,
     submission_form_values,
     submission_url,
     submission_views,

@@ -37,6 +37,9 @@ from app.domains.designstudio.handlers import (
     generate_image,  # noqa: F401 - registers the designstudio.generate job (#1007)
 )
 from app.domains.forms.admin_ui import router as forms_admin_ui_router
+from app.domains.forms.handlers import (  # noqa: F401 - event subscriptions (#1509)
+    seed_contact_form_of_new_tenant,
+)
 from app.domains.forms.router import router as forms_router
 from app.domains.forms.ui import router as forms_ui_router
 from app.domains.mail.handlers import (
@@ -203,7 +206,11 @@ app.include_router(auth_ui_router)
 app.include_router(auth_admin_ui_router)
 app.include_router(cms_admin_ui_router, dependencies=_module(M.CMS))
 app.include_router(media_admin_ui_router, dependencies=_module(M.MEDIA))
-app.include_router(media_ui_router, dependencies=_module(M.MEDIA))
+# The public albums are the albums of activities (#1477): Media serves them, and
+# without Activiteiten they are not found, as the menu item already was (#1476).
+app.include_router(
+    media_ui_router, dependencies=[Depends(require_module(M.MEDIA, also=(M.ACTIVITIES,)))]
+)
 app.include_router(changes_ui_router)
 app.include_router(design_system_ui_router)
 app.include_router(system_ui_router)
@@ -305,7 +312,7 @@ async def _tenant_context(request: Request, call_next):
     # zonder codewijziging. Gecachet, dus geen query-per-request na de eerste.
     codes = tenant_codes()
     platform_hosts = {h.strip().lower() for h in settings.platform_hosts.split(",") if h.strip()}
-    tenant, nieuw_pad, platform_landing = resolve_request(
+    tenant, nieuw_pad = resolve_request(
         request.headers.get("host"),
         request.url.path,
         request.cookies.get("raak_tenant"),
@@ -319,7 +326,6 @@ async def _tenant_context(request: Request, call_next):
     )
     if nieuw_pad is not None:
         request.scope["path"] = nieuw_pad
-    request.scope["state"]["platform_landing"] = platform_landing
     from app.i18n import DEFAULT_LOCALE, current_locale
 
     taal = DEFAULT_LOCALE

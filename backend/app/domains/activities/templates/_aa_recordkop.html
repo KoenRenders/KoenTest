@@ -1,74 +1,26 @@
 {% import "_macros.html" as ui %}
 {% import "_raakje_overlay.html" as raakje %}
-{# Recordkop van de activiteit (golf 8-feedbackronde, 15 sep 2026): naam +
-   status + doelgroep als titel, met datum/uur en locatie eronder — zoals de
-   Cobalt-mockup. Gedeeld door de drie tabpagina's (Overzicht, Inschrijvingen,
-   Betalingen); de tabbalk komt uit activities.api.record_tabs. #}
-<div class="mb-2 flex items-start justify-between gap-4">
-  <div>
-  <h1 class="text-3xl font-bold text-kop inline-flex flex-wrap items-center gap-3">{{ a.name }}
-    <span class="inline-flex gap-1">
-      {# #1428: the status first (CR-11 §B4.3); only a draft shows it. "actief"
-         means "not cancelled" and read as "published" beside it, so a draft shows
-         only "Concept" — and "geannuleerd" when that is true as well. #}
-      {% if publication.draft %}{{ ui.badge(publication.status|code_label("activity_status"), publication.status|tone("activity_status")) }}{% endif %}
-      {% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% elif not publication.draft %}{{ ui.badge(_("actief"), "green") }}{% endif %}
-      {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% else %}{{ ui.badge(_("iedereen welkom")) }}{% endif %}
-    </span>
-  </h1>
-  <p class="text-sm text-ink-soft mt-1">
-    {%- if a.dates %}{{ a.dates[0].start_date|langedatum }}{% if a.dates[0].start_time %} · {{ a.dates[0].start_time.strftime("%H.%M") }}{% if a.dates[0].end_time %}–{{ a.dates[0].end_time.strftime("%H.%M") }}{% endif %} u.{% endif %}{% endif %}
-    {%- if a.location %} · {{ a.location }}{% endif %}
-  </p>
-  </div>
-  {# Raakje Admin (golf 10, #913 — Koen: overlay over het record, in de stijl
-     van de publieke Raakje). De knop bestaat alleen als de beheer-assistent
-     aan staat (kernelvlag, CR-07 §6.3). Het gesprek loopt via het
-     #975-endpoint: de activiteit zit in het PAD (een formveld kan stil
-     wegvallen, een pad niet) en een uitgeschakelde of vreemde tenant krijgt
-     daar een 404. #}
-  {# #1070: de sprong naar de Design Studio stond in de rechterrail onder een
-     eigen kopje *Affiche* (#1049) en dus alleen op Overzicht. Hier staat hij op
-     élke tab. Eén label, drie bestemmingen: de knop belooft altijd hetzelfde en
-     het aantal ontwerpen bepaalt waar je uitkomt — zie `record_kop_ctx`. #}
-  {# #1087: de twee knoppen als ÉÉN kind van de kopregel. Die regel is
-     `justify-between`, en met drie kinderen hing Design Studio middenin de kop
-     in plaats van naast de AI-knop. Staat de beheer-assistent uit, dan is het
-     paar één knop en staat die nog steeds rechts. Het opschrift belooft wat de
-     knop doet — je gaat naar de Design Studio, die brengt je waar het nuttigst
-     is — waar "Designs" een lijst suggereerde terwijl er drie bestemmingen zijn. #}
-  <div class="flex items-center gap-2 shrink-0 mt-1">
-  {# #1138 punt 3: vanaf hier foto's toevoegen, met deze activiteit al ingevuld.
-     Koen moest de activiteit die hij net bekeek opnieuw opzoeken in een lijst —
-     en dat is de handeling die hij het vaakst doet. Zelfde vorm als de sprong
-     hiernaast: de bestemming kent de parameters al, dus het is een link en geen
-     nieuw scherm. `kind` staat er expliciet bij, want vanaf een activiteit is de
-     soort per definitie een activiteitenfoto. #}
-  {{ ui.btn_secondary(_("Foto's uploaden"),
-                      href="/admin/media/nieuw?kind=activity_photo&activity_id=" ~ a.id,
-                      size="sm") }}
-  {{ ui.btn_secondary(_("Design Studio"), href=designs_href, size="sm") }}
-  {# #1397 (Koen, 1 October 2026): a button in this row, like its neighbours.
-     The row is already wider than a phone (#1387); Koen accepts that it grows,
-     and CR-11 takes the row on as a whole. #}
-  {{ ui.btn_secondary(_("Kopiëren"), href="/admin/activiteiten/" ~ a.id ~ "/kopieren", size="sm") }}
-  {# #1428 (Koen, 1 October 2026): a button in this row like Kopiëren. CR-11
-     §B4.3 puts record actions in one "Acties" menu; that menu comes with CR-11
-     phase 2 and takes this button and Kopiëren along. #}
-  {{ ui.btn_secondary(_("Publiceren") if publication.draft else _("Terug naar concept"), type="button", size="sm",
-                      attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/status" hx-vals=\'{"status": "' ~ status_next ~ '"}\'') }}
-  {% if raakje_admin|default(false) %}
-  {# #1115: dezelfde overlay als Betalingen, uit `_raakje_overlay.html`. Deze kop
-     droeg een eigen kopie zolang #1075 hier openstond; die reden is weg, en twee
-     kopieën van dezelfde modal lopen uiteen zodra er één iets leert.
-     Het gesprek loopt via het #975-endpoint: de activiteit zit in het PAD (een
-     formveld kan stil wegvallen, een pad niet) en een uitgeschakelde of vreemde
-     tenant krijgt daar een 404. #}
-  {{ raakje.overlay(_("AI · Activiteit"),
-                    "/admin/rapporten/raakje/activiteit/" ~ a.id,
-                    _("Dag! Vraag me iets over deze activiteit — bijvoorbeeld “hoeveel inschrijvingen zijn er?” of “wat staat er nog open?”."),
-                    stt_mode, prefix="aa-raakje") }}
-  {% endif %}
-  </div>
-</div>
-{{ ui.tabs(record_tabs) }}
+{# The activity's record head (CR-11 block 5, #1557): one macro, its actions as
+   data. Shared by the three tab pages (Gegevens, Inschrijvingen, Betalingen) and
+   by the out-of-band copy a save inside the record sends along. `record_head`
+   comes from `activities.api.record_kop_ctx`, the way back and the edit state
+   from `app.ui.record_frame`. No button of its own here: a `btn_*` beside the
+   macro is red (`tests/test_record_header_gate.py`).
+
+   One named exception, until #1562: the per-screen assistant overlay (#975). The
+   norm takes it out of the head (§3.9, §3.15), but the shell's panel that
+   replaces it is built with #1562; without the overlay the conversation about
+   this one activity would be unreachable in between. #1562 removes the overlay
+   and the exception together. #}
+{% set _primary = dict(record_head.primary, href=record_head.primary.href ~ ("&" ~ way_back.keep if way_back.keep else "")) %}
+{% call ui.record_header(record_head.title, badges=record_head.badges, facts=record_head.facts,
+                         primary=_primary, actions=record_head.actions, back=way_back,
+                         editing=head_editing) %}
+{%- if raakje_admin %}
+{{ raakje.overlay(_("AI · Activiteit"),
+                  "/admin/rapporten/raakje/activiteit/" ~ a.id,
+                  _("Dag! Vraag me iets over deze activiteit — bijvoorbeeld “hoeveel inschrijvingen zijn er?” of “wat staat er nog open?”."),
+                  stt_mode, prefix="aa-raakje") }}
+{%- endif %}
+{% endcall %}
+{{ ui.related_tabs(record_tabs, keep=way_back.keep) }}

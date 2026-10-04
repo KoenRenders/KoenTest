@@ -150,7 +150,7 @@ def _directe_kinderen_van_de_kopregel(html: str) -> list[str]:
 
         def handle_starttag(self, tag, attrs):
             klassen = dict(attrs).get("class", "")
-            if self.diepte is None and "justify-between" in klassen and "mb-2" in klassen:
+            if self.diepte is None and "data-head-controls" in dict(attrs):
                 self.diepte = len(self.stapel)
             elif self.diepte is not None and len(self.stapel) == self.diepte + 1:
                 self.kinderen.append(f'<{tag} class="{klassen}">')
@@ -183,26 +183,28 @@ def assistent_aan(db_session, monkeypatch):
 def test_met_beide_knoppen_heeft_de_kopregel_twee_kinderen(
     client, db_session, activiteit, assistent_aan
 ):
-    """Titelblok links, knoppenpaar rechts. Drie kinderen is de fout van #1087."""
+    """Since #1557 the head's controls are one group (`data-head-controls`):
+    the primary, the Acties menu — Design Studio is a tool in it — and, until
+    #1562, the assistant overlay after them."""
     _login(client)
     html = _kop(client, activiteit)
     assert "AI · Activiteit" in html, "voorwaarde: de AI-knop staat er"
 
     kinderen = _directe_kinderen_van_de_kopregel(html)
-    assert len(kinderen) == 2, kinderen
-    assert "Design Studio" not in kinderen[0] and "gap-2" in kinderen[1]
+    assert [k.split(" ")[0] for k in kinderen] == ["<a", "<div", "<div"], kinderen
+    assert "relative" in kinderen[1], "the menu comes before the overlay"
 
 
 def test_zonder_assistent_staat_de_ene_knop_nog_steeds_rechts(client, db_session, activiteit):
-    """Eén knop in dezelfde omhulling: ook dan twee kinderen, en de knop in het
-    tweede."""
+    """Without the assistant the group holds the primary and the menu, nothing
+    else; Design Studio is an item of the menu."""
     _login(client)
     html = _kop(client, activiteit)
     assert "AI · Activiteit" not in html, "voorwaarde: de beheer-assistent staat uit"
     assert ">Design Studio</" in html
 
     kinderen = _directe_kinderen_van_de_kopregel(html)
-    assert len(kinderen) == 2, kinderen
+    assert [k.split(" ")[0] for k in kinderen] == ["<a", "<div"], kinderen
 
 
 # ── De StrictUndefined-val ───────────────────────────────────────────────────

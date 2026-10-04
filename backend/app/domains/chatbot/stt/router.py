@@ -82,7 +82,7 @@ def _tenant_of(websocket: WebSocket) -> int:
     from app.kernel.tenancy import parse_hostname_map, resolve_request
 
     platform_hosts = {h.strip().lower() for h in settings.platform_hosts.split(",") if h.strip()}
-    tenant, _pad, _landing = resolve_request(
+    tenant, _pad = resolve_request(
         websocket.headers.get("host"),
         websocket.url.path,
         websocket.cookies.get("raak_tenant"),

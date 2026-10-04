@@ -42,7 +42,12 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, Paginascherm, login_met_sessie  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    Paginascherm,
+    login_met_sessie,
+    pagina_beeld_in_kiezer,
+)
 
 ALT = "Schermafdruk van het aanmeldformulier"
 
@@ -87,7 +92,7 @@ def test_de_maat_overleeft_een_tweede_bewaring(admin_page):
     admin_page.get_by_role("button", name="Afbeelding").first.click()
     dialoog = admin_page.get_by_role("dialog")
     expect(dialoog, "het dialoogje ging niet open").to_be_visible()
-    keuze = dialoog.locator("button[data-url]").first
+    keuze = pagina_beeld_in_kiezer(dialoog)
     if keuze.count() == 0:
         _ontbreekt("geen pagina-afbeelding in de bibliotheek")
 

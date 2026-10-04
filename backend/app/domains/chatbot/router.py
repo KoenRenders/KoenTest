@@ -24,6 +24,7 @@ from app.domains.chatbot.providers import get_provider
 from app.domains.chatbot.seam import GuardedProvider, SeamBlocked, public_rules
 from app.domains.chatbot.service import run_public_chat
 from app.i18n import _
+from app.kernel.tenant_config import tenant_public_chat_enabled
 from app.limiter import chat_limiter
 from app.schemas.chat import ChatRequest
 
@@ -47,7 +48,8 @@ def chat(
     db: Session = Depends(get_db),
 ):
     # Hoofdschakelaar (CHAT_ENABLED in .env). Uit → endpoint bestaat 'niet'.
-    if not settings.chat_enabled:
+    # #1568: and the tenant's own switch for the public site, by the same rule.
+    if not tenant_public_chat_enabled(db):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_("Niet gevonden"))
 
     # Dagbudget: tel enkel wat de bezoeker zelf typte (user-berichten).

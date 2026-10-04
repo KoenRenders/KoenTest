@@ -37,7 +37,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, htmx_afgerond, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import PLATFORM, htmx_afgerond, login_met_sessie, pagina_klaar  # noqa: E402
 
 
 def _ontbreekt(reden: str) -> None:
@@ -59,8 +59,9 @@ def admin_page():
     with sync_playwright() as pw:
         exe = os.environ.get("E2E_CHROMIUM_PATH")
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
-        page = browser.new_page(base_url=BASE)
-        login_met_sessie(page, make_session_value(email))
+        # #1535: platform administration answers in the platform workspace only.
+        page = browser.new_page(base_url=PLATFORM)
+        login_met_sessie(page, make_session_value(email), PLATFORM)
         yield page
         browser.close()
 

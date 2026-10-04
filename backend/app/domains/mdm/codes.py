@@ -208,6 +208,8 @@ LEGAL_FORM = CodeList(
 TENANT_KIND_CODES = (
     CodeSeed(code="VERENIGING", nl="Vereniging", en="Association", sort_order=10),
     CodeSeed(code="BEDRIJF", nl="Bedrijf", en="Company", sort_order=20),
+    # #1523: the platform's own kind.
+    CodeSeed(code="PLATFORM", nl="Platform", en="Platform", sort_order=30),
 )
 
 TENANT_KIND = CodeList(

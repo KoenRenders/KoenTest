@@ -1239,8 +1239,10 @@ def _organisation_footer(db: Session) -> tuple[str, str]:
     name = tenant_display_name(db)
     line = ""
     try:
-        # The tenant IS the organisation (#924): its id is the organisation id.
-        organisation_id = current_tenant_id.get() or DEFAULT_TENANT_ID
+        # #1550: the organisation behind the site, the tenant's own unless chosen.
+        from app.kernel.tenant_config import site_organization_id
+
+        organisation_id = site_organization_id(db, current_tenant_id.get() or DEFAULT_TENANT_ID)
         if organisation_id:
             address = organization_address(db, organisation_id)
             street = " ".join(p for p in (address.get("street"), address.get("house_number")) if p)

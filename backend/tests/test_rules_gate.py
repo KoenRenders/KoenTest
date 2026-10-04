@@ -1710,10 +1710,16 @@ def _route_path(path: str) -> str:
     return path.split("?")[0].rstrip("/") or "/"
 
 
-def _writing_routes() -> dict[str, ast.FunctionDef]:
-    routes: dict[str, ast.FunctionDef] = {}
+def _writing_routes() -> dict[str, tuple[ast.FunctionDef, dict[str, ast.AST]]]:
+    """Each writing route by its path, with the module-level functions of its module:
+    the helpers it may delegate to (`_route_source`)."""
+    routes: dict[str, tuple[ast.FunctionDef, dict[str, ast.AST]]] = {}
     for path in _python_files():
-        for node in ast.walk(_tree(path)):
+        tree = _tree(path)
+        helpers = {
+            n.name: n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+        for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 for d in node.decorator_list:
                     if (
@@ -1724,9 +1730,33 @@ def _writing_routes() -> dict[str, ast.FunctionDef]:
                         and isinstance(d.args[0], ast.Constant)
                         and isinstance(d.args[0].value, str)
                     ):
-                        routes.setdefault(_route_path(d.args[0].value), node)
+                        routes.setdefault(_route_path(d.args[0].value), (node, helpers))
     assert len(routes) > 50, f"only {len(routes)} writing routes — the walk is blind"
     return routes
+
+
+def _route_source(route: ast.AST, helpers: dict[str, ast.AST]) -> str:
+    """The code a route runs for its form: its own body, and the body of the
+    module-level function of the same module it delegates to (#1535).
+
+    Delegating means returning that function's result — `return f(...)` or
+    `return await f(...)` — the shape of one save path behind two routes (a
+    platform screen and a workspace's own one). **One level, same module, and
+    nothing else:** a helper the route merely calls along the way is not
+    followed, and neither is a function the helper delegates to in turn. Further
+    than that the walk would read code the route does not run for this form,
+    and a promise could turn green on a field some other helper happens to name.
+    `test_the_walk_follows_one_delegation_and_no_further` holds these limits.
+    """
+    delegates = []
+    for node in ast.walk(route):
+        if isinstance(node, ast.Return) and node.value is not None:
+            call = node.value.value if isinstance(node.value, ast.Await) else node.value
+            if isinstance(call, ast.Call) and isinstance(call.func, ast.Name):
+                helper = helpers.get(call.func.id)
+                if helper is not None and helper is not route:
+                    delegates.append(helper)
+    return "\n".join([ast.unparse(route), *(ast.unparse(h) for h in delegates)])
 
 
 def _kept_columns() -> tuple[dict[str, bool], set[str]]:
@@ -1788,11 +1818,12 @@ def collect_promises() -> tuple[dict[str, str], dict[str, str]]:
             if not form_path:
                 unwalkable.setdefault(key, "no form target (built in JS, by a macro, or GET)")
                 continue
-            route = routes.get(_route_path(form_path))
-            if route is None:
+            entry = routes.get(_route_path(form_path))
+            if entry is None:
                 unwalkable.setdefault(key, f"no writing route for {_route_path(form_path)}")
                 continue
-            source = ast.unparse(route)
+            route, helpers = entry
+            source = _route_source(route, helpers)
             if not re.search(rf"['\"]{name}['\"]|\b{name}\s*[:=]", source):
                 unwalkable.setdefault(key, f"route `{route.name}` does not read `{name}` by name")
                 continue
@@ -2297,3 +2328,55 @@ def test_the_validator_gate_sees_a_validator_without_constraint():
 
     found = collect_validator_without_constraint(list(Base.registry.mappers))
     assert set(found) == {"Loose.name"}, found
+
+
+def test_the_walk_follows_one_delegation_and_no_further():
+    """The limits of `_route_source` (#1535), on a module made for it.
+
+    A route that returns its helper's result reads what the helper reads; a
+    helper that does not read the field leaves the promise unwalked (the
+    additive violation the master CLI asked for); a second level is not
+    followed; a helper merely called along the way is not followed either.
+    """
+    module = ast.parse(
+        """
+@router.post("/a")
+async def delegates(request):
+    return await _save(request)
+
+@router.post("/b")
+def delegates_to_one_that_reads_nothing(request):
+    return _ignore(request)
+
+@router.post("/c")
+def two_levels(request):
+    return _outer(request)
+
+@router.post("/d")
+def calls_along_the_way(request):
+    _save(request)
+    return None
+
+async def _save(request):
+    return form["name"]
+
+def _ignore(request):
+    return None
+
+def _outer(request):
+    return _save(request)
+"""
+    )
+    helpers = {
+        n.name: n for n in module.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
+    def reads_name(route: str) -> bool:
+        return bool(re.search(r"['\"]name['\"]", _route_source(helpers[route], helpers)))
+
+    assert reads_name("delegates"), "one level of delegation is followed"
+    assert not reads_name("delegates_to_one_that_reads_nothing"), (
+        "a helper that reads nothing stays red"
+    )
+    assert not reads_name("two_levels"), "a second level is not followed"
+    assert not reads_name("calls_along_the_way"), "a call that is not returned is not followed"

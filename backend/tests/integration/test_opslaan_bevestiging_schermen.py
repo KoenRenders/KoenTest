@@ -179,7 +179,7 @@ def test_een_gezin_openen_bevestigt_niets(client, db_session):
 # ── Tenant ───────────────────────────────────────────────────────────────────
 
 
-def test_tenantinstellingen_opslaan_bevestigt(client, db_session):
+def test_tenantinstellingen_opslaan_bevestigt(client, platform_workspace, db_session):
     """#748: hier staat de toast ÍN de host, niet als out-of-band broer ernaast.
 
     Dit scherm stuurt een volledige pagina terug (`hx-target="body"`), en dan wordt

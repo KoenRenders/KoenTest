@@ -22,13 +22,13 @@ def _user(db, email, *roles):
     return u
 
 
-def test_tenants_scherm_operator_only(client, db_session):
+def test_tenants_scherm_operator_only(client, platform_workspace, db_session):
     _user(db_session, "adminonly@example.com", "ADMIN")
     _session(client, "adminonly@example.com")
     assert client.get("/admin/tenants").status_code == 403
 
 
-def test_operator_maakt_tenant_aan_en_resolvet(client, db_session):
+def test_operator_maakt_tenant_aan_en_resolvet(client, platform_workspace, db_session):
     from app.domains.mdm.api import Organization, tenant_codes
 
     _user(db_session, "op@example.com", "OPERATOR")
@@ -46,7 +46,7 @@ def test_operator_maakt_tenant_aan_en_resolvet(client, db_session):
     assert tenant_codes(db=db_session).get("raakteststad") == org.id
 
 
-def test_ongeldige_code_geweigerd(client, db_session):
+def test_ongeldige_code_geweigerd(client, platform_workspace, db_session):
     _user(db_session, "op2@example.com", "OPERATOR")
     csrf = _session(client, "op2@example.com")
     resp = client.post(

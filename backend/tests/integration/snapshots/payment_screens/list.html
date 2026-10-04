@@ -505,35 +505,22 @@
 </table>
 </div>
 <div id="bt-boven" hx-swap-oob="true">
-<input type="hidden" name="zicht" value="alle" form="bt-filter">
-<div class="kpi-strip mb-4 md:max-w-3xl flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
-<div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
-<div class="text-[11px] text-ink-soft" title="Netto te betalen">Netto te betalen <span class="md:hidden">· 8 boekingen</span></div>
-<div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ 121,00</div>
-<div class="hidden md:block text-[11px] text-ink-soft">8 boekingen</div>
 </div>
-<div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
-<div class="text-[11px] text-ink-soft" title="Ontvangen">Ontvangen <span class="md:hidden">· na terugbetalingen</span></div>
-<div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ 51,00</div>
-<div class="hidden md:block text-[11px] text-ink-soft">Na terugbetalingen</div>
+<span id="bt-filter-count" hx-swap-oob="true" data-toolbar-count class="ml-auto whitespace-nowrap text-xs tabular-nums text-ink-soft">1–5 van 5</span>
+<span id="bt-filter-n-openstaand" hx-swap-oob="true" class="tabular-nums">(4)</span>
+<div id="list-figures" hx-swap-oob="innerHTML"><div data-figures class="overflow-hidden md:overflow-visible min-w-0">
+<dl class="m-0 flex flex-wrap items-start gap-y-2 -ml-[17px] md:ml-0">
+<div class="flex flex-col min-w-0 border-l border-line px-4" title="Wat er in deze selectie te betalen is, na terugbetalingen.">
+<dd data-figure class="order-first m-0 text-2xl leading-[30px] font-semibold tracking-tight tabular-nums whitespace-nowrap text-ink">€ 121,00</dd>
+<dt data-figure-label class="text-[13px] leading-5 text-ink-soft whitespace-nowrap overflow-hidden text-ellipsis">Netto te betalen</dt>
 </div>
-<div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block" data-open-side="receive">
-<div class="text-[11px] text-ink-soft" title="Nog te ontvangen">Nog te ontvangen <span class="md:hidden">· 4 boekingen</span></div>
-<div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-orange-700">€ 75,00</div>
-<div class="hidden md:block text-[11px] text-ink-soft">4 boekingen</div>
+<div class="flex flex-col min-w-0 border-l border-line px-4" title="Wat er in deze selectie nog moet binnenkomen.">
+<dd data-figure class="order-first m-0 text-2xl leading-[30px] font-semibold tracking-tight tabular-nums whitespace-nowrap text-brand-warning">€ 75,00</dd>
+<dt data-figure-label class="text-[13px] leading-5 text-ink-soft whitespace-nowrap overflow-hidden text-ellipsis">Nog te ontvangen</dt>
 </div>
-<div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block" data-open-side="refund">
-<div class="text-[11px] text-ink-soft" title="Nog terug te betalen">Nog terug te betalen <span class="md:hidden">· 1 boekingen</span></div>
-<div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-orange-700">€ 5,00</div>
-<div class="hidden md:block text-[11px] text-ink-soft">1 boekingen</div>
+<div class="flex flex-col min-w-0 border-l border-line px-4" title="Wat er in deze selectie nog terugbetaald moet worden.">
+<dd data-figure class="order-first m-0 text-2xl leading-[30px] font-semibold tracking-tight tabular-nums whitespace-nowrap text-brand-warning">€ 5,00</dd>
+<dt data-figure-label class="text-[13px] leading-5 text-ink-soft whitespace-nowrap overflow-hidden text-ellipsis">Nog terug te betalen</dt>
 </div>
-</div>
-<div class="border-b border-gray-200 mb-6">
-<nav class="-mb-px flex gap-6 text-sm overflow-x-auto whitespace-nowrap">
-<a href="/admin/betalingen?zicht=alle" hx-get="/admin/betalingen/lijst?zicht=alle" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-blue-700 text-blue-700 font-semibold">Alle <span class="font-normal text-xs text-gray-400">8</span></a>
-<a href="/admin/betalingen?zicht=openstaand" hx-get="/admin/betalingen/lijst?zicht=openstaand" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Openstaand <span class="font-normal text-xs text-gray-400">5</span></a>
-<a href="/admin/betalingen?zicht=betaald" hx-get="/admin/betalingen/lijst?zicht=betaald" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Betaald <span class="font-normal text-xs text-gray-400">3</span></a>
-<a href="/admin/betalingen?zicht=terugbetaald" hx-get="/admin/betalingen/lijst?zicht=terugbetaald" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Terugbetaald <span class="font-normal text-xs text-gray-400">2</span></a>
-</nav>
-</div>
-</div>
+</dl>
+</div></div>

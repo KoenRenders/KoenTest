@@ -10,7 +10,7 @@
 {{ ui.error_banner(error|default(None)) }}
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
     <form class="space-y-3" enctype="multipart/form-data"
-          x-data="{ soort: '{{ kind }}' }"
+          x-data="{ soort: '{{ upload_kind }}' }"
           hx-post="/admin/media" hx-encoding="multipart/form-data"
           hx-target="body" hx-swap="innerHTML">
       {# Golf 6, kop-herziening: alles bovenaan. #}
@@ -34,7 +34,13 @@
          In v1.14 stonden de twee tabbladen op dezelfde pagina als het formulier en
          was omschakelen één klik; deze select geeft dat terug. #}
       <input type="hidden" name="q" value="{{ q }}">
-      <input type="hidden" name="filter_activity_id" value="{{ activity_id or '' }}">
+      {# #1527: the branch you came from, to return to after the upload. The
+         fields below start from it — kind, activity, tag — and stay yours to
+         change. #}
+      <input type="hidden" name="filter_kind" value="{{ tak.kind }}">
+      <input type="hidden" name="filter_activity_id" value="{{ tak.activity_id }}">
+      <input type="hidden" name="filter_tag" value="{{ tak.tag }}">
+      <input type="hidden" name="filter_year" value="{{ tak.year }}">
       <div class="max-w-xs">{{ ui.label(_("Soort"), "me-kind", required=True) }}
         {% call ui.select_control("kind", cls="w-full", attrs='id="me-kind" x-model="soort"') %}
           {# Uit `kind_options` en niet met de hand opgesomd (#258): de soorten
@@ -42,7 +48,7 @@
              filter van de lijst maar niet in deze keuzelijst — en was daardoor niet
              te uploaden. Nu is er één bron: VALID_KINDS. #}
           {% for waarde, label in upload_kind_options %}
-          <option value="{{ waarde }}" {% if kind == waarde %}selected{% endif %}>{{ label }}</option>
+          <option value="{{ waarde }}" {% if upload_kind == waarde %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         {% endcall %}</div>
       {# De dropdown volgt de keuze in plaats van de filterstand. `:required` en niet
@@ -50,7 +56,8 @@
          verzenden falen met "An invalid form control is not focusable" en het
          verzenden mislukt geruisloos — dezelfde val als bij #688. De server
          controleert het hoe dan ook. #}
-      <div class="max-w-xs" x-show="soort === 'activity_photo'" x-cloak>
+      {# #1527: a design picture can belong to an activity too (optional). #}
+      <div class="max-w-xs" x-show="soort === 'activity_photo' || soort === 'design_image'" x-cloak>
         {{ ui.label(_("Activiteit"), "me-activity", required=True) }}
         {% call ui.select_control("activity_id", cls="w-full", attrs='id="me-activity" :required="soort === \'activity_photo\'"') %}
           <option value="">{{ _("— Kies een activiteit —") }}</option>
