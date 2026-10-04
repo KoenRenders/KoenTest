@@ -15,6 +15,8 @@
   "secondary": "bg-white border border-gray-300 hover:bg-gray-100 text-gray-800",
   "danger": "bg-red-600 hover:bg-red-700 text-white border border-transparent",
   "outline": "bg-white border border-blue-600 text-blue-700 hover:bg-blue-50",
+  "text": "bg-transparent border border-transparent text-ink hover:bg-gray-100",
+  "text-danger": "bg-transparent border border-transparent text-red-700 hover:bg-red-50",
   "unavailable": "bg-white border border-gray-500 text-gray-500 cursor-not-allowed",
   "unavailable-orange": "bg-white border border-orange-500 text-orange-600 cursor-not-allowed"} -%}
 {#- #810: de knopmaten zijn mobiel-eerst, net als de typeschaal (§1.2a). De kale
@@ -437,11 +439,15 @@
 {% set _verbs = ["copy", "print", "export", "send", "state", "cancel"] %}
 {% set _records = actions|selectattr("kind", "equalto", "record")|list %}
 {% set _tools = actions|selectattr("kind", "equalto", "tool")|list %}
-{% set _deletes = actions|selectattr("kind", "equalto", "delete")|list %}
+{#- §3.6 (#1561): in edit mode Verwijderen lives in the action bar and not also here. -#}
+{% set _deletes = [] if editing else actions|selectattr("kind", "equalto", "delete")|list %}
 {% macro _item(a, danger=False) -%}
 {% set _cls = "flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 " ~ ("text-red-700" if danger else "text-ink") %}
-{% if a.get("href") %}<a role="menuitem" href="{{ a.href }}" class="{{ _cls }}">{{ a.label }}</a>
-{% else %}<button role="menuitem" type="button" class="{{ _cls }}" {{ a.get("attrs", "")|safe }}{% if a.get("confirm") %} data-confirm="{{ a.confirm }}"{% endif %}>{{ a.label }}</button>{% endif %}
+{#- #1561: a command that is refused says why, before any click: no dialog first. -#}
+{% if a.get("disabled") %}<div role="menuitem" aria-disabled="true" data-menu-refused class="px-3 py-2 text-sm text-ink-soft">
+  <span class="block font-medium">{{ a.label }}</span><span class="block text-[13px] leading-[19.5px]">{{ a.disabled }}</span></div>
+{% elif a.get("href") %}<a role="menuitem" href="{{ a.href }}" class="{{ _cls }}">{{ a.label }}</a>
+{% else %}<button role="menuitem" type="button" class="{{ _cls }}" {{ a.get("attrs", "")|safe }}{% if a.get("confirm") %} data-confirm="{{ a.confirm }}"{% if a.get("confirm_title") %} data-confirm-title="{{ a.confirm_title }}"{% endif %}{% if a.get("confirm_ok") %} data-confirm-ok="{{ a.confirm_ok }}"{% endif %}{% if danger %} data-confirm-tone="delete"{% endif %}{% endif %}{% if a.get("toast") %} data-toast-after="{{ a.toast }}"{% endif %}>{{ a.label }}</button>{% endif %}
 {%- endmacro %}
 <header data-record-head class="mb-3">
   {% if back and back.href %}
@@ -1604,7 +1610,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 {% set tint = {"success": "bg-green-50 border-green-200 text-green-800",
                "warning": "bg-yellow-50 border-yellow-200 text-yellow-800",
                "error":   "bg-red-50 border-red-200 text-red-800"}[kind] %}
-<div class="pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 shadow-sm {{ tint }}"
+<div class="pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 shadow-sm {{ tint }}" data-toast="{{ kind }}"
      role="{{ 'alert' if kind == 'error' else 'status' }}"
      aria-live="{{ 'assertive' if kind == 'error' else 'polite' }}"
      x-data="{ show: true }" x-show="show" x-transition.opacity
@@ -1644,6 +1650,11 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    Zelfde grens als #718, toen voor de navigatie. Zie docs/ui-conventies.md §2.9c. #}
 {% macro toast_host(bevestiging=False) -%}
 <div id="toasts" class="fixed top-4 right-4 z-50 flex flex-col gap-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none">{% if bevestiging %}{{ toast(_("Opgeslagen ✓")) }}{% endif %}</div>
+{# #1561: a command that answers with a reload (`HX-Refresh`) cannot send its
+   toast along — the page that would show it is replaced. Its button carries
+   `data-toast-after`; `htmx_ux()` keeps the words across the reload and shows
+   them with this template. #}
+<template id="toast-after">{{ toast("") }}</template>
 {%- endmacro %}
 
 {# ── Bevestig-modal (#595, A1: in-app modal i.p.v. het native browser-dialoog) ──
@@ -1660,34 +1671,67 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    een los `data-confirm="…"` kan ook, met optioneel `data-confirm-ok="Label"`.
    Zet dit één keer in de basis-template, naast toast_host(). #}
 {% macro confirm_host() -%}
+{# CR-11 block 9 (#1561, §3.18): the one dialog has three tones.
+   - `confirm` (the default, as before): the consequence and a filled brand
+     button — also the "lighter dialog" of a state command.
+   - `delete`: a title naming the record, "Definitief verwijderen" filled red.
+   - `keep`: leaving or discarding changes — the SAFE choice (stay) is the filled
+     one, the one that loses work an outline.
+   - `notice`: why something cannot be done — one button, "Sluiten". A control
+     with `data-notice` (and `data-notice-title`) opens it.
+   In every tone the safe button has the focus when the dialog opens, and Esc
+   closes the dialog and nothing else. `data-confirm-title`, `data-confirm-tone`
+   and `data-confirm-cancel` beside `data-confirm` choose them; a script asks
+   with `Alpine.store('confirm').ask(callback, message, okLabel, {title, tone,
+   cancelLabel})`. #}
 <div x-data x-show="$store.confirm.open" x-cloak
      x-transition.opacity.duration.150ms
      class="fixed inset-0 z-[60] flex items-center justify-center p-4"
      style="background:rgba(17,17,17,.5)"
-     @click.self="$store.confirm.cancel()" @keydown.escape.window="$store.confirm.cancel()"
-     role="dialog" aria-modal="true">
+     @click.self="$store.confirm.cancel()" @keydown.escape.window="$store.confirm.open && $store.confirm.cancel()"
+     role="dialog" aria-modal="true" data-dialog :data-tone="$store.confirm.tone"
+     x-effect="$store.confirm.open && $nextTick(() => $el.querySelector('[data-dialog-cancel]').focus())">
   <div x-show="$store.confirm.open" x-transition.opacity.duration.150ms class="bg-white rounded-2xl shadow-xl w-full max-w-md">
     <div class="px-5 py-5">
+      <h2 data-dialog-title x-show="$store.confirm.title" x-text="$store.confirm.title" class="mb-2 text-base font-semibold leading-6 text-ink"></h2>
       <p class="text-sm text-ink" x-text="$store.confirm.message"></p>
     </div>
-    <div class="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
-      <button type="button" class="{{ btn_class('secondary') }}" @click="$store.confirm.cancel()">{{ _("Annuleren") }}</button>
-      <button type="button" class="{{ btn_class('primary') }}" x-text="$store.confirm.okLabel" @click="$store.confirm.accept()"></button>
+    <div class="flex flex-wrap justify-end gap-2 border-t border-gray-200 px-5 py-3">
+      <button type="button" data-dialog-cancel x-text="$store.confirm.cancelLabel" @click="$store.confirm.cancel()"
+              :class="$store.confirm.tone === 'keep' ? '{{ btn_class('primary') }}' : '{{ btn_class('secondary') }}'"></button>
+      <button type="button" data-dialog-ok x-show="$store.confirm.tone !== 'notice'" x-text="$store.confirm.okLabel" @click="$store.confirm.accept()"
+              :class="$store.confirm.tone === 'keep' ? '{{ btn_class('secondary') }}' : ($store.confirm.tone === 'delete' ? '{{ btn_class('danger') }}' : '{{ btn_class('primary') }}')"></button>
     </div>
   </div>
 </div>
 <script>
   document.addEventListener('alpine:init', function () {
     Alpine.store('confirm', {
-      open: false, message: '', okLabel: '{{ _("Bevestigen") }}', detail: null,
-      ask: function (detail, message, okLabel) {
+      open: false, message: '', okLabel: '{{ _("Bevestigen") }}', cancelLabel: '{{ _("Annuleren") }}',
+      title: '', tone: 'confirm', detail: null,
+      ask: function (detail, message, okLabel, options) {
+        options = options || {};
         this.detail = detail;
         this.message = message;
         this.okLabel = okLabel || '{{ _("Bevestigen") }}';
+        this.cancelLabel = options.cancelLabel || '{{ _("Annuleren") }}';
+        this.title = options.title || '';
+        this.tone = options.tone || 'confirm';
         this.open = true;
       },
-      accept: function () { var d = this.detail; this.open = false; this.detail = null; if (d) d.issueRequest(true); },
+      // `detail` is htmx's paused request, or a function a script handed in.
+      accept: function () {
+        var d = this.detail; this.open = false; this.detail = null;
+        if (typeof d === 'function') d(); else if (d) d.issueRequest(true);
+      },
       cancel: function () { this.open = false; this.detail = null; },
+    });
+  });
+  document.body.addEventListener('click', function (evt) {
+    var bron = evt.target.closest && evt.target.closest('[data-notice]');
+    if (!bron) return;
+    Alpine.store('confirm').ask(null, bron.getAttribute('data-notice'), '', {
+      title: bron.getAttribute('data-notice-title'), tone: 'notice', cancelLabel: '{{ _("Sluiten") }}',
     });
   });
   document.body.addEventListener('htmx:confirm', function (evt) {
@@ -1702,9 +1746,38 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     var q = bron.getAttribute('data-confirm');
     if (!q) return;                 // geen bevestiging gevraagd → verzoek gaat door
     evt.preventDefault();           // htmx pauzeren tot de gebruiker kiest
-    Alpine.store('confirm').ask(evt.detail, q, bron.getAttribute('data-confirm-ok'));
+    Alpine.store('confirm').ask(evt.detail, q, bron.getAttribute('data-confirm-ok'), {
+      title: bron.getAttribute('data-confirm-title'),
+      tone: bron.getAttribute('data-confirm-tone'),
+      cancelLabel: bron.getAttribute('data-confirm-cancel'),
+    });
   });
 </script>
+{%- endmacro %}
+
+{# ── Why a save was refused (CR-11 block 9, #1561, §3.18) ─────────────────────
+   The banner at the top of the form. `errors` are objects with `field` (the
+   form's name of a field or a row; empty for the form as a whole) and `message`.
+   Each field error is a link to its field; `record-form.js` marks the fields and
+   puts the focus on the first one. Nothing typed is lost: the answer is this
+   banner alone. #}
+{% macro save_refusal(errors) -%}
+{%- set _places = errors|selectattr("field")|list -%}
+{%- set _general = errors|rejectattr("field")|list -%}
+<div data-save-refusal role="alert" tabindex="-1"
+     class="rounded-md border border-red-200 border-l-[3px] border-l-red-600 bg-red-50 p-4 text-sm leading-[21px] text-ink">
+  {% if _places %}
+  <p class="font-semibold">{% if _places|length == 1 %}{{ _("Opslaan kan nog niet: controleer 1 veld.") }}{% else %}{{ _("Opslaan kan nog niet: controleer %(num)d velden.", num=_places|length) }}{% endif %}</p>
+  <ul class="mt-1 list-disc pl-5">
+    {% for e in _places %}<li><a href="#" data-error-for="{{ e.field }}" class="text-red-700 underline">{{ e.message }}</a></li>{% endfor %}
+  </ul>
+  {% for e in _general %}<p class="mt-1">{{ e.message }}</p>{% endfor %}
+  <p class="mt-1 text-ink-soft">{{ _("Je andere wijzigingen zijn behouden.") }}</p>
+  {% else %}
+  <p class="font-semibold">{{ _("Opslaan is niet gelukt.") }}</p>
+  {% for e in _general %}<p class="mt-1">{{ e.message }}</p>{% endfor %}
+  {% endif %}
+</div>
 {%- endmacro %}
 
 {% macro grouped_filter(name, top_options=[], groups={}, current="", hx_get="", hx_target="", id=None) -%}
@@ -1752,7 +1825,46 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    `form` koppelt de Opslaan-submit aan een formulier elders in het vlak
    (HTML `form=`-attribuut): het cluster staat in de kop, het formulier
    eronder. Binnen een formulier (aanmaakvlakken) mag `form` weg. #}
-{% macro action_bar(save_label=None, form=None, save_attrs="", cancel_attrs="", cancel_href=None, delete_attrs="", delete_label=None, delete_confirm=None, cls="") -%}
+{% macro action_bar(save_label=None, form=None, save_attrs="", cancel_attrs="", cancel_href=None, delete_attrs="", delete_label=None, delete_confirm=None, cls="", record=False, delete_title=None, delete_refused=None, delete_refused_title=None) -%}
+{% if record %}
+{# CR-11 block 9 (#1561, §3.6): the bar of a record form. One per screen, under
+   the form's last section, only in edit mode: 64 px, as wide as the form
+   column, white with a thin top line, sticky 16 px above the window's bottom
+   while the form is longer than the window. Verwijderen red text at the far
+   left, Annuleren text, Opslaan filled at the right. On a phone: fixed at the
+   bottom, Opslaan full width on the first line, Verwijderen left and Annuleren
+   right on the second (`.record-bar` in build-css.sh). `record-form.js` gives it
+   its states: the question on Annuleren with changes, "Opslaan…" while saving,
+   and the reason when saving failed (the `<template>` below). #}
+<div data-action-bar class="record-bar{% if cls %} {{ cls }}{% endif %}"
+     data-discard-title="{{ _('Wijzigingen weggooien?') }}" data-discard-text="{{ _('Wat je sinds de laatste opslag wijzigde, gaat verloren.') }}"
+     data-discard-ok="{{ _('Wijzigingen weggooien') }}" data-discard-stay="{{ _('Verder bewerken') }}"
+     data-leave-title="{{ _('Deze pagina verlaten?') }}" data-leave-text="{{ _('Je wijzigingen zijn nog niet opgeslagen.') }}"
+     data-leave-ok="{{ _('Weggooien') }}" data-leave-stay="{{ _('Blijven') }}">
+  {% if delete_refused %}
+  {#- Refused (#1561): the button says why — a notice, no question and no request. -#}
+  <button type="button" data-form-delete data-notice="{{ delete_refused }}"{% if delete_refused_title %} data-notice-title="{{ delete_refused_title }}"{% endif %}
+          class="{{ btn_class('text-danger', 'sm') }} record-bar-delete">{{ delete_label or _("Verwijderen") }}</button>
+  {% elif delete_attrs %}
+  <button type="button" data-form-delete class="{{ btn_class('text-danger', 'sm') }} record-bar-delete" hx-disabled-elt="this"
+          data-confirm="{{ delete_confirm }}" data-confirm-tone="delete" data-confirm-ok="{{ _('Definitief verwijderen') }}"
+          {% if delete_title %}data-confirm-title="{{ delete_title }}"{% endif %} {{ delete_attrs|safe }}>{{ delete_label or _("Verwijderen") }}</button>
+  {% endif %}
+  <a href="{{ cancel_href }}" data-form-cancel class="{{ btn_class('text', 'sm') }} record-bar-cancel" {{ cancel_attrs|safe }}>{{ _("Annuleren") }}</a>
+  <button type="submit" data-form-save class="{{ btn_class('primary', 'sm') }} record-bar-save"{% if form %} form="{{ form }}"{% endif %} {{ save_attrs|safe }}>
+    <span data-save-idle>{{ save_label or _("Opslaan") }}</span>
+    <span data-save-busy hidden class="inline-flex items-center gap-2"><span class="record-spinner" aria-hidden="true"></span>{{ _("Opslaan…") }}</span>
+  </button>
+  <template data-save-failed>
+    <div data-save-refusal data-save-failure role="alert" tabindex="-1"
+         class="rounded-md border border-red-200 border-l-[3px] border-l-red-600 bg-red-50 p-4 text-sm leading-[21px] text-ink">
+      <p class="font-semibold">{{ _("Opslaan is niet gelukt.") }}</p>
+      <p class="mt-1" data-reason></p>
+      <p class="mt-1 text-ink-soft">{{ _("Je wijzigingen staan er nog.") }}</p>
+    </div>
+  </template>
+</div>
+{% else %}
 {# size="sm" overal (Koen, 15 sep): de kleinere knoppen van de tabbladen ogen
    rustiger en professioneler — één maat voor elk cluster en elke opener. #}
 {# F26 (#996): flex-wrap met Annuleren+Opslaan als ondeelbaar paar — op een
@@ -1765,6 +1877,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {{ btn_primary(save_label or _("Opslaan"), size="sm", attrs=(('form="' ~ form ~ '" ')|safe if form else '') ~ save_attrs) }}
   </span>
 </div>
+{% endif %}
 {%- endmacro %}
 
 {# ── Icoon vóór tekst die kan wikkelen (golf 0b, #913): #810/#813 als macro ──
@@ -2056,6 +2169,33 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     // en stopt daar (handleAjaxResponse in htmx 2.0.4), dus een 401 met
     // `HX-Redirect: /aanmelden` — wat _require_ui_roles zet — komt hier niet eens
     // langs. Wat hier binnenkomt, is dus precies het stille geval.
+    // #1561: the toast of a command whose answer is a reload. Kept in the
+    // session for exactly one page load.
+    body.addEventListener('htmx:beforeOnLoad', function (e) {
+      var elt = e.detail.elt, xhr = e.detail.xhr;
+      var words = elt && elt.getAttribute && elt.getAttribute('data-toast-after');
+      if (!words || !xhr || xhr.status >= 300) return;
+      try { sessionStorage.setItem('toast-after', words); } catch (err) {}
+    });
+    (function () {
+      var words = null;
+      try { words = sessionStorage.getItem('toast-after'); sessionStorage.removeItem('toast-after'); } catch (err) {}
+      var host = document.getElementById('toasts'), sjabloon = document.getElementById('toast-after');
+      if (!words || !host || !sjabloon) return;
+      var toast = sjabloon.content.firstElementChild.cloneNode(true);
+      toast.querySelector('span').textContent = words;
+      host.appendChild(toast);
+    })();
+    // CR-11 block 9 (#1561, §3.18): a record form says "Opslaan is niet gelukt."
+    // with the reason at the top of the form itself — no toast. The form's own
+    // script (`record-form.js`) draws it; this only hands the reason over.
+    function inRecordForm(e, tekst) {
+      var elt = e.detail && e.detail.elt;
+      var form = elt && elt.closest && elt.closest('[data-record-form]');
+      if (!form) return false;
+      form.dispatchEvent(new CustomEvent('record:save-failed', { detail: { reason: tekst } }));
+      return true;
+    }
     function meldFout(tekst, kind) {
       var host = document.getElementById('toasts');
       var sjabloon = document.getElementById('htmx-foutmelding');
@@ -2112,11 +2252,14 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
       } else {
         melding = {{ _("Er ging iets mis; je wijziging is niet bewaard. Probeer opnieuw.")|tojson }};
       }
+      if (inRecordForm(e, melding)) return;
       meldFout(melding, String(status));
     });
     // Zelfde stille falen, andere oorzaak: de aanvraag bereikte de server niet.
-    body.addEventListener('htmx:sendError', function () {
-      meldFout({{ _("Geen verbinding met de server; je wijziging is niet bewaard.")|tojson }}, 'netwerk');
+    body.addEventListener('htmx:sendError', function (e) {
+      var geenVerbinding = {{ _("Geen verbinding met de server; je wijziging is niet bewaard.")|tojson }};
+      if (inRecordForm(e, geenVerbinding)) return;
+      meldFout(geenVerbinding, 'netwerk');
     });
     // Derde soort stilte, en de gemeenste (#666): bij een doelfout is er GEEN
     // response, dus htmx:responseError vuurt niet. htmx verstuurt het verzoek zelfs

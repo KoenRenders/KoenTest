@@ -99,7 +99,8 @@ def test_de_rijknop_heet_details_en_opent_leesmodus(client, db_session):
     # row; it still lands in READ mode.
     assert f'href="/admin/inschrijvingen/{reg}?terug=' in html and "Inschrijving openen" in html
     assert ">Details<" not in html
-    assert ">Verwijderen<" not in html
+    # The rows have no delete; the activity's own stands in the head's Acties menu (#1561).
+    assert ">Verwijderen<" not in html.split("data-related-tabs")[1]
     pagina = client.get(f"/admin/inschrijvingen/{reg}?bewerk=1").text
     assert "{ edit: true }" not in pagina, "bewerk=1 hoort geen bewerkmodus meer te openen"
     assert ">Bewerken<" in pagina  # de opener staat op de pagina zelf

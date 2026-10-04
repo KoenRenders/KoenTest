@@ -128,6 +128,15 @@ def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin
     reg = db_session.query(Registration).filter(Registration.activity_id == activity_id).first()
     assert reg is not None
 
+    # #1561 (Koen, 4 October 2026): an activity with a registration is refused;
+    # the registration goes first, and then the payment still stays.
+    assert (
+        client.delete(f"/api/v1/activities/{activity_id}", headers=admin_headers).status_code == 422
+    )
+    from app.soft_delete import soft_delete
+
+    soft_delete(reg)
+    db_session.commit()
     assert (
         client.delete(f"/api/v1/activities/{activity_id}", headers=admin_headers).status_code == 200
     )

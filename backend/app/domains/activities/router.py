@@ -390,7 +390,11 @@ def delete_activity(
 ) -> dict[str, str]:
     from app.domains.activities import service
 
-    if not service.delete_activity(db, activity_id, actor=admin.email):
+    try:
+        deleted = service.delete_activity(db, activity_id, actor=admin.email)
+    except service.ActiviteitFout as refusal:
+        raise HTTPException(status_code=422, detail=str(refusal)) from refusal
+    if not deleted:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
     return {"detail": "deleted"}
 

@@ -35,7 +35,9 @@ from app.domains.activities import service
 from app.domains.activities.fiche import (
     ComponentRow,
     DateRow,
+    FicheRefusal,
     FicheSave,
+    FieldError,
     OrganiserRow,
     ProductRow,
     save_fiche,
@@ -206,6 +208,15 @@ def _upload(
     name: str = "info.png", content_type: str = "image/png", data: bytes = PNG
 ) -> UploadFile:
     return UploadFile(io.BytesIO(data), filename=name, headers={"content-type": content_type})
+
+
+def _places(db, activity_id: int, fiche: FicheSave, **files) -> dict[str, str]:
+    """Where the save was refused, and why: {place: message} (#1561)."""
+    with pytest.raises(FicheRefusal) as refusal:
+        _save(db, activity_id, fiche, **files)
+    places = [error.field for error in refusal.value.errors]
+    assert len(places) == len(set(places)), f"a place named twice: {places}"
+    return {error.field: error.message for error in refusal.value.errors}
 
 
 # ── A save that changes nothing writes nothing ───────────────────────────────
@@ -923,3 +934,106 @@ def test_the_json_api_still_deletes_what_nothing_holds(client, db_session, admin
     assert client.delete(f"{base}/products/{ids[2]}", headers=admin_headers).status_code == 200
     assert client.delete(base, headers=admin_headers).status_code == 200
     assert db_session.query(ActivitySubRegistration).filter_by(id=ids[1]).count() == 0
+
+
+# ── #1561: a refusal names its place, and the save names all of them ─────────
+
+
+def test_every_refusal_of_one_save_comes_back_at_once_each_at_its_field(db_session):
+    """The acceptance of #1561: an empty name and a maximum of nothing are two
+    fields to correct, told together — with every other refusal of that save.
+    Proven red by raising at the first refusal again (`errors.add` raising):
+    one place comes back instead of seven."""
+    activity, component, product = _seed(db_session)
+    other, _c, _p = seed_activity_with_product(db_session)
+    other.slug = "bezet"
+    db_session.commit()
+    before = _counts(db_session)
+    first = db_session.query(ActivityDate).filter_by(activity_id=activity.id).one()
+
+    fiche = _as_is(db_session, activity.id)
+    fiche.fields = {"slug": "bezet", "location": "Niet bewaard"}
+    fiche.errors = [FieldError("name", "De activiteit heeft een naam nodig.")]
+    fiche.dates[0].end_date = first.start_date - timedelta(days=1)
+    fiche.dates.append(DateRow("new1", SOON, start_time=time(14, 0), end_time=time(13, 0)))
+    fiche.components[0].max_participants = 0
+    fiche.components[0].products[0].price = Decimal("-1")
+    fiche.components[0].products.append(ProductRow("new2", "", is_free=True, pay_on_site=True))
+    fiche.components.append(ComponentRow("new3", " "))
+
+    places = _places(db_session, activity.id, fiche)
+    assert places == {
+        "name": "De activiteit heeft een naam nodig.",
+        "slug": places["slug"],
+        f"d.{first.id}.end_date": "De einddatum ligt vóór de begindatum.",
+        "d.new1.end_time": "Het einduur ligt niet na het beginuur.",
+        f"c.{component.id}.max_participants": "Het maximum van “Onderdeel” moet groter zijn dan nul.",
+        f"p.{product.id}.price": "De prijs van “Testproduct” mag niet negatief zijn.",
+        "p.new2.name": "Een product heeft een naam nodig.",
+        "c.new3.name": "Een onderdeel heeft een naam nodig.",
+    }
+    assert "bezet" in places["slug"] or "gebruik" in places["slug"], places["slug"]
+    assert _counts(db_session) == before, "eight refusals, nothing written"
+    assert db_session.get(Activity, activity.id).location != "Niet bewaard"
+
+
+def test_a_removed_row_that_cannot_go_is_named_as_that_row(db_session):
+    """The form no longer has the row; the refusal names it by its key, so the
+    screen can put it back with the reason on it."""
+    activity, component, product = _seed(db_session)
+    _registration(db_session, component, product)
+    fiche = _as_is(db_session, activity.id)
+    fiche.components[0].products = []
+    assert _places(db_session, activity.id, fiche) == {
+        f"p.{product.id}": "Het product “Testproduct” staat op een inschrijving en kan niet "
+        "verwijderd worden. Zet “Publiek zichtbaar” uit als het niet meer gekozen mag worden."
+    }
+    fiche = _as_is(db_session, activity.id)
+    fiche.components = []
+    assert list(_places(db_session, activity.id, fiche)) == [f"c.{component.id}"]
+
+
+def test_the_rules_with_one_field_name_that_field(db_session):
+    """Free and pay-on-site together, the question form, an unknown audience, an
+    organiser who is no member, a refused file."""
+    activity, component, product = _seed(db_session)
+    outsider = _member(db_session, "Cas", member=False)
+
+    fiche = _as_is(db_session, activity.id)
+    fiche.components[0].products[0].is_free = True
+    fiche.components[0].products[0].pay_on_site = True
+    fiche.components[0].form_id = 999_999
+    fiche.fields = {"target_audience": "ONBEKEND"}
+    fiche.organisers.append(OrganiserRow("new1", outsider.id))
+    places = _places(db_session, activity.id, fiche)
+    assert set(places) == {
+        f"p.{product.id}.pay_on_site",
+        f"c.{component.id}.form_id",
+        "target_audience",
+        "o.new1",
+    }
+    assert places["o.new1"] == "Alleen leden kunnen organisator zijn."
+    assert places[f"c.{component.id}.form_id"] == "Dat formulier bestaat niet."
+
+    fiche = _as_is(db_session, activity.id)
+    text = _upload("nota.txt", "text/plain", b"geen afbeelding")
+    places = _places(
+        db_session, activity.id, fiche, poster=text, component_files={str(component.id): text}
+    )
+    assert set(places) == {"file", f"c.{component.id}.file"}
+
+
+def test_the_question_about_the_contact_person_waits_for_a_save_that_would_go_through(
+    db_session,
+):
+    """A refused save does not also ask to confirm: first the fields, then the question."""
+    activity, component, _p = _seed(db_session)
+    an = _member(db_session, "An")
+    db_session.add(
+        ActivityOrganiser(activity_id=activity.id, person_id=an.id, sort_order=0, is_contact=True)
+    )
+    db_session.commit()
+    fiche = _as_is(db_session, activity.id)
+    fiche.organisers[0].is_contact = False
+    fiche.components[0].max_participants = -3
+    assert list(_places(db_session, activity.id, fiche)) == [f"c.{component.id}.max_participants"]

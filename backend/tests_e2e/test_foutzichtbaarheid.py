@@ -54,7 +54,11 @@ def admin_page():
 
 
 def test_een_403_levert_een_zichtbare_melding(admin_page):
-    """Het gemelde geval: opslaan met een verlopen CSRF-token.
+    """Het gemelde geval: een actie met een verlopen CSRF-token.
+
+    Since #1561 the fiche itself is a record form, and a failed SAVE says so in
+    the form (`test_record_form.py`). Every other htmx action keeps this toast;
+    the vehicle here is a state command from the head's Acties menu.
 
     De assert gaat over wat de gebruiker ziet, niet over de statuscode — die was
     altijd al 403. Wat ontbrak, was de melding.
@@ -63,9 +67,8 @@ def test_een_403_levert_een_zichtbare_melding(admin_page):
     if not scherm.open_eerste():
         _ontbreekt("geen activiteit om te openen")
 
-    scherm.bewerk()
     scherm.breek_het_csrf_token()
-    scherm.bewaar()
+    scherm.staatscommando()
 
     melding = scherm.foutmeldingen().first
     melding.wait_for(state="visible", timeout=5000)
@@ -94,13 +97,12 @@ def test_herhaald_mislukken_geeft_niet_elf_meldingen(admin_page):
     if not scherm.open_eerste():
         _ontbreekt("geen activiteit om te openen")
 
-    scherm.bewerk()
     scherm.breek_het_csrf_token()
     # #997: each attempt is finished (the 403 answered and handled) before the
     # next — the count below is an absence check, so it must not run early.
     for _ in range(3):
         with htmx_afgerond(admin_page):
-            scherm.bewaar()
+            scherm.staatscommando()
 
     assert scherm.foutmeldingen().count() == 1, (
         f"drie mislukte pogingen gaven {scherm.foutmeldingen().count()} meldingen"

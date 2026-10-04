@@ -697,7 +697,7 @@ def test_removing_a_row_asks_no_confirmation(client, db_session):
     activity, _c, _p, _h = _full(db_session)
     _login(client)
     html = _page(client, activity.id, edit=True)
-    flow = html[html.index("data-form-flow") : html.index("data-provisional-bar")]
+    flow = html[html.index("data-form-flow") : html.index("data-action-bar")]
     removes = re.findall(r'<button[^>]*data-row-action="remove"[^>]*>', flow)
     assert len(removes) >= 7, len(removes)
     assert not [button for button in removes if "confirm" in button], "a row removal asks nothing"
@@ -709,8 +709,164 @@ def test_the_fiche_has_one_form_and_one_save(client, db_session):
     activity, _c, _p, _h = _full(db_session)
     _login(client)
     html = _page(client, activity.id, edit=True)
-    flow = html[html.index("data-form-flow") : html.index("data-provisional-bar")]
+    flow = html[html.index("data-form-flow") : html.index("data-action-bar")]
     assert flow.count("<form") == 1
-    bar = html[html.index("data-provisional-bar") :].split("</div>", 2)
-    assert "".join(bar[:2]).count(">Opslaan<") == 1
-    assert ">Opslaan<" not in flow
+    bar = html[html.index("data-action-bar") : html.index("<template data-save-failed>")]
+    assert bar.count("data-save-idle>Opslaan<") == 1 and bar.count('type="submit"') == 1
+    assert 'type="submit"' not in flow and "Opslaan" not in flow
+
+
+# ── #1561: the refusal names its fields; delete and the state commands ask ───
+
+
+def test_a_refused_save_names_every_field_at_once_with_its_place(client, db_session):
+    """The acceptance of #1561: the name empty and a maximum of 0 are two fields,
+    told together, each as a link to its field; nothing is written."""
+    activity, component, _p = _seed(db_session)
+    headers = _login(client)
+    fiche = Fiche(db_session, activity.id)
+    fiche.data["name"] = ""
+    fiche.data["location"] = "Niet bewaard"
+    fiche.set("c", component.id, max_participants="0")
+    response = fiche.post(client, headers)
+    assert response.status_code == 422
+    assert response.headers["HX-Retarget"] == "#aa-fiche-message"
+    assert "data-form-flow" not in response.text, "the banner alone: the form keeps what was typed"
+    assert "Opslaan kan nog niet: controleer 2 velden." in response.text
+    assert "Je andere wijzigingen zijn behouden." in response.text
+    assert re.findall(r'data-error-for="([^"]+)"', response.text) == [
+        "name",
+        f"c.{component.id}.max_participants",
+    ]
+    db_session.expire_all()
+    assert db_session.get(Activity, activity.id).location != "Niet bewaard"
+    assert db_session.get(Activity, activity.id).name
+
+
+def test_a_removed_component_with_registrations_is_named_as_its_row(client, db_session):
+    activity, component, _p = _seed(db_session)
+    db_session.add(
+        Registration(
+            activity_id=activity.id,
+            component_id=component.id,
+            registration_type="INDIVIDUAL",
+            contact_name="An Voorbeeld",
+            contact_email="an@example.com",
+        )
+    )
+    db_session.commit()
+    headers = _login(client)
+    fiche = Fiche(db_session, activity.id)
+    fiche.remove("c", component.id)
+    response = fiche.post(client, headers)
+    assert response.status_code == 422
+    assert f'data-error-for="c.{component.id}"' in response.text, "the row, not a status alone"
+    assert "heeft één inschrijving en kan niet verwijderd worden" in response.text
+
+
+def test_an_activity_without_registrations_is_deleted_after_the_dialog(client, db_session):
+    """§3.18: the dialog names the record and says what goes with it — in Acties
+    while reading, in the bar while editing — and the delete does exactly that."""
+    activity, _c, _p = _seed(db_session)
+    headers = _login(client)
+    sentence = "De activiteit verdwijnt met haar datums, onderdelen en producten."
+    read = _page(client, activity.id)
+    item = re.search(r'<button role="menuitem"[^>]*/verwijderen"[^>]*>', read).group(0)
+    assert f'data-confirm="{sentence}"' in item and 'data-confirm-tone="delete"' in item
+    assert "data-action-bar" not in read, "no bar while reading"
+
+    edit = _page(client, activity.id, edit=True)
+    button = re.search(r"<button[^>]*data-form-delete[^>]*>", edit, re.S).group(0)
+    assert f'data-confirm="{sentence}"' in button and "data-notice" not in button
+    assert f'hx-post="/admin/activiteiten/{activity.id}/verwijderen"' in button
+    assert "verwijderen?" in button and activity.name in button, "the dialog names the record"
+    head = edit[edit.index("data-record-head") : edit.index("data-related-tabs")]
+    assert "/verwijderen" not in head, "in edit mode not also in Acties"
+
+    answer = client.post(f"/admin/activiteiten/{activity.id}/verwijderen", headers=headers)
+    assert answer.status_code == 204 and answer.headers["HX-Redirect"] == "/admin/activiteiten"
+    db_session.expire_all()
+    assert db_session.query(Activity).filter_by(id=activity.id).count() == 0
+    assert db_session.query(ActivityDate).filter_by(activity_id=activity.id).count() == 0
+    assert db_session.query(ActivitySubRegistration).filter_by(activity_id=activity.id).count() == 0
+
+
+def test_new_an_activity_with_registrations_cannot_be_deleted(client, db_session, admin_headers):
+    """NEW (Koen, 4 October 2026): until #1561 the delete took the registrations
+    along. The screen says why BEFORE any click — the item in Acties is no button,
+    the bar's button opens a notice — and the service refuses the request that
+    comes anyway, also through the JSON API. A deleted registration does not
+    count; another activity's neither. Proven red by dropping the refusal from
+    `delete_activity` (the activity and its registration go), and by counting
+    the registrations of every activity (the empty one is refused too)."""
+    activity, component, _p = _seed(db_session)
+    empty, _c2, _p2 = seed_activity_with_product(db_session)
+    registrations = [
+        Registration(
+            activity_id=activity.id,
+            component_id=component.id,
+            registration_type="INDIVIDUAL",
+            contact_name=f"{name} Voorbeeld",
+            contact_email=f"{name.lower()}@example.com",
+        )
+        for name in ("An", "Bert")
+    ]
+    db_session.add_all(registrations)
+    db_session.commit()
+    headers = _login(client)
+    two = (
+        "De activiteit heeft 2 inschrijvingen en kan niet verwijderd worden. "
+        "Gaat ze niet door, gebruik dan “Activiteit annuleren”."
+    )
+
+    assert "data-menu-refused" not in _page(client, empty.id), "another activity's do not count"
+    read = _page(client, activity.id)
+    menu = read[read.index("data-actions-menu") : read.index("data-related-tabs")]
+    assert "/verwijderen" not in menu, "no request to press"
+    refused = re.search(r"<div[^>]*data-menu-refused[^>]*>(.*?)</div>", menu, re.S)
+    assert 'aria-disabled="true"' in refused.group(0)
+    assert ">Verwijderen<" in refused.group(1) and two in refused.group(1)
+
+    edit = _page(client, activity.id, edit=True)
+    button = re.search(r"<button[^>]*data-form-delete[^>]*>", edit, re.S).group(0)
+    assert f'data-notice="{two}"' in button
+    assert "kan niet verwijderd worden" in re.search(r'data-notice-title="([^"]+)"', button).group(
+        1
+    )
+    assert "hx-post" not in button and "data-confirm" not in button
+
+    for answer in (
+        client.post(f"/admin/activiteiten/{activity.id}/verwijderen", headers=headers),
+        client.delete(f"/api/v1/activities/{activity.id}", headers=admin_headers),
+    ):
+        assert answer.status_code == 422 and answer.json()["detail"] == two
+    db_session.expire_all()
+    assert db_session.query(Activity).filter_by(id=activity.id).count() == 1
+    assert db_session.query(Registration).filter_by(activity_id=activity.id).count() == 2
+
+    # one left: the sentence counts; none left: the activity may go
+    from app.soft_delete import soft_delete
+
+    soft_delete(db_session.get(Registration, registrations[0].id))
+    db_session.commit()
+    assert "heeft 1 inschrijving en kan niet" in _page(client, activity.id)
+    soft_delete(db_session.get(Registration, registrations[1].id))
+    db_session.commit()
+    assert "data-menu-refused" not in _page(client, activity.id)
+    assert (
+        client.delete(f"/api/v1/activities/{activity.id}", headers=admin_headers).status_code == 200
+    )
+
+
+def test_every_state_command_names_its_consequence_and_its_toast(client, db_session):
+    """§3.18: a state command asks with its consequence (the lighter dialog) and
+    says afterwards that it happened."""
+    activity, _c, _p = _seed(db_session)
+    _login(client)
+    html = _page(client, activity.id)
+    menu = html[html.index("data-actions-menu") :]
+    for path in ("/status", "/annulering"):
+        item = re.search(rf'<button role="menuitem"[^>]*{path}"[^>]*>', menu).group(0)
+        assert re.search(r'data-confirm="[^"]{30,}"', item), f"{path}: no consequence"
+        assert "data-confirm-ok=" in item and "data-toast-after=" in item, item
+        assert "data-confirm-tone" not in item, "the lighter dialog, not the delete one"

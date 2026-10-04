@@ -17,11 +17,11 @@
 <div x-show="open" x-cloak @click.outside="open = false" role="menu" data-actions-menu
  class="absolute right-0 z-30 mt-2 w-[272px] max-w-[calc(100vw-2rem)] max-h-[65dvh] overflow-auto py-1 bg-white border border-line rounded-lg shadow-lg">
 <a role="menuitem" href="/admin/activiteiten/<ACTIVITY>/kopieren" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink">Kopiëren</a>
-<button role="menuitem" type="button" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink" hx-post="/admin/activiteiten/<ACTIVITY>/status" hx-vals='{"status": "draft"}'>Terug naar concept</button>
-<button role="menuitem" type="button" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink" hx-post="/admin/activiteiten/<ACTIVITY>/annulering" hx-vals='{"cancelled": "1"}' data-confirm="Deze activiteit annuleren? Ze neemt dan geen inschrijvingen meer aan. Bestaande inschrijvingen en betalingen blijven staan.">Activiteit annuleren</button>
-<div data-menu-divider class="my-1 border-t border-line"></div>
-<a role="menuitem" href="/admin/media/nieuw?kind=activity_photo&amp;activity_id=<ACTIVITY>" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink">Foto&#39;s uploaden</a>
+<button role="menuitem" type="button" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink" hx-post="/admin/activiteiten/<ACTIVITY>/status" hx-vals='{"status": "draft"}' data-confirm="De activiteit verdwijnt van de publieke site tot je ze opnieuw publiceert. Bestaande inschrijvingen en betalingen blijven staan." data-confirm-ok="Terug naar concept" data-toast-after="Teruggezet naar concept">Terug naar concept</button><button role="menuitem" type="button" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink" hx-post="/admin/activiteiten/<ACTIVITY>/annulering" hx-vals='{"cancelled": "1"}' data-confirm="Deze activiteit annuleren? Ze neemt dan geen inschrijvingen meer aan. Bestaande inschrijvingen en betalingen blijven staan." data-confirm-ok="Activiteit annuleren" data-toast-after="Activiteit geannuleerd">Activiteit annuleren</button>
+<div data-menu-divider class="my-1 border-t border-line"></div><a role="menuitem" href="/admin/media/nieuw?kind=activity_photo&amp;activity_id=<ACTIVITY>" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink">Foto&#39;s uploaden</a>
 <a role="menuitem" href="/admin/ontwerpen/nieuw?activity_id=<ACTIVITY>" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink">Design Studio</a>
+<div data-menu-divider class="my-1 border-t border-line"></div><div role="menuitem" aria-disabled="true" data-menu-refused class="px-3 py-2 text-sm text-ink-soft">
+<span class="block font-medium">Verwijderen</span><span class="block text-[13px] leading-[19.5px]">De activiteit heeft 2 inschrijvingen en kan niet verwijderd worden. Gaat ze niet door, gebruik dan “Activiteit annuleren”.</span></div>
 </div>
 </div>
 </div>

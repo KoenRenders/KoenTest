@@ -126,7 +126,8 @@ def test_cancelling_and_taking_it_back_from_the_menu(client, db_session):
     assert ">Geannuleerd<" in page[page.index("data-badges") : page.index("data-head-controls")]
     back = re.search(r"<button[^>]*annulering[^>]*>([^<]+)<", _menu(page))
     assert back.group(1) == "Annulering intrekken"
-    assert "data-confirm=" not in back.group(0), "taking it back needs no question"
+    # #1561 (§3.18): every state command names its consequence first.
+    assert "neemt opnieuw inschrijvingen aan" in back.group(0)
     assert "Activiteit annuleren" not in _menu(page)
 
     client.post(f"{base}/annulering", headers=headers, data={"cancelled": "0"})

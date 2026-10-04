@@ -61,8 +61,10 @@ def test_the_head_carries_one_primary_and_the_actions_as_a_menu(client, db_sessi
         "Activiteit annuleren",
         "Foto&#39;s uploaden",
         "Design Studio",
+        # #1561: Verwijderen, last and red, under a divider of its own.
+        "Verwijderen",
     ]
-    assert head.count("data-menu-divider") == 1
+    assert head.count("data-menu-divider") == 2
 
 
 def test_a_draft_offers_publishing_in_the_state_slot(client, db_session):
