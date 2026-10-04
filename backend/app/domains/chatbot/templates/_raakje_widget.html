@@ -1,49 +1,30 @@
 {% import "_macros.html" as ui %}
 {% import "_raakje_teksten.html" as teksten %}
-{% import "_raakje_ballon.html" as ballon %}
-{% import "_raakje_controls.html" as controls %}
-{# Raakje-chatbot-widget (#469): zwevend knopje + paneel, hergebruikt /raakje/vraag.
-   Spraakinvoer (STT, #567) en voorlezen (TTS, #568) als progressive enhancement. #}
-<div x-data="{ open: false }" class="fixed bottom-4 right-4 z-40 print:hidden">
-  <button @click="open = !open"
-          class="bg-blue-700 hover:bg-brand-ocean-hover text-white rounded-full w-14 h-14 shadow-lg flex items-center justify-center text-2xl"
-          aria-label="{{ _('Raakje — vraag het aan onze AI-assistent') }}">💬</button>
-  <div x-show="open" x-cloak
-       class="absolute bottom-16 right-0 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col overflow-hidden"
-       style="height: 26rem">
-    <div class="px-4 py-3 bg-blue-700 text-white flex items-center justify-between gap-2">
-      <span class="font-semibold">{{ _("Raakje") }}</span>
-      <div class="flex items-center gap-1">
-        {{ controls.read_aloud_toggle(on_dark=True) }}
-        <button @click="open = false" class="hover:opacity-80" aria-label="{{ _('Sluiten') }}">{{ ui.icon("x") }}</button>
-      </div>
-    </div>
-    <div id="raakje-widget-gesprek" class="flex-1 overflow-auto p-3 space-y-2 text-sm">
-      {# #570/#765: de v1.14-tekst, uit `_raakje_teksten.html`. Die laatste zin is
-         niet decoratief — ze vertelt dát de doorgeef-actie bestaat.
-         #791: in dezelfde ballon als een antwoord. Ze komt van dezelfde spreker, en
-         als grijze lopende tekst was het eerste wat je zag geen gesprek maar een
-         mededeling. Ze staat BINNEN `#raakje-widget-gesprek`, dus de antwoorden
-         (`hx-swap="beforeend"`) schuiven er netjes onder aan — precies zoals v1.14
-         het deed, waar de begroeting gewoon Raakjes eerste bericht was. #}
-      <div><div class="{{ ballon.van_raakje() }}">{{ teksten.intro() }}</div></div>
-    </div>
-    {# #570: een meegroeiende textarea. Een <input> van één regel toonde bij een
-       langere vraag maar een stukje, en je zag niet meer wat je typte. Enter
-       verstuurt (zoals bij een input), Shift+Enter geeft een nieuwe regel — dat
-       laatste doet een textarea vanzelf, het eerste moet je zelf doen. De hoogte
-       gaat na een antwoord terug naar één regel; anders blijft het veld hangen op
-       de hoogte van de vorige vraag. #}
-    {# #1075: dezelfde reset na het verzenden als op /raakje en in de beheer-
-       Raakje's — via het formulier zelf, dus zonder x-ref op het veld. #}
-    <form hx-post="/raakje/vraag" hx-target="#raakje-widget-gesprek" hx-swap="beforeend"
-          class="border-t border-gray-200 p-2 flex gap-2 items-end"
-          hx-on::after-request="this.querySelector('textarea').value = ''; this.querySelector('textarea').style.height = 'auto'">
-      {# Invoerveld, microfoon en verstuurknop uit het gedeelde bedieningsdeel
-         (#1075). `icoon_verzenden` is het enige verschil met de beheerschermen:
-         hier een verzendpictogram, daar het woord *Vraag* — het paneel is 20rem
-         breed. De microfoon en de uitlijning zijn sinds #1115 overal gelijk. #}
-      {{ controls.input_row("raakje-widget-vraag", stt_mode, icoon_verzenden=True) }}
-    </form>
-  </div>
+{% import "_raakje_panel.html" as panel %}
+{% import "_raakje_frame.html" as frame %}
+{# The public Raakje (#469), since K8 (#1562) on the same component as the back
+   office's Assistent (`_raakje_panel.html`, end state §3.15): a bell of 56 px
+   at the bottom right; from 768 px a window of 400 × 640 px above it, on a
+   phone the sheet. The name is Raakje, the context the site, three public
+   suggestions.
+
+   One component, one difference: the toolset. The form posts to `/raakje/vraag`
+   — the public tools only, bound in that route and guarded by
+   `tests/test_public_tool_boundary_gate.py`; nothing here chooses a tool. The
+   public conversation keeps no history (a single turn per question), so there
+   is no history field.
+
+   Speech in (STT, #567) and reading aloud (TTS, #568) come with the shared
+   controls, as progressive enhancement. #}
+<div class="print:hidden">
+  <button type="button" data-raakje-trigger data-raakje-bell
+          class="raakje-bell bg-blue-700 text-white shadow-lg hover:bg-brand-ocean-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-700"
+          x-data @click="$dispatch('raakje-toggle', { opener: $el })" aria-haspopup="dialog"
+          aria-label="{{ _('Raakje — vraag het aan onze AI-assistent') }}">{{ ui.icon("message-circle", 24) }}</button>
+  {% call frame.frame("raakje-widget", mode="bell", label=_("Raakje")) %}
+    {{ panel.inner(_("Raakje"), _("over %(name)s", name=site_name), "/raakje/vraag",
+                   "raakje-widget-gesprek", "raakje-widget-vraag", stt_mode, key="public",
+                   suggestions=[_("Welke activiteiten komen eraan?"), _("Hoe word ik lid?"), _("Hoe neem ik contact op?")],
+                   opening=teksten.intro(), heading_cls="font-brand") }}
+  {% endcall %}
 </div>

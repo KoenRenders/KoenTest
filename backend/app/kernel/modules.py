@@ -175,7 +175,9 @@ MODULES: tuple[Module, ...] = (
         # Raakje is the name of the assistant on the public site, not of the
         # module. The tenant editor's card and its refusals read this (#1498).
         "Assistent",
-        admin_items=(("/admin/ai-context", "Raakje"), ("/admin/rapporten/raakje", "AI · Raakje")),
+        # K8 (#1562): the assistant itself has no menu item — it is the panel
+        # behind the top bar's trigger. What stays is what it knows.
+        admin_items=(("/admin/ai-context", "Raakje"),),
         route_prefixes=("/api/v1/chat", "/admin/ai-context", "/raakje/"),
         record_tables=("ai.chatbot_info",),
         tenant_settings=("admin_chat_enabled", "public_chat_enabled"),

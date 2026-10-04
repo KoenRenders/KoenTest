@@ -370,6 +370,22 @@ def registration_payment_states(db: Session, registration_ids) -> dict[int, dict
     return states
 
 
+def selection_count(
+    db: Session, *, context: str = "all", view: str = "alle", activity_id: int | None = None
+) -> int:
+    """How many bookings the payments list holds for this filter (CR-11 K8, #1562):
+    the size of the selection the Assistent panel names ("over 8 openstaande
+    betalingen"). Counted by the list's own filter (`filter_records`), so the
+    line and the screen cannot differ; **bookings**, not the registration groups
+    the toolbar counts — a booking is the row a report counts."""
+    from app.domains.activities.api import registration_ids_for
+
+    payables = None
+    if activity_id is not None:
+        payables = {(PayableType.REGISTRATION, i) for i in registration_ids_for(db, activity_id)}
+    return len(filter_records(enriched_records(db), context=context, zicht=view, payables=payables))
+
+
 def registration_balance_by_activity(db: Session, activity_id: int) -> Decimal:
     """What is still open on an activity's registrations, signed: the sum of
     every booking's amount minus what was booked as received — the same sum as

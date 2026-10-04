@@ -125,10 +125,6 @@ class AdminActiviteitInschrijvingenView(ActivityRegistrationsListView):
     record_head: dict[str, Any]
     way_back: dict[str, str]
     head_editing: bool
-    # The per-screen assistant overlay in the head and its speech path (#975,
-    # #1075), from `record_kop_ctx`; both go with the shell's panel (#1562).
-    raakje_admin: bool
-    stt_mode: str
     # #1428: "Concept" on the summary card, from `record_kop_ctx`.
     publication: Any
     csrf_token: str

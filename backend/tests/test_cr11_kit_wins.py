@@ -133,12 +133,22 @@ def test_the_organisations_header_links_to_no_other_module(client, platform_work
     assert "Naar de tenants" not in html
 
 
-def test_the_raakje_report_header_links_to_no_other_module(client, db_session):
+def test_the_reports_header_links_to_no_other_module(client, db_session):
+    """Until #1562 this measured the header of the assistant's own page, which
+    had lost its "Naar de rapporten" button. That page is gone — its address
+    moves to the reports list for good — and the list lost its "AI · Raakje"
+    button with it: the header there holds the list's own action and no link
+    to another screen."""
     _login(client)
-    html = client.get("/admin/rapporten/raakje").text
+    moved = client.get("/admin/rapporten/raakje", follow_redirects=False)
+    assert moved.status_code == 301 and moved.headers["location"] == "/admin/rapporten"
+
+    html = client.get("/admin/rapporten").text
     header = _element(html, "<div data-page-header")
-    assert "Raakje" in header, "the measurement found the wrong header"
-    assert 'href="/admin/rapporten"' not in header and "Naar de rapporten" not in html
+    assert "Nieuw rapport" in header, "the measurement found the wrong header"
+    links = re.findall(r'href="([^"]*)"', header)
+    assert links == ["/admin/rapporten/nieuw"], links
+    assert "AI · Raakje" not in html and "Naar de rapporten" not in html
 
 
 # ── W9: the account menu reads as a menu ─────────────────────────────────────

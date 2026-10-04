@@ -1,26 +1,14 @@
 {% import "_macros.html" as ui %}
-{% import "_raakje_overlay.html" as raakje %}
 {# The activity's record head (CR-11 block 5, #1557): one macro, its actions as
    data. Shared by the three tab pages (Gegevens, Inschrijvingen, Betalingen) and
    by the out-of-band copy a save inside the record sends along. `record_head`
    comes from `activities.api.record_kop_ctx`, the way back and the edit state
    from `app.ui.record_frame`. No button of its own here: a `btn_*` beside the
-   macro is red (`tests/test_record_header_gate.py`).
-
-   One named exception, until #1562: the per-screen assistant overlay (#975). The
-   norm takes it out of the head (§3.9, §3.15), but the shell's panel that
-   replaces it is built with #1562; without the overlay the conversation about
-   this one activity would be unreachable in between. #1562 removes the overlay
-   and the exception together. #}
+   macro is red (`tests/test_record_header_gate.py`). The per-screen assistant
+   overlay that stood here (#975) left with the shell's Assistent panel (K8,
+   #1562), which reads this record from the address. #}
 {% set _primary = dict(record_head.primary, href=record_head.primary.href ~ ("&" ~ way_back.keep if way_back.keep else "")) %}
-{% call ui.record_header(record_head.title, badges=record_head.badges, facts=record_head.facts,
-                         primary=_primary, actions=record_head.actions, back=way_back,
-                         editing=head_editing) %}
-{%- if raakje_admin %}
-{{ raakje.overlay(_("AI · Activiteit"),
-                  "/admin/rapporten/raakje/activiteit/" ~ a.id,
-                  _("Dag! Vraag me iets over deze activiteit — bijvoorbeeld “hoeveel inschrijvingen zijn er?” of “wat staat er nog open?”."),
-                  stt_mode, prefix="aa-raakje") }}
-{%- endif %}
-{% endcall %}
+{{ ui.record_header(record_head.title, badges=record_head.badges, facts=record_head.facts,
+                    primary=_primary, actions=record_head.actions, back=way_back,
+                    editing=head_editing) }}
 {{ ui.related_tabs(record_tabs, keep=way_back.keep) }}

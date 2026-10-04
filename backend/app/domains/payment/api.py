@@ -58,6 +58,7 @@ from app.domains.payment.service import (  # noqa: F401
     registration_balance,
     registration_balance_by_activity,
     registration_payment_states,
+    selection_count,
     set_payment_status,
     void_payment_record,
 )
@@ -105,6 +106,7 @@ __all__ = [
     "registration_balance",
     "registration_balance_by_activity",
     "registration_payment_states",
+    "selection_count",
     "refresh_record_status",
     "set_payment_status",
     "void_payment_record",

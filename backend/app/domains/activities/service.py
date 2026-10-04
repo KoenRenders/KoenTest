@@ -2679,12 +2679,11 @@ def record_kop_ctx(
     maken, precies één → dat ontwerp, meerdere → de lijst van deze activiteit.
     De keuze valt hier en niet in het sjabloon, zoals de laaggate vraagt.
     """
-    from app.config import settings
     from app.domains.activities.models import ActivityStatus
     from app.domains.designstudio.api import designs_for_activity
     from app.i18n import _, long_date
     from app.kernel.codes import code_label, tone
-    from app.kernel.tenant_config import tenant_admin_chat_enabled, tenant_base_url
+    from app.kernel.tenant_config import tenant_base_url
 
     # #1428: the status the header shows and the state action in its menu.
     pub = publication(db, activiteit.id)
@@ -2814,10 +2813,6 @@ def record_kop_ctx(
         "record_tabs": record_tabs(db, activiteit, viewer_email, actief, reg_count=reg_count),
         # #1428: "Concept" on the summary card too.
         "publication": pub,
-        # The per-screen assistant overlay (#975) and its speech path (#1075). It
-        # stays in the head until the shell's panel takes it over (#1562).
-        "raakje_admin": tenant_admin_chat_enabled(db),
-        "stt_mode": settings.stt_mode,
         "record_head": {
             "title": activiteit.name,
             "badges": badges,

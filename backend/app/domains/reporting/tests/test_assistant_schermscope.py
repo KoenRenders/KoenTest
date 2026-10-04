@@ -32,7 +32,9 @@ elk één keer gedraaid; tussen haakjes wat er werkelijk omviel:
 - de rolvraag uit de schermvlag (*wie de assistent niet mag*) — dan staat er een
   knop voor een FINANCE-only gebruiker die op een 403 uitkomt;
 - de `{% if raakje_scherm %}` altijd waar (*geen knop* én *wie de assistent niet
-  mag*).
+  mag*). Since #1562 that flag is gone: the entrance is the shell's trigger
+  (`GET …/raakje/knop`), and its counterpart is `{% if shown %}` in
+  `_assistant_trigger.html`.
 """
 
 from __future__ import annotations
@@ -233,14 +235,28 @@ def test_een_onbekend_scherm_bestaat_niet(client, db_session, situatie, aan):
 # ── De ingang op het scherm ──────────────────────────────────────────────────
 
 
+ON_PAYMENTS = {"HX-Current-URL": "http://testserver/admin/betalingen?zicht=openstaand"}
+TRIGGER = "/admin/rapporten/raakje/knop"
+PANEL = "/admin/rapporten/raakje/paneel"
+
+
 def test_de_ingang_staat_op_het_betalingenscherm(client, db_session, situatie, aan):
-    """De knop verschijnt, en hij wijst naar de schermroute."""
+    """Since #1562 the way in is the shell's one trigger, and the panel it opens
+    reads the screen's selection from its address: it posts to the screen route
+    and says which selection it speaks about."""
     _login(client)
 
     html = client.get("/admin/betalingen").text
+    assert "AI · Betalingen" not in html, "the screen's own overlay is back"
+    assert f'hx-get="{TRIGGER}"' in html
 
-    assert "AI · Betalingen" in html
-    assert 'hx-post="/admin/rapporten/raakje/scherm/betalingen"' in html
+    knop = client.get(TRIGGER, headers=ON_PAYMENTS).text
+    assert "data-assistant" in knop and 'data-available="true"' in knop
+
+    paneel = client.get(PANEL, headers=ON_PAYMENTS)
+    assert paneel.status_code == 200
+    assert 'hx-post="/admin/rapporten/raakje/scherm/betalingen"' in paneel.text
+    assert "openstaande betaling" in paneel.text and "(filter Openstaand)" in paneel.text
 
 
 def test_zonder_de_schakelaars_geen_knop(client, db_session, situatie):
@@ -250,6 +266,10 @@ def test_zonder_de_schakelaars_geen_knop(client, db_session, situatie):
     html = client.get("/admin/betalingen").text
 
     assert "AI · Betalingen" not in html
+    # #1562: no holder for the trigger in the shell, and nothing behind it.
+    assert 'id="assistent-knop"' not in html
+    assert "data-assistant" not in client.get(TRIGGER, headers=ON_PAYMENTS).text
+    assert client.get(PANEL, headers=ON_PAYMENTS).status_code == 403
 
 
 def test_wie_de_assistent_niet_mag_krijgt_er_geen_knop(client, db_session, situatie, aan):
@@ -260,6 +280,9 @@ def test_wie_de_assistent_niet_mag_krijgt_er_geen_knop(client, db_session, situa
     de assistent niet — die hoort daar geen knop te zien die op een 403 uitkomt.
     Geen nieuwe rol en geen verbreding: de ingang volgt exact wie de route
     toelaat.
+
+    Since #1562 the button is the shell's trigger: for this user its answer is
+    the empty holder, not a 403 the top bar would show as an error.
     """
     from app.domains.auth.api import User, UserRole
 
@@ -274,6 +297,14 @@ def test_wie_de_assistent_niet_mag_krijgt_er_geen_knop(client, db_session, situa
 
     assert antwoord.status_code == 200, "de penningmeester mag dit scherm wél zien"
     assert "AI · Betalingen" not in antwoord.text
+    knop = client.get(TRIGGER, headers=ON_PAYMENTS)
+    assert knop.status_code == 200
+    assert 'id="assistent-knop"' in knop.text
+    assert "<button" not in knop.text and "data-assistant" not in knop.text
+
+    # The counter-proof: the same request as an admin gives the button.
+    _login(client)
+    assert "data-assistant" in client.get(TRIGGER, headers=ON_PAYMENTS).text
 
 
 def test_zonder_de_schakelaars_geen_ingang(client, db_session, situatie):

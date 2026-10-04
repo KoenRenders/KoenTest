@@ -256,28 +256,39 @@ def test_opslaan_ververst_kop_en_rail_out_of_band(client, db_session):
 
 
 def test_raakje_knop_volgt_de_beheerassistent_schakelaar(client, db_session, monkeypatch):
-    """Golf 10 (#913): de "AI · Activiteit"-knop bestaat alleen als Raakje voor
-    beheer aan staat — één bron (tenant_admin_chat_enabled, CR-07 §6.3), geen
-    eigen vlag. Zolang het record-endpoint er niet is toont de overlay een
-    nette uitgeschakelde staat."""
+    """Golf 10 (#913): er is alleen een assistent als Raakje voor beheer aan
+    staat — één bron (tenant_admin_chat_enabled, CR-07 §6.3), geen eigen vlag.
+
+    Since #1562 the record head has no "AI · Activiteit" button: the way in is
+    the shell's trigger, and the panel it opens reads this record from the
+    screen's address."""
     from app.config import settings
     from app.kernel.tenancy import DEFAULT_TENANT_ID
     from app.kernel.tenant_config import set_setting
 
     activity, component = _activiteit_met_inschrijvingen(client, db_session)
     _login(client)
+    scherm = {"HX-Current-URL": f"http://testserver/admin/activiteiten/{activity.id}"}
 
-    # Uit (standaard): geen knop, ook niet op de betalingen-tab.
+    # Uit (standaard): geen knop, en geen paneel erachter.
     html = client.get(f"/admin/activiteiten/{activity.id}").text
-    assert "AI · Activiteit" not in html
+    assert 'id="assistent-knop"' not in html and 'id="assistent-paneel"' not in html
+    assert "data-assistant" not in client.get("/admin/rapporten/raakje/knop", headers=scherm).text
+    assert client.get("/admin/rapporten/raakje/paneel", headers=scherm).status_code == 403
 
     monkeypatch.setattr(settings, "admin_chat_enabled", True)
     set_setting(db_session, "admin_chat_enabled", "1", tenant_id=DEFAULT_TENANT_ID)
     db_session.commit()
 
     html = client.get(f"/admin/activiteiten/{activity.id}").text
-    assert "AI · Activiteit" in html
-    # De overlay draagt het echte gesprek (#975): het pad-gebonden endpoint en
-    # het historie-veld dat het antwoordfragment out-of-band bijwerkt.
-    assert f'hx-post="/admin/rapporten/raakje/activiteit/{activity.id}"' in html
-    assert 'name="historie" id="rp-raakje-historie"' in html
+    assert "AI · Activiteit" not in html, "the overlay is back in the record head"
+    assert 'id="assistent-knop"' in html and 'id="assistent-paneel"' in html
+    knop = client.get("/admin/rapporten/raakje/knop", headers=scherm).text
+    assert "data-assistant" in knop and 'data-available="true"' in knop
+    # The panel carries the real conversation (#975): the path-bound endpoint
+    # and the history field the answer fragment refreshes out-of-band.
+    paneel = client.get("/admin/rapporten/raakje/paneel", headers=scherm)
+    assert paneel.status_code == 200
+    assert f'hx-post="/admin/rapporten/raakje/activiteit/{activity.id}"' in paneel.text
+    assert 'name="historie" id="rp-raakje-historie"' in paneel.text
+    assert f"over {activity.name}" in paneel.text

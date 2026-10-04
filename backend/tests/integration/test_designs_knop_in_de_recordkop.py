@@ -184,15 +184,20 @@ def test_met_beide_knoppen_heeft_de_kopregel_twee_kinderen(
     client, db_session, activiteit, assistent_aan
 ):
     """Since #1557 the head's controls are one group (`data-head-controls`):
-    the primary, the Acties menu — Design Studio is a tool in it — and, until
-    #1562, the assistant overlay after them."""
+    the primary and the Acties menu — Design Studio is a tool in it.
+
+    #1562 took the assistant overlay out of the head: with the assistant on, the
+    head holds the same two children as without it, and the way in is the one
+    trigger of the shell's top bar. Counter-proof of the count: a third element
+    beside the macro in `_aa_recordkop.html` makes this three."""
     _login(client)
     html = _kop(client, activiteit)
-    assert "AI · Activiteit" in html, "voorwaarde: de AI-knop staat er"
+    assert 'id="assistent-knop"' in html, "precondition: the assistant is on, the shell asks for it"
+    assert "AI · Activiteit" not in html
 
     kinderen = _directe_kinderen_van_de_kopregel(html)
-    assert [k.split(" ")[0] for k in kinderen] == ["<a", "<div", "<div"], kinderen
-    assert "relative" in kinderen[1], "the menu comes before the overlay"
+    assert [k.split(" ")[0] for k in kinderen] == ["<a", "<div"], kinderen
+    assert "relative" in kinderen[1], "the second child is the Acties menu"
 
 
 def test_zonder_assistent_staat_de_ene_knop_nog_steeds_rechts(client, db_session, activiteit):
@@ -200,7 +205,7 @@ def test_zonder_assistent_staat_de_ene_knop_nog_steeds_rechts(client, db_session
     else; Design Studio is an item of the menu."""
     _login(client)
     html = _kop(client, activiteit)
-    assert "AI · Activiteit" not in html, "voorwaarde: de beheer-assistent staat uit"
+    assert 'id="assistent-knop"' not in html, "voorwaarde: de beheer-assistent staat uit"
     assert ">Design Studio</" in html
 
     kinderen = _directe_kinderen_van_de_kopregel(html)

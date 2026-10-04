@@ -49,9 +49,12 @@ _HOME = """() => ({
 #: what v2.12.0 showed and every change is named here, with its issue.
 #: #1535 (Koen): platform administration is the platform's menu; a tenant
 #: workspace has its own organisation and settings in their place.
-DELIBERATE_MENU_CHANGES = {
+#: #1562 (K8, Koen): the assistant has no page and no menu item any more — it is
+#: the panel behind the top bar's trigger. `None` is an item that left.
+DELIBERATE_MENU_CHANGES: dict[str, str | None] = {
     "/admin/organisaties Organisaties": "/admin/organisatie Onze organisatie",
     "/admin/tenants Tenants": "/admin/instellingen Instellingen",
+    "/admin/rapporten/raakje AI · Raakje": None,
 }
 
 _YEAR = re.compile(r"\b20\d\d\b")
@@ -138,7 +141,9 @@ def test_the_association_shows_what_it_showed_on_v2_12_0(browser):
     before = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
     menu = before["shown"]["menu"]
     assert set(DELIBERATE_MENU_CHANGES) <= set(menu), "a deliberate change names no recorded item"
-    before["shown"]["menu"] = sorted(DELIBERATE_MENU_CHANGES.get(item, item) for item in menu)
+    before["shown"]["menu"] = sorted(
+        changed for item in menu if (changed := DELIBERATE_MENU_CHANGES.get(item, item)) is not None
+    )
     now = extract(browser, BASE, make_session_value(SEEDED_ADMIN_EMAIL))
 
     assert set(now) == set(before["shown"]), "the snapshot and the extraction disagree on shape"

@@ -48,6 +48,11 @@ router = APIRouter(include_in_schema=False)
 # staat en niet in een commit-bericht.
 
 
+#: Says to the panel that the question was not answered, so the field keeps it
+#: (K8, #1562; the same header as the back office's assistant).
+NOT_ANSWERED = {"X-Raakje-Failed": "1"}
+
+
 @router.post("/raakje/vraag", response_class=HTMLResponse, dependencies=[Depends(chat_limiter)])
 def raakje_vraag(request: Request, db: Session = Depends(get_db), vraag: str = Form("")):
     from app.domains.chatbot.api import chat_char_budget
@@ -87,6 +92,7 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db), vraag: str = F
             request,
             "_raakje_antwoord.html",
             {"vraag": vraag, "antwoord": None, "error": str(geblokkeerd)},
+            headers=NOT_ANSWERED,
         )
     except Exception:
         return templates.TemplateResponse(
@@ -95,8 +101,11 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db), vraag: str = F
             {
                 "vraag": vraag,
                 "antwoord": None,
-                "error": _("Sorry, er ging iets mis. Probeer later opnieuw."),
+                "error": _(
+                    "Raakje kon geen antwoord geven — probeer het opnieuw. Je vraag staat er nog."
+                ),
             },
+            headers=NOT_ANSWERED,
         )
     return templates.TemplateResponse(
         request, "_raakje_antwoord.html", {"vraag": vraag, "antwoord": antwoord, "error": None}

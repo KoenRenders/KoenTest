@@ -34,7 +34,7 @@ bezoeker hem gebruikt.
 dezelfde microfoon uit hetzelfde partial, maar zit in een `x-show`-dialoog op een
 beheerscherm: een knop die in een verborgen overlay niet bedraad raakt, of een veld dat
 daar niet meegroeit, ziet de publieke test niet. De overlay-test doorloopt dus dezelfde
-keten — knop, worklet, WebSocket, mock — op `#aa-raakje-vraag`, als beheerder, met de
+keten — knop, worklet, WebSocket, mock — op `#assistent-vraag`, als beheerder, met de
 beheer-assistent aan (`ADMIN_CHAT_ENABLED` plus de tenantschakelaar uit `seed_e2e.py`).
 Dat de vier Raakje-plekken hetzelfde partial gebruiken bewijst
 `tests/test_raakje_controls_shared.py`; hier staat alleen wat een browser moet tonen.
@@ -63,7 +63,7 @@ from tests_e2e.schermen import (  # noqa: E402
 from tests_e2e.test_beheer_flows import _admin_email, _ontbreekt  # noqa: E402
 
 PUBLIEK = "#raakje-widget-vraag"
-OVERLAY = "#aa-raakje-vraag"
+OVERLAY = "#assistent-vraag"
 
 
 @pytest.fixture(scope="module")
@@ -125,11 +125,13 @@ def _open(page, veld_selector: str = PUBLIEK):
 
 
 def _open_de_overlay(page):
-    """Als beheerder naar een activiteit, en de Raakje-overlay open (#1075).
+    """As an administrator on an activity, with the Assistent panel open (#1075;
+    since K8, #1562, the panel behind the top bar's trigger — the per-screen
+    overlay it replaced carried the same field).
 
-    De knop bestaat alleen als de beheer-assistent aan staat (CR-07 §6.3). Onder de
-    e2e-seed hoort hij er te zijn; ontbreekt hij daar, dan is dat een bevinding en
-    geen skip (#644).
+    The trigger exists only when the back-office assistant is on (CR-07 §6.3).
+    Under the e2e seed it must be there; when it is missing, that is a finding
+    and not a skip (#644).
     """
     from app.domains.auth.api import make_session_value
 
@@ -137,13 +139,16 @@ def _open_de_overlay(page):
     if not Activiteitdetail(page).open_eerste():
         _ontbreekt("geen activiteit om te openen")
     pagina_klaar(page)
-    knop = page.get_by_role("button", name="AI · Activiteit")
-    if knop.count() == 0:
+    knop = page.locator("[data-raakje-trigger]")
+    try:
+        knop.wait_for(state="visible", timeout=5000)
+    except Exception:
         _ontbreekt(
-            "geen AI · Activiteit-knop — staat de beheer-assistent aan "
+            "geen Assistent-knop — staat de beheer-assistent aan "
             "(ADMIN_CHAT_ENABLED én de tenantschakelaar)?"
         )
-    knop.click()
+    if page.locator(OVERLAY).count() == 0 or not page.locator(OVERLAY).is_visible():
+        knop.click()
     page.wait_for_selector(OVERLAY, state="visible", timeout=5000)
 
 
