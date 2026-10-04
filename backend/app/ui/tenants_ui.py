@@ -182,6 +182,9 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
         # CR-19 (#1478): the kind of each tenant, as its label — the platform's
         # own kind too, since #1523.
         "kind_of": {u.id: kinds[u.kind.value] for u in units if u.kind is not None},
+        # #1542 (Koen): the account each site hangs under, the platform included
+        # once it has one; no account, no badge.
+        "account_of": _account_names(db, units),
         # #1523: a new tenant takes one of the creatable kinds, never PLATFORM.
         "kind_options": _creatable_kind_options(),
         # #854: the platform is in this list but is no unit; the screen marks
@@ -195,6 +198,14 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
         "opgeslagen": False,
         "csrf_token": csrf_from_request(request),
     }
+
+
+def _account_names(db: Session, units) -> dict[int, str]:
+    """Each listed site's account name, by the site's id (#1542)."""
+    from app.domains.mdm.api import organization_options
+
+    names = {o["id"]: o["name"] for o in organization_options(db) if o["org_type"] == "ACCOUNT"}
+    return {u.id: names[u.parent_id] for u in units if u.parent_id in names}
 
 
 def _creatable_kind_options() -> list[tuple[str, str]]:
@@ -325,9 +336,10 @@ def _editor_ctx(
         else [],
         "kind_value": unit.kind.value if unit.kind is not None else None,
         # #1533 (Koen): beside the kind, the account the tenant hangs under, chosen
-        # from the active accounts (#1495); "" only while it has none.
+        # from the active accounts (#1495); "" only while it has none. #1542: the
+        # platform too — its kind stays fixed, its account may be chosen.
         "account_options": [(str(a.id), a.name) for a in list_accounts(db)]
-        if unit.org_type is OrganizationType.UNIT and not own
+        if unit.org_type in (OrganizationType.UNIT, OrganizationType.PLATFORM) and not own
         else [],
         "account_value": str(unit.parent_id) if unit.parent_id is not None else "",
         "cards": _cards(db, unit, modules_on=on, refused=refused),

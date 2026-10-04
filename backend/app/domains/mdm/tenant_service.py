@@ -264,12 +264,17 @@ def _checked_kind(db, tenant_id: int, kind: str) -> TenantKind:
 
 def _checked_account(db, tenant_id: int, account: str) -> int | None:
     """The account a tenant may be moved under (#1533), refused before anything
-    is written: an active ACCOUNT (#1495), or "" for none, on a UNIT only."""
+    is written: an active ACCOUNT (#1495), or "" for none.
+
+    On a UNIT, and since #1542 on the PLATFORM organisation too, so that data an
+    account holds is kept once, whatever hangs under it. The account grants
+    nothing — no role is read from `parent_id` — and the platform stays the
+    platform: its kind, its modules, its host and its screens do not follow it."""
     from app.domains.mdm.models import Organization
 
     org = db.get(Organization, tenant_id)
-    if org is None or org.org_type is not OrganizationType.UNIT:
-        raise TenantFout("Het platform hangt onder geen account.")
+    if org is None or org.org_type not in (OrganizationType.UNIT, OrganizationType.PLATFORM):
+        raise TenantFout("Alleen een tenant of het platform hangt onder een account.")
     if account == "":
         return None
     parent = db.get(Organization, int(account)) if account.isdigit() else None
