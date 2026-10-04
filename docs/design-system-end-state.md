@@ -351,8 +351,10 @@ document is sent. [4, 15, 39, 42]
 The three layouts are the admin's. The public site shares the tokens,
 the fields, the buttons, the surfaces and the messages, and keeps its own
 page shapes, designed around the visitor's tasks (discover, judge, register,
-check) in pilot B — a public activity page and "Mijn gezin" are more than
-a form page and get their own composition there. Today the site shell
+check) in pilot B — **narrowed by Koen on 4 October 2026 (CR-11 Q57) to
+the public header and footer and the consistent embedding of the public
+forms** (register, a public form, become a member, renew, update details);
+the activity page, the photos and the home's body keep their composition. Today the site shell
 (`site_base.html`) hosts two shapes: a **card list** (the
 activities with their posters, the photo albums) and a **form page**
 (register for an activity, become a member, a public form, the family
