@@ -425,8 +425,12 @@ stand once**, as a column head above the first row, never repeated per row
 repeated Datum · Van · Tot on every date row); on a phone, where the fields
 stack and no head is possible, each field carries its label, `⋯` at the right, 12 px between rows with a thin
 line in that space; on a phone the fields stack under a first line with
-handle and `⋯`. A **composite item** (a component) has a title line
-(handle, name, `⋯`), its fields in the grid under it, and its child group
+handle and `⋯`. A **composite item** (a component, a product) has **its drag handle in a
+fixed gutter at the left of the whole block, and its title line, its fields
+and the separator line to the next item share one left edge to the right of
+that gutter** — never fields that start left of the handle (ChatGPT's draft
+did; Koen, 4 Oct 2026, Q50); the title line (name, `⋯`), its fields in the
+grid under it, and its child group
 (**Producten**, with its own "+ Product") indented 16 px behind a vertical
 line (12 px on a phone) — no card, no background, no nested box; a product
 row is naam half · prijs kwart · ledenprijs kwart with gratis and ter
