@@ -19,7 +19,7 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import BASE, htmx_stil, login_met_sessie, pagina_klaar  # noqa: E402
 
 WIDTH = 390
 
@@ -75,7 +75,16 @@ def test_the_board_adds_a_registration_on_a_phone(page, setup):
     naam = f"Bestuur {secrets.token_hex(2)}"
     page.fill("#contact_name", naam)
     page.fill("#contact_email", "bestuur-e2e@example.org")
-    page.fill("#phone", "0470000000")
+    # The e-mail address changes when the focus leaves it, and the board's form
+    # then asks the price block again (`…/nieuw/prijzen`, #1284). htmx puts the
+    # focus back on the field of the same id after that swap, so a quantity typed
+    # while the answer is under way lands in the NEW field, before its opening
+    # "1": "81" instead of "8", refused as above the maximum. That was this
+    # test's four-in-five failure in CI (4 October 2026): wait for the price
+    # block before typing in it.
+    with page.expect_response(lambda r: r.url.endswith("/nieuw/prijzen")):
+        page.fill("#phone", "0470000000")
+    htmx_stil(page)
     page.fill(f"#product-{setup['product']}", "8")
     page.fill("#remarks", "Acht namen van de papieren lijst")
     opslaan = page.get_by_role("button", name="Inschrijving toevoegen")
@@ -84,6 +93,23 @@ def test_the_board_adds_a_registration_on_a_phone(page, setup):
         "the form scrolls sideways on a phone"
     )
 
+    posts: list[str] = []
+    page.on(
+        "request", lambda r: posts.append(r.url.rsplit("/", 1)[-1]) if r.method == "POST" else None
+    )
     opslaan.click()
-    page.wait_for_url("**/admin/inschrijvingen/*", timeout=10_000)
+    try:
+        page.wait_for_url("**/admin/inschrijvingen/*", timeout=10_000)
+    except Exception:
+        # This test failed in CI without saying why (four runs of five on one
+        # branch, 4 October 2026): the wait timed out and nothing was known about
+        # the page. Say what stands on it — a refusal has a message, a click that
+        # never landed has no POST.
+        raise AssertionError(
+            "no redirect to the registration after the save: "
+            f"url={page.url!r} posts_after_click={posts} "
+            f"quantity={page.locator(f'#product-{setup["product"]}').input_value()!r} "
+            f"alerts={[t[:160] for t in page.locator('[role=alert], [data-field-error]').all_inner_texts()]} "
+            f"busy={page.evaluate('() => [...document.querySelectorAll(".htmx-request")].map(e => e.id || e.tagName)')}"
+        ) from None
     expect(page.get_by_text(naam).first).to_be_visible()

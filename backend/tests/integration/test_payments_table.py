@@ -305,3 +305,62 @@ def test_who_may_not_change_payments_gets_no_action_and_no_delete(client, db_ses
     assert "Verwijderen" not in html and "#terugbetaling" not in html
     # What is left under ⋯ is the way to the registration; the row still opens.
     assert html.count("Inschrijving openen") == 4 and html.count("data-row-link") == 4
+
+
+# ── #1582: the balance in a stacked row ──────────────────────────────────────
+
+
+def _stacked_balances(html: str) -> list[str]:
+    return [
+        re.sub(r"\s+", " ", text).strip()
+        for text in re.findall(
+            r"<span data-stacked-only data-stacked-balance[^>]*>(.*?)</span>", html, re.S
+        )
+    ]
+
+
+def test_a_partly_paid_booking_shows_its_balance_in_the_stacked_row(client, db_session):
+    """#1582 (Koen, 4 October 2026): since K2 the phone showed the amount and
+    hid Saldo, so a partly paid booking read as its full amount. The balance
+    stands under the amount when it differs from it and is not zero; a fully
+    open and a settled booking show nothing extra.
+
+    Proven red against master `0cfee163`: no `data-stacked-balance` in the list
+    — the first assertion fails."""
+    open_reg, _a = _registration(db_session, "Open Voorbeeld")
+    partly_reg, activity = _registration(db_session, "Deels Voorbeeld")
+    settled_reg, _c = _registration(db_session, "Klaar Voorbeeld")
+    _record(db_session, open_reg, "30.00", minutes=1)
+    _record(db_session, partly_reg, "40.00", paid="15.00", minutes=2)
+    _record(db_session, settled_reg, "20.00", status="paid", paid="20.00", minutes=3)
+    db_session.commit()
+    _login(client, db_session)
+
+    html = client.get("/admin/betalingen/lijst").text
+    rows = {re.search(r"data-row-link[^>]*>([^<]+)</a>", row).group(1): row for row in _rows(html)}
+    assert _stacked_balances(rows["Deels Voorbeeld"]) == ["nog € 25,00"]
+    assert _stacked_balances(rows["Open Voorbeeld"]) == []
+    assert _stacked_balances(rows["Klaar Voorbeeld"]) == []
+    # It stands in the amount's cell, under the amount, and Bedrag stays uncoloured.
+    cell = re.search(
+        r'<td data-cell="amount" data-amount.*?</td>', rows["Deels Voorbeeld"], re.S
+    ).group(0)
+    assert cell.index("€ 40,00") < cell.index("nog € 25,00")
+    assert "text-brand-warning" not in cell.split("data-stacked-only")[0]
+    # The wide list keeps its Saldo column as it was.
+    assert "€ 25,00" in re.search(
+        r"<td data-cell=\"extra\" data-balance.*?</td>", rows["Deels Voorbeeld"], re.S
+    ).group(0)
+
+    # The same fragment on the activity's tab.
+    tab = client.get(f"/admin/activiteiten/{activity.id}/betalingen").text
+    assert _stacked_balances(tab) == ["nog € 25,00"]
+
+
+def test_the_sum_row_of_a_group_carries_the_balance_too(client, db_session, world):
+    """An paid € 50 and has a refund of € 10 still to pay out: the group's
+    total is € 40 due, € 50 received — € 10 goes back."""
+    _login(client, db_session)
+    html = client.get("/admin/betalingen/lijst").text
+    total = re.search(r"<tr data-sum.*?</tr>", html, re.S).group(0)
+    assert _stacked_balances(total) == ["terug € 10,00"]

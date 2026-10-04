@@ -246,3 +246,73 @@ def test_an_open_row_menu_lies_over_the_rows_under_it(browser):
     page.close()
     assert covered, "no ⋯ lies under the open menu in this seed, so this proves nothing"
     assert all(covered), "a ⋯ of another row shows through the open menu"
+
+
+_BALANCE = """() => {
+  const extra = [...document.querySelectorAll('#betalingen-lijst [data-stacked-balance]')];
+  return {
+    total: extra.length,
+    shown: extra.filter(e => e.checkVisibility()).map(e => {
+      const r = e.getBoundingClientRect();
+      const amount = e.previousElementSibling.getBoundingClientRect();
+      const row = e.closest('tr').getBoundingClientRect();
+      return {text: e.innerText.trim(), under: r.top >= amount.bottom - 1, right: Math.round(r.right), amount_right: Math.round(amount.right),
+              inside: r.bottom <= row.bottom + 1 && r.right <= row.right + 1, colour: getComputedStyle(e).color,
+              amount_colour: getComputedStyle(e.previousElementSibling).color, row_h: Math.round(row.height)};
+    }),
+    scroll: document.documentElement.scrollWidth, width: innerWidth,
+  };
+}"""
+
+
+@pytest.fixture
+def partly_paid():
+    """One seeded booking made partly paid for the measurement, and put back:
+    what the list holds by the time this test runs depends on the tests before
+    it (a full run confirms the open bookings), so the test brings its own."""
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.payment.models import PaymentRecord, PaymentStatus
+
+    db = SessionLocal()
+    record = db.query(PaymentRecord).filter(PaymentRecord.amount > 0).first()
+    assert record is not None, "the seed has no booking"
+    was = (record.amount_paid, record.status)
+    record.amount_paid = record.amount / 4
+    record.status = PaymentStatus.PENDING
+    db.commit()
+    try:
+        yield
+    finally:
+        record.amount_paid, record.status = was
+        db.commit()
+        db.close()
+
+
+def test_on_a_phone_a_balance_that_differs_stands_under_the_amount(browser, partly_paid):
+    """#1582: the stacked row has no Saldo column. Where the balance differs
+    from the amount and is not zero — a partly paid booking, and the sum row of
+    its registration — it stands under the amount, right-aligned with it, in
+    the warning tone, inside its row; a wide list does not show it (it has the
+    column).
+
+    Proven red (on this branch, restored after): the stacked rule
+    `[data-stacked-only]{display:block}` removed → nothing is shown at 390."""
+    page = _open(browser, (390, 844))
+    phone = page.evaluate(_BALANCE)
+    print("MEASURE balance 390", phone)
+    page.close()
+    assert phone["total"] >= 1, "the partly paid booking shows no balance"
+    assert len(phone["shown"]) == phone["total"], phone
+    for extra in phone["shown"]:
+        assert extra["text"].startswith(("nog € ", "terug € ")), extra
+        assert extra["under"] and extra["inside"], extra
+        assert abs(extra["right"] - extra["amount_right"]) <= 1, extra
+        # The warning tone on the balance, never on the amount (Q36).
+        assert extra["colour"] != extra["amount_colour"], extra
+    assert phone["scroll"] == phone["width"], phone
+
+    page = _open(browser, (1440, 900))
+    wide = page.evaluate(_BALANCE)
+    page.close()
+    assert wide["total"] == phone["total"] and wide["shown"] == [], wide
