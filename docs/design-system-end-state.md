@@ -289,7 +289,12 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
 - **The way back** on the first line, to the list it came from **as it was
   left** — the same filter, search, sort and page: the list's state is its
   URL, a row's link carries it, and the layout returns to it (a local path
-  only; the list's default when the record was opened from elsewhere). A
+  only). **It names its origin** (block 5, Koen, 3 October 2026): "‹
+  Activiteiten" from the list, "‹ Betaling van Emma Vermeulen" from a jump
+  link on a booking, "‹ Zoekresultaten" from the search, the entity's list
+  name when opened from nowhere; the navigation layer hands `return_to` and
+  its label to the record macro, never the browser's back. 14 px, brand
+  tint, `chevron-left`, a 28 px target on a desktop and 44 on a phone. A
   screen never writes this link itself. [28, 57]
 - **The record header:** the title with its badges on the title line,
   status first; the facts line under it, every reference a jump link; at
@@ -487,6 +492,32 @@ menu). First applied to the activity's head (#1387) and the "Kopiëren" of
 #1397, whose place was decided four times before this rule existed. [39,
 51]
 
+**Decided with block 5** (Koen, 3 October 2026, on ChatGPT's brief-05
+answer): the title line is 36 px on a desktop (title 30 px, badges beside
+it, status first, the others in `ink-soft` on `surface-2`, 4 px radius), the
+facts line 24 px, 8 px between them; a long title stays on one line and
+the badges move to a second line inside the title group (68 px), the two
+controls stay top right; the facts line reads date · time · place ·
+reference, the reference with `arrow-up-right`, an e-mail a real
+`mailto:`; **on a phone the facts keep their full words** — "zondag 1
+november 2026 · 14:00 · Miloheem · Publieke pagina" wraps to a second
+line rather than becoming "1 nov · 14u · Publiek" (Koen refused the
+abbreviations) — and the reference's target is 44 px; on a phone the
+title takes the full width, the badges under it, then Bewerken and Acties
+on a line of their own at the right, unless a short title fits beside
+them ("Quiz"). **"Acties ▾"**: 272 px, anchored right, 8 px under the
+button; the activity's menu is Kopiëren · Terug naar concept | Foto's
+uploaden · Design Studio | Verwijderen (red); the general order of record
+actions is kopiëren, afdrukken, exporteren, versturen, heropenen / terug
+naar concept, only the available ones shown; Escape returns the focus to
+Acties. **Edit mode**: a badge "Bewerken" in the title group after the
+status, the primary button gone, Acties stays; Opslaan and Annuleren live
+in the action bar (block 9), never a second time in the head. **A record
+without tabs** (a page, a user) has no empty tab line: the content follows
+the facts. Measured: the first content line at y = 286 on 1 920 × 1 080
+(318 with a long title and three badges), visible on 390 × 844 with the
+summary strip above it.
+
 ### 3.10 `summary_card(state, figures, action)`
 
 Right column on a desktop (`max-w-xs`, `surface-card`), a strip above the
@@ -504,7 +535,10 @@ record it names. [20, 30]
 
 The tab bar of the record page: "Gegevens" first, then the related lists
 with counts, the same order per entity across the portal (defined once per
-entity in Part 5). **Tabs — an underline under the active item — are
+entity in Part 5). Labels 14 px, counts 13 px tabular, the active tab a
+2 px underline in the brand colour, the bar 45 px with its bottom line; no
+border around the group, no filled active tab, no rounded corners (block 5,
+3 October 2026). **Tabs — an underline under the active item — are
 navigation inside a record and nothing else**: they lead from a record to
 its linked objects, the content below switches, the place stays. A tab bar
 never appears in a list's toolbar, and a list's status filter never looks
