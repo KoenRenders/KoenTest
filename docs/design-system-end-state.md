@@ -657,7 +657,10 @@ shapes of today — Leden's pills, Activiteiten's pills, Betalingen's tabs
 with counts). **Which segments is a choice per list**, written in §5, not
 a formula: a segment is a state the board acts on; a done state gets no
 segment; "Alle" is not mandatory. **A segment carries its count** where
-the state is acted on — "Openstaand 3" — computed with the search and
+the state is acted on — **"Openstaand (3)", the count in brackets, the
+one way a count follows a name anywhere: a segment, a record's tab
+("Inschrijvingen (23)"), a group row ("Wandeling (18)")** (Koen, 4 Oct
+2026) — computed with the search and
 the other filters of that moment, so the count is what the click yields;
 "Alle" carries none (the toolbar's count says n); a zero stays ("nothing
 to do" is information). Decided: Betalingen *Alle | Openstaand n*; Leden
