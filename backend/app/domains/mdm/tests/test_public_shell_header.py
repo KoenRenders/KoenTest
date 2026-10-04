@@ -81,13 +81,13 @@ def test_aanmelden_introtekst_en_knop(client):
     assert "Stuur inloginfo" in html
 
 
-def test_footer_privacylink_is_config_driven(client, db_session):
-    """#493: de privacyverklaring-link staat enkel in de footer als de tenant-
-    setting `privacy_url` gezet is — niet hardcoded."""
+def test_the_privacy_url_setting_no_longer_reaches_the_footer(client, db_session):
+    """#1569: the footer link was the tenant setting `privacy_url` (#493). A page
+    now says itself that it stands in the footer (`cms/tests/test_footer_pages.py`);
+    a leftover setting shows nothing."""
     from app.kernel.tenant_config import set_setting
 
-    assert "Privacyverklaring" not in client.get("/aanmelden").text
-    set_setting(db_session, "privacy_url", "https://voorbeeld.be/privacy")
+    set_setting(db_session, "privacy_url", "https://voorbeeld.example/privacy")
     db_session.commit()
     html = client.get("/aanmelden").text
-    assert "Privacyverklaring" in html and "https://voorbeeld.be/privacy" in html
+    assert "voorbeeld.example/privacy" not in html

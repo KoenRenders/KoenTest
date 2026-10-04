@@ -20,7 +20,8 @@
     {{ ui.form_guard_fields() }}
     {{ ui.btn_primary(_("Inschrijven"), type="submit", cls="w-full justify-center") }}
     <p class="text-sm text-gray-600">{{ _("Je krijgt eerst een mail om te bevestigen. Uitschrijven kan onderaan elke nieuwsbrief.") }}
-      {% if privacy_url %}<a class="text-blue-500 underline" href="{{ privacy_url }}">{{ _("Privacyverklaring") }}</a>{% endif %}</p>
+      {# #1569: the same pages the footer lists, by their title. #}
+      {% for p in footer_pages %}<a class="text-blue-500 underline" href="{{ path_for('/' ~ p.slug) }}">{{ p.title }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>
     <p class="text-base">{{ _("Liever lid worden?") }} <a class="text-blue-500 underline" href="{{ path_for('/lid-worden') }}">{{ _("Word lid") }}</a></p>
   </form>
 {% elif state == "sent" %}

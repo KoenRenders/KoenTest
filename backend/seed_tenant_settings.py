@@ -32,8 +32,11 @@ FOOTER_LINKS = {
     "facebook_url": "https://www.facebook.com/raakmillegem",
     "instagram_url": "https://www.instagram.com/raakmillegem",
     "tiktok_url": "https://www.tiktok.com/@raakmillegem",
-    "privacy_url": "/privacy",
 }
+
+
+#: The page migration 049 seeds; the footer lists it on a fresh environment.
+PRIVACY_SLUG = "privacy"
 
 
 def seed_footer_links(db) -> list[str] | None:
@@ -52,6 +55,20 @@ def seed_footer_links(db) -> list[str] | None:
             continue  # al ingevuld via het instellingenscherm — met rust laten
         set_setting(db, key, value, tenant_id=TENANT_MILLEGEM_ID)
         gezet.append(key)
+
+    # #1569: the privacy link is no setting any more; a page says itself that it
+    # stands in the footer. A fresh environment got "/privacy" from this seed, so
+    # it now gets the flag on that page — once, under the same marker, after which
+    # the page editor is the boss. (An existing environment has the marker; its
+    # page was ticked by the migration.)
+    from app.domains.cms.models import CmsPage
+
+    (
+        db.query(CmsPage)
+        .filter(CmsPage.tenant_id == TENANT_MILLEGEM_ID, CmsPage.slug == PRIVACY_SLUG)
+        .execution_options(include_all_tenants=True)
+        .update({"show_in_footer": True}, synchronize_session=False)
+    )
 
     set_setting(db, MARKER, "1", tenant_id=TENANT_MILLEGEM_ID)
     db.commit()
