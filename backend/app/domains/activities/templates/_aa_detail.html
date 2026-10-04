@@ -56,7 +56,7 @@
 <div data-form-flow data-mode="{{ 'edit' if _edit else 'read' }}" class="form-flow">
   {# The fiche's message line: a refused save answers here and nowhere else, so
      the form keeps what was typed (#1559). #}
-  <div id="aa-fiche-message">{{ ui.error_banner(error|default(None)) }}</div>
+  <div id="aa-fiche-message" data-form-message>{{ ui.error_banner(error|default(None)) }}</div>
   {# One "Opslaan" keeps the text fields and the poster (#623): the form is
      multipart. `contents`, so the sections are the flow's own children. #}
   {% if _edit %}<form id="aa-act-form" class="contents" enctype="multipart/form-data"
