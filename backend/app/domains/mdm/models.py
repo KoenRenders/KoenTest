@@ -627,6 +627,11 @@ class Organization(SoftDeleteMixin, Base):
     # Stabiele technische naam (bv. "raakmillegem") — uniek.
     code = Column(String(50), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
+    # #1546: on a tenant, the name its site shows (wordmark, tab, footer, mails,
+    # the list of sites), when it differs from the organisation's. NULL = the name
+    # of the organisation behind the site (#1550). Read only through
+    # `kernel.tenant_config.tenant_display_name`.
+    site_name = Column(String(255), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(
