@@ -2,74 +2,69 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Word lid — Raak") }}{% endblock %}
 {% block content %}
-{# Golf 11 (F18, #913): dezelfde begrensde formulierkolom als het publieke
-   formulier — korte persoonsvelden horen niet over de volle paginabreedte. #}
-<div class="max-w-2xl mx-auto">
-{{ ui.page_header(_("Lid worden")) }}
-{{ ui.error_banner(error) }}
-<form hx-post="/lid-worden" hx-target="body" hx-swap="innerHTML" class="space-y-4">
-  {% include "_member_nudge.html" %}
-  {# Hoofdlid #}
-  <div id="hoofdlid">
-    {% with i = 0 %}{% include "_lid_persoon_rij.html" %}{% endwith %}
+{# Word lid on the public form page (CR-11 pilot B, #1590; end state §2.6): one
+   long page, no wizard and no nudge. The household is a repeating group, the
+   address a section, the price and the payment choice the last card; ONE bar
+   carries the one action down the page. A refusal answers the banner alone into
+   the message line (`refusal_response`) and the fields are marked in place —
+   everything typed stays. `#lid-worden-pagina` is what a good answer replaces. #}
+<div id="lid-worden-pagina">
+{% if page.done %}
+  {% call ui.public_form_page(_("Je aanvraag is ontvangen"), result=True,
+                              intro=_("Welkom! We hebben de gegevens van je gezin goed ontvangen.")) %}
+  <div class="form-flow">
+    {% if page.to_checkout %}
+    {% call ui.flow_card(_("Naar de betaalpagina"), attrs="data-signup-checkout") %}
+      <p class="text-base text-ink">{{ _("Je wordt doorgestuurd naar de beveiligde betaalpagina. Je lidmaatschap gaat in zodra de betaling bevestigd is.") }}</p>
+    {% endcall %}
+    {% else %}
+    {% call ui.flow_card(_("Betaling nog af te ronden"), attrs="data-payment-pending") %}
+      <p class="text-base text-ink">{{ _("Je krijgt de betaalgegevens per e-mail. Je lidmaatschap gaat in zodra we je overschrijving ontvangen hebben.") }}</p>
+    {% endcall %}
+    {% endif %}
+    <p>{{ ui.btn_secondary(_("Terug naar de startpagina"), href="/") }}</p>
   </div>
-
-  {# Adres — vaste 4-koloms grid; postcode altijd dropdown (vaste UI-beslissing) #}
-  {% call ui.card() %}
-    {# Golf 2-nazorg (#913, bevinding Koen 14 sep): op een telefoon wikkelde het
-   label "Huisnummer" in zijn smalle kolom en zakte het veld. Mobiel-eerst:
-   straat voluit, huisnummer + bus samen op rij twee (bus blijft rechts van
-   huisnummer — de geest van de vaste beslissing), postcode voluit; vanaf
-   md: het originele 4-koloms grid. #}
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <div class="col-span-2">{{ ui.label(_("Straat"), "street", required=True) }}
-        {{ ui.input_control("street", id="street", value=values.get("street", ""), required=True, cls="w-full") }}</div>
-      <div>{{ ui.label(_("Huisnummer"), "house_number", required=True) }}
-        {{ ui.input_control("house_number", id="house_number", value=values.get("house_number", ""), required=True, cls="w-full") }}</div>
-      <div>{{ ui.label(_("Bus"), "bus_number") }}
-        {{ ui.input_control("bus_number", id="bus_number", value=values.get("bus_number", ""), cls="w-full") }}</div>
-      <div class="col-span-2 md:col-span-4">{{ ui.label(_("Postcode"), "postal_code", required=True) }}
-        {% call ui.select_control("postal_code", cls="w-full", attrs='id="postal_code" required') %}
-          <option value="">{{ _("— Kies je postcode —") }}</option>
-          {% for pc in postal_codes %}
-          <option value="{{ pc.postal_code }}" {% if values.get('postal_code') == pc.postal_code %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>
-          {% endfor %}
-        {% endcall %}</div>
-    </div>
   {% endcall %}
-
-  {# Extra gezinsleden — onder het adres, met verwijder-knop per lid (#456) #}
-  {# #1327: after a refusal every extra person comes back with what was typed. #}
-  <div id="extra-personen" class="space-y-4">
-    {% for i in extra_rows %}{% include "_lid_persoon_rij.html" %}{% endfor %}
+{% else %}
+  {% call ui.public_form_page(_("Word lid"), intro=_("Eén lidmaatschap voor je hele gezin. Vul hieronder je gegevens in.")) %}
+  {% set group = page.group %}
+  {% set _edit = True %}
+  {# `pm` follows the payment choice, for the button's words. A person added in
+     the page asks the server which relation the one rule gives them
+     (`default_relation`: a partner while there is none, a child after that) —
+     the rule stays in one place. #}
+  <div data-form-flow data-mode="edit" class="form-flow" x-data="{ pm: 'online' }"
+       @change="if ($event.target.name === 'payment_method') pm = $event.target.value"
+       @row-added="
+         const row = $event.target;
+         const mine = row.querySelector('select[name$=&quot;.relation_type&quot;]');
+         if (!mine) return;
+         const others = [...$el.querySelectorAll('select[name$=&quot;.relation_type&quot;]')]
+           .filter(s => s !== mine).map(s => s.value);
+         fetch('/lid-worden/relatie?others=' + encodeURIComponent(others.join(',')))
+           .then(answer => answer.ok ? answer.text() : '')
+           .then(code => { if (code) { mine.value = code; mine.dispatchEvent(new Event('change', { bubbles: true })); } })">
+    <div id="lid-worden-melding" data-form-message></div>
+    <form id="lid-worden-form" class="contents" data-record-form data-message="#lid-worden-melding" novalidate
+          hx-post="/lid-worden" hx-target="#lid-worden-pagina" hx-select="#lid-worden-pagina"
+          hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+      {% include "_household_group.html" %}
+      {% include "_household_address.html" %}
+      {% call ui.section(_("Lidmaatschap en betaling"), id="lidgeld") %}
+        <p data-span="full" data-membership-terms class="text-base leading-6 text-ink-soft">
+          {{ _("Lidgeld:") }} <strong class="text-2xl font-semibold text-ink">€ {{ page.terms.amount|geld }}</strong> {{ _("per gezin.") }}<br>
+          {{ _("Geldig tot en met %(date)s.", date=page.terms.valid_to|langedatum) }}
+        </p>
+        {{ ui.field("payment_method", _("Betaalwijze"), kind="radio_group", required=True, value="online",
+                    options=[("online", _("Online betalen"), _("Na het verzenden ga je naar de beveiligde betaalpagina.")),
+                             ("transfer", _("Overschrijving"), _("De betaalgegevens staan in de bevestiging."))]) }}
+      {% endcall %}
+    </form>
+    {% set _follow %}data-pay="{{ _("Word lid en betaal") }}" data-plain="{{ _("Word lid") }}" x-text="pm === 'online' ? $el.dataset.pay : $el.dataset.plain"{% endset %}
+    {{ ui.action_bar(record=True, send=True, form="lid-worden-form", cancel_href="/",
+                     save_label=_("Word lid en betaal"), busy_label=_("Bezig…"), save_label_attrs=_follow) }}
   </div>
-  <button type="button" class="{{ ui.btn_class('secondary') }}"
-          hx-get="/lid-worden/persoon-rij" hx-target="#extra-personen" hx-swap="beforeend"
-          hx-vals='js:{index: 1 + Math.max(0, ...[...document.querySelectorAll("#extra-personen > div")].map(d => Number(d.id.split("-").pop()))), relations: [...document.querySelectorAll("[name$=_relation_type]")].map(e => e.value).join(",")}'>
-    {{ _("+ Gezinslid toevoegen") }}
-  </button>
-
-  {% call ui.card() %}
-    {# F3 (#996, meetronde ronde 2): wie hier rechtstreeks binnenkomt zag
-       nergens het tarief. Bedrag en geldigheid komen uit DEZELFDE helpers die
-       de inzending straks aanrekent (membership_price_for_date /
-       membership_valid_period via de payment-facade) — het scherm kan dus
-       niet iets anders beloven dan de betaling vraagt. #}
-    <p class="text-sm text-ink-soft mb-3">{{ _("Lidgeld") }}: <strong class="text-ink">€ {{ lidgeld.prijs|geld }}</strong> {{ _("per gezin, geldig tot en met") }} {{ lidgeld.tot|langedatum }}.</p>
-    {{ ui.label(_("Betaalwijze"), "payment_method", required=True) }}
-    {# Onder elkaar en compact, zoals productie (Koen, 19 sep) — zelfde vorm
-       als de inschrijfmodal. #}
-    <div x-data="{ pm: '{{ values.get('payment_method', 'online') }}' }">
-    <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="online" x-model="pm" {% if values.get('payment_method', 'online') == 'online' %}checked{% endif %}> {{ _("Online betalen") }}</label>
-    <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="transfer" x-model="pm" {% if values.get('payment_method') == 'transfer' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
-    {# De knop zegt wat er volgt: bij online ga je meteen naar de betaalpagina,
-       bij overschrijving komen de instructies per e-mail. #}
-    <p class="text-xs text-ink-soft mt-2" x-show="pm === 'online'">{{ _("Na het versturen ga je meteen naar de beveiligde betaalpagina.") }}</p>
-    <p class="text-xs text-ink-soft mt-2" x-show="pm === 'transfer'" x-cloak>{{ _("Na het versturen ontvang je de betaalinstructies per e-mail.") }}</p>
-    </div>
   {% endcall %}
-
-  {{ ui.btn_primary(_("Word lid")) }}
-</form>
+{% endif %}
 </div>
 {% endblock %}

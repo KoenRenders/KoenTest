@@ -59,6 +59,61 @@
       setDisabled(row, "up", index === 0);
       setDisabled(row, "down", index === rows.length - 1);
     });
+    refreshOne(group, rows);
+  }
+
+  /* One among many (the *hoofdadres*): the group's hidden field names the
+     chosen row. That row shows the tag and cannot be removed; every other row
+     offers to take the tag over. A group whose choice names no row — its first
+     row was just added — chooses its first row. */
+  function oneField(group) {
+    var field = null;
+    Array.prototype.forEach.call(group.children, function (el) {
+      if (el.hasAttribute("data-group-one")) field = el;
+    });
+    return field;
+  }
+
+  function ownPart(row, selector) {
+    var parts = row.querySelectorAll(selector);
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i].closest("[data-group-row]") === row) return parts[i];
+    }
+    return null;
+  }
+
+  function refreshOne(group, rows) {
+    var field = oneField(group);
+    if (!field) return;
+    var keys = rows.map(function (row) { return row.getAttribute("data-row-key"); });
+    if (keys.indexOf(field.value) === -1) field.value = keys.length ? keys[0] : "";
+    rows.forEach(function (row) {
+      var chosen = row.getAttribute("data-row-key") === field.value;
+      var tag = ownPart(row, "[data-row-one-tag]");
+      if (tag) tag.hidden = !chosen;
+      var choose = ownMenuItem(row, "choose");
+      if (choose) choose.hidden = chosen;
+      var removeItem = ownMenuItem(row, "remove");
+      if (removeItem) removeItem.hidden = chosen;
+      var holder = ownPart(row, "[data-row-menu-holder]");
+      if (holder) {
+        var items = holder.querySelectorAll("[data-row-action]");
+        holder.hidden = Array.prototype.every.call(items, function (item) { return item.hidden; });
+      }
+    });
+  }
+
+  function choose(row) {
+    var group = groupOf(row);
+    var field = oneField(group);
+    if (!field) return;
+    field.value = row.getAttribute("data-row-key");
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    refresh(group);
+    var trigger = ownPart(row, "[data-row-menu-trigger]");
+    var first = row.querySelector("input:not([type=hidden]), select, textarea");
+    if (trigger && !trigger.closest("[hidden]")) trigger.focus();
+    else if (first) first.focus();
   }
 
   function ownMenuItem(row, action) {
@@ -110,6 +165,9 @@
     activate(row);
     refresh(group);
     focusFirst(row);
+    // For the page: a rule it asks the server about (which relation a new
+    // person starts with) hangs on this.
+    row.dispatchEvent(new CustomEvent("row-added", { bubbles: true }));
     return row;
   }
 
@@ -251,17 +309,33 @@
     if (action === "up" || action === "down") move(row, action);
     else if (action === "duplicate") duplicate(row);
     else if (action === "remove") remove(row);
+    else if (action === "choose") choose(row);
   });
 
-  /* The title line of a composite item follows its name field. */
+  /* The title line of a composite item follows its name field — or its name
+     fields: a person's first and last name make one title. */
   document.addEventListener("input", function (event) {
     var source = event.target.closest("[data-row-title-source]");
     if (!source) return;
     var row = source.closest("[data-group-row]");
     var title = row && row.querySelector("[data-row-title]");
     if (title && title.closest("[data-group-row]") === row) {
-      title.textContent = source.value || title.getAttribute("data-row-title") || "";
+      var parts = [];
+      Array.prototype.forEach.call(row.querySelectorAll("[data-row-title-source]"), function (el) {
+        if (el.closest("[data-group-row]") === row && el.value.trim()) parts.push(el.value.trim());
+      });
+      title.textContent = parts.join(" ") || title.getAttribute("data-row-title") || "";
     }
+  });
+
+  /* What stands before the name ("Kind · ") follows the field that decides it. */
+  document.addEventListener("change", function (event) {
+    var source = event.target.closest("[data-row-title-prefix-source]");
+    if (!source) return;
+    var row = source.closest("[data-group-row]");
+    var prefix = row && ownPart(row, "[data-row-title-prefix]");
+    var option = source.options ? source.options[source.selectedIndex] : null;
+    if (prefix && option && option.value) prefix.textContent = option.textContent.trim();
   });
 
   /* ── Dragging by the handle ───────────────────────────────────────────────

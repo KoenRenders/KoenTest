@@ -42,6 +42,20 @@ EXPECTED = {
     "domains/forms/templates/formulier.html",
     "domains/forms/templates/formulier_klaar.html",
     "domains/cms/templates/betaling_resultaat.html",
+    # #1590: the household's three pages.
+    "domains/membership/templates/lid_worden.html",
+    "domains/membership/templates/lidmaatschap_vernieuwen.html",
+    "domains/membership/templates/gezin_portaal.html",
+}
+
+#: A page on the frame that SAVES a record instead of sending a form: its bar is
+#: the record's ("Opslaan"), and the page reads back what was saved. Page → why.
+#: Everything else on the frame is sent.
+SAVES = {
+    "domains/membership/templates/gezin_portaal.html": (
+        "Mijn gezin is a record the member keeps: read first, one Opslaan, then read "
+        "again (end state §2.6; master CLI, 5 October 2026)"
+    ),
 }
 
 
@@ -124,9 +138,13 @@ def one_send(rel: str, text: str) -> list[str]:
     bars = re.findall(r"ui\.action_bar\((.*?)\)\s*\}\}", text, re.S)
     if len(bars) != 1:
         return [f"{rel}: {len(bars)} action bars — a public form has exactly one"]
-    if not re.search(r"\brecord\s*=\s*True\b", bars[0]) or not re.search(
-        r"\bsend\s*=\s*True\b", bars[0]
-    ):
+    record = re.search(r"\brecord\s*=\s*True\b", bars[0])
+    send = re.search(r"\bsend\s*=\s*True\b", bars[0])
+    if rel in SAVES:
+        if not record or send:
+            return [f"{rel}: named as a page that saves — its bar is `record=True` without `send`"]
+        return []
+    if not record or not send:
         return [f"{rel}: the bar is not `record=True, send=True` — a public form is sent"]
     return []
 
@@ -185,6 +203,24 @@ def test_a_clean_page_passes():
 def test_each_violation_is_red(addition, message):
     found = _all("x.html", CLEAN + addition)
     assert any(message in v for v in found), found
+
+
+def test_a_page_named_as_a_save_has_the_records_bar_and_exists():
+    """#1590. The one exemption from "a public form is sent" is by name, with its
+    reason; a named page that sends after all, or that is gone, is red.
+
+    Proven red by putting `send=True` on the bar of `gezin_portaal.html`.
+    """
+    pages = _pages()
+    for rel, reason in SAVES.items():
+        assert rel in pages, f"{rel} is no page on the frame any more — remove it from SAVES"
+        assert reason.strip()
+    save = CLEAN.replace(", send=True", "")
+    name = next(iter(SAVES))
+    assert one_send(name, save) == []
+    assert one_send(name, CLEAN) == [
+        f"{name}: named as a page that saves — its bar is `record=True` without `send`"
+    ]
 
 
 def test_a_bar_that_is_not_a_send_is_red():

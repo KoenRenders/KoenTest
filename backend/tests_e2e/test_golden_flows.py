@@ -15,7 +15,7 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import open_registration  # noqa: E402
+from tests_e2e.schermen import fill_signup, open_registration, send_form  # noqa: E402
 
 BASE = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
 
@@ -32,40 +32,33 @@ def page():
         browser.close()
 
 
-def _vul_hoofdlid(page, email: str):
-    page.fill("#m0_first_name", "Test")
-    page.fill("#m0_last_name", "Gezin")
-    page.fill("#m0_email", email)
-    page.fill("#m0_mobile", "0470000000")
-    # #681: verplicht voor élk lid, hoofdlid incluis — zonder deze twee blokkeert
-    # de browser de submit op `required` en komt het formulier niet weg.
-    page.fill("#m0_date_of_birth", "1980-01-01")
-    page.select_option("#m0_gender_code", "M")
-    page.fill("#street", "Teststraat")
-    page.fill("#house_number", "1")
-
-
 def test_gezinsregistratie_met_overschrijving(page):
     """Kernflow (#128): gezinsregistratie via Word lid met betaaltype
-    overschrijving — raakt Mollie niet, dus stabiel zonder gateway-stub."""
+    overschrijving — raakt Mollie niet, dus stabiel zonder gateway-stub.
+
+    #1590: the page stands on the public form page; its one button is the
+    action bar's, and the confirmation says "Je aanvraag is ontvangen"."""
     page.goto("/lid-worden")
-    _vul_hoofdlid(page, f"e2e+{int(time.time())}@example.com")
-    # Postcode: altijd kiezen uit de dropdown (vaste UI-beslissing).
-    page.select_option("#postal_code", index=1)
+    fill_signup(page, f"e2e+{int(time.time())}@example.com")
     page.check('input[name="payment_method"][value="transfer"]')
-    page.click('button[type="submit"]')
-    expect(page.get_by_text("Je inschrijving is ontvangen")).to_be_visible()
+    send_form(page)
+    expect(page.get_by_role("heading", name="Je aanvraag is ontvangen")).to_be_visible()
 
 
 def test_gezinsregistratie_zonder_postcode_geblokkeerd(page):
-    """#160: zonder gekozen postcode wordt het formulier niet verstuurd —
-    de verplichte dropdown blokkeert de submit."""
+    """#160: without a chosen postal code nothing is created.
+
+    #1590: the browser no longer blocks the submit (`novalidate`, so the message
+    is always the kit's): the server refuses, the banner names the field and the
+    select is marked — and the page keeps what was typed."""
     page.goto("/lid-worden")
-    _vul_hoofdlid(page, "nopc@example.com")
-    page.click('button[type="submit"]')
-    # Geen navigatie/succes: de select is invalid en het formulier staat er nog.
-    assert page.eval_on_selector("#postal_code", "el => el.checkValidity()") is False
-    expect(page.get_by_text("Je inschrijving is ontvangen")).not_to_be_visible()
+    fill_signup(page, "nopc@example.com", postal_code=False)
+    send_form(page)
+    expect(page.locator("[data-save-refusal]")).to_contain_text("Verzenden kan nog niet")
+    expect(page.locator('[data-field="address.postal_code"]')).to_have_attribute("data-refused", "")
+    expect(page.locator("#address-postal_code")).to_be_focused()
+    expect(page.locator("#address-street")).to_have_value("Teststraat")
+    expect(page.get_by_role("heading", name="Je aanvraag is ontvangen")).to_have_count(0)
 
 
 @pytest.fixture(scope="module")

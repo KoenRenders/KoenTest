@@ -2,180 +2,53 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Mijn gezin — Raak") }}{% endblock %}
 {% block content %}
-{{ ui.page_header(_("Mijn gezin")) }}
-{{ ui.error_banner(error|default(None)) }}
-
-{# Lidmaatschapsstatus + vernieuwen #}
-{% call ui.card() %}
-  {% if valid_until %}
-  <p class="text-sm text-gray-700">✅ {{ _("Lidmaatschap geldig tot") }} <strong>{{ valid_until|kortedatum }}</strong>.</p>
-  {% else %}
-  <p class="text-sm text-gray-700">{{ _("Je gezin heeft momenteel geen geldig lidmaatschap.") }}</p>
-  {% endif %}
-  {# #1241: het bedrag door `geld`, dus `20,00` en niet `20.00`. Deze twee plekken
-     drukten de rauwe Decimal af terwijl het filter (#735) al bestaat en elders
-     gebruikt wordt. Het staat op de afdruk van de betaalinstructies, en dat is net
-     het beeld dat een lid moet vertellen wélk bedrag het moet overschrijven — de
-     laatste plek waar je twijfel wil. De tak hieronder (online, nog niet afgerond)
-     staat vandaag op geen enkele afdruk, maar hem overslaan zou de tweede plek zijn
-     die achterblijft. #}
-  {% if renew_transfer %}
-  {# #497: overschrijving gekozen → betaalinstructies op het scherm. #}
-  <div class="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm">
-    <p class="font-medium">{{ _("Vernieuwing geregistreerd — betaal via overschrijving:") }}</p>
-    <ul class="mt-1 space-y-0.5">
-      <li>{{ _("Bedrag") }}: <strong>€ {{ renew_transfer.amount|geld }}</strong></li>
-      {% if renew_transfer.iban %}<li>IBAN: <strong>{{ renew_transfer.iban }}</strong></li>{% endif %}
-      {% if renew_transfer.beneficiary %}<li>{{ _("Begunstigde") }}: {{ renew_transfer.beneficiary }}</li>{% endif %}
-      {% if renew_transfer.ogm %}<li>{{ _("Mededeling (OGM)") }}: <strong>{{ renew_transfer.ogm }}</strong></li>{% endif %}
-    </ul>
-  </div>
-  {% elif renew_online %}
-  {# #618-3: online betaling afgebroken bij Mollie. Zonder deze tak kreeg het lid
-     opnieuw het vernieuwformulier, en daarna de rode melding van de guard. #}
-  <div class="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm">
-    <p class="font-medium">{{ _("Je vernieuwing loopt nog — de betaling is nog niet afgerond.") }}</p>
-    <p class="mt-1">{{ _("Bedrag") }}: <strong>€ {{ renew_online.amount|geld }}</strong></p>
-    {% if renew_online.checkout_url %}
-    <div class="mt-2">{{ ui.btn_primary(_("Betaling hervatten"), href=renew_online.checkout_url) }}</div>
-    {% else %}
-    <p class="mt-1 text-gray-600">{{ _("Zodra de betaling verwerkt is, zie je dat hier. Neem gerust contact op als het lang duurt.") }}</p>
+{# Mijn gezin on the public form page (CR-11 pilot B, #1590; end state §2.6). It
+   is READ first: the same sections as the form, "—" for what is empty, and one
+   "Bewerken" in the head. `?bewerken=1` is the edit mode: one badge, the groups
+   editable, and ONE "Opslaan" in the bar that writes persons, e-mail addresses
+   and the address in one transaction (`mdm.household_save`). No person, e-mail
+   row or address saves on its own. Renewing is its own act on its own page; this
+   page only says how the membership stands. `#gezin-pagina` is what a good
+   answer replaces. #}
+<div id="gezin-pagina">
+{% set group = page.group %}
+{% set _edit = page.edit %}
+{% set _action = None if page.edit else {"label": _("Bewerken"), "href": "/leden/gezin?bewerken=1"} %}
+{% call ui.public_form_page(_("Mijn gezin"), action=_action, state=(_("Bewerken") if page.edit else None),
+                            intro=(_("Pas de gegevens van je gezin aan. Je bewaart alles samen met Opslaan.") if page.edit
+                                   else _("De gegevens van je gezin zoals de vereniging ze kent."))) %}
+<div data-form-flow data-mode="{{ 'edit' if page.edit else 'read' }}" class="form-flow">
+  <div id="gezin-melding" data-form-message></div>
+  {% if not page.edit %}
+  {% call ui.flow_card(_("Lidmaatschap"), attrs="data-membership-status") %}
+    <p class="text-base text-ink">
+      {% if page.valid_until %}{{ _("Je lidmaatschap is geldig tot en met %(date)s.", date=page.valid_until|kortedatum) }}
+      {% else %}{{ _("Je gezin heeft momenteel geen geldig lidmaatschap.") }}{% endif %}
+    </p>
+    {% if page.renewal_running %}
+    <p class="mt-2 text-base text-ink">{{ _("Je vernieuwing loopt nog.") }} {{ ui.link_action(_("Bekijk de betaling"), href="/leden/gezin/vernieuwen") }}</p>
+    {% elif page.renewal_available %}
+    <p class="mt-3">{{ ui.btn_secondary(_("Lidmaatschap vernieuwen"), href="/leden/gezin/vernieuwen") }}</p>
     {% endif %}
-  </div>
-  {% elif renewal_available %}
-  {# #497: keuze online/overschrijving i.p.v. geforceerd online. #}
-  <form class="mt-3 space-y-2" hx-post="/leden/gezin/vernieuwen" hx-target="body" hx-swap="innerHTML">
-    <fieldset class="flex flex-wrap gap-4 text-sm">
-      <label class="flex items-center gap-2"><input type="radio" name="payment_method" value="online" checked> {{ _("Online betalen") }}</label>
-      <label class="flex items-center gap-2"><input type="radio" name="payment_method" value="transfer"> {{ _("Via overschrijving") }}</label>
-    </fieldset>
-    {{ ui.btn_primary(_("Lidmaatschap vernieuwen")) }}
+    {% if page.board_member_name %}
+    <p class="mt-3 text-[13px] text-ink-soft">{{ _("Verantwoordelijk bestuurslid:") }} {{ page.board_member_name }}</p>
+    {% endif %}
+  {% endcall %}
+  {% endif %}
+  {% if page.edit %}
+  <form id="gezin-form" class="contents" data-record-form data-message="#gezin-melding" novalidate
+        hx-post="/leden/gezin" hx-target="#gezin-pagina" hx-select="#gezin-pagina"
+        hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+  {% endif %}
+    {% include "_household_group.html" %}
+    {% if group.address %}{% include "_household_address.html" %}{% endif %}
+  {% if page.edit %}
   </form>
+  {{ ui.action_bar(record=True, form="gezin-form", cancel_href="/leden/gezin") }}
   {% endif %}
-  {% if household.board_member_name %}
-  <p class="text-xs text-gray-500 mt-3">{{ _("Verantwoordelijk bestuurslid:") }} {{ household.board_member_name }}</p>
-  {% endif %}
-{% endcall %}
-
-<div class="mt-6 space-y-4">
-  {% for p in household.persons %}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
-    {# Zelfde fix als de beheer-persoonskaart: de knoppen buiten de x-show,
-       anders is er in bewerkmodus geen Opslaan (golfpakket-6 v2). #}
-    {# #1326: `min-w-0` lets the details shrink below their longest word, so on a
-       phone they wrap instead of pushing "Bewerken" out of the card (it stuck out
-       30 px with a long name and address). The e-mail address has no place to
-       break, so it may break anywhere. #}
-    <div class="flex items-start justify-between">
-      <div x-show="!edit" class="min-w-0">
-        <span class="font-semibold">{{ p.first_name }} {{ p.last_name }}</span>
-        <span class="text-xs text-gray-500 ml-1">({{ p.relation_type | relatielabel }})</span>
-        {# #1238 punt 6: Belgisch en niet ISO. Dit was het enige scherm dat de
-           geboortedatum kaal afdrukte — de regel erboven doet `%d-%m-%Y`, de
-           ledenkaart in de beheerkant ook, en op de schermafdruk voor de publieke
-           uitlegpagina stond `1955-10-30` tien pixels naast een invoerveld dat
-           `30-10-1955` toont. #}
-        {% if p.date_of_birth %}<p class="text-sm text-gray-500 mt-0.5">° {{ p.date_of_birth|kortedatum }}</p>{% endif %}
-        <div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
-          {# #638: kit-iconen i.p.v. emoji; een emoji bracht zijn eigen regelhoogte
-             mee. #810: `items-start` + `mt-0.5` in plaats van `items-center` — een
-             lang e-mailadres loopt op een telefoon over twee regels, en dan hing het
-             icoon in het midden van het blok in plaats van bij de eerste regel. #}
-          {% if p.email %}<span class="inline-flex items-start gap-1 min-w-0 break-all">{{ ui.icon("mail", cls="mt-0.5 shrink-0") }} {{ p.email }}</span>{% endif %}
-          {% if p.mobile %}<span class="inline-flex items-start gap-1">{{ ui.icon("mobile", cls="mt-0.5 shrink-0") }} {{ p.mobile }}</span>{% endif %}
-          {% if p.phone %}<span class="inline-flex items-start gap-1">{{ ui.icon("phone", cls="mt-0.5 shrink-0") }} {{ p.phone }}</span>{% endif %}
-        </div>
-        {% if p.address %}
-        <p class="text-sm text-gray-500 mt-0.5 flex items-start gap-1">{{ ui.icon("map-pin", cls="mt-0.5 shrink-0") }} {{ p.address.street }} {{ p.address.house_number }}{% if p.address.bus_number %} bus {{ p.address.bus_number }}{% endif %}, {{ p.address.postal_code }} {{ p.address.municipality }}</p>
-        {% endif %}
-      </div>
-      <span x-show="edit" x-cloak class="text-sm text-gray-500 self-center">{{ p.first_name }} {{ p.last_name }} — {{ _("bewerken") }}</span>
-      <div class="flex gap-2 shrink-0 ml-4">
-        {{ ui.edit_toggle("edit") }}
-        <div x-show="edit" x-cloak>{{ ui.action_bar(form="pp-" ~ p.id, cancel_attrs='@click="edit = false"',
-             delete_attrs=('hx-post="/leden/gezin/personen/' ~ p.id ~ '/verwijderen" hx-target="body" hx-swap="innerHTML" ' ~ confirm_attrs(_("Gezinslid"), p.first_name ~ " " ~ p.last_name)) if p.id != person_id else "") }}</div>
-      </div>
-    </div>
-    <form id="pp-{{ p.id }}" x-show="edit" x-cloak class="space-y-3"
-          hx-post="/leden/gezin/personen/{{ p.id }}" hx-target="body" hx-swap="innerHTML" style="display: none">
-      {% set _hoofd = p.is_main_member %}
-      {# Gedeelde veldenset (#511); id_prefix p{id}- houdt de ids uniek per gezinslid.
-         include_relation=False: relatie blijft read-only in de kop (portaal-pariteit). #}
-      {# #1219: `include_email=False` — de adressen staan als rijen hieronder. #}
-      {{ ui.person_fields(name_prefix="", id_prefix="p" ~ p.id ~ "-", pv=p,
-                          gender_codes=gender_codes, relation_types=relation_types,
-                          include_relation=False, hoofdlid=_hoofd,
-                          require_birth_gender=True,
-                          include_email=False) }}
-      {% if p.address %}
-      {# Golf 2-nazorg (#913, bevinding Koen 14 sep): op een telefoon wikkelde het
-   label "Huisnummer" in zijn smalle kolom en zakte het veld. Mobiel-eerst:
-   straat voluit, huisnummer + bus samen op rij twee (bus blijft rechts van
-   huisnummer — de geest van de vaste beslissing), postcode voluit; vanaf
-   md: het originele 4-koloms grid. #}
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="col-span-2">{{ ui.label(_("Straat"), "ps-" ~ p.id, required=_hoofd) }}
-          {{ ui.input_control("street", id="ps-" ~ p.id, value=p.address.street, required=_hoofd, cls="w-full") }}</div>
-        <div>{{ ui.label(_("Huisnummer"), "ph-" ~ p.id, required=_hoofd) }}
-          {{ ui.input_control("house_number", id="ph-" ~ p.id, value=p.address.house_number, required=_hoofd, cls="w-full") }}</div>
-        <div>{{ ui.label(_("Bus"), "pb-" ~ p.id) }}
-          {{ ui.input_control("bus_number", id="pb-" ~ p.id, value=p.address.bus_number or "", cls="w-full") }}</div>
-        <div class="col-span-2 md:col-span-4">{{ ui.label(_("Postcode"), "pc-" ~ p.id) }}
-          {% call ui.select_control("postal_code", cls="w-full", attrs='id="pc-' ~ p.id ~ '"') %}
-            {% for pc in postal_codes %}
-            <option value="{{ pc.postal_code }}" {% if p.address.postal_code == pc.postal_code %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>
-            {% endfor %}
-          {% endcall %}</div>
-      </div>
-      {% endif %}
-    {# #1219: je eigen e-mailadressen, als rijen in dit formulier. Met elk ervan
-       kan je aanmelden, en de nieuwsbrief gaat naar allemaal. Precies één kan het
-       HOOFDADRES zijn: het adres dat Raak Nationaal in zijn programma heeft — een
-       herkomst, geen voorkeur en geen volgorde.
-
-       Een tikfout verbeter je door te typen en op te slaan; verwijderen en
-       hoofdadres aanduiden blijven eigen knoppen. Een rij die je net toevoegde
-       heeft nog geen id, dus die draagt geen hoofdadres-knop en zijn "Weghalen"
-       haalt alleen het veld uit het formulier.
-
-       Dat een lid dit zelf mag, komt in het auditlogboek en in de .ods-export van
-       de ledenwijzigingen, waarmee het nationale programma bijgewerkt wordt. #}
-    <div x-show="edit" x-cloak class="mt-3 border-t border-gray-100 pt-3" style="display: none">
-      <div class="flex items-center justify-between gap-2">
-        {{ ui.label(_("E-mailadressen"), "p-emails-" ~ p.id) }}
-        <button type="button" class="{{ ui.btn_class('secondary', 'sm') }}"
-                hx-get="/leden/gezin/personen/{{ p.id }}/email-rij"
-                hx-target="#p-emails-{{ p.id }}" hx-swap="beforeend"
-                hx-vals='js:{index: Date.now(), nummer: 1 + document.querySelectorAll("#p-emails-{{ p.id }} [data-email-rij]").length}'>{{ _("+ E-mailadres") }}</button>
-      </div>
-      <div id="p-emails-{{ p.id }}" class="mt-1 space-y-3">
-        {% for a in p.emails %}
-          {% with rij = a, index = loop.index0, nummer = loop.index,
-                  basis_url = "/leden/gezin/personen/" ~ p.id ~ "/email",
-                  doel = "body", swap = "innerHTML" %}
-            {% include "_email_rij.html" %}
-          {% endwith %}
-        {% else %}
-          <p class="text-sm text-ink-soft">{{ _("Nog geen e-mailadres.") }}</p>
-        {% endfor %}
-      </div>
-      <p class="text-xs text-ink-soft mt-1">{{ _("Met elk van deze adressen kan je aanmelden, en de nieuwsbrief gaat naar allemaal. Een gewijzigde tekst bewaar je met Opslaan.") }}</p>
-    </div>
-    </form>
-  </div>
-  {% endfor %}
-
-  <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4" x-data="{ open: false }">
-    {{ ui.btn_secondary(_("+ Gezinslid toevoegen"), attrs='@click="open = !open"') }}
-    <form x-show="open" x-cloak class="space-y-3 mt-3"
-          hx-post="/leden/gezin/personen" hx-target="body" hx-swap="innerHTML">
-      {# Gedeelde veldenset (#511); portaal-pariteit: geen relatie-keuze in de add-flow. #}
-      {{ ui.person_fields(name_prefix="", id_prefix="np-", pv=None,
-                          gender_codes=gender_codes, relation_types=relation_types,
-                          include_relation=False, hoofdlid=False,
-                          require_birth_gender=True) }}
-      {{ ui.btn_primary(_("Toevoegen")) }}
-    </form>
-  </div>
 </div>
+{% endcall %}
+</div>
+{# The toast lands in the shell's host, outside what the answer replaces. #}
+{% if page.saved %}{{ ui.toast_oob() }}{% endif %}
 {% endblock %}

@@ -1,0 +1,17 @@
+{% import "_macros.html" as ui %}
+{# The household's address (#1590; §2.6): street half, house number and bus a
+   quarter each, postal code and municipality full — always a select from the
+   postal code table (the fixed decision). Set before the include: `group`,
+   `_edit`, and `_address_required` (a sign-up asks it). #}
+{% set _a = group.address %}
+{% call ui.section(_("Adres"), id="gezin-adres") %}
+  {{ ui.field("address.street", _("Straat"), value=_a.street, edit=_edit, required=True, id="address-street",
+              attrs="autocomplete=address-line1") }}
+  {{ ui.field("address.house_number", _("Huisnummer"), value=_a.house_number, edit=_edit, required=True,
+              span="quarter", id="address-house_number") }}
+  {{ ui.field("address.bus_number", _("Bus"), value=_a.bus_number, edit=_edit, span="quarter",
+              id="address-bus_number") }}
+  {{ ui.field("address.postal_code", _("Postcode en gemeente"), kind="select", value=_a.postal_code, edit=_edit,
+              required=True, span="full", id="address-postal_code",
+              options=[("", _("— kies je postcode —"))] + group.postal_options|list) }}
+{% endcall %}

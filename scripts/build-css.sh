@@ -303,7 +303,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .public-form-title:focus{outline:none}
 /* A section's head is Inter 16 px semibold in both shells (§2.6): the site's
    heading face is for the page's title, not for the cards of a form. */
-body[data-shell="site"] .form-section h2{font-family:Inter,system-ui,sans-serif;font-weight:600}
+body[data-shell="site"] .form-section h2,body[data-shell="site"] .form-section h3{font-family:Inter,system-ui,sans-serif;font-weight:600}
 @media (min-width:768px){.public-form-title{font-size:40px}}
 @media (max-width:767.98px){body[data-shell="site"] .public-form-page{margin-top:-8px}}
 /* #1587: the flow's message line (where a refused or failed save stands) is a
@@ -418,6 +418,22 @@ body[data-shell="site"] .form-section h2{font-family:Inter,system-ui,sans-serif;
 .group-head--handle{padding-left:52px}
 .group-row--edit.group-row--simple [data-field]>label{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .group-child{margin-top:16px;padding-left:16px;border-left:1px solid rgb(var(--c-line))}
+/* #1590: a folded composite row — the title line is the summary, the chevron
+   turns when it is open, and the row's menu stands at the far right of that
+   line, outside the summary so a click on it does not fold the row. One among
+   many: the tag of a simple row stands before its menu. */
+.group-row--fold>.group-body{position:relative}
+.group-fold-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;cursor:pointer;list-style:none;border-radius:6px}
+.group-fold-summary::-webkit-details-marker{display:none}
+.group-fold-summary:focus-visible{outline:3px solid rgb(var(--c-focus));outline-offset:2px}
+.group-fold-chevron{display:flex;align-items:center;justify-content:center;width:44px;height:44px;flex:none;color:rgb(var(--c-ink-soft));transition:transform .15s}
+.group-fold[open]>.group-fold-summary .group-fold-chevron{transform:rotate(180deg)}
+.group-fold--menu>.group-fold-summary{padding-right:44px}
+.group-fold-menu{position:absolute;top:0;right:0}
+.group-fold[open]>.group-fold-summary{margin-bottom:8px}
+.group-row--simple.group-row--one{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-items:center}
+.group-row--edit.group-row--simple.group-row--one{grid-template-columns:minmax(0,1fr) auto 44px;align-items:end}
+.group-row--edit.group-row--simple.group-row--one>[data-row-one-tag]{align-self:center}
 .group-dragging{opacity:.5;outline:1px dashed rgb(var(--c-control-line));outline-offset:2px}
 .group-drop-before{box-shadow:0 -2px 0 rgb(var(--c-brand))}
 .group-drop-after{box-shadow:0 2px 0 rgb(var(--c-brand))}
@@ -471,6 +487,9 @@ body[data-shell="admin"] #toasts [data-toast="success"]{background:rgb(var(--c-i
   .group-row--edit.group-row--simple,.group-row--edit.group-row--simple.group-row--handle{grid-template-columns:44px minmax(0,1fr) 44px;row-gap:4px;align-items:center}
   .group-row--edit.group-row--simple>.group-body{grid-column:1/-1;grid-row:2}
   .group-row--edit.group-row--simple:not(.group-row--handle)>.relative{grid-column:3}
+  .group-row--edit.group-row--simple.group-row--one{grid-template-columns:minmax(0,1fr) 44px;align-items:center;min-height:44px}
+  .group-row--edit.group-row--simple.group-row--one>[data-row-one-tag]{grid-column:1;grid-row:1;justify-self:start}
+  .group-row--edit.group-row--simple.group-row--one>.relative{grid-column:2;grid-row:1}
   .group-row--edit.group-row--simple [data-field]>label{position:static;width:auto;height:auto;margin:0 0 4px;overflow:visible;clip:auto;white-space:normal}
   .group-child{padding-left:12px}
 }

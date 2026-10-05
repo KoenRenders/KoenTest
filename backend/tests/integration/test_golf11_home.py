@@ -104,9 +104,11 @@ def test_acties_staan_in_de_inhoudskolom(client, db_session):
 
 def test_word_lid_heeft_de_begrensde_formulierkolom(client):
     """F18: zelfde kolom als het publieke formulier; velden niet meer over de
-    volle paginabreedte."""
+    volle paginabreedte. Since #1590 that column is the public form page's own
+    (`ui.public_form_page`, 768 px), and the form stands inside it."""
     html = client.get("/lid-worden").text
-    assert 'class="max-w-2xl mx-auto"' in html
+    column = html.index('<div data-public-form-page class="public-form-page">')
+    assert column < html.index('id="lid-worden-form"')
 
 
 def test_migratie_141_vervangt_alleen_de_onaangeroerde_intro(db_session):

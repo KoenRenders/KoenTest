@@ -301,8 +301,12 @@ def create_test_member(db, **kwargs):
     return member
 
 
-def create_test_family(db, *, email="hoofdlid@example.com", relation_type="HOOFDLID"):
-    """Eén gezin met één persoon (als hoofdlid) en een EMAIL-contact."""
+def create_test_family(db, *, email="hoofdlid@example.com", relation_type="HOOFDLID", mobile=None):
+    """Eén gezin met één persoon (als hoofdlid) en een EMAIL-contact.
+
+    `mobile` gives that person a mobile number: the one save of "Mijn gezin"
+    refuses a main member without one (#1590), so a test that saves through the
+    portal passes it."""
     from app.domains.mdm.api import ContactDetail, MemberPerson
 
     member = create_test_member(db)
@@ -311,6 +315,12 @@ def create_test_family(db, *, email="hoofdlid@example.com", relation_type="HOOFD
     db.add(
         ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email, is_primary=True)
     )
+    if mobile:
+        db.add(
+            ContactDetail(
+                person_id=person.id, contact_type_code="MOBILE", value=mobile, is_primary=True
+            )
+        )
     db.flush()
     return member, person
 
@@ -355,6 +365,129 @@ def nieuw_lid_velden(db=None, **overrides) -> dict:
     }
     velden.update(overrides)
     return {k: v for k, v in velden.items() if v is not None}
+
+
+def signup_fields(
+    db=None, *others: dict, emails: tuple = ("nieuw@example.com",), **changes
+) -> dict:
+    """The fields the public Word lid page sends (#1590) — the contract of
+    `membership.signup_form`: the household as a repeating group, the address
+    and the payment method.
+
+    The main member is row `n0` with one e-mail row per address in `emails`
+    (`n0e`, `n0e1`, …; the first is marked as the main address). Each dict in
+    `others` is one more person, as row `n1`, `n2`, …: complete by default, and
+    what the dict names replaces it (`relation_type` is only sent when named).
+    `changes` replace or add a field by its form name; `None` takes it out.
+
+    A value that is a list is a repeated field (`h_order`), which is how the
+    test client sends it. Pass `db` to seed postal code 2400.
+    """
+    if db is not None:
+        from app.domains.mdm.api import PostalCode
+
+        if db.query(PostalCode).filter(PostalCode.postal_code == "2400").first() is None:
+            seed_postal_code(db)
+    fields: dict = {
+        "h_order": ["n0"],
+        "h.n0.first_name": "Nieuw",
+        "h.n0.last_name": "Lid",
+        "h.n0.date_of_birth": "1980-01-01",
+        "h.n0.gender_code": "M",
+        "h.n0.mobile": "0470000000",
+        "e_order.n0": [],
+        "e_primary.n0": "n0e",
+        "address.street": "Nieuwstraat",
+        "address.house_number": "7",
+        "address.bus_number": "",
+        "address.postal_code": "2400",
+        "payment_method": "transfer",
+    }
+    for n, address in enumerate(emails):
+        key = "n0e" if n == 0 else f"n0e{n}"
+        fields["e_order.n0"].append(key)
+        fields[f"e.{key}.value"] = address
+    for n, person in enumerate(others, start=1):
+        row = {
+            "first_name": f"Persoon{n}",
+            "last_name": "Lid",
+            "date_of_birth": "2000-01-01",
+            "gender_code": "M",
+            **person,
+        }
+        fields["h_order"].append(f"n{n}")
+        fields.update({f"h.n{n}.{name}": value for name, value in row.items()})
+    fields.update(changes)
+    return {name: value for name, value in fields.items() if value is not None}
+
+
+def form_fields(html: str, form_id: str) -> dict:
+    """What a browser would send for the form `form_id` on this page, untouched.
+
+    Every named control inside the form: text-like and hidden inputs with their
+    value, the checked radio of a group, the selected option of a select (its
+    first when none is marked). What stands in a `<template>` is not sent — that
+    is a row nobody added. The order field of a repeating group
+    (`data-row-order`) is a list, one key per row, also when there is one row;
+    every other field is a string.
+
+    Reading the page instead of typing the names keeps a test on the form's
+    real contract: a field the template renames is then missing from the post.
+    """
+    from html.parser import HTMLParser
+
+    start = html.index(f'<form id="{form_id}"')
+    block = html[start : html.index("</form>", start)]
+    fields: dict = {}
+
+    class Reader(HTMLParser):
+        template = 0
+        select = None  # [name, chosen, first]
+
+        def handle_starttag(self, tag, attrs):
+            a = dict(attrs)
+            if tag == "template":
+                self.template += 1
+            if self.template or "disabled" in a:
+                return
+            if tag == "input" and a.get("name"):
+                kind = a.get("type", "text")
+                if kind in ("radio", "checkbox") and "checked" not in a:
+                    return
+                if "data-row-order" in a:
+                    fields.setdefault(a["name"], []).append(a.get("value") or "")
+                elif kind != "file":
+                    fields[a["name"]] = a.get("value") or ""
+            elif tag == "select" and a.get("name"):
+                self.select = [a["name"], None, None]
+            elif tag == "option" and self.select is not None:
+                value = a.get("value") or ""
+                if self.select[2] is None:
+                    self.select[2] = value
+                if "selected" in a:
+                    self.select[1] = value
+
+        def handle_endtag(self, tag):
+            if tag == "template":
+                self.template -= 1
+            elif tag == "select" and self.select is not None:
+                name, chosen, first = self.select
+                fields[name] = chosen if chosen is not None else (first or "")
+                self.select = None
+
+    Reader().feed(block)
+    assert fields, f"the form {form_id} has no fields — is this test still looking?"
+    return fields
+
+
+def household_fields(client) -> dict:
+    """The fields "Mijn gezin" sends when the signed-in member opens the edit
+    mode and saves without touching anything (#1590): read from the page itself,
+    so a test changes or adds what it is about and posts the rest as the page
+    would (`POST /leden/gezin`)."""
+    page = client.get("/leden/gezin?bewerken=1")
+    assert page.status_code == 200, f"/leden/gezin?bewerken=1 → {page.status_code}"
+    return form_fields(page.text, "gezin-form")
 
 
 def form_guard_fields() -> dict:
