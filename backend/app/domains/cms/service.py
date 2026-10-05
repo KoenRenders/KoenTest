@@ -6,6 +6,7 @@ queries, maar wel met een regel erin die nergens anders staat — "publiek betek
 `is_published`" — en die regel hoort niet in drie routes te wonen.
 """
 
+import html
 import re
 from typing import Iterable, Optional
 
@@ -224,18 +225,32 @@ def references_to_media(db, asset_ids: Iterable[int]) -> dict:
     return found
 
 
-def placeholders() -> list[dict]:
-    """Beschikbare codes voor de CMS-editor (code → omschrijving + voorbeeld)."""
+def placeholders(db=None) -> list[dict]:
+    """Beschikbare codes voor de CMS-editor (code → omschrijving + voorbeeld).
+
+    `db`: the request's session where the caller has one (the page editor), so
+    the sites' example sees what the request sees; without it a short session
+    of its own, as `render_cms_content` does."""
     from app.domains.cms.render import PLACEHOLDER_LABELS, render_cms_content
 
     def _preview(code: str) -> str:
-        shown = render_cms_content(f"{{{{{code}}}}}") or ""
+        """The example of one code, in WORDS (#1615). A placeholder may render
+        markup — a button, a list of cards — and the legend never shows it:
+        whatever a code renders is reduced to its text here, so a new
+        placeholder cannot fall back to raw output
+        (`test_placeholder_previews.py` refuses a `<` in any example)."""
+        if code.startswith("tenants"):
+            # #1543/#1566: the cards, as the accounts with their site names.
+            from app.domains.cms.render import sites_in_words
+
+            words = sites_in_words(code.partition(":")[2] or None, db)
+            return words or _("geen sites: dit account heeft er geen")
+        shown = render_cms_content(f"{{{{{code}}}}}", db) or ""
+        words = " ".join(html.unescape(re.sub(r"<[^>]*>", " ", shown)).split())
         if code.startswith("form:"):
-            # #1567: the legend shows the button's words, not its markup — or
-            # says that this tenant has no such form to send.
-            words = re.sub(r"<[^>]+>", " ", shown).strip()
+            # #1567: the button's words — or that this tenant has no such form.
             return f"[{words}]" if words else _("geen knop: dit formulier kan niets ontvangen")
-        return shown
+        return words
 
     return [
         {"code": f"{{{{{code}}}}}", "label": label, "preview": _preview(code)}
