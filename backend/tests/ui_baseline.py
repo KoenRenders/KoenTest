@@ -91,10 +91,10 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "ui/templates/admin_tenant.html": 3,
 }
 
-#: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 92 in 47 files.
+#: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 91 in 47 files.
 RAW_SURFACES: dict[str, int] = {
     "domains/activities/templates/_aa_kaarten.html": 1,
-    "domains/activities/templates/_inschrijving_detail.html": 5,
+    "domains/activities/templates/_inschrijving_detail.html": 4,
     "domains/activities/templates/admin_activiteit_kopieren.html": 1,
     "domains/activities/templates/admin_activiteit_nieuw.html": 1,
     "domains/activities/templates/admin_activiteiten.html": 1,

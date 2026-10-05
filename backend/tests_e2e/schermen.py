@@ -197,6 +197,56 @@ def transition_frames(page) -> int:
     return page.evaluate(_TRANSITION_FRAMES)
 
 
+class Held:
+    """Answers the browser asked for and has not been given yet (#1596, #1613).
+
+    For a test about what an answer does when it lands LATE: the request goes
+    to the server at once, its answer waits here until `release`, so the order
+    and the moment of arrival are the test's and not the network's. `suffix` is
+    the end of the address to hold (POST only); `stop` lets everything go and
+    holds nothing any more."""
+
+    def __init__(self, page, suffix: str):
+        self.waiting: list = []
+        self.page = page
+        page.route(f"**/*{suffix}", self._hold)
+
+    def _hold(self, route) -> None:
+        if route.request.method != "POST" or self.closed:
+            route.continue_()
+            return
+        response = route.fetch()
+        if self.closed:
+            # `stop` ran while this answer was being fetched: nothing holds it.
+            self._answer(route, response)
+            return
+        self.waiting.append((route, response))
+
+    closed = False
+
+    def expect(self, count: int) -> None:
+        for _ in range(100):
+            if len(self.waiting) >= count:
+                return
+            self.page.evaluate("() => new Promise(r => requestAnimationFrame(r))")
+        raise AssertionError(f"{len(self.waiting)} answer(s) held, expected {count}")
+
+    @staticmethod
+    def _answer(route, response) -> None:
+        try:
+            route.fulfill(response=response)
+        except Exception:
+            pass  # the page aborted this request meanwhile: nothing to answer
+
+    def release(self, index: int = 0) -> None:
+        self._answer(*self.waiting.pop(index))
+
+    def stop(self) -> None:
+        self.closed = True
+        while self.waiting:
+            self.release()
+
+
 def open_de_raakje_bel(page, pad: str = "/"):
     """De zwevende Raakje-bel op een publieke pagina openen (#1120).
 

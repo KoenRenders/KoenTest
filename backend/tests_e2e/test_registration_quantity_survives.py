@@ -44,7 +44,13 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, htmx_stil, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    Held,
+    htmx_stil,
+    login_met_sessie,
+    pagina_klaar,
+)
 
 
 @pytest.fixture(scope="module")
@@ -88,51 +94,6 @@ def browser():
         b = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         yield b
         b.close()
-
-
-class Held:
-    """Answers the browser asked for and has not been given yet. The request
-    goes to the server at once; its answer waits here until `release`."""
-
-    def __init__(self, page, suffix: str):
-        self.waiting: list = []
-        self.page = page
-        page.route(f"**/*{suffix}", self._hold)
-
-    def _hold(self, route) -> None:
-        if route.request.method != "POST" or self.closed:
-            route.continue_()
-            return
-        response = route.fetch()
-        if self.closed:
-            # `stop` ran while this answer was being fetched: nothing holds it.
-            self._answer(route, response)
-            return
-        self.waiting.append((route, response))
-
-    closed = False
-
-    def expect(self, count: int) -> None:
-        for _ in range(100):
-            if len(self.waiting) >= count:
-                return
-            self.page.evaluate("() => new Promise(r => requestAnimationFrame(r))")
-        raise AssertionError(f"{len(self.waiting)} answer(s) held, expected {count}")
-
-    @staticmethod
-    def _answer(route, response) -> None:
-        try:
-            route.fulfill(response=response)
-        except Exception:
-            pass  # the page aborted this request meanwhile: nothing to answer
-
-    def release(self, index: int = 0) -> None:
-        self._answer(*self.waiting.pop(index))
-
-    def stop(self) -> None:
-        self.closed = True
-        while self.waiting:
-            self.release()
 
 
 def _saved(activity_id: int, name: str) -> dict[int, int]:

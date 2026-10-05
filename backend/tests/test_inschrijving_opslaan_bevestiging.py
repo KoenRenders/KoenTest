@@ -137,6 +137,10 @@ def test_de_tussenacties_houden_het_paneel_open(client, db_session):
     Deze test hangt aan de andere kant van de vlag uit #717 en hoort dus NIET mee
     te bewegen. Zakt hij door, dan is "sluiten na Opslaan" doorgelekt naar de
     tussenstappen — de bug die #613-3 oploste.
+
+    #1613: `/totaal` tekent het paneel niet meer opnieuw — het antwoord is het
+    totaal alleen — en kan het dus niet dichtklappen. Wat hier nog te bewaken
+    valt: dat het geen paneel in lees-stand terugstuurt en niets bevestigt.
     """
     reg_id, product = _inschrijving(client, db_session)
     hdr = _login(client)
@@ -147,7 +151,8 @@ def test_de_tussenacties_houden_het_paneel_open(client, db_session):
     for pad, data in wegen:
         resp = client.post(pad, headers=hdr, data=data)
         assert resp.status_code == 200, f"{pad}: {resp.text}"
-        assert PANEEL_OPEN in resp.text, f"{pad} liet het paneel dichtklappen"
+        assert "x-data=" not in resp.text, f"{pad} tekent het paneel opnieuw"
+        assert "Totaal" in resp.text, f"{pad} antwoordt het totaal niet"
         assert OOB not in resp.text, f"{pad} stuurde een bevestiging mee"
 
 

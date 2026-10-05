@@ -899,10 +899,23 @@ async def inschrijving_totaal(
     Eigen endpoint en niet het publieke `/totaal`: dat laatste is open, dit vraagt
     `require_admin_ui` + CSRF. Het patroon is hetzelfde, de rekenkant is dezelfde
     (`totals.py`), alleen de deur verschilt.
+
+    #1613: the answer is the TOTAL and nothing else. It used to be the whole
+    edit panel, drawn from the stored registration — which put back every field
+    of the panel that was typed and not saved yet, at each change of a quantity
+    (measured: the name, the remark and a second counter). The server sends what
+    it derives; a field is never part of the answer (the pattern of #1596).
     """
     formulier = await request.form()
-    return _render_detail(
+    ctx = _detail_ctx(
         request, db, registration_id, edit_open=True, quantities=_product_quantities(formulier)
+    )
+    if ctx is None:
+        return HTMLResponse("")
+    return templates.TemplateResponse(
+        request,
+        "_inschrijving_totaal.html",
+        {"totaal": ctx["totaal"], "product_rows": ctx["product_rows"]},
     )
 
 
