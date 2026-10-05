@@ -4,7 +4,7 @@
 **Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · **assigned to v2.14.0** by Koen ("zeker niet meer in v2.13"); the spike of phase 0 starts now as the first sub-issue of #1427
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
-**Reading:** A 1496 words · B 2500 · C 4744 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1496 words · B 2496 · C 4763 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -157,7 +157,7 @@ A page becomes a **structured document**: a tree of blocks in a known schema, st
 
 Decisions, each with the rejected alternative (the reasoning in C4):
 
-- **Structure stored, HTML rendered** (C4.2). Rejected: keep storing editor HTML and sanitise. Only a structure renders four ways and survives edits.
+- **Structure stored, HTML rendered** (C4.2). Rejected: keep storing editor HTML and sanitise. Only a structure renders several ways (print later) and survives edits.
 - **One document with block nodes** (C4.2). Rejected: a `page_blocks` table. A document editor already gives selection, reordering, undo.
 - **The editor: TipTap (Germany, MIT)**, decided 5 October 2026; the spike confirms the bundle step (C4.1). Rejected: CKEditor 5, Trix, bare ProseMirror, the non-EU editors.
 - **Vendored bundle, zero Node in the repository's build** (C4.1). Rejected: a CDN or a Node build.
@@ -399,7 +399,7 @@ Dependencies: CR-15's picker and a company tenant (CR-19) exist; the page screen
 
 ## B8. Open decisions — what the approver still decides
 
-None (B9, 5 Oct 2026); the spike's findings land in C8.
+None (B9, 5 Oct 2026).
 
 ## B9. Decisions log — dated answers
 
@@ -451,7 +451,7 @@ None (B9, 5 Oct 2026); the spike's findings land in C8.
 #### cms (phases 1 to 6)
 
 - **Screens:** `/admin/paginas/{id}` on the document layout (CR-11 blocks 5 and 9): title and slug in the header editor, a language selector (one language shown at a time; phase 1 shows the tenant's), the document with Opslaan of the draft (autosave later), the actions Voorbeeld · Publiceren · Geschiedenis, and in Acties: Document exporteren (JSON) · Document importeren (JSON); `/voorbeeld` renders the draft (a width switch later); `/geschiedenis` lists versions with "Terugzetten"; the list shows a draft badge and, in phase 3, the languages a page has.
-- **Code:** `schema.py` (the schema as data: node types, attributes, sets; exported as JSON Schema); `render.py` (three targets; the form node calls `forms.api.render_embedded`; the cards node resolves page references to URLs; nh3 on the result); `service.save_draft`, `publish`, `restore`, `versions`, `parse_html` (F11), `import_draft(page_id, language, document)` (validation, then save_draft), `export_document`; `api.py` exports `schema_for`, `render_document`, `placeholders`, `import_draft`, `create_page`, `publish` (also from the API), `references`; `router.py` adds `PUT /api/v1/cms/pages/{id}/draft` (API key, `?language=`) and `GET /api/v1/cms/schema`.
+- **Code:** `schema.py` (the schema as data: node types, attributes, sets; exported as JSON Schema); `render.py` (two targets, print later; the form node calls `forms.api.render_embedded`; the cards node resolves page references to URLs; nh3 on the result); `service.save_draft`, `publish`, `restore`, `versions`, `parse_html` (F11), `import_draft(page_id, language, document)` (validation, then save_draft), `export_document`; `api.py` exports `schema_for`, `render_document`, `placeholders`, `import_draft`, `create_page`, `publish` (also from the API), `references`; `router.py` adds `PUT /api/v1/cms/pages/{id}/draft` (API key, `?language=`) and `GET /api/v1/cms/schema`.
 - **Database:** phase 1, additive: `cms.page_translations (page_id INT NOT NULL REFERENCES cms.cms_pages(id) ON DELETE CASCADE, language VARCHAR(5) NOT NULL REFERENCES mdm.language_codes(code), title VARCHAR(200) NOT NULL, menu_label VARCHAR(80) NULL, draft_json JSONB NULL, published_json JSONB NULL, published_at TIMESTAMPTZ NULL, published_by VARCHAR(255) NULL, PRIMARY KEY (page_id, language))`; `cms.cms_page_history (id, page_id FK CASCADE, language VARCHAR(5) NOT NULL, action VARCHAR(20) NOT NULL CHECK (action IN ('published','restored')), document JSONB NOT NULL, at TIMESTAMPTZ NOT NULL, by VARCHAR(255))`; the migration moves `title` and `content` (parsed) into the row of the tenant's language; `cms_pages.title` kept one release, then dropped with `content`; phase 6: `parent_id INT NULL`, `menu_label VARCHAR(80) NULL`, `external_url VARCHAR(500) NULL`, `in_footer BOOL NOT NULL DEFAULT false`. Check the CHECK constraints of `cms_pages` before touching flags (the `media_assets.kind` lesson).
 - **Templates:** `admin_pagina.html` and `_cp_detail.html` shrink to the layout plus the macro; `cms_pagina.html` on the reading width; the public menu renders sections (phase 6); the public header renders the language switch when a second language has published content (phase 3).
 - **Tests:** C6 1, 2, 4, 5, 6, 8, 12, 13, 16, 18, 19, 20.
@@ -566,7 +566,7 @@ The stored content is a JSON document validated against the schema on save and o
 7. **Figure through the picker.** A media id the picker offered; resolved through `media.api`.
 8. **Value is current.** A value node renders the amount from `tenant_config`; a migrated `{{code}}` became a value node.
 9. **Three sets.** `notes` offers no figure or button; `letter` offers activity and calendar; `page` offers neither; an unknown set is a `ValueError`.
-10. **Mail from blocks.** A letter with an activity and a calendar node renders to the same HTML the markers produced (snapshot on the old code); the notes render to print.
+10. **Mail from blocks.** A letter with an activity and a calendar node renders to the same HTML the markers produced (snapshot on the old code); the notes render to print — the print half runs when print is built (B6, later), the mail half in phase 7.
 11. **Reading width, tables and pictures on a phone.** The content column is 768 px at desktop and the viewport minus 32 px at 390 px; a table's block scrolls inside itself while the page does not; a figure beside text stacks below 640 px; a figure carries the 14 px radius and the card shadow (computed style).
 12. **Migration is honest.** `render(parse(html))` equals the sanitised html modulo whitespace for every seeded page; the ones it cannot are listed and still render.
 13. **Menu (phase 6).** A page with a parent renders under it; an external item links out with `rel`; a footer item appears in the footer only.
