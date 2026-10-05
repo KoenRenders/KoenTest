@@ -157,11 +157,14 @@ exists in row actions and toolbars only, with its `aria-label`.
 
 ### 1.6 Type
 
-**Decided with block 1** (Koen, 2 October 2026): **Inter** for the whole
-back office and for every field, button and control on the public site;
-**Fraunces** (a variable serif, OFL) for the public site's headings and
-poster areas only — direction B's type on direction A's palette. Radio
-Canada Big leaves with the house style. The scale is the concepts': 13 ·
+**Decided with block 1** (Koen, 2 October 2026) and **corrected on 5
+October 2026 after seeing P1 on HDEV**: **Inter on both shells, headings
+included** — the public headings and the activity titles in Fraunces were
+"no improvement"; the public site aligns with the back office and keeps
+only a somewhat larger scale: a page title 40 px on a desktop and 32 on a
+phone, a section heading 24 px, a card title 18 px, all Inter 600 at line
+height 1.15. Fraunces (built in P1, #1588) goes again, file and face. Radio
+Canada Big leaves with the house style; the logo is the brand image. The scale is the concepts': 13 ·
 14 · 16 · 18 · 24 · 30 px (a page title 30 px on a desktop, 28 on a phone;
 body 14 px in the admin, 16 px in public reading text; a public hero title
 64 px, 44 on a phone). The density is the concepts' too: navigation rows
@@ -419,7 +422,8 @@ public forms — register, a public form, Word lid, renew, Mijn gezin:
 
 - **One frame**: a 768 px column, **centred** on a desktop (the admin
   records stay left-aligned, §2.2), 720 px on a tablet, 358 px on a phone;
-  the title in Fraunces (32 / 40 px), everything else Inter; one card per
+  the title in Inter 600 (32 / 40 px, the public scale of §1.6), everything
+  else Inter; one card per
   section (radius 14, 16 px padding), 32 px between cards, 12 px between
   fields; the kit's `field` macro, no public variant. **No "* Verplicht
   veld" legend**: the red asterisk on the label is enough.
@@ -884,7 +888,8 @@ state ("Bekijk alle 8 betalingen"); loading "Raakje zoekt het voor je
 uit…"; failed "Raakje kon geen antwoord geven — probeer het opnieuw. Je
 vraag staat er nog.", no invented figures. **The public bell**: 56 px at
 the bottom right; at 1 440 px a compact window of 400 × 640 px above it,
-on a phone the same sheet; the tenant's name; headings in Fraunces; **the
+on a phone the same sheet; the tenant's name; headings in Inter (§1.6,
+corrected 5 Oct 2026); **the
 greeting stays as it is today, waving hand included** — "Hallo, ik ben
 Raakje! 👋 …" (Koen, 4 October 2026: he wants to keep it); three
 public suggestions; one component in the DOM for both shells, the public
