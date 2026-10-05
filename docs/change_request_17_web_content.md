@@ -403,7 +403,6 @@ Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11
 | Q6 | Start the spike now? | Yes. | the first sub-issue of #1427 |
 | Q9 | Merged cells in tables? | Not in phase 1. | the table node |
 | Q10 | Form block and cards block in phase 2? | Yes. | phase 1 stays smaller |
-| Q11 | A second language: only the public content, or also the app's words? | Only the content. | an extra issue or none |
 
 ## B9. Decisions log — dated answers
 
@@ -415,7 +414,7 @@ Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11
 | 1 Oct 2026 | Web content management as a whole, talked through first; no site builder. | Koen |
 | 4 Oct 2026 | **The frame**: the association's sites do not change; the subject is a company tenant's site, kept abstract. | Koen |
 | 4 Oct 2026 | Form block (R13), cards block (R14), kit-styled pictures (R4), columns middle beside a figure; a translation row from phase 1 (R15); a JSON door (R16); the menu to Should (R8); the three newsletter choices decide the blocks (F9). | Koen |
-| 5 Oct 2026 | **TipTap** is the editor (B8 Q1 closed; the spike of phase 0 confirms the bundle step). **The menu back to Could** (R8, phase 4): sections, an external link and a footer menu only if they come nearly free, otherwise a follow-up change request; the order of the pages stays settable as today. **The activity's description on the same editor is a Could outside this change** — a follow-up, not a phase here (B8 Q8 closed). | Koen |
+| 5 Oct 2026 | **TipTap** is the editor (B8 Q1 closed; the spike of phase 0 confirms the bundle step). **The menu back to Could** (R8, phase 4): sections, an external link and a footer menu only if they come nearly free, otherwise a follow-up change request; the order of the pages stays settable as today. **The activity's description on the same editor is a Could outside this change** — a follow-up, not a phase here (B8 Q8 closed). **A second language is the public content only; the back office stays Dutch** (B8 Q11 closed). | Koen |
 | 4 Oct 2026 | **Six answers**: R6 and writing on a phone to Could; R12 stays Won't; cards are layout (R14); English soon — phase 5 after phase 2, `/en/` prefix (R15); the JSON door also creates and publishes, for a CLI (R16). | Koen |
 | 1 Oct 2026 | *Proposed:* C4.1–C4.7; TipTap recommended, decided after the spike. | author |
 
