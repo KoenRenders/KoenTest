@@ -7,13 +7,20 @@ What only a browser shows — what the cascade made of the tokens on the body:
   the colour derived on contrast;
 - **the other tenants keep the palette**: a company and the platform that set
   nothing still resolve the brand token to Atelier's;
-- **the back office does not change colour**: its tokens and a screenshot of an
-  admin screen are the same before and after;
+- **the back office does not change colour**: its tokens, and the colours every
+  element of an admin screen is painted in, are the same before and after;
 - **only colour changes**: the boxes of the heading, the first card, the button
   and the footer stand where they stood, at 390 and at 1 440 px.
 
 The colours are set on the seeded association through `set_setting` and taken
 away again; no other test sees them.
+
+**The admin comparison is on colours, not on the bytes of a screenshot.** It was
+a screenshot until 5 October 2026, and that failed on CI in a pull request that
+touched no colour (run 37296722355): two renderings of the design-system page
+are not byte-equal every time. What the test is about is colour, so it reads
+the colour, the background and the border colour of every element — the same
+question, and one that has one answer.
 
 Proven red (on this branch, restored after): the `style` taken off the `<body>`
 in `site_base.html` → the tokens stay Atelier's and the heading `rgb(33, 45, 58)`;
@@ -57,6 +64,13 @@ READ = """() => {
             call: box(call), footer: box(q('footer')), page: document.documentElement.scrollWidth},
   };
 }"""
+
+
+#: What every element is painted in: text, background and border colour.
+PAINT = """() => [...document.querySelectorAll('body, body *')].map(e => {
+  const s = getComputedStyle(e);
+  return e.tagName + ' ' + s.color + ' ' + s.backgroundColor + ' ' + s.borderTopColor;
+})"""
 
 
 def _set(brand, accent):
@@ -136,7 +150,7 @@ def measured():
                 out[(moment, "admin")] = {
                     "tokens": page.evaluate(READ)["tokens"],
                     "style": page.evaluate("() => document.body.getAttribute('style')"),
-                    "shot": page.screenshot(),
+                    "paint": page.evaluate(PAINT),
                 }
                 page.close()
         finally:
@@ -145,7 +159,7 @@ def measured():
     print(
         "MEASURE colours",
         {k: v for k, v in out.items() if k[1] != "admin"},
-        {k: (v["tokens"], v["style"], len(v["shot"])) for k, v in out.items() if k[1] == "admin"},
+        {k: (v["tokens"], v["style"], len(v["paint"])) for k, v in out.items() if k[1] == "admin"},
     )
     return out
 
@@ -196,4 +210,10 @@ def test_the_back_office_does_not_change_colour(measured):
     assert before["tokens"]["brand"], "the admin's brand token was not read"
     assert after["tokens"] == before["tokens"], (before["tokens"], after["tokens"])
     assert after["style"] is None and before["style"] is None, "the admin body carries a style"
-    assert after["shot"] == before["shot"], "the design-system page renders differently"
+    assert len(before["paint"]) > 1000, f"only {len(before['paint'])} elements were read"
+    changed = [
+        (was, now) for was, now in zip(before["paint"], after["paint"], strict=True) if was != now
+    ]
+    assert not changed, (
+        f"{len(changed)} elements of the design-system page changed colour: {changed[:3]}"
+    )
