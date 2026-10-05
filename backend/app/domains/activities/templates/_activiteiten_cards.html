@@ -43,7 +43,7 @@
        en blijft zo bereikbaar; tot golf 12 linkte de titel rechtstreeks naar
        het affichebestand (v1.14-erfenis). #}
     <div>
-      <h2 class="text-xl md:text-lg font-semibold flex flex-wrap items-center gap-2">
+      <h2 data-card-title class="text-xl md:text-lg font-semibold flex flex-wrap items-center gap-2">
         <a href="{{ path_for('/activiteiten/' ~ (a.slug or a.id)) }}" class="text-blue-700 hover:underline">{{ a.name }}</a>
         {# Golf 11 (eigenaarbevinding 1, #913): "Open" is de normale toestand en
            krijgt geen badge — de inschrijfknop ís het positieve signaal. Badges

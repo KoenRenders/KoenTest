@@ -244,7 +244,8 @@
       {% endif %}
     </div>
   </div>
-  <main id="main" class="site-container py-8" :inert="menu">
+  {# `data-main`: the content area, a hook of the measurement baseline (#1605). #}
+  <main id="main" class="site-container py-8" :inert="menu" data-main>
     {% block content %}{% endblock %}
   </main>
   {# ── The footer (CR-11 pilot B, P1 — #1588; end state §2.5) ──────────────────
