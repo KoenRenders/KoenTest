@@ -325,8 +325,11 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   the fields it edits. [39, 29, 20]
 - **In edit mode a record with a composite repeating group takes the whole
   reading group** — 1 092 px on a desktop, the summary card as the strip
-  above the form, the way K8 does it beside the Assistent panel; long text
-  fields keep the reading width of 768 px inside the wider column; read
+  above the form, the way K8 does it beside the Assistent panel; **every
+  full-width field, the text areas included (Omschrijving, interne nota),
+  fills the wider column** — the 768 px cap on long text fields that K5c
+  built left a gap beside the Omschrijving and went (Koen, 5 October 2026);
+  only rich text keeps the reading width, when it comes; read
   mode, Opslaan and Annuleren return to 768 px with the card at the right
   (Koen, 5 October 2026, after K5 on HDEV: "zeer veel ruimte verloren",
   "smaller dan vroeger"). [Q67]
