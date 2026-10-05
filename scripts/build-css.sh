@@ -158,12 +158,21 @@ cat > "$TMP/in.css" << 'CSS'
      Tailwind's line of 28 px, at every width. Measured on master: the `h2`
      rule above made an activity card's title a section head, 24 px on a line
      of 27.6 px, so it stood tight on its dates; v2.12.0 rendered 20 px on a
-     phone and 18 px from 768, both on 28 px. A page title in a card (the
-     sign-in page) stays a page title. */
+     phone and 18 px from 768, both on 28 px.
+
+     #1642 (Koen, 5 October 2026; CR-11 Q78, end state §5.3): 40 px (32 on a
+     phone) is the size of a page title ON THE PAGE'S GROUND. A heading inside
+     a card is the card's: an `h1` there is 24 px (the sign-in page, the
+     expired link, the contact form), an `h2` or `h3` 18 px. ONE mechanism for
+     the three levels — "inside a card" — where #1621 had a rule for two of
+     them and left the `h1` a page title. The kit's own title role
+     (`.public-form-title`, the title slot of `public_form_page` and of a
+     flow card) says itself that it is a page title and keeps that size. */
   body[data-shell="site"] :is(h1,h2,h3){font-family:var(--font-brand);font-weight:600;line-height:1.15}
   body[data-shell="site"] #main h1{font-size:32px}
   body[data-shell="site"] #main h2{font-size:24px}
   body[data-shell="site"] #main h3{font-size:18px}
+  body[data-shell="site"] #main .rounded-2xl h1:not(.public-form-title){font-size:24px}
   body[data-shell="site"] #main .rounded-2xl :is(h2,h3){font-size:18px;line-height:28px}
   @media (min-width:768px){body[data-shell="site"] #main h1{font-size:40px}}
   body[data-shell="site"] #main .form-section :is(h2,h3){font-size:16px;line-height:24px}

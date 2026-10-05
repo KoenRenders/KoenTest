@@ -181,9 +181,6 @@ def _page_ctx(request: Request, db: Session, activity: Any, component: Any, form
         "terug_url": terug,
         "klaar": False,
         "klaar_url": f"{terug}?deelnemers={component.id}",
-        # "Wie doet er mee?" in *Je deelname*: the activity with this component's
-        # list open.
-        "deelnemers_url": f"{terug}?deelnemers={component.id}",
         # #1589: what the confirmation says is still to pay by bank transfer.
         "over_te_schrijven": None,
         "naam": "",

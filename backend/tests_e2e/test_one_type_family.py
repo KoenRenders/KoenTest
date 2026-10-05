@@ -14,6 +14,12 @@ against master `3f1525a2`: the home's card titles measured 24 px on a line of
 27.6 px, at both widths. (v2.12.0 showed 20 px on a phone; the scale of Q61
 says 18.)
 
+#1642 (Koen, 5 October 2026; CR-11 Q78): the page title's 40 px (32 on a
+phone) is for a title on the page's GROUND. A heading inside a card is 24 px —
+the sign-in page — by the same mechanism as the card title above. Red against
+master `850af476`: the `h1` in the card of `/aanmelden` measured 32 px at 390
+and 40 px at 1 440.
+
 Read from the rendered page (`getComputedStyle`), because a class in a template
 says nothing about what the cascade made of it: the scale stands on the
 heading's tag in the shell's CSS and must win from whatever size class a page
@@ -41,7 +47,8 @@ HEADINGS = """() => {
     family: s.fontFamily.split(',')[0].replace(/"/g, '').trim(), size: parseFloat(s.fontSize),
     weight: s.fontWeight, ratio: Math.round(parseFloat(s.lineHeight) / parseFloat(s.fontSize) * 100) / 100,
     line: parseFloat(s.lineHeight), section: !!e.closest('.form-section'),
-    card: !!e.closest('.rounded-2xl') && e.tagName !== 'H1' }; };
+    card: !!e.closest('.rounded-2xl') && e.tagName !== 'H1',
+    in_card: !!e.closest('.rounded-2xl'), role: e.classList.contains('public-form-title') }; };
   const all = t => [...main.querySelectorAll(t)].filter(e => e.checkVisibility()).map(read);
   const footer = [...document.querySelectorAll('.site-footer h2')].map(read);
   return {h1: all('h1'), h2: all('h2'), h3: all('h3'), footer: footer,
@@ -72,6 +79,7 @@ def setup():
             "activity": f"/activiteiten/{activity.id}",
             "register": f"/activiteiten/{activity.id}/inschrijven/{component.id}",
             "Word lid": "/lid-worden",
+            "sign in": "/aanmelden",
         },
         "admin": f"/admin/activiteiten/{activity.id}",
         "session": make_session_value(email),
@@ -183,6 +191,24 @@ def test_a_card_title_is_a_card_title_on_its_own_line(measured, width, size):
     assert seen >= 2
     h1 = measured[("activities", width)]["h1"][0]
     assert h1["ratio"] == 1.15, f"the page title @{width}: {h1}"
+
+
+@pytest.mark.parametrize(("width", "ground"), [(390, 32), (1440, 40)])
+def test_a_heading_in_a_card_is_24_px_and_a_page_title_on_the_ground_keeps_its_size(
+    measured, width, ground
+):
+    """#1642: the sign-in page's heading stands in a card; the registration
+    page's and Word lid's title on the ground (the kit's title role)."""
+    (card,) = measured[("sign in", width)]["h1"]
+    assert card["in_card"], f"the sign-in page's heading left its card: {card}"
+    assert (card["size"], card["weight"], card["family"]) == (24, "600", "Inter"), (
+        f"the heading in the card @{width}: {card}"
+    )
+    for name in ("register", "Word lid", "activity"):
+        (title,) = measured[(name, width)]["h1"]
+        assert not title["in_card"] and title["size"] == ground, f"{name} @{width}: {title}"
+    # The kit's title role says itself that it is a page title.
+    assert measured[("register", width)]["h1"][0]["role"]
 
 
 def test_the_three_kinds_of_tenant_share_the_headings_and_name_their_own_newsletter():
