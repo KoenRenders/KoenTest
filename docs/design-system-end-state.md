@@ -39,6 +39,20 @@ the design intent; where the two differ, `design-system.md` says what runs.
 `scripts/build-css.sh` reads both; a template names a token, never a
 value. (Phase 2. Rows 9, 16; R12.)
 
+**The brand file is tenant settings, not a file** (Koen, 5 October 2026,
+after P1 on HDEV): the logo, the header colour (`site_header_color`, built)
+and **two colours — the brand colour (headings, links, the primary, the
+active navigation; hover, soft tint and focus derived from it) and the
+accent colour (the one call to action)** — set per tenant in the tenant
+editor with the same contrast guard as the header colour, applied as CSS
+variables on the public `<body>` the way the header colour is. **The default
+without a setting is the Atelier palette** below, the platform's neutral
+house style; Raak Millegem sets its own house-style blue and yellow in its
+settings (Koen found PROD's colours nicer "because they belong to Raak",
+and chose to keep Atelier as the default rather than make Raak's colours
+every tenant's). The back office stays Atelier for every tenant. [Q68;
+issue b2 of pilot B, v2.13.0]
+
 **The first brand file is decided** (block 1, Koen, 2 October 2026, choosing
 between ChatGPT's two directions on the same frame): palette *Atelier* — a
 muted brand blue `37 78 115` (hover `25 57 88`), ink `33 45 58` and soft ink
