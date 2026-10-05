@@ -3,9 +3,10 @@
 In a real browser, because every state here is what the page does with an
 answer — or before there is one (design-system-end-state §3.6, §3.18):
 
-- the bar: 64 px under the form's last section, sticky 16 px above the window's
-  bottom while the form is longer than the window; on a phone 121 px at the
-  window's bottom with Opslaan on the first line, and the last field reachable;
+- the bar: 64 px under the form's last section, sticky against the window's
+  bottom while the form is longer than the window, with its shadow upward and
+  none once it stands in the flow (#1607); on a phone 121 px at the window's
+  bottom with Opslaan on the first line, and the last field reachable;
 - a refusal: the banner names every field, each refused field carries its
   reason, the first has the focus, every typed value is still there;
 - a removed row that may not go comes back with the reason on it;
@@ -128,6 +129,7 @@ _BAR = """() => {
   return {window: [innerWidth, innerHeight], page: document.documentElement.scrollWidth, scroll: Math.round(scrollY),
           max_scroll: document.documentElement.scrollHeight - innerHeight,
           bar: r(bar), position: getComputedStyle(bar).position, background: getComputedStyle(bar).backgroundColor,
+          shadow: getComputedStyle(bar).boxShadow, line: getComputedStyle(bar).borderTopWidth,
           column: r(document.querySelector('[data-form-column]')),
           save: r(q('[data-form-save]')), cancel: r(q('[data-form-cancel]')), remove: r(q('[data-form-delete]')),
           rare: r(document.querySelector('[data-rare-settings]')),
@@ -138,15 +140,25 @@ _BAR = """() => {
 # ── The bar ──────────────────────────────────────────────────────────────────
 
 
-def test_the_bar_is_64_px_sticky_above_the_bottom_and_stands_under_the_last_section(setup):
+def test_the_bar_is_64_px_sticky_at_the_bottom_and_stands_under_the_last_section(setup):
     """Proven red by taking `position:sticky` off `.record-bar`: at the top of a
-    long form the bar is then far below the window."""
+    long form the bar is then far below the window.
+
+    #1607 (Koen, 5 October 2026): against the window's bottom, not 16 px above it
+    — red on master with 884 against 900 — with a heavier line and, while it
+    sticks, a shadow; in the flow at the form's end, none. Proven red by leaving
+    `data-stuck` unset (no shadow at the top) and by setting it always (a shadow
+    in the flow)."""
     page = _page(setup, 1440)
     top = page.evaluate(_BAR)
     print("MEASURE bar 1440 top", top)
     assert top["page"] == 1440 and top["scroll"] == 0 and top["max_scroll"] > 200, "a long form"
     assert top["bar"]["h"] == 64 and top["position"] == "sticky"
-    assert top["bar"]["bottom"] == 900 - 16, "16 px above the window's bottom while scrolling"
+    assert top["bar"]["bottom"] == 900, "against the window's bottom while the form runs on"
+    assert top["shadow"] != "none", (
+        "a bar that sticks casts no shadow: it reads as part of the card"
+    )
+    assert top["line"] == "2px"
     assert top["bar"]["x"] == top["column"]["x"] and top["bar"]["w"] == top["column"]["w"]
     assert not top["in_card"], "never in a card, never in a row"
     # Found by looking at the screenshot: both labels showed at once, because
@@ -162,6 +174,16 @@ def test_the_bar_is_64_px_sticky_above_the_bottom_and_stands_under_the_last_sect
     end = page.evaluate(_BAR)
     print("MEASURE bar 1440 end", end)
     assert end["bar"]["y"] - end["rare"]["bottom"] == 24, "24 px under the last section"
+    assert end["bar"]["bottom"] < 900, "at the form's end the bar is in the flow"
+    page.wait_for_function(
+        "getComputedStyle(document.querySelector('[data-action-bar]')).boxShadow === 'none'"
+    )
+    # halfway, it sticks again: nothing of the form shows under it
+    page.evaluate("scrollTo(0, 200)")
+    page.wait_for_function(
+        "getComputedStyle(document.querySelector('[data-action-bar]')).boxShadow !== 'none'"
+    )
+    assert page.evaluate(_BAR)["bar"]["bottom"] == 900
     assert page.errors == []
     page.close()
 
@@ -174,6 +196,7 @@ def test_on_a_phone_the_bar_is_121_px_at_the_bottom_and_the_last_field_stays_rea
     # column on a phone and the bar hung 26 px under the window before any
     # scrolling; measured again on #1560: at the bottom from the first pixel.
     assert start["bar"]["bottom"] == 844 and start["bar"]["h"] == 121
+    assert start["shadow"] != "none", "#1607: the same picture on a phone"
     page.evaluate("scrollTo(0, 400)")
     top = page.evaluate(_BAR)
     print("MEASURE bar 390 top", top)

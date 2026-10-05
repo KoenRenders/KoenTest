@@ -313,9 +313,35 @@
     form.requestSubmit(save && save.form === form ? save : undefined);
   });
 
+  /* ── The bar sticks, and says so (#1607) ─────────────────────────────────
+     While the form is longer than the window the bar stands against the
+     window's bottom and casts its shadow upward; at the form's end it is in
+     the flow and casts none. Sticky has no state a stylesheet can read, so
+     the bar gets `data-stuck` while its bottom is the window's bottom. */
+  var stuckTick = false;
+  function markStuck() {
+    stuckTick = false;
+    var bar = theBar();
+    if (!bar) return;
+    var box = bar.getBoundingClientRect();
+    var edge = document.documentElement.clientHeight;
+    var stuck = box.height > 0 && getComputedStyle(bar).position === "sticky" && Math.abs(box.bottom - edge) < 1;
+    if (stuck !== bar.hasAttribute("data-stuck")) bar.toggleAttribute("data-stuck", stuck);
+  }
+  function askStuck() {
+    if (stuckTick) return;
+    stuckTick = true;
+    window.requestAnimationFrame(markStuck);
+  }
+  window.addEventListener("scroll", askStuck, { passive: true });
+  window.addEventListener("resize", askStuck);
+  // The page growing or shrinking without a scroll — a row added, a section
+  // unfolded — moves the form's end past the window's bottom or back.
+  if (window.ResizeObserver) new ResizeObserver(askStuck).observe(document.documentElement);
+
   function init() {
     // After Alpine and the group script settled the form's first state.
-    window.requestAnimationFrame(function () { begin(theForm()); });
+    window.requestAnimationFrame(function () { begin(theForm()); markStuck(); });
   }
   document.addEventListener("DOMContentLoaded", init);
   document.addEventListener("htmx:afterSettle", init);
