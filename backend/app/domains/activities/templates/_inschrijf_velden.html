@@ -41,10 +41,9 @@
       {% include "_inschrijf_prijsblok.html" %}
     </div>
   </div>
-  {% if deelnemers_url|default(None) %}
-  {# "Wie doet er mee?" stays a compact inline link (fixed UI decision). #}
-  <p data-span="full" class="text-sm"><a class="text-link underline" href="{{ deelnemers_url }}">{{ _("Wie doet er mee?") }}</a></p>
-  {% endif %}
+  {# #1642 (Koen, 5 October 2026): no "Wie doet er mee?" under the total. The
+     list of participants stands on the activity's card and on its page; who is
+     registering came from there. #}
   {% if not vragen %}
   {# CR-14 F3: with questions the form asks for remarks itself if it wants them. #}
   {{ ui.field("remarks", _("Opmerkingen"), kind="textarea", rows=2, value=values.get("remarks", ""),

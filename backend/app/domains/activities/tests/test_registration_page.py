@@ -117,6 +117,20 @@ def test_a_refusal_keeps_the_page_the_values_and_the_reason(client, two_componen
     assert "Verzenden kan nog niet: controleer 1 veld." in html
 
 
+def test_the_registration_page_has_no_link_to_who_takes_part(client, two_components):
+    """#1642 (Koen, 5 October 2026): the link "Wie doet er mee?" under the total
+    is gone from the registration page; the list stays on the activity's page,
+    where the visitor came from. Red against master: the link stands in the
+    form, to `?deelnemers=<component>`."""
+    activity, open_one, _closed, _product = two_components
+    form = client.get(f"/activiteiten/{activity.id}/inschrijven/{open_one.id}")
+    assert form.status_code == 200
+    main = form.text[form.text.index("<main") : form.text.index("</main>")]
+    assert "Wie doet er mee?" not in main and "?deelnemers=" not in main
+    # The activity's own page still offers the list.
+    assert "Wie doet er mee?" in client.get(f"/activiteiten/{activity.id}").text
+
+
 def test_the_thank_you_page_leads_back_to_an_open_list(client, two_components):
     activity, open_one, _closed, product = two_components
     response = client.post(
