@@ -1142,7 +1142,9 @@ screenshot set) · no
 `record_header(actions=…)`, and a list header's call slot holds only the
 create button and "Instellingen" · the declared save model matches the
 macros used · the Raakje trigger by rule · one toolbar per rich text ·
-screenshot baselines diffed (with the stability protocol of CR-11 B7).
+DOM-measurement baselines in JSON diffed — positions, sizes and counts per
+kit screen and width, no PNGs in the repository (Koen, 5 October 2026, CR-11
+Q60; the stability protocol of CR-11 B7 applies).
 
 **The eye** — the merge gate and the classification of Part 5, where a
 test can list candidates from word lists but a person decides: whether a
