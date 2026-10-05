@@ -105,15 +105,10 @@
       {{ ui.switch(key, label, checked=schakelaars[key].on, on_value=schakelaars[key].on_value,
                    off_value=schakelaars[key].off_value, help=hulp) }}
       {% elif key in colour_defaults %}
-      {# #1622: a colour of the site's brand file — the kit's field, with a
-         sample beside it. The sample follows the field while a valid #rrggbb
-         stands in it and shows the standard colour otherwise, which the field
-         names as its placeholder. The sample starts under the label (25 px). #}
-      <div x-data="{ value: '{{ waarden[key] }}' }" data-colour-field="{{ key }}" class="flex items-start gap-2">
-        <span data-colour-sample class="mt-[25px] h-10 w-10 shrink-0 rounded-lg border border-line" aria-hidden="true"
-              :style="{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(value.trim()) ? value.trim() : '{{ colour_defaults[key] }}' }"></span>
-        <div class="min-w-0 flex-1">{{ ui.field(key, label, value=waarden[key], placeholder=colour_defaults[key], help=hulp, attrs='x-model="value"') }}</div>
-      </div>
+      {# #1643: the three colours of the site's brand file — the header, the
+         brand, the accent — on the kit's ONE colour field: a sample beside
+         the input, the standard colour while the field is empty. #}
+      {{ ui.field(key, label, kind="color", value=waarden[key], placeholder=colour_defaults[key], help=hulp) }}
       {% else %}
       <div>
         {{ ui.label(label, key) }}

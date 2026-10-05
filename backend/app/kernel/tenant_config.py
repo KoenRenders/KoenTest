@@ -694,9 +694,14 @@ def tenant_site_header_color(db: Session, tenant_id: int | None = None) -> str |
 SITE_BRAND_COLOR_KEY = "site_brand_color"
 SITE_ACCENT_COLOR_KEY = "site_accent_color"
 
-#: The stylesheet's own two colours, as the editor's placeholders: what an
-#: empty field means. `test_site_colours.py` holds them against `build-css.sh`.
-SITE_COLOR_DEFAULTS = {SITE_BRAND_COLOR_KEY: "#254e73", SITE_ACCENT_COLOR_KEY: "#eec15e"}
+#: The stylesheet's own three colours, as the editor's placeholders and the
+#: sample of an empty field: what "empty" gives (#1643 added the header's).
+#: `test_site_colours.py` holds them against `build-css.sh`.
+SITE_COLOR_DEFAULTS = {
+    SITE_HEADER_COLOR_KEY: "#244bc5",
+    SITE_BRAND_COLOR_KEY: "#254e73",
+    SITE_ACCENT_COLOR_KEY: "#eec15e",
+}
 
 #: The text on the accent: the palette's dark ink, or white.
 _ACCENT_INK = (37, 44, 53)

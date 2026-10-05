@@ -611,6 +611,11 @@
      browser's; `current_url` / `current_label` name what hangs there,
      `delete_attrs` removes it.
    - `slug`: a URL name — no auto-capitalisation, no spell check.
+   - `color` (#1643): a colour as `#rrggbb` — a sample of 36 × 36 px at the
+     left of the input. The sample follows the input while a valid `#rrggbb`
+     stands in it and shows `placeholder` otherwise: the standard colour, so
+     an empty field shows what "empty" gives. The value is checked where it is
+     saved; the sample only draws what is typed. The ONE form of a colour.
    - `form`: the id of the form a control outside that form belongs to.
    - `display`: what read mode shows instead of the raw value — a date in
      words, an amount with its comma.
@@ -735,6 +740,13 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     <input type="hidden" name="{{ delete_name }}"{% if form %} form="{{ form }}"{% endif %} :value="drop && !chosen ? '1' : ''" value="">
     {% endif %}
     {% endif %}
+  </div>
+  {% elif kind == "color" %}
+  <div class="flex items-center gap-2" x-data="{ value: '{{ value or '' }}' }" data-colour-field>
+    <span data-colour-sample aria-hidden="true" class="h-9 w-9 shrink-0 rounded-md border border-line"
+          :style="{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(value.trim()) ? value.trim() : '{{ placeholder }}' }"{% if placeholder %} style="background-color: {{ placeholder }}"{% endif %}></span>
+    <input type="text" x-model="value"{% if value %} value="{{ value }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %} maxlength="7" autocapitalize="none" autocorrect="off" spellcheck="false"
+           class="{{ _field_control }} {{ _line }} tabular-nums" {{ _common }}>
   </div>
   {% else %}
   {%- set _types = {"email": "email", "phone": "tel", "number": "number", "date": "date", "time": "time", "url": "url"} -%}
