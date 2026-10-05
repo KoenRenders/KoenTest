@@ -498,7 +498,11 @@ public forms — register, a public form, Word lid, renew, Mijn gezin:
   over PROD's bar): valid — "geldig tot en met …" in the success tone;
   to renew — the sentence and the button *Lidmaatschap vernieuwen*; a
   renewal awaiting a transfer — "Je vernieuwing loopt nog." **with the
-  transfer instructions in the card** and no link to a second screen — the
+  transfer instructions in the card **as an inset sub-card** (the kit's soft
+  brand tint, radius, 16 px padding) headed "Vernieuwing geregistreerd —
+  betaal via overschrijving:" with amount, IBAN, beneficiary and OGM under it,
+  as v2.12 drew it (Koen, 5 October 2026: "veelzeggender") — and no link to
+  a second screen; the
   running-renewal view of the renew page goes with it (Koen, 5 October 2026,
   Q79); then edit
   mode with one *Bewerken* badge and one
