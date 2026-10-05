@@ -4,7 +4,7 @@
 **Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · **assigned to v2.14.0** by Koen ("zeker niet meer in v2.13"); the spike of phase 0 starts now as the first sub-issue of #1427
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
-**Reading:** A 1497 words · B 2499 · C 4727 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1496 words · B 2487 · C 4740 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -97,8 +97,7 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 ## A5. Supplied material — and what it taught us
 
 - Koen's seven points of 1 October (C4.1–C4.7) and his three examples of 4 October from an outside site, described in A1, not reproduced.
-- The code and the earlier decisions: C1 names every file and issue; the forms module's JSON import is the precedent for the JSON door; code lists already carry labels per language.
-- The repository carries no licence file (B8 Q1).
+- The code: C1 names every file and issue; the forms module's JSON import is the precedent for the JSON door.
 
 ## A6. Business requirements — what the board asks, with MoSCoW
 
@@ -109,8 +108,8 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 | R3 | A page has a draft and a published version, previewable; publishing keeps the previous version, restorable. | Must | Koen, 4 Oct |
 | R4 | A library picture sits beside the text with a caption; its corners and shadow are the site's, never in the file. | Should | Koen, 4 Oct |
 | R5 | A price or a date is placed as a value, not typed as a code, and shows the current value. | Should | author |
-| R6 | The newsletter and the notes on the same editor; a letter still arrives as a mail every program shows. | Could | Koen, 1 Oct; Could 4 Oct |
-| R7 | Reading works on a phone; writing there is a Could — the editor must open and save, no comfort required. | Must / Could | Koen, 1 Oct; writing Could 4 Oct |
+| R6 | The newsletter and the notes on the same editor; a letter still arrives as a mail every program shows. | Could | Koen, 4 Oct |
+| R7 | Reading works on a phone; writing there is a Could — the editor must open and save, no comfort required. | Must / Could | Koen, 4 Oct |
 | R8 | The menu groups pages under sections, carries an external link, and the footer has its own short menu — only if it comes nearly free; otherwise a follow-up change request. The order of the pages in the menu stays settable, as today. | Could | Koen, 5 Oct (Should on 4 Oct) |
 | R9 | The editor and everything it loads are served by the portal, from Europe; no data leaves. | Must | Europe First, CSP, zero Node |
 | R10 | No site builder: the organiser chooses blocks, the kit chooses the pixels. | Must (limit) | Koen, 1 and 4 Oct |
@@ -160,7 +159,7 @@ Decisions, each with the rejected alternative (the reasoning in C4):
 
 - **Structure stored, HTML rendered** (C4.2). Rejected: keep storing editor HTML and sanitise. Only a structure renders four ways and survives edits.
 - **One document with block nodes** (C4.2). Rejected: a `page_blocks` table. A document editor already gives selection, reordering, undo.
-- **The editor: TipTap (Germany, MIT)** — decided by Koen on 5 October 2026; the spike confirms the one-off bundle step (C4.1). Rejected: CKEditor 5 (Poland, GPL/commercial), Trix (no document model), bare ProseMirror, the non-EU editors.
+- **The editor: TipTap (Germany, MIT)**, decided 5 October 2026; the spike confirms the bundle step (C4.1). Rejected: CKEditor 5, Trix, bare ProseMirror, the non-EU editors.
 - **Vendored bundle, zero Node in the repository's build** (C4.1). Rejected: a CDN or a Node build.
 - **Draft and published as two documents, versions through `*_history`** (C4.3). Rejected: live on save.
 - **Value blocks instead of placeholder codes** (C4.4).
@@ -371,7 +370,7 @@ Who calls whom: the admin screens call the cms service and render the editor thr
 | cms | — | 5 | 4 | 2 | 1 | 0.5 | 12.5 |
 | forms; newsletter, meetings | — | — | 0.5 | — | — | 2.5 | 3 |
 | tests | 0.5 | 1.5 | 1.5 | 0.5 | 0.25 | 1 | 5.25 |
-| **Total** | **1.5** | **8.5** | **7.5** | **3** | **1.25** | **4.5** | **~26 CLI-days** — **20.5 for the firm phases 0–3**; 4 and 5 only when nearly free |
+| **Total** | **1.5** | **8.5** | **7.5** | **3** | **1.25** | **4.5** | **~26 CLI-days** (20.5 for phases 0–3) |
 
 Purchases: none with TipTap; CKEditor 5 needs the GPL terms or a licence (Q1). **Running cost:** none. **Operations:** no env var; the bundle upgraded like htmx; one contract migration.
 
@@ -384,10 +383,10 @@ Purchases: none with TipTap; CKEditor 5 needs the GPL terms or a licence (Q1). *
 | **2 — the blocks** | table (full), columns with alignment, button, callout, link card, **cards**, **form**, gallery; the API: pages, draft, publish, reference lists | none | a deleted form renders nothing | AC2, AC8, AC9 |
 | **3 — a second language** (Should) | the language selector, a second translation row with its menu label, `/en/`, the fallback, the public switch | none | a page without a translation falls back | walkthrough |
 | **4 — the menu** (Could, only if nearly free) | parent, external link, footer menu; the page order already exists (`sort_order`) | additive | none | AC12 |
-| **5 — the letter and the notes** (Could, last) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes; until then two editors coexist, a named exception on gate 14 | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
+| **5 — the letter and the notes** (Could, last) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes; two editors coexist until then | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
 | **later** | drop `content` two releases after phase 1 | contract | — | — |
 
-Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11 pilot A or is carried by phase 1; a company tenant exists (CR-19). Phase 0 can start now. **Order** (Koen, 4 and 5 Oct 2026): 0 → 1 → 2 → 3 are the change; 4 and 5 are Could, taken only when they come nearly free — otherwise a follow-up change request.
+Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11 pilot A or is carried by phase 1; a company tenant exists (CR-19). Phase 0 can start now. **Order** (Koen, 5 Oct 2026): 0 → 1 → 2 → 3 are the change; 4 and 5 only when nearly free, otherwise a follow-up change request.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -398,7 +397,7 @@ Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11
 
 ## B8. Open decisions — what the approver still decides
 
-None. Koen closed Q1, Q2, Q6, Q8, Q9, Q10 and Q11 on 5 October 2026 (B9); the spike's findings land in C8 and change C4.1 only if the bundle step fails.
+None (B9, 5 Oct 2026); the spike's findings land in C8 and change C4.1 only if the bundle step fails.
 
 ## B9. Decisions log — dated answers
 
@@ -410,9 +409,8 @@ None. Koen closed Q1, Q2, Q6, Q8, Q9, Q10 and Q11 on 5 October 2026 (B9); the sp
 | 1 Oct 2026 | Web content management as a whole, talked through first; no site builder. | Koen |
 | 4 Oct 2026 | **The frame**: the association's sites do not change; the subject is a company tenant's site, kept abstract. | Koen |
 | 4 Oct 2026 | Form block (R13), cards block (R14), kit-styled pictures (R4), columns middle beside a figure; a translation row from phase 1 (R15); a JSON door (R16); the menu to Should (R8); the three newsletter choices decide the blocks (F9). | Koen |
-| 5 Oct 2026 | **TipTap** is the editor (B8 Q1 closed; the spike of phase 0 confirms the bundle step). **The menu back to Could** (R8, phase 4): sections, an external link and a footer menu only if they come nearly free, otherwise a follow-up change request; the order of the pages stays settable as today. **The activity's description on the same editor is a Could outside this change** — a follow-up, not a phase here (B8 Q8 closed). **A second language is the public content only; the back office stays Dutch** (B8 Q11 closed). **Merged cells in tables are a Could outside this change** (B8 Q9 closed). **The form block and the cards block in phase 2** (B8 Q10 closed). **The spike starts now** as the first sub-issue of #1427 (B8 Q6 closed); **the change request is assigned to v2.14.0**, not v2.13.0. B8 is empty: the design is decided. | Koen |
-| 5 Oct 2026 | **Phases renumbered**: the second language is **phase 3** (Should, after the blocks); the menu stays 4 and the letter and notes become 5, both Could — the change is phases 0–3, about 20.5 CLI-days. | Koen |
 | 4 Oct 2026 | **Six answers**: R6 and writing on a phone to Could; R12 stays Won't; cards are layout (R14); English soon — phase 3 after phase 2, `/en/` prefix (R15); the JSON door also creates and publishes, for a CLI (R16). | Koen |
+| 5 Oct 2026 | **B8 closed**: TipTap is the editor (Q1); the menu back to Could, only if nearly free (Q2, R8); the activity's description and merged cells are Coulds outside this change (Q8, Q9); the form and cards blocks in phase 2 (Q10); a second language is the public content only, the back office stays Dutch (Q11); the spike starts now (Q6). **Phases renumbered**: the second language is phase 3 (Should); the menu 4 and the letter 5, both Could — the change is phases 0–3, about 20.5 CLI-days. **Assigned to v2.14.0.** | Koen |
 | 1 Oct 2026 | *Proposed:* C4.1–C4.7; TipTap recommended, decided after the spike. | author |
 
 ---
@@ -503,7 +501,7 @@ The requirements: a real document model that keeps tables and custom blocks (Tri
 | ProseMirror bare | Netherlands, MIT | yes — the engine | as TipTap | lightest, EU | an engine only: toolbar, menus, table handling to write ourselves — days more | too low-level |
 | Editor.js, Quill, Lexical, Slate, Toast UI | RU / US / US / US / KR | — | — | — | not EU | out |
 
-Recommendation: **TipTap** — a page is one ProseMirror document whose node types are our blocks, stored as the JSON TipTap emits, rendered by our Python renderer from the same schema; the repository's own build stays Tailwind-standalone and Python only. If Koen prefers an official self-hosted build over a committed one, CKEditor 5 is the answer and the GPL question comes first. The spike (C8) proves both on four points: a table round trip, a custom node, the CSP, a phone.
+Decided: **TipTap** (Koen, 5 October 2026) — a page is one ProseMirror document whose node types are our blocks, stored as the JSON TipTap emits, rendered by our Python renderer from the same schema; the repository's own build stays Tailwind-standalone and Python only. The spike (C8) confirms it on four points: a table round trip, a custom node, the CSP, a phone. CKEditor 5 is the fallback only if the one-off bundle step fails (B8); then its GPL question comes first.
 
 ### C4.2 A page is one structured document; blocks are its nodes; HTML is a rendering
 
@@ -589,7 +587,7 @@ C6 tests 2, 3 and 14 are hard from phase 1: a node outside the schema is refused
 **The as-is, measured on 1 October 2026** (moved here from A2 on 4 October): the page editor is Trix 2.1.15, vendored: bold, italic, two hand-added headings, lists, quote, link, an image from the library (alt text, three widths, no caption, no placement), five price codes as chips, an HTML-source toggle — the toolbar extended differently in each of its three places (CR-11 row 40). A table typed in the source is flattened at the next edit (measured 19 September 2026 in the newsletter: only text and links survive Trix's document model). Publishing is a checkbox on save; the preview shows the saved state. The menu is "in het menu" per page plus an order, flat, with Home, Foto's and Archief fixed. A form renders only as its own page. A page renders at the site's full width, with hand-written styles for headings and images and none for a table. The newsletter inserts server-made blocks as `[[…]]` markers; the notes autosave a plain field. For content there is one language; the app's own words have one catalogue (nl_BE); code lists carry labels per language.
 
 
-Phase 0 measures and records here: the vendored size of each candidate (Trix is 203 KB today); a table round trip in each; a custom figure node with caption and placement in each; the CSP report with the bundle loaded; typing a three-column table on a phone in each (time, errors); the licence terms of CKEditor 5's GPL key for this repository. Already measured on 1 October 2026: Trix keeps no table; the sanitiser allows tables but nothing styles them; pages render at 1 248 px of text width on a 1 440 px screen; the admin editor's hand-added features total 430 lines across two files.
+Phase 0 measures and records here: the one-off bundle step (command, duration) and the vendored size of TipTap (Trix is 203 KB today); a table round trip; a custom figure node with caption and placement; the CSP report with the bundle loaded; typing a three-column table on a phone (time, errors). Only if the bundle step fails: the same four points on CKEditor 5 and the terms of its GPL key for this repository. Already measured on 1 October 2026: Trix keeps no table; the sanitiser allows tables but nothing styles them; pages render at 1 248 px of text width on a 1 440 px screen; the admin editor's hand-added features total 430 lines across two files.
 
 ## C9. Screens before the build — the concepts the approver saw
 
