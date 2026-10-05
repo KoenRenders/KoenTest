@@ -1,24 +1,40 @@
-"""Server-rendered "Word lid"-formulier (React-exit #405, §21).
+"""The member's own screens: Word lid, Mijn gezin and renewing the membership.
 
-Meerdere gezinsleden via htmx (rij-fragment per index — geen client-side
-state), postcode altijd een dropdown (vaste UI-beslissing), betaalwijze met
-Mollie-redirect via HX-Redirect. Hergebruikt register_family integraal
-(dedup, prijsregels, mail, audit).
+Since CR-11 pilot B (#1590; end state §2.6) the three stand on the public form
+page: a column of section cards with one action bar. The household is one
+picture on all three (`household_page`): its persons as a repeating group with
+their e-mail addresses, and the address.
+
+- **Word lid** (`/lid-worden`) creates a household. The form is read by
+  `signup_form`; creating it stays `register_family`'s (deduplication, price
+  rules, mail, audit). A refusal answers the banner alone, with every refused
+  field named — the page keeps what was typed.
+- **Mijn gezin** (`/leden/gezin`) is read first; `?bewerken=1` is the edit mode,
+  whose one "Opslaan" is `mdm`'s door (`POST /leden/gezin`, `mdm/ui.py`): the
+  household and its persons are master data. The page stays this module's.
+- **Renewing** (`/leden/gezin/vernieuwen`) is its own act on its own page.
+
+Postal code always a select (fixed UI decision); an online payment leaves with a
+hard redirect (`HX-Redirect`).
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.mdm.api import PaymentMethod
 from app.i18n import _
 from app.limiter import registration_limiter
-from app.ui import site_context, templates
+from app.ui import refusal_response, site_context, templates
 
 router = APIRouter(include_in_schema=False)
+
+#: The message lines of the three pages: where a refused send or save is shown.
+SIGNUP_MESSAGE = "#lid-worden-melding"
+RENEW_MESSAGE = "#vernieuw-melding"
 
 
 def _codes(db: Session) -> dict:
@@ -29,58 +45,47 @@ def _codes(db: Session) -> dict:
     return form_code_lists(db)
 
 
-@router.get("/lid-worden", response_class=HTMLResponse)
-def lid_worden(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(
-        request,
-        "lid_worden.html",
-        {
-            **site_context(db, request),
-            **_codes(db),
-            "error": None,
-            "values": {},
-            "extra_rows": [],
-            **_lidgeld(),
-        },
-    )
-
-
-def _lidgeld() -> dict:
-    """Tarief en geldigheid voor het Word-lid-scherm (F3, #996): dezelfde
-    helpers als de inzending zelf gebruikt, dus scherm en aanrekening kunnen
-    niet uiteenlopen."""
+def _signup_terms():
+    """Price and validity for the Word lid page (F3, #996): the same helpers the
+    sign-up itself uses, so the screen and the booking cannot differ."""
+    from app.domains.membership.household_page import Terms
     from app.domains.payment.api import membership_price_for_date, membership_valid_period
 
-    _van, tot = membership_valid_period()
-    return {"lidgeld": {"prijs": membership_price_for_date(), "tot": tot}}
+    _from, until = membership_valid_period()
+    return Terms(amount=membership_price_for_date(), valid_to=until)
 
 
-@router.get("/lid-worden/persoon-rij", response_class=HTMLResponse)
-def persoon_rij(request: Request, db: Session = Depends(get_db)):
+def _signup_page(request: Request, db: Session, **state) -> HTMLResponse:
+    from app.domains.membership.household_page import SignupPage, signup_group
+
+    page = SignupPage(group=signup_group(_codes(db)), terms=_signup_terms(), **state)
+    return templates.TemplateResponse(
+        request, "lid_worden.html", {**site_context(db, request), "page": page}
+    )
+
+
+@router.get("/lid-worden", response_class=HTMLResponse)
+def lid_worden(request: Request, db: Session = Depends(get_db)):
+    return _signup_page(request, db)
+
+
+@router.get("/lid-worden/relatie", response_class=PlainTextResponse)
+def signup_relation(others: str = ""):
+    """The relation a person added on the Word lid page starts with (#1321, #1590):
+    the one rule's answer, given the relations already chosen after the main
+    member. The page asks instead of knowing, so the rule stays in one place."""
+    from app.domains.mdm.api import RelationType
     from app.domains.membership.api import default_relation
 
-    try:
-        index = max(1, int(request.query_params.get("index", "1")))
-    except ValueError:
-        index = 1
-    # #1321: the relations already on the form, so the new row starts with the one
-    # rule's default — partner while there is none, child after that.
-    earlier = [r for r in request.query_params.get("relations", "").split(",") if r]
-    return templates.TemplateResponse(
-        request,
-        "_lid_persoon_rij.html",
-        {**_codes(db), "i": index, "values": {}, "default_relation": default_relation(earlier)},
-    )
+    earlier = [RelationType.PRIMARY_MEMBER.value] + [r for r in others.split(",") if r]
+    return default_relation(earlier)
 
 
 @router.get("/lid-worden/email-rij", response_class=HTMLResponse)
 def email_row(request: Request):
-    """One extra e-mail row for member `member` of the Word lid form (#1246).
-
-    The same fragment as the family portal (#1219). A row added here is never the
-    first one, so it is never the primary address and can be removed again; the
-    family does not exist yet, so the row has no id and no server actions.
-    """
+    """One extra e-mail row of the board's "new member" form (#1246), which still
+    builds its persons from `_lid_persoon_rij.html`. The public page no longer
+    asks for it: its rows are the kit's repeating group (#1590)."""
 
     def _int(name: str, default: int, minimum: int) -> int:
         try:
@@ -98,100 +103,36 @@ def email_row(request: Request):
     return templates.TemplateResponse(request, "_email_rij.html", view.as_context())
 
 
-def _parse_members(form) -> list[dict]:
-    """Doorgeefluik naar de gedeelde ontleding (#1110) — het beheerscherm gebruikt
-    dezelfde veldnamen en dus dezelfde functie."""
-    from app.domains.membership.service import parse_member_rows
-
-    return parse_member_rows(form)
-
-
 @router.post(
     "/lid-worden", response_class=HTMLResponse, dependencies=[Depends(registration_limiter)]
 )
 async def lid_worden_submit(
     request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
 ):
-    from pydantic import ValidationError
-
     from app.domains.membership.api import register_family
-    from app.domains.membership.schemas_family import FamilyCreate, FamilyMemberCreate
+    from app.domains.membership.signup_form import signup_from_form
+    from app.kernel.refusals import FieldError
 
-    form = await request.form()
-    values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
-    # Elk foutpad hieronder rendert hetzelfde sjabloon; het lidgeldblok (F3)
-    # hoort er dus ook hier bij, anders valt StrictUndefined over `lidgeld`.
-    ctx = {**site_context(db, request), **_codes(db), "values": values, **_lidgeld()}
-
-    members = _parse_members(form)
-    # #1327: after a refusal the form shows every person again, not only the head
-    # of household — their rows come back from `values`, relation and extra
-    # addresses included. A person the visitor removed is not in the form.
-    ctx["extra_rows"] = [m["index"] for m in members if m["index"] > 0]
-    if not members:
-        ctx["error"] = "Vul minstens het hoofdlid in."
-        return templates.TemplateResponse(request, "lid_worden.html", ctx)
-    if not (values.get("postal_code") or "").strip():
-        ctx["error"] = "Selecteer een geldige postcode uit de lijst."
-        return templates.TemplateResponse(request, "lid_worden.html", ctx)
-
-    # #1321: a person without a relation gets the one rule's default, given the
-    # relations before them — head of household, then partner, then child.
-    from app.domains.membership.api import default_relation
-
-    relations: list[str] = []
-    for m in members:
-        relations.append(m["relation_type"] or default_relation(relations))
-
-    try:
-        data = FamilyCreate(
-            street=(values.get("street") or "").strip(),
-            house_number=(values.get("house_number") or "").strip(),
-            bus_number=(values.get("bus_number") or "").strip() or None,
-            postal_code=(values.get("postal_code") or "").strip(),
-            payment_method=(values.get("payment_method") or "online").strip(),
-            members=[
-                FamilyMemberCreate(
-                    first_name=m["first_name"],
-                    last_name=m["last_name"],
-                    date_of_birth=m["date_of_birth"] or None,
-                    gender_code=m["gender_code"] or None,
-                    email=m["email"] or None,
-                    extra_emails=m["extra_emails"],
-                    phone=m["phone"] or None,
-                    mobile=m["mobile"] or None,
-                    relation_type=relation,
-                )
-                for m, relation in zip(members, relations)
-            ],
-        )
-    except ValidationError as exc:
-        eerste = exc.errors()[0]
-        ctx["error"] = str(eerste.get("msg", "Ongeldige invoer."))
-        return templates.TemplateResponse(request, "lid_worden.html", ctx)
-
+    data, errors = signup_from_form(await request.form())
+    if data is None:
+        return refusal_response(request, errors, SIGNUP_MESSAGE, send=True)
     try:
         result = register_family(db, data, background_tasks)
-    except HTTPException as exc:
-        ctx["error"] = str(exc.detail)
-        return templates.TemplateResponse(request, "lid_worden.html", ctx)
+    except HTTPException as refusal:
+        # What the service refuses has no field here (a known household, a rule on
+        # the object): it stands in the banner, the form stays as typed.
+        return refusal_response(
+            request, [FieldError("", str(refusal.detail))], SIGNUP_MESSAGE, send=True
+        )
 
     checkout_url = getattr(result, "checkout_url", None)
-    response = templates.TemplateResponse(
-        request,
-        "lid_worden_klaar.html",
-        {
-            **site_context(db, request),
-            "checkout": bool(checkout_url),
-            "amount": getattr(result, "amount", None),
-        },
-    )
+    response = _signup_page(request, db, done=True, to_checkout=bool(checkout_url))
     if checkout_url:
         response.headers["HX-Redirect"] = checkout_url
     return response
 
 
-# ── Ledenportaal (React-exit 405-b): /leden/gezin + login-pariteit ─────────────
+# ── Mijn gezin and the renewal ────────────────────────────────────────────────
 
 
 def _session_member(request: Request, db: Session):
@@ -204,110 +145,101 @@ def _session_member(request: Request, db: Session):
     return login_person_for_email(db, email)
 
 
-def _portal_ctx(request: Request, db: Session, person) -> dict:
+def _to_sign_in(request: Request):
+    """#1437: remember the page, so the sign-in comes back here — whatever the role
+    (a board member who is also a member lands in the portal)."""
+    from urllib.parse import quote
+
+    from fastapi.responses import RedirectResponse
+
+    here = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+    return RedirectResponse(f"/aanmelden?terug={quote(here, safe='/')}", status_code=302)
+
+
+def _running_renewal(db: Session, person):
+    """How an open renewal stands (#618): the transfer to make, or the online
+    payment to resume — `(transfer, online)`, at most one of them set.
+
+    Amount and reference come **from the booking itself**, not again from the
+    price rule: if the price changes between two visits the screen would show
+    another amount than what is due.
+    """
+    from app.domains.membership.api import household_member_for, open_renewal_payment
+    from app.domains.membership.household_page import OnlineDue, TransferDue
+
+    try:
+        member = household_member_for(db, person)
+    except Exception:
+        return None, None
+    record = open_renewal_payment(db, member) if member is not None else None
+    if record is None:
+        return None, None
+    if record.method == PaymentMethod.TRANSFER:
+        from app.kernel.tenant_config import tenant_payment_beneficiary, tenant_payment_iban
+
+        return (
+            TransferDue(
+                amount=record.amount,
+                ogm=record.structured_communication,
+                iban=tenant_payment_iban(db),
+                beneficiary=tenant_payment_beneficiary(db),
+            ),
+            None,
+        )
+    # Broken off at the provider (#618-3): with a checkout URL the member can
+    # resume; without one only the explanation that it is still running.
+    from app.domains.payment.api import checkout_url_for
+
+    return None, OnlineDue(amount=record.amount, checkout_url=checkout_url_for(db, record))
+
+
+def _household_page(
+    request: Request, db: Session, person, *, edit: bool, saved: bool = False
+) -> HTMLResponse:
     from datetime import date
 
-    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for
     from app.domains.membership.api import (
         household_view,
         membership_coverage_until,
         renewal_available,
     )
+    from app.domains.membership.household_page import HouseholdPage, household_group
 
+    short_date = templates.env.filters["kortedatum"]
     household = household_view(db, person)
-    # Dekking t/m (incl. een al betaald volgend jaar) i.p.v. enkel 'geldig vandaag' (#496).
+    # Cover up to and including an already paid next year (#496).
     valid_until = membership_coverage_until(person)
-    ctx = {
-        **site_context(db, request),
-        **_codes(db),
-        "household": household,
-        "person_id": person.id,
-        "valid_until": valid_until,
-        "renewal_available": renewal_available(valid_until, date.today()),
-        "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
-    }
-    ctx.update(_lopende_vernieuwing(db, person))
-    return ctx
-
-
-def _lopende_vernieuwing(db: Session, person) -> dict:
-    """Toont de stand van een openstaande vernieuwing i.p.v. het formulier (#618).
-
-    Zonder dit bouwde alleen het POST-antwoord `renew_transfer` op: na één keer
-    navigeren stond het vernieuwformulier er weer, en de knop liep gegarandeerd op de
-    guard ("Je vernieuwing loopt nog"). Het scherm nodigde dus uit tot een handeling
-    die niet kon slagen.
-
-    Bedrag en OGM komen **uit de PaymentRecord zelf**, niet opnieuw uit
-    membership_price_for_date(): wijzigt de prijs tussen twee bezoeken, dan zou het
-    scherm een ander bedrag tonen dan wat er te betalen valt.
-
-    Geeft ALTIJD beide sleutels terug, desnoods als None (#643): de template vraagt
-    `renew_transfer` en `renew_online`, dus hoort het view-model ze te beloven. Een
-    ontbrekende sleutel rendert onder StrictUndefined niet stil leeg maar faalt —
-    en dat is precies de bedoeling, want zo'n gat is niet van een typo te
-    onderscheiden.
-    """
-    leeg = {"renew_transfer": None, "renew_online": None}
-    from app.domains.membership.api import household_member_for, open_renewal_payment
-
-    try:
-        member = household_member_for(db, person)
-    except Exception:
-        return leeg
-    record = open_renewal_payment(db, member) if member is not None else None
-    if record is None:
-        return leeg
-
-    if record.method == PaymentMethod.TRANSFER:
-        from app.kernel.tenant_config import tenant_payment_beneficiary, tenant_payment_iban
-
-        return {
-            **leeg,
-            "renew_transfer": {
-                "amount": record.amount,
-                "ogm": record.structured_communication,
-                "iban": tenant_payment_iban(db),
-                "beneficiary": tenant_payment_beneficiary(db),
-            },
-        }
-
-    # Online afgebroken bij Mollie (#618-3): even doodlopend als de overschrijving.
-    # Met een checkout-URL kan het lid de betaling hervatten; zonder blijft enkel de
-    # uitleg dat ze nog loopt.
-    from app.domains.payment.api import checkout_url_for
-
-    checkout_url = checkout_url_for(db, record)
-    return {**leeg, "renew_online": {"amount": record.amount, "checkout_url": checkout_url}}
+    transfer, online = _running_renewal(db, person)
+    page = HouseholdPage(
+        group=household_group(household, _codes(db), me=person.id, short_date=short_date),
+        edit=edit,
+        valid_until=valid_until,
+        renewal_available=renewal_available(valid_until, date.today()),
+        renewal_running=bool(transfer or online),
+        board_member_name=household.get("board_member_name"),
+        saved=saved,
+    )
+    return templates.TemplateResponse(
+        request, "gezin_portaal.html", {**site_context(db, request), "page": page}
+    )
 
 
 @router.get("/leden/gezin", response_class=HTMLResponse)
 def gezin_portaal(request: Request, db: Session = Depends(get_db)):
     person = _session_member(request, db)
     if person is None:
-        from urllib.parse import quote
-
-        from fastapi.responses import RedirectResponse
-
-        # #1437: remember the page, so the sign-in comes back here — whatever
-        # the role (a board member who is also a member lands in the portal).
-        here = request.url.path + (f"?{request.url.query}" if request.url.query else "")
-        return RedirectResponse(f"/aanmelden?terug={quote(here, safe='/')}", status_code=302)
-    return templates.TemplateResponse(
-        request, "gezin_portaal.html", _portal_ctx(request, db, person)
-    )
+        return _to_sign_in(request)
+    return _household_page(request, db, person, edit=request.query_params.get("bewerken") == "1")
 
 
 def render_family_portal(request: Request, db: Session, person) -> HTMLResponse:
-    """The family portal as it stands now — the answer of every portal mutation.
-
-    Also the answer of the three person mutations whose doors are `mdm`'s since
-    CR-13 phase 3 (#1250): the screen stays `membership`'s, so `mdm` asks it for the
-    page through `membership.api.family_portal_page`.
-    """
-    return templates.TemplateResponse(
-        request, "gezin_portaal.html", _portal_ctx(request, db, person)
-    )
+    """Mijn gezin as it stands now, in read mode — the answer of the household's
+    one save, whose door is `mdm`'s (CR-13 phase 3, #1250; #1590): the screen
+    stays `membership`'s, so `mdm` asks it for the page through
+    `membership.api.family_portal_page`. A saved household reads "Opgeslagen ✓"."""
+    response = _household_page(request, db, person, edit=False, saved=True)
+    response.headers["HX-Push-Url"] = "/leden/gezin"
+    return response
 
 
 def _require_member_csrf(request: Request, db: Session):
@@ -320,111 +252,73 @@ def _require_member_csrf(request: Request, db: Session):
     return person
 
 
-# ── E-mailadressen, door het lid zelf (#1174) ────────────────────────────────
-#
-# Drie schermacties die het portaal opnieuw renderen, net als de andere
-# bewerkingen hier. De gezinsgrens en de audit zitten in de domeinlaag; dit
-# scherm geeft alleen door wie er klikte.
+def _renew_page(request: Request, db: Session, person) -> HTMLResponse:
+    from datetime import date
 
+    from app.domains.membership.api import (
+        household_view,
+        membership_coverage_until,
+        renewal_available,
+        renewal_terms,
+    )
+    from app.domains.membership.household_page import RenewPage, Terms, household_summary
 
-@router.get("/leden/gezin/personen/{person_id}/email-rij", response_class=HTMLResponse)
-def gezin_email_rij(
-    person_id: int,
-    request: Request,
-    index: str = "",
-    nummer: str = "",
-    db: Session = Depends(get_db),
-):
-    """Een lege e-mailrij om onderaan te plakken (#1219).
-
-    Leest de sessie mee zodat een niet-aangemelde bezoeker hier niets ophaalt;
-    er gaat niets naar de databank, dus wat er al getypt staat blijft staan.
-    """
-    _require_member_csrf(request, db)
+    valid_until = membership_coverage_until(person)
+    running_transfer, online = _running_renewal(db, person)
+    available = renewal_available(valid_until, date.today())
+    terms = None
+    if available:
+        _from, until, amount = renewal_terms(db, person)
+        terms = Terms(amount=amount, valid_to=until)
+    summary, address_line = household_summary(household_view(db, person), _codes(db))
+    page = RenewPage(
+        valid_until=valid_until,
+        renewal_available=available,
+        terms=terms,
+        transfer=running_transfer,
+        online=online,
+        summary=summary,
+        address_line=address_line,
+    )
     return templates.TemplateResponse(
-        request,
-        "_email_rij.html",
-        {
-            "rij": None,
-            "index": index or "0",
-            "nummer": nummer or "1",
-            "basis_url": f"/leden/gezin/personen/{person_id}/email",
-            "doel": "body",
-            "swap": "innerHTML",
-        },
+        request, "lidmaatschap_vernieuwen.html", {**site_context(db, request), "page": page}
     )
 
 
-@router.post("/leden/gezin/personen/{person_id}/email", response_class=HTMLResponse)
-async def gezin_email_toevoegen(person_id: int, request: Request, db: Session = Depends(get_db)):
-    from app.domains.membership.api import household_add_email
-
-    person = _require_member_csrf(request, db)
-    form = await request.form()
-    waarde = form.get("extra_email")
-    household_add_email(db, person, person_id, waarde.strip() if isinstance(waarde, str) else "")
-    return templates.TemplateResponse(
-        request, "gezin_portaal.html", _portal_ctx(request, db, person)
-    )
-
-
-@router.post(
-    "/leden/gezin/personen/{person_id}/email/{contact_id}/hoofd", response_class=HTMLResponse
-)
-def gezin_email_hoofdadres(
-    person_id: int, contact_id: int, request: Request, db: Session = Depends(get_db)
-):
-    from app.domains.membership.api import household_make_email_primary
-
-    person = _require_member_csrf(request, db)
-    household_make_email_primary(db, person, person_id, contact_id)
-    return templates.TemplateResponse(
-        request, "gezin_portaal.html", _portal_ctx(request, db, person)
-    )
-
-
-@router.post(
-    "/leden/gezin/personen/{person_id}/email/{contact_id}/verwijderen", response_class=HTMLResponse
-)
-def gezin_email_verwijderen(
-    person_id: int, contact_id: int, request: Request, db: Session = Depends(get_db)
-):
-    from app.domains.membership.api import household_remove_email
-
-    person = _require_member_csrf(request, db)
-    household_remove_email(db, person, person_id, contact_id)
-    return templates.TemplateResponse(
-        request, "gezin_portaal.html", _portal_ctx(request, db, person)
-    )
+@router.get("/leden/gezin/vernieuwen", response_class=HTMLResponse)
+def renew_page(request: Request, db: Session = Depends(get_db)):
+    person = _session_member(request, db)
+    if person is None:
+        return _to_sign_in(request)
+    return _renew_page(request, db, person)
 
 
 @router.post("/leden/gezin/vernieuwen", response_class=HTMLResponse)
 def gezin_vernieuwen(
-    request: Request, db: Session = Depends(get_db), payment_method: str = Form("online")
+    request: Request, db: Session = Depends(get_db), payment_method: str = Form("")
 ):
     from app.domains.membership.api import household_renew_membership
+    from app.domains.membership.signup_form import PAYMENT_METHODS
+    from app.kernel.refusals import FieldError
 
     person = _require_member_csrf(request, db)
-    method = payment_method if payment_method in ("online", "transfer") else "online"
+    if payment_method not in PAYMENT_METHODS:
+        return refusal_response(
+            request,
+            [FieldError("payment_method", _("Kies een betaalwijze."))],
+            RENEW_MESSAGE,
+            send=True,
+        )
     try:
-        result = household_renew_membership(db, person, payment_method=method)
-    except HTTPException as exc:
-        ctx = _portal_ctx(request, db, person)
-        ctx["error"] = str(exc.detail)
-        return templates.TemplateResponse(request, "gezin_portaal.html", ctx)
-    ctx = _portal_ctx(request, db, person)
+        result = household_renew_membership(db, person, payment_method=payment_method)
+    except HTTPException as refusal:
+        return refusal_response(
+            request, [FieldError("", str(refusal.detail))], RENEW_MESSAGE, send=True
+        )
     checkout_url = result.get("checkout_url") if isinstance(result, dict) else None
     if checkout_url:
-        response = templates.TemplateResponse(request, "gezin_portaal.html", ctx)
+        response = HTMLResponse("")
         response.headers["HX-Redirect"] = checkout_url
         return response
-    # Overschrijving (#497): toon de betaalinstructies (bedrag + OGM + IBAN) op het scherm.
-    from app.kernel.tenant_config import tenant_payment_beneficiary, tenant_payment_iban
-
-    ctx["renew_transfer"] = {
-        "amount": result.get("amount"),
-        "ogm": result.get("structured_communication"),
-        "iban": tenant_payment_iban(db),
-        "beneficiary": tenant_payment_beneficiary(db),
-    }
-    return templates.TemplateResponse(request, "gezin_portaal.html", ctx)
+    # A transfer (#497): the payment details on the screen, from the booking.
+    return _renew_page(request, db, person)

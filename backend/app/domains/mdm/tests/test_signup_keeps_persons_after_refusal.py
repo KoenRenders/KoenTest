@@ -1,23 +1,26 @@
-"""#1327 — after a refusal, "Word lid" shows every person again, with their values.
+"""#1327 — after a refusal, "Word lid" still shows every person, with their values.
 
 Found with #1321: when "Word lid" refused a registration — an unknown postal code,
-a missing birth date — the page came back with the head of household only. The
-container of the extra persons started empty, so everyone else the visitor had
-typed was gone, their relation and extra e-mail addresses with them.
+a missing birth date — the page came back with the head of household only.
+Everyone else the visitor had typed was gone, their relation and extra e-mail
+addresses with them. The repair then was to render every row again from what
+was submitted.
 
-Now the refused form renders every person's row again from what was submitted.
-A person the visitor removed is not in the submission and does not come back.
-
-Proven red against master `75335a48` (29 September 2026): the refused page had
-no `m1_` or `m2_` field at all.
+Since #1590 the page is not rendered again at all: a refusal answers the banner
+alone, for the page's message line (`app.ui.refusal_response`), and the form
+stays in the browser as it was typed. So "every person is still there" is true
+by construction — as long as the answer really is the banner alone and names
+the refused fields by the names the page sent, because that is how the page
+finds the row to mark. That is what is proven here; that the rows are still on
+the screen after the swap is the browser's, and the e2e test's.
 """
 
 import re
 
 import pytest
 
-from app.domains.mdm.api import RelationType
-from tests.conftest import nieuw_lid_velden
+from app.domains.mdm.api import Person, RelationType
+from tests.conftest import signup_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -25,55 +28,58 @@ KIND = RelationType.ADULT_CHILD.value
 PARTNER = RelationType.PARTNER.value
 
 
-def _person(n: int, first: str, relation: str) -> dict:
-    return {
-        f"m{n}_first_name": first,
-        f"m{n}_last_name": "Terugkeer",
-        f"m{n}_date_of_birth": "2001-02-03",
-        f"m{n}_gender_code": "V",
-        f"m{n}_relation_type": relation,
-    }
+def _places(answer) -> list[str]:
+    return re.findall(r'data-error-for="([^"]+)"', answer.text)
 
 
-def _value(html: str, name: str) -> str | None:
-    found = re.search(rf'name="{name}"[^>]*value="([^"]*)"', html)
-    return found.group(1) if found else None
+def test_a_refusal_answers_the_banner_alone_and_stores_nobody(client, db_session):
+    """Three persons, an extra address, and a postal code that was not chosen:
+    the answer is for the message line only, so nothing of the form is replaced."""
+    form = signup_fields(
+        db_session,
+        {"first_name": "Pieter", "last_name": "Terugkeer", "relation_type": PARTNER},
+        {"first_name": "Lotte", "last_name": "Terugkeer", "relation_type": KIND},
+        **{
+            "address.postal_code": "",
+            "e_order.n2": ["n2e"],
+            "e.n2e.value": "lotte.extra@example.com",
+        },
+    )
+    answer = client.post("/lid-worden", data=form)
+
+    assert answer.status_code == 422
+    assert answer.headers["HX-Retarget"] == "#lid-worden-melding"
+    assert answer.headers["HX-Reswap"].startswith("innerHTML")
+    assert answer.headers["HX-Reselect"] == "[data-save-refusal]"
+    body = answer.text
+    assert "<html" not in body.lower(), "the whole page came back: the rows are redrawn"
+    assert 'name="h_order"' not in body and "<form" not in body
+    assert body.count("data-save-refusal") == 1
+    assert "Verzenden kan nog niet: controleer 1 veld." in body
+    assert _places(answer) == ["address.postal_code"]
+    stored = db_session.query(Person).filter(Person.last_name.in_(("Lid", "Terugkeer"))).count()
+    assert stored == 0, "a refused sign-up stored somebody"
 
 
-def _selected(html: str, name: str) -> str | None:
-    select = re.search(rf'<select name="{name}".*?</select>', html, re.S)
-    if not select:
-        return None
-    found = re.search(r'<option value="([A-Z]+)"\s+selected', select.group(0))
-    return found.group(1) if found else None
+def test_a_refusal_names_the_rows_by_the_keys_the_page_sent(client, db_session):
+    """Rows `n1` and `n3` are sent — row `n2` was removed in the browser. A
+    refusal on the last one must say `n3`, the key that row carries on the page,
+    not its position among the rows that were sent."""
+    form = signup_fields(db_session, {"first_name": "Pieter", "relation_type": PARTNER})
+    form["h_order"] = ["n0", "n1", "n3"]
+    form.update(
+        {
+            "h.n3.first_name": "Lotte",
+            "h.n3.last_name": "Terugkeer",
+            "h.n3.date_of_birth": "",
+            "h.n3.gender_code": "F",
+            "h.n3.relation_type": KIND,
+            "e_order.n3": ["x9"],
+            "e.x9.value": "lotte@",
+        }
+    )
+    answer = client.post("/lid-worden", data=form)
 
-
-def test_a_refused_registration_keeps_every_person(client, db_session):
-    form = {
-        **nieuw_lid_velden(db_session, payment_method="transfer", postal_code="9999"),
-        **_person(1, "Pieter", PARTNER),
-        **_person(2, "Lotte", KIND),
-        "m2_email_new_1727000000001": "lotte.extra@example.com",
-    }
-    page = client.post("/lid-worden", data=form).text
-
-    assert "Nieuw" in page and _value(page, "m0_first_name") == "Nieuw"
-    assert _value(page, "m1_first_name") == "Pieter", "person 2 is gone after the refusal"
-    assert _value(page, "m2_first_name") == "Lotte", "person 3 is gone after the refusal"
-    assert _value(page, "m2_date_of_birth") == "2001-02-03"
-    assert _selected(page, "m1_relation_type") == PARTNER
-    assert _selected(page, "m2_relation_type") == KIND
-    assert _value(page, "m2_email_new_1727000000001") == "lotte.extra@example.com"
-
-
-def test_a_removed_person_does_not_come_back(client, db_session):
-    """Rows 1 and 3 submitted — row 2 was removed in the browser."""
-    form = {
-        **nieuw_lid_velden(db_session, payment_method="transfer", postal_code="9999"),
-        **_person(1, "Pieter", PARTNER),
-        **_person(3, "Lotte", KIND),
-    }
-    page = client.post("/lid-worden", data=form).text
-
-    assert _value(page, "m1_first_name") == "Pieter" and _value(page, "m3_first_name") == "Lotte"
-    assert 'name="m2_first_name"' not in page
+    assert answer.status_code == 422
+    assert _places(answer) == ["h.n3.date_of_birth", "e.x9.value"]
+    assert "Verzenden kan nog niet: controleer 2 velden." in answer.text

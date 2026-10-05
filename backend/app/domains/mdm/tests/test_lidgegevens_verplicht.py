@@ -28,8 +28,13 @@ te weigeren. Koens beslissing, en de reden staat bij die test.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.mdm.api import Person
-from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_postal_code
+from app.domains.mdm.api import ContactDetail, Person
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    create_test_family,
+    household_fields,
+    seed_postal_code,
+)
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -169,47 +174,130 @@ def test_beheer_bewerken_kan_de_velden_niet_leegmaken(client, db_session):
 
 
 # ── Weg 4: gezinsportaal — eigen gegevens en een gezinslid ───────────────────
+#
+# Since #1590 the portal has one door: the whole household is one form and one
+# save (`POST /leden/gezin`). The pair stays what it was — the same form, once
+# without the two fields and once with them — and the refusal is asked at its
+# place, which is stricter than "a 422".
+
+
+def _save(client, csrf, fields):
+    return client.post("/leden/gezin", data=fields, headers={"X-CSRF-Token": csrf})
 
 
 def test_portaal_bewerken_kan_de_velden_niet_leegmaken(client, db_session):
-    _member, person = create_test_family(db_session, email="portaal681@example.com")
+    _member, person = create_test_family(
+        db_session, email="portaal681@example.com", mobile="0470 00 00 01"
+    )
+    db_session.commit()
     origineel = person.date_of_birth
     csrf = _lid(client, "portaal681@example.com")
-    velden = {"first_name": "Aangepast", "last_name": person.last_name}
+    velden = household_fields(client)
+    velden[f"h.{person.id}.first_name"] = "Aangepast"
 
-    zonder = client.post(
-        f"/leden/gezin/personen/{person.id}", data=velden, headers={"X-CSRF-Token": csrf}
+    zonder = _save(
+        client,
+        csrf,
+        {k: v for k, v in velden.items() if k != f"h.{person.id}.gender_code"}
+        | {f"h.{person.id}.date_of_birth": ""},
     )
     assert zonder.status_code == 422, zonder.text
+    assert f'data-error-for="h.{person.id}.date_of_birth"' in zonder.text
     db_session.expire_all()
-    assert db_session.get(Person, person.id).first_name != "Aangepast"
+    bewaard = db_session.get(Person, person.id)
+    assert bewaard.first_name != "Aangepast"
+    assert bewaard.date_of_birth == origineel, "de weigering mag niets wegschrijven"
 
-    met = client.post(
-        f"/leden/gezin/personen/{person.id}",
-        data={**velden, "date_of_birth": origineel.isoformat(), "gender_code": "M"},
-        headers={"X-CSRF-Token": csrf},
-    )
+    met = _save(client, csrf, velden)
     assert met.status_code == 200, met.text
     db_session.expire_all()
     assert db_session.get(Person, person.id).first_name == "Aangepast"
 
 
 def test_portaal_toevoegen_eist_de_velden(client, db_session):
-    _member, _person = create_test_family(db_session, email="portaal-add@example.com")
+    _member, _person = create_test_family(
+        db_session, email="portaal-add@example.com", mobile="0470 00 00 01"
+    )
+    db_session.commit()
     csrf = _lid(client, "portaal-add@example.com")
-    velden = {"first_name": "Kindje", "last_name": "Persoon"}
+    velden = household_fields(client)
+    velden["h_order"] = [*velden["h_order"], "n1"]
+    velden.update({"h.n1.first_name": "Kindje", "h.n1.last_name": "Persoon"})
 
-    zonder = client.post("/leden/gezin/personen", data=velden, headers={"X-CSRF-Token": csrf})
+    zonder = _save(client, csrf, velden)
     assert zonder.status_code == 422, zonder.text
+    assert 'data-error-for="h.n1.date_of_birth"' in zonder.text
     assert not db_session.query(Person).filter(Person.first_name == "Kindje").all()
 
-    met = client.post(
-        "/leden/gezin/personen",
-        data={**velden, "date_of_birth": "2015-06-07", "gender_code": "F"},
-        headers={"X-CSRF-Token": csrf},
+    met = _save(
+        client, csrf, {**velden, "h.n1.date_of_birth": "2015-06-07", "h.n1.gender_code": "F"}
     )
     assert met.status_code == 200, met.text
     assert db_session.query(Person).filter(Person.first_name == "Kindje").one()
+
+
+# ── The main member's mobile: the member's doors ask it, the board's does not ──
+
+
+def _mobiles(db, person) -> list[str]:
+    db.expire_all()
+    return [
+        c.value
+        for c in db.get(Person, person.id).contact_details
+        if c.contact_type_code == "MOBILE"
+    ]
+
+
+def test_the_main_members_mobile_can_be_emptied_at_both_doors_and_word_lid_asks_it(
+    client, db_session
+):
+    """#1603 (Koen, 5 October 2026): the main member's mobile number is asked by
+    Word lid only. One household, the same emptied field at the member's door and
+    at the board's: both store a main member without a number. And the sign-up
+    still refuses one, at its field — the rule did not go, it has one door."""
+    from tests.conftest import signup_fields
+
+    member, person = create_test_family(
+        db_session, email="gsm-hoofd@example.com", mobile="0470 00 00 01"
+    )
+    db_session.commit()
+
+    csrf = _lid(client, "gsm-hoofd@example.com")
+    fields = household_fields(client)
+    assert fields[f"h.{person.id}.mobile"] == "0470 00 00 01"
+    saved = _save(client, csrf, {**fields, f"h.{person.id}.mobile": ""})
+    assert saved.status_code == 200, saved.text[:300]
+    assert _mobiles(db_session, person) == []
+
+    db_session.add(
+        ContactDetail(
+            person_id=person.id, contact_type_code="MOBILE", value="0470 00 00 02", is_primary=True
+        )
+    )
+    db_session.commit()
+    csrf = _admin(client)
+    answer = client.post(
+        f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
+        data={
+            "first_name": person.first_name,
+            "last_name": person.last_name,
+            "date_of_birth": person.date_of_birth.isoformat(),
+            "gender_code": person.gender_code,
+            "relation_type": "HOOFDLID",
+            "mobile": "",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert answer.status_code == 200, answer.text
+    assert _mobiles(db_session, person) == []
+
+    client.cookies.clear()
+    refused = client.post(
+        "/lid-worden",
+        data=signup_fields(db_session, emails=("nieuw-gsm@example.com",), **{"h.n0.mobile": ""}),
+    )
+    assert refused.status_code == 422
+    assert 'data-error-for="h.n0.mobile"' in refused.text
 
 
 # ── De regel zelf ────────────────────────────────────────────────────────────

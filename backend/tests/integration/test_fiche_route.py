@@ -594,7 +594,8 @@ def test_read_mode_shows_the_rows_and_nothing_that_edits(client, db_session):
         "Brood · €&nbsp;2,00 · leden €&nbsp;1,50" in product_lines[1]
         and "Niet publiek" in product_lines[1]
     )
-    assert components.count("Gratis: nee · Ter plaatse betalen: nee") == 2
+    # #1608: how a product is settled is one word.
+    assert re.findall(r"data-product-settlement[^>]*>([^<]+)<", components) == ["Betalend"] * 2
     assert "Nog geen producten." in components, "the second component's empty child group"
 
     organisers = _group(html, "aa-group-organisers")

@@ -1,24 +1,47 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}{{ _("Betaling ontvangen") if gelukt else _("Betaling geannuleerd") }} — Raak{% endblock %}
+{% block title %}{{ (_("Betaling ontvangen") if bevestigd else _("Bedankt")) if gelukt else _("Betaling geannuleerd") }} — Raak{% endblock %}
 {% block content %}
-<div class="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-  <div class="text-5xl mb-4">{{ "✅" if gelukt else "❌" }}</div>
-  {% if gelukt %}
-  <h1 class="text-2xl font-bold mb-2">{{ _("Betaling ontvangen!") }}</h1>
-  <p class="text-gray-600 mb-6">{{ _("Bedankt! Je inschrijving bij Raak Millegem is bevestigd. Je ontvangt een bevestiging per e-mail.") }}</p>
+{# Where the payer's browser lands after the payment page. #1589 (end state
+   §2.6): the page reports a received payment only when the provider confirmed
+   it (`bevestigd`, read from the ledger). Coming back here says the payer
+   returned, not that the money did. That holds for a registration and, since
+   #1590, for a membership (a sign-up or a renewal). While the payment is not
+   confirmed yet, the status block asks again every few seconds and stops when
+   it is — the provider's word usually lands within moments. #}
+{% if gelukt %}
+{% call ui.public_form_page(_("Je betaling is ontvangen") if bevestigd else _("Bedankt!"), result=True) %}
+<div class="form-flow">
+  {% set _poll %}id="betaling-status" data-payment-state="{{ 'confirmed' if bevestigd else ('pending' if bevestigd == false else 'unknown') }}"{% if bevestigd == false %} hx-get="{{ status_url }}" hx-trigger="every 4s" hx-select="#betaling-status" hx-target="this" hx-swap="outerHTML" hx-push-url="false"{% endif %}{% endset %}
+  {% if bevestigd %}
+  {% call ui.flow_card(_("Betaling ontvangen"), attrs=_poll) %}
+    <p>{% if membership %}{{ _("Je lidmaatschap is actief. Je ontvangt een bevestiging per e-mail.") }}{% else %}{{ _("Je inschrijving is bevestigd. Je ontvangt een bevestiging per e-mail.") }}{% endif %}</p>
+  {% endcall %}
+  {% elif bevestigd == false %}
+  {% call ui.flow_card(_("Betaling nog niet bevestigd"), attrs=_poll) %}
+    <p>{{ _("We wachten op de bevestiging van de betaalprovider. Zodra je betaling binnen is, krijg je een e-mail.") }}</p>
+  {% endcall %}
   {% else %}
-  <h1 class="text-2xl font-bold mb-2">{{ _("Betaling geannuleerd") }}</h1>
-  <p class="text-gray-600 mb-2">{{ _("Je betaling is niet doorgegaan. Je kunt het opnieuw proberen of contact opnemen met het bestuur.") }}</p>
-  <p class="text-gray-500 text-sm mb-6">{{ _("Je registratie is bewaard — je kan de betaling later ook voltooien via een bestuurslid.") }}</p>
+  {# The page cannot tell (no reference, or one without a booking): it claims nothing. #}
+  {% call ui.flow_card(_("Je betaling wordt verwerkt"), attrs=_poll) %}
+    <p>{{ _("Zodra de betaalprovider ze bevestigt, krijg je een e-mail.") }}</p>
+  {% endcall %}
   {% endif %}
-  {% if gelukt %}
-  {{ ui.btn_primary(_("Terug naar de startpagina"), href="/") }}
-  {% else %}
-  <div class="flex flex-wrap gap-2 justify-center">
+  <p>{{ ui.btn_secondary(_("Terug naar de startpagina"), href="/") }}</p>
+</div>
+{% endcall %}
+{% else %}
+{% call ui.public_form_page(_("Betaling geannuleerd"), result=True) %}
+<div class="form-flow">
+  {% call ui.flow_card(attrs='data-payment-state="cancelled"') %}
+    <p>{{ _("Je betaling is niet doorgegaan. Je kunt het opnieuw proberen of contact opnemen met het bestuur.") }}</p>
+    <p class="mt-2 text-ink-soft">{{ _("Je registratie is bewaard — je kan de betaling later ook voltooien via een bestuurslid.") }}</p>
+  {% endcall %}
+  <p class="flex flex-wrap gap-2">
     {{ ui.btn_primary(_("Opnieuw proberen"), href="/") }}
     {{ ui.btn_secondary(_("Terug naar de startpagina"), href="/") }}
-  </div>
-  {% endif %}
+  </p>
 </div>
+{% endcall %}
+{% endif %}
 {% endblock %}

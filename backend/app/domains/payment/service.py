@@ -344,30 +344,41 @@ def registration_payment_states(db: Session, registration_ids) -> dict[int, dict
     One query for the whole list: the Inschrijvingen tab shows a state per row
     and may not ask per row.
     """
-    ids = list(registration_ids)
+    return payable_payment_states(db, PayableType.REGISTRATION, registration_ids)
+
+
+def payable_payment_states(db: Session, payable_type, payable_ids) -> dict[int, dict]:
+    """What the bookings of each payable say together: the amounts and one state,
+    ``"open"`` or ``"settled"`` — the one rule behind a registration's state
+    (above) and a membership's (#1590: the page a payer returns to reads it for
+    both). A payable without a live booking is not in the result.
+    """
+    ids = list(payable_ids)
     if not ids:
         return {}
     records = (
         db.query(PaymentRecord)
-        .filter(
-            PaymentRecord.payable_type == PayableType.REGISTRATION,
-            PaymentRecord.payable_id.in_(ids),
-        )
+        .filter(PaymentRecord.payable_type == payable_type, PaymentRecord.payable_id.in_(ids))
         .all()
     )
-    per_registration: dict[int, list] = {}
+    per_payable: dict[int, list] = {}
     for record in records:
-        per_registration.setdefault(record.payable_id, []).append(record)
+        per_payable.setdefault(record.payable_id, []).append(record)
     states = {}
-    for registration_id, own in per_registration.items():
+    for payable_id, own in per_payable.items():
         live = [r for r in own if not _is_lege_vordering(r)]
         if not live:
             continue
-        states[registration_id] = {
+        states[payable_id] = {
             **aggregate(live),
             "state": "open" if any(matches_zicht(r, "openstaand") for r in live) else "settled",
         }
     return states
+
+
+def membership_payment_states(db: Session, membership_ids) -> dict[int, dict]:
+    """Per membership what its bookings say together — see `payable_payment_states`."""
+    return payable_payment_states(db, PayableType.MEMBERSHIP, membership_ids)
 
 
 def selection_count(

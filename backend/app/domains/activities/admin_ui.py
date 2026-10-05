@@ -32,7 +32,7 @@ from app.domains.auth.api import (
     require_csrf,
 )
 from app.i18n import _
-from app.ui import admin_nav, is_fragment_request, templates
+from app.ui import admin_nav, is_fragment_request, refusal_response, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -128,6 +128,7 @@ def _aa_detail_ctx(
         organisers_for,
         question_forms,
     )
+    from app.domains.activities.settlement import PAID, settlement_of, settlement_options
     from app.domains.designstudio.api import on_the_poster
     from app.domains.mdm.api import household_ids
 
@@ -157,6 +158,12 @@ def _aa_detail_ctx(
         # and which one each component asks. Not on `a`: that is the public JSON.
         "question_forms": vraagformulieren,
         "component_form": gekozen_formulier,
+        # #1608: a product's settlement is one choice of three on the screen and
+        # two flags in the model; the translation is `settlement`'s, not the
+        # template's.
+        "settlement_options": settlement_options(),
+        "settlement_of": settlement_of,
+        "settlement_paid": PAID,
         # #1428: the audience choice; `selected` is decided here, so the template
         # compares no code. Not on `a`: that is the public JSON.
         "audience_options": _audience_options(db, activiteit.id),
@@ -892,10 +899,23 @@ async def inschrijving_totaal(
     Eigen endpoint en niet het publieke `/totaal`: dat laatste is open, dit vraagt
     `require_admin_ui` + CSRF. Het patroon is hetzelfde, de rekenkant is dezelfde
     (`totals.py`), alleen de deur verschilt.
+
+    #1613: the answer is the TOTAL and nothing else. It used to be the whole
+    edit panel, drawn from the stored registration — which put back every field
+    of the panel that was typed and not saved yet, at each change of a quantity
+    (measured: the name, the remark and a second counter). The server sends what
+    it derives; a field is never part of the answer (the pattern of #1596).
     """
     formulier = await request.form()
-    return _render_detail(
+    ctx = _detail_ctx(
         request, db, registration_id, edit_open=True, quantities=_product_quantities(formulier)
+    )
+    if ctx is None:
+        return HTMLResponse("")
+    return templates.TemplateResponse(
+        request,
+        "_inschrijving_totaal.html",
+        {"totaal": ctx["totaal"], "product_rows": ctx["product_rows"]},
     )
 
 
@@ -1222,12 +1242,10 @@ def _board_form_page(
     *,
     values: dict | None = None,
     error: str | None = None,
-    form_ctx: dict | None = None,
 ) -> dict:
     """The board's "add a registration" page (#1192, #1284): the one registration
     form (`activities.api.form_context`, the board's channel) inside a back-office
-    page with the component buttons above it. `form_ctx` is a form that came
-    back refused from `submit`, with its values and its message."""
+    page with the component buttons above it."""
     from app.domains.activities.api import board_channel, form_context
 
     values = values or {}
@@ -1243,9 +1261,7 @@ def _board_form_page(
     ]
     component = next((c for c in activiteit.sub_registrations if c.id == onderdeel_id), None)
     ctx: dict = {"error": error}
-    if form_ctx is not None:
-        ctx = form_ctx
-    elif component is not None:
+    if component is not None:
         channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
         ctx = form_context(channel, activiteit, component, values=values, error=error)
     ctx.update(
@@ -1329,12 +1345,13 @@ async def inschrijving_nieuw_prijzen(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ) -> Response:
-    """The board's price block after the e-mail address changed (#1284).
+    """The board's prices and total after the e-mail address or a quantity
+    changed (#1284).
 
     Koen: the product rows follow the typed member address, not only the total.
-    Rows and total come back together, from the same `form_context` as the page,
-    with the quantities that were entered — the address field itself is not
-    part of the swap, so it keeps its focus."""
+    The price of each row and the total come back together, from the same
+    `form_context` as the page. No field is part of the answer (#1596): a late
+    answer used to put a quantity typed meanwhile back, or mangle it."""
     from app.domains.activities.api import (
         board_channel,
         form_context,
@@ -1353,7 +1370,7 @@ async def inschrijving_nieuw_prijzen(
     channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
     return templates.TemplateResponse(
         request,
-        "_inschrijf_prijsblok.html",
+        "_inschrijf_prijzen.html",
         form_context(
             channel, activiteit, component, values=values, quantities=form_quantities(form)
         ),
@@ -1394,11 +1411,9 @@ async def inschrijving_nieuw_opslaan(
     channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
     outcome = submit(db, channel, activiteit, component, form, background_tasks, actor=email)
     if outcome.kind is OutcomeKind.REFUSED:
-        return templates.TemplateResponse(
-            request,
-            "admin_inschrijving_nieuw.html",
-            _board_form_page(request, db, activiteit, onderdeel_id, form_ctx=outcome.context),
-        )
+        # #1589: the same answer as the public page — the banner, into the
+        # form's message line.
+        return refusal_response(request, outcome.errors, "#inschrijf-melding", send=True)
     response = HTMLResponse("")
     # Vaste UI-beslissing: harde redirect naar Mollie; zonder betaling naar de
     # inschrijving in het beheer.

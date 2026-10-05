@@ -23,9 +23,8 @@ INCLUDED_BY_THE_PILOT_NOT_RENDERED_THERE: dict[str, str] = {
 }
 
 
-#: B7 test 8 — raw <label>, <select>, <textarea>, visible <input>. 105 in 29 files.
+#: B7 test 8 — raw <label>, <select>, <textarea>, visible <input>. 95 in 28 files.
 RAW_FORM_ELEMENTS: dict[str, int] = {
-    "domains/activities/templates/_inschrijf_velden.html": 8,
     "domains/activities/templates/admin_activiteit_kopieren.html": 10,
     "domains/activities/templates/admin_activiteit_nieuw.html": 2,
     "domains/auth/templates/_aanmelden_code.html": 1,
@@ -37,14 +36,12 @@ RAW_FORM_ELEMENTS: dict[str, int] = {
     "domains/cms/templates/admin_pagina_nieuw.html": 2,
     "domains/designstudio/templates/admin_ontwerp.html": 2,
     "domains/forms/templates/_fb_builder.html": 12,
-    "domains/forms/templates/_formulier_veld.html": 6,
+    "domains/forms/templates/_formulier_veld.html": 4,
     "domains/forms/templates/admin_formulier_nieuw.html": 1,
     "domains/media/templates/_me_lijst.html": 5,
     "domains/media/templates/admin_media_nieuw.html": 1,
     "domains/meetings/templates/_vg_document.html": 1,
     "domains/meetings/templates/_vg_kring.html": 1,
-    "domains/membership/templates/gezin_portaal.html": 4,
-    "domains/membership/templates/lid_worden.html": 4,
     "domains/newsletter/templates/_nb_gesprek.html": 2,
     "domains/newsletter/templates/_nb_import.html": 1,
     "domains/newsletter/templates/_nb_kiezer.html": 1,
@@ -56,7 +53,7 @@ RAW_FORM_ELEMENTS: dict[str, int] = {
     "ui/templates/admin_tenant_nieuw.html": 3,
 }
 
-#: B7 test 9 — raw type="checkbox". 24 in 12 files.
+#: B7 test 9 — raw type="checkbox". 23 in 11 files.
 RAW_CHECKBOXES: dict[str, int] = {
     "domains/activities/templates/admin_activiteit_kopieren.html": 1,
     "domains/activities/templates/admin_activiteit_nieuw.html": 1,
@@ -65,16 +62,14 @@ RAW_CHECKBOXES: dict[str, int] = {
     "domains/cms/templates/_cp_detail.html": 4,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/_fb_builder.html": 6,
-    "domains/forms/templates/_formulier_veld.html": 1,
     "domains/media/templates/_me_lijst.html": 2,
     "domains/newsletter/templates/_nb_gesprek.html": 1,
     "domains/reporting/templates/_rp_paneel.html": 1,
     "ui/templates/admin_tenant.html": 2,
 }
 
-#: B7 test 8 — margin/padding/gap/space class on a raw form element. 76 in 22 files.
+#: B7 test 8 — margin/padding/gap/space class on a raw form element. 64 in 21 files.
 SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
-    "domains/activities/templates/_inschrijf_velden.html": 8,
     "domains/activities/templates/admin_activiteit_kopieren.html": 14,
     "domains/activities/templates/admin_activiteit_nieuw.html": 1,
     "domains/auth/templates/_aanmelden_code.html": 1,
@@ -84,12 +79,10 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "domains/cms/templates/_cp_detail.html": 4,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/_fb_builder.html": 7,
-    "domains/forms/templates/_formulier_veld.html": 6,
+    "domains/forms/templates/_formulier_veld.html": 2,
     "domains/media/templates/_me_lijst.html": 3,
     "domains/meetings/templates/_vg_document.html": 3,
     "domains/meetings/templates/_vg_kring.html": 3,
-    "domains/membership/templates/gezin_portaal.html": 2,
-    "domains/membership/templates/lid_worden.html": 4,
     "domains/newsletter/templates/_nb_gesprek.html": 2,
     "domains/newsletter/templates/_nb_kiezer.html": 2,
     "domains/newsletter/templates/_nb_versturen.html": 2,
@@ -98,11 +91,10 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "ui/templates/admin_tenant.html": 3,
 }
 
-#: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 95 in 50 files.
+#: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 91 in 47 files.
 RAW_SURFACES: dict[str, int] = {
     "domains/activities/templates/_aa_kaarten.html": 1,
-    "domains/activities/templates/_inschrijf_totaal.html": 1,
-    "domains/activities/templates/_inschrijving_detail.html": 5,
+    "domains/activities/templates/_inschrijving_detail.html": 4,
     "domains/activities/templates/admin_activiteit_kopieren.html": 1,
     "domains/activities/templates/admin_activiteit_nieuw.html": 1,
     "domains/activities/templates/admin_activiteiten.html": 1,
@@ -115,11 +107,9 @@ RAW_SURFACES: dict[str, int] = {
     "domains/cms/templates/_cp_detail.html": 6,
     "domains/cms/templates/_cp_kaarten.html": 1,
     "domains/cms/templates/admin_pagina_nieuw.html": 1,
-    "domains/cms/templates/betaling_resultaat.html": 1,
     "domains/forms/templates/_fb_builder.html": 6,
     "domains/forms/templates/_fb_kaarten.html": 1,
     "domains/forms/templates/_fb_resultaten.html": 1,
-    "domains/forms/templates/_formulier_veld.html": 1,
     "domains/forms/templates/admin_formulier_nieuw.html": 1,
     "domains/mail/templates/_email_log_lijst.html": 3,
     "domains/mdm/templates/_leden_import_resultaat.html": 1,
@@ -134,7 +124,6 @@ RAW_SURFACES: dict[str, int] = {
     "domains/media/templates/fotos.html": 2,
     "domains/media/templates/fotos_album.html": 1,
     "domains/membership/templates/_lid_persoon_rij.html": 1,
-    "domains/membership/templates/gezin_portaal.html": 1,
     "domains/payment/templates/_bt_boeking.html": 4,
     "domains/payment/templates/_bt_boven.html": 1,
     "domains/reporting/templates/_rp_kaarten.html": 2,

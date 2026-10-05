@@ -61,9 +61,9 @@ def _eerste_segment(launch_kwargs: dict, context_kwargs: dict) -> dict:
             )
             page = context.new_page()
             login_met_sessie(page, make_session_value(MARKER_EMAIL))
-            page.goto("/leden/gezin")
+            # #1590: the edit mode is the page's own state, not a card's.
+            page.goto("/leden/gezin?bewerken=1")
             page.wait_for_selector("main", timeout=5000)
-            page.get_by_role("button", name="Bewerken").first.click()
             veld = page.locator("input[id$='-date_of_birth']").first
             veld.wait_for(state="visible", timeout=5000)
             voor = veld.input_value()

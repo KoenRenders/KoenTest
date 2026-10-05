@@ -163,7 +163,7 @@ jobs:
       - name: Backend-deps + Playwright-browser
         working-directory: backend
         run: |
-          pip install -r requirements.txt playwright pytest
+          pip install -r requirements.txt -r requirements-e2e.txt
           playwright install --with-deps chromium
 
       - name: Migraties + seed postcodes

@@ -93,6 +93,18 @@ def activiteit_met_product(db_session):
     return a
 
 
+def _not_public(db, activiteit) -> None:
+    """Switch the activity's one product off: the state the hint is about."""
+    product = (
+        db.query(ActivityProduct)
+        .join(ActivitySubRegistration, ActivitySubRegistration.id == ActivityProduct.component_id)
+        .filter(ActivitySubRegistration.activity_id == activiteit.id)
+        .one()
+    )
+    product.is_active = False
+    db.flush()
+
+
 def _scherm(client, activiteit, lezen: bool = False) -> str:
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     # The switch stands in the editor (#1559: `?bewerken=1`); the badge in the
@@ -111,12 +123,19 @@ def test_beide_plaatsen_dragen_het_label_en_de_hint(client, db_session, activite
     html = _scherm(client, activiteit_met_product)
 
     assert LABEL in html, f"het label {LABEL!r} staat nergens op het scherm"
-    assert HINT in html, f"de hint staat nergens op het scherm: {HINT!r}"
     assert html.count(LABEL) == PLAATSEN, (
         f"het label staat {html.count(LABEL)} van de {PLAATSEN} keer — de bewerkrij "
         "en de aanmaakrij van hetzelfde product horen het allebei te dragen"
     )
-    assert html.count(HINT) == PLAATSEN, f"de hint staat {html.count(HINT)} van de {PLAATSEN} keer"
+    # #1610 (Koen, 5 October 2026): the hint says what "off" means, so it stands
+    # only where a product IS off — on every row it was a line of grey. Both
+    # halves: absent for the public product, there once the product is not.
+    assert HINT not in html, "the hint stands under a product that is public"
+    _not_public(db_session, activiteit_met_product)
+    html = _scherm(client, activiteit_met_product)
+    assert html.count(HINT) == 1, (
+        f"de hint staat {html.count(HINT)} keer bij één niet-publiek product"
+    )
 
 
 def test_de_hint_belooft_niet_meer_dan_deze_release_kan(client, db_session, activiteit_met_product):
@@ -126,6 +145,7 @@ def test_de_hint_belooft_niet_meer_dan_deze_release_kan(client, db_session, acti
     en dat is precies de belofte die v2.6.0 niet waarmaakt: een inschrijving
     aanmaken vanuit het beheer kan pas met #1192.
     """
+    _not_public(db_session, activiteit_met_product)
     html = _scherm(client, activiteit_met_product)
 
     assert HINT in html, (

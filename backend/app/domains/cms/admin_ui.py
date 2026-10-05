@@ -77,7 +77,7 @@ def _editor_ctx(request: Request, db: Session, page) -> dict:
     # dialog opens (`/admin/media/kiezer`) — no list of page pictures here.
     return {
         "p": page,
-        "placeholders": placeholders(),
+        "placeholders": placeholders(db),
         "csrf_token": csrf_from_request(request),
         "error": None,
     }

@@ -20,15 +20,22 @@ TPL = Path(__file__).resolve().parents[4] / "app" / "domains" / "activities" / "
 
 def test_the_registration_fields_are_stacked():
     """Stacked fields, no wide tinted block (#601) — on the page as in the modal it
-    replaced (CR-14 phase 1); a submit swaps the page, not a card."""
+    replaced (CR-14 phase 1); a submit swaps the page, not a card.
+
+    #1589: the fields stand on the kit's form grid (`ui.section`, `ui.field`),
+    which stacks them where the card is narrow; the template writes no grid of
+    its own."""
+    velden = (TPL / "_inschrijf_velden.html").read_text()
     inhoud = (
         (TPL / "inschrijven.html").read_text()
         # #1284: the fields moved into their own template, shared with the board.
-        + (TPL / "_inschrijf_velden.html").read_text()
+        + velden
+        + (TPL / "_inschrijf_formulier.html").read_text()
     )
     assert "bg-blue-50" not in inhoud
-    assert "sm:grid-cols-3" not in inhoud and "grid-cols-1" in inhoud
-    assert 'hx-target="#inschrijf-pagina"' in inhoud
+    assert "grid-cols-" not in inhoud, "a grid of its own beside the kit's"
+    assert velden.count("ui.section(") == 4 and velden.count("ui.field(") >= 7
+    assert 'reg_target = "#inschrijf-pagina"' in inhoud and 'hx-target="{{ reg_target }}"' in inhoud
 
 
 def test_the_card_links_to_the_registration_page():
@@ -76,13 +83,19 @@ def test_totaal_staat_er_meteen_bij_een_betalend_onderdeel():
     """Op €0,00 al zichtbaar (gedempt) — anders verspringt het formulier."""
     out = _totaal_html(heeft_prijs=True, totaal=Decimal("0"), is_member=False)
     assert "Totaal:" in out and "0,00" in out
-    assert "text-gray-500" in out and "text-blue-700" not in out
+    assert "text-ink-soft" in out and "text-ink{% endif" not in out
+    assert 'class="border-t border-line pt-3 text-sm font-semibold text-ink-soft"' in out
 
 
-def test_totaal_wordt_merkblauw_zodra_er_een_bedrag_staat():
+def test_totaal_wordt_inkt_zodra_er_een_bedrag_staat():
+    """#1589: muted at zero, ink with an amount — in a section card the total is
+    a line, no longer a tinted box of its own."""
     out = _totaal_html(heeft_prijs=True, totaal=Decimal("27.50"), is_member=False)
-    assert "27,50" in out and "text-blue-700" in out
-    assert "text-gray-500" not in out
+    assert "27,50" in out
+    assert 'class="border-t border-line pt-3 text-sm font-semibold text-ink"' in out
+    # The page reads from the total whether there is something to pay.
+    assert "betalen = true" in out
+    assert "betalen = false" in _totaal_html(heeft_prijs=True, totaal=Decimal("0"), is_member=False)
 
 
 def test_geen_totaalblok_als_er_niets_af_te_rekenen_valt():

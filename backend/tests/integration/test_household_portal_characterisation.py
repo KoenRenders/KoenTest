@@ -1,15 +1,31 @@
 """CR-13 phase 3, B8 test 12: the family portal answers as it did.
 
-Phase 3 moves the portal's three mutations — change a person, add one, remove one —
+Phase 3 moved the portal's three mutations — change a person, add one, remove one —
 from `membership` to `mdm`, rules and doors both: the household and its persons are
-master data (Koen, 27 September 2026). The paths, the URLs and the HTML stay what
-they were (master CLI, 29 September 2026), so every answer of those doors is
-rendered on the code **before** the move, kept, and the moved code must answer the
-same (`tests/_snapshot.py`) — the screen after each mutation, each refusal with its
-status and its words, and the JSON the portal's API returns.
+master data (Koen, 27 September 2026). Every answer of those doors was rendered on
+the code **before** the move (master `456bfb83`), kept, and the moved code had to
+answer the same (`tests/_snapshot.py`).
 
-**"Before" is master `456bfb83`, not this branch**: recorded by running this file
-alone on that commit, before the first line of the move changed.
+**The JSON door still stands on that recording** (`json.html`, untouched): the
+portal's API did not change.
+
+**The screen snapshots were recorded again with #1590**, because the screen
+itself was rebuilt — CR-11 pilot B put "Mijn gezin" on the public form page, read
+first, with one edit mode and one "Opslaan" (`POST /leden/gezin`) instead of a
+route per person, per e-mail row and per removal. The snapshots of those row
+routes (`screen_update`, `screen_add`, `screen_remove`, `screen_refused_*`) went
+with the routes. What stands in their place:
+
+- `portal_read` and `portal_edit`: the page in its two modes;
+- `save_answer`: what one save answers that changes a person, changes the
+  address, adds a person and removes one — the page in read mode;
+- `save_refused`: what a refused save answers — the banner, with every refusal
+  the row routes used to make one at a time, now together and each at its place.
+
+A snapshot recorded on the code it guards proves nothing about that code: these
+four are the baseline for the NEXT change of the portal, not a proof of #1590.
+What #1590 itself must keep — every rule, every history row, one transaction —
+is proven in `mdm/tests/test_household_save.py` and `test_household_save_route.py`.
 
 The world is one household of three — a main member with an address and an e-mail
 address, a partner, a child — and a membership until 2099, so the renewal button,
@@ -19,7 +35,6 @@ which depends on today, stays out of the picture.
 from __future__ import annotations
 
 import json
-import re
 from datetime import date
 from pathlib import Path
 
@@ -29,11 +44,13 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.mdm.api import Address, ContactDetail, Member, MemberPerson, Person, PostalCode
 from app.domains.membership.api import Membership
 from tests._snapshot import compare, main_region, normalise
+from tests.conftest import household_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
 SNAPSHOTS = Path(__file__).parent / "snapshots" / "household_portal"
 BEFORE = "the move to mdm (CR-13 phase 3)"
+REBUILT = "the next change of the portal (recorded with #1590)"
 
 BASE = 993_000
 MEMBER_ID = BASE
@@ -114,12 +131,6 @@ def _login(client) -> dict[str, str]:
     return {"X-CSRF-Token": csrf_token_for(value)}
 
 
-#: The e-mail row's placeholder address (`_email_rij.html`) renders on the portal; the
-#: public-repo gate on e-mail domains reads the snapshots and this file, and does not
-#: know a placeholder, so the snapshot keeps its place and not its value.
-PLACEHOLDER = re.compile(r'placeholder="[^"@]*@[^"]*"')
-
-
 def _names() -> dict[int, str]:
     names = {
         MEMBER_ID: "<MEMBER>",
@@ -140,8 +151,7 @@ def _names() -> dict[int, str]:
 def _screen(response) -> str:
     """A 200 is the portal; anything else is its status and what it says."""
     if response.status_code == 200 and "<main" in response.text:
-        page = PLACEHOLDER.sub('placeholder="<PLACEHOLDER-EMAIL>"', main_region(response.text))
-        return normalise(page, _names(), {})
+        return normalise(main_region(response.text), _names(), {})
     return normalise(f"{response.status_code}\n{response.text}", _names(), {})
 
 
@@ -149,15 +159,6 @@ def _json(response) -> str:
     body = json.dumps(response.json(), indent=1, sort_keys=True, ensure_ascii=False)
     return normalise(f"{response.status_code}\n{body}", _names(), {})
 
-
-PERSON_FORM = {
-    "first_name": "Lotte",
-    "last_name": "Proef-Anders",
-    "date_of_birth": "2010-07-08",
-    "gender_code": "F",
-    "phone": "",
-    "mobile": "0470123456",
-}
 
 NEW_PERSON = {
     "first_name": "Nieuw",
@@ -173,71 +174,61 @@ NEW_PERSON = {
 # ── The screen ───────────────────────────────────────────────────────────────
 
 
-def test_the_portal(client, db_session, household):
+def _save(client, headers, fields):
+    return client.post("/leden/gezin", data=fields, headers=headers)
+
+
+def test_the_portal_in_read_mode(client, db_session, household):
     _login(client)
-    compare(SNAPSHOTS, "portal", _screen(client.get("/leden/gezin")), BEFORE)
+    compare(SNAPSHOTS, "portal_read", _screen(client.get("/leden/gezin")), REBUILT)
 
 
-def test_the_screen_after_changing_a_person(client, db_session, household):
+def test_the_portal_in_edit_mode(client, db_session, household):
+    _login(client)
+    compare(SNAPSHOTS, "portal_edit", _screen(client.get("/leden/gezin?bewerken=1")), REBUILT)
+
+
+def test_the_answer_of_one_save(client, db_session, household):
+    """One "Opslaan" that does what four row routes did: the child gets another
+    name and a mobile number, the address moves, a person is added with an
+    e-mail address, and the partner — no longer in the form — leaves. The main
+    member has no mobile number in this world (the JSON recording is older than
+    the rule), so she types one: the save asks it of her (#1590)."""
     headers = _login(client)
-    response = client.post(f"/leden/gezin/personen/{CHILD_ID}", data=PERSON_FORM, headers=headers)
-    compare(SNAPSHOTS, "screen_update", _screen(response), BEFORE)
+    fields = household_fields(client)
+    assert fields["h_order"] == [str(MAIN_ID), str(PARTNER_ID), str(CHILD_ID)]
+    fields["h_order"] = [str(MAIN_ID), str(CHILD_ID), "n1"]
+    for name in [n for n in fields if n.startswith(f"h.{PARTNER_ID}.")]:
+        del fields[name]
+    fields.update(
+        {
+            f"h.{MAIN_ID}.mobile": "0470 00 00 01",
+            f"h.{CHILD_ID}.last_name": "Proef-Anders",
+            f"h.{CHILD_ID}.mobile": "0470123456",
+            "address.street": "Andere straat",
+            "address.house_number": "9",
+            "address.bus_number": "b",
+            "h.n1.first_name": "Nieuw",
+            "h.n1.last_name": "Proef",
+            "h.n1.date_of_birth": "2015-01-02",
+            "h.n1.gender_code": "M",
+            "e_order.n1": ["n1e"],
+            "e.n1e.value": "portaal-nieuw@example.com",
+            "e_primary.n1": "n1e",
+        }
+    )
+    response = _save(client, headers, fields)
+    assert response.status_code == 200, response.text[:300]
+    assert response.headers["HX-Push-Url"] == "/leden/gezin"
+    compare(SNAPSHOTS, "save_answer", _screen(response), REBUILT)
 
 
-def test_the_screen_after_changing_an_address(client, db_session, household):
-    headers = _login(client)
-    form = {
-        **PERSON_FORM,
-        "first_name": "Hanne",
-        "last_name": "Proef",
-        "date_of_birth": "1980-03-04",
-        "street": "Andere straat",
-        "house_number": "9",
-        "bus_number": "b",
-        "postal_code": "2399",
-    }
-    response = client.post(f"/leden/gezin/personen/{MAIN_ID}", data=form, headers=headers)
-    compare(SNAPSHOTS, "screen_update_address", _screen(response), BEFORE)
-
-
-def test_the_screen_after_adding_a_person(client, db_session, household):
-    headers = _login(client)
-    response = client.post("/leden/gezin/personen", data=NEW_PERSON, headers=headers)
-    compare(SNAPSHOTS, "screen_add", _screen(response), BEFORE)
-
-
-def test_the_screen_after_removing_a_person(client, db_session, household):
-    headers = _login(client)
-    response = client.post(f"/leden/gezin/personen/{PARTNER_ID}/verwijderen", headers=headers)
-    compare(SNAPSHOTS, "screen_remove", _screen(response), BEFORE)
-
-
-@pytest.mark.parametrize(
-    "screen,path,data",
-    [
-        (
-            "screen_refused_no_birth_date",
-            f"/leden/gezin/personen/{CHILD_ID}",
-            {**PERSON_FORM, "date_of_birth": ""},
-        ),
-        (
-            "screen_refused_unknown_postal_code",
-            f"/leden/gezin/personen/{MAIN_ID}",
-            {**PERSON_FORM, "street": "X", "house_number": "1", "postal_code": "0001"},
-        ),
-        ("screen_refused_no_last_name", "/leden/gezin/personen", {**NEW_PERSON, "last_name": ""}),
-        ("screen_refused_self", f"/leden/gezin/personen/{MAIN_ID}/verwijderen", {}),
-        ("screen_refused_unknown_person", f"/leden/gezin/personen/{BASE + 98}/verwijderen", {}),
-    ],
-)
-def test_the_screen_refuses_in_the_same_words(client, db_session, household, screen, path, data):
-    headers = _login(client)
-    response = client.post(path, data=data, headers=headers)
-    compare(SNAPSHOTS, screen, _screen(response), BEFORE)
-
-
-def test_the_screen_refuses_a_stranger(client, db_session, household):
-    """Another household's person: the boundary every portal mutation keeps."""
+def test_a_refused_save_answers_in_these_words(client, db_session, household):
+    """Every refusal the row routes made, in one save: the child without a birth
+    date, a new person without a last name, an unknown postal code, a person who
+    is not (or no longer) of this household, a person of ANOTHER household — the
+    boundary every portal mutation keeps — and the member taking themselves out.
+    The banner names each at its place; nothing of the page comes back."""
     stranger = Person(
         first_name="Vreemd", last_name="Iemand", date_of_birth=date(1990, 1, 1), gender_code="M"
     )
@@ -250,10 +241,34 @@ def test_the_screen_refuses_a_stranger(client, db_session, household):
     )
     db_session.commit()
     headers = _login(client)
-    response = client.post(f"/leden/gezin/personen/{stranger.id}/verwijderen", headers=headers)
-    names = {stranger.id: "<STRANGER>"}
+    fields = household_fields(client)
+    for name in [n for n in fields if n.startswith(f"h.{MAIN_ID}.")]:
+        del fields[name]
+    fields["h_order"] = [str(PARTNER_ID), str(CHILD_ID), "n1", str(BASE + 98), str(stranger.id)]
+    fields.update(
+        {
+            f"h.{CHILD_ID}.date_of_birth": "",
+            "h.n1.first_name": "Nieuw",
+            "h.n1.last_name": "",
+            "h.n1.date_of_birth": "2015-01-02",
+            "h.n1.gender_code": "M",
+            f"h.{BASE + 98}.first_name": "Onbekend",
+            f"h.{BASE + 98}.last_name": "Proef",
+            f"h.{stranger.id}.first_name": "Gekaapt",
+            f"h.{stranger.id}.last_name": "Iemand",
+            "address.postal_code": "0001",
+        }
+    )
+    response = _save(client, headers, fields)
+    assert response.status_code == 422
+    assert "<main" not in response.text and "<html" not in response.text.lower()
+    names = {**_names(), stranger.id: "<STRANGER>", BASE + 98: "<UNKNOWN>"}
     got = normalise(f"{response.status_code}\n{response.text}", names, {})
-    compare(SNAPSHOTS, "screen_refused_stranger", got, BEFORE)
+    compare(SNAPSHOTS, "save_refused", got, REBUILT)
+    db_session.expire_all()
+    assert db_session.get(Person, stranger.id).first_name == "Vreemd"
+    assert db_session.get(Person, CHILD_ID).date_of_birth == date(2010, 7, 8)
+    assert db_session.query(MemberPerson).filter_by(member_id=MEMBER_ID).count() == 3
 
 
 # ── The JSON door ────────────────────────────────────────────────────────────
@@ -300,6 +315,31 @@ def test_the_json_answers(client, db_session, household):
     removed = client.delete(f"/api/v1/member/household/persons/{PARTNER_ID}", headers=headers)
     answers.append(normalise(f"{removed.status_code}\n{removed.text}", {}, {}))
     compare(SNAPSHOTS, "json", "\n".join(answers), BEFORE)
+
+
+def test_the_json_door_does_not_ask_the_main_member_a_mobile(client, db_session, household):
+    """#1590: the rule is asked at Word lid and at the one save of Mijn gezin,
+    not here — the API stores and removes a main member's mobile as before.
+    (The same household's save through the page is refused without one: the
+    portal tests in `mdm/tests`.)"""
+    from app.domains.auth.api import create_access_token
+
+    headers = {"Authorization": f"Bearer {create_access_token({'sub': MAIN_EMAIL})}"}
+    path = f"/api/v1/member/household/persons/{MAIN_ID}"
+
+    def mobiles() -> list[str]:
+        db_session.expire_all()
+        return [
+            c.value
+            for c in db_session.get(Person, MAIN_ID).contact_details
+            if c.contact_type_code == "MOBILE"
+        ]
+
+    assert client.put(path, json={"mobile": "0470999999"}, headers=headers).status_code == 200
+    assert mobiles() == ["0470999999"]
+    emptied = client.put(path, json={"mobile": ""}, headers=headers)
+    assert emptied.status_code == 200, emptied.text
+    assert mobiles() == []
 
 
 # ── The household's own order (Koen, 29 September 2026) ──────────────────────

@@ -2,78 +2,55 @@
 
    The form's own page (`formulier.html`) and every page that asks a form's
    questions render this: the registration page and the board's registration page
-   (`_inschrijf_velden.html`), the answer link (`inschrijving_vragen.html`) and the
-   correction on the registration detail. Until #1380 the registration built the
-   frame around the fields again, and every improvement of the form's own page
-   (title, description, spacing, the white card) stayed behind. Two places for one
-   thing (CLAUDE.md).
+   (`_inschrijf_velden.html`), the answer link of a registration (the form's own
+   page) and the correction on the registration detail. Until #1380 the
+   registration built the frame around the fields again, and every improvement of
+   the form's own page stayed behind. Two places for one thing (CLAUDE.md).
 
-   The block, in two macros a page puts in order: `vragen_kop` — the form's title
-   (large, brand blue) and description, above the cards; then what the page adds
-   (the form's own name and e-mail card, or the registration's "now or later"
-   card); then `vragen_kaarten` — one white card per section, and one for the
-   fields in no section, the questions `space-y-[22px]` apart. Two macros and not
-   one with a slot: the form's own page keeps its title outside its <form>, whose
-   `space-y-6` would otherwise push the title and the description apart.
+   CR-11 pilot B (#1589; `docs/design-system-end-state.md` §2.6): the cards are
+   the kit's section cards — one per section of the form, and one for the fields
+   in no section — with the section's title as the card's head (Inter 16 px
+   semibold), 32 px between cards and the questions on the form grid, 12 px
+   apart. One long page: no steps.
 
-   What stays with the form's own page, outside this block: its submit button, its
-   wizard buttons and script, its <form> element. `wizard` only renders the steps'
-   wrappers the page's script drives.
+   Two macros:
+   - `vragen_kop` — the form's title and description as a heading, for a page
+     that shows the block INSIDE something of its own (the registration detail in
+     the back office). The form's own page puts its name in a name card, and the
+     registration page asks under its own section "Vragen bij de inschrijving".
+   - `vragen_kaarten` — the cards.
 
-   Parameters:
-   - `heading` (`vragen_kop`) — the title's tag: h1 on the form's own page, h2 where the page has
-     its own h1 (the activity); the same classes either way;
-   - `compact` (`vragen_kop`) — one size smaller (`text-xl`), for a title INSIDE
-     a panel: on the registration detail the block sits in the registration's own
-     card, where a page-sized title outweighed the registration's name (master
-     CLI, #1382). The same markup, one class different;
-   - `browser_required` — False where the questions can be hidden ("later"): a
-     hidden `required` field blocks the submit; the server judges them;
-   - `vraag_fout` — the id of the question a refusal names, marked;
+   Parameters of `vragen_kaarten`:
+   - `vraag_fout` — the id of the question a refusal names, marked, where the
+     page is redrawn with the refusal (the registration detail). A page with the
+     kit's message line gets the mark from `record-form.js` instead;
    - `cards_attrs` — attributes on the wrapper of the cards (the registration's
-     `x-show`), empty on the form's own page.
+     `x-show`), empty on the form's own page;
+   - `path` — the form branches: each card carries its place (`data-step`) and
+     is shown only while it lies on the path the answers lead along
+     (`formulier.html`, `formPath`).
 
    Expects in the context what `veld` expects: `values` and `ui`. #}
 {% import "_macros.html" as ui %}
 {% from "_formulier_veld.html" import veld with context %}
-{% macro vragen_kop(form, heading="h1", wizard=False, compact=False) %}
+{% macro vragen_kop(form, heading="h1", compact=False) %}
 <{{ heading }} class="{{ 'text-xl' if compact else 'text-2xl' }} font-bold text-kop mb-2">{{ form.title }}</{{ heading }}>
-{% if form.description %}<p class="text-gray-600 mb-6 whitespace-pre-wrap"{% if wizard %} x-show="step === 0" x-cloak{% endif %}>{{ form.description }}</p>{% endif %}
+{% if form.description %}<p class="text-gray-600 mb-6 whitespace-pre-wrap">{{ form.description }}</p>{% endif %}
 {% endmacro %}
 
-{% macro vragen_kaarten(grouped, loose_fields, wizard=False, browser_required=True, vraag_fout=None, cards_attrs="") %}
-{% set _hidden = wizard or not browser_required %}
-{% macro _vraag(f) %}{% if vraag_fout is not none and vraag_fout == f.id %}<div class="rounded-lg ring-2 ring-red-600 p-2">{{ veld(f, _hidden) }}</div>{% else %}{{ veld(f, _hidden) }}{% endif %}{% endmacro %}
-<div class="space-y-6" {{ cards_attrs|safe }}>
-  {% if wizard %}<div x-cloak>{% endif %}
+{% macro vragen_kaarten(grouped, loose_fields, vraag_fout=None, cards_attrs="", path=False) %}
+{% macro _vraag(f) %}{% if vraag_fout is not none and vraag_fout == f.id %}<div data-span="full" data-question-refused class="rounded-md ring-2 ring-red-600 p-2">{{ veld(f) }}</div>{% else %}{{ veld(f) }}{% endif %}{% endmacro %}
+<div data-question-cards class="grid gap-8 min-w-0" {{ cards_attrs|safe }}>
   {% for g in grouped %}
-  {% if wizard %}<div data-step="{{ loop.index0 }}" x-show="step === {{ loop.index0 }}">{% endif %}
-  {% call ui.card() %}
-    {# #749: one step above the question, so the ladder section → question →
-       option shows. Not in brand blue: §2.5 keeps card titles in ink.
-
-       #768: `pl-4`, the indent of a question block: those blocks reserve 4 px of
-       border plus 12 px for the red error bar since #741, so the question does not
-       jump when it is marked. #}
-    {% if g.section.title %}<h2 class="text-lg font-bold mb-1">{{ g.section.title }}</h2>{% endif %}
-    {% if g.section.description %}<p class="text-sm text-gray-600 mb-3 whitespace-pre-wrap">{{ g.section.description }}</p>{% endif %}
-    {# #749/#768/#774: 22 px of box space plus the 8 px padding under the last
-       answer = 30 px of white between two questions. An arbitrary value and not
-       `space-y-5`/`-6`: the three distances stand at 16 : 20 : 30 on purpose — the
-       ratio is how you see which answers belong to which question. #}
-    <div class="space-y-[22px]">
-      {% for f in g.fields %}{{ _vraag(f) }}{% endfor %}
-    </div>
+  {% set _place %}{% if path %}data-step="{{ loop.index0 }}" x-show="shown({{ loop.index0 }})"{% endif %}{% endset %}
+  {% call ui.section(g.section.title, intro=g.section.description, attrs=_place) %}
+    {% for f in g.fields %}{{ _vraag(f) }}{% endfor %}
   {% endcall %}
-  {% if wizard %}</div>{% endif %}
   {% endfor %}
   {% if loose_fields %}
-  {% call ui.card() %}
-    <div class="space-y-[22px]">
-      {% for f in loose_fields %}{{ _vraag(f) }}{% endfor %}
-    </div>
+  {% call ui.section() %}
+    {% for f in loose_fields %}{{ _vraag(f) }}{% endfor %}
   {% endcall %}
   {% endif %}
-  {% if wizard %}</div>{% endif %}
 </div>
 {% endmacro %}

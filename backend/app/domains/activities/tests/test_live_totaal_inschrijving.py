@@ -68,15 +68,10 @@ def test_een_hoger_aantal_toont_meteen_het_nieuwe_bedrag(client, db_session):
     assert r.status_code == 200
     # Het totaal: 5 x 10,00 — en alleen het totaal (#1287): geen regelbedrag.
     assert "50,00" in r.text, "het totaal loopt niet mee"
-    # The amount appears once per "Totaal" (the read-only view and the edit panel
-    # both carry one), and never inside a product row.
-    assert r.text.count("50,00") == r.text.count("Totaal"), "an amount beside the totals"
-    rows = r.text.split("data-product-row")[1:]
-    assert rows, "no product row in the panel"
-    # A row runs up to the next row or the total, which always follows the rows.
-    assert not [row for row in rows if "50,00" in row.split("Totaal")[0]], (
-        "a line amount is back in a product row (#1287)"
-    )
+    # #1613: the answer IS the total and nothing else — once, no product row
+    # (so no line amount, #1287) and no field that could put typed text back.
+    assert r.text.count("50,00") == 1 and r.text.count("Totaal") == 1, r.text
+    assert "data-product-row" not in r.text and "<input" not in r.text
 
 
 def test_de_herberekening_bewaart_niets(client, db_session):

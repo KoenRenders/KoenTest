@@ -24,7 +24,14 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, htmx_stil, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    htmx_stil,
+    login_met_sessie,
+    pagina_klaar,
+    transition_frames,
+    watch_transitions,
+)
 
 WIDTH = 390
 
@@ -104,12 +111,16 @@ def test_confirming_on_the_activity_tab_keeps_the_activity(page, two_activities)
     assert two_activities["other"] not in lijst.inner_text()
 
     lijst.get_by_text("Bevestig", exact=True).first.click()
+    watch_transitions(page)
     with page.expect_response(
         lambda r: r.request.method == "POST" and r.url.endswith("/bevestigen")
     ) as resp:
         page.get_by_role("button", name="Bevestigen").click()
     assert resp.value.status == 200
     htmx_stil(page)
+    # #1591: a command that redraws a part of the page is no navigation — no
+    # view transition (`test_view_transition_rule.py`).
+    assert transition_frames(page) == 0, "the page cross-fades when a payment is confirmed"
 
     after = _records(page)
     assert after == before, f"{len(before)} record(s) before the confirmation, {len(after)} after"

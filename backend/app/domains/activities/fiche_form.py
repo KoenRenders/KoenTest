@@ -8,7 +8,8 @@ row's fields under that key:
     c_order=<key> …            c.<key>.name | max_participants | registration_closes_on
                                | team_name_required | form_id | file | info_delete
                                | external_register_url | external_registrations_url | info_url
-    p_order.<component key>=…  p.<key>.name | price | member_price | is_free | pay_on_site
+    p_order.<component key>=…  p.<key>.name | price | member_price | settlement
+                               (or the two flags is_free | pay_on_site)
                                | is_active | max_participants
     o_order=<key> …            o.<key>.person_id | is_contact | show_email | show_mobile
                                | email_override | mobile_override
@@ -42,6 +43,7 @@ from app.domains.activities.fiche import (
     OrganiserRow,
     ProductRow,
 )
+from app.domains.activities.settlement import flags_of
 from app.i18n import _
 
 GROUPS = ("dates", "components", "organisers")
@@ -203,9 +205,29 @@ def _product_row(form: Any, key: str, errors: list[FieldError]) -> ProductRow:
     name = _last(form, f"p.{key}.name")
     what = name or _("een product")
     price = _money(form, f"p.{key}.price", _("de prijs van “%(name)s”") % {"name": what}, errors)
+    # #1608: the screen sends ONE choice, `settlement`; it becomes the two flags
+    # the model stores. A caller that still sends the flags themselves is read as
+    # before — and may send both, which the service refuses.
+    choice = _last(form, f"p.{key}.settlement")
+    if choice:
+        try:
+            is_free, pay_on_site = flags_of(choice)
+        except ValueError:
+            errors.append(
+                FieldError(f"p.{key}.settlement", _("Kies hoe het product afgerekend wordt."))
+            )
+            is_free = pay_on_site = False
+    else:
+        is_free, pay_on_site = _on(form, f"p.{key}.is_free"), _on(form, f"p.{key}.pay_on_site")
+    # The price fields are switched off while the product is free or paid on the
+    # spot, and a switched-off field is not sent. Not sent is "leave it", not
+    # "nothing": the price a product had is kept, as it was when the two switches
+    # stood beside enabled price fields.
+    prices_sent = f"p.{key}.price" in form or f"p.{key}.member_price" in form
     return ProductRow(
         key=key,
         name=name,
+        prices_sent=prices_sent or not choice,
         price=price if price is not None else Decimal("0"),
         member_price=_money(
             form,
@@ -213,8 +235,8 @@ def _product_row(form: Any, key: str, errors: list[FieldError]) -> ProductRow:
             _("de ledenprijs van “%(name)s”") % {"name": what},
             errors,
         ),
-        is_free=_on(form, f"p.{key}.is_free"),
-        pay_on_site=_on(form, f"p.{key}.pay_on_site"),
+        is_free=is_free,
+        pay_on_site=pay_on_site,
         is_active=_on(form, f"p.{key}.is_active"),
         max_participants=_int(
             form,

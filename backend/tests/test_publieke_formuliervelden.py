@@ -13,7 +13,7 @@ verplichte zijn verplicht.
 
 import pytest
 
-from tests.conftest import seed_activity_with_product, seed_postal_code
+from tests.conftest import form_fields, seed_activity_with_product, seed_postal_code
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -22,24 +22,73 @@ def test_word_lid_heeft_zijn_velden_nog(client, db_session):
     seed_postal_code(db_session, code="2400", municipality="Mol")
     html = client.get("/lid-worden").text
 
+    # #1590: the names are the contract of `membership.signup_form`.
     for naam in (
-        "m0_first_name",
-        "m0_last_name",
-        "m0_email",
-        "m0_mobile",
-        "street",
-        "house_number",
-        "bus_number",
-        "postal_code",
+        "h.n0.first_name",
+        "h.n0.last_name",
+        "h.n0.date_of_birth",
+        "h.n0.gender_code",
+        "h.n0.mobile",
+        "e.n0e.value",
+        "address.street",
+        "address.house_number",
+        "address.bus_number",
+        "address.postal_code",
+        "payment_method",
     ):
         assert f'name="{naam}"' in html, f"veld {naam} is verdwenen"
     # De postcode blijft een dropdown (vaste UI-beslissing), met echte opties.
-    assert "<select" in html and "2400" in html
-    # Verplichte velden zijn nog verplicht — dat attribuut zat vóór de omzetting
-    # in de handgeschreven tag.
-    for naam in ("street", "house_number"):
+    at = html.index('name="address.postal_code"')
+    assert html.rindex("<", 0, at) == html.rindex("<select", 0, at), "the postal code is no select"
+    assert '<option value="2400"' in html[at : html.index("</select>", at)]
+    # Verplichte velden zijn nog verplicht.
+    for naam in ("address.street", "address.house_number", "h.n0.first_name", "e.n0e.value"):
         blok = html[html.index(f'name="{naam}"') :]
-        assert " required" in blok[:400], f"{naam} is zijn required kwijt"
+        assert " required" in blok[: blok.index(">")], f"{naam} is zijn required kwijt"
+
+
+def test_the_word_lid_page_sends_what_the_reader_reads(client, db_session):
+    """The page and `signup_from_form` agree on every name: the form as the
+    browser would send it, with the visitor's values typed into the fields the
+    PAGE names, creates the household. A field the template renames is then
+    missing from this post, and the sign-up is refused."""
+    from app.domains.auth.api import SESSION_COOKIE, make_session_value
+
+    seed_postal_code(db_session, code="2400", municipality="Mol")
+    fields = form_fields(client.get("/lid-worden").text, "lid-worden-form")
+    assert fields["h_order"] == ["n0"] and fields["e_order.n0"] == ["n0e"]
+    assert fields["payment_method"] == "online", "online is the default (fixed decision)"
+    typed = {
+        "h.n0.first_name": "Veldnaam",
+        "h.n0.last_name": "Proef",
+        "h.n0.date_of_birth": "1980-01-01",
+        "h.n0.mobile": "0470000000",
+        "e.n0e.value": "veldnaam.proef@example.com",
+        "address.street": "Dorpsstraat",
+        "address.house_number": "1",
+        "address.postal_code": "2400",
+        "payment_method": "transfer",
+    }
+    assert set(typed) <= set(fields), f"the page has no field {sorted(set(typed) - set(fields))}"
+    # No radio is checked on an empty page, so the browser sends no gender yet.
+    assert "h.n0.gender_code" not in fields
+
+    resp = client.post("/lid-worden", data={**fields, **typed, "h.n0.gender_code": "F"})
+    assert resp.status_code == 200, resp.text[:400]
+    # Read back the way the new member would: signed in, on Mijn gezin.
+    client.cookies.set(SESSION_COOKIE, make_session_value("veldnaam.proef@example.com"))
+    portal = client.get("/leden/gezin")
+    assert portal.status_code == 200, "the address the form sent does not sign in"
+    for value in (
+        'data-row-title="Veldnaam Proef"',
+        "01-01-1980",
+        "Vrouw",
+        "0470000000",
+        "mailto:veldnaam.proef@example.com",
+        "Dorpsstraat",
+        "2400",
+    ):
+        assert value in portal.text, f"{value} did not reach the household"
 
 
 def test_inschrijven_heeft_zijn_velden_nog(client, db_session):

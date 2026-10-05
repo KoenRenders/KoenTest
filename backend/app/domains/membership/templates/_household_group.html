@@ -1,0 +1,83 @@
+{% import "_macros.html" as ui %}
+{# The household as a repeating group (CR-11 pilot B, #1590; end state §2.6,
+   §3.3) — for Word lid and for Mijn gezin, which set before the include:
+
+   - `group`   the `HouseholdGroup` view (`membership.household_page`);
+   - `_edit`   edit or read mode.
+
+   Each person is a composite row that folds: the main member open, the others
+   closed; no handle, because the persons of a household have no order the
+   visitor sets. Each person carries their e-mail addresses as a child group
+   with the *hoofdadres* tag — which may be removed like any other address, and
+   then nothing takes its place (Koen, 27 September 2026; #1603). Nothing here
+   saves on its own: the rows are part of the page's one form and its one bar.
+   The field names are the contract of `mdm.household_form`.
+
+   A person added in the page chooses partner or child (#1603), on both pages.
+   The page asks the server which of the two the one rule gives them
+   (`default_relation`: a partner while the household has none, a child after
+   that) — the rule stays in one place. The persons already there say their
+   relation in a `data-relation` mark, so the question counts them too. #}
+{% macro _email_row(pkey, m, required) -%}
+{% call ui.group_row("e_order." ~ pkey, m.key, edit=_edit, menu=["remove"],
+                     label=m.value or _("nieuw e-mailadres"),
+                     one={"chosen": m.primary, "tag": _("hoofdadres"), "make": _("Maak hoofdadres"), "removable": True}) %}
+  {{ ui.field("e." ~ m.key ~ ".value", _("E-mailadres"), kind="email", value=m.value, edit=_edit,
+              id="e-" ~ m.key ~ "-value", required=required) }}
+{% endcall %}
+{%- endmacro %}
+
+{% macro _person_row(p) -%}
+{% call ui.group_row("h_order", p.key, edit=_edit, variant="composite",
+                     menu=(["remove"] if p.removable else []), title=p.title, title_prefix=p.prefix,
+                     subtitle=p.subtitle, fold=p.fold, label=p.title) %}
+  {% if not p.choose_relation %}<span hidden data-relation="{{ p.relation_type }}"></span>{% endif %}
+  {% call ui.form_grid() %}
+    {{ ui.field("h." ~ p.key ~ ".first_name", _("Voornaam"), value=p.first_name, edit=_edit, required=True,
+                id="h-" ~ p.key ~ "-first_name", attrs="data-row-title-source autocomplete=given-name") }}
+    {{ ui.field("h." ~ p.key ~ ".last_name", _("Achternaam"), value=p.last_name, edit=_edit, required=True,
+                id="h-" ~ p.key ~ "-last_name", attrs="data-row-title-source autocomplete=family-name") }}
+    {{ ui.field("h." ~ p.key ~ ".date_of_birth", _("Geboortedatum"), kind="date", value=p.date_of_birth,
+                display=p.birth_display, edit=_edit, required=True, id="h-" ~ p.key ~ "-date_of_birth") }}
+    {% if p.choose_relation %}
+    {{ ui.field("h." ~ p.key ~ ".relation_type", _("Relatie"), kind="select", value=p.relation_type, edit=_edit,
+                options=group.relation_options, id="h-" ~ p.key ~ "-relation_type",
+                attrs="data-row-title-prefix-source") }}
+    {% endif %}
+    {{ ui.field("h." ~ p.key ~ ".gender_code", _("Geslacht"), kind="radio_group", value=p.gender_code, edit=_edit,
+                required=True, options=group.gender_options, id="h-" ~ p.key ~ "-gender_code") }}
+    {{ ui.field("h." ~ p.key ~ ".mobile", _("Gsm"), kind="phone", value=p.mobile, edit=_edit,
+                required=(group.contact_required and p.is_main), id="h-" ~ p.key ~ "-mobile") }}
+    {{ ui.field("h." ~ p.key ~ ".phone", _("Telefoon"), kind="phone", value=p.phone, edit=_edit,
+                id="h-" ~ p.key ~ "-phone") }}
+  {% endcall %}
+  {% set _mail_required = group.contact_required and p.is_main %}
+  {% set _mail_template %}{{ _email_row(p.key, group.new_email, False) }}{% endset %}
+  {% call ui.repeating_group(_("E-mailadressen"), "e_order." ~ p.key, token=group.new_email.key,
+                             add_label=_("E-mailadres"), edit=_edit, child=True, count=p.emails|length,
+                             empty=_("Nog geen e-mailadres."), template=_mail_template,
+                             hint=_("Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging."),
+                             columns=[{"label": _("E-mailadres"), "span": "full", "required": _mail_required}],
+                             one={"name": "e_primary." ~ p.key, "value": p.primary_key}) %}
+    {% for m in p.emails %}{{ _email_row(p.key, m, _mail_required and m.primary) }}{% endfor %}
+  {% endcall %}
+{% endcall %}
+{%- endmacro %}
+
+{% set _person_template %}{{ _person_row(group.new_person) }}{% endset %}
+<div data-household class="contents" x-data
+     @row-added="
+       const mine = $event.target.querySelector('select[name$=&quot;.relation_type&quot;]');
+       if (!mine || $event.target.parentElement.parentElement.dataset.repeatingGroup !== 'h_order') return;
+       const others = [...$el.querySelectorAll('[data-relation]')].map(m => m.dataset.relation)
+         .concat([...$el.querySelectorAll('select[name$=&quot;.relation_type&quot;]')].filter(s => s !== mine).map(s => s.value));
+       fetch('/lid-worden/relatie?others=' + encodeURIComponent(others.join(',')))
+         .then(answer => answer.ok ? answer.text() : '')
+         .then(code => { if (code) { mine.value = code; mine.dispatchEvent(new Event('change', { bubbles: true })); } })">
+{% call ui.repeating_group(_("Gezinsleden"), "h_order", token=group.new_person.key,
+                           add_label=_("Gezinslid toevoegen"), edit=_edit, variant="composite",
+                           count=group.persons|length, empty=_("Nog geen gezinsleden."),
+                           template=_person_template, id="gezinsleden") %}
+  {% for p in group.persons %}{{ _person_row(p) }}{% endfor %}
+{% endcall %}
+</div>

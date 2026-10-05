@@ -1,0 +1,43 @@
+{% import "_macros.html" as ui %}
+{# The registration form as a flow of section cards with ONE action bar (CR-11
+   pilot B, #1589; §2.6, §3.6, §3.18) — for the public page (`inschrijven.html`)
+   and the board's (`admin_inschrijving_nieuw.html`), which set before the
+   include:
+
+   - `reg_target`   what a good answer replaces (the page's own wrapper);
+   - `reg_board`    the board's page: its own button, hidden fields, no nudge.
+
+   A refusal does not redraw the page: it answers the banner alone, into the
+   message line (`app.ui.refusal_response`), and `record-form.js` marks the
+   fields — everything typed stays. `pm`, `nu` and `betalen` are the three
+   things the page follows without a request: the payment method (the button's
+   label), "now or later" (the questions), and whether there is something to
+   pay (set by the total the server sends, `_inschrijf_totaal.html`). #}
+{% set _pm = values.get("payment_method", "online") %}
+{% set _to_pay = heeft_prijs and totaal and totaal > 0 %}
+<div data-form-flow data-mode="edit" class="form-flow"
+     x-data="{ pm: '{{ _pm }}', nu: {{ 'true' if vragen_nu else 'false' }}, betalen: {{ 'true' if _to_pay else 'false' }} }"
+     @change="if ($event.target.name === 'payment_method') pm = $event.target.value; if ($event.target.name === 'questions') nu = $event.target.value !== 'later'">
+  <div id="inschrijf-melding" data-form-message>{{ ui.error_banner(error) }}</div>
+  <form id="inschrijf-form" class="contents" data-record-form data-message="#inschrijf-melding" novalidate
+        hx-post="{{ form_url }}" hx-target="{{ reg_target }}" hx-select="{{ reg_target }}"
+        hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+    {% if reg_board %}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="onderdeel" value="{{ onderdeel_id }}">
+    {% endif %}
+    {% include "_inschrijf_velden.html" %}
+  </form>
+  {# The primary names the next step (§2.6): "Inschrijven en betalen" when the
+     visitor goes on to the payment page, "Inschrijven" otherwise. The board
+     adds a registration for somebody else and keeps its own words. #}
+  {% if reg_board %}
+  {% set _label = _("Inschrijving toevoegen") %}{% set _busy = _("Toevoegen…") %}{% set _follow = "" %}
+  {% else %}
+  {% set _label = _("Inschrijven en betalen") if _to_pay and _pm == "online" else _("Inschrijven") %}{% set _busy = _("Inschrijven…") %}
+  {# A `set` block, so the words are escaped once and the expression not at all. #}
+  {% set _follow %}data-pay="{{ _("Inschrijven en betalen") }}" data-plain="{{ _("Inschrijven") }}" x-text="betalen && pm === 'online' ? $el.dataset.pay : $el.dataset.plain"{% endset %}
+  {% endif %}
+  {{ ui.action_bar(record=True, send=True, form="inschrijf-form", cancel_href=terug_url,
+                   save_label=_label, busy_label=_busy, save_label_attrs=_follow) }}
+</div>

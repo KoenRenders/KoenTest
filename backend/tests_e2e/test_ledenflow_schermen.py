@@ -54,6 +54,27 @@ def _portaal(page, email: str):
     return page
 
 
+def _renew_link(page):
+    """The way to the renewal from Mijn gezin. Since #1590 renewing is its own page
+    (`/leden/gezin/vernieuwen`); Mijn gezin says how the membership stands and
+    links there when renewing is possible — the same condition the button had."""
+    return page.locator("[data-membership-status]").get_by_role("link", name=VERLENGKNOP)
+
+
+def _persons(page) -> list[dict]:
+    """The persons of the read page, each with what its row shows. Read from the
+    DOM's text and not from what is visible: every row but the first is folded."""
+    return page.evaluate(
+        """() => [...document.querySelectorAll('#gezinsleden > [data-group-rows] > [data-group-row]')].map(row => {
+          const value = name => { const f = row.querySelector(`[data-field$=".${name}"] [data-value]`);
+                                  return f ? f.textContent.trim() : null; };
+          return {title: row.querySelector('[data-row-title]').textContent.trim(),
+                  born: value('date_of_birth'), gender: value('gender_code'), mobile: value('mobile'),
+                  emails: [...row.querySelectorAll('[data-field$=".value"] [data-value]')].map(e => e.textContent.trim())};
+        })"""
+    )
+
+
 def _zet_venster(waarde):
     """Zet `membership_renewal_start_md` in de databank van de afdrukomgeving.
 
@@ -97,22 +118,22 @@ def test_de_drie_ledentoestanden_tonen_elk_iets_anders(browser_page):
     from seed_e2e import MARKER_EMAIL, MARKER_EMAIL_VERLOPEN
 
     page = _portaal(browser_page, MARKER_EMAIL)
-    expect(page.get_by_role("button", name=VERLENGKNOP)).to_be_visible()
+    expect(_renew_link(page)).to_be_visible()
 
     # Het venster dicht doen en weer openzetten: een `finally`, want elke andere e2e
     # die na deze draait leest dezelfde instelling.
     _zet_venster(None)
     try:
         page = _portaal(browser_page, MARKER_EMAIL)
-        expect(page.get_by_role("button", name=VERLENGKNOP)).to_have_count(0)
+        expect(_renew_link(page)).to_have_count(0)
 
         page = _portaal(browser_page, MARKER_EMAIL_VERLOPEN)
-        expect(page.get_by_role("button", name=VERLENGKNOP)).to_be_visible()
+        expect(_renew_link(page)).to_be_visible()
     finally:
         _zet_venster("01-01")
 
     page = _portaal(browser_page, MARKER_EMAIL)
-    expect(page.get_by_role("button", name=VERLENGKNOP)).to_be_visible()
+    expect(_renew_link(page)).to_be_visible()
 
 
 def test_het_voorbeeldgezin_staat_volledig_op_de_afdruk(browser_page):
@@ -133,41 +154,31 @@ def test_het_voorbeeldgezin_staat_volledig_op_de_afdruk(browser_page):
     from seed_e2e import HOOFDLID_GSM, JOMMEKE_STRAAT, MARKER_EMAIL, PARTNER_GSM
 
     page = _portaal(browser_page, MARKER_EMAIL)
-    kaarten = page.locator('div.space-y-4 div[x-show="!edit"]')
-    teksten = kaarten.all_inner_texts()
-    assert len(teksten) == 4, f"verwacht vier gezinsleden, gezien: {len(teksten)}"
+    # #1590: the page is read first — one row per person in the group, and the
+    # address in a section of its own instead of on every card.
+    persons = _persons(page)
+    assert len(persons) == 4, f"verwacht vier gezinsleden, gezien: {len(persons)}"
 
-    for tekst in teksten:
-        assert "°" in tekst, f"geen geboortedatum op de kaart: {tekst!r}"
-        assert JOMMEKE_STRAAT in tekst, f"geen adres op de kaart: {tekst!r}"
+    for p in persons:
+        assert p["born"] and p["born"] != "—", f"geen geboortedatum: {p!r}"
+        assert p["gender"] and p["gender"] != "—", f"een gezinslid heeft geen geslacht: {p!r}"
+    address = page.locator("#gezin-adres").inner_text()
+    assert JOMMEKE_STRAAT in address, f"geen adres op de pagina: {address!r}"
 
-    ouders = [t for t in teksten if "Theofiel" in t or "Marie" in t]
-    kinderen = [t for t in teksten if "Annemieke" in t or "Rozemieke" in t]
+    ouders = [p for p in persons if "Theofiel" in p["title"] or "Marie" in p["title"]]
+    kinderen = [p for p in persons if "Annemieke" in p["title"] or "Rozemieke" in p["title"]]
     assert len(ouders) == 2 and len(kinderen) == 2, (
-        f"de vier kaarten zijn niet twee ouders en twee kinderen: {teksten!r}"
+        f"de vier rijen zijn niet twee ouders en twee kinderen: {persons!r}"
     )
 
-    for tekst, gsm in zip(sorted(ouders), (PARTNER_GSM, HOOFDLID_GSM)):
-        assert "@" in tekst, f"de ouder mist een e-mailadres: {tekst!r}"
-        assert gsm in tekst, f"de ouder mist zijn gsm-nummer: {tekst!r}"
-    for tekst in kinderen:
-        assert "@" not in tekst, (
-            f"een meerderjarig kind draagt een e-mailadres: {tekst!r} — de verdeling "
+    for p, gsm in zip(sorted(ouders, key=lambda p: p["title"]), (PARTNER_GSM, HOOFDLID_GSM)):
+        assert any("@" in mail for mail in p["emails"]), f"de ouder mist een e-mailadres: {p!r}"
+        assert p["mobile"] == gsm, f"de ouder mist zijn gsm-nummer: {p!r}"
+    for p in kinderen:
+        assert p["emails"] == [], (
+            f"een meerderjarig kind draagt een e-mailadres: {p!r} — de verdeling "
             "van Koen geeft die alleen aan de ouders"
         )
-
-    # Geslacht staat niet in de leesweergave; het bewerkformulier toont het, en dat is
-    # het scherm van de afdruk `leden-gezin-bewerken`. Via JavaScript gelezen omdat die
-    # formulieren dichtgeklapt zijn.
-    #
-    # Binnen `form[id^="pp-"]` en niet over de hele pagina: het portaal draagt onderaan
-    # ook een LEEG formulier om een gezinslid toe te voegen, en dat leverde een vijfde,
-    # lege keuzelijst — gemeten toen deze assertie er vijf vond.
-    geslachten = page.locator("form[id^='pp-'] select[id$='-gender_code']").evaluate_all(
-        "els => els.map(e => e.value)"
-    )
-    assert len(geslachten) == 4, f"vier keuzelijsten verwacht, gezien: {geslachten!r}"
-    assert all(geslachten), f"een gezinslid heeft geen geslacht: {geslachten!r}"
 
 
 def test_de_geboortedatum_staat_belgisch_in_de_leesweergave(browser_page):
@@ -185,12 +196,9 @@ def test_de_geboortedatum_staat_belgisch_in_de_leesweergave(browser_page):
     from seed_e2e import JOMMEKE_GEBOORTE, MARKER_EMAIL
 
     page = _portaal(browser_page, MARKER_EMAIL)
-    tekst = page.locator('div.space-y-4 div[x-show="!edit"]').first.inner_text()
-    assert JOMMEKE_GEBOORTE.strftime("%d-%m-%Y") in tekst, (
-        f"de geboortedatum staat niet Belgisch op de kaart: {tekst!r}"
-    )
-    assert JOMMEKE_GEBOORTE.isoformat() not in tekst, (
-        f"de geboortedatum staat er nog in ISO-vorm bij: {tekst!r}"
+    born = _persons(page)[0]["born"]
+    assert born == JOMMEKE_GEBOORTE.strftime("%d-%m-%Y"), (
+        f"de geboortedatum staat niet Belgisch in de leesweergave: {born!r}"
     )
 
 
@@ -239,19 +247,9 @@ def test_er_staat_geen_naam_uit_de_ledenadministratie_op(browser_page):
 
     for email in (MARKER_EMAIL, MARKER_EMAIL_VERLOPEN):
         page = _portaal(browser_page, email)
-        # De naam staat in een `span.font-semibold` binnen de LEESweergave van de
-        # gezinslidkaart; er is geen kop-element. Gevonden doordat de assertie
-        # hieronder een lege lijst betrapte in plaats van vacuüm te slagen.
-        #
-        # `div[x-show="!edit"] >` erbij sinds #1174: het adresbeheer in de
-        # bewerkweergave draagt een "hoofdadres"-badge, en de badge-macro gebruikt
-        # óók `font-semibold`. Zonder die grens las deze test die badge als een
-        # naam en viel ze om op tekst die geen naam is. De test deed zijn werk —
-        # hij betrapte onverwachte tekst waar namen gelezen worden — maar hij moet
-        # wel de juiste plek lezen.
-        namen = page.locator(
-            'div.space-y-4 div[x-show="!edit"] > span.font-semibold'
-        ).all_inner_texts()
+        # #1590: the name is the title of the person's row in the group. Found by the
+        # assertion below catching an empty list instead of passing on nothing.
+        namen = [p["title"] for p in _persons(page)]
         assert namen, f"geen gezinslid op het portaal van {email}"
         for naam in namen:
             assert any(naam.strip().endswith(a) for a in SEED_ACHTERNAMEN), (

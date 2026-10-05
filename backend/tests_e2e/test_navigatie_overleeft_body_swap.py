@@ -10,12 +10,13 @@ bij het samenvoegen: sinds #714 dragen de navigatiecontainers `hx-swap-oob`, htm
 licht die uit het antwoord vóór de gewone swap, en dit formulier vervangt met
 `hx-target="body" hx-swap="innerHTML"` het hele lichaam door wat overblijft.
 
-**Waarom deze test een gezinslid toevoegt en niet vernieuwt.** Het vernieuwformulier
-verschijnt enkel binnen het hernieuwvenster (`MEMBERSHIP_RENEWAL_START_MD`), dus een
-test die dáárop mikt zou de helft van het jaar overslaan — en een overgeslagen test
-is tussen groene runs onzichtbaar (#644). Het toevoegformulier staat op dezelfde
-pagina, in dezelfde schil, met hetzelfde `hx-target="body" hx-swap="innerHTML"`, en
-krijgt hetzelfde volledige antwoord terug. Het is dus dezelfde samenvoeging.
+**Since #1590 no form of this page replaces `body` any more.** Mijn gezin has one
+save, whose answer replaces the page's own wrapper (`#gezin-pagina`, picked out of a
+full page by `hx-select`). The server still answers a whole page with the navigation
+in it, so the same merge is at stake: if htmx lifted the navigation out of band, the
+bar would be gone or doubled after the save. The test saves the household as it is —
+nothing is written, the answer comes back all the same — where it used to add a
+person to the shared seed household.
 
 De tegenhanger staat in `test_actieve_navigatie.py`: die bewaakt dat een gebooste
 navigatie de actieve markering nog steeds verplaatst (#714). Samen leggen ze de
@@ -66,18 +67,18 @@ def lid_page():
 
 def test_de_menubalk_staat_er_nog_na_een_body_swap(lid_page):
     portaal = Gezinsportaal(lid_page).open()
-    if lid_page.get_by_role("button", name="+ Gezinslid toevoegen").count() == 0:
+    if lid_page.get_by_role("link", name="Bewerken").count() == 0:
         _ontbreekt("geen gezinsportaal voor dit lid op deze omgeving")
 
     balk = portaal.navigatiebalk()
     assert balk.is_visible(), "de menubalk stond er vóór de actie al niet"
     voor = balk.inner_text()
 
-    portaal.voeg_gezinslid_toe("E2E", "Navigatie")
+    portaal.save_as_it_is()
 
     assert balk.count() == 1, (
-        "de menubalk is uit het lichaam verdwenen — htmx heeft haar out-of-band uit "
-        "het antwoord gelicht en de rest over het lichaam gelegd (#718)"
+        "de menubalk is uit het lichaam verdwenen of staat er twee keer — htmx heeft "
+        "haar out-of-band uit het antwoord gelicht (#718)"
     )
     assert balk.is_visible()
     assert balk.inner_text() == voor, "de menubalk is wél gebleven maar veranderd"

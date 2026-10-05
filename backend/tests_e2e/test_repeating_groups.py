@@ -227,7 +227,12 @@ def test_a_simple_group_shows_its_labels_once_and_a_composite_item_keeps_its_han
 
     c = g["component"]
     gutter = c["handle"]["right"]
-    assert c["handle"]["x"] == c["box"]["x"], "the handle at the left of the whole block"
+    # #1610 (Koen, 5 October 2026): the gutter is 28 px where it was 44 — the
+    # handle 24 px wide in it, its target still 44 px high — and 8 px to the item.
+    # Red on master: a gutter of 44 (the title 52 px in).
+    assert c["handle"]["x"] - c["box"]["x"] == 2 and c["handle"]["w"] == 24, c["handle"]
+    assert c["handle"]["h"] == 44, "the handle's target shrank"
+    assert c["title"]["x"] - c["box"]["x"] == 28 + 8, "the gutter is not 28 px"
     assert c["title"]["x"] >= gutter and all(f["x"] >= gutter for f in c["fields"]), (
         "no field left of the handle"
     )
@@ -239,7 +244,8 @@ def test_a_simple_group_shows_its_labels_once_and_a_composite_item_keeps_its_han
     )
 
     child = g["child"]
-    assert child["padding"] == "16px" and child["border"] == "1px", "indented 16 px behind a line"
+    # #1610: 12 px at every width (it was 16 on a desktop).
+    assert child["padding"] == "12px" and child["border"] == "1px", "indented 12 px behind a line"
     assert (
         child["background"] in ("rgba(0, 0, 0, 0)", "transparent") and child["shadow"] == "none"
     ), "no card, no box"
@@ -384,30 +390,32 @@ def test_the_last_row_removed_shows_the_empty_line_and_the_add_button_stays(setu
 
 
 def test_a_refused_save_says_why_and_keeps_what_was_typed(setup):
-    """A product that is free AND to pay on site: two switches the screen can set
-    together, a combination the service refuses."""
+    """A product with a negative price: something the screen can send and the
+    save refuses. (Until #1608 this test switched "Gratis" and "Ter plaatse
+    betalen" on together; the one segmented choice cannot send that any more —
+    the service's refusal of it is tested where a caller can still send both
+    flags, `tests/integration/test_fiche_save.py`.)"""
     page = _page(setup, 1440)
     first = page.locator("#aa-group-components > [data-group-rows] > [data-group-row]").first
     first.locator("[data-repeating-group] [data-group-add]").click()
-    page.keyboard.type("Gratis en ter plaatse")
+    page.keyboard.type("Te goedkoop")
     new = first.locator("[data-repeating-group] [data-group-row]").last
-    new.locator('[data-kind="switch"] label:has-text("Gratis")').click()
-    new.locator('[data-kind="switch"] label:has-text("Ter plaatse betalen")').click()
+    new.locator('input[name$=".price"]').fill("-1")
     _save(page)
     message = page.locator("#aa-fiche-message")
-    message.locator("text=niet tegelijk gratis").wait_for()
+    message.locator("text=mag niet negatief zijn").wait_for()
     assert page.url.endswith("?bewerken=1")
     assert page.locator("[data-form-flow]").get_attribute("data-mode") == "edit"
-    assert new.locator("[data-row-title-source]").input_value() == "Gratis en ter plaatse", (
+    assert new.locator("[data-row-title-source]").input_value() == "Te goedkoop", (
         "the typed row is still there"
     )
     # #1561: the reason stands on its field too, and that field has the focus.
-    refused = new.locator('[data-field$=".pay_on_site"] [data-refused-message]')
+    refused = new.locator('[data-field$=".price"] [data-refused-message]')
     refused.wait_for()
-    assert "niet tegelijk gratis" in refused.inner_text()
+    assert "mag niet negatief zijn" in refused.inner_text()
     page.wait_for_function(
         """() => { const b = document.activeElement.getBoundingClientRect();
-                 return document.activeElement.name.endsWith('.pay_on_site') && b.top >= 0 && b.bottom <= innerHeight; }""",
+                 return document.activeElement.name.endsWith('.price') && b.top >= 0 && b.bottom <= innerHeight; }""",
         timeout=5000,
     )
     page.close()

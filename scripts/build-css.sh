@@ -66,9 +66,6 @@ cat > "$TMP/in.css" << 'CSS'
    een externe font-CDN ziet het IP van elke bezoeker — Europe-First/GDPR. woff2
    eerst, ttf als terugval voor oude browsers; font-display:swap zodat tekst
    meteen leesbaar is. */
-/* CR-11 pilot B (#1588): Fraunces, the public site's heading face (§1.6) — one
-   weight (650), the Latin subset, OFL (static/fonts/OFL-Fraunces.txt). */
-@font-face{font-family:"Fraunces";src:url("/static/fonts/Fraunces-latin.woff") format("woff");font-weight:650;font-style:normal;font-display:swap}
 @font-face{font-family:"Inter";src:url("/static/fonts/Inter-Regular.woff2") format("woff2"),url("/static/fonts/Inter-Regular.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Inter";src:url("/static/fonts/Inter-Medium.woff2") format("woff2"),url("/static/fonts/Inter-Medium.ttf") format("truetype");font-weight:500;font-style:normal;font-display:swap}
 @font-face{font-family:"Inter";src:url("/static/fonts/Inter-SemiBold.woff2") format("woff2"),url("/static/fonts/Inter-SemiBold.ttf") format("truetype");font-weight:600;font-style:normal;font-display:swap}
@@ -121,9 +118,11 @@ cat > "$TMP/in.css" << 'CSS'
      warm accent `238 193 94` (text `37 44 53`) for the site's one call to
      action. Tailwind's scales are redefined, so no template changes: blue
      around the brand, gray as the Atelier neutrals. Radius: controls 6 px,
-     cards 14 px. Headings in Fraunces, everything else Inter (§1.6); the
-     wordmark's face (`font-brand`) is Fraunces too — Radio Canada Big left
-     with the house style.
+     cards 14 px. ONE family on both shells (#1606, Koen, 5 October 2026;
+     §1.6): `font-brand` resolves to Inter here as in the back office — the
+     serif heading face of P1 (#1588) is gone, with its font file. The public
+     headings are a little LARGER than the admin's, in Inter 600 at line
+     height 1.15: see the scale under this block.
      `--c-site-header` is the header's band WITHOUT a tenant colour: what it was
      before these tokens (36 75 197), so a tenant that set nothing keeps its
      header (`site_header_color` overrides it as before). */
@@ -138,7 +137,7 @@ cat > "$TMP/in.css" << 'CSS'
         --c-control-line:126 143 158;--c-focus:25 95 157;
         --c-gray-50:244 246 248;--c-gray-100:240 243 246;--c-gray-200:216 224 230;--c-gray-300:190 201 210;--c-gray-400:126 143 158;--c-gray-500:83 99 115;--c-gray-600:83 99 115;--c-gray-700:50 66 81;--c-gray-800:33 45 58;--c-gray-900:33 45 58;--c-gray-950:20 28 36;
         --r-lg:6px;--r-xl:10px;--r-2xl:14px;
-        --font-brand:"Fraunces",Georgia,serif}
+        --font-brand:Inter,system-ui,sans-serif}
   /* The readable aliases are resolved where they are declared (:root), so the
      shell declares them again — otherwise `var(--brand-ocean)` in the CMS
      content rules would stay the root's blue (measured: a CMS heading in
@@ -147,7 +146,21 @@ cat > "$TMP/in.css" << 'CSS'
         --brand-ocean:rgb(var(--c-brand-ocean));--primary:rgb(var(--c-brand-ocean));--primary-hover:rgb(var(--c-brand-ocean-hover));--link:rgb(var(--c-link));
         --ground:rgb(var(--c-ground));--surface:rgb(var(--c-surface));--surface-2:rgb(var(--c-surface-2));
         --ink:rgb(var(--c-ink));--ink-soft:rgb(var(--c-ink-soft));--line:rgb(var(--c-line))}
-  body[data-shell="site"] :is(h1,h2,h3){font-family:"Fraunces",Georgia,serif;font-weight:650}
+  /* The public heading scale (#1606, §1.6, §2.6): page title 32 px on a phone
+     and 40 px from 768, section head 24 px, card title 18 px — Inter 600, line
+     height 1.15. On the heading's tag and not in a template: a page writes
+     `<h1>`, `<h2>`, `<h3>` and the shell sizes them, so no public page can
+     come to differ. A section of a FORM keeps the kit's head (16 px, its own
+     line height): that is a field group's label, the same in both shells. */
+  body[data-shell="site"] :is(h1,h2,h3){font-family:var(--font-brand);font-weight:600;line-height:1.15}
+  body[data-shell="site"] #main h1{font-size:32px}
+  body[data-shell="site"] #main h2{font-size:24px}
+  body[data-shell="site"] #main h3{font-size:18px}
+  @media (min-width:768px){body[data-shell="site"] #main h1{font-size:40px}}
+  body[data-shell="site"] #main .form-section :is(h2,h3){font-size:16px;line-height:24px}
+  /* The site's name in the header where a tenant has no logo, and the drawer's
+     head: semibold like the headings (the serif face had one weight only). */
+  body[data-shell="site"] .font-brand{font-weight:600}
   body[data-shell="site"] .cms-content :is(h1,h2){color:rgb(var(--c-kop))}
   /* ── CR-11 block 1 (#1482): the admin shell in palette Atelier ─────────────
      Decided by Koen on 2 October 2026; the norm is design-system-end-state.md
@@ -287,10 +300,24 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    of 260 px and their gap) — a container query, which a utility cannot say.
    32 px between the sections of a form column. */
 .admin-content:has([data-record-head]){max-width:none}
-.record-frame{container-type:inline-size}
+.record-frame{container-type:inline-size;container-name:record}
 .record-columns{display:grid;grid-template-columns:minmax(0,768px);gap:24px;align-items:start}
 .record-form-column{min-width:0}
 .form-flow{display:grid;gap:32px;min-width:0}
+/* CR-11 pilot B (#1589, §2.6): the public form page — one column of 768 px,
+   centred in the site shell (720 on a tablet: the container's own width),
+   left-aligned in the admin's. 24 px under the site's header on a phone, 32
+   above (the shell's <main> gives 32). The title in the site's heading face,
+   32 / 40 px; 24 px to the first card. */
+.public-form-page{width:100%;max-width:768px;margin-inline:auto}
+.public-form-page-admin{margin-inline:0}
+.public-form-head{margin-bottom:24px}
+.public-form-title{font-family:var(--font-brand);font-weight:600;font-size:32px;line-height:1.15;color:rgb(var(--c-ink));overflow-wrap:anywhere}
+.public-form-title:focus{outline:none}
+/* A section's head is Inter 16 px semibold in both shells (§2.6): the site's
+   heading face is for the page's title, not for the cards of a form. */
+@media (min-width:768px){.public-form-title{font-size:40px}}
+@media (max-width:767.98px){body[data-shell="site"] .public-form-page{margin-top:-8px}}
 /* #1587: the flow's message line (where a refused or failed save stands) is a
    child of the flow, and an empty one still took the 32 px gap under it — the
    first card then started 32 px below the summary card beside it. Empty, it
@@ -299,6 +326,20 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .form-flow>[data-form-message]:not(:has(*)){display:none}
 .record-summary-column{min-width:0;order:-1}
 @container (min-width:964px){.record-columns:has(>.record-summary-column){grid-template-columns:minmax(0,768px) 300px}.record-summary-column{order:0}}
+/* #1610 (Koen, 5 October 2026; end state §2.2): room for the groups. A record
+   that is being EDITED and holds a composite repeating group (components with
+   their products) takes the whole reading group — 1 092 px — and its summary
+   goes above the form as the strip it is on a narrow frame. The layout reads
+   that from what stands in it (`:has`), so a save or a cancel — the form back
+   in read mode — gives the 768 px column and the card at the right again
+   without anybody saying so. Only where the frame has the 1 092 px: with the
+   Assistent's panel open, or on a smaller window, nothing changes. Long text
+   keeps its reading width of 768 px inside the wider column. */
+@container record (min-width:1092px){
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1092px)}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) :is([data-kind="textarea"],[data-kind="url"],[data-kind="email"]){max-width:768px}
+}
 .summary-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;align-items:center}
 .summary-card [data-summary-state]{grid-column:1;grid-row:1}
 .summary-card [data-summary-action]{grid-column:2;grid-row:1}
@@ -311,11 +352,26 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .summary-card [data-summary-action]{grid-column:1;grid-row:auto;display:flex;align-items:center;gap:8px;border-top:1px solid rgb(var(--c-line));padding-top:12px}
   .summary-card [data-summary-link]{display:block;flex:1}
 }
+/* #1610: above a wide form the summary is the strip it is on a narrow frame —
+   one shape for "above" — so the card shape just said is taken back there. */
+@container record (min-width:1092px){
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card{grid-template-columns:minmax(0,1fr) auto;padding:12px}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figures]{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figure]:nth-child(3){grid-column:auto;display:block}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-action]{grid-column:2;grid-row:1;display:block;border-top:0;padding-top:0}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-link]{display:none}
+}
 .form-section{container-type:inline-size;min-width:0}
 .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
 .form-grid>[data-span="full"]{grid-column:1/-1}
 .form-grid>[data-span="half"]{grid-column:span 2}
 .form-grid>[data-span="quarter"]{grid-column:span 1}
+/* #1610: a row of a group with one wide field and three short ones (a product:
+   name · price · member price · maximum) stands on five tracks, so the four
+   share one line. */
+.form-grid--five{grid-template-columns:repeat(5,minmax(0,1fr))}
+/* Two grids under each other in one row (a product's two lines) keep the grid's own gap. */
+.form-grid+.form-grid{margin-top:12px}
 @container (max-width:531.98px){.form-grid>[data-span]{grid-column:1/-1}}
 /* ── CR-11 block 4 (#1556): the list's table ────────────────────────────────
    design-system-end-state §2.1 (the list, the row as the way in). What the
@@ -397,12 +453,35 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .group-rows>[data-group-row]+[data-group-row]{margin-top:12px;padding-top:12px;border-top:1px solid rgb(var(--c-line))}
 .group-row--edit.group-row--simple{display:grid;grid-template-columns:minmax(0,1fr) 44px;column-gap:8px;align-items:end}
 .group-row--edit.group-row--simple.group-row--handle{grid-template-columns:44px minmax(0,1fr) 44px}
-.group-row--edit.group-row--composite.group-row--handle{display:grid;grid-template-columns:44px minmax(0,1fr);column-gap:8px;align-items:start}
+/* #1610: a composite item's handle stands in a gutter of 28 px (it was 44): the
+   target stays 44 px high, the handle itself is 24 px wide. */
+.group-row--edit.group-row--composite.group-row--handle{display:grid;grid-template-columns:28px minmax(0,1fr);column-gap:8px;align-items:start}
+.group-row--composite>.group-handle{width:24px;margin-left:2px}
 .group-handle{display:flex;align-items:center;justify-content:center;width:44px;height:44px;color:rgb(var(--c-ink-soft));cursor:grab;touch-action:none}
 .group-head{margin-bottom:4px;padding-right:52px}
 .group-head--handle{padding-left:52px}
 .group-row--edit.group-row--simple [data-field]>label{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.group-child{margin-top:16px;padding-left:16px;border-left:1px solid rgb(var(--c-line))}
+.group-child{margin-top:16px;padding-left:12px;border-left:1px solid rgb(var(--c-line))}
+/* #1590: a folded composite row — the title line is the summary, the chevron
+   turns when it is open, and the row's menu stands at the far right of that
+   line, outside the summary so a click on it does not fold the row. One among
+   many: the tag of a simple row stands before its menu. */
+.group-row--fold>.group-body{position:relative}
+.group-fold-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;cursor:pointer;list-style:none;border-radius:6px}
+.group-fold-summary::-webkit-details-marker{display:none}
+.group-fold-summary:focus-visible{outline:3px solid rgb(var(--c-focus));outline-offset:2px}
+.group-fold-chevron{display:flex;align-items:center;justify-content:center;width:44px;height:44px;flex:none;color:rgb(var(--c-ink-soft));transition:transform .15s}
+.group-fold[open]>.group-fold-summary .group-fold-chevron{transform:rotate(180deg)}
+.group-fold--menu>.group-fold-summary{padding-right:44px}
+.group-fold-menu{position:absolute;top:0;right:0}
+.group-fold[open]>.group-fold-summary{margin-bottom:8px}
+/* An item of a row's menu that does not apply is `hidden` — and `hidden` loses
+   from the `flex` the item is drawn with (#1603: "Maak hoofdadres" stood on the
+   row that already was the main one). */
+[data-row-menu] [hidden]{display:none!important}
+.group-row--simple.group-row--one{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-items:center}
+.group-row--edit.group-row--simple.group-row--one{grid-template-columns:minmax(0,1fr) auto 44px;align-items:end}
+.group-row--edit.group-row--simple.group-row--one>[data-row-one-tag]{align-self:center}
 .group-dragging{opacity:.5;outline:1px dashed rgb(var(--c-control-line));outline-offset:2px}
 .group-drop-before{box-shadow:0 -2px 0 rgb(var(--c-brand))}
 .group-drop-after{box-shadow:0 2px 0 rgb(var(--c-brand))}
@@ -420,7 +499,13 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    under the bar, so the last field is never under it.
    A refused field: the reason under it in red and a red line on its control;
    a refused row: the reason on top of it and a red line at its left. */
-.record-bar{position:sticky;bottom:16px;z-index:20;display:flex;align-items:center;gap:8px;min-height:64px;margin-top:-8px;padding:0 16px;background:rgb(var(--c-surface));border-top:1px solid rgb(var(--c-line))}
+/* #1607 (Koen, 5 October 2026; end state §3.6): flush against the window's
+   bottom while the form is longer than the window — the 16 px it floated on
+   are gone — with a heavier line on top and, while it sticks, the shadow
+   upward (`data-stuck`, set by record-form.js); in the flow at the form's end
+   it is a plain row again. The same picture on a phone and in both shells. */
+.record-bar{position:sticky;bottom:0;z-index:20;display:flex;align-items:center;gap:8px;min-height:64px;margin-top:-8px;padding:0 16px;background:rgb(var(--c-surface));border-top:2px solid rgb(var(--c-line))}
+.record-bar[data-stuck]{box-shadow:0 -8px 24px -4px rgb(var(--c-ink)/.14)}
 .record-bar-delete{margin-right:auto}
 .record-bar-cancel{margin-left:auto}
 .record-bar-delete+.record-bar-cancel{margin-left:0}
@@ -434,7 +519,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 [data-group-row][data-refused]{box-shadow:inset 3px 0 0 rgb(var(--c-red-600))}
 [data-group-row][data-refused]>[data-refused-message],[data-group-row][data-refused] [data-row-body]>[data-refused-message]{margin:0 0 4px;padding-left:8px}
 @media (max-width:767.98px){
-  .record-bar{bottom:0;display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:121px;margin:-8px -16px 0;padding:12px 16px}
+  .record-bar{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:121px;margin:-8px -16px 0;padding:11px 16px 12px}
   .record-bar-save{grid-column:1/-1;grid-row:1}
   .record-bar-delete{grid-column:1;grid-row:2;justify-self:start;margin:0}
   .record-bar-cancel{grid-column:2;grid-row:2;justify-self:end;margin:0}
@@ -456,8 +541,10 @@ body[data-shell="admin"] #toasts [data-toast="success"]{background:rgb(var(--c-i
   .group-row--edit.group-row--simple,.group-row--edit.group-row--simple.group-row--handle{grid-template-columns:44px minmax(0,1fr) 44px;row-gap:4px;align-items:center}
   .group-row--edit.group-row--simple>.group-body{grid-column:1/-1;grid-row:2}
   .group-row--edit.group-row--simple:not(.group-row--handle)>.relative{grid-column:3}
+  .group-row--edit.group-row--simple.group-row--one{grid-template-columns:minmax(0,1fr) 44px;align-items:center;min-height:44px}
+  .group-row--edit.group-row--simple.group-row--one>[data-row-one-tag]{grid-column:1;grid-row:1;justify-self:start}
+  .group-row--edit.group-row--simple.group-row--one>.relative{grid-column:2;grid-row:1}
   .group-row--edit.group-row--simple [data-field]>label{position:static;width:auto;height:auto;margin:0 0 4px;overflow:visible;clip:auto;white-space:normal}
-  .group-child{padding-left:12px}
 }
 .nav-drawer-only,.nav-when-rail{display:none}
 html.nav-rail .admin-sidebar:not(.is-open) .nav-label{display:none}
@@ -550,11 +637,11 @@ body[data-shell="site"]>main{flex:1 0 auto}
   left:0;right:0;bottom:0;height:560px;max-height:calc(100vh - 64px);border-radius:16px 16px 0 0;border-bottom:0;box-shadow:0 -8px 32px rgb(var(--c-ink)/.16)}
 .raakje-panel-handle{flex:none;width:36px;height:4px;margin:8px auto 0;border-radius:2px;background:rgb(var(--c-line))}
 .raakje-backdrop{position:fixed;inset:0;z-index:44;background:rgb(var(--c-ink)/.32)}
-.raakje-bell{position:fixed;right:16px;bottom:16px;z-index:43;display:grid;place-items:center;width:56px;height:56px;border-radius:9999px}
+.raakje-bell{position:fixed;right:16px;bottom:var(--bell-bottom,16px);z-index:43;display:grid;place-items:center;width:56px;height:56px;border-radius:9999px}
 @media (min-width:768px){
   .raakje-panel-handle{display:none}
   [data-mode="docked"] .raakje-panel{left:50%;right:auto;top:50%;bottom:auto;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 32px));height:min(720px,calc(100vh - 32px));max-height:none;border-radius:16px;border-bottom:1px solid rgb(var(--c-line));box-shadow:0 16px 48px rgb(var(--c-ink)/.24)}
-  [data-mode="bell"] .raakje-panel{left:auto;right:16px;bottom:88px;width:400px;height:min(640px,calc(100vh - 104px));max-height:none;border-radius:16px;border-bottom:1px solid rgb(var(--c-line));box-shadow:0 16px 48px rgb(var(--c-ink)/.24)}
+  [data-mode="bell"] .raakje-panel{left:auto;right:16px;bottom:calc(var(--bell-bottom,16px) + 72px);width:400px;height:min(640px,calc(100vh - 104px));max-height:none;border-radius:16px;border-bottom:1px solid rgb(var(--c-line));box-shadow:0 16px 48px rgb(var(--c-ink)/.24)}
   [data-mode="bell"] .raakje-backdrop{display:none}
 }
 @media (min-width:1440px){

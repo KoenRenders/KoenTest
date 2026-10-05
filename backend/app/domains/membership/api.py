@@ -5,6 +5,9 @@ hernieuwingsvenster leven hier op één plek (§19.3); andere componenten en de
 oude wereld gaan uitsluitend via deze module.
 """
 
+# The one rule for the relation of a new person lives with the household
+# (`mdm`, #1603); it stays reachable here for the callers that knew it here.
+from app.domains.mdm.api import default_relation  # noqa: F401
 from app.domains.membership.models import Membership, MembershipHistory  # noqa: F401
 from app.domains.membership.schemas_member import (  # noqa: F401
     AddressUpdate,
@@ -19,8 +22,8 @@ from app.domains.membership.schemas_member import (  # noqa: F401
 )
 from app.domains.membership.service import (  # noqa: F401
     current_membership_counts,
-    default_relation,
     has_valid_membership,
+    household_payment_state,
     is_member,
     members_valid_on,
     members_with_membership_for_year,
@@ -31,6 +34,7 @@ from app.domains.membership.service import (  # noqa: F401
     open_renewal_payment,
     renewal_available,
     renewal_open,
+    renewal_terms,
     renewal_years,
     set_relation_type,
     valid_membership_until,
@@ -40,6 +44,7 @@ __all__ = [
     "Membership",
     "MembershipHistory",
     "has_valid_membership",
+    "household_payment_state",
     "is_member",
     "membership_coverage_until",
     "open_renewal_payment",
@@ -53,6 +58,7 @@ __all__ = [
     "renewal_years",
     "renewal_available",
     "renewal_open",
+    "renewal_terms",
     "valid_membership_until",
     # Schrijfbewerkingen op gezinnen/personen/lidmaatschappen (#635 H)
     "add_person_to_family",

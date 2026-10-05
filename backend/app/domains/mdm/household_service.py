@@ -23,6 +23,7 @@ e-mail address of the member who acted, which the door knows and passes in.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 from typing import Any, Optional
 
@@ -56,6 +57,10 @@ class OutsideHousehold(MasterDataError):
 
 class CannotRemoveSelf(MasterDataError):
     """A member cannot remove themselves from their household."""
+
+
+class MainMemberStays(MasterDataError):
+    """The main member cannot be taken out of the household (#1603)."""
 
 
 class HouseholdRefused(MasterDataError):
@@ -109,11 +114,10 @@ def update_household_person(
     """Change a person of the household: name, birth date, gender, address, contacts.
 
     Only these fields; the relation type, the household's board member and the
-    external number are never touched from here.
+    external number are never touched from here. The committing door of the JSON
+    API; the save of the whole household (`household_save`, #1590) calls the same
+    cores inside its one transaction.
     """
-    from app.domains.audit.api import snapshot_address, snapshot_person
-    from app.i18n import _
-
     target = household_person(db, household, person_id)
 
     new: dict[str, Any] = {}
@@ -124,6 +128,32 @@ def update_household_person(
         if field == "date_of_birth" and value is not None and not isinstance(value, date):
             value = date.fromisoformat(value)
         new[field] = value
+    apply_person_fields(db, target, new, actor=actor)
+
+    address_data = data.get("address")
+    if "address" in data and address_data:
+        # #1603: a household without an address can get one. It hangs on the main
+        # member, as at sign-up; on anyone else it is left alone, as it always
+        # was — a household has one address.
+        creates = _is_main_member(household, target) and household_address_holder(household) is None
+        if target.address or creates:
+            apply_address(db, target, address_data, actor=actor)
+
+    for type_code, key in (("EMAIL", "email"), ("PHONE", "phone"), ("MOBILE", "mobile")):
+        if key in data:
+            _upsert_contact(db, target, type_code, data[key], actor=actor)
+    db.commit()
+    db.refresh(target)
+    return target
+
+
+def apply_person_fields(
+    db: Session, target: Person, new: dict[str, Any], *, actor: Optional[str]
+) -> bool:
+    """Write these person fields with their history, without committing (#1590:
+    shared by `update_household_person` and the save of the whole household).
+    Returns whether anything changed."""
+    from app.domains.audit.api import snapshot_person
 
     # #681: judge the outcome — the portal does not always send every field — and
     # judge it before applying anything: a rollback after the change would also
@@ -144,11 +174,99 @@ def update_household_person(
         snapshot_person(
             db, target, operation="update", action="person_updated", source=SOURCE, actor=actor
         )
+    return changed
 
-    address_data = data.get("address")
-    if "address" in data and address_data and target.address:
-        address = target.address
-        address_changed = False
+
+def _is_main_member(household: Member, person: Person) -> bool:
+    return any(
+        link.person_id == person.id
+        and link.deleted_at is None
+        and link.relation_type == RelationType.PRIMARY_MEMBER
+        for link in household.member_persons
+    )
+
+
+def main_member(household: Member) -> Optional[Person]:
+    """The household's main member, when it has one."""
+    return next(
+        (
+            link.person
+            for link in household.member_persons
+            if link.deleted_at is None
+            and link.relation_type == RelationType.PRIMARY_MEMBER
+            and link.person is not None
+        ),
+        None,
+    )
+
+
+def household_address_holder(household: Member) -> Optional[Person]:
+    """The person who holds the household's address, when it has one."""
+    return next(
+        (
+            link.person
+            for link in household.member_persons
+            if link.deleted_at is None and link.person is not None and link.person.address
+        ),
+        None,
+    )
+
+
+#: The three things an address cannot do without, in the order a form asks them.
+ADDRESS_REQUIRED = ("street", "house_number", "postal_code")
+
+
+def require_whole_address(address_data: dict) -> None:
+    """Street, house number and postal code, all three — or `HouseholdRefused`
+    (#1603: required together as soon as one of them is filled)."""
+    from app.i18n import _
+
+    if any(not (address_data.get(name) or "").strip() for name in ADDRESS_REQUIRED):
+        raise HouseholdRefused(
+            _("Een adres heeft een straat, een huisnummer en een postcode nodig.")
+        )
+
+
+def _postal_code(db: Session, code: str) -> PostalCode:
+    from app.i18n import _
+
+    postal_code = db.query(PostalCode).filter(PostalCode.postal_code == code).first()
+    if postal_code is None:
+        raise HouseholdRefused(_("Onbekende postcode: %(postal_code)s") % {"postal_code": code})
+    return postal_code
+
+
+def apply_address(db: Session, target: Person, address_data: dict, *, actor: Optional[str]) -> None:
+    """Write this person's address with its history row, without committing.
+
+    - The person has one: the fields `address_data` names are changed
+      (`address_updated`).
+    - The person has none (#1603): the address is created, whole —
+      street, house number and postal code together, or it is refused
+      (`address_created`). The caller decides WHO may get one: the household's
+      main member, when the household has no address yet.
+
+    Refuses a postal code that is not in the table.
+    """
+    from app.domains.audit.api import snapshot_address
+    from app.domains.mdm.models import Address
+
+    address = target.address
+    if address is None:
+        require_whole_address(address_data)
+        address = Address(
+            person_id=target.id,
+            street=address_data["street"].strip(),
+            house_number=address_data["house_number"].strip(),
+            bus_number=(address_data.get("bus_number") or "").strip() or None,
+            postal_code_id=_postal_code(db, address_data["postal_code"].strip()).id,
+        )
+        db.add(address)
+        db.flush()
+        db.refresh(target)
+        operation, action, address_changed = "insert", "address_created", True
+    else:
+        operation, action, address_changed = "update", "address_updated", False
         for field in ("street", "house_number"):
             if field in address_data and address_data[field] is not None:
                 setattr(address, field, address_data[field])
@@ -157,34 +275,12 @@ def update_household_person(
             address.bus_number = address_data["bus_number"] or None
             address_changed = True
         if "postal_code" in address_data and address_data["postal_code"]:
-            postal_code = (
-                db.query(PostalCode)
-                .filter(PostalCode.postal_code == address_data["postal_code"])
-                .first()
-            )
-            if postal_code is None:
-                raise HouseholdRefused(
-                    _("Onbekende postcode: %(postal_code)s")
-                    % {"postal_code": address_data["postal_code"]}
-                )
-            address.postal_code_id = postal_code.id
+            address.postal_code_id = _postal_code(db, address_data["postal_code"]).id
             address_changed = True
-        if address_changed:
-            snapshot_address(
-                db,
-                address,
-                operation="update",
-                action="address_updated",
-                source=SOURCE,
-                actor=actor,
-            )
-
-    for type_code, key in (("EMAIL", "email"), ("PHONE", "phone"), ("MOBILE", "mobile")):
-        if key in data:
-            _upsert_contact(db, target, type_code, data[key], actor=actor)
-    db.commit()
-    db.refresh(target)
-    return target
+    if address_changed:
+        snapshot_address(
+            db, address, operation=operation, action=action, source=SOURCE, actor=actor
+        )
 
 
 def _upsert_contact(
@@ -232,11 +328,79 @@ def _upsert_contact(
         target.contact_details.remove(existing)
 
 
+def default_relation(earlier: Sequence[object]) -> str:
+    """The relation a new person in a household starts with (#1321): the stored code.
+
+    Koen, 29 September 2026: *"Meestal werkt men zo: hoofdlid, partner,
+    kinderen."* The first person is the head of household, the next one the
+    partner as long as there is none yet, and everyone after that an (adult)
+    child. Only the prefill: nothing is refused, a second partner stays possible.
+
+    `earlier` are the relations of the persons before this one, as codes, in the
+    order of the form. The one rule, for Word lid and for Mijn gezin (#1603): the
+    page prefills a new person with it, and the server falls back on it for a
+    person without a relation. It lived in `membership` until #1603; the
+    household is master data, and both pages' saves need it.
+    """
+    # Tolerant of what a page sends: an unknown word is no partner.
+    codes = [str(getattr(r, "value", r)) for r in earlier if r]
+    if not codes:
+        return RelationType.PRIMARY_MEMBER.value
+    if RelationType.PARTNER.value not in codes:
+        return RelationType.PARTNER.value
+    return RelationType.ADULT_CHILD.value
+
+
+#: What a member may choose for a person they add (#1603): never the main member.
+ADDED_RELATIONS = (RelationType.PARTNER, RelationType.ADULT_CHILD)
+
+
+def chosen_relation(asked: object, earlier: Sequence[object]) -> RelationType:
+    """The relation of a person a member adds: what they chose — partner or
+    child — or the one rule's default when they chose nothing.
+
+    Refuses anything else, the main member first of all: a household has one,
+    and it is the person who signed it up.
+    """
+    from app.i18n import _
+
+    if not asked:
+        return RelationType(default_relation(earlier))
+    try:
+        relation = RelationType(asked)
+    except ValueError:
+        relation = None
+    if relation not in ADDED_RELATIONS:
+        raise HouseholdRefused(_("Kies partner of kind."))
+    return relation
+
+
+def household_relations(household: Member) -> list[str]:
+    """The relations the household holds now, in its own order."""
+    links = sorted(
+        (m for m in household.member_persons if m.deleted_at is None),
+        key=MemberPerson.household_position,
+    )
+    return [RelationType(m.relation_type).value for m in links]
+
+
 def add_household_person(
     db: Session, household: Member, data: dict, *, actor: Optional[str]
 ) -> Person:
-    """Add a person to the household, as a child — the member never picks the
-    relation type. No address: that belongs to the main member only (#125)."""
+    """Add a person to the household: a partner while it has none, otherwise a
+    child, or what the caller chose of those two (`relation_type`, #1603). No
+    address: that belongs to the main member only (#125)."""
+    person = insert_household_person(db, household, data, actor=actor)
+    db.commit()
+    db.refresh(person)
+    return person
+
+
+def insert_household_person(
+    db: Session, household: Member, data: dict, *, actor: Optional[str]
+) -> Person:
+    """A new person of the household with the history rows, without committing
+    (#1590: shared by `add_household_person` and the save of the whole household)."""
     from app.domains.audit.api import (
         snapshot_contact_detail,
         snapshot_member_person,
@@ -249,6 +413,7 @@ def add_household_person(
     if not first_name or not last_name:
         raise HouseholdRefused(_("Voornaam en achternaam zijn verplicht."))
     MemberPerson.require_details(data.get("date_of_birth"), data.get("gender_code"))
+    relation = chosen_relation(data.get("relation_type"), household_relations(household))
 
     person = Person(
         first_name=first_name,
@@ -262,10 +427,10 @@ def add_household_person(
         db, person, operation="insert", action="person_created", source=SOURCE, actor=actor
     )
 
-    link = MemberPerson(
-        member_id=household.id, person_id=person.id, relation_type=RelationType.ADULT_CHILD
-    )
-    db.add(link)
+    link = MemberPerson(member_id=household.id, person_id=person.id, relation_type=relation)
+    # Through the household, so the next person added in the same save sees this
+    # one: a partner, and after that a child.
+    household.member_persons.append(link)
     db.flush()
     snapshot_member_person(
         db,
@@ -291,8 +456,6 @@ def add_household_person(
                 source=SOURCE,
                 actor=actor,
             )
-    db.commit()
-    db.refresh(person)
     return person
 
 
@@ -303,12 +466,24 @@ def remove_household_person(
 
     `by` is the member who acts: nobody removes themselves.
     """
+    target = household_person(db, household, person_id)
+    detach_household_person(db, household, target, by=by, actor=actor)
+    db.commit()
+
+
+def detach_household_person(
+    db: Session, household: Member, target: Person, *, by: Person, actor: Optional[str]
+) -> None:
+    """Soft-delete this person's link to the household with its history row,
+    without committing (#1590). Refuses the acting member themselves, and the
+    main member whoever asks (#1603) — here, so every door refuses."""
     from app.domains.audit.api import snapshot_member_person
     from app.i18n import _
 
-    target = household_person(db, household, person_id)
     if target.id == by.id:
         raise CannotRemoveSelf(_("Je kan jezelf niet uit het gezin verwijderen."))
+    if _is_main_member(household, target):
+        raise MainMemberStays(_("Een gezin heeft een hoofdlid nodig."))
     link = next((m for m in target.member_persons if m.member_id == household.id), None)
     if link is not None:
         snapshot_member_person(
@@ -320,7 +495,6 @@ def remove_household_person(
             actor=actor,
         )
         soft_delete(link)
-    db.commit()
 
 
 def person_payload(person: Person) -> dict[str, Any]:

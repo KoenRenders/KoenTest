@@ -304,15 +304,17 @@ def test_the_payment_instructions_a_member_reads_come_from_the_organisation(clie
     db_session.commit()
 
     client.cookies.set(SESSION_COOKIE, make_session_value("betaler@example.org"))
-    html = client.get("/leden/gezin").text
+    html = client.get("/leden/gezin/vernieuwen").text
 
     # In het betaalblok, niet ergens op de pagina. De eerste versie zocht het
     # rekeningnummer in de hele HTML en bleef groen toen ik de aanroep uit het
     # scherm haalde: de FOOTER toont datzelfde nummer, om een andere reden. Een
     # assertie die door twee oorzaken waar kan zijn, toetst geen van beide.
     assert "+++123/4567/89012+++" in html, "dit is niet het betaalscherm"
-    start = html.index("Vernieuwing geregistreerd")
-    blok = html[start : html.index("</div>", start)]
+    # #1590: the block is a card of the renewal page; its details are one list.
+    start = html.index("data-renewal-transfer")
+    blok = html[start : html.index("</ul>", start)]
+    assert "Vernieuwing geregistreerd" in blok
 
     assert "BE68 5390 0754 7034" in blok, blok
     assert "Vereniging Zevenbergen" in blok

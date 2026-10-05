@@ -620,6 +620,16 @@ reviewer answers as one comment per `docs/review-protocol.md`, in English;
 the findings are advisory -- only CI blocks a merge, and Koen decides what is
 taken in.
 
+**The session that asks for a review listens for the answer.** Nothing wakes
+a Claude session when a review comment lands: a PR opened with `gh`
+subscribes the session to nothing, and the @-mention of an outside reviewer
+is a convention, not a ping. So the session that posts a `review please`
+comment sets itself a periodic check on that PR until the answer stands (and
+clears it then), reads the answer, proposes to Koen what to take in, applies
+what he takes in on its own branch and answers on the PR per
+`docs/review-protocol.md`. Koen does not have to say "the review is there".
+(Koen, 5 October 2026.)
+
 Shaping agents: the header of this file (*Who may change this file*) already
 says that an agent asked to write a change request writes only that one
 document, on its own branch, edits no process document, and proposes a lesson

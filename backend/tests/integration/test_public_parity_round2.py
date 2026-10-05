@@ -4,6 +4,7 @@
 - Gezin-toevoegformulier met geslacht/mobiel/telefoon-velden.
 """
 
+import re
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -102,10 +103,19 @@ def test_registration_form_empty_for_anonymous(client, db_session):
 
 
 def test_gezin_add_form_has_gender_mobile_phone(client, db_session):
+    """What "+ Gezinslid toevoegen" adds asks gender, mobile and phone. Since
+    #1590 that is the group's template row in the edit mode of the portal (the
+    read mode has no template), under the names the save reads."""
     _member, person = create_test_family(db_session, email="hoofd@example.com")
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value("hoofd@example.com"))
-    html = client.get("/leden/gezin").text
-    assert 'name="gender_code"' in html
-    assert 'name="mobile"' in html
-    assert 'name="phone"' in html
+    html = client.get("/leden/gezin?bewerken=1").text
+    found = re.search(
+        r'<template data-group-template>\s*<div data-group-row data-row-key="__H__"', html
+    )
+    assert found, "the edit mode has no row to add a person from"
+    template = html[found.start() : html.rindex("</template>")]
+    assert 'name="h_order" value="__H__"' in template, "this is not the new person's row"
+    for field in ("gender_code", "mobile", "phone"):
+        assert f'name="h.__H__.{field}"' in template, f"a new person is not asked {field}"
+    assert "<template data-group-template>" not in client.get("/leden/gezin").text

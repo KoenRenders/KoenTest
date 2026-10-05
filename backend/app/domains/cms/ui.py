@@ -68,17 +68,67 @@ def homepage(request: Request, db: Session = Depends(get_db)):
     )
 
 
+def _payment_confirmed(db: Session, request: Request) -> bool | None:
+    """Did the provider confirm the payment this page is the return of?
+
+    #1589 (end state §2.6): the screen never reports a successful online payment
+    before the provider confirms it. The return address is where the PAYER's
+    browser lands — it says the payer came back, not that the money did; the
+    provider's own word arrives through the webhook, usually a moment earlier
+    and sometimes later. So the page reads what the ledger says.
+
+    True: every booking is settled. False: one is still open. None: the page
+    cannot tell — no reference at all, or a number without a booking — and then
+    it claims nothing.
+
+    Two kinds of return: a registration's (`?registration=<id>`, the booking
+    hangs on it) and a membership's — a sign-up or a renewal (`?member=<id>`:
+    the address names the household, the booking hangs on its newest
+    membership; since #1590 that is read too, where the page used to say
+    "wordt verwerkt" for ever).
+    """
+    registration = request.query_params.get("registration", "")
+    if registration.isdigit():
+        from app.domains.payment.api import registration_payment_states
+
+        found = registration_payment_states(db, [int(registration)]).get(int(registration))
+        return None if found is None else found["state"] == "settled"
+    member = request.query_params.get("member", "")
+    if member.isdigit():
+        from app.domains.membership.api import household_payment_state
+
+        state = household_payment_state(db, int(member))
+        return None if state is None else state == "settled"
+    return None
+
+
 @router.get("/betaling/succes", response_class=HTMLResponse)
 def betaling_succes(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
-        request, "betaling_resultaat.html", {**site_context(db, request), "gelukt": True}
+        request,
+        "betaling_resultaat.html",
+        {
+            **site_context(db, request),
+            "gelukt": True,
+            "bevestigd": _payment_confirmed(db, request),
+            "membership": request.query_params.get("member", "").isdigit(),
+            "status_url": f"{request.url.path}?{request.url.query}",
+        },
     )
 
 
 @router.get("/betaling/geannuleerd", response_class=HTMLResponse)
 def betaling_geannuleerd(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
-        request, "betaling_resultaat.html", {**site_context(db, request), "gelukt": False}
+        request,
+        "betaling_resultaat.html",
+        {
+            **site_context(db, request),
+            "gelukt": False,
+            "bevestigd": None,
+            "membership": False,
+            "status_url": "",
+        },
     )
 
 

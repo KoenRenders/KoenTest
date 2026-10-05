@@ -1,34 +1,29 @@
-"""#749 — de drietrap sectietitel → vraag → optie op een publiek formulier.
+"""A question on a public form has the anatomy of every other field (#1589).
 
-De vraag werd gerenderd met `ui.label()`, en die is gebouwd voor een beheerformulier:
-een grijs labeltje boven een omkaderd invoerveld, waar het véld de inhoud is. Op een
-enquête is die verhouding omgekeerd, en dan valt de vraag weg. Gemeten in een echte
-browser, vóór en na:
+#749 gave a question a heavier label of its own (`ui.vraag`, 16 px semibold)
+under an 18 px bold section title, with a rhythm of its own between the
+questions (`space-y-[22px]`), and #741 reserved a gutter at the left of every
+question for a red error bar. CR-11 pilot B (Koen, 4 October 2026; decision 12,
+`docs/design-system-end-state.md` §2.6) decided one label style for every field,
+admin and public: **14 px medium, in ink** — "labels overal 14 px medium (geen
+tweede labelstijl)" — in the kit's section cards (head Inter 16 px semibold),
+the fields 12 px apart on the form grid, and a refused question marked like any
+refused field: red border, its reason under it.
 
-| | vóór | na |
-|---|---|---|
-| sectietitel | 16px / 700 | 18px / 700 |
-| vraag | 14px / 500, **#374151** | 16px / 600, **#14171c** |
-| optie | 14px / 400, #14171c | ongewijzigd |
+What #749 was about is kept by the kit: the label is in INK (the old `ui.label`
+was mid grey, under answers that were almost black).
 
-De vraag stond dus in middengrijs terwijl haar eigen antwoorden bijna zwart zijn —
-kleurcontrast weegt zwaarder dan gewicht, dus het halfvette `font-medium` haalde dat
-niet terug.
+**These tests pin the structure, not the look.** The sizes as rendered stand in
+`tests_e2e/test_public_form_page.py` (one label style measured on every label of
+the page) and `tests_e2e/test_formulier_afstanden.py`.
 
-**Deze test legt de klassen vast, niet het uiterlijk.** Het optische oordeel is
-gemaakt door voor en na naast elkaar te renderen (zoals bij #744); wat een test kan
-bewaken is dat een latere opruiming de drietrap niet platslaat door overal dezelfde
-stijl te zetten.
-
-De harde regressie die hier kon ontstaan — de foutmarkering uit #741 die het
-vraagblok zoekt via `[data-veld]` — staat in
-`tests_e2e/test_formulier_wizard_stap.py` en is groen gebleven.
-
-Kapotgemaakt om te controleren dat deze tests rood kunnen worden: `ui.vraag` terug
-op `ui.label` in formulier.html → de eerste test valt om op de vraagstijl; de
-`space-y-6` terug op `space-y-4` → de ritmetest valt om.
+Proven red: the label of a choice in `_formulier_veld.html` given
+`class="text-base font-semibold"` → the first test fails (a second label
+style); `data-field="{{ key }}"` taken off the choice block → the third test
+fails.
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -36,124 +31,54 @@ import pytest
 pytestmark = pytest.mark.ui_serverrendered
 
 MACROS = (Path(__file__).resolve().parents[1] / "app/ui/templates/_macros.html").read_text()
-# #811: `veld()` is een eigen partial geworden omdat /admin/design-system dezelfde
-# macro rendert. De opmaak van een vraag staat dus daar; de pagina eromheen (de
-# `space-y` tussen de vragen, de sectietitel) staat nog in formulier.html.
 _FORMS = Path(__file__).resolve().parents[1] / "app/domains/forms/templates"
-# #1380: the question block (section title, `space-y` between the questions) moved
-# into the shared `_formulier_vragen.html`, which the form's page renders.
-FORMULIER = (
-    (_FORMS / "formulier.html").read_text()
-    + (_FORMS / "_formulier_vragen.html").read_text()
-    + (_FORMS / "_formulier_veld.html").read_text()
-)
+FIELD = (_FORMS / "_formulier_veld.html").read_text()
+CARDS = (_FORMS / "_formulier_vragen.html").read_text()
+
+#: The one label style: what `ui.field` gives a label.
+LABEL = "text-sm font-medium leading-[21px] text-ink mb-1"
 
 
-def test_de_drie_niveaus_zijn_onderscheiden():
-    """Sectietitel, vraag en optie verschillen in grootte én gewicht."""
-    vraagstijl = MACROS[MACROS.index("{% macro vraag(") :]
-    vraagstijl = vraagstijl[: vraagstijl.index("{%- endmacro %}")]
-    assert "text-base" in vraagstijl and "font-semibold" in vraagstijl
-    assert "text-ink" in vraagstijl, (
-        "de vraag hoort in volle inktkleur; in grijs staat ze onder haar eigen antwoorden"
+def test_there_is_one_label_style():
+    """A question's label is the kit's: no macro and no class of its own."""
+    assert "{% macro vraag(" not in MACROS, "the heavier question label is back"
+    assert MACROS.count(f'class="block {LABEL}"') >= 1, "the kit's label changed: update LABEL"
+    # A text, a long text, a number and a list ARE the kit's field.
+    assert len(re.findall(r"ui\.field\(key, f\.label", FIELD)) == 4
+    # A choice, several and a scale write their label with the same classes.
+    assert f'{{% set _label = "{LABEL}" %}}' in FIELD
+    assert FIELD.count('class="{{ _label }}"') == 1
+    for heavier in ("text-base font-semibold", "font-bold", "text-lg"):
+        assert heavier not in FIELD, f"a second label style: {heavier}"
+
+
+def test_the_cards_are_the_kits_sections():
+    """One card per section with the section's title as its head, the questions on
+    the form grid — the template writes no distance of its own."""
+    assert CARDS.count("{% call ui.section(") == 2, "a card per section, and one for loose fields"
+    assert "ui.section(g.section.title, intro=g.section.description" in CARDS
+    assert "<section" not in CARDS and "<h2" not in CARDS, "a card written by hand"
+    assert "space-y-" not in CARDS and "space-y-" not in FIELD, "a rhythm beside the grid's"
+    assert "ui.card(" not in CARDS, "a card of the old kit inside the flow"
+
+
+def test_a_refused_question_is_marked_like_any_field():
+    """Every question is a `data-field` named `f<id>`: the banner names it and
+    `record-form.js` marks it. No gutter reserved for a bar of its own (#741)."""
+    assert 'data-field="{{ key }}"' in FIELD, "a choice is not a field the banner can name"
+    for trace in ("border-l-4", "-ml-4", "data-veld"):
+        assert trace not in FIELD, f"the old error gutter: {trace}"
+
+
+def test_an_answer_row_is_as_high_as_a_control():
+    """#768: the target of an answer is the whole row, and the rows touch — no
+    strip between two answers where a tap does nothing. Since #1589 a row has the
+    kit's size: 44 px on a phone, 40 above."""
+    assert (
+        '{% set _row = "flex flex-wrap items-center gap-2 min-h-11 md:min-h-10 '
+        'text-sm text-ink cursor-pointer" %}' in FIELD
     )
-
-    assert "ui.vraag(f.label" in FORMULIER, "het formulier gebruikt de vraagstijl niet"
-    assert '<h2 class="text-lg font-bold' in FORMULIER, (
-        "de sectietitel staat niet één stap boven de vraag"
-    )
-
-
-def test_de_labelstijl_blijft_wat_ze_was():
-    """`ui.label()` aanpassen zou élk beheerscherm verschuiven (#749).
-
-    Deze test is de rem op de voor de hand liggende 'opruiming': de twee stijlen
-    samenvoegen. Ze bestaan naast elkaar omdat ze twee verschillende verhoudingen
-    dienen.
-    """
-    labelstijl = MACROS[MACROS.index("{% macro label(") :]
-    labelstijl = labelstijl[: labelstijl.index("{%- endmacro %}")]
-    assert "text-sm font-medium text-gray-700" in labelstijl
-
-
-def test_het_ritme_zet_de_ruimte_boven_de_vraag():
-    """Nabijheid doet het werk: ruim tussen de vragen, dicht bij de opties.
-
-    Zonder dit las de lijst als één massa, ook mét grotere letters — alles stond op
-    gelijke afstand.
-
-    #768 verhoogde de trefzone van een antwoord, en die padding zit in álle
-    afstanden — dus groeiden ze alle drie mee en werd de trap weer vlak. #774 heeft ze
-    daarna strakker gezet: 16 px tussen twee antwoorden, 20 px tussen de vraag en haar
-    eerste antwoord, 30 px tussen twee vragen. De `space-y-1` tussen de opties is weg
-    en blijft weg — mét die 4 px stond een antwoord even ver van zijn buur als van
-    zijn eigen vraag, en dan las de lijst als losse regels.
-
-    De gemeten afstanden staan in `tests_e2e/test_formulier_afstanden.py`; hier staan
-    alleen de klassen die ze veroorzaken.
-    """
-    assert "space-y-[22px]" in FORMULIER, "de vragen staan niet verder uit elkaar"
-    assert '<div class="mt-3" x-data' in FORMULIER, (
-        "de optiegroep zet geen ruimte tussen de vraag en haar antwoorden"
-    )
-
-
-def test_de_trefzone_van_een_antwoord_is_de_hele_regel():
-    """#768 — op een telefoon was 20 px regelhoogte een krappe trefzone.
-
-    De ruimte zit ín het klikvlak (`py-2`, sinds #774; #768 had `py-2.5`), niet
-    ertussen. Negatieve marges zijn hier geen alternatief — dan overlappen de
-    trefzones en wint de onderste rij in de overlap, zodat de bovenste onraakbaar
-    wordt. Dát de klikvlakken elkaar raken staat als meting in
-    `tests_e2e/test_formulier_afstanden.py`.
-
-    Kapotgemaakt om te controleren dat deze test rood kan worden: `py-2` terug naar
-    niets → beide asserts vallen om.
-    """
-    labels = [
-        r
-        for r in FORMULIER.splitlines()
-        if '<label class="flex flex-wrap items-center gap-2 text-sm' in r
-    ]
-    assert len(labels) == 2, (
-        f"verwacht een radio- en een checkbox-optielabel, gevonden: {len(labels)}"
-    )
-    for regel in labels:
-        assert "py-2" in regel, f"de trefzone is niet hoger dan de tekstregel: {regel.strip()}"
-        assert "-my-" not in regel, "negatieve marges laten de trefzones overlappen"
-
-
-def test_titel_vraag_en_antwoord_beginnen_op_dezelfde_lijn():
-    """#768 — de sectietitel stak 16 px links uit.
-
-    Het vraagblok reserveert sinds #741 `border-l-4 border-transparent pl-3` voor de
-    rode foutbalk. De titel stond buiten die reservering. Gelijktrekken gebeurt door
-    de titel mee te laten inspringen; de reservering zelf blijft, want zonder haar
-    verspringt de vraag weer op het moment dat ze gemarkeerd wordt (die tegenproef
-    staat hierboven en in `tests_e2e/test_formulier_wizard_stap.py`).
-
-    Let op de 4: de doorzichtige rand telt mee in de insprong, dus de tekst van een
-    vraag begint op 4+12 = 16 px en de titel heeft `pl-4` nodig, niet `pl-3`.
-
-    Kapotgemaakt om te controleren dat deze test rood kan worden: de `pl-4` van de
-    `<h2>` weggehaald → de eerste assert valt om.
-    """
-    # F19 (#996) draaide de oplossing om: niet iedereen inspringen tot aan de
-    # goot, maar de goot (-ml-4) de kaartmarge in — titel, omschrijving, vraag
-    # én contactvelden beginnen nu allemaal op de nul-lijn.
-    assert '<h2 class="text-lg font-bold mb-1"' in FORMULIER
-    assert 'class="text-sm text-gray-600 mb-3 whitespace-pre-wrap"' in FORMULIER
-    assert "pl-3 -ml-4" in FORMULIER, "de foutgoot valt niet meer in de marge"
-
-
-def test_de_markering_verschuift_de_vraag_niet():
-    """#741 zette `border-l-4 … pl-3` erbij op het moment van markeren, en dat
-    verschóóf de vraag precies wanneer je hem staat te lezen. De rand staat er nu
-    altijd, doorzichtig; alleen de kleur wisselt."""
-    # Sinds F19 (#996) trekt -ml-3 de goot de kaartmarge in, zodat de vraag
-    # op de inhoudsrand van de contactvelden staat; het geen-verschuiven-punt
-    # blijft: de rand staat er altijd, alleen de kleur wisselt.
-    assert 'class="border-l-4 border-transparent pl-3 -ml-4"' in FORMULIER
-    assert "'border-l-4', 'border-red-600', 'pl-3'" not in FORMULIER, (
-        "de markering voegt de rand nog steeds toe in plaats van hem te kleuren"
-    )
+    assert FIELD.count('<label class="{{ _row }}">') == 1, "radio and checkbox share one row"
+    group = FIELD[FIELD.index("role=\"{{ 'radiogroup' if f.kind.is_radio") :]
+    assert 'class="grid"' in group[:200], "the rows of a group no longer touch"
+    assert "-my-" not in FIELD, "negative margins make the targets overlap"

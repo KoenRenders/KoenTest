@@ -195,13 +195,9 @@ def _vraag_de_code(page) -> None:
     page.wait_for_selector("#code", timeout=5000)
 
 
-def _bewerk_eerste_gezinslid(page) -> None:
-    """Klap de bewerkvorm van het eerste gezinslid open."""
-    knop = page.get_by_role("button", name="Bewerken").first
-    knop.wait_for(state="visible", timeout=5000)
-    knop.click()
-    # De veldenset draagt een `id_prefix` per gezinslid (`p<id>-`), dus het
-    # voornaamveld heet `#p<id>-first_name` en niet `#first_name`.
+def _wait_for_the_household_form(page) -> None:
+    """The edit mode of Mijn gezin (#1590) is the page's own state (`?bewerken=1`):
+    nothing to click, only the form to wait for."""
     page.wait_for_selector("input[id$='-first_name']", timeout=5000)
 
 
@@ -257,10 +253,10 @@ SCREENS: tuple[Screen, ...] = (
     Screen("leden-gezin", "/leden/gezin", admin=False, sessie="lid"),
     Screen(
         "leden-gezin-bewerken",
-        "/leden/gezin",
+        "/leden/gezin?bewerken=1",
         admin=False,
         sessie="lid",
-        action=_bewerk_eerste_gezinslid,
+        action=_wait_for_the_household_form,
     ),
     # Een toestand die het seed-gezin niet kán tonen, met een eigen gezin: het
     # lopende lidmaatschap verbergt de vernieuwknop.
@@ -272,7 +268,8 @@ SCREENS: tuple[Screen, ...] = (
     # verdween én die test iets anders toetste dan bedoeld. Het was in #1183 een
     # "als het kan"-punt; dit is de reden dat het niet kan zonder dat elders te
     # verstoren.
-    Screen("leden-verlengen", "/leden/gezin", admin=False, sessie="lid-verlopen"),
+    # #1590: renewing is its own page; Mijn gezin only links to it.
+    Screen("leden-verlengen", "/leden/gezin/vernieuwen", admin=False, sessie="lid-verlopen"),
     # Verlengflow (#1241): twee toestanden die een ander gezin niet kán tonen, elk met
     # een eigen gezin in de seed.
     #
@@ -283,7 +280,10 @@ SCREENS: tuple[Screen, ...] = (
     # niemand welke de uitlegpagina hoort te gebruiken.
     Screen("leden-verlengen-online-gelukt", "/leden/gezin", admin=False, sessie="lid-vernieuwd"),
     Screen(
-        "leden-verlengen-overschrijving", "/leden/gezin", admin=False, sessie="lid-overschrijving"
+        "leden-verlengen-overschrijving",
+        "/leden/gezin/vernieuwen",
+        admin=False,
+        sessie="lid-overschrijving",
     ),
 )
 

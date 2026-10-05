@@ -238,7 +238,6 @@
         <option selected>{{ _("Open") }}</option><option>{{ _("Gesloten") }}</option>
       {% endcall %}
     </div>
-    {{ ui.vraag(_("En dit is een vraag op een publiek formulier"), "los_vraag", required=True) }}
     {{ ui.upload_field(name="affiche", text=_("Affiche")) }}
   </div>
 {% endcall %}
@@ -883,7 +882,7 @@
                 current_label=_("herfstwandeling.pdf")) }}
   {% endcall %}
   {% call ui.rare_settings(_("Externe koppelingen"), summary=_("1 externe link"),
-                           note=_("De affiche maak je in de Design Studio; een adres intypen is de oude weg.")) %}
+                           note=ui.poster_help()) %}
     {{ ui.field("kit_poster_url" ~ loop.index, _("Poster-URL"), kind="url", value="https://voorbeeld.example.test/affiche.pdf", edit=_edit) }}
   {% endcall %}
 {% endcall %}
@@ -944,6 +943,34 @@
       {% endcall %}
     {% endcall %}
   {% endcall %}
+  {# #1590: a composite row that folds (the first open, the second closed; no
+     handle — persons have no order), and a child group in which one row is the
+     main one: the tag, "Maak hoofdadres" in the other row's menu, and no
+     "Verwijderen" on the chosen row. #}
+  {% set _i = loop.index %}
+  {% call ui.repeating_group(_("Gezinsleden"), "kit_h_order", token="__KH__", add_label=_("Gezinslid toevoegen"), edit=_edit, variant="composite", empty=_("Nog geen gezinsleden."), count=2) %}
+    {% for key, prefix, name, fold in [("kh1" ~ _i, _("Hoofdlid"), "Lore Peeters", "open"), ("kh2" ~ _i, _("Partner"), "Sam Peeters", "closed")] %}
+    {% call ui.group_row("kit_h_order", key, edit=_edit, variant="composite", menu=(["remove"] if not loop.first else []), title=name, title_prefix=prefix,
+                         subtitle=_("Persoonsgegevens en e-mailadressen"), fold=fold, label=name) %}
+      {% call ui.form_grid() %}
+        {{ ui.field("kit_h_" ~ key ~ "_name", _("Naam"), value=name, edit=_edit, attrs="data-row-title-source") }}
+      {% endcall %}
+      {% set _mtpl %}{% if _edit %}{% call ui.group_row("kit_e_order." ~ key, "__KE__", edit=True, menu=["remove"], label=_("nieuw e-mailadres"),
+                                                        one={"chosen": False, "tag": _("hoofdadres"), "make": _("Maak hoofdadres")}) %}
+        {{ ui.field("kit_e.__KE__.value", _("E-mailadres"), kind="email", value="", edit=True) }}{% endcall %}{% endif %}{% endset %}
+      {% call ui.repeating_group(_("E-mailadressen"), "kit_e_order." ~ key, token="__KE__", add_label=_("E-mailadres"), edit=_edit, child=True, count=2,
+                                 empty=_("Nog geen e-mailadres."), template=_mtpl, columns=[{"label": _("E-mailadres"), "span": "full"}],
+                                 one={"name": "kit_e_primary." ~ key, "value": key ~ "a"}) %}
+        {% for suffix, address in [("a", "lore@example.com"), ("b", "lore.werk@example.com")] %}
+        {% call ui.group_row("kit_e_order." ~ key, key ~ suffix, edit=_edit, menu=["remove"], label=address,
+                             one={"chosen": suffix == "a", "tag": _("hoofdadres"), "make": _("Maak hoofdadres")}) %}
+          {{ ui.field("kit_e." ~ key ~ suffix ~ ".value", _("E-mailadres"), kind="email", value=address, edit=_edit) }}
+        {% endcall %}
+        {% endfor %}
+      {% endcall %}
+    {% endcall %}
+    {% endfor %}
+  {% endcall %}
 </div>
 {% endfor %}
 
@@ -1003,6 +1030,35 @@
          {"name": "kit_prop_place", "label": _("Locatie"), "value": _("Parochiezaal, Dorpsstraat"), "base": _("Parochiezaal")},
          {"name": "kit_prop_text", "label": _("Omschrijving"), "value": _("Een wandeling van acht kilometer, met soep achteraf."), "base": _("Samen op pad.")}]) }}
   </div>
+</div>
+
+{# ── 13g. The public form page (CR-11 pilot B, #1589; end state §2.6) ───────
+   The frame of the public forms and the words of a form that is SENT: the
+   same banner and the same bar as 13e, with the verb of the act. Here in the
+   admin shell, so left-aligned; on the site the column is centred and the
+   title stands in the site's heading face. #}
+{{ ui.section_header(_("13g · Publieke formulierpagina"), cls="mt-10") }}
+<p class="text-sm text-gray-600 mb-3">
+  {{ _("Eén kolom van 768 px met een kaart per sectie en één actiebalk. De knop benoemt de vervolgstap; een teller houdt zijn 44 px ook op desktop. Geen legenda voor verplichte velden: het sterretje bij het label volstaat.") }}
+</p>
+<div data-kit-public-form>
+{% call ui.public_form_page(_("Herfstwandeling"), intro=_("zaterdag 17 oktober 2026"), back_href="#", back_label=_("Terug"), shell="admin") %}
+<div class="form-flow">
+  {% call ui.flow_card(_("Betaling nog af te ronden")) %}
+    <p>{{ _("Een kaart met woorden, geen velden: wat een bevestiging nog te zeggen heeft.") }}</p>
+  {% endcall %}
+  {{ ui.save_refusal([{"field": "kit_pf_name", "message": _("Vul je naam in.")}], send=True) }}
+  {% call ui.form_grid() %}
+    {{ ui.field("kit_pf_name", _("Naam"), id="kit-pf-name", required=True, value="") }}
+    {{ ui.field("kit_pf_pay", _("Betaalwijze"), kind="radio_group", id="kit-pf-pay", required=True, value="online",
+                options=[("online", _("Online betalen"), _("Na het verzenden ga je naar de beveiligde betaalpagina.")),
+                         ("transfer", _("Overschrijving"), _("De betaalgegevens staan in de bevestiging."))]) }}
+    <div data-span="full">{{ ui.stepper("kit_pf_qty", id="kit-pf-qty", value=1, touch=True) }}</div>
+  {% endcall %}
+  {{ ui.action_bar(record=True, send=True, cancel_href="#", save_attrs='type="button"',
+                   save_label=_("Inschrijven en betalen"), busy_label=_("Inschrijven…")) }}
+</div>
+{% endcall %}
 </div>
 
 {# ── 14. Publieke schil ────────────────────────────────────────────────────── #}

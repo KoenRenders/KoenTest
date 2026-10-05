@@ -50,6 +50,7 @@ from app.domains.activities.models import (
     ActivityDate,
     ActivityOrganiser,
 )
+from app.kernel.refusals import FieldError, Refusals
 
 #: The fields of a row, in the order they are compared and written.
 DATE_FIELDS = ("start_date", "end_date", "start_time", "end_time")
@@ -71,15 +72,6 @@ PRODUCT_FIELDS = (
     "max_participants",
 )
 ORGANISER_FIELDS = ("is_contact", "show_email", "show_mobile", "email_override", "mobile_override")
-
-
-@dataclass(frozen=True)
-class FieldError:
-    """One refusal and its place in the form: a field's name, a row (`c.<key>`),
-    or "" for the fiche as a whole."""
-
-    field: str
-    message: str
 
 
 class FicheRefusal(ActiviteitFout):
@@ -112,6 +104,10 @@ class ProductRow:
     pay_on_site: bool = False
     is_active: bool = True
     max_participants: Optional[int] = None
+    #: False: the form did not carry the price fields (#1608: they are switched
+    #: off while the product is free or paid on the spot) — the prices a product
+    #: has are then left as they are.
+    prices_sent: bool = True
 
 
 @dataclass
@@ -179,30 +175,11 @@ def _gone(what: str) -> ActiviteitFout:
     )
 
 
-class _Errors:
-    """The refusals of one save, each with its place."""
-
-    def __init__(self, found: list[FieldError]) -> None:
-        self.found = list(found)
-
-    def add(self, place: str, message: str) -> None:
-        self.found.append(FieldError(place, message))
-
-    @contextmanager
-    def at(self, place: str) -> Iterator[None]:
-        """A rule that refuses inside this block is noted at `place`, and the save
-        goes on to hear the next one. The question about the contact person is
-        not a refusal and passes through."""
-        try:
-            yield
-        except (ContactConfirmation, FicheRefusal):
-            raise
-        except ActiviteitFout as refusal:
-            self.add(place, str(refusal))
-
-    def touches(self, row: str) -> bool:
-        """This row, or a field of it, was refused: it is not written."""
-        return any(e.field == row or e.field.startswith(row + ".") for e in self.found)
+def _errors(found: list[FieldError]) -> Refusals:
+    """The refusals of one save of the fiche (`kernel.refusals`): a rule's
+    `ActiviteitFout` is noted at its place; the question about the contact person
+    is not a refusal and passes through, like the save's own verdict."""
+    return Refusals(found, kinds=(ActiviteitFout,), passing=(ContactConfirmation, FicheRefusal))
 
 
 def _changed(row: Any, values: dict) -> dict:
@@ -211,7 +188,7 @@ def _changed(row: Any, values: dict) -> dict:
 
 
 def _checked(
-    errors: _Errors,
+    errors: Refusals,
     row: str,
     kind: str,
     name: str,
@@ -265,7 +242,7 @@ async def save_fiche(
     # wrote and nothing else, and the session stays usable for the answer that
     # says why. Nothing is half written.
     savepoint = db.begin_nested()
-    errors = _Errors(fiche.errors)
+    errors = _errors(fiche.errors)
     try:
         changed = _changed(activity, fiche.fields)
         if changed:
@@ -309,7 +286,7 @@ async def save_fiche(
 
 
 def _save_fields(
-    db: Session, activity: Activity, changed: dict, actor: str | None, errors: _Errors
+    db: Session, activity: Activity, changed: dict, actor: str | None, errors: Refusals
 ) -> None:
     """The activity's own fields. The two rules of `apply_activity_update` each
     have their field: the friendly URL is asked first, so what is left is the
@@ -326,7 +303,7 @@ def _save_fields(
 # ── Dates ────────────────────────────────────────────────────────────────────
 
 
-def _coherent(errors: _Errors, row: str, values: dict) -> None:
+def _coherent(errors: Refusals, row: str, values: dict) -> None:
     """The object's own rule (`ActivityDate.validate_coherence`, #792), asked
     before the write so the refusal names its field and the flush stays whole:
     first the two dates alone — what refuses then is the end date — then with the
@@ -340,7 +317,7 @@ def _coherent(errors: _Errors, row: str, values: dict) -> None:
 
 
 def _save_dates(
-    db: Session, activity: Activity, rows: list[DateRow], actor: str | None, errors: _Errors
+    db: Session, activity: Activity, rows: list[DateRow], actor: str | None, errors: Refusals
 ) -> None:
     existing = {str(d.id): d for d in activity.dates}
     kept = set()
@@ -370,7 +347,7 @@ def _save_dates(
 
 
 def _save_components(
-    db: Session, activity: Activity, rows: list[ComponentRow], actor: str | None, errors: _Errors
+    db: Session, activity: Activity, rows: list[ComponentRow], actor: str | None, errors: Refusals
 ) -> dict[str, int]:
     """Returns {row key: component id} for the components that stay, so an upload
     finds the component a new row became."""
@@ -439,7 +416,7 @@ def _save_products(
     existing: dict,
     rows: list[ProductRow],
     actor: str | None,
-    errors: _Errors,
+    errors: Refusals,
 ) -> None:
     kept = {row.key for row in rows}
     for key, product in existing.items():
@@ -454,6 +431,8 @@ def _save_products(
             continue
         values = {name: getattr(row, name) for name in PRODUCT_FIELDS}
         values["name"] = row.name.strip()
+        if not row.prices_sent and row.key in existing:
+            del values["price"], values["member_price"]
         # The one rule of a product's write: free and pay-on-site exclude each other.
         with errors.at(f"{at}.pay_on_site"):
             if row.key in existing:
@@ -478,7 +457,7 @@ def _save_organisers(
     activity: Activity,
     rows: list[OrganiserRow],
     confirmed: bool,
-    errors: _Errors,
+    errors: Refusals,
 ) -> None:
     from app.domains.mdm.api import Person, is_member
 
@@ -570,7 +549,7 @@ async def _store_files(
     poster: Any,
     component_files: dict[str, Any],
     background_tasks: Any,
-    errors: _Errors,
+    errors: Refusals,
 ) -> None:
     """The poster and the info attachments, stored in the open transaction. A
     refused file (its type, an empty file) refuses the save with media's words."""

@@ -153,6 +153,100 @@ def htmx_stil(page, *, timeout: int = 10_000) -> None:
     )
 
 
+_WATCH_TRANSITIONS = """() => {
+  window.__vt = {frames: 0, seen: 0};
+  const tick = () => {
+    window.__vt.seen += 1;
+    const running = document.getAnimations().filter(a => a.effect && a.effect.pseudoElement
+      && a.effect.pseudoElement.startsWith('::view-transition'));
+    if (running.length) window.__vt.frames += 1;
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}"""
+_TRANSITION_FRAMES = """() => new Promise(resolve => {
+  const from = window.__vt.seen;
+  const wait = () => window.__vt.seen - from >= 30 ? resolve(window.__vt.frames) : requestAnimationFrame(wait);
+  wait();
+})"""
+
+
+def watch_transitions(page) -> None:
+    """From now on, count every frame in which a view transition runs (Refs
+    #1589). Both shells run one on every htmx swap (`globalViewTransitions`);
+    a swap inside the page that is no navigation must carry `transition:false`,
+    or the whole page cross-fades for 250 ms. Call it before the act, when the
+    page's own arrival has ended; read the count with `transition_frames`."""
+    page.wait_for_function("() => document.getAnimations().length === 0")
+    page.evaluate(_WATCH_TRANSITIONS)
+
+
+def watch_transitions_from_load(page) -> None:
+    """The same count, from the very start of every page this `page` loads —
+    for a swap that comes at load, before anything can be watched. Call it
+    before `goto`. A full page load runs no view transition itself, so every
+    frame counted is a swap's."""
+    page.add_init_script(f"({_WATCH_TRANSITIONS})()")
+
+
+def transition_frames(page) -> int:
+    """The frames with a view transition since `watch_transitions`, read after
+    thirty more frames — longer than the 250 ms a transition takes. Assert that
+    the result of the act stands FIRST: zero is also true of a swap that never
+    came."""
+    return page.evaluate(_TRANSITION_FRAMES)
+
+
+class Held:
+    """Answers the browser asked for and has not been given yet (#1596, #1613).
+
+    For a test about what an answer does when it lands LATE: the request goes
+    to the server at once, its answer waits here until `release`, so the order
+    and the moment of arrival are the test's and not the network's. `suffix` is
+    the end of the address to hold (POST only); `stop` lets everything go and
+    holds nothing any more."""
+
+    def __init__(self, page, suffix: str):
+        self.waiting: list = []
+        self.page = page
+        page.route(f"**/*{suffix}", self._hold)
+
+    def _hold(self, route) -> None:
+        if route.request.method != "POST" or self.closed:
+            route.continue_()
+            return
+        response = route.fetch()
+        if self.closed:
+            # `stop` ran while this answer was being fetched: nothing holds it.
+            self._answer(route, response)
+            return
+        self.waiting.append((route, response))
+
+    closed = False
+
+    def expect(self, count: int) -> None:
+        for _ in range(100):
+            if len(self.waiting) >= count:
+                return
+            self.page.evaluate("() => new Promise(r => requestAnimationFrame(r))")
+        raise AssertionError(f"{len(self.waiting)} answer(s) held, expected {count}")
+
+    @staticmethod
+    def _answer(route, response) -> None:
+        try:
+            route.fulfill(response=response)
+        except Exception:
+            pass  # the page aborted this request meanwhile: nothing to answer
+
+    def release(self, index: int = 0) -> None:
+        self._answer(*self.waiting.pop(index))
+
+    def stop(self) -> None:
+        self.closed = True
+        while self.waiting:
+            self.release()
+
+
 def open_de_raakje_bel(page, pad: str = "/"):
     """De zwevende Raakje-bel op een publieke pagina openen (#1120).
 
@@ -218,14 +312,15 @@ class Gezinsportaal:
         """De brede menubalk van de publieke schil — het onderwerp van #718."""
         return self.page.locator("#site-nav-breed")
 
-    def voeg_gezinslid_toe(self, voornaam: str, achternaam: str):
-        self.page.get_by_role("button", name="+ Gezinslid toevoegen").click()
-        self.page.fill("#np-first_name", voornaam)
-        self.page.fill("#np-last_name", achternaam)
-        self.page.fill("#np-date_of_birth", "2012-03-04")
-        self.page.select_option("#np-gender_code", "M")
+    def save_as_it_is(self):
+        """Open the edit mode and press the one "Opslaan" without changing anything
+        (#1590). The save writes nothing — only what changed is written — but its
+        answer comes back and replaces the page like any save's."""
+        self.page.goto(self.pad + "?bewerken=1")
+        self.page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
         with htmx_afgerond(self.page):
-            self.page.get_by_role("button", name="Toevoegen", exact=True).click()
+            self.page.locator("[data-form-save]").click()
+        self.page.locator('[data-form-flow][data-mode="read"]').wait_for(state="visible")
 
 
 class Betalingenscherm:
@@ -389,6 +484,39 @@ class Paginascherm:
 
     def editorinhoud(self) -> str:
         return self.page.locator("#cp-content-input").first.input_value() or ""
+
+
+#: The persons of the household group on Word lid and Mijn gezin (#1590).
+HOUSEHOLD_ROWS = "#gezinsleden > [data-group-rows] > [data-group-row]"
+
+
+def fill_person(row, first: str, last: str, *, born: str = "1980-01-01", gender: str = "M") -> None:
+    """The four things every person of a household needs, in one row of the group."""
+    row.locator('input[name$=".first_name"]').fill(first)
+    row.locator('input[name$=".last_name"]').fill(last)
+    row.locator('input[name$=".date_of_birth"]').fill(born)
+    row.locator(f'input[name$=".gender_code"][value="{gender}"]').check()
+
+
+def fill_signup(
+    page, email: str, *, first: str = "Test", last: str = "Gezin", postal_code: bool = True
+) -> None:
+    """The Word lid page, filled in as far as a main member with an address: the
+    caller chooses the payment method and sends. `postal_code=False` leaves the
+    select on its empty choice."""
+    head = page.locator(HOUSEHOLD_ROWS).first
+    fill_person(head, first, last)
+    head.locator('input[name$=".mobile"]').fill("0470000000")
+    head.locator('input[type="email"]').first.fill(email)
+    page.fill("#address-street", "Teststraat")
+    page.fill("#address-house_number", "1")
+    if postal_code:
+        page.select_option("#address-postal_code", index=1)
+
+
+def send_form(page) -> None:
+    """Press the one button of the page's action bar."""
+    page.locator("[data-form-save]").click()
 
 
 def toasts(page):

@@ -101,7 +101,8 @@ def test_the_htmx_attributes_stay_on_the_input(client, db_session):
     html = _formulier(client, activity, component)
 
     veld = _veld(html, product.id)
-    assert "hx-post=" in veld and 'hx-trigger="change, keyup delay:300ms"' in veld
+    # #1596: `input`, not `keyup` — a digit that arrives without a key counts too.
+    assert "hx-post=" in veld and 'hx-trigger="change, input delay:300ms"' in veld
 
     knoppen = re.findall(r'<button[^>]*aria-label="Eén (?:minder|meer)[^>]*>', html)
     assert len(knoppen) == 2, f"twee knoppen verwacht, gevonden: {len(knoppen)}"
@@ -256,8 +257,11 @@ def test_what_the_visitor_typed_survives_a_validation_error(client, db_session):
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={"contact_name": "", "contact_email": "x", "phone": "", f"product_{product.id}": "0"},
     )
-    assert respons.status_code == 200
-    assert 'value="0"' in _veld(respons.text, product.id), (
-        "de herrendering zette het aantal terug op de standaard; wat de bezoeker "
-        "invulde hoort te blijven staan"
+    # #1589: een weigering tekent het formulier niet opnieuw — het antwoord is de
+    # banner alleen (422), dus er IS geen herrendering die opnieuw kan voorvullen.
+    # Wat de bezoeker typte blijft in de pagina staan (`tests_e2e/
+    # test_public_registration_page.py` kijkt dat in de browser na).
+    assert respons.status_code == 422
+    assert "<input" not in respons.text, (
+        "de weigering tekent het formulier opnieuw; wat de bezoeker invulde hoort te blijven staan"
     )

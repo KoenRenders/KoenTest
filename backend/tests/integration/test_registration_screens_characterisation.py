@@ -325,7 +325,10 @@ def test_the_public_form_content_is_what_it_was(client, world, screen, component
 
 
 def test_a_refused_form_keeps_its_values_and_says_why(client, world):
-    """P7: the refusal re-renders the form with the typed values and the banner."""
+    """P7, as it is since #1589 (CR-11 pilot B, §3.18): the refusal no longer
+    re-renders the form — it answers the banner alone, for the form's message
+    line, and the page keeps what was typed because it is never redrawn. The
+    snapshot of the re-rendered form (`refused_plain`) went with that."""
     response = client.post(
         f"/activiteiten/{ACTIVITY_ID}/inschrijven/{PLAIN_COMPONENT_ID}",
         data={
@@ -336,15 +339,16 @@ def test_a_refused_form_keeps_its_values_and_says_why(client, world):
             "payment_method": "transfer",
         },
     )
-    assert response.status_code == 200, response.status_code
-    assert "Vul naam, e-mailadres en mobiel nummer in." in response.text
-    got = normalise(_form_content(response.text), _names(), {})
-    compare(PARITY, "refused_plain", got, before=BEFORE_PAGE)
+    assert response.status_code == 422, response.status_code
+    assert response.headers["HX-Retarget"] == "#inschrijf-melding"
+    assert 'data-error-for="phone"' in response.text and "Vul je mobiel nummer in." in response.text
+    assert "<form" not in response.text and "<input" not in response.text
 
 
 def test_the_thank_you_text_is_what_it_was(client, world):
-    """P8: after a transfer registration, the same thank-you words."""
-    import re
+    """P8, as it is since #1589 (§2.6): the confirmation is a page of its own
+    words — received, and what is still to pay said as such. The old banner's
+    snapshot (`thank_you`) went with the banner."""
 
     response = client.post(
         f"/activiteiten/{ACTIVITY_ID}/inschrijven/{PLAIN_COMPONENT_ID}",
@@ -357,9 +361,10 @@ def test_the_thank_you_text_is_what_it_was(client, world):
         },
     )
     assert response.status_code == 200, response.status_code
-    banner = re.search(r"✅[^<]*", response.text)
-    assert banner, response.text[:500]
-    compare(PARITY, "thank_you", normalise(banner.group(0), {}, {}), before=BEFORE_PAGE)
+    html = response.text
+    assert ">Je inschrijving is ontvangen</h1>" in html, html[:500]
+    assert "Bedankt, Bedankt Bram! Je ontvangt ook een bevestiging per e-mail." in html
+    assert "Betaling nog af te ronden" in html and "Schrijf € 5,00 over." in html
 
 
 @pytest.mark.parametrize(

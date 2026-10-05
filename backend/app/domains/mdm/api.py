@@ -26,14 +26,27 @@ from app.domains.mdm.codes import (  # noqa: F401,E402
 
 # The family portal's mutations (CR-13 phase 3): master data changed by its owner.
 from app.domains.mdm.household_doors import household_refusals_as_http  # noqa: F401
-from app.domains.mdm.household_service import (  # noqa: F401
+
+# The one save of a household (CR-11 pilot B, #1590).
+from app.domains.mdm.household_form import household_from_form  # noqa: F401
+from app.domains.mdm.household_save import (  # noqa: F401
+    HouseholdSave,
+    HouseholdSaveRefused,
+    PersonRow,
+    save_household,
+)
+from app.domains.mdm.household_service import (  # noqa: F401  # noqa: F401
+    ADDED_RELATIONS,
     CannotRemoveSelf,
     HouseholdNotFound,
     HouseholdRefused,
+    MainMemberStays,
     OutsideHousehold,
     PersonNotFound,
     actor_of,
     add_household_person,
+    chosen_relation,
+    default_relation,
     household_of,
     household_person,
     person_payload,
@@ -57,6 +70,7 @@ from app.domains.mdm.models import (  # noqa: F401
     LegalForm,
     LegalFormCode,
     LegalFormLabel,
+    MainMemberMobileMissing,
     MasterDataError,
     Member,
     MemberHistory,
@@ -294,7 +308,17 @@ __all__ = [
     "remove_household_person",
     "person_payload",
     "household_refusals_as_http",
+    "HouseholdSave",
+    "HouseholdSaveRefused",
+    "household_from_form",
+    "default_relation",
+    "chosen_relation",
+    "ADDED_RELATIONS",
+    "MainMemberStays",
+    "PersonRow",
+    "save_household",
     "actor_of",
+    "MainMemberMobileMissing",
     "PersonDetailsMissing",
     "MEMBER_REPORT_IMPORT",
 ]

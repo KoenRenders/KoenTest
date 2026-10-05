@@ -34,7 +34,14 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_als_admin, open_registration, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    fill_signup,
+    login_als_admin,
+    open_registration,
+    pagina_klaar,
+    send_form,
+)
 
 WEBHOOK = "/api/v1/payment-gateway/webhooks/stub"
 CHECKOUT = re.compile(r"/betaling/stub/(stub_[0-9a-f]+)$")
@@ -226,17 +233,9 @@ def test_word_lid_is_paid_online(visitor, admin):
     from app.domains.payment.api import membership_valid_period
 
     visitor.goto("/lid-worden")
-    visitor.fill("#m0_first_name", "Online")
-    visitor.fill("#m0_last_name", "Gezin")
-    visitor.fill("#m0_email", f"e2e+lid{int(time.time() * 1000)}@example.com")
-    visitor.fill("#m0_mobile", "0470000000")
-    visitor.fill("#m0_date_of_birth", "1980-01-01")
-    visitor.select_option("#m0_gender_code", "M")
-    visitor.fill("#street", "Teststraat")
-    visitor.fill("#house_number", "1")
-    visitor.select_option("#postal_code", index=1)
+    fill_signup(visitor, f"e2e+lid{int(time.time() * 1000)}@example.com", first="Online")
     visitor.check('input[name="payment_method"][value="online"]')
-    visitor.click('button[type="submit"]')
+    send_form(visitor)
     payment_id = _at_the_checkout(visitor)
     membership_id = _payable_id(payment_id)
     member_id = _household_of_membership(membership_id)

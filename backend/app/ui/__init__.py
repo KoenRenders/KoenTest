@@ -699,6 +699,31 @@ _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = _resolve_la
 _ADMIN_NAV: list[tuple[str, str]] = [item for _, _items in _ADMIN_NAV_GROEPEN for item in _items]
 
 
+def refusal_response(request, errors, message_line: str, *, send: bool = False):
+    """Why a form was refused, for its message line — and nothing else, so the
+    form keeps what was typed (CR-11 block 9, #1561; public since #1589).
+
+    An HTML 422 is swapped (#1515); the headers send it to `message_line` (a
+    selector) instead of to the form's own target, whatever `hx-select` or
+    `hx-swap` the form carries for its good answer. `errors` have a `field` (the
+    form's name of a field, "" for the form as a whole) and a `message`; `send`
+    words the banner for a form that is sent ("Verzenden kan nog niet…") instead
+    of a record that is saved.
+
+    """
+    return templates.TemplateResponse(
+        request,
+        "_save_refusal.html",
+        {"errors": list(errors), "send": send},
+        status_code=422,
+        headers={
+            "HX-Retarget": message_line,
+            "HX-Reswap": "innerHTML",
+            "HX-Reselect": "[data-save-refusal]",
+        },
+    )
+
+
 def is_fragment_request(request) -> bool:
     """Vraagt htmx hier een fragment, of navigeert de gebruiker naar deze pagina?
 
@@ -1202,15 +1227,12 @@ def site_context(db, request=None) -> dict:
         # what a module that is off lists or serves is not there.
         "public_nav": _public_nav("public_items"),
         "member_nav": _public_nav("member_items"),
-        # #1588: the legal line's parts, and the newsletter column's heading —
-        # "Nieuws uit <plaats>" with the organisation's town, otherwise the
-        # tenant's name.
+        # #1588: the legal line's parts, and the newsletter column's heading.
+        # #1606 (Koen, 5 October 2026): always "Nieuws van <the site's name>"
+        # (#1546) — no longer "Nieuws uit <plaats>" where the organisation has a
+        # town: the newsletter is the site's, not the town's.
         "legal_parts": legal_parts(footer_organisation),
-        "newsletter_heading": (
-            _("Nieuws uit %(place)s") % {"place": footer_organisation["municipality"]}
-            if footer_organisation and footer_organisation["municipality"]
-            else _("Nieuws van %(name)s") % {"name": tenant_display_name(db)}
-        ),
+        "newsletter_heading": _("Nieuws van %(name)s") % {"name": tenant_display_name(db)},
         # #1473: the address comes from media; the footer writes none itself.
         "sponsors": [
             {"title": s.title, "link_url": s.link_url, "url": media_url(s.id)} for s in sponsors

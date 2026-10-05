@@ -1,0 +1,17 @@
+{% from "_inschrijf_prijs.html" import price_text %}
+{% from "_product_row.html" import price_tag %}
+{# The board's price refresh after the e-mail address or a quantity changed
+   (#1284), as it is since #1596: the TOTAL (what the request swaps, into
+   `#totaal-<component>`) and, out of band, the price text of each row.
+
+   **No field is part of this answer.** Until #1596 it was the whole price
+   block, quantity fields included, rendered with the quantities of the moment
+   the request left. An answer that landed late then put a quantity typed
+   meanwhile back (8 became 1, saved without a word), or — because htmx returns
+   the focus to the field of the same id — let the digits being typed land
+   before the opening "1" (8 became 81, refused or, worse, accepted). A field
+   the visitor types in is the visitor's: the server sends what it DERIVES. #}
+{% include "_inschrijf_totaal.html" %}
+{% for p in producten %}
+{{ price_tag(price_text(p, is_member), id="prijs-" ~ p.id, oob=True) }}
+{% endfor %}

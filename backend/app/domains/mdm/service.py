@@ -751,81 +751,24 @@ def apply_email_rows(
     na opslaan en herladen. "Het eerste adres" gaat over invoeren, niet over
     weergeven.
     """
-    from app.domains.audit.api import snapshot_contact_detail
-    from app.domains.mdm.models import ContactDetail
-
     person = _persoon_of_404(db, person_id)
-    bestaand = {c.id: c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL}
 
     def _waarde(sleutel: str) -> str:
         ruw = formulier.get(sleutel)
         return ruw.strip() if isinstance(ruw, str) else ""
 
-    gewijzigd = False
+    existing: dict[int, str] = {}
+    new: list[str] = []
     for sleutel in list(formulier.keys()):
         if sleutel.startswith("email_existing_"):
             try:
-                rij_id = int(sleutel.removeprefix("email_existing_"))
+                existing[int(sleutel.removeprefix("email_existing_"))] = _waarde(sleutel)
             except ValueError:
                 continue
-            rij = bestaand.get(rij_id)
-            if rij is None:
-                continue  # niet van deze persoon, of net al weggehaald
-            waarde = _waarde(sleutel)
-            if not waarde:
-                snapshot_contact_detail(
-                    db,
-                    rij,
-                    operation="delete",
-                    action="email_removed",
-                    source="admin_update",
-                    actor=actor,
-                )
-                person.contact_details.remove(rij)
-                gewijzigd = True
-            elif waarde != rij.value:
-                rij.value = waarde
-                db.flush()
-                snapshot_contact_detail(
-                    db,
-                    rij,
-                    operation="update",
-                    action="email_edited",
-                    source="admin_update",
-                    actor=actor,
-                )
-                gewijzigd = True
         elif sleutel.startswith("email_new_"):
-            waarde = _waarde(sleutel)
-            if not waarde:
-                continue
-            # Dezelfde waarde twee keer bij één persoon is een vergissing en geen
-            # tweede geval; hoofdletterongevoelig, want een mens typt zijn eigen
-            # adres niet twee keer identiek.
-            al_er = {
-                (c.value or "").strip().lower()
-                for c in person.contact_details
-                if c.contact_type_code == CONTACT.EMAIL
-            }
-            if waarde.lower() in al_er:
-                continue
-            wordt_hoofd = not _heeft_hoofdadres(person)
-            rij = ContactDetail(
-                person_id=person.id, contact_type_code="EMAIL", value=waarde, is_primary=wordt_hoofd
-            )
-            db.add(rij)
-            db.flush()
-            snapshot_contact_detail(
-                db,
-                rij,
-                operation="insert",
-                action="email_promoted" if wordt_hoofd else "email_added",
-                source="admin_update",
-                actor=actor,
-            )
-            gewijzigd = True
+            new.append(_waarde(sleutel))
 
-    if gewijzigd:
+    if write_email_rows(db, person, existing, new, actor=actor):
         # **Commit, geen flush** (#1223). De aanroeper heeft zijn eigen wijziging
         # al vastgelegd vóór deze functie draait, dus na een flush alleen wordt
         # dit weer weggegooid bij het einde van het verzoek: de rij verschijnt, de
@@ -839,6 +782,83 @@ def apply_email_rows(
         db.commit()
 
 
+def write_email_rows(
+    db: Session,
+    person,
+    existing: dict[int, str],
+    new: list[str],
+    *,
+    actor: Optional[str] = None,
+    source: str = "admin_update",
+) -> bool:
+    """The e-mail rows of one person, written with their history and WITHOUT a
+    commit (#1590: shared by `apply_email_rows` and the save of the whole
+    household). `existing` is {row id: text} — empty text removes the row, other
+    text replaces it; a row id that is not this person's is skipped. `new` are the
+    texts of rows without an id — empty ones and doubles are skipped; a new row
+    becomes the primary address only when the person has none. Returns whether
+    anything changed. `source` names who acts in the history (`member_self` when
+    the member saves their own household)."""
+    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.models import ContactDetail
+
+    bestaand = {c.id: c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL}
+    gewijzigd = False
+    for rij_id, waarde in existing.items():
+        rij = bestaand.get(rij_id)
+        if rij is None:
+            continue  # niet van deze persoon, of net al weggehaald
+        if not waarde:
+            snapshot_contact_detail(
+                db, rij, operation="delete", action="email_removed", source=source, actor=actor
+            )
+            person.contact_details.remove(rij)
+            gewijzigd = True
+        elif waarde != rij.value:
+            rij.value = waarde
+            db.flush()
+            snapshot_contact_detail(
+                db, rij, operation="update", action="email_edited", source=source, actor=actor
+            )
+            gewijzigd = True
+    # The removals reach the database before a row is added (#1603). A new row
+    # becomes the primary address when the person has none — and when the old
+    # primary one was just removed in this same save, the unit of work would
+    # insert the new primary row BEFORE deleting the old one: two primary rows
+    # for a moment, and `uq_contact_details_one_primary_per_type` refuses. Found
+    # by a browser test of the one save; the row routes could not do both at once.
+    db.flush()
+    for waarde in new:
+        if not waarde:
+            continue
+        # Dezelfde waarde twee keer bij één persoon is een vergissing en geen
+        # tweede geval; hoofdletterongevoelig, want een mens typt zijn eigen
+        # adres niet twee keer identiek.
+        al_er = {
+            (c.value or "").strip().lower()
+            for c in person.contact_details
+            if c.contact_type_code == CONTACT.EMAIL
+        }
+        if waarde.lower() in al_er:
+            continue
+        wordt_hoofd = not _heeft_hoofdadres(person)
+        rij = ContactDetail(
+            person_id=person.id, contact_type_code="EMAIL", value=waarde, is_primary=wordt_hoofd
+        )
+        person.contact_details.append(rij)
+        db.flush()
+        snapshot_contact_detail(
+            db,
+            rij,
+            operation="insert",
+            action="email_promoted" if wordt_hoofd else "email_added",
+            source=source,
+            actor=actor,
+        )
+        gewijzigd = True
+    return gewijzigd
+
+
 def make_email_primary(
     db: Session, person_id: int, contact_id: int, *, actor: Optional[str] = None
 ):
@@ -850,7 +870,6 @@ def make_email_primary(
     `is_primary = true AND deleted_at IS NULL`). In de andere volgorde zouden er
     even twee zijn en weigert de flush.
     """
-    from app.domains.audit.api import snapshot_contact_detail
 
     person = _persoon_of_404(db, person_id)
     adressen = [c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL]
@@ -863,27 +882,33 @@ def make_email_primary(
         raise HTTPException(status_code=404, detail=_("Adres niet gevonden"))
     if doel.is_primary:
         return person
+    promote_email_row(db, person, doel, actor=actor)
+    db.commit()
+    db.refresh(person)
+    return person
 
-    for rij in adressen:
-        if rij.is_primary:
+
+def promote_email_row(
+    db: Session, person, doel, *, actor: Optional[str] = None, source: str = "admin_update"
+) -> None:
+    """Make `doel` this person's primary e-mail address, with the history rows and
+    WITHOUT a commit (#1590). The old one is put back FIRST: the database allows one
+    primary address per person, so in the other order there would be two for a
+    moment and the flush would refuse."""
+    from app.domains.audit.api import snapshot_contact_detail
+
+    for rij in person.contact_details:
+        if rij.contact_type_code == CONTACT.EMAIL and rij.is_primary and rij is not doel:
             rij.is_primary = False
             db.flush()
             snapshot_contact_detail(
-                db,
-                rij,
-                operation="update",
-                action="email_demoted",
-                source="admin_update",
-                actor=actor,
+                db, rij, operation="update", action="email_demoted", source=source, actor=actor
             )
     doel.is_primary = True
     db.flush()
     snapshot_contact_detail(
-        db, doel, operation="update", action="email_promoted", source="admin_update", actor=actor
+        db, doel, operation="update", action="email_promoted", source=source, actor=actor
     )
-    db.commit()
-    db.refresh(person)
-    return person
 
 
 def remove_email_address(

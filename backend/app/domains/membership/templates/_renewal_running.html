@@ -1,0 +1,24 @@
+{% import "_macros.html" as ui %}
+{# A renewal that is already running (#618, #1590): the transfer to make, or the
+   online payment to resume. Shown instead of the form — the page never invites
+   to an act that cannot succeed. Amount and reference come from the booking. #}
+{% if page.transfer %}
+{% call ui.flow_card(_("Vernieuwing geregistreerd"), attrs="data-renewal-transfer") %}
+  <p class="text-base text-ink">{{ _("Betaal via overschrijving:") }}</p>
+  <ul class="mt-2 text-base leading-7 text-ink">
+    <li>{{ _("Bedrag") }}: <strong>€ {{ page.transfer.amount|geld }}</strong></li>
+    {% if page.transfer.iban %}<li>IBAN: <strong>{{ page.transfer.iban }}</strong></li>{% endif %}
+    {% if page.transfer.beneficiary %}<li>{{ _("Begunstigde") }}: {{ page.transfer.beneficiary }}</li>{% endif %}
+    {% if page.transfer.ogm %}<li>{{ _("Mededeling (OGM)") }}: <strong>{{ page.transfer.ogm }}</strong></li>{% endif %}
+  </ul>
+{% endcall %}
+{% else %}
+{% call ui.flow_card(_("Je vernieuwing loopt nog"), attrs="data-renewal-online") %}
+  <p class="text-base text-ink">{{ _("De betaling is nog niet afgerond.") }} {{ _("Bedrag") }}: <strong>€ {{ page.online.amount|geld }}</strong></p>
+  {% if page.online.checkout_url %}
+  <p class="mt-3">{{ ui.btn_primary(_("Betaling hervatten"), href=page.online.checkout_url, type="button") }}</p>
+  {% else %}
+  <p class="mt-2 text-ink-soft">{{ _("Zodra de betaling verwerkt is, zie je dat hier. Neem gerust contact op als het lang duurt.") }}</p>
+  {% endif %}
+{% endcall %}
+{% endif %}

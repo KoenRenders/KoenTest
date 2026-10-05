@@ -8,7 +8,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr, model_validator
 
-from app.domains.mdm.api import RelationType
+from app.domains.mdm.api import MainMemberMobileMissing, MemberPerson, RelationType
 
 
 class FamilyMemberCreate(BaseModel):
@@ -71,8 +71,11 @@ class FamilyCreate(BaseModel):
             raise ValueError("Minstens één gezinslid moet het type 'HOOFDLID' hebben.")
         if not hoofdlid.email:
             raise ValueError("E-mailadres is verplicht voor het hoofdgezinslid.")
-        if not hoofdlid.mobile:
-            raise ValueError("Mobiel nummer is verplicht voor het hoofdgezinslid.")
+        try:
+            # The one rule (#1590), shared with the portal's save.
+            MemberPerson.require_main_member_mobile(hoofdlid.mobile)
+        except MainMemberMobileMissing as refusal:
+            raise ValueError(str(refusal)) from refusal
         return self
 
 

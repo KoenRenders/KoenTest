@@ -18,7 +18,7 @@ groen wanneer er 16 px niemandsland tussen de trefzones zit — en dan doet een 
 die strook niets. De trefzones moeten elkaar raken: geen gat, en ook geen overlap,
 want in een overlap wint de onderste rij.
 
-De foutmarkering uit #741 staat in `test_formulier_wizard_stap.py`.
+De foutmarkering staat sinds #1589 in `test_public_form_page.py`.
 
 Kapotgemaakt om te controleren dat deze tests rood kunnen worden: `py-2` van het
 optielabel weggehaald, en apart daarvan `space-y-1` terug op de optiegroep. Beide keren
@@ -38,27 +38,28 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE  # noqa: E402
 
-# Verwacht wit, in pixels: tussen twee antwoorden, tussen de vraag en haar eerste
-# antwoord, en tussen het laatste antwoord en de volgende vraag.
-TUSSEN_ANTWOORDEN = 16
-VRAAG_NAAR_ANTWOORD = 20
-NAAR_VOLGENDE_VRAAG = 30
+# #1589 (CR-11 pilot B, §2.6): a question has the anatomy of every field. The
+# ladder 16 : 20 : 30 of #774 went with the heavier question label; what holds
+# now, in pixels of box distance: the rows of answers TOUCH (0, #768 — kept), a
+# row is as high as a control (44 px below 768 — this test's window is 760 — and
+# 40 from there), the label stands
+# 4 px above its first row, and two questions are the form grid's 12 px apart.
+ROW = 44
+LABEL_TO_ANSWER = 4
+TO_NEXT_QUESTION = 12
 
 METEN = """() => {
   const r = (e) => e.getBoundingClientRect();
-  const blok = document.querySelectorAll('[data-veld]');
-  const vraag1 = blok[0].querySelector('label');
+  const blok = document.querySelectorAll('[data-field^="f"]');
+  const vraag1 = blok[0].querySelector(':scope > p');
   const opties = [...blok[0].querySelectorAll(':scope > div > label')];
-  const vraag2 = blok[1].querySelector('label');
-  const stijl = getComputedStyle(opties[0]);
   return {
     opties: opties.length,
     hoogte: Math.round(r(opties[0]).height),
-    padding: Math.round(parseFloat(stijl.paddingTop)),
     // doos-afstanden: tussen de klikvlakken zelf
     doos_tussen: opties.slice(1).map((o, i) => Math.round(r(o).top - r(opties[i]).bottom)),
     doos_vraag: Math.round(r(opties[0]).top - r(vraag1).bottom),
-    doos_volgende: Math.round(r(vraag2).top - r(opties[opties.length - 1]).bottom),
+    doos_volgende: Math.round(r(blok[1]).top - r(blok[0]).bottom),
   };
 }"""
 
@@ -103,28 +104,21 @@ def meting(formulier):
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         page = browser.new_page(viewport={"width": 760, "height": 1100})
         page.goto(f"{BASE}/formulier/{formulier}")
-        page.wait_for_selector("[data-veld]")
+        page.wait_for_selector('[data-field^="f"]')
         uit = page.evaluate(METEN)
         browser.close()
     return uit
 
 
-def test_de_drie_afstanden_staan_op_16_20_en_30(meting):
-    """Het wit dat je ziet is de doos-afstand plus de padding van het klikvlak."""
+def test_the_distances_are_the_kits(meting):
+    """Label to answers 4 px, question to question 12 px — the kit's field and
+    the form grid, nothing of the form's own."""
     assert meting["opties"] == 3, "de meting kijkt niet naar de eerste vraag"
-    p = meting["padding"]
-
-    wit_tussen = [d + 2 * p for d in meting["doos_tussen"]]
-    assert wit_tussen == [TUSSEN_ANTWOORDEN] * len(wit_tussen), (
-        f"tussen twee antwoorden staat {wit_tussen} px wit i.p.v. {TUSSEN_ANTWOORDEN}"
+    assert meting["doos_vraag"] == LABEL_TO_ANSWER, (
+        f"tussen de vraag en haar eerste antwoord staat {meting['doos_vraag']} px"
     )
-    assert meting["doos_vraag"] + p == VRAAG_NAAR_ANTWOORD, (
-        f"tussen de vraag en haar eerste antwoord staat {meting['doos_vraag'] + p} px "
-        f"wit i.p.v. {VRAAG_NAAR_ANTWOORD}"
-    )
-    assert meting["doos_volgende"] + p == NAAR_VOLGENDE_VRAAG, (
-        f"tussen het laatste antwoord en de volgende vraag staat "
-        f"{meting['doos_volgende'] + p} px wit i.p.v. {NAAR_VOLGENDE_VRAAG}"
+    assert meting["doos_volgende"] == TO_NEXT_QUESTION, (
+        f"tussen twee vragen staat {meting['doos_volgende']} px i.p.v. {TO_NEXT_QUESTION}"
     )
 
 
@@ -139,6 +133,6 @@ def test_de_trefzones_raken_elkaar(meting):
         f"er zit {meting['doos_tussen']} px tussen de klikvlakken; negatief is een "
         "overlap (dan wint de onderste rij), positief is een dode zone"
     )
-    assert meting["hoogte"] >= 32, (
-        f"een trefzone van {meting['hoogte']} px is te krap voor een vinger"
+    assert meting["hoogte"] == ROW, (
+        f"een antwoordrij is {meting['hoogte']} px hoog; de kit geeft ze {ROW} px"
     )

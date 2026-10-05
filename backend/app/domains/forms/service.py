@@ -1785,86 +1785,63 @@ def form_page_context(
     form_model: Form,
     *,
     values: Optional[dict] = None,
-    error: Optional[str] = None,
-    fout_veld_id: Optional[int] = None,
     action: Optional[str] = None,
     show_submitter: Optional[bool] = None,
     intro: Optional[str] = None,
 ) -> dict:
     """What `formulier.html` needs to show a form (#1380): its questions grouped as
-    the form groups them, the wizard's steps when it has them, the step to open on,
-    and the three facts a route decides — where the page posts (`action`), whether it
-    asks name and e-mail (`show_submitter`), and a line of its own under the
-    description (`intro`). The form's own page and the answer link of a registration
-    render the same template from this; only the shell (`site_context`) and the
-    route's facts come from the caller."""
+    the form groups them, the path through its sections when it branches, and the
+    three facts a route decides — where the page posts (`action`), whether it asks
+    name and e-mail (`show_submitter`), and a line of its own under the
+    description (`intro`). The form's own page and the answer link of a
+    registration render the same template from this; only the shell
+    (`site_context`) and the route's facts come from the caller.
+
+    One long page since #1589 (CR-11 pilot B, end state §2.6): the steps are gone.
+    What they did for a form that BRANCHES stays, on that one page: `path_steps`
+    says per section where it leads (`next`, `end`) and which chosen option
+    leads elsewhere (`skips`), and the page shows only the sections on the path
+    the answers lead along — the route the server follows too (#336,
+    `_traversed_field_ids`), which stays the truth when the two differ. A form
+    that does not branch (`path` False) shows every section, and so does a form
+    with fields in no section: the path runs over sections only.
+    """
     grouped, loose = question_groups(form_model)
     sections = [g["section"] for g in grouped]
 
-    # Stap-per-stap-wizard (#454): enkel bij ≥2 secties en geen losse velden —
-    # de branching (sectie- en optie-niveau) wordt vertaald naar stap-indices zodat
-    # de Alpine-wizard client-side dezelfde route volgt als de server (#336). Bij
-    # afwijking blijft de server de waarheid (die valideert de bereikte route).
     idx_by_id = {s.id: i for i, s in enumerate(sections)}
-    wizard = len(sections) >= 2 and not loose
-    wizard_steps = []
-    if wizard:
-        for section in sections:
-            skips = []
-            for f in (fld for fld in form_model.fields if fld.section_id == section.id):
-                for o in f.options:
-                    if o.skip_to_section_id is not None or o.skip_to_end:
-                        skips.append(
-                            {
-                                "opt": o.id,
-                                "section": idx_by_id.get(o.skip_to_section_id),
-                                "end": bool(o.skip_to_end),
-                            }
-                        )
-            wizard_steps.append(
-                {
-                    "id": section.id,
-                    "end": bool(section.next_is_end),
-                    "next": idx_by_id.get(section.next_section_id)
-                    if section.next_section_id is not None
-                    else None,
-                    "skips": skips,
-                    # #724: welke velden van déze stap verplicht zijn. Het HTML-attribuut
-                    # `required` staat er bewust niet op (#688) — de browser valideert het
-                    # hele formulier bij verzending, ook de stappen die je nooit ziet —
-                    # dus de wizard heeft die lijst zelf nodig om per stap te kunnen
-                    # controleren. Een `info`-blok is geen vraag.
-                    "req": [
-                        f.id
-                        for f in form_model.fields
-                        if f.section_id == section.id
-                        and f.required
-                        and f.field_type is not FieldType.INFO
-                    ],
-                }
-            )
-
-    # #724: openen op de stap van het gemelde veld. De foutweg rendert deze pagina
-    # opnieuw en Alpine initialiseert het component vers — dus zonder dit stond je
-    # weer op stap 0, met een melding over een vraag die je niet ziet.
-    start_step = 0
-    if wizard and fout_veld_id is not None:
-        veld = next((f for f in form_model.fields if f.id == fout_veld_id), None)
-        if veld is not None:
-            start_step = idx_by_id.get(veld.section_id, 0)
+    path_steps = []
+    for section in sections:
+        skips = []
+        for f in (fld for fld in form_model.fields if fld.section_id == section.id):
+            for o in f.options:
+                if o.skip_to_section_id is not None or o.skip_to_end:
+                    skips.append(
+                        {
+                            "opt": o.id,
+                            "section": idx_by_id.get(o.skip_to_section_id),
+                            "end": bool(o.skip_to_end),
+                        }
+                    )
+        path_steps.append(
+            {
+                "id": section.id,
+                "end": bool(section.next_is_end),
+                "next": idx_by_id.get(section.next_section_id)
+                if section.next_section_id is not None
+                else None,
+                "skips": skips,
+            }
+        )
+    branches = any(step["end"] or step["next"] is not None or step["skips"] for step in path_steps)
 
     return {
         "form": form_model,
         "grouped": grouped,
         "loose_fields": loose,
         "values": values or {},
-        "error": error,
-        "wizard": wizard,
-        "wizard_steps": wizard_steps,
-        "start_step": start_step,
-        # #1380: the question a refusal names, marked on the page. The wizard marks
-        # it itself (it opens on its step); a page without steps marks it here.
-        "vraag_fout": None if wizard else fout_veld_id,
+        "path": branches and len(sections) >= 2 and not loose,
+        "path_steps": path_steps,
         # What the page's route decides, not the form (#1380): where it posts, whether
         # it asks name and e-mail, a line of its own under the description. The
         # form's own route leaves them to these defaults.

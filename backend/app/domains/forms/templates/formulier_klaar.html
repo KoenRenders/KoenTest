@@ -2,30 +2,39 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Bedankt — Raak") }}{% endblock %}
 {% block content %}
-<div class="max-w-md mx-auto">
-{# #1380: the answer link of a registration ends here too. Its route passes its
+{# The thank-you page of a form (#1589, §2.6): a page of its own with one card —
+   no toast in place of the result of a public submission.
+
+   #1380: the answer link of a registration ends here too. Its route passes its
    own thanks (`bedankt`) and the answers as stored (`antwoorden`, label and value);
    the form's own route passes neither. #}
-{% if bedankt|default(none) %}
-{{ ui.success_banner(bedankt) }}
-{% elif updated %}
-{{ ui.success_banner(_("✅ Je wijzigingen zijn opgeslagen.")) }}
-{% else %}
-{{ ui.success_banner(_("✅ Bedankt! Je inzending is ontvangen.") ~ (_(" Je krijgt een bevestiging per e-mail.") if form.send_confirmation and not form.is_anonymous else "")) }}
-{% endif %}
-{% if antwoorden|default(none) %}
-<dl class="text-sm space-y-2 mt-4">
-  {% for label, waarde in antwoorden %}
-  <div><dt class="font-medium text-ink">{{ label }}</dt><dd class="text-ink-soft">{{ waarde or "—" }}</dd></div>
-  {% endfor %}
-</dl>
-{% endif %}
-{% if form.confirmation_message and not bedankt|default(none) %}
-<p class="text-gray-700 mt-4 whitespace-pre-wrap">{{ form.confirmation_message }}</p>
-{% endif %}
-{% if edit_link %}
-<p class="text-sm text-gray-500 mt-4">{{ _("Je kunt je inzending later nog aanpassen via de link in je bevestigingsmail.") }}</p>
-{% endif %}
-{{ ui.btn_primary(_("Naar de startpagina"), href="/", cls="mt-6") }}
+<div id="formulier-pagina">
+{% call ui.public_form_page(_("Je wijzigingen zijn opgeslagen") if updated else _("Bedankt voor je reactie"), result=True) %}
+<div class="form-flow">
+  {% call ui.flow_card(attrs="data-form-thanks") %}
+    {% if bedankt|default(none) %}
+    <p>{{ bedankt }}</p>
+    {% elif updated %}
+    <p>{{ _("We hebben je inzending aangepast.") }}</p>
+    {% else %}
+    <p>{{ _("We hebben je inzending goed ontvangen.") }}{% if form.send_confirmation and not form.is_anonymous %} {{ _("Je krijgt een bevestiging per e-mail.") }}{% endif %}</p>
+    {% endif %}
+    {% if antwoorden|default(none) %}
+    <dl class="text-sm space-y-2 mt-4">
+      {% for label, waarde in antwoorden %}
+      <div><dt class="font-medium text-ink">{{ label }}</dt><dd class="text-ink-soft">{{ waarde or "—" }}</dd></div>
+      {% endfor %}
+    </dl>
+    {% endif %}
+    {% if form.confirmation_message and not bedankt|default(none) %}
+    <p class="mt-3 whitespace-pre-wrap">{{ form.confirmation_message }}</p>
+    {% endif %}
+    {% if edit_link %}
+    <p class="mt-3 text-[13px] leading-[19.5px] text-ink-soft">{{ _("Je kunt je inzending later nog aanpassen via de link in je bevestigingsmail.") }}</p>
+    {% endif %}
+  {% endcall %}
+  <p>{{ ui.btn_secondary(_("Naar de startpagina"), href=path_for("/")) }}</p>
+</div>
+{% endcall %}
 </div>
 {% endblock %}

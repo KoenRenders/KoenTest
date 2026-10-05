@@ -16,7 +16,8 @@ en doet zelf geen DB-query; binnen een sessie zijn die relaties beschikbaar.
 """
 
 from datetime import date
-from typing import Optional, Sequence
+from decimal import Decimal
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -183,25 +184,38 @@ def members_with_membership_for_year(db, year: int) -> set[int]:
     return {r[0] for r in rijen}
 
 
-def default_relation(earlier: Sequence[str | None]) -> str:
-    """The relation a new person in a household starts with (#1321): the stored code.
+def renewal_terms(db, person, today: date | None = None) -> tuple[date, date, Decimal]:
+    """What a renewal of this person's household buys and costs today: the period
+    (from, up to and including) and the amount.
 
-    Koen, 29 September 2026: *"Meestal werkt men zo: hoofdlid, partner,
-    kinderen."* The first person is the head of household, the next one the
-    partner as long as there is none yet, and everyone after that an (adult)
-    child. Only the prefill: nothing is refused, a second partner stays possible.
+    One rule for the renewal itself and for the page that announces it before the
+    click (#1590), so the screen cannot promise another price or date than the
+    booking gets.
 
-    `earlier` are the relations of the persons before this one, as codes, in the
-    order of the form. The one rule: the "Word lid" form prefills a new person
-    with it, and the server falls back on it for a person without a relation.
+    - With cover (also an already paid next year, #496): the year after the
+      furthest cover — renewing never duplicates a year.
+    - Without cover: the ordinary period rule (this year, or the next one after the
+      turnover date).
+    - A whole calendar year always costs the full price; the reduced price is only
+      for stepping in mid-year, for the rest of that year.
     """
-    from app.domains.mdm.api import RelationType
+    from app.domains.payment.api import membership_price_for_date, membership_valid_period
+    from app.kernel.tenant_config import tenant_membership_config
 
-    if not earlier:
-        return RelationType.PRIMARY_MEMBER.value
-    if RelationType.PARTNER.value not in earlier:
-        return RelationType.PARTNER.value
-    return RelationType.ADULT_CHILD.value
+    today = today or date.today()
+    current_until = membership_coverage_until(person, today)
+    if current_until is not None:
+        year = current_until.year + 1
+        valid_from, valid_to = date(year, 1, 1), date(year, 12, 31)
+    else:
+        valid_from, valid_to = membership_valid_period(today)
+    whole_year = (valid_from.month, valid_from.day) == (1, 1)
+    amount = (
+        tenant_membership_config(db)["price_full"]
+        if whole_year
+        else membership_price_for_date(today)
+    )
+    return valid_from, valid_to, amount
 
 
 def valid_on(day: date) -> tuple:
@@ -269,6 +283,29 @@ def new_members_between(db, start: date, end: date) -> list[dict]:
         .all()
     )
     return households_as_named(db, [member_id for member_id, _first in rows])
+
+
+def household_payment_state(db, member_id: int) -> Optional[str]:
+    """How the payment of this household's newest membership stands: ``"open"``,
+    ``"settled"``, or None when it has no booking (#1590).
+
+    For the page a payer returns to after a sign-up or a renewal: its address
+    names the household, the booking hangs on the membership. The newest
+    membership with a booking is the one that was just asked — an older, paid
+    year says nothing about this payment.
+    """
+    from app.domains.membership.models import Membership
+    from app.domains.payment.api import membership_payment_states
+
+    ids = [
+        membership_id
+        for (membership_id,) in db.query(Membership.id)
+        .filter(Membership.member_id == member_id)
+        .order_by(Membership.id.desc())
+    ]
+    states = membership_payment_states(db, ids)
+    newest = next((i for i in ids if i in states), None)
+    return states[newest]["state"] if newest is not None else None
 
 
 def current_membership_counts(db, today: Optional[date] = None) -> tuple[int, int]:

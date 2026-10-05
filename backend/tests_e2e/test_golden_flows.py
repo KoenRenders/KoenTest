@@ -15,7 +15,7 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import open_registration  # noqa: E402
+from tests_e2e.schermen import fill_signup, open_registration, send_form  # noqa: E402
 
 BASE = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
 
@@ -32,40 +32,33 @@ def page():
         browser.close()
 
 
-def _vul_hoofdlid(page, email: str):
-    page.fill("#m0_first_name", "Test")
-    page.fill("#m0_last_name", "Gezin")
-    page.fill("#m0_email", email)
-    page.fill("#m0_mobile", "0470000000")
-    # #681: verplicht voor élk lid, hoofdlid incluis — zonder deze twee blokkeert
-    # de browser de submit op `required` en komt het formulier niet weg.
-    page.fill("#m0_date_of_birth", "1980-01-01")
-    page.select_option("#m0_gender_code", "M")
-    page.fill("#street", "Teststraat")
-    page.fill("#house_number", "1")
-
-
 def test_gezinsregistratie_met_overschrijving(page):
     """Kernflow (#128): gezinsregistratie via Word lid met betaaltype
-    overschrijving — raakt Mollie niet, dus stabiel zonder gateway-stub."""
+    overschrijving — raakt Mollie niet, dus stabiel zonder gateway-stub.
+
+    #1590: the page stands on the public form page; its one button is the
+    action bar's, and the confirmation says "Je aanvraag is ontvangen"."""
     page.goto("/lid-worden")
-    _vul_hoofdlid(page, f"e2e+{int(time.time())}@example.com")
-    # Postcode: altijd kiezen uit de dropdown (vaste UI-beslissing).
-    page.select_option("#postal_code", index=1)
+    fill_signup(page, f"e2e+{int(time.time())}@example.com")
     page.check('input[name="payment_method"][value="transfer"]')
-    page.click('button[type="submit"]')
-    expect(page.get_by_text("Je inschrijving is ontvangen")).to_be_visible()
+    send_form(page)
+    expect(page.get_by_role("heading", name="Je aanvraag is ontvangen")).to_be_visible()
 
 
 def test_gezinsregistratie_zonder_postcode_geblokkeerd(page):
-    """#160: zonder gekozen postcode wordt het formulier niet verstuurd —
-    de verplichte dropdown blokkeert de submit."""
+    """#160: without a chosen postal code nothing is created.
+
+    #1590: the browser no longer blocks the submit (`novalidate`, so the message
+    is always the kit's): the server refuses, the banner names the field and the
+    select is marked — and the page keeps what was typed."""
     page.goto("/lid-worden")
-    _vul_hoofdlid(page, "nopc@example.com")
-    page.click('button[type="submit"]')
-    # Geen navigatie/succes: de select is invalid en het formulier staat er nog.
-    assert page.eval_on_selector("#postal_code", "el => el.checkValidity()") is False
-    expect(page.get_by_text("Je inschrijving is ontvangen")).not_to_be_visible()
+    fill_signup(page, "nopc@example.com", postal_code=False)
+    send_form(page)
+    expect(page.locator("[data-save-refusal]")).to_contain_text("Verzenden kan nog niet")
+    expect(page.locator('[data-field="address.postal_code"]')).to_have_attribute("data-refused", "")
+    expect(page.locator("#address-postal_code")).to_be_focused()
+    expect(page.locator("#address-street")).to_have_value("Teststraat")
+    expect(page.get_by_role("heading", name="Je aanvraag is ontvangen")).to_have_count(0)
 
 
 @pytest.fixture(scope="module")
@@ -193,29 +186,18 @@ def wizard_form_token():
 
 
 def test_formulier_wizard_navigatie(page, wizard_form_token):
-    """Golden flow (#480): stap-per-stap door een meersectie-formulier. Op de
-    eerste sectie is er GEEN 'Vorige' (regressie: die bleef zichtbaar door een
-    door Tailwind ge-purgede opacity-class); onderweg wel; laatste sectie
-    'Verzenden'."""
+    """Golden flow (#480), as it is since #1589 (CR-11 pilot B): a form of
+    several sections is ONE page. Every section is a card on it, there is no
+    'Vorige' or 'Volgende', and 'Verzenden' stands in the bar from the start.
+    (The name of this test is kept: it is the golden flow of that form.)"""
     page.goto(f"/formulier/{wizard_form_token}")
-    prev = page.get_by_role("button", name="Vorige")
-    nxt = page.get_by_role("button", name="Volgende")
-    submit = page.get_by_role("button", name="Verzenden")
-
-    # Sectie 1: geen Vorige, wel Volgende.
-    expect(prev).to_be_hidden()
-    expect(nxt).to_be_visible()
-    nxt.click()
-    # Sectie 2: Vorige verschijnt.
-    expect(prev).to_be_visible()
-    expect(nxt).to_be_visible()
-    nxt.click()
-    # Sectie 3 (laatste): Verzenden i.p.v. Volgende.
-    expect(submit).to_be_visible()
-    expect(nxt).to_be_hidden()
-    # Terug kan ook.
-    prev.click()
-    expect(nxt).to_be_visible()
+    expect(page.get_by_role("button", name="Verzenden")).to_be_visible()
+    expect(page.get_by_role("button", name="Vorige")).to_have_count(0)
+    expect(page.get_by_role("button", name="Volgende")).to_have_count(0)
+    cards = page.locator("[data-question-cards] [data-form-section]")
+    assert cards.count() >= 3, "the sections are not all on the page"
+    for index in range(cards.count()):
+        expect(cards.nth(index)).to_be_visible()
 
 
 def test_publieke_kern_bereikbaar(page):

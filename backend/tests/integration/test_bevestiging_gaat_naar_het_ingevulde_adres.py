@@ -161,8 +161,9 @@ def test_zonder_adres_is_er_geen_inschrijving_en_dus_geen_mail(client, db_sessio
 
     respons = _schrijf_in(client, activity, component, product, email="")
 
-    assert respons.status_code == 200
-    assert "Vul naam, e-mailadres en mobiel nummer in" in respons.text, (
+    # #1589: a refusal is the banner alone (422), naming the field.
+    assert respons.status_code == 422
+    assert "Vul een geldig e-mailadres in." in respons.text, (
         "het formulier aanvaardde een inschrijving zonder adres"
     )
     assert not _bevestigingen(verstuurde_mail, db_session), (

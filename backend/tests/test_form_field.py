@@ -47,10 +47,12 @@ def test_a_short_kind_is_half_and_may_be_widened(kind):
     assert _span(_field(kind=kind, span="full")) == "full"
 
 
-def test_only_a_number_a_date_a_time_a_select_or_a_switch_may_be_a_quarter():
-    for kind in ("number", "date", "time", "select", "switch"):
+def test_only_a_short_kind_may_be_a_quarter():
+    """A short text joined them with #1590: a house number and a bus stand a
+    quarter wide beside the street (end state §2.6)."""
+    for kind in ("number", "date", "time", "select", "switch", "text"):
         assert _span(_field(kind=kind, span="quarter")) == "quarter", kind
-    for kind in ("text", "slug", "phone", "segmented"):
+    for kind in ("slug", "phone", "segmented"):
         assert _span(_field(kind=kind, span="quarter")) == "half", kind
 
 
