@@ -105,8 +105,7 @@
  hx-get="/admin/betalingen/lijst" hx-trigger="betalingen-ververst from:body"
  hx-include="#bt-filter" hx-swap="innerHTML"
  >
-<div class="data-table-frame mb-4 rounded-card border border-line bg-white" data-table-frame
- x-data="{ openRow: '' }">
+<div class="data-table-frame mb-4 rounded-card border border-line bg-white" data-table-frame>
 <table class="data-table text-sm" data-p1="auto" data-p2="auto">
 <caption class="sr-only">Betalingen</caption>
 <thead>
@@ -147,7 +146,7 @@
 </tr>
 </thead>
 <tbody>
-<tr data-row class="align-middle">
+<tr data-row data-row-key="<REC:failed>" class="align-middle">
 <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
 <a href="/admin/betalingen/<REC:failed>?terug=/admin/betalingen%3Fzicht%3Dopenstaand" data-row-link class="font-semibold text-ink hover:no-underline">Deelnemer other</a>
 </td>
@@ -179,7 +178,7 @@
 </div>
 </td>
 </tr>
-<tr data-row class="align-middle">
+<tr data-row data-row-key="<REC:cancelled>" class="align-middle">
 <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2 pl-9">
 <span class="text-ink-soft" aria-hidden="true">↳</span>
 <a href="/admin/betalingen/<REC:cancelled>?terug=/admin/betalingen%3Fzicht%3Dopenstaand" data-row-link class="font-semibold text-ink hover:no-underline">Deelnemer other</a>
@@ -224,7 +223,7 @@
 </tr>
 </tbody>
 <tbody class="[&>tr:first-child>td]:border-t [&>tr:first-child>td]:border-t-gray-300">
-<tr data-row class="align-middle">
+<tr data-row data-row-key="<REC:open>" class="align-middle">
 <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
 <a href="/admin/betalingen/<REC:open>?terug=/admin/betalingen%3Fzicht%3Dopenstaand" data-row-link class="font-semibold text-ink hover:no-underline">Deelnemer open</a>
 </td>
@@ -258,7 +257,7 @@
 </tr>
 </tbody>
 <tbody class="[&>tr:first-child>td]:border-t [&>tr:first-child>td]:border-t-gray-300">
-<tr data-row class="align-middle">
+<tr data-row data-row-key="<REC:partial>" class="align-middle">
 <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
 <a href="/admin/betalingen/<REC:partial>?terug=/admin/betalingen%3Fzicht%3Dopenstaand" data-row-link class="font-semibold text-ink hover:no-underline">Deelnemer partial</a>
 </td>
@@ -291,7 +290,7 @@
 </tr>
 </tbody>
 <tbody class="[&>tr:first-child>td]:border-t [&>tr:first-child>td]:border-t-gray-300">
-<tr data-row class="align-middle text-ink-soft">
+<tr data-row data-row-key="<REC:paid>" class="align-middle text-ink-soft">
 <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
 <a href="/admin/betalingen/<REC:paid>?terug=/admin/betalingen%3Fzicht%3Dopenstaand" data-row-link class="font-semibold text-ink hover:no-underline">Deelnemer paid</a>
 <div class="text-xs text-ink-soft">Ter context — valt buiten het filter</div>
@@ -309,7 +308,7 @@
 <td data-cell="actions" class="border-b border-line px-3 py-2">
 </td>
 </tr>
-<tr data-row class="align-middle">
+<tr data-row data-row-key="<REC:refund_due>" class="align-middle">
 <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2 pl-9">
 <span class="text-ink-soft" aria-hidden="true">↳</span>
 <a href="/admin/betalingen/<REC:refund_due>?terug=/admin/betalingen%3Fzicht%3Dopenstaand" data-row-link class="font-semibold text-ink hover:no-underline">Deelnemer paid</a>

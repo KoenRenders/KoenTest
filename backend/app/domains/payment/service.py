@@ -351,7 +351,9 @@ def payable_payment_states(db: Session, payable_type, payable_ids) -> dict[int, 
     """What the bookings of each payable say together: the amounts and one state,
     ``"open"`` or ``"settled"`` — the one rule behind a registration's state
     (above) and a membership's (#1590: the page a payer returns to reads it for
-    both). A payable without a live booking is not in the result.
+    both). A payable without a live booking is not in the result. With it,
+    `booking_id` (the oldest open booking, else the oldest) and
+    `open_booking_ids` (#1636).
     """
     ids = list(payable_ids)
     if not ids:
@@ -369,9 +371,18 @@ def payable_payment_states(db: Session, payable_type, payable_ids) -> dict[int, 
         live = [r for r in own if not _is_lege_vordering(r)]
         if not live:
             continue
+        # Oldest first: by creation, the id only to break a tie (it is a uuid).
+        live.sort(key=lambda r: (r.created_at, str(r.id)))
+        still_open = [r for r in live if matches_zicht(r, "openstaand")]
         states[payable_id] = {
             **aggregate(live),
-            "state": "open" if any(matches_zicht(r, "openstaand") for r in live) else "settled",
+            "state": "open" if still_open else "settled",
+            # #1636: the booking a row's "Betaling openen" leads to — the oldest
+            # one that is still open, else the oldest — and the open ones, so a
+            # caller can tell "one to confirm" from "several".
+            "booking_id": (still_open[0] if still_open else live[0]).id,
+            "open_booking_ids": [r.id for r in still_open],
+            "open_booking_is_refund": bool(still_open) and still_open[0].type == PaymentType.REFUND,
         }
     return states
 

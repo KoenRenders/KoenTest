@@ -643,7 +643,7 @@
 {# ── 8g. A record's summary and its related list (CR-11 pilot A, K6 — #1560) ── #}
 {{ ui.section_header(_("8g · Samenvatting en gekoppelde lijst"), cls="mt-10") }}
 <p class="text-sm text-gray-600 mb-3">
-  {{ _("De samenvatting staat alleen op Gegevens: rechts naast het formulier, en op een telefoon als strook onder de tabbladen. In een gekoppelde lijst staan de rijen in inklapbare groepen en klapt een rij ter plaatse uit, alleen-lezen.") }}
+  {{ _("De samenvatting staat alleen op Gegevens: rechts naast het formulier, en op een telefoon als strook onder de tabbladen. In een gekoppelde lijst staan de rijen in inklapbare groepen; een rij is de ingang naar haar eigen pagina en klapt nergens uit.") }}
 </p>
 {% set _kit_card %}{{ ui.summary_card({"label": _("Gepubliceerd"), "tone": "green"},
      [{"label": _("Inschrijvingen"), "value": "23"}, {"label": _("Deelnemers"), "value": "41"},
@@ -658,29 +658,29 @@
      {"key": "contact", "label": _("Contact"), "cell": "context"},
      {"key": "datum", "label": _("Datum"), "cell": "date"},
      {"key": "producten", "label": _("Producten"), "cell": "more"},
-     {"key": "status", "label": _("Status"), "cell": "status"}], caption=_("Voorbeeldlijst in een record")) %}
-  {% call ui.table_group(_("Wandeling"), 2, 5, items=[{"label": _("Exporteren"), "href": "/admin/design-system"}, {"label": _("Antwoorden"), "href": "/admin/design-system"}]) %}
+     {"key": "bedrag", "label": _("Bedrag"), "cell": "amount", "num": True},
+     {"key": "saldo", "label": _("Saldo"), "cell": "extra", "num": True},
+     {"key": "status", "label": _("Status"), "cell": "status"},
+     {"key": "acties", "label": _("Acties"), "cell": "actions"}], caption=_("Voorbeeldlijst in een record")) %}
+  {% call ui.table_group(_("Wandeling"), 2, 8, items=[{"label": _("Exporteren"), "href": "/admin/design-system"}, {"label": _("Antwoorden"), "href": "/admin/design-system"}]) %}
     {% for key, name in [("kit-1", "Emma Voorbeeld"), ("kit-2", "Pieter Voorbeeld")] %}
-    <tr data-row class="align-middle">
-      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_toggle(name, key) }}</td>
+    <tr data-row data-row-key="{{ key }}" class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(name, "/admin/design-system") }}</td>
       <td data-cell="context" class="border-b border-line px-3 py-2">emma@voorbeeld.test<div class="text-xs text-ink-soft">0470 00 00 00</div></td>
       <td data-cell="date" class="border-b border-line px-3 py-2">01-10-2026</td>
       <td data-cell="more" class="border-b border-line px-3 py-2">2 × Soep · 2 × Brood</td>
+      <td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right">{{ ui.amount(30, balance=30) }}</td>
+      <td data-cell="extra" data-balance class="border-b border-line px-3 py-2 text-right">{{ ui.amount(30, warning=True) }}</td>
       <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(_("Openstaand"), "yellow") }}</td>
+      <td data-cell="actions" class="border-b border-line px-3 py-2">{{ ui.row_actions_cell({"label": _("Bevestig"), "attrs": ""}, [{"label": _("Inschrijving openen"), "href": "/admin/design-system"}, {"label": _("Betaling openen"), "href": "/admin/design-system"}], label=name) }}</td>
     </tr>
-    {% call ui.row_detail(key, 5, open={"label": _("Inschrijving openen"), "href": "/admin/design-system"}) %}
-      {% call ui.row_part(_("Contact")) %}<div>{{ name }}</div><div>emma@voorbeeld.test</div>{% endcall %}
-      {% call ui.row_part(_("Producten")) %}<div>2 × Soep</div><div>2 × Brood</div>{% endcall %}
-      {% call ui.row_part(_("Antwoorden")) %}<div class="text-ink-soft">{{ _("Dieetwensen") }}</div><div>{{ _("Vegetarisch") }}</div>{% endcall %}
-      {% call ui.row_part(_("Betaling")) %}<div>{{ _("Saldo") }}: {{ ui.amount(30, warning=True) }}</div>{% endcall %}
-    {% endcall %}
     {% endfor %}
   {% endcall %}
 {% endcall %}
 </div>
 <p class="text-xs text-gray-500 mb-2">
   <code>ui.summary_card(state, figures, action)</code> · <code>ui.table_group(name, count, colspan, items, link)</code> ·
-  <code>ui.row_toggle(label, key)</code> · <code>ui.row_detail(key, colspan, open)</code> · <code>ui.row_part(title)</code>
+  <code>ui.row_link(label, href)</code> · <code>ui.row_actions_cell(action, items)</code>
 </p>
 
 {{ ui.section_header(_("9 · Leeg en ladend"), cls="mt-10") }}

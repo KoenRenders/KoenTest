@@ -417,12 +417,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .data-table [data-row]:hover{background:rgb(var(--c-surface-2))}
 .data-table [data-stacked-only]{display:none}
 .data-table [data-row-link]::after{content:"";position:absolute;inset:0;z-index:1;cursor:pointer}
-.data-table [data-row-toggle]::after{content:"";position:absolute;inset:0;z-index:1;cursor:pointer}
-.data-table [data-row-toggle]:focus-visible{outline:none}
-.data-table [data-row-toggle]:focus-visible::after{outline:2px solid rgb(var(--c-blue-600));outline-offset:-3px}
-.data-table [data-row]:has([data-row-toggle][aria-expanded="true"]){background:rgb(var(--c-blue-50))}
 .data-table tbody[data-collapsed="true"] tr:not([data-group-row]){display:none!important}
-.row-parts{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:16px 24px}
 .data-table [data-row-link]:focus-visible{outline:none}
 .data-table [data-row-link]:focus-visible::after{outline:2px solid rgb(var(--c-blue-600));outline-offset:-3px}
 .data-table [data-above-row]{position:relative;z-index:2}
@@ -446,10 +441,11 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .data-table [data-cell="amount"]{text-align:right}
   .data-table [data-cell="date"]{grid-column:2;grid-row:3;align-self:center}
   .data-table [data-cell="more"]{grid-column:1/-1;grid-row:4}
+  /* #1636: a row with an amount AND a date (a registration): the amount keeps
+     its place beside the status, the date goes under them, the products last. */
+  .data-table tr:has(>[data-cell="amount"])>[data-cell="date"]{grid-column:1/-1;grid-row:4}
+  .data-table tr:has(>[data-cell="amount"])>[data-cell="more"]{grid-row:5}
   .data-table [data-group-row]{align-items:center;padding:0 12px}
-  .data-table tr[data-row-detail]{display:block;padding:0}
-  .data-table tr[data-row-detail]>td{padding:12px;border-left:3px solid rgb(var(--c-brand-ocean))}
-  .row-parts{grid-auto-flow:row}
   .data-table [data-sum] [data-cell="context"],.data-table [data-sum] [data-cell="status"],.data-table [data-sum] [data-cell="actions"]{display:none!important}
   .data-table [data-sum] [data-cell="amount"]{grid-row:1}
 }

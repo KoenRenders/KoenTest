@@ -152,8 +152,9 @@ def test_inschrijvingen_tab_groepeert_per_activiteit(client, db_session):
     assert "Rita Recordmans" in html  # de rij (contact_name)
     assert "Anderman" not in html, "een ander gezin lekt de scope in"
     assert f'href="/admin/activiteiten/{reg.activity_id}"' in html  # groepskop
-    # K6 (#1560): the row unfolds, and "Inschrijving openen" leads to its page.
-    assert f'data-row-toggle="{reg.id}"' in html and ">Details<" not in html
+    # #1636: the row is the way in to the registration's page; it unfolds nowhere.
+    assert f'data-row-key="{reg.id}"' in html and ">Details<" not in html
+    assert "data-row-toggle=" not in html and "data-row-detail" not in html
     assert f"/admin/inschrijvingen/{reg.id}?terug=" in html
     # De oude Wijzigingen-tab is echt weg, niet enkel verstopt.
     assert client.get(f"/admin/leden/gezin/{m.id}/wijzigingen").status_code == 404
@@ -269,8 +270,8 @@ def test_inschrijvingen_tab_sorteert_binnen_de_groep(client, db_session):
     basis = f"/admin/leden/gezin/{m.id}/inschrijvingen"
 
     def namen(html):
-        # The name cell of the registrations table: the row's toggle (K6, #1560).
-        return re.findall(r"data-row-toggle=.*?<span>(Aaa Eerst|Rita Recordmans)", html, re.S)
+        # The name cell of the registrations table: the row's link (#1636).
+        return re.findall(r"data-row-link[^>]*>(Aaa Eerst|Rita Recordmans)", html)
 
     assert namen(client.get(f"{basis}?sort=naam&richting=asc").text) == [
         "Aaa Eerst",

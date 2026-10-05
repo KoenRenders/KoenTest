@@ -2,9 +2,11 @@
 
 Block 8 (Koen, 4 October 2026; `docs/design-system-end-state.md` §2.2): the
 registrations of an activity and of a household are **one table with a
-collapsible group row** per component — per activity on the household — and a
-row **unfolds in place**, read-only: Contact · Producten · Antwoorden ·
-Betaling, with a jump link to the registration's own page.
+collapsible group row** per component — per activity on the household.
+
+**A row is the way in** (#1636, Koen, 5 October 2026; CR-11 Q75): it links to
+the registration's own page and unfolds nowhere. It carries the amounts of its
+bookings (Bedrag, Saldo), one action and a menu with the jumps — decided here.
 
 One builder for both tabs (the shared `_inschrijvingen_groepen.html` renders
 what it returns): the grouping is the caller's — data, not layout — and
@@ -71,6 +73,7 @@ def registration_table(
     sort: str = "datum",
     open_row: str = "",
     sub_is_component: bool = False,
+    may_mutate: bool = False,
 ) -> dict[str, Any]:
     """Everything the registrations table shows, from `groups` of enriched
     registrations (`enrich_registration`).
@@ -83,6 +86,16 @@ def registration_table(
     list alone; without one (the household's tab) the link is the page.
     `sub_is_component` puts the component's name under the contact's (the
     household groups by activity, so the component is not the group).
+    `may_mutate` (`may_mutate_payments`): whether the viewer may confirm a
+    payment — the row's one action. `open_row` is the row a visitor came back
+    to.
+
+    The row's menu (#1636): "Inschrijving openen", "Betaling openen" — the
+    oldest booking that is still open, else the oldest one — and "Antwoorden
+    (n)" where the registration has answers, which opens the registration's
+    page (the answers stand there only). "Bevestig" is the row's action only
+    when the registration has exactly ONE open booking: with two, a click
+    would confirm one of them unseen, so the booking's page is the way.
     """
     from app.domains.activities.models import Registration
     from app.domains.activities.service import sorteer_inschrijvingen
@@ -120,8 +133,33 @@ def registration_table(
 
     def _row(reg: dict) -> dict:
         payment = payments.get(reg["id"])
-        submission_id, token = asked.get(reg["id"], (None, None))
-        back = page_url + "?" + urlencode(state + [("rij", str(reg["id"]))])
+        submission_id, _token = asked.get(reg["id"], (None, None))
+        back = quote(page_url + "?" + urlencode(state + [("rij", str(reg["id"]))]), safe="")
+        page = f"/admin/inschrijvingen/{reg['id']}?terug={back}"
+        own_answers = answers.get(submission_id, []) if submission_id is not None else []
+        menu = [{"label": _("Inschrijving openen"), "href": page}]
+        action = None
+        if payment:
+            booking = f"/admin/betalingen/{payment['booking_id']}"
+            menu.append({"label": _("Betaling openen"), "href": f"{booking}?terug={back}"})
+            if may_mutate and len(payment["open_booking_ids"]) == 1:
+                # The answer of the confirm route is the payments list; this
+                # list is another one, so the page is read again after it.
+                action = {
+                    "label": _("Bevestig"),
+                    "attrs": f'hx-post="{booking}/bevestigen" hx-swap="none" '
+                    'hx-on::after-request="if (event.detail.successful) window.location.reload()"',
+                    "confirm": _("Als volledig terugbetaald bevestigen?")
+                    if payment["open_booking_is_refund"]
+                    else _("Als volledig betaald bevestigen?"),
+                }
+        if own_answers:
+            menu.append(
+                {
+                    "label": _("Antwoorden (%(n)s)") % {"n": len(own_answers)},
+                    "href": page,
+                }
+            )
         return {
             "key": str(reg["id"]),
             "name": reg["contact_name"] or "—",
@@ -135,9 +173,9 @@ def registration_table(
             ],
             "badge": badges[payment["state"]] if payment else None,
             "payment": payment,
-            "answers": answers.get(submission_id, []) if submission_id is not None else [],
-            "answers_asked_on": reg["registered_at"] if submission_id is None and token else None,
-            "href": f"/admin/inschrijvingen/{reg['id']}?terug=" + quote(back, safe=""),
+            "href": page,
+            "action": action,
+            "menu": menu,
         }
 
     key = SORT_KEYS[sort.lstrip("-")]
@@ -182,7 +220,10 @@ def registration_table(
         {"key": "contact", "label": _("Contact"), "cell": "context"},
         {"key": "datum", "label": _("Datum"), "cell": "date", **_sort_link("datum")},
         {"key": "producten", "label": _("Producten"), "cell": "more"},
+        {"key": "bedrag", "label": _("Bedrag"), "cell": "amount", "num": True},
+        {"key": "saldo", "label": _("Saldo"), "cell": "extra", "num": True},
         {"key": "status", "label": _("Status"), "cell": "status"},
+        {"key": "acties", "label": _("Acties"), "cell": "actions"},
     ]
 
     if needle:
