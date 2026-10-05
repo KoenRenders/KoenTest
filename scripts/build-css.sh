@@ -151,11 +151,20 @@ cat > "$TMP/in.css" << 'CSS'
      height 1.15. On the heading's tag and not in a template: a page writes
      `<h1>`, `<h2>`, `<h3>` and the shell sizes them, so no public page can
      come to differ. A section of a FORM keeps the kit's head (16 px, its own
-     line height): that is a field group's label, the same in both shells. */
+     line height): that is a field group's label, the same in both shells.
+
+     #1621 (Koen, 5 October 2026): a title INSIDE a card (`ui.card`, the
+     `.rounded-2xl` box) is the scale's CARD title — 18 px (CR-11 Q61) — on
+     Tailwind's line of 28 px, at every width. Measured on master: the `h2`
+     rule above made an activity card's title a section head, 24 px on a line
+     of 27.6 px, so it stood tight on its dates; v2.12.0 rendered 20 px on a
+     phone and 18 px from 768, both on 28 px. A page title in a card (the
+     sign-in page) stays a page title. */
   body[data-shell="site"] :is(h1,h2,h3){font-family:var(--font-brand);font-weight:600;line-height:1.15}
   body[data-shell="site"] #main h1{font-size:32px}
   body[data-shell="site"] #main h2{font-size:24px}
   body[data-shell="site"] #main h3{font-size:18px}
+  body[data-shell="site"] #main .rounded-2xl :is(h2,h3){font-size:18px;line-height:28px}
   @media (min-width:768px){body[data-shell="site"] #main h1{font-size:40px}}
   body[data-shell="site"] #main .form-section :is(h2,h3){font-size:16px;line-height:24px}
   /* The site's name in the header where a tenant has no logo, and the drawer's
@@ -567,6 +576,13 @@ html.nav-rail .nav-when-wide{display:none}
    account). The environment banner stands above it in the document flow and
    scrolls away.
 
+   The LOGO is as high as its row allows — the row minus 2 × 8 px of air, the
+   trade of #1156 (#1621, CR-11 Q69, end state §2.5): 48 px in the rows of 64
+   (a phone, and the first row from 768 px), 64 px in the band of 80 from
+   1 200 px. #1588 had set it to 48 px at every width, 16 px lower than
+   v2.12.0 showed on a desktop. The width follows the image; a very wide logo
+   is drawn smaller inside its box and never pushes the menu button away.
+
    The drawer (below 768 px): 360 px, white, OVER the page — nothing moves —
    with the backdrop under it; the page behind it is inert.
 
@@ -613,6 +629,7 @@ body[data-shell="site"]>main{flex:1 0 auto}
 @media (min-width:1200px){
   .site-container{width:calc(100% - 64px)}
   .site-header-grid{grid-template-columns:minmax(0,1fr) auto auto;grid-template-rows:80px;grid-template-areas:"brand pages account";gap:24px;height:80px}
+  .site-brand img{height:64px}
   .site-pages{height:auto}
   .site-footer-row{grid-template-columns:1.3fr .8fr 1fr;gap:48px}
 }

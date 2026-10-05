@@ -14,9 +14,18 @@ no second number beside it that would drift the day someone changes the rule.
 That the band is that high on the screen is for a browser to measure —
 `tests_e2e/test_kopbalk_logohoogte.py`.
 
+**#1621 (Koen, 5 October 2026; CR-11 Q69) gave the trade of #1156 back.** With
+#1588 these tests were rewritten to "48 px at every width" and kept only an
+upper bound — the logo plus 16 px had to FIT the lowest band (`<=`). So the
+logo shrank from 64 to 48 px on a desktop while everything here stayed green:
+nothing said the logo takes the room its row gives. Now each logo height EQUALS
+its row minus 2 × 8 px: 48 in the rows of 64, 64 in the band of 80.
+
 What turns these tests red: a `class` or `style` on the logo's `<img>` (a
 second number beside the rule), a size utility or a per-branch class on the
-header's row, a fourth or a changed height in the grid's rules.
+header's row, a fourth or a changed height in the grid's rules, a logo height
+that is not its row minus 16 px (proven: the 64 px rule removed, and set to
+56 px).
 """
 
 from __future__ import annotations
@@ -67,14 +76,15 @@ def _px(rule: str, prop: str) -> int:
     return int(found.group(1))
 
 
-def test_the_logo_height_is_one_css_rule():
-    """The logo's height is `.site-brand img{height:48px}` and nothing else.
+def test_the_logo_height_stands_in_the_css_and_nowhere_else():
+    """The logo's height is `.site-brand img{height:…}` — the base rule and the
+    one from 1 200 px (#1621) — and nothing else.
 
     #1588 replaced the `calc(var(--balk) - 2 * var(--lucht))` on the `<img>` by
-    this rule; a size utility on the image would be a second number beside it.
+    the rule; a size utility on the image would be a second number beside it.
     """
-    (rule,) = _css_rules(".site-brand img")
-    assert _px(rule, "height") == 48
+    rule, wide = _css_rules(".site-brand img")
+    assert (_px(rule, "height"), _px(wide, "height")) == (48, 64)
     assert "width:auto" in rule, "the logo keeps its proportions"
 
     img = re.search(r"<img\b[^>]*>", _brand(_render(site_logo_url=LOGO)))
@@ -96,9 +106,20 @@ def test_the_band_heights_stand_once_and_the_logo_fits():
     assert [_px(rule, "height") for rule in rules] == [64, 112, 80]
     assert "grid-template-rows:64px 48px" in rules[1], "two rows from 768 px"
 
-    (logo,) = _css_rules(".site-brand img")
-    assert _px(logo, "height") + 2 * 8 <= min(_px(rule, "height") for rule in rules), (
-        "the logo no longer leaves 8 px of air in the lowest band"
+    # #1621: the logo takes what its row gives — EQUAL to the row minus 2 × 8 px,
+    # not merely fitting it. The row of the logo per breakpoint: 64 on a phone,
+    # the first row of 64 from 768 px, the band of 80 from 1 200 px.
+    phone, wide = (_px(rule, "height") for rule in _css_rules(".site-brand img"))
+    first_row = int(re.search(r"grid-template-rows:(\d+)px 48px", rules[1]).group(1))
+    assert phone == _px(rules[0], "height") - 16 == first_row - 16, (
+        f"the logo is {phone} px in a row of {_px(rules[0], 'height')} and of {first_row} px"
+    )
+    assert wide == _px(rules[2], "height") - 16, (
+        f"the logo is {wide} px in the band of {_px(rules[2], 'height')} px from 1 200 px"
+    )
+    css = BUILD_CSS.read_text()
+    assert css.index(".site-brand img{height:64px}") > css.index("@media (min-width:1200px){"), (
+        "the 64 px rule stands outside the 1 200 px block"
     )
 
     source = _render(site_logo_url=LOGO)
