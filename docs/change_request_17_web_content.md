@@ -1,7 +1,7 @@
 # Change Request 17 — Web content: pages as structured documents, one editor for three places
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · on hold — Koen answers B8
+**Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · **assigned to v2.14.0** by Koen ("zeker niet meer in v2.13"); the spike of phase 0 starts now as the first sub-issue of #1427
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
 **Reading:** A 1497 words · B 2499 · C 4727 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
@@ -111,7 +111,7 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 | R5 | A price or a date is placed as a value, not typed as a code, and shows the current value. | Should | author |
 | R6 | The newsletter and the notes on the same editor; a letter still arrives as a mail every program shows. | Could | Koen, 1 Oct; Could 4 Oct |
 | R7 | Reading works on a phone; writing there is a Could — the editor must open and save, no comfort required. | Must / Could | Koen, 1 Oct; writing Could 4 Oct |
-| R8 | The menu groups pages under sections, carries an external link, and the footer has its own short menu. | **Should** | Koen, 4 Oct (was Could) |
+| R8 | The menu groups pages under sections, carries an external link, and the footer has its own short menu — only if it comes nearly free; otherwise a follow-up change request. The order of the pages in the menu stays settable, as today. | Could | Koen, 5 Oct (Should on 4 Oct) |
 | R9 | The editor and everything it loads are served by the portal, from Europe; no data leaves. | Must | Europe First, CSP, zero Node |
 | R10 | No site builder: the organiser chooses blocks, the kit chooses the pixels. | Must (limit) | Koen, 1 and 4 Oct |
 | R11 | Embedded video or maps from outside. | Won't | the CSP forbids frames; a link card instead |
@@ -154,13 +154,13 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
-A page becomes a **structured document**: a tree of blocks in a known schema, stored as JSON, rendered by the portal to the site, to mail and to print. One vendored editor, one toolbar, a block set per place. A page has a draft and a published document, a preview, a history, and its title and documents in a **translation row per language**. Pictures come through CR-15's picker, styled by the kit; a form block places a form; a cards block holds link cards; the menu groups pages under sections; a page can be created, changed and published from outside as JSON, validated, with the same history as the screen. The association's pages convert losslessly and render identically.
+A page becomes a **structured document**: a tree of blocks in a known schema, stored as JSON, rendered by the portal to the site, to mail and to print. One vendored editor, one toolbar, a block set per place. A page has a draft and a published document, a preview, a history, and its title and documents in a **translation row per language**. Pictures come through CR-15's picker, styled by the kit; a form block places a form; a cards block holds link cards; the menu may group pages under sections (Could); a page can be created, changed and published from outside as JSON, validated, with the same history as the screen. The association's pages convert losslessly and render identically.
 
 Decisions, each with the rejected alternative (the reasoning in C4):
 
 - **Structure stored, HTML rendered** (C4.2). Rejected: keep storing editor HTML and sanitise. Only a structure renders four ways and survives edits.
 - **One document with block nodes** (C4.2). Rejected: a `page_blocks` table. A document editor already gives selection, reordering, undo.
-- **The editor: TipTap (Germany, MIT) recommended; CKEditor 5 (Poland, GPL/commercial) the alternative** (C4.1). Rejected: Trix (no document model), bare ProseMirror, the non-EU editors. One spike decides.
+- **The editor: TipTap (Germany, MIT)** — decided by Koen on 5 October 2026; the spike confirms the one-off bundle step (C4.1). Rejected: CKEditor 5 (Poland, GPL/commercial), Trix (no document model), bare ProseMirror, the non-EU editors.
 - **Vendored bundle, zero Node in the repository's build** (C4.1). Rejected: a CDN or a Node build.
 - **Draft and published as two documents, versions through `*_history`** (C4.3). Rejected: live on save.
 - **Value blocks instead of placeholder codes** (C4.4).
@@ -379,15 +379,15 @@ Purchases: none with TipTap; CKEditor 5 needs the GPL terms or a licence (Q1). *
 
 | Phase | Delivers | Migration | Failure paths that change | Validation |
 |---|---|---|---|---|
-| **0 — the spike** | TipTap and CKEditor 5 on a throwaway branch; a table round trip, a custom node, the CSP, a phone; Koen decides Q1 | none | none | C8 |
+| **0 — the spike** (starts now, 5 Oct 2026) | TipTap on a throwaway branch — the one-off bundle without Node in the repo, a table round trip, a custom node, the CSP, a phone; the measurements into C8 | none | none | C8 |
 | **1 — pages as documents** | the schema; the editor macro; the page screen with draft, publish, history, preview; the renderer and the reading-width page; `page_translations`; value blocks; the picker; JSON export and import, the schema served; the lossless migration | additive | a page is no longer live on save; an unknown block refused by name | AC1, AC3, AC4, AC6, AC7, AC10, AC11 |
 | **2 — the blocks** | table (full), columns with alignment, button, callout, link card, **cards**, **form**, gallery; the API: pages, draft, publish, reference lists | none | a deleted form renders nothing | AC2, AC8, AC9 |
 | **3 — the letter and the notes** (Could, last) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes; until then two editors coexist, a named exception on gate 14 | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
-| **4 — the menu** (Should) | parent, label, external link, footer menu | additive | none | AC12 |
+| **4 — the menu** (Could, only if nearly free) | parent, external link, footer menu; the page order already exists (`sort_order`) | additive | none | AC12 |
 | **5 — a second language** (Should, after phase 2) | the language selector, a second translation row with its menu label, `/en/`, the fallback, the public switch | none | a page without a translation falls back | walkthrough |
 | **later** | drop `content` two releases after phase 1 | contract | — | — |
 
-Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11 pilot A or is carried by phase 1; a company tenant exists (CR-19). Phase 0 can start now. **Order** (Koen, 4 Oct 2026): 0 → 1 → 2 → 5 → 4 → 3.
+Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11 pilot A or is carried by phase 1; a company tenant exists (CR-19). Phase 0 can start now. **Order** (Koen, 4 and 5 Oct 2026): 0 → 1 → 2 → 5; then 4 and 3, both Could, only when they come nearly free — otherwise a follow-up change request.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -398,15 +398,7 @@ Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11
 
 ## B8. Open decisions — what the approver still decides
 
-| # | Question | Recommendation | What the answer changes |
-|---|---|---|---|
-| Q1 | The editor: TipTap (MIT) or CKEditor 5 (GPL or commercial)? | TipTap, after the spike (C4.1). | a licence question or none |
-| Q2 | The menu as a Should in phase 4 — confirmed? | Yes: a company site has sections. | phase 4 |
-| Q6 | Start the spike now? | Yes. | the first sub-issue of #1427 |
-| Q8 | The activity's description on the same editor later? | Yes, later. | later |
-| Q9 | Merged cells in tables? | Not in phase 1. | the table node |
-| Q10 | Form block and cards block in phase 2? | Yes. | phase 1 stays smaller |
-| Q11 | A second language: only the public content, or also the app's words? | Only the content. | an extra issue or none |
+None. Koen closed Q1, Q2, Q6, Q8, Q9, Q10 and Q11 on 5 October 2026 (B9); the spike's findings land in C8 and change C4.1 only if the bundle step fails.
 
 ## B9. Decisions log — dated answers
 
@@ -418,6 +410,7 @@ Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11
 | 1 Oct 2026 | Web content management as a whole, talked through first; no site builder. | Koen |
 | 4 Oct 2026 | **The frame**: the association's sites do not change; the subject is a company tenant's site, kept abstract. | Koen |
 | 4 Oct 2026 | Form block (R13), cards block (R14), kit-styled pictures (R4), columns middle beside a figure; a translation row from phase 1 (R15); a JSON door (R16); the menu to Should (R8); the three newsletter choices decide the blocks (F9). | Koen |
+| 5 Oct 2026 | **TipTap** is the editor (B8 Q1 closed; the spike of phase 0 confirms the bundle step). **The menu back to Could** (R8, phase 4): sections, an external link and a footer menu only if they come nearly free, otherwise a follow-up change request; the order of the pages stays settable as today. **The activity's description on the same editor is a Could outside this change** — a follow-up, not a phase here (B8 Q8 closed). **A second language is the public content only; the back office stays Dutch** (B8 Q11 closed). **Merged cells in tables are a Could outside this change** (B8 Q9 closed). **The form block and the cards block in phase 2** (B8 Q10 closed). **The spike starts now** as the first sub-issue of #1427 (B8 Q6 closed); **the change request is assigned to v2.14.0**, not v2.13.0. B8 is empty: the design is decided. | Koen |
 | 4 Oct 2026 | **Six answers**: R6 and writing on a phone to Could; R12 stays Won't; cards are layout (R14); English soon — phase 5 after phase 2, `/en/` prefix (R15); the JSON door also creates and publishes, for a CLI (R16). | Koen |
 | 1 Oct 2026 | *Proposed:* C4.1–C4.7; TipTap recommended, decided after the spike. | author |
 
@@ -620,8 +613,8 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 | Q5 | 1 Oct 2026 | One editor for CMS, newsletter and meeting; what each may do? (master CLI) | C4.5: one macro, three sets. |
 | Q6 | 1 Oct 2026 | Mobile first; and the order with CR-11 and CR-15? (master CLI) | C4.6. The order question dissolved on 4 Oct 2026: CR-15's picker is built, CR-11's document layout is decided per block; phase 0 can start now (B8 Q6). |
 | Q7 | 1 Oct 2026 | Deliberately not: no site builder? (master CLI) | C4.7 and Non-goals. |
-| Q8 | 1 Oct 2026 | The activity's description on the same editor later? (author) | *Proposed:* yes, a fourth set after phase 1. *Koen decides.* |
-| Q9 | 1 Oct 2026 | Merged cells in tables? (author) | *Proposed:* not in phase 1. *Koen decides.* |
+| Q8 | 1 Oct 2026 | The activity's description on the same editor later? (author) | A Could outside this change (Koen, 5 Oct 2026): a follow-up when wanted, not a phase of CR-17. |
+| Q9 | 1 Oct 2026 | Merged cells in tables? (author) | A Could outside this change (Koen, 5 Oct 2026): not built in CR-17; a follow-up when a page asks for it. |
 | Q10 | 4 Oct 2026 | Which site is this for? (Koen) | Not the association's: those sites are good and do not change (R17, C4.12). The public site of a tenant of the kind company (CR-19), kept abstract here; the CMS's capabilities are the subject. |
 | Q11 | 4 Oct 2026 | A text beside a contact form, as on an outside site Koen showed? (Koen) | A **form block** (R13, C4.9) in two columns: the forms module's form rendered inside the page, submissions as today; not intro and side texts inside the forms module. Phase 2 (B8 Q10). |
 | Q12 | 4 Oct 2026 | Something decent graphically — a picture with rounded corners and a shadow: in the CMS or in an image editor? (Koen) | In the kit (R4, C4.8): every picture gets the site's radius and shadow by rule; the file stays clean because it also serves the poster and the mail. A photo beside a heading, a text and a button is the columns block with middle alignment. |
@@ -632,6 +625,7 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 
 ## Non-goals — deliberately outside this change
 
+- Merged cells in tables, and the activity's description on the same editor — both Could, follow-ups when wanted (Koen, 5 October 2026).
 - A site builder: themes, free placement, per-page templates, colours or widths per block, a plugin system, a second site per tenant (R10).
 - Embedded frames (video, maps): the CSP forbids them; a link card instead (R11).
 - Comments, search, scheduled publishing, approval workflows.
