@@ -1,0 +1,15 @@
+{# The total of a registration that is being edited (#613-4, #670): without an
+   amount you do not see what you change. Since #1287 it is the only amount —
+   no line amount, as on the registration form.
+
+   Its own partial since #1613: a changed counter asks THIS and nothing else.
+   Until then the answer was the whole edit panel, drawn from what is stored —
+   so everything typed in the panel and not saved yet (a name, an e-mail
+   address, the remark, another counter) was put back at every change of a
+   quantity. What the server derives is the total; the fields are the board
+   member's. #}
+{% if product_rows %}
+<div data-registration-total class="flex justify-end border-t border-gray-200 pt-2 font-medium">
+  {{ _("Totaal") }}: € {{ totaal|geld }}
+</div>
+{% endif %}

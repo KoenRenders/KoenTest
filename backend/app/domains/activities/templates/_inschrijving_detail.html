@@ -109,29 +109,29 @@
       {# #1494: every product of the component, as on the registration form — the
          one product row (#1287), 0 is "not chosen". A changed counter
          recalculates the total at once, server-side (§19.3); Save applies the
-         differences. No "Verwijderen" and no "Product toevoegen": one way. #}
-      <div class="space-y-2">
+         differences. No "Verwijderen" and no "Product toevoegen": one way.
+
+         #1613: that recalculation answers the TOTAL (`_inschrijving_totaal.html`)
+         and never a field — the pattern of #1596. The counters share one queue
+         (`hx-sync` on this block, `replace`), so an older answer is never the
+         last word, and they ask again on `input`: a digit that arrives without
+         a key counts too. #}
+      <div id="reg-prijsblok-{{ reg.id }}" class="space-y-2">
         {% for p in product_rows %}
         {% set price %}{% if p.unit_price is not none %}€ {{ p.unit_price|geld }}{% endif %}{% endset %}
         {{ rows.product_row(p.name, price, "product_" ~ p.id, "product-" ~ reg.id ~ "-" ~ p.id,
                             p.quantity, min=0,
                             attrs='hx-post="' ~ _base ~ '/totaal"'
                                   ' hx-include="closest form"'
-                                  ' hx-target="closest .bg-gray-50" hx-swap="outerHTML"'
-                                  ' hx-trigger="change, keyup delay:300ms"') }}
+                                  ' hx-target="#reg-totaal-' ~ reg.id ~ '" hx-swap="innerHTML"'
+                                  ' hx-sync="#reg-prijsblok-' ~ reg.id ~ ':replace"'
+                                  ' hx-trigger="change, input delay:300ms"') }}
         {% else %}
         <div class="text-gray-400">{{ _("Geen producten") }}</div>
         {% endfor %}
       </div>
 
-      {# Totaal in het paneel (#613-4): zonder bedragen zie je niet wat je wijzigt.
-         Loopt sinds #670 mee met een gewijzigd aantal; sinds #1287 is het het enige
-         bedrag — geen regelbedrag meer, net als op het inschrijfformulier. #}
-      {% if product_rows %}
-      <div class="flex justify-end border-t border-gray-200 pt-2 font-medium">
-        {{ _("Totaal") }}: € {{ totaal|geld }}
-      </div>
-      {% endif %}
+      <div id="reg-totaal-{{ reg.id }}">{% include "_inschrijving_totaal.html" %}</div>
 
 
       <div>
