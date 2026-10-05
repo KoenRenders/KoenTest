@@ -28,6 +28,7 @@ tests that post "now", whose session then commits under the page).
 
 from __future__ import annotations
 
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -125,9 +126,13 @@ def test_a_page_refuses_now_without_a_required_answer(client, db_session, sint, 
 
     r = _post_page(client, sint, channel, data)
 
-    assert r.status_code == 200
-    assert "Verhaal" in r.text and "ring-red-600" in r.text, "the refused question is not named"
-    assert 'value="Ward Vragen"' in r.text, "the page did not keep the values"
+    # #1589: the refusal is the banner alone, naming the question by its field
+    # (`f<id>`); the page is not redrawn, so everything typed stays where it is.
+    story = _field(sint.form, "Verhaal")
+    assert r.status_code == 422
+    assert f'data-error-for="f{story.id}"' in r.text, "the refused question is not named"
+    assert "Verhaal" in r.text
+    assert "<input" not in r.text, "the answer redraws the form"
     assert len(_registrations(db_session, sint)) == before
     assert _submissions(db_session, sint) == 0
 
@@ -180,7 +185,8 @@ def test_now_links_a_submission_of_the_components_form(client, db_session, sint,
 
 def test_the_page_offers_the_choice_now_by_default(client, sint):
     html = client.get(f"/activiteiten/{sint.activity.id}/inschrijven/{sint.component.id}").text
-    assert 'name="questions" value="now" @change="nu = true" checked' in html
+    assert re.search(r'name="questions" value="now"[^>]* checked', html)
+    assert not re.search(r'name="questions" value="later"[^>]* checked', html)
     assert f'name="f{_field(sint.form, "Verhaal").id}"' in html
     assert 'name="remarks"' not in html, "the remarks box shows next to the questions (F3)"
 

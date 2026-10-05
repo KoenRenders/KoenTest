@@ -1,93 +1,83 @@
 {% import "_macros.html" as ui %}
-{# The fields of the one registration form (#1284): the public page
-   (`inschrijven.html`, a modal until CR-14 phase 1) and the board's page (`admin_inschrijving_nieuw.html`)
-   both include this, inside their own <form>. What differs per channel comes in
-   through the context (`registration_form.form_context`): the URLs, the
-   products, whose member price, and whether the e-mail address refreshes the
-   prices. #}
-    <div class="grid grid-cols-1 gap-3">
-      <div>{{ ui.label(_("Naam"), "contact_name", required=True) }}
-        {{ ui.input_control("contact_name", id="contact_name", value=values.get("contact_name", person.first_name ~ " " ~ person.last_name if person else ""), required=True, cls="w-full") }}</div>
-      <div>{{ ui.label(_("E-mailadres"), "contact_email", required=True) }}
-        {# #1284: on the board's form the member price follows the TYPED address,
-           so the price block (rows and total) is refreshed when it changes. The
-           public form prices by the signed-in person and never by what is typed
-           here: it has no `prijzen_url`. #}
-        {{ ui.input_control("contact_email", id="contact_email", type="email", value=values.get("contact_email", ""), required=True, cls="w-full",
-                            attrs=('hx-post="' ~ prijzen_url ~ '" hx-include="closest form" hx-target="#prijsblok-' ~ component.id ~ '" hx-swap="innerHTML" hx-trigger="change"') if prijzen_url else "") }}</div>
-      <div>{{ ui.label(_("Mobiel nummer"), "phone", required=True) }}
-        {{ ui.input_control("phone", id="phone", type="tel", value=values.get("phone", ""), required=True, cls="w-full") }}</div>
-    </div>
-    {% if component.team_name_required %}
-    <div>{{ ui.label(_("Ploegnaam"), "team_name", required=True) }}
-      {{ ui.input_control("team_name", id="team_name", value=values.get("team_name", ""), required=True, cls="w-full") }}</div>
-    {% endif %}
-    {# #1284: products and total in one block, so the board can refresh both when
-       the typed address turns out to be a member's: the rows then show the
-       member price like the public form does for a signed-in member. The fields
-       above (the address being typed in) stay out of it and keep their focus;
-       the quantities travel along with the form and come back as they were. #}
-    {# `space-y-3`: the rows and the total inside this block are no longer
-       children of the form, so the form's own `space-y-3` does not reach them
-       — without it the stepper touched the total (Koen on HDEV, #1284 reopened
-       after #1286). The same 12 px as when they were the form's children. #}
-    <div id="prijsblok-{{ component.id }}" class="space-y-3">
+{# The sections of the one registration form (#1284), on the public form page
+   (CR-11 pilot B, #1589; `docs/design-system-end-state.md` §2.6): Contact → Je
+   deelname → the component's questions → Betalen. The public page and the
+   board's page both include this through `_inschrijf_formulier.html`. What
+   differs per channel comes in through the context
+   (`registration_form.form_context`): the URLs, the products, whose member
+   price, and whether the e-mail address refreshes the prices.
+
+   Every field is the kit's `ui.field`: a refusal names a field by its name and
+   `record-form.js` marks it. Nothing is `required` for the browser — the form
+   is `novalidate`, so the message is always the kit's. #}
+{% call ui.section(_("Contact")) %}
+  {# The member nudge: only on the public page, a quiet brand block above the
+     contact fields (§2.6). The board registers for somebody else. #}
+  {% if not prijzen_url %}{% include "_member_nudge.html" %}{% endif %}
+  {{ ui.field("contact_name", _("Naam"), required=True, attrs='autocomplete="name"',
+              value=values.get("contact_name", person.first_name ~ " " ~ person.last_name if person else "")) }}
+  {# #1284: on the board's form the member price follows the TYPED address,
+     so the price block (rows and total) is refreshed when it changes. The
+     public form prices by the signed-in person and never by what is typed
+     here: it has no `prijzen_url`. #}
+  {{ ui.field("contact_email", _("E-mailadres"), kind="email", required=True, value=values.get("contact_email", ""),
+              attrs=('autocomplete="email" hx-post="' ~ prijzen_url ~ '" hx-include="closest form" hx-target="#prijsblok-' ~ component.id ~ '" hx-swap="innerHTML" hx-trigger="change"') if prijzen_url else 'autocomplete="email"') }}
+  {{ ui.field("phone", _("Mobiel nummer"), kind="phone", required=True, value=values.get("phone", ""), attrs='autocomplete="tel"') }}
+  {% if component.team_name_required %}
+  {{ ui.field("team_name", _("Ploegnaam"), required=True, value=values.get("team_name", "")) }}
+  {% endif %}
+{% endcall %}
+
+{% call ui.section(_("Je deelname")) %}
+  {# #1284: products and total in one block, so the board can refresh both when
+     the typed address turns out to be a member's: the rows then show the
+     member price like the public form does for a signed-in member. The
+     quantities travel along with the form and come back as they were.
+     `data-field="products"`: a refusal ("Selecteer minstens één product.") is
+     marked here. #}
+  <div data-field="products" data-span="full" class="min-w-0">
+    <div id="prijsblok-{{ component.id }}" class="grid gap-3">
       {% include "_inschrijf_prijsblok.html" %}
     </div>
-    {% if vragen %}
-    {# CR-14 phase 2 (§B4.8), #1380: the component's questions in the form's OWN
-       block (`_formulier_vragen.html`) — its title and description, its section
-       cards, its spacing — the same the form's own page renders, so an improvement
-       there reaches the registration. What the registration adds sits between the
-       head and the cards: one white card with the choice, "nu" by default on both
-       pages. "Later" hides the cards only; the title, the description and the
-       choice stay. The questions are never `required` in the browser here — hidden
-       behind "later" they would block the submit; the server judges them
-       (`build_answers`) and names the one it refuses. #}
-    {% from "_formulier_vragen.html" import vragen_kop, vragen_kaarten with context %}
-    <div x-data="{ nu: {{ 'true' if vragen_nu else 'false' }} }">
-      <div>{{ vragen_kop(vraagformulier, heading="h2") }}</div>
-      <div class="space-y-6">
-        {% call ui.card() %}
-        <fieldset>
-          <legend class="text-sm font-medium text-ink mb-1">{{ _("Vragen") }}</legend>
-          <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="questions" value="now" @change="nu = true" {% if vragen_nu %}checked{% endif %}> {{ _("Nu invullen") }}</label>
-          <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="questions" value="later" @change="nu = false" {% if not vragen_nu %}checked{% endif %}> {{ _("Later, via de link in de bevestigingsmail") }}</label>
-        </fieldset>
-        {% endcall %}
-        {{ vragen_kaarten(vraag_groepen, vraag_los, browser_required=False, vraag_fout=vraag_fout,
-                          cards_attrs='id="inschrijf-vragen" x-show="nu"' ~ ('' if vragen_nu else ' style="display: none"')) }}
-      </div>
-    </div>
-    {% else %}
-    {# CR-14 F3: with questions the form asks for remarks itself if it wants them. #}
-    <div>{{ ui.label(_("Opmerkingen"), "remarks") }}
-      {{ ui.textarea_control("remarks", id="remarks", rows=2, value=values.get("remarks", ""), placeholder=_("Eventuele boodschap voor de organisatie…"), cls="w-full") }}</div>
-    {% endif %}
-    {# Betaalwijze enkel als er iets af te rekenen valt (#607) — dezelfde
-       `heeft_prijs`-voorwaarde als het totaal hierboven. Bij een volledig gratis of
-       ter-plaatse-onderdeel is de keuze betekenisloos; het zichtbare totaal vertelt
-       nu of er iets te betalen is, dus het label heeft geen "(bij betalend deel)"
-       meer nodig. #}
-    {% if heeft_prijs %}
-    <div>
-      {{ ui.label(_("Betaalwijze"), "payment_method") }}
-      {# F21 (#996): de volle labelregel is aanklikbaar (44px) en de keuze
-         benoemt haar gevolg — zelfde uitleg als op Word-lid. #}
-      {# Onder elkaar en compact, zoals productie (Koen, 19 sep): geen
-         min-h-11 — de opgerekte tikregels dreven de keuzes uit elkaar. De
-         volle labelregel blijft aanklikbaar. #}
-      {# CR-12 phase 1: the radio values are the codes of `mdm.payment_method_codes`.
-         They used to be ONLINE/OVERSCHRIJVING and were stored verbatim, while the
-         payment record next to it stored online/transfer — one list, two
-         spellings. With the FK on the column, a registration by bank transfer
-         fails as soon as this form does not change along with it, so this belongs
-         in the same commit as the migration. #}
-      <div x-data="{ pm: '{{ values.get('payment_method', 'online') }}' }">
-      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="online" x-model="pm" {% if values.get('payment_method', 'online') == 'online' %}checked{% endif %}> {{ _("Online betalen") }}</label>
-      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="transfer" x-model="pm" {% if values.get('payment_method') == 'transfer' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
-      <p class="text-xs text-ink-soft" x-show="pm === 'online'">{{ _("Na het versturen ga je meteen naar de beveiligde betaalpagina.") }}</p>
-      <p class="text-xs text-ink-soft" x-show="pm === 'transfer'" x-cloak>{{ _("Na het versturen ontvang je de betaalinstructies per e-mail.") }}</p>
-      </div>
-    </div>
-    {% endif %}
+  </div>
+  {% if deelnemers_url|default(None) %}
+  {# "Wie doet er mee?" stays a compact inline link (fixed UI decision). #}
+  <p data-span="full" class="text-sm"><a class="text-link underline" href="{{ deelnemers_url }}">{{ _("Wie doet er mee?") }}</a></p>
+  {% endif %}
+  {% if not vragen %}
+  {# CR-14 F3: with questions the form asks for remarks itself if it wants them. #}
+  {{ ui.field("remarks", _("Opmerkingen"), kind="textarea", rows=2, value=values.get("remarks", ""),
+              placeholder=_("Eventuele boodschap voor de organisatie…")) }}
+  {% endif %}
+{% endcall %}
+
+{% if vragen %}
+{# CR-14 phase 2 (§B4.8), #1380: the component's questions, rendered by the
+   form builder's own partial (`_formulier_vragen.html`) — the same cards the
+   form's own page shows. What the registration adds is the choice above them:
+   "nu" by default on both pages. "Later" hides the questions and says where the
+   link comes; hidden, they are not judged — the server reads `questions`
+   (`registration_form.submit`). #}
+{% from "_formulier_vragen.html" import vragen_kaarten with context %}
+{% call ui.section(_("Vragen bij de inschrijving")) %}
+  {% if vraagformulier.description %}<p data-span="full" class="text-sm text-ink-soft whitespace-pre-wrap">{{ vraagformulier.description }}</p>{% endif %}
+  {{ ui.field("questions", _("Wanneer vul je de vragen in?"), kind="radio_group", value=("now" if vragen_nu else "later"),
+              options=[("now", _("Nu invullen")), ("later", _("Later"), _("Via de link in de bevestigingsmail."))]) }}
+  <p data-span="full" data-questions-later class="text-sm text-ink" x-show="!nu"{% if vragen_nu %} style="display: none"{% endif %}>{{ _("Je kan deze vragen later invullen via de link in je bevestigingsmail.") }}</p>
+{% endcall %}
+{{ vragen_kaarten(vraag_groepen, vraag_los,
+                  cards_attrs='id="inschrijf-vragen" x-show="nu"' ~ ('' if vragen_nu else ' style="display: none"')) }}
+{% endif %}
+
+{# Betaalwijze enkel als er iets af te rekenen valt (#607) — dezelfde
+   `heeft_prijs`-voorwaarde als het totaal hierboven. #1589 (§2.6): required,
+   two vertical radios, each with its consequence under it; "online" is chosen
+   when the page opens (the fixed decision). The values are the codes of
+   `mdm.payment_method_codes` (CR-12 phase 1). #}
+{% if heeft_prijs %}
+{% call ui.section(_("Betalen")) %}
+  {{ ui.field("payment_method", _("Betaalwijze"), kind="radio_group", required=True, value=values.get("payment_method", "online"),
+              options=[("online", _("Online betalen"), _("Na het verzenden ga je naar de beveiligde betaalpagina.")),
+                       ("transfer", _("Overschrijving"), _("De betaalgegevens staan in de bevestiging."))]) }}
+{% endcall %}
+{% endif %}

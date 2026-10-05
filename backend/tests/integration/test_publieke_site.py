@@ -40,7 +40,10 @@ def test_cms_slug_pagina(client, db_session):
 
 def test_betaling_resultaat_paginas(client, db_session):
     ok = client.get("/betaling/succes")
-    assert ok.status_code == 200 and "Betaling ontvangen" in ok.text
+    # #1589: a received payment is reported only when the provider confirmed it
+    # (`test_payment_return_page.py`); without a reference the page claims nothing.
+    assert ok.status_code == 200 and "Je betaling wordt verwerkt" in ok.text
+    assert "Betaling ontvangen" not in ok.text
     nok = client.get("/betaling/geannuleerd")
     assert nok.status_code == 200 and "geannuleerd" in nok.text
 

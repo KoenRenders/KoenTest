@@ -49,7 +49,7 @@ from tests_e2e.schermen import BASE, open_registration  # noqa: E402
 
 BREED, SMAL = 1440, 390
 MIN_RAAKVLAK = 44  # #804, en de reden dat deze teller bestaat
-DESKTOP_HOOGTE = 36  # punt 4: lichter zodra er een muis is
+DESKTOP_HOOGTE = 44  # #1589: de publieke pagina houdt de aanraakmaat, ook met een muis
 
 # Eén lang, onbreekbaar woord. Zie de kop: Koens eigen zin knijpt de doos niet
 # meer zodra de desktopmaat gedaald is, en dan bewijst de tegenproef niets.
@@ -230,12 +230,14 @@ def test_the_touch_target_stays_44_on_a_phone(lange_naam):
         )
 
 
-def test_the_stepper_is_lighter_on_a_desktop(lange_naam):
-    """Punt 4. De maat zakt naar ~36 px zodra er een muis is; dat scheelt op een
-    regel met een productnaam en een prijs ernaast.
+def test_the_stepper_keeps_its_touch_size_on_a_desktop(lange_naam):
+    """Punt 4 van #1200 liet de maat op een desktop naar 36 px zakken. #1589
+    (CR-11 pilot B, beslissing 12): op de publieke formulierpagina houdt de
+    teller zijn 44 px ook op een desktop — "een aparte 36 px-variant voegt hier
+    weinig toe". De lichtere maat blijft bestaan waar een inschrijving in het
+    beheer bewerkt wordt (`ui.stepper` zonder `touch`).
 
-    Samen met de vorige test is dit het paar dat telt: één maat alleen zou je
-    kunnen halen door overal te verkleinen, en dan sneuvelt het aanraakvlak.
+    Proven red: `touch=True` uit `_inschrijf_prijsblok.html` → 36 px.
     """
     stand = _meet(lange_naam, BREED)
 
@@ -247,7 +249,7 @@ def test_the_stepper_is_lighter_on_a_desktop(lange_naam):
     assert stand["veld"]["hoogte"] == DESKTOP_HOOGTE, (
         f"het getalveld is {stand['veld']['hoogte']} px hoog, verwacht {DESKTOP_HOOGTE}"
     )
-    assert stand["doos"]["breedte"] < 144, (
-        f"de teller is {stand['doos']['breedte']} px breed; op een desktop hoort "
-        "hij smaller te zijn dan de 144 px van vóór dit issue"
+    assert stand["doos"]["breedte"] <= 146, (
+        f"de teller is {stand['doos']['breedte']} px breed; twee knoppen van 44 px "
+        "en een veld van 56 px horen samen 144 px te zijn (plus de rand)"
     )

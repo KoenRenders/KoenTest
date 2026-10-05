@@ -131,9 +131,13 @@ def test_a_refusal_names_the_question_and_keeps_the_answers(client, db_session, 
         f"/inschrijving/{later.token}/vragen",
         data={f"f{slot.id}": str(slot.options[1].id), f"f{story.id}": ""},
     )
-    assert r.status_code == 200
-    assert "Verhaal" in r.text and "ring-red-600" in r.text
-    assert f'value="{slot.options[1].id}"' in r.text and "checked" in r.text
+    # #1589: the refusal is the banner alone, for the form page's message line,
+    # naming the question by its field; the page is not redrawn, so the answers
+    # given stay where they are.
+    assert r.status_code == 422
+    assert r.headers["HX-Retarget"] == "#formulier-melding"
+    assert f'data-error-for="f{story.id}"' in r.text and "Verhaal" in r.text
+    assert "<input" not in r.text
     db_session.expire_all()
     assert db_session.get(Registration, later.registration.id).answer_token == later.token
 

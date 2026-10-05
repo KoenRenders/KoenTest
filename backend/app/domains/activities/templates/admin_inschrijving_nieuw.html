@@ -7,15 +7,17 @@
    uitzondering van de terugroutering en de producten die enkel in de backoffice
    zichtbaar zijn"). It hangs on the person of the typed address, never on the
    board member who sends it. A list of names on paper is one registration with
-   a quantity, with the names in the remarks, which the door list prints. #}
-<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="{{ terug_url }}">{{ _("‹ Inschrijvingen") }}</a></p>
-<div id="inschrijving-nieuw">
-{{ ui.page_header(_("Inschrijving toevoegen"), a.name) }}
-{{ ui.error_banner(error) }}
+   a quantity, with the names in the remarks, which the door list prints.
 
+   #1589 (§2.6): the same section cards and the same action bar as the public
+   page (`_inschrijf_formulier.html`), in the admin shell — left-aligned, as the
+   admin's records are. #}
+<div id="inschrijving-nieuw">
+{% call ui.public_form_page(_("Inschrijving toevoegen"), intro=a.name, back_href=terug_url, back_label=_("Inschrijvingen"), shell="admin") %}
+{% if not onderdeel_id %}{{ ui.error_banner(error) }}{% endif %}
 {% if onderdelen|length > 1 %}
-<div class="mb-4">
-  <p class="text-sm font-medium text-gray-700 mb-2">{{ _("Onderdeel") }}</p>
+<div class="mb-6" data-component-switch>
+  <p class="text-sm font-medium text-ink mb-2">{{ _("Onderdeel") }}</p>
   <div class="flex flex-wrap gap-2">
     {% for o in onderdelen %}
     {% if o.gekozen %}{{ ui.btn_primary(o.naam, type="button", size="sm") }}{% else %}{{ ui.btn_secondary(o.naam, href=o.url, size="sm") }}{% endif %}
@@ -23,22 +25,13 @@
   </div>
 </div>
 {% endif %}
-
 {% if onderdeel_id %}
-{# #1284: the fields are the public form's, from the same template and the same
-   context builder (`_inschrijf_velden.html`, `form_context`): prices, the total
-   that follows every change, the member price of the typed address, and online
-   payment through Mollie. Only the page around them is the board's. #}
-<form id="inschrijving-nieuw-form" hx-post="{{ form_url }}" hx-target="#inschrijving-nieuw"
-      hx-select="#inschrijving-nieuw" hx-swap="outerHTML" hx-disinherit="hx-select hx-swap"
-      class="space-y-3 max-w-xl">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <input type="hidden" name="onderdeel" value="{{ onderdeel_id }}">
-  {% include "_inschrijf_velden.html" %}
-  {{ ui.action_bar(save_label=_("Inschrijving toevoegen"), form="inschrijving-nieuw-form", cancel_href=terug_url) }}
-</form>
+{% set reg_target = "#inschrijving-nieuw" %}
+{% set reg_board = True %}
+{% include "_inschrijf_formulier.html" %}
 {% else %}
 {{ ui.empty_state(_("Kies eerst een onderdeel.") if onderdelen else _("Deze activiteit heeft nog geen onderdeel.")) }}
 {% endif %}
+{% endcall %}
 </div>
 {% endblock %}

@@ -339,7 +339,7 @@ def _compare(screen: str, fragment: str) -> None:
 def test_the_public_form_renders_every_type_as_before(client, form):
     page = client.get(f"/formulier/{SHARE_TOKEN}")
     assert page.status_code == 200
-    blocks = _elements(page.text, r'<div data-veld="')
+    blocks = _elements(page.text, r'<div data-(?:field="f|form-info=")')
     assert len(blocks) == len(FIELDS) + 1, "one block per question"
     _compare("public", "\n".join(blocks))
 
@@ -347,7 +347,7 @@ def test_the_public_form_renders_every_type_as_before(client, form):
 def test_the_edit_link_renders_every_answer_as_before(client, form):
     page = client.get(f"/formulier/{SHARE_TOKEN}/edit/{EDIT_TOKEN}")
     assert page.status_code == 200
-    blocks = _elements(page.text, r'<div data-veld="')
+    blocks = _elements(page.text, r'<div data-(?:field="f|form-info=")')
     assert "Een antwoord" in page.text, "the edit link shows the stored answers"
     _compare("edit", "\n".join(blocks))
 

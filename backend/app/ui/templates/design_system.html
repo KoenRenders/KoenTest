@@ -238,7 +238,6 @@
         <option selected>{{ _("Open") }}</option><option>{{ _("Gesloten") }}</option>
       {% endcall %}
     </div>
-    {{ ui.vraag(_("En dit is een vraag op een publiek formulier"), "los_vraag", required=True) }}
     {{ ui.upload_field(name="affiche", text=_("Affiche")) }}
   </div>
 {% endcall %}
@@ -1003,6 +1002,35 @@
          {"name": "kit_prop_place", "label": _("Locatie"), "value": _("Parochiezaal, Dorpsstraat"), "base": _("Parochiezaal")},
          {"name": "kit_prop_text", "label": _("Omschrijving"), "value": _("Een wandeling van acht kilometer, met soep achteraf."), "base": _("Samen op pad.")}]) }}
   </div>
+</div>
+
+{# ── 13g. The public form page (CR-11 pilot B, #1589; end state §2.6) ───────
+   The frame of the public forms and the words of a form that is SENT: the
+   same banner and the same bar as 13e, with the verb of the act. Here in the
+   admin shell, so left-aligned; on the site the column is centred and the
+   title stands in the site's heading face. #}
+{{ ui.section_header(_("13g · Publieke formulierpagina"), cls="mt-10") }}
+<p class="text-sm text-gray-600 mb-3">
+  {{ _("Eén kolom van 768 px met een kaart per sectie en één actiebalk. De knop benoemt de vervolgstap; een teller houdt zijn 44 px ook op desktop. Geen regel “* Verplicht veld”.") }}
+</p>
+<div data-kit-public-form>
+{% call ui.public_form_page(_("Herfstwandeling"), intro=_("zaterdag 17 oktober 2026"), back_href="#", back_label=_("Terug"), shell="admin") %}
+<div class="form-flow">
+  {% call ui.flow_card(_("Betaling nog af te ronden")) %}
+    <p>{{ _("Een kaart met woorden, geen velden: wat een bevestiging nog te zeggen heeft.") }}</p>
+  {% endcall %}
+  {{ ui.save_refusal([{"field": "kit_pf_name", "message": _("Vul je naam in.")}], send=True) }}
+  {% call ui.form_grid() %}
+    {{ ui.field("kit_pf_name", _("Naam"), id="kit-pf-name", required=True, value="") }}
+    {{ ui.field("kit_pf_pay", _("Betaalwijze"), kind="radio_group", id="kit-pf-pay", required=True, value="online",
+                options=[("online", _("Online betalen"), _("Na het verzenden ga je naar de beveiligde betaalpagina.")),
+                         ("transfer", _("Overschrijving"), _("De betaalgegevens staan in de bevestiging."))]) }}
+    <div data-span="full">{{ ui.stepper("kit_pf_qty", id="kit-pf-qty", value=1, touch=True) }}</div>
+  {% endcall %}
+  {{ ui.action_bar(record=True, send=True, cancel_href="#", save_attrs='type="button"',
+                   save_label=_("Inschrijven en betalen"), busy_label=_("Inschrijven…")) }}
+</div>
+{% endcall %}
 </div>
 
 {# ── 14. Publieke schil ────────────────────────────────────────────────────── #}

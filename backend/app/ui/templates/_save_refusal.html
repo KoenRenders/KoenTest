@@ -1,0 +1,5 @@
+{% import "_macros.html" as ui %}
+{# Why a form was refused (#1561, #1589): the banner alone, for the form's
+   message line — the form stays as it was typed and `record-form.js` marks the
+   fields the banner names. Answered by `app.ui.refusal_response`. #}
+{{ ui.save_refusal(errors, send=send) }}

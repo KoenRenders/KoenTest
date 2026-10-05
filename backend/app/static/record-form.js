@@ -179,6 +179,17 @@
     setSaving(form, true);
   });
 
+  /* A good answer that sends the browser on (`HX-Redirect` — the payment page,
+     the saved registration): the form is done, so leaving it asks nothing. */
+  document.addEventListener("htmx:beforeOnLoad", function (event) {
+    var form = event.detail.elt;
+    var xhr = event.detail.xhr;
+    if (!form || !form.matches || !form.matches("form[data-record-form]") || !xhr) return;
+    if (xhr.status < 300 && (xhr.getResponseHeader("HX-Redirect") || xhr.getResponseHeader("HX-Location"))) {
+      form.raakLeaving = true;
+    }
+  });
+
   document.addEventListener("htmx:afterRequest", function (event) {
     var form = event.detail.elt;
     if (form && form.matches && form.matches("form[data-record-form]") && form.isConnected) setSaving(form, false);
@@ -259,6 +270,14 @@
       banner.raakShown = true;
       showRefusal(form, banner);
     }
+  });
+
+  /* A good answer that IS the result — the confirmation, the thank-you page —
+     takes the form's place: its title gets the focus, so a screen reader hears
+     what happened and the keyboard starts at the top of it. */
+  document.addEventListener("htmx:afterSettle", function (event) {
+    var page = event.target && event.target.querySelector && event.target.querySelector("[data-public-form-page][data-result] h1");
+    if (page) page.focus({ preventScroll: true });
   });
 
   document.addEventListener("click", function (event) {

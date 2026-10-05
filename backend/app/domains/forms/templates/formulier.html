@@ -3,206 +3,121 @@
 {% block title %}{{ form.title }} — Raak{% endblock %}
 {% block meta %}<meta name="robots" content="noindex">{% endblock %}
 
-{% from "_formulier_vragen.html" import vragen_kop, vragen_kaarten with context %}
+{% from "_formulier_vragen.html" import vragen_kaarten with context %}
 
 {% block content %}
-{# #688: bij een wizard omvat de Alpine-scope de héle pagina, niet alleen de
-   stappen. De inleiding en de naam/e-mailkaart stonden erbuiten, dus `x-show` kon
-   er niet bij en ze bleven op élke stap staan. De TITEL blijft wel staan: die zegt
-   waar je bent, en dat wil je op elke stap zien. #}
-<div class="max-w-2xl mx-auto"{% if wizard %} x-data='formWizard({{ wizard_steps|tojson }}, {{ start_step }})' @change="recompute()"{% endif %}>
-  {# #1380: the question block — title and description (`vragen_kop`), the section
-     cards (`vragen_kaarten`) — is the shared `_formulier_vragen.html`, the same the
-     registration renders. What this page adds stays here: its error banner, the
-     name and e-mail card, the wizard's message, its submit and wizard buttons. #}
-  {{ vragen_kop(form, heading="h1", wizard=wizard) }}
-  {# #1380: a line the route adds under the description — the answer link of a
-     registration says whose registration it is. #}
-  {% if intro %}<p class="text-sm text-ink mb-4">{{ intro }}</p>{% endif %}
-  {{ ui.error_banner(error|default(None)) }}
-  {# Het enige publieke formulier dat geen htmx gebruikt: een gewone POST met
-     server-rendered antwoord. Buiten hx-boost (#634) houden zodat de
-     verzend-flow (en de URL in de geschiedenis) exact blijft zoals ze was. #}
+{# A form's own page, on the public form page (CR-11 pilot B, #1589;
+   `docs/design-system-end-state.md` §2.6): a name card with the form's name
+   and intro, then Contact (name and e-mail, once) and the questions in section
+   cards, and *Verzenden* in the action bar. ONE long page — the steps ‹ › are
+   gone, however many sections the form has.
+
+   #1380: the cards are the shared `_formulier_vragen.html`, the same the
+   registration renders. The answer link of a registration ends on this page
+   too: its route decides where it posts, that it asks no name, and the line
+   under the description (`intro`).
+
+   `#formulier-pagina` is what a good answer swaps: the thank-you page. A
+   refusal answers the banner alone, into the message line, and `record-form.js`
+   marks the question — nothing typed is lost (§3.18).
+
+   A form that BRANCHES (a section that leads to another one or ends the form,
+   an option that skips) shows only the sections on the path the answers lead
+   along (`formPath`): what the steps did, on one page. The server follows the
+   same path and judges only what lies on it (`_traversed_field_ids`); it stays
+   the truth when the two differ. #}
+<div id="formulier-pagina">
+{% call ui.public_form_page() %}
+<div data-form-flow data-mode="edit" class="form-flow"{% if path %} x-data='formPath({{ path_steps|tojson }})' @change="walk()"{% endif %}>
+  {# The name card: the form's name is the page's title. #}
+  {% call ui.flow_card(page_title=form.title, attrs="data-form-name") %}
+    {% if form.description %}<p class="mt-2 text-base leading-6 text-ink-soft whitespace-pre-wrap">{{ form.description }}</p>{% endif %}
+    {# #1380: a line the route adds — the answer link of a registration says
+       whose registration it is. #}
+    {% if intro %}<p class="mt-2">{{ intro }}</p>{% endif %}
+  {% endcall %}
+  <div id="formulier-melding" data-form-message></div>
   {# #1477: through `path_for` — a form of a tenant reached by its path prefix
      posted to the bare path and landed at the default tenant ("Formulier niet
      gevonden"); found by C6 test 13. The routes pass bare paths. #}
-  <form method="post" action="{{ path_for(form_action) }}{% if edit_token|default(None) %}/edit/{{ edit_token }}{% endif %}"
-        hx-boost="false" class="space-y-6"
-        {# #724: Verzenden is geen `next()`, dus de laatste stap heeft haar eigen
-           controle nodig — anders verschuift het probleem naar het einde. #}
-        {% if wizard %}@submit="if (!controleer()) $event.preventDefault()"{% endif %}>
+  <form id="formulier-form" class="contents" data-record-form data-message="#formulier-melding" novalidate
+        hx-post="{{ path_for(form_action) }}{% if edit_token|default(None) %}/edit/{{ edit_token }}{% endif %}"
+        hx-target="#formulier-pagina" hx-select="#formulier-pagina" hx-swap="outerHTML show:window:top"
+        hx-disinherit="hx-select hx-swap" hx-push-url="false">
     {% if show_submitter %}
-    {# #688: `required` valt weg zodra dit een wizard is, precies zoals bij de
-       sectievelden. Een verborgen veld met `required` laat de browser bij
-       verzenden falen met "An invalid form control is not focusable" — de
-       constraint-validatie wil naar een onzichtbaar veld springen en het verzenden
-       mislukt geruisloos. Dat is erger dan het probleem dat we oplossen.
-
-       Veilig, want het is niet de enige controle: `assert_submitter` in
-       `forms/service.py` weigert een niet-anonieme inzending zonder naam of geldig
-       e-mailadres al met een 422. Het HTML-attribuut was de vriendelijke variant,
-       niet de regel. Het sterretje in het label blijft: het veld is nog steeds
-       verplicht. #}
-    <div{% if wizard %} x-show="step === 0" x-cloak{% endif %}>
-    {% call ui.card() %}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>{{ ui.label(_("Naam"), "submitter_name", required=True) }}
-          {{ ui.input_control("submitter_name", id="submitter_name", value=submitter_name, required=(not wizard), cls="w-full") }}</div>
-        <div>{{ ui.label(_("E-mailadres"), "submitter_email", required=True) }}
-          {{ ui.input_control("submitter_email", id="submitter_email", type="email", value=submitter_email, required=(not wizard), cls="w-full") }}</div>
-      </div>
+    {% call ui.section(_("Contact")) %}
+      {{ ui.field("submitter_name", _("Naam"), required=True, value=submitter_name, attrs='autocomplete="name"') }}
+      {{ ui.field("submitter_email", _("E-mailadres"), kind="email", required=True, value=submitter_email, attrs='autocomplete="email"') }}
     {% endcall %}
-    </div>
     {% endif %}
-    {# #741: de melding. Zonder haar markeerde `controleer()` alleen en scrolde ze —
-       en op een keuzevraag was die markering onzichtbaar. Zelfde vorm als
-       ui.error_banner (§2.9). #}
-    {% if wizard %}
-    <div x-show="fout" x-cloak role="alert" x-text="fout"
-         class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-800"></div>
-    {% endif %}
-    {{ vragen_kaarten(grouped, loose_fields, wizard=wizard, vraag_fout=vraag_fout) }}
-    {% if wizard %}
-    {% set submit_label = _("Wijzigingen opslaan") if edit_token|default(None) else _("Verzenden") %}
-    {# #768: één voet in plaats van een losse stapregel bóven een `justify-between`
-       die de knoppen naar de uiterste randen duwt. De stapaanduiding staat er nu ín,
-       en de knoppen staan bij elkaar rechts — met "Vorige" links, want dat is de weg
-       terug en geen tegenhanger van "Volgende". #}
-    <div class="!mt-4 flex items-center gap-3" x-cloak>
-      <span class="text-xs text-gray-400" x-text="'{{ _('Stap') }} ' + (stack.length + 1)"></span>
-      <div class="ml-auto flex items-center gap-2">
-        {# x-show i.p.v. een opacity-class: Tailwind purget dynamisch-in-:class
-           gebruikte classes (opacity-0), waardoor de knop toch zichtbaar bleef (#480).
-           #768: de lege `<span>` die hier stond was een opvulling voor
-           `justify-between` — zonder "Vorige" viel "Volgende" anders naar links. In
-           een `ml-auto`-groep is dat niet meer nodig, dus ze is weg. #}
-        <button type="button" @click="prev()" x-show="stack.length > 0" x-cloak
-                class="{{ ui.btn_class('secondary') }}">‹ {{ _("Vorige") }}</button>
-        <button type="button" @click="next()" x-show="!atLast"
-                class="{{ ui.btn_class('primary') }}">{{ _("Volgende") }} ›</button>
-        <button type="submit" x-show="atLast"
-                class="{{ ui.btn_class('primary') }}">{{ submit_label }}</button>
-      </div>
-    </div>
-    {% else %}
-    {{ ui.btn_primary(_("Wijzigingen opslaan") if edit_token|default(None) else _("Verzenden")) }}
-    {% endif %}
+    {{ vragen_kaarten(grouped, loose_fields, path=path) }}
     {# #1297: the honeypot and the signed render time; the service decides. #}
     {{ ui.form_guard_fields() }}
   </form>
+  {% if edit_token|default(None) %}
+  {% set _label = _("Wijzigingen opslaan") %}{% set _busy = _("Opslaan…") %}
+  {% else %}
+  {% set _label = _("Verzenden") %}{% set _busy = _("Verzenden…") %}
+  {% endif %}
+  {{ ui.action_bar(record=True, send=True, form="formulier-form", cancel_href=path_for("/"),
+                   save_label=_label, busy_label=_busy) }}
+</div>
+{% endcall %}
 </div>
 
-{% if wizard %}
+{% if path %}
 <script>
-const MELDING = {{ _("Beantwoord eerst de gemarkeerde vragen.")|tojson }};
-document.addEventListener('alpine:init', () => {
-  Alpine.data('formWizard', (steps, startStep = 0) => ({
-    steps: steps, step: startStep, stack: [], atLast: false, fout: '',
-    init() { this.recompute(); },
-    _selected() {
-      const c = this.$root.querySelector('[data-step="' + this.step + '"]');
-      const ids = new Set();
-      if (c) {
-        c.querySelectorAll('input[type=radio]:checked, input[type=checkbox]:checked')
-          .forEach(i => ids.add(parseInt(i.value)));
-        c.querySelectorAll('select').forEach(s => { if (s.value) ids.add(parseInt(s.value)); });
-      }
-      return ids;
-    },
-    _target() {
-      const s = this.steps[this.step];
-      const sel = this._selected();
-      for (const sk of s.skips) {
-        if (sel.has(sk.opt)) {
-          if (sk.end) return 'end';
-          if (sk.section !== null && sk.section !== undefined) return sk.section;
-        }
-      }
-      if (s.end) return 'end';
-      if (s.next !== null && s.next !== undefined) return s.next;
-      if (this.step + 1 < this.steps.length) return this.step + 1;
-      return 'end';
-    },
-    recompute() { this.atLast = (this._target() === 'end'); },
-    // #724: de verplichte velden van DEZE stap, en alleen van deze stap. De server
-    // blijft de garantie — die weigert nog steeds met een 422 en slaat de niet
-    // doorlopen secties netjes over — maar zonder dit hoor je pas bij Verzenden dat
-    // de eerste vraag leeg was, en sta je dan op een stap waar je niet was.
-    //
-    // Bewust niet via het `required`-attribuut (#688): de browser valideert bij
-    // verzending het HELE formulier, ook de stappen die je door een sprong nooit
-    // ziet, en kan een verborgen veld niet aanwijzen.
-    _leegVerplicht() {
-      const c = this.$root.querySelector('[data-step="' + this.step + '"]');
-      const leeg = [];
-      if (!c) return leeg;
-      for (const id of (this.steps[this.step].req || [])) {
-        const naam = 'f' + id;
-        let gevuld = false;
-        // `_other` telt mee: bij "Anders" is de tekst het antwoord (#683).
-        c.querySelectorAll('[name="' + naam + '"], [name="' + naam + '_other"]')
-          .forEach(el => {
-            if (el.type === 'radio' || el.type === 'checkbox') {
-              if (el.checked) gevuld = true;
-            } else if ((el.value || '').trim() !== '') { gevuld = true; }
-          });
-        if (!gevuld) leeg.push(naam);
-      }
-      return leeg;
-    },
-    controleer() {
-      const c = this.$root.querySelector('[data-step="' + this.step + '"]');
-      if (!c) return true;
-      // Eerst alles schoonvegen: anders blijft een melding staan over een vraag die
-      // intussen beantwoord is, en dan is de markering ruis in plaats van uitleg.
-      this.fout = '';
-      c.querySelectorAll('[aria-invalid]').forEach(el => {
-        el.removeAttribute('aria-invalid');
-        el.classList.remove('border-red-600');
-      });
-      // #749: alleen de kleur; de rand en de insprong staan permanent in de
-      // markup, zodat de vraag niet verspringt op het moment dat ze gemarkeerd
-      // wordt.
-      c.querySelectorAll('[data-veld]').forEach(el => {
-        el.classList.remove('border-red-600');
-        el.classList.add('border-transparent');
-      });
-      const leeg = this._leegVerplicht();
-      leeg.forEach(naam => {
-        // De VRAAG markeren met een rode balk links: dat is zichtbaar bij elk
-        // veldtype, ook bij een radiogroep zonder eigen rand.
-        const blok = c.querySelector('[data-veld="' + naam + '"]');
-        if (blok) { blok.classList.remove('border-transparent');
-                    blok.classList.add('border-red-600'); }
-        c.querySelectorAll('[name="' + naam + '"]').forEach(el => {
-          el.setAttribute('aria-invalid', 'true');
-        });
-      });
-      if (!leeg.length) return true;
-      this.fout = MELDING;
-      // Naar het BLOK scrollen en niet naar het invoerveld: bij een keuzevraag staat
-      // het eerste invoerveld onder het label, en dan schuift het scherm naar iets
-      // waar de markering net buiten beeld valt.
-      const blok = c.querySelector('[data-veld="' + leeg[0] + '"]');
-      if (blok) blok.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      const eerste = c.querySelector('[name="' + leeg[0] + '"]');
-      if (eerste) eerste.focus({ preventScroll: true });
-      return false;
-    },
-    next() {
-      if (!this.controleer()) return;
-      const t = this._target();
-      if (t === 'end') return;
-      this.stack.push(this.step);
-      this.step = t;
-      this.recompute();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    },
-    prev() {
-      if (this.stack.length) { this.step = this.stack.pop(); this.recompute(); }
-    },
-  }));
-});
+/* The path through a branching form (#1589). `steps` is one entry per section:
+   where it leads by itself (`next`, `end`) and which chosen option leads
+   elsewhere (`skips`). A section is shown while it lies on the path from the
+   first one; an answer that changes the path shows and hides what follows. */
+(function () {
+  function register() {
+    if (window.raakFormPath) return;
+    window.raakFormPath = true;
+    window.Alpine.data('formPath', function (steps) {
+      return {
+        steps: steps, on: [0],
+        init: function () { this.walk(); },
+        chosen: function (i) {
+          var card = this.$root.querySelector('[data-step="' + i + '"]');
+          var ids = new Set();
+          if (!card) return ids;
+          card.querySelectorAll('input[type=radio]:checked, input[type=checkbox]:checked')
+            .forEach(function (el) { ids.add(parseInt(el.value, 10)); });
+          card.querySelectorAll('select').forEach(function (el) { if (el.value) ids.add(parseInt(el.value, 10)); });
+          return ids;
+        },
+        target: function (i) {
+          var step = this.steps[i], chosen = this.chosen(i);
+          for (var k = 0; k < step.skips.length; k += 1) {
+            var skip = step.skips[k];
+            if (chosen.has(skip.opt)) {
+              if (skip.end) return 'end';
+              if (skip.section !== null && skip.section !== undefined) return skip.section;
+            }
+          }
+          if (step.end) return 'end';
+          if (step.next !== null && step.next !== undefined) return step.next;
+          return i + 1 < this.steps.length ? i + 1 : 'end';
+        },
+        walk: function () {
+          var on = [0], at = 0;
+          while (on.length <= this.steps.length) {
+            var next = this.target(at);
+            if (next === 'end' || on.indexOf(next) !== -1) break;
+            on.push(next);
+            at = next;
+          }
+          this.on = on;
+        },
+        shown: function (i) { return this.on.indexOf(i) !== -1; }
+      };
+    });
+  }
+  if (window.Alpine) register();
+  else document.addEventListener('alpine:init', register);
+})();
 </script>
 {% endif %}
 {% endblock %}

@@ -116,4 +116,37 @@
     if (talk) talk.scrollTop = talk.scrollHeight;
   };
 
+  // The bell above the action bar (#1589; end state §2.6). On a phone and a
+  // tablet a form's action bar stands where the bell stands: while that bar is
+  // in view the bell sits 16 px above it, and it returns to the bottom edge
+  // when the bar is out of view. From 1 200 px the bar ends left of the bell.
+  // The place is one custom property; the bell and its window read it.
+  var bellTick = false;
+  function placeBell() {
+    bellTick = false;
+    var bar = document.querySelector('.record-bar');
+    var bottom = null;
+    if (bar && window.innerWidth < 1200) {
+      var box = bar.getBoundingClientRect();
+      // In view where the bell stands: the bell's own place is the lowest
+      // 88 px of the window (56 px and 16 px on either side). A bar that has
+      // scrolled up past that leaves the bell where it belongs.
+      if (box.height && box.top < window.innerHeight && box.bottom > window.innerHeight - 88) {
+        bottom = Math.max(16, Math.round(window.innerHeight - box.top) + 16);
+      }
+    }
+    var root = document.documentElement;
+    if (bottom === null) root.style.removeProperty('--bell-bottom');
+    else root.style.setProperty('--bell-bottom', bottom + 'px');
+  }
+  function askBell() {
+    if (bellTick) return;
+    bellTick = true;
+    window.requestAnimationFrame(placeBell);
+  }
+  window.addEventListener('scroll', askBell, { passive: true });
+  window.addEventListener('resize', askBell);
+  document.addEventListener('DOMContentLoaded', askBell);
+  document.addEventListener('htmx:afterSettle', askBell);
+
 })();

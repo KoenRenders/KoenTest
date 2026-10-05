@@ -70,6 +70,6 @@ def test_a_line_break_is_kept_and_shown_on_the_public_form(client, db_session):
 
     client.cookies.clear()
     public = client.get(f"/f/{form.slug}").text
-    shown = re.search(r'<p class="([^"]*)">' + re.escape(HELP) + "</p>", public)
+    shown = re.search(r'<p [^>]*class="([^"]*)">' + re.escape(HELP) + "</p>", public)
     assert shown, "the help text is on the public form as it was typed"
     assert "whitespace-pre-line" in shown.group(1), "and a line break shows as one"

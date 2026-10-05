@@ -9,6 +9,6 @@
    sign-in only follows it when it is a path on this site (`veilige_terug`). #}
 {% if not (gebruiker and gebruiker.is_member) %}
 {% set _here = request.url.path ~ ("?" ~ request.url.query if request.url.query else "") %}
-<p class="text-sm text-ink" data-member-nudge>{{ _("Lid van RAAK?") }}
+<p class="rounded-md bg-blue-50 px-3 py-2 text-sm leading-[21px] text-ink" data-member-nudge data-span="full">{{ _("Lid van RAAK?") }}
   <a class="text-link underline" href="/aanmelden?terug={{ _here | urlencode }}">{{ _("Log je eerst aan") }}</a>{{ _(": dan staat de inschrijving bij je gezin.") }}</p>
 {% endif %}

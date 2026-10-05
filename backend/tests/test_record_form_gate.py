@@ -54,7 +54,9 @@ def one_bar(rel: str, text: str) -> list[str]:
     for call in bars:
         if not re.search(r"\brecord\s*=\s*True\b", call):
             found.append(f"{rel}: an action bar without `record=True` in a record form")
-        if "save_label" in call:
+        # #1589: a form that is SENT (a registration, a public form) names its
+        # next step; a record's save stays "Opslaan".
+        if "save_label" in call and not re.search(r"\bsend\s*=\s*True\b", call):
             found.append(f"{rel}: a custom save label — a record's save is 'Opslaan'")
     return found
 
@@ -236,6 +238,55 @@ def test_a_refusal_without_a_field_is_a_failure_with_its_reason():
     html = _render(REFUSAL, errors=[{"field": "", "message": "Een datum bestaat niet meer."}])
     assert "Opslaan is niet gelukt." in html and "Een datum bestaat niet meer." in html
     assert "data-error-for" not in html and "controleer" not in html
+
+
+def test_a_form_that_is_sent_says_so_in_every_state():
+    """#1589 (end state §2.6): a registration or a public form is SENT. The same
+    banner and the same bar, with the words of the act — B7 test 10 for the
+    public pages."""
+    two = _render(
+        "{{ ui.save_refusal(errors, send=True) }}",
+        errors=[
+            {"field": "contact_name", "message": "Vul je naam in."},
+            {"field": "payment_method", "message": "Kies een betaalwijze."},
+        ],
+    )
+    assert "Verzenden kan nog niet: controleer 2 velden." in two
+    assert "Je andere wijzigingen zijn behouden." in two and "Opslaan" not in two
+    failed = _render(
+        "{{ ui.save_refusal(errors, send=True) }}",
+        errors=[{"field": "", "message": "De online betaling kon niet gestart worden."}],
+    )
+    assert "Verzenden is niet gelukt." in failed and "Opslaan" not in failed
+
+    bar = _render(
+        "{{ ui.action_bar(record=True, send=True, cancel_href='/terug',"
+        " save_label='Inschrijven en betalen', busy_label='Inschrijven…') }}"
+    )
+    assert "data-save-idle>Inschrijven en betalen<" in bar
+    assert "</span>Inschrijven…</span>" in bar
+    assert "Verzenden is niet gelukt." in bar and "Je gegevens staan er nog." in bar
+    assert 'data-leave-title="Deze pagina verlaten?"' in bar and 'data-leave-stay="Blijven"' in bar
+    assert 'data-leave-text="Wat je invulde, is nog niet verzonden."' in bar
+    assert "Opslaan" not in bar and "record-bar-delete" not in bar
+    # Without words of its own it is "Verzenden".
+    plain = _render("{{ ui.action_bar(record=True, send=True, cancel_href='/terug') }}")
+    assert "data-save-idle>Verzenden<" in plain and "</span>Verzenden…</span>" in plain
+
+
+def test_only_a_form_that_is_sent_names_its_own_save():
+    labelled = CLEAN.replace("record=True", "record=True, send=True, save_label='Inschrijven'")
+    assert _all(labelled) == []
+    assert _all(CLEAN.replace("record=True", "record=True, save_label='Inschrijven'")) == [
+        "x.html: a custom save label — a record's save is 'Opslaan'"
+    ]
+
+
+def test_the_gate_reads_the_registration_form():
+    """A gate that finds nothing is green forever: the registration's flow is a
+    record form too, and it is the one that carries `send=True`."""
+    text = _record_forms()["domains/activities/templates/_inschrijf_formulier.html"]
+    assert "send=True" in text
 
 
 HEAD = (

@@ -29,8 +29,10 @@ from typing import TYPE_CHECKING, Any, Iterable, Mapping
 
 from sqlalchemy.orm import Session
 
+from app.domains.activities.fiche import FieldError
 from app.domains.activities.service import publicly_bookable_products
 from app.domains.activities.totals import has_payable_products, quote_lines
+from app.i18n import _
 from app.kernel.codes import TechnicalEnum
 
 if TYPE_CHECKING:  # #1305
@@ -99,20 +101,24 @@ def is_member(person: Person | None) -> bool:
     return has_valid_membership(person)
 
 
-def contact_refusal(values: Mapping[str, Any]) -> str | None:
-    """Why a registration form's contact fields are refused, or None (#1192).
+def contact_refusals(values: Mapping[str, Any]) -> list[FieldError]:
+    """Why a registration form's contact fields are refused, each with its field
+    (#1192; per field since #1589, CR-11 pilot B: the page marks the field and
+    says what is missing under it).
 
     The same three fields on every way in — Koen: "bestuur moet dezelfde velden
     invullen". The registration itself repeats name and phone (its validators,
-    CR-13 phase 1) and the schema the e-mail address; this is the screen's own, friendlier,
-    refusal before either is reached.
+    CR-13 phase 1) and the schema the e-mail address; this is the screen's own,
+    friendlier, refusal before either is reached.
     """
-    naam = (values.get("contact_name") or "").strip()
-    email = (values.get("contact_email") or "").strip()
-    gsm = (values.get("phone") or "").strip()
-    if not naam or "@" not in email or not gsm:
-        return "Vul naam, e-mailadres en mobiel nummer in."
-    return None
+    errors = []
+    if not (values.get("contact_name") or "").strip():
+        errors.append(FieldError("contact_name", _("Vul je naam in.")))
+    if "@" not in (values.get("contact_email") or ""):
+        errors.append(FieldError("contact_email", _("Vul een geldig e-mailadres in.")))
+    if not (values.get("phone") or "").strip():
+        errors.append(FieldError("phone", _("Vul je mobiel nummer in.")))
+    return errors
 
 
 def form_quantities(form: Mapping[str, Any]) -> dict[int, int]:
@@ -270,12 +276,16 @@ class Outcome:
     """What one submitted form came to. Each channel only decides how to show it."""
 
     kind: OutcomeKind
-    #: The form again, with the refusal in it (`REFUSED`).
-    context: dict = field(default_factory=dict)
+    #: Why, and where (`REFUSED`): a field of the form by its name, the product
+    #: rows (`products`), a question (`f<id>`), or "" for the form as a whole.
+    #: The page keeps what was typed; the answer is these alone (#1589).
+    errors: list[FieldError] = field(default_factory=list)
     #: Mollie's page (`CHECKOUT`); empty otherwise.
     checkout_url: str = ""
     registration_id: int | None = None
     name: str = ""
+    #: What is still to pay by bank transfer (`DONE`); zero when nothing is.
+    transfer_amount: Any = 0
 
 
 def submit(
@@ -303,17 +313,25 @@ def submit(
     quantities = form_quantities(form)
     ctx = form_context(channel, activity, component, values=values, quantities=quantities)
 
-    def refused(message: str) -> Outcome:
-        ctx["error"] = message
-        return Outcome(kind=OutcomeKind.REFUSED, context=ctx)
+    def refused(*errors: FieldError) -> Outcome:
+        return Outcome(kind=OutcomeKind.REFUSED, errors=list(errors))
 
-    refusal = contact_refusal(values)
-    if refusal:
-        return refused(refusal)
+    errors = contact_refusals(values)
+    if component.team_name_required and not (values.get("team_name") or "").strip():
+        errors.append(FieldError("team_name", _("Vul de ploegnaam in.")))
     # #1191: the rows on screen, not `component.products`: with every product of a
     # component hidden there is no row, and this requirement could not be met.
     if ctx["producten"] and not any(q > 0 for q in quantities.values()):
-        return refused("Selecteer minstens één product.")
+        errors.append(FieldError("products", _("Selecteer minstens één product.")))
+    # #1589: the payment method is required wherever there is something to pay.
+    # The page opens with "online" chosen (the fixed decision), so only a form
+    # that lost its choice gets here — and it is refused, never guessed.
+    to_pay = ctx["totaal"] > 0
+    method = (values.get("payment_method") or "").strip()
+    if to_pay and method not in {m.value for m in PaymentMethod}:
+        errors.append(FieldError("payment_method", _("Kies een betaalwijze.")))
+    if errors:
+        return refused(*errors)
 
     name = values.get("contact_name", "").strip()
     # CR-14 §B4.3: the questions post `f<field id>` keys, parsed by the form
@@ -333,11 +351,7 @@ def submit(
             contact_email=values.get("contact_email", "").strip(),
             phone=values.get("phone", "").strip(),
             team_name=(values.get("team_name") or "").strip() or None,
-            payment_method=(
-                (values.get("payment_method") or PaymentMethod.ONLINE.value)
-                if ctx["totaal"] > 0
-                else None
-            ),
+            payment_method=method if to_pay else None,
             component_id=component.id,
             items=[
                 RegistrationItemCreate(product_id=pid, quantity=qty)
@@ -350,7 +364,7 @@ def submit(
     except ValidationError:
         # `contact_refusal` checked that there is an address; the schema checks
         # that it IS one.
-        return refused("Dat e-mailadres is niet geldig.")
+        return refused(FieldError("contact_email", _("Vul een geldig e-mailadres in.")))
 
     from app.domains.activities.api import board_register_for_activity, register_for_activity
 
@@ -365,9 +379,9 @@ def submit(
                 db, activity.id, data, background_tasks, current_member=channel.person
             )
     except HTTPException as exc:
-        # A refused answer names its question (`VeldFout`): mark it on the page.
-        ctx["vraag_fout"] = getattr(exc, "veld_id", None)
-        return refused(str(exc.detail))
+        # A refused answer names its question (`VeldFout`): the page marks it.
+        question = getattr(exc, "veld_id", None)
+        return refused(FieldError(f"f{question}" if question is not None else "", str(exc.detail)))
 
     registration_id = result.get("id")
     checkout_url = result.get("checkout_url") or ""
@@ -378,4 +392,9 @@ def submit(
             registration_id=registration_id,
             name=name,
         )
-    return Outcome(kind=OutcomeKind.DONE, registration_id=registration_id, name=name)
+    return Outcome(
+        kind=OutcomeKind.DONE,
+        registration_id=registration_id,
+        name=name,
+        transfer_amount=ctx["totaal"] if to_pay else 0,
+    )

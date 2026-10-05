@@ -1,35 +1,54 @@
 <main id="main" class="site-container py-8" :inert="menu">
-<div id="inschrijf-pagina" class="max-w-xl">
-<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/activiteiten/<ACTIVITY>">‹ Terug</a></p>
-<div data-page-header class="flex flex-wrap gap-x-3 gap-y-2 mb-6 items-end">
-<div data-title-block class="block min-w-0 max-w-full flex-[1_0_auto]">
-<h1 tabindex="-1" class="text-3xl font-bold text-kop truncate">Karakterisering</h1>
-<p class="text-sm text-gray-500 mt-1 w-0 min-w-full">maandag 1 juni 2099 · Ploegen</p>
-</div>
-</div>
-<div class="mb-4 flex flex-wrap gap-2">
+<div id="inschrijf-pagina">
+<div data-public-form-page class="public-form-page">
+<p class="mb-3"><a class="text-sm text-link hover:underline" href="/activiteiten/<ACTIVITY>">‹ Terug</a></p>
+<header data-form-page-head class="public-form-head">
+<h1 tabindex="-1" class="public-form-title">Karakterisering</h1>
+<p class="mt-2 text-base leading-6 text-ink-soft">maandag 1 juni 2099 · Ploegen</p>
+</header>
+<div class="mb-6 flex flex-wrap gap-2" data-component-switch>
 <button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Ploegen</button>
 <a href="/activiteiten/<ACTIVITY>/inschrijven/<C:plain>" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >Los</a>
 </div>
-<form hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:team>" hx-target="#inschrijf-pagina" hx-select="#inschrijf-pagina"
- hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap" class="space-y-3">
-<p class="text-sm text-ink" data-member-nudge>Lid van RAAK?
+<div data-form-flow data-mode="edit" class="form-flow"
+ x-data="{ pm: 'online', nu: true, betalen: false }"
+ @change="if ($event.target.name === 'payment_method') pm = $event.target.value; if ($event.target.name === 'questions') nu = $event.target.value !== 'later'">
+<div id="inschrijf-melding" data-form-message></div>
+<form id="inschrijf-form" class="contents" data-record-form data-message="#inschrijf-melding" novalidate
+ hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:team>" hx-target="#inschrijf-pagina" hx-select="#inschrijf-pagina"
+ hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+<section data-form-section class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+<h2 class="text-base font-semibold leading-6 text-ink mb-4">Contact</h2>
+<div data-form-grid class="form-grid">
+<p class="rounded-md bg-blue-50 px-3 py-2 text-sm leading-[21px] text-ink" data-member-nudge data-span="full">Lid van RAAK?
  <a class="text-link underline" href="/aanmelden?terug=/activiteiten/<ACTIVITY>/inschrijven/<C:team>">Log je eerst aan</a>: dan staat de inschrijving bij je gezin.</p>
-<div class="grid grid-cols-1 gap-3">
-<div><label for="contact_name" class="block text-sm font-medium text-gray-700 mb-1">Naam <span class="text-red-600">*</span></label>
-<input type="text" name="contact_name" id="contact_name" required
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
-<div><label for="contact_email" class="block text-sm font-medium text-gray-700 mb-1">E-mailadres <span class="text-red-600">*</span></label>
-<input type="email" name="contact_email" id="contact_email" required
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
-<div><label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Mobiel nummer <span class="text-red-600">*</span></label>
-<input type="tel" name="phone" id="phone" required
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div data-field="contact_name" data-kind="text" data-span="half" class="min-w-0">
+<label for="contact_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Naam <span class="text-red-600">*</span></label>
+<input type="text"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="contact_name" name="contact_name" required autocomplete="name">
 </div>
-<div><label for="team_name" class="block text-sm font-medium text-gray-700 mb-1">Ploegnaam <span class="text-red-600">*</span></label>
-<input type="text" name="team_name" id="team_name" required
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
-<div id="prijsblok-<C:team>" class="space-y-3">
+<div data-field="contact_email" data-kind="email" data-span="full" class="min-w-0">
+<label for="contact_email" class="block text-sm font-medium leading-[21px] text-ink mb-1">E-mailadres <span class="text-red-600">*</span></label>
+<input type="email"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="contact_email" name="contact_email" required autocomplete="email">
+</div>
+<div data-field="phone" data-kind="phone" data-span="half" class="min-w-0">
+<label for="phone" class="block text-sm font-medium leading-[21px] text-ink mb-1">Mobiel nummer <span class="text-red-600">*</span></label>
+<input type="tel"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="phone" name="phone" required autocomplete="tel">
+</div>
+<div data-field="team_name" data-kind="text" data-span="half" class="min-w-0">
+<label for="team_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Ploegnaam <span class="text-red-600">*</span></label>
+<input type="text"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="team_name" name="team_name" required >
+</div>
+</div>
+</section>
+<section data-form-section class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+<h2 class="text-base font-semibold leading-6 text-ink mb-4">Je deelname</h2>
+<div data-form-grid class="form-grid">
+<div data-field="products" data-span="full" class="min-w-0">
+<div id="prijsblok-<C:team>" class="grid gap-3">
 <div class="space-y-2">
 <div class="flex items-center justify-between gap-x-3" data-product-row>
 <div class="text-sm">
@@ -49,13 +68,13 @@
  } }">
 <button type="button" @click="stap(-1)"
  aria-label="Eén minder — Product paid"
- class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
+ class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
 <input type="number" name="product_<P:paid>" id="product-<P:paid>" x-ref="veld" value="0"
- min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 md:h-9 md:w-12 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+ min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
  hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:team>/totaal" hx-include="closest form" hx-target="#totaal-<C:team>" hx-swap="innerHTML" hx-trigger="change, keyup delay:300ms">
 <button type="button" @click="stap(1)"
  aria-label="Eén meer — Product paid"
- class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
+ class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
 </div>
 </div>
 <div class="flex items-center justify-between gap-x-3" data-product-row>
@@ -76,13 +95,13 @@
  } }">
 <button type="button" @click="stap(-1)"
  aria-label="Eén minder — Product free"
- class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
+ class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
 <input type="number" name="product_<P:free>" id="product-<P:free>" x-ref="veld" value="0"
- min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 md:h-9 md:w-12 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+ min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
  hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:team>/totaal" hx-include="closest form" hx-target="#totaal-<C:team>" hx-swap="innerHTML" hx-trigger="change, keyup delay:300ms">
 <button type="button" @click="stap(1)"
  aria-label="Eén meer — Product free"
- class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
+ class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
 </div>
 </div>
 <div class="flex items-center justify-between gap-x-3" data-product-row>
@@ -103,25 +122,28 @@
  } }">
 <button type="button" @click="stap(-1)"
  aria-label="Eén minder — Product on_site"
- class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
+ class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
 <input type="number" name="product_<P:on_site>" id="product-<P:on_site>" x-ref="veld" value="0"
- min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 md:h-9 md:w-12 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+ min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
  hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:team>/totaal" hx-include="closest form" hx-target="#totaal-<C:team>" hx-swap="innerHTML" hx-trigger="change, keyup delay:300ms">
 <button type="button" @click="stap(1)"
  aria-label="Eén meer — Product on_site"
- class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
+ class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
 </div>
 </div>
 </div>
 <div id="totaal-<C:team>">
-<div class="bg-white border rounded-lg p-3 text-sm font-medium border-gray-200 text-gray-500">
+<div data-total x-data x-init="if (typeof betalen !== 'undefined') betalen = false" class="border-t border-line pt-3 text-sm font-semibold text-ink-soft">
  Totaal: €0,00
 </div>
 </div>
 </div>
-<div><label for="remarks" class="block text-sm font-medium text-gray-700 mb-1">Opmerkingen</label>
+</div>
+<p data-span="full" class="text-sm"><a class="text-link underline" href="/activiteiten/<ACTIVITY>?deelnemers=<C:team>">Wie doet er mee?</a></p>
+<div data-field="remarks" data-kind="textarea" data-span="full" class="min-w-0">
+<label for="remarks" class="block text-sm font-medium leading-[21px] text-ink mb-1">Opmerkingen</label>
 <textarea name="remarks" id="remarks" rows="2" placeholder="Eventuele boodschap voor de organisatie…"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
+ class="block w-full min-w-0 rounded-md border border-control-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
  const vak = this.$el, zelf = this;
@@ -133,17 +155,50 @@
  this.$el.style.height = `auto`;
  const rand = this.$el.offsetHeight - this.$el.clientHeight;
  this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight + rand, this.bodem), 400) + `px`; } }"
- x-on:input="groei()" ></textarea></div>
-<div>
-<label for="payment_method" class="block text-sm font-medium text-gray-700 mb-1">Betaalwijze</label>
-<div x-data="{ pm: 'online' }">
-<label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="online" x-model="pm" checked> Online betalen</label>
-<label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="transfer" x-model="pm" > Overschrijving</label>
-<p class="text-xs text-ink-soft" x-show="pm === 'online'">Na het versturen ga je meteen naar de beveiligde betaalpagina.</p>
-<p class="text-xs text-ink-soft" x-show="pm === 'transfer'" x-cloak>Na het versturen ontvang je de betaalinstructies per e-mail.</p>
+ x-on:input="groei()" ></textarea>
 </div>
 </div>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-4 py-2.5 text-base min-h-11 md:py-2 md:min-h-0 w-full sm:w-auto" hx-disabled-elt="this" >Inschrijven</button>
+</section>
+<section data-form-section class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+<h2 class="text-base font-semibold leading-6 text-ink mb-4">Betalen</h2>
+<div data-form-grid class="form-grid">
+<div data-field="payment_method" data-kind="radio_group" data-span="full" class="min-w-0">
+<p id="payment_method-label" class="text-sm font-medium leading-[21px] text-ink mb-1">Betaalwijze <span class="text-red-600">*</span></p>
+<div role="radiogroup" aria-labelledby="payment_method-label" class="grid gap-1">
+<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
+<input type="radio" name="payment_method" value="online" class="mt-0.5 h-[18px] w-[18px] shrink-0" checked>
+<span><span class="font-medium text-ink">Online betalen</span><span class="block text-[13px] text-ink-soft">Na het verzenden ga je naar de beveiligde betaalpagina.</span></span>
+</label>
+<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
+<input type="radio" name="payment_method" value="transfer" class="mt-0.5 h-[18px] w-[18px] shrink-0">
+<span><span class="font-medium text-ink">Overschrijving</span><span class="block text-[13px] text-ink-soft">De betaalgegevens staan in de bevestiging.</span></span>
+</label>
+</div>
+</div>
+</div>
+</section>
 </form>
+<div data-action-bar class="record-bar"
+ data-send
+ data-discard-title="Wijzigingen weggooien?" data-discard-text="Wat je invulde, gaat verloren."
+ data-discard-ok="Wijzigingen weggooien" data-discard-stay="Verder bewerken"
+ data-leave-title="Deze pagina verlaten?" data-leave-text="Wat je invulde, is nog niet verzonden."
+ data-leave-ok="Weggooien" data-leave-stay="Blijven">
+<a href="/activiteiten/<ACTIVITY>" data-form-cancel class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-transparent border border-transparent text-ink hover:bg-gray-100 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 record-bar-cancel" >Annuleren</a>
+<button type="submit" data-form-save class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 record-bar-save" form="inschrijf-form" >
+<span data-save-idle data-pay="Inschrijven en betalen" data-plain="Inschrijven" x-text="betalen && pm === 'online' ? $el.dataset.pay : $el.dataset.plain">Inschrijven</span>
+<span data-save-busy hidden class="inline-flex items-center gap-2"><span class="record-spinner" aria-hidden="true"></span>Inschrijven…</span>
+</button>
+<template data-save-failed>
+<div data-save-refusal data-save-failure role="alert" tabindex="-1"
+ class="rounded-md border border-red-200 border-l-[3px] border-l-red-600 bg-red-50 p-4 text-sm leading-[21px] text-ink">
+<p class="font-semibold">Verzenden is niet gelukt.</p>
+<p class="mt-1" data-reason></p>
+<p class="mt-1 text-ink-soft">Je gegevens staan er nog.</p>
+</div>
+</template>
+</div>
+</div>
+</div>
 </div>
 </main>

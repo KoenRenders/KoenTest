@@ -464,9 +464,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "test file:test_formulier_volgorde_tiebreaker.py",
         "test file:test_formulier_vraag_verhuizen.py",
         "test file:test_formulier_vraagtype.py",
-        "test file:test_formulier_wizard_stap_nul.py",
-        "test file:test_formulier_wizard_startstap.py",
-        "test file:test_formulier_wizard_ui.py",
         "test file:test_formulierbouwer_iconen.py",
         "test file:test_formulierbouwer_kop.py",
         "test file:test_formulierbouwer_staart.py",
@@ -876,10 +873,6 @@ PROMISE_NOT_KEPT: frozenset[str] = frozenset()
 # registration fields among them) is the largest group; phase 1 walks the
 # registration form through its facade.
 PROMISE_UNWALKABLE: dict[str, str] = {
-    "domains/activities/templates/_inschrijf_velden.html::contact_email::required": "no form target (built in JS, by a macro, or GET)",
-    "domains/activities/templates/_inschrijf_velden.html::contact_name::required": "no form target (built in JS, by a macro, or GET)",
-    "domains/activities/templates/_inschrijf_velden.html::phone::required": "no form target (built in JS, by a macro, or GET)",
-    "domains/activities/templates/_inschrijf_velden.html::team_name::required": "no form target (built in JS, by a macro, or GET)",
     "domains/chatbot/templates/_raakje_controls.html::vraag::required": "no form target (built in JS, by a macro, or GET)",
     "domains/designstudio/templates/admin_ontwerp.html::main_focus_x::min": "route `design_save` does not read `main_focus_x` by name",
     "domains/designstudio/templates/admin_ontwerp.html::main_focus_y::min": "route `design_save` does not read `main_focus_y` by name",

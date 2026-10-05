@@ -77,7 +77,17 @@ def test_inschrijven_validatiefouten(client, db_session):
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={"contact_name": "", "contact_email": "x", "phone": ""},
     )
-    assert resp.status_code == 200 and "Vul naam, e-mailadres en mobiel nummer in" in resp.text
+    # #1589: one reason per field, in the banner (422).
+    assert resp.status_code == 422
+    for field, words in (
+        ("contact_name", "Vul je naam in."),
+        ("contact_email", "Vul een geldig e-mailadres in."),
+        ("phone", "Vul je mobiel nummer in."),
+    ):
+        assert f'data-error-for="{field}"' in resp.text and f">{words}<" in resp.text, field
+    # The fourth: no product was chosen either.
+    assert 'data-error-for="products"' in resp.text
+    assert "Verzenden kan nog niet: controleer 4 velden." in resp.text
 
     resp2 = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
