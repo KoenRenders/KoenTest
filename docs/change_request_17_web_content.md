@@ -1,7 +1,7 @@
 # Change Request 17 — Web content: pages as structured documents, one editor for three places
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · on hold — Koen answers B8
+**Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · **assigned to v2.14.0** by Koen ("zeker niet meer in v2.13"); the spike of phase 0 starts now as the first sub-issue of #1427
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
 **Reading:** A 1497 words · B 2499 · C 4727 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
@@ -379,7 +379,7 @@ Purchases: none with TipTap; CKEditor 5 needs the GPL terms or a licence (Q1). *
 
 | Phase | Delivers | Migration | Failure paths that change | Validation |
 |---|---|---|---|---|
-| **0 — the spike** | TipTap and CKEditor 5 on a throwaway branch; a table round trip, a custom node, the CSP, a phone; Koen decides Q1 | none | none | C8 |
+| **0 — the spike** (starts now, 5 Oct 2026) | TipTap on a throwaway branch — the one-off bundle without Node in the repo, a table round trip, a custom node, the CSP, a phone; the measurements into C8 | none | none | C8 |
 | **1 — pages as documents** | the schema; the editor macro; the page screen with draft, publish, history, preview; the renderer and the reading-width page; `page_translations`; value blocks; the picker; JSON export and import, the schema served; the lossless migration | additive | a page is no longer live on save; an unknown block refused by name | AC1, AC3, AC4, AC6, AC7, AC10, AC11 |
 | **2 — the blocks** | table (full), columns with alignment, button, callout, link card, **cards**, **form**, gallery; the API: pages, draft, publish, reference lists | none | a deleted form renders nothing | AC2, AC8, AC9 |
 | **3 — the letter and the notes** (Could, last) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes; until then two editors coexist, a named exception on gate 14 | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
@@ -398,9 +398,7 @@ Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11
 
 ## B8. Open decisions — what the approver still decides
 
-| # | Question | Recommendation | What the answer changes |
-|---|---|---|---|
-| Q6 | Start the spike now? | Yes. | the first sub-issue of #1427 |
+None. Koen closed Q1, Q2, Q6, Q8, Q9, Q10 and Q11 on 5 October 2026 (B9); the spike's findings land in C8 and change C4.1 only if the bundle step fails.
 
 ## B9. Decisions log — dated answers
 
@@ -412,7 +410,7 @@ Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11
 | 1 Oct 2026 | Web content management as a whole, talked through first; no site builder. | Koen |
 | 4 Oct 2026 | **The frame**: the association's sites do not change; the subject is a company tenant's site, kept abstract. | Koen |
 | 4 Oct 2026 | Form block (R13), cards block (R14), kit-styled pictures (R4), columns middle beside a figure; a translation row from phase 1 (R15); a JSON door (R16); the menu to Should (R8); the three newsletter choices decide the blocks (F9). | Koen |
-| 5 Oct 2026 | **TipTap** is the editor (B8 Q1 closed; the spike of phase 0 confirms the bundle step). **The menu back to Could** (R8, phase 4): sections, an external link and a footer menu only if they come nearly free, otherwise a follow-up change request; the order of the pages stays settable as today. **The activity's description on the same editor is a Could outside this change** — a follow-up, not a phase here (B8 Q8 closed). **A second language is the public content only; the back office stays Dutch** (B8 Q11 closed). **Merged cells in tables are a Could outside this change** (B8 Q9 closed). **The form block and the cards block in phase 2** (B8 Q10 closed). | Koen |
+| 5 Oct 2026 | **TipTap** is the editor (B8 Q1 closed; the spike of phase 0 confirms the bundle step). **The menu back to Could** (R8, phase 4): sections, an external link and a footer menu only if they come nearly free, otherwise a follow-up change request; the order of the pages stays settable as today. **The activity's description on the same editor is a Could outside this change** — a follow-up, not a phase here (B8 Q8 closed). **A second language is the public content only; the back office stays Dutch** (B8 Q11 closed). **Merged cells in tables are a Could outside this change** (B8 Q9 closed). **The form block and the cards block in phase 2** (B8 Q10 closed). **The spike starts now** as the first sub-issue of #1427 (B8 Q6 closed); **the change request is assigned to v2.14.0**, not v2.13.0. B8 is empty: the design is decided. | Koen |
 | 4 Oct 2026 | **Six answers**: R6 and writing on a phone to Could; R12 stays Won't; cards are layout (R14); English soon — phase 5 after phase 2, `/en/` prefix (R15); the JSON door also creates and publishes, for a CLI (R16). | Koen |
 | 1 Oct 2026 | *Proposed:* C4.1–C4.7; TipTap recommended, decided after the spike. | author |
 
