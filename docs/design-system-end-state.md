@@ -465,9 +465,13 @@ public forms — register, a public form, Word lid, renew, Mijn gezin:
   Contact and the questions in section cards, labels 14 px medium (one
   label style), *Verzenden* in the action bar, then its own thank-you page.
   **One long page, no steps**, however many sections.
-- **Word lid**: the household as a composite repeating group (§3.3: the
-  head open, partner and child collapsed, no handle, "+ Gezinslid
-  toevoegen" in the group head); in a person's fields **Geslacht is a
+- **Word lid** (and Mijn gezin), **in this order** (Koen, 5 October 2026,
+  after P3 on HDEV: the address belongs to the main member and the
+  household): the **Hoofdlid** as a fixed section with the person's fields
+  and e-mail addresses; then **Adres**; then **Gezinsleden** — partner and
+  children as the composite repeating group (§3.3: collapsed, no handle,
+  "+ Gezinslid toevoegen" in the group head); then the price and the
+  payment. The main member is no row of the group; in a person's fields **Geslacht is a
   select, half width, beside Geboortedatum** on one row — not a vertical
   radio group (Koen, 5 October 2026, after P3 on HDEV; §3.5: radios only
   where each option needs a line of help); the e-mail addresses as a simple group with
