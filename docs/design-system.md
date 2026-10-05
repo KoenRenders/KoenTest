@@ -1028,7 +1028,10 @@ Datums · Onderdelen (with Producten as child group) · Organisatoren on
 `ui.repeating_group`: dates without a handle; organisers a composite,
 ordered item with their contact switch, show flags and overrides (Koen's
 option b — the order and the flags decide the poster); a component shows
-its occupancy and "t/m" in read mode. **One save** writes the record with
+its occupancy and "t/m" in read mode; **a product's settlement is one
+segmented choice — Betalend · Gratis · Ter plaatse** (Koen, 5 October 2026:
+K5's two switches with a refusal when both were on go back to one control;
+a correction slice on K5), the price fields active only for Betalend. **One save** writes the record with
 its groups in one transaction (`activities.api.save_activity`; nineteen row
 routes gone, the JSON API on the same service), with three rules in the
 service (422 on the API): a component with a live registration and a

@@ -541,10 +541,14 @@ did; Koen, 4 Oct 2026, Q50); the title line (name, `⋯`), its fields in the
 grid under it, and its child group
 (**Producten**, with its own "+ Product") indented 16 px behind a vertical
 line (12 px on a phone) — no card, no background, no nested box; a product
-row is naam half · prijs kwart · ledenprijs kwart with gratis and ter
-plaatse betalen as switches on the next line; in read mode a product is
-two short lines ("Soep · € 5,00 · leden € 4,00" / "Gratis: nee · Ter
-plaatse betalen: ja"), and the item's name is its heading, not repeated
+row is naam half · prijs kwart · ledenprijs kwart with **one segmented
+choice on the next line — Betalend · Gratis · Ter plaatse** (Koen, 5
+October 2026, after K5 on HDEV: the two switches of ChatGPT's draft, with a
+refusal when both were on, were one choice out of three in disguise — §3.5's
+own rule; until K5 it was a select with the same three); the price fields
+active only for Betalend; in read mode a product is two short lines
+("Soep · € 5,00 · leden € 4,00" / "Betalend" — or "Gratis" / "Ter
+plaatse"), and the item's name is its heading, not repeated
 as a field; the item's rare settings go to the form's one collapsed slot.
 **Adding** ("+ Datum", "+ Onderdeel", "+ Product", "+ Organisator" at the
 heading's right, edit mode only) inserts an empty row in place with the
