@@ -1031,6 +1031,43 @@
          {"name": "kit_prop_text", "label": _("Omschrijving"), "value": _("Een wandeling van acht kilometer, met soep achteraf."), "base": _("Samen op pad.")}]) }}
   </div>
 </div>
+{# #1604: a proposal for a ROW of a repeating group, and one with a sentence
+   that has no source. The field names the group and means its first row; with
+   no row the group carries the mark, and Toepassen adds one. A marked sentence
+   stays out unless "klopt, behouden" is ticked — read in the browser. #}
+<p class="text-sm text-gray-600 mt-6 mb-3">
+  {{ _("Een voorstel voor een rij van een groep vult de eerste rij, of maakt er één aan als er geen is; andere rijen blijven onaangeroerd. Een zin zonder bron blijft weg tenzij je “klopt, behouden” aanvinkt.") }}
+</p>
+<div data-kit-proposal-row class="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px] max-w-[1100px] items-start">
+  <div class="form-flow">
+    {% macro _kit_prop_date(key) %}
+    {% call ui.group_row("kit_pd_order", key, edit=True, menu=["remove"], label=_("deze datum")) %}
+      {{ ui.field("kit_pd." ~ key ~ ".start_date", _("Datum"), kind="date", id="kit-pd-" ~ key ~ "-start_date", span="quarter") }}
+      {{ ui.field("kit_pd." ~ key ~ ".start_time", _("Van"), kind="time", id="kit-pd-" ~ key ~ "-start_time", span="quarter") }}
+    {% endcall %}
+    {% endmacro %}
+    {% set _kit_prop_tpl %}{{ _kit_prop_date("__KPD__") }}{% endset %}
+    {% call ui.repeating_group(_("Datums"), "kit_pd_order", token="__KPD__", add_label=_("Datum"), edit=True, empty=_("Nog geen datums."), count=0, template=_kit_prop_tpl,
+                               columns=[{"label": _("Datum"), "span": "quarter"}, {"label": _("Van"), "span": "quarter"}]) %}{% endcall %}
+    {% call ui.form_grid() %}
+      {{ ui.field("kit_prop_story", _("Omschrijving"), kind="textarea", id="kit-prop-story", value="") }}
+    {% endcall %}
+  </div>
+  {# One proposal is open at a time (a newer one replaces the older), so this
+     one arrives on a click — as an answer arrives in the panel. #}
+  <div class="rounded-lg border border-line bg-surface p-3" x-data>
+    {{ ui.btn_secondary(_("Toon dit voorstel"), size="sm", attrs='data-kit-proposal-show @click="$refs.holder.innerHTML = $refs.block.innerHTML; window.raakFormProposal.scan()"') }}
+    <div x-ref="holder" data-kit-proposal-holder></div>
+    <template x-ref="block">
+    {% set _kit_prop_mark %}{{ ui.proposal_mark(1, _("Er is een tombola."), _("staat in geen enkele bron")) }}{% endset %}
+    {{ ui.form_proposal([
+         {"name": "kit_prop_story", "label": _("Omschrijving"), "value": _("Kom mee wandelen."), "base": "",
+          "parts": [{"text": _("Kom mee wandelen."), "mark": none}, {"text": _("Er is een tombola."), "mark": 1}]},
+         {"group": "kit_pd_order", "name": "start_date", "label": _("Datum"), "value": "2031-06-14", "base": ""},
+         {"group": "kit_pd_order", "name": "start_time", "label": _("Van"), "value": "14:00", "base": ""}], extra=_kit_prop_mark) }}
+    </template>
+  </div>
+</div>
 
 {# ── 13g. The public form page (CR-11 pilot B, #1589; end state §2.6) ───────
    The frame of the public forms and the words of a form that is SENT: the

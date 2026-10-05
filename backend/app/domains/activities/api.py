@@ -45,6 +45,7 @@ from app.domains.activities.models import (  # noqa: F401
     RegistrationItem,
     RegistrationItemHistory,
 )
+from app.domains.activities.proposer import ProposerError  # noqa: F401
 from app.domains.activities.registration_form import (  # noqa: F401
     Channel,
     Outcome,
@@ -163,6 +164,23 @@ def get_activity_detail(db: Session, activity_id: int) -> ActivityResponse | Non
     from app.domains.activities.router import get_activity_detail as _impl
 
     return _impl(db, activity_id)
+
+
+def propose_for_activity(db: Session, activity_id: int, *, request: str, actor: str) -> Any:
+    """Raakje's proposal for this activity's fiche (#1604), or None when the
+    activity does not exist. Raises `ProposerError` with a line for the screen."""
+    from app.domains.activities import proposer
+    from app.domains.activities.service import _activity_met_boom
+
+    activity = _activity_met_boom(db, activity_id)
+    if activity is None:
+        return None
+    return proposer.propose(db, activity, request=request, actor=actor)
+
+
+def proposer_url(activity_id: int) -> str:
+    """Where the Assistent's panel asks a proposal for this activity (#1604)."""
+    return f"/admin/activiteiten/{activity_id}/raakje/voorstel"
 
 
 def open_deadlines(activity: Activity) -> list[date]:
@@ -343,6 +361,9 @@ __all__ = [
     "registration_table",
     "parse_registration_sort",
     "get_activity_detail",
+    "propose_for_activity",
+    "proposer_url",
+    "ProposerError",
     "list_activities",
     "move_within",
     "public_registrations",

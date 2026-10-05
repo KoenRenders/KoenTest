@@ -854,7 +854,13 @@ phone) runs on the same component with the public toolset only; its greeting
 (`ui.form_proposal`, `static/form-proposal.js`): field names, values and the
 value each field had when asked; Toepassen fills the form and sends nothing,
 a field changed meanwhile is left alone and named, only the form's own save
-writes. The newsletter's choices stand on its page in three groups (Voorbije
+writes. A field may name a repeating group instead of a field of the screen
+(`group` + the field of a row): it means the group's first row, and with no
+row Toepassen adds one — no other row is ever named. A field may carry its
+value in `parts`: a part with a mark has no source and stays out unless its
+"klopt, behouden" is ticked, read in the browser (#1604: the activity's
+proposer for name, location, description, date and time, in the panel while
+the fiche is edited). The newsletter's choices stand on its page in three groups (Voorbije
 activiteiten · Uitgelicht · In de kalender, one JSON column that reads both
 forms); its proposer runs on the mechanism (subject, preview text, content; a
 marked passage stays out unless ticked). **Answers**: the last report the

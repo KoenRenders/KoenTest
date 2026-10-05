@@ -44,6 +44,7 @@ AI_CAPABILITY_CODES = (
     CodeSeed(code="chat", nl="Chat", en="Chat", sort_order=10),
     CodeSeed(code="reporting", nl="Rapporten", en="Reports", sort_order=20),
     CodeSeed(code="newsletter_drafting", nl="Nieuwsbrief", en="Newsletter", sort_order=30),
+    CodeSeed(code="activity_drafting", nl="Activiteit", en="Activity", sort_order=35),
     CodeSeed(code="ocr", nl="Documenten lezen", en="Reading documents", sort_order=40),
     CodeSeed(code="dictation", nl="Dicteren", en="Dictation", sort_order=50),
     CodeSeed(code="translate", nl="Vertalen", en="Translation", sort_order=60),
