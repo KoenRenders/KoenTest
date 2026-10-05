@@ -110,7 +110,8 @@ def test_a_refusal_keeps_the_page_the_values_and_the_reason(client, two_componen
     # line — the page is not redrawn, so the values stay where they were typed.
     assert response.status_code == 422
     assert response.headers["HX-Retarget"] == "#inschrijf-melding"
-    assert response.headers["HX-Reswap"] == "innerHTML"
+    # No view transition: a banner that arrives is no navigation (Refs #1589).
+    assert response.headers["HX-Reswap"] == "innerHTML transition:false"
     html = response.text
     assert 'id="inschrijf-pagina"' not in html and "<input" not in html
     assert 'data-error-for="phone"' in html and ">Vul je mobiel nummer in.<" in html
