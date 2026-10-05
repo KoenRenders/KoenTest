@@ -16,6 +16,25 @@
 (function () {
   var DOCK = '(min-width: 1440px)';
 
+  // The question field's height (#1617): ONE function, called from every path
+  // that changes the value — typed or pasted (the field's `input` event, which
+  // dictation fires too), set by a suggestion, kept after a question that was
+  // not answered, emptied after an answer, and shown again when the panel
+  // opens. The field is as high as its content, up to its CSS max-height
+  // (`max-h-[120px]` on the control — the one place that number stands), after
+  // which it scrolls inside itself. `scrollHeight` leaves the border out and
+  // the height includes it, so the border is added: without it the last line
+  // stood 2 px short and the field showed a scrollbar.
+  window.raakjeFit = function (field) {
+    if (!field) return;
+    field.style.height = 'auto';
+    // Not laid out (the panel is closed): nothing to measure, the next call fits.
+    if (!field.scrollHeight) return;
+    var edge = field.offsetHeight - field.clientHeight;
+    var max = parseFloat(window.getComputedStyle(field).maxHeight) || Infinity;
+    field.style.height = Math.min(field.scrollHeight + edge, max) + 'px';
+  };
+
   window.raakjePanel = function (opts) {
     return {
       open: false,
@@ -68,6 +87,7 @@
       focusField: function () {
         var field = this.$refs.inner.querySelector('textarea') || this.$refs.inner.querySelector('[data-panel-close]');
         if (field) field.focus({ preventScroll: true });
+        window.raakjeFit(this.$refs.inner.querySelector('textarea'));
       },
 
       // The context this panel shows now ("" before the first load).
@@ -97,20 +117,24 @@
         if (!form) return;
         var field = form.querySelector('textarea');
         field.value = question;
+        window.raakjeFit(field);
         form.requestSubmit();
       }
     };
   };
 
   // After an answer: the field empties and shrinks — unless the question was not
-  // answered, then it stays ("Je vraag staat er nog").
+  // answered, then it stays ("Je vraag staat er nog") at the height it needs.
   window.raakjeAfterAnswer = function (form, event) {
     if (event.detail.elt !== form) return;
     var xhr = event.detail.xhr;
-    if (!event.detail.successful || (xhr && xhr.getResponseHeader('X-Raakje-Failed') === '1')) return;
     var field = form.querySelector('textarea');
+    if (!event.detail.successful || (xhr && xhr.getResponseHeader('X-Raakje-Failed') === '1')) {
+      window.raakjeFit(field);
+      return;
+    }
     field.value = '';
-    field.style.height = 'auto';
+    window.raakjeFit(field);
     var talk = form.parentElement.querySelector('[data-panel-conversation]');
     if (talk) talk.scrollTop = talk.scrollHeight;
   };

@@ -42,7 +42,8 @@ Dat de vier Raakje-plekken hetzelfde partial gebruiken bewijst
 Kapotgemaakt om te controleren dat deze tests rood kunnen worden: het `dispatchEvent`
 in `schrijf()` weggehaald → de eerste twee vallen om (de tekst staat er, het veld
 beweegt niet); de `hx-on::after-request` die de hoogte terugzet weggehaald → de derde
-valt om.
+valt om (since #1617 proven again with `raakjeFit` taken out of the answered
+branch of `raakjeAfterAnswer`: "het veld blijft hoog terwijl het leeg is").
 """
 
 import os
@@ -103,6 +104,10 @@ def _open(page, veld_selector: str = PUBLIEK):
     gelopen heeft. Zonder dat onderscheid meet je een geslaagde reparatie als krimp,
     of je verwart de terugzetting na het verzenden (die op `auto` zet, dus 38) met een
     veld dat hoog blijft staan.
+
+    Since #1617 the two are one: `raakjeFit` adds the border the old handler
+    left out, so a fitted one-line field is the natural 38 px. Both values are
+    still returned, and the tests below hold with either.
     """
     if veld_selector == PUBLIEK:
         # #1120: de publieke pagina is weg; de zwevende bel draagt dezelfde
@@ -262,20 +267,21 @@ def test_na_verzenden_staat_het_veld_weer_op_een_regel(page):
 
     veld.press("Enter")
     page.wait_for_function(f"() => document.querySelector('{PUBLIEK}').value === ''", timeout=10000)
+    # #1617: what matters is the rendered height, not how it is set. This test
+    # asked for `style.height === 'auto'`, the old handler's way; the one
+    # function now sets the one-line height itself. The field is one line again
+    # — its natural height — and does not stay at its 120 px.
     try:
         page.wait_for_function(
-            f"() => document.querySelector('{PUBLIEK}').style.height === 'auto'", timeout=5000
+            "([s, h]) => document.querySelector(s).getBoundingClientRect().height <= h",
+            arg=[PUBLIEK, natuurlijk],
+            timeout=5000,
         )
     except Exception as fout:
-        raise AssertionError("de hoogte wordt na het verzenden niet teruggezet") from fout
-
-    # De terugzetting gebeurt met `height = auto`, dus je landt op de natuurlijke
-    # hoogte van 38 en niet op de 36 die de handler zou zetten. Waar het om gaat is
-    # dat het veld weer één regel is en niet op zijn 120 px blijft staan.
-    assert veld.bounding_box()["height"] <= natuurlijk, "het veld blijft hoog terwijl het leeg is"
-    assert veld.evaluate("el => el.style.height") == "auto", (
-        "de hoogte wordt na het verzenden niet teruggezet"
-    )
+        raise AssertionError(
+            f"het veld blijft hoog terwijl het leeg is: {veld.bounding_box()['height']}px"
+        ) from fout
+    assert veld.evaluate("el => el.clientHeight === el.scrollHeight"), "het lege veld schuift"
 
 
 # ── De Raakje-overlay van het activiteitenscherm (#1075) ─────────────────────

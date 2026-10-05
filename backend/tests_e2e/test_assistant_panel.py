@@ -18,7 +18,11 @@ What a server test cannot see:
 - **the trigger is dimmed on a module the assistant does not know** and the
   panel then holds one sentence;
 - **the public bell**: 56 px at the bottom right, a window of 400 × 640 above
-  it, the sheet on a phone — the same component.
+  it, the sheet on a phone — the same component;
+- **the question field is as high as its content** however the value changed
+  (#1617): a suggestion, typing, a question that stays after a failed answer;
+  one line again after an answer; at most its maximum, then it scrolls inside
+  itself and the panel keeps its layout.
 
 The e2e backend has no model key and answers in its test mode; a failed answer
 and a late one are played by intercepting the request. Nothing is changed in
@@ -35,6 +39,16 @@ Proven red (each on this branch, restored after):
 - the panel made to keep its block when the context changes (always 204) → the
   late-answer test fails: the old conversation is still there to answer into;
 - the field always emptied after a request → the failed-question test fails.
+
+#1617, red against master `13c00be2` (measured, the six cases of the field
+test): after a suggestion the field kept its one line — `clientHeight` 36
+against a `scrollHeight` of two lines — and a typed question stood 2 px short
+(the height left the border out). On this branch, `raakjeFit` taken out of
+`ask()` → "cut off while asking" (the fit after the failed answer hides it
+afterwards, which is why the field is measured with the answer held back);
+taken out of the failed branch of `raakjeAfterAnswer` → still green, the
+field was fitted when the suggestion filled it — that call is for a question
+typed into a field that was not laid out.
 """
 
 import os
@@ -316,6 +330,103 @@ def test_a_question_that_was_not_answered_stays_in_the_field(browser, activity):
     page.locator("#assistent-gesprek [data-raakje-answer]").wait_for()
     htmx_stil(page)
     assert page.locator(".raakje-panel textarea").input_value() == ""
+    page.close()
+
+
+_FIELD = """() => {
+  const f = document.querySelector('.raakje-panel textarea'), p = document.querySelector('.raakje-panel');
+  const hint = [...p.querySelectorAll('p')].pop().getBoundingClientRect(), b = p.getBoundingClientRect();
+  return {client: f.clientHeight, scroll: f.scrollHeight, value: f.value,
+          max: parseFloat(getComputedStyle(f).maxHeight), offset: f.offsetHeight,
+          inside: Math.round(hint.bottom) <= Math.round(b.bottom) && Math.round(f.getBoundingClientRect().right) <= Math.round(b.right),
+          page: document.documentElement.scrollWidth};
+}"""
+_TWO_LINES = "Hoeveel gezinnen zijn er dit jaar per gemeente ingeschreven voor een activiteit?"
+_FAILED = (
+    '<div role="alert">Raakje kon geen antwoord geven — probeer het opnieuw. '
+    "Je vraag staat er nog.</div>"
+)
+
+
+def _public(browser, size):
+    page = browser.new_page(base_url=BASE, viewport={"width": size[0], "height": size[1]})
+    page.goto("/")
+    pagina_klaar(page)
+    page.locator("[data-raakje-bell]").click()
+    page.locator(".raakje-panel").wait_for(state="visible")
+    return page
+
+
+@pytest.mark.parametrize("shell", ["admin", "public"])
+@pytest.mark.parametrize("size", [(1440, 1080), (1200, 900), (390, 844)])
+def test_the_question_field_is_as_high_as_its_content(browser, activity, shell, size):
+    """#1617: docked, dialog and sheet, in the back office and under the bell.
+    The answers are played by intercepting the request, so the test decides
+    whether the question stays (not answered) or goes (answered)."""
+    if shell == "admin":
+        page = _admin(browser, size)
+        _open(page, activity)
+    else:
+        page = _public(browser, size)
+    where = f"{shell} @{size[0]}"
+    endpoint = "**" + page.locator(".raakje-panel form").get_attribute("hx-post") + "*"
+    field = page.locator(".raakje-panel textarea")
+    one_line = page.evaluate(_FIELD)
+    assert one_line["value"] == "" and one_line["client"] == one_line["scroll"], (where, one_line)
+
+    # A suggestion of more than one line. The answer is held back, so the field
+    # is measured WHILE the question is under way — what Koen saw — and again
+    # after an answer that failed: the question stays, at its height.
+    held = []
+    page.route(endpoint, lambda route: held.append(route))
+    suggestion = page.locator("[data-suggestion]").first
+    suggestion.evaluate("(e, q) => { e.dataset.question = q; }", _TWO_LINES)
+    with page.expect_request(endpoint):
+        suggestion.click()
+    asking = page.evaluate(_FIELD)
+    assert asking["value"] == _TWO_LINES, (where, asking)
+    assert asking["client"] == asking["scroll"], f"{where}: cut off while asking — {asking}"
+    assert len(held) == 1, f"{where}: {len(held)} requests"
+    held[0].fulfill(
+        status=200, content_type="text/html", headers={"X-Raakje-Failed": "1"}, body=_FAILED
+    )
+    page.locator(".raakje-panel").get_by_text("Raakje kon geen antwoord geven").wait_for()
+    htmx_stil(page)
+    stayed = page.evaluate(_FIELD)
+    print("MEASURE field", where, "one line", one_line["client"], "suggestion", stayed)
+    assert stayed["value"] == _TWO_LINES, (where, stayed)
+    assert stayed["scroll"] > one_line["scroll"], (
+        f"{where}: the suggestion fits one line — {stayed}"
+    )
+    assert stayed["client"] == stayed["scroll"], f"{where}: a line is cut off — {stayed}"
+    assert stayed["inside"] and stayed["page"] == size[0], (where, stayed)
+
+    # Answered: the field is one line again.
+    page.unroute(endpoint)
+    page.route(
+        endpoint,
+        lambda route: route.fulfill(
+            status=200, content_type="text/html", body="<div data-raakje-answer>Zeven.</div>"
+        ),
+    )
+    field.press("Enter")
+    page.locator(".raakje-panel [data-raakje-answer]").last.wait_for()
+    htmx_stil(page)
+    emptied = page.evaluate(_FIELD)
+    assert emptied["value"] == "" and emptied["client"] == one_line["client"], (where, emptied)
+
+    # Typed: the same height as the suggestion gave.
+    field.fill(_TWO_LINES)
+    typed = page.evaluate(_FIELD)
+    assert typed["client"] == typed["scroll"] == stayed["scroll"], (where, typed, stayed)
+
+    # Far more than fits: the field stops at its maximum and scrolls inside
+    # itself; the hint line under it stays inside the panel.
+    field.fill(" ".join([_TWO_LINES] * 8))
+    full = page.evaluate(_FIELD)
+    assert full["offset"] == full["max"] == 120, (where, full)
+    assert full["scroll"] > full["client"] and full["inside"], (where, full)
+    assert full["page"] == size[0], (where, full)
     page.close()
 
 
