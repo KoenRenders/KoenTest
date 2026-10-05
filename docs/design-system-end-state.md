@@ -609,8 +609,13 @@ a repeating-group row. [22, 46, 50]
 **Decided with block 9** (Koen, 4 October 2026, on ChatGPT's brief-09
 answer): the bar is 64 px high, as wide as the form column, white with a
 thin top line, under the last section (the collapsed rare settings), 24 px
-below it; **sticky on a desktop too** — 16 px above the window's bottom
-while the form is longer than the window, in the flow at the form's end;
+below it; **sticky on a desktop too** — **flush against the window's
+bottom** while the form is longer than the window, with the kit's shadow
+upward and a heavier separator line, so nothing runs under it and it reads
+as a bar (Koen, 5 October 2026, after K7 on HDEV: the white bar floating
+16 px up on a white card with the poster showing under it was "not well
+visible" — the 16 px gap of the prototype goes); in the flow at the form's
+end;
 only in edit mode; in edit mode Verwijderen lives in the bar and not also in
 Acties (in read mode in Acties). On a phone: 121 px at the bottom, Opslaan
 full width on the first line (44 px), Verwijderen left and Annuleren right

@@ -708,9 +708,12 @@ picker → current attachment (link + delete) → hint**. Macro
 
 **Since K7 (#1561, CR-11 pilot A, merged 4 October 2026) a record form on
 the kit has every state designed**, the activity first: the **action bar**
-(`ui.action_bar`) under the form column, 64 px, white with a thin top line,
-sticky also on a desktop (16 px above the window's bottom, in the flow at
-the form's end), only in edit mode; Verwijderen red at the left, Annuleren as
+(`ui.action_bar`) under the form column, 64 px, white, sticky also on a
+desktop — **flush against the window's bottom with the kit's shadow upward
+and a heavier separator** (Koen, 5 October 2026: as built by K7 it floated
+16 px up, white on white with a thin line and the content showing under
+it, and was not well visible; corrected in a slice on K7), in the flow at
+the form's end — only in edit mode; Verwijderen red at the left, Annuleren as
 text, Opslaan the one filled primary; on a phone 121 px with Opslaan full
 width on the first line. **Validation**: a banner above the form — "Opslaan
 kan nog niet: controleer n velden." with a link per field and "Je andere
