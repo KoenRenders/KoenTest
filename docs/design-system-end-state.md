@@ -477,7 +477,10 @@ public forms — register, a public form, Word lid, renew, Mijn gezin:
   household): the **Hoofdlid** as a fixed section with the person's fields
   and e-mail addresses; then **Adres**; then **Gezinsleden** — partner and
   children as the composite repeating group (§3.3: collapsed, no handle,
-  "+ Gezinslid toevoegen" in the group head); then the price and the
+  **"+ Gezinslid toevoegen" under the last person**, so filling in → adding
+  or going on → paying reads top to bottom; every person shows **one e-mail
+  field from the start**, required for the main member, optional for the
+  others); then the price and the
   payment. The main member is no row of the group; in a person's fields **Geslacht is a
   select, half width, beside Geboortedatum** on one row — not a vertical
   radio group (Koen, 5 October 2026, after P3 on HDEV; §3.5: radios only
@@ -603,12 +606,20 @@ active only for Betalend; in read mode a product is two short lines
 ("Soep · € 5,00 · leden € 4,00" / "Betalend" — or "Gratis" / "Ter
 plaatse"), and the item's name is its heading, not repeated
 as a field; the item's rare settings go to the form's one collapsed slot.
-**Adding** ("+ Datum", "+ Onderdeel", "+ Product", "+ Organisator" at the
-heading's right, edit mode only) inserts an empty row in place with the
-focus on its first field; an organiser is added through a **member search
+**Adding** inserts an empty row in place with the focus on its first
+field, edit mode only; **the add button of a simple group stands at the
+heading's right** ("+ Datum", "+ Product", "+ Organisator"), **the add
+button of a composite group under its last item** ("+ Onderdeel",
+"+ Gezinslid toevoegen") — where the hands are when the last block is
+filled in, not a block higher (Koen, 5 October 2026, on Word lid: scrolling
+back up to add a child means fewer children entered); **a simple group
+whose first value is wanted shows one empty row from the start** instead of
+asking for "+ E-mailadres" (a person's e-mail address; Koen, the same day:
+"we gaan minder mailadressen krijgen"); an organiser is added through a **member search
 inside the group** (type a name, pick a member), never a dialog, never
 free text. **The empty group** says "Nog geen datums." and in edit mode
-keeps only the heading's add button. **The row's `⋯`**: Omhoog · Omlaag ·
+keeps only its add button (in the head for a simple group, in place of the
+first item for a composite one). **The row's `⋯`**: Omhoog · Omlaag ·
 Dupliceren | Verwijderen (red, last); Dupliceren not for members and
 e-mail addresses; a duplicated component takes its products; Omhoog is
 disabled on the first row, Omlaag on the last; while dragging, the origin
