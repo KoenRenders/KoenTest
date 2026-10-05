@@ -348,7 +348,8 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   record page, where one reads and edits — **no unfold in place** (block 8
   had a read-only unfold with "Inschrijving openen ↗"; Koen, 5 October
   2026, after K6 on HDEV: the row, the unfold and the page showed the same
-  data three times and only the third could edit). A registration row
+  data three times and only the third could edit; the same for the payments
+  rows on a record's tab, which open the booking page of #1574). A registration row
   carries name · contact (e-mail and mobile stacked) · date · products ·
   **Bedrag** · **Saldo** (warning tone when ≠ 0) · status · one row action
   plus `⋯`; the answers live on the record page (in the list at most a count

@@ -1054,7 +1054,9 @@ the registrations tab as group rows per component — built with a read-only
 unfold and "Inschrijving openen ↗", **reversed on 5 October 2026** (Koen,
 on HDEV: the same data three times): the row is the way in to the
 registration page, with Bedrag and Saldo in the row, no unfold (a correction
-on K6); the embedded payments tab with its own address;
+on K6); the embedded payments tab with its own address — its rows do not
+unfold either since 5 October 2026 (Koen: the same for payments): the row
+opens the booking page of #1574;
 the figures band stays on the household and registration tabs until pilot
 B; the first registration row at y 425. A message line that holds nothing
 is no part of the form flow (#1587). The "AI · Activiteit" overlay went with
@@ -1234,10 +1236,13 @@ back · forbidden · test.** Fields marked *open* are decisions still to take
 - **When**: a list of concrete records.
 - **What happens**: the **record name opens the canonical detail page** at the
   record's id-URL (B2 decision, 13 Sep 2026); the page carries the P3 `?terug=`
-  context back to the list. Inline disclosure (`detail_disclosure` on a
-  "Details" row action) is the **secondary** variant for staying in list
-  context. Both render the same shared fragment — one source; the fragment
-  lives on a `/fragment` subpath under the page URL.
+  context back to the list. **On a kit table (K2 and later) there is no inline
+  disclosure**: the row is the way in, on a top-level list and on a record's
+  tab alike (Koen, 5 October 2026, after K6 on HDEV — the row, the unfold and
+  the page showed the same data three times; registrations and payments). For
+  the lists not yet on the kit, inline disclosure (`detail_disclosure` on a
+  "Details" row action) stays the secondary variant; both render the same
+  shared fragment on a `/fragment` subpath under the page URL.
 - **Where attention goes**: the page (primary) or the opened panel directly
   under its row (secondary).
 - **The way back**: the page's return link (P3); or closing the panel — the
