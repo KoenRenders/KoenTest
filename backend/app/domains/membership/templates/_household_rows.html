@@ -1,0 +1,58 @@
+{% import "_macros.html" as ui %}
+{# What a person of the household is made of, for the main member's section and
+   for a row of the group Gezinsleden alike (#1632; end state §2.6): the
+   person's fields and their e-mail addresses. `group` is the `HouseholdGroup`
+   view, `p` a `PersonView`, `edit` the mode. The field names are the contract
+   of `mdm.household_form`.
+
+   **Geslacht is a select of half width beside Geboortedatum** (Koen, 5 October
+   2026, Q71): three options that need no line of help are no radios (§3.5).
+
+   **An e-mail row carries no label** (Q70): the group's title "E-mailadressen"
+   says what the rows are, in read and edit mode and at every width. The field
+   keeps its accessible name, and where an address is asked (Word lid, the main
+   member) the title carries the red star a label would (#646). The *hoofdadres* tag may be removed like any other
+   address, and then nothing takes its place (Koen, 27 September 2026; #1603). #}
+{% macro email_row(pkey, m, required, edit) -%}
+{% call ui.group_row("e_order." ~ pkey, m.key, edit=edit, menu=["remove"],
+                     label=m.value or _("nieuw e-mailadres"),
+                     one={"chosen": m.primary, "tag": _("hoofdadres"), "make": _("Maak hoofdadres"), "removable": True}) %}
+  {{ ui.field("e." ~ m.key ~ ".value", _("E-mailadres"), kind="email", value=m.value, edit=edit,
+              id="e-" ~ m.key ~ "-value", required=required, label_hidden=True) }}
+{% endcall %}
+{%- endmacro %}
+
+{% macro email_group(group, p, edit) -%}
+{% set _required = group.contact_required and p.is_main %}
+{% set _template %}{{ email_row(p.key, group.new_email, False, edit) }}{% endset %}
+{% call ui.repeating_group(_("E-mailadressen"), "e_order." ~ p.key, token=group.new_email.key,
+                           add_label=_("E-mailadres"), edit=edit, child=True, count=p.emails|length,
+                           empty=_("Nog geen e-mailadres."), template=_template,
+                           hint=_("Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging."),
+                           one={"name": "e_primary." ~ p.key, "value": p.primary_key}, required=_required) %}
+  {% for m in p.emails %}{{ email_row(p.key, m, _required and m.primary, edit) }}{% endfor %}
+{% endcall %}
+{%- endmacro %}
+
+{# `in_row`: the name fields feed the title of the row they stand in. #}
+{% macro person_fields(group, p, edit, in_row=True) -%}
+{% set _title = "data-row-title-source " if in_row else "" %}
+{{ ui.field("h." ~ p.key ~ ".first_name", _("Voornaam"), value=p.first_name, edit=edit, required=True,
+            id="h-" ~ p.key ~ "-first_name", attrs=_title ~ "autocomplete=given-name") }}
+{{ ui.field("h." ~ p.key ~ ".last_name", _("Achternaam"), value=p.last_name, edit=edit, required=True,
+            id="h-" ~ p.key ~ "-last_name", attrs=_title ~ "autocomplete=family-name") }}
+{{ ui.field("h." ~ p.key ~ ".date_of_birth", _("Geboortedatum"), kind="date", value=p.date_of_birth,
+            display=p.birth_display, edit=edit, required=True, id="h-" ~ p.key ~ "-date_of_birth") }}
+{{ ui.field("h." ~ p.key ~ ".gender_code", _("Geslacht"), kind="select", value=p.gender_code, edit=edit,
+            required=True, options=[("", _("— kies —"))] + group.gender_options|list,
+            id="h-" ~ p.key ~ "-gender_code") }}
+{% if p.choose_relation %}
+{{ ui.field("h." ~ p.key ~ ".relation_type", _("Relatie"), kind="select", value=p.relation_type, edit=edit,
+            options=group.relation_options, id="h-" ~ p.key ~ "-relation_type",
+            attrs="data-row-title-prefix-source") }}
+{% endif %}
+{{ ui.field("h." ~ p.key ~ ".mobile", _("Gsm"), kind="phone", value=p.mobile, edit=edit,
+            required=(group.contact_required and p.is_main), id="h-" ~ p.key ~ "-mobile") }}
+{{ ui.field("h." ~ p.key ~ ".phone", _("Telefoon"), kind="phone", value=p.phone, edit=edit,
+            id="h-" ~ p.key ~ "-phone") }}
+{%- endmacro %}

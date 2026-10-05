@@ -1,0 +1,13 @@
+{# The transfer a member still has to make (#618; one source since #1632): the
+   amount, the account, the beneficiary and the reference — from the booking
+   itself. On the renewal page and in the Lidmaatschap card of Mijn gezin. Set
+   before the include: `transfer`, a `TransferDue`. #}
+<div data-transfer-due>
+  <p class="text-base text-ink">{{ _("Betaal via overschrijving:") }}</p>
+  <ul class="mt-2 text-base leading-7 text-ink">
+    <li>{{ _("Bedrag") }}: <strong>€ {{ transfer.amount|geld }}</strong></li>
+    {% if transfer.iban %}<li>IBAN: <strong>{{ transfer.iban }}</strong></li>{% endif %}
+    {% if transfer.beneficiary %}<li>{{ _("Begunstigde") }}: {{ transfer.beneficiary }}</li>{% endif %}
+    {% if transfer.ogm %}<li>{{ _("Mededeling (OGM)") }}: <strong>{{ transfer.ogm }}</strong></li>{% endif %}
+  </ul>
+</div>

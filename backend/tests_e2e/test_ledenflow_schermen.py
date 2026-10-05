@@ -62,13 +62,16 @@ def _renew_link(page):
 
 
 def _persons(page) -> list[dict]:
-    """The persons of the read page, each with what its row shows. Read from the
-    DOM's text and not from what is visible: every row but the first is folded."""
+    """The persons of the read page, each with what their part of it shows: the
+    main member's section first (#1632), then the rows of the group. Read from
+    the DOM's text and not from what is visible: the rows are folded. The main
+    member has no row title; their name is their two name fields."""
     return page.evaluate(
-        """() => [...document.querySelectorAll('#gezinsleden > [data-group-rows] > [data-group-row]')].map(row => {
+        """() => [document.querySelector('#hoofdlid'), ...document.querySelectorAll('#gezinsleden > [data-group-rows] > [data-group-row]')].map(row => {
           const value = name => { const f = row.querySelector(`[data-field$=".${name}"] [data-value]`);
                                   return f ? f.textContent.trim() : null; };
-          return {title: row.querySelector('[data-row-title]').textContent.trim(),
+          const title = row.querySelector('[data-row-title]');
+          return {title: title ? title.textContent.trim() : `${value('first_name')} ${value('last_name')}`,
                   born: value('date_of_birth'), gender: value('gender_code'), mobile: value('mobile'),
                   emails: [...row.querySelectorAll('[data-field$=".value"] [data-value]')].map(e => e.textContent.trim())};
         })"""

@@ -488,14 +488,17 @@ class Paginascherm:
 
 #: The persons of the household group on Word lid and Mijn gezin (#1590).
 HOUSEHOLD_ROWS = "#gezinsleden > [data-group-rows] > [data-group-row]"
+#: The main member: a section of its own above the group (#1632).
+HOUSEHOLD_HEAD = "#hoofdlid"
 
 
 def fill_person(row, first: str, last: str, *, born: str = "1980-01-01", gender: str = "M") -> None:
-    """The four things every person of a household needs, in one row of the group."""
+    """The four things every person of a household needs — in a row of the
+    group, or in the main member's section."""
     row.locator('input[name$=".first_name"]').fill(first)
     row.locator('input[name$=".last_name"]').fill(last)
     row.locator('input[name$=".date_of_birth"]').fill(born)
-    row.locator(f'input[name$=".gender_code"][value="{gender}"]').check()
+    row.locator('select[name$=".gender_code"]').select_option(gender)
 
 
 def fill_signup(
@@ -504,7 +507,7 @@ def fill_signup(
     """The Word lid page, filled in as far as a main member with an address: the
     caller chooses the payment method and sends. `postal_code=False` leaves the
     select on its empty choice."""
-    head = page.locator(HOUSEHOLD_ROWS).first
+    head = page.locator(HOUSEHOLD_HEAD)
     fill_person(head, first, last)
     head.locator('input[name$=".mobile"]').fill("0470000000")
     head.locator('input[type="email"]').first.fill(email)
