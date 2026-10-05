@@ -498,7 +498,9 @@ public forms — register, a public form, Word lid, renew, Mijn gezin:
   over PROD's bar): valid — "geldig tot en met …" in the success tone;
   to renew — the sentence and the button *Lidmaatschap vernieuwen*; a
   renewal awaiting a transfer — "Je vernieuwing loopt nog." **with the
-  transfer instructions in the card**, not one click further; then edit
+  transfer instructions in the card** and no link to a second screen — the
+  running-renewal view of the renew page goes with it (Koen, 5 October 2026,
+  Q79); then edit
   mode with one *Bewerken* badge and one
   *Opslaan*; then read mode with the same sections ("—" for empty) and one
   *Bewerken* in the head; the toast "Opgeslagen ✓" for four seconds.
