@@ -465,15 +465,31 @@ public forms — register, a public form, Word lid, renew, Mijn gezin:
   Contact and the questions in section cards, labels 14 px medium (one
   label style), *Verzenden* in the action bar, then its own thank-you page.
   **One long page, no steps**, however many sections.
-- **Word lid**: the household as a composite repeating group (§3.3: the
-  head open, partner and child collapsed, no handle, "+ Gezinslid
-  toevoegen" in the group head); the e-mail addresses as a simple group with
-  the *hoofdadres* tag; the address grid; the price line and the payment
+- **Word lid** (and Mijn gezin), **in this order** (Koen, 5 October 2026,
+  after P3 on HDEV: the address belongs to the main member and the
+  household): the **Hoofdlid** as a fixed section with the person's fields
+  and e-mail addresses; then **Adres**; then **Gezinsleden** — partner and
+  children as the composite repeating group (§3.3: collapsed, no handle,
+  "+ Gezinslid toevoegen" in the group head); then the price and the
+  payment. The main member is no row of the group; in a person's fields **Geslacht is a
+  select, half width, beside Geboortedatum** on one row — not a vertical
+  radio group (Koen, 5 October 2026, after P3 on HDEV; §3.5: radios only
+  where each option needs a line of help); the e-mail addresses as a simple group with
+  the *hoofdadres* tag — **no label on the rows, in either mode, at any
+  width: the group title "E-mailadressen" says it** (Koen, 5 October 2026,
+  after P3 on HDEV: the label stood three times; the §3.3 rule "a label per
+  field on a phone" does not apply to a one-field row whose group names it); the address grid; the price line and the payment
   choice in the last card; no nudge; no wizard — the sticky bar carries
   the one action down a 2 100 px page on a phone.
 - **Renew**: the status line, the membership card with price, validity and
   the payment radios, the button, then the household summary; renewing is
-  its own act. **Mijn gezin**: edit mode with one *Bewerken* badge and one
+  its own act. **Mijn gezin**: the **Lidmaatschap** card first in read mode, with its
+  three states on one place (Koen, 5 October 2026, choosing the kit's form
+  over PROD's bar): valid — "geldig tot en met …" in the success tone;
+  to renew — the sentence and the button *Lidmaatschap vernieuwen*; a
+  renewal awaiting a transfer — "Je vernieuwing loopt nog." **with the
+  transfer instructions in the card**, not one click further; then edit
+  mode with one *Bewerken* badge and one
   *Opslaan*; then read mode with the same sections ("—" for empty) and one
   *Bewerken* in the head; the toast "Opgeslagen ✓" for four seconds.
 - **The primary is brand blue** in both shells; yellow stays with the
