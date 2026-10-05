@@ -39,6 +39,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
 from app.domains.auth.api import require_admin_ui
+from app.kernel.tenant_config import SITE_COLOR_DEFAULTS
 from app.ui import admin_nav, templates
 from app.ui.viewmodels import DesignSystemView
 
@@ -299,6 +300,7 @@ def design_system(request: Request, email: str = Depends(require_admin_ui)):
     view = DesignSystemView(
         nav_items=admin_nav("/admin/design-system"),
         tokens=_tokens(),
+        demo_colours=dict(SITE_COLOR_DEFAULTS),
         radii=_radii(),
         iconen=_iconen(),
         velden=_voorbeeldvelden(),

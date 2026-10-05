@@ -9,6 +9,9 @@ What only a browser shows — what the cascade made of the tokens on the body:
   nothing still resolve the brand token to Atelier's;
 - **the back office does not change colour**: its tokens, and the colours every
   element of an admin screen is painted in, are the same before and after;
+- **the editor's colour field** (#1643): three fields of one kind in the card
+  "Site"; the sample is 36 × 36 px, shows the standard colour while the field
+  is empty, and follows a valid `#rrggbb` as it is typed;
 - **only colour changes**: the boxes of the heading, the first card, the button
   and the footer stand where they stood, at 390 and at 1 440 px.
 
@@ -217,3 +220,55 @@ def test_the_back_office_does_not_change_colour(measured):
     assert not changed, (
         f"{len(changed)} elements of the design-system page changed colour: {changed[:3]}"
     )
+
+
+def test_the_colour_field_shows_what_is_typed_and_the_standard_when_empty():
+    """#1643: the kit's colour field on the three colours of the card "Site".
+    Nothing is saved: the test only types."""
+    from app.domains.auth.api import make_session_value
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    read = """() => [...document.querySelectorAll('[data-kind="color"]')].map(f => {
+      const s = f.querySelector('[data-colour-sample]'), i = f.querySelector('input'), b = s.getBoundingClientRect();
+      return {name: f.dataset.field, colour: getComputedStyle(s).backgroundColor, w: b.width, h: b.height,
+              radius: getComputedStyle(s).borderRadius, gap: Math.round(i.getBoundingClientRect().left - b.right),
+              level: Math.abs((b.top + b.bottom) / 2 - (i.getBoundingClientRect().top + i.getBoundingClientRect().bottom) / 2)}; })"""
+    with sync_playwright() as pw:
+        exe = os.environ.get("E2E_CHROMIUM_PATH")
+        browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
+        try:
+            for width in (1440, 390):
+                page = browser.new_page(viewport={"width": width, "height": 900})
+                login_met_sessie(page, make_session_value(SEEDED_ADMIN_EMAIL), BASE)
+                page.goto(BASE + "/admin/instellingen")
+                pagina_klaar(page)
+                fields = page.evaluate(read)
+                print("MEASURE colour fields", width, fields)
+                assert [f["name"] for f in fields] == [
+                    "site_header_color",
+                    "site_brand_color",
+                    "site_accent_color",
+                ]
+                # Empty: the standard colour of the shell, in a sample of 36 × 36.
+                assert [f["colour"] for f in fields] == [
+                    "rgb(36, 75, 197)",
+                    "rgb(37, 78, 115)",
+                    "rgb(238, 193, 94)",
+                ], fields
+                for f in fields:
+                    assert (f["w"], f["h"], f["radius"]) == (36, 36, "6px"), f
+                    assert f["gap"] == 8 and f["level"] <= 0.5, f
+                header = page.locator('[data-field="site_header_color"]')
+                header.locator("input").fill("#0051a4")
+                page.wait_for_function(
+                    "() => getComputedStyle(document.querySelector('[data-field=\"site_header_color\"] [data-colour-sample]')).backgroundColor === 'rgb(0, 81, 164)'"
+                )
+                # Not a colour: the sample falls back to the standard, it draws no guess.
+                header.locator("input").fill("blauw")
+                page.wait_for_function(
+                    "() => getComputedStyle(document.querySelector('[data-field=\"site_header_color\"] [data-colour-sample]')).backgroundColor === 'rgb(36, 75, 197)'"
+                )
+                assert page.evaluate("document.documentElement.scrollWidth") == width
+                page.close()
+        finally:
+            browser.close()

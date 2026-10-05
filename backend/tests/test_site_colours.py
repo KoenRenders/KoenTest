@@ -33,6 +33,7 @@ from app.kernel.tenant_config import (
     SITE_ACCENT_COLOR_KEY,
     SITE_BRAND_COLOR_KEY,
     SITE_COLOR_DEFAULTS,
+    SITE_HEADER_COLOR_KEY,
     accent_color_problem,
     accent_tokens,
     brand_color_problem,
@@ -159,7 +160,11 @@ def test_the_placeholders_are_the_stylesheets_own_colours():
     css = BUILD_CSS.read_text()
     site = css[css.index('body[data-shell="site"]{') :]
     site = site[: site.index("}")]
-    for key, token in ((SITE_BRAND_COLOR_KEY, "--c-brand"), (SITE_ACCENT_COLOR_KEY, "--c-accent")):
+    for key, token in (
+        (SITE_HEADER_COLOR_KEY, "--c-site-header"),
+        (SITE_BRAND_COLOR_KEY, "--c-brand"),
+        (SITE_ACCENT_COLOR_KEY, "--c-accent"),
+    ):
         found = re.search(re.escape(token) + r":(\d+ \d+ \d+);", site)
         assert found, f"{token} is not in the site shell's tokens"
         own = " ".join(str(int(SITE_COLOR_DEFAULTS[key][i : i + 2], 16)) for i in (1, 3, 5))
@@ -269,17 +274,24 @@ def test_a_bad_value_that_reached_the_table_another_way_never_reaches_a_page(cli
 # ── the editor and the back office ───────────────────────────────────────────
 
 
-def test_the_editor_shows_both_fields_with_the_standard_as_placeholder(client, db_session):
+def test_the_editor_shows_three_colour_fields_of_one_kind(client, db_session):
+    """#1643: the header colour, the brand and the accent on the kit's ONE
+    colour field — a sample beside the input, the standard colour as the
+    placeholder and as the sample of an empty field. Red against master
+    `552bc506`: two colour fields (the header colour was a bare text input)."""
     csrf = _operator(client, db_session)
     page = client.get("/admin/instellingen").text
-    for key in (SITE_BRAND_COLOR_KEY, SITE_ACCENT_COLOR_KEY):
-        field = re.search(rf'<input [^>]*name="{key}"[^>]*>', page).group(0)
-        assert f'placeholder="{SITE_COLOR_DEFAULTS[key]}"' in field and "value=" not in field, field
-        assert f'data-colour-field="{key}"' in page
-        # The kit's field (the ratchet on raw form elements only falls).
-        assert f'data-field="{key}" data-kind="text"' in page
-    assert page.count("data-colour-sample") == 2
-    # Beside the header colour, in the card "Site".
+    assert page.count('data-kind="color"') == 3, "the card Site has three colours"
+    assert page.count("data-colour-sample") == 3 and page.count("data-colour-field") == 3
+    for key in (SITE_HEADER_COLOR_KEY, SITE_BRAND_COLOR_KEY, SITE_ACCENT_COLOR_KEY):
+        block = re.search(rf'<div data-field="{key}" data-kind="color".*?</p>', page, re.S).group(0)
+        field = re.search(rf'<input [^>]*name="{key}"[^>]*>', block).group(0)
+        standard = SITE_COLOR_DEFAULTS[key]
+        assert f'placeholder="{standard}"' in field and "value=" not in field, field
+        # An empty field shows what "empty" gives, before Alpine and after.
+        sample = re.search(r"<span data-colour-sample[^>]*>", block).group(0)
+        assert f'style="background-color: {standard}"' in sample and f"'{standard}'" in sample
+    # In the card "Site": the header, the brand, the accent — in that order.
     assert (
         page.index('name="site_header_color"')
         < page.index(f'name="{SITE_BRAND_COLOR_KEY}"')
@@ -299,3 +311,53 @@ def test_the_admin_shell_does_not_change(client, db_session):
     html = client.get("/admin").text
     assert "--c-brand:" not in html and "--c-accent:" not in html
     assert " style=" not in _body(html)
+
+
+# ── one colour field, and no issue number in what a user reads (#1643) ───────
+
+
+def test_the_colour_field_is_the_kits_and_no_template_draws_its_own():
+    """The macro is the only way: the sample is written in `_macros.html` and
+    nowhere else, and the editor asks the kit for it. Red with the sample of
+    #1622 back in `admin_tenant.html`."""
+    app = Path(__file__).resolve().parents[1] / "app"
+    templates = list(app.rglob("templates/*.html"))
+    assert len(templates) > 100, "hardly a template was read"
+    own = sorted(
+        p.name
+        for p in templates
+        if "data-colour-sample" in p.read_text() and p.name != "_macros.html"
+    )
+    assert own == [], f"a colour sample drawn outside the kit: {own}"
+    editor = (app / "ui" / "templates" / "admin_tenant.html").read_text()
+    assert editor.count('kind="color"') == 1 and "{% elif key in colour_defaults %}" in editor
+    assert set(SITE_COLOR_DEFAULTS) == {
+        SITE_HEADER_COLOR_KEY,
+        SITE_BRAND_COLOR_KEY,
+        SITE_ACCENT_COLOR_KEY,
+    }
+
+
+def test_no_help_text_of_the_tenant_editor_names_an_issue():
+    """An issue number is for a comment, not for what an operator reads: "Leeg =
+    de standaardkleur (#992)." read as a colour. Every label and help text of
+    the editor, in every card. Red against master on "(#519)", "(#992)" (the
+    card Site) and "(#917)" (Raakje). A colour such as #005d29 is no issue
+    number."""
+    from app.kernel.modules import owner_of
+    from app.ui.tenants_ui import BEKENDE_SLEUTELS, GEHEIME_SLEUTELS
+
+    issue = re.compile(r"#\d{2,5}(?![0-9a-fA-F])")
+    assert issue.search("Leeg = de standaardkleur (#992).") and not issue.search("bv. #005d29.")
+    rows = list(BEKENDE_SLEUTELS) + list(GEHEIME_SLEUTELS)
+    assert len(rows) >= 20, f"only {len(rows)} settings were read"
+    wrong = {
+        key: found.group(0)
+        for key, label, text in rows
+        if (found := issue.search(label) or issue.search(text))
+    }
+    assert not wrong, f"an issue number in what the tenant editor shows: {wrong}"
+    site = [row for row in BEKENDE_SLEUTELS if owner_of("tenant_settings", row[0]) is None]
+    for key in SITE_COLOR_DEFAULTS:
+        (text,) = [text for k, _label, text in site if k == key]
+        assert text.endswith("Leeg = de standaardkleur van de schil."), (key, text)

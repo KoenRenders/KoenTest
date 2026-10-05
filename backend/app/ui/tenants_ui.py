@@ -41,27 +41,30 @@ BEKENDE_SLEUTELS = [
     # terugval — twee plaatsen voor één feit, en de instelling won. De naam komt
     # nu uit de organisatie. Komt er ooit een merknaam die van de statutaire naam
     # afwijkt, dan is dat een kolom op de organisatie en geen tenant-instelling.
-    ("tagline", "Tagline", "Ondertitel in de header. Leeg = geen ondertitel (#519)."),
+    # An issue number belongs in a comment, never in what a user reads (#1643):
+    # "(#519)" and "(#992)" stood in these help texts. #519: no hard-coded
+    # tagline. #992: the header colour per tenant.
+    ("tagline", "Tagline", "Ondertitel in de header. Leeg = geen ondertitel."),
+    # #992, #1622: with the logo, the three colours of the tenant's brand file.
+    # One line and an example each (#1643); the rule that refuses a colour says
+    # why when it does.
     (
         "site_header_color",
         "Kleur van de kopbalk",
-        "Achtergrond van de kopbalk op de publieke site, als #rrggbb (bv. #005d29). "
-        "Moet donker genoeg zijn voor witte tekst. Leeg = de standaardkleur (#992).",
+        "Achtergrond van de kopbalk op de publieke site, bv. #005d29. "
+        "Leeg = de standaardkleur van de schil.",
     ),
-    # #1622: with the logo and the header colour, the tenant's brand file.
     (
         "site_brand_color",
         "Merkkleur",
-        "Koppen, links, de primaire knop en de actieve navigatie op de publieke site, als "
-        "#rrggbb. De tinten (hover, zachte achtergrond, focus) worden eruit afgeleid. Moet "
-        "donker genoeg zijn voor witte tekst. Leeg = de standaardkleur.",
+        "Koppen, links, knoppen en de actieve navigatie op de publieke site, bv. #0051a4. "
+        "Leeg = de standaardkleur van de schil.",
     ),
     (
         "site_accent_color",
         "Accentkleur",
-        "De ene oproep op de publieke site, zoals de knop voor de nieuwsbrief, als #rrggbb. "
-        "De tekst erop wordt donker of wit, naargelang wat het best leest. "
-        "Leeg = de standaardkleur.",
+        "De ene oproep op de publieke site (de knop voor de nieuwsbrief), bv. #ffd200. "
+        "Leeg = de standaardkleur van de schil.",
     ),
     # #924: de sociale links staan bij de ORGANISATIE — ze bestaan ook als de
     # vereniging geen site heeft. Hier laten staan zou een tweede bewerkbare bron
@@ -107,12 +110,13 @@ BEKENDE_SLEUTELS = [
     ("max_item_quantity", "Max. aantal per item", "Inschrijvingslimiet per item. Default 50."),
     ("max_registrations_per_email", "Max. inschrijvingen per e-mail", "Per activiteit. Default 3."),
     # #1568: the two Raakje settings are switches (`SWITCH_SETTINGS` in
-    # `kernel.tenant_config`), independent of each other.
+    # `kernel.tenant_config`), independent of each other. #917: the back-office
+    # assistant needs the environment's switch too ("(#917)" stood in the help).
     (
         "admin_chat_enabled",
         "Raakje in de backoffice",
         "Het bestuur mag Raakje vragen stellen over de eigen cijfers. "
-        "Werkt enkel als ADMIN_CHAT_ENABLED ook aan staat (#917).",
+        "Werkt enkel als ADMIN_CHAT_ENABLED ook aan staat.",
     ),
     (
         "public_chat_enabled",

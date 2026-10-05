@@ -867,6 +867,9 @@
     {{ ui.field("kit_mail" ~ loop.index, _("E-mail"), kind="email", value="info@example.test", edit=_edit) }}
     {{ ui.field("kit_phone" ~ loop.index, _("Telefoon"), kind="phone", value="", edit=_edit, error=_("Vul een telefoonnummer in.") if _edit else None) }}
     {{ ui.field("kit_url" ~ loop.index, _("Website"), kind="url", value="https://voorbeeld.example.test", edit=_edit) }}
+    {# #1643: the kit's colour field — a sample beside the input. #}
+    {{ ui.field("kit_kleur" ~ loop.index, _("Merkkleur"), kind="color", value=demo_colours.site_header_color if loop.first else "", placeholder=demo_colours.site_brand_color, edit=_edit,
+                help=_("Leeg = de standaardkleur van de schil.")) }}
   {% endcall %}
   {% call ui.section(_("Getallen, datums en keuzes")) %}
     {{ ui.field("kit_max" ~ loop.index, _("Maximum"), kind="number", value=80, span="quarter", edit=_edit) }}
