@@ -26,15 +26,16 @@ from typing import Any, Optional
 from pydantic import EmailStr, TypeAdapter, ValidationError
 
 from app.domains.mdm.api import (
+    HouseholdRefused,
     MainMemberMobileMissing,
     MemberPerson,
     PersonDetailsMissing,
     PersonRow,
     RelationType,
+    chosen_relation,
     household_from_form,
 )
 from app.domains.membership.schemas_family import FamilyCreate, FamilyMemberCreate
-from app.domains.membership.service import default_relation
 from app.i18n import _
 from app.kernel.refusals import FieldError
 
@@ -100,14 +101,17 @@ def signup_from_form(form: Any) -> tuple[Optional[FamilyCreate], list[FieldError
     relations: list[str] = []
     for index, row in enumerate(rows):
         at = f"h.{row.key}"
-        asked = form.get(f"{at}.relation_type")
-        relation = (
-            RelationType.PRIMARY_MEMBER.value
-            if index == 0
-            else (asked.strip() if isinstance(asked, str) and asked.strip() else "")
-            or default_relation(relations)
-        )
-        relations.append(relation)
+        if index == 0:
+            relation = RelationType.PRIMARY_MEMBER
+        else:
+            # The rule of Mijn gezin (#1603): partner or child, never a second
+            # main member; nothing chosen is the default.
+            try:
+                relation = chosen_relation(row.relation_type, relations)
+            except HouseholdRefused as refusal:
+                errors.append(FieldError(f"{at}.relation_type", str(refusal)))
+                relation = RelationType.ADULT_CHILD
+        relations.append(relation.value)
         if f"{at}.date_of_birth" not in refused:
             errors.extend(_person_errors(row))
         before = len(errors)
@@ -127,22 +131,19 @@ def signup_from_form(form: Any) -> tuple[Optional[FamilyCreate], list[FieldError
                 MemberPerson.require_main_member_mobile(row.mobile)
             except MainMemberMobileMissing as refusal:
                 errors.append(FieldError(f"{at}.mobile", str(refusal)))
-        try:
-            members.append(
-                FamilyMemberCreate(
-                    first_name=row.first_name,
-                    last_name=row.last_name,
-                    date_of_birth=row.date_of_birth,
-                    gender_code=row.gender_code,
-                    email=addresses[0] if addresses else None,
-                    extra_emails=addresses[1:],
-                    phone=row.phone or None,
-                    mobile=row.mobile or None,
-                    relation_type=RelationType(relation),
-                )
+        members.append(
+            FamilyMemberCreate(
+                first_name=row.first_name,
+                last_name=row.last_name,
+                date_of_birth=row.date_of_birth,
+                gender_code=row.gender_code,
+                email=addresses[0] if addresses else None,
+                extra_emails=addresses[1:],
+                phone=row.phone or None,
+                mobile=row.mobile or None,
+                relation_type=relation,
             )
-        except ValueError:
-            errors.append(FieldError(f"{at}.relation_type", _("Kies een relatie uit de lijst.")))
+        )
 
     address = household.address
     if address is None or not address.postal_code:

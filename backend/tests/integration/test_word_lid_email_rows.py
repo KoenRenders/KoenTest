@@ -71,8 +71,11 @@ def test_the_form_draws_one_row_marked_as_the_main_address(client):
     tag = re.search(r"<span data-row-one-tag[^>]*>", row)
     assert tag and "hidden" not in tag.group(0), "the first row carries no visible hoofdadres tag"
     assert "hoofdadres" in row
+    # #1603 (Koen's rule of 27 September 2026 stands): the main address may be
+    # removed like any other, and then nothing takes its place.
     remove = re.search(r'<button[^>]*data-row-action="remove"[^>]*>', row)
-    assert remove and "hidden" in remove.group(0), "the main row must not be removable"
+    assert remove and " hidden" not in remove.group(0), "the main row lost its Verwijderen"
+    assert "data-row-keeps" in remove.group(0)
 
 
 def test_a_row_added_in_the_page_is_a_removable_extra_address(client):

@@ -125,3 +125,105 @@ def test_a_stranger_is_still_refused(client, db_session):
     assert resp.status_code == 403
     db_session.expire_all()
     assert _in_household(db_session, member_b.id, vreemde.id)
+
+
+# ── #1603: Koen's rules of 5 October 2026, at this door too ──────────────────
+
+
+def _partner_with_email(db, member, email: str):
+    from app.domains.mdm.api import ContactDetail
+
+    partner = _extra_person(db, member, first_name="Partner")
+    link = db.query(MemberPerson).filter_by(person_id=partner.id).one()
+    link.relation_type = "PARTNER"
+    db.add(
+        ContactDetail(person_id=partner.id, contact_type_code="EMAIL", value=email, is_primary=True)
+    )
+    db.flush()
+    return partner
+
+
+def test_the_main_member_cannot_be_removed_by_another_member(client, db_session):
+    """Rule 1: "Een gezin heeft een hoofdlid nodig." — refused in the service, so
+    this door refuses like the page's one save. Until #1603 the only refusal was
+    "not yourself", and a partner could take the main member out: a household
+    nobody could renew for.
+
+    The other half is the first test of this file: a child IS removed. Proven red
+    by dropping the check from `detach_household_person`: 204, and the main
+    member is gone.
+    """
+    member, main = create_test_family(db_session, email="gezin-c@example.com")
+    _partner_with_email(db_session, member, "partner-c@example.com")
+    db_session.commit()
+
+    resp = client.delete(
+        f"/api/v1/member/household/persons/{main.id}",
+        headers=_member_headers("partner-c@example.com"),
+    )
+
+    assert resp.status_code == 400, resp.text
+    assert resp.json()["detail"] == "Een gezin heeft een hoofdlid nodig."
+    assert _in_household(db_session, member.id, main.id)
+
+
+def _address_of(db, person):
+    from app.domains.mdm.api import Address
+
+    db.expire_all()
+    return db.query(Address).filter(Address.person_id == person.id).first()
+
+
+ADDRESS = {"street": "Kerkstraat", "house_number": "5", "bus_number": None, "postal_code": "2400"}
+
+
+def test_a_household_without_an_address_gets_one_through_the_main_member(client, db_session):
+    """Rule 4: the address can be created. It hangs on the main member; sent for
+    anyone else it is left alone, as it always was — a household has one address.
+    Until #1603 this door ignored an address for a person who had none.
+
+    Proven red by keeping the old condition (`and target.address`): no address.
+    """
+    from tests.conftest import seed_postal_code
+
+    seed_postal_code(db_session)
+    member, main = create_test_family(db_session, email="gezin-d@example.com")
+    partner = _partner_with_email(db_session, member, "partner-d@example.com")
+    db_session.commit()
+    headers = _member_headers("gezin-d@example.com")
+
+    ignored = client.put(
+        f"/api/v1/member/household/persons/{partner.id}", json={"address": ADDRESS}, headers=headers
+    )
+    assert ignored.status_code == 200, ignored.text
+    assert _address_of(db_session, partner) is None, "an address was hung on the partner"
+
+    created = client.put(
+        f"/api/v1/member/household/persons/{main.id}", json={"address": ADDRESS}, headers=headers
+    )
+    assert created.status_code == 200, created.text
+    address = _address_of(db_session, main)
+    assert address is not None, "no address was created"
+    assert (address.street, address.house_number) == ("Kerkstraat", "5")
+
+
+def test_an_address_is_created_whole_or_not_at_all(client, db_session):
+    """Street, house number and postal code together: a part is a 422 in the
+    rule's words and nothing is stored."""
+    from tests.conftest import seed_postal_code
+
+    seed_postal_code(db_session)
+    _member, main = create_test_family(db_session, email="gezin-e@example.com")
+    db_session.commit()
+
+    resp = client.put(
+        f"/api/v1/member/household/persons/{main.id}",
+        json={"address": {**ADDRESS, "street": ""}},
+        headers=_member_headers("gezin-e@example.com"),
+    )
+
+    assert resp.status_code == 422, resp.text
+    assert resp.json()["detail"] == (
+        "Een adres heeft een straat, een huisnummer en een postcode nodig."
+    )
+    assert _address_of(db_session, main) is None

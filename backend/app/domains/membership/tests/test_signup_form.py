@@ -261,9 +261,12 @@ def test_an_invalid_main_address_is_one_refusal_not_two():
     assert [field for field, _message in found] == ["e.n0e.value"]
 
 
-def test_an_unknown_relation_is_refused_at_its_field():
-    found = _refusals(_pairs() + _person("n1", "Bert", relation_type="BUUR"))
-    assert found == [("h.n1.relation_type", "Kies een relatie uit de lijst.")]
+@pytest.mark.parametrize("asked", ["BUUR", "HOOFDLID"])
+def test_a_person_added_is_a_partner_or_a_child_and_nothing_else(asked):
+    """#1603: the rule of Mijn gezin, the same function (`mdm.chosen_relation`).
+    Never a second main member — until then the sign-up accepted one."""
+    found = _refusals(_pairs() + _person("n1", "Bert", relation_type=asked))
+    assert found == [("h.n1.relation_type", "Kies partner of kind.")]
 
 
 def test_a_form_without_an_address_is_refused_at_the_three_address_fields():

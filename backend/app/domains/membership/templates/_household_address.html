@@ -1,17 +1,24 @@
 {% import "_macros.html" as ui %}
 {# The household's address (#1590; §2.6): street half, house number and bus a
    quarter each, postal code and municipality full — always a select from the
-   postal code table (the fixed decision). Set before the include: `group`,
-   `_edit`, and `_address_required` (a sign-up asks it). #}
+   postal code table (the fixed decision). Set before the include: `group` and
+   `_edit`.
+
+   A household has one address, and the section is always there (#1603). A
+   household without one sees the fields empty and unasked: street, house number
+   and postal code are required together as soon as one of them is filled, and
+   the save says so at the field that is missing. #}
 {% set _a = group.address %}
-{% call ui.section(_("Adres"), id="gezin-adres") %}
-  {{ ui.field("address.street", _("Straat"), value=_a.street, edit=_edit, required=True, id="address-street",
+{% set _asked = group.address_required %}
+{% call ui.section(_("Adres"), id="gezin-adres",
+                   intro=(None if _asked or not _edit else _("Je gezin heeft nog geen adres. Vul straat, huisnummer en postcode samen in, of laat ze leeg."))) %}
+  {{ ui.field("address.street", _("Straat"), value=_a.street, edit=_edit, required=_asked, id="address-street",
               attrs="autocomplete=address-line1") }}
-  {{ ui.field("address.house_number", _("Huisnummer"), value=_a.house_number, edit=_edit, required=True,
+  {{ ui.field("address.house_number", _("Huisnummer"), value=_a.house_number, edit=_edit, required=_asked,
               span="quarter", id="address-house_number") }}
   {{ ui.field("address.bus_number", _("Bus"), value=_a.bus_number, edit=_edit, span="quarter",
               id="address-bus_number") }}
   {{ ui.field("address.postal_code", _("Postcode en gemeente"), kind="select", value=_a.postal_code, edit=_edit,
-              required=True, span="full", id="address-postal_code",
+              required=_asked, span="full", id="address-postal_code",
               options=[("", _("— kies je postcode —"))] + group.postal_options|list) }}
 {% endcall %}

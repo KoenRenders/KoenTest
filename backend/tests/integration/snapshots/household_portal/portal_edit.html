@@ -15,6 +15,15 @@
 <form id="gezin-form" class="contents" data-record-form data-message="#gezin-melding" novalidate
  hx-post="/leden/gezin" hx-target="#gezin-pagina" hx-select="#gezin-pagina"
  hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+<div data-household class="contents" x-data
+ @row-added="
+ const mine = $event.target.querySelector('select[name$=&quot;.relation_type&quot;]');
+ if (!mine || $<TOKEN> !== 'h_order') return;
+ const others = [...$el.querySelectorAll('[data-relation]')].map(m => m.dataset.relation)
+ .concat([...$el.querySelectorAll('select[name$=&quot;.relation_type&quot;]')].filter(s => s !== mine).map(s => s.value));
+ fetch('/lid-worden/relatie?others=' + encodeURIComponent(others.join(',')))
+ .then(answer => answer.ok ? answer.text() : '')
+ .then(code => { if (code) { mine.value = code; mine.dispatchEvent(new Event('change', { bubbles: true })); } })">
 <section data-repeating-group="h_order" data-variant="composite" data-token="__H__" id="gezinsleden"
  class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
 <div class="flex items-center justify-between gap-3 min-h-9 mb-2">
@@ -36,6 +45,7 @@
 </span>
 <span class="group-fold-chevron" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
 </summary>
+<span hidden data-relation="HOOFDLID"></span>
 <div data-form-grid class="form-grid">
 <div data-field="h.<MAIN>.first_name" data-kind="text" data-span="half" class="min-w-0">
 <label for="h-<MAIN>-first_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Voornaam <span class="text-red-600">*</span></label>
@@ -70,9 +80,9 @@
 </div>
 </div>
 <div data-field="h.<MAIN>.mobile" data-kind="phone" data-span="half" class="min-w-0">
-<label for="h-<MAIN>-mobile" class="block text-sm font-medium leading-[21px] text-ink mb-1">Gsm <span class="text-red-600">*</span></label>
+<label for="h-<MAIN>-mobile" class="block text-sm font-medium leading-[21px] text-ink mb-1">Gsm</label>
 <input type="tel"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<MAIN>-mobile" name="h.<MAIN>.mobile" required >
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<MAIN>-mobile" name="h.<MAIN>.mobile" >
 </div>
 <div data-field="h.<MAIN>.phone" data-kind="phone" data-span="half" class="min-w-0">
 <label for="h-<MAIN>-phone" class="block text-sm font-medium leading-[21px] text-ink mb-1">Telefoon</label>
@@ -106,13 +116,13 @@
 </div>
 </div>
 <span data-row-one-tag class="shrink-0"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
-<div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }" hidden>
+<div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor portaal-hoofd@example.com"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
 <div x-show="open" x-cloak @click.outside="open = false" @click="open = false" role="menu" data-row-menu
  class="absolute right-0 z-30 mt-1 w-48 py-1 bg-white border border-line rounded-lg shadow-lg">
 <button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2" hidden>Maak hoofdadres</button>
-<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2" hidden>Verwijderen</button>
+<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2" data-row-keeps>Verwijderen</button>
 </div>
 </div>
 </div>
@@ -136,7 +146,7 @@
 <div x-show="open" x-cloak @click.outside="open = false" @click="open = false" role="menu" data-row-menu
  class="absolute right-0 z-30 mt-1 w-48 py-1 bg-white border border-line rounded-lg shadow-lg">
 <button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2">Maak hoofdadres</button>
-<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2">Verwijderen</button>
+<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2" data-row-keeps>Verwijderen</button>
 </div>
 </div>
 </div></template>
@@ -157,6 +167,7 @@
 </span>
 <span class="group-fold-chevron" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
 </summary>
+<span hidden data-relation="PARTNER"></span>
 <div data-form-grid class="form-grid">
 <div data-field="h.<PARTNER>.first_name" data-kind="text" data-span="half" class="min-w-0">
 <label for="h-<PARTNER>-first_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Voornaam <span class="text-red-600">*</span></label>
@@ -235,7 +246,7 @@
 <div x-show="open" x-cloak @click.outside="open = false" @click="open = false" role="menu" data-row-menu
  class="absolute right-0 z-30 mt-1 w-48 py-1 bg-white border border-line rounded-lg shadow-lg">
 <button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2">Maak hoofdadres</button>
-<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2">Verwijderen</button>
+<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2" data-row-keeps>Verwijderen</button>
 </div>
 </div>
 </div></template>
@@ -264,6 +275,7 @@
 </span>
 <span class="group-fold-chevron" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
 </summary>
+<span hidden data-relation="KIND"></span>
 <div data-form-grid class="form-grid">
 <div data-field="h.<CHILD>.first_name" data-kind="text" data-span="half" class="min-w-0">
 <label for="h-<CHILD>-first_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Voornaam <span class="text-red-600">*</span></label>
@@ -342,7 +354,7 @@
 <div x-show="open" x-cloak @click.outside="open = false" @click="open = false" role="menu" data-row-menu
  class="absolute right-0 z-30 mt-1 w-48 py-1 bg-white border border-line rounded-lg shadow-lg">
 <button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2">Maak hoofdadres</button>
-<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2">Verwijderen</button>
+<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2" data-row-keeps>Verwijderen</button>
 </div>
 </div>
 </div></template>
@@ -389,6 +401,12 @@
 <label for="h-__H__-date_of_birth" class="block text-sm font-medium leading-[21px] text-ink mb-1">Geboortedatum <span class="text-red-600">*</span></label>
 <input type="date"
  class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-__H__-date_of_birth" name="h.__H__.date_of_birth" required >
+</div>
+<div data-field="h.__H__.relation_type" data-kind="select" data-span="half" class="min-w-0">
+<label for="h-__H__-relation_type" class="block text-sm font-medium leading-[21px] text-ink mb-1">Relatie</label>
+<select class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line pr-2" id="h-__H__-relation_type" name="h.__H__.relation_type" data-row-title-prefix-source>
+<option value="PARTNER">Partner</option><option value="KIND" selected>(meerderjarig) kind</option>
+</select>
 </div>
 <div data-field="h.__H__.gender_code" data-kind="radio_group" data-span="full" class="min-w-0">
 <p id="h-__H__-gender_code-label" class="text-sm font-medium leading-[21px] text-ink mb-1">Geslacht <span class="text-red-600">*</span></p>
@@ -452,7 +470,7 @@
 <div x-show="open" x-cloak @click.outside="open = false" @click="open = false" role="menu" data-row-menu
  class="absolute right-0 z-30 mt-1 w-48 py-1 bg-white border border-line rounded-lg shadow-lg">
 <button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2">Maak hoofdadres</button>
-<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2">Verwijderen</button>
+<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2" data-row-keeps>Verwijderen</button>
 </div>
 </div>
 </div></template>
@@ -469,6 +487,7 @@
 </div>
 </div></template>
 </section>
+</div>
 <section data-form-section id="gezin-adres" class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
 <h2 class="text-base font-semibold leading-6 text-ink mb-4">Adres</h2>
 <div data-form-grid class="form-grid">

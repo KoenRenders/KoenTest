@@ -17,6 +17,7 @@ from app.domains.mdm.household_service import (
     CannotRemoveSelf,
     HouseholdNotFound,
     HouseholdRefused,
+    MainMemberStays,
     OutsideHousehold,
     PersonNotFound,
 )
@@ -27,6 +28,7 @@ STATUS = {
     PersonNotFound: 404,
     OutsideHousehold: 403,
     CannotRemoveSelf: 400,
+    MainMemberStays: 400,
     HouseholdRefused: 422,
     PersonDetailsMissing: 422,
 }

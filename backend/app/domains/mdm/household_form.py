@@ -5,6 +5,7 @@ field with the row's key and the row's fields under that key:
 
     h_order=<key> …             h.<key>.first_name | last_name | date_of_birth
                                 | gender_code | phone | mobile
+                                | relation_type (a person added in the page)
     e_order.<person key>=<key>  e.<key>.value
     e_primary.<person key>      the key of the e-mail row marked as primary
     address.street | house_number | bus_number | postal_code
@@ -66,6 +67,7 @@ def household_from_form(form: Any) -> HouseholdSave:
                 gender_code=_text(form, f"h.{key}.gender_code") or None,
                 phone=_text(form, f"h.{key}.phone"),
                 mobile=_text(form, f"h.{key}.mobile"),
+                relation_type=_text(form, f"h.{key}.relation_type"),
                 emails=[
                     EmailRow(
                         key=mail, value=_text(form, f"e.{mail}.value"), primary=mail == primary

@@ -5,6 +5,9 @@ hernieuwingsvenster leven hier op één plek (§19.3); andere componenten en de
 oude wereld gaan uitsluitend via deze module.
 """
 
+# The one rule for the relation of a new person lives with the household
+# (`mdm`, #1603); it stays reachable here for the callers that knew it here.
+from app.domains.mdm.api import default_relation  # noqa: F401
 from app.domains.membership.models import Membership, MembershipHistory  # noqa: F401
 from app.domains.membership.schemas_member import (  # noqa: F401
     AddressUpdate,
@@ -19,7 +22,6 @@ from app.domains.membership.schemas_member import (  # noqa: F401
 )
 from app.domains.membership.service import (  # noqa: F401
     current_membership_counts,
-    default_relation,
     has_valid_membership,
     household_payment_state,
     is_member,

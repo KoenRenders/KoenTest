@@ -39,7 +39,7 @@ from sqlalchemy.orm import Session
 
 from app.domains.mdm import household_service as hs
 from app.domains.mdm.codes import CONTACT
-from app.domains.mdm.models import MasterDataError, Member, MemberPerson, Person, RelationType
+from app.domains.mdm.models import MasterDataError, Member, Person
 from app.kernel.refusals import FieldError, Refusals
 
 #: The fields of a person the save compares and writes.
@@ -72,6 +72,9 @@ class PersonRow:
     gender_code: Optional[str] = None
     phone: str = ""
     mobile: str = ""
+    #: What the member chose for a person they add: partner or child, or "" for
+    #: the one rule's default. Not read for a person who is already there.
+    relation_type: str = ""
     emails: list[EmailRow] = field(default_factory=list)
 
 
@@ -111,15 +114,6 @@ def _people(household: Member) -> dict[str, Person]:
     }
 
 
-def _is_main_member(household: Member, person: Person) -> bool:
-    return any(
-        link.person_id == person.id
-        and link.deleted_at is None
-        and link.relation_type == RelationType.PRIMARY_MEMBER
-        for link in household.member_persons
-    )
-
-
 def save_household(
     db: Session,
     household: Member,
@@ -147,7 +141,7 @@ def save_household(
         for row in payload.persons:
             _save_person(db, household, existing, row, actor, errors)
         if payload.address is not None:
-            _save_address(db, existing, payload.address, actor, errors)
+            _save_address(db, household, payload.address, actor, errors)
         if errors.found:
             raise HouseholdSaveRefused(errors.found)
         with errors.at(""):
@@ -211,6 +205,13 @@ def _save_person(
         )
         return
     else:
+        # The relation first, at its own field (#1603): partner or child, never
+        # the main member; nothing chosen is the one rule's default.
+        with errors.at(f"{at}.relation_type"):
+            hs.chosen_relation(row.relation_type, hs.household_relations(household))
+        if errors.touches(at):
+            return
+        values["relation_type"] = row.relation_type
         # `insert_household_person` asks the names first, then birth date and gender.
         missing = _first_missing(row, ("first_name", "last_name", "date_of_birth", "gender_code"))
         added = None
@@ -221,13 +222,10 @@ def _save_person(
         person = added
     if errors.touches(at):
         return
-    if _is_main_member(household, person):
-        # The rule Word lid asks too (`MemberPerson.require_main_member_mobile`):
-        # until #1590 only the browser held it on this page.
-        with errors.at(f"{at}.mobile"):
-            MemberPerson.require_main_member_mobile(row.mobile)
-        if errors.touches(at):
-            return
+    # The main member's mobile number is not asked here (Koen, 5 October 2026,
+    # #1603): with one save for the whole household the requirement blocked every
+    # change of the ten households in a hundred whose main member has none. Word
+    # lid still asks it.
     for type_code, value in (("PHONE", row.phone), ("MOBILE", row.mobile)):
         hs._upsert_contact(db, person, type_code, value.strip(), actor=actor)
     _save_emails(db, person, row, actor)
@@ -269,16 +267,32 @@ def _save_emails(db: Session, person: Person, row: PersonRow, actor: Optional[st
 
 def _save_address(
     db: Session,
-    existing: dict[str, Person],
+    household: Member,
     row: AddressRow,
     actor: Optional[str],
     errors: Refusals,
 ) -> None:
-    """The household's address: the one its main member holds. Only an existing
-    address is changed, as the portal always did; only the fields that differ are
-    written."""
-    holder = next((p for p in existing.values() if p.address is not None), None)
+    """The household's one address (#1603).
+
+    - It has none and the form's fields are all empty: it stays without.
+    - It has none and something is filled in: the address is created on the main
+      member — street, house number and postal code together, or it is refused at
+      the first of them that is missing.
+    - It has one: only the fields that differ are written; emptying one of the
+      three is refused the same way (an address is whole or it is not there, and
+      taking it away is not something this page does).
+    """
+    sent = {name: getattr(row, name).strip() for name in ADDRESS_FIELDS}
+    holder = hs.household_address_holder(household)
+    missing = next((name for name in hs.ADDRESS_REQUIRED if not sent[name]), "")
     if holder is None:
+        if not any(sent.values()):
+            return
+        target = hs.main_member(household)
+        if target is None:
+            return  # no main member to hang it on; nothing this page can repair
+        with errors.at(f"address.{missing or 'postal_code'}"):
+            hs.apply_address(db, target, sent, actor=actor)
         return
     address = holder.address
     current = {
@@ -287,17 +301,9 @@ def _save_address(
         "bus_number": address.bus_number or "",
         "postal_code": address.postal_code.postal_code if address.postal_code else "",
     }
-    changed = {
-        name: getattr(row, name).strip()
-        for name in ADDRESS_FIELDS
-        if getattr(row, name).strip() != current[name]
-    }
-    # As the portal always did: an emptied postal code is not a change (the old
-    # one stays); an emptied street or house number is stored as sent. Whether
-    # that should be refused is a question for Koen, not decided here.
-    if "postal_code" in changed and not changed["postal_code"]:
-        del changed["postal_code"]
+    changed = {name: sent[name] for name in ADDRESS_FIELDS if sent[name] != current[name]}
     if not changed:
         return
-    with errors.at("address.postal_code"):
+    with errors.at(f"address.{missing or 'postal_code'}"):
+        hs.require_whole_address(sent)
         hs.apply_address(db, holder, changed, actor=actor)

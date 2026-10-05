@@ -189,25 +189,31 @@ def test_a_refusal_answers_with_the_banner_alone_and_writes_nothing(client, db_s
     assert db_session.get(Person, an.id).last_name == "Voorbeeld"
 
 
-def test_the_main_member_without_a_mobile_is_named_at_that_field(client, db_session, world):
-    """The rule Word lid asks too, at this door (#1590): the banner names the
-    main member's Gsm field, the child — who has none either — is not asked,
-    and the number that was there stays. The same form with the number is the
-    first test of this file, so the emptied field is the cause."""
+def test_the_main_member_can_save_without_a_mobile(client, db_session, world):
+    """#1603 (Koen, 5 October 2026): Mijn gezin does not ask the main member's
+    mobile number. The form that #1590 refused at the Gsm field is saved, and the
+    number is gone. Proven red by asking the rule in the save again: 422."""
     headers = _sign_in(client)
     an = world["An"]
     answer = _post(client, headers, _form(world, **{f"h.{an.id}.mobile": "  "}))
-    assert answer.status_code == 422
-    assert re.findall(r'data-error-for="([^"]+)"', answer.text) == [f"h.{an.id}.mobile"]
-    assert "Mobiel nummer is verplicht voor het hoofdgezinslid." in answer.text
-    assert "Opslaan kan nog niet: controleer 1 veld." in answer.text
+    assert answer.status_code == 200, answer.text[:300]
     db_session.expire_all()
     stored = [
         c.value
         for c in db_session.get(Person, an.id).contact_details
         if c.contact_type_code == "MOBILE"
     ]
-    assert stored == [MOBILE]
+    assert stored == []
+
+
+def test_the_page_asks_no_mobile_of_the_main_member(client, db_session, world):
+    """No asterisk where nothing is refused: no Gsm field of the edit page is
+    `required`. (Word lid's is: `tests/test_main_member_flag_1268.py`.)"""
+    _sign_in(client)
+    html = client.get("/leden/gezin?bewerken=1").text
+    fields = re.findall(r'<input[^>]*name="h\.\w+\.mobile"[^>]*>', html)
+    assert len(fields) >= 2, "the Gsm fields are not on the page"
+    assert not [f for f in fields if " required" in f]
 
 
 def test_the_save_needs_a_session_and_the_csrf_token(client, db_session, world):

@@ -29,21 +29,9 @@
   {% call ui.public_form_page(_("Word lid"), intro=_("Eén lidmaatschap voor je hele gezin. Vul hieronder je gegevens in.")) %}
   {% set group = page.group %}
   {% set _edit = True %}
-  {# `pm` follows the payment choice, for the button's words. A person added in
-     the page asks the server which relation the one rule gives them
-     (`default_relation`: a partner while there is none, a child after that) —
-     the rule stays in one place. #}
+  {# `pm` follows the payment choice, for the button's words. #}
   <div data-form-flow data-mode="edit" class="form-flow" x-data="{ pm: 'online' }"
-       @change="if ($event.target.name === 'payment_method') pm = $event.target.value"
-       @row-added="
-         const row = $event.target;
-         const mine = row.querySelector('select[name$=&quot;.relation_type&quot;]');
-         if (!mine) return;
-         const others = [...$el.querySelectorAll('select[name$=&quot;.relation_type&quot;]')]
-           .filter(s => s !== mine).map(s => s.value);
-         fetch('/lid-worden/relatie?others=' + encodeURIComponent(others.join(',')))
-           .then(answer => answer.ok ? answer.text() : '')
-           .then(code => { if (code) { mine.value = code; mine.dispatchEvent(new Event('change', { bubbles: true })); } })">
+       @change="if ($event.target.name === 'payment_method') pm = $event.target.value">
     <div id="lid-worden-melding" data-form-message></div>
     <form id="lid-worden-form" class="contents" data-record-form data-message="#lid-worden-melding" novalidate
           hx-post="/lid-worden" hx-target="#lid-worden-pagina" hx-select="#lid-worden-pagina"
