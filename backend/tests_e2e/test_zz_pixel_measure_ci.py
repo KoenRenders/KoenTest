@@ -37,7 +37,16 @@ def test_measure_the_runner_against_the_local_baselines():
         ["sudo", "apt-get", "install", "-y", "-q", "faketime"], check=True, capture_output=True
     )
 
-    url = make_url(os.environ["DATABASE_URL"])
+    # The app's own engine: its URL carries the password whatever the tests
+    # before this one did to the environment.
+    from app.database import engine
+
+    url = make_url(engine.url.render_as_string(hide_password=False))
+    print(
+        "MEASURE-CI env url has password:",
+        "@" in os.environ.get("DATABASE_URL", "")
+        and ":" in os.environ.get("DATABASE_URL", "").split("@")[0][13:],
+    )
     admin = create_engine(url, isolation_level="AUTOCOMMIT")
     with admin.connect() as connection:
         connection.execute(text("DROP DATABASE IF EXISTS raakpixel_ci WITH (FORCE)"))
