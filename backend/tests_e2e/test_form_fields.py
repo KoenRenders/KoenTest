@@ -141,8 +141,16 @@ def test_the_reading_group_is_left_aligned_never_centred(setup, width, suffix):
     assert f["head"]["x"] == f["margin"] and f["tabs"]["x"] == f["margin"], (
         "on the same x as the head and the tabs"
     )
-    assert f["form"]["w"] == 768
-    assert f["summary"]["x"] == f["form"]["right"] + 24 and f["summary"]["w"] == 300
+    if suffix:
+        # #1610 (Koen, 5 October 2026): a record with a composite group that is
+        # being EDITED takes the whole reading group, and its summary stands
+        # above the form as a strip. Red on master: 768 beside 300.
+        assert f["form"]["w"] == 1092, "the editor does not take the reading group"
+        assert (f["summary"]["x"], f["summary"]["w"]) == (f["form"]["x"], 1092)
+        assert f["summary"]["y"] + f["summary"]["h"] <= f["form"]["y"], "the summary is not above"
+    else:
+        assert f["form"]["w"] == 768
+        assert f["summary"]["x"] == f["form"]["right"] + 24 and f["summary"]["w"] == 300
     assert f["frame_right"] - f["summary"]["right"] >= 0, "the room beyond the summary stays empty"
     assert f["page"][0] <= f["page"][1]
     page.close()
@@ -239,9 +247,11 @@ def test_the_activity_section_keeps_its_measured_heights(setup):
     assert e["sections"][0]["h"] > r["sections"][0]["h"], (
         "the editor takes more room, in the same place"
     )
-    assert r["fields"][0]["y"] == e["fields"][0]["y"], (
-        "the first field starts on the same y in both states"
-    )
+    # Until #1610 the first field stood on the same y in both states. The editor
+    # now has the summary above it (the strip), so its first field starts lower —
+    # by the strip and the 24 px under it, and by nothing else.
+    lower = e["fields"][0]["y"] - r["fields"][0]["y"]
+    assert lower == e["summary"]["h"] + 24, (lower, e["summary"])
     gaps = [b["y"] - (a["y"] + a["h"]) for a, b in zip(e["sections"], e["sections"][1:])]
     assert gaps == [32, 32], "32 px between sections"
 
@@ -346,10 +356,17 @@ def test_the_first_card_starts_where_the_summary_card_starts(setup, width, suffi
     print("MEASURE tops", width, suffix or "read", tops)
     assert len(tops) == 1, "the fiche has one pair of columns"
     pair = tops[0]
-    assert pair["beside"], "the two cards stand beside each other at this width"
     assert pair["form_is"] == "aa-section-activity", pair
-    assert abs(pair["form"] - pair["summary"]) <= 1, pair
-    assert abs(pair["form"] - pair["columns"]) <= 1, "no room above the first card"
+    if suffix:
+        # #1610: the editor is wide and its summary stands above it — the frame
+        # starts with the summary, and the first card comes under it.
+        assert not pair["beside"], "the summary still stands beside a wide editor"
+        assert abs(pair["summary"] - pair["columns"]) <= 1, "room above the summary strip"
+        assert pair["form"] > pair["summary"]
+    else:
+        assert pair["beside"], "the two cards stand beside each other at this width"
+        assert abs(pair["form"] - pair["summary"]) <= 1, pair
+        assert abs(pair["form"] - pair["columns"]) <= 1, "no room above the first card"
     page.close()
 
 

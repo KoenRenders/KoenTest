@@ -935,9 +935,11 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 {%- endmacro %}
 
 {# The grid of fields on its own — inside a composite item, where the section's
-   grid is not there to hold them. #}
-{% macro form_grid() -%}
-<div data-form-grid class="form-grid">{{ caller() }}</div>
+   grid is not there to hold them. `tracks=5` (#1610) is for a row with one wide
+   field and three short ones: half is two tracks, a quarter one, so the four
+   stand on one line. #}
+{% macro form_grid(tracks=4) -%}
+<div data-form-grid class="form-grid{% if tracks == 5 %} form-grid--five{% endif %}">{{ caller() }}</div>
 {%- endmacro %}
 
 {# ── Uploadveld (#623) ────────────────────────────────────────────────────────

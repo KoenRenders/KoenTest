@@ -300,7 +300,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    of 260 px and their gap) — a container query, which a utility cannot say.
    32 px between the sections of a form column. */
 .admin-content:has([data-record-head]){max-width:none}
-.record-frame{container-type:inline-size}
+.record-frame{container-type:inline-size;container-name:record}
 .record-columns{display:grid;grid-template-columns:minmax(0,768px);gap:24px;align-items:start}
 .record-form-column{min-width:0}
 .form-flow{display:grid;gap:32px;min-width:0}
@@ -326,6 +326,20 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .form-flow>[data-form-message]:not(:has(*)){display:none}
 .record-summary-column{min-width:0;order:-1}
 @container (min-width:964px){.record-columns:has(>.record-summary-column){grid-template-columns:minmax(0,768px) 300px}.record-summary-column{order:0}}
+/* #1610 (Koen, 5 October 2026; end state §2.2): room for the groups. A record
+   that is being EDITED and holds a composite repeating group (components with
+   their products) takes the whole reading group — 1 092 px — and its summary
+   goes above the form as the strip it is on a narrow frame. The layout reads
+   that from what stands in it (`:has`), so a save or a cancel — the form back
+   in read mode — gives the 768 px column and the card at the right again
+   without anybody saying so. Only where the frame has the 1 092 px: with the
+   Assistent's panel open, or on a smaller window, nothing changes. Long text
+   keeps its reading width of 768 px inside the wider column. */
+@container record (min-width:1092px){
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1092px)}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) :is([data-kind="textarea"],[data-kind="url"],[data-kind="email"]){max-width:768px}
+}
 .summary-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;align-items:center}
 .summary-card [data-summary-state]{grid-column:1;grid-row:1}
 .summary-card [data-summary-action]{grid-column:2;grid-row:1}
@@ -338,11 +352,26 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .summary-card [data-summary-action]{grid-column:1;grid-row:auto;display:flex;align-items:center;gap:8px;border-top:1px solid rgb(var(--c-line));padding-top:12px}
   .summary-card [data-summary-link]{display:block;flex:1}
 }
+/* #1610: above a wide form the summary is the strip it is on a narrow frame —
+   one shape for "above" — so the card shape just said is taken back there. */
+@container record (min-width:1092px){
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card{grid-template-columns:minmax(0,1fr) auto;padding:12px}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figures]{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figure]:nth-child(3){grid-column:auto;display:block}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-action]{grid-column:2;grid-row:1;display:block;border-top:0;padding-top:0}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-link]{display:none}
+}
 .form-section{container-type:inline-size;min-width:0}
 .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
 .form-grid>[data-span="full"]{grid-column:1/-1}
 .form-grid>[data-span="half"]{grid-column:span 2}
 .form-grid>[data-span="quarter"]{grid-column:span 1}
+/* #1610: a row of a group with one wide field and three short ones (a product:
+   name · price · member price · maximum) stands on five tracks, so the four
+   share one line. */
+.form-grid--five{grid-template-columns:repeat(5,minmax(0,1fr))}
+/* Two grids under each other in one row (a product's two lines) keep the grid's own gap. */
+.form-grid+.form-grid{margin-top:12px}
 @container (max-width:531.98px){.form-grid>[data-span]{grid-column:1/-1}}
 /* ── CR-11 block 4 (#1556): the list's table ────────────────────────────────
    design-system-end-state §2.1 (the list, the row as the way in). What the
@@ -424,12 +453,15 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .group-rows>[data-group-row]+[data-group-row]{margin-top:12px;padding-top:12px;border-top:1px solid rgb(var(--c-line))}
 .group-row--edit.group-row--simple{display:grid;grid-template-columns:minmax(0,1fr) 44px;column-gap:8px;align-items:end}
 .group-row--edit.group-row--simple.group-row--handle{grid-template-columns:44px minmax(0,1fr) 44px}
-.group-row--edit.group-row--composite.group-row--handle{display:grid;grid-template-columns:44px minmax(0,1fr);column-gap:8px;align-items:start}
+/* #1610: a composite item's handle stands in a gutter of 28 px (it was 44): the
+   target stays 44 px high, the handle itself is 24 px wide. */
+.group-row--edit.group-row--composite.group-row--handle{display:grid;grid-template-columns:28px minmax(0,1fr);column-gap:8px;align-items:start}
+.group-row--composite>.group-handle{width:24px;margin-left:2px}
 .group-handle{display:flex;align-items:center;justify-content:center;width:44px;height:44px;color:rgb(var(--c-ink-soft));cursor:grab;touch-action:none}
 .group-head{margin-bottom:4px;padding-right:52px}
 .group-head--handle{padding-left:52px}
 .group-row--edit.group-row--simple [data-field]>label{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.group-child{margin-top:16px;padding-left:16px;border-left:1px solid rgb(var(--c-line))}
+.group-child{margin-top:16px;padding-left:12px;border-left:1px solid rgb(var(--c-line))}
 /* #1590: a folded composite row — the title line is the summary, the chevron
    turns when it is open, and the row's menu stands at the far right of that
    line, outside the summary so a click on it does not fold the row. One among
@@ -509,7 +541,6 @@ body[data-shell="admin"] #toasts [data-toast="success"]{background:rgb(var(--c-i
   .group-row--edit.group-row--simple.group-row--one>[data-row-one-tag]{grid-column:1;grid-row:1;justify-self:start}
   .group-row--edit.group-row--simple.group-row--one>.relative{grid-column:2;grid-row:1}
   .group-row--edit.group-row--simple [data-field]>label{position:static;width:auto;height:auto;margin:0 0 4px;overflow:visible;clip:auto;white-space:normal}
-  .group-child{padding-left:12px}
 }
 .nav-drawer-only,.nav-when-rail{display:none}
 html.nav-rail .admin-sidebar:not(.is-open) .nav-label{display:none}

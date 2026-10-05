@@ -155,13 +155,9 @@ def test_each_product_has_one_segment_that_fits_and_stands_on_its_choice(setup, 
             assert row["segments"] == 1 and row["switches"] == 0, row
             assert row["words"] == ["Betalend", "Gratis", "Ter plaatse"], "a label was shortened"
             assert not row["cut"] and row["inside"], row
-            if width >= 768:
-                assert row["lines"] == [1, 1, 1], f"a label broke over two lines: {row}"
-            else:
-                # In the 207 px a product's row has on a phone today (the handle's
-                # gutter and the child group's indent take the rest) "Ter plaatse"
-                # may take two lines; it is whole, and nothing is shortened.
-                assert max(row["lines"]) <= 2 and row["lines"][:2] == [1, 1], row
+            # #1610: also on a phone — the narrower gutter gives a product's row
+            # 239 px where it had 207, and "Ter plaatse" no longer needs two lines.
+            assert row["lines"] == [1, 1, 1], f"a label broke over two lines: {row}"
         assert [r["chosen"] for r in rows] == ["paid", "free", "on_site"]
         # the price fields are for a paid product only
         assert [(r["price_off"], r["member_off"]) for r in rows] == [
