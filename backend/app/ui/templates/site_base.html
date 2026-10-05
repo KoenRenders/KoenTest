@@ -307,11 +307,12 @@
         {% endif %}
       </div>
       {% endif %}
-      {# The legal line: © year and name, then what the organisation has —
-         address, e-mail, phone, account number — and the pages that carry "Toon
-         in de voettekst" (#1569). A detail that is not filled in is left out
-         with its separator; nothing stands twice. #}
-      <p class="site-legal{{ '' if (nieuwsbrief_inschrijven or sociale_links or sponsors) else ' !mt-0 !border-t-0 !pt-0' }}" data-footer-line>© {{ current_year }} {{ site_name }}
+      {# The legal line: the year and the ORGANISATION's name (#1616: the legal
+         entity behind the site, not the site's own name), then what that
+         organisation has — address, e-mail, phone, account number — and the
+         pages that carry "Toon in de voettekst" (#1569). A detail that is not
+         filled in is left out with its separator; nothing stands twice. #}
+      <p class="site-legal{{ '' if (nieuwsbrief_inschrijven or sociale_links or sponsors) else ' !mt-0 !border-t-0 !pt-0' }}" data-footer-line>© {{ current_year }} {{ legal_name }}
         {%- for part in legal_parts %} · {% if part.href %}<a href="{{ part.href }}" data-legal="{{ part.kind }}">{{ part.text }}</a>{% else %}<span data-legal="{{ part.kind }}">{{ part.text }}</span>{% endif %}{% endfor %}
         {%- for p in footer_pages|default([]) %} · <a href="{{ path_for('/' ~ p.slug) }}" data-footer-page>{{ p.title }}</a>{% endfor %}</p>
     </div>
