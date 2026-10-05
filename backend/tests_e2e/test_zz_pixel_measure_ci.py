@@ -28,7 +28,13 @@ PORT = 8001
 @pytest.mark.skipif(
     os.environ.get("GITHUB_ACTIONS") != "true", reason="a measurement on the CI runner"
 )
-def test_measure_the_runner_against_the_local_baselines():
+def test_measure_the_runner_against_the_local_baselines(capsys):
+    started = time.time()
+    lines = []
+
+    def print(*parts):  # noqa: A001 — collected, written past pytest's capture at the end
+        lines.append(" ".join(str(part) for part in parts))
+
     from playwright.sync_api import sync_playwright
     from sqlalchemy import create_engine, text
     from sqlalchemy.engine import make_url
@@ -135,3 +141,6 @@ def test_measure_the_runner_against_the_local_baselines():
             browser.close()
     finally:
         server.terminate()
+        print("MEASURE-CI seconds for the whole pixel run:", round(time.time() - started, 1))
+        with capsys.disabled():
+            sys.stdout.write("\n" + "\n".join(lines) + "\n")
