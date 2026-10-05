@@ -141,23 +141,33 @@
   {% macro _product_row(ckey, key, p) %}
   {% call ui.group_row("p_order." ~ ckey, key, edit=_edit, variant="composite" if _edit else "simple", handle=True,
                        title=p.name if p else _("Nieuw product"), label=p.name if p else _("dit product")) %}
+    {# #1608: how the product is settled is ONE choice — Betalend · Gratis · Ter
+       plaatse — where K5 drew two switches that could both be on. The model keeps
+       its two flags; `settlement_of` (the context's) says which choice they are.
+       The price fields are for a paid product only: switched off for the other
+       two, and then not sent — the save leaves the prices as they are. #}
+    {% set _settle = settlement_of(p.is_free, p.pay_on_site) if p else settlement_paid %}
     {% if _edit %}
+    <div class="contents" data-product-settlement x-data="{ settle: '{{ _settle }}' }"
+         @change="if ($event.target.name === 'p.{{ key }}.settlement') settle = $event.target.value">
     {% call ui.form_grid() %}
       {{ ui.field("p." ~ key ~ ".name", _("Naam"), id="p-" ~ key ~ "-name", required=True, value=p.name if p else "", attrs="data-row-title-source") }}
       {{ ui.field("p." ~ key ~ ".price", _("Prijs"), kind="number", unit="€", id="p-" ~ key ~ "-price", span="quarter",
-                  value=p.price if p else "", attrs='step="0.01" min="0"') }}
+                  value=p.price if p else "", attrs='step="0.01" min="0" :disabled="settle !== \'' ~ settlement_paid ~ '\'"') }}
       {{ ui.field("p." ~ key ~ ".member_price", _("Ledenprijs"), kind="number", unit="€", id="p-" ~ key ~ "-member_price", span="quarter",
-                  value=p.member_price if p and p.member_price is not none else "", attrs='step="0.01" min="0"') }}
+                  value=p.member_price if p and p.member_price is not none else "",
+                  attrs='step="0.01" min="0" :disabled="settle !== \'' ~ settlement_paid ~ '\'"') }}
       {{ ui.field("p." ~ key ~ ".max_participants", _("Maximum"), kind="number", id="p-" ~ key ~ "-max_participants", span="quarter",
                   value=p.max_participants if p and p.max_participants else "", attrs='min="1" step="1"') }}
-      {{ ui.field("p." ~ key ~ ".is_free", _("Gratis"), kind="switch", id="p-" ~ key ~ "-is_free", span="quarter", value=p.is_free if p else False, beside_field=True) }}
-      {{ ui.field("p." ~ key ~ ".pay_on_site", _("Ter plaatse betalen"), kind="switch", id="p-" ~ key ~ "-pay_on_site", value=p.pay_on_site if p else False, beside_field=True) }}
+      {{ ui.field("p." ~ key ~ ".settlement", _("Afrekening"), kind="segmented", id="p-" ~ key ~ "-settlement",
+                  value=_settle, options=settlement_options) }}
       {{ ui.field("p." ~ key ~ ".is_active", PRODUCT_ZICHTBAAR_LABEL, kind="switch", id="p-" ~ key ~ "-is_active", span="full", value=p.is_active if p else True,
                   help=PRODUCT_ZICHTBAAR_HINT) }}
     {% endcall %}
+    </div>
     {% else %}
     <p data-span="full" data-product-line class="text-sm leading-[21px] text-ink">{{ p.name }} · €&nbsp;{{ p.price|geld }}{% if p.member_price is not none %} · {{ _("leden") }} €&nbsp;{{ p.member_price|geld }}{% endif %}{% if p.max_participants %} · {{ _("max") }} {{ p.max_participants }}{% endif %}{% if not p.is_active %} {{ ui.badge(PRODUCT_NIET_PUBLIEK_BADGE, "gray") }}{% endif %}</p>
-    <p data-span="full" class="text-[13px] leading-[19.5px] text-ink-soft">{{ _("Gratis") }}: {{ _("ja") if p.is_free else _("nee") }} · {{ _("Ter plaatse betalen") }}: {{ _("ja") if p.pay_on_site else _("nee") }}</p>
+    <p data-span="full" data-product-settlement class="text-[13px] leading-[19.5px] text-ink-soft">{% for code, label in settlement_options if code == _settle %}{{ label }}{% endfor %}</p>
     {% endif %}
   {% endcall %}
   {% endmacro %}
@@ -185,9 +195,11 @@
                   value=c.team_name_required if c else False, beside_field=True) }}
       {# CR-14 phase 2 (§B4.5): the questions this component asks, a form of the
          form builder — open, one section, not anonymous, no maximum. #}
-      {{ ui.field("c." ~ key ~ ".form_id", _("Extra vragen"), kind="select", id="c-" ~ key ~ "-form_id", edit=_edit,
-                  value=component_form.get(c.id, "") if c else "", options=[("", _("Geen extra vragen"))] + question_forms,
-                  help=_("Het onderdeel bepaalt wie inschrijft en tot wanneer; de instellingen van het formulier gelden hier niet.")) }}
+      {# #1608 (Koen, 5 October 2026; CR-11 Q66): on the board's page the choice
+         is called what it is, a form. The public page keeps "Vragen". #}
+      {{ ui.field("c." ~ key ~ ".form_id", _("Formulier"), kind="select", id="c-" ~ key ~ "-form_id", edit=_edit,
+                  value=component_form.get(c.id, "") if c else "", options=[("", _("Geen"))] + question_forms,
+                  help=_("De vragen van dit formulier staan op de inschrijfpagina.")) }}
       {# The info attachment (#451). An uploaded one wins from the external info
          address; removing it is part of the save, like everything else. #}
       {{ ui.field("c." ~ key ~ ".file", _("Info-bijlage"), kind="upload", id="c-" ~ key ~ "-file", edit=_edit,
@@ -262,7 +274,7 @@
   {% for c in a.sub_registrations %}{% set _links.count = _links.count + ([c.external_register_url, c.external_registrations_url, c.info_url]|select|list|length) %}{% endfor %}
   {% call ui.rare_settings(_("Externe koppelingen"),
                            summary=ngettext("%(num)d externe link", "%(num)d externe links", _links.count) if _links.count else "",
-                           note=_("De affiche maak je in de Design Studio; een adres intypen is de oude weg.")) %}
+                           note=ui.poster_help()) %}
     {{ ui.field("poster_url", _("Poster-URL"), kind="url", value=a.poster_url or "", edit=_edit,
                 form="aa-act-form", placeholder="https://…") }}
     {% for c in a.sub_registrations %}

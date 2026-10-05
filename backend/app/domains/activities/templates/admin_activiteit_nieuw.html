@@ -46,7 +46,7 @@
       <summary class="cursor-pointer text-sm font-medium text-ink select-none">{{ _("Externe koppelingen") }}{% if _links %}<span class="font-normal text-ink-soft"> · {{ ngettext("%(num)d externe link", "%(num)d externe links", _links) }}</span>{% endif %}</summary>
       <div class="mt-2 max-w-md">{{ ui.label(_("Poster-URL"), "poster_url") }}
         {{ ui.input_control("poster_url", id="poster_url", placeholder="https://…", cls="w-full") }}
-        <p class="text-xs text-ink-soft mt-1">{{ _("De affiche maak je in de Design Studio; een adres intypen is de oude weg.") }}</p></div>
+        <p class="text-xs text-ink-soft mt-1">{{ ui.poster_help() }}</p></div>
     </details>
   </form>
 </div>

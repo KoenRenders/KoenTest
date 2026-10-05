@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.domains.activities.settlement import PAID, settlement_of
+
 ORDER = {"d": "d_order", "c": "c_order", "o": "o_order"}
 
 
@@ -80,15 +82,19 @@ class Fiche:
             )
             self.data[f"p_order.{c.id}"] = []
             for p in c.products:
+                # #1608: the screen sends one choice, and the price fields only for
+                # a paid product (they are switched off for the other two).
+                choice = settlement_of(p.is_free, p.pay_on_site)
+                prices = (
+                    {"price": p.price, "member_price": p.member_price} if choice == PAID else {}
+                )
                 self._row(
                     "p",
                     str(p.id),
                     parent=str(c.id),
                     name=p.name,
-                    price=p.price,
-                    member_price=p.member_price,
-                    is_free=p.is_free,
-                    pay_on_site=p.pay_on_site,
+                    **prices,
+                    settlement=choice,
                     is_active=p.is_active,
                     max_participants=p.max_participants,
                 )
@@ -126,6 +132,11 @@ class Fiche:
         return self._row(prefix, key, parent=parent, **fields)
 
     def set(self, prefix: str, key: Any, **fields: Any) -> None:
+        # A test that names the two flags speaks as a caller of the old shape (the
+        # JSON API still does): the one choice the screen sends is then left out,
+        # so the flags are what the reader hears.
+        if prefix == "p" and ("is_free" in fields or "pay_on_site" in fields):
+            self.data.pop(f"p.{key}.settlement", None)
         for name, value in fields.items():
             self.data[f"{prefix}.{key}.{name}"] = _text(value)
 

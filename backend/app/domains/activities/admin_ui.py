@@ -128,6 +128,7 @@ def _aa_detail_ctx(
         organisers_for,
         question_forms,
     )
+    from app.domains.activities.settlement import PAID, settlement_of, settlement_options
     from app.domains.designstudio.api import on_the_poster
     from app.domains.mdm.api import household_ids
 
@@ -157,6 +158,12 @@ def _aa_detail_ctx(
         # and which one each component asks. Not on `a`: that is the public JSON.
         "question_forms": vraagformulieren,
         "component_form": gekozen_formulier,
+        # #1608: a product's settlement is one choice of three on the screen and
+        # two flags in the model; the translation is `settlement`'s, not the
+        # template's.
+        "settlement_options": settlement_options(),
+        "settlement_of": settlement_of,
+        "settlement_paid": PAID,
         # #1428: the audience choice; `selected` is decided here, so the template
         # compares no code. Not on `a`: that is the public JSON.
         "audience_options": _audience_options(db, activiteit.id),

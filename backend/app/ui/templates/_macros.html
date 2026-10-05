@@ -671,7 +671,11 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% elif kind == "segmented" %}
   <div role="radiogroup" aria-labelledby="{{ _id }}-label" class="flex w-full">
     {% for o in options %}
-    <label class="relative flex flex-1 items-center justify-center min-h-11 md:min-h-10 px-3 border border-control-line text-sm font-medium cursor-pointer first:rounded-l-md last:rounded-r-md [&:not(:first-child)]:border-l-0 has-[:checked]:bg-blue-50 has-[:checked]:text-blue-700 has-[:checked]:font-semibold has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-focus">
+    {#- #1608: a segment takes the room its words ask (`flex-auto`) and shares the
+        rest, so three words of unequal length stay whole; from a tablet up a
+        label never breaks. On a phone a long label may take two lines — it is
+        never cut or shortened (decision 05). -#}
+    <label class="relative flex flex-auto items-center justify-center min-h-11 md:min-h-10 px-2 md:px-3 text-center md:whitespace-nowrap border border-control-line text-sm font-medium cursor-pointer first:rounded-l-md last:rounded-r-md [&:not(:first-child)]:border-l-0 has-[:checked]:bg-blue-50 has-[:checked]:text-blue-700 has-[:checked]:font-semibold has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-focus">
       <input type="radio" name="{{ name }}" value="{{ o[0] }}"{% if form %} form="{{ form }}"{% endif %} class="sr-only"{% if o[0] == value %} checked{% endif %}>{{ o[1] }}
     </label>
     {% endfor %}
@@ -920,6 +924,14 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% endif %}
   {{ caller() }}
 </div>
+{%- endmacro %}
+
+{# The help under an activity's poster address (#1608; Koen, 5 October 2026, CR-11
+   Q65): three ways to a poster, none of them "the old way". One sentence for the
+   three places that say it — the activity's fiche, "Nieuwe activiteit" and this
+   kit's own page. #}
+{% macro poster_help() -%}
+{{ _("Je kan de affiche ontwerpen in de Design Studio, een bestand uploaden, of hier het adres van een bestaande affiche invullen.") }}
 {%- endmacro %}
 
 {# The grid of fields on its own — inside a composite item, where the section's
