@@ -24,7 +24,11 @@ from sqlalchemy.orm import Session
 from starlette.datastructures import FormData
 
 from app.database import get_db
-from app.domains.activities.viewmodels import AdminActiviteitenView, CopyActivityView
+from app.domains.activities.viewmodels import (
+    ActivityProposalView,
+    AdminActiviteitenView,
+    CopyActivityView,
+)
 from app.domains.auth.api import (
     SESSION_COOKIE,
     csrf_from_request,
@@ -499,6 +503,77 @@ def activiteit_aanmaken(
     # Aanmaken opent meteen de editor: een verse activiteit heeft nog datums en
     # onderdelen nodig, en die staan daar (C1, #586).
     return Response(status_code=204, headers={"HX-Redirect": f"/admin/activiteiten/{nieuw.id}"})
+
+
+#: The header that tells the panel a question was not answered, so its field
+#: keeps the question (the same one the reporting assistant sends).
+NOT_ANSWERED = {"X-Raakje-Failed": "1"}
+
+
+@router.post(
+    "/admin/activiteiten/{activity_id:int}/raakje/voorstel",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def activity_proposal(
+    activity_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    vraag: str = Form(""),
+) -> HTMLResponse:
+    """One request to Raakje from the Assistent's panel beside the fiche in edit
+    mode (#1604): the answer is one turn with a proposal for the form. Nothing
+    is written here — Toepassen fills the form in the page, the fiche's one
+    save stores it. 404 when Raakje in the back office is off for this tenant
+    or this environment."""
+    import logging
+
+    from app.domains.activities.api import ProposerError, propose_for_activity
+    from app.domains.chatbot.api import ChatTimeout, SeamBlocked, admin_chat_char_budget
+    from app.kernel.tenant_config import tenant_admin_chat_enabled
+
+    if not tenant_admin_chat_enabled(db):
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+
+    def turn(view: ActivityProposalView) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request,
+            "_aa_voorstel.html",
+            view.as_context(),
+            headers=NOT_ANSWERED if view.failed else None,
+        )
+
+    admin_chat_char_budget.charge(request, max(len(vraag), 1), key=email)
+    try:
+        proposal = propose_for_activity(db, activity_id, request=vraag, actor=email)
+    except (ProposerError, SeamBlocked, ChatTimeout) as why:
+        return turn(ActivityProposalView(question=vraag, answer=str(why), failed=True))
+    except Exception:
+        logging.getLogger(__name__).exception(
+            "Raakje could not make a proposal for activity %s", activity_id
+        )
+        return turn(
+            ActivityProposalView(
+                question=vraag,
+                answer=_(
+                    "Raakje kon geen antwoord geven — probeer het opnieuw. Je vraag staat er nog."
+                ),
+                failed=True,
+            )
+        )
+    if proposal is None:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    return turn(
+        ActivityProposalView(
+            question=vraag,
+            answer=proposal.reply,
+            fields=proposal.fields,
+            marks=proposal.marks,
+            left_out=proposal.left_out,
+            unverified=proposal.unverified,
+        )
+    )
 
 
 @router.post(

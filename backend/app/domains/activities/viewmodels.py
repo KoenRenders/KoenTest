@@ -11,6 +11,21 @@ from app.ui.viewmodel import ViewModel
 
 
 @dataclass(frozen=True, kw_only=True)
+class ActivityProposalView(ViewModel):
+    """One turn of Raakje's proposer in the Assistent's panel (#1604):
+    `_aa_voorstel.html`. `fields` are the kit's proposed fields, `marks` the
+    sentences left out of the description, `left_out` what was not proposed."""
+
+    question: str
+    answer: str
+    failed: bool = False
+    fields: list[dict[str, Any]] = field(default_factory=list)
+    marks: list[dict[str, Any]] = field(default_factory=list)
+    left_out: list[str] = field(default_factory=list)
+    unverified: bool = False
+
+
+@dataclass(frozen=True, kw_only=True)
 class AdminActiviteitenView(ViewModel):
     """`admin_activiteiten.html` en haar fragment `_aa_kaarten.html`.
 

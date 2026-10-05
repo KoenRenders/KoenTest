@@ -19,13 +19,65 @@
  * block with `data-proposal-apply-url` asks the server for its final values on
  * Toepassen (the newsletter: which marked passages are kept), and the answer is
  * a block with `data-proposal-auto` that is applied as it arrives.
+ *
+ * Two things a field of a proposal may carry besides name/label/value/base
+ * (#1604, the activity's proposer):
+ *
+ *   group   the field is one of a ROW of a repeating group: `group` is the
+ *           group's name (`data-repeating-group`), `name` the field of a row
+ *           (`start_date`). It means the group's FIRST row — the server cannot
+ *           know the key of a row added in the page, and never names another
+ *           row, so no other row can be touched. With no row at all the group
+ *           itself carries the mark while the proposal is offered, and Toepassen
+ *           adds one row (only for a field whose base is empty: a row that was
+ *           there when the proposal was asked and is gone now was changed
+ *           meanwhile, and is skipped like any field);
+ *   parts   the value in pieces, `[{text, mark}]`: a piece with a `mark` has no
+ *           source and stays out unless the block's tick `keep` with that value
+ *           is on ("klopt, behouden"). Read at Toepassen, in the browser:
+ *           nothing is sent.
  */
 (function () {
   "use strict";
   if (window.raakFormProposal) return;
 
-  function fieldOf(name) {
-    return document.querySelector('[data-field="' + window.CSS.escape(name) + '"]');
+  function groupOf(item) {
+    return document.querySelector('[data-repeating-group="' + window.CSS.escape(item.group) + '"]');
+  }
+
+  function firstRowOf(group) {
+    var holder = group.querySelector("[data-group-rows]");
+    return holder ? holder.querySelector(":scope > [data-group-row]") : null;
+  }
+
+  /* The field a proposal's item means, or null. `make`: a group without a row
+     gets one. */
+  function fieldOf(item, make) {
+    if (!item.group) return document.querySelector('[data-field="' + window.CSS.escape(item.name) + '"]');
+    var group = groupOf(item);
+    if (!group) return null;
+    var row = firstRowOf(group);
+    if (!row && make && window.raakRepeatingGroup) {
+      row = window.raakRepeatingGroup.add(group);
+      if (row) noteGroup(group, "");
+    }
+    if (!row) return null;
+    var found = null;
+    Array.prototype.forEach.call(row.querySelectorAll('[data-field$=".' + window.CSS.escape(item.name) + '"]'), function (field) {
+      if (!found && field.closest("[data-group-row]") === row) found = field;
+    });
+    return found;
+  }
+
+  /* What Toepassen writes: the value, or its parts without the marked ones
+     that were not ticked. */
+  function valueOf(block, item) {
+    if (!item.parts) return item.value;
+    return item.parts.filter(function (part) {
+      if (part.mark === null || part.mark === undefined) return true;
+      var tick = block.querySelector('input[name="keep"][value="' + window.CSS.escape(String(part.mark)) + '"]');
+      return !!(tick && tick.checked);
+    }).map(function (part) { return part.text; }).join(" ");
   }
 
   function editorOf(field) {
@@ -97,9 +149,28 @@
     field.appendChild(p);
   }
 
+  /* A group without a row has no field to mark: the group says it. */
+  function noteGroup(group, text) {
+    Array.prototype.forEach.call(group.children, function (el) {
+      if (el.hasAttribute("data-proposal-note")) el.remove();
+    });
+    group.removeAttribute("data-proposed");
+    if (!text) return;
+    group.setAttribute("data-proposed", "");
+    var p = document.createElement("p");
+    p.setAttribute("data-proposal-note", "proposed");
+    p.textContent = text;
+    var empty = group.querySelector("[data-group-empty]");
+    if (empty && empty.parentNode === group) empty.after(p);
+    else group.appendChild(p);
+  }
+
   function clearOffered() {
     Array.prototype.forEach.call(document.querySelectorAll("[data-field][data-proposed]"), function (field) {
       note(field, null);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-repeating-group][data-proposed]"), function (group) {
+      noteGroup(group, "");
     });
   }
 
@@ -127,8 +198,9 @@
     });
     block.setAttribute("data-proposal-state", "open");
     fieldsOf(block).forEach(function (item) {
-      var field = fieldOf(item.name);
+      var field = fieldOf(item);
       if (field) note(field, "proposed", block.dataset.wordProposed || "");
+      else if (item.group && groupOf(item) && !firstRowOf(groupOf(item))) noteGroup(groupOf(item), block.dataset.wordProposed || "");
     });
   }
 
@@ -136,8 +208,12 @@
     var applied = [];
     var skipped = [];
     fieldsOf(block).forEach(function (item) {
-      var field = fieldOf(item.name);
-      if (!field) return;
+      var field = fieldOf(item, !!item.group && same(item.base, ""));
+      if (!field) {
+        // The row this was asked for is gone: changed meanwhile, and named.
+        if (item.group && groupOf(item)) skipped.push(item.label || item.name);
+        return;
+      }
       // Without a base the server already refused a stale proposal itself
       // (a rich text: its stored form is not the editor's, letter for letter).
       if (item.base !== undefined && item.base !== null && !same(read(field), item.base)) {
@@ -145,7 +221,7 @@
         skipped.push(item.label || item.name);
         return;
       }
-      write(field, item.value, item);
+      write(field, valueOf(block, item), item);
       note(field, "applied", block.dataset.wordApplied || "");
       applied.push(item.label || item.name);
     });
@@ -162,8 +238,9 @@
 
   function dismiss(block) {
     fieldsOf(block).forEach(function (item) {
-      var field = fieldOf(item.name);
+      var field = fieldOf(item);
       if (field && field.hasAttribute("data-proposed")) note(field, null);
+      if (item.group && groupOf(item)) noteGroup(groupOf(item), "");
     });
     finish(block, block.dataset.wordDismissed || "");
     // A screen that keeps its conversation hears that this one was set aside.

@@ -18,7 +18,7 @@ dat is zichtbaar aan de lengte van dit register.
 import pytest
 from jinja2 import meta
 
-from app.domains.activities.viewmodels import AdminActiviteitenView
+from app.domains.activities.viewmodels import ActivityProposalView, AdminActiviteitenView
 from app.domains.designstudio.viewmodels import DesignEditorView, DesignListView, DesignNewView
 from app.domains.mdm.viewmodels import LedenView
 from app.domains.meetings.viewmodels import (
@@ -76,6 +76,7 @@ VIEWMODELS = {
     "_nb_bewaard.html": NewsletterComposeView,
     "_nb_keuzes.html": NewsletterChoicesView,
     "_nb_gesprek.html": NewsletterConversationView,
+    "_aa_voorstel.html": ActivityProposalView,
     "_nb_toegepast.html": NewsletterAppliedView,
     "_nb_kiezer.html": NewsletterPickerView,
     "admin_nieuwsbrief_archief.html": NewsletterArchiveView,

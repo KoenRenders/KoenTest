@@ -104,6 +104,7 @@ class AiCapability(CodeEnum):
     CHAT = "chat"
     REPORTING = "reporting"
     NEWSLETTER_DRAFTING = "newsletter_drafting"
+    ACTIVITY_DRAFTING = "activity_drafting"
     OCR = "ocr"
     DICTATION = "dictation"
     TRANSLATE = "translate"

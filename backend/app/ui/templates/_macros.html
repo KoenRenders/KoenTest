@@ -1912,6 +1912,19 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 </form>
 {%- endmacro %}
 
+{# A sentence of a proposal that has no source (#1604; CR-05 §3.16): what it
+   says, why it is marked, and the tick that keeps it. It goes in the `extra`
+   of `form_proposal`; a field of that proposal carries its value in `parts`,
+   and `static/form-proposal.js` leaves the part with this `id` out unless the
+   tick is on. Unticked by default: a fact without a source is left out. #}
+{% macro proposal_mark(id, sentence, reason) -%}
+<div data-proposal-mark class="mt-2 border-l-2 border-yellow-300 pl-2">
+  <p class="text-ink">«{{ sentence }}»</p>
+  <p class="text-brand-danger mt-0.5">{{ icon("x", 12) }} {{ reason }} — {{ _("wordt weggelaten") }}</p>
+  <label class="flex items-center gap-1.5 mt-0.5 min-h-11 md:min-h-0"><input type="checkbox" name="keep" value="{{ id }}"> {{ _("klopt, behouden") }}</label>
+</div>
+{%- endmacro %}
+
 {# ── Why a save was refused (CR-11 block 9, #1561, §3.18) ─────────────────────
    The banner at the top of the form. `errors` are objects with `field` (the
    form's name of a field or a row; empty for the form as a whole) and `message`.
