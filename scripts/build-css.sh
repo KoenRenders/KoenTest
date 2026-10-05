@@ -463,7 +463,13 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    under the bar, so the last field is never under it.
    A refused field: the reason under it in red and a red line on its control;
    a refused row: the reason on top of it and a red line at its left. */
-.record-bar{position:sticky;bottom:16px;z-index:20;display:flex;align-items:center;gap:8px;min-height:64px;margin-top:-8px;padding:0 16px;background:rgb(var(--c-surface));border-top:1px solid rgb(var(--c-line))}
+/* #1607 (Koen, 5 October 2026; end state §3.6): flush against the window's
+   bottom while the form is longer than the window — the 16 px it floated on
+   are gone — with a heavier line on top and, while it sticks, the shadow
+   upward (`data-stuck`, set by record-form.js); in the flow at the form's end
+   it is a plain row again. The same picture on a phone and in both shells. */
+.record-bar{position:sticky;bottom:0;z-index:20;display:flex;align-items:center;gap:8px;min-height:64px;margin-top:-8px;padding:0 16px;background:rgb(var(--c-surface));border-top:2px solid rgb(var(--c-line))}
+.record-bar[data-stuck]{box-shadow:0 -8px 24px -4px rgb(var(--c-ink)/.14)}
 .record-bar-delete{margin-right:auto}
 .record-bar-cancel{margin-left:auto}
 .record-bar-delete+.record-bar-cancel{margin-left:0}
@@ -477,7 +483,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 [data-group-row][data-refused]{box-shadow:inset 3px 0 0 rgb(var(--c-red-600))}
 [data-group-row][data-refused]>[data-refused-message],[data-group-row][data-refused] [data-row-body]>[data-refused-message]{margin:0 0 4px;padding-left:8px}
 @media (max-width:767.98px){
-  .record-bar{bottom:0;display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:121px;margin:-8px -16px 0;padding:12px 16px}
+  .record-bar{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:121px;margin:-8px -16px 0;padding:11px 16px 12px}
   .record-bar-save{grid-column:1/-1;grid-row:1}
   .record-bar-delete{grid-column:1;grid-row:2;justify-self:start;margin:0}
   .record-bar-cancel{grid-column:2;grid-row:2;justify-self:end;margin:0}

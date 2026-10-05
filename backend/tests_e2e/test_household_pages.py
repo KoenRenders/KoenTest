@@ -528,3 +528,55 @@ def test_mijn_gezin_points_to_the_renewal_and_carries_no_form_for_it(browser):
         assert page.url == f"{BASE}/leden/gezin/vernieuwen"
     finally:
         page.close()
+
+
+# ── #1607: the action bar against the window's bottom, on a public page too ──
+
+_STUCK = """() => { const bar = document.querySelector('[data-action-bar]'), b = bar.getBoundingClientRect();
+  const bell = document.querySelector('[data-raakje-bell]');
+  const column = document.querySelector('[data-public-form-page]').getBoundingClientRect();
+  return {bottom: Math.round(b.bottom), top: Math.round(b.top), x: Math.round(b.left), w: Math.round(b.width),
+          window: document.documentElement.clientHeight, shadow: getComputedStyle(bar).boxShadow,
+          column: [Math.round(column.left), Math.round(column.width)],
+          bell: bell && bell.checkVisibility() ? Math.round(bell.getBoundingClientRect().bottom) : null}; }"""
+_HAS_SHADOW = "getComputedStyle(document.querySelector('[data-action-bar]')).boxShadow !== 'none'"
+
+
+@pytest.mark.parametrize("viewport", [DESKTOP, PHONE], ids=["1440", "390"])
+def test_the_bar_of_a_public_form_stands_against_the_windows_bottom(browser, viewport):
+    """#1607 (Koen, 5 October 2026; end state §3.6): the same macro serves the
+    public form pages, so Word lid — the longest of them — shows the same bar:
+    against the window's bottom with its shadow upward while the form runs on,
+    as wide as the form column on a desktop, and in the flow without a shadow at
+    the form's end. On a phone the bell stays 16 px above it.
+
+    Red on master at 1 440 px: the bar's bottom stood 16 px above the window's
+    (884 against 900), and it cast no shadow at any width.
+    """
+    page = _open(browser, "/lid-worden", viewport)
+    try:
+        page.wait_for_function(_HAS_SHADOW)
+        top = page.evaluate(_STUCK)
+        assert top["bottom"] == top["window"] == viewport["height"], top
+        if viewport is DESKTOP:
+            assert (top["x"], top["w"]) == tuple(top["column"]), "not as wide as the form column"
+        else:
+            assert (top["x"], top["w"]) == (0, 390)
+            if top["bell"] is not None:
+                assert top["bell"] == top["top"] - 16, "the bell does not sit 16 px above the bar"
+        # scrolled, it still stands there: nothing of the form shows under it
+        page.evaluate("scrollTo(0, 400)")
+        page.wait_for_function(_HAS_SHADOW)
+        assert page.evaluate(_STUCK)["bottom"] == viewport["height"]
+        # at the form's end it is in the flow, and a plain row again
+        # (by the last section: a sticky bar is "in view" wherever the page stands)
+        page.evaluate(
+            "scrollTo(0, document.querySelector('#lidgeld').getBoundingClientRect().bottom"
+            " + scrollY - innerHeight / 2)"
+        )
+        page.wait_for_function(f"!({_HAS_SHADOW})")
+        end = page.evaluate(_STUCK)
+        assert end["bottom"] < end["window"], end
+        assert page.errors == []
+    finally:
+        page.close()
