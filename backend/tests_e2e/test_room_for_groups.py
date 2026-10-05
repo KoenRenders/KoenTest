@@ -8,8 +8,9 @@ rendered DOM:
 - **the wide column in edit mode**: a record with a composite group that is being
   edited takes the reading group, 1 092 px, with its summary above it as a
   strip; reading, saving and cancelling give 768 px and the card at the right
-  again; long text keeps 768 px; with less than 1 092 px of frame (the
-  Assistent's panel open) nothing changes;
+  again; a field of full width fills the column, a text box included (#1635:
+  #1610 kept long text at 768 px, with a gap at its right); with less than
+  1 092 px of frame (the Assistent's panel open) nothing changes;
 - **denser rows**: a product's name · price · member price · maximum on one
   line, the settlement and "Publiek zichtbaar" on the second;
 - **a narrower gutter**: 28 px for a composite item's handle, the child group
@@ -18,8 +19,9 @@ rendered DOM:
 The activity is made for this file and removed again.
 
 Broken on purpose (5 October 2026), each red for its own reason: the wide rule
-taken out of the stylesheet → 768 in edit mode; the long-text rule out → the
-description 1 058 px wide; the product's first grid back on four tracks → the
+taken out of the stylesheet → 768 in edit mode; the long-text rule of #1610
+put back (#1635) → "Omschrijving is 768 px in a grid of 1 058"; the product's
+first grid back on four tracks → the
 maximum on a second line; the gutter back at 44 px; the child group's indent
 back at 16 px.
 """
@@ -46,6 +48,10 @@ _M = """() => { const r = e => { if (!e) return null; const b = e.getBoundingCli
           mode: q('[data-form-flow]').dataset.mode,
           column: r(q('[data-form-column]')), summary: r(q('[data-summary-column]')),
           description: r(q('[data-field="description"]')), name_field: r(q('[data-field="name"]')),
+          notes: r(q('[data-field="board_notes"]')), slug_field: r(q('[data-field="slug"]')),
+          grid: r(q('[data-field="description"]').closest('[data-form-grid]')),
+          notes_grid: r(q('[data-field="board_notes"]').closest('[data-form-grid]')),
+          boxes: [r(q('[data-field="description"] textarea')), r(q('[data-field="board_notes"] textarea'))],
           body: product ? r(product.querySelector('[data-row-body]')) : null,
           name: f('name'), price: f('price'), member: f('member_price'), max: f('max_participants'),
           settle: f('settlement'), active: f('is_active'),
@@ -99,8 +105,23 @@ def test_the_editor_takes_the_reading_group_and_the_summary_stands_above(setup, 
             "the strip is not 24 px above the form"
         )
         assert m["summary"]["h"] < 160, "above the form the summary is a strip, not the card"
-        # long text keeps its reading width; a short field takes its half of the wider card
-        assert m["description"]["w"] == 768
+        # #1635: a field of full width fills the column, a text box included —
+        # Omschrijving and Interne nota from the left edge of Naam to the right
+        # edge of Vriendelijke URL. Red on master: 768 px in a grid of 1 058.
+        print("MEASURE text boxes", width, m["description"], m["notes"], m["grid"], m["boxes"])
+        for label, field, grid in (
+            ("Omschrijving", m["description"], m["grid"]),
+            ("Interne nota", m["notes"], m["notes_grid"]),
+        ):
+            assert field["w"] == grid["w"] > 1000, (
+                f"{label} is {field['w']} px in a grid of {grid['w']}"
+            )
+        assert m["description"]["x"] == m["name_field"]["x"]
+        assert m["description"]["right"] == m["slug_field"]["right"]
+        for box, field in zip(m["boxes"], (m["description"], m["notes"])):
+            assert box["w"] == field["w"], (
+                f"the text box is {box['w']} px in a field of {field['w']}"
+            )
         assert m["name_field"]["w"] > 500
         assert m["page"][0] == width
         assert page.errors == []
@@ -112,6 +133,8 @@ def test_the_editor_takes_the_reading_group_and_the_summary_stands_above(setup, 
         r = read.evaluate(_M)
         print("MEASURE room read", width, r["column"], r["summary"])
         assert r["mode"] == "read" and r["column"]["w"] == 768
+        # #1635: nothing changes in read mode — the value stays inside the 768 px column.
+        assert r["description"]["w"] == r["grid"]["w"] < 768
         assert r["summary"]["x"] == r["column"]["right"] + 24 and r["summary"]["w"] == 300
         assert r["summary"]["y"] == r["column"]["y"], "#1587: the two cards start level"
     finally:
