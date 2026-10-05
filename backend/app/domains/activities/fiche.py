@@ -104,6 +104,10 @@ class ProductRow:
     pay_on_site: bool = False
     is_active: bool = True
     max_participants: Optional[int] = None
+    #: False: the form did not carry the price fields (#1608: they are switched
+    #: off while the product is free or paid on the spot) — the prices a product
+    #: has are then left as they are.
+    prices_sent: bool = True
 
 
 @dataclass
@@ -427,6 +431,8 @@ def _save_products(
             continue
         values = {name: getattr(row, name) for name in PRODUCT_FIELDS}
         values["name"] = row.name.strip()
+        if not row.prices_sent and row.key in existing:
+            del values["price"], values["member_price"]
         # The one rule of a product's write: free and pay-on-site exclude each other.
         with errors.at(f"{at}.pay_on_site"):
             if row.key in existing:

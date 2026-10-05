@@ -882,7 +882,7 @@
                 current_label=_("herfstwandeling.pdf")) }}
   {% endcall %}
   {% call ui.rare_settings(_("Externe koppelingen"), summary=_("1 externe link"),
-                           note=_("De affiche maak je in de Design Studio; een adres intypen is de oude weg.")) %}
+                           note=ui.poster_help()) %}
     {{ ui.field("kit_poster_url" ~ loop.index, _("Poster-URL"), kind="url", value="https://voorbeeld.example.test/affiche.pdf", edit=_edit) }}
   {% endcall %}
 {% endcall %}
