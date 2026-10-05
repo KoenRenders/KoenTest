@@ -1,18 +1,19 @@
 """CR-11 pilot A, K6 (#1560): the kit of a record's summary and its related
-lists — the summary card, the group row, the row that unfolds.
+lists — the summary card, the group row, and the row as the way in (#1636: K6
+let a row unfold in place; a kit table has no inline disclosure any more).
 
 The norm is `docs/design-system-end-state.md` §2.2 and §3.10 (block 8, Koen,
 4 October 2026). These tests render the macros themselves; the activity's tabs
 have their own tests (`tests/integration/test_activity_tabs.py`), the gate over
-the templates is `test_record_tab_gate.py`, and what only a browser shows — one
-open row per list, the card's size, the copy button — is in
+the templates is `test_record_tab_gate.py`, and what only a browser shows — the
+click on a row, the card's size, the copy button — is in
 `tests_e2e/test_activity_tabs.py`.
 
 Proven red (each on this branch, restored after):
 - the warning tone written on every figure → the summary test fails;
 - the copy button left out of the card's action → the action test fails;
-- `ui.row_toggle` drawn as a link → the toggle test fails;
-- `x-show` taken off `ui.row_detail` → the detail test fails;
+- #1636: `row_toggle` put back in the kit → the no-disclosure test fails; the
+  `data-open-row` taken off the frame → the way-back test fails;
 - the group's count without its brackets → the group test fails.
 """
 
@@ -78,10 +79,7 @@ def test_the_summary_cards_action_is_the_link_with_its_copy_button():
 
 GROUP = """{% call ui.data_table(columns, open_row=open_row) %}
 {% call ui.table_group("Wandeling", 18, 5, items=items, link=link) %}
-<tr data-row><td>{{ ui.row_toggle("Emma Voorbeeld", "7") }}</td></tr>
-{% call ui.row_detail("7", 5, open={"label": "Inschrijving openen", "href": "/admin/inschrijvingen/7"}) %}
-{% call ui.row_part("Contact") %}<div>Emma Voorbeeld</div>{% endcall %}
-{% endcall %}
+<tr data-row data-row-key="7"><td>{{ ui.row_link("Emma Voorbeeld", "/admin/inschrijvingen/7") }}</td></tr>
 {% endcall %}
 {% endcall %}"""
 COLUMNS = [
@@ -122,33 +120,28 @@ def test_a_group_row_carries_a_jump_link_when_it_names_a_record():
     assert "data-reference" not in re.search(r"<tr data-group-row.*?</tr>", _group(), re.S).group(0)
 
 
-def test_a_row_that_unfolds_is_a_button_and_never_a_link():
+def test_a_row_is_a_link_to_its_record_and_the_kit_has_no_disclosure():
+    """#1636 (CR-11 Q75): the row is the way in; the kit lost the three macros
+    of the unfolding row, so a template cannot call them."""
     html = _group()
-    cell = re.search(r"<tr data-row>.*?</tr>", html, re.S).group(0)
-    assert '<button type="button" data-row-toggle="7"' in cell and "<a " not in cell
-    assert 'aria-controls="row-detail-7"' in cell and ":aria-expanded" in cell
-    assert "data-row-link" not in html
+    cell = re.search(r"<tr data-row data-row-key=\"7\">.*?</tr>", html, re.S).group(0)
+    assert '<a href="/admin/inschrijvingen/7" data-row-link' in cell and "<button" not in cell
+    for trace in ("data-row-toggle", "data-row-detail", "data-row-part", "openRow"):
+        assert trace not in html, trace
+    macros = (templates.env.loader.get_source(templates.env, "_macros.html"))[0]
+    for gone in ("macro row_toggle(", "macro row_detail(", "macro row_part("):
+        assert gone not in macros, f"the kit still has {gone}"
+    assert "macro row_link(" in macros and "macro table_group(" in macros
 
 
-def test_the_unfolded_row_is_hidden_until_it_is_the_open_one():
-    html = _group()
-    detail = re.search(r"<tr data-row-detail.*?</tr>", html, re.S).group(0)
-    assert 'id="row-detail-7"' in detail and "x-show=\"openRow === '7'\"" in detail
-    assert "x-cloak" in detail and 'colspan="5"' in detail
-    # The parts, and the jump link to the row's own page under them.
-    assert "data-row-part" in detail and ">Contact<" in detail
-    assert 'href="/admin/inschrijvingen/7" data-reference' in detail
-    assert detail.index("data-row-part") < detail.index("Inschrijving openen")
-
-
-def test_the_table_holds_one_open_row_and_opens_it_from_the_url():
-    # One state for the whole list: a second toggle replaces the first.
-    assert "x-data=\"{ openRow: '' }\"" in _group()
-    assert "x-data=\"{ openRow: '7' }\"" in _group(open_row="7")
-    assert _group().count("openRow:") == 1
-    # Only a list that opens on a row lands on it (in view, with the focus).
-    assert 'data-open-row="7"' in _group(open_row="7") and "raakOpenRij" in _group(open_row="7")
+def test_the_table_names_the_row_a_visitor_came_back_to():
+    """The way back from a record names the row (`rij=`, `boeking=`): only then
+    the frame carries it, and the kit's script brings that row into view and
+    gives its link the focus. No Alpine state: nothing opens."""
+    back = _group(open_row="7")
+    assert 'data-open-row="7"' in back and "raakOpenRij" in back
     assert "data-open-row" not in _group() and "raakOpenRij" not in _group()
+    assert "openRow:" not in back
 
 
 def test_a_sort_link_without_a_list_fragment_is_a_plain_link():

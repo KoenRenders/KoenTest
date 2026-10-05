@@ -87,10 +87,10 @@ def test_admin_inschrijvingen_en_export(client, db_session):
     # #650-waarborg (zien waarvoor iemand ingeschreven is) zit in de groepskop.
     lijst = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen")
     assert lijst.status_code == 200 and "Jef" in lijst.text
-    # K6 (#1560): the row unfolds in place, read-only, and "Inschrijving
-    # openen" leads to the page in READ mode — there stands the Bewerken
-    # opener, with Verwijderen in its cluster. No "Details" button, no
-    # "Bewerken" and no direct Verwijderen in the row.
+    # #1636 (K6, #1560 before it): the row is the way in — its name links to
+    # the page in READ mode, where the Bewerken opener stands, with
+    # Verwijderen in its cluster. No "Details" button, no "Bewerken" and no
+    # direct Verwijderen in the row, and the row unfolds nowhere.
     from app.domains.activities.api import Registration
 
     reg = db_session.query(Registration).filter(Registration.contact_name == "Jef").one()
@@ -98,8 +98,8 @@ def test_admin_inschrijvingen_en_export(client, db_session):
         ">Details<" not in lijst.text
         and ">Bewerken<" not in lijst.text.split("data-table-frame")[1]
     )
-    assert f'data-row-toggle="{reg.id}"' in lijst.text
-    assert f'href="/admin/inschrijvingen/{reg.id}?terug=' in lijst.text
+    assert f'data-row-key="{reg.id}"' in lijst.text and "data-row-toggle=" not in lijst.text
+    assert f'<a href="/admin/inschrijvingen/{reg.id}?terug=' in lijst.text
     assert "bewerk=1" not in lijst.text
     # The rows have no delete; the head's Acties menu has the activity's (#1561).
     assert ">Verwijderen<" not in lijst.text.split("data-table-frame")[1]

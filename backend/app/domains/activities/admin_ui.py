@@ -32,6 +32,7 @@ from app.domains.activities.viewmodels import (
 from app.domains.auth.api import (
     SESSION_COOKIE,
     csrf_from_request,
+    may_mutate_payments,
     require_admin_ui,
     require_csrf,
 )
@@ -1500,7 +1501,7 @@ async def inschrijving_nieuw_opslaan(
     return response
 
 
-def _registrations_ctx(db: Session, activiteit: Any, request: Request) -> dict:
+def _registrations_ctx(db: Session, activiteit: Any, request: Request, email: str) -> dict:
     """The registrations table of the activity's tab (K6, #1560), from the
     list's state — the URL's, or `HX-Current-URL` after a fragment request.
 
@@ -1555,6 +1556,7 @@ def _registrations_ctx(db: Session, activiteit: Any, request: Request) -> dict:
             q=stand.get("q", ""),
             sort=parse_registration_sort(stand.get("sort", "datum"), stand.get("richting", "")),
             open_row=stand.get("rij", ""),
+            may_mutate=may_mutate_payments(db, email),
         ),
         "reg_target": "#inschrijvingen-lijst",
         "reg_count": len(regs),
@@ -1577,7 +1579,7 @@ def activiteit_inschrijvingen_tab(
     activiteit = get_activity(db, activity_id)
     if activiteit is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
-    ctx = _registrations_ctx(db, activiteit, request)
+    ctx = _registrations_ctx(db, activiteit, request, email)
     reg_count = ctx.pop("reg_count")
     vm = AdminActiviteitInschrijvingenView(
         a=activiteit,
@@ -1606,7 +1608,7 @@ def activity_registrations_list(
     activiteit = get_activity(db, activity_id)
     if activiteit is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
-    ctx = _registrations_ctx(db, activiteit, request)
+    ctx = _registrations_ctx(db, activiteit, request, email)
     ctx.pop("reg_count")
     vm = ActivityRegistrationsListView(**ctx, reg_oob=True)
     return templates.TemplateResponse(request, "_aa_inschrijvingen_lijst.html", vm.as_context())

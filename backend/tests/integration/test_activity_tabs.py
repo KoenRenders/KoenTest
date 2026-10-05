@@ -6,15 +6,17 @@ Block 8 (Koen, 4 October 2026; `docs/design-system-end-state.md` §2.2, §3.10):
   · Openstaand, the public link with its copy button. The list tabs carry
   neither card nor strip; the card "Publicatie" is gone.
 - **Inschrijvingen** is one table with a collapsible group row per component,
-  Exporteren under the group's `⋯`; a row unfolds read-only (Contact ·
-  Producten · Antwoorden · Betaling) with "Inschrijving openen", whose way back
-  names the row, so the tab opens that row again. The toolbar filters on
+  Exporteren under the group's `⋯`. **A row is the way in** (#1636, Koen,
+  5 October 2026; CR-11 Q75): it links to the registration's page, whose way
+  back names the row, so the tab brings that row into view again. It unfolds
+  nowhere — K6 showed the same data three times. The row carries Bedrag and
+  Saldo, one action and `⋯` with the jumps. The toolbar filters on
   *Alle | Openstaand (n)* and searches.
-- **Betalingen**, embedded: the row unfolds with "Betaling openen" instead of
-  opening the page; the tab has its own address; the activity's figures band is
-  gone (the household's stays until pilot B).
+- **Betalingen**, embedded: the row opens the booking's page as on the main
+  list (#1636), with the tab as its way back; the tab has its own address; the
+  activity's figures band is gone (the household's stays until pilot B).
 
-What only a browser shows — one open row at a time, the card's size, the copy —
+What only a browser shows — the card's size, the copy, the click on a row —
 is in `tests_e2e/test_activity_tabs.py`.
 
 Proven red (each on this branch, restored after):
@@ -25,7 +27,11 @@ Proven red (each on this branch, restored after):
 - the *Openstaand* filter ignored → the filter test fails;
 - a registration's state read from one booking instead of all → the state test
   fails;
-- embedded rows left as links → the unfold test fails;
+- #1636, against master `92866b83`: the row test fails on "data-row-toggle"
+  (the row unfolds) and the contact count on 2 where 1 is asked; `rij=` left
+  out of a row's way back → the way-back test; the booking of "Betaling
+  openen" taken as the newest instead of the oldest open one → the menu test;
+  "Bevestig" shown with two open bookings → the two-bookings test;
 - the push of the tab's own address removed → the address test fails;
 - the band's condition back to `embedded` → the band test fails.
 """
@@ -254,7 +260,25 @@ def _groups(html: str) -> list[tuple[str, str]]:
 
 
 def _row_names(html: str) -> list[str]:
-    return re.findall(r"data-row-toggle=.*?<span>([^<]+)</span>", html, re.S)
+    return re.findall(r"data-row-link[^>]*>([^<]+)</a>", html)
+
+
+def _row(html: str, key: int) -> str:
+    """One row of a kit table, by its key."""
+    return re.search(rf'<tr data-row data-row-key="{key}".*?</tr>', html, re.S).group(0)
+
+
+def _menu(row: str) -> dict[str, str]:
+    """The row's `⋯`: label → href."""
+    return {
+        label.strip(): href
+        for href, label in re.findall(r'role="menuitem" href="([^"]+)"[^>]*>([^<]+)</a>', row)
+    }
+
+
+# What an unfolding row left in the page (the kit's own script still reads
+# `dataset.openRow`, the row a visitor came back to — that is no disclosure).
+NO_DISCLOSURE = ("data-row-toggle", "data-row-detail", "data-row-part", "openRow ===")
 
 
 def test_the_registrations_are_one_table_with_a_group_row_per_component(client, db_session, world):
@@ -266,7 +290,7 @@ def test_the_registrations_are_one_table_with_a_group_row_per_component(client, 
     # Exporteren under each group's ⋯ — not a button in a card head.
     for component in (world["wandeling"], world["molen"]):
         assert f'role="menuitem" href="{_base(world)}/onderdelen/{component.id}/export"' in html
-    assert "data-row-action" not in html and ">Export<" not in html
+    assert ">Export<" not in html
     # The embedded toolbar: status filter, search, count — no title, no figures.
     assert 'id="reg-filter"' in html and "data-status-filter" in html
     assert ">1–3 van 3<" in html.replace("\n", "")
@@ -294,20 +318,107 @@ def test_a_row_shows_its_payment_state_from_all_its_bookings(client, db_session,
     assert states[world["an"].id]["saldo"] == Decimal("-4.00")
 
 
-def test_a_row_unfolds_read_only_with_its_four_parts(client, db_session, world):
+def test_a_row_is_the_way_in_and_unfolds_nowhere(client, db_session, world):
+    """#1636. Red against master: the row carries `data-row-toggle` and its
+    contact stands twice on the page (the row and the unfolded row)."""
     _login(client, db_session)
-    html = client.get(f"{_base(world)}/inschrijvingen").text
-    detail = re.search(
-        rf'<tr data-row-detail id="row-detail-{world["bram"].id}".*?</tr>', html, re.S
-    ).group(0)
-    parts = re.findall(r"data-row-part[^>]*><div[^>]*>([^<]+)</div>", detail)
-    assert parts == ["Contact", "Producten", "Antwoorden", "Betaling"]
-    assert "bram@example.org" in detail and "2 × Testproduct" in detail
-    assert "€ 20,00" in detail
-    # Read-only (Q42): nothing that edits, and the jump link to the page.
-    assert "Bewerken" not in detail and "<button" not in detail and "<form" not in detail
-    assert f'href="/admin/inschrijvingen/{world["bram"].id}?terug=' in detail
-    assert "Inschrijving openen" in detail and "data-reference" in detail
+    tab = f"{_base(world)}/inschrijvingen"
+    html = client.get(tab).text
+    for trace in NO_DISCLOSURE:
+        assert trace not in html, f"a disclosure in the table: {trace}"
+    # Every row links to its registration, and nothing says "Bewerken".
+    assert len(_row_names(html)) == 3
+    row = _row(html, world["bram"].id)
+    assert f'href="/admin/inschrijvingen/{world["bram"].id}?terug=' in row
+    assert "Bewerken" not in row
+    # What the row says, it says ONCE on the page.
+    assert html.count(">bram@example.org<") == 1
+    assert html.count("2 × Testproduct") == 1
+    # Bedrag and Saldo are columns of the table.
+    heads = re.findall(r'<th scope="col" data-cell="([a-z]+)"', html)
+    assert heads == ["name", "context", "date", "more", "amount", "extra", "status", "actions"]
+    assert ">Bedrag<" in html.replace("\n", "").replace("  ", "") or "Bedrag" in html
+    cells = dict(re.findall(r'<td data-cell="(amount|extra)"[^>]*>(.*?)</td>', row, re.S))
+    assert "€ 20,00" in cells["amount"]
+    assert "€ 20,00" in cells["extra"] and "text-brand-warning" in cells["extra"], (
+        "orange when not zero"
+    )
+    # A settled registration: the balance is zero and carries no warning.
+    settled = dict(
+        re.findall(
+            r'<td data-cell="(amount|extra)"[^>]*>(.*?)</td>', _row(html, world["cas"].id), re.S
+        )
+    )
+    assert "€ 30,00" in settled["amount"] and "€ 0,00" in settled["extra"]
+    assert "text-brand-warning" not in settled["extra"]
+
+
+def test_the_rows_menu_carries_the_jumps_and_its_one_action(client, db_session, world):
+    """#1636: "Inschrijving openen" and "Betaling openen" under `⋯`; "Bevestig"
+    as the one action where exactly one booking is open. "Betaling openen"
+    leads to the oldest booking that is still open, else to the oldest."""
+    _login(client, db_session)
+    tab = f"{_base(world)}/inschrijvingen"
+    html = client.get(tab).text
+    records = world["records"]
+    expected = {
+        # Bram: one booking, open.
+        "bram": (records["bram"].id, "Als volledig betaald bevestigen?"),
+        # An: paid, and a refund still to pay out — the refund is the open one.
+        "an": (records["refund"].id, "Als volledig terugbetaald bevestigen?"),
+        # Cas: settled — the oldest booking, and nothing to confirm.
+        "cas": (records["cas"].id, None),
+    }
+    for who, (booking, question) in expected.items():
+        row = _row(html, world[who].id)
+        menu = _menu(row)
+        assert list(menu) == ["Inschrijving openen", "Betaling openen"], (who, menu)
+        back = f"{tab}?rij={world[who].id}"
+        assert unquote(menu["Inschrijving openen"]) == (
+            f"/admin/inschrijvingen/{world[who].id}?terug={back}"
+        )
+        assert unquote(menu["Betaling openen"]) == f"/admin/betalingen/{booking}?terug={back}"
+        action = re.search(r"<button[^>]*data-row-action[^>]*>", row)
+        if question is None:
+            assert action is None, f"{who}: an action on a settled registration"
+        else:
+            assert action and f'hx-post="/admin/betalingen/{booking}/bevestigen"' in action.group(0)
+            assert f'data-confirm="{question}"' in action.group(0)
+    # The booking's page leads back to the tab, to the row.
+    page = client.get(_menu(_row(html, world["bram"].id))["Betaling openen"]).text
+    assert f"{tab}?rij={world['bram'].id}".replace("&", "&amp;") in page
+
+
+def test_two_open_bookings_get_no_action_and_the_oldest_opens(client, db_session, world):
+    """A click may not confirm one of two bookings unseen."""
+    second = _record(db_session, world["bram"], "5.00", minutes=9)
+    db_session.commit()
+    _login(client, db_session)
+    row = _row(client.get(f"{_base(world)}/inschrijvingen").text, world["bram"].id)
+    assert not re.search(r"<button[^>]*data-row-action", row)
+    first = world["records"]["bram"].id
+    assert f"/admin/betalingen/{first}?terug=" in _menu(row)["Betaling openen"]
+    states = registration_payment_states(db_session, [world["bram"].id])[world["bram"].id]
+    assert (states["booking_id"], states["open_booking_ids"]) == (first, [first, second.id])
+
+
+def test_who_may_not_confirm_gets_no_action(client, db_session, world):
+    """`may_mutate_payments`: an ADMIN without FINANCE sees the jumps, not "Bevestig"."""
+    user = User(email="admin-1636@example.org", is_active=True)
+    db_session.add(user)
+    db_session.flush()
+    db_session.add(UserRole(user_id=user.id, role_code="ADMIN"))
+    db_session.commit()
+    client.cookies.set(SESSION_COOKIE, make_session_value(user.email))
+    response = client.get(f"{_base(world)}/inschrijvingen")
+    assert response.status_code == 200
+    assert not re.search(r"<button[^>]*data-row-action", response.text)
+    assert "Inschrijving openen" in _menu(_row(response.text, world["bram"].id))
+    # The same page for who may: the action is there.
+    _login(client, db_session)
+    assert re.search(
+        r"<button[^>]*data-row-action", client.get(f"{_base(world)}/inschrijvingen").text
+    )
 
 
 def test_the_way_back_from_a_registration_lands_on_its_row(client, db_session, world):
@@ -315,20 +426,21 @@ def test_the_way_back_from_a_registration_lands_on_its_row(client, db_session, w
     tab = f"{_base(world)}/inschrijvingen"
     html = client.get(f"{tab}?zicht=openstaand&sort=-naam").text
     href = re.search(
-        rf'href="(/admin/inschrijvingen/{world["bram"].id}\?terug=[^"]+)"', html
+        rf'href="(/admin/inschrijvingen/{world["bram"].id}\?terug=[^"]+)" data-row-link', html
     ).group(1)
     back = unquote(href.split("terug=", 1)[1])
     # The list as it was left — filter and sort — and the row it was opened from.
     assert back == f"{tab}?zicht=openstaand&sort=-naam&rij={world['bram'].id}"
     # The registration's page leads back there…
     assert back.replace("&", "&amp;") in client.get(href).text
-    # …and the tab opens that row again, with the same filter and sort.
+    # …and the tab names that row again (the kit brings it into view and gives
+    # its link the focus), with the same filter and sort.
     again = client.get(back).text
-    assert f"openRow: '{world['bram'].id}'" in again
+    assert f'data-open-row="{world["bram"].id}"' in again
     assert _row_names(again) == ["Bram Voorbeeld", "An Voorbeeld"]
-    # A row that is not on the list opens nothing.
-    assert "openRow: ''" in client.get(f"{tab}?rij=999999").text
-    assert "openRow: ''" in client.get(f"{tab}?rij=');alert(1)//").text
+    # A row that is not on the list is not named.
+    assert 'data-open-row="' not in client.get(f"{tab}?rij=999999").text
+    assert 'data-open-row="' not in client.get(f"{tab}?rij=');alert(1)//").text
 
 
 def test_the_toolbar_filters_on_openstaand_and_searches(client, db_session, world):
@@ -367,31 +479,32 @@ def test_the_sort_orders_inside_a_group(client, db_session, world):
     assert 'aria-sort="descending"' in old
 
 
-# ── Betalingen, embedded: the row unfolds ────────────────────────────────────
+# ── Betalingen, embedded: the row opens the booking, as on the list ─────────
 
 
-def test_an_embedded_booking_unfolds_instead_of_opening_its_page(client, db_session, world):
+def test_an_embedded_booking_opens_its_page_and_unfolds_nowhere(client, db_session, world):
+    """#1636 (Koen's addition): a kit table has no inline disclosure, on a tab
+    either. Red against master: `data-row-toggle` on every row of the tab."""
     _login(client, db_session)
     tab = f"{_base(world)}/betalingen"
     html = client.get(tab).text
+    for trace in NO_DISCLOSURE:
+        assert trace not in html, f"a disclosure in the table: {trace}"
     ids = {str(r.id) for r in world["records"].values()}
-    assert set(re.findall(r'data-row-toggle="([^"]+)"', html)) == ids
-    assert "data-row-link" not in html
+    assert set(re.findall(r'data-row-key="([^"]+)"', html)) == ids
+    assert len(_row_names(html)) == 4
     bram = world["records"]["bram"].id
-    detail = re.search(rf'<tr data-row-detail id="row-detail-{bram}".*?</tr>', html, re.S).group(0)
-    assert re.findall(r"data-row-part[^>]*><div[^>]*>([^<]+)</div>", detail) == [
-        "Boeking",
-        "Bedrag en ontvangst",
-    ]
-    assert "Bewerken" not in detail and "<button" not in detail
-    # "Betaling openen" leads to the booking's page, and that page leads back to
-    # the TAB with the booking named — so the tab unfolds that row again.
-    href = re.search(rf'href="(/admin/betalingen/{bram}\?terug=[^"]+)"', detail).group(1)
+    # The row leads to the booking's page, and that page leads back to the TAB
+    # with the booking named — so the way back lands on the row it left.
+    href = re.search(rf'href="(/admin/betalingen/{bram}\?terug=[^"]+)" data-row-link', html).group(
+        1
+    )
     assert unquote(href.split("terug=", 1)[1]) == f"{tab}?boeking={bram}"
-    assert f"openRow: '{bram}'" in client.get(f"{tab}?boeking={bram}").text
-    # The list itself is unchanged: there the row is the way in (K2).
+    assert f"{tab}?boeking={bram}" in client.get(href).text
+    assert f'data-open-row="{bram}"' in client.get(f"{tab}?boeking={bram}").text
+    # The list itself: the row is the way in there too (K2), back to the list.
     top = client.get("/admin/betalingen").text
-    assert 'data-row-toggle="' not in top and top.count("data-row-link") == 4
+    assert len(_row_names(top)) == 4 and 'data-open-row="' not in top
 
 
 def test_the_embedded_tab_keeps_its_own_address(client, db_session, world):
@@ -410,7 +523,7 @@ def test_the_embedded_tab_keeps_its_own_address(client, db_session, world):
     # And a reload of the pushed address shows the filtered tab under its head.
     html = client.get(f"{_base(world)}/betalingen?zicht=openstaand").text
     assert "data-record-head" in html
-    shown = set(re.findall(r'data-row-toggle="([^"]+)"', html))
+    shown = set(re.findall(r'data-row-key="([^"]+)"', html))
     assert str(world["records"]["cas"].id) not in shown and shown
 
 
@@ -423,3 +536,19 @@ def test_the_payments_tab_of_a_household_keeps_its_band(client, db_session, worl
     db_session.commit()
     _login(client, db_session)
     assert "kpi-strip" in client.get(f"/admin/leden/gezin/{member.id}/betalingen").text
+
+
+def test_the_registrations_own_payments_tab_opens_the_booking_too(client, db_session, world):
+    """#1636: the registration's page has a Betalingen tab on the same fragment
+    as the activity's and the household's — its rows are the way in as well,
+    and the booking's page leads back to that tab."""
+    _login(client, db_session)
+    tab = f"/admin/inschrijvingen/{world['an'].id}/betalingen"
+    html = client.get(tab).text
+    for trace in NO_DISCLOSURE:
+        assert trace not in html, f"a disclosure in the table: {trace}"
+    own = {str(world["records"]["an"].id), str(world["records"]["refund"].id)}
+    assert set(re.findall(r'data-row-key="([^"]+)"', html)) == own
+    booking = world["records"]["an"].id
+    href = re.search(rf'href="(/admin/betalingen/{booking}\?terug=[^"]+)" data-row-link', html)
+    assert href and unquote(href.group(1).split("terug=", 1)[1]) == f"{tab}?boeking={booking}"
