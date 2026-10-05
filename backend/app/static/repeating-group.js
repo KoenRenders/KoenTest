@@ -63,9 +63,10 @@
   }
 
   /* One among many (the *hoofdadres*): the group's hidden field names the
-     chosen row. That row shows the tag and cannot be removed; every other row
-     offers to take the tag over. A group whose choice names no row — its first
-     row was just added — chooses its first row. */
+     chosen row. That row shows the tag and — unless its rows are marked as
+     removable — cannot be removed; every other row offers to take the tag over.
+     The first row added to an empty group is chosen (`add`). When the chosen row
+     goes, nothing is promoted: the choice is empty until a row is made the one. */
   function oneField(group) {
     var field = null;
     Array.prototype.forEach.call(group.children, function (el) {
@@ -86,7 +87,7 @@
     var field = oneField(group);
     if (!field) return;
     var keys = rows.map(function (row) { return row.getAttribute("data-row-key"); });
-    if (keys.indexOf(field.value) === -1) field.value = keys.length ? keys[0] : "";
+    if (keys.indexOf(field.value) === -1) field.value = "";
     rows.forEach(function (row) {
       var chosen = row.getAttribute("data-row-key") === field.value;
       var tag = ownPart(row, "[data-row-one-tag]");
@@ -94,7 +95,7 @@
       var choose = ownMenuItem(row, "choose");
       if (choose) choose.hidden = chosen;
       var removeItem = ownMenuItem(row, "remove");
-      if (removeItem) removeItem.hidden = chosen;
+      if (removeItem) removeItem.hidden = chosen && !removeItem.hasAttribute("data-row-keeps");
       var holder = ownPart(row, "[data-row-menu-holder]");
       if (holder) {
         var items = holder.querySelectorAll("[data-row-action]");
@@ -163,6 +164,9 @@
     holder.insertAdjacentHTML("beforeend", html);
     var row = rowsOf(group).pop();
     activate(row);
+    // The first row of a one-among-many group is the one.
+    var one = oneField(group);
+    if (one && rowsOf(group).length === 1) one.value = row.getAttribute("data-row-key");
     refresh(group);
     focusFirst(row);
     // For the page: a rule it asks the server about (which relation a new

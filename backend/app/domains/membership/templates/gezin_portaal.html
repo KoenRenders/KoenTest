@@ -41,7 +41,7 @@
         hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
   {% endif %}
     {% include "_household_group.html" %}
-    {% if group.address %}{% include "_household_address.html" %}{% endif %}
+    {% include "_household_address.html" %}
   {% if page.edit %}
   </form>
   {{ ui.action_bar(record=True, form="gezin-form", cancel_href="/leden/gezin") }}

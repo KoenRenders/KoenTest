@@ -14,9 +14,11 @@ New with #1590, and marked NEW at their test:
 - one transaction — saving a person used to be two (the person, then the e-mail
   rows), so a refusal in the second left the first stored.
 
-What is a choice for Koen (the main member's removal, the relation of a new
-person, the primary address, creating an address) keeps today's behaviour, and
-that is proven here as what holds today.
+Koen's rules of 5 October 2026 (#1603) are proven here where #1590 pinned
+"today": the main member stays, a person added is a partner or a child (the
+member's choice, the one rule's default), the primary address may go and nothing
+takes its place, an address can be created and is whole or not there, and the
+main member's mobile number is not asked at this door.
 
 Each rule was broken once to see its test red; what was broken stands in the
 test's docstring.
@@ -248,97 +250,60 @@ def test_phone_and_mobile_are_set_changed_and_removed(db_session):
 MOBILE_REQUIRED = "Mobiel nummer is verplicht voor het hoofdgezinslid."
 
 
-def test_new_the_main_members_mobile_cannot_be_emptied(db_session):
-    """NEW with #1590: `MemberPerson.require_main_member_mobile`, the rule Word
-    lid asks, at this door too — at the Gsm field, with nothing written, the
-    good change in the same row neither."""
+def test_the_main_members_mobile_is_not_asked_here(db_session):
+    """Koen, 5 October 2026 (#1603): on Mijn gezin the main member's mobile number
+    is not required. With one save for the whole household the requirement
+    blocked every change of a household whose main member has none (10 of 116 on
+    PROD). Word lid still asks it (`membership/tests/test_signup_form.py`).
+
+    Both halves: the number can be emptied, and a main member who never had one
+    saves something else. Proven red by asking
+    `MemberPerson.require_main_member_mobile` in `_save_person` again: both
+    saves are refused at the Gsm field.
+    """
     world = _household(db_session)
     an = world["An"]
-    before = _counts(db_session)
     payload = _as_is(db_session, world["household"])
     _row(payload, an).mobile = "   "
     _row(payload, an).phone = "014 00 00 00"
-    assert _places(db_session, world, payload) == {f"h.{an.id}.mobile": MOBILE_REQUIRED}
-    assert _counts(db_session) == before
-    assert _contacts(db_session, an) == {"MOBILE": "0470000000"}
-
-
-def test_new_a_main_member_who_never_had_a_mobile_is_asked_one(db_session):
-    """An old household: the number was never there, and the form sends none.
-    The rule looks at what the form says, not at what changed — and the same
-    form with a number is saved, so the missing number is the cause."""
-    world = _household(db_session)
-    an = world["An"]
-    for contact in list(an.contact_details):
-        if contact.contact_type_code == "MOBILE":
-            db_session.delete(contact)
-    db_session.commit()
-    before = _counts(db_session)
-    payload = _as_is(db_session, world["household"])
-    assert _row(payload, an).mobile == "", "this world must start without the number"
-    assert _places(db_session, world, payload) == {f"h.{an.id}.mobile": MOBILE_REQUIRED}
-    assert _counts(db_session) == before
-
-    payload = _as_is(db_session, world["household"])
-    _row(payload, an).mobile = "0470 11 22 33"
     _save(db_session, world, payload)
-    assert _contacts(db_session, an) == {"MOBILE": "0470 11 22 33"}
+    assert _contacts(db_session, an) == {"PHONE": "014 00 00 00"}
 
-
-def test_a_partner_and_a_child_need_no_mobile(db_session):
-    """The other half: the rule is the main member's. Bert and Cas have no
-    number and send none, a new person neither — and the save goes through,
-    which the changed name shows."""
-    world = _household(db_session)
     payload = _as_is(db_session, world["household"])
-    assert (_row(payload, world["Bert"]).mobile, _row(payload, world["Cas"]).mobile) == ("", "")
+    assert _row(payload, an).mobile == "", "this world must be without the number now"
     _row(payload, world["Cas"]).first_name = "Casper"
-    payload.persons.append(
-        PersonRow(
-            key="n1",
-            first_name="Dien",
-            last_name="Voorbeeld",
-            date_of_birth=date(2015, 5, 5),
-            gender_code="F",
-        )
-    )
     _save(db_session, world, payload)
     db_session.expire_all()
     assert db_session.get(Person, world["Cas"].id).first_name == "Casper"
-    assert db_session.query(Person).filter_by(first_name="Dien").one()
 
 
-def test_the_mobile_refusal_comes_with_the_other_refusals_of_the_save(db_session):
-    """One answer for the whole form: the main member's mobile beside another
-    person's blank name and the address."""
-    world = _household(db_session)
-    an, bert = world["An"], world["Bert"]
-    before = _counts(db_session)
-    payload = _as_is(db_session, world["household"])
-    _row(payload, an).mobile = ""
-    _row(payload, bert).last_name = ""
-    payload.address.postal_code = "9999"
-    places = _places(db_session, world, payload)
-    assert set(places) == {f"h.{an.id}.mobile", f"h.{bert.id}.last_name", "address.postal_code"}
-    assert places[f"h.{an.id}.mobile"] == MOBILE_REQUIRED
-    assert _counts(db_session) == before
+# ── The relation of a person a member adds (#1603) ───────────────────────────
 
 
-def test_a_person_is_added_as_a_child_with_its_history(db_session):
-    """`add_household_person`: today a member's new person is always a child, and
-    gets no address. `person_created` and `person_added_to_family`."""
-    world = _household(db_session)
-    payload = _as_is(db_session, world["household"])
-    payload.persons.append(
-        PersonRow(
-            key="n1",
-            first_name="Dien",
-            last_name="Voorbeeld",
-            date_of_birth=date(2015, 5, 5),
-            gender_code="F",
-            emails=[EmailRow("n2", "dien@example.com")],
-        )
+def _new_person(key: str, first_name: str, relation_type: str = "") -> PersonRow:
+    return PersonRow(
+        key=key,
+        first_name=first_name,
+        last_name="Voorbeeld",
+        date_of_birth=date(2015, 5, 5),
+        gender_code="F",
+        relation_type=relation_type,
     )
+
+
+def _relation_of(db, first_name: str) -> RelationType:
+    person = db.query(Person).filter(Person.first_name == first_name).one()
+    return db.query(MemberPerson).filter_by(person_id=person.id).one().relation_type
+
+
+def test_a_person_is_added_with_its_history_and_a_child_where_there_is_a_partner(db_session):
+    """`person_created` and `person_added_to_family`, no address. The household
+    has a partner (Bert), so the one rule's default for the new person is a child."""
+    world = _household(db_session)
+    payload = _as_is(db_session, world["household"])
+    row = _new_person("n1", "Dien")
+    row.emails = [EmailRow("n2", "dien@example.com")]
+    payload.persons.append(row)
     _save(db_session, world, payload)
     db_session.expire_all()
     dien = db_session.query(Person).filter(Person.first_name == "Dien").one()
@@ -357,6 +322,69 @@ def test_a_person_is_added_as_a_child_with_its_history(db_session):
     assert _history(db_session, MemberPersonHistory, person_id=dien.id) == [
         ("insert", "person_added_to_family", "member_self")
     ]
+
+
+def test_without_a_partner_the_first_added_person_is_one_and_the_next_a_child(db_session):
+    """The one rule (`default_relation`) for a person the member chose nothing for:
+    a partner while the household has none, a child after that — also for two
+    persons added in the SAME save. Until #1603 everyone added here was a child.
+
+    Proven red by making `insert_household_person` always link a child (the old
+    behaviour): "Eva" is a child; and by not handing the new link to the
+    household: both are partners.
+    """
+    world = _household(db_session)
+    payload = _as_is(db_session, world["household"])
+    payload.persons = [r for r in payload.persons if r.key != str(world["Bert"].id)]
+    payload.persons += [_new_person("n1", "Eva"), _new_person("n2", "Fien")]
+    _save(db_session, world, payload)
+    db_session.expire_all()
+    assert _relation_of(db_session, "Eva") == RelationType.PARTNER
+    assert _relation_of(db_session, "Fien") == RelationType.ADULT_CHILD
+
+
+def test_the_member_chooses_partner_or_child(db_session):
+    """What the member chose wins from the default, both ways: a child where the
+    default is a partner, and a second partner where the default is a child
+    (nothing refuses a second partner — Koen, 29 September 2026)."""
+    world = _household(db_session)
+    payload = _as_is(db_session, world["household"])
+    payload.persons.append(_new_person("n1", "Gust", relation_type="PARTNER"))
+    _save(db_session, world, payload)
+    db_session.expire_all()
+    assert _relation_of(db_session, "Gust") == RelationType.PARTNER
+
+    other = _household(db_session)
+    payload = _as_is(db_session, other["household"])
+    payload.persons = [r for r in payload.persons if r.key != str(other["Bert"].id)]
+    payload.persons.append(_new_person("n1", "Hanne", relation_type="KIND"))
+    _save(db_session, other, payload)
+    db_session.expire_all()
+    assert _relation_of(db_session, "Hanne") == RelationType.ADULT_CHILD
+
+
+@pytest.mark.parametrize("asked", ["HOOFDLID", "BUUR"])
+def test_never_a_second_main_member_and_nothing_outside_the_list(db_session, asked):
+    """ "Kies partner of kind." at the relation field, with nothing written.
+    Proven red by accepting whatever is asked: a household with two main members."""
+    world = _household(db_session)
+    before = _counts(db_session)
+    payload = _as_is(db_session, world["household"])
+    payload.persons.append(_new_person("n1", "Ilse", relation_type=asked))
+    assert _places(db_session, world, payload) == {"h.n1.relation_type": "Kies partner of kind."}
+    assert _counts(db_session) == before
+
+
+def test_the_relation_of_a_person_who_is_there_is_not_read(db_session):
+    """Whether an existing person's kind can be changed stays as it was: it
+    cannot. A form that sends one for Cas changes nothing."""
+    world = _household(db_session)
+    payload = _as_is(db_session, world["household"])
+    _row(payload, world["Cas"]).relation_type = "PARTNER"
+    _save(db_session, world, payload)
+    db_session.expire_all()
+    link = db_session.query(MemberPerson).filter_by(person_id=world["Cas"].id).one()
+    assert link.relation_type == RelationType.ADULT_CHILD
 
 
 def test_a_person_the_form_no_longer_has_leaves_the_household(db_session):
@@ -394,16 +422,39 @@ def test_nobody_removes_themselves(db_session):
     assert _counts(db_session) == before
 
 
-def test_today_the_main_member_can_be_taken_out_by_another_member(db_session):
-    """What holds TODAY, kept until Koen decides: the only refusal is "not
-    yourself", so a partner can remove the main member."""
+def test_the_main_member_stays_whoever_asks(db_session):
+    """Koen, 5 October 2026 (#1603): the main member cannot be removed — "Een
+    gezin heeft een hoofdlid nodig.", named as that row, with nothing written and
+    the other change of the same save not stored either. Until then the only
+    refusal was "not yourself", so a partner could take the main member out.
+
+    Proven red by dropping the check from `detach_household_person`: An's link is
+    soft-deleted.
+    """
+    world = _household(db_session)
+    before = _counts(db_session)
+    payload = _as_is(db_session, world["household"])
+    payload.persons = [r for r in payload.persons if r.key != str(world["An"].id)]
+    _row(payload, world["Cas"]).first_name = "Niet bewaard"
+    assert _places(db_session, world, payload, by="Bert") == {
+        f"h.{world['An'].id}": "Een gezin heeft een hoofdlid nodig."
+    }
+    assert _counts(db_session) == before
+    db_session.expire_all()
+    live = db_session.query(MemberPerson).filter_by(member_id=world["household"].id).all()
+    assert world["An"].id in {m.person_id for m in live}
+    assert db_session.get(Person, world["Cas"].id).first_name == "Cas"
+
+
+def test_the_main_member_removing_themselves_hears_that_first(db_session):
+    """Removing yourself stays refused as it was, in its own words — also for the
+    main member, for whom both rules hold."""
     world = _household(db_session)
     payload = _as_is(db_session, world["household"])
     payload.persons = [r for r in payload.persons if r.key != str(world["An"].id)]
-    _save(db_session, world, payload, by="Bert")
-    db_session.expire_all()
-    live = db_session.query(MemberPerson).filter_by(member_id=world["household"].id).all()
-    assert world["An"].id not in {m.person_id for m in live}
+    assert _places(db_session, world, payload, by="An") == {
+        f"h.{world['An'].id}": "Je kan jezelf niet uit het gezin verwijderen."
+    }
 
 
 def test_birth_date_and_gender_are_required_and_named_at_their_field(db_session):
@@ -545,10 +596,10 @@ def test_the_primary_mark_moves_when_the_form_marks_another_row(db_session):
     ]
 
 
-def test_today_the_primary_and_the_last_address_may_go(db_session):
-    """What holds TODAY (Koen, 27 September 2026: "niets aanwijzen, niets
-    weigeren"), kept until he decides otherwise: the primary address may be
-    removed, nothing is promoted in its place, and the last one may go too."""
+def test_the_primary_and_the_last_address_may_go(db_session):
+    """Koen, 27 September 2026 ("niets aanwijzen, niets weigeren"), confirmed on
+    5 October 2026 (#1603, rule 3): the primary address may be removed, nothing
+    is promoted in its place, and the last one may go too."""
     world = _household(db_session)
     an = world["An"]
     payload = _as_is(db_session, world["household"])
@@ -570,6 +621,34 @@ def test_today_the_primary_and_the_last_address_may_go(db_session):
     assert [
         c for c in db_session.get(Person, an.id).contact_details if c.contact_type_code == "EMAIL"
     ] == []
+
+
+def test_the_primary_address_removed_and_another_added_in_one_save(db_session):
+    """Found by a browser test of the one save (#1603), and a 500 until then: the
+    row routes could do only one of the two at a time. The unit of work inserted
+    the new row — primary, because the person had no primary address left —
+    before it deleted the old one, and `uq_contact_details_one_primary_per_type`
+    refused. The removals are flushed first now.
+
+    The new address becomes the primary one, by the rule that was always there:
+    a row added to a person who has no primary address is it. That is not
+    "promoting" a row that was left: the address that stays is not touched.
+
+    Proven red by taking the flush out of `write_email_rows`: IntegrityError.
+    """
+    world = _household(db_session)
+    an = world["An"]
+    payload = _as_is(db_session, world["household"])
+    row = _row(payload, an)
+    row.emails = [e for e in row.emails if not e.primary] + [EmailRow("n1", "an.nieuw@example.com")]
+    _save(db_session, world, payload)
+    db_session.expire_all()
+    mails = {
+        c.value: c.is_primary
+        for c in db_session.get(Person, an.id).contact_details
+        if c.contact_type_code == "EMAIL"
+    }
+    assert mails == {"an.werk@example.com": False, "an.nieuw@example.com": True}
 
 
 # ── The address ──────────────────────────────────────────────────────────────
@@ -609,20 +688,95 @@ def test_an_unknown_postal_code_is_refused_at_its_field(db_session):
     assert db_session.get(Person, world["Cas"].id).first_name == "Cas"
 
 
-def test_today_a_household_without_an_address_gets_none_from_the_portal(db_session):
-    """What holds TODAY, kept until Koen decides: the portal changes an address
-    that exists and creates none."""
-    world = _household(db_session)
-    db_session.delete(db_session.get(Person, world["An"].id).address)
-    db_session.commit()
+WHOLE_ADDRESS = "Een adres heeft een straat, een huisnummer en een postcode nodig."
+
+
+def _without_address(db) -> dict:
+    world = _household(db)
+    db.delete(db.get(Person, world["An"].id).address)
+    db.commit()
+    return world
+
+
+def test_a_household_without_an_address_gets_one_on_its_main_member(db_session):
+    """Koen, 5 October 2026 (#1603): the address can be created from Mijn gezin.
+    It hangs on the main member, as at sign-up, with `address_created` — also
+    when another member of the household saves. Until then the portal changed an
+    address that existed and created none.
+
+    Proven red by returning from `_save_address` when the household has no
+    address (the old behaviour): no address after the save.
+    """
+    world = _without_address(db_session)
     payload = _as_is(db_session, world["household"])
-    payload.address = AddressRow("Kerkstraat", "5", "", "2440")
-    _save(db_session, world, payload)
+    payload.address = AddressRow("Kerkstraat", "5", "B", "2440")
+    _save(db_session, world, payload, by="Bert")
     db_session.expire_all()
-    assert db_session.get(Person, world["An"].id).address is None
+    address = db_session.get(Person, world["An"].id).address
+    assert address is not None, "no address was created"
+    assert (address.street, address.house_number, address.bus_number) == ("Kerkstraat", "5", "B")
+    assert address.postal_code.postal_code == "2440"
+    assert _history(db_session, AddressHistory, address_id=address.id) == [
+        ("insert", "address_created", "member_self")
+    ]
+    assert db_session.query(Address).count() == 1, "a household has one address"
 
 
-# ── One transaction, every refusal at once ───────────────────────────────────
+def test_an_empty_address_section_stays_no_address(db_session):
+    """All three empty is "no address", not a refusal — the section is there for
+    every household, and most saves do not touch it."""
+    world = _without_address(db_session)
+    before = _counts(db_session)
+    payload = _as_is(db_session, world["household"])
+    payload.address = AddressRow("", "", "", "")
+    _save(db_session, world, payload)
+    assert _counts(db_session) == before
+
+
+@pytest.mark.parametrize(
+    ("sent", "place"),
+    [
+        (("", "5", "", "2440"), "address.street"),
+        (("Kerkstraat", "", "", "2440"), "address.house_number"),
+        (("Kerkstraat", "5", "", ""), "address.postal_code"),
+        (("", "", "B", ""), "address.street"),
+    ],
+)
+def test_street_house_number_and_postal_code_are_required_together(db_session, sent, place):
+    """As soon as one of them is filled — a bus number alone counts — the three
+    are asked, at the first that is missing, and nothing is written.
+    Proven red by creating the address with what was sent: a row without a street."""
+    world = _without_address(db_session)
+    before = _counts(db_session)
+    payload = _as_is(db_session, world["household"])
+    payload.address = AddressRow(*sent)
+    assert _places(db_session, world, payload) == {place: WHOLE_ADDRESS}
+    assert _counts(db_session) == before
+
+
+def test_an_address_that_is_there_cannot_be_emptied_in_part(db_session):
+    """The same rule on an address that exists: until #1603 an emptied street was
+    stored as sent. Proven red by dropping `require_whole_address` from the
+    change: the street is stored empty."""
+    world = _household(db_session)
+    before = _counts(db_session)
+    payload = _as_is(db_session, world["household"])
+    payload.address.street = ""
+    assert _places(db_session, world, payload) == {"address.street": WHOLE_ADDRESS}
+    assert _counts(db_session) == before
+    db_session.expire_all()
+    assert db_session.get(Person, world["An"].id).address.street == "Dorpsstraat"
+
+
+def test_a_new_address_with_an_unknown_postal_code_is_refused_at_that_field(db_session):
+    world = _without_address(db_session)
+    before = _counts(db_session)
+    payload = _as_is(db_session, world["household"])
+    payload.address = AddressRow("Kerkstraat", "5", "", "9999")
+    assert _places(db_session, world, payload) == {
+        "address.postal_code": "Onbekende postcode: 9999"
+    }
+    assert _counts(db_session) == before
 
 
 def test_new_every_refusal_comes_back_at_once_and_nothing_is_written(db_session):

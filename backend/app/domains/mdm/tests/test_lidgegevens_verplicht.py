@@ -28,7 +28,7 @@ te weigeren. Koens beslissing, en de reden staat bij die test.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.mdm.api import Person
+from app.domains.mdm.api import ContactDetail, Person
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
@@ -248,15 +248,15 @@ def _mobiles(db, person) -> list[str]:
     ]
 
 
-def test_the_boards_screen_can_empty_a_main_members_mobile_and_the_portal_cannot(
+def test_the_main_members_mobile_can_be_emptied_at_both_doors_and_word_lid_asks_it(
     client, db_session
 ):
-    """#1590 (master CLI, 5 October 2026): `require_main_member_mobile` is asked
-    at the two doors a member uses — Word lid and the one save of Mijn gezin —
-    and is no rule of the object: the board's household screen stores a main
-    member without a number, today as before. One household, the same emptied
-    field at both doors: the member is refused and the number stays, the board
-    is not and the number goes."""
+    """#1603 (Koen, 5 October 2026): the main member's mobile number is asked by
+    Word lid only. One household, the same emptied field at the member's door and
+    at the board's: both store a main member without a number. And the sign-up
+    still refuses one, at its field — the rule did not go, it has one door."""
+    from tests.conftest import signup_fields
+
     member, person = create_test_family(
         db_session, email="gsm-hoofd@example.com", mobile="0470 00 00 01"
     )
@@ -265,11 +265,16 @@ def test_the_boards_screen_can_empty_a_main_members_mobile_and_the_portal_cannot
     csrf = _lid(client, "gsm-hoofd@example.com")
     fields = household_fields(client)
     assert fields[f"h.{person.id}.mobile"] == "0470 00 00 01"
-    refused = _save(client, csrf, {**fields, f"h.{person.id}.mobile": ""})
-    assert refused.status_code == 422, refused.text
-    assert f'data-error-for="h.{person.id}.mobile"' in refused.text
-    assert _mobiles(db_session, person) == ["0470 00 00 01"]
+    saved = _save(client, csrf, {**fields, f"h.{person.id}.mobile": ""})
+    assert saved.status_code == 200, saved.text[:300]
+    assert _mobiles(db_session, person) == []
 
+    db_session.add(
+        ContactDetail(
+            person_id=person.id, contact_type_code="MOBILE", value="0470 00 00 02", is_primary=True
+        )
+    )
+    db_session.commit()
     csrf = _admin(client)
     answer = client.post(
         f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
@@ -285,6 +290,14 @@ def test_the_boards_screen_can_empty_a_main_members_mobile_and_the_portal_cannot
     )
     assert answer.status_code == 200, answer.text
     assert _mobiles(db_session, person) == []
+
+    client.cookies.clear()
+    refused = client.post(
+        "/lid-worden",
+        data=signup_fields(db_session, emails=("nieuw-gsm@example.com",), **{"h.n0.mobile": ""}),
+    )
+    assert refused.status_code == 422
+    assert 'data-error-for="h.n0.mobile"' in refused.text
 
 
 # ── De regel zelf ────────────────────────────────────────────────────────────

@@ -821,6 +821,13 @@ def write_email_rows(
                 db, rij, operation="update", action="email_edited", source=source, actor=actor
             )
             gewijzigd = True
+    # The removals reach the database before a row is added (#1603). A new row
+    # becomes the primary address when the person has none — and when the old
+    # primary one was just removed in this same save, the unit of work would
+    # insert the new primary row BEFORE deleting the old one: two primary rows
+    # for a moment, and `uq_contact_details_one_primary_per_type` refuses. Found
+    # by a browser test of the one save; the row routes could not do both at once.
+    db.flush()
     for waarde in new:
         if not waarde:
             continue

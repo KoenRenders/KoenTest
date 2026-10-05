@@ -475,6 +475,10 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .group-fold--menu>.group-fold-summary{padding-right:44px}
 .group-fold-menu{position:absolute;top:0;right:0}
 .group-fold[open]>.group-fold-summary{margin-bottom:8px}
+/* An item of a row's menu that does not apply is `hidden` — and `hidden` loses
+   from the `flex` the item is drawn with (#1603: "Maak hoofdadres" stood on the
+   row that already was the main one). */
+[data-row-menu] [hidden]{display:none!important}
 .group-row--simple.group-row--one{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-items:center}
 .group-row--edit.group-row--simple.group-row--one{grid-template-columns:minmax(0,1fr) auto 44px;align-items:end}
 .group-row--edit.group-row--simple.group-row--one>[data-row-one-tag]{align-self:center}

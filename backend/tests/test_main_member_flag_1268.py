@@ -73,6 +73,9 @@ def test_the_portal_shows_the_main_member_as_the_main_member(client, db_session)
             "h.n1.last_name": "Persoon",
             "h.n1.date_of_birth": "2012-03-04",
             "h.n1.gender_code": "F",
+            # #1603: the member chooses; without a choice this first added person
+            # would be the partner.
+            "h.n1.relation_type": "KIND",
         }
     )
     saved = client.post(
@@ -92,11 +95,17 @@ def test_the_portal_shows_the_main_member_as_the_main_member(client, db_session)
         "the person's edit fields are not on the page"
     )
     assert f'name="h.{person.id}.relation_type"' not in html
-    # Mobile is required for the main member, and for the main member only.
+    # #1603: Mijn gezin asks nobody's mobile number — also not the main member's.
     required = set(re.findall(r'id="h-(\d+)-mobile" name="h\.\d+\.mobile" required', html))
     asked = set(re.findall(r'id="h-(\d+)-mobile"', html))
     assert len(asked) == 2, "the two persons' Gsm fields are not both on the page"
-    assert required == {str(person.id)}
+    assert required == set()
+    # Word lid still does, of the main member and of nobody added in the page.
+    client.cookies.clear()
+    signup = client.get("/lid-worden").text
+    assert re.search(r'id="h-n0-mobile" name="h\.n0\.mobile" required', signup)
+    assert not re.search(r'name="h\.__H__\.mobile" required', signup)
+    assert 'name="h.__H__.mobile"' in signup, "the template row is not on the page"
 
 
 def test_a_partner_is_not_a_main_member(client, db_session):

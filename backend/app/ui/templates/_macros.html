@@ -764,8 +764,11 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    carries the choice in one hidden field (`one={"name": …, "value": <key>}`);
    each row gets `one={"chosen": …, "tag": …, "make": …}`: the chosen row shows
    the tag in both modes and has no "Verwijderen", another row offers "Maak
-   hoofdadres" in its `⋯`, which moves the tag. The first row of an empty group
-   is chosen by itself.
+   hoofdadres" in its `⋯`, which moves the tag. The first row added to an empty
+   group is chosen by itself. With `"removable": True` on the rows the chosen
+   row keeps its "Verwijderen" (#1603: a person's main e-mail address may go) —
+   and when it goes nothing is promoted: the group then has no chosen row until
+   one is made.
 
    **A folded composite row** (`fold="open"` or `"closed"`, #1590): the title
    line is the summary of a `<details>`, with a chevron; the fields are its
@@ -813,7 +816,8 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    names what this row offers; a list without an order has no up and down, a
    member is not duplicated. #}
 {% macro _row_menu(menu, label, one=None) -%}
-{%- set _bare = one and one.chosen and menu == ["remove"] -%}
+{%- set _keeps = one and one.get("removable") -%}
+{%- set _bare = one and one.chosen and menu == ["remove"] and not _keeps -%}
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }"{% if _bare %} hidden{% endif %}>
   <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="{{ _('Acties voor %(row)s', row=label) }}"
           class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open">{{ icon("ellipsis", 18) }}</button>
@@ -825,7 +829,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {% if one %}<button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2"{% if one.chosen %} hidden{% endif %}>{{ one.make }}</button>{% endif %}
     {% if "remove" in menu %}
     {% if menu|length > 1 %}<div class="my-1 border-t border-line"></div>{% endif %}
-    <button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2"{% if one and one.chosen %} hidden{% endif %}>{{ _("Verwijderen") }}</button>
+    <button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2"{% if one and one.chosen and not _keeps %} hidden{% endif %}{% if _keeps %} data-row-keeps{% endif %}>{{ _("Verwijderen") }}</button>
     {% endif %}
   </div>
 </div>

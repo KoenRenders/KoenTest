@@ -56,7 +56,9 @@ class PersonView:
     removable: bool = False
     #: "open" or "closed": how the row stands when the page opens.
     fold: str = "closed"
-    #: The relation is chosen on this row (a sign-up, and not for the main member).
+    #: The relation is chosen on this row: a person added in the page, on Word lid
+    #: and on Mijn gezin alike (#1603). Never for the main member, and not for a
+    #: person who is already in the household.
     choose_relation: bool = False
 
 
@@ -78,9 +80,14 @@ class HouseholdGroup:
     gender_options: tuple[tuple[str, str], ...]
     relation_options: tuple[tuple[str, str], ...]
     postal_options: tuple[tuple[str, str], ...]
-    address: Optional[AddressView]
-    #: The main member's e-mail address is asked (a sign-up). Their mobile number
-    #: is asked on both pages.
+    #: Always there (#1603): a household without an address shows the section
+    #: with empty fields, and filling them in creates it.
+    address: AddressView
+    #: The address is asked: a sign-up, or a household that has one (an address
+    #: is whole or it is not there). False: the section may stay empty.
+    address_required: bool = True
+    #: The main member's e-mail address and mobile number are asked (a sign-up;
+    #: Mijn gezin asks neither, #1603).
     contact_required: bool = False
 
 
@@ -155,7 +162,7 @@ def _subtitle(relation: str, has_addresses: bool) -> str:
     return _("Persoonsgegevens en e-mailadressen")
 
 
-def _new_rows(relation_labels: dict[str, str], *, signup: bool) -> tuple[PersonView, EmailView]:
+def _new_rows(relation_labels: dict[str, str]) -> tuple[PersonView, EmailView]:
     child = RelationType.ADULT_CHILD.value
     person = PersonView(
         key=PERSON_TOKEN,
@@ -166,7 +173,7 @@ def _new_rows(relation_labels: dict[str, str], *, signup: bool) -> tuple[PersonV
         relation_type=child,
         removable=True,
         fold="open",
-        choose_relation=signup,
+        choose_relation=True,
     )
     return person, EmailView(key=EMAIL_TOKEN)
 
@@ -189,7 +196,7 @@ def signup_group(codes: dict) -> HouseholdGroup:
     """An empty sign-up: the main member, open, with one e-mail row to fill in."""
     genders, relations, postal, relation_labels = _options(codes)
     main = RelationType.PRIMARY_MEMBER.value
-    new_person, new_email = _new_rows(relation_labels, signup=True)
+    new_person, new_email = _new_rows(relation_labels)
     head = PersonView(
         key="n0",
         prefix=relation_labels.get(main, ""),
@@ -216,11 +223,12 @@ def signup_group(codes: dict) -> HouseholdGroup:
 def household_group(household: dict, codes: dict, *, me: int, short_date) -> HouseholdGroup:
     """The household of a member, from the portal's own read (`household_view`).
 
-    `me` is the person looking: nobody takes themselves out of the household, so
-    that row has no "Verwijderen". The first row stands open, the others closed.
+    `me` is the person looking: nobody takes themselves out of the household, and
+    the main member stays whoever looks (#1603) — those rows have no
+    "Verwijderen". The first row stands open, the others closed.
     """
     genders, relations, postal, relation_labels = _options(codes)
-    new_person, new_email = _new_rows(relation_labels, signup=False)
+    new_person, new_email = _new_rows(relation_labels)
     persons = []
     address: Optional[AddressView] = None
     for index, p in enumerate(household["persons"]):
@@ -247,7 +255,7 @@ def household_group(household: dict, codes: dict, *, me: int, short_date) -> Hou
                 phone=p.get("phone") or "",
                 emails=emails,
                 primary_key=next((m.key for m in emails if m.primary), ""),
-                removable=p["id"] != me,
+                removable=p["id"] != me and not p.get("is_main_member"),
                 fold="open" if index == 0 else "closed",
             )
         )
@@ -266,7 +274,8 @@ def household_group(household: dict, codes: dict, *, me: int, short_date) -> Hou
         gender_options=genders,
         relation_options=relations,
         postal_options=postal,
-        address=address,
+        address=address or AddressView(),
+        address_required=address is not None,
     )
 
 

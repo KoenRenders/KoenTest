@@ -18,6 +18,15 @@
  Je lidmaatschap is geldig tot en met 31-12-2099.
  </p>
 </section>
+<div data-household class="contents" x-data
+ @row-added="
+ const mine = $event.target.querySelector('select[name$=&quot;.relation_type&quot;]');
+ if (!mine || $<TOKEN> !== 'h_order') return;
+ const others = [...$el.querySelectorAll('[data-relation]')].map(m => m.dataset.relation)
+ .concat([...$el.querySelectorAll('select[name$=&quot;.relation_type&quot;]')].filter(s => s !== mine).map(s => s.value));
+ fetch('/lid-worden/relatie?others=' + encodeURIComponent(others.join(',')))
+ .then(answer => answer.ok ? answer.text() : '')
+ .then(code => { if (code) { mine.value = code; mine.dispatchEvent(new Event('change', { bubbles: true })); } })">
 <section data-repeating-group="h_order" data-variant="composite" data-token="__H__" id="gezinsleden"
  class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
 <div class="flex items-center justify-between gap-3 min-h-9 mb-2">
@@ -37,6 +46,7 @@
 </span>
 <span class="group-fold-chevron" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
 </summary>
+<span hidden data-relation="HOOFDLID"></span>
 <div data-form-grid class="form-grid">
 <div data-field="h.<MAIN>.first_name" data-kind="text" data-span="half" class="min-w-0">
 <p class="text-sm font-medium leading-[21px] text-ink mb-1">Voornaam</p>
@@ -99,6 +109,7 @@
 </span>
 <span class="group-fold-chevron" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
 </summary>
+<span hidden data-relation="PARTNER"></span>
 <div data-form-grid class="form-grid">
 <div data-field="h.<PARTNER>.first_name" data-kind="text" data-span="half" class="min-w-0">
 <p class="text-sm font-medium leading-[21px] text-ink mb-1">Voornaam</p>
@@ -150,6 +161,7 @@
 </span>
 <span class="group-fold-chevron" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
 </summary>
+<span hidden data-relation="KIND"></span>
 <div data-form-grid class="form-grid">
 <div data-field="h.<CHILD>.first_name" data-kind="text" data-span="half" class="min-w-0">
 <p class="text-sm font-medium leading-[21px] text-ink mb-1">Voornaam</p>
@@ -192,6 +204,7 @@
 </div>
 <p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen gezinsleden.</p>
 </section>
+</div>
 <section data-form-section id="gezin-adres" class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
 <h2 class="text-base font-semibold leading-6 text-ink mb-4">Adres</h2>
 <div data-form-grid class="form-grid">

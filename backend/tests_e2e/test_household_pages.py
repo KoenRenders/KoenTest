@@ -160,7 +160,9 @@ def _remove(email: str) -> None:
         db.close()
 
 
-def _sign_up(browser, tag: str, *, partner: bool = True) -> str:
+def _sign_up(
+    browser, tag: str, *, partner: bool = True, partner_email: str = "", second_email: str = ""
+) -> str:
     """A household of our own, paid by transfer; its main address.
 
     Made by the sign-up's own reader and service in this process, not through the
@@ -199,6 +201,15 @@ def _sign_up(browser, tag: str, *, partner: bool = True) -> str:
             ("h.n1.date_of_birth", "1981-02-02"),
             ("h.n1.gender_code", "F"),
         ]
+    if second_email:
+        fields += [("e_order.n0", "n0f"), ("e.n0f.value", second_email)]
+    if partner and partner_email:
+        if True:
+            fields += [
+                ("e_order.n1", "n1e"),
+                ("e.n1e.value", partner_email),
+                ("e_primary.n1", "n1e"),
+            ]
     data, errors = signup_from_form(FormData(fields))
     assert data is not None, errors
     db = _db()
@@ -272,15 +283,18 @@ def test_word_lid_on_a_phone_from_the_first_field_to_the_stored_household(browse
         head.locator('input[name$=".mobile"]').fill("0470000000")
         head.locator('input[type="email"]').first.fill(first)
         assert head.evaluate(_TAGS) == 1
-        assert head.locator("[data-row-menu-trigger]:visible").count() == 0, (
-            "the main address offers a menu — it cannot be removed"
-        )
-        head.get_by_role("button", name="E-mailadres").click()
+        # #1603: the main address may be removed like any other (its menu holds
+        # "Verwijderen"), but it is not offered to become what it already is.
+        head.locator("[data-row-menu-trigger]:visible").click()
+        expect(head.get_by_role("menuitem", name="Verwijderen")).to_be_visible()
+        expect(head.get_by_role("menuitem", name="Maak hoofdadres")).to_have_count(0)
+        page.keyboard.press("Escape")
+        head.locator("[data-repeating-group] [data-group-add]").click()
         mails = head.locator('input[type="email"]')
         expect(mails).to_have_count(2)
         mails.nth(1).fill(second)
         assert head.evaluate(_TAGS) == 1, "the tag stands on two rows"
-        head.locator("[data-row-menu-trigger]:visible").click()
+        head.locator("[data-row-menu-trigger]:visible").nth(1).click()
         head.get_by_role("menuitem", name="Maak hoofdadres").click()
         assert head.evaluate(_TAGS) == 1, "the tag stands on two rows after the choice"
         tagged = head.evaluate(
@@ -384,7 +398,7 @@ def test_mijn_gezin_reads_first_and_saves_everything_with_one_opslaan(browser):
         rows = page.locator(PERSONS)
         head = rows.first
         head.locator('input[name$=".first_name"]').fill("Theo")
-        head.get_by_role("button", name="E-mailadres").click()
+        head.locator("[data-repeating-group] [data-group-add]").click()
         head.locator('input[type="email"]').nth(1).fill(new_mail)
         page.fill("#address-street", "Nieuwstraat")
         page.get_by_role("button", name="Gezinslid toevoegen").click()
@@ -580,3 +594,192 @@ def test_the_bar_of_a_public_form_stands_against_the_windows_bottom(browser, vie
         assert page.errors == []
     finally:
         page.close()
+
+
+# ── #1603: Koen's rules of 5 October 2026 ────────────────────────────────────
+
+_RELATION = 'select[name$=".relation_type"]'
+
+
+def test_word_lid_on_a_phone_the_default_and_the_choice_of_partner_or_child(browser):
+    """Rule 2 on Word lid: a person added starts as the partner while there is
+    none, the member may choose child, and the default of the NEXT person counts
+    that choice — the page asks the one rule each time. Never main member: the
+    list does not offer it."""
+    page = _open(browser, "/lid-worden", PHONE)
+    try:
+        rows = page.locator(PERSONS)
+        page.get_by_role("button", name="Gezinslid toevoegen").click()
+        first = rows.nth(1)
+        expect(first.locator(_RELATION)).to_have_value("PARTNER")
+        assert first.locator(f"{_RELATION} option").evaluate_all("o => o.map(x => x.value)") == [
+            "PARTNER",
+            "KIND",
+        ]
+        first.locator(_RELATION).select_option("KIND")
+        expect(first.locator("[data-row-title-prefix]")).not_to_have_text("Partner")
+        # nobody is the partner now, so the next person is
+        page.get_by_role("button", name="Gezinslid toevoegen").click()
+        expect(rows.nth(2).locator(_RELATION)).to_have_value("PARTNER")
+        page.get_by_role("button", name="Gezinslid toevoegen").click()
+        expect(rows.nth(3).locator(_RELATION)).to_have_value("KIND")
+        assert page.evaluate("document.documentElement.scrollWidth") == 390
+        assert page.errors == []
+    finally:
+        page.close()
+
+
+def test_mijn_gezin_on_a_phone_the_default_and_the_choice_of_partner_or_child(browser):
+    """Rule 2 on Mijn gezin, the same control and the same rule: in a household of
+    one the person added is the partner; the member chooses child instead; the
+    next is the partner again; and what was chosen is what is stored. A person
+    who is already there has no such list."""
+    tag = uuid.uuid4().hex[:8]
+    email = _sign_up(browser, tag, partner=False)
+    page = _open(browser, "/leden/gezin?bewerken=1", PHONE, session=_session(email))
+    try:
+        page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
+        rows = page.locator(PERSONS)
+        assert rows.first.locator(_RELATION).count() == 0, "the main member can be re-typed"
+        page.get_by_role("button", name="Gezinslid toevoegen").click()
+        child = rows.nth(1)
+        expect(child.locator(_RELATION)).to_have_value("PARTNER")
+        expect(child.locator("[data-row-title-prefix]")).to_have_text("Partner")
+        child.locator(_RELATION).select_option("KIND")
+        expect(child.locator("[data-row-title-prefix]")).not_to_have_text("Partner")
+        fill_person(child, "Kind", f"Gezin {tag}", born="2014-04-04", gender="F")
+        page.get_by_role("button", name="Gezinslid toevoegen").click()
+        partner = rows.nth(2)
+        expect(partner.locator(_RELATION)).to_have_value("PARTNER")
+        fill_person(partner, "Lief", f"Gezin {tag}", gender="F")
+        assert page.evaluate("document.documentElement.scrollWidth") == 390
+
+        page.locator("[data-form-save]").click()
+        expect(page.locator("[data-form-flow]")).to_have_attribute("data-mode", "read")
+        stored = _household(email)["persons"]
+        assert {name: p["relation"] for name, p in stored.items()} == {
+            "Hoofd": "HOOFDLID",
+            "Kind": "KIND",
+            "Lief": "PARTNER",
+        }
+        # saved, the two are persons of the household: no list any more
+        page.goto("/leden/gezin?bewerken=1")
+        pagina_klaar(page)
+        assert page.locator(f"{PERSONS} {_RELATION}").count() == 0
+        assert page.errors == []
+    finally:
+        page.close()
+        _remove(email)
+
+
+def _drop_address(email: str) -> None:
+    """Take the household's address away, as a household made by the board or an
+    import can be without one."""
+    from app.domains.mdm.api import Address, ContactDetail
+
+    db = _db()
+    try:
+        person_id = db.query(ContactDetail.person_id).filter(ContactDetail.value == email).scalar()
+        db.query(Address).filter(Address.person_id == person_id).delete()
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_a_household_without_an_address_can_give_itself_one(browser):
+    """Rule 4: the section is there with empty fields and asks nothing; one field
+    filled asks the three, at the field that is missing; the whole address is
+    created with the page's one save."""
+    tag = uuid.uuid4().hex[:8]
+    email = _sign_up(browser, tag, partner=False)
+    _drop_address(email)
+    assert _household(email)["address"] is None
+    page = _open(browser, "/leden/gezin", session=_session(email))
+    try:
+        # read mode: the section stands, every value a dash
+        section = page.locator("#gezin-adres")
+        expect(section).to_be_visible()
+        assert section.locator("[data-value]").all_inner_texts() == ["—", "—", "—", "—"]
+
+        page.goto("/leden/gezin?bewerken=1")
+        pagina_klaar(page)
+        page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
+        section = page.locator("#gezin-adres")
+        expect(section).to_contain_text("Je gezin heeft nog geen adres.")
+        assert section.locator("[required]").count() == 0, "an empty address section asks a field"
+        # untouched, the save goes through and there is still no address
+        page.locator("[data-form-save]").click()
+        expect(page.locator("[data-form-flow]")).to_have_attribute("data-mode", "read")
+        assert _household(email)["address"] is None
+
+        page.goto("/leden/gezin?bewerken=1")
+        pagina_klaar(page)
+        page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
+        page.fill("#address-street", "Kerkstraat")
+        page.locator("[data-form-save]").click()
+        expect(page.locator("[data-save-refusal]")).to_contain_text(
+            "Een adres heeft een straat, een huisnummer en een postcode nodig."
+        )
+        expect(page.locator("#address-house_number")).to_be_focused()
+        expect(page.locator("#address-street")).to_have_value("Kerkstraat")
+        assert _household(email)["address"] is None
+
+        page.fill("#address-house_number", "5")
+        page.select_option("#address-postal_code", index=1)
+        page.locator("[data-form-save]").click()
+        expect(page.locator("[data-form-flow]")).to_have_attribute("data-mode", "read")
+        expect(page.locator('[data-field="address.street"] [data-value]')).to_have_text(
+            "Kerkstraat"
+        )
+        assert _household(email)["address"] == ("Kerkstraat", "5", None)
+        assert page.errors == []
+    finally:
+        page.close()
+        _remove(email)
+
+
+def test_the_main_address_may_go_and_nothing_takes_its_place(browser):
+    """Rule 3 (Koen, 27 September 2026, confirmed): the main e-mail address is
+    removed like any other, the tag does not jump to the address that is left,
+    and what is stored has no main address."""
+    tag = uuid.uuid4().hex[:8]
+    other = f"e2e.blijft.{tag}@example.com"
+    email = _sign_up(browser, tag, partner=False, second_email=other)
+    page = _open(browser, "/leden/gezin?bewerken=1", session=_session(email))
+    try:
+        page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
+        head = page.locator(PERSONS).first
+        expect(head.locator('input[type="email"]')).to_have_count(2)
+        assert head.evaluate(_TAGS) == 1
+        head.locator("[data-row-menu-trigger]:visible").first.click()
+        head.get_by_role("menuitem", name="Verwijderen").click()
+        expect(head.locator('input[type="email"]')).to_have_count(1)
+        assert head.evaluate(_TAGS) == 0, "the tag jumped to the address that is left"
+        page.locator("[data-form-save]").click()
+        expect(page.locator("[data-form-flow]")).to_have_attribute("data-mode", "read")
+        assert _household(other)["persons"]["Hoofd"]["emails"] == {other: False}
+        assert page.errors == []
+    finally:
+        page.close()
+        _remove(other)
+
+
+def test_the_main_member_has_no_verwijderen_for_anyone(browser):
+    """Rule 1 on the page: signed in as the partner, the main member's row offers
+    no menu (the service refuses anyway); the partner's own row neither (nobody
+    removes themselves); a child's row does."""
+    tag = uuid.uuid4().hex[:8]
+    partner_mail = f"e2e.partner.{tag}@example.com"
+    email = _sign_up(browser, tag, partner_email=partner_mail)
+    page = _open(browser, "/leden/gezin?bewerken=1", session=_session(partner_mail))
+    try:
+        page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
+        rows = page.locator(PERSONS)
+        menus = "> [data-row-body] > .group-fold-menu [data-row-menu-trigger]"
+        assert [rows.nth(i).locator(menus).count() for i in range(2)] == [0, 0]
+        page.get_by_role("button", name="Gezinslid toevoegen").click()
+        assert rows.nth(2).locator(menus).count() == 1
+        assert page.errors == []
+    finally:
+        page.close()
+        _remove(email)
