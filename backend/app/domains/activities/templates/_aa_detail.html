@@ -150,7 +150,9 @@
     {% if _edit %}
     <div class="contents" data-product-settlement x-data="{ settle: '{{ _settle }}' }"
          @change="if ($event.target.name === 'p.{{ key }}.settlement') settle = $event.target.value">
-    {% call ui.form_grid() %}
+    {# #1610: name · price · member price · maximum on ONE line (five tracks: the
+       name two, each number one); under it the settlement and "Publiek zichtbaar". #}
+    {% call ui.form_grid(tracks=5) %}
       {{ ui.field("p." ~ key ~ ".name", _("Naam"), id="p-" ~ key ~ "-name", required=True, value=p.name if p else "", attrs="data-row-title-source") }}
       {{ ui.field("p." ~ key ~ ".price", _("Prijs"), kind="number", unit="€", id="p-" ~ key ~ "-price", span="quarter",
                   value=p.price if p else "", attrs='step="0.01" min="0" :disabled="settle !== \'' ~ settlement_paid ~ '\'"') }}
@@ -159,10 +161,14 @@
                   attrs='step="0.01" min="0" :disabled="settle !== \'' ~ settlement_paid ~ '\'"') }}
       {{ ui.field("p." ~ key ~ ".max_participants", _("Maximum"), kind="number", id="p-" ~ key ~ "-max_participants", span="quarter",
                   value=p.max_participants if p and p.max_participants else "", attrs='min="1" step="1"') }}
+    {% endcall %}
+    {% call ui.form_grid() %}
       {{ ui.field("p." ~ key ~ ".settlement", _("Afrekening"), kind="segmented", id="p-" ~ key ~ "-settlement",
                   value=_settle, options=settlement_options) }}
-      {{ ui.field("p." ~ key ~ ".is_active", PRODUCT_ZICHTBAAR_LABEL, kind="switch", id="p-" ~ key ~ "-is_active", span="full", value=p.is_active if p else True,
-                  help=PRODUCT_ZICHTBAAR_HINT) }}
+      {# The help says what "off" means, so it stands only where the product IS
+         off (#1610): on every row it was a line of grey nobody needed. #}
+      {{ ui.field("p." ~ key ~ ".is_active", PRODUCT_ZICHTBAAR_LABEL, kind="switch", id="p-" ~ key ~ "-is_active", value=p.is_active if p else True,
+                  beside_field=True, help=PRODUCT_ZICHTBAAR_HINT if p and not p.is_active else None) }}
     {% endcall %}
     </div>
     {% else %}

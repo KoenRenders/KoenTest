@@ -227,7 +227,12 @@ def test_a_simple_group_shows_its_labels_once_and_a_composite_item_keeps_its_han
 
     c = g["component"]
     gutter = c["handle"]["right"]
-    assert c["handle"]["x"] == c["box"]["x"], "the handle at the left of the whole block"
+    # #1610 (Koen, 5 October 2026): the gutter is 28 px where it was 44 — the
+    # handle 24 px wide in it, its target still 44 px high — and 8 px to the item.
+    # Red on master: a gutter of 44 (the title 52 px in).
+    assert c["handle"]["x"] - c["box"]["x"] == 2 and c["handle"]["w"] == 24, c["handle"]
+    assert c["handle"]["h"] == 44, "the handle's target shrank"
+    assert c["title"]["x"] - c["box"]["x"] == 28 + 8, "the gutter is not 28 px"
     assert c["title"]["x"] >= gutter and all(f["x"] >= gutter for f in c["fields"]), (
         "no field left of the handle"
     )
@@ -239,7 +244,8 @@ def test_a_simple_group_shows_its_labels_once_and_a_composite_item_keeps_its_han
     )
 
     child = g["child"]
-    assert child["padding"] == "16px" and child["border"] == "1px", "indented 16 px behind a line"
+    # #1610: 12 px at every width (it was 16 on a desktop).
+    assert child["padding"] == "12px" and child["border"] == "1px", "indented 12 px behind a line"
     assert (
         child["background"] in ("rgba(0, 0, 0, 0)", "transparent") and child["shadow"] == "none"
     ), "no card, no box"
