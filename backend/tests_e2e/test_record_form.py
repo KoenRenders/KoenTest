@@ -269,11 +269,12 @@ def test_a_refusal_names_two_fields_focuses_the_first_and_keeps_everything(setup
 
 
 def test_a_refusal_arrives_without_a_view_transition(setup):
-    """Refs #1589. The admin shell runs a view transition on every swap, and a
-    banner that arrives is no navigation: with one the whole record cross-faded
-    while the form scrolled to its first refused field (the same as measured on
-    the public form page). Proven red by taking `transition:false` off the
-    `HX-Reswap` of `_refusal` in `activities/admin_ui.py`."""
+    """Refs #1589, #1591. A banner that arrives is no navigation: with a view
+    transition the whole record cross-faded while the form scrolled to its
+    first refused field (13 frames, measured before the repair). The rule is
+    the kit's since #1591 (`ui.htmx_ux`: a transition only for a navigation);
+    proven red with `test_view_transition_rule.py`, by taking that listener
+    out."""
     page = _page(setup, 1440)
     page.fill("#name", "")
     watch_transitions(page)

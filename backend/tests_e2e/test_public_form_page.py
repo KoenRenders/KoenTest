@@ -216,7 +216,9 @@ def test_an_empty_required_question_is_named_and_marked(browser, forms):
     expect(head).to_have_text("Bedankt voor je reactie")
     expect(page.locator("[data-form-thanks]")).to_contain_text("goed ontvangen")
     assert page.locator("form[data-record-form]").count() == 0
-    assert page.evaluate("() => document.activeElement.tagName") == "H1"
+    # The title takes the focus when the swap has SETTLED, a moment after the
+    # thanks are on the page: wait for it, do not read it at once (#1591).
+    expect(head).to_be_focused()
     page.close()
 
 

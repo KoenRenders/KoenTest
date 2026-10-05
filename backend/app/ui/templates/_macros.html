@@ -2238,6 +2238,32 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 <script>
   (function () {
     var body = document.body;
+    // A view transition is for a NAVIGATION, and for nothing else (#1591).
+    // Both shells switch them on for every htmx swap (`globalViewTransitions`),
+    // and that is right when the page becomes another page: a boosted request,
+    // or a swap that updates the address (a list's filter, a sort, a tab). For
+    // a swap INSIDE a page it is wrong: the whole document cross-fades for
+    // 250 ms, a click in that time does not land, and when the page scrolls
+    // meanwhile the old state shows through the new one. That was repaired
+    // case by case — the Assistent's button (K8), a refusal's banner, a
+    // recalculated total (#1599) — until the suite was counted: 169 swaps
+    // inside a page ran one. So the rule stands here, once, and no template or
+    // route says `transition:` any more (`test_view_transition_gate.py`).
+    // Cancelling this event only skips the transition; the swap goes on.
+    body.addEventListener('htmx:beforeTransition', function (e) {
+      var d = e.detail || {};
+      if (d.boosted) return;
+      var xhr = d.xhr;
+      var header = xhr && (xhr.getResponseHeader('HX-Push-Url') || xhr.getResponseHeader('HX-Replace-Url'));
+      if (header) {
+        if (header !== 'false') return;
+      } else {
+        var holder = d.elt && d.elt.closest && d.elt.closest('[hx-push-url], [hx-replace-url]');
+        var value = holder && (holder.getAttribute('hx-push-url') || holder.getAttribute('hx-replace-url'));
+        if (value && value !== 'false') return;
+      }
+      e.preventDefault();
+    });
     body.addEventListener('htmx:beforeRequest', function () { body.classList.add('htmx-loading'); });
     ['htmx:afterRequest', 'htmx:responseError', 'htmx:sendError'].forEach(function (evt) {
       body.addEventListener(evt, function () { body.classList.remove('htmx-loading'); });

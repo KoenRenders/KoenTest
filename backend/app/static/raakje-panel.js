@@ -82,8 +82,7 @@
       load: function () {
         var self = this;
         window.htmx.ajax('GET', opts.contextUrl + '?huidig=' + encodeURIComponent(this.key()), {
-          // No view transition: the page's own navigation may be running one.
-          target: this.$refs.inner, swap: 'innerHTML transition:false'
+          target: this.$refs.inner, swap: 'innerHTML'
         }).then(function () { if (self.open) self.focusField(); });
       },
 

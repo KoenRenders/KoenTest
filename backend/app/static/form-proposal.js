@@ -196,7 +196,7 @@
         if (el.name) values[el.name] = el.value;
       });
     }
-    window.htmx.ajax("POST", url, { source: block, target: block, swap: "outerHTML transition:false", values: values });
+    window.htmx.ajax("POST", url, { source: block, target: block, swap: "outerHTML", values: values });
   });
 
   function scan(root) {

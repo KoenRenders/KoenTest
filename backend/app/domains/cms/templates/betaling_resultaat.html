@@ -11,7 +11,7 @@
 {% if gelukt %}
 {% call ui.public_form_page(_("Je betaling is ontvangen") if bevestigd else _("Bedankt!"), result=True) %}
 <div class="form-flow">
-  {% set _poll %}id="betaling-status" data-payment-state="{{ 'confirmed' if bevestigd else ('pending' if bevestigd == false else 'unknown') }}"{% if bevestigd == false %} hx-get="{{ status_url }}" hx-trigger="every 4s" hx-select="#betaling-status" hx-target="this" hx-swap="outerHTML transition:false" hx-push-url="false"{% endif %}{% endset %}
+  {% set _poll %}id="betaling-status" data-payment-state="{{ 'confirmed' if bevestigd else ('pending' if bevestigd == false else 'unknown') }}"{% if bevestigd == false %} hx-get="{{ status_url }}" hx-trigger="every 4s" hx-select="#betaling-status" hx-target="this" hx-swap="outerHTML" hx-push-url="false"{% endif %}{% endset %}
   {% if bevestigd %}
   {% call ui.flow_card(_("Betaling ontvangen"), attrs=_poll) %}
     <p>{{ _("Je inschrijving is bevestigd. Je ontvangt een bevestiging per e-mail.") }}</p>
