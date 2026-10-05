@@ -52,7 +52,7 @@
     {% if context %}<p data-panel-context class="mt-0.5 text-[13px] text-ink-soft">{{ context }}</p>{% endif %}
   </header>
   <div id="{{ gesprek_id }}" data-panel-conversation class="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 text-sm"
-       {% if history_url and not blocked %}hx-get="{{ history_url }}" hx-trigger="load" hx-swap="innerHTML transition:false"{% endif %}>
+       {% if history_url and not blocked %}hx-get="{{ history_url }}" hx-trigger="load" hx-swap="innerHTML"{% endif %}>
     {% if blocked %}
     <div><div data-panel-blocked class="{{ ballon.van_raakje() }}">{{ blocked }}</div></div>
     {% elif opening %}

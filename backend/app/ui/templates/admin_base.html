@@ -269,7 +269,7 @@
          question for the database, and shell chrome may not cost a query per
          page view (as the account menu). It asks again when the screen changes. #}
       {% if _assistant %}
-      <span id="assistent-knop" hx-get="/admin/rapporten/raakje/knop" hx-trigger="load" hx-swap="outerHTML transition:false"></span>
+      <span id="assistent-knop" hx-get="/admin/rapporten/raakje/knop" hx-trigger="load" hx-swap="outerHTML"></span>
       {% endif %}
       {% if _account %}
       <div x-data="{ acc: false }" class="relative">

@@ -21,7 +21,13 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, htmx_afgerond, login_als_admin  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    htmx_afgerond,
+    login_als_admin,
+    transition_frames,
+    watch_transitions,
+)
 
 
 @pytest.fixture(scope="module")
@@ -51,10 +57,14 @@ def test_typen_in_het_zoekveld_verliest_de_focus_niet(admin_page):
     page.wait_for_selector("#vg-kring")
     veld = page.locator("#vg-kring input[name=q]")
     veld.click()
+    watch_transitions(page)
     # #997: wait until the debounced search has been answered and swapped — the
     # checks below are about what the swap left behind.
     with htmx_afgerond(page):
         veld.type("Kris V", delay=120)
+    # #1591: a search while typing is no navigation — with a view transition the
+    # whole page cross-faded under the typist (`test_view_transition_rule.py`).
+    assert transition_frames(page) == 0, "the page cross-fades while the search is typed"
 
     assert veld.input_value() == "Kris V", (
         f"de getypte tekst overleefde de swap niet: {veld.input_value()!r}"

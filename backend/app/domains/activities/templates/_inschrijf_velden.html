@@ -21,7 +21,7 @@
      public form prices by the signed-in person and never by what is typed
      here: it has no `prijzen_url`. #}
   {{ ui.field("contact_email", _("E-mailadres"), kind="email", required=True, value=values.get("contact_email", ""),
-              attrs=('autocomplete="email" hx-post="' ~ prijzen_url ~ '" hx-include="closest form" hx-target="#prijsblok-' ~ component.id ~ '" hx-swap="innerHTML transition:false" hx-trigger="change"') if prijzen_url else 'autocomplete="email"') }}
+              attrs=('autocomplete="email" hx-post="' ~ prijzen_url ~ '" hx-include="closest form" hx-target="#prijsblok-' ~ component.id ~ '" hx-swap="innerHTML" hx-trigger="change"') if prijzen_url else 'autocomplete="email"') }}
   {{ ui.field("phone", _("Mobiel nummer"), kind="phone", required=True, value=values.get("phone", ""), attrs='autocomplete="tel"') }}
   {% if component.team_name_required %}
   {{ ui.field("team_name", _("Ploegnaam"), required=True, value=values.get("team_name", "")) }}

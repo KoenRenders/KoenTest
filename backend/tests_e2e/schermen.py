@@ -181,6 +181,14 @@ def watch_transitions(page) -> None:
     page.evaluate(_WATCH_TRANSITIONS)
 
 
+def watch_transitions_from_load(page) -> None:
+    """The same count, from the very start of every page this `page` loads —
+    for a swap that comes at load, before anything can be watched. Call it
+    before `goto`. A full page load runs no view transition itself, so every
+    frame counted is a swap's."""
+    page.add_init_script(f"({_WATCH_TRANSITIONS})()")
+
+
 def transition_frames(page) -> int:
     """The frames with a view transition since `watch_transitions`, read after
     thirty more frames — longer than the 250 ms a transition takes. Assert that

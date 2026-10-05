@@ -710,11 +710,6 @@ def refusal_response(request, errors, message_line: str, *, send: bool = False):
     words the banner for a form that is sent ("Verzenden kan nog niet…") instead
     of a record that is saved.
 
-    `transition:false`: the public shell runs a view transition on every swap
-    (`globalViewTransitions`), and a banner that arrives is no navigation — with
-    one, the whole page cross-faded for a quarter of a second while the form
-    scrolled to its first refused field, and the old page showed through the
-    new one (measured after #1589: 250 ms, 16 frames).
     """
     return templates.TemplateResponse(
         request,
@@ -723,7 +718,7 @@ def refusal_response(request, errors, message_line: str, *, send: bool = False):
         status_code=422,
         headers={
             "HX-Retarget": message_line,
-            "HX-Reswap": "innerHTML transition:false",
+            "HX-Reswap": "innerHTML",
             "HX-Reselect": "[data-save-refusal]",
         },
     )

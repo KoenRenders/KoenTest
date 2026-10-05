@@ -71,7 +71,7 @@
  class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
 <input type="number" name="product_<P:paid>" id="product-<P:paid>" x-ref="veld" value="0"
  min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
- hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:team>/totaal" hx-include="closest form" hx-target="#totaal-<C:team>" hx-swap="innerHTML transition:false" hx-trigger="change, keyup delay:300ms">
+ hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:team>/totaal" hx-include="closest form" hx-target="#totaal-<C:team>" hx-swap="innerHTML" hx-trigger="change, keyup delay:300ms">
 <button type="button" @click="stap(1)"
  aria-label="Eén meer — Product paid"
  class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
@@ -98,7 +98,7 @@
  class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
 <input type="number" name="product_<P:free>" id="product-<P:free>" x-ref="veld" value="0"
  min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
- hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:team>/totaal" hx-include="closest form" hx-target="#totaal-<C:team>" hx-swap="innerHTML transition:false" hx-trigger="change, keyup delay:300ms">
+ hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:team>/totaal" hx-include="closest form" hx-target="#totaal-<C:team>" hx-swap="innerHTML" hx-trigger="change, keyup delay:300ms">
 <button type="button" @click="stap(1)"
  aria-label="Eén meer — Product free"
  class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
@@ -125,7 +125,7 @@
  class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
 <input type="number" name="product_<P:on_site>" id="product-<P:on_site>" x-ref="veld" value="0"
  min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
- hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:team>/totaal" hx-include="closest form" hx-target="#totaal-<C:team>" hx-swap="innerHTML transition:false" hx-trigger="change, keyup delay:300ms">
+ hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:team>/totaal" hx-include="closest form" hx-target="#totaal-<C:team>" hx-swap="innerHTML" hx-trigger="change, keyup delay:300ms">
 <button type="button" @click="stap(1)"
  aria-label="Eén meer — Product on_site"
  class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>

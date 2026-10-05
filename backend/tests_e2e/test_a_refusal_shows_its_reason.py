@@ -28,7 +28,14 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, PLATFORM, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    PLATFORM,
+    login_met_sessie,
+    pagina_klaar,
+    transition_frames,
+    watch_transitions,
+)
 
 _STATE = """() => ({
   banners: [...document.querySelectorAll('#main [role=alert]')].map(e => e.innerText),
@@ -85,9 +92,12 @@ def test_the_organisation_shows_why(page):
 
     page.locator("#street").fill("Weigerstraat")
     page.locator("#house_number").fill("")
+    watch_transitions(page)
     status, state = _submit(page, page.locator("#org-form button[type=submit]").first, adres)
 
     _assert_shown(status, state, "Huisnummer")
+    # #1591: a refusal that draws the page again is no navigation either.
+    assert transition_frames(page) == 0, "the page cross-fades when the refusal arrives"
     assert page.locator("#street").input_value() == "Weigerstraat", "what was typed is gone"
     page.goto(adres)
     pagina_klaar(page)
