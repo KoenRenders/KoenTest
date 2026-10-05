@@ -2,19 +2,30 @@
 
 #1156 traded the band's padding for logo height. CR-11 pilot B (#1588, decision
 11) fixed the band itself: 64 px on a phone, 80 px at 1 440 (112 at 768, in two
-rows — `test_public_shell.py`), and the logo one image of 48 px at every width.
-What #1156 asked still holds and is measured here in a browser, because this is
-layout:
+rows — `test_public_shell.py`). What #1156 asked is measured here in a browser,
+because this is layout:
 
 - the band has its height WITH a logo, and the same height WITHOUT one — a logo
   never makes the header taller;
-- the logo is 48 px high and fits the lowest band with air above and under it;
-  on a phone that is still more than the 40 px it had before #1156;
+- the logo is as high as its row allows, the row minus 2 × 8 px (#1621): 48 px
+  on a phone and at 768 (the first row of 64), 64 px at 1 440 (the band of 80),
+  with exactly 8 px above and under it;
+- a very wide logo is drawn inside its box and leaves the menu button its
+  44 px, inside the window;
 - the menu button keeps its 44 px (#804).
 
-Proven red (measured, on this branch): the logo's CSS height set to 72 px → the
-logo test fails (it no longer fits the band, whose height is the grid's); the
-menu button's `w-11 h-11` removed → the touch-target test fails.
+**What this file asserted while the logo shrank (#1621).** #1588 set the logo
+to 48 px at every width and rewrote this file to say so; the only floor left
+was "more than the 40 px a phone had before #1156". v2.12.0 showed 64 px on a
+desktop, and nothing here compared the logo with its row. Now the height is
+the row's minus 16 px at each width. Red against master `3f1525a2`: 48 px at
+1 440 where 64 is expected.
+
+Proven red (measured, on this branch): the 64 px rule removed → the logo test
+fails at 1 440 (and set to 56 px: fails with "56.0px"); the logo forbidden to
+shrink (`max-width:none;flex-shrink:0`) → the wide-logo test fails at 390, its
+box 576 px wide over the button (removing `max-width:100%` alone does NOT turn
+it red: the brand's flex box shrinks the image as well); the menu button's `w-11 h-11` removed → the touch-target test fails.
 """
 
 import os
@@ -28,17 +39,20 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests_e2e.schermen import BASE, pagina_klaar  # noqa: E402
 
 BREED = {"width": 1440, "height": 900}
+TABLET = {"width": 768, "height": 1024}
 TELEFOON = {"width": 390, "height": 844}
 
-# The band's heights (#1588) and the logo's one height.
+# The band's heights (#1588) and the logo's height per width (#1621): the row
+# the logo stands in, minus 2 × 8 px.
 BALK = {"breed": 80.0, "telefoon": 64.0}
-LOGO = 48.0
+RIJ = {"breed": 80.0, "tablet": 64.0, "telefoon": 64.0}
+LUCHT = 8.0
 # What a phone showed before #1156: the logo may never fall back to it.
 OUD_LOGO_TELEFOON = 40.0
 AANRAAKVLAK = 44.0  # #804: de ondergrens voor een vinger
 
 
-def _logo_bytes() -> bytes:
+def _logo_bytes(width: int = 300, height: int = 100) -> bytes:
     """Een echt PNG'je van 300 × 100: `w-auto` leidt de breedte uit de hoogte af,
     dus de verhouding moet realistisch zijn of de meting zegt niets."""
     from io import BytesIO
@@ -46,7 +60,7 @@ def _logo_bytes() -> bytes:
     from PIL import Image
 
     buf = BytesIO()
-    Image.new("RGB", (300, 100), (255, 255, 255)).save(buf, format="PNG")
+    Image.new("RGB", (width, height), (255, 255, 255)).save(buf, format="PNG")
     return buf.getvalue()
 
 
@@ -117,20 +131,84 @@ def test_de_balk_blijft_even_hoog(page, logo_in_de_kopbalk):
 
 def test_het_logo_is_groter(page, logo_in_de_kopbalk):
     """The band keeping its height is free when nothing shows a logo: this is
-    the proof that the logo is there, at its one height, and fits the band."""
-    for naam, viewport in (("breed", BREED), ("telefoon", TELEFOON)):
+    the proof that the logo is there and takes what its row gives (#1621) —
+    the row minus 2 × 8 px, with exactly that air above and under it, and in
+    the image's own proportions."""
+    gemeten = {}
+    for naam, viewport in (("breed", BREED), ("tablet", TABLET), ("telefoon", TELEFOON)):
         balk = _kopbalk(page, viewport)
         logo = page.locator("header img").first
         expect(logo, "de kopbalk toont geen logo; dan meet deze test niets").to_be_visible()
         vak = logo.bounding_box()
+        gemeten[naam] = vak["height"]
 
-        assert abs(vak["height"] - LOGO) <= 1, f"het logo is op {naam} {vak['height']:.0f}px"
-        # Inside the band, with at least 8 px above and under it.
-        assert (
-            vak["y"] - balk["y"] >= 7
-            and (balk["y"] + balk["height"]) - (vak["y"] + vak["height"]) >= 7
-        ), f"het logo ({vak}) past niet in de balk ({balk}) op {naam}"
-    assert LOGO > OUD_LOGO_TELEFOON
+        verwacht = RIJ[naam] - 2 * LUCHT
+        assert abs(vak["height"] - verwacht) <= 0.5, (
+            f"het logo is op {naam} {vak['height']:.1f}px; de rij van {RIJ[naam]:.0f}px "
+            f"laat {verwacht:.0f}px toe (#1621)"
+        )
+        # 8 px above it, and 8 px under it to the end of its ROW (at 768 the
+        # band has a second row under the logo's).
+        boven = vak["y"] - balk["y"]
+        onder = (balk["y"] + RIJ[naam]) - (vak["y"] + vak["height"])
+        assert abs(boven - LUCHT) <= 0.5 and abs(onder - LUCHT) <= 0.5, (
+            f"de lucht rond het logo is op {naam} {boven:.1f} en {onder:.1f}px"
+        )
+        # 300 × 100: the width follows the image.
+        assert abs(vak["width"] - 3 * vak["height"]) <= 1, f"het logo is vervormd op {naam}: {vak}"
+    print("MEASURE logo heights", gemeten)
+    assert gemeten["telefoon"] > OUD_LOGO_TELEFOON
+
+
+def test_een_heel_breed_logo_duwt_de_menuknop_niet_weg(page, logo_in_de_kopbalk):
+    """#1621: a logo of 1 200 × 100 at 390 px. Its box stays inside the brand's
+    column, the menu button keeps its 44 px inside the window, the band keeps
+    its height and the page does not scroll sideways. (v2.12.0 squeezed the
+    button to 21 px with such a logo — measured.)"""
+    from app.database import SessionLocal
+    from app.domains.media.api import MediaAsset
+
+    # An asset of its own: the browser keeps the picture at the other
+    # address, so new bytes there would never be drawn.
+    db = SessionLocal()
+    try:
+        db.query(MediaAsset).filter(MediaAsset.id == logo_in_de_kopbalk).update(
+            {"kind": "component_info"}
+        )
+        breed = MediaAsset(
+            kind="tenant_logo",
+            title="Breed logo voor de meting",
+            content_type="image/png",
+            data=_logo_bytes(1200, 100),
+        )
+        db.add(breed)
+        db.commit()
+        breed_id = breed.id
+    finally:
+        db.close()
+    try:
+        balk = _kopbalk(page, TELEFOON)
+        page.wait_for_function(
+            "() => { const i = document.querySelector('header img');"
+            " return i.complete && i.naturalWidth === 1200; }"
+        )
+        logo = page.locator("header img").first.bounding_box()
+        knop = page.locator("header [data-menu-button]").first.bounding_box()
+        assert abs(balk["height"] - BALK["telefoon"]) <= 1, f"de balk is {balk['height']}px"
+        assert knop["width"] >= AANRAAKVLAK and knop["height"] >= AANRAAKVLAK, f"de knop: {knop}"
+        assert knop["x"] + knop["width"] <= TELEFOON["width"], f"de knop valt buiten beeld: {knop}"
+        assert logo["x"] + logo["width"] <= knop["x"], f"het logo ({logo}) raakt de knop ({knop})"
+        assert page.evaluate("document.documentElement.scrollWidth") == TELEFOON["width"]
+    finally:
+        db = SessionLocal()
+        try:
+            db.query(MediaAsset).filter(MediaAsset.id == breed_id).delete()
+            db.query(MediaAsset).filter(MediaAsset.id == logo_in_de_kopbalk).update(
+                {"kind": "tenant_logo"}
+            )
+            db.commit()
+        finally:
+            db.close()
 
 
 def test_het_aanraakvlak_van_de_menuknop_blijft(page, logo_in_de_kopbalk):

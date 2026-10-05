@@ -8,6 +8,12 @@ the scale: "iets groter houden". So: Inter everywhere, and the public headings
 on their own scale — page title 40 px (32 on a phone), section head 24 px, card
 title 18 px, Inter 600, line height 1.15.
 
+#1621 (Koen, 5 October 2026): a title INSIDE a card is the scale's card title,
+18 px at every width, on Tailwind's line of 28 px — not a section head. Red
+against master `3f1525a2`: the home's card titles measured 24 px on a line of
+27.6 px, at both widths. (v2.12.0 showed 20 px on a phone; the scale of Q61
+says 18.)
+
 Read from the rendered page (`getComputedStyle`), because a class in a template
 says nothing about what the cascade made of it: the scale stands on the
 heading's tag in the shell's CSS and must win from whatever size class a page
@@ -34,7 +40,8 @@ HEADINGS = """() => {
   const read = e => { const s = getComputedStyle(e); return {
     family: s.fontFamily.split(',')[0].replace(/"/g, '').trim(), size: parseFloat(s.fontSize),
     weight: s.fontWeight, ratio: Math.round(parseFloat(s.lineHeight) / parseFloat(s.fontSize) * 100) / 100,
-    section: !!e.closest('.form-section') }; };
+    line: parseFloat(s.lineHeight), section: !!e.closest('.form-section'),
+    card: !!e.closest('.rounded-2xl') && e.tagName !== 'H1' }; };
   const all = t => [...main.querySelectorAll(t)].filter(e => e.checkVisibility()).map(read);
   const footer = [...document.querySelectorAll('.site-footer h2')].map(read);
   return {h1: all('h1'), h2: all('h2'), h3: all('h3'), footer: footer,
@@ -143,9 +150,13 @@ def test_the_public_headings_follow_their_scale(measured, width, title):
     for name in ("home", "activities", "activity", "register", "Word lid"):
         page = measured[(name, width)]
         for h2 in page["h2"]:
+            if h2["card"] and not h2["section"]:
+                continue  # #1621: its own test below
             # A section of a FORM keeps the kit's head; every other h2 is a section head.
             expected = (16, "600") if h2["section"] else (24, "600")
             assert (h2["size"], h2["weight"]) == expected, f"{name} @{width} h2: {h2}"
+            if not h2["section"]:
+                assert h2["ratio"] == 1.15, f"{name} @{width} h2: {h2}"
         for h3 in page["h3"]:
             expected = (16, "600") if h3["section"] else (18, "600")
             assert (h3["size"], h3["weight"]) == expected, f"{name} @{width} h3: {h3}"
@@ -154,6 +165,24 @@ def test_the_public_headings_follow_their_scale(measured, width, title):
     # The scale is the PUBLIC one: the admin's title is smaller.
     admin = measured[("admin", width)]["h1"][0]
     assert admin["size"] < title, f"the admin's title is {admin['size']} px"
+
+
+@pytest.mark.parametrize(("width", "size"), [(390, 18), (1440, 18)])
+def test_a_card_title_is_a_card_title_on_its_own_line(measured, width, size):
+    """#1621: an activity card's title renders at the scale's card size,
+    18 px, on Tailwind's line of 28 px, in the shell's family and weight —
+    and the page title above it keeps 1.15."""
+    seen = 0
+    for name in ("home", "activities"):
+        titles = [h for h in measured[(name, width)]["h2"] if h["card"] and not h["section"]]
+        assert titles, f"{name} @{width}: no card title was measured"
+        for h2 in titles:
+            seen += 1
+            assert (h2["size"], h2["line"]) == (size, 28), f"{name} @{width}: {h2}"
+            assert (h2["family"], h2["weight"]) == ("Inter", "600"), f"{name} @{width}: {h2}"
+    assert seen >= 2
+    h1 = measured[("activities", width)]["h1"][0]
+    assert h1["ratio"] == 1.15, f"the page title @{width}: {h1}"
 
 
 def test_the_three_kinds_of_tenant_share_the_headings_and_name_their_own_newsletter():
