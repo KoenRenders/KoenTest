@@ -1081,8 +1081,9 @@ supply an SVG rather than approximating one.
   renders it in the site shell, the board route renders the same content in the
   admin shell. Order: who (contact) → what (products) → the component's questions
   → payment method → submit. No modal, with or without a form. "Wie doet er mee?"
-  stays a compact inline line (`text-xs`, *N ingeschreven — naam · naam*). Not a wide
-  inline block, not a vertical list.
+  is the activity card's and page's, not the form's (Koen, 5 October 2026;
+  #1642): there it stays a compact inline line (`text-xs`, *N ingeschreven — naam
+  · naam*), not a wide inline block, not a vertical list.
 
 ## Choosing new tools / dependencies — Europe First
 
