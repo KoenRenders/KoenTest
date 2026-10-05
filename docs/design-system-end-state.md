@@ -309,6 +309,13 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   the right the screen's one primary and one "Acties ▾" menu holding the
   rest (photos, Design Studio, print, delete…). Never a button named after
   the fields it edits. [39, 29, 20]
+- **In edit mode a record with a composite repeating group takes the whole
+  reading group** — 1 092 px on a desktop, the summary card as the strip
+  above the form, the way K8 does it beside the Assistent panel; long text
+  fields keep the reading width of 768 px inside the wider column; read
+  mode, Opslaan and Annuleren return to 768 px with the card at the right
+  (Koen, 5 October 2026, after K5 on HDEV: "zeer veel ruimte verloren",
+  "smaller dan vroeger"). [Q67]
 - **The summary card** at the right of the content column, `max-w-xs`:
   the state, two or three figures, the main action; on a phone a compact
   strip under the tabs, above the content. **Only on the Gegevens tab**
@@ -534,15 +541,22 @@ repeated Datum · Van · Tot on every date row); on a phone, where the fields
 stack and no head is possible, each field carries its label, `⋯` at the right, 12 px between rows with a thin
 line in that space; on a phone the fields stack under a first line with
 handle and `⋯`. A **composite item** (a component, a product) has **its drag handle in a
-fixed gutter at the left of the whole block, and its title line, its fields
+fixed gutter at the left of the whole block — 28 px wide, not 44 (Koen, 5
+October 2026) — and its title line, its fields
 and the separator line to the next item share one left edge to the right of
 that gutter** — never fields that start left of the handle (ChatGPT's draft
 did; Koen, 4 Oct 2026, Q50); the title line (name, `⋯`), its fields in the
 grid under it, and its child group
-(**Producten**, with its own "+ Product") indented 16 px behind a vertical
-line (12 px on a phone) — no card, no background, no nested box; a product
-row is naam half · prijs kwart · ledenprijs kwart with **one segmented
-choice on the next line — Betalend · Gratis · Ter plaatse** (Koen, 5
+(**Producten**, with its own "+ Product") indented 12 px behind a vertical
+line at every width (was 16 on a desktop; Koen, 5 October 2026) — no card,
+no background, no nested box; **a product row is one line: naam · prijs ·
+ledenprijs · maximum** (the name wide, the three numbers quarter-width; as
+it was before K5), and a second line with **one segmented choice —
+Betalend · Gratis · Ter plaatse** — and *Publiek zichtbaar*, its help text
+only while the product is not public; **a component's head is one line too:
+naam · maximum · inschrijven tot**, then *Ploegnaam vereist* and
+*Formulier* on the next, without an explanation line under the select (its
+help text says it, Q66) (Koen, 5
 October 2026, after K5 on HDEV: the two switches of ChatGPT's draft, with a
 refusal when both were on, were one choice out of three in disguise — §3.5's
 own rule; until K5 it was a select with the same three); the price fields

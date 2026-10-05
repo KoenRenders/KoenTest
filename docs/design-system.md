@@ -1031,7 +1031,14 @@ option b — the order and the flags decide the poster); a component shows
 its occupancy and "t/m" in read mode; **a product's settlement is one
 segmented choice — Betalend · Gratis · Ter plaatse** (Koen, 5 October 2026:
 K5's two switches with a refusal when both were on go back to one control;
-a correction slice on K5), the price fields active only for Betalend. **One save** writes the record with
+a correction slice on K5), the price fields active only for Betalend;
+**room for the groups** (Koen, 5 October 2026, the second correction on K5):
+in edit mode a record with a composite group takes the whole reading group
+(1 092 px) with the summary card as the strip above, as beside the Assistent
+panel; a product row is one line naam · prijs · ledenprijs · maximum with
+the settlement choice and Publiek zichtbaar on the second; a component's
+head is naam · maximum · inschrijven tot on one line; the handle's gutter is
+28 px and the child indent 12 px. **One save** writes the record with
 its groups in one transaction (`activities.api.save_activity`; nineteen row
 routes gone, the JSON API on the same service), with three rules in the
 service (422 on the API): a component with a live registration and a
