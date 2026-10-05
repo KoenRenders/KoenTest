@@ -24,12 +24,21 @@
 {%- endmacro %}
 
 {#- `touch` (#1589): the counter keeps its 44 px on a desktop — the public form page. -#}
-{% macro product_row(product_name, price, name, id, value, min=0, max=99, attrs="", badge="", touch=False) -%}
+{#- The price of a row, in its own element. `id` (#1596) lets a page refresh the
+    price without touching the row — the counter is never part of a swap; `oob`
+    is that refresh: the same element, sent out of band. One macro, so the row
+    and its refresh cannot come to look different. -#}
+{% macro price_tag(text, id=None, oob=False) -%}
+<span{% if id %} id="{{ id }}" data-price{% endif %}{% if oob %} hx-swap-oob="true"{% endif %} class="ml-2 text-gray-500">{{ text }}</span>
+{%- endmacro %}
+
+{#- `price_id`: see `price_tag`. -#}
+{% macro product_row(product_name, price, name, id, value, min=0, max=99, attrs="", badge="", touch=False, price_id=None) -%}
 <div class="flex items-center justify-between gap-x-3" data-product-row>
   <div class="text-sm">
     <span class="font-medium">{{ product_name }}</span>
     {{ badge }}
-    {% if price %}<span class="ml-2 text-gray-500">{{ price }}</span>{% endif %}
+    {% if price %}{{ price_tag(price, id=price_id) }}{% endif %}
   </div>
   {{ quantity(name, id, value, product_name=product_name, min=min, max=max, attrs=attrs, touch=touch) }}
 </div>

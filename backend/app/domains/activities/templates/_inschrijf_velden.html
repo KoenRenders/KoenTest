@@ -17,11 +17,12 @@
   {{ ui.field("contact_name", _("Naam"), required=True, attrs='autocomplete="name"',
               value=values.get("contact_name", person.first_name ~ " " ~ person.last_name if person else "")) }}
   {# #1284: on the board's form the member price follows the TYPED address,
-     so the price block (rows and total) is refreshed when it changes. The
-     public form prices by the signed-in person and never by what is typed
-     here: it has no `prijzen_url`. #}
+     so the prices and the total are asked again when it changes — never the
+     quantity fields (#1596, `_inschrijf_prijzen.html`). The public form prices
+     by the signed-in person and never by what is typed here: it has no
+     `prijzen_url`. #}
   {{ ui.field("contact_email", _("E-mailadres"), kind="email", required=True, value=values.get("contact_email", ""),
-              attrs=('autocomplete="email" hx-post="' ~ prijzen_url ~ '" hx-include="closest form" hx-target="#prijsblok-' ~ component.id ~ '" hx-swap="innerHTML" hx-trigger="change"') if prijzen_url else 'autocomplete="email"') }}
+              attrs=('autocomplete="email" hx-post="' ~ prijzen_url ~ '" hx-include="closest form" hx-target="#totaal-' ~ component.id ~ '" hx-swap="innerHTML" hx-sync="#prijsblok-' ~ component.id ~ ':replace" hx-trigger="change"') if prijzen_url else 'autocomplete="email"') }}
   {{ ui.field("phone", _("Mobiel nummer"), kind="phone", required=True, value=values.get("phone", ""), attrs='autocomplete="tel"') }}
   {% if component.team_name_required %}
   {{ ui.field("team_name", _("Ploegnaam"), required=True, value=values.get("team_name", "")) }}

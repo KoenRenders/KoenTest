@@ -1325,12 +1325,13 @@ async def inschrijving_nieuw_prijzen(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ) -> Response:
-    """The board's price block after the e-mail address changed (#1284).
+    """The board's prices and total after the e-mail address or a quantity
+    changed (#1284).
 
     Koen: the product rows follow the typed member address, not only the total.
-    Rows and total come back together, from the same `form_context` as the page,
-    with the quantities that were entered — the address field itself is not
-    part of the swap, so it keeps its focus."""
+    The price of each row and the total come back together, from the same
+    `form_context` as the page. No field is part of the answer (#1596): a late
+    answer used to put a quantity typed meanwhile back, or mangle it."""
     from app.domains.activities.api import (
         board_channel,
         form_context,
@@ -1349,7 +1350,7 @@ async def inschrijving_nieuw_prijzen(
     channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
     return templates.TemplateResponse(
         request,
-        "_inschrijf_prijsblok.html",
+        "_inschrijf_prijzen.html",
         form_context(
             channel, activiteit, component, values=values, quantities=form_quantities(form)
         ),

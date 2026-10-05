@@ -101,7 +101,8 @@ def test_the_htmx_attributes_stay_on_the_input(client, db_session):
     html = _formulier(client, activity, component)
 
     veld = _veld(html, product.id)
-    assert "hx-post=" in veld and 'hx-trigger="change, keyup delay:300ms"' in veld
+    # #1596: `input`, not `keyup` — a digit that arrives without a key counts too.
+    assert "hx-post=" in veld and 'hx-trigger="change, input delay:300ms"' in veld
 
     knoppen = re.findall(r'<button[^>]*aria-label="Eén (?:minder|meer)[^>]*>', html)
     assert len(knoppen) == 2, f"twee knoppen verwacht, gevonden: {len(knoppen)}"
