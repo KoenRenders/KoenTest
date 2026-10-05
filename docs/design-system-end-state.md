@@ -343,13 +343,16 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
 - **The tabs:** "Gegevens" first, then the related lists in the same order
   on every entity (Inschrijvingen · Betalingen · …), each with its count.
   A related-list tab is the list layout in its **embedded rendering**: no
-  page header, no figures, no summary card, one toolbar row, the table; a
-  row there **unfolds in place, read-only** (the registration: Contact ·
-  Producten · Antwoorden · Betaling side by side, stacked on a phone; the
-  chevron turns, a 3 px line at the left, one open row per list) with a
-  jump link "Inschrijving openen ↗" to its own page — **no Bewerken in the
-  unfolded row**: editing is the record page's (block 8, Koen, 4 October
-  2026). Registrations are **one table with a collapsible group row per
+  page header, no figures, no summary card, one toolbar row, the table;
+  **the row is the way in**, as on every kit table (K2): a click opens the
+  record page, where one reads and edits — **no unfold in place** (block 8
+  had a read-only unfold with "Inschrijving openen ↗"; Koen, 5 October
+  2026, after K6 on HDEV: the row, the unfold and the page showed the same
+  data three times and only the third could edit). A registration row
+  carries name · contact (e-mail and mobile stacked) · date · products ·
+  **Bedrag** · **Saldo** (warning tone when ≠ 0) · status · one row action
+  plus `⋯`; the answers live on the record page (in the list at most a count
+  that jumps there). Registrations are **one table with a collapsible group row per
   component** (chevron, name, count, `⋯` with Exporteren and Antwoorden),
   per activity on the household with a jump link in the group row (Q41).
   The header, tabs and summary do not move between tabs; only the content
