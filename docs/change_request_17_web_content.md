@@ -183,7 +183,7 @@ Decisions, each with the rejected alternative (the reasoning in C4):
 | F6 | The value block lists the placeholder codes and renders the current value. | R5 |
 | F7 | Voorbeeld renders the draft; Publiceren copies draft → published with a history row; Terugzetten restores into the draft. | R3 |
 | F8 | Public page at reading width; a table scrolls inside its block on a phone; columns stack, the form first. | R7 |
-| F9 | Newsletter set (text, figure, button, activity, calendar, closing) replacing the markers; the page's three choices decide the blocks — *Uitgelicht* an activity block each, *In de kalender* one calendar block (CR-11 Q55). Notes set: text, lists, table; autosave. | R6 |
+| F9 | Newsletter set (text, figure, button, activity, calendar, closing) replacing the markers; the page's three choices decide the blocks — *Uitgelicht* an activity block each, *In de kalender* one calendar block (CR-11 Q55). Notes set: text, lists, table; autosave. (Could, phase 5.) | R6 |
 | F10 | Menu: `parent_id`, `external_url`, `in_footer` on the page, `menu_label` in the translation row; sections in the site menu; the way back names the section. | R8, R15 |
 | F11 | Migration: HTML parsed into the schema; a page that does not parse losslessly is listed and keeps its HTML; screenshots before and after. | R1, R17 |
 | F12 | CR-11 gate 14 widened to the new editor; a schema change is a change of `cms/schema.py` only. | R6, R9 |
@@ -247,7 +247,7 @@ Legend: green cms · yellow kit · blue media · purple forms · grey kernel · 
 | R9 served by the portal | F12 | 14 | AC7 |
 | R13 form block | F13 | 16 | AC8 |
 | R14 cards | F14 | 17 | AC9 |
-| R15 languages | F2, F15 | 20 | phase 5 |
+| R15 languages | F2, F15 | 20 | phase 3 |
 | R16 JSON | F16 | 18 | AC10 |
 | R17 association unchanged | F11 | 19 | AC11 |
 
@@ -365,13 +365,13 @@ Who calls whom: the admin screens call the cms service and render the editor thr
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-| Module | Ph 0 spike | Ph 1 pages | Ph 2 blocks | Ph 3 letter, notes | Ph 4 menu | Ph 5 languages | Total |
+| Module | Ph 0 spike | Ph 1 pages | Ph 2 blocks | Ph 3 languages | Ph 4 menu (Could) | Ph 5 letter, notes (Could) | Total |
 |---|---|---|---|---|---|---|---|
 | ui (kit) | 1 | 2 | 1.5 | 0.5 | — | 0.5 | 5.5 |
-| cms | — | 5 | 4 | 0.5 | 1 | 2 | 12.5 |
-| forms; newsletter, meetings | — | — | 0.5 | 2.5 | — | — | 3 |
-| tests | 0.5 | 1.5 | 1.5 | 1 | 0.25 | 0.5 | 5.25 |
-| **Total** | **1.5** | **8.5** | **7.5** | **4.5** | **1.25** | **3** | **~26 CLI-days** (~21.5 without phase 3) |
+| cms | — | 5 | 4 | 2 | 1 | 0.5 | 12.5 |
+| forms; newsletter, meetings | — | — | 0.5 | — | — | 2.5 | 3 |
+| tests | 0.5 | 1.5 | 1.5 | 0.5 | 0.25 | 1 | 5.25 |
+| **Total** | **1.5** | **8.5** | **7.5** | **3** | **1.25** | **4.5** | **~26 CLI-days** — **20.5 for the firm phases 0–3**; 4 and 5 only when nearly free |
 
 Purchases: none with TipTap; CKEditor 5 needs the GPL terms or a licence (Q1). **Running cost:** none. **Operations:** no env var; the bundle upgraded like htmx; one contract migration.
 
@@ -382,12 +382,12 @@ Purchases: none with TipTap; CKEditor 5 needs the GPL terms or a licence (Q1). *
 | **0 — the spike** (starts now, 5 Oct 2026) | TipTap on a throwaway branch — the one-off bundle without Node in the repo, a table round trip, a custom node, the CSP, a phone; the measurements into C8 | none | none | C8 |
 | **1 — pages as documents** | the schema; the editor macro; the page screen with draft, publish, history, preview; the renderer and the reading-width page; `page_translations`; value blocks; the picker; JSON export and import, the schema served; the lossless migration | additive | a page is no longer live on save; an unknown block refused by name | AC1, AC3, AC4, AC6, AC7, AC10, AC11 |
 | **2 — the blocks** | table (full), columns with alignment, button, callout, link card, **cards**, **form**, gallery; the API: pages, draft, publish, reference lists | none | a deleted form renders nothing | AC2, AC8, AC9 |
-| **3 — the letter and the notes** (Could, last) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes; until then two editors coexist, a named exception on gate 14 | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
+| **3 — a second language** (Should) | the language selector, a second translation row with its menu label, `/en/`, the fallback, the public switch | none | a page without a translation falls back | walkthrough |
 | **4 — the menu** (Could, only if nearly free) | parent, external link, footer menu; the page order already exists (`sort_order`) | additive | none | AC12 |
-| **5 — a second language** (Should, after phase 2) | the language selector, a second translation row with its menu label, `/en/`, the fallback, the public switch | none | a page without a translation falls back | walkthrough |
+| **5 — the letter and the notes** (Could, last) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes; until then two editors coexist, a named exception on gate 14 | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
 | **later** | drop `content` two releases after phase 1 | contract | — | — |
 
-Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11 pilot A or is carried by phase 1; a company tenant exists (CR-19). Phase 0 can start now. **Order** (Koen, 4 and 5 Oct 2026): 0 → 1 → 2 → 5; then 4 and 3, both Could, only when they come nearly free — otherwise a follow-up change request.
+Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11 pilot A or is carried by phase 1; a company tenant exists (CR-19). Phase 0 can start now. **Order** (Koen, 4 and 5 Oct 2026): 0 → 1 → 2 → 3 are the change; 4 and 5 are Could, taken only when they come nearly free — otherwise a follow-up change request.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -411,7 +411,8 @@ None. Koen closed Q1, Q2, Q6, Q8, Q9, Q10 and Q11 on 5 October 2026 (B9); the sp
 | 4 Oct 2026 | **The frame**: the association's sites do not change; the subject is a company tenant's site, kept abstract. | Koen |
 | 4 Oct 2026 | Form block (R13), cards block (R14), kit-styled pictures (R4), columns middle beside a figure; a translation row from phase 1 (R15); a JSON door (R16); the menu to Should (R8); the three newsletter choices decide the blocks (F9). | Koen |
 | 5 Oct 2026 | **TipTap** is the editor (B8 Q1 closed; the spike of phase 0 confirms the bundle step). **The menu back to Could** (R8, phase 4): sections, an external link and a footer menu only if they come nearly free, otherwise a follow-up change request; the order of the pages stays settable as today. **The activity's description on the same editor is a Could outside this change** — a follow-up, not a phase here (B8 Q8 closed). **A second language is the public content only; the back office stays Dutch** (B8 Q11 closed). **Merged cells in tables are a Could outside this change** (B8 Q9 closed). **The form block and the cards block in phase 2** (B8 Q10 closed). **The spike starts now** as the first sub-issue of #1427 (B8 Q6 closed); **the change request is assigned to v2.14.0**, not v2.13.0. B8 is empty: the design is decided. | Koen |
-| 4 Oct 2026 | **Six answers**: R6 and writing on a phone to Could; R12 stays Won't; cards are layout (R14); English soon — phase 5 after phase 2, `/en/` prefix (R15); the JSON door also creates and publishes, for a CLI (R16). | Koen |
+| 5 Oct 2026 | **Phases renumbered**: the second language is **phase 3** (Should, after the blocks); the menu stays 4 and the letter and notes become 5, both Could — the change is phases 0–3, about 20.5 CLI-days. | Koen |
+| 4 Oct 2026 | **Six answers**: R6 and writing on a phone to Could; R12 stays Won't; cards are layout (R14); English soon — phase 3 after phase 2, `/en/` prefix (R15); the JSON door also creates and publishes, for a CLI (R16). | Koen |
 | 1 Oct 2026 | *Proposed:* C4.1–C4.7; TipTap recommended, decided after the spike. | author |
 
 ---
@@ -430,7 +431,7 @@ None. Koen closed Q1, Q2, Q6, Q8, Q9, Q10 and Q11 on 5 October 2026 (B9); the sp
 | Five placeholders replaced by `str.replace` at render | `render.py:173-179, 214-235` | true | C4.4 |
 | The CSP is `default-src 'self'` with inline scripts allowed, no CDN | `caddy/parts/snippets.caddy:26` | true | vendored editor; test 14 |
 | The repository's build has no Node; vendored JS is htmx 2.0.4, alpine 3.14.8, trix 2.1.15 (203 KB) | `scripts/build-css.sh`; `static/vendor/`; no `package.json` | true | a committed bundle, pinned |
-| The newsletter inserts markers and builds them at send; the notes autosave a plain field | `newsletter/service.py:41,965,1021`; `meetings/templates/_vg_punt.html:89-102` | true | phase 3 |
+| The newsletter inserts markers and builds them at send; the notes autosave a plain field | `newsletter/service.py:41,965,1021`; `meetings/templates/_vg_punt.html:89-102` | true | phase 5 |
 | A CMS page renders at the site's full width (about 1 248 px of text at 1 440 px) | `site_base.html:244` | true | reading width |
 | The repository carries no licence file | `ls LICENSE*` | none | Q1 |
 | The forms module imports a definition as JSON; a form renders as its own page | the form builder's "Definitie importeren (JSON)"; `forms/ui.py` | true | the precedent for F16; F13 renders the same definition inside a page |
@@ -447,12 +448,12 @@ None. Koen closed Q1, Q2, Q6, Q8, Q9, Q10 and Q11 on 5 October 2026 (B9); the sp
 - **Templates:** `_macros.html` (the macro), `admin_base.html` (the one load), the prose rules in `build-css.sh`'s config as hand-written utilities for `.prose-raak` (tables, figures with `rounded-[14px]` and the card shadow, columns top/middle, cards grid); `site_base.html` and `admin_base.html` lose their hand-written `.cms-content` rules.
 - **Tests:** C6 3, 9, 11, 14, 17.
 
-#### cms (phases 1, 2, 4, 5)
+#### cms (phases 1, 2, 3, 4)
 
-- **Screens:** `/admin/paginas/{id}` on the document layout (CR-11 blocks 5 and 9): title and slug in the header editor, a language selector (one language shown at a time; phase 1 shows the tenant's), the document with autosave of the draft, the actions Voorbeeld · Publiceren · Geschiedenis, and in Acties: Document exporteren (JSON) · Document importeren (JSON); `/voorbeeld` renders the draft with a width switch; `/geschiedenis` lists versions with "Terugzetten"; the list shows a draft badge and, in phase 5, the languages a page has.
+- **Screens:** `/admin/paginas/{id}` on the document layout (CR-11 blocks 5 and 9): title and slug in the header editor, a language selector (one language shown at a time; phase 1 shows the tenant's), the document with autosave of the draft, the actions Voorbeeld · Publiceren · Geschiedenis, and in Acties: Document exporteren (JSON) · Document importeren (JSON); `/voorbeeld` renders the draft with a width switch; `/geschiedenis` lists versions with "Terugzetten"; the list shows a draft badge and, in phase 3, the languages a page has.
 - **Code:** `schema.py` (the schema as data: node types, attributes, sets; exported as JSON Schema); `render.py` (three targets; the form node calls `forms.api.render_embedded`; the cards node resolves page references to URLs; nh3 on the result); `service.save_draft`, `publish`, `restore`, `versions`, `parse_html` (F11), `import_draft(page_id, language, document)` (validation, then save_draft), `export_document`; `api.py` exports `schema_for`, `render_document`, `placeholders`, `import_draft`, `create_page`, `publish` (also from the API), `references`; `router.py` adds `PUT /api/v1/cms/pages/{id}/draft` (API key, `?language=`) and `GET /api/v1/cms/schema`.
 - **Database:** phase 1, additive: `cms.page_translations (page_id INT NOT NULL REFERENCES cms.cms_pages(id) ON DELETE CASCADE, language VARCHAR(5) NOT NULL REFERENCES mdm.language_codes(code), title VARCHAR(200) NOT NULL, menu_label VARCHAR(80) NULL, draft_json JSONB NULL, published_json JSONB NULL, published_at TIMESTAMPTZ NULL, published_by VARCHAR(255) NULL, PRIMARY KEY (page_id, language))`; `cms.cms_page_history (id, page_id FK CASCADE, language VARCHAR(5) NOT NULL, action VARCHAR(20) NOT NULL CHECK (action IN ('published','restored')), document JSONB NOT NULL, at TIMESTAMPTZ NOT NULL, by VARCHAR(255))`; the migration moves `title` and `content` (parsed) into the row of the tenant's language; `cms_pages.title` kept one release, then dropped with `content`; phase 4: `parent_id INT NULL`, `menu_label VARCHAR(80) NULL`, `external_url VARCHAR(500) NULL`, `in_footer BOOL NOT NULL DEFAULT false`. Check the CHECK constraints of `cms_pages` before touching flags (the `media_assets.kind` lesson).
-- **Templates:** `admin_pagina.html` and `_cp_detail.html` shrink to the layout plus the macro; `cms_pagina.html` on the reading width; the public menu renders sections (phase 4); the public header renders the language switch when a second language has published content (phase 5).
+- **Templates:** `admin_pagina.html` and `_cp_detail.html` shrink to the layout plus the macro; `cms_pagina.html` on the reading width; the public menu renders sections (phase 4); the public header renders the language switch when a second language has published content (phase 3).
 - **Tests:** C6 1, 2, 4, 5, 6, 8, 12, 13, 16, 18, 19, 20.
 
 #### forms (phase 2)
@@ -464,7 +465,7 @@ None. Koen closed Q1, Q2, Q6, Q8, Q9, Q10 and Q11 on 5 October 2026 (B9); the sp
 
 - The figure block uses the picker; the gallery block uses the album; a link card's picture is a media id. CR-15 is built.
 
-#### newsletter and meetings (phase 3)
+#### newsletter and meetings (phase 5)
 
 - As before: the editor with the letter set; `_clean_body` becomes a schema validation; the mail renderer from blocks; the notes on the macro with the notes set, autosave unchanged. Tests C6 10.
 
@@ -480,7 +481,7 @@ None. Koen closed Q1, Q2, Q6, Q8, Q9, Q10 and Q11 on 5 October 2026 (B9); the sp
 | Design-system documentation | yes — the editor as a component, the prose rules, the block set table, the cards and form blocks |
 | Code lists | `language_codes` reused; the block types are code (`schema.py`), not data |
 | Events and handlers | no |
-| Mail templates | yes — the newsletter's HTML from blocks (phase 3); three mail clients checked as CR-05 did |
+| Mail templates | yes — the newsletter's HTML from blocks (phase 5); three mail clients checked as CR-05 did |
 | Migration: additive or contract | additive in phases 1 and 4; one contract migration (dropping `content` and `cms_pages.title`) two releases after phase 1 |
 | Tenant settings | no new ones; `tenant_language` read |
 | Env vars | no |
@@ -540,7 +541,7 @@ A figure, a card's picture and a gallery item render with the public card radius
 
 ### C4.10 Content per language
 
-"Build what is needed in the shape that grows": a page's title and documents live in `page_translations` keyed by (page, language) from phase 1, with the tenant's language as the only row; a second language is a row, not a column. The site serves the visitor's language (the browser's `Accept-Language` or the switch) when a published translation exists, else the tenant's language; the switch appears only when a second language has published content. One slug per page, the language as a prefix (`/en/…`) — decided now that phase 5 moves up (Koen wants English soon, 4 October 2026): the switch stays on the same page and a link survives a translation; the menu label lives in the translation row. The forms module's forms, the newsletter and the site name stay single-language — outside this change. The app's own words (gettext) and the back office stay Dutch unless Koen asks (Q11); code-list labels already exist per language.
+"Build what is needed in the shape that grows": a page's title and documents live in `page_translations` keyed by (page, language) from phase 1, with the tenant's language as the only row; a second language is a row, not a column. The site serves the visitor's language (the browser's `Accept-Language` or the switch) when a published translation exists, else the tenant's language; the switch appears only when a second language has published content. One slug per page, the language as a prefix (`/en/…`) — decided now that phase 3 moves up (Koen wants English soon, 4 October 2026): the switch stays on the same page and a link survives a translation; the menu label lives in the translation row. The forms module's forms, the newsletter and the site name stay single-language — outside this change. The app's own words (gettext) and the back office stay Dutch unless Koen asks (Q11); code-list labels already exist per language.
 
 ### C4.11 One JSON door
 
@@ -607,7 +608,7 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
 | Q1 | 1 Oct 2026 | The editor: Trix with extensions, or another one — under Europe First, self-hosted, zero Node in the build, CSP `'self'`? (master CLI, for Koen) | C4.1: not Trix (no document model, measured); TipTap recommended, CKEditor 5 the alternative; a spike on both decides. Koen asked for the comparison with pros and cons on 4 Oct 2026: C4.1's table, Trix included. |
-| Q2 | 1 Oct 2026 | Page structure: blocks versus one HTML field; templates, menu, draft and publish, versions, preview? (master CLI) | C4.2 one document of block nodes; no page templates; C4.3 draft/published/history/preview; the menu in phase 4 — a Should since 4 Oct 2026 (R8). |
+| Q2 | 1 Oct 2026 | Page structure: blocks versus one HTML field; templates, menu, draft and publish, versions, preview? (master CLI) | C4.2 one document of block nodes; no page templates; C4.3 draft/published/history/preview; the menu in phase 4 — a Should on 4 Oct 2026, a Could since 5 Oct (R8). |
 | Q3 | 1 Oct 2026 | Media: the link with the library of CR-15? (master CLI) | F5: the figure block opens CR-15's picker, the gallery block takes an album; CR-15 is built (v2.13.0). |
 | Q4 | 1 Oct 2026 | Placeholders and dynamic blocks? (master CLI) | C4.4: value blocks from the same codes; the newsletter's activity and calendar become blocks. |
 | Q5 | 1 Oct 2026 | One editor for CMS, newsletter and meeting; what each may do? (master CLI) | C4.5: one macro, three sets. |
@@ -618,8 +619,8 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 | Q10 | 4 Oct 2026 | Which site is this for? (Koen) | Not the association's: those sites are good and do not change (R17, C4.12). The public site of a tenant of the kind company (CR-19), kept abstract here; the CMS's capabilities are the subject. |
 | Q11 | 4 Oct 2026 | A text beside a contact form, as on an outside site Koen showed? (Koen) | A **form block** (R13, C4.9) in two columns: the forms module's form rendered inside the page, submissions as today; not intro and side texts inside the forms module. Phase 2 (B8 Q10). |
 | Q12 | 4 Oct 2026 | Something decent graphically — a picture with rounded corners and a shadow: in the CMS or in an image editor? (Koen) | In the kit (R4, C4.8): every picture gets the site's radius and shadow by rule; the file stays clean because it also serves the poster and the mail. A photo beside a heading, a text and a button is the columns block with middle alignment. |
-| Q13 | 4 Oct 2026 | Clickable cards, to a sub-page for instance? (Koen) | A **cards block** of link cards (R14, C4.9); a card's target is a page chosen from the list or an outside URL; sections with pages under them are the menu of phase 4 (R8, now a Should). |
-| Q14 | 4 Oct 2026 | Multilingual content, Dutch first, English foreseen? (Koen) | Three layers: the app's words (gettext, one catalogue), code-list labels (already per language), content (none). Content gets a translation row per language from phase 1 (R15, C4.10); the switch and a second language in phase 5; the back office stays Dutch unless asked (B8 Q11). Added 4 Oct: English soon — phase 5 moves to right after phase 2; the `/en/` prefix decided (C4.10). |
+| Q13 | 4 Oct 2026 | Clickable cards, to a sub-page for instance? (Koen) | A **cards block** of link cards (R14, C4.9); a card's target is a page chosen from the list or an outside URL; sections with pages under them are the menu of phase 4 (R8, a Could since 5 Oct). |
+| Q14 | 4 Oct 2026 | Multilingual content, Dutch first, English foreseen? (Koen) | Three layers: the app's words (gettext, one catalogue), code-list labels (already per language), content (none). Content gets a translation row per language from phase 1 (R15, C4.10); the switch and a second language in phase 3; the back office stays Dutch unless asked (B8 Q11). Added 4 Oct: English soon — phase 3 moves to right after phase 2; the `/en/` prefix decided (C4.10). |
 | Q15 | 4 Oct 2026 | Content changed from outside through JSON, in the age of AI — a Should? (Koen) | Yes (R16, C4.11): export and import into the draft through the screen and the API, validated against the served schema; since 4 Oct the door also creates and publishes (C4.11): a Claude Code CLI must be able to change and publish pages; the Assistent uses the same door later. |
 | Q16 | 4 Oct 2026 | Screenshots of the outside examples in the document? (Koen) | No: described in words in A5, abstract, no name — the repository is public. Concepts for C9 go in Koen's project folder, never in the repository. |
 
@@ -637,8 +638,8 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 
 - **#1427** — the tracking issue of this change.
 - **#520, #555, #1173, #1224, #1230** — Trix adopted, extended by hand; the workarounds this change removes.
-- **CR-05** — the newsletter's editor and markers; phase 3 replaces the markers.
-- **CR-09** — the meeting notes' autosave; phase 3 keeps it.
+- **CR-05** — the newsletter's editor and markers; phase 5 replaces the markers.
+- **CR-09** — the meeting notes' autosave; phase 5 keeps it.
 - **CR-11** — P8 (this change), row 15, row 40 (one toolbar, gate 14), beslissing 01 (the brand file per tenant, the public radius and shadow), blocks 5–9 (the record and document layouts), block 10 (the Assistent writing through the JSON door), Q14's declared exception for a data table.
 - **CR-15** — the picker and the library, built on v2.13.0; the figure, gallery and card pictures.
 - **CR-19** — a tenant of the kind company; a CMS page as home (built); modules per tenant (the form block only with the forms module); the button to a form on a company page.
