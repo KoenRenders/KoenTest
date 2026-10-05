@@ -342,12 +342,15 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    that from what stands in it (`:has`), so a save or a cancel — the form back
    in read mode — gives the 768 px column and the card at the right again
    without anybody saying so. Only where the frame has the 1 092 px: with the
-   Assistent's panel open, or on a smaller window, nothing changes. Long text
-   keeps its reading width of 768 px inside the wider column. */
+   Assistent's panel open, or on a smaller window, nothing changes.
+
+   #1635 (Koen, 5 October 2026; CR-11 Q74): every field of full width fills
+   the wider column, a text box included — the width of a field follows its
+   column. #1610 kept `textarea`, `url` and `email` at 768 px here, which left
+   Omschrijving and Interne nota with a gap of 290 px at their right. */
 @container record (min-width:1092px){
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1092px)}
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) :is([data-kind="textarea"],[data-kind="url"],[data-kind="email"]){max-width:768px}
 }
 .summary-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;align-items:center}
 .summary-card [data-summary-state]{grid-column:1;grid-row:1}
