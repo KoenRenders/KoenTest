@@ -274,8 +274,9 @@ def test_word_lid_on_a_phone_from_the_first_field_to_the_stored_household(browse
         expect(partner.locator("[data-row-title]")).to_have_text(f"Marie Rijen {tag}")
 
         # ── A row that was never saved goes without a question ──
-        child.locator("[data-row-menu-trigger]").click()
-        child.get_by_role("menuitem", name="Verwijderen").click()
+        # the person's own menu — the e-mail field they open with has one too (#1641)
+        child.locator(".group-fold-menu [data-row-menu-trigger]").click()
+        child.locator(".group-fold-menu").get_by_role("menuitem", name="Verwijderen").click()
         expect(rows).to_have_count(1)
         assert page.locator("[data-dialog]:visible").count() == 0, (
             "removing an unsaved row asked something"
@@ -856,6 +857,158 @@ def test_the_membership_card_shows_the_transfer_that_is_due(browser):
         assert box["x"] <= inner["x"] and inner["x"] + inner["width"] <= box["x"] + box["width"]
         assert page.evaluate("document.documentElement.scrollWidth") == 390
         assert card.locator("text=✅").count() == 0
+        # #1641 (Q79): the card is the one place — no link to a second screen,
+        # and the renewal page lands here while the renewal runs.
+        assert card.get_by_role("link").count() == 0
+        page.goto("/leden/gezin/vernieuwen")
+        pagina_klaar(page)
+        assert page.url == f"{BASE}/leden/gezin"
+    finally:
+        page.close()
+        _remove(email)
+
+
+# ── #1641: the add button under the last item, one e-mail field, the inset ───
+
+_ADD = """(group) => { const r = e => { const b = e.getBoundingClientRect(); return {top: Math.round(b.top + scrollY), bottom: Math.round(b.bottom + scrollY), x: Math.round(b.left), w: Math.round(b.width)}; };
+  const g = document.querySelector(group), own = s => [...g.querySelectorAll(s)].filter(e => e.closest('[data-repeating-group]') === g);
+  const rows = [...g.querySelectorAll(':scope > [data-group-rows] > [data-group-row]')], add = own('[data-group-add]');
+  const head = g.querySelector(':scope > div'), empty = own('[data-group-empty]')[0];
+  return {rows: rows.map(r), buttons: add.length, add: r(add[0]), head: r(head),
+          empty: empty && empty.checkVisibility() ? r(empty) : null,
+          page: [document.documentElement.scrollWidth, innerWidth]}; }"""
+
+
+@pytest.mark.parametrize("viewport", [DESKTOP, PHONE], ids=["1440", "390"])
+def test_gezinslid_toevoegen_stands_under_the_last_person_and_adds_above_itself(browser, viewport):
+    """#1641 (CR-11 Q76). Red on master: the button stood in the group's head,
+    above the first person. On Word lid the group is empty: the button stands
+    where the first person will come, under the empty line."""
+    tag = uuid.uuid4().hex[:8]
+    email = _sign_up(browser, tag)
+    page = _open(browser, "/leden/gezin?bewerken=1", viewport, session=_session(email))
+    try:
+        page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
+        m = page.evaluate(_ADD, "#gezinsleden")
+        print("MEASURE add under last", viewport["width"], m)
+        assert m["buttons"] == 1 and len(m["rows"]) == 1
+        assert m["add"]["top"] >= m["rows"][-1]["bottom"], "the button is not under the last person"
+        assert m["add"]["top"] > m["head"]["bottom"], "the button is still in the head"
+        page.get_by_role("button", name="Gezinslid toevoegen").click()
+        expect(page.locator(PERSONS)).to_have_count(2)
+        after = page.evaluate(_ADD, "#gezinsleden")
+        assert after["rows"][-1]["bottom"] <= after["add"]["top"], "the new person is not above it"
+        assert after["add"]["top"] > m["add"]["top"], "the button did not move down"
+        assert after["page"] == [viewport["width"], viewport["width"]]
+        # the e-mail group of a person keeps its button in its head
+        mails = page.evaluate(_ADD, "#hoofdlid [data-repeating-group]")
+        assert mails["add"]["top"] < mails["rows"][0]["top"], "the e-mail button left its head"
+        assert page.errors == []
+    finally:
+        page.close()
+        _remove(email)
+
+    signup = _open(browser, "/lid-worden", viewport)
+    try:
+        s = signup.evaluate(_ADD, "#gezinsleden")
+        assert s["rows"] == [] and s["empty"], "Word lid starts with an empty group"
+        assert s["add"]["top"] >= s["empty"]["bottom"], "the button is not where the first comes"
+        signup.get_by_role("button", name="Gezinslid toevoegen").click()
+        expect(signup.locator(PERSONS)).to_have_count(1)
+        s = signup.evaluate(_ADD, "#gezinsleden")
+        assert s["rows"][0]["bottom"] <= s["add"]["top"]
+    finally:
+        signup.close()
+
+
+def test_every_person_opens_with_one_email_field_and_an_empty_one_is_not_saved(browser):
+    """#1641 (Q77). Red on master: the partner's group read "Nog geen
+    e-mailadres." and a new person's had no field. Saving with the partner's
+    field empty writes no address and refuses nothing."""
+    tag = uuid.uuid4().hex[:8]
+    email = _sign_up(browser, tag)
+    page = _open(browser, "/leden/gezin?bewerken=1", PHONE, session=_session(email))
+    try:
+        page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
+        partner = page.locator(PERSONS).nth(0)
+        partner.locator("summary").click()
+        mail = partner.locator('input[type="email"]')
+        expect(mail).to_have_count(1)
+        expect(mail).to_be_visible()
+        expect(mail).to_have_value("")
+        assert mail.get_attribute("required") is None
+        expect(partner.get_by_text("Nog geen e-mailadres.")).to_be_hidden()
+        # "+ E-mailadres" adds a second one
+        partner.locator("[data-repeating-group] [data-group-add]").click()
+        expect(partner.locator('input[type="email"]')).to_have_count(2)
+        # a person added in the page has one of their own
+        page.get_by_role("button", name="Gezinslid toevoegen").click()
+        new = page.locator(PERSONS).nth(1)
+        expect(new.locator('input[type="email"]')).to_have_count(1)
+        new.locator(".group-fold-menu [data-row-menu-trigger]").click()
+        new.locator(".group-fold-menu").get_by_role("menuitem", name="Verwijderen").click()
+
+        page.fill("#address-street", "Legestraat")
+        page.locator("[data-form-save]").click()
+        expect(page.locator("[data-form-flow]")).to_have_attribute("data-mode", "read")
+        stored = _household(email)
+        assert stored["persons"]["Partner"]["emails"] == {}, "an empty field became an address"
+        assert stored["address"][0] == "Legestraat"
+        assert page.errors == []
+    finally:
+        page.close()
+        _remove(email)
+
+    # Word lid: the main member's empty field is refused, with the message on the field
+    signup = _open(browser, "/lid-worden", PHONE)
+    try:
+        fill_person(signup.locator(HEAD), "Zonder", f"Adres {tag}")
+        signup.locator(HEAD).locator('input[name$=".mobile"]').fill("0470000000")
+        signup.fill("#address-street", "Teststraat")
+        signup.fill("#address-house_number", "1")
+        signup.select_option("#address-postal_code", index=1)
+        signup.check('input[name="payment_method"][value="transfer"]')
+        signup.locator("[data-form-save]").click()
+        field = signup.locator(HEAD).locator('input[type="email"]')
+        expect(field).to_have_attribute("aria-invalid", "true")
+        expect(field).to_be_focused()
+        expect(signup.locator(HEAD)).to_contain_text(
+            "E-mailadres is verplicht voor het hoofdgezinslid."
+        )
+    finally:
+        signup.close()
+
+
+_INSET = """() => { const card = document.querySelector('[data-membership-status]'), inset = card.querySelector('[data-inset]');
+  const c = card.getBoundingClientRect(), b = inset.getBoundingClientRect(), s = getComputedStyle(inset);
+  const first = inset.firstElementChild.getBoundingClientRect();
+  return {card: [Math.round(c.left), Math.round(c.width)], box: [Math.round(b.left), Math.round(b.top + scrollY), Math.round(b.width), Math.round(b.height)],
+          padding: [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft], radius: s.borderTopLeftRadius,
+          tint: s.backgroundColor, border: s.borderTopWidth, shadow: s.boxShadow,
+          title: inset.querySelector('[data-inset-title]').innerText, inner: Math.round(first.left - b.left),
+          lines: [...inset.querySelectorAll('li')].map(li => li.innerText.split(':')[0]),
+          page: [document.documentElement.scrollWidth, innerWidth]}; }"""
+
+
+@pytest.mark.parametrize("viewport", [DESKTOP, PHONE], ids=["1440", "390"])
+def test_the_transfer_stands_in_the_card_as_an_inset_of_the_kit(browser, viewport):
+    """#1641 point 4 (Q79), the box and its padding measured. Red on master: loose
+    lines in the card, no inset."""
+    tag = uuid.uuid4().hex[:8]
+    email = _sign_up(browser, tag, partner=False)
+    page = _open(browser, "/leden/gezin", viewport, session=_session(email))
+    try:
+        m = page.evaluate(_INSET)
+        print("MEASURE inset", viewport["width"], m)
+        assert m["title"] == "Vernieuwing geregistreerd — betaal via overschrijving:"
+        assert m["padding"] == ["16px"] * 4 and m["radius"] == "6px"
+        assert m["tint"] not in ("rgb(255, 255, 255)", "rgba(0, 0, 0, 0)"), "no tint"
+        assert m["border"] == "0px" and m["shadow"] == "none", "an inset is no card"
+        assert m["inner"] == 16
+        # inside the card, with the card's own 16 px on both sides
+        assert m["box"][0] == m["card"][0] + 17 and m["box"][2] == m["card"][1] - 34, m
+        assert m["lines"][0] == "Bedrag" and m["lines"][-1] == "Mededeling (OGM)"
+        assert m["page"] == [viewport["width"], viewport["width"]]
     finally:
         page.close()
         _remove(email)

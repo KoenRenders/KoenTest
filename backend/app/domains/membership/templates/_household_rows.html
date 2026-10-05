@@ -28,7 +28,7 @@
 {% call ui.repeating_group(_("E-mailadressen"), "e_order." ~ p.key, token=group.new_email.key,
                            add_label=_("E-mailadres"), edit=edit, child=True, count=p.emails|length,
                            empty=_("Nog geen e-mailadres."), template=_template,
-                           hint=_("Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging."),
+                           hint=_("Met elk adres kan je inloggen. Het hoofdadres ontvangt de bevestiging."),
                            one={"name": "e_primary." ~ p.key, "value": p.primary_key}, required=_required) %}
   {% for m in p.emails %}{{ email_row(p.key, m, _required and m.primary, edit) }}{% endfor %}
 {% endcall %}

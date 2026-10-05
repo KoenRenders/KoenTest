@@ -34,6 +34,7 @@ pytestmark = pytest.mark.ui_serverrendered
 
 FORM = 'id="vernieuw-form"'
 RENEW_PAGE = "/leden/gezin/vernieuwen"
+HOUSEHOLD = "/leden/gezin"
 
 
 def _login_as(client, email):
@@ -74,7 +75,11 @@ def test_overschrijving_toont_instructies_bij_een_verse_get(client, db_session):
     _, rec = _openstaande_vernieuwing(db_session, member)
     _login_as(client, "vern@example.com")
 
-    html = client.get(RENEW_PAGE).text
+    # #1641 (CR-11 Q79): the renewal page only starts a renewal; while one runs
+    # it lands on Mijn gezin, whose Lidmaatschap card is the one place for it.
+    answer = client.get(RENEW_PAGE, follow_redirects=False)
+    assert answer.status_code == 303 and answer.headers["location"] == HOUSEHOLD
+    html = client.get(HOUSEHOLD).text
     assert "+++123/4567/89012+++" in html
     # #1241: `35,00` en niet `35.00`. Deze regel legde de Amerikaanse notatie vast die
     # op de schermafdruk van de betaalinstructies opviel; het `geld`-filter (#735) doet
@@ -100,8 +105,9 @@ def test_mijn_gezin_points_to_the_running_renewal_and_offers_no_second_one(clien
 
     _openstaande_vernieuwing(db_session, member)
     after = client.get("/leden/gezin").text
-    assert "Je vernieuwing loopt nog." in after and "Bekijk de betaling" in after
-    assert button in after, "no way to the payment"
+    assert "Je vernieuwing loopt nog." in after
+    # #1641: the card is the one place — no link to a second screen.
+    assert "Bekijk de betaling" not in after and button not in after
     assert ">Lidmaatschap vernieuwen</a>" not in after, "a second renewal is offered"
     # #1632 (CR-11 Q73): what to pay stands in the card itself, not one click further.
     assert "+++123/4567/89012+++" in after, "the transfer to make is not in the card"
@@ -122,7 +128,11 @@ def test_afgebroken_online_betaling_toont_hervatknop(client, db_session):
     _openstaande_vernieuwing(db_session, member, method="online", gateway_payment_id=gw.id)
     _login_as(client, "online@example.com")
 
-    html = client.get(RENEW_PAGE).text
+    # #1641 (CR-11 Q79): the renewal page only starts a renewal; while one runs
+    # it lands on Mijn gezin, whose Lidmaatschap card is the one place for it.
+    answer = client.get(RENEW_PAGE, follow_redirects=False)
+    assert answer.status_code == 303 and answer.headers["location"] == HOUSEHOLD
+    html = client.get(HOUSEHOLD).text
     assert "Betaling hervatten" in html
     assert "https://betaal.example/hervat" in html
     assert FORM not in html
@@ -133,7 +143,11 @@ def test_online_zonder_checkout_url_toont_uitleg(client, db_session):
     _openstaande_vernieuwing(db_session, member, method="online")
     _login_as(client, "geenurl@example.com")
 
-    html = client.get(RENEW_PAGE).text
+    # #1641 (CR-11 Q79): the renewal page only starts a renewal; while one runs
+    # it lands on Mijn gezin, whose Lidmaatschap card is the one place for it.
+    answer = client.get(RENEW_PAGE, follow_redirects=False)
+    assert answer.status_code == 303 and answer.headers["location"] == HOUSEHOLD
+    html = client.get(HOUSEHOLD).text
     assert "Je vernieuwing loopt nog" in html and "nog niet afgerond" in html
     assert "Betaling hervatten" not in html
     assert FORM not in html
@@ -205,12 +219,14 @@ def test_a_transfer_renewal_answers_the_page_with_what_to_pay(client, db_session
     answer = _renew(client, csrf, payment_method="transfer")
 
     assert answer.status_code == 200, answer.text[:300]
-    assert "HX-Redirect" not in answer.headers
+    # #1641: what to pay stands in the card of Mijn gezin; the answer goes
+    # there with a hard redirect, as an online payment goes to its checkout.
+    assert answer.headers["HX-Redirect"] == HOUSEHOLD and answer.text == ""
     db_session.expire_all()
     booked = db_session.query(PaymentRecord).filter_by(payable_type="membership").one()
     assert booked.method.value == "transfer" and booked.structured_communication
-    html = answer.text
-    start = html.index("data-renewal-transfer")
+    html = client.get(HOUSEHOLD).text
+    start = html.index("data-transfer-due")
     block = html[start : html.index("</ul>", start)]
     assert "Vernieuwing geregistreerd" in block
     assert booked.structured_communication in block

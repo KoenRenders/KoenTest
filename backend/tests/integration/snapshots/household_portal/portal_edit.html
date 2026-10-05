@@ -57,7 +57,7 @@
 <h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
 <button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>E-mailadres</button>
 </div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging.</p>
+<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
 <input type="hidden" name="e_primary.<MAIN>" value="<CONTACT>" data-group-one>
 <div data-group-rows class="group-rows">
 <div data-group-row data-row-key="<CONTACT>" class="group-row group-row--simple group-row--edit group-row--one">
@@ -146,7 +146,6 @@
  class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
 <div class="flex items-center justify-between gap-3 min-h-9 mb-2">
 <h2 class="text-base font-semibold leading-6 text-ink">Gezinsleden</h2>
-<button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Gezinslid toevoegen</button>
 </div>
 <div data-group-rows class="group-rows">
 <div data-group-row data-row-key="<PARTNER>" class="group-row group-row--composite group-row--edit group-row--fold">
@@ -202,11 +201,32 @@
 <h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
 <button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>E-mailadres</button>
 </div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging.</p>
-<input type="hidden" name="e_primary.<PARTNER>" value="" data-group-one>
+<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
+<input type="hidden" name="e_primary.<PARTNER>" value="n<PARTNER>e" data-group-one>
 <div data-group-rows class="group-rows">
+<div data-group-row data-row-key="n<PARTNER>e" class="group-row group-row--simple group-row--edit group-row--one">
+<input type="hidden" name="e_order.<PARTNER>" value="n<PARTNER>e" data-row-order>
+<div data-row-body class="group-body min-w-0">
+<div data-form-grid class="form-grid">
+<div data-field="e.n<PARTNER>e.value" data-kind="email" data-span="full" class="min-w-0">
+<input type="email"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-n<PARTNER>e-value" name="e.n<PARTNER>e.value" aria-label="E-mailadres" >
 </div>
-<p data-group-empty class="text-sm text-ink-soft">Nog geen e-mailadres.</p>
+</div>
+</div>
+<span data-row-one-tag class="shrink-0"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
+ class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" @click="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-48 py-1 bg-white border border-line rounded-lg shadow-lg">
+<button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2" hidden>Maak hoofdadres</button>
+<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2" data-row-keeps>Verwijderen</button>
+</div>
+</div>
+</div>
+</div>
+<p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen e-mailadres.</p>
 <template data-group-template><div data-group-row data-row-key="__E__" class="group-row group-row--simple group-row--edit group-row--one">
 <input type="hidden" name="e_order.<PARTNER>" value="__E__" data-row-order>
 <div data-row-body class="group-body min-w-0">
@@ -292,11 +312,32 @@
 <h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
 <button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>E-mailadres</button>
 </div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging.</p>
-<input type="hidden" name="e_primary.<CHILD>" value="" data-group-one>
+<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
+<input type="hidden" name="e_primary.<CHILD>" value="n<CHILD>e" data-group-one>
 <div data-group-rows class="group-rows">
+<div data-group-row data-row-key="n<CHILD>e" class="group-row group-row--simple group-row--edit group-row--one">
+<input type="hidden" name="e_order.<CHILD>" value="n<CHILD>e" data-row-order>
+<div data-row-body class="group-body min-w-0">
+<div data-form-grid class="form-grid">
+<div data-field="e.n<CHILD>e.value" data-kind="email" data-span="full" class="min-w-0">
+<input type="email"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-n<CHILD>e-value" name="e.n<CHILD>e.value" aria-label="E-mailadres" >
 </div>
-<p data-group-empty class="text-sm text-ink-soft">Nog geen e-mailadres.</p>
+</div>
+</div>
+<span data-row-one-tag class="shrink-0"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
+ class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" @click="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-48 py-1 bg-white border border-line rounded-lg shadow-lg">
+<button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2" hidden>Maak hoofdadres</button>
+<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2" data-row-keeps>Verwijderen</button>
+</div>
+</div>
+</div>
+</div>
+<p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen e-mailadres.</p>
 <template data-group-template><div data-group-row data-row-key="__E__" class="group-row group-row--simple group-row--edit group-row--one">
 <input type="hidden" name="e_order.<CHILD>" value="__E__" data-row-order>
 <div data-row-body class="group-body min-w-0">
@@ -332,6 +373,7 @@
 </div>
 </div>
 <p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen gezinsleden.</p>
+<div data-group-add-below class="mt-3"><button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Gezinslid toevoegen</button></div>
 <template data-group-template><div data-group-row data-row-key="__H__" class="group-row group-row--composite group-row--edit group-row--fold">
 <input type="hidden" name="h_order" value="__H__" data-row-order>
 <div data-row-body class="group-body min-w-0">
@@ -390,11 +432,32 @@
 <h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
 <button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>E-mailadres</button>
 </div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging.</p>
-<input type="hidden" name="e_primary.__H__" value="" data-group-one>
+<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
+<input type="hidden" name="e_primary.__H__" value="__H__e" data-group-one>
 <div data-group-rows class="group-rows">
+<div data-group-row data-row-key="__H__e" class="group-row group-row--simple group-row--edit group-row--one">
+<input type="hidden" name="e_order.__H__" value="__H__e" data-row-order>
+<div data-row-body class="group-body min-w-0">
+<div data-form-grid class="form-grid">
+<div data-field="e.__H__e.value" data-kind="email" data-span="full" class="min-w-0">
+<input type="email"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-__H__e-value" name="e.__H__e.value" aria-label="E-mailadres" >
 </div>
-<p data-group-empty class="text-sm text-ink-soft">Nog geen e-mailadres.</p>
+</div>
+</div>
+<span data-row-one-tag class="shrink-0"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
+ class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" @click="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-48 py-1 bg-white border border-line rounded-lg shadow-lg">
+<button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2" hidden>Maak hoofdadres</button>
+<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2" data-row-keeps>Verwijderen</button>
+</div>
+</div>
+</div>
+</div>
+<p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen e-mailadres.</p>
 <template data-group-template><div data-group-row data-row-key="__E__" class="group-row group-row--simple group-row--edit group-row--one">
 <input type="hidden" name="e_order.__H__" value="__E__" data-row-order>
 <div data-row-body class="group-body min-w-0">

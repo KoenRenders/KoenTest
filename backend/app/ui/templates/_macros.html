@@ -552,6 +552,20 @@
 </section>
 {%- endmacro %}
 
+{# `inset(title)` — a block INSIDE a card (end state §1.2, `surface-inset`;
+   #1641, CR-11 Q79): the soft brand tint, the control radius, 16 px of padding,
+   no border. For what belongs to the card but stands apart in it — the
+   transfer a member still has to make, in the Lidmaatschap card. Never on the
+   page's ground and never a card in a card: it has no shadow and no line.
+   `title` is its one heading line; `attrs` are the caller's hooks. The tint is
+   the brand's, so it follows a tenant's own colour (#1622). #}
+{% macro inset(title=None, attrs="") -%}
+<div data-inset {{ attrs|safe }} class="rounded-md bg-blue-50 p-4 text-sm leading-[21px] text-ink">
+  {% if title %}<p data-inset-title class="font-semibold">{{ title }}</p>{% endif %}
+  {{ caller() }}
+</div>
+{%- endmacro %}
+
 {# `rare_settings(title, summary)` — one closed section in the LAST slot of the
    form: what is rarely set (external links, a poster address). Closed by
    default; the one-line `summary` says what is set inside ("2 externe links"),
@@ -787,6 +801,12 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    rows, for the empty line. A screen writes no row structure of its own: a
    handle, a row menu or an up/down button outside these macros is red
    (`tests/test_repeating_group_gate.py`). #}
+{# Where the add button stands (#1641, CR-11 Q76; end state §3.3): a COMPOSITE
+   group — items with fields of their own, each as tall as a small form — adds
+   **under its last item**, where the next one will come; in the head the
+   button was a screen away from the place it fills. A simple group (rows of
+   one line) and a child group (Producten under a component) keep it in the
+   head. A property of the form, not of a screen: no parameter chooses it. #}
 {# `required` (#646, #1632): the group's rows are ONE field without a label of
    its own (`label_hidden`) and one of them is asked — the title is that field's
    label, so the red star stands on the title. #}
@@ -794,12 +814,13 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
                          variant="simple", columns=[], child=False, count=0, template="",
                          handle=False, hint=None, id=None, footer="", one=None, required=False) -%}
 {%- set _tag = "div" if child else "section" -%}
+{%- set _add_below = variant == "composite" and not child -%}
 <{{ _tag }} data-repeating-group="{{ name }}" data-variant="{{ variant }}" data-token="{{ token }}"{% if id %} id="{{ id }}"{% endif %}
    class="{% if child %}group-child{% else %}form-section bg-surface border border-line rounded-2xl shadow-sm p-4{% endif %}">
   <div class="flex items-center justify-between gap-3 min-h-9{% if not child %} mb-2{% endif %}">
     {% if child %}<h3 class="text-base font-semibold leading-6 text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</h3>
     {% else %}<h2 class="text-base font-semibold leading-6 text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</h2>{% endif %}
-    {% if edit and add_label %}
+    {% if edit and add_label and not _add_below %}
     <button type="button" data-group-add class="{{ btn_class('secondary', 'sm') }} inline-flex items-center gap-1 min-h-11 md:min-h-9">{{ icon("plus", 16) }}{{ add_label }}</button>
     {% endif %}
   </div>
@@ -814,6 +835,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% if edit and one %}<input type="hidden" name="{{ one.name }}" value="{{ one.value or '' }}" data-group-one>{% endif %}
   <div data-group-rows class="group-rows">{{ caller() }}</div>
   <p data-group-empty class="text-sm text-ink-soft"{% if count %} hidden{% endif %}>{{ empty }}</p>
+  {% if edit and add_label and _add_below %}<div data-group-add-below class="mt-3"><button type="button" data-group-add class="{{ btn_class('secondary', 'sm') }} inline-flex items-center gap-1 min-h-11 md:min-h-9">{{ icon("plus", 16) }}{{ add_label }}</button></div>{% endif %}
   {% if edit and footer %}<div data-group-footer class="mt-3">{{ footer }}</div>{% endif %}
   {% if edit and template %}<template data-group-template>{{ template }}</template>{% endif %}
 </{{ _tag }}>

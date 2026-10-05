@@ -245,24 +245,20 @@ def test_a_renewal_that_waits_for_a_transfer_shows_what_to_pay_in_the_card(clien
     db_session.commit()
 
     card = _card(_page(client, "storting@example.com", READ))
-    assert "Je vernieuwing loopt nog." in card and "Bekijk de betaling" in card
+    assert "Je vernieuwing loopt nog." in card
     assert card.count("data-transfer-due") == 1
-    assert OGM in card and "35,00" in card and "Betaal via overschrijving:" in card
-    # one source: the renewal page shows the same block
-    renew = _page(client, "storting@example.com", "/leden/gezin/vernieuwen")
-    assert renew.count("data-transfer-due") == 1 and OGM in renew
-    due = re.compile(r"<div data-transfer-due>.*?</div>", re.S)
-    assert due.search(card).group(0) == due.search(renew).group(0)
+    assert OGM in card and "35,00" in card and "betaal via overschrijving:" in card
 
 
-def test_the_two_pages_take_the_transfer_from_one_template():
-    """One source, not a copy: only `_transfer_due.html` writes the lines."""
+def test_only_the_card_writes_what_a_running_renewal_asks():
+    """One source (#1641: the renewal page lost its running view): only
+    `_renewal_running.html` writes the lines, and only the card includes it."""
     from pathlib import Path
 
     templates = Path(__file__).resolve().parents[2] / "app/domains/membership/templates"
     writers = [p.name for p in templates.glob("*.html") if "Mededeling (OGM)" in p.read_text()]
-    assert writers == ["_transfer_due.html"]
+    assert writers == ["_renewal_running.html"]
     users = sorted(
-        p.name for p in templates.glob("*.html") if '"_transfer_due.html"' in p.read_text()
+        p.name for p in templates.glob("*.html") if '"_renewal_running.html"' in p.read_text()
     )
-    assert users == ["_renewal_running.html", "gezin_portaal.html"]
+    assert users == ["gezin_portaal.html"]

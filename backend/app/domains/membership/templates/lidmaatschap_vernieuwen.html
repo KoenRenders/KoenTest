@@ -5,10 +5,11 @@
 {# Renewing the membership, its own act on its own page (CR-11 pilot B, #1590;
    end state §2.6): the status line, the card with the price, the validity and
    the payment choice, the one button — then the household in a few lines with
-   the way to Mijn gezin. A renewal that is already running shows how it stands
-   instead of the form (#618): the page never invites to an act that cannot
-   succeed. Amount and reference of a running renewal come from the booking
-   itself. `#vernieuw-pagina` is what an answer replaces. #}
+   the way to Mijn gezin. This page only STARTS a renewal (#1641, CR-11 Q79):
+   one that is already running stands in the Lidmaatschap card of Mijn gezin,
+   and opening this page meanwhile lands there — the page never invites to an
+   act that cannot succeed (#618). `#vernieuw-pagina` is what an answer
+   replaces. #}
 <div id="vernieuw-pagina">
 {% call ui.public_form_page(_("Lidmaatschap vernieuwen"), intro=_("Vernieuw het lidmaatschap voor je hele gezin."),
                             back_href="/leden/gezin", back_label=_("Mijn gezin")) %}
@@ -19,9 +20,7 @@
     {% else %}{{ _("Je gezin heeft momenteel geen geldig lidmaatschap.") }}{% endif %}
   </p>
   <div id="vernieuw-melding" data-form-message></div>
-  {% if page.transfer or page.online %}
-  {% include "_renewal_running.html" %}
-  {% elif page.renewal_available and page.terms %}
+  {% if page.renewal_available and page.terms %}
   <form id="vernieuw-form" class="contents" data-record-form data-message="#vernieuw-melding" novalidate
         hx-post="/leden/gezin/vernieuwen" hx-target="#vernieuw-pagina" hx-select="#vernieuw-pagina"
         hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">

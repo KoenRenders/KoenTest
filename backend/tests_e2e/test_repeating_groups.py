@@ -516,3 +516,49 @@ def test_a_row_is_dragged_by_its_handle_and_escape_gives_up(setup):
     assert _rows(page, "aa-group-components")[:2] == [order[1], order[0]]
     assert page.locator(".group-dragging, .group-drop-after, .group-drop-before").count() == 0
     page.close()
+
+
+# ── #1641: a composite group adds under its last item ────────────────────────
+
+_PLACES = """() => { const r = e => { const b = e.getBoundingClientRect(); return {top: Math.round(b.top + scrollY), bottom: Math.round(b.bottom + scrollY)}; };
+  const of = g => { const own = s => [...g.querySelectorAll(s)].filter(e => e.closest('[data-repeating-group]') === g);
+    const rows = [...g.querySelectorAll(':scope > [data-group-rows] > [data-group-row]')];
+    return {rows: rows.map(r), add: r(own('[data-group-add]')[0]), buttons: own('[data-group-add]').length, head: r(g.querySelector(':scope > div'))}; };
+  return {components: of(document.getElementById('aa-group-components')), dates: of(document.getElementById('aa-group-dates')),
+          products: of(document.querySelector('[data-repeating-group^="p_order."]')),
+          page: [document.documentElement.scrollWidth, innerWidth]}; }"""
+
+
+@pytest.mark.parametrize("width", [1440, 390])
+def test_onderdeel_is_added_under_the_last_component_and_the_others_keep_their_head(setup, width):
+    """#1641 (CR-11 Q76; end state §3.3). Red on master: "+ Onderdeel" stood in
+    the group's head, a screen above the place the new component comes."""
+    page = _page(setup, width)
+    try:
+        page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
+        m = page.evaluate(_PLACES)
+        print(
+            "MEASURE add places",
+            width,
+            {k: (v["add"], v["rows"][-1]) for k, v in m.items() if k != "page"},
+        )
+        c = m["components"]
+        assert c["buttons"] == 1
+        assert c["add"]["top"] >= c["rows"][-1]["bottom"], "+ Onderdeel is not under the last one"
+        assert c["add"]["top"] > c["head"]["bottom"]
+        for name in ("dates", "products"):
+            g = m[name]
+            assert g["add"]["top"] < g["rows"][0]["top"], f"{name}: the button left the head"
+            assert (
+                g["head"]["top"] <= g["add"]["top"]
+                and g["add"]["bottom"] <= g["head"]["bottom"] + 1
+            )
+        page.locator("#aa-group-components > [data-group-add-below] [data-group-add]").click()
+        after = page.evaluate(_PLACES)["components"]
+        assert len(after["rows"]) == len(c["rows"]) + 1
+        assert after["rows"][-1]["bottom"] <= after["add"]["top"], (
+            "the new component is not above it"
+        )
+        assert m["page"] == [width, width]
+    finally:
+        page.close()

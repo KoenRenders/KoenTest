@@ -895,7 +895,7 @@
    rows are added, moved, duplicated and removed in the page. #}
 {{ ui.section_header(_("13d · Herhalende groep"), cls="mt-10") }}
 <p class="text-sm text-gray-600 mb-3">
-  {{ _("Rijen van een record: eenvoudig (de labels één keer als kolomkop) of samengesteld (kopregel, velden, een kindgroep achter een lijn). Toevoegen, verplaatsen, dupliceren en weghalen gebeurt in de pagina; het ene Opslaan van het formulier schrijft de rijen. Een rij weghalen vraagt daarom geen bevestiging.") }}
+  {{ _("Rijen van een record: eenvoudig (de labels één keer als kolomkop) of samengesteld (kopregel, velden, een kindgroep achter een lijn). Toevoegen, verplaatsen, dupliceren en weghalen gebeurt in de pagina; het ene Opslaan van het formulier schrijft de rijen. Een rij weghalen vraagt daarom geen bevestiging. Een samengestelde groep draagt haar toevoegknop onder het laatste item, waar het volgende komt; een eenvoudige groep en een kindgroep houden hem in de kop.") }}
 </p>
 {% macro _kit_date(key, value, van, edit) %}
 {% call ui.group_row("kit_d_order", key, edit=edit, menu=["duplicate", "remove"], label=_("deze datum")) %}
@@ -1088,6 +1088,16 @@
 <div class="form-flow">
   {% call ui.flow_card(_("Betaling nog af te ronden")) %}
     <p>{{ _("Een kaart met woorden, geen velden: wat een bevestiging nog te zeggen heeft.") }}</p>
+    {# #1641: an inset — a block inside a card, in the soft brand tint; never
+       on the ground, never a card in a card. #}
+    <div class="mt-2" data-kit-inset>
+    {% call ui.inset(_("Vernieuwing geregistreerd — betaal via overschrijving:")) %}
+      <ul class="mt-1 space-y-0.5">
+        <li>{{ _("Bedrag") }}: <strong>€ 35,00</strong></li>
+        <li>{{ _("Mededeling (OGM)") }}: <strong>+++000/0000/00097+++</strong></li>
+      </ul>
+    {% endcall %}
+    </div>
   {% endcall %}
   {{ ui.save_refusal([{"field": "kit_pf_name", "message": _("Vul je naam in.")}], send=True) }}
   {% call ui.form_grid() %}
