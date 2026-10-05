@@ -9,8 +9,8 @@ not what Alpine does with it. Two behaviours are browser-only:
 - choosing another option (radio) or unticking "Anders" (checkbox) empties
   the box, because the server ticks "Anders" again as soon as text arrives.
 
-The wizard and the jumps between sections have their own browser tests in
-`test_formulier_wizard_stap.py`.
+The jumps between sections have their own browser tests in
+`test_public_form_page.py`.
 
 Broken on purpose to check that these tests can go red: the group's
 `@change` handler removed from the radio branch of `_formulier_veld.html` →
@@ -76,7 +76,7 @@ def _open(page, token):
 
 
 def _option(page, field_id, label):
-    return page.locator(f'[data-veld="f{field_id}"] label', has_text=label).locator("input").first
+    return page.locator(f'[data-field="f{field_id}"] label', has_text=label).locator("input").first
 
 
 @pytest.mark.parametrize("kind", ["radio", "checkbox"])

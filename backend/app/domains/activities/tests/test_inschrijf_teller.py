@@ -256,8 +256,11 @@ def test_what_the_visitor_typed_survives_a_validation_error(client, db_session):
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={"contact_name": "", "contact_email": "x", "phone": "", f"product_{product.id}": "0"},
     )
-    assert respons.status_code == 200
-    assert 'value="0"' in _veld(respons.text, product.id), (
-        "de herrendering zette het aantal terug op de standaard; wat de bezoeker "
-        "invulde hoort te blijven staan"
+    # #1589: een weigering tekent het formulier niet opnieuw — het antwoord is de
+    # banner alleen (422), dus er IS geen herrendering die opnieuw kan voorvullen.
+    # Wat de bezoeker typte blijft in de pagina staan (`tests_e2e/
+    # test_public_registration_page.py` kijkt dat in de browser na).
+    assert respons.status_code == 422
+    assert "<input" not in respons.text, (
+        "de weigering tekent het formulier opnieuw; wat de bezoeker invulde hoort te blijven staan"
     )

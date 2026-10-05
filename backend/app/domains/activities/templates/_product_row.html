@@ -16,20 +16,21 @@
    `activities/templates`, and `ui.stepper(` only in this file. #}
 
 {#- The counter of a quantity, with the labels a screen reader needs. -#}
-{% macro quantity(name, id, value, product_name="", min=0, max=99, attrs="") -%}
-{{ ui.stepper(name, id=id, value=value, min=min, max=max,
+{% macro quantity(name, id, value, product_name="", min=0, max=99, attrs="", touch=False) -%}
+{{ ui.stepper(name, id=id, value=value, min=min, max=max, touch=touch,
               label_minder=_("Eén minder") ~ (" — " ~ product_name if product_name else ""),
               label_meer=_("Eén meer") ~ (" — " ~ product_name if product_name else ""),
               attrs=attrs) }}
 {%- endmacro %}
 
-{% macro product_row(product_name, price, name, id, value, min=0, max=99, attrs="", badge="") -%}
+{#- `touch` (#1589): the counter keeps its 44 px on a desktop — the public form page. -#}
+{% macro product_row(product_name, price, name, id, value, min=0, max=99, attrs="", badge="", touch=False) -%}
 <div class="flex items-center justify-between gap-x-3" data-product-row>
   <div class="text-sm">
     <span class="font-medium">{{ product_name }}</span>
     {{ badge }}
     {% if price %}<span class="ml-2 text-gray-500">{{ price }}</span>{% endif %}
   </div>
-  {{ quantity(name, id, value, product_name=product_name, min=min, max=max, attrs=attrs) }}
+  {{ quantity(name, id, value, product_name=product_name, min=min, max=max, attrs=attrs, touch=touch) }}
 </div>
 {%- endmacro %}

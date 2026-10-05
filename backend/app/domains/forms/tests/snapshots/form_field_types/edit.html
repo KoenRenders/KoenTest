@@ -1,13 +1,13 @@
-<div data-veld="f<F:text>" class="border-l-4 border-transparent pl-3 -ml-4">
-<label for="f<F:text>" class="block text-base font-semibold text-ink mb-2">Korte vraag <span class="text-red-600">*</span></label>
-<p class="text-xs text-gray-500 mb-1 whitespace-pre-line">Hulp bij tekst</p>
-<input type="text" name="f<F:text>" id="f<F:text>" value="Een antwoord"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
+<div data-field="f<F:text>" data-kind="text" data-span="full" class="min-w-0">
+<label for="f<F:text>" class="block text-sm font-medium leading-[21px] text-ink mb-1">Korte vraag <span class="text-red-600">*</span></label>
+<input type="text" value="Een antwoord"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="f<F:text>" name="f<F:text>" required aria-describedby="f<F:text>-help" >
+<p id="f<F:text>-help" data-field-help class="mt-1 text-[13px] leading-[19.5px] text-ink-soft [overflow-wrap:anywhere] whitespace-pre-line">Hulp bij tekst</p>
 </div>
-<div data-veld="f<F:textarea>" class="border-l-4 border-transparent pl-3 -ml-4">
-<label for="f<F:textarea>" class="block text-base font-semibold text-ink mb-2">Lange vraag</label>
+<div data-field="f<F:textarea>" data-kind="textarea" data-span="full" class="min-w-0">
+<label for="f<F:textarea>" class="block text-sm font-medium leading-[21px] text-ink mb-1">Lange vraag</label>
 <textarea name="f<F:textarea>" id="f<F:textarea>" rows="4"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
+ class="block w-full min-w-0 rounded-md border border-control-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus"
  x-data="{ bodem: 0,
  init() { this.groei(); if (this.bodem) return;
  const vak = this.$el, zelf = this;
@@ -21,106 +21,102 @@
  this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight + rand, this.bodem), 400) + `px`; } }"
  x-on:input="groei()" >Een lang antwoord</textarea>
 </div>
-<div data-veld="f<F:number>" class="border-l-4 border-transparent pl-3 -ml-4">
-<label for="f<F:number>" class="block text-base font-semibold text-ink mb-2">Getal</label>
-<input type="text" name="f<F:number>" id="f<F:number>" value="7.00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" inputmode="decimal">
+<div data-field="f<F:number>" data-kind="text" data-span="full" class="min-w-0">
+<label for="f<F:number>" class="block text-sm font-medium leading-[21px] text-ink mb-1">Getal</label>
+<input type="text" value="7.00"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="f<F:number>" name="f<F:number>" inputmode="decimal">
 </div>
-<div data-veld="f<F:email>" class="border-l-4 border-transparent pl-3 -ml-4">
-<label for="f<F:email>" class="block text-base font-semibold text-ink mb-2">Mailadres <span class="text-red-600">*</span></label>
-<input type="email" name="f<F:email>" id="f<F:email>" value="antwoord@example.org"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
+<div data-field="f<F:email>" data-kind="email" data-span="full" class="min-w-0">
+<label for="f<F:email>" class="block text-sm font-medium leading-[21px] text-ink mb-1">Mailadres <span class="text-red-600">*</span></label>
+<input type="email" value="antwoord@example.org"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="f<F:email>" name="f<F:email>" required >
 </div>
-<div data-veld="f<F:phone>" class="border-l-4 border-transparent pl-3 -ml-4">
-<label for="f<F:phone>" class="block text-base font-semibold text-ink mb-2">Telefoon</label>
-<input type="tel" name="f<F:phone>" id="f<F:phone>" value="0400 00 00 00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
+<div data-field="f<F:phone>" data-kind="phone" data-span="full" class="min-w-0">
+<label for="f<F:phone>" class="block text-sm font-medium leading-[21px] text-ink mb-1">Telefoon</label>
+<input type="tel" value="0400 00 00 00"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="f<F:phone>" name="f<F:phone>" >
 </div>
-<div data-veld="f<F:select>" class="border-l-4 border-transparent pl-3 -ml-4">
-<label for="f<F:select>" class="block text-base font-semibold text-ink mb-2">Keuzelijst</label>
-<select name="f<F:select>" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" id="f<F:select>">
-<option value="">—</option>
-<option value="<O:select.a>" >Optie A</option>
-<option value="<O:select.b>" selected>Optie B</option>
+<div data-field="f<F:select>" data-kind="select" data-span="full" class="min-w-0">
+<label for="f<F:select>" class="block text-sm font-medium leading-[21px] text-ink mb-1">Keuzelijst</label>
+<select class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line pr-2" id="f<F:select>" name="f<F:select>" >
+<option value="">—</option><option value="<O:select.a>">Optie A</option><option value="<O:select.b>" selected>Optie B</option>
 </select>
 </div>
-<div data-veld="f<F:radio>" class="border-l-4 border-transparent pl-3 -ml-4">
-<label for="f<F:radio>" class="block text-base font-semibold text-ink mb-2">Eén keuze <span class="text-red-600">*</span></label>
-<div class="mt-3" x-data
+<div data-field="f<F:radio>" data-kind="radio_group" data-span="full" class="min-w-0">
+<p id="f<F:radio>-label" class="text-sm font-medium leading-[21px] text-ink mb-1">Eén keuze <span class="text-red-600">*</span></p>
+<div role="radiogroup" aria-labelledby="f<F:radio>-label" class="grid" x-data
  @change="if ($refs.anders && $refs.keuze && !$refs.keuze.checked) $refs.anders.value = ''">
-<label class="flex flex-wrap items-center gap-2 text-sm py-2 cursor-pointer">
-<input type="radio" name="f<F:radio>" value="<O:radio.ja>"
+<label class="flex flex-wrap items-center gap-2 min-h-11 md:min-h-10 text-sm text-ink cursor-pointer">
+<input type="radio" name="f<F:radio>" value="<O:radio.ja>" class="h-[18px] w-[18px] shrink-0"
  >
  Ja
  </label>
-<label class="flex flex-wrap items-center gap-2 text-sm py-2 cursor-pointer">
-<input type="radio" name="f<F:radio>" value="<O:radio.verder>"
+<label class="flex flex-wrap items-center gap-2 min-h-11 md:min-h-10 text-sm text-ink cursor-pointer">
+<input type="radio" name="f<F:radio>" value="<O:radio.verder>" class="h-[18px] w-[18px] shrink-0"
  >
  Ga verder
  </label>
-<label class="flex flex-wrap items-center gap-2 text-sm py-2 cursor-pointer">
-<input type="radio" name="f<F:radio>" value="<O:radio.anders>"
+<label class="flex flex-wrap items-center gap-2 min-h-11 md:min-h-10 text-sm text-ink cursor-pointer">
+<input type="radio" name="f<F:radio>" value="<O:radio.anders>" class="h-[18px] w-[18px] shrink-0"
  x-ref="keuze"
  checked>
  Anders <input type="text" name="f<F:radio>_other" id="f<F:radio>_other" value="Iets anders" placeholder="…"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none flex-1 min-w-0" x-ref="anders" @input="$refs.keuze.checked = $event.target.value.trim().length > 0">
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none flex-1 min-w-0" aria-label="Anders" x-ref="anders" @input="$refs.keuze.checked = $event.target.value.trim().length > 0">
 </label>
 </div>
 </div>
-<div data-veld="f<F:checkbox>" class="border-l-4 border-transparent pl-3 -ml-4">
-<label for="f<F:checkbox>" class="block text-base font-semibold text-ink mb-2">Meerdere keuzes</label>
-<div class="mt-3" x-data
+<div data-field="f<F:checkbox>" data-kind="checkbox_group" data-span="full" class="min-w-0">
+<p id="f<F:checkbox>-label" class="text-sm font-medium leading-[21px] text-ink mb-1">Meerdere keuzes</p>
+<div role="group" aria-labelledby="f<F:checkbox>-label" class="grid" x-data
  @change="if ($refs.anders && $refs.keuze && !$refs.keuze.checked) $refs.anders.value = ''">
-<label class="flex flex-wrap items-center gap-2 text-sm py-2 cursor-pointer">
-<input type="checkbox" name="f<F:checkbox>" value="<O:checkbox.x>"
+<label class="flex flex-wrap items-center gap-2 min-h-11 md:min-h-10 text-sm text-ink cursor-pointer">
+<input type="checkbox" name="f<F:checkbox>" value="<O:checkbox.x>" class="h-[18px] w-[18px] shrink-0"
  checked>
  Vink X
  </label>
-<label class="flex flex-wrap items-center gap-2 text-sm py-2 cursor-pointer">
-<input type="checkbox" name="f<F:checkbox>" value="<O:checkbox.y>"
+<label class="flex flex-wrap items-center gap-2 min-h-11 md:min-h-10 text-sm text-ink cursor-pointer">
+<input type="checkbox" name="f<F:checkbox>" value="<O:checkbox.y>" class="h-[18px] w-[18px] shrink-0"
  >
  Vink Y
  </label>
-<label class="flex flex-wrap items-center gap-2 text-sm py-2 cursor-pointer">
-<input type="checkbox" name="f<F:checkbox>" value="<O:checkbox.anders>"
+<label class="flex flex-wrap items-center gap-2 min-h-11 md:min-h-10 text-sm text-ink cursor-pointer">
+<input type="checkbox" name="f<F:checkbox>" value="<O:checkbox.anders>" class="h-[18px] w-[18px] shrink-0"
  x-ref="keuze"
  checked>
  Anders <input type="text" name="f<F:checkbox>_other" id="f<F:checkbox>_other" value="Nog iets" placeholder="…"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none flex-1 min-w-0" x-ref="anders" @input="$refs.keuze.checked = $event.target.value.trim().length > 0">
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none flex-1 min-w-0" aria-label="Anders" x-ref="anders" @input="$refs.keuze.checked = $event.target.value.trim().length > 0">
 </label>
 </div>
 </div>
-<div data-veld="f<F:rating>" class="border-l-4 border-transparent pl-3 -ml-4">
-<label for="f<F:rating>" class="block text-base font-semibold text-ink mb-2">Score</label>
-<div class="flex gap-2 items-center text-sm">
-<span class="text-gray-500 shrink-0">slecht</span>
-<label class="flex-1 min-h-11 flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg border border-line bg-white cursor-pointer hover:bg-gray-50">
+<div data-field="f<F:rating>" data-kind="rating" data-span="full" class="min-w-0">
+<p id="f<F:rating>-label" class="text-sm font-medium leading-[21px] text-ink mb-1">Score</p>
+<div role="radiogroup" aria-labelledby="f<F:rating>-label" class="flex gap-2 items-center text-sm">
+<span class="text-ink-soft shrink-0">slecht</span>
+<label class="flex-1 min-h-11 flex flex-col items-center justify-center gap-1 py-1.5 rounded-md border border-control-line bg-surface cursor-pointer hover:bg-surface-2">
 <input type="radio" name="f<F:rating>" value="1" >
-<span class="text-xs text-gray-500">1</span>
+<span class="text-xs text-ink-soft">1</span>
 </label>
-<label class="flex-1 min-h-11 flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg border border-line bg-white cursor-pointer hover:bg-gray-50">
+<label class="flex-1 min-h-11 flex flex-col items-center justify-center gap-1 py-1.5 rounded-md border border-control-line bg-surface cursor-pointer hover:bg-surface-2">
 <input type="radio" name="f<F:rating>" value="2" >
-<span class="text-xs text-gray-500">2</span>
+<span class="text-xs text-ink-soft">2</span>
 </label>
-<label class="flex-1 min-h-11 flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg border border-line bg-white cursor-pointer hover:bg-gray-50">
+<label class="flex-1 min-h-11 flex flex-col items-center justify-center gap-1 py-1.5 rounded-md border border-control-line bg-surface cursor-pointer hover:bg-surface-2">
 <input type="radio" name="f<F:rating>" value="3" checked>
-<span class="text-xs text-gray-500">3</span>
+<span class="text-xs text-ink-soft">3</span>
 </label>
-<label class="flex-1 min-h-11 flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg border border-line bg-white cursor-pointer hover:bg-gray-50">
+<label class="flex-1 min-h-11 flex flex-col items-center justify-center gap-1 py-1.5 rounded-md border border-control-line bg-surface cursor-pointer hover:bg-surface-2">
 <input type="radio" name="f<F:rating>" value="4" >
-<span class="text-xs text-gray-500">4</span>
+<span class="text-xs text-ink-soft">4</span>
 </label>
-<span class="text-gray-500 shrink-0">goed</span>
+<span class="text-ink-soft shrink-0">goed</span>
 </div>
 </div>
-<div data-veld="f<F:info>" class="border-l-4 border-transparent pl-3 -ml-4">
-<div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
-<p class="font-medium mb-1">Ter info</p>
+<div data-form-info="f<F:info>" data-span="full" class="rounded-md bg-blue-50 px-3 py-2 text-sm leading-[21px] text-ink">
+<p class="font-medium">Ter info</p>
 <p class="whitespace-pre-line">Dit is uitleg</p>
 </div>
-</div>
-<div data-veld="f970050" class="border-l-4 border-transparent pl-3 -ml-4">
-<label for="f970050" class="block text-base font-semibold text-ink mb-2">Vraag in deel twee</label>
-<input type="text" name="f970050" id="f970050"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
+<div data-field="f970050" data-kind="text" data-span="full" class="min-w-0">
+<label for="f970050" class="block text-sm font-medium leading-[21px] text-ink mb-1">Vraag in deel twee</label>
+<input type="text"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="f970050" name="f970050" >
 </div>

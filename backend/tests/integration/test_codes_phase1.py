@@ -416,6 +416,12 @@ def test_the_payment_hint_follows_the_radio_values():
 
     Broken on purpose to check it can go red: one `x-show` back to
     `pm === 'ONLINE'` → the set difference names `ONLINE`.
+
+    #1589: the hints are the options' own help now (`ui.field`, a radio group),
+    so they cannot drift from their radio. What still compares `pm` with a
+    value is the button's label ("Inschrijven en betalen" with online) in
+    `_inschrijf_formulier.html` — the same rule, on what is left of it. Proven
+    red the same way: `pm === 'ONLINE'` in that label.
     """
     import re
     from pathlib import Path
@@ -430,7 +436,17 @@ def test_the_payment_hint_follows_the_radio_values():
     ).read_text(encoding="utf-8")
     # #1284: the fields — payment choice included — moved to `_inschrijf_velden.html`,
     # shared by the public form and the board's.
-    radios = set(re.findall(r'name="payment_method" value="([^"]+)"', source))
-    hints = set(re.findall(r"x-show=\"pm === '([^']+)'\"", source))
-    assert radios and hints, "the form no longer has payment radios or hints"
+    field = re.search(r'ui\.field\("payment_method".*?options=\[(.*?)\]\) \}\}', source, re.S)
+    assert field, "the form no longer has a payment method field"
+    radios = set(re.findall(r'\("([a-z]+)", _\(', field.group(1)))
+    flow = (
+        Path(__file__).resolve().parents[2]
+        / "app"
+        / "domains"
+        / "activities"
+        / "templates"
+        / "_inschrijf_formulier.html"
+    ).read_text(encoding="utf-8")
+    hints = set(re.findall(r"pm === '([^']+)'", flow)) | set(re.findall(r'_pm == "([^"]+)"', flow))
+    assert radios and hints, "the form no longer has payment radios or a label that follows them"
     assert hints <= radios, f"hints compare with values no radio carries: {hints - radios}"

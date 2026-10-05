@@ -291,6 +291,21 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .record-columns{display:grid;grid-template-columns:minmax(0,768px);gap:24px;align-items:start}
 .record-form-column{min-width:0}
 .form-flow{display:grid;gap:32px;min-width:0}
+/* CR-11 pilot B (#1589, §2.6): the public form page — one column of 768 px,
+   centred in the site shell (720 on a tablet: the container's own width),
+   left-aligned in the admin's. 24 px under the site's header on a phone, 32
+   above (the shell's <main> gives 32). The title in the site's heading face,
+   32 / 40 px; 24 px to the first card. */
+.public-form-page{width:100%;max-width:768px;margin-inline:auto}
+.public-form-page-admin{margin-inline:0}
+.public-form-head{margin-bottom:24px}
+.public-form-title{font-family:"Fraunces",Georgia,serif;font-weight:650;font-size:32px;line-height:1.15;color:rgb(var(--c-ink));overflow-wrap:anywhere}
+.public-form-title:focus{outline:none}
+/* A section's head is Inter 16 px semibold in both shells (§2.6): the site's
+   heading face is for the page's title, not for the cards of a form. */
+body[data-shell="site"] .form-section h2{font-family:Inter,system-ui,sans-serif;font-weight:600}
+@media (min-width:768px){.public-form-title{font-size:40px}}
+@media (max-width:767.98px){body[data-shell="site"] .public-form-page{margin-top:-8px}}
 /* #1587: the flow's message line (where a refused or failed save stands) is a
    child of the flow, and an empty one still took the 32 px gap under it — the
    first card then started 32 px below the summary card beside it. Empty, it
@@ -550,11 +565,11 @@ body[data-shell="site"]>main{flex:1 0 auto}
   left:0;right:0;bottom:0;height:560px;max-height:calc(100vh - 64px);border-radius:16px 16px 0 0;border-bottom:0;box-shadow:0 -8px 32px rgb(var(--c-ink)/.16)}
 .raakje-panel-handle{flex:none;width:36px;height:4px;margin:8px auto 0;border-radius:2px;background:rgb(var(--c-line))}
 .raakje-backdrop{position:fixed;inset:0;z-index:44;background:rgb(var(--c-ink)/.32)}
-.raakje-bell{position:fixed;right:16px;bottom:16px;z-index:43;display:grid;place-items:center;width:56px;height:56px;border-radius:9999px}
+.raakje-bell{position:fixed;right:16px;bottom:var(--bell-bottom,16px);z-index:43;display:grid;place-items:center;width:56px;height:56px;border-radius:9999px}
 @media (min-width:768px){
   .raakje-panel-handle{display:none}
   [data-mode="docked"] .raakje-panel{left:50%;right:auto;top:50%;bottom:auto;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 32px));height:min(720px,calc(100vh - 32px));max-height:none;border-radius:16px;border-bottom:1px solid rgb(var(--c-line));box-shadow:0 16px 48px rgb(var(--c-ink)/.24)}
-  [data-mode="bell"] .raakje-panel{left:auto;right:16px;bottom:88px;width:400px;height:min(640px,calc(100vh - 104px));max-height:none;border-radius:16px;border-bottom:1px solid rgb(var(--c-line));box-shadow:0 16px 48px rgb(var(--c-ink)/.24)}
+  [data-mode="bell"] .raakje-panel{left:auto;right:16px;bottom:calc(var(--bell-bottom,16px) + 72px);width:400px;height:min(640px,calc(100vh - 104px));max-height:none;border-radius:16px;border-bottom:1px solid rgb(var(--c-line));box-shadow:0 16px 48px rgb(var(--c-ink)/.24)}
   [data-mode="bell"] .raakje-backdrop{display:none}
 }
 @media (min-width:1440px){

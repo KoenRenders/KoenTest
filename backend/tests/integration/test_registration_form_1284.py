@@ -192,6 +192,8 @@ def test_online_goes_to_mollie(client, db_session, paid, channel, mock_mollie):
 @pytest.mark.parametrize("channel", CHANNELS)
 def test_no_product_chosen_is_refused(client, db_session, paid, channel):
     resp = _send(client, channel, paid, _form(paid, email=OTHER, quantity=0))
+    assert resp.status_code == 422
+    assert 'data-error-for="products"' in resp.text, "the refusal does not name the product rows"
     assert "Selecteer minstens één product." in resp.text
     assert _saved(db_session, paid) == []
 
@@ -199,8 +201,44 @@ def test_no_product_chosen_is_refused(client, db_session, paid, channel):
 @pytest.mark.parametrize("channel", CHANNELS)
 def test_an_invalid_address_is_refused(client, db_session, paid, channel):
     resp = _send(client, channel, paid, _form(paid, email="iemand@"))
-    assert "Dat e-mailadres is niet geldig." in resp.text, resp.text[:300]
+    assert resp.status_code == 422
+    assert 'data-error-for="contact_email"' in resp.text, resp.text[:300]
+    assert "Vul een geldig e-mailadres in." in resp.text
     assert _saved(db_session, paid) == []
+
+
+@pytest.mark.parametrize("channel", CHANNELS)
+@pytest.mark.parametrize("method", [None, "", "paypal"])
+def test_without_a_payment_method_the_form_is_refused_at_its_field(
+    client, db_session, paid, channel, method
+):
+    """#1589 (§2.6): the payment method is required where there is something to
+    pay. The page opens with "online" chosen, so only a form that lost its choice
+    gets here — and it is refused at the field, with its reason; until #1589 a
+    missing method was silently read as "online" and the visitor was sent to pay.
+
+    Proven red: the check removed from `registration_form.submit` → no banner,
+    and a registration is saved."""
+    data = _form(paid, email=OTHER, quantity=1)
+    data.pop("payment_method", None)
+    if method is not None:
+        data["payment_method"] = method
+    resp = _send(client, channel, paid, data)
+    assert resp.status_code == 422, resp.status_code
+    assert resp.headers["HX-Retarget"] == "#inschrijf-melding"
+    assert 'data-error-for="payment_method"' in resp.text and ">Kies een betaalwijze.<" in resp.text
+    assert "Verzenden kan nog niet: controleer 1 veld." in resp.text
+    assert _saved(db_session, paid) == []
+
+
+@pytest.mark.parametrize("channel", CHANNELS)
+def test_nothing_to_pay_asks_no_payment_method(client, db_session, free, channel):
+    data = _form(free, email=OTHER, quantity=1)
+    data.pop("payment_method", None)
+    resp = _send(client, channel, free, data)
+    assert resp.status_code == 200, resp.text[:300]
+    [saved] = _saved(db_session, free)
+    assert saved.payment_method is None
 
 
 # ── Shown and charged are the same amount ─────────────────────────────────────
@@ -255,7 +293,7 @@ def test_both_channels_render_the_same_fields(client, db_session, paid):
     public = client.get(f"/activiteiten/{activity.id}/inschrijven/{component.id}").text
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     board = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw").text
-    board_form = board[board.index('id="inschrijving-nieuw-form"') :]
+    board_form = board[board.index('id="inschrijf-form"') :]
 
     public_fields = _field_names(public)
     assert {

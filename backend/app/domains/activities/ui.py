@@ -21,7 +21,7 @@ from app.domains.mdm.api import CONTACT
 from app.i18n import _
 from app.kernel.codes import register_tones
 from app.limiter import registration_limiter
-from app.ui import site_context, templates
+from app.ui import refusal_response, site_context, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -181,6 +181,11 @@ def _page_ctx(request: Request, db: Session, activity: Any, component: Any, form
         "terug_url": terug,
         "klaar": False,
         "klaar_url": f"{terug}?deelnemers={component.id}",
+        # "Wie doet er mee?" in *Je deelname*: the activity with this component's
+        # list open.
+        "deelnemers_url": f"{terug}?deelnemers={component.id}",
+        # #1589: what the confirmation says is still to pay by bank transfer.
+        "over_te_schrijven": None,
         "naam": "",
         # CR-14 §B4.8: after "later", the thank-you page repeats the answer link.
         "antwoord_url": None,
@@ -270,11 +275,9 @@ async def inschrijf_submit(
         db, _channel(request, db, activity, component), activity, component, form, background_tasks
     )
     if outcome.kind is OutcomeKind.REFUSED:
-        return templates.TemplateResponse(
-            request,
-            "inschrijven.html",
-            _page_ctx(request, db, activity, component, outcome.context),
-        )
+        # #1589 (§3.18): the banner alone, into the form's message line — the
+        # page stays as it was typed and marks the fields the banner names.
+        return refusal_response(request, outcome.errors, "#inschrijf-melding", send=True)
     page = _page_ctx(request, db, activity, component, {"activity": activity})
     if outcome.kind is OutcomeKind.CHECKOUT:
         # Vaste UI-beslissing: harde redirect naar Mollie (nooit client-side route).
@@ -293,6 +296,7 @@ async def inschrijf_submit(
             **page,
             "klaar": True,
             "naam": outcome.name,
+            "over_te_schrijven": outcome.transfer_amount or None,
             "antwoord_url": answer_path(db, outcome.registration_id),
         },
     )
@@ -301,11 +305,9 @@ async def inschrijf_submit(
 # ── The answer link (CR-14 phase 2, §B4.8) ────────────────────────────────────
 
 
-def _answer_page(
-    request: Request, db: Session, registration: Any, token: str, **route: Any
-) -> HTMLResponse:
+def _answer_page(request: Request, db: Session, registration: Any, token: str) -> HTMLResponse:
     """The answer link's page IS the form's own page (`formulier.html`, #1380): the
-    same shell, title, description, section cards, steps and submit. Only what this
+    same shell, title, description, section cards and submit. Only what this
     route decides differs, and it goes in as data: where it posts, no name and
     e-mail card (the registration has its contact), and a line saying whose
     registration it is — the first name and the activity only, no more than the
@@ -330,7 +332,6 @@ def _answer_page(
                 show_submitter=False,
                 intro=_("Inschrijving van %(naam)s voor %(activiteit)s.")
                 % {"naam": voornaam, "activiteit": registration.activity.name},
-                **route,
             ),
         },
     )
@@ -371,7 +372,6 @@ async def answer_submit(
 ) -> HTMLResponse:
     from app.domains.activities.api import (
         answer_questions,
-        form_values,
         question_form,
         registration_awaiting_answers,
     )
@@ -388,14 +388,14 @@ async def answer_submit(
     except LookupError:
         return _answer_link_gone(request, db)
     except HTTPException as exc:
-        return _answer_page(
+        # #1589: the banner alone, into the form page's message line; a refused
+        # answer names its question.
+        question = getattr(exc, "veld_id", None)
+        return refusal_response(
             request,
-            db,
-            registration,
-            token,
-            values=form_values(form),
-            error=str(exc.detail),
-            fout_veld_id=getattr(exc, "veld_id", None),
+            [{"field": f"f{question}" if question is not None else "", "message": str(exc.detail)}],
+            "#formulier-melding",
+            send=True,
         )
     # The form's own thank-you page, with the answers as they were stored.
     rows = submission_views(db, [registration.form_submission_id])

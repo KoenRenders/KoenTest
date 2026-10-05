@@ -68,17 +68,51 @@ def homepage(request: Request, db: Session = Depends(get_db)):
     )
 
 
+def _payment_confirmed(db: Session, request: Request) -> bool | None:
+    """Did the provider confirm the payment this page is the return of?
+
+    #1589 (end state §2.6): the screen never reports a successful online payment
+    before the provider confirms it. The return address is where the PAYER's
+    browser lands — it says the payer came back, not that the money did; the
+    provider's own word arrives through the webhook, usually a moment earlier
+    and sometimes later. So the page reads what the ledger says.
+
+    True: every booking of the registration is settled. False: one is still
+    open. None: the page cannot tell — a membership's return (its bookings hang
+    on the membership, the address names the household), no reference at all,
+    or a number without a booking — and then it claims nothing.
+    """
+    from app.domains.payment.api import registration_payment_states
+
+    reference = request.query_params.get("registration", "")
+    if not reference.isdigit():
+        return None
+    state = registration_payment_states(db, [int(reference)]).get(int(reference))
+    if state is None:
+        return None
+    return state["state"] == "settled"
+
+
 @router.get("/betaling/succes", response_class=HTMLResponse)
 def betaling_succes(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
-        request, "betaling_resultaat.html", {**site_context(db, request), "gelukt": True}
+        request,
+        "betaling_resultaat.html",
+        {
+            **site_context(db, request),
+            "gelukt": True,
+            "bevestigd": _payment_confirmed(db, request),
+            "status_url": f"{request.url.path}?{request.url.query}",
+        },
     )
 
 
 @router.get("/betaling/geannuleerd", response_class=HTMLResponse)
 def betaling_geannuleerd(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
-        request, "betaling_resultaat.html", {**site_context(db, request), "gelukt": False}
+        request,
+        "betaling_resultaat.html",
+        {**site_context(db, request), "gelukt": False, "bevestigd": None, "status_url": ""},
     )
 
 

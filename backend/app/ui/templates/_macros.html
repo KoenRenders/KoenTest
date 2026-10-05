@@ -286,24 +286,6 @@
 {%- endmacro %}
 
 {# Verplicht veld: rode asterisk (B2-conventie). #}
-{# Een VRAAG op een publiek formulier (#749). Naast `label()`, niet in plaats ervan.
-
-   `label()` is gebouwd voor een beheerformulier: een grijs labeltje boven een
-   omkaderd invoerveld, waar het véld de inhoud is. Op een enquête is die verhouding
-   omgekeerd — de vraag is de inhoud, de opties zijn het antwoord — en daar viel de
-   vraag letterlijk weg: gemeten stond ze op #374151 (middengrijs) terwijl haar eigen
-   antwoorden op #14171c staan. Kleurcontrast weegt zwaarder dan gewicht, dus het
-   halfvette `font-medium` haalde dat niet terug.
-
-   Volle inktkleur, `font-semibold`, en één stap groter dan de opties (`text-base`
-   tegen `text-sm`). Samen met de sectiekop geeft dat een drietrap:
-   sectietitel (text-lg bold) → vraag (text-base semibold) → optie (text-sm).
-
-   `label()` blijft ongemoeid: die aanpassen verschuift élk beheerscherm. #}
-{% macro vraag(text, for_id, required=False) -%}
-<label for="{{ for_id }}" class="block text-base font-semibold text-ink mb-2">{{ text }}{% if required %} <span class="text-red-600">*</span>{% endif %}</label>
-{%- endmacro %}
-
 {% macro label(text, for_id, required=False) -%}
 <label for="{{ for_id }}" class="block text-sm font-medium text-gray-700 mb-1">{{ text }}{% if required %} <span class="text-red-600">*</span>{% endif %}</label>
 {%- endmacro %}
@@ -542,11 +524,31 @@
    (16 px semibold), 16 px to the first field, the fields on the form grid — four
    tracks, 12 px apart, one column when the card is narrower than 532 px inside
    (two half fields of 260 px). 32 px between sections. A template writes no
-   distance: the grid and the section do. #}
-{% macro section(title, id=None) -%}
-<section data-form-section{% if id %} id="{{ id }}"{% endif %} class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
-  <h2 class="text-base font-semibold leading-6 text-ink mb-4">{{ title }}</h2>
+   distance: the grid and the section do.
+
+   #1589: a section of somebody's own form (a form builder's section) may have
+   no title, and may say something under it (`intro`, line breaks kept);
+   `attrs` are the caller's hooks on the card (its place on a branching form's
+   path). #}
+{% macro section(title=None, id=None, intro=None, attrs="") -%}
+<section data-form-section{% if id %} id="{{ id }}"{% endif %}{% if attrs %} {{ attrs|safe }}{% endif %} class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+  {% if title %}<h2 class="text-base font-semibold leading-6 text-ink mb-4">{{ title }}</h2>{% endif %}
+  {% if intro %}<p class="text-sm leading-[21px] text-ink-soft mb-4 whitespace-pre-wrap">{{ intro }}</p>{% endif %}
   <div data-form-grid class="form-grid">{{ caller() }}</div>
+</section>
+{%- endmacro %}
+
+{# `flow_card(title)` — a card of the form flow that holds WORDS, not fields
+   (#1589, §2.6): the name card of a public form, what a confirmation says is
+   still to pay, the thanks. The same surface as `section`, without the form
+   grid. `title` is the card's head (16 px semibold); `page_title` makes it the
+   page's own title instead — a form's name card. `attrs` are the caller's
+   hooks (an id, a `data-…`, htmx). A template writes no card by hand. #}
+{% macro flow_card(title=None, page_title=None, attrs="") -%}
+<section data-form-section data-flow-card {{ attrs|safe }} class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4 text-sm leading-[21px] text-ink">
+  {% if page_title %}<h1 tabindex="-1" class="public-form-title">{{ page_title }}</h1>{% endif %}
+  {% if title %}<h2 class="text-base font-semibold leading-6 text-ink mb-2">{{ title }}</h2>{% endif %}
+  {{ caller() }}
 </section>
 {%- endmacro %}
 
@@ -603,6 +605,8 @@
    - `preview_url` (upload): a small picture of what hangs there, while editing.
    - `beside_field` (switch): the switch shares its row with a labelled field
      and stands on that field's control line.
+   - `help_lines`: the help is somebody's own text (a form's question): a line
+     break in it stays a line break (#1379).
    - `delete_name` (upload): "Verwijderen" beside what hangs there does not
      delete it — it marks it (a hidden field of this name becomes "1") and the
      form's save removes it; until then it can be taken back. #}
@@ -614,7 +618,7 @@
                rows=3, form=None, accept="image/*,application/pdf", current_url=None,
                current_label=None, delete_attrs="", delete_confirm=None, disabled=False,
                display=None, help_in_read=False, preview_url=None, delete_name=None,
-               beside_field=False) -%}
+               beside_field=False, help_lines=False) -%}
 {%- set _id = id or name -%}
 {%- if kind in _field_full or (kind == "text" and long) -%}{%- set _span = "full" -%}
 {%- elif span == "full" -%}{%- set _span = "full" -%}
@@ -719,7 +723,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% endif %}
   {% if edit and kind == "upload" and preview_url %}<img src="{{ preview_url }}" alt="" class="mt-2 max-h-40 w-auto rounded-md border border-line">{% endif %}
   {% if edit and error %}<p id="{{ _id }}-error" data-field-error class="mt-1 text-[13px] leading-[19.5px] text-red-700 [overflow-wrap:anywhere]">{{ error }}</p>
-  {% elif help and (edit or help_in_read) and not (edit and kind == "switch") %}<p id="{{ _id }}-help" data-field-help class="mt-1 text-[13px] leading-[19.5px] text-ink-soft [overflow-wrap:anywhere]">{{ help }}</p>{% endif %}
+  {% elif help and (edit or help_in_read) and not (edit and kind == "switch") %}<p id="{{ _id }}-help" data-field-help class="mt-1 text-[13px] leading-[19.5px] text-ink-soft [overflow-wrap:anywhere]{% if help_lines %} whitespace-pre-line{% endif %}">{{ help }}</p>{% endif %}
 </div>
 {%- endmacro %}
 
@@ -834,6 +838,35 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {% endif %}
   </div>
   {% if edit and menu and variant == "simple" %}{{ _row_menu(menu, label or title) }}{% endif %}
+</div>
+{%- endmacro %}
+
+{# `public_form_page(title, intro)` — the public form page (CR-11 pilot B, #1589;
+   `docs/design-system-end-state.md` §2.6): the frame of the five public forms
+   — register, a public form, Word lid, renew, Mijn gezin. A column of 768 px,
+   centred on a desktop (720 on a tablet, the phone's width less its gutters);
+   the title in the site's heading face, 32 px on a phone and 40 above; the
+   intro in Inter; then what the caller puts in it: a `form-flow` of `section`
+   cards with one `action_bar(record=True)`. No "* Verplicht veld" legend: the
+   asterisk on the label says it.
+
+   - `back_href` / `back_label`: the quiet way back above the title.
+   - `result=True`: a page that reports (the confirmation) — its title takes
+     the focus, so a screen reader hears what happened.
+   - `shell="admin"`: the same page in the admin shell (the board's
+     registration) — left-aligned like the admin's records, the title in the
+     admin's own style. #}
+{% macro public_form_page(title=None, intro=None, back_href=None, back_label=None, result=False, shell="site") -%}
+<div data-public-form-page{% if result %} data-result{% endif %} class="public-form-page{% if shell == 'admin' %} public-form-page-admin{% endif %}">
+  {% if back_href %}<p class="mb-3"><a class="text-sm text-link hover:underline" href="{{ back_href }}">‹ {{ back_label or _("Terug") }}</a></p>{% endif %}
+  {# Without a `title` the page brings its own head: a form's name card. #}
+  {% if title %}
+  <header data-form-page-head class="public-form-head">
+    <h1 tabindex="-1" class="{{ 'text-3xl font-bold text-kop' if shell == 'admin' else 'public-form-title' }}">{{ title }}</h1>
+    {% if intro %}<p class="mt-2 text-base leading-6 text-ink-soft">{{ intro }}</p>{% endif %}
+  </header>
+  {% endif %}
+  {{ caller() }}
 </div>
 {%- endmacro %}
 
@@ -1093,7 +1126,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    een nieuw scherm, geef dan labels die bij dat scherm passen.
 #}
 {% macro stepper(name, id=None, value=0, min=0, max=99, attrs="",
-                 label_minder=None, label_meer=None) -%}
+                 label_minder=None, label_meer=None, touch=False) -%}
 {%- set _id = id or name -%}
 {#- #1200: `shrink-0` op de BUITENSTE doos, en dat is punt 1 van dat issue. De
     drie kinderen hadden het al, de doos niet — dus in een `flex … justify-between`
@@ -1107,7 +1140,12 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     waarvoor de teller bestaat.
 
     De maten: 44 px op een telefoon (#804, de reden dat deze teller er is) en
-    36 px vanaf `md`, met hetzelfde `md:`-onderscheid dat `btn_class` al gebruikt. -#}
+    36 px vanaf `md`, met hetzelfde `md:`-onderscheid dat `btn_class` al gebruikt.
+
+    `touch` (#1589, §2.6): 44 px at every width — the public form page, where
+    Koen decided the counter keeps its touch size on a desktop too. -#}
+{%- set _knop = "h-11 w-11" if touch else "h-11 w-11 md:h-9 md:w-9" -%}
+{%- set _veld = "h-11 w-14" if touch else "h-11 w-14 md:h-9 md:w-12" -%}
 <div class="inline-flex shrink-0 items-stretch rounded-xl border border-gray-300 overflow-hidden bg-white"
      x-data="{ stap(richting) {
          const veld = $refs.veld;
@@ -1121,7 +1159,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
      } }">
   <button type="button" @click="stap(-1)"
           aria-label="{{ label_minder or _('Eén minder') }}"
-          class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
+          class="{{ _knop }} shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
   <input type="number" name="{{ name }}" id="{{ _id }}" x-ref="veld" value="{{ value }}"
          min="{{ min }}" max="{{ max }}" inputmode="numeric"
          {#- `border-0` en niet gewoon `border-x` weglaten (#1200, punt 3): de
@@ -1135,11 +1173,11 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
              build-css.sh, want een pseudo-element is geen Tailwind-utility, en
              ze is met opzet NIET globaal — de focuspunten van de Design Studio
              stappen met 0,05 en hebben hun pijltjes nodig. -#}
-         class="teller-veld h-11 w-14 md:h-9 md:w-12 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+         class="teller-veld {{ _veld }} shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
          {{ attrs|safe }}>
   <button type="button" @click="stap(1)"
           aria-label="{{ label_meer or _('Eén meer') }}"
-          class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
+          class="{{ _knop }} shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
 </div>
 {%- endmacro %}
 
@@ -1809,21 +1847,27 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    form's name of a field or a row; empty for the form as a whole) and `message`.
    Each field error is a link to its field; `record-form.js` marks the fields and
    puts the focus on the first one. Nothing typed is lost: the answer is this
-   banner alone. #}
-{% macro save_refusal(errors) -%}
+   banner alone.
+
+   `send` (#1589, §2.6): the form is sent, not saved — a registration, a public
+   form. The same banner with the verb of the act: "Verzenden kan nog niet…". #}
+{% macro save_refusal(errors, send=False) -%}
 {%- set _places = errors|selectattr("field")|list -%}
 {%- set _general = errors|rejectattr("field")|list -%}
 <div data-save-refusal role="alert" tabindex="-1"
      class="rounded-md border border-red-200 border-l-[3px] border-l-red-600 bg-red-50 p-4 text-sm leading-[21px] text-ink">
   {% if _places %}
-  <p class="font-semibold">{% if _places|length == 1 %}{{ _("Opslaan kan nog niet: controleer 1 veld.") }}{% else %}{{ _("Opslaan kan nog niet: controleer %(num)d velden.", num=_places|length) }}{% endif %}</p>
+  <p class="font-semibold">
+    {%- if send %}{% if _places|length == 1 %}{{ _("Verzenden kan nog niet: controleer 1 veld.") }}{% else %}{{ _("Verzenden kan nog niet: controleer %(num)d velden.", num=_places|length) }}{% endif %}
+    {%- else %}{% if _places|length == 1 %}{{ _("Opslaan kan nog niet: controleer 1 veld.") }}{% else %}{{ _("Opslaan kan nog niet: controleer %(num)d velden.", num=_places|length) }}{% endif %}{% endif -%}
+  </p>
   <ul class="mt-1 list-disc pl-5">
     {% for e in _places %}<li><a href="#" data-error-for="{{ e.field }}" class="text-red-700 underline">{{ e.message }}</a></li>{% endfor %}
   </ul>
   {% for e in _general %}<p class="mt-1">{{ e.message }}</p>{% endfor %}
   <p class="mt-1 text-ink-soft">{{ _("Je andere wijzigingen zijn behouden.") }}</p>
   {% else %}
-  <p class="font-semibold">{{ _("Opslaan is niet gelukt.") }}</p>
+  <p class="font-semibold">{{ _("Verzenden is niet gelukt.") if send else _("Opslaan is niet gelukt.") }}</p>
   {% for e in _general %}<p class="mt-1">{{ e.message }}</p>{% endfor %}
   {% endif %}
 </div>
@@ -1874,7 +1918,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    `form` koppelt de Opslaan-submit aan een formulier elders in het vlak
    (HTML `form=`-attribuut): het cluster staat in de kop, het formulier
    eronder. Binnen een formulier (aanmaakvlakken) mag `form` weg. #}
-{% macro action_bar(save_label=None, form=None, save_attrs="", cancel_attrs="", cancel_href=None, delete_attrs="", delete_label=None, delete_confirm=None, cls="", record=False, delete_title=None, delete_refused=None, delete_refused_title=None) -%}
+{% macro action_bar(save_label=None, form=None, save_attrs="", cancel_attrs="", cancel_href=None, delete_attrs="", delete_label=None, delete_confirm=None, cls="", record=False, delete_title=None, delete_refused=None, delete_refused_title=None, send=False, busy_label=None, save_label_attrs="") -%}
 {% if record %}
 {# CR-11 block 9 (#1561, §3.6): the bar of a record form. One per screen, under
    the form's last section, only in edit mode: 64 px, as wide as the form
@@ -1884,11 +1928,20 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    bottom, Opslaan full width on the first line, Verwijderen left and Annuleren
    right on the second (`.record-bar` in build-css.sh). `record-form.js` gives it
    its states: the question on Annuleren with changes, "Opslaan…" while saving,
-   and the reason when saving failed (the `<template>` below). #}
+   and the reason when saving failed (the `<template>` below).
+
+   `send=True` (#1589, §2.6): the bar of a form that is SENT — a registration, a
+   public form. The same bar and the same states, with the words of the act:
+   `save_label` names the next step ("Inschrijven en betalen"), `busy_label`
+   what is running ("Inschrijven…"), and a failure reads "Verzenden is niet
+   gelukt." `save_label_attrs` lets the page follow a choice with the label
+   (the payment method). A record's save stays "Opslaan": only a `send` bar
+   takes a label of its own (`test_record_form_gate.py`). #}
 <div data-action-bar class="record-bar{% if cls %} {{ cls }}{% endif %}"
-     data-discard-title="{{ _('Wijzigingen weggooien?') }}" data-discard-text="{{ _('Wat je sinds de laatste opslag wijzigde, gaat verloren.') }}"
+     {% if send %}data-send{% endif %}
+     data-discard-title="{{ _('Wijzigingen weggooien?') }}" data-discard-text="{{ _('Wat je invulde, gaat verloren.') if send else _('Wat je sinds de laatste opslag wijzigde, gaat verloren.') }}"
      data-discard-ok="{{ _('Wijzigingen weggooien') }}" data-discard-stay="{{ _('Verder bewerken') }}"
-     data-leave-title="{{ _('Deze pagina verlaten?') }}" data-leave-text="{{ _('Je wijzigingen zijn nog niet opgeslagen.') }}"
+     data-leave-title="{{ _('Deze pagina verlaten?') }}" data-leave-text="{{ _('Wat je invulde, is nog niet verzonden.') if send else _('Je wijzigingen zijn nog niet opgeslagen.') }}"
      data-leave-ok="{{ _('Weggooien') }}" data-leave-stay="{{ _('Blijven') }}">
   {% if delete_refused %}
   {#- Refused (#1561): the button says why — a notice, no question and no request. -#}
@@ -1901,15 +1954,15 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% endif %}
   <a href="{{ cancel_href }}" data-form-cancel class="{{ btn_class('text', 'sm') }} record-bar-cancel" {{ cancel_attrs|safe }}>{{ _("Annuleren") }}</a>
   <button type="submit" data-form-save class="{{ btn_class('primary', 'sm') }} record-bar-save"{% if form %} form="{{ form }}"{% endif %} {{ save_attrs|safe }}>
-    <span data-save-idle>{{ save_label or _("Opslaan") }}</span>
-    <span data-save-busy hidden class="inline-flex items-center gap-2"><span class="record-spinner" aria-hidden="true"></span>{{ _("Opslaan…") }}</span>
+    <span data-save-idle{% if save_label_attrs %} {{ save_label_attrs|safe }}{% endif %}>{{ save_label or (_("Verzenden") if send else _("Opslaan")) }}</span>
+    <span data-save-busy hidden class="inline-flex items-center gap-2"><span class="record-spinner" aria-hidden="true"></span>{{ busy_label or (_("Verzenden…") if send else _("Opslaan…")) }}</span>
   </button>
   <template data-save-failed>
     <div data-save-refusal data-save-failure role="alert" tabindex="-1"
          class="rounded-md border border-red-200 border-l-[3px] border-l-red-600 bg-red-50 p-4 text-sm leading-[21px] text-ink">
-      <p class="font-semibold">{{ _("Opslaan is niet gelukt.") }}</p>
+      <p class="font-semibold">{{ _("Verzenden is niet gelukt.") if send else _("Opslaan is niet gelukt.") }}</p>
       <p class="mt-1" data-reason></p>
-      <p class="mt-1 text-ink-soft">{{ _("Je wijzigingen staan er nog.") }}</p>
+      <p class="mt-1 text-ink-soft">{{ _("Je gegevens staan er nog.") if send else _("Je wijzigingen staan er nog.") }}</p>
     </div>
   </template>
 </div>

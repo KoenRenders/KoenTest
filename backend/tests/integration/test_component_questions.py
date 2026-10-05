@@ -169,7 +169,7 @@ def test_a_component_whose_form_was_deleted_asks_nothing(client, db_session):
         },
         headers={"HX-Request": "true"},
     )
-    assert "Je inschrijving is ontvangen." in r.text
+    assert "Je inschrijving is ontvangen" in r.text
     registration = db_session.query(Registration).filter_by(activity_id=activity.id).one()
     assert registration.answer_token is None and registration.form_submission_id is None
 

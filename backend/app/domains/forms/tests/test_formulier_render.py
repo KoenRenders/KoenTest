@@ -47,7 +47,8 @@ def test_formulier_submit_en_validatie(client, db_session):
         f"/formulier/{f.share_token}",
         data={**form_guard_fields(), "submitter_name": "Jo", "submitter_email": "jo@example.com"},
     )
-    assert fout.status_code == 200 and "verplicht" in fout.text
+    # #1589: the refusal is the banner alone (422), into the message line.
+    assert fout.status_code == 422 and "verplicht" in fout.text
     assert db_session.query(FormSubmission).filter(FormSubmission.form_id == f.id).count() == 0
 
     ok = client.post(

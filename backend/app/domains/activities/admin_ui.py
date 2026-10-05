@@ -32,7 +32,7 @@ from app.domains.auth.api import (
     require_csrf,
 )
 from app.i18n import _
-from app.ui import admin_nav, is_fragment_request, templates
+from app.ui import admin_nav, is_fragment_request, refusal_response, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -1222,12 +1222,10 @@ def _board_form_page(
     *,
     values: dict | None = None,
     error: str | None = None,
-    form_ctx: dict | None = None,
 ) -> dict:
     """The board's "add a registration" page (#1192, #1284): the one registration
     form (`activities.api.form_context`, the board's channel) inside a back-office
-    page with the component buttons above it. `form_ctx` is a form that came
-    back refused from `submit`, with its values and its message."""
+    page with the component buttons above it."""
     from app.domains.activities.api import board_channel, form_context
 
     values = values or {}
@@ -1243,9 +1241,7 @@ def _board_form_page(
     ]
     component = next((c for c in activiteit.sub_registrations if c.id == onderdeel_id), None)
     ctx: dict = {"error": error}
-    if form_ctx is not None:
-        ctx = form_ctx
-    elif component is not None:
+    if component is not None:
         channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
         ctx = form_context(channel, activiteit, component, values=values, error=error)
     ctx.update(
@@ -1394,11 +1390,9 @@ async def inschrijving_nieuw_opslaan(
     channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
     outcome = submit(db, channel, activiteit, component, form, background_tasks, actor=email)
     if outcome.kind is OutcomeKind.REFUSED:
-        return templates.TemplateResponse(
-            request,
-            "admin_inschrijving_nieuw.html",
-            _board_form_page(request, db, activiteit, onderdeel_id, form_ctx=outcome.context),
-        )
+        # #1589: the same answer as the public page — the banner, into the
+        # form's message line.
+        return refusal_response(request, outcome.errors, "#inschrijf-melding", send=True)
     response = HTMLResponse("")
     # Vaste UI-beslissing: harde redirect naar Mollie; zonder betaling naar de
     # inschrijving in het beheer.

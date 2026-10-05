@@ -20,5 +20,6 @@ def test_betaling_geannuleerd_has_retry_and_reassurance(client):
 
 def test_betaling_succes_single_button(client):
     html = client.get("/betaling/succes").text
-    assert "Betaling ontvangen" in html
+    # #1589: without a reference the page cannot tell, and claims nothing.
+    assert "Betaling ontvangen" not in html and "Je betaling wordt verwerkt" in html
     assert "Opnieuw proberen" not in html

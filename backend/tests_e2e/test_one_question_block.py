@@ -29,8 +29,9 @@ TITLE = "Sint vragenblok"
 
 MEASURE = """(title) => {
   const h = [...document.querySelectorAll('h1, h2')].find(e => e.innerText.trim() === title);
-  const blocks = [...document.querySelectorAll('[data-veld]')].filter(e => e.offsetParent);
-  const card = blocks.length ? blocks[0].closest('.bg-white') : null;
+  const blocks = [...document.querySelectorAll('[data-field^="f"]')].filter(e => e.offsetParent);
+  const card = blocks.length ? blocks[0].closest('[data-form-section]') : null;
+  const label = blocks.length ? getComputedStyle(blocks[0].querySelector(':scope > label, :scope > p')) : null;
   const s = h ? getComputedStyle(h) : null;
   return {
     title: s ? {size: s.fontSize, weight: s.fontWeight, color: s.color} : null,
@@ -38,6 +39,7 @@ MEASURE = """(title) => {
       ? Math.round(blocks[1].getBoundingClientRect().top - blocks[0].getBoundingClientRect().bottom)
       : null,
     card: card ? getComputedStyle(card).backgroundColor : null,
+    label: label ? {size: label.fontSize, weight: label.fontWeight, color: label.color} : null,
     doc: document.documentElement.scrollWidth, vw: innerWidth,
   };
 }"""
@@ -89,8 +91,12 @@ def test_the_registration_asks_in_the_forms_own_block(browser, setup, width):
     form = _measure(browser, setup["form"], width)
     reg = _measure(browser, setup["registration"], width)
 
+    # #1589 (§2.6): the form's name stands in the name card of its own page; the
+    # registration asks under its own section "Vragen bij de inschrijving". What
+    # the two share is the question cards — the same label, distance and card.
     assert form["title"] is not None, f"the form's own page lost its title: {form}"
-    assert reg["title"] == form["title"], f"title @{width}: form {form} — registration {reg}"
+    assert reg["title"] is None, "the registration page repeats the form's title"
+    assert form["label"] is not None and reg["label"] == form["label"], (form, reg)
     assert reg["gap"] == form["gap"], f"gap between two questions @{width}: {form} — {reg}"
     assert reg["card"] == form["card"] == "rgb(255, 255, 255)", (form, reg)
     assert form["doc"] == form["vw"] and reg["doc"] == reg["vw"], (form, reg)

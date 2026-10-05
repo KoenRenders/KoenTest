@@ -103,13 +103,18 @@ def test_a_refusal_keeps_the_page_the_values_and_the_reason(client, two_componen
             "contact_email": "zonder@example.com",
             "phone": "",
             f"product_{product.id}": "2",
+            "payment_method": "transfer",
         },
     )
-    assert response.status_code == 200
+    # #1589 (§3.18): the refusal is the banner alone, for the form's message
+    # line — the page is not redrawn, so the values stay where they were typed.
+    assert response.status_code == 422
+    assert response.headers["HX-Retarget"] == "#inschrijf-melding"
+    assert response.headers["HX-Reswap"] == "innerHTML"
     html = response.text
-    assert 'id="inschrijf-pagina"' in html
-    assert "Vul naam, e-mailadres en mobiel nummer in." in html
-    assert 'value="Zonder Gsm"' in html
+    assert 'id="inschrijf-pagina"' not in html and "<input" not in html
+    assert 'data-error-for="phone"' in html and ">Vul je mobiel nummer in.<" in html
+    assert "Verzenden kan nog niet: controleer 1 veld." in html
 
 
 def test_the_thank_you_page_leads_back_to_an_open_list(client, two_components):
@@ -126,7 +131,9 @@ def test_the_thank_you_page_leads_back_to_an_open_list(client, two_components):
     )
     assert response.status_code == 200
     html = response.text
-    assert "Je inschrijving is ontvangen." in html
+    assert ">Je inschrijving is ontvangen</h1>" in html
+    # #1589: what is still to pay is said as such.
+    assert "Betaling nog af te ronden" in html
     back = re.search(r'href="([^"]*\?deelnemers=\d+)"', html)
     assert back, "the thank-you page has no way back that opens the list"
     assert back.group(1) == f"/activiteiten/{activity.id}?deelnemers={open_one.id}"

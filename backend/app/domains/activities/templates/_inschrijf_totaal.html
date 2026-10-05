@@ -6,9 +6,13 @@
    gratis of ter-plaatse-producten toont niets, want daar valt niets af te rekenen.
    Gedempt op €0,00, merkblauw zodra er een bedrag staat — de kleurwissel is de
    feedback in plaats van het verschijnen. #}
+{# #1589: `betalen` tells the page whether there is something to pay — the
+   button reads "Inschrijven en betalen" only then. The server's total decides,
+   as it decides the amount; `typeof`, because the total also renders where no
+   page listens. #}
 {% if heeft_prijs %}
 {% set _leeg = not totaal or totaal <= 0 %}
-<div class="bg-white border rounded-lg p-3 text-sm font-medium {% if _leeg %}border-gray-200 text-gray-500{% else %}border-blue-200 text-blue-700{% endif %}">
-  {{ _("Totaal:") }} €{{ (totaal or 0)|geld }}{% if is_member and not _leeg %} <span class="font-normal text-blue-600">{{ _("(ledenprijs)") }}</span>{% endif %}
+<div data-total x-data x-init="if (typeof betalen !== 'undefined') betalen = {{ 'false' if _leeg else 'true' }}" class="border-t border-line pt-3 text-sm font-semibold {% if _leeg %}text-ink-soft{% else %}text-ink{% endif %}">
+  {{ _("Totaal:") }} €{{ (totaal or 0)|geld }}{% if is_member and not _leeg %} <span class="font-normal text-ink-soft">{{ _("(ledenprijs)") }}</span>{% endif %}
 </div>
 {% endif %}

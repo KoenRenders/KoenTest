@@ -17,6 +17,12 @@ Broken on purpose to check it can go red (run, then restored): the registration'
 → the first test, on the registration page. (Against master `08a3ffbd` it cannot
 run at all — the partial did not exist; the e2e measurement
 `tests_e2e/test_one_question_block.py` is the red one there.)
+
+#1589 (CR-11 pilot B, end state §2.6): what is shared everywhere is the CARDS
+(`vragen_kaarten`). The head (`vragen_kop`) is for a page that shows the block
+inside something of its own — the registration detail. The form's own page puts
+the form's name in its name card, and the registration page asks under its own
+section "Vragen bij de inschrijving".
 """
 
 from __future__ import annotations
@@ -76,10 +82,14 @@ def _marked(html: str) -> bool:
 
 
 def test_the_form_and_the_registration_render_the_same_block(client, sint, probed_partial):
-    assert _marked(client.get(f"/formulier/{sint.form.share_token}").text), "the form's own page"
-    assert _marked(
-        client.get(f"/activiteiten/{sint.activity.id}/inschrijven/{sint.component.id}").text
-    ), "the registration page"
+    own = client.get(f"/formulier/{sint.form.share_token}").text
+    assert CARDS_MARK in own and HEAD_MARK not in own, "the form's own page"
+    # #1589 (§2.6): on the registration page the questions stand under the
+    # section "Vragen bij de inschrijving" — the page's own head, with the
+    # form's description — so only the CARDS are the shared block there.
+    page = client.get(f"/activiteiten/{sint.activity.id}/inschrijven/{sint.component.id}").text
+    assert CARDS_MARK in page, "the registration page"
+    assert HEAD_MARK not in page
 
 
 def test_the_answer_link_and_the_correction_render_it_too(client, db_session, sint, probed_partial):
@@ -114,6 +124,7 @@ def test_the_answer_link_and_the_correction_render_it_too(client, db_session, si
         for r in db_session.query(Registration).filter_by(activity_id=sint.activity.id)
     }
 
-    assert _marked(client.get(f"/inschrijving/{regs['Later Lies'].answer_token}/vragen").text)
+    link = client.get(f"/inschrijving/{regs['Later Lies'].answer_token}/vragen").text
+    assert CARDS_MARK in link and HEAD_MARK not in link, "the answer link"
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     assert _marked(client.get(f"/admin/inschrijvingen/{regs['Nu Noor'].id}").text)

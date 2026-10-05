@@ -16,7 +16,7 @@ from app.database import get_db
 from app.domains.forms.api import answers_from_form
 from app.i18n import _
 from app.limiter import form_submit_limiter
-from app.ui import templates
+from app.ui import refusal_response, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -133,10 +133,8 @@ def _form_render_ctx(
     request,
     *,
     values=None,
-    error=None,
     submitter_name="",
     submitter_email="",
-    fout_veld_id=None,
 ) -> dict:
     from app.ui import site_context
 
@@ -148,10 +146,38 @@ def _form_render_ctx(
 
     return {
         **site_context(db, request),
-        **form_page_context(form_model, values=values, error=error, fout_veld_id=fout_veld_id),
+        **form_page_context(form_model, values=values),
         "submitter_name": submitter_name,
         "submitter_email": submitter_email,
     }
+
+
+#: The message line of `formulier.html`: where a refusal stands (#1589).
+MESSAGE_LINE = "#formulier-melding"
+
+
+def _submitter_refusals(form_model, naam: str, email: str) -> list[dict]:
+    """Why the name and e-mail of a form that asks them are refused, per field
+    (#1589: the page marks the field). The rule itself is `assert_submitter`,
+    for every way in (#635-2); this only says WHICH of the two it is."""
+    if getattr(form_model, "is_anonymous", False):
+        return []
+    errors = []
+    if not naam:
+        errors.append({"field": "submitter_name", "message": _("Vul je naam in.")})
+    if "@" not in email:
+        errors.append({"field": "submitter_email", "message": _("Vul een geldig e-mailadres in.")})
+    return errors
+
+
+def _refused(request: Request, exc: HTTPException):
+    """A refusal of the service as the banner, for the form's message line: a
+    refused answer names its question (`VeldFout`), anything else is the form's."""
+    question = getattr(exc, "veld_id", None)
+    field = f"f{question}" if question is not None else ""
+    return refusal_response(
+        request, [{"field": field, "message": str(exc.detail)}], MESSAGE_LINE, send=True
+    )
 
 
 def _load_open_form(db, share_token: str):
@@ -213,31 +239,23 @@ async def formulier_submit(
 
     form_model = _load_open_form(db, share_token)
     form_data = await request.form()
-    values = {
-        k: form_data.getlist(k) if len(form_data.getlist(k)) > 1 else (form_data.get(k) or "")
-        for k in form_data.keys()
-    }
     naam = form_data.get("submitter_name") or ""
     naam = naam.strip() if isinstance(naam, str) else ""
     email = form_data.get("submitter_email") or ""
     email = email.strip() if isinstance(email, str) else ""
 
+    # #1589 (§3.18): a refusal is the banner alone, into the form's message line
+    # — the page is not redrawn, so nothing typed is lost.
+    refusals = _submitter_refusals(form_model, naam, email)
+    if refusals:
+        return refusal_response(request, refusals, MESSAGE_LINE, send=True)
     # Zelfde invariant, zelfde functie (#635-2).
     from app.domains.forms.service import assert_submitter
 
     try:
         assert_submitter(form_model, naam, email)
     except HTTPException as exc:
-        ctx = _form_render_ctx(
-            db,
-            form_model,
-            request,
-            values=values,
-            error=str(exc.detail),
-            submitter_name=naam,
-            submitter_email=email,
-        )
-        return templates.TemplateResponse(request, "formulier.html", ctx)
+        return _refused(request, exc)
 
     payload = SubmissionIn(
         submitter_name=naam or None,
@@ -255,17 +273,7 @@ async def formulier_submit(
             proof=Proof.from_request(request, form_data),
         )
     except HTTPException as exc:
-        ctx = _form_render_ctx(
-            db,
-            form_model,
-            request,
-            values=values,
-            error=str(exc.detail),
-            submitter_name=naam,
-            submitter_email=email,
-            fout_veld_id=getattr(exc, "veld_id", None),
-        )
-        return templates.TemplateResponse(request, "formulier.html", ctx)
+        return _refused(request, exc)
 
     from app.ui import site_context
 
@@ -338,17 +346,7 @@ async def formulier_edit_submit(
     try:
         update_public_submission(db, edit_token, payload)
     except HTTPException as exc:
-        ctx = _form_render_ctx(
-            db,
-            form_model,
-            request,
-            fout_veld_id=getattr(exc, "veld_id", None),
-            error=str(exc.detail),
-            submitter_name=naam,
-            submitter_email=email,
-        )
-        ctx["edit_token"] = edit_token
-        return templates.TemplateResponse(request, "formulier.html", ctx)
+        return _refused(request, exc)
 
     from app.ui import site_context
 

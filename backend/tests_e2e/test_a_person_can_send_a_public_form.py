@@ -91,7 +91,8 @@ def test_a_person_sends_a_public_form(visitor):
     _type(visitor, "#submitter_email", "jo@example.com")
     visitor.get_by_label("Naam ploeg").press_sequentially(name, delay=KEY_DELAY_MS)
     visitor.get_by_role("button", name="Verzenden").click()
-    visitor.wait_for_load_state()
+    # #1589: the thank-you page takes the form's place — no navigation to wait for.
+    visitor.locator("[data-form-thanks]").wait_for(timeout=10_000)
 
     assert "Bedankt" in visitor.locator("main").inner_text()
     import app.models  # noqa: F401

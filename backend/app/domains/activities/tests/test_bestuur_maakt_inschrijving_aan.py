@@ -104,7 +104,8 @@ def test_the_board_adds_a_registration_that_shows_like_any_other(
 def test_the_required_fields_hold_for_the_board_too(client, db_session, board, activity, missing):
     resp = _add(client, board, activity, **{missing: ""})
 
-    assert "Vul naam, e-mailadres en mobiel nummer in." in resp.text, resp.text[:400]
+    assert resp.status_code == 422
+    assert f'data-error-for="{missing}"' in resp.text, resp.text[:400]
     assert _registrations(db_session, activity) == []
 
 

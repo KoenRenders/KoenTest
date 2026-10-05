@@ -193,29 +193,18 @@ def wizard_form_token():
 
 
 def test_formulier_wizard_navigatie(page, wizard_form_token):
-    """Golden flow (#480): stap-per-stap door een meersectie-formulier. Op de
-    eerste sectie is er GEEN 'Vorige' (regressie: die bleef zichtbaar door een
-    door Tailwind ge-purgede opacity-class); onderweg wel; laatste sectie
-    'Verzenden'."""
+    """Golden flow (#480), as it is since #1589 (CR-11 pilot B): a form of
+    several sections is ONE page. Every section is a card on it, there is no
+    'Vorige' or 'Volgende', and 'Verzenden' stands in the bar from the start.
+    (The name of this test is kept: it is the golden flow of that form.)"""
     page.goto(f"/formulier/{wizard_form_token}")
-    prev = page.get_by_role("button", name="Vorige")
-    nxt = page.get_by_role("button", name="Volgende")
-    submit = page.get_by_role("button", name="Verzenden")
-
-    # Sectie 1: geen Vorige, wel Volgende.
-    expect(prev).to_be_hidden()
-    expect(nxt).to_be_visible()
-    nxt.click()
-    # Sectie 2: Vorige verschijnt.
-    expect(prev).to_be_visible()
-    expect(nxt).to_be_visible()
-    nxt.click()
-    # Sectie 3 (laatste): Verzenden i.p.v. Volgende.
-    expect(submit).to_be_visible()
-    expect(nxt).to_be_hidden()
-    # Terug kan ook.
-    prev.click()
-    expect(nxt).to_be_visible()
+    expect(page.get_by_role("button", name="Verzenden")).to_be_visible()
+    expect(page.get_by_role("button", name="Vorige")).to_have_count(0)
+    expect(page.get_by_role("button", name="Volgende")).to_have_count(0)
+    cards = page.locator("[data-question-cards] [data-form-section]")
+    assert cards.count() >= 3, "the sections are not all on the page"
+    for index in range(cards.count()):
+        expect(cards.nth(index)).to_be_visible()
 
 
 def test_publieke_kern_bereikbaar(page):
