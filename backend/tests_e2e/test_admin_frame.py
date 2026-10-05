@@ -168,8 +168,8 @@ def test_the_public_site_has_its_own_tokens(browser_and_session):
     """The home page's own values. Until CR-11 pilot B (#1588) they were the
     older Cobalt set, untouched by the admin's block; since then the public
     shell carries the Atelier palette too (decision 01), with its own header
-    band (the tenant's colour, or 36 75 197 without one) and Fraunces for its
-    headings — the body stays Inter."""
+    band (the tenant's colour, or 36 75 197 without one). Its headings are
+    Inter like the body since #1606: one family on both shells."""
     b, _session = browser_and_session
     page = b.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
     page.goto("/")
@@ -190,5 +190,5 @@ def test_the_public_site_has_its_own_tokens(browser_and_session):
         "header": "rgb(36, 75, 197)",
         "font": "Inter, system-ui, sans-serif",
         "ink": "rgb(33, 45, 58)",
-        "heading": "Fraunces",
+        "heading": "Inter",
     }, s

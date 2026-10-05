@@ -525,8 +525,8 @@ def test_the_public_header_has_no_typed_wordmark():
 
     Until #1588 this rule pinned the scale of the enlarged "aa" in the typed
     RaaK wordmark (1.3em = capHeight/xHeight of Radio Canada Big, #625). CR-11
-    decision 11 removed the typed wordmark — the display face is Fraunces now and
-    the logo carries the brand — so what is guarded is that no font-metric
+    decision 11 removed the typed wordmark — the logo carries the brand, and
+    since #1606 every heading is Inter — so what is guarded is that no font-metric
     construction comes back, and that both no-logo branches render the name.
     """
     inhoud = _zonder_commentaar(SITE_BASE)

@@ -251,7 +251,12 @@ def test_the_newsletter_call_stands_in_the_footer_of_every_page_and_not_on_the_h
     html = _home(client)
     footer = _footer(html)
     section = footer[footer.index("data-footer-newsletter") :]
-    assert f"Nieuws uit {details['town']}" in section
+    # #1606 (Koen, 5 October 2026): "Nieuws van <the site's name>" — also where
+    # the organisation has a town; P1's "Nieuws uit <plaats>" is gone.
+    from app.kernel.tenant_config import tenant_display_name
+
+    assert f"Nieuws van {tenant_display_name(db_session)}" in section
+    assert "Nieuws uit" not in html
     call = re.search(r'<a id="nb-voet-link"[^>]*>(.*?)</a>', section, re.S)
     assert call and call.group(1).strip() == "Aanmelden"
     assert re.search(r'id="nb-voet-link" href="[^"]*/nieuwsbrief"', section)
@@ -262,7 +267,7 @@ def test_the_newsletter_call_stands_in_the_footer_of_every_page_and_not_on_the_h
     assert "nb-voet-link" in _footer(other)
 
 
-def test_without_a_town_the_newsletter_names_the_tenant(client, db_session):
+def test_the_newsletter_names_the_site_also_without_a_town(client, db_session):
     from app.kernel.tenant_config import tenant_display_name
 
     name = tenant_display_name(db_session)

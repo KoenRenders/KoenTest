@@ -66,9 +66,6 @@ cat > "$TMP/in.css" << 'CSS'
    een externe font-CDN ziet het IP van elke bezoeker — Europe-First/GDPR. woff2
    eerst, ttf als terugval voor oude browsers; font-display:swap zodat tekst
    meteen leesbaar is. */
-/* CR-11 pilot B (#1588): Fraunces, the public site's heading face (§1.6) — one
-   weight (650), the Latin subset, OFL (static/fonts/OFL-Fraunces.txt). */
-@font-face{font-family:"Fraunces";src:url("/static/fonts/Fraunces-latin.woff") format("woff");font-weight:650;font-style:normal;font-display:swap}
 @font-face{font-family:"Inter";src:url("/static/fonts/Inter-Regular.woff2") format("woff2"),url("/static/fonts/Inter-Regular.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Inter";src:url("/static/fonts/Inter-Medium.woff2") format("woff2"),url("/static/fonts/Inter-Medium.ttf") format("truetype");font-weight:500;font-style:normal;font-display:swap}
 @font-face{font-family:"Inter";src:url("/static/fonts/Inter-SemiBold.woff2") format("woff2"),url("/static/fonts/Inter-SemiBold.ttf") format("truetype");font-weight:600;font-style:normal;font-display:swap}
@@ -121,9 +118,11 @@ cat > "$TMP/in.css" << 'CSS'
      warm accent `238 193 94` (text `37 44 53`) for the site's one call to
      action. Tailwind's scales are redefined, so no template changes: blue
      around the brand, gray as the Atelier neutrals. Radius: controls 6 px,
-     cards 14 px. Headings in Fraunces, everything else Inter (§1.6); the
-     wordmark's face (`font-brand`) is Fraunces too — Radio Canada Big left
-     with the house style.
+     cards 14 px. ONE family on both shells (#1606, Koen, 5 October 2026;
+     §1.6): `font-brand` resolves to Inter here as in the back office — the
+     serif heading face of P1 (#1588) is gone, with its font file. The public
+     headings are a little LARGER than the admin's, in Inter 600 at line
+     height 1.15: see the scale under this block.
      `--c-site-header` is the header's band WITHOUT a tenant colour: what it was
      before these tokens (36 75 197), so a tenant that set nothing keeps its
      header (`site_header_color` overrides it as before). */
@@ -138,7 +137,7 @@ cat > "$TMP/in.css" << 'CSS'
         --c-control-line:126 143 158;--c-focus:25 95 157;
         --c-gray-50:244 246 248;--c-gray-100:240 243 246;--c-gray-200:216 224 230;--c-gray-300:190 201 210;--c-gray-400:126 143 158;--c-gray-500:83 99 115;--c-gray-600:83 99 115;--c-gray-700:50 66 81;--c-gray-800:33 45 58;--c-gray-900:33 45 58;--c-gray-950:20 28 36;
         --r-lg:6px;--r-xl:10px;--r-2xl:14px;
-        --font-brand:"Fraunces",Georgia,serif}
+        --font-brand:Inter,system-ui,sans-serif}
   /* The readable aliases are resolved where they are declared (:root), so the
      shell declares them again — otherwise `var(--brand-ocean)` in the CMS
      content rules would stay the root's blue (measured: a CMS heading in
@@ -147,7 +146,21 @@ cat > "$TMP/in.css" << 'CSS'
         --brand-ocean:rgb(var(--c-brand-ocean));--primary:rgb(var(--c-brand-ocean));--primary-hover:rgb(var(--c-brand-ocean-hover));--link:rgb(var(--c-link));
         --ground:rgb(var(--c-ground));--surface:rgb(var(--c-surface));--surface-2:rgb(var(--c-surface-2));
         --ink:rgb(var(--c-ink));--ink-soft:rgb(var(--c-ink-soft));--line:rgb(var(--c-line))}
-  body[data-shell="site"] :is(h1,h2,h3){font-family:"Fraunces",Georgia,serif;font-weight:650}
+  /* The public heading scale (#1606, §1.6, §2.6): page title 32 px on a phone
+     and 40 px from 768, section head 24 px, card title 18 px — Inter 600, line
+     height 1.15. On the heading's tag and not in a template: a page writes
+     `<h1>`, `<h2>`, `<h3>` and the shell sizes them, so no public page can
+     come to differ. A section of a FORM keeps the kit's head (16 px, its own
+     line height): that is a field group's label, the same in both shells. */
+  body[data-shell="site"] :is(h1,h2,h3){font-family:var(--font-brand);font-weight:600;line-height:1.15}
+  body[data-shell="site"] #main h1{font-size:32px}
+  body[data-shell="site"] #main h2{font-size:24px}
+  body[data-shell="site"] #main h3{font-size:18px}
+  @media (min-width:768px){body[data-shell="site"] #main h1{font-size:40px}}
+  body[data-shell="site"] #main .form-section :is(h2,h3){font-size:16px;line-height:24px}
+  /* The site's name in the header where a tenant has no logo, and the drawer's
+     head: semibold like the headings (the serif face had one weight only). */
+  body[data-shell="site"] .font-brand{font-weight:600}
   body[data-shell="site"] .cms-content :is(h1,h2){color:rgb(var(--c-kop))}
   /* ── CR-11 block 1 (#1482): the admin shell in palette Atelier ─────────────
      Decided by Koen on 2 October 2026; the norm is design-system-end-state.md
@@ -299,11 +312,10 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .public-form-page{width:100%;max-width:768px;margin-inline:auto}
 .public-form-page-admin{margin-inline:0}
 .public-form-head{margin-bottom:24px}
-.public-form-title{font-family:"Fraunces",Georgia,serif;font-weight:650;font-size:32px;line-height:1.15;color:rgb(var(--c-ink));overflow-wrap:anywhere}
+.public-form-title{font-family:var(--font-brand);font-weight:600;font-size:32px;line-height:1.15;color:rgb(var(--c-ink));overflow-wrap:anywhere}
 .public-form-title:focus{outline:none}
 /* A section's head is Inter 16 px semibold in both shells (§2.6): the site's
    heading face is for the page's title, not for the cards of a form. */
-body[data-shell="site"] .form-section h2,body[data-shell="site"] .form-section h3{font-family:Inter,system-ui,sans-serif;font-weight:600}
 @media (min-width:768px){.public-form-title{font-size:40px}}
 @media (max-width:767.98px){body[data-shell="site"] .public-form-page{margin-top:-8px}}
 /* #1587: the flow's message line (where a refused or failed save stands) is a
