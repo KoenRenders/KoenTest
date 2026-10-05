@@ -29,7 +29,7 @@
 <div class="flex items-center justify-between gap-x-3" data-product-row>
 <div class="text-sm">
 <span class="font-medium">Product plain</span>
-<span class="ml-2 text-gray-500">€5,00</span>
+<span id="prijs-<P:plain>" data-price class="ml-2 text-gray-500">€5,00</span>
 </div>
 <div class="inline-flex shrink-0 items-stretch rounded-xl border border-gray-300 overflow-hidden bg-white"
  x-data="{ stap(richting) {
@@ -47,7 +47,7 @@
  class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
 <input type="number" name="product_<P:plain>" id="product-<P:plain>" x-ref="veld" value="1"
  min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
- hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:plain>/totaal" hx-include="closest form" hx-target="#totaal-<C:plain>" hx-swap="innerHTML" hx-trigger="change, keyup delay:300ms">
+ hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:plain>/totaal" hx-sync="#prijsblok-<C:plain>:replace" hx-include="closest form" hx-target="#totaal-<C:plain>" hx-swap="innerHTML" hx-trigger="change, input delay:300ms">
 <button type="button" @click="stap(1)"
  aria-label="Eén meer — Product plain"
  class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>

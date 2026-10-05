@@ -392,17 +392,23 @@ def _board_prices(client, act, email: str, quantity: int) -> str:
 
 
 def test_the_board_rows_follow_the_typed_member_address(client, db_session, paid, member):
-    """Rows and total come back together, as the public form shows them to a
-    signed-in member — and with the quantity that was entered, not the opening
-    one: the block is swapped, the fields around it are not."""
+    """The price of each row and the total come back together, as the public
+    form shows them to a signed-in member — for the quantity that was entered.
+
+    #1596: **no field is part of the answer.** It used to be the whole price
+    block, quantity fields included; an answer that landed late then put a
+    quantity typed meanwhile back, or mangled it (`tests_e2e/
+    test_registration_quantity_survives.py`). The price of a row travels out of
+    band, to the element with its id."""
     product = paid[2]
     for_member = _board_prices(client, paid, MEMBER, 2)
     assert "€10,00 / leden €6,00" in for_member, for_member[:600]
     assert "€12,00" in for_member and "ledenprijs" in for_member
-    assert re.search(rf'name="product_{product.id}"[^>]*value="2"', for_member), (
-        "the entered quantity was lost in the refresh"
-    )
-    assert 'name="contact_email"' not in for_member, "the address field is part of the swap"
+    assert re.search(
+        rf'<span id="prijs-{product.id}" data-price hx-swap-oob="true"[^>]*>€10,00 / leden €6,00<',
+        for_member,
+    ), "the row's price does not travel to its own element"
+    assert "<input" not in for_member, "a field is part of the answer"
 
     for_guest = _board_prices(client, paid, OTHER, 2)
     assert "/ leden" not in for_guest and "€20,00" in for_guest
@@ -416,4 +422,33 @@ def test_only_the_board_refreshes_prices_on_the_address(client, db_session, paid
     board = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw").text
     assert "/prijzen" not in public
     assert f'hx-post="/admin/activiteiten/{activity.id}/inschrijvingen/nieuw/prijzen"' in board
-    assert f'hx-target="#prijsblok-{component.id}"' in board
+    # #1596: what the answer replaces is the total; the rows' prices go out of
+    # band, and the quantity fields are never touched.
+    assert f'hx-target="#prijsblok-{component.id}"' not in board
+    email = re.search(r'<input type="email"[^>]*name="contact_email"[^>]*>', board).group(0)
+    assert f'hx-target="#totaal-{component.id}"' in email
+    assert f'hx-sync="#prijsblok-{component.id}:replace"' in email
+
+
+@pytest.mark.parametrize("channel", CHANNELS)
+def test_every_request_of_the_price_block_shares_one_queue(client, db_session, paid, channel):
+    """#1596: a quantity asks the total (the board: prices and total) through the
+    queue of its price block, where the newest request replaces the one under
+    way — an older answer can then never be the last word. And the row's price
+    has an element of its own for the board's refresh to find."""
+    activity, component, product = paid
+    if channel == "public":
+        client.cookies.clear()
+        page = client.get(f"/activiteiten/{activity.id}/inschrijven/{component.id}").text
+        asks = f"/activiteiten/{activity.id}/inschrijven/{component.id}/totaal"
+    else:
+        client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
+        page = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw").text
+        asks = f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw/prijzen"
+    field = re.search(rf'<input type="number" name="product_{product.id}"[^>]*>', page).group(0)
+    assert f'hx-post="{asks}"' in field, field
+    assert f'hx-sync="#prijsblok-{component.id}:replace"' in field
+    assert f'hx-target="#totaal-{component.id}"' in field
+    assert 'hx-trigger="change, input delay:300ms"' in field
+    assert f'<span id="prijs-{product.id}" data-price class=' in page
+    assert f'id="prijsblok-{component.id}"' in page and f'id="totaal-{component.id}"' in page
