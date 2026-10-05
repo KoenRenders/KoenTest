@@ -186,17 +186,21 @@ Rules that follow:
 
 ### 1.2 Typography
 
-**Public shell (since P1, #1588, CR-11 pilot B, merged 5 October 2026):**
-**Fraunces** (weight 650, the Latin subset, OFL, vendored under `/static/fonts`)
-for the public site's headings — `font-brand` resolves to Fraunces under
-`body[data-shell="site"]`, Radio Canada Big left — and **Inter** for body,
-tables and every field, button and control: the readability deviation from
-the brand guide stands. The header shows the tenant's **logo as one image**
+**Public shell (since P1, #1588, CR-11 pilot B, merged 5 October 2026;
+corrected by Koen the same day):** **Inter on the public site too, headings
+included** — P1 vendored Fraunces for the public headings and Koen judged it
+no improvement on HDEV ("vooral headings en titels activiteiten"), so
+`font-brand` resolves to Inter under `body[data-shell="site"]` as it does in
+the admin, and Fraunces leaves again (the correction slice of P1). What
+stays public is the scale: a page title 40 px on a desktop and 32 on a phone,
+a section heading 24, a card title 18, Inter 600 at line height 1.15; body
+16 px in reading text. Radio Canada Big left with the house style; the
+readability deviation from the brand guide stands. The header shows the tenant's **logo as one image**
 at every width; without a logo the tenant's name; the typed "RaaK" wordmark
 and the tagline under it are gone (decision 11; the tagline lives on in the
 logo's alt, the title and the Open Graph description). Never a font from a
-CDN. The whole public site follows the shell's tokens: headings in ink and
-Fraunces, the blue calmer, cards 14 px, controls 6 px.
+CDN. The whole public site follows the shell's tokens: headings in ink, the
+blue calmer, cards 14 px, controls 6 px.
 
 **Admin shell (#1482):** Inter only — `font-brand` is a token (`--font-brand`)
 that resolves to Inter under `body[data-shell="admin"]`, so the wordmark and
