@@ -398,7 +398,9 @@ Decided by Koen on ChatGPT's brief-11 answer, against its recommendation:
 the **coloured band stays, in the colour the tenant configures**
 (`site_header_color` in the tenant settings, as today; no new brand token)
 and **the logo stays** — top left, one
-image from the tenant's brand file at every width; no typed wordmark, no
+image from the tenant's brand file at every width, **as tall as the band
+allows** — the band's height minus 2 × 8 px, the exchange of #1156 (Koen, 5
+October 2026: PROD's logo is much larger than P1's; restored in P1b); no typed wordmark, no
 separate town name, no tagline that appears from 1 200 px. "Playing with
 letters and things that drop out is no gain."
 
