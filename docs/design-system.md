@@ -1056,8 +1056,11 @@ pointing to "Activiteit annuleren"; an empty name is refused. "Geannuleerd"
 is no field but the actions "Activiteit annuleren" (a confirmation naming
 the consequence) and "Annulering intrekken". The sticky action bar and every
 state of §2.7. The summary card only on Gegevens (the Publicatie card gone);
-the registrations tab as group rows per component with a read-only unfold
-and "Inschrijving openen ↗"; the embedded payments tab with its own address;
+the registrations tab as group rows per component — built with a read-only
+unfold and "Inschrijving openen ↗", **reversed on 5 October 2026** (Koen,
+on HDEV: the same data three times): the row is the way in to the
+registration page, with Bedrag and Saldo in the row, no unfold (a correction
+on K6); the embedded payments tab with its own address;
 the figures band stays on the household and registration tabs until pilot
 B; the first registration row at y 425. A message line that holds nothing
 is no part of the form flow (#1587). The "AI · Activiteit" overlay went with
