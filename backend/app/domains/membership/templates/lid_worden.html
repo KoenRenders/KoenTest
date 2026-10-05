@@ -3,8 +3,9 @@
 {% block title %}{{ _("Word lid — Raak") }}{% endblock %}
 {% block content %}
 {# Word lid on the public form page (CR-11 pilot B, #1590; end state §2.6): one
-   long page, no wizard and no nudge. The household is a repeating group, the
-   address a section, the price and the payment choice the last card; ONE bar
+   long page, no wizard and no nudge. In this order (#1632, Q72): the main member
+   as a fixed section, the address, the other persons as a repeating group, the
+   price and the payment choice in the last card; ONE bar
    carries the one action down the page. A refusal answers the banner alone into
    the message line (`refusal_response`) and the fields are marked in place —
    everything typed stays. `#lid-worden-pagina` is what a good answer replaces. #}
@@ -36,8 +37,9 @@
     <form id="lid-worden-form" class="contents" data-record-form data-message="#lid-worden-melding" novalidate
           hx-post="/lid-worden" hx-target="#lid-worden-pagina" hx-select="#lid-worden-pagina"
           hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
-      {% include "_household_group.html" %}
+      {% include "_household_head.html" %}
       {% include "_household_address.html" %}
+      {% include "_household_group.html" %}
       {% call ui.section(_("Lidmaatschap en betaling"), id="lidgeld") %}
         <p data-span="full" data-membership-terms class="text-base leading-6 text-ink-soft">
           {{ _("Lidgeld:") }} <strong class="text-2xl font-semibold text-ink">€ {{ page.terms.amount|geld }}</strong> {{ _("per gezin.") }}<br>

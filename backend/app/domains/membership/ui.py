@@ -216,6 +216,7 @@ def _household_page(
         valid_until=valid_until,
         renewal_available=renewal_available(valid_until, date.today()),
         renewal_running=bool(transfer or online),
+        transfer=transfer,
         board_member_name=household.get("board_member_name"),
         saved=saved,
     )

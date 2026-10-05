@@ -4,13 +4,7 @@
    to an act that cannot succeed. Amount and reference come from the booking. #}
 {% if page.transfer %}
 {% call ui.flow_card(_("Vernieuwing geregistreerd"), attrs="data-renewal-transfer") %}
-  <p class="text-base text-ink">{{ _("Betaal via overschrijving:") }}</p>
-  <ul class="mt-2 text-base leading-7 text-ink">
-    <li>{{ _("Bedrag") }}: <strong>€ {{ page.transfer.amount|geld }}</strong></li>
-    {% if page.transfer.iban %}<li>IBAN: <strong>{{ page.transfer.iban }}</strong></li>{% endif %}
-    {% if page.transfer.beneficiary %}<li>{{ _("Begunstigde") }}: {{ page.transfer.beneficiary }}</li>{% endif %}
-    {% if page.transfer.ogm %}<li>{{ _("Mededeling (OGM)") }}: <strong>{{ page.transfer.ogm }}</strong></li>{% endif %}
-  </ul>
+  {% with transfer = page.transfer %}{% include "_transfer_due.html" %}{% endwith %}
 {% endcall %}
 {% else %}
 {% call ui.flow_card(_("Je vernieuwing loopt nog"), attrs="data-renewal-online") %}

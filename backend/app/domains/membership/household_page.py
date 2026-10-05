@@ -72,9 +72,13 @@ class AddressView:
 
 @dataclass(frozen=True)
 class HouseholdGroup:
-    """The household as the group shows it, with what a new row is made from."""
+    """The household as the pages show it, with what a new row is made from.
 
-    persons: tuple[PersonView, ...]
+    The main member stands apart (#1632): a fixed section, first on the page.
+    `members` are the others — the rows of the group Gezinsleden."""
+
+    main: PersonView
+    members: tuple[PersonView, ...]
     new_person: PersonView
     new_email: EmailView
     gender_options: tuple[tuple[str, str], ...]
@@ -130,6 +134,9 @@ class HouseholdPage:
     renewal_available: bool
     renewal_running: bool
     board_member_name: Optional[str]
+    #: A renewal that waits for a transfer: what to pay stands in the
+    #: Lidmaatschap card itself (#1632).
+    transfer: Optional[TransferDue] = None
     #: The page answers a save: it says "Opgeslagen ✓".
     saved: bool = False
 
@@ -209,7 +216,8 @@ def signup_group(codes: dict) -> HouseholdGroup:
         fold="open",
     )
     return HouseholdGroup(
-        persons=(head,),
+        main=head,
+        members=(),
         new_person=new_person,
         new_email=new_email,
         gender_options=genders,
@@ -224,14 +232,15 @@ def household_group(household: dict, codes: dict, *, me: int, short_date) -> Hou
     """The household of a member, from the portal's own read (`household_view`).
 
     `me` is the person looking: nobody takes themselves out of the household, and
-    the main member stays whoever looks (#1603) — those rows have no
-    "Verwijderen". The first row stands open, the others closed.
+    the main member stays whoever looks (#1603) — the main member is no row at
+    all (#1632), and one's own row has no "Verwijderen". The rows stand closed.
+    A household without a flagged main member shows its first person there.
     """
     genders, relations, postal, relation_labels = _options(codes)
     new_person, new_email = _new_rows(relation_labels)
     persons = []
     address: Optional[AddressView] = None
-    for index, p in enumerate(household["persons"]):
+    for p in household["persons"]:
         relation = _relation_code(p.get("relation_type"))
         emails = tuple(
             EmailView(key=str(m["id"]), value=m["value"], primary=bool(m["is_primary"]))
@@ -256,7 +265,7 @@ def household_group(household: dict, codes: dict, *, me: int, short_date) -> Hou
                 emails=emails,
                 primary_key=next((m.key for m in emails if m.primary), ""),
                 removable=p["id"] != me and not p.get("is_main_member"),
-                fold="open" if index == 0 else "closed",
+                fold="closed",
             )
         )
         a = p.get("address")
@@ -267,8 +276,10 @@ def household_group(household: dict, codes: dict, *, me: int, short_date) -> Hou
                 bus_number=a.get("bus_number") or "",
                 postal_code=a.get("postal_code") or "",
             )
+    main = next((p for p in persons if p.is_main), persons[0])
     return HouseholdGroup(
-        persons=tuple(persons),
+        main=main,
+        members=tuple(p for p in persons if p is not main),
         new_person=new_person,
         new_email=new_email,
         gender_options=genders,

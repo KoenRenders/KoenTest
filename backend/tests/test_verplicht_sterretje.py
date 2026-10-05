@@ -18,9 +18,15 @@ Since #1590 the page is built from the kit's `field` macro and the household is
 a repeating group: the main member is row `n0` (ids `h-n0-…`, its first e-mail
 row `e-n0e-…`), and what "+ Gezinslid toevoegen" adds is the group's template
 row (`h-__H__-…`), which stands in the page itself — there is no route for a
-row any more. Gender is a radio group since then: its star stands on the
-group's label (`<p id="…-label">`), which the comparison below does not cover,
-so it is asked separately.
+row any more. A radio group's star stands on the group's label
+(`<p id="…-label">`), which the comparison below does not cover, so it is asked
+separately (the payment method).
+
+Since #1632 the gender is a select — an ordinary labelled field, so it is in
+the comparison — and an e-mail row has no label of its own: the title of its
+group, "E-mailadressen", is its label and carries the star when an address is
+asked (`_group_title_marked`). The comparison leaves such a field out and the
+title is asked for it, in both directions.
 """
 
 import re
@@ -69,11 +75,30 @@ def _radiogroepen(html: str) -> set[str]:
     return namen
 
 
+LABELLESS = re.compile(r'<(?:input|select|textarea)\s[^>]*aria-label="[^"]*"[^>]*>', re.S)
+
+
+def _named_by_its_group(html: str) -> set[str]:
+    """Ids of the controls without a label of their own (`label_hidden`)."""
+    return {m.group(1) for tag in LABELLESS.findall(html) if (m := ID_ATTR.search(tag))}
+
+
+def _group_title_marked(html: str, group: str) -> bool:
+    """Does the title of the repeating group `group` carry the red star?"""
+    found = re.search(
+        rf'data-repeating-group="{re.escape(group)}".*?<h[23][^>]*>(.*?)</h[23]>', html, re.S
+    )
+    assert found, f"no repeating group {group}"
+    return bool(ROOD_STERRETJE.search(found.group(1)))
+
+
 def _controleer(html: str, *, minstens: set[str]) -> None:
     gemarkeerd, verplicht = _gemarkeerd(html), _verplicht(html)
     assert minstens <= verplicht, (
         f"velden die verplicht horen te zijn, zijn het niet: {sorted(minstens - verplicht)}"
     )
+    # A field its group names has its star on the group's title; the caller asks that.
+    verplicht -= _named_by_its_group(html)
     assert verplicht - gemarkeerd == set(), (
         f"verplicht veld zonder rood sterretje (#646): {sorted(verplicht - gemarkeerd)}"
     )
@@ -119,7 +144,9 @@ def test_hoofdlid_elk_verplicht_veld_draagt_het_rode_sterretje(client, db_sessio
             "address-postal_code",
         },
     )
-    assert _group_label_marked(resp.text, "h-n0-gender_code")
+    assert "h-n0-gender_code" in _gemarkeerd(resp.text) & _verplicht(resp.text)
+    assert _named_by_its_group(resp.text) >= {"e-n0e-value"}
+    assert _group_title_marked(resp.text, "e_order.n0"), "the asked e-mail address has no star"
     assert _group_label_marked(resp.text, "payment_method")
     assert "h-n0-phone" not in _gemarkeerd(resp.text), "an optional field carries the star"
 
@@ -134,11 +161,14 @@ def test_bijkomend_lid_geboortedatum_en_geslacht_dragen_het_rode_sterretje(clien
     assert page.status_code == 200
     rij = _new_person_row(page.text)
     _controleer(rij, minstens={"h-__H__-first_name", "h-__H__-last_name", "h-__H__-date_of_birth"})
-    assert _group_label_marked(rij, "h-__H__-gender_code")
+    assert "h-__H__-gender_code" in _gemarkeerd(rij) & _verplicht(rij)
     assert "e-__E__-value" not in _verplicht(rij) and "e-__E__-value" not in _gemarkeerd(rij)
+    assert not _group_title_marked(rij, "e_order.__H__"), "an unasked address carries the star"
     assert "h-__H__-mobile" not in _gemarkeerd(rij) and "h-__H__-mobile" not in _verplicht(rij)
     # The other side of the difference, on the same page: the main member's row.
-    assert {"h-n0-mobile", "e-n0e-value"} <= _gemarkeerd(page.text) & _verplicht(page.text)
+    assert "h-n0-mobile" in _gemarkeerd(page.text) & _verplicht(page.text)
+    assert "e-n0e-value" in _verplicht(page.text)
+    assert _group_title_marked(page.text, "e_order.n0")
 
 
 def test_geen_grijs_sterretje_meer_in_de_labeltekst(client, db_session):

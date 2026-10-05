@@ -103,7 +103,8 @@ def test_mijn_gezin_points_to_the_running_renewal_and_offers_no_second_one(clien
     assert "Je vernieuwing loopt nog." in after and "Bekijk de betaling" in after
     assert button in after, "no way to the payment"
     assert ">Lidmaatschap vernieuwen</a>" not in after, "a second renewal is offered"
-    assert "+++123/4567/89012+++" not in after, "the payment details belong on the renewal page"
+    # #1632 (CR-11 Q73): what to pay stands in the card itself, not one click further.
+    assert "+++123/4567/89012+++" in after, "the transfer to make is not in the card"
 
 
 def test_afgebroken_online_betaling_toont_hervatknop(client, db_session):
