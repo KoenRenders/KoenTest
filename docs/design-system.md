@@ -1370,9 +1370,9 @@ Same kit, warmer expression. Specifics beyond §3.1:
   name opens one menu — Mijn gezin · Admin (for who the back office admits) ·
   Uitloggen; "Inloggen" without a session; one list for the bar and the drawer
   (`_site_account.html`). **The footer** shares the container of header and
-  content (358 / 720 / 1 248 px): one row — the newsletter's call "Nieuws uit
-  <plaats>" ("Nieuws van <naam>" without an address) with the one yellow
-  "Aanmelden" (it left the home page), "Volg ons" with the social links (24 px
+  content (358 / 720 / 1 248 px): one row — the newsletter's call **"Nieuws van <naam van de site>"** (the tenant's
+  site name of #1546 — Koen, 5 October 2026, replacing P1's "Nieuws uit
+  <plaats>") with the one yellow "Aanmelden" (it left the home page), "Volg ons" with the social links (24 px
   in 44 px targets), the sponsors (at most 144 × 64 px) — and the **legal line
   with the organisation's details**, each once and only when filled in, from
   the organisation the site shows; the CMS block `site-footer` is no longer
