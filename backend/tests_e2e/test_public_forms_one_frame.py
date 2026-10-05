@@ -8,9 +8,10 @@ font. The values must be the SAME on every page — that is the acceptance — a
 they are pinned to the norm once (768 / 358 px, 14 px radius, 16 px padding,
 32 px between cards), so "the same" cannot become "equally wrong".
 
-`PAGES` holds what stands on master: register and a public form (P2, #1589).
-Word lid, renew and Mijn gezin join it with P3 (#1590) — add their address
-here, nothing else.
+All five public forms are measured: register and a public form (P2, #1589),
+Word lid, renew and Mijn gezin in edit mode (P3, #1590). The last two are
+opened as the seed's member whose membership has expired — the one for whom
+the renewal page offers its form.
 
 Proven red (run, restored): `rounded-2xl` replaced by `rounded-lg` in
 `ui.flow_card` → the public form's name card differs from its section cards
@@ -27,7 +28,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
 
 #: width → what the norm says (§2.6): column, card radius, card padding, gap.
 NORM = {390: (358, "14px", "16px", 32), 1440: (768, "14px", "16px", 32)}
@@ -35,9 +36,13 @@ NORM = {390: (358, "14px", "16px", 32), 1440: (768, "14px", "16px", 32)}
 MEASURE = """() => {
   const px = n => Math.round(n);
   const frame = document.querySelector('[data-public-form-page]');
-  const cards = [...frame.querySelectorAll('[data-form-section]')].filter(c => c.checkVisibility());
+  // A card is a section of the flow, whatever macro drew it: `section`,
+  // `flow_card`, or a repeating group (`form-section` is their shared surface).
+  const cards = [...frame.querySelectorAll('.form-section')].filter(c => c.checkVisibility());
   const style = c => { const s = getComputedStyle(c); return [s.borderTopLeftRadius, s.paddingLeft, s.backgroundColor, s.borderTopWidth].join(' | '); };
-  const gaps = cards.slice(1).map((c, i) => px(c.getBoundingClientRect().top - cards[i].getBoundingClientRect().bottom));
+  // The distance between two cards is the flow's own gap — measured there,
+  // because on the renewal page the action bar stands between two cards.
+  const gaps = [...frame.querySelectorAll('[data-form-flow]')].map(f => px(parseFloat(getComputedStyle(f).rowGap)));
   const save = document.querySelector('[data-form-save]');
   const b = getComputedStyle(save);
   return {
@@ -61,10 +66,13 @@ def pages():
     activity, component, _product = seed_activity_with_product(db, price="10.00", is_free=False)
     form = seed_question_form(db, title="E2E één kader", sections=2)
     db.commit()
-    #: name → address. P3 adds: Word lid, renew, Mijn gezin.
+    #: name → (address, signed in as the expired member?).
     found = {
-        "register": f"/activiteiten/{activity.id}/inschrijven/{component.id}",
-        "public form": f"/formulier/{form.share_token}",
+        "register": (f"/activiteiten/{activity.id}/inschrijven/{component.id}", False),
+        "public form": (f"/formulier/{form.share_token}", False),
+        "Word lid": ("/lid-worden", False),
+        "renew": ("/leden/gezin/vernieuwen", True),
+        "Mijn gezin": ("/leden/gezin?bewerken=1", True),
     }
     db.close()
     return found
@@ -76,14 +84,21 @@ def measured(pages):
     with sync_playwright() as pw:
         exe = os.environ.get("E2E_CHROMIUM_PATH")
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
+        from app.domains.auth.api import make_session_value
+        from seed_e2e import MARKER_EMAIL_VERLOPEN
+
+        member = make_session_value(MARKER_EMAIL_VERLOPEN)
         for width, height in ((390, 844), (1440, 900)):
-            page = browser.new_page(base_url=BASE, viewport={"width": width, "height": height})
             out[width] = {}
-            for name, path in pages.items():
+            for name, (path, signed_in) in pages.items():
+                page = browser.new_page(base_url=BASE, viewport={"width": width, "height": height})
+                if signed_in:
+                    login_met_sessie(page, member)
                 page.goto(path)
                 pagina_klaar(page)
+                assert page.locator("[data-form-save]").count() == 1, f"{name}: no form to measure"
                 out[width][name] = page.evaluate(MEASURE)
-            page.close()
+                page.close()
         browser.close()
     print("MEASURE AC5", out)
     return out
@@ -92,11 +107,11 @@ def measured(pages):
 @pytest.mark.parametrize("width", [390, 1440])
 def test_every_public_form_has_the_same_frame(measured, width):
     per_page = measured[width]
-    assert len(per_page) >= 2, "one page is always equal to itself"
+    assert len(per_page) == 5, sorted(per_page)
     for name, m in per_page.items():
-        assert m["cards"] >= 3, f"{name}: the measurement found {m['cards']} cards"
+        assert m["cards"] >= 1, f"{name}: the measurement found no card"
         assert len(m["card_styles"]) == 1, f"{name} @{width}: its cards differ: {m['card_styles']}"
-        assert len(m["gaps"]) == 1, f"{name} @{width}: its cards are not evenly apart: {m['gaps']}"
+        assert len(m["gaps"]) == 1, f"{name} @{width}: not one form flow: {m['gaps']}"
     for key in ("column", "card_styles", "gaps", "button", "button_class"):
         values = {name: m[key] for name, m in per_page.items()}
         distinct = {str(v) for v in values.values()}
