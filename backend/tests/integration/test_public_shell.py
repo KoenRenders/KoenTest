@@ -219,6 +219,8 @@ def test_a_detail_that_is_not_filled_in_leaves_no_empty_separator(client, db_ses
     line = _legal(_home(client))
     assert line.endswith("· bestuur@example.com")
     assert "· ·" not in line and not line.endswith("·")
+    # #1616: one separator per value, so the count is the number of values.
+    assert line.count("·") == 1, line
     # The unit: only what has a value, in the fixed order.
     assert legal_parts(None) == []
     parts = legal_parts(
@@ -228,6 +230,18 @@ def test_a_detail_that_is_not_filled_in_leaves_no_empty_separator(client, db_ses
         ("phone", "014 00 00 00"),
         ("iban", "BE00 (ABCD)"),
     ]
+
+
+def test_without_any_detail_the_legal_line_ends_on_the_name(client, db_session):
+    """#1616: an organisation with nothing filled in and no footer page — the
+    line is "© year name" and ends there, without a separator."""
+    from app.domains.cms.api import CmsPage
+
+    organisation = _organisation(db_session)
+    db_session.query(CmsPage).update({CmsPage.show_in_footer: False})
+    db_session.commit()
+    line = _legal(_home(client))
+    assert re.fullmatch(rf"© \d{{4}} {re.escape(organisation.name)}", line), line
 
 
 def test_the_site_footer_block_is_no_longer_rendered(client, db_session):

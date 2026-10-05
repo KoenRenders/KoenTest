@@ -1207,6 +1207,7 @@ def site_context(db, request=None) -> dict:
     from app.config import settings
     from app.kernel.tenant_config import (
         get_setting,
+        site_name_default,
         tenant_display_name,
         tenant_site_header_color,
         umami_tracking,
@@ -1232,6 +1233,11 @@ def site_context(db, request=None) -> dict:
         # (#1546) — no longer "Nieuws uit <plaats>" where the organisation has a
         # town: the newsletter is the site's, not the town's.
         "legal_parts": legal_parts(footer_organisation),
+        # #1616 (Koen, 5 October 2026): the legal line names the ORGANISATION
+        # behind the site (#1550), not the site — the address and the numbers
+        # after it are that organisation's. Everything else that names the site
+        # keeps `site_name` (#1546).
+        "legal_name": site_name_default(db),
         "newsletter_heading": _("Nieuws van %(name)s") % {"name": tenant_display_name(db)},
         # #1473: the address comes from media; the footer writes none itself.
         "sponsors": [
