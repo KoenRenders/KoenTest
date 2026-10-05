@@ -352,7 +352,7 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   rows on a record's tab, which open the booking page of #1574). A registration row
   carries name · contact (e-mail and mobile stacked) · date · products ·
   **Bedrag** · **Saldo** (warning tone when ≠ 0) · status · one row action
-  plus `⋯` with **"Betaling openen"** (a jump to the booking page of #1574) among its items (Koen, 5 October 2026); the answers live on the record page (in the list at most a count
+  plus `⋯` with **"Inschrijving openen"** and **"Betaling openen"** (jumps to the registration page and to the booking page of #1574) among its items (Koen, 5 October 2026); the answers live on the record page (in the list at most a count
   that jumps there). Registrations are **one table with a collapsible group row per
   component** (chevron, name, count, `⋯` with Exporteren and Antwoorden),
   per activity on the household with a jump link in the group row (Q41).
