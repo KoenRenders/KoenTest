@@ -183,7 +183,8 @@ PLACEHOLDER_LABELS = {
     # #1567: a button to one of this tenant's forms, by its slug; the label after
     # the bar is optional (without it, the form's title).
     "form:berichten": "Een knop naar een formulier; vervang berichten door de slug van het formulier",
-    "form:berichten|Contacteer ons": "Dezelfde knop met een eigen tekst na het streepje",
+    # #1615: "het verticale streepje (|)" — "streepje" alone reads as a hyphen.
+    "form:berichten|Contacteer ons": "Dezelfde knop met een eigen tekst na het verticale streepje (|)",
 }
 
 _MAANDEN = [
@@ -238,6 +239,18 @@ def _values() -> Dict[str, str]:
 _SITES = re.compile(r"\{\{tenants(?::([a-z0-9-]+))?\}\}")
 
 
+def sites_in_words(account_code: Optional[str], db=None) -> str:
+    """The same accounts and sites as `_sites_html`, in words (#1615): what the
+    editor's legend shows as the example of `{{tenants}}` and `{{tenants:<code>}}`
+    — "Account A: Site 1, Site 2 · Overige: Site 3", or one account's site names.
+    The legend shows words, never the cards' markup."""
+    parts = []
+    for group in _site_groups(account_code, db):
+        names = ", ".join(site["name"] for site in group["sites"])
+        parts.append(f"{group['heading']}: {names}" if group["heading"] else names)
+    return " · ".join(part for part in parts if part)
+
+
 def _sites_html(account_code: Optional[str], db=None) -> str:
     """The accounts with their active sites, each site a card (#1543, #1566).
 
@@ -257,11 +270,22 @@ def _sites_html(account_code: Optional[str], db=None) -> str:
     request sees. Without it (the editor's legend, the JSON API, the assistant's
     context) a short session of its own.
     """
+    from app.ui import templates
+
+    groups = _site_groups(account_code, db)
+    if not groups:
+        return ""
+    return templates.env.get_template("_tenant_sites.html").render(groups=groups).strip()
+
+
+def _site_groups(account_code: Optional[str], db=None) -> list[dict]:
+    """What the sites placeholder lists, as data: per account its heading (None
+    for one account asked by code) and its sites by name and address. One reader
+    for the cards (`_sites_html`) and for the legend's words (`sites_in_words`)."""
     from app.database import SessionLocal
     from app.domains.mdm.api import OrganizationType, active_sites_by_account
     from app.i18n import _
     from app.kernel.tenant_config import platform_home_url, tenant_display_name, tenant_home_url
-    from app.ui import templates
 
     own = db is None
     if own:
@@ -284,9 +308,7 @@ def _sites_html(account_code: Optional[str], db=None) -> str:
             groups.append(
                 {"heading": heading, "sites": [{"name": name, "url": url} for name, url in links]}
             )
-        if not groups:
-            return ""
-        return templates.env.get_template("_tenant_sites.html").render(groups=groups).strip()
+        return groups
     finally:
         if own:
             db.close()
