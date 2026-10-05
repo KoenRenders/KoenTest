@@ -483,7 +483,13 @@ public forms — register, a public form, Word lid, renew, Mijn gezin:
   the one action down a 2 100 px page on a phone.
 - **Renew**: the status line, the membership card with price, validity and
   the payment radios, the button, then the household summary; renewing is
-  its own act. **Mijn gezin**: edit mode with one *Bewerken* badge and one
+  its own act. **Mijn gezin**: the **Lidmaatschap** card first in read mode, with its
+  three states on one place (Koen, 5 October 2026, choosing the kit's form
+  over PROD's bar): valid — "geldig tot en met …" in the success tone;
+  to renew — the sentence and the button *Lidmaatschap vernieuwen*; a
+  renewal awaiting a transfer — "Je vernieuwing loopt nog." **with the
+  transfer instructions in the card**, not one click further; then edit
+  mode with one *Bewerken* badge and one
   *Opslaan*; then read mode with the same sections ("—" for empty) and one
   *Bewerken* in the head; the toast "Opgeslagen ✓" for four seconds.
 - **The primary is brand blue** in both shells; yellow stays with the
