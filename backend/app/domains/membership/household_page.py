@@ -134,9 +134,11 @@ class HouseholdPage:
     renewal_available: bool
     renewal_running: bool
     board_member_name: Optional[str]
-    #: A renewal that waits for a transfer: what to pay stands in the
-    #: Lidmaatschap card itself (#1632).
+    #: A renewal that runs stands in the Lidmaatschap card itself, and only
+    #: there (#1632, #1641): the transfer to make, or the online payment to
+    #: resume — at most one of the two.
     transfer: Optional[TransferDue] = None
+    online: Optional[OnlineDue] = None
     #: The page answers a save: it says "Opgeslagen ✓".
     saved: bool = False
 
@@ -146,8 +148,6 @@ class RenewPage:
     valid_until: Optional[date]
     renewal_available: bool
     terms: Optional[Terms]
-    transfer: Optional[TransferDue]
-    online: Optional[OnlineDue]
     #: The household in one line per person, and its address in one.
     summary: tuple[tuple[str, str, bool], ...]
     address_line: str
@@ -181,6 +181,10 @@ def _new_rows(relation_labels: dict[str, str]) -> tuple[PersonView, EmailView]:
         removable=True,
         fold="open",
         choose_relation=True,
+        # #1641: a new person opens with one empty e-mail field, like everyone.
+        # Its key hangs on the person's token, so every added person gets their own.
+        emails=(EmailView(key=PERSON_TOKEN + "e", primary=True),),
+        primary_key=PERSON_TOKEN + "e",
     )
     return person, EmailView(key=EMAIL_TOKEN)
 
@@ -228,13 +232,20 @@ def signup_group(codes: dict) -> HouseholdGroup:
     )
 
 
-def household_group(household: dict, codes: dict, *, me: int, short_date) -> HouseholdGroup:
+def household_group(
+    household: dict, codes: dict, *, me: int, short_date, edit: bool = False
+) -> HouseholdGroup:
     """The household of a member, from the portal's own read (`household_view`).
 
     `me` is the person looking: nobody takes themselves out of the household, and
     the main member stays whoever looks (#1603) — the main member is no row at
     all (#1632), and one's own row has no "Verwijderen". The rows stand closed.
     A household without a flagged main member shows its first person there.
+
+    `edit`: a person without an e-mail address shows one empty field to type
+    one in (#1641, CR-11 Q77) — a row that was never stored (its key is no
+    number), which the form's reader leaves out when it comes back empty.
+    Reading, such a person shows no address.
     """
     genders, relations, postal, relation_labels = _options(codes)
     new_person, new_email = _new_rows(relation_labels)
@@ -247,12 +258,15 @@ def household_group(household: dict, codes: dict, *, me: int, short_date) -> Hou
             for m in p.get("emails") or []
         )
         born = p.get("date_of_birth") or ""
+        subtitle = _subtitle(relation, bool(emails))
+        if edit and not emails:
+            emails = (EmailView(key=f"n{p['id']}e", primary=True),)
         persons.append(
             PersonView(
                 key=str(p["id"]),
                 prefix=relation_labels.get(relation, ""),
                 title=f"{p.get('first_name') or ''} {p.get('last_name') or ''}".strip(),
-                subtitle=_subtitle(relation, bool(emails)),
+                subtitle=subtitle,
                 is_main=bool(p.get("is_main_member")),
                 relation_type=relation,
                 first_name=p.get("first_name") or "",

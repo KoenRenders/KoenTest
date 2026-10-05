@@ -75,7 +75,13 @@ class PersonRow:
     #: What the member chose for a person they add: partner or child, or "" for
     #: the one rule's default. Not read for a person who is already there.
     relation_type: str = ""
+    #: The e-mail rows that say something: an address, or a stored row (emptied
+    #: means removed). An empty row that was never stored is not among them —
+    #: the reader of the form leaves it out (#1641).
     emails: list[EmailRow] = field(default_factory=list)
+    #: The field of the person's first e-mail row as the form sent it, empty or
+    #: not ("" when the form sent none): where "an address is asked" is said.
+    email_field: str = ""
 
 
 @dataclass

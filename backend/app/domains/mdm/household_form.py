@@ -14,6 +14,14 @@ A key is the row's id, or anything else for a row added in the page. The rows ar
 read in the order of their order fields. The address is read only when the form
 carries it; a form without address fields leaves the address alone.
 
+Every person shows one empty e-mail field from the start (#1641, CR-11 Q77),
+so **an empty e-mail row that was never stored is no row**: it is left out
+here, once, for Word lid and Mijn gezin alike — no address is written and
+nothing is refused. A STORED row that comes back empty stays: emptied means
+removed. Where an address is asked (the main member of a sign-up), the refusal
+still needs a field to stand on: `PersonRow.email_field` is the first e-mail
+field the form sent, empty or not.
+
 This module reads the SHAPE — a date is a date — and notes at its field what is
 not (`HouseholdSave.errors`); what a value MEANS is the save's
 (`mdm.household_save`), which reports everything together.
@@ -58,6 +66,10 @@ def household_from_form(form: Any) -> HouseholdSave:
     persons = []
     for key in form.getlist("h_order"):
         primary = _text(form, f"e_primary.{key}")
+        sent = [
+            EmailRow(key=mail, value=_text(form, f"e.{mail}.value"), primary=mail == primary)
+            for mail in form.getlist(f"e_order.{key}")
+        ]
         persons.append(
             PersonRow(
                 key=key,
@@ -68,12 +80,8 @@ def household_from_form(form: Any) -> HouseholdSave:
                 phone=_text(form, f"h.{key}.phone"),
                 mobile=_text(form, f"h.{key}.mobile"),
                 relation_type=_text(form, f"h.{key}.relation_type"),
-                emails=[
-                    EmailRow(
-                        key=mail, value=_text(form, f"e.{mail}.value"), primary=mail == primary
-                    )
-                    for mail in form.getlist(f"e_order.{key}")
-                ],
+                emails=[mail for mail in sent if mail.value or mail.key.isdigit()],
+                email_field=f"e.{sent[0].key}.value" if sent else "",
             )
         )
     address = None

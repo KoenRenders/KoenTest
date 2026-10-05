@@ -100,14 +100,12 @@ def test_het_overschrijvingsgezin_toont_bedrag_iban_begunstigde_en_mededeling(br
     )
 
     page = _portaal(browser_page, MARKER_EMAIL_OVERSCHRIJVING)
-    # #1590: Mijn gezin says the renewal is running and links to its page; the
-    # payment details stand there, where renewing is done.
+    # #1641 (CR-11 Q79): the Lidmaatschap card of Mijn gezin is the one place for
+    # a running renewal — the payment details stand in it, and no link leads on.
     status = page.locator("[data-membership-status]")
     expect(status).to_contain_text("Je vernieuwing loopt nog")
-    expect(status.get_by_role("link", name=VERLENGKNOP)).to_have_count(0)
-    status.get_by_role("link", name="Bekijk de betaling").click()
-    page.wait_for_url("**/leden/gezin/vernieuwen")
-    tekst = page.locator("main").inner_text()
+    expect(status.get_by_role("link")).to_have_count(0)
+    tekst = status.inner_text()
 
     assert BETAALINSTRUCTIE in tekst, f"geen betaalinstructies op het scherm: {tekst!r}"
     # Met een KOMMA (#1241): op het beeld stond `€ 20.00`, en een punt op een
