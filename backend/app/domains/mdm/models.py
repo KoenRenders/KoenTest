@@ -39,6 +39,10 @@ class PersonDetailsMissing(MasterDataError):
     """A member of a household without a birth date or a gender (#681)."""
 
 
+class MainMemberMobileMissing(MasterDataError):
+    """The main member of a household without a mobile number (#1590)."""
+
+
 #: The rule of #681, by name — what `kernel.rules.exempt` names when a path may
 #: stand it aside.
 HOUSEHOLD_MEMBER_DETAILS = "household member details"
@@ -323,6 +327,22 @@ class MemberPerson(TenantMixin, SoftDeleteMixin, Base):
             raise PersonDetailsMissing(
                 _("Geboortedatum en geslacht zijn verplicht voor elk gezinslid.")
             )
+
+    @staticmethod
+    def require_main_member_mobile(mobile: object) -> None:
+        """The main member can be called — or `MainMemberMobileMissing`.
+
+        One rule for the two doors a member uses (#1590): Word lid, which asked it
+        in its schema, and the one save of "Mijn gezin", where until then only the
+        browser's `required` held it — a rule that left with the browser's own
+        validation. The board's household screen and the JSON API do not ask it,
+        today as before (master CLI, 5 October 2026): it is called at those two
+        doors and is no rule of the object.
+        """
+        if _blank(mobile):
+            from app.i18n import _
+
+            raise MainMemberMobileMissing(_("Mobiel nummer is verplicht voor het hoofdgezinslid."))
 
     def check(self) -> None:
         """A new, moved or revived link needs a person with a birth date and a gender."""

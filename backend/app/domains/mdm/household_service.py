@@ -109,11 +109,10 @@ def update_household_person(
     """Change a person of the household: name, birth date, gender, address, contacts.
 
     Only these fields; the relation type, the household's board member and the
-    external number are never touched from here.
+    external number are never touched from here. The committing door of the JSON
+    API; the save of the whole household (`household_save`, #1590) calls the same
+    cores inside its one transaction.
     """
-    from app.domains.audit.api import snapshot_address, snapshot_person
-    from app.i18n import _
-
     target = household_person(db, household, person_id)
 
     new: dict[str, Any] = {}
@@ -124,6 +123,27 @@ def update_household_person(
         if field == "date_of_birth" and value is not None and not isinstance(value, date):
             value = date.fromisoformat(value)
         new[field] = value
+    apply_person_fields(db, target, new, actor=actor)
+
+    address_data = data.get("address")
+    if "address" in data and address_data and target.address:
+        apply_address(db, target, address_data, actor=actor)
+
+    for type_code, key in (("EMAIL", "email"), ("PHONE", "phone"), ("MOBILE", "mobile")):
+        if key in data:
+            _upsert_contact(db, target, type_code, data[key], actor=actor)
+    db.commit()
+    db.refresh(target)
+    return target
+
+
+def apply_person_fields(
+    db: Session, target: Person, new: dict[str, Any], *, actor: Optional[str]
+) -> bool:
+    """Write these person fields with their history, without committing (#1590:
+    shared by `update_household_person` and the save of the whole household).
+    Returns whether anything changed."""
+    from app.domains.audit.api import snapshot_person
 
     # #681: judge the outcome — the portal does not always send every field — and
     # judge it before applying anything: a rollback after the change would also
@@ -144,47 +164,46 @@ def update_household_person(
         snapshot_person(
             db, target, operation="update", action="person_updated", source=SOURCE, actor=actor
         )
+    return changed
 
-    address_data = data.get("address")
-    if "address" in data and address_data and target.address:
-        address = target.address
-        address_changed = False
-        for field in ("street", "house_number"):
-            if field in address_data and address_data[field] is not None:
-                setattr(address, field, address_data[field])
-                address_changed = True
-        if "bus_number" in address_data:
-            address.bus_number = address_data["bus_number"] or None
-            address_changed = True
-        if "postal_code" in address_data and address_data["postal_code"]:
-            postal_code = (
-                db.query(PostalCode)
-                .filter(PostalCode.postal_code == address_data["postal_code"])
-                .first()
-            )
-            if postal_code is None:
-                raise HouseholdRefused(
-                    _("Onbekende postcode: %(postal_code)s")
-                    % {"postal_code": address_data["postal_code"]}
-                )
-            address.postal_code_id = postal_code.id
-            address_changed = True
-        if address_changed:
-            snapshot_address(
-                db,
-                address,
-                operation="update",
-                action="address_updated",
-                source=SOURCE,
-                actor=actor,
-            )
 
-    for type_code, key in (("EMAIL", "email"), ("PHONE", "phone"), ("MOBILE", "mobile")):
-        if key in data:
-            _upsert_contact(db, target, type_code, data[key], actor=actor)
-    db.commit()
-    db.refresh(target)
-    return target
+def apply_address(db: Session, target: Person, address_data: dict, *, actor: Optional[str]) -> None:
+    """Change the existing address of this person with its history, without
+    committing. Refuses a postal code that is not in the table."""
+    from app.domains.audit.api import snapshot_address
+    from app.i18n import _
+
+    address = target.address
+    address_changed = False
+    for field in ("street", "house_number"):
+        if field in address_data and address_data[field] is not None:
+            setattr(address, field, address_data[field])
+            address_changed = True
+    if "bus_number" in address_data:
+        address.bus_number = address_data["bus_number"] or None
+        address_changed = True
+    if "postal_code" in address_data and address_data["postal_code"]:
+        postal_code = (
+            db.query(PostalCode)
+            .filter(PostalCode.postal_code == address_data["postal_code"])
+            .first()
+        )
+        if postal_code is None:
+            raise HouseholdRefused(
+                _("Onbekende postcode: %(postal_code)s")
+                % {"postal_code": address_data["postal_code"]}
+            )
+        address.postal_code_id = postal_code.id
+        address_changed = True
+    if address_changed:
+        snapshot_address(
+            db,
+            address,
+            operation="update",
+            action="address_updated",
+            source=SOURCE,
+            actor=actor,
+        )
 
 
 def _upsert_contact(
@@ -237,6 +256,17 @@ def add_household_person(
 ) -> Person:
     """Add a person to the household, as a child — the member never picks the
     relation type. No address: that belongs to the main member only (#125)."""
+    person = insert_household_person(db, household, data, actor=actor)
+    db.commit()
+    db.refresh(person)
+    return person
+
+
+def insert_household_person(
+    db: Session, household: Member, data: dict, *, actor: Optional[str]
+) -> Person:
+    """A new person of the household with the history rows, without committing
+    (#1590: shared by `add_household_person` and the save of the whole household)."""
     from app.domains.audit.api import (
         snapshot_contact_detail,
         snapshot_member_person,
@@ -291,8 +321,6 @@ def add_household_person(
                 source=SOURCE,
                 actor=actor,
             )
-    db.commit()
-    db.refresh(person)
     return person
 
 
@@ -303,10 +331,19 @@ def remove_household_person(
 
     `by` is the member who acts: nobody removes themselves.
     """
+    target = household_person(db, household, person_id)
+    detach_household_person(db, household, target, by=by, actor=actor)
+    db.commit()
+
+
+def detach_household_person(
+    db: Session, household: Member, target: Person, *, by: Person, actor: Optional[str]
+) -> None:
+    """Soft-delete this person's link to the household with its history row,
+    without committing (#1590). Refuses the acting member themselves."""
     from app.domains.audit.api import snapshot_member_person
     from app.i18n import _
 
-    target = household_person(db, household, person_id)
     if target.id == by.id:
         raise CannotRemoveSelf(_("Je kan jezelf niet uit het gezin verwijderen."))
     link = next((m for m in target.member_persons if m.member_id == household.id), None)
@@ -320,7 +357,6 @@ def remove_household_person(
             actor=actor,
         )
         soft_delete(link)
-    db.commit()
 
 
 def person_payload(person: Person) -> dict[str, Any]:

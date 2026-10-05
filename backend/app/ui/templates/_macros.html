@@ -582,7 +582,8 @@
    always full; `text`, `slug`, `phone`, `select`, `switch`, `segmented`,
    `number`, `date` and `time` are half; `checkbox_group` and `radio_group` are
    full. `span` may widen a short field ("full") or make a number, date, time,
-   select or switch a quarter; it never narrows a long one — the macro ignores
+   select, switch or a short text (a house number, a bus) a quarter; it never
+   narrows a long one — the macro ignores
    that and `tests/test_form_field_gate.py` is red. `long=True` makes a text
    field full.
 
@@ -611,7 +612,7 @@
      delete it — it marks it (a hidden field of this name becomes "1") and the
      form's save removes it; until then it can be taken back. #}
 {% set _field_full = ["url", "email", "textarea", "upload", "checkbox_group", "radio_group"] %}
-{% set _field_quarter_ok = ["number", "date", "time", "select", "switch"] %}
+{% set _field_quarter_ok = ["number", "date", "time", "select", "switch", "text"] %}
 {% set _field_control = "block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed" %}
 {% macro field(name, label, kind="text", value="", edit=True, span=None, long=False, required=False,
                help=None, error=None, placeholder="", unit=None, options=[], id=None, attrs="",
@@ -754,6 +755,22 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    `data-pick='{"<token>": "<value>"}'` adds the group's template with those
    tokens filled in.
 
+   **One among many** (`one`, #1590): a group in which exactly one row is the
+   main one — a person's e-mail addresses with their *hoofdadres*. The group
+   carries the choice in one hidden field (`one={"name": …, "value": <key>}`);
+   each row gets `one={"chosen": …, "tag": …, "make": …}`: the chosen row shows
+   the tag in both modes and has no "Verwijderen", another row offers "Maak
+   hoofdadres" in its `⋯`, which moves the tag. The first row of an empty group
+   is chosen by itself.
+
+   **A folded composite row** (`fold="open"` or `"closed"`, #1590): the title
+   line is the summary of a `<details>`, with a chevron; the fields are its
+   content. A closed row still sends its fields, and a refusal on one of them
+   opens it (`record-form.js` opens the `<details>` a refused field sits in).
+   `subtitle` is the quiet line under the title; `title_prefix` stands before
+   the name ("Hoofdlid · ") and follows a field marked
+   `data-row-title-prefix-source`.
+
    `name` is the name of the order field every row carries (`d_order`): the
    server reads the rows in the order of that field. `count` is the number of
    rows, for the empty line. A screen writes no row structure of its own: a
@@ -761,7 +778,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    (`tests/test_repeating_group_gate.py`). #}
 {% macro repeating_group(title, name, token="__KEY__", add_label=None, edit=False, empty="",
                          variant="simple", columns=[], child=False, count=0, template="",
-                         handle=False, hint=None, id=None, footer="") -%}
+                         handle=False, hint=None, id=None, footer="", one=None) -%}
 {%- set _tag = "div" if child else "section" -%}
 <{{ _tag }} data-repeating-group="{{ name }}" data-variant="{{ variant }}" data-token="{{ token }}"{% if id %} id="{{ id }}"{% endif %}
    class="{% if child %}group-child{% else %}form-section bg-surface border border-line rounded-2xl shadow-sm p-4{% endif %}">
@@ -780,6 +797,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     </div>
   </div>
   {% endif %}
+  {% if edit and one %}<input type="hidden" name="{{ one.name }}" value="{{ one.value or '' }}" data-group-one>{% endif %}
   <div data-group-rows class="group-rows">{{ caller() }}</div>
   <p data-group-empty class="text-sm text-ink-soft"{% if count %} hidden{% endif %}>{{ empty }}</p>
   {% if edit and footer %}<div data-group-footer class="mt-3">{{ footer }}</div>{% endif %}
@@ -790,8 +808,9 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 {# The row's `⋯`: Omhoog · Omlaag · Dupliceren | Verwijderen (red, last). `menu`
    names what this row offers; a list without an order has no up and down, a
    member is not duplicated. #}
-{% macro _row_menu(menu, label) -%}
-<div class="relative shrink-0" x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+{% macro _row_menu(menu, label, one=None) -%}
+{%- set _bare = one and one.chosen and menu == ["remove"] -%}
+<div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }"{% if _bare %} hidden{% endif %}>
   <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="{{ _('Acties voor %(row)s', row=label) }}"
           class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open">{{ icon("ellipsis", 18) }}</button>
   <div x-show="open" x-cloak @click.outside="open = false" @click="open = false" role="menu" data-row-menu
@@ -799,9 +818,10 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {% for a, text in [("up", _("Omhoog")), ("down", _("Omlaag")), ("duplicate", _("Dupliceren"))] if a in menu %}
     <button type="button" role="menuitem" data-row-action="{{ a }}" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2 disabled:text-ink-soft disabled:opacity-60 disabled:cursor-not-allowed">{{ text }}</button>
     {% endfor %}
+    {% if one %}<button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2"{% if one.chosen %} hidden{% endif %}>{{ one.make }}</button>{% endif %}
     {% if "remove" in menu %}
     {% if menu|length > 1 %}<div class="my-1 border-t border-line"></div>{% endif %}
-    <button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2">{{ _("Verwijderen") }}</button>
+    <button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2"{% if one and one.chosen %} hidden{% endif %}>{{ _("Verwijderen") }}</button>
     {% endif %}
   </div>
 </div>
@@ -818,26 +838,46 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    a badge beside it ("op de affiche", "hoofdadres"). `handle` only where the
    order means something. `label` names the row for its menu's accessible name. #}
 {% macro group_row(group, key, edit=False, variant="simple", handle=False,
-                   menu=["up", "down", "duplicate", "remove"], title="", title_href=None, tag=None, label="") -%}
-<div data-group-row data-row-key="{{ key }}" class="group-row group-row--{{ variant }}{% if edit %} group-row--edit{% endif %}{% if edit and handle %} group-row--handle{% endif %}">
+                   menu=["up", "down", "duplicate", "remove"], title="", title_href=None, tag=None, label="",
+                   fold=None, subtitle=None, title_prefix=None, one=None) -%}
+{%- set _one_tag %}{% if one %}<span data-row-one-tag class="shrink-0"{% if not one.chosen %} hidden{% endif %}>{{ badge(one.tag, "blue") }}</span>{% endif %}{% endset -%}
+<div data-group-row data-row-key="{{ key }}" class="group-row group-row--{{ variant }}{% if edit %} group-row--edit{% endif %}{% if edit and handle %} group-row--handle{% endif %}{% if fold %} group-row--fold{% endif %}{% if one %} group-row--one{% endif %}">
   {% if edit %}<input type="hidden" name="{{ group }}" value="{{ key }}" data-row-order>{% endif %}
   {% if edit and handle %}<span data-row-handle aria-hidden="true" title="{{ _('Verslepen') }}" class="group-handle">{{ icon("grip-vertical", 16) }}</span>{% endif %}
   <div data-row-body class="group-body min-w-0">
-    {% if variant == "composite" %}
+    {% if variant == "composite" and fold %}
+    <details data-row-fold class="group-fold{% if edit and menu %} group-fold--menu{% endif %}"{% if fold == "open" %} open{% endif %}>
+      <summary data-row-title-line class="group-fold-summary">
+        <span class="min-w-0">
+          <span class="flex flex-wrap items-center gap-x-2 text-base font-semibold leading-6 text-ink [overflow-wrap:anywhere]">
+            {% if title_prefix %}<span><span data-row-title-prefix>{{ title_prefix }}</span> ·</span>{% endif %}
+            <h3 data-row-title="{{ title }}" class="min-w-0 text-base font-semibold leading-6 [overflow-wrap:anywhere]">{{ title }}</h3>
+            {% if tag %}{{ badge(tag.label, tag.get("tone") or "gray") }}{% endif %}
+          </span>
+          {% if subtitle %}<span class="block text-[13px] leading-5 font-normal text-ink-soft">{{ subtitle }}</span>{% endif %}
+        </span>
+        <span class="group-fold-chevron" aria-hidden="true">{{ icon("chevron-down", 18) }}</span>
+      </summary>
+      {{ caller() }}
+    </details>
+    {% if edit and menu %}<div class="group-fold-menu">{{ _row_menu(menu, label or title, one) }}</div>{% endif %}
+    {% elif variant == "composite" %}
     <div data-row-title-line class="flex items-center justify-between gap-2 min-h-11">
       <span class="flex flex-wrap items-center gap-2 min-w-0">
         {% if title_href %}{{ reference(title, title_href, "font-semibold") }}
         {% else %}<h3 data-row-title="{{ title }}" class="min-w-0 text-base font-semibold leading-6 text-ink [overflow-wrap:anywhere]">{{ title }}</h3>{% endif %}
         {% if tag %}{{ badge(tag.label, tag.get("tone") or "gray") }}{% endif %}
+        {{ _one_tag }}
       </span>
-      {% if edit and menu %}{{ _row_menu(menu, label or title) }}{% endif %}
+      {% if edit and menu %}{{ _row_menu(menu, label or title, one) }}{% endif %}
     </div>
     {{ caller() }}
     {% else %}
     <div data-form-grid class="form-grid">{{ caller() }}</div>
     {% endif %}
   </div>
-  {% if edit and menu and variant == "simple" %}{{ _row_menu(menu, label or title) }}{% endif %}
+  {% if variant == "simple" %}{{ _one_tag }}{% endif %}
+  {% if edit and menu and variant == "simple" %}{{ _row_menu(menu, label or title, one) }}{% endif %}
 </div>
 {%- endmacro %}
 
@@ -855,14 +895,26 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
      the focus, so a screen reader hears what happened.
    - `shell="admin"`: the same page in the admin shell (the board's
      registration) — left-aligned like the admin's records, the title in the
-     admin's own style. #}
-{% macro public_form_page(title=None, intro=None, back_href=None, back_label=None, result=False, shell="site") -%}
+     admin's own style.
+   - `action` (#1590): the one button of a page that is READ first — "Bewerken"
+     on Mijn gezin — as `{"label": …, "href": …}`, at the right of the title,
+     under it when they do not fit. A link to the page's edit state, never a
+     second save.
+     `state`: the state the page is in, as a badge beside the title ("Bewerken"). #}
+{% macro public_form_page(title=None, intro=None, back_href=None, back_label=None, result=False, shell="site",
+                          action=None, state=None) -%}
 <div data-public-form-page{% if result %} data-result{% endif %} class="public-form-page{% if shell == 'admin' %} public-form-page-admin{% endif %}">
   {% if back_href %}<p class="mb-3"><a class="text-sm text-link hover:underline" href="{{ back_href }}">‹ {{ back_label or _("Terug") }}</a></p>{% endif %}
   {# Without a `title` the page brings its own head: a form's name card. #}
   {% if title %}
   <header data-form-page-head class="public-form-head">
-    <h1 tabindex="-1" class="{{ 'text-3xl font-bold text-kop' if shell == 'admin' else 'public-form-title' }}">{{ title }}</h1>
+    <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+      <span class="flex flex-wrap items-center gap-3 min-w-0">
+        <h1 tabindex="-1" class="{{ 'text-3xl font-bold text-kop' if shell == 'admin' else 'public-form-title' }}">{{ title }}</h1>
+        {% if state %}<span data-page-badge>{{ badge(state, "blue") }}</span>{% endif %}
+      </span>
+      {% if action %}<span data-page-action class="shrink-0">{{ btn_primary(action.label, href=action.href, type="button") }}</span>{% endif %}
+    </div>
     {% if intro %}<p class="mt-2 text-base leading-6 text-ink-soft">{{ intro }}</p>{% endif %}
   </header>
   {% endif %}

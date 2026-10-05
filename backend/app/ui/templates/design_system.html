@@ -943,6 +943,34 @@
       {% endcall %}
     {% endcall %}
   {% endcall %}
+  {# #1590: a composite row that folds (the first open, the second closed; no
+     handle — persons have no order), and a child group in which one row is the
+     main one: the tag, "Maak hoofdadres" in the other row's menu, and no
+     "Verwijderen" on the chosen row. #}
+  {% set _i = loop.index %}
+  {% call ui.repeating_group(_("Gezinsleden"), "kit_h_order", token="__KH__", add_label=_("Gezinslid toevoegen"), edit=_edit, variant="composite", empty=_("Nog geen gezinsleden."), count=2) %}
+    {% for key, prefix, name, fold in [("kh1" ~ _i, _("Hoofdlid"), "Lore Peeters", "open"), ("kh2" ~ _i, _("Partner"), "Sam Peeters", "closed")] %}
+    {% call ui.group_row("kit_h_order", key, edit=_edit, variant="composite", menu=(["remove"] if not loop.first else []), title=name, title_prefix=prefix,
+                         subtitle=_("Persoonsgegevens en e-mailadressen"), fold=fold, label=name) %}
+      {% call ui.form_grid() %}
+        {{ ui.field("kit_h_" ~ key ~ "_name", _("Naam"), value=name, edit=_edit, attrs="data-row-title-source") }}
+      {% endcall %}
+      {% set _mtpl %}{% if _edit %}{% call ui.group_row("kit_e_order." ~ key, "__KE__", edit=True, menu=["remove"], label=_("nieuw e-mailadres"),
+                                                        one={"chosen": False, "tag": _("hoofdadres"), "make": _("Maak hoofdadres")}) %}
+        {{ ui.field("kit_e.__KE__.value", _("E-mailadres"), kind="email", value="", edit=True) }}{% endcall %}{% endif %}{% endset %}
+      {% call ui.repeating_group(_("E-mailadressen"), "kit_e_order." ~ key, token="__KE__", add_label=_("E-mailadres"), edit=_edit, child=True, count=2,
+                                 empty=_("Nog geen e-mailadres."), template=_mtpl, columns=[{"label": _("E-mailadres"), "span": "full"}],
+                                 one={"name": "kit_e_primary." ~ key, "value": key ~ "a"}) %}
+        {% for suffix, address in [("a", "lore@example.com"), ("b", "lore.werk@example.com")] %}
+        {% call ui.group_row("kit_e_order." ~ key, key ~ suffix, edit=_edit, menu=["remove"], label=address,
+                             one={"chosen": suffix == "a", "tag": _("hoofdadres"), "make": _("Maak hoofdadres")}) %}
+          {{ ui.field("kit_e." ~ key ~ suffix ~ ".value", _("E-mailadres"), kind="email", value=address, edit=_edit) }}
+        {% endcall %}
+        {% endfor %}
+      {% endcall %}
+    {% endcall %}
+    {% endfor %}
+  {% endcall %}
 </div>
 {% endfor %}
 

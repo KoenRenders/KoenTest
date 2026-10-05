@@ -1,0 +1,292 @@
+"""What the three household pages show (#1590): Word lid, Mijn gezin and the renewal.
+
+The pages share one picture of a household — its persons as a repeating group,
+each with its e-mail addresses, and the address — so they share these views. A
+view is what the template may ask for and nothing else: every label and every
+"may this row go" is decided here, not in the template.
+
+Keys: a stored person or e-mail row carries its id as key; a row that does not
+exist yet carries a key that is not a number (`n…`), which is how the save tells
+them apart (`mdm.household_save`).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date
+from decimal import Decimal
+from typing import Any, Optional
+
+from app.domains.mdm.api import RelationType
+from app.i18n import _
+
+#: The tokens the page replaces by a fresh key when a row is added.
+PERSON_TOKEN = "__H__"
+EMAIL_TOKEN = "__E__"
+
+
+@dataclass(frozen=True)
+class EmailView:
+    key: str
+    value: str = ""
+    primary: bool = False
+
+
+@dataclass(frozen=True)
+class PersonView:
+    """One person of the household, as a row of the group."""
+
+    key: str
+    prefix: str
+    title: str
+    subtitle: str
+    is_main: bool
+    relation_type: str = ""
+    first_name: str = ""
+    last_name: str = ""
+    date_of_birth: str = ""
+    birth_display: str = ""
+    gender_code: str = ""
+    mobile: str = ""
+    phone: str = ""
+    emails: tuple[EmailView, ...] = ()
+    #: The key of the main address, "" when there is none.
+    primary_key: str = ""
+    #: May this row be taken out in the page.
+    removable: bool = False
+    #: "open" or "closed": how the row stands when the page opens.
+    fold: str = "closed"
+    #: The relation is chosen on this row (a sign-up, and not for the main member).
+    choose_relation: bool = False
+
+
+@dataclass(frozen=True)
+class AddressView:
+    street: str = ""
+    house_number: str = ""
+    bus_number: str = ""
+    postal_code: str = ""
+
+
+@dataclass(frozen=True)
+class HouseholdGroup:
+    """The household as the group shows it, with what a new row is made from."""
+
+    persons: tuple[PersonView, ...]
+    new_person: PersonView
+    new_email: EmailView
+    gender_options: tuple[tuple[str, str], ...]
+    relation_options: tuple[tuple[str, str], ...]
+    postal_options: tuple[tuple[str, str], ...]
+    address: Optional[AddressView]
+    #: The main member's e-mail address is asked (a sign-up). Their mobile number
+    #: is asked on both pages.
+    contact_required: bool = False
+
+
+@dataclass(frozen=True)
+class Terms:
+    """What a membership costs and until when it runs."""
+
+    amount: Decimal
+    valid_to: date
+
+
+@dataclass(frozen=True)
+class TransferDue:
+    amount: Any
+    ogm: Optional[str]
+    iban: Optional[str]
+    beneficiary: Optional[str]
+
+
+@dataclass(frozen=True)
+class OnlineDue:
+    amount: Any
+    checkout_url: Optional[str]
+
+
+@dataclass(frozen=True)
+class SignupPage:
+    group: HouseholdGroup
+    terms: Terms
+    #: The sign-up went through: the page reports instead of asking.
+    done: bool = False
+    to_checkout: bool = False
+
+
+@dataclass(frozen=True)
+class HouseholdPage:
+    group: HouseholdGroup
+    edit: bool
+    valid_until: Optional[date]
+    renewal_available: bool
+    renewal_running: bool
+    board_member_name: Optional[str]
+    #: The page answers a save: it says "Opgeslagen ✓".
+    saved: bool = False
+
+
+@dataclass(frozen=True)
+class RenewPage:
+    valid_until: Optional[date]
+    renewal_available: bool
+    terms: Optional[Terms]
+    transfer: Optional[TransferDue]
+    online: Optional[OnlineDue]
+    #: The household in one line per person, and its address in one.
+    summary: tuple[tuple[str, str, bool], ...]
+    address_line: str
+
+
+def _labels(choices: list) -> dict[str, str]:
+    return {str(c.code): str(c.value) for c in choices}
+
+
+def _relation_code(value: object) -> str:
+    return value.value if isinstance(value, RelationType) else str(value or "")
+
+
+def _subtitle(relation: str, has_addresses: bool) -> str:
+    """What the folded row holds. A child without an e-mail address reads
+    "Persoonsgegevens"; anyone who has one, and every adult, reads both."""
+    if relation == RelationType.ADULT_CHILD.value and not has_addresses:
+        return _("Persoonsgegevens")
+    return _("Persoonsgegevens en e-mailadressen")
+
+
+def _new_rows(relation_labels: dict[str, str], *, signup: bool) -> tuple[PersonView, EmailView]:
+    child = RelationType.ADULT_CHILD.value
+    person = PersonView(
+        key=PERSON_TOKEN,
+        prefix=relation_labels.get(child, ""),
+        title=_("Nieuw gezinslid"),
+        subtitle=_("Persoonsgegevens en e-mailadressen"),
+        is_main=False,
+        relation_type=child,
+        removable=True,
+        fold="open",
+        choose_relation=signup,
+    )
+    return person, EmailView(key=EMAIL_TOKEN)
+
+
+def _options(codes: dict) -> tuple[tuple, tuple, tuple, dict[str, str]]:
+    relation_labels = _labels(codes["relation_types"])
+    main = RelationType.PRIMARY_MEMBER.value
+    return (
+        tuple((str(g.code), str(g.value)) for g in codes["gender_codes"]),
+        tuple((code, label) for code, label in relation_labels.items() if code != main),
+        tuple(
+            (str(p.postal_code), f"{p.postal_code} · {p.municipality}")
+            for p in codes["postal_codes"]
+        ),
+        relation_labels,
+    )
+
+
+def signup_group(codes: dict) -> HouseholdGroup:
+    """An empty sign-up: the main member, open, with one e-mail row to fill in."""
+    genders, relations, postal, relation_labels = _options(codes)
+    main = RelationType.PRIMARY_MEMBER.value
+    new_person, new_email = _new_rows(relation_labels, signup=True)
+    head = PersonView(
+        key="n0",
+        prefix=relation_labels.get(main, ""),
+        title=_("Jijzelf"),
+        subtitle=_("Persoonsgegevens en e-mailadressen"),
+        is_main=True,
+        relation_type=main,
+        emails=(EmailView(key="n0e", primary=True),),
+        primary_key="n0e",
+        fold="open",
+    )
+    return HouseholdGroup(
+        persons=(head,),
+        new_person=new_person,
+        new_email=new_email,
+        gender_options=genders,
+        relation_options=relations,
+        postal_options=postal,
+        address=AddressView(),
+        contact_required=True,
+    )
+
+
+def household_group(household: dict, codes: dict, *, me: int, short_date) -> HouseholdGroup:
+    """The household of a member, from the portal's own read (`household_view`).
+
+    `me` is the person looking: nobody takes themselves out of the household, so
+    that row has no "Verwijderen". The first row stands open, the others closed.
+    """
+    genders, relations, postal, relation_labels = _options(codes)
+    new_person, new_email = _new_rows(relation_labels, signup=False)
+    persons = []
+    address: Optional[AddressView] = None
+    for index, p in enumerate(household["persons"]):
+        relation = _relation_code(p.get("relation_type"))
+        emails = tuple(
+            EmailView(key=str(m["id"]), value=m["value"], primary=bool(m["is_primary"]))
+            for m in p.get("emails") or []
+        )
+        born = p.get("date_of_birth") or ""
+        persons.append(
+            PersonView(
+                key=str(p["id"]),
+                prefix=relation_labels.get(relation, ""),
+                title=f"{p.get('first_name') or ''} {p.get('last_name') or ''}".strip(),
+                subtitle=_subtitle(relation, bool(emails)),
+                is_main=bool(p.get("is_main_member")),
+                relation_type=relation,
+                first_name=p.get("first_name") or "",
+                last_name=p.get("last_name") or "",
+                date_of_birth=born,
+                birth_display=short_date(date.fromisoformat(born)) if born else "",
+                gender_code=p.get("gender_code") or "",
+                mobile=p.get("mobile") or "",
+                phone=p.get("phone") or "",
+                emails=emails,
+                primary_key=next((m.key for m in emails if m.primary), ""),
+                removable=p["id"] != me,
+                fold="open" if index == 0 else "closed",
+            )
+        )
+        a = p.get("address")
+        if a and address is None:
+            address = AddressView(
+                street=a.get("street") or "",
+                house_number=a.get("house_number") or "",
+                bus_number=a.get("bus_number") or "",
+                postal_code=a.get("postal_code") or "",
+            )
+    return HouseholdGroup(
+        persons=tuple(persons),
+        new_person=new_person,
+        new_email=new_email,
+        gender_options=genders,
+        relation_options=relations,
+        postal_options=postal,
+        address=address,
+    )
+
+
+def household_summary(
+    household: dict, codes: dict
+) -> tuple[tuple[tuple[str, str, bool], ...], str]:
+    """The household in a few lines, for the renewal page: (name, relation,
+    is main member) per person, and the address in one line."""
+    relation_labels = _labels(codes["relation_types"])
+    lines = []
+    address_line = ""
+    for p in household["persons"]:
+        relation = _relation_code(p.get("relation_type"))
+        name = f"{p.get('first_name') or ''} {p.get('last_name') or ''}".strip()
+        lines.append((name, relation_labels.get(relation, ""), bool(p.get("is_main_member"))))
+        a = p.get("address")
+        if a and not address_line:
+            street = " ".join(part for part in (a.get("street"), a.get("house_number")) if part)
+            if a.get("bus_number"):
+                street = _("%(street)s bus %(bus)s") % {"street": street, "bus": a["bus_number"]}
+            place = " ".join(part for part in (a.get("postal_code"), a.get("municipality")) if part)
+            address_line = " · ".join(part for part in (street, place) if part)
+    return tuple(lines), address_line

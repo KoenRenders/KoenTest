@@ -4,28 +4,24 @@ B, P4) — the frozen side of `test_public_ratchets.py`.
 One exact number per file, counted on 5 October 2026 on master after P1 (the
 shell) and P2 (the public form page). A count may only fall: lower the number
 in the change that removes a violation, and remove the entry when the file is
-clean. P3 (#1590: Word lid, renew, Mijn gezin) empties the membership entries.
+clean. P3 (#1590: Word lid, renew, Mijn gezin) emptied the membership entries: the
+three pages are rebuilt on the kit, and the two partials of the old pages
+(`_lid_persoon_rij.html`, `_email_rij.html`) are reached by the board's screens only.
 """
 
 #: A `<button>` or a submit written by the template — a button comes from the
-#: kit (`ui.btn_*`, `ui.action_bar`, `ui.stepper`). 13 in 7 files.
+#: kit (`ui.btn_*`, `ui.action_bar`, `ui.stepper`). 6 in 3 files.
 HAND_WRITTEN_BUTTONS: dict[str, int] = {
     "domains/activities/templates/_onderdeel_acties.html": 1,
     "domains/media/templates/_duim.html": 1,
     "domains/media/templates/fotos_album.html": 4,
-    "domains/membership/templates/_lid_persoon_rij.html": 2,
-    "domains/membership/templates/gezin_portaal.html": 1,
-    "domains/membership/templates/lid_worden.html": 1,
-    "ui/templates/_email_rij.html": 3,
 }
 
 #: A card drawn by the template itself (a rounded, bordered, white surface) —
-#: a card comes from `ui.section`, `ui.flow_card` or `ui.card`. 4 in 4 files.
+#: a card comes from `ui.section`, `ui.flow_card` or `ui.card`. 2 in 2 files.
 HAND_WRITTEN_CARDS: dict[str, int] = {
     "domains/auth/templates/login_verlopen.html": 1,
     "domains/media/templates/fotos.html": 1,
-    "domains/membership/templates/_lid_persoon_rij.html": 1,
-    "domains/membership/templates/gezin_portaal.html": 1,
 }
 
 #: A field of the organisation (address, e-mail, phone, account number) written

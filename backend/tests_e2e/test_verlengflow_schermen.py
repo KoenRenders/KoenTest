@@ -75,7 +75,10 @@ def test_het_vernieuwde_gezin_toont_geen_vernieuwblok_meer(browser_page):
     assert f"31-12-{volgend}" in page.locator("main").inner_text(), (
         "de dekking loopt niet tot eind volgend jaar; dit is de toestand ná de betaling"
     )
-    expect(page.get_by_role("button", name=VERLENGKNOP)).to_have_count(0)
+    # #1590: the way to the renewal is a link on Mijn gezin; a role of its own
+    # would make this pass on nothing.
+    expect(page.get_by_role("link", name=VERLENGKNOP)).to_have_count(0)
+    expect(page.locator("[data-membership-status]")).to_be_visible()
     assert BETAALINSTRUCTIE not in page.locator("main").inner_text(), (
         "er staan betaalinstructies op een gezin dat al betaald heeft"
     )
@@ -97,6 +100,13 @@ def test_het_overschrijvingsgezin_toont_bedrag_iban_begunstigde_en_mededeling(br
     )
 
     page = _portaal(browser_page, MARKER_EMAIL_OVERSCHRIJVING)
+    # #1590: Mijn gezin says the renewal is running and links to its page; the
+    # payment details stand there, where renewing is done.
+    status = page.locator("[data-membership-status]")
+    expect(status).to_contain_text("Je vernieuwing loopt nog")
+    expect(status.get_by_role("link", name=VERLENGKNOP)).to_have_count(0)
+    status.get_by_role("link", name="Bekijk de betaling").click()
+    page.wait_for_url("**/leden/gezin/vernieuwen")
     tekst = page.locator("main").inner_text()
 
     assert BETAALINSTRUCTIE in tekst, f"geen betaalinstructies op het scherm: {tekst!r}"
@@ -108,7 +118,9 @@ def test_het_overschrijvingsgezin_toont_bedrag_iban_begunstigde_en_mededeling(br
     assert SEED_IBAN in tekst, f"geen rekeningnummer: {tekst!r}"
     assert SEED_BEGUNSTIGDE in tekst, f"geen begunstigde: {tekst!r}"
     assert OVERSCHRIJVING_OGM in tekst, f"geen mededeling: {tekst!r}"
-    expect(page.get_by_role("button", name=VERLENGKNOP)).to_have_count(0)
+    # No form to renew again beside a running renewal (#618).
+    assert page.locator('input[name="payment_method"]').count() == 0
+    assert page.locator("[data-action-bar]").count() == 0
 
 
 def test_de_openstaande_vernieuwing_komt_niet_vooraan_bij_de_betalingen(browser_page):

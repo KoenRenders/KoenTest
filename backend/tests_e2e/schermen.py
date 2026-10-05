@@ -262,14 +262,15 @@ class Gezinsportaal:
         """De brede menubalk van de publieke schil — het onderwerp van #718."""
         return self.page.locator("#site-nav-breed")
 
-    def voeg_gezinslid_toe(self, voornaam: str, achternaam: str):
-        self.page.get_by_role("button", name="+ Gezinslid toevoegen").click()
-        self.page.fill("#np-first_name", voornaam)
-        self.page.fill("#np-last_name", achternaam)
-        self.page.fill("#np-date_of_birth", "2012-03-04")
-        self.page.select_option("#np-gender_code", "M")
+    def save_as_it_is(self):
+        """Open the edit mode and press the one "Opslaan" without changing anything
+        (#1590). The save writes nothing — only what changed is written — but its
+        answer comes back and replaces the page like any save's."""
+        self.page.goto(self.pad + "?bewerken=1")
+        self.page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
         with htmx_afgerond(self.page):
-            self.page.get_by_role("button", name="Toevoegen", exact=True).click()
+            self.page.locator("[data-form-save]").click()
+        self.page.locator('[data-form-flow][data-mode="read"]').wait_for(state="visible")
 
 
 class Betalingenscherm:
@@ -433,6 +434,39 @@ class Paginascherm:
 
     def editorinhoud(self) -> str:
         return self.page.locator("#cp-content-input").first.input_value() or ""
+
+
+#: The persons of the household group on Word lid and Mijn gezin (#1590).
+HOUSEHOLD_ROWS = "#gezinsleden > [data-group-rows] > [data-group-row]"
+
+
+def fill_person(row, first: str, last: str, *, born: str = "1980-01-01", gender: str = "M") -> None:
+    """The four things every person of a household needs, in one row of the group."""
+    row.locator('input[name$=".first_name"]').fill(first)
+    row.locator('input[name$=".last_name"]').fill(last)
+    row.locator('input[name$=".date_of_birth"]').fill(born)
+    row.locator(f'input[name$=".gender_code"][value="{gender}"]').check()
+
+
+def fill_signup(
+    page, email: str, *, first: str = "Test", last: str = "Gezin", postal_code: bool = True
+) -> None:
+    """The Word lid page, filled in as far as a main member with an address: the
+    caller chooses the payment method and sends. `postal_code=False` leaves the
+    select on its empty choice."""
+    head = page.locator(HOUSEHOLD_ROWS).first
+    fill_person(head, first, last)
+    head.locator('input[name$=".mobile"]').fill("0470000000")
+    head.locator('input[type="email"]').first.fill(email)
+    page.fill("#address-street", "Teststraat")
+    page.fill("#address-house_number", "1")
+    if postal_code:
+        page.select_option("#address-postal_code", index=1)
+
+
+def send_form(page) -> None:
+    """Press the one button of the page's action bar."""
+    page.locator("[data-form-save]").click()
 
 
 def toasts(page):

@@ -30,7 +30,7 @@ getoetst wordt kan altijd blijven staan of altijd wegblijven.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_postal_code
+from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, household_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -88,30 +88,40 @@ def test_de_publieke_schil_stuurt_de_navigatie_alleen_out_of_band_bij_een_boost(
 def test_een_body_swap_krijgt_de_navigatie_mee_in_het_antwoord(client, db_session):
     """Het gemelde geval, op de weg die er altijd is.
 
-    `/leden/gezin/personen` doet net als het vernieuwformulier
-    `hx-target="body" hx-swap="innerHTML"` en krijgt een volledige pagina terug.
-    Precies daar mag de navigatie niet out-of-band vertrekken: htmx zou haar dan
-    uit het antwoord lichten en het lichaam vervangen door de rest.
+    Since #1590 the portal's one save (`POST /leden/gezin`) is that way: it is
+    an htmx request that is not boosted, and it answers a whole page, of which
+    the form takes `#gezin-pagina`. The navigation in that answer must not carry
+    the out-of-band attribute: htmx lifts an out-of-band element out of any
+    answer, whatever the form selects from it, and swaps it by itself — a
+    navigation travelling on every save is what #718 was. (Until #1590 the form
+    targeted the body, and the lifted navigation was simply gone.)
     """
     csrf = _als_lid(client, db_session)
-    seed_postal_code(db_session)
+    db_session.commit()
+    fields = household_fields(client)
+    # The main member's mobile, typed on the page: the save asks it (#1590).
+    (main,) = fields["h_order"]
+    fields[f"h.{main}.mobile"] = "0470 00 00 01"
+    fields["h_order"] = [*fields["h_order"], "n1"]
+    fields.update(
+        {
+            "h.n1.first_name": "Nieuw",
+            "h.n1.last_name": "Gezinslid",
+            "h.n1.date_of_birth": "2010-04-05",
+            "h.n1.gender_code": "M",
+        }
+    )
 
     resp = client.post(
-        "/leden/gezin/personen",
-        headers={"X-CSRF-Token": csrf},
-        data={
-            "first_name": "Nieuw",
-            "last_name": "Gezinslid",
-            "date_of_birth": "2010-04-05",
-            "gender_code": "M",
-        },
+        "/leden/gezin", headers={"X-CSRF-Token": csrf, "HX-Request": "true"}, data=fields
     )
 
     assert resp.status_code == 200, resp.text
+    assert "Gezinslid" in resp.text, "the save did not answer the household"
     assert PUBLIEK_ZONDER in resp.text, "de navigatie ontbreekt in het antwoord"
     assert PUBLIEK_MET not in resp.text, (
-        "out-of-band bij een body-swap: htmx haalt de navigatie er dan uit en het "
-        "lichaam wordt zonder menubalk vervangen"
+        "out-of-band bij een antwoord dat geen gebooste navigatie is: htmx haalt de "
+        "navigatie er dan uit"
     )
     assert MOBIEL_ZONDER in resp.text and MOBIEL_MET not in resp.text
 

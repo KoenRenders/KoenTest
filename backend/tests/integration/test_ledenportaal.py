@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import PaymentMethod, Person
 from app.domains.payment.api import PayableType
-from tests.conftest import create_test_family
+from tests.conftest import create_test_family, household_fields
 
 
 def _login_as(client, email):
@@ -21,47 +21,60 @@ def test_gezin_redirect_zonder_sessie(client):
 
 
 def test_gezin_portaal_toont_leden_en_muteert(client, db_session):
-    member, person = create_test_family(db_session, email="portaal@example.com")
+    """The portal is read first; its edit mode is one form, and one save writes a
+    changed person and an added one (#1590) and answers the page in read mode."""
+    member, person = create_test_family(
+        db_session, email="portaal@example.com", mobile="0470 00 00 01"
+    )
+    db_session.commit()
     csrf = _login_as(client, "portaal@example.com")
 
     page = client.get("/leden/gezin")
     assert page.status_code == 200 and "Mijn gezin" in page.text and person.first_name in page.text
+    assert 'data-mode="read"' in page.text and 'id="gezin-form"' not in page.text
+    assert 'href="/leden/gezin?bewerken=1"' in page.text, "no way into the edit mode"
 
-    resp = client.post(
-        f"/leden/gezin/personen/{person.id}",
-        data={
-            "first_name": "Aangepast",
-            "last_name": person.last_name,
-            "date_of_birth": person.date_of_birth.isoformat(),
-            "gender_code": person.gender_code,
-            "email": "portaal@example.com",
-        },  # #511: veldnaam `email`
-        headers={"X-CSRF-Token": csrf},
+    fields = household_fields(client)
+    fields[f"h.{person.id}.first_name"] = "Aangepast"
+    fields["h_order"] = [*fields["h_order"], "n1"]
+    fields.update(
+        {
+            "h.n1.first_name": "Kindje",
+            "h.n1.last_name": "Persoon",
+            "h.n1.date_of_birth": "2015-06-07",
+            "h.n1.gender_code": "F",
+        }
     )
-    assert resp.status_code == 200 and "Aangepast" in resp.text
+    resp = client.post("/leden/gezin", data=fields, headers={"X-CSRF-Token": csrf})
+    assert resp.status_code == 200 and "Aangepast" in resp.text and "Kindje" in resp.text
+    assert 'data-mode="read"' in resp.text, "a saved household is back in read mode"
+    assert resp.headers["HX-Push-Url"] == "/leden/gezin"
+    assert "Opgeslagen ✓" in resp.text
     db_session.expire_all()
     assert db_session.get(Person, person.id).first_name == "Aangepast"
-
-    nieuw = client.post(
-        "/leden/gezin/personen",
-        data={
-            "first_name": "Kindje",
-            "last_name": "Persoon",
-            "date_of_birth": "2015-06-07",
-            "gender_code": "F",
-        },
-        headers={"X-CSRF-Token": csrf},
-    )
-    assert nieuw.status_code == 200 and "Kindje" in nieuw.text
+    child = db_session.query(Person).filter(Person.first_name == "Kindje").one()
+    assert {mp.member_id for mp in child.member_persons} == {member.id}
 
 
 def test_gezin_mutatie_zonder_csrf(client, db_session):
-    member, person = create_test_family(db_session, email="csrfloos@example.com")
-    _login_as(client, "csrfloos@example.com")
-    resp = client.post(
-        f"/leden/gezin/personen/{person.id}", data={"first_name": "X", "last_name": "Y"}
+    """The same form, once without the token and once with it: the token is the
+    difference."""
+    member, person = create_test_family(
+        db_session, email="csrfloos@example.com", mobile="0470 00 00 01"
     )
+    db_session.commit()
+    csrf = _login_as(client, "csrfloos@example.com")
+    fields = household_fields(client)
+    fields[f"h.{person.id}.first_name"] = "Zondertoken"
+
+    resp = client.post("/leden/gezin", data=fields)
     assert resp.status_code == 403
+    db_session.expire_all()
+    assert db_session.get(Person, person.id).first_name != "Zondertoken"
+
+    assert (
+        client.post("/leden/gezin", data=fields, headers={"X-CSRF-Token": csrf}).status_code == 200
+    )
 
 
 def test_home_word_lid_wordt_mijn_gezin_voor_ingelogd_lid(client, db_session):

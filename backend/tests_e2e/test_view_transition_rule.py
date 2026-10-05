@@ -152,16 +152,19 @@ def test_a_confirmation_takes_the_page_without_a_transition(page, setup):
     assert transition_frames(page) == 0, "the confirmation cross-fades in"
 
 
-def test_a_row_added_arrives_without_a_transition(page):
-    page.goto("/lid-worden")
-    pagina_klaar(page)
-    rows = page.locator('[id^="persoon-rij-"]')
+def test_a_row_added_arrives_without_a_transition(admin):
+    """On the board's "new member" page: since #1590 the public Word lid page adds
+    its rows in the page (the kit's repeating group, no request), so the row that
+    still arrives through htmx is the board's."""
+    admin.goto("/admin/leden/nieuw")
+    pagina_klaar(admin)
+    rows = admin.locator('[id^="persoon-rij-"]')
     before = rows.count()
-    watch_transitions(page)
-    with htmx_afgerond(page):
-        page.locator('[hx-get="/lid-worden/persoon-rij"]').click()
+    watch_transitions(admin)
+    with htmx_afgerond(admin):
+        admin.locator('[hx-get="/admin/leden/nieuw/persoon-rij"]').click()
     expect(rows).to_have_count(before + 1)
-    assert transition_frames(page) == 0, "the page cross-fades when a row is added"
+    assert transition_frames(admin) == 0, "the page cross-fades when a row is added"
 
 
 def test_a_swap_at_load_runs_no_transition(browser, setup):

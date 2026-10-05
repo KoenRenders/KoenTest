@@ -1,5 +1,8 @@
 """#1241 — het te betalen bedrag staat in Belgische notatie op het gezinsportaal.
 
+Since #1590 the two blocks stand on the renewal page (`/leden/gezin/vernieuwen`,
+`_renewal_running.html`), no longer on Mijn gezin itself.
+
 Gezien op de schermafdruk van de betaalinstructies: er stond **€ 20.00**, met een punt.
 Dat is het beeld dat een lid moet vertellen wélk bedrag het moet overschrijven, en een
 punt op een Belgische betaalinstructie is de laatste plek waar je twijfel wil. Het
@@ -85,8 +88,8 @@ def _gezin_met_lopende_vernieuwing(db, method: str):
 def _portaal(client, db, method: str) -> str:
     _gezin_met_lopende_vernieuwing(db, method)
     client.cookies.set(SESSION_COOKIE, make_session_value(LID))
-    resp = client.get("/leden/gezin")
-    assert resp.status_code == 200, f"/leden/gezin → {resp.status_code}"
+    resp = client.get("/leden/gezin/vernieuwen")
+    assert resp.status_code == 200, f"/leden/gezin/vernieuwen → {resp.status_code}"
     return resp.text
 
 

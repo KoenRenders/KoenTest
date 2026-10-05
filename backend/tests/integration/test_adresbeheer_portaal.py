@@ -14,6 +14,13 @@ staat de lus open zonder dat iemand het merkt.
 Gemeten vóór de reparatie: de exportregel was `EMAIL: <waarde>` met het label
 "Gewijzigd", en bij een verandering van alleen de markering is die waarde
 identiek aan de vorige. Onzichtbaar dus.
+
+Since #1590 a member has no door per e-mail row any more: the rows are part of
+the one form of "Mijn gezin" and are written by its one "Opslaan"
+(`POST /leden/gezin`). Every test here therefore reads the form from the edit
+page (`household_fields`), changes the rows it is about and posts the whole
+form — the address added is a new row, the main address is the row the form
+marks, a row the form no longer has is gone.
 """
 
 from __future__ import annotations
@@ -22,7 +29,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Person
-from tests.conftest import create_test_family
+from tests.conftest import create_test_family, household_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -32,7 +39,7 @@ TWEEDE = "tweede@example.com"
 
 @pytest.fixture
 def lid(db_session):
-    member, person = create_test_family(db_session, email=HOOFD)
+    member, person = create_test_family(db_session, email=HOOFD, mobile="0470 00 00 01")
     db_session.commit()
     return member, person
 
@@ -60,8 +67,15 @@ def _rij_id(db, person, waarde: str) -> int:
     )
 
 
-def _post(client, csrf, pad, **data):
-    return client.post(pad, data=data, headers={"X-CSRF-Token": csrf})
+def _save(client, csrf, fields):
+    return client.post("/leden/gezin", data=fields, headers={"X-CSRF-Token": csrf})
+
+
+def _add_row(fields: dict, person, key: str, value: str) -> dict:
+    """One more e-mail row on this person, as "+ E-mailadres" adds it."""
+    fields[f"e_order.{person.id}"] = [*fields.get(f"e_order.{person.id}", []), key]
+    fields[f"e.{key}.value"] = value
+    return fields
 
 
 # ── Het lid zelf ────────────────────────────────────────────────────────────
@@ -71,48 +85,107 @@ def test_een_lid_zet_er_zelf_een_adres_bij(client, db_session, lid):
     _member, person = lid
     csrf = _aanmelden(client, HOOFD)
 
-    respons = _post(client, csrf, f"/leden/gezin/personen/{person.id}/email", extra_email=TWEEDE)
+    respons = _save(client, csrf, _add_row(household_fields(client), person, "nx1", TWEEDE))
 
     assert respons.status_code == 200
     assert _adressen(db_session, person) == {HOOFD: True, TWEEDE: False}
 
 
 def test_een_lid_duidt_zelf_zijn_hoofdadres_aan(client, db_session, lid):
-    """En meldt zich daarna aan met dát adres — de reden dat dit bestaat."""
+    """En meldt zich daarna aan met dát adres — de reden dat dit bestaat.
+
+    The mark is one field of the form (`e_primary.<person>`): the page the
+    member gets back after adding the address carries the stored row's id, and
+    marking that row moves the main address."""
+    from app.domains.auth.api import login_person_for_email
+
     _member, person = lid
     csrf = _aanmelden(client, HOOFD)
-    _post(client, csrf, f"/leden/gezin/personen/{person.id}/email", extra_email=TWEEDE)
-    tweede_id = _rij_id(db_session, person, TWEEDE)
+    _save(client, csrf, _add_row(household_fields(client), person, "nx1", TWEEDE))
+    second_id = _rij_id(db_session, person, TWEEDE)
 
-    _post(client, csrf, f"/leden/gezin/personen/{person.id}/email/{tweede_id}/hoofd")
+    fields = household_fields(client)
+    assert str(second_id) in fields[f"e_order.{person.id}"], "the page does not show the new row"
+    assert fields[f"e_primary.{person.id}"] != str(second_id), "the new row is already marked"
+    fields[f"e_primary.{person.id}"] = str(second_id)
+    respons = _save(client, csrf, fields)
 
+    assert respons.status_code == 200
     assert _adressen(db_session, person) == {HOOFD: False, TWEEDE: True}
+    found = login_person_for_email(db_session, TWEEDE)
+    assert getattr(found, "id", found) == person.id
+
+
+def test_a_member_marks_a_new_row_as_main_in_the_same_save(client, db_session, lid):
+    """New with #1590: adding an address and making it the main one is one save."""
+    _member, person = lid
+    csrf = _aanmelden(client, HOOFD)
+    fields = _add_row(household_fields(client), person, "nx1", TWEEDE)
+    fields[f"e_primary.{person.id}"] = "nx1"
+
+    assert _save(client, csrf, fields).status_code == 200
+    assert _adressen(db_session, person) == {HOOFD: False, TWEEDE: True}
+
+
+def test_a_row_the_form_no_longer_has_is_removed(client, db_session, lid):
+    """ "Verwijderen" in a row's menu takes the row out of the form; the save
+    removes it. The other row stays, so it is this row that went."""
+    _member, person = lid
+    csrf = _aanmelden(client, HOOFD)
+    _save(client, csrf, _add_row(household_fields(client), person, "nx1", TWEEDE))
+    second_id = _rij_id(db_session, person, TWEEDE)
+
+    fields = household_fields(client)
+    fields[f"e_order.{person.id}"].remove(str(second_id))
+    del fields[f"e.{second_id}.value"]
+
+    assert _save(client, csrf, fields).status_code == 200
+    assert _adressen(db_session, person) == {HOOFD: True}
 
 
 def test_een_lid_raakt_niet_aan_de_adressen_van_een_ander_gezin(client, db_session, lid):
     """De gezinsgrens, en ze is het hele verschil tussen een portaal en een lek.
 
-    Zonder `_assert_in_household` kan wie is aangemeld met een persoon-id van een
-    vreemde diens adressen beheren — en dus zijn eigen adres bij iemand anders
-    zetten en daarmee aanmelden.
+    Wie is aangemeld mag met de id van een vreemde — de persoon of een van diens
+    e-mailrijen — niets aan diens adressen veranderen: anders zet hij zijn eigen
+    adres bij iemand anders en meldt zich daarmee aan.
 
-    Tegenproef: de controle uit de drie routes → deze test faalt met 200 in
-    plaats van 403, en het adres staat bij de vreemde.
+    Two ways in, both shut. The stranger as a person row of the form: the save
+    is refused as that row and writes nothing. The stranger's e-mail ROW under
+    the member's own person: the save only writes rows that are this person's,
+    so the stranger's row keeps its value — while the member's own new address
+    in the same form IS stored, which shows the save ran.
     """
     _member, person = lid
     _vreemd_member, vreemde = create_test_family(db_session, email="vreemd@example.com")
     db_session.commit()
+    strangers_row = _rij_id(db_session, vreemde, "vreemd@example.com")
     csrf = _aanmelden(client, HOOFD)
 
-    respons = _post(
-        client,
-        csrf,
-        f"/leden/gezin/personen/{vreemde.id}/email",
-        extra_email="ingebroken@example.com",
+    as_person = household_fields(client)
+    as_person["h_order"] = [*as_person["h_order"], str(vreemde.id)]
+    as_person.update(
+        {
+            f"h.{vreemde.id}.first_name": vreemde.first_name,
+            f"h.{vreemde.id}.last_name": vreemde.last_name,
+            f"h.{vreemde.id}.date_of_birth": vreemde.date_of_birth.isoformat(),
+            f"h.{vreemde.id}.gender_code": vreemde.gender_code,
+        }
     )
+    _add_row(as_person, vreemde, "nx1", "ingebroken@example.com")
+    respons = _save(client, csrf, as_person)
 
-    assert respons.status_code == 403
-    assert "ingebroken@example.com" not in _adressen(db_session, vreemde)
+    assert respons.status_code == 422
+    assert f'data-error-for="h.{vreemde.id}"' in respons.text
+    assert _adressen(db_session, vreemde) == {"vreemd@example.com": True}
+
+    as_row = _add_row(household_fields(client), person, str(strangers_row), "gekaapt@example.com")
+    _add_row(as_row, person, "nx2", TWEEDE)
+    respons = _save(client, csrf, as_row)
+
+    assert respons.status_code == 200
+    assert _adressen(db_session, vreemde) == {"vreemd@example.com": True}
+    assert _adressen(db_session, person) == {HOOFD: True, TWEEDE: False}
 
 
 # ── De lus naar Raak Nationaal ──────────────────────────────────────────────
@@ -134,9 +207,10 @@ def test_de_export_zegt_dat_het_hoofdadres_verplaatst_is(client, db_session, lid
 
     _member, person = lid
     csrf = _aanmelden(client, HOOFD)
-    _post(client, csrf, f"/leden/gezin/personen/{person.id}/email", extra_email=TWEEDE)
-    tweede_id = _rij_id(db_session, person, TWEEDE)
-    _post(client, csrf, f"/leden/gezin/personen/{person.id}/email/{tweede_id}/hoofd")
+    _save(client, csrf, _add_row(household_fields(client), person, "nx1", TWEEDE))
+    fields = household_fields(client)
+    fields[f"e_primary.{person.id}"] = str(_rij_id(db_session, person, TWEEDE))
+    assert _save(client, csrf, fields).status_code == 200
 
     regels = member_changes_since(db_session, date.today() - timedelta(days=1))
     samenvattingen = [r["summary"] for r in regels if r["entity"] == "Contact"]

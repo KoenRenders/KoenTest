@@ -88,14 +88,18 @@ def test_F3_word_lid_toont_lidgeld_en_geldigheid(client, db_session):
 
     html = client.get("/lid-worden").text
     assert "Lidgeld" in html
-    assert f"€ {membership_price_for_date()}".replace(".", ",") in html
-    assert "geldig tot en met" in html
-    # Ook op een foutpad (StrictUndefined): het sjabloon rendert opnieuw.
-
-    make_session_value("x@example.com")
+    start = html.index("data-membership-terms")
+    terms = html[start : html.index("</p>", start)]
+    assert f"€ {membership_price_for_date()}".replace(".", ",") in terms
+    assert "Geldig tot en met" in terms
+    # A refused form (#1590) no longer renders the page again: the answer is the
+    # banner alone, so the terms on the page are never replaced. An empty form is
+    # refused at the payment choice among others.
     r = client.post("/lid-worden", data={})
-    assert r.status_code == 200
-    assert "Lidgeld" in r.text
+    assert r.status_code == 422
+    assert "<html" not in r.text.lower() and "Lidgeld" not in r.text
+    assert 'data-error-for="payment_method"' in r.text
+    assert 'data-error-for="address.postal_code"' in r.text
 
 
 def test_F24_migratie_vervangt_de_contactzin(db_session):

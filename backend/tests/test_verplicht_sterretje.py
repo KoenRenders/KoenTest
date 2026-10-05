@@ -13,6 +13,14 @@ dat niet verplicht is, wat de gebruiker even hard misleidt.
 
 De koppeling loopt via `label for=` ↔ `control id=`, niet via een telling: twee
 even grote verzamelingen kunnen nog altijd de verkeerde velden bevatten.
+
+Since #1590 the page is built from the kit's `field` macro and the household is
+a repeating group: the main member is row `n0` (ids `h-n0-…`, its first e-mail
+row `e-n0e-…`), and what "+ Gezinslid toevoegen" adds is the group's template
+row (`h-__H__-…`), which stands in the page itself — there is no route for a
+row any more. Gender is a radio group since then: its star stands on the
+group's label (`<p id="…-label">`), which the comparison below does not cover,
+so it is asked separately.
 """
 
 import re
@@ -75,6 +83,22 @@ def _controleer(html: str, *, minstens: set[str]) -> None:
     )
 
 
+def _new_person_row(html: str) -> str:
+    """The template row a new person is made from, as it stands in the page."""
+    found = re.search(
+        r'<template data-group-template>\s*<div data-group-row data-row-key="__H__"', html
+    )
+    assert found, "the page has no row to add a person from"
+    return html[found.start() : html.rindex("</template>")]
+
+
+def _group_label_marked(html: str, field_id: str) -> bool:
+    """Does the label of a radio group carry the red star?"""
+    label = re.search(rf'<p id="{re.escape(field_id)}-label"[^>]*>(.*?)</p>', html, re.S)
+    assert label, f"no group label for {field_id}"
+    return bool(ROOD_STERRETJE.search(label.group(1)))
+
+
 def test_hoofdlid_elk_verplicht_veld_draagt_het_rode_sterretje(client, db_session):
     """Het gemelde scherm: hoofdlid + adres, in één render."""
     seed_postal_code(db_session, code="2400", municipality="Mol")
@@ -82,34 +106,53 @@ def test_hoofdlid_elk_verplicht_veld_draagt_het_rode_sterretje(client, db_sessio
     assert resp.status_code == 200
     # E-mail en GSM zijn de twee velden uit de melding; voornaam/achternaam
     # deden het al goed en horen mee in dezelfde vergelijking.
-    _controleer(resp.text, minstens={"m0_first_name", "m0_last_name", "m0_email", "m0_mobile"})
+    _controleer(
+        resp.text,
+        minstens={
+            "h-n0-first_name",
+            "h-n0-last_name",
+            "h-n0-date_of_birth",
+            "e-n0e-value",
+            "h-n0-mobile",
+            "address-street",
+            "address-house_number",
+            "address-postal_code",
+        },
+    )
+    assert _group_label_marked(resp.text, "h-n0-gender_code")
+    assert _group_label_marked(resp.text, "payment_method")
+    assert "h-n0-phone" not in _gemarkeerd(resp.text), "an optional field carries the star"
 
 
 def test_bijkomend_lid_geboortedatum_en_geslacht_dragen_het_rode_sterretje(client, db_session):
-    """De rij die htmx bijlaadt: daar zijn geboortedatum en geslacht verplicht
+    """De rij voor een bijkomend lid: daar zijn geboortedatum en geslacht verplicht
     (#551/#681) en e-mail/GSM juist niet — omgekeerd aan het hoofdlid, dat e-mail
     en GSM wél verplicht heeft. Dat verschil bewijst dat de markering de vlag volgt
     en niet het veld. (Geboortedatum en geslacht zijn sinds #681 aan beide kanten
     verplicht; e-mail/GSM dragen het onderscheid.)"""
-    rij = client.get("/lid-worden/persoon-rij?index=1")
-    assert rij.status_code == 200
-    _controleer(rij.text, minstens={"m1_date_of_birth", "m1_gender_code"})
-    assert "m1_email" not in _verplicht(rij.text)
-    assert "m1_mobile" not in _gemarkeerd(rij.text)
+    page = client.get("/lid-worden")
+    assert page.status_code == 200
+    rij = _new_person_row(page.text)
+    _controleer(rij, minstens={"h-__H__-first_name", "h-__H__-last_name", "h-__H__-date_of_birth"})
+    assert _group_label_marked(rij, "h-__H__-gender_code")
+    assert "e-__E__-value" not in _verplicht(rij) and "e-__E__-value" not in _gemarkeerd(rij)
+    assert "h-__H__-mobile" not in _gemarkeerd(rij) and "h-__H__-mobile" not in _verplicht(rij)
+    # The other side of the difference, on the same page: the main member's row.
+    assert {"h-n0-mobile", "e-n0e-value"} <= _gemarkeerd(page.text) & _verplicht(page.text)
 
 
 def test_geen_grijs_sterretje_meer_in_de_labeltekst(client, db_session):
-    """De concrete regressie: een `*` in de labeltekst erft `text-gray-700`.
-    Elk sterretje in een label hoort in de rode span te zitten."""
+    """De concrete regressie: een `*` in de labeltekst erft de kleur van het label.
+    Elk sterretje in een label hoort in de rode span te zitten. The page holds
+    the new person's row too (the group's template)."""
     seed_postal_code(db_session, code="2400", municipality="Mol")
-    for html in (
-        client.get("/lid-worden").text,
-        client.get("/lid-worden/persoon-rij?index=1").text,
-    ):
-        for for_id, inhoud in LABEL.findall(html):
-            zonder_rode_span = re.sub(
-                r'<span class="text-red-600">.*?</span>', "", inhoud, flags=re.S
-            )
-            assert "*" not in zonder_rode_span, (
-                f"sterretje buiten de rode span in het label van {for_id}"
-            )
+    html = client.get("/lid-worden").text
+    labels = LABEL.findall(html)
+    assert {"h-n0-mobile", "h-__H__-first_name"} <= {for_id for for_id, _inhoud in labels}, (
+        "the labels of the main member and of a new person are not both on the page"
+    )
+    for for_id, inhoud in labels:
+        zonder_rode_span = re.sub(r'<span class="text-red-600">.*?</span>', "", inhoud, flags=re.S)
+        assert "*" not in zonder_rode_span, (
+            f"sterretje buiten de rode span in het label van {for_id}"
+        )

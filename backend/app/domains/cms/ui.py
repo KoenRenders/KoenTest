@@ -77,20 +77,29 @@ def _payment_confirmed(db: Session, request: Request) -> bool | None:
     provider's own word arrives through the webhook, usually a moment earlier
     and sometimes later. So the page reads what the ledger says.
 
-    True: every booking of the registration is settled. False: one is still
-    open. None: the page cannot tell — a membership's return (its bookings hang
-    on the membership, the address names the household), no reference at all,
-    or a number without a booking — and then it claims nothing.
-    """
-    from app.domains.payment.api import registration_payment_states
+    True: every booking is settled. False: one is still open. None: the page
+    cannot tell — no reference at all, or a number without a booking — and then
+    it claims nothing.
 
-    reference = request.query_params.get("registration", "")
-    if not reference.isdigit():
-        return None
-    state = registration_payment_states(db, [int(reference)]).get(int(reference))
-    if state is None:
-        return None
-    return state["state"] == "settled"
+    Two kinds of return: a registration's (`?registration=<id>`, the booking
+    hangs on it) and a membership's — a sign-up or a renewal (`?member=<id>`:
+    the address names the household, the booking hangs on its newest
+    membership; since #1590 that is read too, where the page used to say
+    "wordt verwerkt" for ever).
+    """
+    registration = request.query_params.get("registration", "")
+    if registration.isdigit():
+        from app.domains.payment.api import registration_payment_states
+
+        found = registration_payment_states(db, [int(registration)]).get(int(registration))
+        return None if found is None else found["state"] == "settled"
+    member = request.query_params.get("member", "")
+    if member.isdigit():
+        from app.domains.membership.api import household_payment_state
+
+        state = household_payment_state(db, int(member))
+        return None if state is None else state == "settled"
+    return None
 
 
 @router.get("/betaling/succes", response_class=HTMLResponse)
@@ -102,6 +111,7 @@ def betaling_succes(request: Request, db: Session = Depends(get_db)):
             **site_context(db, request),
             "gelukt": True,
             "bevestigd": _payment_confirmed(db, request),
+            "membership": request.query_params.get("member", "").isdigit(),
             "status_url": f"{request.url.path}?{request.url.query}",
         },
     )
@@ -112,7 +122,13 @@ def betaling_geannuleerd(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         request,
         "betaling_resultaat.html",
-        {**site_context(db, request), "gelukt": False, "bevestigd": None, "status_url": ""},
+        {
+            **site_context(db, request),
+            "gelukt": False,
+            "bevestigd": None,
+            "membership": False,
+            "status_url": "",
+        },
     )
 
 
