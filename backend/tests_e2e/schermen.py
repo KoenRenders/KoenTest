@@ -153,6 +153,42 @@ def htmx_stil(page, *, timeout: int = 10_000) -> None:
     )
 
 
+_WATCH_TRANSITIONS = """() => {
+  window.__vt = {frames: 0, seen: 0};
+  const tick = () => {
+    window.__vt.seen += 1;
+    const running = document.getAnimations().filter(a => a.effect && a.effect.pseudoElement
+      && a.effect.pseudoElement.startsWith('::view-transition'));
+    if (running.length) window.__vt.frames += 1;
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}"""
+_TRANSITION_FRAMES = """() => new Promise(resolve => {
+  const from = window.__vt.seen;
+  const wait = () => window.__vt.seen - from >= 30 ? resolve(window.__vt.frames) : requestAnimationFrame(wait);
+  wait();
+})"""
+
+
+def watch_transitions(page) -> None:
+    """From now on, count every frame in which a view transition runs (Refs
+    #1589). Both shells run one on every htmx swap (`globalViewTransitions`);
+    a swap inside the page that is no navigation must carry `transition:false`,
+    or the whole page cross-fades for 250 ms. Call it before the act, when the
+    page's own arrival has ended; read the count with `transition_frames`."""
+    page.wait_for_function("() => document.getAnimations().length === 0")
+    page.evaluate(_WATCH_TRANSITIONS)
+
+
+def transition_frames(page) -> int:
+    """The frames with a view transition since `watch_transitions`, read after
+    thirty more frames — longer than the 250 ms a transition takes. Assert that
+    the result of the act stands FIRST: zero is also true of a swap that never
+    came."""
+    return page.evaluate(_TRANSITION_FRAMES)
+
+
 def open_de_raakje_bel(page, pad: str = "/"):
     """De zwevende Raakje-bel op een publieke pagina openen (#1120).
 

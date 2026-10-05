@@ -29,7 +29,14 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, htmx_afgerond, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    htmx_afgerond,
+    login_met_sessie,
+    pagina_klaar,
+    transition_frames,
+    watch_transitions,
+)
 
 NAME = "Balktest met inschrijving"
 COMPONENT = "Avondwandeling"
@@ -259,6 +266,23 @@ def test_a_refusal_names_two_fields_focuses_the_first_and_keeps_everything(setup
     assert page.locator("#name").get_attribute("aria-invalid") is None
     assert page.errors == []
     page.close()
+
+
+def test_a_refusal_arrives_without_a_view_transition(setup):
+    """Refs #1589. The admin shell runs a view transition on every swap, and a
+    banner that arrives is no navigation: with one the whole record cross-faded
+    while the form scrolled to its first refused field (the same as measured on
+    the public form page). Proven red by taking `transition:false` off the
+    `HX-Reswap` of `_refusal` in `activities/admin_ui.py`."""
+    page = _page(setup, 1440)
+    page.fill("#name", "")
+    watch_transitions(page)
+    page.click(f"{BAR} [data-form-save]")
+    page.locator("#aa-fiche-message [data-save-refusal]").wait_for()
+    page.locator("[data-refused]").first.wait_for()
+    frames = transition_frames(page)
+    page.close()
+    assert frames == 0, f"the record cross-fades when the banner arrives ({frames} frames)"
 
 
 def test_a_removed_component_with_registrations_comes_back_with_the_reason_on_it(setup):

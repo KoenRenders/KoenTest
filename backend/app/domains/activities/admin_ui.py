@@ -568,7 +568,9 @@ def _refusal(
         "_aa_refusal.html",
         {"errors": errors or [], "question": question, "confirm": question is not None},
         status_code=422,
-        headers={"HX-Retarget": "#aa-fiche-message", "HX-Reswap": "innerHTML"},
+        # `transition:false`: a banner that arrives is no navigation; with the
+        # shell's view transition the whole record cross-faded (Refs #1589).
+        headers={"HX-Retarget": "#aa-fiche-message", "HX-Reswap": "innerHTML transition:false"},
     )
 
 
