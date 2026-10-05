@@ -80,6 +80,9 @@ BIJZONDERE_WAARDEN = {
     "max_registrations_per_email": "3",
     "admin_chat_enabled": "1",
     "site_header_color": "#005d29",
+    # #1622: a brand colour that carries white text, an accent that carries dark.
+    "site_brand_color": "#0051a4",
+    "site_accent_color": "#ffd200",
     "base_url": "https://voorbeeld.example",
     "umami_src": "https://stats.example/script.js",
     "gmail_user": "afzender@example.com",

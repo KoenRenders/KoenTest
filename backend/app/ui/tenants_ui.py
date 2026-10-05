@@ -48,6 +48,21 @@ BEKENDE_SLEUTELS = [
         "Achtergrond van de kopbalk op de publieke site, als #rrggbb (bv. #005d29). "
         "Moet donker genoeg zijn voor witte tekst. Leeg = de standaardkleur (#992).",
     ),
+    # #1622: with the logo and the header colour, the tenant's brand file.
+    (
+        "site_brand_color",
+        "Merkkleur",
+        "Koppen, links, de primaire knop en de actieve navigatie op de publieke site, als "
+        "#rrggbb. De tinten (hover, zachte achtergrond, focus) worden eruit afgeleid. Moet "
+        "donker genoeg zijn voor witte tekst. Leeg = de standaardkleur.",
+    ),
+    (
+        "site_accent_color",
+        "Accentkleur",
+        "De ene oproep op de publieke site, zoals de knop voor de nieuwsbrief, als #rrggbb. "
+        "De tekst erop wordt donker of wit, naargelang wat het best leest. "
+        "Leeg = de standaardkleur.",
+    ),
     # #924: de sociale links staan bij de ORGANISATIE — ze bestaan ook als de
     # vereniging geen site heeft. Hier laten staan zou een tweede bewerkbare bron
     # zijn.
@@ -340,7 +355,7 @@ def _editor_ctx(
     administration (#1533). Only the scope and those two differ."""
     from app.domains.mdm.api import enabled_modules, list_accounts
     from app.domains.mdm.api import secrets_gezet as _secrets_gezet
-    from app.kernel.tenant_config import get_setting, site_name_default
+    from app.kernel.tenant_config import SITE_COLOR_DEFAULTS, get_setting, site_name_default
 
     unit = next((u for u in _units(db) if u.id == tenant_id), None)
     if unit is None:
@@ -384,6 +399,9 @@ def _editor_ctx(
         # (the placeholder), in both scopes — the tenant's ADMIN may set it too.
         "site_name_value": unit.site_name or "",
         "site_name_default": site_name_default(db, tenant_id),
+        # #1622: the colour fields with a sample — the stylesheet's own colour
+        # as the placeholder, and as the sample while the field is empty.
+        "colour_defaults": SITE_COLOR_DEFAULTS,
         "cards": _cards(db, unit, modules_on=on, refused=refused),
         # A module without a card keeps its state through the one Opslaan.
         "kept_modules": sorted(c.value for c in _hidden_cards(unit) if c.value in stored_on),

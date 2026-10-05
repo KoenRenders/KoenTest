@@ -126,7 +126,10 @@
 </head>
 {# hx-boost (#634): zie admin_base voor de redenering. De publieke schil boost op
    dezelfde manier; links naar de andere schil (/admin) en /afmelden zetten het uit. #}
-<body class="bg-ground min-h-screen text-ink" data-shell="site" hx-boost="true"
+{# #1622: a tenant's own brand and accent colour, as the tokens the stylesheet
+   reads (built from numbers in `tenant_config.site_color_style`); without a
+   setting no style and the palette of `build-css.sh` stands. #}
+<body class="bg-ground min-h-screen text-ink" data-shell="site"{% if site_color_style %} style="{{ site_color_style }}"{% endif %} hx-boost="true"
       hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'
       x-data="{ menu: false }" @keydown.escape.window="if (menu) { menu = false; $nextTick(() => $refs.menuButton.focus()) }">
   {# The environment banner (#464) stands ABOVE the header in the document flow

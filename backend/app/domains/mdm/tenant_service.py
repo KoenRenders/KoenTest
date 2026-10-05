@@ -486,7 +486,23 @@ def _write_settings(
 ) -> None:
     """Check every value, then write them — `update_tenant_settings` without the
     commit, so `save_tenant` can write the modules in the same transaction."""
-    from app.kernel.tenant_config import SITE_HEADER_COLOR_KEY, header_color_problem, set_setting
+    from app.kernel.tenant_config import (
+        SITE_ACCENT_COLOR_KEY,
+        SITE_BRAND_COLOR_KEY,
+        SITE_HEADER_COLOR_KEY,
+        accent_color_problem,
+        brand_color_problem,
+        header_color_problem,
+        set_setting,
+    )
+
+    # A colour is refused, never repaired: it goes into a style attribute, and
+    # text stands on it or is drawn in it (#992, #1622).
+    colour_rules = {
+        SITE_HEADER_COLOR_KEY: header_color_problem,
+        SITE_BRAND_COLOR_KEY: brand_color_problem,
+        SITE_ACCENT_COLOR_KEY: accent_color_problem,
+    }
 
     def _tekst(key: str) -> str:
         waarde = form.get(key)
@@ -504,10 +520,8 @@ def _write_settings(
                 schoon[key] = _als_bedrag(ruw)
             elif key in GEHEEL_SLEUTELS:
                 schoon[key] = _als_geheel(ruw)
-            elif key == SITE_HEADER_COLOR_KEY:
-                # #992: refused, never repaired — the value goes into a style
-                # attribute, and the header text is white.
-                probleem = header_color_problem(ruw)
+            elif key in colour_rules:
+                probleem = colour_rules[key](ruw)
                 if probleem:
                     raise ValueError(probleem)
                 schoon[key] = ruw.lower()

@@ -677,6 +677,172 @@ def tenant_site_header_color(db: Session, tenant_id: int | None = None) -> str |
     return value.lower()
 
 
+# ── The brand and the accent colour of the public site (#1622) ──────────────
+#
+# CR-11 Q68, end state §1.1: with the logo and the header colour, two colours
+# are a tenant's brand file. The BRAND colour carries headings, links, the
+# primary button and the active navigation; its tints are derived here, from
+# that one value. The ACCENT colour is the site's one call to action; its text
+# colour is derived on contrast. Without a setting nothing is written and the
+# stylesheet's own palette (Atelier, `scripts/build-css.sh`) stands; the back
+# office never reads these.
+#
+# The values land in a `style` attribute like the header colour, as RGB
+# triplets (the form every colour token has: `rgb(var(--c-x) / alpha)`), so
+# what is written is built from three integers — never from the stored text.
+
+SITE_BRAND_COLOR_KEY = "site_brand_color"
+SITE_ACCENT_COLOR_KEY = "site_accent_color"
+
+#: The stylesheet's own two colours, as the editor's placeholders: what an
+#: empty field means. `test_site_colours.py` holds them against `build-css.sh`.
+SITE_COLOR_DEFAULTS = {SITE_BRAND_COLOR_KEY: "#254e73", SITE_ACCENT_COLOR_KEY: "#eec15e"}
+
+#: The text on the accent: the palette's dark ink, or white.
+_ACCENT_INK = (37, 44, 53)
+_WHITE = (255, 255, 255)
+_BLACK = (0, 0, 0)
+
+#: The blue scale around the brand colour, as Atelier relates each step to its
+#: brand (37 78 115): the share of white (lighter steps) or black (darker ones)
+#: mixed in, the mean over the three channels of Atelier's own steps. Step 700
+#: is the brand itself. Step 500 is Atelier's brighter blue for the focus ring,
+#: which is not a tint of its brand; derived, it is the brand with a little
+#: white.
+_BRAND_STEPS: tuple[tuple[str, tuple[int, int, int], float], ...] = (
+    ("50", _WHITE, 0.91),
+    ("100", _WHITE, 0.83),
+    ("200", _WHITE, 0.61),
+    ("300", _WHITE, 0.42),
+    ("400", _WHITE, 0.22),
+    ("500", _WHITE, 0.15),
+    ("600", _BLACK, 0.10),
+    ("700", _BLACK, 0.0),
+    ("800", _BLACK, 0.27),
+    ("900", _BLACK, 0.42),
+    ("950", _BLACK, 0.64),
+)
+
+
+def _rgb(hex_color: str) -> tuple[int, int, int]:
+    return (int(hex_color[1:3], 16), int(hex_color[3:5], 16), int(hex_color[5:7], 16))
+
+
+def _mix(colour: tuple[int, int, int], other: tuple[int, int, int], share: float) -> str:
+    """`colour` with `share` of `other` mixed in, as the triplet a token holds."""
+    return " ".join(str(round(c + (o - c) * share)) for c, o in zip(colour, other))
+
+
+def _luminance(colour: tuple[int, int, int]) -> float:
+    def channel(c: int) -> float:
+        v = c / 255
+        return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+
+    r, g, b = colour
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+
+def contrast_between(a: tuple[int, int, int], b: tuple[int, int, int]) -> float:
+    """The WCAG contrast ratio of two colours."""
+    high, low = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+def brand_color_problem(value: str) -> str | None:
+    """Why `value` cannot be the brand colour, or None when it can: the header
+    colour's rule (#992) — the brand is text on white and carries white text."""
+    return header_color_problem(value)
+
+
+def _accent_text(colour: tuple[int, int, int]) -> tuple[tuple[int, int, int], float]:
+    """The text colour on an accent — dark ink or white, whichever reads
+    better — and its contrast."""
+    return max(
+        ((text, contrast_between(colour, text)) for text in (_ACCENT_INK, _WHITE)),
+        key=lambda pair: pair[1],
+    )
+
+
+def accent_color_problem(value: str) -> str | None:
+    """Why `value` cannot be the accent colour, or None when it can.
+
+    Refused, never repaired: only `#rrggbb`, and a colour on which dark or
+    white text reaches 4.5 : 1. A mid-tone carries neither."""
+    from app.i18n import _
+
+    if not _HEX_COLOR.fullmatch(value or ""):
+        return _("geef een kleur als #rrggbb, bijvoorbeeld #005d29.")
+    _text, ratio = _accent_text(_rgb(value))
+    if ratio < MIN_CONTRAST_WITH_WHITE:
+        return _(
+            "te weinig contrast voor tekst op deze kleur: hoogstens %(v)s:1 met donkere of "
+            "witte tekst, minstens 4,5:1 nodig. Kies een lichtere of een donkerdere kleur."
+        ) % {"v": f"{ratio:.2f}".replace(".", ",")}
+    return None
+
+
+def brand_tokens(hex_color: str) -> dict[str, str]:
+    """Every colour token the public shell derives from ONE brand colour.
+
+    The blue scale in Atelier's proportions (`_BRAND_STEPS`), and the roles
+    that read it: the brand and the link (the colour itself), the headings,
+    the hover (step 800) and the focus ring (step 500)."""
+    brand = _rgb(hex_color)
+    scale = {step: _mix(brand, other, share) for step, other, share in _BRAND_STEPS}
+    tokens = {f"--c-blue-{step}": value for step, value in scale.items()}
+    tokens.update(
+        {
+            "--c-brand": scale["700"],
+            "--c-brand-ocean": scale["700"],
+            "--c-brand-ocean-hover": scale["800"],
+            "--c-link": scale["700"],
+            "--c-kop": scale["700"],
+            "--c-focus": scale["500"],
+        }
+    )
+    return tokens
+
+
+def accent_tokens(hex_color: str) -> dict[str, str]:
+    """The accent and the text colour on it."""
+    accent = _rgb(hex_color)
+    text, _ratio = _accent_text(accent)
+    return {"--c-accent": _mix(accent, accent, 0.0), "--c-on-accent": _mix(text, text, 0.0)}
+
+
+def _site_color(db: Session, key: str, problem, tenant_id: int | None) -> str | None:
+    value = (get_setting(db, key, tenant_id=tenant_id) or "").strip()
+    if not value:
+        return None
+    if problem(value) is not None:
+        logger.warning("Ongeldige kleur %r voor %s genegeerd (tenant %s)", value, key, tenant_id)
+        return None
+    return value.lower()
+
+
+def tenant_site_brand_color(db: Session, tenant_id: int | None = None) -> str | None:
+    """The public site's brand colour as `#rrggbb`, or None for the palette's own."""
+    return _site_color(db, SITE_BRAND_COLOR_KEY, brand_color_problem, tenant_id)
+
+
+def tenant_site_accent_color(db: Session, tenant_id: int | None = None) -> str | None:
+    """The public site's accent colour as `#rrggbb`, or None for the palette's own."""
+    return _site_color(db, SITE_ACCENT_COLOR_KEY, accent_color_problem, tenant_id)
+
+
+def site_color_style(db: Session, tenant_id: int | None = None) -> str:
+    """The `style` of the public `<body>`: the tokens of the colours this tenant
+    set, or "" when it set none (the stylesheet's palette stands)."""
+    tokens: dict[str, str] = {}
+    brand = tenant_site_brand_color(db, tenant_id)
+    if brand:
+        tokens.update(brand_tokens(brand))
+    accent = tenant_site_accent_color(db, tenant_id)
+    if accent:
+        tokens.update(accent_tokens(accent))
+    return ";".join(f"{name}:{value}" for name, value in tokens.items())
+
+
 def umami_tracking(db: Session, tenant_id: int | None = None) -> tuple[str, str]:
     """(script-URL, website-id) — of twee lege strings (#808).
 

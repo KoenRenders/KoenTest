@@ -1207,6 +1207,7 @@ def site_context(db, request=None) -> dict:
     from app.config import settings
     from app.kernel.tenant_config import (
         get_setting,
+        site_color_style,
         site_name_default,
         tenant_display_name,
         tenant_site_header_color,
@@ -1272,6 +1273,9 @@ def site_context(db, request=None) -> dict:
         # #992: the public header's own colour, or None for the shell's.
         # Validated again on read, so it can go into a style attribute.
         "site_header_color": tenant_site_header_color(db),
+        # #1622: the tokens of the tenant's own brand and accent colour, for
+        # the body's style; "" = the stylesheet's palette.
+        "site_color_style": site_color_style(db),
         # Het logo van de vereniging (#258), als het er is: de header toont het
         # in plaats van het ingetypte woordmerk, en de vergader-PDF gebruikt
         # hetzelfde logo. Eén bron, twee afnemers — daarom staat het bij de
