@@ -460,7 +460,9 @@ public forms — register, a public form, Word lid, renew, Mijn gezin:
   veld" legend**: the red asterisk on the label is enough.
 - **Register** (CR-14 B4.1 kept): Contact with the member nudge as a quiet
   brand block, only here → Je deelname (products as rows with a 44 px
-  stepper, on a desktop too; "Wie doet er mee?" a compact inline link) →
+  stepper, on a desktop too; no "Wie doet er mee?" on the form — the participants' line is the
+  activity card's and page's, where it was (Koen, 5 October 2026, "zo was
+  het"; it reverses the inline link CR-14 B4.1 kept on the page)) →
   the questions, with radios *Nu invullen / Later* → Betalen → the button.
 - **Payment method required** on register, Word lid and renew: two vertical
   radios, *Online betalen* and *Overschrijving*, each with its explanation

@@ -553,7 +553,10 @@ superseded on every screen that moves to the layout:
   the row's state ("Bevestig" on an open booking), plus `⋯`, following
   `may_mutate_payments`; the column chooser in the URL; column thresholds
   1 100 and 980 px (not the prototype's 1 240 / 1 120 — seven columns at
-  1 440 px); group rows marked `↳`; Saldo in the warning tone when ≠ 0,
+  1 440 px); group rows marked `↳`; **a status badge stays on one line** — `whitespace-nowrap`
+  in the badge macro and the Status column as wide as its longest badge
+  ("Terug te betalen" wrapped on HDEV; Koen, 5 October 2026); Saldo in the
+  warning tone when ≠ 0,
   Bedrag never coloured; a person's name links to the booking; "Terugbetaald"
   is no word on the list. **Below 900 px the rows stack**, and a stacked row
   shows the balance under the amount when it differs (`ui.amount(value,
