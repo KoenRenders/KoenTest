@@ -498,7 +498,13 @@ public forms — register, a public form, Word lid, renew, Mijn gezin:
   over PROD's bar): valid — "geldig tot en met …" in the success tone;
   to renew — the sentence and the button *Lidmaatschap vernieuwen*; a
   renewal awaiting a transfer — "Je vernieuwing loopt nog." **with the
-  transfer instructions in the card**, not one click further; then edit
+  transfer instructions in the card **as an inset sub-card** (the kit's soft
+  brand tint, radius, 16 px padding) headed "Vernieuwing geregistreerd —
+  betaal via overschrijving:" with amount, IBAN, beneficiary and OGM under it,
+  as v2.12 drew it (Koen, 5 October 2026: "veelzeggender") — and no link to
+  a second screen; the
+  running-renewal view of the renew page goes with it (Koen, 5 October 2026,
+  Q79); then edit
   mode with one *Bewerken* badge and one
   *Opslaan*; then read mode with the same sections ("—" for empty) and one
   *Bewerken* in the head; the toast "Opgeslagen ✓" for four seconds.
@@ -1139,7 +1145,7 @@ says so, and the default order is the one named above.
 | Formulier | name/e-mail card, section cards paged ‹ › | §2.6: the name card, Contact, the sections as cards on one long page — no steps; its own thank-you page |
 | Mijn gezin | membership card, person cards with edit toggles and e-mail rows, add card; **no registrations or payments** | the family portal as overview and details: Gezin · Onze inschrijvingen (with the payment state) · Betalingen; one save per the household record rule (pilot B) |
 | Foto's and an album | album cards per year; thumbnail grid | cards (the picture is the content); the album grid with the lightbox; clearance honoured (CR-15) |
-| Bedankt, Betaling ontvangen, Inloglink verlopen | one-card pages | one-card pages, the same card |
+| Inloggen, Bedankt, Betaling ontvangen, Inloglink verlopen | one-card pages | one-card pages, the same card; **the heading inside the card is the card heading (24 px), never the 40 px page title** — the public page-title size belongs to the title role on the ground, not to every `h1` (Koen, 5 October 2026: "Aanmelden" at 40 px in the sign-in card); the sign-in page says **Inloggen**, the word of the header link since P1 ("Aanmelden" is the newsletter's button) |
 
 **Decided with Koen on 2 October 2026 (CR-11 Q28):** a person stays a card on
 the household page — no person page; the form builder and the Design Studio
