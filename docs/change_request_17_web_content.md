@@ -401,7 +401,6 @@ Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
 | Q6 | Start the spike now? | Yes. | the first sub-issue of #1427 |
-| Q9 | Merged cells in tables? | Not in phase 1. | the table node |
 | Q10 | Form block and cards block in phase 2? | Yes. | phase 1 stays smaller |
 
 ## B9. Decisions log — dated answers
@@ -414,7 +413,7 @@ Dependencies: CR-15's picker is built; the page screen's layout comes from CR-11
 | 1 Oct 2026 | Web content management as a whole, talked through first; no site builder. | Koen |
 | 4 Oct 2026 | **The frame**: the association's sites do not change; the subject is a company tenant's site, kept abstract. | Koen |
 | 4 Oct 2026 | Form block (R13), cards block (R14), kit-styled pictures (R4), columns middle beside a figure; a translation row from phase 1 (R15); a JSON door (R16); the menu to Should (R8); the three newsletter choices decide the blocks (F9). | Koen |
-| 5 Oct 2026 | **TipTap** is the editor (B8 Q1 closed; the spike of phase 0 confirms the bundle step). **The menu back to Could** (R8, phase 4): sections, an external link and a footer menu only if they come nearly free, otherwise a follow-up change request; the order of the pages stays settable as today. **The activity's description on the same editor is a Could outside this change** — a follow-up, not a phase here (B8 Q8 closed). **A second language is the public content only; the back office stays Dutch** (B8 Q11 closed). | Koen |
+| 5 Oct 2026 | **TipTap** is the editor (B8 Q1 closed; the spike of phase 0 confirms the bundle step). **The menu back to Could** (R8, phase 4): sections, an external link and a footer menu only if they come nearly free, otherwise a follow-up change request; the order of the pages stays settable as today. **The activity's description on the same editor is a Could outside this change** — a follow-up, not a phase here (B8 Q8 closed). **A second language is the public content only; the back office stays Dutch** (B8 Q11 closed). **Merged cells in tables are a Could outside this change** (B8 Q9 closed). | Koen |
 | 4 Oct 2026 | **Six answers**: R6 and writing on a phone to Could; R12 stays Won't; cards are layout (R14); English soon — phase 5 after phase 2, `/en/` prefix (R15); the JSON door also creates and publishes, for a CLI (R16). | Koen |
 | 1 Oct 2026 | *Proposed:* C4.1–C4.7; TipTap recommended, decided after the spike. | author |
 
@@ -618,7 +617,7 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 | Q6 | 1 Oct 2026 | Mobile first; and the order with CR-11 and CR-15? (master CLI) | C4.6. The order question dissolved on 4 Oct 2026: CR-15's picker is built, CR-11's document layout is decided per block; phase 0 can start now (B8 Q6). |
 | Q7 | 1 Oct 2026 | Deliberately not: no site builder? (master CLI) | C4.7 and Non-goals. |
 | Q8 | 1 Oct 2026 | The activity's description on the same editor later? (author) | A Could outside this change (Koen, 5 Oct 2026): a follow-up when wanted, not a phase of CR-17. |
-| Q9 | 1 Oct 2026 | Merged cells in tables? (author) | *Proposed:* not in phase 1. *Koen decides.* |
+| Q9 | 1 Oct 2026 | Merged cells in tables? (author) | A Could outside this change (Koen, 5 Oct 2026): not built in CR-17; a follow-up when a page asks for it. |
 | Q10 | 4 Oct 2026 | Which site is this for? (Koen) | Not the association's: those sites are good and do not change (R17, C4.12). The public site of a tenant of the kind company (CR-19), kept abstract here; the CMS's capabilities are the subject. |
 | Q11 | 4 Oct 2026 | A text beside a contact form, as on an outside site Koen showed? (Koen) | A **form block** (R13, C4.9) in two columns: the forms module's form rendered inside the page, submissions as today; not intro and side texts inside the forms module. Phase 2 (B8 Q10). |
 | Q12 | 4 Oct 2026 | Something decent graphically — a picture with rounded corners and a shadow: in the CMS or in an image editor? (Koen) | In the kit (R4, C4.8): every picture gets the site's radius and shadow by rule; the file stays clean because it also serves the poster and the mail. A photo beside a heading, a text and a button is the columns block with middle alignment. |
@@ -629,6 +628,7 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 
 ## Non-goals — deliberately outside this change
 
+- Merged cells in tables, and the activity's description on the same editor — both Could, follow-ups when wanted (Koen, 5 October 2026).
 - A site builder: themes, free placement, per-page templates, colours or widths per block, a plugin system, a second site per tenant (R10).
 - Embedded frames (video, maps): the CSP forbids them; a link card instead (R11).
 - Comments, search, scheduled publishing, approval workflows.
