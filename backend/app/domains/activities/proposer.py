@@ -25,6 +25,11 @@ kinds of field:
   (CR-05 §3.16): numbers, known names and removed contact details without a
   model, and a separate verification call for what no list can catch. A marked
   sentence is left out of the value unless the user ticks "klopt, behouden".
+  **The request is a source here too** (#1653): the verification's verdict
+  holds only when the sentence carries a word or a number nobody gave, so a
+  sentence that only rewords what the user gave is never marked. What counts
+  as given is bounded (`given_facts`): not the part of the request that tells
+  Raakje what to write.
 
 **The date row.** Dates are rows of the repeating group Datums. The proposal
 addresses *the first row of the group* (`{"group": "d_order", "name":
@@ -90,7 +95,7 @@ VASTE REGELS
 - Vraagt de gebruiker iets over de datum of het uur, antwoord dan in "reply" daarover; begin niet over de naam of de omschrijving.
 - Stel een DATUM of een UUR alleen voor als de vraag of de fiche die geeft. Geef voor een DAG in "date_source" het letterlijke stuk tekst waaruit je hem afleidt ("zaterdag 14 november", "volgende vrijdag"). Een dag of een uur dat niemand gaf, laat je weg.
 - Een relatieve datum ("volgende zaterdag") reken je uit tegenover VANDAAG.
-- De OMSCHRIJVING is twee à drie zinnen voor bezoekers: warm en helder. Ze zegt alleen wat de vraag of de fiche zegt. Verzin geen programma, gerechten, prijzen, aantallen of namen van personen. Weglaten is altijd beter dan aanvullen.
+- De OMSCHRIJVING is twee à drie zinnen voor bezoekers: warm en helder. Schrijf ze EERST uit de feiten die de vraag of de fiche geeft — wat er te doen is, waar, wanneer, van waar en hoe laat je vertrekt — in je eigen woorden. Ze zegt alleen wat de vraag of de fiche zegt. Verzin geen programma, gerechten, prijzen, aantallen of namen van personen. Weglaten is altijd beter dan aanvullen.
 - [naam] betekent dat er een naam weggehaald is: neem die nooit over en raad nooit wie het was.
 - Laat een veld WEG uit je antwoord als je er niets voor hebt of als de gebruiker er niet om vraagt. Zeg in "reply" kort wat je nog nodig hebt.
 
@@ -102,10 +107,14 @@ Elke sleutel behalve "reply" is optioneel, ook binnen "date".
 
 VERIFY_PROMPT = """Je controleert een voorgestelde omschrijving van een activiteit tegen de BRONNEN. Je schrijft zelf niets bij.
 
-Zoek elke feitelijke bewering: wat er te doen is, wie wat doet, hoeveel iets kost, hoeveel er zijn, wanneer of waar iets is.
-Een bewering is GESTAAFD als een bron ze zegt. Enthousiaste taal ("een avond om niet te missen") is geen feit.
+Er zijn TWEE bronnen, en ze tellen allebei: DE FICHE (wat er al staat) en WAT DE GEBRUIKER SCHREEF. Ook wat de gebruiker in zijn bericht schreef is een bron, ook als de fiche leeg is.
 
-Antwoord met één JSON-object: {"unsupported": [{"sentence": N, "reason": "korte reden in het Nederlands"}]}
+Zoek elke feitelijke bewering: wat er te doen is, wie wat doet, hoeveel iets kost, hoeveel er zijn, wanneer of waar iets is.
+Een bewering is GESTAAFD als een van de twee bronnen ze zegt — ook in andere woorden of in een andere volgorde. "We vertrekken om 9 uur aan het plein" is gestaafd door "vertrek aan het plein, 9 uur".
+Enthousiaste taal ("een avond om niet te missen", "ga je mee?") is geen feit en markeer je niet.
+NIET gestaafd is alleen wat erbij verzonnen is: iets wat geen van de twee bronnen zegt.
+
+Antwoord met één JSON-object: {"unsupported": [{"sentence": N, "reason": "korte reden in het Nederlands, met het stukje uit de zin dat in geen bron staat"}]}
 Een lege lijst betekent: alles is gestaafd.
 """
 
@@ -455,16 +464,102 @@ def _own_marks(sentence: str, facts: str, names: set[str]) -> str:
     return ""
 
 
-def _verify(provider: Any, sentences: list[str], sources: str, names: set[str]) -> dict[int, str]:
+#: Words that carry no fact: little words, and the plainest verbs a sentence is
+#: reworded with ("we trekken naar", "ga je mee", "het is aan"). A sentence made
+#: of these and of given words adds nothing of its own.
+_FILLER = frozenset(
+    "aan achter alle allemaal als bij daar daarna dan dat deze die dit door een eens en er "
+    "graag haar hebben heeft hem het hier hij hun iedereen ieder iets ik in is je jij jou "
+    "jouw jullie kan kom komen komt kunnen maar mee met mijn naar niet nog of om onder ons "
+    "onze ook op over samen te tot uit van veel voor waar wat we weer welkom wel wij wil "
+    "willen worden wordt zal zich zij zijn zo zullen ga gaan gaat trek trekt trekken doe "
+    "doen doet".split()
+)
+#: Words that make a part of the request an INSTRUCTION to Raakje and not a
+#: fact about the activity: "schrijf je een leuke tekst als omschrijving?".
+_INSTRUCTION = frozenset(
+    "schrijf schrijven schrijft maak bedenk verzin formuleer stel voorstel voorstellen "
+    "tekst tekstje omschrijving beschrijving naam titel".split()
+)
+#: Where one part of the request ends and the next begins.
+_CLAUSE = re.compile(r"[.!?;:,\n]+|\s+(?:en|maar|dus|want)\s+")
+_LABEL = re.compile(r"^(?:Naam|Locatie|Omschrijving|Datums|Onderdeel): ?", re.M)
+
+
+def _stem(word: str) -> str:
+    """A word as the comparison reads it: its first five letters when it is
+    longer — "vertrekken" and "vertrek", "wandeling" and "wandelen" are one."""
+    return word[:5] if len(word) > 5 else word
+
+
+def given_facts(record: str, asked: str, accepted: str) -> str:
+    """What was GIVEN about the activity — the only thing a claim can lean on
+    (#1653, bounded on the master CLI's review, 6 October 2026).
+
+    Not everything that stands in the sources is a fact someone gave: the
+    labels of the record are ours, and a part of the request that tells Raakje
+    what to do ("schrijf een leuke tekst als omschrijving") says nothing about
+    the activity — so "een leuke tekst" grounds no sentence that calls the
+    outing "leuk". Such a part is left out, by its words (`_INSTRUCTION`); the
+    rest of the same request stays."""
+    clauses = [c for c in _CLAUSE.split(asked or "") if c and c.strip()]
+    facts = [c for c in clauses if not (set(_TOKEN.findall(_plain(c))) & _INSTRUCTION)]
+    values = _LABEL.sub("", record or "").replace("(leeg)", " ").replace("(geen)", " ")
+    return " ".join([values, *facts, accepted or ""])
+
+
+def _new_to_the_sources(text: str, given: str) -> list[str]:
+    """The words and numbers of `text` that nobody gave. Filler words say
+    nothing; a word counts as given when its stem stands in `given`."""
+    known = {_stem(token) for token in _TOKEN.findall(_plain(given))}
+    return [
+        token
+        for token in _TOKEN.findall(_plain(text))
+        if token not in _FILLER and _stem(token) not in known
+    ]
+
+
+def _sources_message(record: str, asked: str, accepted: str) -> str:
+    """The two sources as the verification reads them. Each under its own name
+    (#1653): under "VRAAG" beside an empty fiche, the model read the user's own
+    words as the thing to check instead of as a source."""
+    return (
+        "BRON 1 — DE FICHE (wat er al staat)\n"
+        + record
+        + "\n\nBRON 2 — WAT DE GEBRUIKER SCHREEF (ook dit is een bron)\n"
+        + asked
+        + (f"\n\nAANVAARD VOOR DE DATUM\n{accepted}" if accepted.strip() else "")
+    )
+
+
+def _verify(
+    provider: Any, sentences: list[str], sources_message: str, given: str, names: set[str]
+) -> dict[int, str]:
     """The verification call: which sentences state something no source holds.
-    Raises on a failed call — the caller says the proposal was not checked."""
+    Raises on a failed call — the caller says the proposal was not checked.
+
+    **Its verdict is checked** (#1653; Koen, 6 October 2026: a description whose
+    every fact stood in his request came back "geen enkele zin heeft een bron").
+    The request is a source for the description as it is for the name, the place
+    and the date, and that is a rule of this code, not a hope about a prompt: a
+    verdict holds only when the SENTENCE carries a word or a number that nobody
+    gave (`given_facts`, `_new_to_the_sources`). A sentence that only rewords
+    what was given cannot be marked; one that adds anything — a fact, a mood, a
+    word from the instruction — still is, alone or mixed with a given fact.
+
+    **The known limit**, said plainly: a sentence built ONLY from given words
+    can state something nobody said ("De zoo is aan het Dorpsplein"). The
+    verification would catch it; this check then overrules it. It is the price
+    of not refusing every reworded sentence, and the user reads the proposal
+    before Toepassen. The `claim` the verification names is shown with its
+    reason; it does not decide."""
     listing = "\n".join(f"{i}. {scrub(s, names)}" for i, s in enumerate(sentences, 1))
     reply = provider.complete(
         [
             {"role": "system", "content": VERIFY_PROMPT},
             {
                 "role": "user",
-                "content": f"BRONNEN\n{sources}\n\nOMSCHRIJVING (zinnen genummerd)\n{listing}",
+                "content": f"{sources_message}\n\nOMSCHRIJVING (zinnen genummerd)\n{listing}",
             },
         ],
         tools=None,
@@ -477,8 +572,14 @@ def _verify(provider: Any, sentences: list[str], sources: str, names: set[str]) 
             index = int(str(item.get("sentence"))) - 1
         except (TypeError, ValueError):
             continue
-        if 0 <= index < len(sentences):
-            found[index] = str(item.get("reason") or _("staat in geen enkele bron"))[:200]
+        if not 0 <= index < len(sentences):
+            continue
+        if not _new_to_the_sources(sentences[index], given):
+            logger.info(
+                "Verification verdict refused: the sentence adds nothing to what was given."
+            )
+            continue
+        found[index] = str(item.get("reason") or _("staat in geen enkele bron"))[:200]
     return found
 
 
@@ -564,7 +665,14 @@ def propose(
         facts = f"{sources} {accepted}"
         reasons = {i: why for i, s in enumerate(sentences) if (why := _own_marks(s, facts, names))}
         try:
-            for index, why in _verify(provider, sentences, f"{sources}\n{accepted}", names).items():
+            checked = _verify(
+                provider,
+                sentences,
+                _sources_message(record, asked, accepted),
+                given_facts(record, asked, accepted),
+                names,
+            )
+            for index, why in checked.items():
                 reasons.setdefault(index, why)
         except SeamBlocked:
             raise
@@ -586,9 +694,12 @@ def propose(
         else:
             # Nothing of it has a source: no field, and no tick — a proposal
             # must not empty a description that is there.
+            # The panel says why, per sentence (#1653): "geen bron" alone told Koen
+            # nothing about which check had refused what.
             proposal.marks = []
             proposal.left_out.append(
                 _("Omschrijving: niet voorgesteld — geen enkele zin heeft een bron.")
             )
+            proposal.left_out.extend(f"«{sentences[i]}» — {reasons[i]}" for i in sorted(reasons))
     proposal.fields.extend(date_fields)
     return proposal
