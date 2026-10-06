@@ -95,6 +95,7 @@ VASTE REGELS
 - Vraagt de gebruiker iets over de datum of het uur, antwoord dan in "reply" daarover; begin niet over de naam of de omschrijving.
 - Stel een DATUM of een UUR alleen voor als de vraag of de fiche die geeft. Geef voor een DAG in "date_source" het letterlijke stuk tekst waaruit je hem afleidt ("zaterdag 14 november", "volgende vrijdag"). Een dag of een uur dat niemand gaf, laat je weg.
 - Een relatieve datum ("volgende zaterdag") reken je uit tegenover VANDAAG.
+- Beschrijft de vraag een dag door zijn plaats in de maand ("de derde laatste vrijdag van december"), geef dan dat stuk letterlijk in "date_source". Tel zelf geen weken: het systeem rekent die dag uit en toont de berekening.
 - De OMSCHRIJVING is twee à drie zinnen voor bezoekers: warm en helder. Schrijf ze EERST uit de feiten die de vraag of de fiche geeft — wat er te doen is, waar, wanneer, van waar en hoe laat je vertrekt — in je eigen woorden. Ze zegt alleen wat de vraag of de fiche zegt. Verzin geen programma, gerechten, prijzen, aantallen of namen van personen. Weglaten is altijd beter dan aanvullen.
 - [naam] betekent dat er een naam weggehaald is: neem die nooit over en raad nooit wie het was.
 - Laat een veld WEG uit je antwoord als je er niets voor hebt of als de gebruiker er niet om vraagt. Zeg in "reply" kort wat je nog nodig hebt.
@@ -135,25 +136,24 @@ class Proposal:
     fields: list[dict[str, Any]] = field(default_factory=list)
     marks: list[dict[str, Any]] = field(default_factory=list)
     left_out: list[str] = field(default_factory=list)
+    #: What the code worked out itself, as a sum the user can check (#1667).
+    notes: list[str] = field(default_factory=list)
     unverified: bool = False
+
+    def says_something(self) -> bool:
+        """A turn must end in a proposal or in words (#1667)."""
+        return bool(self.reply or self.fields or self.left_out or self.notes or self.marks)
 
 
 # ── Names ────────────────────────────────────────────────────────────────────
 
 
 def scrub(text: str, names: set[str]) -> str:
-    """Contact details and every known name part go before anything leaves."""
-    from app.domains.chatbot.api import redact
+    """Contact details and every known name part go before anything leaves
+    (the kernel's one scrubber, #1667)."""
+    from app.domains.chatbot.api import scrub_names
 
-    text = redact(text or "")
-    if not text or not names:
-        return text
-
-    def replace(match: re.Match[str]) -> str:
-        word = match.group(0)
-        return NAME_PLACEHOLDER if len(word) >= 3 and word.lower() in names else word
-
-    return _WORD.sub(replace, text)
+    return scrub_names(text, names, NAME_PLACEHOLDER)
 
 
 def _carries_placeholder(text: str) -> bool:
@@ -390,6 +390,73 @@ def hours_in(text: str) -> tuple[set[time], list[str]]:
     return found, words
 
 
+_ORDINALS = {"eerste": 1, "tweede": 2, "derde": 3, "vierde": 4, "vijfde": 5}
+_WEEKDAYS = ("maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag")
+_MONTH_NUMBER = {name: number for number, name in enumerate(_MONTHS.split("|"), start=1)}
+#: "de derde laatste vrijdag van december", "de laatste zondag van mei 2027",
+#: "de tweede dinsdag in maart".
+_DESCRIBED = re.compile(
+    rf"\b(?:({'|'.join(_ORDINALS)})\s+)?(?:(voorlaatste|laatste)\s+)?({'|'.join(_WEEKDAYS)})"
+    rf"\s+(?:van|in)\s+({_MONTHS})(?:\s+(\d{{4}}))?",
+    re.I,
+)
+
+
+def described_day(text: str, today: date) -> Optional[tuple[date, str]]:
+    """The day a text DESCRIBES by its place in a month, and the words it does
+    so in: "de derde laatste vrijdag van december" → 11 December 2026.
+
+    Worked out here and not by the model (#1667; Koen, 6 October 2026: he asked
+    for the third-last Friday and got the last). Counting weekdays in a month is
+    arithmetic, and a language model is the wrong tool for it: the description
+    in the request is the source, the calendar gives the day, and the panel
+    shows the sum so the user can check it before Toepassen.
+
+    Only a description that fixes one day: a weekday with its place ("derde",
+    "laatste", "derde laatste", "voorlaatste") and a month. Without a year it
+    is the first such day from today on — this year, or the next when it has
+    passed — unless the text says "dit jaar". None when nothing is described or
+    the month has no such day (a fifth Friday)."""
+    text = text or ""
+    this_year_only = re.search(r"\bdit\s+jaar\b", text, re.I) is not None
+    for found in _DESCRIBED.finditer(text):
+        ordinal, last, weekday, month, year = found.groups()
+        if not ordinal and not last:
+            continue  # "een vrijdag in december" fixes no day
+        count = _ORDINALS[ordinal.lower()] if ordinal else 1
+        from_end = bool(last)
+        if last and last.lower() == "voorlaatste":
+            count = 2
+        if year:
+            years = [int(year)]
+        elif this_year_only:
+            years = [today.year]
+        else:
+            years = [today.year, today.year + 1]
+        for candidate in years:
+            month_number = _MONTH_NUMBER[month.lower()]
+            days = [
+                date(candidate, month_number, n)
+                for n in range(1, 32)
+                if _exists(candidate, month_number, n)
+                and date(candidate, month_number, n).weekday() == _WEEKDAYS.index(weekday.lower())
+            ]
+            if count > len(days):
+                continue
+            day = days[-count] if from_end else days[count - 1]
+            if year or this_year_only or day >= today:
+                return day, " ".join(found.group(0).split())
+    return None
+
+
+def _exists(year: int, month: int, day: int) -> bool:
+    try:
+        date(year, month, day)
+    except ValueError:
+        return False
+    return True
+
+
 def _day_stands(passage: str, day: date, sources: str) -> bool:
     """Is `passage` a passage about a day, and do its words stand in a source?
 
@@ -405,7 +472,13 @@ def _day_stands(passage: str, day: date, sources: str) -> bool:
 
 
 def _date_fields(
-    data: dict[str, Any], activity: Standing, sources: str, asked: str, left_out: list[str]
+    data: dict[str, Any],
+    activity: Standing,
+    sources: str,
+    asked: str,
+    left_out: list[str],
+    today: date,
+    notes: list[str],
 ) -> tuple[list[dict[str, Any]], str]:
     """The proposed fields of the first date row, and what was accepted as text
     (a source for the description's numbers).
@@ -430,9 +503,19 @@ def _date_fields(
     given, _words = hours_in(sources)
     not_given = _("niet voorgesteld — staat niet in je vraag en niet in de fiche.")
 
+    # #1667: a day the request DESCRIBES is the code's to work out — whatever
+    # the model made of it, and also when it proposed none.
+    described = described_day(asked, today)
     days: dict[str, Optional[date]] = {}
     for name, label in (("start_date", _("Datum")), ("end_date", _("Einddatum"))):
         day = _date(answer.get(name))
+        if name == "start_date" and described is not None:
+            days[name] = described[0]
+            notes.append(
+                _("Uitgerekend: %(words)s = %(day)s.")
+                % {"words": described[1], "day": long_date(described[0])}
+            )
+            continue
         if day is not None and not _day_stands(passage, day, sources):
             if _iso(day) != (_iso(getattr(row, name)) if row else ""):
                 left_out.append(f"{label} ({long_date(day)}): {not_given}")
@@ -707,7 +790,9 @@ def propose(
                 _field("location", _("Locatie"), location, activity.location or "")
             )
 
-    date_fields, accepted = _date_fields(data, activity, sources, asked, proposal.left_out)
+    date_fields, accepted = _date_fields(
+        data, activity, sources, asked, proposal.left_out, today, proposal.notes
+    )
 
     description = _text(data, "description", DESCRIPTION_MAX)
     if description and description != (activity.description or ""):
@@ -752,4 +837,13 @@ def propose(
             )
             proposal.left_out.extend(f"«{sentences[i]}» — {reasons[i]}" for i in sorted(reasons))
     proposal.fields.extend(date_fields)
+    if not proposal.says_something():
+        # #1667: an answer without a reply and without a field left the panel
+        # with the user's own question and nothing under it.
+        raise ProposerError(no_answer_text())
     return proposal
+
+
+def no_answer_text() -> str:
+    """The one sentence for a request that got no usable answer."""
+    return _("Raakje kon geen antwoord geven — probeer het opnieuw. Je vraag staat er nog.")

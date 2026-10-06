@@ -53,6 +53,7 @@ from app.domains.chatbot.seam import (  # noqa: F401
     admin_rules,
     public_rules,
     redact,
+    scrub_names,
 )
 from app.domains.chatbot.service import ChatTimeout, run_chat  # noqa: F401
 
@@ -89,6 +90,7 @@ __all__ = [
     "get_provider",
     "public_rules",
     "redact",
+    "scrub_names",
     "run_chat",
     "sink_for",
     "CallRow",
