@@ -4,7 +4,7 @@
 **Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · assigned to v2.14.0 on 5 October and **moved to v2.15.0 by Koen on 6 October 2026** (tracker #1666); the spike of phase 0 (#1626) is the first sub-issue of #1427 and its start is Koen's to give
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
-**Reading:** A 1498 words · B 2498 · C 5430 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1499 words · B 2498 · C 5475 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -119,7 +119,7 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 | R14 | A row of clickable cards, each a link to a page or elsewhere. | Should | Koen, 4 Oct |
 | R15 | Content in more than one language: Dutch first, English soon, without rebuilding; the visitor sees their language with a fallback. | Should | Koen, 4 Oct |
 | R16 | A page can be created, changed and published from outside as JSON (a script, an AI agent from a CLI), with the screen's validation and history, under an API key. | Should | Koen, 4 Oct |
-| R17 | The association's sites keep their content and look; only the text column narrows (F8). | Must (limit) | Koen, 4 Oct |
+| R17 | The association's sites keep their content and look; only column width and picture corners change. | Must (limit) | Koen, 4 Oct |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
 
@@ -542,7 +542,7 @@ No themes, no free placement, no per-page templates, no colours or widths per bl
 
 ### C4.8 The look of a picture is the kit's, never the file's
 
-A figure, a card's picture and a gallery item render with the public card radius (14 px) and the soft shadow of CR-11 beslissing 01, by the prose rules, for every picture. The organiser chooses the picture, the caption and the placement; nothing else. The file stays clean because the same asset serves the poster (Design Studio), the newsletter (mail knows no shadow) and the picker. Changing the look later is one place.
+A figure, a card's picture and a gallery item render with the public card radius (14 px) and the soft shadow of CR-11 beslissing 01, by the prose rules, for every picture. The organiser chooses the picture, the caption and the placement; nothing else. The file stays clean because the same asset serves the poster (Design Studio), the newsletter (mail knows no shadow) and the picker. Changing the look later is one place. This holds for the pictures already on the association's pages too, converted `img` or new figure alike (Koen, 6 October 2026; Q19): today they carry 8 px and no shadow.
 
 ### C4.9 A form on a page, and cards
 
@@ -558,7 +558,7 @@ A page's document is data, and data has a door: export (draft or published) and 
 
 ### C4.12 The association's sites do not change
 
-The migration converts every existing page losslessly into a document (test 12) and the renderer produces the same HTML (test 19). One thing changes, by decision (Koen, 6 October 2026; Q17): the text column of a content page narrows from the site's full width to the reading width of 768 px on a wide screen — nothing on a phone. The association's home composition, menu and look stay; its brand file stays. New blocks are available to it but nothing on its site uses them until an organiser does.
+The migration converts every existing page losslessly into a document (test 12) and the renderer produces the same HTML (test 19). Two things change, by decision (Koen, 6 October 2026; Q17, Q19): the text column of a content page narrows from the site's full width to the reading width of 768 px on a wide screen — nothing on a phone — and a picture in a page takes the kit's corners and shadow (C4.8). The association's home composition, menu and look stay; its brand file stays. New blocks are available to it but nothing on its site uses them until an organiser does.
 
 ## C5. Privacy and security — the mechanics behind A7
 
@@ -634,6 +634,7 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 | Q16 | 4 Oct 2026 | Screenshots of the outside examples in the document? (Koen) | No: described in words in A5, abstract, no name — the repository is public. Concepts for C9 go in Koen's project folder, never in the repository. |
 | Q17 | 6 Oct 2026 | The reading width (F8) against "the association's sites do not change" (R17), and test 19's pixel comparison: which gives? (author, re-measuring before the handover to the builder) | The association's content pages take the reading width too (Koen: "akkoord dan voor 1") — the one named exception to R17: 768 px, centred, on a wide screen; nothing changes on a phone; the association's home keeps its own composition. A second width would have been a setting per site, which C4.7 excludes. Test 19 becomes an HTML snapshot comparison plus the measurement baseline; pixels are not compared (#1605). Still open, for the brief of phase 2: whether the wide blocks (cards, columns) and a company's home page (a CMS page, CR-19) stay within 768 px. |
 | Q18 | 6 Oct 2026 | The Mistral CLI builds this change, its first build in this repository: who checks its code? (author) | A Claude dev CLI reviews **every** pull request the Mistral CLI writes, before the merge (Koen, 6 October 2026: "een Claude CLI moet alle code die Mistral schreef checken") — routed by the master CLI per `docs/review-protocol.md`; and Koen wants to look at its work before it reaches master. He looks at a local test version of the branch (C9); a fourth environment on the server was considered and not chosen. |
+| Q19 | 6 Oct 2026 | Do the pictures already on the association's pages take the kit's look of C4.8 — 14 px corners and the soft shadow — or keep today's 8 px without a shadow? (author) | They take it (Koen: "ja, 14 px"): one look for every picture on every site, the second named exception to R17 after the reading width. Two looks would have been a setting per site (C4.7). The HTML stays equal (test 19); the look is the prose rules' (test 11, computed style). The shadow is read as included in the "ja"; Koen sees it on the local test version before the merge. |
 
 ## Non-goals — deliberately outside this change
 
