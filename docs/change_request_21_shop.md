@@ -112,6 +112,7 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R3 | A product has a description and one or a few pictures — one, two, three, four. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R4 | A role for product master data may manage the products; others may not. | Must *(proposed)* | Koen, 6 Oct 2026 | name of the role: open |
 | R5 | Any tenant of the platform can use the shop with its own products, not only Raak. | Must *(proposed)* | Koen, 6 Oct 2026 (A1) | no company asks for it yet; a principle |
+| R6 | One product can have different prices over time; at any moment it is clear what the price of an article is. | Must *(proposed)* | Koen, 6 Oct 2026 | "maybe overdone now, but in time price setting will matter" |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -288,7 +289,8 @@ and deliberately not done — recorded so it is not asked again).
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q<n> | … | … | … |
+| Q1 | Is a size a product of its own ("T-shirt Raak – M"), or a variant of one product ("T-shirt Raak", sizes S–XL)? | A variant: one description and one set of pictures per product, stock per variant. UBL knows the same shape (an item with properties). | Variant: product and variant are two things in master data, stock and price may hang at either. Own product: simpler model, but four copies of one description and its pictures. |
+| Q2 | Does price get its own domain (Koen, 6 Oct 2026: *"a new domain pricing … maybe overdone now, but in time price setting will matter"*), or is it a column on the product? | Its own small domain from the start, holding only what R6 needs: a price per article with the date from which it applies. No discounts, no price lists per customer group yet — the form allows them later as rows, not as a rework (`AGENTS.md`, *model on standards*). | Own domain: the shop asks pricing for "the price now"; the product stays master data without money in it. A column: no history, and R6 cannot be met without a second column. |
 
 ## B9. Decisions log — dated answers
 
