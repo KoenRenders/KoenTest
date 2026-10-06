@@ -105,7 +105,7 @@ def _general(db: Session, tenant_id: int) -> AssistantContext:
 
 
 def _activity(db: Session, activity_id: int, *, editing: bool = False) -> AssistantContext | None:
-    from app.domains.activities.api import get_activity, proposer_url
+    from app.domains.activities.api import get_activity, proposal_vals, proposer_url
 
     activity = get_activity(db, activity_id)
     if activity is None:
@@ -124,6 +124,8 @@ def _activity(db: Session, activity_id: int, *, editing: bool = False) -> Assist
                 _("Schrijf een omschrijving."),
                 _("Stel een betere naam voor."),
             ),
+            # #1659: the form as it stands travels with the request.
+            vals=proposal_vals(),
         )
     return AssistantContext(
         key=f"activity:{activity_id}",
@@ -263,7 +265,7 @@ def context_for(db: Session, url: str, *, tenant_id: int) -> AssistantContext:
     if path == _NEW_ACTIVITY:
         # #1649: the fiche of an activity that does not exist yet. The proposer
         # of #1604 fills its empty form; there is nothing to ask questions about.
-        from app.domains.activities.api import NEW_PROPOSER_URL
+        from app.domains.activities.api import NEW_PROPOSER_URL, proposal_vals
 
         return AssistantContext(
             key="activity-new",
@@ -274,6 +276,7 @@ def context_for(db: Session, url: str, *, tenant_id: int) -> AssistantContext:
                 _("Schaatsen op zondag 8 november van 10 tot 12 uur in de schaatsbaan."),
                 _("Schrijf een omschrijving."),
             ),
+            vals=proposal_vals(),
         )
     record = _ACTIVITY.match(path + "/")
     if record:

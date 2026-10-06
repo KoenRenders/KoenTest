@@ -436,6 +436,12 @@ async def activiteit_aanmaken(
     )
 
 
+async def _posted_form(request: Request) -> Any:
+    """The request's form as it was posted, for a route that is not async
+    itself (the proposer waits for a model and must not hold the event loop)."""
+    return await request.form()
+
+
 @router.post(
     "/admin/activiteiten/nieuw/raakje/voorstel",
     response_class=HTMLResponse,
@@ -446,13 +452,19 @@ def new_activity_proposal(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
     vraag: str = Form(""),
+    form: Any = Depends(_posted_form),
 ) -> HTMLResponse:
-    """Raakje's proposal for the empty fiche (#1649): the proposer of #1604 on
-    an activity that holds nothing yet, so its only source is the request."""
+    """Raakje's proposal for the fiche of a new activity (#1649): the proposer
+    of #1604 on an activity that is not stored yet, so its sources are the
+    request and what the form already holds (#1659)."""
     from app.domains.activities.api import propose_for_new_activity
 
     return _proposal_turn(
-        request, db, email, vraag, lambda: propose_for_new_activity(db, request=vraag, actor=email)
+        request,
+        db,
+        email,
+        vraag,
+        lambda: propose_for_new_activity(db, request=vraag, actor=email, form=form),
     )
 
 
@@ -636,12 +648,14 @@ def activity_proposal(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
     vraag: str = Form(""),
+    form: Any = Depends(_posted_form),
 ) -> HTMLResponse:
     """One request to Raakje from the Assistent's panel beside the fiche in edit
     mode (#1604): the answer is one turn with a proposal for the form. Nothing
     is written here — Toepassen fills the form in the page, the fiche's one
-    save stores it. 404 when Raakje in the back office is off for this tenant
-    or this environment."""
+    save stores it. The panel sends the form along (#1659): its unsaved values
+    are the record for this request. 404 when Raakje in the back office is off
+    for this tenant or this environment."""
     from app.domains.activities.api import propose_for_activity
 
     return _proposal_turn(
@@ -649,7 +663,7 @@ def activity_proposal(
         db,
         email,
         vraag,
-        lambda: propose_for_activity(db, activity_id, request=vraag, actor=email),
+        lambda: propose_for_activity(db, activity_id, request=vraag, actor=email, form=form),
         what=f"activity {activity_id}",
     )
 
