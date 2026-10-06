@@ -134,7 +134,7 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R15 | An order can be changed after trying on — a bigger size for a smaller one, a T-shirt instead of a sweater — and the stock follows the change. | Must *(proposed)* | Koen, 6 Oct 2026 | same principle as changing a registration |
 | R16 | The money follows a changed order as it does for a registration: an extra payment when it was paid and the new amount is higher, an updated amount when it was not paid yet, a refund when it was paid and the new amount is lower. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R17 | An order whose online payment fails or expires is cancelled by itself, and its stock comes free. | Must *(proposed)* | Koen, 6 Oct 2026 | |
-| R18 | An order paid by bank transfer that stays unpaid becomes a task on the workbench for a new role, Sales (Verkoop), who decides to cancel it or to keep waiting. | Must *(proposed)* | Koen, 6 Oct 2026 | after how many days: open |
+| R18 | An order paid by bank transfer becomes a task on the workbench for a new role, Sales (Verkoop), at once, due within 14 days; when the money comes in the task closes by itself, otherwise Sales decides to cancel the order or to keep waiting. | Must *(proposed)* | Koen, 6 Oct 2026 | "at once — but maybe the task's due date is within 14 days"; see Q15 |
 | R19 | Five roles carry the process: product master (keeps the product list), pricing (sets the price of an article), sales (the e-loket: orders in order, delivery, fitting moments, exchanges), finance (follows up payments — the existing role) and stock management (enters stock and changes it by hand). One person may hold several. | Must *(proposed)* | Koen, 6 Oct 2026 | four new roles; screen names open |
 | R20 | One or more documents can be attached to a product, and a buyer looking at the article can open them — for example the size chart that came with the delivery of the clothing, so the buyer can choose a size from it. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 
@@ -314,6 +314,7 @@ and deliberately not done — recorded so it is not asked again).
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
 | Q3 | Is stock kept as one number per variant and location, or as movements (receipt, sale, correction) whose sum is the stock? | Movements: every change has a date and a reason, and stock valuation (R8) can later give a receipt a cost price without a rework. | A number: simpler, but why the stock is what it is is lost, and so is the history R8 needs. |
+| Q15 | When does the unpaid-transfer task appear: at once with a due date 14 days later (Koen, 6 Oct 2026), or only after 14 days without payment? | At once with a due date, provided the task closes by itself when the payment comes in — otherwise every paid order leaves a task to tick off by hand, against the workbench's "an empty workbench is healthy". | At once: Sales sees every open transfer order from the first day, but a workbench task has no due date today (`workflow/models.py:86-137`) — a due date is a new column on every task, platform-wide. After 14 days: no change to the workbench, but nothing to see before then. |
 
 ## B9. Decisions log — dated answers
 
