@@ -448,6 +448,218 @@ def test_an_answer_that_is_no_json_is_an_error_for_the_screen(db_session, raakje
         _propose(db_session, _activity(db_session))
 
 
+# ── The request is a source for the description too (#1653) ─────────────────
+
+#: What Koen asked on a new activity on HDEV on 6 October 2026 (the place names
+#: are made up here): name, place, date and hour were proposed, the description
+#: came back "geen enkele zin heeft een bron".
+ZOO = (
+    "We gaan op uitstap naar de zoo op zondag 6 december. We vertrekken aan het Dorpsplein "
+    "om 9 uur 's morgens. Schrijf je een leuke tekst als omschrijving?"
+)
+FROM_THE_FACTS = [
+    "Op zondag 6 december trekken we samen naar de zoo.",
+    "We vertrekken om 9 uur aan het Dorpsplein.",
+    "Ga je mee op uitstap?",
+]
+INVENTED = "Onderweg voederen we de olifanten."
+
+
+def _flags(*items) -> str:
+    """A verification answer: (sentence number, claim or None)."""
+    return json.dumps(
+        {
+            "unsupported": [
+                {"sentence": n, "reason": "staat niet in de fiche"} | ({"claim": c} if c else {})
+                for n, c in items
+            ]
+        }
+    )
+
+
+def _zoo(description: str) -> str:
+    return _answer(
+        name="Uitstap naar de zoo",
+        location="Dorpsplein",
+        description=description,
+        date={"start_date": "2026-12-06", "start_time": "09:00"},
+        date_source="zondag 6 december",
+    )
+
+
+def test_sentences_from_the_facts_of_the_request_are_proposed_and_the_invented_one_is_marked(
+    db_session, raakje
+):
+    """The acceptance test, with the verification as zealous as it was on HDEV:
+    it calls EVERY sentence unsupported (the fiche is empty). Red on master:
+    all four marked, "Omschrijving: niet voorgesteld — geen enkele zin heeft een
+    bron." — measured, that was Koen's screen."""
+    raakje(
+        _zoo(" ".join([*FROM_THE_FACTS, INVENTED])),
+        _flags((1, None), (2, None), (3, None), (4, None)),
+    )
+
+    proposal = _propose(db_session, Activity(name=""), request=ZOO)
+
+    fields = _by_name(proposal)
+    assert list(fields) == ["name", "location", "description", "start_date", "start_time"]
+    assert fields["description"]["value"] == " ".join(FROM_THE_FACTS)
+    assert [(p["text"], p["mark"]) for p in fields["description"]["parts"]] == [
+        (FROM_THE_FACTS[0], None),
+        (FROM_THE_FACTS[1], None),
+        (FROM_THE_FACTS[2], None),
+        (INVENTED, 4),
+    ]
+    assert [(m["id"], m["sentence"]) for m in proposal.marks] == [(4, INVENTED)]
+    assert proposal.left_out == []
+
+
+def test_the_same_on_an_existing_activity_with_little_in_it(db_session, raakje):
+    """Point 3 of the measurement: not only a new activity. The record holds a
+    name and nothing else; the request is still the source."""
+    raakje(_zoo(" ".join(FROM_THE_FACTS)), _flags((1, None), (2, None), (3, None)))
+    activity = _activity(db_session, name="Uitstap")
+
+    proposal = _propose(db_session, activity, request=ZOO)
+
+    assert _by_name(proposal)["description"]["value"] == " ".join(FROM_THE_FACTS)
+    assert proposal.marks == []
+
+
+def test_a_description_in_which_no_sentence_has_a_source_is_still_not_proposed(db_session, raakje):
+    """The rule of #1604 stands — and the panel now says why, sentence by sentence."""
+    raakje(
+        _zoo("Er is een tombola met mooie prijzen. Achteraf drinken we warme chocomelk."),
+        _flags((1, "een tombola met mooie prijzen"), (2, "warme chocomelk")),
+    )
+
+    proposal = _propose(db_session, Activity(name=""), request=ZOO)
+
+    assert "description" not in _by_name(proposal) and proposal.marks == []
+    assert proposal.left_out == [
+        "Omschrijving: niet voorgesteld — geen enkele zin heeft een bron.",
+        "«Er is een tombola met mooie prijzen.» — staat niet in de fiche",
+        "«Achteraf drinken we warme chocomelk.» — staat niet in de fiche",
+    ]
+
+
+@pytest.mark.parametrize(
+    "claim", ["voederen daarna de olifanten", None, "iets wat niet in de zin staat"]
+)
+def test_a_sentence_that_mixes_a_given_fact_with_an_invented_one_is_marked(
+    db_session, raakje, claim
+):
+    """Not passed because half of it was given. With the claim the verification
+    points at, without one, or with one that is not in the sentence (then the
+    whole sentence is what it pointed at): the invented half has no source."""
+    mixed = "We vertrekken om 9 uur en voederen daarna de olifanten."
+    raakje(_zoo(f"{FROM_THE_FACTS[0]} {mixed}"), _flags((2, claim)))
+
+    proposal = _propose(db_session, Activity(name=""), request=ZOO)
+
+    field = _by_name(proposal)["description"]
+    assert field["value"] == FROM_THE_FACTS[0]
+    assert [(m["id"], m["sentence"]) for m in proposal.marks] == [(2, mixed)]
+
+
+def test_a_sentence_that_only_rewords_what_was_given_is_never_marked(db_session, raakje):
+    """Another form of the verb, another order, the plainest verbs: the
+    verification may say what it likes about these."""
+    reworded = [
+        "Het vertrek is aan het Dorpsplein, om 9 uur.",  # vertrek ~ vertrekken
+        "Zondag 6 december: een uitstap naar de zoo!",
+        "We gaan samen op uitstap.",
+    ]
+    raakje(_zoo(" ".join(reworded)), _flags((1, None), (2, None), (3, None)))
+
+    proposal = _propose(db_session, Activity(name=""), request=ZOO)
+
+    assert _by_name(proposal)["description"]["value"] == " ".join(reworded)
+    assert proposal.marks == [] and proposal.left_out == []
+
+
+@pytest.mark.parametrize(
+    "invented",
+    [
+        "Het wordt een leuke uitstap.",  # "leuke" stands in the request — in its instruction
+        "Een leuke tekst over de zoo.",
+        "Het wordt een mooie dag in de zoo.",
+    ],
+)
+def test_an_invented_sentence_whose_words_stand_in_the_instruction_stays_marked(
+    db_session, raakje, invented
+):
+    """The fact rule is no weaker than on master (asked by the master CLI,
+    6 October 2026). "Schrijf je een leuke tekst als omschrijving?" tells Raakje
+    what to do; it says nothing about the outing, so it grounds no sentence —
+    though every word of "Het wordt een leuke uitstap" stands in the request.
+
+    Red against the first version of this check, which read the whole request
+    as given: it let the first two through."""
+    raakje(_zoo(f"{FROM_THE_FACTS[1]} {invented}"), _flags((2, None)))
+
+    proposal = _propose(db_session, Activity(name=""), request=ZOO)
+
+    assert _by_name(proposal)["description"]["value"] == FROM_THE_FACTS[1]
+    assert [m["sentence"] for m in proposal.marks] == [invented]
+
+
+def test_the_instruction_is_left_out_also_when_it_shares_its_sentence_with_the_facts():
+    """One breath, as people type: the facts and the request to write in one
+    sentence. Only the part that asks is no fact."""
+    asked = (
+        "Uitstap naar de zoo op zondag 6 december, vertrek aan het Dorpsplein om 9 uur "
+        "en wil je een mooie tekst schrijven als omschrijving?"
+    )
+    given = proposer.given_facts("Naam: \nLocatie: (leeg)\nDatums: (geen)", asked, "")
+    words = set(proposer._TOKEN.findall(given.lower()))
+    assert {"zoo", "dorpsplein", "9", "december"} <= words
+    assert not ({"mooie", "tekst", "omschrijving", "naam", "locatie", "leeg", "geen"} & words)
+
+
+def test_the_known_limit_a_sentence_of_given_words_alone_passes(db_session, raakje):
+    """Said plainly, so nobody finds it later as a surprise: a sentence built
+    ONLY from given words and the plainest verbs passes, also when it states
+    what nobody said — the zoo is not at the square. The verification marks it;
+    this check overrules it. The price of not refusing every reworded sentence;
+    the user reads the proposal before Toepassen."""
+    recombined = "De zoo is aan het Dorpsplein."
+    raakje(_zoo(recombined), _flags((1, None)))
+    proposal = _propose(db_session, Activity(name=""), request=ZOO)
+    assert _by_name(proposal)["description"]["value"] == recombined
+
+
+def test_the_verification_is_told_that_what_the_user_wrote_is_a_source(db_session, raakje):
+    """What it is sent: both sources under their own name. Until #1653 the
+    request stood under "VRAAG" beside an empty fiche."""
+    provider = raakje(_zoo(FROM_THE_FACTS[0]), _flags())
+    _propose(db_session, Activity(name=""), request=ZOO)
+
+    sent = provider.asked[1][1]["content"]
+    assert "BRON 1 — DE FICHE" in sent and "BRON 2 — WAT DE GEBRUIKER SCHREEF" in sent
+    assert sent.index("BRON 2") < sent.index("uitstap naar de zoo") < sent.index("OMSCHRIJVING")
+    assert "\nVRAAG\n" not in sent
+    assert "Ook wat de gebruiker in zijn bericht schreef is een bron" in proposer.VERIFY_PROMPT
+    assert "EERST uit de feiten" in proposer.SYSTEM_PROMPT
+
+
+@pytest.mark.parametrize(
+    ("text", "new"),
+    [
+        ("We vertrekken om 9 uur aan het Dorpsplein.", []),
+        ("Het vertrek is om 9 uur.", []),
+        ("Ga je mee?", []),
+        ("We trekken samen naar de zoo.", []),
+        ("Een leuke tekst.", ["leuke", "tekst"]),
+        ("We voederen de olifanten.", ["voederen", "olifanten"]),
+        ("Het kost 5 euro.", ["kost", "5", "euro"]),
+        ("We vertrekken om 10 uur.", ["10"]),
+    ],
+)
+def test_what_is_new_to_the_sources_is_a_word_or_a_number_no_source_holds(text, new):
+    assert proposer._new_to_the_sources(text, proposer.given_facts("", ZOO, "")) == new
+
+
 # ── Names and the prompt ─────────────────────────────────────────────────────
 
 
