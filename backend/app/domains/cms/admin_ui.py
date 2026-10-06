@@ -309,7 +309,7 @@ def pagina_voorbeeld(
         {
             **site_context(db, request),
             "page": page,
-            "content_html": render_cms_content(page.content or "", db),
+            "content_html": render_cms_content(page.content or "", db, on_page=True),
             # #924: het voorbeeld toont wat de bezoeker ziet, dus ook het contactblok
             # op de privacypagina. Expliciet meegeven en niet aan de sjabloon
             # overlaten: een sjabloon dat om iets vraagt wat zijn aanroeper niet

@@ -66,6 +66,18 @@
       Trix.config.blockAttributes.heading3 = { tagName: "h3", terminal: true, breakOnReturn: true, group: false };
     }
   });
+  // #1656 (CR-11 Q87): the three heading levels of a page stand together in the
+  // bar above the editor, by name: Kop, Subkop, Kleine kop. The editor's own
+  // heading button is the same level as Kop, as an icon without a name — it
+  // leaves THIS editor's toolbar as the editor starts (also after a save swaps
+  // the fragment in again), so the level is offered once. Only the page editor:
+  // the newsletter and the meeting notes keep their own toolbar. What is stored
+  // does not change: Kop still writes an h1, which the public page shows as h2.
+  addEventListener("trix-initialize", function (event) {
+    if (event.target.id !== "cp-trix" || !event.target.toolbarElement) { return; }
+    var h1 = event.target.toolbarElement.querySelector('[data-trix-attribute="heading1"]');
+    if (h1) { h1.remove(); }
+  });
   // #1173: invoegen van een afbeelding uit de bibliotheek. Op `window` en hier in
   // de schil van dit scherm, want de kiezer zelf staat in `_cp_detail.html` — een
   // fragment dat na elke opslag opnieuw geswapt wordt. Een functie op window

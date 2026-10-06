@@ -202,7 +202,7 @@ def _render_page(request: Request, db: Session, page):
         {
             **site_context(db, request),
             "page": page,
-            "content_html": render_cms_content(page.content or "", db),
+            "content_html": render_cms_content(page.content or "", db, on_page=True),
             # #924: één vaste slug krijgt het contactblok uit de organisatie, zoals de
             # footer er een krijgt. Geen shortcode en geen nieuwe pagina: er ís geen
             # contactpagina, en een blok dat van een paginanaam afhangt werkt niet voor
