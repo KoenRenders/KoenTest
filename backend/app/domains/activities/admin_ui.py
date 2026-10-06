@@ -277,24 +277,182 @@ def admin_activiteiten(
     return templates.TemplateResponse(request, sjabloon, view.as_context())
 
 
+def _blank_activity() -> Any:
+    """What the fiche reads of an activity, for one that does not exist yet."""
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        id=None,
+        name="",
+        slug=None,
+        location=None,
+        description=None,
+        poster_url=None,
+        poster_asset_url=None,
+        poster_asset_title=None,
+        poster_asset_is_pdf=False,
+        members_only=False,
+        is_cancelled=False,
+        dates=[],
+        sub_registrations=[],
+    )
+
+
+def _new_record_ctx(request: Request, db: Session) -> dict:
+    """The record page of an activity that does not exist yet (#1649): the keys
+    of `_aa_detail_ctx`, each empty, plus a head with a title, the badge of what
+    it will be, and the way back. Built here and not through the builders of an
+    existing record: every one of those asks the database about an id."""
+    from app.domains.activities.api import (
+        NEW_ACTIVITY_STATUS,
+        TARGET_AUDIENCE,
+        question_forms,
+    )
+    from app.domains.activities.settlement import PAID, settlement_of, settlement_options
+    from app.kernel.codes import code_label, code_labels, tone
+    from app.ui import record_frame
+
+    forms, _chosen = question_forms(db, 0)
+    return {
+        "nav_items": admin_nav(NAV),
+        "a": _blank_activity(),
+        "new_record": True,
+        "csrf_token": csrf_from_request(request),
+        "error": None,
+        "organisers": [],
+        "contact_count": 0,
+        "poster_ids": set(),
+        "component_booked": {},
+        "organiser_households": {},
+        "board_notes": "",
+        "question_forms": forms,
+        "component_form": {},
+        "settlement_options": settlement_options(),
+        "settlement_of": settlement_of,
+        "settlement_paid": PAID,
+        "audience_options": [
+            (code, label, False) for code, label in code_labels(TARGET_AUDIENCE.name)
+        ],
+        "record_head": {
+            "title": _("Nieuwe activiteit"),
+            "badges": [
+                {
+                    "label": code_label("activity_status", NEW_ACTIVITY_STATUS),
+                    "tone": tone("activity_status", NEW_ACTIVITY_STATUS),
+                }
+            ],
+            "facts": [],
+            "primary": None,
+            "actions": [],
+        },
+        "record_tabs": [],
+        "summary": None,
+        **record_frame(request, db, NAV),
+        # Always the edit state: there is nothing to read yet.
+        "head_editing": True,
+    }
+
+
 @router.get("/admin/activiteiten/nieuw", response_class=HTMLResponse)
 def activiteit_nieuw(
     request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
 ) -> Response:
-    """Paginabreed aanmaakscherm i.p.v. een modal (#623).
+    """ "+ Nieuwe activiteit" (#1649, CR-11 Q84; P2 of the design system): the
+    record page itself, in edit mode, empty — the same sections, groups and bar
+    as an existing activity. No start screen with a few fields first (#623's
+    screen did the editor's work twice).
 
-    Bewust géén lege activiteit vooraf aanmaken: dan staat er een naamloze activiteit
-    in de databank zodra iemand per ongeluk klikt, en die kan publiek opduiken zodra
-    ze een datum krijgt. Het scherm draagt dezelfde kaart als de editor waarin je
-    daarna werkt, dus er is geen tweede lay-out om te onderhouden.
-    """
+    This GET stores nothing: no empty draft exists before "Opslaan" (the reason
+    #623 gave still holds — an unnamed activity in the database the moment
+    someone clicks). The address is the one the start screen had, so every old
+    link lands here."""
+    return templates.TemplateResponse(
+        request, "admin_activiteit.html", _new_record_ctx(request, db)
+    )
+
+
+@router.get("/admin/activiteiten/nieuw/organisatoren", response_class=HTMLResponse)
+def new_activity_organisers(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    organiser_q: str = "",
+) -> Response:
+    """The organiser search of the new fiche: nobody is taken yet."""
+    return _organiser_candidates(request, db, organiser_q, taken=set())
+
+
+@router.post(
+    "/admin/activiteiten/nieuw",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def activiteit_aanmaken(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+) -> Response:
+    """The one "Opslaan" of a new fiche (#1649): the activity with its dates,
+    components, products, organisers and files, in one transaction
+    (`activities.fiche.create_fiche`). A refusal answers the reason alone, into
+    the fiche's message line, and nothing exists — the form keeps what was
+    typed. A creation answers the record page of the activity that now exists,
+    in read mode, with the toast; the address follows."""
+    from app.domains.activities import service
+    from app.domains.activities.fiche import (
+        ContactConfirmation,
+        FicheRefusal,
+        FieldError,
+        create_fiche,
+    )
+    from app.domains.activities.fiche_form import fiche_from_form
+
+    form = await request.form()
+    poster = form.get("file")
+    try:
+        fiche, component_files = fiche_from_form(form)
+        created = await create_fiche(
+            db,
+            fiche,
+            actor=email,
+            poster=None if isinstance(poster, str) else poster,
+            component_files=component_files,
+            background_tasks=background_tasks,
+        )
+    except ContactConfirmation as question:
+        return _refusal(request, question=str(question))
+    except FicheRefusal as refusal:
+        return _refusal(request, refusal.errors)
+    except service.ActiviteitFout as fout:
+        return _refusal(request, [FieldError("", str(fout))])
+    ctx = _record_page_ctx(request, db, created.id, email)
+    ctx.update(toast_opgeslagen=True, head_editing=False)
     return templates.TemplateResponse(
         request,
-        "admin_activiteit_nieuw.html",
-        {
-            "nav_items": admin_nav(NAV),
-            "csrf_token": csrf_from_request(request),
-        },
+        "_aa_record.html",
+        ctx,
+        headers={"HX-Push-Url": f"{NAV}/{created.id}"},
+    )
+
+
+@router.post(
+    "/admin/activiteiten/nieuw/raakje/voorstel",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def new_activity_proposal(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    vraag: str = Form(""),
+) -> HTMLResponse:
+    """Raakje's proposal for the empty fiche (#1649): the proposer of #1604 on
+    an activity that holds nothing yet, so its only source is the request."""
+    from app.domains.activities.api import propose_for_new_activity
+
+    return _proposal_turn(
+        request, db, email, vraag, lambda: propose_for_new_activity(db, request=vraag, actor=email)
     )
 
 
@@ -437,73 +595,29 @@ def admin_activiteit_detail(
     blijven htmx-fragmenten die in #aa-detail landen."""
     if is_fragment_request(request):
         return _detail_response(request, db, activity_id)
-    from app.domains.activities.api import get_activity_detail
+    return templates.TemplateResponse(
+        request, "admin_activiteit.html", _record_page_ctx(request, db, activity_id, email)
+    )
+
+
+def _record_page_ctx(request: Request, db: Session, activity_id: int, email: str) -> dict:
+    """Everything the record page of an existing activity shows: the fiche, the
+    head with its tabs, the summary. One builder, for the page and for the
+    answer of a creation (#1649), which is that page for the record it made."""
+    from app.domains.activities.api import get_activity_detail, registration_count_for
 
     activiteit = get_activity_detail(db, activity_id)
     if activiteit is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
-    from app.domains.activities.api import registration_count_for
-
     reg_count = registration_count_for(db, activity_id)
     detail = _aa_detail_ctx(request, db, activiteit)
     tabs = _record_tabs(activiteit, reg_count, db, email, "overzicht", request)
-    return templates.TemplateResponse(
-        request,
-        "admin_activiteit.html",
-        {
-            "nav_items": admin_nav(NAV),
-            **detail,
-            **tabs,
-            **_record_summary(db, activiteit, tabs, reg_count, detail["component_booked"]),
-        },
-    )
-
-
-@router.post(
-    "/admin/activiteiten", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
-)
-def activiteit_aanmaken(
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    name: str = Form(""),
-    start_date: str = Form(""),
-    end_date: str = Form(""),
-    start_time: str = Form(""),
-    end_time: str = Form(""),
-    location: str = Form(""),
-    poster_url: str = Form(""),
-    members_only: str = Form(""),
-) -> Response:
-    from app.domains.activities import service
-    from app.schemas.activity import ActivityDateCreate
-
-    if not name.strip() or not start_date:
-        raise HTTPException(status_code=400, detail=_("Naam en eerste datum zijn verplicht."))
-    # #792: the complete first row, the same four fields as `datum_toevoegen`. They
-    # were thrown away here while both the schema and the model already accepted them —
-    # this was not a missing feature but a narrower form.
-    first_row = ActivityDateCreate(
-        start_date=start_date,
-        end_date=end_date or None,
-        start_time=start_time or None,
-        end_time=end_time or None,
-    )
-    try:
-        nieuw = service.create_activity(
-            db,
-            name=name.strip(),
-            location=location.strip() or None,
-            poster_url=poster_url.strip() or None,
-            members_only=bool(members_only),
-            dates=[first_row],
-            actor=email,
-        )
-    except service.ActiviteitFout as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-    # Aanmaken opent meteen de editor: een verse activiteit heeft nog datums en
-    # onderdelen nodig, en die staan daar (C1, #586).
-    return Response(status_code=204, headers={"HX-Redirect": f"/admin/activiteiten/{nieuw.id}"})
+    return {
+        "nav_items": admin_nav(NAV),
+        **detail,
+        **tabs,
+        **_record_summary(db, activiteit, tabs, reg_count, detail["component_booked"]),
+    }
 
 
 #: The header that tells the panel a question was not answered, so its field
@@ -528,9 +642,27 @@ def activity_proposal(
     is written here — Toepassen fills the form in the page, the fiche's one
     save stores it. 404 when Raakje in the back office is off for this tenant
     or this environment."""
+    from app.domains.activities.api import propose_for_activity
+
+    return _proposal_turn(
+        request,
+        db,
+        email,
+        vraag,
+        lambda: propose_for_activity(db, activity_id, request=vraag, actor=email),
+        what=f"activity {activity_id}",
+    )
+
+
+def _proposal_turn(
+    request: Request, db: Session, email: str, vraag: str, ask: Any, *, what: str = "a new activity"
+) -> HTMLResponse:
+    """One turn of Raakje's proposer in the panel: the switch, the budget, the
+    answer or the reason there is none. `ask` makes the proposal (None: the
+    activity does not exist)."""
     import logging
 
-    from app.domains.activities.api import ProposerError, propose_for_activity
+    from app.domains.activities.api import ProposerError
     from app.domains.chatbot.api import ChatTimeout, SeamBlocked, admin_chat_char_budget
     from app.kernel.tenant_config import tenant_admin_chat_enabled
 
@@ -547,13 +679,11 @@ def activity_proposal(
 
     admin_chat_char_budget.charge(request, max(len(vraag), 1), key=email)
     try:
-        proposal = propose_for_activity(db, activity_id, request=vraag, actor=email)
+        proposal = ask()
     except (ProposerError, SeamBlocked, ChatTimeout) as why:
         return turn(ActivityProposalView(question=vraag, answer=str(why), failed=True))
     except Exception:
-        logging.getLogger(__name__).exception(
-            "Raakje could not make a proposal for activity %s", activity_id
-        )
+        logging.getLogger(__name__).exception("Raakje could not make a proposal for %s", what)
         return turn(
             ActivityProposalView(
                 question=vraag,
@@ -1730,9 +1860,17 @@ def organisatoren_zoeken(
     page, and the one save writes it.
     """
     from app.domains.activities.api import organisers_for
-    from app.domains.mdm.api import household_ids, search_persons
 
     taken = {o.person_id for o in organisers_for(db, activity_id)}
+    return _organiser_candidates(request, db, organiser_q, taken=taken)
+
+
+def _organiser_candidates(
+    request: Request, db: Session, organiser_q: str, *, taken: set[int]
+) -> Response:
+    """The members the organiser search offers, without who is one already."""
+    from app.domains.mdm.api import household_ids, search_persons
+
     candidates = search_persons(db, organiser_q, members_only=True, exclude_ids=taken)
     found = {
         "organiser_query": organiser_q,

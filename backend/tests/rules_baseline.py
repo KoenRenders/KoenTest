@@ -789,7 +789,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
 # sweeps its domain decides whether the gate learns to except it or it stays named.
 # Keys are `file::function::condition` — the condition text, not a line number.
 RULE_IN_ROUTER: dict[str, str] = {
-    "domains/activities/admin_ui.py::activiteit_aanmaken::not name.strip() or not start_date": "rule: an activity has a name and a start date (Activity) — phase 4",
     "domains/activities/admin_ui.py::inschrijving_nieuw_opslaan::component is None": "door: the board form asks for a component before it can be filled — the request's shape, not a rule on the data",
     "domains/auth/router.py::create_api_key::db.query(ApiKey).filter(ApiKey.name == name).first()": "rule: API key names are unique (ApiKey, with a UNIQUE constraint) — phase 4",
     "domains/auth/router.py::create_api_key::not name": "rule: an API key has a name (ApiKey) — phase 4",

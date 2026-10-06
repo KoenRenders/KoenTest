@@ -49,6 +49,7 @@ from app.domains.activities.models import (
     Activity,
     ActivityDate,
     ActivityOrganiser,
+    ActivityStatus,
 )
 from app.kernel.refusals import FieldError, Refusals
 
@@ -237,14 +238,121 @@ async def save_fiche(
     activity = service._activity_met_boom(db, activity_id)
     if activity is None:
         return None
+    return await _write(
+        db,
+        activity,
+        fiche,
+        actor=actor,
+        poster=poster,
+        component_files=component_files,
+        background_tasks=background_tasks,
+    )
+
+
+#: What a new activity starts as when the board makes it on the fiche (#1649):
+#: a draft — an empty fiche saved with a name must not stand on the site unseen;
+#: publishing is its own act. (The JSON API creates as before.)
+NEW_ACTIVITY_STATUS = ActivityStatus.DRAFT
+#: The fields `service._add_activity` takes at the creation itself, so they are
+#: part of the one history row "created".
+_AT_CREATION = (
+    "location",
+    "poster_url",
+    "description",
+    "members_only",
+    "board_notes",
+    "target_audience",
+)
+
+
+async def create_fiche(
+    db: Session,
+    fiche: FicheSave,
+    *,
+    actor: str | None = None,
+    poster: Any = None,
+    component_files: dict[str, Any] | None = None,
+    background_tasks: Any = None,
+) -> Activity:
+    """Create an activity from the fiche (#1649, CR-11 Q84): the same one save
+    as `save_fiche`, on a record that does not exist yet. One transaction — the
+    activity, its dates, components, products, organisers and files — and a
+    refusal leaves NOTHING: the activity is added inside the save's savepoint,
+    so no row, no history and no file outlives it. There is no row before
+    Opslaan either: the page that asks is a form, not a record.
+
+    The rules are the fiche's own (a name, the rules of a date, a component, a
+    product), plus the one the start screen and the JSON API always asked: **a
+    new activity has a first date.** The friendly URL is proposed from the name
+    when the form gives none, as every creation does (#884)."""
+    errors = _errors(fiche.errors)
+    fields = fiche.fields
+    if not fields.get("name") and not errors.touches("name"):
+        errors.add("name", _("De activiteit heeft een naam nodig."))
+    if not fiche.dates:
+        errors.add("", _("Een nieuwe activiteit heeft een eerste datum nodig."))
+    slug = fields.get("slug") or None
+    if slug:
+        with errors.at("slug"):
+            slug = service._controleer_slug(db, slug)
+    with errors.at("target_audience"):
+        service._check_audience(fields.get("target_audience") or None)
+    if errors.found:
+        raise FicheRefusal(errors.found)
+
+    def add() -> Activity:
+        return service._add_activity(
+            db,
+            name=fields["name"],
+            dates=(),
+            actor=actor,
+            slug=slug,
+            action="activity_created",
+            status=NEW_ACTIVITY_STATUS,
+            **{name: fields.get(name) or None for name in _AT_CREATION if name != "members_only"},
+            members_only=bool(fields.get("members_only")),
+        )
+
+    written = await _write(
+        db,
+        add,
+        fiche,
+        actor=actor,
+        poster=poster,
+        component_files=component_files,
+        background_tasks=background_tasks,
+        errors=errors,
+    )
+    assert written is not None
+    return written
+
+
+async def _write(
+    db: Session,
+    target: Any,
+    fiche: FicheSave,
+    *,
+    actor: str | None,
+    poster: Any,
+    component_files: dict[str, Any] | None,
+    background_tasks: Any,
+    errors: Refusals | None = None,
+) -> Activity:
+    """The one write of the fiche. `target` is the activity, or — for a
+    creation — the function that adds it, called INSIDE the savepoint."""
     # A savepoint around the whole save: a refusal — a rule, a refused file, the
     # coherence rule of a date in the flush — takes back exactly what this save
     # wrote and nothing else, and the session stays usable for the answer that
     # says why. Nothing is half written.
     savepoint = db.begin_nested()
-    errors = _errors(fiche.errors)
+    errors = errors if errors is not None else _errors(fiche.errors)
     try:
-        changed = _changed(activity, fiche.fields)
+        if callable(target):
+            activity = target()
+            changed = {}
+        else:
+            activity = target
+            changed = _changed(activity, fiche.fields)
         if changed:
             _save_fields(db, activity, changed, actor, errors)
         if "dates" in fiche.groups:

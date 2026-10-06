@@ -1,23 +1,14 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}{{ a.name }} — {{ _("Raak beheer") }}{% endblock %}
+{% block title %}{{ a.name or _("Nieuwe activiteit") }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
 {# Paginabrede editor (C1, #586): de kaart-klik landt hier. De bewerkingen binnen
    het detail blijven htmx-fragmenten die #aa-detail vervangen. #}
 {# Golf 8 (#913): de recordpagina — P13 in tabvorm. Elke tab is een bestaand
    lijstscherm in de scope van dit record; Betalingen alleen met FINANCE. #}
-<div id="aa-recordkop">
-  {% include "_aa_recordkop.html" %}
+{# #1649: the same page for a new activity — `_aa_record.html` says how. A
+   creation's answer replaces `#aa-record` with the page of the record it made. #}
+<div id="aa-record">
+  {% include "_aa_record.html" %}
 </div>
-{# CR-11 block 6 (#1558): the reading group — the form column and, beside it,
-   the record's summary (K6, #1560: `ui.summary_card`; a strip under the tabs on
-   a phone). Only this tab has it: a list tab starts directly under the tabs.
-   The summary stands outside #aa-detail, so a fragment swap leaves it; a save
-   sends it along out of band. #}
-{% set _rail %}<div id="aa-rail">{% include "_aa_rail.html" %}</div>{% endset %}
-{% call ui.record_columns(aside=_rail) %}
-  <div id="aa-detail">
-    {% include "_aa_detail.html" %}
-  </div>
-{% endcall %}
 {% endblock %}

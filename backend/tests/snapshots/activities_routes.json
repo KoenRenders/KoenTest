@@ -393,6 +393,12 @@
   "response_class": "HTMLResponse",
   "response_model": "None"
  },
+ "GET /admin/activiteiten/nieuw/organisatoren": {
+  "endpoint": "app.domains.activities.admin_ui.new_activity_organisers",
+  "openapi": null,
+  "response_class": "HTMLResponse",
+  "response_model": "None"
+ },
  "GET /admin/activiteiten/{activity_id}": {
   "endpoint": "app.domains.activities.admin_ui.admin_activiteit_detail",
   "openapi": null,
@@ -869,8 +875,14 @@
   "response_class": "HTMLResponse",
   "response_model": "None"
  },
- "POST /admin/activiteiten": {
+ "POST /admin/activiteiten/nieuw": {
   "endpoint": "app.domains.activities.admin_ui.activiteit_aanmaken",
+  "openapi": null,
+  "response_class": "HTMLResponse",
+  "response_model": "None"
+ },
+ "POST /admin/activiteiten/nieuw/raakje/voorstel": {
+  "endpoint": "app.domains.activities.admin_ui.new_activity_proposal",
   "openapi": null,
   "response_class": "HTMLResponse",
   "response_model": "None"
