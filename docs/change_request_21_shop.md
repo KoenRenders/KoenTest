@@ -293,8 +293,8 @@ and deliberately not done — recorded so it is not asked again).
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q1 | Is a size a product of its own ("T-shirt Raak – M"), or a variant of one product ("T-shirt Raak", sizes S–XL)? | A variant: one description and one set of pictures per product, stock per variant. UBL knows the same shape (an item with properties). | Variant: product and variant are two things in master data, stock and price may hang at either. Own product: simpler model, but four copies of one description and its pictures. |
 | Q2 | Does price get its own domain (Koen, 6 Oct 2026: *"a new domain pricing … maybe overdone now, but in time price setting will matter"*), or is it a column on the product? | Its own small domain from the start, holding only what R6 needs: a price per article with the date from which it applies. No discounts, no price lists per customer group yet — the form allows them later as rows, not as a rework (`AGENTS.md`, *model on standards*). | Own domain: the shop asks pricing for "the price now"; the product stays master data without money in it. A column: no history, and R6 cannot be met without a second column. |
+| Q3 | Is stock kept as one number per variant and location, or as movements (receipt, sale, correction) whose sum is the stock? | Movements: every change has a date and a reason, and stock valuation (R8) can later give a receipt a cost price without a rework. | A number: simpler, but why the stock is what it is is lost, and so is the history R8 needs. |
 
 ## B9. Decisions log — dated answers
 
@@ -306,7 +306,7 @@ and deliberately not done — recorded so it is not asked again).
 
 | Date | Decision | By |
 |---|---|---|
-| … | … | … |
+| 6 Oct 2026 | A size is a variant of a product; stock is kept per variant (Q1). | Koen |
 
 ---
 
@@ -466,7 +466,7 @@ and deliberately not done — recorded so it is not asked again).
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
-| Q1 | … | … | … |
+| Q1 | 6 Oct 2026 | Is a size a product of its own, or a variant of one product? (Claude) | A variant; stock is kept per variant. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
