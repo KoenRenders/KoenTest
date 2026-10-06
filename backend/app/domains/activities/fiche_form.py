@@ -30,6 +30,7 @@ refuses, so the screen can show every field to correct at once.
 
 from __future__ import annotations
 
+import json
 from datetime import date, time
 from decimal import Decimal, InvalidOperation
 from typing import Any, Optional
@@ -153,6 +154,45 @@ def fiche_from_form(form: Any) -> tuple[FicheSave, dict[str, Any]]:
     if "organisers" in groups:
         fiche.organisers = [_organiser_row(form, key, errors) for key in form.getlist("o_order")]
     return fiche, files
+
+
+#: The fields of the fiche a proposal can touch, and so the ones the
+#: Assistent's panel sends along with a request (#1659): the three texts, and
+#: the date rows with their order. The one list — what the panel sends is
+#: built from it (`PROPOSAL_VALS`), `proposal_fields` reads it.
+PROPOSAL_TEXTS = ("name", "location", "description")
+#: As computed values (`hx-vals`), read from the record form when the request
+#: leaves — NOT as included fields: htmx validates a field it includes, and a
+#: date row without its required day (hours applied, the day still to come)
+#: then stops the request without a word. Measured in the e2e of #1659.
+PROPOSAL_VALS = "js:{...window.raakRecordForm.valuesOf(%s, %s)}" % (
+    json.dumps([*PROPOSAL_TEXTS, "d_order"]),
+    json.dumps(["d."]),
+)
+
+
+def proposal_fields(form: Any) -> Optional[tuple[dict[str, str], list[DateRow]]]:
+    """The fiche's form as it stands, as far as a proposal reads it: the three
+    texts and the date rows in the order of the screen. None when the request
+    did not carry the form (a caller that sends the question alone).
+
+    A value of the wrong shape is no refusal here — nothing is saved: a date
+    that is none reads as a row without that date."""
+    if "name" not in form:
+        return None
+    unused: list[FieldError] = []
+    texts = {name: _last(form, name) for name in PROPOSAL_TEXTS}
+    rows = [
+        DateRow(
+            key=key,
+            start_date=_date(form, f"d.{key}.start_date", "", unused),
+            end_date=_date(form, f"d.{key}.end_date", "", unused),
+            start_time=_time(form, f"d.{key}.start_time", "", unused),
+            end_time=_time(form, f"d.{key}.end_time", "", unused),
+        )
+        for key in form.getlist("d_order")
+    ]
+    return texts, rows
 
 
 def _date_row(form: Any, key: str, errors: list[FieldError]) -> DateRow:

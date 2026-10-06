@@ -97,7 +97,7 @@
       event.preventDefault();
       event.stopPropagation();
       var go = function () {
-        form.raakLeaving = true;
+        leaveBy(form, link);
         link.click();
       };
       ask(go, link.hasAttribute("data-form-cancel") ? "discard" : "leave");
@@ -105,24 +105,86 @@
     true
   );
 
-  /* A command outside the form (a state command in Acties) would redraw the
-     record and lose the changes: the same question first. */
+  /* The guard steps aside for ONE action the user chose with "Weggooien"
+     (#1660): `by` is the element that action starts from. When that action is
+     over and the page is still here, the guard guards again — it used to stay
+     off for the rest of the page, so a command that failed, or one that did
+     not leave, left every later link unasked. */
+  function leaveBy(form, by) {
+    form.raakLeaving = true;
+    form.raakLeavingBy = by;
+  }
+
+  /* Is this request a command outside the form — one that would redraw the
+     record and lose the changes? */
+  function commandOutside(form, source, verb) {
+    if (!form || !source) return false;
+    if (source === form || form.contains(source) || source.closest("[data-action-bar]")) return false;
+    // The Assistent's panel stands BESIDE the record (#1659): a request in it
+    // asks for a proposal and its answer lands in the panel — nothing redraws
+    // the record, so it is no way out, whatever the form holds.
+    if (source.closest("[data-raakje-panel]")) return false;
+    return (verb || "get").toLowerCase() !== "get";
+  }
+
+  /* A command outside the form (a state command in Acties): the same question
+     first. Asked at `htmx:confirm`, where htmx hands over the request itself:
+     "Weggooien" resumes THAT request — a click as a click, a form's submit as
+     a submit (#1660; repeating a click on the source did nothing for a
+     form) — and the command's own question (`data-confirm`)
+     comes after this one, once: until #1660 it was asked, then this one, then
+     it again. In the capture phase, so this one is asked before the kit's
+     confirm host hears the event. */
+  document.addEventListener(
+    "htmx:confirm",
+    function (event) {
+      var form = theForm();
+      var source = event.detail.elt;
+      if (!commandOutside(form, source, event.detail.verb)) return;
+      if (form.raakPassing === source) {
+        form.raakPassing = null; // the request this guard let through: asked already
+        return;
+      }
+      if (form.raakSaving || !isDirty(form)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      var paused = event.detail;
+      ask(function () {
+        // htmx asks `htmx:confirm` once per request, and this guard took that
+        // one: hand the paused request on to whoever else has a question (the
+        // kit's confirm host, for a `data-confirm`). Nobody: it goes.
+        form.raakPassing = source;
+        var next = new CustomEvent("htmx:confirm", { bubbles: true, cancelable: true, detail: paused });
+        if (source.dispatchEvent(next)) paused.issueRequest(true);
+      }, "leave");
+    },
+    true
+  );
+
   document.addEventListener("htmx:beforeRequest", function (event) {
     var form = theForm();
     var source = event.detail.elt;
-    if (!form || !source) return;
-    if (source === form || form.contains(source) || source.closest("[data-action-bar]")) return;
-    if ((event.detail.requestConfig.verb || "get").toLowerCase() === "get") return;
+    if (!commandOutside(form, source, event.detail.requestConfig.verb)) return;
     if (form.raakSaving) {
       event.preventDefault(); // never a command while a save is running
       return;
     }
-    if (form.raakLeaving || !isDirty(form)) return;
-    event.preventDefault();
-    ask(function () {
-      form.raakLeaving = true;
-      window.htmx.trigger(source, "click");
-    }, "leave");
+    // The command goes: what it answers may send the browser on, and leaving
+    // then asks nothing — for this one request.
+    if (isDirty(form)) leaveBy(form, source);
+  });
+
+  /* The action the guard stepped aside for is over. An answer that sends the
+     browser on keeps the guard aside until the page is gone. */
+  document.addEventListener("htmx:afterRequest", function (event) {
+    var form = theForm();
+    if (!form || !form.raakLeavingBy || event.detail.elt !== form.raakLeavingBy) return;
+    var xhr = event.detail.xhr;
+    var goesOn = !!xhr && event.detail.successful &&
+      !!(xhr.getResponseHeader("HX-Redirect") || xhr.getResponseHeader("HX-Location") || xhr.getResponseHeader("HX-Refresh"));
+    if (goesOn) return;
+    form.raakLeaving = false;
+    form.raakLeavingBy = null;
   });
 
   window.addEventListener("beforeunload", function (event) {
@@ -351,5 +413,22 @@
     // The form's first state was taken: from here on a change is seen as one.
     ready: function () { var form = theForm(); return !!form && form.raakInitial !== undefined; },
     snapshot: snapshot,
+    /* What the form holds for the fields with one of these names or a name
+       that starts with one of these prefixes, as {name: [values]} — for a
+       request beside the form that reads it as it stands (the Assistent's
+       proposer, #1659). Nothing is validated: the form is not being saved. */
+    valuesOf: function (names, prefixes) {
+      var form = theForm();
+      var values = {};
+      if (!form) return values;
+      Array.prototype.forEach.call(form.elements, function (el) {
+        if (!el.name || el.disabled || el.tagName === "BUTTON" || el.type === "file") return;
+        if ((el.type === "checkbox" || el.type === "radio") && !el.checked) return;
+        var wanted = names.indexOf(el.name) !== -1 || prefixes.some(function (p) { return el.name.indexOf(p) === 0; });
+        if (!wanted) return;
+        (values[el.name] = values[el.name] || []).push(el.value);
+      });
+      return values;
+    },
   };
 })();

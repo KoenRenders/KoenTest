@@ -167,25 +167,58 @@ def get_activity_detail(db: Session, activity_id: int) -> ActivityResponse | Non
     return _impl(db, activity_id)
 
 
-def propose_for_activity(db: Session, activity_id: int, *, request: str, actor: str) -> Any:
+def _standing(activity: Activity, form: Any) -> Any:
+    """The fiche as it stands in the page (#1659), or None when the request
+    carried no form: the form's texts and date rows, the stored components."""
+    from app.domains.activities import proposer
+    from app.domains.activities.fiche_form import proposal_fields
+
+    read = proposal_fields(form) if form is not None else None
+    if read is None:
+        return None
+    texts, rows = read
+    return proposer.Standing(
+        dates=list(rows), sub_registrations=list(activity.sub_registrations), **texts
+    )
+
+
+def propose_for_activity(
+    db: Session, activity_id: int, *, request: str, actor: str, form: Any = None
+) -> Any:
     """Raakje's proposal for this activity's fiche (#1604), or None when the
-    activity does not exist. Raises `ProposerError` with a line for the screen."""
+    activity does not exist. `form` (#1659): the fiche's form as the panel sent
+    it along — its unsaved values are the record for this request. Raises
+    `ProposerError` with a line for the screen."""
     from app.domains.activities import proposer
     from app.domains.activities.service import _activity_met_boom
 
     activity = _activity_met_boom(db, activity_id)
     if activity is None:
         return None
-    return proposer.propose(db, activity, request=request, actor=actor)
+    return proposer.propose(
+        db, activity, request=request, actor=actor, standing=_standing(activity, form)
+    )
 
 
-def propose_for_new_activity(db: Session, *, request: str, actor: str) -> Any:
+def propose_for_new_activity(db: Session, *, request: str, actor: str, form: Any = None) -> Any:
     """Raakje's proposal for the fiche of an activity that does not exist yet
-    (#1649): the same proposer on an activity that holds nothing, so the request
-    is its only source. Nothing is added to the session."""
+    (#1649): the same proposer on an activity that holds nothing, so its sources
+    are the request and what the form already holds (`form`, #1659). Nothing is
+    added to the session."""
     from app.domains.activities import proposer
 
-    return proposer.propose(db, Activity(name=""), request=request, actor=actor)
+    activity = Activity(name="")
+    return proposer.propose(
+        db, activity, request=request, actor=actor, standing=_standing(activity, form)
+    )
+
+
+def proposal_vals() -> str:
+    """Which fields of the fiche the Assistent's panel sends along with a
+    request for a proposal (#1659), as an `hx-vals` expression."""
+    from app.domains.activities.fiche_form import PROPOSAL_VALS
+
+    return PROPOSAL_VALS
 
 
 #: Where the Assistent's panel asks a proposal for a new activity (#1649).
@@ -379,6 +412,7 @@ __all__ = [
     "propose_for_new_activity",
     "NEW_PROPOSER_URL",
     "NEW_ACTIVITY_STATUS",
+    "proposal_vals",
     "proposer_url",
     "ProposerError",
     "list_activities",

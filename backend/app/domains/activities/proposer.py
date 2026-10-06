@@ -60,7 +60,7 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
-from app.domains.activities.models import Activity, ActivityDate
+from app.domains.activities.models import Activity
 from app.i18n import _, long_date
 
 logger = logging.getLogger(__name__)
@@ -173,19 +173,48 @@ def _iso(value: Optional[date]) -> str:
     return value.isoformat() if value else ""
 
 
-def first_date(activity: Activity) -> Optional[ActivityDate]:
-    """The date row the fiche shows first: the earliest (`_aa_detail.html`
-    sorts the same way), or None."""
-    rows = sorted(activity.dates, key=lambda d: d.start_date)
-    return rows[0] if rows else None
+@dataclass
+class Standing:
+    """The fiche as it stands for one request (#1659): what the proposer reads
+    as the record, and the base of every field it proposes.
+
+    Stored, that is the activity (`standing_of`). While the fiche is edited it
+    is the FORM as it stands in the page: a value applied from an earlier
+    proposal and not saved yet is the record's value for the next request —
+    otherwise the second turn does not know what the first one filled, and
+    Toepassen skips every field it proposes again as "changed meanwhile".
+
+    `dates` are the rows in the order of the screen, each with `start_date`,
+    `end_date`, `start_time` and `end_time`; the first one is the row a
+    proposal means (`form-proposal.js` takes the group's first row). A row of
+    the form may have no day yet: hours applied without one. The components
+    are always the stored ones — a proposal never touches them."""
+
+    name: str = ""
+    location: str = ""
+    description: str = ""
+    dates: list[Any] = field(default_factory=list)
+    sub_registrations: list[Any] = field(default_factory=list)
+
+
+def standing_of(activity: Activity) -> Standing:
+    """The stored activity as the fiche shows it: the dates earliest first
+    (`_aa_detail.html` sorts the same way)."""
+    return Standing(
+        name=activity.name or "",
+        location=activity.location or "",
+        description=activity.description or "",
+        dates=sorted(activity.dates, key=lambda d: d.start_date),
+        sub_registrations=list(activity.sub_registrations),
+    )
 
 
 def _money(value: Any) -> str:
     return f"€ {value:.2f}".replace(".", ",")
 
 
-def record_text(activity: Activity) -> str:
-    """The activity as the model reads it. The internal note is not in it: it
+def record_text(activity: Standing) -> str:
+    """The fiche as the model reads it. The internal note is not in it: it
     is the board's own and never reaches a text for visitors."""
     lines = [
         f"Naam: {activity.name}",
@@ -193,8 +222,16 @@ def record_text(activity: Activity) -> str:
         f"Omschrijving: {activity.description or '(leeg)'}",
     ]
     dates = []
-    for d in sorted(activity.dates, key=lambda d: d.start_date):
-        text = f"{_iso(d.start_date)} ({long_date(d.start_date)})"
+    for d in activity.dates:
+        if not (d.start_date or d.end_date or d.start_time or d.end_time):
+            continue  # a row of the form nobody filled in yet says nothing
+        # A row of the form without a day (#1659): hours were applied, the day
+        # is still to come — the model must know the row is there.
+        text = (
+            f"{_iso(d.start_date)} ({long_date(d.start_date)})"
+            if d.start_date
+            else "(dag nog niet ingevuld)"
+        )
         if d.end_date and d.end_date != d.start_date:
             text += f" tot {_iso(d.end_date)} ({long_date(d.end_date)})"
         if d.start_time:
@@ -368,7 +405,7 @@ def _day_stands(passage: str, day: date, sources: str) -> bool:
 
 
 def _date_fields(
-    data: dict[str, Any], activity: Activity, sources: str, asked: str, left_out: list[str]
+    data: dict[str, Any], activity: Standing, sources: str, asked: str, left_out: list[str]
 ) -> tuple[list[dict[str, Any]], str]:
     """The proposed fields of the first date row, and what was accepted as text
     (a source for the description's numbers).
@@ -388,7 +425,7 @@ def _date_fields(
     about hours with silence."""
     answer = data.get("date")
     answer = answer if isinstance(answer, dict) else {}
-    row = first_date(activity)
+    row = activity.dates[0] if activity.dates else None
     passage = str(data.get("date_source") or "")
     given, _words = hours_in(sources)
     not_given = _("niet voorgesteld — staat niet in je vraag en niet in de fiche.")
@@ -431,6 +468,9 @@ def _date_fields(
         left_out.append(
             _("De dag ontbreekt nog: het uur komt op een nieuwe datumrij, vul de datum zelf in.")
         )
+    elif fields and row is not None and row.start_date is None and start is None:
+        # The same on a row of the form that has no day yet (#1659).
+        left_out.append(_("De dag ontbreekt nog: vul de datum zelf in."))
     said_hours = hours_in(asked)[1]
     if said_hours and not any(hours.values()) and not any(_time(answer.get(n)) for n in hours):
         # The request gives an hour and the model proposed none: say so, with
@@ -609,9 +649,18 @@ def _provider(db: Session, actor: str) -> Any:
 
 
 def propose(
-    db: Session, activity: Activity, *, request: str, actor: str, today: Optional[date] = None
+    db: Session,
+    stored: Activity,
+    *,
+    request: str,
+    actor: str,
+    today: Optional[date] = None,
+    standing: Optional[Standing] = None,
 ) -> Proposal:
     """One request to Raakje about this activity.
+
+    `standing` (#1659): the fiche as it stands in the page, when the panel sent
+    its form along; without it, the stored activity.
 
     Raises `ProposerError` for an answer that cannot be used, and lets the
     kernel's `SeamBlocked` through for the screen."""
@@ -624,6 +673,7 @@ def propose(
     names = person_name_parts(db)
     today = today or date.today()
     asked = scrub(request, names)
+    activity = standing or standing_of(stored)
     record = scrub(record_text(activity), names)
     sources = f"FICHE\n{record}\n\nVRAAG\n{asked}"
     provider = _provider(db, actor)

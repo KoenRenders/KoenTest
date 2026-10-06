@@ -108,8 +108,9 @@ class _Scripted:
         )
 
 
-def _turn(session: str, activity_id: int, request: str, *answers: str) -> str:
-    """The proposer route's own answer for a scripted model, as HTML."""
+def _turn(session: str, activity_id: int, request: str, *answers: str, form=None) -> str:
+    """The proposer route's own answer for a scripted model, as HTML. `form`
+    (#1659): the fields of the fiche the panel sends along with the request."""
     from fastapi.testclient import TestClient
 
     import app.main as main
@@ -127,7 +128,7 @@ def _turn(session: str, activity_id: int, request: str, *answers: str) -> str:
         answer = client.post(
             f"/admin/activiteiten/{activity_id}/raakje/voorstel",
             headers={"X-CSRF-Token": csrf_token_for(session), "HX-Request": "true"},
-            data={"vraag": request},
+            data={"vraag": request} | (form or {}),
         )
     finally:
         chatbot.get_provider, settings.admin_chat_enabled = before
