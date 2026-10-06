@@ -361,3 +361,105 @@ def test_the_activity_pages_way_back_and_description(browser, world, width):
     assert m["bold"] == 0 and m["text"], "markup of the description reached the page as markup"
     assert m["page"][0] == m["page"][1]
     page.close()
+
+
+# ── #1654: the footer refined (CR-11 Q85; end state §2.5) ────────────────────
+# Koen, 6 October 2026, on the footer above as built: no line above the row of
+# columns, three columns of one width, the first social icon's GLYPH on the
+# left line of its heading (the 44 px target reaches left of it), and 32 px of
+# air above and under the row on a desktop, 24 px on a phone.
+#
+# Red against master `637e9b6a` (measured, all eight cases, windows of 1 440 /
+# 768 / 390): a line of 1 px above the row; columns of 483 / 297 / 372 px at
+# 1 440 and two columns at 768; the glyph 10 px right of its heading at every
+# width; 65 / 49 px from the footer's top to the headings (64 / 48 and the line).
+#
+# And the same air from the last content to the footer's ground (the master
+# CLI, the same day): the footer's own margin of 64 / 48 px is gone, the
+# content's padding under it is 32 / 24 px. Red with that margin put back
+# (measured): 96 / 96 / 80 px at 1 440 / 768 / 390.
+REFINED = """() => {
+  const q = s => document.querySelector(s), r = e => e.getBoundingClientRect();
+  const social = q('[data-footer-social]'), link = social.querySelector('a'), glyph = link.querySelector('svg');
+  const row = q('[data-footer-row]'), legal = q('[data-footer-line]'), footer = q('.site-footer');
+  const heads = [...row.querySelectorAll('h2')];
+  return {heading: r(social.querySelector('h2')).left, glyph: r(glyph).left, glyph_w: r(glyph).width,
+          target: [r(link).width, r(link).height], target_x: r(link).left,
+          columns: [...row.children].map(s => r(s).width), lefts: [...row.children].map(s => r(s).left),
+          above: Math.min(...heads.map(h => r(h).top)) - r(footer).top,
+          under: r(legal).top - r(row).bottom,
+          content: r(footer).top - Math.max(...[...q('#main').children].filter(c => c.checkVisibility()).map(c => r(c).bottom)),
+          long: document.documentElement.scrollHeight > innerHeight + 200,
+          lines: [getComputedStyle(footer).borderTopWidth, getComputedStyle(q('.site-footer-core')).borderTopWidth,
+                  getComputedStyle(row).borderTopWidth],
+          legal_line: getComputedStyle(legal).borderTopWidth,
+          logo: (() => { const i = q('[data-footer-sponsors] img[alt="Voorbeeldsponsor"]'); return i ? [r(i).left, r(i.closest('section').querySelector('h2')).left] : null; })(),
+          page: [document.documentElement.scrollWidth, innerWidth]};
+}"""
+
+
+def _refined(browser, width: int, height: int) -> dict:
+    page = browser.new_page(base_url=BASE, viewport={"width": width, "height": height})
+    page.goto("/")
+    pagina_klaar(page)
+    page.wait_for_function(
+        "() => [...document.querySelectorAll('[data-footer-sponsors] img')].every(i => i.complete)"
+    )
+    measured = page.evaluate(REFINED)
+    page.close()
+    print("MEASURE refined", width, measured)
+    return measured
+
+
+@pytest.mark.parametrize(
+    ("width", "height", "margin"), [(1440, 900, None), (768, 900, None), (390, 844, 16)]
+)
+def test_the_first_social_glyph_stands_on_the_line_of_its_heading(
+    browser, world, width, height, margin
+):
+    m = _refined(browser, width, height)
+    assert m["glyph_w"] == 24, m
+    assert abs(m["glyph"] - m["heading"]) < 0.5, (
+        f"@{width}: the glyph at x {m['glyph']}, the heading 'Volg ons' at x {m['heading']}"
+    )
+    # The target stays 44 × 44 and reaches 10 px left of that line.
+    assert m["target"] == [44, 44], m["target"]
+    assert abs(m["heading"] - m["target_x"] - 10) < 0.5, m
+    # The first sponsor logo had no inner margin: it stands on its heading's line already.
+    assert abs(m["logo"][0] - m["logo"][1]) < 0.5, m["logo"]
+    if margin is not None:
+        assert round(m["glyph"]) == margin, f"the glyph is not on the phone's margin: {m['glyph']}"
+    # The part of the target left of the line makes the page no wider.
+    assert m["page"][0] == m["page"][1]
+
+
+@pytest.mark.parametrize(("width", "height"), [(1440, 900), (768, 900)])
+def test_the_three_columns_are_equally_wide(browser, world, width, height):
+    m = _refined(browser, width, height)
+    assert len(m["columns"]) == 3, m
+    assert max(m["columns"]) - min(m["columns"]) < 0.5, f"@{width}: columns of {m['columns']}"
+    assert len({round(x) for x in m["lefts"]}) == 3, (
+        f"@{width}: not three beside each other: {m['lefts']}"
+    )
+    # A logo of the full 144 px fits its column.
+    assert min(m["columns"]) >= 144, m["columns"]
+
+
+@pytest.mark.parametrize(
+    ("width", "height", "air"), [(1440, 400, 32), (768, 400, 32), (390, 400, 24)]
+)
+def test_the_air_above_and_under_the_row_and_no_line_above_it(browser, world, width, height, air):
+    m = _refined(browser, width, height)
+    assert abs(m["above"] - air) < 0.5, (
+        f"@{width}: {m['above']} px from the footer's top to the headings"
+    )
+    assert abs(m["under"] - air) < 0.5, f"@{width}: {m['under']} px from the row to the legal line"
+    assert m["lines"] == ["0px", "0px", "0px"], f"@{width}: a line above the row: {m['lines']}"
+    # From the last content to the footer's ground: the same air as inside it
+    # (a page longer than the window: on a short one the content is stretched).
+    assert m["long"], "the page is not longer than the window — the measure would say nothing"
+    assert abs(m["content"] - air) < 0.5, (
+        f"@{width}: {m['content']} px from the last content to the footer's ground"
+    )
+    # The line above the legal line stays.
+    assert m["legal_line"] == "1px", m

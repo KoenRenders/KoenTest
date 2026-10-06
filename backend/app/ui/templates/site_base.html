@@ -287,11 +287,14 @@
            eigen icoon valt een netwerk terug op het generieke link-glyph. Icons of
            24 px in targets of 44 px, `ink-soft`, the brand on hover and focus.
            #1647: no line, no background and no frame around an icon — only
-           the icon; the focus ring stays. #}
+           the icon; the focus ring stays. #1654 (Q85): the first GLYPH stands
+           on the left line of the heading — the row moves left by the
+           target's inset (44 − 24, halved: 10 px), so the target reaches
+           left of that line and stays 44 px. #}
         {% if sociale_links %}
         <section data-footer-social>
           <h2>{{ _("Volg ons") }}</h2>
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap gap-2 -ml-2.5">
             {% for link in sociale_links %}
             <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ link.label }}"
                class="grid place-items-center w-11 h-11 rounded-lg text-ink-soft hover:text-blue-700 focus-visible:text-blue-700 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-focus">

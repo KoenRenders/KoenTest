@@ -615,12 +615,19 @@ body[data-shell="site"]>main{flex:1 0 auto}
 .site-drawer-row{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:12px;border-radius:6px;font-size:16px;color:rgb(var(--c-ink));text-align:left}
 .site-drawer-row:hover{background:rgb(var(--c-surface-2));text-decoration:none}
 .site-drawer-row[aria-current="page"]{background:rgb(var(--c-blue-50));color:rgb(var(--c-brand));font-weight:600;text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:2px}
-.site-footer{margin-top:48px;background:rgb(var(--c-surface))}
-.site-footer-core{border-top:1px solid rgb(var(--c-line));padding-block:48px 24px}
+.site-footer{background:rgb(var(--c-surface))}
+/* #1654 (CR-11 Q85): no line above the row — the ground changing from grey to
+   white is the transition — and 24 px of air above and under the row on a
+   phone, 32 px from 768 px; three columns of one width from 768 px. The air
+   from the last content to the footer's ground is the same as the air inside
+   it: the content's own padding under it (24 / 32 px), and no margin on the
+   footer (it was 48 / 64 px on top of that padding). */
+body[data-shell="site"]>main{padding-bottom:24px}
+.site-footer-core{padding-block:24px}
 .site-footer-core[data-bell]{padding-bottom:88px}
 .site-footer-row{display:grid;grid-template-columns:minmax(0,1fr);gap:32px}
 .site-footer-row h2{font-size:18px;line-height:1.2;margin-bottom:12px;color:rgb(var(--c-ink))}
-.site-legal{margin-top:32px;padding-top:16px;border-top:1px solid rgb(var(--c-line));font-size:14px;line-height:24px;color:rgb(var(--c-ink-soft));overflow-wrap:anywhere}
+.site-legal{margin-top:24px;padding-top:16px;border-top:1px solid rgb(var(--c-line));font-size:14px;line-height:24px;color:rgb(var(--c-ink-soft));overflow-wrap:anywhere}
 .site-legal a{text-decoration:underline;text-underline-offset:4px}
 .site-sponsor{display:flex;align-items:center;max-width:144px;height:64px}
 .site-sponsor img{max-width:144px;max-height:64px;width:auto;height:auto;object-fit:contain}
@@ -631,16 +638,17 @@ body[data-shell="site"]>main{flex:1 0 auto}
   .site-menu-button{display:none}
   .site-pages{grid-area:pages;display:flex;align-items:center;gap:4px;height:48px;min-width:0}
   .site-account{grid-area:account;display:flex;align-items:center;gap:8px}
-  .site-footer{margin-top:64px}
-  .site-footer-core{padding-top:64px}
-  .site-footer-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body[data-shell="site"]>main{padding-bottom:32px}
+  .site-footer-core{padding-top:32px}
+  .site-legal{margin-top:32px}
+  .site-footer-row{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (min-width:1200px){
   .site-container{width:calc(100% - 64px)}
   .site-header-grid{grid-template-columns:minmax(0,1fr) auto auto;grid-template-rows:80px;grid-template-areas:"brand pages account";gap:24px;height:80px}
   .site-brand img{height:64px}
   .site-pages{height:auto}
-  .site-footer-row{grid-template-columns:1.3fr .8fr 1fr;gap:48px}
+  .site-footer-row{gap:48px}
 }
 /* ── The Assistent panel (CR-11 pilot A, K8 — #1562; end state §3.15) ──────────
    One component, `_raakje_panel.html`, in two modes.
