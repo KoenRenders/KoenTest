@@ -1,0 +1,23 @@
+{% import "_macros.html" as ui %}
+{# The activity's record page, inside the shell: the head, and the reading group
+   with the fiche and its summary. `admin_activiteit.html` wraps it in
+   `#aa-record` for an existing activity AND for a new one (#1649, CR-11 Q84:
+   "+ Nieuwe activiteit" opens this page in edit mode, empty — no start screen).
+   The answer of a creation is this partial for the record that now exists,
+   swapped into `#aa-record`.
+
+   CR-11 block 6 (#1558): the reading group — the form column and, beside it,
+   the record's summary (K6, #1560: `ui.summary_card`; a strip under the tabs on
+   a phone). Only this tab has it: a list tab starts directly under the tabs.
+   The summary stands outside #aa-detail, so a fragment swap leaves it; a save
+   sends it along out of band. A record that does not exist yet has nothing to
+   summarise: no summary column. #}
+<div id="aa-recordkop">
+  {% include "_aa_recordkop.html" %}
+</div>
+{% set _rail %}{% if summary %}<div id="aa-rail">{% include "_aa_rail.html" %}</div>{% endif %}{% endset %}
+{% call ui.record_columns(aside=_rail|trim) %}
+  <div id="aa-detail">
+    {% include "_aa_detail.html" %}
+  </div>
+{% endcall %}

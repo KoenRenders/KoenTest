@@ -16,18 +16,20 @@ def test_admin_activiteiten_requires_session(client):
 
 def test_admin_activiteit_aanmaken_en_detail(client, db_session):
     csrf = _login(client)
-    # Sinds #586 opent aanmaken meteen de paginabrede editor (HX-Redirect), want
-    # een verse activiteit heeft daar nog datums en onderdelen nodig.
-    resp = client.post(
-        "/admin/activiteiten",
-        data={"name": "Zomerbar", "start_date": "2031-07-01", "location": "Millegem"},
+    # #1649: creating is the fiche's own save; its answer is the record page of
+    # the activity that now exists, and the address follows.
+    from tests._fiche import post_new_activity
+
+    resp = post_new_activity(
+        client,
         headers={"X-CSRF-Token": csrf},
+        data={"name": "Zomerbar", "start_date": "2031-07-01", "location": "Millegem"},
     )
     from app.domains.activities.api import Activity
 
     activity = db_session.query(Activity).filter(Activity.name == "Zomerbar").one()
-    assert resp.status_code == 204
-    assert resp.headers["HX-Redirect"] == f"/admin/activiteiten/{activity.id}"
+    assert resp.status_code == 200
+    assert resp.headers["HX-Push-Url"] == f"/admin/activiteiten/{activity.id}"
     detail = client.get(f"/admin/activiteiten/{activity.id}")
     assert detail.status_code == 200 and "Millegem" in detail.text and "Datums" in detail.text
 
@@ -114,5 +116,8 @@ def test_admin_inschrijvingen_en_export(client, db_session):
 
 def test_admin_mutatie_zonder_csrf_geweigerd(client, db_session):
     _login(client)
-    resp = client.post("/admin/activiteiten", data={"name": "X", "start_date": "2031-01-01"})
+    resp = client.post(
+        "/admin/activiteiten/nieuw",
+        data={"name": "X", "d_order": "n1", "d.n1.start_date": "2031-01-01"},
+    )
     assert resp.status_code == 403

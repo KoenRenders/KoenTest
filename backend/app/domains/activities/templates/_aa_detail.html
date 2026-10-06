@@ -50,7 +50,13 @@
    own cards and buttons until then. #}
 {% set _edit = head_editing|default(false) %}
 {% set _keep = way_back.keep if way_back is defined else "" %}
-{% set _read_url = "/admin/activiteiten/" ~ a.id ~ ("?" ~ _keep if _keep else "") %}
+{# #1649 (CR-11 Q84): the same fiche for an activity that does not exist yet —
+   `new_record`. Its form goes to the create route, its answer replaces the
+   whole record page, Annuleren returns to the list, and there is nothing to
+   delete. Nothing is stored before Opslaan: this is a form, not a record. #}
+{% set _new = new_record|default(false) %}
+{% set _base = "/admin/activiteiten/nieuw" if _new else "/admin/activiteiten/" ~ a.id %}
+{% set _read_url = "/admin/activiteiten" if _new else "/admin/activiteiten/" ~ a.id ~ ("?" ~ _keep if _keep else "") %}
 {% set _audience = namespace(value="") %}
 {% for code, label, selected in audience_options %}{% if selected %}{% set _audience.value = code %}{% endif %}{% endfor %}
 <div data-form-flow data-mode="{{ 'edit' if _edit else 'read' }}" class="form-flow">
@@ -61,15 +67,16 @@
      multipart. `contents`, so the sections are the flow's own children. #}
   {% if _edit %}<form id="aa-act-form" class="contents" enctype="multipart/form-data"
         data-record-form data-message="#aa-fiche-message" novalidate
-        hx-post="/admin/activiteiten/{{ a.id }}" hx-encoding="multipart/form-data"
-        hx-target="#aa-detail" hx-swap="innerHTML">
+        hx-post="{{ _base }}" hx-encoding="multipart/form-data"
+        hx-target="{{ '#aa-record' if _new else '#aa-detail' }}" hx-swap="innerHTML">
   {# Which groups this form carries: a group it does not name is left alone by
      the save. `bevestigd` is set by the answer that asks for it. #}
   <input type="hidden" name="fiche_groups" value="dates components organisers">
   <input type="hidden" name="bevestigd" id="aa-bevestigd" value="">
   {% endif %}
   {% call ui.section(_("Activiteit"), id="aa-section-activity") %}
-    {{ ui.field("name", _("Naam"), value=a.name, edit=_edit, required=True) }}
+    {#- P2: on a new record attention goes to the first field. -#}
+    {{ ui.field("name", _("Naam"), value=a.name, edit=_edit, required=True, attrs=("autofocus" if _new else "")) }}
     {# #884: the friendly URL does NOT follow the name — one is proposed at
        creation, after that it stays. The help says why. #}
     {{ ui.field("slug", _("Vriendelijke URL"), kind="slug", value=a.slug or "", edit=_edit,
@@ -129,10 +136,14 @@
   {% endmacro %}
   {% set _date_template %}{% if _edit %}{{ _date_row("__D__", none) }}{% endif %}{% endset %}
   {% call ui.repeating_group(_("Datums"), "d_order", token="__D__", add_label=_("Datum"), edit=_edit,
-                             empty=_("Nog geen datums."), count=a.dates|length, template=_date_template, id="aa-group-dates",
+                             empty=_("Nog geen datums."), count=(a.dates|length) or (1 if _new else 0), template=_date_template, id="aa-group-dates",
                              columns=[{"label": _("Datum"), "span": "quarter", "required": True}, {"label": _("Van"), "span": "quarter"},
                                       {"label": _("Einddatum"), "span": "quarter"}, {"label": _("Tot"), "span": "quarter"}]) %}
     {% for d in a.dates|sort(attribute="start_date") %}{{ _date_row(d.id, d) }}{% endfor %}
+    {#- A new activity has a first date (the rule of the start screen and of the
+        JSON API): the empty fiche opens with one empty row, and the save
+        refuses on it. -#}
+    {% if _new %}{{ _date_row("n1", none) }}{% endif %}
   {% endcall %}
 
   {# A product: in the editor a composite item under its component, in read mode
@@ -259,7 +270,7 @@
   {% set _organiser_search %}
   <div data-organiser-search data-dirty-ignore @keydown.enter.prevent>
     <p class="text-sm font-medium leading-[21px] text-ink mb-1">{{ _("Organisator toevoegen") }}</p>
-    {{ ui.search(hx_get="/admin/activiteiten/" ~ a.id ~ "/organisatoren", hx_target="#aa-org-kandidaten",
+    {{ ui.search(hx_get=_base ~ "/organisatoren", hx_target="#aa-org-kandidaten",
                  name="organiser_q", placeholder=_("Zoek een lid op naam…"), cls="w-full sm:w-80 min-h-11 md:min-h-0") }}
     <div id="aa-org-kandidaten"></div>
   </div>
@@ -297,12 +308,13 @@
   {# The action bar (#1561, §3.6): the one save of the whole fiche, under its
      last section. Verwijderen stands here in edit mode, in Acties in read mode. #}
   {% if _edit %}
+  {#- One bar (the record form gate). A new activity has nothing to delete. -#}
   {{ ui.action_bar(form="aa-act-form", cancel_href=_read_url, record=True,
-                   delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen"',
-                   delete_title=_("“%(name)s” verwijderen?", name=a.name),
-                   delete_confirm=record_head.delete_consequence,
-                   delete_refused=record_head.delete_refusal,
-                   delete_refused_title=_("“%(name)s” kan niet verwijderd worden", name=a.name)) }}
+                   delete_attrs=("" if _new else 'hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen"'),
+                   delete_title=(none if _new else _("“%(name)s” verwijderen?", name=a.name)),
+                   delete_confirm=(none if _new else record_head.delete_consequence),
+                   delete_refused=(none if _new else record_head.delete_refusal),
+                   delete_refused_title=(none if _new else _("“%(name)s” kan niet verwijderd worden", name=a.name))) }}
   {% endif %}
 </div>
 

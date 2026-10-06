@@ -49,6 +49,7 @@ _GENERAL_PATHS = ("/admin", "/admin/dashboard")
 
 _ACTIVITY = re.compile(r"^/admin/activiteiten/(\d+)(?:/|$)")
 _NEWSLETTER = re.compile(r"^/admin/nieuwsbrieven/(\d+)$")
+_NEW_ACTIVITY = "/admin/activiteiten/nieuw"
 
 
 @dataclass(frozen=True)
@@ -258,6 +259,21 @@ def context_for(db: Session, url: str, *, tenant_id: int) -> AssistantContext:
             available=False,
             label="",
             blocked=_("Raakje kent deze gegevens nog niet."),
+        )
+    if path == _NEW_ACTIVITY:
+        # #1649: the fiche of an activity that does not exist yet. The proposer
+        # of #1604 fills its empty form; there is nothing to ask questions about.
+        from app.domains.activities.api import NEW_PROPOSER_URL
+
+        return AssistantContext(
+            key="activity-new",
+            available=True,
+            label=_("voorstel voor een nieuwe activiteit"),
+            post_url=NEW_PROPOSER_URL,
+            suggestions=(
+                _("Schaatsen op zondag 8 november van 10 tot 12 uur in de schaatsbaan."),
+                _("Schrijf een omschrijving."),
+            ),
         )
     record = _ACTIVITY.match(path + "/")
     if record:

@@ -7,7 +7,9 @@
    macro is red (`tests/test_record_header_gate.py`). The per-screen assistant
    overlay that stood here (#975) left with the shell's Assistent panel (K8,
    #1562), which reads this record from the address. #}
-{% set _primary = dict(record_head.primary, href=record_head.primary.href ~ ("&" ~ way_back.keep if way_back.keep else "")) %}
+{#- #1649: a record that does not exist yet has a title, a badge and the way
+    back — no primary, no Acties, no tabs. -#}
+{% set _primary = dict(record_head.primary, href=record_head.primary.href ~ ("&" ~ way_back.keep if way_back.keep else "")) if record_head.primary else none %}
 {{ ui.record_header(record_head.title, badges=record_head.badges, facts=record_head.facts,
                     primary=_primary, actions=record_head.actions, back=way_back,
                     editing=head_editing) }}

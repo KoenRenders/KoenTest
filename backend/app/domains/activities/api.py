@@ -30,6 +30,7 @@ from app.domains.activities.codes import (  # noqa: F401
     TARGET_AUDIENCE_CODES,
 )
 from app.domains.activities.export import build_component_export_ods  # noqa: F401
+from app.domains.activities.fiche import NEW_ACTIVITY_STATUS  # noqa: F401
 from app.domains.activities.models import (  # noqa: F401
     Activity,
     ActivityDate,
@@ -176,6 +177,19 @@ def propose_for_activity(db: Session, activity_id: int, *, request: str, actor: 
     if activity is None:
         return None
     return proposer.propose(db, activity, request=request, actor=actor)
+
+
+def propose_for_new_activity(db: Session, *, request: str, actor: str) -> Any:
+    """Raakje's proposal for the fiche of an activity that does not exist yet
+    (#1649): the same proposer on an activity that holds nothing, so the request
+    is its only source. Nothing is added to the session."""
+    from app.domains.activities import proposer
+
+    return proposer.propose(db, Activity(name=""), request=request, actor=actor)
+
+
+#: Where the Assistent's panel asks a proposal for a new activity (#1649).
+NEW_PROPOSER_URL = "/admin/activiteiten/nieuw/raakje/voorstel"
 
 
 def proposer_url(activity_id: int) -> str:
@@ -362,6 +376,9 @@ __all__ = [
     "parse_registration_sort",
     "get_activity_detail",
     "propose_for_activity",
+    "propose_for_new_activity",
+    "NEW_PROPOSER_URL",
+    "NEW_ACTIVITY_STATUS",
     "proposer_url",
     "ProposerError",
     "list_activities",

@@ -27,6 +27,10 @@ there are two truths about the same row.
 missing role, and that is how #680 stayed green while the money brake underneath it had
 disappeared. Every refusal is checked against its message.
 
+Since #1649 the create path is the fiche itself (`POST /admin/activiteiten/nieuw`,
+`fiche.create_fiche`): the first row is a row of the group Datums like any other, so
+"create" and "add a date" pass the same code — the tests below still ask each entrance.
+
 Broken on purpose to check that these tests can go red: threw the three extra fields
 away again in `activiteit_aanmaken` → the first test falls over; removed the mapper event
 → all three entrances of the second test fall over (and THAT is the proof that they do
@@ -36,6 +40,7 @@ not each carry their own check).
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
+from tests._fiche import post_new_activity
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -62,8 +67,12 @@ def test_the_create_screen_shows_all_four_fields(client, db_session):
 
     html = client.get("/admin/activiteiten/nieuw").text
 
-    for field in ('id="start_date"', 'id="end_date"', 'id="start_time"', 'id="end_time"'):
-        assert field in html, f"{field} is missing; the first row cannot be filled in fully"
+    # #1649: the create screen is the fiche itself, empty, in edit mode. It opens
+    # with one empty date row — the same four fields as any row of the group.
+    for field in ("start_date", "end_date", "start_time", "end_time"):
+        assert f'name="d.n1.{field}"' in html, (
+            f"{field} is missing; the first row cannot be filled in fully"
+        )
 
 
 def test_creating_keeps_the_complete_first_row(client, db_session):
@@ -72,8 +81,8 @@ def test_creating_keeps_the_complete_first_row(client, db_session):
 
     headers = _login(client, db_session)
 
-    resp = client.post(
-        "/admin/activiteiten",
+    resp = post_new_activity(
+        client,
         headers=headers,
         data={
             "name": "Test activity",
@@ -84,7 +93,7 @@ def test_creating_keeps_the_complete_first_row(client, db_session):
         },
     )
 
-    assert resp.status_code == 204, resp.text
+    assert resp.status_code == 200, resp.text
     row = _latest_activity(db_session).dates[0]
     assert row.start_date == date(2026, 9, 20)
     assert row.end_date == date(2026, 9, 21), "the end date was thrown away"
@@ -96,8 +105,8 @@ def test_the_times_may_stay_empty(client, db_session):
     """Only the start date is required, exactly as in the editor."""
     headers = _login(client, db_session)
 
-    resp = client.post(
-        "/admin/activiteiten",
+    resp = post_new_activity(
+        client,
         headers=headers,
         data={
             "name": "Start date only",
@@ -108,14 +117,14 @@ def test_the_times_may_stay_empty(client, db_session):
         },
     )
 
-    assert resp.status_code == 204, resp.text
+    assert resp.status_code == 200, resp.text
     row = _latest_activity(db_session).dates[0]
     assert row.end_date is None and row.start_time is None and row.end_time is None
 
 
 def _create_activity(client, db, headers):
-    client.post(
-        "/admin/activiteiten",
+    post_new_activity(
+        client,
         headers=headers,
         data={"name": "To be edited", "start_date": "2026-09-20"},
     )
@@ -131,9 +140,7 @@ REVERSED = {"start_date": "2026-09-20", "end_date": "2026-09-18"}
 
 
 def _post_create(client, db, headers):
-    return client.post(
-        "/admin/activiteiten", headers=headers, data={"name": "Reversed", **REVERSED}
-    )
+    return post_new_activity(client, headers=headers, data={"name": "Reversed", **REVERSED})
 
 
 def _post_add_date(client, db, headers):
@@ -179,8 +186,8 @@ def test_an_end_date_before_the_start_date_is_refused_everywhere(client, db_sess
 def test_an_end_time_before_the_start_time_on_the_same_day_is_refused(client, db_session):
     headers = _login(client, db_session)
 
-    resp = client.post(
-        "/admin/activiteiten",
+    resp = post_new_activity(
+        client,
         headers=headers,
         data={
             "name": "Backwards",
@@ -202,8 +209,8 @@ def test_a_night_across_two_days_is_allowed(client, db_session):
 
     headers = _login(client, db_session)
 
-    resp = client.post(
-        "/admin/activiteiten",
+    resp = post_new_activity(
+        client,
         headers=headers,
         data={
             "name": "Party",
@@ -214,7 +221,7 @@ def test_a_night_across_two_days_is_allowed(client, db_session):
         },
     )
 
-    assert resp.status_code == 204, resp.text
+    assert resp.status_code == 200, resp.text
     assert _latest_activity(db_session).dates[0].end_time == time(2, 0)
 
 

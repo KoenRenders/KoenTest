@@ -152,8 +152,10 @@ def test_an_activity_created_through_the_screens_is_open_for_registration(admin)
         with _step("step 1 (Nieuwe activiteit)"):
             page.goto("/admin/activiteiten/nieuw")
             page.fill("#name", name)
-            page.fill("#start_date", (date.today() + timedelta(days=40)).isoformat())
-            page.locator("form[hx-post='/admin/activiteiten'] button[type=submit]").first.click()
+            # #1649: the create screen is the fiche itself, empty; its first date
+            # row is a row of the group Datums, and the bar's Opslaan creates.
+            page.fill("#d-n1-start_date", (date.today() + timedelta(days=40)).isoformat())
+            page.locator("[data-action-bar] [data-form-save]").click()
             page.wait_for_url(re.compile(r"/admin/activiteiten/\d+$"), timeout=10_000)
             activity_id = int(page.url.rstrip("/").rsplit("/", 1)[1])
             # The record opens in its read state (#1558), the name in its own field.
@@ -179,6 +181,26 @@ def test_an_activity_created_through_the_screens_is_open_for_registration(admin)
             expect(page.locator("#aa-detail")).to_contain_text(component)
             expect(page.locator("#aa-detail")).to_contain_text(product)
             component_id = _component_id(activity_id)
+
+        with _step("step 4a (een nieuwe activiteit is een concept: nog niet publiek)"):
+            # #1649 (Koen, 6 October 2026): what the board makes starts as a draft;
+            # publishing is its own act. Until then the site does not show it.
+            page.goto("/activiteiten")
+            register = page.locator(
+                f'a[href="/activiteiten/{activity_id}/inschrijven/{component_id}"]'
+            )
+            expect(register).to_have_count(0)
+            page.goto(f"/admin/activiteiten/{activity_id}")
+            pagina_klaar(page)
+            expect(page.locator("[data-title-group]")).to_contain_text("Concept")
+            page.click("[data-actions-trigger]")
+            page.get_by_role("menuitem", name="Publiceren").click()
+            # Publishing asks first (the lighter dialog); its answer reloads the page.
+            page.locator("[data-dialog]:visible").wait_for()
+            with page.expect_navigation():
+                page.click("[data-dialog] [data-dialog-ok]")
+            pagina_klaar(page)
+            expect(page.locator("[data-title-group]")).not_to_contain_text("Concept")
 
         with _step("step 4 (publiek zichtbaar, met product en prijs)"):
             page.goto("/activiteiten")

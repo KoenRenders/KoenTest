@@ -39,7 +39,9 @@ def test_aanmaken_opent_een_volledige_pagina_geen_modal(client, db_session):
 
     scherm = client.get("/admin/activiteiten/nieuw")
     assert scherm.status_code == 200
-    assert 'name="name"' in scherm.text and 'name="start_date"' in scherm.text
+    # #1649: that editor is the fiche itself, empty — no start screen first.
+    assert 'name="name"' in scherm.text and 'name="d.n1.start_date"' in scherm.text
+    assert 'id="aa-act-form"' in scherm.text and 'data-mode="edit"' in scherm.text
 
 
 def test_poster_url_wordt_bewaard(client, db_session):
