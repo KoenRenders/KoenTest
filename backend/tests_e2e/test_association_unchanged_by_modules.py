@@ -64,7 +64,7 @@ DELIBERATE_MENU_CHANGES: dict[str, str | None] = {
 #: moved from the home page into the footer's row, under its own heading.
 DELIBERATE_HOME_CHANGES: dict[str, dict[str, list[str]]] = {
     "home_nav": {"gone": ["Aanmelden", "RaaK"], "new": ["Inloggen", "Raak Millegem"]},
-    "home_headings": {"gone": [], "new": ["Nieuws van Raak Millegem"]},
+    "home_headings": {"gone": [], "new": ["Nieuwsbrief"]},
     "home_buttons": {"gone": ["Nieuwsbrief"], "new": []},
 }
 #: The footer as a whole: the separate organisation block and the free CMS block
@@ -72,8 +72,8 @@ DELIBERATE_HOME_CHANGES: dict[str, dict[str, list[str]]] = {
 #: the organisation's details stand in the legal line, from the entity — the
 #: seeded organisation has an account number and no address.
 DELIBERATE_FOOTER = [
-    "Nieuws van Raak Millegem",
-    "Af en toe een mail met wat er bij ons te beleven valt.",
+    # #1647: the heading is the word, and the sentence under it is gone.
+    "Nieuwsbrief",
     "Aanmelden",
     "© <jaar> Raak Millegem · BE00 1234 5678 9012",
 ]

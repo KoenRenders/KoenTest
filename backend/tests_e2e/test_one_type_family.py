@@ -260,6 +260,7 @@ def test_the_three_kinds_of_tenant_share_the_headings_and_name_their_own_newslet
         assert set(m["families"]) <= {"Inter"}, f"{kind}: {m}"
         if m["newsletter"] is not None:
             with_newsletter += 1
-            assert m["newsletter"] == f"Nieuws van {m['site']}", f"{kind}: {m}"
+            # #1647: the word, on every kind of tenant — no site name.
+            assert m["newsletter"] == "Nieuwsbrief", f"{kind}: {m}"
     assert with_newsletter >= 1, "no tenant showed the newsletter's heading"
     assert sum(m["count"] for m in found.values()) >= 5, "hardly a heading was measured"

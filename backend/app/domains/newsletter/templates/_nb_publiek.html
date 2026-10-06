@@ -3,7 +3,8 @@
    Bevestigen en uitschrijven gebeuren met een KNOP en nooit bij het openen van
    de link: mailscanners openen elke link vóór de ontvanger dat doet. #}
 {% if state == "form" %}
-  <h1 class="text-3xl font-bold text-kop">{{ _("Blijf op de hoogte") }}</h1>
+  {# #1647: the page is named as the footer's heading names it. #}
+  <h1 class="text-3xl font-bold text-kop">{{ _("Nieuwsbrief") }}</h1>
   <p class="text-base text-gray-600 mt-2">{{ _("Af en toe een mail met wat er bij %(naam)s te beleven valt.", naam=site_name) }}</p>
   {% if error %}<div class="mt-4">{{ ui.error_banner(error) }}</div>{% endif %}
   <form class="mt-5 space-y-3" hx-post="{{ path_for('/nieuwsbrief') }}" hx-target="#nb-publiek" hx-swap="innerHTML">

@@ -15,6 +15,7 @@
   "secondary": "bg-white border border-gray-300 hover:bg-gray-100 text-gray-800",
   "danger": "bg-red-600 hover:bg-red-700 text-white border border-transparent",
   "outline": "bg-white border border-blue-600 text-blue-700 hover:bg-blue-50",
+  "accent": "bg-[rgb(var(--c-accent))] text-[rgb(var(--c-on-accent))] border border-transparent hover:no-underline hover:shadow-[inset_0_0_0_1px_rgb(var(--c-on-accent))]",
   "text": "bg-transparent border border-transparent text-ink hover:bg-gray-100",
   "text-danger": "bg-transparent border border-transparent text-red-700 hover:bg-red-50",
   "unavailable": "bg-white border border-gray-500 text-gray-500 cursor-not-allowed",
@@ -202,13 +203,17 @@
 {# `met_vinkje` (Betalingen-verfijning, #996): de Cobalt-referentie zet een
    vinkje vóór de afgerond-status ("✓ Betaald") — als Lucide-icoon, geen
    emoji. Optioneel, zodat bestaande badges niets verandert. #}
+{# A badge stands on ONE line (#1647, Koen, 6 October 2026; CR-11 Q81):
+   "Terug te betalen" broke over two in the Status column. `whitespace-nowrap`
+   here, and the Status column of `data_table` is as wide as the longest badge
+   a list shows — see the widths there. #}
 {% macro badge(label, tone="gray", met_vinkje=False) -%}
 {%- set tones = {"gray": "bg-gray-100 text-gray-600", "green": "bg-green-100 text-green-800",
                  "yellow": "bg-yellow-100 text-yellow-800", "red": "bg-red-100 text-red-800",
                  "blue": "bg-blue-100 text-blue-700",
                  "teal": "bg-teal-100 text-teal-800", "orange": "bg-orange-100 text-orange-800",
                  "indigo": "bg-purple-100 text-purple-800"} -%}
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 {{ tones.get(tone, tones['gray']) }}">{% if met_vinkje %}{{ icon("check", 12) }}{% endif %}{{ label }}</span>
+<span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap {{ tones.get(tone, tones['gray']) }}">{% if met_vinkje %}{{ icon("check", 12) }}{% endif %}{{ label }}</span>
 {%- endmacro %}
 
 {# Omgevingsbanner (#464/#610). Sticky met een VASTE hoogte (h-6 = 1,5rem): de
@@ -3073,7 +3078,10 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    `<tbody>`s.
 
    The widths are the kit's, by the column's part (the table's layout is fixed,
-   see the CSS): context 24 %, status 132 px, a number 104 px, the actions
+   see the CSS): context 24 %, status 136 px — the longest badge a list
+   shows, "Terug te betalen" at 109 px (measured), plus the cell's 2 × 12 px
+   and 3 px to spare; at 132 px it was 1 px short and the badge broke in two
+   (#1647) — a number 104 px, the actions
    156 px, and the name takes the rest. A table of eight columns (the
    registrations of a record, #1636: contact, date, products, two amounts)
    takes the narrower set, or the name would be left with 13 px (measured at
@@ -3095,7 +3103,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
       <tr>
         {% for c in columns %}
         <th scope="col" data-cell="{{ c.cell }}"{% if c.get('priority') %} data-p="{{ c.priority }}"{% endif %}{% if c.get('sorted') %} aria-sort="{{ 'ascending' if c.sorted == 'asc' else 'descending' }}"{% endif %}
-            class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card {{ 'text-right' if c.get('num') else 'text-left' }} {% if columns|length >= 8 %}{{ 'w-[96px]' if c.get('num') else {'context': 'w-[22%]', 'status': 'w-[120px]', 'actions': 'w-[156px]', 'date': 'w-[100px]', 'more': 'w-[15%]'}.get(c.cell, '') }}{% else %}{{ 'w-[104px]' if c.get('num') else {'context': 'w-[24%]', 'status': 'w-[132px]', 'actions': 'w-[156px]', 'date': 'w-[112px]', 'more': 'w-[26%]'}.get(c.cell, '') }}{% endif %}">
+            class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card {{ 'text-right' if c.get('num') else 'text-left' }} {% if columns|length >= 8 %}{{ 'w-[96px]' if c.get('num') else {'context': 'w-[22%]', 'status': 'w-[120px]', 'actions': 'w-[156px]', 'date': 'w-[100px]', 'more': 'w-[15%]'}.get(c.cell, '') }}{% else %}{{ 'w-[104px]' if c.get('num') else {'context': 'w-[24%]', 'status': 'w-[136px]', 'actions': 'w-[156px]', 'date': 'w-[112px]', 'more': 'w-[26%]'}.get(c.cell, '') }}{% endif %}">
           {% if c.get("sort_url") %}
           <a href="{{ c.get('sort_page_url') or c.sort_url }}"{% if hx_target %} hx-get="{{ c.sort_url }}" hx-target="{{ hx_target }}" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}'{% endif %} data-sort="{{ c.key }}"
              class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 {{ 'justify-end' if c.get('num') else '' }} {{ 'font-semibold text-blue-700' if c.get('sorted') else '' }}">{{ c.label }}{{ icon("arrow-up" if c.get("sorted") == "asc" else ("arrow-down" if c.get("sorted") == "desc" else "arrow-up-down"), 14) }}</a>

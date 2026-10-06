@@ -265,12 +265,18 @@ def test_the_newsletter_call_stands_in_the_footer_of_every_page_and_not_on_the_h
     html = _home(client)
     footer = _footer(html)
     section = footer[footer.index("data-footer-newsletter") :]
-    # #1606 (Koen, 5 October 2026): "Nieuws van <the site's name>" — also where
-    # the organisation has a town; P1's "Nieuws uit <plaats>" is gone.
-    from app.kernel.tenant_config import tenant_display_name
-
-    assert f"Nieuws van {tenant_display_name(db_session)}" in section
-    assert "Nieuws uit" not in html
+    section = section[: section.index("</section>")]
+    # #1647 (Koen, 6 October 2026; CR-11 Q82): the heading is the word
+    # "Nieuwsbrief" — no site name ("Nieuws van <naam>" of #1606 is gone, and
+    # P1's "Nieuws uit <plaats>" before it) — and the button stands directly
+    # under it: no sentence in between.
+    assert re.search(r"<h2>\s*Nieuwsbrief\s*</h2>", section)
+    assert "Nieuws van" not in html and "Nieuws uit" not in html
+    assert "<p" not in section, "a sentence stands under the newsletter's heading"
+    assert "Af en toe een mail" not in footer
+    assert re.search(r"</h2>\s*<a id=\"nb-voet-link\"", section), (
+        "the button is not directly under the heading"
+    )
     call = re.search(r'<a id="nb-voet-link"[^>]*>(.*?)</a>', section, re.S)
     assert call and call.group(1).strip() == "Aanmelden"
     assert re.search(r'id="nb-voet-link" href="[^"]*/nieuwsbrief"', section)
@@ -281,11 +287,43 @@ def test_the_newsletter_call_stands_in_the_footer_of_every_page_and_not_on_the_h
     assert "nb-voet-link" in _footer(other)
 
 
-def test_the_newsletter_names_the_site_also_without_a_town(client, db_session):
-    from app.kernel.tenant_config import tenant_display_name
+def test_the_newsletters_own_page_is_named_nieuwsbrief_and_says_the_sentence(client, db_session):
+    """#1647: the sentence left the footer for the page the button leads to,
+    where it stood already; that page's title is the footer's word. Red against
+    master: "Blijf op de hoogte"."""
+    page = client.get("/nieuwsbrief")
+    assert page.status_code == 200
+    main = page.text[page.text.index("<main") : page.text.index("</main>")]
+    assert re.search(r"<h1[^>]*>\s*Nieuwsbrief\s*</h1>", main) and "Blijf op de hoogte" not in main
+    assert "Af en toe een mail met wat er bij" in main
 
-    name = tenant_display_name(db_session)
-    assert f"Nieuws van {name}" in _footer(_home(client))
+
+def test_the_social_icons_and_the_sponsor_logos_carry_no_frame(client, db_session, details):
+    """#1647: only the icon and only the picture — no line, no background, no
+    frame. Red against master: `border border-line` on every icon's link, and a
+    bordered box around a logo in the stylesheet."""
+    from pathlib import Path
+
+    _contact(db_session, details["organisation"], "FACEBOOK", "https://facebook.example/voorbeeld")
+    db_session.commit()
+    footer = _footer(_home(client))
+    social = footer[footer.index("data-footer-social") :]
+    social = social[: social.index("</section>")]
+    links = re.findall(r"<a [^>]*aria-label=[^>]*>", social)
+    assert links, "the footer shows no social link — the check would look nowhere"
+    for link in links:
+        classes = re.search(r'class="([^"]*)"', link).group(1).split()
+        framed = [
+            c for c in classes if c.startswith(("border", "bg-", "hover:border", "hover:bg-"))
+        ]
+        assert not framed, f"a social icon carries a frame: {framed}"
+        assert "w-11" in classes and "h-11" in classes, "the target is no longer 44 px"
+        assert any(c.startswith("focus-visible:ring") for c in classes), "the focus ring is gone"
+    css = (Path(__file__).resolve().parents[3] / "scripts" / "build-css.sh").read_text()
+    (sponsor,) = re.findall(r"(?m)^\.site-sponsor\{([^}]*)\}", css)
+    for forbidden in ("border:", "background", "padding"):
+        assert forbidden not in sponsor, f"a sponsor's logo stands in a frame: {sponsor}"
+    assert "max-width:144px" in sponsor and "height:64px" in sponsor
 
 
 def test_a_column_without_content_goes_with_its_heading(client, db_session):

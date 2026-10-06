@@ -121,7 +121,7 @@
  class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Context<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
 </th>
 <th scope="col" data-cell="status"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[132px]">
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[136px]">
 <a href="/admin/betalingen?zicht=openstaand&amp;sort=status" hx-get="/admin/betalingen/lijst?zicht=openstaand&amp;sort=status" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="status"
  class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Status<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
 </th>
@@ -155,7 +155,7 @@
 <div class="max-w-[22rem] truncate text-xs text-ink-soft">Overschrijving</div>
 </td>
 <td data-cell="status" class="border-b border-line px-3 py-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-red-100 text-red-800">Mislukt</span>
+<span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-red-100 text-red-800">Mislukt</span>
 </td>
 <td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span></td>
 <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 0,00</span></td>
@@ -189,7 +189,7 @@
 <div class="max-w-[22rem] truncate text-xs text-ink-soft">Overschrijving</div>
 </td>
 <td data-cell="status" class="border-b border-line px-3 py-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-gray-100 text-gray-600">Geannuleerd</span>
+<span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-gray-100 text-gray-600">Geannuleerd</span>
 </td>
 <td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span></td>
 <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 0,00</span></td>
@@ -232,7 +232,7 @@
 <div class="max-w-[22rem] truncate text-xs text-ink-soft">Overschrijving</div>
 </td>
 <td data-cell="status" class="border-b border-line px-3 py-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Openstaand</span>
+<span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-yellow-100 text-yellow-800">Openstaand</span>
 </td>
 <td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span></td>
 <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 0,00</span></td>
@@ -266,7 +266,7 @@
 <div class="max-w-[22rem] truncate text-xs text-ink-soft">Overschrijving</div>
 </td>
 <td data-cell="status" class="border-b border-line px-3 py-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-orange-100 text-orange-800">Deels betaald</span>
+<span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-orange-100 text-orange-800">Deels betaald</span>
 </td>
 <td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span>
 <span data-stacked-only data-stacked-balance class="block text-xs font-semibold tabular-nums whitespace-nowrap text-brand-warning">nog € 15,00</span></td>
@@ -300,7 +300,7 @@
 <div class="max-w-[22rem] truncate text-xs text-ink-soft">Overschrijving</div>
 </td>
 <td data-cell="status" class="border-b border-line px-3 py-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
+<span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
 </td>
 <td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span></td>
 <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span></td>
@@ -318,7 +318,7 @@
 <div class="max-w-[22rem] truncate text-xs text-ink-soft">Terugbetaling · Overschrijving</div>
 </td>
 <td data-cell="status" class="border-b border-line px-3 py-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Terug te betalen</span>
+<span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-yellow-100 text-yellow-800">Terug te betalen</span>
 </td>
 <td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">− € 5,00</span></td>
 <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 0,00</span></td>
