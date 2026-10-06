@@ -622,8 +622,9 @@ body[data-shell="site"]>main{flex:1 0 auto}
 .site-footer-row h2{font-size:18px;line-height:1.2;margin-bottom:12px;color:rgb(var(--c-ink))}
 .site-legal{margin-top:32px;padding-top:16px;border-top:1px solid rgb(var(--c-line));font-size:14px;line-height:24px;color:rgb(var(--c-ink-soft));overflow-wrap:anywhere}
 .site-legal a{text-decoration:underline;text-underline-offset:4px}
-.site-sponsor{display:flex;align-items:center;justify-content:center;width:144px;height:64px;padding:8px;border:1px solid rgb(var(--c-line));border-radius:6px;background:rgb(var(--c-surface))}
-.site-sponsor img{max-width:100%;max-height:100%;object-fit:contain}
+.site-sponsor{display:flex;align-items:center;max-width:144px;height:64px}
+.site-sponsor img{max-width:144px;max-height:64px;width:auto;height:auto;object-fit:contain}
+.site-sponsor:focus-visible{outline:2px solid rgb(var(--c-focus));outline-offset:2px;border-radius:6px}
 @media (min-width:768px){
   .site-container{width:calc(100% - 48px)}
   .site-header-grid{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:64px 48px;grid-template-areas:"brand account" "pages pages";height:112px}

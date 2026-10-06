@@ -11,9 +11,6 @@
 {% block content %}
 {# Golf 12 (#913): volwaardige publieke activiteitspagina op het deeladres
    /activiteiten/<slug|nr> — nam de redirect van golf 8 over, geen link breekt. #}
-<nav class="pt-4 text-base md:text-sm">
-  <a class="text-blue-500 hover:underline" href="{{ path_for(terug) }}">&larr; {{ _("Alle activiteiten") if terug == "/activiteiten" else _("Archief") }}</a>
-</nav>
 {# #1143: tekst en affiche vormen samen één blok in het midden.
 
    Wat Koen als gat zag, was lege linkerkolom: die was `flex-1` en nam dus álle
@@ -33,9 +30,17 @@
 
    Op mobiel raakt dit niets: `md:flex` begint pas op een breed scherm, en daar
    staat de affiche al bóven de omschrijving (80% van het bezoek is mobiel). #}
-<div class="mt-4 md:flex md:gap-8
-            [--leesbreedte:42rem] [--tussenruimte:2rem] [--affiche:18rem] lg:[--affiche:20rem]
+{# #1647 (Koen, 6 October 2026; CR-11 Q83): the way back stands on the left
+   line of the CONTENT — inside the centred block, above it — not on the left
+   edge of the shell (measured at 1 440: x 78 against the content's 190). So
+   the block's width and centring stand on this wrapper, and the link and the
+   two columns are both inside it. #}
+<div data-activity-page class="[--leesbreedte:42rem] [--tussenruimte:2rem] [--affiche:18rem] lg:[--affiche:20rem]
             {% if poster_url %}md:mx-auto md:max-w-[calc(var(--leesbreedte)_+_var(--tussenruimte)_+_var(--affiche))]{% endif %}">
+<nav class="pt-4 text-base md:text-sm" data-way-back>
+  <a class="text-blue-500 hover:underline" href="{{ path_for(terug) }}">&larr; {{ _("Alle activiteiten") if terug == "/activiteiten" else _("Archief") }}</a>
+</nav>
+<div class="mt-4 md:flex md:gap-8" data-activity-columns>
   <div class="min-w-0 flex-1">
     <div class="flex gap-3 sm:gap-4">
       {% if a.sort_date %}
@@ -85,7 +90,10 @@
     {# De leesbreedte blijft: een regel over de volle schermbreedte leest slecht.
        Als variabele (was `max-w-2xl`, dezelfde 42rem), zodat het blok hierboven
        ze kan optellen in plaats van ze over te typen (#1143). #}
-    <div class="mt-5 text-base md:text-sm text-ink whitespace-pre-line max-w-[var(--leesbreedte)]">{{ a.description }}</div>
+    {# #1647: the public reading text — 16 px on a line of 24 px at every
+       width — and a blank line in the text is a paragraph (`alineas`: plain
+       text, escaped; no markup of the organiser's reaches the page). #}
+    <div data-activity-description class="mt-5 text-base leading-6 text-ink max-w-[var(--leesbreedte)] [overflow-wrap:anywhere] [&>p+p]:mt-4">{{ a.description | alineas }}</div>
     {% endif %}
 
     {% if not a.is_cancelled %}
@@ -110,5 +118,6 @@
     </a>
   </aside>
   {% endif %}
+</div>
 </div>
 {% endblock %}

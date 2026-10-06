@@ -5,7 +5,7 @@
 <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
 <span class="flex flex-wrap items-center gap-3 min-w-0">
 <h1 tabindex="-1" class="public-form-title">Mijn gezin</h1>
-<span data-page-badge><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">Bewerken</span></span>
+<span data-page-badge><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">Bewerken</span></span>
 </span>
 </div>
 <p class="mt-2 text-base leading-6 text-ink-soft">Pas de gegevens van je gezin aan. Je bewaart alles samen met Opslaan.</p>
@@ -70,7 +70,7 @@
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor portaal-hoofd@example.com"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
@@ -93,7 +93,7 @@
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0" hidden><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0" hidden><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
@@ -214,7 +214,7 @@
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
@@ -237,7 +237,7 @@
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0" hidden><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0" hidden><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
@@ -325,7 +325,7 @@
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
@@ -348,7 +348,7 @@
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0" hidden><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0" hidden><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
@@ -445,7 +445,7 @@
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
@@ -468,7 +468,7 @@
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0" hidden><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0" hidden><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>

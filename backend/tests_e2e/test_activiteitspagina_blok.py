@@ -143,7 +143,7 @@ def test_de_affiche_sluit_aan_op_de_tekst(page, activiteit_met_affiche):
     page.goto(f"/activiteiten/{activiteit_met_affiche}")
     pagina_klaar(page)
 
-    omschrijving = page.locator("div.whitespace-pre-line").first
+    omschrijving = page.locator("[data-activity-description]").first
     affiche = page.locator("aside").first
     if affiche.count() == 0:
         _ontbreekt("deze activiteit toont geen affiche")
@@ -167,7 +167,7 @@ def test_op_een_telefoon_staat_de_affiche_boven_de_tekst(page, activiteit_met_af
     expect(page.locator("aside"), "de rechterkolom hoort op een telefoon weg").to_be_hidden()
 
     beeld = page.locator("a[target='_blank'] img").first
-    omschrijving = page.locator("div.whitespace-pre-line").first
+    omschrijving = page.locator("[data-activity-description]").first
     expect(beeld, "de affiche staat niet op de telefoonweergave").to_be_visible()
     assert beeld.bounding_box()["y"] < omschrijving.bounding_box()["y"], (
         "de affiche staat niet meer boven de omschrijving"
