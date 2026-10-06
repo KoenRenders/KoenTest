@@ -125,8 +125,8 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R6 | One product can have different prices over time; at any moment it is clear what the price of an article is. | Must *(proposed)* | Koen, 6 Oct 2026 | "maybe overdone now, but in time price setting will matter" |
 | R7 | Stock is kept per location: which articles are in stock, and how many, at which place. | Must *(proposed)* | Koen, 6 Oct 2026 | today one location: a volunteer's home serves as the warehouse of Raak Millegem |
 | R8 | The value of the stock can be known. | Won't *(now)* | Koen, 6 Oct 2026 | stock valuation is for later; what is built now must not stand in its way |
-| R9 | Where inside a location an article lies — which rack, which shelf. | Won't | Koen, 6 Oct 2026 | no warehouse management |
-| R10 | Barcodes on articles, and scanning them. | Won't | Koen, 6 Oct 2026 | |
+| R9 | Warehouse management: where inside a location an article lies — which rack, which shelf — and barcodes on articles, with scanning. | Won't | Koen, 6 Oct 2026 | barcodes added as R10 the same day |
+| R10 | *Merged into R9.* | — | Koen, 6 Oct 2026 | the number stays empty, so later references do not shift |
 | R11 | Everyone can buy, members and non-members; a member pays the member price where the article has one — the same principle as registering for an activity. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R12 | The portal arranges how the buyer gets the article — pick-up, bringing it, trying it on first. | Won't | Koen, 6 Oct 2026 | all three stay possible, by agreement between buyer and seller, outside the portal |
 | R13 | An order reserves its articles the moment it is placed: what is reserved cannot be sold again. The stock itself only goes down when the article has left the warehouse — when it is delivered. A reservation is cancelled when the buyer withdraws, exchanges for another article, or the payment fails; the article is then free to sell again. | Must *(proposed)* | Koen, 6 Oct 2026 | replaces "stock is taken at the order" of the same day (Q16) |
