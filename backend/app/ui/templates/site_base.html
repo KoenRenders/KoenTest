@@ -126,7 +126,10 @@
 </head>
 {# hx-boost (#634): zie admin_base voor de redenering. De publieke schil boost op
    dezelfde manier; links naar de andere schil (/admin) en /afmelden zetten het uit. #}
-<body class="bg-ground min-h-screen text-ink" data-shell="site" hx-boost="true"
+{# #1622: a tenant's own brand and accent colour, as the tokens the stylesheet
+   reads (built from numbers in `tenant_config.site_color_style`); without a
+   setting no style and the palette of `build-css.sh` stands. #}
+<body class="bg-ground min-h-screen text-ink" data-shell="site"{% if site_color_style %} style="{{ site_color_style }}"{% endif %} hx-boost="true"
       hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'
       x-data="{ menu: false }" @keydown.escape.window="if (menu) { menu = false; $nextTick(() => $refs.menuButton.focus()) }">
   {# The environment banner (#464) stands ABOVE the header in the document flow
@@ -264,25 +267,34 @@
       {% if nieuwsbrief_inschrijven or sociale_links or sponsors %}
       <div class="site-footer-row" data-footer-row>
         {# The newsletter's one call (it left the home page, where it was a text
-           link since 19 September 2026): the heading, the sentence, the button. #}
+           link since 19 September 2026): the heading and the button. #1647
+           (Koen, 6 October 2026; CR-11 Q82): the heading is the word
+           "Nieuwsbrief" — no site name — and the sentence under it is gone
+           from the footer (the newsletter's own page says it), so the three
+           columns read heading above content on one line. #}
         {% if nieuwsbrief_inschrijven %}
         <section data-footer-newsletter>
-          <h2>{{ newsletter_heading }}</h2>
-          <p class="text-ink-soft mb-4">{{ _("Af en toe een mail met wat er bij ons te beleven valt.") }}</p>
+          <h2>{{ _("Nieuwsbrief") }}</h2>
+          {# The one yellow call, in the kit's SMALL size (#1647, Q82; end state
+             §2.5): the kit's button, variant `accent`, size `sm` — 14 px on a
+             desktop, less padding, 44 px to touch on a phone — at the height
+             of a control (40 px) and in medium weight. #}
           <a id="nb-voet-link" href="{{ path_for('/nieuwsbrief') }}"
-             class="inline-flex items-center gap-2 min-h-11 px-4 rounded-lg font-semibold bg-[rgb(var(--c-accent))] text-[rgb(var(--c-on-accent))] hover:no-underline hover:shadow-[inset_0_0_0_1px_rgb(var(--c-on-accent))]">{{ _("Aanmelden") }}</a>
+             class="{{ ui.btn_class('accent', 'sm') }} md:h-10 !font-medium">{{ _("Aanmelden") }}</a>
         </section>
         {% endif %}
         {# #945: de links komen uit `contact_details` en zijn een lijst; zonder
            eigen icoon valt een netwerk terug op het generieke link-glyph. Icons of
-           24 px in targets of 44 px, `ink-soft`, the brand on hover. #}
+           24 px in targets of 44 px, `ink-soft`, the brand on hover and focus.
+           #1647: no line, no background and no frame around an icon — only
+           the icon; the focus ring stays. #}
         {% if sociale_links %}
         <section data-footer-social>
           <h2>{{ _("Volg ons") }}</h2>
           <div class="flex flex-wrap gap-2">
             {% for link in sociale_links %}
             <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ link.label }}"
-               class="grid place-items-center w-11 h-11 rounded-lg border border-line text-ink-soft hover:text-blue-700 hover:border-blue-200 hover:bg-blue-50">
+               class="grid place-items-center w-11 h-11 rounded-lg text-ink-soft hover:text-blue-700 focus-visible:text-blue-700 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-focus">
               {% if link.code in social_icons %}{{ social_icons[link.code]|safe }}{% else %}
               <svg viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6" aria-hidden="true"><path d="M10.6 13.4a1 1 0 001.4 0l3.5-3.5a3 3 0 10-4.2-4.3l-1 1a1 1 0 101.4 1.5l1-1a1 1 0 111.4 1.4l-3.5 3.5a1 1 0 000 1.4zm2.8-2.8a1 1 0 00-1.4 0l-3.5 3.5a3 3 0 104.2 4.3l1-1a1 1 0 10-1.4-1.5l-1 1a1 1 0 11-1.4-1.4l3.5-3.5a1 1 0 000-1.4z"/></svg>
               {% endif %}
@@ -292,7 +304,8 @@
         </section>
         {% endif %}
         {# #1057: only the logos ticked for the footer; each in at most
-           144 × 64 px, never on yellow. #}
+           144 × 64 px, never on yellow. #1647: the picture alone — no line and
+           no frame — 12 px apart; the link to the sponsor stays. #}
         {% if sponsors %}
         <section data-footer-sponsors>
           <h2>{{ sponsors_kop }}</h2>
@@ -307,11 +320,12 @@
         {% endif %}
       </div>
       {% endif %}
-      {# The legal line: © year and name, then what the organisation has —
-         address, e-mail, phone, account number — and the pages that carry "Toon
-         in de voettekst" (#1569). A detail that is not filled in is left out
-         with its separator; nothing stands twice. #}
-      <p class="site-legal{{ '' if (nieuwsbrief_inschrijven or sociale_links or sponsors) else ' !mt-0 !border-t-0 !pt-0' }}" data-footer-line>© {{ current_year }} {{ site_name }}
+      {# The legal line: the year and the ORGANISATION's name (#1616: the legal
+         entity behind the site, not the site's own name), then what that
+         organisation has — address, e-mail, phone, account number — and the
+         pages that carry "Toon in de voettekst" (#1569). A detail that is not
+         filled in is left out with its separator; nothing stands twice. #}
+      <p class="site-legal{{ '' if (nieuwsbrief_inschrijven or sociale_links or sponsors) else ' !mt-0 !border-t-0 !pt-0' }}" data-footer-line>© {{ current_year }} {{ legal_name }}
         {%- for part in legal_parts %} · {% if part.href %}<a href="{{ part.href }}" data-legal="{{ part.kind }}">{{ part.text }}</a>{% else %}<span data-legal="{{ part.kind }}">{{ part.text }}</span>{% endif %}{% endfor %}
         {%- for p in footer_pages|default([]) %} · <a href="{{ path_for('/' ~ p.slug) }}" data-footer-page>{{ p.title }}</a>{% endfor %}</p>
     </div>

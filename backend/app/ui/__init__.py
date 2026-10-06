@@ -123,6 +123,28 @@ def _maandkort(d) -> str:
 templates.env.filters["maandkort"] = _maandkort
 
 
+def _paragraphs(text: str | None):
+    """Plain text as paragraphs (#1647): a blank line starts a paragraph, a
+    single line break is a line break. The text is ESCAPED first — whatever it
+    holds reaches the page as text, never as markup — and only then gets the
+    `<p>` and `<br>` this function writes itself."""
+    import re as _re
+
+    from markupsafe import Markup, escape
+
+    blocks = [b.strip() for b in _re.split(r"\n\s*\n", (text or "").replace("\r\n", "\n"))]
+    return Markup("").join(
+        Markup("<p>")
+        + Markup("<br>").join(escape(line) for line in block.split("\n"))
+        + Markup("</p>")
+        for block in blocks
+        if block
+    )
+
+
+templates.env.filters["alineas"] = _paragraphs
+
+
 # Geldbedragen in nl-BE-notatie (#735): `{{ bedrag|geld }}` → "35,00". Het euroteken
 # staat in de sjablonen, zodat de opmaak eromheen (kleur, uitlijning) daar blijft.
 from app.kernel.geld import bedrag as _bedrag  # noqa: E402
@@ -1207,6 +1229,8 @@ def site_context(db, request=None) -> dict:
     from app.config import settings
     from app.kernel.tenant_config import (
         get_setting,
+        site_color_style,
+        site_name_default,
         tenant_display_name,
         tenant_site_header_color,
         umami_tracking,
@@ -1227,12 +1251,15 @@ def site_context(db, request=None) -> dict:
         # what a module that is off lists or serves is not there.
         "public_nav": _public_nav("public_items"),
         "member_nav": _public_nav("member_items"),
-        # #1588: the legal line's parts, and the newsletter column's heading.
-        # #1606 (Koen, 5 October 2026): always "Nieuws van <the site's name>"
-        # (#1546) — no longer "Nieuws uit <plaats>" where the organisation has a
-        # town: the newsletter is the site's, not the town's.
+        # #1588: the legal line's parts. (The newsletter column's heading is
+        # the word "Nieuwsbrief" in the shell since #1647; "Nieuws van <the
+        # site's name>" of #1606 is gone, with its key here.)
         "legal_parts": legal_parts(footer_organisation),
-        "newsletter_heading": _("Nieuws van %(name)s") % {"name": tenant_display_name(db)},
+        # #1616 (Koen, 5 October 2026): the legal line names the ORGANISATION
+        # behind the site (#1550), not the site — the address and the numbers
+        # after it are that organisation's. Everything else that names the site
+        # keeps `site_name` (#1546).
+        "legal_name": site_name_default(db),
         # #1473: the address comes from media; the footer writes none itself.
         "sponsors": [
             {"title": s.title, "link_url": s.link_url, "url": media_url(s.id)} for s in sponsors
@@ -1266,6 +1293,9 @@ def site_context(db, request=None) -> dict:
         # #992: the public header's own colour, or None for the shell's.
         # Validated again on read, so it can go into a style attribute.
         "site_header_color": tenant_site_header_color(db),
+        # #1622: the tokens of the tenant's own brand and accent colour, for
+        # the body's style; "" = the stylesheet's palette.
+        "site_color_style": site_color_style(db),
         # Het logo van de vereniging (#258), als het er is: de header toont het
         # in plaats van het ingetypte woordmerk, en de vergader-PDF gebruikt
         # hetzelfde logo. Eén bron, twee afnemers — daarom staat het bij de

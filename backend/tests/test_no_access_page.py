@@ -118,7 +118,9 @@ def test_a_fragment_a_write_and_a_json_request_keep_the_plain_403(client, db_ses
     plain = {"detail": "Geen toegang"}
     fragment = client.get("/admin/activiteiten", headers={**BROWSER, "HX-Request": "true"})
     assert fragment.status_code == 403 and fragment.json() == plain
-    write = client.post("/admin/activiteiten", headers={**BROWSER, **headers}, data={"name": "x"})
+    write = client.post(
+        "/admin/activiteiten/nieuw", headers={**BROWSER, **headers}, data={"name": "x"}
+    )
     assert write.status_code == 403 and write.json() == plain
     json_client = client.get("/admin/activiteiten", headers={"Accept": "application/json"})
     assert json_client.status_code == 403 and json_client.json() == plain

@@ -2,9 +2,15 @@
 
 Empty, the site shows the name of the organisation behind it (#1550): its own
 row by default, its account when the operator pointed it there. Filled in, the
-site's own name wins in the header wordmark, the tab title, the footer's "©",
-the list of sites (#1543) and the mail sender's name — all of which read
-`tenant_display_name`. The field shows the fallback name as its placeholder.
+site's own name wins in the header wordmark, the tab title, the list of sites
+(#1543) and the mail sender's name — all of which read `tenant_display_name`.
+The field shows the fallback name as its placeholder.
+
+#1616 (Koen, 5 October 2026): the footer's legal line is NOT one of those
+places. It names the organisation behind the site, whose address and numbers
+follow on that line, also when the site carries a name of its own. Red against
+master `3f1525a2`: the line read "Merkzaak Tien" where "Account Tien" is
+expected.
 
 Red against master: there was no field and no column; the site always showed its
 own organisation row's name.
@@ -90,16 +96,16 @@ def test_filled_in_the_sites_own_name_wins_and_stays(client, db_session):
     assert saved.status_code == 200, saved.text[-300:]
     shown = _shown(client, site.code)
     print("MEASURE filled", shown)
-    assert shown == {
-        "title": shown["title"],
-        "wordmark": "Merkzaak Tien",
-        "footer": "Merkzaak Tien",
-    }
+    # #1616: the site names itself; the legal line names the organisation.
+    assert shown["footer"] == "Account Tien", f"the legal line reads {shown['footer']!r}"
+    assert shown["wordmark"] == "Merkzaak Tien"
     assert shown["title"].startswith("Merkzaak Tien")
 
     account.name = "Account Tien Hernoemd"
     db_session.commit()
-    assert _shown(client, site.code)["footer"] == "Merkzaak Tien", "its own name stays"
+    after = _shown(client, site.code)
+    assert after["wordmark"] == "Merkzaak Tien", "its own name stays"
+    assert after["footer"] == "Account Tien Hernoemd", "the legal line follows the organisation"
     from app.kernel.tenant_config import tenant_display_name
 
     assert tenant_display_name(db_session, site.id) == "Merkzaak Tien", "the mails and the list"

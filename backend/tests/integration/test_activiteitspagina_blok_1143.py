@@ -84,10 +84,18 @@ def _activiteit(db, naam: str, *, met_affiche: bool, omschrijving: str = "Tekst.
 
 
 def _rij(html: str) -> str:
-    """De openingstag van de rij met de twee kolommen."""
+    """De openingstags van het blok en van de rij met de twee kolommen.
+
+    Since #1647 the block's width and centring stand on a wrapper around the
+    way back AND the two columns (the way back moved onto the content's left
+    line); the row keeps `md:flex` and its gap. Both tags, so every class the
+    tests below ask for is looked up where it stands now."""
+    blok = re.search(r'<div data-activity-page class="[^"]*"', html)
+    assert blok, "het blok van de activiteitspagina is niet gevonden"
     treffer = re.search(r'<div class="mt-4 md:flex[^"]*"', html)
     assert treffer, "de rij met de twee kolommen is niet gevonden"
-    return treffer.group(0)
+    assert html.index(blok.group(0)) < html.index(treffer.group(0)), "de rij staat buiten het blok"
+    return blok.group(0) + " " + treffer.group(0)
 
 
 # ── 1. Het blok staat gecentreerd, en zijn breedte is afgeleid ───────────────
@@ -151,7 +159,9 @@ def test_de_leesbreedte_van_de_omschrijving_is_ongewijzigd(client, db_session):
     )
     html = client.get(f"/activiteiten/{a.id}").text
 
-    omschrijving = re.search(r'<div class="mt-5 [^"]*">Een avond', html)
+    omschrijving = re.search(
+        r'<div data-activity-description class="mt-5 [^"]*"><p>Een avond', html
+    )
     assert omschrijving, "de omschrijving is niet gevonden"
     assert "max-w-[var(--leesbreedte)]" in omschrijving.group(0)
     assert "[--leesbreedte:42rem]" in _rij(html), "42rem = de oude max-w-2xl"
@@ -188,7 +198,7 @@ def test_op_mobiel_blijft_de_affiche_boven_de_omschrijving(client, db_session):
     # Het mobiele beeld staat vóór de omschrijving in de bron, en is op een breed
     # scherm verborgen (`md:hidden`); de rechterkolom is het omgekeerde.
     mobiel = html.index("md:hidden")
-    omschrijving = html.index("mt-5 text-base md:text-sm text-ink")
+    omschrijving = html.index("data-activity-description")
     assert mobiel < omschrijving, "de affiche staat niet meer boven de omschrijving"
     assert "hidden md:block" in html, "de rechterkolom is niet meer md-only"
 

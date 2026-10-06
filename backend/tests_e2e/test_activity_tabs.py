@@ -56,19 +56,17 @@ _BOXES = """() => {
   };
 }"""
 
-_OPEN = """() => [...document.querySelectorAll('tr[data-row-detail]')]
-  .filter(e => e.checkVisibility()).map(e => e.id.replace('row-detail-', ''))"""
-
-
-def _expect_open(page, keys: list) -> None:
-    """The unfolded rows are exactly `keys` — waited for, because Alpine shows
-    and hides a row a tick after the click."""
-    try:
-        page.wait_for_function(
-            f"keys => JSON.stringify(({_OPEN})()) === JSON.stringify(keys)", arg=keys, timeout=5000
-        )
-    except Exception:
-        raise AssertionError(f"open rows {page.evaluate(_OPEN)}, expected {keys}") from None
+#: What an unfolding row left in the page (#1636: none of it may be there).
+_DISCLOSURES = """() => document.querySelectorAll(
+  '[data-row-toggle], tr[data-row-detail], [data-row-part], [data-table-frame] details').length"""
+_ROW = """(row) => { const r = e => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top + scrollY), Math.round(b.width), Math.round(b.height)]; };
+  const cell = n => row.querySelector(`[data-cell="${n}"]`);
+  const shown = n => { const c = n === 'balance' ? row.querySelector('[data-balance]') : cell(n); return !!c && c.checkVisibility(); };
+  return {row: r(row), name: r(row.querySelector('[data-row-link]')),
+          shown: Object.fromEntries(['name', 'context', 'date', 'more', 'amount', 'balance', 'status', 'actions'].map(n => [n, shown(n)])),
+          stacked: row.querySelector('[data-stacked-balance]') ? row.querySelector('[data-stacked-balance]').checkVisibility() : null,
+          balance_colour: getComputedStyle(row.querySelector('[data-balance] span')).color,
+          page: [document.documentElement.scrollWidth, innerWidth]}; }"""
 
 
 @pytest.fixture(scope="module")
@@ -154,46 +152,52 @@ def test_on_a_phone_the_summary_is_a_strip_under_the_tabs(browser, activity):
         assert tab["first_row"]["bottom"] <= tab["height"], (name, tab)
 
 
-def test_one_row_is_open_at_a_time_and_a_group_keeps_what_was_open(browser, activity):
+def test_a_row_is_the_way_in_and_a_group_still_collapses(browser, activity):
+    """#1636. Red against master: the click on a row unfolded it and the page
+    stayed; four traces of a disclosure per row."""
     page = _page(browser, (1440, 1080))
-    page.goto(activity + "/inschrijvingen")
+    tab = activity + "/inschrijvingen"
+    page.goto(tab)
     pagina_klaar(page)
-    toggles = page.locator("[data-row-toggle]")
-    assert toggles.count() >= 2, "the seeded activity needs two registrations"
-    first, second = (toggles.nth(i).get_attribute("data-row-toggle") for i in (0, 1))
-    _expect_open(page, [])
+    rows = page.locator("tr[data-row]")
+    assert rows.count() >= 2, "the seeded activity needs two registrations"
+    assert page.evaluate(_DISCLOSURES) == 0
+    first = rows.nth(0)
+    key = first.get_attribute("data-row-key")
+    m = first.evaluate(_ROW)
+    y_first = m["row"][1]
+    print("MEASURE registrations row 1440", m)
+    # Seven columns of data and the actions, all on one line at 1 440 — and the
+    # name keeps room to read (with the six-column widths it was left 13 px).
+    assert all(m["shown"].values()), m["shown"]
+    assert m["page"][0] == m["page"][1]
+    assert m["name"][2] >= 80 and m["row"][3] <= 90, f"the row is squeezed: {m['name']}, {m['row']}"
+    assert y_first < 500, f"the first row starts at y {y_first}"
 
-    toggles.nth(0).click()
-    _expect_open(page, [first])
-    assert toggles.nth(0).get_attribute("aria-expanded") == "true"
-    # The unfolded row: its parts side by side, and nothing that edits.
-    detail = page.locator(f"#row-detail-{first}")
-    tops = detail.locator("[data-row-part]").evaluate_all(
-        "els => els.map(e => Math.round(e.getBoundingClientRect().top))"
-    )
-    assert len(tops) == 4 and len(set(tops)) == 1, tops
-    assert detail.locator("button, form, input").count() == 0
-    assert detail.get_by_role("link", name="Inschrijving openen").count() == 1
+    # The row's `⋯`: the jumps. It opens without leaving the page.
+    first.locator("[data-row-menu-trigger]").click()
+    menu = first.locator("[data-row-menu]")
+    menu.wait_for(state="visible")
+    items = [t.strip() for t in menu.locator('[role="menuitem"]').all_inner_texts()]
+    assert items[:2] == ["Inschrijving openen", "Betaling openen"], items
+    assert page.url.endswith("/inschrijvingen")
+    page.keyboard.press("Escape")
+    menu.wait_for(state="hidden")
 
-    # A click anywhere on another row — its date — opens that one and closes the first.
-    # (`force`: the toggle's click area lies over the cell, which is the point.)
-    page.locator("tr[data-row]").nth(1).locator('[data-cell="date"]').click(force=True)
-    _expect_open(page, [second])
-    assert toggles.nth(0).get_attribute("aria-expanded") == "false"
-
-    # The group collapses: its rows and the open one are hidden; open again, the
-    # same row is still unfolded.
+    # The group collapses and shows its rows again.
     group = page.locator("[data-group-toggle]").first
     group.click()
     assert group.get_attribute("aria-expanded") == "false"
-    _expect_open(page, [])
-    assert page.locator("tr[data-row]").first.is_hidden()
+    assert first.is_hidden()
     group.click()
-    _expect_open(page, [second])
+    first.wait_for(state="visible")
 
-    # The same toggle again closes the row.
-    toggles.nth(1).click()
-    _expect_open(page, [])
+    # A click anywhere on the row — its date — opens the registration's page.
+    # (`force`: the link's click area lies over the cell, which is the point.)
+    first.locator('[data-cell="date"]').click(force=True)
+    page.wait_for_url(lambda url: f"/admin/inschrijvingen/{key}" in url)
+    pagina_klaar(page)
+    assert "rij%3D" + key in page.url or f"rij={key}" in page.url
     page.close()
 
 
@@ -201,21 +205,44 @@ def test_the_way_back_from_a_registration_lands_on_its_row(browser, activity):
     page = _page(browser, (1440, 1080))
     page.goto(activity + "/inschrijvingen?sort=-naam")
     pagina_klaar(page)
-    toggle = page.locator("[data-row-toggle]").nth(1)
-    key = toggle.get_attribute("data-row-toggle")
-    toggle.click()
-    page.locator(f"#row-detail-{key}").get_by_role("link", name="Inschrijving openen").click()
+    row = page.locator("tr[data-row]").nth(1)
+    key = row.get_attribute("data-row-key")
+    row.locator("[data-row-link]").click()
+    page.wait_for_url(lambda url: f"/admin/inschrijvingen/{key}" in url)
     pagina_klaar(page)
-    assert f"/admin/inschrijvingen/{key}" in page.url
 
+    # The way back gives the tab as it was left — the sort — and names the row.
     page.locator(f"a[href*='/inschrijvingen?'][href*='rij={key}']").first.click()
     pagina_klaar(page)
     assert page.url.endswith(f"/inschrijvingen?sort=-naam&rij={key}"), page.url
-    _expect_open(page, [key])
+    assert page.evaluate(_DISCLOSURES) == 0
+    # The row it left: in view, its link focused.
     page.wait_for_function(
-        "() => document.activeElement && document.activeElement.dataset.rowToggle"
+        "() => document.activeElement && document.activeElement.hasAttribute('data-row-link')"
     )
-    assert page.evaluate("() => document.activeElement.dataset.rowToggle") == key
+    focused = page.evaluate("() => document.activeElement.closest('tr[data-row]').dataset.rowKey")
+    assert focused == key, f"the focus is on row {focused}, the visitor left row {key}"
+    box = page.locator(f'tr[data-row-key="{key}"]').bounding_box()
+    assert 0 <= box["y"] and box["y"] + box["height"] <= 1080, f"the row is out of view: {box}"
+    page.close()
+
+
+def test_on_a_phone_the_row_is_stacked_with_the_balance_under_the_amount(browser, activity):
+    """#1636: below 900 px a row is stacked as on Betalingen (K2) — the Saldo
+    column goes, and an open balance stands under the amount."""
+    page = _page(browser, (390, 844))
+    page.goto(activity + "/inschrijvingen")
+    pagina_klaar(page)
+    assert page.evaluate(_DISCLOSURES) == 0
+    rows = page.locator("tr[data-row]")
+    measured = [rows.nth(i).evaluate(_ROW) for i in range(rows.count())]
+    print("MEASURE registrations row 390", measured[0])
+    for m in measured:
+        assert m["page"][0] == 390, m["page"]
+        assert m["shown"]["name"] and m["shown"]["amount"] and m["shown"]["status"], m["shown"]
+        assert not m["shown"]["balance"], "the Saldo column is a column of a wide screen"
+    # Where a registration has an open balance, it reads under its amount.
+    assert any(m["stacked"] for m in measured), "no row shows its balance under the amount"
     page.close()
 
 
@@ -223,7 +250,7 @@ def test_the_toolbar_keeps_its_state_in_the_tabs_address(browser, activity):
     page = _page(browser, (1440, 1080))
     page.goto(activity + "/inschrijvingen")
     pagina_klaar(page)
-    names = [n.strip() for n in page.locator("[data-row-toggle]").all_inner_texts()]
+    names = [n.strip() for n in page.locator("[data-row-link]").all_inner_texts()]
     # The second name: the seeded registrations share an e-mail address that
     # holds the first one's name, and the search reads the address too.
     needle = names[1].split()[0]
@@ -231,7 +258,7 @@ def test_the_toolbar_keeps_its_state_in_the_tabs_address(browser, activity):
     page.wait_for_function("() => location.search.includes('q=')")
     htmx_stil(page)
     assert "/inschrijvingen?" in page.url and "/lijst" not in page.url
-    shown = [n.strip() for n in page.locator("[data-row-toggle]").all_inner_texts()]
+    shown = [n.strip() for n in page.locator("[data-row-link]").all_inner_texts()]
     assert shown == [names[1]], shown
     assert page.locator("[data-toolbar-count]").inner_text().strip() == "1–1 van 1"
     # One shell and one record head: the fragment landed in the list holder.
@@ -282,31 +309,37 @@ def test_a_refused_copy_shows_no_check_mark_and_selects_the_address(browser, act
     page.close()
 
 
-def test_an_embedded_booking_unfolds_and_its_action_stays_its_own(browser, activity):
+def test_an_embedded_booking_opens_its_page_and_the_way_back_returns_to_the_tab(browser, activity):
+    """#1636 (Koen's addition): on a record's tab a booking's row opens the
+    booking's page, as on the main list; the way back returns to the tab with
+    its state, to the row it left. Red against master: the click unfolded the
+    row and the page stayed."""
     page = _page(browser, (1440, 1080))
-    page.goto(activity + "/betalingen")
+    tab = activity + "/betalingen"
+    page.goto(tab + "?zicht=alle")
     pagina_klaar(page)
-    before = page.url
+    assert page.evaluate(_DISCLOSURES) == 0
     row = page.locator("tr[data-row]").first
-    key = row.locator("[data-row-toggle]").get_attribute("data-row-toggle")
-    # A click on the amount unfolds the row; the page stays.
-    row.locator("[data-amount]").click(force=True)
-    _expect_open(page, [key])
-    assert page.url == before
-    detail = page.locator(f"#row-detail-{key}")
-    assert detail.locator("[data-row-part]").count() == 2
-    # The row's ⋯ opens its menu and does not fold the row.
+    key = row.get_attribute("data-row-key")
+    # The row's ⋯ opens its menu and the page stays.
     row.locator("[data-row-menu-trigger]").click()
     row.locator("[data-row-menu]").wait_for(state="visible")
-    _expect_open(page, [key])
+    assert "/betalingen" in page.url and f"/betalingen/{key}" not in page.url
     page.keyboard.press("Escape")
 
-    # "Betaling openen" → the booking's page → back on the tab, the row open.
-    detail.get_by_role("link", name="Betaling openen").click()
+    # A click on the amount opens the booking's page.
+    row.locator("[data-amount]").click(force=True)
+    page.wait_for_url(lambda url: f"/admin/betalingen/{key}" in url)
     pagina_klaar(page)
-    assert f"/admin/betalingen/{key}" in page.url
     page.locator("[data-way-back]").click()
     pagina_klaar(page)
-    assert page.url.endswith(f"/betalingen?boeking={key}"), page.url
-    _expect_open(page, [key])
+    assert "/activiteiten/" in page.url and page.url.endswith(f"boeking={key}"), page.url
+    assert "zicht=alle" in page.url, "the tab's state is gone"
+    assert page.evaluate(_DISCLOSURES) == 0
+    page.wait_for_function(
+        "() => document.activeElement && document.activeElement.hasAttribute('data-row-link')"
+    )
+    assert (
+        page.evaluate("() => document.activeElement.closest('tr[data-row]').dataset.rowKey") == key
+    )
     page.close()

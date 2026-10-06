@@ -104,6 +104,11 @@
          that takes "1". #}
       {{ ui.switch(key, label, checked=schakelaars[key].on, on_value=schakelaars[key].on_value,
                    off_value=schakelaars[key].off_value, help=hulp) }}
+      {% elif key in colour_defaults %}
+      {# #1643: the three colours of the site's brand file — the header, the
+         brand, the accent — on the kit's ONE colour field: a sample beside
+         the input, the standard colour while the field is empty. #}
+      {{ ui.field(key, label, kind="color", value=waarden[key], placeholder=colour_defaults[key], help=hulp) }}
       {% else %}
       <div>
         {{ ui.label(label, key) }}

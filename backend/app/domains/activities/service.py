@@ -31,6 +31,7 @@ from app.domains.activities.models import (
     ActivityDate,
     ActivityOrganiser,
     ActivityProduct,
+    ActivityStatus,
     ActivitySubRegistration,
     Registration,
     RegistrationHistory,
@@ -418,12 +419,20 @@ def _add_activity(
     actor: str | None,
     slug: str | None,
     action: str,
+    board_notes: str | None = None,
+    target_audience: str | None = None,
+    status: ActivityStatus | None = None,
 ) -> Activity:
     """Add an activity and its dates, with their history, WITHOUT committing.
 
     `create_activity` commits right after; `copy_activity` (#1397) adds the
     organisers first, so the copy is one transaction. A rule violation on a date
     row rolls back here, as before.
+
+    `board_notes`, `target_audience` and `status` are for the fiche that creates
+    (#1649): everything the form carries goes into the one row of history that
+    says "created". Without a `status` the model's own default holds (published,
+    as the JSON API creates).
     """
     from app.domains.audit.api import snapshot_activity, snapshot_activity_date
 
@@ -436,6 +445,7 @@ def _add_activity(
         slug = voorstel if voorstel and slug_is_vrij(db, voorstel) else None
     else:
         slug = _controleer_slug(db, slug)
+    _check_audience(target_audience)
     activity = Activity(
         name=name,
         location=location,
@@ -443,7 +453,11 @@ def _add_activity(
         description=description,
         members_only=bool(members_only),
         slug=slug,
+        board_notes=board_notes,
+        target_audience=target_audience,
     )
+    if status is not None:
+        activity.status = status
     db.add(activity)
     db.flush()
     snapshot_activity(
@@ -894,6 +908,18 @@ def update_activity(
     return activity
 
 
+def _check_audience(code: str | None) -> None:
+    """#1428: the target audience is a code of the list, or empty ("niet
+    ingevuld"). One place, for the update and for the creation (#1649)."""
+    if code is None:
+        return
+    from app.domains.activities.codes import TARGET_AUDIENCE_CODES
+    from app.i18n import _ as vertaal
+
+    if code not in {c.code for c in TARGET_AUDIENCE_CODES}:
+        raise ActiviteitFout(vertaal("Onbekend doelpubliek."))
+
+
 def apply_activity_update(
     db: Session, activity: Activity, velden: dict, *, actor: str | None = None
 ) -> None:
@@ -908,13 +934,7 @@ def apply_activity_update(
     # het merkt: wie op zo'n link klikt is geen bestuurder.
     if "slug" in velden:
         velden = {**velden, "slug": _controleer_slug(db, velden["slug"], behalve_id=activity_id)}
-    if velden.get("target_audience") is not None:
-        from app.domains.activities.codes import TARGET_AUDIENCE_CODES
-        from app.i18n import _ as vertaal
-
-        # #1428: a code of the list, or empty ("niet ingevuld").
-        if velden["target_audience"] not in {c.code for c in TARGET_AUDIENCE_CODES}:
-            raise ActiviteitFout(vertaal("Onbekend doelpubliek."))
+    _check_audience(velden.get("target_audience"))
     for veld, waarde in velden.items():
         setattr(activity, veld, waarde)
     snapshot_activity(

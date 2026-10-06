@@ -270,7 +270,7 @@ COLUMN_MODES = ("auto", "show", "hide")
 
 
 def _row(
-    rec, return_url: str, may_mutate: bool, *, is_context=False, is_extra=False, unfolds=False
+    rec, return_url: str, may_mutate: bool, *, is_context=False, is_extra=False, on_tab=False
 ) -> dict:
     """One row of the payments table (K2, #1556): the record's figures, where the
     row leads, the context as a reference, the one visible action and the menu.
@@ -280,10 +280,10 @@ def _row(
     the menu — is opened with the list AND this booking as its origin
     (`boeking=`), so its way back says "Betaling van <naam>" (#1557).
 
-    `unfolds` (K6, #1560): on a record's tab the row does not open a page, it
-    unfolds in place with "Betaling openen ↗" (P8). The booking's page then
-    leads back to the tab WITH the booking named, so the tab opens that row
-    again — the way back lands on the row it left.
+    `on_tab` (K6, #1560; #1636): on a record's tab the row opens the booking's
+    page too — no row unfolds (Q75). The page then leads back to the tab WITH
+    the booking named, so the way back lands on the row it left: in view, its
+    link focused.
     """
     from urllib.parse import quote
 
@@ -292,7 +292,7 @@ def _row(
     from_booking = quote(
         f"{return_url}{'&' if '?' in return_url else '?'}{BOOKING_PARAM}={rec.id}", safe="/"
     )
-    page = f"{BOOKINGS}/{rec.id}?terug={from_booking if unfolds else back}"
+    page = f"{BOOKINGS}/{rec.id}?terug={from_booking if on_tab else back}"
     context_href = None
     if rec.activity_id:
         context_href = f"/admin/activiteiten/{rec.activity_id}?terug={from_booking}"
@@ -336,7 +336,6 @@ def _row(
         "context_href": context_href,
         "action": action,
         "menu": menu,
-        "unfolds": unfolds,
         "key": str(rec.id),
     }
 
@@ -663,9 +662,9 @@ def _view(
                     may_mutate,
                     is_context=k["is_context"],
                     is_extra=k["is_extra"],
-                    unfolds=stil,
+                    on_tab=stil,
                 ),
-                [_row(x, return_url, may_mutate, unfolds=stil) for x in k["refunds"]],
+                [_row(x, return_url, may_mutate, on_tab=stil) for x in k["refunds"]],
             )
             for k in groep["kaarten"]
         ]

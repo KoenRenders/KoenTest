@@ -151,11 +151,29 @@ cat > "$TMP/in.css" << 'CSS'
      height 1.15. On the heading's tag and not in a template: a page writes
      `<h1>`, `<h2>`, `<h3>` and the shell sizes them, so no public page can
      come to differ. A section of a FORM keeps the kit's head (16 px, its own
-     line height): that is a field group's label, the same in both shells. */
+     line height): that is a field group's label, the same in both shells.
+
+     #1621 (Koen, 5 October 2026): a title INSIDE a card (`ui.card`, the
+     `.rounded-2xl` box) is the scale's CARD title — 18 px (CR-11 Q61) — on
+     Tailwind's line of 28 px, at every width. Measured on master: the `h2`
+     rule above made an activity card's title a section head, 24 px on a line
+     of 27.6 px, so it stood tight on its dates; v2.12.0 rendered 20 px on a
+     phone and 18 px from 768, both on 28 px.
+
+     #1642 (Koen, 5 October 2026; CR-11 Q78, end state §5.3): 40 px (32 on a
+     phone) is the size of a page title ON THE PAGE'S GROUND. A heading inside
+     a card is the card's: an `h1` there is 24 px (the sign-in page, the
+     expired link, the contact form), an `h2` or `h3` 18 px. ONE mechanism for
+     the three levels — "inside a card" — where #1621 had a rule for two of
+     them and left the `h1` a page title. The kit's own title role
+     (`.public-form-title`, the title slot of `public_form_page` and of a
+     flow card) says itself that it is a page title and keeps that size. */
   body[data-shell="site"] :is(h1,h2,h3){font-family:var(--font-brand);font-weight:600;line-height:1.15}
   body[data-shell="site"] #main h1{font-size:32px}
   body[data-shell="site"] #main h2{font-size:24px}
   body[data-shell="site"] #main h3{font-size:18px}
+  body[data-shell="site"] #main .rounded-2xl h1:not(.public-form-title){font-size:24px}
+  body[data-shell="site"] #main .rounded-2xl :is(h2,h3){font-size:18px;line-height:28px}
   @media (min-width:768px){body[data-shell="site"] #main h1{font-size:40px}}
   body[data-shell="site"] #main .form-section :is(h2,h3){font-size:16px;line-height:24px}
   /* The site's name in the header where a tenant has no logo, and the drawer's
@@ -333,12 +351,15 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    that from what stands in it (`:has`), so a save or a cancel — the form back
    in read mode — gives the 768 px column and the card at the right again
    without anybody saying so. Only where the frame has the 1 092 px: with the
-   Assistent's panel open, or on a smaller window, nothing changes. Long text
-   keeps its reading width of 768 px inside the wider column. */
+   Assistent's panel open, or on a smaller window, nothing changes.
+
+   #1635 (Koen, 5 October 2026; CR-11 Q74): every field of full width fills
+   the wider column, a text box included — the width of a field follows its
+   column. #1610 kept `textarea`, `url` and `email` at 768 px here, which left
+   Omschrijving and Interne nota with a gap of 290 px at their right. */
 @container record (min-width:1092px){
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1092px)}
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) :is([data-kind="textarea"],[data-kind="url"],[data-kind="email"]){max-width:768px}
 }
 .summary-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;align-items:center}
 .summary-card [data-summary-state]{grid-column:1;grid-row:1}
@@ -405,12 +426,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .data-table [data-row]:hover{background:rgb(var(--c-surface-2))}
 .data-table [data-stacked-only]{display:none}
 .data-table [data-row-link]::after{content:"";position:absolute;inset:0;z-index:1;cursor:pointer}
-.data-table [data-row-toggle]::after{content:"";position:absolute;inset:0;z-index:1;cursor:pointer}
-.data-table [data-row-toggle]:focus-visible{outline:none}
-.data-table [data-row-toggle]:focus-visible::after{outline:2px solid rgb(var(--c-blue-600));outline-offset:-3px}
-.data-table [data-row]:has([data-row-toggle][aria-expanded="true"]){background:rgb(var(--c-blue-50))}
 .data-table tbody[data-collapsed="true"] tr:not([data-group-row]){display:none!important}
-.row-parts{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:16px 24px}
 .data-table [data-row-link]:focus-visible{outline:none}
 .data-table [data-row-link]:focus-visible::after{outline:2px solid rgb(var(--c-blue-600));outline-offset:-3px}
 .data-table [data-above-row]{position:relative;z-index:2}
@@ -434,10 +450,11 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .data-table [data-cell="amount"]{text-align:right}
   .data-table [data-cell="date"]{grid-column:2;grid-row:3;align-self:center}
   .data-table [data-cell="more"]{grid-column:1/-1;grid-row:4}
+  /* #1636: a row with an amount AND a date (a registration): the amount keeps
+     its place beside the status, the date goes under them, the products last. */
+  .data-table tr:has(>[data-cell="amount"])>[data-cell="date"]{grid-column:1/-1;grid-row:4}
+  .data-table tr:has(>[data-cell="amount"])>[data-cell="more"]{grid-row:5}
   .data-table [data-group-row]{align-items:center;padding:0 12px}
-  .data-table tr[data-row-detail]{display:block;padding:0}
-  .data-table tr[data-row-detail]>td{padding:12px;border-left:3px solid rgb(var(--c-brand-ocean))}
-  .row-parts{grid-auto-flow:row}
   .data-table [data-sum] [data-cell="context"],.data-table [data-sum] [data-cell="status"],.data-table [data-sum] [data-cell="actions"]{display:none!important}
   .data-table [data-sum] [data-cell="amount"]{grid-row:1}
 }
@@ -567,6 +584,13 @@ html.nav-rail .nav-when-wide{display:none}
    account). The environment banner stands above it in the document flow and
    scrolls away.
 
+   The LOGO is as high as its row allows — the row minus 2 × 8 px of air, the
+   trade of #1156 (#1621, CR-11 Q69, end state §2.5): 48 px in the rows of 64
+   (a phone, and the first row from 768 px), 64 px in the band of 80 from
+   1 200 px. #1588 had set it to 48 px at every width, 16 px lower than
+   v2.12.0 showed on a desktop. The width follows the image; a very wide logo
+   is drawn smaller inside its box and never pushes the menu button away.
+
    The drawer (below 768 px): 360 px, white, OVER the page — nothing moves —
    with the backdrop under it; the page behind it is inert.
 
@@ -598,8 +622,9 @@ body[data-shell="site"]>main{flex:1 0 auto}
 .site-footer-row h2{font-size:18px;line-height:1.2;margin-bottom:12px;color:rgb(var(--c-ink))}
 .site-legal{margin-top:32px;padding-top:16px;border-top:1px solid rgb(var(--c-line));font-size:14px;line-height:24px;color:rgb(var(--c-ink-soft));overflow-wrap:anywhere}
 .site-legal a{text-decoration:underline;text-underline-offset:4px}
-.site-sponsor{display:flex;align-items:center;justify-content:center;width:144px;height:64px;padding:8px;border:1px solid rgb(var(--c-line));border-radius:6px;background:rgb(var(--c-surface))}
-.site-sponsor img{max-width:100%;max-height:100%;object-fit:contain}
+.site-sponsor{display:flex;align-items:center;max-width:144px;height:64px}
+.site-sponsor img{max-width:144px;max-height:64px;width:auto;height:auto;object-fit:contain}
+.site-sponsor:focus-visible{outline:2px solid rgb(var(--c-focus));outline-offset:2px;border-radius:6px}
 @media (min-width:768px){
   .site-container{width:calc(100% - 48px)}
   .site-header-grid{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:64px 48px;grid-template-areas:"brand account" "pages pages";height:112px}
@@ -613,6 +638,7 @@ body[data-shell="site"]>main{flex:1 0 auto}
 @media (min-width:1200px){
   .site-container{width:calc(100% - 64px)}
   .site-header-grid{grid-template-columns:minmax(0,1fr) auto auto;grid-template-rows:80px;grid-template-areas:"brand pages account";gap:24px;height:80px}
+  .site-brand img{height:64px}
   .site-pages{height:auto}
   .site-footer-row{grid-template-columns:1.3fr .8fr 1fr;gap:48px}
 }

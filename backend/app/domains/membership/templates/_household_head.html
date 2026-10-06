@@ -1,0 +1,16 @@
+{% import "_macros.html" as ui %}
+{% import "_household_rows.html" as rows %}
+{# The main member: a fixed section, first on Word lid and on Mijn gezin (#1632;
+   Koen, 5 October 2026, Q72; end state §2.6). No row of the group Gezinsleden:
+   no fold, no `⋯`, nothing to remove — the rule "the main member stays" (#1603)
+   is the shape of the screen. Set before the include: `group` and `_edit`.
+
+   The form still reads the main member as the first person of the household:
+   `ui.fixed_row` sends the same order field a row of the group carries, so
+   `mdm.household_form` and the one save are untouched. #}
+{% set _p = group.main %}
+{% call ui.section(_("Hoofdlid"), id="hoofdlid", attrs="data-household-main") %}
+  {% if _edit %}{{ ui.fixed_row("h_order", _p.key) }}{% endif %}
+  {{ rows.person_fields(group, _p, _edit, in_row=False) }}
+  <div data-span="full" data-main-emails>{{ rows.email_group(group, _p, _edit) }}</div>
+{% endcall %}

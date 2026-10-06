@@ -29,7 +29,8 @@ SCHERMEN = [
     # #1110: het aanmaakscherm is één formulier met de gedeelde veldenset, dus
     # het eerste veld heet m0_first_name.
     ("/admin/leden", "/admin/leden/nieuw", 'id="m0_first_name"'),
-    ("/admin/activiteiten", "/admin/activiteiten/nieuw", 'id="start_date"'),
+    # #1649: the create screen is the activity's fiche, empty; its first date row.
+    ("/admin/activiteiten", "/admin/activiteiten/nieuw", 'id="d-n1-start_date"'),
     ("/admin/formulieren", "/admin/formulieren/nieuw", 'id="f-title"'),
     ("/admin/paginas", "/admin/paginas/nieuw", 'id="slug"'),
     ("/admin/media", "/admin/media/nieuw", 'id="me-files"'),

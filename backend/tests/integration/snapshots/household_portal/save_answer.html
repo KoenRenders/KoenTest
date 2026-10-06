@@ -15,8 +15,79 @@
 <section data-form-section data-flow-card data-membership-status class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4 text-sm leading-[21px] text-ink">
 <h2 class="text-base font-semibold leading-6 text-ink mb-2">Lidmaatschap</h2>
 <p class="text-base text-ink">
- Je lidmaatschap is geldig tot en met 31-12-2099.
+<span data-membership-valid class="mr-1 align-middle"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Geldig</span></span> Je lidmaatschap is geldig tot en met 31-12-2099.
  </p>
+</section>
+<section data-form-section id="hoofdlid" data-household-main class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+<h2 class="text-base font-semibold leading-6 text-ink mb-4">Hoofdlid</h2>
+<div data-form-grid class="form-grid">
+<div data-field="h.<MAIN>.first_name" data-kind="text" data-span="half" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Voornaam</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Hanne</p>
+</div>
+<div data-field="h.<MAIN>.last_name" data-kind="text" data-span="half" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Achternaam</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Proef</p>
+</div>
+<div data-field="h.<MAIN>.date_of_birth" data-kind="date" data-span="half" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Geboortedatum</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">04-03-1980</p>
+</div>
+<div data-field="h.<MAIN>.gender_code" data-kind="select" data-span="half" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Geslacht</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Vrouw</p>
+</div>
+<div data-field="h.<MAIN>.mobile" data-kind="phone" data-span="half" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Gsm</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">0470 00 00 01</p>
+</div>
+<div data-field="h.<MAIN>.phone" data-kind="phone" data-span="half" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Telefoon</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">—</p>
+</div>
+<div data-span="full" data-main-emails>
+<div data-repeating-group="e_order.<MAIN>" data-variant="simple" data-token="__E__"
+ class="group-child">
+<div class="flex items-center justify-between gap-3 min-h-9">
+<h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
+</div>
+<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
+<div data-group-rows class="group-rows">
+<div data-group-row data-row-key="<CONTACT>" class="group-row group-row--simple group-row--one">
+<div data-row-body class="group-body min-w-0">
+<div data-form-grid class="form-grid">
+<div data-field="e.<CONTACT>.value" data-kind="email" data-span="full" class="min-w-0">
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]"><a href="mailto:portaal-hoofd@example.com" class="text-blue-500 underline">portaal-hoofd@example.com</a></p>
+</div>
+</div>
+</div>
+<span data-row-one-tag class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
+</div>
+</div>
+<p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen e-mailadres.</p>
+</div></div>
+</div>
+</section>
+<section data-form-section id="gezin-adres" class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+<h2 class="text-base font-semibold leading-6 text-ink mb-4">Adres</h2>
+<div data-form-grid class="form-grid">
+<div data-field="address.street" data-kind="text" data-span="half" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Straat</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Andere straat</p>
+</div>
+<div data-field="address.house_number" data-kind="text" data-span="quarter" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Huisnummer</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">9</p>
+</div>
+<div data-field="address.bus_number" data-kind="text" data-span="quarter" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Bus</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">b</p>
+</div>
+<div data-field="address.postal_code" data-kind="select" data-span="full" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Postcode en gemeente</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">2399 · Proefdorp</p>
+</div>
+</div>
 </section>
 <div data-household class="contents" x-data
  @row-added="
@@ -33,70 +104,7 @@
 <h2 class="text-base font-semibold leading-6 text-ink">Gezinsleden</h2>
 </div>
 <div data-group-rows class="group-rows">
-<div data-group-row data-row-key="<MAIN>" class="group-row group-row--composite group-row--fold">
-<div data-row-body class="group-body min-w-0">
-<details data-row-fold class="group-fold" open>
-<summary data-row-title-line class="group-fold-summary">
-<span class="min-w-0">
-<span class="flex flex-wrap items-center gap-x-2 text-base font-semibold leading-6 text-ink [overflow-wrap:anywhere]">
-<span><span data-row-title-prefix>Hoofdlid</span> ·</span>
-<h3 data-row-title="Hanne Proef" class="min-w-0 text-base font-semibold leading-6 [overflow-wrap:anywhere]">Hanne Proef</h3>
-</span>
-<span class="block text-[13px] leading-5 font-normal text-ink-soft">Persoonsgegevens en e-mailadressen</span>
-</span>
-<span class="group-fold-chevron" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
-</summary>
-<span hidden data-relation="HOOFDLID"></span>
-<div data-form-grid class="form-grid">
-<div data-field="h.<MAIN>.first_name" data-kind="text" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Voornaam</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Hanne</p>
-</div>
-<div data-field="h.<MAIN>.last_name" data-kind="text" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Achternaam</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Proef</p>
-</div>
-<div data-field="h.<MAIN>.date_of_birth" data-kind="date" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Geboortedatum</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">04-03-1980</p>
-</div>
-<div data-field="h.<MAIN>.gender_code" data-kind="radio_group" data-span="full" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Geslacht</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Vrouw</p>
-</div>
-<div data-field="h.<MAIN>.mobile" data-kind="phone" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Gsm</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">0470 00 00 01</p>
-</div>
-<div data-field="h.<MAIN>.phone" data-kind="phone" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Telefoon</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">—</p>
-</div>
-</div>
-<div data-repeating-group="e_order.<MAIN>" data-variant="simple" data-token="__E__"
- class="group-child">
-<div class="flex items-center justify-between gap-3 min-h-9">
-<h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
-</div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging.</p>
-<div data-group-rows class="group-rows">
-<div data-group-row data-row-key="<CONTACT>" class="group-row group-row--simple group-row--one">
-<div data-row-body class="group-body min-w-0">
-<div data-form-grid class="form-grid">
-<div data-field="e.<CONTACT>.value" data-kind="email" data-span="full" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">E-mailadres</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]"><a href="mailto:portaal-hoofd@example.com" class="text-blue-500 underline">portaal-hoofd@example.com</a></p>
-</div>
-</div>
-</div>
-<span data-row-one-tag class="shrink-0"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
-</div>
-</div>
-<p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen e-mailadres.</p>
-</div>
-</details>
-</div>
-</div><div data-group-row data-row-key="<NEW-PERSON-1>" class="group-row group-row--composite group-row--fold">
+<div data-group-row data-row-key="<NEW-PERSON-1>" class="group-row group-row--composite group-row--fold">
 <div data-row-body class="group-body min-w-0">
 <details data-row-fold class="group-fold">
 <summary data-row-title-line class="group-fold-summary">
@@ -123,7 +131,7 @@
 <p class="text-sm font-medium leading-[21px] text-ink mb-1">Geboortedatum</p>
 <p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">02-01-2015</p>
 </div>
-<div data-field="h.<NEW-PERSON-1>.gender_code" data-kind="radio_group" data-span="full" class="min-w-0">
+<div data-field="h.<NEW-PERSON-1>.gender_code" data-kind="select" data-span="half" class="min-w-0">
 <p class="text-sm font-medium leading-[21px] text-ink mb-1">Geslacht</p>
 <p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Man</p>
 </div>
@@ -134,25 +142,23 @@
 <div data-field="h.<NEW-PERSON-1>.phone" data-kind="phone" data-span="half" class="min-w-0">
 <p class="text-sm font-medium leading-[21px] text-ink mb-1">Telefoon</p>
 <p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">—</p>
-</div>
-</div>
+</div></div>
 <div data-repeating-group="e_order.<NEW-PERSON-1>" data-variant="simple" data-token="__E__"
  class="group-child">
 <div class="flex items-center justify-between gap-3 min-h-9">
 <h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
 </div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging.</p>
+<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
 <div data-group-rows class="group-rows">
 <div data-group-row data-row-key="<NEW-CONTACT-3>" class="group-row group-row--simple group-row--one">
 <div data-row-body class="group-body min-w-0">
 <div data-form-grid class="form-grid">
 <div data-field="e.<NEW-CONTACT-3>.value" data-kind="email" data-span="full" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">E-mailadres</p>
 <p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]"><a href="mailto:portaal-nieuw@example.com" class="text-blue-500 underline">portaal-nieuw@example.com</a></p>
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 </div>
 </div>
 <p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen e-mailadres.</p>
@@ -186,7 +192,7 @@
 <p class="text-sm font-medium leading-[21px] text-ink mb-1">Geboortedatum</p>
 <p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">08-07-2010</p>
 </div>
-<div data-field="h.<CHILD>.gender_code" data-kind="radio_group" data-span="full" class="min-w-0">
+<div data-field="h.<CHILD>.gender_code" data-kind="select" data-span="half" class="min-w-0">
 <p class="text-sm font-medium leading-[21px] text-ink mb-1">Geslacht</p>
 <p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Vrouw</p>
 </div>
@@ -197,14 +203,13 @@
 <div data-field="h.<CHILD>.phone" data-kind="phone" data-span="half" class="min-w-0">
 <p class="text-sm font-medium leading-[21px] text-ink mb-1">Telefoon</p>
 <p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">—</p>
-</div>
-</div>
+</div></div>
 <div data-repeating-group="e_order.<CHILD>" data-variant="simple" data-token="__E__"
  class="group-child">
 <div class="flex items-center justify-between gap-3 min-h-9">
 <h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
 </div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging.</p>
+<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
 <div data-group-rows class="group-rows">
 </div>
 <p data-group-empty class="text-sm text-ink-soft">Nog geen e-mailadres.</p>
@@ -216,27 +221,6 @@
 <p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen gezinsleden.</p>
 </section>
 </div>
-<section data-form-section id="gezin-adres" class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
-<h2 class="text-base font-semibold leading-6 text-ink mb-4">Adres</h2>
-<div data-form-grid class="form-grid">
-<div data-field="address.street" data-kind="text" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Straat</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Andere straat</p>
-</div>
-<div data-field="address.house_number" data-kind="text" data-span="quarter" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Huisnummer</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">9</p>
-</div>
-<div data-field="address.bus_number" data-kind="text" data-span="quarter" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Bus</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">b</p>
-</div>
-<div data-field="address.postal_code" data-kind="select" data-span="full" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Postcode en gemeente</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">2399 · Proefdorp</p>
-</div>
-</div>
-</section>
 </div>
 </div>
 </div>

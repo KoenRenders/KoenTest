@@ -49,6 +49,7 @@ _GENERAL_PATHS = ("/admin", "/admin/dashboard")
 
 _ACTIVITY = re.compile(r"^/admin/activiteiten/(\d+)(?:/|$)")
 _NEWSLETTER = re.compile(r"^/admin/nieuwsbrieven/(\d+)$")
+_NEW_ACTIVITY = "/admin/activiteiten/nieuw"
 
 
 @dataclass(frozen=True)
@@ -103,12 +104,27 @@ def _general(db: Session, tenant_id: int) -> AssistantContext:
     )
 
 
-def _activity(db: Session, activity_id: int) -> AssistantContext | None:
-    from app.domains.activities.api import get_activity
+def _activity(db: Session, activity_id: int, *, editing: bool = False) -> AssistantContext | None:
+    from app.domains.activities.api import get_activity, proposer_url
 
     activity = get_activity(db, activity_id)
     if activity is None:
         return None
+    if editing:
+        # #1604: while the fiche is being edited, the panel proposes for its
+        # form — name, location, description, date and time. A key of its own:
+        # the address changes from reading to editing, and the panel swaps only
+        # when the key does. Questions about the activity stay in read mode.
+        return AssistantContext(
+            key=f"activity-edit:{activity_id}",
+            available=True,
+            label=_("voorstel voor %(name)s") % {"name": activity.name},
+            post_url=proposer_url(activity_id),
+            suggestions=(
+                _("Schrijf een omschrijving."),
+                _("Stel een betere naam voor."),
+            ),
+        )
     return AssistantContext(
         key=f"activity:{activity_id}",
         available=True,
@@ -244,9 +260,29 @@ def context_for(db: Session, url: str, *, tenant_id: int) -> AssistantContext:
             label="",
             blocked=_("Raakje kent deze gegevens nog niet."),
         )
+    if path == _NEW_ACTIVITY:
+        # #1649: the fiche of an activity that does not exist yet. The proposer
+        # of #1604 fills its empty form; there is nothing to ask questions about.
+        from app.domains.activities.api import NEW_PROPOSER_URL
+
+        return AssistantContext(
+            key="activity-new",
+            available=True,
+            label=_("voorstel voor een nieuwe activiteit"),
+            post_url=NEW_PROPOSER_URL,
+            suggestions=(
+                _("Schaatsen op zondag 8 november van 10 tot 12 uur in de schaatsbaan."),
+                _("Schrijf een omschrijving."),
+            ),
+        )
     record = _ACTIVITY.match(path + "/")
     if record:
-        found = _activity(db, int(record.group(1)))
+        # Only the fiche itself has an edit state; a tab of the record (its
+        # registrations) reads, whatever its query says.
+        on_fiche = path == f"/admin/activiteiten/{record.group(1)}"
+        found = _activity(
+            db, int(record.group(1)), editing=on_fiche and state.get("bewerken") == "1"
+        )
         if found is not None:
             return found
     if path == "/admin/betalingen":

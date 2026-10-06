@@ -79,7 +79,7 @@ def test_the_portal_link_signs_in_and_comes_back_to_the_portal(board_member):
         _set_code(board_member, "424242")
 
         page.fill("input[name=code]", "424242")
-        page.get_by_role("button", name="Aanmelden").click()
+        page.get_by_role("button", name="Inloggen").click()
         page.wait_for_url(BASE + "/leden/gezin")
         pagina_klaar(page)
 

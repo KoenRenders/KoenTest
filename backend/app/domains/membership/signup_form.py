@@ -120,10 +120,9 @@ def signup_from_form(form: Any) -> tuple[Optional[FamilyCreate], list[FieldError
         if index == 0:
             # The main member is who the association writes to and calls.
             if not addresses and not refused_address:
-                first_row = row.emails[0].key if row.emails else None
                 errors.append(
                     FieldError(
-                        f"e.{first_row}.value" if first_row else at,
+                        row.email_field or at,
                         _("E-mailadres is verplicht voor het hoofdgezinslid."),
                     )
                 )

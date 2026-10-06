@@ -71,7 +71,9 @@ FORMER_OVERLAY_SCREENS = (
 CONTROL_MARKERS = (
     "data-stt-target",
     "data-tts-toggle",
-    "$el.style.height = Math.min($el.scrollHeight, 120)",
+    # #1617: the field is sized by the one function in raakje-panel.js; the
+    # partial is the only template that wires it to the field.
+    "raakjeFit($el)",
 )
 
 

@@ -21,6 +21,10 @@ class DesignSystemView(ViewModel):
     #: (naam, waarde) uit de `:root`-blok van de gegenereerde app.css.
     # (naam, hex, komt-van-de-beheerschil) — F27 (#996).
     tokens: list[tuple[str, str, bool]]
+    #: The colours the kit's colour field is shown with (#1643): the public
+    #: shell's own, from `tenant_config.SITE_COLOR_DEFAULTS` — a template writes
+    #: no hex itself.
+    demo_colours: dict[str, str]
     #: (name, value) of the admin shell's radii (#1482): `r-lg` is a control,
     #: `r-xl`/`r-2xl` a card.
     radii: list[tuple[str, str]]

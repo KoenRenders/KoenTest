@@ -5,7 +5,7 @@
 <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
 <span class="flex flex-wrap items-center gap-3 min-w-0">
 <h1 tabindex="-1" class="public-form-title">Mijn gezin</h1>
-<span data-page-badge><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">Bewerken</span></span>
+<span data-page-badge><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">Bewerken</span></span>
 </span>
 </div>
 <p class="mt-2 text-base leading-6 text-ink-soft">Pas de gegevens van je gezin aan. Je bewaart alles samen met Opslaan.</p>
@@ -15,69 +15,30 @@
 <form id="gezin-form" class="contents" data-record-form data-message="#gezin-melding" novalidate
  hx-post="/leden/gezin" hx-target="#gezin-pagina" hx-select="#gezin-pagina"
  hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
-<div data-household class="contents" x-data
- @row-added="
- const mine = $event.target.querySelector('select[name$=&quot;.relation_type&quot;]');
- if (!mine || $<TOKEN> !== 'h_order') return;
- const others = [...$el.querySelectorAll('[data-relation]')].map(m => m.dataset.relation)
- .concat([...$el.querySelectorAll('select[name$=&quot;.relation_type&quot;]')].filter(s => s !== mine).map(s => s.value));
- fetch('/lid-worden/relatie?others=' + encodeURIComponent(others.join(',')))
- .then(answer => answer.ok ? answer.text() : '')
- .then(code => { if (code) { mine.value = code; mine.dispatchEvent(new Event('change', { bubbles: true })); } })">
-<section data-repeating-group="h_order" data-variant="composite" data-token="__H__" id="gezinsleden"
- class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
-<div class="flex items-center justify-between gap-3 min-h-9 mb-2">
-<h2 class="text-base font-semibold leading-6 text-ink">Gezinsleden</h2>
-<button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Gezinslid toevoegen</button>
-</div>
-<div data-group-rows class="group-rows">
-<div data-group-row data-row-key="<MAIN>" class="group-row group-row--composite group-row--edit group-row--fold">
-<input type="hidden" name="h_order" value="<MAIN>" data-row-order>
-<div data-row-body class="group-body min-w-0">
-<details data-row-fold class="group-fold" open>
-<summary data-row-title-line class="group-fold-summary">
-<span class="min-w-0">
-<span class="flex flex-wrap items-center gap-x-2 text-base font-semibold leading-6 text-ink [overflow-wrap:anywhere]">
-<span><span data-row-title-prefix>Hoofdlid</span> ·</span>
-<h3 data-row-title="Hanne Proef" class="min-w-0 text-base font-semibold leading-6 [overflow-wrap:anywhere]">Hanne Proef</h3>
-</span>
-<span class="block text-[13px] leading-5 font-normal text-ink-soft">Persoonsgegevens en e-mailadressen</span>
-</span>
-<span class="group-fold-chevron" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
-</summary>
-<span hidden data-relation="HOOFDLID"></span>
+<section data-form-section id="hoofdlid" data-household-main class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+<h2 class="text-base font-semibold leading-6 text-ink mb-4">Hoofdlid</h2>
 <div data-form-grid class="form-grid">
+<input type="hidden" name="h_order" value="<MAIN>" data-row-order data-row-fixed>
 <div data-field="h.<MAIN>.first_name" data-kind="text" data-span="half" class="min-w-0">
 <label for="h-<MAIN>-first_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Voornaam <span class="text-red-600">*</span></label>
 <input type="text" value="Hanne"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<MAIN>-first_name" name="h.<MAIN>.first_name" required data-row-title-source autocomplete=given-name>
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<MAIN>-first_name" name="h.<MAIN>.first_name" required autocomplete=given-name>
 </div>
 <div data-field="h.<MAIN>.last_name" data-kind="text" data-span="half" class="min-w-0">
 <label for="h-<MAIN>-last_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Achternaam <span class="text-red-600">*</span></label>
 <input type="text" value="Proef"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<MAIN>-last_name" name="h.<MAIN>.last_name" required data-row-title-source autocomplete=family-name>
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<MAIN>-last_name" name="h.<MAIN>.last_name" required autocomplete=family-name>
 </div>
 <div data-field="h.<MAIN>.date_of_birth" data-kind="date" data-span="half" class="min-w-0">
 <label for="h-<MAIN>-date_of_birth" class="block text-sm font-medium leading-[21px] text-ink mb-1">Geboortedatum <span class="text-red-600">*</span></label>
 <input type="date" value="1980-03-04"
  class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<MAIN>-date_of_birth" name="h.<MAIN>.date_of_birth" required >
 </div>
-<div data-field="h.<MAIN>.gender_code" data-kind="radio_group" data-span="full" class="min-w-0">
-<p id="h-<MAIN>-gender_code-label" class="text-sm font-medium leading-[21px] text-ink mb-1">Geslacht <span class="text-red-600">*</span></p>
-<div role="radiogroup" aria-labelledby="h-<MAIN>-gender_code-label" class="grid gap-1">
-<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
-<input type="radio" name="h.<MAIN>.gender_code" value="M" class="mt-0.5 h-[18px] w-[18px] shrink-0">
-<span><span class="font-medium text-ink">Man</span></span>
-</label>
-<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
-<input type="radio" name="h.<MAIN>.gender_code" value="F" class="mt-0.5 h-[18px] w-[18px] shrink-0" checked>
-<span><span class="font-medium text-ink">Vrouw</span></span>
-</label>
-<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
-<input type="radio" name="h.<MAIN>.gender_code" value="X" class="mt-0.5 h-[18px] w-[18px] shrink-0">
-<span><span class="font-medium text-ink">X</span></span>
-</label>
-</div>
+<div data-field="h.<MAIN>.gender_code" data-kind="select" data-span="half" class="min-w-0">
+<label for="h-<MAIN>-gender_code" class="block text-sm font-medium leading-[21px] text-ink mb-1">Geslacht <span class="text-red-600">*</span></label>
+<select class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line pr-2" id="h-<MAIN>-gender_code" name="h.<MAIN>.gender_code" required >
+<option value="">— kies —</option><option value="M">Man</option><option value="F" selected>Vrouw</option><option value="X">X</option>
+</select>
 </div>
 <div data-field="h.<MAIN>.mobile" data-kind="phone" data-span="half" class="min-w-0">
 <label for="h-<MAIN>-mobile" class="block text-sm font-medium leading-[21px] text-ink mb-1">Gsm</label>
@@ -89,19 +50,14 @@
 <input type="tel"
  class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<MAIN>-phone" name="h.<MAIN>.phone" >
 </div>
-</div>
+<div data-span="full" data-main-emails>
 <div data-repeating-group="e_order.<MAIN>" data-variant="simple" data-token="__E__"
  class="group-child">
 <div class="flex items-center justify-between gap-3 min-h-9">
 <h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
 <button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>E-mailadres</button>
 </div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging.</p>
-<div data-group-head aria-hidden="true" class="group-head">
-<div class="form-grid">
-<span data-span="full" class="text-sm font-medium leading-[21px] text-ink">E-mailadres</span>
-</div>
-</div>
+<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
 <input type="hidden" name="e_primary.<MAIN>" value="<CONTACT>" data-group-one>
 <div data-group-rows class="group-rows">
 <div data-group-row data-row-key="<CONTACT>" class="group-row group-row--simple group-row--edit group-row--one">
@@ -109,13 +65,12 @@
 <div data-row-body class="group-body min-w-0">
 <div data-form-grid class="form-grid">
 <div data-field="e.<CONTACT>.value" data-kind="email" data-span="full" class="min-w-0">
-<label for="e-<CONTACT>-value" class="block text-sm font-medium leading-[21px] text-ink mb-1">E-mailadres</label>
 <input type="email" value="portaal-hoofd@example.com"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-<CONTACT>-value" name="e.<CONTACT>.value" >
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-<CONTACT>-value" name="e.<CONTACT>.value" aria-label="E-mailadres" >
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor portaal-hoofd@example.com"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
@@ -133,13 +88,12 @@
 <div data-row-body class="group-body min-w-0">
 <div data-form-grid class="form-grid">
 <div data-field="e.__E__.value" data-kind="email" data-span="full" class="min-w-0">
-<label for="e-__E__-value" class="block text-sm font-medium leading-[21px] text-ink mb-1">E-mailadres</label>
 <input type="email"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-__E__-value" name="e.__E__.value" >
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-__E__-value" name="e.__E__.value" aria-label="E-mailadres" >
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0" hidden><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0" hidden><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
@@ -150,10 +104,51 @@
 </div>
 </div>
 </div></template>
+</div></div>
 </div>
-</details>
+</section>
+<section data-form-section id="gezin-adres" class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+<h2 class="text-base font-semibold leading-6 text-ink mb-4">Adres</h2>
+<div data-form-grid class="form-grid">
+<div data-field="address.street" data-kind="text" data-span="half" class="min-w-0">
+<label for="address-street" class="block text-sm font-medium leading-[21px] text-ink mb-1">Straat <span class="text-red-600">*</span></label>
+<input type="text" value="Proefstraat"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="address-street" name="address.street" required autocomplete=address-line1>
 </div>
-</div><div data-group-row data-row-key="<PARTNER>" class="group-row group-row--composite group-row--edit group-row--fold">
+<div data-field="address.house_number" data-kind="text" data-span="quarter" class="min-w-0">
+<label for="address-house_number" class="block text-sm font-medium leading-[21px] text-ink mb-1">Huisnummer <span class="text-red-600">*</span></label>
+<input type="text" value="1"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="address-house_number" name="address.house_number" required >
+</div>
+<div data-field="address.bus_number" data-kind="text" data-span="quarter" class="min-w-0">
+<label for="address-bus_number" class="block text-sm font-medium leading-[21px] text-ink mb-1">Bus</label>
+<input type="text"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="address-bus_number" name="address.bus_number" >
+</div>
+<div data-field="address.postal_code" data-kind="select" data-span="full" class="min-w-0">
+<label for="address-postal_code" class="block text-sm font-medium leading-[21px] text-ink mb-1">Postcode en gemeente <span class="text-red-600">*</span></label>
+<select class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line pr-2" id="address-postal_code" name="address.postal_code" required >
+<option value="">— kies je postcode —</option><option value="2399" selected>2399 · Proefdorp</option>
+</select>
+</div>
+</div>
+</section>
+<div data-household class="contents" x-data
+ @row-added="
+ const mine = $event.target.querySelector('select[name$=&quot;.relation_type&quot;]');
+ if (!mine || $<TOKEN> !== 'h_order') return;
+ const others = [...$el.querySelectorAll('[data-relation]')].map(m => m.dataset.relation)
+ .concat([...$el.querySelectorAll('select[name$=&quot;.relation_type&quot;]')].filter(s => s !== mine).map(s => s.value));
+ fetch('/lid-worden/relatie?others=' + encodeURIComponent(others.join(',')))
+ .then(answer => answer.ok ? answer.text() : '')
+ .then(code => { if (code) { mine.value = code; mine.dispatchEvent(new Event('change', { bubbles: true })); } })">
+<section data-repeating-group="h_order" data-variant="composite" data-token="__H__" id="gezinsleden"
+ class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+<div class="flex items-center justify-between gap-3 min-h-9 mb-2">
+<h2 class="text-base font-semibold leading-6 text-ink">Gezinsleden</h2>
+</div>
+<div data-group-rows class="group-rows">
+<div data-group-row data-row-key="<PARTNER>" class="group-row group-row--composite group-row--edit group-row--fold">
 <input type="hidden" name="h_order" value="<PARTNER>" data-row-order>
 <div data-row-body class="group-body min-w-0">
 <details data-row-fold class="group-fold group-fold--menu">
@@ -184,22 +179,11 @@
 <input type="date" value="1979-05-06"
  class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<PARTNER>-date_of_birth" name="h.<PARTNER>.date_of_birth" required >
 </div>
-<div data-field="h.<PARTNER>.gender_code" data-kind="radio_group" data-span="full" class="min-w-0">
-<p id="h-<PARTNER>-gender_code-label" class="text-sm font-medium leading-[21px] text-ink mb-1">Geslacht <span class="text-red-600">*</span></p>
-<div role="radiogroup" aria-labelledby="h-<PARTNER>-gender_code-label" class="grid gap-1">
-<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
-<input type="radio" name="h.<PARTNER>.gender_code" value="M" class="mt-0.5 h-[18px] w-[18px] shrink-0" checked>
-<span><span class="font-medium text-ink">Man</span></span>
-</label>
-<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
-<input type="radio" name="h.<PARTNER>.gender_code" value="F" class="mt-0.5 h-[18px] w-[18px] shrink-0">
-<span><span class="font-medium text-ink">Vrouw</span></span>
-</label>
-<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
-<input type="radio" name="h.<PARTNER>.gender_code" value="X" class="mt-0.5 h-[18px] w-[18px] shrink-0">
-<span><span class="font-medium text-ink">X</span></span>
-</label>
-</div>
+<div data-field="h.<PARTNER>.gender_code" data-kind="select" data-span="half" class="min-w-0">
+<label for="h-<PARTNER>-gender_code" class="block text-sm font-medium leading-[21px] text-ink mb-1">Geslacht <span class="text-red-600">*</span></label>
+<select class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line pr-2" id="h-<PARTNER>-gender_code" name="h.<PARTNER>.gender_code" required >
+<option value="">— kies —</option><option value="M" selected>Man</option><option value="F">Vrouw</option><option value="X">X</option>
+</select>
 </div>
 <div data-field="h.<PARTNER>.mobile" data-kind="phone" data-span="half" class="min-w-0">
 <label for="h-<PARTNER>-mobile" class="block text-sm font-medium leading-[21px] text-ink mb-1">Gsm</label>
@@ -210,36 +194,50 @@
 <label for="h-<PARTNER>-phone" class="block text-sm font-medium leading-[21px] text-ink mb-1">Telefoon</label>
 <input type="tel"
  class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<PARTNER>-phone" name="h.<PARTNER>.phone" >
-</div>
-</div>
+</div></div>
 <div data-repeating-group="e_order.<PARTNER>" data-variant="simple" data-token="__E__"
  class="group-child">
 <div class="flex items-center justify-between gap-3 min-h-9">
 <h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
 <button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>E-mailadres</button>
 </div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging.</p>
-<div data-group-head aria-hidden="true" class="group-head" hidden>
-<div class="form-grid">
-<span data-span="full" class="text-sm font-medium leading-[21px] text-ink">E-mailadres</span>
-</div>
-</div>
-<input type="hidden" name="e_primary.<PARTNER>" value="" data-group-one>
+<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
+<input type="hidden" name="e_primary.<PARTNER>" value="n<PARTNER>e" data-group-one>
 <div data-group-rows class="group-rows">
+<div data-group-row data-row-key="n<PARTNER>e" class="group-row group-row--simple group-row--edit group-row--one">
+<input type="hidden" name="e_order.<PARTNER>" value="n<PARTNER>e" data-row-order>
+<div data-row-body class="group-body min-w-0">
+<div data-form-grid class="form-grid">
+<div data-field="e.n<PARTNER>e.value" data-kind="email" data-span="full" class="min-w-0">
+<input type="email"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-n<PARTNER>e-value" name="e.n<PARTNER>e.value" aria-label="E-mailadres" >
 </div>
-<p data-group-empty class="text-sm text-ink-soft">Nog geen e-mailadres.</p>
+</div>
+</div>
+<span data-row-one-tag class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
+<div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
+ class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" @click="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-48 py-1 bg-white border border-line rounded-lg shadow-lg">
+<button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2" hidden>Maak hoofdadres</button>
+<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2" data-row-keeps>Verwijderen</button>
+</div>
+</div>
+</div>
+</div>
+<p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen e-mailadres.</p>
 <template data-group-template><div data-group-row data-row-key="__E__" class="group-row group-row--simple group-row--edit group-row--one">
 <input type="hidden" name="e_order.<PARTNER>" value="__E__" data-row-order>
 <div data-row-body class="group-body min-w-0">
 <div data-form-grid class="form-grid">
 <div data-field="e.__E__.value" data-kind="email" data-span="full" class="min-w-0">
-<label for="e-__E__-value" class="block text-sm font-medium leading-[21px] text-ink mb-1">E-mailadres</label>
 <input type="email"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-__E__-value" name="e.__E__.value" >
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-__E__-value" name="e.__E__.value" aria-label="E-mailadres" >
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0" hidden><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0" hidden><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
@@ -292,22 +290,11 @@
 <input type="date" value="2010-07-08"
  class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<CHILD>-date_of_birth" name="h.<CHILD>.date_of_birth" required >
 </div>
-<div data-field="h.<CHILD>.gender_code" data-kind="radio_group" data-span="full" class="min-w-0">
-<p id="h-<CHILD>-gender_code-label" class="text-sm font-medium leading-[21px] text-ink mb-1">Geslacht <span class="text-red-600">*</span></p>
-<div role="radiogroup" aria-labelledby="h-<CHILD>-gender_code-label" class="grid gap-1">
-<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
-<input type="radio" name="h.<CHILD>.gender_code" value="M" class="mt-0.5 h-[18px] w-[18px] shrink-0">
-<span><span class="font-medium text-ink">Man</span></span>
-</label>
-<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
-<input type="radio" name="h.<CHILD>.gender_code" value="F" class="mt-0.5 h-[18px] w-[18px] shrink-0" checked>
-<span><span class="font-medium text-ink">Vrouw</span></span>
-</label>
-<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
-<input type="radio" name="h.<CHILD>.gender_code" value="X" class="mt-0.5 h-[18px] w-[18px] shrink-0">
-<span><span class="font-medium text-ink">X</span></span>
-</label>
-</div>
+<div data-field="h.<CHILD>.gender_code" data-kind="select" data-span="half" class="min-w-0">
+<label for="h-<CHILD>-gender_code" class="block text-sm font-medium leading-[21px] text-ink mb-1">Geslacht <span class="text-red-600">*</span></label>
+<select class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line pr-2" id="h-<CHILD>-gender_code" name="h.<CHILD>.gender_code" required >
+<option value="">— kies —</option><option value="M">Man</option><option value="F" selected>Vrouw</option><option value="X">X</option>
+</select>
 </div>
 <div data-field="h.<CHILD>.mobile" data-kind="phone" data-span="half" class="min-w-0">
 <label for="h-<CHILD>-mobile" class="block text-sm font-medium leading-[21px] text-ink mb-1">Gsm</label>
@@ -318,36 +305,50 @@
 <label for="h-<CHILD>-phone" class="block text-sm font-medium leading-[21px] text-ink mb-1">Telefoon</label>
 <input type="tel"
  class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<CHILD>-phone" name="h.<CHILD>.phone" >
-</div>
-</div>
+</div></div>
 <div data-repeating-group="e_order.<CHILD>" data-variant="simple" data-token="__E__"
  class="group-child">
 <div class="flex items-center justify-between gap-3 min-h-9">
 <h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
 <button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>E-mailadres</button>
 </div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging.</p>
-<div data-group-head aria-hidden="true" class="group-head" hidden>
-<div class="form-grid">
-<span data-span="full" class="text-sm font-medium leading-[21px] text-ink">E-mailadres</span>
-</div>
-</div>
-<input type="hidden" name="e_primary.<CHILD>" value="" data-group-one>
+<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
+<input type="hidden" name="e_primary.<CHILD>" value="n<CHILD>e" data-group-one>
 <div data-group-rows class="group-rows">
+<div data-group-row data-row-key="n<CHILD>e" class="group-row group-row--simple group-row--edit group-row--one">
+<input type="hidden" name="e_order.<CHILD>" value="n<CHILD>e" data-row-order>
+<div data-row-body class="group-body min-w-0">
+<div data-form-grid class="form-grid">
+<div data-field="e.n<CHILD>e.value" data-kind="email" data-span="full" class="min-w-0">
+<input type="email"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-n<CHILD>e-value" name="e.n<CHILD>e.value" aria-label="E-mailadres" >
 </div>
-<p data-group-empty class="text-sm text-ink-soft">Nog geen e-mailadres.</p>
+</div>
+</div>
+<span data-row-one-tag class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
+<div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
+ class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" @click="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-48 py-1 bg-white border border-line rounded-lg shadow-lg">
+<button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2" hidden>Maak hoofdadres</button>
+<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2" data-row-keeps>Verwijderen</button>
+</div>
+</div>
+</div>
+</div>
+<p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen e-mailadres.</p>
 <template data-group-template><div data-group-row data-row-key="__E__" class="group-row group-row--simple group-row--edit group-row--one">
 <input type="hidden" name="e_order.<CHILD>" value="__E__" data-row-order>
 <div data-row-body class="group-body min-w-0">
 <div data-form-grid class="form-grid">
 <div data-field="e.__E__.value" data-kind="email" data-span="full" class="min-w-0">
-<label for="e-__E__-value" class="block text-sm font-medium leading-[21px] text-ink mb-1">E-mailadres</label>
 <input type="email"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-__E__-value" name="e.__E__.value" >
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-__E__-value" name="e.__E__.value" aria-label="E-mailadres" >
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0" hidden><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0" hidden><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
@@ -372,6 +373,7 @@
 </div>
 </div>
 <p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen gezinsleden.</p>
+<div data-group-add-below class="mt-3"><button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Gezinslid toevoegen</button></div>
 <template data-group-template><div data-group-row data-row-key="__H__" class="group-row group-row--composite group-row--edit group-row--fold">
 <input type="hidden" name="h_order" value="__H__" data-row-order>
 <div data-row-body class="group-body min-w-0">
@@ -402,28 +404,17 @@
 <input type="date"
  class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-__H__-date_of_birth" name="h.__H__.date_of_birth" required >
 </div>
+<div data-field="h.__H__.gender_code" data-kind="select" data-span="half" class="min-w-0">
+<label for="h-__H__-gender_code" class="block text-sm font-medium leading-[21px] text-ink mb-1">Geslacht <span class="text-red-600">*</span></label>
+<select class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line pr-2" id="h-__H__-gender_code" name="h.__H__.gender_code" required >
+<option value="" selected>— kies —</option><option value="M">Man</option><option value="F">Vrouw</option><option value="X">X</option>
+</select>
+</div>
 <div data-field="h.__H__.relation_type" data-kind="select" data-span="half" class="min-w-0">
 <label for="h-__H__-relation_type" class="block text-sm font-medium leading-[21px] text-ink mb-1">Relatie</label>
 <select class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line pr-2" id="h-__H__-relation_type" name="h.__H__.relation_type" data-row-title-prefix-source>
 <option value="PARTNER">Partner</option><option value="KIND" selected>(meerderjarig) kind</option>
 </select>
-</div>
-<div data-field="h.__H__.gender_code" data-kind="radio_group" data-span="full" class="min-w-0">
-<p id="h-__H__-gender_code-label" class="text-sm font-medium leading-[21px] text-ink mb-1">Geslacht <span class="text-red-600">*</span></p>
-<div role="radiogroup" aria-labelledby="h-__H__-gender_code-label" class="grid gap-1">
-<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
-<input type="radio" name="h.__H__.gender_code" value="M" class="mt-0.5 h-[18px] w-[18px] shrink-0">
-<span><span class="font-medium text-ink">Man</span></span>
-</label>
-<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
-<input type="radio" name="h.__H__.gender_code" value="F" class="mt-0.5 h-[18px] w-[18px] shrink-0">
-<span><span class="font-medium text-ink">Vrouw</span></span>
-</label>
-<label class="flex items-start gap-2 min-h-11 md:min-h-10 py-2 text-sm cursor-pointer">
-<input type="radio" name="h.__H__.gender_code" value="X" class="mt-0.5 h-[18px] w-[18px] shrink-0">
-<span><span class="font-medium text-ink">X</span></span>
-</label>
-</div>
 </div>
 <div data-field="h.__H__.mobile" data-kind="phone" data-span="half" class="min-w-0">
 <label for="h-__H__-mobile" class="block text-sm font-medium leading-[21px] text-ink mb-1">Gsm</label>
@@ -434,36 +425,50 @@
 <label for="h-__H__-phone" class="block text-sm font-medium leading-[21px] text-ink mb-1">Telefoon</label>
 <input type="tel"
  class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-__H__-phone" name="h.__H__.phone" >
-</div>
-</div>
+</div></div>
 <div data-repeating-group="e_order.__H__" data-variant="simple" data-token="__E__"
  class="group-child">
 <div class="flex items-center justify-between gap-3 min-h-9">
 <h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
 <button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>E-mailadres</button>
 </div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je aanmelden. Het hoofdadres ontvangt de bevestiging.</p>
-<div data-group-head aria-hidden="true" class="group-head" hidden>
-<div class="form-grid">
-<span data-span="full" class="text-sm font-medium leading-[21px] text-ink">E-mailadres</span>
-</div>
-</div>
-<input type="hidden" name="e_primary.__H__" value="" data-group-one>
+<p class="mb-3 text-[13px] text-ink-soft">Met elk adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
+<input type="hidden" name="e_primary.__H__" value="__H__e" data-group-one>
 <div data-group-rows class="group-rows">
+<div data-group-row data-row-key="__H__e" class="group-row group-row--simple group-row--edit group-row--one">
+<input type="hidden" name="e_order.__H__" value="__H__e" data-row-order>
+<div data-row-body class="group-body min-w-0">
+<div data-form-grid class="form-grid">
+<div data-field="e.__H__e.value" data-kind="email" data-span="full" class="min-w-0">
+<input type="email"
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-__H__e-value" name="e.__H__e.value" aria-label="E-mailadres" >
 </div>
-<p data-group-empty class="text-sm text-ink-soft">Nog geen e-mailadres.</p>
+</div>
+</div>
+<span data-row-one-tag class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
+<div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
+ class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" @click="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-48 py-1 bg-white border border-line rounded-lg shadow-lg">
+<button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2" hidden>Maak hoofdadres</button>
+<button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2" data-row-keeps>Verwijderen</button>
+</div>
+</div>
+</div>
+</div>
+<p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen e-mailadres.</p>
 <template data-group-template><div data-group-row data-row-key="__E__" class="group-row group-row--simple group-row--edit group-row--one">
 <input type="hidden" name="e_order.__H__" value="__E__" data-row-order>
 <div data-row-body class="group-body min-w-0">
 <div data-form-grid class="form-grid">
 <div data-field="e.__E__.value" data-kind="email" data-span="full" class="min-w-0">
-<label for="e-__E__-value" class="block text-sm font-medium leading-[21px] text-ink mb-1">E-mailadres</label>
 <input type="email"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-__E__-value" name="e.__E__.value" >
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="e-__E__-value" name="e.__E__.value" aria-label="E-mailadres" >
 </div>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0" hidden><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">hoofdadres</span></span>
+<span data-row-one-tag class="shrink-0" hidden><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 <div class="relative shrink-0" data-row-menu-holder x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
 <button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()" aria-label="Acties voor nieuw e-mailadres"
  class="inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-soft hover:bg-surface-2 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
@@ -488,32 +493,6 @@
 </div></template>
 </section>
 </div>
-<section data-form-section id="gezin-adres" class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
-<h2 class="text-base font-semibold leading-6 text-ink mb-4">Adres</h2>
-<div data-form-grid class="form-grid">
-<div data-field="address.street" data-kind="text" data-span="half" class="min-w-0">
-<label for="address-street" class="block text-sm font-medium leading-[21px] text-ink mb-1">Straat <span class="text-red-600">*</span></label>
-<input type="text" value="Proefstraat"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="address-street" name="address.street" required autocomplete=address-line1>
-</div>
-<div data-field="address.house_number" data-kind="text" data-span="quarter" class="min-w-0">
-<label for="address-house_number" class="block text-sm font-medium leading-[21px] text-ink mb-1">Huisnummer <span class="text-red-600">*</span></label>
-<input type="text" value="1"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="address-house_number" name="address.house_number" required >
-</div>
-<div data-field="address.bus_number" data-kind="text" data-span="quarter" class="min-w-0">
-<label for="address-bus_number" class="block text-sm font-medium leading-[21px] text-ink mb-1">Bus</label>
-<input type="text"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="address-bus_number" name="address.bus_number" >
-</div>
-<div data-field="address.postal_code" data-kind="select" data-span="full" class="min-w-0">
-<label for="address-postal_code" class="block text-sm font-medium leading-[21px] text-ink mb-1">Postcode en gemeente <span class="text-red-600">*</span></label>
-<select class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line pr-2" id="address-postal_code" name="address.postal_code" required >
-<option value="">— kies je postcode —</option><option value="2399" selected>2399 · Proefdorp</option>
-</select>
-</div>
-</div>
-</section>
 </form>
 <div data-action-bar class="record-bar"
  data-discard-title="Wijzigingen weggooien?" data-discard-text="Wat je sinds de laatste opslag wijzigde, gaat verloren."

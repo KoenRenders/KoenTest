@@ -156,6 +156,10 @@ def _to_sign_in(request: Request):
     return RedirectResponse(f"/aanmelden?terug={quote(here, safe='/')}", status_code=302)
 
 
+#: Mijn gezin: where a running renewal stands (#1641).
+HOUSEHOLD_PAGE = "/leden/gezin"
+
+
 def _running_renewal(db: Session, person):
     """How an open renewal stands (#618): the transfer to make, or the online
     payment to resume — `(transfer, online)`, at most one of them set.
@@ -211,11 +215,15 @@ def _household_page(
     valid_until = membership_coverage_until(person)
     transfer, online = _running_renewal(db, person)
     page = HouseholdPage(
-        group=household_group(household, _codes(db), me=person.id, short_date=short_date),
+        group=household_group(
+            household, _codes(db), me=person.id, short_date=short_date, edit=edit
+        ),
         edit=edit,
         valid_until=valid_until,
         renewal_available=renewal_available(valid_until, date.today()),
         renewal_running=bool(transfer or online),
+        transfer=transfer,
+        online=online,
         board_member_name=household.get("board_member_name"),
         saved=saved,
     )
@@ -264,7 +272,6 @@ def _renew_page(request: Request, db: Session, person) -> HTMLResponse:
     from app.domains.membership.household_page import RenewPage, Terms, household_summary
 
     valid_until = membership_coverage_until(person)
-    running_transfer, online = _running_renewal(db, person)
     available = renewal_available(valid_until, date.today())
     terms = None
     if available:
@@ -275,8 +282,6 @@ def _renew_page(request: Request, db: Session, person) -> HTMLResponse:
         valid_until=valid_until,
         renewal_available=available,
         terms=terms,
-        transfer=running_transfer,
-        online=online,
         summary=summary,
         address_line=address_line,
     )
@@ -290,6 +295,13 @@ def renew_page(request: Request, db: Session = Depends(get_db)):
     person = _session_member(request, db)
     if person is None:
         return _to_sign_in(request)
+    # #1641 (CR-11 Q79): this page starts a renewal. One that runs stands in the
+    # Lidmaatschap card of Mijn gezin — the one place — so that is where
+    # opening this page lands meanwhile.
+    if any(_running_renewal(db, person)):
+        from fastapi.responses import RedirectResponse
+
+        return RedirectResponse(HOUSEHOLD_PAGE, status_code=303)
     return _renew_page(request, db, person)
 
 
@@ -320,5 +332,8 @@ def gezin_vernieuwen(
         response = HTMLResponse("")
         response.headers["HX-Redirect"] = checkout_url
         return response
-    # A transfer (#497): the payment details on the screen, from the booking.
-    return _renew_page(request, db, person)
+    # A transfer (#497): the payment details stand in the Lidmaatschap card of
+    # Mijn gezin, from the booking (#1641) — a hard redirect, as to a checkout.
+    response = HTMLResponse("")
+    response.headers["HX-Redirect"] = HOUSEHOLD_PAGE
+    return response

@@ -41,12 +41,30 @@ BEKENDE_SLEUTELS = [
     # terugval — twee plaatsen voor één feit, en de instelling won. De naam komt
     # nu uit de organisatie. Komt er ooit een merknaam die van de statutaire naam
     # afwijkt, dan is dat een kolom op de organisatie en geen tenant-instelling.
-    ("tagline", "Tagline", "Ondertitel in de header. Leeg = geen ondertitel (#519)."),
+    # An issue number belongs in a comment, never in what a user reads (#1643):
+    # "(#519)" and "(#992)" stood in these help texts. #519: no hard-coded
+    # tagline. #992: the header colour per tenant.
+    ("tagline", "Tagline", "Ondertitel in de header. Leeg = geen ondertitel."),
+    # #992, #1622: with the logo, the three colours of the tenant's brand file.
+    # One line and an example each (#1643); the rule that refuses a colour says
+    # why when it does.
     (
         "site_header_color",
         "Kleur van de kopbalk",
-        "Achtergrond van de kopbalk op de publieke site, als #rrggbb (bv. #005d29). "
-        "Moet donker genoeg zijn voor witte tekst. Leeg = de standaardkleur (#992).",
+        "Achtergrond van de kopbalk op de publieke site, bv. #005d29. "
+        "Leeg = de standaardkleur van de schil.",
+    ),
+    (
+        "site_brand_color",
+        "Merkkleur",
+        "Koppen, links, knoppen en de actieve navigatie op de publieke site, bv. #0051a4. "
+        "Leeg = de standaardkleur van de schil.",
+    ),
+    (
+        "site_accent_color",
+        "Accentkleur",
+        "De ene oproep op de publieke site (de knop voor de nieuwsbrief), bv. #ffd200. "
+        "Leeg = de standaardkleur van de schil.",
     ),
     # #924: de sociale links staan bij de ORGANISATIE — ze bestaan ook als de
     # vereniging geen site heeft. Hier laten staan zou een tweede bewerkbare bron
@@ -92,12 +110,13 @@ BEKENDE_SLEUTELS = [
     ("max_item_quantity", "Max. aantal per item", "Inschrijvingslimiet per item. Default 50."),
     ("max_registrations_per_email", "Max. inschrijvingen per e-mail", "Per activiteit. Default 3."),
     # #1568: the two Raakje settings are switches (`SWITCH_SETTINGS` in
-    # `kernel.tenant_config`), independent of each other.
+    # `kernel.tenant_config`), independent of each other. #917: the back-office
+    # assistant needs the environment's switch too ("(#917)" stood in the help).
     (
         "admin_chat_enabled",
         "Raakje in de backoffice",
         "Het bestuur mag Raakje vragen stellen over de eigen cijfers. "
-        "Werkt enkel als ADMIN_CHAT_ENABLED ook aan staat (#917).",
+        "Werkt enkel als ADMIN_CHAT_ENABLED ook aan staat.",
     ),
     (
         "public_chat_enabled",
@@ -340,7 +359,7 @@ def _editor_ctx(
     administration (#1533). Only the scope and those two differ."""
     from app.domains.mdm.api import enabled_modules, list_accounts
     from app.domains.mdm.api import secrets_gezet as _secrets_gezet
-    from app.kernel.tenant_config import get_setting, site_name_default
+    from app.kernel.tenant_config import SITE_COLOR_DEFAULTS, get_setting, site_name_default
 
     unit = next((u for u in _units(db) if u.id == tenant_id), None)
     if unit is None:
@@ -384,6 +403,9 @@ def _editor_ctx(
         # (the placeholder), in both scopes — the tenant's ADMIN may set it too.
         "site_name_value": unit.site_name or "",
         "site_name_default": site_name_default(db, tenant_id),
+        # #1622: the colour fields with a sample — the stylesheet's own colour
+        # as the placeholder, and as the sample while the field is empty.
+        "colour_defaults": SITE_COLOR_DEFAULTS,
         "cards": _cards(db, unit, modules_on=on, refused=refused),
         # A module without a card keeps its state through the one Opslaan.
         "kept_modules": sorted(c.value for c in _hidden_cards(unit) if c.value in stored_on),

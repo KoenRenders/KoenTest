@@ -26,7 +26,6 @@ INCLUDED_BY_THE_PILOT_NOT_RENDERED_THERE: dict[str, str] = {
 #: B7 test 8 — raw <label>, <select>, <textarea>, visible <input>. 95 in 28 files.
 RAW_FORM_ELEMENTS: dict[str, int] = {
     "domains/activities/templates/admin_activiteit_kopieren.html": 10,
-    "domains/activities/templates/admin_activiteit_nieuw.html": 2,
     "domains/auth/templates/_aanmelden_code.html": 1,
     "domains/auth/templates/_aanmelden_email.html": 1,
     "domains/auth/templates/_gu_lijst.html": 2,
@@ -56,7 +55,6 @@ RAW_FORM_ELEMENTS: dict[str, int] = {
 #: B7 test 9 — raw type="checkbox". 23 in 11 files.
 RAW_CHECKBOXES: dict[str, int] = {
     "domains/activities/templates/admin_activiteit_kopieren.html": 1,
-    "domains/activities/templates/admin_activiteit_nieuw.html": 1,
     "domains/auth/templates/_gu_lijst.html": 1,
     "domains/auth/templates/_gu_rollen_velden.html": 3,
     "domains/cms/templates/_cp_detail.html": 4,
@@ -71,7 +69,6 @@ RAW_CHECKBOXES: dict[str, int] = {
 #: B7 test 8 — margin/padding/gap/space class on a raw form element. 64 in 21 files.
 SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "domains/activities/templates/admin_activiteit_kopieren.html": 14,
-    "domains/activities/templates/admin_activiteit_nieuw.html": 1,
     "domains/auth/templates/_aanmelden_code.html": 1,
     "domains/auth/templates/_aanmelden_email.html": 1,
     "domains/auth/templates/_gu_lijst.html": 1,
@@ -96,7 +93,6 @@ RAW_SURFACES: dict[str, int] = {
     "domains/activities/templates/_aa_kaarten.html": 1,
     "domains/activities/templates/_inschrijving_detail.html": 4,
     "domains/activities/templates/admin_activiteit_kopieren.html": 1,
-    "domains/activities/templates/admin_activiteit_nieuw.html": 1,
     "domains/activities/templates/admin_activiteiten.html": 1,
     "domains/auth/templates/_gu_lijst.html": 1,
     "domains/auth/templates/admin_gebruiker_nieuw.html": 1,
@@ -189,7 +185,6 @@ CHECKBOX_GROUPS_IN_TOOLBARS: dict[str, int] = {}
 #: B7 test 1 — an admin page on the shell itself, no layout and no record head. 60 in 60 files.
 SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/activities/templates/admin_activiteit_kopieren.html": 1,
-    "domains/activities/templates/admin_activiteit_nieuw.html": 1,
     "domains/activities/templates/admin_activiteiten.html": 1,
     "domains/activities/templates/admin_inschrijving.html": 1,
     "domains/activities/templates/admin_inschrijving_nieuw.html": 1,

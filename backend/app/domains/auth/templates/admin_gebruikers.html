@@ -11,7 +11,7 @@
    opent een volledige-pagina-editor, geen modal. Je werkt na het aanmaken toch
    verder in de editor, en de velden uit een dialoogje maken het object zelden
    compleet. #}
-{% call ui.page_header(_("Gebruikers"), _("Backoffice-accounts en hun rollen. Aanmelden gebeurt met een e-mailcode — er zijn geen wachtwoorden."), list_page=True) %}
+{% call ui.page_header(_("Gebruikers"), _("Backoffice-accounts en hun rollen. Inloggen gebeurt met een e-mailcode — er zijn geen wachtwoorden."), list_page=True) %}
     {% if toon_overzicht %}{{ ui.btn_secondary(_("Alle werkruimtes"), href="/admin/gebruikers/alle-werkruimtes") }}{% endif %}
     {{ ui.btn_primary(_("+ Nieuwe gebruiker"), href="/admin/gebruikers/nieuw") }}
   {% endcall %}

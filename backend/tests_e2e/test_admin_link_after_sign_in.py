@@ -60,7 +60,7 @@ def test_an_admin_link_signs_in_and_comes_back_to_the_page(board_member):
         _set_code(board_member, "585858")
 
         page.fill("input[name=code]", "585858")
-        page.get_by_role("button", name="Aanmelden").click()
+        page.get_by_role("button", name="Inloggen").click()
         page.wait_for_url(BASE + PAGE)
         pagina_klaar(page)
 

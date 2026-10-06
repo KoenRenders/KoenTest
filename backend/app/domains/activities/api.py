@@ -30,6 +30,7 @@ from app.domains.activities.codes import (  # noqa: F401
     TARGET_AUDIENCE_CODES,
 )
 from app.domains.activities.export import build_component_export_ods  # noqa: F401
+from app.domains.activities.fiche import NEW_ACTIVITY_STATUS  # noqa: F401
 from app.domains.activities.models import (  # noqa: F401
     Activity,
     ActivityDate,
@@ -45,6 +46,7 @@ from app.domains.activities.models import (  # noqa: F401
     RegistrationItem,
     RegistrationItemHistory,
 )
+from app.domains.activities.proposer import ProposerError  # noqa: F401
 from app.domains.activities.registration_form import (  # noqa: F401
     Channel,
     Outcome,
@@ -163,6 +165,36 @@ def get_activity_detail(db: Session, activity_id: int) -> ActivityResponse | Non
     from app.domains.activities.router import get_activity_detail as _impl
 
     return _impl(db, activity_id)
+
+
+def propose_for_activity(db: Session, activity_id: int, *, request: str, actor: str) -> Any:
+    """Raakje's proposal for this activity's fiche (#1604), or None when the
+    activity does not exist. Raises `ProposerError` with a line for the screen."""
+    from app.domains.activities import proposer
+    from app.domains.activities.service import _activity_met_boom
+
+    activity = _activity_met_boom(db, activity_id)
+    if activity is None:
+        return None
+    return proposer.propose(db, activity, request=request, actor=actor)
+
+
+def propose_for_new_activity(db: Session, *, request: str, actor: str) -> Any:
+    """Raakje's proposal for the fiche of an activity that does not exist yet
+    (#1649): the same proposer on an activity that holds nothing, so the request
+    is its only source. Nothing is added to the session."""
+    from app.domains.activities import proposer
+
+    return proposer.propose(db, Activity(name=""), request=request, actor=actor)
+
+
+#: Where the Assistent's panel asks a proposal for a new activity (#1649).
+NEW_PROPOSER_URL = "/admin/activiteiten/nieuw/raakje/voorstel"
+
+
+def proposer_url(activity_id: int) -> str:
+    """Where the Assistent's panel asks a proposal for this activity (#1604)."""
+    return f"/admin/activiteiten/{activity_id}/raakje/voorstel"
 
 
 def open_deadlines(activity: Activity) -> list[date]:
@@ -343,6 +375,12 @@ __all__ = [
     "registration_table",
     "parse_registration_sort",
     "get_activity_detail",
+    "propose_for_activity",
+    "propose_for_new_activity",
+    "NEW_PROPOSER_URL",
+    "NEW_ACTIVITY_STATUS",
+    "proposer_url",
+    "ProposerError",
     "list_activities",
     "move_within",
     "public_registrations",

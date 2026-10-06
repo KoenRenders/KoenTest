@@ -374,6 +374,7 @@ def gezin_inschrijvingen_tab(
     tab). The table is the one of the activity's tab (K6, #1560); the toolbar
     and the rest of the household's page are pilot B."""
     from app.domains.activities.api import parse_registration_sort, registration_table
+    from app.domains.auth.api import may_mutate_payments
     from app.domains.mdm.api import family_registrations, gezin_tabs
     from app.domains.membership.api import get_family
 
@@ -391,6 +392,7 @@ def gezin_inschrijvingen_tab(
         sort=parse_registration_sort(sort, richting),
         open_row=rij,
         sub_is_component=True,
+        may_mutate=may_mutate_payments(db, email),
     )
     return templates.TemplateResponse(
         request,

@@ -1,0 +1,37 @@
+{% import "_macros.html" as ui %}
+{% import "_raakje_ballon.html" as ballon %}
+{# One turn of Raakje's proposer for an activity, in the Assistent's panel beside
+   the fiche in edit mode (#1604). The proposal is the kit's block
+   (`ui.form_proposal`, #1562): the fields it touches are marked on the page,
+   Toepassen fills the FORM in the page and sends nothing — the fiche's one
+   "Opslaan" stores it.
+
+   Koen's rule for AI facts: what has no source is marked and left out by
+   default. A location or a date that stands in neither the request nor the
+   record is not proposed and is named (`left_out`); a sentence of the
+   description without a source is left out of the value unless "klopt,
+   behouden" is ticked — `form-proposal.js` reads the ticks of this block when
+   it applies (`parts` on the field). #}
+{% if question %}
+<div class="text-right"><span class="{{ ballon.van_bezoeker() }}">{{ question }}</span></div>
+{% endif %}
+<div data-activity-turn{% if failed %} data-turn-failed{% endif %}>
+  {% if answer %}<div data-raakje-answer class="{{ ballon.van_raakje() }}">{{ answer }}</div>{% endif %}
+  {% if left_out %}
+  <ul data-proposal-left-out class="m-0 mt-2 list-none p-0 text-[13px] leading-[19.5px] text-ink-soft">
+    {% for line in left_out %}<li>{{ ui.icon("x", 12) }} {{ line }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% if fields %}
+  {% set _body %}
+    <dl data-proposal-values class="mt-2 space-y-1">
+      {% for f in fields %}
+      <div><dt class="inline font-semibold">{{ f.label }}:</dt> <dd class="inline [overflow-wrap:anywhere]">{{ f.shown }}</dd></div>
+      {% endfor %}
+    </dl>
+    {% for mark in marks %}{{ ui.proposal_mark(mark.id, mark.sentence, mark.reason) }}{% endfor %}
+    {% if unverified %}<p class="text-brand-danger mt-2">{{ _("De controle tegen de bronnen lukte niet: lees dit voorstel extra goed na.") }}</p>{% endif %}
+  {% endset %}
+  {{ ui.form_proposal(fields, extra=_body) }}
+  {% endif %}
+</div>

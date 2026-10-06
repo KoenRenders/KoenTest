@@ -166,3 +166,49 @@ class Fiche:
             data=self.data,
             files=files,
         )
+
+
+FIRST_DATE = ("start_date", "end_date", "start_time", "end_time")
+
+
+def post_new_activity(client, headers: dict | None = None, data: dict | None = None, files=None):
+    """The NEW fiche as its form sends it (#1649): `POST /admin/activiteiten/nieuw`.
+
+    `data` are the activity's own fields by name (`name`, `location`,
+    `poster_url`, `members_only`, …). The four keys of a date (`start_date`,
+    `end_date`, `start_time`, `end_time`) fill the first date row, the one the
+    empty fiche opens with — sent also when empty, as the page sends it.
+    Anything else in `data` goes along as it is (rows of a group, by the names of
+    `activities.fiche_form`)."""
+    data = dict(data or {})
+    form: dict[str, Any] = {
+        "fiche_groups": "dates components organisers",
+        "name": data.pop("name", ""),
+        "slug": "",
+        "location": "",
+        "description": "",
+        "board_notes": "",
+        "target_audience": "",
+        "poster_url": "",
+        "d_order": ["n1"],
+        "c_order": [],
+        "o_order": [],
+    }
+    for name in FIRST_DATE:
+        form[f"d.n1.{name}"] = _text(data.pop(name, ""))
+    form.update(
+        {
+            name: (_text(value) if not isinstance(value, list) else value)
+            for name, value in data.items()
+        }
+    )
+    return client.post(
+        "/admin/activiteiten/nieuw",
+        headers={
+            **(headers or {}),
+            "HX-Request": "true",
+            "HX-Current-URL": "http://testserver/admin/activiteiten/nieuw",
+        },
+        data=form,
+        files=files,
+    )

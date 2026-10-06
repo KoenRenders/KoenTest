@@ -70,8 +70,9 @@ def test_the_word_lid_page_sends_what_the_reader_reads(client, db_session):
         "payment_method": "transfer",
     }
     assert set(typed) <= set(fields), f"the page has no field {sorted(set(typed) - set(fields))}"
-    # No radio is checked on an empty page, so the browser sends no gender yet.
-    assert "h.n0.gender_code" not in fields
+    # #1632: the gender is a select; on an empty page it stands on "— kies —"
+    # and the browser sends it empty.
+    assert fields["h.n0.gender_code"] == ""
 
     resp = client.post("/lid-worden", data={**fields, **typed, "h.n0.gender_code": "F"})
     assert resp.status_code == 200, resp.text[:400]
@@ -80,7 +81,10 @@ def test_the_word_lid_page_sends_what_the_reader_reads(client, db_session):
     portal = client.get("/leden/gezin")
     assert portal.status_code == 200, "the address the form sent does not sign in"
     for value in (
-        'data-row-title="Veldnaam Proef"',
+        # #1632: the main member stands in the section "Hoofdlid", no row title.
+        ">Hoofdlid</h2>",
+        "Veldnaam",
+        "Proef",
         "01-01-1980",
         "Vrouw",
         "0470000000",

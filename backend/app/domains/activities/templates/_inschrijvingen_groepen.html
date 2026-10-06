@@ -4,26 +4,30 @@
    household's (Koen's unification question of 15 September): **one table with
    a collapsible group row** per component — per activity on the household,
    with a jump link in the group row — instead of a card per group. Exporteren
-   and Antwoorden stand under the group row's `⋯` (Q41).
+   and Antwoorden of a component stand under the group row's `⋯` (Q41).
 
-   A row **unfolds in place**, read-only: Contact · Producten · Antwoorden ·
-   Betaling side by side (stacked on a phone) and "Inschrijving openen ↗" to
-   the registration's own page. One open row per list. **No "Bewerken" in the
-   unfolded row** (Q42): editing is the registration page's.
+   **A row is the way in** (#1636, Koen, 5 October 2026; CR-11 Q75): its name
+   links to the registration's own page, with this tab as the way back, and
+   the row unfolds nowhere — K6 showed the same data three times (the row, the
+   unfolded row, the page). The row carries name · contact · date · products ·
+   Bedrag · Saldo (orange when not zero) · status, ONE action (confirm the one
+   open booking) and `⋯` with the jumps: the registration, its booking, its
+   answers. The answers themselves stand on the registration's page only.
 
    Everything here comes from `activities.api.registration_table`: `reg_groups`
-   (rows with their badge, answers and payment decided there), `reg_columns`,
-   `reg_total`, `reg_open_row` and `reg_empty`. `reg_target` is the list holder
-   a sort link swaps ("" on the household: the link is the page). #}
+   (rows with their badge, amounts, action and menu decided there),
+   `reg_columns`, `reg_total`, `reg_open_row` (the row a visitor came back to)
+   and `reg_empty`. `reg_target` is the list holder a sort link swaps ("" on
+   the household: the link is the page). #}
 {% if reg_groups %}
 {% call ui.data_table(reg_columns, hx_target=reg_target, caption=_("Inschrijvingen"), open_row=reg_open_row) %}
   {% for group in reg_groups %}
-  {% call ui.table_group(group.name, group.count, 5, items=group["items"], link=group.link, id=group.id) %}
+  {% call ui.table_group(group.name, group.count, 8, items=group["items"], link=group.link, id=group.id) %}
     {% for r in group.rows %}
-    <tr data-row class="align-middle">
+    <tr data-row data-row-key="{{ r.key }}" class="align-middle">
       <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
-        {{ ui.row_toggle(r.name ~ ((" (" ~ r.team ~ ")") if r.team else ""), r.key) }}
-        {% if r.sub %}<div class="pl-6 text-xs text-ink-soft">{{ r.sub }}</div>{% endif %}
+        {{ ui.row_link(r.name ~ ((" (" ~ r.team ~ ")") if r.team else ""), r.href) }}
+        {% if r.sub %}<div class="text-xs text-ink-soft">{{ r.sub }}</div>{% endif %}
       </td>
       <td data-cell="context" class="border-b border-line px-3 py-2">
         {% if r.email %}<a data-above-row href="mailto:{{ r.email }}" class="text-blue-500 underline">{{ r.email }}</a>{% else %}—{% endif %}
@@ -31,32 +35,12 @@
       </td>
       <td data-cell="date" class="whitespace-nowrap border-b border-line px-3 py-2 tabular-nums">{{ r.date|kortedatum if r.date else "—" }}</td>
       <td data-cell="more" class="border-b border-line px-3 py-2">{{ r.products|join(" · ") if r.products else "—" }}</td>
+      {# A registration without a booking has nothing to pay: a dash, not € 0,00. #}
+      <td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right">{% if r.payment %}{{ ui.amount(r.payment.due, balance=r.payment.saldo) }}{% else %}—{% endif %}</td>
+      <td data-cell="extra" data-balance class="border-b border-line px-3 py-2 text-right">{% if r.payment %}{{ ui.amount(r.payment.saldo, warning=r.payment.saldo != 0) }}{% else %}—{% endif %}</td>
       <td data-cell="status" class="border-b border-line px-3 py-2">{% if r.badge %}{{ ui.badge(r.badge.label, r.badge.tone, met_vinkje=r.badge.check) }}{% endif %}</td>
+      <td data-cell="actions" class="border-b border-line px-3 py-2">{{ ui.row_actions_cell(r.action, r.menu, label=r.name) }}</td>
     </tr>
-    {% call ui.row_detail(r.key, 5, open={"label": _("Inschrijving openen"), "href": r.href}) %}
-      {% call ui.row_part(_("Contact")) %}
-        <div>{{ r.name }}</div>
-        {% if r.email %}<div><a href="mailto:{{ r.email }}" class="text-blue-500 underline">{{ r.email }}</a></div>{% endif %}
-        {% if r.phone %}<div>{{ r.phone }}</div>{% endif %}
-      {% endcall %}
-      {% call ui.row_part(_("Producten")) %}
-        {% for p in r.products %}<div>{{ p }}</div>{% else %}<div>—</div>{% endfor %}
-      {% endcall %}
-      {% call ui.row_part(_("Antwoorden")) %}
-        {% if r.answers %}
-        <dl class="m-0">{% for label, value in r.answers %}<dt class="text-ink-soft">{{ label }}</dt><dd class="m-0 mb-1">{{ value or "—" }}</dd>{% endfor %}</dl>
-        {% elif r.answers_asked_on %}<div class="text-ink-soft">{{ _("Nog niet beantwoord — gevraagd op") }} {{ r.answers_asked_on|kortedatum }}.</div>
-        {% else %}<div>—</div>{% endif %}
-      {% endcall %}
-      {% call ui.row_part(_("Betaling")) %}
-        {% if r.payment %}
-        <div class="mb-1">{{ ui.badge(r.badge.label, r.badge.tone, met_vinkje=r.badge.check) }}</div>
-        <div>{{ _("Bedrag") }}: {{ ui.amount(r.payment.due) }}</div>
-        <div>{{ _("Ontvangen") }}: {{ ui.amount(r.payment.paid) }}</div>
-        <div>{{ _("Saldo") }}: {{ ui.amount(r.payment.saldo, warning=r.payment.saldo != 0) }}</div>
-        {% else %}<div class="text-ink-soft">{{ _("Niets te betalen.") }}</div>{% endif %}
-      {% endcall %}
-    {% endcall %}
     {% endfor %}
   {% endcall %}
   {% endfor %}

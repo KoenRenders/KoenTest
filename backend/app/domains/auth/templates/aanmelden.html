@@ -1,10 +1,12 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}{{ _("Aanmelden — Raak") }}{% endblock %}
+{% block title %}{{ _("Inloggen — Raak") }}{% endblock %}
 {% block meta %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 {% call ui.card() %}
-  <h1 class="text-2xl font-bold text-kop mb-2">{{ _("Aanmelden") }}</h1>
+  {# #1642: the page is named as the header's link names it, "Inloggen"
+     (#1588); its address stays /aanmelden. #}
+  <h1 class="text-2xl font-bold text-kop mb-2">{{ _("Inloggen") }}</h1>
   <p class="text-gray-600 mb-6">{{ _("Vul je e-mailadres in. Je ontvangt een inloglink en een code.") }}</p>
   <div id="aanmelden-stap">
     {% include "_aanmelden_email.html" %}

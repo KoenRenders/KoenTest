@@ -86,10 +86,12 @@ def test_the_portal_shows_the_main_member_as_the_main_member(client, db_session)
     for page in ("/leden/gezin", "/leden/gezin?bewerken=1"):
         html = client.get(page).text
         stored = [t for t in _row_titles(html) if t[1] != "Nieuw gezinslid"]
-        assert stored == [
-            ("Hoofdlid", "Test Persoon"),
-            ("(meerderjarig) kind", "Tweede Persoon"),
-        ], page
+        # #1632: the main member is no row of the group but the section
+        # "Hoofdlid" above it; the rows are the others.
+        assert stored == [("(meerderjarig) kind", "Tweede Persoon")], page
+        head = html[html.index('id="hoofdlid"') : html.index('id="gezin-adres"')]
+        assert ">Hoofdlid</h2>" in head and "Tweede" not in head, page
+        assert f'data-field="h.{person.id}.first_name"' in head, page
     # The edit mode asks no relation of a stored person: it cannot be changed here.
     assert f'name="h.{person.id}.first_name"' in html, (
         "the person's edit fields are not on the page"
