@@ -547,6 +547,44 @@ public forms — register, a public form, Word lid, renew, Mijn gezin:
 
 [CR-11 B10 and Q59, 4 October 2026; beslissing 12]
 
+### 2.7 The public activity and photo pages (pilot C, decided 6 October 2026)
+
+Decided by Koen on ChatGPT's brief-13 answer, which was as conservative as
+asked ("subtiele, 100 % zekere verbeteringen … in het kader brengen is al
+een meerwaarde"): **no redesign**. The composition of the activity list,
+the activity page, the photos overview and the album stays; the poster
+keeps its place and size; every date of a series stays visible; the album
+title and the button sizes stay.
+
+- **Components, with the same rendered picture** (Z8): `date_tile(date,
+  size)` — card 48 px and 56 from 640 px, page 56 / 64 px; `year_heading(year)`;
+  `activity_facts(dates, location, deadline)`; `component_actions(components,
+  context)` with a grid instead of the negative margin on a phone;
+  `photo_card(album, href)` on the kit's card; `back_link(origin, href)`;
+  `photo_grid` and `lightbox`; the public title role without local size
+  overrides. The poster stays a style role of the activity page.
+- **Five visible corrections** (Z1–Z5): the sponsor block of the shared
+  footer ends on the container's right edge (Koen's own addition; the three
+  even columns of §2.5 stay, the third aligns its block right); the photos
+  overview takes the activity list's year heading (20 / 18 px semibold, a
+  1 px line in the line token); the album card takes the public card (radius
+  14, the line token); one way back — the kit's chevron and the origin's
+  name, "‹ Activiteiten", "‹ Archief", "‹ Foto's"; the lightbox's close,
+  previous and next as 24 px kit icons in 44 × 44 px buttons.
+- **Operation** (Z6, Z7): the lightbox traps the focus and returns it to the
+  photo that opened it; the thumbs-up keeps its 20 px pill and gets a 44 px
+  hit area; the browser title is "<page> · <site name>", never a literal
+  tenant name. No swipe, counter or zoom.
+- **Named as taste and not built**: the poster under the text on a phone;
+  folding long date series; dropping "Foto's —" from the album title;
+  larger desktop buttons; card effects.
+- **Guard**: the DOM baseline (#1605) carries these pages at 390 and 1 440;
+  only Z1–Z5 may move it; the invariants are 1 / 3 / 12 dates, a long title,
+  several components, full / closed / members only, no poster, an empty
+  list and a second tenant.
+
+[CR-11 B10, Q86 and Q88, 6 October 2026; beslissing 13; v2.14.0]
+
 ---
 
 ## 3. Components
@@ -1161,13 +1199,13 @@ says so, and the default order is the one named above.
 |---|---|---|
 | Header and footer | blue band with the logo and inline links; Mijn gezin, Admin, Uitloggen as loose links; a footer with the contact details twice (organisation block and CMS block) and the newsletter line above it | §2.5: the band and the logo stay; the drawer on a phone; one account menu; the footer as newsletter row · socials and sponsors · legal line with the organisation's details from one source |
 | Home | blue intro band with CMS text, price, Word lid / Mijn gezin, then the activity cards | own composition: the intro as a CMS document block, the coming activities as cards, one featured activity if the board asks (P4) |
-| Activiteiten (agenda) and Archief | cards per year with per-component actions | cards by poster, grouped per month or year; one action per activity ("Inschrijven" leads to the activity page or straight to the form when there is one component) |
-| Activiteit | h1 with badges, facts, description, one block per component, poster aside | own composition (concept 09): poster, key facts, what to expect, who is coming, the sticky price-and-button card, the nudge |
+| Activiteiten (agenda) and Archief | cards per year with per-component actions | §2.7 (pilot C): the same cards on kit components — date tile, year heading, facts, component actions; no new composition (the earlier "cards by poster" idea is dropped: Koen wants only sure refinements) |
+| Activiteit | h1 with badges, facts, description, one block per component, poster aside | §2.7 (pilot C): the same page on kit components, the way back naming its origin; concept 09's own composition is not built |
 | Inschrijven | page with component choice, nudge, contact, products, questions, pay | §2.6: the centred 768 px form page; the nudge above the contact fields; Nu/Later for the questions; the payment radios; "Inschrijven en betalen" |
 | Word lid | nudge, person rows, address, payment | §2.6: the composite repeating group, the e-mail group, the address grid, the price card with the payment radios; no nudge, no wizard |
 | Formulier | name/e-mail card, section cards paged ‹ › | §2.6: the name card, Contact, the sections as cards on one long page — no steps; its own thank-you page |
 | Mijn gezin | membership card, person cards with edit toggles and e-mail rows, add card; **no registrations or payments** | the family portal as overview and details: Gezin · Onze inschrijvingen (with the payment state) · Betalingen; one save per the household record rule (pilot B) |
-| Foto's and an album | album cards per year; thumbnail grid | cards (the picture is the content); the album grid with the lightbox; clearance honoured (CR-15) |
+| Foto's and an album | album cards per year; thumbnail grid | §2.7 (pilot C): the album card on the kit's card, the shared year heading, the grid and the lightbox as components with kit icons and a focus trap; clearance honoured (CR-15) |
 | Inloggen, Bedankt, Betaling ontvangen, Inloglink verlopen | one-card pages | one-card pages, the same card; **the heading inside the card is the card heading (24 px), never the 40 px page title** — the public page-title size belongs to the title role on the ground, not to every `h1` (Koen, 5 October 2026: "Aanmelden" at 40 px in the sign-in card); the sign-in page says **Inloggen**, the word of the header link since P1 ("Aanmelden" is the newsletter's button) |
 
 **Decided with Koen on 2 October 2026 (CR-11 Q28):** a person stays a card on
