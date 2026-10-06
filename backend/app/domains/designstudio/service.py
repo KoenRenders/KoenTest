@@ -473,10 +473,73 @@ def day_label(day: date, *, weekday: bool = False) -> str:
     return f"{WEEKDAYS_NL[day.weekday()]} {text}" if weekday else text
 
 
-def time_label(moment) -> str:
+def hour_label(moment) -> str:
+    """An hour as the poster prints it: "14U", "14U30"."""
     if moment is None:
         return ""
-    return f"OM {moment.hour}U" + (f"{moment.minute:02d}" if moment.minute else "")
+    return f"{moment.hour}U" + (f"{moment.minute:02d}" if moment.minute else "")
+
+
+def date_row_line(
+    start: date,
+    end: Optional[date] = None,
+    start_time=None,
+    end_time=None,
+    *,
+    weekday: bool = True,
+    hours: bool = True,
+) -> str:
+    """One date row of an activity as one line of a poster (#1677) — the one
+    function for the single-date highlight and for a cell of the dates grid.
+
+    Koen, 6 October 2026: the poster of a weekend printed its first day only.
+    The wording per combination is his (confirmed on the issue):
+
+        one day                       VRIJDAG 7 MEI
+        … with a start hour           VRIJDAG 7 MEI OM 14U
+        … from and to                 VRIJDAG 7 MEI VAN 14U TOT 17U
+        two days                      VRIJDAG 7 TOT ZONDAG 9 MEI
+        … in two months               VRIJDAG 30 APRIL TOT ZONDAG 2 MEI
+        … with hours                  VRIJDAG 7 MEI 18U TOT ZONDAG 9 MEI 16U
+        … in two years                the year on both sides
+
+    An end date equal to the start date is one day. `weekday=False` and
+    `hours=False` are the grid's: twelve dates in two narrow columns have no
+    room for either, as they had none for the start hour before.
+    """
+    begin = hour_label(start_time) if hours else ""
+    until = hour_label(end_time) if hours else ""
+    if end is None or end == start:
+        line = day_label(start, weekday=weekday)
+        if begin and until:
+            return f"{line} VAN {begin} TOT {until}"
+        if begin:
+            return f"{line} OM {begin}"
+        return f"{line} TOT {until}" if until else line
+    two_years = end.year != start.year
+    first = day_label(start, weekday=weekday) + (f" {start.year}" if two_years else "")
+    last = day_label(end, weekday=weekday) + (f" {end.year}" if two_years else "")
+    if not (begin or until) and not two_years and end.month == start.month:
+        # The month once, at the end: "VRIJDAG 7 TOT ZONDAG 9 MEI".
+        first = first.rsplit(" ", 1)[0]
+    return " ".join(part for part in (first, begin, "TOT", last, until) if part)
+
+
+def _row_line(row: dict, *, weekday: bool = True, hours: bool = True) -> str:
+    """`date_row_line` for one date row of the facts (ISO strings; a design
+    made before #1677 has facts without the two end keys)."""
+
+    def hour(key: str):
+        return datetime.strptime(row[key], "%H:%M").time() if row.get(key) else None
+
+    return date_row_line(
+        date.fromisoformat(row["date"]),
+        date.fromisoformat(row["end_date"]) if row.get("end_date") else None,
+        hour("time"),
+        hour("end_time"),
+        weekday=weekday,
+        hours=hours,
+    )
 
 
 def _shared_deadline(activity) -> str:
@@ -485,6 +548,22 @@ def _shared_deadline(activity) -> str:
 
     datum = shared_deadline(activity)
     return datum.isoformat() if datum else ""
+
+
+def _date_fact(row) -> dict:
+    """One date row as the facts carry it. The end (#1677) is there only when
+    the row has one: the facts are what the fingerprint hashes, and two empty
+    keys on every row would mark every existing design as changed — only a
+    design whose activity HAS an end date or an end hour gets another line."""
+    fact = {
+        "date": row.start_date.isoformat(),
+        "time": row.start_time.strftime("%H:%M") if row.start_time else "",
+    }
+    if row.end_date:
+        fact["end_date"] = row.end_date.isoformat()
+    if row.end_time:
+        fact["end_time"] = row.end_time.strftime("%H:%M")
+    return fact
 
 
 def facts_for(db: Session, design: Design) -> dict:
@@ -504,13 +583,7 @@ def facts_for(db: Session, design: Design) -> dict:
         "activity_id": activity.id,
         "title": activity.name or "",
         "location": activity.location or "",
-        "dates": [
-            {
-                "date": d.start_date.isoformat(),
-                "time": d.start_time.strftime("%H:%M") if d.start_time else "",
-            }
-            for d in dates
-        ],
+        "dates": [_date_fact(d) for d in dates],
         # #1053: the deadline moved to the component. A poster speaks for the
         # whole activity, so it only carries a date when every component has the
         # same one; differing dates belong on the page, not on one printed line.
@@ -622,10 +695,7 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
     dates = facts["dates"]
     date_line = ""
     if len(dates) == 1:
-        day = date.fromisoformat(dates[0]["date"])
-        date_line = day_label(day, weekday=True)
-        if dates[0]["time"]:
-            date_line += f" {time_label(datetime.strptime(dates[0]['time'], '%H:%M').time())}"
+        date_line = _row_line(dates[0])
         highlights.append(Highlight("calendar", date_line, True))
     if facts["location"]:
         highlights.append(Highlight("map-pin", facts["location"].upper()))
@@ -634,7 +704,7 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
     highlights = highlights[:MAX_HIGHLIGHT_ROWS]
 
     grid = (
-        tuple(day_label(date.fromisoformat(d["date"])) for d in dates[:MAX_DATES])
+        tuple(_row_line(d, weekday=False, hours=False) for d in dates[:MAX_DATES])
         if len(dates) > 1
         else ()
     )
