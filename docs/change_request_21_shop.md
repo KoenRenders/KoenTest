@@ -129,7 +129,7 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R10 | Barcodes on articles, and scanning them. | Won't | Koen, 6 Oct 2026 | |
 | R11 | Everyone can buy, members and non-members; a member pays the member price where the article has one — the same principle as registering for an activity. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R12 | The portal arranges how the buyer gets the article — pick-up, bringing it, trying it on first. | Won't | Koen, 6 Oct 2026 | all three stay possible, by agreement between buyer and seller, outside the portal |
-| R13 | An order takes the articles out of the available stock the moment it is placed; when the order is cancelled, the stock comes free again. | Must *(proposed)* | Koen, 6 Oct 2026 | "for now" |
+| R13 | An order reserves its articles the moment it is placed: what is reserved cannot be sold again. The stock itself only goes down when the article has left the warehouse — when it is delivered. A reservation is cancelled when the buyer withdraws, exchanges for another article, or the payment fails; the article is then free to sell again. | Must *(proposed)* | Koen, 6 Oct 2026 | replaces "stock is taken at the order" of the same day (Q16) |
 | R14 | The buyer pays online or by bank transfer, as with a registration for an activity. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R15 | An order can be changed after trying on — a bigger size for a smaller one, a T-shirt instead of a sweater — and the stock follows the change. | Must *(proposed)* | Koen, 6 Oct 2026 | same principle as changing a registration |
 | R16 | The money follows a changed order as it does for a registration: an extra payment when it was paid and the new amount is higher, an updated amount when it was not paid yet, a refund when it was paid and the new amount is lower. | Must *(proposed)* | Koen, 6 Oct 2026 | |
@@ -137,6 +137,7 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R18 | An order paid by bank transfer becomes a task on the workbench for a new role, Sales (Verkoop), at once, due within 14 days; when the money comes in the task closes by itself, otherwise Sales decides to cancel the order or to keep waiting. | Must *(proposed)* | Koen, 6 Oct 2026 | "at once — but maybe the task's due date is within 14 days"; see Q15 |
 | R19 | Five roles carry the process: product master (keeps the product list), pricing (sets the price of an article), sales (the e-loket: orders in order, delivery, fitting moments, exchanges), finance (follows up payments — the existing role) and stock management (enters stock and changes it by hand). One person may hold several. | Must *(proposed)* | Koen, 6 Oct 2026 | four new roles; screen names open |
 | R20 | One or more documents can be attached to a product, and a buyer looking at the article can open them — for example the size chart that came with the delivery of the clothing, so the buyer can choose a size from it. | Must *(proposed)* | Koen, 6 Oct 2026 | |
+| R21 | Sales registers that an order is delivered; picked up or brought makes no difference. That is the moment the stock goes down. | Must *(proposed)* | Koen, 6 Oct 2026 | the one hand-over step the portal knows; how it is handed over stays outside (R12) |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -335,6 +336,7 @@ and deliberately not done — recorded so it is not asked again).
 | 6 Oct 2026 | The task for an unpaid order goes to Sales; Finance confirms a payment as today (Q13). | Koen |
 | 6 Oct 2026 | Screen names: Productbeheer, Prijsbeheer, Verkoop, Voorraadbeheer; the public page is the "Webshop" (Q14). | Koen |
 | 6 Oct 2026 | Stock is kept as movements — receipt, order, cancellation, exchange, correction, each with date and reason — and the stock of a variant at a location is their sum (Q3). | Koen |
+| 6 Oct 2026 | An order reserves stock; the stock goes down only at delivery, registered by Sales without distinguishing pick-up from bringing. A reservation can be cancelled (buyer withdraws, exchange, failed payment). **Replaces** the decision "stock is taken at the order" (Q7) of the same day (Q16). | Koen |
 
 ---
 
@@ -508,6 +510,7 @@ and deliberately not done — recorded so it is not asked again).
 | Q12 | 6 Oct 2026 | Does ADMIN see everything of the webshop, and may OPERATOR do everything? (Claude) | Yes: ADMIN may view everything and only the four roles may change; OPERATOR may do everything, as today. (Koen) |
 | Q13 | 6 Oct 2026 | The task for an unpaid order: to Sales, with Finance confirming payments as today? (Claude) | Yes. (Koen) |
 | Q14 | 6 Oct 2026 | Screen names of the roles, and "E-loket" or "Webshop"? (Claude) | Productbeheer, Prijsbeheer, Verkoop, Voorraadbeheer; "Webshop". (Koen) |
+| Q16 | 6 Oct 2026 | When does the stock go down — at the order, at the payment, or at the hand-over? (Claude, asked before Q7) | Koen came back on Q7: an order only reserves; the stock goes down when Sales registers the delivery, picked up or brought alike. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
