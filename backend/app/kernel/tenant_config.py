@@ -245,6 +245,55 @@ def _origin_voor(host: str) -> str:
     return f"{schema}://{host}{_omgevingspoort(schema)}"
 
 
+def tenant_own_origin(code: str | None) -> str | None:
+    """The origin of the host this department has of its own in this environment
+    (`TENANT_HOSTNAMES`, the routing itself), or None when it has none — it is
+    then reached through its prefix on a platform host."""
+    from app.config import settings
+
+    if not code:
+        return None
+    hosts = parse_hostname_map(settings.tenant_hostnames)
+    own = next((h for h, c in hosts.items() if c == code.lower()), None)
+    return _origin_voor(own) if own else None
+
+
+def workspace_origin(db: Session, code: str | None, platform_id: int | None) -> str:
+    """The origin a link to a workspace's BACK OFFICE needs from this request,
+    or "" when the host of this request serves it (#1668).
+
+    A workspace is reached in one of two ways, and each has its host:
+
+    - a department with a host of its own: on that host — there the host
+      decides the workspace, whatever cookie or prefix came before;
+    - the platform, and a department without a host: on a platform host, the
+      only place where the `raak_tenant` cookie and the absence of one mean
+      anything (`resolve_request`).
+
+    Until #1668 the switcher linked both relative to the request. On a
+    department's own domain that is the department: "the platform" opened the
+    department again, and another department opened for one page only — its
+    prefix wins for that request, and the next absolute path is the host's.
+
+    Which platform host: `platform_home_url`, the one source since #1543 (the
+    first of `PLATFORM_HOSTS`, or a stored address). On a platform host the
+    link stays on THIS host (#860: never send someone to another host of the
+    list). Without `PLATFORM_HOSTS` — one host serves everything, as on HDEV —
+    there is nowhere else to go and the link stays relative.
+    """
+    from app.config import settings
+    from app.kernel.tenancy import current_origin, current_platform_host
+
+    here = (current_origin.get() or "").rstrip("/")
+    own = tenant_own_origin(code)
+    if own:
+        return "" if own == here else own
+    if current_platform_host.get() or platform_id is None or not settings.platform_hosts.strip():
+        return ""
+    there = platform_home_url(db, platform_id)
+    return "" if there == here else there
+
+
 def tenant_home_url(db: Session, tenant_id: int | None = None, *, code: str | None = None) -> str:
     """Waar WOONT deze tenant — haar eigen canonieke adres (#860).
 
@@ -279,11 +328,9 @@ def tenant_home_url(db: Session, tenant_id: int | None = None, *, code: str | No
     if code is None and tenant_id in (None, current_tenant_id.get()):
         code = current_tenant_code.get()
 
-    if code:
-        hosts = parse_hostname_map(settings.tenant_hostnames)
-        eigen = next((h for h, c in hosts.items() if c == code.lower()), None)
-        if eigen:
-            return _origin_voor(eigen)
+    own = tenant_own_origin(code)
+    if own:
+        return own
 
     stored = (get_setting(db, "base_url", tenant_id=tenant_id) or "").strip()
     if stored and _origin_serves_this_environment(stored):
