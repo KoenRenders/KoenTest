@@ -362,6 +362,10 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   field the editor has, in the same sections and order, empty ones as "—",
   a yes/no in plain words ("Enkel leden: ja") — not as a disabled control;
   no add buttons, no drag handles, no row menus until "Bewerken". [7]
+- **A new record** is the same page in edit mode, empty: "+ Nieuwe
+  activiteit" opens it, Opslaan creates, Annuleren leaves nothing behind; no
+  start screen with a few fields (Koen, 6 October 2026; the Assistent proposes
+  there as on an existing record).
 - **"Bewerken"** (the primary, or the first action) turns the whole form
   into the editor: the same sections, the same order, every datum in its
   recognisable place — edit mode may take more room for inputs, help and

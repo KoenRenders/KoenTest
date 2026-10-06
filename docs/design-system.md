@@ -1155,8 +1155,15 @@ back · forbidden · test.** Fields marked *open* are decisions still to take
 ### P2 · Create and continue (#627)
 
 - **When**: "+ Nieuwe <item>" on a records list.
-- **What happens**: a full-page editor opens; after the first save you are in
-  that record's editor (P1 applies from then on).
+- **What happens**: **the record page itself opens in edit mode, empty** — the
+  same sections, groups and action bar as an existing record; Opslaan creates
+  the record (the same refusals, an empty name among them) and lands in its
+  editor (P1 from then on); Annuleren returns to the list with nothing stored.
+  No start screen with a few fields first (Koen, 6 October 2026: the old
+  "Nieuwe activiteit" screen did the editor's work twice; the activity is the
+  first, every record on the kit follows at its roll-out). The Assistent's
+  context there is "nieuwe <item>", so a proposal (#1604) can fill the empty
+  form.
 - **Where attention goes**: the first field of the new form.
 - **The way back**: the return link to the list.
 - **Forbidden**: a modal or a collapsible form above the list; a dialog whose
