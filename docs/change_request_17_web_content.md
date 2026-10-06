@@ -1,10 +1,10 @@
 # Change Request 17 — Web content: pages as structured documents, one editor for three places
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · assigned to v2.14.0 on 5 October and **moved to v2.15.0 by Koen on 6 October 2026** (tracker #1666); the spike of phase 0 (#1626) is the first sub-issue of #1427 — **built on 6 October 2026, TipTap confirmed** (C8; branch `spike/cr17-tiptap`)
+**Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · **not assigned to a release** (Koen, 7 October 2026; the assignments to v2.14.0 and v2.15.0 of 5 and 6 October are withdrawn): the Mistral CLI builds phase 1 (#1671) and phase 2 (#1679) on the integration branch `cr17/web-content`, every pull request read by a Claude dev CLI, and the branch goes to `master` only after Koen's own approval on a local test version; the spike of phase 0 (#1626) was **built on 6 October 2026, TipTap confirmed** (C8; branch `spike/cr17-tiptap`)
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
-**Reading:** A 1499 words · B 2498 · C 6034 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1499 words · B 2499 · C 6474 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -413,7 +413,7 @@ None (B9, 5 Oct 2026).
 | 4 Oct 2026 | Form block (R13), cards block (R14), kit-styled pictures (R4), columns middle beside a figure; a translation row from phase 1 (R15); a JSON door (R16); the menu to Should (R8); the three newsletter choices decide the blocks (F9). | Koen |
 | 4 Oct 2026 | **Six answers**: R6 and writing on a phone Could; R12 Won't; cards are layout; English soon with `/en/`; the JSON door also creates and publishes. | Koen |
 | 5 Oct 2026 | **B8 closed** (Q1 TipTap; Q2 the menu a Could, only if nearly free; Q8, Q9 the activity editor and merged cells Coulds outside this change; Q10 form and cards in phase 2; Q11 content only, the back office Dutch; Q6 the spike now). **Phases**: 1 pages, 2 blocks, 3 language, 4 the JSON door, 5 value block and gallery; 6 menu and 7 letter are Could. **To later**: print, the preview's width switch, autosave. **Assigned to v2.14.0.** | Koen |
-| 6 Oct 2026 | Moved to **v2.15.0** (#1666). Reading width also for the association's pages (Q17). | Koen |
+| 6–7 Oct 2026 | Q17, Q20; **no release**: built on `cr17/web-content`, to `master` after Koen's approval. | Koen |
 | 1 Oct 2026 | *Proposed:* C4.1–C4.7. | author |
 
 ---
