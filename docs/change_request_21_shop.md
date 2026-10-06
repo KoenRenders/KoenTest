@@ -307,6 +307,7 @@ and deliberately not done — recorded so it is not asked again).
 | Date | Decision | By |
 |---|---|---|
 | 6 Oct 2026 | A size is a variant of a product; stock is kept per variant (Q1). | Koen |
+| 6 Oct 2026 | The price hangs at the product; a variant may override it. One price is entered, only the exception is set per variant; prices over time (R6) work the same for both (Q4). | Koen |
 
 ---
 
@@ -467,6 +468,7 @@ and deliberately not done — recorded so it is not asked again).
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
 | Q1 | 6 Oct 2026 | Is a size a product of its own, or a variant of one product? (Claude) | A variant; stock is kept per variant. (Koen) |
+| Q4 | 6 Oct 2026 | Does the price hang at the product or at the variant? (Claude) | At the product, and a variant may override it. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
