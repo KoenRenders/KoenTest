@@ -120,6 +120,7 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R11 | Everyone can buy, members and non-members; a member pays the member price where the article has one — the same principle as registering for an activity. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R12 | The portal arranges how the buyer gets the article — pick-up, bringing it, trying it on first. | Won't | Koen, 6 Oct 2026 | all three stay possible, by agreement between buyer and seller, outside the portal |
 | R13 | An order takes the articles out of the available stock the moment it is placed; when the order is cancelled, the stock comes free again. | Must *(proposed)* | Koen, 6 Oct 2026 | "for now" |
+| R14 | The buyer pays online or by bank transfer, as with a registration for an activity. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -478,6 +479,7 @@ and deliberately not done — recorded so it is not asked again).
 | Q5 | 6 Oct 2026 | Who may buy — members only or everyone — and is there a member price? (Claude) | Both: everyone may buy, and there is a member price, the same principle as registrations for activities. (Koen) |
 | Q6 | 6 Oct 2026 | How does the buyer get the article — pick-up or brought — and can it still be tried on first? (Claude) | Pick-up or brought, and trying on stays possible; automating any of it is out of scope. (Koen) |
 | Q7 | 6 Oct 2026 | Is stock taken when the order is placed, or only when it is paid? (Claude) | For now at the order; if the order is cancelled, the stock comes free again. (Koen) |
+| Q8 | 6 Oct 2026 | How does the buyer pay — Mollie, bank transfer, or both? (Claude) | Both, as with registrations. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
