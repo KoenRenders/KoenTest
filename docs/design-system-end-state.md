@@ -442,7 +442,10 @@ letters and things that drop out is no gain."
   transition), the **three columns spread evenly** now that the newsletter
   column is short, the **first social icon's glyph on the left line of
   "Volg ons"** — its 44 px hit area reaches left of that line — and **32 px
-  of air above and below the row on a desktop, 24 px on a phone** (Koen, the
+  of air above and below the row on a desktop, 24 px on a phone**, and **the
+  same 32 / 24 px between the last content and the footer surface** — one
+  rule, the air outside the surface equals the air inside it (dev2 measured
+  the grey strip still at 64 / 48 px; Koen confirmed the same day) (Koen, the
   same day, on the built footer); stacked in that
   order on a phone (Koen, 4 October 2026: the newsletter beside the social
   icons, not a row of its own); under it **the legal line carrying the

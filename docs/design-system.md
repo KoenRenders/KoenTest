@@ -1417,7 +1417,8 @@ Same kit, warmer expression. Specifics beyond §3.1:
   most 144 × 64 px, **no border**) — heading over content, the three columns
   on one line (Koen, 6 October 2026: "rustiger"), **no line above the row**,
   the columns spread evenly, the first social glyph on the left line of its
-  heading (the hit area reaches left), **32 px of air on a desktop and 24 px
+  heading (the hit area reaches left), **32 px of air on a desktop and 24 px on a phone inside the footer surface
+  and the same between the last content and that surface** (was 64 / 48 px; the note that follows is the history) — 32 px of air on a desktop and 24 px
   on a phone** — and the **legal line
   with the organisation's details**, each once and only when filled in, from
   the organisation the site shows; the CMS block `site-footer` is no longer
@@ -1445,6 +1446,14 @@ Same kit, warmer expression. Specifics beyond §3.1:
   page's flag "in de voettekst" (#1569). Fixed inline content (`home-intro`)
   is addressed by a fixed slug and edited per tenant in the CMS (#457);
   `site-footer` is no longer rendered since P1.
+- **The page title is the only `h1`; a heading in CMS content is a section
+  heading** (Koen, 6 October 2026, on the page Werking: Trix knows one
+  heading level and writes `<h1>`, so every sub-heading stood at the 40 px of
+  the page title and the page had four `h1`s). The renderer demotes content
+  headings one level (`h1` → `h2` …) without touching the stored text, and
+  public content renders them at 24 px semibold, then 18 and 16 px; the
+  public title role of 40 px never applies inside `.cms-content`. CR-17's
+  schema has headings 2–4 natively.
 - **CMS editor is Trix**, vendored under `/static/vendor` (no CDN, no data
   leaving the EU); file attachments disabled; stored HTML is sanitised
   server-side at every render point (#476, #520).
