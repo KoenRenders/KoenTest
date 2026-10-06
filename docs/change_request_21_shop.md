@@ -125,6 +125,7 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R16 | The money follows a changed order as it does for a registration: an extra payment when it was paid and the new amount is higher, an updated amount when it was not paid yet, a refund when it was paid and the new amount is lower. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R17 | An order whose online payment fails or expires is cancelled by itself, and its stock comes free. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R18 | An order paid by bank transfer that stays unpaid becomes a task on the workbench for a new role, Sales, who decides to cancel it or to keep waiting. | Must *(proposed)* | Koen, 6 Oct 2026 | after how many days: open |
+| R19 | Five roles carry the process: product master (keeps the product list), pricing (sets the price of an article), sales (the e-loket: orders in order, delivery, fitting moments, exchanges), finance (follows up payments — the existing role) and stock management (enters stock and changes it by hand). One person may hold several. | Must *(proposed)* | Koen, 6 Oct 2026 | four new roles; screen names open |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -318,6 +319,7 @@ and deliberately not done — recorded so it is not asked again).
 | 6 Oct 2026 | Price gets its own domain, `pricing`, small from the start: a price per article with the date from which it applies; no discounts or price lists per customer group yet (Q2). | Koen |
 | 6 Oct 2026 | Everyone may buy; members pay the member price where there is one, by the same rule as an activity registration (Q5). This refines Q2: `pricing` holds two kinds of price from the start, the regular price and the member price, both with their date; still no other customer groups. | Koen |
 | 6 Oct 2026 | Stock is taken at the order, not at the payment; a cancelled order gives it back — "for now" (Q7). | Koen |
+| 6 Oct 2026 | Five roles: product master, pricing, sales, stock management — four new — and the existing finance role for following up payments (Q11). | Koen |
 
 ---
 
@@ -486,6 +488,7 @@ and deliberately not done — recorded so it is not asked again).
 | Q8 | 6 Oct 2026 | How does the buyer pay — Mollie, bank transfer, or both? (Claude) | Both, as with registrations. (Koen) |
 | Q9 | 6 Oct 2026 | What happens with an exchange or a return after trying on? (Claude) | The same principle as activities: the order is changed (bigger size in, smaller size back, or a T-shirt instead of a sweater), and the financial impact is computed as for activities — extra payment if already paid, updated payment if not yet paid, refund if already paid and the new amount is lower. (Koen) |
 | Q10 | 6 Oct 2026 | Who cancels an unpaid order — automatically when an online payment fails or expires, by hand for a bank transfer, from a list of open orders? (Claude) | Automatically for the online payment; for a transfer, a task on the workbench for a new role "sales". (Koen) |
+| Q11 | 6 Oct 2026 | One role or several for products, prices, orders and stock? (Claude) | Five: product master, pricing, sales, finance (existing) and stock management. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
