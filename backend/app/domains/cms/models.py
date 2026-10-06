@@ -1,6 +1,18 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, UniqueConstraint, false
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    false,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database import Base
 from app.kernel.tenancy import TenantMixin
@@ -16,6 +28,10 @@ class CmsPage(TenantMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)
     slug = Column(String(255), nullable=False, index=True)
+    # CR-17 phase 1 (#1671): read-only. A page's content is a document in
+    # `page_translations` (draft and published); this column is the pre-CR-17
+    # HTML of pages the migration could not convert losslessly, and the
+    # fallback until the contract migration drops it. Never write to it.
     content = Column(Text, nullable=True)
     is_published = Column(Boolean, default=False, nullable=False)
     # Toon de (gepubliceerde) pagina in de hoofdnavigatie. False voor juridische/
@@ -38,3 +54,53 @@ class CmsPage(TenantMixin, Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class CmsPageTranslation(Base):
+    """A page's title and documents in one language (CR-17 phase 1, #1671).
+
+    One row per (page, language); phase 1 has exactly the tenant's language.
+    `draft_json` is what the editor saves; `published_json` is what the site
+    shows, written only by publishing (C4.3). The stored document is validated
+    against `cms/schema.py`; JSONB because the draft/publish comparison and
+    the phase-4 import read the structure, not the bytes.
+    """
+
+    __tablename__ = "page_translations"
+    __table_args__ = ({"schema": "cms"},)
+
+    page_id = Column(
+        Integer,
+        ForeignKey("cms.cms_pages.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    language = Column(String(5), primary_key=True)
+    title = Column(String(200), nullable=False)
+    # The menu's word for the page, when it differs from the title (phase 6).
+    menu_label = Column(String(80), nullable=True)
+    draft_json = Column(JSONB, nullable=True)
+    published_json = Column(JSONB, nullable=True)
+    published_at = Column(DateTime(timezone=True), nullable=True)
+    published_by = Column(String(255), nullable=True)
+
+
+class CmsPageHistory(Base):
+    """Every published and restored version of a page's document (C4.3): one
+    row per publish/restore action, so a wrong publish is one Terugzetten
+    away — the same history whether the button or the API published."""
+
+    __tablename__ = "cms_page_history"
+    __table_args__ = ({"schema": "cms"},)
+
+    id = Column(Integer, primary_key=True, index=True)
+    page_id = Column(
+        Integer,
+        ForeignKey("cms.cms_pages.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    language = Column(String(5), nullable=False)
+    # 'published' by Publiceren; 'restored' by Terugzetten (into the draft).
+    action = Column(String(20), nullable=False)
+    document = Column(JSON, nullable=False)
+    at = Column(DateTime(timezone=True), nullable=False)
+    by = Column(String(255), nullable=True)
