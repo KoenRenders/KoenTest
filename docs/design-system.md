@@ -1451,7 +1451,7 @@ Same kit, warmer expression. Specifics beyond §3.1:
   decision) → "Inschrijven en betalen" or "Inschrijven"; no "Wie doet er
   mee?" on the form; the return page says "ontvangen" only when the ledger
   confirms. **A public form**: one long page, a section's branching built as
-  visibility on that page (provisional until Koen confirms). **Word lid and
+  visibility on that page (confirmed by Koen on 6 October 2026; CR-11 B9). **Word lid and
   Mijn gezin**: Hoofdlid (a fixed section) → Adres → Gezinsleden (the
   composite group, its add button under the last person, one e-mail field
   shown per person, no label on an e-mail row, Geslacht a select beside
