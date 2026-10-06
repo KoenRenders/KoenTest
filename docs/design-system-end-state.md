@@ -423,10 +423,14 @@ letters and things that drop out is no gain."
   a divider on a phone. The admin's `account_menu` (§3.14) keeps its
   initials; the public one shows the name.
 - **Footer**: one row of three columns on a desktop — **left the newsletter**
-  (the heading "Nieuws van <naam van de site>" — the site name of #1546,
-  Koen, 5 October 2026 — the sentence, the button *Aanmelden* as the one
-  yellow call to action), then the social links (24 px icons in 44 px targets), then *Met
-  steun van* (logos in at most 144 × 64 px, never yellow); stacked in that
+  (the heading **"Nieuwsbrief"** — just that, no site name; Koen, 6 October 2026,
+  replacing "Nieuws van …" — and the button
+  *Aanmelden* as the one yellow call to action, **no sentence between them** — the sentence "Af en toe een mail …" moves to
+  the sign-up page, after the link),
+  then *Volg ons* with the social links (24 px icons in 44 px targets,
+  **without a border or box around them**), then *Met steun van* (logos in at
+  most 144 × 64 px, never yellow, **without a border**) — the three columns
+  on one line, heading over content (Koen, 6 October 2026: "rustiger"); stacked in that
   order on a phone (Koen, 4 October 2026: the newsletter beside the social
   icons, not a row of its own); under it **the legal line carrying the
   organisation's details**: *© 2026 Raak Millegem ·
