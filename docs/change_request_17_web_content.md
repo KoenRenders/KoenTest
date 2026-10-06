@@ -4,7 +4,7 @@
 **Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · assigned to v2.14.0 on 5 October and **moved to v2.15.0 by Koen on 6 October 2026** (tracker #1666); the spike of phase 0 (#1626) is the first sub-issue of #1427 and its start is Koen's to give
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
-**Reading:** A 1496 words · B 2493 · C 5189 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1498 words · B 2498 · C 5331 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -119,7 +119,7 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 | R14 | A row of clickable cards, each a link to a page or elsewhere. | Should | Koen, 4 Oct |
 | R15 | Content in more than one language: Dutch first, English soon, without rebuilding; the visitor sees their language with a fallback. | Should | Koen, 4 Oct |
 | R16 | A page can be created, changed and published from outside as JSON (a script, an AI agent from a CLI), with the screen's validation and history, under an API key. | Should | Koen, 4 Oct |
-| R17 | The association's sites do not change: their pages render identically after the migration. | Must (limit) | Koen, 4 Oct |
+| R17 | The association's sites keep their content and look; only the text column narrows (F8). | Must (limit) | Koen, 4 Oct |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
 
@@ -144,7 +144,7 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 | AC8 | A contact page: form left, details right; a submission lands in the workbench; on a phone the form first. | R13 |
 | AC9 | A section heading over three cards, each a link; the whole card is the target; one per row on a phone. | R14 |
 | AC10 | From a CLI with an API key a page is created, written and published; Terugzetten undoes it; an unknown block is refused by name. | R16 |
-| AC11 | Every page of the association renders the same before and after the migration. | R17 |
+| AC11 | Every page of the association renders the same HTML before and after the migration. | R17 |
 | AC12 | A page under its section; an external item links out; a footer item in the footer only. | R8 |
 
 ---
@@ -153,7 +153,7 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
-A page becomes a **structured document**: a tree of blocks in a known schema, stored as JSON, rendered by the portal to the site and to mail. One vendored editor, one toolbar, a block set per place. A page has a draft and a published document, a preview, a history, and its title and documents in a **translation row per language**. Pictures come through CR-15's picker, styled by the kit; a form block places a form; a cards block holds link cards; the menu may group pages under sections (Could); a page can be created, changed and published from outside as JSON, validated, with the same history as the screen. The association's pages convert losslessly and render identically.
+A page becomes a **structured document**: a tree of blocks in a known schema, stored as JSON, rendered by the portal to the site and to mail. One vendored editor, one toolbar, a block set per place. A page has a draft and a published document, a preview, a history, and its title and documents in a **translation row per language**. Pictures come through CR-15's picker, styled by the kit; a form block places a form; a cards block holds link cards; the menu may group pages under sections (Could); a page can be created, changed and published from outside as JSON, validated, with the same history as the screen. The association's pages convert losslessly and keep their look.
 
 Decisions, each with the rejected alternative (the reasoning in C4):
 
@@ -184,7 +184,7 @@ Decisions, each with the rejected alternative (the reasoning in C4):
 | F8 | Public page at reading width; a table scrolls inside its block on a phone; columns stack, the form first. | R7 |
 | F9 | Newsletter set (text, figure, button, activity, calendar, closing) replacing the markers; the page's three choices decide the blocks — *Uitgelicht* an activity block each, *In de kalender* one calendar block (CR-11 Q55). Notes set: text, lists, table; autosave. (Could, phase 7.) | R6 |
 | F10 | Menu: `parent_id`, `external_url`, `in_footer` on the page, `menu_label` in the translation row; sections in the site menu; the way back names the section. | R8, R15 |
-| F11 | Migration: HTML parsed into the schema; a page that does not parse losslessly is listed and keeps its HTML; screenshots before and after. | R1, R17 |
+| F11 | Migration: HTML parsed into the schema; a page that does not parse losslessly is listed and keeps its HTML; equal HTML before and after. | R1, R17 |
 | F12 | CR-11 gate 14 widened to the new editor; a schema change is a change of `cms/schema.py` only. | R6, R9 |
 | F13 | The form block renders the chosen form through `forms.api`, same fields, validation and submission; a deleted form renders nothing. | R13 |
 | F14 | The cards block: heading and link cards, two or three per row, one on a phone; the whole card the link; the target a page of the site or a URL. | R14 |
@@ -252,7 +252,7 @@ Legend: green cms · yellow kit · blue media · purple forms · grey kernel · 
 
 **Walkthrough on HDEV** (the organiser; a visitor for 4, 10 and 11) — the detailed steps are C9's annex:
 
-1 A page as blocks. 2 A table added, published, edited, published: still a table. 3 Heading, text, picture beside the text, columns, button; the picture has corners and shadow. 4 A visitor on a phone: the table scrolls inside its block. 5 An unpublished edit leaves the site unchanged; Voorbeeld, Publiceren, Geschiedenis, Terugzetten. 6 A value block follows the setting. 7 (Could) The newsletter and the notes on the same editor. 9 No CSP violation. 10 A contact page with the form block; a submission in the workbench. 11 A cards page; each card a link. 12 From a CLI: create, write, publish; an unknown block refused. 13 The association's pages identical before and after. 14 A section in the menu, an external item, a footer item.
+1 A page as blocks. 2 A table added, published, edited, published: still a table. 3 Heading, text, picture beside the text, columns, button; the picture has corners and shadow. 4 A visitor on a phone: the table scrolls inside its block. 5 An unpublished edit leaves the site unchanged; Voorbeeld, Publiceren, Geschiedenis, Terugzetten. 6 A value block follows the setting. 7 (Could) The newsletter and the notes on the same editor. 9 No CSP violation. 10 A contact page with the form block; a submission in the workbench. 11 A cards page; each card a link. 12 From a CLI: create, write, publish; an unknown block refused. 13 The association's pages the same before and after. 14 A section in the menu, an external item, a footer item.
 
 ## B3. The whole across the modules — for the architect
 
@@ -413,8 +413,8 @@ None (B9, 5 Oct 2026).
 | 4 Oct 2026 | Form block (R13), cards block (R14), kit-styled pictures (R4), columns middle beside a figure; a translation row from phase 1 (R15); a JSON door (R16); the menu to Should (R8); the three newsletter choices decide the blocks (F9). | Koen |
 | 4 Oct 2026 | **Six answers**: R6 and writing on a phone Could; R12 Won't; cards are layout; English soon with `/en/`; the JSON door also creates and publishes. | Koen |
 | 5 Oct 2026 | **B8 closed** (Q1 TipTap; Q2 the menu a Could, only if nearly free; Q8, Q9 the activity editor and merged cells Coulds outside this change; Q10 form and cards in phase 2; Q11 content only, the back office Dutch; Q6 the spike now). **Phases**: 1 pages, 2 blocks, 3 language, 4 the JSON door, 5 value block and gallery; 6 menu and 7 letter are Could. **To later**: print, the preview's width switch, autosave. **Assigned to v2.14.0.** | Koen |
-| 6 Oct 2026 | Moved to **v2.15.0** (#1666). | Koen |
-| 1 Oct 2026 | *Proposed:* C4.1–C4.7; TipTap recommended, decided after the spike. | author |
+| 6 Oct 2026 | Moved to **v2.15.0** (#1666). Reading width also for the association's pages (Q17). | Koen |
+| 1 Oct 2026 | *Proposed:* C4.1–C4.7. | author |
 
 ---
 
@@ -443,7 +443,7 @@ None (B9, 5 Oct 2026).
 | A page already has its footer flag | `cms/models.py`, `show_in_footer` (#1569) | true | phase 6 adds no flag |
 | Five readers of `content` beside the page screen | `chatbot/context.py:168`, `ui.py:57` (the home intro), `router.py:20`, `service.py:215` (media "where used"), `service.py:248` (the placeholder list) | true | C2 cms, *Readers* |
 | The page screen is a list with a hand-built detail fragment, not on the record page | `_cp_detail.html`; `record_header` and `record_columns` exist in `_macros.html` | true | phase 1 moves it onto the kit's record page |
-| The e2e baseline is measurements in JSON; pixels are not compared | `tests_e2e/measures.py` (#1605; Koen, 5 October 2026) | true | test 19 as written cannot stand, and F8's reading width contradicts it — asked to Koen on 6 October 2026 |
+| The e2e baseline is measurements in JSON; pixels are not compared | `tests_e2e/measures.py` (#1605; Koen, 5 October 2026) | true | test 19 compares HTML and measurements, not pixels; the association's pages take the reading width too (Koen, 6 October 2026; Q17) |
 | *To measure before phase 2:* what the forms module needs to render a form outside its own page (CSRF, the submission route, the thank-you) | `forms/ui.py`, the public form template | — | F13's facade call |
 
 ## C2. Per module: what must happen
@@ -485,7 +485,7 @@ None (B9, 5 Oct 2026).
 | Row | Answer |
 |---|---|
 | Reporting views and saved reports | no |
-| Existing tests, e2e flows, 390 px screenshots | yes — the CMS, newsletter and notes editor e2e and their screenshots are redone; the public page screenshots of the association must stay identical (test 19) |
+| Existing tests, e2e flows, 390 px screenshots | yes — the CMS, newsletter and notes editor e2e and their screenshots are redone; the association's public pages keep their HTML and their measured look, but for the column width (test 19) |
 | Fixed UI decisions and `AGENTS.md` | yes — "CMS editor is Trix" in the design system and the row-15 reference are rewritten at phase 1 (proposed to the master CLI) |
 | Design-system documentation | yes — the editor as a component, the prose rules, the block set table, the cards and form blocks |
 | Code lists | `language_codes` reused; the block types are code (`schema.py`), not data |
@@ -558,7 +558,7 @@ A page's document is data, and data has a door: export (draft or published) and 
 
 ### C4.12 The association's sites do not change
 
-The migration converts every existing page losslessly into a document (test 12) and the renderer produces the same page (test 19: a screenshot per page, before and after, compared); the association's home composition, menu and look stay; its brand file stays. New blocks are available to it but nothing on its site uses them until an organiser does.
+The migration converts every existing page losslessly into a document (test 12) and the renderer produces the same HTML (test 19). One thing changes, by decision (Koen, 6 October 2026; Q17): the text column of a content page narrows from the site's full width to the reading width of 768 px on a wide screen — nothing on a phone. The association's home composition, menu and look stay; its brand file stays. New blocks are available to it but nothing on its site uses them until an organiser does.
 
 ## C5. Privacy and security — the mechanics behind A7
 
@@ -584,10 +584,10 @@ The stored content is a JSON document validated against the schema on save and o
 16. **The form block.** A page with a form node renders the form's fields; a submission from the page lands as a submission of that form (workbench) with the page as return target; a form id of another tenant or a deleted form renders nothing on the site and a notice in the admin preview; a tenant without the forms module cannot insert the block.
 17. **Cards.** Three cards render as links (the whole card, `a` with the stretched pattern); a card to a page follows a slug change; one per row at 390 px (DOM measurement).
 18. **The JSON door.** Export → import round-trips a document unchanged; a document with an unknown block is refused with "Onbekend blok: <name>" and the draft untouched; the API refuses without a key; publishing through the API writes exactly one history row like the button, and Terugzetten undoes it; a media id that does not exist is refused.
-19. **The association unchanged.** A screenshot per seeded association page before and after the migration, compared pixel-exact (the e2e screenshot set); red on any difference.
+19. **The association unchanged, but for the width.** For every seeded association page the content HTML rendered from the document equals the HTML rendered from `content` on the old code (a snapshot taken before the migration; whitespace aside); red on any difference. And the measurement baseline (`tests_e2e/measures.py`, #1605) carries one association page at 390 and 1 440 px: at 390 px no number moves; at 1 440 px the content column is 768 px wide and centred, and the heights follow from that — the new numbers ship with `--write` in the pull request that narrows the column. No pixel comparison (Koen, 5 October 2026: numbers, no images).
 20. **Language fallback.** A page with a translation in the tenant's language only renders that language for a visitor asking for another; with two published translations each visitor sees their own; a draft in the second language is not served.
 
-**Impact on the test landscape:** the CMS, newsletter and notes editor e2e are rewritten; the public page screenshots of the association become a comparison, not a new baseline; the render tests become renderer tests per target; the sanitiser tests stay as output tests.
+**Impact on the test landscape:** the CMS, newsletter and notes editor e2e are rewritten; the association's public pages get an HTML snapshot comparison and a place in the measurement baseline; the render tests become renderer tests per target; the sanitiser tests stay as output tests.
 
 ## C7. The gate — what refuses a deviation from now on
 
@@ -604,7 +604,7 @@ Phase 0 measures and records here: the one-off bundle step (command, duration) a
 
 Not yet made. Before the handover, concepts at 390 px and at desktop width: the page editor with a heading, a text, a picture beside the text, a table, a button and a cards block, with the toolbar and the "Blok invoegen ▾" menu; the public page of that document at reading width; a contact page with the form block in two columns; the newsletter editor with an activity block. Invented data, in Koen's project folder outside the repository (`CR17 webinhoud/`), never in the repository; the date he looked at them goes here.
 
-**Annex — the walkthrough in detail** (the numbered summary is B2): 1 Open a page: the page as blocks; a draft badge if unpublished changes exist. 2 Add a table block, three columns, four rows; a header row; Tab moves between cells; publish; reopen; change one cell; publish: still a table, the cell changed. 3 Add a heading, a text, a picture from the library with caption and placement right: the text flows left of the picture, the picture with rounded corners and a shadow; add two columns with a text each and a button: two columns on a desktop, stacked on the phone preview; move the picture above the heading, remove a text: the order changed, undo brings it back. 4 As a visitor on a phone: the table scrolls sideways within its block only. 5 Change a word on a published page without publishing: the site shows the old word, the admin "concept gewijzigd"; Voorbeeld shows the draft with a desktop/phone switch; publish: Geschiedenis lists two versions with date and who; restore the first: the draft is the first version, publish to make it live. 6 Add a value block "Lidgeld": "€ 35,00" as a chip and as text; change the setting: the page follows. 7 Open a newsletter: the same editor; Blok invoegen ▾ offers Activiteit, Kalender, Afsluiting, Afbeelding, Knop; insert an activity block, send a test mail: the block as today. 8 A meeting's notes: the same editor, one text block, autosave, a table can be added. 9 The browser's console: no CSP violation; the editor from `/static/vendor/`. 10 A page "Contact": two columns, the form block "Contactformulier" at the left, a heading, a text and a callout at the right; publish; a visitor submits: the submission in the workbench; on a phone the form first. 11 A page with a section heading and three cards, one to a page of the site, one outside: each card a link; one per row on a phone. 12 Export the page as JSON, change a heading in a text editor, import: the draft changed, the site not; import a file with a block "slider": refused, "Onbekend blok: slider". 13 Each page of the association before and after the migration: identical screenshots. 14 Give a page a parent and add an external item: the section in the menu with its pages; the item links out; a footer item in the footer only.
+**Annex — the walkthrough in detail** (the numbered summary is B2): 1 Open a page: the page as blocks; a draft badge if unpublished changes exist. 2 Add a table block, three columns, four rows; a header row; Tab moves between cells; publish; reopen; change one cell; publish: still a table, the cell changed. 3 Add a heading, a text, a picture from the library with caption and placement right: the text flows left of the picture, the picture with rounded corners and a shadow; add two columns with a text each and a button: two columns on a desktop, stacked on the phone preview; move the picture above the heading, remove a text: the order changed, undo brings it back. 4 As a visitor on a phone: the table scrolls sideways within its block only. 5 Change a word on a published page without publishing: the site shows the old word, the admin "concept gewijzigd"; Voorbeeld shows the draft with a desktop/phone switch; publish: Geschiedenis lists two versions with date and who; restore the first: the draft is the first version, publish to make it live. 6 Add a value block "Lidgeld": "€ 35,00" as a chip and as text; change the setting: the page follows. 7 Open a newsletter: the same editor; Blok invoegen ▾ offers Activiteit, Kalender, Afsluiting, Afbeelding, Knop; insert an activity block, send a test mail: the block as today. 8 A meeting's notes: the same editor, one text block, autosave, a table can be added. 9 The browser's console: no CSP violation; the editor from `/static/vendor/`. 10 A page "Contact": two columns, the form block "Contactformulier" at the left, a heading, a text and a callout at the right; publish; a visitor submits: the submission in the workbench; on a phone the form first. 11 A page with a section heading and three cards, one to a page of the site, one outside: each card a link; one per row on a phone. 12 Export the page as JSON, change a heading in a text editor, import: the draft changed, the site not; import a file with a block "slider": refused, "Onbekend blok: slider". 13 Each page of the association before and after the migration: the same content and look, the text column at the reading width on a wide screen, nothing changed on a phone. 14 Give a page a parent and add an external item: the section in the menu with its pages; the item links out; a footer item in the footer only.
 
 ## C10. Close-out at the release
 
@@ -632,6 +632,8 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 | Q14 | 4 Oct 2026 | Multilingual content, Dutch first, English foreseen? (Koen) | Three layers: the app's words (gettext, one catalogue), code-list labels (already per language), content (none). Content gets a translation row per language from phase 1 (R15, C4.10); the switch and a second language in phase 3; the back office stays Dutch unless asked (B8 Q11). Added 4 Oct: English soon — phase 3 moves to right after phase 2; the `/en/` prefix decided (C4.10). |
 | Q15 | 4 Oct 2026 | Content changed from outside through JSON, in the age of AI — a Should? (Koen) | Yes (R16, C4.11): export and import into the draft through the screen and the API, validated against the served schema; since 4 Oct the door also creates and publishes (C4.11): a Claude Code CLI must be able to change and publish pages; the Assistent uses the same door later. |
 | Q16 | 4 Oct 2026 | Screenshots of the outside examples in the document? (Koen) | No: described in words in A5, abstract, no name — the repository is public. Concepts for C9 go in Koen's project folder, never in the repository. |
+| Q17 | 6 Oct 2026 | The reading width (F8) against "the association's sites do not change" (R17), and test 19's pixel comparison: which gives? (author, re-measuring before the handover to the builder) | The association's content pages take the reading width too (Koen: "akkoord dan voor 1") — the one named exception to R17: 768 px, centred, on a wide screen; nothing changes on a phone; the association's home keeps its own composition. A second width would have been a setting per site, which C4.7 excludes. Test 19 becomes an HTML snapshot comparison plus the measurement baseline; pixels are not compared (#1605). Still open, for the brief of phase 2: whether the wide blocks (cards, columns) and a company's home page (a CMS page, CR-19) stay within 768 px. |
+| Q18 | 6 Oct 2026 | The Mistral CLI builds this change, its first build in this repository: who checks its code? (author) | A Claude dev CLI reviews **every** pull request the Mistral CLI writes, before the merge (Koen, 6 October 2026: "een Claude CLI moet alle code die Mistral schreef checken") — routed by the master CLI per `docs/review-protocol.md`; and Koen wants to look at its work before it reaches master. How he looks at a branch before the merge is a tooling question outside this document. |
 
 ## Non-goals — deliberately outside this change
 
