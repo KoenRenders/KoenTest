@@ -118,6 +118,7 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R9 | Where inside a location an article lies — which rack, which shelf. | Won't | Koen, 6 Oct 2026 | no warehouse management |
 | R10 | Barcodes on articles, and scanning them. | Won't | Koen, 6 Oct 2026 | |
 | R11 | Everyone can buy, members and non-members; a member pays the member price where the article has one — the same principle as registering for an activity. | Must *(proposed)* | Koen, 6 Oct 2026 | |
+| R12 | The portal arranges how the buyer gets the article — pick-up, bringing it, trying it on first. | Won't | Koen, 6 Oct 2026 | all three stay possible, by agreement between buyer and seller, outside the portal |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -473,6 +474,7 @@ and deliberately not done — recorded so it is not asked again).
 | Q2 | 6 Oct 2026 | Does price get its own domain, or is it a column on the product? (Koen raised it, Claude asked) | Its own domain: `pricing`. (Koen) |
 | Q4 | 6 Oct 2026 | Does the price hang at the product or at the variant? (Claude) | At the product, and a variant may override it. (Koen) |
 | Q5 | 6 Oct 2026 | Who may buy — members only or everyone — and is there a member price? (Claude) | Both: everyone may buy, and there is a member price, the same principle as registrations for activities. (Koen) |
+| Q6 | 6 Oct 2026 | How does the buyer get the article — pick-up or brought — and can it still be tried on first? (Claude) | Pick-up or brought, and trying on stays possible; automating any of it is out of scope. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
