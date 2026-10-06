@@ -313,7 +313,6 @@ and deliberately not done — recorded so it is not asked again).
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q3 | Is stock kept as one number per variant and location, or as movements (receipt, sale, correction) whose sum is the stock? | Movements: every change has a date and a reason, and stock valuation (R8) can later give a receipt a cost price without a rework. | A number: simpler, but why the stock is what it is is lost, and so is the history R8 needs. |
 | Q15 | When does the unpaid-transfer task appear: at once with a due date 14 days later (Koen, 6 Oct 2026), or only after 14 days without payment? | At once with a due date, provided the task closes by itself when the payment comes in — otherwise every paid order leaves a task to tick off by hand, against the workbench's "an empty workbench is healthy". | At once: Sales sees every open transfer order from the first day, but a workbench task has no due date today (`workflow/models.py:86-137`) — a due date is a new column on every task, platform-wide. After 14 days: no change to the workbench, but nothing to see before then. |
 
 ## B9. Decisions log — dated answers
@@ -335,6 +334,7 @@ and deliberately not done — recorded so it is not asked again).
 | 6 Oct 2026 | ADMIN may view everything of the webshop, only the four roles may change it — the pattern of the financial separation (#83). OPERATOR may do everything, as today (Q12). | Koen |
 | 6 Oct 2026 | The task for an unpaid order goes to Sales; Finance confirms a payment as today (Q13). | Koen |
 | 6 Oct 2026 | Screen names: Productbeheer, Prijsbeheer, Verkoop, Voorraadbeheer; the public page is the "Webshop" (Q14). | Koen |
+| 6 Oct 2026 | Stock is kept as movements — receipt, order, cancellation, exchange, correction, each with date and reason — and the stock of a variant at a location is their sum (Q3). | Koen |
 
 ---
 
@@ -496,6 +496,7 @@ and deliberately not done — recorded so it is not asked again).
 |---|---|---|---|
 | Q1 | 6 Oct 2026 | Is a size a product of its own, or a variant of one product? (Claude) | A variant; stock is kept per variant. (Koen) |
 | Q2 | 6 Oct 2026 | Does price get its own domain, or is it a column on the product? (Koen raised it, Claude asked) | Its own domain: `pricing`. (Koen) |
+| Q3 | 6 Oct 2026 | Is stock kept as one number per variant and location, or as movements whose sum is the stock? (Claude) | Movements. (Koen) |
 | Q4 | 6 Oct 2026 | Does the price hang at the product or at the variant? (Claude) | At the product, and a variant may override it. (Koen) |
 | Q5 | 6 Oct 2026 | Who may buy — members only or everyone — and is there a member price? (Claude) | Both: everyone may buy, and there is a member price, the same principle as registrations for activities. (Koen) |
 | Q6 | 6 Oct 2026 | How does the buyer get the article — pick-up or brought — and can it still be tried on first? (Claude) | Pick-up or brought, and trying on stays possible; automating any of it is out of scope. (Koen) |
