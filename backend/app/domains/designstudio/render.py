@@ -64,6 +64,11 @@ class Merged:
     violations: tuple[str, ...]  # from the planner: vertical overflow, missing title
     width_mm: float
     height_mm: float
+    #: What the editor says beside the preview without stopping the export
+    #: (#1677): a body text that was cut on a whole line. A violation makes
+    #: "Definitief maken" refuse; a poster that shows what fits must still
+    #: be exportable.
+    warnings: tuple[str, ...] = ()
 
 
 @lru_cache(maxsize=8)
@@ -161,6 +166,7 @@ def merge(
         violations=tuple(p.violations),
         width_mm=spec["width_mm"],
         height_mm=spec["height_mm"],
+        warnings=tuple(p.warnings),
     )
 
 
@@ -246,7 +252,10 @@ def check(merged: Merged, *, authority: bool = False) -> list[str]:
     — Inkscape's measurement. Rotated texts get their declared overshoot."""
     problems = list(merged.violations) + estimate(merged)
     if not authority:
-        return problems
+        # The editor's list ("Nog te bekijken") also carries the warnings; the
+        # authority check below is what "Definitief maken" asks, and a warning
+        # does not refuse a version (#1677).
+        return problems + list(merged.warnings)
     rotated = set(contract("affiche")["rotated_text_ids"])
     with tempfile.TemporaryDirectory(prefix="designstudio-") as tmp:
         path = Path(tmp) / "poster.svg"

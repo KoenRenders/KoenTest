@@ -20,7 +20,7 @@ import random
 from dataclasses import dataclass, field
 from xml.sax.saxutils import escape
 
-from app.domains.designstudio import richtext
+from app.domains.designstudio import brand, richtext
 from app.domains.designstudio.content import Highlight, ImageBytes, PosterContent
 from app.domains.designstudio.icons import icon_svg
 from app.domains.designstudio.models import InsetCorner, Preset
@@ -50,6 +50,8 @@ class Plan:
     lockup: dict = field(default_factory=dict)  # x, y, width of the lockup in the band
     boxes: dict[str, float] = field(default_factory=dict)  # text id → max width in mm
     violations: list[str] = field(default_factory=list)
+    #: Said beside the preview, without stopping the export (#1677).
+    warnings: list[str] = field(default_factory=list)
     band_y: float = 0.0
 
 
@@ -212,6 +214,31 @@ QR_BOX = QR_MM + 2
 QR_BLOCK = QR_BOX + 6
 
 
+#: How many lines the date row may take when its line has an end (#1677).
+DATE_ROW_LINES = 4
+
+
+def _date_lines(text: str, width: float, size: float) -> list[str]:
+    """A date line over as few lines as it needs (#1677), broken first where
+    it reads: after "TOT" for a line over two days, before "VAN" for a day
+    with a from and a to. A half that is still wider than the block runs on
+    onto the next line like any row — inside a date then, as a long weekday
+    and month always did in this block ("ZATERDAG 14" / "NOVEMBER OM 14U")."""
+    if " VAN " in text:
+        head, tail = text.split(" VAN ", 1)
+        halves = [head, f"VAN {tail}"]
+    elif " TOT " in text:
+        head, tail = text.split(" TOT ", 1)
+        halves = [f"{head} TOT", tail]
+    else:
+        halves = [text]
+    out: list[str] = []
+    for half in halves:
+        wrapped = richtext.wrap(richtext.parse(f"**{half}**"), width=width, size=size)
+        out.extend("".join(run.text for run in line) for line in wrapped)
+    return out
+
+
 def highlight_rows(
     plan: Plan,
     content: PosterContent,
@@ -233,29 +260,42 @@ def highlight_rows(
         lines = richtext.wrap(
             richtext.parse("**" + hl.text.replace("*", "").upper() + "**"), width=text_w, size=size
         )
-        if len(lines) > 2:
-            plan.violations.append(f"Kernpunt {i + 1} past niet in twee regels op deze breedte")
-            lines = lines[:2]
+        texts = ["".join(r.text for r in line) for line in lines]
+        most = 2
+        if len(lines) > 1 and hl.icon == "calendar":
+            # #1677: a date line with an end is longer than two lines of this
+            # block can hold (measured: the block is 95 mm in every layout, and
+            # "DONDERDAG 31 DECEMBER 2027 TOT" alone is 150). It is not made
+            # smaller and not cut: the row grows, to four lines at most.
+            texts = _date_lines(hl.text.upper(), text_w, size)
+            most = DATE_ROW_LINES
+        if len(texts) > most:
+            plan.violations.append(
+                f"Kernpunt {i + 1} past niet in {'twee' if most == 2 else 'vier'} regels op deze breedte"
+            )
+            texts = texts[:most]
         bg = accents[i % len(accents)]
         fg = pal["white"] if bg != pal["accent"] else pal["ink"]
         out.append(icon_svg(hl.icon, fg=fg, bg=bg, x=x, y=y, size=ICON_S))
         # Centre the text block on the icon: one line sits on the icon's
         # middle, two lines straddle it (Koen, 19 September 2026).
         line_step = size * 1.05 + 1
-        block_h = size * 0.72 + (len(lines) - 1) * line_step
-        ly = y + (ICON_S - block_h) / 2 + size * 0.72
-        for j, line in enumerate(lines):
-            txt = "".join(r.text for r in line)
+        block_h = size * 0.72 + (len(texts) - 1) * line_step
+        # A row of three or four lines is taller than its icon: it starts at the
+        # icon's top and the row grows by the lines it has more than two.
+        grown = max(len(texts) - 2, 0) * line_step
+        ly = y + (ICON_S - block_h) / 2 + size * 0.72 if not grown else y + size * 0.72
+        for j, txt in enumerate(texts):
             eid = f"t-hl-{i}-{j}"
             out.append(text_el(eid, txt.upper(), text_x, ly, size, pal["ink"], weight="bold"))
             plan.boxes[eid] = text_w
             ly += line_step
         if i - index_offset < len(content.highlights) - 1:
             out.append(
-                f'<line x1="{x}" y1="{y + 23.5}" x2="{x + w}" y2="{y + 23.5}" stroke="{pal["ink"]}" '
+                f'<line x1="{x}" y1="{y + 23.5 + grown}" x2="{x + w}" y2="{y + 23.5 + grown}" stroke="{pal["ink"]}" '
                 f'stroke-width="0.4" stroke-dasharray="0.5 1.2" stroke-linecap="round"/>'
             )
-        y += ROW_H
+        y += ROW_H + grown
     return "".join(out), y
 
 
@@ -345,13 +385,48 @@ def hero_height(
     return max(floor, min(wanted, cap, max(available, floor)))
 
 
+def band_crop(image: ImageBytes, w: float, h: float) -> tuple[float, float, float, float]:
+    """The part of the picture, in its own pixels, that fills a box of w × h
+    around the picture's stored centre (#1677): (x, y, width, height).
+
+    SVG's own crop knows nine points; the two fields of the editor ("Links–
+    rechts", "Boven–onder") are a centre anywhere between 0 and 1. A band keeps
+    the full width of its place and loses top and bottom, so where it is cut
+    matters — the crop follows the centre exactly, clamped to the picture.
+    """
+    box = w / h
+    if box >= image.width / image.height:
+        crop_w, crop_h = float(image.width), image.width / box
+    else:
+        crop_w, crop_h = image.height * box, float(image.height)
+    left = min(max(image.focus_x * image.width - crop_w / 2, 0.0), image.width - crop_w)
+    top = min(max(image.focus_y * image.height - crop_h / 2, 0.0), image.height - crop_h)
+    return left, top, crop_w, crop_h
+
+
 def main_image_block(
-    plan: Plan, image: ImageBytes, x: float, y: float, w: float, h: float
+    plan: Plan, image: ImageBytes, x: float, y: float, w: float, h: float, *, band: bool = False
 ) -> tuple[str, float]:
     """The hero photo or drawing with a ragged edge: the filter sits on a mask,
     never on the image (a displaced photo looks warped; a displaced mask looks
-    torn)."""
+    torn).
+
+    `band` (#1677): the picture gave way to the text and is lower than its own
+    proportions — it keeps the full width and is cropped at top and bottom
+    around its stored centre (`band_crop`), instead of being shown whole with
+    white beside it."""
     mask_id = "ragmask-main"
+    if band and image.width and image.height:
+        left, top, crop_w, crop_h = band_crop(image, w, h)
+        out = (
+            f'<mask id="{mask_id}" maskUnits="userSpaceOnUse" x="0" y="0" width="{plan.width}" height="{plan.height}">'
+            f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" fill="white" filter="url(#ragged)"/></mask>'
+            f'<g mask="url(#{mask_id})" data-band="1">'
+            f'<svg x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
+            f'viewBox="{left:.2f} {top:.2f} {crop_w:.2f} {crop_h:.2f}" preserveAspectRatio="none">'
+            f'<image width="{image.width}" height="{image.height}" href="{data_uri(image)}"/></svg></g>'
+        )
+        return out, y + h
     out = (
         f'<mask id="{mask_id}" maskUnits="userSpaceOnUse" x="0" y="0" width="{plan.width}" height="{plan.height}">'
         f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" fill="white" filter="url(#ragged)"/></mask>'
@@ -502,17 +577,18 @@ def richtext_block(
     boxed: bool = False,
     heading: str = "",
     trailing: float = 5.0,
+    max_lines: int | None = None,
 ) -> tuple[str, float]:
     pal = plan.pal
     pad = 4 if boxed else 0
     inner_w = w - 2 * pad
     head_h = 8 if heading else 0
-    h = (
-        2 * pad
-        + head_h
-        + richtext.text_height(source, width=inner_w, size=size)
-        + (1.5 if boxed else 0)
+    text_h = (
+        richtext.text_height(source, width=inner_w, size=size)
+        if max_lines is None
+        else richtext.height_of_lines(source, width=inner_w, size=size, max_lines=max_lines)
     )
+    h = 2 * pad + head_h + text_h + (1.5 if boxed else 0)
     out = []
     if boxed:
         out.append(
@@ -538,7 +614,11 @@ def richtext_block(
         y=y + pad + head_h + size,
         width=inner_w,
         size=size,
-        fill=pal["ink"],
+        # The running text is black (#1677; Koen, 6 October 2026): the brand
+        # colour is for titles, highlights and the band, and a paragraph in
+        # green reads worse than one in black.
+        fill=brand.BLACK,
+        max_lines=max_lines,
         element_id=eid,
     )
     plan.boxes[eid] = inner_w
@@ -624,6 +704,52 @@ def fit_richtext_size(
             return round(size, 1)
         size -= 0.2
     return min_size
+
+
+#: The smallest size the running text steps down to (#1677), in millimetres.
+#: Print: 4.6 mm is 13 pt on the A3 sheet and 9 pt when the same file is
+#: printed on A4 — the smallest a paragraph still reads at on paper. Feed:
+#: 4.0 mm is about 14 px of a 1080-wide post, the smallest a phone shows
+#: legibly. Below these the text is cut on a whole line and the editor says so.
+SMALLEST_BODY = {"print": 4.6, "feed": 4.0}
+#: The lowest the main picture goes to make room for the text: half of the
+#: height it takes by its own proportions in that layout (Koen, 6 October 2026).
+BAND_SHARE = 0.5
+DOES_NOT_FIT = "De tekst past niet op de affiche: kort hem in of kies een lay-out met meer ruimte."
+
+
+def band_height(
+    image: ImageBytes, box_w: float, current: float, short_by: float, *, cap: float
+) -> float:
+    """The height of a picture that gives way to the text (#1677): lower by
+    what the text is `short_by` (millimetres it does not fit at its ordinary
+    smallest size), and never under `BAND_SHARE` of its normal height. A text
+    that fits (`short_by` <= 0) leaves the picture as it is."""
+    if short_by <= 0:
+        return current
+    normal = min(box_w * image.height / image.width, cap) if image.width and image.height else cap
+    lowest = min(current, normal * BAND_SHARE)
+    # A hair more than the text is short: the fitter compares with <=, and a
+    # height that equals the room to the last decimal loses a size step to
+    # rounding (measured: 4.8 instead of 5.0).
+    return max(lowest, current - short_by - 0.05)
+
+
+def fit_body(
+    plan: Plan, source: str, w: float, available: float, *, max_size: float, smallest: float
+) -> tuple[float, int | None]:
+    """The size of the running text for the room it has, and where it ends
+    when even the smallest size does not fit: (size, max_lines or None).
+
+    The order (#1677): the largest size that fits, down to `smallest`; then
+    the text is cut on a whole line — never drawn under the label or the
+    bottom block — and `DOES_NOT_FIT` is said beside the preview. It is a
+    warning, not a violation: the export shows what fits."""
+    size = fit_richtext_size(source, w, available, max_size=max_size, min_size=smallest)
+    if richtext.text_height(source, width=w, size=size) <= available:
+        return size, None
+    plan.warnings.append(DOES_NOT_FIT)
+    return smallest, richtext.lines_fitting(source, width=w, size=smallest, available=available)
 
 
 def when_line(content: PosterContent) -> str:
@@ -1005,19 +1131,30 @@ def plan_affiche(
             # way instead, and if even that is not enough the planner reports
             # the overflow — it does not turn the hero into a letterboxed
             # block to make the numbers work.
-            frag, y = main_image_block(
-                p,
+            hero_h = hero_height(
                 content.main_image,
-                lx,
-                y,
                 full_w,
-                hero_height(
-                    content.main_image,
-                    full_w,
-                    space - min_h,
-                    cap=hero_cap,
-                    floor=full_bleed_floor(content.main_image, full_w, hero_cap, hero_floor),
-                ),
+                space - min_h,
+                cap=hero_cap,
+                floor=full_bleed_floor(content.main_image, full_w, hero_cap, hero_floor),
+            )
+            # #1677: when the text does not fit under the picture at its
+            # ordinary smallest size, the picture becomes a lower band — full
+            # width, cropped around its centre — before the text goes smaller.
+            # A poster that fitted keeps the picture it had.
+            # Measured on the room the text really gets (as the fitter below
+            # does), not on the reserve above: that reserve is a size step
+            # larger, and it would turn a picture into a band for a text that
+            # fits — Koen's Bowlen feed image (21 September 2026).
+            room = left_limit - (y + hero_h + (10 if content.inset_image else 0) + BLOCK_GAP) - 4
+            short_by = (
+                richtext.text_height(content.explanation_md, width=full_w, size=min_text) - room
+                if content.explanation_md
+                else 0.0
+            )
+            lower = band_height(content.main_image, full_w, hero_h, short_by, cap=hero_cap)
+            frag, y = main_image_block(
+                p, content.main_image, lx, y, full_w, lower, band=lower < hero_h
             )
             p.full += frag
             if content.inset_image:
@@ -1036,12 +1173,13 @@ def plan_affiche(
         if content.explanation_md:
             # The real room under the picture: the block starts 2 mm lower
             # and must end before the welcome badge.
-            text_size = fit_richtext_size(
+            text_size, text_lines = fit_body(
+                p,
                 content.explanation_md,
                 full_w,
                 left_limit - y - 4,
                 max_size=max_text,
-                min_size=min_text,
+                smallest=SMALLEST_BODY["feed" if feed else "print"],
             )
             # Nothing follows this block but the welcome badge, which keeps
             # its own margin, so it does not need a trailing gap of its own.
@@ -1054,6 +1192,7 @@ def plan_affiche(
                 full_w,
                 text_size,
                 trailing=0.0,
+                max_lines=text_lines,
             )
             p.full += frag
         frag, _wy = welcome_badge(p, content, lx, welcome_y)
@@ -1130,8 +1269,23 @@ def plan_affiche(
                 frag, ry = tagline_block(p, content.tagline, rx + rw, ry, rw)
                 right.append(frag)
             if content.explanation_md:
+                body_size, body_lines = fit_body(
+                    p,
+                    content.explanation_md,
+                    rw,
+                    limit - (ry + 2) - 5,
+                    max_size=7.2,
+                    smallest=SMALLEST_BODY["print"],
+                )
                 frag, ry = richtext_block(
-                    p, "t-rt-explanation", content.explanation_md, rx, ry + 2, rw, 7.2
+                    p,
+                    "t-rt-explanation",
+                    content.explanation_md,
+                    rx,
+                    ry + 2,
+                    rw,
+                    body_size,
+                    max_lines=body_lines,
                 )
                 right.append(frag)
         else:
@@ -1149,13 +1303,15 @@ def plan_affiche(
             hero_rect: tuple[float, float, float, float] | None = None
             if content.main_image:
                 hero_top = ry - 2
+                tall = hero_height(content.main_image, rw - 8, hero_h, cap=240.0, floor=60.0)
+                # #1677: as in the simple preset — a band before smaller text.
+                lower = (
+                    band_height(content.main_image, rw - 8, tall, tall - hero_h, cap=240.0)
+                    if content.explanation_md
+                    else tall
+                )
                 frag, ry = main_image_block(
-                    p,
-                    content.main_image,
-                    rx + 3,
-                    hero_top,
-                    rw - 8,
-                    hero_height(content.main_image, rw - 8, hero_h, cap=240.0, floor=60.0),
+                    p, content.main_image, rx + 3, hero_top, rw - 8, lower, band=lower < tall
                 )
                 right.append(frag)
                 hero_rect = (rx + 3, hero_top, rw - 8, ry - hero_top)
@@ -1176,8 +1332,23 @@ def plan_affiche(
                 frag, ry = tagline_block(p, content.tagline, rx + rw, ry, rw)
                 right.append(frag)
             if content.explanation_md:
+                body_size, body_lines = fit_body(
+                    p,
+                    content.explanation_md,
+                    rw,
+                    limit - ry - 5,
+                    max_size=6.4,
+                    smallest=SMALLEST_BODY["print"],
+                )
                 frag, ry = richtext_block(
-                    p, "t-rt-explanation", content.explanation_md, rx, ry, rw, 6.4
+                    p,
+                    "t-rt-explanation",
+                    content.explanation_md,
+                    rx,
+                    ry,
+                    rw,
+                    body_size,
+                    max_lines=body_lines,
                 )
                 right.append(frag)
         for name, bottom, bound in (("links", ly, left_limit), ("rechts", ry, limit)):
