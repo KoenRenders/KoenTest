@@ -46,7 +46,7 @@ from app.domains.activities.models import (  # noqa: F401
     RegistrationItem,
     RegistrationItemHistory,
 )
-from app.domains.activities.proposer import ProposerError  # noqa: F401
+from app.domains.activities.proposer import ProposerError, no_answer_text  # noqa: F401
 from app.domains.activities.registration_form import (  # noqa: F401
     Channel,
     Outcome,
@@ -415,6 +415,7 @@ __all__ = [
     "proposal_vals",
     "proposer_url",
     "ProposerError",
+    "no_answer_text",
     "list_activities",
     "move_within",
     "public_registrations",

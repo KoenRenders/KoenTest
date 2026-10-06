@@ -676,7 +676,7 @@ def _proposal_turn(
     activity does not exist)."""
     import logging
 
-    from app.domains.activities.api import ProposerError
+    from app.domains.activities.api import ProposerError, no_answer_text
     from app.domains.chatbot.api import ChatTimeout, SeamBlocked, admin_chat_char_budget
     from app.kernel.tenant_config import tenant_admin_chat_enabled
 
@@ -701,9 +701,7 @@ def _proposal_turn(
         return turn(
             ActivityProposalView(
                 question=vraag,
-                answer=_(
-                    "Raakje kon geen antwoord geven — probeer het opnieuw. Je vraag staat er nog."
-                ),
+                answer=no_answer_text(),
                 failed=True,
             )
         )
@@ -716,6 +714,7 @@ def _proposal_turn(
             fields=proposal.fields,
             marks=proposal.marks,
             left_out=proposal.left_out,
+            notes=proposal.notes,
             unverified=proposal.unverified,
         )
     )

@@ -121,6 +121,30 @@ def redact(text: str) -> str:
     return _PHONE.sub(PHONE_PLACEHOLDER, text)
 
 
+_NAME_WORD = re.compile(r"[^\W\d_]+", re.UNICODE)
+
+
+def scrub_names(text: str, names: set[str], placeholder: str) -> str:
+    """`redact`, and every known name part replaced by `placeholder` — for a
+    capability that sends text it did not write (a request, a record, notes).
+
+    The one copy of the word rule (#1667): the newsletter's writer and the
+    activity's proposer each had it, letter for letter. The same list and the
+    same rule as the guard — a whole word of three letters or more that is a
+    name part (`mdm.person_name_parts`) — so whatever the guard would refuse,
+    this removes first. Which words are a name part is mdm's to say.
+    """
+    text = redact(text or "")
+    if not text or not names:
+        return text
+
+    def replace(match: re.Match[str]) -> str:
+        word = match.group(0)
+        return placeholder if len(word) >= 3 and word.lower() in names else word
+
+    return _NAME_WORD.sub(replace, text)
+
+
 _ADMIN_MESSAGE = (
     "Deze vraag is niet verstuurd: er stond een persoonsgegeven in ({reden}). "
     "Raakje stuurt geen namen, e-mailadressen, telefoonnummers of "

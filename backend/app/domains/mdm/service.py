@@ -386,6 +386,23 @@ def person_name_parts(db: Session) -> set[str]:
     return name_parts(waarde for rij in rows for waarde in rij)
 
 
+#: The words of the calendar and of counting are no name parts either (#1667).
+#: Measured on HDEV, 6 October 2026: someone's name there holds "derde", so
+#: "de derde laatste vrijdag van december" reached the model as "de [naam]
+#: laatste vrijdag" — it proposed the last Friday, and the correction after it
+#: lost the same word. Like a particle, such a word points at nobody; unlike a
+#: surname that happens to be a word (Bos, Mol), no request about an activity,
+#: a meeting or a payment can do without them. A person who is really called
+#: Mei or Zondag is no longer removed by these words alone: the same honest
+#: limit as the particles, and the payload view is the backstop for it.
+NAME_ORDINARY_WORDS = frozenset(
+    "eerste tweede derde vierde vijfde zesde zevende achtste negende tiende elfde twaalfde "
+    "laatste voorlaatste "
+    "maandag dinsdag woensdag donderdag vrijdag zaterdag zondag "
+    "januari februari maart april mei juni juli augustus september oktober november december".split()
+)
+
+
 def name_parts(values) -> set[str]:
     """Scanbare delen uit willekeurige namen — de regel van hierboven, apart.
 
@@ -402,7 +419,11 @@ def name_parts(values) -> set[str]:
     for value in values:
         for part in (value or "").replace("-", " ").split():
             schoon = part.lower().strip("'\u2019")
-            if len(schoon) >= 3 and schoon not in NAME_PARTICLES:
+            if (
+                len(schoon) >= 3
+                and schoon not in NAME_PARTICLES
+                and schoon not in NAME_ORDINARY_WORDS
+            ):
                 parts.add(schoon)
     return parts
 
