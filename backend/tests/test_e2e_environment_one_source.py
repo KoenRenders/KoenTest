@@ -51,6 +51,10 @@ SCRIPT_PLACE = {
     # out of it, as in scripts/test-local.sh. CI leaves the default on.
     "JOBS_ENABLED",
 }
+# What ONE step may set for itself: a database of its own. The measurement run
+# (#1605) migrates and seeds its own, beside the e2e's — where the data lives is
+# place; what shapes the app still comes from e2e.env for that step too.
+STEP_PLACE = {"DATABASE_URL"}
 # Set on the seed step alone, in both places: seed_e2e.py refuses without it.
 SEED_ONLY = {"E2E_SEED"}
 
@@ -118,7 +122,7 @@ def test_the_ci_job_sets_only_what_differs_by_place():
     job = _e2e_job()
     assert set(job["env"]) == CI_PLACE, sorted(set(job["env"]) ^ CI_PLACE)
     for step in job["steps"]:
-        extra = set(step.get("env", {})) - SEED_ONLY
+        extra = set(step.get("env", {})) - SEED_ONLY - STEP_PLACE
         assert not extra, f"step {step.get('name')!r} sets {sorted(extra)} — put it in e2e.env"
 
 

@@ -44,18 +44,18 @@
   <div class="min-w-0 flex-1">
     <div class="flex gap-3 sm:gap-4">
       {% if a.sort_date %}
-      <div class="shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-lg bg-blue-50 text-blue-700 flex flex-col items-center justify-center" aria-hidden="true">
+      <div data-date-tile class="shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-lg bg-blue-50 text-blue-700 flex flex-col items-center justify-center" aria-hidden="true">
         <span class="text-2xl font-bold leading-none">{{ a.sort_date.strftime("%d") }}</span>
         <span class="text-xs font-semibold uppercase leading-none mt-0.5">{{ a.sort_date | maandkort }}</span>
       </div>
       {% endif %}
       <div class="min-w-0 flex-1">
-        <h1 class="text-2xl md:text-3xl font-bold text-ink flex flex-wrap items-center gap-2">
+        <h1 data-page-title class="text-2xl md:text-3xl font-bold text-ink flex flex-wrap items-center gap-2">
           <span>{{ a.name }}</span>
           {% if a.registration_state and not a.registration_open %}{{ ui.badge(a.registration_state | code_label("registration_state"), a.registration_state | tone("registration_state")) }}{% endif %}
           {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
         </h1>
-        <div class="mt-1 text-base md:text-sm text-ink-soft flex items-start gap-1">
+        <div data-activity-dates class="mt-1 text-base md:text-sm text-ink-soft flex items-start gap-1">
           {{ ui.icon("calendar", cls="mt-1 md:mt-0.5 shrink-0") }}
           <div class="flex flex-col">
             {% for d in a.dates %}
@@ -80,7 +80,7 @@
     {% if poster_url %}
     {# De affiche als beeld op mobiel: boven de omschrijving, klikbaar naar het
        volledige bestand. Op een breed scherm staat ze in de rechterkolom. #}
-    <a href="{{ poster_link }}" target="_blank" rel="noopener" class="block mt-5 md:hidden">
+    <a href="{{ poster_link }}" target="_blank" rel="noopener" data-activity-poster class="block mt-5 md:hidden">
       <img src="{{ poster_url }}" alt="{{ _('Affiche van %(naam)s', naam=a.name) }}"
            class="w-full max-w-sm rounded-xl border border-line shadow-sm">
     </a>
@@ -98,7 +98,7 @@
 
     {% if not a.is_cancelled %}
     {% set _multi = (a.sub_registrations | length) > 1 %}
-    <div class="mt-6 space-y-3">
+    <div data-component-actions class="mt-6 space-y-3">
       {% for c in a.sub_registrations %}
       {# The component's actions, one partial for the card and the page (CR-14 phase 1). #}
       {% set knopmaat = "sm" %}
@@ -111,7 +111,7 @@
   {% if poster_url %}
   {# De affichekolom leest haar breedte uit dezelfde variabele als het blok
      hierboven (was `md:w-72 lg:w-80`) — één maat, twee gebruikers (#1143). #}
-  <aside class="hidden md:block md:w-[var(--affiche)] shrink-0">
+  <aside data-activity-poster class="hidden md:block md:w-[var(--affiche)] shrink-0">
     <a href="{{ poster_link }}" target="_blank" rel="noopener" class="block">
       <img src="{{ poster_url }}" alt="{{ _('Affiche van %(naam)s', naam=a.name) }}"
            class="w-full rounded-xl border border-line shadow-sm">
