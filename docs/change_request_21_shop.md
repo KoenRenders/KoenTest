@@ -139,8 +139,9 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R20 | *Merged into R3.* | — | Koen, 6 Oct 2026 | the number stays empty, so later references do not shift |
 | R21 | Sales registers that an order is delivered; picked up or brought makes no difference. That is the moment the stock goes down. | Must *(proposed)* | Koen, 6 Oct 2026 | the one hand-over step the portal knows; how it is handed over stays outside (R12) |
 | R22 | An unpaid order ends in one of three ways: the buyer still pays — for example through a new payment link — and the task closes by itself; the buyer cancels it (R23); or Sales cancels it from the task. | Must *(proposed)* | Koen, 6 Oct 2026 | |
-| R23 | The buyer can cancel his own order in the webshop, on the same page Sales uses in the back office. | Must *(proposed)* | Koen, 6 Oct 2026 | first Won't, taken in the same day: "if we use the same screen in public and in the back office, we may get it for free" (Q19); how the buyer gets back to his order and until when: open |
+| R23 | The buyer can cancel his own order in the webshop, on the same page Sales uses in the back office. | Must *(proposed)* | Koen, 6 Oct 2026 | first Won't, taken in the same day: "if we use the same screen in public and in the back office, we may get it for free" (Q19); until delivery (Q20); how the buyer gets back to his order: open |
 | R24 | The buyer collects articles in a shopping basket and orders and pays two, three or more articles in one go. | Must *(proposed)* | Koen, 6 Oct 2026 | |
+| R25 | The buyer may cancel until the order is delivered. After delivery it is a return, handled by Sales; a buyer who has already paid is refunded by the same recalculation as an exchange (R16). | Must *(proposed)* | Koen, 6 Oct 2026 | |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -342,6 +343,7 @@ and deliberately not done — recorded so it is not asked again).
 | 6 Oct 2026 | An unpaid order becomes a task for Sales at once, due within 14 days, closing by itself when the payment comes in — for a bank transfer, and also for a failed or hanging online payment, because something has to happen with it (Q15). | Koen |
 | 6 Oct 2026 | The reservation of an unpaid order stays until someone acts — nothing expires it by itself, also not after a failed or hanging online payment (Q17). | Koen |
 | 6 Oct 2026 | The buyer may cancel his own order in the webshop; the order page is one page, public and in the back office, as the registration is since CR-14. **Replaces** the part of Q18 that left it out (Q19). | Koen |
+| 6 Oct 2026 | The buyer may cancel until delivery; after that it is a return through Sales; a paid order is refunded through the recalculation of R16 (Q20). | Koen |
 
 ---
 
@@ -520,6 +522,7 @@ and deliberately not done — recorded so it is not asked again).
 | Q17 | 6 Oct 2026 | Does the reservation of an unpaid order stay until Sales decides, or does it expire by itself? (Claude) | It stays until the user does something. (Koen) |
 | Q18 | 6 Oct 2026 | Who ends an unpaid order: the buyer by paying, the buyer by withdrawing in the webshop, or Sales by cancelling? (Claude) | Paying and Sales cancelling; the buyer withdrawing in the webshop is not provided for now. (Koen) |
 | Q19 | 6 Oct 2026 | (Koen came back on Q18) Should the buyer be able to cancel his own order after all? | Yes, modelled at once: with the same screen in public and in the back office it may come for free. (Koen) |
+| Q20 | 6 Oct 2026 | Until when may the buyer cancel? (Claude) | Until the order is delivered; afterwards a return through Sales, refund through the recalculation of an exchange. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
