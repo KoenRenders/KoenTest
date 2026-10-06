@@ -991,8 +991,17 @@ def upsert_primary_contact(
     is_primary: bool = True,
     apply: bool = True,
     actor: Optional[str] = None,
+    adopt_non_primary: bool = False,
 ) -> bool:
     """Maak, werk bij of verwijder HET HOOFDCONTACT van dit type. Eén bron (#1174).
+
+    `adopt_non_primary` (#1676; the import, for a phone and a mobile number):
+    when the person has NO primary row of this type but has other rows of it,
+    one of those is the caller's own and becomes the primary row — the one that
+    holds this value, else the oldest; the others stay. Once: after it the row
+    is primary and the ordinary rule below decides. With an emptied value the
+    adopted row is removed, as a primary row is. Without the flag a non-primary
+    row is never touched, as before.
 
     Returns whether it changes something — in dry-run too, where it writes
     nothing (#1308): the import reports a household only when something in it
@@ -1023,7 +1032,34 @@ def upsert_primary_contact(
     from app.domains.mdm.models import ContactDetail
 
     van_dit_type = [c for c in person.contact_details if c.contact_type_code == type_code]
-    hoofd = next((c for c in van_dit_type if c.is_primary), None)
+    # Which primary row, when a person has more than one of this type (#1676:
+    # measured on two environments, for a mobile number — nothing in the
+    # database forbids it there): the one that holds this value, else the
+    # oldest. Never "the first the relationship happens to give": that has no
+    # order, so a re-import could find another row each time and log a change.
+    primair = sorted((c for c in van_dit_type if c.is_primary), key=lambda c: c.id or 0)
+    hoofd = next((c for c in primair if c.value == value), primair[0] if primair else None)
+
+    if hoofd is None and adopt_non_primary and van_dit_type:
+        if not apply:
+            return True
+        eigen = next((c for c in van_dit_type if c.value == value), None) or min(
+            van_dit_type, key=lambda c: c.id or 0
+        )
+        if not value:
+            snapshot_contact_detail(
+                db, eigen, operation="delete", action=action, source=source, actor=actor
+            )
+            person.contact_details.remove(eigen)
+            db.flush()
+            return True
+        eigen.is_primary = True
+        eigen.value = value
+        db.flush()
+        snapshot_contact_detail(
+            db, eigen, operation="update", action=action, source=source, actor=actor
+        )
+        return True
 
     if value:
         if hoofd is None:

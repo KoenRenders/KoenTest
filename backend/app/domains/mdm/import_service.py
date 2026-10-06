@@ -364,21 +364,33 @@ def _upsert_contact(
         is_primary=is_primary,
         apply=apply,
         actor=actor,
+        # #1676: a phone or mobile row the first import wrote as non-primary is
+        # the import's own — measured, no screen writes one. An e-mail address
+        # that is not primary is an address we collected (#1174): never adopted.
+        adopt_non_primary=type_code in (CONTACT.PHONE, CONTACT.MOBILE),
     )
 
 
 def _sync_contacts(
     db: Session, person: Person, row: dict, *, apply: bool, actor: str | None = None
 ) -> list[str]:
-    """The contacts of one person; returns the columns that change (#1308)."""
-    has_phone = bool(row["telefoon"])
+    """The contacts of one person; returns the columns that change (#1308).
+
+    Each is the PRIMARY row of its own type (#1676; Koen, 6 October 2026). The
+    first import (#74) wrote a mobile number next to a landline as non-primary:
+    "primary" then meant one number across the types. Since #1174 it is per
+    type and means "what Raak Nationaal holds" — and a non-primary row is one
+    `upsert_primary_contact` never touches. So that mobile row was out of the
+    import's reach: every import logged it as changed while nothing changed,
+    another number was added beside it, an emptied cell removed nothing.
+    """
     changed = []
-    for column, type_code, primary in (
-        ("email", CONTACT.EMAIL, True),
-        ("telefoon", CONTACT.PHONE, True),
-        ("gsm", CONTACT.MOBILE, not has_phone),
+    for column, type_code in (
+        ("email", CONTACT.EMAIL),
+        ("telefoon", CONTACT.PHONE),
+        ("gsm", CONTACT.MOBILE),
     ):
-        if _upsert_contact(db, person, type_code, row[column], primary, apply=apply, actor=actor):
+        if _upsert_contact(db, person, type_code, row[column], True, apply=apply, actor=actor):
             changed.append(column)
     return changed
 
