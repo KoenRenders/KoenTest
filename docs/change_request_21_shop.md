@@ -136,6 +136,7 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R17 | An order whose online payment fails or expires is cancelled by itself, and its stock comes free. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R18 | An order paid by bank transfer that stays unpaid becomes a task on the workbench for a new role, Sales (Verkoop), who decides to cancel it or to keep waiting. | Must *(proposed)* | Koen, 6 Oct 2026 | after how many days: open |
 | R19 | Five roles carry the process: product master (keeps the product list), pricing (sets the price of an article), sales (the e-loket: orders in order, delivery, fitting moments, exchanges), finance (follows up payments — the existing role) and stock management (enters stock and changes it by hand). One person may hold several. | Must *(proposed)* | Koen, 6 Oct 2026 | four new roles; screen names open |
+| R20 | One or more documents can be attached to a product, and a buyer looking at the article can open them — for example the size chart that came with the delivery of the clothing, so the buyer can choose a size from it. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
