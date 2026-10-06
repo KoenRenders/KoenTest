@@ -117,9 +117,9 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
-| R1 | The webshop shows clearly what an article is. | Must *(proposed)* | Koen, 6 Oct 2026 | description and pictures, R3 |
+| R1 | The webshop shows clearly what an article is. | Must *(proposed)* | Koen, 6 Oct 2026 | description, pictures and documents, R3 |
 | R2 | Products are master data: the product portfolio is managed in its own place, apart from any activity. | Must *(proposed)* | Koen, 6 Oct 2026 | "very simple at this moment" |
-| R3 | A product has a description and one or a few pictures — one, two, three, four. | Must *(proposed)* | Koen, 6 Oct 2026 | |
+| R3 | A product has a description, one or a few pictures — one, two, three, four — and one or more documents a buyer looking at the article can open, for example the size chart that came with the delivery of the clothing, so the buyer can choose a size from it. | Must *(proposed)* | Koen, 6 Oct 2026 | documents added later the same day, first as R20 |
 | R4 | A role for product master data may manage the products; others may not. | Must *(proposed)* | Koen, 6 Oct 2026 | name of the role: open |
 | R5 | Any tenant of the platform can use the shop with its own products, not only Raak. | Must *(proposed)* | Koen, 6 Oct 2026 (A1) | no company asks for it yet; a principle |
 | R6 | One product can have different prices over time; at any moment it is clear what the price of an article is. | Must *(proposed)* | Koen, 6 Oct 2026 | "maybe overdone now, but in time price setting will matter" |
@@ -136,7 +136,7 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R17 | An order whose online payment fails, or stays hanging (the buyer closed the browser), becomes a task on the workbench for Sales, because something has to happen with it. | Must *(proposed)* | Koen, 6 Oct 2026 | replaces "cancelled by itself" of the same day (Q15); the reservation stays until someone acts (Q17) |
 | R18 | An order paid by bank transfer becomes a task on the workbench for a new role, Sales (Verkoop), at once, due within 14 days; when the money comes in the task closes by itself, otherwise Sales decides to cancel the order or to keep waiting. | Must *(proposed)* | Koen, 6 Oct 2026 | "at once — but maybe the task's due date is within 14 days"; see Q15 |
 | R19 | Five roles carry the process: product master (keeps the product list), pricing (sets the price of an article), sales (the e-loket: orders in order, delivery, fitting moments, exchanges), finance (follows up payments — the existing role) and stock management (enters stock and changes it by hand). One person may hold several. | Must *(proposed)* | Koen, 6 Oct 2026 | four new roles; screen names open |
-| R20 | One or more documents can be attached to a product, and a buyer looking at the article can open them — for example the size chart that came with the delivery of the clothing, so the buyer can choose a size from it. | Must *(proposed)* | Koen, 6 Oct 2026 | |
+| R20 | *Merged into R3.* | — | Koen, 6 Oct 2026 | the number stays empty, so later references do not shift |
 | R21 | Sales registers that an order is delivered; picked up or brought makes no difference. That is the moment the stock goes down. | Must *(proposed)* | Koen, 6 Oct 2026 | the one hand-over step the portal knows; how it is handed over stays outside (R12) |
 | R22 | An unpaid order ends in one of two ways: the buyer still pays — for example through a new payment link — and the task closes by itself, or Sales cancels the order from the task. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R23 | The buyer cancels his own order in the webshop. | Won't *(for now)* | Koen, 6 Oct 2026 | a buyer who withdraws tells Sales, who cancels |
