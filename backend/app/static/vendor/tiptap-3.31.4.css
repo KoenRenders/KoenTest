@@ -1,0 +1,63 @@
+/*
+ * TipTap chrome for the CR-17 spike (#1626).
+ * TipTap v3 ships no CSS of its own; these are the editor basics the kit
+ * would own in phase 1 (docs/change_request_17_web_content.md, C2 ui).
+ */
+
+.tiptap {
+  outline: none;
+  min-height: 220px;
+  padding: 12px;
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  color: #9ca3af;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Table: no borders of its own until the kit's prose rules exist. */
+.tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+}
+.tiptap th,
+.tiptap td {
+  border: 1px solid #d1d5db;
+  padding: 4px 8px;
+  vertical-align: top;
+  position: relative;
+  min-width: 64px;
+}
+.tiptap th {
+  background: #f3f4f6;
+  text-align: left;
+}
+.tiptap .selectedCell::after {
+  background: rgba(0, 81, 164, 0.08);
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.tiptap .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #0051a4;
+}
+
+/* Value chip: the custom node of the spike. */
+.value-chip {
+  display: inline-block;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #e0ecf7;
+  color: #0051a4;
+  font-weight: 600;
+}

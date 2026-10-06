@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-06",
+  "issue": 1626,
+  "tracker": 1427,
+  "bundle": {
+    "command": "docker run --rm -v $PWD:/build -w /build node:22-alpine ./node_modules/.bin/esbuild entry.js --bundle --minify --format=iife --global-name=RaakTiptap --outfile=dist/tiptap-3.31.4.min.js --legal-comments=none --log-level=error",
+    "npm_install_seconds": 4,
+    "esbuild_ms": 451,
+    "raw_bytes": 441283,
+    "gzip_bytes": 139010,
+    "trix_today": { "raw_bytes": 203260, "gzip_bytes": 51035 },
+    "css": "tiptap-3.31.4.css is ours: TipTap v3 ships no CSS",
+    "node_in_repo": false
+  },
+  "table_roundtrip": {
+    "ok": true,
+    "diff": "exactly one text leaf: R2C1 -> R2C1-GEWIJZIGD"
+  },
+  "server_render": {
+    "ok": true,
+    "note": "Python proef-renderer, no browser: <table><tbody> with <th>; HTML differs only in the changed cell"
+  },
+  "custom_node": {
+    "ok": true,
+    "note": "value node (inline atom, attr code=LIDGELD): toolbar, JSON, editor DOM chip, server-side <span data-value>"
+  },
+  "csp": {
+    "policy": "default-src 'self'",
+    "script_refusals": 0,
+    "style_attribute_refusals": 2,
+    "finding": "editor needs no unsafe-inline and no unsafe-eval; only table column widths (colgroup col style) write style attributes; today's real policy already allows style-src 'self' 'unsafe-inline'"
+  },
+  "phone_390": {
+    "ok": true,
+    "scroll_width": 390,
+    "body_scroll_width": 390,
+    "typing_seconds_9_cells_automated": 0.48
+  },
+  "load_time_local_ms": { "tiptap": [60, 57, 55], "trix": [34, 23, 23] },
+  "recommendation": "TipTap confirmed on all four points; the CKEditor fallback is not needed"
+}

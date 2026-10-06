@@ -1,0 +1,21 @@
+/* CR-17 spike — Trix comparison page chrome (same measurements, same page shape). */
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  background: #f9fafb;
+  color: #111827;
+}
+.spke-page {
+  max-width: 768px;
+  margin: 0 auto;
+  padding: 16px;
+  box-sizing: border-box;
+}
+trix-editor {
+  min-height: 220px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  display: block;
+  padding: 12px;
+}

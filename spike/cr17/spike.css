@@ -1,0 +1,57 @@
+/* CR-17 spike — page chrome. No inline styles anywhere: the strict CSP
+   (default-src 'self') blocks inline style attributes too. */
+
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  background: #f9fafb;
+  color: #111827;
+}
+
+.spike-page {
+  max-width: 768px;
+  margin: 0 auto;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.spike-toolbar,
+.spike-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+button {
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #f3f4f6;
+}
+
+#editor {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  overflow-x: auto;
+}
+
+#saved-json {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.spike-status {
+  min-height: 1.5em;
+  font-size: 13px;
+  color: #6b7280;
+}

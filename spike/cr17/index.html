@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CR-17 spike — TipTap</title>
+  <link rel="stylesheet" href="/backend/app/static/vendor/tiptap-3.31.4.css">
+  <link rel="stylesheet" href="/spike/cr17/spike.css">
+  <script src="/backend/app/static/vendor/tiptap-3.31.4.min.js" defer></script>
+  <script src="/spike/cr17/spike.js" defer></script>
+</head>
+<body>
+  <main class="spike-page">
+    <h1>CR-17 spike — TipTap 3.31.4</h1>
+
+    <div class="spike-toolbar" data-testid="toolbar">
+      <button type="button" data-command="h1">H1</button>
+      <button type="button" data-command="h2">H2</button>
+      <button type="button" data-command="bold">B</button>
+      <button type="button" data-command="italic">I</button>
+      <button type="button" data-command="table">Tabel 3×3</button>
+      <button type="button" data-command="value">Waardeblok</button>
+    </div>
+
+    <div id="editor" data-testid="editor"></div>
+
+    <div class="spike-actions">
+      <button type="button" data-command="save">Bewaren als JSON</button>
+      <button type="button" data-command="load">JSON laden</button>
+      <button type="button" data-command="reset">Leegmaken</button>
+    </div>
+
+    <label for="saved-json">Bewaard JSON-document</label>
+    <textarea id="saved-json" data-testid="saved-json" rows="12"></textarea>
+
+    <p class="spike-status" data-testid="status"></p>
+  </main>
+</body>
+</html>
