@@ -113,6 +113,10 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R4 | A role for product master data may manage the products; others may not. | Must *(proposed)* | Koen, 6 Oct 2026 | name of the role: open |
 | R5 | Any tenant of the platform can use the shop with its own products, not only Raak. | Must *(proposed)* | Koen, 6 Oct 2026 (A1) | no company asks for it yet; a principle |
 | R6 | One product can have different prices over time; at any moment it is clear what the price of an article is. | Must *(proposed)* | Koen, 6 Oct 2026 | "maybe overdone now, but in time price setting will matter" |
+| R7 | Stock is kept per location: which articles are in stock, and how many, at which place. | Must *(proposed)* | Koen, 6 Oct 2026 | today one location: a volunteer's home serves as the warehouse of Raak Millegem |
+| R8 | The value of the stock can be known. | Won't *(now)* | Koen, 6 Oct 2026 | stock valuation is for later; what is built now must not stand in its way |
+| R9 | Where inside a location an article lies — which rack, which shelf. | Won't | Koen, 6 Oct 2026 | no warehouse management |
+| R10 | Barcodes on articles, and scanning them. | Won't | Koen, 6 Oct 2026 | |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
