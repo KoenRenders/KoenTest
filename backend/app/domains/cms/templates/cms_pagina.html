@@ -21,7 +21,7 @@
   <p class="font-semibold text-ink">{{ organisatie.name }}</p>
   {% for regel in organisatie.address_lines %}<p>{{ regel }}</p>{% endfor %}
   {% if organisatie.email %}<p><a href="mailto:{{ organisatie.email }}" class="hover:text-blue-700 hover:underline">{{ organisatie.email }}</a></p>{% endif %}
-  {% if organisatie.phone %}<p>{{ organisatie.phone }}</p>{% endif %}
+  {% if organisatie.phone %}<p>{{ organisatie.phone|phone }}</p>{% endif %}
 </div>
 {% endif %}
 {% endblock %}

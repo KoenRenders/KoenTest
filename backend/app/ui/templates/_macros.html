@@ -669,6 +669,8 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {%- elif kind in ("select", "segmented", "radio_group") %}{{ (_chosen.get(value) if value else "") or "—" }}
     {%- elif kind == "url" and value %}<a href="{{ value }}" target="_blank" rel="noopener" class="text-blue-500 underline">{{ value }}</a>
     {%- elif kind == "email" and value %}<a href="mailto:{{ value }}" class="text-blue-500 underline">{{ value }}</a>
+    {#- #1675: read, a number is grouped; the input below keeps what is stored. #}
+    {%- elif kind == "phone" and value %}{{ value|phone }}
     {%- elif value is none or value == "" %}—
     {%- else %}{% if unit %}{{ unit }} {% endif %}{{ value }}{% endif -%}
   </p>

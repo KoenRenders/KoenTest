@@ -31,7 +31,7 @@
       </td>
       <td data-cell="context" class="border-b border-line px-3 py-2">
         {% if r.email %}<a data-above-row href="mailto:{{ r.email }}" class="text-blue-500 underline">{{ r.email }}</a>{% else %}—{% endif %}
-        {% if r.phone %}<div class="text-xs text-ink-soft">{{ r.phone }}</div>{% endif %}
+        {% if r.phone %}<div class="text-xs text-ink-soft">{{ r.phone|phone }}</div>{% endif %}
       </td>
       <td data-cell="date" class="whitespace-nowrap border-b border-line px-3 py-2 tabular-nums">{{ r.date|kortedatum if r.date else "—" }}</td>
       <td data-cell="more" class="border-b border-line px-3 py-2">{{ r.products|join(" · ") if r.products else "—" }}</td>

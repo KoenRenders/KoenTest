@@ -23,6 +23,7 @@ from jinja2 import (
 )
 
 from app.config import settings
+from app.kernel.phone import readable_phone
 
 _UI_DIR = Path(__file__).parent
 
@@ -150,6 +151,10 @@ templates.env.filters["alineas"] = _paragraphs
 from app.kernel.geld import bedrag as _bedrag  # noqa: E402
 
 templates.env.filters["geld"] = _bedrag
+# #1675: a stored phone number as a person reads it — the one formatter, for
+# every template that SHOWS a number. An input, a `tel:` link and an export
+# keep the stored value (`test_phone_numbers_are_shown_readable`).
+templates.env.filters["phone"] = readable_phone
 # Also as a global, for the kit: a FILTER is resolved when a template is compiled,
 # so `|geld` inside `_macros.html` breaks every environment that loads the kit
 # without this filter (the hand-built ones of the shell tests); a global is
@@ -1038,7 +1043,7 @@ def legal_parts(organisation: dict | None) -> list[dict]:
         parts.append(
             {
                 "kind": "phone",
-                "text": organisation["phone"],
+                "text": readable_phone(organisation["phone"]),
                 "href": "tel:"
                 + "".join(c for c in organisation["phone"] if c.isdigit() or c == "+"),
             }
