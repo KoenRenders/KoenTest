@@ -1,10 +1,10 @@
 # Change Request 19 — Tenant types and modules per tenant: an organisation that is not an association
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 2 October 2026 · walked through on 2 October 2026, every question answered · **go: v2.13.0 (#1469), planned by the master CLI** (2 Oct 2026); C9 waived
+**Status:** shaped on 2 October 2026 · walked through on 2 October 2026, every question answered · **go: v2.13.0 (#1469), planned by the master CLI** (2 Oct 2026); C9 waived · **built in v2.13.0, on PROD since 6 October 2026** (C10)
 **Tracking issue:** #1468 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the tenant model and its editor (mdm, kernel tenant settings), the admin and public navigation (ui), the route guards of every domain, the home page and sitemap (cms), the dashboard and the reporting universe (reporting), tenant provisioning (mdm).
-**Reading:** A 1992 words · B 3097 · C 3052 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 2003 words · B 5401 · C 3441 — words to read, code fences excluded, Part C up to the Q&A log; measured on 6 October 2026 at the close-out. **Over the budget of the template** (A ≤ 1 500, B ≤ 2 500): B9 carries sixteen as-built rows — the release built a good deal beyond the design (C10) — and a built change request is a record, not a text to approve.
 
 ---
 
@@ -131,7 +131,7 @@ The words the user reads (the type names, the module names in the tenant editor)
 |---|---|---|---|
 | AC1 | A new tenant of type *bedrijf* shows, logged in as its admin, a back-office menu with Werkbank, Formulieren, Pagina's, Media, Gebruikers and the system items only; its dashboard shows no member or activity tiles. | R1, R3, R4 | 1–4 |
 | AC2 | Its public site shows Home with the home block and no membership band or activity cards; the navigation has Home, the pages and the login; `/activiteiten` and `/lid-worden` answer "not found"; the sitemap lists neither. | R3, R5 | 5–7 |
-| AC3 | A visitor fills in a form on that site and the submission appears in the tenant's Formulieren and Werkbank. | R4 | 8 |
+| AC3 | A visitor fills in a form on that site and the submission appears in the tenant's Formulieren; a Werkbank task only for the contact form (as built, Koen 3 Oct). | R4 | 8 |
 | AC4 | The operator switches Nieuwsbrief on for the company tenant: the menu item appears, the public newsletter sign-up appears, the audience choice offers only "iedereen". Switching Activiteiten off while Design Studio is on is refused with the reason. | R2, R6, R8 | 9–11 |
 | AC5 | The association's departments show every module, the same menus, tiles and pages as before, and their screenshots at 390 and 1 440 px are unchanged. | R2 | 12 |
 
@@ -163,7 +163,7 @@ Decisions that shape it, each with the rejected alternative (the reasoning in C4
 | F5 | The admin navigation computed per request from the registry and the tenant's set; the ten import-time `NAV` constants become a call. | R3 |
 | F6 | The public shell's navigation, the home page's blocks, the sitemap and robots, the dashboard tiles, the newsletter's audiences and the reporting universe's folders read the module set. | R3, R8 |
 | F7 | `create_tenant` takes the kind, seeds the module set from its defaults and the two CMS blocks (home-intro, site-footer) with placeholder text. | R1, R4, R5 |
-| F8 | The tenant editor shows the kind (read-only after creation) and the modules as a checkbox group with the record count per module (F12); saving a set that breaks a dependency is refused naming it; the "new tenant" page becomes operator-only. | R2, R6 |
+| F8 | The tenant editor shows the kind and the modules with the record count per module (F12) — as built: a card "Site" and one card per module with its checkbox, one Opslaan; the operator can change the kind and the account afterwards (#1533), so the kind is not read-only; saving a set that breaks a dependency is refused naming it; the "new tenant" page becomes operator-only. | R2, R6 |
 | F9 | The migration gives every existing UNIT kind `VERENIGING` and every module; the platform tenant keeps its own behaviour. | R2 |
 | F10 | The login landing for a user without a member role on a tenant without the membership module goes to the back office or the home page, never to "Mijn gezin". | R3 |
 | F11 | A CMS page flagged as the home page (`cms_pages.is_home`, one per tenant) renders at `/`; without one the shell's composition renders. | R3, R4 |
@@ -217,13 +217,13 @@ Legend: green mdm · yellow auth · blue kernel · grey ui, cms, reporting.
 **Walkthrough on HDEV** (the platform operator; a visitor for steps 5–8)
 
 1. As operator on the platform, open "Nieuwe tenant", fill name, code, base URL, choose type *Bedrijf*, save. *See:* the tenant in the list with its type.
-2. Open the tenant. *See:* the modules as checkboxes: Pagina's, Media, Formulieren, Werkbank ticked; the rest unticked; the type shown.
+2. Open the tenant. *See:* a card "Site" and one card per module, each with its checkbox and record count: Pagina's, Media, Formulieren, Werkbank ticked; the rest unticked; the type shown.
 3. Give a user the ADMIN role in that workspace; log in as that user, switch to the workspace. *See:* the back-office menu: Werkbank · Formulieren · Pagina's · Media · Gebruikers · Wijzigingen · E-maillog · Info; no Activiteiten, Leden, Betalingen, Vergaderingen, Nieuwsbrief, Design Studio, Rapporten, Raakje.
 4. Open the dashboard. *See:* Open taken only.
 5. As a visitor, open the tenant's site. *See:* Home with the seeded home text, no membership band, no activity cards; the footer block; the navigation Home · Aanmelden.
 6. Open `/activiteiten`, `/lid-worden`, `/fotos` on that site. *See:* "niet gevonden".
 7. Open `/sitemap.xml`. *See:* the home page and the published pages only.
-8. Create a form in the tenant's Formulieren, publish a page with its link, fill it in as a visitor. *See:* the submission on Formulieren and the task in Werkbank.
+8. Create a form in the tenant's Formulieren, publish a page with its link, fill it in as a visitor. *See:* the submission on Formulieren (as built: an ordinary form makes no Werkbank task; only the contact form, which every new tenant gets, does — #1509).
 9. As operator, tick Nieuwsbrief for the tenant and save. *See:* the menu item appears; the public sign-up appears on the site; in a new letter the audience offers "iedereen" only.
 10. Tick Design Studio without Activiteiten. *See:* refused: "Design Studio heeft Activiteiten nodig."
 11. On the company tenant, flag a page "dit is de homepagina". *See:* `/` renders that page. Untick Pagina's. *See:* the public site's pages and navigation disappear and `/` falls back to the home block (the shell's).
@@ -423,7 +423,7 @@ None on 2 October 2026: the four questions of the first reading are answered (B9
 #### mdm (phase 1 the table; phase 2 the rest)
 
 - **Screens:** `/admin/tenants/nieuw` gains the kind (radio: Vereniging, Bedrijf) and becomes operator-only; `/admin/tenants/{id}` shows the kind read-only and the modules as a checkbox group (kit control), with the refusal message naming the dependency; judged at 1 440 px.
-- **Code:** `tenant_service.create_tenant(name, code, parent_id, base_url, kind)` seeds `tenant_modules` from the defaults and calls `cms.api.seed_site_blocks(tenant_id)`; `set_modules(tenant_id, codes)` validates against `depends_on` and raises `TenantFout` naming the missing dependency; `api.enabled_modules(tenant_id)`, `module_enabled(code)`, `set_modules`; the migration seeds every UNIT with every module (phase 1) and `kind = VERENIGING` (phase 2).
+- **Code:** `tenant_service.create_tenant(name, code, parent_id, base_url, kind)` seeds `tenant_modules` from the defaults and publishes `TenantCreated`, on which cms seeds the two site blocks and forms and workflow the contact form and its message workflow (as built: the events gate refuses a direct call into `cms.api`); `set_modules(tenant_id, codes)` validates against `depends_on` and raises `TenantFout` naming the missing dependency; `api.enabled_modules(tenant_id)`, `module_enabled(code)`, `set_modules`; the migration seeds every UNIT with every module (phase 1) and `kind = VERENIGING` (phase 2).
 - **Database:** `mdm.tenant_modules (tenant_id INT NOT NULL REFERENCES mdm.organizations(id) ON DELETE CASCADE, module_code VARCHAR(20) NOT NULL CHECK (module_code IN (…the ModuleCode values…)), PRIMARY KEY (tenant_id, module_code))` (phase 1, additive, seeded full; the CHECK widens by migration when a module is added — grep the migrations before adding one, per `CLAUDE.md`); `mdm.tenant_kind_codes (code PK)` with its label table per CR-12, seeded `VERENIGING`, `BEDRIJF`; `mdm.organizations.kind VARCHAR(20) NULL REFERENCES mdm.tenant_kind_codes(code)` (phase 2, additive; NULL for ACCOUNT and PLATFORM, `VERENIGING` for every existing UNIT). Copy actions: the organisation has none.
 - **Templates:** `admin_tenant.html`, `admin_tenant_nieuw.html`.
 - **Tests:** C6 2, 3, 9.
@@ -488,7 +488,7 @@ No view changes; no column is added that a view reads; the universe's folders ar
 
 ### C4.1 A type and a module set
 
-The type is what the operator chooses once, in words a person uses: a *vereniging* or a *bedrijf*. The set is what the software reads. Deriving behaviour from the type alone would make "a company that takes payments" a third type, and "an association without meetings" a fourth; the set makes those a tick. The type stays, because it gives the defaults and, later, the template to reset to (R9).
+The type is what the operator chooses once, in words a person uses: a *vereniging* or a *bedrijf*. The set is what the software reads. Deriving behaviour from the type alone would make "a company that takes payments" a third type, and "an association without meetings" a fourth; the set makes those a tick. The type stays, because it gives the defaults and, later, the template to reset to (R9). *As built (v2.13.0):* a third kind, PLATFORM, for the one platform tenant (#1523) — a company's module scope today, never creatable (`CREATABLE_TENANT_KINDS`); the operator can change a tenant's kind and account afterwards (#1533).
 
 ### C4.2 The registry is code; the enabled set is data
 
@@ -496,9 +496,13 @@ What a module owns — which menu items, which route prefixes, which tiles — c
 
 ### C4.3 Routes stay included; a dependency refuses
 
+*As built (v2.13.0):* one domain file did change — the login routes (`/login`, `/login/verify`, `/leden/login/verify`, the member login redirect) moved from `membership/ui.py` to `auth/ui.py`, because gating membership would have broken the mail link of a tenant without that module. The shell without a module holds the public cms core (`/`, sitemap, robots, `/{slug}`), `/api/v1/stt`, `/api/v1/postal-codes`, audit, the admin API and the e-mail log. The enabled set is cached per process and cleared by `set_modules`.
+
 One application serves every tenant, resolved per request; including routers per tenant is impossible in that shape. A dependency on the router — `require_module(ModuleCode.ACTIVITIES)` — is one line per router, the same shape as the role guards, and it covers JSON and UI routes alike. It is applied **at include time in `main.py`** (`app.include_router(router, dependencies=[…])`), not inside the domains' router files: one place says which router belongs to which module, next to the registry, and no domain file changes for it — which also keeps this change out of the files CR-15 is editing in the same release (planning, 2 October 2026). A module that is off answers 404, not 403: for that tenant the pages do not exist. **Its data stays and is unreachable while it is off** — a form's submissions, an activity's registrations — for the operator too; switching off deletes nothing, switching on shows everything again (F12). That is a choice, written down because it will raise the question "where are my submissions?": the answer is the module switch, not a search.
 
 ### C4.4 Per-request navigation
+
+*As built (v2.13.0):* a navigation item shows only when the module that lists it and the module that serves its path are both on ("Foto's" is listed by activities and served by media), matched on whole path segments; `/fotos` needs activities and media for the route too. One commit, because a module-level `NAV = admin_nav(...)` became a database query at import.
 
 Ten admin modules compute `NAV = admin_nav(...)` at import time, once for the process; a per-tenant menu cannot come out of that. Each becomes a call per request (or a request-scoped helper). This is the one refactor of size in the change; it is mechanical, it is paid once, and it is also what CR-11's frame needs when the menu becomes data of the shell. The desktop and phone menus already share one source, so one filter serves both.
 
@@ -508,7 +512,7 @@ A design needs an activity (its `activity_id` is NOT NULL); a payment needs a re
 
 ### C4.6 Kind on the organisation, next to legal form
 
-The organisation already carries `legal_form` (VZW, feitelijke vereniging, bedrijf), which is about law — a company can run a club, an association can trade. The kind is about what the site is for. Two columns, two meanings; the kind only on UNIT rows (the ones that are tenants), NULL on ACCOUNT and PLATFORM. On standards: UBL's `PartyLegalEntity` holds the legal form; a "kind of site" has no standard home and is ours.
+The organisation already carries `legal_form` (VZW, feitelijke vereniging, bedrijf), which is about law — a company can run a club, an association can trade. The kind is about what the site is for. Two columns, two meanings; the kind only on UNIT rows (the ones that are tenants), NULL on ACCOUNT (as built: the PLATFORM row carries the kind PLATFORM, #1523). On standards: UBL's `PartyLegalEntity` holds the legal form; a "kind of site" has no standard home and is ours.
 
 ## C5. Privacy and security — the mechanics behind A7
 
@@ -548,7 +552,7 @@ See C1; nothing prototyped. One thing to measure at the build: the request cost 
 
 ## C10. Close-out at the release
 
-Not yet: on hold, nothing built. Filled in when the release that builds this change runs on PROD (`CLAUDE.md`, release step 14).
+**Built in v2.13.0, on PROD since 6 October 2026** (tracker #1469; tracking issue #1468 closed by the master CLI). Built as designed: the module registry and the gate (#1475), the menu per request (#1476), the screens following the module set and a page as the home (#1477), the kind with its editor and provisioning (#1478). **Built beyond the design, on Koen's asks of 2–4 October** (each a B9 row): the operator creates an account (#1495); a company shows its own name or logo (#1496); the tenant editor as cards with one save (#1498); a contact form and its workflow per tenant (#1509, migration 190); PLATFORM as a tenant kind (#1523), its landing per account and then as an ordinary CMS page with the `{{tenants}}` placeholder (#1525, #1542, #1543); platform administration in the platform workspace only, with "Onze organisatie" and "Instellingen" per tenant (#1535); the organisation behind a site (`site_organization_id`, #1550) and the site's own name (`site_name`, #1546). The deviations are folded into AC3, F8, B2 steps 2 and 8, C2, C4.1, C4.3, C4.4 and C4.6. **What it left open is CR-20** (#1578): the tenant as its own record apart from the organisation — the direction row of 4 October in B9 is its starting point.
 
 ---
 

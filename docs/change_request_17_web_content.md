@@ -1,10 +1,10 @@
 # Change Request 17 — Web content: pages as structured documents, one editor for three places
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · **assigned to v2.14.0** by Koen ("zeker niet meer in v2.13"); the spike of phase 0 starts now as the first sub-issue of #1427
+**Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · assigned to v2.14.0 on 5 October and **moved to v2.15.0 by Koen on 6 October 2026** (tracker #1666); the spike of phase 0 (#1626) is the first sub-issue of #1427 and its start is Koen's to give
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
-**Reading:** A 1496 words · B 2496 · C 4763 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1496 words · B 2493 · C 4763 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -378,7 +378,7 @@ Purchases: none. **Running cost:** none. **Operations:** no env var; the bundle 
 
 | Phase | Delivers | Migration | Failure paths that change | Validation |
 |---|---|---|---|---|
-| **0 — the spike** (starts now, 5 Oct 2026) | TipTap on a throwaway branch — the one-off bundle without Node in the repo, a table round trip, a custom node, the CSP, a phone; the measurements into C8 | none | none | C8 |
+| **0 — the spike** (#1626; its start is Koen's to give) | TipTap on a throwaway branch — the one-off bundle without Node in the repo, a table round trip, a custom node, the CSP, a phone; the measurements into C8 | none | none | C8 |
 | **1 — pages as documents** | the schema; the editor macro; the page screen with draft, publish, history, preview; the renderer and the reading-width page; `page_translations`; the picker; the lossless migration | additive | a page is no longer live on save; an unknown block refused by name | AC1, AC3, AC6, AC7, AC11 |
 | **2 — the blocks** | table (full), columns with alignment, button, callout, link card, **cards**, **form** | none | a deleted form renders nothing | AC2, AC8, AC9 |
 | **3 — a second language** (Should) | the language selector, a second translation row, `/en/`, the fallback, the switch | none | a page without a translation falls back | walkthrough |
@@ -386,9 +386,9 @@ Purchases: none. **Running cost:** none. **Operations:** no env var; the bundle 
 | **5 — the value block and the gallery** | the value block in the toolbar (the renderer replaces codes meanwhile); the gallery block on an album | none | none | AC4 |
 | **6 — the menu** (Could, only if nearly free) | parent, external link, footer menu; the page order already exists (`sort_order`) | additive | none | AC12 |
 | **7 — the letter and the notes** (Could, last) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
-| **later** (Koen, 5 Oct 2026) | the print rendering (with the notes), the preview's width switch, autosave of the draft; drop `content` two releases after phase 1 | contract for the drop | — | — |
+| **later** | the print rendering, the preview's width switch, autosave of the draft; drop `content` two releases after phase 1 | contract for the drop | — | — |
 
-Dependencies: CR-15's picker and a company tenant (CR-19) exist; the page screen's layout comes from CR-11 or phase 1. **Order** (Koen, 5 Oct 2026): 0 → 1 → 2 → 3 → 4 → 5 are the change; 6 and 7 only when nearly free, otherwise a follow-up change request.
+Dependencies: CR-15's picker and a company tenant (CR-19) exist. **Order** (Koen, 5 Oct 2026): 0 → 1 → 2 → 3 → 4 → 5 are the change; 6 and 7 only when nearly free, otherwise a follow-up change request.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -413,6 +413,7 @@ None (B9, 5 Oct 2026).
 | 4 Oct 2026 | Form block (R13), cards block (R14), kit-styled pictures (R4), columns middle beside a figure; a translation row from phase 1 (R15); a JSON door (R16); the menu to Should (R8); the three newsletter choices decide the blocks (F9). | Koen |
 | 4 Oct 2026 | **Six answers**: R6 and writing on a phone Could; R12 Won't; cards are layout; English soon with `/en/`; the JSON door also creates and publishes. | Koen |
 | 5 Oct 2026 | **B8 closed** (Q1 TipTap; Q2 the menu a Could, only if nearly free; Q8, Q9 the activity editor and merged cells Coulds outside this change; Q10 form and cards in phase 2; Q11 content only, the back office Dutch; Q6 the spike now). **Phases**: 1 pages, 2 blocks, 3 language, 4 the JSON door, 5 value block and gallery; 6 menu and 7 letter are Could. **To later**: print, the preview's width switch, autosave. **Assigned to v2.14.0.** | Koen |
+| 6 Oct 2026 | Moved to **v2.15.0** (#1666). | Koen |
 | 1 Oct 2026 | *Proposed:* C4.1–C4.7; TipTap recommended, decided after the spike. | author |
 
 ---

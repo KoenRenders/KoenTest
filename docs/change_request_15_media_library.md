@@ -1,10 +1,10 @@
 # Change Request 15 — Media library: one picture, stored once, usable everywhere
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 1 October 2026 · walked through with Koen on 2 October 2026, every question answered · **go, both phases, planned by the master CLI** (Koen, 2 Oct 2026); C9 waived
+**Status:** shaped on 1 October 2026 · walked through with Koen on 2 October 2026, every question answered · **go, both phases, planned by the master CLI** (Koen, 2 Oct 2026); C9 waived · **built in v2.13.0, on PROD since 6 October 2026** (C10)
 **Tracking issue:** #1410 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the media domain and its admin screen; the picture choosers of Design Studio and the CMS; the public photo albums; one new field on the activity, already under way (#1397).
-**Reading:** A 2445 words · B 3325 · C 3001 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 2445 words · B 3948 · C 3437 — words to read, code fences excluded, Part C up to the Q&A log; measured on 6 October 2026 at the close-out. **Over the budget of the template** (A ≤ 1 500, B ≤ 2 500): the document predates the budget in A, and B9 now carries the four as-built rows of the build — a built change request is a record, not a text to approve.
 
 ---
 
@@ -188,7 +188,7 @@ Decisions that shape it, each with the rejected alternative (the reasoning in C4
 | F6 | Deleting a design or an activity leaves the media rows; the library shows "van een verwijderde activiteit/ontwerp" from the soft-deleted activity or the missing design. The `_prune_versions` deletion of renders stays (a render is a product, not a picture). | R6 |
 | F7 | *(withdrawn with R7)* No clearance column; the public URL stays reachable by id for every asset, as today. | R7 Won't |
 | F8 | A tag vocabulary with a parent (`media.tags`: id, parent_id, name, tenant) the board maintains, and a many-to-many `media.asset_tags (asset_id, tag_id)`; the tree view in the library and the picker shows the activities branch and the tag tree; a picture appears under every tag it carries; searched by the same `q`. Phase 1. | R9 |
-| F9 | The library screen gains the filters year and "in use", and the "where used" list per card; it stays a card grid. | R3, R5 |
+| F9 | The library screen gains the filters year and "in use", and the "where used" list per card; it stays a card grid. As built: the two filters stand at the top of the tree column; "where used" also counts a design's logo strip. | R3, R5 |
 
 ## B2. Fit with the process and the requirements — for the business
 
@@ -446,9 +446,9 @@ None on 2 October 2026: every question of the walkthrough with Koen, and the one
 
 #### media (phases 1–2)
 
-- **Screens:** `/admin/media` — the card grid stays; the tree at the left (the tag tree the board maintains; the activities by year as a derived branch; a picture under every tag it carries); filters gain *year* and *in gebruik*; a card shows its tags and its activity and "gebruikt in N" with the list unfolded on click; judged at 1 440 px, not broken at 390. New: the kit macro `ui.media_picker` (search, chips *van vorig jaar · activiteit · jaar*, thumbnail grid, paging; not broken at 390 px), rendered live on `/admin/design-system`.
+- **Screens:** `/admin/media` — the card grid stays; the tree at the left (the tag tree the board maintains; the activities by year as a derived branch; a picture under every tag it carries); filters gain *year* and *in gebruik* (as built: both at the top of the tree column — the year first, "in gebruik" as a select under it — because the filter row beside the tree must stay one line; one card per row beside the tree until `2xl`); a card shows its tags and its activity and "gebruikt in N" with the list unfolded on click; judged at 1 440 px, not broken at 390. New: the kit macro `ui.media_picker` (search, chips *van vorig jaar · activiteit · jaar*, thumbnail grid, paging; not broken at 390 px), rendered live on `/admin/design-system`.
 - **Code:** `service.pick_options`, `service.uses_of`, `service.tags` (create, rename, move under another tag, delete when unused), `service.tag_asset(asset, tag)` and `untag_asset`; `delete_media` refuses while in use (`MediaFout` with the uses); `api.py` exports them.
-- **Database:** `media.tags (id SERIAL PK, parent_id INT NULL REFERENCES media.tags(id) ON DELETE RESTRICT, name VARCHAR(80) NOT NULL, tenant_id INT NOT NULL, UNIQUE (tenant_id, parent_id, name))` and `media.asset_tags (asset_id INT NOT NULL REFERENCES media.media_assets(id) ON DELETE CASCADE, tag_id INT NOT NULL REFERENCES media.tags(id) ON DELETE RESTRICT, PRIMARY KEY (asset_id, tag_id))` (phase 1; a tag in use or with child tags cannot be deleted; a picture may carry any number of tags). Both additive; no column on `media_assets`. **The migration seeds the first tags from the kinds already present** among the library's own material — one tag per kind, "Logo's" for `tenant_logo`, "Sponsors" for `sponsor`, "Pagina's" for `page_image` — and links the existing rows of that kind; nothing for activities (a derived branch); finer tags the board makes itself (Koen, 2 Oct 2026). Copy actions: media has none. The image size: one `MAX_FULL = 2400` for every kind, `MAX_FULL_BY_KIND` removed (phase 2, no migration).
+- **Database:** `media.tags (id SERIAL PK, parent_id INT NULL REFERENCES media.tags(id) ON DELETE RESTRICT, name VARCHAR(80) NOT NULL, tenant_id INT NOT NULL, UNIQUE NULLS NOT DISTINCT (tenant_id, parent_id, name))` (as built: a plain UNIQUE lets two top-level tags of one name in, because NULL parents never collide) and `media.asset_tags (asset_id INT NOT NULL REFERENCES media.media_assets(id) ON DELETE CASCADE, tag_id INT NOT NULL REFERENCES media.tags(id) ON DELETE RESTRICT, PRIMARY KEY (asset_id, tag_id))` (phase 1; a tag in use or with child tags cannot be deleted; a picture may carry any number of tags). Both additive; no column on `media_assets`. **The migration seeds the first tags from the kinds already present** among the library's own material — one tag per kind, "Logo's" for `tenant_logo`, "Sponsors" for `sponsor`, "Pagina's" for `page_image` — and links the existing rows of that kind; nothing for activities (a derived branch); finer tags the board makes itself (Koen, 2 Oct 2026). Copy actions: media has none. The image size: one `MAX_FULL = 2400` for every kind, `MAX_FULL_BY_KIND` removed (phase 2, no migration).
 - **Templates and mail:** `_me_lijst.html` (the tree, filters, uses), a new `_media_picker.html` partial; no mail.
 - **Tests:** C6 1, 2, 4, 5, 6, 7, 9, 10, 11.
 
@@ -508,9 +508,13 @@ Two kinds of material live in the library and they are ordered differently. **An
 
 ### C4.3 One chooser, from the kit
 
+*As built (v2.13.0):* a chosen thumbnail dispatches `media-picked` (id, url, thumb, title, size), which `ui.media_picker` and the CMS image dialog both listen to; the picker's filter row is a `div` with `hx-include="this"`, because a nested form is dropped inside the CMS form; the picker has an optional `clearable` ("Weghalen"), since the old select could empty a slot; it offers only image posters, and sponsor logos and the association's logo are pickable in a branch "Logo's" (R14).
+
 `ui.media_picker` is the only way a screen offers a picture: the design editor and the CMS modal. It takes the asking context (the record, the use) and renders what `pick_options` returns: the group "Van <activity> (<year>)" for the predecessor chain first, then the rest, searchable and filterable, paged at 60 thumbnails; on a phone it does not break — the tree folds above the grid, no horizontal scroll — and no more is designed for it (R8, Koen: beyond an upload the picture admin is never used on a phone). One component means one behaviour on every screen (CR-11 R13).
 
 ### C4.4 "Where used" is derived, not stored
+
+*As built (v2.13.0):* "where used" also counts a design's logo strip (`DesignLogo.media_asset_id`) next to the three image slots; a soft-deleted activity stays in the activity filter as "<name> (verwijderd)", or its surviving album would be unreachable; not counted as use: the newsletter (by design) and ChatbotInfo (documents only).
 
 Each consumer knows what it references; media asks them. Storing a `media_uses` table would mean every consumer writes twice (its reference and the use row) and the two drift — the shape CLAUDE.md calls the bug ("twee keer dezelfde reparatie"). Deleting a picture that is in use is refused, with the uses as links, and there is no force delete: a design or a page pointing at a deleted picture would break on the site, and the organiser can remove the use in one click from the list. The cost is a query across two facades at delete time and on the library card; at the counts of this portal (hundreds of pictures, tens of designs) it is not measurable. The direction media → consumers is read-only and through facades; the import gate allows it.
 
@@ -519,6 +523,8 @@ Each consumer knows what it references; media asks them. Storing a `media_uses` 
 The author proposed a clearance per picture (public or back-office only) as a first step towards the architecture's consent register. Koen decided otherwise on 2 October 2026: what is in the system is released — the board decides by uploading, and a picture that may not be shown is not uploaded. So this change adds no clearance column, no filter in `pick_options`, no 404 on the public URL; the consent register (architecture R6) stays roadmap, untouched. Recorded as the decision it is, so the question is not asked again when the register comes: the register will then decide per person, and the library will follow it.
 
 ### C4.6 Bytes stay in Postgres; the storage seam stays clean
+
+*As built (v2.13.0):* the premise "expected zero" was wrong — 14 places outside media built an address or read `MediaAsset.data` (site logo, footer sponsors, newsletter links, renditions, the poster URL on the activity model, the meeting PDF logo, the render); all go through `media.api` now and the seam gate is hard at zero. Renders keep `MAX_FULL_RENDER = 4096` — a render is a studio product, not an upload, so the 2 400 px rule for uploads does not apply to it.
 
 This change adds references and one short column, not bytes; it removes bytes (no more copies). The object-storage adapter (architecture R8) stays roadmap; the only rule kept here is that nothing outside `media` reads `data` or builds a media URL by hand, so that R8 is a change inside one module. Measured: the designstudio and cms templates build `/api/v1/media/<id>` URLs through the media view-models today; C6 test 12 keeps it so.
 
@@ -547,7 +553,7 @@ An activity is soft-deleted (#166); its photos stay rows with an `activity_id` t
 9. **The tree.** A tag with a child tag and two tagged pictures renders as a tree in the library and in the picker; a picture with two tags appears under both; an activity with photos appears under Activiteiten › its year › its name without any tag row; a tag in use cannot be deleted.
 10. **Not broken at 390 px.** The library and the picker at 390 px: the document's scroll width equals the viewport's, a picture can be chosen, an upload works (the stability protocol of CR-11 B7 applies). Nothing more is measured there (R8 Should).
 11. **Tags are repeatable.** Two tags on one asset are two rows; `q` matches either; the same tag twice is refused by the primary key.
-12. **The storage seam.** A gate: no template or module outside `media` reads `MediaAsset.data` or builds a `/api/v1/media/` URL by string; baseline measured at the build (expected zero, hard).
+12. **The storage seam.** A gate: no template or module outside `media` reads `MediaAsset.data` or builds a `/api/v1/media/` URL by string; baseline measured at the build — 14 places, not the expected zero; all moved behind `media.api.media_url` / `asset_bytes`; hard at zero since, with one reader exception (the cms "where used" scan); the bytes gate checks every `.data` outside media by AST.
 
 **Impact on the test landscape:** the design editor's e2e flow and its screenshots (three selects → three slots with the picker); `/admin/media` screenshots (the tree, the filters); the CMS image modal e2e. Nothing else: the public routes and pages do not change.
 
@@ -572,7 +578,7 @@ An activity is soft-deleted (#166); its photos stay rows with an `activity_id` t
 
 ## C10. Close-out at the release
 
-Not yet: on hold, nothing built. Filled in when the release that builds this change runs on PROD (`CLAUDE.md`, release step 14).
+**Built in v2.13.0, on PROD since 6 October 2026** (tracker #1469; tracking issue #1410 closed by the master CLI). Both phases: the tags as a tree (#1470), "where used" with the refusal on delete (#1471), the picker (#1472), the Design Studio on the picker at one stored size (#1473), the CMS page on the picker (#1474). The as-built deviations stand in B9 (four rows) and are folded into C2 (the tag key, the filters' place), F9, C4.3, C4.4, C4.6 and C6 test 12. The first outside review (CR-18, Mistral) ran on #1473: five findings, all taken in. Nothing of this change is open.
 
 ---
 
