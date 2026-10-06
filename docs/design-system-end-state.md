@@ -437,7 +437,13 @@ letters and things that drop out is no gain."
   then *Volg ons* with the social links (24 px icons in 44 px targets,
   **without a border or box around them**), then *Met steun van* (logos in at
   most 144 × 64 px, never yellow, **without a border**) — the three columns
-  on one line, heading over content (Koen, 6 October 2026: "rustiger"); stacked in that
+  on one line, heading over content (Koen, 6 October 2026: "rustiger");
+  **no line above the row** (the ground changing from grey to white is the
+  transition), the **three columns spread evenly** now that the newsletter
+  column is short, the **first social icon's glyph on the left line of
+  "Volg ons"** — its 44 px hit area reaches left of that line — and **32 px
+  of air above and below the row on a desktop, 24 px on a phone** (Koen, the
+  same day, on the built footer); stacked in that
   order on a phone (Koen, 4 October 2026: the newsletter beside the social
   icons, not a row of its own); under it **the legal line carrying the
   organisation's details**: *© 2026 Raak Millegem ·
@@ -453,7 +459,8 @@ letters and things that drop out is no gain."
   the document flow above the header, scrolling away; the bell 56 px with
   88 px kept free under the legal line; the language switch at the bottom
   of the drawer and right of the account, only when a second language has
-  published content; 48 px from content to footer on a phone, 64 px above.
+  published content; the air from content to footer was 48 / 64 px as drawn
+  and is 24 / 32 px since 6 October 2026 (the footer bullet above).
 
 [CR-11 B10 and Q58, 4 October 2026; beslissing 11 in Koen's project folder]
 
