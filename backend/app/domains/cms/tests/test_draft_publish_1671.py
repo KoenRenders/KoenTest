@@ -1,14 +1,14 @@
-"""Concept, gepubliceerd, geschiedenis — de toestanden van een pagina (CR-17
-fase 1, snede 1, #1671; C6 tests 2, 4 en 6).
+"""Draft, published, history — the states of a page (CR-17 phase 1, slice 1,
+#1671; C6 tests 2, 4 and 6).
 
-Snede 1 is de datalaag: op het scherm verandert niets, maar Opslaan onder de
-nog zittende Trix-editor leidt de documenten opnieuw af uit `content`, zodat
-ze niet verouderen. De kerninvarianten staan hier op serviceniveau: opslaan
-schrijft het concept en niets anders; publiceren schrijft precies één
-geschiedenisrij en maakt live; terugzetten schrijft alleen het concept.
+Slice 1 is the data layer: nothing on screen changes, but a save under the
+still-sitting Trix editor re-derives the documents from `content`, so they
+cannot go stale. The core invariants sit at the service level: a save writes
+the draft and nothing else; publishing writes exactly one history row and
+goes live; restoring writes the draft only.
 
-Elke test hier kan rood worden: verplaats één toewijzing van `draft_json`
-naar `published_json` en ze vallen om.
+Every test here can go red: move one assignment from `draft_json` to
+`published_json` and they fall over.
 """
 
 import json
@@ -27,77 +27,77 @@ from app.domains.cms.models import CmsPageHistory
 from app.schemas.cms import CmsPageCreate, CmsPageUpdate
 
 
-def _pagina(db_session, **velden):
-    standaard = dict(title="Testpagina", slug="testpagina-1671", is_published=False)
-    standaard.update(velden)
-    return create_page(db_session, CmsPageCreate(**standaard))
+def _page(db_session, **fields):
+    defaults = dict(title="Testpagina", slug="testpagina-1671", is_published=False)
+    defaults.update(fields)
+    return create_page(db_session, CmsPageCreate(**defaults))
 
 
-def _document(tekst="Hallo"):
+def _document(text="Hallo"):
     return {
         "type": "doc",
         "content": [
             {
                 "type": "paragraph",
-                "content": [{"type": "text", "text": tekst}],
+                "content": [{"type": "text", "text": text}],
             }
         ],
     }
 
 
-def test_opslaan_schrijft_het_concept_en_niet_de_site(db_session):
-    """C6 4: Opslaan laat `published_json` onveranderd."""
-    page = _pagina(db_session, is_published=True)
-    publish(db_session, page.id, by="eerste@admins")
+def test_a_save_writes_the_draft_and_not_the_site(db_session):
+    """C6 4: a save leaves `published_json` untouched."""
+    page = _page(db_session, is_published=True)
+    publish(db_session, page.id, by="first@admins")
     live = get_translation(db_session, page).published_json
 
     save_draft(db_session, page.id, _document("Gewijzigd"), by="redacteur@admins")
 
     translation = get_translation(db_session, page)
     assert translation.draft_json["content"][0]["content"][0]["text"] == "Gewijzigd"
-    assert translation.published_json == live, "Opslaan heeft de live pagina veranderd"
-    assert len(versions(db_session, page.id)) == 1, "Opslaan heeft een geschiedenisrij geschreven"
+    assert translation.published_json == live, "a save changed the live page"
+    assert len(versions(db_session, page.id)) == 1, "a save wrote a history row"
 
 
-def test_publiceren_schrijft_precies_een_geschiedenisrij(db_session):
-    """C4.3: Publiceren kopieert concept → gepubliceerd, met precies één
-    geschiedenisrij — de vorige versie blijft terugzetbaar."""
-    page = _pagina(db_session)
+def test_publishing_writes_exactly_one_history_row(db_session):
+    """C4.3: publish copies draft to published, with exactly one history row
+    — the previous version stays restorable."""
+    page = _page(db_session)
     save_draft(db_session, page.id, _document(), by="redacteur@admins")
     publish(db_session, page.id, by="redacteur@admins")
 
-    rijen = db_session.query(CmsPageHistory).filter(CmsPageHistory.page_id == page.id).all()
-    assert len(rijen) == 1
-    assert rijen[0].action == "published"
-    assert rijen[0].by == "redacteur@admins"
+    rows = db_session.query(CmsPageHistory).filter(CmsPageHistory.page_id == page.id).all()
+    assert len(rows) == 1
+    assert rows[0].action == "published"
+    assert rows[0].by == "redacteur@admins"
     assert get_page_by_id(db_session, page.id).is_published
 
 
-def test_terugzetten_schrijft_het_concept_en_niet_de_site(db_session):
-    """C6 6: Terugzetten zet een versie terug in het CONCEPT — de live pagina
-    verandert pas na Publiceren."""
-    page = _pagina(db_session)
+def test_restoring_writes_the_draft_and_not_the_site(db_session):
+    """C6 6: restoring puts a version back into the DRAFT — the live page
+    changes only after publishing again."""
+    page = _page(db_session)
     save_draft(db_session, page.id, _document("Versie één"), by="redacteur@admins")
     publish(db_session, page.id, by="redacteur@admins")
     save_draft(db_session, page.id, _document("Versie twee"), by="redacteur@admins")
     publish(db_session, page.id, by="redacteur@admins")
     live = get_translation(db_session, page).published_json
 
-    oudste = versions(db_session, page.id)[-1]
-    restore(db_session, page.id, oudste.id, by="redacteur@admins")
+    oldest = versions(db_session, page.id)[-1]
+    restore(db_session, page.id, oldest.id, by="redacteur@admins")
 
     translation = get_translation(db_session, page)
     assert translation.draft_json["content"][0]["content"][0]["text"] == "Versie één"
-    assert translation.published_json == live, "Terugzetten heeft de live pagina veranderd"
-    acties = [v.action for v in versions(db_session, page.id)]
-    assert acties.count("restored") == 1
+    assert translation.published_json == live, "restoring changed the live page"
+    actions = [v.action for v in versions(db_session, page.id)]
+    assert actions.count("restored") == 1
 
 
-def test_een_onbekend_blok_wordt_met_naam_geweigerd(db_session):
-    """C6 2, de poort bewezen met een overtreding: een document met een blok
-    buiten het schema wordt geweigerd met de naam van het blok — nooit
-    gestript, nooit stilletjes bewaard. (Dit is letterlijk AC10's "slider".)"""
-    page = _pagina(db_session)
+def test_an_unknown_block_is_refused_with_its_name(db_session):
+    """C6 2, the gate proven by a violation: a document with a block outside
+    the schema is refused with the block's name — never stripped, never
+    silently kept. (This is literally AC10's "slider".)"""
+    page = _page(db_session)
     document = {
         "type": "doc",
         "content": [{"type": "slider", "attrs": {"beelden": [1, 2]}}],
@@ -105,38 +105,55 @@ def test_een_onbekend_blok_wordt_met_naam_geweigerd(db_session):
     try:
         save_draft(db_session, page.id, document, by="redacteur@admins")
     except ValueError as exc:
-        assert "slider" in str(exc), f"de naam van het blok ontbreekt in: {exc}"
+        assert "slider" in str(exc), f"the block's name is missing in: {exc}"
     else:
-        raise AssertionError("een onbekend blok is bewaard")
-    # Het concept is onaangeroerd: niets is gestript of bewaard.
+        raise AssertionError("an unknown block was kept")
+    # The draft is untouched: nothing was stripped or kept.
     assert get_translation(db_session, page).draft_json != document
 
 
-def test_een_opslag_onder_trix_leidt_de_documenten_opnieuw_af(db_session):
-    """Snede 1 (herziene opdracht, #1671): zolang Trix de pagina-editor is,
-    leidt elke opslag het document opnieuw af uit `content` — de documenten
-    kunnen niet verouderen. `published_json` volgt waar de pagina live staat;
-    een code blijft tekst in het document."""
-    page = _pagina(db_session, is_published=True, content="<p>Eerste tekst.</p>")
+def test_a_trix_save_re_derives_the_documents(db_session):
+    """Slice 1 (revised assignment, #1671): while Trix is the page editor,
+    every save re-derives the document from `content` — the documents cannot
+    go stale. `published_json` follows where the page is live; a code stays
+    text; a Trix <div> paragraph converts (review A4/ii, #1673)."""
+    page = _page(db_session, is_published=True, content="<p>Eerste tekst.</p>")
     update_page(
         db_session,
         page.id,
-        CmsPageUpdate(content="<p>Tweede tekst met een {{membership_price_full}}.</p>"),
+        CmsPageUpdate(content="<div>Tweede tekst met een {{membership_price_full}}.</div>"),
     )
     translation = get_translation(db_session, page)
-    teksten = [
-        n["text"] for n in translation.draft_json["content"][0]["content"] if n["type"] == "text"
-    ]
-    assert any("Tweede tekst" in t for t in teksten)
-    assert any("{{membership_price_full}}" in t for t in teksten), "de code is geen tekst"
-    assert translation.published_json is not None, "een live pagina volgt mee"
+    paragraph = translation.draft_json["content"][0]
+    assert paragraph["attrs"]["legacy_div"] is True
+    texts = [n["text"] for n in paragraph["content"]]
+    assert any("{{membership_price_full}}" in t for t in texts), "the code is not text"
+    assert translation.published_json is not None, "a live page does not follow"
 
 
-def test_een_niet_zuivere_opslag_krijgt_alleen_een_concept(db_session):
-    """F11 onder de oude editor: content met een citaat zet niet verliesvrij
-    om — het concept bewaart de woorden, `published_json` blijft leeg en de
-    site blijft de HTML tonen tot een redacteur het concept publiceert."""
-    page = _pagina(db_session, is_published=True, content="<p>Eerste tekst.</p>")
+def test_create_page_derives_the_document_from_its_content(db_session):
+    """Review C3 (#1673): a page created WITH content gets its documents,
+    not an empty draft."""
+    page = _page(db_session, content="<p>Meteen inhoud.</p>")
+    translation = get_translation(db_session, page)
+    texts = [n["text"] for n in translation.draft_json["content"][0]["content"]]
+    assert any("Meteen inhoud." in t for t in texts)
+
+
+def test_unpublishing_without_a_content_change_clears_published_json(db_session):
+    """Review C3 (#1673): the publish switch alone must follow too — the
+    documents may not claim a page is live when its flag says otherwise."""
+    page = _page(db_session, is_published=True, content="<p>Live tekst.</p>")
+    assert get_translation(db_session, page).published_json is not None
+    update_page(db_session, page.id, CmsPageUpdate(is_published=False))
+    assert get_translation(db_session, page).published_json is None
+
+
+def test_a_not_converting_save_gets_only_a_draft(db_session):
+    """F11 under the old editor: content with a quote does not convert
+    losslessly — the draft keeps the words, `published_json` is cleared and
+    the site keeps serving the HTML until an author publishes."""
+    page = _page(db_session, is_published=True, content="<p>Eerste tekst.</p>")
     update_page(
         db_session,
         page.id,
@@ -147,18 +164,18 @@ def test_een_niet_zuivere_opslag_krijgt_alleen_een_concept(db_session):
     assert translation.published_json is None
 
 
-def test_het_concept_aanvaardt_zowel_json_string_als_dict(db_session):
-    """De editor draagt het document als JSON-string; de service aanvaardt
-    beide vormen zonder ze te vermengen."""
-    page = _pagina(db_session)
+def test_the_draft_accepts_a_json_string_and_a_dict(db_session):
+    """The editor carries the document as a JSON string; the service accepts
+    both shapes without mixing them up."""
+    page = _page(db_session)
     save_draft(db_session, page.id, json.dumps(_document()), by="redacteur@admins")
     assert get_translation(db_session, page).draft_json["type"] == "doc"
 
 
-def test_titelwijziging_volgt_de_vertaalrij(db_session):
-    """De vertaalrij is de bron van de titel; de paginakolom is zijn schaduw
-    die meebeweegt zolang hij bestaat (C2 cms, één release)."""
-    page = _pagina(db_session)
+def test_a_title_change_follows_the_translation_row(db_session):
+    """The translation row is the title's source; the page column is its
+    shadow that moves along while it exists (C2 cms, one release)."""
+    page = _page(db_session)
     update_page(db_session, page.id, CmsPageUpdate(title="Nieuwe titel"))
     translation = get_translation(db_session, page)
     assert translation.title == "Nieuwe titel"

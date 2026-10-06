@@ -427,7 +427,7 @@ def _mark_html(mark: dict) -> tuple[str, str]:
     return f"<{tag}>", f"</{tag}>"
 
 
-def _inline_html(nodes: list, cell: bool = False) -> str:
+def _inline_html(nodes: "list[dict] | None") -> str:
     """Inline content: text, marks, hard breaks and value nodes.
 
     A paragraph inside a table cell renders without its `<p>` (cell context,
@@ -452,29 +452,29 @@ def _inline_html(nodes: list, cell: bool = False) -> str:
     return "".join(parts)
 
 
-def _blocks_html(blocks: list, cell: bool = False, on_page: bool = False) -> str:
+def _blocks_html(blocks: "list[dict] | None", cell: bool = False) -> str:
     parts = []
     for node in blocks or []:
-        parts.append(_block_html(node, cell, on_page))
+        parts.append(_block_html(node, cell))
     return "".join(parts)
 
 
-def _block_html(node: dict, cell: bool = False, on_page: bool = False) -> str:
+def _block_html(node: dict, cell: bool = False) -> str:
     kind = node["type"]
     content = node.get("content")
 
     if kind == "paragraph":
+        # A paragraph that was a `<div>` in today's HTML renders as a div
+        # again, byte-exact (review A4/ii, #1673).
+        tag = "div" if (node.get("attrs") or {}).get("legacy_div") else "p"
         inner = _inline_html(content)
-        return inner if cell else f"<p>{inner}</p>"
+        return inner if cell else f"<{tag}>{inner}</{tag}>"
 
     if kind == "heading":
-        # The document stores the author's choice; a PAGE BODY shows it one
-        # level down (on_page), exactly as `headings_one_level_down` did for
-        # the stored h1–h3 (an h4 keeps its level, as the old regex did). A
-        # fragment (the home intro) keeps its own level.
+        # The document stores the author's choice; `render_document` shifts a
+        # page body one level down through `headings_one_level_down` — the
+        # ONE place that knows the shift (#1656, review B4a #1673).
         level = int(node.get("attrs", {}).get("level", 2))
-        if on_page and not cell and 1 <= level <= 3:
-            level += 1
         return f"<h{level}>{_inline_html(content)}</h{level}>"
 
     if kind in ("bulletList", "orderedList"):
@@ -491,19 +491,17 @@ def _block_html(node: dict, cell: bool = False, on_page: bool = False) -> str:
         # thead + tbody, a bare table renders bare rows — both exactly as
         # the sanitised HTML of today does (#1671).
         head = "".join(
-            _block_html(row, on_page=on_page)
+            _block_html(row)
             for row in content or []
             if (row.get("attrs") or {}).get("section") == "head"
         )
         body = "".join(
-            _block_html(row, on_page=on_page)
+            _block_html(row)
             for row in content or []
             if (row.get("attrs") or {}).get("section") == "body"
         )
         bare = "".join(
-            _block_html(row, on_page=on_page)
-            for row in content or []
-            if not (row.get("attrs") or {}).get("section")
+            _block_html(row) for row in content or [] if not (row.get("attrs") or {}).get("section")
         )
         return (
             "<table>"
@@ -514,7 +512,7 @@ def _block_html(node: dict, cell: bool = False, on_page: bool = False) -> str:
         )
 
     if kind == "tableRow":
-        return f"<tr>{''.join(_block_html(c, on_page=on_page) for c in content or [])}</tr>"
+        return f"<tr>{''.join(_block_html(c) for c in content or [])}</tr>"
 
     if kind in ("tableHeader", "tableCell"):
         tag = "th" if kind == "tableHeader" else "td"
@@ -584,8 +582,10 @@ def render_document(document, db=None, *, on_page: bool = False, target: str = "
         document = json.loads(document)
     if target == "text":
         return _document_text(document, db)
-    html = _blocks_html(document.get("content") or [], on_page=on_page) if document else ""
+    html = _blocks_html(document.get("content") or []) if document else ""
     html = sanitize_cms_html(html) or ""
+    if on_page:
+        html = headings_one_level_down(html)
     for code, value in _values().items():
         html = html.replace(f"{{{{{code}}}}}", value)
     html = _SITES.sub(lambda m: _sites_html(m.group(1), db), html)

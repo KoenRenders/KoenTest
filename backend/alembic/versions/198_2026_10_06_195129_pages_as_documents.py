@@ -57,11 +57,10 @@ def _convert_pages(bind) -> dict:
     pages = bind.execute(
         sa.text("SELECT id, tenant_id, title, slug, content, is_published FROM cms.cms_pages")
     ).fetchall()
-    converted, kept_html, published = 0, 0, 0
+    converted, kept_html, published, failed = 0, 0, 0, []
     for page_id, tenant_id, title, slug, content, is_published in pages:
         language = locale_language(languages.get(tenant_id, "nl_BE"))
         on_page = slug not in SITE_BLOCK_SLUGS
-        document = parse_html(content, on_page=on_page)
         existing = bind.execute(
             sa.text(
                 "SELECT 1 FROM cms.page_translations WHERE page_id = :page AND language = :lang"
@@ -70,13 +69,27 @@ def _convert_pages(bind) -> dict:
         ).first()
         if existing:
             continue
+        # One page, one guard (review C2, #1673): a page the converter cannot
+        # process counts as "kept her HTML" instead of stopping the deploy —
+        # the honest fallback, per page.
+        try:
+            document = parse_html(content, on_page=on_page)
+            draft = document or parse_html(content, on_page=on_page, lenient=True)
+        except Exception:
+            log.warning(
+                "#1671: page %s (%s) could not be converted; it keeps her HTML", page_id, slug
+            )
+            draft = None
+            document = None
+        if draft is None:
+            draft = {"type": "doc", "content": []}
         if document is None:
             # F11: a page that does not convert losslessly keeps its live HTML
             # (published_json stays empty, the site renders `content` as
             # today) and gets its words as a DRAFT — publishing it is the
             # author's decision, after comparing with the live page.
             kept_html += 1
-            draft = parse_html(content, on_page=on_page, lenient=True)
+            failed.append(f"{page_id} ({slug})")
             bind.execute(
                 sa.text(
                     "INSERT INTO cms.page_translations "
@@ -87,6 +100,7 @@ def _convert_pages(bind) -> dict:
                 {"page": page_id, "lang": language, "title": title, "draft": json.dumps(draft)},
             )
             continue
+        now = datetime.now(timezone.utc)
         bind.execute(
             sa.text(
                 "INSERT INTO cms.page_translations "
@@ -101,14 +115,35 @@ def _convert_pages(bind) -> dict:
                 "title": title,
                 "draft": json.dumps(document),
                 "published": json.dumps(document) if is_published else None,
-                "at": datetime.now(timezone.utc) if is_published else None,
-                "by": "migratie" if is_published else None,
+                "at": now if is_published else None,
+                "by": "migration" if is_published else None,
             },
         )
-        converted += 1
         if is_published:
+            # The version the migration publishes carries a history row too
+            # (review C2, #1673): the first "Terugzetten" has something to go
+            # back to.
+            bind.execute(
+                sa.text(
+                    "INSERT INTO cms.cms_page_history "
+                    "(page_id, language, action, document, at, by) "
+                    "VALUES (:page, :lang, 'published', CAST(:document AS jsonb), :at, 'migration')"
+                ),
+                {
+                    "page": page_id,
+                    "lang": language,
+                    "document": json.dumps(document),
+                    "at": now,
+                },
+            )
             published += 1
-    return {"pages": len(pages), "converted": converted, "kept_html": kept_html}
+        converted += 1
+    return {
+        "pages": len(pages),
+        "converted": converted,
+        "kept_html": kept_html,
+        "kept": failed,
+    }
 
 
 def upgrade() -> None:
@@ -157,11 +192,11 @@ def upgrade() -> None:
 
     counts = _convert_pages(bind)
     log.info(
-        "#1671: %d page(s): %d converted to a document, %d kept their HTML "
-        "(listed on the phase-1 report)",
+        "#1671: %d page(s): %d converted to a document, %d kept their HTML (ids and slugs: %s)",
         counts["pages"],
         counts["converted"],
         counts["kept_html"],
+        ", ".join(counts["kept"]) or "none",
     )
 
 

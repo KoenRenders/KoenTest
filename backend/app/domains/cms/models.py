@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    JSON,
     Boolean,
     Column,
     DateTime,
@@ -28,10 +27,10 @@ class CmsPage(TenantMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)
     slug = Column(String(255), nullable=False, index=True)
-    # CR-17 phase 1 (#1671): read-only. A page's content is a document in
-    # `page_translations` (draft and published); this column is the pre-CR-17
-    # HTML of pages the migration could not convert losslessly, and the
-    # fallback until the contract migration drops it. Never write to it.
+    # CR-17 phase 1 (#1671): the pre-CR-17 HTML, still what the site renders
+    # and what the Trix editor saves (slice 1 writes it through
+    # `update_page`, as ever); slice 3 makes it read-only and the contract
+    # migration, two releases later, drops it (review C4, #1673).
     content = Column(Text, nullable=True)
     is_published = Column(Boolean, default=False, nullable=False)
     # Toon de (gepubliceerde) pagina in de hoofdnavigatie. False voor juridische/
@@ -101,6 +100,6 @@ class CmsPageHistory(Base):
     language = Column(String(5), nullable=False)
     # 'published' by Publiceren; 'restored' by Terugzetten (into the draft).
     action = Column(String(20), nullable=False)
-    document = Column(JSON, nullable=False)
+    document = Column(JSONB, nullable=False)
     at = Column(DateTime(timezone=True), nullable=False)
     by = Column(String(255), nullable=True)

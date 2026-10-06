@@ -127,17 +127,13 @@ def create_page(db, data) -> CmsPage:
     db.add(page)
     db.flush()
     # CR-17 fase 1 (#1671): a new page starts with a translation row in the
-    # tenant's language — an empty draft; Publiceren makes it live.
-    from app.domains.cms.models import CmsPageTranslation
-
-    db.add(
-        CmsPageTranslation(
-            page_id=page.id,
-            language=_language(db, page),
-            title=data.title,
-            draft_json={"type": "doc", "content": []},
-        )
+    # tenant's language, its documents derived from the content it was
+    # created with (review C3, #1673) — an empty draft for an empty page.
+    translation = CmsPageTranslation(
+        page_id=page.id, language=_language(db, page), title=data.title
     )
+    db.add(translation)
+    _derive_documents_from_content(db, page)
     db.commit()
     db.refresh(page)
     return page
@@ -225,8 +221,9 @@ def update_page(db, page_id: int, data) -> CmsPage:
     # Snede 1 (herziene opdracht, #1671): zolang Trix de pagina-editor is,
     # leidt elke opslag de documenten opnieuw af uit `content` — ze kunnen
     # niet verouderen. De site blijft `content` renderen tot de lezers
-    # verhuizen (snede 3); `published_json` volgt waar de pagina live staat.
-    if "content" in velden:
+    # verhuizen (snede 3); `published_json` volgt waar de pagina live staat —
+    # ook als alleen het publicatievinkje verandert (review C3, #1673).
+    if "content" in velden or "is_published" in velden:
         _derive_documents_from_content(db, page)
     db.commit()
     db.refresh(page)
@@ -254,9 +251,11 @@ def _derive_documents_from_content(db, page: CmsPage) -> None:
     translation.draft_json = draft
     if document is not None and page.is_published:
         translation.published_json = document
-    elif document is None:
-        # Not lossless: publishing is an author's act, not a side effect of
-        # a save — `published_json` stays empty and the site renders content.
+    else:
+        # Not lossless, or unpublished: publishing is an author's act, not a
+        # side effect of a save — `published_json` is cleared and the site
+        # renders content (review C3, #1673: a publish switch without a
+        # content change follows too).
         translation.published_json = None
 
 
@@ -464,14 +463,12 @@ def draft_states(db, page_ids: list[int]) -> dict[int, bool]:
     return {r.page_id: r.draft_json is not None and r.draft_json != r.published_json for r in rows}
 
 
-def draft_gewijzigd(db, page: CmsPage) -> bool:
+def draft_differs(db, page: CmsPage) -> bool:
     """Whether the draft differs from what is live — the list's badge and the
     editor's 'concept gewijzigd' (AC3). A page without documents never shows
-    it: its HTML is its live state."""
-    translation = get_translation(db, page)
-    if translation is None or translation.draft_json is None:
-        return False
-    return translation.draft_json != translation.published_json
+    it: its HTML is its live state. One source: `draft_states` (review
+    B4c, #1673)."""
+    return draft_states(db, [page.id]).get(page.id, False)
 
 
 def references_to_media(db, asset_ids: Iterable[int]) -> dict:

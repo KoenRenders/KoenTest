@@ -1,141 +1,167 @@
-"""De verliesvrije migratie van een pagina's HTML naar een document (CR-17 fase
-1, #1671; C6 tests 1 en 12).
+"""The lossless migration of a page's HTML into a document (CR-17 phase 1,
+#1671; C6 tests 1 and 12).
 
-De eerlijkheid van "verliesvrij" is een meting: `render_document(parse_html(
-inhoud))` moet gelijk zijn aan wat de pagina vandaag laat zien (`render_cms_content`
-met `on_page=True`), op witruimte na. Deze tests leggen dat vast voor de vormen
-die de Trix-pagina's vandaag dragen — en voor de vormen die níet omzetten, met
-het milde concept van F11 als gevolg.
+The honesty of "lossless" is a measurement: `render_document(parse_html(
+content))` must equal what the page shows today (`render_cms_content` with
+`on_page=True`). These tests pin that for the shapes Trix-era pages carry —
+and for the shapes that do not convert, with F11's gentle draft as the
+consequence. The comparison runs through `normalise_html` (ONE source, review
+B4e): it collapses whitespace that contains a newline — layout between
+blocks — and keeps a single space between inline tags, so a lost space turns
+the measurement red (review A3, #1673).
 
-Elke test hier kan rood worden: haal de kop-verschuiving of de del-spelling uit
-de renderer en de vergelijkingen vallen om.
+Every test here can go red: remove the heading shift, the `del` spelling or
+the space preservation and the comparisons fall over.
 """
 
 import pytest
 
-from app.domains.cms.parse import parse_html
+from app.domains.cms.parse import normalise_html, parse_html
 from app.domains.cms.render import render_cms_content, render_document
 from app.domains.cms.schema import validate_document
 
 
-def _vandaag(html):
-    """Wat de pagina vandaag laat zien: het oude publieke pad, exact zoals
-    `ui.py` het aanroept."""
-    return render_cms_content(html, None, on_page=True)
-
-
-def _normalise(html):
-    import re
-
-    return re.sub(r">\s+<", "><", html.strip())
+def _today(content):
+    """What the page shows today: the old public path, called as `ui.py`."""
+    return render_cms_content(content, None, on_page=True)
 
 
 @pytest.mark.parametrize(
-    "inhoud",
+    "content",
     [
-        # Een gewone alinea.
-        "<p>Welkom bij de vereniging.</p>",
-        # Koppen: opgeslagen als h1–h3, op de pagina een niveau naar beneden
-        # (#1656) — het document slaat de keuze van de auteur op (C4.2).
+        # A plain paragraph.
+        "<p>Welcome to the association.</p>",
+        # Trix writes its paragraphs as <div>: they convert, with
+        # `legacy_div`, and render as divs again (review A4/ii, #1673).
+        "<div>First paragraph.</div><div>Second paragraph.</div>",
+        # Headings: stored as the author chose them (1-3), shown one level
+        # down on a page (#1656).
         "<h1>Kop</h1><h2>Subkop</h2><h3>Kleine kop</h3><p>Tekst</p>",
-        # Lijsten, inclusief geneste inhoud per item.
+        # Lists.
         "<ul><li>Eén</li><li>Twee</li></ul><ol><li>Eerst</li><li>Daarna</li></ol>",
-        # Marks: vet, cursief, doorgehaald (Trix spelt doorstrepen als <del>),
-        # en een link.
+        # Marks: bold, italic, strike (Trix spells strike as <del>), a link —
+        # and the SPACE between two marks: content, not layout (review A3).
         "<p><strong>vet</strong> <em>cursief</em> <del>doorgehaald</del> "
         '<a href="https://example.test">een link</a></p>',
-        # Een regeleinde binnen een alinea (Trix' harde break).
+        # A hard line break inside a paragraph (Trix' break).
         "<p>Regel één<br>Regel twee</p>",
-        # Een tabel met kopregel, zoals een redacteur ze via de HTML-deur typte.
+        # A table with a header row, as typed through the HTML door.
         "<table><thead><tr><th>Wat</th><th>Prijs</th></tr></thead>"
         "<tbody><tr><td>Koffie</td><td>€1,00</td></tr></tbody></table>",
-        # Een afbeelding uit de bibliotheek, zoals Trix ze opslaat: een
-        # attachment-figuur met alt en maat in de JSON (#1173, #1207) — de
-        # JSON ge-entiteerd zoals de editor ze wegschrijft.
+        # A picture from the library: a Trix attachment with alt and size in
+        # its JSON (#1173, #1207), entity-encoded as the editor writes them.
         '<figure data-trix-attachment="{&quot;contentType&quot;:&quot;image/png&quot;,'
         "&quot;url&quot;:&quot;/api/v1/media/12&quot;,&quot;width&quot;:800,"
         "&quot;height&quot;:600,&quot;alt&quot;:&quot;Het lokaal&quot;,"
         '&quot;size&quot;:&quot;half&quot;}"><img src="/api/v1/media/12" '
         'width="800" height="600"></figure>',
-        # Een code blijft TEKST in het document; de renderer vervangt hem
-        # zoals vandaag (het waardeblok is fase 5, herziene opdracht #1671).
+        # The five configuration codes stay TEXT; the renderer replaces them
+        # as it does today (the value block is phase 5, #1671).
         "<p>Het lidgeld bedraagt {{membership_price_full}} vanaf {{half_price_start}}.</p>",
-        # Een formulierknop (#1567) blijft werken: de code blijft tekst, de
-        # rendering zet de knop eromheen.
+        # A form button (#1567) still works: the code stays text and the
+        # renderer builds the button around it.
         "<p>{{form:berichten|Schrijf ons}}</p>",
     ],
 )
-def test_de_migratie_is_eerlijk(inhoud):
-    """render(parse(html)) is wat de pagina vandaag laat zien (C6 12)."""
-    document = parse_html(inhoud, on_page=True)
-    assert document is not None, f"pagina zet niet om: {inhoud!r}"
+def test_the_migration_is_honest(content):
+    """render(parse(html)) equals what the page shows today (C6 12)."""
+    document = parse_html(content, on_page=True)
+    assert document is not None, f"page does not convert: {content!r}"
     validate_document(document)
-    assert _normalise(render_document(document, None, on_page=True)) == _normalise(_vandaag(inhoud))
+    assert normalise_html(render_document(document, None, on_page=True)) == normalise_html(
+        _today(content)
+    )
 
 
-def test_de_tabel_overleeft_een_bewerking():
-    """C6 1: een tabel bewaard, herladen, één cel gewijzigd, opnieuw bewaard —
-    de documenten verschillen in exact die cel."""
+def test_a_lost_space_turns_the_measurement_red():
+    """The space between two marks is content (review A3, #1673): dropping it
+    from the document changes the rendered HTML, and the comparison sees it —
+    proven by the very case that stayed green before, because the old
+    `_normalise` collapsed it on both sides."""
+    content = "<p><strong>vet</strong> <em>cursief</em></p>"
+    document = parse_html(content, on_page=True)
+    # The document carries the space as a text node.
+    texts = [n["text"] for n in document["content"][0]["content"]]
+    assert " " in texts, "the space between the marks is gone from the document"
+    assert (
+        render_document(document, None, on_page=True)
+        == "<p><strong>vet</strong> <em>cursief</em></p>"
+    )
+
+
+def test_the_table_survives_an_edit():
+    """C6 1: a table saved, reloaded, one cell changed, saved again — the
+    documents differ in exactly that cell."""
     document = parse_html(
         "<table><thead><tr><th>Wat</th></tr></thead>"
         "<tbody><tr><td>Koffie</td></tr><tr><td>Thee</td></tr></tbody></table>"
     )
     table = document["content"][0]
-    rij = table["content"][1]["content"][0]
-    cel = rij["content"][0]["content"][0]
-    assert cel["text"] == "Koffie"
-    cel["text"] = "Koffie met melk"
+    cell = table["content"][1]["content"][0]
+    text = cell["content"][0]["content"][0]
+    assert text["text"] == "Koffie"
+    text["text"] = "Koffie met melk"
     assert render_document(document, None) == (
         "<table><thead><tr><th>Wat</th></tr></thead>"
         "<tbody><tr><td>Koffie met melk</td></tr><tr><td>Thee</td></tr></tbody></table>"
     )
 
 
-def test_een_pagina_die_niet_zuiver_omzet_houdt_haar_html():
-    """Een citaat staat niet in het schema (C4.2): de pagina zet niet verliesvrij
-    om — strict geeft None, en de site blijft haar HTML tonen (F11)."""
-    document = parse_html("<blockquote>Een citaat van iemand.</blockquote>", on_page=True)
-    assert document is None
+def test_a_page_that_does_not_convert_keeps_her_html():
+    """A quote is not in the schema (C4.2): the page does not convert
+    losslessly — strict yields None, and the site keeps serving her HTML."""
+    assert parse_html("<blockquote>Een citaat van iemand.</blockquote>", on_page=True) is None
 
 
-def test_het_milde_concept_bewaart_de_woorden():
-    """F11: de milde parse levert een concept met de woorden, geen None — de
-    redacteur vergelijkt en publiceert zelf."""
-    document = parse_html(
+def test_the_gentle_draft_keeps_the_words_in_both_orders():
+    """F11: the lenient parse yields a draft with the page's words — before a
+    paragraph (the old test) and after it (the case the review found lost,
+    A2 #1673)."""
+    for content in (
         "<blockquote>Een citaat van iemand.</blockquote><p>En een alinea.</p>",
-        on_page=True,
-        lenient=True,
-    )
-    assert document is not None
-    validate_document(document)
+        "<p>En een alinea.</p><blockquote>Een citaat van iemand.</blockquote>",
+    ):
+        document = parse_html(content, on_page=True, lenient=True)
+        assert document is not None
+        validate_document(document)
+        words = render_document(document, None, target="text")
+        assert "citaat van iemand" in words
+        assert "En een alinea." in words
+
+
+def test_the_gentle_draft_keeps_a_loose_tail():
+    """A2 (#1673): text after the last closed block belongs in the draft —
+    before the final flush it was lost."""
+    document = parse_html("<p>Een alinea.</p>Losse staart", on_page=True, lenient=True)
     words = render_document(document, None, target="text")
-    assert "citaat van iemand" in words
-    assert "En een alinea." in words
+    assert "Losse staart" in words
 
 
-def test_een_code_blijft_tekst_en_wordt_toch_vervangen():
-    """Het document bewaart de code als tekst (fase 5 maakt het blok); de
-    renderer vervangt hem met de actuele waarde, zoals vandaag."""
+def test_a_code_stays_text_and_is_replaced_anyway():
+    """The document keeps the code as text (the value block is phase 5); the
+    renderer replaces it with the current value, as today."""
     document = parse_html("<p>Het lidgeld: {{membership_price_full}}</p>", on_page=True)
-    teksten = [node["text"] for node in document["content"][0]["content"] if node["type"] == "text"]
-    assert any("{{membership_price_full}}" in t for t in teksten), "de code is geen tekst"
+    texts = [node["text"] for node in document["content"][0]["content"] if node["type"] == "text"]
+    assert any("{{membership_price_full}}" in t for t in texts), "the code is not text"
     html = render_document(document, None, on_page=True)
     assert "{{membership_price_full}}" not in html
     assert "€" in html
 
 
-def test_het_fragment_zonder_kopverschuiving():
-    """Het home-intro-blok rendert zónder `on_page`: de kop blijft op zijn eigen
-    niveau — het document slaat de keuze op, de plek kiest de tag (C4.2)."""
-    document = parse_html("<h1>Kop</h1>", on_page=False)
-    assert render_document(document, None) == "<h1>Kop</h1>"
-    document = parse_html("<h1>Kop</h1>", on_page=True)
-    assert render_document(document, None, on_page=True) == "<h2>Kop</h2>"
+def test_a_fragment_without_the_heading_shift():
+    """The home-intro block renders without `on_page`: the heading keeps its
+    own level — the document stores the choice, the place picks the tag
+    (C4.2, one shift source: `headings_one_level_down`)."""
+    assert render_document(parse_html("<h1>Kop</h1>", on_page=False), None) == "<h1>Kop</h1>"
+    assert (
+        render_document(parse_html("<h1>Kop</h1>", on_page=True), None, on_page=True)
+        == "<h2>Kop</h2>"
+    )
 
 
-def test_de_tekstlezer_geeft_woorden():
-    """De tekstweergave van een document (snede 1, voor de chatbot): geen
-    tags, de code zijn waarde in woorden, de figuur zijn alt-tekst."""
+def test_the_text_rendering_gives_words():
+    """The chatbot reads a page as text (C2 cms, Readers): no tags, a code its
+    value, a figure its alt text."""
     document = {
         "type": "doc",
         "content": [
@@ -146,19 +172,11 @@ def test_de_tekstlezer_geeft_woorden():
             },
             {
                 "type": "paragraph",
-                "content": [
-                    {"type": "text", "text": "Het lidgeld: {{membership_price_full}}"},
-                ],
+                "content": [{"type": "text", "text": "Het lidgeld: {{membership_price_full}}"}],
             },
             {
                 "type": "figure",
-                "attrs": {
-                    "media_id": 3,
-                    "alt": "Het lokaal",
-                    "placement": "full",
-                    "caption": None,
-                    "legacy_size": None,
-                },
+                "attrs": {"media_id": 3, "alt": "Het lokaal", "placement": "full"},
             },
         ],
     }

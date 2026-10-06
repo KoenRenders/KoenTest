@@ -56,7 +56,14 @@ HEADING_LEVELS: tuple[int, ...] = (1, 2, 3)
 #: insert one yet.
 NODES: dict[str, dict[str, Any]] = {
     "doc": {"content": "block+"},
-    "paragraph": {"group": "block", "content": "inline*"},
+    # `legacy_div`: a paragraph that was a `<div>` in today's HTML - Trix
+    # writes its paragraphs as divs - renders as a div again, byte-exact
+    # (review A4/ii, #1673): more than half of PROD's pages carry them.
+    "paragraph": {
+        "group": "block",
+        "content": "inline*",
+        "attrs": {"legacy_div": "bool"},
+    },
     "heading": {"group": "block", "content": "inline*", "attrs": {"level": HEADING_LEVELS}},
     "bulletList": {"group": "block", "content": "listItem+"},
     "orderedList": {"group": "block", "content": "listItem+"},
@@ -121,7 +128,10 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
         "marks": ("bold", "italic", "link"),
         "headings": (),
         "lists": ("bulletList", "orderedList"),
-        "insert": ("figure", "button", "activity", "calendar", "closing"),
+        # Phase 7's activity, calendar and closing nodes do not exist yet; a set
+        # may not offer what the schema refuses (review B3, #1673) - they join
+        # when phase 7 adds their shapes.
+        "insert": ("figure", "button"),
     },
     "notes": {
         "marks": ("bold", "italic", "strike"),
@@ -142,14 +152,14 @@ def locale_language(locale: str) -> str:
     return (locale or "nl_BE").replace("-", "_").split("_")[0]
 
 
-class OnbekendBlok(ValueError):
+class UnknownBlock(ValueError):
     """A document holds a node outside the schema (C6 test 2).
 
     Refused with its name — never stripped, never silently kept.
     """
 
 
-class OnbekendAttribuut(ValueError):
+class UnknownAttribute(ValueError):
     """A node carries an attribute the schema does not name, with a value
     the schema does not allow. Refused with the node's and the attribute's
     name."""
@@ -158,8 +168,17 @@ class OnbekendAttribuut(ValueError):
 def validate_document(document: Any, set_name: str = "page") -> dict:
     """Validate a TipTap-shaped JSON document against the schema.
 
-    Returns the document unchanged (a dict) or raises ``OnbekendBlok`` /
-    ``OnbekendAttribuut`` naming what was refused. ``set_name`` decides
+    Returns the document unchanged (a dict) or raises ``UnknownBlock`` /
+    ``UnknownAttribute`` naming what was refused.
+
+    The limit, named out loud (review B1, #1673): this checks NAMES - a node
+    must be one the schema knows, an attribute one it lists, with a value of
+    the allowed kind. It does not check SHAPE: content groups ("block+"),
+    required attributes and node nesting. Harmless while documents come only
+    from this slice's own converter; the first step of slice 2 - whose editor
+    saves documents from the browser - is to check shape here (Koen,
+    6 October 2026: the border is the editor, not the API). Until then the
+    renderer refuses what slips through here. ``set_name`` decides
     nothing here — a document that validates, validates; the set decides
     what the EDITOR may insert, not what a stored document may hold. An
     unknown set is still a ``ValueError``: a set name is an identifier.
@@ -167,7 +186,7 @@ def validate_document(document: Any, set_name: str = "page") -> dict:
     if set_name not in BLOCK_SETS:
         raise ValueError(f"Unknown block set: {set_name}")
     if not isinstance(document, dict):
-        raise OnbekendBlok(f"Onbekend blok: {type(document).__name__}")
+        raise UnknownBlock(f"Onbekend blok: {type(document).__name__}")
     _validate_node(document, "doc")
     return document
 
@@ -175,33 +194,37 @@ def validate_document(document: Any, set_name: str = "page") -> dict:
 def _validate_node(node: Any, path: str) -> None:
     node_type = node.get("type") if isinstance(node, dict) else None
     if node_type not in NODES:
-        raise OnbekendBlok(f"Onbekend blok: {node_type}")
+        raise UnknownBlock(f"Onbekend blok: {node_type}")
     spec = NODES[node_type]
     for attr, value in (node.get("attrs") or {}).items():
         if attr not in spec.get("attrs", {}):
-            raise OnbekendAttribuut(f"{node_type}.{attr}")
+            raise UnknownAttribute(f"{node_type}.{attr}")
         allowed = spec["attrs"][attr]
         if isinstance(allowed, tuple):
             if value not in allowed:
-                raise OnbekendAttribuut(f"{node_type}.{attr}={value!r}")
+                raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
         elif allowed == "int" and not isinstance(value, int):
-            raise OnbekendAttribuut(f"{node_type}.{attr}={value!r}")
+            raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
+        elif allowed == "bool" and value is not True:
+            raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
         elif (
             allowed in ("int?", "str?")
             and value is not None
             and not isinstance(value, str if allowed == "str?" else int)
         ):
-            raise OnbekendAttribuut(f"{node_type}.{attr}={value!r}")
+            raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
     if spec.get("text"):
         if not isinstance(node.get("text", ""), str):
-            raise OnbekendBlok(f"Onbekend blok: {node_type}")
+            raise UnknownBlock(f"Onbekend blok: {node_type}")
         for mark in node.get("marks") or []:
-            mark_type = mark.get("type") if isinstance(mark, dict) else None
+            if not isinstance(mark, dict):
+                raise UnknownBlock(f"Onbekend blok: {mark}")
+            mark_type = mark.get("type")
             if mark_type not in spec.get("marks", ()):  # pragma: no cover - inline marks
-                raise OnbekendBlok(f"Onbekend blok: {mark_type}")
+                raise UnknownBlock(f"Onbekend blok: {mark_type}")
             for attr in mark.get("attrs") or {}:
-                if attr not in MARK_ATTRS.get(mark_type, {}):
-                    raise OnbekendAttribuut(f"{mark_type}.{attr}")
+                if attr not in MARK_ATTRS.get(str(mark_type), {}):
+                    raise UnknownAttribute(f"{mark_type}.{attr}")
     for child in node.get("content") or []:
         _validate_node(child, f"{path}/{node_type}")
 
@@ -248,50 +271,3 @@ def _value_of(code: str) -> str:
     from app.domains.cms.render import _values
 
     return _values().get(code, "")
-
-
-def json_schema() -> dict[str, Any]:
-    """The schema of a document as JSON Schema (phase 4 serves it; built from
-    the same source so it can never disagree, C6 test 2)."""
-
-    def node_ref(name: str) -> dict[str, Any]:
-        spec = NODES[name]
-        props: dict[str, Any] = {"type": {"const": name}}
-        if spec.get("text"):
-            props["text"] = {"type": "string"}
-        if spec.get("attrs"):
-            props["attrs"] = {
-                "type": "object",
-                "properties": {
-                    attr: _attr_schema(allowed) for attr, allowed in spec["attrs"].items()
-                },
-                "additionalProperties": False,
-            }
-        if spec.get("content"):
-            props["content"] = {
-                "type": "array",
-                "items": {"$ref": "#/$defs/node"},
-            }
-        return {"type": "object", "properties": props, "additionalProperties": False}
-
-    def _attr_schema(allowed: Any) -> dict[str, Any]:
-        if isinstance(allowed, tuple):
-            return {"enum": list(allowed)}
-        if allowed == "int":
-            return {"type": "integer"}
-        if allowed == "str":
-            return {"type": "string"}
-        if allowed == "int?":
-            return {"type": ["integer", "null"]}
-        return {"type": ["string", "null"]}
-
-    return {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "title": "Raak web content document (CR-17)",
-        "type": "object",
-        "$defs": {
-            "node": {"anyOf": [node_ref(name) for name in sorted(NODES)]},
-        },
-        "$ref": "#/$defs/node",
-        "properties": {"type": {"const": "doc"}},
-    }
