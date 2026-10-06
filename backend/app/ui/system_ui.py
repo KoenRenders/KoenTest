@@ -186,21 +186,13 @@ def admin_werkruimte_wisselen(
     werkruimte staat gemarkeerd i.p.v. weggelaten — je wil zien waar je bent."""
     from app.domains.mdm.api import list_manageable_tenants, platform_tenant_id
     from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
-    from app.kernel.tenant_config import tenant_base_url
 
     actief = current_tenant_id.get() or DEFAULT_TENANT_ID
     platform = platform_tenant_id(db)
     codes = {org.id: org.code for org in list_manageable_tenants(db)}
 
     def _href(t: int) -> str:
-        # Afdelingen wisselen via de padprefix (§7 — werkt ook wanneer alle
-        # werkruimtes op één host wonen), en die zet de tenant-cookie (#889).
-        # #1536: the platform has no prefix, and on a platform host that cookie
-        # wins over it; so its choice goes through the switch route below, which
-        # clears the cookie, on the platform's own origin where the cookie lives.
-        if t == platform:
-            return f"{tenant_base_url(db, tenant_id=t)}/admin/werkruimte-wisselen/{t}"
-        return f"/{codes.get(t, '')}/admin"
+        return _workspace_href(db, t, platform, codes)
 
     keuzes = [
         {"naam": naam, "actief": t == actief, "href": _href(t)}
@@ -211,6 +203,25 @@ def admin_werkruimte_wisselen(
         "admin_werkruimte_wisselen.html",
         {"nav_items": admin_nav(""), "keuzes": keuzes, "csrf_token": csrf_from_request(request)},
     )
+
+
+def _workspace_href(db: Session, t: int, platform: int | None, codes: dict[int, str]) -> str:
+    """Where the switcher sends the browser for workspace `t`.
+
+    Afdelingen wisselen via de padprefix (§7 — werkt ook wanneer alle
+    werkruimtes op één host wonen), en die zet de tenant-cookie (#889).
+    #1536: the platform has no prefix, and on a platform host that cookie wins
+    over it; so its choice goes through the switch route, which clears the
+    cookie. #1668: each on the host where that works — `workspace_origin`; a
+    department with a host of its own is its `/admin` there, without a prefix.
+    """
+    from app.kernel.tenant_config import tenant_own_origin, workspace_origin
+
+    if t == platform:
+        return f"{workspace_origin(db, None, platform)}/admin/werkruimte-wisselen/{t}"
+    code = codes.get(t, "")
+    origin = workspace_origin(db, code, platform)
+    return f"{origin}/admin" if tenant_own_origin(code) else f"{origin}/{code}/admin"
 
 
 @router.get("/admin/werkruimte-wisselen/{tenant_id}")
@@ -227,17 +238,25 @@ def admin_switch_workspace(
 
     Only a workspace the account has a role in (`_mijn_werkruimtes`, as the list
     above); any other id is a 404, so the route tells nothing about which exist.
+
+    #1668: asked on a host that does not serve the workspace (the platform from
+    a department's own domain), the answer is the same choice on the host that
+    does — the cookie to clear lives there, not here.
     """
     from app.domains.mdm.api import list_manageable_tenants, platform_tenant_id
 
     if tenant_id not in {t for t, _naam in _mijn_werkruimtes(db, email)}:
         raise HTTPException(status_code=404, detail=_("Onbekende werkruimte"))
-    if tenant_id == platform_tenant_id(db):
+    platform = platform_tenant_id(db)
+    codes = {org.id: org.code for org in list_manageable_tenants(db)}
+    href = _workspace_href(db, tenant_id, platform, codes)
+    if tenant_id == platform and not href.startswith("/"):
+        return RedirectResponse(href, status_code=303)
+    if tenant_id == platform:
         response = RedirectResponse("/admin", status_code=303)
         response.delete_cookie("raak_tenant")
         return response
-    codes = {org.id: org.code for org in list_manageable_tenants(db)}
-    return RedirectResponse(f"/{codes[tenant_id]}/admin", status_code=303)
+    return RedirectResponse(href, status_code=303)
 
 
 @router.get("/admin/info", response_class=HTMLResponse)
