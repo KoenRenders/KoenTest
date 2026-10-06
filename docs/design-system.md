@@ -32,6 +32,7 @@ change to all four, in one pull request.
 
 | Date | Decision | Issue |
 |---|---|---|
+| 6 Oct 2026 | **v2.13.0 on PROD — CR-11 pilots A and B closed out**: the public form page (P2, P3) folded into §7; the proposer on the activity into §2.11; view transitions on navigation only into P12; the correction slices of 5–6 October were written into §1.2, §2.3, §2.7, §3.4 and §7 as they were decided (CR-11 Q61–Q87). Pilot C follows on v2.14.0. | #1589–#1591, #1604–#1660 |
 | 5 Oct 2026 | **CR-11 pilot B, P1 — the public shell**: the band in the tenant's colour with the logo, Fraunces for the public headings, the drawer over the page, one account menu on the first name, the footer as one row (newsletter · social links · sponsors) with the legal line carrying the organisation's details; `site-footer` no longer rendered. Folded from the end state §2.5 into §1.2, §1.6, §7. | #1588 |
 | 5 Oct 2026 | **CR-11 K9 — the gates as ratchets**: `test_ui_ratchets.py` + `ui_baseline.py`, ten rules with one exact number per template, the pilot at zero; the standings in §13. Two older tests that demand what B7 refuses stay until the roll-out slice that moves their lists (CR-11 B10, 5 Oct). | #1563 |
 | 5 Oct 2026 | **CR-11 K8 — the Assistent as a panel**: one trigger in the top bar, the panel with the screen's context, the assistant page and the `AI ·` overlays gone, the public bell on the same component, the proposal-to-form mechanism with the newsletter on it. Folded from §3.15 into §1.6 and §2.11. | #1562 |
@@ -870,6 +871,14 @@ marked passage stays out unless ticked). **Answers**: the last report the
 model ran is shown as a figure with its range and source, or as a small table
 with the way to the whole list; a failed answer says "Raakje kon geen antwoord
 geven — probeer het opnieuw. Je vraag staat er nog." and keeps the question.
+**The proposer on the activity** (#1604, #1650, #1653, #1659; v2.13.0): in
+edit mode, and on the empty page of a new activity, Raakje proposes name,
+location, description, date and hours through the mechanism above; hours
+without a date are proposed; a description sentence is refused only when it
+carries a word or number nobody gave (Koen's rule, knowing that a sentence
+recombining given words passes); the instruction part of a request is no
+source; a request from the panel is not "leaving the page", and a second
+proposal reads the form as it stands.
 Gates: `test_assistant_gate.py` (an AI button of its own, a link to the old
 page, a second panel, a selector in the panel, an admin address in the public
 component), `test_assistant_panel.py` (unit and e2e). What follows describes
@@ -1301,6 +1310,11 @@ See §2.7: confirms inline, never with a toast.
 
 ### P12 · Navigate without losing the shell (#634, #718, #737)
 
+**A view transition runs only on a navigation** — a boosted request or a
+swap that updates the address — by one rule in `ui.htmx_ux`, with a gate
+against any other `transition:` (P4 of CR-11 pilot B, v2.13.0); saving a
+record keeps its transition.
+
 - **When**: any link between admin screens.
 - **What happens**: `hx-boost` swaps the content, not the shell — no white
   flash, the sidebar stays, the tab title follows; a 2 px progress bar in
@@ -1423,7 +1437,29 @@ Same kit, warmer expression. Specifics beyond §3.1:
   with the organisation's details**, each once and only when filled in, from
   the organisation the site shows; the CMS block `site-footer` is no longer
   rendered (it stays as data); 88 px free under the legal line for the bell.
-  Gate `test_public_shell_gate.py`. The public forms follow with P2 and P3.
+  Gate `test_public_shell_gate.py`.
+- **The public form page since P2 and P3** (#1589, #1590 and their
+  corrections #1632, #1641, #1642; v2.13.0): the five public forms —
+  register, a public form, Word lid, renew, Mijn gezin — on one frame: a
+  768 px column centred on a desktop, the page title as a role (32 / 40 px,
+  Inter 600; a heading inside a card stays 24 px), one card per section, the
+  kit's `field`, no "Verplicht veld" legend, the primary in the brand colour,
+  the action bar of §2.7 with the bell above it on a phone, the states of
+  §2.7. **Register**: contact (the member nudge only here) → products with a
+  44 px stepper → the questions with *Nu invullen / Later* → the payment
+  method as two radios, required, **online preselected** (the fixed UI
+  decision) → "Inschrijven en betalen" or "Inschrijven"; no "Wie doet er
+  mee?" on the form; the return page says "ontvangen" only when the ledger
+  confirms. **A public form**: one long page, a section's branching built as
+  visibility on that page (provisional until Koen confirms). **Word lid and
+  Mijn gezin**: Hoofdlid (a fixed section) → Adres → Gezinsleden (the
+  composite group, its add button under the last person, one e-mail field
+  shown per person, no label on an e-mail row, Geslacht a select beside
+  Geboortedatum) → membership and payment; **one save for the household**;
+  the main member's mobile is required and Word lid refuses an empty street.
+  **Mijn gezin** opens on the Lidmaatschap card with its three states, the
+  transfer instructions as an inset sub-card, no second screen; renewing is
+  its own page and act. The sign-in page is called Inloggen.
 - **CTA hierarchy**: the core action of a page is always `btn-primary`
   (`btn-sm` in a list); secondary `btn-secondary`; tertiary (Info ↗, "Wie doet
   er mee?") may stay a text link. "Wie doet er mee?" is one compact inline line

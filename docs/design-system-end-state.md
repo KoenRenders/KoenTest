@@ -23,7 +23,9 @@ what refuses a deviation. A builder reads 2 and 5 to know what a screen is,
 4 October 2026 — into `design-system.md` §2.3, §3.2, §3.4 and P3; §2.2,
 §3.1–§3.6, §3.10 (K2, K4–K7), §3.15 (K8), §6 (K9) and §2.5 (P1) on 5 October
 2026 — into `design-system.md` §0, §1.2, §1.6, §2.2, §2.3, §2.4, §2.7, §2.11,
-§3.4, §5, §7 and §13. Phase 0 folds the rest per merge (P2, P3 next). For
+§3.4, §5, §7 and §13; §2.6 (P2, P3 and their corrections) on 6 October 2026,
+when v2.13.0 reached PROD — into `design-system.md` §7, §2.11 and P12. Still
+to fold: §2.7 (pilot C, v2.14.0). For
 block 1: §1.1 → §1.1a there, §1.2 and §1.6 →
 §1.2–§1.3, §1.5 → §1.4, §1.4 → §1.6 (the admin frame). This section stays as
 the design intent; where the two differ, `design-system.md` says what runs.
