@@ -11,12 +11,15 @@ the user asked in the panel, and what the record already holds — and three
 kinds of field:
 
 - *Name*: language, not a fact. Proposed as the model gives it.
-- *Location, date and time*: facts. A location is proposed only when every
-  word of it stands in a source. A date is proposed only when the model points
-  at the passage it read it from (`date_source`) and that passage literally
-  stands in a source: "volgende zaterdag" is a source, and the model resolves
-  it against today; a date nobody gave has no passage to point at. What is
-  refused is not proposed and is named (`Proposal.left_out`).
+- *Location, day and hour*: facts, each grounded on its own (#1650). A
+  location is proposed only when every word of it stands in a source. A day is
+  proposed only when the model points at the passage it read it from
+  (`date_source`), that passage says a day and its words stand in a source:
+  "volgende zaterdag" is a source, and the model resolves it against today. An
+  hour is proposed when its number stands in a source, spoken or written
+  ("10 uur in de voormiddag", "half drie", "14u") — with or without a day.
+  What is refused is not proposed and is named, part by part
+  (`Proposal.left_out`).
 - *Description*: written from the name, the dates, the location and the
   components. Two layers mark a sentence, as the newsletter's proposer does
   (CR-05 §3.16): numbers, known names and removed contact details without a
@@ -83,7 +86,9 @@ WAT JE DOET
 
 VASTE REGELS
 - Stel een LOCATIE alleen voor als ze letterlijk in de vraag of in de fiche staat. Verzin geen zaal, straat of gemeente.
-- Stel een DATUM of een UUR alleen voor als de vraag of de fiche die geeft. Geef dan in "date_source" het letterlijke stuk tekst waaruit je ze afleidt ("zaterdag 14 november om 14 uur", "volgende vrijdag"). Een datum die niemand gaf, laat je weg.
+- Een DAG en een UUR zijn twee aparte feiten. Geeft de vraag alleen een uur ("van 10 tot 12", "10 uur in de voormiddag", "12 uur 's middags", "half drie", "14u"), geef dan alleen "start_time" en/of "end_time" en laat "start_date" weg: het uur komt bij de datum die er al staat. "van X tot Y" is start_time X en end_time Y; "tot Y" alleen is end_time. Geeft de vraag alleen een dag, geef dan alleen "start_date".
+- Vraagt de gebruiker iets over de datum of het uur, antwoord dan in "reply" daarover; begin niet over de naam of de omschrijving.
+- Stel een DATUM of een UUR alleen voor als de vraag of de fiche die geeft. Geef voor een DAG in "date_source" het letterlijke stuk tekst waaruit je hem afleidt ("zaterdag 14 november", "volgende vrijdag"). Een dag of een uur dat niemand gaf, laat je weg.
 - Een relatieve datum ("volgende zaterdag") reken je uit tegenover VANDAAG.
 - De OMSCHRIJVING is twee à drie zinnen voor bezoekers: warm en helder. Ze zegt alleen wat de vraag of de fiche zegt. Verzin geen programma, gerechten, prijzen, aantallen of namen van personen. Weglaten is altijd beter dan aanvullen.
 - [naam] betekent dat er een naam weggehaald is: neem die nooit over en raad nooit wie het was.
@@ -268,33 +273,142 @@ def _field(name: str, label: str, value: str, base: str, **more: Any) -> dict[st
     return {"name": name, "label": label, "value": value, "base": base, "shown": value, **more}
 
 
+# ── Days and hours: two facts, each with its own source (#1650) ─────────────
+
+_NUMBER_WORDS = {
+    "een": 1, "één": 1, "twee": 2, "drie": 3, "vier": 4, "vijf": 5, "zes": 6,
+    "zeven": 7, "acht": 8, "negen": 9, "tien": 10, "elf": 11, "twaalf": 12,
+}  # fmt: skip
+_N = r"(\d{1,2}|" + "|".join(_NUMBER_WORDS) + r")"
+_MONTHS = "januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december"
+#: "10:30", "10.30", "14u", "14u30", "10 uur", "10 uur 30", "tien uur".
+_CLOCK = re.compile(
+    rf"(?<![\w:.]){_N}\s*(?:[:.]\s*(\d{{2}})(?!\d)|(?:uur|u|h)(?![a-z])\s*(\d{{2}})?)", re.I
+)
+#: "half drie" is 2:30.
+_HALF = re.compile(rf"\bhalf\s+{_N}\b", re.I)
+#: "kwart over drie", "kwart voor drie".
+_QUARTER = re.compile(rf"\bkwart\s+(over|voor)\s+{_N}\b", re.I)
+#: "van 10 tot 12", "om 10": a bare number after one of these is an hour —
+#: unless a month follows ("tot 12 november").
+_BARE = re.compile(
+    rf"\b(?:om|van|tot|vanaf|rond|tegen)\s+{_N}\b(?!\s*(?:uur|u\b|h\b|{_MONTHS}))(?![:.]\d)", re.I
+)
+#: Words that make a passage a passage about a DAY.
+_DAY_WORDS = frozenset(
+    "vandaag morgen overmorgen maandag dinsdag woensdag donderdag vrijdag zaterdag zondag "
+    "week weekend volgende komende eerstvolgende".split()
+) | frozenset(_MONTHS.split("|"))
+
+
+def _number(raw: str) -> int:
+    return _NUMBER_WORDS.get(raw.lower()) or int(raw) if not raw.isdigit() else int(raw)
+
+
+def hours_in(text: str) -> tuple[set[time], list[str]]:
+    """The clock times a text gives, and the words it gives them in.
+
+    A spoken hour is a source for its clock time: "10 uur in de voormiddag",
+    "12 uur 's middags", "half drie", "14u", "van 10 tot 12". An hour up to
+    twelve is read both ways — "3 uur" grounds 03:00 and 15:00 — because the
+    part of the day is the model's to read ("in de namiddag"); what this rule
+    guards is that the NUMBER was given, not that it was read well."""
+    found: set[time] = set()
+    words: list[str] = []
+
+    def take(hour: int, minute: int, said: str) -> None:
+        if not (0 <= hour <= 24 and 0 <= minute < 60):
+            return
+        hour %= 24
+        found.add(time(hour, minute))
+        if 1 <= hour <= 11:
+            found.add(time(hour + 12, minute))
+        elif hour == 12:
+            found.add(time(0, minute))
+        if said.strip() not in words:
+            words.append(said.strip())
+
+    text = text or ""
+    for m in _CLOCK.finditer(text):
+        take(_number(m.group(1)), int(m.group(2) or m.group(3) or 0), m.group(0))
+    for m in _HALF.finditer(text):
+        take((_number(m.group(1)) - 1) or 12, 30, m.group(0))
+    for m in _QUARTER.finditer(text):
+        hour = _number(m.group(2))
+        if m.group(1).lower() == "over":
+            take(hour, 15, m.group(0))
+        else:
+            take((hour - 1) or 12, 45, m.group(0))
+    for m in _BARE.finditer(text):
+        take(_number(m.group(1)), 0, m.group(0))
+    return found, words
+
+
+def _day_stands(passage: str, day: date, sources: str) -> bool:
+    """Is `passage` a passage about a day, and do its words stand in a source?
+
+    Word by word, not as one literal stretch (#1650): the model shortens what
+    it quotes ("zaterdag 14 november" from "op zaterdag de 14e november"), and
+    one dropped word refused everything. It must still SAY a day — a weekday, a
+    month, "morgen", "volgende week", or the day's own number — so an hour
+    cannot pass for one."""
+    tokens = _TOKEN.findall(_plain(passage))
+    if not tokens or not _every_word_stands_in(passage, sources):
+        return False
+    return any(token in _DAY_WORDS for token in tokens) or str(day.day) in tokens
+
+
 def _date_fields(
-    data: dict[str, Any], activity: Activity, sources: str, left_out: list[str]
+    data: dict[str, Any], activity: Activity, sources: str, asked: str, left_out: list[str]
 ) -> tuple[list[dict[str, Any]], str]:
-    """The proposed fields of the first date row, and the accepted date as text
-    (a source for the description's numbers)."""
-    asked = data.get("date")
-    if not isinstance(asked, dict) or not any(asked.values()):
-        return [], ""
-    if not _stands_in(str(data.get("date_source") or ""), sources):
-        left_out.append(
-            _("Datum en uur: niet voorgesteld — ze staan niet in je vraag en niet in de fiche.")
-        )
-        return [], ""
+    """The proposed fields of the first date row, and what was accepted as text
+    (a source for the description's numbers).
+
+    **A day and an hour are separate facts** (#1650; Koen, 6 October 2026: he
+    asked for other hours and was told "date and time" stood nowhere). Each is
+    grounded on its own and refused on its own:
+
+    - an hour is given when its number stands in the request or the record
+      (`hours_in`) — also without a day: it goes on the first date row, or on a
+      new row when there is none, and then the panel says the day is missing;
+    - a day is given when the passage the model points at says a day and its
+      words stand in a source (`_day_stands`).
+
+    `asked` is the request alone: an hour that stands there and was neither
+    proposed nor refused is named too, so the panel never answers a question
+    about hours with silence."""
+    answer = data.get("date")
+    answer = answer if isinstance(answer, dict) else {}
     row = first_date(activity)
-    start, end = _date(asked.get("start_date")), _date(asked.get("end_date"))
-    begins, ends = _time(asked.get("start_time")), _time(asked.get("end_time"))
-    if start is None and row is None:
-        left_out.append(_("Datum en uur: niet voorgesteld — een uur zonder dag is geen datum."))
-        return [], ""
-    day = start or (row.start_date if row else None)
-    if end is not None and day is not None and end < day:
+    passage = str(data.get("date_source") or "")
+    given, _words = hours_in(sources)
+    not_given = _("niet voorgesteld — staat niet in je vraag en niet in de fiche.")
+
+    days: dict[str, Optional[date]] = {}
+    for name, label in (("start_date", _("Datum")), ("end_date", _("Einddatum"))):
+        day = _date(answer.get(name))
+        if day is not None and not _day_stands(passage, day, sources):
+            if _iso(day) != (_iso(getattr(row, name)) if row else ""):
+                left_out.append(f"{label} ({long_date(day)}): {not_given}")
+            day = None
+        days[name] = day
+    hours: dict[str, Optional[time]] = {}
+    for name, label in (("start_time", _("Van")), ("end_time", _("Tot"))):
+        hour = _time(answer.get(name))
+        if hour is not None and hour not in given:
+            left_out.append(f"{label} ({_hhmm(hour)}): {not_given}")
+            hour = None
+        hours[name] = hour
+
+    start, end = days["start_date"], days["end_date"]
+    first = start or (row.start_date if row else None)
+    if end is not None and first is not None and end < first:
         end = None
     wanted = (
         ("start_date", _("Datum"), _iso(start), _iso(row.start_date) if row else ""),
-        ("start_time", _("Van"), _hhmm(begins), _hhmm(row.start_time) if row else ""),
+        ("start_time", _("Van"), _hhmm(hours["start_time"]), _hhmm(row.start_time) if row else ""),
         ("end_date", _("Einddatum"), _iso(end), _iso(row.end_date) if row else ""),
-        ("end_time", _("Tot"), _hhmm(ends), _hhmm(row.end_time) if row else ""),
+        ("end_time", _("Tot"), _hhmm(hours["end_time"]), _hhmm(row.end_time) if row else ""),
     )
     words = {_iso(start): long_date(start), _iso(end): long_date(end)}
     fields = [
@@ -302,10 +416,26 @@ def _date_fields(
         for name, label, value, base in wanted
         if value and value != base
     ]
+    if fields and row is None and start is None:
+        # Hours without a day on a record without a date: they go on a new row,
+        # and the day is still the user's to give.
+        left_out.append(
+            _("De dag ontbreekt nog: het uur komt op een nieuwe datumrij, vul de datum zelf in.")
+        )
+    said_hours = hours_in(asked)[1]
+    if said_hours and not any(hours.values()) and not any(_time(answer.get(n)) for n in hours):
+        # The request gives an hour and the model proposed none: say so, with
+        # the words it was given in, instead of answering about something else.
+        left_out.append(
+            _(
+                "Uur: niet voorgesteld — Raakje las “%(said)s” in je vraag niet als begin- of einduur. Zeg het korter, bijvoorbeeld “van 10 tot 12 uur”."
+            )
+            % {"said": ", ".join(said_hours[:3])}
+        )
     accepted = " ".join(
         part for value in (start, end) if value for part in (_iso(value), long_date(value))
     )
-    for value in (begins, ends):
+    for value in hours.values():
         if value:
             accepted += f" {_hhmm(value)} {value.hour} {value.minute:02d} {value.hour}u{value.minute:02d} {value.hour}.{value.minute:02d}"
     return fields, accepted
@@ -426,7 +556,7 @@ def propose(
                 _field("location", _("Locatie"), location, activity.location or "")
             )
 
-    date_fields, accepted = _date_fields(data, activity, sources, proposal.left_out)
+    date_fields, accepted = _date_fields(data, activity, sources, asked, proposal.left_out)
 
     description = _text(data, "description", DESCRIPTION_MAX)
     if description and description != (activity.description or ""):
