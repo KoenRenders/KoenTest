@@ -425,7 +425,10 @@ letters and things that drop out is no gain."
 - **Footer**: one row of three columns on a desktop — **left the newsletter**
   (the heading **"Nieuwsbrief"** — just that, no site name; Koen, 6 October 2026,
   replacing "Nieuws van …" — and the button
-  *Aanmelden* as the one yellow call to action, **no sentence between them** — the sentence "Af en toe een mail …" moves to
+  *Aanmelden* as the one yellow call to action — **in the kit's small size**:
+  40 px high on a desktop, 14 px medium text, less horizontal padding, 44 px
+  on a phone, so the page's own primary (Inschrijven) weighs more than the
+  footer's call (Koen, 6 October 2026) — **no sentence between them** — the sentence "Af en toe een mail …" moves to
   the sign-up page, after the link),
   then *Volg ons* with the social links (24 px icons in 44 px targets,
   **without a border or box around them**), then *Met steun van* (logos in at
