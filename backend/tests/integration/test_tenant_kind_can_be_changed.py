@@ -203,11 +203,13 @@ def platform_host(monkeypatch):
 def _landing_groups(client) -> dict[str, list[str]]:
     """The platform home's list of accounts and sites (#1543: the `{{tenants}}`
     placeholder on its CMS page): each `<h3>` with the site names of the cards in
-    its grid (#1566)."""
+    its grid (#1566). The heading holds no tag: a heading of the page's own text
+    shows as an `<h3>` too since #1656 (an author's h2, one level down), and a
+    lazy `.*?` ran on from it to the first account's heading."""
     html = client.get("/", headers={"host": PLATFORM_HOST}).text
     return {
         m.group(1): re.findall(r"<a [^>]*data-site-card[^>]*><span[^>]*>(.*?)</span>", m.group(2))
-        for m in re.finditer(r"<h3>(.*?)</h3>\s*<div class=\"grid[^>]*>(.*?)</div>", html, re.S)
+        for m in re.finditer(r"<h3>([^<]*)</h3>\s*<div class=\"grid[^>]*>(.*?)</div>", html, re.S)
     }
 
 

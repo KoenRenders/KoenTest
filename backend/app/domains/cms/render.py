@@ -359,16 +359,42 @@ def _form_button_html(slug: str, label: Optional[str], db=None) -> str:
     )
 
 
-def render_cms_content(content: Optional[str], db=None) -> Optional[str]:
+_HEADING = re.compile(r"<(/?)h([1-3])(?=[\s>/])", re.IGNORECASE)
+
+
+def headings_one_level_down(html: str) -> str:
+    """Every heading of a page body shown one level down (#1656, CR-11 Q87):
+    `<h1>` as `<h2>`, `<h2>` as `<h3>`, `<h3>` as `<h4>`. On a public page the
+    page's title is the only h1, and the three levels the editor offers (Kop,
+    Subkop, Kleine kop) stay three levels under it.
+
+    Only the tag's name changes — its attributes and what stands in it stay.
+    In ONE pass, so an h1 does not become an h3. For SANITISED html, and for
+    showing only: the stored text is never touched, so rendering it again
+    shifts from the source again, not from its own output."""
+    return _HEADING.sub(lambda m: f"<{m.group(1)}h{int(m.group(2)) + 1}", html)
+
+
+def render_cms_content(content: Optional[str], db=None, *, on_page: bool = False) -> Optional[str]:
     """Vervang elke ``{{code}}`` door de bijbehorende configuratiewaarde en
     sanitize het resultaat (#476) — dé functie op elk publiek CMS-renderpunt.
-    `db` (#1543): the request's session, for the sites placeholder."""
+    `db` (#1543): the request's session, for the sites placeholder.
+
+    `on_page` (#1656): the content is the body of a public page, under that
+    page's own title — its headings are shown one level down
+    (`headings_one_level_down`). The one place where that happens; the home
+    intro, a card's text and the JSON answer are not a page body and keep
+    their headings."""
     if not content:
         return content
     for code, value in _values().items():
         content = content.replace(f"{{{{{code}}}}}", value)
     # Before sanitisation (#1173): that step removes the figure holding the alt.
     content = sanitize_cms_html(image_attributes_from_attachment(content)) or ""
+    if on_page:
+        # After the sanitiser, before the blocks built in code (their headings
+        # are their own).
+        content = headings_one_level_down(content)
     # After it (#1543): the site cards are built and escaped in code — see `_sites_html`.
     content = _SITES.sub(lambda m: _sites_html(m.group(1), db), content)
     # And the form buttons (#1567), the same way.

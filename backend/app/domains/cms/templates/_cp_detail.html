@@ -65,16 +65,26 @@
                                         maat = $event.detail.size">
         {# #555: extra kop-niveaus (H2/H3) + HTML-bron-toggle. De H2/H3-knoppen
            activeren de blok-attributen (geregistreerd in admin_paginas.html) via de
-           Trix editor-API; onmousedown houdt de editorfocus vast. #}
+           Trix editor-API; onmousedown houdt de editorfocus vast.
+           #1656 (CR-11 Q87): the three levels stand TOGETHER here, by name — Kop,
+           Subkop, Kleine kop — and not as "H1/H2/H3" or "Titel": the page's title
+           is its own field and the page's only h1, and the public page shows
+           these one level under it (24, 18 and 16 px). The editor's own heading
+           button (an icon, the same level as Kop) leaves this editor's toolbar,
+           so there are three buttons and not four (`admin_pagina.html`). #}
         <div data-cp-balk class="sticky top-[var(--cp-kop,0px)] z-10 flex flex-wrap gap-1 bg-gray-50 border border-gray-200 border-b-0 rounded-t-lg p-1 text-xs items-center">
           <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-semibold" x-show="!src"
                   onmousedown="event.preventDefault()"
+                  onclick="var e=document.getElementById('cp-trix').editor; e.attributeIsActive('heading1') ? e.deactivateAttribute('heading1') : e.activateAttribute('heading1')"
+                  data-cp-heading="1" title="{{ _('Kop: een sectie van de pagina') }}">{{ _("Kop") }}</button>
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-semibold" x-show="!src"
+                  onmousedown="event.preventDefault()"
                   onclick="var e=document.getElementById('cp-trix').editor; e.attributeIsActive('heading2') ? e.deactivateAttribute('heading2') : e.activateAttribute('heading2')"
-                  title="{{ _('Kop 2') }}">H2</button>
+                  data-cp-heading="2" title="{{ _('Subkop: een onderdeel van een sectie') }}">{{ _("Subkop") }}</button>
           <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-semibold" x-show="!src"
                   onmousedown="event.preventDefault()"
                   onclick="var e=document.getElementById('cp-trix').editor; e.attributeIsActive('heading3') ? e.deactivateAttribute('heading3') : e.activateAttribute('heading3')"
-                  title="{{ _('Kop 3') }}">H3</button>
+                  data-cp-heading="3" title="{{ _('Kleine kop: de kleinste kop') }}">{{ _("Kleine kop") }}</button>
           {# #1173: invoegen gebeurt UIT DE BIBLIOTHEEK en niet door te slepen —
              `admin_base.html` weigert bestanden in de editor met opzet, want dat
              zou een onbeperkt uploadpad naar een publieke pagina zijn. Wie een

@@ -180,6 +180,20 @@ cat > "$TMP/in.css" << 'CSS'
      head: semibold like the headings (the serif face had one weight only). */
   body[data-shell="site"] .font-brand{font-weight:600}
   body[data-shell="site"] .cms-content :is(h1,h2){color:rgb(var(--c-kop))}
+  /* #1656 (Koen, 6 October 2026; CR-11 Q87, design-system.md §7): the headings
+     of a public page's BODY (`.cms-page`, under the page's own title). The
+     renderer shows them one level down, so the editor's Kop, Subkop and Kleine
+     kop arrive as h2, h3 and h4: 24, 18 and 16 px, semibold, in the site's
+     heading colour, 24 px of air above and 8 px under. Measured on master: the
+     page-title rule above (`#main h1`, an id) won from `.cms-content h1`
+     (1.5rem, a class), so a heading in the text stood 40 px tall beside the
+     page's title. The h1 is named here too, so the title role can never reach
+     into a page body. */
+  body[data-shell="site"] #main .cms-page :is(h1,h2){font-size:24px}
+  body[data-shell="site"] #main .cms-page h3{font-size:18px}
+  body[data-shell="site"] #main .cms-page h4{font-size:16px}
+  body[data-shell="site"] #main .cms-page :is(h1,h2,h3,h4){font-family:var(--font-brand);font-weight:600;line-height:1.15;color:rgb(var(--c-kop));margin:24px 0 8px}
+  body[data-shell="site"] #main .cms-page>:is(h1,h2,h3,h4):first-child{margin-top:0}
   /* ── CR-11 block 1 (#1482): the admin shell in palette Atelier ─────────────
      Decided by Koen on 2 October 2026; the norm is design-system-end-state.md
      §1.1, §1.2, §1.6. The brand blue 37 78 115 carries action and selection, the
