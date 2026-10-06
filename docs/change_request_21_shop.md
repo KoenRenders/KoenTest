@@ -16,26 +16,49 @@ On 6 October 2026 Koen put forward the reason, in his words: *"we currently have
 
 The second half of the trigger is the platform: *"I also want a module we can later use in companies — T-shirts for Raak, selling other things, for other companies that will use the platform."* The shop is not a one-off for one batch of T-shirts; it is meant to serve any tenant of the platform, with its own products.
 
+The platform half has no concrete case behind it yet (Koen, 6 October 2026): *"there is no concrete demand or process from companies that sell articles; it comes from the principle."* Raak's garments are the one real case; other tenants are the reason the shape must not be Raak-only.
+
 ## A2. As-is process — how it works today, and where it hurts
 
-> [!NOTE]
-> *How the work is done today, by whom, with which tools and material.*
-> *Measured where possible: how often, how long, how many. Name the pain per*
-> *step. Two forms, both: a **process drawing** and a **step table** with the*
-> *pain column.*
->
-> *The drawing is a Mermaid flowchart that follows BPMN Level 1 as Bruce*
-> *Silver's "Method and Style" defines it. The Level 1 palette, in Mermaid:*
-> *one `subgraph` per actor as its lane (member, organiser, treasurer, the*
-> *portal), in the same order in A2 and A3 so the difference is visible; a*
-> *rectangle per activity, labelled verb + noun ("Register", "Send link");*
-> *one start circle and one named end circle per outcome ("Registered",*
-> *"Refused"); a diamond for an exclusive gateway with its question inside*
-> *and the answers on the arrows; a dashed arrow for a message between*
-> *lanes; at most fifteen activities per drawing — more becomes a subprocess*
-> *in its own drawing. No intermediate events, no timers, no data objects:*
-> *Level 1 stops there on purpose. Under every drawing, one line that says*
-> *what to see in it.*
+Raak has three kinds of garment in stock — T-shirts, sweaters and polos — each in several sizes. A sale today runs on conversation and e-mail; the portal plays no part in it.
+
+```mermaid
+flowchart LR
+  subgraph Buyer
+    b0((Needs a garment)) --> b1[Ask for a size]
+    b2[Try the garment on] --> bq{Fits?}
+    bq -- no --> b1
+    b3[Transfer the amount]
+  end
+  subgraph Seller["Seller (Koen)"]
+    s1[Bring sizes to try] --> s2[Hand over the garment] --> s3[Mail the price and account number]
+  end
+  subgraph Treasurer
+    t1[Check the bank account] --> tq{Paid?}
+    tq -- yes --> te((Sold and paid))
+    tq -- no --> t2[Remind the buyer]
+  end
+  b1 -.-> s1
+  s1 -.-> b2
+  bq -- yes --> s2
+  s3 -.-> b3
+  s3 -. cc .-> t1
+  t2 -.-> b3
+  b3 -.-> t1
+```
+
+*What to see: three people and an e-mail carry the sale; nothing records what was sold or what is left on the shelf.*
+
+| # | Step | Who | Tool | Pain — **to be confirmed by Koen** |
+|---|---|---|---|---|
+| 1 | Ask for a garment in a size | Buyer | word of mouth, message | the buyer cannot see what is available, in which size, at what price |
+| 2 | Bring sizes to try on | Seller | the stock, at home or in storage | depends on one person being available |
+| 3 | Hand over the garment | Seller | — | the stock count is in nobody's system; what is left is known by looking |
+| 4 | Mail the price and Raak's account number, treasurer in copy | Seller | e-mail | written by hand for every sale; the price is whatever the mail says |
+| 5 | Transfer the amount | Buyer | own bank | free-text communication; the transfer has to be matched by eye |
+| 6 | Check the bank account, remind if unpaid | Treasurer | bank, mailbox | follow-up lives in a mailbox; no list of open sales |
+
+Not measured yet: how many garments are sold per year, how many are in stock, and what a garment costs.
 
 ## A3. To-be process — how it should work afterwards
 
