@@ -1417,7 +1417,8 @@ Same kit, warmer expression. Specifics beyond §3.1:
   most 144 × 64 px, **no border**) — heading over content, the three columns
   on one line (Koen, 6 October 2026: "rustiger"), **no line above the row**,
   the columns spread evenly, the first social glyph on the left line of its
-  heading (the hit area reaches left), **32 px of air on a desktop and 24 px
+  heading (the hit area reaches left), **32 px of air on a desktop and 24 px on a phone inside the footer surface
+  and the same between the last content and that surface** (was 64 / 48 px; the note that follows is the history) — 32 px of air on a desktop and 24 px
   on a phone** — and the **legal line
   with the organisation's details**, each once and only when filled in, from
   the organisation the site shows; the CMS block `site-footer` is no longer
