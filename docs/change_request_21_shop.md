@@ -107,7 +107,11 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
-| R1 | … | Must | <who>, <date> | … |
+| R1 | The webshop shows clearly what an article is. | Must *(proposed)* | Koen, 6 Oct 2026 | description and pictures, R3 |
+| R2 | Products are master data: the product portfolio is managed in its own place, apart from any activity. | Must *(proposed)* | Koen, 6 Oct 2026 | "very simple at this moment" |
+| R3 | A product has a description and one or a few pictures — one, two, three, four. | Must *(proposed)* | Koen, 6 Oct 2026 | |
+| R4 | A role for product master data may manage the products; others may not. | Must *(proposed)* | Koen, 6 Oct 2026 | name of the role: open |
+| R5 | Any tenant of the platform can use the shop with its own products, not only Raak. | Must *(proposed)* | Koen, 6 Oct 2026 (A1) | no company asks for it yet; a principle |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
