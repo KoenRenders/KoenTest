@@ -143,6 +143,11 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R24 | The buyer collects articles in a shopping basket and orders and pays two, three or more articles in one go. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R25 | The buyer may cancel until the order is delivered. After delivery it is a return, handled by Sales; a buyer who has already paid is refunded by the same recalculation as an exchange (R16). | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R26 | The confirmation mail carries a link that brings the buyer back to his order, without an account; it works until the order is delivered. | Must *(proposed)* | Koen, 6 Oct 2026 | members and non-members alike (R11) |
+| R27 | Before paying, the buyer signs in or creates an account. An account holds no more than last name, first name and e-mail address, and is kept in master data. | Must *(proposed)* | Koen, 6 Oct 2026 | |
+| R28 | Every order is linked to an account. | Must *(proposed)* | Koen, 6 Oct 2026 | |
+| R29 | The buyer can change his e-mail address later himself. | Must *(proposed)* | Koen, 6 Oct 2026 | |
+| R30 | The buyer sees his order history. For a member of Raak it belongs to the household: the household sees everything any of its persons ever ordered. Elsewhere it belongs to the person. | Must *(proposed)* | Koen, 6 Oct 2026 | |
+| R31 | An account says whether it is a company or a natural person, and holds an address to deliver to. | Won't *(for now)* | Koen, 6 Oct 2026 | today an order is only ever for a person |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
