@@ -140,6 +140,7 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R21 | Sales registers that an order is delivered; picked up or brought makes no difference. That is the moment the stock goes down. | Must *(proposed)* | Koen, 6 Oct 2026 | the one hand-over step the portal knows; how it is handed over stays outside (R12) |
 | R22 | An unpaid order ends in one of three ways: the buyer still pays — for example through a new payment link — and the task closes by itself; the buyer cancels it (R23); or Sales cancels it from the task. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R23 | The buyer can cancel his own order in the webshop, on the same page Sales uses in the back office. | Must *(proposed)* | Koen, 6 Oct 2026 | first Won't, taken in the same day: "if we use the same screen in public and in the back office, we may get it for free" (Q19); how the buyer gets back to his order and until when: open |
+| R24 | The buyer collects articles in a shopping basket and orders and pays two, three or more articles in one go. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
