@@ -196,9 +196,23 @@ jobs:
         working-directory: backend
         run: python -m pytest -v tests_e2e
 
+      # #1605: the measurement baseline of the pilot screens — its own database
+      # and its own server under a frozen clock (scripts/measure-run.sh says why).
+      - name: Measurement baseline of the pilot screens (#1605)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/raakmeet
+        run: |
+          sudo apt-get install -y -q faketime
+          PGPASSWORD=postgres psql -h localhost -U postgres -c 'CREATE DATABASE raakmeet'
+          scripts/measure-run.sh -v
+
       - name: Backend-log bij falen
         if: failure()
         run: tail -100 /tmp/backend.log
+
+      - name: Measurement server log on failure
+        if: failure()
+        run: tail -100 /tmp/measure-uvicorn.log || true
 
   css:
     runs-on: ubuntu-latest
