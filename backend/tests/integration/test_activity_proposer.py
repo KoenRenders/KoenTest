@@ -148,9 +148,10 @@ def test_a_location_and_a_date_nobody_gave_are_not_proposed_and_are_named(db_ses
     proposal = _propose(db_session, activity, request="Stel een betere naam voor.")
 
     assert list(_by_name(proposal)) == ["name"]
-    assert len(proposal.left_out) == 2
+    assert len(proposal.left_out) == 3, "the place, the day and the hour, each on its own"
     assert proposal.left_out[0].startswith("Locatie: niet voorgesteld")
-    assert proposal.left_out[1].startswith("Datum en uur: niet voorgesteld")
+    assert proposal.left_out[1].startswith("Datum (dinsdag 1 december 2026): niet voorgesteld")
+    assert proposal.left_out[2].startswith("Van (19:30): niet voorgesteld")
 
 
 def test_a_date_without_the_passage_it_was_read_from_is_not_proposed(db_session, raakje):
@@ -159,7 +160,7 @@ def test_a_date_without_the_passage_it_was_read_from_is_not_proposed(db_session,
     raakje(_answer(date={"start_date": "2026-11-14"}))
     proposal = _propose(db_session, _activity(db_session))
     assert proposal.fields == []
-    assert proposal.left_out and proposal.left_out[0].startswith("Datum en uur")
+    assert proposal.left_out and proposal.left_out[0].startswith("Datum (zaterdag 14 november")
 
 
 def test_a_relative_day_is_a_source_and_what_the_record_holds_is_one_too(db_session, raakje):
@@ -226,6 +227,164 @@ def test_what_the_record_holds_already_is_not_proposed_again(db_session, raakje)
     assert proposal.left_out == []
 
 
+# ── A day and an hour are two facts (#1650) ──────────────────────────────────
+
+#: What Koen asked on HDEV on 6 October 2026, and was told that "date and time"
+#: stood nowhere.
+KOEN = (
+    "Vul je een andere datum in? Ik bedoel uur. We zouden willen gaan schaatsen "
+    "van 10 uur in de voormiddag tot 12 uur smiddags."
+)
+
+
+def test_hours_without_a_day_go_on_the_date_row_that_is_there(db_session, raakje):
+    """Red on master: the answer carried no passage for a DATE, so the hours
+    went with it — "Datum en uur: niet voorgesteld"."""
+    raakje(_answer(date={"start_time": "10:00", "end_time": "12:00"}))
+    activity = _activity(db_session, dates=((date(2026, 11, 8), time(14, 0)),))
+
+    proposal = _propose(db_session, activity, request=KOEN)
+
+    fields = _by_name(proposal)
+    assert list(fields) == ["start_time", "end_time"], "the day is left alone"
+    assert (fields["start_time"]["value"], fields["start_time"]["base"]) == ("10:00", "14:00")
+    assert (fields["end_time"]["value"], fields["end_time"]["base"]) == ("12:00", "")
+    assert all(f["group"] == "d_order" for f in proposal.fields)
+    assert proposal.left_out == []
+
+
+def test_hours_on_a_record_without_a_date_come_on_a_new_row_and_the_day_is_named(
+    db_session, raakje
+):
+    raakje(_answer(date={"start_time": "10:00", "end_time": "12:00"}))
+    proposal = _propose(db_session, _activity(db_session), request=KOEN)
+
+    fields = _by_name(proposal)
+    assert list(fields) == ["start_time", "end_time"]
+    assert all(f["base"] == "" for f in proposal.fields), "an empty base: the page adds the row"
+    assert proposal.left_out == [
+        "De dag ontbreekt nog: het uur komt op een nieuwe datumrij, vul de datum zelf in."
+    ]
+
+
+def test_an_hour_nobody_gave_is_refused_alone_and_the_given_one_stays(db_session, raakje):
+    """Each part on its own: the invented end takes nothing with it, and the
+    line names it by its clock time."""
+    raakje(_answer(date={"start_time": "10:00", "end_time": "17:30"}))
+    activity = _activity(db_session, dates=((date(2026, 11, 8), None),))
+
+    proposal = _propose(db_session, activity, request="We beginnen om 10 uur.")
+
+    assert list(_by_name(proposal)) == ["start_time"]
+    assert proposal.left_out == [
+        "Tot (17:30): niet voorgesteld — staat niet in je vraag en niet in de fiche."
+    ]
+
+
+def test_an_invented_day_does_not_take_the_given_hours_with_it(db_session, raakje):
+    raakje(
+        _answer(
+            date={"start_date": "2026-12-01", "start_time": "10:00", "end_time": "12:00"},
+            date_source="van 10 tot 12",
+        )
+    )
+    activity = _activity(db_session, dates=((date(2026, 11, 8), None),))
+
+    proposal = _propose(db_session, activity, request="Van 10 tot 12, graag.")
+
+    assert list(_by_name(proposal)) == ["start_time", "end_time"]
+    assert len(proposal.left_out) == 1
+    assert proposal.left_out[0].startswith("Datum (dinsdag 1 december 2026): niet voorgesteld")
+
+
+def test_a_day_without_an_hour_is_the_mirror(db_session, raakje):
+    """And the passage need not be one literal stretch: its words stand in the
+    request, with others between them."""
+    raakje(_answer(date={"start_date": "2026-11-21"}, date_source="zaterdag 21 november"))
+    activity = _activity(db_session, dates=((date(2026, 11, 14), time(14, 0)),))
+
+    proposal = _propose(db_session, activity, request="Verplaats het naar zaterdag, 21 november.")
+
+    fields = _by_name(proposal)
+    assert list(fields) == ["start_date"]
+    assert (fields["start_date"]["value"], fields["start_date"]["base"]) == (
+        "2026-11-21",
+        "2026-11-14",
+    )
+    assert proposal.left_out == []
+
+
+def test_when_the_model_reads_no_hour_the_panel_says_which_words_it_missed(db_session, raakje):
+    """The second way Koen's request could fail: the model answers about the
+    name. The panel then names the hours it was given, not "niet in je vraag"."""
+    raakje(_answer(reply="Geef eventueel een nieuwe naam of omschrijving."))
+    activity = _activity(db_session, dates=((date(2026, 11, 8), None),))
+
+    proposal = _propose(db_session, activity, request=KOEN)
+
+    assert proposal.fields == []
+    assert len(proposal.left_out) == 1
+    line = proposal.left_out[0]
+    assert line.startswith("Uur: niet voorgesteld — Raakje las “10 uur, 12 uur” in je vraag niet")
+    assert "van 10 tot 12 uur" in line
+
+
+def test_a_request_without_an_hour_gets_no_remark_about_hours(db_session, raakje):
+    raakje(_answer(name="Schaatsen"))
+    proposal = _propose(db_session, _activity(db_session), request="Stel een betere naam voor.")
+    assert proposal.left_out == []
+
+
+@pytest.mark.parametrize(
+    ("said", "clock"),
+    [
+        ("10 uur in de voormiddag", time(10, 0)),
+        ("12 uur 's middags", time(12, 0)),
+        ("12 uur smiddags", time(12, 0)),
+        ("half drie", time(14, 30)),
+        ("half 3", time(2, 30)),
+        ("14u", time(14, 0)),
+        ("14u30", time(14, 30)),
+        ("14 u 30", time(14, 30)),
+        ("om 20.15", time(20, 15)),
+        ("19:45", time(19, 45)),
+        ("kwart voor acht", time(19, 45)),
+        ("kwart over 9", time(9, 15)),
+        ("tien uur", time(10, 0)),
+        ("van 10 tot 12", time(12, 0)),
+        ("om 9", time(21, 0)),
+        ("3 uur in de namiddag", time(15, 0)),
+    ],
+)
+def test_a_spoken_hour_is_a_source_for_its_clock_time(said, clock):
+    given, words = proposer.hours_in(f"We komen samen, {said}, aan de ingang.")
+    assert clock in given, (said, sorted(given))
+    assert words, "the words it was said in are kept for the panel"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "We wandelen 8 kilometer.",
+        "Tot 12 november kan je inschrijven.",
+        "Op zaterdag 14 november in zaal 3.",
+        "Het kost 5 euro, voor 20 deelnemers.",
+        "Vul je een andere datum in?",
+    ],
+)
+def test_a_number_that_is_no_hour_grounds_no_hour(text):
+    assert proposer.hours_in(text) == (set(), [])
+
+
+def test_the_hours_of_the_record_are_a_source_too(db_session, raakje):
+    """ "Een uur later": no number in the request, but the record holds 14:00–16:00
+    and the model moves the end to the hour the start had... which the record gives."""
+    raakje(_answer(date={"end_time": "14:00"}))
+    activity = _activity(db_session, dates=((date(2026, 11, 8), time(14, 0)),))
+    proposal = _propose(db_session, activity, request="Zet het einduur gelijk aan het beginuur.")
+    assert list(_by_name(proposal)) == ["end_time"] and proposal.left_out == []
+
+
 # ── The description: marked and left out by default ──────────────────────────
 
 
@@ -273,7 +432,7 @@ def test_a_description_with_no_sourced_sentence_is_not_a_field(db_session, raakj
     activity = _activity(db_session, description="Samen op pad.")
     proposal = _propose(db_session, activity)
     assert proposal.fields == [] and proposal.marks == []
-    assert proposal.left_out == ["Omschrijving: niet voorgesteld — geen enkele zin heeft een bron."]
+    assert "Omschrijving: niet voorgesteld — geen enkele zin heeft een bron." in proposal.left_out
 
 
 def test_a_failed_verification_says_the_proposal_was_not_checked(db_session, raakje):
