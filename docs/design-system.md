@@ -1446,12 +1446,14 @@ Same kit, warmer expression. Specifics beyond §3.1:
   page's flag "in de voettekst" (#1569). Fixed inline content (`home-intro`)
   is addressed by a fixed slug and edited per tenant in the CMS (#457);
   `site-footer` is no longer rendered since P1.
-- **The page title is the only `h1`; a heading in CMS content is a section
-  heading** (Koen, 6 October 2026, on the page Werking: Trix knows one
-  heading level and writes `<h1>`, so every sub-heading stood at the 40 px of
-  the page title and the page had four `h1`s). The renderer demotes content
-  headings one level (`h1` → `h2` …) without touching the stored text, and
-  public content renders them at 24 px semibold, then 18 and 16 px; the
+- **The page title is the only `h1`; a heading in CMS content starts at
+  `h2`** (Koen, 6 October 2026, on the page Werking). The page editor offers
+  three levels — Trix's own `h1` plus the `h2` and `h3` this code base added
+  — and an organiser who took the first got sub-headings at the page title's
+  40 px and a page with four `h1`s. So: the renderer shows a content `h1` as
+  an `h2` (stored text untouched; `h2` and `h3` stay what they are), the page
+  editor's toolbar offers **Kop** (`h2`) and **Subkop** (`h3`) and no `h1`,
+  and public content renders `h2` at 24 px and `h3` at 18 px semibold; the
   public title role of 40 px never applies inside `.cms-content`. CR-17's
   schema has headings 2–4 natively.
 - **CMS editor is Trix**, vendored under `/static/vendor` (no CDN, no data
