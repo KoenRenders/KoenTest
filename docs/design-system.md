@@ -1415,7 +1415,10 @@ Same kit, warmer expression. Specifics beyond §3.1:
   the home page), "Volg ons" with the social
   links (24 px in 44 px targets, **no border around them**), the sponsors (at
   most 144 × 64 px, **no border**) — heading over content, the three columns
-  on one line (Koen, 6 October 2026: "rustiger") — and the **legal line
+  on one line (Koen, 6 October 2026: "rustiger"), **no line above the row**,
+  the columns spread evenly, the first social glyph on the left line of its
+  heading (the hit area reaches left), **32 px of air on a desktop and 24 px
+  on a phone** — and the **legal line
   with the organisation's details**, each once and only when filled in, from
   the organisation the site shows; the CMS block `site-footer` is no longer
   rendered (it stays as data); 88 px free under the legal line for the bell.
