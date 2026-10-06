@@ -871,3 +871,27 @@ def test_annuleren_brengt_de_bewaarde_waarde_terug(client, db_session, design):
     back = client.get(hrefs[0])
     assert back.status_code == 200
     assert 'value="samen wandelen"' in back.text and "net getypt" not in back.text
+
+
+def test_a_stored_number_reads_in_groups_on_the_poster(db_session, design, activity):
+    """#1675: a number the import stored without spaces is read on a design —
+    in the facts the screen lists and in the row the poster draws. The
+    organiser's own stored value does not change."""
+    from app.domains.activities.api import add_organiser, organisers_for, update_organiser
+    from tests.conftest import create_test_family
+
+    _member, person = create_test_family(db_session, email="trekker-1675@example.com")
+    add_organiser(db_session, activity.id, person.id)
+    organiser = organisers_for(db_session, activity.id)[0]
+    update_organiser(
+        db_session,
+        activity.id,
+        organiser.id,
+        {"is_contact": True, "mobile_override": "0470123456", "email_override": ""},
+    )
+
+    facts = facts_for(db_session, design)
+    assert facts["organisers"][0]["mobile"] == "0470 12 34 56"
+    content = content_for(db_session, design, facts)
+    assert content.contacts[0].mobile == "0470 12 34 56"
+    assert organisers_for(db_session, activity.id)[0].mobile == "0470123456", "stored as it was"

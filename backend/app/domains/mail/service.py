@@ -10,6 +10,7 @@ from app.domains.activities.api import compute_registration_total
 from app.domains.mail.models import MailStatus
 from app.i18n import _
 from app.kernel.codes import code_label
+from app.kernel.phone import readable_phone
 from app.kernel.rules import own_transaction
 
 logger = logging.getLogger(__name__)
@@ -504,9 +505,9 @@ def family_welcome_message(
             if m.email:
                 parts.append(escape(m.email))
             if m.phone:
-                parts.append(escape(m.phone))
+                parts.append(escape(readable_phone(m.phone)))
             if m.mobile:
-                parts.append(escape(m.mobile))
+                parts.append(escape(readable_phone(m.mobile)))
             members_html += f"<li>{' — '.join(parts)}</li>"
 
         method_labels = {
@@ -587,7 +588,9 @@ def activity_confirmation_message(
                 f"<li><strong>E-mail:</strong> {escape(registration.contact_email)}</li>"
             )
         if registration.phone:
-            details.append(f"<li><strong>GSM:</strong> {escape(registration.phone)}</li>")
+            details.append(
+                f"<li><strong>GSM:</strong> {escape(readable_phone(registration.phone))}</li>"
+            )
         if registration.team_name:
             details.append(f"<li><strong>Ploeg:</strong> {escape(registration.team_name)}</li>")
         if registration.remarks:

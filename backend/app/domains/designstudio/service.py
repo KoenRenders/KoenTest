@@ -56,6 +56,7 @@ from app.domains.designstudio.models import (
 )
 from app.kernel.codes import code_label, code_of
 from app.kernel.copying import CopyPlan
+from app.kernel.phone import readable_phone
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 
 
@@ -443,7 +444,8 @@ def _organisers(db: Session, activity_id: int) -> list[Contact]:
     from app.domains.activities.api import organisers_for
 
     return [
-        Contact(name=row.name, mobile=row.mobile or "", email=row.email or "")
+        # #1675: on a design a number is read, never dialled — the readable form.
+        Contact(name=row.name, mobile=readable_phone(row.mobile), email=row.email or "")
         for row in organisers_for(db, activity_id)
         if row.is_contact
     ]
@@ -461,7 +463,7 @@ def _association(db: Session) -> dict[str, str]:
     return {
         "website": website.rstrip("/"),
         "email": (details.get("email") or "").strip(),
-        "mobile": (details.get("mobile") or details.get("phone") or "").strip(),
+        "mobile": readable_phone((details.get("mobile") or details.get("phone") or "").strip()),
         "name": (details.get("name") or "").strip(),
     }
 

@@ -87,7 +87,8 @@ def test_the_word_lid_page_sends_what_the_reader_reads(client, db_session):
         "Proef",
         "01-01-1980",
         "Vrouw",
-        "0470000000",
+        # typed as 0470000000; the portal reads a number in groups (#1675)
+        "0470 00 00 00",
         "mailto:veldnaam.proef@example.com",
         "Dorpsstraat",
         "2400",
