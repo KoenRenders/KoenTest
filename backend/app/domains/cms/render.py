@@ -410,10 +410,11 @@ def render_cms_content(content: Optional[str], db=None, *, on_page: bool = False
 # the round trip `render_document(parse_html(page.content)) == the old public
 # output` is the migration's proof of losslessness.
 #
-# A `figure` out of the migration (a `legacy_size`) renders as the bare `<img>`
-# the page always showed, with the class the size carried; a figure placed
-# through the editor renders as the kit's picture with the public radius and
-# shadow (C4.8). The document never decides pixels — the prose rules do.
+# No legacy flags (Koen, 6 October 2026): a page whose paragraphs are Trix
+# divs, or whose picture carries a Trix-era size, keeps her HTML — her words
+# stand in the draft. A figure placed through the editor renders as the kit's
+# picture with the public radius and shadow (C4.8). The document never decides
+# pixels — the prose rules do.
 
 
 def _mark_html(mark: dict) -> tuple[str, str]:
@@ -464,11 +465,8 @@ def _block_html(node: dict, cell: bool = False) -> str:
     content = node.get("content")
 
     if kind == "paragraph":
-        # A paragraph that was a `<div>` in today's HTML renders as a div
-        # again, byte-exact (review A4/ii, #1673).
-        tag = "div" if (node.get("attrs") or {}).get("legacy_div") else "p"
         inner = _inline_html(content)
-        return inner if cell else f"<{tag}>{inner}</{tag}>"
+        return inner if cell else f"<p>{inner}</p>"
 
     if kind == "heading":
         # The document stores the author's choice; `render_document` shifts a
@@ -532,30 +530,20 @@ def _figure_html(node: dict) -> str:
     attrs = node.get("attrs", {})
     media_id = attrs.get("media_id")
     src = media_url(media_id)
-    legacy = attrs.get("legacy_size")
-    if legacy:
-        # Byte-exact with the pre-CR-17 rendering, in the attribute ORDER the
-        # lift produces (#1173/#1207): the attachment's own attrs first, alt
-        # and class appended after them (measured: another order broke the
-        # round trip on every page with a picture).
-        parts = [f'src="{src}"']
-        if attrs.get("width"):
-            parts.append(f'width="{attrs["width"]}"')
-        if attrs.get("height"):
-            parts.append(f'height="{attrs["height"]}"')
-        if attrs.get("alt"):
-            parts.append(f'alt="{escape(attrs["alt"], quote=True)}"')
-        size_class = IMAGE_SIZES.get(legacy, "")
-        if size_class:
-            parts.append(f'class="{size_class}"')
-        return f"<img {' '.join(parts)}>"
-    # The kit's figure: radius and shadow from the prose rules, never from the
-    # file (C4.8). Phase 2 fills the caption; the shape stands here.
+    # The kit's figure — the only rendering: radius and shadow come from the
+    # prose rules, never from the file (C4.8). A Trix-era picture keeps her
+    # page on the HTML fallback (no legacy sizes, Koen 6 October 2026); a
+    # figure placed through the editor lands here. NOTE (review E, #1673): the
+    # sanitiser over the output still drops the <figure> wrapper until slice 4
+    # allows it — slice 2's editor is the first to place one.
     placement = attrs.get("placement") or "full"
     alt = escape(attrs.get("alt") or "", quote=True)
+    size = ""
+    if attrs.get("width") and attrs.get("height"):
+        size = f' width="{attrs["width"]}" height="{attrs["height"]}"'
     figure = (
         f'<figure class="prose-figure prose-figure--{placement}">'
-        f'<img src="{src}" alt="{alt}" loading="lazy">'
+        f'<img src="{src}" alt="{alt}"{size} loading="lazy">'
     )
     if attrs.get("caption"):
         figure += f"<figcaption>{escape(attrs['caption'])}</figcaption>"

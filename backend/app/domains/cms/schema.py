@@ -32,13 +32,12 @@ VALUE_CODES: tuple[str, ...] = (
     "next_year_from",
 )
 
-#: The figures a page can place (C4.2). ``legacy_*`` sizes only come out of the
-#: migration: an existing page's picture renders byte-for-byte as it did, with
-#: its own class, so the association's pages stay pixel-exact (R17, test 19).
-#: A figure placed through the editor carries a placement and renders as the
-#: kit's figure with the public radius and shadow (C4.8).
+#: The figures a page can place (C4.2): a figure placed through the editor
+#: carries a placement and renders as the kit's figure with the public radius
+#: and shadow (C4.8). No legacy sizes (Koen, 6 October 2026: no legacy
+#: baggage): a page whose picture carries a Trix-era size keeps her HTML —
+#: her words stand in the draft, and the author places the picture anew.
 FIGURE_PLACEMENTS: tuple[str, ...] = ("left", "right", "full", "small")
-LEGACY_FIGURE_SIZES: tuple[str, ...] = ("klein", "half", "vol")
 
 #: The heading levels an author can choose: Kop, Subkop, Kleine kop — the same
 #: three as today (#1656), stored as levels 1–3. The renderer picks the TAG
@@ -56,14 +55,7 @@ HEADING_LEVELS: tuple[int, ...] = (1, 2, 3)
 #: insert one yet.
 NODES: dict[str, dict[str, Any]] = {
     "doc": {"content": "block+"},
-    # `legacy_div`: a paragraph that was a `<div>` in today's HTML - Trix
-    # writes its paragraphs as divs - renders as a div again, byte-exact
-    # (review A4/ii, #1673): more than half of PROD's pages carry them.
-    "paragraph": {
-        "group": "block",
-        "content": "inline*",
-        "attrs": {"legacy_div": "bool"},
-    },
+    "paragraph": {"group": "block", "content": "inline*"},
     "heading": {"group": "block", "content": "inline*", "attrs": {"level": HEADING_LEVELS}},
     "bulletList": {"group": "block", "content": "listItem+"},
     "orderedList": {"group": "block", "content": "listItem+"},
@@ -82,7 +74,6 @@ NODES: dict[str, dict[str, Any]] = {
             "alt": "str?",
             "placement": FIGURE_PLACEMENTS,
             "caption": "str?",
-            "legacy_size": LEGACY_FIGURE_SIZES,
             "width": "int?",
             "height": "int?",
         },
@@ -204,8 +195,6 @@ def _validate_node(node: Any, path: str) -> None:
             if value not in allowed:
                 raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
         elif allowed == "int" and not isinstance(value, int):
-            raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
-        elif allowed == "bool" and value is not True:
             raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
         elif (
             allowed in ("int?", "str?")

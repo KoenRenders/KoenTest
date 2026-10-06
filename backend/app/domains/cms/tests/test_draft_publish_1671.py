@@ -121,14 +121,20 @@ def test_a_trix_save_re_derives_the_documents(db_session):
     update_page(
         db_session,
         page.id,
-        CmsPageUpdate(content="<div>Tweede tekst met een {{membership_price_full}}.</div>"),
+        CmsPageUpdate(content="<p>Tweede tekst met een {{membership_price_full}}.</p>"),
     )
     translation = get_translation(db_session, page)
     paragraph = translation.draft_json["content"][0]
-    assert paragraph["attrs"]["legacy_div"] is True
     texts = [n["text"] for n in paragraph["content"]]
     assert any("{{membership_price_full}}" in t for t in texts), "the code is not text"
     assert translation.published_json is not None, "a live page does not follow"
+    # A div paragraph does not convert (no legacy flags): her words stand in
+    # the draft, and the live document is cleared until the content is a <p>.
+    update_page(db_session, page.id, CmsPageUpdate(content="<div>Derde tekst.</div>"))
+    translation = get_translation(db_session, page)
+    words = [n["text"] for n in translation.draft_json["content"][0]["content"]]
+    assert any("Derde tekst." in w for w in words)
+    assert translation.published_json is None, "a div page is not byte-equal"
 
 
 def test_create_page_derives_the_document_from_its_content(db_session):

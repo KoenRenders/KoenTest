@@ -49,7 +49,7 @@ def _tenant_languages(bind) -> dict[int, str]:
 
 def _convert_pages(bind) -> dict:
     """Every page into a translation row; the counts for the log line."""
-    from app.domains.cms.parse import parse_html
+    from app.domains.cms.parse import parse_html, plain_text_document
     from app.domains.cms.schema import locale_language
     from app.domains.cms.service import SITE_BLOCK_SLUGS
 
@@ -76,13 +76,15 @@ def _convert_pages(bind) -> dict:
             document = parse_html(content, on_page=on_page)
             draft = document or parse_html(content, on_page=on_page, lenient=True)
         except Exception:
+            # The guard (review C2, #1673): one page that makes the converter
+            # raise counts as "kept her HTML" instead of stopping the deploy —
+            # and her draft holds her WORDS as plain paragraphs (the master
+            # CLI's advice): plain text cannot fail, so the net itself is safe.
             log.warning(
                 "#1671: page %s (%s) could not be converted; it keeps her HTML", page_id, slug
             )
-            draft = None
+            draft = plain_text_document(content)
             document = None
-        if draft is None:
-            draft = {"type": "doc", "content": []}
         if document is None:
             # F11: a page that does not convert losslessly keeps its live HTML
             # (published_json stays empty, the site renders `content` as

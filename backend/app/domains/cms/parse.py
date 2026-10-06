@@ -15,12 +15,17 @@ table, and a picture (a Trix attachment lifted onto its ``<img>``). A
 placeholder code stays TEXT in the document — the renderer replaces the codes
 as it does today; the value BLOCK is phase 5 (revised assignment, #1671).
 
-Trix writes its paragraphs as ``<div>``: a div becomes a paragraph with
-``legacy_div`` and renders as a div again, byte-exact (review A4/ii, #1673) —
-more than half of PROD's pages carry them. Anything else — a quote, a pre
-block, a bare ``<hr>``, a fifth heading level, an inline image — flags the
-page, and that is deliberate: a page the parser cannot prove byte-equal is a
-page the site keeps serving exactly as it does today (R17).
+No legacy flags (Koen, 6 October 2026: not saddled with legacy): a page
+whose paragraphs are Trix ``<div>``s, or whose picture carries a Trix-era
+size, does not convert — she keeps her HTML (the visitor sees exactly today's
+page, R17), her words stand in the draft for the editor, and the author
+places the picture anew. It is a handful of pages, and the migration's log
+line names them.
+
+The one safety net, everywhere (the master CLI's advice, #1673): plain text
+cannot fail. A page the converter cannot process, and a lenient draft that
+holds fewer words than the page, gets the page's words as plain paragraphs —
+one per block. Formatting is gone, no word is.
 
 Two whitespace rules the review taught (A2/A3, #1673): whitespace-only text
 inside an open paragraph is kept (a lost space between two marks is a change),
@@ -128,6 +133,12 @@ def parse_html(
     builder.finish()
     document: dict[str, Any] = {"type": "doc", "content": builder.blocks}
     if lenient:
+        # The net (master CLI's advice, #1673): a draft that holds fewer words
+        # than the page falls back to the page's words as plain paragraphs —
+        # plain text cannot fail, and no word is lost. Covers the guard case
+        # and the two A2 edges (text after a block inside a div).
+        if _word_count(document) < _word_count(plain_text_document(sanitized)):
+            return plain_text_document(sanitized)
         return document
     if not builder.lossless:
         return None
@@ -192,11 +203,9 @@ class _Builder:
             return self.list_items
         return self.blocks
 
-    def _open_paragraph(self, legacy_div: bool) -> None:
+    def _open_paragraph(self) -> None:
         self.flush_inline()
         paragraph: dict[str, Any] = {"type": "paragraph", "content": []}
-        if legacy_div:
-            paragraph["attrs"] = {"legacy_div": True}
         self._current_blocks().append(paragraph)
         self.inline = paragraph["content"]
         self.in_text_block = True
@@ -217,9 +226,10 @@ class _Builder:
             self.inline = heading["content"]
             self.in_text_block = True
         elif tag in ("p", "div"):
-            # A div is Trix' paragraph: it converts with `legacy_div` and
-            # renders as a div again (review A4/ii, #1673).
-            self._open_paragraph(legacy_div=(tag == "div"))
+            # A div is Trix' paragraph; as a paragraph it renders as a <p>,
+            # so a div page does not convert byte-equal and keeps her HTML —
+            # her words stand in the draft (no legacy flags, Koen 6 okt).
+            self._open_paragraph()
         elif tag in ("ul", "ol"):
             self.flush_inline()
             if self.list_items is not None:
@@ -287,17 +297,13 @@ class _Builder:
         match = re.search(r"/api/v1/media/(\d+)", attrs.get("src", ""))
         if match is None:
             return None
-        classes = (attrs.get("class") or "").split()
-        legacy = next((c for c in classes if c.startswith("cms-beeld-")), None)
-        size = legacy.removeprefix("cms-beeld-") if legacy else None
         # Only the attributes that exist: an absent attribute is "not set",
         # and None is not a value the schema knows (measured: a None
-        # placement was refused on validation).
+        # placement was refused on validation). No legacy size: the class
+        # stays on the old HTML's image, and this page keeps her HTML.
         figure_attrs: dict[str, Any] = {"media_id": int(match.group(1))}
         if attrs.get("alt"):
             figure_attrs["alt"] = attrs["alt"]
-        if size:
-            figure_attrs["legacy_size"] = size
         if attrs.get("width", "").isdigit():
             figure_attrs["width"] = int(attrs["width"])
         if attrs.get("height", "").isdigit():
@@ -384,3 +390,77 @@ class _DocumentParser(HTMLParser):
         if self.builder.marks:
             node["marks"] = [m for m in self.builder.marks]
         self.builder.inline.append(node)
+
+
+_PLAIN_TEXT_BLOCK_TAGS = {
+    "p",
+    "div",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "li",
+    "td",
+    "th",
+    "blockquote",
+    "pre",
+    "figcaption",
+    "caption",
+    "table",
+}
+
+
+def plain_text_document(content: Optional[str]) -> dict:
+    """A page's words as plain paragraphs, one per block (the safety net).
+
+    This cannot fail the way the converter can: it collects text runs and
+    starts a new paragraph at every block tag. The migration's per-page guard
+    and the lenient draft's word-count net use it — formatting is gone, no
+    word is (the master CLI's advice, #1673).
+    """
+    paragraphs: list[dict[str, Any]] = []
+    buffer: list[str] = []
+
+    def flush() -> None:
+        words = "".join(buffer).strip()
+        if words:
+            paragraphs.append({"type": "paragraph", "content": [{"type": "text", "text": words}]})
+        buffer.clear()
+
+    class _Plain(HTMLParser):
+        def handle_starttag(self, tag: str, attrs: list) -> None:
+            if tag in _PLAIN_TEXT_BLOCK_TAGS:
+                flush()
+
+        def handle_endtag(self, tag: str) -> None:
+            if tag in _PLAIN_TEXT_BLOCK_TAGS:
+                flush()
+
+        def handle_data(self, data: str) -> None:
+            if data.strip():
+                buffer.append(data)
+
+    parser = _Plain(convert_charrefs=True)
+    parser.feed(content or "")
+    parser.close()
+    flush()
+    return {"type": "doc", "content": paragraphs}
+
+
+def _word_count(document: Optional[dict]) -> int:
+    """How many words a document holds — the net's measure."""
+    count = 0
+
+    def walk(node: Any) -> None:
+        nonlocal count
+        if not isinstance(node, dict):
+            return
+        if node.get("type") == "text":
+            count += len(str(node.get("text", "")).split())
+        for child in node.get("content") or []:
+            walk(child)
+
+    walk(document or {})
+    return count

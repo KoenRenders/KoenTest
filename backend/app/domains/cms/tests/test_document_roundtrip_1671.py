@@ -31,9 +31,6 @@ def _today(content):
     [
         # A plain paragraph.
         "<p>Welcome to the association.</p>",
-        # Trix writes its paragraphs as <div>: they convert, with
-        # `legacy_div`, and render as divs again (review A4/ii, #1673).
-        "<div>First paragraph.</div><div>Second paragraph.</div>",
         # Headings: stored as the author chose them (1-3), shown one level
         # down on a page (#1656).
         "<h1>Kop</h1><h2>Subkop</h2><h3>Kleine kop</h3><p>Tekst</p>",
@@ -48,13 +45,6 @@ def _today(content):
         # A table with a header row, as typed through the HTML door.
         "<table><thead><tr><th>Wat</th><th>Prijs</th></tr></thead>"
         "<tbody><tr><td>Koffie</td><td>€1,00</td></tr></tbody></table>",
-        # A picture from the library: a Trix attachment with alt and size in
-        # its JSON (#1173, #1207), entity-encoded as the editor writes them.
-        '<figure data-trix-attachment="{&quot;contentType&quot;:&quot;image/png&quot;,'
-        "&quot;url&quot;:&quot;/api/v1/media/12&quot;,&quot;width&quot;:800,"
-        "&quot;height&quot;:600,&quot;alt&quot;:&quot;Het lokaal&quot;,"
-        '&quot;size&quot;:&quot;half&quot;}"><img src="/api/v1/media/12" '
-        'width="800" height="600"></figure>',
         # The five configuration codes stay TEXT; the renderer replaces them
         # as it does today (the value block is phase 5, #1671).
         "<p>Het lidgeld bedraagt {{membership_price_full}} vanaf {{half_price_start}}.</p>",
@@ -186,3 +176,59 @@ def test_the_text_rendering_gives_words():
     assert "Het lokaal" in text
     assert "€" in text
     assert "{{" not in text
+
+
+def test_a_div_page_keeps_her_html_and_her_words_in_the_draft():
+    """No legacy flags (Koen, 6 October 2026): a Trix <div> paragraph renders
+    as a <p> in the document, so the page is not byte-equal - strict refuses
+    and the site keeps serving her HTML; the gentle draft holds her words."""
+    content = "<div>Eerste alinea.</div><div>Tweede alinea.</div>"
+    assert parse_html(content, on_page=True) is None
+    document = parse_html(content, on_page=True, lenient=True)
+    words = render_document(document, None, target="text")
+    assert "Eerste alinea." in words
+    assert "Tweede alinea." in words
+
+
+def test_a_picture_page_keeps_her_html_and_gets_a_draft():
+    """No legacy sizes: a Trix-era picture carries a class the kit does not
+    render, so the page keeps her HTML; the gentle draft still describes the
+    figure by its media id."""
+    content = (
+        '<figure data-trix-attachment="{&quot;contentType&quot;:&quot;image/png&quot;,'
+        "&quot;url&quot;:&quot;/api/v1/media/12&quot;,&quot;width&quot;:800,"
+        "&quot;height&quot;:600,&quot;alt&quot;:&quot;Het lokaal&quot;,"
+        '&quot;size&quot;:&quot;half&quot;}"><img src="/api/v1/media/12" '
+        'width="800" height="600"></figure>'
+    )
+    assert parse_html(content, on_page=True) is None
+    document = parse_html(content, on_page=True, lenient=True)
+    assert document is not None
+    assert document["content"][0]["type"] == "figure"
+    assert document["content"][0]["attrs"]["media_id"] == 12
+
+
+def test_the_gentle_draft_loses_no_word_after_a_block_inside_a_div():
+    """The two A2 edges of the second review (#1673): text that follows a
+    block INSIDE a div left the gentle draft. The plain-text net catches both
+    - a draft with fewer words than the page falls back to her words."""
+    for content in (
+        "<div><h2>Kop</h2><ul><li>a</li></ul>tekst</div>",
+        "<div>buiten<div>binnen</div>staart</div>",
+    ):
+        document = parse_html(content, on_page=True, lenient=True)
+        words = render_document(document, None, target="text")
+        assert "tekst" in words or "staart" in words, f"words lost from: {content}"
+        for word in ("Kop", "a", "buiten", "binnen"):
+            if word in content:
+                assert word in words, f"{word} lost from: {content}"
+
+
+def test_plain_text_document_keeps_every_word_per_block():
+    """The net itself (the master CLI's advice, #1673): plain text cannot
+    fail - every block's words become one plain paragraph."""
+    from app.domains.cms.parse import plain_text_document
+
+    document = plain_text_document("<h2>Kop</h2><p>Een alinea.</p>rest tekst")
+    texts = [n["content"][0]["text"] for n in document["content"]]
+    assert texts == ["Kop", "Een alinea.", "rest tekst"]

@@ -108,11 +108,11 @@ def test_the_migration_wrote_a_history_row_for_each_published_page(db_session):
         assert rows, f"page {page.slug} is published without a history row"
 
 
-def test_a_div_paragraph_converts_and_renders_as_a_div(db_session):
-    """Review A4/ii (#1673): Trix writes its paragraphs as <div> — more than
-    half of PROD's pages carry them. They convert losslessly, with
-    `legacy_div`, and render as divs again."""
-    document = parse_html("<div>Eerste alinea.</div><div>Tweede alinea.</div>", on_page=True)
-    assert document is not None, "a div page does not convert"
-    assert all(block["attrs"]["legacy_div"] for block in document["content"])
-    assert render_document(document, None) == "<div>Eerste alinea.</div><div>Tweede alinea.</div>"
+def test_a_div_page_falls_back_to_her_html_with_her_words_in_the_draft():
+    """No legacy flags (Koen, 6 October 2026): Trix <div> paragraphs do not
+    convert byte-equal, so the page keeps her HTML - the visitor sees today's
+    page - and her words stand in the draft for the editor."""
+    content = "<div>Eerste alinea.</div><div>Tweede alinea.</div>"
+    assert parse_html(content, on_page=True) is None, "a div page converts"
+    draft = parse_html(content, on_page=True, lenient=True)
+    assert "Eerste alinea." in render_document(draft, None, target="text")
