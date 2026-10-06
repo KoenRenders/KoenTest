@@ -138,6 +138,8 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R19 | Five roles carry the process: product master (keeps the product list), pricing (sets the price of an article), sales (the e-loket: orders in order, delivery, fitting moments, exchanges), finance (follows up payments — the existing role) and stock management (enters stock and changes it by hand). One person may hold several. | Must *(proposed)* | Koen, 6 Oct 2026 | four new roles; screen names open |
 | R20 | One or more documents can be attached to a product, and a buyer looking at the article can open them — for example the size chart that came with the delivery of the clothing, so the buyer can choose a size from it. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 | R21 | Sales registers that an order is delivered; picked up or brought makes no difference. That is the moment the stock goes down. | Must *(proposed)* | Koen, 6 Oct 2026 | the one hand-over step the portal knows; how it is handed over stays outside (R12) |
+| R22 | An unpaid order ends in one of two ways: the buyer still pays — for example through a new payment link — and the task closes by itself, or Sales cancels the order from the task. | Must *(proposed)* | Koen, 6 Oct 2026 | |
+| R23 | The buyer cancels his own order in the webshop. | Won't *(for now)* | Koen, 6 Oct 2026 | a buyer who withdraws tells Sales, who cancels |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -514,6 +516,7 @@ and deliberately not done — recorded so it is not asked again).
 | Q15 | 6 Oct 2026 | When does the task for an unpaid transfer appear: at once with a due date, or after 14 days? (Claude) | At once, due within 14 days, closing by itself when paid — and also a task for a failed or hanging online payment, because then something has to happen. (Koen) |
 | Q16 | 6 Oct 2026 | When does the stock go down — at the order, at the payment, or at the hand-over? (Claude, asked before Q7) | Koen came back on Q7: an order only reserves; the stock goes down when Sales registers the delivery, picked up or brought alike. (Koen) |
 | Q17 | 6 Oct 2026 | Does the reservation of an unpaid order stay until Sales decides, or does it expire by itself? (Claude) | It stays until the user does something. (Koen) |
+| Q18 | 6 Oct 2026 | Who ends an unpaid order: the buyer by paying, the buyer by withdrawing in the webshop, or Sales by cancelling? (Claude) | Paying and Sales cancelling; the buyer withdrawing in the webshop is not provided for now. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
