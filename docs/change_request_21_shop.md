@@ -117,6 +117,7 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R8 | The value of the stock can be known. | Won't *(now)* | Koen, 6 Oct 2026 | stock valuation is for later; what is built now must not stand in its way |
 | R9 | Where inside a location an article lies — which rack, which shelf. | Won't | Koen, 6 Oct 2026 | no warehouse management |
 | R10 | Barcodes on articles, and scanning them. | Won't | Koen, 6 Oct 2026 | |
+| R11 | Everyone can buy, members and non-members; a member pays the member price where the article has one — the same principle as registering for an activity. | Must *(proposed)* | Koen, 6 Oct 2026 | |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -308,6 +309,7 @@ and deliberately not done — recorded so it is not asked again).
 | 6 Oct 2026 | A size is a variant of a product; stock is kept per variant (Q1). | Koen |
 | 6 Oct 2026 | The price hangs at the product; a variant may override it. One price is entered, only the exception is set per variant; prices over time (R6) work the same for both (Q4). | Koen |
 | 6 Oct 2026 | Price gets its own domain, `pricing`, small from the start: a price per article with the date from which it applies; no discounts or price lists per customer group yet (Q2). | Koen |
+| 6 Oct 2026 | Everyone may buy; members pay the member price where there is one, by the same rule as an activity registration (Q5). This refines Q2: `pricing` holds two kinds of price from the start, the regular price and the member price, both with their date; still no other customer groups. | Koen |
 
 ---
 
@@ -470,6 +472,7 @@ and deliberately not done — recorded so it is not asked again).
 | Q1 | 6 Oct 2026 | Is a size a product of its own, or a variant of one product? (Claude) | A variant; stock is kept per variant. (Koen) |
 | Q2 | 6 Oct 2026 | Does price get its own domain, or is it a column on the product? (Koen raised it, Claude asked) | Its own domain: `pricing`. (Koen) |
 | Q4 | 6 Oct 2026 | Does the price hang at the product or at the variant? (Claude) | At the product, and a variant may override it. (Koen) |
+| Q5 | 6 Oct 2026 | Who may buy — members only or everyone — and is there a member price? (Claude) | Both: everyone may buy, and there is a member price, the same principle as registrations for activities. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
