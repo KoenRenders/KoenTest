@@ -190,7 +190,7 @@ No benefit carries a figure: the volumes were deliberately not measured (A2). Th
 | The Excel list of open sales | with the treasurer; holds names and amounts, so it stays outside the repository | the open sales are followed apart from the bank and the mails (pain 6); the workbench task replaces it (R18), nothing is imported from it |
 | Pictures of the garments | none supplied yet; taken when the products are entered | one to four per product (R3) |
 
-**Reporting need.** None asked beyond what the screens show: the orders with their statuses (R34), the stock per location (R7) and the open tasks on the workbench (R18). No export, no printed list, no figure for the board; stock value is Won't (R8). If one is wanted, it becomes a requirement in A6.
+**Reporting need.** None asked (Koen, 7 Oct 2026, Q46) beyond what the screens show: the orders with their statuses (R34), the stock per location (R7) and the open tasks on the workbench (R18). No export, no printed list, no figure for the board; stock value is Won't (R8). If one is wanted, it becomes a requirement in A6.
 
 ## A6. Business requirements — what the board asks, with MoSCoW
 
@@ -715,6 +715,7 @@ Standards checked: UBL 2.1 (`Catalogue`, `Order`, `DespatchAdvice`, `InventoryRe
 | Q43 | 7 Oct 2026 | MoSCoW: all proposed Musts confirmed, R23 (the buyer cancels himself) too? (Claude) | "Kies maar, we gaan het toch bouwen" — the screen exists, so it is no extra work: Must. The other Musts stand as proposed. (Koen) |
 | Q44 | 7 Oct 2026 | (Koen, on A3) Does the system not send a mail, as with an activity registration? | Yes: a confirmation mail with the transfer instructions, as the registration mail does today; A3 said only that the portal shows them, and is corrected (R38). (Claude, measured) |
 | Q45 | 7 Oct 2026 | AC17: is there a second tenant on HDEV to test that tenants do not see each other's products? (Claude) | Yes. (Koen) |
+| Q46 | 7 Oct 2026 | Does anyone need a report, an export or a printed list beyond what the screens show? (Claude) | No. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
