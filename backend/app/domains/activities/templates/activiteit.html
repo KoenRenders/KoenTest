@@ -78,8 +78,10 @@
        ze kan optellen in plaats van ze over te typen (#1143). #}
     {# #1647: the public reading text — 16 px on a line of 24 px at every
        width — and a blank line in the text is a paragraph (`alineas`: plain
-       text, escaped; no markup of the organiser's reaches the page). #}
-    <div data-activity-description class="mt-5 text-base leading-6 text-ink max-w-[var(--leesbreedte)] [overflow-wrap:anywhere] [&>p+p]:mt-4">{{ a.description | alineas }}</div>
+       text, escaped; no markup of the organiser's reaches the page).
+       #1688: a line after ONE Enter gets 8 px above it (a third of a line),
+       a paragraph after a blank line keeps its 16 px — the two stay apart. #}
+    <div data-activity-description class="mt-5 text-base leading-6 text-ink max-w-[var(--leesbreedte)] [overflow-wrap:anywhere] [&>p+p]:mt-4 [&_[data-line]]:block [&_[data-line]+[data-line]]:mt-2">{{ a.description | alineas }}</div>
     {% endif %}
 
     {% if not a.is_cancelled %}
