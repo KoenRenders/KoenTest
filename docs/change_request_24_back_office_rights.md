@@ -165,7 +165,7 @@ The labels come from the code list `auth.role_labels` (`auth/codes.py:18-19`, me
 | R4 | The roles of part 1: today's ADMIN, FINANCE (on screen Boekhouding) and OPERATOR, each as a bundle with exactly the rights it has today; and the new roles the webshop needs — Masterdata, Prijsbeheer, Verkoop, Voorraadbeheer (CR-21). Bestuur (`BOARD`) and the other changing roles come in part 2 (CR-25). | Must | Koen, 7 Oct 2026 (Q4) | |
 | R5 | Masterdata changes the master data: persons (deleting and merging included), households, memberships — member administration (validity; whether a renewal is paid stays with Boekhouding) —, the legal identity of organisations (official name, legal form, enterprise and VAT number, registered address, bank accounts, payment terms) and the product portfolio. Relatiebeheer, which changes only the commercial relationship with organisations, comes in part 2 with the business partners (CR-25). | Must | Koen, 7 Oct 2026 (Q3, Q5) | member administration is master data (Q3); the split of a master-data team and account managers is completed in part 2 |
 | R13 | Master data has two rights — the legal data of persons and organisations (`party.masterdata`), the product portfolio (`product.masterdata`) — and one standard role, Masterdata, that holds both; a company with two teams makes two bundles without code. | Must | Koen, 7 Oct 2026 (Q2) | as an ERP separates business partner and material master |
-| R7 | Nobody's reach changes on the day part 1 goes live — neither what he may change nor what he may read: every existing user keeps exactly what he has today; the gates ask rights, the bundles give them. The reach does change, deliberately, in part 2: ADMIN becomes Bestuur (reading only) and each user gets the roles for his own work. | Must | Koen, 7 Oct 2026 (Q4, Q7) | two steps: part 1 small and testable without anyone noticing; the redistribution a step of its own, user by user |
+| R7 | Nobody's reach changes on the day part 1 goes live — neither what he may change nor what he may read: every existing user keeps exactly what he has today, with one deliberate exception: Boekhouding (FINANCE) may open the workbench, where it sees the tasks of its own role (Q11); the gates ask rights, the bundles give them. The reach does change, deliberately, in part 2: ADMIN becomes Bestuur (reading only) and each user gets the roles for his own work. | Must | Koen, 7 Oct 2026 (Q4, Q7) | two steps: part 1 small and testable without anyone noticing; the redistribution a step of its own, user by user |
 | R10 | Social tariff: who pays a reduced rate reveals something about income; later, individual payments and tariffs must not be visible to everyone who reads. | Won't *(now)* | Koen, 7 Oct 2026 | the model must allow a reading restriction later |
 | R11 | Accountbeheer (`ACCOUNT_ADMIN`): within one account, create tenants and manage users and their roles in them. | Won't *(now)* | Koen, 7 Oct 2026 | "nobody uses it today; we build it later" |
 | R14 | A screen on which a workspace composes its own roles from rights. | Won't *(now)* | Koen, 7 Oct 2026 (Q6) | "zeer mooi op termijn maar nu out-of-scope"; part 1 ships the bundles fixed and they are assigned to users as today; the model must allow the screen later |
@@ -184,7 +184,7 @@ and deliberately not done — recorded so it is not asked again).
 | Concern | This change |
 |---|---|
 | **Security** — who may do what; new inputs from outside; secrets | This *is* access control: every gate is rewritten, so every gate is tested before and after with the same users (R7). A user without a right is refused as today. No new input from outside, no secrets. |
-| **Privacy** — personal data: what, where, who sees it, what leaves the system | Nobody sees more than today (R7). Masterdata is a new role that reads and changes persons, households and memberships — given only to whom a board chooses. Nothing leaves the system. |
+| **Privacy** — personal data: what, where, who sees it, what leaves the system | Nobody sees more than today (R7), except Boekhouding, which opens the workbench and sees there only the tasks of its own role, as the workbench filters today (#674, Q11). Masterdata is a new role that reads and changes persons, households and memberships — given only to whom a board chooses. Nothing leaves the system. |
 | **House style / UI norm** — `docs/design-system.md`; brand rules | One visible change: four more roles to tick in Beheer › Gebruikers, with their Dutch names. |
 | **Multi-tenant** — what differs per unit, what is platform-wide | Roles stay per workspace, as today (#963). The bundles are the same in every workspace; composing them per workspace is for later (R14). OPERATOR stays platform-wide. |
 
@@ -199,7 +199,7 @@ and deliberately not done — recorded so it is not asked again).
 | # | Criterion | Requirement | Walkthrough steps |
 |---|---|---|---|
 | AC1 | A user with ADMIN opens, changes and is refused exactly what he could before the release, checked on a list of screens one per menu group. | R7 | B2, to come |
-| AC2 | A user with only Boekhouding sees and confirms payments as before, and is refused the activity and member screens as before. | R7 | B2, to come |
+| AC2 | A user with only Boekhouding sees and confirms payments as before, and is refused the activity and member screens as before; he now opens the workbench and sees only tasks for Boekhouding. | R7 | B2, to come |
 | AC3 | An Operator reaches everything as before, the platform screens included. | R7 | B2, to come |
 | AC4 | In Beheer › Gebruikers, the four new roles can be ticked per workspace. | R4 | B2, to come |
 | AC5 | A user with only Masterdata manages persons, households and memberships, and is refused activities, payments and settings. Masterdata also holds the right on products (`product.masterdata`, R13); the product screens arrive with CR-21, where its AC2 checks it. | R5, R13 | B2, to come |
@@ -257,7 +257,7 @@ Every gate asks for a **right** instead of a role name. A right is a code in a c
 | `stock.manage` | stock (CR-21) | | | ✓ | | | | ✓ |
 | `payment.view` | payments, claims | ✓ | ✓ | ✓ | | | | |
 | `payment.manage` | confirm, refund (#83) | | ✓ | ✓ | | | | |
-| `workbench.use` | the workbench (today behind `require_admin_ui`, `workflow/ui.py:114`) | ✓ | | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `workbench.use` | the workbench (today behind `require_admin_ui`, `workflow/ui.py:114`) | ✓ | ✓ *(new, Q11)* | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `user.manage` | users and their roles | ✓ | | ✓ | | | | |
 | `settings.manage` | settings, changes, e-mail log, API keys | ✓ | | ✓ | | | | |
 | `platform.manage` | tenants, organisations of the platform | | | ✓ | | | | |
@@ -268,7 +268,7 @@ The table is the design, read from the gates' names; the proof is F1, the before
 
 | F | Requirement | From |
 |---|---|---|
-| F1 | Before the change, a list records for every gate which roles pass it; after, the same list is computed from the bundles; the two are equal for ADMIN, FINANCE, OPERATOR and ACCOUNT_ADMIN. | R7 |
+| F1 | Before the change, a list records for every gate which roles pass it; after, the same list is computed from the bundles; the two are equal for ADMIN, FINANCE, OPERATOR and ACCOUNT_ADMIN, the workbench for FINANCE being the one listed difference (Q11). | R7 |
 | F2 | The landing after sign-in, the header link to the back office and the menu ask rights, with the same outcome per user as today. | R7 |
 | F3 | A user with roles in two workspaces holds in each only the rights of his roles there. | R3 |
 | F4 | `docs/rollen-en-rechten.md` is generated from the bundles, or checked against them by a test. | A2 step 4 |
@@ -336,7 +336,7 @@ flowchart LR
 
 *Before the release, on HDEV with the previous tag* — W1 Write down, for a user with ADMIN, one with only Penningmeester and one Operator, which of these screens open: Activiteiten, Leden, Betalingen (and "Bevestig betaald"), Formulieren, Pagina's, Gebruikers, Instellingen, Tenants.
 
-*After the release* — W2 The same three users, the same screens: the same outcome as W1; the role reads Boekhouding. W3 Beheer › Gebruikers: tick Masterdata for a new user in Raak's workspace; the four new roles are offered. W4 Sign in as that user: Leden, Gezinnen and Lidmaatschappen open and can be changed; Activiteiten, Betalingen and Instellingen refuse. W5 Tick only Verkoop for another user: no existing back-office screen opens; the workbench does. W6 Read `docs/rollen-en-rechten.md`: it matches W2–W5.
+*After the release* — W2 The same three users, the same screens: the same outcome as W1, except that Boekhouding now opens the workbench (Q11); the role reads Boekhouding. W3 Beheer › Gebruikers: tick Masterdata for a new user in Raak's workspace; the four new roles are offered. W4 Sign in as that user: Leden, Gezinnen and Lidmaatschappen open and can be changed; Activiteiten, Betalingen and Instellingen refuse. W5 Tick only Verkoop for another user: no existing back-office screen opens; the workbench does. W6 Read `docs/rollen-en-rechten.md`: it matches W2–W5.
 
 ## B3. The whole across the modules — for the architect
 
@@ -486,7 +486,6 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q11 | Boekhouding and the workbench: today a FINANCE-only user cannot open it (`workflow/ui.py:114`, `require_admin_ui`), but CR-21 gives Boekhouding the first step of the unpaid transfer. Give FINANCE `workbench.use` in part 1, or in CR-21? | In CR-21 phase 2, where its first task appears: part 1 stays neutral (R7), and the widening is visible where it is needed. | Part 1: a FINANCE-only user sees the workbench from day one — the one widening of part 1. |
 
 ## B9. Decisions log — dated answers
 
@@ -513,6 +512,7 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 | 7 Oct 2026 | The label Penningmeester becomes Boekhouding in part 1; the code stays `FINANCE` (Q8). | Koen |
 | 7 Oct 2026 | MoSCoW confirmed: R1, R3, R4, R5, R7, R13 Must; R10, R11, R14 Won't (Q9). | Koen |
 | 7 Oct 2026 | ADMIN gets no webshop rights in part 1; until part 2 brings reading for every role, a board member who must see orders also gets Verkoop (Q10). | Koen |
+| 7 Oct 2026 | Boekhouding gets the workbench in part 1 — the one widening of part 1; it sees the tasks of its own role (Q11). | Koen |
 
 ---
 
@@ -682,6 +682,7 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 | Q8 | 7 Oct 2026 | Rename Penningmeester to Boekhouding on screen already in part 1 — a label, no reach? (Claude) | Yes. (Koen) |
 | Q9 | 7 Oct 2026 | MoSCoW: R1, R3, R4, R5, R7, R13 Must; social tariff, Accountbeheer, composing roles Won't? (Claude) | Yes. (Koen) |
 | Q10 | 7 Oct 2026 | Does ADMIN get the webshop's rights in part 1, given that viewing without a right only arrives in part 2 and CR-21 Q12 lets only the four roles change the shop? (Claude recommended no) | No; a board member who must see orders also gets Verkoop until part 2. (Koen) |
+| Q11 | 7 Oct 2026 | Today a FINANCE-only user cannot open the workbench, and CR-21 gives Boekhouding its first workbench step. Give FINANCE `workbench.use` in part 1, or with CR-21? (Claude recommended with CR-21) | In part 1 — the one widening of part 1. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
