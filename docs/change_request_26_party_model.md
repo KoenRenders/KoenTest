@@ -442,5 +442,6 @@ and deliberately not done — recorded so it is not asked again).
 
 ## Relationship to existing work — issues and change requests
 
-- **CR-21** (webshop) Q34, Q35 — the trigger; **CR-20** (tenant apart from organisation), **CR-25** (business partners), **CR-22** (accounts: the person who signs in).
+- **CR-21** (webshop) Q34, Q35 — the trigger; **CR-25** (business partners), **CR-22** (accounts: the person who signs in).
+- **CR-20** (tenant apart from organisation, #1578) is the first step of this one and is not widened by it: CR-20 makes `mdm.organizations` the party only (UBL `cac:Party`: name, legal form, identifications, addresses, contacts, bank accounts) and moves the site to `mdm.tenants`. CR-26 starts where CR-20 stops: the person and the household as parties, and who acts on behalf of whom. It is shaped after CR-20 is built, on its model (Koen asked on 7 October 2026 whether CR-20 can already build towards the party; it does, for organisations).
 - Not recorded today, and not recoverable later: the household or organisation in which an existing registration or order was made — the price of deciding later, accepted by Koen (CR-21 Q35).
