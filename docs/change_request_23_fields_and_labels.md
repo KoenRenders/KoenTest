@@ -12,7 +12,7 @@
 
 ## A1. Reason to act — the trigger
 
-On 7 October 2026, looking at the concepts of CR-22, Koen noticed that a screen drawn for him lacked the convention for required fields — the red asterisk on the label, the error under the field — and asked how to make sure he never has to say it again. Fields written by hand slip past every gate today: the public ratchets count hand-written buttons and cards, not fields (46 hand-written labels in 12 public templates, measured on master `7af3c4a8`).
+On 7 October 2026, looking at the concepts of CR-22, Koen noticed that a screen drawn for him lacked the convention for required fields — the red asterisk on the label, the error under the field — and asked how to make sure he never has to say it again. A field written by hand is already counted: the ratchet `RAW_FORM_ELEMENTS` (`backend/tests/test_ui_ratchets.py`, baseline `ui_baseline.py`) counts raw `<label>`, `<input>`, `<select>`, `<textarea>` in all templates — 85 in 25 files on master `f731a836`, 5 of them public. What slipped is the **legacy macro family**: `input_control` (84 calls), `select_control` (42), `textarea_control` (18), `ui.label` (115) and the kit's own `ui.person_fields` render a field without the K4 asterisk and error, and no gate counts them; the design system already calls them legacy (`docs/design-system.md:465-467`). *(Corrected on 7 October 2026: this paragraph first said "46 hand-written labels in 12 public templates, no gate" — measured carelessly, and wrong.)*
 
 The same day, issue #1692 recorded the other half: an attribute has no single name. "Mobiel", "Gsm" and "Mobiel nummer" name one datum on three screens; reports, the changes list, the import check and the e-mails each type their own label. Koen decided the words (Mobiel, E-mail, Relatie) and asked for one source.
 
@@ -86,7 +86,7 @@ Koen asked to look at both together in one change request, with further ideas st
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
-| R1 | A form field on a page is never written by hand: it comes from the kit, so a required field always carries the red asterisk and an error always stands under its field. | Must *(proposed)* | Koen, 7 Oct 2026 | the gate: a ratchet on hand-written fields, as for buttons and cards |
+| R1 | A form field on a page comes from the kit's field (`ui.field` and its family), so a required field always carries the red asterisk and an error always stands under its field — no raw field and no legacy field macro. | Must *(proposed)* | Koen, 7 Oct 2026 | the raw-field ratchet exists; the legacy macros get one too |
 | R2 | One datum has one name, the same on screens, reports, the changes list, the import check and the e-mails. | Must *(proposed)* | Koen, 7 Oct 2026 (#1692) | |
 | R3 | The words: **Mobiel** (not Gsm, not "Mobiel nummer"), **E-mail** (not E-mailadres), **Relatie** (not Relatietype); the relation value stays **(meerderjarig) kind**. | Must *(proposed)* | Koen, 7 Oct 2026 (#1692) | |
 | R4 | The import's column names stay what they are: they are the vocabulary of the file from the national office, not labels. | Must *(proposed)* | Koen, 7 Oct 2026 (#1692) | |
@@ -292,20 +292,21 @@ and deliberately not done — recorded so it is not asked again).
 
 ## C1. Verified premises — measured before the handover
 
-> [!NOTE]
-> *Every claim the design rests on, measured in the code before the change*
-> *request is assigned: a key or constraint that "already exists", a column*
-> *that "has room", "no migration", "the gate allows this", "the pattern X*
-> *already uses". One row each: the claim · how it was measured (the command,*
-> *the test, the file and line) · the result · what changed in the design if*
-> *the result differed. A change request is not assigned while a premise in*
-> *B or C has no row here. CR-14 planned two foreign keys across schemas "as*
-> *`registrations.person_id` already does"; it did not, and a gate refused*
-> *them: B3, C2, C5, C6 and two tests were rewritten during the build.*
+*Measured on master `f731a836`, 7 October 2026, before Part B is written; re-measured on the handover commit.*
 
-| Claim | Measured how | Result | Consequence |
+| Concept or claim | Measured how | Result | Consequence |
 |---|---|---|---|
-| … | … | … | … |
+| Raw fields are gated | `backend/tests/test_ui_ratchets.py:91` (`_RAW_ELEMENT`), `ui_baseline.py` `RAW_FORM_ELEMENTS` | yes: all 206 templates; 85 in 25 files (public 5 in 2: `_sign_in_email.html` 1, `_formulier_veld.html` 4; admin 80 in 23). Stale counts beside it: `ui_baseline.py` comment "95 in 28", `docs/design-system.md:463,1674` "105 in 29" | R1 adds no second raw-field gate; it extends to the legacy macros |
+| Legacy field macros are gated | grep outside `_macros.html` and `design_system.html` | no: `input_control` 84 (77 admin, 6 public, 1 mail log), `select_control` 42, `textarea_control` 18, `ui.label` 115, `ui.person_fields` 2 (`membership/_lid_persoon_rij.html:10`, `mdm/_leden_persoon_velden.html:17`; writes raw inputs from inside the kit file, so the raw gate exempts it) — against 61 `ui.field` | the new ratchet counts these calls; its baseline ~260 only shrinks |
+| The public ratchets count fields | `test_public_ratchets.py`, `public_baseline.py` | no: buttons, cards, organisation fields, activity parts; stale comments | no change there |
+| One source of labels | grep of the #1692 words | none: each template passes a literal `_("…")`; code tables carry labels for contact type (`mdm/codes.py:117-119`) and relation type (`:173-175`); `mdm/change_lines.py:45-63` `person_field_label` calls itself "a fourth place … until the shared source of #1692 exists"; also `ui/organisaties_ui.py:73-75`, `audit/changes.py:554-557` | the source of R2 starts from `change_lines` and the code tables |
+| Where the #1692 words stand | grep | "Gsm" `_household_rows.html:54` (+ lowercase in `_aa_detail.html:265,269`, `audit/changes.py:556`); "GSM" `_macros.html:1183`, `mail/service.py:592`; "Mobiel nummer" `_inschrijf_velden.html:26`, `_inschrijving_detail.html:89`; "E-mailadres" 16 template places + 3 in Python + `chatbot/tools.py:100`; "Relatietype" `reporting/universe.py:1822`; "Naam" as last name: only the import column `naam` | the list of places for Part C |
+| Sentences with the old words | grep | `registration_form.py:120` "Vul je mobiel nummer in."; `mdm/models.py:345`; `membership/schemas_family.py:73`; `signup_form.py:65,85,126`; `auth/users.py:222,243`; `auth/admin_ui.py:268`; "Vul een geldig e-mailadres in." in 8 places | help and refusal texts follow the words (Part B decides how far) |
+| Mails have templates | `mail/` | no: f-strings in `mail/service.py` | the label source must be readable from Python too |
+
+**Tests that move when a label changes:** 17 HTML snapshots (`tests/integration/snapshots/household_portal/*` 5, `registration_screens/*` 6, `registration_page_parity/fields_*` 3, `mail/tests/snapshots/registration_mail/activity.html`, `forms/tests/snapshots/form_field_types/*` 2); 27 test files assert the words (e.g. `test_verplicht_sterretje`, `test_word_lid_email_rows`, `test_household_save`, `test_signup_form`, e2e `test_household_pages`); `messages.po` 8 msgids; the #1605 geometry baselines (`tests_e2e/baselines/*.json`) only where a label wraps.
+
+**Visitors and tenants walked:** public forms (registration, word lid, forms module), the household pages, admin record forms; tenant with members, company, platform — labels are the same for all (no tenant-specific words in #1692).
 
 ## C2. Per module: what must happen
 
