@@ -630,6 +630,20 @@ what he takes in on its own branch and answers on the PR per
 `docs/review-protocol.md`. Koen does not have to say "the review is there".
 (Koen, 5 October 2026.)
 
+**A change request is read against the code before it is assigned** (Koen,
+7 October 2026, after CR-22). Every change request, small or large. The
+session that shaped it tells Koen or the master CLI that the document is ready
+to be read; the master CLI routes the build read to a dev CLI through this
+same door (`ai-review`, an @-mention, scope *lay this against master*) — the
+shaping session does not address a dev CLI itself. The findings are taken into
+the document before Koen assigns it: assignment comes after the build read,
+not before. CR-22 was assigned first, and the two dev CLIs then found twelve
+points where the document and the code disagreed — readers of a concept whose
+meaning changed, an existing test that guarded the old behaviour, a kind of
+visitor nobody had walked — each of which could have been found before the
+approval. What the build read looks for stands in
+`docs/change_request_template.md`.
+
 **Every pull request of the Mistral CLI is read by a Claude dev CLI before a
 merge** (Koen, 7 October 2026). This is the one standing review: the master
 CLI routes it without being asked, for a new pull request and for every later
