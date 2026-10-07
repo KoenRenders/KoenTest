@@ -1,5 +1,6 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
+{% import "_public_macros.html" as pub %}
 {% block title %}{{ _("Mijn gezin") }} · {{ site_name }}{% endblock %}
 {% block content %}
 {# Mijn gezin on the public form page (CR-11 pilot B, #1590; end state §2.6). It
@@ -11,6 +12,10 @@
    row or address saves on its own. Renewing is its own act on its own page; this
    page only says how the membership stands. `#gezin-pagina` is what a good
    answer replaces. #}
+{# Inside the account layout (CR-22, #1723): the menu of the account pages on
+   the left with "Mijn gezin" marked — the one macro of S3, as Mijn gegevens.
+   What an answer replaces stays inside it. #}
+{% call pub.account_page(_("Mijn gezin"), member_nav, "/leden/gezin", heading=False) %}
 <div id="gezin-pagina">
 {% set group = page.group %}
 {% set _edit = page.edit %}
@@ -41,6 +46,7 @@
 </div>
 {% endcall %}
 </div>
+{% endcall %}
 {# The toast lands in the shell's host, outside what the answer replaces. #}
 {% if page.saved %}{{ ui.toast_oob() }}{% endif %}
 {% endblock %}
