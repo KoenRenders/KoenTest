@@ -1,10 +1,10 @@
 # Change Request 24 — Rights, part 1: the code asks for a right, a role is a bundle
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** opened on 7 October 2026 · Part A written, Part B drafted, Part C to come · nothing is built; not on a release
+**Status:** opened on 7 October 2026 · Parts A, B and C written; B8 empty; ready for the build read · nothing is built; not on a release
 **Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** auth (roles, rights, the gates), every back-office route's gate; part 2 is CR-25 (the back office: menu, Bestuur, workbench, business partners)
-**Reading:** A <n> words · B <n> · C <n> — measured with the word count per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 766 words · B 1 728 (the decisions log excluded) · C 1 775 — measured on 7 October 2026 without drawings and notes; the budget is A ≤ 1 500, B ≤ 2 500: A is over by 266, mostly the moved and Won't rows of A6
 
 ---
 
@@ -526,7 +526,7 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 
 ## C1. Verified premises — measured before the handover
 
-*Measured on master `f731a836`, 7 October 2026, before Part B is written; re-measured on the handover commit before assignment.*
+*Measured on master `f731a836`, 7 October 2026, before Part B is written. **Re-measured on master `1b3237b1`** the same day, before the build read: call sites (definitions, imports and tests excluded) `require_admin_ui` 232, `get_current_admin` 80, `require_finance_ui` 14, `require_platform_operator_ui` 11, `require_finance_mutation` 7, `get_current_finance` 4, `get_finance_or_admin` 4, `require_operator_ui` 2 — 354 gate calls, plus the `may_*`/`admits_admin_ui` questions; 31 role-name literals in application code. The table below stands; its counts are those of `f731a836`.*
 
 **Readers of the concepts this change alters**
 
@@ -570,6 +570,16 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 > *follows. "Reporting — none: no view reads these columns" is a subsection*
 > *too.*
 
+| Module | What must happen | Reads |
+|---|---|---|
+| **auth** | `Right` (`CodeEnum`) with the codes of B1 and a code list `auth.right_codes` + `auth.right_labels` (nl, en); `auth.role_rights` (`role_code` FK `auth.role_codes`, `right_code` FK `auth.right_codes`, PK both); the four role codes with labels; the label of FINANCE becomes "Boekhouding" / "Accounting". `rights_of(db, email) -> set[Right]` beside `get_user_roles` (`auth/service.py:93`), same workspace rule (#963), one query joining `user_roles` and `role_rights`, cached on the request. `require_right(code)` returns a dependency for screens with the behaviour of `_require_ui_roles` (`auth/session.py:135`: 303 to `/aanmelden?terug=` for a plain GET, 401 otherwise, 403 "Geen toegang"); `require_right_api(code)` the same for the bearer token of `get_current_admin`. `may(db, email, right)` replaces `may_view_payments`, `may_mutate_payments`, `may_use_admin_assistant`, `admits_admin_ui`. The landing (`auth/service.py:75-90`) asks rights with the same outcome: `workbench.use` and any right but the payment ones → `/admin/werkbank`; only `payment.view` → `/admin/betalingen`; else as today. Beheer › Gebruikers lists the role codes from the code list in `sort_order` (`_gu_rollen_velden.html`). Exported through `auth/api.py`. | `auth/session.py`, `auth/service.py`, `auth/codes.py`, `auth/admin_ui.py`, `auth/users.py` |
+| **every domain with a back office** | each `Depends(require_admin_ui)`, `require_finance_ui`, `get_current_admin`, `get_current_finance`, `get_finance_or_admin`, `require_finance_mutation`, `require_operator_ui`, `require_platform_operator_ui`, `require_roles(...)` becomes `require_right(Right.…)` / `require_right_api(Right.…)` with the right of B1 for that domain: activities, forms, cms, media, designstudio, newsletter, meetings, reporting, chatbot, mdm and membership (`party.masterdata`), payment (`payment.view` to look, `payment.manage` to change), workflow (`workbench.use`), mail and `app/ui` (`settings.manage`, the platform screens `platform.manage`), auth's user screens (`user.manage`). | C1 counts per domain |
+| **ui (`app/ui/__init__.py`)** | the admin menu (`admin_nav`, lines 858-900 on `f731a836`) shows an item when the user holds its right; the header link to the back office asks `may(…, workbench.use)` or any right. | |
+| **workflow** | unchanged: tasks keep `required_role` (D4); the workbench screen's gate becomes `workbench.use`. | `workflow/ui.py:114, 130, 226` |
+| **reporting** | unchanged: `reporting.universe.Role` is its own enum (Non-goal). | |
+| **migration** | one: right codes and labels, the four role codes and labels, FINANCE's label, `role_rights` rows for ADMIN, FINANCE, OPERATOR, MASTERDATA, PRICING, SALES, STOCK as B1. Idempotent. | |
+| **docs** | `docs/rollen-en-rechten.md` rewritten from the bundles (F4); `docs/code-style.md` gets the rule of B7. | |
+
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
 
 > [!NOTE]
@@ -585,6 +595,14 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 > *(C2). A "yes" points at the section that handles it. The next*
 > *thing that gets missed becomes the next row.*
 
+| Concern | This change |
+|---|---|
+| **Visitors and tenants** | board user with a person and without one: same screens as before (T1). FINANCE-only: payments as before, now the workbench (Q11). OPERATOR without an ADMIN row: everything, platform included. Signed in at another workspace: roles and so rights per workspace (T2). Member, account, guest: no back-office role, no right, unchanged. Tenant with members, company, platform: the same bundles everywhere; a right whose module is off still finds its route answering 404, as today. |
+| **Order inside a transaction** | none: no mail, no event, no job is started. |
+| **Caching** | rights are read once per request; a role assigned in Beheer › Gebruikers applies at the user's next request. |
+| **Translations** | right labels in nl and en; role labels for the four roles in nl and en. |
+| **API keys** | `require_api_key` is not a role gate and stays as it is. |
+
 ## C4. Detailed decisions — one subsection each, with the reasons
 
 > [!NOTE]
@@ -592,12 +610,29 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 > *reasons, the alternatives weighed and the measurements that decided*
 > *them. B1 names the decision; this is where a builder reads why.*
 
+### C4.1 The before-and-after list (F1, R7)
+
+Before any gate is touched, a test walks `app.routes`, finds every route's gate dependency and asks it, for a user holding exactly one role (ADMIN, FINANCE, OPERATOR, ACCOUNT_ADMIN, none), whether it admits; the result — route, method, the set of roles admitted — is written to a committed snapshot. That commit is the first of the build. After the conversion the same test computes the set from the bundles and compares; the only allowed difference is `workbench.use` for FINANCE (Q11), listed in the test by name. This is what makes ≈ 380 mechanical edits safe: a wrong right on one route shows as one line of difference.
+
+### C4.2 Fail closed
+
+`require_right` with a code that no bundle contains refuses everyone but OPERATOR's bundle if OPERATOR holds it — never admits by default. A route without a gate stays as it is today (public); the snapshot lists public routes too, so a gate removed by mistake shows.
+
+### C4.3 Why not keep the old names as aliases
+
+D3: an alias `require_admin_ui = require_right(…)` would leave 280 places saying "admin" and mean a bundle; part 2 changes what ADMIN holds, and every such line would then lie. The rename is mechanical and the snapshot proves it.
+
 ## C5. Privacy and security — the mechanics behind A7
 
 > [!NOTE]
 > *How A7's privacy and security answers are implemented: what leaves the*
 > *system to whom, what is sanitised, what is logged, which route answers*
 > *what to whom.*
+
+- The right is computed from `user_roles` of the active workspace plus the platform rows (`tenant_id` NULL), exactly as `get_user_roles` does (#963): a right in workspace A is not a right in B (T2).
+- `payment.manage` stays narrower than `payment.view` (#83): ADMIN does not hold it (T1 shows it).
+- The 403 page and the 303 to sign-in are the existing ones; no information about which right was missing is shown to the user.
+- No personal data moves; the one widening is the workbench for FINANCE, filtered by role (#674).
 
 ## C6. Tests — what the build must prove
 
@@ -611,6 +646,18 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 > *existing test says so, and why that is plausible. A test and a section of*
 > *this document that contradict each other are a finding: CR-14's B5 said a*
 > *spent link answers 404 while its test 3 expected "al ingevuld".*
+
+| T | What it proves | Becomes red when |
+|---|---|---|
+| T1 | The before-and-after list per route equals the snapshot, the FINANCE workbench being the one named difference (C4.1) | one route gets a wrong right, or loses its gate |
+| T2 | A user with MASTERDATA in workspace A holds no right in workspace B | rights are computed across workspaces |
+| T3 | The role set is the eight codes with their labels; FINANCE reads "Boekhouding" | a code or a label is missing |
+| T4 | MASTERDATA alone opens persons, households, memberships and changes them; is refused activities, payments, settings | the bundle is wrong |
+| T5 | The gate of C7: no role-named gate function exists; role literals in application code do not grow | an old gate returns, or a role name is used in logic |
+| T6 | Landing per role: ADMIN → werkbank, FINANCE-only → betalingen, OPERATOR → werkbank, none → as today | the landing changed |
+| T7 | `docs/rollen-en-rechten.md` matches the bundles | the document drifts |
+
+The tests that guard the old behaviour (C1) are updated in the same change, not deleted: the role-set gates take the eight codes (B4), the finance and per-workspace tests ask rights.
 
 ## C7. The gate — what refuses a deviation from now on
 
@@ -632,12 +679,16 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 > *rule cheap to follow: for a new case it spells out the steps and fails on*
 > *the one that was forgotten, with the name of the missing piece.*
 
+`tests/test_rights_gate.py`: (1) **hard** — no function named `require_admin_ui`, `require_finance_ui`, `get_current_admin`, `get_current_finance`, `get_finance_or_admin`, `require_finance_mutation`, `require_operator_ui`, `require_platform_operator_ui`, `require_roles`, `admits_admin_ui`, `may_view_payments`, `may_mutate_payments`, `may_use_admin_assistant` exists or is imported in `backend/app`; message: "Gate on a right (`require_right`), not on a role — CR-24". (2) **ratchet** — string literals `"ADMIN"`, `"FINANCE"`, `"OPERATOR"`, `"ACCOUNT_ADMIN"` in `backend/app` outside `auth/codes.py`, `auth/models.py` and migrations, counted against a baseline that may only shrink (31 on `1b3237b1`, minus what this change removes). Proven additively: add a function `require_admin_ui` in a scratch module and a literal `"ADMIN"` in a template condition; both checks fail with their message; remove.
+
 ## C8. Prototype findings — what was measured before the build
 
 > [!NOTE]
 > *What was learnt from prototypes and spikes before the build:*
 > *measurements, refusals, things that did not work, the sizes and times*
 > *that decided a choice in B1.*
+
+No prototype. **The rule against the existing suite** (template step C8): the tests in C1 that name roles or gates will turn red by design; the build updates them in the same commit as the gate they cover, and T1's snapshot is taken before any of them is touched.
 
 ## C9. Screens before the build — the concepts the approver saw
 
@@ -650,6 +701,8 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 > *screen is not assigned without this row. Two of CR-14's four follow-ups*
 > *at the HDEV validation were visible on a drawing: a question block that*
 > *looked different from the form, a button named after the domain.*
+
+No concepts: the one visible change is four more checkboxes and a label in Beheer › Gebruikers, built with the existing fields (`_gu_rollen_velden.html`).
 
 ## C10. Close-out at the release
 
