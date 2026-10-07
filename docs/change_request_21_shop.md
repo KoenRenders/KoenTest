@@ -30,7 +30,7 @@ flowchart LR
     bq -- no --> b1
     b3[Transfer the amount]
   end
-  subgraph Seller["Seller (Koen)"]
+  subgraph Seller["Seller (a volunteer)"]
     s1[Bring sizes to try] --> s2[Hand over the garment] --> s3[Mail the price and account number]
   end
   subgraph Treasurer
@@ -73,6 +73,66 @@ Not measured: how many garments are sold per year, how many are in stock, and wh
 > *of a button, a page title, a tile label, a menu item — one short list,*
 > *"what it says on the screen", in the user's language and never the*
 > *domain's pet word.*
+
+```mermaid
+flowchart LR
+  subgraph Buyer
+    b0((Needs a garment)) --> b1[Fill the basket] --> b2[Order and choose how to pay]
+    b3[Try the garment on] --> bq{Fits?}
+    b4[Transfer the amount]
+  end
+  subgraph Verkoop
+    s1[Bring sizes to try]
+    s2[Change the order]
+    s3[Register the delivery]
+    s4[Remind or cancel] --> se2((Cancelled))
+  end
+  subgraph Boekhouding
+    t1[Check the account] --> tq{Money in?}
+  end
+  subgraph Portal
+    p1[Reserve the articles] --> pq{How paid?}
+    pq -- transfer --> p3[Open a task for Boekhouding]
+    p2[Record the payment]
+    p4[Lower the stock] --> pe((Delivered))
+  end
+  b2 -.-> p1
+  pq -- online, paid --> p2
+  pq -- online, failed or hanging --> s4
+  p3 -.-> t1
+  b4 -.-> t1
+  tq -- yes --> p2
+  tq -- not yet paid --> s4
+  s4 -. reminder .-> b4
+  p1 -.-> s1
+  s1 -.-> b3
+  bq -- no --> s2 --> p1
+  bq -- yes --> s3 --> p4
+```
+
+*What to see: the portal now holds what the e-mail and the Excel list held — the order, the reservation, the price and the open payment — and the treasurer's chase becomes a task that reaches Verkoop only when Boekhouding says the money is not there.*
+
+What changes against A2, one line each:
+
+- **Asking for a size** becomes filling a basket in the Webshop: the buyer sees what exists, in which size, at what price (pain 1).
+- **The mail with price and account number** disappears: the portal shows the amount and the structured communication, as for a registration (pain 4, pain 5).
+- **The stock** is in the portal: reserved at the order, lowered at delivery (pain 3).
+- **The Excel list** disappears: an unpaid transfer is a task on the workbench, first Boekhouding, then Verkoop (pain 6, R18).
+- **Trying on and exchanging** stay by agreement, outside the portal; a change of size changes the order and the money follows it (R15, R16).
+- **Bringing sizes** still depends on a volunteer (pain 2): the portal shows what is reserved, it does not deliver.
+
+| # | Step | Who | Tool | What changed |
+|---|---|---|---|---|
+| 1 | Fill the basket, order, choose online or transfer | Buyer | Webshop | was: ask by word of mouth |
+| 2 | Reserve the articles | Portal | — | new: what is reserved cannot be sold again (R13) |
+| 3 | Pay online, or transfer with the structured communication | Buyer | Mollie, own bank | was: free-text transfer after a mail |
+| 4 | Check the account and book the transfer | Boekhouding | workbench task, bank | was: the Excel list; the task is due in 14 days and turns red after (R18, Q38) |
+| 5 | Remind the buyer or cancel the order | Verkoop | workbench task | new: only when Boekhouding says "not yet paid", or an online payment failed (R17, R18) |
+| 6 | Bring sizes, try on, change the order | Verkoop, Buyer | Verkoop screen | the order and the money follow the change (R15, R16) |
+| 7 | Register the delivery, per line | Verkoop | Verkoop screen | new: the stock goes down here (R21) |
+| 8 | Book a receipt from the supplier, correct the stock | Voorraadbeheer | Voorraadbeheer screen | new (R36, R37) |
+
+Step 8 has no place in the drawing: it is not part of a sale.
 
 **What it says on the screen** (Koen, 6 October 2026):
 
