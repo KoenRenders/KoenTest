@@ -184,6 +184,14 @@ No benefit carries a figure: the volumes were deliberately not measured (A2). Th
 > *afterwards, for whom, in which form? If so, it is a requirement in A6; if*
 > *not, A6 says so in one row.*
 
+| Material | Where it lives | What it taught us |
+|---|---|---|
+| The size chart that came with the delivery of the garments | with Koen; uploaded per product in Productbeheer, never in the repository | a buyer chooses a size from the supplier's own chart, so a product carries documents next to its pictures (R3) |
+| The Excel list of open sales | with the treasurer; holds names and amounts, so it stays outside the repository | the open sales are followed apart from the bank and the mails (pain 6); the workbench task replaces it (R18), nothing is imported from it |
+| Pictures of the garments | none supplied yet; taken when the products are entered | one to four per product (R3) |
+
+**Reporting need.** None asked beyond what the screens show: the orders with their statuses (R34), the stock per location (R7) and the open tasks on the workbench (R18). No export, no printed list, no figure for the board; stock value is Won't (R8). If one is wanted, it becomes a requirement in A6.
+
 ## A6. Business requirements — what the board asks, with MoSCoW
 
 > [!NOTE]
@@ -245,10 +253,10 @@ and deliberately not done — recorded so it is not asked again).
 
 | Concern | This change |
 |---|---|
-| **Security** — who may do what; new inputs from outside; secrets | … |
-| **Privacy** — personal data: what, where, who sees it, what leaves the system | … |
-| **House style / UI norm** — `docs/design-system.md`; brand rules | … |
-| **Multi-tenant** — what differs per unit, what is platform-wide | … |
+| **Security** — who may do what; new inputs from outside; secrets | Each back-office screen is reached through its role only — Masterdata, Prijsbeheer, Verkoop, Voorraadbeheer, Boekhouding (R4, R19) — and ADMIN sees all (CR-24). The new inputs from outside are the basket and the order: the price and the amount are always computed by the portal, never taken from what the buyer's browser sends; the reservation decides whether an article can still be ordered. A buyer sees and cancels only their own orders (R23). Online payment uses the existing Mollie flow, under its existing rule that the status always comes from Mollie. No new secrets. |
+| **Privacy** — personal data: what, where, who sees it, what leaves the system | The buyer's data are those of a registration — name, e-mail, mobile — plus what they ordered and paid. Verkoop and Boekhouding see them, and ADMIN; Masterdata, Prijsbeheer and Voorraadbeheer see products, prices and stock, not buyers. What leaves the system is what leaves for a registration: the payment to Mollie and the confirmation mail (R38). The basket lives in the buyer's browser and holds no personal data. Nothing new is kept longer than an order. |
+| **House style / UI norm** — `docs/design-system.md`; brand rules | The Webshop is a public page in the site shell, the back-office screens in the admin shell; both follow `docs/design-system.md` and are looked at on a phone (390 px). Screen words are the Dutch words of A3. Pictures and the size chart are shown as the media of the portal are today. |
+| **Multi-tenant** — what differs per unit, what is platform-wide | Products, prices, stock, locations, orders and roles are per tenant (R5): a tenant sees only its own (AC17). The shop is a module a tenant switches on, and works for a tenant without members — a company — as well. What is platform-wide: the module itself, the order statuses and the payment words. |
 
 ## A8. Acceptance criteria — what the business signs off on HDEV
 
@@ -706,6 +714,7 @@ Standards checked: UBL 2.1 (`Catalogue`, `Order`, `DespatchAdvice`, `InventoryRe
 | Q42 | 7 Oct 2026 | How does new stock come in: with the correction of R36, or as a receipt of its own? (Claude proposed a receipt) | A receipt of its own. (Koen) |
 | Q43 | 7 Oct 2026 | MoSCoW: all proposed Musts confirmed, R23 (the buyer cancels himself) too? (Claude) | "Kies maar, we gaan het toch bouwen" — the screen exists, so it is no extra work: Must. The other Musts stand as proposed. (Koen) |
 | Q44 | 7 Oct 2026 | (Koen, on A3) Does the system not send a mail, as with an activity registration? | Yes: a confirmation mail with the transfer instructions, as the registration mail does today; A3 said only that the portal shows them, and is corrected (R38). (Claude, measured) |
+| Q45 | 7 Oct 2026 | AC17: is there a second tenant on HDEV to test that tenants do not see each other's products? (Claude) | Yes. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
