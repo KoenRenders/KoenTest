@@ -110,6 +110,7 @@ What changes, one line each:
 | link and button on the sign-in screen | **Account aanmaken** |
 | sign-in button | **Inloggen** (unchanged) |
 | hint above the registration form | *"Heb je een account of ben je lid? Log je eerst aan."* |
+| icons of the account menu | Mijn Raak Millegem: `house` · Mijn gegevens: `user` (new in the kit) · Mijn gezin: `users` (as Leden in the back office) · Mijn inschrijvingen: `calendar-days` (as Activiteiten) · later Mijn aankopen: `shopping-bag` (new) · Uitloggen: `log-out` — one meaning per glyph (#1535) (Q38) |
 | a pending address | *wacht op bevestiging* |
 | who registered, on a household's registration | *ingeschreven door [first name]* — only where a household is shown (Q37) |
 | screen after asking a code or making an account | *"We stuurden een code naar dit adres."* — the same in every case |
@@ -563,7 +564,7 @@ The five functions leave `DUTCH_IDENTIFIERS` (`tests/rules_baseline.py`), as the
 
 ### app/ui
 - **Screens:** new `account_ui.py` with `/mijn` (Mijn Raak Millegem): greeting with the first name; for a member the membership card from `membership.api` (R26); the latest registration (and later purchase) only when there is one, with the transfer instructions when it is still to be paid by transfer (R27); the links to each item at the bottom; the menu without a heading, its first item the landing page itself. Desktop: menu on the left, content on the right; phone: no menu on the page, the account menu in the drawer (`site_base.html:241-246`).
-- **Code:** `account_nav(gebruiker)` — "Mijn gegevens" plus `_public_nav("member_items")` filtered by what applies (Mijn gezin only with a household); `_site_account.html` shows it for every signed-in person, not only `is_member`. The title is "Mijn " + `site_name` (`tenant_display_name`, `ui/__init__.py:1291`) — *Mijn Raak Millegem* (Q32); it may wrap, never truncate, at 390 px.
+- **Code:** the icon of a menu item comes with the item: `member_items` in `kernel/modules.py` gains an icon per entry (membership: `users`; activities: `calendar-days`), the shell's own items carry theirs (`house`, `user`), and `_site_account.html:18` stops drawing `house` for every item; the kit's `icon` macro gains `user` and, for CR-21, `shopping-bag` (Q38). `account_nav(gebruiker)` — "Mijn gegevens" plus `_public_nav("member_items")` filtered by what applies (Mijn gezin only with a household); `_site_account.html` shows it for every signed-in person, not only `is_member`. The title is "Mijn " + `site_name` (`tenant_display_name`, `ui/__init__.py:1291`) — *Mijn Raak Millegem* (Q32); it may wrap, never truncate, at 390 px.
 - **Tests:** T9, T14.
 
 ### payment
@@ -744,6 +745,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | Q35 | 7 Oct 2026 | No heading above the menu; "Mijn Raak Millegem" as first item and page title? (Claude) | Yes. (Koen) |
 | Q36 | 7 Oct 2026 | Does a new address also get confirmed through the link in the mail? (Koen) | Yes: link and code, one token, as the sign-in mail today. (Claude, on the measured sign-in mail) |
 | Q37 | 7 Oct 2026 | Keep "ingeschreven door An" on a household's registrations? (Claude) | Yes. (Koen) |
+| Q38 | 7 Oct 2026 | (Koen, on the drawer) Other icons: a person for Mijn gegevens, the back office's for Mijn gezin, something for activities on Mijn inschrijvingen. | Mijn gegevens `user`, Mijn gezin `users`, Mijn inschrijvingen `calendar-days`, the landing page `house`; each item brings its own icon. (Koen, Claude) |
 | Q27 | 7 Oct 2026 | For a member, may name and e-mail be edited on the own page as well as in "Mijn gezin" (a), or read-only there (b)? (Claude) | These are attributes of a person, so edit functions on a person are needed anyway; in a household the repeating group is a natural person, including its relation to the household. (Koen) — read as (a) with one person component. |
 
 ## Non-goals — deliberately outside this change
