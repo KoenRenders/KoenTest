@@ -1,7 +1,7 @@
 # Change Request 24 — Rights, part 1: the code asks for a right, a role is a bundle
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** opened on 7 October 2026 · Part A in progress · nothing is built; not on a release
+**Status:** opened on 7 October 2026 · Part A written, Part B to come · nothing is built; not on a release
 **Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** auth (roles, rights, the gates), every back-office route's gate; part 2 is CR-25 (the back office: menu, Bestuur, workbench, business partners)
 **Reading:** A <n> words · B <n> · C <n> — measured with the word count per part; A ≤ 1 500, B ≤ 2 500
@@ -37,6 +37,34 @@ Today a screen checks role names: `require_admin_ui` lets ADMIN and OPERATOR in,
 > *Level 1 stops there on purpose. Under every drawing, one line that says*
 > *what to see in it.*
 
+```mermaid
+flowchart LR
+  subgraph Board["Board (ADMIN)"]
+    a1[Ask for a new kind of work] --> a2[Wait for a release]
+  end
+  subgraph Operator
+    o1[Tick roles per user and workspace]
+  end
+  subgraph Portal
+    p1{Role name ADMIN or OPERATOR?} -- yes --> p2[Open the screen]
+    p1 -- no --> p3[Refuse]
+  end
+  subgraph Developer
+    d1[Edit the gates by hand] --> d2[New role in the code]
+  end
+  a1 -.-> d1
+  d2 -.-> a2 -.-> o1 -.-> p1
+```
+
+*What to see: every screen asks for a role by name, so a new kind of work is a code change, not a setting.*
+
+| # | Step | Who | Tool | Pain |
+|---|---|---|---|---|
+| 1 | Assign roles to a user, per workspace | Operator, ADMIN | Beheer › Gebruikers | four roles only: ADMIN, FINANCE, OPERATOR, ACCOUNT_ADMIN (unused) |
+| 2 | Open a back-office screen | every user | the portal | the screen asks "ADMIN or OPERATOR?": ADMIN may change nearly everything; FINANCE sees only payments |
+| 3 | Add a kind of work (the webshop's four roles) | developer | the code | ≈ 380 gates name roles; every new role means editing them by hand (C1) |
+| 4 | Read who may do what | anyone | `docs/rollen-en-rechten.md` | already stale on master (C1) |
+
 ## A3. To-be process — how it should work afterwards
 
 > [!NOTE]
@@ -51,6 +79,38 @@ Today a screen checks role names: `require_admin_ui` lets ADMIN and OPERATOR in,
 > *"what it says on the screen", in the user's language and never the*
 > *domain's pet word.*
 
+```mermaid
+flowchart LR
+  subgraph Board["Board (ADMIN)"]
+    a1[Ask for a new kind of work]
+  end
+  subgraph Operator
+    o1[Tick roles per user and workspace]
+  end
+  subgraph Portal
+    p1{Does one of the user's roles hold the right?} -- yes --> p2[Open the screen]
+    p1 -- no --> p3[Refuse]
+  end
+  subgraph Developer
+    d1[Add a right and a bundle]
+  end
+  a1 -.-> d1 -.-> o1 -.-> p1
+```
+
+*What to see: the screen asks for a right; a role is a bundle of rights. For the users nothing changes on the day itself (R7); the Gebruikers screen offers four more roles.*
+
+- Step 2 changes inside the portal only: the same people open the same screens.
+- Step 3 becomes "add a right, put it in a bundle": a gate is never edited for a new role again.
+- Step 4 is rewritten from the bundles, so it can no longer drift from the code.
+
+**What it says on the screen**
+
+| Where | Word |
+|---|---|
+| Beheer › Gebruikers, the roles to tick | Beheerder (ADMIN) · **Boekhouding** (FINANCE; today's label Penningmeester, renamed by decision — a label, not a reach) · OPERATOR · **Masterdata · Prijsbeheer · Verkoop · Voorraadbeheer** |
+
+The labels come from the code list `auth.role_labels` (`auth/codes.py:18-19`, measured on master `25c74f60`).
+
 ## A4. Benefits — what the change earns
 
 > [!NOTE]
@@ -63,6 +123,14 @@ Today a screen checks role names: `require_admin_ui` lets ADMIN and OPERATOR in,
 > *solution can name does not belong here. Set against the cost of B5, this*
 > *is what says whether the change is worth doing, and when.*
 
+| # | Benefit | Figure |
+|---|---|---|
+| 1 | The webshop's roles exist, so CR-21 can be built on them | four roles |
+| 2 | Member administration can be given to someone who is not the board: Masterdata manages persons, households and memberships without being ADMIN | — |
+| 3 | A new kind of work costs a right and a bundle, not ≈ 380 gates edited by hand | ≈ 380 gates (C1) |
+| 4 | Part 2 (Bestuur, the redistribution of work) becomes a change of bundles and assignments, not of code | — |
+| 5 | Who may do what is written in one place, readable, and no longer drifts | — |
+
 ## A5. Supplied material — and what it taught us
 
 > [!NOTE]
@@ -74,6 +142,13 @@ Today a screen checks role names: `require_admin_ui` lets ADMIN and OPERATOR in,
 > *reporting need: must something be counted, listed, exported or printed*
 > *afterwards, for whom, in which form? If so, it is a requirement in A6; if*
 > *not, A6 says so in one row.*
+
+| Material | Where | What it taught us |
+|---|---|---|
+| `docs/rollen-en-rechten.md` | the repository | stale on master in five places (C1); this change rewrites it from the bundles |
+| Koen's description of the roles, 7 October 2026 | this chat, B9 | the end state is part 2 (CR-25); part 1 is the mechanism and the shop's roles |
+
+**Reporting need:** none.
 
 ## A6. Business requirements — what the board asks, with MoSCoW
 
@@ -108,10 +183,10 @@ and deliberately not done — recorded so it is not asked again).
 
 | Concern | This change |
 |---|---|
-| **Security** — who may do what; new inputs from outside; secrets | … |
-| **Privacy** — personal data: what, where, who sees it, what leaves the system | … |
-| **House style / UI norm** — `docs/design-system.md`; brand rules | … |
-| **Multi-tenant** — what differs per unit, what is platform-wide | … |
+| **Security** — who may do what; new inputs from outside; secrets | This *is* access control: every gate is rewritten, so every gate is tested before and after with the same users (R7). A user without a right is refused as today. No new input from outside, no secrets. |
+| **Privacy** — personal data: what, where, who sees it, what leaves the system | Nobody sees more than today (R7). Masterdata is a new role that reads and changes persons, households and memberships — given only to whom a board chooses. Nothing leaves the system. |
+| **House style / UI norm** — `docs/design-system.md`; brand rules | One visible change: four more roles to tick in Beheer › Gebruikers, with their Dutch names. |
+| **Multi-tenant** — what differs per unit, what is platform-wide | Roles stay per workspace, as today (#963). The bundles are the same in every workspace; composing them per workspace is for later (R14). OPERATOR stays platform-wide. |
 
 ## A8. Acceptance criteria — what the business signs off on HDEV
 
@@ -123,7 +198,13 @@ and deliberately not done — recorded so it is not asked again).
 
 | # | Criterion | Requirement | Walkthrough steps |
 |---|---|---|---|
-| AC1 | … | R1 | … |
+| AC1 | A user with ADMIN opens, changes and is refused exactly what he could before the release, checked on a list of screens one per menu group. | R7 | B2, to come |
+| AC2 | A user with only Boekhouding sees and confirms payments as before, and is refused the activity and member screens as before. | R7 | B2, to come |
+| AC3 | An Operator reaches everything as before, the platform screens included. | R7 | B2, to come |
+| AC4 | In Beheer › Gebruikers, the four new roles can be ticked per workspace. | R4 | B2, to come |
+| AC5 | A user with only Masterdata manages persons, households and memberships, and is refused activities, payments and settings. | R5, R13 | B2, to come |
+| AC6 | A user with only Prijsbeheer, Verkoop or Voorraadbeheer reaches no existing back-office screen (their screens come with CR-21). | R4, R7 | B2, to come |
+| AC7 | `docs/rollen-en-rechten.md` matches what AC1–AC6 showed. | R3 | B2, to come |
 
 ---
 
