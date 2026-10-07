@@ -689,9 +689,9 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | `/mijn` Mijn Raak, desktop and 390 px | greeting, membership card (member), latest registration with transfer instructions, links at the bottom, menu left without heading (desktop) | Koen, 7 Oct 2026 — approved after Q33–Q35 |
 | `/mijn/gegevens`, account and member | the person block; for a member the line to Mijn gezin; a pending address | Koen, 7 Oct 2026 — approved (described; labels per #1692) |
 | `/mijn/inschrijvingen` | one card per registration with payment badge, "ingeschreven door …" for a household, the transfer block when due; the empty state | Koen, 7 Oct 2026 — approved |
-| the drawer at 390 px | the account menu with the three items | — |
+| the drawer at 390 px | the site pages, then the account menu with its own icon per item (Q38) | Koen, 7 Oct 2026 — approved with the icons of Q38 |
 | the registration form's hint | the new words | — |
-| `/admin/personen` | the table, the filter, the delete confirmation | — |
+| `/admin/personen` | the list with search and the filter "Zonder gezin", badges account / gezin, Verwijderen behind ⋯, the confirmation naming the household | Koen, 7 Oct 2026 — approved |
 
 ## C10. Close-out at the release
 
