@@ -68,12 +68,13 @@ def test_on_a_phone_the_drawers_account_menu_reaches_every_page(browser):
     page.locator("#site-nav-mobiel").wait_for(state="visible")
     items = page.evaluate(ITEMS, "[data-drawer-account]")
     print("MEASURE drawer account items", items)
-    assert [i["href"] for i in items] == ["/mijn", "/leden/gezin"], items
-    assert items[0]["text"].startswith("Mijn ") and items[1]["text"] == "Mijn gezin"
+    assert [i["href"] for i in items] == ["/mijn", "/mijn/gegevens", "/leden/gezin"], items
+    assert items[0]["text"].startswith("Mijn ")
+    assert [i["text"] for i in items[1:]] == ["Mijn gegevens", "Mijn gezin"]
     assert all(i["shown"] and i["h"] >= 44 for i in items), items
     # One glyph per meaning: the two items do not draw the same icon.
-    assert items[0]["icon"] and items[1]["icon"] and items[0]["icon"] != items[1]["icon"], items
-    for href in ("/mijn", "/leden/gezin"):
+    assert all(i["icon"] for i in items) and len({i["icon"] for i in items}) == 3, items
+    for href in ("/mijn", "/mijn/gegevens", "/leden/gezin"):
         page.goto("/")
         pagina_klaar(page)
         page.locator("[data-menu-button]").click()
@@ -96,7 +97,9 @@ def test_on_a_phone_the_page_shows_no_menu_and_links_at_its_bottom(browser):
     assert m["title"][0].startswith("Mijn ") and m["title"][1] and m["title"][2] != "ellipsis", m[
         "title"
     ]
-    assert m["links"] and [href for href, _h in m["links"]] == ["/leden/gezin"], m["links"]
+    assert m["links"] and [href for href, _h in m["links"]] == ["/mijn/gegevens", "/leden/gezin"], (
+        m["links"]
+    )
     assert all(h >= 44 for _href, h in m["links"]), m["links"]
     assert m["page"][0] == m["page"][1]
     page.locator('[data-account-links] a[href="/leden/gezin"]').click()
@@ -117,7 +120,7 @@ def test_on_a_desktop_the_menu_stands_left_of_the_content(browser, width):
     assert m["content"][0] == m["main"] + 240 + 32, m
     rest = width - 2 * m["main"] - 240 - 32
     assert m["content"][1] == min(768, rest), f"the content is {m['content'][1]} px of {rest}"
-    assert m["current"] == ["/mijn"] and len(m["rows"]) == 2 and min(m["rows"]) >= 44, m
+    assert m["current"] == ["/mijn"] and len(m["rows"]) == 3 and min(m["rows"]) >= 44, m
     assert m["links"] is None, "the bottom links show on a desktop"
     assert m["card"] and m["title"][1]
     assert m["page"][0] == m["page"][1]

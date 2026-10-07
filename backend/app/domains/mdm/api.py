@@ -38,6 +38,7 @@ from app.domains.mdm.household_save import (  # noqa: F401
     HouseholdSaveRefused,
     PersonRow,
     save_household,
+    save_person,
 )
 from app.domains.mdm.household_service import (  # noqa: F401  # noqa: F401
     ADDED_RELATIONS,
@@ -323,6 +324,7 @@ __all__ = [
     "MainMemberStays",
     "PersonRow",
     "save_household",
+    "save_person",
     "actor_of",
     "MainMemberMobileMissing",
     "PersonDetailsMissing",

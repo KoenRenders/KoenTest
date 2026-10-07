@@ -168,6 +168,61 @@ def save_household(
     return household
 
 
+def save_person(
+    db: Session,
+    person: Person,
+    rows: list[PersonRow],
+    *,
+    actor: Optional[str],
+    errors: Optional[list[FieldError]] = None,
+) -> Person:
+    """Write ONE person's own details — name, mobile number, e-mail rows — in one
+    transaction (Mijn gegevens, CR-22 S6a, #1710); `HouseholdSaveRefused` with
+    nothing written when any part is refused.
+
+    The same helpers as the household's save, so a change here is the change
+    Mijn gezin would make: the person's fields with their history, the mobile
+    row, the e-mail rows. Not asked and not touched: birth date, gender, the
+    telephone number, the relation, the address (R17). `rows` is what the form
+    carried: exactly this person, or the save is refused."""
+    from app.i18n import _
+
+    savepoint = db.begin_nested()
+    found = Refusals(list(errors or []), kinds=(MasterDataError,), passing=(HouseholdSaveRefused,))
+    try:
+        if len(rows) != 1 or rows[0].key != str(person.id):
+            found.add(
+                "",
+                _("Je kan alleen je eigen gegevens bewaren. Herlaad de pagina en probeer opnieuw."),
+            )
+            raise HouseholdSaveRefused(found.found)
+        row = rows[0]
+        at = f"h.{row.key}"
+        values = {"first_name": row.first_name.strip(), "last_name": row.last_name.strip()}
+        missing = _first_missing(row, ("first_name", "last_name"))
+        with found.at(f"{at}.{missing}" if missing else at):
+            hs.apply_person_fields(db, person, values, actor=actor, details_required=False)
+        if not found.touches(at):
+            hs._upsert_contact(db, person, "MOBILE", row.mobile.strip(), actor=actor)
+            _save_emails(db, person, row, actor)
+        if found.found:
+            raise HouseholdSaveRefused(found.found)
+        with found.at(""):
+            db.flush()
+        if found.found:
+            raise HouseholdSaveRefused(found.found)
+    except Exception:
+        try:
+            savepoint.rollback()
+        except InvalidRequestError:
+            pass  # already closed
+        raise
+    savepoint.commit()
+    db.commit()
+    db.refresh(person)
+    return person
+
+
 def _first_missing(row: PersonRow, order: tuple[str, ...]) -> str:
     """The field the person rules refuse first, in the order they ask — so the
     one message they give stands at the field it is about."""

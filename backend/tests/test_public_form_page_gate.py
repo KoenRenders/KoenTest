@@ -46,6 +46,8 @@ EXPECTED = {
     "domains/membership/templates/lid_worden.html",
     "domains/membership/templates/lidmaatschap_vernieuwen.html",
     "domains/membership/templates/household_page.html",
+    # CR-22 S6a (#1710): Mijn gegevens, the person block of Mijn gezin for oneself.
+    "domains/mdm/templates/my_details.html",
 }
 
 #: A page on the frame that SAVES a record instead of sending a form: its bar is
@@ -55,6 +57,10 @@ SAVES = {
     "domains/membership/templates/household_page.html": (
         "Mijn gezin is a record the member keeps: read first, one Opslaan, then read "
         "again (end state §2.6; master CLI, 5 October 2026)"
+    ),
+    "domains/mdm/templates/my_details.html": (
+        "Mijn gegevens is the same record for one person: the person block and the "
+        "save path of Mijn gezin, read first, one Opslaan (CR-22 D6, R16; #1710)"
     ),
 }
 

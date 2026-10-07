@@ -148,7 +148,12 @@ def update_household_person(
 
 
 def apply_person_fields(
-    db: Session, target: Person, new: dict[str, Any], *, actor: Optional[str]
+    db: Session,
+    target: Person,
+    new: dict[str, Any],
+    *,
+    actor: Optional[str],
+    details_required: bool = True,
 ) -> bool:
     """Write these person fields with their history, without committing (#1590:
     shared by `update_household_person` and the save of the whole household).
@@ -158,10 +163,13 @@ def apply_person_fields(
     # #681: judge the outcome — the portal does not always send every field — and
     # judge it before applying anything: a rollback after the change would also
     # throw away everything else in the same session.
-    MemberPerson.require_details(
-        new.get("date_of_birth", target.date_of_birth),
-        new.get("gender_code", target.gender_code),
-    )
+    # `details_required=False`: Mijn gegevens (CR-22 S6a, #1710) writes a name
+    # and asks neither birth date nor gender — those are the household's (R17).
+    if details_required:
+        MemberPerson.require_details(
+            new.get("date_of_birth", target.date_of_birth),
+            new.get("gender_code", target.gender_code),
+        )
 
     # Snapshot only what really changes (#188): a form sends every field, but an
     # unchanged field makes no history row.
