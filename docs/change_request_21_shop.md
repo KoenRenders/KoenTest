@@ -539,7 +539,7 @@ erDiagram
   SALES_ORDER_LINE { int order_id int variant_id int quantity decimal unit_price datetime delivered_at }
 ```
 
-`sales` calls `product`, `pricing`, `stock`, `payment` and `workflow` through their facades and depends on nothing else new; `pricing` and `stock` read `product`; nothing calls `sales` except through events. `payment` does not import `sales`: it learns an order's name, link, filter label and export kind from a describer that `sales` registers (Q48). Placing an order is one transaction — lines, prices, reservations, the payment record, the workflow run — and the mail leaves after the outer commit (`OrderPlaced`). Delivering a line and cancelling an order are each one transaction. The impact on what exists: `payment`'s readers of the payable type, the workbench's task row, the module list and its CHECK, the payable delete gate and the reporting view `f_payments`. The import gate and the layer gate hold: screens read view-models, domains meet in `api.py`.
+`sales` calls `product`, `pricing`, `stock`, `payment` and `workflow` through their facades and depends on nothing else new; `pricing` and `stock` read `product`; nothing calls `sales` except through events. `payment` does not import `sales`: it learns an order's name, link, filter label and export kind from a describer that `sales` registers (Q48, decided). Placing an order is one transaction — lines, prices, reservations, the payment record, the workflow run — and the mail leaves after the outer commit (`OrderPlaced`). Delivering a line and cancelling an order are each one transaction. The impact on what exists: `payment`'s readers of the payable type, the workbench's task row, the module list and its CHECK, the payable delete gate and the reporting view `f_payments`. The import gate and the layer gate hold: screens read view-models, domains meet in `api.py`.
 
 ## B3a. Standards the model follows — and where it deviates, on purpose
 
@@ -661,7 +661,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 
 **The rule:** `payment` never branches on a payable type to describe it; a domain that becomes payable registers a describer (name, link, filter label, export kind), and every screen, export and audit line asks the describers. It goes into `docs/code-style.md` beside the facade rule.
 
-**Reach and baseline:** measured on master `25c74f60`: 33 comparisons with `PayableType.REGISTRATION`/`MEMBERSHIP` in 12 files and 21 `payable_type ==`/`in` tests outside `payment/codes.py`. This change moves the ones that describe a payable (≈ 14, C1) onto the describers; the rest decide behaviour and stay. **Ratchet**: the count may only shrink. If Koen declines the describers (Q48), there is no rule and no gate: every reader learns ORDER by hand, the weaker guarantee the C1 list then has to carry.
+**Reach and baseline:** measured on master `25c74f60`: 33 comparisons with `PayableType.REGISTRATION`/`MEMBERSHIP` in 12 files and 21 `payable_type ==`/`in` tests outside `payment/codes.py`. This change moves the ones that describe a payable (≈ 14, C1) onto the describers; the rest decide behaviour and stay. **Ratchet**: the count may only shrink. Decided by Koen on 7 October 2026 (Q48).
 
 ## B8. Open decisions — what the approver still decides
 
@@ -676,7 +676,6 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 |---|---|---|---|
 | Q39 | Reminding the buyer of an unpaid transfer: a button on Verkoop's task that mails the payment link, or a mail that goes out by itself after some days? **Parked by Koen on 7 October 2026.** | A button on the task: Verkoop already decides per order (Q36), and a mail by itself would also go to a buyer whose transfer Boekhouding has not booked yet. | A button is one action on the task; a mail by itself needs a schedule, a text per tenant and a rule for when it stops. Until decided, Verkoop reminds the buyer outside the portal. |
 | Q47 | What does "rekening laatst nagekeken" on Verkoop's task mean? | Derive it: the later of Boekhouding's latest manual confirmation of a transfer and its latest "nog niet betaald". Nothing new to click. | A button "rekening nagekeken" is exact but is one more thing to remember; derived, a quiet week without transfers reads as "not checked". |
-| Q48 | Describe an order in `payment` through describers that each payable domain registers, or add a third branch at each reader? | Describers (B7): ≈ 14 sites would otherwise each learn ORDER by hand, the "same repair twice" of `AGENTS.md`. | Describers: about one CLI-day more in phase 2, and the next payable (an invoice) is one registration. Branches: cheaper now, fourteen places to forget next time. |
 | Q49 | The module SHOP for a new association: on by default? `DEFAULTS["VERENIGING"]` is "every module", so it would be on for every new association unless excluded. | Off by default for every kind; switched on per tenant. | On: every new association sees an empty Webshop in its menus until it has products. |
 
 ## B9. Decisions log — dated answers
@@ -721,6 +720,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | 7 Oct 2026 | Productbeheer is part of the role Masterdata (CR-24, Q2), which holds `product.masterdata`; Penningmeester is called Boekhouding. **Replaces** the five roles of Q11 in part (Q33). | Koen |
 | 7 Oct 2026 | The expiry of a transfer payment is a workflow of two steps, Boekhouding and then Verkoop, the task moving to Verkoop only when Boekhouding answers "not yet paid", and Verkoop's task shows how recent the information is (when Boekhouding last checked the account). **Replaces** in part Q15: the task for a transfer starts with Boekhouding, not Verkoop; a failed or hanging online payment (R17) stays a task for Verkoop (Q36). | Koen |
 | 7 Oct 2026 | Reading bank statements automatically (CODA, ISO 20022 camt.053) is a change request of its own, CR-27, reserved now and left lying for a while; CR-21 relies on Boekhouding booking transfers by hand (Q37). | Koen |
+| 7 Oct 2026 | `payment` describes a payable through describers that each payable domain registers (name, link, filter label, export kind), instead of a third branch at each reader; a ratchet counts the remaining branches (B7, Q48). | Koen |
 | 7 Oct 2026 | A task past its due date only turns red on the workbench; nobody gets a mail about it (Q38). | Koen |
 | 7 Oct 2026 | Cancelling until delivery is a Must; a return after delivery is out of scope and handled by hand: Sales removes the order and books the refund (Q40). | Koen |
 
@@ -936,6 +936,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | Q44 | 7 Oct 2026 | (Koen, on A3) Does the system not send a mail, as with an activity registration? | Yes: a confirmation mail with the transfer instructions, as the registration mail does today; A3 said only that the portal shows them, and is corrected (R38). (Claude, measured) |
 | Q45 | 7 Oct 2026 | AC17: is there a second tenant on HDEV to test that tenants do not see each other's products? (Claude) | Yes. (Koen) |
 | Q46 | 7 Oct 2026 | Does anyone need a report, an export or a printed list beyond what the screens show? (Claude) | No. (Koen) |
+| Q48 | 7 Oct 2026 | Describe an order in `payment` through describers that each payable domain registers, or add a third branch at each of the ≈ 14 readers? (Claude recommended describers) | Agreed: describers. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
