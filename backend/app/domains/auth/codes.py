@@ -11,7 +11,14 @@ foreign key from any schema towards `auth.role_codes` cannot create a cycle —
 which is what `workflow.workflow_tasks.required_role` needs.
 """
 
-from app.domains.auth.models import Role, RoleCode, RoleLabel
+from app.domains.auth.models import (
+    LoginPurpose,
+    LoginPurposeCode,
+    LoginPurposeLabel,
+    Role,
+    RoleCode,
+    RoleLabel,
+)
 from app.kernel.codes import CodeList, CodeSeed
 
 ROLE_CODES = (
@@ -39,4 +46,23 @@ ROLE = CodeList(
     # foundation domain — the exception of §B2.4, and the reason roles belong
     # in `auth` and not in whichever domain happens to use them.
     fk_from=("auth.user_roles.role_code", "workflow.workflow_tasks.required_role"),
+)
+
+# CR-22 (#1704): what a code sent by mail is for. In `auth` for the reason the
+# roles are: it is vocabulary of signing in, not a description of the world.
+LOGIN_PURPOSE_CODES = (
+    CodeSeed(code="SIGN_IN", nl="Inloggen", en="Sign in", sort_order=10),
+    CodeSeed(code="CREATE_ACCOUNT", nl="Account aanmaken", en="Create account", sort_order=20),
+    CodeSeed(
+        code="CONFIRM_ADDRESS", nl="E-mailadres bevestigen", en="Confirm address", sort_order=30
+    ),
+)
+
+LOGIN_PURPOSE = CodeList(
+    name="login_purpose",
+    schema="auth",
+    codes=LoginPurposeCode,
+    labels=LoginPurposeLabel,
+    enum=LoginPurpose,
+    fk_from=("auth.login_tokens.purpose",),
 )

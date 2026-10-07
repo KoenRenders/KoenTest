@@ -32,6 +32,7 @@ from app.domains.auth.api import (
     require_admin_ui,
     require_csrf,
 )
+from app.domains.mdm.api import EmailAddressInUse
 from app.domains.meetings.api import (
     MEETING_STATUS,
     Attendance,
@@ -442,6 +443,12 @@ def circle_new_person(
             email=person_email,
             organization_id=organization.id,
             on_day=on_day,
+        )
+    except EmailAddressInUse as refusal:
+        # CR-22 (#1704): the address is another person's — its own reason, not
+        # the "fill in a name" below, which this error would otherwise get.
+        return templates.TemplateResponse(
+            request, "_vg_kring.html", _circle_view(request, db, error=str(refusal)).as_context()
         )
     except ValueError:
         return templates.TemplateResponse(

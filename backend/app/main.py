@@ -51,6 +51,7 @@ from app.domains.mail.handlers import (
 from app.domains.mail.router import router as email_log_router
 from app.domains.mail.ui import router as email_log_ui_router
 from app.domains.mdm.account_ui import router as mdm_account_ui_router
+from app.domains.mdm.api import EmailAddressInUse
 from app.domains.mdm.handlers import (  # noqa: F401 - event subscriptions (#1346)
     set_circle_start_when_chosen,
 )
@@ -533,6 +534,22 @@ async def _http_exception_handler(request: Request, exc: StarletteHTTPException)
         if page is not None:
             return page
     return await http_exception_handler(request, exc)
+
+
+@app.exception_handler(EmailAddressInUse)
+async def _email_address_in_use_handler(request: Request, exc: EmailAddressInUse):
+    """CR-22 (#1704): an e-mail address another person already uses is a refusal
+    with its reason, at whichever door it was typed — the answer a form shows
+    under its field or in its message, never the 500 of an unhandled error.
+
+    One handler and not a `try` in every route: the rule has one home (master
+    data's `new_contact_detail`) and ten writers reach it through a dozen
+    doors; a door that forgot its `try` would answer "Interne serverfout" to
+    someone who only typed an address that was taken.
+    """
+    return await http_exception_handler(
+        request, StarletteHTTPException(status_code=422, detail=str(exc))
+    )
 
 
 @app.exception_handler(Exception)

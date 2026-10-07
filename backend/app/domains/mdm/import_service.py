@@ -62,6 +62,7 @@ from app.domains.mdm.change_lines import (
     relation_value,
 )
 from app.domains.mdm.codes import CONTACT, EXTERNAL
+from app.domains.mdm.service import email_refusal
 from app.domains.membership.api import Membership
 from app.kernel.codes import code_of
 
@@ -389,7 +390,14 @@ def _upsert_contact(
 
 
 def _sync_contacts(
-    db: Session, person: Person, row: dict, *, apply: bool, actor: str | None = None
+    db: Session,
+    person: Person,
+    row: dict,
+    *,
+    apply: bool,
+    actor: str | None = None,
+    report: ImportReport | None = None,
+    household_id: int | None = None,
 ) -> list[FieldChange]:
     """The contacts of one person; returns the fields that change (#1308),
     each with the value that stood and the value the report brings (#1687).
@@ -408,6 +416,21 @@ def _sync_contacts(
         ("telefoon", CONTACT.PHONE),
         ("gsm", CONTACT.MOBILE),
     ):
+        # CR-22 (#1704): an address another person outside the household
+        # already uses is not taken over. Reported and skipped — the import does
+        # not stop on one row (the reasoning of `_meld_onvolledig`) — and decided
+        # HERE, before the write, so the preview and the run say the same.
+        if (
+            type_code == CONTACT.EMAIL
+            and row[column]
+            and email_refusal(db, person, row[column], household_id=household_id)
+        ):
+            if report is not None:
+                report.warn(
+                    f"#{row['lidnr']} {row['voornaam']} {row['naam']}: e-mailadres niet "
+                    "overgenomen — al in gebruik door iemand anders."
+                )
+            continue
         change = _upsert_contact(db, person, type_code, row[column], True, apply=apply, actor=actor)
         if change is not None:
             changed.append(change)
@@ -512,7 +535,7 @@ def _create_person(
         gender_code=row["geslacht"],
     )
     if not apply:
-        _report_new_details(db, person, row, pc, report)
+        _report_new_details(db, person, row, pc, report, household_id=getattr(member, "id", None))
         return None
 
     db.add(person)
@@ -532,7 +555,9 @@ def _create_person(
         db, mp, operation="insert", action="person_imported", source=LEGACY_SOURCE, actor=actor
     )
 
-    _report_new_details(db, person, row, pc, report, apply=True, actor=actor)
+    _report_new_details(
+        db, person, row, pc, report, apply=True, actor=actor, household_id=member.id
+    )
     return person
 
 
@@ -545,6 +570,7 @@ def _report_new_details(
     *,
     apply: bool = False,
     actor: str | None = None,
+    household_id: int | None = None,
 ) -> None:
     """A new person's address (head of household only) and contacts: written with
     `apply`, and in either mode reported with the writes they stand for (#1314)."""
@@ -555,7 +581,9 @@ def _report_new_details(
                 f"  + adres #{row['lidnr']}  {row['voornaam']} {row['naam']}  {address.text()}",
                 "address",
             )
-    contacts = _sync_contacts(db, person, row, apply=apply, actor=actor)
+    contacts = _sync_contacts(
+        db, person, row, apply=apply, actor=actor, report=report, household_id=household_id
+    )
     if contacts:
         # A new person: there is nothing these replace, so the new values alone.
         new_only = [FieldChange(c.key, c.label, None, c.new) for c in contacts]
@@ -816,7 +844,15 @@ def _sync_family(
                     f"  ~ adres #{row['lidnr']}  {row['voornaam']} {row['naam']}  {address.text()}",
                     "address",
                 )
-        contacts = _sync_contacts(db, existing, row, apply=apply, actor=actor)
+        contacts = _sync_contacts(
+            db,
+            existing,
+            row,
+            apply=apply,
+            actor=actor,
+            report=report,
+            household_id=None if is_new else member.id,
+        )
         if contacts:
             report.line(
                 f"  ~ contact #{row['lidnr']}  {row['voornaam']} {row['naam']}  "
