@@ -10,7 +10,8 @@ import html
 import re
 from typing import Iterable, Optional
 
-from app.domains.cms.models import CmsPage
+from app.domains.cms import schema as _schema
+from app.domains.cms.models import CmsPage, CmsPageTranslation
 from app.i18n import _
 
 # A picture in a page's text is an `<img src="/api/v1/media/<id>">` (or its
@@ -124,6 +125,15 @@ def create_page(db, data) -> CmsPage:
         sort_order=data.sort_order,
     )
     db.add(page)
+    db.flush()
+    # CR-17 fase 1 (#1671): a new page starts with a translation row in the
+    # tenant's language, its documents derived from the content it was
+    # created with (review C3, #1673) — an empty draft for an empty page.
+    translation = CmsPageTranslation(
+        page_id=page.id, language=_language(db, page), title=data.title
+    )
+    db.add(translation)
+    _derive_documents_from_content(db, page)
     db.commit()
     db.refresh(page)
     return page
@@ -160,14 +170,25 @@ def seed_site_blocks(db, tenant_id: int, name: str) -> None:
     }
     for slug, title, content in blocks:
         if slug not in existing:
+            page = CmsPage(
+                tenant_id=tenant_id,
+                slug=slug,
+                title=title,
+                content=content,
+                is_published=True,
+                show_in_nav=False,
+            )
+            db.add(page)
+            db.flush()
+            # CR-17 fase 1 (#1671): the seed writes the row — the documents
+            # come from the first save or from the migration, exactly like
+            # every other page; the site renders `content` until the readers
+            # move (snede 3).
             db.add(
-                CmsPage(
-                    tenant_id=tenant_id,
-                    slug=slug,
+                CmsPageTranslation(
+                    page_id=page.id,
+                    language=_language(db, page),
                     title=title,
-                    content=content,
-                    is_published=True,
-                    show_in_nav=False,
                 )
             )
     db.flush()
@@ -186,11 +207,56 @@ def update_page(db, page_id: int, data) -> CmsPage:
         for other in db.query(CmsPage).filter(CmsPage.is_home.is_(True)).all():
             other.is_home = False
         db.flush()
-    for veld, waarde in data.model_dump(exclude_none=True).items():
+    velden = data.model_dump(exclude_none=True)
+    for veld, waarde in velden.items():
         setattr(page, veld, waarde)
+    # CR-17 fase 1 (#1671): the translation row is the title's source; the
+    # page column is its one-release shadow (kept in sync here so every
+    # existing reader — the menus, the shell — keeps working unchanged).
+    if data.title:
+        for translation in db.query(CmsPageTranslation).filter(
+            CmsPageTranslation.page_id == page.id
+        ):
+            translation.title = data.title
+    # Snede 1 (herziene opdracht, #1671): zolang Trix de pagina-editor is,
+    # leidt elke opslag de documenten opnieuw af uit `content` — ze kunnen
+    # niet verouderen. De site blijft `content` renderen tot de lezers
+    # verhuizen (snede 3); `published_json` volgt waar de pagina live staat —
+    # ook als alleen het publicatievinkje verandert (review C3, #1673).
+    if "content" in velden or "is_published" in velden:
+        _derive_documents_from_content(db, page)
     db.commit()
     db.refresh(page)
     return page
+
+
+def _derive_documents_from_content(db, page: CmsPage) -> None:
+    """The documents of a page, re-derived from its content (snede 1).
+
+    Strict where the content converts losslessly, lenient for the draft
+    otherwise (F11): a page that does not convert keeps its words as a draft
+    and an empty `published_json` — the site keeps rendering her `content`
+    until an author publishes the draft (from snede 3 on).
+    """
+    from app.domains.cms.parse import parse_html
+
+    document = parse_html(page.content, on_page=not is_site_block(page.slug))
+    draft = document or parse_html(page.content, on_page=not is_site_block(page.slug), lenient=True)
+    translation = get_translation(db, page)
+    if translation is None:
+        translation = CmsPageTranslation(
+            page_id=page.id, language=_language(db, page), title=page.title
+        )
+        db.add(translation)
+    translation.draft_json = draft
+    if document is not None and page.is_published:
+        translation.published_json = document
+    else:
+        # Not lossless, or unpublished: publishing is an author's act, not a
+        # side effect of a save — `published_json` is cleared and the site
+        # renders content (review C3, #1673: a publish switch without a
+        # content change follows too).
+        translation.published_json = None
 
 
 def delete_page(db, page_id: int) -> None:
@@ -201,10 +267,219 @@ def delete_page(db, page_id: int) -> None:
     db.commit()
 
 
+# ── Documents (CR-17 fase 1, #1671) ───────────────────────────────────────────
+
+
+def _language(db, page: CmsPage, language: Optional[str] = None) -> str:
+    """The language of a page's translation row: the one asked for, else the
+    tenant's — as a language CODE (`nl`), the key `mdm.language_codes`
+    carries. Phase 1 has exactly one row per page."""
+    from app.kernel.tenant_config import tenant_language
+
+    return _schema.locale_language(language or tenant_language(db, tenant_id=page.tenant_id))
+
+
+def get_translation(db, page: CmsPage, language: Optional[str] = None):
+    """The page's translation row in this language, or None (C4.3)."""
+    from app.domains.cms.models import CmsPageTranslation
+
+    return (
+        db.query(CmsPageTranslation)
+        .filter(
+            CmsPageTranslation.page_id == page.id,
+            CmsPageTranslation.language == _language(db, page, language),
+        )
+        .first()
+    )
+
+
+def published_document(db, page: CmsPage, language: Optional[str] = None) -> Optional[dict]:
+    """The page's published document, or None. From snede 3 (#1671) this is
+    what the site shows; today the site still renders `content` and this is
+    the accessor the readers will move to. None means the page renders its
+    pre-CR-17 HTML — the migration's honest fallback for a page that did not
+    convert losslessly (R17)."""
+    translation = get_translation(db, page, language)
+    return translation.published_json if translation is not None else None
+
+
+def draft_document(db, page: CmsPage, language: Optional[str] = None) -> Optional[dict]:
+    """The draft, or None when the page has no draft document yet."""
+    translation = get_translation(db, page, language)
+    return translation.draft_json if translation is not None else None
+
+
+def editable_document(db, page: CmsPage, language: Optional[str] = None) -> dict:
+    """What the editor opens: the draft (every page has one since the
+    migration — a page that did not convert losslessly holds its words as a
+    draft, F11), or a lenient parse of its HTML when no row exists yet, or an
+    empty page. The editor shows one document; there is no second page
+    editor (C2 cms)."""
+    from app.domains.cms.parse import parse_html
+
+    draft = draft_document(db, page, language)
+    if draft is not None:
+        return draft
+    parsed = parse_html(page.content, on_page=not is_site_block(page.slug), lenient=True)
+    if parsed and parsed.get("content"):
+        return parsed
+    return {"type": "doc", "content": []}
+
+
+def is_site_block(slug: str) -> bool:
+    """Whether this slug is one of the site's own blocks (#1510) — the blocks
+    render without the page's heading shift, so their documents parse with
+    `on_page=False`."""
+    return slug in SITE_BLOCK_SLUGS
+
+
+def save_draft(
+    db, page_id: int, document, *, language: Optional[str] = None, by: str | None = None
+) -> "CmsPageTranslation":
+    """Opslaan: the document into `draft_json`, validated against the schema —
+    an unknown block or attribute refused with its name, never stripped
+    (C6 test 2). Nothing published changes (test 4)."""
+    import json as _json
+
+    from app.domains.cms import schema as _schema
+    from app.domains.cms.models import CmsPageTranslation
+
+    page = get_page_by_id(db, page_id)
+    if page is None:
+        raise LookupError("Page not found")
+    doc = _json.loads(document) if isinstance(document, str) else document
+    _schema.validate_document(doc)
+    lang = _language(db, page, language)
+    translation = (
+        db.query(CmsPageTranslation)
+        .filter(CmsPageTranslation.page_id == page.id, CmsPageTranslation.language == lang)
+        .first()
+    )
+    if translation is None:
+        translation = CmsPageTranslation(page_id=page.id, language=lang, title=page.title)
+        db.add(translation)
+    translation.draft_json = doc
+    db.commit()
+    db.refresh(translation)
+    return translation
+
+
+def publish(
+    db, page_id: int, *, language: Optional[str] = None, by: Optional[str] = None
+) -> "CmsPageTranslation":
+    """Publiceren: draft → published, in one transaction, with exactly one
+    history row (C4.3). `is_published` on the page means "has a published
+    document in the tenant's language" from now on; for a page without a
+    document (the HTML fallback) the flag keeps its old meaning."""
+    from datetime import datetime, timezone
+
+    from app.domains.cms.models import CmsPageHistory
+
+    page = get_page_by_id(db, page_id)
+    if page is None:
+        raise LookupError("Page not found")
+    translation = get_translation(db, page, language)
+    if translation is None or translation.draft_json is None:
+        raise LookupError("Nothing to publish")
+    now = datetime.now(timezone.utc)
+    translation.published_json = translation.draft_json
+    translation.published_at = now
+    translation.published_by = by
+    page.is_published = True
+    db.add(
+        CmsPageHistory(
+            page_id=page.id,
+            language=translation.language,
+            action="published",
+            document=translation.draft_json,
+            at=now,
+            by=by,
+        )
+    )
+    db.commit()
+    db.refresh(translation)
+    return translation
+
+
+def restore(db, page_id: int, history_id: int, *, by: Optional[str] = None) -> "CmsPageTranslation":
+    """Terugzetten: a history version into the DRAFT — never live (test 6).
+    Publishing it afterwards is what makes it live again."""
+    from datetime import datetime, timezone
+
+    from app.domains.cms.models import CmsPageHistory, CmsPageTranslation
+
+    version = db.query(CmsPageHistory).filter(CmsPageHistory.id == history_id).first()
+    page = get_page_by_id(db, page_id)
+    if version is None or page is None or version.page_id != page.id:
+        raise LookupError("Version not found")
+    translation = (
+        db.query(CmsPageTranslation)
+        .filter(
+            CmsPageTranslation.page_id == page.id,
+            CmsPageTranslation.language == version.language,
+        )
+        .first()
+    )
+    if translation is None:
+        translation = CmsPageTranslation(
+            page_id=page.id, language=version.language, title=page.title
+        )
+        db.add(translation)
+    translation.draft_json = version.document
+    db.add(
+        CmsPageHistory(
+            page_id=page.id,
+            language=version.language,
+            action="restored",
+            document=version.document,
+            at=datetime.now(timezone.utc),
+            by=by,
+        )
+    )
+    db.commit()
+    db.refresh(translation)
+    return translation
+
+
+def versions(db, page_id: int, language: Optional[str] = None) -> list:
+    """The history of a page's documents, newest first (Geschiedenis)."""
+    from app.domains.cms.models import CmsPageHistory
+
+    page = get_page_by_id(db, page_id)
+    if page is None:
+        raise LookupError("Page not found")
+    query = db.query(CmsPageHistory).filter(CmsPageHistory.page_id == page.id)
+    if language:
+        query = query.filter(CmsPageHistory.language == language)
+    return query.order_by(CmsPageHistory.at.desc(), CmsPageHistory.id.desc()).all()
+
+
+def draft_states(db, page_ids: list[int]) -> dict[int, bool]:
+    """Whether each page's draft differs from its published document, in one
+    query — the list's badge, for a list of pages (AC3)."""
+    if not page_ids:
+        return {}
+    rows = db.query(CmsPageTranslation).filter(CmsPageTranslation.page_id.in_(page_ids)).all()
+    return {r.page_id: r.draft_json is not None and r.draft_json != r.published_json for r in rows}
+
+
+def draft_differs(db, page: CmsPage) -> bool:
+    """Whether the draft differs from what is live — the list's badge and the
+    editor's 'concept gewijzigd' (AC3). A page without documents never shows
+    it: its HTML is its live state. One source: `draft_states` (review
+    B4c, #1673)."""
+    return draft_states(db, [page.id]).get(page.id, False)
+
+
 def references_to_media(db, asset_ids: Iterable[int]) -> dict:
     """The pages whose text shows these pictures, per asset id (CR-15 §C4.4,
     #1471). A scan of the stored HTML: a page holds a picture by its URL, not by
-    a key. Unpublished pages count — publishing one must not find a hole."""
+    a key. Unpublished pages count — publishing one must not find a hole.
+
+    CR-17: the documents of fase 1 are derived from `content` (they follow it
+    on every save), so scanning the HTML sees every picture a page holds. The
+    walk over the figure nodes comes with the readers (fase 1, snede 3,
+    #1671)."""
     from app.domains.media.api import MediaUse
 
     wanted = {int(i) for i in asset_ids}
