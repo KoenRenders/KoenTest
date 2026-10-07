@@ -604,22 +604,25 @@ Checked and not bent: the import gate (facades only), the layer gate, the templa
 
 **Investment** (S ≈ 1, M ≈ 2–3, L ≈ 4–6 CLI-days)
 
-| Module | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Total |
-|---|---|---|---|---|---|
-| product (+ media kinds) | M | — | — | — | M |
-| pricing | S | — | — | — | S |
-| stock | M | S | — | — | M+S |
-| sales (Webshop, order page, list of orders, handlers) | — | L | M | S | L+M+S |
-| payment (ORDER, describers, view `f_payments`) | — | M | S | — | M+S |
-| workflow (due date, subject, two-step definition, failed-payment task) | — | — | — | M | M |
-| mail, kernel (module, contract) | S | S | — | — | 2 S |
-| **Per phase** | **≈ 6** | **≈ 10** | **≈ 4** | **≈ 3** | **≈ 23 CLI-days** |
+| Module | Phase 0 (Claude) | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Total |
+|---|---|---|---|---|---|---|
+| kernel (module SHOP, PAYMENT dependency, contract `SalesOrderChanged`) | S | — | — | — | — | S |
+| payment (payable ORDER, describers, view `f_payments`) | M | — | S | S | — | M+2S |
+| mail (transfer instructions through the facade) | S | — | — | — | — | S |
+| media (two kinds) and the admin menu | S | — | — | — | — | S |
+| path check for `opencode1` | S | — | — | — | — | S |
+| workflow (due date, subject SALES_ORDER) | — | — | — | — | S (Claude, before phase 4) | S |
+| product | — | M | — | — | — | M |
+| pricing | — | S | — | — | — | S |
+| stock | — | M | S | — | — | M+S |
+| sales (Webshop, order page, list of orders, mail, handlers) | — | — | L | M | M | L+2M |
+| **Per phase** | **≈ 5** | **≈ 5** | **≈ 8** | **≈ 4** | **≈ 4** | **≈ 26 CLI-days** |
 
-Besides: the build read before assignment, review per phase, Koen's HDEV validation of the walkthrough, four release passes. No purchases.
+Besides: the build read before assignment, review per phase, Koen's HDEV validation of the walkthrough, phase 0 through a release to `master`; phases 1–4 on the integration branch `cr21/webshop`, Koen's approval on `opencode1`'s local test version, then one release. No purchases.
 
 **Running cost:** none new. Mollie charges per online payment as it does for registrations; pictures and documents go into the existing media storage and its backup.
 
-**Operations:** no env vars. The module SHOP is switched on per tenant in the tenant editor; the module is off by default for every kind of tenant, also for an association, whose defaults are otherwise every module (Q49); the existing workbench kill switch (`workbench_enabled`) also stops the sweep for these tasks. Three migrations: phases 1, 2 and 4.
+**Operations:** no env vars. The module SHOP is switched on per tenant in the tenant editor; the module is off by default for every kind of tenant, also for an association, whose defaults are otherwise every module (Q49); the existing workbench kill switch (`workbench_enabled`) also stops the sweep for these tasks. Migrations: phase 0 (module CHECK, media kinds, payable type), phases 1, 2 and 4.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
@@ -638,6 +641,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 
 | Phase | Delivers | Migration | Env vars | Data | Failure paths that change | Manual validation |
 |---|---|---|---|---|---|---|
+| 0 — Seams (Claude dev CLI, to `master`) | nothing visible: module SHOP (off), payable type ORDER with the describers, transfer instructions through `mail`'s facade, media kinds, the menu entries behind the module and the rights, the path check for `opencode1` | module CHECK widened; payable type; media kinds | none | none | none for existing payables: the describers must give the same names, links and filters as today (a snapshot of the payments screen before and after) | none beyond the payments screen unchanged |
 | 1 — Catalogue, prices, stock | Productbeheer, Prijsbeheer, Voorraadbeheer with receipt and correction; module SHOP; nothing public | `product`, `pricing`, `stock` schemas; module CHECK widened; media kinds | none | none | a product with prices or movements refuses deletion, naming why | W1–W6, W20 |
 | 2 — Ordering and paying | Webshop, basket, order page, online and transfer, confirmation mail, delivery per line; **Verkoop's list of orders, filterable on "Te betalen"**, and cancelling from the order page; Boekhouding confirms transfers on the payments screen, as for registrations | `sales` schema; payable type ORDER; view `f_payments` | none | none | an order short of stock is refused whole, nothing reserved; a payment that fails leaves the order "Te betalen" with its reservation, visible in the list; a mail that fails does not undo the order | W7–W10, W13, W18, W21 (Mollie test mode) |
 | 3 — Change and self-cancel | change after trying on with recalculation; the buyer cancels on the same page | none expected | none | none | a change short of stock is refused and the order stays as it was; a cancel after a delivery is refused | W11, W17 |
@@ -645,7 +649,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 
 **Until phase 4,** open orders are followed in Verkoop's list (filter "Te betalen") instead of on the workbench. *Koen asked on 7 October 2026: "Zouden we alles met betrekking tot werkbank-taken als een laatste fase in CR21 kunnen zetten?" Claude proposed this phasing in answer; asked "volstaat tot fase 4 een lijst van bestellingen met filter 'Te betalen' voor Verkoop?", Koen answered "ja" (Q50).*
 
-**Dependencies:** CR-22 (sign-in, built in v2.15) before phase 2; CR-24 part 1 (the rights `product.masterdata` and the webshop roles) before phase 1. **Not** dependent on CR-20: the shop hangs on `tenant_id`, which keeps its ids there, and the buyer is a person, not an organisation.
+**Builders:** phase 0, and the workflow seam before phase 4, by a Claude dev CLI to `master`; phases 1–4 by `opencode1` on `cr21/webshop`, one pull request per slice, each read by a Claude dev CLI, refused by the path check outside `backend/app/domains/{product,pricing,stock,sales}/` and new migrations (Q52). **Dependencies:** CR-24 part 1 (the rights and the webshop roles) before phase 0 or with it; CR-22 (sign-in, built in v2.15) before phase 2. **Not** dependent on CR-20: the shop hangs on `tenant_id`, which keeps its ids there, and the buyer is a person, not an organisation.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -725,7 +729,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | 7 Oct 2026 | The module SHOP is off by default for every kind of tenant, the association included; it is switched on per tenant (Q49). | Koen |
 | 7 Oct 2026 | "How recent the information is" is Boekhouding's answer on the order itself, with its date, shown on Verkoop's task; no tenant-wide "account last checked", no button (Q47). | Koen |
 | 7 Oct 2026 | Every workbench task is the last phase (4); until then Verkoop follows open orders in its list of orders filtered on "Te betalen" and cancels from the order page; Boekhouding confirms transfers on the payments screen (Q50). Koen asked "Zouden we alles met betrekking tot werkbank-taken als een laatste fase in CR21 kunnen zetten?"; to "volstaat tot fase 4 een lijst van bestellingen met filter 'Te betalen' voor Verkoop?" he answered "ja". | Koen |
-| 7 Oct 2026 | Phases 1–4 are built by `opencode1` on an integration branch `cr21/webshop`, one pull request per slice, only inside the four new domains and new migrations, refused by a path check otherwise; the branch goes to `master` after Koen's approval on its local test version (`AGENTS.md`, *A builder outside the Claude series*). Asked whether phase 0 goes to a Claude dev CLI and phases 1–4 to `opencode1` with the path check, Koen answered: "wat is fase 0? Voor de rest akkoord." — phase 0 itself still to be explained and answered (Q52). | Koen |
+| 7 Oct 2026 | Phases 1–4 are built by `opencode1` on an integration branch `cr21/webshop`, one pull request per slice, only inside the four new domains and new migrations, refused by a path check otherwise; the branch goes to `master` after Koen's approval on its local test version (`AGENTS.md`, *A builder outside the Claude series*). Asked whether phase 0 goes to a Claude dev CLI and phases 1–4 to `opencode1` with the path check, Koen answered: "wat is fase 0? Voor de rest akkoord." Phase 0, explained to him as the six seams in existing code a Claude dev CLI opens first, answered "akkoord" (Q52). | Koen |
 | 7 Oct 2026 | If OpenCode builds the shop for evaluation, it runs on DeepSeek through DeepSeek's own API — a deliberate deviation from Europe First (`AGENTS.md`): what the model is sent is stored in China. Accepted with hard limits: a working copy with only a clone of the repository, no `.env` files, no `raak`, no SSH keys, never an environment (HDEV, UAT, PROD), made-up data only (Q51). Koen, answering "a or b" (a: DeepSeek's API with hard limits; b: DeepSeek's open weights hosted in the EU): "hier gaan we voor" — to option a. | Koen |
 | 7 Oct 2026 | A task past its due date only turns red on the workbench; nobody gets a mail about it (Q38). | Koen |
 | 7 Oct 2026 | Cancelling until delivery is a Must; a return after delivery is out of scope and handled by hand: Sales removes the order and books the refund (Q40). | Koen |
@@ -947,7 +951,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | Q49 | 7 Oct 2026 | The module SHOP for a new association: on by default, as every module is today, or off and switched on per tenant? (Claude recommended off) | Off by default. (Koen) |
 | Q50 | 7 Oct 2026 | (Koen) "Zouden we alles met betrekking tot werkbank-taken als een laatste fase in CR21 kunnen zetten?" Claude proposed phase 4 and asked: does a list of orders filtered on "Te betalen" suffice for Verkoop until then? | "ja" (Koen) |
 | Q51 | 7 Oct 2026 | Which model under OpenCode: Koen wants to try DeepSeek. a: DeepSeek's own API (data stored in China) with hard limits; b: DeepSeek's open weights at an EU host. (Claude, after Koen named DeepSeek) | "hier gaan we voor" — option a, with the hard limits. (Koen) |
-| Q52 | 7 Oct 2026 | The split: phase 0 (opening the existing code) by a Claude dev CLI to `master`; phases 1–4 by `opencode1` on `cr21/webshop`, with the path check? (Claude) | "wat is fase 0? Voor de rest akkoord." (Koen) — phases 1–4 agreed; phase 0 explained to him, answer pending. |
+| Q52 | 7 Oct 2026 | The split: phase 0 (opening the existing code) by a Claude dev CLI to `master`; phases 1–4 by `opencode1` on `cr21/webshop`, with the path check? (Claude) | "wat is fase 0? Voor de rest akkoord." (Koen) — phases 1–4 agreed. Phase 0 explained as six seams in existing code (module, payable ORDER with describers, transfer instructions, media kinds, menu, path check; the workbench due date before phase 4): "akkoord" (Koen). |
 
 ## Non-goals — deliberately outside this change
 
