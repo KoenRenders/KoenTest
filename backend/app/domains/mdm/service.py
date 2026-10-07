@@ -808,6 +808,42 @@ def new_contact_detail(
     )
 
 
+def create_account_person(db: Session, *, first_name: str, last_name: str, email: str, mobile: str):
+    """Make the person of a new account: `(person, [contact details])` (CR-22 R3, F4).
+
+    An account is a person in master data with a confirmed e-mail address and
+    no household — no second kind of account (§B1 D1). It holds a first name,
+    a last name, an e-mail address and a mobile number, all four required
+    (R3), and nothing more: no address, no birth date, no gender (R17).
+
+    The address is CONFIRMED here: this runs when the code from the mail was
+    entered, which is the proof. And it is checked again at this moment — the
+    form was sent a while ago, and the address may have got an owner since:
+    `EmailAddressInUse`, and nothing is made (C5: one owner, not two).
+
+    No commit and no history row: the caller is the handler of
+    `AccountCodeEntered`, in the publisher's transaction, and it writes the
+    history (a service of one domain does not call another's command).
+    """
+    from app.domains.mdm.models import MasterDataError, Person
+
+    first_name, last_name = (first_name or "").strip(), (last_name or "").strip()
+    email, mobile = (email or "").strip(), (mobile or "").strip()
+    if not email or not mobile:
+        raise MasterDataError(_("Een account heeft een e-mailadres en een mobiel nummer nodig."))
+    require_email_free(db, None, email)
+    person = Person(first_name=first_name, last_name=last_name)
+    db.add(person)
+    db.flush()
+    details = [
+        new_contact_detail(db, person, CONTACT.EMAIL, email, is_primary=True),
+        new_contact_detail(db, person, CONTACT.MOBILE, mobile, is_primary=True),
+    ]
+    db.add_all(details)
+    db.flush()
+    return person, details
+
+
 def _persoon_of_404(db: Session, person_id: int):
     from app.domains.mdm.models import Person
 

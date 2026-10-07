@@ -450,23 +450,70 @@ def send_magic_link(to_email: str, magic_link: str, otp_code: Optional[str] = No
     )
 
 
-def send_member_contact_board_notice(to_email: str) -> None:
-    """Wanneer een e-mailadres aan meerdere gezinnen hangt, kunnen we niet
-    veilig bepalen op welk gezin in te loggen. We sturen geen inloglink maar
-    vragen contact op te nemen met het bestuur."""
-    _send(
-        to_email=to_email,
-        email_type="member_contact_notice",
-        subject=_("Inloggen %(naam)s") % {"naam": _display_name()},
-        body_html=_("""
+def code_mail_message(kind: str, link: str, otp_code: str) -> tuple[str, str]:
+    """`(subject, body)` of a mail that carries a link AND a code for the same
+    token — either does it (CR-22 Q36), as the sign-in mail above does.
+
+    `kind` is `ACCOUNT_CONFIRMATION` or `EXISTING_ACCOUNT` of
+    `kernel.contracts.auth`; the words that differ are here, the body is one.
+    """
+    from app.kernel.contracts.auth import ACCOUNT_CONFIRMATION, EXISTING_ACCOUNT
+
+    name = _display_name()
+    if kind == ACCOUNT_CONFIRMATION:
+        # "Bevestig je account" (R3): the account exists once the link or the
+        # code is used — not before.
+        subject = _("Bevestig je account bij %(naam)s") % {"naam": name}
+        lead = _("Klik op onderstaande link om je account bij %(naam)s te bevestigen.") % {
+            "naam": name
+        }
+    elif kind == EXISTING_ACCOUNT:
+        # "Je hebt al een account" (R4): the SCREEN said the same as for a new
+        # address; only this mail, to the owner, says it exists.
+        subject = _("Je hebt al een account bij %(naam)s") % {"naam": name}
+        lead = _(
+            "Er werd een account aangevraagd met dit e-mailadres, maar je hebt er al een "
+            "bij %(naam)s. Klik op onderstaande link om in te loggen."
+        ) % {"naam": name}
+    else:
+        raise ValueError(f"Unknown kind of code mail: {kind}")
+    body = f"""
+        <p>{escape(lead)}</p>
+        <p><a href="{link}">{link}</a></p>
+        <p>{escape(_("Of voer deze code in op het apparaat waar je bezig was:"))}</p>
+        <p style="font-size:1.6em;font-weight:bold;letter-spacing:0.15em">{otp_code}</p>
+        <p>{escape(_("De link en de code zijn 15 minuten geldig. Als je deze mail niet verwachtte, kun je hem negeren."))}</p>
+        <p>{escape(_("Met vriendelijke groeten,"))}<br>{escape(name)}</p>
+        """
+    return subject, body
+
+
+def member_contact_board_notice_message() -> tuple[str, str]:
+    """`(subject, body)` of the notice below — for whoever queues it instead of
+    sending it (the account request, CR-22). One text, two ways out."""
+    return (
+        _("Inloggen %(naam)s") % {"naam": _display_name()},
+        _board_notice_body() % {"naam": _display_name()},
+    )
+
+
+def _board_notice_body() -> str:
+    """The notice's text; a function, because it translates per request."""
+    return _("""
         <p>Je probeerde in te loggen als lid, maar dit e-mailadres is bij meerdere
         gezinnen gekend. Daardoor kunnen we niet automatisch bepalen welk gezin
         je wil beheren.</p>
         <p>Neem contact op met het bestuur, dan zetten we dit recht.</p>
         <p>Met vriendelijke groeten,<br>%(naam)s</p>
         """)
-        % {"naam": _display_name()},
-    )
+
+
+def send_member_contact_board_notice(to_email: str) -> None:
+    """Wanneer een e-mailadres aan meerdere gezinnen hangt, kunnen we niet
+    veilig bepalen op welk gezin in te loggen. We sturen geen inloglink maar
+    vragen contact op te nemen met het bestuur."""
+    subject, body = member_contact_board_notice_message()
+    _send(to_email=to_email, email_type="member_contact_notice", subject=subject, body_html=body)
 
 
 def family_welcome_message(
@@ -550,9 +597,15 @@ def activity_confirmation_message(
     answer_url=None,
     answers=None,
     subject=None,
+    history_url=None,
 ) -> dict:
     """The confirmation of an activity registration, as a finished message for
     `queue_mail` (CR-13 phase 4: built in the request, sent by a job).
+
+    `history_url` (CR-22 R6, #1707): where a registration made while signed in
+    stands afterwards — Mijn inschrijvingen. Only for a registration with a
+    person; a guest has no account, so nothing to look up, and gets no link:
+    the mail itself says what was registered.
 
     `answer_url` (CR-14 §B4.8): the registration chose to answer the component's
     questions later — the one mail carries the link, after the products and the
@@ -661,6 +714,13 @@ def activity_confirmation_message(
                 "De organisatie stelt nog enkele vragen bij je inschrijving. Beantwoord ze via deze link:"
             )
             + f'</p><p><a href="{escape(answer_url)}">{escape(answer_url)}</a></p>'
+        )
+
+    if history_url:
+        message += (
+            "<p style='margin-top:12px'>"
+            + _("Je vindt deze inschrijving terug onder Mijn inschrijvingen:")
+            + f' <a href="{escape(history_url)}">{escape(history_url)}</a></p>'
         )
 
     return dict(

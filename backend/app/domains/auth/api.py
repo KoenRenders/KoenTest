@@ -11,14 +11,22 @@ schermen), member_identity.py (e-mail -> Person/gezin) en router.py
 # that `workflow` reaches its FK target and its enum through one door.
 from app.domains.auth.codes import LOGIN_PURPOSE, ROLE  # noqa: F401
 from app.domains.auth.login import (  # noqa: F401
+    AccountRequest,
+    AccountRequestInvalid,
+    Consumed,
     check_otp,
+    consume_code,
+    consume_link,
     consume_magic_link,
+    start_account,
     start_login,
 )
 from app.domains.auth.member_identity import (  # noqa: F401
     find_persons_by_email,
+    has_household,
     login_person_for_email,
     resolve_household,
+    sign_in_identity,
 )
 from app.domains.auth.models import (  # noqa: F401
     ApiKey,
@@ -83,6 +91,8 @@ __all__ = [
     "find_persons_by_email",
     "login_person_for_email",
     "resolve_household",
+    "has_household",
+    "sign_in_identity",
     "ApiKey",
     "LoginPurpose",
     "LOGIN_PURPOSE",

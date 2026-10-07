@@ -570,7 +570,15 @@ class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
     # is the boolean. Rows from before the column were backfilled as confirmed
     # at their creation, and every writer goes through
     # `mdm.service.new_contact_detail`, which decides it.
-    confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    #
+    # The default (#1707): a row counts unless its maker SAYS it waits — as
+    # every row did before the column existed. Since sign-in reads confirmed
+    # addresses only, a row made without the factory (a test's fixture, a
+    # seed) would otherwise be an address nobody can sign in with, silently.
+    # `evaluates_none()` is what lets the factory say "waits": an explicit
+    # None is written as NULL instead of being taken for "not set" and
+    # replaced by the default.
+    confirmed_at = Column(DateTime(timezone=True).evaluates_none(), default=_now_utc, nullable=True)
 
     person = relationship("Person", back_populates="contact_details")
 

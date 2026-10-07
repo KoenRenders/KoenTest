@@ -33,6 +33,9 @@ class AuthMeResponse(BaseModel):
     is_admin: bool = False
     is_finance: bool = False
     is_member: bool = False
+    #: CR-22 (#1707): `is_member` says "signed in as a person" — an account
+    #: too; this says whether that person is in a household.
+    has_household: bool = False
     member_name: Optional[str] = None
 
 

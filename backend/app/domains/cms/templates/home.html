@@ -28,7 +28,7 @@
       <div class="flex flex-wrap gap-3">
         {# #499: een ingelogd lid ziet 'Mijn gezin' i.p.v. een leeg registratieformulier. #}
         {% if toon_lidgeld %}
-        {% if gebruiker and gebruiker.is_member %}
+        {% if gebruiker and gebruiker.has_household %}
         {{ ui.btn_primary(_("Mijn gezin"), href=path_for("/leden/gezin")) }}
         {% else %}
         {{ ui.btn_primary(_("Word lid"), href=path_for("/lid-worden")) }}

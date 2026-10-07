@@ -94,4 +94,5 @@ def test_a_foreign_address_is_not_followed(client, db_session, monkeypatch):
     db_session.commit()
     first, _step, done = _sign_in(client, monkeypatch, "evil-w17@example.com", "//evil.example/x")
     assert 'name="terug"' not in first
-    assert done.headers.get("HX-Redirect") == "/leden/gezin", "the landing by role"
+    # CR-22 (#1707): a member lands on the account page, no longer on Mijn gezin.
+    assert done.headers.get("HX-Redirect") == "/mijn", "the landing by role"
