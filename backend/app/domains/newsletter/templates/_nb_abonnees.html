@@ -59,7 +59,7 @@
         hx-target="#nb-abonnees" hx-swap="innerHTML">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {{ ui.input_control("subscriber_email", id="nb-nieuw-adres", type="email", cls="w-full sm:w-72",
-                        placeholder=_("naam@voorbeeld.be"), required=True, aria_label=_("E-mailadres")) }}
+                        placeholder=_("naam@voorbeeld.be"), required=True, aria_label=_("E-mail")) }}
     {{ ui.input_control("first_name", id="nb-nieuw-voornaam", cls="w-full sm:w-40",
                         placeholder=_("Voornaam (niet verplicht)"), aria_label=_("Voornaam")) }}
     {{ ui.btn_primary(_("Toevoegen"), type="submit", size="sm") }}

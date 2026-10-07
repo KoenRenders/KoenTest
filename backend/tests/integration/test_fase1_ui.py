@@ -16,7 +16,7 @@ def _login(client):
 
 def test_aanmelden_page_renders(client):
     resp = client.get("/aanmelden")
-    assert resp.status_code == 200 and "E-mailadres" in resp.text
+    assert resp.status_code == 200 and ">E-mail</label>" in resp.text
 
 
 def test_aanmelden_flow_sets_session_cookie(client, monkeypatch):

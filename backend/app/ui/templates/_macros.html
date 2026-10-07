@@ -1181,7 +1181,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   <div>{{ label(_("E-mail"), id_prefix ~ "email", required=hoofdlid) }}
     <input type="email" name="{{ name_prefix }}email" id="{{ id_prefix }}email" {% if hoofdlid %}required{% endif %} value="{{ _email or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
   {% endif %}
-  <div>{{ label(_("GSM"), id_prefix ~ "mobile", required=hoofdlid) }}
+  <div>{{ label(_("Mobiel"), id_prefix ~ "mobile", required=hoofdlid) }}
     <input type="tel" name="{{ name_prefix }}mobile" id="{{ id_prefix }}mobile" {% if hoofdlid %}required{% endif %} value="{{ _mobile or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
   <div>{{ label(_("Telefoon"), id_prefix ~ "phone") }}
     <input name="{{ name_prefix }}phone" id="{{ id_prefix }}phone" value="{{ _phone or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>

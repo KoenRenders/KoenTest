@@ -262,11 +262,11 @@
       {# #1032: unticked, this detail stays off the poster — also when no other
          address is filled in. #}
       {{ ui.field("o." ~ key ~ ".show_email", _("Toon e-mail"), kind="switch", id="o-" ~ key ~ "-show_email", span="quarter", edit=_edit, value=o.show_email if o else True) }}
-      {{ ui.field("o." ~ key ~ ".show_mobile", _("Toon gsm"), kind="switch", id="o-" ~ key ~ "-show_mobile", span="quarter", edit=_edit, value=o.show_mobile if o else True) }}
+      {{ ui.field("o." ~ key ~ ".show_mobile", _("Toon mobiel"), kind="switch", id="o-" ~ key ~ "-show_mobile", span="quarter", edit=_edit, value=o.show_mobile if o else True) }}
       {{ ui.field("o." ~ key ~ ".email_override", _("Ander e-mailadres"), kind="email", id="o-" ~ key ~ "-email_override", edit=_edit,
                   value=o.email_override if o else "", help=_("Leeg: het adres van het lid, hierboven in het grijs."),
                   fallback=_own_email or _("geen e-mailadres op de fiche"), fallback_note=_("van de fiche") if _has_email else none) }}
-      {{ ui.field("o." ~ key ~ ".mobile_override", _("Ander gsm-nummer"), kind="phone", id="o-" ~ key ~ "-mobile_override", edit=_edit,
+      {{ ui.field("o." ~ key ~ ".mobile_override", _("Ander mobiel nummer"), kind="phone", id="o-" ~ key ~ "-mobile_override", edit=_edit,
                   value=o.mobile_override if o else "", help=_("Leeg: het nummer van het lid, hierboven in het grijs."),
                   fallback=_own_mobile or _("geen nummer op de fiche"), fallback_note=_("van de fiche") if _has_mobile else none) }}
     {% endcall %}

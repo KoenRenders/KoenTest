@@ -47,7 +47,7 @@
     {% if show_submitter %}
     {% call ui.section(_("Contact")) %}
       {{ ui.field("submitter_name", _("Naam"), required=True, value=submitter_name, attrs='autocomplete="name"') }}
-      {{ ui.field("submitter_email", _("E-mailadres"), kind="email", required=True, value=submitter_email, attrs='autocomplete="email"') }}
+      {{ ui.field("submitter_email", _("E-mail"), kind="email", required=True, value=submitter_email, attrs='autocomplete="email"') }}
     {% endcall %}
     {% endif %}
     {{ vragen_kaarten(grouped, loose_fields, path=path) }}

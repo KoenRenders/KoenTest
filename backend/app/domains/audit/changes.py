@@ -553,7 +553,7 @@ def all_changes_since(
                 for label, oud, nieuw in (
                     ("naam", prev.contact_name, h.contact_name),
                     ("e-mail", prev.contact_email, h.contact_email),
-                    ("gsm", prev.phone, h.phone),
+                    ("mobiel", prev.phone, h.phone),
                     ("opmerking", prev.remarks, h.remarks),
                 ):
                     if (oud or "") != (nieuw or ""):
