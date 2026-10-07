@@ -1388,6 +1388,22 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 </div>
 {%- endmacro %}
 
+{# ── The document editor (CR-17 #1671, slice 2) ────────────────────────────────
+   TipTap beside Trix: `ui.rich_text` (Trix) keeps serving the newsletter and
+   the meeting notes until phase 7; a page gets this editor. No macro with
+   two engines. `blocks` is the set's configuration (the domain provides
+   her) and `value_json` the document, both as JSON in the page; the toolbar
+   is built by `document-editor.js` FROM that configuration — no toolbar
+   markup or configuration in a domain template (C6 3, gate 14 widened):
+   this macro is the one place an editor stands in a template. #}
+{% macro document_editor(name, blocks, value_json, id=None, cls="") -%}
+{%- set editor_id = id or (name ~ "-editor") -%}
+<input type="hidden" id="{{ editor_id }}-input" name="{{ name }}" value="{{ value_json }}">
+<div class="document-editor{% if cls %} {{ cls }}{% endif %}" id="{{ editor_id }}"
+     data-document-editor data-input="{{ editor_id }}-input"
+     data-config='{{ blocks|tojson }}'></div>
+{%- endmacro %}
+
 {# `aria_label` als parameter en niet via `attrs` (#663/#699): `_()` levert Markup,
    dus een vertaalde tekst met `~` in een attrs-string aan elkaar plakken escapet de
    gewone helft — de klasse fout uit #514/#613. #}

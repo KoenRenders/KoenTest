@@ -1,0 +1,130 @@
+/* TipTap v3 ships no CSS; this file is ours — the kit's chrome for the
+   document editor (CR-17 #1671, slice 2). Everything the editor's own
+   markup needs; the surrounding form chrome comes from the kit's classes
+   in the `ui.document_editor` macro. No inline styles anywhere: the CSP
+   blocks them, and the editor's nodes render as plain, classed DOM. */
+
+/* The toolbar the JavaScript builds (`document-editor.js`) is styled HERE,
+   like `trix.css` styles the toolbar `trix.js` builds — never through the
+   generated app.css: build-css.sh scans templates, and markup a script
+   injects must not depend on a class that happens to be generated. Kit
+   tokens, the same controls hairline and focus tint. */
+
+.document-editor .de-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-bottom: 8px;
+}
+
+.document-editor .de-btn {
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.document-editor .de-btn:hover {
+  background: var(--surface-2);
+}
+
+/* The pressed state (the toolbar's is-on): the brand's tint, the same one
+   the kit's active controls carry. */
+.document-editor .de-btn.is-on {
+  background: rgb(var(--c-brand) / 0.08);
+  border-color: rgb(var(--c-brand) / 0.35);
+}
+
+.document-editor .de-menu {
+  position: relative;
+}
+
+.document-editor .de-menu-items {
+  position: absolute;
+  z-index: 10;
+  margin-top: 4px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
+
+.document-editor .de-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+
+/* The editing surface: the macro draws the border and the padding; the
+   editor itself is transparent. ProseMirror's focus outline is off — the
+   macro's wrapper shows the focus (`.rich-text--balk-bij-focus` pattern). */
+.document-editor .de-surface {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 12px;
+  overflow-x: auto;
+}
+
+.document-editor .tiptap {
+  outline: none;
+  min-height: 8rem;
+}
+
+/* The placeholder (TipTap's Placeholder extension), the same soft ink the
+   kit uses for hints. */
+.document-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--ink-soft);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* A table in the editor: the same hairline the site's tables carry. The
+   selected cell carries the kit's focus tint, so the author sees which
+   cell the cursor is in. */
+.document-editor .tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+.document-editor .tiptap th,
+.document-editor .tiptap td {
+  border: 1px solid var(--line);
+  padding: 0.25rem 0.5rem;
+  vertical-align: top;
+}
+.document-editor .tiptap .selectedCell::after {
+  background: rgb(0 81 164 / 0.08);
+}
+
+/* The figure atom: a picture is chosen with CR-15's picker (slice 3);
+   until then an inserted figure carries no image and shows as the kit's
+   dashed placeholder box with her alt text, so the author sees a block,
+   not a gap. */
+.document-editor .tiptap figure[data-document-figure] {
+  border: 1px dashed var(--line);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+/* The insert menu ("Blok invoegen ▾"): a disclosure that opens on click.
+   Kit classes do the rest; this only keeps the summary a hand. */
+.document-editor details summary {
+  cursor: pointer;
+}
