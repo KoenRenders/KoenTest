@@ -86,8 +86,8 @@ Signing in today sends a code to an e-mail address. That only works if the addre
 |---|---|---|---|---|
 | R1 | There are three ways to register or buy: as a member of a household, with an account, or as a guest. | Must *(proposed)* | Koen, 7 Oct 2026 | the same three for activity registrations and the webshop |
 | R2 | A member of a household signs in with a code sent to his e-mail address; persons inside one household may share an address, and act as the household. | Must *(proposed)* | Koen, 7 Oct 2026 | |
-| R3 | An account holds no more than last name, first name and e-mail address, and is kept in master data. It exists only once the code from the mail has been entered. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R27; Q4) | |
-| R4 | An e-mail address belongs to one person outside a household; whoever creates an account with an address that already exists is told "this account already exists" and gets a sign-in link to that address, never a second person. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R32) | |
+| R3 | An account holds last name, first name, e-mail address and mobile — all four required when it is made — and is kept in master data. It exists only once the code from the mail has been entered. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R27; Q4, Q19) | mobile added on 7 Oct (Q19) |
+| R4 | An e-mail address belongs to one person outside a household. Whoever creates an account with an address that already exists gets no second person; the screen says the same in both cases ("we sent a code to this address"), and only the mail to the owner of the address says that he already has an account, with a code to sign in. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R32; Q17) | the screen never reveals who has an account |
 | R5 | A guest registers or orders without an account, giving name, e-mail address and mobile — the same three required fields a registration asks today — and pays the regular price. Whatever address he types, the portal neither blocks him nor says the address is known; the standing hint that whoever has an account signs in first stays as it is. | Must *(proposed)* | Koen, 7 Oct 2026 (Q2, Q3) | today's registration without signing in is already this; only the account is new (Q9) |
 | R6 | The confirmation mail of a member or an account carries a link that signs him in and brings him to his registration or order. A guest gets no such link: without an account, nothing can be looked up or changed afterwards; the confirmation mail itself says what was registered or ordered. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R26; Q1, Q10) | the guest token of Q1 is withdrawn (Q10) |
 | R7 | A signed-in person can change his e-mail address himself; a new or changed address only becomes active once the code sent to it is entered — until then it shows as waiting for confirmation — and it is refused when another person already uses it, except inside his own household. The same holds where a member changes the addresses of his household in "Mijn gezin". | Must *(proposed)* | Koen, 7 Oct 2026 (CR-21 R29; Q7, Q13) | |
@@ -101,6 +101,9 @@ Signing in today sends a code to an e-mail address. That only works if the addre
 | R15 | The link to "Mijn gezin" that Raak Millegem sends by mail to renew a membership keeps working: whoever follows it signs in if needed and arrives on "Mijn gezin", not on the account page. | Must *(proposed)* | Koen, 7 Oct 2026 | the address of "Mijn gezin" and of renewing does not change |
 | R16 | Name, e-mail address and mobile are attributes of one natural person, edited in one way wherever the person appears: on his own page for everyone with an account, and for every person of a household in "Mijn gezin". A household is a repeating group of natural persons, each with its relation to the household, plus the household's one address. | Must *(proposed)* | Koen, 7 Oct 2026 (Q27) | a change on one page shows on the other at once |
 | R17 | An account is not asked address, date of birth or gender; a member keeps those in "Mijn gezin" as today. | Must *(proposed)* | Koen, 7 Oct 2026 | data minimisation; the household's address hangs, technically, on the main member's person |
+| R18 | The board gets no screen to manage accounts: persons with an account manage themselves. | Must *(proposed)* | Koen, 7 Oct 2026 (Q25) | |
+| R19 | A report lists the accounts. | Could *(proposed)* | Koen, 7 Oct 2026 (Q25) | "maybe as a report"; which columns: open |
+| R20 | Members-only activities, an address known in several households, and how board members sign in, stay as they are. | Must *(proposed)* | Koen, 7 Oct 2026 (Q24) | |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -297,6 +300,13 @@ and deliberately not done — recorded so it is not asked again).
 | 7 Oct 2026 | A new or changed address in "Mijn gezin" or "Mijn account" is active only after its code; refused when used outside the household (Q13). | Koen |
 | 7 Oct 2026 | Everyone who signs in is an account; the landing page is the account, with a menu of what applies: account, Mijn gezin (household + membership), registrations, later purchases; payments and invoices later (Q14). | Koen |
 | 7 Oct 2026 | One object, the natural person: one way to edit it (rules, view-model, block), used on the own page and per person in "Mijn gezin"; the household is a repeating group of persons with their relation, plus its address (Q27). | Koen |
+| 7 Oct 2026 | Screen words: Mijn Raak (landing and menu title, from the tenant's name), Mijn gegevens, Mijn gezin, Mijn inschrijvingen, Account aanmaken; hint "Heb je een account of ben je lid? Log je eerst aan." (Q15). | Koen |
+| 7 Oct 2026 | On a phone the account menu in the drawer is the navigation, with links at the bottom of Mijn Raak; on a desktop a menu on the left; one list from the modules (Q16). | Koen |
+| 7 Oct 2026 | The screen never reveals that an account exists; only the mail to the owner says so (Q17). | Koen |
+| 7 Oct 2026 | Mobile is required when an account is made (Q19). | Koen |
+| 7 Oct 2026 | No board screen for accounts; a report may list them (Q25). | Koen |
+| 7 Oct 2026 | Members-only, several households, board sign-in: unchanged (Q24). | Koen |
+| 7 Oct 2026 | Duplicate addresses measured read-only by the master CLI before the handover (Q26). | Koen |
 | 7 Oct 2026 | Q1–Q9 answered: guest link by secret token; mobile required as today; no lookup or warning on a typed address (the standing hint stays, as decided in CR-11); an account exists after the code; an account that becomes a member keeps its person; accounts per tenant; a new address is confirmed and unique except inside the household; existing duplicates measured first, Koen decides; for registrations only the account is new. | Koen |
 
 ---
@@ -471,6 +481,13 @@ and deliberately not done — recorded so it is not asked again).
 | Q12 | 7 Oct 2026 | May a guest cancel his registration through a link? (Claude) | Out of scope; then one makes an account or becomes a member. (Koen) |
 | Q13 | 7 Oct 2026 | Must a new address in "Mijn gezin" be confirmed too? (Claude) | Yes. (Koen) |
 | Q14 | 7 Oct 2026 | Where does an account holder land after signing in? (Claude) | Everyone who signs in is an account — member, individual, later someone for a company. Land on the account, with a menu: account, Mijn gezin if there is a household, the activities, the purchases; payments not now. (Koen) |
+| Q15 | 7 Oct 2026 | Screen words? (Claude) | Mijn Raak, Mijn gegevens, Mijn gezin, Mijn inschrijvingen, Account aanmaken, and the hint as proposed. (Koen) |
+| Q16 | 7 Oct 2026 | Navigation on a phone? (Koen asked whether the account menu could serve) | Yes: only the account menu, with links at the bottom of Mijn Raak. (Koen) |
+| Q17 | 7 Oct 2026 | R4 said "this account already exists", against Q3. (Claude) | The screen never says it; only the mail to the owner. (Koen) |
+| Q19 | 7 Oct 2026 | Mobile: remembered from the first registration? (Claude) | Required when the account is made. (Koen) |
+| Q24 | 7 Oct 2026 | Members-only, several households, board sign-in unchanged? (Claude) | Yes. (Koen) |
+| Q25 | 7 Oct 2026 | A board screen for accounts? (Claude) | No; these persons manage themselves; maybe a report. (Koen) |
+| Q26 | 7 Oct 2026 | When are existing duplicates measured? (Claude) | By the master CLI, read-only, before the handover. (Koen) |
 | Q27 | 7 Oct 2026 | For a member, may name and e-mail be edited on the own page as well as in "Mijn gezin" (a), or read-only there (b)? (Claude) | These are attributes of a person, so edit functions on a person are needed anyway; in a household the repeating group is a natural person, including its relation to the household. (Koen) — read as (a) with one person component. |
 
 ## Non-goals — deliberately outside this change
