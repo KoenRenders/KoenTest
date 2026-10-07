@@ -1,0 +1,16 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Account aanmaken") }} · {{ site_name }}{% endblock %}
+{% block meta %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+{# Account aanmaken (CR-22 S4b, #1708; R3): the sign-in screen's card, with the
+   four fields. A good request is answered in place by the code step of the
+   sign-in (`_sign_in_code.html`) — one code step for both doors. #}
+{% call ui.card() %}
+  <h1 class="text-2xl font-bold text-kop mb-2">{{ _("Account aanmaken") }}</h1>
+  <p class="text-gray-600 mb-6">{{ _("Vul je gegevens in. Je ontvangt een code om je e-mailadres te bevestigen.") }}</p>
+  <div id="aanmelden-stap" data-sign-in-step>
+    {% include "_create_account_form.html" %}
+  </div>
+{% endcall %}
+{% endblock %}

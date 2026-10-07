@@ -1,0 +1,17 @@
+{% import "_macros.html" as ui %}
+{# The four fields of an account (CR-22 R3; #1719 for the words), each through
+   the kit's field: the asterisk on the label, the refusal under the field. No
+   address, birth date or gender — an account is not asked those (R17).
+   `novalidate`: the server says what is wrong, under the field, in our words. #}
+<form data-create-account-form hx-post="{{ path_for('/account-aanmaken') }}" hx-target="#aanmelden-stap" hx-swap="innerHTML" novalidate>
+  {% if terug %}<input type="hidden" name="terug" value="{{ terug }}">{% endif %}
+  {% call ui.form_grid() %}
+    {{ ui.field("first_name", _("Voornaam"), required=True, span="full", value=first_name, error=problems.get("first_name"), attrs='autocomplete="given-name"') }}
+    {{ ui.field("last_name", _("Achternaam"), required=True, span="full", value=last_name, error=problems.get("last_name"), attrs='autocomplete="family-name"') }}
+    {{ ui.field("email", _("E-mail"), kind="email", required=True, span="full", value=email, error=problems.get("email"), attrs='autocomplete="email"') }}
+    {{ ui.field("mobile", _("Mobiel"), kind="phone", required=True, span="full", value=mobile, error=problems.get("mobile"), attrs='autocomplete="tel"') }}
+  {% endcall %}
+  <div class="mt-6">{{ ui.btn_primary(_("Account aanmaken")) }}</div>
+</form>
+<p data-to-sign-in class="mt-6 text-sm text-ink-soft">{{ _("Heb je al een account?") }}
+  <a class="text-link underline" href="{{ path_for('/aanmelden') }}{% if terug %}?terug={{ terug|urlencode }}{% endif %}">{{ _("Inloggen") }}</a></p>
