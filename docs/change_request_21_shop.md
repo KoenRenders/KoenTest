@@ -158,6 +158,20 @@ Step 8 has no place in the drawing: it is not part of a sale.
 > *solution can name does not belong here. Set against the cost of B5, this*
 > *is what says whether the change is worth doing, and when.*
 
+No benefit carries a figure: the volumes were deliberately not measured (A2). The case rests on the first line; the rest is what the work stops costing.
+
+| # | Benefit | Pain or reason | Figure |
+|---|---|---|---|
+| 1 | Raak can sell its garments through the portal at all | A1 | — |
+| 2 | The buyer sees what exists, in which size and at what price, and can read the size chart before asking | pain 1 | — |
+| 3 | No mail is written by hand for a sale: the price comes from one place, the member price applies by itself | pain 4 | one mail per sale |
+| 4 | A transfer carries a structured communication and is matched by it, not by eye | pain 5 | — |
+| 5 | What is in stock is known without going to look, and a reserved garment cannot be sold twice | pain 3 | — |
+| 6 | The Excel list of open sales disappears: what is unpaid is a task on the workbench, with whom it lies and since when | pain 6 | one list less |
+| 7 | Another tenant of the platform can sell its own articles with the same module | A1, R5 | a principle; no tenant asks for it yet |
+
+**Not earned:** bringing sizes to try still depends on one volunteer being available (pain 2); the portal shows what is reserved, it does not deliver.
+
 ## A5. Supplied material — and what it taught us
 
 > [!NOTE]
@@ -244,9 +258,27 @@ and deliberately not done — recorded so it is not asked again).
 > *the walkthrough (B2) that show it. These are the business's unit tests;*
 > *the developer's tests live in Part C.*
 
-| # | Criterion | Requirement | Walkthrough steps |
+The walkthrough of B2 is not written yet; until it is, the last column points at the steps of the to-be table in A3.
+
+| # | Criterion | Requirement | A3 steps |
 |---|---|---|---|
-| AC1 | … | R1 | … |
+| AC1 | Someone with the role Masterdata creates a T-shirt with the sizes S, M, L and XL, two pictures and a size chart. The Webshop shows it; the size chart opens. | R1, R2, R3 | 1 |
+| AC2 | Someone without the role Masterdata cannot open Productbeheer, nor change a product. | R4 | — |
+| AC3 | Prijsbeheer sets a price from today and a new price from next month. The Webshop shows today's price; a signed-in member sees the member price, everyone else the regular price. | R6, R11 | 1 |
+| AC4 | Voorraadbeheer books a receipt of ten T-shirts size M at the warehouse; the stock shows ten. | R7, R37 | 8 |
+| AC5 | A buyer puts two articles in the basket, closes the browser, comes back: the basket is still there. They order and pay online (Mollie test mode). The order reads **Betaald** and **Klaar om af te halen**; one M is reserved, the stock still counts ten. | R13, R14, R24, R33, R34 | 1, 2, 3 |
+| AC6 | When every M is reserved, a second buyer cannot order an M. | R13 | 2 |
+| AC7 | A buyer orders and pays by transfer. They receive a confirmation mail with the articles, the amount, the account number and the structured communication; a task appears on the workbench for Boekhouding, due within 14 days. | R18, R38 | 3, 4 |
+| AC8 | Boekhouding confirms the transfer: the task closes by itself and the order reads **Betaald**. | R18 | 4 |
+| AC9 | Boekhouding answers "nog niet betaald": the task moves to Verkoop and shows when Boekhouding last checked the account. A task past its due date turns red on the workbench; nobody gets a mail. | R18 | 4, 5 |
+| AC10 | An online payment that fails, or that the buyer abandons, becomes a task for Verkoop; the articles stay reserved until someone acts. | R17, R13 | 5 |
+| AC11 | After trying on, Verkoop changes an M into an L. The reservation moves to the L; the amount follows: an extra payment when the L costs more and the order was paid, a refund due when it costs less, a new amount when it was not paid yet. | R15, R16 | 6 |
+| AC12 | Verkoop registers one line of a two-line order as delivered: the order reads **Deels afgeleverd**, the stock of that article goes down by one and its reservation closes. When the second line is delivered, the order reads **Afgeleverd**. | R21, R34 | 7 |
+| AC13 | A signed-in buyer cancels their own order before delivery, on the same page Verkoop uses: the order reads **Geannuleerd**, the articles are free to sell again, and a paid order shows a refund due. | R13, R23, R25 | — |
+| AC14 | After delivery, the buyer can no longer cancel. | R25 | — |
+| AC15 | Verkoop cancels an unpaid order from the task: the task closes, the articles are free again. | R22 | 5 |
+| AC16 | Voorraadbeheer corrects the stock up by one after a return; the correction is visible apart from the receipt of AC4. | R36, R37 | 8 |
+| AC17 | A second tenant on HDEV has its own products in its own Webshop; it does not see Raak's, nor Raak its. | R5 | — |
 
 ---
 
