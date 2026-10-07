@@ -61,6 +61,26 @@ def _registration_with_a_transfer(db, today) -> None:
     registration.person_id = person.id
 
 
+def _person_without_household(db) -> None:
+    """One person in no household (CR-22 S7, #1712): what Personen shows on its
+    default view. In no household, so no list of households moves."""
+    from app.domains.mdm.api import ContactDetail, Person
+
+    person = Person(first_name="Pekkie", last_name="Meetbasis")
+    db.add(person)
+    db.flush()
+    for code, value in (("EMAIL", "pekkie.meetbasis@example.com"), ("MOBILE", "0470 00 00 09")):
+        db.add(
+            ContactDetail(
+                person_id=person.id,
+                contact_type_code=code,
+                value=value,
+                is_primary=True,
+                confirmed_at=datetime.fromisoformat(MEASURE_NOW),
+            )
+        )
+
+
 def main() -> None:
     if os.environ.get("E2E_SEED") != "1":
         sys.exit("measure_seed: refused, set E2E_SEED=1 to make this data")
@@ -137,6 +157,7 @@ def main() -> None:
             )
         )
         _registration_with_a_transfer(db, today)
+        _person_without_household(db)
         db.commit()
         print(f"measure_seed: voorbij={past.id} komend={ahead.id}")
     finally:

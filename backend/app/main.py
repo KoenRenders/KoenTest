@@ -57,6 +57,7 @@ from app.domains.mdm.handlers import (  # noqa: F401 - event subscriptions (#134
 )
 from app.domains.mdm.household_router import router as mdm_household_router
 from app.domains.mdm.import_router import router as member_import_router
+from app.domains.mdm.persons_ui import router as mdm_persons_ui_router
 from app.domains.mdm.router import router as mdm_router
 from app.domains.mdm.ui import router as mdm_ui_router
 from app.domains.media.admin_ui import router as media_admin_ui_router
@@ -179,6 +180,7 @@ SHELL_ROUTERS = (
     changes_ui_router,
     account_ui_router,
     mdm_account_ui_router,
+    mdm_persons_ui_router,
     design_system_ui_router,
     system_ui_router,
     organisaties_ui_router,
@@ -223,6 +225,7 @@ app.include_router(
 app.include_router(changes_ui_router)
 app.include_router(account_ui_router)
 app.include_router(mdm_account_ui_router)
+app.include_router(mdm_persons_ui_router)
 app.include_router(design_system_ui_router)
 app.include_router(system_ui_router)
 app.include_router(organisaties_ui_router)

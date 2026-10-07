@@ -203,6 +203,9 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
         # #971: Organisaties staat vóór Tenants, en het zijn twee items omdat het
         # twee dingen zijn — een rechtspersoon en een site. De ACCOUNT-organisatie
         # is geen tenant en stond daardoor in geen enkel menu.
+        # CR-22 S7 (#1712): Personen, a tenant workspace's item, before the
+        # organisation.
+        "/admin/personen",
         "/admin/organisaties",
         "/admin/tenants",
         # #1535: a tenant workspace's own organisation and settings, where the
