@@ -666,9 +666,27 @@ Since 6 October 2026 a CLI that is not Claude Code builds in this repository too
 | Name | Tool | Local port | How it listens |
 |---|---|---|---|
 | `mistral-vibe1` | the Mistral CLI | 8082 | polls its pull request (seen by Koen on 7 October 2026) |
-| `opencode1` | OpenCode | 8083 | said in its first pull request |
+| `opencode1` | OpenCode, on DeepSeek's API (the limits below) | 8083 | said in its first pull request |
 
 A name is the tool and a number, always — `mistral-vibe1`, `opencode1`, and a second session of a tool is `mistral-vibe2`, `opencode2`. A new builder is added to this table by Koen or the master CLI at his request and gets the next free port (8084, 8085, …). The master CLI watches the branches of every name in the table. The branches the Mistral CLI opened before 7 October 2026 are named `feature/mistral-…`; they are `mistral-vibe1`'s.
+
+**`opencode1` runs on DeepSeek, through DeepSeek's own API — a named deviation from Europe First, with hard limits** (Koen, 7 October 2026, choosing it as an evaluation over DeepSeek's open weights at an EU host). What the model is sent is stored in China. The source of this repository is public, so the code is not the risk; the risk is everything else within the tool's reach. Ten limits, and they hold for as long as `opencode1` uses a model outside the EU:
+
+*Set up on the machine by Koen — no reviewer can see these:*
+1. A working copy that holds only a clone of this repository: its own folder, nothing else in reach.
+2. No `.env*` file with real values in that working copy or in its parent folders.
+3. No `raak` alias, no SSH keys, no access to the server.
+4. Never against HDEV, UAT or PROD: only its own local test version (port 8083), with made-up data.
+5. **No access to Koen's project folder outside the repository** — it holds member reports and logs with real personal data. The start and stop commands and the sign-in script of its local test version live in a folder of its own beside its working copy, not next to the change request as for the other builders.
+
+*Checked by the Claude dev CLI in every pull request of `opencode1`, and named in its review:*
+6. No `.env*` file, credential, token, hostname, IP address or real domain in the diff.
+7. No pasted output of an environment — logs, `psql` output, audit rows — in the pull request, its comments or its commits.
+8. Test data is made up: no real names, e-mail addresses, phone numbers, IBANs or structured communications; accounts on the reserved example domain.
+9. No code and no test that calls an outside service (Mollie, mail, an AI provider) for real; the local version sends nothing.
+10. Every commit carries `Tool: opencode1`.
+
+A finding on 6 to 9 is not advisory: the pull request is not merged until it is gone, and what was pasted is treated as leaked (*This repository is PUBLIC* above: editing removes nothing, a credential is rotated).
 
 **The branch and the two ways to master.** A branch is named `feature/<tool>-<issue>-<short>` and is created from the branch it will be merged into. There are two ways, and Koen says which one at the assignment:
 - *an issue on a release* — a pull request against `master`; the master CLI merges it when it is read and CI is green, as for a Claude dev CLI;
@@ -698,7 +716,7 @@ An outside builder also never deploys, never reads an environment (`raak` is the
 - **made-up data only**, with accounts on a reserved example domain for the roles Koen needs to walk (an administrator, a treasurer, a board member);
 - **nothing leaves the machine**: no mail is sent, no payment provider and no AI provider is called;
 - **one way in that needs no secret**: a small script that prints the sign-in link from the version's own mail log;
-- the start and stop commands, the address and the script live **outside this repository**, in Koen's project folder next to the change request; no local path and no credential enters the repository, an issue or a pull request.
+- the start and stop commands, the address and the script live **outside this repository**, in Koen's project folder next to the change request; no local path and no credential enters the repository, an issue or a pull request (For `opencode1`: in a folder of its own, limit 5 above.)
 
 The pull request says that the local version exists and which branch it runs; where it stands is said to Koen in the builder's own chat.
 
