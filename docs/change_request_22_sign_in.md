@@ -387,6 +387,21 @@ erDiagram
 
 Who calls whom: the account shell (`app/ui`) reads the signed-in person from `auth.api` and the menu from the module registry; each page asks its own domain's facade (`mdm.api`, `activities.api`, `membership.api`). `auth` asks `mdm.api` to create the person and confirm an address; `mdm` never calls `auth`. The transaction boundary of "make an account" and "confirm an address" is the code step: consuming the token and writing the person or `confirmed_at` commit together. Impact on the architecture: two additive columns, one additive code list, one new route module in `app/ui`; the layer and import gates hold without exceptions (B4). The one behaviour that moves for everyone is `landing_for`.
 
+## B3a. Standards the model follows — and where it deviates, on purpose
+
+Standards checked: UBL 2.1 for the party and its contact (the account is the party that CR-21 will make a buyer); vCard (RFC 6350) for a person's contact list; OpenID Connect Core for a verified e-mail address; NIST SP 800-63B for a code sent by mail; ISO 8601 for timestamps; E.164 for telephone numbers. For a household no standard applies: it is Raak's own grouping, already modelled (#1603).
+
+| Concept in this change | Standard and element | Ours (table · column, name) | Follows / deviates — why |
+|---|---|---|---|
+| The account holder | UBL `cac:Party/cac:Person` (`cbc:FirstName`, `cbc:FamilyName`) | `mdm.persons` · `first_name`, `last_name` | follows the shape; the column names stay as they are (`AGENTS.md`: do not rename) — `last_name` maps to `cbc:FamilyName` |
+| The account as buyer later | UBL `cac:BuyerCustomerParty/cac:Party` | `mdm.persons.id`, referenced by an order in CR-21 | follows: the party is the person, no separate customer table |
+| E-mail address | UBL `cac:Contact/cbc:ElectronicMail` (one); vCard `EMAIL` (repeatable, `PREF`) | `mdm.contact_details` · `contact_type_code` = EMAIL, `value`, `is_primary` | follows vCard: repeatable and typed, `is_primary` = `PREF`; maps to UBL's single element by taking the primary |
+| Mobile | UBL `cbc:Telephone`; vCard `TEL;TYPE=cell` | `mdm.contact_details` · MOBILE | follows vCard; deviates from E.164: stored as typed — "not now"; the column can take a normalised value later |
+| A confirmed address | OpenID Connect `email_verified` (boolean) | `mdm.contact_details` · `confirmed_at` (timestamp) | follows the meaning; a timestamp instead of a boolean, because *when* matters for the backfill and an audit; `confirmed_at IS NOT NULL` is the boolean |
+| The code by mail | NIST SP 800-63B §5.1.3 out-of-band authenticator: one use, short life, limited attempts | `auth.login_tokens` · `otp_code` (hash), `expires_at` (15 min), `attempts` (5), `used` | follows, as it already did (#268, #395) |
+| What a code is for | — | `auth.login_tokens.purpose`, code list `auth.login_purpose_codes` | no standard; a code list as every list here (CR-12) |
+| Timestamps | ISO 8601 with offset | `DateTime(timezone=True)` | follows |
+
 ## B4. Rules this change needs an exception from — decided once, here
 
 None. Checked: `test_layer_gate.py` (the new pages have view-models; `account_ui.py` is named `*_ui.py`), `test_import_boundaries.py` (every cross-domain call through `api.py`), `test_rules_gate.py` (English identifiers; no JSON route is added, so no `## Callers`), `test_public_shell_gate.py` (account items only through `_site_account.html`), `test_public_ratchets.py` (kit buttons and cards only), `test_template_variables_gate.py`, `test_i18n_gate.py`, the fixed UI decisions in `AGENTS.md` (none touched), the URL rule (Dutch paths for people: `/mijn`, `/mijn/gegevens`, `/mijn/inschrijvingen`).
