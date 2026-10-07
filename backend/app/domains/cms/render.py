@@ -67,6 +67,11 @@ _ALLOWED_TAGS = {
 _ALLOWED_ATTRS = {
     "a": {"href", "title", "target"},
     "img": {"src", "alt", "title", "width", "height"},
+    # An ordered list's start is the author's own (Koen, 7 October 2026,
+    # option 1 of the third look, #1699): the renderer writes her on the
+    # <ol>, so the sanitiser must let her through — one attribute, one
+    # element, nothing else.
+    "ol": {"start"},
     "*": {"class"},
 }
 
@@ -482,7 +487,17 @@ def _block_html(node: dict, cell: bool = False) -> str:
         items = "".join(
             f"<li>{_blocks_html(item.get('content'), cell=True)}</li>" for item in content or []
         )
-        return f"<{tag}>{items}</{tag}>"
+        # An ordered list's start is the author's own (Koen, 7 October 2026:
+        # render her — option 1 of the third look, #1699). Only a start that
+        # differs from the default lands on the <ol>: TipTap writes start=1
+        # for every list she makes, and a start="1" would change the HTML
+        # of pages that never asked for one.
+        start = ""
+        if kind == "orderedList":
+            value = (node.get("attrs") or {}).get("start")
+            if isinstance(value, int) and value != 1:
+                start = f' start="{value}"'
+        return f"<{tag}{start}>{items}</{tag}>"
 
     if kind == "table":
         # The rows carry their section: a table typed WITH <thead> renders
@@ -602,13 +617,19 @@ def _document_text(document, db=None) -> str:
         elif kind == "heading":
             lines.append(_inline_text(content))
         elif kind in ("bulletList", "orderedList"):
+            # An ordered list numbers from her start (option 1, #1699): the
+            # chatbot reads what the author wrote — "5." stays "5.", not a
+            # bare dash that could be any list.
+            number = (node.get("attrs") or {}).get("start") if kind == "orderedList" else None
             for item in content:
-                lines.append(
-                    "- "
-                    + " ".join(
-                        _inline_text(b.get("content") or []) for b in item.get("content") or []
-                    )
+                words = " ".join(
+                    _inline_text(b.get("content") or []) for b in item.get("content") or []
                 )
+                if number is None:
+                    lines.append(f"- {words}")
+                else:
+                    lines.append(f"{number}. {words}")
+                    number += 1
         elif kind == "table":
             for row in content:
                 cells = [

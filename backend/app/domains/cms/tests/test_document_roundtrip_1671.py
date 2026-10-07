@@ -264,3 +264,51 @@ def test_the_net_gives_an_empty_document_when_the_sanitiser_shows_nothing():
 
     assert plain_text_document("<script>alert(1)</script>") == {"type": "doc", "content": []}
     assert plain_text_document("<style>p{color:red}</style>") == {"type": "doc", "content": []}
+
+
+def _ordered(start):
+    """An ordered list the editor writes, with her start and two items."""
+    attrs = {"start": start, "type": None} if start is not None else None
+    document: dict = {
+        "type": "orderedList",
+        "content": [
+            {
+                "type": "listItem",
+                "content": [{"type": "paragraph", "content": [{"type": "text", "text": "eerst"}]}],
+            },
+            {
+                "type": "listItem",
+                "content": [{"type": "paragraph", "content": [{"type": "text", "text": "tweede"}]}],
+            },
+        ],
+    }
+    if attrs:
+        document["attrs"] = attrs
+    return {"type": "doc", "content": [document]}
+
+
+def test_an_ordered_list_renders_her_own_start():
+    """Koen's choice, 7 October 2026 (option 1 of the third look, #1699):
+    an author who begins her list at 5 sees 5 on the site — the editor's
+    picture and the page's agree. Red on the merge commit: the renderer
+    wrote a bare <ol> and the sanitiser dropped the attribute."""
+    assert '<ol start="5">' in render_document(_ordered(5), None)
+    assert "<li>eerst</li><li>tweede</li>" in render_document(_ordered(5), None)
+
+
+def test_a_list_that_starts_at_one_stays_unchanged():
+    """The other half of the choice: TipTap writes `start: 1` for every
+    list she makes, and a `start="1"` on the <ol> would change the HTML of
+    pages that never asked for one. The default stays invisible."""
+    assert render_document(_ordered(1), None) == render_document(_ordered(None), None)
+    assert "start=" not in render_document(_ordered(1), None)
+
+
+def test_the_text_rendering_numbers_from_her_start():
+    """The chatbot reads what the author wrote (option 1, #1699): a list
+    that begins at 5 reads "5." and "6." — not a bare dash that could be
+    any list. Red on the merge commit: both lists read "- "."""
+    text = render_document(_ordered(5), None, target="text")
+    assert "5. eerst" in text and "6. tweede" in text
+    plain = render_document(_ordered(None), None, target="text")
+    assert "- eerst" in plain and "- tweede" in plain
