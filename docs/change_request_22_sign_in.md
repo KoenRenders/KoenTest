@@ -99,6 +99,8 @@ Signing in today sends a code to an e-mail address. That only works if the addre
 | R13 | Everyone who signs in has an account — a member of Raak, an individual, and in the long run someone acting for a company. After signing in he lands on his account page. | Must *(proposed)* | Koen, 7 Oct 2026 (Q14) | |
 | R14 | The account page has a menu with what applies to him: the account itself, always; "Mijn gezin" where he belongs to a household and the tenant has membership (renewing the membership stays there); his registrations for activities; later his purchases from the webshop. Payments and invoices may follow later, not now. | Must *(proposed)* | Koen, 7 Oct 2026 (Q14) | "given as context; maybe an insight that brings future-oriented clarity" |
 | R15 | The link to "Mijn gezin" that Raak Millegem sends by mail to renew a membership keeps working: whoever follows it signs in if needed and arrives on "Mijn gezin", not on the account page. | Must *(proposed)* | Koen, 7 Oct 2026 | the address of "Mijn gezin" and of renewing does not change |
+| R16 | Name, e-mail address and mobile are attributes of one natural person, edited in one way wherever the person appears: on his own page for everyone with an account, and for every person of a household in "Mijn gezin". A household is a repeating group of natural persons, each with its relation to the household, plus the household's one address. | Must *(proposed)* | Koen, 7 Oct 2026 (Q27) | a change on one page shows on the other at once |
+| R17 | An account is not asked address, date of birth or gender; a member keeps those in "Mijn gezin" as today. | Must *(proposed)* | Koen, 7 Oct 2026 | data minimisation; the household's address hangs, technically, on the main member's person |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -294,6 +296,7 @@ and deliberately not done — recorded so it is not asked again).
 | 7 Oct 2026 | Cancelling a registration oneself is out of scope (Q12). | Koen |
 | 7 Oct 2026 | A new or changed address in "Mijn gezin" or "Mijn account" is active only after its code; refused when used outside the household (Q13). | Koen |
 | 7 Oct 2026 | Everyone who signs in is an account; the landing page is the account, with a menu of what applies: account, Mijn gezin (household + membership), registrations, later purchases; payments and invoices later (Q14). | Koen |
+| 7 Oct 2026 | One object, the natural person: one way to edit it (rules, view-model, block), used on the own page and per person in "Mijn gezin"; the household is a repeating group of persons with their relation, plus its address (Q27). | Koen |
 | 7 Oct 2026 | Q1–Q9 answered: guest link by secret token; mobile required as today; no lookup or warning on a typed address (the standing hint stays, as decided in CR-11); an account exists after the code; an account that becomes a member keeps its person; accounts per tenant; a new address is confirmed and unique except inside the household; existing duplicates measured first, Koen decides; for registrations only the account is new. | Koen |
 
 ---
@@ -468,6 +471,7 @@ and deliberately not done — recorded so it is not asked again).
 | Q12 | 7 Oct 2026 | May a guest cancel his registration through a link? (Claude) | Out of scope; then one makes an account or becomes a member. (Koen) |
 | Q13 | 7 Oct 2026 | Must a new address in "Mijn gezin" be confirmed too? (Claude) | Yes. (Koen) |
 | Q14 | 7 Oct 2026 | Where does an account holder land after signing in? (Claude) | Everyone who signs in is an account — member, individual, later someone for a company. Land on the account, with a menu: account, Mijn gezin if there is a household, the activities, the purchases; payments not now. (Koen) |
+| Q27 | 7 Oct 2026 | For a member, may name and e-mail be edited on the own page as well as in "Mijn gezin" (a), or read-only there (b)? (Claude) | These are attributes of a person, so edit functions on a person are needed anyway; in a household the repeating group is a natural person, including its relation to the household. (Koen) — read as (a) with one person component. |
 
 ## Non-goals — deliberately outside this change
 
