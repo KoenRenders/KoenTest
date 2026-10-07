@@ -94,7 +94,9 @@ def test_a_member_without_a_role_does_not(client, db_session):
     assert "/leden/gezin" in html, "the member's own link is there, so the header rendered for them"
     assert _links(html) == ABSENT, "a member without a back-office role sees the back-office link"
     assert 'data-account-item="admin"' not in html
-    assert html.count('data-account-item="member"') == 2, "Mijn gezin, in the menu and the drawer"
+    # CR-22 S3 (#1706): the account menu is "Mijn <site>" and Mijn gezin — each in
+    # the menu and in the drawer.
+    assert html.count('data-account-item="member"') == 4, "two items, in the menu and the drawer"
 
 
 def test_the_link_and_the_guard_read_one_set(client, db_session, monkeypatch):

@@ -1170,11 +1170,34 @@ def _public_nav(field: str) -> list[dict]:
 
     enabled = current_enabled_modules()
     return [
-        {"href": href, "label": _(label), "match": _PUBLIC_NAV_LANDS_ON.get(href)}
+        {
+            "href": item[0],
+            "label": _(item[1]),
+            "match": _PUBLIC_NAV_LANDS_ON.get(item[0]),
+            # Only an account-menu item brings an icon (CR-22 Q38).
+            "icon": item[2] if len(item) > 2 else None,
+        }
         for module in MODULES
-        for href, label in getattr(module, field)
-        if nav_item_shown(field, href, enabled)
+        for item in getattr(module, field)
+        if nav_item_shown(field, item[0], enabled)
     ]
+
+
+def account_nav(db) -> list[dict]:
+    """The account menu of the public site (CR-22 S3, #1706; R14): ONE list for
+    the header's menu, the drawer and the menu on the account pages. Its first
+    item is the landing page, called "Mijn " + the site's name (Q32, Q35); the
+    rest comes from the modules' `member_items`, each with its own icon."""
+    from app.i18n import _
+    from app.kernel.tenant_config import tenant_display_name
+
+    home = {
+        "href": "/mijn",
+        "label": _("Mijn %(site)s") % {"site": tenant_display_name(db)},
+        "match": None,
+        "icon": "house",
+    }
+    return [home, *_public_nav("member_items")]
 
 
 def site_context(db, request=None) -> dict:
@@ -1273,7 +1296,7 @@ def site_context(db, request=None) -> dict:
         # CR-19 (#1476): the module links of the header, from the registry —
         # what a module that is off lists or serves is not there.
         "public_nav": _public_nav("public_items"),
-        "member_nav": _public_nav("member_items"),
+        "member_nav": account_nav(db),
         # #1588: the legal line's parts. (The newsletter column's heading is
         # the word "Nieuwsbrief" in the shell since #1647; "Nieuws van <the
         # site's name>" of #1606 is gone, with its key here.)

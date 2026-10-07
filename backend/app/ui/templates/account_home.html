@@ -1,0 +1,18 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% import "_public_macros.html" as pub %}
+{% block title %}{{ title }} · {{ site_name }}{% endblock %}
+{% block content %}
+{# "Mijn <site>": where someone lands after signing in (CR-22 S3, #1706; R13,
+   R26). A greeting, how the membership stands — the card of Mijn gezin, the
+   same partial — and, from S5 on, the latest registration. On a phone the
+   account menu is the drawer's; the links at the bottom reach every page from
+   here (Q16). #}
+{% call pub.account_page(title, nav, active) %}
+  <p data-account-greeting class="text-base text-ink-soft">{% if first_name %}{{ _("Dag %(naam)s.", naam=first_name) }}{% else %}{{ _("Dag.") }}{% endif %}</p>
+  {% if card %}
+  <div class="mt-6">{% include "_membership_card.html" %}</div>
+  {% endif %}
+  {{ pub.account_links(nav, active) }}
+{% endcall %}
+{% endblock %}

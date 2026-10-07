@@ -278,4 +278,5 @@ def test_only_the_card_writes_what_a_running_renewal_asks():
     assert holding('"_transfer_due.html"') == ["_renewal_running.html"]
     assert holding('"_renewal_running.html"') == ["_membership_card.html"]
     assert holding('attrs="data-membership-status"') == ["_membership_card.html"]
-    assert holding('"_membership_card.html"') == ["household_page.html"]
+    # Since CR-22 S3 (#1706) the landing page shows the same card.
+    assert holding('"_membership_card.html"') == ["account_home.html", "household_page.html"]
