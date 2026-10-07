@@ -89,7 +89,7 @@ Signing in today sends a code to an e-mail address. That only works if the addre
 | R3 | An account holds no more than last name, first name and e-mail address, and is kept in master data. It exists only once the code from the mail has been entered. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R27; Q4) | |
 | R4 | An e-mail address belongs to one person outside a household; whoever creates an account with an address that already exists is told "this account already exists" and gets a sign-in link to that address, never a second person. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R32) | |
 | R5 | A guest registers or orders without an account, giving name, e-mail address and mobile — the same three required fields a registration asks today — and pays the regular price. Whatever address he types, the portal neither blocks him nor says the address is known; the standing hint that whoever has an account signs in first stays as it is. | Must *(proposed)* | Koen, 7 Oct 2026 (Q2, Q3) | today's registration without signing in is already this; only the account is new (Q9) |
-| R6 | The confirmation mail carries a link that brings the person to his registration or order: for a member or an account it signs him in; for a guest it opens that one registration or order without signing in, through a secret token, so a guest can cancel too. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R26; Q1) | |
+| R6 | The confirmation mail of a member or an account carries a link that signs him in and brings him to his registration or order. A guest gets no such link: without an account, nothing can be looked up or changed afterwards; the confirmation mail itself says what was registered or ordered. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R26; Q1, Q10) | the guest token of Q1 is withdrawn (Q10) |
 | R7 | A signed-in person can change his e-mail address himself; the new address is confirmed with a code first and may not belong to another person, except inside his own household. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R29; Q7) | also where a member changes addresses in "Mijn gezin" today |
 | R8 | A signed-in person sees his history; for a member it belongs to the household, otherwise to the person. | Must *(proposed)* | Koen, 6 Oct 2026 (CR-21 R30) | |
 | R9 | A person with an account who becomes a member through "Lid worden" becomes the person in the household; no second person is made. | Must *(proposed)* | Koen, 7 Oct 2026 (Q5) | |
@@ -285,6 +285,7 @@ and deliberately not done — recorded so it is not asked again).
 |---|---|---|
 | 7 Oct 2026 | Lifted out of CR-21: built first on the activity registrations, then used by the webshop. | Koen |
 | 7 Oct 2026 | Three ways: household member, account, guest; a guest gives name, e-mail address and mobile. | Koen |
+| 7 Oct 2026 | Keep the guest simple: no account, so nothing can be changed afterwards; no guest link. **Replaces** Q1 (Q10). | Koen |
 | 7 Oct 2026 | Q1–Q9 answered: guest link by secret token; mobile required as today; no lookup or warning on a typed address (the standing hint stays, as decided in CR-11); an account exists after the code; an account that becomes a member keeps its person; accounts per tenant; a new address is confirmed and unique except inside the household; existing duplicates measured first, Koen decides; for registrations only the account is new. | Koen |
 
 ---
@@ -454,6 +455,7 @@ and deliberately not done — recorded so it is not asked again).
 | Q7 | 7 Oct 2026 | A new address confirmed first and not another person's? (Claude) | Yes, except inside a household. (Koen) |
 | Q8 | 7 Oct 2026 | Existing duplicates outside a household? (Claude) | Measure first, Koen decides; inside a household it may, outside not. (Koen) |
 | Q9 | 7 Oct 2026 | Does anything of today's registration disappear? (Claude) | No; only the account is added. (Koen) |
+| Q10 | 7 Oct 2026 | (Koen came back on Q1) A guest link to view the registration, valid until the activity is over? | Keep it simple: no account, nothing changed afterwards — no guest link. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
