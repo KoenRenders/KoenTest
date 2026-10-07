@@ -37,6 +37,14 @@
     el.className = "de-btn";
     el.textContent = label;
     if (aria) el.setAttribute("aria-label", aria);
+    /* An editor toolbar never takes the focus her clicks steal: with the
+       default behaviour the button holds the focus and the author's first
+       keystrokes go nowhere (measured on CI: "Kopregel" arrived as
+       "pregel", #1699). preventDefault on mousedown keeps the editor
+       focused; the click itself still fires. */
+    el.addEventListener("mousedown", function (event) {
+      event.preventDefault();
+    });
     return el;
   }
 
@@ -158,6 +166,9 @@
       var summary = document.createElement("summary");
       summary.className = "de-btn de-menu-toggle";
       summary.textContent = config.toolbar.insertMenu + " ▾";
+      summary.addEventListener("mousedown", function (event) {
+        event.preventDefault();
+      });
       menu.appendChild(summary);
       var items = document.createElement("div");
       items.className = "de-menu-items";
