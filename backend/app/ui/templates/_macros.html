@@ -642,6 +642,13 @@
      address under "E-mailadressen" — shows no label of its own, in read and
      edit mode and at every width (#1632, CR-11 Q70); the control keeps the
      label as its accessible name. Not for a row with several fields.
+   - `fallback` (#1694): what an EMPTY field gives — the value another record
+     supplies when nothing is typed here (an organiser's own address under
+     "Ander e-mailadres"). While editing it is the control's grey placeholder,
+     never a value: nothing of it is submitted. In read mode it stands where
+     the value would, in the soft ink, followed by `fallback_note` ("van de
+     fiche") — so the reader sees what is used and that it was not typed here.
+     A filled field shows its own value, as always.
    - `delete_name` (upload): "Verwijderen" beside what hangs there does not
      delete it — it marks it (a hidden field of this name becomes "1") and the
      form's save removes it; until then it can be taken back. #}
@@ -653,8 +660,10 @@
                rows=3, form=None, accept="image/*,application/pdf", current_url=None,
                current_label=None, delete_attrs="", delete_confirm=None, disabled=False,
                display=None, help_in_read=False, preview_url=None, delete_name=None,
-               beside_field=False, help_lines=False, label_hidden=False) -%}
+               beside_field=False, help_lines=False, label_hidden=False,
+               fallback=None, fallback_note=None) -%}
 {%- set _id = id or name -%}
+{%- if fallback and not placeholder -%}{%- set placeholder = fallback -%}{%- endif -%}
 {%- if kind in _field_full or (kind == "text" and long) -%}{%- set _span = "full" -%}
 {%- elif span == "full" -%}{%- set _span = "full" -%}
 {%- elif span == "quarter" and kind in _field_quarter_ok -%}{%- set _span = "quarter" -%}
@@ -677,6 +686,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {%- elif kind == "email" and value %}<a href="mailto:{{ value }}" class="text-blue-500 underline">{{ value }}</a>
     {#- #1675: read, a number is grouped; the input below keeps what is stored. #}
     {%- elif kind == "phone" and value %}{{ value|phone }}
+    {%- elif (value is none or value == "") and fallback %}<span data-fallback class="text-ink-soft">{{ fallback }}{% if fallback_note %} ({{ fallback_note }}){% endif %}</span>
     {%- elif value is none or value == "" %}—
     {%- else %}{% if unit %}{{ unit }} {% endif %}{{ value }}{% endif -%}
   </p>

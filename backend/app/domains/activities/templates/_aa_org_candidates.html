@@ -2,7 +2,8 @@
 {# The candidates of the organiser search (#1004, #1559): members by name, with
    the address the mails would go to (#1353) so two namesakes are told apart.
    "Toevoegen" adds a row to the fiche's organisers in the page — nothing is
-   written until the fiche is saved. #}
+   written until the fiche is saved. #1694: the row it adds shows in grey the
+   member's own address and number — from the function the poster reads. #}
 {% if organiser_query %}
 <ul data-organiser-candidates class="mt-2 divide-y divide-line">
   {% for match in organiser_candidates %}
@@ -11,7 +12,9 @@
     {{ ui.btn_secondary(_("Toevoegen"), size="sm",
          attrs=('data-group-pick="o_order" data-pick="'|safe) ~ ({"__NAME__": match.person.first_name ~ " " ~ match.person.last_name,
                                                                  "__HREF__": "/admin/leden/gezin/" ~ organiser_households.get(match.person.id, ""),
-                                                                 "__PERSON__": match.person.id|string}|tojson|forceescape) ~ ('"'|safe)) }}
+                                                                 "__PERSON__": match.person.id|string,
+                                                                 "__EMAIL__": organiser_own.get((match.person.id, own_email_code)) or _("geen e-mailadres op de fiche"),
+                                                                 "__MOBILE__": (organiser_own.get((match.person.id, own_mobile_code))|phone) or _("geen nummer op de fiche")}|tojson|forceescape) ~ ('"'|safe)) }}
   </li>
   {% else %}
   <li class="py-2 text-sm text-ink-soft">{{ _("Geen leden gevonden.") }}</li>

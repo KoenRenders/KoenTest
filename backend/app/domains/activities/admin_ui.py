@@ -1882,12 +1882,18 @@ def _organiser_candidates(
     request: Request, db: Session, organiser_q: str, *, taken: set[int]
 ) -> Response:
     """The members the organiser search offers, without who is one already."""
-    from app.domains.mdm.api import household_ids, search_persons
+    from app.domains.activities.api import member_contacts
+    from app.domains.mdm.api import CONTACT, household_ids, search_persons
+    from app.kernel.codes import code_of
 
     candidates = search_persons(db, organiser_q, members_only=True, exclude_ids=taken)
     found = {
         "organiser_query": organiser_q,
         "organiser_candidates": candidates,
         "organiser_households": household_ids(db, [c.person.id for c in candidates]),
+        # #1694: what an empty override of a picked member falls back to.
+        "organiser_own": member_contacts(db, [c.person.id for c in candidates]),
+        "own_email_code": code_of(CONTACT.EMAIL),
+        "own_mobile_code": code_of(CONTACT.MOBILE),
     }
     return templates.TemplateResponse(request, "_aa_org_candidates.html", found)
