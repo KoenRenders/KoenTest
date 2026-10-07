@@ -116,3 +116,46 @@ def test_a_div_page_falls_back_to_her_html_with_her_words_in_the_draft():
     assert parse_html(content, on_page=True) is None, "a div page converts"
     draft = parse_html(content, on_page=True, lenient=True)
     assert "Eerste alinea." in render_document(draft, None, target="text")
+
+
+def test_a_script_only_page_converts_to_empty_and_is_reported(db_session):
+    """Review 4 (Koen, 7 October 2026): a page whose entire content the
+    sanitiser drops converts to an EMPTY document — the visitor saw nothing
+    either — and the migration's report names her, instead of silently
+    filling the draft with script text.
+
+    Broken by restoring the raw fallback (`or content`) in
+    `plain_text_document`, or by dropping the `empty` list from the counts:
+    the first would put "alert(1)" in the draft, the second would keep the
+    page out of the report.
+    """
+    import importlib.util
+    import pathlib
+
+    from app.domains.cms.models import CmsPage, CmsPageTranslation
+
+    seeded = db_session.query(CmsPage).first()
+    assert seeded, "no seeded page to take a tenant from"
+    page = CmsPage(
+        tenant_id=seeded.tenant_id,
+        title="Script-only",
+        slug="script-only-1671",
+        content="<script>alert(1)</script>",
+        is_published=False,
+    )
+    db_session.add(page)
+    db_session.flush()
+
+    versions = pathlib.Path(__file__).resolve().parents[4] / "alembic" / "versions"
+    spec = importlib.util.spec_from_file_location(
+        "migration_198", versions / "198_2026_10_06_195129_pages_as_documents.py"
+    )
+    assert spec and spec.loader
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    counts = migration._convert_pages(db_session.get_bind())
+    assert f"{page.id} (script-only-1671)" in counts["empty"], "the report does not name her"
+    translation = db_session.query(CmsPageTranslation).filter_by(page_id=page.id).one()
+    assert translation.draft_json == {"type": "doc", "content": []}
+    assert translation.published_json is None

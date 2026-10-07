@@ -248,3 +248,19 @@ def test_plain_text_document_joins_no_words_across_an_unclosed_block():
     document = plain_text_document("<p>Een <b>twee</p><ul><li>drie</ul>vier &amp; vijf")
     texts = [n["content"][0]["text"] for n in document["content"]]
     assert texts == ["Een twee", "drie", "vier & vijf"]
+
+
+def test_the_net_gives_an_empty_document_when_the_sanitiser_shows_nothing():
+    """Review 4 (Koen, 7 October 2026): no raw fallback in the net.
+
+    Broken on purpose by restoring ``or content``: a page whose entire
+    content the sanitiser drops (here: only a script block) put its script
+    text in the draft — words the visitor never saw, straight from raw
+    content. The draft is what the visitor saw, and raw content reaches no
+    document (C5): such a page gets an empty document, and the migration's
+    report names her ("converted to an empty draft").
+    """
+    from app.domains.cms.parse import plain_text_document
+
+    assert plain_text_document("<script>alert(1)</script>") == {"type": "doc", "content": []}
+    assert plain_text_document("<style>p{color:red}</style>") == {"type": "doc", "content": []}

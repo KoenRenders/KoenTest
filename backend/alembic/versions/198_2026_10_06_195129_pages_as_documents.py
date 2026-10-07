@@ -57,7 +57,7 @@ def _convert_pages(bind) -> dict:
     pages = bind.execute(
         sa.text("SELECT id, tenant_id, title, slug, content, is_published FROM cms.cms_pages")
     ).fetchall()
-    converted, kept_html, published, failed = 0, 0, 0, []
+    converted, kept_html, published, failed, empty = 0, 0, 0, [], []
     for page_id, tenant_id, title, slug, content, is_published in pages:
         language = locale_language(languages.get(tenant_id, "nl_BE"))
         on_page = slug not in SITE_BLOCK_SLUGS
@@ -101,6 +101,17 @@ def _convert_pages(bind) -> dict:
                 ),
                 {"page": page_id, "lang": language, "title": title, "draft": json.dumps(draft)},
             )
+            if not draft.get("content"):
+                # Review 4 (Koen, 7 October 2026): a draft that converts to
+                # EMPTY stands out in the report instead of being silently
+                # filled — words the sanitiser always dropped were never
+                # anyone's, and raw content reaches no document (C5).
+                empty.append(f"{page_id} ({slug})")
+                log.warning(
+                    "#1671: page %s (%s) converts to an empty draft; it keeps her HTML",
+                    page_id,
+                    slug,
+                )
             continue
         now = datetime.now(timezone.utc)
         bind.execute(
@@ -140,11 +151,18 @@ def _convert_pages(bind) -> dict:
             )
             published += 1
         converted += 1
+        if not document.get("content"):
+            # Review 4 (Koen, 7 October 2026): the conversion is lossless —
+            # the page rendered empty today too — but the report names her,
+            # so an empty editor is a finding and not a surprise.
+            empty.append(f"{page_id} ({slug})")
+            log.warning("#1671: page %s (%s) converts to an empty document", page_id, slug)
     return {
         "pages": len(pages),
         "converted": converted,
         "kept_html": kept_html,
         "kept": failed,
+        "empty": empty,
     }
 
 
@@ -194,11 +212,14 @@ def upgrade() -> None:
 
     counts = _convert_pages(bind)
     log.info(
-        "#1671: %d page(s): %d converted to a document, %d kept their HTML (ids and slugs: %s)",
+        "#1671: %d page(s): %d converted to a document, %d kept their HTML (ids and slugs: %s);"
+        " %d convert to an empty draft or document (ids and slugs: %s)",
         counts["pages"],
         counts["converted"],
         counts["kept_html"],
         ", ".join(counts["kept"]) or "none",
+        len(counts["empty"]),
+        ", ".join(counts["empty"]) or "none",
     )
 
 

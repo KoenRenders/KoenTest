@@ -425,8 +425,11 @@ def plain_text_document(content: Optional[str]) -> dict:
     # Sanitised first, like `parse_html` does: balanced HTML keeps every
     # word in its own block, also when the caller hands the net RAW content
     # (the migration's guard does) and the tags are not closed (review 3,
-    # #1673 — `ul` and `ol` were missing from the set on top of that).
-    content = sanitize_cms_html(content) or content
+    # #1673 — `ul` and `ol` were missing from the set on top of that). NO raw
+    # fallback when the sanitiser returns nothing (review 4, Koen, 7 October
+    # 2026): the draft is what the visitor saw — words the sanitiser always
+    # dropped were never anyone's, and raw content reaches no document (C5).
+    content = sanitize_cms_html(content)
     paragraphs: list[dict[str, Any]] = []
     buffer: list[str] = []
 
