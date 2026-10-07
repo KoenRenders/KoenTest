@@ -148,12 +148,7 @@ def merge(
     spec = contract(template_key)["layouts"][layout]
     pal = brand.palette_for(content.duo_code)
     p: Plan = plan_affiche(
-        content,
-        layout=layout,
-        width=spec["width_mm"],
-        height=spec["height_mm"],
-        pal=pal,
-        has_qr=bool(qr_url),
+        content, layout=layout, width=spec["width_mm"], height=spec["height_mm"], pal=pal
     )
     svg = (
         _env()

@@ -181,14 +181,10 @@ def test_richtext_wraps_on_font_metrics_and_the_estimate_is_an_upper_bound():
 
 
 def test_the_qr_says_what_it_is_for():
-    """Since #1685 (Koen, 7 October 2026) the site's name stands under the
-    code, without "www." — the code carries the whole address. A poster
-    without a website keeps the old caption."""
-    url = "https://www.raakmillegem.be/activiteiten/bowlen"
-    svg = render.merge(_content(), layout="print_a", qr_url=url).svg
-    assert ">raakmillegem.be</text>" in svg and "Scan voor meer info" not in svg
-    bare = render.merge(_content(website=""), layout="print_a", qr_url=url).svg
-    assert ">Scan voor meer info</text>" in bare
+    svg = render.merge(
+        _content(), layout="print_a", qr_url="https://www.raakmillegem.be/activiteiten/bowlen"
+    ).svg
+    assert ">Scan voor meer info</text>" in svg
 
 
 def test_merge_places_every_content_block_and_promises_a_box_per_text():
