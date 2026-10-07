@@ -111,6 +111,7 @@ What changes, one line each:
 | sign-in button | **Inloggen** (unchanged) |
 | hint above the registration form | *"Heb je een account of ben je lid? Log je eerst aan."* |
 | a pending address | *wacht op bevestiging* |
+| who registered, on a household's registration | *ingeschreven door [first name]* — only where a household is shown (Q37) |
 | screen after asking a code or making an account | *"We stuurden een code naar dit adres."* — the same in every case |
 | field labels on every new form and on Personen | **Voornaam** · **Achternaam** · **E-mail** · **Mobiel** — the words Koen decided in #1692 on 7 October 2026 |
 
@@ -554,7 +555,7 @@ The five functions leave `DUTCH_IDENTIFIERS` (`tests/rules_baseline.py`), as the
 - **Tests:** T11.
 
 ### activities
-- **Screens:** new `/mijn/inschrijvingen` — one row per registration: activity, date, component, amount, payment state badge; newest first; empty state "Je hebt nog geen inschrijvingen."; `member_items` gains `("/mijn/inschrijvingen", "Mijn inschrijvingen")`. `_member_nudge.html` gets the words of A3.
+- **Screens:** new `/mijn/inschrijvingen` — one card per registration: activity, date, component × quantity, amount, payment state badge; for a household "ingeschreven door [first name]" (Q37); the transfer block when due (R27); newest first; empty state "Je hebt nog geen inschrijvingen."; `member_items` gains `("/mijn/inschrijvingen", "Mijn inschrijvingen")`. `_member_nudge.html` gets the words of A3.
 - **Code:** the transfer instructions move out of `membership/templates/_renewal_running.html` (the `ui.inset` "… betaal via overschrijving:" with Bedrag, IBAN, Begunstigde, Mededeling (OGM)) into one partial `_transfer_due.html` with a `TransferDue` view-model (amount, iban, beneficiary, ogm, heading), included by the renewal and by every registration still to be paid by transfer (R27); the heading is the caller's ("Inschrijving geregistreerd — betaal via overschrijving:"). `registrations_for_persons(db, person_ids)` in the facade; payment state through `payment.api.registration_payment_states`.
 - **Database:** none.
 - **Mail:** the confirmation mail of a registration with a person links to `/mijn/inschrijvingen`; a guest's has no link.
@@ -686,7 +687,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | code step | "We stuurden een code naar dit adres." and the code field; button Bevestigen (new account) or Inloggen | Koen, 7 Oct 2026 — approved |
 | `/mijn` Mijn Raak, desktop and 390 px | greeting, membership card (member), latest registration with transfer instructions, links at the bottom, menu left without heading (desktop) | Koen, 7 Oct 2026 — approved after Q33–Q35 |
 | `/mijn/gegevens`, account and member | the person block; for a member the line to Mijn gezin; a pending address | Koen, 7 Oct 2026 — approved (described; labels per #1692) |
-| `/mijn/inschrijvingen` | rows with payment badge; the empty state | — |
+| `/mijn/inschrijvingen` | one card per registration with payment badge, "ingeschreven door …" for a household, the transfer block when due; the empty state | Koen, 7 Oct 2026 — approved |
 | the drawer at 390 px | the account menu with the three items | — |
 | the registration form's hint | the new words | — |
 | `/admin/personen` | the table, the filter, the delete confirmation | — |
@@ -742,6 +743,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | Q34 | 7 Oct 2026 | (Koen) When paid by transfer, show how to transfer, in exactly the layout made yesterday. | One partial with the inset of Mijn gezin's renewal — confirmed by Koen: the block that appears when a membership is renewed by transfer; registrations use it too. (Koen) |
 | Q35 | 7 Oct 2026 | No heading above the menu; "Mijn Raak Millegem" as first item and page title? (Claude) | Yes. (Koen) |
 | Q36 | 7 Oct 2026 | Does a new address also get confirmed through the link in the mail? (Koen) | Yes: link and code, one token, as the sign-in mail today. (Claude, on the measured sign-in mail) |
+| Q37 | 7 Oct 2026 | Keep "ingeschreven door An" on a household's registrations? (Claude) | Yes. (Koen) |
 | Q27 | 7 Oct 2026 | For a member, may name and e-mail be edited on the own page as well as in "Mijn gezin" (a), or read-only there (b)? (Claude) | These are attributes of a person, so edit functions on a person are needed anyway; in a household the repeating group is a natural person, including its relation to the household. (Koen) — read as (a) with one person component. |
 
 ## Non-goals — deliberately outside this change
