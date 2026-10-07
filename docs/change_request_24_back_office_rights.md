@@ -2,7 +2,7 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** opened on 7 October 2026 · Parts A, B and C written; B8 empty; ready for the build read · nothing is built; not on a release
-**Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
+**Tracking issue:** #1722 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** auth (roles, rights, the gates), every back-office route's gate; part 2 is CR-25 (the back office: menu, Bestuur, workbench, business partners)
 **Reading:** A 1 766 words · B 1 728 (the decisions log excluded) · C 1 775 — measured on 7 October 2026 without drawings and notes; the budget is A ≤ 1 500, B ≤ 2 500: A is over by 266, mostly the moved and Won't rows of A6
 
