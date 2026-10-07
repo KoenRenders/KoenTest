@@ -4,6 +4,7 @@
    dat hij goed vond stond per ongeluk op 16. De koppen gaan mee omhoog, anders
    verdwijnt het verschil tussen kop en tekst. Zie §1.2a van het design-system. #}
 {% import "_macros.html" as ui %}
+{% import "_public_macros.html" as pub %}
 {# Statuskleuren (#451): Open=groen, Voorbij=grijs, Geannuleerd=rood, Vol=oranje.
    Volzet week in #609 af van v1.14 (rood): design-system §1.1 houdt de tinten uit
    elkaar — oranje = "attention · outstanding", rood = "error · delete". Een volzette
@@ -19,7 +20,7 @@
      zolang het gewoon het lopende jaar is — twee koppen boven elkaar was ruis.
      Bij een jaarwissel verderop in de lijst blijft de kop staan. #}
   {% if not (loop.first and _jaar == current_year) %}
-  <h3 data-year-heading class="text-xl md:text-lg font-semibold text-kop border-b border-line pb-1{% if not loop.first %} pt-2{% endif %}">{{ _jaar }}</h3>
+  {{ pub.year_heading(_jaar, first=loop.first) }}
   {% endif %}
   {% set _ns.jaar = _jaar %}
   {% endif %}
@@ -30,19 +31,18 @@
        de gekozen Cobalt-richting): dag groot, maand kort, in de zachte
        selectietint. Afgeleid van de sorteerdatum; een activiteit zonder datum
        krijgt gewoon geen blok. #}
-    <div class="flex gap-3 sm:gap-4">
-      {% if a.sort_date %}
-      <div data-date-tile class="shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-blue-50 text-blue-700 flex flex-col items-center justify-center" aria-hidden="true">
-        <span class="text-xl font-bold leading-none">{{ a.sort_date.strftime("%d") }}</span>
-        <span class="text-xs font-semibold uppercase leading-none mt-0.5">{{ a.sort_date | maandkort }}</span>
-      </div>
-      {% endif %}
-      <div class="min-w-0 flex-1">
+    {# #1663: a grid of two columns — the tile, the content — in place of a flex
+       row, so the actions under them can run over both on a phone. From
+       640 px the tile spans both rows: the actions stand right under the
+       lines beside it, also where those are lower than the tile. Without a
+       date there is no tile and no grid. #}
+    <div{% if a.sort_date %} class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 sm:gap-x-4 sm:[&>time]:row-span-2"{% endif %}>
+      {% if a.sort_date %}{{ pub.date_tile(a.sort_date, "card") }}{% endif %}
+      <div class="min-w-0">
     {# Titel + status-badge inline (#488). Golf 12 (#913): de titel linkt naar
        de activiteitspagina op het deeladres — de affiche staat dáár als beeld
        en blijft zo bereikbaar; tot golf 12 linkte de titel rechtstreeks naar
        het affichebestand (v1.14-erfenis). #}
-    <div>
       <h2 data-card-title class="text-xl md:text-lg font-semibold flex flex-wrap items-center gap-2">
         <a href="{{ path_for('/activiteiten/' ~ (a.slug or a.id)) }}" class="text-blue-700 hover:underline">{{ a.name }}</a>
         {# Golf 11 (eigenaarbevinding 1, #913): "Open" is de normale toestand en
@@ -76,15 +76,7 @@
          `flex-col` op de tekstkolom, dus een datum met een eindtijd of einddatum
          blijft in zijn geheel op zijn eigen regel staan: dat is het geval dat bij
          opsplitsen het makkelijkst half sneuvelt. #}
-      <div data-activity-dates class="text-base md:text-sm text-ink-soft flex items-start gap-1">
-        {{ ui.icon("calendar", cls="mt-1 md:mt-0.5 shrink-0") }}
-        <div class="flex flex-col">
-          {% for d in a.dates %}
-          <span>{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
-          {% endfor %}
-        </div>
-      </div>
-      {% if a.location %}{% call ui.icon_text("map-pin", cls="text-ink-soft") %}{{ a.location }}{% endcall %}{% endif %}
+      {{ pub.activity_facts(a.dates, a.location, a.shared_deadline, a.shared_deadline_near) }}
       {# #1051: de uiterste inschrijfdatum stond als klein grijs tekstje naast de
          inschrijfknop — dus één keer per onderdeel, drie keer bij drie onderdelen.
          Ze hoort bij de praktische regels, onder datum en locatie.
@@ -98,36 +90,23 @@
          regel als álle open onderdelen dezelfde datum hebben, anders niets, en dan
          staat de datum bij het onderdeel zelf. Een volzet onderdeel telt niet mee.
          In de laatste week kleurt de regel oranje (§1.1: oranje is attentie). #}
-      {% if a.shared_deadline %}
-      {% call ui.icon_text("clock", cls=("text-orange-600" if a.shared_deadline_near else "text-ink-soft")) %}
-        {{ _("Inschrijven t/m") }} {{ a.shared_deadline | datumzonderjaar }}
-      {% endcall %}
-      {% endif %}
+      {# The lines themselves: `ui.activity_facts` above (#1663). #}
       {# #1054: de omschrijving stond hier (#1016) en is op Koens vraag van
          20 september 2026 van de kaart verdwenen — "omschrijving overal weg".
          Ze blijft bestaan en blijft gelezen worden: op de detailpagina, in de
          nieuwsbrief, op de affiche en door Raakje. #}
     </div>
-    {# Golf 11 (F32, #913): de onderdelen en acties staan ín de inhoudskolom,
-       niet meer onder de datumtegel — titel, gegevens en vervolgstap lezen zo
-       als één groep met dezelfde linkerkant. F32 is een desktop-bevinding: op
-       een telefoon nemen de acties de volle kaartbreedte (-ml compenseert de
-       tegel van 48px + gap 12), anders wrappen de twee knoppen. #}
+    {# Golf 11 (F32, #913): de onderdelen en acties sluiten aan bij titel en
+       gegevens — op een breed scherm in de inhoudskolom, met dezelfde
+       linkerkant; op een telefoon over de volle kaartbreedte, anders wrappen de
+       twee knoppen. Since #1663 the card's grid does both
+       (`_component_actions.html`). #}
     {% if not a.is_cancelled %}
     {# Onderdelen ook in het archief (#476): 'Wie doet er mee?' + info blijven,
        maar de inschrijfknop/-form vervallen (voorbij → niet meer inschrijven). #}
-    {# #489: bij één onderdeel de componentnaam verbergen (React-pariteit) — de
-       naam is dan redundant; enkel de knoppen tonen. #}
-    {% set _multi = (a.sub_registrations | length) > 1 %}
-    <div data-component-actions class="mt-3 space-y-3{% if a.sort_date %} -ml-[60px] sm:ml-0{% endif %}">
-      {% for c in a.sub_registrations %}
-      {# The component's actions, one partial for the card and the page (CR-14 phase 1). #}
-      {% set knopmaat = "xs" %}
-      {% include "_onderdeel_acties.html" %}
-      {% endfor %}
-    </div>
+    {% set actions_context = "card" %}
+    {% include "_component_actions.html" %}
     {% endif %}
-      </div>
     </div>
   {% endcall %}
   {% else %}

@@ -1,5 +1,6 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
+{% import "_public_macros.html" as pub %}
 {% block title %}{{ a.name }} — {{ site_name }}{% endblock %}
 {% block meta %}
 {# Deelbaarheid (golf 12): een gedeelde link toont in WhatsApp/zoekmachines de
@@ -37,33 +38,18 @@
    two columns are both inside it. #}
 <div data-activity-page class="[--leesbreedte:42rem] [--tussenruimte:2rem] [--affiche:18rem] lg:[--affiche:20rem]
             {% if poster_url %}md:mx-auto md:max-w-[calc(var(--leesbreedte)_+_var(--tussenruimte)_+_var(--affiche))]{% endif %}">
-<nav class="pt-4 text-base md:text-sm" data-way-back>
-  <a class="text-blue-500 hover:underline" href="{{ path_for(terug) }}">&larr; {{ _("Alle activiteiten") if terug == "/activiteiten" else _("Archief") }}</a>
-</nav>
+{{ pub.public_back_link("activities" if terug == "/activiteiten" else "archive", path_for(terug)) }}
 <div class="mt-4 md:flex md:gap-8" data-activity-columns>
   <div class="min-w-0 flex-1">
     <div class="flex gap-3 sm:gap-4">
-      {% if a.sort_date %}
-      <div data-date-tile class="shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-lg bg-blue-50 text-blue-700 flex flex-col items-center justify-center" aria-hidden="true">
-        <span class="text-2xl font-bold leading-none">{{ a.sort_date.strftime("%d") }}</span>
-        <span class="text-xs font-semibold uppercase leading-none mt-0.5">{{ a.sort_date | maandkort }}</span>
-      </div>
-      {% endif %}
+      {% if a.sort_date %}{{ pub.date_tile(a.sort_date, "page") }}{% endif %}
       <div class="min-w-0 flex-1">
-        <h1 data-page-title class="text-2xl md:text-3xl font-bold text-ink flex flex-wrap items-center gap-2">
+        <h1 data-page-title class="font-bold text-ink flex flex-wrap items-center gap-2">
           <span>{{ a.name }}</span>
           {% if a.registration_state and not a.registration_open %}{{ ui.badge(a.registration_state | code_label("registration_state"), a.registration_state | tone("registration_state")) }}{% endif %}
           {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
         </h1>
-        <div data-activity-dates class="mt-1 text-base md:text-sm text-ink-soft flex items-start gap-1">
-          {{ ui.icon("calendar", cls="mt-1 md:mt-0.5 shrink-0") }}
-          <div class="flex flex-col">
-            {% for d in a.dates %}
-            <span>{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
-            {% endfor %}
-          </div>
-        </div>
-        {% if a.location %}{% call ui.icon_text("map-pin", cls="text-ink-soft") %}{{ a.location }}{% endcall %}{% endif %}
+        {{ pub.activity_facts(a.dates, a.location, a.shared_deadline, a.shared_deadline_near, context="page") }}
         {# Uiterste inschrijfdatum (#1053-weergave): één onderdeel — of allemaal
            dezelfde datum — toont de klokregel hier; verschillende datums staan
            bij de onderdelen. Oranje in de laatste week (#1051).
@@ -73,7 +59,7 @@
            zelf uit omdat de kolom toen op de activiteit stond; twee berekeningen van
            dezelfde regel is precies hoe de ene op een dag anders afrondt dan de
            andere. #}
-        {% if a.shared_deadline %}{% call ui.icon_text("clock", cls="text-orange-600" if a.shared_deadline_near else "text-ink-soft") %}{{ _("Inschrijven t/m") }} {{ a.shared_deadline | datumzonderjaar }}{% endcall %}{% endif %}
+        {# The lines themselves: `ui.activity_facts` above (#1663). #}
       </div>
     </div>
 
@@ -97,14 +83,8 @@
     {% endif %}
 
     {% if not a.is_cancelled %}
-    {% set _multi = (a.sub_registrations | length) > 1 %}
-    <div data-component-actions class="mt-6 space-y-3">
-      {% for c in a.sub_registrations %}
-      {# The component's actions, one partial for the card and the page (CR-14 phase 1). #}
-      {% set knopmaat = "sm" %}
-      {% include "_onderdeel_acties.html" %}
-      {% endfor %}
-    </div>
+    {% set actions_context = "page" %}
+    {% include "_component_actions.html" %}
     {% endif %}
   </div>
 
