@@ -124,10 +124,12 @@ def test_a_script_only_page_converts_to_empty_and_is_reported(db_session):
     either — and the migration's report names her, instead of silently
     filling the draft with script text.
 
-    Broken by restoring the raw fallback (`or content`) in
-    `plain_text_document`, or by dropping the `empty` list from the counts:
-    the first would put "alert(1)" in the draft, the second would keep the
-    page out of the report.
+    What this test proves (fifth look, #1673): the page converts through
+    the NORMAL branch — the converter succeeds on the empty page, so the
+    net is never called for her (measured: zero calls). The red proof here
+    is the report: dropping the `empty` list from the counts fails this
+    test. The raw-fallback red proof lives where the net itself runs, in
+    `test_the_net_gives_an_empty_document_when_the_sanitiser_shows_nothing`.
     """
     import importlib.util
     import pathlib
