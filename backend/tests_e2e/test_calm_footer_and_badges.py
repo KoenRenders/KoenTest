@@ -333,7 +333,7 @@ PAGE = """() => { const x = e => Math.round(e.getBoundingClientRect().left); con
   const d = q('[data-activity-description]'), s = getComputedStyle(d), ps = [...d.querySelectorAll('p')];
   return {back: x(q('[data-way-back] a')), columns: x(q('[data-activity-columns]')), title: x(q('#main h1')),
           first: x(q('[data-activity-columns] > div > div')), shell: x(q('#main')),
-          size: s.fontSize, line: s.lineHeight, paragraphs: ps.length, breaks: d.querySelectorAll('br').length,
+          size: s.fontSize, line: s.lineHeight, paragraphs: ps.length, breaks: d.querySelectorAll('br').length, lines: d.querySelectorAll('[data-line]').length,
           gap: ps.length > 1 ? Math.round(ps[1].getBoundingClientRect().top - ps[0].getBoundingClientRect().bottom) : null,
           bold: d.querySelectorAll('b').length, text: d.textContent.includes('<b>geen</b>'),
           page: [document.documentElement.scrollWidth, innerWidth]}; }"""
@@ -357,7 +357,9 @@ def test_the_activity_pages_way_back_and_description(browser, world, width):
     else:
         assert m["back"] == m["shell"] == 16
     assert (m["size"], m["line"]) == ("16px", "24px"), f"the description @{width}: {m}"
-    assert (m["paragraphs"], m["breaks"], m["gap"]) == (2, 1, 16), m
+    # #1688: a single Enter is a line of its own (two of them in the first
+    # paragraph), no longer a `<br>`; the paragraphs stay 16 px apart.
+    assert (m["paragraphs"], m["breaks"], m["lines"], m["gap"]) == (2, 0, 2, 16), m
     assert m["bold"] == 0 and m["text"], "markup of the description reached the page as markup"
     assert m["page"][0] == m["page"][1]
     page.close()

@@ -126,21 +126,39 @@ templates.env.filters["maandkort"] = _maandkort
 
 def _paragraphs(text: str | None):
     """Plain text as paragraphs (#1647): a blank line starts a paragraph, a
-    single line break is a line break. The text is ESCAPED first — whatever it
-    holds reaches the page as text, never as markup — and only then gets the
-    `<p>` and `<br>` this function writes itself."""
+    single line break starts a new line. The text is ESCAPED first — whatever
+    it holds reaches the page as text, never as markup — and only then gets
+    the `<p>` and the line elements this function writes itself.
+
+    A line the author ended with ONE Enter is an element of its own
+    (`<span data-line>`, #1688), not a `<br>`: the page gives it a little
+    space above, so a statement that wraps can be told from the next
+    statement. That is what an Enter means on the poster too
+    (`designstudio.richtext`: the step onto a line after an Enter is 1.6 of
+    the type size instead of 1.3 — about a quarter of a line more; a blank
+    line is a line more). The page follows the same order — a small space at
+    an Enter, a larger one at a blank line — in its own scale: 8 and 16 px.
+    A paragraph of one line stays a plain `<p>`.
+    """
     import re as _re
 
     from markupsafe import Markup, escape
 
     blocks = [b.strip() for b in _re.split(r"\n\s*\n", (text or "").replace("\r\n", "\n"))]
-    return Markup("").join(
-        Markup("<p>")
-        + Markup("<br>").join(escape(line) for line in block.split("\n"))
-        + Markup("</p>")
-        for block in blocks
-        if block
-    )
+
+    def paragraph(block: str) -> Markup:
+        lines = [line.strip() for line in block.split("\n") if line.strip()]
+        if len(lines) == 1:
+            return Markup("<p>") + escape(lines[0]) + Markup("</p>")
+        return (
+            Markup("<p>")
+            + Markup("").join(
+                Markup("<span data-line>") + escape(line) + Markup("</span>") for line in lines
+            )
+            + Markup("</p>")
+        )
+
+    return Markup("").join(paragraph(block) for block in blocks if block)
 
 
 templates.env.filters["alineas"] = _paragraphs
