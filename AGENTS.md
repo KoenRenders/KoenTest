@@ -644,17 +644,10 @@ visitor nobody had walked — each of which could have been found before the
 approval. What the build read looks for stands in
 `docs/change_request_template.md`.
 
-**Every pull request of the Mistral CLI is read by a Claude dev CLI before a
-merge** (Koen, 7 October 2026). This is the one standing review: the master
-CLI routes it without being asked, for a new pull request and for every later
-commit on it, and reports the findings to Koen with a proposal. It stays
-advisory, and it does not replace Koen's own test of the branch. Two
-conventions make a Mistral pull request findable, because nothing wakes the
-master CLI when one is opened or updated: the branch is named
-`feature/mistral-<issue>-<short>`, and when a pull request or a new commit is
-ready, the Mistral CLI says so in one comment on it — *ready for review,
-commit `<sha>`* — so a half-finished push is not what gets read. The master
-CLI watches for both and checks at every handover.
+**A pull request of a builder outside the Claude series** (the Mistral CLI,
+OpenCode) is always read by a Claude dev CLI before a merge; that standing
+review and everything else about such a builder stands in *A builder outside
+the Claude series* below.
 
 Shaping agents: the header of this file (*Who may change this file*) already
 says that an agent asked to write a change request writes only that one
@@ -663,6 +656,47 @@ to Koen instead of writing it in. Three agreements add to it: the branch is
 created from master; the agent never works on another agent's branch; and it
 never pushes to master -- the merge to master happens only by the master CLI.
 (Koen, 2 October 2026.)
+
+## A builder outside the Claude series
+
+Since 6 October 2026 a CLI that is not Claude Code builds in this repository too: the Mistral CLI first, others (OpenCode) when Koen starts them. Everything in this file holds for such a builder as for any agent. This section adds what follows from one fact: **an outside builder and the Claude sessions cannot message each other, and nothing wakes the master CLI when a branch is pushed.** GitHub is the only channel between them. (Koen, 7 October 2026.)
+
+**Who they are.** The builders outside the Claude series today: `mistral` (listens by polling its pull request; seen by Koen on 7 October 2026); `opencode` (to be started by Koen; how it listens is said in its first pull request). A new one is added to this line by Koen or the master CLI at his request, with the name it uses in its branches. The master CLI watches the branches of every name on this line.
+
+**The branch and the two ways to master.** A branch is named `feature/<tool>-<issue>-<short>` and is created from the branch it will be merged into. There are two ways, and Koen says which one at the assignment:
+- *an issue on a release* — a pull request against `master`; the master CLI merges it when it is read and CI is green, as for a Claude dev CLI;
+- *a whole change request* — pull requests against an integration branch (`cr<nn>/<name>`), one per slice; the master CLI merges each slice into the integration branch when it is read and CI is green, and merges the integration branch into `master` only after Koen's own approval on a local test version of it.
+
+**Only the master CLI merges — to `master` and to an integration branch alike.** An outside builder never runs a merge and never pushes to `master` or to an integration branch: it opens a pull request and stops there. The master CLI coordinates every merge: it has the pull request read, checks CI on the tip, merges, deploys HDEV and reports to Koen. This holds for the Mistral CLI, for OpenCode and for every builder added to the line above, also when its pull request is green and read, and also when Koen has approved the content: approval of the content is not a merge. (Koen, 7 October 2026.)
+
+An outside builder also never deploys, never reads an environment (`raak` is the master CLI's), and never edits this file, `CLAUDE.md`, `.github/` or a process document.
+
+**The pull request is the mailbox.** What a Claude dev CLI tells the master CLI in a message, an outside builder writes in the pull request, following `.github/PULL_REQUEST_TEMPLATE.md`: the tip, the two CI runs with their summaries, the measurements, the deviations from the issue, "Na de merge". And at the start of every session the builder reads the comments on its pull requests and its issues before it continues: that is where the review, the master CLI's advice and Koen's decisions arrive.
+
+**Who a comment is for.** A pull request belongs to the builder whose name stands in its branch, and only that builder acts on it; another builder's pull request may be read, never answered and never built on. The name is unique per session: `mistral`, `opencode`, and with two sessions of one tool `mistral1`, `mistral2`. Every comment opens by saying whom it is for: *For the builder (`<name>`): …* or *review please, … — `@<reviewer>`*. A builder acts only on a comment that carries its name. A review is addressed to nobody's hands: the builder may take in a finding that repairs a defect at once; a finding that holds a choice waits for a comment with its name.
+
+**Koen does not read pull requests.** The comments are between the builder, the reviewer and the master CLI — there is no "for Koen" on GitHub, and Koen follows no extra channel. What needs his decision is asked to him in a chat, by one of two parties: the master CLI (a choice a review raises, anything about a merge, a release or the process) or the builder in its own chat (a question about what it is building). Whoever hears his answer writes it on the pull request, dated, so the other side knows; a decision that only one chat knows does not exist for the other.
+
+**"Koen decided" is written only when Koen decided.** This holds for every agent, Claude sessions included. A decision is what Koen answered to a question that was put to him; it is reported with **his own words in quotation marks, the date, and the question they answered**. Nothing else is a decision of Koen: not his silence, not an earlier answer to a different question, not what he would probably want, not an agent's proposal he has not answered, not "Koen approved the content" stretched into a merge or a release. An agent that infers, says that it infers — "my reading", "my proposal, not answered yet" — and one that is not sure asks again rather than writes. Paraphrasing his words into a stronger claim than he made is the same fault as inventing them. An agent that finds it reported a decision wrongly corrects it in the same place, at once, and tells Koen.
+
+**Whoever waits, listens.** Nothing on GitHub wakes a session, so every party sets its own listener for what it waits on, and clears it when the answer stands. The master CLI watches the branches of the builders named above for a new or updated pull request. A builder that has written *ready for review* watches its own pull request until one of three things stands: a review comment, a comment *For the builder (`<name>`)*, or the merge. A tool that can be woken by an event uses that; a tool that cannot, polls — every two minutes is enough — and the poll is a small script that asks GitHub and wakes the session only when something changed, not the model asking again and again. A builder whose tool can do neither says so in its first pull request; then Koen is the doorbell for that tool, and that is written on the line of builders above. Koen does not have to say "the review is there". (Koen, 7 October 2026.)
+
+**Ready means ready.** When a pull request or a new commit is complete and CI is green on it, the builder says so in one comment: *ready for review, commit `<sha>`*. Before that comment, on the commit it names: `ruff format --check`, `ruff check`, mypy, the full pytest suite, the e2e suite and the measurement baseline have run. A red tip is not read.
+
+**Every pull request is read.** Each pull request of an outside builder is read by a Claude dev CLI before a merge, the first time and after every later commit. This is the one standing review: the master CLI routes it without being asked and reports the findings to Koen with a proposal. The builder answers a review in one comment, per finding: taken in, already decided, or not taken with the reason. The review stays advisory and does not replace Koen's own test.
+
+**A local test version for Koen, always.** For everything Koen has to judge with his own eyes — a screen, a flow, a migration of content — the builder gives him a local version of its branch to test on, before the work goes to `master`:
+- its **own compose project** with its own name, its own database volume and its own port; it never uses and never recreates the shared development database, and never publishes port 5432;
+- **made-up data only**, with accounts on a reserved example domain for the roles Koen needs to walk (an administrator, a treasurer, a board member);
+- **nothing leaves the machine**: no mail is sent, no payment provider and no AI provider is called;
+- **one way in that needs no secret**: a small script that prints the sign-in link from the version's own mail log;
+- the start and stop commands, the address and the script live **outside this repository**, in Koen's project folder next to the change request; no local path and no credential enters the repository, an issue or a pull request.
+
+The pull request says that the local version exists and which branch it runs; where it stands is said to Koen in the builder's own chat.
+
+**One machine, several CLIs.** Every CLI works in its own checkout with its own folder name: the local test scripts derive their database and container names from that name, so two checkouts with one name fight over one database. The shared database container is started with `up -d --no-recreate db`, by whoever needs it first, and is never recreated. A full local run is heavy: when another CLI's run is under way, wait for it rather than start a second full suite beside it — two at once make the browser tests flaky for both.
+
+**Who wrote a commit.** Every commit carries a trailer naming the tool that wrote it (`Tool: mistral`), as the Claude sessions carry theirs. All commits bear Koen's name as author; the trailer is what tells them apart.
 
 ## Data operations on an environment — through the app, never raw SQL
 
