@@ -148,13 +148,14 @@ Nothing was handed over; the design rests on the code, measured on master `457e8
 | R15 | The link to "Mijn gezin" that Raak Millegem sends by mail to renew a membership keeps working: whoever follows it signs in if needed and arrives on "Mijn gezin", not on the account page. | Must *(proposed)* | Koen, 7 Oct 2026 | the address of "Mijn gezin" and of renewing does not change |
 | R16 | Name, e-mail address and mobile are attributes of one natural person, edited in one way wherever the person appears: on his own page for everyone with an account, and for every person of a household in "Mijn gezin". A household is a repeating group of natural persons, each with its relation to the household, plus the household's one address. | Must *(proposed)* | Koen, 7 Oct 2026 (Q27) | a change on one page shows on the other at once |
 | R17 | An account is not asked address, date of birth or gender; a member keeps those in "Mijn gezin" as today. | Must *(proposed)* | Koen, 7 Oct 2026 | data minimisation; the household's address hangs, technically, on the main member's person |
-| R18 | The board gets no screen to manage accounts: persons with an account manage themselves. | Must *(proposed)* | Koen, 7 Oct 2026 (Q25) | |
-| R19 | A report lists the accounts. | Could *(proposed)* | Koen, 7 Oct 2026 (Q25) | "maybe as a report"; which columns: open |
+| R18 | The board sees every natural person in master data on a screen "Personen": name, e-mail, mobile, household (or none), created; a filter "Zonder gezin · In een gezin · Alle", by default "Zonder gezin". Nothing is edited there — persons with an account manage themselves; a person in a household is managed through the household. | Must *(proposed)* | Koen, 7 Oct 2026 (Q25, Q29) | "this is master data"; replaces "no board screen" of Q25 |
+| R19 | *Replaced by R18:* the list is the report. | — | Koen, 7 Oct 2026 (Q29) | the number stays empty, so later references do not shift |
 | R20 | Members-only activities, an address known in several households, and how board members sign in, stay as they are. | Must *(proposed)* | Koen, 7 Oct 2026 (Q24) | |
 | R21 | When persons of one household share an e-mail address, whoever signs in with it is the household's main member, as today: "Mijn gegevens" shows the main member, and a registration is made in his name. A partner edits his own data in "Mijn gezin". | Must *(proposed)* | Koen, 7 Oct 2026 (Q22) | the household acts towards Raak as one; member price and history are the household's |
-| R22 | A person deletes his own account. | Won't | Koen, 7 Oct 2026 (Q20) | whoever asks, the board deletes it |
+| R22 | A person deletes his own account. | Won't | Koen, 7 Oct 2026 (Q20) | the board deletes a person without household on request, from Personen (R25) |
 | R23 | The history begins with the first registration made while signed in; earlier registrations made without signing in are not linked afterwards by e-mail address. Whoever wants to see old ones asks the board. | Must *(proposed)* | Koen, 7 Oct 2026 (Q23) | a typed or shared address would show someone else's registrations |
 | R24 | A mail to the old address when the e-mail address changes. | Won't | Koen, 7 Oct 2026 (Q21) | whoever changes it could sign in with the old address; inside a household the board keeps the composition right |
+| R25 | From Personen the board deletes a person without household, after a confirmation; his registrations stay, with the name and address written on them. A person in a household is removed through the household, as today. | Must *(proposed)* | Koen, 7 Oct 2026 (Q29) | |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -183,6 +184,7 @@ and deliberately not done — recorded so it is not asked again).
 | AC8 | Changing one's name on Mijn gegevens shows in Mijn gezin at once, and the other way round | R16 | W3.5 |
 | AC9 | On a phone, the account menu in the drawer reaches Mijn gegevens, Mijn gezin and Mijn inschrijvingen | R14 | W3.6 |
 | AC10 | Members-only activities still refuse an account without household | R20 | W1.10 |
+| AC11 | In the back office, Personen shows the new account under "Zonder gezin"; deleting it asks for confirmation, after which signing in with that address gets no code | R18, R25 | W4.1–W4.3 |
 
 ---
 
@@ -263,13 +265,14 @@ flowchart LR
 | R15 | `terug` wins over the landing | F3 | auth | T9 | AC5 |
 | R16 | one person block and save path | — | mdm, membership | T15 | AC8 |
 | R17 | no address, birth date, gender for an account | — | mdm | T4 | AC1 |
-| R18 | no board screen | — | — | — | — |
-| R19 | Could: a report of accounts | — | reporting | — | — |
+| R18 | Personen in master data, filter "Zonder gezin" | — | mdm | T17 | AC11 |
+| R19 | replaced by R18 | — | — | — | — |
 | R20 | members-only, several households, board sign-in unchanged | — | activities, auth | T16 | AC10 |
 | R21 | shared address signs in as the main member | F1 | auth | T3 | AC4 |
 | R22 | Won't: self-service delete | — | — | — | — |
 | R23 | history only from signed-in registrations | F8 | activities | T10 | AC6 |
 | R24 | Won't: no mail to the old address | — | — | — | — |
+| R25 | delete a person without household from Personen | — | mdm | T17 | AC11 |
 
 **Walkthrough on HDEV**
 
@@ -297,6 +300,11 @@ flowchart LR
 4. In Mijn gezin, add an address for a household member → "wacht op bevestiging" until its code; an address of another household is refused.
 5. Change your first name on Mijn gegevens → Mijn gezin shows it; change it back in Mijn gezin → Mijn gegevens shows it.
 6. On a phone (390 px), open the drawer → the account menu reaches every page.
+
+*W4 — the board*
+1. Open Systeem → **Personen** → the filter stands on "Zonder gezin"; the account of W1 is there.
+2. Switch the filter to "In een gezin" → no delete action on those rows.
+3. Delete the account of W1 → the confirmation names him; afterwards asking a code for his address sends nothing.
 
 ## B3. The whole across the modules — for the architect
 
@@ -439,6 +447,7 @@ Dependency: CR-21 (webshop) builds on phase 1.
 | 7 Oct 2026 | A shared household address signs in as the main member, as today; no "who are you?" step (Q22). | Koen |
 | 7 Oct 2026 | No self-service account deletion; the board deletes on request (Q20). | Koen |
 | 7 Oct 2026 | No backward linking of registrations by e-mail; history starts when signed in (Q23). No mail to the old address on a change (Q21). | Koen |
+| 7 Oct 2026 | A screen "Personen" in master data lists every natural person, filter default "Zonder gezin", read-only except deleting a person without household. **Replaces** "no board screen" (Q25) and the report (R19) (Q29). | Koen |
 | 7 Oct 2026 | Q1–Q9 answered: guest link by secret token; mobile required as today; no lookup or warning on a typed address (the standing hint stays, as decided in CR-11); an account exists after the code; an account that becomes a member keeps its person; accounts per tenant; a new address is confirmed and unique except inside the household; existing duplicates measured first, Koen decides; for registrations only the account is new. | Koen |
 
 ---
@@ -484,7 +493,7 @@ Measured on master `457e85d`, 7 October 2026.
 - **Tests:** T1–T5, T9, T16.
 
 ### mdm
-- **Screens:** new `/mijn/gegevens` — the person block of Mijn gezin (`_household_rows.html` `person_fields`) for oneself: first name, last name, e-mail rows, mobile; for a member a line "Je adres en je gezinsleden beheer je in Mijn gezin →".
+- **Screens:** new `/admin/personen` "Personen" (R18, R25) — `require_admin_ui`; menu item beside "Organisaties" (natural persons beside legal persons, #971); a table with search and the filter; one row action "Verwijderen" for a person without household, with `confirm_attrs("delete", name)`; soft delete of the person and his contact rows; registrations keep their contact fields. New `/mijn/gegevens` — the person block of Mijn gezin (`_household_rows.html` `person_fields`) for oneself: first name, last name, e-mail rows, mobile; for a member a line "Je adres en je gezinsleden beheer je in Mijn gezin →".
 - **Code:** `new_contact_detail(db, person, type_code, value, *, confirmed)` — the only constructor of `ContactDetail`; for EMAIL it calls `email_refusal(db, person, value)` — refused when a confirmed EMAIL row with this value (case-insensitive, `person_id IS NOT NULL`, not deleted, this tenant) belongs to a person outside `person`'s household. `create_account_person(db, first_name, last_name, email, mobile)` — refuses when the address is no longer free, makes the person with confirmed EMAIL and MOBILE. `confirm_email(db, contact_id)` — re-checks `email_refusal`, sets `confirmed_at`. `write_email_rows`: new or changed values are stored unconfirmed and a CONFIRM_ADDRESS code is asked through an event (`EmailAddressAdded`) that `auth` handles — so `mdm` does not call `auth`. Board writes (`source` other than `member_self`) are stored confirmed, and still pass `email_refusal`. The ten construction sites of C1 go through `new_contact_detail`.
 - **Database:** `mdm.contact_details.confirmed_at` `DateTime(timezone=True)` NULL; backfill `confirmed_at = created_at` for every existing row. Additive. No copy action on persons.
 - **Templates:** new `my_details.html` (view-model `MyDetailsPage`); the pending state in the e-mail row of `_household_rows.html`.
@@ -571,6 +580,7 @@ None: no view reads `contact_details`; `confirmed_at` is not exposed. The report
 | T14 | e2e | at 390 px the drawer's account menu reaches the three pages; at desktop the left menu |
 | T15 | route | a name changed on Mijn gegevens shows in Mijn gezin, and back |
 | T16 | route | members-only refuses an account; an address in several households still gets the board notice |
+| T17 | route | Personen: only ADMIN/OPERATOR; the filter; delete offered and allowed only for a person without household (refused through the route for one in a household); after delete the person cannot sign in and his registrations keep their contact fields |
 
 **Impact on the test landscape:**
 - `auth/tests/test_logout_and_landing_after_login.py` — expects `/leden/gezin` after sign-in; changes to `/mijn` (F3).
@@ -615,6 +625,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | `/mijn/inschrijvingen` | rows with payment badge; the empty state | — |
 | the drawer at 390 px | the account menu with the three items | — |
 | the registration form's hint | the new words | — |
+| `/admin/personen` | the table, the filter, the delete confirmation | — |
 
 ## C10. Close-out at the release
 
@@ -658,6 +669,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | Q24 | 7 Oct 2026 | Members-only, several households, board sign-in unchanged? (Claude) | Yes. (Koen) |
 | Q25 | 7 Oct 2026 | A board screen for accounts? (Claude) | No; these persons manage themselves; maybe a report. (Koen) |
 | Q26 | 7 Oct 2026 | When are existing duplicates measured? (Claude) | By the master CLI, read-only, before the handover. (Koen) |
+| Q29 | 7 Oct 2026 | (Koen came back on Q25 and R22) Without a board screen nobody can delete an account; a screen "Accounts" or "Personen"? (Koen, Claude) | "Personen" — all natural persons; "this is master data". (Koen) |
 | Q27 | 7 Oct 2026 | For a member, may name and e-mail be edited on the own page as well as in "Mijn gezin" (a), or read-only there (b)? (Claude) | These are attributes of a person, so edit functions on a person are needed anyway; in a household the repeating group is a natural person, including its relation to the household. (Koen) — read as (a) with one person component. |
 
 ## Non-goals — deliberately outside this change
@@ -666,7 +678,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 - A guest link to look up a registration (Q10).
 - Passwords, social sign-in, a "remember me" beyond today's 12-hour session.
 - Linking old guest registrations to an account (R23).
-- A board screen for accounts (R18); the report of R19 is a saved report, not a build.
+- Editing persons in Personen; moving "Organisaties" into a group of its own.
 - Merging the two `person_fields` macros (C1): lid worden keeps `_macros.html:1130`; worth an issue of its own.
 - Company or natural person, a delivery address (CR-21 R31).
 
