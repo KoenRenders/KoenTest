@@ -109,7 +109,7 @@ What changes, one line each:
 | menu items | **Mijn gegevens** · **Mijn gezin** (exists) · **Mijn inschrijvingen** · later **Mijn aankopen** (CR-21) |
 | link and button on the sign-in screen | **Account aanmaken** |
 | sign-in button | **Inloggen** (unchanged) |
-| hint above the registration form | with membership: *"Heb je een account of ben je lid? Log je eerst aan."*; without (a company tenant has no members): *"Heb je een account? Log je eerst aan."* (Q39) |
+| hint above the registration form | with membership: *"Heb je een account of ben je lid? Log je eerst aan."*; without (a company tenant has no members): *"Heb je een account? Log je eerst aan."*; no reason after the link — today's ": dan staat de inschrijving bij je gezin." goes (Q39) |
 | icons of the account menu | Mijn Raak Millegem: `house` · Mijn gegevens: `user` (new in the kit) · Mijn gezin: `users` (as Leden in the back office) · Mijn inschrijvingen: `calendar-days` (as Activiteiten) · later Mijn aankopen: `shopping-bag` (new) · Uitloggen: `log-out` — one meaning per glyph (#1535) (Q38) |
 | a pending address | *wacht op bevestiging* |
 | who registered, on a household's registration | *ingeschreven door [first name]* — only where a household is shown (Q37) |
