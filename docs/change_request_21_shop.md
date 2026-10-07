@@ -56,7 +56,7 @@ flowchart LR
 | 3 | Hand over the garment | Seller | — | the stock count is in nobody's system; what is left is known by looking |
 | 4 | Mail the price and Raak's account number, treasurer in copy | Seller | e-mail | written by hand for every sale; the price is whatever the mail says |
 | 5 | Transfer the amount | Buyer | own bank | free-text communication; the transfer has to be matched by eye |
-| 6 | Check the bank account, remind if unpaid | Treasurer | bank, mailbox | follow-up lives in a mailbox; no list of open sales |
+| 6 | Check the bank account, remind if unpaid | Treasurer | bank, an Excel list | the open sales are kept by hand in an Excel list, apart from the bank and the mails (Koen, 7 Oct 2026) |
 
 Not measured yet: how many garments are sold per year, how many are in stock, and what a garment costs.
 
