@@ -1205,7 +1205,12 @@ def account_nav(db) -> list[dict]:
         "match": None,
         "icon": "user",
     }
-    return [home, details, *_public_nav("member_items")]
+    # The order of the menu is its own (CR-22 A3): Mijn gezin before Mijn
+    # inschrijvingen, whatever order the registry lists the modules in; an item
+    # this list does not name yet (Mijn aankopen, CR-21) comes after them.
+    order = {"/leden/gezin": 0, "/mijn/inschrijvingen": 1}
+    modules = sorted(_public_nav("member_items"), key=lambda n: order.get(n["href"], len(order)))
+    return [home, details, *modules]
 
 
 def site_context(db, request=None) -> dict:
@@ -1305,6 +1310,9 @@ def site_context(db, request=None) -> dict:
         # what a module that is off lists or serves is not there.
         "public_nav": _public_nav("public_items"),
         "member_nav": account_nav(db),
+        # CR-22 Q39: a company tenant has accounts and no members — the hint above
+        # the registration form words itself by it.
+        "has_members": module_enabled(ModuleCode.MEMBERSHIP),
         # #1588: the legal line's parts. (The newsletter column's heading is
         # the word "Nieuwsbrief" in the shell since #1647; "Nieuws van <the
         # site's name>" of #1606 is gone, with its key here.)

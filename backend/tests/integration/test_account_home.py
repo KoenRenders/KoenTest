@@ -103,7 +103,12 @@ def test_the_pages_menu_is_the_account_menu_and_marks_where_you_are(client, memb
     main = _main(client.get("/mijn").text)
     menu = main[main.index("data-account-page-menu") : main.index("</nav>")]
     rows = re.findall(r'<a href="([^"]+)" class="site-drawer-row"([^>]*)>(.*?)</a>', menu, re.S)
-    assert [href for href, _attrs, _body in rows] == ["/mijn", "/mijn/gegevens", "/leden/gezin"]
+    assert [href for href, _attrs, _body in rows] == [
+        "/mijn",
+        "/mijn/gegevens",
+        "/leden/gezin",
+        "/mijn/inschrijvingen",
+    ]
     assert 'aria-current="page"' in rows[0][1]
     assert all("aria-current" not in attrs for _href, attrs, _body in rows[1:])
     assert all(body.count("<svg") == 1 for _href, _attrs, body in rows)
@@ -112,7 +117,11 @@ def test_the_pages_menu_is_the_account_menu_and_marks_where_you_are(client, memb
     # On a phone the same items stand as links at the bottom — without the page itself.
     links = main[main.index("data-account-links") :]
     links = links[: links.index("</nav>")]
-    assert re.findall(r'<a href="([^"]+)"', links) == ["/mijn/gegevens", "/leden/gezin"]
+    assert re.findall(r'<a href="([^"]+)"', links) == [
+        "/mijn/gegevens",
+        "/leden/gezin",
+        "/mijn/inschrijvingen",
+    ]
     assert (
         "md:hidden"
         in main[main.index("data-account-links") - 200 : main.index("data-account-links") + 200]
@@ -183,8 +192,8 @@ def test_the_three_kinds_of_session_and_what_each_has(client, db_session):
             _account_items(home, "data-drawer-account"),
             page.status_code,
         )
-    assert seen["member"] == (["member"] * 3 + ["sign-out"],) * 2 + (200,)
-    assert seen["member and board"] == (["member"] * 3 + ["admin", "sign-out"],) * 2 + (200,)
+    assert seen["member"] == (["member"] * 4 + ["sign-out"],) * 2 + (200,)
+    assert seen["member and board"] == (["member"] * 4 + ["admin", "sign-out"],) * 2 + (200,)
     assert seen["board without a person"] == (["admin", "sign-out"],) * 2 + (404,)
 
 

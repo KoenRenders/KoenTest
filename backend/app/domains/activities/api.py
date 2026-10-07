@@ -46,6 +46,10 @@ from app.domains.activities.models import (  # noqa: F401
     RegistrationItem,
     RegistrationItemHistory,
 )
+from app.domains.activities.my_registrations import (  # noqa: F401
+    MyRegistration,
+    my_registrations,
+)
 from app.domains.activities.proposer import ProposerError, no_answer_text  # noqa: F401
 from app.domains.activities.registration_form import (  # noqa: F401
     Channel,

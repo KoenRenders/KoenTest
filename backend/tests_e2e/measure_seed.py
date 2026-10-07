@@ -9,7 +9,11 @@ the pilot screens need is added here and the e2e's keep their seed:
   archive, an album page with two tiles;
 - an activity ahead with three dates, a place, two components, an uploaded
   poster and a description of two paragraphs: the date tile, the facts, the
-  actions of more than one component and the poster's column.
+  actions of more than one component and the poster's column;
+- one of the seed's own registrations, with its transfer still to make, linked
+  to the seeded member: a card on Mijn inschrijvingen and the latest
+  registration on the landing page, each with the transfer block (CR-22 S5,
+  #1709). Linked, not added: a new one would move the back office's lists.
 
 Invented names only. Every date is counted from `measures.MEASURE_NOW`, never
 from today: the run lives in that moment.
@@ -38,6 +42,23 @@ def _png(size: tuple[int, int], colour: tuple[int, int, int]) -> bytes:
     out = BytesIO()
     Image.new("RGB", size, colour).save(out, format="PNG")
     return out.getvalue()
+
+
+def _registration_with_a_transfer(db, today) -> None:
+    """One of the e2e seed's two registrations becomes the seeded member's own.
+
+    The seed makes them as a guest would (no person), each with a transfer of
+    € 20 still to make. Linked to the member, one stands on Mijn inschrijvingen
+    and as the latest registration on the landing page — and nothing is added:
+    a new registration with its booking would be one more row on Betalingen and
+    on the activity's tabs, and move the back office's baselines for no reason."""
+    from app.domains.activities.api import Registration
+    from app.domains.auth.api import login_person_for_email
+    from seed_e2e import MARKER_EMAIL
+
+    person = login_person_for_email(db, MARKER_EMAIL)
+    registration = db.query(Registration).filter(Registration.contact_name == "Marie Jommeke").one()
+    registration.person_id = person.id
 
 
 def main() -> None:
@@ -115,6 +136,7 @@ def main() -> None:
                 data=_png((600, 848), (238, 193, 94)),
             )
         )
+        _registration_with_a_transfer(db, today)
         db.commit()
         print(f"measure_seed: voorbij={past.id} komend={ahead.id}")
     finally:

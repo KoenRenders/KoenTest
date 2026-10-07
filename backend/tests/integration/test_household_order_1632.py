@@ -275,7 +275,8 @@ def test_only_the_card_writes_what_a_running_renewal_asks():
     # is no place that says what somebody owes.
     assert holding("Mededeling (OGM)") == ["_transfer_due.html", "design_system.html"]
     assert holding('attrs="data-transfer-due"') == ["_transfer_due.html"]
-    assert holding('"_transfer_due.html"') == ["_renewal_running.html"]
+    # Since CR-22 S5 (#1709) a registration still to be paid shows the same block.
+    assert holding('"_transfer_due.html"') == ["_my_registration.html", "_renewal_running.html"]
     assert holding('"_renewal_running.html"') == ["_membership_card.html"]
     assert holding('attrs="data-membership-status"') == ["_membership_card.html"]
     # Since CR-22 S3 (#1706) the landing page shows the same card.
