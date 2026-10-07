@@ -156,6 +156,7 @@ Nothing was handed over; the design rests on the code, measured on master `457e8
 | R23 | The history begins with the first registration made while signed in; earlier registrations made without signing in are not linked afterwards by e-mail address. Whoever wants to see old ones asks the board. | Must *(proposed)* | Koen, 7 Oct 2026 (Q23) | a typed or shared address would show someone else's registrations |
 | R24 | A mail to the old address when the e-mail address changes. | Won't | Koen, 7 Oct 2026 (Q21) | whoever changes it could sign in with the old address; inside a household the board keeps the composition right |
 | R25 | From Personen the board deletes a person, after a confirmation that says what happens. A person in a household is first taken out of it by the household's own rules, in the same action — with its history row — and then deleted; the main member is refused: "Een gezin heeft een hoofdlid nodig. Duid eerst een ander hoofdlid aan in het gezin." His registrations stay, with the name and address written on them. | Must *(proposed)* | Koen, 7 Oct 2026 (Q29, Q30) | the household's address hangs on the main member's person |
+| R26 | For a member, the landing page shows the same membership card as Mijn gezin — valid until, a renewal that runs, or "Lidmaatschap vernieuwen" when renewing is possible. Below it, the latest registration — and later the latest purchase — each only when there is one; with nothing to show, no empty card. | Must *(proposed)* | Koen, 7 Oct 2026 (Q33) | "exactly the same card" |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -470,6 +471,7 @@ None: every question is answered (Q&A log).
 | 7 Oct 2026 | Personen may delete a person in a household too: one action that first detaches him by `detach_household_person` (same refusals, same history) and then deletes him; the main member is refused (Q30). | Koen |
 | 7 Oct 2026 | A rename-only phase 1 before the change: the Dutch names in what this change rewrites become English (B4) (Q31). | Koen |
 | 7 Oct 2026 | The landing page is called "Mijn" + the tenant's display name: *Mijn Raak Millegem* (Q32). | Koen |
+| 7 Oct 2026 | The membership card of Mijn gezin is the one on the landing page too: one partial, one view-model, two places (Q33). | Koen |
 | 7 Oct 2026 | Q1–Q9 answered: guest link by secret token; mobile required as today; no lookup or warning on a typed address (the standing hint stays, as decided in CR-11); an account exists after the code; an account that becomes a member keeps its person; accounts per tenant; a new address is confirmed and unique except inside the household; existing duplicates measured first, Koen decides; for registrations only the account is new. | Koen |
 
 ---
@@ -522,6 +524,7 @@ Measured on master `457e85d`, 7 October 2026.
 | `lid_worden` | `sign_up_page` | `membership/ui.py` (route `/lid-worden` unchanged) |
 | `lid_worden_submit` | `sign_up_submit` | `membership/ui.py` |
 | `_huidige_gebruiker` | `_current_user` | `ui/__init__.py` |
+| `gezin_portaal.html` | `household_page.html` | `membership/templates/` — rewritten by the card's extraction |
 
 The five functions leave `DUTCH_IDENTIFIERS` (`tests/rules_baseline.py`), as the ratchet demands. Left as they are, because this change does not rewrite them: the template variable `gebruiker` (read by every public template), and the other Dutch names in the touched files (`mdm/service.py` `_persoon_of_404`, `_waarde`, `gezin_tabs`; `ui/__init__.py` `_gezinslabel`, `_beheer_account`, …). Note for the reader: the household is the model `Member`, its link `MemberPerson` — English names that say "member" for the household; they stay (`AGENTS.md`: do not rename) and this document says *household* for the concept.
 
@@ -540,7 +543,7 @@ The five functions leave `DUTCH_IDENTIFIERS` (`tests/rules_baseline.py`), as the
 - **Tests:** T4–T8, T15.
 
 ### membership
-- **Screens:** Mijn gezin unchanged in layout; a pending address shows "wacht op bevestiging"; the address `/leden/gezin` and `/leden/gezin/vernieuwen` unchanged.
+- **Screens:** Mijn gezin unchanged in layout; its membership card (`gezin_portaal.html:24-40`, `flow_card("Lidmaatschap")`) moves into a partial `_membership_card.html` with its own small view-model (valid until, renewal running, renewal available, the payment of a running renewal), included by Mijn gezin and by the landing page (R26); a pending address shows "wacht op bevestiging"; the address `/leden/gezin` and `/leden/gezin/vernieuwen` unchanged.
 - **Code:** `create_family_with_members`: when the request comes from a signed-in account whose address is the main member's, use that person instead of a new one (F7); otherwise, when the main member's address belongs to an account, refuse with the message of R9 (Q28); T11 covers both. `member_items` unchanged.
 - **Database:** none.
 - **Tests:** T11.
@@ -553,7 +556,7 @@ The five functions leave `DUTCH_IDENTIFIERS` (`tests/rules_baseline.py`), as the
 - **Tests:** T10, T12, T13.
 
 ### app/ui
-- **Screens:** new `account_ui.py` with `/mijn` (Mijn Raak): greeting with the first name, the menu, and the links to each item at the bottom. Desktop: menu on the left, content on the right; phone: no menu on the page, the account menu in the drawer (`site_base.html:241-246`).
+- **Screens:** new `account_ui.py` with `/mijn` (Mijn Raak Millegem): greeting with the first name; for a member the membership card from `membership.api` (R26); the latest registration (and later purchase) only when there is one; the links to each item at the bottom; the menu without a heading, its first item the landing page itself. Desktop: menu on the left, content on the right; phone: no menu on the page, the account menu in the drawer (`site_base.html:241-246`).
 - **Code:** `account_nav(gebruiker)` — "Mijn gegevens" plus `_public_nav("member_items")` filtered by what applies (Mijn gezin only with a household); `_site_account.html` shows it for every signed-in person, not only `is_member`. The title is "Mijn " + `site_name` (`tenant_display_name`, `ui/__init__.py:1291`) — *Mijn Raak Millegem* (Q32); it may wrap, never truncate, at 390 px.
 - **Tests:** T9, T14.
 
@@ -620,6 +623,7 @@ None: no view reads `contact_details`; `confirmed_at` is not exposed. The report
 | T14 | e2e | at 390 px the drawer's account menu reaches the three pages; at desktop the left menu |
 | T15 | route | a name changed on Mijn gegevens shows in Mijn gezin, and back |
 | T16 | route | members-only refuses an account; an address in several households still gets the board notice |
+| T18 | route | the landing page: a member sees the same membership card as Mijn gezin (one partial, asserted by both pages rendering the same `data-membership-status` block); an account sees none; no registration → no "Je laatste inschrijving" card |
 | T17 | route | Personen: only ADMIN/OPERATOR; the filter; deleting a person without household; deleting a household person detaches him with a history row and deletes him; the main member is refused with the message of R25; after delete the person cannot sign in and his registrations keep their contact fields |
 
 **Impact on the test landscape:**
@@ -715,6 +719,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | Q30 | 7 Oct 2026 | Why can a person in a household not be deleted from Personen? (Koen) | It can, in one action through the household's own rules; the main member is refused while he is the main member. (Koen, on Claude's proposal) |
 | Q31 | 7 Oct 2026 | Will we regret the Dutch names beside the new English ones? (Koen) | Rename them in CR-22, as a phase before the change. (Koen) |
 | Q32 | 7 Oct 2026 | (Koen, looking at the concepts) | For Raak Millegem it reads "Mijn Raak Millegem". (Koen) |
+| Q33 | 7 Oct 2026 | A membership card on the landing page for a member? (Claude) | Yes — exactly the card Mijn gezin already has. (Koen) |
 | Q27 | 7 Oct 2026 | For a member, may name and e-mail be edited on the own page as well as in "Mijn gezin" (a), or read-only there (b)? (Claude) | These are attributes of a person, so edit functions on a person are needed anyway; in a household the repeating group is a natural person, including its relation to the household. (Koen) — read as (a) with one person component. |
 
 ## Non-goals — deliberately outside this change
