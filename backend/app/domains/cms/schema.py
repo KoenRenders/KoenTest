@@ -71,9 +71,12 @@ NODES: dict[str, dict[str, Any]] = {
         "content": "listItem+",
         # TipTap's ordered list carries her own `start` (and a `type` the
         # editor writes as null) — the B1 test of #1699 measured the
-        # emission. The schema knows them; the renderer starts at one,
-        # exactly as the page always did.
-        "attrs": {"start": "int?", "type": "str?"},
+        # emission. The `start` is the author's own and the site renders
+        # her (Koen, option 1); a `type` the site ignores may not hold a
+        # value at all: only the null the editor emits validates
+        # (`"null?"`, the decision on #1699 — an attribute accepted and
+        # ignored is the gap this closes).
+        "attrs": {"start": "int?", "type": "null?"},
     },
     "listItem": {"content": "block+"},
     "table": {"group": "block", "content": "tableRow+"},
@@ -308,7 +311,14 @@ def _validate_node(node: Any, path: str) -> None:
                     raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
             # An id is a row that exists: 0 and negatives are "no image",
             # "no form" — refused (review A3, #1699; the PR's own promise).
-            elif value is not None and attr.endswith("_id") and value <= 0:
+            # A list's `start` is her number: a whole number of one or
+            # more, as the decision on #1699 says.
+            elif value is not None and (attr.endswith("_id") or attr == "start") and value <= 0:
+                raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
+        elif allowed == "null?":
+            # Only the null the editor emits (the ordered list's `type`,
+            # #1699): a value the site ignores may not be stored.
+            if value is not None:
                 raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
         elif allowed in ("str", "str?"):
             if not isinstance(value, str):
