@@ -25,7 +25,6 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.mdm.api import PaymentMethod
 from app.i18n import _
 from app.limiter import registration_limiter
 from app.ui import refusal_response, site_context, templates
@@ -65,7 +64,7 @@ def _signup_page(request: Request, db: Session, **state) -> HTMLResponse:
 
 
 @router.get("/lid-worden", response_class=HTMLResponse)
-def lid_worden(request: Request, db: Session = Depends(get_db)):
+def sign_up_page(request: Request, db: Session = Depends(get_db)):
     return _signup_page(request, db)
 
 
@@ -106,7 +105,7 @@ def email_row(request: Request):
 @router.post(
     "/lid-worden", response_class=HTMLResponse, dependencies=[Depends(registration_limiter)]
 )
-async def lid_worden_submit(
+async def sign_up_submit(
     request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
 ):
     from app.domains.membership.api import register_family
@@ -160,80 +159,29 @@ def _to_sign_in(request: Request):
 HOUSEHOLD_PAGE = "/leden/gezin"
 
 
-def _running_renewal(db: Session, person):
-    """How an open renewal stands (#618): the transfer to make, or the online
-    payment to resume — `(transfer, online)`, at most one of them set.
-
-    Amount and reference come **from the booking itself**, not again from the
-    price rule: if the price changes between two visits the screen would show
-    another amount than what is due.
-    """
-    from app.domains.membership.api import household_member_for, open_renewal_payment
-    from app.domains.membership.household_page import OnlineDue, TransferDue
-
-    try:
-        member = household_member_for(db, person)
-    except Exception:
-        return None, None
-    record = open_renewal_payment(db, member) if member is not None else None
-    if record is None:
-        return None, None
-    if record.method == PaymentMethod.TRANSFER:
-        from app.kernel.tenant_config import tenant_payment_beneficiary, tenant_payment_iban
-
-        return (
-            TransferDue(
-                amount=record.amount,
-                ogm=record.structured_communication,
-                iban=tenant_payment_iban(db),
-                beneficiary=tenant_payment_beneficiary(db),
-            ),
-            None,
-        )
-    # Broken off at the provider (#618-3): with a checkout URL the member can
-    # resume; without one only the explanation that it is still running.
-    from app.domains.payment.api import checkout_url_for
-
-    return None, OnlineDue(amount=record.amount, checkout_url=checkout_url_for(db, record))
-
-
 def _household_page(
     request: Request, db: Session, person, *, edit: bool, saved: bool = False
 ) -> HTMLResponse:
-    from datetime import date
-
-    from app.domains.membership.api import (
-        household_view,
-        membership_coverage_until,
-        renewal_available,
-    )
+    from app.domains.membership.api import household_view, membership_card
     from app.domains.membership.household_page import HouseholdPage, household_group
 
     short_date = templates.env.filters["kortedatum"]
     household = household_view(db, person)
-    # Cover up to and including an already paid next year (#496).
-    valid_until = membership_coverage_until(person)
-    transfer, online = _running_renewal(db, person)
     page = HouseholdPage(
         group=household_group(
             household, _codes(db), me=person.id, short_date=short_date, edit=edit
         ),
         edit=edit,
-        valid_until=valid_until,
-        renewal_available=renewal_available(valid_until, date.today()),
-        renewal_running=bool(transfer or online),
-        transfer=transfer,
-        online=online,
-        board_member_name=household.get("board_member_name"),
+        card=membership_card(db, person, household=household),
         saved=saved,
     )
     return templates.TemplateResponse(
-        request, "gezin_portaal.html", {**site_context(db, request), "page": page}
+        request, "household_page.html", {**site_context(db, request), "page": page}
     )
 
 
 @router.get("/leden/gezin", response_class=HTMLResponse)
-def gezin_portaal(request: Request, db: Session = Depends(get_db)):
+def household_page(request: Request, db: Session = Depends(get_db)):
     person = _session_member(request, db)
     if person is None:
         return _to_sign_in(request)
@@ -298,7 +246,9 @@ def renew_page(request: Request, db: Session = Depends(get_db)):
     # #1641 (CR-11 Q79): this page starts a renewal. One that runs stands in the
     # Lidmaatschap card of Mijn gezin — the one place — so that is where
     # opening this page lands meanwhile.
-    if any(_running_renewal(db, person)):
+    from app.domains.membership.api import renewal_is_running
+
+    if renewal_is_running(db, person):
         from fastapi.responses import RedirectResponse
 
         return RedirectResponse(HOUSEHOLD_PAGE, status_code=303)
@@ -306,7 +256,7 @@ def renew_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/leden/gezin/vernieuwen", response_class=HTMLResponse)
-def gezin_vernieuwen(
+def renew_membership_page(
     request: Request, db: Session = Depends(get_db), payment_method: str = Form("")
 ):
     from app.domains.membership.api import household_renew_membership

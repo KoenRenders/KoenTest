@@ -1143,4 +1143,23 @@
   {% endcall %}
   </div>
 {% endcall %}
+
+{# ── 16. The account page (CR-22 S3 — #1706) ─────────────────────────────
+   The layout of every page under "Mijn <site>" on the public site, rendered
+   from `_public_macros.html` with a made-up menu. #}
+{{ ui.section_header(_("16 · Accountpagina"), cls="mt-10") }}
+{% call ui.card() %}
+  <p class="text-sm text-ink-soft mb-4">
+    {{ _("De indeling van elke pagina onder \"Mijn …\" op de publieke site: vanaf 768 px het accountmenu links (240 px) en de inhoud rechts; op een telefoon geen menu op de pagina — daar is het accountmenu in de lade de navigatie, met onderaan de landingspagina de andere pagina's als rijen.") }}
+  </p>
+  {% set _kit_account = [{"href": "#kit-mijn", "label": _("Mijn voorbeeld"), "icon": "house"},
+                         {"href": "#kit-gezin", "label": _("Mijn gezin"), "icon": "users"},
+                         {"href": "#kit-inschrijvingen", "label": _("Mijn inschrijvingen"), "icon": "calendar-days"}] %}
+  <div data-kit-account-page>
+  {% call pub.account_page(_("Mijn voorbeeld"), _kit_account, "#kit-mijn") %}
+    <p class="text-base text-ink-soft">{{ _("Dag Emma.") }}</p>
+    {{ pub.account_links(_kit_account, "#kit-mijn") }}
+  {% endcall %}
+  </div>
+{% endcall %}
 {% endblock %}

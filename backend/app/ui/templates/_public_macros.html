@@ -144,3 +144,42 @@
   {% endfor %}
 </div>
 {%- endmacro %}
+
+{# ── The account pages (CR-22 S3 — #1706; R14, Q16, Q35) ───────────────────────
+
+   `account_page(title, nav, active)`: the layout every page under "Mijn <site>"
+   stands in. From 768 px the account menu on the left (240 px) and the content
+   on the right, at most 768 px wide — the width of the public form page, so a
+   card is as wide here as on Mijn gezin; on a phone no menu on the page — the drawer's account menu is
+   the navigation there. No heading above the menu: its first item is the
+   landing page, which carries the same words as its title. `nav` is
+   `account_nav`, the list the header and the drawer show; `active` the href of
+   the page that is open.
+
+   `account_links(nav, active)`: the same items as rows at the bottom of the
+   landing page, on a phone only — from there every page is one tap away without
+   opening the drawer. #}
+{% macro account_page(title, nav, active) -%}
+<div data-account-page class="md:grid md:grid-cols-[240px_minmax(0,1fr)] md:gap-8">
+  <nav data-account-page-menu aria-label="{{ title }}" class="hidden md:block">
+    {% for n in nav %}
+    <a href="{{ path_for(n.href) }}" class="site-drawer-row"{% if n.href == active %} aria-current="page"{% endif %}>{{ ui.icon(n.icon, 18) }}<span class="min-w-0 [overflow-wrap:anywhere]">{{ n.label }}</span></a>
+    {% endfor %}
+  </nav>
+  <div data-account-content class="min-w-0 max-w-[768px]">
+    <h1 data-page-title class="font-bold text-kop [overflow-wrap:anywhere]">{{ title }}</h1>
+    <div class="mt-2">{{ caller() }}</div>
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro account_links(nav, active) -%}
+{% set _others = nav | rejectattr("href", "equalto", active) | list %}
+{% if _others %}
+<nav data-account-links aria-label="{{ _('Meer in je account') }}" class="mt-8 border-t border-line pt-4 md:hidden">
+  {% for n in _others %}
+  <a href="{{ path_for(n.href) }}" class="site-drawer-row">{{ ui.icon(n.icon, 18) }}<span class="min-w-0 [overflow-wrap:anywhere]">{{ n.label }}</span>{{ ui.icon("chevron-right", 16, "ml-auto shrink-0 text-ink-soft") }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+{%- endmacro %}

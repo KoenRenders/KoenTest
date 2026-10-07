@@ -21,25 +21,10 @@
 <div data-form-flow data-mode="{{ 'edit' if page.edit else 'read' }}" class="form-flow">
   <div id="gezin-melding" data-form-message></div>
   {% if not page.edit %}
-  {% call ui.flow_card(_("Lidmaatschap"), attrs="data-membership-status") %}
-    {# Three states in one place (#1632, CR-11 Q73). Valid: the kit's
-       success tone, no emoji. A renewal that runs shows what to pay — or the
-       way back to the payment — HERE, as an inset, and nowhere else (#1641,
-       Q79): no link to a second screen. #}
-    <p class="text-base text-ink">
-      {% if page.valid_until %}<span data-membership-valid class="mr-1 align-middle">{{ ui.badge(_("Geldig"), "green", met_vinkje=True) }}</span> {{ _("Je lidmaatschap is geldig tot en met %(date)s.", date=page.valid_until|kortedatum) }}
-      {% else %}{{ _("Je gezin heeft momenteel geen geldig lidmaatschap.") }}{% endif %}
-    </p>
-    {% if page.renewal_running %}
-    <p class="mt-2 text-base text-ink">{{ _("Je vernieuwing loopt nog.") }}</p>
-    <div class="mt-2">{% include "_renewal_running.html" %}</div>
-    {% elif page.renewal_available %}
-    <p class="mt-3">{{ ui.btn_secondary(_("Lidmaatschap vernieuwen"), href="/leden/gezin/vernieuwen") }}</p>
-    {% endif %}
-    {% if page.board_member_name %}
-    <p class="mt-3 text-[13px] text-ink-soft">{{ _("Verantwoordelijk bestuurslid:") }} {{ page.board_member_name }}</p>
-    {% endif %}
-  {% endcall %}
+  {# The membership card: one partial for Mijn gezin and the landing page
+     (CR-22 S2, #1705). #}
+  {% set card = page.card %}
+  {% include "_membership_card.html" %}
   {% endif %}
   {% if page.edit %}
   <form id="gezin-form" class="contents" data-record-form data-message="#gezin-melding" novalidate

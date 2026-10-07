@@ -65,8 +65,9 @@ class Module:
     admin_items: tuple[tuple[str, str], ...] = ()
     #: Public navigation items of the site shell, as (href, label).
     public_items: tuple[tuple[str, str], ...] = ()
-    #: Items of the site shell shown only to a signed-in member (#1476).
-    member_items: tuple[tuple[str, str], ...] = ()
+    #: Items of the account menu of the site shell (#1476), as (href, label,
+    #: icon): each item brings its own icon — one meaning per glyph (CR-22 Q38).
+    member_items: tuple[tuple[str, str, str], ...] = ()
     #: Path prefixes only this module serves; each is served by a guarded router.
     route_prefixes: tuple[str, ...] = ()
     #: Dashboard tiles, by their report key (`reporting.DASHBOARD_TEGELS`).
@@ -124,7 +125,7 @@ MODULES: tuple[Module, ...] = (
         M.MEMBERSHIP,
         "Leden",
         admin_items=(("/admin/leden", "Leden"),),
-        member_items=(("/leden/gezin", "Mijn gezin"),),
+        member_items=(("/leden/gezin", "Mijn gezin", "users"),),
         route_prefixes=("/api/v1/families", "/lid-worden", "/leden/gezin", "/admin/leden"),
         dashboard_tiles=(
             "dashboard_members",
@@ -270,7 +271,10 @@ def nav_item_shown(field: str, href: str, enabled) -> bool:
     by the chatbot and served by reporting. A link to a page that 404s, or to
     a page with nothing in it, is not in the menu.
     """
-    listing = next((m.code for m in MODULES if any(h == href for h, _l in getattr(m, field))), None)
+    # By position: an account-menu item carries an icon after its label.
+    listing = next(
+        (m.code for m in MODULES if any(item[0] == href for item in getattr(m, field))), None
+    )
     serving = serving_module(href)
     return all(code is None or code.value in enabled for code in (listing, serving))
 

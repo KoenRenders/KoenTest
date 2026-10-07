@@ -38,7 +38,7 @@ def test_the_page_its_title_and_its_heading_say_inloggen(client):
 
 
 def test_the_button_after_the_code_says_inloggen():
-    code_step = (TEMPLATES / "_aanmelden_code.html").read_text()
+    code_step = (TEMPLATES / "_sign_in_code.html").read_text()
     buttons = re.findall(r"ui\.btn_primary\(_\('([^']+)'\)\)", code_step)
     assert buttons == ["Inloggen"], buttons
     expired = (TEMPLATES / "login_verlopen.html").read_text()

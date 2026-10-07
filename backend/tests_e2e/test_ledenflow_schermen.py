@@ -194,7 +194,7 @@ def test_de_geboortedatum_staat_belgisch_in_de_leesweergave(browser_page):
 
     Getoetst op de gezaaide datum en niet op een patroon: `30-10-1955` en `1955-10-30`
     bestaan allebei uit dezelfde cijfers, dus alleen de volledige string onderscheidt
-    ze. Rood te maken door `.strftime("%d-%m-%Y")` uit `gezin_portaal.html` te halen.
+    ze. Rood te maken door `.strftime("%d-%m-%Y")` uit `household_page.html` te halen.
     """
     from seed_e2e import JOMMEKE_GEBOORTE, MARKER_EMAIL
 
