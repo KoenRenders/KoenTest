@@ -93,6 +93,7 @@ Today a screen checks role names: `require_admin_ui` lets ADMIN and OPERATOR in,
 | R7 | Nobody's reach changes on the day part 1 goes live: every existing user keeps what he may do today; the gates ask rights, the bundles give them. | Must *(proposed)* | Koen, 7 Oct 2026 (Q4) | ADMIN becomes Bestuur only in part 2 |
 | R10 | Social tariff: who pays a reduced rate reveals something about income; later, individual payments and tariffs must not be visible to everyone who reads. | Won't *(now)* | Koen, 7 Oct 2026 | the model must allow a reading restriction later |
 | R11 | Accountbeheer (`ACCOUNT_ADMIN`): within one account, create tenants and manage users and their roles in them. | Won't *(now)* | Koen, 7 Oct 2026 | "nobody uses it today; we build it later" |
+| R14 | A screen on which a workspace composes its own roles from rights. | Won't *(now)* | Koen, 7 Oct 2026 (Q6) | "zeer mooi op termijn maar nu out-of-scope"; part 1 ships the bundles fixed and they are assigned to users as today; the model must allow the screen later |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -290,6 +291,7 @@ and deliberately not done — recorded so it is not asked again).
 | 7 Oct 2026 | Split in two: part 1 (this CR) the mechanism — rights instead of role names, roles as bundles, the shop's roles, nobody's reach changing; part 2 (CR-25) the menu, Bestuur, the workbench per role and business partners. Part 1 before CR-21, part 2 after (Q4). | Koen |
 | 7 Oct 2026 | Social tariff and Accountbeheer out of scope, their meaning recorded (R10, R11). | Koen |
 | 7 Oct 2026 | Part 1 brings Masterdata with its two rights — member administration (persons, households, memberships) included; Relatiebeheer moves to part 2, with the business partners it works on (Q5). | Koen |
+| 7 Oct 2026 | No screen to compose roles from rights: the bundles ship fixed and are assigned to users as today; composing them is for later (R14, Q6). | Koen |
 
 ---
 
@@ -454,10 +456,11 @@ and deliberately not done — recorded so it is not asked again).
 |---|---|---|---|
 | Q4 | 7 Oct 2026 | CR-24 in two: the mechanism first (before CR-21), the rest after? (Claude) | Yes, as two change requests, part 1 and part 2. (Koen) |
 | Q5 | 7 Oct 2026 | Relatiebeheer in part 1 or part 2? It works on customers and suppliers, which come in part 2. (Claude) | Part 2. Koen asked whether member administration belongs to it: no — households and memberships are master data (Q3), so they are in part 1, with Masterdata. (Koen, Claude) |
+| Q6 | 7 Oct 2026 | A screen to compose roles from rights in part 1, or the bundles fixed? (Claude recommended fixed) | Fixed; recomposing roles from rights is "zeer mooi op termijn maar nu out-of-scope". (Koen) |
 
 ## Non-goals — deliberately outside this change
 
-- R10 (reading restrictions for the social tariff), R11 (Accountbeheer).
+- R10 (reading restrictions for the social tariff), R11 (Accountbeheer), R14 (a screen to compose roles).
 - Part 2, CR-25: the menu, Bestuur reading only, the workbench per role, organisations as business partners and Relatiebeheer (Q5), R12 (approval of master-data changes).
 
 ## Relationship to existing work — issues and change requests
