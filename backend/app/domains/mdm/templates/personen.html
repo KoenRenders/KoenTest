@@ -1,0 +1,20 @@
+{% extends "list_page.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Personen — Raak") }}{% endblock %}
+{# Personen (CR-22 S7, #1712; R18): every natural person in master data, on the
+   `list_page` layout — the title, the toolbar (the view, the search, the count
+   with the page size) and the kit's table. Nothing is created and nothing is
+   edited here, so the title row has no button; the one action, Verwijderen,
+   stands behind a row's `⋯`. The toolbar stands outside the list fragment. #}
+{% block list_title %}{{ _("Personen") }}{% endblock %}
+{% block list_toolbar %}
+{{ ui.toolbar("/admin/personen/lijst", "#personen-lijst", "personen-filter",
+              segments=segments, status_name="zicht", status_current=view, status_legend=_("Gezin"),
+              q=q, search_placeholder=_("Zoek op naam of e-mailadres…"),
+              page=page, per_page=per_page, total=total, page_sizes=page_sizes) }}
+{% endblock %}
+{% block list_body %}
+<div id="personen-lijst" hx-include="#personen-filter">
+  {% include "_personen_lijst.html" %}
+</div>
+{% endblock %}

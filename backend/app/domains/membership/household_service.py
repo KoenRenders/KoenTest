@@ -896,58 +896,20 @@ def update_person_contacts(
 
 
 def delete_person(db: Session, person_id: int, admin=None):
-    from app.domains.audit.api import (
-        snapshot_address,
-        snapshot_contact_detail,
-        snapshot_member_person,
-        snapshot_person,
-    )
+    """The board deletes a person of a household. The rule is master data's
+    (`mdm.delete_person`, CR-22 S7 — #1712): this door only finds the person and
+    answers a refusal as a 400."""
+    from app.domains.mdm.api import MasterDataError
+    from app.domains.mdm.api import delete_person as delete_master_person
 
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
         raise HTTPException(status_code=404, detail=_("Person not found"))
-    for contact in person.contact_details:
-        snapshot_contact_detail(
-            db,
-            contact,
-            operation="delete",
-            action="person_deleted",
-            source="admin_manual",
-            actor=admin.email,
-        )
-        soft_delete(contact)
-    for en in person.external_numbers:
-        soft_delete(en)
-    for mp in person.member_persons:
-        snapshot_member_person(
-            db,
-            mp,
-            operation="delete",
-            action="person_deleted",
-            source="admin_manual",
-            actor=admin.email,
-        )
-        soft_delete(mp)
-    if person.address:
-        snapshot_address(
-            db,
-            person.address,
-            operation="delete",
-            action="person_deleted",
-            source="admin_manual",
-            actor=admin.email,
-        )
-        soft_delete(person.address)
-    snapshot_person(
-        db,
-        person,
-        operation="delete",
-        action="person_deleted",
-        source="admin_manual",
-        actor=admin.email,
-    )
-    soft_delete(person)
-    db.commit()
+    try:
+        delete_master_person(db, person, actor=admin.email)
+        db.commit()
+    except MasterDataError as refusal:
+        raise HTTPException(status_code=400, detail=str(refusal)) from refusal
 
 
 def add_person_to_family(

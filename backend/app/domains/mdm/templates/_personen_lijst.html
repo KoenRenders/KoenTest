@@ -1,0 +1,43 @@
+{% import "_macros.html" as ui %}
+{# The list of Personen (CR-22 S7, #1712): one row per person on the kit's
+   table. A person has no page of his own — the name leads to the household's
+   record where there is one, and is plain text otherwise. E-mail and mobile
+   in one cell, the kind as a badge — Gezin, or Account for a person without a
+   household who can sign in (a confirmed address), nothing otherwise — the
+   household as a jump link, and `⋯` with Verwijderen. The reason of a refused delete stands
+   above the table. #}
+{{ ui.error_banner(error) }}
+{% if rows %}
+{% call ui.data_table(columns, hx_target="#personen-lijst", caption=_("Personen")) %}
+  <tbody>
+    {% for r in rows %}
+    {% set p = r.person %}
+    <tr data-row data-person="{{ p.id }}" class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
+        {% if r.href %}{{ ui.row_link(p.name, r.href) }}{% else %}<span data-person-name class="font-semibold text-ink">{{ p.name }}</span>{% endif %}
+      </td>
+      <td data-cell="context" class="border-b border-line px-3 py-2">
+        <div class="truncate"{% if p.email %} title="{{ p.email }}"{% endif %}>{{ p.email or "—" }}</div>
+        {% if p.mobile %}<div class="text-xs text-ink-soft">{{ p.mobile|phone }}</div>{% endif %}
+      </td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">
+        {% if r.in_household %}{{ ui.badge(_("Gezin"), "blue") }}
+        {% elif r.is_account %}{{ ui.badge(_("Account"), "green") }}
+        {% else %}<span class="text-ink-soft">—</span>{% endif %}
+      </td>
+      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2">
+        {% if r.in_household and r.href %}<span data-above-row>{{ ui.reference(p.household_name, r.href) }}</span>
+        {% elif r.in_household %}{{ p.household_name }}
+        {% else %}<span class="text-ink-soft">—</span>{% endif %}
+      </td>
+      <td data-cell="extra" data-p="2" class="border-b border-line px-3 py-2 whitespace-nowrap text-ink-soft">{{ p.created_at|kortedatum }}</td>
+      <td data-cell="actions" class="border-b border-line px-3 py-2">{{ ui.row_actions_cell(none, r.menu, label=p.name) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+{{ ui.pager(page, per_page=per_page, total=total, hx_get=pager_url, hx_target="#personen-lijst", count=False, push=True) }}
+{% else %}
+{{ ui.empty_state(empty_reason) }}
+{% endif %}
+{% if oob %}{{ ui.toolbar_oob("personen-filter", segments=segments, page=page, per_page=per_page, total=total) }}{% endif %}

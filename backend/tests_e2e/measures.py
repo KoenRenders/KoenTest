@@ -313,6 +313,15 @@ SCREENS: tuple[Screen, ...] = (
         session="admin",
         widths=ADMIN,
     ),
+    # CR-22 S7 (#1712): Personen, on its default view "Zonder gezin" — the one
+    # person the measurement seed makes without a household.
+    Screen(
+        "personen",
+        "/admin/personen",
+        ("top bar title", "toolbar", "table", "content row"),
+        session="admin",
+        widths=ADMIN,
+    ),
     Screen(
         "betalingen-paneel",
         "/admin/betalingen",

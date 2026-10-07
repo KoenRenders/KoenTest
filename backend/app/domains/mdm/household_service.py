@@ -481,15 +481,25 @@ def remove_household_person(
 
 
 def detach_household_person(
-    db: Session, household: Member, target: Person, *, by: Person, actor: Optional[str]
+    db: Session,
+    household: Member,
+    target: Person,
+    *,
+    by: Optional[Person],
+    actor: Optional[str],
+    source: str = SOURCE,
 ) -> None:
     """Soft-delete this person's link to the household with its history row,
     without committing (#1590). Refuses the acting member themselves, and the
-    main member whoever asks (#1603) — here, so every door refuses."""
+    main member whoever asks (#1603) — here, so every door refuses.
+
+    `by` is the member who acts; the board has no person and passes None
+    (CR-22 S7, #1712) — then only the refusal of oneself falls away. `source`
+    is what the history row says: the member's own act, or the board's."""
     from app.domains.audit.api import snapshot_member_person
     from app.i18n import _
 
-    if target.id == by.id:
+    if by is not None and target.id == by.id:
         raise CannotRemoveSelf(_("Je kan jezelf niet uit het gezin verwijderen."))
     if _is_main_member(household, target):
         raise MainMemberStays(_("Een gezin heeft een hoofdlid nodig."))
@@ -500,7 +510,7 @@ def detach_household_person(
             link,
             operation="delete",
             action="person_removed_from_family",
-            source=SOURCE,
+            source=source,
             actor=actor,
         )
         soft_delete(link)

@@ -21,7 +21,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.domains.mdm.codes import CONTACT
-from app.domains.mdm.models import Person, PersonHistory
+from app.domains.mdm.models import Person, PersonHistory, RelationType
 from app.i18n import _
 from app.kernel.codes import code_of
 from app.kernel.contracts.mdm import EntityMerged
@@ -1485,3 +1485,50 @@ def create_person_for_circle(
         db, person.id, organization_id=organization_id, relation_type=relation_type, on_day=on_day
     )
     return person
+
+
+BOARD_SOURCE = "admin_manual"
+
+
+def delete_person(db: Session, person: Person, *, actor: Optional[str]) -> None:
+    """Delete a person, by the board (CR-22 S7, #1712; R25) — THE delete of a
+    person: Personen, the household record and the JSON route all come here.
+
+    A person in a household is first taken out of it by the household's own
+    rule (`detach_household_person`: its refusals, its history row), in the same
+    transaction; the main member is refused — a household has one. Then the
+    person goes, with his contact rows, external numbers and address, each with
+    its history row. Soft deletes: a registration keeps the name and the
+    address written on it, and a deleted person's address finds nobody at the
+    sign-in.
+
+    Does not commit — the door that calls it does, once (CR-13 §B9.3); a
+    refusal (`MasterDataError`) leaves nothing written.
+    """
+    from app.domains.audit.api import (
+        snapshot_address,
+        snapshot_contact_detail,
+        snapshot_person,
+    )
+    from app.domains.mdm.household_service import detach_household_person
+    from app.soft_delete import soft_delete
+
+    history = {"operation": "delete", "action": "person_deleted", "source": BOARD_SOURCE}
+    # The household where he is the main member first: the one refusal there is
+    # comes before anything is written, also for someone in two households.
+    links = sorted(
+        (m for m in person.member_persons if m.deleted_at is None),
+        key=lambda m: m.relation_type != RelationType.PRIMARY_MEMBER,
+    )
+    for link in links:
+        detach_household_person(db, link.member, person, by=None, actor=actor, source=BOARD_SOURCE)
+    for contact in person.contact_details:
+        snapshot_contact_detail(db, contact, actor=actor, **history)
+        soft_delete(contact)
+    for number in person.external_numbers:
+        soft_delete(number)
+    if person.address:
+        snapshot_address(db, person.address, actor=actor, **history)
+        soft_delete(person.address)
+    snapshot_person(db, person, actor=actor, **history)
+    soft_delete(person)
