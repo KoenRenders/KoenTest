@@ -99,8 +99,16 @@ def test_membership_dedup_blocks_second(client, db_session):
     assert second.status_code == 409
 
 
-def test_membership_dedup_allows_after_failed_payment(client, db_session):
-    """Een eerdere mislukte betaling blokkeert een nieuwe registratie niet."""
+def test_a_new_try_after_a_failed_payment_makes_no_second_household(client, db_session):
+    """Turned round by CR-22 Q40 (#1713; Koen, 7 October 2026). This test said
+    "een eerdere mislukte betaling blokkeert een nieuwe registratie niet": the
+    second try was let through — and made a second household with the first
+    one's address, after which that address could no longer sign in at all.
+
+    A failed payment still does not shut anybody out. The way back in is
+    another one: the first try's household holds the address, so the second
+    form is refused with the sentence that says what to do, he signs in, and
+    pays from Mijn gezin."""
     seed_postal_code(db_session)
     first = client.post("/api/v1/families", json=_family_payload(email="retry@example.com"))
     assert first.status_code == 201
@@ -117,7 +125,15 @@ def test_membership_dedup_allows_after_failed_payment(client, db_session):
     db_session.flush()
 
     second = client.post("/api/v1/families", json=_family_payload(email="retry@example.com"))
-    assert second.status_code == 201, second.text
+    assert second.status_code == 409, second.text
+    assert second.json()["detail"] == (
+        "Dit e-mailadres is al gekend. Log je eerst aan om lid te worden."
+    )
+    from app.domains.mdm.api import ContactDetail
+
+    db_session.expire_all()
+    holders = db_session.query(ContactDetail).filter_by(value="retry@example.com").count()
+    assert holders == 1, "the second try made a second household after all"
 
 
 def test_activity_registration_limit_per_email(client, db_session):

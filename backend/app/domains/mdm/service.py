@@ -766,7 +766,6 @@ def new_contact_detail(
     *,
     is_primary: bool,
     confirmed: bool = True,
-    enforce_rule: bool = True,
 ):
     """The ONLY place a contact detail of a person is made (CR-22 §B7, #1704).
 
@@ -786,18 +785,16 @@ def new_contact_detail(
     The person must have its id (flushed) and, for the household exception,
     its place in the household before its address is made.
 
-    `enforce_rule=False` has ONE caller, and it is temporary (CR-22 Q40, Koen,
-    7 October 2026): the public Lid worden. Someone whose payment failed tries
-    again with the same address, and today that makes a second household — an
-    address the rule would refuse, shutting him out. Until slice S8 (#1713)
-    gives that retry its own answer (no second household: sign in and resume
-    the payment), that one door stays as it was. S8 removes the parameter.
+    No caller is exempt. The public Lid worden was, between slices S1 and S8
+    of CR-22 (Q40): a new try after a failed payment made a second household
+    with the first one's address. Since #1713 that door answers "Dit
+    e-mailadres is al gekend. Log je eerst aan om lid te worden." instead.
     """
     from datetime import datetime, timezone
 
     from app.domains.mdm.models import ContactDetail
 
-    if enforce_rule and code_of(type_code) == code_of(CONTACT.EMAIL):
+    if code_of(type_code) == code_of(CONTACT.EMAIL):
         require_email_free(db, person, value)
     return ContactDetail(
         person_id=person.id,

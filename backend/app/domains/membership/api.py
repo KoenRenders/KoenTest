@@ -188,11 +188,14 @@ def household_renew_membership(db, person, payment_method: str = "online"):
     return _impl(person=person, db=db, payment_method=payment_method)
 
 
-def register_family(db, data, background_tasks):
-    """Publieke gezinsregistratie — de flow blijft in register_router."""
+def register_family(db, data, background_tasks, *, signed_in=None):
+    """Publieke gezinsregistratie — de flow blijft in register_router.
+
+    `signed_in` (CR-22 R9, #1713): the person the visitor is signed in as, or
+    None. An account that signs up becomes the main member itself."""
     from app.domains.membership.register_router import register_family as _impl
 
-    return _impl(data, background_tasks, db=db)
+    return _impl(data, background_tasks, db=db, signed_in=signed_in)
 
 
 # ── Onderaan, en dat is opzet ────────────────────────────────────────────────

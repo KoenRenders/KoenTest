@@ -32,6 +32,7 @@ from app.domains.mdm.api import (
     PersonDetailsMissing,
     PostalCode,
     RelationType,
+    email_refusal,
     new_contact_detail,
 )
 from app.domains.membership.models import Membership
@@ -53,6 +54,7 @@ from app.domains.membership.schemas_member import (  # noqa: F401
     PersonUpdate,
 )
 from app.i18n import _
+from app.kernel.codes import code_of
 from app.soft_delete import soft_delete
 
 # De audit-snapshots worden **per functie** geïmporteerd, niet hier. `audit/api.py`
@@ -243,6 +245,48 @@ def create_member(db: Session, data: MemberCreate, admin=None):
     return member
 
 
+#: CR-22 R9, Q28 and Q40: what the public Lid worden answers for an address that
+#: is known already. One sentence for every such case — an account, a household
+#: of an earlier try whose payment never came, a household of earlier years.
+KNOWN_ADDRESS = "Dit e-mailadres is al gekend. Log je eerst aan om lid te worden."
+
+
+def main_member_for_sign_up(db: Session, address: Optional[str], signed_in) -> Optional[Person]:
+    """Who becomes the main member of a household that signs itself up: the
+    signed-in account, or None for a new person — or `KnownAddress`.
+
+    - Signed in as an ACCOUNT (a person without a household) whose confirmed
+      address is the main member's → that person (R9, F7): no second person
+      for one human.
+    - Otherwise, when the main member's address already belongs to a person →
+      refused (Q28). It also ends the second household a new try after a failed
+      payment used to make (Q40): the first try's household holds the address,
+      so he signs in — which proves the address — and pays from Mijn gezin,
+      where the membership card shows the running payment or offers to start
+      one.
+
+    The message tells that the address is known. That is decided (Q28): it is
+    the same kind of answer this door already gives for an existing membership.
+    The board's "lid aanmaken" does not come here — it types somebody else's
+    data, and master data's own rule answers there.
+    """
+    from app.domains.membership.models import KnownAddress
+
+    if not address:
+        return None
+    if signed_in is not None and not signed_in.member_persons:
+        own = {
+            (c.value or "").strip().lower()
+            for c in signed_in.contact_details
+            if code_of(c.contact_type_code) == code_of(CONTACT.EMAIL) and c.confirmed_at is not None
+        }
+        if address.strip().lower() in own:
+            return signed_in
+    if email_refusal(db, None, address):
+        raise KnownAddress(_(KNOWN_ADDRESS))
+    return None
+
+
 def create_family_with_members(
     db: Session,
     data,
@@ -251,7 +295,7 @@ def create_family_with_members(
     source: str,
     membership_active: bool = False,
     today: Optional[date] = None,
-    email_rule: bool = True,
+    main_member: Optional[Person] = None,
 ) -> tuple[Member, Membership]:
     """Een gezin met al zijn personen, het adres, de contactgegevens en het
     lidmaatschap — in één keer, in één transactie (#1110).
@@ -282,6 +326,14 @@ def create_family_with_members(
     Geeft het gezin én zijn lidmaatschap terug: de publieke ingang hangt haar
     betaling aan dat lidmaatschap, en zonder die tweede waarde zou ze het meteen
     weer moeten opzoeken.
+
+    `main_member` (CR-22 R9, F7; #1713): the person who becomes the main member
+    instead of a new one — an account that signs up while signed in. An account
+    is a person already; a second person for the same human would be the
+    duplicate R9 forbids. The caller decides WHO (the door knows who is signed
+    in); here he gets what the form says: the name as typed, the birth date and
+    the gender a member needs, his place in the household and its address. The
+    contact details he already holds stay; what the form adds is added.
     """
     from app.domains.audit.api import (
         snapshot_address,
@@ -319,15 +371,49 @@ def create_family_with_members(
     snapshot_member(db, member, operation="insert", action=ACTIE, source=source, actor=actor)
 
     for person_data in data.members:
-        person = Person(
-            last_name=person_data.last_name,
-            first_name=person_data.first_name,
-            date_of_birth=person_data.date_of_birth,
-            gender_code=person_data.resolved_gender_code,
+        adopted = (
+            main_member
+            if main_member is not None and person_data.relation_type == RelationType.PRIMARY_MEMBER
+            else None
         )
-        db.add(person)
-        db.flush()
-        snapshot_person(db, person, operation="insert", action=ACTIE, source=source, actor=actor)
+        if adopted is not None:
+            person = adopted
+            person.last_name = person_data.last_name
+            person.first_name = person_data.first_name
+            person.date_of_birth = person_data.date_of_birth
+            person.gender_code = person_data.resolved_gender_code
+            db.flush()
+            snapshot_person(
+                db, person, operation="update", action=ACTIE, source=source, actor=actor
+            )
+        else:
+            person = Person(
+                last_name=person_data.last_name,
+                first_name=person_data.first_name,
+                date_of_birth=person_data.date_of_birth,
+                gender_code=person_data.resolved_gender_code,
+            )
+            db.add(person)
+            db.flush()
+            snapshot_person(
+                db, person, operation="insert", action=ACTIE, source=source, actor=actor
+            )
+        # What an adopted person already holds is not made a second time: his
+        # address IS the one he signed in with. A value of a type he has
+        # already is added beside it, not put in its place — the row that
+        # counts stays the one he confirmed, and he corrects the rest himself.
+        held = {
+            (code_of(c.contact_type_code), (c.value or "").strip().lower())
+            for c in (person.contact_details if adopted is not None else [])
+        }
+        has_primary = {
+            code_of(c.contact_type_code)
+            for c in (person.contact_details if adopted is not None else [])
+            if c.is_primary
+        }
+
+        def is_new(type_code, value) -> bool:
+            return (code_of(type_code), (value or "").strip().lower()) not in held
 
         mp = MemberPerson(
             member_id=member.id, person_id=person.id, relation_type=person_data.relation_type
@@ -352,18 +438,24 @@ def create_family_with_members(
             )
 
         contacts = []
-        if person_data.phone:
+        if person_data.phone and is_new(CONTACT.PHONE, person_data.phone):
             contacts.append(
-                new_contact_detail(db, person, CONTACT.PHONE, person_data.phone, is_primary=True)
+                new_contact_detail(
+                    db,
+                    person,
+                    CONTACT.PHONE,
+                    person_data.phone,
+                    is_primary=code_of(CONTACT.PHONE) not in has_primary,
+                )
             )
-        if person_data.mobile:
+        if person_data.mobile and is_new(CONTACT.MOBILE, person_data.mobile):
             contacts.append(
                 new_contact_detail(
                     db,
                     person,
                     CONTACT.MOBILE,
                     person_data.mobile,
-                    is_primary=not person_data.phone,
+                    is_primary=not person_data.phone and code_of(CONTACT.MOBILE) not in has_primary,
                 )
             )
         # #1246: every address typed, in order; the first is the primary one
@@ -375,15 +467,15 @@ def create_family_with_members(
             if not address_value or address_value.lower() in seen:
                 continue
             seen.add(address_value.lower())
+            if not is_new(CONTACT.EMAIL, address_value):
+                continue
             contacts.append(
                 new_contact_detail(
                     db,
                     person,
                     CONTACT.EMAIL,
                     address_value,
-                    is_primary=len(seen) == 1,
-                    # CR-22 Q40: only the public door passes False, until S8.
-                    enforce_rule=email_rule,
+                    is_primary=len(seen) == 1 and code_of(CONTACT.EMAIL) not in has_primary,
                 )
             )
         for contact in contacts:
