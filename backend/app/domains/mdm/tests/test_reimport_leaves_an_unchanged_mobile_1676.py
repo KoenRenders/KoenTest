@@ -18,6 +18,15 @@ pytestmark = pytest.mark.ui_serverrendered
 ROW = {"email": "lid-1676@example.com", "telefoon": "014123456", "gsm": "0470123456"}
 
 
+#: Since #1687 a change is a `FieldChange` keyed by its contact type; these tests
+#: speak in the report's columns.
+_COLUMN = {"EMAIL": "email", "PHONE": "telefoon", "MOBILE": "gsm"}
+
+
+def _columns(changes) -> list[str]:
+    return [_COLUMN[c.key] for c in changes]
+
+
 def _person(db) -> Person:
     person = Person(first_name="Proef", last_name="Herimport")
     db.add(person)
@@ -46,7 +55,11 @@ def test_the_same_row_imported_twice_changes_nothing_the_second_time(db_session)
     """Red on master: the second import returns ["gsm"] and writes a history
     row that changes nothing."""
     person = _person(db_session)
-    assert _sync_contacts(db_session, person, ROW, apply=True) == ["email", "telefoon", "gsm"]
+    assert _columns(_sync_contacts(db_session, person, ROW, apply=True)) == [
+        "email",
+        "telefoon",
+        "gsm",
+    ]
     db_session.flush()
     db_session.refresh(person)
     before = _rows(db_session, person), _history(db_session, person)
@@ -94,7 +107,7 @@ def _legacy(db) -> Person:
 
 
 def _again(db, person, row, *, apply=True) -> list[str]:
-    changed = _sync_contacts(db, person, row, apply=apply)
+    changed = _columns(_sync_contacts(db, person, row, apply=apply))
     db.flush()
     db.refresh(person)
     return changed
@@ -203,8 +216,8 @@ def test_with_two_primary_rows_the_one_with_the_reports_value_is_the_row(db_sess
         same = upsert_primary_contact(
             db_session, person, CONTACT.MOBILE, "0470123456", action="x", source="x", apply=False
         )
-        assert same is False, "the row with the report's value was not found"
+        assert same is None, "the row with the report's value was not found"
         other = upsert_primary_contact(
             db_session, person, CONTACT.MOBILE, "0470999999", action="x", source="x", apply=False
         )
-        assert other is True
+        assert other is not None and (other.old, other.new) == ("0470111111", "0470999999")

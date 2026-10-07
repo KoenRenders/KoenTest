@@ -980,6 +980,16 @@ def remove_email_address(
     return person
 
 
+class ContactChange(NamedTuple):
+    """What `upsert_primary_contact` changes (#1687): the value that stood ("" when
+    there was none) and the value that comes ("" when it goes). `promoted`: the
+    value stays and the row became the main one of its type (#1676)."""
+
+    old: str
+    new: str
+    promoted: bool = False
+
+
 def upsert_primary_contact(
     db: Session,
     person,
@@ -992,7 +1002,7 @@ def upsert_primary_contact(
     apply: bool = True,
     actor: Optional[str] = None,
     adopt_non_primary: bool = False,
-) -> bool:
+) -> Optional[ContactChange]:
     """Maak, werk bij of verwijder HET HOOFDCONTACT van dit type. Eén bron (#1174).
 
     `adopt_non_primary` (#1676; the import, for a phone and a mobile number):
@@ -1003,9 +1013,12 @@ def upsert_primary_contact(
     adopted row is removed, as a primary row is. Without the flag a non-primary
     row is never touched, as before.
 
-    Returns whether it changes something — in dry-run too, where it writes
-    nothing (#1308): the import reports a household only when something in it
-    changes, and this is where that decision for a contact is made.
+    Returns WHAT it changes, or None when nothing changes — in dry-run too,
+    where it writes nothing (#1308): the import reports a household only when
+    something in it changes, and this is where that decision for a contact is
+    made. Since #1687 the answer is the pair (`ContactChange`: the value that
+    stood, the value that comes), so the line a screen shows is built from the
+    decision itself and no caller compares a second time.
 
     Deze functie stond twee keer: in `mdm/import_service` voor het
     Raak-Nationaal-rapport en als binnenfunctie in
@@ -1041,25 +1054,28 @@ def upsert_primary_contact(
     hoofd = next((c for c in primair if c.value == value), primair[0] if primair else None)
 
     if hoofd is None and adopt_non_primary and van_dit_type:
-        if not apply:
-            return True
         eigen = next((c for c in van_dit_type if c.value == value), None) or min(
             van_dit_type, key=lambda c: c.id or 0
         )
+        adopted = ContactChange(
+            eigen.value or "", value or "", promoted=bool(value) and eigen.value == value
+        )
+        if not apply:
+            return adopted
         if not value:
             snapshot_contact_detail(
                 db, eigen, operation="delete", action=action, source=source, actor=actor
             )
             person.contact_details.remove(eigen)
             db.flush()
-            return True
+            return adopted
         eigen.is_primary = True
         eigen.value = value
         db.flush()
         snapshot_contact_detail(
             db, eigen, operation="update", action=action, source=source, actor=actor
         )
-        return True
+        return adopted
 
     if value:
         if hoofd is None:
@@ -1075,7 +1091,7 @@ def upsert_primary_contact(
                     snapshot_contact_detail(
                         db, zelfde, operation="update", action=action, source=source, actor=actor
                     )
-                return True
+                return ContactChange(value, value, promoted=True)
             if apply:
                 # `db.add` en NIET `person.contact_details.append`. Appenden vult de
                 # relatie in de sessie, en dan telt ze bij een volgende aanroep als
@@ -1096,9 +1112,10 @@ def upsert_primary_contact(
                 snapshot_contact_detail(
                     db, nieuw, operation="insert", action=action, source=source, actor=actor
                 )
-            return True
+            return ContactChange("", value)
         if hoofd.value == value and hoofd.is_primary == is_primary:
-            return False
+            return None
+        changed = ContactChange(hoofd.value or "", value, promoted=hoofd.value == value)
         if apply:
             hoofd.value = value
             hoofd.is_primary = is_primary
@@ -1106,18 +1123,19 @@ def upsert_primary_contact(
             snapshot_contact_detail(
                 db, hoofd, operation="update", action=action, source=source, actor=actor
             )
-        return True
+        return changed
 
     if hoofd is None:
-        return False
+        return None
+    removed = ContactChange(hoofd.value or "", "")
     if not apply:
-        return True
+        return removed
     snapshot_contact_detail(
         db, hoofd, operation="delete", action=action, source=source, actor=actor
     )
     person.contact_details.remove(hoofd)
     db.flush()
-    return True
+    return removed
     # **Geen promotie.** Er blijft dan géén hoofdcontact over, en dat is een
     # geldige toestand.
     #
