@@ -665,10 +665,10 @@ Since 6 October 2026 a CLI that is not Claude Code builds in this repository too
 
 | Name | Tool | Local port | How it listens |
 |---|---|---|---|
-| `mistral1` | the Mistral CLI | 8082 | polls its pull request (seen by Koen on 7 October 2026) |
+| `mistral-vibe1` | the Mistral CLI | 8082 | polls its pull request (seen by Koen on 7 October 2026) |
 | `opencode1` | OpenCode | 8083 | said in its first pull request |
 
-A name is the tool and a number, always — `mistral1`, `opencode1`, and a second session of a tool is `mistral2`, `opencode2`. A new builder is added to this table by Koen or the master CLI at his request and gets the next free port (8084, 8085, …). The master CLI watches the branches of every name in the table. The branches the Mistral CLI opened before 7 October 2026 are named `feature/mistral-…`; they are `mistral1`'s.
+A name is the tool and a number, always — `mistral-vibe1`, `opencode1`, and a second session of a tool is `mistral-vibe2`, `opencode2`. A new builder is added to this table by Koen or the master CLI at his request and gets the next free port (8084, 8085, …). The master CLI watches the branches of every name in the table. The branches the Mistral CLI opened before 7 October 2026 are named `feature/mistral-…`; they are `mistral-vibe1`'s.
 
 **The branch and the two ways to master.** A branch is named `feature/<tool>-<issue>-<short>` and is created from the branch it will be merged into. There are two ways, and Koen says which one at the assignment:
 - *an issue on a release* — a pull request against `master`; the master CLI merges it when it is read and CI is green, as for a Claude dev CLI;
@@ -693,8 +693,8 @@ An outside builder also never deploys, never reads an environment (`raak` is the
 **Every pull request is read.** Each pull request of an outside builder is read by a Claude dev CLI before a merge, the first time and after every later commit. This is the one standing review: the master CLI routes it without being asked and reports the findings to Koen with a proposal. The builder answers a review in one comment, per finding: taken in, already decided, or not taken with the reason. The review stays advisory and does not replace Koen's own test.
 
 **A local test version for Koen, always.** For everything Koen has to judge with his own eyes — a screen, a flow, a migration of content — the builder gives him a local version of its branch to test on, before the work goes to `master`:
-- its **own compose project**, named after the builder (`mistral1-<short>`), with its own database volume, served on **the builder's port from the table above** and on no other, also when another port looks free; it never uses and never recreates the shared development database, and its database publishes no port at all;
-- **one local version per builder at a time**: to show another branch it stops the first, so the address of a builder never changes — `localhost:8082` is always `mistral1`. Port 8081 is HDEV's and port 5432 the shared development database's;
+- its **own compose project**, named after the builder (`mistral-vibe1-<short>`), with its own database volume, served on **the builder's port from the table above** and on no other, also when another port looks free; it never uses and never recreates the shared development database, and its database publishes no port at all;
+- **one local version per builder at a time**: to show another branch it stops the first, so the address of a builder never changes — `localhost:8082` is always `mistral-vibe1`. Port 8081 is HDEV's and port 5432 the shared development database's;
 - **made-up data only**, with accounts on a reserved example domain for the roles Koen needs to walk (an administrator, a treasurer, a board member);
 - **nothing leaves the machine**: no mail is sent, no payment provider and no AI provider is called;
 - **one way in that needs no secret**: a small script that prints the sign-in link from the version's own mail log;
@@ -704,7 +704,7 @@ The pull request says that the local version exists and which branch it runs; wh
 
 **One machine, several CLIs.** Every CLI works in its own checkout with its own folder name: the local test scripts derive their database and container names from that name, so two checkouts with one name fight over one database. The shared database container is started with `up -d --no-recreate db`, by whoever needs it first, and is never recreated. A full local run is heavy: when another CLI's run is under way, wait for it rather than start a second full suite beside it — two at once make the browser tests flaky for both.
 
-**Who wrote a commit.** Every commit carries a trailer naming the tool that wrote it (`Tool: mistral1`), as the Claude sessions carry theirs. All commits bear Koen's name as author; the trailer is what tells them apart.
+**Who wrote a commit.** Every commit carries a trailer naming the tool that wrote it (`Tool: mistral-vibe1`), as the Claude sessions carry theirs. All commits bear Koen's name as author; the trailer is what tells them apart.
 
 ## Data operations on an environment — through the app, never raw SQL
 
