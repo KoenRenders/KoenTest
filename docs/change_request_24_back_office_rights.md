@@ -262,7 +262,7 @@ Every gate asks for a **right** instead of a role name. A right is a code in a c
 | `settings.manage` | settings, changes, e-mail log, API keys | ✓ | | ✓ | | | | |
 | `platform.manage` | tenants, organisations of the platform | | | ✓ | | | | |
 
-ACCOUNT_ADMIN keeps an empty bundle (R11). The rows marked CR-21 open nothing until CR-21 builds their screens.
+The table is the design, read from the gates' names; the proof is F1, the before-and-after list per gate, which decides every row where a gate turns out to admit other roles than its name says. ACCOUNT_ADMIN keeps an empty bundle (R11). The rows marked CR-21 open nothing until CR-21 builds their screens.
 
 **Derived requirements**
 
