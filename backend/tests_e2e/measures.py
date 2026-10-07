@@ -151,6 +151,10 @@ PUBLIC_HOOKS: dict[str, str] = {
     "form section": "[data-form-section]",
     "field": "[data-field]",
     "flow card": "[data-flow-card]",
+    # The membership card of Mijn gezin and the transfer to make (CR-22: one
+    # partial each, shown in more than one place).
+    "membership card": "[data-membership-status]",
+    "transfer due": "[data-transfer-due]",
     "action bar": "[data-action-bar]",
     "footer row": "[data-footer-row]",
     "legal line": "[data-footer-line]",
@@ -391,6 +395,20 @@ SCREENS: tuple[Screen, ...] = (
         "public-formulier",
         "/formulier/tok-e2e-open",
         ("brand", "form page", "field", "action bar"),
+    ),
+    # Mijn gezin as it is READ: the membership card above the household.
+    Screen(
+        "leden-gezin",
+        "/leden/gezin",
+        ("brand", "form page", "membership card", "flow card"),
+        session="lid",
+    ),
+    # A renewal that runs, to be paid by transfer: the inset in that card.
+    Screen(
+        "leden-gezin-overschrijving",
+        "/leden/gezin",
+        ("brand", "membership card", "transfer due"),
+        session="lid-overschrijving",
     ),
     Screen(
         "leden-gezin-bewerken",

@@ -251,14 +251,31 @@ def test_a_renewal_that_waits_for_a_transfer_shows_what_to_pay_in_the_card(clien
 
 
 def test_only_the_card_writes_what_a_running_renewal_asks():
-    """One source (#1641: the renewal page lost its running view): only
-    `_renewal_running.html` writes the lines, and only the card includes it."""
+    """One source (#1641: the renewal page lost its running view; CR-22 S2,
+    #1705: moved, never copied). In EVERY template of the application:
+
+    - the lines of a transfer are written by `_transfer_due.html` alone, the
+      shared partial, and the membership card reaches it through
+      `_renewal_running.html`;
+    - the membership card is written by `_membership_card.html` alone, which the
+      household page includes.
+
+    Red by putting a second `data-transfer-due` inset into the household page
+    (the first list names two files), and by writing the card's hook into it."""
     from pathlib import Path
 
-    templates = Path(__file__).resolve().parents[2] / "app/domains/membership/templates"
-    writers = [p.name for p in templates.glob("*.html") if "Mededeling (OGM)" in p.read_text()]
-    assert writers == ["_renewal_running.html"]
-    users = sorted(
-        p.name for p in templates.glob("*.html") if '"_renewal_running.html"' in p.read_text()
-    )
-    assert users == ["household_page.html"]
+    app = Path(__file__).resolve().parents[2] / "app"
+    sources = {p.name: p.read_text() for p in app.rglob("templates/*.html")}
+    assert len(sources) > 150, f"only {len(sources)} templates found — the glob looks nowhere"
+
+    def holding(needle: str) -> list[str]:
+        return sorted(name for name, text in sources.items() if needle in text)
+
+    # The kit page draws an inset with made-up lines to SHOW the kit's inset; it
+    # is no place that says what somebody owes.
+    assert holding("Mededeling (OGM)") == ["_transfer_due.html", "design_system.html"]
+    assert holding('attrs="data-transfer-due"') == ["_transfer_due.html"]
+    assert holding('"_transfer_due.html"') == ["_renewal_running.html"]
+    assert holding('"_renewal_running.html"') == ["_membership_card.html"]
+    assert holding('attrs="data-membership-status"') == ["_membership_card.html"]
+    assert holding('"_membership_card.html"') == ["household_page.html"]

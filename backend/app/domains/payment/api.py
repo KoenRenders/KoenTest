@@ -63,6 +63,7 @@ from app.domains.payment.service import (  # noqa: F401
     set_payment_status,
     void_payment_record,
 )
+from app.domains.payment.transfer_due import TransferDue, transfer_due  # noqa: F401
 
 __all__ = [
     "PAYABLE_TYPE",
@@ -112,4 +113,6 @@ __all__ = [
     "refresh_record_status",
     "set_payment_status",
     "void_payment_record",
+    "TransferDue",
+    "transfer_due",
 ]
