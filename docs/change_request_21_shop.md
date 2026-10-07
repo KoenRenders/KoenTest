@@ -1,10 +1,10 @@
 # Change Request 21 — Webshop: products, stock and pricing
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** being shaped since 6 October 2026 · Part A in progress · nothing is built; not on a release
+**Status:** being shaped since 6 October 2026 · Part A written, Part B drafted, Part C to come · nothing is built; not on a release
 **Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** to be filled in once Part B is shaped
-**Reading:** A <n> words · B <n> · C <n> — measured with the word count per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 4 499 words · B 3 745 (the decisions log excluded) · C not written yet — measured on 7 October 2026 without drawings and notes; the budget is A ≤ 1 500, B ≤ 2 500: **over budget**, to be trimmed before the build read (A6's source column and its moved rows carry most of A)
 
 ---
 
@@ -266,27 +266,27 @@ and deliberately not done — recorded so it is not asked again).
 > *the walkthrough (B2) that show it. These are the business's unit tests;*
 > *the developer's tests live in Part C.*
 
-The walkthrough of B2 is not written yet; until it is, the last column points at the steps of the to-be table in A3.
+The last column names the steps of the walkthrough (B2) that show each criterion.
 
-| # | Criterion | Requirement | A3 steps |
+| # | Criterion | Requirement | Walkthrough steps |
 |---|---|---|---|
-| AC1 | Someone with the role Masterdata creates a T-shirt with the sizes S, M, L and XL, two pictures and a size chart. The Webshop shows it; the size chart opens. | R1, R2, R3 | 1 |
-| AC2 | Someone without the role Masterdata cannot open Productbeheer, nor change a product. | R4 | — |
-| AC3 | Prijsbeheer sets a price from today and a new price from next month. The Webshop shows today's price; a signed-in member sees the member price, everyone else the regular price. | R6, R11 | 1 |
-| AC4 | Voorraadbeheer books a receipt of ten T-shirts size M at the warehouse; the stock shows ten. | R7, R37 | 8 |
-| AC5 | A buyer puts two articles in the basket, closes the browser, comes back: the basket is still there. They order and pay online (Mollie test mode). The order reads **Betaald** and **Klaar om af te halen**; one M is reserved, the stock still counts ten. | R13, R14, R24, R33, R34 | 1, 2, 3 |
-| AC6 | When every M is reserved, a second buyer cannot order an M. | R13 | 2 |
-| AC7 | A buyer orders and pays by transfer. They receive a confirmation mail with the articles, the amount, the account number and the structured communication; a task appears on the workbench for Boekhouding, due within 14 days. | R18, R38 | 3, 4 |
-| AC8 | Boekhouding confirms the transfer: the task closes by itself and the order reads **Betaald**. | R18 | 4 |
-| AC9 | Boekhouding answers "nog niet betaald": the task moves to Verkoop and shows when Boekhouding last checked the account. A task past its due date turns red on the workbench; nobody gets a mail. | R18 | 4, 5 |
-| AC10 | An online payment that fails, or that the buyer abandons, becomes a task for Verkoop; the articles stay reserved until someone acts. | R17, R13 | 5 |
-| AC11 | After trying on, Verkoop changes an M into an L. The reservation moves to the L; the amount follows: an extra payment when the L costs more and the order was paid, a refund due when it costs less, a new amount when it was not paid yet. | R15, R16 | 6 |
-| AC12 | Verkoop registers one line of a two-line order as delivered: the order reads **Deels afgeleverd**, the stock of that article goes down by one and its reservation closes. When the second line is delivered, the order reads **Afgeleverd**. | R21, R34 | 7 |
-| AC13 | A signed-in buyer cancels their own order before delivery, on the same page Verkoop uses: the order reads **Geannuleerd**, the articles are free to sell again, and a paid order shows a refund due. | R13, R23, R25 | — |
-| AC14 | After delivery, the buyer can no longer cancel. | R25 | — |
-| AC15 | Verkoop cancels an unpaid order from the task: the task closes, the articles are free again. | R22 | 5 |
-| AC16 | Voorraadbeheer corrects the stock up by one after a return; the correction is visible apart from the receipt of AC4. | R36, R37 | 8 |
-| AC17 | A second tenant on HDEV has its own products in its own Webshop; it does not see Raak's, nor Raak its. | R5 | — |
+| AC1 | Someone with the role Masterdata creates a T-shirt with the sizes S, M, L and XL, two pictures and a size chart. The Webshop shows it; the size chart opens. | R1, R2, R3 | W1, W2 |
+| AC2 | Someone without the role Masterdata cannot open Productbeheer, nor change a product. | R4 | W3 |
+| AC3 | Prijsbeheer sets a price from today and a new price from next month. The Webshop shows today's price; a signed-in member sees the member price, everyone else the regular price. | R6, R11 | W4, W5 |
+| AC4 | Voorraadbeheer books a receipt of ten T-shirts size M at the warehouse; the stock shows ten. | R7, R37 | W6 |
+| AC5 | A buyer puts two articles in the basket, closes the browser, comes back: the basket is still there. They order and pay online (Mollie test mode). The order reads **Betaald** and **Klaar om af te halen**; one M is reserved, the stock still counts ten. | R13, R14, R24, R33, R34 | W7, W8 |
+| AC6 | When every M is reserved, a second buyer cannot order an M. | R13 | W9 |
+| AC7 | A buyer orders and pays by transfer. They receive a confirmation mail with the articles, the amount, the account number and the structured communication; a task appears on the workbench for Boekhouding, due within 14 days. | R18, R38 | W10, W12 |
+| AC8 | Boekhouding confirms the transfer: the task closes by itself and the order reads **Betaald**. | R18 | W13 |
+| AC9 | Boekhouding answers "nog niet betaald": the task moves to Verkoop and shows when Boekhouding last checked the account. A task past its due date turns red on the workbench; nobody gets a mail. | R18 | W14, W15 |
+| AC10 | An online payment that fails, or that the buyer abandons, becomes a task for Verkoop; the articles stay reserved until someone acts. | R17, R13 | W16 |
+| AC11 | After trying on, Verkoop changes an M into an L. The reservation moves to the L; the amount follows: an extra payment when the L costs more and the order was paid, a refund due when it costs less, a new amount when it was not paid yet. | R15, R16 | W17 |
+| AC12 | Verkoop registers one line of a two-line order as delivered: the order reads **Deels afgeleverd**, the stock of that article goes down by one and its reservation closes. When the second line is delivered, the order reads **Afgeleverd**. | R21, R34 | W18 |
+| AC13 | A signed-in buyer cancels their own order before delivery, on the same page Verkoop uses: the order reads **Geannuleerd**, the articles are free to sell again, and a paid order shows a refund due. | R13, R23, R25 | W11 |
+| AC14 | After delivery, the buyer can no longer cancel. | R25 | W18 |
+| AC15 | Verkoop cancels an unpaid order from the task: the task closes, the articles are free again. | R22 | W19 |
+| AC16 | Voorraadbeheer corrects the stock up by one after a return; the correction is visible apart from the receipt of AC4. | R36, R37 | W20 |
+| AC17 | A second tenant on HDEV has its own products in its own Webshop; it does not see Raak's, nor Raak its. | R5 | W21 |
 
 ---
 
@@ -312,6 +312,35 @@ The walkthrough of B2 is not written yet; until it is, the last column points at
 > *finer-grained requirements the solution answers — design work by the*
 > *analyst, which is why they are not in Part A.*
 
+Four new domains, one per role that keeps them: **`product`** (the catalogue — product, variant, pictures and documents; Masterdata), **`pricing`** (prices over time, regular and member; Prijsbeheer), **`stock`** (locations, movements, reservations; Voorraadbeheer) and **`sales`** (the Webshop pages, the order and its lines, delivery, change and cancel, the order's tasks; Verkoop). They talk only through their facades. `payment` learns a third thing that can be paid, the order; `workflow` learns a due date and the order as a subject; `mail` sends the order confirmation from an event; `kernel` gets a module, SHOP, that a tenant switches on. Nothing in activities or membership changes.
+
+- **D1 — Four domains, one per role.** Rejected alternative: one `shop` domain. Each role's data lives differently — master data, prices in time, a ledger of movements, transactions — and `pricing` is its own domain by decision (Q2); one domain would put the product inside the sale, which R2 forbids.
+- **D2 — Stock is a ledger of movements; a reservation is apart.** On hand = the sum of movements; available = on hand − open reservations, per variant and location (Q3, Q16). Rejected: one stock number per variant — it forgets why it changed and cannot carry a value later (R8).
+- **D3 — The price is fixed on the line when the order is placed.** `pricing` answers "the price of this variant on this day, for a member or not"; `sales` writes it on the line and computes the total inline. Rejected: reading `pricing` at every display — a new price would change orders already placed.
+- **D4 — An order is a payable of `payment`, like a registration.** Online and transfer, the structured communication, refunds and the recalculation after a change (`reconcile_charges`, R16) are reused, not rebuilt. The event that announces a change is `SalesOrderChanged`: `OrderChanged` already names a registration's items (C1).
+- **D5 — The unpaid transfer is a workflow definition of two steps** (Q36): Boekhouding, then Verkoop, each step a task with its role; `PaymentReceived` for the order ends the run; Boekhouding's "nog niet betaald" completes step 1 and starts step 2. A failed or expired online payment starts a one-step run for Verkoop. Rejected: a sweep task keyed by its title, as refunds have — it cannot carry two steps.
+- **D6 — One order page, in the site shell for the buyer and the admin shell for Verkoop** (R23), as registration is one page since CR-14. The basket lives in the browser and reserves nothing (Q22, Q23).
+- **D7 — Pictures and documents live in the media library**, with two new kinds, linked to the product by `product_attachment` (B3a). Rejected: files on the product — the library already stores, thumbnails and deletes.
+
+**Derived requirements**
+
+| F | Requirement | From |
+|---|---|---|
+| F1 | An order is refused, line by line with the reason, when the available quantity of a variant at the location is short; the check and the reservation happen in one transaction, under a lock on that variant and location. | R13 |
+| F2 | A tenant has one default location; an order reserves there. More locations hold stock; moving stock between them is a correction out and one in. | R7, R13 |
+| F3 | The price of a line: the variant's price valid on the order date, else the product's; the member price when the buyer has a valid membership (`has_valid_membership`) and the article has one. | R6, R11 |
+| F4 | A line keeps variant, quantity, unit (C62) and unit price; the order total is computed while the lines are made, never from the relationship after a flush. | R16, B3a |
+| F5 | The delivery status is derived from the lines: none delivered → Klaar om af te halen; some → Deels afgeleverd; all → Afgeleverd; a cancelled order → Geannuleerd. | R34 |
+| F6 | Delivering a line is one transaction: the line is delivered, a movement GOODS_ISSUE takes its quantity, its reservation closes. | R21 |
+| F7 | A change replaces lines; reservations follow; `SalesOrderChanged` lets `payment` recalculate. A partial delivery is a change that splits the line first. | R15, R16, Q30 |
+| F8 | Cancelling takes the whole order and is possible while no line is delivered: reservations cancel, open tasks close, a paid order gets its refund through the same recalculation. | R22, R23, R25 |
+| F9 | Movement reasons are a code list: RECEIPT, GOODS_ISSUE, CORRECTION. | R36, R37 |
+| F10 | A task carries `due_at`; the workbench shows a task past it in red; nothing is mailed. The transfer step is due 14 days after the order. | R18, Q38 |
+| F11 | Verkoop's step shows "rekening laatst nagekeken op …": the latest manual confirmation of a transfer at the tenant (audit action `payment_manually_confirmed`) or Boekhouding's latest "nog niet betaald", whichever is later (Q47). | R18 |
+| F12 | Placing an order mails the confirmation with its lines, the amount and, for a transfer, the transfer instructions the registration mail already builds. | R38 |
+| F13 | The link in the mail signs the buyer in and opens the order (CR-22). | Q21, Q26 |
+| F14 | Every new table is tenant-scoped (`TenantMixin`); no screen shows another tenant's rows. | R5 |
+
 ## B2. Fit with the process and the requirements — for the business
 
 > [!NOTE]
@@ -336,6 +365,88 @@ The walkthrough of B2 is not written yet; until it is, the last column points at
 > *each criterion; every criterion has at least one step. The closing*
 > *comment of each issue points at the walkthrough instead of rewriting it.*
 
+**Application usage drawing** — the to-be process of A3, each step with the screen or module that serves it.
+
+```mermaid
+flowchart LR
+  subgraph Buyer
+    b1["Fill the basket<br/><i>Webshop</i>"]:::sales --> b2["Order and choose how to pay<br/><i>Webshop › Bestellen</i>"]:::sales
+    b3["Try the garment on<br/><i>outside the portal</i>"]:::outside
+    b4["Transfer the amount<br/><i>own bank</i>"]:::outside
+  end
+  subgraph Verkoop
+    s1["Bring sizes to try<br/><i>outside the portal</i>"]:::outside
+    s2["Change the order<br/><i>Verkoop › Bestelling</i>"]:::sales
+    s3["Register the delivery<br/><i>Verkoop › Bestelling</i>"]:::sales
+    s4["Remind or cancel<br/><i>Werkbank</i>"]:::workflow
+  end
+  subgraph Boekhouding
+    t1["Check the account<br/><i>Werkbank › Betalingen</i>"]:::payment
+  end
+  subgraph Portal
+    p1["Reserve the articles<br/><i>stock</i>"]:::stock
+    p3["Open a task<br/><i>workflow</i>"]:::workflow
+    p2["Record the payment<br/><i>payment</i>"]:::payment
+    p4["Lower the stock<br/><i>stock</i>"]:::stock
+  end
+  b2 -.-> p1 --> p3 -.-> t1
+  p1 --> p2
+  t1 -- not yet paid --> s4
+  s1 -.-> b3 --> s2 --> p1
+  b3 --> s3 --> p4
+  b4 -.-> t1 --> p2
+  classDef sales fill:#dbeafe,stroke:#1d4ed8
+  classDef stock fill:#dcfce7,stroke:#15803d
+  classDef payment fill:#fef9c3,stroke:#a16207
+  classDef workflow fill:#fae8ff,stroke:#a21caf
+  classDef outside fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:3
+```
+
+*Legend: blue `sales` · green `stock` · yellow `payment` · purple `workflow` · grey outside the portal. The setting-up roles have their own screens, not drawn: Masterdata › Productbeheer (`product`), Prijsbeheer (`pricing`), Voorraadbeheer (`stock`).*
+
+**Traceability matrix**
+
+| R | How the solution meets it | F | Module | Test | AC |
+|---|---|---|---|---|---|
+| R1, R3 | The product page shows description, pictures and documents, as many as the product has | — | product, sales | T1 | AC1 |
+| R2 | Productbeheer is its own screen, no activity involved | — | product | T1 | AC1 |
+| R4 | Productbeheer needs `product.masterdata` (CR-24) | — | product | T2 | AC2 |
+| R5 | Every table tenant-scoped; the module SHOP per tenant | F14 | all, kernel | T3 | AC17 |
+| R6 | A price has a validity period; the one valid today is shown | F3 | pricing | T4 | AC3 |
+| R7 | Stock per variant and location, as a ledger | F2 | stock | T5 | AC4 |
+| R8, R9, R12, R31, R35 | Won't — nothing built; the ledger and the line keep the way open | — | — | — | — |
+| R11 | Member price for a valid membership | F3 | pricing, sales | T4 | AC3 |
+| R13 | Reserve at "Bestellen"; refuse when short | F1 | stock, sales | T6 | AC5, AC6 |
+| R14 | Online or transfer through `payment` | — | payment, sales | T7 | AC5, AC7 |
+| R15, R16 | Change replaces lines; payment recalculates | F7 | sales, payment | T8 | AC11 |
+| R17 | Failed or expired online payment → task for Verkoop | — | sales, workflow | T9 | AC10 |
+| R18 | Two-step run, due date, freshness | F10, F11 | sales, workflow, payment | T10 | AC7–AC9 |
+| R19 | The roles of CR-24 gate the four screens; Boekhouding is FINANCE | — | all | T2 | AC2 |
+| R21 | Delivery per line lowers the stock | F6 | sales, stock | T11 | AC12 |
+| R22 | Verkoop cancels from the task | F8 | sales, workflow | T12 | AC15 |
+| R23, R25 | The buyer cancels on the same page while nothing is delivered | F8 | sales | T12 | AC13, AC14 |
+| R24 | Basket in the browser | — | sales | T13 | AC5 |
+| R33 | Sign-in of CR-22 | F13 | auth, sales | T14 | AC5 |
+| R34 | Payment status from `payment`, delivery status from the lines | F5 | sales | T11 | AC5, AC12 |
+| R36, R37 | Receipt and correction as movements with their reason | F9 | stock | T5 | AC4, AC16 |
+| R38 | Confirmation mail with transfer instructions | F12 | mail, sales | T15 | AC7 |
+
+**Walkthrough on HDEV** — per role, in the order of the process.
+
+*Masterdata* — W1 Beheer › Productbeheer › Nieuw: "T-shirt Raak", a description, sizes S, M, L, XL. W2 Add two pictures and two size charts; see them on the product. W3 Sign in as a user without Masterdata: Productbeheer is not in the menu, and its address refuses.
+
+*Prijsbeheer* — W4 Prijsbeheer › T-shirt Raak: price €15, member price €12, from today; €17 from next month. W5 Open the Webshop signed out: €15. Signed in as a member: €12.
+
+*Voorraadbeheer* — W6 Voorraadbeheer › Ontvangst: ten M at the default location; the stock reads 10, available 10.
+
+*Buyer* — W7 Webshop: an M and an L in the basket; close the browser, return: the basket is there. W8 Bestellen, pay online (Mollie test): the order reads Betaald and Klaar om af te halen; available M 9, stock 10. W9 With all M reserved, order an M: refused, with the reason. W10 Order and pay by transfer: the mail holds the articles, the amount, the account number and the structured communication. W11 Before delivery, cancel the order from "Mijn aankopen": Geannuleerd, the articles available again.
+
+*Boekhouding* — W12 Werkbank: a task for the order of W10, due in 14 days. W13 Confirm the transfer: the task closes, the order reads Betaald. W14 On a second transfer order, answer "nog niet betaald": the task leaves Boekhouding's list.
+
+*Verkoop* — W15 Werkbank: the task of W14, with "rekening laatst nagekeken op …"; set its due date in the past on HDEV: red, no mail. W16 Abandon an online payment as buyer: a task for Verkoop. W17 Change an M into an L on a paid order where the L costs more: an extra payment is due. W18 Deliver one line of a two-line order: Deels afgeleverd, stock down by one; deliver the second: Afgeleverd; the buyer can no longer cancel. W19 Cancel the order of W16 from its task: the task closes, the articles are free. W20 Voorraadbeheer › Correctie +1 after a return: shown apart from the receipt.
+
+*Second tenant* — W21 Sign in at the second tenant on HDEV: its Webshop and screens show none of Raak's products.
+
 ## B3. The whole across the modules — for the architect
 
 > [!NOTE]
@@ -357,6 +468,78 @@ The walkthrough of B2 is not written yet; until it is, the last column points at
 > *are touched, and how the layer rules (`docs/code-style.md`, the import*
 > *gate) hold. This is where a reviewer checks that the change does not*
 > *bend the architecture; the per-module detail is C2.*
+
+**Application structure drawing**
+
+```mermaid
+flowchart TB
+  subgraph product
+    pn["new: Product, ProductVariant, ProductAttachment · Productbeheer screens · api.py"]:::new
+  end
+  subgraph pricing
+    prn["new: Price · Prijsbeheer screen · api.price_for()"]:::new
+  end
+  subgraph stock
+    sn["new: StockLocation, StockMovement, StockReservation · Voorraadbeheer screens · api.reserve/issue/release"]:::new
+  end
+  subgraph sales
+    san["new: SalesOrder, SalesOrderLine · Webshop pages · order page (site + admin shell) · handlers · api.py"]:::new
+  end
+  subgraph payment
+    pac["changed: PayableType ORDER · describers instead of if/elif (Q48)"]:::chg
+  end
+  subgraph workflow
+    wc["changed: WorkflowTask.due_at · SubjectType SALES_ORDER · red on the workbench"]:::chg
+  end
+  subgraph mail
+    mc["changed: order confirmation, reusing the transfer instructions"]:::chg
+  end
+  subgraph kernel
+    kc["changed: ModuleCode SHOP · PAYMENT depends on ACTIVITIES, MEMBERSHIP or SHOP · contract SalesOrderChanged"]:::chg
+  end
+  subgraph used["used, unchanged"]
+    u["membership.has_valid_membership · media library · auth sign-in (CR-22) · rights (CR-24)"]:::same
+  end
+  pricing --> product
+  stock --> product
+  sales --> product & pricing & stock & payment & workflow
+  sales --> u
+  payment -. event PaymentReceived .-> sales
+  sales -. event SalesOrderChanged / OrderPlaced .-> payment & mail
+  classDef new fill:#dcfce7,stroke:#15803d
+  classDef chg fill:#ffedd5,stroke:#c2410c
+  classDef same fill:#f3f4f6,stroke:#9ca3af
+```
+
+*Legend: green new · orange changed · grey used unchanged. Solid arrows are facade calls (`api.py`), dotted arrows events.*
+
+**Data model at a glance**
+
+```mermaid
+erDiagram
+  PRODUCT ||--o{ PRODUCT_VARIANT : "has (new)"
+  PRODUCT ||--o{ PRODUCT_ATTACHMENT : "shows (new)"
+  PRODUCT_ATTACHMENT }o--|| MEDIA_ASSET : "points at"
+  PRODUCT ||--o{ PRICE : "priced by (new, pricing)"
+  PRODUCT_VARIANT |o--o{ PRICE : "overrides"
+  PRODUCT_VARIANT ||--o{ STOCK_MOVEMENT : "moves (new, stock)"
+  STOCK_LOCATION ||--o{ STOCK_MOVEMENT : "at"
+  PRODUCT_VARIANT ||--o{ STOCK_RESERVATION : "reserved (new)"
+  SALES_ORDER ||--|{ SALES_ORDER_LINE : "has (new, sales)"
+  SALES_ORDER_LINE ||--o| STOCK_RESERVATION : "holds"
+  SALES_ORDER_LINE }o--|| PRODUCT_VARIANT : "of"
+  SALES_ORDER }o--o| PERSON : "bought by"
+  SALES_ORDER ||--o{ PAYMENT_RECORD : "payable ORDER"
+  PRODUCT { int id string name text description }
+  PRODUCT_VARIANT { int id int product_id string sku json properties }
+  PRICE { int product_id int variant_id decimal amount string price_type date valid_from date valid_to }
+  STOCK_MOVEMENT { int variant_id int location_id int quantity string reason int order_line_id }
+  STOCK_RESERVATION { int order_line_id int variant_id int location_id int quantity string status }
+  SALES_ORDER { int id int person_id string status }
+  SALES_ORDER_LINE { int order_id int variant_id int quantity decimal unit_price datetime delivered_at }
+```
+
+`sales` calls `product`, `pricing`, `stock`, `payment` and `workflow` through their facades and depends on nothing else new; `pricing` and `stock` read `product`; nothing calls `sales` except through events. `payment` does not import `sales`: it learns an order's name, link, filter label and export kind from a describer that `sales` registers (Q48). Placing an order is one transaction — lines, prices, reservations, the payment record, the workflow run — and the mail leaves after the outer commit (`OrderPlaced`). Delivering a line and cancelling an order are each one transaction. The impact on what exists: `payment`'s readers of the payable type, the workbench's task row, the module list and its CHECK, the payable delete gate and the reporting view `f_payments`. The import gate and the layer gate hold: screens read view-models, domains meet in `api.py`.
 
 ## B3a. Standards the model follows — and where it deviates, on purpose
 
@@ -398,7 +581,10 @@ Standards checked: UBL 2.1 (`Catalogue`, `Order`, `DespatchAdvice`, `InventoryRe
 
 | Rule (where) | What the design does instead | Mechanism | Temporary until … / the new rule | Decided |
 |---|---|---|---|---|
-| … | … | … | … | <who>, <date> |
+| The payable delete gate knows exactly two payable types (`tests/test_payable_delete_gate.py:80, 235`) | a third, ORDER | the gate's list grows to three, with `sales` refusing to delete an order that has a payment record | the new rule | Koen, at the handover |
+| PAYMENT depends on ACTIVITIES and MEMBERSHIP (`kernel/modules.py:193`) | a tenant with only the shop needs payments | the dependency becomes "one of ACTIVITIES, MEMBERSHIP, SHOP" | the new rule | Koen, at the handover |
+
+Checked and not bent: the import gate (facades only), the layer gate, the template-variable gate, the public shell gate, the Dutch-identifier ratchet (all new code English), the money rule "never trust the webhook body", the fixed decision "registration is one page" (followed, not bent).
 
 ## B5. Cost — investment and running cost, and what operations must know
 
@@ -416,6 +602,25 @@ Standards checked: UBL 2.1 (`Catalogue`, `Order`, `DespatchAdvice`, `InventoryRe
 > *the stack must know. Set beside the benefits of A4: the two together are*
 > *the input for the release decision.*
 
+**Investment** (S ≈ 1, M ≈ 2–3, L ≈ 4–6 CLI-days)
+
+| Module | Phase 1 | Phase 2 | Phase 3 | Total |
+|---|---|---|---|---|
+| product (+ media kinds) | M | — | — | M |
+| pricing | S | — | — | S |
+| stock | M | S | — | M+S |
+| sales (Webshop, order page, handlers) | — | L | M | L+M |
+| payment (ORDER, describers, view `f_payments`) | — | M | S | M+S |
+| workflow (due date, subject, two-step definition) | — | M | — | M |
+| mail, kernel (module, contract) | S | S | — | 2 S |
+| **Per phase** | **≈ 6** | **≈ 12** | **≈ 4** | **≈ 22 CLI-days** |
+
+Besides: the build read before assignment, review per phase, Koen's HDEV validation of the walkthrough, three release passes. No purchases.
+
+**Running cost:** none new. Mollie charges per online payment as it does for registrations; pictures and documents go into the existing media storage and its backup.
+
+**Operations:** no env vars. The module SHOP is switched on per tenant in the tenant editor; the existing workbench kill switch (`workbench_enabled`) also stops the sweep for these tasks. Three migrations, one per phase.
+
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
 > [!NOTE]
@@ -430,6 +635,14 @@ Standards checked: UBL 2.1 (`Catalogue`, `Order`, `DespatchAdvice`, `InventoryRe
 > *"no functional change" is a claim about the happy path with the failure*
 > *paths listed beside it. "None" is an answer. Dependencies on other change*
 > *requests are named per phase, so the approver can order them.*
+
+| Phase | Delivers | Migration | Env vars | Data | Failure paths that change | Manual validation |
+|---|---|---|---|---|---|---|
+| 1 — Catalogue, prices, stock | Productbeheer, Prijsbeheer, Voorraadbeheer with receipt and correction; module SHOP; nothing public | `product`, `pricing`, `stock` schemas; module CHECK widened; media kinds | none | none | a product with prices or movements refuses deletion, naming why | W1–W6, W20 |
+| 2 — Ordering and paying | Webshop, basket, order page, online and transfer, confirmation mail, two-step workflow with due date, failed-payment task, delivery per line, Verkoop cancels | `sales` schema; payable type ORDER; task `due_at`; subject SALES_ORDER; view `f_payments` | none | the transfer workflow definition seeded per tenant with SHOP | an order short of stock is refused whole, nothing reserved; a payment that fails leaves the reservation and opens a task; a mail that fails does not undo the order | W7–W10, W12–W16, W18, W19, W21 (Mollie test mode) |
+| 3 — Change and self-cancel | change after trying on with recalculation; the buyer cancels on the same page | none expected | none | none | a change short of stock is refused and the order stays as it was; a cancel after a delivery is refused | W11, W17 |
+
+**Dependencies:** CR-22 (sign-in, built in v2.15) before phase 2; CR-24 part 1 (the rights `product.masterdata` and the webshop roles) before phase 1. **Not** dependent on CR-20: the shop hangs on `tenant_id`, which keeps its ids there, and the buyer is a person, not an organisation.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -446,6 +659,10 @@ Standards checked: UBL 2.1 (`Catalogue`, `Order`, `DespatchAdvice`, `InventoryRe
 > *reason and what catches it instead, written down as the weaker guarantee*
 > *it is.*
 
+**The rule:** `payment` never branches on a payable type to describe it; a domain that becomes payable registers a describer (name, link, filter label, export kind), and every screen, export and audit line asks the describers. It goes into `docs/code-style.md` beside the facade rule.
+
+**Reach and baseline:** measured on master `25c74f60`: 33 comparisons with `PayableType.REGISTRATION`/`MEMBERSHIP` in 12 files and 21 `payable_type ==`/`in` tests outside `payment/codes.py`. This change moves the ones that describe a payable (≈ 14, C1) onto the describers; the rest decide behaviour and stay. **Ratchet**: the count may only shrink. If Koen declines the describers (Q48), there is no rule and no gate: every reader learns ORDER by hand, the weaker guarantee the C1 list then has to carry.
+
 ## B8. Open decisions — what the approver still decides
 
 > [!NOTE]
@@ -458,6 +675,9 @@ Standards checked: UBL 2.1 (`Catalogue`, `Order`, `DespatchAdvice`, `InventoryRe
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
 | Q39 | Reminding the buyer of an unpaid transfer: a button on Verkoop's task that mails the payment link, or a mail that goes out by itself after some days? **Parked by Koen on 7 October 2026.** | A button on the task: Verkoop already decides per order (Q36), and a mail by itself would also go to a buyer whose transfer Boekhouding has not booked yet. | A button is one action on the task; a mail by itself needs a schedule, a text per tenant and a rule for when it stops. Until decided, Verkoop reminds the buyer outside the portal. |
+| Q47 | What does "rekening laatst nagekeken" on Verkoop's task mean? | Derive it: the later of Boekhouding's latest manual confirmation of a transfer and its latest "nog niet betaald". Nothing new to click. | A button "rekening nagekeken" is exact but is one more thing to remember; derived, a quiet week without transfers reads as "not checked". |
+| Q48 | Describe an order in `payment` through describers that each payable domain registers, or add a third branch at each reader? | Describers (B7): ≈ 14 sites would otherwise each learn ORDER by hand, the "same repair twice" of `AGENTS.md`. | Describers: about one CLI-day more in phase 2, and the next payable (an invoice) is one registration. Branches: cheaper now, fourteen places to forget next time. |
+| Q49 | The module SHOP for a new association: on by default? `DEFAULTS["VERENIGING"]` is "every module", so it would be on for every new association unless excluded. | Off by default for every kind; switched on per tenant. | On: every new association sees an empty Webshop in its menus until it has products. |
 
 ## B9. Decisions log — dated answers
 
