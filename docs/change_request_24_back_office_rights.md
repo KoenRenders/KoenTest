@@ -1,7 +1,7 @@
 # Change Request 24 — Rights, part 1: the code asks for a right, a role is a bundle
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** opened on 7 October 2026 · Part A written, Part B to come · nothing is built; not on a release
+**Status:** opened on 7 October 2026 · Part A written, Part B drafted, Part C to come · nothing is built; not on a release
 **Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** auth (roles, rights, the gates), every back-office route's gate; part 2 is CR-25 (the back office: menu, Bestuur, workbench, business partners)
 **Reading:** A <n> words · B <n> · C <n> — measured with the word count per part; A ≤ 1 500, B ≤ 2 500
@@ -230,6 +230,50 @@ and deliberately not done — recorded so it is not asked again).
 > *finer-grained requirements the solution answers — design work by the*
 > *analyst, which is why they are not in Part A.*
 
+Every gate asks for a **right** instead of a role name. A right is a code in a code list (`auth.right_codes`, labels per language); a role is a **bundle** of rights, kept as rows (`auth.role_rights`) seeded by a migration and the same in every workspace; users keep getting roles per workspace as today (`auth.user_roles`). One gate function replaces the role-named ones: `require_right(code)` for the screens and `require_right_api(code)` for the JSON API. A user holds a right in a workspace when one of his roles there bundles it. The bundles of ADMIN, FINANCE and OPERATOR are written so that each holds exactly what its role opens today (R7); four roles are added: MASTERDATA, PRICING, SALES, STOCK, with the Dutch labels of A3.
+
+- **D1 — A right per kind of object, changing it; holding it opens the screens of that kind.** Reading everything without a right is part 2 (CR-25 R7). Rejected: a right per screen — some 280 rights, unreadable as bundles; a right per menu group — too coarse for the roles of part 2.
+- **D2 — Bundles are data, fixed by migration.** No screen composes them (R14); a later screen edits the same rows. Rejected: bundles in code — the screen of R14 would then need a rebuild.
+- **D3 — The old gate names disappear, not alias.** Each call site names its right; a gate refuses role names in code from then on (B7). Rejected: `require_admin_ui` kept as an alias for a bundle — the 280 sites would keep saying "admin" while meaning something else.
+- **D4 — Workbench tasks keep their role** (`required_role`) in part 1; the workbench per role is part 2.
+
+**The rights of part 1**
+
+| Right | What it opens today (C1) | ADMIN | FINANCE | OPERATOR | MASTERDATA | PRICING | SALES | STOCK |
+|---|---|---|---|---|---|---|---|---|
+| `activity.manage` | activities, registrations | ✓ | | ✓ | | | | |
+| `form.manage` | forms, submissions | ✓ | | ✓ | | | | |
+| `page.manage` | pages (cms), the site's menu | ✓ | | ✓ | | | | |
+| `media.manage` | media library | ✓ | | ✓ | | | | |
+| `design.manage` | Design Studio | ✓ | | ✓ | | | | |
+| `newsletter.manage` | newsletters | ✓ | | ✓ | | | | |
+| `meeting.manage` | meetings | ✓ | | ✓ | | | | |
+| `report.manage` | reports | ✓ | | ✓ | | | | |
+| `assistant.use` | Raakje in the back office | ✓ | | ✓ | | | | |
+| `party.masterdata` | persons, households, memberships, organisations' legal data, imports | ✓ | | ✓ | ✓ | | | |
+| `product.masterdata` | products (CR-21) | | | ✓ | ✓ | | | |
+| `price.manage` | prices (CR-21) | | | ✓ | | ✓ | | |
+| `sales.manage` | orders (CR-21) | | | ✓ | | | ✓ | |
+| `stock.manage` | stock (CR-21) | | | ✓ | | | | ✓ |
+| `payment.view` | payments, claims | ✓ | ✓ | ✓ | | | | |
+| `payment.manage` | confirm, refund (#83) | | ✓ | ✓ | | | | |
+| `workbench.use` | the workbench (today behind `require_admin_ui`, `workflow/ui.py:114`) | ✓ | | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `user.manage` | users and their roles | ✓ | | ✓ | | | | |
+| `settings.manage` | settings, changes, e-mail log, API keys | ✓ | | ✓ | | | | |
+| `platform.manage` | tenants, organisations of the platform | | | ✓ | | | | |
+
+ACCOUNT_ADMIN keeps an empty bundle (R11). The rows marked CR-21 open nothing until CR-21 builds their screens.
+
+**Derived requirements**
+
+| F | Requirement | From |
+|---|---|---|
+| F1 | Before the change, a list records for every gate which roles pass it; after, the same list is computed from the bundles; the two are equal for ADMIN, FINANCE, OPERATOR and ACCOUNT_ADMIN. | R7 |
+| F2 | The landing after sign-in, the header link to the back office and the menu ask rights, with the same outcome per user as today. | R7 |
+| F3 | A user with roles in two workspaces holds in each only the rights of his roles there. | R3 |
+| F4 | `docs/rollen-en-rechten.md` is generated from the bundles, or checked against them by a test. | A2 step 4 |
+| F5 | The label of FINANCE reads Boekhouding. | Q8 |
+
 ## B2. Fit with the process and the requirements — for the business
 
 > [!NOTE]
@@ -254,6 +298,46 @@ and deliberately not done — recorded so it is not asked again).
 > *each criterion; every criterion has at least one step. The closing*
 > *comment of each issue points at the walkthrough instead of rewriting it.*
 
+**Application usage drawing** — the to-be process of A3 with the place that serves each step.
+
+```mermaid
+flowchart LR
+  subgraph Operator
+    o1["Tick roles per user and workspace<br/><i>Beheer › Gebruikers</i>"]:::auth
+  end
+  subgraph Portal
+    p1{"Right held?<br/><i>require_right</i>"}:::auth -- yes --> p2["Open the screen<br/><i>every domain</i>"]:::dom
+    p1 -- no --> p3["Refuse<br/><i>Geen toegang</i>"]:::auth
+  end
+  subgraph Developer
+    d1["Add a right and a bundle<br/><i>migration</i>"]:::mig
+  end
+  d1 -.-> o1 -.-> p1
+  classDef auth fill:#dbeafe,stroke:#1d4ed8
+  classDef dom fill:#f3f4f6,stroke:#9ca3af
+  classDef mig fill:#dcfce7,stroke:#15803d
+```
+
+*Legend: blue `auth` · grey every domain, its gate changed only · green a migration.*
+
+**Traceability matrix**
+
+| R | How the solution meets it | F | Module | Test | AC |
+|---|---|---|---|---|---|
+| R1 | Gates name rights; a gate refuses role names (B7) | — | auth, every domain | T1, T5 | AC1 |
+| R2 | Moved to part 2 | — | — | — | — |
+| R3 | Bundles as rows, roles per workspace | F3 | auth | T2 | AC4 |
+| R4 | Four roles and their bundles; Boekhouding label | F5 | auth | T3 | AC4, AC6 |
+| R5, R13 | MASTERDATA holds `party.masterdata` and `product.masterdata` | — | auth, mdm, membership | T4 | AC5 |
+| R7 | Before-and-after list of every gate per role | F1, F2 | auth, every domain | T1 | AC1–AC3 |
+| R10, R11, R14 | Won't — the rows of `role_rights` leave room | — | — | — | — |
+
+**Walkthrough on HDEV**
+
+*Before the release, on HDEV with the previous tag* — W1 Write down, for a user with ADMIN, one with only Penningmeester and one Operator, which of these screens open: Activiteiten, Leden, Betalingen (and "Bevestig betaald"), Formulieren, Pagina's, Gebruikers, Instellingen, Tenants.
+
+*After the release* — W2 The same three users, the same screens: the same outcome as W1; the role reads Boekhouding. W3 Beheer › Gebruikers: tick Masterdata for a new user in Raak's workspace; the four new roles are offered. W4 Sign in as that user: Leden, Gezinnen and Lidmaatschappen open and can be changed; Activiteiten, Betalingen and Instellingen refuse. W5 Tick only Verkoop for another user: no existing back-office screen opens; the workbench does. W6 Read `docs/rollen-en-rechten.md`: it matches W2–W5.
+
 ## B3. The whole across the modules — for the architect
 
 > [!NOTE]
@@ -276,6 +360,39 @@ and deliberately not done — recorded so it is not asked again).
 > *gate) hold. This is where a reviewer checks that the change does not*
 > *bend the architecture; the per-module detail is C2.*
 
+```mermaid
+flowchart TB
+  subgraph auth
+    an["new: Right, RoleRight · require_right / require_right_api · four role codes"]:::new
+    ac["changed: landing, header link, menu, Gebruikers screen ask rights"]:::chg
+  end
+  subgraph domains["every domain with a back office"]
+    dc["changed: each gate names its right"]:::chg
+  end
+  subgraph same["unchanged"]
+    u["UserRole per workspace · WorkflowTask.required_role · reporting's own Role"]:::same
+  end
+  domains --> auth
+  auth --> same
+  classDef new fill:#dcfce7,stroke:#15803d
+  classDef chg fill:#ffedd5,stroke:#c2410c
+  classDef same fill:#f3f4f6,stroke:#9ca3af
+```
+
+*Legend: green new · orange changed · grey unchanged.*
+
+```mermaid
+erDiagram
+  ROLE_CODE ||--o{ ROLE_RIGHT : "bundles (new)"
+  RIGHT_CODE ||--o{ ROLE_RIGHT : "in (new)"
+  ROLE_CODE ||--o{ USER_ROLE : "assigned"
+  RIGHT_CODE { string code }
+  ROLE_RIGHT { string role_code string right_code }
+  USER_ROLE { string email string role_code int tenant_id }
+```
+
+Every domain already imports its gates from `app.domains.auth.api`; it keeps doing so, with one function instead of six. `auth` reads `user_roles` and `role_rights` in one query per request. No new dependency between domains; no transaction changes. Impact: every back-office route's dependency line (≈ 380 call sites, C1), the role-set and role-model gates, the 64 test files that build users with ADMIN. `reporting.universe.Role` is another enum and stays apart (Non-goal).
+
 ## B4. Rules this change needs an exception from — decided once, here
 
 > [!NOTE]
@@ -292,7 +409,9 @@ and deliberately not done — recorded so it is not asked again).
 
 | Rule (where) | What the design does instead | Mechanism | Temporary until … / the new rule | Decided |
 |---|---|---|---|---|
-| … | … | … | … | <who>, <date> |
+| The role set is exactly ADMIN, FINANCE, OPERATOR, ACCOUNT_ADMIN (`tests/test_role_set_gate.py`, `mdm/tests/test_codes_phase2.py`) | eight roles | the gates' expected sets grow by the four new codes | the new rule | Koen, at the handover |
+
+Checked and not bent: the import gate, the layer gate, the Dutch-identifier ratchet (new code English), "money mutation is narrower than viewing" (#83 — kept as `payment.view` and `payment.manage`).
 
 ## B5. Cost — investment and running cost, and what operations must know
 
@@ -310,6 +429,12 @@ and deliberately not done — recorded so it is not asked again).
 > *the stack must know. Set beside the benefits of A4: the two together are*
 > *the input for the release decision.*
 
+**Investment:** auth (rights, bundles, gates, landing, menu, Gebruikers screen): M. The call sites, domain by domain: L — mechanical, ≈ 380 lines. The before-and-after list (F1) and the gate (B7): S. Total ≈ 8 CLI-days, plus the build read, review and Koen's walkthrough. No purchases.
+
+**Running cost:** none.
+
+**Operations:** one migration (codes, labels, bundles). No env vars, no kill switch: a wrong bundle is fixed by a migration.
+
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
 > [!NOTE]
@@ -324,6 +449,12 @@ and deliberately not done — recorded so it is not asked again).
 > *"no functional change" is a claim about the happy path with the failure*
 > *paths listed beside it. "None" is an answer. Dependencies on other change*
 > *requests are named per phase, so the approver can order them.*
+
+| Phase | Delivers | Migration | Env vars | Data | Failure paths that change | Manual validation |
+|---|---|---|---|---|---|---|
+| 1 — one release | rights, bundles, four roles, every gate on a right, Boekhouding label, the roles document | right codes and labels, role codes MASTERDATA, PRICING, SALES, STOCK, `role_rights` | none | the bundles, by the migration | a user whose roles bundle no right is refused where he was refused before; a request to a screen whose right is unknown fails closed | W1–W6 |
+
+One phase: a half-converted set of gates is the state D3 forbids. It can still arrive as one pull request per domain on a branch, merged together. **Dependencies:** none. CR-21 phase 1 needs it; CR-25 builds on it.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -340,6 +471,10 @@ and deliberately not done — recorded so it is not asked again).
 > *reason and what catches it instead, written down as the weaker guarantee*
 > *it is.*
 
+**The rule:** a gate names a right, never a role; a role is only a bundle. It goes into `docs/code-style.md` and replaces the role table of `docs/rollen-en-rechten.md` with the bundles.
+
+**Reach and baseline:** measured on master `1b3237b1`: 31 role-name literals in application code outside `auth/codes.py`, `auth/models.py`, tests and migrations, and six role-named gate functions. This change brings the gate functions to zero and the literals to those that assign roles (seeds, the e2e seed). **Hard** for the gate functions, a **ratchet** for the literals.
+
 ## B8. Open decisions — what the approver still decides
 
 > [!NOTE]
@@ -351,6 +486,8 @@ and deliberately not done — recorded so it is not asked again).
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
+| Q11 | Boekhouding and the workbench: today a FINANCE-only user cannot open it (`workflow/ui.py:114`, `require_admin_ui`), but CR-21 gives Boekhouding the first step of the unpaid transfer. Give FINANCE `workbench.use` in part 1, or in CR-21? | In CR-21 phase 2, where its first task appears: part 1 stays neutral (R7), and the widening is visible where it is needed. | Part 1: a FINANCE-only user sees the workbench from day one — the one widening of part 1. |
+| Q10 | Does ADMIN get the webshop's rights in part 1? CR-21 decided that ADMIN views the shop and only the four roles change it (CR-21 Q12); viewing without a right arrives only in part 2. | No: ADMIN gets no shop rights. Until part 2, a board member who must see orders also gets Verkoop. | Yes: ADMIN can change products, prices, orders and stock until part 2 takes it away — against CR-21 Q12 for a while. |
 
 ## B9. Decisions log — dated answers
 
