@@ -142,12 +142,13 @@ Not measured yet: how many garments are sold per year, how many are in stock, an
 | R23 | The buyer can cancel his own order in the webshop, on the same page Sales uses in the back office. | Must *(proposed)* | Koen, 6 Oct 2026 | first Won't, taken in the same day: "if we use the same screen in public and in the back office, we may get it for free" (Q19); until delivery (Q20); the buyer gets back to his order through a link in the confirmation mail (Q21) |
 | R24 | The buyer collects articles in a shopping basket and orders and pays two, three or more articles in one go. | Must *(proposed)* | Koen, 6 Oct 2026 | the basket reserves nothing and needs no account; it lives in the buyer's browser (Q22, Q23) |
 | R25 | The buyer may cancel until the order is delivered. After delivery it is a return, handled by Sales; a buyer who has already paid is refunded by the same recalculation as an exchange (R16). | Must *(proposed)* | Koen, 6 Oct 2026 | |
-| R26 | The confirmation mail carries a link that signs the buyer in and brings him to his order; it works until the order is delivered. The link and the account are one way in, not two. | Must *(proposed)* | Koen, 6 Oct 2026 | members and non-members alike (R11); sign-in link since Q26 |
-| R27 | Before paying, the buyer signs in or creates an account. An account holds no more than last name, first name and e-mail address, and is kept in master data. | Must *(proposed)* | Koen, 6 Oct 2026 | |
-| R32 | Whoever creates an account with an e-mail address that already belongs to a person in master data gets no second person: the portal sends a sign-in link to that address instead. | Must *(proposed)* | Koen, 6 Oct 2026 | no duplicate persons; the e-mail address is confirmed before it counts (Q27) |
-| R28 | Every order is linked to an account. | Must *(proposed)* | Koen, 6 Oct 2026 | |
-| R29 | The buyer can change his e-mail address later himself. | Must *(proposed)* | Koen, 6 Oct 2026 | |
-| R30 | The buyer sees his order history. For a member of Raak it belongs to the household: the household sees everything any of its persons ever ordered. Elsewhere it belongs to the person. | Must *(proposed)* | Koen, 6 Oct 2026 | |
+| R26 | *Moved to CR-22* (signing in to buy or register: member, account or guest). | — | Koen, 7 Oct 2026 | the number stays empty, so later references do not shift |
+| R27 | *Moved to CR-22* (signing in to buy or register: member, account or guest). | — | Koen, 7 Oct 2026 | the number stays empty, so later references do not shift |
+| R32 | *Moved to CR-22* (signing in to buy or register: member, account or guest). | — | Koen, 7 Oct 2026 | the number stays empty, so later references do not shift |
+| R33 | The buyer signs in as a member or with an account, or orders as a guest, as CR-22 defines for activity registrations and the webshop alike. | Must *(proposed)* | Koen, 7 Oct 2026 | CR-22 is built first, on the activities; the webshop uses the same mechanism |
+| R28 | *Moved to CR-22* (signing in to buy or register: member, account or guest). | — | Koen, 7 Oct 2026 | the number stays empty, so later references do not shift |
+| R29 | *Moved to CR-22* (signing in to buy or register: member, account or guest). | — | Koen, 7 Oct 2026 | the number stays empty, so later references do not shift |
+| R30 | *Moved to CR-22* (signing in to buy or register: member, account or guest). | — | Koen, 7 Oct 2026 | the number stays empty, so later references do not shift |
 | R31 | An account says whether it is a company or a natural person, and holds an address to deliver to. | Won't *(for now)* | Koen, 6 Oct 2026 | today an order is only ever for a person |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
@@ -358,6 +359,7 @@ and deliberately not done — recorded so it is not asked again).
 | 6 Oct 2026 | Sales registers "delivered" per order line, not per order (Q25). | Koen |
 | 6 Oct 2026 | The link in the confirmation mail is a sign-in link that brings the buyer to his order: link and account are one way in (Q26). | Koen |
 | 6 Oct 2026 | An account with an e-mail address already on a person creates no second person; a sign-in link goes to that address (Q27). | Koen |
+| 7 Oct 2026 | Signing in is lifted out into its own change request, CR-22, built first on the activity registrations so registration and webshop share one mechanism: a household member (an e-mail address may be shared inside one household), an account (e-mail address unique outside a household, otherwise "this account already exists"), or a guest (name, e-mail address and mobile on the order, regular price). R26–R30 and R32 move there (Q28). | Koen |
 
 ---
 
@@ -544,6 +546,7 @@ and deliberately not done — recorded so it is not asked again).
 | Q25 | 6 Oct 2026 | Is "delivered" registered per line or per order? (Claude) | Per line. (Koen) |
 | Q26 | 6 Oct 2026 | Does the link in the confirmation mail stay now there is an account? (Claude) | Yes, as a link that signs in and brings the buyer to his order. (Koen) |
 | Q27 | 6 Oct 2026 | An account with an e-mail address that already belongs to a person: a second person, or a sign-in link? (Claude) | A sign-in link to that address; no second person. (Koen) |
+| Q28 | 7 Oct 2026 | Lift signing in out of CR-21 into its own change request, built on activities first? Three ways (member, account, guest) and name + e-mail + mobile for a guest? (Claude, after Koen's proposal) | Yes to all. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
