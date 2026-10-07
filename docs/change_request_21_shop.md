@@ -354,6 +354,7 @@ Standards checked: UBL 2.1 (`Catalogue`, `Order`, `DespatchAdvice`, `InventoryRe
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
+| Q39 | Reminding the buyer of an unpaid transfer: a button on Verkoop's task that mails the payment link, or a mail that goes out by itself after some days? **Parked by Koen on 7 October 2026.** | A button on the task: Verkoop already decides per order (Q36), and a mail by itself would also go to a buyer whose transfer Boekhouding has not booked yet. | A button is one action on the task; a mail by itself needs a schedule, a text per tenant and a rule for when it stops. Until decided, Verkoop reminds the buyer outside the portal. |
 
 ## B9. Decisions log — dated answers
 
