@@ -25,11 +25,13 @@ import pytest
 
 pytestmark = pytest.mark.ui_serverrendered
 
-TPL = Path(__file__).resolve().parents[1] / "app" / "domains" / "activities" / "templates"
+KIT = Path(__file__).resolve().parents[1] / "app" / "ui" / "templates"
 
 
 def _kaart_bron() -> str:
-    return (TPL / "_activiteiten_cards.html").read_text()
+    """Since #1663 the lines stand once, in `activity_facts` of the public
+    macros, for the card and the activity page."""
+    return (KIT / "_public_macros.html").read_text()
 
 
 def test_de_datums_staan_niet_meer_aan_elkaar_geplakt():
@@ -50,7 +52,7 @@ def test_elke_datum_krijgt_haar_eigen_element():
     start = bron.index('ui.icon("calendar"')
     blok = bron[start : start + 900]
     assert "flex-col" in blok, "zonder een gestapelde container lopen de datums gewoon door"
-    assert "{% for d in a.dates %}" in blok and "<span>" in blok, (
+    assert "{% for d in dates %}" in blok and "<span>" in blok, (
         "elke datum hoort haar eigen element te krijgen"
     )
 
@@ -64,7 +66,7 @@ def test_het_icoon_staat_bij_de_reeks_en_niet_bij_elke_regel():
     bron = _kaart_bron()
     start = bron.index('ui.icon("calendar"')
     blok = bron[start : start + 900]
-    lus = blok.index("{% for d in a.dates %}")
+    lus = blok.index("{% for d in dates %}")
     assert 'ui.icon("calendar"' not in blok[lus:], (
         "het icoon hoort bij de reeks te staan, niet bij elke datum"
     )
@@ -81,7 +83,7 @@ def test_een_datum_met_een_eindtijd_blijft_op_één_regel():
     af — en dan is opsplitsen erger dan wat het verving.
     """
     bron = _kaart_bron()
-    start = bron.index("{% for d in a.dates %}")
+    start = bron.index("{% for d in dates %}")
     regel = bron[start : bron.index("{% endfor %}", start)]
     for stuk in ("start_date", "end_date", "start_time", "end_time"):
         assert stuk in regel, (

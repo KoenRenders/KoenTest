@@ -1,12 +1,13 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
+{% import "_public_macros.html" as pub %}
 {# #881: `site_name` en niet "Raak Millegem". Die merknaam stond hier hardgecodeerd,
    dus op de voorbeeldafdeling — en op elke tenant die er later bij komt — stond de naam
    van een andere vereniging in de paginatitel, en straks ook in de gedeelde link. #}
 {% block title %}Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %} — {{ site_name }}{% endblock %}
 {% block content %}
-<a href="{{ path_for("/fotos") }}" data-way-back class="text-blue-700 hover:underline text-sm">← {{ _("Terug naar alle albums") }}</a>
-<h1 data-page-title class="text-3xl font-bold text-kop mt-2">Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %}</h1>
+{{ pub.public_back_link("photos", path_for("/fotos")) }}
+<h1 data-page-title class="font-bold text-kop mt-2">Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %}</h1>
 {# #883: deze zin hoort op het SCHERM en niet alleen in het issue. Een duimpjestelling
    meet vooral positie: foto's bovenaan krijgen er meer omdat ze vaker gezien worden.
    Als warm signaal prima; kies er geen headerfoto of flyerbeeld mee, want dan meet je
@@ -31,7 +32,7 @@
        is ongeldige HTML, en dan opent de lightbox bij het duimen. #}
     <div data-photo class="relative">
       <button type="button" @click="open = {{ loop.index0 }}"
-              class="block w-full aspect-square bg-gray-100 rounded-xl overflow-hidden hover:opacity-90">
+              class="block w-full aspect-square bg-surface-2 rounded-xl overflow-hidden hover:opacity-90">
         <img src="{{ f.thumb_url }}" alt="{{ f.title or activiteit.name if activiteit else '' }}"
              class="w-full h-full object-cover" loading="lazy">
       </button>

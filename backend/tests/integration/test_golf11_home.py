@@ -89,17 +89,19 @@ def test_open_krijgt_geen_badge_maar_vol_wel(client, db_session):
 
 def test_acties_staan_in_de_inhoudskolom(client, db_session):
     """F32 (desktop): onderdelen en knoppen sluiten aan bij titel en gegevens.
-    De kaartbron zet het actieblok binnen de kolom `min-w-0 flex-1`; op mobiel
-    breekt `-ml-[60px] sm:ml-0` het weer uit tot de volle kaartbreedte. De
-    gemeten uitlijning staat in tests_e2e/test_publieke_kaart_uitlijning.py."""
-    bron = (_TEMPLATES / "activities" / "templates" / "_activiteiten_cards.html").read_text()
-    kolom = bron.index("min-w-0 flex-1")
-    acties = bron.index("mt-3 space-y-3")
-    assert kolom < acties
-    # Tussen kolomopening en actieblok wordt de flex-rij nergens al gesloten:
-    # het patroon dat de oude versie kenmerkte (twee sluittags direct na de
-    # beschrijving, vóór het actieblok) komt er niet meer in voor.
-    assert "-ml-[60px] sm:ml-0" in bron
+    Since #1663 the card is a grid (date tile | content) and the block of
+    actions stands in it: in the content column from 640 px, over both columns
+    on a phone — the full width of the card, without the negative margin that
+    had to follow the tile's width by hand. De gemeten uitlijning staat in
+    tests_e2e/test_publieke_kaart_uitlijning.py."""
+    templates = _TEMPLATES / "activities" / "templates"
+    bron = (templates / "_activiteiten_cards.html").read_text()
+    grid = bron.index("grid grid-cols-[auto_minmax(0,1fr)]")
+    acties = bron.index('{% include "_component_actions.html" %}')
+    assert grid < acties < bron.index("{% endcall %}", grid)
+    blok = (templates / "_component_actions.html").read_text()
+    assert "col-span-full sm:col-span-1 sm:col-start-2" in blok
+    assert "-ml-[" not in bron and 'class="' in blok and "-ml-[" not in blok.split("#}")[-1]
 
 
 def test_word_lid_heeft_de_begrensde_formulierkolom(client):

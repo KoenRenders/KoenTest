@@ -117,8 +117,6 @@ RAW_SURFACES: dict[str, int] = {
     "domains/media/templates/_me_lijst.html": 3,
     "domains/media/templates/_media_picker.html": 1,
     "domains/media/templates/admin_media_nieuw.html": 1,
-    "domains/media/templates/fotos.html": 2,
-    "domains/media/templates/fotos_album.html": 1,
     "domains/membership/templates/_lid_persoon_rij.html": 1,
     "domains/payment/templates/_bt_boeking.html": 4,
     "domains/payment/templates/_bt_boven.html": 1,

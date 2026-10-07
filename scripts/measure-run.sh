@@ -50,13 +50,28 @@ E2E_SEED=1 faketime "$NOW" python seed_e2e.py | tail -1
 # three dates and a poster): only in THIS database, the e2e's keep theirs.
 E2E_SEED=1 faketime "$NOW" python -m tests_e2e.measure_seed | tail -1
 
-# The measurement server: its own port, the frozen clock. A server of an earlier
-# run is stopped through its pid file.
-PIDFILE=/tmp/measure-uvicorn.pid
-if [ -f "$PIDFILE" ]; then kill "$(cat "$PIDFILE")" 2>/dev/null || true; rm -f "$PIDFILE"; fi
+# The measurement server: its own port, the frozen clock.
+#
+# It is stopped by what it IS — the uvicorn on this port, found in /proc — and
+# not by the pid of what started it: `faketime` runs the server as a CHILD, so
+# killing the pid of `$!` left the server alive (measured on 7 October 2026: a
+# server of the day before still answered on the port, the new one could not
+# bind, and the run measured yesterday's Python against today's templates —
+# "No filter named 'phone'"). The image has no pkill.
+servers() {
+  for dir in /proc/[0-9]*; do
+    line="$(tr '\0' ' ' <"$dir/cmdline" 2>/dev/null || true)"
+    case "$line" in *"/uvicorn app.main:app"*"--port ${PORT} "*) echo "${dir#/proc/}" ;; esac
+  done
+}
+stop_servers() {
+  for pid in $(servers); do kill "$pid" 2>/dev/null || true; done
+  for _ in $(seq 1 20); do [ -z "$(servers)" ] && return 0; sleep 0.5; done
+  for pid in $(servers); do kill -9 "$pid" 2>/dev/null || true; done
+}
+stop_servers
 JOBS_ENABLED=false nohup faketime "$NOW" uvicorn app.main:app --host 127.0.0.1 --port "$PORT" \
   >/tmp/measure-uvicorn.log 2>&1 &
-echo $! >"$PIDFILE"
 up=0
 for _ in $(seq 1 60); do
   if python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:${PORT}/')" 2>/dev/null; then
@@ -65,9 +80,12 @@ for _ in $(seq 1 60); do
   fi
   sleep 1
 done
-if [ "$up" != 1 ]; then
-  echo "measure-run.sh: the measurement server did not come up:" >&2
+# Exactly ONE server on the port, and it started cleanly: an answer alone could
+# come from a server this run did not start.
+if [ "$up" != 1 ] || [ "$(servers | wc -l)" != 1 ] || grep -aq "address already in use" /tmp/measure-uvicorn.log; then
+  echo "measure-run.sh: the measurement server did not come up (or is not this run's):" >&2
   tail -30 /tmp/measure-uvicorn.log >&2
+  stop_servers
   exit 1
 fi
 
@@ -87,6 +105,5 @@ else
     cat "$MEASURE_REPORT"
   fi
 fi
-kill "$(cat "$PIDFILE")" 2>/dev/null || true
-rm -f "$PIDFILE"
+stop_servers
 exit "$status"

@@ -21,7 +21,6 @@ HAND_WRITTEN_BUTTONS: dict[str, int] = {
 #: a card comes from `ui.section`, `ui.flow_card` or `ui.card`. 2 in 2 files.
 HAND_WRITTEN_CARDS: dict[str, int] = {
     "domains/auth/templates/login_verlopen.html": 1,
-    "domains/media/templates/fotos.html": 1,
 }
 
 #: A field of the organisation (address, e-mail, phone, account number) written
@@ -31,4 +30,16 @@ HAND_WRITTEN_CARDS: dict[str, int] = {
 #: six here, and it is meant to stay; a seventh, or a second file, is red.
 ORGANISATION_FIELDS: dict[str, int] = {
     "domains/cms/templates/cms_pagina.html": 6,
+}
+
+#: A date tile, a year heading or a way back written by the template itself
+#: (#1663, CR-11 pilot C, C1): they come from `_public_macros.html`. Counted
+#: on 7 October 2026, after C1.
+HAND_WRITTEN_ACTIVITY_PARTS: dict[str, int] = {
+    # The archive's link back to the list, in the page header: not one of
+    # the three origins of the way back (§2.7) and so left as it is.
+    "domains/activities/templates/activiteiten.html": 1,
+    # The photo overview's own year heading: it takes the macro in C2
+    # (#1664), where its look changes with it.
+    "domains/media/templates/fotos.html": 1,
 }

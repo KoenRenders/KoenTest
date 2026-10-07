@@ -1,0 +1,74 @@
+{% import "_macros.html" as ui %}
+{# ── The public activity and photo pages (CR-11 pilot C, C1 — #1663; end state
+   §2.7). What the activity card, the activity page and the photo pages each
+   wrote by hand, once. C1 changes NO measure, colour or position: each macro
+   renders what stood there, and the DOM baseline of #1605 finds every element
+   by the `data-…` hook it carries — keep the hooks.
+
+   A file of its own beside the kit (`_macros.html`, imported here as `ui`):
+   these macros use the app's date filters, and Jinja checks a filter's name
+   when it compiles a file — in the kit's file they would break every
+   environment that loads the kit without those filters.
+
+   `date_tile(date, size)`: the day and the short month on the soft brand tint.
+   `size="card"` is 48 px and 56 px from 640 px; `size="page"` 56 and 64 px
+   from 768 px. Decorative beside the dates that are written out (`aria-hidden`). #}
+{% macro date_tile(date, size="card") -%}
+<time data-date-tile datetime="{{ date.strftime('%Y-%m-%d') }}" class="shrink-0 {{ 'w-14 h-14 md:w-16 md:h-16' if size == 'page' else 'w-12 h-12 sm:w-14 sm:h-14' }} rounded-lg bg-blue-50 text-blue-700 flex flex-col items-center justify-center" aria-hidden="true">
+  <span class="{{ 'text-2xl' if size == 'page' else 'text-xl' }} font-bold leading-none">{{ date.strftime("%d") }}</span>
+  <span class="text-xs font-semibold uppercase leading-none mt-0.5">{{ date | maandkort }}</span>
+</time>
+{%- endmacro %}
+
+{# The year above a group of cards: 20 px on a phone, 18 px from 768 px,
+   semibold, a 1 px line in the line colour. `first=False` gives the air a
+   heading further down the list needs. #}
+{% macro year_heading(year, first=True) -%}
+<h3 data-year-heading class="text-xl md:text-lg font-semibold text-kop border-b border-line pb-1{% if not first %} pt-2{% endif %}">{{ year }}</h3>
+{%- endmacro %}
+
+{# The practical lines of an activity: every date on a line of its own under
+   ONE calendar icon (#926), the place, and the last day to register — orange in
+   its last week (#1051). `context="page"` gives the 4 px the lines stand under
+   the page's title. No fixed height: twelve dates are twelve lines. #}
+{% macro activity_facts(dates, location=None, deadline=None, deadline_near=False, context="card") -%}
+<div data-activity-dates class="{% if context == 'page' %}mt-1 {% endif %}text-base md:text-sm text-ink-soft flex items-start gap-1">
+  {{ ui.icon("calendar", cls="mt-1 md:mt-0.5 shrink-0") }}
+  <div class="flex flex-col">
+    {% for d in dates %}
+    <span>{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
+    {% endfor %}
+  </div>
+</div>
+{% if location %}{% call ui.icon_text("map-pin", cls="text-ink-soft") %}{{ location }}{% endcall %}{% endif %}
+{% if deadline %}{% call ui.icon_text("clock", cls=("text-orange-600" if deadline_near else "text-ink-soft")) %}{{ _("Inschrijven t/m") }} {{ deadline | datumzonderjaar }}{% endcall %}{% endif %}
+{%- endmacro %}
+
+{# The way back on a PUBLIC page. Until C2 gives the three one form — the
+   kit's `ui.back_link(label, href)`, which the back office uses —
+   each origin keeps the form and the words it had: a line of its own above
+   the activity ("activities", "archive"), a small link above the album
+   ("photos"). #}
+{% macro public_back_link(origin, href) -%}
+{%- if origin == "photos" -%}
+<a href="{{ href }}" data-way-back class="text-blue-700 hover:underline text-sm">&larr; {{ _("Terug naar alle albums") }}</a>
+{%- else -%}
+<nav class="pt-4 text-base md:text-sm" data-way-back>
+  <a class="text-blue-500 hover:underline" href="{{ href }}">&larr; {{ _("Archief") if origin == "archive" else _("Alle activiteiten") }}</a>
+</nav>
+{%- endif -%}
+{%- endmacro %}
+
+{# An album on the photo overview: the kit's card as a link, the cover in
+   16 : 9 to its edges, the name and the date under it. #}
+{% macro photo_card(name, href, cover, date=None) -%}
+{% call ui.card(href=href, attrs="data-photo-card") %}
+  <div class="aspect-video bg-surface-2 overflow-hidden">
+    <img src="{{ cover }}" alt="{{ name }}" class="w-full h-full object-cover" loading="lazy">
+  </div>
+  <div class="p-4">
+    <div class="font-semibold text-ink">{{ name }}</div>
+    {% if date %}<div class="text-sm text-ink-soft mt-1">{{ date|kortedatum }}</div>{% endif %}
+  </div>
+{% endcall %}
+{%- endmacro %}

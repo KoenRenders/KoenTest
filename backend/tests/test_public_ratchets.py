@@ -11,6 +11,10 @@ everything it includes:
   the kit's macros. The public pages that are not rebuilt yet (the activity
   cards, the photos, the family pages until P3) still have some; each stands
   in `tests/public_baseline.py` with its exact number, which may only fall;
+- **no date tile, year heading or way back written by hand** (#1663, CR-11
+  pilot C, C1; end state §2.7): they come from `_public_macros.html`
+  (`date_tile`, `year_heading`, `public_back_link`). Counted by what gives one
+  away: its `data-…` hook, the short-month filter of the tile, a left arrow;
 - **the organisation's data are written by no page** but the one that is the
   organisation's own ("Onze organisatie"): everywhere else they stand in the
   footer's legal line;
@@ -28,6 +32,9 @@ Proven red, each with an ADDITIVE violation on a real template (run, restored):
 - `<div class="bg-white rounded-2xl border p-4">x</div>` added to
   `activiteit.html` → cards;
 - `{{ organisatie.iban }}` added to `home.html` → organisation fields;
+- `<div data-date-tile>12</div>` added to `activiteit.html` → activity parts:
+  "1 found, the baseline says 0" (and so for a year heading's hook and for
+  `&larr;`, in the synthetic test);
 - `<p>* Verplicht veld</p>` added to `admin_dashboard.html` → the legend.
 The synthetic tests at the bottom keep those proofs without touching a page.
 """
@@ -55,6 +62,9 @@ _CARD = re.compile(
     r'class="(?=[^"]*\brounded-(?:lg|xl|2xl)\b)(?=[^"]*\bborder\b)(?=[^"]*\bbg-(?:white|surface)\b)[^"]*"'
 )
 _ORGANISATION = re.compile(r"\borganisatie\.(?!name\b)\w+")
+_ACTIVITY_PART = re.compile(
+    r"data-date-tile|data-year-heading|data-way-back|\|\s*maandkort\b|←|&larr;"
+)
 _LEGEND = re.compile(r"\*\s*(?:</span>\s*)?Verplichte? veld|Verplichte? velden? zijn", re.I)
 
 
@@ -76,7 +86,11 @@ def public_templates(sources: dict[str, tuple[str, str]] | None = None) -> dict[
     seen: set[str] = set()
 
     def family(name: str) -> None:
-        if name in seen or name not in sources or name in ("_macros.html", SHELL):
+        if (
+            name in seen
+            or name not in sources
+            or name in ("_macros.html", "_public_macros.html", SHELL)
+        ):
             return
         seen.add(name)
         for included in _INCLUDE.findall(sources[name][1]):
@@ -96,6 +110,10 @@ def hand_written_cards(text: str) -> int:
     return len(_CARD.findall(text))
 
 
+def hand_written_activity_parts(text: str) -> int:
+    return len(_ACTIVITY_PART.findall(text))
+
+
 def organisation_fields(text: str) -> int:
     return len(_ORGANISATION.findall(text))
 
@@ -104,6 +122,10 @@ RULES: dict[str, tuple[Callable[[str], int], dict[str, int]]] = {
     "hand_written_buttons": (hand_written_buttons, baseline.HAND_WRITTEN_BUTTONS),
     "hand_written_cards": (hand_written_cards, baseline.HAND_WRITTEN_CARDS),
     "organisation_fields": (organisation_fields, baseline.ORGANISATION_FIELDS),
+    "hand_written_activity_parts": (
+        hand_written_activity_parts,
+        baseline.HAND_WRITTEN_ACTIVITY_PARTS,
+    ),
 }
 
 
@@ -167,6 +189,10 @@ def test_no_template_carries_a_required_field_legend():
         ("hand_written_cards", '<div class="bg-white rounded-2xl shadow-sm border p-4">x</div>'),
         ("hand_written_cards", '<div class="border border-line rounded-lg bg-surface">x</div>'),
         ("organisation_fields", "{{ organisatie.iban }}"),
+        ("hand_written_activity_parts", "<div data-date-tile>12</div>"),
+        ("hand_written_activity_parts", "<h3 data-year-heading>2026</h3>"),
+        ("hand_written_activity_parts", '<a href="/x">&larr; Terug</a>'),
+        ("hand_written_activity_parts", "<span>{{ d | maandkort }}</span>"),
     ],
 )
 def test_each_collector_counts_its_violation(rule, violation):
