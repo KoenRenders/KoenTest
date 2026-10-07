@@ -3373,6 +3373,11 @@ class OrganiserView(NamedTuple):
     mobile: str
     email_override: str
     mobile_override: str
+    #: #1694 — the member's own address and number, whatever the override and
+    #: the two flags say: what an empty override falls back to. For the SCREEN,
+    #: which shows it in grey where the override can be typed.
+    member_email: str
+    member_mobile: str
     #: #1032 — of dit gegeven op de affiche mag. `email`/`mobile` hierboven zijn
     #: al leeg wanneer het niet mag; deze twee zijn voor het SCHERM, dat de
     #: vinkjes moet kunnen tonen.
@@ -3392,16 +3397,20 @@ def _organiser_rows(db: Session, activity_id: int) -> list[ActivityOrganiser]:
     )
 
 
-def organisers_for(db: Session, activity_id: int) -> list:
-    """The organisers of one activity, in their own order (#1004)."""
-    from app.domains.mdm.api import ContactDetail, Person
+def member_contacts(db: Session, person_ids: list[int]) -> dict[tuple[int, str | None], str]:
+    """The contact value an organiser falls back to, per (person, contact type).
 
-    rijen = _organiser_rows(db, activity_id)
-    if not rijen:
-        return []
-    person_ids = [r.person_id for r in rijen]
-    personen = {p.id: p for p in db.query(Person).filter(Person.id.in_(person_ids)).all()}
+    The ONE place that decides it (#1694): the poster prints it through
+    `organisers_for`, and the activity record shows it in grey in an empty
+    override — for an organiser on the record and for a member just picked in
+    the search. A second lookup beside this one would let the grey value and
+    the printed value drift apart.
+    """
+    from app.domains.mdm.api import ContactDetail
+
     contacten: dict[tuple[int, str | None], str] = {}
+    if not person_ids:
+        return contacten
     for detail in db.query(ContactDetail).filter(ContactDetail.person_id.in_(person_ids)).all():
         # CR-12 phase 2: the `.upper()` was a normalisation because the column
         # accepted any spelling. The code list does that now; `code_of` returns
@@ -3409,6 +3418,19 @@ def organisers_for(db: Session, activity_id: int) -> list:
         sleutel = (detail.person_id, code_of(detail.contact_type_code))
         if detail.value and sleutel not in contacten:
             contacten[sleutel] = detail.value
+    return contacten
+
+
+def organisers_for(db: Session, activity_id: int) -> list:
+    """The organisers of one activity, in their own order (#1004)."""
+    from app.domains.mdm.api import Person
+
+    rijen = _organiser_rows(db, activity_id)
+    if not rijen:
+        return []
+    person_ids = [r.person_id for r in rijen]
+    personen = {p.id: p for p in db.query(Person).filter(Person.id.in_(person_ids)).all()}
+    contacten = member_contacts(db, person_ids)
 
     gezien = []
     for rij in rijen:
@@ -3418,8 +3440,10 @@ def organisers_for(db: Session, activity_id: int) -> list:
         # ledenwaarde, en PAS DAARNA beslist de vlag of er iets naar buiten gaat.
         # Andersom zou een ingevulde override alsnog lekken terwijl het vinkje uit
         # staat — precies wat dit issue moet voorkomen.
-        email = rij.email_override or contacten.get((rij.person_id, CONTACT.EMAIL), "")
-        mobile = rij.mobile_override or contacten.get((rij.person_id, CONTACT.MOBILE), "")
+        member_email = contacten.get((rij.person_id, CONTACT.EMAIL), "")
+        member_mobile = contacten.get((rij.person_id, CONTACT.MOBILE), "")
+        email = rij.email_override or member_email
+        mobile = rij.mobile_override or member_mobile
         gezien.append(
             OrganiserView(
                 id=rij.id,
@@ -3430,6 +3454,8 @@ def organisers_for(db: Session, activity_id: int) -> list:
                 mobile=mobile if rij.show_mobile else "",
                 email_override=rij.email_override or "",
                 mobile_override=rij.mobile_override or "",
+                member_email=member_email,
+                member_mobile=member_mobile,
                 show_email=bool(rij.show_email),
                 show_mobile=bool(rij.show_mobile),
                 sort_order=rij.sort_order,
