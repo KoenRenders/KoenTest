@@ -58,7 +58,7 @@ flowchart LR
 | 5 | Transfer the amount | Buyer | own bank | free-text communication; the transfer has to be matched by eye |
 | 6 | Check the bank account, remind if unpaid | Treasurer | bank, an Excel list | the open sales are kept by hand in an Excel list, apart from the bank and the mails |
 
-Not measured yet: how many garments are sold per year, how many are in stock, and what a garment costs.
+Not measured: how many garments are sold per year, how many are in stock, and what a garment costs. Deliberately left out (Koen, 7 Oct 2026: "niet zo belangrijk, gaan we nu niet uitkristalliseren"); the case for the shop rests on the principle of A1, not on volume.
 
 ## A3. To-be process — how it should work afterwards
 
