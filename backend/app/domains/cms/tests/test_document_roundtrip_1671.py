@@ -232,3 +232,19 @@ def test_plain_text_document_keeps_every_word_per_block():
     document = plain_text_document("<h2>Kop</h2><p>Een alinea.</p>rest tekst")
     texts = [n["content"][0]["text"] for n in document["content"]]
     assert texts == ["Kop", "Een alinea.", "rest tekst"]
+
+
+def test_plain_text_document_joins_no_words_across_an_unclosed_block():
+    """The net sanitises its input before it splits (review 3, #1673).
+
+    Broken on purpose before the fix, exactly on the reviewer's input: the
+    migration's guard hands the net RAW content, and with ``drie`` inside an
+    unclosed ``<li>`` nothing separated it from ``vier`` — the draft held
+    "drievier". Sanitising first, like ``parse_html`` does, balances the
+    HTML, so every block keeps its own words.
+    """
+    from app.domains.cms.parse import plain_text_document
+
+    document = plain_text_document("<p>Een <b>twee</p><ul><li>drie</ul>vier &amp; vijf")
+    texts = [n["content"][0]["text"] for n in document["content"]]
+    assert texts == ["Een twee", "drie", "vier & vijf"]

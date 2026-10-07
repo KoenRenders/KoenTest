@@ -401,6 +401,8 @@ _PLAIN_TEXT_BLOCK_TAGS = {
     "h4",
     "h5",
     "h6",
+    "ul",
+    "ol",
     "li",
     "td",
     "th",
@@ -420,6 +422,11 @@ def plain_text_document(content: Optional[str]) -> dict:
     and the lenient draft's word-count net use it — formatting is gone, no
     word is (the master CLI's advice, #1673).
     """
+    # Sanitised first, like `parse_html` does: balanced HTML keeps every
+    # word in its own block, also when the caller hands the net RAW content
+    # (the migration's guard does) and the tags are not closed (review 3,
+    # #1673 — `ul` and `ol` were missing from the set on top of that).
+    content = sanitize_cms_html(content) or content
     paragraphs: list[dict[str, Any]] = []
     buffer: list[str] = []
 
