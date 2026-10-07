@@ -107,7 +107,7 @@ flowchart LR
 
 | Where | Word |
 |---|---|
-| Beheer › Gebruikers, the roles to tick | Beheerder (ADMIN) · **Boekhouding** (FINANCE; today's label Penningmeester, renamed by decision — a label, not a reach) · OPERATOR · **Masterdata · Prijsbeheer · Verkoop · Voorraadbeheer** |
+| Beheer › Gebruikers, the roles to tick | Beheerder (ADMIN) · **Boekhouding** (FINANCE; today's label Penningmeester, renamed in part 1 — a label, not a reach, Q8) · OPERATOR · **Masterdata · Prijsbeheer · Verkoop · Voorraadbeheer** |
 
 The labels come from the code list `auth.role_labels` (`auth/codes.py:18-19`, measured on master `25c74f60`).
 
@@ -374,6 +374,7 @@ and deliberately not done — recorded so it is not asked again).
 | 7 Oct 2026 | Part 1 brings Masterdata with its two rights — member administration (persons, households, memberships) included; Relatiebeheer moves to part 2, with the business partners it works on (Q5). | Koen |
 | 7 Oct 2026 | No screen to compose roles from rights: the bundles ship fixed and are assigned to users as today; composing them is for later (R14, Q6). | Koen |
 | 7 Oct 2026 | Two steps: part 1 changes nobody's reach, reading included; part 2 redistributes the work — ADMIN becomes Bestuur, every user gets the roles for his own work, and "everyone reads everything" (R2) arrives there (Q7). | Koen |
+| 7 Oct 2026 | The label Penningmeester becomes Boekhouding in part 1; the code stays `FINANCE` (Q8). | Koen |
 
 ---
 
@@ -540,6 +541,7 @@ and deliberately not done — recorded so it is not asked again).
 | Q5 | 7 Oct 2026 | Relatiebeheer in part 1 or part 2? It works on customers and suppliers, which come in part 2. (Claude) | Part 2. Koen asked whether member administration belongs to it: no — households and memberships are master data (Q3), so they are in part 1, with Masterdata. (Koen, Claude) |
 | Q6 | 7 Oct 2026 | A screen to compose roles from rights in part 1, or the bundles fixed? (Claude recommended fixed) | Fixed; recomposing roles from rights is "zeer mooi op termijn maar nu out-of-scope". (Koen) |
 | Q7 | 7 Oct 2026 | R2 (everyone reads everything) contradicts R7 (nobody's reach changes): today FINANCE alone cannot open the activity or member screens. When does the reach change — in part 1, or in part 2 with Bestuur? (Claude recommended part 2) | Part 2: two steps — "akkoord, nu begrijp ik het". (Koen) |
+| Q8 | 7 Oct 2026 | Rename Penningmeester to Boekhouding on screen already in part 1 — a label, no reach? (Claude) | Yes. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
