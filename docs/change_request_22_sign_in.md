@@ -525,7 +525,7 @@ Measured on master `457e85d`, 7 October 2026.
 The five functions leave `DUTCH_IDENTIFIERS` (`tests/rules_baseline.py`), as the ratchet demands. Left as they are, because this change does not rewrite them: the template variable `gebruiker` (read by every public template), and the other Dutch names in the touched files (`mdm/service.py` `_persoon_of_404`, `_waarde`, `gezin_tabs`; `ui/__init__.py` `_gezinslabel`, `_beheer_account`, …). Note for the reader: the household is the model `Member`, its link `MemberPerson` — English names that say "member" for the household; they stay (`AGENTS.md`: do not rename) and this document says *household* for the concept.
 
 ### auth
-- **Screens:** `/aanmelden` gets the link **Account aanmaken**; new `/account-aanmaken` (name, first name, e-mail, mobile, kit `field` + `input_control`, `btn_primary`), posting to the same code step as sign-in (`_aanmelden_code.html`), whose message becomes "We stuurden een code naar dit adres." Judged at 390 px.
+- **Screens:** `/aanmelden` gets the link **Account aanmaken**; new `/account-aanmaken` (first name, last name, e-mail, mobile — each through the kit's `ui.field(..., required=True)`: the red asterisk on the label, the error under the field with the border in the danger tone, no "Verplicht veld" legend, `docs/design-system.md` §K4; `btn_primary`), posting to the same code step as sign-in (`_aanmelden_code.html`), whose message becomes "We stuurden een code naar dit adres." Judged at 390 px.
 - **Code:** `login.start_login(db, email, purpose=SIGN_IN)` — also sends when `login_person_for_email` returns an account; `start_account(db, data)` — if the address is free, a token with purpose CREATE_ACCOUNT and the four fields in `payload`; if not, a SIGN_IN token and the mail "je hebt al een account"; the screen is the same. `consume_code(db, email, code)` dispatches on purpose: SIGN_IN sets the session; CREATE_ACCOUNT calls `mdm.api.create_account_person(...)` then sets the session; CONFIRM_ADDRESS calls `mdm.api.confirm_email(contact_id)`. `member_identity.login_person_for_email`: confirmed EMAIL rows only; one household → its main member (as today); exactly one person and no household → that person; otherwise None ("multiple" as today). `service.landing_for`: board users as today; everyone else `/mijn`. The writer of `login_tokens` is `auth.login` only.
 - **Database:** `auth.login_tokens.purpose` `String(20)` NOT NULL default `SIGN_IN`, FK `auth.login_purpose_codes.code`; `payload` JSON NULL. New code list `auth.login_purpose_codes` + labels (pattern of migration 154): `SIGN_IN`, `CREATE_ACCOUNT`, `CONFIRM_ADDRESS`. Additive.
 - **Templates and mail:** `sign_in.html`, `_sign_in_email.html` (link), new `create_account.html`; mails in `mail/service.py`: sign-in (unchanged), "bevestig je account" (code), "je hebt al een account" (code), "bevestig je e-mailadres" (code).
@@ -657,8 +657,8 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 
 | Screen | Shows | Seen by Koen |
 |---|---|---|
-| `/aanmelden` with **Account aanmaken** | the sign-in card and the new link | — |
-| `/account-aanmaken` | four fields, the button, the refusal under a field | — |
+| `/aanmelden` with **Account aanmaken** | the sign-in card and the new link | Koen, 7 Oct 2026 — approved |
+| `/account-aanmaken` | four fields with the required asterisk, the button, the refusal under a field | Koen, 7 Oct 2026 — approved, after asking for the required-field convention |
 | code step | "We stuurden een code naar dit adres." and the code field | — |
 | `/mijn` Mijn Raak, desktop and 390 px | greeting, menu left (desktop), links at the bottom | — |
 | `/mijn/gegevens`, account and member | the person block; for a member the line to Mijn gezin; a pending address | — |
