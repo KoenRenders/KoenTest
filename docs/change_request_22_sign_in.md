@@ -98,6 +98,7 @@ Signing in today sends a code to an e-mail address. That only works if the addre
 | R12 | Cancelling or changing a registration oneself. | Won't | Koen, 7 Oct 2026 (Q12) | out of scope; whoever wants it makes an account or becomes a member — and even then it is not part of this change |
 | R13 | Everyone who signs in has an account — a member of Raak, an individual, and in the long run someone acting for a company. After signing in he lands on his account page. | Must *(proposed)* | Koen, 7 Oct 2026 (Q14) | |
 | R14 | The account page has a menu with what applies to him: the account itself, always; "Mijn gezin" where he belongs to a household and the tenant has membership (renewing the membership stays there); his registrations for activities; later his purchases from the webshop. Payments and invoices may follow later, not now. | Must *(proposed)* | Koen, 7 Oct 2026 (Q14) | "given as context; maybe an insight that brings future-oriented clarity" |
+| R15 | The link to "Mijn gezin" that Raak Millegem sends by mail to renew a membership keeps working: whoever follows it signs in if needed and arrives on "Mijn gezin", not on the account page. | Must *(proposed)* | Koen, 7 Oct 2026 | the address of "Mijn gezin" and of renewing does not change |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
