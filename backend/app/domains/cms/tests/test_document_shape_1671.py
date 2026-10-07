@@ -309,3 +309,47 @@ def test_an_ordered_list_with_her_own_start_validates():
             }
         )
     )
+
+
+def test_a_marks_attributes_that_are_not_a_map_are_refused():
+    """The second look (#1699): a link whose `attrs` is a list crashed the
+    validator (`.get` on a list) on d3e3e333 — A2's one remaining crash.
+    Refused as a shape, named after the mark."""
+    for attrs in (["href"], "href", 5):
+        with pytest.raises(InvalidShape, match="link"):
+            validate_document(
+                _doc(
+                    _par_words(
+                        {
+                            "type": "text",
+                            "text": "link",
+                            "marks": [{"type": "link", "attrs": attrs}],
+                        }
+                    )
+                )
+            )
+
+
+def test_the_optional_mark_attributes_are_typed_too():
+    """The second look (#1699): a link with `class: 5`, `target: 5` or
+    `rel: False` validated on d3e3e333 — the optional attributes were
+    named but not typed. Typed now, like every node attribute; `None`
+    stays "not set"."""
+    for attr, value in (("class", 5), ("target", 5), ("rel", False), ("title", 7)):
+        with pytest.raises(UnknownAttribute, match=f"link.{attr}"):
+            validate_document(
+                _doc(
+                    _par_words(
+                        {
+                            "type": "text",
+                            "text": "link",
+                            "marks": [
+                                {
+                                    "type": "link",
+                                    "attrs": {"href": "https://voorbeeld.test", attr: value},
+                                }
+                            ],
+                        }
+                    )
+                )
+            )

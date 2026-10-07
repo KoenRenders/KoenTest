@@ -3,14 +3,15 @@
 # outside the repository, from this script, so a rebuild is a decision.
 #
 # Why a script in the repo: the recipe first stood on the spike's throwaway
-# branch only, and 17 of the packages resolve by range — the first patch
+# branch only, and 17 of the packages install by range — the first patch
 # release of any of them would change the checksum without anyone changing a
 # version (review B3, #1699). So the recipe lives here, the Node image is
-# pinned by digest, and THE MANIFEST IS THE PIN: the script rebuilds and
-# refuses to overwrite when the checksum differs — a drifted dependency is
-# a decision to make, with the diff in front of you, not a silent change.
-# Still no package.json, no node_modules, no Node in the repository, at run
-# time or in CI (the spike's decision, C8).
+# pinned by digest, and the 17 install-by-range packages stand in an
+# `overrides` block — a pin, not a detector. The script still verifies the
+# checksum against scripts/vendor-manifest.txt and refuses a rebuild that
+# differs: belt and braces, and a drifted dependency is a decision to make
+# with the diff in front of you. Still no package.json, no node_modules, no
+# Node in the repository, at run time or in CI (the spike's decision, C8).
 #
 # Usage:
 #   scripts/build-tiptap-bundle.sh            # build into /tmp, verify the checksum
@@ -43,7 +44,26 @@ cat > package.json <<'JSON'
     "@tiptap/extension-link": "3.31.4",
     "@tiptap/extension-placeholder": "3.31.4"
   },
-  "devDependencies": { "esbuild": "0.25.0" }
+  "devDependencies": { "esbuild": "0.25.0" },
+  "overrides": {
+    "linkifyjs": "4.3.3",
+    "orderedmap": "2.1.1",
+    "prosemirror-changeset": "2.4.4",
+    "prosemirror-commands": "1.7.2",
+    "prosemirror-dropcursor": "1.8.4",
+    "prosemirror-gapcursor": "1.4.1",
+    "prosemirror-history": "1.5.1",
+    "prosemirror-inputrules": "1.5.1",
+    "prosemirror-keymap": "1.2.3",
+    "prosemirror-model": "1.25.12",
+    "prosemirror-schema-list": "1.5.1",
+    "prosemirror-state": "1.4.4",
+    "prosemirror-tables": "1.8.5",
+    "prosemirror-transform": "1.12.2",
+    "prosemirror-view": "1.42.6",
+    "rope-sequence": "1.3.4",
+    "w3c-keyname": "2.2.8"
+  }
 }
 JSON
 cat > entry.js <<'JS'
@@ -56,9 +76,14 @@ import { Placeholder } from '@tiptap/extension-placeholder'
 export { Editor, Node, mergeAttributes, StarterKit, TableKit, Image, Link, Placeholder }
 JS
 
-docker run --rm -v "$PWD:/build" -w /build "$IMAGE" \
+# The `overrides` above are the 17 packages that install by range — the
+# second look (#1699): a checksum that only DETECTS a drift is a race, a
+# pin makes the drift impossible. The containers run as the calling user
+# (with a writable HOME), so the build directory stays hers.
+USER_ARGS=(-u "$(id -u):$(id -g)" -e HOME=/tmp)
+docker run --rm -v "$PWD:/build" -w /build "${USER_ARGS[@]}" "$IMAGE" \
   npm install --no-audit --no-fund --loglevel=error
-docker run --rm -v "$PWD:/build" -w /build "$IMAGE" \
+docker run --rm -v "$PWD:/build" -w /build "${USER_ARGS[@]}" "$IMAGE" \
   ./node_modules/.bin/esbuild entry.js --bundle --minify --format=iife \
   --global-name=RaakTiptap --outfile=dist/tiptap-3.31.4.min.js \
   --legal-comments=none --log-level=error
@@ -75,7 +100,7 @@ echo "OK: the rebuild matches the pinned checksum ($NEW)."
 
 if [ "${1:-}" = "--update" ]; then
   cp dist/tiptap-3.31.4.min.js "$VENDOR/tiptap-3.31.4.min.js"
-  docker run --rm -v "$PWD:/build" -w /build "$IMAGE" sh -c '
+  docker run --rm -v "$PWD:/build" -w /build "${USER_ARGS[@]}" "$IMAGE" sh -c '
     npm ls --all --parseable 2>/dev/null | tail -n +2 | while read p; do
       pkg=$(node -p "require(\"$p/package.json\").name")
       ver=$(node -p "require(\"$p/package.json\").version")

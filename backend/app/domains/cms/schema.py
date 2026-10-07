@@ -345,15 +345,27 @@ def _validate_node(node: Any, path: str) -> None:
             mark_type = mark.get("type")
             if mark_type not in spec.get("marks", ()):  # pragma: no cover - inline marks
                 raise UnknownBlock(f"Onbekend blok: {mark_type}")
-            mark_attrs = mark.get("attrs") or {}
+            # A mark's attributes are a map, typed like every node's (A2's
+            # last crash and the second look's typing, #1699): a list here
+            # crashed, a number in a ``str?`` stayed valid — both refused
+            # with the mark's and the attribute's name now.
+            raw_mark_attrs = mark.get("attrs")
+            if raw_mark_attrs is None:
+                mark_attrs: dict[str, Any] = {}
+            elif isinstance(raw_mark_attrs, dict):
+                mark_attrs = raw_mark_attrs
+            else:
+                raise InvalidShape(f"Onjuiste kenmerken: {mark_type}")
             for attr in mark_attrs:
                 if attr not in MARK_ATTRS.get(str(mark_type), {}):
                     raise UnknownAttribute(f"{mark_type}.{attr}")
             # A link without her target renders `<a href="">` — nothing;
-            # the mark's attributes are typed, like every node's (A3).
+            # the optional attributes are typed too, not just named.
             for attr, allowed_kind in MARK_ATTRS.get(str(mark_type), {}).items():
                 value = mark_attrs.get(attr)
                 if allowed_kind == "str" and (not isinstance(value, str) or not value):
+                    raise UnknownAttribute(f"{mark_type}.{attr}={value!r}")
+                if allowed_kind == "str?" and value is not None and not isinstance(value, str):
                     raise UnknownAttribute(f"{mark_type}.{attr}={value!r}")
     elif isinstance(node.get("text"), str):
         # A flattened text node (a paragraph with a "text" key) is the

@@ -212,6 +212,18 @@ def test_everything_the_editor_writes_validates(setup):
         stripped = json.loads(emitted)
         stripped["content"] = [b for b in stripped["content"] if b.get("type") != "table"]
         validate_document(stripped)
+        # The test holds her name only if what she meant to write IS in the
+        # emission (the second look, #1699): a click that silently does
+        # nothing would otherwise stay green. Every node and mark the
+        # toolbar offers stands in the emitted JSON.
+        written = json.dumps(stripped, separators=(",", ":"))
+        assert '"type":"heading"' in written and "Kopregel" in written, "no heading was written"
+        for mark in ("bold", "italic", "strike"):
+            assert f'"type":"{mark}"' in written, f"the {mark} mark was not written"
+        assert '"type":"link"' in written and "voorbeeld.test" in written, "no link was written"
+        assert '"type":"hardBreak"' in written, "no hard break was written"
+        assert '"type":"bulletList"' in written, "no bullet list was written"
+        assert '"type":"orderedList"' in written, "no ordered list was written"
         assert page.errors == [], f"the editor throws: {page.errors}"
     finally:
         page.close()

@@ -1399,7 +1399,7 @@ def test_assets_dragen_een_inhoudsversie():
     De CSS had haar hash sinds #481; `stt.js`, `tts.js` en de drie in `vendor/`
     stonden er kaal bij. Gevolg, gemeten bij #772: de fix uit #751 stond een uur op
     HDEV terwijl de browser de JavaScript van de dag ervóór draaide, en drie
-    symptomen weken naar een bug die al gerepareerd was.
+    symptomen wezen naar een bug die al gerepareerd was.
 
     De regel dekt bewust alleen `src=` en de stylesheet-`href=`. Een `<a href>` naar
     een statisch document (de formaatgids) is geen asset die de pagina uitvoert; die
