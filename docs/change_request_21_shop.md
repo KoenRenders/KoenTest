@@ -619,7 +619,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 
 **Running cost:** none new. Mollie charges per online payment as it does for registrations; pictures and documents go into the existing media storage and its backup.
 
-**Operations:** no env vars. The module SHOP is switched on per tenant in the tenant editor; the existing workbench kill switch (`workbench_enabled`) also stops the sweep for these tasks. Three migrations, one per phase.
+**Operations:** no env vars. The module SHOP is switched on per tenant in the tenant editor; the module is off by default for every kind of tenant, also for an association, whose defaults are otherwise every module (Q49); the existing workbench kill switch (`workbench_enabled`) also stops the sweep for these tasks. Three migrations, one per phase.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
@@ -676,7 +676,6 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 |---|---|---|---|
 | Q39 | Reminding the buyer of an unpaid transfer: a button on Verkoop's task that mails the payment link, or a mail that goes out by itself after some days? **Parked by Koen on 7 October 2026.** | A button on the task: Verkoop already decides per order (Q36), and a mail by itself would also go to a buyer whose transfer Boekhouding has not booked yet. | A button is one action on the task; a mail by itself needs a schedule, a text per tenant and a rule for when it stops. Until decided, Verkoop reminds the buyer outside the portal. |
 | Q47 | What does "rekening laatst nagekeken" on Verkoop's task mean? | Derive it: the later of Boekhouding's latest manual confirmation of a transfer and its latest "nog niet betaald". Nothing new to click. | A button "rekening nagekeken" is exact but is one more thing to remember; derived, a quiet week without transfers reads as "not checked". |
-| Q49 | The module SHOP for a new association: on by default? `DEFAULTS["VERENIGING"]` is "every module", so it would be on for every new association unless excluded. | Off by default for every kind; switched on per tenant. | On: every new association sees an empty Webshop in its menus until it has products. |
 
 ## B9. Decisions log — dated answers
 
@@ -721,6 +720,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | 7 Oct 2026 | The expiry of a transfer payment is a workflow of two steps, Boekhouding and then Verkoop, the task moving to Verkoop only when Boekhouding answers "not yet paid", and Verkoop's task shows how recent the information is (when Boekhouding last checked the account). **Replaces** in part Q15: the task for a transfer starts with Boekhouding, not Verkoop; a failed or hanging online payment (R17) stays a task for Verkoop (Q36). | Koen |
 | 7 Oct 2026 | Reading bank statements automatically (CODA, ISO 20022 camt.053) is a change request of its own, CR-27, reserved now and left lying for a while; CR-21 relies on Boekhouding booking transfers by hand (Q37). | Koen |
 | 7 Oct 2026 | `payment` describes a payable through describers that each payable domain registers (name, link, filter label, export kind), instead of a third branch at each reader; a ratchet counts the remaining branches (B7, Q48). | Koen |
+| 7 Oct 2026 | The module SHOP is off by default for every kind of tenant, the association included; it is switched on per tenant (Q49). | Koen |
 | 7 Oct 2026 | A task past its due date only turns red on the workbench; nobody gets a mail about it (Q38). | Koen |
 | 7 Oct 2026 | Cancelling until delivery is a Must; a return after delivery is out of scope and handled by hand: Sales removes the order and books the refund (Q40). | Koen |
 
@@ -937,6 +937,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | Q45 | 7 Oct 2026 | AC17: is there a second tenant on HDEV to test that tenants do not see each other's products? (Claude) | Yes. (Koen) |
 | Q46 | 7 Oct 2026 | Does anyone need a report, an export or a printed list beyond what the screens show? (Claude) | No. (Koen) |
 | Q48 | 7 Oct 2026 | Describe an order in `payment` through describers that each payable domain registers, or add a third branch at each of the ≈ 14 readers? (Claude recommended describers) | Agreed: describers. (Koen) |
+| Q49 | 7 Oct 2026 | The module SHOP for a new association: on by default, as every module is today, or off and switched on per tenant? (Claude recommended off) | Off by default. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
