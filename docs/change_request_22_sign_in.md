@@ -106,6 +106,8 @@ Signing in today sends a code to an e-mail address. That only works if the addre
 | R20 | Members-only activities, an address known in several households, and how board members sign in, stay as they are. | Must *(proposed)* | Koen, 7 Oct 2026 (Q24) | |
 | R21 | When persons of one household share an e-mail address, whoever signs in with it is the household's main member, as today: "Mijn gegevens" shows the main member, and a registration is made in his name. A partner edits his own data in "Mijn gezin". | Must *(proposed)* | Koen, 7 Oct 2026 (Q22) | the household acts towards Raak as one; member price and history are the household's |
 | R22 | A person deletes his own account. | Won't | Koen, 7 Oct 2026 (Q20) | whoever asks, the board deletes it |
+| R23 | The history begins with the first registration made while signed in; earlier registrations made without signing in are not linked afterwards by e-mail address. Whoever wants to see old ones asks the board. | Must *(proposed)* | Koen, 7 Oct 2026 (Q23) | a typed or shared address would show someone else's registrations |
+| R24 | A mail to the old address when the e-mail address changes. | Won't | Koen, 7 Oct 2026 (Q21) | whoever changes it could sign in with the old address; inside a household the board keeps the composition right |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -311,6 +313,7 @@ and deliberately not done — recorded so it is not asked again).
 | 7 Oct 2026 | Duplicate addresses measured read-only by the master CLI before the handover (Q26). | Koen |
 | 7 Oct 2026 | A shared household address signs in as the main member, as today; no "who are you?" step (Q22). | Koen |
 | 7 Oct 2026 | No self-service account deletion; the board deletes on request (Q20). | Koen |
+| 7 Oct 2026 | No backward linking of registrations by e-mail; history starts when signed in (Q23). No mail to the old address on a change (Q21). | Koen |
 | 7 Oct 2026 | Q1–Q9 answered: guest link by secret token; mobile required as today; no lookup or warning on a typed address (the standing hint stays, as decided in CR-11); an account exists after the code; an account that becomes a member keeps its person; accounts per tenant; a new address is confirmed and unique except inside the household; existing duplicates measured first, Koen decides; for registrations only the account is new. | Koen |
 
 ---
@@ -490,7 +493,9 @@ and deliberately not done — recorded so it is not asked again).
 | Q17 | 7 Oct 2026 | R4 said "this account already exists", against Q3. (Claude) | The screen never says it; only the mail to the owner. (Koen) |
 | Q19 | 7 Oct 2026 | Mobile: remembered from the first registration? (Claude) | Required when the account is made. (Koen) |
 | Q20 | 7 Oct 2026 | Deleting an account oneself? (Claude) | Won't; the board deletes on request. (Koen) |
+| Q21 | 7 Oct 2026 | A notice to the old address when the e-mail address changes? (Claude) | Why? One could sign in with the old address; inside a household the board keeps the composition right. — dropped, Won't. (Koen) |
 | Q22 | 7 Oct 2026 | A household shares one address: who is signed in — the main member as today (a), or a "who are you?" step (b)? (Claude) | (a). (Koen) |
+| Q23 | 7 Oct 2026 | Link old registrations made without signing in to the new account by e-mail? (Claude) | No; history starts with the first registration made while signed in; the board shows old ones on request. (Koen) |
 | Q24 | 7 Oct 2026 | Members-only, several households, board sign-in unchanged? (Claude) | Yes. (Koen) |
 | Q25 | 7 Oct 2026 | A board screen for accounts? (Claude) | No; these persons manage themselves; maybe a report. (Koen) |
 | Q26 | 7 Oct 2026 | When are existing duplicates measured? (Claude) | By the master CLI, read-only, before the handover. (Koen) |
