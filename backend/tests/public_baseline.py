@@ -39,7 +39,4 @@ HAND_WRITTEN_ACTIVITY_PARTS: dict[str, int] = {
     # The archive's link back to the list, in the page header: not one of
     # the three origins of the way back (§2.7) and so left as it is.
     "domains/activities/templates/activiteiten.html": 1,
-    # The photo overview's own year heading: it takes the macro in C2
-    # (#1664), where its look changes with it.
-    "domains/media/templates/fotos.html": 1,
 }

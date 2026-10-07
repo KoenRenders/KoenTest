@@ -1,7 +1,7 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
 {% import "_public_macros.html" as pub %}
-{% block title %}{{ a.name }} — {{ site_name }}{% endblock %}
+{% block title %}{{ a.name }} · {{ site_name }}{% endblock %}
 {% block meta %}
 {# Deelbaarheid (golf 12): een gedeelde link toont in WhatsApp/zoekmachines de
    activiteit zelf, niet een generieke sitetekst. #}
@@ -38,7 +38,7 @@
    two columns are both inside it. #}
 <div data-activity-page class="[--leesbreedte:42rem] [--tussenruimte:2rem] [--affiche:18rem] lg:[--affiche:20rem]
             {% if poster_url %}md:mx-auto md:max-w-[calc(var(--leesbreedte)_+_var(--tussenruimte)_+_var(--affiche))]{% endif %}">
-{{ pub.public_back_link("activities" if terug == "/activiteiten" else "archive", path_for(terug)) }}
+{{ pub.public_back_link("activities" if terug == "/activiteiten" else "archive", path_for(terug), cls="pt-4") }}
 <div class="mt-4 md:flex md:gap-8" data-activity-columns>
   <div class="min-w-0 flex-1">
     <div class="flex gap-3 sm:gap-4">

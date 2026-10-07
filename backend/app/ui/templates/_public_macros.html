@@ -44,19 +44,17 @@
 {% if deadline %}{% call ui.icon_text("clock", cls=("text-orange-600" if deadline_near else "text-ink-soft")) %}{{ _("Inschrijven t/m") }} {{ deadline | datumzonderjaar }}{% endcall %}{% endif %}
 {%- endmacro %}
 
-{# The way back on a PUBLIC page. Until C2 gives the three one form — the
-   kit's `ui.back_link(label, href)`, which the back office uses —
-   each origin keeps the form and the words it had: a line of its own above
-   the activity ("activities", "archive"), a small link above the album
-   ("photos"). #}
-{% macro public_back_link(origin, href) -%}
-{%- if origin == "photos" -%}
-<a href="{{ href }}" data-way-back class="text-blue-700 hover:underline text-sm">&larr; {{ _("Terug naar alle albums") }}</a>
-{%- else -%}
-<nav class="pt-4 text-base md:text-sm" data-way-back>
-  <a class="text-blue-500 hover:underline" href="{{ href }}">&larr; {{ _("Archief") if origin == "archive" else _("Alle activiteiten") }}</a>
+{# The way back on a public page (#1664, Z4): ONE form — the kit's chevron and
+   the name of where the visitor came from: "‹ Activiteiten", "‹ Archief",
+   "‹ Foto's" — 14 px in the link colour. On a phone the link's hit area reaches
+   10 px above and under its line of 24 px (44 px in all) without taking room: the page
+   under it stays where it stood. The line is 24 px on a phone and 20 px from
+   768 px, as the activity page's was. `cls` is the air a page gives it. #}
+{% macro public_back_link(origin, href, cls="") -%}
+{%- set _label = {"archive": _("Archief"), "photos": _("Foto's")}.get(origin, _("Activiteiten")) -%}
+<nav data-way-back class="text-sm leading-6 md:leading-5{% if cls %} {{ cls }}{% endif %}">
+  <a href="{{ href }}" class="relative inline-flex align-top items-center gap-1 text-blue-500 hover:underline before:absolute before:-inset-x-2 before:-inset-y-2.5 before:content-[''] md:before:hidden">{{ ui.icon("chevron-left", 16, "shrink-0") }}<span>{{ _label }}</span></a>
 </nav>
-{%- endif -%}
 {%- endmacro %}
 
 {# An album on the photo overview: the kit's card as a link, the cover in

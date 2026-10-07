@@ -463,3 +463,57 @@ def test_the_air_above_and_under_the_row_and_no_line_above_it(browser, world, wi
     )
     # The line above the legal line stays.
     assert m["legal_line"] == "1px", m
+
+
+# ── #1664 (CR-11 pilot C, C2 — Z1; end state §2.5, §2.7): the sponsor block ends
+# on the container's right edge — the line the legal line ends on — with its
+# heading on the left above the first logo INSIDE that block. The three columns
+# stay equally wide (#1654); only the third's content stands at its right. On a
+# phone everything stays stacked on the left.
+#
+# Red against master `a8c0e5a2` (measured at 1 440): the logo's right edge at
+# x 1104 where the container ends at x 1344 — 240 px short.
+SPONSORS = """() => {
+  const q = s => document.querySelector(s), r = e => e.getBoundingClientRect();
+  const row = q('[data-footer-row]'), block = q('[data-footer-sponsors] > div');
+  const logos = [...block.querySelectorAll('.site-sponsor')];
+  return {container: [r(row).left, r(row).right], legal: r(q('[data-footer-line]')).right,
+          block: [r(block).left, r(block).right], heading: r(block.querySelector('h2')).left,
+          first: r(logos[0]).left, last: Math.max(...logos.map(l => r(l).right)),
+          columns: [...row.children].map(s => r(s).width), column3: r(row.children[2]).left,
+          page: [document.documentElement.scrollWidth, innerWidth]};
+}"""
+
+
+def _sponsors(browser, width: int, height: int) -> dict:
+    page = browser.new_page(base_url=BASE, viewport={"width": width, "height": height})
+    page.goto("/")
+    pagina_klaar(page)
+    page.wait_for_function(
+        "() => [...document.querySelectorAll('[data-footer-sponsors] img')].every(i => i.complete)"
+    )
+    measured = page.evaluate(SPONSORS)
+    page.close()
+    print("MEASURE sponsors", width, measured)
+    return measured
+
+
+@pytest.mark.parametrize(("width", "height"), [(1440, 900), (768, 900)])
+def test_the_sponsor_block_ends_on_the_containers_right_edge(browser, world, width, height):
+    m = _sponsors(browser, width, height)
+    assert abs(m["last"] - m["container"][1]) < 0.5, (
+        f"@{width}: the last logo ends at x {m['last']}, the container at x {m['container'][1]}"
+    )
+    assert abs(m["container"][1] - m["legal"]) < 0.5, m
+    # The heading stands on the left above the first logo, inside the block.
+    assert abs(m["heading"] - m["first"]) < 0.5 and abs(m["heading"] - m["block"][0]) < 0.5, m
+    # The block is in the third column and no wider than it; the columns stay even.
+    assert m["block"][0] >= m["column3"] - 0.5, m
+    assert max(m["columns"]) - min(m["columns"]) < 0.5, m["columns"]
+    assert m["page"][0] == m["page"][1]
+
+
+def test_on_a_phone_the_sponsor_block_stays_on_the_left(browser, world):
+    m = _sponsors(browser, 390, 844)
+    assert round(m["heading"]) == 16 and round(m["first"]) == 16, m
+    assert m["page"][0] == m["page"][1]
