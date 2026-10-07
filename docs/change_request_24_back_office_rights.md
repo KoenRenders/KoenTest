@@ -1,9 +1,9 @@
-# Change Request 24 — Back office: relations, operations and rights
+# Change Request 24 — Rights, part 1: the code asks for a right, a role is a bundle
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** opened on 7 October 2026 · Part A in progress · nothing is built; not on a release
 **Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
-**Applies to:** auth (roles, rights), every back-office route and its gate, the admin menu, the workbench, mdm (organisations, persons); depends on CR-20
+**Applies to:** auth (roles, rights, the gates), every back-office route's gate; part 2 is CR-25 (the back office: menu, Bestuur, workbench, business partners)
 **Reading:** A <n> words · B <n> · C <n> — measured with the word count per part; A ≤ 1 500, B ≤ 2 500
 
 ---
@@ -87,16 +87,12 @@ Today a screen checks role names: `require_admin_ui` lets ADMIN and OPERATOR in,
 | R1 | A right is about changing one kind of object; the code asks for the right, never for a role's name. | Must *(proposed)* | Koen, 7 Oct 2026 | |
 | R2 | Everyone with a back-office role reads everything of his workspace; there is no reading right per object. | Must *(proposed)* | Koen, 7 Oct 2026 | "nothing we should spend time on" |
 | R3 | A role is a bundle of rights, kept as data per workspace; one user may hold several. | Must *(proposed)* | Koen, 7 Oct 2026 | |
-| R4 | The roles: Bestuur (code `BOARD`: reads everything, changes nothing) · Relatiebeheer · Masterdata · Werking · Inhoud · Boekhouding (code `FINANCE`) · Prijsbeheer · Verkoop · Voorraadbeheer · Gebruikersbeheer · Operator. | Must *(proposed)* | Koen, 7 Oct 2026 | Productbeheer of CR-21 is part of Masterdata (Q2) |
+| R4 | The roles of part 1: today's ADMIN, FINANCE (on screen Boekhouding) and OPERATOR, each as a bundle with exactly the rights it has today; and the new roles the webshop needs — Masterdata, Prijsbeheer, Verkoop, Voorraadbeheer (CR-21). Bestuur (`BOARD`) and the other changing roles come in part 2 (CR-25). | Must *(proposed)* | Koen, 7 Oct 2026 (Q4) | |
 | R5 | Masterdata changes the master data: persons (deleting and merging included), households, memberships (validity; whether a renewal is paid stays with Boekhouding), the legal identity of organisations — official name, legal form, enterprise and VAT number, registered address, bank accounts, payment terms — and the product portfolio. Relatiebeheer changes only the commercial relationship with organisations: customer or supplier, contacts, the responsible account manager, notes. | Must *(proposed)* | Koen, 7 Oct 2026 (Q3) | the split of a master-data team and account managers; member administration is master data |
 | R13 | Master data has two rights — the legal data of persons and organisations (`party.masterdata`), the product portfolio (`product.masterdata`) — and one standard role, Masterdata, that holds both; a company with two teams makes two bundles without code. | Must *(proposed)* | Koen, 7 Oct 2026 (Q2) | as an ERP separates business partner and material master |
-| R6 | Inside its tenant a board manages the organisations it buys from and sells to; the platform's own structure (accounts, units, tenants) stays with the operator. | Must *(proposed)* | Koen, 7 Oct 2026 | |
-| R7 | Whoever holds ADMIN today gets Bestuur plus the changing roles he uses today, so nothing changes on the day of the switch. | Must *(proposed)* | Koen, 7 Oct 2026 | |
-| R8 | Every task on the workbench belongs to a role; the workbench filters by role (Boekhouding, Verkoop, …), with the number of open tasks per role, so all work people must do is gathered per role. | Must *(proposed)* | Koen, 7 Oct 2026 | |
-| R9 | The back-office menu: Relaties (Personen · Organisaties · Gezinnen · Lidmaatschappen), Werking, Verkoop (Producten · Prijzen · Voorraad · Bestellingen), Financieel, Inhoud, Communicatie, Inzicht, Systeem; an item shows only with its right and its module. | Must *(proposed)* | Koen, 7 Oct 2026 | |
+| R7 | Nobody's reach changes on the day part 1 goes live: every existing user keeps what he may do today; the gates ask rights, the bundles give them. | Must *(proposed)* | Koen, 7 Oct 2026 (Q4) | ADMIN becomes Bestuur only in part 2 |
 | R10 | Social tariff: who pays a reduced rate reveals something about income; later, individual payments and tariffs must not be visible to everyone who reads. | Won't *(now)* | Koen, 7 Oct 2026 | the model must allow a reading restriction later |
 | R11 | Accountbeheer (`ACCOUNT_ADMIN`): within one account, create tenants and manage users and their roles in them. | Won't *(now)* | Koen, 7 Oct 2026 | "nobody uses it today; we build it later" |
-| R12 | A change to an organisation's legal identity proposed by an account manager and approved by Masterdata through a workbench task. | Won't *(now)* | Claude, 7 Oct 2026 | the split of R5 makes it possible later |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -273,7 +269,6 @@ and deliberately not done — recorded so it is not asked again).
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q1 | Does Bestuur see the tasks of other roles on the workbench — only their number, or also what they are? Today a task is shown only to holders of its role, on purpose (#674). | Only the numbers per role, so the board sees where work waits; the content stays with the role — which also keeps room for R10. | Numbers: #674 holds. Content: #674 is reversed, and every task's text becomes readable for the board. |
 
 ## B9. Decisions log — dated answers
 
@@ -292,6 +287,7 @@ and deliberately not done — recorded so it is not asked again).
 | 7 Oct 2026 | Masterdata and Relatiebeheer split on the organisation (R5). | Koen |
 | 7 Oct 2026 | Two master-data rights, one role Masterdata; Productbeheer (CR-21) is part of it (Q2). | Koen |
 | 7 Oct 2026 | Member administration (households, memberships) is master data: role Masterdata; Relatiebeheer keeps only the commercial relationship with organisations (Q3). | Koen |
+| 7 Oct 2026 | Split in two: part 1 (this CR) the mechanism — rights instead of role names, roles as bundles, the shop's roles, nobody's reach changing; part 2 (CR-25) the menu, Bestuur, the workbench per role and business partners. Part 1 before CR-21, part 2 after (Q4). | Koen |
 | 7 Oct 2026 | Social tariff and Accountbeheer out of scope, their meaning recorded (R10, R11). | Koen |
 
 ---
@@ -314,11 +310,7 @@ and deliberately not done — recorded so it is not asked again).
 |---|---|---|---|
 | The gates that check role names (`auth/session.py:116-259`, `auth/service.py:93-191`) | become checks of a right | `require_admin_ui` **233** call sites (activities 31, meetings 30, newsletter 30, forms 25, mdm 22, designstudio 17, reporting 16, media 10, chatbot 8, cms 8, auth 6, workflow 4, mail 3, app/ui 23); `get_current_admin` ~82 (activities 19, membership 17, forms 9, media 9, auth 8, chatbot 7, cms 4, audit 3, mdm 2, mail 2, admin_api 2); `require_finance_ui` 14, `get_current_finance` 4, `get_finance_or_admin` 4, `require_finance_mutation` 8, `require_platform_operator_ui` 13, `require_tenant_workspace` 5; `may_mutate_payments`, `may_view_payments`, `may_use_admin_assistant`, `admits_admin_ui` (nav, header, landing, users) | ~380 call sites: the change is mostly mechanical, one gate per screen group; Part B decides whether the gates keep their names and map to rights, or are renamed |
 | Inline role names | must disappear from logic | `auth/service.py:83` (`"FINANCE" in roles` decides the landing), `auth/router.py:134` (`is_finance`), `auth/session.py:240` (`"OPERATOR" not in`), `auth/admin_ui.py:117,127,144-145`, `auth/users.py:130,153-164,181`; workflow `handlers.py:114,135,161,177,208`, `api.py:37,198,278`, `models.py:125`; `ui/admin_api.py:27`; `mdm/import_service.py:967` (imported users get ADMIN); migrations 001, 014, 056, 072, 074, 082, 087, 107, 127; `seed_e2e.py` | each moves to a right or a role bundle; the migration that turns ADMIN into BOARD + changing roles must keep every existing user's reach (R7) |
-| ADMIN as "may change" | ADMIN becomes BOARD, reading only | ADMIN mutates today: activities (UI 18 + API 17), leden (UI 14, import API 2, register API 11), formulieren (UI 17 + API 4), cms (4 + 3), media (7 + 8), Raakje (5 + 5), meetings 21, newsletter 18, designstudio 10, reporting 7, users (3 + 3), api-keys 2, mail 2, own Instellingen (`tenants_ui.py:443`), own Organisatie (`organisaties_ui.py:313`), closing a workbench task | the changing roles of R4 must cover every one of these groups; Werking/Inhoud as proposed leave **Communicatie** (meetings, newsletter, designstudio), **Inzicht** (reporting), **Raakje**, **api-keys** and the **own settings** without a role — to decide in Part B |
 | `reporting/universe.py:96` `Role` | not the same enum | its own ADMIN/FINANCE/MEMBER_DETAILS, 146 uses, "declared, not enforced" | must be kept apart or aligned in Part B, never mixed with `auth.Role` |
-| Workbench (`workflow/api.py:71,94,111`) | a filter per role (R8) | filtering is implicit by the user's own roles; no filter UI; `create_task` defaults to ADMIN; the sweep makes FINANCE and ADMIN tasks; the counter `ui/admin_api.py:23-27` counts ADMIN+FINANCE for everyone. **Gaps:** a FINANCE-only user cannot open the workbench (`require_admin_ui`), so FINANCE tasks reach only users with both roles; an OPERATOR without an ADMIN row sees an empty list; the detail and close routes do not check `task.required_role` | R8 must also open the workbench to every role with tasks, and check the role on closing; Q1 (what BOARD sees) stays open |
-| Admin navigation (`ui/__init__.py:605-900`) | regrouped, items by right (R9) | `_ADMIN_NAV_LAYOUT` :605, icons :697, PLATFORM_ONLY/TENANT_ONLY :725-726; `admin_nav` has 68 call sites, only payment (5) and `no_access` pass roles — every other caller gets the full menu | the menu by right needs `admin_nav` to know the user's rights on every call (one change in the shell, not 68) |
-| `Organization` (`mdm/models.py:610`) | tenant-scoped business roles (R6) | not tenant-scoped (no `tenant_id`); `OrganizationType` ACCOUNT/UNIT/PLATFORM read in ~35 places (`tenant_lookup.py`, `tenant_service.py` 11, `mdm/api.py` 6, `organisaties_ui.py`, `tenants_ui.py`, `cms/render.py:302`, `kernel/tenant_config.py`); no customer/supplier concept anywhere; who changes: `/admin/organisaties` platform + OPERATOR, `/admin/organisatie` own row by ADMIN | business roles are a new table (organisation × tenant × role); CR-20 first, as A1 says |
 | `user_roles` (`auth/models.py:66`, migration 127) | roles become data bundles | per workspace (`tenant_id`, NULL = platform); assigned in `auth/users.py:119-181`, screen `auth/admin_ui.py:187-356`, `_gu_rollen_velden.html` (a checkbox per role per workspace) | the screen shows bundles; the matrix stays |
 | `docs/rollen-en-rechten.md` | rewritten by this change | already stale on master: `_require_finance` and `_require_operator` no longer exist; "tenant config is OPERATOR-only" is wrong since #1535; no rows for Organisaties, Instellingen, meetings, newsletter, designstudio, reporting; "migration 126" is 127; landing without membership goes to "/" | rewritten as part of this change; until then, worth a small fix of its own |
 
@@ -459,14 +451,16 @@ and deliberately not done — recorded so it is not asked again).
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
-| Q1 | … | … | … |
+| Q4 | 7 Oct 2026 | CR-24 in two: the mechanism first (before CR-21), the rest after? (Claude) | Yes, as two change requests, part 1 and part 2. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
-- R10 (reading restrictions for the social tariff), R11 (Accountbeheer), R12 (approval of master-data changes).
+- R10 (reading restrictions for the social tariff), R11 (Accountbeheer).
+- Part 2, CR-25: the menu, Bestuur reading only, the workbench per role, organisations as business partners, R12 (approval of master-data changes).
 
 ## Relationship to existing work — issues and change requests
 
-- **CR-20** (tenant apart from organisation) is a precondition of R6.
+- **CR-25** (back office, part 2) builds on this.
+- **CR-21** (webshop) needs part 1 before it is built.
 - **CR-21** (webshop) brings the four shop roles; **CR-22** (accounts) brings "Personen" and the self-scope.
 - #83 (financial separation), #543, #581, #674 (task visibility), #963 (roles per workspace).
