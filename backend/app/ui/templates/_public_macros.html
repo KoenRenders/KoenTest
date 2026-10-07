@@ -70,3 +70,77 @@
   </div>
 {% endcall %}
 {%- endmacro %}
+
+{# ── The lightbox and the photo grid (CR-11 pilot C, C3 — #1665; end state §2.7).
+
+   `lightbox(urls)` wraps whatever opens it — here the photo grid — and holds the
+   state: which photo is open, and what opened it. Inside it an opener calls
+   `show(index, $el)`.
+
+   - the dark ground and the photo uncropped, at most 90 % of the window's
+     height and 92 % of its width — as it was;
+   - **close, previous and next are the kit's 24 px icons in real buttons of
+     44 × 44 px** with Dutch names, where the characters ✕ ‹ › stood;
+   - **focus**: on Close when it opens; Tab and Shift+Tab stay inside; after
+     closing back on the thumbnail that opened it, the page where it was
+     scrolled (`preventScroll`). Escape, the ground and Close close; the arrow
+     keys step; at the first and the last photo the arrow that leads nowhere is
+     hidden — no carousel that runs on. A click on the photo itself does nothing;
+   - no swipe, zoom, counter, animation or slide show.
+
+   The lightbox and its arrows show and hide through a CLASS binding, not
+   `x-show`: Alpine's `x-show` shows on a timeout, and the focus set on Close
+   landed on a button that was still hidden whenever that timeout came second.
+   A class changes in the same flush as the state.
+
+   Beside `ui.modal`, not on it: the modal sets and returns the focus but does
+   not hold it inside, and it is a white card with a title bar. #}
+{% macro lightbox(urls) -%}
+<div data-lightbox-scope
+     x-data='{ open: null, opener: null, urls: {{ urls | tojson }},
+       show(i, el) { this.opener = el; this.open = i; this.$nextTick(() => this.$refs.close.focus()) },
+       hide() { if (this.open === null) return; this.open = null; const el = this.opener; this.opener = null;
+                if (el) el.focus({ preventScroll: true }) },
+       step(d) { const n = this.open + d; if (this.open === null || n < 0 || n >= this.urls.length) return; this.open = n;
+                 this.$nextTick(() => { const a = document.activeElement;
+                   if (!this.$refs.box.contains(a) || a.offsetParent === null) this.$refs.close.focus() }) },
+       trap(e) { const all = [...this.$refs.box.querySelectorAll("button")].filter(b => b.offsetParent !== null);
+                 const at = all.indexOf(document.activeElement); e.preventDefault();
+                 all[(at + (e.shiftKey ? -1 : 1) + all.length) % all.length].focus() } }'
+     @keydown.escape.window="hide()"
+     @keydown.arrow-left.window="step(-1)"
+     @keydown.arrow-right.window="step(1)">
+  {{ caller() }}
+  <div x-ref="box" data-lightbox x-cloak :class="open === null ? 'hidden' : 'flex'" role="dialog" aria-modal="true" aria-label="{{ _('Foto') }}"
+       @click.self="hide()" @keydown.tab="trap($event)"
+       class="fixed inset-0 z-50 bg-black/80 items-center justify-center p-4">
+    <button x-ref="close" type="button" data-lightbox-close @click="hide()" aria-label="{{ _('Sluiten') }}"
+            class="absolute top-2 right-2 grid place-items-center w-11 h-11 rounded-lg text-white/90 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">{{ ui.icon("x", 24) }}</button>
+    <button type="button" data-lightbox-previous :class="open > 0 ? 'grid' : 'hidden'" @click.stop="step(-1)" aria-label="{{ _('Vorige foto') }}"
+            class="absolute left-2 sm:left-6 place-items-center w-11 h-11 rounded-lg text-white/90 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">{{ ui.icon("chevron-left", 24) }}</button>
+    <img data-lightbox-photo :src="open !== null ? urls[open] : ''" @click.stop alt=""
+         class="max-h-[90vh] max-w-[92vw] object-contain rounded">
+    <button type="button" data-lightbox-next :class="open !== null &amp;&amp; open < urls.length - 1 ? 'grid' : 'hidden'" @click.stop="step(1)" aria-label="{{ _('Volgende foto') }}"
+            class="absolute right-2 sm:right-6 place-items-center w-11 h-11 rounded-lg text-white/90 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">{{ ui.icon("chevron-right", 24) }}</button>
+  </div>
+</div>
+{%- endmacro %}
+
+{# The grid of an album: square thumbnails, 12 px apart, in 2 / 3 / 4 columns.
+   Each thumbnail is a button that opens the lightbox it stands in. The caller
+   gives what stands ON a thumbnail (the thumbs-up): `{% call(photo) … %}` — a
+   button BESIDE the photo's button, never inside it, so it opens nothing. #}
+{% macro photo_grid(photos, alt="") -%}
+<div data-photo-grid class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+  {% for f in photos %}
+  <div data-photo class="relative">
+    <button type="button" data-photo-open @click="show({{ loop.index0 }}, $el)"
+            class="block w-full aspect-square bg-surface-2 rounded-xl overflow-hidden hover:opacity-90">
+      <img src="{{ f.thumb_url }}" alt="{{ (f.title or alt) if alt else '' }}"
+           class="w-full h-full object-cover" loading="lazy">
+    </button>
+    <div class="absolute bottom-1.5 right-1.5">{{ caller(f) }}</div>
+  </div>
+  {% endfor %}
+</div>
+{%- endmacro %}

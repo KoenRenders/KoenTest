@@ -141,6 +141,11 @@ PUBLIC_HOOKS: dict[str, str] = {
     "poster": "[data-activity-poster]",
     "photo card": "[data-photo-card]",
     "photo": "[data-photo]",
+    # The album's lightbox, open (#1665).
+    "lightbox photo": "[data-lightbox-photo]",
+    "lightbox close": "[data-lightbox-close]",
+    "lightbox previous": "[data-lightbox-previous]",
+    "lightbox next": "[data-lightbox-next]",
     "form page": "[data-public-form-page]",
     "form page head": "[data-form-page-head]",
     "form section": "[data-form-section]",
@@ -244,6 +249,18 @@ def _public_activity(name: str, register: bool = False) -> Callable:
 
 def _album(page) -> None:
     _goto_link(page, "[data-photo-card]")
+
+
+def _lightbox(page) -> None:
+    """The album's first photo, open in the lightbox, the picture loaded."""
+    _album(page)
+    page.locator("[data-photo-open]").first.click()
+    page.locator("[data-lightbox]").wait_for(state="visible", timeout=5000)
+    page.wait_for_function(
+        "() => { const i = document.querySelector('[data-lightbox-photo]');"
+        " return i.complete && i.naturalWidth > 0"
+        " && document.querySelector('[data-lightbox-next]').checkVisibility(); }"
+    )
 
 
 ADMIN = (WIDE, DESKTOP, PHONE)
@@ -351,6 +368,13 @@ SCREENS: tuple[Screen, ...] = (
         "/fotos",
         ("brand", "way back", "page title", "photo"),
         action=_album,
+    ),
+    # The first of two photos open: Close and Next show, Previous is hidden.
+    Screen(
+        "public-fotos-lichtbak",
+        "/fotos",
+        ("lightbox photo", "lightbox close", "lightbox next"),
+        action=_lightbox,
     ),
     Screen(
         "public-inschrijven",
