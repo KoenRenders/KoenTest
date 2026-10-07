@@ -32,6 +32,7 @@ from app.domains.mdm.api import (
     PersonDetailsMissing,
     PostalCode,
     RelationType,
+    new_contact_detail,
 )
 from app.domains.membership.models import Membership
 from app.domains.membership.schemas_member import (  # noqa: F401
@@ -250,6 +251,7 @@ def create_family_with_members(
     source: str,
     membership_active: bool = False,
     today: Optional[date] = None,
+    email_rule: bool = True,
 ) -> tuple[Member, Membership]:
     """Een gezin met al zijn personen, het adres, de contactgegevens en het
     lidmaatschap — in één keer, in één transactie (#1110).
@@ -352,19 +354,15 @@ def create_family_with_members(
         contacts = []
         if person_data.phone:
             contacts.append(
-                ContactDetail(
-                    person_id=person.id,
-                    contact_type_code="PHONE",
-                    value=person_data.phone,
-                    is_primary=True,
-                )
+                new_contact_detail(db, person, CONTACT.PHONE, person_data.phone, is_primary=True)
             )
         if person_data.mobile:
             contacts.append(
-                ContactDetail(
-                    person_id=person.id,
-                    contact_type_code="MOBILE",
-                    value=person_data.mobile,
+                new_contact_detail(
+                    db,
+                    person,
+                    CONTACT.MOBILE,
+                    person_data.mobile,
                     is_primary=not person_data.phone,
                 )
             )
@@ -378,11 +376,14 @@ def create_family_with_members(
                 continue
             seen.add(address_value.lower())
             contacts.append(
-                ContactDetail(
-                    person_id=person.id,
-                    contact_type_code=CONTACT.EMAIL,
-                    value=address_value,
+                new_contact_detail(
+                    db,
+                    person,
+                    CONTACT.EMAIL,
+                    address_value,
                     is_primary=len(seen) == 1,
+                    # CR-22 Q40: only the public door passes False, until S8.
+                    enforce_rule=email_rule,
                 )
             )
         for contact in contacts:
@@ -1003,9 +1004,7 @@ def add_person_to_family(
 
     for type_code, value in (("EMAIL", data.email), ("PHONE", data.phone), ("MOBILE", data.mobile)):
         if value:
-            contact = ContactDetail(
-                person_id=person.id, contact_type_code=type_code, value=value, is_primary=True
-            )
+            contact = new_contact_detail(db, person, type_code, value, is_primary=True)
             db.add(contact)
             db.flush()
             snapshot_contact_detail(

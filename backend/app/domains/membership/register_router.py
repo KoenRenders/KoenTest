@@ -406,8 +406,14 @@ def register_family(
                         % {"year": today.year},
                     )
 
+    # CR-22 Q40 (Koen, 7 October 2026): this door stays outside the address
+    # rule until slice S8 (#1713). A new try after a failed payment comes with
+    # the address of the first try's household — allowed above, on purpose — and
+    # the rule would refuse it. S8 gives that retry its own answer and removes
+    # this argument; `test_the_public_sign_up_door_is_outside_the_rule_until_s8`
+    # is the test it turns round.
     member, membership = _service.create_family_with_members(
-        db, data, actor=PUBLIEKE_ACTOR, source="registration", today=today
+        db, data, actor=PUBLIEKE_ACTOR, source="registration", today=today, email_rule=False
     )
     pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
 

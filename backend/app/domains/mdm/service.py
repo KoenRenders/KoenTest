@@ -22,6 +22,8 @@ from sqlalchemy.orm import Session
 
 from app.domains.mdm.codes import CONTACT
 from app.domains.mdm.models import Person, PersonHistory
+from app.i18n import _
+from app.kernel.codes import code_of
 from app.kernel.contracts.mdm import EntityMerged
 from app.kernel.events import publish
 
@@ -667,6 +669,145 @@ def households_as_named(db: Session, member_ids: list[int]) -> list[dict]:
     return out
 
 
+# ── One constructor for a contact detail, and the e-mail rule (CR-22, #1704) ──
+
+
+def email_refusal(
+    db: Session, person, value: Optional[str], *, household_id: Optional[int] = None
+) -> Optional[str]:
+    """Why this person may not carry this e-mail address — or None when he may.
+
+    **The rule** (CR-22 R4, R7, §B7): an e-mail address belongs to one person
+    outside a household. Signing in sends a code to an address, so the address
+    has to say WHO signs in. Inside one household persons may share an address:
+    the household acts towards the association as one. Outside it, two persons
+    with one address would leave the portal not knowing who is signed in.
+
+    Refused when a CONFIRMED e-mail row with this value — compared without
+    regard to case — belongs to a person who is not `person` and shares no
+    household with him. `person` may be None, or not stored yet: a person who
+    does not exist has no address of his own and no housemates. An address that still waits for its code claims
+    nothing: otherwise anyone could block an address by typing it.
+
+    **Why here and not as a unique index** (`docs/code-style.md`, *A rule has
+    one home*): an index cannot say "except inside the household" — the
+    household is another table. So the rule lives in this service, and the gate
+    `tests/test_contact_detail_factory_gate.py` keeps `new_contact_detail` the
+    only place a contact detail is made.
+
+    Per tenant by itself: contact details carry the tenant filter, so a person
+    of another tenant with the same address is not seen here (R10). Rows of an
+    organisation (`person_id IS NULL`) are no person's address and do not count.
+
+    `household_id`: the household this person is about to join, when that link
+    is not written yet — the import's preview decides for a person it has not
+    stored. Its members count as housemates, as they will once he is in it.
+    """
+    from app.domains.mdm.models import ContactDetail, MemberPerson
+
+    address = (value or "").strip().lower()
+    if not address:
+        return None
+    holders = {
+        row.person_id
+        for row in db.query(ContactDetail.person_id)
+        .filter(
+            ContactDetail.contact_type_code == CONTACT.EMAIL,
+            ContactDetail.person_id.isnot(None),
+            ContactDetail.confirmed_at.isnot(None),
+            func.lower(func.trim(ContactDetail.value)) == address,
+        )
+        .all()
+    }
+    holders.discard(getattr(person, "id", None))
+    if not holders:
+        return None
+    own_id = getattr(person, "id", None)
+    own_households = (
+        {
+            row.member_id
+            for row in db.query(MemberPerson.member_id)
+            .filter(MemberPerson.person_id == own_id)
+            .all()
+        }
+        if own_id is not None
+        else set()
+    )
+    if household_id is not None:
+        own_households.add(household_id)
+    if own_households:
+        housemates = {
+            row.person_id
+            for row in db.query(MemberPerson.person_id)
+            .filter(MemberPerson.member_id.in_(own_households))
+            .all()
+        }
+        holders -= housemates
+    if not holders:
+        return None
+    return _("Dit e-mailadres is al in gebruik door iemand anders.")
+
+
+def require_email_free(db: Session, person, value: Optional[str]) -> None:
+    """Raise `EmailAddressInUse` when `email_refusal` refuses — for the writer
+    that changes the value of an existing row instead of making a new one."""
+    from app.domains.mdm.models import EmailAddressInUse
+
+    refusal = email_refusal(db, person, value)
+    if refusal:
+        raise EmailAddressInUse(refusal)
+
+
+def new_contact_detail(
+    db: Session,
+    person,
+    type_code,
+    value: str,
+    *,
+    is_primary: bool,
+    confirmed: bool = True,
+    enforce_rule: bool = True,
+):
+    """The ONLY place a contact detail of a person is made (CR-22 §B7, #1704).
+
+    It returns the row; the caller adds it to the session the way it always
+    did (`db.add` or through the relationship — the two are not the same, see
+    `upsert_primary_contact`) and writes its history row.
+
+    Two things are decided here, once, for every writer:
+
+    - an E-MAIL address passes `email_refusal` — refused with
+      `EmailAddressInUse` when another person outside the household uses it;
+    - whether the detail counts: `confirmed` sets `confirmed_at`. The board's
+      writes and the import are confirmed; an address a member types himself
+      waits for its code (the slice after this one — until then every caller
+      passes the default).
+
+    The person must have its id (flushed) and, for the household exception,
+    its place in the household before its address is made.
+
+    `enforce_rule=False` has ONE caller, and it is temporary (CR-22 Q40, Koen,
+    7 October 2026): the public Lid worden. Someone whose payment failed tries
+    again with the same address, and today that makes a second household — an
+    address the rule would refuse, shutting him out. Until slice S8 (#1713)
+    gives that retry its own answer (no second household: sign in and resume
+    the payment), that one door stays as it was. S8 removes the parameter.
+    """
+    from datetime import datetime, timezone
+
+    from app.domains.mdm.models import ContactDetail
+
+    if enforce_rule and code_of(type_code) == code_of(CONTACT.EMAIL):
+        require_email_free(db, person, value)
+    return ContactDetail(
+        person_id=person.id,
+        contact_type_code=type_code,
+        value=value,
+        is_primary=is_primary,
+        confirmed_at=datetime.now(timezone.utc) if confirmed else None,
+    )
+
+
 def _persoon_of_404(db: Session, person_id: int):
     from app.domains.mdm.models import Person
 
@@ -694,7 +835,6 @@ def add_email_address(db: Session, person_id: int, value: str, *, actor: Optiona
     keer identiek.
     """
     from app.domains.audit.api import snapshot_contact_detail
-    from app.domains.mdm.models import ContactDetail
 
     person = _persoon_of_404(db, person_id)
     waarde = (value or "").strip()
@@ -708,9 +848,7 @@ def add_email_address(db: Session, person_id: int, value: str, *, actor: Optiona
     # invoert wordt het hoofdadres, tenzij er al een is. Niet "de eerste rij" maar
     # "er is er nog geen" — de markering is een herkomst en geen positie.
     wordt_hoofd = not _heeft_hoofdadres(person)
-    rij = ContactDetail(
-        person_id=person.id, contact_type_code="EMAIL", value=waarde, is_primary=wordt_hoofd
-    )
+    rij = new_contact_detail(db, person, CONTACT.EMAIL, waarde, is_primary=wordt_hoofd)
     db.add(rij)
     db.flush()
     snapshot_contact_detail(
@@ -821,7 +959,6 @@ def write_email_rows(
     anything changed. `source` names who acts in the history (`member_self` when
     the member saves their own household)."""
     from app.domains.audit.api import snapshot_contact_detail
-    from app.domains.mdm.models import ContactDetail
 
     bestaand = {c.id: c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL}
     gewijzigd = False
@@ -836,6 +973,8 @@ def write_email_rows(
             person.contact_details.remove(rij)
             gewijzigd = True
         elif waarde != rij.value:
+            # CR-22 (#1704): a changed address passes the rule a new one does.
+            require_email_free(db, person, waarde)
             rij.value = waarde
             db.flush()
             snapshot_contact_detail(
@@ -863,9 +1002,7 @@ def write_email_rows(
         if waarde.lower() in al_er:
             continue
         wordt_hoofd = not _heeft_hoofdadres(person)
-        rij = ContactDetail(
-            person_id=person.id, contact_type_code="EMAIL", value=waarde, is_primary=wordt_hoofd
-        )
+        rij = new_contact_detail(db, person, CONTACT.EMAIL, waarde, is_primary=wordt_hoofd)
         person.contact_details.append(rij)
         db.flush()
         snapshot_contact_detail(
@@ -1042,7 +1179,6 @@ def upsert_primary_contact(
     en een rij uit het beheerscherm in de geschiedenis uit elkaar te houden zijn.
     """
     from app.domains.audit.api import snapshot_contact_detail
-    from app.domains.mdm.models import ContactDetail
 
     van_dit_type = [c for c in person.contact_details if c.contact_type_code == type_code]
     # Which primary row, when a person has more than one of this type (#1676:
@@ -1069,6 +1205,8 @@ def upsert_primary_contact(
             person.contact_details.remove(eigen)
             db.flush()
             return adopted
+        if code_of(type_code) == code_of(CONTACT.EMAIL) and eigen.value != value:
+            require_email_free(db, person, value)
         eigen.is_primary = True
         eigen.value = value
         db.flush()
@@ -1101,12 +1239,7 @@ def upsert_primary_contact(
                 # voegen — `uq_addresses_person_id`. Acht bestaande importtests
                 # vielen erop om. De import deed dit altijd al met `db.add`; die
                 # vorm is hier de veilige.
-                nieuw = ContactDetail(
-                    person_id=person.id,
-                    contact_type_code=type_code,
-                    value=value,
-                    is_primary=is_primary,
-                )
+                nieuw = new_contact_detail(db, person, type_code, value, is_primary=is_primary)
                 db.add(nieuw)
                 db.flush()
                 snapshot_contact_detail(
@@ -1117,6 +1250,8 @@ def upsert_primary_contact(
             return None
         changed = ContactChange(hoofd.value or "", value, promoted=hoofd.value == value)
         if apply:
+            if code_of(type_code) == code_of(CONTACT.EMAIL) and hoofd.value != value:
+                require_email_free(db, person, value)
             hoofd.value = value
             hoofd.is_primary = is_primary
             db.flush()
@@ -1325,7 +1460,7 @@ def create_person_for_circle(
     los van `Member` — de koppeling is een aparte tabel. Een persoon zonder gezin
     is dus een geldige rij en geen wees.
     """
-    from app.domains.mdm.models import ContactDetail, Person
+    from app.domains.mdm.models import Person
 
     first_name = (first_name or "").strip()
     last_name = (last_name or "").strip()
@@ -1336,15 +1471,15 @@ def create_person_for_circle(
     # was enough, and a circle person could be stored without a last name.
     if not first_name or not last_name:
         raise ValueError("naam ontbreekt")
+    # CR-22 (#1704): decided before the person is made — a new person has no
+    # household, so any holder of this address refuses him — and the caller is
+    # left with nothing half-written to undo.
+    require_email_free(db, None, email)
     person = Person(first_name=first_name, last_name=last_name)
     db.add(person)
     db.flush()
     if email:
-        db.add(
-            ContactDetail(
-                person_id=person.id, contact_type_code="EMAIL", value=email, is_primary=True
-            )
-        )
+        db.add(new_contact_detail(db, person, CONTACT.EMAIL, email, is_primary=True))
         db.flush()
     add_to_circle(
         db, person.id, organization_id=organization_id, relation_type=relation_type, on_day=on_day

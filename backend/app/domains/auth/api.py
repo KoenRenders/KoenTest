@@ -9,7 +9,7 @@ schermen), member_identity.py (e-mail -> Person/gezin) en router.py
 
 # CR-12 phase 2: the role list belongs to this domain's public surface, so
 # that `workflow` reaches its FK target and its enum through one door.
-from app.domains.auth.codes import ROLE  # noqa: F401
+from app.domains.auth.codes import LOGIN_PURPOSE, ROLE  # noqa: F401
 from app.domains.auth.login import (  # noqa: F401
     check_otp,
     consume_magic_link,
@@ -22,6 +22,7 @@ from app.domains.auth.member_identity import (  # noqa: F401
 )
 from app.domains.auth.models import (  # noqa: F401
     ApiKey,
+    LoginPurpose,
     LoginToken,
     Role,
     RoleCode,
@@ -83,6 +84,8 @@ __all__ = [
     "login_person_for_email",
     "resolve_household",
     "ApiKey",
+    "LoginPurpose",
+    "LOGIN_PURPOSE",
     "LoginToken",
     "Role",
     "RoleCode",

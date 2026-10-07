@@ -29,8 +29,8 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
+from app.domains.mdm.codes import CONTACT
 from app.domains.mdm.models import (
-    ContactDetail,
     MasterDataError,
     Member,
     MemberPerson,
@@ -38,6 +38,8 @@ from app.domains.mdm.models import (
     PostalCode,
     RelationType,
 )
+from app.domains.mdm.service import new_contact_detail, require_email_free
+from app.kernel.codes import code_of
 from app.soft_delete import soft_delete
 
 SOURCE = "member_self"
@@ -300,6 +302,9 @@ def _upsert_contact(
     if value:
         if existing is not None:
             if existing.value != value:
+                # CR-22 (#1704): a changed address passes the rule a new one does.
+                if code_of(type_code) == code_of(CONTACT.EMAIL):
+                    require_email_free(db, target, value)
                 existing.value = value
                 db.flush()
                 snapshot_contact_detail(
@@ -311,9 +316,7 @@ def _upsert_contact(
                     actor=actor,
                 )
         else:
-            contact = ContactDetail(
-                person_id=target.id, contact_type_code=type_code, value=value, is_primary=True
-            )
+            contact = new_contact_detail(db, target, type_code, value, is_primary=True)
             target.contact_details.append(contact)
             db.flush()
             snapshot_contact_detail(
@@ -451,9 +454,7 @@ def insert_household_person(
 
     for type_code, key in (("EMAIL", "email"), ("PHONE", "phone"), ("MOBILE", "mobile")):
         if data.get(key):
-            contact = ContactDetail(
-                person_id=person.id, contact_type_code=type_code, value=data[key], is_primary=True
-            )
+            contact = new_contact_detail(db, person, type_code, data[key], is_primary=True)
             db.add(contact)
             db.flush()
             snapshot_contact_detail(
