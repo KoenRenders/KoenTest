@@ -1,7 +1,7 @@
 # Change Request 22 — Signing in to buy or register: member, account or guest
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 7 October 2026 · every decision taken; every screen seen by Koen (C9); phase 0 before the handover · nothing is built; not on a release
+**Status:** shaped on 7 October 2026 · every decision taken; every screen seen by Koen (C9) · **assigned to v2.15** by Koen on 7 October 2026, handed to the master CLI the same day (phase 0 and the tracking issue are its first steps) · nothing is built yet
 **Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** auth (sign-in, codes, landing), mdm (persons, e-mail addresses), membership (Mijn gezin, lid worden), activities (Mijn inschrijvingen, the hint, the confirmation mail), app/ui (Mijn Raak); built on the activity registrations first, then used by the webshop (CR-21)
 **Reading:** A 2706 words · B 2822 · C 2779 — code fences excluded, measured on 7 October 2026; the budget is A ≤ 1 500, B ≤ 2 500. **Over the budget in A and B:** A carries 24 requirements, most of them Koen's answers to questions asked during shaping, and B carries the walkthrough of three roles; to be cut at the review if Koen finds them too long.
