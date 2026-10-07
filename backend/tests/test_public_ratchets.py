@@ -63,7 +63,7 @@ _CARD = re.compile(
 )
 _ORGANISATION = re.compile(r"\borganisatie\.(?!name\b)\w+")
 _ACTIVITY_PART = re.compile(
-    r"data-date-tile|data-year-heading|data-way-back|\|\s*maandkort\b|←|&larr;"
+    r"data-date-tile|data-year-heading|data-way-back|\|\s*maandkort\b|←|&larr;|‹|&lsaquo;"
 )
 _LEGEND = re.compile(r"\*\s*(?:</span>\s*)?Verplichte? veld|Verplichte? velden? zijn", re.I)
 
@@ -193,6 +193,9 @@ def test_no_template_carries_a_required_field_legend():
         ("hand_written_activity_parts", "<h3 data-year-heading>2026</h3>"),
         ("hand_written_activity_parts", '<a href="/x">&larr; Terug</a>'),
         ("hand_written_activity_parts", "<span>{{ d | maandkort }}</span>"),
+        # Since #1665 the lightbox's arrows are icons: a chevron typed by a public
+        # template is a way back (or an arrow) written by hand again.
+        ("hand_written_activity_parts", '<a href="/x">‹ Terug</a>'),
     ],
 )
 def test_each_collector_counts_its_violation(rule, violation):

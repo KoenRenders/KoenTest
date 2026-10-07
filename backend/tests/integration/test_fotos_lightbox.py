@@ -32,11 +32,17 @@ def test_album_xdata_is_single_quoted_not_broken(client, db_session):
     html = client.get(f"/activiteiten/{a.id}/fotos").text
 
     # Correct: enkel-gequote attribuut met de dubbele-quote-JSON erin.
-    assert "x-data='{ open: null, urls: [" in html
+    # #1665: the state stands on the lightbox component (`pub.lightbox`), still
+    # in a single-quoted attribute.
+    assert "x-data='{ open: null, opener: null, urls: [" in html
     # De kapotte variant (dubbele quote binnen dubbele quote) mag NIET voorkomen.
-    assert 'x-data="{ open: null, urls: ["' not in html
+    assert 'x-data="{ open: null' not in html
+    # No single quote inside the attribute's own code, or the browser cuts it off there.
+    state = html[html.index("x-data='{ open: null") + len("x-data='") :]
+    state = state[: state.index("@keydown.escape.window")]
+    assert state.count("'") == 1, "a single quote inside the single-quoted x-data"
     # De thumbnail heeft een klik-handler die de overlay opent.
-    assert '@click="open = 0"' in html
+    assert '@click="show(0, $el)"' in html
 
 
 def test_album_without_photos_has_no_lightbox(client, db_session):

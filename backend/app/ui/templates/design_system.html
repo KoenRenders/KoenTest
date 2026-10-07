@@ -1,5 +1,6 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
+{% import "_public_macros.html" as pub %}
 {# #811: de veldsoorten komen uit de ECHTE formuliertemplate. Importeren en niet
    nabouwen: een kopie hier zou precies het soort afdrijving worden dat deze pagina
    moet uitsluiten. #}
@@ -1122,5 +1123,24 @@
   <p class="text-sm text-gray-600">
     {{ _("De publieke kant deelt de kit maar niet de dichtheid — §3.1. Bekijk haar op een telefoon; de typeschaal is daar de basis (§1.2a).") }}
   </p>
+{% endcall %}
+
+{# ── 15. The photo grid and the lightbox (CR-11 pilot C, C3 — #1665) ──────
+   The public album's two components, rendered from `_public_macros.html` with
+   two drawn pictures: no photo of a person stands on this page. #}
+{{ ui.section_header(_("15 · Fotoraster en lichtbak"), cls="mt-10") }}
+{% call ui.card() %}
+  <p class="text-sm text-ink-soft mb-4">
+    {{ _("Het raster van een album en de lichtbak die een foto opent: sluiten, vorige en volgende zijn kiticonen in knoppen van 44 px; de focus gaat naar Sluiten, blijft binnen de lichtbak en keert terug naar de aangeklikte foto.") }}
+  </p>
+  {% set _kit_photo_1 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 480'%3E%3Crect width='640' height='480' fill='%23254e73'/%3E%3Ccircle cx='320' cy='240' r='120' fill='%23eec15e'/%3E%3C/svg%3E" %}
+  {% set _kit_photo_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 480'%3E%3Crect width='640' height='480' fill='%23eec15e'/%3E%3Crect x='200' y='140' width='240' height='200' fill='%23254e73'/%3E%3C/svg%3E" %}
+  {% set _kit_photos = [{"url": _kit_photo_1, "thumb_url": _kit_photo_1, "title": _("Voorbeeld 1")},
+                        {"url": _kit_photo_2, "thumb_url": _kit_photo_2, "title": _("Voorbeeld 2")}] %}
+  <div data-kit-lightbox class="max-w-md">
+  {% call pub.lightbox(_kit_photos | map(attribute="url") | list) %}
+    {% call(f) pub.photo_grid(_kit_photos, _("Voorbeeld")) %}{% endcall %}
+  {% endcall %}
+  </div>
 {% endcall %}
 {% endblock %}

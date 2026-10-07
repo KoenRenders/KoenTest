@@ -14,7 +14,6 @@ three pages are rebuilt on the kit, and the two partials of the old pages
 HAND_WRITTEN_BUTTONS: dict[str, int] = {
     "domains/activities/templates/_onderdeel_acties.html": 1,
     "domains/media/templates/_duim.html": 1,
-    "domains/media/templates/fotos_album.html": 4,
 }
 
 #: A card drawn by the template itself (a rounded, bordered, white surface) —
