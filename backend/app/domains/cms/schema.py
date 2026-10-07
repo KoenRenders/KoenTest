@@ -66,7 +66,15 @@ NODES: dict[str, dict[str, Any]] = {
     "paragraph": {"group": "block", "content": "inline*"},
     "heading": {"group": "block", "content": "inline*", "attrs": {"level": HEADING_LEVELS}},
     "bulletList": {"group": "block", "content": "listItem+"},
-    "orderedList": {"group": "block", "content": "listItem+"},
+    "orderedList": {
+        "group": "block",
+        "content": "listItem+",
+        # TipTap's ordered list carries her own `start` (and a `type` the
+        # editor writes as null) — the B1 test of #1699 measured the
+        # emission. The schema knows them; the renderer starts at one,
+        # exactly as the page always did.
+        "attrs": {"start": "int?", "type": "str?"},
+    },
     "listItem": {"content": "block+"},
     "table": {"group": "block", "content": "tableRow+"},
     "tableRow": {
@@ -110,8 +118,16 @@ NODES: dict[str, dict[str, Any]] = {
     "text": {"group": "inline", "text": True, "marks": ("bold", "italic", "strike", "link")},
 }
 
-#: The attribute a mark may carry: only ``link`` has one, its target.
-MARK_ATTRS: dict[str, dict[str, Any]] = {"link": {"href": "str"}}
+#: The attributes a mark may carry. ``link`` has five: her target address
+#: (required, text — an ``<a href="">`` renders nothing) and the
+#: ``target``, ``rel``, ``class`` and ``title`` TipTap's link writes with
+#: her (the B1 test of #1699 measured the emission, attribute by
+#: attribute). The renderer reads the address only — the site keeps
+#: opening links as she always did; what a link's ``target`` means on the
+#: site is a later, separate decision.
+MARK_ATTRS: dict[str, dict[str, Any]] = {
+    "link": {"href": "str", "target": "str?", "rel": "str?", "class": "str?", "title": "str?"}
+}
 
 #: The sets (C4.5). The toolbar and the insert menu offer exactly these; the
 #: editor's configuration is generated from this, never hand-written in a
@@ -200,6 +216,10 @@ def validate_document(document: Any, set_name: str = "page") -> dict:
         raise ValueError(f"Unknown block set: {set_name}")
     if not isinstance(document, dict):
         raise UnknownBlock(f"Onbekend blok: {type(document).__name__}")
+    if document.get("type") != "doc":
+        # The root is the document itself; a paragraph (or a text node) at
+        # the top is a client's mistake, not a document (review A3, #1699).
+        raise InvalidShape(f"Onjuiste wortel: {document.get('type')}")
     _validate_node(document, "doc")
     return document
 
@@ -236,12 +256,30 @@ def _content_rule(node_type: str) -> tuple[set[str], int, int | None] | None:
     return allowed, int(low), int(high)
 
 
+#: How deep a document may nest before the validator refuses her — the
+#: schema's own deepest path is five (doc/table/row/cell/paragraph); the cap
+#: is generous but finite, so a hostile or looping client cannot recurse the
+#: validator to death (review A2, #1699).
+MAX_DEPTH = 64
+
+
 def _validate_node(node: Any, path: str) -> None:
+    if path.count("/") >= MAX_DEPTH:
+        raise InvalidShape("Te diep genest: het document heeft te veel niveaus")
     node_type = node.get("type") if isinstance(node, dict) else None
     if node_type not in NODES:
         raise UnknownBlock(f"Onbekend blok: {node_type}")
     spec = NODES[node_type]
-    attrs = node.get("attrs") or {}
+    # A malformed document is refused with a name, never a crash (review A2,
+    # #1699): attributes and children that are not the shape the schema
+    # reads — a string, a number — are named, not iterated.
+    raw_attrs = node.get("attrs")
+    if raw_attrs is None:
+        attrs = {}
+    elif isinstance(raw_attrs, dict):
+        attrs = raw_attrs
+    else:
+        raise InvalidShape(f"Onjuiste kenmerken: {node_type}")
     for attr, value in attrs.items():
         if attr not in spec.get("attrs", {}):
             raise UnknownAttribute(f"{node_type}.{attr}")
@@ -268,6 +306,10 @@ def _validate_node(node: Any, path: str) -> None:
             if isinstance(value, bool) or not isinstance(value, int):
                 if allowed == "int" or value is not None:
                     raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
+            # An id is a row that exists: 0 and negatives are "no image",
+            # "no form" — refused (review A3, #1699; the PR's own promise).
+            elif value is not None and attr.endswith("_id") and value <= 0:
+                raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
         elif allowed in ("str", "str?"):
             if not isinstance(value, str):
                 if allowed == "str" or value is not None:
@@ -284,17 +326,35 @@ def _validate_node(node: Any, path: str) -> None:
         if attr not in attrs or attrs[attr] is None:
             raise UnknownAttribute(f"{node_type}.{attr}")
     if spec.get("text"):
-        if not isinstance(node.get("text", ""), str):
-            raise UnknownBlock(f"Onbekend blok: {node_type}")
-        for mark in node.get("marks") or []:
+        # A text node carries words: the key is there and the string is not
+        # empty (review A3, #1699) — an empty text node renders nothing and
+        # means nothing.
+        text = node.get("text")
+        if not isinstance(text, str) or not text:
+            raise InvalidShape("Tekst zonder inhoud")
+        raw_marks = node.get("marks")
+        if raw_marks is None:
+            marks: list[Any] = []
+        elif isinstance(raw_marks, list):
+            marks = raw_marks
+        else:
+            raise InvalidShape(f"Onjuiste markeringen: {node_type}")
+        for mark in marks:
             if not isinstance(mark, dict):
                 raise UnknownBlock(f"Onbekend blok: {mark}")
             mark_type = mark.get("type")
             if mark_type not in spec.get("marks", ()):  # pragma: no cover - inline marks
                 raise UnknownBlock(f"Onbekend blok: {mark_type}")
-            for attr in mark.get("attrs") or {}:
+            mark_attrs = mark.get("attrs") or {}
+            for attr in mark_attrs:
                 if attr not in MARK_ATTRS.get(str(mark_type), {}):
                     raise UnknownAttribute(f"{mark_type}.{attr}")
+            # A link without her target renders `<a href="">` — nothing;
+            # the mark's attributes are typed, like every node's (A3).
+            for attr, allowed_kind in MARK_ATTRS.get(str(mark_type), {}).items():
+                value = mark_attrs.get(attr)
+                if allowed_kind == "str" and (not isinstance(value, str) or not value):
+                    raise UnknownAttribute(f"{mark_type}.{attr}={value!r}")
     elif isinstance(node.get("text"), str):
         # A flattened text node (a paragraph with a "text" key) is the
         # mistake a hand-rolled client makes; refuse it as a place, not a
@@ -307,7 +367,13 @@ def _validate_node(node: Any, path: str) -> None:
     # checked FIRST — an unknown block keeps her pinned message, whatever
     # her position (the JSON door, test 18).
     rule = _content_rule(node_type)
-    children = node.get("content") or []
+    raw_children = node.get("content")
+    if raw_children is None:
+        children: list[Any] = []
+    elif isinstance(raw_children, list):
+        children = raw_children
+    else:
+        raise InvalidShape(f"Onjuiste inhoud: {node_type}")
     if rule is None:
         if children:
             raise InvalidShape(f"Onjuiste plaats: onder {node_type}")
@@ -316,7 +382,9 @@ def _validate_node(node: Any, path: str) -> None:
     for child in children:
         child_type = child.get("type") if isinstance(child, dict) else None
         if child_type not in NODES:
-            raise UnknownBlock(f"Onbekend blok: {child_type}")
+            if isinstance(child, dict):
+                raise UnknownBlock(f"Onbekend blok: {child_type}")
+            raise UnknownBlock(f"Onbekend blok: {type(child).__name__}")
         if child_type not in allowed_children:
             raise InvalidShape(f"Onjuiste plaats: {child_type} onder {node_type}")
         _validate_node(child, f"{path}/{node_type}")
@@ -363,7 +431,9 @@ def schema_for(set_name: str) -> dict[str, Any]:
             {"level": level, "label": label}
             for level, label in zip(
                 BLOCK_SETS[set_name]["headings"],
-                ("Kop", "Subkop", "Kleine kop"),
+                # UI copy behind `_()` — a translator owns these (review C,
+                # #1699), like the toolbar's words.
+                (_("Kop"), _("Subkop"), _("Kleine kop")),
                 strict=False,
             )
         ],

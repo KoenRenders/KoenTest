@@ -41,8 +41,10 @@
   }
 
   /* The figure atom: the block the set offers, in the shape the server's
-     schema knows (media_id, placement, caption). No image yet — slice 3. */
-  function figureNode(RaakTiptap) {
+     schema knows (media_id, placement, caption). No image yet — slice 3.
+     Her word comes from the configuration (the set's own label, `_()` on
+     the server), like every word the editor shows (review C, #1699). */
+  function figureNode(RaakTiptap, label) {
     return RaakTiptap.Node.create({
       name: "figure",
       group: "block",
@@ -56,12 +58,12 @@
         };
       },
       parseHTML: function () {
-        return [{ tag: "figure[data-figure]" }];
+        return [{ tag: "figure[data-document-figure]" }];
       },
       renderHTML: function (props) {
-        var attrs = { "data-figure": "" };
+        var attrs = { "data-document-figure": "" };
         var caption = props.node.attrs.caption || props.node.attrs.alt || "";
-        return ["figure", attrs, "Afbeelding" + (caption ? ": " + caption : "")];
+        return ["figure", attrs, label + (caption ? ": " + caption : "")];
       },
     });
   }
@@ -200,7 +202,9 @@
     try {
       config = JSON.parse(mount.dataset.config || "{}");
     } catch (error) {
-      mount.textContent = "De editor-configuratie is geen JSON.";
+      /* Developer copy, not the author's: a broken configuration is a
+         bug in the screen that rendered it, so English (review C, #1699). */
+      mount.textContent = "The editor configuration is not valid JSON.";
       return;
     }
     var input = document.getElementById(mount.dataset.input);
@@ -215,13 +219,27 @@
         link: (config.marks || []).indexOf("link") !== -1,
         bulletList: (config.lists || []).indexOf("bulletList") !== -1,
         orderedList: (config.lists || []).indexOf("orderedList") !== -1,
+        /* Off, so the editor cannot write what the server refuses (review
+           B1, #1699): the page set has no quote, code, code block, rule or
+           underline — a typed or pasted one would become a document the
+           schema refuses with "Onbekend blok". They come back when a set
+           offers them. */
+        blockquote: false,
+        code: false,
+        codeBlock: false,
+        horizontalRule: false,
+        underline: false,
       }),
     ];
     if ((config.insert || []).indexOf("table") !== -1) {
       extensions.push(RaakTiptap.TableKit.configure({ table: { resizable: false } }));
     }
+    var figureLabel = "";
+    (config.toolbar.insert || []).forEach(function (item) {
+      if (item.id === "figure") figureLabel = item.label;
+    });
     if ((config.insert || []).indexOf("figure") !== -1) {
-      extensions.push(figureNode(RaakTiptap));
+      extensions.push(figureNode(RaakTiptap, figureLabel));
     }
 
     var editor = new RaakTiptap.Editor({

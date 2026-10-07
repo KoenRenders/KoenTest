@@ -127,13 +127,13 @@
      precies één keer per sessie — met hx-boost zelfs goedkoper dan per pagina. #}
   <link rel="stylesheet" href="{{ statisch('vendor/trix.css') }}">
   <script src="{{ statisch('vendor/trix.min.js') }}" defer></script>
-  {# De document-editor (CR-17 #1671, snede 2): TipTap, in de schil geladen om
-     dezelfde reden als Trix hierboven (#634) — htmx voert scripts in ingeswapte
-     inhoud uit, en een tweede keer initialiseren is zinloos werk. De bundel is
-     vendored en gepind (scripts/vendor-manifest.txt); de editor bouwt uit de
-     configuratie van het scherm (C6 3: de enige werkbalk is die van de macro
-     en haar JavaScript). Vanaf snede 3 vervangt ze Trix op het paginascherm;
-     tot die tijd staat ze op de kitpagina. #}
+  {# The document editor (CR-17 #1671, slice 2): TipTap, loaded in the shell
+     for the same reason as Trix above (#634) — htmx executes scripts in
+     swapped content, and initialising a second time is wasted work. The
+     bundle is vendored and pinned (scripts/vendor-manifest.txt); the editor
+     builds from the screen's configuration (C6 3: the one toolbar is the
+     macro's and her JavaScript). From slice 3 she replaces Trix on the page
+     screen; until then she stands on the kit page. #}
   <link rel="stylesheet" href="{{ statisch('vendor/tiptap-3.31.4.css') }}">
   <script src="{{ statisch('vendor/tiptap-3.31.4.min.js') }}" defer></script>
   <script src="{{ statisch('document-editor.js') }}" defer></script>

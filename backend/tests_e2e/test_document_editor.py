@@ -11,6 +11,7 @@ the input's JSON, and the page's width at 390 px (AC6's first half —
 saving arrives with the page screen).
 """
 
+import json
 import os
 import sys
 
@@ -51,7 +52,7 @@ _EDITOR = """() => { const editor = document.querySelector('#ds-document');
   return {headings: [...tip.querySelectorAll('h1,h2,h3')].map(h => h.tagName),
           lists: tip.querySelectorAll('ul,ol').length,
           tables: tip.querySelectorAll('table').length,
-          figures: tip.querySelectorAll('figure[data-figure]').length,
+          figures: tip.querySelectorAll('figure[data-document-figure]').length,
           text: tip.innerText.trim(),
           json: input ? input.value : null,
           page: [document.documentElement.scrollWidth, innerWidth]}; }"""
@@ -130,6 +131,87 @@ def test_inserting_a_block_and_typing_keeps_the_input_in_step(setup):
         assert e["tables"] == before + 1
         assert "Meettekst" in e["json"], "the typed word is not in the input's JSON"
         assert "Meettekst" in e["text"]
+        assert page.errors == [], f"the editor throws: {page.errors}"
+    finally:
+        page.close()
+
+
+def test_everything_the_editor_writes_validates(setup):
+    """B1 of the review (#1699): every node and mark the CONFIGURED editor
+    can produce is one `validate_document` accepts — measured by really
+    writing them in the browser and feeding the emitted JSON to the
+    server's own gate.
+
+    The table is excluded until slice 3's save adapter maps her attributes
+    (colspan, align — named in the PR); the quote, code, code block, rule
+    and underline are switched OFF, so their shortcuts write plain text
+    instead of a block the server refuses."""
+    b, session = setup
+    page = b.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
+    page.errors = []
+    page.on("pageerror", lambda e: page.errors.append(str(e)))
+    page.on("dialog", lambda d: d.accept("https://voorbeeld.test"))
+    try:
+        login_met_sessie(page, session)
+        page.goto("/admin/design-system")
+        pagina_klaar(page)
+        page.wait_for_selector(f"{EDITOR} .tiptap")
+
+        # The caret at the document's end, so what is typed lands after the
+        # demo's blocks — and every node STAYS in the document (a toggle
+        # that is switched off again would leave the emission and prove
+        # nothing about what the editor can write).
+        page.locator(f"{EDITOR} .tiptap").click()
+        page.keyboard.press("Control+End")
+        page.locator(f"{EDITOR} .de-btn", has_text="Kop").first.click()
+        page.keyboard.type("Kopregel")
+        page.keyboard.press("Enter")
+        page.keyboard.type("Een ")
+        for aria, word in (("Vet", "vet"), ("Cursief", "cursief"), ("Doorgehaald", "doorgehaald")):
+            page.locator(f"{EDITOR} button[aria-label='{aria}']").click()
+            page.keyboard.type(word)
+            page.locator(f"{EDITOR} button[aria-label='{aria}']").click()
+        page.keyboard.type(" en ")
+        page.locator(f"{EDITOR} .de-btn", has_text="Link").first.click()
+        page.keyboard.type("een link")
+        page.keyboard.press("Shift+Enter")
+        page.keyboard.type("na de harde return")
+        page.keyboard.press("Enter")
+        for aria, word in (("Lijst", "punt"), ("Genummerde lijst", "eerst")):
+            page.locator(f"{EDITOR} button[aria-label='{aria}']").click()
+            page.keyboard.type(word)
+            page.keyboard.press("Enter")
+            page.keyboard.type(word)
+            # An empty item leaves the list, so she stays behind whole.
+            page.keyboard.press("Enter")
+        # The switched-off five: their shortcut writes plain text now.
+        page.keyboard.type("> blokcitaat")
+
+        emitted = page.evaluate(
+            "() => document.getElementById("
+            "document.querySelector('[data-document-editor]').dataset.input).value"
+        )
+        print("MEASURE document editor emitted", emitted[:400])
+        from app.domains.cms.schema import UnknownAttribute, validate_document
+
+        document = json.loads(emitted)
+        assert "blockquote" not in emitted, "a quote block was written after all"
+
+        # The one declared gap: the demo's table, round-tripped through
+        # TipTap, carries her own cell attributes (colspan, align — the
+        # slice-3 adapter, named in the PR). Everything ELSE the editor
+        # wrote must validate: the refusal, if any, names exactly a table
+        # attribute, and the same document without her tables passes.
+        refusal = None
+        try:
+            validate_document(document)
+        except UnknownAttribute as error:
+            refusal = str(error)
+        assert refusal is None or "table" in refusal, f"an unexpected refusal: {refusal}"
+
+        stripped = json.loads(emitted)
+        stripped["content"] = [b for b in stripped["content"] if b.get("type") != "table"]
+        validate_document(stripped)
         assert page.errors == [], f"the editor throws: {page.errors}"
     finally:
         page.close()

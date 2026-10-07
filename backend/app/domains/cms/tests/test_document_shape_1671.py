@@ -205,3 +205,107 @@ def test_a_full_page_document_validates():
             },
         )
     )
+
+
+# ── The first review of the PR (#1699): refused with a name, never a crash ────
+
+
+def _par_words(node: dict) -> dict:
+    return {"type": "paragraph", "content": [node]}
+
+
+def test_attributes_that_are_not_a_map_are_refused():
+    """A2 of the review: `attrs` as a string or a list crashed the validator
+    (`AttributeError` on `.items()`) on 1c8473ea. A malformed document is
+    refused with a name — the node's — never an exception."""
+    for attrs in ("vet", ["vet"], 5):
+        with pytest.raises(InvalidShape, match="paragraph"):
+            validate_document({"type": "doc", "content": [{"type": "paragraph", "attrs": attrs}]})
+
+
+def test_content_that_is_not_a_list_is_refused():
+    """A2: `content` as a number raised a TypeError on 1c8473ea. Refused as
+    a shape, named after the node that holds it."""
+    with pytest.raises(InvalidShape, match="doc"):
+        validate_document({"type": "doc", "content": 5})
+
+
+def test_a_deeply_nested_document_is_refused_not_recursed_to_death():
+    """A2: a list nested 2000 deep exhausted the stack (RecursionError) on
+    1c8473ea. The position check refuses her early; the depth cap is the
+    backstop for a future content expression that allows deeper nesting.
+    What is measured: a named refusal, quickly, never a crash."""
+    deep = {"type": "paragraph"}
+    for _ in range(2000):
+        deep = {"type": "paragraph", "content": [deep]}
+    with pytest.raises((UnknownBlock, UnknownAttribute, InvalidShape)):
+        validate_document({"type": "doc", "content": [deep]})
+
+
+def test_a_link_without_her_target_is_refused():
+    """A3: a link whose href is a number, or missing, validated on 1c8473ea
+    and rendered `<a href="">` — nothing. The mark's attributes are typed
+    like every node's."""
+    with pytest.raises(UnknownAttribute, match="link.href"):
+        validate_document(
+            _doc(_par_words({"type": "text", "text": "link", "marks": [{"type": "link"}]}))
+        )
+    with pytest.raises(UnknownAttribute, match="link.href"):
+        validate_document(
+            _doc(
+                _par_words(
+                    {
+                        "type": "text",
+                        "text": "link",
+                        "marks": [{"type": "link", "attrs": {"href": 5}}],
+                    }
+                )
+            )
+        )
+
+
+def test_a_text_node_without_words_is_refused():
+    """A3: a text node without a `text` key, or with an empty one, validated
+    on 1c8473ea. Text carries words; nothing else is text. She sits inside
+    her paragraph here — the place check would catch her under the doc
+    before her own shape could speak."""
+    for text_node in ({"type": "text"}, {"type": "text", "text": ""}):
+        with pytest.raises(InvalidShape, match="inhoud"):
+            validate_document(
+                {"type": "doc", "content": [{"type": "paragraph", "content": [text_node]}]}
+            )
+
+
+def test_a_root_that_is_no_document_is_refused():
+    """A3: a paragraph (or a text node) as the root validated on 1c8473ea.
+    The stored shape is a document; a client that posts a bare node is
+    refused before anything reads a child."""
+    with pytest.raises(InvalidShape, match="wortel"):
+        validate_document(_par("los"))
+
+
+def test_an_id_of_nothing_is_refused():
+    """A3: `figure.media_id` 0 and −1 validated on 1c8473ea, while the PR
+    and the editor's insert promised the server refuses a figure without
+    her image. An id is a row that exists; 0 and negatives are "nothing"."""
+    for media_id in (0, -1):
+        with pytest.raises(UnknownAttribute, match="figure.media_id"):
+            validate_document(_doc({"type": "figure", "attrs": {"media_id": media_id}}))
+    with pytest.raises(UnknownAttribute, match="form.form_id"):
+        validate_document(_doc({"type": "form", "attrs": {"form_id": 0}}))
+
+
+def test_an_ordered_list_with_her_own_start_validates():
+    """The B1 test of the review (#1699) measured what the editor really
+    writes: TipTap's orderedList carries `start` (and a `type` she sets to
+    null). The schema knows them — an editor emission the server refuses
+    would make the B1 promise a lie for anything but the declared table."""
+    validate_document(
+        _doc(
+            {
+                "type": "orderedList",
+                "attrs": {"start": 1, "type": None},
+                "content": [{"type": "listItem", "content": [_par("eerst")]}],
+            }
+        )
+    )

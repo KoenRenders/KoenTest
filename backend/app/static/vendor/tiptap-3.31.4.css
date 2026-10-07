@@ -112,7 +112,7 @@
    until then an inserted figure carries no image and shows as the kit's
    dashed placeholder box with her alt text, so the author sees a block,
    not a gap. */
-.document-editor .tiptap figure[data-figure] {
+.document-editor .tiptap figure[data-document-figure] {
   border: 1px dashed var(--line);
   border-radius: 0.5rem;
   padding: 1rem;

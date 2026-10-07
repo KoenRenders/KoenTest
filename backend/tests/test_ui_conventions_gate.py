@@ -1399,27 +1399,49 @@ def test_assets_dragen_een_inhoudsversie():
     De CSS had haar hash sinds #481; `stt.js`, `tts.js` en de drie in `vendor/`
     stonden er kaal bij. Gevolg, gemeten bij #772: de fix uit #751 stond een uur op
     HDEV terwijl de browser de JavaScript van de dag ervóór draaide, en drie
-    symptomen wezen naar een bug die al gerepareerd was.
+    symptomen weken naar een bug die al gerepareerd was.
 
     De regel dekt bewust alleen `src=` en de stylesheet-`href=`. Een `<a href>` naar
     een statisch document (de formaatgids) is geen asset die de pagina uitvoert; die
     mag rechtstreeks.
 
+    Sinds CR-17 (#1699, C6 14) verbreed: élke scriptverwijzing gaat door
+    `statisch()` — ook een die helemaal niet op `/static/` wijst. Een CDN-script
+    (de editor's bundel zou er één kunnen zijn) draait code van buiten de
+    configuratie en valt buiten elke inhoudshash: zelfde regel, zelfde poort, om
+    één ding te bewaken in één test. De ene uitzondering is de publieke
+    analytics-include (`_umami.html`, #176): haar adres is de tenantinstelling,
+    ze staat alleen op de publieke schil, en geen beheerscherm deelt een pagina
+    met haar. Bewezen met een weggooisjabloon met een CDN-src: de test viel om
+    met dat adres.
+
     Kapotgemaakt om te controleren dat deze test rood kan worden: één script in
     `site_base.html` terug op `src="/static/stt.js"` → de test valt om met dat pad.
     """
     fouten = []
+    gevonden = 0
     for pad in TEMPLATES:
+        if pad.name == "_umami.html":
+            continue
         for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
             asset = 'src="/static/' in regel or (
                 "stylesheet" in regel and 'href="/static/' in regel
             )
+            if "statisch(" not in regel and "<script" in regel and "src=" in regel:
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:90]}")
+                continue
             if asset:
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:90]}")
+            if "<script" in regel and "src=" in regel and "statisch(" in regel:
+                gevonden += 1
     assert not fouten, (
         "Laad de asset via `statisch('<naam>')`, zodat de URL een inhoudshash "
         "draagt:\n  " + "\n  ".join(fouten)
     )
+    # Een poort die niets vindt bewijst niets ("hij kijkt nergens", #1699):
+    # de schillen laden minstens deze twaalf scripts — zakt dat getal weg,
+    # dan kijkt de poort niet meer waar ze op keek.
+    assert gevonden >= 12, f"de poort vond maar {gevonden} scriptreferenties"
 
 
 def test_de_hamburger_is_een_icoon_en_geen_teken():
