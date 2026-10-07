@@ -157,6 +157,7 @@ Nothing was handed over; the design rests on the code, measured on master `457e8
 | R24 | A mail to the old address when the e-mail address changes. | Won't | Koen, 7 Oct 2026 (Q21) | whoever changes it could sign in with the old address; inside a household the board keeps the composition right |
 | R25 | From Personen the board deletes a person, after a confirmation that says what happens. A person in a household is first taken out of it by the household's own rules, in the same action — with its history row — and then deleted; the main member is refused: "Een gezin heeft een hoofdlid nodig. Duid eerst een ander hoofdlid aan in het gezin." His registrations stay, with the name and address written on them. | Must *(proposed)* | Koen, 7 Oct 2026 (Q29, Q30) | the household's address hangs on the main member's person |
 | R26 | For a member, the landing page shows the same membership card as Mijn gezin — valid until, a renewal that runs, or "Lidmaatschap vernieuwen" when renewing is possible. Below it, the latest registration — and later the latest purchase — each only when there is one; with nothing to show, no empty card. | Must *(proposed)* | Koen, 7 Oct 2026 (Q33) | "exactly the same card" |
+| R27 | A registration still to be paid by bank transfer shows how to pay it — amount, IBAN, beneficiary, structured communication — in exactly the layout Mijn gezin uses for a renewal paid by transfer; wherever it appears: the latest registration on the landing page and Mijn inschrijvingen. | Must *(proposed)* | Koen, 7 Oct 2026 (Q34) | "exactly the same layout" |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -472,6 +473,8 @@ None: every question is answered (Q&A log).
 | 7 Oct 2026 | A rename-only phase 1 before the change: the Dutch names in what this change rewrites become English (B4) (Q31). | Koen |
 | 7 Oct 2026 | The landing page is called "Mijn" + the tenant's display name: *Mijn Raak Millegem* (Q32). | Koen |
 | 7 Oct 2026 | The membership card of Mijn gezin is the one on the landing page too: one partial, one view-model, two places (Q33). | Koen |
+| 7 Oct 2026 | The transfer instructions are one partial, the inset of `_renewal_running.html` (#1641), used for a renewal and for a registration alike (Q34). | Koen |
+| 7 Oct 2026 | No heading above the account menu; its first item is the landing page, which carries the same title (Q35). | Koen |
 | 7 Oct 2026 | Q1–Q9 answered: guest link by secret token; mobile required as today; no lookup or warning on a typed address (the standing hint stays, as decided in CR-11); an account exists after the code; an account that becomes a member keeps its person; accounts per tenant; a new address is confirmed and unique except inside the household; existing duplicates measured first, Koen decides; for registrations only the account is new. | Koen |
 
 ---
@@ -550,13 +553,13 @@ The five functions leave `DUTCH_IDENTIFIERS` (`tests/rules_baseline.py`), as the
 
 ### activities
 - **Screens:** new `/mijn/inschrijvingen` — one row per registration: activity, date, component, amount, payment state badge; newest first; empty state "Je hebt nog geen inschrijvingen."; `member_items` gains `("/mijn/inschrijvingen", "Mijn inschrijvingen")`. `_member_nudge.html` gets the words of A3.
-- **Code:** `registrations_for_persons(db, person_ids)` in the facade; payment state through `payment.api.registration_payment_states`.
+- **Code:** the transfer instructions move out of `membership/templates/_renewal_running.html` (the `ui.inset` "… betaal via overschrijving:" with Bedrag, IBAN, Begunstigde, Mededeling (OGM)) into one partial `_transfer_due.html` with a `TransferDue` view-model (amount, iban, beneficiary, ogm, heading), included by the renewal and by every registration still to be paid by transfer (R27); the heading is the caller's ("Inschrijving geregistreerd — betaal via overschrijving:"). `registrations_for_persons(db, person_ids)` in the facade; payment state through `payment.api.registration_payment_states`.
 - **Database:** none.
 - **Mail:** the confirmation mail of a registration with a person links to `/mijn/inschrijvingen`; a guest's has no link.
 - **Tests:** T10, T12, T13.
 
 ### app/ui
-- **Screens:** new `account_ui.py` with `/mijn` (Mijn Raak Millegem): greeting with the first name; for a member the membership card from `membership.api` (R26); the latest registration (and later purchase) only when there is one; the links to each item at the bottom; the menu without a heading, its first item the landing page itself. Desktop: menu on the left, content on the right; phone: no menu on the page, the account menu in the drawer (`site_base.html:241-246`).
+- **Screens:** new `account_ui.py` with `/mijn` (Mijn Raak Millegem): greeting with the first name; for a member the membership card from `membership.api` (R26); the latest registration (and later purchase) only when there is one, with the transfer instructions when it is still to be paid by transfer (R27); the links to each item at the bottom; the menu without a heading, its first item the landing page itself. Desktop: menu on the left, content on the right; phone: no menu on the page, the account menu in the drawer (`site_base.html:241-246`).
 - **Code:** `account_nav(gebruiker)` — "Mijn gegevens" plus `_public_nav("member_items")` filtered by what applies (Mijn gezin only with a household); `_site_account.html` shows it for every signed-in person, not only `is_member`. The title is "Mijn " + `site_name` (`tenant_display_name`, `ui/__init__.py:1291`) — *Mijn Raak Millegem* (Q32); it may wrap, never truncate, at 390 px.
 - **Tests:** T9, T14.
 
@@ -623,6 +626,7 @@ None: no view reads `contact_details`; `confirmed_at` is not exposed. The report
 | T14 | e2e | at 390 px the drawer's account menu reaches the three pages; at desktop the left menu |
 | T15 | route | a name changed on Mijn gegevens shows in Mijn gezin, and back |
 | T16 | route | members-only refuses an account; an address in several households still gets the board notice |
+| T19 | route | a registration to be paid by transfer shows the same `data-transfer-due` block as a renewal, with its own amount and OGM; a paid one shows none |
 | T18 | route | the landing page: a member sees the same membership card as Mijn gezin (one partial, asserted by both pages rendering the same `data-membership-status` block); an account sees none; no registration → no "Je laatste inschrijving" card |
 | T17 | route | Personen: only ADMIN/OPERATOR; the filter; deleting a person without household; deleting a household person detaches him with a history row and deletes him; the main member is refused with the message of R25; after delete the person cannot sign in and his registrations keep their contact fields |
 
@@ -720,6 +724,8 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | Q31 | 7 Oct 2026 | Will we regret the Dutch names beside the new English ones? (Koen) | Rename them in CR-22, as a phase before the change. (Koen) |
 | Q32 | 7 Oct 2026 | (Koen, looking at the concepts) | For Raak Millegem it reads "Mijn Raak Millegem". (Koen) |
 | Q33 | 7 Oct 2026 | A membership card on the landing page for a member? (Claude) | Yes — exactly the card Mijn gezin already has. (Koen) |
+| Q34 | 7 Oct 2026 | (Koen) When paid by transfer, show how to transfer, in exactly the layout made yesterday. | One partial with the inset of Mijn gezin's renewal; registrations use it too. (Claude, to be confirmed by Koen that this is the layout meant) |
+| Q35 | 7 Oct 2026 | No heading above the menu; "Mijn Raak Millegem" as first item and page title? (Claude) | Yes. (Koen) |
 | Q27 | 7 Oct 2026 | For a member, may name and e-mail be edited on the own page as well as in "Mijn gezin" (a), or read-only there (b)? (Claude) | These are attributes of a person, so edit functions on a person are needed anyway; in a household the repeating group is a natural person, including its relation to the household. (Koen) — read as (a) with one person component. |
 
 ## Non-goals — deliberately outside this change
