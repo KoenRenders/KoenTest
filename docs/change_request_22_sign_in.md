@@ -90,11 +90,12 @@ Signing in today sends a code to an e-mail address. That only works if the addre
 | R4 | An e-mail address belongs to one person outside a household; whoever creates an account with an address that already exists is told "this account already exists" and gets a sign-in link to that address, never a second person. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R32) | |
 | R5 | A guest registers or orders without an account, giving name, e-mail address and mobile — the same three required fields a registration asks today — and pays the regular price. Whatever address he types, the portal neither blocks him nor says the address is known; the standing hint that whoever has an account signs in first stays as it is. | Must *(proposed)* | Koen, 7 Oct 2026 (Q2, Q3) | today's registration without signing in is already this; only the account is new (Q9) |
 | R6 | The confirmation mail of a member or an account carries a link that signs him in and brings him to his registration or order. A guest gets no such link: without an account, nothing can be looked up or changed afterwards; the confirmation mail itself says what was registered or ordered. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R26; Q1, Q10) | the guest token of Q1 is withdrawn (Q10) |
-| R7 | A signed-in person can change his e-mail address himself; the new address is confirmed with a code first and may not belong to another person, except inside his own household. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R29; Q7) | also where a member changes addresses in "Mijn gezin" today |
-| R8 | A signed-in person sees his history; for a member it belongs to the household, otherwise to the person. | Must *(proposed)* | Koen, 6 Oct 2026 (CR-21 R30) | |
+| R7 | A signed-in person can change his e-mail address himself; a new or changed address only becomes active once the code sent to it is entered — until then it shows as waiting for confirmation — and it is refused when another person already uses it, except inside his own household. The same holds where a member changes the addresses of his household in "Mijn gezin". | Must *(proposed)* | Koen, 7 Oct 2026 (CR-21 R29; Q7, Q13) | |
+| R8 | A signed-in person sees his history: his registrations — and later his orders — each with its payment status; no separate list of payments. For a member it belongs to the household, otherwise to the person. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R30; Q11) | |
 | R9 | A person with an account who becomes a member through "Lid worden" becomes the person in the household; no second person is made. | Must *(proposed)* | Koen, 7 Oct 2026 (Q5) | |
 | R10 | Accounts are per tenant: someone who buys at Raak and at a company on the platform has two accounts with the same address. | Must *(proposed)* | Koen, 7 Oct 2026 (Q6) | "so I saw it too" |
 | R11 | Before the rule of R4 is enforced, today's data is measured for addresses shared outside a household; Koen decides each case. Inside a household it may, outside it may not. | Must *(proposed)* | Koen, 7 Oct 2026 (Q8) | measured read-only by the master CLI |
+| R12 | Cancelling or changing a registration oneself. | Won't | Koen, 7 Oct 2026 (Q12) | out of scope; whoever wants it makes an account or becomes a member — and even then it is not part of this change |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -286,6 +287,9 @@ and deliberately not done — recorded so it is not asked again).
 | 7 Oct 2026 | Lifted out of CR-21: built first on the activity registrations, then used by the webshop. | Koen |
 | 7 Oct 2026 | Three ways: household member, account, guest; a guest gives name, e-mail address and mobile. | Koen |
 | 7 Oct 2026 | Keep the guest simple: no account, so nothing can be changed afterwards; no guest link. **Replaces** Q1 (Q10). | Koen |
+| 7 Oct 2026 | History shows registrations (later orders) with their payment status, no list of payments (Q11). | Koen |
+| 7 Oct 2026 | Cancelling a registration oneself is out of scope (Q12). | Koen |
+| 7 Oct 2026 | A new or changed address in "Mijn gezin" or "Mijn account" is active only after its code; refused when used outside the household (Q13). | Koen |
 | 7 Oct 2026 | Q1–Q9 answered: guest link by secret token; mobile required as today; no lookup or warning on a typed address (the standing hint stays, as decided in CR-11); an account exists after the code; an account that becomes a member keeps its person; accounts per tenant; a new address is confirmed and unique except inside the household; existing duplicates measured first, Koen decides; for registrations only the account is new. | Koen |
 
 ---
@@ -456,6 +460,9 @@ and deliberately not done — recorded so it is not asked again).
 | Q8 | 7 Oct 2026 | Existing duplicates outside a household? (Claude) | Measure first, Koen decides; inside a household it may, outside not. (Koen) |
 | Q9 | 7 Oct 2026 | Does anything of today's registration disappear? (Claude) | No; only the account is added. (Koen) |
 | Q10 | 7 Oct 2026 | (Koen came back on Q1) A guest link to view the registration, valid until the activity is over? | Keep it simple: no account, nothing changed afterwards — no guest link. (Koen) |
+| Q11 | 7 Oct 2026 | What does the history show? (Claude) | Registrations and, later, orders, each with payment status; no separate payment list. (Koen) |
+| Q12 | 7 Oct 2026 | May a guest cancel his registration through a link? (Claude) | Out of scope; then one makes an account or becomes a member. (Koen) |
+| Q13 | 7 Oct 2026 | Must a new address in "Mijn gezin" be confirmed too? (Claude) | Yes. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
