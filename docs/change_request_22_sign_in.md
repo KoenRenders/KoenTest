@@ -112,6 +112,7 @@ What changes, one line each:
 | hint above the registration form | *"Heb je een account of ben je lid? Log je eerst aan."* |
 | a pending address | *wacht op bevestiging* |
 | screen after asking a code or making an account | *"We stuurden een code naar dit adres."* — the same in every case |
+| field labels on every new form and on Personen | **Voornaam** · **Achternaam** · **E-mail** · **Mobiel** — the words Koen decided in #1692 on 7 October 2026 |
 
 ## A4. Benefits — what the change earns
 
