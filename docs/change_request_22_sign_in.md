@@ -476,6 +476,7 @@ None: every question is answered (Q&A log).
 | 7 Oct 2026 | The membership card of Mijn gezin is the one on the landing page too: one partial, one view-model, two places (Q33). | Koen |
 | 7 Oct 2026 | The transfer instructions are one partial, the inset of `_renewal_running.html` (#1641), used for a renewal and for a registration alike (Q34). | Koen |
 | 7 Oct 2026 | No heading above the account menu; its first item is the landing page, which carries the same title (Q35). | Koen |
+| 7 Oct 2026 | Every confirmation mail carries a link and a code for the same token, as the sign-in mail does; either confirms (Q36). | Koen |
 | 7 Oct 2026 | Q1–Q9 answered: guest link by secret token; mobile required as today; no lookup or warning on a typed address (the standing hint stays, as decided in CR-11); an account exists after the code; an account that becomes a member keeps its person; accounts per tenant; a new address is confirmed and unique except inside the household; existing duplicates measured first, Koen decides; for registrations only the account is new. | Koen |
 
 ---
@@ -536,7 +537,7 @@ The five functions leave `DUTCH_IDENTIFIERS` (`tests/rules_baseline.py`), as the
 - **Screens:** `/aanmelden` gets the link **Account aanmaken**; new `/account-aanmaken` (first name, last name, e-mail, mobile — each through the kit's `ui.field(..., required=True)`: the red asterisk on the label, the error under the field with the border in the danger tone, no "Verplicht veld" legend, `docs/design-system.md` §K4; `btn_primary`), posting to the same code step as sign-in (`_aanmelden_code.html`), whose message becomes "We stuurden een code naar dit adres." Judged at 390 px.
 - **Code:** `login.start_login(db, email, purpose=SIGN_IN)` — also sends when `login_person_for_email` returns an account; `start_account(db, data)` — if the address is free, a token with purpose CREATE_ACCOUNT and the four fields in `payload`; if not, a SIGN_IN token and the mail "je hebt al een account"; the screen is the same. `consume_code(db, email, code)` dispatches on purpose: SIGN_IN sets the session; CREATE_ACCOUNT calls `mdm.api.create_account_person(...)` then sets the session; CONFIRM_ADDRESS calls `mdm.api.confirm_email(contact_id)`. `member_identity.login_person_for_email`: confirmed EMAIL rows only; one household → its main member (as today); exactly one person and no household → that person; otherwise None ("multiple" as today). `service.landing_for`: board users as today; everyone else `/mijn`. The writer of `login_tokens` is `auth.login` only.
 - **Database:** `auth.login_tokens.purpose` `String(20)` NOT NULL default `SIGN_IN`, FK `auth.login_purpose_codes.code`; `payload` JSON NULL. New code list `auth.login_purpose_codes` + labels (pattern of migration 154): `SIGN_IN`, `CREATE_ACCOUNT`, `CONFIRM_ADDRESS`. Additive.
-- **Templates and mail:** `sign_in.html`, `_sign_in_email.html` (link), new `create_account.html`; mails in `mail/service.py`: sign-in (unchanged), "bevestig je account" (code), "je hebt al een account" (code), "bevestig je e-mailadres" (code).
+- **Templates and mail:** `sign_in.html`, `_sign_in_email.html` (link), new `create_account.html`; mails in `mail/service.py`: sign-in (unchanged), "bevestig je account", "je hebt al een account", "bevestig je e-mailadres" — each, like the sign-in mail today (`send_magic_link`, `mail/service.py:431`), with **a link and a code for the same token**: either confirms (Q36). The link is consumed by the route that consumes a sign-in link today (`/login/verify`, `auth/ui.py:147`), dispatching on the token's purpose; after it the person lands where the code step would have sent him.
 - **Tests:** T1–T5, T9, T16.
 
 ### mdm
@@ -682,9 +683,9 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 |---|---|---|
 | `/aanmelden` with **Account aanmaken** | the sign-in card and the new link | Koen, 7 Oct 2026 — approved |
 | `/account-aanmaken` | four fields with the required asterisk, the button, the refusal under a field | Koen, 7 Oct 2026 — approved, after asking for the required-field convention |
-| code step | "We stuurden een code naar dit adres." and the code field | — |
-| `/mijn` Mijn Raak, desktop and 390 px | greeting, menu left (desktop), links at the bottom | — |
-| `/mijn/gegevens`, account and member | the person block; for a member the line to Mijn gezin; a pending address | — |
+| code step | "We stuurden een code naar dit adres." and the code field; button Bevestigen (new account) or Inloggen | Koen, 7 Oct 2026 — approved |
+| `/mijn` Mijn Raak, desktop and 390 px | greeting, membership card (member), latest registration with transfer instructions, links at the bottom, menu left without heading (desktop) | Koen, 7 Oct 2026 — approved after Q33–Q35 |
+| `/mijn/gegevens`, account and member | the person block; for a member the line to Mijn gezin; a pending address | Koen, 7 Oct 2026 — approved (described; labels per #1692) |
 | `/mijn/inschrijvingen` | rows with payment badge; the empty state | — |
 | the drawer at 390 px | the account menu with the three items | — |
 | the registration form's hint | the new words | — |
@@ -740,6 +741,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | Q33 | 7 Oct 2026 | A membership card on the landing page for a member? (Claude) | Yes — exactly the card Mijn gezin already has. (Koen) |
 | Q34 | 7 Oct 2026 | (Koen) When paid by transfer, show how to transfer, in exactly the layout made yesterday. | One partial with the inset of Mijn gezin's renewal; registrations use it too. (Claude, to be confirmed by Koen that this is the layout meant) |
 | Q35 | 7 Oct 2026 | No heading above the menu; "Mijn Raak Millegem" as first item and page title? (Claude) | Yes. (Koen) |
+| Q36 | 7 Oct 2026 | Does a new address also get confirmed through the link in the mail? (Koen) | Yes: link and code, one token, as the sign-in mail today. (Claude, on the measured sign-in mail) |
 | Q27 | 7 Oct 2026 | For a member, may name and e-mail be edited on the own page as well as in "Mijn gezin" (a), or read-only there (b)? (Claude) | These are attributes of a person, so edit functions on a person are needed anyway; in a household the repeating group is a natural person, including its relation to the household. (Koen) — read as (a) with one person component. |
 
 ## Non-goals — deliberately outside this change
