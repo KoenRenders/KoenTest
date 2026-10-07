@@ -8,6 +8,10 @@ aangesproken. Soft-ref-patroon (§6): consumenten bewaren waarde-id's
 
 # CR-12: this domain's code lists belong to the public facade, so that another
 # domain reaches an FK target and an enum through one door.
+from app.domains.mdm.change_lines import (  # noqa: F401
+    FieldChange,
+    contact_change,
+)
 from app.domains.mdm.codes import (  # noqa: F401,E402
     CONTACT,
     CONTACT_TYPE,
@@ -291,6 +295,8 @@ __all__ = [
     "organization_circle",
     "email_addresses_of_members",
     "upsert_primary_contact",
+    "FieldChange",
+    "contact_change",
     "add_email_address",
     "apply_email_rows",
     "make_email_primary",
