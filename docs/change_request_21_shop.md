@@ -49,14 +49,14 @@ flowchart LR
 
 *What to see: three people and an e-mail carry the sale; nothing records what was sold or what is left on the shelf.*
 
-| # | Step | Who | Tool | Pain — **to be confirmed by Koen** |
+| # | Step | Who | Tool | Pain — confirmed by Koen, 7 Oct 2026 |
 |---|---|---|---|---|
 | 1 | Ask for a garment in a size | Buyer | word of mouth, message | the buyer cannot see what is available, in which size, at what price |
 | 2 | Bring sizes to try on | Seller | the stock, at home or in storage | depends on one person being available |
 | 3 | Hand over the garment | Seller | — | the stock count is in nobody's system; what is left is known by looking |
 | 4 | Mail the price and Raak's account number, treasurer in copy | Seller | e-mail | written by hand for every sale; the price is whatever the mail says |
 | 5 | Transfer the amount | Buyer | own bank | free-text communication; the transfer has to be matched by eye |
-| 6 | Check the bank account, remind if unpaid | Treasurer | bank, an Excel list | the open sales are kept by hand in an Excel list, apart from the bank and the mails (Koen, 7 Oct 2026) |
+| 6 | Check the bank account, remind if unpaid | Treasurer | bank, an Excel list | the open sales are kept by hand in an Excel list, apart from the bank and the mails |
 
 Not measured yet: how many garments are sold per year, how many are in stock, and what a garment costs.
 
