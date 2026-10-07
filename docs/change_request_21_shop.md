@@ -643,7 +643,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | 3 — Change and self-cancel | change after trying on with recalculation; the buyer cancels on the same page | none expected | none | none | a change short of stock is refused and the order stays as it was; a cancel after a delivery is refused | W11, W17 |
 | 4 — Workbench tasks | the two-step run for an unpaid transfer (Boekhouding, then Verkoop) with its due date and red; the task for a failed or expired online payment; cancelling from the task (R17, R18, R22) | task `due_at`; subject SALES_ORDER | none | the transfer workflow definition seeded per tenant with SHOP; a run started for every order still "Te betalen" by transfer when the phase goes live | a task whose order is paid or cancelled meanwhile closes by itself; a payment confirmed while the run is at Verkoop ends the run | W12, W14–W16, W19 |
 
-**Until phase 4,** open orders are followed in Verkoop's list (filter "Te betalen") instead of on the workbench: the Excel list is already gone, the tasks come last (Koen, 7 October 2026, Q50).
+**Until phase 4,** open orders are followed in Verkoop's list (filter "Te betalen") instead of on the workbench. *Koen asked on 7 October 2026: "Zouden we alles met betrekking tot werkbank-taken als een laatste fase in CR21 kunnen zetten?" — this phasing is Claude's proposal in answer to that question, not yet confirmed by Koen (Q50, B8).*
 
 **Dependencies:** CR-22 (sign-in, built in v2.15) before phase 2; CR-24 part 1 (the rights `product.masterdata` and the webshop roles) before phase 1. **Not** dependent on CR-20: the shop hangs on `tenant_id`, which keeps its ids there, and the buyer is a person, not an organisation.
 
@@ -678,6 +678,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
 | Q39 | Reminding the buyer of an unpaid transfer: a button on Verkoop's task that mails the payment link, or a mail that goes out by itself after some days? **Parked by Koen on 7 October 2026.** | A button on the task: Verkoop already decides per order (Q36), and a mail by itself would also go to a buyer whose transfer Boekhouding has not booked yet. | A button is one action on the task; a mail by itself needs a schedule, a text per tenant and a rule for when it stops. Until decided, Verkoop reminds the buyer outside the portal. |
+| Q50 | Koen asked on 7 October 2026: "Zouden we alles met betrekking tot werkbank-taken als een laatste fase in CR21 kunnen zetten?" Proposed: phase 4 holds every workbench task; until then Verkoop follows open orders in a list filtered on "Te betalen" and cancels from the order page; Boekhouding confirms transfers on the payments screen. Does that list suffice until phase 4? | Yes: the list is part of Verkoop's screen anyway; one CLI-day more. | No: the tasks cannot be the last phase, or a phase 2 ships that nobody can follow up. |
 
 ## B9. Decisions log — dated answers
 
@@ -724,7 +725,6 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | 7 Oct 2026 | `payment` describes a payable through describers that each payable domain registers (name, link, filter label, export kind), instead of a third branch at each reader; a ratchet counts the remaining branches (B7, Q48). | Koen |
 | 7 Oct 2026 | The module SHOP is off by default for every kind of tenant, the association included; it is switched on per tenant (Q49). | Koen |
 | 7 Oct 2026 | "How recent the information is" is Boekhouding's answer on the order itself, with its date, shown on Verkoop's task; no tenant-wide "account last checked", no button (Q47). | Koen |
-| 7 Oct 2026 | Everything about workbench tasks — the two-step run, the due date, the failed-payment task, cancelling from a task — is the last phase (4); until then Verkoop follows open orders in its list of orders, filtered on "Te betalen" (Q50). | Koen |
 | 7 Oct 2026 | A task past its due date only turns red on the workbench; nobody gets a mail about it (Q38). | Koen |
 | 7 Oct 2026 | Cancelling until delivery is a Must; a return after delivery is out of scope and handled by hand: Sales removes the order and books the refund (Q40). | Koen |
 
@@ -943,7 +943,6 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | Q47 | 7 Oct 2026 | What does "how recent the information is" on Verkoop's task show: a tenant-wide "account last checked" derived from Boekhouding's actions, or a button? (Claude) | Koen: "we moeten vermijden dat we te ver gaan". Neither: the task shows Boekhouding's own answer on that order, with its date — the task only reaches Verkoop through that answer. (Claude proposed, Koen agreed) |
 | Q48 | 7 Oct 2026 | Describe an order in `payment` through describers that each payable domain registers, or add a third branch at each of the ≈ 14 readers? (Claude recommended describers) | Agreed: describers. (Koen) |
 | Q49 | 7 Oct 2026 | The module SHOP for a new association: on by default, as every module is today, or off and switched on per tenant? (Claude recommended off) | Off by default. (Koen) |
-| Q50 | 7 Oct 2026 | (Koen) Can everything about workbench tasks be a last phase of CR-21? | Yes: phase 4. Phases 2 and 3 ship with a list of orders filterable on "Te betalen" and cancelling from the order page; Boekhouding confirms transfers on the payments screen as today. (Claude, Koen) |
 
 ## Non-goals — deliberately outside this change
 
