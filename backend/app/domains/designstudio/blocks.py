@@ -213,6 +213,53 @@ QR_MM = 26.0
 QR_BOX = QR_MM + 2
 QR_BLOCK = QR_BOX + 6
 
+#: The site's name under the QR code (#1685; Koen, 7 October 2026: the website
+#: alone, no "Scan voor meer info"). Measured: the code's box is 28 mm with
+#: 8 mm of band to its right, so a line centred under it has 44 mm. At the size
+#: that was asked (24 px on the 1448 px poster = 4.9 mm) "www.example.com" is
+#: already 49 mm — so the name stands WITHOUT "www." (the code carries the
+#: whole address), as large as fits between these two sizes, and over two
+#: lines broken at a dot when one line does not hold it.
+QR_CAPTION_W = 44.0
+QR_CAPTION_MAX = 4.9
+QR_CAPTION_MIN = 3.8
+#: The room under the code for a line of that caption, and the step to a second.
+QR_CAPTION_STEP = 5.0
+
+
+def site_caption(website: str) -> tuple[list[str], float]:
+    """The site's name as it stands under the QR code: its lines and their size.
+
+    One line as large as fits; else the split at a dot whose wider half is the
+    narrowest, as large as fits; and when even that is too wide at the smallest
+    size, those two lines at the smallest size — the overflow check reports it.
+    """
+    name = website.strip()
+    if name.lower().startswith("www."):
+        name = name[4:]
+    if not name:
+        return [], QR_CAPTION_MIN
+
+    def size_for(lines: list[str]) -> float | None:
+        size = QR_CAPTION_MAX
+        while size >= QR_CAPTION_MIN - 1e-6:
+            if all(richtext.text_width(line, size, bold=True) <= QR_CAPTION_W for line in lines):
+                return round(size, 1)
+            size -= 0.1
+        return None
+
+    one = size_for([name])
+    if one is not None:
+        return [name], one
+    splits = [[name[:i], name[i:]] for i, ch in enumerate(name) if ch == "." and 0 < i]
+    if not splits:
+        return [name], QR_CAPTION_MIN
+    best = min(
+        splits,
+        key=lambda halves: max(richtext.text_width(h, QR_CAPTION_MIN, bold=True) for h in halves),
+    )
+    return best, size_for(best) or QR_CAPTION_MIN
+
 
 #: How many lines the date row may take when its line has an end (#1677).
 DATE_ROW_LINES = 4
@@ -803,7 +850,13 @@ def _two_column_highlights(
 
 
 def plan_affiche(
-    content: PosterContent, *, layout: str, width: float, height: float, pal: dict[str, str]
+    content: PosterContent,
+    *,
+    layout: str,
+    width: float,
+    height: float,
+    pal: dict[str, str],
+    has_qr: bool = False,
 ) -> Plan:
     """Round 3 (Koen, 19 September 2026): the title at the top over the full
     width, both lines the same size; the lockup in the band at the bottom
@@ -895,7 +948,11 @@ def plan_affiche(
     col_x = band_x + 7
     text_left = col_x + 8
     qr_left = width - frame - 2 - QR_BOX - 8
-    row_w = qr_left - text_left - 4
+    # #1685: with a QR code the site's name stands under it, in a box wider than
+    # the code (`QR_CAPTION_W`); the rows of the left column end 2 mm before it.
+    caption_left = qr_left + QR_BOX / 2 - QR_CAPTION_W / 2
+    row_w = (caption_left - 2 if has_qr else qr_left - 4) - text_left
+    under_code = bool(has_qr and content.website)
 
     rows: list[dict[str, object]] = []
     if content.contacts:
@@ -975,8 +1032,16 @@ def plan_affiche(
     # icon says what the line is about, not how long it is. The globe is for
     # the other case — an activity you cannot register for — where the band
     # prints the address and not the word.
+    # #1685 (Koen, 7 October 2026) turns that one sentence around, for a poster
+    # with a QR code: the address moved under the code, so the deadline is one
+    # row — "Inschrijven tot en met 1 november", without "via" — and the band is
+    # a row lower. What the sentence was for still holds: the row keeps its
+    # ticket and its accent colour, stands apart from the organisers, and the
+    # poster says where to register through the code and the address under it.
+    # Without a shared deadline the row "Inschrijven via <site>" stays as it
+    # was: it is one row already, and it is what says the word "inschrijven".
     inschrijven = content.registration
-    samen = bool(inschrijven and content.deadline_text and content.website)
+    samen = bool(inschrijven and content.deadline_text and content.website and not under_code)
     if inschrijven and content.deadline_text:
         rows.append(
             {
@@ -989,7 +1054,7 @@ def plan_affiche(
                 "colour": pal["accent"],
             }
         )
-    if content.website:
+    if content.website and not (under_code and (content.deadline_text or not inschrijven)):
         rows.append(
             {
                 "id": "t-website",
@@ -1021,7 +1086,12 @@ def plan_affiche(
 
     # The band never gets shorter than the QR block: a sparse poster with one
     # row used to squeeze the code half out of the band.
-    band_h: float = max(20 + BAND_ROW_STEP + span, QR_BLOCK + 2)
+    # #1685: the band follows its taller column — the rows on the left, or the
+    # code with the site's name under it — and is never lower than it was with
+    # one row (`QR_BLOCK + 2`).
+    caption_lines, caption_size = site_caption(content.website) if under_code else ([], 0.0)
+    qr_column = QR_BOX + QR_CAPTION_STEP * len(caption_lines) + 1
+    band_h: float = max(20 + BAND_ROW_STEP + span, QR_BLOCK + 2, qr_column + 4)
     band_y: float = y1 - band_h - 2
     p.band_y = band_y
     ch = max(band_h + 2, lockup_h + 7)
@@ -1044,6 +1114,8 @@ def plan_affiche(
         # Only a row too long for its width drops below the one size.
         row["size"] = fit_size(str(row["text"]), row_w, float(row["size"]), 4.4, bold=False)  # type: ignore[arg-type]
         p.boxes[str(row["id"])] = row_w
+    for i, _line in enumerate(caption_lines):
+        p.boxes[f"t-qr-site-{i}"] = QR_CAPTION_W
     p.band = {
         "path": rough_band(band_x, band_y, x1 - 2 - band_x, band_h, seed=content.seed + 5, jag=2.5),
         "y": band_y,
@@ -1055,8 +1127,12 @@ def plan_affiche(
         "row_step": BAND_ROW_STEP,
         "cont_step": BAND_CONT_STEP,
         "qr_x": qr_left,
-        "qr_y": band_y + (band_h - QR_BLOCK) / 2,
+        "qr_y": band_y + (band_h - (qr_column if under_code else QR_BLOCK)) / 2,
+        # Without a website there is nothing to print: the old caption stays.
         "qr_caption": "Scan voor meer info",
+        "qr_site": caption_lines,
+        "qr_site_size": caption_size,
+        "qr_site_step": QR_CAPTION_STEP,
         "qr_box": QR_BOX,
         "qr_mm": QR_MM,
         "row_y": band_y + 2,

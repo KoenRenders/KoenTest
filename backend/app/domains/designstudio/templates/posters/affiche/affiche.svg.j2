@@ -62,7 +62,14 @@
   {%- endfor %}
   {%- if qr %}
   <rect x="{{ p.band.qr_x }}" y="{{ '%.2f' % p.band.qr_y }}" width="{{ p.band.qr_box }}" height="{{ p.band.qr_box }}" fill="{{ p.pal.white }}"/>
+  {#- #1685: the site's name under the code, one or two lines; without a website the old caption. #}
+  {%- if p.band.qr_site %}
+  {%- for line in p.band.qr_site %}
+  <text id="t-qr-site-{{ loop.index0 }}" x="{{ p.band.qr_x + p.band.qr_box / 2 }}" y="{{ '%.2f' % (p.band.qr_y + p.band.qr_box + 4.6 + loop.index0 * p.band.qr_site_step) }}" font-size="{{ '%.1f' % p.band.qr_site_size }}" font-weight="600" fill="{{ p.pal.white }}" text-anchor="middle">{{ line }}</text>
+  {%- endfor %}
+  {%- else %}
   <text id="t-qr-caption" x="{{ p.band.qr_x + p.band.qr_box / 2 }}" y="{{ '%.2f' % (p.band.qr_y + p.band.qr_box + 4.4) }}" font-size="3.8" font-weight="600" fill="{{ p.pal.white }}" text-anchor="middle">{{ p.band.qr_caption }}</text>
+  {%- endif %}
   <svg x="{{ p.band.qr_x + 1 }}" y="{{ '%.2f' % (p.band.qr_y + 1) }}" width="{{ p.band.qr_mm }}" height="{{ p.band.qr_mm }}" {{ qr | safe }}
   {%- endif %}
 </g>
