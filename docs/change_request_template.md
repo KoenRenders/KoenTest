@@ -234,6 +234,38 @@ and deliberately not done — recorded so it is not asked again).
 > *gate) hold. This is where a reviewer checks that the change does not*
 > *bend the architecture; the per-module detail is C2.*
 
+## B3a. Standards the model follows — and where it deviates, on purpose
+
+> [!NOTE]
+> *Asked for by Koen on 7 October 2026, while a webshop was being shaped:*
+> *every concept the data model of B3 introduces or changes is set beside*
+> *the established standard for it, element by element, before it gets a*
+> *name. The rule is the one of `AGENTS.md` (*Modelleer op standaarden*,*
+> *15 September 2026): build only what is needed today, in the **shape***
+> *the standard gives it, with the standard's names, so a later extension*
+> *is a row and a later interface a mapping — and deviate consciously,*
+> *never by not having looked. First name the standards that apply to the*
+> *domain of the change (a party, an address, an identifier, a product, an*
+> *order, a stock movement, a payment, an invoice, a code list: UBL 2.1 /*
+> *EN 16931 and PEPPOL BIS for orders, catalogues and invoices; ISO 20022*
+> *for accounts and payments; ISO 6523 for organisation identifiers; GS1*
+> *for product identifiers; ISO 4217, 3166 and 8601 for currency, country*
+> *and dates; schema.org where a public page describes a thing), or say*
+> *which were checked and why none applies. Then the table: one row per*
+> *concept — the standard's element and name, our table or column and its*
+> *name, and whether we follow the shape (repeatable where the standard*
+> *repeats, a separate entity where it separates) or deviate, with the*
+> *reason. "Not now" is a fine reason for an element left out; it is not*
+> *a reason for a shape that cannot take the element later. The approver*
+> *reads this table as the check that nothing will have to be reworked the*
+> *way `Organization` was (#924). Part C's C2 uses the names decided here.*
+
+Standards checked: … (which, for which concepts; or: none applies, because …).
+
+| Concept in this change | Standard and element | Ours (table · column, name) | Follows / deviates — why |
+|---|---|---|---|
+| … | UBL 2.1 `cac:…` / `cbc:…` | … | follows: … / deviates: … |
+
 ## B4. Rules this change needs an exception from — decided once, here
 
 > [!NOTE]
