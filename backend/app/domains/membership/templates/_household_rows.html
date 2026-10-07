@@ -17,7 +17,7 @@
 {% call ui.group_row("e_order." ~ pkey, m.key, edit=edit, menu=["remove"],
                      label=m.value or _("nieuw e-mailadres"),
                      one={"chosen": m.primary, "tag": _("hoofdadres"), "make": _("Maak hoofdadres"), "removable": True}) %}
-  {{ ui.field("e." ~ m.key ~ ".value", _("E-mailadres"), kind="email", value=m.value, edit=edit,
+  {{ ui.field("e." ~ m.key ~ ".value", _("E-mail"), kind="email", value=m.value, edit=edit,
               id="e-" ~ m.key ~ "-value", required=required, label_hidden=True) }}
 {% endcall %}
 {%- endmacro %}
@@ -56,7 +56,7 @@
             attrs="data-row-title-prefix-source") }}
 {% endif %}
 {% endif %}
-{{ ui.field("h." ~ p.key ~ ".mobile", _("Gsm"), kind="phone", value=p.mobile, edit=edit,
+{{ ui.field("h." ~ p.key ~ ".mobile", _("Mobiel"), kind="phone", value=p.mobile, edit=edit,
             required=(group.contact_required and p.is_main), id="h-" ~ p.key ~ "-mobile") }}
 {% if not own %}
 {{ ui.field("h." ~ p.key ~ ".phone", _("Telefoon"), kind="phone", value=p.phone, edit=edit,

@@ -209,7 +209,7 @@ def _voorbeeldvelden() -> list:
             N(
                 id=4,
                 field_type="email",
-                label="E-mailadres",
+                label="E-mail",
                 required=True,
                 help_text=None,
                 options=[],
@@ -220,7 +220,7 @@ def _voorbeeldvelden() -> list:
             N(
                 id=5,
                 field_type="phone",
-                label="Gsm-nummer",
+                label="Mobiel",
                 required=False,
                 help_text=None,
                 options=[],

@@ -22,7 +22,7 @@ def test_inschrijf_form_en_serverside_totaal(client, db_session):
         db_session, price="10.00", is_free=False
     )
     form = client.get(f"/activiteiten/{activity.id}/inschrijven/{component.id}")
-    assert form.status_code == 200 and "E-mailadres" in form.text
+    assert form.status_code == 200 and "E-mail" in form.text
 
     totaal = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}/totaal",

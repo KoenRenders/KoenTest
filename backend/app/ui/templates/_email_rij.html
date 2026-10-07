@@ -85,7 +85,7 @@
                         value=(rij.value if rij else ""),
                         placeholder="naam@voorbeeld.be", cls="w-full",
                         required=required|default(false),
-                        aria_label=_("E-mailadres") ~ " " ~ (nummer|default(1))) }}
+                        aria_label=_("E-mail") ~ " " ~ (nummer|default(1))) }}
   </div>
   {% if _id %}
     {% if rij.is_primary %}{{ ui.badge(_("hoofdadres"), "blue") }}{% else %}

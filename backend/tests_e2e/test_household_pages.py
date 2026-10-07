@@ -801,7 +801,7 @@ _SHAPE = """() => { const r = e => { const b = e.getBoundingClientRect(); return
   const q = s => document.querySelector(s), head = q('#hoofdlid');
   const seen = e => e.checkVisibility() && e.getBoundingClientRect().width > 1;
   const said = [...head.querySelectorAll('[data-main-emails] label, [data-main-emails] p, [data-main-emails] span')]
-    .filter(e => seen(e) && e.innerText.replace('*', '').trim() === 'E-mailadres').length;
+    .filter(e => seen(e) && e.innerText.replace('*', '').trim() === 'E-mail').length;
   const mail = head.querySelector('[data-main-emails] input[type=email]');
   return {born: r(head.querySelector('[data-field$=".date_of_birth"]')), gender: r(head.querySelector('[data-field$=".gender_code"]')),
           gender_is: head.querySelector('[name$=".gender_code"]').tagName,
@@ -814,7 +814,7 @@ _SHAPE = """() => { const r = e => { const b = e.getBoundingClientRect(); return
 def test_the_main_member_first_the_address_next_and_the_fields_as_koen_asked(browser, viewport):
     """#1632 (CR-11 Q70–Q72), measured in edit mode. Red on master: the gender a
     radio group under the date, the address after the persons, the label
-    "E-mailadres" on the row (on a phone above the field)."""
+    "E-mail" on the row (on a phone above the field)."""
     tag = uuid.uuid4().hex[:8]
     email = _sign_up(browser, tag)
     page = _open(browser, "/leden/gezin?bewerken=1", viewport, session=_session(email))
@@ -831,7 +831,7 @@ def test_the_main_member_first_the_address_next_and_the_fields_as_koen_asked(bro
         else:
             assert m["gender"]["y"] > m["born"]["y"] and m["gender"]["x"] == m["born"]["x"]
         assert m["said"] == 0, "an e-mail row shows a label of its own"
-        assert m["mail_name"] == "E-mailadres", "the field lost its accessible name"
+        assert m["mail_name"] == "E-mail", "the field lost its accessible name"
         assert m["mail"]["w"] > 200, "the address field is not there to type in"
         assert m["page"] == [viewport["width"], viewport["width"]]
         assert page.errors == []

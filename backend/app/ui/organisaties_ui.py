@@ -70,7 +70,7 @@ NAV = "/admin/organisaties"
 # hier — één plek, zodat een veld niet in de ene helft van de code bestaat en in de
 # andere niet.
 CONTACTGROEP = [
-    ("email", "E-mailadres", "Contactadres van de organisatie; komt in de footer."),
+    ("email", "E-mail", "Contactadres van de organisatie; komt in de footer."),
     ("phone", "Telefoon", "Optioneel; komt in de footer."),
     ("mobile", "Mobiel", "Optioneel."),
     ("website", "Website", "Optioneel."),

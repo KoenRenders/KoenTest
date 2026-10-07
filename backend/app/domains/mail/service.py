@@ -589,7 +589,7 @@ def activity_confirmation_message(
             )
         if registration.phone:
             details.append(
-                f"<li><strong>GSM:</strong> {escape(readable_phone(registration.phone))}</li>"
+                f"<li><strong>Mobiel:</strong> {escape(readable_phone(registration.phone))}</li>"
             )
         if registration.team_name:
             details.append(f"<li><strong>Ploeg:</strong> {escape(registration.team_name)}</li>")

@@ -42,7 +42,7 @@ pytestmark = pytest.mark.ui_serverrendered
 READ, EDIT, SIGN_UP = "/leden/gezin", "/leden/gezin?bewerken=1", "/lid-worden"
 #: The word as a label of its own: in a label, a read-mode line or a column head.
 LABEL = re.compile(
-    r">\s*E-mailadres\s*(?:<span class=\"text-red-600\">\*</span>)?\s*</(?:label|p|span)>"
+    r">\s*E-mail(?:adres)?\s*(?:<span class=\"text-red-600\">\*</span>)?\s*</(?:label|p|span)>"
 )
 OGM = "+++123/4567/89012+++"
 
@@ -102,7 +102,7 @@ def test_an_email_row_carries_no_label_of_its_own(client, db_session, path):
 
     assert html.count("rijen@example.com") >= 2, "the addresses are not on the page"
     assert html.count(">E-mailadressen</h3>") == 2, "the group's title is the label"
-    assert LABEL.findall(html) == [] and not LABEL.search(html), "a row says E-mailadres itself"
+    assert LABEL.findall(html) == [] and not LABEL.search(html), "a row says E-mail itself"
 
 
 def test_the_email_field_keeps_its_accessible_name(client, db_session):
@@ -110,13 +110,13 @@ def test_the_email_field_keeps_its_accessible_name(client, db_session):
     html = _main(_page(client, "naam@example.com", EDIT))
     fields = re.findall(r'<input[^>]*name="e\.[^"]+\.value"[^>]*>', html)
     assert len(fields) == 3, "the three addresses of the household"
-    assert all('aria-label="E-mailadres"' in field for field in fields)
+    assert all('aria-label="E-mail"' in field for field in fields)
     assert not re.search(r'<label[^>]*for="e-[^"]+-value"', html), "a label element is back"
 
 
 def test_word_lid_has_no_label_on_its_email_row_either(client, db_session):
     html = _main(client.get(SIGN_UP).text)
-    assert 'name="e.n0e.value"' in html and 'aria-label="E-mailadres"' in html
+    assert 'name="e.n0e.value"' in html and 'aria-label="E-mail"' in html
     assert not LABEL.search(html)
 
 

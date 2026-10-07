@@ -966,14 +966,14 @@
       {% endcall %}
       {% set _mtpl %}{% if _edit %}{% call ui.group_row("kit_e_order." ~ key, "__KE__", edit=True, menu=["remove"], label=_("nieuw e-mailadres"),
                                                         one={"chosen": False, "tag": _("hoofdadres"), "make": _("Maak hoofdadres")}) %}
-        {{ ui.field("kit_e.__KE__.value", _("E-mailadres"), kind="email", value="", edit=True, label_hidden=True) }}{% endcall %}{% endif %}{% endset %}
+        {{ ui.field("kit_e.__KE__.value", _("E-mail"), kind="email", value="", edit=True, label_hidden=True) }}{% endcall %}{% endif %}{% endset %}
       {% call ui.repeating_group(_("E-mailadressen"), "kit_e_order." ~ key, token="__KE__", add_label=_("E-mailadres"), edit=_edit, child=True, count=2,
                                  empty=_("Nog geen e-mailadres."), template=_mtpl,
                                  one={"name": "kit_e_primary." ~ key, "value": key ~ "a"}) %}
         {% for suffix, address in [("a", "lore@example.com"), ("b", "lore.werk@example.com")] %}
         {% call ui.group_row("kit_e_order." ~ key, key ~ suffix, edit=_edit, menu=["remove"], label=address,
                              one={"chosen": suffix == "a", "tag": _("hoofdadres"), "make": _("Maak hoofdadres")}) %}
-          {{ ui.field("kit_e." ~ key ~ suffix ~ ".value", _("E-mailadres"), kind="email", value=address, edit=_edit, label_hidden=True) }}
+          {{ ui.field("kit_e." ~ key ~ suffix ~ ".value", _("E-mail"), kind="email", value=address, edit=_edit, label_hidden=True) }}
         {% endcall %}
         {% endfor %}
       {% endcall %}
