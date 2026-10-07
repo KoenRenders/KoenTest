@@ -26,7 +26,7 @@ matrix documenteert, de gate handhaaft.
 |---|---|---|---|---|
 | `activiteiten.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `admin_activiteiten.html` | ✅ | ✅ 7 | ✅ | ✅ |
-| `aanmelden.html` | ✅ | ✅ 1 | ✅ | ✅ |
+| `sign_in.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `admin_gebruikers.html` | ✅ | ✅ 7 | ✅ | ✅ |
 | `ai_context.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `raakje.html` | ✅ | ✅ 3 | ✅ | ✅ |
@@ -47,7 +47,7 @@ matrix documenteert, de gate handhaaft.
 | `admin_media.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `fotos.html` | ✅ | — | ✅ | ✅ |
 | `fotos_album.html` | ✅ | — | ✅ | ✅ |
-| `gezin_portaal.html` | ✅ | ✅ 8 | ✅ | ✅ |
+| `household_page.html` | ✅ | ✅ 8 | ✅ | ✅ |
 | `lid_worden.html` | ✅ | ✅ 6 | ✅ | ✅ |
 | `lid_worden_klaar.html` | ✅ | ✅ 2 | ✅ | ✅ |
 | `login_verlopen.html` | ✅ | ✅ 1 | ✅ | ✅ |

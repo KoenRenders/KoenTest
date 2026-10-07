@@ -200,7 +200,7 @@ msgid "Status"
 msgstr ""
 
 #: app/domains/activities/export.py:66
-#: app/domains/membership/templates/gezin_portaal.html:30
+#: app/domains/membership/templates/household_page.html:30
 msgid "Mededeling (OGM)"
 msgstr ""
 
@@ -564,7 +564,7 @@ msgstr ""
 #: app/domains/meetings/templates/_vg_document.html:128
 #: app/domains/meetings/templates/_vg_document.html:148
 #: app/domains/meetings/templates/_vg_kring.html:53
-#: app/domains/membership/templates/gezin_portaal.html:173
+#: app/domains/membership/templates/household_page.html:173
 #: app/domains/newsletter/templates/_nb_abonnees.html:65
 #: app/domains/newsletter/templates/_nb_raakje.html:35
 #: app/ui/templates/design_system.html:579
@@ -967,7 +967,7 @@ msgstr ""
 
 #: app/domains/activities/templates/_inschrijf_form.html:16
 #: app/domains/activities/templates/_inschrijving_detail.html:66
-#: app/domains/auth/templates/_aanmelden_email.html:5
+#: app/domains/auth/templates/_sign_in_email.html:5
 #: app/domains/auth/templates/_gu_lijst.html:17
 #: app/domains/auth/templates/admin_gebruiker_nieuw.html:29
 #: app/domains/forms/templates/formulier.html:42
@@ -1006,7 +1006,7 @@ msgid "Eventuele boodschap voor de organisatie…"
 msgstr ""
 
 #: app/domains/activities/templates/_inschrijf_form.html:85
-#: app/domains/membership/templates/gezin_portaal.html:49
+#: app/domains/membership/templates/household_page.html:49
 #: app/domains/membership/templates/lid_worden.html:59
 msgid "Online betalen"
 msgstr ""
@@ -1408,25 +1408,25 @@ msgstr ""
 msgid "Je kan jezelf niet verwijderen."
 msgstr ""
 
-#: app/domains/auth/templates/_aanmelden_code.html:3
+#: app/domains/auth/templates/_sign_in_code.html:3
 msgid "Als dit e-mailadres gekend is, ontvang je een e-mail met een code."
 msgstr ""
 
-#: app/domains/auth/templates/_aanmelden_code.html:8
+#: app/domains/auth/templates/_sign_in_code.html:8
 msgid "Code uit de e-mail"
 msgstr ""
 
-#: app/domains/auth/templates/_aanmelden_code.html:11
-#: app/domains/auth/templates/aanmelden.html:7
+#: app/domains/auth/templates/_sign_in_code.html:11
+#: app/domains/auth/templates/sign_in.html:7
 #: app/ui/templates/site_base.html:219 app/ui/templates/site_base.html:236
 msgid "Aanmelden"
 msgstr ""
 
-#: app/domains/auth/templates/_aanmelden_email.html:8
+#: app/domains/auth/templates/_sign_in_email.html:8
 msgid "Stuur inloginfo"
 msgstr ""
 
-#: app/domains/auth/templates/_aanmelden_klaar.html:2
+#: app/domains/auth/templates/_sign_in_done.html:2
 msgid "Aangemeld — je wordt doorgestuurd…"
 msgstr ""
 
@@ -1447,11 +1447,11 @@ msgstr ""
 msgid "Platformbreed"
 msgstr ""
 
-#: app/domains/auth/templates/aanmelden.html:3
+#: app/domains/auth/templates/sign_in.html:3
 msgid "Aanmelden — Raak"
 msgstr ""
 
-#: app/domains/auth/templates/aanmelden.html:8
+#: app/domains/auth/templates/sign_in.html:8
 msgid "Vul je e-mailadres in. Je ontvangt een inloglink en een code."
 msgstr ""
 
@@ -2054,7 +2054,7 @@ msgid "per gezin, geldig tot en met"
 msgstr ""
 
 #: app/domains/cms/templates/home.html:26
-#: app/domains/membership/templates/gezin_portaal.html:5
+#: app/domains/membership/templates/household_page.html:5
 #: app/ui/templates/site_base.html:216 app/ui/templates/site_base.html:233
 msgid "Mijn gezin"
 msgstr ""
@@ -3372,28 +3372,28 @@ msgid "Gezin zonder personen."
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_adres_velden.html:16
-#: app/domains/membership/templates/gezin_portaal.html:113
+#: app/domains/membership/templates/household_page.html:113
 #: app/domains/membership/templates/lid_worden.html:24
 #: app/ui/organisaties_ui.py:195 app/ui/templates/admin_organisatie.html:49
 msgid "Straat"
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_adres_velden.html:18
-#: app/domains/membership/templates/gezin_portaal.html:115
+#: app/domains/membership/templates/household_page.html:115
 #: app/domains/membership/templates/lid_worden.html:26
 #: app/ui/organisaties_ui.py:195 app/ui/templates/admin_organisatie.html:51
 msgid "Huisnummer"
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_adres_velden.html:20
-#: app/domains/membership/templates/gezin_portaal.html:117
+#: app/domains/membership/templates/household_page.html:117
 #: app/domains/membership/templates/lid_worden.html:28
 #: app/ui/templates/admin_organisatie.html:53
 msgid "Bus"
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_adres_velden.html:22
-#: app/domains/membership/templates/gezin_portaal.html:119
+#: app/domains/membership/templates/household_page.html:119
 #: app/domains/membership/templates/lid_worden.html:30
 #: app/ui/organisaties_ui.py:196 app/ui/templates/admin_organisatie.html:55
 msgid "Postcode"
@@ -3466,7 +3466,7 @@ msgid "Definitief importeren"
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_kaarten.html:48
-#: app/domains/membership/templates/gezin_portaal.html:88
+#: app/domains/membership/templates/household_page.html:88
 msgid "bewerken"
 msgstr ""
 
@@ -3475,17 +3475,17 @@ msgid "Persoon"
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_kaarten.html:75
-#: app/domains/membership/templates/gezin_portaal.html:141
+#: app/domains/membership/templates/household_page.html:141
 msgid "E-mailadressen"
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_kaarten.html:79
-#: app/domains/membership/templates/gezin_portaal.html:145
+#: app/domains/membership/templates/household_page.html:145
 msgid "+ E-mailadres"
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_kaarten.html:89
-#: app/domains/membership/templates/gezin_portaal.html:155
+#: app/domains/membership/templates/household_page.html:155
 msgid "Nog geen e-mailadres."
 msgstr ""
 
@@ -3651,7 +3651,7 @@ msgid "Hoofdlid, adres en eventueel extra gezinsleden — in één keer bewaard.
 msgstr ""
 
 #: app/domains/mdm/templates/leden_nieuw.html:39
-#: app/domains/membership/templates/gezin_portaal.html:165
+#: app/domains/membership/templates/household_page.html:165
 #: app/domains/membership/templates/lid_worden.html:45
 msgid "+ Gezinslid toevoegen"
 msgstr ""
@@ -4671,65 +4671,65 @@ msgid "Hoofdlid"
 msgstr ""
 
 #: app/domains/membership/templates/_lid_persoon_rij.html:4
-#: app/domains/membership/templates/gezin_portaal.html:92
+#: app/domains/membership/templates/household_page.html:92
 msgid "Gezinslid"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:3
+#: app/domains/membership/templates/household_page.html:3
 msgid "Mijn gezin — Raak"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:11
+#: app/domains/membership/templates/household_page.html:11
 msgid "Lidmaatschap geldig tot"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:13
+#: app/domains/membership/templates/household_page.html:13
 msgid "Je gezin heeft momenteel geen geldig lidmaatschap."
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:25
+#: app/domains/membership/templates/household_page.html:25
 msgid "Vernieuwing geregistreerd — betaal via overschrijving:"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:27
-#: app/domains/membership/templates/gezin_portaal.html:38
+#: app/domains/membership/templates/household_page.html:27
+#: app/domains/membership/templates/household_page.html:38
 #: app/domains/payment/templates/_betalingen_lijst.html:178
 #: app/domains/payment/templates/_betalingen_lijst.html:209
 #: app/ui/templates/design_system.html:520
 msgid "Bedrag"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:29
+#: app/domains/membership/templates/household_page.html:29
 msgid "Begunstigde"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:37
+#: app/domains/membership/templates/household_page.html:37
 msgid "Je vernieuwing loopt nog — de betaling is nog niet afgerond."
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:40
+#: app/domains/membership/templates/household_page.html:40
 msgid "Betaling hervatten"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:42
+#: app/domains/membership/templates/household_page.html:42
 msgid ""
 "Zodra de betaling verwerkt is, zie je dat hier. Neem gerust contact op "
 "als het lang duurt."
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:50
+#: app/domains/membership/templates/household_page.html:50
 msgid "Via overschrijving"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:52
+#: app/domains/membership/templates/household_page.html:52
 msgid "Lidmaatschap vernieuwen"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:56
+#: app/domains/membership/templates/household_page.html:56
 msgid "Verantwoordelijk bestuurslid:"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:158
+#: app/domains/membership/templates/household_page.html:158
 msgid ""
 "Met elk van deze adressen kan je aanmelden, en de nieuwsbrief gaat naar "
 "allemaal. Een gewijzigde tekst bewaar je met Opslaan."
