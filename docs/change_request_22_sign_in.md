@@ -404,7 +404,11 @@ Standards checked: UBL 2.1 for the party and its contact (the account is the par
 
 ## B4. Rules this change needs an exception from — decided once, here
 
-None. Checked: `test_layer_gate.py` (the new pages have view-models; `account_ui.py` is named `*_ui.py`), `test_import_boundaries.py` (every cross-domain call through `api.py`), `test_rules_gate.py` (English identifiers; no JSON route is added, so no `## Callers`), `test_public_shell_gate.py` (account items only through `_site_account.html`), `test_public_ratchets.py` (kit buttons and cards only), `test_template_variables_gate.py`, `test_i18n_gate.py`, the fixed UI decisions in `AGENTS.md` (none touched), the URL rule (Dutch paths for people: `/mijn`, `/mijn/gegevens`, `/mijn/inschrijvingen`).
+| Rule (where) | What the design does instead | Mechanism | Temporary until … / the new rule | Decided |
+|---|---|---|---|---|
+| *Existing Dutch identifiers stay. Do not rename.* (`AGENTS.md`, *Code language*) | Phase 1 renames, to English, the Dutch names in the code this change rewrites, so a reader does not meet `create_account.html` beside `aanmelden.html`: the four sign-in templates and five Python functions (C2, phase 1) | a rename-only phase before the functional one; the five functions leave `DUTCH_IDENTIFIERS` in `tests/rules_baseline.py` (437 → 432); URLs do not change | for this change; whether it becomes the rule ("who rewrites a file may rename it") is Koen's to decide and the master CLI's to write into `AGENTS.md` | Koen, 7 Oct 2026 (Q31) |
+
+Checked without finding another exception: `test_layer_gate.py` (the new pages have view-models; `account_ui.py` is named `*_ui.py`), `test_import_boundaries.py` (every cross-domain call through `api.py`), `test_rules_gate.py` (English identifiers; no JSON route is added, so no `## Callers`), `test_public_shell_gate.py` (account items only through `_site_account.html`), `test_public_ratchets.py` (kit buttons and cards only), `test_template_variables_gate.py`, `test_i18n_gate.py`, the fixed UI decisions in `AGENTS.md` (none touched), the URL rule (Dutch paths for people: `/mijn`, `/mijn/gegevens`, `/mijn/inschrijvingen`, `/admin/personen`, `/account-aanmaken`).
 
 ## B5. Cost — investment and running cost, and what operations must know
 
@@ -425,7 +429,8 @@ Analysis and review: this document. Validation on HDEV: the walkthrough of B2, a
 | Phase | Delivers | Migration | Env vars | Data | Failure paths that change | Manual validation |
 |---|---|---|---|---|---|---|
 | 0 — before the handover | the count of addresses shared outside a household per tenant (R11), Koen's decision per case | — | — | read-only query (C8) | — | Koen decides the cases |
-| 1 — one release | everything in this document | additive: `contact_details.confirmed_at` (backfilled), `login_tokens.purpose` + `payload`, code list `auth.login_purpose_codes` | none | backfill of `confirmed_at` = `created_at` | an unknown address still gets nothing; an account's address now gets a code; a code for an address taken meanwhile is refused with a message; a signed-in person without household no longer bounces from /leden/gezin to sign-in — he lands on /mijn | the walkthrough (B2) |
+| 1 — rename only | English names for what this change rewrites (B4, C2 phase 1); no behaviour changes | none | none | none | none — a rename that misses a caller fails at import or in the template-variables gate, before anything runs | none: the full suite and the screenshots unchanged |
+| 2 — the change | everything else in this document; same release as phase 1 | additive: `contact_details.confirmed_at` (backfilled), `login_tokens.purpose` + `payload`, code list `auth.login_purpose_codes` | none | backfill of `confirmed_at` = `created_at` | an unknown address still gets nothing; an account's address now gets a code; a code for an address taken meanwhile is refused with a message; a signed-in person without household no longer bounces from /leden/gezin to sign-in — he lands on /mijn | the walkthrough (B2) |
 
 Dependency: CR-21 (webshop) builds on phase 1.
 
@@ -463,6 +468,7 @@ None: every question is answered (Q&A log).
 | 7 Oct 2026 | A screen "Personen" in master data lists every natural person, filter default "Zonder gezin", read-only except deleting a person without household. **Replaces** "no board screen" (Q25) and the report (R19) (Q29). | Koen |
 | 7 Oct 2026 | Lid worden, not signed in, with an account's address: refused with "Dit e-mailadres is al gekend. Log je eerst aan om lid te worden." (Q28). | Koen |
 | 7 Oct 2026 | Personen may delete a person in a household too: one action that first detaches him by `detach_household_person` (same refusals, same history) and then deletes him; the main member is refused (Q30). | Koen |
+| 7 Oct 2026 | A rename-only phase 1 before the change: the Dutch names in what this change rewrites become English (B4) (Q31). | Koen |
 | 7 Oct 2026 | Q1–Q9 answered: guest link by secret token; mobile required as today; no lookup or warning on a typed address (the standing hint stays, as decided in CR-11); an account exists after the code; an account that becomes a member keeps its person; accounts per tenant; a new address is confirmed and unique except inside the household; existing duplicates measured first, Koen decides; for registrations only the account is new. | Koen |
 
 ---
@@ -496,15 +502,33 @@ Measured on master `457e85d`, 7 October 2026.
 | Two `person_fields` macros exist | `ui/templates/_macros.html:1130` (lid worden), `membership/templates/_household_rows.html:38` (Mijn gezin) | yes | Mijn gegevens uses the second; the first is left (Non-goals) |
 | The hint above the form | `ui/templates/_member_nudge.html:12-13` "Lid van RAAK? Log je eerst aan: …" | yes, with RAAK hard-coded | new words, no tenant name (A3) |
 | Reporting reads persons | views `reporting.d_person`, `f_membership_persons` | yes; none reads `contact_details` | an account report needs no new view (R19) |
+| Dutch identifiers in the files this change rewrites | `tests/rules_baseline.py` `DUTCH_IDENTIFIERS` against those files | five functions (`membership/ui.py` 4, `ui/__init__.py` `_huidige_gebruiker`); the sign-in template names are not in the baseline (it covers Python names) | phase 1 renames them (B4) |
+| The household model is named `Member` | `mdm/models.py` `Member`, `MemberPerson` | yes | the document says household; the code keeps `Member` |
 | Latest migration | `backend/alembic/versions` | 197 | the build generates the next with `alembic revision` |
 
 ## C2. Per module: what must happen
+
+### Phase 1 — rename only (one commit, no behaviour change)
+
+| Today | Becomes | Where |
+|---|---|---|
+| `aanmelden.html` | `sign_in.html` | `auth/templates/`, rendered by `auth/ui.py` |
+| `_aanmelden_email.html` | `_sign_in_email.html` | idem |
+| `_aanmelden_code.html` | `_sign_in_code.html` | idem |
+| `_aanmelden_klaar.html` | `_sign_in_done.html` | idem |
+| `gezin_portaal` | `household_page` | `membership/ui.py` (route `/leden/gezin` unchanged) |
+| `gezin_vernieuwen` | `renew_membership_page` | `membership/ui.py` (route `/leden/gezin/vernieuwen` unchanged) |
+| `lid_worden` | `sign_up_page` | `membership/ui.py` (route `/lid-worden` unchanged) |
+| `lid_worden_submit` | `sign_up_submit` | `membership/ui.py` |
+| `_huidige_gebruiker` | `_current_user` | `ui/__init__.py` |
+
+The five functions leave `DUTCH_IDENTIFIERS` (`tests/rules_baseline.py`), as the ratchet demands. Left as they are, because this change does not rewrite them: the template variable `gebruiker` (read by every public template), and the other Dutch names in the touched files (`mdm/service.py` `_persoon_of_404`, `_waarde`, `gezin_tabs`; `ui/__init__.py` `_gezinslabel`, `_beheer_account`, …). Note for the reader: the household is the model `Member`, its link `MemberPerson` — English names that say "member" for the household; they stay (`AGENTS.md`: do not rename) and this document says *household* for the concept.
 
 ### auth
 - **Screens:** `/aanmelden` gets the link **Account aanmaken**; new `/account-aanmaken` (name, first name, e-mail, mobile, kit `field` + `input_control`, `btn_primary`), posting to the same code step as sign-in (`_aanmelden_code.html`), whose message becomes "We stuurden een code naar dit adres." Judged at 390 px.
 - **Code:** `login.start_login(db, email, purpose=SIGN_IN)` — also sends when `login_person_for_email` returns an account; `start_account(db, data)` — if the address is free, a token with purpose CREATE_ACCOUNT and the four fields in `payload`; if not, a SIGN_IN token and the mail "je hebt al een account"; the screen is the same. `consume_code(db, email, code)` dispatches on purpose: SIGN_IN sets the session; CREATE_ACCOUNT calls `mdm.api.create_account_person(...)` then sets the session; CONFIRM_ADDRESS calls `mdm.api.confirm_email(contact_id)`. `member_identity.login_person_for_email`: confirmed EMAIL rows only; one household → its main member (as today); exactly one person and no household → that person; otherwise None ("multiple" as today). `service.landing_for`: board users as today; everyone else `/mijn`. The writer of `login_tokens` is `auth.login` only.
 - **Database:** `auth.login_tokens.purpose` `String(20)` NOT NULL default `SIGN_IN`, FK `auth.login_purpose_codes.code`; `payload` JSON NULL. New code list `auth.login_purpose_codes` + labels (pattern of migration 154): `SIGN_IN`, `CREATE_ACCOUNT`, `CONFIRM_ADDRESS`. Additive.
-- **Templates and mail:** `aanmelden.html`, `_aanmelden_email.html` (link), new `create_account.html`; mails in `mail/service.py`: sign-in (unchanged), "bevestig je account" (code), "je hebt al een account" (code), "bevestig je e-mailadres" (code).
+- **Templates and mail:** `sign_in.html`, `_sign_in_email.html` (link), new `create_account.html`; mails in `mail/service.py`: sign-in (unchanged), "bevestig je account" (code), "je hebt al een account" (code), "bevestig je e-mailadres" (code).
 - **Tests:** T1–T5, T9, T16.
 
 ### mdm
@@ -598,6 +622,7 @@ None: no view reads `contact_details`; `confirmed_at` is not exposed. The report
 | T17 | route | Personen: only ADMIN/OPERATOR; the filter; deleting a person without household; deleting a household person detaches him with a history row and deletes him; the main member is refused with the message of R25; after delete the person cannot sign in and his registrations keep their contact fields |
 
 **Impact on the test landscape:**
+- Phase 1: every test that names a renamed template or function follows the new name; no assertion changes.
 - `auth/tests/test_logout_and_landing_after_login.py` — expects `/leden/gezin` after sign-in; changes to `/mijn` (F3).
 - `auth/tests/test_auth_unification.py`, `test_otp_hardening.py` — the token gains `purpose`; fixtures default to SIGN_IN.
 - `tests/integration/test_household_add_and_email_1641.py`, `test_household_portal_characterisation.py`, `mdm/tests/test_household_save*.py` — a member-typed address is now unconfirmed; assertions on "can sign in at once" change.
@@ -687,6 +712,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | Q28 | 7 Oct 2026 | Lid worden, not signed in, with the address of an existing account? (Claude) | Refuse with "Dit e-mailadres is al gekend. Log je eerst aan om lid te worden." (Koen) |
 | Q29 | 7 Oct 2026 | (Koen came back on Q25 and R22) Without a board screen nobody can delete an account; a screen "Accounts" or "Personen"? (Koen, Claude) | "Personen" — all natural persons; "this is master data". (Koen) |
 | Q30 | 7 Oct 2026 | Why can a person in a household not be deleted from Personen? (Koen) | It can, in one action through the household's own rules; the main member is refused while he is the main member. (Koen, on Claude's proposal) |
+| Q31 | 7 Oct 2026 | Will we regret the Dutch names beside the new English ones? (Koen) | Rename them in CR-22, as a phase before the change. (Koen) |
 | Q27 | 7 Oct 2026 | For a member, may name and e-mail be edited on the own page as well as in "Mijn gezin" (a), or read-only there (b)? (Claude) | These are attributes of a person, so edit functions on a person are needed anyway; in a household the repeating group is a natural person, including its relation to the household. (Koen) — read as (a) with one person component. |
 
 ## Non-goals — deliberately outside this change
