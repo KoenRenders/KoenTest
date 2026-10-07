@@ -932,6 +932,7 @@ def _current_user(db, request) -> dict | None:
             SESSION_COOKIE,
             admits_admin_ui,
             get_user_roles,
+            has_household,
             login_person_for_email,
             read_session_value,
         )
@@ -956,6 +957,9 @@ def _current_user(db, request) -> dict | None:
             # asked of the auth domain, not a copy of it here.
             "is_admin": admits_admin_ui(get_user_roles(db, email)),
             "is_member": person is not None,
+            # CR-22 (#1707): an account is a person too, so "there is a person"
+            # no longer means "there is a household" — Mijn gezin asks this.
+            "has_household": has_household(person),
         }
     except Exception:
         return None
@@ -1187,11 +1191,19 @@ def _public_nav(field: str) -> list[dict]:
     ]
 
 
-def account_nav(db) -> list[dict]:
+#: Mijn gezin, the one item of the account menu that needs a household.
+HOUSEHOLD_HOME = "/leden/gezin"
+
+
+def account_nav(db, *, household: bool = True) -> list[dict]:
     """The account menu of the public site (CR-22 S3, #1706; R14): ONE list for
     the header's menu, the drawer and the menu on the account pages. Its first
     item is the landing page, called "Mijn " + the site's name (Q32, Q35); the
-    rest comes from the modules' `member_items`, each with its own icon."""
+    rest comes from the modules' `member_items`, each with its own icon.
+
+    `household` (#1707): whether the signed-in person is in one. Mijn gezin is
+    listed only then — an account has no household, and the item would open a
+    page that sends him back (R14: "what applies to him")."""
     from app.i18n import _
     from app.kernel.tenant_config import tenant_display_name
 
@@ -1212,8 +1224,10 @@ def account_nav(db) -> list[dict]:
     # The order of the menu is its own (CR-22 A3): Mijn gezin before Mijn
     # inschrijvingen, whatever order the registry lists the modules in; an item
     # this list does not name yet (Mijn aankopen, CR-21) comes after them.
-    order = {"/leden/gezin": 0, "/mijn/inschrijvingen": 1}
+    order = {HOUSEHOLD_HOME: 0, "/mijn/inschrijvingen": 1}
     modules = sorted(_public_nav("member_items"), key=lambda n: order.get(n["href"], len(order)))
+    if not household:
+        modules = [item for item in modules if item["href"] != HOUSEHOLD_HOME]
     return [home, details, *modules]
 
 
@@ -1306,6 +1320,7 @@ def site_context(db, request=None) -> dict:
     # dag daarvóór, nul erna. Dat uur is precies de omschakeling van `prod-frontend`
     # naar `prod-backend`.
     umami_src, umami_website_id = umami_tracking(db)
+    user = _current_user(db, request)
 
     return {
         "nav_pages": pages,
@@ -1313,7 +1328,7 @@ def site_context(db, request=None) -> dict:
         # CR-19 (#1476): the module links of the header, from the registry —
         # what a module that is off lists or serves is not there.
         "public_nav": _public_nav("public_items"),
-        "member_nav": account_nav(db),
+        "member_nav": account_nav(db, household=bool(user and user["has_household"])),
         # CR-22 Q39: a company tenant has accounts and no members — the hint above
         # the registration form words itself by it.
         "has_members": module_enabled(ModuleCode.MEMBERSHIP),
@@ -1337,7 +1352,7 @@ def site_context(db, request=None) -> dict:
         # (`tenant_public_chat_enabled`), which the chat endpoints read too.
         "chat_enabled": tenant_public_chat_enabled(db) and module_enabled(ModuleCode.CHATBOT),
         "stt_mode": settings.stt_mode,  # spraakinvoer in de widget (#567)
-        "gebruiker": _current_user(db, request),
+        "gebruiker": user,
         # Branding per tenant (#407/#519): naam/tagline/Facebook uit de
         # tenant-config. GEEN Millegem-specifieke defaults meer — die lekten
         # naar andere tenants (multi-tenancy-fout). Leeg = niet tonen, net als

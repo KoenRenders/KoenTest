@@ -197,6 +197,22 @@ def test_the_factory_refuses_and_marks_what_it_makes_as_confirmed(db_session, wo
     assert waiting.confirmed_at is None
     mobile = new_contact_detail(db_session, other, "MOBILE", "0470000001", is_primary=True)
     assert mobile.confirmed_at is not None, "a number is not waited for"
+    # #1707: read back from the DATABASE. The column has a default ("counts"),
+    # so a waiting row must be written as NULL on purpose — an object that says
+    # None and a row that got the default would be the bug.
+    db_session.add_all([made, waiting])
+    db_session.commit()
+    db_session.expire_all()
+    stored = {
+        row.value: row.confirmed_at
+        for row in db_session.query(ContactDetail).filter_by(person_id=other.id)
+    }
+    assert stored["nieuw@example.com"] is not None
+    assert stored["later@example.com"] is None, "the waiting address was stored as confirmed"
+    raw = ContactDetail(person_id=other.id, contact_type_code="PHONE", value="014000001")
+    db_session.add(raw)
+    db_session.commit()
+    assert raw.confirmed_at is not None, "a row made without a word counts, as before"
 
 
 def test_adding_an_address_on_the_person_screen_is_refused(db_session, world):

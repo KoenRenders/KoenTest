@@ -58,7 +58,7 @@ class MyDetailsPage(ViewModel):
 def _page(request: Request, db: Session, person, *, edit: bool, saved: bool = False):
     from app.domains.membership.api import person_block
 
-    nav = account_nav(db)
+    nav = account_nav(db, household=bool(person.member_persons))
     household = "/leden/gezin"
     in_menu = any(item["href"] == household for item in nav)
     page = MyDetailsPage(

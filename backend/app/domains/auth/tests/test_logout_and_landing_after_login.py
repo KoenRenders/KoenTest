@@ -7,7 +7,8 @@ Two uncovered spots in `auth/ui.py` on this tree:
   the cookie still works. That half is authorisation.
 - **the role-dependent landing (69-72)**. Only the ADMIN/OPERATOR branch was tested; the
   FINANCE-only branch (→ `/admin/betalingen`, because the workbench would 403) and the
-  plain-member branch (→ `/leden/gezin`) were not.
+  plain-member branch (→ `/leden/gezin`; since CR-22, #1707, the account page `/mijn`)
+  were not.
 
 The hermeting called those landings optional — *"inconvenience, not a leak"*. Koen took them
 anyway, and that is defensible: three tests of five lines, and a landing that ends up
@@ -75,7 +76,11 @@ def test_logging_out_really_ends_the_session(client, db_session, monkeypatch):
     [
         (("ADMIN",), "/admin/werkbank"),
         (("FINANCE",), "/admin/betalingen"),
-        ((), "/leden/gezin"),
+        # CR-22 (#1707): this user has no role and is no person on this tenant, so
+        # he has no account page — he lands on the site. Until then this row said
+        # `/leden/gezin`, a page that sent him straight back to the sign-in. Who
+        # signs in AS a person lands on `/mijn`: `test_account_sign_in_1707.py`.
+        ((), "/"),
     ],
 )
 def test_you_land_where_your_role_may_go(client, db_session, monkeypatch, rollen, doel):

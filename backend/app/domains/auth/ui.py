@@ -72,15 +72,19 @@ def aanmelden_code(
     code: str = Form(""),
     return_to: str = Form("", alias="terug"),
 ):
-    from app.domains.auth.api import check_otp
+    from app.domains.auth.api import consume_code
 
     email, code = email.strip(), code.strip()
     return_to = veilige_terug(return_to, "")
-    if not check_otp(db, email, code):
+    # CR-22 (#1707): the one code step for every purpose — a sign-in, and the
+    # code that makes an account. A wrong or expired code is generic; a right
+    # code whose purpose was refused (the address got an owner since the form
+    # was sent) says why, and signs nobody in.
+    consumed = consume_code(db, email, code)
+    if consumed is None or consumed.refusal:
+        error = consumed.refusal if consumed else _("Ongeldige of verlopen code.")
         return templates.TemplateResponse(
-            request,
-            "_sign_in_code.html",
-            {"email": email, "error": _("Ongeldige of verlopen code."), "terug": return_to},
+            request, "_sign_in_code.html", {"email": email, "error": error, "terug": return_to}
         )
     # The page that asked, else the landing by role (#530, #1437) — the same
     # rule as the mail link, from the one place it lives.
@@ -149,16 +153,21 @@ def member_login_redirect(request: Request):
 def login_verify(request: Request, token: str = "", terug: str = "", db: Session = Depends(get_db)):
     from fastapi.responses import RedirectResponse
 
-    from app.domains.auth.login import consume_magic_link
+    from app.domains.auth.login import consume_link
     from app.domains.auth.service import landing_for
     from app.ui import site_context
 
     # Eenmalig verzilveren (#268) — die regel woont in de auth-service, niet hier.
-    email = consume_magic_link(db, token)
-    if email is None:
+    # CR-22 Q36 (#1707): the link does what the code does, for every purpose —
+    # the link of "Bevestig je account" makes the account and signs in. A link
+    # whose purpose was refused gets the same page as a spent one: nobody is
+    # signed in, and the page says no more than that.
+    consumed = consume_link(db, token)
+    if consumed is None or consumed.refusal:
         return templates.TemplateResponse(
             request, "login_verlopen.html", site_context(db, request), status_code=401
         )
+    email = consumed.email
     # The page that asked (#1437), checked by the one `veilige_terug` — a link
     # can be edited, so only a path on this site counts; else the landing by
     # role (#530), the same rule as the code step.

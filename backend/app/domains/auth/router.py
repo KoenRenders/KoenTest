@@ -19,6 +19,7 @@ from app.domains.auth.login import (  # noqa: E402,F401
     start_login,
 )
 from app.domains.auth.member_identity import (
+    has_household,
     login_person_for_email,
 )
 from app.domains.auth.models import (
@@ -133,6 +134,7 @@ def auth_me(email: str = Depends(get_current_identity), db: Session = Depends(ge
         is_admin=admits_admin_ui(roles),
         is_finance="FINANCE" in roles,
         is_member=person is not None,
+        has_household=has_household(person),
         member_name=(f"{person.first_name} {person.last_name}".strip() if person else None),
     )
 

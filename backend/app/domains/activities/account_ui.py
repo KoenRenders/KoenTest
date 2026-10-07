@@ -49,7 +49,7 @@ def my_registrations_page(request: Request, db: Session = Depends(get_db)) -> Re
         raise HTTPException(status_code=404)
     page = MyRegistrationsPage(
         title=_("Mijn inschrijvingen"),
-        nav=account_nav(db),
+        nav=account_nav(db, household=bool(person.member_persons)),
         active=MY_REGISTRATIONS,
         registrations=my_registrations(db, person),
     )

@@ -106,7 +106,7 @@ def account_home(request: Request, db: Session = Depends(get_db)):
         # A session without a person here has no account page; sending it to
         # the sign-in would loop, it IS signed in.
         raise HTTPException(status_code=404)
-    nav = account_nav(db)
+    nav = account_nav(db, household=bool(person.member_persons))
     page = AccountHome(
         title=nav[0]["label"],
         first_name=(person.first_name or "").strip(),
