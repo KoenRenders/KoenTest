@@ -15,9 +15,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Optional
 
 from app.domains.mdm.api import RelationType
+from app.domains.membership.membership_card import MembershipCard
 from app.i18n import _
 
 #: The tokens the page replaces by a fresh key when a row is added.
@@ -104,20 +105,6 @@ class Terms:
 
 
 @dataclass(frozen=True)
-class TransferDue:
-    amount: Any
-    ogm: Optional[str]
-    iban: Optional[str]
-    beneficiary: Optional[str]
-
-
-@dataclass(frozen=True)
-class OnlineDue:
-    amount: Any
-    checkout_url: Optional[str]
-
-
-@dataclass(frozen=True)
 class SignupPage:
     group: HouseholdGroup
     terms: Terms
@@ -130,15 +117,9 @@ class SignupPage:
 class HouseholdPage:
     group: HouseholdGroup
     edit: bool
-    valid_until: Optional[date]
-    renewal_available: bool
-    renewal_running: bool
-    board_member_name: Optional[str]
-    #: A renewal that runs stands in the Lidmaatschap card itself, and only
-    #: there (#1632, #1641): the transfer to make, or the online payment to
-    #: resume — at most one of the two.
-    transfer: Optional[TransferDue] = None
-    online: Optional[OnlineDue] = None
+    #: How the membership stands: its own view-model, shown here and on the
+    #: landing page (CR-22 S2, #1705).
+    card: MembershipCard
     #: The page answers a save: it says "Opgeslagen ✓".
     saved: bool = False
 

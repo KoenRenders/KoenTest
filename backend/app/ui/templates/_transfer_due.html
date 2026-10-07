@@ -1,0 +1,15 @@
+{% import "_macros.html" as ui %}
+{# The transfer still to make (CR-22 S2, #1705; R27): amount, account, holder
+   and structured communication, as an inset of the kit. ONE partial for every
+   place that says how to pay by transfer — a renewal that runs, and from
+   CR-22 on a registration still to be paid. `due` is the `TransferDue`
+   (`payment.api.transfer_due`), whose heading is the caller's. Moved here
+   from the renewal's partial, not copied. #}
+{% call ui.inset(due.heading, attrs="data-transfer-due") %}
+  <ul class="mt-1 space-y-0.5">
+    <li>{{ _("Bedrag") }}: <strong>€ {{ due.amount|geld }}</strong></li>
+    {% if due.iban %}<li>IBAN: <strong>{{ due.iban }}</strong></li>{% endif %}
+    {% if due.beneficiary %}<li>{{ _("Begunstigde") }}: {{ due.beneficiary }}</li>{% endif %}
+    {% if due.ogm %}<li>{{ _("Mededeling (OGM)") }}: <strong>{{ due.ogm }}</strong></li>{% endif %}
+  </ul>
+{% endcall %}

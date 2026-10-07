@@ -92,6 +92,24 @@ __all__ = [
 ]
 
 
+# ── The membership card (CR-22 S2, #1705) ────────────────────────────────────
+# One view-model for every place that shows how a membership stands.
+
+
+def membership_card(db, person, *, household=None):
+    """The membership card of the household `person` belongs to."""
+    from app.domains.membership.membership_card import membership_card as _impl
+
+    return _impl(db, person, household=household)
+
+
+def renewal_is_running(db, person) -> bool:
+    """Does a renewal of this person's household wait for its payment?"""
+    from app.domains.membership.membership_card import renewal_is_running as _impl
+
+    return _impl(db, person)
+
+
 # ── Doorgangen naar het gezinsportaal ────────────────────────────────────────
 # De implementaties blijven in `household_router.py`: net als bij de
 # activiteiteninschrijving roept het scherm één domeinbewerking aan en doet het
