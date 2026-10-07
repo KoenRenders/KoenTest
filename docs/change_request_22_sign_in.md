@@ -105,7 +105,7 @@ What changes, one line each:
 
 | Where | Words |
 |---|---|
-| landing page and title of the account menu | **Mijn Raak** — the tenant's name, so *Mijn [company]* elsewhere |
+| landing page and first item of the account menu | **Mijn** + the tenant's display name: *Mijn Raak Millegem* at Raak, *Mijn [company]* elsewhere (Q32); "Mijn Raak" in this document is short for it |
 | menu items | **Mijn gegevens** · **Mijn gezin** (exists) · **Mijn inschrijvingen** · later **Mijn aankopen** (CR-21) |
 | link and button on the sign-in screen | **Account aanmaken** |
 | sign-in button | **Inloggen** (unchanged) |
@@ -469,6 +469,7 @@ None: every question is answered (Q&A log).
 | 7 Oct 2026 | Lid worden, not signed in, with an account's address: refused with "Dit e-mailadres is al gekend. Log je eerst aan om lid te worden." (Q28). | Koen |
 | 7 Oct 2026 | Personen may delete a person in a household too: one action that first detaches him by `detach_household_person` (same refusals, same history) and then deletes him; the main member is refused (Q30). | Koen |
 | 7 Oct 2026 | A rename-only phase 1 before the change: the Dutch names in what this change rewrites become English (B4) (Q31). | Koen |
+| 7 Oct 2026 | The landing page is called "Mijn" + the tenant's display name: *Mijn Raak Millegem* (Q32). | Koen |
 | 7 Oct 2026 | Q1–Q9 answered: guest link by secret token; mobile required as today; no lookup or warning on a typed address (the standing hint stays, as decided in CR-11); an account exists after the code; an account that becomes a member keeps its person; accounts per tenant; a new address is confirmed and unique except inside the household; existing duplicates measured first, Koen decides; for registrations only the account is new. | Koen |
 
 ---
@@ -553,7 +554,7 @@ The five functions leave `DUTCH_IDENTIFIERS` (`tests/rules_baseline.py`), as the
 
 ### app/ui
 - **Screens:** new `account_ui.py` with `/mijn` (Mijn Raak): greeting with the first name, the menu, and the links to each item at the bottom. Desktop: menu on the left, content on the right; phone: no menu on the page, the account menu in the drawer (`site_base.html:241-246`).
-- **Code:** `account_nav(gebruiker)` — "Mijn gegevens" plus `_public_nav("member_items")` filtered by what applies (Mijn gezin only with a household); `_site_account.html` shows it for every signed-in person, not only `is_member`. The title "Mijn Raak" takes the tenant's short name.
+- **Code:** `account_nav(gebruiker)` — "Mijn gegevens" plus `_public_nav("member_items")` filtered by what applies (Mijn gezin only with a household); `_site_account.html` shows it for every signed-in person, not only `is_member`. The title is "Mijn " + `site_name` (`tenant_display_name`, `ui/__init__.py:1291`) — *Mijn Raak Millegem* (Q32); it may wrap, never truncate, at 390 px.
 - **Tests:** T9, T14.
 
 ### payment
@@ -713,6 +714,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | Q29 | 7 Oct 2026 | (Koen came back on Q25 and R22) Without a board screen nobody can delete an account; a screen "Accounts" or "Personen"? (Koen, Claude) | "Personen" — all natural persons; "this is master data". (Koen) |
 | Q30 | 7 Oct 2026 | Why can a person in a household not be deleted from Personen? (Koen) | It can, in one action through the household's own rules; the main member is refused while he is the main member. (Koen, on Claude's proposal) |
 | Q31 | 7 Oct 2026 | Will we regret the Dutch names beside the new English ones? (Koen) | Rename them in CR-22, as a phase before the change. (Koen) |
+| Q32 | 7 Oct 2026 | (Koen, looking at the concepts) | For Raak Millegem it reads "Mijn Raak Millegem". (Koen) |
 | Q27 | 7 Oct 2026 | For a member, may name and e-mail be edited on the own page as well as in "Mijn gezin" (a), or read-only there (b)? (Claude) | These are attributes of a person, so edit functions on a person are needed anyway; in a household the repeating group is a natural person, including its relation to the household. (Koen) — read as (a) with one person component. |
 
 ## Non-goals — deliberately outside this change
