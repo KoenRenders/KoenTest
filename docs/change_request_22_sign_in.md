@@ -570,6 +570,19 @@ Only used: `registration_payment_states`.
 ### reporting
 None: no view reads `contact_details`; `confirmed_at` is not exposed. The report of R19 (Could) is a saved report on `d_person` without household, made by the board, not built here.
 
+### Built once — what is moved, never copied
+
+Koen, 7 October 2026: everything this change shows in a second place is built once. The build **moves** each of these out of its one place today and includes it in both; the old inline markup is deleted in the same commit:
+
+| Piece | From | To (one partial, one view-model) | Shown in |
+|---|---|---|---|
+| membership card | `gezin_portaal.html:24-40` | `_membership_card.html` | Mijn gezin, Mijn Raak Millegem |
+| transfer instructions | `_renewal_running.html` (the inset) | `_transfer_due.html` | the renewal, every registration to be paid by transfer |
+| person block | `_household_rows.html` `person_fields` | stays there, called by both | Mijn gezin, Mijn gegevens |
+| account menu | `_site_account.html` | stays there; the page menu reads the same list | header, drawer, the menu on the left |
+
+T18 and T19 assert it: each piece renders from its one partial on both pages, and no second copy of its markup stands in any template.
+
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
 
 | Item | Answer |
