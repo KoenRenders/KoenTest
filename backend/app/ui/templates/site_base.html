@@ -309,9 +309,13 @@
         {% endif %}
         {# #1057: only the logos ticked for the footer; each in at most
            144 × 64 px, never on yellow. #1647: the picture alone — no line and
-           no frame — 12 px apart; the link to the sponsor stays. #}
+           no frame — 12 px apart; the link to the sponsor stays. #1664 (Z1):
+           from 768 px the block stands at the right END of the row — its last
+           logo on the container's right edge, the line the legal line ends
+           on — with its heading on the left above the first logo. #}
         {% if sponsors %}
-        <section data-footer-sponsors>
+        <section data-footer-sponsors class="site-footer-sponsors">
+          <div data-footer-sponsor-block>
           <h2>{{ sponsors_kop }}</h2>
           <div class="flex flex-wrap gap-3">
             {% for s in sponsors %}
@@ -319,6 +323,7 @@
             <img src="{{ s.url }}" alt="{{ s.title or 'sponsor' }}">
             {% if s.link_url %}</a>{% else %}</span>{% endif %}
             {% endfor %}
+          </div>
           </div>
         </section>
         {% endif %}

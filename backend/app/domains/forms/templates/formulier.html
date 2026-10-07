@@ -1,6 +1,6 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}{{ form.title }} — Raak{% endblock %}
+{% block title %}{{ form.title }} · {{ site_name }}{% endblock %}
 {% block meta %}<meta name="robots" content="noindex">{% endblock %}
 
 {% from "_formulier_vragen.html" import vragen_kaarten with context %}

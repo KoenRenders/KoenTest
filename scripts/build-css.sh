@@ -656,6 +656,12 @@ body[data-shell="site"]>main{padding-bottom:24px}
   .site-footer-core{padding-top:32px}
   .site-legal{margin-top:32px}
   .site-footer-row{grid-template-columns:repeat(3,minmax(0,1fr))}
+  /* #1664 (Z1): the sponsors end on the container's right edge. Their column is
+     the LAST of the row, whichever columns are there, and as wide as the
+     others (#1654); the block in it — the heading over the logos — is as
+     wide as its logos and stands at the column's right end. */
+  .site-footer-sponsors{grid-column-end:-1}
+  .site-footer-sponsors>div{width:fit-content;max-width:100%;margin-left:auto}
 }
 @media (min-width:1200px){
   .site-container{width:calc(100% - 64px)}

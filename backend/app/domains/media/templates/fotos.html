@@ -1,7 +1,7 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
 {% import "_public_macros.html" as pub %}
-{% block title %}{{ _("Foto's — Raak Millegem") }}{% endblock %}
+{% block title %}{{ _("Foto's") }} · {{ site_name }}{% endblock %}
 {% block content %}
 <h1 data-page-title class="font-bold text-kop mb-2">{{ _("Foto's") }}</h1>
 <p class="text-ink-soft mb-8">{{ _("Alle fotoalbums van onze activiteiten.") }}</p>
@@ -9,8 +9,10 @@
 <div class="space-y-10">
   {% for jaar in jaren %}
   <div>
-    <h3 data-year-heading class="text-lg font-bold text-kop mb-4 border-b border-blue-200 pb-2">{{ jaar if jaar else _("Overig") }}</h3>
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+    {# #1664 (Z2): the activity list's year heading — 20 px on a phone, 18 px
+       from 768 px, semibold, a 1 px line in the line colour. #}
+    {{ pub.year_heading(jaar if jaar else _("Overig")) }}
+    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
       {% for a in per_jaar[jaar] %}
       {% set primair = a.sort_date or (a.dates[0].start_date if a.dates else None) %}
       {{ pub.photo_card(a.name, path_for("/activiteiten/" ~ a.id ~ "/fotos"), covers[a.id], primair) }}

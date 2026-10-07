@@ -82,14 +82,36 @@ def test_the_facts_leave_out_what_an_activity_does_not_have():
     assert 'class="mt-1 ' not in html
 
 
-def test_the_public_way_back_keeps_each_origins_words_until_c2():
-    activities = _macro('pub.public_back_link("activities", "/activiteiten")')
-    archive = _macro('pub.public_back_link("archive", "/archief")')
-    photos = _macro('pub.public_back_link("photos", "/fotos")')
-    assert "Alle activiteiten" in activities and "Archief" in archive
-    assert "Terug naar alle albums" in photos
-    for html, href in ((activities, "/activiteiten"), (archive, "/archief"), (photos, "/fotos")):
-        assert html.count("data-way-back") == 1 and f'href="{href}"' in html
+def test_the_public_way_back_is_one_form_the_chevron_and_the_origins_name():
+    """#1664 (Z4): "‹ Activiteiten", "‹ Archief", "‹ Foto's" — the kit's chevron,
+    14 px in the link colour. Red against C1: "← Alle activiteiten" and "← Terug
+    naar alle albums", an arrow in the text and two forms."""
+    seen = {}
+    for origin, href, name in (
+        ("activities", "/activiteiten", "Activiteiten"),
+        ("archive", "/archief", "Archief"),
+        ("photos", "/fotos", "Foto's"),
+    ):
+        html = _macro(f'pub.public_back_link("{origin}", "{href}")').replace("&#39;", "'")
+        assert html.count("data-way-back") == 1 and html.count(f'href="{href}"') == 1
+        assert f"<span>{name}</span>" in html, html
+        # The chevron is the kit's icon, not a character in the text.
+        assert html.count("<svg") == 1 and "m15 18-6-6 6-6" in html
+        assert (
+            "←" not in html and "&larr;" not in html and "Terug" not in html and "Alle " not in html
+        )
+        assert "text-sm" in html and "text-blue-500" in html
+        # A larger hit area on a phone that takes no room.
+        assert (
+            "before:absolute" in html
+            and "before:-inset-y-2.5" in html
+            and "md:before:hidden" in html
+        )
+        seen[origin] = html.replace(href, "").replace(name, "")
+    assert len(set(seen.values())) == 1, "the three origins do not share one form"
+    assert 'class="text-sm leading-6 md:leading-5 pt-4"' in _macro(
+        'pub.public_back_link("archive", "/x", cls="pt-4")'
+    )
 
 
 def test_the_album_card_is_the_kits_card_as_a_link():
@@ -265,7 +287,7 @@ def test_the_page_of_an_activity_without_a_poster(client, world):
         assert not re.search(r"\btext-(?:2xl|3xl)\b", title), title
         block = main[main.index("data-activity-dates") :].split("</div>\n</div>")[0]
         assert block.count("<span>") == lines
-        assert main.count("data-way-back") == 1 and "Alle activiteiten" in main
+        assert main.count("data-way-back") == 1 and "<span>Activiteiten</span>" in main
         assert "data-activity-poster" not in main and "md:mx-auto" not in main
         assert main.count("data-component-actions") == 1 and 'class="mt-6 space-y-3"' in main
 
@@ -281,3 +303,41 @@ def test_an_empty_list_says_so_and_draws_no_part(client, db_session):
     assert "Geen activiteiten gevonden." in main
     assert "data-date-tile" not in main and "data-year-heading" not in main
     assert "data-component-actions" not in main
+
+
+def test_an_activity_that_is_over_leads_back_to_the_archive(client, db_session):
+    """#1664 (Z4): from an archived activity the way back goes to the archive and
+    says so."""
+    past, _ = _activity(db_session, "Meet voorbij", [-40])
+    db_session.commit()
+    html = client.get(f"/activiteiten/{past.id}", follow_redirects=True).text
+    main = html[html.index('<main id="main"') : html.index("</main>")]
+    way = main[main.index("data-way-back") : main.index("</nav>")]
+    assert "<span>Archief</span>" in way and "/activiteiten/archief" in way
+
+
+def test_no_public_page_names_an_association_in_its_browser_title():
+    """#1664 (Z7): "<page> · <the site's name>" — `site_name`, never a literal.
+    Fifteen public pages carry the site's name in their title, twelve of which
+    said "— Raak" or "— Raak Millegem" until now. Red by putting `— Raak` back in
+    `fotos.html`."""
+    from pathlib import Path
+
+    app = Path(__file__).resolve().parents[3]
+    titles = {}
+    for path in app.rglob("templates/*.html"):
+        text = path.read_text()
+        if not re.search(r'{%-?\s*extends\s+"site_base\.html"', text):
+            continue
+        block = re.search(r"{% block title %}(.*?){% endblock %}", text, re.S)
+        if block:
+            titles[path.name] = block.group(1)
+    assert len(titles) >= 18, f"only {len(titles)} public titles found — the check looks nowhere"
+    literal = {name: t for name, t in titles.items() if re.search(r"\bRaak\b", t)}
+    assert not literal, f"a public title names an association: {literal}"
+    with_site = {name: t for name, t in titles.items() if "site_name" in t}
+    assert len(with_site) >= 15, sorted(with_site)
+    wrong = {
+        name: t for name, t in with_site.items() if not t.rstrip().endswith(" · {{ site_name }}")
+    }
+    assert not wrong, f"not '<page> · <site name>': {wrong}"
