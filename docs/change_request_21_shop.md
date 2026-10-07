@@ -725,6 +725,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | 7 Oct 2026 | `payment` describes a payable through describers that each payable domain registers (name, link, filter label, export kind), instead of a third branch at each reader; a ratchet counts the remaining branches (B7, Q48). | Koen |
 | 7 Oct 2026 | The module SHOP is off by default for every kind of tenant, the association included; it is switched on per tenant (Q49). | Koen |
 | 7 Oct 2026 | "How recent the information is" is Boekhouding's answer on the order itself, with its date, shown on Verkoop's task; no tenant-wide "account last checked", no button (Q47). | Koen |
+| 7 Oct 2026 | If OpenCode builds the shop for evaluation, it runs on DeepSeek through DeepSeek's own API — a deliberate deviation from Europe First (`AGENTS.md`): what the model is sent is stored in China. Accepted with hard limits: a working copy with only a clone of the repository, no `.env` files, no `raak`, no SSH keys, never an environment (HDEV, UAT, PROD), made-up data only (Q51). Koen, answering "a or b" (a: DeepSeek's API with hard limits; b: DeepSeek's open weights hosted in the EU): "hier gaan we voor" — to option a. | Koen |
 | 7 Oct 2026 | A task past its due date only turns red on the workbench; nobody gets a mail about it (Q38). | Koen |
 | 7 Oct 2026 | Cancelling until delivery is a Must; a return after delivery is out of scope and handled by hand: Sales removes the order and books the refund (Q40). | Koen |
 
@@ -943,6 +944,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | Q47 | 7 Oct 2026 | What does "how recent the information is" on Verkoop's task show: a tenant-wide "account last checked" derived from Boekhouding's actions, or a button? (Claude) | Koen: "we moeten vermijden dat we te ver gaan". Neither: the task shows Boekhouding's own answer on that order, with its date — the task only reaches Verkoop through that answer. (Claude proposed, Koen agreed) |
 | Q48 | 7 Oct 2026 | Describe an order in `payment` through describers that each payable domain registers, or add a third branch at each of the ≈ 14 readers? (Claude recommended describers) | Agreed: describers. (Koen) |
 | Q49 | 7 Oct 2026 | The module SHOP for a new association: on by default, as every module is today, or off and switched on per tenant? (Claude recommended off) | Off by default. (Koen) |
+| Q51 | 7 Oct 2026 | Which model under OpenCode: Koen wants to try DeepSeek. a: DeepSeek's own API (data stored in China) with hard limits; b: DeepSeek's open weights at an EU host. (Claude, after Koen named DeepSeek) | "hier gaan we voor" — option a, with the hard limits. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
