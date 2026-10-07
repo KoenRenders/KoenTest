@@ -272,7 +272,7 @@ flowchart TB
     c6[public page: reading width, language fallback, the menu with sections — changed]:::chg
     c7[migration: HTML → schema, lossless or listed — new]:::new
     c8[api.py: render_document, schema_for, import_draft — changed]:::chg
-    c9[router: PUT /pages/{id}/draft, GET /schema — new]:::new
+    c9["router: PUT /pages/{id}/draft, GET /schema — new"]:::new
   end
   subgraph media[media — CR-15]
     m1[picker; gallery of an album — used]:::used
