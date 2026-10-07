@@ -1,0 +1,8 @@
+{# To whom the board's registration will be linked (CR-22 S5, #1709): the person
+   the typed e-mail address belongs to, by name — as the board sees him in the
+   member records — or nothing while the address belongs to nobody. One element
+   with a fixed id, so the price refresh can replace it out of band; empty, it
+   takes no room. `person` is the form's (`board_channel`). #}
+<div id="koppeling-{{ component.id }}" data-registration-link data-span="full"{% if oob|default(false) %} hx-swap-oob="true"{% endif %}>
+  {%- if person %}<p class="rounded-md bg-blue-50 px-3 py-2 text-sm leading-[21px] text-ink" role="status">{{ _("Deze inschrijving wordt gekoppeld aan %(naam)s.", naam=(person.first_name ~ " " ~ person.last_name) | trim) }}</p>{% endif -%}
+</div>

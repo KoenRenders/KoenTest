@@ -23,6 +23,11 @@
      `prijzen_url`. #}
   {{ ui.field("contact_email", _("E-mailadres"), kind="email", required=True, value=values.get("contact_email", ""),
               attrs=('autocomplete="email" hx-post="' ~ prijzen_url ~ '" hx-include="closest form" hx-target="#totaal-' ~ component.id ~ '" hx-swap="innerHTML" hx-sync="#prijsblok-' ~ component.id ~ ':replace" hx-trigger="change"') if prijzen_url else 'autocomplete="email"') }}
+  {# CR-22 S5 (#1709; Koen, 7 October 2026): the board's form SHOWS, before
+     saving, to whom the registration will be linked — the person the typed
+     address belongs to. It follows the address with the prices
+     (`_inschrijf_prijzen.html` answers it out of band). #}
+  {% if prijzen_url %}{% include "_registration_link.html" %}{% endif %}
   {{ ui.field("phone", _("Mobiel nummer"), kind="phone", required=True, value=values.get("phone", ""), attrs='autocomplete="tel"') }}
   {% if component.team_name_required %}
   {{ ui.field("team_name", _("Ploegnaam"), required=True, value=values.get("team_name", "")) }}

@@ -162,6 +162,10 @@ PUBLIC_HOOKS: dict[str, str] = {
     "drawer account": "[data-drawer-account]",
     "account item": "[data-account-item]",
     "transfer due": "[data-transfer-due]",
+    # A registration's card and the latest one on the landing page (CR-22 S5).
+    "registration": "[data-my-registration]",
+    "latest registration": "[data-latest-registration]",
+    "hint": "[data-member-nudge]",
     "action bar": "[data-action-bar]",
     "footer row": "[data-footer-row]",
     "legal line": "[data-footer-line]",
@@ -429,6 +433,14 @@ SCREENS: tuple[Screen, ...] = (
         "mijn-gegevens-bewerken",
         "/mijn/gegevens?bewerken=1",
         ("brand", "account content", "form page", "field", "action bar"),
+        session="lid",
+    ),
+    # Mijn inschrijvingen (CR-22 S5): a registration's card with the transfer
+    # still to make.
+    Screen(
+        "mijn-inschrijvingen",
+        "/mijn/inschrijvingen",
+        ("brand", "account content", "page title", "registration", "transfer due"),
         session="lid",
     ),
     # The drawer on a phone, signed in: the site's pages, then the account menu.

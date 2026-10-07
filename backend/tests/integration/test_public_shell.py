@@ -149,17 +149,22 @@ def test_a_member_sees_the_first_name_and_mijn_gezin(client, db_session):
     assert "Emma Voorbeeld" in _menu(html)
     # CR-22 S3 (#1706): the account menu — the landing page first, then what the
     # modules list, each with its own icon.
-    assert _items(_menu(html)) == ["member", "member", "member", "sign-out"]
+    assert _items(_menu(html)) == ["member"] * 4 + ["sign-out"]
     links = re.findall(
         r'<a href="([^"]+)"[^>]*data-account-item="member"[^>]*>(.*?)</a>', _menu(html), re.S
     )
-    assert [href for href, _body in links] == ["/mijn", "/mijn/gegevens", "/leden/gezin"]
+    assert [href for href, _body in links] == [
+        "/mijn",
+        "/mijn/gegevens",
+        "/leden/gezin",
+        "/mijn/inschrijvingen",
+    ]
     assert "Mijn Raak Millegem" in links[0][1] and "Mijn gegevens" in links[1][1]
     assert "Mijn gezin" in links[2][1]
     # One glyph per meaning (Q38): the house for the landing page, the group for the household.
     assert all(body.count("<svg") == 1 for _href, body in links)
     icons = {re.sub(r">[^<]*$", "", body) for _href, body in links}
-    assert len(icons) == 3, "two items draw the same icon"
+    assert len(icons) == 4, "two items draw the same icon"
     # No way into the back office for a member, in neither place.
     assert 'href="/admin"' not in html
 
@@ -194,7 +199,7 @@ def test_the_drawer_carries_the_same_items_as_the_menu(client, db_session):
     db_session.add(UserRole(user_id=user.id, role_code="ADMIN"))
     db_session.commit()
     html = _home(client, email)
-    assert _items(_menu(html)) == ["member", "member", "member", "admin", "sign-out"]
+    assert _items(_menu(html)) == ["member"] * 4 + ["admin", "sign-out"]
     assert _items(_drawer(html)) == _items(_menu(html))
     # One source for both (`_site_account.html`): the same addresses too.
     hrefs = lambda block: re.findall(r'<a href="([^"]+)"[^>]*data-account-item', block)  # noqa: E731

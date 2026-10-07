@@ -1,0 +1,17 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% import "_public_macros.html" as pub %}
+{% block title %}{{ title }} · {{ site_name }}{% endblock %}
+{% block content %}
+{# Mijn inschrijvingen (CR-22 S5, #1709; R8): one card per registration, newest
+   first, in the account layout. #}
+{% call pub.account_page(title, nav, active) %}
+  {% if registrations %}
+  <div data-my-registrations class="mt-4 space-y-4">
+    {% for reg in registrations %}{% include "_my_registration.html" %}{% endfor %}
+  </div>
+  {% else %}
+  <div data-my-registrations-empty class="mt-4">{{ ui.empty_state(_("Je hebt nog geen inschrijvingen.")) }}</div>
+  {% endif %}
+{% endcall %}
+{% endblock %}

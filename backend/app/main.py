@@ -15,6 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import soft_delete  # noqa: F401 - registreert de globale soft-delete-filter
 from app.config import settings
+from app.domains.activities.account_ui import router as activities_account_ui_router
 from app.domains.activities.admin_ui import router as activities_admin_ui_router
 from app.domains.activities.router import router as activities_router
 from app.domains.activities.ui import router as activities_ui_router
@@ -204,6 +205,7 @@ app.include_router(forms_router, prefix="/api/v1", dependencies=_module(M.FORMS)
 app.include_router(forms_ui_router, dependencies=_module(M.FORMS))
 app.include_router(forms_admin_ui_router, dependencies=_module(M.FORMS))
 app.include_router(activities_ui_router, dependencies=_module(M.ACTIVITIES))
+app.include_router(activities_account_ui_router, dependencies=_module(M.ACTIVITIES))
 app.include_router(activities_admin_ui_router, dependencies=_module(M.ACTIVITIES))
 app.include_router(chatbot_ui_router, dependencies=_module(M.CHATBOT))
 app.include_router(chatbot_admin_ui_router, dependencies=_module(M.CHATBOT))

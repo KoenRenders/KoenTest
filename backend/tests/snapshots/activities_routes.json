@@ -719,6 +719,30 @@
   "response_class": "HTMLResponse",
   "response_model": "None"
  },
+ "GET /mijn/inschrijvingen": {
+  "endpoint": "app.domains.activities.account_ui.my_registrations_page",
+  "openapi": {
+   "operationId": "my_registrations_page_mijn_inschrijvingen_get",
+   "responses": {
+    "200": {
+     "content": {
+      "text/html": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     },
+     "description": "Successful Response"
+    }
+   },
+   "summary": "My Registrations Page",
+   "tags": [
+    "ui-account"
+   ]
+  },
+  "response_class": "HTMLResponse",
+  "response_model": "None"
+ },
  "PATCH /api/v1/activities/{activity_id}/registrations/{registration_id}": {
   "endpoint": "app.domains.activities.router.update_registration_remarks",
   "openapi": {

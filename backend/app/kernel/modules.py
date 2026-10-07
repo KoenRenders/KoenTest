@@ -113,7 +113,15 @@ MODULES: tuple[Module, ...] = (
         # without activities there is nothing in it (#1476). `nav_item_shown`
         # asks for both.
         public_items=(("/fotos", "Foto's"), ("/archief", "Archief")),
-        route_prefixes=("/api/v1/activities", "/admin/activiteiten", "/activiteiten", "/archief"),
+        # CR-22 S5 (#1709): the registrations of whoever is signed in.
+        member_items=(("/mijn/inschrijvingen", "Mijn inschrijvingen", "calendar-days"),),
+        route_prefixes=(
+            "/api/v1/activities",
+            "/admin/activiteiten",
+            "/activiteiten",
+            "/archief",
+            "/mijn/inschrijvingen",
+        ),
         dashboard_tiles=("dashboard_upcoming_activities",),
         home_blocks=("activity_cards",),
         sitemap_paths=("/activiteiten", "/activiteiten/archief"),

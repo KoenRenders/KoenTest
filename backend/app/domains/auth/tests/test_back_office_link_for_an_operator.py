@@ -96,7 +96,7 @@ def test_a_member_without_a_role_does_not(client, db_session):
     assert 'data-account-item="admin"' not in html
     # CR-22 S3 and S6a (#1706, #1710): the account menu is "Mijn <site>", Mijn
     # gegevens and Mijn gezin — each in the menu and in the drawer.
-    assert html.count('data-account-item="member"') == 6, "three items, in the menu and the drawer"
+    assert html.count('data-account-item="member"') == 8, "four items, in the menu and the drawer"
 
 
 def test_the_link_and_the_guard_read_one_set(client, db_session, monkeypatch):
