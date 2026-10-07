@@ -1197,7 +1197,15 @@ def account_nav(db) -> list[dict]:
         "match": None,
         "icon": "house",
     }
-    return [home, *_public_nav("member_items")]
+    # Mijn gegevens (CR-22 S6a, #1710): always there — everyone with an account
+    # page is a person.
+    details = {
+        "href": "/mijn/gegevens",
+        "label": _("Mijn gegevens"),
+        "match": None,
+        "icon": "user",
+    }
+    return [home, details, *_public_nav("member_items")]
 
 
 def site_context(db, request=None) -> dict:

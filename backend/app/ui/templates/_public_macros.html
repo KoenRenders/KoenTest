@@ -154,12 +154,13 @@
    the navigation there. No heading above the menu: its first item is the
    landing page, which carries the same words as its title. `nav` is
    `account_nav`, the list the header and the drawer show; `active` the href of
-   the page that is open.
+   the page that is open. `heading=False`: the page brings its own head — a form
+   page (`ui.public_form_page`) with its title, its badge and its one action.
 
    `account_links(nav, active)`: the same items as rows at the bottom of the
    landing page, on a phone only — from there every page is one tap away without
    opening the drawer. #}
-{% macro account_page(title, nav, active) -%}
+{% macro account_page(title, nav, active, heading=True) -%}
 <div data-account-page class="md:grid md:grid-cols-[240px_minmax(0,1fr)] md:gap-8">
   <nav data-account-page-menu aria-label="{{ title }}" class="hidden md:block">
     {% for n in nav %}
@@ -167,8 +168,10 @@
     {% endfor %}
   </nav>
   <div data-account-content class="min-w-0 max-w-[768px]">
+    {% if heading %}
     <h1 data-page-title class="font-bold text-kop [overflow-wrap:anywhere]">{{ title }}</h1>
     <div class="mt-2">{{ caller() }}</div>
+    {% else %}{{ caller() }}{% endif %}
   </div>
 </div>
 {%- endmacro %}

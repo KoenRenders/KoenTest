@@ -417,6 +417,20 @@ SCREENS: tuple[Screen, ...] = (
         ("brand", "account content", "page title", "membership card"),
         session="lid",
     ),
+    # Mijn gegevens, read and in edit mode (CR-22 S6a): the person block for
+    # oneself, inside the account layout.
+    Screen(
+        "mijn-gegevens",
+        "/mijn/gegevens",
+        ("brand", "account content", "form page", "form section"),
+        session="lid",
+    ),
+    Screen(
+        "mijn-gegevens-bewerken",
+        "/mijn/gegevens?bewerken=1",
+        ("brand", "account content", "form page", "field", "action bar"),
+        session="lid",
+    ),
     # The drawer on a phone, signed in: the site's pages, then the account menu.
     Screen(
         "public-lade",

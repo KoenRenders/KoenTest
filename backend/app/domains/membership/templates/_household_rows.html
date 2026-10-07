@@ -34,13 +34,17 @@
 {% endcall %}
 {%- endmacro %}
 
-{# `in_row`: the name fields feed the title of the row they stand in. #}
-{% macro person_fields(group, p, edit, in_row=True) -%}
+{# `in_row`: the name fields feed the title of the row they stand in.
+   `own`: the block on a person's OWN page (Mijn gegevens, CR-22 S6a, #1710):
+   the name and the mobile number — birth date, gender, relation and telephone
+   are the household's and stay in Mijn gezin (R17). #}
+{% macro person_fields(group, p, edit, in_row=True, own=False) -%}
 {% set _title = "data-row-title-source " if in_row else "" %}
 {{ ui.field("h." ~ p.key ~ ".first_name", _("Voornaam"), value=p.first_name, edit=edit, required=True,
             id="h-" ~ p.key ~ "-first_name", attrs=_title ~ "autocomplete=given-name") }}
 {{ ui.field("h." ~ p.key ~ ".last_name", _("Achternaam"), value=p.last_name, edit=edit, required=True,
             id="h-" ~ p.key ~ "-last_name", attrs=_title ~ "autocomplete=family-name") }}
+{% if not own %}
 {{ ui.field("h." ~ p.key ~ ".date_of_birth", _("Geboortedatum"), kind="date", value=p.date_of_birth,
             display=p.birth_display, edit=edit, required=True, id="h-" ~ p.key ~ "-date_of_birth") }}
 {{ ui.field("h." ~ p.key ~ ".gender_code", _("Geslacht"), kind="select", value=p.gender_code, edit=edit,
@@ -51,8 +55,11 @@
             options=group.relation_options, id="h-" ~ p.key ~ "-relation_type",
             attrs="data-row-title-prefix-source") }}
 {% endif %}
+{% endif %}
 {{ ui.field("h." ~ p.key ~ ".mobile", _("Gsm"), kind="phone", value=p.mobile, edit=edit,
             required=(group.contact_required and p.is_main), id="h-" ~ p.key ~ "-mobile") }}
+{% if not own %}
 {{ ui.field("h." ~ p.key ~ ".phone", _("Telefoon"), kind="phone", value=p.phone, edit=edit,
             id="h-" ~ p.key ~ "-phone") }}
+{%- endif %}
 {%- endmacro %}

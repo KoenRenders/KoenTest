@@ -15,9 +15,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 
-from app.domains.mdm.api import RelationType
+from app.domains.mdm.api import CONTACT, RelationType
 from app.domains.membership.membership_card import MembershipCard
 from app.i18n import _
 
@@ -94,6 +94,50 @@ class HouseholdGroup:
     #: The main member's e-mail address and mobile number are asked (a sign-up;
     #: Mijn gezin asks neither, #1603).
     contact_required: bool = False
+
+
+@dataclass(frozen=True)
+class PersonBlock:
+    """The person block for ONE person on a page of their own (Mijn gegevens,
+    CR-22 S6a, #1710): what `person_fields` and `email_group` read from the
+    household's group, and nothing of a household."""
+
+    person: PersonView
+    new_email: EmailView
+    #: An e-mail address and a mobile number are not asked here (as on Mijn
+    #: gezin, #1603).
+    contact_required: bool = False
+
+
+def person_block(person: Any, *, edit: bool = False) -> PersonBlock:
+    """The block of this person (an `mdm` Person): the name, the mobile number
+    and the e-mail rows. `edit`: without an address, one empty field to type one
+    in (#1641) — a row that was never stored, which the form's reader leaves out
+    when it comes back empty."""
+    rows = [c for c in person.contact_details if c.deleted_at is None]
+    stored = sorted(
+        (c for c in rows if c.contact_type_code == CONTACT.EMAIL),
+        key=lambda c: (not c.is_primary, c.id),
+    )
+    emails = tuple(
+        EmailView(key=str(c.id), value=c.value or "", primary=bool(c.is_primary)) for c in stored
+    )
+    if edit and not emails:
+        emails = (EmailView(key=f"n{person.id}e", primary=True),)
+    mobile = next((c.value or "" for c in rows if c.contact_type_code == CONTACT.MOBILE), "")
+    view = PersonView(
+        key=str(person.id),
+        prefix="",
+        title=f"{person.first_name or ''} {person.last_name or ''}".strip(),
+        subtitle="",
+        is_main=False,
+        first_name=person.first_name or "",
+        last_name=person.last_name or "",
+        mobile=mobile,
+        emails=emails,
+        primary_key=next((m.key for m in emails if m.primary), ""),
+    )
+    return PersonBlock(person=view, new_email=EmailView(key=EMAIL_TOKEN))
 
 
 @dataclass(frozen=True)

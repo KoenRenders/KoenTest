@@ -49,6 +49,7 @@ from app.domains.mail.handlers import (
 )
 from app.domains.mail.router import router as email_log_router
 from app.domains.mail.ui import router as email_log_ui_router
+from app.domains.mdm.account_ui import router as mdm_account_ui_router
 from app.domains.mdm.handlers import (  # noqa: F401 - event subscriptions (#1346)
     set_circle_start_when_chosen,
 )
@@ -175,6 +176,7 @@ SHELL_ROUTERS = (
     auth_admin_ui_router,
     changes_ui_router,
     account_ui_router,
+    mdm_account_ui_router,
     design_system_ui_router,
     system_ui_router,
     organisaties_ui_router,
@@ -217,6 +219,7 @@ app.include_router(
 )
 app.include_router(changes_ui_router)
 app.include_router(account_ui_router)
+app.include_router(mdm_account_ui_router)
 app.include_router(design_system_ui_router)
 app.include_router(system_ui_router)
 app.include_router(organisaties_ui_router)
