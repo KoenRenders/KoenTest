@@ -186,7 +186,7 @@ No benefit carries a figure: the volumes were deliberately not measured (A2). Th
 
 | Material | Where it lives | What it taught us |
 |---|---|---|
-| The size chart that came with the delivery of the garments | with Koen; uploaded per product in Productbeheer, never in the repository | a buyer chooses a size from the supplier's own chart, so a product carries documents next to its pictures (R3) |
+| The size charts that came with the delivery of the garments — one or more per product (Koen, 7 Oct 2026) | with Koen; uploaded per product in Productbeheer, never in the repository | a buyer chooses a size from the supplier's own chart, so a product carries documents next to its pictures, as many as needed (R3) |
 | The Excel list of open sales | with the treasurer; holds names and amounts, so it stays outside the repository | the open sales are followed apart from the bank and the mails (pain 6); the workbench task replaces it (R18), nothing is imported from it |
 | Pictures of the garments | none supplied yet; taken when the products are entered | one to four per product (R3) |
 
