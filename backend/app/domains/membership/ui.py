@@ -115,8 +115,14 @@ async def sign_up_submit(
     data, errors = signup_from_form(await request.form())
     if data is None:
         return refusal_response(request, errors, SIGNUP_MESSAGE, send=True)
+    # CR-22 R9 (#1713): an account that signs up while signed in becomes the
+    # main member itself — the door says who is signed in, the service decides.
+    from app.domains.auth.api import SESSION_COOKIE, login_person_for_email, read_session_value
+
+    session_email = read_session_value(request.cookies.get(SESSION_COOKIE))
+    signed_in = login_person_for_email(db, session_email) if session_email else None
     try:
-        result = register_family(db, data, background_tasks)
+        result = register_family(db, data, background_tasks, signed_in=signed_in)
     except HTTPException as refusal:
         # What the service refuses has no field here (a known household, a rule on
         # the object): it stands in the banner, the form stays as typed.

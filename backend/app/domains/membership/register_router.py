@@ -18,7 +18,7 @@ from app.domains.audit.api import (  # noqa: F401
     PUBLIEKE_ACTOR,
     snapshot_membership,
 )
-from app.domains.auth.api import User, get_current_admin
+from app.domains.auth.api import User, get_current_admin, get_current_member
 from app.domains.mdm.api import (
     CONTACT,
     ContactDetail,
@@ -30,7 +30,7 @@ from app.domains.mdm.api import (
     RelationType,
 )
 from app.domains.membership import household_service as _service
-from app.domains.membership.models import Membership
+from app.domains.membership.models import KnownAddress, Membership
 from app.domains.membership.schemas_family import FamilyCreate
 from app.domains.membership.schemas_member import (
     AddressUpdate,
@@ -340,7 +340,10 @@ def assign_board_member(
     dependencies=[Depends(registration_limiter)],
 )
 def register_family(
-    data: FamilyCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+    data: FamilyCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    signed_in=Depends(get_current_member),
 ):
     """Public endpoint: register a new family (member household).
 
@@ -406,14 +409,19 @@ def register_family(
                         % {"year": today.year},
                     )
 
-    # CR-22 Q40 (Koen, 7 October 2026): this door stays outside the address
-    # rule until slice S8 (#1713). A new try after a failed payment comes with
-    # the address of the first try's household — allowed above, on purpose — and
-    # the rule would refuse it. S8 gives that retry its own answer and removes
-    # this argument; `test_the_public_sign_up_door_is_outside_the_rule_until_s8`
-    # is the test it turns round.
+    # CR-22 R9, Q28, Q40 (#1713): the rule is the service's; this door gives
+    # its refusal a status.
+    try:
+        main_member = _service.main_member_for_sign_up(db, hoofdlid_email, signed_in)
+    except KnownAddress as refusal:
+        raise HTTPException(status_code=409, detail=str(refusal)) from refusal
     member, membership = _service.create_family_with_members(
-        db, data, actor=PUBLIEKE_ACTOR, source="registration", today=today, email_rule=False
+        db,
+        data,
+        actor=PUBLIEKE_ACTOR,
+        source="registration",
+        today=today,
+        main_member=main_member,
     )
     pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
 
