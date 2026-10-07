@@ -1,7 +1,7 @@
 # Change Request 22 — Signing in to buy or register: member, account or guest
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 7 October 2026 · every decision taken; the screens (C9) and phase 0 before the handover · nothing is built; not on a release
+**Status:** shaped on 7 October 2026 · every decision taken; every screen seen by Koen (C9); phase 0 before the handover · nothing is built; not on a release
 **Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** auth (sign-in, codes, landing), mdm (persons, e-mail addresses), membership (Mijn gezin, lid worden), activities (Mijn inschrijvingen, the hint, the confirmation mail), app/ui (Mijn Raak); built on the activity registrations first, then used by the webshop (CR-21)
 **Reading:** A 2706 words · B 2822 · C 2779 — code fences excluded, measured on 7 October 2026; the budget is A ≤ 1 500, B ≤ 2 500. **Over the budget in A and B:** A carries 24 requirements, most of them Koen's answers to questions asked during shaping, and B carries the walkthrough of three roles; to be cut at the review if Koen finds them too long.
@@ -109,7 +109,7 @@ What changes, one line each:
 | menu items | **Mijn gegevens** · **Mijn gezin** (exists) · **Mijn inschrijvingen** · later **Mijn aankopen** (CR-21) |
 | link and button on the sign-in screen | **Account aanmaken** |
 | sign-in button | **Inloggen** (unchanged) |
-| hint above the registration form | *"Heb je een account of ben je lid? Log je eerst aan."* |
+| hint above the registration form | with membership: *"Heb je een account of ben je lid? Log je eerst aan."*; without (a company tenant has no members): *"Heb je een account? Log je eerst aan."* (Q39) |
 | icons of the account menu | Mijn Raak Millegem: `house` · Mijn gegevens: `user` (new in the kit) · Mijn gezin: `users` (as Leden in the back office) · Mijn inschrijvingen: `calendar-days` (as Activiteiten) · later Mijn aankopen: `shopping-bag` (new) · Uitloggen: `log-out` — one meaning per glyph (#1535) (Q38) |
 | a pending address | *wacht op bevestiging* |
 | who registered, on a household's registration | *ingeschreven door [first name]* — only where a household is shown (Q37) |
@@ -556,7 +556,7 @@ The five functions leave `DUTCH_IDENTIFIERS` (`tests/rules_baseline.py`), as the
 - **Tests:** T11.
 
 ### activities
-- **Screens:** new `/mijn/inschrijvingen` — one card per registration: activity, date, component × quantity, amount, payment state badge; for a household "ingeschreven door [first name]" (Q37); the transfer block when due (R27); newest first; empty state "Je hebt nog geen inschrijvingen."; `member_items` gains `("/mijn/inschrijvingen", "Mijn inschrijvingen")`. `_member_nudge.html` gets the words of A3.
+- **Screens:** new `/mijn/inschrijvingen` — one card per registration: activity, date, component × quantity, amount, payment state badge; for a household "ingeschreven door [first name]" (Q37); the transfer block when due (R27); newest first; empty state "Je hebt nog geen inschrijvingen."; `member_items` gains `("/mijn/inschrijvingen", "Mijn inschrijvingen")`. `_member_nudge.html` gets the words of A3, the "of ben je lid" part only when the tenant has the membership module (`module_enabled`, `ui/__init__.py:439`) (Q39).
 - **Code:** the transfer instructions move out of `membership/templates/_renewal_running.html` (the `ui.inset` "… betaal via overschrijving:" with Bedrag, IBAN, Begunstigde, Mededeling (OGM)) into one partial `_transfer_due.html` with a `TransferDue` view-model (amount, iban, beneficiary, ogm, heading), included by the renewal and by every registration still to be paid by transfer (R27); the heading is the caller's ("Inschrijving geregistreerd — betaal via overschrijving:"). `registrations_for_persons(db, person_ids)` in the facade; payment state through `payment.api.registration_payment_states`.
 - **Database:** none.
 - **Mail:** the confirmation mail of a registration with a person links to `/mijn/inschrijvingen`; a guest's has no link.
@@ -690,7 +690,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | `/mijn/gegevens`, account and member | the person block; for a member the line to Mijn gezin; a pending address | Koen, 7 Oct 2026 — approved (described; labels per #1692) |
 | `/mijn/inschrijvingen` | one card per registration with payment badge, "ingeschreven door …" for a household, the transfer block when due; the empty state | Koen, 7 Oct 2026 — approved |
 | the drawer at 390 px | the site pages, then the account menu with its own icon per item (Q38) | Koen, 7 Oct 2026 — approved with the icons of Q38 |
-| the registration form's hint | the new words | — |
+| the registration form's hint | the new words, with or without "of ben je lid" by the membership module | Koen, 7 Oct 2026 — approved (Q39) |
 | `/admin/personen` | the list with search and the filter "Zonder gezin", badges account / gezin, Verwijderen behind ⋯, the confirmation naming the household | Koen, 7 Oct 2026 — approved |
 
 ## C10. Close-out at the release
@@ -746,6 +746,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | Q36 | 7 Oct 2026 | Does a new address also get confirmed through the link in the mail? (Koen) | Yes: link and code, one token, as the sign-in mail today. (Claude, on the measured sign-in mail) |
 | Q37 | 7 Oct 2026 | Keep "ingeschreven door An" on a household's registrations? (Claude) | Yes. (Koen) |
 | Q38 | 7 Oct 2026 | (Koen, on the drawer) Other icons: a person for Mijn gegevens, the back office's for Mijn gezin, something for activities on Mijn inschrijvingen. | Mijn gegevens `user`, Mijn gezin `users`, Mijn inschrijvingen `calendar-days`, the landing page `house`; each item brings its own icon. (Koen, Claude) |
+| Q39 | 7 Oct 2026 | The hint "Heb je een account of ben je lid? Log je eerst aan." — good? (Claude) | Yes for organisations with members; a company tenant has no members, only accounts. (Koen) |
 | Q27 | 7 Oct 2026 | For a member, may name and e-mail be edited on the own page as well as in "Mijn gezin" (a), or read-only there (b)? (Claude) | These are attributes of a person, so edit functions on a person are needed anyway; in a household the repeating group is a natural person, including its relation to the household. (Koen) — read as (a) with one person component. |
 
 ## Non-goals — deliberately outside this change
