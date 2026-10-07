@@ -487,7 +487,6 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
 | Q11 | Boekhouding and the workbench: today a FINANCE-only user cannot open it (`workflow/ui.py:114`, `require_admin_ui`), but CR-21 gives Boekhouding the first step of the unpaid transfer. Give FINANCE `workbench.use` in part 1, or in CR-21? | In CR-21 phase 2, where its first task appears: part 1 stays neutral (R7), and the widening is visible where it is needed. | Part 1: a FINANCE-only user sees the workbench from day one — the one widening of part 1. |
-| Q10 | Does ADMIN get the webshop's rights in part 1? CR-21 decided that ADMIN views the shop and only the four roles change it (CR-21 Q12); viewing without a right arrives only in part 2. | No: ADMIN gets no shop rights. Until part 2, a board member who must see orders also gets Verkoop. | Yes: ADMIN can change products, prices, orders and stock until part 2 takes it away — against CR-21 Q12 for a while. |
 
 ## B9. Decisions log — dated answers
 
@@ -513,6 +512,7 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 | 7 Oct 2026 | Two steps: part 1 changes nobody's reach, reading included; part 2 redistributes the work — ADMIN becomes Bestuur, every user gets the roles for his own work, and "everyone reads everything" (R2) arrives there (Q7). | Koen |
 | 7 Oct 2026 | The label Penningmeester becomes Boekhouding in part 1; the code stays `FINANCE` (Q8). | Koen |
 | 7 Oct 2026 | MoSCoW confirmed: R1, R3, R4, R5, R7, R13 Must; R10, R11, R14 Won't (Q9). | Koen |
+| 7 Oct 2026 | ADMIN gets no webshop rights in part 1; until part 2 brings reading for every role, a board member who must see orders also gets Verkoop (Q10). | Koen |
 
 ---
 
@@ -681,6 +681,7 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 | Q7 | 7 Oct 2026 | R2 (everyone reads everything) contradicts R7 (nobody's reach changes): today FINANCE alone cannot open the activity or member screens. When does the reach change — in part 1, or in part 2 with Bestuur? (Claude recommended part 2) | Part 2: two steps — "akkoord, nu begrijp ik het". (Koen) |
 | Q8 | 7 Oct 2026 | Rename Penningmeester to Boekhouding on screen already in part 1 — a label, no reach? (Claude) | Yes. (Koen) |
 | Q9 | 7 Oct 2026 | MoSCoW: R1, R3, R4, R5, R7, R13 Must; social tariff, Accountbeheer, composing roles Won't? (Claude) | Yes. (Koen) |
+| Q10 | 7 Oct 2026 | Does ADMIN get the webshop's rights in part 1, given that viewing without a right only arrives in part 2 and CR-21 Q12 lets only the four roles change the shop? (Claude recommended no) | No; a board member who must see orders also gets Verkoop until part 2. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
