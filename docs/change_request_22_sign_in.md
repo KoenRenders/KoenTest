@@ -739,7 +739,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | Q31 | 7 Oct 2026 | Will we regret the Dutch names beside the new English ones? (Koen) | Rename them in CR-22, as a phase before the change. (Koen) |
 | Q32 | 7 Oct 2026 | (Koen, looking at the concepts) | For Raak Millegem it reads "Mijn Raak Millegem". (Koen) |
 | Q33 | 7 Oct 2026 | A membership card on the landing page for a member? (Claude) | Yes — exactly the card Mijn gezin already has. (Koen) |
-| Q34 | 7 Oct 2026 | (Koen) When paid by transfer, show how to transfer, in exactly the layout made yesterday. | One partial with the inset of Mijn gezin's renewal; registrations use it too. (Claude, to be confirmed by Koen that this is the layout meant) |
+| Q34 | 7 Oct 2026 | (Koen) When paid by transfer, show how to transfer, in exactly the layout made yesterday. | One partial with the inset of Mijn gezin's renewal — confirmed by Koen: the block that appears when a membership is renewed by transfer; registrations use it too. (Koen) |
 | Q35 | 7 Oct 2026 | No heading above the menu; "Mijn Raak Millegem" as first item and page title? (Claude) | Yes. (Koen) |
 | Q36 | 7 Oct 2026 | Does a new address also get confirmed through the link in the mail? (Koen) | Yes: link and code, one token, as the sign-in mail today. (Claude, on the measured sign-in mail) |
 | Q27 | 7 Oct 2026 | For a member, may name and e-mail be edited on the own page as well as in "Mijn gezin" (a), or read-only there (b)? (Claude) | These are attributes of a person, so edit functions on a person are needed anyway; in a household the repeating group is a natural person, including its relation to the household. (Koen) — read as (a) with one person component. |
