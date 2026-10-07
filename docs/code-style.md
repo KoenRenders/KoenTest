@@ -78,6 +78,17 @@ function for anything that needs other rows; `NOT NULL`/`CHECK`/`UNIQUE`/`FOREIG
 KEY` for what must hold at rest, in the same commit as its validator. A
 `check()` reads what is loaded and never queries.
 
+**An e-mail address of a person is written only through master data's contact
+service** (`mdm.service.new_contact_detail`; CR-22 §B7, built in #1704). It
+decides whether the address counts (`confirmed_at`) and refuses it when another
+person outside the household already uses it (`email_refusal`). The rule cannot
+be a unique index — "except inside the household" is another table — so it
+lives in the service, and `tests/test_contact_detail_factory_gate.py` keeps
+that service the only place a contact detail is made. A writer that changes the
+value of an existing row calls `require_email_free`; tests hold that, not the
+gate. One door is outside the rule until CR-22's slice S8 (#1713): the public
+sign-up for a membership, so a retry after a failed payment keeps working.
+
 **An event handler** is a `@subscribe` function. It touches the session and the
 job queue, never the network, and never commits. A `@job` function is where a
 mail or an HTTP call belongs.
