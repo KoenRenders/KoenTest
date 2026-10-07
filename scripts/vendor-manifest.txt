@@ -1,0 +1,18 @@
+# Vendored front-end assets (CR-17, #1671) — what runs, pinned by checksum.
+#
+# Built entirely outside the repository (no package.json, no node_modules
+# here); a second build from the same pinned versions gives the same
+# checksum — measured twice on 7 October 2026, from a cold container each
+# time (the reviewer rebuilds it the same way; the recipe stands in the
+# spike's build-bundle.sh, branch spike/cr17-tiptap).
+#
+# sha256sum, run from backend/:
+#   app/static/vendor/tiptap-3.31.4.min.js
+60b08c1bfad4b5dc555fdf1270b35008f603611983d3ef19b2f295f523a08cc0  app/static/vendor/tiptap-3.31.4.min.js
+
+# tiptap-3.31.4.css is not vendored from upstream — TipTap v3 ships no CSS;
+# it is ours (the kit's chrome for the editor). No checksum for our own
+# file: it changes with the kit, not with a third party.
+#
+# Pinned build inputs (@tiptap/* 3.31.4, esbuild 0.25.0, node:22-alpine,
+# iife, global RaakTiptap): see the spike's build-bundle.sh.

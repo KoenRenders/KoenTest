@@ -1388,6 +1388,23 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 </div>
 {%- endmacro %}
 
+{# ── De document-editor (CR-17 #1671, snede 2) ────────────────────────────────
+   TipTap naast Trix: `ui.rich_text` (Trix) blijft de nieuwsbrief en de
+   vergadernotities bedienen tot fase 7; een pagina krijgt deze editor. Geen
+   macro met twee motoren. `blocks` is de configuratie van de set (het
+   domein levert haar) en `value_json` het document, allebei als JSON in de
+   pagina; de werkbalk bouwt `document-editor.js` UIT die configuratie —
+   geen werkbalkopmaak of -configuratie in een domeinsjabloon (C6 3, poort
+   14 verbreed): deze macro is de enige plek waar de editor in een sjabloon
+   staat. #}
+{% macro document_editor(name, blocks, value_json, id=None, cls="") -%}
+{%- set editor_id = id or (name ~ "-editor") -%}
+<input type="hidden" id="{{ editor_id }}-input" name="{{ name }}" value="{{ value_json }}">
+<div class="document-editor{% if cls %} {{ cls }}{% endif %}" id="{{ editor_id }}"
+     data-document-editor data-input="{{ editor_id }}-input"
+     data-config='{{ blocks|tojson }}'></div>
+{%- endmacro %}
+
 {# `aria_label` als parameter en niet via `attrs` (#663/#699): `_()` levert Markup,
    dus een vertaalde tekst met `~` in een attrs-string aan elkaar plakken escapet de
    gewone helft — de klasse fout uit #514/#613. #}

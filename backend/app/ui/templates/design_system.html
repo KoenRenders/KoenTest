@@ -277,6 +277,24 @@
   </div>
 {% endcall %}
 
+{# ── 6c. De document-editor (CR-17 #1671, snede 2) ─────────────────────────── #}
+{# TipTap naast Trix: `ui.rich_text` hierboven bedient de nieuwsbrief en de
+   vergadernotities tot fase 7; een pagina krijgt deze editor. De werkbalk
+   bouwt de JavaScript uit de configuratie van de set — hier de `page`-set
+   met elk blok dat ze aanbiedt (C6 3: geen werkbalkopmaak in een sjabloon).
+   De figuur toont nog geen beeld: de picker komt met het paginascherm. #}
+{{ ui.section_header(_("6c · Document-editor (TipTap)"), _("Naar de pagina's"),
+                     action_href="/admin/paginas", cls="mt-10") }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("De editor van een pagina, met elk blok van de set: koppen, opmaak, lijsten, link, tabel en figuur. Opslaan bewaart het document als JSON; de server weigert een blok dat het schema niet kent.") }}
+  </p>
+  {{ ui.document_editor("document", document_editor_config, document_editor_value, id="ds-document") }}
+  <p class="text-xs text-gray-500 mt-3">
+    <code>ui.document_editor(name, blocks, value_json)</code> — {{ _("de werkbalk bouwt de JavaScript uit de configuratie van de set.") }}
+  </p>
+{% endcall %}
+
 {# ── 7. Persoonsvelden ─────────────────────────────────────────────────────── #}
 {{ ui.section_header(_("7 · Persoonsvelden"), _("Naar de leden"), action_href="/admin/leden", cls="mt-10") }}
 {% call ui.card() %}

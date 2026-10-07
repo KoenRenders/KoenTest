@@ -295,8 +295,97 @@ def _voorbeeldvelden() -> list:
     )
 
 
+def _document_demo() -> tuple[dict, str]:
+    """The document-editor's demo (CR-17 #1671, slice 2): the `page` set's
+    configuration and a document holding every block the set offers —
+    invented data, like every demo on this page; no database.
+
+    The figure carries no image yet: CR-15's picker arrives with the page
+    screen (slice 3), and until then the editor shows her placeholder box.
+    """
+    import json
+
+    from app.domains.cms.api import schema
+
+    demo = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "heading",
+                "attrs": {"level": 1},
+                "content": [{"type": "text", "text": "Een pagina als document"}],
+            },
+            {
+                "type": "paragraph",
+                "content": [
+                    {"type": "text", "text": "Een alinea met een "},
+                    {"type": "text", "marks": [{"type": "bold"}], "text": "vet"},
+                    {"type": "text", "text": " en een "},
+                    {"type": "text", "marks": [{"type": "italic"}], "text": "cursief"},
+                    {"type": "text", "text": " woord."},
+                ],
+            },
+            {
+                "type": "bulletList",
+                "content": [
+                    {
+                        "type": "listItem",
+                        "content": [
+                            {
+                                "type": "paragraph",
+                                "content": [{"type": "text", "text": "Een punt in een lijst."}],
+                            }
+                        ],
+                    }
+                ],
+            },
+            {
+                "type": "table",
+                "content": [
+                    {
+                        "type": "tableRow",
+                        "attrs": {"section": "head"},
+                        "content": [
+                            {
+                                "type": "tableHeader",
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "content": [{"type": "text", "text": "Wat"}],
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    {
+                        "type": "tableRow",
+                        "attrs": {"section": "body"},
+                        "content": [
+                            {
+                                "type": "tableCell",
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "content": [{"type": "text", "text": "Koffie"}],
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                ],
+            },
+            {
+                "type": "figure",
+                "attrs": {"media_id": 1, "alt": "Het lokaal", "placement": "right"},
+            },
+        ],
+    }
+    return schema.schema_for("page"), json.dumps(demo)
+
+
 @router.get("/admin/design-system", response_class=HTMLResponse)
 def design_system(request: Request, email: str = Depends(require_admin_ui)):
+    document_config, document_value = _document_demo()
     view = DesignSystemView(
         nav_items=admin_nav("/admin/design-system"),
         tokens=_tokens(),
@@ -307,5 +396,7 @@ def design_system(request: Request, email: str = Depends(require_admin_ui)):
         # A real date, because the date format is the one that cannot be written
         # as a literal in the template (#875).
         demo_datum=date(2026, 9, 12),
+        document_editor_config=document_config,
+        document_editor_value=document_value,
     )
     return templates.TemplateResponse(request, "design_system.html", view.as_context())
