@@ -22,6 +22,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.i18n import _
+
 #: The five configuration codes a value block can carry (C4.4). The labels and
 #: the current values come from the renderer/service — this is the one place
 #: that says WHICH codes exist, because the parser maps exactly these.
@@ -328,9 +330,6 @@ def _validate_node(node: Any, path: str) -> None:
 #: behind `_()` — a translator owns these (the codes gate's question), the
 #: same way the macro's own words stand in the templates; the JS takes them
 #: from `schema_for` and never writes its own.
-from app.i18n import _
-
-
 def _toolbar_label(command_id: str) -> str:
     return {
         "bold": _("Vet"),
