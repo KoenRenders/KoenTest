@@ -918,7 +918,7 @@ def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
     ]
 
 
-def _huidige_gebruiker(db, request) -> dict | None:
+def _current_user(db, request) -> dict | None:
     """Ingelogde gebruiker uit de sessie-cookie (#467): naam + is_admin, of None.
     Mag het renderen nooit breken."""
     if request is None:
@@ -1294,7 +1294,7 @@ def site_context(db, request=None) -> dict:
         # (`tenant_public_chat_enabled`), which the chat endpoints read too.
         "chat_enabled": tenant_public_chat_enabled(db) and module_enabled(ModuleCode.CHATBOT),
         "stt_mode": settings.stt_mode,  # spraakinvoer in de widget (#567)
-        "gebruiker": _huidige_gebruiker(db, request),
+        "gebruiker": _current_user(db, request),
         # Branding per tenant (#407/#519): naam/tagline/Facebook uit de
         # tenant-config. GEEN Millegem-specifieke defaults meer — die lekten
         # naar andere tenants (multi-tenancy-fout). Leeg = niet tonen, net als

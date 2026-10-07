@@ -261,4 +261,4 @@ def test_only_the_card_writes_what_a_running_renewal_asks():
     users = sorted(
         p.name for p in templates.glob("*.html") if '"_renewal_running.html"' in p.read_text()
     )
-    assert users == ["gezin_portaal.html"]
+    assert users == ["household_page.html"]

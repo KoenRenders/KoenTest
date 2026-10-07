@@ -65,7 +65,7 @@ def _signup_page(request: Request, db: Session, **state) -> HTMLResponse:
 
 
 @router.get("/lid-worden", response_class=HTMLResponse)
-def lid_worden(request: Request, db: Session = Depends(get_db)):
+def sign_up_page(request: Request, db: Session = Depends(get_db)):
     return _signup_page(request, db)
 
 
@@ -106,7 +106,7 @@ def email_row(request: Request):
 @router.post(
     "/lid-worden", response_class=HTMLResponse, dependencies=[Depends(registration_limiter)]
 )
-async def lid_worden_submit(
+async def sign_up_submit(
     request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
 ):
     from app.domains.membership.api import register_family
@@ -228,12 +228,12 @@ def _household_page(
         saved=saved,
     )
     return templates.TemplateResponse(
-        request, "gezin_portaal.html", {**site_context(db, request), "page": page}
+        request, "household_page.html", {**site_context(db, request), "page": page}
     )
 
 
 @router.get("/leden/gezin", response_class=HTMLResponse)
-def gezin_portaal(request: Request, db: Session = Depends(get_db)):
+def household_page(request: Request, db: Session = Depends(get_db)):
     person = _session_member(request, db)
     if person is None:
         return _to_sign_in(request)
@@ -306,7 +306,7 @@ def renew_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/leden/gezin/vernieuwen", response_class=HTMLResponse)
-def gezin_vernieuwen(
+def renew_membership_page(
     request: Request, db: Session = Depends(get_db), payment_method: str = Form("")
 ):
     from app.domains.membership.api import household_renew_membership

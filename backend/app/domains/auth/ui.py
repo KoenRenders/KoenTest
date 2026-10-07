@@ -25,7 +25,7 @@ router = APIRouter(include_in_schema=False)
 def aanmelden_page(request: Request, db: Session = Depends(get_db)):
     from app.ui import site_context
 
-    # De pagina includeert _aanmelden_email.html, dat een foutbanner en het
+    # De pagina includeert _sign_in_email.html, dat een foutbanner en het
     # ingevulde adres toont. Bij een verse GET zijn die leeg — maar wél beloofd
     # (#643): een template die iets vraagt, krijgt het van de route.
     # #1391 (W17): where to go after signing in, when a page sent the visitor
@@ -34,7 +34,7 @@ def aanmelden_page(request: Request, db: Session = Depends(get_db)):
     return_to = veilige_terug(request.query_params.get("terug"), "")
     return templates.TemplateResponse(
         request,
-        "aanmelden.html",
+        "sign_in.html",
         {**site_context(db, request), "error": None, "email": "", "terug": return_to},
     )
 
@@ -51,7 +51,7 @@ def aanmelden_submit(
     if not email or "@" not in email:
         return templates.TemplateResponse(
             request,
-            "_aanmelden_email.html",
+            "_sign_in_email.html",
             {"error": _("Vul een geldig e-mailadres in."), "email": email, "terug": return_to},
         )
     from app.domains.auth.api import start_login
@@ -60,7 +60,7 @@ def aanmelden_submit(
     start_login(db, email, return_to=return_to)
     # Altijd hetzelfde vervolg — verklap niet of het adres gekend is.
     return templates.TemplateResponse(
-        request, "_aanmelden_code.html", {"email": email, "error": None, "terug": return_to}
+        request, "_sign_in_code.html", {"email": email, "error": None, "terug": return_to}
     )
 
 
@@ -79,7 +79,7 @@ def aanmelden_code(
     if not check_otp(db, email, code):
         return templates.TemplateResponse(
             request,
-            "_aanmelden_code.html",
+            "_sign_in_code.html",
             {"email": email, "error": _("Ongeldige of verlopen code."), "terug": return_to},
         )
     # The page that asked, else the landing by role (#530, #1437) — the same
@@ -87,7 +87,7 @@ def aanmelden_code(
     from app.domains.auth.api import landing_for
 
     dest = return_to or landing_for(db, email)
-    response = templates.TemplateResponse(request, "_aanmelden_klaar.html", {})
+    response = templates.TemplateResponse(request, "_sign_in_done.html", {})
     set_session_cookie(response, email, request)
     response.headers["HX-Redirect"] = dest
     return response

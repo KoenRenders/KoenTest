@@ -26,8 +26,8 @@ INCLUDED_BY_THE_PILOT_NOT_RENDERED_THERE: dict[str, str] = {
 #: B7 test 8 — raw <label>, <select>, <textarea>, visible <input>. 95 in 28 files.
 RAW_FORM_ELEMENTS: dict[str, int] = {
     "domains/activities/templates/admin_activiteit_kopieren.html": 10,
-    "domains/auth/templates/_aanmelden_code.html": 1,
-    "domains/auth/templates/_aanmelden_email.html": 1,
+    "domains/auth/templates/_sign_in_code.html": 1,
+    "domains/auth/templates/_sign_in_email.html": 1,
     "domains/auth/templates/_gu_lijst.html": 2,
     "domains/auth/templates/_gu_rollen_velden.html": 6,
     "domains/auth/templates/admin_gebruiker_nieuw.html": 1,
@@ -69,8 +69,8 @@ RAW_CHECKBOXES: dict[str, int] = {
 #: B7 test 8 — margin/padding/gap/space class on a raw form element. 64 in 21 files.
 SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "domains/activities/templates/admin_activiteit_kopieren.html": 14,
-    "domains/auth/templates/_aanmelden_code.html": 1,
-    "domains/auth/templates/_aanmelden_email.html": 1,
+    "domains/auth/templates/_sign_in_code.html": 1,
+    "domains/auth/templates/_sign_in_email.html": 1,
     "domains/auth/templates/_gu_lijst.html": 1,
     "domains/auth/templates/_gu_rollen_velden.html": 3,
     "domains/cms/templates/_cp_detail.html": 4,
