@@ -88,7 +88,7 @@ Today a screen checks role names: `require_admin_ui` lets ADMIN and OPERATOR in,
 | R2 | Everyone with a back-office role reads everything of his workspace; there is no reading right per object. | Must *(proposed)* | Koen, 7 Oct 2026 | "nothing we should spend time on" |
 | R3 | A role is a bundle of rights, kept as data per workspace; one user may hold several. | Must *(proposed)* | Koen, 7 Oct 2026 | |
 | R4 | The roles of part 1: today's ADMIN, FINANCE (on screen Boekhouding) and OPERATOR, each as a bundle with exactly the rights it has today; and the new roles the webshop needs — Masterdata, Prijsbeheer, Verkoop, Voorraadbeheer (CR-21). Bestuur (`BOARD`) and the other changing roles come in part 2 (CR-25). | Must *(proposed)* | Koen, 7 Oct 2026 (Q4) | |
-| R5 | Masterdata changes the master data: persons (deleting and merging included), households, memberships (validity; whether a renewal is paid stays with Boekhouding), the legal identity of organisations — official name, legal form, enterprise and VAT number, registered address, bank accounts, payment terms — and the product portfolio. Relatiebeheer changes only the commercial relationship with organisations: customer or supplier, contacts, the responsible account manager, notes. | Must *(proposed)* | Koen, 7 Oct 2026 (Q3) | the split of a master-data team and account managers; member administration is master data |
+| R5 | Masterdata changes the master data: persons (deleting and merging included), households, memberships — member administration (validity; whether a renewal is paid stays with Boekhouding) —, the legal identity of organisations (official name, legal form, enterprise and VAT number, registered address, bank accounts, payment terms) and the product portfolio. Relatiebeheer, which changes only the commercial relationship with organisations, comes in part 2 with the business partners (CR-25). | Must *(proposed)* | Koen, 7 Oct 2026 (Q3, Q5) | member administration is master data (Q3); the split of a master-data team and account managers is completed in part 2 |
 | R13 | Master data has two rights — the legal data of persons and organisations (`party.masterdata`), the product portfolio (`product.masterdata`) — and one standard role, Masterdata, that holds both; a company with two teams makes two bundles without code. | Must *(proposed)* | Koen, 7 Oct 2026 (Q2) | as an ERP separates business partner and material master |
 | R7 | Nobody's reach changes on the day part 1 goes live: every existing user keeps what he may do today; the gates ask rights, the bundles give them. | Must *(proposed)* | Koen, 7 Oct 2026 (Q4) | ADMIN becomes Bestuur only in part 2 |
 | R10 | Social tariff: who pays a reduced rate reveals something about income; later, individual payments and tariffs must not be visible to everyone who reads. | Won't *(now)* | Koen, 7 Oct 2026 | the model must allow a reading restriction later |
@@ -289,6 +289,7 @@ and deliberately not done — recorded so it is not asked again).
 | 7 Oct 2026 | Member administration (households, memberships) is master data: role Masterdata; Relatiebeheer keeps only the commercial relationship with organisations (Q3). | Koen |
 | 7 Oct 2026 | Split in two: part 1 (this CR) the mechanism — rights instead of role names, roles as bundles, the shop's roles, nobody's reach changing; part 2 (CR-25) the menu, Bestuur, the workbench per role and business partners. Part 1 before CR-21, part 2 after (Q4). | Koen |
 | 7 Oct 2026 | Social tariff and Accountbeheer out of scope, their meaning recorded (R10, R11). | Koen |
+| 7 Oct 2026 | Part 1 brings Masterdata with its two rights — member administration (persons, households, memberships) included; Relatiebeheer moves to part 2, with the business partners it works on (Q5). | Koen |
 
 ---
 
@@ -452,11 +453,12 @@ and deliberately not done — recorded so it is not asked again).
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
 | Q4 | 7 Oct 2026 | CR-24 in two: the mechanism first (before CR-21), the rest after? (Claude) | Yes, as two change requests, part 1 and part 2. (Koen) |
+| Q5 | 7 Oct 2026 | Relatiebeheer in part 1 or part 2? It works on customers and suppliers, which come in part 2. (Claude) | Part 2. Koen asked whether member administration belongs to it: no — households and memberships are master data (Q3), so they are in part 1, with Masterdata. (Koen, Claude) |
 
 ## Non-goals — deliberately outside this change
 
 - R10 (reading restrictions for the social tariff), R11 (Accountbeheer).
-- Part 2, CR-25: the menu, Bestuur reading only, the workbench per role, organisations as business partners, R12 (approval of master-data changes).
+- Part 2, CR-25: the menu, Bestuur reading only, the workbench per role, organisations as business partners and Relatiebeheer (Q5), R12 (approval of master-data changes).
 
 ## Relationship to existing work — issues and change requests
 
