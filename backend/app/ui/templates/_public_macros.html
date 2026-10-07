@@ -100,7 +100,7 @@
      x-data='{ open: null, opener: null, urls: {{ urls | tojson }},
        show(i, el) { this.opener = el; this.open = i; this.$nextTick(() => this.$refs.close.focus()) },
        hide() { if (this.open === null) return; this.open = null; const el = this.opener; this.opener = null;
-                this.$nextTick(() => el && el.focus({ preventScroll: true })) },
+                if (el) el.focus({ preventScroll: true }) },
        step(d) { const n = this.open + d; if (this.open === null || n < 0 || n >= this.urls.length) return; this.open = n;
                  this.$nextTick(() => { const a = document.activeElement;
                    if (!this.$refs.box.contains(a) || a.offsetParent === null) this.$refs.close.focus() }) },

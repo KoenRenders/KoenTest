@@ -188,6 +188,10 @@ def test_the_focus_goes_to_close_stays_inside_and_returns_to_the_thumbnail(brows
     before = page.evaluate("() => scrollY")
     assert before > 0, "the page does not scroll — the scroll position would prove nothing"
     _open(page, 1)
+    # Alpine sets the focus a tick after the lightbox shows: wait for it, never read at once.
+    page.wait_for_function(
+        "() => document.activeElement.hasAttribute('data-lightbox-close')", timeout=3000
+    )
     assert page.evaluate(FOCUS) == "close"
     # Tab walks the three buttons and comes round; Shift+Tab walks back.
     order = []
@@ -203,6 +207,9 @@ def test_the_focus_goes_to_close_stays_inside_and_returns_to_the_thumbnail(brows
     print("MEASURE lightbox focus order", ["close", *order], back)
     page.keyboard.press("Escape")
     page.locator("[data-lightbox]").wait_for(state="hidden")
+    page.wait_for_function(
+        "() => document.activeElement.hasAttribute('data-photo-open')", timeout=3000
+    )
     assert page.evaluate(FOCUS) == "thumbnail"
     assert (
         page.evaluate(
