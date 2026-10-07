@@ -104,6 +104,7 @@ Signing in today sends a code to an e-mail address. That only works if the addre
 | R18 | The board gets no screen to manage accounts: persons with an account manage themselves. | Must *(proposed)* | Koen, 7 Oct 2026 (Q25) | |
 | R19 | A report lists the accounts. | Could *(proposed)* | Koen, 7 Oct 2026 (Q25) | "maybe as a report"; which columns: open |
 | R20 | Members-only activities, an address known in several households, and how board members sign in, stay as they are. | Must *(proposed)* | Koen, 7 Oct 2026 (Q24) | |
+| R21 | When persons of one household share an e-mail address, whoever signs in with it is the household's main member, as today: "Mijn gegevens" shows the main member, and a registration is made in his name. A partner edits his own data in "Mijn gezin". | Must *(proposed)* | Koen, 7 Oct 2026 (Q22) | the household acts towards Raak as one; member price and history are the household's |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
@@ -307,6 +308,7 @@ and deliberately not done — recorded so it is not asked again).
 | 7 Oct 2026 | No board screen for accounts; a report may list them (Q25). | Koen |
 | 7 Oct 2026 | Members-only, several households, board sign-in: unchanged (Q24). | Koen |
 | 7 Oct 2026 | Duplicate addresses measured read-only by the master CLI before the handover (Q26). | Koen |
+| 7 Oct 2026 | A shared household address signs in as the main member, as today; no "who are you?" step (Q22). | Koen |
 | 7 Oct 2026 | Q1–Q9 answered: guest link by secret token; mobile required as today; no lookup or warning on a typed address (the standing hint stays, as decided in CR-11); an account exists after the code; an account that becomes a member keeps its person; accounts per tenant; a new address is confirmed and unique except inside the household; existing duplicates measured first, Koen decides; for registrations only the account is new. | Koen |
 
 ---
@@ -485,6 +487,7 @@ and deliberately not done — recorded so it is not asked again).
 | Q16 | 7 Oct 2026 | Navigation on a phone? (Koen asked whether the account menu could serve) | Yes: only the account menu, with links at the bottom of Mijn Raak. (Koen) |
 | Q17 | 7 Oct 2026 | R4 said "this account already exists", against Q3. (Claude) | The screen never says it; only the mail to the owner. (Koen) |
 | Q19 | 7 Oct 2026 | Mobile: remembered from the first registration? (Claude) | Required when the account is made. (Koen) |
+| Q22 | 7 Oct 2026 | A household shares one address: who is signed in — the main member as today (a), or a "who are you?" step (b)? (Claude) | (a). (Koen) |
 | Q24 | 7 Oct 2026 | Members-only, several households, board sign-in unchanged? (Claude) | Yes. (Koen) |
 | Q25 | 7 Oct 2026 | A board screen for accounts? (Claude) | No; these persons manage themselves; maybe a report. (Koen) |
 | Q26 | 7 Oct 2026 | When are existing duplicates measured? (Claude) | By the master CLI, read-only, before the handover. (Koen) |
