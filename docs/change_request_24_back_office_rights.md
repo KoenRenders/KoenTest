@@ -159,12 +159,12 @@ The labels come from the code list `auth.role_labels` (`auth/codes.py:18-19`, me
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
-| R1 | A right is about changing one kind of object; the code asks for the right, never for a role's name. | Must *(proposed)* | Koen, 7 Oct 2026 | |
+| R1 | A right is about changing one kind of object; the code asks for the right, never for a role's name. | Must | Koen, 7 Oct 2026 | |
 | R2 | *Moved to part 2 (CR-25, R7 there)*: everyone with a back-office role reads everything of his workspace. In part 1 nobody's reach changes, reading included; a new webshop role reads what its own screens show. | — | Koen, 7 Oct 2026 (Q7) | the number stays, so later references do not shift |
-| R3 | A role is a bundle of rights, kept as data per workspace; one user may hold several. | Must *(proposed)* | Koen, 7 Oct 2026 | |
-| R4 | The roles of part 1: today's ADMIN, FINANCE (on screen Boekhouding) and OPERATOR, each as a bundle with exactly the rights it has today; and the new roles the webshop needs — Masterdata, Prijsbeheer, Verkoop, Voorraadbeheer (CR-21). Bestuur (`BOARD`) and the other changing roles come in part 2 (CR-25). | Must *(proposed)* | Koen, 7 Oct 2026 (Q4) | |
-| R5 | Masterdata changes the master data: persons (deleting and merging included), households, memberships — member administration (validity; whether a renewal is paid stays with Boekhouding) —, the legal identity of organisations (official name, legal form, enterprise and VAT number, registered address, bank accounts, payment terms) and the product portfolio. Relatiebeheer, which changes only the commercial relationship with organisations, comes in part 2 with the business partners (CR-25). | Must *(proposed)* | Koen, 7 Oct 2026 (Q3, Q5) | member administration is master data (Q3); the split of a master-data team and account managers is completed in part 2 |
-| R13 | Master data has two rights — the legal data of persons and organisations (`party.masterdata`), the product portfolio (`product.masterdata`) — and one standard role, Masterdata, that holds both; a company with two teams makes two bundles without code. | Must *(proposed)* | Koen, 7 Oct 2026 (Q2) | as an ERP separates business partner and material master |
+| R3 | A role is a bundle of rights, kept as data per workspace; one user may hold several. | Must | Koen, 7 Oct 2026 | |
+| R4 | The roles of part 1: today's ADMIN, FINANCE (on screen Boekhouding) and OPERATOR, each as a bundle with exactly the rights it has today; and the new roles the webshop needs — Masterdata, Prijsbeheer, Verkoop, Voorraadbeheer (CR-21). Bestuur (`BOARD`) and the other changing roles come in part 2 (CR-25). | Must | Koen, 7 Oct 2026 (Q4) | |
+| R5 | Masterdata changes the master data: persons (deleting and merging included), households, memberships — member administration (validity; whether a renewal is paid stays with Boekhouding) —, the legal identity of organisations (official name, legal form, enterprise and VAT number, registered address, bank accounts, payment terms) and the product portfolio. Relatiebeheer, which changes only the commercial relationship with organisations, comes in part 2 with the business partners (CR-25). | Must | Koen, 7 Oct 2026 (Q3, Q5) | member administration is master data (Q3); the split of a master-data team and account managers is completed in part 2 |
+| R13 | Master data has two rights — the legal data of persons and organisations (`party.masterdata`), the product portfolio (`product.masterdata`) — and one standard role, Masterdata, that holds both; a company with two teams makes two bundles without code. | Must | Koen, 7 Oct 2026 (Q2) | as an ERP separates business partner and material master |
 | R7 | Nobody's reach changes on the day part 1 goes live — neither what he may change nor what he may read: every existing user keeps exactly what he has today; the gates ask rights, the bundles give them. The reach does change, deliberately, in part 2: ADMIN becomes Bestuur (reading only) and each user gets the roles for his own work. | Must | Koen, 7 Oct 2026 (Q4, Q7) | two steps: part 1 small and testable without anyone noticing; the redistribution a step of its own, user by user |
 | R10 | Social tariff: who pays a reduced rate reveals something about income; later, individual payments and tariffs must not be visible to everyone who reads. | Won't *(now)* | Koen, 7 Oct 2026 | the model must allow a reading restriction later |
 | R11 | Accountbeheer (`ACCOUNT_ADMIN`): within one account, create tenants and manage users and their roles in them. | Won't *(now)* | Koen, 7 Oct 2026 | "nobody uses it today; we build it later" |
@@ -375,6 +375,7 @@ and deliberately not done — recorded so it is not asked again).
 | 7 Oct 2026 | No screen to compose roles from rights: the bundles ship fixed and are assigned to users as today; composing them is for later (R14, Q6). | Koen |
 | 7 Oct 2026 | Two steps: part 1 changes nobody's reach, reading included; part 2 redistributes the work — ADMIN becomes Bestuur, every user gets the roles for his own work, and "everyone reads everything" (R2) arrives there (Q7). | Koen |
 | 7 Oct 2026 | The label Penningmeester becomes Boekhouding in part 1; the code stays `FINANCE` (Q8). | Koen |
+| 7 Oct 2026 | MoSCoW confirmed: R1, R3, R4, R5, R7, R13 Must; R10, R11, R14 Won't (Q9). | Koen |
 
 ---
 
@@ -542,6 +543,7 @@ and deliberately not done — recorded so it is not asked again).
 | Q6 | 7 Oct 2026 | A screen to compose roles from rights in part 1, or the bundles fixed? (Claude recommended fixed) | Fixed; recomposing roles from rights is "zeer mooi op termijn maar nu out-of-scope". (Koen) |
 | Q7 | 7 Oct 2026 | R2 (everyone reads everything) contradicts R7 (nobody's reach changes): today FINANCE alone cannot open the activity or member screens. When does the reach change — in part 1, or in part 2 with Bestuur? (Claude recommended part 2) | Part 2: two steps — "akkoord, nu begrijp ik het". (Koen) |
 | Q8 | 7 Oct 2026 | Rename Penningmeester to Boekhouding on screen already in part 1 — a label, no reach? (Claude) | Yes. (Koen) |
+| Q9 | 7 Oct 2026 | MoSCoW: R1, R3, R4, R5, R7, R13 Must; social tariff, Accountbeheer, composing roles Won't? (Claude) | Yes. (Koen) |
 
 ## Non-goals — deliberately outside this change
 
