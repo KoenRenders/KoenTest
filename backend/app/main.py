@@ -85,6 +85,7 @@ from app.domains.workflow.ui import router as workflow_ui_router
 from app.kernel.modules import ModuleCode, require_module
 from app.logging_config import configure_logging
 from app.models import *  # noqa: F401, F403 - ensures all models are registered
+from app.ui.account_ui import router as account_ui_router
 from app.ui.admin_api import router as admin_api_router
 from app.ui.changes_ui import router as changes_ui_router
 from app.ui.design_system_ui import router as design_system_ui_router
@@ -173,6 +174,7 @@ SHELL_ROUTERS = (
     auth_ui_router,
     auth_admin_ui_router,
     changes_ui_router,
+    account_ui_router,
     design_system_ui_router,
     system_ui_router,
     organisaties_ui_router,
@@ -214,6 +216,7 @@ app.include_router(
     media_ui_router, dependencies=[Depends(require_module(M.MEDIA, also=(M.ACTIVITIES,)))]
 )
 app.include_router(changes_ui_router)
+app.include_router(account_ui_router)
 app.include_router(design_system_ui_router)
 app.include_router(system_ui_router)
 app.include_router(organisaties_ui_router)

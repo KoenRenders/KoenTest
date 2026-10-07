@@ -130,7 +130,6 @@ PUBLIC_HOOKS: dict[str, str] = {
     "content": "[data-main]",
     "card title": "[data-card-title]",
     # The public activity and photo pages (pilot C measures against these).
-    "page title": "[data-page-title]",
     "year heading": "[data-year-heading]",
     "date tile": "[data-date-tile]",
     "activity dates": "[data-activity-dates]",
@@ -154,6 +153,14 @@ PUBLIC_HOOKS: dict[str, str] = {
     # The membership card of Mijn gezin and the transfer to make (CR-22: one
     # partial each, shown in more than one place).
     "membership card": "[data-membership-status]",
+    # The account pages (CR-22 S3): the menu on the page, its content, the
+    # links at the bottom on a phone, and the account items of the drawer.
+    "account menu": "[data-account-page-menu]",
+    "account content": "[data-account-content]",
+    "account links": "[data-account-links]",
+    "page title": "[data-page-title]",
+    "drawer account": "[data-drawer-account]",
+    "account item": "[data-account-item]",
     "transfer due": "[data-transfer-due]",
     "action bar": "[data-action-bar]",
     "footer row": "[data-footer-row]",
@@ -249,6 +256,11 @@ def _public_activity(name: str, register: bool = False) -> Callable:
             _goto_link(page, '#main a[href*="/inschrijven/"]')
 
     return action
+
+
+def _open_the_drawer(page) -> None:
+    page.locator("[data-menu-button]").click()
+    page.locator("[data-drawer-account]").wait_for(state="visible", timeout=5000)
 
 
 def _album(page) -> None:
@@ -395,6 +407,24 @@ SCREENS: tuple[Screen, ...] = (
         "public-formulier",
         "/formulier/tok-e2e-open",
         ("brand", "form page", "field", "action bar"),
+    ),
+    # "Mijn <site>", the landing page of a member (CR-22 S3): the card of Mijn
+    # gezin on it; the menu on the left from 768 px, the links at the bottom on
+    # a phone.
+    Screen(
+        "mijn",
+        "/mijn",
+        ("brand", "account content", "page title", "membership card"),
+        session="lid",
+    ),
+    # The drawer on a phone, signed in: the site's pages, then the account menu.
+    Screen(
+        "public-lade",
+        "/",
+        ("drawer account", "account item"),
+        session="lid",
+        widths=(PHONE,),
+        action=_open_the_drawer,
     ),
     # Mijn gezin as it is READ: the membership card above the household.
     Screen(

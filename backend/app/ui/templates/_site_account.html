@@ -4,8 +4,9 @@
    in two places — the menu behind the member's first name on a desktop, and
    the drawer under its divider on a phone — so the two cannot differ.
 
-   - "Mijn gezin" (and whatever else the module registry lists for a member)
-     only for a member;
+   - the account menu (`account_nav`, CR-22 S3): "Mijn <site>" first, then what
+     the module registry lists — each item with its OWN icon (Q38) — only for
+     a member until S4a;
    - "Admin" only for who the back office admits (a board member or an
      operator, #1499) — never as a separate link beside the menu;
    - "Uitloggen" always.
@@ -15,7 +16,7 @@
    (`_account_menu.html`, §3.14) keeps its initials and its own items. #}
 {% macro items(gebruiker, member_nav, row_cls, close="") -%}
 {% if gebruiker.is_member %}{% for n in member_nav %}
-<a href="{{ path_for(n.href) }}" data-account-item="member" class="{{ row_cls }}"{% if close %} @click="{{ close }}"{% endif %}>{{ ui.icon("house", 18) }}{{ n.label }}</a>
+<a href="{{ path_for(n.href) }}" data-account-item="member" class="{{ row_cls }}"{% if close %} @click="{{ close }}"{% endif %}>{{ ui.icon(n.icon, 18) }}{{ n.label }}</a>
 {% endfor %}{% endif %}
 {% if gebruiker.is_admin %}
 <a href="/admin" hx-boost="false" data-account-item="admin" class="{{ row_cls }}">{{ ui.icon("layout-grid", 18) }}{{ _("Admin") }}</a>

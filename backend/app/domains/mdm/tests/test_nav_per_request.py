@@ -182,6 +182,8 @@ def test_mijn_gezin_goes_with_membership():
     token = current_modules.set(EVERY)
     try:
         assert [n["href"] for n in _public_nav("member_items")] == ["/leden/gezin"]
+        # CR-22 S3 (#1706): an account-menu item brings its own icon.
+        assert [n["icon"] for n in _public_nav("member_items")] == ["users"]
     finally:
         current_modules.reset(token)
     token = current_modules.set(EVERY - {ModuleCode.MEMBERSHIP.value})
