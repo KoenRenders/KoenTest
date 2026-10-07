@@ -1,7 +1,7 @@
 # Change Request 22 — Signing in to buy or register: member, account or guest
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 7 October 2026 · one open decision (Q28) and the screens (C9) before the handover · nothing is built; not on a release
+**Status:** shaped on 7 October 2026 · every decision taken; the screens (C9) and phase 0 before the handover · nothing is built; not on a release
 **Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** auth (sign-in, codes, landing), mdm (persons, e-mail addresses), membership (Mijn gezin, lid worden), activities (Mijn inschrijvingen, the hint, the confirmation mail), app/ui (Mijn Raak); built on the activity registrations first, then used by the webshop (CR-21)
 **Reading:** A 2706 words · B 2822 · C 2779 — code fences excluded, measured on 7 October 2026; the budget is A ≤ 1 500, B ≤ 2 500. **Over the budget in A and B:** A carries 24 requirements, most of them Koen's answers to questions asked during shaping, and B carries the walkthrough of three roles; to be cut at the review if Koen finds them too long.
@@ -139,7 +139,7 @@ Nothing was handed over; the design rests on the code, measured on master `457e8
 | R6 | The confirmation mail of a member or an account carries a link that signs him in and brings him to his registration or order. A guest gets no such link: without an account, nothing can be looked up or changed afterwards; the confirmation mail itself says what was registered or ordered. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R26; Q1, Q10) | the guest token of Q1 is withdrawn (Q10) |
 | R7 | A signed-in person can change his e-mail address himself; a new or changed address only becomes active once the code sent to it is entered — until then it shows as waiting for confirmation — and it is refused when another person already uses it, except inside his own household. The same holds where a member changes the addresses of his household in "Mijn gezin". | Must *(proposed)* | Koen, 7 Oct 2026 (CR-21 R29; Q7, Q13) | |
 | R8 | A signed-in person sees his history: his registrations — and later his orders — each with its payment status; no separate list of payments. For a member it belongs to the household, otherwise to the person. | Must *(proposed)* | Koen, 6–7 Oct 2026 (CR-21 R30; Q11) | |
-| R9 | A person with an account who becomes a member through "Lid worden" becomes the person in the household; no second person is made. | Must *(proposed)* | Koen, 7 Oct 2026 (Q5) | |
+| R9 | A person with an account who becomes a member through "Lid worden" becomes the person in the household; no second person is made. Whoever is not signed in and gives, for the main member, an address that already belongs to an account is refused with "Dit e-mailadres is al gekend. Log je eerst aan om lid te worden." | Must *(proposed)* | Koen, 7 Oct 2026 (Q5, Q28) | the same kind of message lid worden already gives for an existing membership |
 | R10 | Accounts are per tenant: someone who buys at Raak and at a company on the platform has two accounts with the same address. | Must *(proposed)* | Koen, 7 Oct 2026 (Q6) | "so I saw it too" |
 | R11 | Before the rule of R4 is enforced, today's data is measured for addresses shared outside a household; Koen decides each case. Inside a household it may, outside it may not. | Must *(proposed)* | Koen, 7 Oct 2026 (Q8) | measured read-only by the master CLI |
 | R12 | Cancelling or changing a registration oneself. | Won't | Koen, 7 Oct 2026 (Q12) | out of scope; whoever wants it makes an account or becomes a member — and even then it is not part of this change |
@@ -436,9 +436,7 @@ Dependency: CR-21 (webshop) builds on phase 1.
 
 ## B8. Open decisions — what the approver still decides
 
-| # | Question | Recommendation | What the answer changes |
-|---|---|---|---|
-| Q28 | Lid worden, **not signed in**, with a main member's address that already belongs to an account: what happens? | Refuse with "Dit e-mailadres is al gekend. Log je eerst aan om lid te worden." — the same kind of message lid worden already gives for an existing membership of that year (`register_router.py:357-400`). Signed in, the account's person becomes the main member (R9). | Refuse: no duplicate person, at the price of telling that the address is known — on a deliberate act, as lid worden already does. Accept silently: a second person with the same address, against R4. |
+None: every question is answered (Q&A log).
 
 ## B9. Decisions log — dated answers
 
@@ -463,6 +461,7 @@ Dependency: CR-21 (webshop) builds on phase 1.
 | 7 Oct 2026 | No self-service account deletion; the board deletes on request (Q20). | Koen |
 | 7 Oct 2026 | No backward linking of registrations by e-mail; history starts when signed in (Q23). No mail to the old address on a change (Q21). | Koen |
 | 7 Oct 2026 | A screen "Personen" in master data lists every natural person, filter default "Zonder gezin", read-only except deleting a person without household. **Replaces** "no board screen" (Q25) and the report (R19) (Q29). | Koen |
+| 7 Oct 2026 | Lid worden, not signed in, with an account's address: refused with "Dit e-mailadres is al gekend. Log je eerst aan om lid te worden." (Q28). | Koen |
 | 7 Oct 2026 | Q1–Q9 answered: guest link by secret token; mobile required as today; no lookup or warning on a typed address (the standing hint stays, as decided in CR-11); an account exists after the code; an account that becomes a member keeps its person; accounts per tenant; a new address is confirmed and unique except inside the household; existing duplicates measured first, Koen decides; for registrations only the account is new. | Koen |
 
 ---
@@ -516,7 +515,7 @@ Measured on master `457e85d`, 7 October 2026.
 
 ### membership
 - **Screens:** Mijn gezin unchanged in layout; a pending address shows "wacht op bevestiging"; the address `/leden/gezin` and `/leden/gezin/vernieuwen` unchanged.
-- **Code:** `create_family_with_members`: when the request comes from a signed-in account whose address is the main member's, use that person instead of a new one (F7); otherwise per Q28. `member_items` unchanged.
+- **Code:** `create_family_with_members`: when the request comes from a signed-in account whose address is the main member's, use that person instead of a new one (F7); otherwise, when the main member's address belongs to an account, refuse with the message of R9 (Q28); T11 covers both. `member_items` unchanged.
 - **Database:** none.
 - **Tests:** T11.
 
@@ -589,7 +588,7 @@ None: no view reads `contact_details`; `confirmed_at` is not exposed. The report
 | T8 | service | two tenants may each have a person with the same address |
 | T9 | route | after sign-in: a board user lands as today; a member and an account land on `/mijn`; with `?terug=/leden/gezin/vernieuwen` the member lands there |
 | T10 | route | Mijn inschrijvingen lists the household's (member) or own (account) registrations with payment state; a guest registration with the same address is absent |
-| T11 | service | lid worden while signed in as an account adopts the person; no second person |
+| T11 | service | lid worden while signed in as an account adopts the person; not signed in with an account's address, refused with the message of R9; no second person in either case |
 | T12 | route | a guest registers as today; the hint carries the new words |
 | T13 | mail | the confirmation mail of a signed-in registration carries the link; a guest's does not |
 | T14 | e2e | at 390 px the drawer's account menu reaches the three pages; at desktop the left menu |
@@ -684,6 +683,7 @@ Only counts go into this section; the addresses stay in the chat with Koen (`AGE
 | Q24 | 7 Oct 2026 | Members-only, several households, board sign-in unchanged? (Claude) | Yes. (Koen) |
 | Q25 | 7 Oct 2026 | A board screen for accounts? (Claude) | No; these persons manage themselves; maybe a report. (Koen) |
 | Q26 | 7 Oct 2026 | When are existing duplicates measured? (Claude) | By the master CLI, read-only, before the handover. (Koen) |
+| Q28 | 7 Oct 2026 | Lid worden, not signed in, with the address of an existing account? (Claude) | Refuse with "Dit e-mailadres is al gekend. Log je eerst aan om lid te worden." (Koen) |
 | Q29 | 7 Oct 2026 | (Koen came back on Q25 and R22) Without a board screen nobody can delete an account; a screen "Accounts" or "Personen"? (Koen, Claude) | "Personen" — all natural persons; "this is master data". (Koen) |
 | Q27 | 7 Oct 2026 | For a member, may name and e-mail be edited on the own page as well as in "Mijn gezin" (a), or read-only there (b)? (Claude) | These are attributes of a person, so edit functions on a person are needed anyway; in a household the repeating group is a natural person, including its relation to the household. (Koen) — read as (a) with one person component. |
 
