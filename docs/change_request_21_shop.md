@@ -1,7 +1,7 @@
 # Change Request 21 — Webshop: products, stock and pricing
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** being shaped since 6 October 2026 · Part A written, Part B drafted, Part C to come · nothing is built; not on a release
+**Status:** being shaped since 6 October 2026 · Parts A, B and C written; C8 (the rule against the suite) and C9 (concepts) still to run; not yet read against the code · nothing is built; not on a release
 **Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** to be filled in once Part B is shaped
 **Reading:** A 4 499 words · B 3 745 (the decisions log excluded) · C not written yet — measured on 7 October 2026 without drawings and notes; the budget is A ≤ 1 500, B ≤ 2 500: **over budget**, to be trimmed before the build read (A6's source column and its moved rows carry most of A)
@@ -796,6 +796,49 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 > *follows. "Reporting — none: no view reads these columns" is a subsection*
 > *too.*
 
+Grouped by phase, because each phase has one builder (Q52): phase 0 and the seam before phase 4 by a Claude dev CLI on `master`; phases 1–4 by `opencode1` on `cr21/webshop`, inside `backend/app/domains/{product,pricing,stock,sales}/` and new migrations only (C7). Each slice reads only this section, B3a for names, C4 for the mechanics and C6 for its tests.
+
+### Phase 0 — the seams (Claude dev CLI, to `master`)
+
+| Module | What must happen | Reads (measured on `6854bee1`) |
+|---|---|---|
+| **kernel** | `ModuleCode.SHOP = "shop"`; a `Module(M.SHOP, "Webshop", admin_items=(…the four screens…), route_prefixes=("/webshop", "/admin/producten", "/admin/prijzen", "/admin/voorraad", "/admin/verkoop", "/mijn/aankopen"), record_tables=(…), depends_on=())`; `DEFAULTS`: SHOP in no kind's set — `VERENIGING` is `frozenset(ModuleCode)` today, so it becomes "every module but SHOP" (Q49). PAYMENT's `depends_on` becomes `((M.ACTIVITIES, M.MEMBERSHIP, M.SHOP),)` — the tuple already means "one of". Contract `kernel/contracts/sales.py`: `OrderPlaced(order_id, buyer_email, payment_record_id)`, `SalesOrderChanged(order_id, total_due)`, `SalesOrderCancelled(order_id)`. Migration: widen the CHECK of `mdm.tenant_modules` (`alembic/187:58-59`). | `kernel/modules.py:31-52, 84, 202, 285-296` |
+| **payment** | `PayableType.ORDER = "order"` in the code list (`payment/codes.py:60-73`) with its label rows. **Describers** (Q48): `payment/describers.py` with `PayableDescriber(name(id), link(id), filter_label, export_kind)` and `register_describer(type, describer)`, exported in `payment/api.py`; activities and membership register theirs; the ≈ 14 sites of C1 (`service.py:265, 306, 951, 1385`, `exports.py:40-71, 144`, `ui.py:296-321, 729-740, 1089-1115`, `_betalingen_lijst.html:40, 86`, `audit/changes.py:225-234`, `reporting/universe.py:2409-2420`) ask the describers. The view `reporting.f_payments` (`alembic/106:226-290`) gains a branch for `order` that joins nothing it does not have (a label "Webshop"); the order's own join comes in phase 2 from `sales`. The payable delete gate's list grows to three (B4). | C1 rows `PayableType` |
+| **mail** | `mail.api.transfer_instructions_html(payment_record) -> str`, the existing `_transfer_instructions_html` (`mail/service.py:402`) made public, unchanged. `sales` sends its mail through `MailRequested` (`kernel/contracts/mail.py:18`) with that block in the body. | `mail/service.py:402-430, 643` |
+| **media** | two rows in the code list `media.media_kind_codes`: `product_photo`, `product_document`, with labels; no CHECK any more (migration 164). | `media/models.py:27-30, 87-89` |
+| **auth** | nothing: the rights and roles come from CR-24 (`product.masterdata`, `price.manage`, `sales.manage`, `stock.manage`). | CR-24 B1 |
+| **CI** | the path check of C7, in `.github/workflows/` — an outside builder may not edit `.github/` (`AGENTS.md`). | — |
+| **reporting** | the `f_payments` branch above; nothing else in phase 0. | `alembic/106` |
+
+**Before phase 4 (Claude):** `workflow` — `WorkflowTask.due_at` (nullable `DateTime(timezone=True)`), a step's `due_in_days` read by `_create_step_task` (`workflow/api.py:263`), the workbench row red when `due_at < now` and open; `SubjectType.SALES_ORDER = "sales_order"` with its code-list row (`workflow/models.py:41-54`). `payment` — a contract `PaymentFailed(payment_record_id, payable_type, payable_id, status)` published where the provider's status becomes failed, expired or canceled. Migration for the column and the code row.
+
+### Phase 1 — catalogue, prices, stock (`opencode1`)
+
+| Domain | What must happen |
+|---|---|
+| **product** | schema `product`; `Product(id, tenant, name, description, is_active)`, `ProductVariant(id, product_id FK ON DELETE RESTRICT, sku, properties JSON [{name, value}], sort_order, is_active)`, `ProductAttachment(id, product_id FK CASCADE, kind ∈ {picture, document}, media_asset_id, title, sort_order)` — B3a's names. Screens `/admin/producten` (list, new, edit; variants inline; attachments through the media library's picker) behind `product.masterdata`. `api.py`: `get_product`, `list_products(active_only)`, `get_variant`, `variants_of`. A product or variant with prices or movements is deactivated, never deleted. |
+| **pricing** | schema `pricing`; `Price(id, tenant, product_id, variant_id nullable, price_type ∈ {REGULAR, MEMBER}, amount Numeric(10,2) CHECK ≥ 0, currency CHAR(3) default 'EUR', valid_from date, valid_to date nullable)`; no two prices of one type overlap for one product/variant (an exclusion constraint or a check in the service, C4.2). Screen `/admin/prijzen` behind `price.manage`. `api.price_for(variant_id, on: date, member: bool) -> Decimal | None` (F3). |
+| **stock** | schema `stock`; `StockLocation(id, tenant, name, is_default)`, `StockMovement(id, tenant, variant_id, location_id, quantity int signed, reason ∈ {RECEIPT, GOODS_ISSUE, CORRECTION}, occurred_at, order_line_id nullable, note, actor)`, `StockReservation(id, tenant, order_line_id, variant_id, location_id, quantity > 0, status ∈ {OPEN, DELIVERED, CANCELLED})`. Screens `/admin/voorraad` (levels per variant and location, receipt, correction) behind `stock.manage`. `api.py`: `on_hand`, `available`, `receive`, `correct`; `reserve`, `release`, `issue` come in phase 2 (C4.1). A tenant gets one default location on first use. |
+
+### Phase 2 — ordering and paying (`opencode1`)
+
+| Domain | What must happen |
+|---|---|
+| **sales** | schema `sales`; `SalesOrder(id, tenant, person_id nullable, guest_name, guest_email, guest_mobile, status ∈ {OPEN, CANCELLED}, placed_at, payment_method)`, `SalesOrderLine(id, order_id FK CASCADE, variant_id, quantity > 0, unit_code 'C62', unit_price Numeric(10,2), delivered_at nullable)`. Public: `/webshop` (products of the tenant, price per F3), `/webshop/{product}`; the basket in `localStorage`, posted whole at "Bestellen" (`/webshop/bestellen`), where the server recomputes every price (C5). Placing (C4.1): one transaction — lines with prices, `stock.api.reserve` per line, `payment.api.create_payment_record(ORDER, order.id, total, method)`, `OrderPlaced` after the commit → the mail (F12). The order page `/mijn/aankopen/{id}` in the site shell and `/admin/verkoop/{id}` in the admin shell, one template (D6). Verkoop: `/admin/verkoop` — the list of orders with filters "Te betalen", "Klaar om af te halen", "Deels afgeleverd" (Q50); deliver a line (F6, `stock.api.issue`); cancel the order (F8). Registers its describer with `payment` and its reporting join. Handler: `PaymentReceived` for `order` → nothing to change on the order (the status is read from payment, R34). |
+| **stock** | `reserve(order_line_id, variant_id, quantity)`, `release(order_line_id)`, `issue(order_line_id)` as C4.1. |
+
+### Phase 3 — change and self-cancel (`opencode1`)
+
+| Domain | What must happen |
+|---|---|
+| **sales** | change an order (F7): replace lines in one transaction, reservations follow, publish `SalesOrderChanged(order_id, total_due)`; `payment` subscribes (phase 0 seam) and calls `reconcile_charges(ORDER, id, total_due, source="sales-order-edit")`. The buyer's cancel on `/mijn/aankopen/{id}` while no line is delivered (F8), the same action as Verkoop's. |
+
+### Phase 4 — workbench tasks (`opencode1`, after the Claude seam)
+
+| Domain | What must happen |
+|---|---|
+| **sales** | at placing with method transfer: `workflow.api.start("sales_transfer_due", subject_type=SALES_ORDER, subject_id=order.id)` — a definition seeded per tenant with SHOP: step 1 role FINANCE "Overschrijving nakijken — bestelling {nr}", `due_in_days` 14; step 2 role SALES "Klant herinneren of annuleren — bestelling {nr}". Boekhouding's answer "nog niet betaald" completes step 1 (`complete_task(decision=…)`); Verkoop's task shows the previous task's decision and `done_at` (F11). `PaymentReceived` (fully paid) for `order` → `close_subject_tasks(SALES_ORDER, id, reason="Betaald")`; `SalesOrderCancelled` → the same with "Geannuleerd". `PaymentFailed` for `order` → a one-step run for SALES. A run is started at go-live for every open order still "Te betalen" by transfer (B6). |
+
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
 
 > [!NOTE]
@@ -811,6 +854,19 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 > *(C2). A "yes" points at the section that handles it. The next*
 > *thing that gets missed becomes the next row.*
 
+| Concern | This change |
+|---|---|
+| **Visitors and tenants** | anonymous: sees the Webshop, orders as a guest (R33, CR-22); account and member: order, see "Mijn aankopen"; member price only with a valid membership (F3). Board user without a person: back-office roles only, no buying. Signed in at another tenant: nothing of this tenant (F14). Operator: every right (CR-24). Tenant with members: member price; company: no member price, no "of ben je lid"; platform: SHOP off. A tenant with SHOP off: every route 404 (T3). |
+| **Order inside a transaction** | the mail and the workbench run leave after the outer commit (`OrderPlaced`); a failing mail does not undo the order. |
+| **Reporting** | `f_payments` learns `order` (phase 0 label, phase 2 join); no new reporting objects (Q46). |
+| **Existing tests** | the payable delete gate (B4), the module gates, the payments-screen tests that list two payable types (C1). |
+| **390 px** | the Webshop, the product page, the basket, the order page, Verkoop's list. |
+| **Code lists** | module SHOP; payable ORDER; media kinds; subject SALES_ORDER; price type, movement reason, reservation status (each a `CodeEnum` with a code list, `docs/code-style.md`). |
+| **JSON routes** | none new. |
+| **External services** | Mollie, through `payment` as for registrations; nothing new. |
+| **Copy actions** | none: no copied entity gains a field. |
+| **Env vars** | none. |
+
 ## C4. Detailed decisions — one subsection each, with the reasons
 
 > [!NOTE]
@@ -818,12 +874,31 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 > *reasons, the alternatives weighed and the measurements that decided*
 > *them. B1 names the decision; this is where a builder reads why.*
 
+### C4.1 Reserving without selling twice (F1, R13)
+
+`stock.api.reserve` takes a transaction-scoped advisory lock per (tenant, variant, location) — `pg_advisory_xact_lock` on a stable hash — then computes `available = Σ movements − Σ open reservations` and inserts the reservation or raises `NotEnoughStock(variant, available)`. Placing an order reserves line by line in one transaction; the first refusal rolls back the whole order, so nothing is reserved half (F1). Rejected: a stock-level row with `SELECT … FOR UPDATE` — a second source of truth beside the ledger (D2). `issue` writes a GOODS_ISSUE movement of the line's quantity and sets the reservation DELIVERED, in one transaction with the line's `delivered_at`.
+
+### C4.2 Prices that do not overlap (F3)
+
+Two prices of the same type for the same product and variant may not overlap in time. Enforced by an exclusion constraint on `daterange(valid_from, valid_to, '[]')` with `btree_gist`, if the extension is available on every environment (to be checked in the build read); otherwise by the service with a test (T4). A new price closes the previous one the day before.
+
+### C4.3 The order page is one template (D6)
+
+As registration since CR-14: the public route renders it in the site shell, the admin route in the admin shell, the same view-model; the actions shown depend on who looks — the buyer sees "Annuleren" while nothing is delivered, Verkoop sees "Afgeleverd" per line, change, cancel.
+
 ## C5. Privacy and security — the mechanics behind A7
 
 > [!NOTE]
 > *How A7's privacy and security answers are implemented: what leaves the*
 > *system to whom, what is sanitised, what is logged, which route answers*
 > *what to whom.*
+
+- **Price and amount**: the basket posts variant ids and quantities only; every price, the member check and the total are computed by the server at "Bestellen" (`pricing.api.price_for`, `membership` facade `has_valid_membership`). Nothing the browser sends is an amount. (T6, T7)
+- **Whose order**: `/mijn/aankopen/{id}` admits the signed-in person whose `person_id` it is; any other id answers 404, not 403, so ids reveal nothing. A guest reaches his order through the sign-in link of the mail (CR-22). (T12, T14)
+- **Payment**: the Mollie webhook re-fetches the status from Mollie as for every payable — the security invariant of `AGENTS.md`; `sales` never sets "paid". (T7)
+- **Rights**: each back-office screen behind its right (CR-24); the buyer's cancel is the same action with an ownership check. (T2)
+- **Tenants**: every table `TenantMixin`; the ORM's tenant filter; a test reads across tenants and finds nothing. (T3)
+- **`opencode1` and DeepSeek**: what it is sent is code and made-up data only (Q51); the limits stand in `AGENTS.md` and are checked per pull request.
 
 ## C6. Tests — what the build must prove
 
@@ -837,6 +912,28 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 > *existing test says so, and why that is plausible. A test and a section of*
 > *this document that contradict each other are a finding: CR-14's B5 said a*
 > *spent link answers 404 while its test 3 expected "al ingevuld".*
+
+| T | What it proves | Becomes red when | Phase |
+|---|---|---|---|
+| T1 | A product with variants, two pictures and two documents shows them on its page | an attachment kind or the page drops one | 1 |
+| T2 | Each screen refuses a user without its right; the buyer's cancel refuses another person | a gate or the ownership check is missing | 1–3 |
+| T3 | Tenant A's products, prices, stock and orders are invisible in tenant B; SHOP off → 404 | a table lacks the tenant filter, or a route is outside the module | 1–2 |
+| T4 | The price valid on a date, the variant's over the product's, the member price only with a valid membership; overlapping prices refused | F3 or C4.2 breaks | 1 |
+| T5 | On hand is the sum of movements; receipt and correction appear with their reason | the ledger is bypassed | 1 |
+| T6 | Two concurrent orders for the last unit: one succeeds, one is refused, nothing half reserved; a posted price is ignored | the lock or the server-side price is missing | 2 |
+| T7 | Online and transfer create the payment record of the right amount; the webhook re-fetches | the order bypasses `payment` | 2 |
+| T8 | A change up, down and before payment gives an extra charge, a refund due, a new amount | the event or `reconcile_charges` is not reached | 3 |
+| T9 | A failed or expired online payment opens one task for Verkoop | `PaymentFailed` is not handled | 4 |
+| T10 | Transfer: task for Boekhouding due in 14 days; "nog niet betaald" → task for Verkoop with that answer and date; payment closes the run; past due → red, no mail | the workflow or F11 breaks | 4 |
+| T11 | Delivering a line: movement, reservation DELIVERED, status Deels afgeleverd → Afgeleverd | F5 or F6 breaks | 2 |
+| T12 | Cancel while nothing delivered frees the stock and, if paid, makes a refund due; after a delivery it is refused | F8 breaks | 2–3 |
+| T13 | The basket survives a reload and posts as one order | the basket is server-side or lost | 2 |
+| T14 | The mail's link signs in and opens the order | CR-22's link does not reach `/mijn/aankopen` | 2 |
+| T15 | The confirmation mail holds the lines, the amount and, for a transfer, the account and structured communication; it leaves after the commit | F12 or the transaction order breaks | 2 |
+| T16 | The payments screen, its exports and its audit lines read the same for registrations and memberships before and after the describers (a snapshot) | phase 0 changed what exists | 0 |
+| T17 | The path check refuses a pull request of `opencode1` that touches a file outside its paths | C7 is gone | 0 |
+
+**Proven additively** for T6 and T17 (`AGENTS.md`, *Testen*): add a second order in a second session for the last unit and see one refused; add a file outside the paths and see the check fail with its message.
 
 ## C7. The gate — what refuses a deviation from now on
 
@@ -858,12 +955,19 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 > *rule cheap to follow: for a new case it spells out the steps and fails on*
 > *the one that was forgotten, with the name of the missing piece.*
 
+Two gates.
+
+1. **Path check** (hard, phase 0): a job in `backend-tests.yml` that runs on pull requests whose head branch is `feature/opencode-*` or whose base is `cr21/webshop`, and fails when a changed file lies outside `backend/app/domains/{product,pricing,stock,sales}/`, `backend/alembic/versions/` (new files only) and `backend/app/static/app.css`. Message: "opencode1 builds only inside the shop's domains (CR-21 Q52); this file belongs to phase 0 — ask the master CLI." Proven by a pull request that adds a line to `payment/api.py`.
+2. **Describers** (ratchet, phase 0): `tests/test_payable_describers_gate.py` counts comparisons with `PayableType.<member>` and `payable_type ==/in` outside `payment/codes.py` and `payment/describers.py`; the baseline (54 on `1b3237b1`, minus what phase 0 moves) may only shrink. Message: "Describe a payable through its describer (CR-21 Q48)."
+
 ## C8. Prototype findings — what was measured before the build
 
 > [!NOTE]
 > *What was learnt from prototypes and spikes before the build:*
 > *measurements, refusals, things that did not work, the sizes and times*
 > *that decided a choice in B1.*
+
+No prototype yet. **The rule against the existing suite**: phase 0 adds `ORDER` and changes the module defaults; the tests of C1 that assert two payable types and the module set go red by design and are updated in the same commit. To be run once on a throwaway branch before the build read of CR-21, listing every red test here.
 
 ## C9. Screens before the build — the concepts the approver saw
 
@@ -876,6 +980,8 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 > *screen is not assigned without this row. Two of CR-14's four follow-ups*
 > *at the HDEV validation were visible on a drawing: a question block that*
 > *looked different from the form, a button named after the domain.*
+
+No concepts shown yet. Before phase 2 the Webshop, the product page, the basket and the order page are rendered at 390 px from the kit's macros (`ui.field`, `flow_card`, `badge`) and shown to Koen — the order page beside the registration page it mirrors.
 
 ## C10. Close-out at the release
 
