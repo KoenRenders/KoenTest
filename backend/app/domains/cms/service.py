@@ -8,7 +8,7 @@ queries, maar wel met een regel erin die nergens anders staat — "publiek betek
 
 import html
 import re
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 from app.domains.cms import schema as _schema
 from app.domains.cms.models import CmsPage, CmsPageTranslation
@@ -331,6 +331,46 @@ def is_site_block(slug: str) -> bool:
     render without the page's heading shift, so their documents parse with
     `on_page=False`."""
     return slug in SITE_BLOCK_SLUGS
+
+
+def document_from_editor(document: Any) -> Any:
+    """What the editor sends becomes a stored document (Koen, 8 October 2026).
+
+    Two translations, both measured (#1699's third look): the editor notes
+    her own chrome on every table cell — column widths and alignment,
+    which our toolbar never offers and the site never shows — dropped
+    here; and she marks a header row by the CELL type alone, while the
+    stored document says it on the row — derived here, so the header
+    survives the round trip. What the author sees and means — a merged
+    cell's spans — travels untouched.
+    """
+
+    def transform(node: Any) -> Any:
+        if isinstance(node, list):
+            return [transform(child) for child in node]
+        if not isinstance(node, dict):
+            return node
+        kind = node.get("type")
+        if kind in ("tableHeader", "tableCell"):
+            attrs = node.get("attrs") or {}
+            kept = {
+                name: value for name, value in attrs.items() if name not in ("colwidth", "align")
+            }
+            node = {**node, "attrs": kept} if kept or attrs else node
+        elif kind == "tableRow":
+            cells = node.get("content") or []
+            section = (
+                "head"
+                if any(isinstance(c, dict) and c.get("type") == "tableHeader" for c in cells)
+                else "body"
+            )
+            node = {**node, "attrs": {"section": section}}
+        result = dict(node)
+        if "content" in result:
+            result["content"] = [transform(child) for child in result["content"]]
+        return result
+
+    return transform(document)
 
 
 def save_draft(

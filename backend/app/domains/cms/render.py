@@ -70,8 +70,11 @@ _ALLOWED_ATTRS = {
     # An ordered list's start is the author's own (Koen, 7 October 2026,
     # option 1 of the third look, #1699): the renderer writes her on the
     # <ol>, so the sanitiser must let her through — one attribute, one
-    # element, nothing else.
+    # element, nothing else. The same holds for a merged cell's spans
+    # (8 October 2026): what the author merged, the site shows.
     "ol": {"start"},
+    "th": {"colspan", "rowspan"},
+    "td": {"colspan", "rowspan"},
     "*": {"class"},
 }
 
@@ -529,7 +532,17 @@ def _block_html(node: dict, cell: bool = False) -> str:
 
     if kind in ("tableHeader", "tableCell"):
         tag = "th" if kind == "tableHeader" else "td"
-        return f"<{tag}>{_blocks_html(content, cell=True)}</{tag}>"
+        # A merged cell is the author's own (Koen, 8 October 2026): the
+        # spans she merged show on the site as she made them. Only a real
+        # span lands on the tag — the editor's 1s stay invisible, so an
+        # ordinary table keeps today's HTML.
+        attrs = node.get("attrs") or {}
+        spans = ""
+        for name in ("colspan", "rowspan"):
+            value = attrs.get(name)
+            if isinstance(value, int) and value > 1:
+                spans += f' {name}="{value}"'
+        return f"<{tag}{spans}>{_blocks_html(content, cell=True)}</{tag}>"
 
     if kind == "figure":
         return _figure_html(node)

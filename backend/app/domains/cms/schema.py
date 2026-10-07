@@ -86,8 +86,14 @@ NODES: dict[str, dict[str, Any]] = {
         # renders bare — None in the tuple marks the attribute optional.
         "attrs": {"section": ("head", "body", None)},
     },
-    "tableHeader": {"content": "block+", "attrs": {"colspan": "int?"}},
-    "tableCell": {"content": "block+", "attrs": {"colspan": "int?"}},
+    # A merged cell is the author's own (Koen, 8 October 2026: what the
+    # editor shows and the author means, the site shows too): `colspan`
+    # and `rowspan` are content and survive the round trip. The editor's
+    # other cell attributes — column widths and alignment, chrome our
+    # toolbar never offers and the site never shows — the save adapter
+    # drops before this validation sees them.
+    "tableHeader": {"content": "block+", "attrs": {"colspan": "int?", "rowspan": "int?"}},
+    "tableCell": {"content": "block+", "attrs": {"colspan": "int?", "rowspan": "int?"}},
     "figure": {
         "group": "block",
         "attrs": {
@@ -311,9 +317,14 @@ def _validate_node(node: Any, path: str) -> None:
                     raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
             # An id is a row that exists: 0 and negatives are "no image",
             # "no form" — refused (review A3, #1699; the PR's own promise).
-            # A list's `start` is her number: a whole number of one or
-            # more, as the decision on #1699 says.
-            elif value is not None and (attr.endswith("_id") or attr == "start") and value <= 0:
+            # A list's `start` is her number, and a merged cell spans at
+            # least one row and one column: whole numbers of one or more
+            # (the decision on #1699 and the table's, of 8 October).
+            elif (
+                value is not None
+                and (attr.endswith("_id") or attr in ("start", "colspan", "rowspan"))
+                and value <= 0
+            ):
                 raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
         elif allowed == "null?":
             # Only the null the editor emits (the ordered list's `type`,
