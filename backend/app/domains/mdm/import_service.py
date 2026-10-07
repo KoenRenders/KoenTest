@@ -51,6 +51,16 @@ from app.domains.mdm.api import (
     Person,
     PostalCode,
 )
+from app.domains.mdm.change_lines import (
+    ADDRESS_LABEL,
+    RELATION_LABEL,
+    FieldChange,
+    address_line,
+    contact_change,
+    lines_text,
+    person_change,
+    relation_value,
+)
 from app.domains.mdm.codes import CONTACT, EXTERNAL
 from app.domains.membership.api import Membership
 from app.kernel.codes import code_of
@@ -282,11 +292,14 @@ def _person_field_values(person: Person, row: dict) -> dict:
     }
 
 
-def _person_field_changes(person: Person, row: dict) -> list[str]:
-    """Welke persoonsvelden wijken af van de rapportrij?"""
+def _person_field_changes(person: Person, row: dict) -> list[FieldChange]:
+    """Welke persoonsvelden wijken af van de rapportrij — and, since #1687, from
+    what to what: the decision and the line come from the same pair."""
     waarden = _person_field_values(person, row)
     return [
-        kolom for kolom, attr in _PERSOONSVELDEN.items() if getattr(person, attr) != waarden[attr]
+        person_change(kolom, attr, getattr(person, attr), waarden[attr])
+        for kolom, attr in _PERSOONSVELDEN.items()
+        if getattr(person, attr) != waarden[attr]
     ]
 
 
@@ -344,7 +357,7 @@ def _upsert_contact(
     *,
     apply: bool,
     actor: str | None = None,
-) -> bool:
+) -> FieldChange | None:
     """De import-kant van `mdm.service.upsert_primary_contact` (#1174).
 
     Dunne schil: hij vult alleen de audit-herkomst in, zodat een rij uit het
@@ -354,7 +367,7 @@ def _upsert_contact(
     """
     from app.domains.mdm.service import upsert_primary_contact
 
-    return upsert_primary_contact(
+    changed = upsert_primary_contact(
         db,
         person,
         type_code,
@@ -364,22 +377,40 @@ def _upsert_contact(
         is_primary=is_primary,
         apply=apply,
         actor=actor,
+        # #1676: a phone or mobile row the first import wrote as non-primary is
+        # the import's own — measured, no screen writes one. An e-mail address
+        # that is not primary is an address we collected (#1174): never adopted.
+        adopt_non_primary=type_code in (CONTACT.PHONE, CONTACT.MOBILE),
     )
+    if changed is None:
+        return None
+    # #1687: the line is built from the decision itself — the pair it returns.
+    return contact_change(type_code, changed.old, changed.new, promoted=changed.promoted)
 
 
 def _sync_contacts(
     db: Session, person: Person, row: dict, *, apply: bool, actor: str | None = None
-) -> list[str]:
-    """The contacts of one person; returns the columns that change (#1308)."""
-    has_phone = bool(row["telefoon"])
+) -> list[FieldChange]:
+    """The contacts of one person; returns the fields that change (#1308),
+    each with the value that stood and the value the report brings (#1687).
+
+    Each is the PRIMARY row of its own type (#1676; Koen, 6 October 2026). The
+    first import (#74) wrote a mobile number next to a landline as non-primary:
+    "primary" then meant one number across the types. Since #1174 it is per
+    type and means "what Raak Nationaal holds" — and a non-primary row is one
+    `upsert_primary_contact` never touches. So that mobile row was out of the
+    import's reach: every import logged it as changed while nothing changed,
+    another number was added beside it, an emptied cell removed nothing.
+    """
     changed = []
-    for column, type_code, primary in (
-        ("email", CONTACT.EMAIL, True),
-        ("telefoon", CONTACT.PHONE, True),
-        ("gsm", CONTACT.MOBILE, not has_phone),
+    for column, type_code in (
+        ("email", CONTACT.EMAIL),
+        ("telefoon", CONTACT.PHONE),
+        ("gsm", CONTACT.MOBILE),
     ):
-        if _upsert_contact(db, person, type_code, row[column], primary, apply=apply, actor=actor):
-            changed.append(column)
+        change = _upsert_contact(db, person, type_code, row[column], True, apply=apply, actor=actor)
+        if change is not None:
+            changed.append(change)
     return changed
 
 
@@ -388,12 +419,14 @@ def _sync_contacts(
 
 def _sync_address(
     db: Session, person: Person, row: dict, pc: PostalCode, *, apply: bool, actor: str | None = None
-) -> bool:
+) -> FieldChange | None:
     """Adres hoort enkel bij het hoofdlid (#125). Maak/werk bij.
 
-    Returns whether the address changes (#1308), in dry-run too."""
+    Returns the address change (#1308) — from which line to which (#1687) — or
+    None when it stays, in dry-run too."""
     bus = row["busnummer"] or None
     existing = person.address
+    new_line = address_line(row["straat"], row["huisnummer"], bus, pc)
     if existing:
         if (
             existing.street == row["straat"]
@@ -401,7 +434,15 @@ def _sync_address(
             and existing.bus_number == bus
             and existing.postal_code_id == pc.id
         ):
-            return False
+            return None
+        changed = FieldChange(
+            key="adres",
+            label=ADDRESS_LABEL,
+            old=address_line(
+                existing.street, existing.house_number, existing.bus_number, existing.postal_code
+            ),
+            new=new_line,
+        )
         if apply:
             existing.street = row["straat"]
             existing.house_number = row["huisnummer"]
@@ -416,7 +457,7 @@ def _sync_address(
                 source=LEGACY_SOURCE,
                 actor=actor,
             )
-        return True
+        return changed
     else:
         if apply:
             addr = Address(
@@ -436,7 +477,8 @@ def _sync_address(
                 source=LEGACY_SOURCE,
                 actor=actor,
             )
-        return True
+        # A first address: the new line alone.
+        return FieldChange(key="adres", label=ADDRESS_LABEL, old=None, new=new_line)
 
 
 # ── Persoon aanmaken ────────────────────────────────────────────────────────
@@ -507,13 +549,18 @@ def _report_new_details(
     """A new person's address (head of household only) and contacts: written with
     `apply`, and in either mode reported with the writes they stand for (#1314)."""
     if row["_relatie"] == "HOOFDLID" and pc is not None:
-        if _sync_address(db, person, row, pc, apply=apply, actor=actor):
-            report.line(f"  + adres #{row['lidnr']}  {row['voornaam']} {row['naam']}", "address")
+        address = _sync_address(db, person, row, pc, apply=apply, actor=actor)
+        if address:
+            report.line(
+                f"  + adres #{row['lidnr']}  {row['voornaam']} {row['naam']}  {address.text()}",
+                "address",
+            )
     contacts = _sync_contacts(db, person, row, apply=apply, actor=actor)
     if contacts:
+        # A new person: there is nothing these replace, so the new values alone.
+        new_only = [FieldChange(c.key, c.label, None, c.new) for c in contacts]
         report.line(
-            f"  + contact #{row['lidnr']}  {row['voornaam']} {row['naam']}  "
-            f"velden: {', '.join(contacts)}",
+            f"  + contact #{row['lidnr']}  {row['voornaam']} {row['naam']}  {lines_text(new_only)}",
             *(["contact_detail"] * len(contacts)),
         )
 
@@ -720,9 +767,20 @@ def _sync_family(
         rel_changed = mp is not None and code_of(mp.relation_type) != row["_relatie"]
         if changes or rel_changed:
             report.persons_updated += 1
-            label = ", ".join(changes + (["relatie"] if rel_changed else []))
+            shown = changes + (
+                [
+                    FieldChange(
+                        key="relatie",
+                        label=RELATION_LABEL,
+                        old=relation_value(mp.relation_type),
+                        new=relation_value(row["_relatie"]),
+                    )
+                ]
+                if rel_changed and mp is not None
+                else []
+            )
             report.line(
-                f"  ~ update #{row['lidnr']}  {row['voornaam']} {row['naam']}  velden: {label}",
+                f"  ~ update #{row['lidnr']}  {row['voornaam']} {row['naam']}  {lines_text(shown)}",
                 *(["person"] if changes else []),
                 *(["member_person"] if rel_changed else []),
             )
@@ -752,15 +810,17 @@ def _sync_family(
         # Address and contacts are compared in dry-run too (#1308): they write only
         # with `apply`, but whether they WOULD change is part of the report.
         if row["_relatie"] == "HOOFDLID" and pc is not None:
-            if _sync_address(db, existing, row, pc, apply=apply, actor=actor):
+            address = _sync_address(db, existing, row, pc, apply=apply, actor=actor)
+            if address:
                 report.line(
-                    f"  ~ adres #{row['lidnr']}  {row['voornaam']} {row['naam']}", "address"
+                    f"  ~ adres #{row['lidnr']}  {row['voornaam']} {row['naam']}  {address.text()}",
+                    "address",
                 )
         contacts = _sync_contacts(db, existing, row, apply=apply, actor=actor)
         if contacts:
             report.line(
                 f"  ~ contact #{row['lidnr']}  {row['voornaam']} {row['naam']}  "
-                f"velden: {', '.join(contacts)}",
+                f"{lines_text(contacts)}",
                 *(["contact_detail"] * len(contacts)),
             )
 
@@ -778,8 +838,10 @@ def _sync_family(
             if lidnr in desired_lidnrs or lidnr in report_lidnrs:
                 continue
             report.persons_removed += 1
+            # #1687: the member number when the person has one, and no "#?" when not.
+            number = f"#{lidnr}  " if lidnr else ""
             report.line(
-                f"  - verwijderd  #{lidnr or '?'}  {mp.person.first_name} {mp.person.last_name}",
+                f"  - verwijderd  {number}{mp.person.first_name} {mp.person.last_name}",
                 "member_person",
             )
             if apply:

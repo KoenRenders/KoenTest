@@ -71,13 +71,8 @@ def test_albumtitels_staan_in_ink(client, db_session):
     from pathlib import Path
 
     tpl = (
-        Path(__file__).resolve().parents[1]
-        / "app"
-        / "domains"
-        / "media"
-        / "templates"
-        / "fotos.html"
-    ).read_text()
+        Path(__file__).resolve().parents[1] / "app" / "ui" / "templates" / "_public_macros.html"
+    ).read_text()  # the album card, `photo_card` (#1663)
     assert "font-semibold text-blue-700" not in tpl
     assert "font-semibold text-ink" in tpl
 

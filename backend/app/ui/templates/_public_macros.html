@@ -1,0 +1,146 @@
+{% import "_macros.html" as ui %}
+{# ── The public activity and photo pages (CR-11 pilot C, C1 — #1663; end state
+   §2.7). What the activity card, the activity page and the photo pages each
+   wrote by hand, once. C1 changes NO measure, colour or position: each macro
+   renders what stood there, and the DOM baseline of #1605 finds every element
+   by the `data-…` hook it carries — keep the hooks.
+
+   A file of its own beside the kit (`_macros.html`, imported here as `ui`):
+   these macros use the app's date filters, and Jinja checks a filter's name
+   when it compiles a file — in the kit's file they would break every
+   environment that loads the kit without those filters.
+
+   `date_tile(date, size)`: the day and the short month on the soft brand tint.
+   `size="card"` is 48 px and 56 px from 640 px; `size="page"` 56 and 64 px
+   from 768 px. Decorative beside the dates that are written out (`aria-hidden`). #}
+{% macro date_tile(date, size="card") -%}
+<time data-date-tile datetime="{{ date.strftime('%Y-%m-%d') }}" class="shrink-0 {{ 'w-14 h-14 md:w-16 md:h-16' if size == 'page' else 'w-12 h-12 sm:w-14 sm:h-14' }} rounded-lg bg-blue-50 text-blue-700 flex flex-col items-center justify-center" aria-hidden="true">
+  <span class="{{ 'text-2xl' if size == 'page' else 'text-xl' }} font-bold leading-none">{{ date.strftime("%d") }}</span>
+  <span class="text-xs font-semibold uppercase leading-none mt-0.5">{{ date | maandkort }}</span>
+</time>
+{%- endmacro %}
+
+{# The year above a group of cards: 20 px on a phone, 18 px from 768 px,
+   semibold, a 1 px line in the line colour. `first=False` gives the air a
+   heading further down the list needs. #}
+{% macro year_heading(year, first=True) -%}
+<h3 data-year-heading class="text-xl md:text-lg font-semibold text-kop border-b border-line pb-1{% if not first %} pt-2{% endif %}">{{ year }}</h3>
+{%- endmacro %}
+
+{# The practical lines of an activity: every date on a line of its own under
+   ONE calendar icon (#926), the place, and the last day to register — orange in
+   its last week (#1051). `context="page"` gives the 4 px the lines stand under
+   the page's title. No fixed height: twelve dates are twelve lines. #}
+{% macro activity_facts(dates, location=None, deadline=None, deadline_near=False, context="card") -%}
+<div data-activity-dates class="{% if context == 'page' %}mt-1 {% endif %}text-base md:text-sm text-ink-soft flex items-start gap-1">
+  {{ ui.icon("calendar", cls="mt-1 md:mt-0.5 shrink-0") }}
+  <div class="flex flex-col">
+    {% for d in dates %}
+    <span>{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
+    {% endfor %}
+  </div>
+</div>
+{% if location %}{% call ui.icon_text("map-pin", cls="text-ink-soft") %}{{ location }}{% endcall %}{% endif %}
+{% if deadline %}{% call ui.icon_text("clock", cls=("text-orange-600" if deadline_near else "text-ink-soft")) %}{{ _("Inschrijven t/m") }} {{ deadline | datumzonderjaar }}{% endcall %}{% endif %}
+{%- endmacro %}
+
+{# The way back on a public page (#1664, Z4): ONE form — the kit's chevron and
+   the name of where the visitor came from: "‹ Activiteiten", "‹ Archief",
+   "‹ Foto's" — 14 px in the link colour. On a phone the link's hit area reaches
+   10 px above and under its line of 24 px (44 px in all) without taking room: the page
+   under it stays where it stood. The line is 24 px on a phone and 20 px from
+   768 px, as the activity page's was. `cls` is the air a page gives it. #}
+{% macro public_back_link(origin, href, cls="") -%}
+{%- set _label = {"archive": _("Archief"), "photos": _("Foto's")}.get(origin, _("Activiteiten")) -%}
+<nav data-way-back class="text-sm leading-6 md:leading-5{% if cls %} {{ cls }}{% endif %}">
+  <a href="{{ href }}" class="relative inline-flex align-top items-center gap-1 text-blue-500 hover:underline before:absolute before:-inset-x-2 before:-inset-y-2.5 before:content-[''] md:before:hidden">{{ ui.icon("chevron-left", 16, "shrink-0") }}<span>{{ _label }}</span></a>
+</nav>
+{%- endmacro %}
+
+{# An album on the photo overview: the kit's card as a link, the cover in
+   16 : 9 to its edges, the name and the date under it. #}
+{% macro photo_card(name, href, cover, date=None) -%}
+{% call ui.card(href=href, attrs="data-photo-card") %}
+  <div class="aspect-video bg-surface-2 overflow-hidden">
+    <img src="{{ cover }}" alt="{{ name }}" class="w-full h-full object-cover" loading="lazy">
+  </div>
+  <div class="p-4">
+    <div class="font-semibold text-ink">{{ name }}</div>
+    {% if date %}<div class="text-sm text-ink-soft mt-1">{{ date|kortedatum }}</div>{% endif %}
+  </div>
+{% endcall %}
+{%- endmacro %}
+
+{# ── The lightbox and the photo grid (CR-11 pilot C, C3 — #1665; end state §2.7).
+
+   `lightbox(urls)` wraps whatever opens it — here the photo grid — and holds the
+   state: which photo is open, and what opened it. Inside it an opener calls
+   `show(index, $el)`.
+
+   - the dark ground and the photo uncropped, at most 90 % of the window's
+     height and 92 % of its width — as it was;
+   - **close, previous and next are the kit's 24 px icons in real buttons of
+     44 × 44 px** with Dutch names, where the characters ✕ ‹ › stood;
+   - **focus**: on Close when it opens; Tab and Shift+Tab stay inside; after
+     closing back on the thumbnail that opened it, the page where it was
+     scrolled (`preventScroll`). Escape, the ground and Close close; the arrow
+     keys step; at the first and the last photo the arrow that leads nowhere is
+     hidden — no carousel that runs on. A click on the photo itself does nothing;
+   - no swipe, zoom, counter, animation or slide show.
+
+   The lightbox and its arrows show and hide through a CLASS binding, not
+   `x-show`: Alpine's `x-show` shows on a timeout, and the focus set on Close
+   landed on a button that was still hidden whenever that timeout came second.
+   A class changes in the same flush as the state.
+
+   Beside `ui.modal`, not on it: the modal sets and returns the focus but does
+   not hold it inside, and it is a white card with a title bar. #}
+{% macro lightbox(urls) -%}
+<div data-lightbox-scope
+     x-data='{ open: null, opener: null, urls: {{ urls | tojson }},
+       show(i, el) { this.opener = el; this.open = i; this.$nextTick(() => this.$refs.close.focus()) },
+       hide() { if (this.open === null) return; this.open = null; const el = this.opener; this.opener = null;
+                if (el) el.focus({ preventScroll: true }) },
+       step(d) { const n = this.open + d; if (this.open === null || n < 0 || n >= this.urls.length) return; this.open = n;
+                 this.$nextTick(() => { const a = document.activeElement;
+                   if (!this.$refs.box.contains(a) || a.offsetParent === null) this.$refs.close.focus() }) },
+       trap(e) { const all = [...this.$refs.box.querySelectorAll("button")].filter(b => b.offsetParent !== null);
+                 const at = all.indexOf(document.activeElement); e.preventDefault();
+                 all[(at + (e.shiftKey ? -1 : 1) + all.length) % all.length].focus() } }'
+     @keydown.escape.window="hide()"
+     @keydown.arrow-left.window="step(-1)"
+     @keydown.arrow-right.window="step(1)">
+  {{ caller() }}
+  <div x-ref="box" data-lightbox x-cloak :class="open === null ? 'hidden' : 'flex'" role="dialog" aria-modal="true" aria-label="{{ _('Foto') }}"
+       @click.self="hide()" @keydown.tab="trap($event)"
+       class="fixed inset-0 z-50 bg-black/80 items-center justify-center p-4">
+    <button x-ref="close" type="button" data-lightbox-close @click="hide()" aria-label="{{ _('Sluiten') }}"
+            class="absolute top-2 right-2 grid place-items-center w-11 h-11 rounded-lg text-white/90 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">{{ ui.icon("x", 24) }}</button>
+    <button type="button" data-lightbox-previous :class="open > 0 ? 'grid' : 'hidden'" @click.stop="step(-1)" aria-label="{{ _('Vorige foto') }}"
+            class="absolute left-2 sm:left-6 place-items-center w-11 h-11 rounded-lg text-white/90 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">{{ ui.icon("chevron-left", 24) }}</button>
+    <img data-lightbox-photo :src="open !== null ? urls[open] : ''" @click.stop alt=""
+         class="max-h-[90vh] max-w-[92vw] object-contain rounded">
+    <button type="button" data-lightbox-next :class="open !== null &amp;&amp; open < urls.length - 1 ? 'grid' : 'hidden'" @click.stop="step(1)" aria-label="{{ _('Volgende foto') }}"
+            class="absolute right-2 sm:right-6 place-items-center w-11 h-11 rounded-lg text-white/90 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">{{ ui.icon("chevron-right", 24) }}</button>
+  </div>
+</div>
+{%- endmacro %}
+
+{# The grid of an album: square thumbnails, 12 px apart, in 2 / 3 / 4 columns.
+   Each thumbnail is a button that opens the lightbox it stands in. The caller
+   gives what stands ON a thumbnail (the thumbs-up): `{% call(photo) … %}` — a
+   button BESIDE the photo's button, never inside it, so it opens nothing. #}
+{% macro photo_grid(photos, alt="") -%}
+<div data-photo-grid class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+  {% for f in photos %}
+  <div data-photo class="relative">
+    <button type="button" data-photo-open @click="show({{ loop.index0 }}, $el)"
+            class="block w-full aspect-square bg-surface-2 rounded-xl overflow-hidden hover:opacity-90">
+      <img src="{{ f.thumb_url }}" alt="{{ (f.title or alt) if alt else '' }}"
+           class="w-full h-full object-cover" loading="lazy">
+    </button>
+    <div class="absolute bottom-1.5 right-1.5">{{ caller(f) }}</div>
+  </div>
+  {% endfor %}
+</div>
+{%- endmacro %}

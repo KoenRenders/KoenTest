@@ -41,8 +41,8 @@
         <div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
           {# #638: kit-iconen i.p.v. emoji — dezelfde markup als het gezinsportaal. #}
           {% if m.email %}<span class="inline-flex items-start gap-1">{{ ui.icon("mail", cls="mt-0.5 shrink-0") }} {{ m.email }}</span>{% endif %}
-          {% if m.mobile %}<span class="inline-flex items-start gap-1">{{ ui.icon("mobile", cls="mt-0.5 shrink-0") }} {{ m.mobile }}</span>{% endif %}
-          {% if m.phone %}<span class="inline-flex items-start gap-1">{{ ui.icon("phone", cls="mt-0.5 shrink-0") }} {{ m.phone }}</span>{% endif %}
+          {% if m.mobile %}<span class="inline-flex items-start gap-1">{{ ui.icon("mobile", cls="mt-0.5 shrink-0") }} {{ m.mobile|phone }}</span>{% endif %}
+          {% if m.phone %}<span class="inline-flex items-start gap-1">{{ ui.icon("phone", cls="mt-0.5 shrink-0") }} {{ m.phone|phone }}</span>{% endif %}
         </div>
       </div>
       <span x-show="edit" x-cloak class="text-sm text-gray-500 self-center">{{ m.first_name }} {{ m.last_name }} — {{ _("bewerken") }}</span>

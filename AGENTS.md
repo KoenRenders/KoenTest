@@ -630,6 +630,18 @@ what he takes in on its own branch and answers on the PR per
 `docs/review-protocol.md`. Koen does not have to say "the review is there".
 (Koen, 5 October 2026.)
 
+**Every pull request of the Mistral CLI is read by a Claude dev CLI before a
+merge** (Koen, 7 October 2026). This is the one standing review: the master
+CLI routes it without being asked, for a new pull request and for every later
+commit on it, and reports the findings to Koen with a proposal. It stays
+advisory, and it does not replace Koen's own test of the branch. Two
+conventions make a Mistral pull request findable, because nothing wakes the
+master CLI when one is opened or updated: the branch is named
+`feature/mistral-<issue>-<short>`, and when a pull request or a new commit is
+ready, the Mistral CLI says so in one comment on it — *ready for review,
+commit `<sha>`* — so a half-finished push is not what gets read. The master
+CLI watches for both and checks at every handover.
+
 Shaping agents: the header of this file (*Who may change this file*) already
 says that an agent asked to write a change request writes only that one
 document, on its own branch, edits no process document, and proposes a lesson

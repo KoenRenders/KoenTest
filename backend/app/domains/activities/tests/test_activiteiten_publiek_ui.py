@@ -44,8 +44,12 @@ def test_the_card_links_to_the_registration_page():
     kaart = (TPL / "_activiteiten_cards.html").read_text()
     pagina = (TPL / "activiteit.html").read_text()
     blok = (TPL / "_onderdeel_acties.html").read_text()
-    assert '{% include "_onderdeel_acties.html" %}' in kaart
-    assert '{% include "_onderdeel_acties.html" %}' in pagina
+    # #1663: one block around the partial, shared by the card and the page.
+    actions = (TPL / "_component_actions.html").read_text()
+    assert '{% include "_component_actions.html" %}' in kaart
+    assert '{% include "_component_actions.html" %}' in pagina
+    assert actions.count('{% include "_onderdeel_acties.html" %}') == 1
+    assert "_onderdeel_acties.html" not in kaart + pagina
     assert 'href="/activiteiten/{{ a.id }}/inschrijven/{{ c.id }}"' in blok
     assert 'x-show="ins"' not in kaart + pagina + blok, "the popup is back"
 

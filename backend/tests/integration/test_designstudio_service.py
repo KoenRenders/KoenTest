@@ -871,3 +871,63 @@ def test_annuleren_brengt_de_bewaarde_waarde_terug(client, db_session, design):
     back = client.get(hrefs[0])
     assert back.status_code == 200
     assert 'value="samen wandelen"' in back.text and "net getypt" not in back.text
+
+
+def test_a_stored_number_reads_in_groups_on_the_poster(db_session, design, activity):
+    """#1675: a number the import stored without spaces is read on a design —
+    in the facts the screen lists and in the row the poster draws. The
+    organiser's own stored value does not change."""
+    from app.domains.activities.api import add_organiser, organisers_for, update_organiser
+    from tests.conftest import create_test_family
+
+    _member, person = create_test_family(db_session, email="trekker-1675@example.com")
+    add_organiser(db_session, activity.id, person.id)
+    organiser = organisers_for(db_session, activity.id)[0]
+    update_organiser(
+        db_session,
+        activity.id,
+        organiser.id,
+        {"is_contact": True, "mobile_override": "0470123456", "email_override": ""},
+    )
+
+    facts = facts_for(db_session, design)
+    assert facts["organisers"][0]["mobile"] == "0470 12 34 56"
+    content = content_for(db_session, design, facts)
+    assert content.contacts[0].mobile == "0470 12 34 56"
+    assert organisers_for(db_session, activity.id)[0].mobile == "0470123456", "stored as it was"
+
+
+def test_the_fingerprint_follows_the_end_date_and_the_end_hour(db_session, design, activity):
+    """#1677: the end reaches the poster through the facts, so a design whose
+    activity got an end date or an end hour is marked as changed — its line
+    changes. Red on master: the facts carried the start only."""
+    row = sorted(activity.dates, key=lambda d: d.start_date)[0]
+    before = fingerprint(facts_for(db_session, design))
+    # A row without an end carries no end keys: a design made before #1677
+    # keeps its fingerprint, and is not marked as changed for nothing.
+    assert facts_for(db_session, design)["dates"][0] == {"date": "2026-10-12", "time": "20:00"}
+
+    row.end_date = date(2026, 10, 14)
+    db_session.flush()
+    with_end = fingerprint(facts_for(db_session, design))
+    assert with_end != before
+
+    row.end_time = time(22, 0)
+    db_session.flush()
+    assert fingerprint(facts_for(db_session, design)) not in (before, with_end)
+    facts = facts_for(db_session, design)
+    assert (facts["dates"][0]["end_date"], facts["dates"][0]["end_time"]) == ("2026-10-14", "22:00")
+
+
+def test_one_date_row_with_an_end_prints_the_whole_line(db_session, design, activity):
+    """The single-date highlight and the grid both go through `date_row_line`."""
+    late = sorted(activity.dates, key=lambda d: d.start_date)[1]
+    db_session.delete(late)
+    row = sorted(activity.dates, key=lambda d: d.start_date)[0]
+    row.end_date, row.end_time = date(2026, 10, 14), time(22, 0)
+    db_session.flush()
+    db_session.refresh(activity)
+
+    content = content_for(db_session, design, facts_for(db_session, design))
+    assert content.date_line == "MAANDAG 12 OKTOBER 20U TOT WOENSDAG 14 OKTOBER 22U"
+    assert content.highlights[0].text == content.date_line

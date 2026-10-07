@@ -23,6 +23,7 @@ from jinja2 import (
 )
 
 from app.config import settings
+from app.kernel.phone import readable_phone
 
 _UI_DIR = Path(__file__).parent
 
@@ -125,21 +126,39 @@ templates.env.filters["maandkort"] = _maandkort
 
 def _paragraphs(text: str | None):
     """Plain text as paragraphs (#1647): a blank line starts a paragraph, a
-    single line break is a line break. The text is ESCAPED first — whatever it
-    holds reaches the page as text, never as markup — and only then gets the
-    `<p>` and `<br>` this function writes itself."""
+    single line break starts a new line. The text is ESCAPED first — whatever
+    it holds reaches the page as text, never as markup — and only then gets
+    the `<p>` and the line elements this function writes itself.
+
+    A line the author ended with ONE Enter is an element of its own
+    (`<span data-line>`, #1688), not a `<br>`: the page gives it a little
+    space above, so a statement that wraps can be told from the next
+    statement. That is what an Enter means on the poster too
+    (`designstudio.richtext`: the step onto a line after an Enter is 1.6 of
+    the type size instead of 1.3 — about a quarter of a line more; a blank
+    line is a line more). The page follows the same order — a small space at
+    an Enter, a larger one at a blank line — in its own scale: 8 and 16 px.
+    A paragraph of one line stays a plain `<p>`.
+    """
     import re as _re
 
     from markupsafe import Markup, escape
 
     blocks = [b.strip() for b in _re.split(r"\n\s*\n", (text or "").replace("\r\n", "\n"))]
-    return Markup("").join(
-        Markup("<p>")
-        + Markup("<br>").join(escape(line) for line in block.split("\n"))
-        + Markup("</p>")
-        for block in blocks
-        if block
-    )
+
+    def paragraph(block: str) -> Markup:
+        lines = [line.strip() for line in block.split("\n") if line.strip()]
+        if len(lines) == 1:
+            return Markup("<p>") + escape(lines[0]) + Markup("</p>")
+        return (
+            Markup("<p>")
+            + Markup("").join(
+                Markup("<span data-line>") + escape(line) + Markup("</span>") for line in lines
+            )
+            + Markup("</p>")
+        )
+
+    return Markup("").join(paragraph(block) for block in blocks if block)
 
 
 templates.env.filters["alineas"] = _paragraphs
@@ -150,6 +169,10 @@ templates.env.filters["alineas"] = _paragraphs
 from app.kernel.geld import bedrag as _bedrag  # noqa: E402
 
 templates.env.filters["geld"] = _bedrag
+# #1675: a stored phone number as a person reads it — the one formatter, for
+# every template that SHOWS a number. An input, a `tel:` link and an export
+# keep the stored value (`test_phone_numbers_are_shown_readable`).
+templates.env.filters["phone"] = readable_phone
 # Also as a global, for the kit: a FILTER is resolved when a template is compiled,
 # so `|geld` inside `_macros.html` breaks every environment that loads the kit
 # without this filter (the hand-built ones of the shell tests); a global is
@@ -1038,7 +1061,7 @@ def legal_parts(organisation: dict | None) -> list[dict]:
         parts.append(
             {
                 "kind": "phone",
-                "text": organisation["phone"],
+                "text": readable_phone(organisation["phone"]),
                 "href": "tel:"
                 + "".join(c for c in organisation["phone"] if c.isdigit() or c == "+"),
             }

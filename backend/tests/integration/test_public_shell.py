@@ -345,3 +345,25 @@ def test_the_header_and_the_footer_share_one_container(client):
     html = _home(client)
     assert html.count('class="site-container') == 3  # header, main, footer
     assert '<main id="main" class="site-container' in html
+
+
+def test_the_browser_title_of_a_public_page_names_the_site_it_is_on(client, db_session):
+    """#1664 (Z7): "<page> · <the site's name>". A site with a name of its own shows
+    THAT name in the tab of every public page — until now twelve pages said "— Raak"
+    or "— Raak Millegem" whatever the site was called. Red against C1: the title of
+    `/fotos` was "Foto's — Raak Millegem" on this site too."""
+    _organisation(db_session).site_name = "Voorbeeldafdeling Meting"
+    db_session.commit()
+    for path, page in (
+        ("/fotos", "Foto's"),
+        ("/activiteiten", "Activiteiten"),
+        ("/archief", "Archief"),
+        ("/aanmelden", "Inloggen"),
+        ("/lid-worden", "Word lid"),
+        ("/nieuwsbrief", "Nieuwsbrief"),
+    ):
+        response = client.get(path)
+        assert response.status_code == 200, path
+        title = re.search(r"<title>(?:\[\w+\] )?(.*?)</title>", response.text, re.S).group(1)
+        title = title.strip().replace("&#39;", "'")
+        assert title == f"{page} · Voorbeeldafdeling Meting", f"{path}: {title!r}"

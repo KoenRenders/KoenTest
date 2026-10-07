@@ -30,7 +30,8 @@ def test_the_page_its_title_and_its_heading_say_inloggen(client):
     response = client.get("/aanmelden")
     assert response.status_code == 200
     title = re.search(r"<title>(?:\[\w+\] )?(.*?)</title>", response.text, re.S).group(1)
-    assert title.strip() == "Inloggen — Raak"
+    # #1664 (Z7): the page and the SITE's name, never a literal association.
+    assert title.strip().startswith("Inloggen · ") and not title.strip().endswith("— Raak")
     main = _main(response.text)
     assert re.search(r"<h1[^>]*>\s*Inloggen\s*</h1>", main)
     assert "Aanmelden" not in main, "the page still says Aanmelden for signing in"
