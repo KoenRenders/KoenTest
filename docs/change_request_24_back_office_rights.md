@@ -1,7 +1,7 @@
 # Change Request 24 — Rights, part 1: the code asks for a right, a role is a bundle
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** opened on 7 October 2026 · Parts A, B and C written; B8 empty; ready for the build read · nothing is built; not on a release
+**Status:** opened on 7 October 2026 · Parts A, B and C written; build read by desktop-dev1 on #1722 taken in (8 October 2026); B8 holds Q12–Q13 for Koen · nothing is built; not on a release
 **Tracking issue:** #1722 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** auth (roles, rights, the gates), every back-office route's gate; part 2 is CR-25 (the back office: menu, Bestuur, workbench, business partners)
 **Reading:** A 1 766 words · B 1 728 (the decisions log excluded) · C 1 775 — measured on 7 October 2026 without drawings and notes; the budget is A ≤ 1 500, B ≤ 2 500: A is over by 266, mostly the moved and Won't rows of A6
@@ -64,6 +64,7 @@ flowchart LR
 | 2 | Open a back-office screen | every user | the portal | the screen asks "ADMIN or OPERATOR?": ADMIN may change nearly everything; FINANCE sees only payments |
 | 3 | Add a kind of work (the webshop's four roles) | developer | the code | ≈ 380 gates name roles; every new role means editing them by hand (C1) |
 | 4 | Read who may do what | anyone | `docs/rollen-en-rechten.md` | already stale on master (C1) |
+| 5 | Follow a task for Boekhouding | FINANCE | Werkbank | the workbench makes tasks for FINANCE (`workflow/handlers.py:114, 161`) that a user with only FINANCE cannot open: the workbench is behind `require_admin_ui` (`workflow/ui.py:114`) — measured by the build read, #1722 |
 
 ## A3. To-be process — how it should work afterwards
 
@@ -262,7 +263,7 @@ Every gate asks for a **right** instead of a role name. A right is a code in a c
 | `settings.manage` | settings, changes, e-mail log, API keys | ✓ | | ✓ | | | | |
 | `platform.manage` | tenants, organisations of the platform | | | ✓ | | | | |
 
-The table is the design, read from the gates' names; the proof is F1, the before-and-after list per gate, which decides every row where a gate turns out to admit other roles than its name says. ACCOUNT_ADMIN keeps an empty bundle (R11). The rows marked CR-21 open nothing until CR-21 builds their screens.
+The table follows today's five sets, which *are* the bundles already: `_GENERAL_ADMIN_ROLES = {ADMIN, OPERATOR}`, `_PAYMENTS_VIEW_ROLES = {ADMIN, FINANCE, OPERATOR}`, `_PAYMENTS_MUTATE_ROLES = {FINANCE, OPERATOR}` (`auth/session.py:115-119`) and `require_roles(*codes)`, which adds OPERATOR to every set (`auth/service.py:149-191`, `:163`), with `get_current_admin`, `get_current_finance`, `get_finance_or_admin` built on it — laid against the table by the build read (#1722, A3), they agree. The proof is F1, the before-and-after list per gate, which decides every row where a gate turns out to admit other roles than its name says. ACCOUNT_ADMIN keeps an empty bundle (R11). The rows marked CR-21 open nothing until CR-21 builds their screens.
 
 **Derived requirements**
 
@@ -273,6 +274,10 @@ The table is the design, read from the gates' names; the proof is F1, the before
 | F3 | A user with roles in two workspaces holds in each only the rights of his roles there. | R3 |
 | F4 | `docs/rollen-en-rechten.md` is generated from the bundles, or checked against them by a test. | A2 step 4 |
 | F5 | The label of FINANCE reads Boekhouding. | Q8 |
+| F6 | The role questions outside the gates answer the same per role before and after: `may_view_payments` in services (`activities/service.py:2885, 2944`, `mdm/service.py:1221`), `may_mutate_payments` for the payment buttons (`payment/ui.py:655, 1065`, `mdm/ui.py:395`, `activities/admin_ui.py:1702`, `payment/viewmodels.py:93, 140`, `_bt_boeking.html:51`), `may_use_admin_assistant` (`reporting/admin_ui.py:924`), the header's `is_admin` (`ui/__init__.py:953`, `_site_account.html:21`), the role list handed to the menu (`payment/ui.py:861, 885, 919, 947, 1178`, `ui/no_access.py:76`). | R7, #1722 A2 |
+| F7 | The JSON answer keeps its fields `is_admin` and `is_finance` (`schemas/auth.py:33-34`, `auth/router.py:133-134`) with the same value per user, computed from rights: an API contract does not change in part 1. | R7, #1722 A2 |
+| F8 | The platform screens keep their workspace condition beside the right: `platform.manage` **and** the platform workspace, as `require_platform_operator_ui` is today (`auth/session.py:247-256`); `require_tenant_workspace` stays, it is no role gate. | R7, #1722 D |
+| F9 | The `Role` enum gains MASTERDATA, PRICING, SALES, STOCK in the same change as the migration: both role columns are read through `EnumColumn(Role)`, and a stored code that is no member raises on read (`kernel/codes.py:291-301`). | #1722 F |
 
 ## B2. Fit with the process and the requirements — for the business
 
@@ -454,7 +459,7 @@ Checked and not bent: the import gate, the layer gate, the Dutch-identifier ratc
 |---|---|---|---|---|---|---|
 | 1 — one release | rights, bundles, four roles, every gate on a right, Boekhouding label, the roles document | right codes and labels, role codes MASTERDATA, PRICING, SALES, STOCK, `role_rights` | none | the bundles, by the migration | a user whose roles bundle no right is refused where he was refused before; a request to a screen whose right is unknown fails closed | W1–W6 |
 
-One phase: a half-converted set of gates is the state D3 forbids. It can still arrive as one pull request per domain on a branch, merged together. **Dependencies:** none. CR-21 phase 1 needs it; CR-25 builds on it.
+**Rollback** (#1722 F): to the previous image after someone was given one of the four new roles, reading that user's roles raises (the old enum lacks the code). The recovery is to delete those `user_roles` rows before the rollback, or to roll forward; the "Na de merge" block names it. One phase: a half-converted set of gates is the state D3 forbids. It can still arrive as one pull request per domain on a branch, merged together. **Dependencies:** none. CR-21 phase 1 needs it; CR-25 builds on it.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -473,7 +478,7 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 
 **The rule:** a gate names a right, never a role; a role is only a bundle. It goes into `docs/code-style.md` and replaces the role table of `docs/rollen-en-rechten.md` with the bundles.
 
-**Reach and baseline:** measured on master `1b3237b1`: 31 role-name literals in application code outside `auth/codes.py`, `auth/models.py`, tests and migrations, and six role-named gate functions. This change brings the gate functions to zero and the literals to those that assign roles (seeds, the e2e seed). **Hard** for the gate functions, a **ratchet** for the literals.
+**Reach and baseline:** measured on master `1b3237b1` and confirmed on `6854bee1` by the build read (#1722 B): **35** role-name string literals in nine files outside `auth/codes.py`, `auth/models.py`, tests and migrations (the shaping counted 31), 3 uses of `Role.<member>`, and the role-named gate functions. The ratchet counts string literals and `Role.<member>` in Python **and** role names in template expressions (`_gu_rollen_velden.html:22, 28` hard-codes OPERATOR); it does not count copy — the page headers "Platformbeheer — enkel OPERATOR" stay true and stay. This change brings the gate functions to zero and the literals to those that assign roles (seeds, the e2e seed). **Hard** for the gate functions, a **ratchet** for the literals.
 
 ## B8. Open decisions — what the approver still decides
 
@@ -486,6 +491,8 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
+| Q12 | Three refusal messages name a role: "Alleen FINANCE mag betalingen wijzigen.", "Alleen de platformbeheerder (OPERATOR) mag tenants beheren.", "Alleen een beheerder (ADMIN) mag gebruikers en rollen beheren." With FINANCE reading Boekhouding the first is stale on the day. Which words? (#1722 B) | One neutral sentence for all three: "Je hebt geen toegang tot deze actie." — the 403 names no missing right (C5). | The neutral sentence: one string, nothing to keep in step with the bundles. Role words: three strings to rewrite again in part 2. |
+| Q13 | Where does a Boekhouding-only user land after signing in, now that he may open the workbench (Q11)? Today on Betalingen (`auth/service.py:81-84`). (#1722 C) | On Betalingen, as today: R7 — the landing is a reach a user notices. | On the workbench: he sees his tasks first, but the start page he knows changes. |
 
 ## B9. Decisions log — dated answers
 
@@ -526,7 +533,7 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 
 ## C1. Verified premises — measured before the handover
 
-*Measured on master `f731a836`, 7 October 2026, before Part B is written. **Re-measured on master `1b3237b1`** the same day, before the build read: call sites (definitions, imports and tests excluded) `require_admin_ui` 232, `get_current_admin` 80, `require_finance_ui` 14, `require_platform_operator_ui` 11, `require_finance_mutation` 7, `get_current_finance` 4, `get_finance_or_admin` 4, `require_operator_ui` 2 — 354 gate calls, plus the `may_*`/`admits_admin_ui` questions; 31 role-name literals in application code. The table below stands; its counts are those of `f731a836`.*
+*Measured on master `f731a836`, 7 October 2026, before Part B is written. **Re-measured on master `1b3237b1`** the same day, before the build read: call sites (definitions, imports and tests excluded) `require_admin_ui` 232, `get_current_admin` 80, `require_finance_ui` 14, `require_platform_operator_ui` 11, `require_finance_mutation` 7, `get_current_finance` 4, `get_finance_or_admin` 4, `require_operator_ui` 2 — 354 gate calls by this count; **the build read counted 356 over the syntax tree (`require_admin_ui` 233, `get_current_admin` 82, `require_operator_ui` 1 — inside `require_platform_operator_ui`), identical on `6854bee1`, and 35 literals** (#1722 B). Of these, 22 are called **inside a handler** behind a wider dependency: `require_platform_operator_ui` 11 (`ui/tenants_ui.py:456, 475, 486, 505, 538`, `ui/organisaties_ui.py:201, 222, 242, 264, 281`, `auth/admin_ui.py:219`), `require_finance_mutation` 7 (`payment/ui.py:1228, 1245, 1272, 1303, 1332, 1350, 1370`), `_require_admin` 4 (`auth/admin_ui.py`, defined at `:31`). The table below stands; its counts are those of `f731a836`.*
 
 **Readers of the concepts this change alters**
 
@@ -538,7 +545,9 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 | `user_roles` (`auth/models.py:66`, migration 127) | roles become data bundles | per workspace (`tenant_id`, NULL = platform); assigned in `auth/users.py:119-181`, screen `auth/admin_ui.py:187-356`, `_gu_rollen_velden.html` (a checkbox per role per workspace) | the screen shows bundles; the matrix stays |
 | `docs/rollen-en-rechten.md` | rewritten by this change | already stale on master: `_require_finance` and `_require_operator` no longer exist; "tenant config is OPERATOR-only" is wrong since #1535; no rows for Organisaties, Instellingen, meetings, newsletter, designstudio, reporting; "migration 126" is 127; landing without membership goes to "/" | rewritten as part of this change; until then, worth a small fix of its own |
 
-**Tests that guard the old behaviour (likely red)**
+**Readers of a role outside the gates** (#1722 A2) — listed in F6 and F7; each must answer the same per role after the change (T8).
+
+**Tests that guard the old behaviour (likely red)** — 127 test files name a role, but only 10 name `require_admin_ui` and the suite has 2 `dependency_overrides`: the tests sign in with a real role and pass through the real gate, so with the bundles right nearly all stay green — a second, independent proof of R7 (#1722 E). Red by design: the files below that import a gate by name or assert the role set.
 - Core: `tests/test_role_model_gates.py` (4), `tests/test_role_set_gate.py`, `tests/test_admin_users_authz.py` (4), `tests/integration/test_finance_role.py` (6), `tests/integration/test_rollen_per_werkruimte.py` (12), `tests/test_users_per_workspace.py` (3), `tests/test_no_access_page.py` (7), `auth/tests/test_one_back_office_role_set.py` (2), `auth/tests/test_back_office_link_for_an_operator.py` (4), `payment/tests/test_payment_treasurer_mutations.py`, `workflow/tests/test_werkbank_afgehandeld.py` (the role filter on closed tasks, #674).
 - Wider: 64 test or conftest files use ADMIN, 52 OPERATOR; the `admin_headers` fixture (`tests/conftest.py:231`) relies on the admin of migration 014.
 
@@ -574,7 +583,10 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 |---|---|---|
 | **auth** | `Right` (`CodeEnum`) with the codes of B1 and a code list `auth.right_codes` + `auth.right_labels` (nl, en); `auth.role_rights` (`role_code` FK `auth.role_codes`, `right_code` FK `auth.right_codes`, PK both); the four role codes with labels; the label of FINANCE becomes "Boekhouding" / "Accounting". `rights_of(db, email) -> set[Right]` beside `get_user_roles` (`auth/service.py:93`), same workspace rule (#963), one query joining `user_roles` and `role_rights`, cached on the request. `require_right(code)` returns a dependency for screens with the behaviour of `_require_ui_roles` (`auth/session.py:135`: 303 to `/aanmelden?terug=` for a plain GET, 401 otherwise, 403 "Geen toegang"); `require_right_api(code)` the same for the bearer token of `get_current_admin`. `may(db, email, right)` replaces `may_view_payments`, `may_mutate_payments`, `may_use_admin_assistant`, `admits_admin_ui`. The landing (`auth/service.py:75-90`) asks rights with the same outcome: `workbench.use` and any right but the payment ones → `/admin/werkbank`; only `payment.view` → `/admin/betalingen`; else as today. Beheer › Gebruikers lists the role codes from the code list in `sort_order` (`_gu_rollen_velden.html`). Exported through `auth/api.py`. | `auth/session.py`, `auth/service.py`, `auth/codes.py`, `auth/admin_ui.py`, `auth/users.py` |
 | **every domain with a back office** | each `Depends(require_admin_ui)`, `require_finance_ui`, `get_current_admin`, `get_current_finance`, `get_finance_or_admin`, `require_finance_mutation`, `require_operator_ui`, `require_platform_operator_ui`, `require_roles(...)` becomes `require_right(Right.…)` / `require_right_api(Right.…)` with the right of B1 for that domain: activities, forms, cms, media, designstudio, newsletter, meetings, reporting, chatbot, mdm and membership (`party.masterdata`), payment (`payment.view` to look, `payment.manage` to change), workflow (`workbench.use`), mail and `app/ui` (`settings.manage`, the platform screens `platform.manage`), auth's user screens (`user.manage`). | C1 counts per domain |
-| **ui (`app/ui/__init__.py`)** | the admin menu (`admin_nav`, lines 858-900 on `f731a836`) shows an item when the user holds its right; the header link to the back office asks `may(…, workbench.use)` or any right. | |
+| **the 22 gates inside handlers** | first commit of the build, before the snapshot: `require_platform_operator_ui`, `require_finance_mutation` and `_require_admin` move from the body into the route's dependencies, unchanged in what they admit — then C4.1's list sees them (#1722 A1). | the files of C1 |
+| **mdm — Personen** (`/admin/personen`, CR-22 S7, #1712, behind `require_admin_ui` while CR-22 is built) | gate `party.masterdata`, like the other person screens. CR-22's sentence that CR-24 gives it a right `person.delete` is corrected there: by D1 there is no right per action (#1722 A4). | CR-22 C2 mdm |
+| **auth — copy** | the three refusal messages that name a role (`auth/session.py:228`, `:243`, `auth/admin_ui.py:45`) — see Q12. | |
+| **ui (`app/ui/__init__.py`)** | the admin menu (`admin_nav`, lines 858-900 on `f731a836`) shows an item when the user holds its right — the separate branch for a user without the general set (`ui/__init__.py:892-893`, one group with only Betalingen) goes, so FINANCE sees Betalingen and Werkbank (Q11); the callers that pass `roles=get_user_roles(…)` (`payment/ui.py`, `ui/no_access.py:76`) pass rights; the header link to the back office asks `may(…, workbench.use)` or any right. | |
 | **workflow** | unchanged: tasks keep `required_role` (D4); the workbench screen's gate becomes `workbench.use`. | `workflow/ui.py:114, 130, 226` |
 | **reporting** | unchanged: `reporting.universe.Role` is its own enum (Non-goal). | |
 | **migration** | one: right codes and labels, the four role codes and labels, FINANCE's label, `role_rights` rows for ADMIN, FINANCE, OPERATOR, MASTERDATA, PRICING, SALES, STOCK as B1. Idempotent. | |
@@ -602,6 +614,9 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 | **Caching** | rights are read once per request; a role assigned in Beheer › Gebruikers applies at the user's next request. |
 | **Translations** | right labels in nl and en; role labels for the four roles in nl and en. |
 | **API keys** | `require_api_key` is not a role gate and stays as it is. |
+| **JSON routes and API callers** | `is_admin`, `is_finance` stay in the answer with the same values (F7). |
+| **390 px screenshots** | the menu of a finance user changes (Werkbank added, Q11): its screenshot is redone. |
+| **Platform screens** | the workspace condition stays beside `platform.manage` (F8): an operator inside a tenant's workspace is refused Tenants and Organisaties as today. |
 
 ## C4. Detailed decisions — one subsection each, with the reasons
 
@@ -612,7 +627,7 @@ One phase: a half-converted set of gates is the state D3 forbids. It can still a
 
 ### C4.1 The before-and-after list (F1, R7)
 
-Before any gate is touched, a test walks `app.routes`, finds every route's gate dependency and asks it, for a user holding exactly one role (ADMIN, FINANCE, OPERATOR, ACCOUNT_ADMIN, none), whether it admits; the result — route, method, the set of roles admitted — is written to a committed snapshot. That commit is the first of the build. After the conversion the same test computes the set from the bundles and compares; the only allowed difference is `workbench.use` for FINANCE (Q11), listed in the test by name. This is what makes ≈ 380 mechanical edits safe: a wrong right on one route shows as one line of difference.
+**Taken by asking the running routes**, not by walking dependencies (#1722 A1: 22 routes have their real gate in the body). Before any gate is touched, a test starts the application against a test database whose tenant has **every module on** (a route switched off answers 404 for a reason that is no right, #1722 D), and sends every route, with its method, one request per user holding exactly one role (ADMIN, FINANCE, OPERATOR, ACCOUNT_ADMIN, none), in a tenant workspace and in the platform workspace; it records per route: admitted (anything but 401/403) or refused. Path parameters are filled from seeded rows. The result is a committed snapshot, and that commit is the first of the build. As a belt to it, the 22 in-body gates are moved into dependencies in the next commit (C2), unchanged in what they admit. After the conversion the same test runs again and compares; the only allowed difference is the workbench for FINANCE (Q11), named in the test. The same is done for the role questions outside the gates (F6, F7): for each of the five users, each question's answer, before and after (T8).
 
 ### C4.2 Fail closed
 
@@ -654,8 +669,11 @@ D3: an alias `require_admin_ui = require_right(…)` would leave 280 places sayi
 | T3 | The role set is the eight codes with their labels; FINANCE reads "Boekhouding" | a code or a label is missing |
 | T4 | MASTERDATA alone opens persons, households, memberships and changes them; is refused activities, payments, settings | the bundle is wrong |
 | T5 | The gate of C7: no role-named gate function exists; role literals in application code do not grow | an old gate returns, or a role name is used in logic |
-| T6 | Landing per role: ADMIN → werkbank, FINANCE-only → betalingen, OPERATOR → werkbank, none → as today | the landing changed |
+| T6 | Landing per role: ADMIN → werkbank, FINANCE-only → as decided in Q13, OPERATOR → werkbank, none → as today | the landing changed |
 | T7 | `docs/rollen-en-rechten.md` matches the bundles | the document drifts |
+| T8 | The role questions outside the gates (F6) and the JSON fields (F7) answer the same per role before and after, three roles by six questions plus the two fields | a service, a button or the API changes what it shows by role |
+| T9 | An operator in a tenant's workspace is refused Tenants and Organisaties; in the platform workspace admitted | the workspace condition was dropped (F8) |
+| T10 | A user with MASTERDATA is read back after the migration (the enum knows the code) | the enum and the migration diverge (F9) |
 
 The tests that guard the old behaviour (C1) are updated in the same change, not deleted: the role-set gates take the eight codes (B4), the finance and per-workspace tests ask rights.
 
@@ -679,7 +697,7 @@ The tests that guard the old behaviour (C1) are updated in the same change, not 
 > *rule cheap to follow: for a new case it spells out the steps and fails on*
 > *the one that was forgotten, with the name of the missing piece.*
 
-`tests/test_rights_gate.py`: (1) **hard** — no function named `require_admin_ui`, `require_finance_ui`, `get_current_admin`, `get_current_finance`, `get_finance_or_admin`, `require_finance_mutation`, `require_operator_ui`, `require_platform_operator_ui`, `require_roles`, `admits_admin_ui`, `may_view_payments`, `may_mutate_payments`, `may_use_admin_assistant` exists or is imported in `backend/app`; message: "Gate on a right (`require_right`), not on a role — CR-24". (2) **ratchet** — string literals `"ADMIN"`, `"FINANCE"`, `"OPERATOR"`, `"ACCOUNT_ADMIN"` in `backend/app` outside `auth/codes.py`, `auth/models.py` and migrations, counted against a baseline that may only shrink (31 on `1b3237b1`, minus what this change removes). Proven additively: add a function `require_admin_ui` in a scratch module and a literal `"ADMIN"` in a template condition; both checks fail with their message; remove.
+`tests/test_rights_gate.py`: (1) **hard** — no function or constant named `_GENERAL_ADMIN_ROLES`, `_PAYMENTS_VIEW_ROLES`, `_PAYMENTS_MUTATE_ROLES`, `_require_admin`, `_require_ui_roles`, `require_admin_ui`, `require_finance_ui`, `get_current_admin`, `get_current_finance`, `get_finance_or_admin`, `require_finance_mutation`, `require_operator_ui`, `require_platform_operator_ui`, `require_roles`, `admits_admin_ui`, `may_view_payments`, `may_mutate_payments`, `may_use_admin_assistant` exists or is imported in `backend/app`; message: "Gate on a right (`require_right`), not on a role — CR-24". (2) **ratchet** — string literals `"ADMIN"`, `"FINANCE"`, `"OPERATOR"`, `"ACCOUNT_ADMIN"` in `backend/app` outside `auth/codes.py`, `auth/models.py` and migrations, counted against a baseline that may only shrink (31 on `1b3237b1`, minus what this change removes). Proven additively: add a function `require_admin_ui` in a scratch module and a literal `"ADMIN"` in a template condition; both checks fail with their message; remove.
 
 ## C8. Prototype findings — what was measured before the build
 
@@ -736,6 +754,7 @@ No concepts: the one visible change is four more checkboxes and a label in Behee
 | Q9 | 7 Oct 2026 | MoSCoW: R1, R3, R4, R5, R7, R13 Must; social tariff, Accountbeheer, composing roles Won't? (Claude) | Yes. (Koen) |
 | Q10 | 7 Oct 2026 | Does ADMIN get the webshop's rights in part 1, given that viewing without a right only arrives in part 2 and CR-21 Q12 lets only the four roles change the shop? (Claude recommended no) | No; a board member who must see orders also gets Verkoop until part 2. (Koen) |
 | Q11 | 7 Oct 2026 | Today a FINANCE-only user cannot open the workbench, and CR-21 gives Boekhouding its first workbench step. Give FINANCE `workbench.use` in part 1, or with CR-21? (Claude recommended with CR-21) | In part 1 — the one widening of part 1. (Koen) |
+| — | 7 Oct 2026 | Build read by desktop-dev1 (#1722, issuecomment-6047443629), on `fcc1835f`, counted on `1b3237b1` and `6854bee1`. | Taken in: A1 (C4.1 asks the running routes; the 22 in-body gates become dependencies first), A2 (F6, F7, T8), A3 (B1 cites today's five sets; C7's list extended), A4 (`/admin/personen` in C2 on `party.masterdata`; CR-22's sentence to be corrected there), B (counts 356 and 35; the ratchet's scope in B7), C (menu in C2, A2 step 5; the landing is Q13), D (F8, T9; all modules on for the snapshot), E (claimed in C1), F (F9, T10, rollback in B6). Not taken: nothing. Open for Koen: Q12 (refusal words), Q13 (landing). Not measured: what each environment holds per role — a read-only count by the master CLI if Koen wants it. (Claude) |
 
 ## Non-goals — deliberately outside this change
 
