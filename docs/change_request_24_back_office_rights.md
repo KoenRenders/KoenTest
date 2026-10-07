@@ -202,7 +202,7 @@ and deliberately not done — recorded so it is not asked again).
 | AC2 | A user with only Boekhouding sees and confirms payments as before, and is refused the activity and member screens as before. | R7 | B2, to come |
 | AC3 | An Operator reaches everything as before, the platform screens included. | R7 | B2, to come |
 | AC4 | In Beheer › Gebruikers, the four new roles can be ticked per workspace. | R4 | B2, to come |
-| AC5 | A user with only Masterdata manages persons, households and memberships, and is refused activities, payments and settings. | R5, R13 | B2, to come |
+| AC5 | A user with only Masterdata manages persons, households and memberships, and is refused activities, payments and settings. Masterdata also holds the right on products (`product.masterdata`, R13); the product screens arrive with CR-21, where its AC2 checks it. | R5, R13 | B2, to come |
 | AC6 | A user with only Prijsbeheer, Verkoop or Voorraadbeheer reaches no existing back-office screen (their screens come with CR-21). | R4, R7 | B2, to come |
 | AC7 | `docs/rollen-en-rechten.md` matches what AC1–AC6 showed. | R3 | B2, to come |
 
