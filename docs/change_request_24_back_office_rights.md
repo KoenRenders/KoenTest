@@ -306,20 +306,27 @@ and deliberately not done — recorded so it is not asked again).
 
 ## C1. Verified premises — measured before the handover
 
-> [!NOTE]
-> *Every claim the design rests on, measured in the code before the change*
-> *request is assigned: a key or constraint that "already exists", a column*
-> *that "has room", "no migration", "the gate allows this", "the pattern X*
-> *already uses". One row each: the claim · how it was measured (the command,*
-> *the test, the file and line) · the result · what changed in the design if*
-> *the result differed. A change request is not assigned while a premise in*
-> *B or C has no row here. CR-14 planned two foreign keys across schemas "as*
-> *`registrations.person_id` already does"; it did not, and a gate refused*
-> *them: B3, C2, C5, C6 and two tests were rewritten during the build.*
+*Measured on master `f731a836`, 7 October 2026, before Part B is written; re-measured on the handover commit before assignment.*
 
-| Claim | Measured how | Result | Consequence |
+**Readers of the concepts this change alters**
+
+| Concept | What changes | Readers today (file:line) | Verdict |
 |---|---|---|---|
-| … | … | … | … |
+| The gates that check role names (`auth/session.py:116-259`, `auth/service.py:93-191`) | become checks of a right | `require_admin_ui` **233** call sites (activities 31, meetings 30, newsletter 30, forms 25, mdm 22, designstudio 17, reporting 16, media 10, chatbot 8, cms 8, auth 6, workflow 4, mail 3, app/ui 23); `get_current_admin` ~82 (activities 19, membership 17, forms 9, media 9, auth 8, chatbot 7, cms 4, audit 3, mdm 2, mail 2, admin_api 2); `require_finance_ui` 14, `get_current_finance` 4, `get_finance_or_admin` 4, `require_finance_mutation` 8, `require_platform_operator_ui` 13, `require_tenant_workspace` 5; `may_mutate_payments`, `may_view_payments`, `may_use_admin_assistant`, `admits_admin_ui` (nav, header, landing, users) | ~380 call sites: the change is mostly mechanical, one gate per screen group; Part B decides whether the gates keep their names and map to rights, or are renamed |
+| Inline role names | must disappear from logic | `auth/service.py:83` (`"FINANCE" in roles` decides the landing), `auth/router.py:134` (`is_finance`), `auth/session.py:240` (`"OPERATOR" not in`), `auth/admin_ui.py:117,127,144-145`, `auth/users.py:130,153-164,181`; workflow `handlers.py:114,135,161,177,208`, `api.py:37,198,278`, `models.py:125`; `ui/admin_api.py:27`; `mdm/import_service.py:967` (imported users get ADMIN); migrations 001, 014, 056, 072, 074, 082, 087, 107, 127; `seed_e2e.py` | each moves to a right or a role bundle; the migration that turns ADMIN into BOARD + changing roles must keep every existing user's reach (R7) |
+| ADMIN as "may change" | ADMIN becomes BOARD, reading only | ADMIN mutates today: activities (UI 18 + API 17), leden (UI 14, import API 2, register API 11), formulieren (UI 17 + API 4), cms (4 + 3), media (7 + 8), Raakje (5 + 5), meetings 21, newsletter 18, designstudio 10, reporting 7, users (3 + 3), api-keys 2, mail 2, own Instellingen (`tenants_ui.py:443`), own Organisatie (`organisaties_ui.py:313`), closing a workbench task | the changing roles of R4 must cover every one of these groups; Werking/Inhoud as proposed leave **Communicatie** (meetings, newsletter, designstudio), **Inzicht** (reporting), **Raakje**, **api-keys** and the **own settings** without a role — to decide in Part B |
+| `reporting/universe.py:96` `Role` | not the same enum | its own ADMIN/FINANCE/MEMBER_DETAILS, 146 uses, "declared, not enforced" | must be kept apart or aligned in Part B, never mixed with `auth.Role` |
+| Workbench (`workflow/api.py:71,94,111`) | a filter per role (R8) | filtering is implicit by the user's own roles; no filter UI; `create_task` defaults to ADMIN; the sweep makes FINANCE and ADMIN tasks; the counter `ui/admin_api.py:23-27` counts ADMIN+FINANCE for everyone. **Gaps:** a FINANCE-only user cannot open the workbench (`require_admin_ui`), so FINANCE tasks reach only users with both roles; an OPERATOR without an ADMIN row sees an empty list; the detail and close routes do not check `task.required_role` | R8 must also open the workbench to every role with tasks, and check the role on closing; Q1 (what BOARD sees) stays open |
+| Admin navigation (`ui/__init__.py:605-900`) | regrouped, items by right (R9) | `_ADMIN_NAV_LAYOUT` :605, icons :697, PLATFORM_ONLY/TENANT_ONLY :725-726; `admin_nav` has 68 call sites, only payment (5) and `no_access` pass roles — every other caller gets the full menu | the menu by right needs `admin_nav` to know the user's rights on every call (one change in the shell, not 68) |
+| `Organization` (`mdm/models.py:610`) | tenant-scoped business roles (R6) | not tenant-scoped (no `tenant_id`); `OrganizationType` ACCOUNT/UNIT/PLATFORM read in ~35 places (`tenant_lookup.py`, `tenant_service.py` 11, `mdm/api.py` 6, `organisaties_ui.py`, `tenants_ui.py`, `cms/render.py:302`, `kernel/tenant_config.py`); no customer/supplier concept anywhere; who changes: `/admin/organisaties` platform + OPERATOR, `/admin/organisatie` own row by ADMIN | business roles are a new table (organisation × tenant × role); CR-20 first, as A1 says |
+| `user_roles` (`auth/models.py:66`, migration 127) | roles become data bundles | per workspace (`tenant_id`, NULL = platform); assigned in `auth/users.py:119-181`, screen `auth/admin_ui.py:187-356`, `_gu_rollen_velden.html` (a checkbox per role per workspace) | the screen shows bundles; the matrix stays |
+| `docs/rollen-en-rechten.md` | rewritten by this change | already stale on master: `_require_finance` and `_require_operator` no longer exist; "tenant config is OPERATOR-only" is wrong since #1535; no rows for Organisaties, Instellingen, meetings, newsletter, designstudio, reporting; "migration 126" is 127; landing without membership goes to "/" | rewritten as part of this change; until then, worth a small fix of its own |
+
+**Tests that guard the old behaviour (likely red)**
+- Core: `tests/test_role_model_gates.py` (4), `tests/test_role_set_gate.py`, `tests/test_admin_users_authz.py` (4), `tests/integration/test_finance_role.py` (6), `tests/integration/test_rollen_per_werkruimte.py` (12), `tests/test_users_per_workspace.py` (3), `tests/test_no_access_page.py` (7), `auth/tests/test_one_back_office_role_set.py` (2), `auth/tests/test_back_office_link_for_an_operator.py` (4), `payment/tests/test_payment_treasurer_mutations.py`, `workflow/tests/test_werkbank_afgehandeld.py` (the role filter on closed tasks, #674).
+- Wider: 64 test or conftest files use ADMIN, 52 OPERATOR; the `admin_headers` fixture (`tests/conftest.py:231`) relies on the admin of migration 014.
+
+**Visitors and tenants walked (C3 list)** — board user with a person, board user without a person, FINANCE-only, OPERATOR without an ADMIN row (sees an empty workbench today), signed in at another workspace (roles are per workspace); tenant with members, company, platform (Organisaties and Tenants stay platform-only).
 
 ## C2. Per module: what must happen
 
