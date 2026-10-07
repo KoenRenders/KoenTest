@@ -87,8 +87,9 @@ Today a screen checks role names: `require_admin_ui` lets ADMIN and OPERATOR in,
 | R1 | A right is about changing one kind of object; the code asks for the right, never for a role's name. | Must *(proposed)* | Koen, 7 Oct 2026 | |
 | R2 | Everyone with a back-office role reads everything of his workspace; there is no reading right per object. | Must *(proposed)* | Koen, 7 Oct 2026 | "nothing we should spend time on" |
 | R3 | A role is a bundle of rights, kept as data per workspace; one user may hold several. | Must *(proposed)* | Koen, 7 Oct 2026 | |
-| R4 | The roles: Bestuur (code `BOARD`: reads everything, changes nothing) · Relatiebeheer · Masterdata · Werking · Inhoud · Boekhouding (code `FINANCE`) · Productbeheer · Prijsbeheer · Verkoop · Voorraadbeheer · Gebruikersbeheer · Operator. | Must *(proposed)* | Koen, 7 Oct 2026 | the four shop roles come from CR-21 |
+| R4 | The roles: Bestuur (code `BOARD`: reads everything, changes nothing) · Relatiebeheer · Masterdata · Werking · Inhoud · Boekhouding (code `FINANCE`) · Prijsbeheer · Verkoop · Voorraadbeheer · Gebruikersbeheer · Operator. | Must *(proposed)* | Koen, 7 Oct 2026 | Productbeheer of CR-21 is part of Masterdata (Q2) |
 | R5 | The legal identity of an organisation — official name, legal form, enterprise and VAT number, registered address, bank accounts, payment terms — is changed only by Masterdata; the relationship — customer or supplier, contacts, the responsible account manager — by Relatiebeheer. | Must *(proposed)* | Koen, 7 Oct 2026 | the split of a master-data team and account managers |
+| R13 | Master data has two rights — the legal data of persons and organisations (`party.masterdata`), the product portfolio (`product.masterdata`) — and one standard role, Masterdata, that holds both; a company with two teams makes two bundles without code. | Must *(proposed)* | Koen, 7 Oct 2026 (Q2) | as an ERP separates business partner and material master |
 | R6 | Inside its tenant a board manages the organisations it buys from and sells to; the platform's own structure (accounts, units, tenants) stays with the operator. | Must *(proposed)* | Koen, 7 Oct 2026 | |
 | R7 | Whoever holds ADMIN today gets Bestuur plus the changing roles he uses today, so nothing changes on the day of the switch. | Must *(proposed)* | Koen, 7 Oct 2026 | |
 | R8 | Every task on the workbench belongs to a role; the workbench filters by role (Boekhouding, Verkoop, …), with the number of open tasks per role, so all work people must do is gathered per role. | Must *(proposed)* | Koen, 7 Oct 2026 | |
@@ -289,6 +290,7 @@ and deliberately not done — recorded so it is not asked again).
 | 7 Oct 2026 | ADMIN becomes Bestuur, code `BOARD`: reads everything, no advanced work. | Koen |
 | 7 Oct 2026 | Penningmeester becomes Boekhouding on screen; the code stays `FINANCE`. | Koen |
 | 7 Oct 2026 | Masterdata and Relatiebeheer split on the organisation (R5). | Koen |
+| 7 Oct 2026 | Two master-data rights, one role Masterdata; Productbeheer (CR-21) is part of it (Q2). | Koen |
 | 7 Oct 2026 | Social tariff and Accountbeheer out of scope, their meaning recorded (R10, R11). | Koen |
 
 ---
