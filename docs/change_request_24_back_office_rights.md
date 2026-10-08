@@ -1,7 +1,7 @@
 # Change Request 24 — Rights, part 1: the code asks for a right, a role is a bundle
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** opened on 7 October 2026 · Parts A, B and C written; build read by desktop-dev1 on #1722 taken in (8 October 2026); B8 empty (Q12–Q14 answered 8 October 2026); architecture review on #1722 taken in (8 October 2026); Q15–Q16 answered; B8 empty; ready for assignment, after v2.16 · nothing is built; not on a release
+**Status:** opened on 7 October 2026 · Parts A, B and C written; build read by desktop-dev1 on #1722 taken in (8 October 2026); B8 empty (Q12–Q14 answered 8 October 2026); architecture review on #1722 taken in (8 October 2026); Q15–Q16 answered; B8 empty; assigned to v2.16 by Koen (8 October 2026), after CR-13 4b in the same release · nothing is built; not on a release
 **Tracking issue:** #1722 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** auth (roles, rights, the gates), every back-office route's gate; part 2 is CR-25 (the back office: menu, Bestuur, workbench, business partners)
 **Reading:** A 1 766 words · B 1 728 (the decisions log excluded) · C 1 775 — measured on 7 October 2026 without drawings and notes; the budget is A ≤ 1 500, B ≤ 2 500: A is over by 266, mostly the moved and Won't rows of A6
@@ -518,6 +518,7 @@ Checked and not bent: the import gate, the layer gate, the Dutch-identifier ratc
 | 7 Oct 2026 | MoSCoW confirmed: R1, R3, R4, R5, R7, R13 Must; R10, R11, R14 Won't (Q9). | Koen |
 | 7 Oct 2026 | ADMIN gets no webshop rights in part 1; until part 2 brings reading for every role, a board member who must see orders also gets Verkoop (Q10). | Koen |
 | 7 Oct 2026 | Boekhouding gets the workbench in part 1 — the one widening of part 1; it sees the tasks of its own role (Q11). | Koen |
+| 8 Oct 2026 | Assigned by Koen to **v2.16**, after the JSON sweep of CR-13 phase 4 (4b), in the same release: "ik zou deze ook in v2.16 willen doen, na de JSON-sweep. Ik zou zelfs fase 0 van de webshop ook in deze release willen doen." | Koen |
 | 8 Oct 2026 | Viewing and changing are separate rights already in part 1: `<object>.view` beside `<object>.manage`, each route classified by its method; every bundle holds both, so R7 holds and part 2 and R10 become bundle rows (Q15). The back-office link in the public header shows for everyone with a back-office role, Boekhouding included (Q16). Koen: "2 b en akkoord voor Q16". | Koen |
 | 8 Oct 2026 | Everyone with a back-office role lands on the workbench after signing in, Boekhouding included; the exception that sent FINANCE-only to Betalingen goes (Q13). Koen: "KIS, iedereen op werkbank, code vereenvoudigen". | Koen |
 | 8 Oct 2026 | The three refusal messages that name a role become one sentence: "Je hebt geen toegang tot deze actie." (Q12). Offered a (one general sentence), b (say what may not be done, without a role) and c (name the role with its new label), Koen chose a: "ik liet in agents.md 'KIS' zetten" — `AGENTS.md`, *Keep it simple*. | Koen |
