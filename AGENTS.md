@@ -1187,6 +1187,20 @@ it.** Europe First.
 - If no viable EU option exists, say so explicitly and explain the trade-off
   before adding the non-EU dependency.
 
+**Claude Code is a deviation from Europe First too** (Koen, 8 October 2026).
+Its vendor is not European, and what a Claude session reads — a file, the
+output of a command — is sent to that vendor, exactly as for `opencode1` on
+DeepSeek. The source of this repository is public, so the code is not the risk;
+what a session can reach on an environment is. So **a Claude session takes no
+personal data from an environment into the chat**: no names, e-mail addresses,
+phone numbers, addresses, IBANs or structured communications from HDEV, UAT or
+PROD, and none from a member report or a log in Koen's project folder. It
+measures with counts, internal ids, amounts and dates, and leaves the identity
+columns out of the query rather than out of the answer — the left column of the
+table in *This repository is PUBLIC*, applied to what is read and not only to
+what is published. Where a task cannot be done without a person's data, the
+session says so and Koen decides.
+
 ## Code change discipline
 
 - Only change what was explicitly requested. Nothing more.
