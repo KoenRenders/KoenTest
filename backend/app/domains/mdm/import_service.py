@@ -207,6 +207,25 @@ def _person_lidnr(person: Person, source: str) -> str | None:
     return None
 
 
+def _delete_link(db: Session, link: MemberPerson) -> None:
+    """Delete a household link, and forget the two collections that held it.
+
+    `db.delete` removes the row, not the object from `person.member_persons` and
+    `member.member_persons`: both keep listing a link that is gone for as long as
+    their owner stays in the session. Every decision below reads those collections
+    — which household is this person in, is he linked to this one already — so a
+    later one in the same session decided on a link that no longer existed (#1756:
+    a person who left a household and came back as the head of a new one was sent
+    to the old household, found "already linked" there, and ended with no link at
+    all). Expired, the collections are read from the database when next asked.
+    """
+    person, member = link.person, link.member
+    db.delete(link)
+    db.flush()
+    db.expire(person, ["member_persons"])
+    db.expire(member, ["member_persons"])
+
+
 def _current_member(person: Person) -> Member | None:
     mp = next((m for m in person.member_persons), None)
     return mp.member if mp else None
@@ -768,8 +787,7 @@ def _sync_family(
                             source=LEGACY_SOURCE,
                             actor=actor,
                         )
-                        db.delete(old_mp)
-                        db.flush()
+                        _delete_link(db, old_mp)
                 # Relatie-attributen zetten (niet enkel de FK's) zodat zowel
                 # member.member_persons als existing.member_persons consistent
                 # blijven binnen de sessie.
@@ -889,8 +907,7 @@ def _sync_family(
                     source=LEGACY_SOURCE,
                     actor=actor,
                 )
-                db.delete(mp)
-                db.flush()
+                _delete_link(db, mp)
 
     if _ensure_membership(db, member, IMPORT_YEAR, apply=apply, report=report, actor=actor):
         report.line(f"  + lidmaatschap {IMPORT_YEAR}", "membership")
