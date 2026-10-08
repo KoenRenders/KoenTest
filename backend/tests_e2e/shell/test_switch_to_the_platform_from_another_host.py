@@ -25,7 +25,7 @@ from playwright.sync_api import sync_playwright
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE, PLATFORM, pagina_klaar  # noqa: E402
-from tests_e2e.test_switch_to_the_platform import _SIDEBAR  # noqa: E402
+from tests_e2e.shell.test_switch_to_the_platform import _SIDEBAR  # noqa: E402
 
 
 @pytest.fixture(scope="module")

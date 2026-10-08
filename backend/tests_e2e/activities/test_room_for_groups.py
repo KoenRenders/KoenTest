@@ -34,8 +34,8 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from tests_e2e.activities.test_product_settlement import _db, _seed  # noqa: E402
 from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
-from tests_e2e.test_product_settlement import _db, _seed  # noqa: E402
 
 _M = """() => { const r = e => { if (!e) return null; const b = e.getBoundingClientRect(); return {x: Math.round(b.left), y: Math.round(b.top + scrollY), w: Math.round(b.width), h: Math.round(b.height), right: Math.round(b.right), bottom: Math.round(b.bottom + scrollY)}; };
   const q = s => document.querySelector(s);

@@ -40,8 +40,7 @@ from playwright.sync_api import expect
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import htmx_stil, pagina_klaar  # noqa: E402
-from tests_e2e.test_activity_proposer import (  # noqa: E402
+from tests_e2e.activities.test_activity_proposer import (  # noqa: E402
     _answer,
     _answer_arrives,
     _remove,
@@ -50,7 +49,13 @@ from tests_e2e.test_activity_proposer import (  # noqa: E402
     _turn,
     setup,  # noqa: F401  the browser and the session
 )
-from tests_e2e.test_new_activity_on_the_fiche import NEW, _named, _page, _total  # noqa: E402
+from tests_e2e.activities.test_new_activity_on_the_fiche import (  # noqa: E402
+    NEW,
+    _named,
+    _page,
+    _total,
+)
+from tests_e2e.schermen import htmx_stil, pagina_klaar  # noqa: E402
 
 PANEL = ".raakje-panel"
 ROWS = "#aa-group-dates > [data-group-rows] > [data-group-row]"
