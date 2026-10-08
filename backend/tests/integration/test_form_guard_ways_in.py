@@ -10,8 +10,10 @@ and check both directions:
   reason and never the content;
 - **let through** — the same form with a person's fields stores as before.
 
-The ways in: `/berichten`, `/formulier/{token}`, the JSON
-`/api/v1/forms/by-token/{token}/submit`, and `/nieuwsbrief`.
+The ways in: `/berichten`, `/formulier/{token}` and `/nieuwsbrief`. A fourth, the
+JSON route `/api/v1/forms/by-token/{token}/submit`, had no caller and went with
+CR-13 phase 4b (#1251); it built the same proof and called the same function as
+the public form, whose tests stand below.
 
 Proven red (29 September 2026), both directions, additively:
 - `return None` added at the top of `form_guard.refusal` (the guard off) → every
@@ -21,7 +23,6 @@ Proven red (29 September 2026), both directions, additively:
 """
 
 import logging
-import time
 
 import pytest
 
@@ -132,52 +133,6 @@ def test_the_public_form_lets_a_person_through(client, db_session, public_form):
 
     assert "Bedankt" in answer.text
     assert db_session.query(FormSubmission).filter_by(form_id=form.id).count() == 1
-
-
-# ── The JSON way in ───────────────────────────────────────────────────────────
-
-
-def _json_answer(field):
-    return {
-        "submitter_name": "Jo",
-        "submitter_email": "jo@example.com",
-        "answers": [{"field_id": field.id, "text": "ok"}],
-    }
-
-
-@pytest.mark.parametrize("variant", VARIANTS)
-def test_the_json_way_in_drops_what_is_not_a_person(client, db_session, public_form, variant):
-    form, field = public_form
-
-    answer = client.post(
-        f"/api/v1/forms/by-token/{TOKEN}/submit",
-        json={**_dropped_variants()[variant], **_json_answer(field)},
-    )
-
-    assert answer.status_code == 200 and answer.json()["status"] == "ok", answer.text
-    assert db_session.query(FormSubmission).filter_by(form_id=form.id).count() == 0
-
-
-def test_the_json_way_in_lets_a_person_through(client, db_session, public_form):
-    form, field = public_form
-
-    answer = client.post(
-        f"/api/v1/forms/by-token/{TOKEN}/submit",
-        json={**form_guard_fields(), **_json_answer(field)},
-    )
-
-    assert answer.status_code == 200 and answer.json()["id"] > 0, answer.text
-    assert db_session.query(FormSubmission).filter_by(form_id=form.id).count() == 1
-
-
-def test_the_json_form_hands_out_a_genuine_time(client, public_form):
-    """A JSON client gets its signed time from the form it loads — and a person
-    who sends it back a little later is let through."""
-    from app.kernel.form_guard import Proof, refusal
-
-    form_ts = client.get(f"/api/v1/forms/by-token/{TOKEN}").json()["form_ts"]
-
-    assert refusal(Proof(token=form_ts), now=time.time() + 10) is None
 
 
 # ── /nieuwsbrief ──────────────────────────────────────────────────────────────

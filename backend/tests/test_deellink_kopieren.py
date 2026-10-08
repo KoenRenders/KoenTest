@@ -18,6 +18,7 @@ Drie dingen waar deze tests op letten, omdat ze alle drie stil kunnen wegvallen:
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -30,11 +31,7 @@ def _login(client):
 
 
 def _formulier(client, admin_headers):
-    r = client.post(
-        "/api/v1/forms",
-        json={"title": "Deelbaar", "status": "open", "fields": []},
-        headers=admin_headers,
-    )
+    r = forms_door.create_form(client, {"title": "Deelbaar", "status": "open", "fields": []})
     assert r.status_code == 200, r.text
     return r.json()
 

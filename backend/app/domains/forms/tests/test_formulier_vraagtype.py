@@ -21,6 +21,7 @@ import re
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -33,9 +34,9 @@ def _login(client):
 
 
 def _formulier(client, admin_headers, velden=None):
-    r = client.post(
-        "/api/v1/forms",
-        json={
+    r = forms_door.create_form(
+        client,
+        {
             "title": "Types",
             "status": "open",
             "is_anonymous": True,
@@ -44,7 +45,6 @@ def _formulier(client, admin_headers, velden=None):
             if velden is not None
             else [{"field_type": "text", "label": "Vraag", "position": 0, "section_index": 0}],
         },
-        headers=admin_headers,
     )
     assert r.status_code == 200, r.text
     return r.json()
@@ -61,7 +61,7 @@ def _bewerk(client, csrf, form, veld_id, **velden):
 
 
 def _lees(client, admin_headers, form_id):
-    return client.get(f"/api/v1/forms/{form_id}", headers=admin_headers).json()
+    return forms_door.read_form(client, form_id)
 
 
 # ── 1. Het type kan gewijzigd worden ───────────────────────────────────────

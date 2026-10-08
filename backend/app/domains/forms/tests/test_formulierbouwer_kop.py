@@ -25,6 +25,7 @@ wanneer zoiets opnieuw sneuvelt.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -37,14 +38,13 @@ def _login(client):
 
 
 def _formulier(client, admin_headers, slug=None):
-    r = client.post(
-        "/api/v1/forms",
-        json={
+    r = forms_door.create_form(
+        client,
+        {
             "title": "Kop",
             "status": "draft",
             "fields": [{"field_type": "text", "label": "Vraag", "position": 0}],
         },
-        headers=admin_headers,
     )
     assert r.status_code == 200, r.text
     form = r.json()
@@ -158,15 +158,14 @@ def test_de_tekstvakken_volgen_de_kitstandaard(client, admin_headers, veld_id):
 def test_de_sectie_omschrijving_blijft_bewust_korter(client, admin_headers):
     """Geen inconsistentie: de omschrijving van een sectie is een korte toelichting
     boven een groep vragen, geen lopende tekst."""
-    r = client.post(
-        "/api/v1/forms",
-        json={
+    r = forms_door.create_form(
+        client,
+        {
             "title": "Met sectie",
             "status": "draft",
             "sections": [{"title": "Een", "position": 0}],
             "fields": [{"field_type": "text", "label": "V", "position": 0, "section_index": 0}],
         },
-        headers=admin_headers,
     )
     form = r.json()
     _login(client)

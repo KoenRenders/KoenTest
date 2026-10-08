@@ -155,65 +155,6 @@ class FormAdminOut(BaseModel):
 # ── Publiek: lezen + indienen ───────────────────────────────────────────────────
 
 
-class PublicFieldOption(BaseModel):
-    id: int
-    label: str
-    value: Optional[str] = None
-    is_other: bool = False
-    skip_to_section_id: Optional[int] = None
-    skip_to_end: bool = False
-
-    model_config = {"from_attributes": True}
-
-
-class PublicSection(BaseModel):
-    id: int
-    title: Optional[str] = None
-    description: Optional[str] = None
-    position: int
-    next_section_id: Optional[int] = None
-    next_is_end: bool = False
-
-    model_config = {"from_attributes": True}
-
-
-class PublicField(BaseModel):
-    id: int
-    field_type: str
-    label: str
-    help_text: Optional[str] = None
-    required: bool
-    position: int
-    section_id: Optional[int] = None
-    min_value: Optional[Decimal] = None
-    max_value: Optional[Decimal] = None
-    min_length: Optional[int] = None
-    max_length: Optional[int] = None
-    rating_max: Optional[int] = None
-    rating_low_label: Optional[str] = None
-    rating_high_label: Optional[str] = None
-    options: List[PublicFieldOption] = []
-
-    model_config = {"from_attributes": True}
-
-
-class PublicForm(BaseModel):
-    id: int
-    title: str
-    description: Optional[str] = None
-    status: str
-    allow_edit: bool
-    send_confirmation: bool = False
-    confirmation_message: Optional[str] = None
-    is_anonymous: bool = False
-    sections: List[PublicSection] = []
-    fields: List[PublicField] = []
-    #: The signed render time (#1297); send it back as `form_ts` when submitting.
-    form_ts: str = ""
-
-    model_config = {"from_attributes": True}
-
-
 class AnswerIn(BaseModel):
     field_id: int
     text: Optional[str] = None
@@ -242,19 +183,3 @@ class SubmissionResult(BaseModel):
 
 
 # ── Wijzig-flow (lezen via edit_token) ──────────────────────────────────────────
-
-
-class SubmissionAnswerOut(BaseModel):
-    field_id: int
-    text: Optional[str] = None
-    number: Optional[Decimal] = None
-    option_ids: List[int] = []
-    rating: Optional[int] = None
-    other_text: Optional[str] = None
-
-
-class EditSubmissionOut(BaseModel):
-    form: PublicForm
-    submitter_name: Optional[str] = None
-    submitter_email: Optional[str] = None
-    answers: List[SubmissionAnswerOut] = []
