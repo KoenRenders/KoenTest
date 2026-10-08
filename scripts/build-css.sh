@@ -463,7 +463,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .data-table [data-stacked-only]{display:block}
   .data-table [data-cell="amount"]{text-align:right}
   .data-table [data-cell="date"]{grid-column:2;grid-row:3;align-self:center}
-  .data-table [data-cell="more"]{grid-column:1/-1;grid-row:4}
+  .data-table [data-cell="more"]{display:block!important;grid-column:1/-1;grid-row:4}
   /* #1636: a row with an amount AND a date (a registration): the amount keeps
      its place beside the status, the date goes under them, the products last. */
   .data-table tr:has(>[data-cell="amount"])>[data-cell="date"]{grid-column:1/-1;grid-row:4}
