@@ -305,6 +305,30 @@ def publish_page(
 
 
 @router.post(
+    "/admin/paginas/{page_id}/offline-halen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def take_offline_page(
+    page_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
+    """Offline halen (Koen, 8 October 2026, decision 1a on #1734): the page
+    leaves the site and keeps everything — her draft, her published
+    document, her history. Publiceren puts her back with the same words.
+    """
+    from app.domains.cms.api import take_page_offline
+
+    try:
+        take_page_offline(db, page_id)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    return Response(status_code=204, headers={"HX-Redirect": f"/admin/paginas/{page_id}"})
+
+
+@router.post(
     "/admin/paginas/{page_id}/terugzetten/{history_id}",
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],

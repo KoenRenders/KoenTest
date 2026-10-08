@@ -11,12 +11,20 @@
 {% set samenvatting %}
   {% call ui.section(_("Status")) %}
   <dl class="text-sm space-y-2">
-    {% if vertaling and vertaling.published_json %}
+    {# The status reads the FLAG — the public route's one rule (offline
+       halen, Koen 8 October 2026, #1734) — and names what she shows. #}
+    {% if p.is_published and vertaling and vertaling.published_json %}
     <div><dt class="text-ink-soft">{{ _("Gepubliceerd") }}</dt>
       <dd>{% if vertaling.published_at %}{{ vertaling.published_at|short_datetime }}{% if vertaling.published_by %} · {{ vertaling.published_by }}{% endif %}{% else %}{{ _("door de migratie") }}{% endif %}</dd></div>
+    {% elif p.is_published %}
+    <div><dt class="text-ink-soft">{{ _("Gepubliceerd") }}</dt>
+      <dd>{{ _("Via haar oude tekst — de bezoeker ziet die, tot een document wordt gepubliceerd.") }}</dd></div>
+    {% elif vertaling and vertaling.published_json %}
+    <div><dt class="text-ink-soft">{{ _("Offline") }}</dt>
+      <dd>{{ _("De bezoeker ziet haar niet. Publiceren maakt haar weer zichtbaar, met dezelfde woorden.") }}</dd></div>
     {% else %}
     <div><dt class="text-ink-soft">{{ _("Niet gepubliceerd") }}</dt>
-      <dd>{{ _("De bezoeker ziet de pagina zoals ze vandaag staat.") }}</dd></div>
+      <dd>{{ _("De bezoeker ziet haar niet; opslaan en publiceren maken haar zichtbaar.") }}</dd></div>
     {% endif %}
     {% if wijzigend %}
     <div><dt class="text-ink-soft">{{ _("Concept") }}</dt>

@@ -9,7 +9,7 @@ from app.domains.cms import service as _service
 from app.domains.cms.api import published_html
 from app.domains.cms.models import CmsPage
 from app.i18n import _
-from app.schemas.cms import CmsPageCreate, CmsPageResponse, CmsPageUpdate
+from app.schemas.cms import CmsPageApiUpdate, CmsPageCreate, CmsPageResponse
 
 router = APIRouter(tags=["cms"])
 
@@ -80,7 +80,7 @@ def create_page(
 @router.put("/pages/{page_id}", response_model=CmsPageResponse)
 def update_page(
     page_id: int,
-    data: CmsPageUpdate,
+    data: CmsPageApiUpdate,
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):

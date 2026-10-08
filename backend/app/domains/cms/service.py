@@ -574,6 +574,22 @@ def publish(
     return translation
 
 
+def take_page_offline(db, page_id: int) -> CmsPage:
+    """Offline halen (Koen, 8 October 2026, decision 1a on #1734): the page
+    leaves the site — the public route reads `is_published`, and she is the
+    flag — while the page, her draft and her published document all stay.
+    Publiceren puts her back with the same words; nothing is re-published
+    or re-derived by this door.
+    """
+    page = get_page_by_id(db, page_id)
+    if page is None:
+        raise LookupError("Page not found")
+    page.is_published = False
+    db.commit()
+    db.refresh(page)
+    return page
+
+
 def restore(db, page_id: int, history_id: int, *, by: Optional[str] = None) -> "CmsPageTranslation":
     """Terugzetten: a history version into the DRAFT — never live (test 6).
     Publishing it afterwards is what makes it live again."""
