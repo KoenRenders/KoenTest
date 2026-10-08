@@ -4,7 +4,7 @@
 **Status:** being shaped since 6 October 2026 · Parts A, B and C written; C8 (the rule against the suite) and C9 (concepts) still to run; not yet read against the code · nothing is built; not on a release
 **Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** to be filled in once Part B is shaped
-**Reading:** A 4 333 words · B 4 014 (the decisions log excluded) · C 3 181 — measured on 8 October 2026 without drawings and notes; the budget is A ≤ 1 500  B ≤ 2 500: **over budget** — A6 carries 38 requirements in the business's words with their sources  B2 the traceability of all of them and a walkthrough of 21 steps; cutting them would cut what the build read and Koen's validation need
+**Reading:** A 4 333 words · B 4 014 (the decisions log excluded) · C 3 181 — measured on 8 October 2026 without drawings and notes; the budget is A ≤ 1 500  B ≤ 2 500: **over budget, accepted by Koen (Q53)** — A6 carries 38 requirements in the business's words with their sources  B2 the traceability of all of them and a walkthrough of 21 steps; cutting them would cut what the build read and Koen's validation need
 
 ---
 
@@ -676,7 +676,6 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q39 | Reminding the buyer of an unpaid transfer: a button on Verkoop's task that mails the payment link, or a mail that goes out by itself after some days? **Parked by Koen on 7 October 2026.** | A button on the task: Verkoop already decides per order (Q36), and a mail by itself would also go to a buyer whose transfer Boekhouding has not booked yet. | A button is one action on the task; a mail by itself needs a schedule, a text per tenant and a rule for when it stops. Until decided, Verkoop reminds the buyer outside the portal. |
 
 ## B9. Decisions log — dated answers
 
@@ -725,6 +724,8 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | 7 Oct 2026 | "How recent the information is" is Boekhouding's answer on the order itself, with its date, shown on Verkoop's task; no tenant-wide "account last checked", no button (Q47). | Koen |
 | 7 Oct 2026 | Every workbench task is the last phase (4); until then Verkoop follows open orders in its list of orders filtered on "Te betalen" and cancels from the order page; Boekhouding confirms transfers on the payments screen (Q50). Koen asked "Zouden we alles met betrekking tot werkbank-taken als een laatste fase in CR21 kunnen zetten?"; to "volstaat tot fase 4 een lijst van bestellingen met filter 'Te betalen' voor Verkoop?" he answered "ja". | Koen |
 | 7 Oct 2026 | Phases 1–4 are built by `opencode1` on an integration branch `cr21/webshop`, one pull request per slice, only inside the four new domains and new migrations, refused by a path check otherwise; the branch goes to `master` after Koen's approval on its local test version (`AGENTS.md`, *A builder outside the Claude series*). Asked whether phase 0 goes to a Claude dev CLI and phases 1–4 to `opencode1` with the path check, Koen answered: "wat is fase 0? Voor de rest akkoord." Phase 0, explained to him as the six seams in existing code a Claude dev CLI opens first, answered "akkoord" (Q52). | Koen |
+| 8 Oct 2026 | Reminding the buyer of an unpaid transfer is out of scope, for later; until then Verkoop reminds outside the portal (Q39). Koen: "inderdaad, geen deel van de scope, is voor later." | Koen |
+| 8 Oct 2026 | The document may stay over the word budget: its length is the requirements with their sources, the traceability and the walkthrough (Q53). Koen: "akkoord". | Koen |
 | 8 Oct 2026 | Koen wants phase 0 in v2.16, after CR-13's JSON sweep and CR-24: "Ik zou zelfs fase 0 van de webshop ook in deze release willen doen." Phase 0 is not yet read against the code; per `AGENTS.md` it is assigned after its build read. | Koen |
 | 7 Oct 2026 | If OpenCode builds the shop for evaluation, it runs on DeepSeek through DeepSeek's own API — a deliberate deviation from Europe First (`AGENTS.md`): what the model is sent is stored in China. Accepted with hard limits: a working copy with only a clone of the repository, no `.env` files, no `raak`, no SSH keys, never an environment (HDEV, UAT, PROD), made-up data only (Q51). Koen, answering "a or b" (a: DeepSeek's API with hard limits; b: DeepSeek's open weights hosted in the EU): "hier gaan we voor" — to option a. | Koen |
 | 7 Oct 2026 | A task past its due date only turns red on the workbench; nobody gets a mail about it (Q38). | Koen |
@@ -1041,6 +1042,7 @@ No concepts shown yet. Before phase 2 the Webshop, the product page, the basket 
 | Q36 | 7 Oct 2026 | Sales can only decide on an unpaid transfer if Boekhouding has booked the incoming payments in time. A workflow of two steps — Boekhouding confirms first, Verkoop decides after — with the freshness of the information on Verkoop's task? (Koen raised it, Claude proposed) | Agreed ("akkoord"), and confirmed in these words: an unpaid order goes to Boekhouding first ("is the money on the account?"); only when Boekhouding says "not yet paid" does it go to Verkoop ("remind or cancel"); Verkoop's task shows when Boekhouding last checked the account. ("prima", Koen) |
 | Q37 | 7 Oct 2026 | Reserve a change request of its own for importing bank statements (CODA or camt.053), as with CR-26? (Claude) | Fine, but it will stay lying for a while. (Koen) |
 | Q38 | 7 Oct 2026 | When the 14 days are over: does the task only turn red on the workbench, or does Verkoop also get a mail? (Claude) | Only red on the workbench. (Koen) |
+| Q39 | 7–8 Oct 2026 | Reminding the buyer of an unpaid transfer: a button on Verkoop's task, or a mail by itself? Parked by Koen on 7 October. | "inderdaad, geen deel van de scope, is voor later." (Koen, 8 October) |
 | Q40 | 7 Oct 2026 | R25: should cancelling until delivery be a Should, and how is a return after delivery handled? (Claude) | Must; a return is out of scope — done by removing the order and booking the refund, by hand ("manueel"). (Koen) |
 | Q41 | 7 Oct 2026 | A returned garment: does Voorraadbeheer raise the stock again by hand, with a correction — so the webshop needs one? (Claude) | Yes. (Koen) |
 | Q42 | 7 Oct 2026 | How does new stock come in: with the correction of R36, or as a receipt of its own? (Claude proposed a receipt) | A receipt of its own. (Koen) |
@@ -1054,12 +1056,14 @@ No concepts shown yet. Before phase 2 the Webshop, the product page, the basket 
 | Q50 | 7 Oct 2026 | (Koen) "Zouden we alles met betrekking tot werkbank-taken als een laatste fase in CR21 kunnen zetten?" Claude proposed phase 4 and asked: does a list of orders filtered on "Te betalen" suffice for Verkoop until then? | "ja" (Koen) |
 | Q51 | 7 Oct 2026 | Which model under OpenCode: Koen wants to try DeepSeek. a: DeepSeek's own API (data stored in China) with hard limits; b: DeepSeek's open weights at an EU host. (Claude, after Koen named DeepSeek) | "hier gaan we voor" — option a, with the hard limits. (Koen) |
 | Q52 | 7 Oct 2026 | The split: phase 0 (opening the existing code) by a Claude dev CLI to `master`; phases 1–4 by `opencode1` on `cr21/webshop`, with the path check? (Claude) | "wat is fase 0? Voor de rest akkoord." (Koen) — phases 1–4 agreed. Phase 0 explained as six seams in existing code (module, payable ORDER with describers, transfer instructions, media kinds, menu, path check; the workbench due date before phase 4): "akkoord" (Koen). |
+| Q53 | 8 Oct 2026 | May CR-21 stay over the word budget (A ≈ 4 300, B ≈ 4 000) — its length being the 38 requirements with sources, the traceability and the walkthrough? (Claude) | "akkoord" (Koen) |
 
 ## Non-goals — deliberately outside this change
 
 > [!NOTE]
 > *What is deliberately outside this change.*
 
+- **Reminding the buyer** of an unpaid transfer from the portal (Q39): for later; Verkoop reminds outside the portal.
 - **Returns after delivery** (R25, Q40). Handled by hand: Sales removes the order and books the refund; the portal has no return flow.
 
 ## Relationship to existing work — issues and change requests
