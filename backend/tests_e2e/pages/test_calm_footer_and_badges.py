@@ -395,7 +395,9 @@ REFINED = """() => {
           lines: [getComputedStyle(footer).borderTopWidth, getComputedStyle(q('.site-footer-core')).borderTopWidth,
                   getComputedStyle(row).borderTopWidth],
           legal_line: getComputedStyle(legal).borderTopWidth,
-          logo: (() => { const i = q('[data-footer-sponsors] img[alt="Voorbeeldsponsor"]'); return i ? [r(i).left, r(i.closest('section').querySelector('h2')).left] : null; })(),
+          // The FIRST logo of the row, whoever's it is: this file's own sponsor is not
+          // the first once another file has added one (#1745), and the rule is the first's.
+          logo: (() => { const i = q('[data-footer-sponsors] img'); return i ? [r(i).left, r(i.closest('section').querySelector('h2')).left] : null; })(),
           page: [document.documentElement.scrollWidth, innerWidth]};
 }"""
 
