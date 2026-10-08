@@ -121,6 +121,15 @@ registry entry, and its routers get `require_module` where `main.py` includes
 them — never a hard-coded list in a screen. The gate is
 `backend/tests/test_module_gate.py`.
 
+**Payment never branches on a payable type to describe it** (CR-21 phase 0,
+#1748). A domain that becomes payable registers a `Describer` for its type
+(`payment.api.register_describer`, called from `app/main.py`), and every
+screen, export and audit line asks the describers (`describe_many`,
+`describe_one`, `payables_of_household`). What a payment is called, where it
+links, where it stands in the filter tree and whose it is are the owner's to
+say. The gate is `payment/tests/test_payable_describers.py` (every
+`PayableType` member has one).
+
 **A picture's address and bytes belong to media** (CR-15 §C4.6, #1473): a module
 asks `media.api.media_url` for `/api/v1/media/<id>` and `media.api.asset_bytes`
 for the bytes — it never writes the address or reads `MediaAsset.data` itself —
