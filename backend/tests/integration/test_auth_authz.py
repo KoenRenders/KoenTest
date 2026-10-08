@@ -6,7 +6,7 @@ Vult test_auth_unification.py aan (dat de happy path + rolcontrole dekt)."""
 from datetime import timedelta
 
 from app.domains.auth.api import create_access_token
-from tests.conftest import seed_postal_code
+from tests.conftest import seed_postal_code, sign_up_at_the_door
 
 
 def _headers(token):
@@ -81,12 +81,8 @@ def test_garbage_authorization_header_is_rejected(client):
 def test_member_cannot_edit_other_household(client, db_session):
     """Een ingelogd lid mag geen persoon van een ánder gezin bewerken (403)."""
     seed_postal_code(db_session)
-    assert (
-        client.post("/api/v1/families", json=_family_payload("lid1@example.com")).status_code == 201
-    )
-    assert (
-        client.post("/api/v1/families", json=_family_payload("lid2@example.com")).status_code == 201
-    )
+    assert sign_up_at_the_door(client, json=_family_payload("lid1@example.com")).status_code == 201
+    assert sign_up_at_the_door(client, json=_family_payload("lid2@example.com")).status_code == 201
 
     from app.domains.mdm.api import ContactDetail
 

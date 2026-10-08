@@ -5,7 +5,12 @@ from decimal import Decimal
 
 from app.domains.payment.api import PayableType, PaymentStatus
 from tests import payments_door
-from tests.conftest import register_at_the_door, seed_activity_with_product, seed_postal_code
+from tests.conftest import (
+    register_at_the_door,
+    seed_activity_with_product,
+    seed_postal_code,
+    sign_up_at_the_door,
+)
 
 
 def _family_payload(email="happy@example.com"):
@@ -38,7 +43,7 @@ def _family_payload(email="happy@example.com"):
 
 def test_family_registration_happy_path_writes_data_and_audit(client, db_session):
     seed_postal_code(db_session)
-    resp = client.post("/api/v1/families", json=_family_payload())
+    resp = sign_up_at_the_door(client, json=_family_payload())
     assert resp.status_code == 201, resp.text
 
     from app.domains.mdm.api import Member, MemberHistory, Person
@@ -71,9 +76,7 @@ def test_payment_overview_membership_shows_family_and_year(client, db_session, a
     (hoofdlid-naam) en het jaar — payable_id is de Membership.id, niet de Member.id (#141)."""
     seed_postal_code(db_session)
     assert (
-        client.post(
-            "/api/v1/families", json=_family_payload(email="overview@example.com")
-        ).status_code
+        sign_up_at_the_door(client, json=_family_payload(email="overview@example.com")).status_code
         == 201
     )
 
@@ -94,13 +97,13 @@ def test_family_registration_requires_hoofdlid_contact(client, db_session):
     seed_postal_code(db_session)
     payload = _family_payload()
     payload["members"][0]["email"] = None  # hoofdlid zonder e-mail
-    resp = client.post("/api/v1/families", json=payload)
+    resp = sign_up_at_the_door(client, json=payload)
     assert resp.status_code == 422
 
 
 def test_manual_confirm_writes_audit_with_actor(client, db_session, admin_headers):
     seed_postal_code(db_session)
-    client.post("/api/v1/families", json=_family_payload(email="confirm@example.com"))
+    sign_up_at_the_door(client, json=_family_payload(email="confirm@example.com"))
     from app.domains.payment.api import PaymentRecord
 
     rec = db_session.query(PaymentRecord).first()

@@ -16,7 +16,7 @@ from app.domains.payment.api import (
     PaymentType,
 )
 from tests import backoffice_door, payments_door
-from tests.conftest import seed_postal_code
+from tests.conftest import seed_postal_code, sign_up_at_the_door
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -43,7 +43,7 @@ def _family_payload(email="lid@example.com"):
 
 def _create_family(client, db_session):
     seed_postal_code(db_session)
-    resp = client.post("/api/v1/families", json=_family_payload())
+    resp = sign_up_at_the_door(client, json=_family_payload())
     assert resp.status_code == 201, resp.text
     member = db_session.query(Member).order_by(Member.id.desc()).first()
     return member

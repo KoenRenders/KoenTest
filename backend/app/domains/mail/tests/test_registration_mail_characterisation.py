@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 
 from tests._snapshot import compare, normalise
-from tests.conftest import seed_activity_with_product, seed_postal_code
+from tests.conftest import seed_activity_with_product, seed_postal_code, sign_up_at_the_door
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -94,8 +94,8 @@ def test_the_activity_confirmation(client, db_session, sent):
 def test_the_family_welcome(client, db_session, sent):
     seed_postal_code(db_session)
     db_session.commit()
-    response = client.post(
-        "/api/v1/families",
+    response = sign_up_at_the_door(
+        client,
         json={
             "street": "Mailstraat",
             "house_number": "7",

@@ -25,6 +25,7 @@ from tests.conftest import (
     remove_order_line,
     seed_activity_with_product,
     seed_postal_code,
+    sign_up_at_the_door,
 )
 
 
@@ -542,8 +543,8 @@ def test_adding_same_product_increments_quantity(client, db_session, admin_heade
 
 def test_refund_on_membership_payment(client, db_session, admin_headers):
     seed_postal_code(db_session)
-    resp = client.post(
-        "/api/v1/families",
+    resp = sign_up_at_the_door(
+        client,
         json={
             "street": "Milostraat",
             "house_number": "40",

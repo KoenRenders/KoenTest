@@ -6,13 +6,13 @@ met `include_deleted=True`, dus de naam blijft zichtbaar i.p.v. '—'."""
 from app.domains.mdm.api import Member, MemberPerson, Person
 from app.soft_delete import soft_delete
 from tests import payments_door
-from tests.conftest import register_at_the_door, seed_postal_code
+from tests.conftest import register_at_the_door, seed_postal_code, sign_up_at_the_door
 
 
 def _family_with_membership(client, db):
     seed_postal_code(db)
-    resp = client.post(
-        "/api/v1/families",
+    resp = sign_up_at_the_door(
+        client,
         json={
             "street": "Milostraat",
             "house_number": "40",

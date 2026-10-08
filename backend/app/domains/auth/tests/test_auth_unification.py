@@ -15,7 +15,7 @@ Bewijst de kerngaranties van de auth-unificatie:
 # geen router); patchen doe je waar de implementatie staat.
 from app.domains.auth import login as auth_login
 from app.domains.auth.api import LoginToken
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
+from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code, sign_up_at_the_door
 
 FIXED_OTP = "424242"
 
@@ -47,7 +47,7 @@ def _family_payload(email):
 
 def _seed_member(client, db_session, email):
     seed_postal_code(db_session)
-    resp = client.post("/api/v1/families", json=_family_payload(email))
+    resp = sign_up_at_the_door(client, json=_family_payload(email))
     assert resp.status_code == 201, resp.text
 
 
