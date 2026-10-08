@@ -1107,7 +1107,10 @@
   {% call ui.form_grid() %}
     {{ ui.field("kit_pf_name", _("Naam"), id="kit-pf-name", required=True, value="") }}
     {{ ui.payment_choice() }}
-    <div data-span="full">{{ ui.stepper("kit_pf_qty", id="kit-pf-qty", value=1, touch=True) }}</div>
+    {# #1748 (CR-21 phase 0): the counter of a quantity and the total under it, as
+       the registration form and the webshop's basket show them. #}
+    <div data-span="full">{{ ui.quantity("kit_pf_qty", "kit-pf-qty", 1, product_name=_("Ticket"), touch=True) }}</div>
+    <div data-span="full">{{ ui.total_line(12.5, note=_("(ledenprijs)")) }}</div>
   {% endcall %}
   {{ ui.action_bar(record=True, send=True, cancel_href="#", save_attrs='type="button"',
                    save_label=_("Inschrijven en betalen"), busy_label=_("Inschrijven…")) }}

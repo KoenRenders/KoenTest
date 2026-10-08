@@ -12,16 +12,9 @@
    product of the component as such a row, 0 being "not chosen" — the same
    minimum as registering, and no *Verwijderen* or *Product toevoegen* beside it.
 
-   `tests/test_one_product_row_gate.py` holds the line: no `type="number"` in
-   `activities/templates`, and `ui.stepper(` only in this file. #}
-
-{#- The counter of a quantity, with the labels a screen reader needs. -#}
-{% macro quantity(name, id, value, product_name="", min=0, max=99, attrs="", touch=False) -%}
-{{ ui.stepper(name, id=id, value=value, min=min, max=max, touch=touch,
-              label_minder=_("Eén minder") ~ (" — " ~ product_name if product_name else ""),
-              label_meer=_("Eén meer") ~ (" — " ~ product_name if product_name else ""),
-              attrs=attrs) }}
-{%- endmacro %}
+   `tests/test_one_product_row_gate.py` holds the line: no `type="number"` and
+   no `ui.stepper(` in `activities/templates`, and the kit's counter of a
+   quantity, `ui.quantity(` (CR-21 phase 0, #1748), only in this file. #}
 
 {#- `touch` (#1589): the counter keeps its 44 px on a desktop — the public form page. -#}
 {#- The price of a row, in its own element. `id` (#1596) lets a page refresh the
@@ -40,6 +33,6 @@
     {{ badge }}
     {% if price %}{{ price_tag(price, id=price_id) }}{% endif %}
   </div>
-  {{ quantity(name, id, value, product_name=product_name, min=min, max=max, attrs=attrs, touch=touch) }}
+  {{ ui.quantity(name, id, value, product_name=product_name, min=min, max=max, attrs=attrs, touch=touch) }}
 </div>
 {%- endmacro %}

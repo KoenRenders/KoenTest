@@ -88,7 +88,9 @@ def test_het_antwoord_zet_geen_aantal_terug(client, db_session):
 
     assert resp.status_code == 200, resp.text
     assert "<input" not in resp.text, "het antwoord bevat een veld en kan het dus terugzetten"
-    assert "Totaal: € 10,00" in resp.text, "het totaal rekent niet met het getypte aantal"
+    # #1748: the edit screen's total is the kit's one line since CR-21 phase 0 —
+    # "€10,00" as on the registration form, where it was "€ 10,00" here.
+    assert "Totaal: €10,00" in resp.text, "het totaal rekent niet met het getypte aantal"
 
 
 def test_zonder_getypt_aantal_blijft_de_bewaarde_stand_staan(client, db_session):

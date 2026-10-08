@@ -1356,6 +1356,30 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 </div>
 {%- endmacro %}
 
+{#- The counter of a quantity of something named — a product on a registration, an
+    article in the webshop (CR-21 phase 0, #1748): `stepper` with the two labels a
+    screen reader needs, which name the thing. Moved here from the activities'
+    product row, not copied: one counter, one wording of "Eén minder" / "Eén meer". -#}
+{% macro quantity(name, id, value, product_name="", min=0, max=99, attrs="", touch=False) -%}
+{{ stepper(name, id=id, value=value, min=min, max=max, touch=touch,
+           label_minder=_("Eén minder") ~ (" — " ~ product_name if product_name else ""),
+           label_meer=_("Eén meer") ~ (" — " ~ product_name if product_name else ""),
+           attrs=attrs) }}
+{%- endmacro %}
+
+{#- The total under a list of counted things — a registration's products, a basket
+    (CR-21 phase 0, #1748). One look: a line above, small and semi-bold, muted while
+    there is nothing to pay and ink once there is; `note` is what explains the amount
+    ("(ledenprijs)"). The amount is the server's; `attrs` is for the page that has to
+    hear it (the registration form sets its Alpine `betalen` there). Moved here from
+    the registration form's total, not copied. -#}
+{% macro total_line(amount, note="", attrs="") -%}
+{%- set _empty = not amount or amount <= 0 -%}
+<div data-total{% if attrs %} {{ attrs|safe }}{% endif %} class="border-t border-line pt-3 text-sm font-semibold {% if _empty %}text-ink-soft{% else %}text-ink{% endif %}">
+  {{ _("Totaal:") }} €{{ (amount or 0)|geld }}{% if note and not _empty %} <span class="font-normal text-ink-soft">{{ note }}</span>{% endif %}
+</div>
+{%- endmacro %}
+
 {# Meegroeiend tekstveld (#788): de attributen die een textarea met zijn inhoud
    laten meegroeien. Als macro en niet per scherm overgetypt — dit stond al op drie
    plaatsen in de chatbot-schermen, en de vergadernotities waren de vierde. `max_px`
