@@ -5,6 +5,7 @@ from datetime import date
 
 from app.domains.activities import service as activities_service
 from app.domains.activities.api import ActivityHistory, ComponentHistory, ProductHistory
+from tests import backoffice_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
@@ -18,7 +19,7 @@ def test_unified_changes_feed(client, db_session, admin_headers):
     )
     since = date.today().isoformat()
 
-    r = client.get(f"/api/v1/admin/changes?since={since}", headers=admin_headers)
+    r = backoffice_door.changes(client, since)
     assert r.status_code == 200, r.text
     body = r.json()
     assert "Activiteiten" in body["groups"]
@@ -26,9 +27,7 @@ def test_unified_changes_feed(client, db_session, admin_headers):
         row["group"] == "Activiteiten" and row["entity"] == "Activiteit" for row in body["rows"]
     )
 
-    r2 = client.get(
-        f"/api/v1/admin/changes?since={since}&group=Activiteiten", headers=admin_headers
-    )
+    r2 = backoffice_door.changes(client, since, group="Activiteiten")
     rows2 = r2.json()["rows"]
     assert rows2 and all(row["group"] == "Activiteiten" for row in rows2)
 

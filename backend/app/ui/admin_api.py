@@ -1,63 +1,18 @@
-"""Admin-API-composer: dashboard-stats + systeeminfo (#444, §21).
+"""System info for the system screen (#444, §21): the curated whitelist of
+settings — never a secret.
 
-Composer-module naast changes_ui/system_ui: leest cross-domain via de facades
-(dashboard-tellers) en de gecureerde settings-whitelist (systeeminfo — nooit
-secrets). (verhuisd uit app/routers/admin.py, #444)
+No JSON route is left in this file (CR-13 phase 4b, #1251): `/admin/system-info`
+and `/admin/stats` had no caller but tests. `get_system_info` stays because
+`system_ui.py` calls it in process; it moves in phase 4c. The stats handler is
+gone as a whole — no screen read it.
 """
 
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from fastapi import Depends
 
 from app.config import settings
-from app.database import get_db
-from app.domains.activities.api import ActivityDate
 from app.domains.auth.api import User, get_current_admin
-from app.domains.mdm.api import Member
-from app.domains.membership.api import current_membership_counts
-from app.domains.payment.api import PaymentRecord, aggregate
-
-
-def _open_tasks(db):
-    """Open werkbank-taken (#398) — vervangt de oude 'ongelezen ideeën'-teller."""
-    from app.domains.workflow.api import open_count
-
-    return open_count(db, ["ADMIN", "FINANCE"])
-
-
-router = APIRouter(tags=["admin"])
-
-
-@router.get("/stats")
-def get_stats(
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    today = date.today()
-    # Vandaag-geldige lidmaatschappen → gezinnen + personen (#297), zelfde telling
-    # als de chatbot (#294), zodat dashboard en Raakje nooit tegenspreken.
-    active_member_households, active_member_persons = current_membership_counts(db, today)
-    return {
-        "members": db.query(func.count(Member.id)).scalar(),
-        # #1311: the one rule of #1307 (`membership.valid_on`), not active
-        # membership rows of this year's number — a fifth definition, which lost
-        # every renewal after the turnover date. Nothing in the app reads this key;
-        # it stays for whoever calls the API, with the value the dashboard shows.
-        "active_members": active_member_households,
-        "active_member_households": active_member_households,
-        "active_member_persons": active_member_persons,
-        "upcoming_activities": db.query(func.count(func.distinct(ActivityDate.activity_id)))
-        .filter(func.coalesce(ActivityDate.end_date, ActivityDate.start_date) >= today)
-        .scalar(),
-        "open_tasks": _open_tasks(db),
-        # #1311: the payments screen's "Openstaand" — amount minus paid over every
-        # record, through the screen's own `aggregate`. It was the full amount of
-        # every record not paid, cancelled or failed: a failed payment stays owed,
-        # and a partly paid one is owed only for what is open.
-        "outstanding_balance": float(aggregate(db.query(PaymentRecord).all())["saldo"]),
-    }
 
 
 def _mollie_mode(api_key: str | None) -> str:
@@ -71,7 +26,6 @@ def _mollie_mode(api_key: str | None) -> str:
     return "onbekend"
 
 
-@router.get("/system-info")
 def get_system_info(_admin: User = Depends(get_current_admin)):
     """Gecureerde, admin-only runtime/config-info. Bewust opgebouwd uit een
     expliciete whitelist (geen model_dump) zodat secrets nooit kunnen lekken:

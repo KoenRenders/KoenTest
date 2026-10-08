@@ -15,7 +15,7 @@ from app.domains.payment.api import (
     PaymentStatus,
     PaymentType,
 )
-from tests import payments_door
+from tests import backoffice_door, payments_door
 from tests.conftest import seed_postal_code
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -91,11 +91,7 @@ def test_delete_family_with_membership_payment(client, db_session, admin_headers
     assert openstaand is None, "een onbetaalde vordering hoort mee op te ruimen (#619)"
 
     # De verwijdering van het gezin staat wél in de ledenwijzigingen-export.
-    changes = client.get(
-        "/api/v1/admin/member-changes",
-        params={"since": date.today().isoformat()},
-        headers=admin_headers,
-    ).json()
+    changes = backoffice_door.member_changes(client, date.today().isoformat()).json()
     assert any(c["operation_label"] == "Verwijderd" for c in changes)
 
 

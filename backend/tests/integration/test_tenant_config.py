@@ -85,7 +85,7 @@ def test_operator_passeert_elke_rolcheck(client, db_session):
     db_session.commit()
 
     token = create_access_token({"sub": "operator@example.com"})
-    resp = client.get("/api/v1/admin/stats", headers={"Authorization": f"Bearer {token}"})
+    resp = client.get("/api/v1/users", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
 
 

@@ -147,21 +147,22 @@ def test_retry_job_resends_and_marks_sent(monkeypatch):
         s.close()
 
 
-def test_admin_endpoint_requires_admin(client):
-    assert client.get("/api/v1/admin/email-log").status_code == 401
+def test_the_log_lists_and_filters(db_session):
+    """The log as the e-mail log screen reads it (`mail.service.list_email_log`);
+    the JSON route that kept a second copy of this query went with #1251."""
+    from app.domains.mail.service import list_email_log
 
-
-def test_admin_endpoint_lists_and_filters(client, admin_headers):
-    send_form_confirmation(to_email="listed@example.com", form_title="Contacteer ons", name="T")
-    resp = client.get("/api/v1/admin/email-log", headers=admin_headers)
-    assert resp.status_code == 200
-    body = resp.json()
-    assert "items" in body and "total" in body
+    for kind in (EmailType.FORM_CONFIRMATION, EmailType.OTHER):
+        db_session.add(
+            EmailLog(recipient="listed@example.com", subject="x", email_type=kind, status="sent")
+        )
+    db_session.flush()
+    rows, total = list_email_log(db_session)
+    assert total >= 2 and len(rows) >= 2
     # Filter op type levert enkel form_confirmation op.
-    resp2 = client.get(
-        "/api/v1/admin/email-log?email_type=form_confirmation", headers=admin_headers
-    )
-    assert all(i["email_type"] == "form_confirmation" for i in resp2.json()["items"])
+    filtered, count = list_email_log(db_session, email_type="form_confirmation")
+    assert count >= 1 and count < total
+    assert all(row.email_type == EmailType.FORM_CONFIRMATION for row in filtered)
 
 
 def test_purge_respects_retention(db_session):
@@ -203,24 +204,20 @@ def test_purge_zero_retention_keeps_all(db_session):
     assert purge_old_email_logs(db_session, retention_days=0) == 0
 
 
-def test_admin_can_delete_email_log(client, admin_headers, db_session):
+def test_a_logged_mail_can_be_deleted(db_session):
+    """`mail.service.delete_email_log`, the function behind the screen's delete."""
+    from app.domains.mail.service import delete_email_log
+
     row = EmailLog(
         recipient="to-delete@example.com", subject="x", email_type="other", status="sent"
     )
     db_session.add(row)
     db_session.flush()
     log_id = row.id
-    # Geen token → geweigerd.
-    assert client.delete(f"/api/v1/admin/email-log/{log_id}").status_code == 401
-    # Admin → verwijderd.
-    assert (
-        client.delete(f"/api/v1/admin/email-log/{log_id}", headers=admin_headers).status_code == 204
-    )
+    assert delete_email_log(db_session, log_id) is True
     assert db_session.query(EmailLog).filter(EmailLog.id == log_id).first() is None
-    # Onbekende id → 404.
-    assert (
-        client.delete("/api/v1/admin/email-log/99999999", headers=admin_headers).status_code == 404
-    )
+    # Onbekende id → niets verwijderd.
+    assert delete_email_log(db_session, 99999999) is False
 
 
 def test_mail_requested_event_sends_and_logs(db_session):
