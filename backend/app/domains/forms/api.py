@@ -251,20 +251,6 @@ def form_definition(db, form) -> dict:
     return _admin_out(db, form)
 
 
-def copy_form(db, form_id: int, *, old_year: int | None, new_year: int | None) -> int:
-    """Copy a form for a copied activity's component (#1397); returns the new id.
-
-    A command with an answer: the caller sets the returned id on its component,
-    in its own transaction. Named in `COMMAND_CALLS` until the port of
-    `docs/architecture.md` §3.2.1 step 2 exists.
-    """
-    from app.domains.forms.service import copy_form as _impl
-
-    return _impl(
-        db, form_id, share_token=unique_share_token(db), old_year=old_year, new_year=new_year
-    )
-
-
 def unique_share_token(db) -> str:
     from app.domains.forms.service import _unique_share_token
 

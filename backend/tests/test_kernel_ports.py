@@ -113,8 +113,9 @@ def test_the_ports_of_forms_are_handled_once_the_app_is_loaded():
     """`app.main` imports every `handlers.py`; a port contract without its
     handler would fail at the first registration with answers, not at start-up."""
     import app.main  # noqa: F401 — registers the handlers
-    from app.kernel.contracts.forms import SubmitAttached, UpdateAttached
+    from app.kernel.contracts.forms import CopyForm, SubmitAttached, UpdateAttached
 
-    assert has_handler(SubmitAttached) and has_handler(UpdateAttached)
+    assert has_handler(SubmitAttached) and has_handler(UpdateAttached) and has_handler(CopyForm)
+    assert ports._handlers[CopyForm].__module__ == "app.domains.forms.handlers"
     assert ports._handlers[SubmitAttached].__module__ == "app.domains.forms.handlers"
     assert ports._handlers[UpdateAttached].__module__ == "app.domains.forms.handlers"

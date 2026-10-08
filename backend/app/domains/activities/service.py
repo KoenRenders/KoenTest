@@ -662,7 +662,7 @@ COMPONENT_COPY = CopyPlan(
     set_by_copy={
         "activity_id": "the copy",
         "registration_closes_on": "moved by the same days as the dates (Koen, 1 October 2026)",
-        "form_id": "a copy of the question form, with the new year (forms.api.copy_form)",
+        "form_id": "a copy of the question form, with the new year (the port CopyForm, forms)",
     },
     not_copied={
         "external_register_url": "not the links of last year (Koen, 1 October 2026)",
@@ -818,9 +818,11 @@ def _copy_components(
     publicly bookable; the deadline moves by the same days as the dates. Not the
     links (an external registration page, a list, an info page or document of
     last year) and never a registration. A component's question form is copied
-    too, with the new year in its title (`forms.api.copy_form`).
+    too, with the new year in its title — asked of forms through the port
+    `CopyForm`, which answers with the new form's id.
     """
-    from app.domains.forms.api import copy_form
+    from app.kernel.contracts.forms import CopyForm
+    from app.kernel.ports import call
 
     old_first = first_date_of(source)
     old_year = old_first.year if old_first else None
@@ -835,7 +837,10 @@ def _copy_components(
                 else None
             ),
             form_id=(
-                copy_form(db, component.form_id, old_year=old_year, new_year=new_year)
+                call(
+                    CopyForm(form_id=component.form_id, old_year=old_year, new_year=new_year),
+                    db,
+                ).form_id
                 if component.form_id
                 else None
             ),

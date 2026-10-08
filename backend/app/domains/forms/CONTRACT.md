@@ -22,6 +22,7 @@ never commits — the caller's transaction commits.
 |---|---|---|---|
 | `SubmitAttached` | stores the answers another domain's record carries (a registration's answers to its component's questions, CR-14 §B4.2) as an attached submission, judged by the form's own rules; no mail, no event | `AttachedSubmission(submission_id)` | `VeldFout` (422, the question in `veld_id`): a required question without an answer, an option that is not the question's, a value outside its range |
 | `UpdateAttached` | replaces the answers of an attached submission (the board corrects them, CR-14 §B4.7), by the same rules | `AttachedSubmission(submission_id)` | `VeldFout` as above; `LookupError` for a submission that does not exist or is not attached |
+| `CopyForm` | makes a new form with the same sections, questions and options and no submissions, the new year in its title and slug (a copied activity's component, #1397) | `FormCopied(form_id)` | `LookupError` for a form that does not exist |
 
 The two service functions behind them are not in the facade any more: another
 domain asks through the ports.

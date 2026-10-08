@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from app.kernel.contracts.forms import (
     AttachedAnswer,
     AttachedSubmission,
+    CopyForm,
+    FormCopied,
     SubmitAttached,
     UpdateAttached,
 )
@@ -76,3 +78,18 @@ def update_attached(port: UpdateAttached, db: Session) -> AttachedSubmission:
 
     submission = replace(db, port.submission_id, _answers_in(port.answers))
     return AttachedSubmission(submission_id=submission.id)
+
+
+@handles(CopyForm)
+def copy_form(port: CopyForm, db: Session) -> FormCopied:
+    from app.domains.forms.service import _unique_share_token
+    from app.domains.forms.service import copy_form as copy
+
+    new_id = copy(
+        db,
+        port.form_id,
+        share_token=_unique_share_token(db),
+        old_year=port.old_year,
+        new_year=port.new_year,
+    )
+    return FormCopied(form_id=new_id)
