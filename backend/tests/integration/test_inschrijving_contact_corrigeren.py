@@ -155,20 +155,13 @@ def test_de_correctie_raakt_het_geld_niet(client, db_session):
 
 def test_alleen_de_opmerking_posten_laat_de_contactgegevens_staan(client, db_session):
     """De oude #283-aanroep blijft werken: wat niet meegestuurd wordt, verandert niet."""
-    from app.domains.activities.router import update_registration_remarks
-    from app.domains.auth.api import User
-    from app.schemas.activity import RegistrationContactUpdate
+    from app.domains.activities import service
 
     reg_id = _inschrijving(client, db_session)
     reg = db_session.get(Registration, reg_id)
-    admin = db_session.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).first()
 
-    update_registration_remarks(
-        reg.activity_id,
-        reg_id,
-        RegistrationContactUpdate(remarks="enkel dit"),
-        db=db_session,
-        admin=admin,
+    service.update_registration_contact(
+        db_session, reg.activity_id, reg_id, {"remarks": "enkel dit"}, actor=SEEDED_ADMIN_EMAIL
     )
 
     db_session.expire_all()

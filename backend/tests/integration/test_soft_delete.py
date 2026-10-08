@@ -4,12 +4,20 @@ de history (en dus de #82-export) toont de verwijdering nog steeds."""
 
 from datetime import date
 
+import pytest
+
+from app.domains.activities import service as activities_service
 from app.domains.activities.api import Activity, Registration
 from app.domains.auth.api import User
 from app.domains.mdm.api import Member
 from app.domains.membership.api import Membership
 from app.domains.payment.api import PayableType, PaymentRecord
-from tests.conftest import register_at_the_door, seed_activity_with_product, seed_postal_code
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    register_at_the_door,
+    seed_activity_with_product,
+    seed_postal_code,
+)
 
 
 def _payload(email="lid@example.com"):
@@ -131,16 +139,13 @@ def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin
 
     # #1561 (Koen, 4 October 2026): an activity with a registration is refused;
     # the registration goes first, and then the payment still stays.
-    assert (
-        client.delete(f"/api/v1/activities/{activity_id}", headers=admin_headers).status_code == 422
-    )
+    with pytest.raises(activities_service.ActiviteitFout):
+        activities_service.delete_activity(db_session, activity_id, actor=SEEDED_ADMIN_EMAIL)
     from app.soft_delete import soft_delete
 
     soft_delete(reg)
     db_session.commit()
-    assert (
-        client.delete(f"/api/v1/activities/{activity_id}", headers=admin_headers).status_code == 200
-    )
+    assert activities_service.delete_activity(db_session, activity_id, actor=SEEDED_ADMIN_EMAIL)
 
     # Activiteit + inschrijving verborgen, maar bewaard.
     assert db_session.query(Activity).filter(Activity.id == activity_id).first() is None

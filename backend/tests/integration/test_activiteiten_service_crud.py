@@ -421,12 +421,12 @@ def test_de_export_levert_inhoud_en_een_veilige_bestandsnaam(client, db_session)
 
 
 def test_de_router_rekent_niet_meer_zelf(db_session):
-    """De scheiding zelf: wat overblijft in de route is HTTP, geen domeinlogica."""
+    """De scheiding zelf: wat overblijft in de route is HTTP, geen domeinlogica.
+
+    Six names left this list with their route in CR-13 phase 4b (#1251)."""
     bron = open("app/domains/activities/router.py", encoding="utf-8").read()
     for naam in (
         "def create_activity(",
-        "def update_activity(",
-        "def delete_activity(",
         "def add_activity_date(",
         "def update_activity_date(",
         "def delete_activity_date(",
@@ -437,14 +437,12 @@ def test_de_router_rekent_niet_meer_zelf(db_session):
         "def update_product(",
         "def delete_product(",
         "def add_order_line(",
-        "def update_order_line(",
         "def delete_order_line(",
-        "def delete_registration(",
-        "def update_registration_remarks(",
-        "def export_component_ods(",
     ):
         start = bron.index(naam)
-        einde = bron.index("\n@router", start)
+        einde = bron.index(
+            "\n\n\n", start
+        )  # the function's end: the last one has no route after it
         body = bron[start:einde]
         assert "service." in body, f"{naam} roept de service niet aan"
         assert "snapshot_" not in body, (

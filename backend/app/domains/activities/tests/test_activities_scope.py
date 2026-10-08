@@ -1,10 +1,27 @@
-"""Eén /activities-endpoint met scope-param (#136): upcoming/archived/all.
+"""Eén activiteitenlijst met een scope (#136): upcoming/archived/all.
 
 Invariant: upcoming toont enkel activiteiten met een toekomstige datum, archived
 enkel die met een voorbije datum, all toont beide. Default = upcoming.
+
+Gemeten aan de facade die de publieke pagina's en de homepage voedt; de JSON-route
+die dezelfde lijst gaf is weg (CR-13 fase 4b, #1251).
 """
 
 from datetime import date, timedelta
+
+import pytest
+
+from app.domains.activities.api import list_activities
+from app.kernel.tenancy import TENANT_MILLEGEM_ID, current_tenant_id
+
+
+@pytest.fixture(autouse=True)
+def as_the_association():
+    """The list is asked outside a request, where no tenant is set and every
+    tenant's activities would answer — the example tenant's seed among them."""
+    token = current_tenant_id.set(TENANT_MILLEGEM_ID)
+    yield
+    current_tenant_id.reset(token)
 
 
 def _make_activity(db, name, day_offset):
@@ -22,20 +39,20 @@ def test_scope_filters_upcoming_archived_all(client, db_session):
     _make_activity(db_session, "Toekomst", 10)
     _make_activity(db_session, "Verleden", -10)
 
-    up = [a["name"] for a in client.get("/api/v1/activities?scope=upcoming").json()]
+    up = [a.name for a in list_activities(db_session, "upcoming")]
     assert "Toekomst" in up and "Verleden" not in up
 
-    arch = [a["name"] for a in client.get("/api/v1/activities?scope=archived").json()]
+    arch = [a.name for a in list_activities(db_session, "archived")]
     assert "Verleden" in arch and "Toekomst" not in arch
 
-    allr = [a["name"] for a in client.get("/api/v1/activities?scope=all").json()]
+    allr = [a.name for a in list_activities(db_session, "all")]
     assert "Toekomst" in allr and "Verleden" in allr
 
 
 def test_default_scope_is_upcoming(client, db_session):
     _make_activity(db_session, "DefaultToekomst", 10)
     _make_activity(db_session, "DefaultVerleden", -10)
-    names = [a["name"] for a in client.get("/api/v1/activities").json()]
+    names = [a.name for a in list_activities(db_session)]
     assert "DefaultToekomst" in names
     assert "DefaultVerleden" not in names
 
@@ -48,7 +65,7 @@ def test_all_scope_orders_upcoming_first_soonest_top(client, db_session):
     _make_activity(db_session, "Binnenkort", 3)
     _make_activity(db_session, "VerToekomst", 30)
 
-    names = [a["name"] for a in client.get("/api/v1/activities?scope=all").json()]
+    names = [a.name for a in list_activities(db_session, "all")]
     assert names == ["Binnenkort", "VerToekomst", "RecentVerleden", "VerVerleden"]
 
 
@@ -66,7 +83,7 @@ def test_all_scope_activity_with_future_and_past_sorts_as_upcoming(client, db_se
     _make_activity(db_session, "VerToekomst", 60)
     _make_activity(db_session, "Verleden", -3)
 
-    names = [x["name"] for x in client.get("/api/v1/activities?scope=all").json()]
+    names = [x.name for x in list_activities(db_session, "all")]
     assert names.index("Reeks") < names.index("VerToekomst")  # +5 vóór +60
     assert names.index("Reeks") < names.index("Verleden")  # toekomstig vóór voorbij
     assert names.index("VerToekomst") < names.index("Verleden")
@@ -83,15 +100,7 @@ def test_activity_response_exposes_is_cancelled(client, db_session):
     db_session.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=10)))
     db_session.flush()
 
-    data = client.get("/api/v1/activities?scope=all").json()
-    match = next((x for x in data if x["name"] == "Geannuleerd feest"), None)
+    data = list_activities(db_session, "all")
+    match = next((x for x in data if x.name == "Geannuleerd feest"), None)
     assert match is not None
-    assert match["is_cancelled"] is True
-
-
-def test_old_archived_endpoint_is_gone(client):
-    """De aparte GET /activities/archived is weg (harde cut). Het pad matcht nu de
-    /activities/{activity_id}-route zonder GET-handler → 405 (of 404); in elk geval
-    geen geldige archieflijst (200)."""
-    resp = client.get("/api/v1/activities/archived")
-    assert resp.status_code in (404, 405)
+    assert match.is_cancelled is True
