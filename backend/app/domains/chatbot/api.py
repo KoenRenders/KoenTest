@@ -18,6 +18,8 @@ from app.domains.chatbot.costs import (  # noqa: F401
     month_period,
 )
 from app.domains.chatbot.info_service import (  # noqa: F401
+    InfoRefused,
+    add_note,
     create_note,
     delete_row,
     get_row,
@@ -55,7 +57,12 @@ from app.domains.chatbot.seam import (  # noqa: F401
     redact,
     scrub_names,
 )
-from app.domains.chatbot.service import ChatTimeout, run_chat  # noqa: F401
+from app.domains.chatbot.service import (  # noqa: F401
+    ChatTimeout,
+    QuestionRefused,
+    asked,
+    run_chat,
+)
 
 
 # #975: de leestools van de publieke bot, uitgeleend aan de beheer-assistent. Lazy,
@@ -83,6 +90,8 @@ __all__ = [
     "admin_chat_char_budget",
     "chat_char_budget",
     "ChatTimeout",
+    "QuestionRefused",
+    "asked",
     "GuardedProvider",
     "SeamBlocked",
     "admin_rules",
@@ -101,6 +110,8 @@ __all__ = [
     "execute_read_tool",
     "read_only_tool_names",
     "read_tool_specs",
+    "InfoRefused",
+    "add_note",
     "create_note",
     "delete_row",
     "get_row",

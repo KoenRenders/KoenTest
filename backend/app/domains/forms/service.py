@@ -1085,6 +1085,15 @@ def delete_submission(db, form_id: int, submission_id: int) -> None:
     db.commit()
 
 
+def assert_definition_given(text: str) -> None:
+    """An import needs a definition: something pasted, or a file that held text.
+
+    The import screen decided this itself until CR-13 phase 4c (#1251). The words
+    are the screen's as they were."""
+    if not text.strip():
+        raise FormulierFout(_("Plak een JSON-definitie of kies een bestand."))
+
+
 def import_definition(db, form: Form, data) -> None:
     """Een volledige definitie inlezen (JSON-import).
 
@@ -1304,6 +1313,18 @@ def normaliseer_slug(waarde) -> Optional[str]:
             detail=_("Deze naam is voorbehouden aan de site zelf; kies een andere."),
         )
     return slug
+
+
+def assert_known_status(status: str) -> None:
+    """A form's status comes from the closed set (`FORM_STATUSES`).
+
+    The settings screen decided this itself until CR-13 phase 4c (#1251); a rule
+    at one door holds for that door only. The refusal and its words are the
+    screen's as they were."""
+    if status not in FORM_STATUSES:
+        raise HTTPException(
+            status_code=422, detail=_("Ongeldige status: %(status)s") % {"status": status}
+        )
 
 
 def assert_slug_vrij(db, slug: Optional[str], *, huidige_id: Optional[int] = None) -> None:
