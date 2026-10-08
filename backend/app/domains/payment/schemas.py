@@ -58,10 +58,6 @@ class PaymentRecordResponse(BaseModel):
         return self.method is PaymentMethod.ONLINE
 
     @property
-    def is_registration(self) -> bool:
-        return self.payable_type is PayableType.REGISTRATION
-
-    @property
     def status_code(self) -> str:
         """The raw code, for an `x-data` that turns it into a form value."""
         return self.status.value
@@ -86,14 +82,18 @@ class RegistrationBalance(BaseModel):
 class EnrichedPaymentRecord(PaymentRecordResponse):
     description: Optional[str] = None
     contact_name: Optional[str] = None
-    activity_id: Optional[int] = None
     component_id: Optional[int] = None  # voor de penningmeester-filter (#90)
     component_name: Optional[str] = None
     membership_year: Optional[int] = None  # lidgeld-jaar voor de jaarfilter (#308)
-    # The household behind a membership booking, for the jump link on the booking
-    # page (#1574, CR-11 Q56).
-    family_id: Optional[int] = None
     items: list = []
+    # CR-21 phase 0 (#1748), from the payable's describer: the page of what the
+    # payable hangs on, the payable's own page with its link text, and its place in
+    # the filter tree — so the screen follows a link instead of knowing which type
+    # has which page.
+    context_href: Optional[str] = None
+    payable_href: Optional[str] = None
+    payable_label: Optional[str] = None
+    filter_context: Optional[str] = None
 
 
 class PaymentRecordUpdate(BaseModel):

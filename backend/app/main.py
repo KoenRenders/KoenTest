@@ -140,6 +140,16 @@ async def _lifespan(app: FastAPI):
     yield
 
 
+# What a payment is for is told by the domain that owns the payable (CR-21 Q48,
+# #1748): each registers its describer here, beside the event subscribers above. A
+# payable type without one is refused by `payment/tests/test_payable_describers.py`.
+from app.domains.activities.api import registration_describer  # noqa: E402
+from app.domains.membership.api import membership_describer  # noqa: E402
+from app.domains.payment.api import PayableType, register_describer  # noqa: E402
+
+register_describer(PayableType.REGISTRATION, registration_describer())
+register_describer(PayableType.MEMBERSHIP, membership_describer())
+
 app = FastAPI(
     lifespan=_lifespan,
     title="Raak Millegem API",

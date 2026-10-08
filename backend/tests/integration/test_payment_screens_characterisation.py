@@ -273,3 +273,111 @@ def test_the_payment_screen_renders_as_before(client, world, screen):
         f"{screen} shows none of the world"
     )
     compare(SNAPSHOTS, screen, normalise(body, _names(), _literals()), before="phase 2")
+
+
+# ── T16 of CR-21 (#1748): what the describers must leave as it was ──────────────
+#
+# Phase 0 of CR-21 moves "what is this payment for" out of `payment` — the name, the
+# description, the links, the place in the filter tree, the export's words, the
+# subject of a change line — into describers that activities and membership register.
+# The seven screens above do not show all of that, so these were added and **recorded
+# on master `1bae78ec`, before the first describer existed**: the page of a booking
+# (the jump link to the activity or the household), the three filter contexts, the
+# screen's export (not the JSON export route, which CR-13 phase 4b prunes) and the
+# change lines of a payment.
+
+DESCRIBED = {
+    "booking_registration": f"/admin/betalingen/{RECORD_IDS['paid']}",
+    "booking_refund": f"/admin/betalingen/{RECORD_IDS['refund_due']}",
+    "booking_membership": f"/admin/betalingen/{RECORD_IDS['membership']}",
+    "filter_membership": "/admin/betalingen/lijst?context=membership",
+    "filter_year": "/admin/betalingen/lijst?context=year-2026",
+    "filter_component": f"/admin/betalingen/lijst?context=comp-{COMPONENT_ID}",
+}
+
+
+def _sign_in(client) -> None:
+    from app.domains.auth.api import SESSION_COOKIE, make_session_value
+
+    client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
+
+
+@pytest.mark.parametrize("screen", sorted(DESCRIBED))
+def test_what_a_payment_is_for_reads_as_before(client, world, screen):
+    _sign_in(client)
+    response = client.get(DESCRIBED[screen])
+    assert response.status_code == 200, (screen, response.status_code)
+    html = response.text
+    body = main_region(html) if "<main" in html else html
+    assert "Deelnemer" in body or "Betaalmans" in body or "Betaalkarakter" in body, (
+        f"{screen} shows none of the world"
+    )
+    compare(SNAPSHOTS, screen, normalise(body, _names(), _literals()), before="the describers")
+
+
+def _export_rows(response) -> list[list]:
+    from io import BytesIO
+
+    from odf.opendocument import load
+    from odf.table import Table, TableCell, TableRow
+    from odf.teletype import extractText
+
+    rows = []
+    for tr in (
+        load(BytesIO(response.content)).getElementsByType(Table)[0].getElementsByType(TableRow)
+    ):
+        cells: list = []
+        for tc in tr.getElementsByType(TableCell):
+            value = tc.getAttribute("value")
+            repeat = int(tc.getAttribute("numbercolumnsrepeated") or 1)
+            cells.extend([value if value is not None else extractText(tc)] * repeat)
+        rows.append(cells)
+    return rows
+
+
+@pytest.mark.parametrize(
+    "name, query", [("export_all", ""), ("export_membership", "?context=membership")]
+)
+def test_the_screens_export_reads_as_before(client, world, name, query):
+    _sign_in(client)
+    response = client.get(f"/admin/betalingen/export{query}")
+    assert response.status_code == 200, response.status_code
+    rows = _export_rows(response)
+    assert len(rows) >= 2 and any("Betaalmans" in str(c) for row in rows for c in row), rows[:3]
+    text = "\n".join(" | ".join(str(c) for c in row) for row in rows) + "\n"
+    compare(SNAPSHOTS, name, normalise(text, _names(), _literals()), before="the describers")
+
+
+def test_the_change_lines_of_a_payment_name_their_subject_as_before(client, world, db_session):
+    """The subject of a payment's change line comes through the payable: the person of a
+    registration, the household of a membership (`audit/changes.py::from_payment`)."""
+    from app.domains.audit.changes import _SubjectResolver
+
+    _sign_in(client)
+    lines = []
+    # "paid" is a member's registration, "partial" a guest's: two roads to a subject.
+    for key in ("paid", "partial", "membership"):
+        payable_type = "membership" if key == "membership" else "registration"
+        payable_id = MEMBERSHIP_ID if key == "membership" else REGISTRATION_IDS[key]
+        subject = _SubjectResolver(db_session).from_payment(payable_type, payable_id)
+        lines.append(f"{key}: {sorted((subject or {}).items())}")
+    text = "\n".join(lines) + "\n"
+    assert "Betaalmans" in text, text
+    # What the change line's subject is read from, by name: in this world a household
+    # and its head give the same four columns, so the snapshot alone cannot tell
+    # whether a membership still answers with its household.
+    from app.domains.payment.api import describe_one
+
+    membership = describe_one(db_session, "membership", MEMBERSHIP_ID)
+    member_registration = describe_one(db_session, "registration", REGISTRATION_IDS["paid"])
+    guest_registration = describe_one(db_session, "registration", REGISTRATION_IDS["partial"])
+    assert membership.household_id == MEMBER_ID
+    assert member_registration.person_id == PERSON_ID
+    assert guest_registration.person_id is None
+    assert guest_registration.contact_email == "partial@example.org"
+    compare(
+        SNAPSHOTS,
+        "change_subjects",
+        normalise(text, _names(), _literals()),
+        before="the describers",
+    )

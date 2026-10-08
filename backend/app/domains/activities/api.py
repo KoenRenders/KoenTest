@@ -354,7 +354,10 @@ def board_register_for_activity(
     )
 
 
+from app.domains.activities.payables import registration_describer  # noqa: E402, F401
+
 __all__ = [
+    "registration_describer",
     "Channel",
     "Outcome",
     "OutcomeKind",

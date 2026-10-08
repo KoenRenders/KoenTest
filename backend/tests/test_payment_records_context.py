@@ -22,7 +22,9 @@ def test_registration_record_exposes_component(client, db_session, admin_headers
 
     records = client.get("/api/v1/payment-status/records", headers=admin_headers).json()
     reg_rec = next(r for r in records if r["payable_type"] == "registration")
-    assert reg_rec["activity_id"] == activity_id
+    # #1748: the record no longer carries `activity_id` — its one reader, the jump
+    # link on the booking's page, follows the describer's `context_href` now.
+    assert reg_rec["context_href"] == f"/admin/activiteiten/{activity_id}"
     assert reg_rec["component_id"] == comp.id
     assert reg_rec["component_name"] == comp.name
 

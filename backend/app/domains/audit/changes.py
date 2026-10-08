@@ -223,17 +223,27 @@ class _SubjectResolver:
         }
 
     def from_payment(self, payable_type, payable_id) -> Optional[dict]:
-        """Verrijking voor een betaling-wijziging: via de inschrijving of het
-        lidmaatschap waar de betaling aan hangt."""
-        if payable_type == "registration":
-            return self.from_registration(payable_id)
-        if payable_type == "membership":
-            from app.domains.membership.api import Membership
+        """Verrijking voor een betaling-wijziging: via wat de betaling betaalt — de
+        persoon of het gezin erachter, zoals de describer van die soort het zegt
+        (CR-21 phase 0, #1748). Een gast zonder persoon toont enkel de contactnaam."""
+        from app.domains.payment.api import describe_one
 
-            ms = self._q(Membership).filter(Membership.id == payable_id).first()
-            if ms is not None:
-                return self.fields(member_id=ms.member_id)
-        return None
+        what = describe_one(self.db, payable_type, payable_id)
+        if what.household_id is not None:
+            return self.fields(member_id=what.household_id)
+        if what.person_id is not None:
+            return self.fields(person_id=what.person_id)
+        pid = self._person_by_email(what.contact_email)
+        if pid is not None:
+            return self.fields(person_id=pid)
+        if what.contact_name is None and what.contact_email is None:
+            return None
+        return {
+            "person_name": _fmt(what.contact_name),
+            "person_external_id": "",
+            "head_address": "",
+            "head_external_id": "",
+        }
 
 
 _EMPTY_SUBJECT = {
