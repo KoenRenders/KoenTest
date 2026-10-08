@@ -15,7 +15,7 @@ from app.domains.activities.api import (
     RegistrationItemHistory,
 )
 from app.domains.payment.api import PayableType, PaymentRecord, PaymentStatus, PaymentType
-from tests.conftest import seed_activity_with_product
+from tests.conftest import register_at_the_door, seed_activity_with_product
 
 
 def _add_product(db, comp, *, name, price, is_free=False):
@@ -27,8 +27,9 @@ def _add_product(db, comp, *, name, price, is_free=False):
 
 def _register(client, db, comp, product, qty=1):
     activity_id = comp.activity_id
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",

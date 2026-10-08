@@ -70,7 +70,7 @@ from app.domains.mdm.api import (
 )
 from app.kernel.jobs import run_due_jobs
 from app.kernel.tenancy import TENANT_VOORBEELD_ID, current_tenant_id
-from tests.conftest import seed_activity_with_product
+from tests.conftest import register_at_the_door, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -409,8 +409,9 @@ def test_the_confirmation_mail_links_to_mijn_inschrijvingen_only_with_a_person(
     from app.kernel.events import publish
 
     _activity, component, product = seed_activity_with_product(db_session, is_free=True)
-    answer = client.post(
-        f"/api/v1/activities/{component.activity_id}/register",
+    answer = register_at_the_door(
+        client,
+        component.activity_id,
         json={
             "contact_name": "Gast Proef",
             "phone": "0470000002",

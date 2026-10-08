@@ -34,7 +34,7 @@ import pytest
 import sqlalchemy as sa
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door, seed_activity_with_product
 
 PRODUCT_NAME = "Testproduct"
 
@@ -136,7 +136,7 @@ def test_a_direct_post_on_an_inactive_product_is_refused(client, db_session):
 
     body = _registration_body(product.id, quantity=2)
     body["component_id"] = component.id
-    respons = client.post(f"/api/v1/activities/{activity.id}/register", json=body)
+    respons = register_at_the_door(client, activity.id, json=body)
 
     assert respons.status_code == 400, (
         f"een rechtstreekse POST op een inactief product gaf {respons.status_code}"
@@ -161,7 +161,7 @@ def test_an_active_product_still_registers(client, db_session):
 
     body = _registration_body(product.id)
     body["component_id"] = component.id
-    respons = client.post(f"/api/v1/activities/{activity.id}/register", json=body)
+    respons = register_at_the_door(client, activity.id, json=body)
 
     assert respons.status_code in (200, 201), respons.text
     assert (

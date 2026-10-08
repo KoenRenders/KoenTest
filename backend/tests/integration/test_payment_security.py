@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 
 from app.domains.payment.api import PayableType, PaymentStatus
-from tests.conftest import seed_activity_with_product, seed_postal_code
+from tests.conftest import register_at_the_door, seed_activity_with_product, seed_postal_code
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -43,8 +43,9 @@ def test_membership_amount_is_server_side(client, db_session):
 def test_activity_negative_quantity_rejected(client, db_session):
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "Test",
             "phone": "0470000000",
@@ -59,8 +60,9 @@ def test_activity_negative_quantity_rejected(client, db_session):
 def test_activity_invalid_product_rejected(client, db_session):
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "Test",
             "phone": "0470000000",
@@ -77,8 +79,9 @@ def test_activity_quantity_over_max_rejected(client, db_session):
 
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "Test",
             "phone": "0470000000",
@@ -144,8 +147,9 @@ def test_activity_registration_limit_per_email(client, db_session):
     activity_id = comp.activity_id
 
     def register():
-        return client.post(
-            f"/api/v1/activities/{activity_id}/register",
+        return register_at_the_door(
+            client,
+            activity_id,
             json={
                 "contact_name": "Gezin",
                 "phone": "0470000000",
@@ -188,8 +192,9 @@ def test_registration_limit_is_per_component_not_per_activity(client, db_session
     email = "multi@example.com"
 
     def register(comp, product):
-        return client.post(
-            f"/api/v1/activities/{activity.id}/register",
+        return register_at_the_door(
+            client,
+            activity.id,
             json={
                 "contact_name": "Gezin",
                 "phone": "0470000000",
@@ -243,8 +248,9 @@ def test_activity_invalid_email_rejected(client, db_session):
     """Een ongeldig e-mailadres bij inschrijving wordt server-side geweigerd (422)."""
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "X",
             "phone": "0470000000",

@@ -5,7 +5,12 @@ UI-routes hergebruiken de bestaande router-facades; sessie + CSRF vereist.
 
 from app.domains.activities.api import Registration, RegistrationItem
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product, sent_to_sign_in
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    register_at_the_door,
+    seed_activity_with_product,
+    sent_to_sign_in,
+)
 
 
 def _login(client):
@@ -15,8 +20,9 @@ def _login(client):
 
 
 def _register(client, activity_id, comp, product, quantity=1):
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",

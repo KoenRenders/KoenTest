@@ -40,6 +40,7 @@ from app.domains.forms.models import FormSubmission, FormSubmissionAnswer
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     form_guard_fields,
+    register_at_the_door,
     seed_activity_with_product,
     seed_question_form,
 )
@@ -103,7 +104,7 @@ def _post_api(client, s, answers, **extra):
     }
     if answers is not None:
         body["answers"] = answers
-    return client.post(f"/api/v1/activities/{s.activity.id}/register", json=body)
+    return register_at_the_door(client, s.activity.id, json=body)
 
 
 def _registrations(db, s):

@@ -27,7 +27,7 @@ from tests._invarianten import (
     assert_geen_wezen,
     assert_saldo_klopt,
 )
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -202,8 +202,9 @@ def test_P8_er_blijven_geen_weesrecords_achter(client, db_session):
     from tests.conftest import seed_activity_with_product
 
     activity, comp, product = seed_activity_with_product(db_session, is_free=False)
-    resp = client.post(
-        f"/api/v1/activities/{activity.id}/register",
+    resp = register_at_the_door(
+        client,
+        activity.id,
         json={
             "contact_name": "An",
             "phone": "0470000000",

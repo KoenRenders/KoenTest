@@ -22,7 +22,12 @@ import pytest
 
 from app.domains.activities import service
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product, seed_question_form
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    register_at_the_door,
+    seed_activity_with_product,
+    seed_question_form,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -39,7 +44,7 @@ def asks(client, db_session):
         "component_id": component.id,
         "items": [{"product_id": product.id, "quantity": 1}],
     }
-    assert client.post(f"/api/v1/activities/{activity.id}/register", json=body).is_success
+    assert register_at_the_door(client, activity.id, json=body).is_success
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     return activity, component
 

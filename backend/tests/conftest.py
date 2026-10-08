@@ -723,6 +723,65 @@ def register_through_the_service(
         db.close()
 
 
+class DoorAnswer:
+    """What a test reads off the answer of a door: the status and the body."""
+
+    def __init__(self, status_code: int, body):
+        self.status_code = status_code
+        self._body = body
+
+    def json(self):
+        return self._body
+
+    @property
+    def is_success(self) -> bool:
+        return 200 <= self.status_code < 300
+
+    @property
+    def text(self) -> str:
+        import json
+
+        return json.dumps(self._body, ensure_ascii=False, default=str)
+
+
+def register_at_the_door(client, activity_id: int, json: dict, *, member_email: str | None = None):
+    """A registration as the public form's door makes it, answered as the JSON route
+    `POST /api/v1/activities/{id}/register` answered it (CR-13 phase 4b, #1251).
+
+    That route had no caller but tests — 64 test functions made their registration
+    through it. Its function stays: it is what `activities.api.register_for_activity`
+    calls for the public form. So the tests call that facade, in the session `client`
+    shares with the endpoints, and read the same answer: the body shaped by
+    `RegistrationResponse` on success, the status and `detail` of a refusal, a 422 for
+    a body the schema refuses. `member_email` signs the registrant in, as the bearer
+    token did.
+    """
+    from fastapi import BackgroundTasks
+    from fastapi.encoders import jsonable_encoder
+    from pydantic import ValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    from app.database import get_db
+    from app.domains.activities.api import register_for_activity
+    from app.domains.auth.api import login_person_for_email
+    from app.schemas.activity import RegistrationCreate, RegistrationResponse
+
+    db = next(client.app.dependency_overrides[get_db]())
+    try:
+        data = RegistrationCreate.model_validate(json)
+    except ValidationError as refusal:
+        return DoorAnswer(422, {"detail": jsonable_encoder(refusal.errors())})
+    member = login_person_for_email(db, member_email) if member_email else None
+    try:
+        result = register_for_activity(
+            db, int(activity_id), data, BackgroundTasks(), current_member=member
+        )
+    except StarletteHTTPException as refusal:
+        return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
+    body = RegistrationResponse.model_validate(result).model_dump(mode="json")
+    return DoorAnswer(200, body)
+
+
 def seed_question_form(db, title="Sint 2026", **settings):
     """A form a component can ask (CR-14): open, one section, three questions —
     "Tijdslot" (checkbox, required, with "Andere…"), "Verhaal" (textarea, required)

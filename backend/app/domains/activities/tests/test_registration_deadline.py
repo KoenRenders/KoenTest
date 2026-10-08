@@ -30,6 +30,7 @@ from app.domains.activities.api import (
     ActivitySubRegistration,
     Registration,
 )
+from tests.conftest import register_at_the_door
 
 DEADLINE = date(2027, 7, 15)  # zomer: Brussel = UTC+2
 
@@ -186,8 +187,9 @@ def test_a_cancelled_activity_is_refused_on_the_json_api(client, db_session, mon
     a, comp, product = _activity(db_session, closes_on=None, cancelled=True)
     _pin(monkeypatch, datetime(2027, 7, 1, 10, 0, tzinfo=timezone.utc))
 
-    resp = client.post(
-        f"/api/v1/activities/{a.id}/register",
+    resp = register_at_the_door(
+        client,
+        a.id,
         json={
             "contact_name": "Api",
             "contact_email": "api@example.org",

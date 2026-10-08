@@ -11,7 +11,7 @@ from odf.table import Table, TableCell, TableRow
 from odf.teletype import extractText
 
 from app.domains.payment.api import PayableType, PaymentRecord, PaymentType
-from tests.conftest import seed_activity_with_product
+from tests.conftest import register_at_the_door, seed_activity_with_product
 
 _EXPORT = "/api/v1/payment-status/records/export"
 
@@ -44,8 +44,9 @@ def test_payments_export_requires_auth(client, db_session):
 
 def test_payments_export_records_and_totals(client, db_session, admin_headers):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
-    client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",
@@ -98,8 +99,9 @@ def test_payments_export_respects_context_filter(client, db_session, admin_heade
     """De export volgt het paginafilter (#90/#308): context=membership weert de
     activiteit-inschrijving; context=comp-<id> houdt ze."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
-    client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",

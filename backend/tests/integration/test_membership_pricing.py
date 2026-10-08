@@ -12,12 +12,8 @@ De invarianten die ertoe doen (geld + datakoppeling):
 from datetime import date, timedelta
 from decimal import Decimal
 
-from app.domains.auth.api import create_access_token
 from app.domains.payment.api import PayableType
-
-
-def _member_headers(email):
-    return {"Authorization": f"Bearer {create_access_token({'sub': email})}"}
+from tests.conftest import register_at_the_door
 
 
 def seed_household(
@@ -90,10 +86,12 @@ def seed_activity_with_member_product(db, price="20.00", member_price="12.00"):
     return activity, comp, product
 
 
-def _register(client, activity_id, comp_id, product_id, email, qty=2, headers=None):
-    return client.post(
-        f"/api/v1/activities/{activity_id}/register",
-        headers=headers or {},
+def _register(client, activity_id, comp_id, product_id, email, qty=2, signed_in=False):
+    return register_at_the_door(
+        client,
+        activity_id,
+        # #1251: signed in as the member, as the bearer token did on the JSON route.
+        member_email=email if signed_in else None,
         json={
             "contact_name": "Test",
             "phone": "0470000000",
@@ -113,9 +111,7 @@ def test_member_with_valid_membership_gets_member_price(client, db_session):
     seed_household(db_session, email)  # actief lidmaatschap, dekt vandaag
     activity, comp, product = seed_activity_with_member_product(db_session, "20.00", "12.00")
 
-    resp = _register(
-        client, activity.id, comp.id, product.id, email, qty=2, headers=_member_headers(email)
-    )
+    resp = _register(client, activity.id, comp.id, product.id, email, qty=2, signed_in=True)
     assert resp.status_code == 200, resp.text
 
     from app.domains.payment.api import PaymentRecord
@@ -136,9 +132,7 @@ def test_member_without_valid_membership_pays_regular_price(client, db_session):
     seed_household(db_session, email, valid_from=date(2000, 1, 1), valid_to=yesterday)
     activity, comp, product = seed_activity_with_member_product(db_session, "20.00", "12.00")
 
-    resp = _register(
-        client, activity.id, comp.id, product.id, email, qty=2, headers=_member_headers(email)
-    )
+    resp = _register(client, activity.id, comp.id, product.id, email, qty=2, signed_in=True)
     assert resp.status_code == 200, resp.text
 
     from app.domains.activities.api import Registration
@@ -160,9 +154,7 @@ def test_inactive_membership_pays_regular_price(client, db_session):
     seed_household(db_session, email, is_active=False)
     activity, comp, product = seed_activity_with_member_product(db_session, "20.00", "12.00")
 
-    resp = _register(
-        client, activity.id, comp.id, product.id, email, qty=1, headers=_member_headers(email)
-    )
+    resp = _register(client, activity.id, comp.id, product.id, email, qty=1, signed_in=True)
     assert resp.status_code == 200, resp.text
 
     from app.domains.payment.api import PaymentRecord
@@ -201,9 +193,7 @@ def test_logged_in_registration_links_person(client, db_session):
     _member, person = seed_household(db_session, email)
     activity, comp, product = seed_activity_with_member_product(db_session, "5.00", "5.00")
 
-    resp = _register(
-        client, activity.id, comp.id, product.id, email, qty=1, headers=_member_headers(email)
-    )
+    resp = _register(client, activity.id, comp.id, product.id, email, qty=1, signed_in=True)
     assert resp.status_code == 200, resp.text
 
     from app.domains.activities.api import Registration

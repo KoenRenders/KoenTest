@@ -7,7 +7,7 @@ from odf.opendocument import load
 from odf.table import Table, TableCell, TableRow
 from odf.teletype import extractText
 
-from tests.conftest import seed_postal_code
+from tests.conftest import register_at_the_door, seed_postal_code
 
 
 def _family_payload(email="lid@example.com"):
@@ -149,8 +149,9 @@ def test_changes_feed_enriches_payment_with_registration_person(client, db_sessi
     )
 
     _, comp, product = seed_activity_with_product(db_session, price="2.00")
-    reg_resp = client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    reg_resp = register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "Gast X",
             "phone": "0470000000",
@@ -193,8 +194,9 @@ def test_changes_feed_matches_guest_payment_by_email(client, db_session, admin_h
     db_session.flush()
 
     _, comp, product = seed_activity_with_product(db_session, price="2.00")
-    reg_resp = client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    reg_resp = register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "Gast Naam",
             "phone": "0470000000",
@@ -251,8 +253,9 @@ def test_changes_feed_person_and_head_columns_differ(client, db_session, admin_h
     db_session.flush()
 
     _, comp, product = seed_activity_with_product(db_session, price="2.00")
-    reg_resp = client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    reg_resp = register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "Tom",
             "phone": "0470000000",
@@ -284,8 +287,9 @@ def test_changes_feed_payment_guest_shows_contact_name(client, db_session):
 
     seed_postal_code(db_session)
     _, comp, product = seed_activity_with_product(db_session, price="2.00")
-    reg_resp = client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    reg_resp = register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "Gast Zonderlid",
             "phone": "0470000000",

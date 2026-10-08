@@ -29,7 +29,7 @@ from app.domains.payment.api import (
     reconcile_registration_charges,
 )
 from tests._invarianten import assert_geen_wezen, assert_saldo_klopt
-from tests.conftest import create_test_member, seed_activity_with_product
+from tests.conftest import create_test_member, register_at_the_door, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -137,8 +137,9 @@ def test_A7_schrappen_en_weer_toevoegen_komt_terug_op_de_beginstand(db_session):
 def test_registratie_variant_gebruikt_hetzelfde_pad(client, db_session):
     """De dunne laag boven reconcile_charges rekent met het echte besteltotaal."""
     activity, comp, product = seed_activity_with_product(db_session, is_free=False)
-    resp = client.post(
-        f"/api/v1/activities/{activity.id}/register",
+    resp = register_at_the_door(
+        client,
+        activity.id,
         json={
             "contact_name": "An",
             "phone": "0470000000",

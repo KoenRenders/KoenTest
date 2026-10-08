@@ -22,6 +22,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.ui import templates
+from tests.conftest import register_at_the_door
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -258,8 +259,9 @@ def test_a_full_component_says_so_on_the_card(client, db_session):
     from tests.conftest import seed_activity_with_product
 
     _, comp, product = seed_activity_with_product(db_session, max_participants=2)
-    done = client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    done = register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "An Voorbeeld",
             "phone": "0470000000",

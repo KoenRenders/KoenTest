@@ -18,7 +18,7 @@ from app.domains.activities.models import (
     RegistrationRefused,
 )
 from app.domains.activities.totals import compute_registration_total
-from app.domains.auth.api import User, get_current_admin, get_current_member
+from app.domains.auth.api import User, get_current_admin
 from app.domains.mdm.api import CONTACT, PaymentMethod, Person
 from app.domains.payment.api import (
     PayableType,
@@ -29,7 +29,6 @@ from app.i18n import _
 from app.kernel.clock import belgian_today
 from app.kernel.contracts.activities import RegistrationConfirmed
 from app.kernel.events import publish
-from app.limiter import registration_limiter
 from app.schemas.activity import (
     ActivityCreate,
     ActivityDateCreate,
@@ -860,17 +859,17 @@ def _inschrijver(current_member: Person | None) -> str:
     return mail or PUBLIEKE_ACTOR
 
 
-@router.post(
-    "/activities/{activity_id}/register",
-    response_model=RegistrationResponse,
-    dependencies=[Depends(registration_limiter)],
-)
+# No route of its own since CR-13 phase 4b (#1251): the JSON door
+# `POST /api/v1/activities/{id}/register` had no caller. This is the function behind
+# `activities.api.register_for_activity`, which the public form calls; it stays here
+# until phase 4c moves it to the service.
 def register_for_activity(
     activity_id: int,
     data: RegistrationCreate,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    current_member: Person | None = Depends(get_current_member),
+    *,
+    db: Session,
+    current_member: Person | None,
 ) -> dict:
     """The public way in: the registration hangs on whoever is signed in."""
     return create_registration(

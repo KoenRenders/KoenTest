@@ -34,7 +34,7 @@ from jinja2 import ChoiceLoader, DictLoader
 
 from app.domains.activities import service
 from app.ui import templates
-from tests.conftest import seed_activity_with_product, seed_question_form
+from tests.conftest import register_at_the_door, seed_activity_with_product, seed_question_form
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -118,7 +118,7 @@ def test_the_answer_link_and_the_correction_render_it_too(client, db_session, si
         }
         if answers is not None:
             body["answers"] = answers
-        assert client.post(f"/api/v1/activities/{sint.activity.id}/register", json=body).is_success
+        assert register_at_the_door(client, sint.activity.id, json=body).is_success
     regs = {
         r.contact_name: r
         for r in db_session.query(Registration).filter_by(activity_id=sint.activity.id)

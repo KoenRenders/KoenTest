@@ -14,6 +14,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from app.domains.payment.api import PayableType
+from tests.conftest import register_at_the_door
 
 
 def _seed(db, products):
@@ -65,7 +66,7 @@ def _register(client, activity_id, comp_id, items, email, payment_method="online
     }
     if payment_method is not None:
         body["payment_method"] = payment_method
-    return client.post(f"/api/v1/activities/{activity_id}/register", json=body)
+    return register_at_the_door(client, activity_id, json=body)
 
 
 def _payment_amount(db):

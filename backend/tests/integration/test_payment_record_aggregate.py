@@ -47,7 +47,7 @@ from app.domains.payment.service import (
 )
 from app.kernel import events
 from app.kernel.contracts.payment import PaymentReceived
-from tests.conftest import seed_activity_with_product
+from tests.conftest import register_at_the_door, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -380,8 +380,9 @@ def test_the_balance_equals_the_open_amount_of_the_report(client, db_session):
     """§B4.3, AC5, phase 2: `registration_balance` owns the balance; the report
     computes it in SQL. After a partial payment and an order change, both agree."""
     _activity, component, product = seed_activity_with_product(db_session, price="12.00")
-    response = client.post(
-        f"/api/v1/activities/{component.activity_id}/register",
+    response = register_at_the_door(
+        client,
+        component.activity_id,
         json={
             "contact_name": "Saldo Pariteit",
             "contact_email": "saldo@example.org",

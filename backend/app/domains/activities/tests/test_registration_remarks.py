@@ -4,7 +4,7 @@ blijven ongemoeid."""
 
 from app.domains.activities.api import Registration
 from app.soft_delete import soft_delete
-from tests.conftest import seed_activity_with_product
+from tests.conftest import register_at_the_door, seed_activity_with_product
 
 
 def _register(client, activity_id, comp, product, remarks=None, email="an@example.com"):
@@ -18,7 +18,7 @@ def _register(client, activity_id, comp, product, remarks=None, email="an@exampl
     }
     if remarks is not None:
         payload["remarks"] = remarks
-    resp = client.post(f"/api/v1/activities/{activity_id}/register", json=payload)
+    resp = register_at_the_door(client, activity_id, json=payload)
     assert resp.status_code in (200, 201), resp.text
     return resp.json()["id"]
 

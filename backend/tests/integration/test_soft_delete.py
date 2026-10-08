@@ -9,7 +9,7 @@ from app.domains.auth.api import User
 from app.domains.mdm.api import Member
 from app.domains.membership.api import Membership
 from app.domains.payment.api import PayableType, PaymentRecord
-from tests.conftest import seed_activity_with_product, seed_postal_code
+from tests.conftest import register_at_the_door, seed_activity_with_product, seed_postal_code
 
 
 def _payload(email="lid@example.com"):
@@ -114,8 +114,9 @@ def test_soft_delete_still_recorded_in_member_changes(client, db_session, admin_
 def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin_headers):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
-    client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "An",
             "phone": "0470000000",

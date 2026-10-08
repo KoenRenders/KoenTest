@@ -5,7 +5,7 @@ inschrijfknop. Zonder max, of onder de max, blijft het onderdeel open.
 """
 
 from app.domains.activities.router import list_activities
-from tests.conftest import seed_activity_with_product
+from tests.conftest import register_at_the_door, seed_activity_with_product
 
 
 def _register(client, activity_id, comp, product, quantity, email):
@@ -17,7 +17,7 @@ def _register(client, activity_id, comp, product, quantity, email):
         "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": quantity}],
     }
-    resp = client.post(f"/api/v1/activities/{activity_id}/register", json=payload)
+    resp = register_at_the_door(client, activity_id, json=payload)
     assert resp.status_code in (200, 201), resp.text
 
 
