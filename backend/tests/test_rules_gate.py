@@ -45,6 +45,7 @@ from __future__ import annotations
 import ast
 import functools
 import re
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -1704,20 +1705,184 @@ def _is_message(node: ast.AST) -> bool:
     return isinstance(node, (ast.Constant, ast.JoinedStr)) and bool(getattr(node, "value", True))
 
 
+# The doorman's own checks are the TRANSPORT, and nothing else (CR-13 phase 4c, #1251;
+# `docs/code-style.md`, *A rule has one home*). Three shapes, told by what the
+# condition reads — never by a list of entries:
+#
+# 1. **a file**: the condition reads only an `UploadFile` parameter (the parameter
+#    itself, or its `filename`, `content_type`, `size`) or the bytes read from one
+#    (`data = await file.read()`), beside constants;
+# 2. **a parse**: the refusal stands in the `except ValueError` of a `try` that
+#    does nothing but parse (`int()`, `float()`, `Decimal()`, a date);
+# 3. **a token's age**: a clock minus a moment, compared with a constant.
+#
+# Everything else that refuses at a door is a rule and has its home in the service
+# or on the entity — also the emptiness of a text. "An empty title" and "an empty
+# question" look alike at the door and are alike: neither is transport, so neither
+# is excepted; the question's rule lives in `chatbot.service.asked`, the title's
+# on its entity. There is no fourth shape for "a text that is not stored": what a
+# condition reads is visible, where a text goes afterwards is not.
+_UPLOAD_ATTRS = {"filename", "content_type", "size"}
+_PARSERS = {"int", "float", "Decimal", "fromisoformat", "strptime"}
+_PARSE_ERRORS = {"ValueError", "InvalidOperation", "TypeError"}
+_CLOCKS = {"time.monotonic", "time.time"}
+_CONSTANT = re.compile(r"_?[A-Z][A-Z0-9_]*$")
+
+
+def _files_of(function: ast.AST) -> tuple[set[str], set[str]]:
+    """The `UploadFile` parameters of a function, and the names that hold bytes
+    read from one of them."""
+    args = function.args
+    files = {
+        a.arg
+        for a in (*args.posonlyargs, *args.args, *args.kwonlyargs)
+        if a.annotation is not None and "UploadFile" in ast.unparse(a.annotation)
+    }
+    read: set[str] = set()
+    for node in ast.walk(function):
+        if not (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+        ):
+            continue
+        value = node.value.value if isinstance(node.value, ast.Await) else node.value
+        if not (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Attribute)
+            and value.func.attr == "read"
+        ):
+            continue
+        source = value.func.value
+        if isinstance(source, ast.Attribute) and source.attr == "file":
+            source = source.value
+        if isinstance(source, ast.Name) and source.id in files:
+            read.add(node.targets[0].id)
+    return files, read
+
+
+def _reads_only_a_file(test: ast.expr, files: set[str], read: set[str]) -> bool:
+    names = [n for n in ast.walk(test) if isinstance(n, ast.Name)]
+    if not any(n.id in files or n.id in read for n in names):
+        return False
+    for name in names:
+        if name.id not in files and name.id not in read and name.id != "len":
+            if not _CONSTANT.match(name.id):
+                return False
+    for node in ast.walk(test):
+        if not isinstance(node, ast.Attribute):
+            continue
+        root: ast.AST = node
+        chain = []
+        while isinstance(root, ast.Attribute):
+            chain.append(root.attr)
+            root = root.value
+        while isinstance(root, ast.Call):  # `file.filename.lower().endswith(…)`
+            root = root.func
+            while isinstance(root, ast.Attribute):
+                chain.append(root.attr)
+                root = root.value
+        if not isinstance(root, ast.Name) or root.id not in files:
+            return False  # an attribute of the bytes, or of anything that is no file
+        if chain[-1] not in _UPLOAD_ATTRS:
+            return False
+    return True
+
+
+def _is_parser(call: ast.AST) -> bool:
+    if not isinstance(call, ast.Call):
+        return False
+    name = call.func.attr if isinstance(call.func, ast.Attribute) else getattr(call.func, "id", "")
+    return name in _PARSERS
+
+
+def _refuses_a_parse(node: ast.If) -> bool:
+    """Every refusal of this `if` stands in the `except` of a `try` that only parses."""
+    tries = [s for s in node.body if isinstance(s, ast.Try)]
+    rest = [s for s in node.body if not isinstance(s, ast.Try)]
+    if not tries or _refusal_in(rest):
+        return False
+    for attempt in tries:
+        parses = all(
+            isinstance(s, (ast.Assign, ast.Expr)) and _is_parser(s.value) for s in attempt.body
+        )
+        caught = {
+            n.id
+            for h in attempt.handlers
+            for n in ast.walk(h.type or ast.Name(id="Exception"))
+            if isinstance(n, ast.Name)
+        } | {
+            n.attr
+            for h in attempt.handlers
+            for n in ast.walk(h.type or ast.Name(id="Exception"))
+            if isinstance(n, ast.Attribute)
+        }
+        if not parses or not caught or not caught <= _PARSE_ERRORS:
+            return False
+    return True
+
+
+def _is_a_tokens_age(test: ast.expr) -> bool:
+    if not (isinstance(test, ast.Compare) and len(test.ops) == 1):
+        return False
+    if not isinstance(test.ops[0], (ast.Gt, ast.GtE)):
+        return False
+    left, limit = test.left, test.comparators[0]
+    if not (isinstance(left, ast.BinOp) and isinstance(left.op, ast.Sub)):
+        return False
+    clock = left.left
+    if not (isinstance(clock, ast.Call) and ast.unparse(clock.func) in _CLOCKS):
+        return False
+    return isinstance(limit, ast.Constant) or (
+        isinstance(limit, ast.Name) and bool(_CONSTANT.match(limit.id))
+    )
+
+
+def transport_shape(node: ast.If, function: ast.AST | None) -> str | None:
+    """The shape that makes this refusal the doorman's own, or None when it is a rule."""
+    if _is_a_tokens_age(node.test):
+        return "a token's age"
+    if _refuses_a_parse(node):
+        return "a parse"
+    if function is not None:
+        files, read = _files_of(function)
+        if (files or read) and _reads_only_a_file(node.test, files, read):
+            return "a file"
+    return None
+
+
+def _functions_around(tree: ast.AST) -> dict[ast.AST, ast.AST]:
+    """Every node → the innermost function around it."""
+    around: dict[ast.AST, ast.AST] = {}
+    for function in ast.walk(tree):
+        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for node in ast.walk(function):
+                if node is not function:
+                    around[node] = function
+    return around
+
+
 def collect_rule_in_router() -> dict[str, str]:
     """An `if` that refuses, in a router or UI module → key `file::function::condition`
-    (§B9.3); the doorman's own refusals — 401, 403, 404, 405, 429 — excepted. A rule at the door holds for that door only;
-    the service's rule holds for every entrance."""
+    (§B9.3); the doorman's own refusals — 401, 403, 404, 405, 429, and a check of the
+    transport (`transport_shape`) — excepted. A rule at the door holds for that door
+    only; the service's rule holds for every entrance."""
     found: dict[str, str] = {}
+    shapes: dict[str, int] = {}
     doors = [p for p in _python_files() if _is_door(p) and p.name != "main.py"]
     assert len(doors) > 30, f"only {len(doors)} router/UI modules — the walk is blind"
     for path in doors:
         tree = _tree(path)
         qualified = _enclosing(tree)
+        around = _functions_around(tree)
         for node in ast.walk(tree):
             if not isinstance(node, ast.If):
                 continue
             refusal = _refusal_in(node.body)
+            shape = transport_shape(node, around.get(node)) if refusal else None
+            if shape:
+                shapes[shape] = shapes.get(shape, 0) + 1
+                continue
             if refusal:
                 name = qualified.get(node, "<module>")
                 condition = ast.unparse(node.test)
@@ -1727,6 +1892,11 @@ def collect_rule_in_router() -> dict[str, str]:
                     f"{refusal[1]} — a rule belongs to the entity or its service, where "
                     f"every entrance meets it (CR-13 §B9.3)",
                 )
+    # The exception is alive only while each shape still meets real code: a shape
+    # that finds nothing excuses nothing, and would hide that its reader broke.
+    assert set(shapes) == {"a file", "a parse", "a token's age"}, (
+        f"the transport shapes found in the doors: {shapes} — one of the three is blind"
+    )
     return found
 
 
@@ -2409,8 +2579,175 @@ def test_no_new_rule_in_a_router():
     halves at once: a function in `cms/admin_ui.py` with `if page is None: raise
     HTTPException(status_code=404)` and `if page.slug == "home": raise
     HTTPException(status_code=400, …)` → exactly one new violation, the 400 on
-    `page.slug == 'home'`; the doorman's 404 stays off the list."""
+    `page.slug == 'home'`; the doorman's 404 stays off the list.
+
+    CR-13 phase 4c (#1251): a check of the transport is the doorman's too, by three
+    shapes (`transport_shape`). Their proofs are tests of their own below — each
+    shape, and beside it the offence that must stay red."""
     _ratchet("RULE_IN_ROUTER")
+
+
+def _shape_of(source: str) -> str | None:
+    """The shape the gate gives the FIRST `if` of the one function in `source`."""
+    tree = ast.parse(textwrap.dedent(source))
+    function = next(
+        n for n in ast.walk(tree) if isinstance(n, ast.AsyncFunctionDef | ast.FunctionDef)
+    )
+    first = next(n for n in ast.walk(function) if isinstance(n, ast.If))
+    assert _refusal_in(first.body), "the proof's `if` refuses nothing — it would prove nothing"
+    return transport_shape(first, function)
+
+
+_REFUSE = "raise HTTPException(status_code=400, detail='nee')"
+
+
+@pytest.mark.parametrize(
+    "condition",
+    [
+        "not data",
+        "len(data) > MAX_BYTES",
+        "file.content_type not in ALLOWED_TYPES",
+        "file is None or not file.filename",
+        "file.filename.lower().endswith('.xlsx')",
+    ],
+)
+def test_a_check_of_a_file_is_the_doormans(condition):
+    """Shape 1: the condition reads the upload or its bytes, and constants."""
+    assert (
+        _shape_of(f"""
+        async def door(file: UploadFile = File(...), title: str = Form("")):
+            data = await file.read()
+            page = load(title)
+            if {condition}:
+                {_REFUSE}
+        """)
+        == "a file"
+    )
+
+
+@pytest.mark.parametrize(
+    "condition",
+    [
+        # A text's emptiness dressed up beside a check of the file: still a rule.
+        "not data or not title.strip()",
+        # A domain object beside the file.
+        "file.content_type not in ALLOWED_TYPES and page.kind == 'poster'",
+        "len(data) > page.max_bytes",
+        # A text alone, and a text that only LOOKS like the bytes of a file.
+        "not title.strip()",
+        "not text",
+        # An attribute of a file that is no property of the upload.
+        "file.owner is None",
+    ],
+)
+def test_proof_a_rule_beside_a_file_stays_a_rule(condition):
+    assert (
+        _shape_of(f"""
+        async def door(file: UploadFile = File(...), title: str = Form("")):
+            data = await file.read()
+            text = title.strip()
+            page = load(title)
+            if {condition}:
+                {_REFUSE}
+        """)
+        is None
+    )
+
+
+def test_a_refused_parse_is_the_doormans():
+    """Shape 2: the refusal stands in the `except` of a `try` that only parses."""
+    assert (
+        _shape_of(f"""
+        def door(sort_order: str = Form("")):
+            if sort_order is not None:
+                try:
+                    number = int(sort_order or "0")
+                except ValueError:
+                    {_REFUSE}
+        """)
+        == "a parse"
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        # The `try` does more than parse: a service's refusal is not a parse error.
+        "try:\n    number = service.place(page, sort_order)\nexcept ValueError:\n    " + _REFUSE,
+        # Everything is caught: that hides more than a parse.
+        "try:\n    number = int(sort_order)\nexcept Exception:\n    " + _REFUSE,
+    ],
+)
+def test_proof_a_try_that_is_more_than_a_parse_stays_a_rule(body):
+    indented = textwrap.indent(body, " " * 8)
+    source = "def door(sort_order: str = Form('')):\n    if sort_order is not None:\n" + indented
+    tree = ast.parse(source)
+    function = tree.body[0]
+    first = function.body[0]
+    assert _refusal_in(first.body) or any(
+        _refusal_in([s]) for s in ast.walk(first) if isinstance(s, ast.stmt)
+    )
+    assert transport_shape(first, function) is None
+
+
+def test_proof_a_rule_after_a_parse_is_judged_on_its_own():
+    """The parse is the doorman's; the `if` beside it that reads a domain object is a
+    rule, and the gate meets it as an `if` of its own."""
+    tree = ast.parse(
+        textwrap.dedent(f"""
+        def door(sort_order: str = Form("")):
+            if sort_order is not None:
+                try:
+                    number = int(sort_order)
+                except ValueError:
+                    {_REFUSE}
+                if number > page.limit:
+                    {_REFUSE}
+        """)
+    )
+    function = tree.body[0]
+    outer = function.body[0]
+    inner = outer.body[1]
+    assert transport_shape(outer, function) == "a parse"
+    assert _refusal_in(inner.body) and transport_shape(inner, function) is None
+
+
+def test_the_age_of_a_token_is_the_doormans():
+    """Shape 3: a clock minus a moment, against a constant."""
+    for condition in (
+        "time.monotonic() - entry['created_at'] > _TTL_SECONDS",
+        "time.time() - issued >= 900",
+    ):
+        assert (
+            _shape_of(f"""
+            def door(token: str):
+                entry = PENDING.get(token)
+                issued = entry["at"]
+                if {condition}:
+                    {_REFUSE}
+            """)
+            == "a token's age"
+        )
+
+
+@pytest.mark.parametrize(
+    "condition",
+    [
+        # A deadline of a domain object is a rule, however much it looks like a clock.
+        "date.today() > activity.deadline",
+        "time.time() - booking.created_at > booking.component.hold_seconds",
+        "now - membership.valid_until > GRACE",
+    ],
+)
+def test_proof_a_deadline_of_the_domain_stays_a_rule(condition):
+    assert (
+        _shape_of(f"""
+        def door(token: str):
+            if {condition}:
+                {_REFUSE}
+        """)
+        is None
+    )
 
 
 def test_every_rule_in_a_router_carries_its_reason():
