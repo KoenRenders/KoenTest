@@ -22,7 +22,7 @@ components rendered live from the real macros at `/admin/design-system` (#783).
 Do not translate it unless Koen asks. User-facing UI copy is Dutch and is not
 documentation — it is unaffected by this rule.
 
-## Referring to issues in chat
+## Referring to issues and change requests in chat
 
 Koen does not know issue numbers by heart, and there are hundreds of them.
 Keep using the numbers — they are the link into GitHub — but **in chat, every
@@ -35,9 +35,19 @@ the issue's name rather than a fresh summary. Pick it from the issue title and
 reuse it. A number without a name costs Koen a lookup for every sentence; the
 name is what makes his answer fast. (Asked for on 9 September 2026.)
 
+**The same holds for a change request** (Koen, 8 October 2026: *"Ik kan al die
+nummers niet onthouden. Zelfde als met de issuenummers."*). In chat, every
+mention of a change request carries its title in parentheses, every time:
+`CR-24 (rechten in het beheer)`, `CR-21 (webshop)`, `CR-13 (domeingrenzen)`.
+Two to four Dutch words taken from the document's title, the same words every
+time. A phase or a part is named too — *fase 4 van CR-13 (domeingrenzen), de
+JSON-routes snoeien* — never a bare "4b". The same for a pull request: its
+number carries what it is, `PR #1734 (paginascherm van CR-17)`.
+
 In GitHub text — issue bodies, tracker lines, commit messages — the number alone
 is fine: GitHub shows the title on hover, and tracker lines already carry a
-description per issue.
+description per issue. A change request has no hover: in GitHub text its first
+mention in a body or a comment carries the title as well.
 
 ## Code language
 
