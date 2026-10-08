@@ -88,7 +88,13 @@
                         aria_label=_("E-mail") ~ " " ~ (nummer|default(1))) }}
   </div>
   {% if _id %}
-    {% if rij.is_primary %}{{ ui.badge(_("hoofdadres"), "blue") }}{% else %}
+    {# #1733 (CR-22 R15): an address that waits for its code says so, with the
+       badge the member's own page shows — and offers no "Maak hoofdadres": the
+       rule refuses it, so the action could only fail. The board does not
+       confirm for someone else; deleting stays possible. #}
+    {% if rij.is_primary %}{{ ui.badge(_("hoofdadres"), "blue") }}
+    {% elif not rij.confirmed %}<span data-email-waiting>{{ ui.badge(_("wacht op bevestiging"), "yellow") }}</span>
+    {% elif rij.can_be_primary %}
     <button type="button" class="{{ ui.btn_class('outline', 'sm') }}"
             hx-post="{{ basis_url }}/{{ _id }}/hoofd"
             hx-target="{{ doel }}" hx-swap="{{ swap }}">{{ _("Maak hoofdadres") }}</button>
