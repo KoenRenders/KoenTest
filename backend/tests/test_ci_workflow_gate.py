@@ -31,7 +31,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-pytestmark = pytest.mark.ui_agnostisch
+# One worker for the file (CR-29 R7): rule 4 parses every test module, once per
+# process (`_test_module_strings`) — spread over four workers that was four times.
+pytestmark = [pytest.mark.ui_agnostisch, pytest.mark.xdist_group("ci_workflow_gate")]
 
 REPO = Path(__file__).resolve().parents[2]
 BACKEND = REPO / "backend"

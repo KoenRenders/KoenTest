@@ -48,6 +48,16 @@ from tests.integration.test_designstudio_engine import PNG_2x2
 INKSCAPE = shutil.which(render.INKSCAPE) is not None
 needs_inkscape = pytest.mark.skipif(not INKSCAPE, reason="inkscape not installed")
 
+# CR-29 R7: these tests are about what the SERVICE does with a render — versions,
+# file names, staleness, publishing — and most of them render the same poster. One
+# render per distinct input (the fixture says why that is the same answer), and one
+# worker for the file, so the renders are shared instead of made once per process.
+# The renderer's own tests (`test_designstudio_engine.py`) call Inkscape unpatched.
+pytestmark = [
+    pytest.mark.usefixtures("one_render_per_input"),
+    pytest.mark.xdist_group("designstudio_renders"),
+]
+
 
 @pytest.fixture
 def activity(db_session):

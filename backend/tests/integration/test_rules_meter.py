@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import ast
 
+import pytest
+
 from tests.test_rules_gate import (
     SHAPE,
     _api_routes,
@@ -36,6 +38,10 @@ from tests.test_rules_gate import (
     collect_write_after_commit,
     collect_write_outside_service,
 )
+
+# CR-29 R7: in the worker of the rules gate. The meter counts what that gate's
+# collectors find; in the same process the heavy walks are made once for both.
+pytestmark = pytest.mark.xdist_group("rules_gate")
 
 
 def count_validators(mappers=None) -> int:

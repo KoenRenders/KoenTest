@@ -172,6 +172,59 @@ def job_queue_starts_empty(_migrate_schema):
     yield
 
 
+#: What Inkscape answered for an input, kept for the length of the process (below).
+_INKSCAPE_EXPORTS: dict[tuple, bytes] = {}
+_INKSCAPE_QUERIES: dict[str, dict] = {}
+_SVG_PREVIEWS: dict[tuple, bytes] = {}
+
+
+@pytest.fixture
+def one_render_per_input(monkeypatch):
+    """Inkscape renders and measures each distinct input once per process (CR-29 R7).
+
+    Every Design Studio test that makes a version starts Inkscape five times —
+    one measurement, four exports — at seconds apiece, and most of them hand it
+    the very same poster: the same fixture, or the same design saved four times
+    in a row. Both calls are pure functions of what they are given (an SVG, a
+    kind, a width), so the answer to an input already asked is the answer. Each
+    distinct input still goes through the real binary; a test that needs a
+    different poster gets a different render. Errors are not kept.
+
+    Asked for by name (`pytest.mark.usefixtures`), not autouse: only the tests
+    that reach Inkscape pay for the patch.
+    """
+    from pathlib import Path
+
+    from app.domains.designstudio import render
+    from app.domains.media import svg as media_svg
+
+    real_export, real_query = render.export, render.query_all
+    real_preview = media_svg.render_png
+
+    def export(svg, kind, *, png_width_px=None):
+        key = (svg, kind, png_width_px)
+        if key not in _INKSCAPE_EXPORTS:
+            _INKSCAPE_EXPORTS[key] = real_export(svg, kind, png_width_px=png_width_px)
+        return _INKSCAPE_EXPORTS[key]
+
+    def query_all(svg_path):
+        key = Path(svg_path).read_text(encoding="utf-8")
+        if key not in _INKSCAPE_QUERIES:
+            _INKSCAPE_QUERIES[key] = real_query(svg_path)
+        return dict(_INKSCAPE_QUERIES[key])
+
+    def render_png(svg, width, height):
+        key = (svg, width, height)
+        if key not in _SVG_PREVIEWS:
+            _SVG_PREVIEWS[key] = real_preview(svg, width, height)
+        return _SVG_PREVIEWS[key]
+
+    monkeypatch.setattr(render, "export", export)
+    monkeypatch.setattr(render, "query_all", query_all)
+    monkeypatch.setattr(media_svg, "render_png", render_png)
+    yield
+
+
 @pytest.fixture(autouse=True)
 def session_clock_ticks(monkeypatch):
     """The session layer's clock moves a second on every reading (#1348).
