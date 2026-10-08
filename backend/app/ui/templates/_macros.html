@@ -3109,7 +3109,10 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    156 px, and the name takes the rest. A table of eight columns (the
    registrations of a record, #1636: contact, date, products, two amounts)
    takes the narrower set, or the name would be left with 13 px (measured at
-   1 440). They stand HERE as literal classes:
+   1 440) — and its two optional columns leave by priority, or the name is
+   left with 47–76 px in a table of 900–1 100 px (#1741, measured: the
+   household's tab is 1 024 px wide at every desktop width). They stand HERE
+   as literal classes:
    the CSS build reads templates, not Python, so a width class handed over by a
    view is never generated (measured: seven columns of equal width). #}
 {% macro data_table(columns, modes={}, hx_target="", caption="", open_row="") -%}
@@ -3127,7 +3130,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
       <tr>
         {% for c in columns %}
         <th scope="col" data-cell="{{ c.cell }}"{% if c.get('priority') %} data-p="{{ c.priority }}"{% endif %}{% if c.get('sorted') %} aria-sort="{{ 'ascending' if c.sorted == 'asc' else 'descending' }}"{% endif %}
-            class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card {{ 'text-right' if c.get('num') else 'text-left' }} {% if columns|length >= 8 %}{{ 'w-[96px]' if c.get('num') else {'context': 'w-[22%]', 'status': 'w-[120px]', 'actions': 'w-[156px]', 'date': 'w-[100px]', 'more': 'w-[15%]'}.get(c.cell, '') }}{% else %}{{ 'w-[104px]' if c.get('num') else {'context': 'w-[24%]', 'status': 'w-[136px]', 'actions': 'w-[156px]', 'date': 'w-[112px]', 'more': 'w-[26%]'}.get(c.cell, '') }}{% endif %}">
+            class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card {{ 'text-right' if c.get('num') else 'text-left' }} {% if columns|length >= 8 %}{{ 'w-[96px]' if c.get('num') else {'context': 'w-[20%]', 'status': 'w-[120px]', 'actions': 'w-[156px]', 'date': 'w-[100px]', 'more': 'w-[12%]'}.get(c.cell, '') }}{% else %}{{ 'w-[104px]' if c.get('num') else {'context': 'w-[24%]', 'status': 'w-[136px]', 'actions': 'w-[156px]', 'date': 'w-[112px]', 'more': 'w-[26%]'}.get(c.cell, '') }}{% endif %}">
           {% if c.get("sort_url") %}
           <a href="{{ c.get('sort_page_url') or c.sort_url }}"{% if hx_target %} hx-get="{{ c.sort_url }}" hx-target="{{ hx_target }}" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}'{% endif %} data-sort="{{ c.key }}"
              class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 {{ 'justify-end' if c.get('num') else '' }} {{ 'font-semibold text-blue-700' if c.get('sorted') else '' }}">{{ c.label }}{{ icon("arrow-up" if c.get("sorted") == "asc" else ("arrow-down" if c.get("sorted") == "desc" else "arrow-up-down"), 14) }}</a>
@@ -3207,11 +3210,17 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    `row_actions_cell`). The grouping is data, not layout (Q41): the rows stay
    rows of the same table. A collapsed group hides its rows and shows them
    again as they were. `colspan` is the
-   table's number of columns. #}
-{% macro table_group(name, count, colspan, items=[], link=None, id="") -%}
+   table's number of columns.
+
+   `optional` (#1741): the priorities of the table's optional columns, e.g.
+   `[1, 2]`. The group row then spans that many columns less and carries one
+   empty cell per optional column, which leaves WITH its column. A fixed
+   span over a column that is gone makes the browser add a column to the
+   table (measured: 127 px of nothing at 1 024 px, taken from the name). #}
+{% macro table_group(name, count, colspan, items=[], link=None, id="", optional=[]) -%}
 <tbody data-group{% if id %} id="{{ id }}"{% endif %} x-data="{ shown: true }" :data-collapsed="(!shown).toString()">
   <tr data-group-row class="bg-surface-2">
-    <th scope="rowgroup" data-cell="name" colspan="{{ colspan - 1 }}" class="h-11 border-b border-line px-3 py-0 text-left text-sm font-semibold text-ink">
+    <th scope="rowgroup" data-cell="name" colspan="{{ colspan - 1 - optional|length }}" class="h-11 border-b border-line px-3 py-0 text-left text-sm font-semibold text-ink">
       <span class="flex flex-wrap items-center gap-x-3">
         <button type="button" data-group-toggle class="inline-flex min-h-11 items-center gap-2 text-left" @click="shown = !shown" :aria-expanded="shown.toString()">
           <span class="shrink-0 transition-transform" :class="shown ? 'rotate-90' : ''">{{ icon("chevron-right", 16) }}</span>
@@ -3220,6 +3229,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
         {% if link %}<span class="text-[13px] font-normal">{{ reference(link.label, link.href) }}</span>{% endif %}
       </span>
     </th>
+    {% for p in optional %}<td data-p="{{ p }}" data-group-filler aria-hidden="true" class="border-b border-line p-0"></td>{% endfor %}
     <td data-cell="actions" class="border-b border-line px-3 py-0">{% if items %}{{ row_actions_cell(None, items, label=name) }}{% endif %}</td>
   </tr>
   {{ caller() }}

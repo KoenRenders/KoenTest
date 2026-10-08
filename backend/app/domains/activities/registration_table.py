@@ -219,9 +219,15 @@ def registration_table(
         {"key": "naam", "label": _("Naam"), "cell": "name", **_sort_link("naam")},
         {"key": "contact", "label": _("Contact"), "cell": "context"},
         {"key": "datum", "label": _("Datum"), "cell": "date", **_sort_link("datum")},
-        {"key": "producten", "label": _("Producten"), "cell": "more"},
+        # #1741: five columns have the width their content needs (568 px
+        # together), so in a table of 900–1100 px a name was left with 47–76
+        # px and broke inside a word. The two columns a row can miss leave as
+        # the table gets narrower — the kit's own priorities, as on
+        # Betalingen: Producten first (the registration's page lists them),
+        # then Saldo. On a phone the stacked row keeps its products line.
+        {"key": "producten", "label": _("Producten"), "cell": "more", "priority": 1},
         {"key": "bedrag", "label": _("Bedrag"), "cell": "amount", "num": True},
-        {"key": "saldo", "label": _("Saldo"), "cell": "extra", "num": True},
+        {"key": "saldo", "label": _("Saldo"), "cell": "extra", "num": True, "priority": 2},
         {"key": "status", "label": _("Status"), "cell": "status"},
         {"key": "acties", "label": _("Acties"), "cell": "actions"},
     ]
