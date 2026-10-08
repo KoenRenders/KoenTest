@@ -1208,6 +1208,40 @@ session says so and Koen decides.
 - Never "clean up" surrounding code while fixing something else.
 - If a requested change requires touching something adjacent, explain what and why before doing it.
 
+## Keep it simple — straightforward software that is cheap to maintain
+
+Asked for by Koen on 8 October 2026: *"Ik hou altijd van KIS (Keep It Simple)"*
+— we build and maintain software that is straightforward and takes little
+upkeep. It is the measure for every proposal, every issue and every review.
+
+- **One rule for everyone beats a rule with exceptions.** A branch per role,
+  per kind of visitor or per screen is a cost that is paid at every later
+  change. Before adding a case, ask whether the general rule can simply hold
+  for it too. Koen on CR-22: *"ik wil zo weinig mogelijk uitzonderingen"*
+  (7 October 2026), and on a layout refinement: *"neen, we gaan het niet nog
+  complexer maken"* (8 October 2026).
+- **A proposal names the simplest option, and says what it costs to keep the
+  other.** When two options differ in what must be maintained afterwards — a
+  second wording, an extra setting, a special case — that difference is part of
+  the choice put to Koen, not a detail for the builder.
+- **A decision that makes code superfluous removes that code in the same
+  change.** The issue asks for it by name: what the old rule needed and the new
+  one does not — a branch, a helper, a test of the old behaviour, a sentence of
+  copy. This is not the "cleaning up" that *Code change discipline* forbids:
+  that is about code the change does not touch; this is the dead half of the
+  change itself. What is left standing "for now" is what nobody dares to remove
+  a year later.
+- **Fewer moving parts over cleverness.** No setting where one value will do,
+  no abstraction for a second case that does not exist yet (*Modelleer op
+  standaarden* says the same of the schema), no fallback that hides a fault.
+
+The example it was written for: where someone lands after signing in. The rule
+was "by role" — a board member to the workbench, a treasurer to payments,
+everyone else to the account page — with a page that asked for the sign-in on
+top. It became "the door decides": whoever signs in on the public site stays on
+the public site, whoever signs in to the back office lands there, for everyone.
+One sentence, no table of roles in the sign-in.
+
 ## Twee keer dezelfde reparatie? Dan is de duplicatie de bug
 
 Merk je dat je dezelfde wijziging op twee plaatsen aanbrengt, stop dan. **De fout is niet
