@@ -1711,6 +1711,60 @@ def start_sending(
     return len(recipients)
 
 
+#: How long the send waits before its one retry of a temporary fault (#1783).
+RETRY_PAUSE_SECONDS = 5
+
+
+def _wait_before_retry() -> None:
+    import time
+
+    time.sleep(RETRY_PAUSE_SECONDS)
+
+
+def failure_reason(outcome: str) -> str:
+    """Why a delivery did not leave, in words a board member can act on (#1783).
+    The kind of fault is the mail service's (`SendOutcome`); the technical line
+    stays in the application log."""
+    from app.domains.mail.api import SendOutcome
+
+    return {
+        SendOutcome.UNREACHABLE: _("mailserver niet bereikbaar (tijdelijk)"),
+        SendOutcome.REFUSED_FOR_NOW: _("tijdelijk geweigerd door de mailserver"),
+        SendOutcome.REFUSED: _("adres geweigerd door de mailserver"),
+        SendOutcome.SKIPPED: _("geen mailaccount ingesteld"),
+    }.get(outcome, _("het versturen is mislukt"))
+
+
+def resend_failed(db: Session, letter: Newsletter) -> int:
+    """Queue the failed deliveries of a letter again (#1783) and hand it back to
+    the send job. Returns how many. Only the failed ones: a delivery that left
+    is never touched, so nobody gets the letter twice. A permanent refusal is
+    included — the sender may have corrected the address since."""
+    from app.kernel.jobs import enqueue
+    from app.kernel.tenancy import current_tenant_id
+
+    if letter.status not in (LetterStatus.SENT, LetterStatus.SENDING):
+        raise NewsletterError(_("Deze nieuwsbrief is nog niet verstuurd."))
+    failed = (
+        db.query(Delivery)
+        .filter(Delivery.newsletter_id == letter.id, Delivery.status == DeliveryStatus.FAILED)
+        .all()
+    )
+    if not failed:
+        raise NewsletterError(_("Er zijn geen mislukte adressen om opnieuw te versturen."))
+    for delivery in failed:
+        delivery.status = DeliveryStatus.QUEUED
+        delivery.error = None
+    was_sending = letter.status == LetterStatus.SENDING
+    letter.status = LetterStatus.SENDING
+    letter.send_finished_at = None
+    # A letter that is still sending has its job running: it picks these up.
+    if not was_sending:
+        enqueue(db, SEND_JOB, {"newsletter_id": letter.id, "tenant_id": current_tenant_id.get()})
+    db.commit()
+    return len(failed)
+
+
 def sent_in_last_day(db: Session) -> int:
     since = _now() - timedelta(hours=24)
     return (
@@ -1754,7 +1808,7 @@ def send_batch(db: Session, newsletter_id: int, *, batch_size: int = BATCH_SIZE)
     with the next address and never mails anyone twice — except for the one
     mail that was on its way at the exact moment of a crash.
     """
-    from app.domains.mail.api import SendingQuotaReached, send_campaign_mail
+    from app.domains.mail.api import SendingQuotaReached, SendOutcome, send_campaign_mail
     from app.kernel.jobs import enqueue
     from app.kernel.tenancy import current_tenant_id
     from app.kernel.tenant_config import tenant_newsletter_daily_cap
@@ -1799,28 +1853,33 @@ def send_batch(db: Session, newsletter_id: int, *, batch_size: int = BATCH_SIZE)
         )
         text = render_text(db, letter, unsubscribe_url=unsubscribe_url)
         try:
-            outcome = send_campaign_mail(
-                delivery.email,
-                letter.subject,
-                body,
-                email_type="newsletter",
-                body_text=text,
-                reply_to=letter.reply_to_address,
-                unsubscribe_url=unsubscribe_url,
-            )
+            # #1783: a fault that may be gone a moment later gets ONE more try,
+            # here, of a mail that is known not to have left. Not a job of its
+            # own: the mail's retry job rebuilds a message from the log and would
+            # lose this letter's unsubscribe header and reply address.
+            for last_try in (False, True):
+                outcome = send_campaign_mail(
+                    delivery.email,
+                    letter.subject,
+                    body,
+                    email_type="newsletter",
+                    body_text=text,
+                    reply_to=letter.reply_to_address,
+                    unsubscribe_url=unsubscribe_url,
+                )
+                if last_try or outcome not in SendOutcome.TEMPORARY:
+                    break
+                _wait_before_retry()
         except SendingQuotaReached:
             _pause(db, letter, _now() + timedelta(hours=24))
             return "paused"
-        if outcome in ("sent", "logged"):
+        if outcome in (SendOutcome.SENT, SendOutcome.LOGGED):
             delivery.status = DeliveryStatus.SENT
             delivery.sent_at = _now()
             delivery.error = None
-        elif outcome == "skipped":
-            delivery.status = DeliveryStatus.FAILED
-            delivery.error = _("geen mailaccount ingesteld")
         else:
             delivery.status = DeliveryStatus.FAILED
-            delivery.error = _("de mailserver weigerde deze mail")
+            delivery.error = failure_reason(outcome)
         db.commit()
 
     left = (

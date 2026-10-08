@@ -275,6 +275,56 @@ def _is_quota_error(exc: Exception) -> bool:
     return any(marker in text for marker in _QUOTA_MARKERS)
 
 
+class SendOutcome:
+    """What became of one campaign mail (`send_campaign_mail`): it left, or the
+    kind of fault that kept it — named here, so a caller acts on the kind and
+    never reads the technical message (#1783).
+
+    Three kinds of fault a board member can act on, and the rest:
+
+    - `UNREACHABLE` — this server could not reach the mail server: no route, a
+      time-out, a connection that broke. Temporary; nothing was refused.
+    - `REFUSED_FOR_NOW` — the mail server answered with a temporary refusal
+      (an SMTP 4xx).
+    - `REFUSED` — the mail server answered with a permanent refusal (an SMTP
+      5xx): the address is wrong or blocked.
+    - `FAILED` — anything else, the sign-in of the mail account among it."""
+
+    SENT = "sent"
+    LOGGED = "logged"
+    SKIPPED = "skipped"
+    UNREACHABLE = "unreachable"
+    REFUSED_FOR_NOW = "refused_for_now"
+    REFUSED = "refused"
+    FAILED = "failed"
+
+    #: The faults that may be gone a moment later: worth one more try.
+    TEMPORARY = frozenset({UNREACHABLE, REFUSED_FOR_NOW})
+
+
+def fault_of(exc: Exception) -> str:
+    """The kind of fault behind an exception of the SMTP exchange (`SendOutcome`).
+
+    The order matters: every `smtplib` exception is an `OSError` too, so the
+    answers of the mail server are told apart first and what is left of
+    `OSError` is the connection itself — "[Errno 101] Network is unreachable",
+    a time-out, a name that does not resolve. `smtplib` tries every address the
+    name resolves to and raises the error of the last one."""
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        return SendOutcome.FAILED
+    if isinstance(exc, smtplib.SMTPRecipientsRefused):
+        codes = [code for code, _text in exc.recipients.values()]
+        permanent = any(code >= 500 for code in codes)
+        return SendOutcome.REFUSED if permanent else SendOutcome.REFUSED_FOR_NOW
+    if isinstance(exc, smtplib.SMTPConnectError):
+        return SendOutcome.UNREACHABLE
+    if isinstance(exc, smtplib.SMTPResponseException):
+        return SendOutcome.REFUSED if exc.smtp_code >= 500 else SendOutcome.REFUSED_FOR_NOW
+    if isinstance(exc, (smtplib.SMTPServerDisconnected, OSError)):
+        return SendOutcome.UNREACHABLE
+    return SendOutcome.FAILED
+
+
 def send_campaign_mail(
     to_email: str,
     subject: str,
@@ -291,7 +341,9 @@ def send_campaign_mail(
 
     - **No retry job.** The campaign keeps its own queue row per recipient; a
       second, independent retry mechanism could send the same letter twice.
-      The outcome is returned, and the caller records it.
+      The outcome is returned (`SendOutcome`) — for a mail that did not leave,
+      the KIND of fault (#1783) — and the caller records it and decides
+      whether to try once more.
     - **A used-up Gmail quota raises** ``SendingQuotaReached`` instead of being
       logged as a failure: the mail is fine, the day is full.
     - **Unsubscribe headers** when ``unsubscribe_url`` is given: a
@@ -351,11 +403,12 @@ def send_campaign_mail(
         if _is_quota_error(exc):
             logger.warning("Gmail-dagquotum bereikt bij %s: %s", to_email, exc)
             raise SendingQuotaReached(str(exc)) from exc
-        logger.error("Campagnemail naar %s mislukt: %s", to_email, exc)
+        fault = fault_of(exc)
+        logger.error("Campagnemail naar %s mislukt (%s): %s", to_email, fault, exc)
         _log_email(to_email, subject, body_html, email_type, MailStatus.FAILED, str(exc))
-        return "failed"
+        return fault
     _log_email(to_email, subject, body_html, email_type, MailStatus.SENT, None)
-    return "sent"
+    return SendOutcome.SENT
 
 
 def send_newsletter_confirmation(to_email: str, first_name: Optional[str], confirm_url: str) -> str:
