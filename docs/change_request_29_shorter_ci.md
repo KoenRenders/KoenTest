@@ -1,10 +1,10 @@
 # Change Request 29 — A shorter CI: the wait per push
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 8 October 2026 at Koen's request ("Hoe zouden we de CI korter kunnen maken? Dat is nu ongeveer 20 minuten."), on the master CLI's measurement and three proposals of the same day · tracking issue #1745 · build read by dev2 on #1745 taken in (8 October 2026) · **planned on v2.16 by Koen on 8 October 2026, as its first item** (phase 1 before CR-13 phase 4b; phases 2 and 3 inside v2.16) · Mistral's external review awaited · nothing is built
+**Status:** shaped on 8 October 2026 at Koen's request ("Hoe zouden we de CI korter kunnen maken? Dat is nu ongeveer 20 minuten."), on the master CLI's measurement and three proposals of the same day · tracking issue #1745 · build read by dev2 on #1745 taken in (8 October 2026) · **planned on v2.16 by Koen on 8 October 2026, as its first item** (phase 1 before CR-13 phase 4b; phases 2 and 3 inside v2.16) · Mistral's external review of 8 October taken in · nothing is built
 **Tracking issue:** #1745 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the CI workflow (`.github/workflows/backend-tests.yml`), the pytest fixtures (`backend/tests/conftest.py`), the local test scripts (`scripts/test-local.sh`, `scripts/e2e-local.sh`), and the master CLI's scripts outside the repository that wait for a run
-**Reading:** A 1353 words · B 2765 · C 3669 (about 2 535 without the decisions log: 35 over, the levels paragraph of B7) — measured on 8 October 2026 without drawings; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1414 words · B 2872 · C 3870 (about 2 535 without the decisions log: 35 over, the levels paragraph of B7) — measured on 8 October 2026 without drawings; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -79,7 +79,7 @@ flowchart LR
 
 | # | Benefit | Figure |
 |---|---|---|
-| 1 | A dev CLI hands over sooner and Koen sees a fix on HDEV sooner | about 12 minutes per push, at ten to fifteen handovers a day |
+| 1 | A dev CLI hands over sooner and Koen sees a fix on HDEV sooner | about 8 minutes per push after phase 1, about 12 after phase 2, at ten to fifteen handovers a day |
 | 2 | The master CLI's merge-and-deploy chain shortens by two waits | one run per commit instead of two, none for docs |
 | 3 | Fewer runs queue behind each other on busy days | 115 runs of six jobs a day go to about half |
 | 4 | A hung run stops itself | the six-hour run of 7 October ends at 30 minutes |
@@ -98,7 +98,7 @@ flowchart LR
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
-| R1 | A push gets its green or red within about five minutes, measured as the wall time of the run. | Must | Koen, 8 Oct 2026 | the ceiling is the longest job |
+| R1 | A push gets its green or red within about five minutes, measured as the wall time of the run. | Must | Koen, 8 Oct 2026 | the ceiling is the longest job; after phase 1 that is the browser job (9–11 min), after phase 2 under 6 — both in v2.16 (B6) |
 | R2 | One commit starts one run, and a commit that changes only documentation starts none. | Must | the master CLI's proposal 3, 8 Oct 2026 | the pull-request run is the one kept: it tests the branch combined with master |
 | R3 | A run that hangs ends by itself. | Must | C1: the run of 361 minutes | 30 minutes per job |
 | R4 | What CI checks, the local script checks too, with the same tools and the same speed. | Should | A2 step 5 | `ruff` locally; the same number of processes |
@@ -121,12 +121,12 @@ This change has nothing to see on HDEV; it is signed off on GitHub's run page an
 
 | # | Criterion | Requirement | Walkthrough steps |
 |---|---|---|---|
-| AC1 | Five consecutive runs on master, after the change, each finish within 6 minutes wall time (measured from `gh run list`). | R1 | W1 |
+| AC1 | Five consecutive runs on master, each within the number of the phase: **11 minutes after phase 1** (the browser job is then the longest), **6 minutes after phase 2**; measured from `gh run list`. | R1 | W1 |
 | AC2 | A commit on a feature branch with an open pull request starts exactly one run; a second push cancels the first run if it still runs. | R2 | W2 |
 | AC3 | A commit on master that changes only files under `docs/` starts no run. | R2 | W3 |
 | AC4 | Every job carries a time limit of 30 minutes, visible in the workflow file. | R3 | W4 |
 | AC5 | The number of tests that passed is the same before and after (5 598 passed, 1 skipped on 8 October), and the coverage threshold of 85 % still blocks. | R5 | W1 |
-| AC6 | `scripts/test-local.sh` runs `ruff`, `mypy`, the css check and pytest in four processes, and reports the same result as CI for the same commit. | R4 | W5 |
+| AC6 | `scripts/test-local.sh`, run without `SNEL=1` and without a test selection, runs `ruff`, `mypy`, the css check and pytest in four processes, and reports the same result as CI for the same commit; with a selection it runs that selection in one process (Q2). | R4 | W5 |
 
 ---
 
@@ -134,7 +134,7 @@ This change has nothing to see on HDEV; it is signed off on GitHub's run page an
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
-The run's wall time is its longest job, pytest at 11 to 19 minutes, of which the tests themselves take 10 to 16 minutes in one process on a four-core runner. The tests are made to run in **four processes** (pytest-xdist), each against its **own test database** (named from the worker id where the URL is set today, before the engine exists), with the coverage of the four combined as pytest-cov already does for xdist; the estimate is a pytest job of about five minutes. Around it, the workflow starts **one run per commit** — the pull-request run for a branch, the push run for master — cancels a pull request's run that a newer push makes stale, starts **none for a commit that changes only change-request documents**, and gives **every job a time limit**. The local script gets the same `ruff` and the same four processes. When the browser job is then the longest, it is split in two the same way (phase 2).
+The run's wall time is its longest job, pytest at 12 to 19 minutes, of which the tests themselves take 11 to 16 minutes in one process on a four-core runner (C1). The tests are made to run in **four processes** (pytest-xdist), each against its **own test database** (named from the worker id where the URL is set today, before the engine exists), with the coverage of the four combined as pytest-cov already does for xdist; the estimate is a pytest job of about five minutes. Around it, the workflow starts **one run per commit** — the pull-request run for a branch, the push run for master — cancels a pull request's run that a newer push makes stale, starts **none for a commit that changes only change-request documents**, and gives **every job a time limit**. The local script gets the same `ruff` and the same four processes. When the browser job is then the longest, it is split in two the same way (phase 2).
 
 - **D1 — pytest in four processes, one database per process.** `pytest -n 4`; the database name takes the worker's name at the top of `conftest.py`, where `DATABASE_URL` is set before the app and its engine are imported — the engine is created at import, so a fixture is too late (build read A1); the session fixture only creates a missing database through a separate connection. The four schema resets never meet. Tests are distributed one by one; `--dist loadfile` (a file's tests stay together) is the fallback if the sweep of F3 finds many order dependences. Rejected: a job matrix of four shards — four runners of setup (containers, pip, Inkscape, mypy: 60 to 160 s each), coverage merged by hand across artefacts, forty lines of YAML; xdist is one flag and one fixture.
 - **D2 — one run per commit; none for documentation.** The push trigger keeps `master` only; `pull_request` stays on `master`. An outside builder's slice against an integration branch had the push run as its only run (build read A2) — until Koen's rule of 8 October (`AGENTS.md`, `fa4f3f0a`): one branch per change request with one open pull request against master from day one, so its run is the pull-request run (Q4). A feature branch runs through its pull request, which tests the merge with master. `concurrency` cancels a stale run on a pull request only: a master run is what the HDEV deploy and the release evidence wait for (A3). `paths-ignore` names only `docs/change_request_*.md`: tests read other Markdown (A4; Q5). Rejected: keeping both runs "for safety" — the push run tests the tip alone and nothing the pull-request run does not; a branch without a pull request gets no run, which is the handover convention already (a handover is a pull request).
@@ -149,7 +149,7 @@ The run's wall time is its longest job, pytest at 11 to 19 minutes, of which the
 |---|---|---|
 | F1 | A worker's database is named from the base URL plus `PYTEST_XDIST_WORKER` (`raaktest_gw0` … `gw3`) at the top of `conftest.py`, before the engine is created; the fixture creates it when missing; without xdist the name stays `raaktest`; the engine is bound to the worker's name (T2). | R1 |
 | F2 | The coverage threshold is computed over the four workers together, not per worker. | R5 |
-| F3 | Order dependence across the whole suite is found before the switch: the suite three times under `-n 4` and once in one process in shuffled order; a difference between runs is a finding, fixed in the test it names (the known places are in C1). | R5, C1 |
+| F3 | Order dependence across the whole suite is found before the switch: the suite three times under `-n 4` and once in one process in shuffled order — a five-line `pytest_collection_modifyitems` hook in `conftest.py` that shuffles with the seed of `TEST_SHUFFLE=<seed>` and prints it, no plugin; a difference between runs is a finding, fixed in the test it names (the known places are in C1). | R5, C1 |
 | F4 | The master CLI's scripts outside the repository, the dev CLIs' handover convention and the pull-request template ask one run per tip: the pull-request run for a branch, the push run for master. A commit or a pull request without a run counts as green when its diff is docs-only; the release evidence cites the run of the last code commit. | R2 |
 | F5 | A job's time limit is 30 minutes, in the workflow, for every job. | R3 |
 
@@ -189,7 +189,7 @@ flowchart LR
 | R6 | phase 2, measured first | — | workflow | T6 | — |
 | R7 | phase 3: parse once, render once | — | tests | T7 | — |
 
-**Walkthrough** — W1 After the merge: `gh run list --branch master --limit 5` shows five runs, each under 6 minutes; the pytest job's summary line says `5598 passed` (or more, never fewer) and the coverage line stands. W2 Push a commit to a branch with a pull request, then a second one: `gh run list --branch <branch>` shows one run per commit, the first cancelled if it was still running. W3 Push a change under `docs/` to master: no new run appears. W4 Open the workflow file: every job has `timeout-minutes: 30`. W5 Run `scripts/test-local.sh` on the same commit: it prints the ruff, mypy and css steps and `5598 passed` in four workers, and the verdict equals CI's.
+**Walkthrough** — W1 After the merge of each phase: `gh run list --branch master --limit 5` shows five runs, each under the phase's number of AC1; the pytest job's summary line says `5598 passed` (or more, never fewer) and the coverage line stands. W2 Push a commit to a branch with a pull request, then a second one: `gh run list --branch <branch>` shows one run per commit, the first cancelled if it was still running. W3 Push a change under `docs/` to master: no new run appears. W4 Open the workflow file: every job has `timeout-minutes: 30`. W5 Run `scripts/test-local.sh` on the same commit, without `SNEL` and without `-k`: it prints the ruff, mypy and css steps and `5598 passed` in four workers, and the verdict equals CI's.
 
 ## B3. The whole across the modules — for the architect
 
@@ -268,8 +268,8 @@ Checked and not bent: `.github/` is edited by Koen or the master CLI only (`AGEN
 |---|---|---|---|
 | Q1 | Does a docs-only commit on master skip HDEV too, or does the master CLI still deploy it (a deploy of documentation changes nothing on HDEV)? | Skip: the `ci-then-hdev` script treats "no run" as "nothing to deploy" (F4). | Keep: the script deploys without waiting; one branch in the script either way. |
 | Q2 | Is the local script's four-process run the default, or opt-in (`SNEL=1` already exists for a partial run)? | Default: the same mechanism local and on CI is the point (R4). | Opt-in keeps today's behaviour for a CLI that debugs one test; `-k` already serves that. |
-| Q5 | The docs filter: only `docs/change_request_*.md`, or wider? | Only the change-request documents: that is where the fifteen docs commits a day go, and no test reads them. | Wider saves a few runs more and leans on the gate's check (C7). |
 | Q3 | Phase 2 now, in the same pull request, or after phase 1's measurement? | After: the browser job is 8.7 to 10.5 minutes today and becomes the longest once pytest drops; the split is small, and measuring first says whether 2 jobs or 3. | Now: one pull request, one build read, and the estimate of about 5 minutes for the whole run is reached in one step. |
+| Q5 | The docs filter: only `docs/change_request_*.md`, or wider? | Only the change-request documents: that is where the fifteen docs commits a day go, and no test reads them. | Wider saves a few runs more and leans on the gate's check (C7). |
 
 ## B9. Decisions log — dated answers
 
@@ -278,6 +278,7 @@ Checked and not bent: `.github/` is edited by Koen or the master CLI only (`AGEN
 | 8 Oct 2026 | Koen asks how the CI can be shorter; the master CLI measures three runs and proposes pytest in parallel, the browser tests in two halves, and one run per commit with none for docs; Koen sends the three to the architecture CLI for a change request. Shaped here as D1–D5; not on a release. | Koen |
 | 8 Oct 2026 | Build read by dev2 (#1745) taken in, every point; the Q&A log lists them. One is Koen's to decide: Q5. | architecture CLI |
 | 8 Oct 2026 | Steps 1–3 on v2.16, as its first item ("Ik ben het helemaal met je eens"); phase 3 — the four slow files — added as D6/R7; the three test levels and the place of contract testing recorded in B7. Mistral reads the document as the external review; a targeted look by the master CLI at F4, B4 and Q1 (her scripts) proposed. | Koen |
+| 8 Oct 2026 | Mistral's external review (pasted by Koen; on #1745) taken in: AC1 and R1 carry a number per phase — 11 minutes after phase 1, 6 after phase 2, both in v2.16; the shuffle of F3 is a conftest hook with a seed, no plugin; AC6, W5 and T5 carry Q2's exception; one duration range from C1; the gate asserts both triggers. The three cosmetic points taken too. | architecture CLI |
 | 8 Oct 2026 | Q4 answered by Koen's rule of the same day (`AGENTS.md` *A builder outside the Claude series*, `fa4f3f0a`): an outside builder builds a change request on one branch `cr<nn>/<name>` with one open pull request against master from day one — so the pull-request run is its run, and no integration branch enters the triggers. | Koen |
 
 ---
@@ -315,7 +316,7 @@ Checked and not bent: `.github/` is edited by Koen or the master CLI only (`AGEN
 | Module | What must happen | Reads |
 |---|---|---|
 | **tests — conftest** | At the top of the file, where `TEST_DATABASE_URL` is read today: if `PYTEST_XDIST_WORKER` is set, append `_<worker>` to the database name before `DATABASE_URL` is set and before `app.database` creates the engine; without xdist nothing changes. The session fixture, before the schema reset, connects to the base database with autocommit and creates the worker's database if it is missing. The guard on the name (`raaktest…`) stays and covers the suffixed names. | `backend/tests/conftest.py:17-21, 34, 50-75`; `app/database.py:8` |
-| **tests — the sweep (F3)** | before the switch: the whole suite three times under `-n 4` and once in one process in shuffled order; every difference between runs is fixed in the test it names (a row committed outside the savepoint, a registry that an earlier import filled, a cache), one line each with the reason; a test that must run alone is marked `xdist_group`. If the sweep finds many, `--dist loadfile` is the cheap way out (D1), at the price of the 128 s file bounding one worker. | C1, *Worker-safety* |
+| **tests — the sweep (F3)** | before the switch: the whole suite three times under `-n 4` and once in one process in shuffled order (`TEST_SHUFFLE=<seed>`, the hook of F3 — reproducible by its seed; no plugin, so no new dependency); every difference between runs is fixed in the test it names (a row committed outside the savepoint, a registry that an earlier import filled, a cache), one line each with the reason; a test that must run alone is marked `xdist_group`. If the sweep finds many, `--dist loadfile` is the cheap way out (D1), at the price of the 128 s file bounding one worker. | C1, *Worker-safety* |
 | **requirements-dev.txt** | `pytest-xdist`, pinned to the current release, with one comment line naming this change. | `backend/requirements-dev.txt` |
 | **workflow** (the master CLI, on Koen's word) | `on.push.branches: ["master"]`; `pull_request` unchanged (Q4); `paths-ignore: ["docs/change_request_*.md"]` on both triggers (Q5); top-level `concurrency: {group: ci-${{ github.ref }}, cancel-in-progress: ${{ github.event_name == 'pull_request' }}}`; `timeout-minutes: 30` on the five jobs without one; the pytest step adds `-n 4 --durations=25` (the `-v` lines arrive interleaved with a worker prefix, so the per-file timing of C1 needs `--durations` from now on). Nothing else moves. | `backend-tests.yml:3-7, 88, 127`, every `jobs.<name>` |
 | **scripts/test-local.sh** | `ruff format --check .` and `ruff check .` before mypy (in the helper container, which installs `requirements-dev.txt` — the same `ruff==0.16.9` as CI); pytest with `-n 4` unless `SNEL=1` or a `-k`/path argument is given (Q2); the dev CLIs' direct `pytest` calls in the container are untouched. The per-worktree database name becomes the base of the four worker names; they live and die with it (today nothing removes the base either). `tests/test_lokale_testrunner.py` pins the script: the ruff step and the guard's acceptance of `raaktest_<slug>_gw0` go through it (T5). | `scripts/test-local.sh:100-161`, `tests/test_lokale_testrunner.py` |
@@ -377,8 +378,8 @@ Nothing leaves or enters: CI runs on invented seed data, as today. The new depen
 | T1 | The suite under `-n 4` passes with the same count as in one process (5 598 on 8 October), and the coverage line reports one number for the whole | a test is lost in the split, or a worker's coverage is counted alone |
 | T2 | Two workers never share a database: under a worker id the engine's URL ends in `_gw<n>` and the schema reset runs there; without one it ends in `raaktest` — asserted on `engine.url`, not on a name the fixture computes | the suffix is dropped, or applied after the engine exists |
 | T3 | The sweep of F3: three runs under `-n 4` and one shuffled single-process run agree test by test, not only in their count | a test depends on its predecessors |
-| T4 | The gate of C7: every job has `timeout-minutes`; the pytest step carries `-n`; `push` triggers on `master` only; cancel-in-progress excludes master; no test names a path in `paths-ignore` | the workflow drifts, or stops testing something silently |
-| T5 | `tests/test_lokale_testrunner.py`: the script runs ruff before mypy and pytest with `-n 4`, and its guard admits `raaktest_<slug>_gw0` | the local script loses a step, or refuses a worker's name |
+| T4 | The gate of C7: every job has `timeout-minutes`; the pytest step carries `-n`; `push` and `pull_request` each trigger on `master` only, no second pattern; cancel-in-progress excludes master; no test names a path in `paths-ignore` | the workflow drifts, or stops testing something silently |
+| T5 | `tests/test_lokale_testrunner.py`: the script runs ruff before mypy and pytest with `-n 4` when called without `SNEL` or a selection, and without `-n` when called with one; its guard admits `raaktest_<slug>_gw0` | the local script loses a step, refuses a worker's name, or parallelises a single test |
 | T6 | Phase 2: the two e2e parts together list every file of `tests_e2e/` once | a file falls between the parts |
 | T7 | Phase 3: the four files keep every test and every assertion (counted per file before and after); their time is reported from `--durations`, not gated | a test or an assertion is dropped for speed |
 
@@ -386,7 +387,7 @@ The existing tests change only where F3 names them; a test that was green alone 
 
 ## C7. The gate — what refuses a deviation from now on
 
-`tests/test_ci_workflow_gate.py`, **hard**: reads `.github/workflows/backend-tests.yml` with PyYAML (already a dev dependency) and asserts (1) every job has `timeout-minutes` ≤ 30 — message "CI job `<name>` has no time limit — CR-29"; (2) the pytest step's `run` contains `-n` — "pytest runs in one process — CR-29"; (3) `on.push.branches == ["master"]` and `concurrency` is set with cancel-in-progress excluding master — "one run per commit, and a master run finishes — CR-29"; (4) for every entry of `paths-ignore`, no file under `backend/tests` or a domain's `tests/` names that path — "a test reads `<path>`; the docs filter would skip it — CR-29". Proven additively: add a seventh job without a limit in a scratch copy of the file and point the gate at it; it fails with (1); add `docs/reporting-universe.md` to the filter in the copy; it fails with (4); remove both. The gate is the one place that keeps the workflow (edited only by Koen or the master CLI) and this rule from drifting; it does not read the master CLI's scripts outside the repository.
+`tests/test_ci_workflow_gate.py`, **hard**: reads `.github/workflows/backend-tests.yml` with PyYAML (already a dev dependency) and asserts (1) every job has `timeout-minutes` ≤ 30 — message "CI job `<name>` has no time limit — CR-29"; (2) the pytest step's `run` contains `-n` — "pytest runs in one process — CR-29"; (3) `on.push.branches == ["master"]` and `on.pull_request.branches == ["master"]`, no second pattern on either, and `concurrency` is set with cancel-in-progress excluding master — "one run per commit, and a master run finishes — CR-29"; (4) for every entry of `paths-ignore`, no file under `backend/tests` or a domain's `tests/` names that path — "a test reads `<path>`; the docs filter would skip it — CR-29". Proven additively: add a seventh job without a limit in a scratch copy of the file and point the gate at it; it fails with (1); add `docs/reporting-universe.md` to the filter in the copy; it fails with (4); remove both. The gate is the one place that keeps the workflow (edited only by Koen or the master CLI) and this rule from drifting; it does not read the master CLI's scripts outside the repository.
 
 ## C8. Prototype findings — what was measured before the build
 
@@ -413,6 +414,8 @@ No screen: nothing to show.
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
+| — | 8 Oct 2026 | The master CLI's measurement of three master runs and its three proposals (pytest in parallel, the browser tests in halves, one run per commit and none for docs), relayed to the architecture CLI on Koen's request — the trigger of this document. | Shaped as D1–D5 (B1); the three proposals are all in; the measurement re-done in C1 on 195 runs. (architecture CLI) |
+| — | 8 Oct 2026 | External review by Mistral (pasted by Koen in chat, posted on #1745 by Mistral). | Taken in: 1 (AC1/R1 per phase; A4 and W1 follow), 2 (the shuffle hook, no plugin), 3 (AC6/W5/T5 with Q2's exception), 4 (one range, C1's), 6 (both triggers in the gate); 5, 7, 8 taken as well (B8 in number order; this row; the count of jobs left as it is, one source: C1). Not taken: nothing. (architecture CLI) |
 | — | 8 Oct 2026 | Build read by dev2 (#1745, issuecomment-6057294771), against master `dac57141`, nothing run. | Taken in: A1 (the worker's name at import; T2 on the engine), A2 (first as integration branches in both triggers; then Q4 answered by Koen's one-branch rule of 8 October, so the triggers stay), A3 (no cancel on master), A4 (the filter narrowed; the gate checks it; Q5), A5 (1 of 6), B1 and B2 (the handover convention, the docs-only pull request, the release evidence), B3 (the sweep of the whole suite; `--dist loadfile` as fallback), B5 (the runner's own test, the worker databases, the machine rule), B6 (`--durations=25`), B8 (the gate extended), the stable split of phase 2, the limiter's wording. Not taken: nothing. B4, B7 and the observations recorded in C1 and C4. (architecture CLI) |
 
 ## Non-goals — deliberately outside this change
