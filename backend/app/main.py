@@ -25,8 +25,6 @@ from app.domains.auth.handlers import (  # noqa: F401 - event subscriptions (#17
 from app.domains.auth.router import router as auth_router
 from app.domains.auth.ui import router as auth_ui_router
 from app.domains.chatbot.admin_ui import router as chatbot_admin_ui_router
-from app.domains.chatbot.info_router import router as chatbot_info_router
-from app.domains.chatbot.router import router as chat_router
 from app.domains.chatbot.stt.router import router as stt_router
 from app.domains.chatbot.ui import router as chatbot_ui_router
 from app.domains.cms.admin_ui import router as cms_admin_ui_router
@@ -197,12 +195,10 @@ SHELL_ROUTERS = (
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(members_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
-app.include_router(chat_router, prefix="/api/v1", dependencies=_module(M.CHATBOT))
 app.include_router(stt_router, prefix="/api/v1")
 app.include_router(cms_router, prefix="/api/v1", dependencies=_module(M.CMS))
 app.include_router(mdm_router, prefix="/api/v1")
 app.include_router(media_router, prefix="/api/v1", dependencies=_module(M.MEDIA))
-app.include_router(chatbot_info_router, prefix="/api/v1", dependencies=_module(M.CHATBOT))
 app.include_router(member_household_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
 app.include_router(mdm_household_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
 app.include_router(member_import_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))

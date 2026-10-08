@@ -142,7 +142,7 @@ def _reset_rate_limiters():
     for lim in found:
         lim._calls.clear()
     # Chatbot-dagbudget houdt eigen state per IP; reset zodat tests niet erven.
-    from app.domains.chatbot.router import chat_char_budget
+    from app.domains.chatbot.limits import chat_char_budget
 
     chat_char_budget._usage.clear()
     yield

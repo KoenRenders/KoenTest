@@ -73,6 +73,23 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db), vraag: str = F
             "_raakje_antwoord.html",
             {"vraag": vraag, "antwoord": None, "error": _("Typ eerst een vraag.")},
         )
+    # One question has a length (#1251). The cap stood at the JSON route only,
+    # which no visitor used; here it comes before the budget is charged and
+    # before anything goes to the provider. The field carries the same number
+    # as its `maxlength`; this is the door that holds when a script posts.
+    if len(vraag) > settings.chat_max_input_chars:
+        return templates.TemplateResponse(
+            request,
+            "_raakje_antwoord.html",
+            {
+                "vraag": vraag,
+                "antwoord": None,
+                "error": _("Bericht is te lang (max {max} tekens). Stel je vraag korter.").format(
+                    max=settings.chat_max_input_chars
+                ),
+            },
+            headers=NOT_ANSWERED,
+        )
     chat_char_budget.charge(request, len(vraag))
     messages = [
         {"role": "system", "content": build_system_prompt(db)},

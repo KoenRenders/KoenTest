@@ -42,7 +42,6 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 pytestmark = pytest.mark.ui_serverrendered
 
 BELL = 'id="raakje-widget-gesprek"'
-CHAT = {"messages": [{"role": "user", "content": "Wat is Raak?"}]}
 
 
 @pytest.fixture
@@ -74,7 +73,6 @@ def test_public_off_hides_the_bell_and_refuses_while_the_back_office_works(
 
     assert BELL not in client.get("/").text
     assert client.post("/raakje/vraag", data={"vraag": "Wat is Raak?"}).status_code == 404
-    assert client.post("/api/v1/chat", json=CHAT).status_code == 404
     assert tenant_public_chat_enabled(db_session, TENANT_MILLEGEM_ID) is False
     # The back office is its own switch.
     assert tenant_admin_chat_enabled(db_session, TENANT_MILLEGEM_ID) is True
