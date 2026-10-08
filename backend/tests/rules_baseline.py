@@ -465,17 +465,12 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
 # mdm (B2.5); phase 2 turns `_activate_membership` into a membership handler.
 FOREIGN_WRITES: frozenset[str] = frozenset(
     {
-        "domains/audit/service.py::snapshot_activity → activities.ActivityHistory",
-        "domains/audit/service.py::snapshot_activity_date → activities.ActivityDateHistory",
         "domains/audit/service.py::snapshot_address → mdm.AddressHistory",
-        "domains/audit/service.py::snapshot_component → activities.ComponentHistory",
         "domains/audit/service.py::snapshot_contact_detail → mdm.ContactDetailHistory",
         "domains/audit/service.py::snapshot_member → mdm.MemberHistory",
         "domains/audit/service.py::snapshot_member_person → mdm.MemberPersonHistory",
         "domains/audit/service.py::snapshot_membership → membership.MembershipHistory",
         "domains/audit/service.py::snapshot_person → mdm.PersonHistory",
-        "domains/audit/service.py::snapshot_product → activities.ProductHistory",
-        "domains/audit/service.py::snapshot_registration_item → activities.RegistrationItemHistory",
         "domains/mdm/import_service.py::_create_admin_users → auth.User",
         "domains/mdm/import_service.py::_create_admin_users → auth.UserRole",
         "domains/mdm/import_service.py::_ensure_membership → membership.Membership",
@@ -531,27 +526,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/activities/fiche.py::_store_files → media.api.store_activity_poster",  # #1559: the attachments of the one save
         "domains/activities/fiche.py::_store_files → media.api.store_component_info",  # #1559: the attachments of the one save
         "domains/activities/router.py::create_registration → payment.api.create_payment_record",
-        "domains/activities/service.py::insert_date → audit.api.snapshot_activity_date",  # #1559: moved with the core out of `add_activity_date`
-        "domains/activities/service.py::_insert_component → audit.api.snapshot_component",
-        "domains/activities/service.py::_insert_product → audit.api.snapshot_product",
-        "domains/activities/service.py::_add_activity → audit.api.snapshot_activity",
-        "domains/activities/service.py::_add_activity → audit.api.snapshot_activity_date",
-        "domains/activities/service.py::delete_activity → audit.api.snapshot_activity",
-        "domains/activities/service.py::delete_activity → audit.api.snapshot_activity_date",
-        "domains/activities/service.py::delete_activity → audit.api.snapshot_component",
-        "domains/activities/service.py::delete_activity → audit.api.snapshot_product",
-        "domains/activities/service.py::remove_date → audit.api.snapshot_activity_date",  # #1559: moved with the core out of `delete_activity_date`
-        "domains/activities/service.py::remove_component → audit.api.snapshot_component",  # #1559: moved with the core out of `delete_component`
-        "domains/activities/service.py::remove_component → audit.api.snapshot_product",  # #1559: moved with the core out of `delete_component`
-        "domains/activities/service.py::remove_product → audit.api.snapshot_product",  # #1559: moved with the core out of `delete_product`
-        "domains/activities/service.py::delete_registration → audit.api.snapshot_registration_item",
-        "domains/activities/service.py::register → audit.api.snapshot_registration_item",
-        "domains/activities/service.py::apply_activity_update → audit.api.snapshot_activity",  # #1559: moved with the core out of `update_activity`
-        "domains/activities/service.py::apply_date_update → audit.api.snapshot_activity_date",  # #1559: moved with the core out of `update_activity_date`
-        "domains/activities/service.py::apply_component_update → audit.api.snapshot_component",  # #1559: moved with the core out of `update_component`
-        "domains/activities/service.py::update_order_line → audit.api.snapshot_registration_item",
-        "domains/activities/service.py::set_order_quantities → audit.api.snapshot_registration_item",  # #1494: same coupling as add/update/delete_order_line which it bundles, in one transaction; the port of all four is #1502 (Koen, 2 October 2026)
-        "domains/activities/service.py::apply_product_update → audit.api.snapshot_product",  # #1559: moved with the core out of `update_product`
         "domains/auth/login.py::start_login → mail.api.send_magic_link",
         "domains/auth/login.py::start_login → mail.api.send_member_contact_board_notice",
         "domains/chatbot/tools.py::submit_idea → forms.api.submit_bericht",

@@ -5,7 +5,8 @@ The snapshot functions of activities move from `audit/service.py` to their owner
 owner). The move changes no row: each function is given one fixed source and
 every column of the row it writes is compared with what the code wrote before
 the move. `EXPECTED` was recorded on the old code (9 October 2026, the functions
-still in `audit/service.py`) and has not been touched since.
+still in `audit/service.py`) and has not been touched since: the move changed the import
+above and nothing below it.
 
 Proven red (9 October 2026): `name=product.name` taken out of `snapshot_product` → its row differs.
 """
@@ -25,7 +26,7 @@ from app.domains.activities.api import (
     ProductHistory,
     RegistrationItemHistory,
 )
-from app.domains.audit.api import (
+from app.domains.activities.history import (
     snapshot_activity,
     snapshot_activity_date,
     snapshot_component,
