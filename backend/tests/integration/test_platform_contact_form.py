@@ -258,12 +258,18 @@ def test_a_label_with_markup_is_escaped(client, platform_workspace, db_session):
             {
                 "type": "paragraph",
                 "content": [
+                    {"type": "text", "text": "{{form:berichten|<b>vet</b>}}"},
+                ],
+            },
+            {
+                "type": "paragraph",
+                "content": [
                     {
                         "type": "text",
-                        "text": "{{form:berichten|<b>vet</b>}}",
-                    }
+                        "text": "{{form:berichten|<script>alert(1)</script> & meer}}",
+                    },
                 ],
-            }
+            },
         ],
     }
     save_document(db_session, home.id, document)
@@ -272,9 +278,12 @@ def test_a_label_with_markup_is_escaped(client, platform_workspace, db_session):
     home_html = client.get("/").text
 
     labels = [label for _href, label in _button(home_html)]
-    assert labels == ["&lt;b&gt;vet&lt;/b&gt;"]
+    assert labels == [
+        "&lt;b&gt;vet&lt;/b&gt;",
+        "&lt;script&gt;alert(1)&lt;/script&gt; &amp; meer",
+    ], f"the labels lost their escaping: {labels}"
     main = home_html[home_html.index("cms-content") :]
-    assert "<b>vet</b>" not in main
+    assert "<b>vet</b>" not in main and "<script>alert(1)" not in main
 
 
 def test_the_editor_lists_the_code_with_its_two_forms():

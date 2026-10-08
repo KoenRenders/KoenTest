@@ -70,10 +70,21 @@ def _lijst_ctx(db: Session, q: str = "", status: str = "") -> dict:
     }
 
 
-def _record_ctx(request: Request, db: Session, page, *, error=None, toast: bool = False) -> dict:
+def _record_ctx(
+    request: Request,
+    db: Session,
+    page,
+    *,
+    error=None,
+    toast: bool = False,
+    document: str | None = None,
+) -> dict:
     """Everything the record page needs, built in one place (snede 3, #1671):
     the editor's configuration and her document, the draft's state against
-    the published version, and the history the author can go back to."""
+    the published version, and the history the author can go back to.
+    `document`: the POSTED document of a refused save (the review's A3,
+    #1734) — the editor re-opens what the author typed, not the stored
+    draft her words would otherwise replace."""
     import json as _json
 
     from app.domains.cms.api import (
@@ -87,7 +98,9 @@ def _record_ctx(request: Request, db: Session, page, *, error=None, toast: bool 
 
     return {
         "p": page,
-        "document_json": _json.dumps(editable_document(db, page)),
+        "document_json": (
+            document if document is not None else _json.dumps(editable_document(db, page))
+        ),
         "editor_config": schema.schema_for("page"),
         # The value codes the author can type in the document (#1615): the
         # legend in WORDS, one source with the public renderer's examples —
@@ -103,7 +116,13 @@ def _record_ctx(request: Request, db: Session, page, *, error=None, toast: bool 
 
 
 def _record_response(
-    request: Request, db: Session, page_id: int, *, error=None, toast: bool = False
+    request: Request,
+    db: Session,
+    page_id: int,
+    *,
+    error=None,
+    toast: bool = False,
+    document: str | None = None,
 ):
     """The record page, or a 404 — the hand-built detail fragment of the
     master-detail is gone (snede 3, #1671: the page screen is a record page
@@ -117,12 +136,17 @@ def _record_response(
     # whole shell (nesting shells is how a boosted screen breaks).
     if is_fragment_request(request):
         return templates.TemplateResponse(
-            request, "_cp_record.html", _record_ctx(request, db, page, error=error, toast=toast)
+            request,
+            "_cp_record.html",
+            _record_ctx(request, db, page, error=error, toast=toast, document=document),
         )
     return templates.TemplateResponse(
         request,
         "admin_pagina.html",
-        {"nav_items": admin_nav(NAV), **_record_ctx(request, db, page, error=error, toast=toast)},
+        {
+            "nav_items": admin_nav(NAV),
+            **_record_ctx(request, db, page, error=error, toast=toast, document=document),
+        },
     )
 
 
@@ -215,12 +239,13 @@ def pagina_bijwerken(
     show_in_footer: str = Form(""),
     sort_order: str | None = Form(None),
 ):
-    """Opslaan (snede 3, #1671): the fields on the record, the document through
-    the save adapter into the draft — C6 4: nothing published changes here.
-    A refusal names what the schema refused, on the screen, and saves nothing."""
-    import json as _json
-
-    from app.domains.cms.api import document_from_editor, save_document, update_page
+    """Opslaan (snede 3, #1671): the record's fields and the document in ONE
+    save (the review's A3, #1734) — a refusal saves NOTHING, not the fields
+    without the document, and the editor reopens with what the author
+    POSTED, not with the stored draft her words would otherwise replace.
+    C6 4: nothing published changes here.
+    """
+    from app.domains.cms.api import save_page_form
     from app.schemas.cms import CmsPageUpdate
 
     volgorde = None
@@ -240,17 +265,15 @@ def pagina_bijwerken(
         show_in_footer=bool(show_in_footer),
         sort_order=volgorde,
     )
-    update_page(db, page_id, data)
-    if document.strip():
-        try:
-            document_data = document_from_editor(_json.loads(document))
-            save_document(db, page_id, document_data, by=email)
-        except (ValueError, TypeError) as error:
-            # UnknownBlock, UnknownAttribute, InvalidShape and a JSON that
-            # does not parse all carry their own name for the author; the
-            # service rolled the session back — a screen touches no
-            # transaction (#635 rule 2).
-            return _record_response(request, db, page_id, error=str(error))
+    try:
+        save_page_form(db, page_id, data, document, by=email)
+    except (ValueError, TypeError) as error:
+        # UnknownBlock, UnknownAttribute, InvalidShape, a slug that exists,
+        # an unreadable document and a picture the picker does not offer
+        # all carry their own name for the author; the service refused
+        # before the first write — a screen touches no transaction
+        # (#635 rule 2), and the author's posted document comes back.
+        return _record_response(request, db, page_id, error=str(error), document=document)
     return Response(
         status_code=204, headers={"HX-Redirect": f"/admin/paginas/{page_id}?opgeslagen=1"}
     )

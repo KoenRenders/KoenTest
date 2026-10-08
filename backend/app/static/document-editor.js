@@ -28,7 +28,12 @@
  */
 (function () {
   "use strict";
+  /* The run-once guard, SET here (the review's B2, #1734): the macro puts
+     this file in swapped content, so a boosted visit or a refused save
+     executes her again — without the flag every run added another set of
+     document listeners for the dialogs. */
   if (window.raakDocumentEditor) return;
+  window.raakDocumentEditor = true;
 
   /* The toolbar's chrome lives in the editor's own CSS
      (`tiptap-3.31.4.css`), like Trix's `trix.css` styles the toolbar

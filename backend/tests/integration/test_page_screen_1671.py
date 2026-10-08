@@ -50,6 +50,31 @@ def _login(client) -> str:
     return session
 
 
+def _picture(db) -> int:
+    """A picture the picker offers (B1, #1734): an album photo with real
+    bytes, of this tenant — the save checks the offer, so a test that posts
+    an invented id tests the refusal, not the figure."""
+    from app.domains.media.models import MediaAsset
+
+    beeld = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    asset = MediaAsset(
+        kind="activity_photo",
+        title="Schermafdruk van de pagina",
+        data=beeld,
+        content_type="image/png",
+        thumbnail=beeld,
+        thumb_content_type="image/png",
+        width=640,
+        height=400,
+        byte_size=len(beeld),
+        sort_order=0,
+        is_active=True,
+    )
+    db.add(asset)
+    db.flush()
+    return asset.id
+
+
 def _save(client, session, page, document: dict, **extra) -> int:
     """Opslaan as the editor sends it: the document as JSON, the fields as
     fields. Title and slug are the page's own — the save really updates her."""
@@ -75,6 +100,15 @@ def _publish(client, session, page_id: int) -> int:
 
 def _document(*blocks: dict) -> dict:
     return {"type": "doc", "content": list(blocks)}
+
+
+def _deep_document(depth: int) -> dict:
+    """A document nested `depth` levels deep (A4, #1734): one wrapper per
+    level, a paragraph at the bottom."""
+    node: dict = {"type": "paragraph", "content": [_paragraph("diep")]}
+    for _ in range(depth):
+        node = {"type": "doc", "content": [node]}
+    return node
 
 
 def _paragraph(text: str) -> dict:
@@ -114,11 +148,20 @@ def test_the_record_page_carries_the_kit_s_screen(client, db_session):
     _login(client)
     page = _page(db_session, "record-1671")
 
+    # A page without a draft has nothing to publish — the button waits for
+    # the first save; with a draft the head carries HER exact route.
+    from app.domains.cms.api import save_document
+
     html = client.get(f"/admin/paginas/{page.id}").text
     assert "data-record-head" in html, "the kit's record header"
     assert 'href="/record-1671"' in html, "the page's address as a fact"
     assert "data-document-editor" in html, "the document editor"
-    assert 'hx-post="/admin/paginas/' in html and "publiceren" in html, "Publiceren"
+    assert f'hx-post="/admin/paginas/{page.id}/publiceren"' not in html, (
+        "a page without a draft carries a publish button"
+    )
+    save_document(db_session, page.id, _document(_paragraph("Eerste tekst.")))
+    html = client.get(f"/admin/paginas/{page.id}").text
+    assert f'hx-post="/admin/paginas/{page.id}/publiceren"' in html, "Publiceren"
     assert "/voorbeeld" in html, "Voorbeeld"
     assert "Geschiedenis" in html
     # The element, not the name: Trix stays in the SHELL for the newsletter
@@ -129,8 +172,11 @@ def test_the_record_page_carries_the_kit_s_screen(client, db_session):
     assert "/admin/media/kiezer?" in html, "the kit's media picker"
     for word in ("Alternatieve tekst", "Bijschrift", "Plaatsing"):
         assert word in html, f"the figure dialog lost her {word}"
+    # The placement words are the dialog's own buttons — not words anywhere
+    # on the page (the review's B6, #1734).
+    dialog = html[html.index("Plaatsing") : html.index("Op een smal scherm")]
     for placement in ("Vol", "Links", "Rechts", "Klein"):
-        assert placement in html, f"the dialog lost the placement {placement}"
+        assert f">{placement}</button>" in dialog, f"the dialog lost the placement {placement}"
     # B5: the browser's prompt is gone from the link flow — the words of
     # the dialog are the kit's.
     assert "raak-link-edit" in client.get(f"/admin/paginas/{page.id}").text
@@ -250,11 +296,12 @@ def test_a_figure_through_the_picker_reaches_the_site(client, db_session):
     keeps the wrapper (widened in this slice)."""
     session = _login(client)
     page = _page(db_session, "figuur-1671", title="Figuurtest")
+    picture = _picture(db_session)
 
     figure = {
         "type": "figure",
         "attrs": {
-            "media_id": 3,
+            "media_id": picture,
             "alt": "Het lokaal",
             "placement": "right",
             "caption": "Ons lokaal",
@@ -271,7 +318,192 @@ def test_a_figure_through_the_picker_reaches_the_site(client, db_session):
     # picture (CR-15 §C4.4) — deleting her is refused with this page named.
     from app.domains.media.api import uses_of
 
-    uses = {use.label for use in uses_of(db_session, 3)}
+    uses = {use.label for use in uses_of(db_session, picture)}
     assert any("Figuurtest" in label for label in uses), (
         f"the figure is not a use of the picture: {uses}"
     )
+
+
+# ── The review's findings on #1734, each pinned by its own test ────────────────
+
+
+def test_a_json_update_no_longer_overwrites_the_documents(client, db_session):
+    """A1: slice 1's derivation — documents re-made from `content` on every
+    JSON update — left with Trix. A JSON call that flips `is_published` may
+    still do that, but it may not replace what the editor saved."""
+    session = _login(client)
+    page = _page(db_session, "json-deur-1671")
+    _save(client, session, page, _document(_paragraph("Wat de redacteur schreef.")))
+    _publish(client, session, page.id)
+
+    from app.domains.cms.api import draft_document, update_page
+    from app.schemas.cms import CmsPageUpdate
+
+    update_page(db_session, page.id, CmsPageUpdate(is_published=True))
+    db_session.expire_all()
+    draft = draft_document(db_session, db_session.get(CmsPage, page.id))
+    assert "Wat de redacteur schreef." in json.dumps(draft), (
+        "a JSON update replaced the editor's document with a parse of the old content"
+    )
+
+
+def test_a_refused_save_saves_nothing_and_keeps_the_authors_words(client, db_session):
+    """A3: one save for the whole form. A document the schema refuses saves
+    no fields either, and the screen re-opens with what the author POSTED —
+    her words are not replaced by the stored draft."""
+    session = _login(client)
+    page = _page(db_session, "weigering-1671", title="Oudetitel", show_in_footer=False)
+
+    refused = {"type": "doc", "content": [{"type": "slider"}]}
+    response = client.post(
+        f"/admin/paginas/{page.id}",
+        data={
+            "title": "Nieuwetitel",
+            "slug": "weigering-1671",
+            "document": json.dumps(refused),
+            "show_in_footer": "1",
+        },
+        headers={"X-CSRF-Token": csrf_token_for(session), "HX-Request": "true"},
+    )
+    assert response.status_code == 200, "a refusal does not redirect"
+    assert "Onbekend blok: slider" in response.text, "the refusal lost her name"
+    db_session.expire_all()
+    page = db_session.get(CmsPage, page.id)
+    assert page.title == "Oudetitel", "the fields were saved despite the refusal"
+    assert page.show_in_footer is False, "the switches were saved despite the refusal"
+    # The editor re-opens the POSTED document, not the stored draft — read
+    # her from the hidden input (her value is HTML-escaped in the attribute).
+    hidden = re.search(r'id="cp-document-input"[^>]*value="([^"]*)"', response.text)
+    assert hidden, "the editor's hidden input left the re-render"
+    assert "slider" in html.unescape(hidden.group(1)), (
+        "the author's posted document is gone from the screen"
+    )
+
+    # A document that does not even parse reads a readable refusal.
+    response = client.post(
+        f"/admin/paginas/{page.id}",
+        data={"title": "Oudetitel", "slug": "weigering-1671", "document": "{geen json"},
+        headers={"X-CSRF-Token": csrf_token_for(session), "HX-Request": "true"},
+    )
+    assert "Ongeldige documentopmaak." in response.text, response.text[:200]
+    assert "Expecting" not in response.text, "the author reads Python's English"
+
+
+@pytest.mark.parametrize(
+    "document, naam",
+    [
+        # A4: the adapter ran before the validator and crashed on shapes the
+        # validator refuses by name — a cell whose attrs is a list.
+        (
+            {
+                "type": "doc",
+                "content": [
+                    {
+                        "type": "table",
+                        "content": [
+                            {
+                                "type": "tableRow",
+                                "content": [
+                                    {
+                                        "type": "tableCell",
+                                        "content": [_paragraph("Koffie")],
+                                        "attrs": ["list"],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+            "attrs",
+        ),
+        # A4: a document nested deeper than the cap — a RecursionError
+        # before, a named refusal now.
+        (_deep_document(2000), "Te diep genest"),
+    ],
+)
+def test_a_malformed_document_is_refused_by_name_not_a_crash(client, db_session, document, naam):
+    session = _login(client)
+    page = _page(db_session, "misvormd-1671")
+    response = client.post(
+        f"/admin/paginas/{page.id}",
+        data={"title": "Misvormd", "slug": "misvormd-1671", "document": json.dumps(document)},
+        headers={"X-CSRF-Token": csrf_token_for(session), "HX-Request": "true"},
+    )
+    assert response.status_code == 200, "a named refusal, not a crash"
+    assert naam in response.text, f"the refusal does not name her: {response.text[:200]}"
+
+
+def test_a_picture_the_picker_does_not_offer_is_refused(client, db_session):
+    """B1: the save checks the offer — a media id the picker would not show
+    this tenant (here: a number nothing owns) publishes no broken picture."""
+    session = _login(client)
+    page = _page(db_session, "beeld-deur-1671")
+    figure = {"type": "figure", "attrs": {"media_id": 987654, "alt": "Niets"}}
+
+    response = client.post(
+        f"/admin/paginas/{page.id}",
+        data={
+            "title": "Beeldduur",
+            "slug": "beeld-deur-1671",
+            "document": json.dumps(_document(figure)),
+        },
+        headers={"X-CSRF-Token": csrf_token_for(session), "HX-Request": "true"},
+    )
+    assert "Onbekende afbeelding: 987654" in response.text, response.text[:200]
+    db_session.expire_all()
+    # A3 with B1: the refusal saves NOTHING — the posted title did not land.
+    assert db_session.get(CmsPage, page.id).title == "Een pagina", (
+        "the fields were saved despite the refusal"
+    )
+
+
+def test_the_authors_markup_never_reaches_the_visitor_raw(client, db_session):
+    """B6's pin: the author's hand in a link's address, in a figure's alt
+    and caption — saved, published, and the visitor sees none of it raw."""
+    session = _login(client)
+    page = _page(db_session, "opmaak-1671")
+    picture = _picture(db_session)
+    document = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [
+                    {
+                        "type": "text",
+                        "marks": [{"type": "link", "attrs": {"href": "javascript:alert(1)"}}],
+                        "text": "Een gevaarlijke link",
+                    },
+                    {"type": "text", "text": " en <b>rauwe</b> tekst."},
+                ],
+            },
+            {
+                "type": "figure",
+                "attrs": {
+                    "media_id": picture,
+                    "alt": 'Het "lokaal" <i>van</i> de vereniging',
+                    "caption": "Bijschrift met <b>opmaak</b>",
+                },
+            },
+        ],
+    }
+    assert _save(client, session, page, document) == 204
+    assert _publish(client, session, page.id) == 204
+
+    site = client.get("/opmaak-1671").text
+    body = site[site.index("cms-content") :]
+    assert "javascript:" not in body, "the link's address reached the visitor"
+    # The sanitiser may spell an attribute's value her own way (a `<` is
+    # legal inside a quoted one and no markup to the browser); what the
+    # visitor READS as the page's text may carry no raw markup. So: strip
+    # the attributes' carriers (img tags) and demand clean text.
+    text_only = re.sub(r"<img[^>]*>", "", body)
+    assert "<b>rauwe</b>" not in text_only and "<b>opmaak</b>" not in text_only, (
+        "the author's markup reached the visitor's text raw"
+    )
+    assert "&lt;b&gt;rauwe&lt;/b&gt;" in body, "the words survived, escaped"
+    # And the alt cannot break OUT of her attribute: no unescaped quote of
+    # her own stands inside the value.
+    alt = re.search(r'alt="([^"]*)"', body)
+    assert alt and 'alt="' not in alt.group(1), "the alt can break out of her attribute"

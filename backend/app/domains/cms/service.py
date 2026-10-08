@@ -7,6 +7,7 @@ queries, maar wel met een regel erin die nergens anders staat — "publiek betek
 """
 
 import html
+import json
 import re
 from typing import Any, Iterable, Optional
 
@@ -194,10 +195,11 @@ def seed_site_blocks(db, tenant_id: int, name: str) -> None:
     db.flush()
 
 
-def update_page(db, page_id: int, data) -> CmsPage:
-    page = get_page_by_id(db, page_id)
-    if page is None:
-        raise LookupError("Page not found")
+def _apply_page_fields(db, page: CmsPage, data) -> None:
+    """The record's fields onto the page, in the CALLER's transaction — the
+    applying half of `update_page` and of the screen's one save (the review's
+    A3, #1734): the document is validated before she runs, so a refusal has
+    written nothing that this half would leave behind."""
     if data.slug and data.slug != page.slug:
         if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
             raise SlugBestaatAl("Slug already exists")
@@ -218,13 +220,53 @@ def update_page(db, page_id: int, data) -> CmsPage:
             CmsPageTranslation.page_id == page.id
         ):
             translation.title = data.title
-    # Snede 1 (herziene opdracht, #1671): zolang Trix de pagina-editor is,
-    # leidt elke opslag de documenten opnieuw af uit `content` — ze kunnen
-    # niet verouderen. De site blijft `content` renderen tot de lezers
-    # verhuizen (snede 3); `published_json` volgt waar de pagina live staat —
-    # ook als alleen het publicatievinkje verandert (review C3, #1673).
-    if "content" in velden or "is_published" in velden:
-        _derive_documents_from_content(db, page)
+
+
+def update_page(db, page_id: int, data) -> CmsPage:
+    """The page's fields, committed — the JSON API's door.
+
+    CR-17 snede 3 (#1671, the review's A1 on #1734): the documents are no
+    longer derived from `content` here. That derivation was slice 1's
+    interim — "zolang Trix de pagina-editor is" — and its premise left with
+    Trix: the editor writes documents, `content` is the honest fallback of a
+    page that never published one, and re-deriving from her would overwrite
+    what the author saved. Only `create_page` still derives (the honest
+    initial state of a new page).
+    """
+    page = get_page_by_id(db, page_id)
+    if page is None:
+        raise LookupError("Page not found")
+    _apply_page_fields(db, page, data)
+    db.commit()
+    db.refresh(page)
+    return page
+
+
+def save_page_form(db, page_id: int, data, document, *, by: str | None = None) -> CmsPage:
+    """The screen's ONE save: the record's fields and the document in a
+    single transaction (the review's A3, #1734) — a refusal saves nothing
+    at all, not half. Every refusal comes BEFORE the first write: the
+    document is translated, validated and her figures' media ids checked
+    (C6 7) first, the fields' own refusals (a slug that exists) before the
+    one flush they can cause — so a refused save leaves the session CLEAN,
+    and the screen re-renders her over the same, untouched session. That
+    ordering is why there is no rollback here: a bare `rollback()` would
+    discard more than this form ever wrote.
+    """
+    page = get_page_by_id(db, page_id)
+    if page is None:
+        raise LookupError("Page not found")
+    # Whether there IS a document to save is this door's rule, not the
+    # screen's (CR-13 §B9.3): an empty field saves the fields alone.
+    if document is not None and document.strip():
+        try:
+            parsed = json.loads(document)
+        except ValueError:
+            # A document that does not parse carries no name of her own —
+            # the author reads what to do, not Python's English.
+            raise ValueError("Ongeldige documentopmaak.")
+        save_document(db, page_id, parsed, by=by, commit=False)
+    _apply_page_fields(db, page, data)
     db.commit()
     db.refresh(page)
     return page
@@ -383,22 +425,39 @@ def document_from_editor(document: Any) -> Any:
     stored document says it on the row — derived here, so the header
     survives the round trip. What the author sees and means — a merged
     cell's spans — travels untouched.
+
+    She runs BEFORE the validator (the review's A4, #1734), so malformed
+    shapes pass her by untouched — the validator refuses them by name —
+    and her own walk is bounded: a document nested deeper than the
+    validator's cap is refused with the validator's own words instead of
+    a RecursionError. Those shapes were measured: a cell whose attrs is a
+    list crashed `attrs.items()`, a 3 000-deep document the interpreter.
     """
 
-    def transform(node: Any) -> Any:
+    from app.domains.cms.schema import MAX_DEPTH, InvalidShape
+
+    def transform(node: Any, depth: int = 0) -> Any:
+        if depth > MAX_DEPTH:
+            raise InvalidShape("Te diep genest: het document heeft te veel niveaus")
         if isinstance(node, list):
-            return [transform(child) for child in node]
+            return [transform(child, depth + 1) for child in node]
         if not isinstance(node, dict):
             return node
         kind = node.get("type")
         if kind in ("tableHeader", "tableCell"):
-            attrs = node.get("attrs") or {}
-            kept = {
-                name: value for name, value in attrs.items() if name not in ("colwidth", "align")
-            }
-            node = {**node, "attrs": kept} if kept or attrs else node
+            attrs = node.get("attrs")
+            # Not a mapping: leave her for the validator to refuse by name.
+            if isinstance(attrs, dict):
+                kept = {
+                    name: value
+                    for name, value in attrs.items()
+                    if name not in ("colwidth", "align")
+                }
+                if kept or attrs:
+                    node = {**node, "attrs": kept}
         elif kind == "tableRow":
-            cells = node.get("content") or []
+            content = node.get("content")
+            cells = content if isinstance(content, list) else []
             section = (
                 "head"
                 if any(isinstance(c, dict) and c.get("type") == "tableHeader" for c in cells)
@@ -406,19 +465,31 @@ def document_from_editor(document: Any) -> Any:
             )
             node = {**node, "attrs": {"section": section}}
         result = dict(node)
-        if "content" in result:
-            result["content"] = [transform(child) for child in result["content"]]
+        if isinstance(result.get("content"), list):
+            result["content"] = [transform(child, depth + 1) for child in result["content"]]
         return result
 
     return transform(document)
 
 
 def save_draft(
-    db, page_id: int, document, *, language: Optional[str] = None, by: str | None = None
+    db,
+    page_id: int,
+    document,
+    *,
+    language: Optional[str] = None,
+    by: str | None = None,
+    commit: bool = True,
 ) -> "CmsPageTranslation":
-    """Opslaan: the document into `draft_json`, validated against the schema —
+    """Opslaan: the document into `draft_json` — the editor's dialect
+    translated HERE (the table rule, so every door speaks the stored
+    dialect; the review's C on #1734), then validated against the schema,
     an unknown block or attribute refused with its name, never stripped
-    (C6 test 2). Nothing published changes (test 4)."""
+    (C6 test 2), and her figures' media ids checked against the picker's
+    offer (C6 7, the review's B1 on #1734): an id the picker would not show
+    this tenant — another tenant's picture, a file, a deleted one — is
+    refused by her number, because publishing her would show the visitor a
+    broken picture. Nothing published changes (test 4)."""
     import json as _json
 
     from app.domains.cms import schema as _schema
@@ -428,7 +499,13 @@ def save_draft(
     if page is None:
         raise LookupError("Page not found")
     doc = _json.loads(document) if isinstance(document, str) else document
+    doc = document_from_editor(doc)
     _schema.validate_document(doc)
+    from app.domains.media.api import offered_by_picker
+
+    for media_id in sorted(_figure_media_ids(doc)):
+        if not offered_by_picker(db, media_id):
+            raise _schema.InvalidShape(f"Onbekende afbeelding: {media_id}")
     lang = _language(db, page, language)
     translation = (
         db.query(CmsPageTranslation)
@@ -439,24 +516,25 @@ def save_draft(
         translation = CmsPageTranslation(page_id=page.id, language=lang, title=page.title)
         db.add(translation)
     translation.draft_json = doc
-    db.commit()
-    db.refresh(translation)
+    # `commit=False`: the caller owns the transaction (the screen's one save,
+    # #1734 A3) — the draft writes, the caller commits the whole form.
+    if commit:
+        db.commit()
+        db.refresh(translation)
     return translation
 
 
 def save_document(
-    db, page_id: int, document: Any, *, by: Optional[str] = None
+    db, page_id: int, document: Any, *, by: Optional[str] = None, commit: bool = True
 ) -> "CmsPageTranslation":
-    """The screen's save door (snede 3, #1671): `save_draft`, and a refusal
-    rolls the SESSION back here — the screen catches the named error and
-    shows her, but holds no db hand of her own (#635 rule 2: a ui touches
-    no transaction). Without the rollback the session would carry the
-    half-written translation into the re-render."""
-    try:
-        return save_draft(db, page_id, document, by=by)
-    except (ValueError, TypeError):
-        db.rollback()
-        raise
+    """The screen's save door (snede 3, #1671): `save_draft` — every refusal
+    (the schema's, the picker's) comes before the first write, so the
+    session stays clean and the screen re-renders over her untouched
+    (#635 rule 2: a ui touches no transaction; #1734 A3: a refused save
+    wrote nothing to roll back). `commit=False` when the CALLER owns the
+    transaction (the screen's one save): the draft then writes, and the
+    caller commits the whole form."""
+    return save_draft(db, page_id, document, by=by, commit=commit)
 
 
 def publish(
