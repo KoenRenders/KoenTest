@@ -29,7 +29,9 @@ from tests.conftest import (
     seed_postal_code,
 )
 
-pytestmark = pytest.mark.ui_serverrendered
+# CR-29 R7: one worker for the file, so the pages rendered for the first test
+# below are the pages the next two read (`_rendered_pages`).
+pytestmark = [pytest.mark.ui_serverrendered, pytest.mark.xdist_group("render_gate")]
 
 #: The screens whose route guards with `require_platform_operator_ui` (#1535): they
 #: answer in the platform workspace only, so the gate opens them on the platform
@@ -249,13 +251,33 @@ def _paginas(ids) -> list[str]:
     return _admin_gets_zonder_parameter() + detail
 
 
+#: Every admin page that opens, as (path, html) — rendered once per process.
+_RENDERED: list[tuple[str, str]] = []
+
+
+def _rendered_pages(client, ids) -> list[tuple[str, str]]:
+    """The HTML of every admin page, rendered ONCE per process (CR-29 R7).
+
+    Three tests each read the same pages for another fault — escaped attributes,
+    an unusable `hx-target`, `hx-confirm` — and each rendered all of them again:
+    three times the slowest thing in this file. The pages do not depend on which
+    of the three asks (the same fixture fills the same data), so the first one
+    renders and the others read. Kept only when the whole walk succeeded: a page
+    that fails to render fails each of the three tests, as before.
+    """
+    if not _RENDERED:
+        pages = [(pad, html) for pad in _paginas(ids) if (html := _open(client, pad)) is not None]
+        assert len(pages) > 40, (
+            f"only {len(pages)} admin pages rendered — the walk found too little"
+        )
+        _RENDERED.extend(pages)
+    return _RENDERED
+
+
 def test_geen_geescapete_attributen_op_enige_adminpagina(client, gevulde_admin):
     """De klasse die drie keer opdook (#514/#613/#616), nu op de output getoetst."""
     fouten = []
-    for pad in _paginas(gevulde_admin):
-        html = _open(client, pad)
-        if html is None:
-            continue
+    for pad, html in _rendered_pages(client, gevulde_admin):
         for treffer in GEESCAPED.finditer(html):
             regel = html[: treffer.start()].count("\n") + 1
             fouten.append(f"{pad} (regel {regel}): {treffer.group(0)}")
@@ -268,10 +290,7 @@ def test_geen_geescapete_attributen_op_enige_adminpagina(client, gevulde_admin):
 def test_elk_htmx_element_heeft_een_bruikbaar_doel(client, gevulde_admin):
     """Een hx-target die niet als selector te lezen is, mislukt stil in de browser."""
     fouten = []
-    for pad in _paginas(gevulde_admin):
-        html = _open(client, pad)
-        if html is None:
-            continue
+    for pad, html in _rendered_pages(client, gevulde_admin):
         volledige_pagina = "<html" in html
         for element in HX_ELEMENT.finditer(html):
             doel = HX_TARGET.search(element.group(0))
@@ -312,7 +331,7 @@ def test_elk_htmx_element_heeft_een_bruikbaar_doel(client, gevulde_admin):
 def test_geen_hx_confirm_in_de_output(client, gevulde_admin):
     """Bevestiging gaat sinds #595 via de in-app modal; hx-confirm toont het native
     browser-confirm. De lint-gate dekt de templates, dit de gerenderde output."""
-    fouten = [pad for pad in _paginas(gevulde_admin) if "hx-confirm" in (_open(client, pad) or "")]
+    fouten = [pad for pad, html in _rendered_pages(client, gevulde_admin) if "hx-confirm" in html]
     assert not fouten, f"hx-confirm in de output van: {fouten}"
 
 
