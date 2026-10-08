@@ -91,3 +91,27 @@ class UpdateAttached(Port):
 
     submission_id: int
     answers: tuple[AttachedAnswer, ...]
+
+
+@dataclass(frozen=True)
+class FormCopied:
+    """The outcome of `CopyForm`: the new form."""
+
+    form_id: int
+
+
+@dataclass(frozen=True)
+class CopyForm(Port):
+    """Make a new form with the same sections, questions and options as this one
+    and no submissions (a copied activity's component asks the same questions,
+    #1397). The title and the slug get the new year: the old year replaced where
+    it stands, otherwise added; the slug is made unique and the share token is
+    new. Flushed, not committed.
+
+    Outcome: `FormCopied`.
+    Refuses with `LookupError` for a form that does not exist.
+    """
+
+    form_id: int
+    old_year: Optional[int]
+    new_year: Optional[int]

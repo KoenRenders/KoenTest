@@ -525,7 +525,6 @@ COMMIT_BEHIND_API: frozenset[str] = frozenset(
 # here — is one rule, written once: `docs/architecture.md` §3.2.1.
 COMMAND_CALLS: frozenset[str] = frozenset(
     {
-        "domains/activities/service.py::_copy_components → forms.api.copy_form",  # #1397: synchronous copy, returned id; Koen 1 Oct 2026; the port follows in its own CR
         "domains/newsletter/service.py::_pictures → media.api.activity_image_path",  # #1368, measured 30 Sep 2026: the walk now sees a flush; media caches a PDF poster's rendering (poster.thumbnail + db.flush) — a read with a cache write, not a coupling to move
         "domains/activities/fiche.py::_store_files → media.api.drop_activity_poster",  # #1559: the attachments of the one save
         "domains/activities/fiche.py::_store_files → media.api.drop_component_info",  # #1559: the attachments of the one save
