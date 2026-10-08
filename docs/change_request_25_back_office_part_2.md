@@ -88,7 +88,7 @@ Split off CR-24 on 7 October 2026 (Koen: "part 1 and part 2"). CR-24 makes the c
 | R4 | Every task on the workbench belongs to a role; the workbench filters by role (Boekhouding, Verkoop, …), with the number of open tasks per role, so all work people must do is gathered per role. | Must *(proposed)* | Koen, 7 Oct 2026 | |
 | R5 | The back-office menu: Relaties (Personen · Organisaties · Gezinnen · Lidmaatschappen), Werking, Verkoop (Producten · Prijzen · Voorraad · Bestellingen), Financieel, Inhoud, Communicatie, Inzicht, Systeem; an item shows only with its right and its module. | Must *(proposed)* | Koen, 7 Oct 2026 | |
 | R6 | A change to an organisation's legal identity proposed by an account manager and approved by Masterdata through a workbench task. | Won't *(now)* | Claude, 7 Oct 2026 | the split of R5 makes it possible later |
-| R7 | Everyone with a back-office role reads everything of his workspace; there is no reading right per object. | Must *(proposed)* | Koen, 7 Oct 2026 (CR-24 R2, moved here by CR-24 Q7) | arrives with Bestuur, when the work is redistributed; part 1 changes nobody's reach |
+| R7 | Everyone with a back-office role reads everything of his workspace; there is no reading right per object. | Must *(proposed)* | Koen, 7 Oct 2026 (CR-24 R2, moved here by CR-24 Q7) | arrives with Bestuur, when the work is redistributed; part 1 changes nobody's reach. Since CR-24 Q15 (8 Oct 2026) part 1 already separates `<object>.view` from `<object>.manage`, so this is bundle rows only: every back-office role gets every `.view` |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
