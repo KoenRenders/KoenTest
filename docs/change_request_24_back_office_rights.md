@@ -1,7 +1,7 @@
 # Change Request 24 — Rights, part 1: the code asks for a right, a role is a bundle
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** opened on 7 October 2026 · Parts A, B and C written; build read by desktop-dev1 on #1722 taken in (8 October 2026); B8 empty except what part 2 decides; ready for assignment · nothing is built; not on a release
+**Status:** opened on 7 October 2026 · Parts A, B and C written; build read by desktop-dev1 on #1722 taken in (8 October 2026); B8 empty (Q12–Q14 answered 8 October 2026); ready for assignment, after CR-13 phase 4b (v2.16) · nothing is built; not on a release
 **Tracking issue:** #1722 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** auth (roles, rights, the gates), every back-office route's gate; part 2 is CR-25 (the back office: menu, Bestuur, workbench, business partners)
 **Reading:** A 1 766 words · B 1 728 (the decisions log excluded) · C 1 775 — measured on 7 October 2026 without drawings and notes; the budget is A ≤ 1 500, B ≤ 2 500: A is over by 266, mostly the moved and Won't rows of A6
