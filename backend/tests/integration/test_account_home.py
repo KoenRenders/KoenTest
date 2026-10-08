@@ -123,7 +123,8 @@ def test_the_pages_menu_is_the_account_menu_and_marks_where_you_are(client, memb
         "/mijn/inschrijvingen",
     ]
     assert (
-        "md:hidden"
+        # #1730: wherever the menu is not on the page — below 1 088 px.
+        "min-[1088px]:hidden"
         in main[main.index("data-account-links") - 200 : main.index("data-account-links") + 200]
     )
 

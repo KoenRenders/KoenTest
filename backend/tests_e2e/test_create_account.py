@@ -145,3 +145,40 @@ def test_from_the_sign_in_screen_to_an_account(browser, width, height, send):
     finally:
         page.close()
         _remove(email)
+
+
+CARD = """() => { const q = s => document.querySelector(s);
+  const box = e => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.width)]; };
+  const input = q('[data-sign-in-step] input:not([type=hidden])');
+  return {card: box(q('[data-sign-in-card]')), field: box(input), main: box(q('[data-main]')),
+          page: [document.documentElement.scrollWidth, innerWidth]}; }"""
+
+
+@pytest.mark.parametrize(("width", "card"), [(1440, 448), (1920, 448), (390, 358)])
+def test_the_two_sign_in_screens_share_one_narrow_card(browser, width, card):
+    """#1730 (Koen, 8 October 2026: "smaller is goed"): one card for Inloggen
+    and Account aanmaken — 448 px, centred, the same on both; on a phone the
+    width it had.
+
+    Red: the wrapper taken out of `_sign_in_card.html` → the card is 1 248 px
+    at 1 440 and its field 1 198."""
+    page = browser.new_page(base_url=BASE, viewport={"width": width, "height": 900})
+    try:
+        found = {}
+        for path in ("/aanmelden", "/account-aanmaken"):
+            page.goto(path)
+            pagina_klaar(page)
+            found[path] = page.evaluate(CARD)
+        print("MEASURE sign-in card", width, found)
+        sign_in, create = found["/aanmelden"], found["/account-aanmaken"]
+        assert sign_in["card"] == create["card"], "the two screens differ in their card"
+        assert sign_in["field"] == create["field"], "the two screens differ in their field"
+        assert sign_in["card"][1] == card, sign_in
+        assert sign_in["field"][1] == card - 50, (
+            "the field is not the card less its padding and border"
+        )
+        centre = sign_in["card"][0] + sign_in["card"][1] / 2
+        assert abs(centre - width / 2) <= 1, f"the card is not centred: {centre} of {width}"
+        assert sign_in["page"][0] == sign_in["page"][1]
+    finally:
+        page.close()

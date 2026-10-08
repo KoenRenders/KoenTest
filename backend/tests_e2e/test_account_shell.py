@@ -114,7 +114,8 @@ def test_on_a_phone_the_page_shows_no_menu_and_links_at_its_bottom(browser):
     page.close()
 
 
-@pytest.mark.parametrize("width", [1440, 768])
+# #1730: the menu stands beside the content from 1 088 px.
+@pytest.mark.parametrize("width", [1440, 1088])
 def test_on_a_desktop_the_menu_stands_left_of_the_content(browser, width):
     page = _member(browser, width, 900)
     page.goto("/mijn")

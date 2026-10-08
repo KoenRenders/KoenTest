@@ -235,6 +235,17 @@ def test_the_main_members_empty_field_is_refused_on_the_field(client, db_session
 
 
 def _running(db, member, *, method="transfer", gateway_payment_id=None) -> None:
+    # A renewal presupposes a membership that was paid before (#1730): without
+    # one this household would be paying its FIRST membership, with other words.
+    db.add(
+        Membership(
+            member_id=member.id,
+            year=date.today().year - 1,
+            is_active=True,
+            valid_from=date(date.today().year - 1, 1, 1),
+            valid_to=date(date.today().year - 1, 12, 31),
+        )
+    )
     year = date.today().year + 1
     membership = Membership(
         member_id=member.id,

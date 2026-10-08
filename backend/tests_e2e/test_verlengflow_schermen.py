@@ -32,7 +32,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests_e2e.schermen import BASE, Betalingenscherm, login_met_sessie  # noqa: E402
 
 VERLENGKNOP = "Lidmaatschap vernieuwen"
-BETAALINSTRUCTIE = "Vernieuwing geregistreerd"
+# The heading of the transfer block, without its first word (#1730): a
+# household that was a paid member reads "Vernieuwing …", one that never was
+# "Aanmelding …" — and the seeded transfer household is the first or the second
+# depending on whether `test_beheer_flows` scrapped its paid membership earlier
+# in the same run (measured: alone this test read "Vernieuwing", after that
+# flow "Aanmelding"). Which word stands when is held by
+# `tests/integration/test_first_membership_words_1730.py`.
+BETAALINSTRUCTIE = "geregistreerd — betaal via overschrijving:"
 
 
 def _sessie(email: str) -> str:
