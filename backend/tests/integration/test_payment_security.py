@@ -6,6 +6,7 @@ from decimal import Decimal
 import pytest
 
 from app.domains.payment.api import PayableType, PaymentStatus
+from tests import payments_door
 from tests.conftest import register_at_the_door, seed_activity_with_product, seed_postal_code
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -220,11 +221,7 @@ def test_amount_paid_cannot_exceed_due(client, db_session, admin_headers):
 
     rec = db_session.query(PaymentRecord).first()
 
-    resp = client.patch(
-        f"/api/v1/payment-status/records/{rec.id}",
-        json={"amount_paid": float(rec.amount) + 100},
-        headers=admin_headers,
-    )
+    resp = payments_door.update(client, rec.id, {"amount_paid": float(rec.amount) + 100})
     assert resp.status_code == 400
 
 
@@ -236,11 +233,7 @@ def test_amount_paid_cannot_be_negative(client, db_session, admin_headers):
 
     rec = db_session.query(PaymentRecord).first()
 
-    resp = client.patch(
-        f"/api/v1/payment-status/records/{rec.id}",
-        json={"amount_paid": -5},
-        headers=admin_headers,
-    )
+    resp = payments_door.update(client, rec.id, {"amount_paid": -5})
     assert resp.status_code == 400
 
 
@@ -352,20 +345,6 @@ def test_login_rate_limited(client):
             saw_429 = True
             break
     assert saw_429
-
-
-def test_refresh_endpoint_requires_auth(client):
-    """Het refresh-endpoint van een betaalrecord eist admin-auth."""
-    resp = client.post(
-        "/api/v1/payment-status/records/00000000-0000-0000-0000-000000000000/refresh"
-    )
-    assert resp.status_code in (401, 403)
-
-
-def test_admin_endpoints_require_auth(client):
-    """Zonder geldig admin-token geen toegang tot de betaaladministratie."""
-    resp = client.get("/api/v1/payment-status/records")
-    assert resp.status_code == 401
 
 
 def test_payment_endpoint_admin_only_and_hides_checkout_url(client, db_session, admin_headers):

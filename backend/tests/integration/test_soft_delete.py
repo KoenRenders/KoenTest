@@ -12,6 +12,7 @@ from app.domains.auth.api import User
 from app.domains.mdm.api import Member
 from app.domains.membership.api import Membership
 from app.domains.payment.api import PayableType, PaymentRecord
+from tests import payments_door
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     register_at_the_door,
@@ -182,10 +183,7 @@ def test_soft_delete_payment_hidden_but_kept(client, db_session, admin_headers):
         .first()
     )
     pid = pay.id
-    assert (
-        client.delete(f"/api/v1/payment-status/records/{pid}", headers=admin_headers).status_code
-        == 204
-    )
+    assert payments_door.delete(client, pid).status_code == 204
     assert db_session.query(PaymentRecord).filter(PaymentRecord.id == pid).first() is None
     kept = (
         db_session.query(PaymentRecord)

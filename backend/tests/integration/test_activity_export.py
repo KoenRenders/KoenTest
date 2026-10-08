@@ -14,6 +14,7 @@ from odf.teletype import extractText
 from app.domains.activities.api import ActivityProduct, Registration
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.payment.api import PayableType, PaymentRecord, PaymentType
+from tests import payments_door
 from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door, seed_activity_with_product
 
 _ODS_MIME = "opendocument.spreadsheet"
@@ -112,16 +113,8 @@ def test_export_quantities_and_financials(client, db_session, admin_headers):
         .first()
     )
     # Penningmeester boekt de overschrijving (€36) en betaalt €6 terug.
-    client.patch(
-        f"/api/v1/payment-status/records/{charge.id}",
-        json={"status": "paid", "amount_paid": "36.00"},
-        headers=admin_headers,
-    )
-    client.post(
-        f"/api/v1/payment-status/records/{charge.id}/refund",
-        json={"amount": "6.00"},
-        headers=admin_headers,
-    )
+    payments_door.update(client, charge.id, {"status": "paid", "amount_paid": "36.00"})
+    payments_door.refund(client, charge.id, {"amount": "6.00"})
 
     resp = _download(client, activity_id, comp.id)
     assert resp.status_code == 200, resp.text
@@ -182,16 +175,8 @@ def test_export_second_sheet_payments_and_totals(client, db_session, admin_heade
         .order_by(PaymentRecord.created_at.desc())
         .first()
     )
-    client.patch(
-        f"/api/v1/payment-status/records/{charge.id}",
-        json={"status": "paid", "amount_paid": "36.00"},
-        headers=admin_headers,
-    )
-    client.post(
-        f"/api/v1/payment-status/records/{charge.id}/refund",
-        json={"amount": "6.00"},
-        headers=admin_headers,
-    )
+    payments_door.update(client, charge.id, {"status": "paid", "amount_paid": "36.00"})
+    payments_door.refund(client, charge.id, {"amount": "6.00"})
 
     sheets = _load_all(_export(client, activity_id, comp.id))
     assert len(sheets) == 2, "verwacht 2 bladen (onderdeel + betalingen)"

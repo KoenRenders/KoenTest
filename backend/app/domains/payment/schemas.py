@@ -63,22 +63,6 @@ class PaymentRecordResponse(BaseModel):
         return self.status.value
 
 
-class RefundCreate(BaseModel):
-    """Terugbetaling op een charge-record. ``amount`` is het positieve te
-    refunden bedrag; de service slaat het op als negatief record."""
-
-    amount: Decimal
-    note: Optional[str] = None
-    method: PaymentMethod = PaymentMethod.TRANSFER
-
-
-class RegistrationBalance(BaseModel):
-    total_due: Decimal
-    total_paid: Decimal
-    total_refunded: Decimal
-    balance: Decimal
-
-
 class EnrichedPaymentRecord(PaymentRecordResponse):
     description: Optional[str] = None
     contact_name: Optional[str] = None
@@ -94,9 +78,3 @@ class EnrichedPaymentRecord(PaymentRecordResponse):
     payable_href: Optional[str] = None
     payable_label: Optional[str] = None
     filter_context: Optional[str] = None
-
-
-class PaymentRecordUpdate(BaseModel):
-    status: Optional[PaymentStatus] = None
-    amount_paid: Optional[Decimal] = None
-    note: Optional[str] = None

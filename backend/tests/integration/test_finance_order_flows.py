@@ -17,6 +17,7 @@ from app.domains.payment.api import (
     PaymentType,
     registration_balance,
 )
+from tests import payments_door
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     register_at_the_door,
@@ -66,11 +67,7 @@ def _register(client, db, comp, product, qty=1):
 
 
 def _pay(client, admin_headers, charge_id, amount):
-    r = client.patch(
-        f"/api/v1/payment-status/records/{charge_id}",
-        json={"status": "paid", "amount_paid": str(amount)},
-        headers=admin_headers,
-    )
+    r = payments_door.update(client, charge_id, {"status": "paid", "amount_paid": str(amount)})
     assert r.status_code == 200, r.text
 
 
@@ -91,11 +88,7 @@ def _latest_refund(db, reg):
 def _confirm_refund(client, admin_headers, refund_id):
     """Penningmeester bevestigt de effectieve terugstorting (#216): status → paid
     zonder bedrag, de server vult amount_paid = het volledige (negatieve) refundbedrag."""
-    r = client.patch(
-        f"/api/v1/payment-status/records/{refund_id}",
-        json={"status": "paid"},
-        headers=admin_headers,
-    )
+    r = payments_door.update(client, refund_id, {"status": "paid"})
     assert r.status_code == 200, r.text
 
 
@@ -141,9 +134,7 @@ def test_order_lowered_after_payment_creates_pending_refund(client, db_session, 
 
     # Penningmeester bevestigt de terugstorting → pas nu vereffent het saldo.
     _confirm_refund(client, admin_headers, refund.id)
-    bal = client.get(
-        f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers
-    ).json()
+    bal = payments_door.balance(client, reg.id).json()
     assert Decimal(str(bal["balance"])) == Decimal("0.00")
     assert Decimal(str(bal["total_refunded"])) == Decimal("18.00")
 
@@ -242,9 +233,7 @@ def test_paying_supplemental_charge_settles_balance(client, db_session, admin_he
     )
     supp = next(c for c in _charges(db_session, reg) if Decimal(str(c.amount)) == Decimal("16.00"))
     _pay(client, admin_headers, supp.id, "16.00")
-    bal = client.get(
-        f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers
-    ).json()
+    bal = payments_door.balance(client, reg.id).json()
     assert Decimal(str(bal["balance"])) == Decimal("0.00")
 
 
@@ -325,9 +314,7 @@ def test_deleted_order_line_excluded_from_balance(client, db_session, admin_head
         json={"product_id": extra.id, "quantity": 1},
         headers=admin_headers,
     )  # +5 → 23
-    bal = client.get(
-        f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers
-    ).json()
+    bal = payments_door.balance(client, reg.id).json()
     assert Decimal(str(bal["total_due"])) == Decimal("23.00")
 
     item = (
@@ -339,9 +326,7 @@ def test_deleted_order_line_excluded_from_balance(client, db_session, admin_head
         f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
         headers=admin_headers,
     )
-    bal = client.get(
-        f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers
-    ).json()
+    bal = payments_door.balance(client, reg.id).json()
     assert Decimal(str(bal["total_due"])) == Decimal("18.00")  # verwijderde regel telt niet meer
 
 
@@ -412,14 +397,10 @@ def test_partial_payment_remove_extra_refunds_only_received(client, db_session, 
     )
     assert sum((Decimal(str(r.amount)) for r in refunds), Decimal("0")) == Decimal("-8.00")
     # Verplichting nog niet uitbetaald → saldo −8; na bevestiging door de penningmeester €0.
-    bal = client.get(
-        f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers
-    ).json()
+    bal = payments_door.balance(client, reg.id).json()
     assert Decimal(str(bal["balance"])) == Decimal("-8.00")
     _confirm_refund(client, admin_headers, _latest_refund(db_session, reg).id)
-    bal = client.get(
-        f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers
-    ).json()
+    bal = payments_door.balance(client, reg.id).json()
     assert Decimal(str(bal["balance"])) == Decimal("0.00")
 
 
@@ -432,9 +413,7 @@ def test_koen_scenario_integral_recompute(client, db_session, admin_headers):
     p3 = _add_product(db_session, comp, name="P3", price="15.00")
 
     def _bal():
-        return client.get(
-            f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers
-        ).json()
+        return payments_door.balance(client, reg.id).json()
 
     def _open():
         return [
@@ -512,9 +491,7 @@ def test_full_refund_scenario(client, db_session, admin_headers):
     free = _add_product(db_session, comp, name="Gratis", price="0", is_free=True)
 
     def _bal():
-        return client.get(
-            f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers
-        ).json()
+        return payments_door.balance(client, reg.id).json()
 
     # 1) P1×1 = €18, volledig betaald.
     activity_id, reg, charge = _register(client, db_session, comp, p1, qty=1)
@@ -585,18 +562,12 @@ def test_marking_paid_without_amount_autofills_full_amount(client, db_session, a
     """#199: 'betaald' zetten zonder bedrag vult amount_paid = het verschuldigde; saldo €0."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)
-    r = client.patch(
-        f"/api/v1/payment-status/records/{charge.id}",
-        json={"status": "paid"},
-        headers=admin_headers,
-    )  # géén amount_paid
+    r = payments_door.update(client, charge.id, {"status": "paid"})  # géén amount_paid
     assert r.status_code == 200, r.text
     db_session.expire_all()
     row = db_session.query(PaymentRecord).filter(PaymentRecord.id == charge.id).first()
     assert Decimal(str(row.amount_paid)) == Decimal("18.00")
-    bal = client.get(
-        f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers
-    ).json()
+    bal = payments_door.balance(client, reg.id).json()
     assert Decimal(str(bal["balance"])) == Decimal("0.00")
 
 
@@ -656,11 +627,7 @@ def test_refund_on_membership_payment(client, db_session, admin_headers):
     )
     _pay(client, admin_headers, charge.id, str(charge.amount))
 
-    r = client.post(
-        f"/api/v1/payment-status/records/{charge.id}/refund",
-        json={"amount": "5.00", "note": "korting"},
-        headers=admin_headers,
-    )
+    r = payments_door.refund(client, charge.id, {"amount": "5.00", "note": "korting"})
     assert r.status_code == 200, r.text
     refund = r.json()
     assert refund["type"] == "refund"

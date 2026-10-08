@@ -4,9 +4,10 @@ The smoke test now runs under an association's path prefix on whatever host the
 environment gives it. That only works if the prefix resolves the tenant on the
 API paths too, and not only on pages: measured here on a platform host, where the
 bare API path is the platform's (payment off since #1523) and the prefixed one
-is Raak Millegem's: the same payment route answers 401 under the prefix and 404
-bare. The activities list route that stood here too went with CR-13 phase 4b
-(#1251).
+is Raak Millegem's: the same payment route — the Mollie webhook, posted without
+its `id` — answers 422 under the prefix (the route is there and asks for its
+field) and 404 bare. The activities list and the payment records routes that
+stood here went with CR-13 phase 4b (#1251); the webhook stays.
 """
 
 from __future__ import annotations
@@ -30,17 +31,17 @@ def platform_host(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "path,status",
+    "method,path,status",
     [
-        ("/raakmillegem/api/health", 200),
-        ("/raakmillegem/api/v1/payment-status/records", 401),
-        ("/api/health", 200),
-        ("/api/v1/payment-status/records", 404),
+        ("GET", "/raakmillegem/api/health", 200),
+        ("POST", "/raakmillegem/api/v1/payment-gateway/webhooks/mollie", 422),
+        ("GET", "/api/health", 200),
+        ("POST", "/api/v1/payment-gateway/webhooks/mollie", 404),
     ],
 )
-def test_the_prefix_reaches_the_association_on_the_api(client, platform_host, path, status):
+def test_the_prefix_reaches_the_association_on_the_api(client, platform_host, method, path, status):
     client.cookies.clear()
-    assert client.get(path, headers={"host": HOST}).status_code == status
+    assert client.request(method, path, headers={"host": HOST}).status_code == status
 
 
 # CR-13 phase 4b (#1251): the smoke test checks screens, not JSON routes that have

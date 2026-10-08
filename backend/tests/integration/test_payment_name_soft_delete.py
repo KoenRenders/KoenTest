@@ -5,6 +5,7 @@ met `include_deleted=True`, dus de naam blijft zichtbaar i.p.v. '—'."""
 
 from app.domains.mdm.api import Member, MemberPerson, Person
 from app.soft_delete import soft_delete
+from tests import payments_door
 from tests.conftest import register_at_the_door, seed_postal_code
 
 
@@ -35,7 +36,7 @@ def _family_with_membership(client, db):
 
 
 def _membership_record(client, admin_headers):
-    recs = client.get("/api/v1/payment-status/records", headers=admin_headers).json()
+    recs = payments_door.records(client).json()
     return next(r for r in recs if r["payable_type"] == "membership")
 
 
@@ -67,7 +68,7 @@ def test_registration_description_survives_activity_soft_delete(client, db_sessi
     )
 
     def _rec():
-        recs = client.get("/api/v1/payment-status/records", headers=admin_headers).json()
+        recs = payments_door.records(client).json()
         return next(
             r for r in recs if r["payable_type"] == "registration" and r["payable_id"] == reg.id
         )
