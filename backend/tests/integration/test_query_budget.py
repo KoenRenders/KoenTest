@@ -388,10 +388,16 @@ def test_een_lijstscherm_schaalt_niet_mee(client, db_session, pad):
 
 @pytest.mark.parametrize("pad", sorted(BUDGET))
 def test_een_lijstscherm_blijft_binnen_zijn_querybudget(gevulde_databank, pad):
-    with Queryteller() as teller:
-        antwoord = gevulde_databank.get(pad)
+    """The ceiling is that of a warm process, so the measurement warms up first.
 
-    assert antwoord.status_code == 200, pad
+    Found by the sweep of CR-29 (F3): as the first test of a process this counted
+    the fills of the process-wide tenant caches too — 41 against a budget of 40 for
+    `/activiteiten`, 13 against 6 for `/admin/media` — and passed only because an
+    earlier test had made a request. In four processes, or in another order, no
+    earlier test has. `_meet` is the warm-up the scaling tests below already use.
+    """
+    teller = _meet(gevulde_databank, pad)
+
     assert len(teller) <= BUDGET[pad], (
         f"{pad}: {len(teller)} queries (budget {BUDGET[pad]}) bij "
         f"{AANTAL_GEZINNEN} gezinnen en {AANTAL_INSCHRIJVINGEN} inschrijvingen.\n"

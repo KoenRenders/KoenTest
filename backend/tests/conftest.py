@@ -14,9 +14,17 @@ import os
 
 # Moet vóór het importeren van app-modules gezet worden: app.database leest deze
 # bij import. We gebruiken een aparte testdatabase.
-TEST_DATABASE_URL = os.environ.get(
+BASE_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
     "postgresql+psycopg2://postgres@localhost:5432/raaktest",
+)
+# CR-29 F1: under pytest-xdist every worker runs on a database of its own. The name
+# is chosen HERE and not in a fixture: `app.database` creates the engine at import,
+# a few lines down, and a fixture runs long after that.
+from tests._worker_db import fresh_worker_database, worker_database_url  # noqa: E402
+
+TEST_DATABASE_URL = worker_database_url(
+    BASE_DATABASE_URL, os.environ.get("PYTEST_XDIST_WORKER", "")
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ.setdefault("APP_ENV", "dev")
@@ -54,6 +62,8 @@ def _migrate_schema():
     if _SCHEMA_BUILT:
         yield
         return
+    # CR-29 F1: a worker starts on an empty database of its own; without xdist this does nothing.
+    fresh_worker_database(BASE_DATABASE_URL, TEST_DATABASE_URL)
     # Schemas hard resetten (v2.0, #398): drop_all kent alleen tabellen die nog
     # in de metadata leven — na verwijderde modellen (ideas) blijven wezen
     # achter en botst de keten. CASCADE veegt álles, ook alembic_version.
@@ -101,6 +111,24 @@ def _migrate_schema():
     yield
 
 
+def pytest_collection_modifyitems(config, items):
+    """`TEST_SHUFFLE=<seed>` runs the suite in a shuffled order (CR-29 F3).
+
+    A test that passes only because of the tests before it is found by running
+    the suite in another order; the seed is printed, so a red run can be repeated.
+    Without the variable the order is pytest's own. Every domain's conftest
+    re-exports this hook, so it marks the config and shuffles once.
+    """
+    seed = os.environ.get("TEST_SHUFFLE")
+    if not seed or getattr(config, "_cr29_shuffled", False):
+        return
+    config._cr29_shuffled = True
+    import random
+
+    random.Random(seed).shuffle(items)
+    print(f"\nTEST_SHUFFLE={seed}: {len(items)} tests in a shuffled order")
+
+
 @pytest.fixture(autouse=True)
 def _reset_rate_limiters():
     """De rate-limiters houden in-memory state per IP; in tests komt alles van
@@ -118,6 +146,29 @@ def _reset_rate_limiters():
     from app.domains.chatbot.router import chat_char_budget
 
     chat_char_budget._usage.clear()
+    yield
+
+
+@pytest.fixture(autouse=True)
+def job_queue_starts_empty(_migrate_schema):
+    """No test inherits a job another test left in the queue (CR-29 F3).
+
+    A test's writes are rolled back with its SAVEPOINT — except the ones the
+    application makes in a transaction of its own. A failed mail plans its retry
+    that way (`mail.service._enqueue_retry`), so a `mail.retry` row outlives the
+    test that caused it, and `run_due_jobs` processes whatever is due: in a
+    shuffled order the kernel's job test ran one job more than it had queued, and
+    the newsletter's `batch=1` ran the stranger instead of its own job. In the
+    usual order none happened to be due. Emptied before the test opens its
+    connection; named without an underscore so the domains' `from tests.conftest
+    import *` picks it up (CR-13 R15).
+
+    Broken to check it can go red: a scratch test that calls `_enqueue_retry` and
+    then `tests/test_kernel.py`, with the DELETE below replaced by a no-op → the
+    two job tests fail on `2 == 1` and `1 == 0`, exactly as in the shuffled run.
+    """
+    with engine.begin() as conn:
+        conn.exec_driver_sql("DELETE FROM kernel_jobs")
     yield
 
 
