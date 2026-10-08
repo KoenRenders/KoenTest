@@ -4,6 +4,7 @@ from app.domains.activities.api import Activity
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
 from app.domains.media.api import MediaAsset
+from tests import media_door
 
 
 def _poster(db):
@@ -111,10 +112,10 @@ def test_create_update_delete_note(client, db_session, admin_headers):
 
 def test_reextract_endpoint(client, db_session, admin_headers):
     asset = _poster(db_session)
-    r = client.post(f"/api/v1/admin/media/{asset.id}/extract", headers=admin_headers)
+    r = media_door.reextract(client, asset.id)
     assert r.status_code == 202
 
 
 def test_reextract_unknown_asset_404(client, admin_headers):
-    r = client.post("/api/v1/admin/media/999999/extract", headers=admin_headers)
+    r = media_door.reextract(client, 999999)
     assert r.status_code == 404

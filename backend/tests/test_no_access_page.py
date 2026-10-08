@@ -148,6 +148,9 @@ def test_a_visitor_without_a_session_is_still_sent_to_the_sign_in_screen(client)
         "/admin/ledenwijzigingen/export",
         "/admin/e-maillog",
         "/admin/info",
+        # The media cut of the same phase: the library and its upload form.
+        "/admin/media",
+        "/admin/media/nieuw",
     ],
 )
 def test_the_screens_whose_json_routes_went_ask_for_a_sign_in(client, screen):
