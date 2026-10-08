@@ -1578,19 +1578,29 @@ def email_addresses_of_members(db: Session, member_ids) -> list[str]:
     shared mailbox), so without the set that mailbox gets the letter twice —
     independent of anyone holding a second address.
     """
+    per_member = email_addresses_per_member(db, member_ids)
+    return sorted(set().union(*per_member.values())) if per_member else []
+
+
+def email_addresses_per_member(db: Session, member_ids) -> dict[int, set[str]]:
+    """The same addresses as `email_addresses_of_members`, per household (#1780):
+    the households that get at least one mail are the keys with a non-empty set.
+    A household of the list in which nobody has a confirmed address has an empty
+    set. One query for both questions, so the count of households on the send
+    screen is the count of the households the addresses came from."""
     from app.domains.mdm.models import MemberPerson, Person
 
     ids = list(member_ids or [])
     if not ids:
-        return []
-    persons = (
-        db.query(Person)
-        .join(MemberPerson, MemberPerson.person_id == Person.id)
+        return {}
+    rows = (
+        db.query(MemberPerson.member_id, Person)
+        .join(Person, MemberPerson.person_id == Person.id)
         .filter(MemberPerson.member_id.in_(ids))
         .all()
     )
-    addresses = set()
-    for person in persons:
+    per_member: dict[int, set[str]] = {member_id: set() for member_id in ids}
+    for member_id, person in rows:
         for contact in getattr(person, "contact_details", []) or []:
             # CR-22 R15 (#1711): an address that waits for its code is nobody's
             # proven mailbox yet — a typing mistake would send the letter to a
@@ -1600,8 +1610,8 @@ def email_addresses_of_members(db: Session, member_ids) -> list[str]:
                 and contact.confirmed_at is not None
                 and (contact.value or "").strip()
             ):
-                addresses.add(contact.value.strip().lower())
-    return sorted(addresses)
+                per_member[member_id].add(contact.value.strip().lower())
+    return per_member
 
 
 def gezin_tabs(db, family, viewer_email: str, actief: str) -> list[dict]:

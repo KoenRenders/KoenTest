@@ -383,14 +383,29 @@ def run_import(db: Session, text: str) -> ImportPreview:
 # ── Audiences ────────────────────────────────────────────────────────────────
 
 
-def member_addresses(db: Session, today: Optional[date] = None) -> list[str]:
-    """Every address of every person in a household with a membership for the
-    current working year (CR-05 §3.3). The rule is the membership domain's."""
-    from app.domains.mdm.api import email_addresses_of_members
+def member_audience(db: Session, today: Optional[date] = None) -> tuple[int, set[int], list[str]]:
+    """Who "Leden" are for a newsletter (CR-05 §3.3): the working year, the
+    households that get the letter, and their addresses. The households with a
+    membership for that year — the rule is the membership domain's — and every
+    address of every person in them; a household in which nobody has an
+    address gets nothing and is not counted.
+
+    One call for the three, so the screen that names the audience (#1780) counts
+    the households the addresses came from and not a second query's."""
+    from app.domains.mdm.api import email_addresses_per_member
     from app.domains.membership.api import members_with_membership_for_year
 
     year = (today or date.today()).year
-    return email_addresses_of_members(db, members_with_membership_for_year(db, year))
+    per_household = email_addresses_per_member(db, members_with_membership_for_year(db, year))
+    reached = {household for household, found in per_household.items() if found}
+    addresses = sorted(set().union(*per_household.values())) if per_household else []
+    return year, reached, addresses
+
+
+def member_addresses(db: Session, today: Optional[date] = None) -> list[str]:
+    """Every address of every person in a household with a membership for the
+    current working year (CR-05 §3.3)."""
+    return member_audience(db, today)[2]
 
 
 def confirmed_subscribers(db: Session) -> list[Subscriber]:
@@ -440,6 +455,53 @@ class AudienceCounts:
     @property
     def overlap(self) -> int:
         return self.members + self.non_members - self.both
+
+
+@dataclass(frozen=True)
+class AudienceSummary:
+    """Who one audience is, for the screen that asks "yes, to these people"
+    (#1780): the numbers the sentence on that screen needs, and nothing a
+    template has to work out."""
+
+    audience: Audience
+    #: The working year the member audience is about.
+    year: int
+    #: Addresses of members, and the households they are in — the households
+    #: with a membership that get at least one mail.
+    member_addresses: int
+    households: int
+    subscriber_addresses: int
+    #: What the letter is sent to: an address on both lists counts once.
+    recipients: int
+
+    @property
+    def in_both(self) -> int:
+        return self.member_addresses + self.subscriber_addresses - self.recipients
+
+
+def audience_summary(
+    db: Session, audience: Audience, today: Optional[date] = None
+) -> AudienceSummary:
+    """The summary of one audience, from the same calls `recipients_for` makes:
+    its `recipients` is the length of that list."""
+    year, households, members = (
+        member_audience(db, today)
+        if audience in (Audience.MEMBERS, Audience.BOTH)
+        else ((today or date.today()).year, set(), [])
+    )
+    subscribers = (
+        {s.email for s in confirmed_subscribers(db)}
+        if audience in (Audience.NON_MEMBERS, Audience.BOTH)
+        else set()
+    )
+    return AudienceSummary(
+        audience=audience,
+        year=year,
+        member_addresses=len(set(members)),
+        households=len(households),
+        subscriber_addresses=len(subscribers),
+        recipients=len(set(members) | subscribers),
+    )
 
 
 def audience_counts(db: Session) -> AudienceCounts:
