@@ -4,7 +4,7 @@
 **Status:** shaped on 8 October 2026 at Koen's request ("Hoe zouden we de CI korter kunnen maken? Dat is nu ongeveer 20 minuten."), on the master CLI's measurement and three proposals of the same day · tracking issue #1745 · build read by dev2 on #1745 taken in (8 October 2026) · **planned on v2.16 by Koen on 8 October 2026, as its first item** (phase 1 before CR-13 phase 4b; phases 2 and 3 inside v2.16) · Mistral's external review awaited · nothing is built
 **Tracking issue:** #1745 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the CI workflow (`.github/workflows/backend-tests.yml`), the pytest fixtures (`backend/tests/conftest.py`), the local test scripts (`scripts/test-local.sh`, `scripts/e2e-local.sh`), and the master CLI's scripts outside the repository that wait for a run
-**Reading:** A 1353 words · B 3004 · C 3458 (B includes the decisions log, about 230 words) — measured on 8 October 2026 without drawings; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1353 words · B 2824 · C 3669 (B includes the decisions log, about 230 words) — measured on 8 October 2026 without drawings; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -141,7 +141,7 @@ The run's wall time is its longest job, pytest at 11 to 19 minutes, of which the
 - **D3 — a time limit of 30 minutes per job.** Today five of six jobs have none (e2e got one on 8 October, `71ec5ac4`), and one run lived six hours. Rejected: a limit per step — more lines for the same guard.
 - **D4 — the local script equals CI.** `scripts/test-local.sh` adds `ruff format --check` and `ruff check` before mypy, and `-n 4` to pytest; the e2e script stays as it is. Rejected: making CI call the local scripts — they run in a helper container against the dev stack; a unification of the two is a change of its own, and this one only closes the two known gaps. The machine rule stays: one full suite at a time per machine (`AGENTS.md`), now four processes per suite.
 - **D5 — the browser tests in two jobs, only when measured as the longest (phase 2).** A matrix of two, each starting its own backend and taking the files whose name hashes to its part (a stable key: a new file does not move the others); the measurement baseline becomes a job of its own. Rejected for phase 1: splitting before measuring.
-- **D6 — the four slowest files made faster themselves (phase 3).** The three gates that parse the whole tree per test parse it once per session; the Design Studio tests render once per input, or at a lower resolution where the assertion does not read pixels. Every test and every assertion stays. Rejected: marking them slow and running them less often — a gate that runs less often is a weaker gate.
+- **D6 — the four slowest files made faster themselves (phase 3).** The tree-parsing gates parse once per session; the Design Studio tests render once per input. Every test and every assertion stays. Rejected: marking them slow and running them less often — a weaker gate.
 
 **Derived requirements**
 
@@ -258,7 +258,7 @@ Checked and not bent: `.github/` is edited by Koen or the master CLI only (`AGEN
 
 **The rule:** the CI run is as long as its longest job, and that job is kept under about five minutes: a job has a time limit; pytest runs in as many processes as the runner has cores, each with its own database; one commit starts one run and a documentation commit none. It goes into `AGENTS.md` *CI* (one paragraph, by the master CLI on Koen's word) — the workflow file itself is the other place, and the gate of C7 keeps the two from drifting.
 
-**The levels, and where each runs** (Koen, 8 October 2026: a view on test levels, one codebase). The suite already has three levels, placed by CR-13 R15: **domain tests** in `app/domains/<x>/tests/` — fast, in-process, one domain, the facades of the others called for real; **integration tests** in `tests/integration/` and the gates in `tests/` — flows across domains, and the rules over the whole tree; **browser tests** in `tests_e2e/`. The fast loop is local: a dev CLI runs the tests of the domain it builds (`pytest app/domains/payment/tests`, CR-13 AC10) while it builds. CI runs everything, in parallel, on every commit — one mechanism, never a selection by changed paths: after parallelisation a selection saves little, and it is exactly the mechanism that skips something silently (the build read's A4). Splitting the codebase is not needed for any of this: the domain folders and the import gate give the separation inside one repository. **Contract tests** (consumer and provider each tested against an agreed contract, Pact-style) are the instrument for a *network* boundary: they return when a component is extracted (`docs/architecture.md` R7) or when an outside party consumes the JSON API; inside one process the facade signature, `CONTRACT.md` and the import gate are the contract, enforced at import.
+**The levels, and where each runs:** the suite has three levels already (domain tests per domain folder, integration tests and gates, browser tests); the fast loop is the domain folder, locally; CI runs everything in parallel and never a selection by changed paths; contract tests return at a network boundary — C4.5.
 
 **Reach and baseline:** one workflow file, six jobs; today 1 of 6 has a time limit (e2e, since `71ec5ac4` of 8 October) and pytest runs in 1 process. After this change 6 of 6 and 4 processes. **Hard** gate for the time limit and the process count (C7). The run's wall time is **not** gated — a gate cannot measure its own run — it is reported: the master CLI records the time of the master run in the release tracker as part of the CI evidence (`AGENTS.md`, *Test-evidence*), beside the run id and `N passed`.
 
@@ -357,6 +357,10 @@ The session fixture drops every schema with `CASCADE`; two processes on one data
 ### C4.3 Why the pull-request run is the one kept (D2)
 
 The push run tests the branch tip as it is; the pull-request run tests the merge of that tip with master, which is what lands. Everything the first proves the second proves too. The master CLI's memory "handover as a pull request, not a bare branch" exists for the same reason.
+
+### C4.5 The levels, and where each runs (B7)
+
+Koen asked for a view on test levels within one codebase (8 October 2026). The suite already has three levels, placed by CR-13 R15: **domain tests** in `app/domains/<x>/tests/` — fast, in-process, one domain, the facades of the others called for real; **integration tests** in `tests/integration/` and the gates in `tests/` — flows across domains, and the rules over the whole tree; **browser tests** in `tests_e2e/`. The fast loop is local: a dev CLI runs the tests of the domain it builds (`pytest app/domains/payment/tests`, CR-13 AC10) while it builds. CI runs everything, in parallel, on every commit — one mechanism, never a selection by changed paths: after parallelisation a selection saves little, and it is exactly the mechanism that skips something silently (the build read's A4). Splitting the codebase is not needed for any of this: the domain folders and the import gate give the separation inside one repository. **Contract tests** (consumer and provider each tested against an agreed contract, Pact-style) are the instrument for a *network* boundary: they return when a component is extracted (`docs/architecture.md` R7) or when an outside party consumes the JSON API; inside one process the facade signature, `CONTRACT.md` and the import gate are the contract, enforced at import.
 
 ### C4.4 Docs-only commits (D2)
 
