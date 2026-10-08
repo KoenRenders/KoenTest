@@ -853,7 +853,7 @@ def test_the_membership_card_shows_the_transfer_that_is_due(browser):
         expect(card).to_contain_text("Je betaling loopt nog.")
         due = card.locator("[data-transfer-due]")
         expect(due).to_be_visible()
-        expect(due).to_contain_text("Mededeling (OGM)")
+        expect(due).to_contain_text("Gestructureerde mededeling")
         expect(due).to_contain_text("+++")
         box, inner = card.bounding_box(), due.bounding_box()
         assert box["x"] <= inner["x"] and inner["x"] + inner["width"] <= box["x"] + box["width"]
@@ -1010,7 +1010,8 @@ def test_the_transfer_stands_in_the_card_as_an_inset_of_the_kit(browser, viewpor
         assert m["inner"] == 16
         # inside the card, with the card's own 16 px on both sides
         assert m["box"][0] == m["card"][0] + 17 and m["box"][2] == m["card"][1] - 34, m
-        assert m["lines"][0] == "Bedrag" and m["lines"][-1] == "Mededeling (OGM)"
+        assert m["lines"][0] == "Bedrag" and m["lines"][-1] == "Te betalen vóór"
+        assert "Gestructureerde mededeling" in m["lines"]
         assert m["page"] == [viewport["width"], viewport["width"]]
     finally:
         page.close()

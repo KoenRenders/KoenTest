@@ -8,7 +8,6 @@ from typing import Optional
 from app.config import settings
 from app.domains.activities.api import compute_registration_total
 from app.domains.mail.models import MailStatus
-from app.domains.mdm.api import PaymentMethod
 from app.i18n import _
 from app.kernel.codes import code_label
 from app.kernel.phone import readable_phone
@@ -207,29 +206,6 @@ def _gmail_config() -> tuple:
         return (settings.gmail_user, settings.gmail_app_password, settings.gmail_from)
 
 
-def _payment_config() -> tuple:
-    """(betaaltermijn-dagen, IBAN, begunstigde) van de actieve tenant; .env-fallback."""
-    try:
-        from app.database import SessionLocal
-        from app.kernel.tenant_config import (
-            tenant_payment_beneficiary,
-            tenant_payment_iban,
-            tenant_payment_term_days,
-        )
-
-        db = SessionLocal()
-        try:
-            return (
-                tenant_payment_term_days(db),
-                tenant_payment_iban(db),
-                tenant_payment_beneficiary(db),
-            )
-        finally:
-            db.close()
-    except Exception:
-        return (settings.payment_term_days, settings.payment_iban, settings.payment_beneficiary)
-
-
 def _send(
     to_email: str, subject: str, body_html: str, cc: Optional[str] = None, email_type: str = "other"
 ) -> None:
@@ -400,38 +376,23 @@ def send_newsletter_confirmation(to_email: str, first_name: Optional[str], confi
     )
 
 
-def _transfer_instructions_html(payment_record) -> str:
-    """Betaalinstructies-blok voor een overschrijving (#157): bedrag, IBAN,
-    begunstigde, gestructureerde mededeling en betaaltermijn. Leeg voor andere
-    betaalmethodes of wanneer de OGM ontbreekt.
-
-    The method is compared with the enum member. Since CR-12 phase 1 the column is
-    a `PaymentMethod`, and a `CodeEnum` never equals a string: the comparison with
-    the text "transfer" that stood here was false for every record, so no mail
-    carried this block (#1775)."""
-    if not payment_record or payment_record.method is not PaymentMethod.TRANSFER:
+def _transfer_instructions_html(transfer) -> str:
+    """The transfer block of a confirmation mail (#157). `transfer` is payment's
+    `TransferDue` — the lines, their words and their values are the ones the
+    screens show (#1775) — or None for a payment that is not a transfer."""
+    if transfer is None:
         return ""
-    ogm = getattr(payment_record, "structured_communication", None)
-    if not ogm:
-        return ""
-    from datetime import date, timedelta
-
-    term_days, iban, beneficiary = _payment_config()
-    due = date.today() + timedelta(days=term_days)
-    rows = [f"<li><strong>Bedrag:</strong> €{payment_record.amount:.2f}</li>"]
-    if iban:
-        rows.append(f"<li><strong>Rekeningnummer:</strong> {escape(iban)}</li>")
-    if beneficiary:
-        rows.append(f"<li><strong>Begunstigde:</strong> {escape(beneficiary)}</li>")
-    rows.append(f"<li><strong>Gestructureerde mededeling:</strong> {escape(ogm)}</li>")
-    rows.append(f"<li><strong>Te betalen vóór:</strong> {due.strftime('%d/%m/%Y')}</li>")
+    rows = "".join(
+        f"<li><strong>{escape(line.label)}:</strong> {escape(line.value)}</li>"
+        for line in transfer.lines
+    )
     return (
-        _(
-            "<h4 style='margin-top:12px;margin-bottom:4px'>Betaalinstructies (overschrijving)</h4>"
+        f"<h4 style='margin-top:12px;margin-bottom:4px'>{escape(transfer.heading)}</h4>"
+        + _(
             "<p>Schrijf het bedrag over met de gestructureerde mededeling hieronder, "
             "zodat we je betaling correct kunnen verwerken:</p>"
         )
-        + f"<ul>{''.join(rows)}</ul>"
+        + f"<ul>{rows}</ul>"
     )
 
 
@@ -543,7 +504,7 @@ def family_welcome_message(
     name: str,
     data=None,
     pc_municipality: str = "",
-    payment_record=None,
+    transfer=None,
 ) -> dict:
     """The welcome mail of a household that registered itself, as a finished message
     for `queue_mail` (CR-13 phase 4: built in the request, sent by a job)."""
@@ -604,7 +565,7 @@ def family_welcome_message(
         <p>Beste {escape(name)},</p>
         <p>Je registratie bij {_display_name()} is ontvangen. Welkom!</p>
         {details}
-        {_transfer_instructions_html(payment_record)}
+        {_transfer_instructions_html(transfer)}
         <p>Met vriendelijke groeten,<br>{_display_name()}</p>
         """,
     )
@@ -615,7 +576,7 @@ def activity_confirmation_message(
     name: str,
     activity,
     registration=None,
-    payment_record=None,
+    transfer=None,
     answer_url=None,
     answers=None,
     subject=None,
@@ -715,7 +676,7 @@ def activity_confirmation_message(
                 f"<ul>{''.join(details)}</ul>"
             )
 
-    message += _transfer_instructions_html(payment_record)
+    message += _transfer_instructions_html(transfer)
 
     if answers:
         rows = "".join(

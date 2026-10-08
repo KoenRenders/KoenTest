@@ -65,15 +65,12 @@ def person_ids_seen_by(person: Any) -> tuple[list[int], bool]:
 def _transfer(db: Session, state: dict) -> Optional[Any]:
     """The transfer this registration still asks for: its open booking, when
     that is a charge paid by bank transfer."""
-    from app.domains.mdm.api import PaymentMethod
     from app.domains.payment.api import PaymentRecord, transfer_due
     from app.i18n import _
 
     if not state.get("open_booking_ids") or state.get("open_booking_is_refund"):
         return None
     record = db.get(PaymentRecord, state["booking_id"])
-    if record is None or record.method != PaymentMethod.TRANSFER:
-        return None
     return transfer_due(db, record, _("Inschrijving geregistreerd — betaal via overschrijving:"))
 
 

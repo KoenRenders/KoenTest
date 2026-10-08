@@ -311,9 +311,11 @@ def test_only_the_card_writes_what_a_running_renewal_asks():
     """One source (#1641: the renewal page lost its running view; CR-22 S2,
     #1705: moved, never copied). In EVERY template of the application:
 
-    - the lines of a transfer are written by `_transfer_due.html` alone, the
+    - the lines of a transfer are drawn by `_transfer_due.html` alone, the
       shared partial, and the membership card reaches it through
-      `_renewal_running.html`;
+      `_renewal_running.html`; since #1775 the partial holds no word of its
+      own — the labels are `TransferDue.lines`, in `payment`, which the
+      confirmation mails render too;
     - the membership card is written by `_membership_card.html` alone, which the
       household page includes.
 
@@ -330,7 +332,9 @@ def test_only_the_card_writes_what_a_running_renewal_asks():
 
     # The kit page draws an inset with made-up lines to SHOW the kit's inset; it
     # is no place that says what somebody owes.
-    assert holding("Mededeling (OGM)") == ["_transfer_due.html", "design_system.html"]
+    assert holding("Gestructureerde mededeling") == ["design_system.html"]
+    assert holding("Mededeling (OGM)") == [] and holding("Te betalen vóór") == []
+    assert holding("due.lines") == ["_transfer_due.html"]
     assert holding('attrs="data-transfer-due"') == ["_transfer_due.html"]
     # Since CR-22 S5 (#1709) a registration still to be paid shows the same block.
     assert holding('"_transfer_due.html"') == ["_my_registration.html", "_renewal_running.html"]
