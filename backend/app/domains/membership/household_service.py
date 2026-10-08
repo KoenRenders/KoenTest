@@ -75,9 +75,14 @@ def _person_to_schema(person: Person, relation_type) -> FamilyMemberResponse:
         (c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL and c.value),
         key=lambda c: (not c.is_primary, c.id or 0),
     )
-    email = next(
-        (c.value for c in adressen if c.is_primary), adressen[0].value if adressen else None
+    # "The e-mail address" of a person is one that counts (#1733): the main one,
+    # else the first confirmed one. Only when every address still waits for its
+    # code is a waiting one shown — and the schema says so (`email_waiting`).
+    counting = [c for c in adressen if c.confirmed_at is not None]
+    shown = next((c for c in counting if c.is_primary), None) or next(
+        iter(counting or adressen), None
     )
+    email = shown.value if shown is not None else None
     phone = next(
         (c.value for c in person.contact_details if c.contact_type_code == CONTACT.PHONE), None
     )
@@ -86,7 +91,12 @@ def _person_to_schema(person: Person, relation_type) -> FamilyMemberResponse:
     )
     return FamilyMemberResponse(
         emails=[
-            EmailAddressResponse(id=c.id, value=c.value, is_primary=bool(c.is_primary))
+            EmailAddressResponse(
+                id=c.id,
+                value=c.value,
+                is_primary=bool(c.is_primary),
+                confirmed=c.confirmed_at is not None,
+            )
             for c in adressen
         ],
         id=person.id,
@@ -95,6 +105,7 @@ def _person_to_schema(person: Person, relation_type) -> FamilyMemberResponse:
         date_of_birth=person.date_of_birth,
         gender=person.gender_code,
         email=email,
+        email_waiting=shown is not None and shown.confirmed_at is None,
         phone=phone,
         mobile=mobile,
         relation_type=relation_type,

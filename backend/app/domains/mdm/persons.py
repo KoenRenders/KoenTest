@@ -40,6 +40,9 @@ class PersonRow:
     id: int
     name: str
     email: Optional[str]
+    #: The address shown waits for its code (#1733): the person has none that
+    #: counts yet.
+    email_waiting: bool
     mobile: Optional[str]
     household_id: Optional[int]
     household_name: Optional[str]
@@ -108,9 +111,11 @@ def _viewed(query, view: str):
 
 def _row(person: Person) -> PersonRow:
     contacts = [c for c in person.contact_details if c.deleted_at is None and c.value]
+    # A confirmed address before one that waits for its code (#1733), the main
+    # one first among them.
     emails = sorted(
         (c for c in contacts if c.contact_type_code == CONTACT.EMAIL),
-        key=lambda c: (not c.is_primary, c.id or 0),
+        key=lambda c: (c.confirmed_at is None, not c.is_primary, c.id or 0),
     )
     mobile = next((c.value for c in contacts if c.contact_type_code == CONTACT.MOBILE), None)
     link = next(
@@ -127,6 +132,7 @@ def _row(person: Person) -> PersonRow:
         id=person.id,
         name=f"{person.first_name} {person.last_name}",
         email=emails[0].value if emails else None,
+        email_waiting=bool(emails) and emails[0].confirmed_at is None,
         mobile=mobile,
         household_id=household.id if household is not None else None,
         household_name=household_name(household) if household is not None else None,

@@ -18,6 +18,8 @@
       </td>
       <td data-cell="context" class="border-b border-line px-3 py-2">
         <div class="truncate"{% if p.email %} title="{{ p.email }}"{% endif %}>{{ p.email or "—" }}</div>
+        {# #1733: the only address this person has still waits for its code. #}
+        {% if p.email_waiting %}<div data-email-waiting class="mt-0.5">{{ ui.badge(_("wacht op bevestiging"), "yellow") }}</div>{% endif %}
         {% if p.mobile %}<div class="text-xs text-ink-soft">{{ p.mobile|phone }}</div>{% endif %}
       </td>
       <td data-cell="status" class="border-b border-line px-3 py-2">
