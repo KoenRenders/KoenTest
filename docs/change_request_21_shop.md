@@ -275,7 +275,7 @@ The last column names the steps of the walkthrough (B2) that show each criterion
 | AC10 | *Moved to CR-28* (webshop follow-up on the workbench, split off on 8 October 2026, Q56). | — | — |
 | AC11 | After trying on, Verkoop changes an M into an L. The reservation moves to the L; the amount follows: an extra payment when the L costs more and the order was paid, a refund due when it costs less, a new amount when it was not paid yet. | R15, R16 | W17 |
 | AC12 | Verkoop registers one line of a two-line order as delivered: the order reads **Deels afgeleverd**, the stock of that article goes down by one and its reservation closes. When the second line is delivered, the order reads **Afgeleverd**. | R21, R34 | W18 |
-| AC13 | A signed-in buyer cancels their own order before delivery, on the same page Verkoop uses: the order reads **Geannuleerd**, the articles are free to sell again, and a paid order shows a refund due. | R13, R23, R25 | W11 |
+| AC13 | A signed-in buyer cancels their own order before delivery, on the same page Verkoop uses: the order leaves "Mijn aankopen", the articles are free to sell again, and a paid order shows a refund due under Betalingen (Q65). | R13, R23, R25 | W11 |
 | AC14 | After delivery, the buyer can no longer cancel. | R25 | W18 |
 | AC15 | Verkoop finds an unpaid order in its list under "Te betalen" and cancels it: the articles are free again. | R22, Q50 | W19 |
 | AC16 | Voorraadbeheer corrects the stock up by one after a return; the correction is visible apart from the receipt of AC4. | R36, R37 | W20 |
@@ -431,7 +431,7 @@ flowchart LR
 
 *Voorraadbeheer* — W6 Voorraadbeheer › Ontvangst: ten M at the default location; the stock reads 10, available 10.
 
-*Buyer* — W7 Webshop: an M and an L in the basket; close the browser, return: the basket is there. W8 Bestellen, pay online (Mollie test): the order reads Betaald and Klaar om af te halen; available M 9, stock 10. W9 With all M reserved, order an M: refused, with the reason. W10 Order and pay by transfer: the mail holds the articles, the amount, the account number and the structured communication. W11 Before delivery, cancel the order from "Mijn aankopen": Geannuleerd, the articles available again.
+*Buyer* — W7 Webshop: an M and an L in the basket; close the browser, return: the basket is there. W8 Bestellen, pay online (Mollie test): the order reads Betaald and Klaar om af te halen; available M 9, stock 10. W9 With all M reserved, order an M: refused, with the reason. W10 Order and pay by transfer: the mail holds the articles, the amount, the account number and the structured communication. W11 Before delivery, cancel the order from "Mijn aankopen" with "Bestelling annuleren": it leaves the list, the articles are available again.
 
 *Boekhouding* — W12 Betalingen: the order of W10 stands as an open transfer, with its structured communication. W13 Confirm the transfer: the order reads Betaald. W14 *moved to CR-28*.
 
