@@ -38,7 +38,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, text
 
 from app.database import engine
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
@@ -138,19 +138,21 @@ def _vul(
     jaar = date.today().year
     for i in range(vanaf, vanaf + gezinnen):
         member, _person = create_test_family(db_session, email=f"budget{i}@example.com")
-        db_session.add(
-            Membership(
-                member_id=member.id,
-                year=jaar,
-                is_active=True,
-                valid_from=date(jaar, 1, 1),
-                valid_to=date(jaar, 12, 31),
-            )
+        membership = Membership(
+            member_id=member.id,
+            year=jaar,
+            is_active=True,
+            valid_from=date(jaar, 1, 1),
+            valid_to=date(jaar, 12, 31),
         )
+        db_session.add(membership)
+        db_session.flush()
         db_session.add(
             PaymentRecord(
                 payable_type="membership",
-                payable_id=member.id,
+                # The MEMBERSHIP, as the application stores it — not the household
+                # (#1759, see the test at the bottom of this file).
+                payable_id=membership.id,
                 type="charge",
                 amount=Decimal("20.00"),
                 method="transfer",
@@ -403,3 +405,58 @@ def test_een_lijstscherm_blijft_binnen_zijn_querybudget(gevulde_databank, pad):
         f"{AANTAL_GEZINNEN} gezinnen en {AANTAL_INSCHRIJVINGEN} inschrijvingen.\n"
         f"    Meest herhaalde statements:\n    {teller.rapport()}"
     )
+
+
+def _let_the_sequences_drift(db_session) -> None:
+    """Set the household sequence 20 ahead of the membership sequence — what the
+    tests that ran earlier in a process do by themselves, by a number nobody knows."""
+    db_session.execute(
+        text(
+            "SELECT setval(pg_get_serial_sequence('mdm.members', 'id'), "
+            "(SELECT last_value FROM membership.memberships_id_seq) + 20)"
+        )
+    )
+
+
+def test_the_payments_screen_is_measured_the_same_whatever_ran_before(client, db_session):
+    """#1759 — `[/admin/betalingen]` above failed now and then: "10 vragen bij 5
+    rijen per soort, 13 bij 45". The screen did not scale; the measurement did.
+
+    `_vul` put the HOUSEHOLD's id on a membership payment where the application
+    stores the membership's. The payments list looks its memberships up by that id,
+    and loads their households, links and persons only when it finds any — three
+    queries. Whether a household's id happened to be the id of one of this test's
+    memberships depended on how far the two sequences had run, which is whatever
+    the earlier tests of the same process had created: on a new database they run
+    level and every payment found "a" membership; after other tests they had
+    drifted apart, none was found at 5 rows, and at 45 the two ranges overlapped.
+
+    Here the drift is made on purpose — the household sequence set 20 ahead of the
+    membership sequence — so the old fixture gives 10 against 13 every time. (A
+    sequence does not roll back with the test; a gap in it harms nobody.)
+
+    Broken to check it can go red: `payable_id=member.id` put back in `_vul` →
+    "10 vragen bij 5 rijen per soort, 13 bij 45", every time.
+    """
+    _let_the_sequences_drift(db_session)
+    _verschiltest(client, db_session, lambda _doel: "/admin/betalingen")
+
+
+def test_a_membership_payment_of_the_fixture_points_at_its_membership(db_session):
+    """What the test above rests on, said directly: the fixture builds what the
+    application builds (`register_router`: `payable_id=membership.id`)."""
+    from app.domains.membership.api import Membership
+    from app.domains.payment.api import PaymentRecord
+
+    _let_the_sequences_drift(db_session)
+    _vul(db_session, activiteiten=1, gezinnen=SCHAAL_KLEIN, inschrijvingen=1)
+
+    paid = {
+        row.payable_id
+        for row in db_session.query(PaymentRecord.payable_id).filter(
+            PaymentRecord.payable_type == "membership"
+        )
+    }
+    memberships = {row.id for row in db_session.query(Membership.id)}
+    assert len(paid) == SCHAAL_KLEIN
+    assert paid == memberships
