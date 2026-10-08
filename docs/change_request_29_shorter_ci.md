@@ -4,7 +4,7 @@
 **Status:** shaped on 8 October 2026 at Koen's request ("Hoe zouden we de CI korter kunnen maken? Dat is nu ongeveer 20 minuten."), on the master CLI's measurement and three proposals of the same day · tracking issue #1745 · build read by dev2 on #1745 taken in (8 October 2026) · not assigned to a release · nothing is built
 **Tracking issue:** #1745 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the CI workflow (`.github/workflows/backend-tests.yml`), the pytest fixtures (`backend/tests/conftest.py`), the local test scripts (`scripts/test-local.sh`, `scripts/e2e-local.sh`), and the master CLI's scripts outside the repository that wait for a run
-**Reading:** A 1 302 words · B 2 511 (2 400 without the decisions log) · C 3 358 — measured on 8 October 2026 after the build read, without drawings; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 302 words · B 2 542 (2 380 without the decisions log) · C 3 370 — measured on 8 October 2026 after the build read, without drawings; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
