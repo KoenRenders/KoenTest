@@ -12,6 +12,7 @@ proves nothing: record on the old code, read the diff before committing it.
 
 from __future__ import annotations
 
+import contextlib
 import difflib
 import os
 import re
@@ -59,3 +60,33 @@ def compare(folder: Path, screen: str, got: str, before: str) -> None:
             )
         )
         pytest.fail(f"{screen} renders differently from before {before}:\n{diff}")
+
+
+@contextlib.contextmanager
+def fixed_ids(db, models, start: int = 881_000):
+    """Every row of these models made inside the block gets the same id on every
+    run — and one no class name or house number can be mistaken for when a
+    recording masks it. The sequences go back to where they stood: the tests
+    after the block count on theirs."""
+    import sqlalchemy as sa
+
+    before = {}
+    for index, model in enumerate(models):
+        table = f"{model.__table__.schema}.{model.__table__.name}"
+        sequence = db.execute(
+            sa.text("SELECT pg_get_serial_sequence(:t, 'id')"), {"t": table}
+        ).scalar()
+        before[sequence] = db.execute(
+            sa.text(f"SELECT last_value, is_called FROM {sequence}")
+        ).one()
+        db.execute(sa.text("SELECT setval(:s, :n)"), {"s": sequence, "n": start + index * 1_000})
+    try:
+        yield
+    finally:
+        db.rollback()
+        for sequence, (last_value, is_called) in before.items():
+            db.execute(
+                sa.text("SELECT setval(:s, :n, :c)"),
+                {"s": sequence, "n": last_value, "c": is_called},
+            )
+        db.commit()

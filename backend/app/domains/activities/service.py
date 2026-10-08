@@ -1796,19 +1796,39 @@ def registration_awaiting_answers(db: Session, token: str) -> Optional[Registrat
     return registration
 
 
+def _attached_answers(answers: list) -> tuple:
+    """The answers as the ports of forms carry them (`kernel/contracts/forms.py`):
+    plain values, from the answers as the form's parser gave them."""
+    from app.kernel.contracts.forms import AttachedAnswer
+
+    return tuple(
+        AttachedAnswer(
+            field_id=answer.field_id,
+            text=answer.text,
+            number=answer.number,
+            option_ids=tuple(answer.option_ids or ()),
+            rating=answer.rating,
+            other_text=answer.other_text,
+        )
+        for answer in answers
+    )
+
+
 def edit_answers(
     db: Session, registration_id: int, answers: list, *, actor: Optional[str]
 ) -> Registration:
     """An organiser corrects a registration's answers (CR-14 §B4.7, R7).
 
-    The same rules as when they were given — `forms.api.update_attached` runs
+    The same rules as when they were given — the port `UpdateAttached` (forms) runs
     `build_answers` again, so an empty required answer is refused here too, naming
     the question (`VeldFout`). In one transaction with one history row
     ("answers_edited") carrying each changed answer as "label: old → new"; a save
     that changes nothing writes no row. `LookupError` for an unknown registration;
     `ActiviteitFout` for one without answers to correct."""
-    from app.domains.forms.api import submission_views, update_attached
+    from app.domains.forms.api import submission_views
     from app.i18n import _ as vertaal
+    from app.kernel.contracts.forms import UpdateAttached
+    from app.kernel.ports import call
 
     registration = db.query(Registration).filter(Registration.id == registration_id).first()
     if registration is None:
@@ -1819,7 +1839,13 @@ def edit_answers(
     before = dict(submission_views(db, [submission_id]).get(submission_id, []))
     savepoint = db.begin_nested()
     try:
-        update_attached(db, submission_id, answers)
+        call(
+            UpdateAttached(
+                submission_id=submission_id,
+                answers=_attached_answers(answers),
+            ),
+            db,
+        )
     except Exception:
         savepoint.rollback()
         raise
@@ -2006,7 +2032,7 @@ def take_answers(
     """The answers to the component's questions, now or later (CR-14 §B4.2, §B4.8).
 
     A list — even an empty one — is "now": the form's own rules judge it
-    (`forms.api.submit_attached`: required, ranges, options), and a refusal names
+    (the port `SubmitAttached`, handled by forms: required, ranges, options), and a refusal names
     the question (`VeldFout`, a 422 with the field). None is "later": the
     registration gets an answer link instead. Complete or not at all — no channel
     is lenient, and none stores half a form.
@@ -2025,19 +2051,24 @@ def take_answers(
         db.flush()
         return
 
-    from app.domains.forms.api import submit_attached
+    from app.kernel.contracts.forms import SubmitAttached
+    from app.kernel.ports import call
 
     known = {f.id for f in form.fields}
     if any(a.field_id not in known for a in answers):
         raise ActiviteitFout(vertaal("Een antwoord hoort niet bij de vragen van dit onderdeel."))
-    submission = submit_attached(
+    # Through a port (§3.2.1 step 2): forms stores the answers and says which
+    # submission holds them; a refused answer comes back as forms' own `VeldFout`.
+    stored = call(
+        SubmitAttached(
+            form_id=form.id,
+            answers=_attached_answers(answers),
+            submitter_name=registration.contact_name,
+            submitter_email=registration.contact_email,
+        ),
         db,
-        form,
-        answers,
-        submitter_name=registration.contact_name,
-        submitter_email=registration.contact_email,
     )
-    registration.form_submission_id = submission.id
+    registration.form_submission_id = stored.submission_id
     db.flush()
 
 

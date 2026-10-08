@@ -26,7 +26,6 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-import sqlalchemy as sa
 
 from app.domains.activities.api import (
     Activity,
@@ -36,7 +35,7 @@ from app.domains.activities.api import (
 )
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Address, ContactDetail, Member, Person, PostalCode
-from tests._snapshot import compare, main_region, normalise
+from tests._snapshot import compare, fixed_ids, main_region, normalise
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
@@ -59,31 +58,11 @@ def _login(client) -> dict[str, str]:
 
 @pytest.fixture(autouse=True)
 def _ids_from_a_fixed_start(db_session):
-    """Every row a test makes gets the same id on every run, and one no class
-    name or house number can be mistaken for when it is masked. The sequences
-    go back to where they stood: the tests after this file count on theirs."""
-    before = {}
+    """Fixed ids for every row a test makes (`tests/_snapshot.fixed_ids`)."""
     models = (Member, Person, ContactDetail, Address, PostalCode, Activity)
     models += (ActivitySubRegistration, ActivityProduct)
-    for index, model in enumerate(models):
-        table = f"{model.__table__.schema}.{model.__table__.name}"
-        sequence = db_session.execute(
-            sa.text("SELECT pg_get_serial_sequence(:t, 'id')"), {"t": table}
-        ).scalar()
-        before[sequence] = db_session.execute(
-            sa.text(f"SELECT last_value, is_called FROM {sequence}")
-        ).one()
-        db_session.execute(
-            sa.text("SELECT setval(:s, :n)"), {"s": sequence, "n": 881_000 + index * 1_000}
-        )
-    yield
-    db_session.rollback()
-    for sequence, (last_value, is_called) in before.items():
-        db_session.execute(
-            sa.text("SELECT setval(:s, :n, :c)"),
-            {"s": sequence, "n": last_value, "c": is_called},
-        )
-    db_session.commit()
+    with fixed_ids(db_session, models):
+        yield
 
 
 def _answer(response, names: dict[int, str]) -> str:
