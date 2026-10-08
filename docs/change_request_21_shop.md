@@ -1,8 +1,8 @@
 # Change Request 21 — Webshop: products, stock and pricing
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** being shaped since 6 October 2026 · Parts A, B and C written; C8 run (8 October 2026), C9 concepts made (8 October 2026); not yet read against the code · nothing is built; not on a release
-**Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
+**Status:** being shaped since 6 October 2026 · Parts A, B and C written; C8 run (8 October 2026), C9 concepts made (8 October 2026); build read routed on #1743 (8 October 2026); phase 0 on v2.16 (tracker #1738) once the build read is taken in · nothing is built; not on a release
+**Tracking issue:** #1743 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** to be filled in once Part B is shaped
 **Reading:** A 4 333 words · B 4 014 (the decisions log excluded) · C 3 181 — measured on 8 October 2026 without drawings and notes; the budget is A ≤ 1 500  B ≤ 2 500: **over budget, accepted by Koen (Q53)** — A6 carries 38 requirements in the business's words with their sources  B2 the traceability of all of them and a walkthrough of 21 steps; cutting them would cut what the build read and Koen's validation need
 
