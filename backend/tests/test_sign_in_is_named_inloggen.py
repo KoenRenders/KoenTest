@@ -39,8 +39,11 @@ def test_the_page_its_title_and_its_heading_say_inloggen(client):
 
 def test_the_button_after_the_code_says_inloggen():
     code_step = (TEMPLATES / "_sign_in_code.html").read_text()
-    buttons = re.findall(r"ui\.btn_primary\(_\('([^']+)'\)\)", code_step)
-    assert buttons == ["Inloggen"], buttons
+    # CR-22 (#1708): the one code step serves a new account too — "Bevestigen"
+    # there, "Inloggen" for a sign-in, and no third word.
+    (button,) = re.findall(r"ui\.btn_primary\((.+)\)", code_step)
+    assert re.findall(r"_\('([^']+)'\)", button) == ["Bevestigen", "Inloggen"], button
+    assert button.endswith("if new_account else _('Inloggen')"), button
     expired = (TEMPLATES / "login_verlopen.html").read_text()
     assert '_("Opnieuw inloggen")' in expired and 'aanmelden")' not in expired.replace(
         'path_for("/aanmelden")', ""

@@ -1,13 +1,16 @@
 {% import "_macros.html" as ui %}
 {% if error %}{{ ui.error_banner(error) }}{% else %}
-<div class="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-700" role="status">{{ _("Als dit e-mailadres gekend is, ontvang je een e-mail met een code.") }}</div>
+{# CR-22 (#1708, Q17): the same sentence in every case — a sign-in, a new
+   account, an address nobody knows. #}
+<div data-code-sent class="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-700" role="status">{{ _("We stuurden een code naar dit adres.") }}</div>
 {% endif %}
 <form hx-post="/aanmelden/code" hx-target="#aanmelden-stap" hx-swap="innerHTML" class="space-y-4">
   <input type="hidden" name="email" value="{{ email }}">
   {% if terug %}<input type="hidden" name="terug" value="{{ terug }}">{% endif %}
+  {% if new_account %}<input type="hidden" name="nieuw" value="1">{% endif %}
   <div>
     <label for="code" class="block text-sm font-medium text-gray-700 mb-1">{{ _("Code uit de e-mail") }}</label>
     {{ ui.input_control("code", required=True, cls="w-full", attrs='inputmode="numeric" autocomplete="one-time-code"') }}
   </div>
-  {{ ui.btn_primary(_('Inloggen')) }}
+  {{ ui.btn_primary(_('Bevestigen') if new_account else _('Inloggen')) }}
 </form>

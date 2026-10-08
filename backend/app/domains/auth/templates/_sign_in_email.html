@@ -9,3 +9,6 @@
   </div>
   {{ ui.btn_primary(_('Stuur inloginfo')) }}
 </form>
+{# CR-22 (#1708, R1): the second door. The page to return to travels with it. #}
+<p data-create-account class="mt-6 text-sm text-ink-soft">{{ _("Nog geen account?") }}
+  <a class="text-link underline" href="{{ path_for('/account-aanmaken') }}{% if terug %}?terug={{ terug|urlencode }}{% endif %}">{{ _("Account aanmaken") }}</a></p>

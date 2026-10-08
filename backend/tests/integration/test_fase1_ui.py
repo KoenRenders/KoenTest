@@ -53,7 +53,8 @@ def test_aanmelden_unknown_email_shows_same_generic_step(client):
     resp = client.post("/aanmelden", data={"email": "onbekend@example.com"})
     assert resp.status_code == 200
     # Zelfde vervolgstap als voor een gekend adres — geen verklapping.
-    assert "gekend is" in resp.text
+    # CR-22 (#1708): the one sentence of the code step, in every case.
+    assert "We stuurden een code naar dit adres." in resp.text
 
 
 # ── E-maillog ──────────────────────────────────────────────────────────────────

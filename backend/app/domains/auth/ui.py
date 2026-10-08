@@ -8,6 +8,8 @@ React-exit (#405); de API-endpoints blijven de enige plek met de flow-logica.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -17,6 +19,7 @@ from app.domains.auth.session import set_session_cookie
 from app.i18n import _
 from app.limiter import login_limiter
 from app.ui import templates, veilige_terug
+from app.ui.viewmodel import ViewModel
 
 router = APIRouter(include_in_schema=False)
 
@@ -60,7 +63,9 @@ def aanmelden_submit(
     start_login(db, email, return_to=return_to)
     # Altijd hetzelfde vervolg — verklap niet of het adres gekend is.
     return templates.TemplateResponse(
-        request, "_sign_in_code.html", {"email": email, "error": None, "terug": return_to}
+        request,
+        "_sign_in_code.html",
+        {"email": email, "error": None, "terug": return_to, "new_account": False},
     )
 
 
@@ -71,6 +76,7 @@ def aanmelden_code(
     email: str = Form(""),
     code: str = Form(""),
     return_to: str = Form("", alias="terug"),
+    new_account: str = Form("", alias="nieuw"),
 ):
     from app.domains.auth.api import consume_code
 
@@ -84,7 +90,15 @@ def aanmelden_code(
     if consumed is None or consumed.refusal:
         error = consumed.refusal if consumed else _("Ongeldige of verlopen code.")
         return templates.TemplateResponse(
-            request, "_sign_in_code.html", {"email": email, "error": error, "terug": return_to}
+            request,
+            "_sign_in_code.html",
+            {
+                "email": email,
+                "error": error,
+                "terug": return_to,
+                # The step keeps its button's word after a wrong code (#1708).
+                "new_account": new_account == "1",
+            },
         )
     # The page that asked, else the landing by role (#530, #1437) — the same
     # rule as the mail link, from the one place it lives.
@@ -95,6 +109,75 @@ def aanmelden_code(
     set_session_cookie(response, email, request)
     response.headers["HX-Redirect"] = dest
     return response
+
+
+# ── Account aanmaken (CR-22 S4b, #1708; R3, R4) ──────────────────────────────
+
+
+@dataclass(frozen=True, kw_only=True)
+class CreateAccountView(ViewModel):
+    """`create_account.html` and its form `_create_account_form.html`: what was
+    typed, and per field what is wrong with it."""
+
+    first_name: str = ""
+    last_name: str = ""
+    email: str = ""
+    mobile: str = ""
+    problems: dict[str, str] = field(default_factory=dict)
+    terug: str = ""
+
+
+@router.get("/account-aanmaken", response_class=HTMLResponse)
+def create_account_page(request: Request, db: Session = Depends(get_db)):
+    from app.ui import site_context
+
+    return_to = veilige_terug(request.query_params.get("terug"), "")
+    context = site_context(db, request)
+    context.update(CreateAccountView(terug=return_to).as_context())
+    return templates.TemplateResponse(request, "create_account.html", context)
+
+
+@router.post(
+    "/account-aanmaken", response_class=HTMLResponse, dependencies=[Depends(login_limiter)]
+)
+def create_account_submit(
+    request: Request,
+    db: Session = Depends(get_db),
+    first_name: str = Form(""),
+    last_name: str = Form(""),
+    email: str = Form(""),
+    mobile: str = Form(""),
+    return_to: str = Form("", alias="terug"),
+):
+    """The four fields, each refused under itself; a good request always gets
+    the same code step — the screen never says whether the address is known
+    (CR-22 Q17). No person exists before the code is entered."""
+    from app.domains.auth.api import AccountRequest, start_account
+
+    return_to = veilige_terug(return_to, "")
+    asked = AccountRequest(
+        first_name=first_name.strip(),
+        last_name=last_name.strip(),
+        email=email.strip(),
+        mobile=mobile.strip(),
+    )
+    problems = asked.problems()
+    if problems:
+        view = CreateAccountView(
+            first_name=asked.first_name,
+            last_name=asked.last_name,
+            email=asked.email,
+            mobile=asked.mobile,
+            problems=problems,
+            terug=return_to,
+        )
+        return templates.TemplateResponse(request, "_create_account_form.html", view.as_context())
+    start_account(db, asked, return_to=return_to)
+    return templates.TemplateResponse(
+        request,
+        "_sign_in_code.html",
+        {"email": asked.email, "error": None, "terug": return_to, "new_account": True},
+    )
 
 
 # URL-pariteit (React-exit 405-e, #405): de oude React-loginpaden blijven
