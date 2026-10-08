@@ -42,10 +42,7 @@ NETWORK_IN_HANDLER: frozenset[str] = frozenset()
 JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset(
     {
         "DELETE /api/v1/auth/api-keys/{key_id}",
-        "DELETE /api/v1/families/{family_id}",
         "DELETE /api/v1/member/household/persons/{person_id}",
-        "DELETE /api/v1/memberships/{membership_id}",
-        "DELETE /api/v1/persons/{person_id}",
         "DELETE /api/v1/users/{user_id}",
         "GET /api/v1/admin/pages",
         "GET /api/v1/auth/api-keys",
@@ -53,32 +50,17 @@ JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset(
         "GET /api/v1/auth/member/me",
         "GET /api/v1/auth/verify-login",
         "GET /api/v1/blocks/{slug}",
-        "GET /api/v1/families",
-        "GET /api/v1/families/{family_id}",
-        "GET /api/v1/member/household",
-        "GET /api/v1/members",
-        "GET /api/v1/members/{member_id}",
-        "GET /api/v1/memberships",
         "GET /api/v1/pages",
         "GET /api/v1/pages/{slug}",
-        "GET /api/v1/persons",
-        "GET /api/v1/postal-codes",
         "GET /api/v1/users",
-        "POST /api/v1/admin/member-import/commit",
-        "POST /api/v1/admin/member-import/preview",
         "POST /api/v1/auth/api-keys",
         "POST /api/v1/auth/request-login",
         "POST /api/v1/auth/verify-otp",
-        "POST /api/v1/families/{family_id}/memberships",
         "POST /api/v1/member/household/persons",
-        "POST /api/v1/member/household/renew-membership",
         "POST /api/v1/members",
-        "POST /api/v1/members/{member_id}/memberships",
         "POST /api/v1/pages",
         "POST /api/v1/users",
         "PUT /api/v1/member/household/persons/{person_id}",
-        "PUT /api/v1/persons/{person_id}",
-        "PUT /api/v1/persons/{person_id}/contacts",
     }
 )
 
@@ -669,7 +651,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/membership/household_service.py::update_person → audit.api.snapshot_person",
         "domains/membership/household_service.py::update_person_address → audit.api.snapshot_address",
         "domains/membership/household_service.py::update_person_contacts._upsert_contact → mdm.api.upsert_primary_contact",
-        "domains/membership/register_router.py::create_membership → audit.api.snapshot_membership",
         "domains/membership/register_router.py::register_family → payment.api.create_payment_record",
         "domains/membership/service.py::activate_after_payment → audit.api.snapshot_membership",
         "domains/newsletter/service.py::add_attachment → media.api.add_document",
@@ -739,7 +720,6 @@ WRITE_OUTSIDE_SERVICE: frozenset[str] = frozenset(
         "domains/media/router.py::_replace_single_asset → media.MediaAsset",
         "domains/media/router.py::serve_thumb → media.MediaAsset",
         "domains/membership/household_router.py::renew_membership → membership.Membership",
-        "domains/membership/register_router.py::create_membership → membership.Membership",
     }
 )
 

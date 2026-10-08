@@ -11,9 +11,11 @@ Invarianten:
 import pytest
 
 from app.domains.auth.api import create_access_token
+from app.domains.membership import household_service
+from app.domains.membership.schemas_member import MembershipCreate
 from app.domains.payment.api import PayableType
 from tests import payments_door
-from tests.conftest import seed_postal_code, sign_up_at_the_door
+from tests.conftest import renew_at_the_portal, seed_postal_code, seeded_admin, sign_up_at_the_door
 from tests.integration.test_functional_regression import _family_payload
 from tests.integration.test_membership_pricing import seed_household
 
@@ -33,14 +35,13 @@ def test_admin_created_membership_is_valid(client, db_session, admin_headers):
 
     member, person = seed_household(db_session, "adminmade@example.com", with_membership=False)
     year = date.today().year
-    resp = client.post(
-        f"/api/v1/families/{member.id}/memberships",
-        headers=admin_headers,
-        json={"year": year, "is_active": True},
+    made = household_service.create_membership_for_family(
+        db_session,
+        member.id,
+        MembershipCreate(year=year, is_active=True),
+        admin=seeded_admin(db_session),
     )
-    assert resp.status_code == 201, resp.text
-    body = resp.json()
-    assert body["valid_from"] is not None and body["valid_to"] is not None
+    assert made.valid_from is not None and made.valid_to is not None
     db_session.expire_all()
     assert has_valid_membership(person) is True
 
@@ -78,7 +79,7 @@ def test_renew_creates_inactive_membership_and_checkout(client, db_session, mock
     email = "renew@example.com"
     member, _person = seed_household(db_session, email, with_membership=False)
 
-    resp = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+    resp = renew_at_the_portal(client, email)
     assert resp.status_code == 200, resp.text
     assert resp.json()["checkout_url"].startswith("https://mollie.test")
 
@@ -98,7 +99,7 @@ def test_renew_creates_inactive_membership_and_checkout(client, db_session, mock
 def test_renew_refused_when_already_valid(client, db_session, mock_mollie):
     email = "alvalid@example.com"
     seed_household(db_session, email)  # actief, geldig vandaag
-    resp = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+    resp = renew_at_the_portal(client, email)
     assert resp.status_code == 409, resp.text
 
 
@@ -126,7 +127,7 @@ def test_membership_payment_description_uses_raak_not_kwb(client, db_session, mo
     old = settings.membership_renewal_start_md
     settings.membership_renewal_start_md = "01-01"  # open het hernieuwingsvenster
     try:
-        resp = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+        resp = renew_at_the_portal(client, email)
     finally:
         settings.membership_renewal_start_md = old
     assert resp.status_code == 200, resp.text
@@ -150,9 +151,9 @@ def test_double_renew_is_refused(client, db_session, mock_mollie):
     old = settings.membership_renewal_start_md
     settings.membership_renewal_start_md = "01-01"
     try:
-        first = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+        first = renew_at_the_portal(client, email)
         assert first.status_code == 200, first.text
-        second = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+        second = renew_at_the_portal(client, email)
     finally:
         settings.membership_renewal_start_md = old
 
@@ -186,7 +187,7 @@ def test_early_renew_while_valid_targets_next_year(client, db_session, mock_moll
     old = settings.membership_renewal_start_md
     settings.membership_renewal_start_md = "01-01"
     try:
-        resp = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+        resp = renew_at_the_portal(client, email)
     finally:
         settings.membership_renewal_start_md = old
 
@@ -215,12 +216,7 @@ def test_early_renew_while_valid_targets_next_year(client, db_session, mock_moll
 def test_webhook_activates_membership_on_paid(client, db_session, mock_mollie):
     email = "activate@example.com"
     _member, person = seed_household(db_session, email, with_membership=False)
-    assert (
-        client.post(
-            "/api/v1/member/household/renew-membership", headers=_headers(email)
-        ).status_code
-        == 200
-    )
+    assert renew_at_the_portal(client, email).status_code == 200
 
     # Mollie roept de webhook met de provider_payment_id (mock = tr_test_123).
     hook = client.post("/api/v1/payment-gateway/webhooks/mollie", data={"id": "tr_test_123"})

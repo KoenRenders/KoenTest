@@ -7,7 +7,7 @@ from datetime import date
 
 from app.domains.mdm.api import CONTACT, ContactDetailHistory, Person, PersonHistory
 from tests import backoffice_door
-from tests.conftest import seed_postal_code, sign_up_at_the_door
+from tests.conftest import board_at_the_household, seed_postal_code, sign_up_at_the_door
 
 
 def _make_person(client, db):
@@ -48,10 +48,11 @@ def test_only_changed_contact_is_snapshotted(client, db_session, admin_headers):
     )
 
     # Enkel het mobiel nummer wijzigt; e-mail blijft gelijk.
-    r = client.put(
-        f"/api/v1/persons/{person.id}/contacts",
+    r = board_at_the_household(
+        client,
+        "update_person_contacts",
+        person.id,
         json={"email": "suske@suske.be", "mobile": "0470222222"},
-        headers=admin_headers,
     )
     assert r.status_code == 200, r.text
 
@@ -74,10 +75,11 @@ def test_only_changed_contact_is_snapshotted(client, db_session, admin_headers):
 def test_contact_change_shows_old_to_new(client, db_session, admin_headers):
     """#188: een gewijzigd contact toont 'oud → nieuw' in de wijzigingen-feed."""
     person = _make_person(client, db_session)
-    client.put(
-        f"/api/v1/persons/{person.id}/contacts",
+    board_at_the_household(
+        client,
+        "update_person_contacts",
+        person.id,
         json={"email": "suske@suske.be", "mobile": "0470222222"},
-        headers=admin_headers,
     )
     resp = backoffice_door.member_changes(client, date.today().isoformat())
     rows = resp.json()
@@ -96,10 +98,8 @@ def test_contact_change_shows_old_to_new(client, db_session, admin_headers):
 def test_person_name_change_shows_old_to_new(client, db_session, admin_headers):
     """#188: een naamswijziging toont 'oud → nieuw' in de wijzigingen-feed."""
     person = _make_person(client, db_session)
-    r = client.put(
-        f"/api/v1/persons/{person.id}",
-        json={"first_name": "Suske", "last_name": "Vandersteen"},
-        headers=admin_headers,
+    r = board_at_the_household(
+        client, "update_person", person.id, json={"first_name": "Suske", "last_name": "Vandersteen"}
     )
     assert r.status_code == 200, r.text
     resp = backoffice_door.member_changes(client, date.today().isoformat())
@@ -114,10 +114,8 @@ def test_person_update_without_change_makes_no_history(client, db_session, admin
     before = db_session.query(PersonHistory).filter(PersonHistory.person_id == person.id).count()
 
     # Zelfde naam opnieuw indienen → geen wijziging.
-    r = client.put(
-        f"/api/v1/persons/{person.id}",
-        json={"first_name": "Suske", "last_name": "Wiske"},
-        headers=admin_headers,
+    r = board_at_the_household(
+        client, "update_person", person.id, json={"first_name": "Suske", "last_name": "Wiske"}
     )
     assert r.status_code == 200, r.text
 

@@ -133,7 +133,7 @@ MODULES: tuple[Module, ...] = (
         "Leden",
         admin_items=(("/admin/leden", "Leden"),),
         member_items=(("/leden/gezin", "Mijn gezin", "users"),),
-        route_prefixes=("/api/v1/families", "/lid-worden", "/leden/gezin", "/admin/leden"),
+        route_prefixes=("/lid-worden", "/leden/gezin", "/admin/leden"),
         dashboard_tiles=(
             "dashboard_members",
             "dashboard_active_members",

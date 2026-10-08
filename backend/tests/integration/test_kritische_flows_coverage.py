@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from app.domains.mdm.api import RelationType
 from tests.conftest import (
+    board_at_the_household,
     create_test_family,
     create_test_person,
     seed_activity_with_product,
@@ -193,10 +194,8 @@ def test_admin_update_person_wijzigt_relation_type_niet(client, db_session, admi
     `relation_type` laat het hoofdlid hoofdlid."""
     member, person = create_test_family(db_session, email="hoofd-immut@example.com")
 
-    resp = client.put(
-        f"/api/v1/persons/{person.id}",
-        json={"first_name": "Nieuw", "relation_type": "KIND"},
-        headers=admin_headers,
+    resp = board_at_the_household(
+        client, "update_person", person.id, json={"first_name": "Nieuw", "relation_type": "KIND"}
     )
     assert resp.status_code == 200, resp.text
 
@@ -215,7 +214,7 @@ def test_admin_verwijder_bijkomend_lid_laat_hoofdlid_intact(client, db_session, 
         db_session, member, relation_type="KIND", first_name="Kind", last_name="Persoon"
     )
 
-    resp = client.delete(f"/api/v1/persons/{kind.id}", headers=admin_headers)
+    resp = board_at_the_household(client, "delete_person", kind.id)
     assert resp.status_code == 204
 
     db_session.expire_all()

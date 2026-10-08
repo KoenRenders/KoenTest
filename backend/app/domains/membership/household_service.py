@@ -541,34 +541,21 @@ def create_family_by_admin(db: Session, data, *, actor: str) -> Member:
 
 
 # De velden die `list_families` doorzoekt, met de naam die een MENS eraan geeft
-# (#1165, #1167, #1169). Eén bron, want deze lijst wordt op twee plaatsen beloofd:
-# de grijze zoeksuggestie op /admin/leden en de OpenAPI-omschrijving van `q` op
-# `GET /families`. Die twee liepen al een keer uiteen — #1165 gaf de `OR` een tak
-# erbij en beide teksten bleven stil achter.
+# (#1165, #1167, #1169). Eén bron voor wat de grijze zoeksuggestie op /admin/leden
+# belooft — #1165 gaf de `OR` een tak erbij en de tekst bleef stil achter. (Until
+# CR-13 phase 4b, #1251, the description of `q` on the JSON route `GET /families`
+# was derived from this list too; the route had no caller and is gone.)
 #
 # Nederlandse woorden in een Engelse module: dit is COPY en geen identifier, zoals
 # de taalregel in `CLAUDE.md` het onderscheidt. Ze hangen hier omdat het een feit
 # over déze functie is, niet over een scherm.
 #
-# De API-omschrijving LEIDT hieruit af (zie `family_search_hint`). De
-# schermsuggestie kan dat niet: die moet als één letterlijke string in een
+# De schermsuggestie kan hier niet uit afgeleid worden: die moet als één letterlijke string in een
 # `_()`-aanroep staan, anders haalt pybabel er geen msgid meer uit. Daar staat
 # dus een poort op in plaats van een afleiding — `test_leden_zoeken_op_straat.py`
 # eist dat de suggestie exact deze velden noemt, en bewijst per veld dát erop
 # gezocht wordt.
 SEARCHED_FIELDS: tuple[str, ...] = ("naam", "straatnaam", "e-mail")
-
-
-def family_search_hint() -> str:
-    """De velden uit :data:`SEARCHED_FIELDS` als opsomming: *a, b of c*.
-
-    Dezelfde vorm als elk zoekveld in deze applicatie gebruikt — komma's, "of"
-    vóór het laatste item. Geen afsluitende komma: die belooft velden die er
-    niet zijn.
-    """
-    if len(SEARCHED_FIELDS) == 1:
-        return SEARCHED_FIELDS[0]
-    return f"{', '.join(SEARCHED_FIELDS[:-1])} of {SEARCHED_FIELDS[-1]}"
 
 
 def list_families(

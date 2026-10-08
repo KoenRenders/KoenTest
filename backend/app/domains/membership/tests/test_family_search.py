@@ -5,7 +5,14 @@ de huidige pagina niet vindbaar. De zoekterm matcht op voor-/achternaam, volledi
 naam of e-mail van een gezinslid.
 """
 
-from tests.conftest import seed_postal_code, sign_up_at_the_door
+from app.domains.membership import household_service
+from tests.conftest import seed_postal_code, seeded_admin, sign_up_at_the_door
+
+
+def _list(db, **filters) -> dict:
+    """The households the members screen lists, as the JSON list answered them."""
+    found = household_service.list_families(db, _admin=seeded_admin(db), **filters)
+    return found.model_dump(mode="json")
 
 
 def _make_family(client, last, first, email, mobile, *, street="Milostraat", nr="40"):
@@ -43,21 +50,19 @@ def test_families_search_by_name_full_name_and_email(client, db_session, admin_h
         return [m["last_name"] for fam in body["items"] for m in fam["members"]]
 
     # Achternaam (deelmatch, hoofdletterongevoelig).
-    r = client.get("/api/v1/families", params={"q": "render"}, headers=admin_headers).json()
+    r = _list(db_session, q="render")
     assert r["total"] == 1 and "Renders" in _names(r) and "Peeters" not in _names(r)
 
     # Volledige naam.
-    r2 = client.get("/api/v1/families", params={"q": "Koen Renders"}, headers=admin_headers).json()
+    r2 = _list(db_session, q="Koen Renders")
     assert r2["total"] == 1 and "Renders" in _names(r2)
 
     # E-mail.
-    r3 = client.get(
-        "/api/v1/families", params={"q": "an.peeters@example"}, headers=admin_headers
-    ).json()
+    r3 = _list(db_session, q="an.peeters@example")
     assert r3["total"] == 1 and "Peeters" in _names(r3)
 
     # Lege zoekterm → beide gezinnen.
-    r4 = client.get("/api/v1/families", headers=admin_headers).json()
+    r4 = _list(db_session)
     assert r4["total"] == 2
 
 
@@ -74,14 +79,10 @@ def test_families_pagination_caps_and_counts(client, db_session, admin_headers):
             nr=str(i),
         )
 
-    r = client.get(
-        "/api/v1/families", params={"page": 1, "page_size": 2}, headers=admin_headers
-    ).json()
+    r = _list(db_session, page=1, page_size=2)
     assert r["total"] == 3
     assert r["total_pages"] == 2
     assert len(r["items"]) == 2
 
-    r2 = client.get(
-        "/api/v1/families", params={"page": 2, "page_size": 2}, headers=admin_headers
-    ).json()
+    r2 = _list(db_session, page=2, page_size=2)
     assert len(r2["items"]) == 1
