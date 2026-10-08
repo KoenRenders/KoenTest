@@ -54,6 +54,7 @@ from app.domains.mdm.household_service import (  # noqa: F401  # noqa: F401
     household_of,
     household_person,
     person_payload,
+    require_whole_address,
 )
 from app.domains.mdm.models import (  # noqa: F401
     MEMBER_REPORT_IMPORT,
@@ -342,6 +343,7 @@ __all__ = [
     "household_of",
     "household_person",
     "person_payload",
+    "require_whole_address",
     "household_refusals_as_http",
     "HouseholdSave",
     "HouseholdSaveRefused",
