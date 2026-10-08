@@ -32,7 +32,13 @@ from app.domains.payment.api import (
     registration_balance,
 )
 from tests import payments_door
-from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door, seed_activity_with_product
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    add_order_line,
+    register_at_the_door,
+    remove_order_line,
+    seed_activity_with_product,
+)
 
 
 def _add_product(db, comp, *, name, price, is_free=False):
@@ -155,13 +161,9 @@ def test_add_order_line(client, db_session, admin_headers):
     extra = _add_product(db_session, comp, name="Dessert", price="5.00")
     activity_id, reg, _item = _register(client, db_session, comp, product)
 
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-        json={"product_id": extra.id, "quantity": 2},
-        headers=admin_headers,
-    )
-    assert resp.status_code == 200, resp.text
-    assert Decimal(str(resp.json()["balance"]["total_due"])) == Decimal("28.00")  # 18 + 2×5
+    assert add_order_line(db_session, activity_id, reg.id, extra.id, 2) is not None
+    # 18 + 2×5
+    assert Decimal(str(registration_balance(db_session, reg)["total_due"])) == Decimal("28.00")
 
     new_item = (
         db_session.query(RegistrationItem)
@@ -181,11 +183,7 @@ def test_delete_order_line_audited_before_delete(client, db_session, admin_heade
     activity_id, reg, item = _register(client, db_session, comp, product)
     item_id = item.id
 
-    resp = client.delete(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item_id}",
-        headers=admin_headers,
-    )
-    assert resp.status_code == 200, resp.text
+    assert remove_order_line(db_session, activity_id, reg.id, item_id) is not None
     # Regel weg, maar de delete-snapshot bleef bestaan (overleeft de bron).
     assert db_session.query(RegistrationItem).filter(RegistrationItem.id == item_id).first() is None
     rows = _history_for(db_session, item_id)

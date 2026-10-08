@@ -41,10 +41,6 @@ NETWORK_IN_HANDLER: frozenset[str] = frozenset()
 # it (R14), measured in the repository and in the PROD access log.
 JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset(
     {
-        "DELETE /api/v1/activities/{activity_id}/components/{component_id}",
-        "DELETE /api/v1/activities/{activity_id}/components/{component_id}/products/{product_id}",
-        "DELETE /api/v1/activities/{activity_id}/dates/{date_id}",
-        "DELETE /api/v1/activities/{activity_id}/registrations/{registration_id}/items/{item_id}",
         "DELETE /api/v1/admin/activities/{activity_id}/poster",
         "DELETE /api/v1/admin/chatbot-info/{row_id}",
         "DELETE /api/v1/admin/media/{asset_id}",
@@ -77,11 +73,6 @@ JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset(
         "GET /api/v1/users",
         "PATCH /api/v1/admin/chatbot-info/{row_id}",
         "PATCH /api/v1/admin/media/{asset_id}",
-        "POST /api/v1/activities",
-        "POST /api/v1/activities/{activity_id}/components",
-        "POST /api/v1/activities/{activity_id}/components/{component_id}/products",
-        "POST /api/v1/activities/{activity_id}/dates",
-        "POST /api/v1/activities/{activity_id}/registrations/{registration_id}/items",
         "POST /api/v1/admin/activities/{activity_id}/poster",
         "POST /api/v1/admin/chatbot-info/notes",
         "POST /api/v1/admin/components/{component_id}/info",
@@ -101,9 +92,6 @@ JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset(
         "POST /api/v1/members/{member_id}/memberships",
         "POST /api/v1/pages",
         "POST /api/v1/users",
-        "PUT /api/v1/activities/{activity_id}/components/{component_id}",
-        "PUT /api/v1/activities/{activity_id}/components/{component_id}/products/{product_id}",
-        "PUT /api/v1/activities/{activity_id}/dates/{date_id}",
         "PUT /api/v1/admin/chatbot-info/cms/{page_id}",
         "PUT /api/v1/admin/chatbot-info/media/{asset_id}",
         "PUT /api/v1/member/household/persons/{person_id}",
@@ -592,7 +580,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/activities/router.py::create_registration → payment.api.create_payment_record",
         "domains/activities/service.py::insert_date → audit.api.snapshot_activity_date",  # #1559: moved with the core out of `add_activity_date`
         "domains/activities/service.py::_insert_component → audit.api.snapshot_component",
-        "domains/activities/service.py::add_order_line → audit.api.snapshot_registration_item",
         "domains/activities/service.py::_insert_product → audit.api.snapshot_product",
         "domains/activities/service.py::_add_activity → audit.api.snapshot_activity",
         "domains/activities/service.py::_add_activity → audit.api.snapshot_activity_date",
@@ -603,7 +590,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/activities/service.py::remove_date → audit.api.snapshot_activity_date",  # #1559: moved with the core out of `delete_activity_date`
         "domains/activities/service.py::remove_component → audit.api.snapshot_component",  # #1559: moved with the core out of `delete_component`
         "domains/activities/service.py::remove_component → audit.api.snapshot_product",  # #1559: moved with the core out of `delete_component`
-        "domains/activities/service.py::delete_order_line → audit.api.snapshot_registration_item",
         "domains/activities/service.py::remove_product → audit.api.snapshot_product",  # #1559: moved with the core out of `delete_product`
         "domains/activities/service.py::delete_registration → audit.api.snapshot_registration_item",
         "domains/activities/service.py::register → audit.api.snapshot_registration_item",

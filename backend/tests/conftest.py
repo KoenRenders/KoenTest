@@ -749,6 +749,36 @@ class DoorAnswer:
         return json.dumps(self._body, ensure_ascii=False, default=str)
 
 
+def add_order_line(db, activity_id: int, registration_id: int, product_id: int, quantity: int = 1):
+    """Add `quantity` of a product to an order as the registration screen saves it:
+    `set_order_quantities` with the new number for that product. The JSON route
+    that added a line, and the service function only it called, are gone (CR-13
+    phase 4b, #1251)."""
+    from app.domains.activities import service
+    from app.domains.activities.api import RegistrationItem
+
+    have = sum(
+        item.quantity
+        for item in db.query(RegistrationItem).filter_by(
+            registration_id=registration_id, product_id=product_id
+        )
+    )
+    return service.set_order_quantities(
+        db, activity_id, registration_id, {product_id: have + quantity}, actor=SEEDED_ADMIN_EMAIL
+    )
+
+
+def remove_order_line(db, activity_id: int, registration_id: int, item_id: int):
+    """Take a line off an order as the registration screen saves it: its product at 0."""
+    from app.domains.activities import service
+    from app.domains.activities.api import RegistrationItem
+
+    product_id = db.get(RegistrationItem, item_id).product_id
+    return service.set_order_quantities(
+        db, activity_id, registration_id, {product_id: 0}, actor=SEEDED_ADMIN_EMAIL
+    )
+
+
 def register_at_the_door(client, activity_id: int, json: dict, *, member_email: str | None = None):
     """A registration as the public form's door makes it, answered as the JSON route
     `POST /api/v1/activities/{id}/register` answered it (CR-13 phase 4b, #1251).
@@ -785,6 +815,17 @@ def register_at_the_door(client, activity_id: int, json: dict, *, member_email: 
         return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
     body = RegistrationResponse.model_validate(result).model_dump(mode="json")
     return DoorAnswer(200, body)
+
+
+def ask_questions(db, component, form_id: int | None):
+    """Let a component ask the questions of a form, as a test's set-up: through
+    `apply_component_update`, the core `save_fiche` calls for every component row,
+    and a commit. The rules of attaching fire here as they do on the fiche."""
+    from app.domains.activities import service
+
+    service.apply_component_update(db, component, {"form_id": form_id}, actor="test")
+    db.commit()
+    return component
 
 
 def seed_question_form(db, title="Sint 2026", **settings):

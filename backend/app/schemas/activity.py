@@ -6,46 +6,11 @@ from datetime import time as Time
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr
 
 from app.domains.forms.api import AnswerIn
 
-
-def _non_negative_price(v: Optional[Decimal]) -> Optional[Decimal]:
-    """Weiger negatieve prijzen al op vorm-niveau (nette 422) — naast de
-    DB-constraint CHECK (price >= 0) als laatste vangnet."""
-    if v is not None and v < 0:
-        raise ValueError("prijs mag niet negatief zijn")
-    return v
-
-
 # ── Products ──────────────────────────────────────────────────────────────────
-
-
-class ProductCreate(BaseModel):
-    name: str
-    price: Decimal = Decimal("0.00")
-    member_price: Optional[Decimal] = None
-    is_free: bool = True
-    pay_on_site: bool = False
-    is_active: bool = True
-    max_participants: Optional[int] = None
-    sort_order: int = 0
-
-    _v_price = field_validator("price", "member_price")(_non_negative_price)
-
-
-class ProductUpdate(BaseModel):
-    name: Optional[str] = None
-    price: Optional[Decimal] = None
-    member_price: Optional[Decimal] = None
-    is_free: Optional[bool] = None
-    pay_on_site: Optional[bool] = None
-    is_active: Optional[bool] = None
-    max_participants: Optional[int] = None
-    sort_order: Optional[int] = None
-
-    _v_price = field_validator("price", "member_price")(_non_negative_price)
 
 
 class ProductResponse(BaseModel):
@@ -64,33 +29,6 @@ class ProductResponse(BaseModel):
 
 
 # ── Components (Onderdelen) ───────────────────────────────────────────────────
-
-
-class ComponentCreate(BaseModel):
-    name: str
-    team_name_required: bool = False
-    # #1053: de uiterste inschrijfdatum hoort bij het ONDERDEEL — de barbecue mag
-    # een week eerder sluiten dan cornhole.
-    registration_closes_on: Optional[Date] = None
-    sort_order: int = 0
-    external_register_url: Optional[str] = None
-    external_registrations_url: Optional[str] = None
-    info_url: Optional[str] = None
-    max_participants: Optional[int] = None
-
-
-class ComponentUpdate(BaseModel):
-    name: Optional[str] = None
-    team_name_required: Optional[bool] = None
-    # #1053: leegmaken is een geldige keuze. De JSON-route gebruikt
-    # `exclude_unset` en laat een bewust gezette None dus staan; het beheerscherm
-    # stuurt het veld altijd mee en zet het apart (admin_ui).
-    registration_closes_on: Optional[Date] = None
-    sort_order: Optional[int] = None
-    external_register_url: Optional[str] = None
-    external_registrations_url: Optional[str] = None
-    info_url: Optional[str] = None
-    max_participants: Optional[int] = None
 
 
 class ComponentResponse(BaseModel):
@@ -136,20 +74,6 @@ class ComponentResponse(BaseModel):
 # ── Activity dates ────────────────────────────────────────────────────────────
 
 
-class ActivityDateCreate(BaseModel):
-    start_date: Date
-    end_date: Optional[Date] = None
-    start_time: Optional[Time] = None
-    end_time: Optional[Time] = None
-
-
-class ActivityDateUpdate(BaseModel):
-    start_date: Optional[Date] = None
-    end_date: Optional[Date] = None
-    start_time: Optional[Time] = None
-    end_time: Optional[Time] = None
-
-
 class ActivityDateResponse(BaseModel):
     id: int
     activity_id: int
@@ -162,28 +86,6 @@ class ActivityDateResponse(BaseModel):
 
 
 # ── Activities ────────────────────────────────────────────────────────────────
-
-
-class ActivityCreate(BaseModel):
-    name: str
-    dates: List[ActivityDateCreate] = Field(min_length=1)
-    location: Optional[str] = None
-    # #1016: the public description, two or three sentences.
-    description: Optional[str] = None
-    poster_url: Optional[str] = None
-    members_only: Optional[bool] = None
-
-
-class ActivityUpdate(BaseModel):
-    name: Optional[str] = None
-    # #884: optionele vriendelijke URL. Volgt de naam NIET — zie Activity.slug.
-    slug: Optional[str] = None
-    location: Optional[str] = None
-    # #1016: emptying it is a valid choice, so the routes send it along always.
-    description: Optional[str] = None
-    poster_url: Optional[str] = None
-    is_cancelled: Optional[bool] = None
-    members_only: Optional[bool] = None
 
 
 class ActivityResponse(BaseModel):
@@ -242,14 +144,6 @@ class ActivityResponse(BaseModel):
 class RegistrationItemCreate(BaseModel):
     product_id: int
     quantity: int = 1
-
-
-class RegistrationItemUpdate(BaseModel):
-    """Admin past een bestaande bestelregel aan (#84): product wisselen en/of
-    aantal wijzigen. Beide optioneel; minstens één is zinvol."""
-
-    product_id: Optional[int] = None
-    quantity: Optional[int] = None
 
 
 class RegistrationRemarksUpdate(BaseModel):
@@ -332,4 +226,3 @@ class RegistrationResponse(BaseModel):
 
 # Keep for backwards compat in router imports
 SubRegistrationResponse = ComponentResponse
-SubRegistrationCreate = ComponentCreate

@@ -313,20 +313,6 @@ def test_the_poster_goes_with_the_one_save(client, db_session):
 # ── What stays ───────────────────────────────────────────────────────────────
 
 
-def test_the_json_api_creates_as_before_published(client, db_session, admin_headers):
-    answer = client.post(
-        "/api/v1/activities",
-        headers=admin_headers,
-        json={"name": "Via de API", "dates": [{"start_date": "2031-04-04"}]},
-    )
-    assert answer.status_code in (200, 201), answer.text
-    assert _named(db_session, "Via de API").status is ActivityStatus.PUBLISHED
-    without = client.post(
-        "/api/v1/activities", headers=admin_headers, json={"name": "x", "dates": []}
-    )
-    assert without.status_code == 422, "the API still asks a first date"
-
-
 def test_copying_keeps_its_own_way(client, db_session):
     """The copy never passed the start screen: its own step, `copy_activity`,
     and the fiche of the copy."""

@@ -17,7 +17,6 @@ from app import soft_delete  # noqa: F401 - registreert de globale soft-delete-f
 from app.config import settings
 from app.domains.activities.account_ui import router as activities_account_ui_router
 from app.domains.activities.admin_ui import router as activities_admin_ui_router
-from app.domains.activities.router import router as activities_router
 from app.domains.activities.ui import router as activities_ui_router
 from app.domains.auth.admin_ui import router as auth_admin_ui_router
 from app.domains.auth.handlers import (  # noqa: F401 - event subscriptions (#1711)
@@ -198,7 +197,6 @@ SHELL_ROUTERS = (
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(members_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
-app.include_router(activities_router, prefix="/api/v1", dependencies=_module(M.ACTIVITIES))
 app.include_router(chat_router, prefix="/api/v1", dependencies=_module(M.CHATBOT))
 app.include_router(stt_router, prefix="/api/v1")
 app.include_router(cms_router, prefix="/api/v1", dependencies=_module(M.CMS))

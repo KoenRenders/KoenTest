@@ -2,52 +2,40 @@ import logging
 from datetime import date
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import func, nulls_last
 from sqlalchemy.orm import Session, selectinload
 
-from app.database import get_db
 from app.domains.activities.models import (
     Activity,
     ActivityDate,
     ActivityError,
-    ActivityProduct,
     ActivitySubRegistration,
     Registration,
     RegistrationLimitReached,
     RegistrationRefused,
 )
 from app.domains.activities.totals import compute_registration_total
-from app.domains.auth.api import User, get_current_admin
 from app.domains.mdm.api import CONTACT, PaymentMethod, Person
 from app.domains.payment.api import (
     PayableType,
     create_payment_record,
-    registration_balance,
 )
 from app.i18n import _
 from app.kernel.clock import belgian_today
 from app.kernel.contracts.activities import RegistrationConfirmed
 from app.kernel.events import publish
 from app.schemas.activity import (
-    ActivityCreate,
-    ActivityDateCreate,
     ActivityDateResponse,
-    ActivityDateUpdate,
     ActivityResponse,
-    ComponentCreate,
-    ComponentResponse,
-    ComponentUpdate,
-    ProductCreate,
-    ProductResponse,
-    ProductUpdate,
     RegistrationCreate,
-    RegistrationItemCreate,
 )
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["activities"])
+# No router since CR-13 phase 4b (#1251): every JSON route of the activities is
+# gone, none had a caller. What is left are the functions the facade calls
+# (`api.py`); phase 4c moves them out of this file.
 
 
 def compute_activity_status(
@@ -317,318 +305,7 @@ def get_activity_detail(db: Session, activity_id: int) -> Optional[ActivityRespo
     return resp
 
 
-@router.post("/activities", response_model=ActivityResponse)
-def create_activity(
-    data: ActivityCreate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> ActivityResponse:
-    # #679: het aanmaken zelf (velden, datums, audit-snapshots, commit) staat in
-    # de service. Wat hier overblijft is HTTP: het schema uitpakken en de respons
-    # vormgeven.
-    from app.domains.activities import service
-
-    try:
-        nieuw = service.create_activity(
-            db,
-            name=data.name,
-            location=data.location,
-            poster_url=data.poster_url,
-            description=data.description,
-            members_only=bool(data.members_only),
-            dates=data.dates,
-            actor=admin.email,
-        )
-    except service.ActiviteitFout as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-    activity = service._activity_met_boom(db, nieuw.id)
-    assert activity is not None  # net aangemaakt in dezelfde transactie
-    # #977: ook een verse activiteit krijgt het label van de service en niet een vast
-    # "Open" — ze kan met een voorbije deadline of een voorbije datum aangemaakt zijn.
-    info = compute_activity_status(activity, 0)
-    return _build_response(activity, belgian_today(), status=info["status"], reg_count=0)
-
-
-# ── Activity dates ────────────────────────────────────────────────────────────
-
-
-@router.post("/activities/{activity_id}/dates", response_model=ActivityDateResponse)
-def add_activity_date(
-    activity_id: int,
-    data: ActivityDateCreate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> ActivityDate:
-    from app.domains.activities import service
-
-    # #792: the coherence rule sits on the object, so this entrance inherits it. The
-    # translation into a status code does belong to the entrance.
-    try:
-        ad = service.add_activity_date(db, activity_id, data, actor=admin.email)
-    except service.ActiviteitFout as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-    if ad is None:
-        raise HTTPException(status_code=404, detail=_("Activity not found"))
-    return ad
-
-
-@router.put("/activities/{activity_id}/dates/{date_id}", response_model=ActivityDateResponse)
-def update_activity_date(
-    activity_id: int,
-    date_id: int,
-    data: ActivityDateUpdate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> ActivityDate:
-    from app.domains.activities import service
-
-    try:
-        ad = service.update_activity_date(
-            db, activity_id, date_id, data.model_dump(exclude_unset=True), actor=admin.email
-        )
-    except service.ActiviteitFout as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-    if ad is None:
-        raise HTTPException(status_code=404, detail=_("Date not found"))
-    return ad
-
-
-@router.delete("/activities/{activity_id}/dates/{date_id}", response_model=None)
-def delete_activity_date(
-    activity_id: int,
-    date_id: int,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> dict[str, str]:
-    from app.domains.activities import service
-
-    if not service.delete_activity_date(db, activity_id, date_id, actor=admin.email):
-        raise HTTPException(status_code=404, detail=_("Date not found"))
-    return {"detail": "deleted"}
-
-
-# ── Components (Onderdelen) ───────────────────────────────────────────────────
-
-
-@router.post("/activities/{activity_id}/components", response_model=ComponentResponse)
-def add_component(
-    activity_id: int,
-    data: ComponentCreate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> ActivitySubRegistration:
-    from app.domains.activities import service
-
-    component = service.add_component(db, activity_id, data, actor=admin.email)
-    if component is None:
-        raise HTTPException(status_code=404, detail=_("Activity not found"))
-    return component
-
-
-@router.put("/activities/{activity_id}/components/{component_id}", response_model=ComponentResponse)
-def update_component(
-    activity_id: int,
-    component_id: int,
-    data: ComponentUpdate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> ActivitySubRegistration:
-    from app.domains.activities import service
-
-    component = service.update_component(
-        db, activity_id, component_id, data.model_dump(exclude_unset=True), actor=admin.email
-    )
-    if component is None:
-        raise HTTPException(status_code=404, detail=_("Component not found"))
-    return component
-
-
-@router.delete("/activities/{activity_id}/components/{component_id}", response_model=None)
-def delete_component(
-    activity_id: int,
-    component_id: int,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> dict[str, str]:
-    from app.domains.activities import service
-
-    try:
-        deleted = service.delete_component(db, activity_id, component_id, actor=admin.email)
-    except service.ActiviteitFout as fout:
-        # #1559: a component with registrations cannot go.
-        raise HTTPException(status_code=422, detail=str(fout))
-    if not deleted:
-        raise HTTPException(status_code=404, detail=_("Component not found"))
-    return {"detail": "deleted"}
-
-
-# ── Products ──────────────────────────────────────────────────────────────────
-
-
-@router.post(
-    "/activities/{activity_id}/components/{component_id}/products", response_model=ProductResponse
-)
-def add_product(
-    activity_id: int,
-    component_id: int,
-    data: ProductCreate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> ActivityProduct:
-    from app.domains.activities import service
-
-    try:
-        product = service.add_product(db, activity_id, component_id, data, actor=admin.email)
-    except service.ActiviteitFout as fout:
-        # De regel is een domeinregel; enkel de statuscode hoort hier.
-        raise HTTPException(status_code=422, detail=str(fout))
-    if product is None:
-        raise HTTPException(status_code=404, detail=_("Component not found"))
-    return product
-
-
-@router.put(
-    "/activities/{activity_id}/components/{component_id}/products/{product_id}",
-    response_model=ProductResponse,
-)
-def update_product(
-    activity_id: int,
-    component_id: int,
-    product_id: int,
-    data: ProductUpdate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> ActivityProduct:
-    from app.domains.activities import service
-
-    try:
-        product = service.update_product(
-            db, component_id, product_id, data.model_dump(exclude_unset=True), actor=admin.email
-        )
-    except service.ActiviteitFout as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-    if product is None:
-        raise HTTPException(status_code=404, detail=_("Product not found"))
-    return product
-
-
-@router.delete(
-    "/activities/{activity_id}/components/{component_id}/products/{product_id}", response_model=None
-)
-def delete_product(
-    activity_id: int,
-    component_id: int,
-    product_id: int,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> dict[str, str]:
-    from app.domains.activities import service
-
-    try:
-        deleted = service.delete_product(db, component_id, product_id, actor=admin.email)
-    except service.ActiviteitFout as fout:
-        # #1559: a product that stands on a registration cannot go.
-        raise HTTPException(status_code=422, detail=str(fout))
-    if not deleted:
-        raise HTTPException(status_code=404, detail=_("Product not found"))
-    return {"detail": "deleted"}
-
-
 # ── Registrations ─────────────────────────────────────────────────────────────
-
-
-def _enrich_registration(reg: Registration, activity: Activity) -> dict:
-    """Verrijkte inschrijving zoals het scherm ze toont — implementatie in de
-    service (#679, batch 6)."""
-    from app.domains.activities import service
-
-    return service.enrich_registration(reg, activity)
-
-
-# ── Bestelregels bewerken (admin) + audit (#84) ───────────────────────────────
-
-
-def _load_activity_or_404(db: Session, activity_id: int) -> Activity:
-    activity = db.query(Activity).filter(Activity.id == activity_id).first()
-    if not activity:
-        raise HTTPException(status_code=404, detail=_("Activity not found"))
-    return activity
-
-
-def _load_registration_or_404(
-    db: Session, activity: Activity, registration_id: int
-) -> Registration:
-    reg = (
-        db.query(Registration)
-        .filter(
-            Registration.id == registration_id,
-            Registration.activity_id == activity.id,
-        )
-        .first()
-    )
-    if not reg:
-        raise HTTPException(status_code=404, detail=_("Registration not found"))
-    return reg
-
-
-def _order_edit_result(
-    db: Session, activity: Activity, reg: Registration, actor: str | None = None
-) -> dict:
-    """Geef de vernieuwde bestelling + financiële stand terug; signaleert of er nu
-    een terugbetaling openstaat (saldo < 0) zodat de UI naar de refund-flow kan wijzen.
-
-    Het reconciliëren zelf staat sinds #679 in de service, bij de mutatie waar het
-    hoort: wie een bestelregel wijzigt zonder te herrekenen laat het saldo stil
-    verkeerd staan, en die regel moet gelden voor élke ingang. Wat hier overblijft
-    is het vormgeven van het antwoord."""
-    db.refresh(reg)
-    bal = registration_balance(db, reg)
-    return {
-        "registration": _enrich_registration(reg, activity),
-        "balance": bal,
-        "refund_due": bal["balance"] < 0,
-    }
-
-
-@router.post("/activities/{activity_id}/registrations/{registration_id}/items", response_model=None)
-def add_order_line(
-    activity_id: int,
-    registration_id: int,
-    data: RegistrationItemCreate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> dict:
-    from app.domains.activities import service
-
-    activity = _load_activity_or_404(db, activity_id)
-    try:
-        reg = service.add_order_line(
-            db, activity_id, registration_id, data.product_id, data.quantity, actor=admin.email
-        )
-    except service.ActiviteitFout as fout:
-        raise HTTPException(status_code=400, detail=str(fout))
-    if reg is None:
-        raise HTTPException(status_code=404, detail=_("Registration not found"))
-    return _order_edit_result(db, activity, reg, actor=admin.email)
-
-
-@router.delete(
-    "/activities/{activity_id}/registrations/{registration_id}/items/{item_id}", response_model=None
-)
-def delete_order_line(
-    activity_id: int,
-    registration_id: int,
-    item_id: int,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> dict:
-    from app.domains.activities import service
-
-    activity = _load_activity_or_404(db, activity_id)
-    reg = service.delete_order_line(db, activity_id, registration_id, item_id, actor=admin.email)
-    if reg is None:
-        raise HTTPException(status_code=404, detail=_("Order line not found"))
-    return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
 def get_public_registrations(activity_id: int, component_id: int, *, db: Session) -> list[dict]:
@@ -853,6 +530,8 @@ def create_registration(
     db.commit()
     db.refresh(registration)
 
-    result = _enrich_registration(registration, activity)
+    from app.domains.activities.service import enrich_registration
+
+    result = enrich_registration(registration, activity)
     result["checkout_url"] = checkout_url
     return result

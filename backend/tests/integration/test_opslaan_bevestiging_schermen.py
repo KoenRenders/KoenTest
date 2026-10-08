@@ -104,16 +104,14 @@ def test_een_pagina_openen_bevestigt_niets(client, db_session):
 def _activiteit(client, db, admin_headers):
     from datetime import date, timedelta
 
-    resp = client.post(
-        "/api/v1/activities",
-        headers=admin_headers,
-        json={
-            "name": "Toastactiviteit",
-            "dates": [{"start_date": (date.today() + timedelta(days=30)).isoformat()}],
-        },
-    )
-    assert resp.status_code in (200, 201), resp.text
-    return resp.json()["id"]
+    from app.domains.activities.api import Activity, ActivityDate
+
+    activity = Activity(name="Toastactiviteit")
+    db.add(activity)
+    db.flush()
+    db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=30)))
+    db.commit()
+    return activity.id
 
 
 def test_een_activiteit_opslaan_bevestigt(client, db_session, admin_headers):

@@ -179,14 +179,5 @@ def test_an_activity_without_a_slug_behaves_as_today(client, db_session):
     assert canonical.endswith(f"/activiteiten/{activity.id}/fotos"), canonical
 
 
-def test_the_proposal_comes_from_the_name_at_creation(db_session):
-    """Bij het AANMAKEN wel een voorstel — daarna nooit meer."""
-    from app.domains.activities import service
-
-    nieuw = service.create_activity(db_session, name="Quiz van de Buurt 2026", actor="test")
-
-    assert nieuw.slug == "quiz-van-de-buurt-2026", nieuw.slug
-
-
 def test_an_unknown_slug_is_a_404(client, db_session):
     assert client.get("/activiteiten/bestaat-niet/fotos").status_code == 404

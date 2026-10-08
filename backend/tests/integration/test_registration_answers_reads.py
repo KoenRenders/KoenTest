@@ -29,11 +29,11 @@ from odf.table import Table, TableCell, TableRow
 from odf.teletype import extractText
 from sqlalchemy import event
 
-from app.domains.activities import service
 from app.domains.activities.api import Registration
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
+    ask_questions,
     create_test_family,
     register_at_the_door,
     seed_activity_with_product,
@@ -71,7 +71,7 @@ def sint(client, db_session):
 
     activity, component, product = seed_activity_with_product(db_session, price="0", is_free=True)
     form = seed_question_form(db_session)
-    service.update_component(db_session, activity.id, component.id, {"form_id": form.id})
+    ask_questions(db_session, component, form.id)
     s = SimpleNamespace(activity=activity, component=component, product=product, form=form)
     slot, story = _field(form, "Tijdslot"), _field(form, "Verhaal")
     both = [o.id for o in slot.options if not o.is_other]

@@ -20,10 +20,10 @@ import re
 
 import pytest
 
-from app.domains.activities import service
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
+    ask_questions,
     register_at_the_door,
     seed_activity_with_product,
     seed_question_form,
@@ -36,7 +36,7 @@ pytestmark = pytest.mark.ui_serverrendered
 def asks(client, db_session):
     activity, component, product = seed_activity_with_product(db_session, price="0", is_free=True)
     form = seed_question_form(db_session)
-    service.update_component(db_session, activity.id, component.id, {"form_id": form.id})
+    ask_questions(db_session, component, form.id)
     body = {
         "contact_name": "Knop Proef",
         "contact_email": "knop@example.com",
