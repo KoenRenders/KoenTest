@@ -129,6 +129,8 @@ def test_refund_amount_must_be_positive(db_session):
 def test_refund_writes_audit_history(db_session):
     charge = _seed_charge(db_session)
     refund = create_refund(db_session, charge.id, Decimal("5.00"), actor="admin@test")
+    # The request's commit, which the app's session does not anticipate (#1771).
+    db_session.flush()
     rows = (
         db_session.query(PaymentRecordHistory)
         .filter(

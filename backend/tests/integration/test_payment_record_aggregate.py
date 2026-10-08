@@ -254,6 +254,8 @@ def test_the_same_event_twice_activates_once(db_session):
     events.publish(event, db_session)
     events.publish(event, db_session)
     assert membership.is_active
+    # The request's commit, which the app's session does not anticipate (#1771).
+    db_session.flush()
     rows = (
         db_session.query(MembershipHistory)
         .filter(

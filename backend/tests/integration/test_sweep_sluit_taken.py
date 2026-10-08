@@ -83,6 +83,8 @@ def test_een_taak_met_aanleiding_blijft_open(db_session):
     db_session.commit()
 
     sweep(db_session, {"once": True})
+    # The job runner commits after a job; the app's session does not flush on a read (#1771).
+    db_session.commit()
     db_session.expire_all()
 
     taken = (
