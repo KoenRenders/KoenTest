@@ -28,8 +28,13 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from tests_e2e.activities.test_activity_proposer import (  # noqa: E402
+    _answer,
+    _answer_arrives,
+    _db,
+    _turn,
+)
 from tests_e2e.schermen import BASE, htmx_stil, login_met_sessie, pagina_klaar  # noqa: E402
-from tests_e2e.test_activity_proposer import _answer, _answer_arrives, _db, _turn  # noqa: E402
 
 NEW = "/admin/activiteiten/nieuw"
 REQUEST = "Schaatsen met Draak in de schaatsbaan Herentals op zondag 8 november om 10 uur"

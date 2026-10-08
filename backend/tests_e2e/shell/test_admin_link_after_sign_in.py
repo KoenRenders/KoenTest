@@ -19,8 +19,8 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from tests_e2e.members.test_sign_in_returns_to_the_portal import _set_code  # noqa: E402
 from tests_e2e.schermen import BASE, pagina_klaar  # noqa: E402
-from tests_e2e.test_sign_in_returns_to_the_portal import _set_code  # noqa: E402
 
 PAGE = "/admin/leden?q=Peeters&status=actief"
 

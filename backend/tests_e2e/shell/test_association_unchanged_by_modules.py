@@ -13,10 +13,21 @@ shown twice (the phone and the wide menu) is read as a set. The workspace brand
 link at the top of the sidebar is left out: CR-11 (#1482) gave it an initial,
 which is not a module's doing.
 
+**The home is compared for what is GONE, not for what joined** (#1745). The
+admin menu and the dashboard tiles are the application's and are compared
+exactly. The public home also shows what the tenant holds — a page in the
+navigation, a sponsor's heading, the links to the legal pages — and other
+browser tests add such content to the database this test shares with them.
+Compared exactly, the test passed only while it ran before them. A module
+takes away; so for the home's four parts everything the recording shows must
+still be shown, and what the tenant's content adds beside it is not this
+test's subject.
+
 Recording: run this file as a script in an e2e container of the old code; it
 prints the snapshot. `python tests_e2e/test_association_unchanged_by_modules.py`.
-Proven red (locally, on this branch): the snapshot with "Nieuwsbrief" removed
-from the home buttons fails with that line in the diff.
+Proven red (8 October 2026, #1745): a line the site does not show added to the
+recording's `home_nav`, and to its footer, fails with that line under "gone";
+an item removed from the recording's menu fails on the exact comparison.
 """
 
 from __future__ import annotations
@@ -81,6 +92,21 @@ DELIBERATE_FOOTER = [
     "Aanmelden",
     "© <jaar> Raak Millegem · BE00 1234 5678 9012",
 ]
+
+#: The application's own parts, compared exactly; the others are the public
+#: home, compared for what is gone (see the module's text).
+EXACT = ("menu", "dashboard_tiles")
+
+
+def _gone(recorded: list[str], shown: list[str]) -> list[str]:
+    """What the recording shows and the site no longer does. A footer line that
+    grew links behind it (\"… · Privacyverklaring\") still shows its recording."""
+    return [
+        line
+        for line in recorded
+        if not any(now == line or now.startswith(line + " · ") for now in shown)
+    ]
+
 
 _YEAR = re.compile(r"\b20\d\d\b")
 #: A tile's value — a count or an amount — is data, not what a module shows.
@@ -187,11 +213,14 @@ def test_the_association_shows_what_it_showed_on_v2_12_0(browser):
     now = extract(browser, BASE, make_session_value(SEEDED_ADMIN_EMAIL))
 
     assert set(now) == set(before["shown"]), "the snapshot and the extraction disagree on shape"
-    differences = {
-        part: {"v2.12.0": before["shown"][part], "now": now[part]}
-        for part in now
-        if now[part] != before["shown"][part]
-    }
+    differences = {}
+    for part in now:
+        recorded, shown = before["shown"][part], now[part]
+        if part in EXACT:
+            if shown != recorded:
+                differences[part] = {"v2.12.0": recorded, "now": shown}
+        elif gone := _gone(recorded, shown):
+            differences[part] = {"gone": gone, "now": shown}
     assert not differences, json.dumps(differences, ensure_ascii=False, indent=1)
 
 

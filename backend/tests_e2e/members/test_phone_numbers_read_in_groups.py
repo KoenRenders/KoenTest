@@ -13,7 +13,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.test_household_pages import (  # noqa: E402
+from tests_e2e.members.test_household_pages import (  # noqa: E402
     _household,
     _open,
     _remove,

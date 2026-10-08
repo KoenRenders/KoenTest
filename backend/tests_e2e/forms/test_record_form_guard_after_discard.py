@@ -34,8 +34,13 @@ from playwright.sync_api import expect
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.test_activity_proposer import _remove, _seed, _stored, setup  # noqa: E402, F401
-from tests_e2e.test_new_activity_on_the_fiche import _page  # noqa: E402
+from tests_e2e.activities.test_activity_proposer import (  # noqa: E402, F401
+    _remove,
+    _seed,
+    _stored,
+    setup,
+)
+from tests_e2e.activities.test_new_activity_on_the_fiche import _page  # noqa: E402
 
 DIALOG = "[data-dialog]"
 LEAVE = "Deze pagina verlaten?"

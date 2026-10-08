@@ -1587,7 +1587,7 @@ def test_een_e2e_wacht_niet_op_de_klok():
     valt om met dat pad en die regel; dezelfde regel met een reden-commentaar
     maar zonder vermelding in `VASTE_WACHTTIJDEN` → ook rood.
     """
-    bestanden_e2e = bestanden(E2E.glob("*.py"), wat="de e2e-modules", minstens=15)
+    bestanden_e2e = bestanden(E2E.rglob("*.py"), wat="de e2e-modules", minstens=15)
     fouten = []
     for pad in bestanden_e2e:
         gevonden = _vaste_wachttijden(pad)
