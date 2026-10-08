@@ -1,7 +1,7 @@
 # Change Request 24 — Rights, part 1: the code asks for a right, a role is a bundle
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** opened on 7 October 2026 · Parts A, B and C written; build read by desktop-dev1 on #1722 taken in (8 October 2026); B8 empty (Q12–Q14 answered 8 October 2026); architecture review on #1722 taken in (8 October 2026); Q15–Q16 open for Koen · nothing is built; not on a release
+**Status:** opened on 7 October 2026 · Parts A, B and C written; build read by desktop-dev1 on #1722 taken in (8 October 2026); B8 empty (Q12–Q14 answered 8 October 2026); architecture review on #1722 taken in (8 October 2026); Q15–Q16 answered; B8 empty; ready for assignment, after v2.16 · nothing is built; not on a release
 **Tracking issue:** #1722 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** auth (roles, rights, the gates), every back-office route's gate; part 2 is CR-25 (the back office: menu, Bestuur, workbench, business partners)
 **Reading:** A 1 766 words · B 1 728 (the decisions log excluded) · C 1 775 — measured on 7 October 2026 without drawings and notes; the budget is A ≤ 1 500, B ≤ 2 500: A is over by 266, mostly the moved and Won't rows of A6
@@ -233,12 +233,12 @@ and deliberately not done — recorded so it is not asked again).
 
 Every gate asks for a **right** instead of a role name. A right is a code in a code list (`auth.right_codes`, labels per language); a role is a **bundle** of rights, kept as rows (`auth.role_rights`) seeded by a migration and the same in every workspace; users keep getting roles per workspace as today (`auth.user_roles`). One gate function replaces the role-named ones: `require_right(code)` for the screens and `require_right_api(code)` for the JSON API. A user holds a right in a workspace when one of his roles there bundles it. The bundles of ADMIN, FINANCE and OPERATOR are written so that each holds exactly what its role opens today (R7); four roles are added: MASTERDATA, PRICING, SALES, STOCK, with the Dutch labels of A3.
 
-- **D1 — A right per kind of object, changing it; holding it opens the screens of that kind.** Reading everything without a right is part 2 (CR-25 R7). Rejected: a right per screen — some 280 rights, unreadable as bundles; a right per menu group — too coarse for the roles of part 2.
+- **D1 — Per kind of object two rights: viewing and changing (Q15).** A route that only reads (GET, HEAD) asks `<object>.view`; a route that changes (POST, PUT, PATCH, DELETE) asks `<object>.manage` (for master data `party.masterdata`, `product.masterdata`). Every bundle that holds a changing right also holds its viewing right, so nobody's reach changes (R7). Part 2's "everyone reads everything" (CR-25 R7) and the payment restriction of R10 then become rows in the bundles, no code. Rejected: one right for opening and changing — part 2 would touch the ≈ 300 gates a second time; a right per screen — some 280 rights, unreadable as bundles; a right per menu group — too coarse for the roles of part 2.
 - **D2 — Bundles are data, fixed by migration.** No screen composes them (R14); a later screen edits the same rows. Rejected: bundles in code — the screen of R14 would then need a rebuild.
 - **D3 — The old gate names disappear, not alias.** Each call site names its right; a gate refuses role names in code from then on (B7). Rejected: `require_admin_ui` kept as an alias for a bundle — the 280 sites would keep saying "admin" while meaning something else.
 - **D4 — Workbench tasks keep their role** (`required_role`) in part 1; the workbench per role is part 2.
 
-**The rights of part 1**
+**The rights of part 1** — the table shows the changing right per kind of object; each row also has its viewing right `<object>.view` (`party.view`, `product.view`, … ; `payment.view` already exists), held by the same bundles (D1, Q15). With `assistant.use` and `workbench.use`, which have no changing counterpart, that is about 35 codes.
 
 | Right | What it opens today (C1) | ADMIN | FINANCE | OPERATOR | MASTERDATA | PRICING | SALES | STOCK |
 |---|---|---|---|---|---|---|---|---|
@@ -270,7 +270,7 @@ The table follows today's five sets, which *are* the bundles already: `_GENERAL_
 | F | Requirement | From |
 |---|---|---|
 | F1 | Before the change, a list records for every gate which roles pass it; after, the same list is computed from the bundles; the two are equal for ADMIN, FINANCE, OPERATOR and ACCOUNT_ADMIN, the workbench for FINANCE being the one listed difference (Q11), and its landing following from it (Q13). | R7 |
-| F2 | The landing after sign-in, the header link to the back office and the menu ask rights, with the same outcome per user as today — except Boekhouding, which now lands on the workbench like every back-office role (Q13); the public header's link to the back office for Boekhouding is Q16. | R7 |
+| F2 | The landing after sign-in, the header link to the back office and the menu ask rights, with the same outcome per user as today — except Boekhouding, which now lands on the workbench (Q13) and sees the header link (Q16): one rule, everyone with a back-office role. | R7 |
 | F3 | A user with roles in two workspaces holds in each only the rights of his roles there. | R3 |
 | F4 | `docs/rollen-en-rechten.md` is generated from the bundles, or checked against them by a test. | A2 step 4 |
 | F5 | The label of FINANCE reads Boekhouding. | Q8 |
@@ -491,8 +491,6 @@ Checked and not bent: the import gate, the layer gate, the Dutch-identifier ratc
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q15 | Part 2 (CR-25) lets every back-office role **read** everything. With one right per kind of object for opening *and* changing, part 2 must then touch the ≈ 300 gates a second time. Decide now: (a) one rule later in `require_right` — a GET passes for anyone with any right — zero gates touched then, but a GET that writes must be measured first, and the payment restriction of R10 becomes an exception; or (b) now, in part 1, a `.view` beside each `.manage`, each route classified by its method while the gates are rewritten anyway. (#1722, architecture review 2) | (b): the gates are rewritten once; part 2 and R10 become rows in the bundles, no code. Every bundle of part 1 gets both rights of its objects, so nobody's reach changes (R7). | (b): about 30 rights instead of 20, labels in two languages; part 1 a little longer. (a): one line in part 2, and an exception for payments later. |
-| Q16 | The link to the back office in the public header shows today only for whoever `require_admin_ui` admits, so not for Boekhouding. Now that Boekhouding opens the workbench and lands on it (Q11, Q13): show the link to everyone with a back-office role? (#1722, architecture review 3) | Yes: one rule (*Keep it simple*) — whoever has a back-office role sees the link, the same rule as the landing. A second visible difference for Boekhouding, named in F2 and T8. | No: the link keeps today's set, and a Boekhouding user goes to the back office by its address or the sign-in. |
 
 ## B9. Decisions log — dated answers
 
@@ -520,6 +518,7 @@ Checked and not bent: the import gate, the layer gate, the Dutch-identifier ratc
 | 7 Oct 2026 | MoSCoW confirmed: R1, R3, R4, R5, R7, R13 Must; R10, R11, R14 Won't (Q9). | Koen |
 | 7 Oct 2026 | ADMIN gets no webshop rights in part 1; until part 2 brings reading for every role, a board member who must see orders also gets Verkoop (Q10). | Koen |
 | 7 Oct 2026 | Boekhouding gets the workbench in part 1 — the one widening of part 1; it sees the tasks of its own role (Q11). | Koen |
+| 8 Oct 2026 | Viewing and changing are separate rights already in part 1: `<object>.view` beside `<object>.manage`, each route classified by its method; every bundle holds both, so R7 holds and part 2 and R10 become bundle rows (Q15). The back-office link in the public header shows for everyone with a back-office role, Boekhouding included (Q16). Koen: "2 b en akkoord voor Q16". | Koen |
 | 8 Oct 2026 | Everyone with a back-office role lands on the workbench after signing in, Boekhouding included; the exception that sent FINANCE-only to Betalingen goes (Q13). Koen: "KIS, iedereen op werkbank, code vereenvoudigen". | Koen |
 | 8 Oct 2026 | The three refusal messages that name a role become one sentence: "Je hebt geen toegang tot deze actie." (Q12). Offered a (one general sentence), b (say what may not be done, without a role) and c (name the role with its new label), Koen chose a: "ik liet in agents.md 'KIS' zetten" — `AGENTS.md`, *Keep it simple*. | Koen |
 | 8 Oct 2026 | CR-24 comes after the first step of CR-13 phase 4 — pruning the JSON routes without a caller (#1251), which removes ≈ 86 of the ≈ 88 role-gated JSON routes CR-24 would otherwise convert (B6). Asked "Zal ik in CR-24 noteren dat het na die opkuis komt, met deze meting erbij?", Koen answered "ja", and asked that the desktop brainstorm-architecture CLI have that step planned by the master CLI as v2.16, "te starten na deploy v2.15 naar prod" (Q14). Koen then decided, with the desktop brainstorm-architecture CLI, more widely: all of phase 4 (4b, 4c, 4d) is v2.16, 4b first (CR-13 B11, `b3c8df60`). | Koen |
@@ -590,7 +589,7 @@ Checked and not bent: the import gate, the layer gate, the Dutch-identifier ratc
 | **mdm — Personen** (`/admin/personen`, CR-22 S7, #1712, behind `require_admin_ui` while CR-22 is built) | gate `party.masterdata`, like the other person screens. CR-22's sentence that CR-24 gives it a right `person.delete` is corrected there: by D1 there is no right per action (#1722 A4). | CR-22 C2 mdm |
 | **auth — copy** | the three refusal messages that name a role (`auth/session.py:228`, `:243`, `auth/admin_ui.py:45`) become "Je hebt geen toegang tot deze actie." (Q12). | |
 | **services that ask a right** | `may(db, email, right)` stays inside the services that ask it today (`activities/service.py:2885, 2944`, `mdm/service.py:1221`): a rights question in a service is today's shape and where R10 will one day live — not to be "fixed" into the router (#1722, architecture review 4). | |
-| **ui (`app/ui/__init__.py`)** | the admin menu (`admin_nav`, lines 858-900 on `f731a836`) shows an item when the user holds its right — the separate branch for a user without the general set (`ui/__init__.py:892-893`, one group with only Betalingen) goes, so FINANCE sees Betalingen and Werkbank (Q11); the callers that pass `roles=get_user_roles(…)` (`payment/ui.py`, `ui/no_access.py:76`) pass rights; the header link to the back office asks `may(…, workbench.use)` or any right. | |
+| **ui (`app/ui/__init__.py`)** | the admin menu (`admin_nav`, lines 858-900 on `f731a836`) shows an item when the user holds its right — the separate branch for a user without the general set (`ui/__init__.py:892-893`, one group with only Betalingen) goes, so FINANCE sees Betalingen and Werkbank (Q11); the callers that pass `roles=get_user_roles(…)` (`payment/ui.py`, `ui/no_access.py:76`) pass rights; the public header's link to the back office shows for everyone with a back-office role (`workbench.use`), Boekhouding included (Q16). | |
 | **workflow** | unchanged: tasks keep `required_role` (D4); the workbench screen's gate becomes `workbench.use`. | `workflow/ui.py:114, 130, 226` |
 | **reporting** | unchanged: `reporting.universe.Role` is its own enum (Non-goal). | |
 | **migration** | one: right codes and labels, the four role codes and labels, FINANCE's label, `role_rights` rows for ADMIN, FINANCE, OPERATOR, MASTERDATA, PRICING, SALES, STOCK as B1. Idempotent. | |
@@ -636,6 +635,10 @@ Checked and not bent: the import gate, the layer gate, the Dutch-identifier ratc
 ### C4.2 Fail closed
 
 `require_right` never admits by default: a right that no bundle holds refuses everyone. That cannot happen for a member of `Right` once the migration seeds the bundles; T3 and T10 prove that the enum and the rows agree (#1722, architecture review 7). A route without a gate stays as it is today (public); the snapshot lists public routes too, so a gate removed by mistake shows.
+
+### C4.3a Viewing or changing, by method (Q15)
+
+While each call site is rewritten, its right is chosen by the route's method: GET and HEAD ask `<object>.view`, every other method `<object>.manage`. A GET that writes (measured by CR-13's count of writes outside a service, which v2.16 reduces) asks `.manage` and is listed in C1 by name. The snapshot of C4.1 proves the bundles: every bundle holds `.view` beside its `.manage`, so the per-route answer is the same before and after.
 
 ### C4.3 Why not keep the old names as aliases
 
@@ -761,6 +764,8 @@ No concepts: the one visible change is four more checkboxes and a label in Behee
 | Q12 | 8 Oct 2026 | The three refusal messages naming a role: a one general sentence, b what may not be done without a role, c the role with its new label? (Claude recommended b at the second asking) | a — "ik liet in agents.md 'KIS' zetten". (Koen) |
 | Q13 | 8 Oct 2026 | Where does a Boekhouding-only user land after signing in, now that he may open the workbench (Q11): a Betalingen as today, or b the workbench like everyone? (Claude recommended b after `AGENTS.md` *Keep it simple*) | "KIS, iedereen op werkbank, code vereenvoudigen" (Koen) |
 | Q14 | 8 Oct 2026 | Plan the first step of CR-13 phase 4 (pruning the JSON routes without a caller) before CR-24, since it removes most of the API gates CR-24 would convert? (Claude, after input from the desktop brainstorm-architecture CLI) | "ja" — and that step to be planned by the master CLI as v2.16, started after v2.15 is deployed to PROD. (Koen) |
+| Q15 | 8 Oct 2026 | How does part 2 read without a right: (a) later, one rule in `require_right` letting any right open a read-only route; (b) now, `.view` beside `.manage`, classified by method? (architecture review #1722 item 2; Claude and the reviewer recommended b) | "2 b" (Koen) |
+| Q16 | 8 Oct 2026 | Show the back-office link in the public header to everyone with a back-office role, Boekhouding included? (architecture review #1722 item 3) | "akkoord voor Q16" (Koen) |
 | — | 8 Oct 2026 | Architecture review by the desktop brainstorm-architecture CLI (#1722, issuecomment-6056141047), on `536591ff`, against master `fc2798d8`. | Taken in: 1 (C4.1: CSRF token per user, fresh seed, 422 counts as admitted), 3 (F7 from `roles`), 4 (C2: rights questions stay in services), 5 (B6: after v2.16; re-measure on the day), 6 (B6 failure path), 7 (C4.2 wording), 8 (ERD), 9 (A6 rows shortened, the Won'ts written out under Non-goals). Put to Koen: 2 (Q15, how part 2 reads without a right), 3's header link (Q16). Not taken: nothing. (Claude) |
 | — | 7 Oct 2026 | Build read by desktop-dev1 (#1722, issuecomment-6047443629), on `fcc1835f`, counted on `1b3237b1` and `6854bee1`. | Taken in: A1 (C4.1 asks the running routes; the 22 in-body gates become dependencies first), A2 (F6, F7, T8), A3 (B1 cites today's five sets; C7's list extended), A4 (`/admin/personen` in C2 on `party.masterdata`; CR-22's sentence to be corrected there), B (counts 356 and 35; the ratchet's scope in B7), C (menu in C2, A2 step 5; the landing is Q13), D (F8, T9; all modules on for the snapshot), E (claimed in C1), F (F9, T10, rollback in B6). Not taken: nothing. Open for Koen: Q12 (refusal words), Q13 (landing). Not measured: what each environment holds per role — a read-only count by the master CLI if Koen wants it. (Claude) |
 
