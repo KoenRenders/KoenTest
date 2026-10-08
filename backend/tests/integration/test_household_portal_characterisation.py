@@ -6,8 +6,10 @@ master data (Koen, 27 September 2026). Every answer of those doors was rendered 
 the code **before** the move (master `456bfb83`), kept, and the moved code had to
 answer the same (`tests/_snapshot.py`).
 
-**The JSON door still stands on that recording** (`json.html`, untouched): the
-portal's API did not change.
+**The household as JSON still stands on that recording** (`json.html`): its
+first answer, word for word. The six answers below it were those of the JSON
+doors for one person, which went with CR-13 phase 4b (#1251) — they had no
+caller; the recording was cut after the first answer, not recorded again.
 
 **The screen snapshots were recorded again with #1590**, because the screen
 itself was rebuilt — CR-11 pilot B put "Mijn gezin" on the public form page, read
@@ -160,17 +162,6 @@ def _json(response) -> str:
     return normalise(f"{response.status_code}\n{body}", _names(), {})
 
 
-NEW_PERSON = {
-    "first_name": "Nieuw",
-    "last_name": "Proef",
-    "date_of_birth": "2015-01-02",
-    "gender_code": "M",
-    "email": "",
-    "phone": "",
-    "mobile": "",
-}
-
-
 # ── The screen ───────────────────────────────────────────────────────────────
 
 
@@ -271,75 +262,11 @@ def test_a_refused_save_answers_in_these_words(client, db_session, household):
     assert db_session.query(MemberPerson).filter_by(member_id=MEMBER_ID).count() == 3
 
 
-# ── The JSON door ────────────────────────────────────────────────────────────
+# ── The household as JSON ────────────────────────────────────────────────────
 
 
-def test_the_json_answers(client, db_session, household):
-    from app.domains.auth.api import create_access_token
-
-    headers = {"Authorization": f"Bearer {create_access_token({'sub': MAIN_EMAIL})}"}
-    answers = [
-        _json(household_at_the_portal(client, MAIN_EMAIL)),
-        _json(
-            client.put(
-                f"/api/v1/member/household/persons/{CHILD_ID}",
-                json={"first_name": "Lotte", "last_name": "Proef-Json", "mobile": "0470999999"},
-                headers=headers,
-            ),
-        ),
-        _json(
-            client.post(
-                "/api/v1/member/household/persons",
-                json={**NEW_PERSON, "phone": "014000000"},
-                headers=headers,
-            ),
-        ),
-        _json(
-            client.put(
-                f"/api/v1/member/household/persons/{CHILD_ID}",
-                json={"gender_code": ""},
-                headers=headers,
-            ),
-        ),
-        _json(
-            client.post(
-                "/api/v1/member/household/persons",
-                json={**NEW_PERSON, "first_name": " "},
-                headers=headers,
-            ),
-        ),
-        _json(
-            client.delete(f"/api/v1/member/household/persons/{MAIN_ID}", headers=headers),
-        ),
-    ]
-    removed = client.delete(f"/api/v1/member/household/persons/{PARTNER_ID}", headers=headers)
-    answers.append(normalise(f"{removed.status_code}\n{removed.text}", {}, {}))
-    compare(SNAPSHOTS, "json", "\n".join(answers), BEFORE)
-
-
-def test_the_json_door_does_not_ask_the_main_member_a_mobile(client, db_session, household):
-    """#1590: the rule is asked at Word lid and at the one save of Mijn gezin,
-    not here — the API stores and removes a main member's mobile as before.
-    (The same household's save through the page is refused without one: the
-    portal tests in `mdm/tests`.)"""
-    from app.domains.auth.api import create_access_token
-
-    headers = {"Authorization": f"Bearer {create_access_token({'sub': MAIN_EMAIL})}"}
-    path = f"/api/v1/member/household/persons/{MAIN_ID}"
-
-    def mobiles() -> list[str]:
-        db_session.expire_all()
-        return [
-            c.value
-            for c in db_session.get(Person, MAIN_ID).contact_details
-            if c.contact_type_code == "MOBILE"
-        ]
-
-    assert client.put(path, json={"mobile": "0470999999"}, headers=headers).status_code == 200
-    assert mobiles() == ["0470999999"]
-    emptied = client.put(path, json={"mobile": ""}, headers=headers)
-    assert emptied.status_code == 200, emptied.text
-    assert mobiles() == []
+def test_the_household_as_json(client, db_session, household):
+    compare(SNAPSHOTS, "json", _json(household_at_the_portal(client, MAIN_EMAIL)), BEFORE)
 
 
 # ── The household's own order (Koen, 29 September 2026) ──────────────────────

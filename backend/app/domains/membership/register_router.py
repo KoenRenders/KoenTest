@@ -5,11 +5,9 @@ admin-CRUD (verhuisd uit app/routers/members.py, #444).
 import logging
 from datetime import date
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
-
-from app.database import get_db
 
 # #1110: het schrijven van een gezin staat in household_service, dus de snapshots
 # daarvan ook. Wat hier rest is het lidmaatschap dat deze router zelf bijwerkt.
@@ -17,7 +15,6 @@ from app.domains.audit.api import (  # noqa: F401
     PUBLIEKE_ACTOR,
     snapshot_membership,
 )
-from app.domains.auth.api import User, get_current_admin
 from app.domains.mdm.api import (
     CONTACT,
     ContactDetail,
@@ -32,8 +29,6 @@ from app.domains.membership.models import KnownAddress, Membership
 from app.domains.membership.schemas_family import FamilyCreate
 from app.domains.membership.schemas_member import (
     FamilyRegisteredResponse,
-    MemberCreate,
-    MemberResponse,
 )
 from app.domains.payment.api import create_payment_record, membership_price_for_date
 from app.i18n import _
@@ -42,21 +37,9 @@ from app.kernel.events import publish
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["members"])
 
-
-@router.post("/members", response_model=MemberResponse)
-def create_member(
-    data: MemberCreate,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    # #713: de parameter heet `admin` sinds die de auditregel écht tekent.
-    return _service.create_member(db, data=data, admin=_admin)
-
-
-# No route of its own since CR-13 phase 4b (#1251): `POST /api/v1/families` had no
-# caller. This is the function behind `membership.api.register_family`, which the
+# No router since CR-13 phase 4b (#1251): the JSON routes of this file are gone,
+# none had a caller. What is left is the function behind `membership.api.register_family`, which the
 # public form calls; it stays in this file until phase 4c moves it.
 def register_family(
     data: FamilyCreate,

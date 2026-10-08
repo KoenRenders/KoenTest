@@ -14,14 +14,15 @@ bijbehorende codetabellen — plus merge/survivorship.
   overlever), `unmerge_person` (history-anker), `MergeError`.
 
 - **The household mutations of the family portal** (CR-13 phase 3, #1250;
-  `household_service.py`): `household_of`, `household_person`,
-  `update_household_person`, `add_household_person`, `remove_household_person`,
+  `household_service.py`): `household_of`, `household_person`, the cores the
+  one save of a household calls (`apply_person_fields`,
+  `insert_household_person`, `detach_household_person`, `apply_address`),
   `person_payload`, `actor_of`, and the refusals (`HouseholdNotFound`,
   `PersonNotFound`, `OutsideHousehold`, `CannotRemoveSelf`, `HouseholdRefused`,
   `PersonDetailsMissing`) with `household_refusals_as_http` for a door. The
   household and its persons are master data (Koen, 27 September 2026), so their
-  doors are here too: the JSON routes in `household_router.py`, the screen routes
-  in `ui.py` — same paths and URLs as before. The portal page itself stays
+  door is here too: the screen route in `ui.py`. The JSON routes for one person
+  went with CR-13 phase 4b (#1251): they had no caller. The portal page itself stays
   `membership`'s; these doors ask it for the logged-in member and the page to
   answer with (`membership.api.portal_member`, `family_portal_page`).
 - **Rules on the objects** (CR-13 phase 3): `Person` refuses a blank first or last

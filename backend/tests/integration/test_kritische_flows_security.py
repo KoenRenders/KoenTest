@@ -3,7 +3,8 @@
 houden — geen gedragswijziging aan de productiecode.
 
 1. IDOR op het gezinsportaal: een lid mag geen persoon van een ánder gezin
-   lezen/bewerken/verwijderen (`_assert_in_household` → 403).
+   bewerken. Since CR-13 phase 4b (#1251) the one door is the save of Mijn
+   gezin, which knows only the persons of the member's own household.
 2. De Mollie-webhook is onvervalsbaar: status/bedrag komen uitsluitend uit de
    re-fetch bij Mollie, nooit uit de (ongesigneerde) POST-body.
 3. De echte `MollieProvider.create_payment` bouwt de juiste payload en slaat de
@@ -14,53 +15,52 @@ from decimal import Decimal
 
 import pytest
 
-from app.domains.auth.api import create_access_token
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.payment.api import PaymentStatus
-from tests.conftest import create_test_family
+from tests.conftest import create_test_family, household_fields
 
 
-def _member_headers(email: str) -> dict:
-    """Bearer-token voor een lid (e-mail → Person via ContactDetail)."""
-    return {"Authorization": f"Bearer {create_access_token({'sub': email})}"}
+def _signed_in(client, email: str) -> dict:
+    """The member's session on the site, and the CSRF header its forms send."""
+    value = make_session_value(email)
+    client.cookies.set(SESSION_COOKIE, value)
+    return {"X-CSRF-Token": csrf_token_for(value)}
 
 
 # ── 1. IDOR gezinsportaal ────────────────────────────────────────────────────
 
 
 def test_gezinsportaal_idor_blokkeert_bewerken_vreemd_gezin(client, db_session):
-    """Lid van gezin A mag een persoon van gezin B niet bewerken → 403, en er
-    muteert niets."""
-    _mem_a, _pers_a = create_test_family(db_session, email="idor-a@example.com")
-    _mem_b, pers_b = create_test_family(db_session, email="idor-b@example.com")
-    origineel = pers_b.first_name
+    """A member of household A cannot change a person of household B: the save of
+    Mijn gezin refuses a row that carries a stranger's id, and nothing is written.
 
-    resp = client.put(
-        f"/api/v1/member/household/persons/{pers_b.id}",
-        json={"first_name": "Gekaapt", "last_name": pers_b.last_name},
-        headers=_member_headers("idor-a@example.com"),
-    )
-    assert resp.status_code == 403
-    db_session.expire_all()
+    There is no door left that removes a person by id (the JSON doors went with
+    CR-13 phase 4b, #1251): the save removes who the form no longer has, and only
+    from the member's own household — `test_a_person_of_another_household_is_not_touched`
+    in `mdm/tests/test_household_save.py`.
+
+    Proven red by letting `_save_person` look the row's id up among all persons
+    instead of the household's own: 200, and the stranger is called "Gekaapt".
+    """
     from app.domains.mdm.api import Person
 
-    assert db_session.get(Person, pers_b.id).first_name == origineel
+    create_test_family(db_session, email="idor-a@example.com", mobile="0470 00 00 01")
+    _mem_b, pers_b = create_test_family(db_session, email="idor-b@example.com")
+    db_session.commit()
+    original = pers_b.first_name
 
+    headers = _signed_in(client, "idor-a@example.com")
+    fields = household_fields(client)
+    fields["h_order"] = [*fields["h_order"], str(pers_b.id)]
+    fields[f"h.{pers_b.id}.first_name"] = "Gekaapt"
+    fields[f"h.{pers_b.id}.last_name"] = pers_b.last_name
 
-def test_gezinsportaal_idor_blokkeert_verwijderen_vreemd_gezin(client, db_session):
-    """Lid van gezin A mag een persoon van gezin B niet verwijderen → 403."""
-    create_test_family(db_session, email="idor-c@example.com")
-    _mem_b, pers_b = create_test_family(db_session, email="idor-d@example.com")
+    resp = client.post("/leden/gezin", data=fields, headers=headers)
 
-    resp = client.delete(
-        f"/api/v1/member/household/persons/{pers_b.id}",
-        headers=_member_headers("idor-c@example.com"),
-    )
-    assert resp.status_code == 403
+    assert resp.status_code == 422, resp.text[:300]
+    assert "hoort niet meer bij het gezin" in resp.text, resp.text[:300]
     db_session.expire_all()
-    from app.domains.mdm.api import MemberPerson
-
-    mp = db_session.query(MemberPerson).filter(MemberPerson.person_id == pers_b.id).first()
-    assert mp is not None and mp.deleted_at is None
+    assert db_session.get(Person, pers_b.id).first_name == original
 
 
 # ── 2. Webhook-onvervalsbaarheid ─────────────────────────────────────────────

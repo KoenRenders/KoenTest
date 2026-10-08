@@ -52,7 +52,6 @@ from app.domains.mdm.api import EmailAddressInUse
 from app.domains.mdm.handlers import (  # noqa: F401 - event subscriptions (#1346)
     set_circle_start_when_chosen,
 )
-from app.domains.mdm.household_router import router as mdm_household_router
 from app.domains.mdm.persons_ui import router as mdm_persons_ui_router
 from app.domains.mdm.ui import router as mdm_ui_router
 from app.domains.media.admin_ui import router as media_admin_ui_router
@@ -62,7 +61,6 @@ from app.domains.meetings.admin_ui import router as meetings_admin_ui_router
 from app.domains.membership.handlers import (  # noqa: F401 - event-abonnementen (CR-13 phase 2)
     activate_membership_on_payment,
 )
-from app.domains.membership.register_router import router as members_router
 from app.domains.membership.ui import router as membership_ui_router
 from app.domains.newsletter.admin_ui import router as newsletter_admin_ui_router
 from app.domains.newsletter.handlers import (
@@ -189,11 +187,9 @@ SHELL_ROUTERS = (
 )
 
 app.include_router(auth_router, prefix="/api/v1")
-app.include_router(members_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
 app.include_router(stt_router, prefix="/api/v1")
 app.include_router(cms_router, prefix="/api/v1", dependencies=_module(M.CMS))
 app.include_router(media_router, prefix="/api/v1", dependencies=_module(M.MEDIA))
-app.include_router(mdm_household_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
 app.include_router(forms_ui_router, dependencies=_module(M.FORMS))
 app.include_router(forms_admin_ui_router, dependencies=_module(M.FORMS))
 app.include_router(activities_ui_router, dependencies=_module(M.ACTIVITIES))

@@ -6,7 +6,6 @@ Vult test_auth_unification.py aan (dat de happy path + rolcontrole dekt)."""
 from datetime import timedelta
 
 from app.domains.auth.api import create_access_token
-from tests.conftest import seed_postal_code, sign_up_at_the_door
 
 
 def _headers(token):
@@ -77,44 +76,7 @@ def test_garbage_authorization_header_is_rejected(client):
     assert resp.status_code == 401
 
 
-# ── eigenaarschap ────────────────────────────────────────────────────────────
-
-
-def test_member_cannot_edit_other_household(client, db_session):
-    """Een ingelogd lid mag geen persoon van een ánder gezin bewerken (403)."""
-    seed_postal_code(db_session)
-    assert sign_up_at_the_door(client, json=_family_payload("lid1@example.com")).status_code == 201
-    assert sign_up_at_the_door(client, json=_family_payload("lid2@example.com")).status_code == 201
-
-    from app.domains.mdm.api import ContactDetail
-
-    other_pid = (
-        db_session.query(ContactDetail.person_id)
-        .filter(ContactDetail.value == "lid2@example.com")
-        .scalar()
-    )
-    assert other_pid is not None
-
-    token = create_access_token({"sub": "lid1@example.com"})
-    resp = client.put(
-        f"/api/v1/member/household/persons/{other_pid}",
-        headers=_headers(token),
-        json={"first_name": "Hacker"},
-    )
-    assert resp.status_code == 403
-
-
 # ── autorisatie op beheer-endpoints ──────────────────────────────────────────
-
-
-def test_create_member_requires_admin(client, admin_headers):
-    """POST /members is een beheerendpoint (#262): zonder admin-token mag niemand
-    ongeauthenticeerd gezin-/persoonsrecords aanmaken; met admin-token werkt het."""
-    resp = client.post("/api/v1/members", json={"persons": []})
-    assert resp.status_code in (401, 403)
-
-    ok = client.post("/api/v1/members", headers=admin_headers, json={"persons": []})
-    assert ok.status_code == 200
 
 
 def test_create_user_rejects_unknown_role_code(client, admin_headers, db_session):
