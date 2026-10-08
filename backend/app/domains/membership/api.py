@@ -14,10 +14,8 @@ from app.domains.membership.schemas_member import (  # noqa: F401
     AddressUpdate,
     BoardMemberAssign,
     ContactsUpdate,
-    MemberCreate,
     MembershipCreate,
     PersonAddToFamily,
-    PersonCreate,
     PersonUpdate,
     PostalCodeResponse,
 )
@@ -67,7 +65,6 @@ __all__ = [
     # Schrijfbewerkingen op gezinnen/personen/lidmaatschappen (#635 H)
     "add_person_to_family",
     "assign_board_member",
-    "create_member",
     "create_family_by_admin",
     "create_family_with_members",
     "parse_member_rows",
@@ -87,10 +84,8 @@ __all__ = [
     "AddressUpdate",
     "BoardMemberAssign",
     "ContactsUpdate",
-    "MemberCreate",
     "MembershipCreate",
     "PersonAddToFamily",
-    "PersonCreate",
     "PersonUpdate",
     "PostalCodeResponse",
 ]
@@ -218,7 +213,6 @@ from app.domains.membership.household_service import (  # noqa: E402, F401 — a
     assign_board_member,
     create_family_by_admin,
     create_family_with_members,
-    create_member,
     create_membership_for_family,
     delete_family,
     delete_membership,

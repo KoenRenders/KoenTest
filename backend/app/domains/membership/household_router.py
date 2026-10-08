@@ -5,9 +5,9 @@ Een ingelogd lid kan:
 - De e-mailadressen van een gezinslid beheren (#1174)
 - Het lidmaatschap hernieuwen
 
-Een persoon bewerken, toevoegen of weghalen is sinds CR-13 fase 3 (#1250) een deur
-van `mdm` (`mdm/household_router.py`, dezelfde paden): het gezin en zijn personen
-zijn masterdata.
+Een persoon bewerken, toevoegen of weghalen is sinds CR-13 fase 3 (#1250) van
+`mdm` (de ene bewaring van het gezin, `mdm/household_save.py`): het gezin en zijn
+personen zijn masterdata.
 
 Elke schrijfactie logt een audit-rij (source="member_self", actor=e-mail).
 De member_id wordt server-side afgeleid uit het JWT, nooit uit de request.

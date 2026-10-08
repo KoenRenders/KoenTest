@@ -42,7 +42,6 @@ NETWORK_IN_HANDLER: frozenset[str] = frozenset()
 JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset(
     {
         "DELETE /api/v1/auth/api-keys/{key_id}",
-        "DELETE /api/v1/member/household/persons/{person_id}",
         "DELETE /api/v1/users/{user_id}",
         "GET /api/v1/admin/pages",
         "GET /api/v1/auth/api-keys",
@@ -56,11 +55,8 @@ JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset(
         "POST /api/v1/auth/api-keys",
         "POST /api/v1/auth/request-login",
         "POST /api/v1/auth/verify-otp",
-        "POST /api/v1/member/household/persons",
-        "POST /api/v1/members",
         "POST /api/v1/pages",
         "POST /api/v1/users",
-        "PUT /api/v1/member/household/persons/{person_id}",
     }
 )
 
@@ -492,9 +488,6 @@ FOREIGN_WRITES: frozenset[str] = frozenset(
         "domains/membership/household_service.py::create_family_with_members → mdm.Member",
         "domains/membership/household_service.py::create_family_with_members → mdm.MemberPerson",
         "domains/membership/household_service.py::create_family_with_members → mdm.Person",
-        "domains/membership/household_service.py::create_member → mdm.Member",
-        "domains/membership/household_service.py::create_member → mdm.MemberPerson",
-        "domains/membership/household_service.py::create_member → mdm.Person",
         "domains/membership/household_service.py::delete_family → mdm.Member",
         "domains/membership/household_service.py::update_person → mdm.Person",
         "domains/membership/household_service.py::update_person_address → mdm.Address",
@@ -629,9 +622,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/membership/household_service.py::create_family_with_members → audit.api.snapshot_member_person",
         "domains/membership/household_service.py::create_family_with_members → audit.api.snapshot_membership",
         "domains/membership/household_service.py::create_family_with_members → audit.api.snapshot_person",
-        "domains/membership/household_service.py::create_member → audit.api.snapshot_member",
-        "domains/membership/household_service.py::create_member → audit.api.snapshot_member_person",
-        "domains/membership/household_service.py::create_member → audit.api.snapshot_person",
         "domains/membership/household_service.py::create_membership_for_family → audit.api.snapshot_membership",
         "domains/membership/household_service.py::delete_family → audit.api.snapshot_address",
         "domains/membership/household_service.py::delete_family → audit.api.snapshot_contact_detail",

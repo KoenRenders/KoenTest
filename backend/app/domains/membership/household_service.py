@@ -43,13 +43,11 @@ from app.domains.membership.schemas_member import (  # noqa: F401
     EmailAddressResponse,
     FamilyMemberResponse,
     FamilyResponse,
-    MemberCreate,
     MemberResponse,
     MembershipCreate,
     MembershipResponse,
     PaginatedFamiliesResponse,
     PersonAddToFamily,
-    PersonCreate,
     PersonListItem,
     PersonUpdate,
 )
@@ -189,71 +187,6 @@ def _reconcile_geschrapt_lidmaatschap(
         source="membership-delete",
         refund_note="Automatisch bij schrappen lidmaatschap — terugstorting te bevestigen",
     )
-
-
-def create_member(db: Session, data: MemberCreate, admin=None):
-    """Een nieuw gezin met zijn hoofdlid.
-
-    #713: de actor stond hier niet in de auditregel, terwijl hij bekend was — de
-    functie had er zelfs een parameter voor die alleen niet gebruikt werd, en de
-    JSON-route gaf hem netjes door. De snapshots schreven bovendien
-    `source="system"`, dus een beheerdersactie stond genoteerd als systeemactie
-    zónder actor: aan geen van beide velden te herkennen.
-
-    `_admin` heet nu `admin`: de underscore zei "wordt niet gebruikt", en dat wás
-    het probleem.
-    """
-    from app.domains.audit.api import snapshot_member, snapshot_member_person, snapshot_person
-
-    wie = getattr(admin, "email", None) or (admin if isinstance(admin, str) else None)
-    member = Member()
-    db.add(member)
-    db.flush()
-    snapshot_member(
-        db, member, operation="insert", action="member_created", source="admin_manual", actor=wie
-    )
-
-    for person_data in data.persons:
-        # #681: ook hier, want dit is de weg van het beheerscherm "Nieuw lid". Een
-        # ingang die de regel overslaat maakt het gat even groot als voordien.
-        try:
-            MemberPerson.require_details(
-                person_data.date_of_birth, person_data.gender_code or person_data.gender
-            )
-        except PersonDetailsMissing as fout:
-            raise HTTPException(status_code=422, detail=str(fout))
-
-        person = Person(
-            last_name=person_data.last_name,
-            first_name=person_data.first_name,
-            date_of_birth=person_data.date_of_birth,
-            gender_code=person_data.gender_code or person_data.gender or None,
-        )
-        db.add(person)
-        db.flush()
-        snapshot_person(
-            db,
-            person,
-            operation="insert",
-            action="person_created",
-            source="admin_manual",
-            actor=wie,
-        )
-
-        mp = MemberPerson(
-            member_id=member.id,
-            person_id=person.id,
-            relation_type=person_data.relation_type,
-        )
-        db.add(mp)
-        db.flush()
-        snapshot_member_person(
-            db, mp, operation="insert", action="person_created", source="admin_manual", actor=wie
-        )
-
-    db.commit()
-    db.refresh(member)
-    return member
 
 
 #: CR-22 R9, Q28 and Q40: what the public Lid worden answers for an address that
@@ -876,7 +809,7 @@ def update_person_address(
     address = person.address
     if not address:
         # #1111: a household created in the back office has no address row —
-        # `create_member` never makes one — so "update" refused every first
+        # `create_member` (gone since CR-13 phase 4b) never made one — so "update" refused every first
         # address with 404 "Address not found", and the screen showed the
         # generic banner. Saving an address on a household without one means
         # creating it; the three required parts must all be there.

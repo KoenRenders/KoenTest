@@ -11,19 +11,6 @@ from pydantic import BaseModel
 from app.domains.mdm.api import RelationType
 
 
-class PersonCreate(BaseModel):
-    last_name: str
-    first_name: str
-    date_of_birth: Optional[date] = None
-    gender_code: Optional[str] = None
-    gender: Optional[str] = None  # alias used by public registration form
-    is_primary: bool = False
-    # CR-12 phase 2: form → router (Pydantic). An unknown relation type is
-    # now a 422 naming the field, instead of a row that only trips over the
-    # foreign key.
-    relation_type: RelationType = RelationType.PRIMARY_MEMBER
-
-
 class PersonUpdate(BaseModel):
     last_name: Optional[str] = None
     first_name: Optional[str] = None
@@ -41,10 +28,6 @@ class PersonResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
-
-
-class MemberCreate(BaseModel):
-    persons: List[PersonCreate] = []
 
 
 class MemberResponse(BaseModel):

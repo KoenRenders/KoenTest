@@ -213,7 +213,7 @@ def test_the_import_reads_an_incomplete_member_in_and_the_portal_refuses_one(db_
     """Both sides of Koen's decision (29 September 2026), side by side: the report of
     Raak Nationaal is read in, incomplete member and all, with a warning — and the
     same member is refused on the portal, the way every other path refuses it."""
-    from app.domains.mdm.api import add_household_person
+    from app.domains.mdm.household_service import insert_household_person
     from app.domains.mdm.import_service import upsert_families
     from tests.conftest import seed_postal_code
 
@@ -230,7 +230,7 @@ def test_the_import_reads_an_incomplete_member_in_and_the_portal_refuses_one(db_
 
     household = person.member_persons[0].member
     with pytest.raises(PersonDetailsMissing):
-        add_household_person(
+        insert_household_person(
             db_session,
             household,
             {"first_name": "Kind", "last_name": "Uitrapport", "gender_code": "M"},

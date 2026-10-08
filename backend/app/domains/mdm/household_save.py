@@ -7,11 +7,11 @@ transactions (the person, then the e-mail rows): a refusal in the second left th
 first stored.
 
 `save_household` writes nothing the row functions did not write and refuses
-everything they refused: it calls the same non-committing cores
+everything they refused: it calls the non-committing cores
 (`household_service.apply_person_fields`, `insert_household_person`,
 `detach_household_person`, `apply_address`; `service.write_email_rows`,
-`promote_email_row`) that the committing doors — still used by the JSON API —
-call. What is new is said where it stands:
+`promote_email_row`) that the committing doors of the JSON API called until
+those went with CR-13 phase 4b (#1251). What was new is said where it stands:
 
 - every refusal comes back at once, each at its place (`kernel.refusals`): a
   field (`h.<key>.first_name`, `e.<key>.value`, `address.postal_code`), a row

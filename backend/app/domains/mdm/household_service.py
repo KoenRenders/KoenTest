@@ -5,13 +5,12 @@ personen is mdm"*); the membership — the yearly record, its payment, the renew
 window — is `membership`'s. Until this phase the family portal's mutations (change a
 person, add one, remove one) were implemented in `membership/household_router.py`
 and reached through `membership.api` functions that called the JSON router: a
-second domain writing `mdm`'s rows. They live here now, behind `mdm.api`; the
-portal's two doors — the JSON route and the screen, both in `mdm` too — call them
-and keep only what a door does: who is logged in and the status code.
+second domain writing `mdm`'s rows. They live here now, behind `mdm.api`.
 
-Each mutation commits, as the other portal mutations of `mdm` (the e-mail
-addresses) already did: a screen may not touch the session (#635 rule 2), so the
-transaction ends where the rule does.
+Since CR-13 phase 4b (#1251) the functions here do not commit: the JSON doors
+for one person had no caller and went, with the three committing functions only
+they called. What stays are the cores the one save of a household
+(`household_save.py`, #1590) calls inside its one transaction.
 
 Same behaviour as before the move (R13), including the order of the checks. The
 refusals are `MasterDataError`s, one kind per answer the door gives, so no door has
@@ -24,7 +23,6 @@ e-mail address of the member who acted, which the door knows and passes in.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
@@ -110,45 +108,6 @@ def household_person(db: Session, household: Member, person_id: int) -> Person:
     return target
 
 
-def update_household_person(
-    db: Session, household: Member, person_id: int, data: dict, *, actor: Optional[str]
-) -> Person:
-    """Change a person of the household: name, birth date, gender, address, contacts.
-
-    Only these fields; the relation type, the household's board member and the
-    external number are never touched from here. The committing door of the JSON
-    API; the save of the whole household (`household_save`, #1590) calls the same
-    cores inside its one transaction.
-    """
-    target = household_person(db, household, person_id)
-
-    new: dict[str, Any] = {}
-    for field in ("first_name", "last_name", "date_of_birth", "gender_code"):
-        if field not in data:
-            continue
-        value = data[field] or None
-        if field == "date_of_birth" and value is not None and not isinstance(value, date):
-            value = date.fromisoformat(value)
-        new[field] = value
-    apply_person_fields(db, target, new, actor=actor)
-
-    address_data = data.get("address")
-    if "address" in data and address_data:
-        # #1603: a household without an address can get one. It hangs on the main
-        # member, as at sign-up; on anyone else it is left alone, as it always
-        # was — a household has one address.
-        creates = _is_main_member(household, target) and household_address_holder(household) is None
-        if target.address or creates:
-            apply_address(db, target, address_data, actor=actor)
-
-    for type_code, key in (("EMAIL", "email"), ("PHONE", "phone"), ("MOBILE", "mobile")):
-        if key in data:
-            _upsert_contact(db, target, type_code, data[key], actor=actor)
-    db.commit()
-    db.refresh(target)
-    return target
-
-
 def apply_person_fields(
     db: Session,
     target: Person,
@@ -158,7 +117,7 @@ def apply_person_fields(
     details_required: bool = True,
 ) -> bool:
     """Write these person fields with their history, without committing (#1590:
-    shared by `update_household_person` and the save of the whole household).
+    the save of the whole household and of one's own details call it).
     Returns whether anything changed."""
     from app.domains.audit.api import snapshot_person
 
@@ -395,23 +354,13 @@ def household_relations(household: Member) -> list[str]:
     return [RelationType(m.relation_type).value for m in links]
 
 
-def add_household_person(
-    db: Session, household: Member, data: dict, *, actor: Optional[str]
-) -> Person:
-    """Add a person to the household: a partner while it has none, otherwise a
-    child, or what the caller chose of those two (`relation_type`, #1603). No
-    address: that belongs to the main member only (#125)."""
-    person = insert_household_person(db, household, data, actor=actor)
-    db.commit()
-    db.refresh(person)
-    return person
-
-
 def insert_household_person(
     db: Session, household: Member, data: dict, *, actor: Optional[str]
 ) -> Person:
     """A new person of the household with the history rows, without committing
-    (#1590: shared by `add_household_person` and the save of the whole household)."""
+    (#1590): a partner while the household has none, otherwise a child, or what
+    the caller chose of those two (`relation_type`, #1603). No address: that
+    belongs to the main member only (#125)."""
     from app.domains.audit.api import (
         snapshot_contact_detail,
         snapshot_member_person,
@@ -466,18 +415,6 @@ def insert_household_person(
                 actor=actor,
             )
     return person
-
-
-def remove_household_person(
-    db: Session, household: Member, person_id: int, *, by: Person, actor: Optional[str]
-) -> None:
-    """Take a person out of the household — the link goes, the person stays.
-
-    `by` is the member who acts: nobody removes themselves.
-    """
-    target = household_person(db, household, person_id)
-    detach_household_person(db, household, target, by=by, actor=actor)
-    db.commit()
 
 
 def detach_household_person(
