@@ -15,6 +15,14 @@
   flex-wrap: wrap;
   gap: 4px;
   padding-bottom: 8px;
+  /* The tools stay in reach while a long page scrolls (#1391 W3, the
+     behaviour the Trix screen had): sticky under the shell's own header,
+     whose height the shell names in --shell-kop (the env bar counts).
+     A solid background — the text may not shine through her. */
+  position: sticky;
+  top: var(--shell-kop, 4rem);
+  z-index: 10;
+  background: var(--surface, #fff);
 }
 
 .document-editor .de-btn {
@@ -108,11 +116,13 @@
   background: rgb(0 81 164 / 0.08);
 }
 
-/* The figure atom: a picture is chosen with CR-15's picker (slice 3);
-   until then an inserted figure carries no image and shows as the kit's
-   dashed placeholder box with her alt text, so the author sees a block,
-   not a gap. */
-.document-editor .tiptap figure[data-document-figure] {
+/* The figure without her picture: a block no dialog produces (she refuses
+   to insert one), rendered as the kit's dashed placeholder box with her
+   alt text, so the author sees a block and not a gap. A figure WITH her
+   picture wears the site's own classes (`prose-figure--…`, from
+   `prose-figures.css`, loaded with the macro) — the parity this file
+   deliberately does not copy. */
+.document-editor .tiptap figure.de-figure-empty {
   border: 1px dashed var(--line);
   border-radius: 0.5rem;
   padding: 1rem;

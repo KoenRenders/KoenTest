@@ -466,24 +466,23 @@ class Paginascherm:
         if links.count() == 0:
             return None
         links.first.click()
-        # Op ATTACHED wachten en niet op zichtbaarheid: dit vak hóórt verborgen te
-        # zijn, en "wacht tot het zichtbaar is" zou hier de bug als geslaagd lezen.
-        self.page.wait_for_selector("#cp-htmlsrc", state="attached", timeout=10000)
+        # Snede 3 (#1671): het paginascherm is een recordpagina met de
+        # document-editor — op ATTACHED wachten: de editor bouwt uit de
+        # configuratie en de mount staat er zodra het fragment er is.
+        self.page.wait_for_selector("[data-document-editor]", state="attached", timeout=10000)
+        # The editor BUILDS from her configuration once her scripts ran —
+        # waiting for the mount alone leaves tests racing her surface.
+        self.page.wait_for_selector(".document-editor .tiptap", timeout=10000)
         return self
 
-    def htmlbron(self):
-        return self.page.locator("#cp-htmlsrc")
-
     def opslaan(self):
+        # De recordbalk draagt de ene opslag van het scherm; een geslaagde
+        # opslag is een 204 met de weg terug (htmx volgt de header).
         with htmx_afgerond(self.page):
-            self.page.get_by_role("button", name="Opslaan").first.click()
-
-    def toon_html_bron(self):
-        # Alpine only, no request: the caller waits on the box itself.
-        self.page.get_by_role("button", name="HTML").first.click()
+            self.page.locator("[data-action-bar] button[data-form-save]").first.click()
 
     def editorinhoud(self) -> str:
-        return self.page.locator("#cp-content-input").first.input_value() or ""
+        return self.page.locator("#cp-document-input").first.input_value() or ""
 
 
 #: The persons of the household group on Word lid and Mijn gezin (#1590).

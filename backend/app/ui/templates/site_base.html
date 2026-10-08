@@ -50,6 +50,13 @@
   <link rel="icon" href="{{ statisch('favicon.ico') }}" sizes="16x16 32x32 48x48">
   <link rel="apple-touch-icon" href="{{ statisch('apple-touch-icon.png') }}">
   <link rel="stylesheet" href="{{ statisch('app.css') }}">
+  {# The figure rules of a page document (CR-17 #1671, slice 3) — ONE source
+     with the editor: `prose-figures.css` rides on the tokens both shells
+     define, so the visitor sees the placements the author saw in the
+     editor. Hand-written, like the CMS block below: the figure's markup is
+     built by the renderer, and a renderer's class must not depend on one
+     that happens to be generated. #}
+  <link rel="stylesheet" href="{{ statisch('prose-figures.css') }}">
   <style>
     /* Alpine: verberg x-cloak-elementen tot Alpine geïnitialiseerd is (geen flits). */
     [x-cloak]{display:none!important}

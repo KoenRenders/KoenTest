@@ -419,7 +419,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "test file:test_adresrijen_formulier.py",
         "test file:test_assistant_schermscope.py",
         "test file:test_bedrag_op_de_vernieuwing_1241.py",
-        "test file:test_beeldmaat_in_de_editor_1230.py",
         "test file:test_bestuur_maakt_inschrijving_aan.py",
         "test file:test_betaalstatus_tonen.py",
         "test file:test_betaling_fout_toont_de_reden.py",

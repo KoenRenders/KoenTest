@@ -25,7 +25,6 @@ BACKEND = Path(__file__).resolve().parents[1]
 ROOT = Path(__file__).resolve().parents[2]
 APP = BACKEND / "app"
 MACROS = APP / "ui" / "templates" / "_macros.html"
-ADMIN_SHELL = APP / "ui" / "templates" / "admin_base.html"
 
 #: The CSP the shared Caddy serves, pinned exactly (C6 14; CR-17's C1
 #: measured her on 6 October 2026). The header's NAME is Caddy's
@@ -63,20 +62,36 @@ def test_no_template_writes_the_bundles_global_or_configuration():
         assert "schema_for" not in content, f"{template.name} writes editor configuration"
 
 
-def test_the_tiptap_bundle_loads_in_the_admin_shell_only():
-    """C6 14: the vendored files load once in the shell (#634's rule 21 in
-    spirit), and only in the admin — the editor is a back-office component
-    until slice 3 puts her on the page screen."""
+def test_the_editor_files_load_only_where_an_editor_stands():
+    """C6 14 + B4 (Koen, 7 October 2026, option a): the bundle, her chrome,
+    the shared figure rules and the editor's script load with the
+    `ui.document_editor` macro — on the pages that carry an editor, and
+    only there. Never in the admin shell: a back-office screen without an
+    editor carries none of her 441 KB of JavaScript. Slice 2 loaded the
+    shell for the whole back office (one editor page existed); slice 3
+    put the editor on the page screen, and Koen chose the per-page load.
+    Proven by adding the bundle back to the admin shell: this test failed
+    naming her, and passes again once the shell carries none of it."""
     for template in _templates():
-        if template == ADMIN_SHELL:
+        if template == MACROS:
             continue
-        assert "tiptap-3.31.4" not in template.read_text(), (
-            f"{template.name} loads the bundle outside the shell"
+        content = template.read_text()
+        assert "tiptap-3.31.4" not in content, f"{template.name} loads the bundle outside the macro"
+        assert "document-editor.js" not in content, (
+            f"{template.name} loads the editor's script outside the macro"
         )
-    shell = ADMIN_SHELL.read_text()
-    assert "vendor/tiptap-3.31.4.min.js" in shell
-    assert "vendor/tiptap-3.31.4.css" in shell
-    assert "document-editor.js" in shell
+    macros = MACROS.read_text()
+    assert "vendor/tiptap-3.31.4.min.js" in macros, "the macro no longer loads the bundle"
+    assert "vendor/tiptap-3.31.4.css" in macros, "the macro no longer loads the editor's chrome"
+    assert "document-editor.js" in macros, "the macro no longer loads the editor's script"
+    # On real lines, not anywhere in the file: the macro's comments name the
+    # files too, and a gate a comment satisfies is no gate (measured).
+    macro_links = [
+        line.strip()
+        for line in macros.splitlines()
+        if ("<link" in line or "<script" in line) and "prose-figures.css" in line
+    ]
+    assert macro_links, "the macro no longer links the figure rules"
 
 
 def test_the_bundle_matches_the_manifest():

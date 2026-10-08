@@ -179,16 +179,19 @@ def test_a_page_image_is_stored_losslessly():
 
 def test_the_inserted_image_survives_sanitisation():
     """The allowlist is where this would die silently: visible in the editor,
-    gone on the published page."""
+    gone on the published page. The wrapper stays since CR-17 slice 3
+    (`figure` joined the allowlist for the document editor's placed figure)
+    — a Trix-era wrapper survives her too: she carries no `prose-figure`
+    class, matches no style, and her measured pixels are the img's own
+    (pinned in test_figure_placements_1671.py). The bijlage-JSON must be
+    gone: her alt and maat live on the img now."""
     html = render_cms_content(INGEVOEGD)
 
     assert '<img src="/api/v1/media/7"' in html, (
         f"de afbeelding is bij het saneren verdwenen:\n{html}"
     )
-    assert "<figure" not in html and "data-trix-attachment" not in html, (
-        f"de trix-omhulling staat nog in de publieke HTML:\n{html}"
-    )
-    assert "figcaption" not in html, f"het bijschrift-element staat er nog:\n{html}"
+    assert "data-trix-attachment" not in html, f"de bijlage-JSON staat er nog:\n{html}"
+    assert "prose-figure" not in html, "a Trix-era figure is not a placed figure"
 
 
 # ── 3. And it carries its alt ────────────────────────────────────────────────
@@ -329,15 +332,19 @@ def test_the_editor_offers_the_library_to_insert_from(client, db_session):
 
     html = client.get(f"/admin/paginas/{pagina.id}").text
 
-    assert "insertPageImage" in html, "de invoegknop heeft geen invoegfunctie"
-    assert 'id="cp-alt"' in html, "het alt-veld ontbreekt in de kiezer"
-    # #1474: the dialog loads the kit's picker into itself — `hx-target="this"`,
-    # or it inherits #cp-form's target and replaces the whole editor (measured).
+    # Snede 3 (#1671): de figuur-dialoog reist met de `ui.document_editor`
+    # macro — de kit's kiezer, de alt (verplicht), het bijschrift en de
+    # plaatsing. De knop opent haar; invoegen zonder afbeelding kan niet.
+    assert 'id="cp-document-fig-alt"' in html, "het alt-veld ontbreekt in de dialoog"
+    assert 'id="cp-document-fig-caption"' in html, "het bijschriftveld ontbreekt"
+    assert "Plaatsing" in html, "de plaatsing ontbreekt in de dialoog"
+    # #1173: invoegen gebeurt UIT DE BIBLIOTHEEK en niet door te slepen —
+    # #1474: de dialoog laadt de kiezer van de kit in zichzelf.
     assert (
-        'id="mp-cp-beeld"' in html
-        and 'hx-get="/admin/media/kiezer?field=cp-beeld" hx-target="this"' in html
+        'id="mp-cp-document-figuur"' in html
+        and 'hx-get="/admin/media/kiezer?field=cp-document-figuur" hx-target="this"' in html
     )
-    kiezer = client.get("/admin/media/kiezer?field=cp-beeld").text
+    kiezer = client.get("/admin/media/kiezer?field=cp-document-figuur").text
     for asset in (beeld, foto):
         assert f'data-url="/api/v1/media/{asset.id}"' in kiezer, (
             f"{asset.kind} staat niet in de kiezer van de pagina, dus er is niets te kiezen"
@@ -347,7 +354,13 @@ def test_the_editor_offers_the_library_to_insert_from(client, db_session):
 def test_placing_an_album_photo_puts_a_reference_and_adds_no_media_row(client, db_session):
     """CR-15 C6 test 2 (#1474): the CMS places a reference to a picture of the
     library — an album photo of the Sint as well as a page picture — and stores
-    no copy of it: the number of media rows is the same before and after."""
+    no copy of it: the number of media rows is the same before and after.
+
+    Snede 3 (#1671): the picture travels as the figure block's media id in
+    the DOCUMENT, saved through the screen's door and published — the way
+    the dialog's Invoegen lands her."""
+    import json
+
     from app.domains.cms.api import CmsPage
 
     hdr = _login(client, db_session)
@@ -357,37 +370,52 @@ def test_placing_an_album_photo_puts_a_reference_and_adds_no_media_row(client, d
     db_session.commit()
     voor = db_session.query(MediaAsset).count()
 
-    inhoud = INGEVOEGD.replace("/api/v1/media/7", f"/api/v1/media/{foto.id}")
+    document = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "figure",
+                "attrs": {"media_id": foto.id, "alt": ALT, "placement": "right"},
+            }
+        ],
+    }
     resp = client.post(
         f"/admin/paginas/{pagina.id}",
-        data={"title": "Sint", "slug": "sint-uitleg", "content": inhoud, "is_published": "1"},
+        data={"title": "Sint", "slug": "sint-uitleg", "document": json.dumps(document)},
         headers=hdr,
     )
-    assert resp.status_code == 200, resp.text[:300]
+    assert resp.status_code == 204, resp.text[:300]
+    published = client.post(f"/admin/paginas/{pagina.id}/publiceren", headers=hdr)
+    assert published.status_code == 204, published.text[:300]
 
     db_session.expire_all()
     assert db_session.query(MediaAsset).count() == voor, "placing a picture stored a copy"
-    getoond = render_cms_content(db_session.get(CmsPage, pagina.id).content)
+    getoond = client.get("/sint-uitleg").text
     assert f'src="/api/v1/media/{foto.id}"' in getoond and f'alt="{ALT}"' in getoond, getoond
+    assert "prose-figure--right" in getoond, "the chosen placement did not reach the site"
 
 
 def test_the_editor_still_refuses_a_dropped_file():
     """Deliberate (#1173): dragging a file in would be an unbounded upload path
     to a public page. Inserting goes through the library instead.
 
-    Checked on the shell, where the listener lives, and on the editor fragment,
-    which may not smuggle an upload field back in.
-    """
+    Checked on the shell, where the Trix listener lives (the newsletter and
+    the notes keep her until CR-17 phase 7), and on the page screen's own
+    templates — which may not smuggle an upload field back in. The
+    document editor inserts a figure through the dialog's picker, never
+    through an upload."""
     from pathlib import Path
 
     app = Path(__file__).resolve().parents[2] / "app"
     schil = (app / "ui/templates/admin_base.html").read_text(encoding="utf-8")
-    fragment = (app / "domains/cms/templates/_cp_detail.html").read_text(encoding="utf-8")
+    record = (app / "domains/cms/templates/_cp_record.html").read_text(encoding="utf-8")
+    recordkop = (app / "domains/cms/templates/_cp_recordkop.html").read_text(encoding="utf-8")
 
     assert "trix-file-accept" in schil and "preventDefault" in schil, (
-        "de beheerschil onderschept geen bestanden meer in de editor"
+        "de beheerschil onderschept geen bestanden meer in de editors die Trix houden"
     )
-    assert 'type="file"' not in fragment, (
-        "de pagina-editor heeft een eigen uploadveld gekregen — invoegen hoort "
-        "uit de bibliotheek te komen"
-    )
+    for naam, bron in (("het recordscherm", record), ("de recordkop", recordkop)):
+        assert 'type="file"' not in bron, (
+            f"{naam} heeft een eigen uploadveld gekregen — invoegen hoort "
+            "uit de bibliotheek te komen"
+        )

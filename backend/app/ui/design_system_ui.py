@@ -300,8 +300,12 @@ def _document_demo() -> tuple[dict, str]:
     configuration and a document holding every block the set offers —
     invented data, like every demo on this page; no database.
 
-    The figure carries no image yet: CR-15's picker arrives with the page
-    screen (slice 3), and until then the editor shows her placeholder box.
+    The figure carries her image (media id 1, invented like every demo here)
+    in the placement `right`: since slice 3 the editor renders her picture
+    through the address of `media_url_prefix`, in the same classes the
+    site's renderer writes, and the figure's dialog — the kit's picker,
+    the alternative text, the caption, the placement — travels with the
+    `ui.document_editor` macro.
     """
     import json
 

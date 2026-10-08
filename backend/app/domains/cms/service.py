@@ -333,6 +333,46 @@ def is_site_block(slug: str) -> bool:
     return slug in SITE_BLOCK_SLUGS
 
 
+def published_html(db, page: CmsPage, language: Optional[str] = None) -> str:
+    """What a visitor sees: the page's published document, rendered; her
+    pre-CR-17 HTML as long as nothing is published (snede 3, #1671 — the
+    readers' ONE source: every screen that shows a page asks here, so the
+    fallback lives in one place and cannot drift between readers)."""
+    from app.domains.cms.render import render_cms_content, render_document
+
+    document = published_document(db, page, language)
+    if document is not None:
+        on_page = not is_site_block(page.slug)
+        return render_document(document, db, on_page=on_page)
+    return render_cms_content(page.content or "", db, on_page=not is_site_block(page.slug)) or ""
+
+
+def draft_html(db, page: CmsPage, language: Optional[str] = None) -> str:
+    """What the preview shows: the DRAFT (C6 5), the published document when
+    no draft exists, the stored HTML as the last fallback."""
+    from app.domains.cms.render import render_cms_content, render_document
+
+    document = draft_document(db, page, language)
+    if document is None:
+        document = published_document(db, page, language)
+    if document is not None:
+        return render_document(document, db, on_page=not is_site_block(page.slug))
+    return render_cms_content(page.content or "", db, on_page=not is_site_block(page.slug)) or ""
+
+
+def published_text(db, page: CmsPage, language: Optional[str] = None) -> str:
+    """What the chatbot reads: the published document as words — no tags, a
+    code its value, a figure her alt text (C2 cms, Readers). A page that still
+    shows her stored HTML keeps today's shape (the rendered HTML), exactly
+    as the chatbot received her before."""
+    from app.domains.cms.render import render_cms_content, render_document
+
+    document = published_document(db, page, language)
+    if document is not None:
+        return render_document(document, db, target="text")
+    return render_cms_content(page.content or "", db) or ""
+
+
 def document_from_editor(document: Any) -> Any:
     """What the editor sends becomes a stored document (Koen, 8 October 2026).
 
@@ -402,6 +442,21 @@ def save_draft(
     db.commit()
     db.refresh(translation)
     return translation
+
+
+def save_document(
+    db, page_id: int, document: Any, *, by: Optional[str] = None
+) -> "CmsPageTranslation":
+    """The screen's save door (snede 3, #1671): `save_draft`, and a refusal
+    rolls the SESSION back here — the screen catches the named error and
+    shows her, but holds no db hand of her own (#635 rule 2: a ui touches
+    no transaction). Without the rollback the session would carry the
+    half-written translation into the re-render."""
+    try:
+        return save_draft(db, page_id, document, by=by)
+    except (ValueError, TypeError):
+        db.rollback()
+        raise
 
 
 def publish(
@@ -537,7 +592,59 @@ def references_to_media(db, asset_ids: Iterable[int]) -> dict:
             found.setdefault(asset_id, []).append(
                 MediaUse(label=f"Pagina {title}", href=f"/admin/paginas/{page_id}")
             )
+    # Snede 3 (#1671): the editor saves documents, and `content` no longer
+    # follows them — a picture chosen through the picker stands in the
+    # document's figure node by her media id. Walk the translations' figures
+    # too: a page whose pictures live only in her documents must be found,
+    # and unpublished (draft) ones count as much as stored HTML did.
+    translations = (
+        db.query(CmsPageTranslation, CmsPage.id, CmsPage.title)
+        .join(CmsPage, CmsPage.id == CmsPageTranslation.page_id)
+        .order_by(CmsPageTranslation.page_id, CmsPageTranslation.language)
+        .all()
+    )
+    for translation, page_id, title in translations:
+        for asset_id in sorted(_figure_media_ids(translation.draft_json) & wanted):
+            found.setdefault(asset_id, []).append(
+                MediaUse(label=f"Pagina {title}", href=f"/admin/paginas/{page_id}")
+            )
+        for asset_id in sorted(_figure_media_ids(translation.published_json) & wanted):
+            found.setdefault(asset_id, []).append(
+                MediaUse(label=f"Pagina {title}", href=f"/admin/paginas/{page_id}")
+            )
+    for uses in found.values():
+        # A page that holds the picture in both her HTML and her document
+        # names her once, not twice.
+        seen: list = []
+        for use in uses:
+            if use.href not in [u.href for u in seen]:
+                seen.append(use)
+        uses[:] = seen
     return found
+
+
+def _figure_media_ids(document: Optional[dict]) -> set[int]:
+    """The media ids a document's figures hold."""
+    ids: set[int] = set()
+    if not isinstance(document, dict):
+        return ids
+
+    def walk(node: Any) -> None:
+        if isinstance(node, list):
+            for child in node:
+                walk(child)
+            return
+        if not isinstance(node, dict):
+            return
+        if node.get("type") == "figure":
+            media_id = (node.get("attrs") or {}).get("media_id")
+            if isinstance(media_id, int) and media_id > 0:
+                ids.add(media_id)
+        for child in node.get("content") or []:
+            walk(child)
+
+    walk(document)
+    return ids
 
 
 def placeholders(db=None) -> list[dict]:

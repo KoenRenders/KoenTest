@@ -40,7 +40,10 @@ VALUE_CODES: tuple[str, ...] = (
 #: and shadow (C4.8). No legacy sizes (Koen, 6 October 2026: no legacy
 #: baggage): a page whose picture carries a Trix-era size keeps her HTML —
 #: her words stand in the draft, and the author places the picture anew.
-FIGURE_PLACEMENTS: tuple[str, ...] = ("left", "right", "full", "small")
+#: The order is the DIALOG's order too (schema_for zips her with the words):
+#: full first — the default and the most chosen — then the placements that
+#: set her beside the text, then the small one.
+FIGURE_PLACEMENTS: tuple[str, ...] = ("full", "left", "right", "small")
 
 #: The heading levels an author can choose: Kop, Subkop, Kleine kop — the same
 #: three as today (#1656), stored as levels 1–3. The renderer picks the TAG
@@ -496,8 +499,43 @@ def schema_for(set_name: str) -> dict[str, Any]:
         ]
         if "value" in BLOCK_SETS[set_name]["insert"]
         else [],
+        # The figure dialog and the editor's figure (slice 3): the placements
+        # the author chooses between — the same set the validation accepts,
+        # generated here like the toolbar — and the address every picture is
+        # served under. Media owns that shape (`media_url_prefix`, CR-15
+        # §C4.6): the editor's preview asks here, so the browser carries no
+        # URL of her own. `None` for a set without the figure block: the
+        # dialog and the figure button belong to the sets that offer her.
+        "figure": (
+            {
+                "placements": [
+                    {"id": placement, "label": label}
+                    for placement, label in zip(
+                        FIGURE_PLACEMENTS,
+                        # UI copy behind `_()` — a translator owns these
+                        # (review C, #1699), like every word the editor
+                        # shows. The words follow the PLACEMENTS' order —
+                        # a misaligned pair was measured in the browser
+                        # ("Rechts" carried the id "full").
+                        (_("Vol"), _("Links"), _("Rechts"), _("Klein")),
+                        strict=False,
+                    )
+                ],
+                "mediaUrl": _media_url_prefix(),
+            }
+            if "figure" in BLOCK_SETS[set_name]["insert"]
+            else None
+        ),
         "nodes": sorted(NODES),
     }
+
+
+def _media_url_prefix() -> str:
+    """The picture address without her id — media's facade, lazily imported
+    (media imports this facade back for `uses_by_asset`'s questions)."""
+    from app.domains.media.api import media_url_prefix
+
+    return media_url_prefix()
 
 
 def _value_of(code: str) -> str:

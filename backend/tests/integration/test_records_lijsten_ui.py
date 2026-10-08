@@ -81,18 +81,25 @@ def test_trix_wordt_een_keer_geladen_vanuit_de_schil(client, db_session):
     `customElements.define('trix-editor')`. Nu staat de bibliotheek in de <head>
     van de schil — één keer per sessie — en houdt de pagina alleen haar eigen
     configuratie over. Die omkering is bewust; de gate bewaakt de nieuwe regel.
+
+    CR-17 snede 3 (#1671): het PAGINASCHERM draagt geen Trix meer — de
+    document-editor nam haar plaats in; de schil laadt Trix nog altijd voor
+    de schermen die haar tot fase 7 houden (de nieuwsbrief, de notities).
     """
     _login(client)
     p = _pagina(db_session, "Met editor", "met-editor", False)
 
     lijst = client.get("/admin/paginas").text
     editor = client.get(f"/admin/paginas/{p.id}").text
-    # De schil levert de bibliotheek, dus ook de lijst draagt hem — één keer.
+    # De schil levert de bibliotheek voor de schermen die haar nog dragen,
+    # dus ook de lijst draagt hem — één keer.
     assert lijst.count("trix.min.js") == 1
     assert editor.count("trix.min.js") == 1
-    # ...en de editorpagina zelf voegt geen tweede scripttag toe.
-    assert "trix-editor" in editor  # de <trix-editor> uit _cp_detail
-    assert "Alle pagina's" in editor  # terugkeerlink
+    # ...en het paginascherm voegt geen tweede scripttag en geen editor toe:
+    # de document-editor is de enige die er staat.
+    assert "data-document-editor" in editor
+    assert "<trix-editor" not in editor
+    assert "Pagina's" in editor  # terugkeerlink van de recordkop
 
 
 def test_onbestaande_pagina_geeft_404(client):

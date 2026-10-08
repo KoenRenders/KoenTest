@@ -53,6 +53,16 @@ _ALLOWED_TAGS = {
     "blockquote",
     "pre",
     "code",
+    # The figure of a published document (CR-17 #1671, slice 3): the wrapper
+    # carries the placement (`prose-figure--…`) and the caption her words —
+    # without her in the allowlist a published figure loses both, exactly
+    # what slice 1's review E note warned about (#1673). Slice 3 is the
+    # moment she first reaches the site: the page screen publishes
+    # documents. A Trix-era figure wrapper also survives now; her `img`
+    # keeps her own size class and the wrapper matches no style — measured
+    # in test_figure_placements_1671.py's sibling, the legacy pin below.
+    "figure",
+    "figcaption",
     "img",
     "table",
     "thead",
@@ -561,9 +571,10 @@ def _figure_html(node: dict) -> str:
     # The kit's figure — the only rendering: radius and shadow come from the
     # prose rules, never from the file (C4.8). A Trix-era picture keeps her
     # page on the HTML fallback (no legacy sizes, Koen 6 October 2026); a
-    # figure placed through the editor lands here. NOTE (review E, #1673): the
-    # sanitiser over the output still drops the <figure> wrapper until slice 4
-    # allows it — slice 2's editor is the first to place one.
+    # figure placed through the editor lands here. The sanitiser keeps the
+    # wrapper since slice 3 (review E's note on #1673 resolved there): the
+    # page screen publishes documents, and without the wrapper the visitor
+    # loses the placement and the caption.
     placement = attrs.get("placement") or "full"
     alt = escape(attrs.get("alt") or "", quote=True)
     size = ""
