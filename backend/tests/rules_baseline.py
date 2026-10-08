@@ -473,7 +473,6 @@ FOREIGN_WRITES: frozenset[str] = frozenset(
         "domains/audit/service.py::snapshot_member → mdm.MemberHistory",
         "domains/audit/service.py::snapshot_member_person → mdm.MemberPersonHistory",
         "domains/audit/service.py::snapshot_membership → membership.MembershipHistory",
-        "domains/audit/service.py::snapshot_payment_record → payment.PaymentRecordHistory",
         "domains/audit/service.py::snapshot_person → mdm.PersonHistory",
         "domains/audit/service.py::snapshot_product → activities.ProductHistory",
         "domains/audit/service.py::snapshot_registration_item → activities.RegistrationItemHistory",
@@ -641,15 +640,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/newsletter/service.py::send_batch → mail.api.send_campaign_mail",
         "domains/newsletter/service.py::send_test → mail.api.send_campaign_mail",
         "domains/newsletter/service.py::subscribe_public → mail.api.send_newsletter_confirmation",
-        "domains/payment/service.py::confirm_manual_payment → audit.api.snapshot_payment_record",
-        "domains/payment/service.py::create_payment_record → audit.api.snapshot_payment_record",
-        "domains/payment/service.py::create_refund → audit.api.snapshot_payment_record",
-        "domains/payment/service.py::delete_payment_record → audit.api.snapshot_payment_record",
-        "domains/payment/service.py::edit_payment_record → audit.api.snapshot_payment_record",
-        "domains/payment/service.py::handle_gateway_update → audit.api.snapshot_payment_record",
-        "domains/payment/service.py::reconcile_charges → audit.api.snapshot_payment_record",
-        "domains/payment/service.py::set_payment_status → audit.api.snapshot_payment_record",
-        "domains/payment/service.py::void_payment_record → audit.api.snapshot_payment_record",
     }
 )
 

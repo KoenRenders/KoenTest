@@ -5,8 +5,8 @@ from typing import Optional, Tuple
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.domains.audit.api import snapshot_payment_record
 from app.domains.mdm.api import PaymentMethod
+from app.domains.payment.history import snapshot_payment_record
 from app.kernel.codes import code_of
 
 from .models import PayableType, PaymentError, PaymentRecord, PaymentStatus, PaymentType
