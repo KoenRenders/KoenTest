@@ -465,7 +465,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
 # mdm (B2.5); phase 2 turns `_activate_membership` into a membership handler.
 FOREIGN_WRITES: frozenset[str] = frozenset(
     {
-        "domains/audit/service.py::snapshot_membership → membership.MembershipHistory",
         "domains/mdm/import_service.py::_create_admin_users → auth.User",
         "domains/mdm/import_service.py::_create_admin_users → auth.UserRole",
         "domains/mdm/import_service.py::_ensure_membership → membership.Membership",
@@ -534,7 +533,7 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/designstudio/service.py::upload_edited_svg → media.api.remove_media",
         "domains/forms/api.py::submit_bericht → mail.api.send_form_confirmation",
         "domains/forms/service.py::submit_form → mail.api.send_form_confirmation",
-        "domains/mdm/import_service.py::_ensure_membership → audit.api.snapshot_membership",
+        "domains/mdm/import_service.py::_ensure_membership → membership.api.snapshot_membership",
         "domains/mdm/ui.py::adres_opslaan → membership.api.update_family_address",
         "domains/mdm/ui.py::bestuurslid_zetten → membership.api.assign_board_member",
         "domains/mdm/ui.py::gezin_aanmaken → membership.api.create_family_by_admin",
@@ -549,7 +548,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/meetings/admin_ui.py::circle_end → mdm.api.end_circle_relation",
         "domains/meetings/admin_ui.py::circle_new_person → mdm.api.create_person_for_circle",
         "domains/meetings/service.py::send_meeting_mail → mail.api.send_with_attachments",
-        "domains/membership/portal_service.py::renew_membership → audit.api.snapshot_membership",
         "domains/membership/portal_service.py::renew_membership → payment.api.create_payment_record",
         "domains/membership/household_service.py::_reconcile_geschrapt_lidmaatschap → payment.api.reconcile_charges",
         "domains/membership/household_service.py::add_person_to_family → mdm.api.snapshot_contact_detail",
@@ -560,16 +558,12 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/membership/household_service.py::create_family_with_members → mdm.api.snapshot_contact_detail",
         "domains/membership/household_service.py::create_family_with_members → mdm.api.snapshot_member",
         "domains/membership/household_service.py::create_family_with_members → mdm.api.snapshot_member_person",
-        "domains/membership/household_service.py::create_family_with_members → audit.api.snapshot_membership",
         "domains/membership/household_service.py::create_family_with_members → mdm.api.snapshot_person",
-        "domains/membership/household_service.py::create_membership_for_family → audit.api.snapshot_membership",
         "domains/membership/household_service.py::delete_family → mdm.api.snapshot_address",
         "domains/membership/household_service.py::delete_family → mdm.api.snapshot_contact_detail",
         "domains/membership/household_service.py::delete_family → mdm.api.snapshot_member",
         "domains/membership/household_service.py::delete_family → mdm.api.snapshot_member_person",
-        "domains/membership/household_service.py::delete_family → audit.api.snapshot_membership",
         "domains/membership/household_service.py::delete_family → mdm.api.snapshot_person",
-        "domains/membership/household_service.py::delete_membership → audit.api.snapshot_membership",
         # CR-22 S7 (#1712): the delete of a person moved to master data — one
         # rule, `mdm.service.delete_person` — and its history calls with it;
         # membership's door calls that rule. Four entries left, four came.
@@ -579,7 +573,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/membership/household_service.py::update_person_address → mdm.api.snapshot_address",
         "domains/membership/household_service.py::update_person_contacts._upsert_contact → mdm.api.upsert_primary_contact",
         "domains/membership/signup_service.py::register_family → payment.api.create_payment_record",
-        "domains/membership/service.py::activate_after_payment → audit.api.snapshot_membership",
         "domains/newsletter/service.py::add_attachment → media.api.add_document",
         "domains/newsletter/service.py::send_batch → mail.api.send_campaign_mail",
         "domains/newsletter/service.py::send_test → mail.api.send_campaign_mail",

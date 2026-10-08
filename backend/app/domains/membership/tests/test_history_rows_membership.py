@@ -5,7 +5,8 @@ The snapshot functions of membership move from `audit/service.py` to their owner
 owner). The move changes no row: each function is given one fixed source and
 every column of the row it writes is compared with what the code wrote before
 the move. `EXPECTED` was recorded on the old code (9 October 2026, the functions
-still in `audit/service.py`) and has not been touched since.
+still in `audit/service.py`) and has not been touched since: the move changed the import
+above and nothing below it.
 
 Proven red (9 October 2026): `valid_to=membership.valid_to` taken out of `snapshot_membership` → its row differs.
 """
@@ -17,8 +18,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.domains.audit.api import snapshot_membership
 from app.domains.membership.api import MembershipHistory
+from app.domains.membership.history import snapshot_membership
 from tests._snapshot import recorded_history_rows
 
 pytestmark = pytest.mark.ui_agnostisch

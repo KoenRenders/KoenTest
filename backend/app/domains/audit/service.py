@@ -1,17 +1,9 @@
-"""Snapshot-helpers die een momentopname van een bron-rij in de bijbehorende
-history-tabel wegschrijven.
+"""What audit's service still holds: the name of the actor when nobody was signed in.
 
-Elke helper doet enkel ``db.add(...)`` en GEEN commit: de history-rij commit mee
-in dezelfde transactie als de wijziging zelf (atomair — of allebei, of geen van
-beide). Roep de helper dus aan vóór de ``db.commit()`` van de caller, en bij een
-verwijdering vóór de ``db.delete(...)`` zodat de bron nog uitleesbaar is.
+The snapshot helpers that stood here write a row of a history table, and a
+history table is its component's (`docs/architecture.md` §5.8): each of them
+lives with its owner now, in `<domain>/history.py` (CR-13 phase 4c, #1251).
 """
-
-from typing import Optional
-
-from sqlalchemy.orm import Session
-
-from app.domains.membership.api import MembershipHistory
 
 # #713: wat er in `actor` staat wanneer er níemand aangemeld was.
 #
@@ -24,28 +16,3 @@ from app.domains.membership.api import MembershipHistory
 # niet te verwarren met een e-mailadres. Bestaande rijen blijven leeg: die kunnen we
 # niet met terugwerkende kracht duiden en horen we ook niet zo te behandelen.
 PUBLIEKE_ACTOR = "publiek"
-
-
-def snapshot_membership(
-    db: Session,
-    membership,
-    *,
-    operation: str,
-    action: str,
-    source: str,
-    actor: Optional[str] = None,
-) -> None:
-    db.add(
-        MembershipHistory(
-            membership_id=membership.id,
-            member_id=membership.member_id,
-            year=membership.year,
-            is_active=membership.is_active,
-            valid_from=membership.valid_from,
-            valid_to=membership.valid_to,
-            operation=operation,
-            action=action,
-            source=source,
-            actor=actor,
-        )
-    )

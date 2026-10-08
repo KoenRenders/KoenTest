@@ -55,8 +55,8 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
     Weigert als er al een geldig lidmaatschap is — geen dubbele betaling.
     """
 
-    from app.domains.audit.api import snapshot_membership
     from app.domains.membership.api import Membership, has_valid_membership
+    from app.domains.membership.history import snapshot_membership
     from app.domains.payment.api import create_payment_record
 
     member = _member_for(person, db)

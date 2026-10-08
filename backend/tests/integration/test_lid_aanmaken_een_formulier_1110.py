@@ -237,12 +237,12 @@ def test_een_fout_na_de_eerste_rijen_laat_niets_achter(client, db_session, monke
     lidmaatschap — ná gezin, persoon, adres en contactgegevens. Blijft daar iets
     van staan, dan was "één opslaan-actie" alleen een schermkwestie.
     """
-    from app.domains.audit import api as audit_api
+    from app.domains.membership import history as membership_history
 
     def _knal(*args, **kwargs):
         raise RuntimeError("bewust kapot, na de eerste rijen")
 
-    monkeypatch.setattr(audit_api, "snapshot_membership", _knal)
+    monkeypatch.setattr(membership_history, "snapshot_membership", _knal)
 
     csrf = _login(client)
     voor = _telling(db_session)

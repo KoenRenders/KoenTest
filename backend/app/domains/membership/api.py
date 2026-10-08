@@ -8,6 +8,7 @@ oude wereld gaan uitsluitend via deze module.
 # The one rule for the relation of a new person lives with the household
 # (`mdm`, #1603); it stays reachable here for the callers that knew it here.
 from app.domains.mdm.api import default_relation  # noqa: F401
+from app.domains.membership.history import snapshot_membership
 from app.domains.membership.models import Membership, MembershipHistory  # noqa: F401
 from app.domains.membership.payables import membership_describer  # noqa: E402, F401
 from app.domains.membership.schemas_member import (  # noqa: F401
@@ -41,6 +42,7 @@ from app.domains.membership.service import (  # noqa: F401
 )
 
 __all__ = [
+    "snapshot_membership",
     "membership_describer",
     "Membership",
     "MembershipHistory",
