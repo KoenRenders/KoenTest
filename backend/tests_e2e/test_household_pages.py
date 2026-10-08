@@ -523,7 +523,8 @@ def test_the_renewal_is_its_own_page_and_its_button_follows_the_choice(browser):
             save = page.locator("[data-form-save]")
             expect(save.locator("[data-save-idle]")).to_have_text("Betalen")
             page.check('input[name="payment_method"][value="transfer"]')
-            expect(save.locator("[data-save-idle]")).to_have_text("Lidmaatschap vernieuwen")
+            # #1747: with a transfer nothing is paid at that moment.
+            expect(save.locator("[data-save-idle]")).to_have_text("Lidmaatschap aanvragen")
             expect(page.locator("[data-household-summary]")).to_contain_text("Hoofdlid")
             expect(
                 page.locator("[data-household-summary]").get_by_role("link", name="Naar Mijn gezin")
