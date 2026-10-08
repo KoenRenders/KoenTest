@@ -121,6 +121,10 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    # A hung browser test would otherwise hold the job for GitHub's default of
+    # six hours, and with it everything that waits for CI. A healthy run of
+    # this job takes well under half of this.
+    timeout-minutes: 30
     # BLOKKEREND sinds #395: de e2e-geldflow is de laatste verdediging vóór een
     # deploy; een rode e2e = geen merge.
 
