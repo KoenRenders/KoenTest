@@ -8,6 +8,7 @@ from typing import Optional
 from app.config import settings
 from app.domains.activities.api import compute_registration_total
 from app.domains.mail.models import MailStatus
+from app.domains.mdm.api import PaymentMethod
 from app.i18n import _
 from app.kernel.codes import code_label
 from app.kernel.phone import readable_phone
@@ -402,8 +403,13 @@ def send_newsletter_confirmation(to_email: str, first_name: Optional[str], confi
 def _transfer_instructions_html(payment_record) -> str:
     """Betaalinstructies-blok voor een overschrijving (#157): bedrag, IBAN,
     begunstigde, gestructureerde mededeling en betaaltermijn. Leeg voor andere
-    betaalmethodes of wanneer de OGM ontbreekt."""
-    if not payment_record or getattr(payment_record, "method", None) != "transfer":
+    betaalmethodes of wanneer de OGM ontbreekt.
+
+    The method is compared with the enum member. Since CR-12 phase 1 the column is
+    a `PaymentMethod`, and a `CodeEnum` never equals a string: the comparison with
+    the text "transfer" that stood here was false for every record, so no mail
+    carried this block (#1775)."""
+    if not payment_record or payment_record.method is not PaymentMethod.TRANSFER:
         return ""
     ogm = getattr(payment_record, "structured_communication", None)
     if not ogm:

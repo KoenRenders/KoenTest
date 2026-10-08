@@ -49,27 +49,26 @@ def test_cash_payment_has_no_ogm(db_session):
     assert r.structured_communication is None
 
 
-def test_transfer_instructions_contain_iban_ogm_amount(monkeypatch):
+def test_transfer_instructions_contain_iban_ogm_amount(monkeypatch, db_session):
+    """On a real payment record, not on a stand-in: the stand-in carried the text
+    "transfer" where a record carries the enum member, and so stayed green while
+    the block was empty in every mail (#1775). Broken to see it red: the method
+    compared with the text "transfer" again."""
     from app.config import settings
 
     monkeypatch.setattr(settings, "payment_iban", "BE68 5390 0754 7034")
     monkeypatch.setattr(settings, "payment_beneficiary", "Raak Millegem")
 
-    class FakeRecord:
-        method = "transfer"
-        structured_communication = "+++123/4567/89012+++"
-        amount = Decimal("35.00")
+    record = create_payment_record(db_session, "membership", 1, Decimal("35.00"), "transfer")
 
-    html = email_mod._transfer_instructions_html(FakeRecord())
+    html = email_mod._transfer_instructions_html(record)
     assert "BE68 5390 0754 7034" in html
-    assert "+++123/4567/89012+++" in html
+    assert record.structured_communication in html
     assert "35.00" in html
 
 
-def test_online_payment_has_no_instructions():
-    class FakeRecord:
-        method = "online"
-        structured_communication = None
-        amount = Decimal("35.00")
+def test_a_payment_that_is_no_transfer_has_no_instructions(db_session):
+    record = create_payment_record(db_session, "membership", 1, Decimal("35.00"), "cash")
 
-    assert email_mod._transfer_instructions_html(FakeRecord()) == ""
+    assert email_mod._transfer_instructions_html(record) == ""
+    assert email_mod._transfer_instructions_html(None) == ""
