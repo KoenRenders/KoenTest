@@ -33,8 +33,6 @@ from app.domains.membership import household_service as _service
 from app.domains.membership.models import KnownAddress, Membership
 from app.domains.membership.schemas_family import FamilyCreate
 from app.domains.membership.schemas_member import (
-    AddressUpdate,
-    BoardMemberAssign,
     ContactsUpdate,
     FamilyMemberResponse,
     FamilyRegisteredResponse,
@@ -45,7 +43,6 @@ from app.domains.membership.schemas_member import (
     MembershipResponse,
     PaginatedFamiliesResponse,
     PaginatedMembersResponse,
-    PersonAddToFamily,
     PersonListItem,
     PersonUpdate,
 )
@@ -255,21 +252,6 @@ def update_person(
     return _service.update_person(db, person_id=person_id, data=data, admin=admin)
 
 
-@router.put("/persons/{person_id}/address", response_model=FamilyMemberResponse)
-def update_person_address(
-    person_id: int,
-    data: AddressUpdate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
-    return _service.update_person_address(
-        db,
-        person_id=person_id,
-        data=data,
-        admin=admin,
-    )
-
-
 @router.put("/persons/{person_id}/contacts", response_model=FamilyMemberResponse)
 def update_person_contacts(
     person_id: int,
@@ -294,21 +276,6 @@ def delete_person(
     return _service.delete_person(db, person_id=person_id, admin=admin)
 
 
-@router.post("/families/{family_id}/persons", response_model=FamilyResponse)
-def add_person_to_family(
-    family_id: int,
-    data: PersonAddToFamily,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
-    return _service.add_person_to_family(
-        db,
-        family_id=family_id,
-        data=data,
-        admin=admin,
-    )
-
-
 @router.delete("/memberships/{membership_id}", status_code=204)
 def delete_membership(
     membership_id: int,
@@ -316,21 +283,6 @@ def delete_membership(
     admin: User = Depends(get_current_admin),
 ):
     return _service.delete_membership(db, membership_id=membership_id, admin=admin)
-
-
-@router.put("/families/{family_id}/board-member", response_model=FamilyResponse)
-def assign_board_member(
-    family_id: int,
-    data: BoardMemberAssign,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
-    return _service.assign_board_member(
-        db,
-        family_id=family_id,
-        data=data,
-        admin=admin,
-    )
 
 
 @router.post(

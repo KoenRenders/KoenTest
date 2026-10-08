@@ -1,7 +1,6 @@
 import logging
 import re
 import secrets
-from typing import List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import func
@@ -20,7 +19,6 @@ from app.domains.forms.schemas import (
     EditSubmissionOut,
     FormAdminOut,
     FormCreate,
-    FormSummary,
     FormUpdate,
     PublicForm,
     SubmissionIn,
@@ -97,20 +95,6 @@ def create_form(
     db.commit()
     db.refresh(form)
     return _admin_out(db, form)
-
-
-@router.get("/forms", response_model=List[FormSummary])
-def list_forms(
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    forms = db.query(Form).order_by(Form.created_at.desc()).all()
-    out = []
-    for f in forms:
-        item = FormSummary.model_validate(f).model_dump()
-        item["submission_count"] = _submission_count(db, f.id)
-        out.append(item)
-    return out
 
 
 @router.get("/forms/{form_id}", response_model=FormAdminOut)
