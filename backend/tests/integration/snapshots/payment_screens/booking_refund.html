@@ -1,0 +1,76 @@
+<main id="main" class="flex-1 px-4 md:px-6 min-[1680px]:px-8 py-8">
+<div class="admin-content max-w-5xl mx-auto">
+<header data-record-head class="mb-3">
+<a data-way-back href="/admin/betalingen" class="inline-flex items-center gap-1 min-h-11 md:min-h-7 mb-2 max-w-full text-sm text-blue-500 hover:underline [overflow-wrap:anywhere]"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 shrink-0" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>Betalingen</span></a>
+<div class="flex flex-wrap items-start gap-x-4 gap-y-3">
+<div data-title-group class="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 max-w-full flex-[1_0_auto] md:flex-[1_1_0%] md:min-w-[min(100%,360px)]">
+<h1 tabindex="-1" class="min-w-0 max-w-full text-[28px] md:text-3xl leading-9 font-semibold text-kop [overflow-wrap:anywhere]">Terugbetaling aan Deelnemer paid</h1>
+<span data-badges class="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
+<span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-yellow-100 text-yellow-800">Terug te betalen</span>
+</span>
+</div>
+<div data-head-controls class="flex flex-wrap justify-end items-center gap-2 ml-auto shrink-0 max-w-full">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 min-h-11 md:min-h-9" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:refund_due>/bevestigen" hx-target="body" hx-swap="innerHTML" hx-headers='{"X-Booking-Page": "<REC:refund_due>"}' data-confirm="Als volledig terugbetaald bevestigen?">Bevestig</button>
+<div class="relative" x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<button type="button" x-ref="trigger" data-actions-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+ class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 min-h-11 md:min-h-9 inline-flex items-center gap-1" @click="open = !open">Acties<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" role="menu" data-actions-menu
+ class="absolute right-0 z-30 mt-2 w-[272px] max-w-[calc(100vw-2rem)] max-h-[65dvh] overflow-auto py-1 bg-white border border-line rounded-lg shadow-lg">
+<button role="menuitem" type="button" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-red-700" hx-post="/admin/betalingen/<REC:refund_due>/verwijderen" hx-target="body" hx-swap="innerHTML" hx-headers='{"X-Booking-Page": "<REC:refund_due>"}' data-confirm="Deze terugbetaling verwijderen?" data-confirm-tone="delete">Verwijderen</button>
+</div>
+</div>
+</div>
+</div>
+<p data-facts class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 md:min-h-6 text-sm text-ink-soft">
+<a href="/admin/activiteiten/<ACTIVITY>?terug=/admin/betalingen/<REC:refund_due>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline min-h-11 md:min-h-6">Betaalkarakter — Deelname<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+<span aria-hidden="true">·</span>
+<a href="/admin/inschrijvingen/<R:paid>?terug=/admin/betalingen/<REC:refund_due>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline min-h-11 md:min-h-6">Inschrijving<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+</p>
+</header>
+<section class="mb-6 max-w-2xl rounded-card border border-gray-200 bg-white p-4" data-booking-figures>
+<dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+<div><dt class="text-xs text-ink-soft">Bedrag</dt>
+<dd class="tabular-nums text-ink" data-amount>€ -5,00</dd></div>
+<div><dt class="text-xs text-ink-soft">Terugbetaald</dt>
+<dd class="tabular-nums text-ink">€ 0,00</dd></div>
+<div><dt class="text-xs text-ink-soft">Saldo</dt>
+<dd class="tabular-nums font-semibold text-brand-warning" data-balance>€ -5,00</dd></div>
+<div><dt class="text-xs text-ink-soft">Wijze</dt>
+<dd class="text-ink">Overschrijving</dd></div>
+<div><dt class="text-xs text-ink-soft">Aangemaakt</dt>
+<dd class="text-ink">02/09/2026</dd></div>
+<div class="col-span-2 sm:col-span-3"><dt class="text-xs text-ink-soft">Terugbetaling van</dt>
+<dd><a href="/admin/betalingen/<REC:paid>?terug=/admin/betalingen/<REC:refund_due>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline ">Betaling · € 20,00<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></dd></div>
+</dl>
+</section>
+<section class="mb-6 max-w-2xl" data-booking-edit>
+<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-3">
+<h3 class="text-xl font-semibold text-kop">Boeking bewerken</h3>
+</div>
+<form class="grid grid-cols-1 gap-3 rounded-card border border-gray-200 bg-white p-4 sm:grid-cols-3"
+ x-data="{ status: 'pending', bedrag: '' }"
+ hx-post="/admin/betalingen/<REC:refund_due>/bewerken" hx-target="body" hx-swap="innerHTML" hx-headers='{"X-Booking-Page": "<REC:refund_due>"}'>
+<div><label for="bk-status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" id="bk-status" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '5,00'">
+<option value="pending" selected>In afwachting</option>
+<option value="paid" >Betaald</option>
+<option value="failed" >Mislukt</option>
+<option value="cancelled" >Geannuleerd</option>
+</select></div>
+<div><label for="bk-amount-paid" class="block text-sm font-medium text-gray-700 mb-1">Terugbetaald bedrag</label>
+<input type="text" name="amount_paid" id="bk-amount-paid" placeholder="0,00"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" x-model="bedrag" inputmode="decimal"></div>
+<div><label for="bk-note" class="block text-sm font-medium text-gray-700 mb-1">Opmerking</label>
+<input type="text" name="note" id="bk-note"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<p class="text-xs text-ink-soft sm:col-span-3">Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.</p>
+<div class="flex flex-wrap items-center justify-end gap-2 sm:col-span-3">
+<span class="flex gap-2">
+<a href="/admin/betalingen/<REC:refund_due>" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >Annuleren</a>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+</form>
+</section>
+</div>
+</main>

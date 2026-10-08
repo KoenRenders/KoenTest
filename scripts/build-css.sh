@@ -463,7 +463,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .data-table [data-stacked-only]{display:block}
   .data-table [data-cell="amount"]{text-align:right}
   .data-table [data-cell="date"]{grid-column:2;grid-row:3;align-self:center}
-  .data-table [data-cell="more"]{grid-column:1/-1;grid-row:4}
+  .data-table [data-cell="more"]{display:block!important;grid-column:1/-1;grid-row:4}
   /* #1636: a row with an amount AND a date (a registration): the amount keeps
      its place beside the status, the date goes under them, the products last. */
   .data-table tr:has(>[data-cell="amount"])>[data-cell="date"]{grid-column:1/-1;grid-row:4}
@@ -512,7 +512,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 [data-row-menu] [hidden]{display:none!important}
 .group-row--simple.group-row--one{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-items:center}
 .group-row--edit.group-row--simple.group-row--one{grid-template-columns:minmax(0,1fr) auto 44px;align-items:end}
-.group-row--edit.group-row--simple.group-row--one>[data-row-one-tag]{align-self:center}
+.group-row--edit.group-row--simple.group-row--one>[data-row-one-tag],.group-row--edit.group-row--simple.group-row--one>[data-row-tag]{align-self:center}
 .group-dragging{opacity:.5;outline:1px dashed rgb(var(--c-control-line));outline-offset:2px}
 .group-drop-before{box-shadow:0 -2px 0 rgb(var(--c-brand))}
 .group-drop-after{box-shadow:0 2px 0 rgb(var(--c-brand))}
@@ -573,7 +573,7 @@ body[data-shell="admin"] #toasts [data-toast="success"]{background:rgb(var(--c-i
   .group-row--edit.group-row--simple>.group-body{grid-column:1/-1;grid-row:2}
   .group-row--edit.group-row--simple:not(.group-row--handle)>.relative{grid-column:3}
   .group-row--edit.group-row--simple.group-row--one{grid-template-columns:minmax(0,1fr) 44px;align-items:center;min-height:44px}
-  .group-row--edit.group-row--simple.group-row--one>[data-row-one-tag]{grid-column:1;grid-row:1;justify-self:start}
+  .group-row--edit.group-row--simple.group-row--one>[data-row-one-tag],.group-row--edit.group-row--simple.group-row--one>[data-row-tag]{grid-column:1;grid-row:1;justify-self:start}
   .group-row--edit.group-row--simple.group-row--one>.relative{grid-column:2;grid-row:1}
   .group-row--edit.group-row--simple [data-field]>label{position:static;width:auto;height:auto;margin:0 0 4px;overflow:visible;clip:auto;white-space:normal}
 }
@@ -656,6 +656,12 @@ body[data-shell="site"]>main{padding-bottom:24px}
   .site-footer-core{padding-top:32px}
   .site-legal{margin-top:32px}
   .site-footer-row{grid-template-columns:repeat(3,minmax(0,1fr))}
+  /* #1664 (Z1): the sponsors end on the container's right edge. Their column is
+     the LAST of the row, whichever columns are there, and as wide as the
+     others (#1654); the block in it — the heading over the logos — is as
+     wide as its logos and stands at the column's right end. */
+  .site-footer-sponsors{grid-column-end:-1}
+  .site-footer-sponsors>div{width:fit-content;max-width:100%;margin-left:auto}
 }
 @media (min-width:1200px){
   .site-container{width:calc(100% - 64px)}

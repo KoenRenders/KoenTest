@@ -1,6 +1,6 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}{{ (_("Betaling ontvangen") if bevestigd else _("Bedankt")) if gelukt else _("Betaling geannuleerd") }} — Raak{% endblock %}
+{% block title %}{{ (_("Betaling ontvangen") if bevestigd else _("Bedankt")) if gelukt else _("Betaling geannuleerd") }} · {{ site_name }}{% endblock %}
 {% block content %}
 {# Where the payer's browser lands after the payment page. #1589 (end state
    §2.6): the page reports a received payment only when the provider confirmed

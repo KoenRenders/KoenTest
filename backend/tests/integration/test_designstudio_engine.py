@@ -236,7 +236,14 @@ def test_the_estimate_catches_a_title_that_cannot_fit():
     assert any(p.startswith("t-title-0") for p in render.estimate(merged))
 
 
-def test_too_much_content_is_reported_never_cut():
+def test_too_much_text_ends_on_a_whole_line_and_the_editor_says_so():
+    """Until #1677 this was "reported, never cut": all thirty paragraphs were
+    drawn, the last ones behind the label and the bottom block, and the report
+    was a violation that refused the export. Koen, 6 October 2026: the text
+    stays inside its space; what does not fit is left out on a whole line and
+    the editor says so — a warning, so the poster can still be exported."""
+    from app.domains.designstudio.blocks import DOES_NOT_FIT
+
     many = tuple(Highlight("smile", f"Kernpunt nummer {i} met wat tekst erbij") for i in range(6))
     merged = render.merge(
         _content(
@@ -245,8 +252,12 @@ def test_too_much_content_is_reported_never_cut():
         ),
         layout="print_a",
     )
-    assert any(v.startswith("Te veel inhoud in de kolom rechts") for v in merged.violations)
-    assert "KERNPUNT NUMMER 5" in merged.svg and merged.svg.count("Een alinea tekst") == 30
+    assert DOES_NOT_FIT in merged.warnings
+    assert not any(v.startswith("Te veel inhoud in de kolom rechts") for v in merged.violations)
+    shown = merged.svg.count("Een alinea tekst")
+    assert 0 < shown < 30, f"{shown} of the thirty paragraphs are drawn"
+    assert "KERNPUNT NUMMER 5" in merged.svg
+    assert DOES_NOT_FIT in render.check(merged), "the editor's list does not carry the warning"
 
 
 def test_feed_layout_shows_every_row_the_grid_the_polaroid_and_the_badge():
@@ -420,26 +431,37 @@ def test_the_feed_image_fills_the_bottom_without_shrinking_the_picture():
         merged = render.merge(_content(**simple, explanation_md=text), layout="feed_portrait")
         size, white = _white_band(merged.svg, text)
         picture = re.search(
-            r'<image x="19.00" y="[0-9.]+" width="([0-9.]+)" height="([0-9.]+)"'
+            r'<(image|svg) x="19.00" y="[0-9.]+" width="([0-9.]+)" height="([0-9.]+)"'
             r'[^>]*preserveAspectRatio="([^"]+)"',
             merged.svg,
         )
-        assert "slice" in picture.group(3), (
-            "de foto staat gebrievenbust in plaats van over de volle breedte"
-        )
-        assert float(picture.group(2)) >= full_bleed_floor(
-            simple["main_image"], 259.0, 120.0, 50.0
-        ), "de foto is een strook geworden"
+        assert float(picture.group(2)) == 259.0, "de foto vult de breedte niet"
+        assert merged.violations == () and merged.warnings == ()
         if ceiling:
             assert size == 10.0  # short text: the body stops at its ceiling
-        else:
-            # The long text is as big as it can be: one step more would not
-            # fit in the white that is left. No magic millimetre here — the
-            # measure is the text itself.
-            step = richtext.text_height(long, width=259.0, size=size + 0.2) - richtext.text_height(
-                long, width=259.0, size=size
+            assert picture.group(1) == "image" and "slice" in picture.group(4), (
+                "de foto staat gebrievenbust in plaats van over de volle breedte"
             )
-            assert step > white, f"nog {white:.0f} mm vrij en de tekst kon {step:.0f} mm groeien"
+            assert float(picture.group(3)) >= full_bleed_floor(
+                simple["main_image"], 259.0, 120.0, 50.0
+            ), "de foto is een strook geworden terwijl de tekst paste"
+        else:
+            # #1677: this text was 4 mm too long under the picture at the
+            # smallest size (measured on the old code: "Te veel inhoud: 4 mm te
+            # veel", a report nobody asserted). The picture now gives way by
+            # exactly that — a band over the full width, cropped, not shown
+            # whole — and the text keeps its size.
+            assert picture.group(1) == "svg" and "data-band" in merged.svg
+            assert (
+                120.0 * 0.5
+                <= float(picture.group(3))
+                < full_bleed_floor(simple["main_image"], 259.0, 120.0, 50.0)
+            )
+            assert size == 5.0, "the text went smaller before the picture gave way"
+            # And the picture gave no more than the text needed: what is left
+            # white is the fitter's own margin above the badge (4 mm), not room
+            # the picture lost for nothing.
+            assert white <= 4.5, f"{white:.1f} mm white under the text"
 
 
 def test_a_sponsor_logo_does_not_push_the_text_up(recwarn=None):

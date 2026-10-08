@@ -228,33 +228,6 @@ def list_sponsors(db: Session = Depends(get_db)):
     return [_meta(a) for a in rows]
 
 
-@router.get("/media/activity-photos/availability")
-def activity_photos_availability(db: Session = Depends(get_db)):
-    """Activity-id's die actieve foto's hebben — in één query.
-
-    Laat de frontend de "Foto's"-knop tonen zonder per activiteit een aparte
-    fotorequest te doen (vermijdt het N+1-patroon op de archieflijst). Blijft
-    volledig binnen het media-domein; raakt het activiteiten-schema niet aan.
-    """
-    rows = (
-        db.query(MediaAsset.activity_id)
-        .filter(
-            MediaAsset.kind == MediaKind.ACTIVITY_PHOTO,
-            MediaAsset.is_active == True,  # noqa: E712
-            MediaAsset.activity_id.isnot(None),
-        )
-        .distinct()
-        .all()
-    )
-    return [r[0] for r in rows]
-
-
-@router.get("/media/activity-photos/covers")
-def activity_photo_covers(db: Session = Depends(get_db)):
-    """Per activiteit met foto's één cover-thumbnail (service, #635 I)."""
-    return _service.activity_photo_covers(db)
-
-
 @router.get("/activities/{activity_id}/photos")
 def list_activity_photos(activity_id: int, db: Session = Depends(get_db)):
     return _service.list_activity_photos(db, activity_id)
@@ -333,15 +306,6 @@ async def upload_component_info(
         return await _service.replace_component_info(db, component_id, file, background_tasks)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Onderdeel niet gevonden"))
-
-
-@router.delete("/admin/components/{component_id}/info", status_code=204)
-def delete_component_info(
-    component_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    _service.delete_component_info(db, component_id)
 
 
 @router.post("/admin/media/{asset_id}/extract", status_code=202)

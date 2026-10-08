@@ -17,6 +17,12 @@
 {% endif %}
 <div data-activity-turn{% if failed %} data-turn-failed{% endif %}>
   {% if answer %}<div data-raakje-answer class="{{ ballon.van_raakje() }}">{{ answer }}</div>{% endif %}
+  {# #1667: what the code worked out itself — a sum the user can check. #}
+  {% if notes %}
+  <ul data-proposal-notes class="m-0 mt-2 list-none p-0 text-[13px] leading-[19.5px] text-ink">
+    {% for line in notes %}<li>{{ line }}</li>{% endfor %}
+  </ul>
+  {% endif %}
   {% if left_out %}
   <ul data-proposal-left-out class="m-0 mt-2 list-none p-0 text-[13px] leading-[19.5px] text-ink-soft">
     {% for line in left_out %}<li>{{ ui.icon("x", 12) }} {{ line }}</li>{% endfor %}

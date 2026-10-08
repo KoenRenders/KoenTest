@@ -150,7 +150,7 @@ def test_a_script_only_page_converts_to_empty_and_is_reported(db_session):
 
     versions = pathlib.Path(__file__).resolve().parents[4] / "alembic" / "versions"
     spec = importlib.util.spec_from_file_location(
-        "migration_198", versions / "198_2026_10_06_195129_pages_as_documents.py"
+        "migration_199", versions / "199_2026_10_06_195129_pages_as_documents.py"
     )
     assert spec and spec.loader
     migration = importlib.util.module_from_spec(spec)

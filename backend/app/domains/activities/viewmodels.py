@@ -22,6 +22,8 @@ class ActivityProposalView(ViewModel):
     fields: list[dict[str, Any]] = field(default_factory=list)
     marks: list[dict[str, Any]] = field(default_factory=list)
     left_out: list[str] = field(default_factory=list)
+    #: What the code worked out itself, shown as a sum (#1667).
+    notes: list[str] = field(default_factory=list)
     unverified: bool = False
 
 

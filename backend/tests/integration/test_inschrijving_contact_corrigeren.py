@@ -16,7 +16,7 @@ import pytest
 from app.domains.activities.api import Registration
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.payment.api import get_records_for
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -29,8 +29,9 @@ def _login(client):
 
 def _inschrijving(client, db):
     activity, comp, product = seed_activity_with_product(db, is_free=False)
-    resp = client.post(
-        f"/api/v1/activities/{activity.id}/register",
+    resp = register_at_the_door(
+        client,
+        activity.id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",
@@ -154,20 +155,13 @@ def test_de_correctie_raakt_het_geld_niet(client, db_session):
 
 def test_alleen_de_opmerking_posten_laat_de_contactgegevens_staan(client, db_session):
     """De oude #283-aanroep blijft werken: wat niet meegestuurd wordt, verandert niet."""
-    from app.domains.activities.router import update_registration_remarks
-    from app.domains.auth.api import User
-    from app.schemas.activity import RegistrationContactUpdate
+    from app.domains.activities import service
 
     reg_id = _inschrijving(client, db_session)
     reg = db_session.get(Registration, reg_id)
-    admin = db_session.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).first()
 
-    update_registration_remarks(
-        reg.activity_id,
-        reg_id,
-        RegistrationContactUpdate(remarks="enkel dit"),
-        db=db_session,
-        admin=admin,
+    service.update_registration_contact(
+        db_session, reg.activity_id, reg_id, {"remarks": "enkel dit"}, actor=SEEDED_ADMIN_EMAIL
     )
 
     db_session.expire_all()

@@ -426,18 +426,18 @@ def test_the_payment_hint_follows_the_radio_values():
     import re
     from pathlib import Path
 
-    source = (
-        Path(__file__).resolve().parents[2]
-        / "app"
-        / "domains"
-        / "activities"
-        / "templates"
-        / "_inschrijf_velden.html"
-    ).read_text(encoding="utf-8")
     # #1284: the fields — payment choice included — moved to `_inschrijf_velden.html`,
-    # shared by the public form and the board's.
-    field = re.search(r'ui\.field\("payment_method".*?options=\[(.*?)\]\) \}\}', source, re.S)
-    assert field, "the form no longer has a payment method field"
+    # shared by the public form and the board's. #1748 (CR-21 phase 0): the choice
+    # itself is the kit's `ui.payment_choice` now, so the radios are read there; the
+    # form must still ask through it.
+    templates = Path(__file__).resolve().parents[2] / "app"
+    form = (
+        templates / "domains" / "activities" / "templates" / "_inschrijf_velden.html"
+    ).read_text(encoding="utf-8")
+    assert "ui.payment_choice(" in form, "the form no longer has a payment method field"
+    source = (templates / "ui" / "templates" / "_macros.html").read_text(encoding="utf-8")
+    field = re.search(r'field\("payment_method".*?options=\[(.*?)\]\) \}\}', source, re.S)
+    assert field, "the kit no longer has a payment method field"
     radios = set(re.findall(r'\("([a-z]+)", _\(', field.group(1)))
     flow = (
         Path(__file__).resolve().parents[2]

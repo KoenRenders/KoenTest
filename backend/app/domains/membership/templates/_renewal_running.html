@@ -4,22 +4,19 @@
    to make, or the online payment to resume, as an inset sub-card of the kit.
    Until #1641 the renewal page showed this instead of its form; that view is
    gone, and whoever opens the renewal page while a renewal runs lands here.
-   Amount and reference come from the booking itself. `page` is the
-   `HouseholdPage`. #}
-{% if page.transfer %}
-{% call ui.inset(_("Vernieuwing geregistreerd — betaal via overschrijving:"), attrs="data-transfer-due") %}
-  <ul class="mt-1 space-y-0.5">
-    <li>{{ _("Bedrag") }}: <strong>€ {{ page.transfer.amount|geld }}</strong></li>
-    {% if page.transfer.iban %}<li>IBAN: <strong>{{ page.transfer.iban }}</strong></li>{% endif %}
-    {% if page.transfer.beneficiary %}<li>{{ _("Begunstigde") }}: {{ page.transfer.beneficiary }}</li>{% endif %}
-    {% if page.transfer.ogm %}<li>{{ _("Mededeling (OGM)") }}: <strong>{{ page.transfer.ogm }}</strong></li>{% endif %}
-  </ul>
-{% endcall %}
-{% elif page.online %}
-{% call ui.inset(_("Je vernieuwing loopt nog — de betaling is nog niet afgerond."), attrs="data-renewal-online") %}
-  <p class="mt-1">{{ _("Bedrag") }}: <strong>€ {{ page.online.amount|geld }}</strong></p>
-  {% if page.online.checkout_url %}
-  <p class="mt-3">{{ ui.btn_primary(_("Betaling hervatten"), href=page.online.checkout_url, type="button") }}</p>
+   Amount and reference come from the booking itself. `card` is the
+   `MembershipCard`; the transfer block is the shared `_transfer_due.html`
+   (CR-22 S2, #1705). #}
+{% if card.transfer %}
+{% set due = card.transfer %}
+{% include "_transfer_due.html" %}
+{% elif card.online %}
+{# #1737: the card's line above says "Je betaling loopt nog."; this heading
+   keeps the half that adds something. #}
+{% call ui.inset(_("De betaling is nog niet afgerond."), attrs="data-renewal-online") %}
+  <p class="mt-1">{{ _("Bedrag") }}: <strong>€ {{ card.online.amount|geld }}</strong></p>
+  {% if card.online.checkout_url %}
+  <p class="mt-3">{{ ui.btn_primary(_("Betaling hervatten"), href=card.online.checkout_url, type="button") }}</p>
   {% else %}
   <p class="mt-1 text-ink-soft">{{ _("Zodra de betaling verwerkt is, zie je dat hier. Neem gerust contact op als het lang duurt.") }}</p>
   {% endif %}

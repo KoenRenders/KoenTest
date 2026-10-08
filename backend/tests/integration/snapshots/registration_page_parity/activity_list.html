@@ -10,13 +10,12 @@
 <div class="space-y-6">
 <h3 data-year-heading class="text-xl md:text-lg font-semibold text-kop border-b border-line pb-1">2099</h3>
 <div id="act-<ACTIVITY>" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 scroll-mt-24">
-<div class="flex gap-3 sm:gap-4">
-<div data-date-tile class="shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-blue-50 text-blue-700 flex flex-col items-center justify-center" aria-hidden="true">
+<div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 sm:gap-x-4 sm:[&>time]:row-span-2">
+<time data-date-tile datetime="2099-06-01" class="shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-blue-50 text-blue-700 flex flex-col items-center justify-center" aria-hidden="true">
 <span class="text-xl font-bold leading-none">01</span>
 <span class="text-xs font-semibold uppercase leading-none mt-0.5">jun</span>
-</div>
-<div class="min-w-0 flex-1">
-<div>
+</time>
+<div class="min-w-0">
 <h2 data-card-title class="text-xl md:text-lg font-semibold flex flex-wrap items-center gap-2">
 <a href="/activiteiten/<ACTIVITY>" class="text-blue-700 hover:underline">Karakterisering</a>
 </h2>
@@ -27,7 +26,7 @@
 </div>
 </div>
 </div>
-<div data-component-actions class="mt-3 space-y-3 -ml-[60px] sm:ml-0">
+<div data-component-actions class="mt-3 space-y-3 col-span-full sm:col-span-1 sm:col-start-2">
 <div class="pt-2" x-data="{ open: false }">
 <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
 <span class="text-base md:text-sm font-semibold text-ink sm:mr-1">Ploegen</span>
@@ -55,7 +54,6 @@
 </div>
 </div>
 <div id="deelnemers-<ACTIVITY>-<C:plain>" x-show="open" x-cloak style="display: none"></div>
-</div>
 </div>
 </div>
 </div>

@@ -12,6 +12,7 @@ import pytest
 
 from app.domains.auth.api import create_access_token
 from app.domains.payment.api import PayableType
+from tests import payments_door
 from tests.conftest import seed_postal_code
 from tests.integration.test_functional_regression import _family_payload
 from tests.integration.test_membership_pricing import seed_household
@@ -67,11 +68,7 @@ def test_manual_payment_confirmation_activates_membership(client, db_session, ad
     ms = db_session.query(Membership).first()
     assert ms.is_active is False  # nog niet betaald
 
-    resp = client.patch(
-        f"/api/v1/payment-status/records/{rec.id}",
-        headers=admin_headers,
-        json={"status": "paid"},
-    )
+    resp = payments_door.update(client, rec.id, {"status": "paid"})
     assert resp.status_code == 200, resp.text
 
     db_session.expire_all()

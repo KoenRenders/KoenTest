@@ -35,6 +35,7 @@ import re
 import pytest
 
 from app.domains.forms.models import FormSubmission
+from tests import forms_door
 from tests.conftest import form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -77,7 +78,7 @@ def _form(client, admin_headers, *, sections: int = 3, branch: bool = False, **s
         "fields": fields,
         **settings,
     }
-    r = client.post("/api/v1/forms", json=payload, headers=admin_headers)
+    r = forms_door.create_form(client, payload)
     assert r.status_code in (200, 201), r.text
     return r.json()
 
@@ -256,7 +257,7 @@ def test_a_section_or_an_option_that_ends_the_form_is_on_the_path(client, admin_
             {"field_type": "text", "label": "Naam", "position": 1, "section_index": 1},
         ],
     }
-    r = client.post("/api/v1/forms", json=payload, headers=admin_headers)
+    r = forms_door.create_form(client, payload)
     assert r.status_code in (200, 201), r.text
     import html as html_lib
     import json

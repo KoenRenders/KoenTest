@@ -6,7 +6,8 @@ from decimal import Decimal
 import pytest
 
 from app.domains.payment.api import PayableType, PaymentStatus
-from tests.conftest import seed_activity_with_product, seed_postal_code
+from tests import payments_door
+from tests.conftest import register_at_the_door, seed_activity_with_product, seed_postal_code
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -43,8 +44,9 @@ def test_membership_amount_is_server_side(client, db_session):
 def test_activity_negative_quantity_rejected(client, db_session):
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "Test",
             "phone": "0470000000",
@@ -59,8 +61,9 @@ def test_activity_negative_quantity_rejected(client, db_session):
 def test_activity_invalid_product_rejected(client, db_session):
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "Test",
             "phone": "0470000000",
@@ -77,8 +80,9 @@ def test_activity_quantity_over_max_rejected(client, db_session):
 
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "Test",
             "phone": "0470000000",
@@ -99,8 +103,16 @@ def test_membership_dedup_blocks_second(client, db_session):
     assert second.status_code == 409
 
 
-def test_membership_dedup_allows_after_failed_payment(client, db_session):
-    """Een eerdere mislukte betaling blokkeert een nieuwe registratie niet."""
+def test_a_new_try_after_a_failed_payment_makes_no_second_household(client, db_session):
+    """Turned round by CR-22 Q40 (#1713; Koen, 7 October 2026). This test said
+    "een eerdere mislukte betaling blokkeert een nieuwe registratie niet": the
+    second try was let through — and made a second household with the first
+    one's address, after which that address could no longer sign in at all.
+
+    A failed payment still does not shut anybody out. The way back in is
+    another one: the first try's household holds the address, so the second
+    form is refused with the sentence that says what to do, he signs in, and
+    pays from Mijn gezin."""
     seed_postal_code(db_session)
     first = client.post("/api/v1/families", json=_family_payload(email="retry@example.com"))
     assert first.status_code == 201
@@ -117,7 +129,15 @@ def test_membership_dedup_allows_after_failed_payment(client, db_session):
     db_session.flush()
 
     second = client.post("/api/v1/families", json=_family_payload(email="retry@example.com"))
-    assert second.status_code == 201, second.text
+    assert second.status_code == 409, second.text
+    assert second.json()["detail"] == (
+        "Dit e-mailadres is al gekend. Log je eerst aan om lid te worden."
+    )
+    from app.domains.mdm.api import ContactDetail
+
+    db_session.expire_all()
+    holders = db_session.query(ContactDetail).filter_by(value="retry@example.com").count()
+    assert holders == 1, "the second try made a second household after all"
 
 
 def test_activity_registration_limit_per_email(client, db_session):
@@ -128,8 +148,9 @@ def test_activity_registration_limit_per_email(client, db_session):
     activity_id = comp.activity_id
 
     def register():
-        return client.post(
-            f"/api/v1/activities/{activity_id}/register",
+        return register_at_the_door(
+            client,
+            activity_id,
             json={
                 "contact_name": "Gezin",
                 "phone": "0470000000",
@@ -172,8 +193,9 @@ def test_registration_limit_is_per_component_not_per_activity(client, db_session
     email = "multi@example.com"
 
     def register(comp, product):
-        return client.post(
-            f"/api/v1/activities/{activity.id}/register",
+        return register_at_the_door(
+            client,
+            activity.id,
             json={
                 "contact_name": "Gezin",
                 "phone": "0470000000",
@@ -199,11 +221,7 @@ def test_amount_paid_cannot_exceed_due(client, db_session, admin_headers):
 
     rec = db_session.query(PaymentRecord).first()
 
-    resp = client.patch(
-        f"/api/v1/payment-status/records/{rec.id}",
-        json={"amount_paid": float(rec.amount) + 100},
-        headers=admin_headers,
-    )
+    resp = payments_door.update(client, rec.id, {"amount_paid": float(rec.amount) + 100})
     assert resp.status_code == 400
 
 
@@ -215,11 +233,7 @@ def test_amount_paid_cannot_be_negative(client, db_session, admin_headers):
 
     rec = db_session.query(PaymentRecord).first()
 
-    resp = client.patch(
-        f"/api/v1/payment-status/records/{rec.id}",
-        json={"amount_paid": -5},
-        headers=admin_headers,
-    )
+    resp = payments_door.update(client, rec.id, {"amount_paid": -5})
     assert resp.status_code == 400
 
 
@@ -227,8 +241,9 @@ def test_activity_invalid_email_rejected(client, db_session):
     """Een ongeldig e-mailadres bij inschrijving wordt server-side geweigerd (422)."""
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "X",
             "phone": "0470000000",
@@ -330,20 +345,6 @@ def test_login_rate_limited(client):
             saw_429 = True
             break
     assert saw_429
-
-
-def test_refresh_endpoint_requires_auth(client):
-    """Het refresh-endpoint van een betaalrecord eist admin-auth."""
-    resp = client.post(
-        "/api/v1/payment-status/records/00000000-0000-0000-0000-000000000000/refresh"
-    )
-    assert resp.status_code in (401, 403)
-
-
-def test_admin_endpoints_require_auth(client):
-    """Zonder geldig admin-token geen toegang tot de betaaladministratie."""
-    resp = client.get("/api/v1/payment-status/records")
-    assert resp.status_code == 401
 
 
 def test_payment_endpoint_admin_only_and_hides_checkout_url(client, db_session, admin_headers):

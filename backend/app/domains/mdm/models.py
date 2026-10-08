@@ -35,6 +35,19 @@ class MasterDataError(ValueError):
     """
 
 
+class EmailAddressInUse(MasterDataError):
+    """An e-mail address that another person outside the household already
+    uses (CR-22 R4, R7; #1704). Inside one household persons may share an
+    address — the household acts as one; outside it, an address says who
+    signs in."""
+
+
+class AddressNotWaiting(MasterDataError):
+    """A code for an e-mail address that does not wait for one any more: the
+    row was removed, or its text was changed since the code was sent (CR-22
+    R15, #1711)."""
+
+
 class PersonDetailsMissing(MasterDataError):
     """A member of a household without a birth date or a gender (#681)."""
 
@@ -555,6 +568,23 @@ class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
     updated_at = Column(
         DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
     )
+    # CR-22 (§B1 D3, #1704): since when this detail counts. An e-mail address
+    # is the key someone signs in with, so it counts only once its owner has
+    # proven he reads it; until then the row exists — it must be visible where
+    # it was typed — and this is NULL. OpenID Connect's `email_verified`, as a
+    # timestamp because WHEN matters for an audit; `confirmed_at IS NOT NULL`
+    # is the boolean. Rows from before the column were backfilled as confirmed
+    # at their creation, and every writer goes through
+    # `mdm.service.new_contact_detail`, which decides it.
+    #
+    # The default (#1707): a row counts unless its maker SAYS it waits — as
+    # every row did before the column existed. Since sign-in reads confirmed
+    # addresses only, a row made without the factory (a test's fixture, a
+    # seed) would otherwise be an address nobody can sign in with, silently.
+    # `evaluates_none()` is what lets the factory say "waits": an explicit
+    # None is written as NULL instead of being taken for "not set" and
+    # replaced by the default.
+    confirmed_at = Column(DateTime(timezone=True).evaluates_none(), default=_now_utc, nullable=True)
 
     person = relationship("Person", back_populates="contact_details")
 

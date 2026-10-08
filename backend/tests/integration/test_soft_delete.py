@@ -4,12 +4,21 @@ de history (en dus de #82-export) toont de verwijdering nog steeds."""
 
 from datetime import date
 
+import pytest
+
+from app.domains.activities import service as activities_service
 from app.domains.activities.api import Activity, Registration
 from app.domains.auth.api import User
 from app.domains.mdm.api import Member
 from app.domains.membership.api import Membership
 from app.domains.payment.api import PayableType, PaymentRecord
-from tests.conftest import seed_activity_with_product, seed_postal_code
+from tests import payments_door
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    register_at_the_door,
+    seed_activity_with_product,
+    seed_postal_code,
+)
 
 
 def _payload(email="lid@example.com"):
@@ -114,8 +123,9 @@ def test_soft_delete_still_recorded_in_member_changes(client, db_session, admin_
 def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin_headers):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
-    client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "An",
             "phone": "0470000000",
@@ -130,16 +140,13 @@ def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin
 
     # #1561 (Koen, 4 October 2026): an activity with a registration is refused;
     # the registration goes first, and then the payment still stays.
-    assert (
-        client.delete(f"/api/v1/activities/{activity_id}", headers=admin_headers).status_code == 422
-    )
+    with pytest.raises(activities_service.ActiviteitFout):
+        activities_service.delete_activity(db_session, activity_id, actor=SEEDED_ADMIN_EMAIL)
     from app.soft_delete import soft_delete
 
     soft_delete(reg)
     db_session.commit()
-    assert (
-        client.delete(f"/api/v1/activities/{activity_id}", headers=admin_headers).status_code == 200
-    )
+    assert activities_service.delete_activity(db_session, activity_id, actor=SEEDED_ADMIN_EMAIL)
 
     # Activiteit + inschrijving verborgen, maar bewaard.
     assert db_session.query(Activity).filter(Activity.id == activity_id).first() is None
@@ -176,10 +183,7 @@ def test_soft_delete_payment_hidden_but_kept(client, db_session, admin_headers):
         .first()
     )
     pid = pay.id
-    assert (
-        client.delete(f"/api/v1/payment-status/records/{pid}", headers=admin_headers).status_code
-        == 204
-    )
+    assert payments_door.delete(client, pid).status_code == 204
     assert db_session.query(PaymentRecord).filter(PaymentRecord.id == pid).first() is None
     kept = (
         db_session.query(PaymentRecord)

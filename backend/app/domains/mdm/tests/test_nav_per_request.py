@@ -181,12 +181,14 @@ def test_an_association_header_is_as_before(client, modules_of):
 def test_mijn_gezin_goes_with_membership():
     token = current_modules.set(EVERY)
     try:
-        assert [n["href"] for n in _public_nav("member_items")] == ["/leden/gezin"]
+        # CR-22 S3 and S5 (#1706, #1709): an account-menu item brings its own icon.
+        items = {n["href"]: n["icon"] for n in _public_nav("member_items")}
+        assert items == {"/leden/gezin": "users", "/mijn/inschrijvingen": "calendar-days"}
     finally:
         current_modules.reset(token)
     token = current_modules.set(EVERY - {ModuleCode.MEMBERSHIP.value})
     try:
-        assert _public_nav("member_items") == []
+        assert [n["href"] for n in _public_nav("member_items")] == ["/mijn/inschrijvingen"]
     finally:
         current_modules.reset(token)
 

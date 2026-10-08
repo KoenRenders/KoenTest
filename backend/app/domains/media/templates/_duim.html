@@ -4,12 +4,16 @@
    daarbij hoort, en bij foto's van een dorpsactiviteit wil je dat niet.
 
    Het fragment vervangt zichzelf (`hx-target="this"`), dus de teller en de stand komen
-   uit hetzelfde antwoord als de handeling. #}
+   uit hetzelfde antwoord als de handeling.
+
+   #1665 (Z6): the visible pill stays 20 px high where it stood; an invisible
+   `::before` of 44 × 44 px centred on it is the button's hit area. #}
 <button type="button" id="duim-{{ foto_id }}"
         hx-post="{{ path_for('/fotos/' ~ foto_id ~ '/duim') }}" hx-target="this" hx-swap="outerHTML"
         aria-pressed="{{ 'true' if aan else 'false' }}"
         aria-label="{{ _("Duimpje geven") if not aan else _("Duimpje weghalen") }}"
-        class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium
+        class="relative inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium
+               before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']
                {{ 'bg-blue-100 text-blue-700' if aan else 'bg-white/90 text-ink-soft hover:bg-white' }}">
   {{ ui.icon('thumbs-up', size=14) }}<span>{{ aantal }}</span>
 </button>

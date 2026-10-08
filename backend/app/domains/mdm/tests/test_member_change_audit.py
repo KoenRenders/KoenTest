@@ -87,10 +87,13 @@ def test_contact_change_shows_old_to_new(client, db_session, admin_headers):
     mobile = [
         r
         for r in rows
-        if r["entity"] == "Contact" and "MOBILE" in r["summary"] and "→" in r["summary"]
+        if r["entity"] == "Contact" and "Mobiel" in r["summary"] and "→" in r["summary"]
     ]
     assert mobile, rows
-    assert "0470111111" in mobile[0]["summary"] and "0470222222" in mobile[0]["summary"]
+    # #1687: the code table's label and the readable numbers, not the stored
+    # code and digits.
+    assert mobile[0]["summary"] == "Mobiel: 0470 11 11 11 → 0470 22 22 22", mobile[0]["summary"]
+    assert not [r for r in rows if "MOBILE" in r["summary"]]
 
 
 def test_person_name_change_shows_old_to_new(client, db_session, admin_headers):

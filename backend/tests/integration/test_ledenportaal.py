@@ -178,7 +178,8 @@ def test_login_verify_zet_sessie_en_stuurt_door(client, db_session):
 
     resp = client.get(f"/login/verify?token={token}", follow_redirects=False)
     assert resp.status_code == 302
-    assert resp.headers["location"] == "/leden/gezin"
+    # CR-22 (#1707): the landing of whoever signs in as a person is the account page.
+    assert resp.headers["location"] == "/mijn"
     assert SESSION_COOKIE in resp.cookies
 
     verlopen = client.get("/login/verify?token=bestaat-niet", follow_redirects=False)
@@ -212,8 +213,10 @@ def test_magic_link_landing_per_rol(client, db_session):
 
     fin = _token("fin-magic@example.com", "FINANCE")
     r_fin = client.get(f"/login/verify?token={fin}", follow_redirects=False)
-    assert r_fin.headers["location"] == "/admin/betalingen"
+    # #1740: the door decides, not the role — signed in on the site, whatever the role;
+    # these two have no person here, so the site.
+    assert r_fin.headers["location"] == "/"
 
     adm = _token("adm-magic@example.com", "ADMIN")
     r_adm = client.get(f"/login/verify?token={adm}", follow_redirects=False)
-    assert r_adm.headers["location"] == "/admin/werkbank"
+    assert r_adm.headers["location"] == "/"

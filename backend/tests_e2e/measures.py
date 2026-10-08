@@ -130,7 +130,6 @@ PUBLIC_HOOKS: dict[str, str] = {
     "content": "[data-main]",
     "card title": "[data-card-title]",
     # The public activity and photo pages (pilot C measures against these).
-    "page title": "[data-page-title]",
     "year heading": "[data-year-heading]",
     "date tile": "[data-date-tile]",
     "activity dates": "[data-activity-dates]",
@@ -141,11 +140,36 @@ PUBLIC_HOOKS: dict[str, str] = {
     "poster": "[data-activity-poster]",
     "photo card": "[data-photo-card]",
     "photo": "[data-photo]",
+    # The album's lightbox, open (#1665).
+    "lightbox photo": "[data-lightbox-photo]",
+    "lightbox close": "[data-lightbox-close]",
+    "lightbox previous": "[data-lightbox-previous]",
+    "lightbox next": "[data-lightbox-next]",
     "form page": "[data-public-form-page]",
     "form page head": "[data-form-page-head]",
     "form section": "[data-form-section]",
     "field": "[data-field]",
     "flow card": "[data-flow-card]",
+    # The membership card of Mijn gezin and the transfer to make (CR-22: one
+    # partial each, shown in more than one place).
+    "membership card": "[data-membership-status]",
+    # The account pages (CR-22 S3): the menu on the page, its content, the
+    # links at the bottom on a phone, and the account items of the drawer.
+    "account menu": "[data-account-page-menu]",
+    "account content": "[data-account-content]",
+    "account links": "[data-account-links]",
+    "page title": "[data-page-title]",
+    "drawer account": "[data-drawer-account]",
+    "account item": "[data-account-item]",
+    "transfer due": "[data-transfer-due]",
+    # A registration's card and the latest one on the landing page (CR-22 S5).
+    "registration": "[data-my-registration]",
+    "latest registration": "[data-latest-registration]",
+    "hint": "[data-member-nudge]",
+    # The step of the sign-in screens (CR-22 S4b): the address, the four
+    # fields of a new account, the code.
+    "sign-in step": "[data-sign-in-step]",
+    "code sent": "[data-code-sent]",
     "action bar": "[data-action-bar]",
     "footer row": "[data-footer-row]",
     "legal line": "[data-footer-line]",
@@ -242,8 +266,37 @@ def _public_activity(name: str, register: bool = False) -> Callable:
     return action
 
 
+def _open_the_drawer(page) -> None:
+    page.locator("[data-menu-button]").click()
+    page.locator("[data-drawer-account]").wait_for(state="visible", timeout=5000)
+
+
+def _account_code_step(page) -> None:
+    """Account aanmaken, sent: the code step of a new account. The address is
+    nobody's, so no person is made — a token waits and is never used."""
+    form = page.locator("[data-create-account-form]")
+    form.locator('input[name="first_name"]').fill("Meting")
+    form.locator('input[name="last_name"]').fill("Codestap")
+    form.locator('input[name="email"]').fill("meting.codestap@example.com")
+    form.locator('input[name="mobile"]').fill("0470 00 00 08")
+    form.locator("button").click()
+    page.locator("[data-code-sent]").wait_for(state="visible", timeout=5000)
+
+
 def _album(page) -> None:
     _goto_link(page, "[data-photo-card]")
+
+
+def _lightbox(page) -> None:
+    """The album's first photo, open in the lightbox, the picture loaded."""
+    _album(page)
+    page.locator("[data-photo-open]").first.click()
+    page.locator("[data-lightbox]").wait_for(state="visible", timeout=5000)
+    page.wait_for_function(
+        "() => { const i = document.querySelector('[data-lightbox-photo]');"
+        " return i.complete && i.naturalWidth > 0"
+        " && document.querySelector('[data-lightbox-next]').checkVisibility(); }"
+    )
 
 
 ADMIN = (WIDE, DESKTOP, PHONE)
@@ -273,6 +326,15 @@ SCREENS: tuple[Screen, ...] = (
         "betalingen",
         "/admin/betalingen",
         ("top bar title", "toolbar", "key figure", "content row"),
+        session="admin",
+        widths=ADMIN,
+    ),
+    # CR-22 S7 (#1712): Personen, on its default view "Zonder gezin" — the one
+    # person the measurement seed makes without a household.
+    Screen(
+        "personen",
+        "/admin/personen",
+        ("top bar title", "toolbar", "table", "content row"),
         session="admin",
         widths=ADMIN,
     ),
@@ -352,6 +414,13 @@ SCREENS: tuple[Screen, ...] = (
         ("brand", "way back", "page title", "photo"),
         action=_album,
     ),
+    # The first of two photos open: Close and Next show, Previous is hidden.
+    Screen(
+        "public-fotos-lichtbak",
+        "/fotos",
+        ("lightbox photo", "lightbox close", "lightbox next"),
+        action=_lightbox,
+    ),
     Screen(
         "public-inschrijven",
         "/activiteiten",
@@ -367,6 +436,74 @@ SCREENS: tuple[Screen, ...] = (
         "public-formulier",
         "/formulier/tok-e2e-open",
         ("brand", "form page", "field", "action bar"),
+    ),
+    # "Mijn <site>", the landing page of a member (CR-22 S3): the card of Mijn
+    # gezin on it; the menu on the left from 768 px, the links at the bottom on
+    # a phone.
+    Screen(
+        "mijn",
+        "/mijn",
+        ("brand", "account content", "page title", "membership card"),
+        session="lid",
+    ),
+    # The sign-in screens (CR-22 S4b, #1708): the address with the second
+    # door, the four fields of a new account, and its code step.
+    Screen("public-aanmelden", "/aanmelden", ("brand", "content", "sign-in step")),
+    Screen(
+        "public-account-aanmaken",
+        "/account-aanmaken",
+        ("brand", "content", "sign-in step", "field"),
+    ),
+    Screen(
+        "public-account-code",
+        "/account-aanmaken",
+        ("brand", "content", "sign-in step", "code sent"),
+        action=_account_code_step,
+    ),
+    # Mijn gegevens, read and in edit mode (CR-22 S6a): the person block for
+    # oneself, inside the account layout.
+    Screen(
+        "mijn-gegevens",
+        "/mijn/gegevens",
+        ("brand", "account content", "form page", "form section"),
+        session="lid",
+    ),
+    Screen(
+        "mijn-gegevens-bewerken",
+        "/mijn/gegevens?bewerken=1",
+        ("brand", "account content", "form page", "field", "action bar"),
+        session="lid",
+    ),
+    # Mijn inschrijvingen (CR-22 S5): a registration's card with the transfer
+    # still to make.
+    Screen(
+        "mijn-inschrijvingen",
+        "/mijn/inschrijvingen",
+        ("brand", "account content", "page title", "registration", "transfer due"),
+        session="lid",
+    ),
+    # The drawer on a phone, signed in: the site's pages, then the account menu.
+    Screen(
+        "public-lade",
+        "/",
+        ("drawer account", "account item"),
+        session="lid",
+        widths=(PHONE,),
+        action=_open_the_drawer,
+    ),
+    # Mijn gezin as it is READ: the membership card above the household.
+    Screen(
+        "leden-gezin",
+        "/leden/gezin",
+        ("brand", "form page", "membership card", "flow card"),
+        session="lid",
+    ),
+    # A renewal that runs, to be paid by transfer: the inset in that card.
+    Screen(
+        "leden-gezin-overschrijving",
+        "/leden/gezin",
+        ("brand", "membership card", "transfer due"),
+        session="lid-overschrijving",
     ),
     Screen(
         "leden-gezin-bewerken",

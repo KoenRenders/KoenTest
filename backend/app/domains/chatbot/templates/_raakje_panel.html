@@ -61,6 +61,13 @@
   </div>
   {% if not blocked %}
   <p id="{{ gesprek_id }}-laden" class="htmx-indicator shrink-0 px-4 pb-2 text-[13px] text-ink-soft" role="status">{{ _("Raakje zoekt het voor je uit…") }}</p>
+  {# #1667: a request that ends without an answer the page can place — no
+     connection, a server error, the time limit below — says so in the
+     conversation (`raakjeAfterAnswer`). Before, the panel said nothing at all.
+     The time limit on the form is 200 s: above the server's own, which gives a
+     model 90 s per call (`admin_chat_timeout_seconds`) and a proposal two calls,
+     so the server's sentence comes first whenever the server is still there. #}
+  <template data-panel-failed><div data-turn-failed><div data-raakje-answer class="{{ ballon.van_raakje() }}">{{ _("Raakje kon geen antwoord geven — probeer het opnieuw. Je vraag staat er nog.") }}</div></div></template>
   {% if suggestions %}
   <ul data-panel-suggestions class="m-0 shrink-0 list-none border-t border-line p-0">
     {% for s in suggestions %}
@@ -77,6 +84,7 @@
   <form data-raakje-form hx-post="{{ post_url }}" hx-target="#{{ gesprek_id }}" hx-swap="beforeend"
         {% if include %}hx-include="{{ include }}"{% endif %}{% if vals %} hx-vals='{{ vals }}'{% endif %}
         hx-indicator="#{{ gesprek_id }}-laden"
+        hx-request='{"timeout": 200000}'
         hx-on::after-request="raakjeAfterAnswer(this, event)"
         class="flex shrink-0 items-end gap-2 border-t border-line px-4 py-3">
     {% if history_id %}<input type="hidden" name="historie" id="{{ history_id }}" value="">{% endif %}

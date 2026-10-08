@@ -108,11 +108,17 @@
 {# The admin menu's icons (#1482, CR-11 block 1): the icon rail below 1 440 px
    shows an item by its icon alone, so every menu item has one, and none of them
    is a verb's glyph (§1.5: one meaning per glyph). `panel-left-close`/`-open` are
-   the sidebar's own toggle. Lucide, as the rest of this set. #}
+   the sidebar's own toggle. Lucide, as the rest of this set.
+
+   The webshop's (CR-21 phase 0, #1748), in the set before a screen uses them:
+   `package` Productbeheer, `tag` Prijsbeheer, `warehouse` Voorraadbeheer,
+   `receipt-text` Verkoop, `shopping-bag` "Mijn aankopen", `shopping-cart` the
+   basket. #}
 {% macro icon(name, size=16, cls="") -%}
 {%- set paths = {
   "list-todo": '<rect x="3" y="5" width="6" height="6" rx="1"/><path d="m3 17 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
   "calendar-days": '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/>',
+  "user": '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   "clipboard-list": '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
   "panels-top-left": '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>',
@@ -181,6 +187,12 @@
   "filter": '<path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/>',
   "ellipsis": '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   "sparkles": '<path d="M12 3 10.1 8.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M19 17v4"/><path d="M17 19h4"/>',
+  "package": '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  "tag": '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
+  "warehouse": '<path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z"/><path d="M6 18h12"/><path d="M6 14h12"/><rect width="12" height="12" x="6" y="10"/>',
+  "receipt-text": '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/>',
+  "shopping-bag": '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+  "shopping-cart": '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
   "list": '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>'} -%}
 {#- #762: een enkel icoon krijgt een eigen viewBox. Alle vakjes zijn even groot,
     maar het oog telt inkt: `square` spant 18 van de 24 eenheden (75%) en `mic` 20
@@ -234,8 +246,14 @@
 <a href="{{ url }}" data-site-card class="block bg-white border border-gray-200 rounded-2xl p-5 !no-underline hover:shadow-md transition-shadow"><span class="block font-semibold !text-ink">{{ name }}</span><span class="block text-sm text-gray-500 mt-1 break-all">{{ url }}</span></a>
 {%- endmacro %}
 
-{% macro card(id=None) -%}
+{# `href`: the card IS a link (the album card, #1663) — no padding of its own,
+   so a picture reaches its edges, and the shadow comes on hover. `attrs` is a
+   hook such as `data-photo-card`. #}
+{% macro card(id=None, href=None, attrs="") -%}
+{% if href %}<a href="{{ href }}"{% if attrs %} {{ attrs|safe }}{% endif %}
+   class="block bg-white border border-line rounded-2xl overflow-hidden hover:shadow-md transition-shadow">{{ caller() }}</a>{% else -%}
 <div{% if id %} id="{{ id }}" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 scroll-mt-24"{% else %} class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6"{% endif %}>{{ caller() }}</div>
+{%- endif %}
 {%- endmacro %}
 
 {# Golf 3 (#913, triage A10): drie vormen van leegte. "Nog geen <items>." mag
@@ -571,6 +589,20 @@
 </div>
 {%- endmacro %}
 
+{# `payment_choice(value)` — how someone pays what a form asks: online or by
+   transfer, as two vertical radios with their consequence under each (§2.6,
+   #1589). One call for every form that asks it — registering, becoming a member,
+   paying the membership, and the webshop's order page (CR-21 phase 0, #1748) — so
+   the two options and their words stand once. The values are the codes of
+   `mdm.payment_method_codes`; "online" is chosen when the page opens (the fixed
+   decision *Payment default*). The field is named `payment_method`: the pages
+   follow a change of that name for the words of their button. #}
+{% macro payment_choice(value="online") -%}
+{{ field("payment_method", _("Betaalwijze"), kind="radio_group", required=True, value=value,
+         options=[("online", _("Online betalen"), _("Na het verzenden ga je naar de beveiligde betaalpagina.")),
+                  ("transfer", _("Overschrijving"), _("De betaalgegevens staan in de bevestiging."))]) }}
+{%- endmacro %}
+
 {# `rare_settings(title, summary)` — one closed section in the LAST slot of the
    form: what is rarely set (external links, a poster address). Closed by
    default; the one-line `summary` says what is set inside ("2 externe links"),
@@ -636,6 +668,13 @@
      address under "E-mailadressen" — shows no label of its own, in read and
      edit mode and at every width (#1632, CR-11 Q70); the control keeps the
      label as its accessible name. Not for a row with several fields.
+   - `fallback` (#1694): what an EMPTY field gives — the value another record
+     supplies when nothing is typed here (an organiser's own address under
+     "Ander e-mailadres"). While editing it is the control's grey placeholder,
+     never a value: nothing of it is submitted. In read mode it stands where
+     the value would, in the soft ink, followed by `fallback_note` ("van de
+     fiche") — so the reader sees what is used and that it was not typed here.
+     A filled field shows its own value, as always.
    - `delete_name` (upload): "Verwijderen" beside what hangs there does not
      delete it — it marks it (a hidden field of this name becomes "1") and the
      form's save removes it; until then it can be taken back. #}
@@ -647,8 +686,10 @@
                rows=3, form=None, accept="image/*,application/pdf", current_url=None,
                current_label=None, delete_attrs="", delete_confirm=None, disabled=False,
                display=None, help_in_read=False, preview_url=None, delete_name=None,
-               beside_field=False, help_lines=False, label_hidden=False) -%}
+               beside_field=False, help_lines=False, label_hidden=False,
+               fallback=None, fallback_note=None) -%}
 {%- set _id = id or name -%}
+{%- if fallback and not placeholder -%}{%- set placeholder = fallback -%}{%- endif -%}
 {%- if kind in _field_full or (kind == "text" and long) -%}{%- set _span = "full" -%}
 {%- elif span == "full" -%}{%- set _span = "full" -%}
 {%- elif span == "quarter" and kind in _field_quarter_ok -%}{%- set _span = "quarter" -%}
@@ -669,6 +710,9 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {%- elif kind in ("select", "segmented", "radio_group") %}{{ (_chosen.get(value) if value else "") or "—" }}
     {%- elif kind == "url" and value %}<a href="{{ value }}" target="_blank" rel="noopener" class="text-blue-500 underline">{{ value }}</a>
     {%- elif kind == "email" and value %}<a href="mailto:{{ value }}" class="text-blue-500 underline">{{ value }}</a>
+    {#- #1675: read, a number is grouped; the input below keeps what is stored. #}
+    {%- elif kind == "phone" and value %}{{ value|phone }}
+    {%- elif (value is none or value == "") and fallback %}<span data-fallback class="text-ink-soft">{{ fallback }}{% if fallback_note %} ({{ fallback_note }}){% endif %}</span>
     {%- elif value is none or value == "" %}—
     {%- else %}{% if unit %}{{ unit }} {% endif %}{{ value }}{% endif -%}
   </p>
@@ -882,7 +926,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {% for a, text in [("up", _("Omhoog")), ("down", _("Omlaag")), ("duplicate", _("Dupliceren"))] if a in menu %}
     <button type="button" role="menuitem" data-row-action="{{ a }}" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2 disabled:text-ink-soft disabled:opacity-60 disabled:cursor-not-allowed">{{ text }}</button>
     {% endfor %}
-    {% if one %}<button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2"{% if one.chosen %} hidden{% endif %}>{{ one.make }}</button>{% endif %}
+    {% if one and one.get("choosable", True) %}<button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2"{% if one.chosen %} hidden{% endif %}>{{ one.make }}</button>{% endif %}
     {% if "remove" in menu %}
     {% if menu|length > 1 %}<div class="my-1 border-t border-line"></div>{% endif %}
     <button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2"{% if one and one.chosen and not _keeps %} hidden{% endif %}{% if _keeps %} data-row-keeps{% endif %}>{{ _("Verwijderen") }}</button>
@@ -900,7 +944,12 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    `title` is the composite item's heading (in edit mode it follows the field
    marked `data-row-title-source`); `title_href` makes it a jump link; `tag` is
    a badge beside it ("op de affiche", "hoofdadres"). `handle` only where the
-   order means something. `label` names the row for its menu's accessible name. #}
+   order means something. `label` names the row for its menu's accessible name.
+
+   A SIMPLE row of a group that marks one row (`one`) shows `tag` where the
+   one-tag stands — right of its field — for a row that cannot be the marked
+   one: an e-mail address that "wacht op bevestiging" (#1711). Such a row
+   passes `one.choosable = False`, and its menu offers no "Maak …". #}
 {% macro group_row(group, key, edit=False, variant="simple", handle=False,
                    menu=["up", "down", "duplicate", "remove"], title="", title_href=None, tag=None, label="",
                    fold=None, subtitle=None, title_prefix=None, one=None) -%}
@@ -940,7 +989,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     <div data-form-grid class="form-grid">{{ caller() }}</div>
     {% endif %}
   </div>
-  {% if variant == "simple" %}{{ _one_tag }}{% endif %}
+  {% if variant == "simple" %}{{ _one_tag }}{% if tag %}<span data-row-tag class="shrink-0">{{ badge(tag.label, tag.get("tone") or "gray") }}</span>{% endif %}{% endif %}
   {% if edit and menu and variant == "simple" %}{{ _row_menu(menu, label or title, one) }}{% endif %}
 </div>
 {%- endmacro %}
@@ -1162,7 +1211,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   <div>{{ label(_("E-mail"), id_prefix ~ "email", required=hoofdlid) }}
     <input type="email" name="{{ name_prefix }}email" id="{{ id_prefix }}email" {% if hoofdlid %}required{% endif %} value="{{ _email or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
   {% endif %}
-  <div>{{ label(_("GSM"), id_prefix ~ "mobile", required=hoofdlid) }}
+  <div>{{ label(_("Mobiel"), id_prefix ~ "mobile", required=hoofdlid) }}
     <input type="tel" name="{{ name_prefix }}mobile" id="{{ id_prefix }}mobile" {% if hoofdlid %}required{% endif %} value="{{ _mobile or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
   <div>{{ label(_("Telefoon"), id_prefix ~ "phone") }}
     <input name="{{ name_prefix }}phone" id="{{ id_prefix }}phone" value="{{ _phone or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
@@ -1304,6 +1353,30 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   <button type="button" @click="stap(1)"
           aria-label="{{ label_meer or _('Eén meer') }}"
           class="{{ _knop }} shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
+</div>
+{%- endmacro %}
+
+{#- The counter of a quantity of something named — a product on a registration, an
+    article in the webshop (CR-21 phase 0, #1748): `stepper` with the two labels a
+    screen reader needs, which name the thing. Moved here from the activities'
+    product row, not copied: one counter, one wording of "Eén minder" / "Eén meer". -#}
+{% macro quantity(name, id, value, product_name="", min=0, max=99, attrs="", touch=False) -%}
+{{ stepper(name, id=id, value=value, min=min, max=max, touch=touch,
+           label_minder=_("Eén minder") ~ (" — " ~ product_name if product_name else ""),
+           label_meer=_("Eén meer") ~ (" — " ~ product_name if product_name else ""),
+           attrs=attrs) }}
+{%- endmacro %}
+
+{#- The total under a list of counted things — a registration's products, a basket
+    (CR-21 phase 0, #1748). One look: a line above, small and semi-bold, muted while
+    there is nothing to pay and ink once there is; `note` is what explains the amount
+    ("(ledenprijs)"). The amount is the server's; `attrs` is for the page that has to
+    hear it (the registration form sets its Alpine `betalen` there). Moved here from
+    the registration form's total, not copied. -#}
+{% macro total_line(amount, note="", attrs="") -%}
+{%- set _empty = not amount or amount <= 0 -%}
+<div data-total{% if attrs %} {{ attrs|safe }}{% endif %} class="border-t border-line pt-3 text-sm font-semibold {% if _empty %}text-ink-soft{% else %}text-ink{% endif %}">
+  {{ _("Totaal:") }} €{{ (amount or 0)|geld }}{% if note and not _empty %} <span class="font-normal text-ink-soft">{{ note }}</span>{% endif %}
 </div>
 {%- endmacro %}
 
@@ -3201,7 +3274,10 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    156 px, and the name takes the rest. A table of eight columns (the
    registrations of a record, #1636: contact, date, products, two amounts)
    takes the narrower set, or the name would be left with 13 px (measured at
-   1 440). They stand HERE as literal classes:
+   1 440) — and its two optional columns leave by priority, or the name is
+   left with 47–76 px in a table of 900–1 100 px (#1741, measured: the
+   household's tab is 1 024 px wide at every desktop width). They stand HERE
+   as literal classes:
    the CSS build reads templates, not Python, so a width class handed over by a
    view is never generated (measured: seven columns of equal width). #}
 {% macro data_table(columns, modes={}, hx_target="", caption="", open_row="") -%}
@@ -3219,7 +3295,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
       <tr>
         {% for c in columns %}
         <th scope="col" data-cell="{{ c.cell }}"{% if c.get('priority') %} data-p="{{ c.priority }}"{% endif %}{% if c.get('sorted') %} aria-sort="{{ 'ascending' if c.sorted == 'asc' else 'descending' }}"{% endif %}
-            class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card {{ 'text-right' if c.get('num') else 'text-left' }} {% if columns|length >= 8 %}{{ 'w-[96px]' if c.get('num') else {'context': 'w-[22%]', 'status': 'w-[120px]', 'actions': 'w-[156px]', 'date': 'w-[100px]', 'more': 'w-[15%]'}.get(c.cell, '') }}{% else %}{{ 'w-[104px]' if c.get('num') else {'context': 'w-[24%]', 'status': 'w-[136px]', 'actions': 'w-[156px]', 'date': 'w-[112px]', 'more': 'w-[26%]'}.get(c.cell, '') }}{% endif %}">
+            class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card {{ 'text-right' if c.get('num') else 'text-left' }} {% if columns|length >= 8 %}{{ 'w-[96px]' if c.get('num') else {'context': 'w-[20%]', 'status': 'w-[120px]', 'actions': 'w-[156px]', 'date': 'w-[100px]', 'more': 'w-[12%]'}.get(c.cell, '') }}{% else %}{{ 'w-[104px]' if c.get('num') else {'context': 'w-[24%]', 'status': 'w-[136px]', 'actions': 'w-[156px]', 'date': 'w-[112px]', 'more': 'w-[26%]'}.get(c.cell, '') }}{% endif %}">
           {% if c.get("sort_url") %}
           <a href="{{ c.get('sort_page_url') or c.sort_url }}"{% if hx_target %} hx-get="{{ c.sort_url }}" hx-target="{{ hx_target }}" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}'{% endif %} data-sort="{{ c.key }}"
              class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 {{ 'justify-end' if c.get('num') else '' }} {{ 'font-semibold text-blue-700' if c.get('sorted') else '' }}">{{ c.label }}{{ icon("arrow-up" if c.get("sorted") == "asc" else ("arrow-down" if c.get("sorted") == "desc" else "arrow-up-down"), 14) }}</a>
@@ -3299,11 +3375,17 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    `row_actions_cell`). The grouping is data, not layout (Q41): the rows stay
    rows of the same table. A collapsed group hides its rows and shows them
    again as they were. `colspan` is the
-   table's number of columns. #}
-{% macro table_group(name, count, colspan, items=[], link=None, id="") -%}
+   table's number of columns.
+
+   `optional` (#1741): the priorities of the table's optional columns, e.g.
+   `[1, 2]`. The group row then spans that many columns less and carries one
+   empty cell per optional column, which leaves WITH its column. A fixed
+   span over a column that is gone makes the browser add a column to the
+   table (measured: 127 px of nothing at 1 024 px, taken from the name). #}
+{% macro table_group(name, count, colspan, items=[], link=None, id="", optional=[]) -%}
 <tbody data-group{% if id %} id="{{ id }}"{% endif %} x-data="{ shown: true }" :data-collapsed="(!shown).toString()">
   <tr data-group-row class="bg-surface-2">
-    <th scope="rowgroup" data-cell="name" colspan="{{ colspan - 1 }}" class="h-11 border-b border-line px-3 py-0 text-left text-sm font-semibold text-ink">
+    <th scope="rowgroup" data-cell="name" colspan="{{ colspan - 1 - optional|length }}" class="h-11 border-b border-line px-3 py-0 text-left text-sm font-semibold text-ink">
       <span class="flex flex-wrap items-center gap-x-3">
         <button type="button" data-group-toggle class="inline-flex min-h-11 items-center gap-2 text-left" @click="shown = !shown" :aria-expanded="shown.toString()">
           <span class="shrink-0 transition-transform" :class="shown ? 'rotate-90' : ''">{{ icon("chevron-right", 16) }}</span>
@@ -3312,6 +3394,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
         {% if link %}<span class="text-[13px] font-normal">{{ reference(link.label, link.href) }}</span>{% endif %}
       </span>
     </th>
+    {% for p in optional %}<td data-p="{{ p }}" data-group-filler aria-hidden="true" class="border-b border-line p-0"></td>{% endfor %}
     <td data-cell="actions" class="border-b border-line px-3 py-0">{% if items %}{{ row_actions_cell(None, items, label=name) }}{% endif %}</td>
   </tr>
   {{ caller() }}

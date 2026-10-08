@@ -2,15 +2,39 @@ name: CI
 
 on:
   push:
-    branches: ["master", "feature/**"]
+    branches: ["master"]
+    paths-ignore:
+      - "docs/change_request_*.md"
+      - "docs/change_request_template.md"
+      - "docs/architecture.md"
+      - "docs/intermediate-architecture-upgrade-v1.md"
+      - "docs/review-protocol.md"
   pull_request:
     branches: ["master"]
+    paths-ignore:
+      - "docs/change_request_*.md"
+      - "docs/change_request_template.md"
+      - "docs/architecture.md"
+      - "docs/intermediate-architecture-upgrade-v1.md"
+      - "docs/review-protocol.md"
+
+# One run per commit (CR-29): a newer push cancels a pull request's stale run;
+# the run of a master commit always finishes — HDEV and the release wait for it.
+# A pull request shares one group per branch; a master commit gets a group of
+# its own. With one group for all of master, runs queued behind each other and
+# GitHub cancelled the waiting one as soon as a newer commit arrived
+# (8 October 2026: the run of 6a655a30 was cancelled by the push of 927f5f53)
+# — `cancel-in-progress: false` spares only the run that is already running.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Formatter and linter (#781). A job of its own: it needs no database and no
   # Inkscape, so a style finding is red within seconds instead of after the suite.
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: backend
@@ -29,6 +53,7 @@ jobs:
 
   pytest:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     services:
       postgres:
@@ -64,10 +89,35 @@ jobs:
       # Design Studio (#1007) renders posters through Inkscape as a subprocess;
       # the render tests call the real binary, as the image does. The poster
       # fonts come from app/static/fonts through the renderer's own fontconfig.
-      - name: Install Inkscape
+      #
+      # CR-29 (#1745; Koen, 8 October 2026): the packages are kept between
+      # runs. Measured over twenty runs the step took 12-40 seconds, and three
+      # times 7, 10 and 15 minutes — the package mirror, not the install. The
+      # key is the version of the runner image, so the kept packages are
+      # renewed with every new image and never installed onto another one.
+      - name: Runner image version
+        id: image
+        run: echo "version=$ImageVersion" >> "$GITHUB_OUTPUT"
+
+      - name: Kept Inkscape packages
+        id: inkscape-debs
+        uses: actions/cache@v4
+        with:
+          path: ~/inkscape-debs
+          key: inkscape-debs-${{ runner.os }}-${{ steps.image.outputs.version }}
+
+      - name: Download Inkscape (nothing kept for this image yet)
+        if: steps.inkscape-debs.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends inkscape
+          sudo apt-get install -y -q --no-install-recommends --download-only inkscape
+          mkdir -p ~/inkscape-debs
+          cp /var/cache/apt/archives/*.deb ~/inkscape-debs/
+
+      - name: Install Inkscape
+        run: |
+          sudo dpkg -i ~/inkscape-debs/*.deb
+          inkscape --version
 
       # Static type-check vangt None-dereferences en verkeerde argument-types vóór
       # de deploy — voorheen sneuvelden die pas op runtime (PROD). Symmetrie met
@@ -85,10 +135,11 @@ jobs:
         # elke tijdelijke dip tijdens een refactor, en een drempel die je telkens
         # wegduwt is erger dan geen drempel. Vier punten marge laat werk toe en zet
         # toch een echte rem op verval. Verhoog mee als de meting structureel stijgt.
-        run: python -m pytest -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=85
+        run: python -m pytest -n 4 --dist loadgroup --durations=25 -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=85
 
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # pip-audit blijft rapporterend tot er een ignore-lijst-mechanisme staat
     # (architectuurdoc §19.1) — dan blokkerend. npm audit verdween met de
     # frontend-container (React-exit #405): er is geen Node meer in de stack.
@@ -121,6 +172,10 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    # A hung browser test would otherwise hold the job for GitHub's default of
+    # six hours, and with it everything that waits for CI. A healthy run of
+    # this job takes well under half of this.
+    timeout-minutes: 30
     # BLOKKEREND sinds #395: de e2e-geldflow is de laatste verdediging vóór een
     # deploy; een rode e2e = geen merge.
 
@@ -160,6 +215,18 @@ jobs:
 
       # playwright-python vervangt de Node-Playwright (React-exit #405): de
       # golden flows draaien in een echte Chromium tegen de server-rendered site.
+      #
+      # CR-29 (#1745; Koen, 8 October 2026): the downloaded browser is kept
+      # between runs; `playwright install` skips a browser that is already
+      # there. requirements-e2e.txt pins Playwright, and each release ships its
+      # own Chromium, so a new pin is a new key. The system packages of
+      # `--with-deps` still come from the package mirror on every run.
+      - name: Kept Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('backend/requirements-e2e.txt') }}
+
       - name: Backend-deps + Playwright-browser
         working-directory: backend
         run: |
@@ -216,6 +283,7 @@ jobs:
 
   css:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # BLOKKEREND (#652): app.css wordt met de hand gegenereerd en meegecommit, en
     # liep stil uiteen met de templates — -mt-1/-mx-5 ontbraken, waardoor het
     # e-maillog op HDEV met verkeerde marges rendeerde zonder dat iets faalde.
@@ -243,6 +311,7 @@ jobs:
 
   boot:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # BLOKKEREND (#450): draai de ECHTE startup.sh tegen een lege Postgres 16.
     # De backend crash-loopte ooit op HDEV terwijl CI groen was, omdat geen enkele
     # job de echte boot-sequence draaide. Dit dekt migraties + de seed-subprocessen

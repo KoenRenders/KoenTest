@@ -23,6 +23,7 @@ from jinja2 import (
 )
 
 from app.config import settings
+from app.kernel.phone import readable_phone
 
 _UI_DIR = Path(__file__).parent
 
@@ -125,21 +126,39 @@ templates.env.filters["maandkort"] = _maandkort
 
 def _paragraphs(text: str | None):
     """Plain text as paragraphs (#1647): a blank line starts a paragraph, a
-    single line break is a line break. The text is ESCAPED first — whatever it
-    holds reaches the page as text, never as markup — and only then gets the
-    `<p>` and `<br>` this function writes itself."""
+    single line break starts a new line. The text is ESCAPED first — whatever
+    it holds reaches the page as text, never as markup — and only then gets
+    the `<p>` and the line elements this function writes itself.
+
+    A line the author ended with ONE Enter is an element of its own
+    (`<span data-line>`, #1688), not a `<br>`: the page gives it a little
+    space above, so a statement that wraps can be told from the next
+    statement. That is what an Enter means on the poster too
+    (`designstudio.richtext`: the step onto a line after an Enter is 1.6 of
+    the type size instead of 1.3 — about a quarter of a line more; a blank
+    line is a line more). The page follows the same order — a small space at
+    an Enter, a larger one at a blank line — in its own scale: 8 and 16 px.
+    A paragraph of one line stays a plain `<p>`.
+    """
     import re as _re
 
     from markupsafe import Markup, escape
 
     blocks = [b.strip() for b in _re.split(r"\n\s*\n", (text or "").replace("\r\n", "\n"))]
-    return Markup("").join(
-        Markup("<p>")
-        + Markup("<br>").join(escape(line) for line in block.split("\n"))
-        + Markup("</p>")
-        for block in blocks
-        if block
-    )
+
+    def paragraph(block: str) -> Markup:
+        lines = [line.strip() for line in block.split("\n") if line.strip()]
+        if len(lines) == 1:
+            return Markup("<p>") + escape(lines[0]) + Markup("</p>")
+        return (
+            Markup("<p>")
+            + Markup("").join(
+                Markup("<span data-line>") + escape(line) + Markup("</span>") for line in lines
+            )
+            + Markup("</p>")
+        )
+
+    return Markup("").join(paragraph(block) for block in blocks if block)
 
 
 templates.env.filters["alineas"] = _paragraphs
@@ -150,6 +169,10 @@ templates.env.filters["alineas"] = _paragraphs
 from app.kernel.geld import bedrag as _bedrag  # noqa: E402
 
 templates.env.filters["geld"] = _bedrag
+# #1675: a stored phone number as a person reads it — the one formatter, for
+# every template that SHOWS a number. An input, a `tel:` link and an export
+# keep the stored value (`test_phone_numbers_are_shown_readable`).
+templates.env.filters["phone"] = readable_phone
 # Also as a global, for the kit: a FILTER is resolved when a template is compiled,
 # so `|geld` inside `_macros.html` breaks every environment that loads the kit
 # without this filter (the hand-built ones of the shell tests); a global is
@@ -634,6 +657,9 @@ _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
             # en een TENANT is een site met haar instellingen. Meestal vallen ze samen,
             # maar de ACCOUNT-organisatie is geen tenant en stond daardoor nergens in
             # dit menu; net zij is de vzw met een ondernemingsnummer.
+            # CR-22 S7 (#1712): the natural persons of this tenant, before the
+            # organisation — master data, in the tenant workspace only.
+            ("/admin/personen", "Personen"),
             ("/admin/organisaties", "Organisaties"),
             ("/admin/tenants", "Tenants"),
             # #1535: a tenant workspace's own organisation and site settings, in
@@ -689,6 +715,7 @@ _ADMIN_NAV_ICONS: dict[str, str] = {
     "/admin/gebruikers": "user-cog",
     "/admin/ledenwijzigingen": "history",
     "/admin/e-maillog": "inbox",
+    "/admin/personen": "user",
     "/admin/organisaties": "building-2",
     "/admin/tenants": "globe",
     # #1535: one meaning per glyph — the own organisation is an organisation, and
@@ -702,7 +729,7 @@ _ADMIN_NAV_ICONS: dict[str, str] = {
 #: every tenant, every organisation — is in the platform workspace's menu; a
 #: tenant workspace has its own organisation and settings in their place.
 PLATFORM_ONLY_ITEMS = frozenset({"/admin/organisaties", "/admin/tenants"})
-TENANT_ONLY_ITEMS = frozenset({"/admin/organisatie", "/admin/instellingen"})
+TENANT_ONLY_ITEMS = frozenset({"/admin/personen", "/admin/organisatie", "/admin/instellingen"})
 
 
 def _on_platform_workspace() -> bool:
@@ -895,16 +922,17 @@ def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
     ]
 
 
-def _huidige_gebruiker(db, request) -> dict | None:
-    """Ingelogde gebruiker uit de sessie-cookie (#467): naam + is_admin, of None.
+def _current_user(db, request) -> dict | None:
+    """Ingelogde gebruiker uit de sessie-cookie (#467): naam + admin_home, of None.
     Mag het renderen nooit breken."""
     if request is None:
         return None
     try:
         from app.domains.auth.api import (
             SESSION_COOKIE,
-            admits_admin_ui,
+            back_office_home,
             get_user_roles,
+            has_household,
             login_person_for_email,
             read_session_value,
         )
@@ -924,11 +952,16 @@ def _huidige_gebruiker(db, request) -> dict | None:
             # #1588: the header's account button says the first name; the menu
             # and the drawer the full one.
             "voornaam": voornaam,
-            # #1499: whoever `require_admin_ui` admits — an operator too, who
-            # holds OPERATOR everywhere and ADMIN on no tenant. The same set,
-            # asked of the auth domain, not a copy of it here.
-            "is_admin": admits_admin_ui(get_user_roles(db, email)),
+            # The way into the back office for whoever has one (#1499, #1740):
+            # its start page, or payments for someone who may only see those;
+            # None for everyone else. Asked of the auth domain, where the sets
+            # of roles live — after signing in on the site nobody lands there
+            # by himself any more, so the menu is the way.
+            "admin_home": back_office_home(get_user_roles(db, email)),
             "is_member": person is not None,
+            # CR-22 (#1707): an account is a person too, so "there is a person"
+            # no longer means "there is a household" — Mijn gezin asks this.
+            "has_household": has_household(person),
         }
     except Exception:
         return None
@@ -1038,7 +1071,7 @@ def legal_parts(organisation: dict | None) -> list[dict]:
         parts.append(
             {
                 "kind": "phone",
-                "text": organisation["phone"],
+                "text": readable_phone(organisation["phone"]),
                 "href": "tel:"
                 + "".join(c for c in organisation["phone"] if c.isdigit() or c == "+"),
             }
@@ -1147,11 +1180,57 @@ def _public_nav(field: str) -> list[dict]:
 
     enabled = current_enabled_modules()
     return [
-        {"href": href, "label": _(label), "match": _PUBLIC_NAV_LANDS_ON.get(href)}
+        {
+            "href": item[0],
+            "label": _(item[1]),
+            "match": _PUBLIC_NAV_LANDS_ON.get(item[0]),
+            # Only an account-menu item brings an icon (CR-22 Q38).
+            "icon": item[2] if len(item) > 2 else None,
+        }
         for module in MODULES
-        for href, label in getattr(module, field)
-        if nav_item_shown(field, href, enabled)
+        for item in getattr(module, field)
+        if nav_item_shown(field, item[0], enabled)
     ]
+
+
+#: Mijn gezin, the one item of the account menu that needs a household.
+HOUSEHOLD_HOME = "/leden/gezin"
+
+
+def account_nav(db, *, household: bool = True) -> list[dict]:
+    """The account menu of the public site (CR-22 S3, #1706; R14): ONE list for
+    the header's menu, the drawer and the menu on the account pages. Its first
+    item is the landing page, called "Mijn " + the site's name (Q32, Q35); the
+    rest comes from the modules' `member_items`, each with its own icon.
+
+    `household` (#1707): whether the signed-in person is in one. Mijn gezin is
+    listed only then — an account has no household, and the item would open a
+    page that sends him back (R14: "what applies to him")."""
+    from app.i18n import _
+    from app.kernel.tenant_config import tenant_display_name
+
+    home = {
+        "href": "/mijn",
+        "label": _("Mijn %(site)s") % {"site": tenant_display_name(db)},
+        "match": None,
+        "icon": "house",
+    }
+    # Mijn gegevens (CR-22 S6a, #1710): always there — everyone with an account
+    # page is a person.
+    details = {
+        "href": "/mijn/gegevens",
+        "label": _("Mijn gegevens"),
+        "match": None,
+        "icon": "user",
+    }
+    # The order of the menu is its own (CR-22 A3): Mijn gezin before Mijn
+    # inschrijvingen, whatever order the registry lists the modules in; an item
+    # this list does not name yet (Mijn aankopen, CR-21) comes after them.
+    order = {HOUSEHOLD_HOME: 0, "/mijn/inschrijvingen": 1}
+    modules = sorted(_public_nav("member_items"), key=lambda n: order.get(n["href"], len(order)))
+    if not household:
+        modules = [item for item in modules if item["href"] != HOUSEHOLD_HOME]
+    return [home, details, *modules]
 
 
 def site_context(db, request=None) -> dict:
@@ -1243,6 +1322,7 @@ def site_context(db, request=None) -> dict:
     # dag daarvóór, nul erna. Dat uur is precies de omschakeling van `prod-frontend`
     # naar `prod-backend`.
     umami_src, umami_website_id = umami_tracking(db)
+    user = _current_user(db, request)
 
     return {
         "nav_pages": pages,
@@ -1250,7 +1330,10 @@ def site_context(db, request=None) -> dict:
         # CR-19 (#1476): the module links of the header, from the registry —
         # what a module that is off lists or serves is not there.
         "public_nav": _public_nav("public_items"),
-        "member_nav": _public_nav("member_items"),
+        "member_nav": account_nav(db, household=bool(user and user["has_household"])),
+        # CR-22 Q39: a company tenant has accounts and no members — the hint above
+        # the registration form words itself by it.
+        "has_members": module_enabled(ModuleCode.MEMBERSHIP),
         # #1588: the legal line's parts. (The newsletter column's heading is
         # the word "Nieuwsbrief" in the shell since #1647; "Nieuws van <the
         # site's name>" of #1606 is gone, with its key here.)
@@ -1271,7 +1354,7 @@ def site_context(db, request=None) -> dict:
         # (`tenant_public_chat_enabled`), which the chat endpoints read too.
         "chat_enabled": tenant_public_chat_enabled(db) and module_enabled(ModuleCode.CHATBOT),
         "stt_mode": settings.stt_mode,  # spraakinvoer in de widget (#567)
-        "gebruiker": _huidige_gebruiker(db, request),
+        "gebruiker": user,
         # Branding per tenant (#407/#519): naam/tagline/Facebook uit de
         # tenant-config. GEEN Millegem-specifieke defaults meer — die lekten
         # naar andere tenants (multi-tenancy-fout). Leeg = niet tonen, net als

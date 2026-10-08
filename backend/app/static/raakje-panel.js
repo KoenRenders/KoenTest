@@ -129,13 +129,25 @@
     if (event.detail.elt !== form) return;
     var xhr = event.detail.xhr;
     var field = form.querySelector('textarea');
-    if (!event.detail.successful || (xhr && xhr.getResponseHeader('X-Raakje-Failed') === '1')) {
+    var talk = form.parentElement.querySelector('[data-panel-conversation]');
+    if (!event.detail.successful) {
+      // No answer the page could place (#1667): no connection, a server error,
+      // the time limit. The server's own "not answered" turn says its sentence
+      // itself; this is the case where nothing came to say it.
+      var failed = form.parentElement.querySelector('template[data-panel-failed]');
+      if (talk && failed) {
+        talk.appendChild(failed.content.firstElementChild.cloneNode(true));
+        talk.scrollTop = talk.scrollHeight;
+      }
+      window.raakjeFit(field);
+      return;
+    }
+    if (xhr && xhr.getResponseHeader('X-Raakje-Failed') === '1') {
       window.raakjeFit(field);
       return;
     }
     field.value = '';
     window.raakjeFit(field);
-    var talk = form.parentElement.querySelector('[data-panel-conversation]');
     if (talk) talk.scrollTop = talk.scrollHeight;
   };
 

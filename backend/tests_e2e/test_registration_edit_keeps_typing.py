@@ -47,14 +47,12 @@ STORED_NAME = "Bewerk Proef"
 def setup():
     """A registration of one piece of the first product (10 euro); a second
     product (30 euro) of the same component, not chosen; a board member."""
-    import httpx
-
     import app.models  # noqa: F401  load_all_models()
     from app.database import SessionLocal
-    from app.domains.activities.api import ActivityProduct, Registration
+    from app.domains.activities.api import ActivityProduct
     from app.domains.auth.api import make_session_value
     from app.domains.auth.models import User, UserRole
-    from tests.conftest import seed_activity_with_product
+    from tests.conftest import register_through_the_service, seed_activity_with_product
 
     db = SessionLocal()
     activity, component, first = seed_activity_with_product(db, price="10.00", is_free=False)
@@ -68,20 +66,16 @@ def setup():
     db.flush()
     db.add(UserRole(user_id=user.id, role_code="ADMIN"))
     db.commit()
-    answer = httpx.post(
-        f"{BASE}/api/v1/activities/{activity.id}/register",
-        json={
-            "contact_name": STORED_NAME,
-            "contact_email": "bewerk-proef@example.org",
-            "phone": "0470000000",
-            "component_id": component.id,
-            "payment_method": "transfer",
-            "items": [{"product_id": first.id, "quantity": 1}],
-        },
-        timeout=30,
+    # #1251: through the registration service, not through a JSON route that had
+    # no caller but this set-up.
+    registration = register_through_the_service(
+        activity.id,
+        component.id,
+        first.id,
+        quantity=1,
+        name=STORED_NAME,
+        email="bewerk-proef@example.org",
     )
-    assert answer.status_code == 200, answer.text[:300]
-    registration = db.query(Registration).filter_by(activity_id=activity.id).one().id
     out = {
         "page": f"/admin/inschrijvingen/{registration}",
         "second": second.id,

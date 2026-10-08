@@ -5,7 +5,8 @@ met `include_deleted=True`, dus de naam blijft zichtbaar i.p.v. '—'."""
 
 from app.domains.mdm.api import Member, MemberPerson, Person
 from app.soft_delete import soft_delete
-from tests.conftest import seed_postal_code
+from tests import payments_door
+from tests.conftest import register_at_the_door, seed_postal_code
 
 
 def _family_with_membership(client, db):
@@ -35,7 +36,7 @@ def _family_with_membership(client, db):
 
 
 def _membership_record(client, admin_headers):
-    recs = client.get("/api/v1/payment-status/records", headers=admin_headers).json()
+    recs = payments_door.records(client).json()
     return next(r for r in recs if r["payable_type"] == "membership")
 
 
@@ -46,8 +47,9 @@ def test_registration_description_survives_activity_soft_delete(client, db_sessi
     from tests.conftest import seed_activity_with_product
 
     _, comp, product = seed_activity_with_product(db_session, price="12.00")
-    resp = client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "An",
             "phone": "0470000000",
@@ -66,7 +68,7 @@ def test_registration_description_survives_activity_soft_delete(client, db_sessi
     )
 
     def _rec():
-        recs = client.get("/api/v1/payment-status/records", headers=admin_headers).json()
+        recs = payments_door.records(client).json()
         return next(
             r for r in recs if r["payable_type"] == "registration" and r["payable_id"] == reg.id
         )

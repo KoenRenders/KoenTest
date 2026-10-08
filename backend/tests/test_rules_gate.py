@@ -43,6 +43,7 @@ test in its docstring.
 from __future__ import annotations
 
 import ast
+import functools
 import re
 from pathlib import Path
 
@@ -51,7 +52,9 @@ import pytest
 from tests import rules_baseline as baseline
 from tests._bestanden import is_app_test
 
-pytestmark = pytest.mark.ui_agnostisch
+# CR-29 R7: one worker for the file, so what a walk of the tree found is found once
+# (`api_commands`, `_tree`) and not once per process.
+pytestmark = [pytest.mark.ui_agnostisch, pytest.mark.xdist_group("rules_gate")]
 
 BACKEND = Path(__file__).resolve().parents[1]
 APP = BACKEND / "app"
@@ -360,7 +363,9 @@ def _api_routes() -> dict[str, str]:
                 routes[f"{method} {path}"] = module
 
     walk(app.routes)
-    assert len(routes) > 100, f"only {len(routes)} /api/v1 routes found — the walk is blind"
+    # The floor follows the pruning of CR-13 phase 4b (#1251): it was 100 while the
+    # routes without a caller still stood.
+    assert len(routes) > 50, f"only {len(routes)} /api/v1 routes found — the walk is blind"
     return routes
 
 
@@ -877,6 +882,8 @@ def _foreign_writes_in(function, resolve, schemas: dict[str, str], owner: str):
                     yield f"schema {schema}", node.lineno, "raw SQL writes"
 
 
+# Once per process (CR-29 R7): a ratchet test and the meter both ask it.
+@functools.cache
 def collect_foreign_writes() -> dict[str, str]:
     """A write to a mapped class of domain B outside `app/domains/B/` → key
     `file::function → owner.Class` (CR-13 §B9.3, *no foreign writes*). Reads are free."""
@@ -1288,8 +1295,12 @@ def _writes(function: ast.AST) -> int | None:
     return None
 
 
+@functools.cache
 def api_commands() -> dict[tuple[str, str], str]:
     """(domain, name) → where it writes, for every `api.py` export that writes.
+
+    Walked once per process (CR-29 R7): eleven tests ask it, the tree does not
+    change while they run, and the walk was the slowest thing in this file.
 
     A command is derived from the code, not listed next to it (master CLI, 29
     September 2026): an export that writes or commits, itself or through what it
@@ -1315,6 +1326,8 @@ def api_commands() -> dict[tuple[str, str], str]:
     return commands
 
 
+# Once per process (CR-29 R7): a ratchet test and the meter both ask it.
+@functools.cache
 def collect_command_calls_outside_handlers() -> dict[str, str]:
     """A call from domain A into a command of domain B outside a `@subscribe`
     function → key `file::function → B.api.name` (§B4.9, R12). A consequence in
@@ -1514,6 +1527,8 @@ def collect_write_outside_service() -> dict[str, str]:
     return found
 
 
+# Once per process (CR-29 R7): a ratchet test and the meter both ask it.
+@functools.cache
 def collect_non_orm_writes() -> dict[str, str]:
     """A write that bypasses the ORM flush → key `file::function → target` (§B9.3 (c),
     the entrances discovery of §B10): a bulk `.update()`/`.delete()` on a query, a core
@@ -1627,6 +1642,8 @@ def _owner_functions(value) -> set[tuple[Path, str]]:
     return {(p, fn.name) for p, _t, fn, _via in _reachable(path, tree, function) if p == path}
 
 
+# Once per process (CR-29 R7): a ratchet test and the meter both ask it.
+@functools.cache
 def collect_derived_value_elsewhere() -> dict[str, str]:
     """A second computation of a registered derived value outside its owner → key
     `file::function → value` (§B9.3, *one owner per derived value*). Python only: a

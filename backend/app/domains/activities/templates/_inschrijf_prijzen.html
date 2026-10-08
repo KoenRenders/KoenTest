@@ -12,6 +12,9 @@
    before the opening "1" (8 became 81, refused or, worse, accepted). A field
    the visitor types in is the visitor's: the server sends what it DERIVES. #}
 {% include "_inschrijf_totaal.html" %}
+{# CR-22 S5 (#1709): to whom the registration will be linked follows the
+   typed address too — derived by the server, no field. #}
+{% set oob = true %}{% include "_registration_link.html" %}
 {% for p in producten %}
 {{ price_tag(price_text(p, is_member), id="prijs-" ~ p.id, oob=True) }}
 {% endfor %}

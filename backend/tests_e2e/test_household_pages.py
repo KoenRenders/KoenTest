@@ -20,7 +20,7 @@ Broken on purpose (5 October 2026), one exact replacement each, each red:
 - `record-form.js` no longer opening the `<details>` of a refused field → the
   refused field is not visible, on Word lid and on Mijn gezin;
 - the bar without `save_label_attrs` → the button keeps "Word lid en betaal" (and
-  "Vernieuwen en betalen" on the renewal);
+  "Betalen" on the renewal — "Vernieuwen en betalen" until #1737);
 - the toast left out of the save's answer → no "Opgeslagen ✓";
 - the save's answer rendered in edit mode → the page does not return to reading;
 - Mijn gezin always in edit mode → the read-mode, cancel and renewal-link tests.
@@ -512,7 +512,8 @@ def test_the_renewal_is_its_own_page_and_its_button_follows_the_choice(browser):
             browser, "/leden/gezin/vernieuwen", viewport, session=_session(MARKER_EMAIL_VERLOPEN)
         )
         try:
-            expect(page.get_by_role("heading", name="Lidmaatschap vernieuwen")).to_be_visible()
+            # #1737: the page is named for what everyone does on it.
+            expect(page.get_by_role("heading", name="Lidmaatschap betalen")).to_be_visible()
             expect(page.locator("[data-renewal-status]")).to_contain_text(
                 "geen geldig lidmaatschap"
             )
@@ -520,9 +521,10 @@ def test_the_renewal_is_its_own_page_and_its_button_follows_the_choice(browser):
             expect(terms).to_contain_text("€")
             expect(terms).to_contain_text("Geldig tot en met")
             save = page.locator("[data-form-save]")
-            expect(save.locator("[data-save-idle]")).to_have_text("Vernieuwen en betalen")
+            expect(save.locator("[data-save-idle]")).to_have_text("Betalen")
             page.check('input[name="payment_method"][value="transfer"]')
-            expect(save.locator("[data-save-idle]")).to_have_text("Lidmaatschap vernieuwen")
+            # #1747: with a transfer nothing is paid at that moment.
+            expect(save.locator("[data-save-idle]")).to_have_text("Lidmaatschap aanvragen")
             expect(page.locator("[data-household-summary]")).to_contain_text("Hoofdlid")
             expect(
                 page.locator("[data-household-summary]").get_by_role("link", name="Naar Mijn gezin")
@@ -801,7 +803,7 @@ _SHAPE = """() => { const r = e => { const b = e.getBoundingClientRect(); return
   const q = s => document.querySelector(s), head = q('#hoofdlid');
   const seen = e => e.checkVisibility() && e.getBoundingClientRect().width > 1;
   const said = [...head.querySelectorAll('[data-main-emails] label, [data-main-emails] p, [data-main-emails] span')]
-    .filter(e => seen(e) && e.innerText.replace('*', '').trim() === 'E-mailadres').length;
+    .filter(e => seen(e) && e.innerText.replace('*', '').trim() === 'E-mail').length;
   const mail = head.querySelector('[data-main-emails] input[type=email]');
   return {born: r(head.querySelector('[data-field$=".date_of_birth"]')), gender: r(head.querySelector('[data-field$=".gender_code"]')),
           gender_is: head.querySelector('[name$=".gender_code"]').tagName,
@@ -814,7 +816,7 @@ _SHAPE = """() => { const r = e => { const b = e.getBoundingClientRect(); return
 def test_the_main_member_first_the_address_next_and_the_fields_as_koen_asked(browser, viewport):
     """#1632 (CR-11 Q70–Q72), measured in edit mode. Red on master: the gender a
     radio group under the date, the address after the persons, the label
-    "E-mailadres" on the row (on a phone above the field)."""
+    "E-mail" on the row (on a phone above the field)."""
     tag = uuid.uuid4().hex[:8]
     email = _sign_up(browser, tag)
     page = _open(browser, "/leden/gezin?bewerken=1", viewport, session=_session(email))
@@ -831,7 +833,7 @@ def test_the_main_member_first_the_address_next_and_the_fields_as_koen_asked(bro
         else:
             assert m["gender"]["y"] > m["born"]["y"] and m["gender"]["x"] == m["born"]["x"]
         assert m["said"] == 0, "an e-mail row shows a label of its own"
-        assert m["mail_name"] == "E-mailadres", "the field lost its accessible name"
+        assert m["mail_name"] == "E-mail", "the field lost its accessible name"
         assert m["mail"]["w"] > 200, "the address field is not there to type in"
         assert m["page"] == [viewport["width"], viewport["width"]]
         assert page.errors == []
@@ -848,7 +850,7 @@ def test_the_membership_card_shows_the_transfer_that_is_due(browser):
     page = _open(browser, "/leden/gezin", PHONE, session=_session(email))
     try:
         card = page.locator("[data-membership-status]")
-        expect(card).to_contain_text("Je vernieuwing loopt nog.")
+        expect(card).to_contain_text("Je betaling loopt nog.")
         due = card.locator("[data-transfer-due]")
         expect(due).to_be_visible()
         expect(due).to_contain_text("Mededeling (OGM)")
@@ -1000,7 +1002,8 @@ def test_the_transfer_stands_in_the_card_as_an_inset_of_the_kit(browser, viewpor
     try:
         m = page.evaluate(_INSET)
         print("MEASURE inset", viewport["width"], m)
-        assert m["title"] == "Vernieuwing geregistreerd — betaal via overschrijving:"
+        # #1737: one sentence for a first membership and a renewal alike.
+        assert m["title"] == "Lidmaatschap geregistreerd — betaal via overschrijving:"
         assert m["padding"] == ["16px"] * 4 and m["radius"] == "6px"
         assert m["tint"] not in ("rgb(255, 255, 255)", "rgba(0, 0, 0, 0)"), "no tint"
         assert m["border"] == "0px" and m["shadow"] == "none", "an inset is no card"

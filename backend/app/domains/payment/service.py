@@ -6,8 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.domains.audit.api import snapshot_payment_record
-from app.domains.mdm.api import CONTACT, MemberPerson, PaymentMethod, Person, RelationType
-from app.domains.membership.api import Membership
+from app.domains.mdm.api import PaymentMethod
 from app.kernel.codes import code_of
 
 from .models import PayableType, PaymentError, PaymentRecord, PaymentStatus, PaymentType
@@ -267,40 +266,13 @@ def family_payables(db: Session, family_id: int) -> set:
     lidmaatschappen van het gezin plus de inschrijvingen van zijn personen —
     op person_id, én op e-mailadres voor gastinschrijvingen (dezelfde regel
     als de audit-resolver). include_deleted: een betaling is een financieel
-    feit (#190), dus ook geschrapte lidmaatschappen/inschrijvingen tellen."""
-    from sqlalchemy import or_
+    feit (#190), dus ook geschrapte lidmaatschappen/inschrijvingen tellen.
 
-    from app.domains.activities.api import Registration
-    from app.domains.mdm.api import ContactDetail
+    Since CR-21 phase 0 (#1748) every payable type answers for itself, through
+    its describer: what belongs to a household is the owner's to say."""
+    from app.domains.payment.describers import payables_of_household
 
-    def q(model):
-        return db.query(model).execution_options(include_deleted=True)
-
-    ms_ids = [r[0] for r in q(Membership.id).filter(Membership.member_id == family_id).all()]
-    person_ids = [
-        r[0] for r in q(MemberPerson.person_id).filter(MemberPerson.member_id == family_id).all()
-    ]
-    emails = [
-        r[0].strip().lower()
-        for r in q(ContactDetail.value)
-        .filter(
-            ContactDetail.person_id.in_(person_ids or [0]),
-            ContactDetail.contact_type_code == CONTACT.EMAIL,
-        )
-        .all()
-        if r[0]
-    ]
-    voorwaarden = []
-    if person_ids:
-        voorwaarden.append(Registration.person_id.in_(person_ids))
-    if emails:
-        voorwaarden.append(func.lower(Registration.contact_email).in_(emails))
-    reg_ids = (
-        [r[0] for r in q(Registration.id).filter(or_(*voorwaarden)).all()] if voorwaarden else []
-    )
-    return {(PayableType.MEMBERSHIP, i) for i in ms_ids} | {
-        (PayableType.REGISTRATION, i) for i in reg_ids
-    }
+    return payables_of_household(db, family_id)
 
 
 def count_records_for_family(db: Session, family_id: int) -> int:
@@ -414,7 +386,6 @@ def registration_balance_by_activity(db: Session, activity_id: int) -> Decimal:
     `aggregate(...)["saldo"]` over those records (CR-11 K6, #1560: "Openstaand"
     on the record's summary card). One aggregate row, like the count beside it:
     the record page may not scale with the number of registrations (#651)."""
-    from sqlalchemy import func
 
     from app.domains.activities.api import Registration
 
@@ -920,23 +891,18 @@ def matches_filter(
     status: str = "all",
     q: str = "",
     openstaand: bool = False,
-    membership_year=None,
-    component_id=None,
 ) -> bool:
     """Hoort dit record bij het gekozen filter?
 
-    `membership_year`/`component_id` mogen expliciet meegegeven worden voor
-    aanroepers die ze zelf afleiden (de export verrijkt de rauwe records); anders
-    komen ze van het record zelf, zoals het scherm ze krijgt.
+    The place in the filter tree is the record's `filter_context` ("year-2026",
+    "comp-12"), which the payable's describer gives (CR-21 phase 0, #1748) — the one
+    source for the screen and the export. Until then this function also took a
+    year and a component from the caller or read them off the record.
 
     Volgorde is betekenisvol: de zoekterm staat vóór de andere filters, zodat je
     binnen het gekozen filter zoekt en niet erbuiten (#591).
     """
-    jaar = (
-        membership_year if membership_year is not None else getattr(record, "membership_year", None)
-    )
-    comp = component_id if component_id is not None else getattr(record, "component_id", None)
-
+    place = getattr(record, "filter_context", None)
     term = (q or "").strip().lower()
     if term:
         velden = (
@@ -948,16 +914,12 @@ def matches_filter(
         if not any(term in (waarde or "").lower() for waarde in velden):
             return False
 
-    if context == "membership" and record.payable_type != PayableType.MEMBERSHIP:
+    # The type is checked with the place (it came from the export's variant): a
+    # component belongs to a registration by definition, a year to a membership.
+    from app.domains.payment.describers import in_filter_context
+
+    if not in_filter_context(record.payable_type, place, context):
         return False
-    if context.startswith("year-"):
-        if record.payable_type != PayableType.MEMBERSHIP or jaar != int(context[5:]):
-            return False
-    if context.startswith("comp-"):
-        # payable_type meecontroleren (kwam uit de export-variant): een
-        # component_id hoort per definitie bij een inschrijving.
-        if record.payable_type != PayableType.REGISTRATION or comp != int(context[5:]):
-            return False
 
     # #669: "openstaand" is een AFGELEIDE toestand (amount != amount_paid), de
     # dropdown gaat over de statuskolom. Twee soorten predicaat in één keuzelijst
@@ -1361,19 +1323,8 @@ def enriched_records(db: Session) -> list:
     """
     from sqlalchemy.orm import selectinload
 
-    from app.domains.activities.api import (
-        Activity,
-        ActivitySubRegistration,
-        Registration,
-        RegistrationItem,
-        compute_registration_total,
-    )
-    from app.domains.mdm.api import Member, MemberPerson
-    from app.domains.membership.api import Membership
+    from app.domains.payment.describers import describe_many
     from app.domains.payment.schemas import EnrichedPaymentRecord
-
-    def _q(model):
-        return db.query(model).execution_options(include_deleted=True)
 
     records = (
         db.query(PaymentRecord)
@@ -1381,114 +1332,28 @@ def enriched_records(db: Session) -> list:
         .order_by(PaymentRecord.created_at.desc())
         .all()
     )
-
-    reg_ids = {r.payable_id for r in records if r.payable_type == PayableType.REGISTRATION}
-    ms_ids = {r.payable_id for r in records if r.payable_type == PayableType.MEMBERSHIP}
-
-    # Registraties mét items en producten in één keer: compute_registration_total
-    # loopt over registration.items en elk item over zijn product.
-    registraties = {}
-    if reg_ids:
-        registraties = {
-            r.id: r
-            for r in _q(Registration)
-            .options(
-                selectinload(Registration.items).selectinload(RegistrationItem.product),
-                selectinload(Registration.person),
-            )
-            .filter(Registration.id.in_(reg_ids))
-            .all()
-        }
-    activiteiten = {}
-    onderdelen = {}
-    if registraties:
-        act_ids = {r.activity_id for r in registraties.values() if r.activity_id}
-        comp_ids = {r.component_id for r in registraties.values() if r.component_id}
-        if act_ids:
-            activiteiten = {a.id: a for a in _q(Activity).filter(Activity.id.in_(act_ids)).all()}
-        if comp_ids:
-            onderdelen = {
-                c.id: c
-                for c in _q(ActivitySubRegistration)
-                .filter(ActivitySubRegistration.id.in_(comp_ids))
-                .all()
-            }
-
-    lidmaatschappen = {}
-    hoofdlid_naam = {}
-    if ms_ids:
-        lidmaatschappen = {m.id: m for m in _q(Membership).filter(Membership.id.in_(ms_ids)).all()}
-        member_ids = {m.member_id for m in lidmaatschappen.values()}
-        if member_ids:
-            leden = {m.id for m in _q(Member).filter(Member.id.in_(member_ids)).all()}
-            koppels = (
-                _q(MemberPerson)
-                .filter(
-                    MemberPerson.member_id.in_(leden),
-                    MemberPerson.relation_type == RelationType.PRIMARY_MEMBER,
-                )
-                .all()
-            )
-            personen = {}
-            if koppels:
-                personen = {
-                    p.id: p
-                    for p in _q(Person).filter(Person.id.in_({k.person_id for k in koppels})).all()
-                }
-            for koppel in koppels:
-                persoon = personen.get(koppel.person_id)
-                if persoon is not None:
-                    hoofdlid_naam[koppel.member_id] = f"{persoon.first_name} {persoon.last_name}"
+    # CR-21 phase 0 (#1748): what each payment is for comes from the describer of
+    # its payable type — one batch per type, as the two branches here did it.
+    described = describe_many(db, {(r.payable_type, r.payable_id) for r in records})
 
     resultaat = []
     for r in records:
-        contact_name = description = None
-        activity_id = component_id = component_name = membership_year = None
-        family_id = None
-        reg_items: list = []
-
-        if r.payable_type == PayableType.REGISTRATION:
-            reg = registraties.get(r.payable_id)
-            if reg is not None:
-                contact_name = reg.contact_name
-                activity_id = reg.activity_id
-                component_id = reg.component_id
-                onderdeel = onderdelen.get(reg.component_id)
-                component_name = onderdeel.name if onderdeel else None
-                activiteit = activiteiten.get(reg.activity_id)
-                if activiteit is not None:
-                    description = activiteit.name
-                    _totaal, regels = compute_registration_total(reg)
-                    reg_items = [
-                        {
-                            "product_name": regel["name"],
-                            "quantity": regel["quantity"],
-                            "unit_price": float(regel["unit_price"]),
-                            "subtotal": float(regel["subtotal"]),
-                        }
-                        for regel in regels
-                    ]
-        elif r.payable_type == PayableType.MEMBERSHIP:
-            # payable_id is de Membership.id (niet de Member.id) — het jaar komt
-            # van het lidmaatschap, de naam van het hoofdlid van dat gezin (#141).
-            ms = lidmaatschappen.get(r.payable_id)
-            description = f"Lidmaatschap {ms.year}" if ms else "Lidmaatschap"
-            membership_year = ms.year if ms else None
-            if ms is not None:
-                contact_name = hoofdlid_naam.get(ms.member_id)
-                family_id = ms.member_id
+        what = described[(r.payable_type, r.payable_id)]
+        fields = what.record_fields
 
         resultaat.append(
             EnrichedPaymentRecord(
                 id=r.id,
                 payable_type=r.payable_type,
                 payable_id=r.payable_id,
-                activity_id=activity_id,
-                component_id=component_id,
-                component_name=component_name,
-                membership_year=membership_year,
-                family_id=family_id,
-                items=reg_items,
+                component_id=fields.get("component_id"),
+                component_name=fields.get("component_name"),
+                membership_year=fields.get("membership_year"),
+                items=fields.get("items", []),
+                context_href=what.context_href,
+                payable_href=what.payable_href,
+                payable_label=what.payable_label,
+                filter_context=what.filter_context,
                 amount=r.amount,
                 amount_paid=r.amount_paid,
                 method=r.method,
@@ -1500,8 +1365,8 @@ def enriched_records(db: Session) -> list:
                 checkout_url=r.gateway_payment.checkout_url if r.gateway_payment else None,
                 structured_communication=r.structured_communication,
                 created_at=r.created_at,
-                description=description,
-                contact_name=contact_name,
+                description=what.description,
+                contact_name=what.contact_name,
             )
         )
     return resultaat

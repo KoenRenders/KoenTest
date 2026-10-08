@@ -9,6 +9,7 @@ onbetaalde/pending records zonder bedrag blijven verwijderbaar (#167).
 from decimal import Decimal
 
 from app.domains.payment.api import PaymentRecord
+from tests import payments_door
 
 
 def _seed(db, *, method, status, amount="18.00", amount_paid="18.00", type="charge"):
@@ -27,7 +28,7 @@ def _seed(db, *, method, status, amount="18.00", amount_paid="18.00", type="char
 
 
 def _delete(client, headers, rec_id):
-    return client.delete(f"/api/v1/payment-status/records/{rec_id}", headers=headers)
+    return payments_door.delete(client, rec_id)
 
 
 def test_online_paid_cannot_be_deleted(client, db_session, admin_headers):
@@ -71,11 +72,7 @@ def test_can_delete_transfer_payment_after_correcting_amount_to_zero(
     dan mag de overschrijving wél verwijderd worden."""
     rec = _seed(db_session, method="transfer", status="paid", amount_paid="18.00")
     assert _delete(client, admin_headers, rec.id).status_code == 400  # eerst geweigerd
-    patch = client.patch(
-        f"/api/v1/payment-status/records/{rec.id}",
-        json={"status": "paid", "amount_paid": "0"},
-        headers=admin_headers,
-    )
+    patch = payments_door.update(client, rec.id, {"status": "paid", "amount_paid": "0"})
     assert patch.status_code == 200, patch.text
     assert _delete(client, admin_headers, rec.id).status_code == 204
 
@@ -93,10 +90,6 @@ def test_can_delete_transfer_refund_after_correcting_amount_to_zero(
         type="refund",
     )
     assert _delete(client, admin_headers, rec.id).status_code == 400
-    patch = client.patch(
-        f"/api/v1/payment-status/records/{rec.id}",
-        json={"status": "paid", "amount_paid": "0"},
-        headers=admin_headers,
-    )
+    patch = payments_door.update(client, rec.id, {"status": "paid", "amount_paid": "0"})
     assert patch.status_code == 200, patch.text
     assert _delete(client, admin_headers, rec.id).status_code == 204

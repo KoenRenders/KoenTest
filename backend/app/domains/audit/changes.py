@@ -28,6 +28,7 @@ from app.domains.mdm.api import (
     MemberPersonHistory,
     PersonHistory,
     RelationType,
+    contact_change,
 )
 from app.domains.membership.api import MembershipHistory
 from app.i18n import _
@@ -222,17 +223,27 @@ class _SubjectResolver:
         }
 
     def from_payment(self, payable_type, payable_id) -> Optional[dict]:
-        """Verrijking voor een betaling-wijziging: via de inschrijving of het
-        lidmaatschap waar de betaling aan hangt."""
-        if payable_type == "registration":
-            return self.from_registration(payable_id)
-        if payable_type == "membership":
-            from app.domains.membership.api import Membership
+        """Verrijking voor een betaling-wijziging: via wat de betaling betaalt — de
+        persoon of het gezin erachter, zoals de describer van die soort het zegt
+        (CR-21 phase 0, #1748). Een gast zonder persoon toont enkel de contactnaam."""
+        from app.domains.payment.api import describe_one
 
-            ms = self._q(Membership).filter(Membership.id == payable_id).first()
-            if ms is not None:
-                return self.fields(member_id=ms.member_id)
-        return None
+        what = describe_one(self.db, payable_type, payable_id)
+        if what.household_id is not None:
+            return self.fields(member_id=what.household_id)
+        if what.person_id is not None:
+            return self.fields(person_id=what.person_id)
+        pid = self._person_by_email(what.contact_email)
+        if pid is not None:
+            return self.fields(person_id=pid)
+        if what.contact_name is None and what.contact_email is None:
+            return None
+        return {
+            "person_name": _fmt(what.contact_name),
+            "person_external_id": "",
+            "head_address": "",
+            "head_external_id": "",
+        }
 
 
 _EMPTY_SUBJECT = {
@@ -395,7 +406,13 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
     for h in db.query(ContactDetailHistory).filter(ContactDetailHistory.recorded_at >= since_dt):
         # Bij een wijziging "oud → nieuw" tonen door de vorige snapshot van ditzelfde
         # contact op te zoeken (#188).
-        value_part = _fmt(h.value)
+        # #1687: the one presentation of a contact change (`mdm.change_lines`),
+        # as the member import's check shows it: the code table's label instead
+        # of the stored code ("Mobiel", not "MOBILE"), a number in groups, and
+        # "old → new" where the row before this one holds another value.
+        # `before` stays None for a new contact and for a row whose value did
+        # not change: then the value alone is shown.
+        before: Optional[str] = None
         # #1174: een verandering van de HOOFDADRES-markering moet hier te lezen
         # zijn, en niet alleen als "Gewijzigd".
         #
@@ -428,7 +445,7 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                 .first()
             )
             if prev is not None and prev.value != h.value:
-                value_part = f"{_fmt(prev.value)} → {_fmt(h.value)}"
+                before = _fmt(prev.value)
             # Terugval voor paden die de bedoeling niet benoemen — de ledenimport
             # schrijft `contacts_imported` voor élke wijziging.
             if not markering and prev is not None and bool(prev.is_primary) != bool(h.is_primary):
@@ -439,12 +456,16 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
             markering = " — hoofdadres"
         elif h.operation == "delete" and h.is_primary:
             markering = " — was het hoofdadres"
+        if h.operation == "delete":
+            shown = contact_change(h.contact_type_code, _fmt(h.value), "")
+        else:
+            shown = contact_change(h.contact_type_code, before, _fmt(h.value))
         rows.append(
             _row(
                 h,
                 entity="Contact",
                 entity_id=h.contact_detail_id,
-                summary=f"{_fmt(h.contact_type_code)}: {value_part}{markering}",
+                summary=f"{shown.text()}{markering}",
                 subject=subj.fields(person_id=h.person_id),
             )
         )
@@ -542,7 +563,7 @@ def all_changes_since(
                 for label, oud, nieuw in (
                     ("naam", prev.contact_name, h.contact_name),
                     ("e-mail", prev.contact_email, h.contact_email),
-                    ("gsm", prev.phone, h.phone),
+                    ("mobiel", prev.phone, h.phone),
                     ("opmerking", prev.remarks, h.remarks),
                 ):
                     if (oud or "") != (nieuw or ""):

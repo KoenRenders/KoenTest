@@ -46,7 +46,11 @@ from app.domains.activities.models import (  # noqa: F401
     RegistrationItem,
     RegistrationItemHistory,
 )
-from app.domains.activities.proposer import ProposerError  # noqa: F401
+from app.domains.activities.my_registrations import (  # noqa: F401
+    MyRegistration,
+    my_registrations,
+)
+from app.domains.activities.proposer import ProposerError, no_answer_text  # noqa: F401
 from app.domains.activities.registration_form import (  # noqa: F401
     Channel,
     Outcome,
@@ -95,6 +99,7 @@ from app.domains.activities.service import (  # noqa: F401
     inschrijving_kop_ctx,
     inschrijving_tabs,
     is_published,
+    member_contacts,
     members_only_refusal,
     move_organiser,
     organisers_for,
@@ -349,7 +354,10 @@ def board_register_for_activity(
     )
 
 
+from app.domains.activities.payables import registration_describer  # noqa: E402, F401
+
 __all__ = [
+    "registration_describer",
     "Channel",
     "Outcome",
     "OutcomeKind",
@@ -415,6 +423,7 @@ __all__ = [
     "proposal_vals",
     "proposer_url",
     "ProposerError",
+    "no_answer_text",
     "list_activities",
     "move_within",
     "public_registrations",
@@ -422,6 +431,7 @@ __all__ = [
     "OrganiserView",
     "add_organiser",
     "organisers_for",
+    "member_contacts",
     "board_notes",
     "move_organiser",
     "remove_organiser",

@@ -1,0 +1,27 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% import "_public_macros.html" as pub %}
+{% block title %}{{ title }} · {{ site_name }}{% endblock %}
+{% block content %}
+{# "Mijn <site>": where someone lands after signing in (CR-22 S3, #1706; R13,
+   R26). A greeting, how the membership stands — the card of Mijn gezin, the
+   same partial — and the latest registration, only when there is one (S5). On a phone the
+   account menu is the drawer's; the links at the bottom reach every page from
+   here (Q16). #}
+{% call pub.account_page(title, nav, active) %}
+  <p data-account-greeting class="text-base text-ink-soft">{% if first_name %}{{ _("Dag %(naam)s.", naam=first_name) }}{% else %}{{ _("Dag.") }}{% endif %}</p>
+  {% if card %}
+  <div class="mt-6">{% include "_membership_card.html" %}</div>
+  {% endif %}
+  {% if latest %}
+  <section data-latest-registration class="mt-8">
+    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <h2 class="font-semibold text-kop">{{ _("Je laatste inschrijving") }}</h2>
+      <a class="text-sm text-link underline" href="{{ path_for(registrations_href) }}">{{ _("Alle inschrijvingen") }}</a>
+    </div>
+    <div class="mt-3">{% set reg = latest %}{% include "_my_registration.html" %}</div>
+  </section>
+  {% endif %}
+  {{ pub.account_links(nav, active) }}
+{% endcall %}
+{% endblock %}

@@ -29,8 +29,8 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
+from app.domains.mdm.codes import CONTACT
 from app.domains.mdm.models import (
-    ContactDetail,
     MasterDataError,
     Member,
     MemberPerson,
@@ -38,6 +38,8 @@ from app.domains.mdm.models import (
     PostalCode,
     RelationType,
 )
+from app.domains.mdm.service import new_contact_detail, require_email_free
+from app.kernel.codes import code_of
 from app.soft_delete import soft_delete
 
 SOURCE = "member_self"
@@ -148,7 +150,12 @@ def update_household_person(
 
 
 def apply_person_fields(
-    db: Session, target: Person, new: dict[str, Any], *, actor: Optional[str]
+    db: Session,
+    target: Person,
+    new: dict[str, Any],
+    *,
+    actor: Optional[str],
+    details_required: bool = True,
 ) -> bool:
     """Write these person fields with their history, without committing (#1590:
     shared by `update_household_person` and the save of the whole household).
@@ -158,10 +165,13 @@ def apply_person_fields(
     # #681: judge the outcome — the portal does not always send every field — and
     # judge it before applying anything: a rollback after the change would also
     # throw away everything else in the same session.
-    MemberPerson.require_details(
-        new.get("date_of_birth", target.date_of_birth),
-        new.get("gender_code", target.gender_code),
-    )
+    # `details_required=False`: Mijn gegevens (CR-22 S6a, #1710) writes a name
+    # and asks neither birth date nor gender — those are the household's (R17).
+    if details_required:
+        MemberPerson.require_details(
+            new.get("date_of_birth", target.date_of_birth),
+            new.get("gender_code", target.gender_code),
+        )
 
     # Snapshot only what really changes (#188): a form sends every field, but an
     # unchanged field makes no history row.
@@ -292,6 +302,9 @@ def _upsert_contact(
     if value:
         if existing is not None:
             if existing.value != value:
+                # CR-22 (#1704): a changed address passes the rule a new one does.
+                if code_of(type_code) == code_of(CONTACT.EMAIL):
+                    require_email_free(db, target, value)
                 existing.value = value
                 db.flush()
                 snapshot_contact_detail(
@@ -303,9 +316,7 @@ def _upsert_contact(
                     actor=actor,
                 )
         else:
-            contact = ContactDetail(
-                person_id=target.id, contact_type_code=type_code, value=value, is_primary=True
-            )
+            contact = new_contact_detail(db, target, type_code, value, is_primary=True)
             target.contact_details.append(contact)
             db.flush()
             snapshot_contact_detail(
@@ -443,9 +454,7 @@ def insert_household_person(
 
     for type_code, key in (("EMAIL", "email"), ("PHONE", "phone"), ("MOBILE", "mobile")):
         if data.get(key):
-            contact = ContactDetail(
-                person_id=person.id, contact_type_code=type_code, value=data[key], is_primary=True
-            )
+            contact = new_contact_detail(db, person, type_code, data[key], is_primary=True)
             db.add(contact)
             db.flush()
             snapshot_contact_detail(
@@ -472,15 +481,25 @@ def remove_household_person(
 
 
 def detach_household_person(
-    db: Session, household: Member, target: Person, *, by: Person, actor: Optional[str]
+    db: Session,
+    household: Member,
+    target: Person,
+    *,
+    by: Optional[Person],
+    actor: Optional[str],
+    source: str = SOURCE,
 ) -> None:
     """Soft-delete this person's link to the household with its history row,
     without committing (#1590). Refuses the acting member themselves, and the
-    main member whoever asks (#1603) — here, so every door refuses."""
+    main member whoever asks (#1603) — here, so every door refuses.
+
+    `by` is the member who acts; the board has no person and passes None
+    (CR-22 S7, #1712) — then only the refusal of oneself falls away. `source`
+    is what the history row says: the member's own act, or the board's."""
     from app.domains.audit.api import snapshot_member_person
     from app.i18n import _
 
-    if target.id == by.id:
+    if by is not None and target.id == by.id:
         raise CannotRemoveSelf(_("Je kan jezelf niet uit het gezin verwijderen."))
     if _is_main_member(household, target):
         raise MainMemberStays(_("Een gezin heeft een hoofdlid nodig."))
@@ -491,7 +510,7 @@ def detach_household_person(
             link,
             operation="delete",
             action="person_removed_from_family",
-            source=SOURCE,
+            source=source,
             actor=actor,
         )
         soft_delete(link)
@@ -510,7 +529,13 @@ def person_payload(person: Person) -> dict[str, Any]:
     # The same shape as `FamilyMemberResponse.emails` on the admin screen, so the
     # two templates read the same.
     emails = [
-        {"id": c.id, "value": c.value, "is_primary": bool(c.is_primary)}
+        {
+            "id": c.id,
+            "value": c.value,
+            "is_primary": bool(c.is_primary),
+            # CR-22 R15 (#1711): False while the address waits for its code.
+            "confirmed": c.confirmed_at is not None,
+        }
         for c in sorted(
             (c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL and c.value),
             key=lambda c: (not c.is_primary, c.id or 0),

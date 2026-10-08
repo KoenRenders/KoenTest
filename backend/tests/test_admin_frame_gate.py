@@ -60,6 +60,41 @@ def test_every_menu_icon_exists_in_the_kit():
     assert not empty, f"icons the kit does not have (an empty rail button): {empty}"
 
 
+#: The webshop's icons (CR-21 phase 0, #1748): what each will mean. No menu item
+#: uses them before phase 1, so the two tests above do not look at them yet.
+SHOP_ICONS = {
+    "Productbeheer": "package",
+    "Prijsbeheer": "tag",
+    "Voorraadbeheer": "warehouse",
+    "Verkoop": "receipt-text",
+    "Mijn aankopen": "shopping-bag",
+    "the basket": "shopping-cart",
+}
+
+
+def _drawing(name: str) -> str:
+    macros = templates.env.get_template("_macros.html").module
+    svg = str(macros.icon(name))
+    return svg[svg.index(">") + 1 : svg.rindex("</svg>")].strip()
+
+
+def test_the_webshops_icons_render_and_each_means_one_thing():
+    """An icon name the kit lacks renders an empty square, and nothing else says so.
+
+    Proven by violation: a seventh entry `"Kassa": "cash-register"` (a name the kit
+    does not have) turns it red, naming it; `"Verkoop": "package"` turns it red on
+    "one glyph, two meanings".
+    """
+    assert len(SHOP_ICONS) >= 6, "the gate reads the webshop's icons"
+    drawings = {name: _drawing(name) for name in SHOP_ICONS.values()}
+    empty = [n for n, d in drawings.items() if not re.search(r"<(path|rect|circle|line)\b", d)]
+    assert not empty, f"icons the kit does not have (an empty square): {empty}"
+    assert len(set(SHOP_ICONS.values())) == len(SHOP_ICONS), "one glyph, two meanings"
+    assert len(set(drawings.values())) == len(drawings), "two names draw the same glyph"
+    taken = sorted(set(SHOP_ICONS.values()) & set(_ADMIN_NAV_ICONS.values()))
+    assert not taken, f"already the glyph of another menu item: {taken}"
+
+
 def test_the_design_system_page_names_the_admin_values():
     """Point 5 of #1482: the page's token list names the admin shell's values.
 

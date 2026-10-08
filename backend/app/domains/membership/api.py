@@ -9,6 +9,7 @@ oude wereld gaan uitsluitend via deze module.
 # (`mdm`, #1603); it stays reachable here for the callers that knew it here.
 from app.domains.mdm.api import default_relation  # noqa: F401
 from app.domains.membership.models import Membership, MembershipHistory  # noqa: F401
+from app.domains.membership.payables import membership_describer  # noqa: E402, F401
 from app.domains.membership.schemas_member import (  # noqa: F401
     AddressUpdate,
     BoardMemberAssign,
@@ -24,6 +25,7 @@ from app.domains.membership.service import (  # noqa: F401
     current_membership_counts,
     has_valid_membership,
     household_payment_state,
+    is_first_membership,
     is_member,
     members_valid_on,
     members_with_membership_for_year,
@@ -41,12 +43,14 @@ from app.domains.membership.service import (  # noqa: F401
 )
 
 __all__ = [
+    "membership_describer",
     "Membership",
     "MembershipHistory",
     "has_valid_membership",
     "household_payment_state",
     "is_member",
     "membership_coverage_until",
+    "is_first_membership",
     "open_renewal_payment",
     "members_valid_on",
     "current_membership_counts",
@@ -90,6 +94,35 @@ __all__ = [
     "PersonUpdate",
     "PostalCodeResponse",
 ]
+
+
+# ── The person block for one person (CR-22 S6a, #1710) ───────────────────────
+
+
+def person_block(person, *, edit=False):
+    """The person block of Mijn gezin for this one person, for a page of their
+    own (Mijn gegevens)."""
+    from app.domains.membership.household_page import person_block as _impl
+
+    return _impl(person, edit=edit)
+
+
+# ── The membership card (CR-22 S2, #1705) ────────────────────────────────────
+# One view-model for every place that shows how a membership stands.
+
+
+def membership_card(db, person, *, household=None):
+    """The membership card of the household `person` belongs to."""
+    from app.domains.membership.membership_card import membership_card as _impl
+
+    return _impl(db, person, household=household)
+
+
+def renewal_is_running(db, person) -> bool:
+    """Does a renewal of this person's household wait for its payment?"""
+    from app.domains.membership.membership_card import renewal_is_running as _impl
+
+    return _impl(db, person)
 
 
 # ── Doorgangen naar het gezinsportaal ────────────────────────────────────────
@@ -159,11 +192,14 @@ def household_renew_membership(db, person, payment_method: str = "online"):
     return _impl(person=person, db=db, payment_method=payment_method)
 
 
-def register_family(db, data, background_tasks):
-    """Publieke gezinsregistratie — de flow blijft in register_router."""
+def register_family(db, data, background_tasks, *, signed_in=None):
+    """Publieke gezinsregistratie — de flow blijft in register_router.
+
+    `signed_in` (CR-22 R9, #1713): the person the visitor is signed in as, or
+    None. An account that signs up becomes the main member itself."""
     from app.domains.membership.register_router import register_family as _impl
 
-    return _impl(data, background_tasks, db=db)
+    return _impl(data, background_tasks, db=db, signed_in=signed_in)
 
 
 # ── Onderaan, en dat is opzet ────────────────────────────────────────────────

@@ -3,7 +3,9 @@ activiteit/onderdeel/product schrijft een history-rij (incl. soft-delete)."""
 
 from datetime import date
 
+from app.domains.activities import service as activities_service
 from app.domains.activities.api import ActivityHistory, ComponentHistory, ProductHistory
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
 def test_unified_changes_feed(client, db_session, admin_headers):
@@ -50,7 +52,9 @@ def test_activity_domain_changes_are_audited(client, db_session, admin_headers):
         == 1
     )
 
-    client.put(f"/api/v1/activities/{aid}", headers=admin_headers, json={"name": "Auditdag 2"})
+    activities_service.update_activity(
+        db_session, aid, {"name": "Auditdag 2"}, actor=SEEDED_ADMIN_EMAIL
+    )
     assert (
         db_session.query(ActivityHistory)
         .filter(ActivityHistory.activity_id == aid, ActivityHistory.operation == "update")
@@ -93,7 +97,7 @@ def test_activity_domain_changes_are_audited(client, db_session, admin_headers):
     )
 
     # Verwijder de hele activiteit → delete-rijen voor activiteit + onderdeel.
-    client.delete(f"/api/v1/activities/{aid}", headers=admin_headers)
+    assert activities_service.delete_activity(db_session, aid, actor=SEEDED_ADMIN_EMAIL)
     assert (
         db_session.query(ActivityHistory)
         .filter(ActivityHistory.activity_id == aid, ActivityHistory.operation == "delete")

@@ -24,8 +24,9 @@ what refuses a deviation. A builder reads 2 and 5 to know what a screen is,
 §3.1–§3.6, §3.10 (K2, K4–K7), §3.15 (K8), §6 (K9) and §2.5 (P1) on 5 October
 2026 — into `design-system.md` §0, §1.2, §1.6, §2.2, §2.3, §2.4, §2.7, §2.11,
 §3.4, §5, §7 and §13; §2.6 (P2, P3 and their corrections) on 6 October 2026,
-when v2.13.0 reached PROD — into `design-system.md` §7, §2.11 and P12. Still
-to fold: §2.7 (pilot C, v2.14.0). For
+when v2.13.0 reached PROD — into `design-system.md` §7, §2.11 and P12; §2.7
+(pilot C) on 7 October 2026, when v2.14.0 reached PROD — into
+`design-system.md` §7 and §13. Nothing left to fold. For
 block 1: §1.1 → §1.1a there, §1.2 and §1.6 →
 §1.2–§1.3, §1.5 → §1.4, §1.4 → §1.6 (the admin frame). This section stays as
 the design intent; where the two differ, `design-system.md` says what runs.
@@ -118,6 +119,8 @@ binding: each step has one use, applied by a macro, never by a template.
 | list page | the full content width beside the sidebar, no `max-w`: a list grows with the screen (block 1 replaces the 1 280 px box here before) | one column, 16 px gutters |
 | record page | the full frame; inside it one **reading group** of 768 px form column + 24 px gap + 300 px summary column (1 092 px), **left-aligned against the page margin** — never centred — so a form starts on the same x as a list, the title and the tabs; the space beyond the summary stays empty on a wide screen (Koen, 4 Oct 2026, correcting block 1's "centred when the frame is wider") | one column, 16 px gutters; the summary as a strip under the tabs |
 | document page | reading width 768 px, left-aligned like the record page | one column, 16 px gutters |
+
+**These three are the whole scale** (Koen, 8 October 2026, CR-11 Q89, after the sign-in card went 1 248 → 448 → 768 px in two days). A screen that stands alone — the sign-in card, a page with one message and one button, a short admin form — is a document page at 768 px; there is no narrow-card and no short-form width. The public site adds one: its container of 1 024 px with text at 768 px (CR-17 Q20). A modal and the 300 px summary column are the kit's own and not page widths. A domain template sets no `max-w-*` of its own: the width is the layout's. The 448, 576 and 672 px boxes that exist today move to 768 px in CR-11 phase 5, behind a count that may only fall to zero.
 
 **Two priorities, one kit** (Koen, 2 October 2026): the public site is
 designed phone-first — 390 px is where a public page is drawn first and
@@ -549,7 +552,7 @@ public forms — register, a public form, Word lid, renew, Mijn gezin:
 
 [CR-11 B10 and Q59, 4 October 2026; beslissing 12]
 
-### 2.7 The public activity and photo pages (pilot C, decided 6 October 2026)
+### 2.7 The public activity and photo pages (pilot C, decided 6 October 2026; built in v2.14.0, on PROD since 7 October 2026)
 
 Decided by Koen on ChatGPT's brief-13 answer, which was as conservative as
 asked ("subtiele, 100 % zekere verbeteringen … in het kader brengen is al
@@ -562,30 +565,45 @@ title and the button sizes stay.
   size)` — card 48 px and 56 from 640 px, page 56 / 64 px; `year_heading(year)`;
   `activity_facts(dates, location, deadline)`; `component_actions(components,
   context)` with a grid instead of the negative margin on a phone;
-  `photo_card(album, href)` on the kit's card; `back_link(origin, href)`;
-  `photo_grid` and `lightbox`; the public title role without local size
-  overrides. The poster stays a style role of the activity page.
+  `photo_card(album, href)` on `ui.card(href=…)`; `public_back_link(origin,
+  href)`; `photo_grid` and `lightbox`; the public title role without local
+  size overrides. The poster stays a style role of the activity page.
+  **As built (#1663, C1)**: the public macros live in their own file,
+  `_public_macros.html`, not in `_macros.html` — they use the app's date
+  filters, which the kit's own test environment does not load; the way back
+  is `public_back_link`, because `back_link(label, href)` is the back office's;
+  `component_actions` is a partial, not a macro (it reads the page context);
+  from 640 px the date tile spans both rows of the card's grid. The
+  measurement baseline of #1605 stayed at 0 px on all 45 screen-widths.
 - **Five visible corrections** (Z1–Z5): the sponsor block of the shared
   footer ends on the container's right edge (Koen's own addition; the three
   even columns of §2.5 stay, the third aligns its block right); the photos
-  overview takes the activity list's year heading (20 / 18 px semibold, a
-  1 px line in the line token); the album card takes the public card (radius
-  14, the line token); one way back — the kit's chevron and the origin's
+  overview takes the activity list's year heading (**18 px at every width**,
+  semibold, a 1 px line in the line token — Koen, 7 October 2026: the 20 px on
+  a phone written here gave way to what the public title scale of #1642
+  renders); the album card already had the public card's radius 14 (the
+  "16" came from the reconstruction); one way back — the kit's chevron and the origin's
   name, "‹ Activiteiten", "‹ Archief", "‹ Foto's"; the lightbox's close,
   previous and next as 24 px kit icons in 44 × 44 px buttons.
 - **Operation** (Z6, Z7): the lightbox traps the focus and returns it to the
   photo that opened it; the thumbs-up keeps its 20 px pill and gets a 44 px
   hit area; the browser title is "<page> · <site name>", never a literal
-  tenant name. No swipe, counter or zoom.
+  tenant name. No swipe, counter or zoom. **As built (#1665, C3)**: the
+  lightbox stands beside `ui.modal`, not on it (the modal traps no focus and
+  is a white card with a title bar); shown through a class binding, not
+  `x-show`; the thumbnails keep radius 10 px; a photo is bounded, never
+  enlarged; the page behind still scrolls with the wheel. One screen added to
+  the baseline (`public-fotos-lichtbak`); the kit page shows the lightbox.
 - **Named as taste and not built**: the poster under the text on a phone;
   folding long date series; dropping "Foto's —" from the album title;
   larger desktop buttons; card effects.
 - **Guard**: the DOM baseline (#1605) carries these pages at 390 and 1 440;
   only Z1–Z5 may move it; the invariants are 1 / 3 / 12 dates, a long title,
   several components, full / closed / members only, no poster, an empty
-  list and a second tenant.
+  list and a second tenant. A fourth ratchet rule since C1: no hand-written
+  date tile, year heading or way back in a public template.
 
-[CR-11 B10, Q86 and Q88, 6 October 2026; beslissing 13; v2.14.0]
+[CR-11 B10, Q86 and Q88, 6 October 2026; beslissing 13; built as in CR-11 B9, 7 October 2026; v2.14.0]
 
 ---
 

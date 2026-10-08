@@ -28,7 +28,7 @@
  class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Naam<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
 </th>
 <th scope="col" data-cell="context"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[22%]">
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[20%]">
  Contact
  </th>
 <th scope="col" data-cell="date" aria-sort="ascending"
@@ -36,15 +36,15 @@
 <a href="/admin/leden/gezin/<MEMBER>/inschrijvingen?sort=-datum" data-sort="datum"
  class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 font-semibold text-blue-700">Datum<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></a>
 </th>
-<th scope="col" data-cell="more"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[15%]">
+<th scope="col" data-cell="more" data-p="1"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[12%]">
  Producten
  </th>
 <th scope="col" data-cell="amount"
  class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right w-[96px]">
  Bedrag
  </th>
-<th scope="col" data-cell="extra"
+<th scope="col" data-cell="extra" data-p="2"
  class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right w-[96px]">
  Saldo
  </th>
@@ -60,7 +60,7 @@
 </thead>
 <tbody data-group id="reg-group-0" x-data="{ shown: true }" :data-collapsed="(!shown).toString()">
 <tr data-group-row class="bg-surface-2">
-<th scope="rowgroup" data-cell="name" colspan="7" class="h-11 border-b border-line px-3 py-0 text-left text-sm font-semibold text-ink">
+<th scope="rowgroup" data-cell="name" colspan="5" class="h-11 border-b border-line px-3 py-0 text-left text-sm font-semibold text-ink">
 <span class="flex flex-wrap items-center gap-x-3">
 <button type="button" data-group-toggle class="inline-flex min-h-11 items-center gap-2 text-left" @click="shown = !shown" :aria-expanded="shown.toString()">
 <span class="shrink-0 transition-transform" :class="shown ? 'rotate-90' : ''"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
@@ -69,6 +69,7 @@
 <span class="text-[13px] font-normal"><a href="/admin/activiteiten/<ACTIVITY>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline ">Open activiteit<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></span>
 </span>
 </th>
+<td data-p="1" data-group-filler aria-hidden="true" class="border-b border-line p-0"></td><td data-p="2" data-group-filler aria-hidden="true" class="border-b border-line p-0"></td>
 <td data-cell="actions" class="border-b border-line px-3 py-0"></td>
 </tr>
 <tr data-row data-row-key="<R:member>" class="align-middle">
@@ -81,10 +82,10 @@
 <div class="text-xs text-ink-soft">0470 00 00 01</div>
 </td>
 <td data-cell="date" class="whitespace-nowrap border-b border-line px-3 py-2 tabular-nums">01-02-2099</td>
-<td data-cell="more" class="border-b border-line px-3 py-2">2 × Product paid · 1 × Product free · 1 × Product on_site</td>
+<td data-cell="more" data-p="1" class="border-b border-line px-3 py-2">2 × Product paid · 1 × Product free · 1 × Product on_site</td>
 <td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 20,00</span>
 <span data-stacked-only data-stacked-balance class="block text-xs font-semibold tabular-nums whitespace-nowrap text-brand-warning">nog € 15,00</span></td>
-<td data-cell="extra" data-balance class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap font-semibold text-brand-warning">€ 15,00</span></td>
+<td data-cell="extra" data-p="2" data-balance class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap font-semibold text-brand-warning">€ 15,00</span></td>
 <td data-cell="status" class="border-b border-line px-3 py-2"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-yellow-100 text-yellow-800">Openstaand</span></td>
 <td data-cell="actions" class="border-b border-line px-3 py-2">
 <div data-above-row data-row-controls class="flex items-center justify-end gap-2"

@@ -41,6 +41,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.payment.api import PaymentRecord, PaymentStatus, PaymentType
+from tests import payments_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -162,11 +163,20 @@ def test_the_delete_route_takes_the_record_out_of_the_balance(client, db_session
         ("status", {"status": "cancelled"}),
         ("verwijderen", {"note": "weg"}),
         ("verversen", {}),
+        # The three the JSON door's own role test covered until that door went
+        # (#1251): refund, edit, and booking an amount.
+        ("refund", {"amount": "5.00"}),
+        ("bewerken", {"status": "paid"}),
+        ("bijwerken", {"amount_paid": "1.00"}),
     ],
 )
 def test_only_finance_may_mutate(client, db_session, pad, data):
-    """`require_finance_mutation` op alle drie. ADMIN mag kijken en exporteren maar
-    niet muteren (#83/#530) — en dat onderscheid is precies wat hier ongedekt was."""
+    """`require_finance_mutation` op elke mutatie. ADMIN mag kijken en exporteren maar
+    niet muteren (#83/#530) — en dat onderscheid is precies wat hier ongedekt was.
+
+    Proven red for all six (8 October 2026): an early `return` added at the top of
+    `require_finance_mutation` → every case answers 200.
+    """
     # Een EIGEN gebruiker: de geseede beheerder kan FINANCE al dragen, en dan zou deze
     # test groen staan zonder iets over de rolcheck te bewijzen.
     kijker = User(email="alleen-kijken@example.com", is_active=True)
@@ -218,7 +228,7 @@ def test_the_manual_refresh_takes_its_status_from_mollie(
         db_session, status="pending", payable_id=7704, method="online", gateway_id=gp.id
     )
 
-    resp = client.post(f"/api/v1/payment-status/records/{record.id}/refresh", headers=admin_headers)
+    resp = payments_door.refresh(client, record.id)
 
     assert resp.status_code == 200, resp.text[:300]
     db_session.expire_all()
@@ -239,7 +249,7 @@ def test_a_transfer_cannot_be_refreshed_at_mollie(client, db_session, admin_head
     db_session.flush()
     record = _charge(db_session, status="pending", payable_id=7705)
 
-    resp = client.post(f"/api/v1/payment-status/records/{record.id}/refresh", headers=admin_headers)
+    resp = payments_door.refresh(client, record.id)
 
     assert resp.status_code == 400
     assert "online" in resp.text.lower()

@@ -45,16 +45,22 @@ EXPECTED = {
     # #1590: the household's three pages.
     "domains/membership/templates/lid_worden.html",
     "domains/membership/templates/lidmaatschap_vernieuwen.html",
-    "domains/membership/templates/gezin_portaal.html",
+    "domains/membership/templates/household_page.html",
+    # CR-22 S6a (#1710): Mijn gegevens, the person block of Mijn gezin for oneself.
+    "domains/mdm/templates/my_details.html",
 }
 
 #: A page on the frame that SAVES a record instead of sending a form: its bar is
 #: the record's ("Opslaan"), and the page reads back what was saved. Page → why.
 #: Everything else on the frame is sent.
 SAVES = {
-    "domains/membership/templates/gezin_portaal.html": (
+    "domains/membership/templates/household_page.html": (
         "Mijn gezin is a record the member keeps: read first, one Opslaan, then read "
         "again (end state §2.6; master CLI, 5 October 2026)"
+    ),
+    "domains/mdm/templates/my_details.html": (
+        "Mijn gegevens is the same record for one person: the person block and the "
+        "save path of Mijn gezin, read first, one Opslaan (CR-22 D6, R16; #1710)"
     ),
 }
 
@@ -209,7 +215,7 @@ def test_a_page_named_as_a_save_has_the_records_bar_and_exists():
     """#1590. The one exemption from "a public form is sent" is by name, with its
     reason; a named page that sends after all, or that is gone, is red.
 
-    Proven red by putting `send=True` on the bar of `gezin_portaal.html`.
+    Proven red by putting `send=True` on the bar of `household_page.html`.
     """
     pages = _pages()
     for rel, reason in SAVES.items():

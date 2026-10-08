@@ -8,6 +8,10 @@ aangesproken. Soft-ref-patroon (§6): consumenten bewaren waarde-id's
 
 # CR-12: this domain's code lists belong to the public facade, so that another
 # domain reaches an FK target and an enum through one door.
+from app.domains.mdm.change_lines import (  # noqa: F401
+    FieldChange,
+    contact_change,
+)
 from app.domains.mdm.codes import (  # noqa: F401,E402
     CONTACT,
     CONTACT_TYPE,
@@ -34,6 +38,7 @@ from app.domains.mdm.household_save import (  # noqa: F401
     HouseholdSaveRefused,
     PersonRow,
     save_household,
+    save_person,
 )
 from app.domains.mdm.household_service import (  # noqa: F401  # noqa: F401
     ADDED_RELATIONS,
@@ -57,11 +62,13 @@ from app.domains.mdm.models import (  # noqa: F401
     MEMBER_REPORT_IMPORT,
     Address,
     AddressHistory,
+    AddressNotWaiting,
     BankAccount,
     ContactDetail,
     ContactDetailHistory,
     ContactTypeCode,
     ContactTypeLabel,
+    EmailAddressInUse,
     ExternalNumber,
     GenderCode,
     GenderLabel,
@@ -109,6 +116,13 @@ from app.domains.mdm.organization_service import (  # noqa: F401
     update_organization_address,
     update_organization_details,
 )
+from app.domains.mdm.persons import VIEWS as PERSON_VIEWS  # noqa: E402,F401
+from app.domains.mdm.persons import (  # noqa: E402,F401
+    delete_listed_person,
+    person_row,
+    persons_page,
+)
+from app.domains.mdm.persons import view_from as persons_view_from  # noqa: E402,F401
 from app.domains.mdm.service import (  # noqa: F401  # noqa: F401  # noqa: E402,F401  # noqa: F401
     BOARD_MEETING,
     CirclePerson,
@@ -118,8 +132,11 @@ from app.domains.mdm.service import (  # noqa: F401  # noqa: F401  # noqa: E402,
     add_to_circle,
     admin_code_lists,
     apply_email_rows,
+    create_account_person,
     create_person_for_circle,
+    delete_person,
     email_addresses_of_members,
+    email_refusal,
     end_circle_relation,
     family_registrations,
     form_code_lists,
@@ -132,13 +149,17 @@ from app.domains.mdm.service import (  # noqa: F401  # noqa: F401  # noqa: E402,
     make_email_primary,
     merge_persons,
     name_parts,
+    new_contact_detail,
     organization_circle,
     person_name_parts,
     remove_email_address,
+    request_address_code,
+    require_email_free,
     resolve,
     search_persons,
     unmerge_person,
     upsert_primary_contact,
+    waiting_address,
 )
 from app.domains.mdm.tenant_lookup import (  # noqa: F401
     current_enabled_modules,
@@ -203,6 +224,12 @@ __all__ = [
     "list_persons",
     "PersonMatch",
     "search_persons",
+    "delete_person",
+    "persons_page",
+    "delete_listed_person",
+    "person_row",
+    "persons_view_from",
+    "PERSON_VIEWS",
     "is_member",
     "household_ids",
     "list_postal_codes",
@@ -291,10 +318,20 @@ __all__ = [
     "organization_circle",
     "email_addresses_of_members",
     "upsert_primary_contact",
+    "FieldChange",
+    "contact_change",
     "add_email_address",
+    "email_refusal",
+    "create_account_person",
+    "new_contact_detail",
+    "require_email_free",
+    "EmailAddressInUse",
     "apply_email_rows",
     "make_email_primary",
     "remove_email_address",
+    "request_address_code",
+    "waiting_address",
+    "AddressNotWaiting",
     "MasterDataError",
     "HouseholdNotFound",
     "PersonNotFound",
@@ -317,6 +354,7 @@ __all__ = [
     "MainMemberStays",
     "PersonRow",
     "save_household",
+    "save_person",
     "actor_of",
     "MainMemberMobileMissing",
     "PersonDetailsMissing",

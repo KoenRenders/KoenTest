@@ -345,6 +345,25 @@ def not_renewed_count(db, today: Optional[date] = None) -> int:
     )
 
 
+def is_first_membership(db, member) -> bool:
+    """Has this household never had a paid membership (#1730)?
+
+    A membership is active once its payment is confirmed (or when the import
+    wrote it as paid); a household whose only membership still waits for its
+    payment — or whose first payment failed — has none. The card of Mijn gezin
+    words itself by this: someone who never was a member does not "renew".
+    Computed here, once; a screen shows it.
+    """
+    from app.domains.membership.models import Membership
+
+    return (
+        db.query(Membership.id)
+        .filter(Membership.member_id == member.id, Membership.is_active.is_(True))
+        .first()
+        is None
+    )
+
+
 def open_renewal_payment(db, member):
     """De openstaande vernieuwingsbetaling van dit gezin, of ``None`` (#618).
 

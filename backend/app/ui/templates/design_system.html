@@ -1,5 +1,6 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
+{% import "_public_macros.html" as pub %}
 {# #811: de veldsoorten komen uit de ECHTE formuliertemplate. Importeren en niet
    nabouwen: een kopie hier zou precies het soort afdrijving worden dat deze pagina
    moet uitsluiten. #}
@@ -984,14 +985,14 @@
       {% endcall %}
       {% set _mtpl %}{% if _edit %}{% call ui.group_row("kit_e_order." ~ key, "__KE__", edit=True, menu=["remove"], label=_("nieuw e-mailadres"),
                                                         one={"chosen": False, "tag": _("hoofdadres"), "make": _("Maak hoofdadres")}) %}
-        {{ ui.field("kit_e.__KE__.value", _("E-mailadres"), kind="email", value="", edit=True, label_hidden=True) }}{% endcall %}{% endif %}{% endset %}
+        {{ ui.field("kit_e.__KE__.value", _("E-mail"), kind="email", value="", edit=True, label_hidden=True) }}{% endcall %}{% endif %}{% endset %}
       {% call ui.repeating_group(_("E-mailadressen"), "kit_e_order." ~ key, token="__KE__", add_label=_("E-mailadres"), edit=_edit, child=True, count=2,
                                  empty=_("Nog geen e-mailadres."), template=_mtpl,
                                  one={"name": "kit_e_primary." ~ key, "value": key ~ "a"}) %}
         {% for suffix, address in [("a", "lore@example.com"), ("b", "lore.werk@example.com")] %}
         {% call ui.group_row("kit_e_order." ~ key, key ~ suffix, edit=_edit, menu=["remove"], label=address,
                              one={"chosen": suffix == "a", "tag": _("hoofdadres"), "make": _("Maak hoofdadres")}) %}
-          {{ ui.field("kit_e." ~ key ~ suffix ~ ".value", _("E-mailadres"), kind="email", value=address, edit=_edit, label_hidden=True) }}
+          {{ ui.field("kit_e." ~ key ~ suffix ~ ".value", _("E-mail"), kind="email", value=address, edit=_edit, label_hidden=True) }}
         {% endcall %}
         {% endfor %}
       {% endcall %}
@@ -1113,7 +1114,7 @@
     {# #1641: an inset — a block inside a card, in the soft brand tint; never
        on the ground, never a card in a card. #}
     <div class="mt-2" data-kit-inset>
-    {% call ui.inset(_("Vernieuwing geregistreerd — betaal via overschrijving:")) %}
+    {% call ui.inset(_("Lidmaatschap geregistreerd — betaal via overschrijving:")) %}
       <ul class="mt-1 space-y-0.5">
         <li>{{ _("Bedrag") }}: <strong>€ 35,00</strong></li>
         <li>{{ _("Mededeling (OGM)") }}: <strong>+++000/0000/00097+++</strong></li>
@@ -1124,10 +1125,11 @@
   {{ ui.save_refusal([{"field": "kit_pf_name", "message": _("Vul je naam in.")}], send=True) }}
   {% call ui.form_grid() %}
     {{ ui.field("kit_pf_name", _("Naam"), id="kit-pf-name", required=True, value="") }}
-    {{ ui.field("kit_pf_pay", _("Betaalwijze"), kind="radio_group", id="kit-pf-pay", required=True, value="online",
-                options=[("online", _("Online betalen"), _("Na het verzenden ga je naar de beveiligde betaalpagina.")),
-                         ("transfer", _("Overschrijving"), _("De betaalgegevens staan in de bevestiging."))]) }}
-    <div data-span="full">{{ ui.stepper("kit_pf_qty", id="kit-pf-qty", value=1, touch=True) }}</div>
+    {{ ui.payment_choice() }}
+    {# #1748 (CR-21 phase 0): the counter of a quantity and the total under it, as
+       the registration form and the webshop's basket show them. #}
+    <div data-span="full">{{ ui.quantity("kit_pf_qty", "kit-pf-qty", 1, product_name=_("Ticket"), touch=True) }}</div>
+    <div data-span="full">{{ ui.total_line(12.5, note=_("(ledenprijs)")) }}</div>
   {% endcall %}
   {{ ui.action_bar(record=True, send=True, cancel_href="#", save_attrs='type="button"',
                    save_label=_("Inschrijven en betalen"), busy_label=_("Inschrijven…")) }}
@@ -1141,5 +1143,43 @@
   <p class="text-sm text-gray-600">
     {{ _("De publieke kant deelt de kit maar niet de dichtheid — §3.1. Bekijk haar op een telefoon; de typeschaal is daar de basis (§1.2a).") }}
   </p>
+{% endcall %}
+
+{# ── 15. The photo grid and the lightbox (CR-11 pilot C, C3 — #1665) ──────
+   The public album's two components, rendered from `_public_macros.html` with
+   two drawn pictures: no photo of a person stands on this page. #}
+{{ ui.section_header(_("15 · Fotoraster en lichtbak"), cls="mt-10") }}
+{% call ui.card() %}
+  <p class="text-sm text-ink-soft mb-4">
+    {{ _("Het raster van een album en de lichtbak die een foto opent: sluiten, vorige en volgende zijn kiticonen in knoppen van 44 px; de focus gaat naar Sluiten, blijft binnen de lichtbak en keert terug naar de aangeklikte foto.") }}
+  </p>
+  {% set _kit_photo_1 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 480'%3E%3Crect width='640' height='480' fill='%23254e73'/%3E%3Ccircle cx='320' cy='240' r='120' fill='%23eec15e'/%3E%3C/svg%3E" %}
+  {% set _kit_photo_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 480'%3E%3Crect width='640' height='480' fill='%23eec15e'/%3E%3Crect x='200' y='140' width='240' height='200' fill='%23254e73'/%3E%3C/svg%3E" %}
+  {% set _kit_photos = [{"url": _kit_photo_1, "thumb_url": _kit_photo_1, "title": _("Voorbeeld 1")},
+                        {"url": _kit_photo_2, "thumb_url": _kit_photo_2, "title": _("Voorbeeld 2")}] %}
+  <div data-kit-lightbox class="max-w-md">
+  {% call pub.lightbox(_kit_photos | map(attribute="url") | list) %}
+    {% call(f) pub.photo_grid(_kit_photos, _("Voorbeeld")) %}{% endcall %}
+  {% endcall %}
+  </div>
+{% endcall %}
+
+{# ── 16. The account page (CR-22 S3 — #1706) ─────────────────────────────
+   The layout of every page under "Mijn <site>" on the public site, rendered
+   from `_public_macros.html` with a made-up menu. #}
+{{ ui.section_header(_("16 · Accountpagina"), cls="mt-10") }}
+{% call ui.card() %}
+  <p class="text-sm text-ink-soft mb-4">
+    {{ _("De indeling van elke pagina onder \"Mijn …\" op de publieke site: vanaf 768 px het accountmenu links (240 px) en de inhoud rechts; op een telefoon geen menu op de pagina — daar is het accountmenu in de lade de navigatie, met onderaan de landingspagina de andere pagina's als rijen.") }}
+  </p>
+  {% set _kit_account = [{"href": "#kit-mijn", "label": _("Mijn voorbeeld"), "icon": "house"},
+                         {"href": "#kit-gezin", "label": _("Mijn gezin"), "icon": "users"},
+                         {"href": "#kit-inschrijvingen", "label": _("Mijn inschrijvingen"), "icon": "calendar-days"}] %}
+  <div data-kit-account-page>
+  {% call pub.account_page(_("Mijn voorbeeld"), _kit_account, "#kit-mijn") %}
+    <p class="text-base text-ink-soft">{{ _("Dag Emma.") }}</p>
+    {{ pub.account_links(_kit_account, "#kit-mijn") }}
+  {% endcall %}
+  </div>
 {% endcall %}
 {% endblock %}

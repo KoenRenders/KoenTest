@@ -16,7 +16,7 @@ def _login(client):
 
 def test_aanmelden_page_renders(client):
     resp = client.get("/aanmelden")
-    assert resp.status_code == 200 and "E-mailadres" in resp.text
+    assert resp.status_code == 200 and ">E-mail</label>" in resp.text
 
 
 def test_aanmelden_flow_sets_session_cookie(client, monkeypatch):
@@ -32,7 +32,9 @@ def test_aanmelden_flow_sets_session_cookie(client, monkeypatch):
     step2 = client.post("/aanmelden/code", data={"email": SEEDED_ADMIN_EMAIL, "code": "424242"})
     assert step2.status_code == 200
     assert SESSION_COOKIE in step2.cookies
-    assert step2.headers.get("HX-Redirect") == "/admin/werkbank"
+    # #1740: the door decides, not the role — signed in on the site, the seeded
+    # administrator (no person on this tenant) lands on the site.
+    assert step2.headers.get("HX-Redirect") == "/"
 
 
 def test_aanmelden_wrong_code_shows_error_without_cookie(client, monkeypatch):
@@ -53,7 +55,8 @@ def test_aanmelden_unknown_email_shows_same_generic_step(client):
     resp = client.post("/aanmelden", data={"email": "onbekend@example.com"})
     assert resp.status_code == 200
     # Zelfde vervolgstap als voor een gekend adres — geen verklapping.
-    assert "gekend is" in resp.text
+    # CR-22 (#1708): the one sentence of the code step, in every case.
+    assert "We stuurden een code naar dit adres." in resp.text
 
 
 # ── E-maillog ──────────────────────────────────────────────────────────────────

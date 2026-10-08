@@ -162,17 +162,10 @@ def scrub(text: str, names: set[str]) -> str:
     removed as well; the guard would block it just the same, and a slightly
     poorer sentence for the model is the safe side.
     """
-    from app.domains.chatbot.api import redact
+    from app.domains.chatbot.api import scrub_names
 
-    text = redact(text or "")
-    if not text or not names:
-        return text
-
-    def replace(match: re.Match) -> str:
-        word = match.group(0)
-        return NAME_PLACEHOLDER if len(word) >= 3 and word.lower() in names else word
-
-    return _WORD.sub(replace, text)
+    # #1667: the word rule stands once, with the guard it mirrors.
+    return scrub_names(text, names, NAME_PLACEHOLDER)
 
 
 def _names(db: Session) -> set[str]:

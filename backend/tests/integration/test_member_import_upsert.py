@@ -11,7 +11,10 @@ optionele actor (#214).
 De service muteert de sessie maar commit niet; we asserten binnen dezelfde sessie.
 """
 
+import gc
 from datetime import date
+
+import pytest
 
 from app.domains.auth.api import Role
 from app.domains.mdm.api import (
@@ -296,6 +299,70 @@ def test_orphan_person_reused_not_duplicated(db_session):
     assert len(p.member_persons) == 1
 
 
+@pytest.fixture
+def without_the_cyclic_collector():
+    """Keep every object of the session alive for the length of the test.
+
+    A person and his household links refer to each other, so they are freed by
+    Python's cyclic collector and not at once — and until it runs, the session's
+    identity map hands the same objects back, collections and all. When it runs is
+    a matter of timing; switched off, it is the same every time.
+    """
+    gc.collect()
+    gc.disable()
+    yield
+    gc.enable()
+
+
+def test_a_link_the_import_deleted_is_gone_from_what_the_next_import_reads(
+    db_session, without_the_cyclic_collector
+):
+    """#1756 — the test above failed in one run out of six under four processes.
+
+    `db.delete` removed the row and left the link standing in
+    `person.member_persons` for as long as the person stayed in the session. The
+    third import then read it: #101 "is" in household A, so she was sent there
+    instead of to a household of her own, found "already linked", and nothing was
+    written — in the database she had no household at all. Whether the old object
+    was still alive depended on when the collector had last run: collected before
+    the third import, everything was right; alive until the end, the test above
+    passed on the same stale list (1 in memory, 0 in the database); collected in
+    between, it failed. Four processes only changed the timing.
+
+    Broken to check it can go red: the two `db.expire` lines of `_delete_link`
+    removed → "in memory 1, in the database 0", every time.
+    """
+    seed_postal_code(db_session)
+    _load(
+        db_session,
+        [
+            [
+                _row("100", "Jan", "Janssens", "HOOFDLID"),
+                _row("101", "An", "Janssens", "PARTNER"),
+            ]
+        ],
+    )
+    household_a = db_session.query(MemberPerson).first().member_id
+    _load(db_session, [[_row("100", "Jan", "Janssens", "HOOFDLID")]])
+    _load(db_session, [[_row("101", "An", "Janssens", "HOOFDLID", huisnummer="50")]])
+
+    p = (
+        db_session.query(Person)
+        .join(ExternalNumber)
+        .filter(ExternalNumber.external_id == "101")
+        .one()
+    )
+    in_memory = [link.member_id for link in p.member_persons]
+    # Asked of the database, past whatever the session still holds.
+    in_database = [
+        row.member_id
+        for row in db_session.query(MemberPerson.member_id).filter(MemberPerson.person_id == p.id)
+    ]
+    assert len(in_database) == 1, f"in memory {len(in_memory)}, in the database {len(in_database)}"
+    assert in_memory == in_database
+    assert in_database[0] != household_a, "she was put back into the household she had left"
+
+
 # ── Dry-run wijzigt niets maar rapporteert wel ───────────────────────────────
 
 
@@ -355,6 +422,64 @@ def _seed_selfreg(db, voornaam, naam, dob, *, geslacht="M", huisnummer="40"):
     db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type="HOOFDLID"))
     db.flush()
     return member, person
+
+
+def test_a_partner_who_leaves_and_heads_a_household_in_the_same_report_gets_that_household(
+    db_session,
+):
+    """#1756, the case ONE import reaches — no second import and no timing in it.
+
+    A partner without a member number (added through the household portal) is
+    absent from her household's group in the report, and the same report lists
+    her, now with a number, as the head of a household at another address. The
+    first group deletes her link; the second finds her by name and birth date —
+    and read, in her still-loaded collection, the link just deleted: she "was" in
+    the old household, the group was attached to it, she was "already linked", and
+    nothing was written. She ended without any household, the new one was never
+    made, and her new address was written onto her all the same.
+
+    Broken to check it can go red: the two `db.expire` lines of `_delete_link`
+    removed → 0 links in the database, every time.
+    """
+    seed_postal_code(db_session)
+    _load(db_session, [[_row("100", "Jan", "Janssens", "HOOFDLID")]])
+    household_a = db_session.query(MemberPerson).one().member_id
+    an = Person(
+        first_name="An", last_name="Peeters", date_of_birth=date(1982, 3, 4), gender_code="F"
+    )
+    db_session.add(an)
+    db_session.flush()
+    db_session.add(MemberPerson(member_id=household_a, person_id=an.id, relation_type="PARTNER"))
+    db_session.flush()
+    db_session.expire_all()  # the import starts as a request does: nothing loaded yet
+    households_before = db_session.query(Member).count()
+
+    _load(
+        db_session,
+        [
+            [_row("100", "Jan", "Janssens", "HOOFDLID")],
+            [
+                _row(
+                    "201",
+                    "An",
+                    "Peeters",
+                    "HOOFDLID",
+                    geboortedatum=date(1982, 3, 4),
+                    geslacht="F",
+                    huisnummer="50",
+                )
+            ],
+        ],
+    )
+
+    links = [
+        row.member_id
+        for row in db_session.query(MemberPerson.member_id).filter(MemberPerson.person_id == an.id)
+    ]
+    assert len(links) == 1, f"she has {len(links)} households in the database"
+    assert links[0] != household_a, "she was put back into the household she had left"
+    assert db_session.query(Member).count() == households_before + 1
+    assert db_session.query(ExternalNumber).filter_by(external_id="201").one().person_id == an.id
 
 
 def test_identity_match_attaches_lidnr_no_duplicate(db_session):
@@ -613,6 +738,8 @@ def test_import_reverts_manually_changed_board_member(db_session):
 
     db_session.refresh(member)
     assert member.board_member_id == hoofd.id  # teruggezet naar het rapport
+    # The request's commit, which the app's session does not anticipate (#1771).
+    db_session.flush()
     feed = member_changes_since(db_session, date(2000, 1, 1))
     assert any(r["entity"] == "Gezin" and r["summary"] == "Bestuurslid: Mon Essers" for r in feed)
 
@@ -647,6 +774,8 @@ def test_person_field_change_shows_old_to_new(db_session):
         [],
         apply=True,
     )
+    # The request's commit, which the app's session does not anticipate (#1771).
+    db_session.flush()
 
     feed = member_changes_since(db_session, date(2000, 1, 1))
     persoon = [

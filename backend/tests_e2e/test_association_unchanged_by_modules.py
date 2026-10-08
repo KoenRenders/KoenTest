@@ -57,6 +57,10 @@ DELIBERATE_MENU_CHANGES: dict[str, str | None] = {
     "/admin/rapporten/raakje AI · Raakje": None,
 }
 
+#: Items that joined the menu since the recording, each with its issue.
+#: CR-22 S7 (#1712): Personen, master data's list of natural persons.
+NEW_MENU_ITEMS = ["/admin/personen Personen"]
+
 #: CR-11 pilot B, P1 (#1588, decision 11, Koen): the public shell was redesigned
 #: — a decision, not a module taking something away. Per part of the home: what
 #: left the recording and what joined it. The header shows the tenant's name
@@ -163,7 +167,12 @@ def test_the_association_shows_what_it_showed_on_v2_12_0(browser):
     menu = before["shown"]["menu"]
     assert set(DELIBERATE_MENU_CHANGES) <= set(menu), "a deliberate change names no recorded item"
     before["shown"]["menu"] = sorted(
-        changed for item in menu if (changed := DELIBERATE_MENU_CHANGES.get(item, item)) is not None
+        [
+            changed
+            for item in menu
+            if (changed := DELIBERATE_MENU_CHANGES.get(item, item)) is not None
+        ]
+        + NEW_MENU_ITEMS
     )
     for part, change in DELIBERATE_HOME_CHANGES.items():
         recorded = before["shown"][part]

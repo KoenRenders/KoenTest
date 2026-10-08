@@ -30,16 +30,20 @@ def test_the_page_its_title_and_its_heading_say_inloggen(client):
     response = client.get("/aanmelden")
     assert response.status_code == 200
     title = re.search(r"<title>(?:\[\w+\] )?(.*?)</title>", response.text, re.S).group(1)
-    assert title.strip() == "Inloggen — Raak"
+    # #1664 (Z7): the page and the SITE's name, never a literal association.
+    assert title.strip().startswith("Inloggen · ") and not title.strip().endswith("— Raak")
     main = _main(response.text)
     assert re.search(r"<h1[^>]*>\s*Inloggen\s*</h1>", main)
     assert "Aanmelden" not in main, "the page still says Aanmelden for signing in"
 
 
 def test_the_button_after_the_code_says_inloggen():
-    code_step = (TEMPLATES / "_aanmelden_code.html").read_text()
-    buttons = re.findall(r"ui\.btn_primary\(_\('([^']+)'\)\)", code_step)
-    assert buttons == ["Inloggen"], buttons
+    code_step = (TEMPLATES / "_sign_in_code.html").read_text()
+    # CR-22 (#1708): the one code step serves a new account too — "Bevestigen"
+    # there, "Inloggen" for a sign-in, and no third word.
+    (button,) = re.findall(r"ui\.btn_primary\((.+)\)", code_step)
+    assert re.findall(r"_\('([^']+)'\)", button) == ["Bevestigen", "Inloggen"], button
+    assert button.endswith("if new_account else _('Inloggen')"), button
     expired = (TEMPLATES / "login_verlopen.html").read_text()
     assert '_("Opnieuw inloggen")' in expired and 'aanmelden")' not in expired.replace(
         'path_for("/aanmelden")', ""

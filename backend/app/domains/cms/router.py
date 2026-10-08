@@ -9,7 +9,7 @@ from app.domains.cms import service as _service
 from app.domains.cms.api import published_html
 from app.domains.cms.models import CmsPage
 from app.i18n import _
-from app.schemas.cms import CmsPageApiUpdate, CmsPageCreate, CmsPageResponse
+from app.schemas.cms import CmsPageCreate, CmsPageResponse
 
 router = APIRouter(tags=["cms"])
 
@@ -51,12 +51,6 @@ def get_block(slug: str, db: Session = Depends(get_db)):
     return _public_page(db, page)
 
 
-@router.get("/cms/placeholders")
-def list_cms_placeholders():
-    """Beschikbare codes voor de CMS-editor (code → omschrijving)."""
-    return _service.placeholders()
-
-
 @router.get("/admin/pages", response_model=List[CmsPageResponse])
 def list_all_pages(
     db: Session = Depends(get_db),
@@ -75,31 +69,3 @@ def create_page(
         return _service.create_page(db, data)
     except _service.SlugBestaatAl as exc:
         raise HTTPException(status_code=400, detail=_(str(exc)))
-
-
-@router.put("/pages/{page_id}", response_model=CmsPageResponse)
-def update_page(
-    page_id: int,
-    data: CmsPageApiUpdate,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    try:
-        return _service.update_page(db, page_id, data)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Page not found"))
-    except _service.SlugBestaatAl as exc:
-        raise HTTPException(status_code=400, detail=_(str(exc)))
-
-
-@router.delete("/pages/{page_id}")
-def delete_page(
-    page_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    try:
-        _service.delete_page(db, page_id)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Page not found"))
-    return {"detail": "Page deleted"}

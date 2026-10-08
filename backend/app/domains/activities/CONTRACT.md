@@ -14,9 +14,15 @@
 
 ## Router
 
-`router.py` — de volledige activiteiten-API onder `/api/v1/activities`
-(22 routes; dead-endpoint-sweep uitgevoerd bij de verhuis: alle routes zijn
-in gebruik door de frontend).
+`router.py` — what is left of the activities API under `/api/v1/activities`.
+CR-13 phase 4b (#1251) prunes every JSON route without a caller: the screens
+are server-rendered and ask the facade. Gone so far: registering, the list,
+updating and deleting an activity, the registrations of an activity, the
+export, changing an order line, the registration's remarks, deleting a
+registration and the public participant list. The functions the facade calls
+(`activities_for`, `get_activity_detail`, `get_public_registrations`,
+`register_for_activity`, `create_registration`) stay in this file until
+phase 4c moves them.
 
 ## Data
 

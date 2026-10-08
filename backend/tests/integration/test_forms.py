@@ -5,6 +5,7 @@ import os
 from app.database import SessionLocal
 from app.domains.forms.models import FormSubmission, FormSubmissionAnswer
 from app.domains.mail.models import EmailLog, EmailType
+from tests import forms_door
 from tests.conftest import form_guard_fields, person_proof
 
 
@@ -37,7 +38,7 @@ def _form_payload(**overrides):
 
 
 def _create_form(client, admin_headers, **overrides):
-    resp = client.post("/api/v1/forms", json=_form_payload(**overrides), headers=admin_headers)
+    resp = forms_door.create_form(client, _form_payload(**overrides))
     assert resp.status_code == 200, resp.text
     return resp.json()
 
@@ -54,8 +55,23 @@ def _option_id(form, field_label, opt_label):
 # ── CRUD + autorisatie ──────────────────────────────────────────────────────────
 
 
-def test_create_requires_admin(client):
-    assert client.post("/api/v1/forms", json=_form_payload()).status_code == 401
+def test_creating_a_form_asks_for_a_sign_in(client, db_session):
+    """The back office is the only way to create a form since the JSON route went
+    (#1251), and without a session it creates nothing: the screen sends the
+    visitor to the sign-in, the post is refused.
+
+    Proven red (8 October 2026): `require_csrf` and `require_admin_ui` taken off
+    `formulier_aanmaken` → the post answers 204.
+    """
+    from app.domains.forms.models import Form
+
+    screen = client.get("/admin/formulieren/nieuw", follow_redirects=False)
+    assert screen.status_code == 303
+    assert screen.headers["location"].startswith("/aanmelden?terug=")
+
+    post = client.post("/admin/formulieren", data={"title": "Zonder sessie"})
+    assert post.status_code == 403, post.status_code
+    assert db_session.query(Form).filter(Form.title == "Zonder sessie").count() == 0
 
 
 def test_create_generates_unique_share_token(client, admin_headers):
@@ -67,7 +83,7 @@ def test_create_generates_unique_share_token(client, admin_headers):
 
 def test_invalid_field_type_rejected(client, admin_headers):
     bad = _form_payload(fields=[{"field_type": "date", "label": "Wanneer", "position": 0}])
-    assert client.post("/api/v1/forms", json=bad, headers=admin_headers).status_code == 422
+    assert forms_door.create_form(client, bad).status_code == 422
 
 
 # ── Publieke render ─────────────────────────────────────────────────────────────
@@ -75,18 +91,15 @@ def test_invalid_field_type_rejected(client, admin_headers):
 
 def test_draft_form_not_public(client, admin_headers):
     form = _create_form(client, admin_headers, status="draft")
-    assert client.get(f"/api/v1/forms/by-token/{form['share_token']}").status_code == 404
+    # The public page refuses a form that is not open (403); the JSON read that
+    # answered 404 for a draft went with its route (#1251). Proven red (8 October
+    # 2026): `assert_open_for_submission` taken out of `ui._load_open_form` → 200.
+    assert client.get(f"/formulier/{form['share_token']}").status_code == 403
+    assert forms_door.submit(client, form["share_token"], form_guard_fields()).status_code == 404
 
 
 def test_unknown_token_404(client):
-    assert client.get("/api/v1/forms/by-token/onbestaand").status_code == 404
-
-
-def test_public_form_hides_internals(client, admin_headers):
-    form = _create_form(client, admin_headers)
-    pub = client.get(f"/api/v1/forms/by-token/{form['share_token']}").json()
-    assert pub["title"] == form["title"]
-    assert "share_token" not in pub  # PublicForm lekt de token niet terug
+    assert client.get("/formulier/onbestaand").status_code == 404
 
 
 # ── Inzending + validatie ───────────────────────────────────────────────────────
@@ -100,12 +113,7 @@ def test_submit_missing_required_422(client, admin_headers):
         "submitter_email": "jan@example.com",
         "answers": [{"field_id": _field_id(form, "Naam"), "text": "Jan"}],
     }
-    assert (
-        client.post(
-            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-        ).status_code
-        == 422
-    )
+    assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 422
 
 
 def test_submit_valid_and_checkbox_creates_multiple_answers(client, admin_headers, db_session):
@@ -127,9 +135,7 @@ def test_submit_valid_and_checkbox_creates_multiple_answers(client, admin_header
             {"field_id": _field_id(form, "Tevredenheid"), "rating": 5},
         ],
     }
-    resp = client.post(
-        f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-    )
+    resp = forms_door.submit(client, token, {**form_guard_fields(), **body})
     assert resp.status_code == 200, resp.text
     sub_id = resp.json()["id"]
     # Checkbox met 2 vinkjes → 2 antwoordrijen.
@@ -160,12 +166,7 @@ def test_invalid_email_rejected(client, admin_headers):
             {"field_id": _field_id(form, "Naam"), "text": "Jan"},
         ],
     }
-    assert (
-        client.post(
-            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-        ).status_code
-        == 422
-    )
+    assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 422
 
 
 def test_rating_out_of_range_rejected(client, admin_headers):
@@ -180,12 +181,7 @@ def test_rating_out_of_range_rejected(client, admin_headers):
             {"field_id": _field_id(form, "Tevredenheid"), "rating": 9},
         ],
     }
-    assert (
-        client.post(
-            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-        ).status_code
-        == 422
-    )
+    assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 422
 
 
 def test_submit_on_closed_form_rejected(client, admin_headers):
@@ -199,14 +195,10 @@ def test_submit_on_closed_form_rejected(client, admin_headers):
             {"field_id": _field_id(form, "Naam"), "text": "Jan"},
         ],
     }
-    # Closed is publiek zichtbaar maar weigert inzendingen.
-    assert client.get(f"/api/v1/forms/by-token/{token}").status_code == 200
-    assert (
-        client.post(
-            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-        ).status_code
-        == 403
-    )
+    # A closed form takes no submission, and its public page says so instead of
+    # showing the questions (the JSON read that still showed them is gone, #1251).
+    assert client.get(f"/formulier/{token}").status_code == 403
+    assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 403
 
 
 def test_max_submissions_enforced(client, admin_headers):
@@ -220,18 +212,8 @@ def test_max_submissions_enforced(client, admin_headers):
             {"field_id": _field_id(form, "Naam"), "text": "Jan"},
         ],
     }
-    assert (
-        client.post(
-            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-        ).status_code
-        == 200
-    )
-    assert (
-        client.post(
-            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-        ).status_code
-        == 403
-    )
+    assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 200
+    assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 403
 
 
 # ── Resultaten-aggregatie ───────────────────────────────────────────────────────
@@ -257,17 +239,12 @@ def test_results_aggregation(client, admin_headers):
                 },
             ],
         }
-        assert (
-            client.post(
-                f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-            ).status_code
-            == 200
-        )
+        assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 200
 
     submit(5, ["Bonnekes 14u"])
     submit(3, ["Bonnekes 14u", "BBQ bakken"])
 
-    res = client.get(f"/api/v1/forms/{form['id']}/results", headers=admin_headers).json()
+    res = forms_door.results(client, form["id"])
     assert res["submission_count"] == 2
     rating = next(f for f in res["fields"] if f["label"] == "Tevredenheid")
     assert rating["average"] == 4.0
@@ -287,9 +264,10 @@ def test_export_ods_only(client, admin_headers):
     CSV bestaat niet meer."""
     form = _create_form(client, admin_headers)
     token = form["share_token"]
-    client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
@@ -299,44 +277,30 @@ def test_export_ods_only(client, admin_headers):
             ],
         },
     )
-    ods_resp = client.get(f"/api/v1/forms/{form['id']}/export?format=ods", headers=admin_headers)
+    ods_resp = forms_door.export_ods(client, form["id"])
     assert ods_resp.status_code == 200
     assert ods_resp.headers["content-type"] == "application/vnd.oasis.opendocument.spreadsheet"
-    # CSV is verwijderd → 422.
-    assert (
-        client.get(
-            f"/api/v1/forms/{form['id']}/export?format=csv", headers=admin_headers
-        ).status_code
-        == 422
-    )
 
 
 def test_public_submit_is_rate_limited(client, admin_headers):
     """#371: het publieke inzend-endpoint heeft een rem tegen spam/DoS."""
     form = _create_form(client, admin_headers)
     token = form["share_token"]
-    body = {
+    # Through the public screen: the brake is on the door a person posts to
+    # (`formulier_submit`), and counts every post, stored or not. Proven red
+    # (8 October 2026): `form_submit_limiter` taken off that route → the 11th is 200.
+    data = {
         "submitter_name": "Jan",
         "submitter_email": "jan@example.com",
-        "answers": [
-            {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
-            {"field_id": _field_id(form, "Naam"), "text": "Jan"},
-        ],
+        f"f{_field_id(form, 'Email')}": "a@b.be",
+        f"f{_field_id(form, 'Naam')}": "Jan",
     }
     for _ in range(10):
-        assert (
-            client.post(
-                f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-            ).status_code
-            == 200
-        )
+        answer = client.post(f"/formulier/{token}", data={**form_guard_fields(), **data})
+        assert answer.status_code == 200
     # 11e binnen het venster → 429.
-    assert (
-        client.post(
-            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-        ).status_code
-        == 429
-    )
+    answer = client.post(f"/formulier/{token}", data={**form_guard_fields(), **data})
+    assert answer.status_code == 429
 
 
 # ── Bevestigingsmail + wijzig-flow ──────────────────────────────────────────────
@@ -346,9 +310,10 @@ def test_confirmation_email_logged_when_enabled(client, admin_headers):
     form = _create_form(client, admin_headers, send_confirmation=True)
     token = form["share_token"]
     recipient = "confirm-flow@example.com"
-    client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": recipient,
@@ -393,9 +358,10 @@ def test_edit_preserves_answers_when_field_added(client, admin_headers):
     een respondent NIET verdwijnen. Het veld (en zijn id) blijft behouden."""
     form = _create_form(client, admin_headers, allow_edit=True)
     token = form["share_token"]
-    resp = client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    resp = forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
@@ -410,18 +376,18 @@ def test_edit_preserves_answers_when_field_added(client, admin_headers):
     assert edit_token
 
     # Admin bewerkt het formulier en voegt een vraag toe (bestaande velden mét id).
-    fetched = client.get(f"/api/v1/forms/{form['id']}", headers=admin_headers).json()
+    fetched = forms_door.read_form(client, form["id"])
     updated_fields = _fields_as_update(fetched)
     updated_fields.append(
         {"field_type": "text", "label": "Nieuwe vraag", "required": False, "position": 99}
     )
     payload = _form_payload(allow_edit=True)
     payload["fields"] = updated_fields
-    upd = client.put(f"/api/v1/forms/{form['id']}", json=payload, headers=admin_headers)
+    upd = forms_door.update_form(client, form["id"], payload)
     assert upd.status_code == 200, upd.text
 
     # De respondent opent zijn wijzig-link → de eerdere antwoorden staan er nog.
-    got = client.get(f"/api/v1/forms/edit/{edit_token}")
+    got = forms_door.read_submission(client, edit_token)
     assert got.status_code == 200
     answers = got.json()["answers"]
     assert answers, "antwoorden mogen niet verdwijnen na een formulier-bewerking"
@@ -435,9 +401,10 @@ def test_edit_preserves_answers_when_field_added(client, admin_headers):
 def test_no_edit_token_without_allow_edit(client, admin_headers):
     form = _create_form(client, admin_headers)
     token = form["share_token"]
-    resp = client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    resp = forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
@@ -453,9 +420,10 @@ def test_no_edit_token_without_allow_edit(client, admin_headers):
 def test_edit_flow(client, admin_headers):
     form = _create_form(client, admin_headers, allow_edit=True)
     token = form["share_token"]
-    resp = client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    resp = forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
@@ -469,13 +437,14 @@ def test_edit_flow(client, admin_headers):
     edit_token = resp.json()["edit_token"]
     assert edit_token
 
-    got = client.get(f"/api/v1/forms/edit/{edit_token}")
+    got = forms_door.read_submission(client, edit_token)
     assert got.status_code == 200
     assert got.json()["submitter_name"] == "Jan"
 
-    upd = client.put(
-        f"/api/v1/forms/edit/{edit_token}",
-        json={
+    upd = forms_door.update_submission(
+        client,
+        edit_token,
+        {
             "submitter_name": "Jan Aangepast",
             "submitter_email": "jan@example.com",
             "answers": [
@@ -486,13 +455,13 @@ def test_edit_flow(client, admin_headers):
         },
     )
     assert upd.status_code == 200
-    again = client.get(f"/api/v1/forms/edit/{edit_token}").json()
+    again = forms_door.read_submission(client, edit_token).json()
     rating_answer = next(a for a in again["answers"] if a["rating"] is not None)
     assert rating_answer["rating"] == 4
 
 
 def test_edit_unknown_token_404(client):
-    assert client.get("/api/v1/forms/edit/onbestaand").status_code == 404
+    assert forms_door.read_submission(client, "onbestaand").status_code == 404
 
 
 # ── Secties + info + "Andere…" (#335, #337) ─────────────────────────────────────
@@ -537,7 +506,7 @@ def _sectioned_payload():
 
 
 def test_sections_returned_and_fields_linked(client, admin_headers):
-    form = client.post("/api/v1/forms", json=_sectioned_payload(), headers=admin_headers).json()
+    form = forms_door.create_form(client, _sectioned_payload()).json()
     assert len(form["sections"]) == 2
     naam = next(f for f in form["fields"] if f["label"] == "Naam")
     intro_section = next(s for s in form["sections"] if s["title"] == "Intro")
@@ -545,21 +514,22 @@ def test_sections_returned_and_fields_linked(client, admin_headers):
     assert naam["section_id"] == vragen_section["id"]
     info = next(f for f in form["fields"] if f["field_type"] == "info")
     assert info["section_id"] == intro_section["id"]
-    # Publiek formulier geeft secties + is_other mee.
-    pub = client.get(f"/api/v1/forms/by-token/{form['share_token']}").json()
-    assert len(pub["sections"]) == 2
-    checkbox = next(f for f in pub["fields"] if f["label"] == "Waarom niet?")
+    # The "Andere" option is stored as one, and the public page renders both sections.
+    checkbox = next(f for f in form["fields"] if f["label"] == "Waarom niet?")
     assert any(o["is_other"] for o in checkbox["options"])
+    page = client.get(f"/formulier/{form['share_token']}").text
+    assert "Intro" in page and "Vragen" in page
 
 
 def test_info_field_never_required(client, admin_headers):
     # Een 'info'-veld met required=true mag een inzending nooit blokkeren.
-    form = client.post("/api/v1/forms", json=_sectioned_payload(), headers=admin_headers).json()
+    form = forms_door.create_form(client, _sectioned_payload()).json()
     token = form["share_token"]
     naam_id = next(f["id"] for f in form["fields"] if f["label"] == "Naam")
-    resp = client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    resp = forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
@@ -570,14 +540,15 @@ def test_info_field_never_required(client, admin_headers):
 
 
 def test_other_option_stores_free_text(client, admin_headers, db_session):
-    form = client.post("/api/v1/forms", json=_sectioned_payload(), headers=admin_headers).json()
+    form = forms_door.create_form(client, _sectioned_payload()).json()
     token = form["share_token"]
     naam_id = next(f["id"] for f in form["fields"] if f["label"] == "Naam")
     checkbox = next(f for f in form["fields"] if f["label"] == "Waarom niet?")
     other_opt = next(o for o in checkbox["options"] if o["is_other"])
-    resp = client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    resp = forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
@@ -603,9 +574,9 @@ def test_other_option_stores_free_text(client, admin_headers, db_session):
     import io
     import zipfile
 
-    ods = client.get(f"/api/v1/forms/{form['id']}/export?format=ods", headers=admin_headers)
+    ods = forms_door.export_ods(client, form["id"])
     assert ods.status_code == 200
-    with zipfile.ZipFile(io.BytesIO(ods.content)) as z:
+    with zipfile.ZipFile(io.BytesIO(ods.body)) as z:
         content = z.read("content.xml").decode("utf-8")
     assert "Op reis" in content
 
@@ -669,7 +640,7 @@ def _branching_payload():
 
 
 def _mk(client, admin_headers, payload):
-    r = client.post("/api/v1/forms", json=payload, headers=admin_headers)
+    r = forms_door.create_form(client, payload)
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -688,12 +659,7 @@ def test_branching_skips_other_branch(client, admin_headers):
             {"field_id": _field_id(form, "Slotopmerking"), "text": "Top"},
         ],
     }
-    assert (
-        client.post(
-            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-        ).status_code
-        == 200
-    )
+    assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 200
 
 
 def test_branching_required_in_taken_branch_enforced(client, admin_headers):
@@ -709,12 +675,7 @@ def test_branching_required_in_taken_branch_enforced(client, admin_headers):
             {"field_id": _field_id(form, "Slotopmerking"), "text": "Top"},
         ],
     }
-    assert (
-        client.post(
-            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-        ).status_code
-        == 422
-    )
+    assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 422
 
 
 def test_branching_nee_branch(client, admin_headers):
@@ -730,12 +691,7 @@ def test_branching_nee_branch(client, admin_headers):
             {"field_id": _field_id(form, "Slotopmerking"), "text": "Volgend jaar wel"},
         ],
     }
-    assert (
-        client.post(
-            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-        ).status_code
-        == 200
-    )
+    assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 200
 
 
 def test_skip_to_end_ignores_later_sections(client, admin_headers):
@@ -776,37 +732,32 @@ def test_skip_to_end_ignores_later_sections(client, admin_headers):
         "submitter_email": "jan@example.com",
         "answers": [{"field_id": _field_id(form, "Stoppen?"), "option_ids": [stop]}],
     }
-    assert (
-        client.post(
-            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-        ).status_code
-        == 200
-    )
+    assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 200
 
 
 def test_branching_only_on_choice_fields(client, admin_headers):
     payload = _branching_payload()
     # Zet een skip op een checkbox-optie → moet geweigerd worden.
     payload["fields"][0]["field_type"] = "checkbox"
-    assert client.post("/api/v1/forms", json=payload, headers=admin_headers).status_code == 422
+    assert forms_door.create_form(client, payload).status_code == 422
 
 
 def test_backward_section_jump_rejected(client, admin_headers):
     payload = _branching_payload()
     payload["sections"][3]["next_section_index"] = 1  # Slot terug naar Wel = lus
-    assert client.post("/api/v1/forms", json=payload, headers=admin_headers).status_code == 422
+    assert forms_door.create_form(client, payload).status_code == 422
 
 
 def test_empty_label_rejected(client, admin_headers):
     bad = _form_payload(fields=[{"field_type": "text", "label": "   ", "position": 0}])
-    assert client.post("/api/v1/forms", json=bad, headers=admin_headers).status_code == 422
+    assert forms_door.create_form(client, bad).status_code == 422
 
 
 def test_branch_config_persisted_on_form_and_sections(client, admin_headers):
     """De branch-config (sectie-sprong + keuze-sprong) wordt bewaard en correct
     teruggegeven met de juiste sectie-ids."""
     form = _mk(client, admin_headers, _branching_payload())
-    fetched = client.get(f"/api/v1/forms/{form['id']}", headers=admin_headers).json()
+    fetched = forms_door.read_form(client, form["id"])
     secs = sorted(fetched["sections"], key=lambda s: s["position"])
     slot_id = secs[3]["id"]
     wel_id = secs[1]["id"]
@@ -835,9 +786,10 @@ def test_phone_field_validation(client, admin_headers):
     token = form["share_token"]
     fid = _field_id(form, "GSM")
     # Geldig nummer → 200.
-    ok = client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    ok = forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
@@ -846,9 +798,10 @@ def test_phone_field_validation(client, admin_headers):
     )
     assert ok.status_code == 200, ok.text
     # Te kort → 422.
-    bad = client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    bad = forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
@@ -870,9 +823,10 @@ def test_anonymous_form_stores_no_submitter(client, admin_headers, db_session):
     )
     token = form["share_token"]
     recipient = "anon-should-not-mail@example.com"
-    resp = client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    resp = forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": recipient,
@@ -905,9 +859,10 @@ def test_contact_email_decoupled_from_form_email_field(client, admin_headers):
     token = form["share_token"]
     contact = "invuller-contact@example.com"
     partner = "partner-data@example.com"
-    client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": contact,
@@ -949,9 +904,10 @@ def test_configurable_rating_scale(client, admin_headers):
     token = form["share_token"]
     fid = _field_id(form, "Belangrijkheid prijs")
     # Binnen bereik (3 op een 3-punts schaal) → 200.
-    ok = client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    ok = forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
@@ -960,9 +916,10 @@ def test_configurable_rating_scale(client, admin_headers):
     )
     assert ok.status_code == 200, ok.text
     # Buiten bereik (4 > rating_max 3) → 422.
-    bad = client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    bad = forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
@@ -971,7 +928,7 @@ def test_configurable_rating_scale(client, admin_headers):
     )
     assert bad.status_code == 422
     # Resultaten: verdeling met exact 3 niveaus + eindpunt-labels.
-    res = client.get(f"/api/v1/forms/{form['id']}/results", headers=admin_headers).json()
+    res = forms_door.results(client, form["id"])
     rating = next(f for f in res["fields"] if f["label"] == "Belangrijkheid prijs")
     assert len(rating["distribution"]) == 3
     assert "Onbelangrijk" in rating["distribution"][0]["label"]
@@ -989,15 +946,16 @@ def test_rating_scale_capped_at_ten(client, admin_headers):
             {"field_type": "rating", "label": "Score", "position": 0, "rating_max": 25},
         ],
     )
-    fetched = client.get(f"/api/v1/forms/{form['id']}", headers=admin_headers).json()
+    fetched = forms_door.read_form(client, form["id"])
     scored = next(f for f in fetched["fields"] if f["label"] == "Score")
     assert scored["rating_max"] == 10
     token = form["share_token"]
     fid = _field_id(form, "Score")
     # 10 op een 10-punts schaal → 200 (geen IntegrityError/500).
-    ok = client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    ok = forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
@@ -1006,9 +964,10 @@ def test_rating_scale_capped_at_ten(client, admin_headers):
     )
     assert ok.status_code == 200, ok.text
     # 11 blijft buiten bereik → 422.
-    bad = client.post(
-        f"/api/v1/forms/by-token/{token}/submit",
-        json={
+    bad = forms_door.submit(
+        client,
+        token,
+        {
             **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
@@ -1041,7 +1000,7 @@ def test_formaatgids_example_imports_and_covers_all_field_types(client, admin_he
     from app.domains.forms.models import FIELD_TYPES
 
     payload = _load_formaatgids_example()
-    resp = client.post("/api/v1/forms", json=payload, headers=admin_headers)
+    resp = forms_door.create_form(client, payload)
     assert resp.status_code == 200, resp.text
     form = resp.json()
     present = {f["field_type"] for f in form["fields"]}
@@ -1050,10 +1009,23 @@ def test_formaatgids_example_imports_and_covers_all_field_types(client, admin_he
 
 
 def test_public_form_exposes_confirmation_message(client, admin_headers):
-    """#353: de bedanktekst is publiek beschikbaar zodat het bedankt-scherm ze toont."""
+    """#353: the thank-you screen shows the form's own thank-you text.
+
+    Proven red (8 October 2026): `false and` in front of the condition in
+    `formulier_klaar.html` → the text is not on the page.
+    """
     form = _create_form(client, admin_headers, confirmation_message="Hartelijk bedankt!")
-    pub = client.get(f"/api/v1/forms/by-token/{form['share_token']}").json()
-    assert pub["confirmation_message"] == "Hartelijk bedankt!"
+    thanks = client.post(
+        f"/formulier/{form['share_token']}",
+        data={
+            **form_guard_fields(),
+            "submitter_name": "Jan",
+            "submitter_email": "jan@example.com",
+            f"f{_field_id(form, 'Email')}": "a@b.be",
+            f"f{_field_id(form, 'Naam')}": "Jan",
+        },
+    )
+    assert "Hartelijk bedankt!" in thanks.text
 
 
 def test_admin_list_and_delete_submission(client, admin_headers, db_session):
@@ -1069,25 +1041,14 @@ def test_admin_list_and_delete_submission(client, admin_headers, db_session):
             {"field_id": _field_id(form, "Tevredenheid"), "rating": 4},
         ],
     }
-    sub_id = client.post(
-        f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
-    ).json()["id"]
+    sub_id = forms_door.submit(client, token, {**form_guard_fields(), **body}).json()["id"]
 
     # Lijst (admin).
-    lst = client.get(f"/api/v1/forms/{form['id']}/submissions", headers=admin_headers)
-    assert lst.status_code == 200
-    data = lst.json()
+    data = forms_door.submissions(client, form["id"])
     assert "Naam" in data["fields"]
     assert any(s["id"] == sub_id for s in data["submissions"])
 
-    # Verwijderen: geen token → 401; admin → 204; onbekend → 404.
-    assert client.delete(f"/api/v1/forms/{form['id']}/submissions/{sub_id}").status_code == 401
-    assert (
-        client.delete(
-            f"/api/v1/forms/{form['id']}/submissions/{sub_id}", headers=admin_headers
-        ).status_code
-        == 204
-    )
+    forms_door.delete_submission(client, form["id"], sub_id)
     assert db_session.query(FormSubmission).filter(FormSubmission.id == sub_id).first() is None
     # Antwoorden mee weg (cascade).
     assert (
@@ -1096,12 +1057,8 @@ def test_admin_list_and_delete_submission(client, admin_headers, db_session):
         .count()
         == 0
     )
-    assert (
-        client.delete(
-            f"/api/v1/forms/{form['id']}/submissions/99999999", headers=admin_headers
-        ).status_code
-        == 404
-    )
+    # A submission that does not exist is nothing to remove, and no error.
+    forms_door.delete_submission(client, form["id"], 99999999)
 
 
 def test_submission_view_dekt_optie_en_rating(db_session):

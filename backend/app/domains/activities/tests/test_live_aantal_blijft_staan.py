@@ -32,7 +32,7 @@ import pytest
 
 from app.domains.activities.api import RegistrationItem
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -45,8 +45,9 @@ def _login(client):
 
 def _inschrijving(client, db, aantal=2):
     activity, comp, product = seed_activity_with_product(db, is_free=False)
-    resp = client.post(
-        f"/api/v1/activities/{activity.id}/register",
+    resp = register_at_the_door(
+        client,
+        activity.id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",
@@ -88,7 +89,9 @@ def test_het_antwoord_zet_geen_aantal_terug(client, db_session):
 
     assert resp.status_code == 200, resp.text
     assert "<input" not in resp.text, "het antwoord bevat een veld en kan het dus terugzetten"
-    assert "Totaal: € 10,00" in resp.text, "het totaal rekent niet met het getypte aantal"
+    # #1748: the edit screen's total is the kit's one line since CR-21 phase 0 —
+    # "€10,00" as on the registration form, where it was "€ 10,00" here.
+    assert "Totaal: €10,00" in resp.text, "het totaal rekent niet met het getypte aantal"
 
 
 def test_zonder_getypt_aantal_blijft_de_bewaarde_stand_staan(client, db_session):

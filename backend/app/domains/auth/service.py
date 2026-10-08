@@ -66,28 +66,28 @@ def _email_from_token(token: str) -> str:
 # De enige brug tussen beide domeinen is de e-mailwaarde, geen foreign key.
 
 
+#: The account page of whoever is signed in (CR-22): the landing of everyone
+#: who is no board user. The page itself lives in `app/ui/account_ui.py`.
+ACCOUNT_HOME = "/mijn"
+
+
 def landing_for(db: Session, email: str) -> str:
-    """Where someone lands after signing in when no page asked for them (#530).
+    """Where someone lands after signing in on the site when no page asked for
+    them: their account page, "Mijn <tenant>" — for everyone, whatever their
+    role (#1740; Koen, 8 October 2026: "waar men aanlogt komt men terecht").
 
-    ADMIN/OPERATOR → the workbench; FINANCE only → payments (the workbench would
-    refuse them); everyone else → their household. One place since #1437: the
-    code step and the mail link each carried a copy. A page that asked comes
-    first — the caller passes this as the fallback of `veilige_terug`.
+    A page that asked comes first — the caller passes this as the fallback of
+    `veilige_terug` — so the renewal link in a mail opens the renewal, and an
+    admin screen that sent its visitor to sign in gets him back: that is how
+    the back office is the door.
+
+    The account page is a person's page. A session that signs in as no person
+    here — a board account without a person, an address that does not say who
+    signs in — has none (that route answers 404), so it lands on the site.
     """
-    from app.domains.auth.session import admits_admin_ui  # lazy: session imports this module
+    from app.domains.auth.member_identity import login_person_for_email
 
-    roles = set(get_user_roles(db, email))
-    # #1513: the back office's own set decides who lands in it.
-    if admits_admin_ui(roles):
-        return "/admin/werkbank"
-    if "FINANCE" in roles:
-        return "/admin/betalingen"
-    # CR-19 C6 test 9 (#1478): a tenant without members has no household
-    # portal — that route answers 404 there — so its users land on the site.
-    from app.domains.mdm.api import module_enabled
-    from app.kernel.modules import ModuleCode
-
-    return "/leden/gezin" if module_enabled(ModuleCode.MEMBERSHIP) else "/"
+    return ACCOUNT_HOME if login_person_for_email(db, email) is not None else "/"
 
 
 def get_user_roles(db: Session, email: str) -> set:

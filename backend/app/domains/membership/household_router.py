@@ -92,7 +92,7 @@ def renew_membership(
     if open_renewal_payment(db, member):
         raise HTTPException(
             status_code=409,
-            detail=_("Je vernieuwing loopt nog — rond eerst de openstaande betaling af."),
+            detail=_("Je betaling loopt nog — rond eerst de openstaande betaling af."),
         )
 
     # Hergebruik een bestaand (niet-actief) lidmaatschap voor het doeljaar i.p.v.
@@ -241,18 +241,19 @@ def _actor_van(person) -> str | None:
     )
 
 
-@router.post("/member/household/persons/{person_id}/emails", status_code=201)
 def household_add_email(
     person_id: int, data: dict, person=Depends(require_member), db: Session = Depends(get_db)
 ):
     from app.domains.mdm.api import add_email_address
 
     _household_target(person, person_id, db)
-    add_email_address(db, person_id, (data or {}).get("email") or "", actor=_actor_van(person))
+    # CR-22 R15 (#1711): the member adds it himself, so it waits for its code.
+    add_email_address(
+        db, person_id, (data or {}).get("email") or "", actor=_actor_van(person), confirmed=False
+    )
     return {"ok": True}
 
 
-@router.post("/member/household/persons/{person_id}/emails/rows")
 def household_apply_email_rows(
     person_id: int, formulier, person=Depends(require_member), db: Session = Depends(get_db)
 ):
@@ -265,11 +266,10 @@ def household_apply_email_rows(
     from app.domains.mdm.api import apply_email_rows
 
     _household_target(person, person_id, db)
-    apply_email_rows(db, person_id, formulier, actor=_actor_van(person))
+    apply_email_rows(db, person_id, formulier, actor=_actor_van(person), confirmed=False)
     return {"ok": True}
 
 
-@router.post("/member/household/persons/{person_id}/emails/{contact_id}/primary")
 def household_make_email_primary(
     person_id: int, contact_id: int, person=Depends(require_member), db: Session = Depends(get_db)
 ):
@@ -280,7 +280,6 @@ def household_make_email_primary(
     return {"ok": True}
 
 
-@router.delete("/member/household/persons/{person_id}/emails/{contact_id}", status_code=204)
 def household_remove_email(
     person_id: int, contact_id: int, person=Depends(require_member), db: Session = Depends(get_db)
 ):

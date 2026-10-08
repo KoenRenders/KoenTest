@@ -623,7 +623,7 @@ def _save_organisers(
         raise ContactConfirmation(
             _(
                 "Zonder contactpersoon tonen de affiches de website, het e-mailadres en het "
-                "gsm-nummer van Raak. Bevestig om door te gaan."
+                "mobiele nummer van Raak. Bevestig om door te gaan."
             )
         )
 

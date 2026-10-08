@@ -81,14 +81,15 @@ def test_the_mail_link_brings_a_board_member_back_to_the_portal(
     assert landed.headers["location"] == "/leden/gezin"
 
 
-def test_without_a_page_the_mail_link_lands_by_role_as_before(
+def test_without_a_page_the_mail_link_lands_on_the_account_page(
     client, board_member_who_is_a_member, mail_link
 ):
     client.post("/aanmelden", data={"email": EMAIL})
     link = urlparse(mail_link["link"])
     assert "terug" not in parse_qs(link.query)
     landed = client.get(f"{link.path}?{link.query}", follow_redirects=False)
-    assert landed.headers["location"] == "/admin/werkbank"
+    # #1740: a board member who is a member too lands on his account page.
+    assert landed.headers["location"] == "/mijn"
 
 
 @pytest.mark.parametrize("foreign", ["https://evil.example/x", "//evil.example/x"])
@@ -106,4 +107,5 @@ def test_a_foreign_way_back_in_the_mail_link_is_ignored(
         follow_redirects=False,
     )
     assert landed.status_code == 302
-    assert landed.headers["location"] == "/admin/werkbank"
+    # #1740: a board member who is a member too lands on his account page.
+    assert landed.headers["location"] == "/mijn"

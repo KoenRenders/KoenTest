@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 from app.kernel.events import KernelEvent
 
@@ -27,3 +28,34 @@ class TenantCreated(KernelEvent):
 
     tenant_id: int
     name: str
+
+
+@dataclass(frozen=True)
+class EmailAddressAdded(KernelEvent):
+    """An e-mail address a person typed himself waits for its code (CR-22 R15,
+    F6; #1711).
+
+    Published by `mdm` in the transaction that stores the row, after its
+    flush — the row has its id — and again when its code is asked a second
+    time. `auth` subscribes, issues a code with the purpose CONFIRM_ADDRESS and
+    asks `mail` for the mail; the mail is a job of that same transaction, so it
+    leaves only once the row is committed. Publishing into silence would store
+    an address that can never be confirmed, so the publisher checks that
+    somebody listens.
+
+    `replaces_id` / `replaces_email`: the confirmed row this address takes the
+    place of once its code is entered — the old address stays, and keeps
+    signing in, until then (Koen, 8 October 2026). None for an address that is
+    simply added, and for a second code: the subscriber then keeps what the
+    first code of this row said.
+
+    `make_primary`: the person marked this new address as the primary one in
+    the save that added it. A waiting address cannot be that, so the wish
+    waits with it and is carried out at the code.
+    """
+
+    contact_id: int
+    email: str
+    replaces_id: Optional[int] = None
+    replaces_email: str = ""
+    make_primary: bool = False

@@ -1,0 +1,21 @@
+{# The actions of an activity's components, for the card and the activity page
+   (CR-11 pilot C, C1 — #1663): the block around `_onderdeel_acties.html`, which
+   stays the ONE partial per component.
+
+   Expects `a`, `scope` and `actions_context` ("card" | "page"); the page also
+   passes `open_deelnemers` on to the partial.
+
+   On the card the block stands in the card's grid (date tile | content). On a
+   phone it runs over BOTH columns — the full width of the card, or the two
+   buttons wrap — and from 640 px it stands in the content column. Until #1663
+   that was a negative margin of the tile's width plus the gap (`-ml-[60px]`),
+   a number that had to follow the tile by hand. #}
+{# #489: with one component its name is redundant; only the buttons show. #}
+{% set _multi = (a.sub_registrations | length) > 1 %}
+{% set _on_card = actions_context != "page" %}
+<div data-component-actions class="{% if _on_card %}mt-3 space-y-3{% if a.sort_date %} col-span-full sm:col-span-1 sm:col-start-2{% endif %}{% else %}mt-6 space-y-3{% endif %}">
+  {% for c in a.sub_registrations %}
+  {% set knopmaat = "xs" if _on_card else "sm" %}
+  {% include "_onderdeel_acties.html" %}
+  {% endfor %}
+</div>

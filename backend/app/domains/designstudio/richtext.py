@@ -253,6 +253,23 @@ def text_height(source: str, *, width: float, size: float) -> float:
     return sum(ln.lead(size) for ln in _lines_of(source, width, size))
 
 
+def lines_fitting(source: str, *, width: float, size: float, available: float) -> int:
+    """How many whole lines of the text fit `available` millimetres (#1677):
+    where a text that is too long for its place ends — on a line, never in
+    one."""
+    used = 0.0
+    for count, line in enumerate(_lines_of(source, width, size)):
+        used += line.lead(size)
+        if used > available:
+            return count
+    return len(_lines_of(source, width, size))
+
+
+def height_of_lines(source: str, *, width: float, size: float, max_lines: int) -> float:
+    """`text_height` of the first `max_lines` lines."""
+    return sum(ln.lead(size) for ln in _lines_of(source, width, size)[:max_lines])
+
+
 def to_svg(
     source: str,
     *,

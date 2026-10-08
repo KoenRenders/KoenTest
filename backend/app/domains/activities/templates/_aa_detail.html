@@ -242,7 +242,14 @@
      order decides the Design Studio poster's first three contacts (#1433), so it
      means something. No roles. A new one comes through the member search inside
      the group: pick a member and a row is added to the form. #}
-  {% macro _organiser_row(key, o, name, href, person_id) %}
+  {% macro _organiser_row(key, o, name, href, person_id, own_email=none, own_mobile=none) %}
+  {# #1694: an empty "Ander …" field shows in grey what the member's own record
+     gives — the value the poster prints — or says that the record holds none.
+     A row from the template (`o` is none) gets both through its tokens. #}
+  {% set _own_email = o.member_email if o else own_email %}
+  {% set _own_mobile = (o.member_mobile|phone) if o else own_mobile %}
+  {% set _has_email = o.member_email if o else none %}
+  {% set _has_mobile = o.member_mobile if o else none %}
   {# #1433: the order decides the poster — its first three contacts. #}
   {% set _tag = none %}
   {% if o and o.id in poster_ids %}{% set _tag = {"label": _("op de affiche"), "tone": "green"} %}
@@ -255,15 +262,17 @@
       {# #1032: unticked, this detail stays off the poster — also when no other
          address is filled in. #}
       {{ ui.field("o." ~ key ~ ".show_email", _("Toon e-mail"), kind="switch", id="o-" ~ key ~ "-show_email", span="quarter", edit=_edit, value=o.show_email if o else True) }}
-      {{ ui.field("o." ~ key ~ ".show_mobile", _("Toon gsm"), kind="switch", id="o-" ~ key ~ "-show_mobile", span="quarter", edit=_edit, value=o.show_mobile if o else True) }}
+      {{ ui.field("o." ~ key ~ ".show_mobile", _("Toon mobiel"), kind="switch", id="o-" ~ key ~ "-show_mobile", span="quarter", edit=_edit, value=o.show_mobile if o else True) }}
       {{ ui.field("o." ~ key ~ ".email_override", _("Ander e-mailadres"), kind="email", id="o-" ~ key ~ "-email_override", edit=_edit,
-                  value=o.email_override if o else "", help=_("Leeg = het adres van het lid.")) }}
-      {{ ui.field("o." ~ key ~ ".mobile_override", _("Ander gsm-nummer"), kind="phone", id="o-" ~ key ~ "-mobile_override", edit=_edit,
-                  value=o.mobile_override if o else "", help=_("Leeg = het nummer van het lid.")) }}
+                  value=o.email_override if o else "", help=_("Leeg: het adres van het lid, hierboven in het grijs."),
+                  fallback=_own_email or _("geen e-mailadres op de fiche"), fallback_note=_("van de fiche") if _has_email else none) }}
+      {{ ui.field("o." ~ key ~ ".mobile_override", _("Ander mobiel nummer"), kind="phone", id="o-" ~ key ~ "-mobile_override", edit=_edit,
+                  value=o.mobile_override if o else "", help=_("Leeg: het nummer van het lid, hierboven in het grijs."),
+                  fallback=_own_mobile or _("geen nummer op de fiche"), fallback_note=_("van de fiche") if _has_mobile else none) }}
     {% endcall %}
   {% endcall %}
   {% endmacro %}
-  {% set _organiser_template %}{% if _edit %}{{ _organiser_row("__O__", none, "__NAME__", "__HREF__", "__PERSON__") }}{% endif %}{% endset %}
+  {% set _organiser_template %}{% if _edit %}{{ _organiser_row("__O__", none, "__NAME__", "__HREF__", "__PERSON__", own_email="__EMAIL__", own_mobile="__MOBILE__") }}{% endif %}{% endset %}
   {# The member search: typing replaces only the candidates (#939), picking one
      adds a row above. Members only — the service refuses anyone else. Enter in
      the search field must not send the fiche. #}

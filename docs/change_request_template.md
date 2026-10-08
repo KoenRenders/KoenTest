@@ -30,8 +30,8 @@
 > follow the previous numbering, with the build sections inside Part B
 > (B2.3, B2.4, B4, B5, B7, B9); references to them stay as they are.
 >
-> **The procedure around the document, in five rules that came from the
-> retrospective of CR-14 (2 October 2026):**
+> **The procedure around the document, in seven rules — five from the
+> retrospective of CR-14 (2 October 2026), two from CR-22 (7 October 2026):**
 > 1. *Measured premises before the handover* (C1): every claim in B or C of
 >    the form "as X already does", "no migration", "the key refuses it" is
 >    measured in the code with file and line before the change request is
@@ -46,6 +46,16 @@
 >    vocabulary ("Boek" was the Sint's word; "Antwoorden" is the user's).
 > 5. *A change request is closed out at the release* (C10, `CLAUDE.md` step
 >    14): status line, as-built deviations, tracking issue closed.
+> 6. *A build read before approval* (`AGENTS.md`, *Reviews on request*):
+>    before the change request goes to Koen for assignment, a dev CLI lays
+>    it against the code — "does this hold against master?" — asked for
+>    through the master CLI, never by the shaping session itself; the
+>    findings are in the document before Koen reads it. CR-22 was assigned
+>    first, and two dev CLIs then found twelve points where the document
+>    and the code disagreed.
+> 7. *Re-measure on the handover commit* (C1): the table names the commit
+>    it was measured on; just before the handover the premises are
+>    measured again on master, and the table says so.
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** <shaped on …> · <on hold / assigned to vX.Y (#tracker) / built in vX.Y, on PROD since …>
@@ -234,6 +244,38 @@ and deliberately not done — recorded so it is not asked again).
 > *gate) hold. This is where a reviewer checks that the change does not*
 > *bend the architecture; the per-module detail is C2.*
 
+## B3a. Standards the model follows — and where it deviates, on purpose
+
+> [!NOTE]
+> *Asked for by Koen on 7 October 2026, while a webshop was being shaped:*
+> *every concept the data model of B3 introduces or changes is set beside*
+> *the established standard for it, element by element, before it gets a*
+> *name. The rule is the one of `AGENTS.md` (*Modelleer op standaarden*,*
+> *15 September 2026): build only what is needed today, in the **shape***
+> *the standard gives it, with the standard's names, so a later extension*
+> *is a row and a later interface a mapping — and deviate consciously,*
+> *never by not having looked. First name the standards that apply to the*
+> *domain of the change (a party, an address, an identifier, a product, an*
+> *order, a stock movement, a payment, an invoice, a code list: UBL 2.1 /*
+> *EN 16931 and PEPPOL BIS for orders, catalogues and invoices; ISO 20022*
+> *for accounts and payments; ISO 6523 for organisation identifiers; GS1*
+> *for product identifiers; ISO 4217, 3166 and 8601 for currency, country*
+> *and dates; schema.org where a public page describes a thing), or say*
+> *which were checked and why none applies. Then the table: one row per*
+> *concept — the standard's element and name, our table or column and its*
+> *name, and whether we follow the shape (repeatable where the standard*
+> *repeats, a separate entity where it separates) or deviate, with the*
+> *reason. "Not now" is a fine reason for an element left out; it is not*
+> *a reason for a shape that cannot take the element later. The approver*
+> *reads this table as the check that nothing will have to be reworked the*
+> *way `Organization` was (#924). Part C's C2 uses the names decided here.*
+
+Standards checked: … (which, for which concepts; or: none applies, because …).
+
+| Concept in this change | Standard and element | Ours (table · column, name) | Follows / deviates — why |
+|---|---|---|---|
+| … | UBL 2.1 `cac:…` / `cbc:…` | … | follows: … / deviates: … |
+
 ## B4. Rules this change needs an exception from — decided once, here
 
 > [!NOTE]
@@ -345,10 +387,27 @@ and deliberately not done — recorded so it is not asked again).
 > *B or C has no row here. CR-14 planned two foreign keys across schemas "as*
 > *`registrations.person_id` already does"; it did not, and a gate refused*
 > *them: B3, C2, C5, C6 and two tests were rewritten during the build.*
+>
+> *Two kinds of premise, both measured (CR-22, 7 October 2026). **(a) What*
+> *the change relies on**, as above. **(b) Who reads a concept whose*
+> *meaning or set of values this change alters** — a flag, a function, a*
+> *column, a code list, a template variable, a route: for each such*
+> *concept every reader in code, templates and tests, found by searching*
+> *on the name, each with a verdict — stays right · must change with it*
+> *(then it stands in C2) · out of scope (then Non-goals says why). CR-22*
+> *changed what "is a member" and "the person of an address" mean and*
+> *listed the readers of neither. Every number and every "exists" is*
+> *measured, also when a document names it: CR-22 copied the ratchet as*
+> *437 from `AGENTS.md`; it stood at 391. The table names the commit it was*
+> *measured on, and is measured again on master just before the handover*
+> *(rule 7).*
 
-| Claim | Measured how | Result | Consequence |
-|---|---|---|---|
-| … | … | … | … |
+Measured on master @ `<commit>` on <date>; re-measured on `<commit>` on <date>.
+
+| Concept or claim | Kind (relies on / changes) | Readers or measurement (file:line) | Verdict | Consequence |
+|---|---|---|---|---|
+| … | relies on | … | … | … |
+| … | changes | every reader of the name: … | stays right / must change (C2) / out of scope (Non-goals) | … |
 
 ## C2. Per module: what must happen
 
@@ -388,8 +447,15 @@ and deliberately not done — recorded so it is not asked again).
 > *settings · env vars · JSON routes and API callers · external services*
 > *(Mollie, mail) · **copy actions**: does this change add a field to an*
 > *entity that has a copy action, and is the field copied or not, and why*
-> *(C2). A "yes" points at the section that handles it. The next*
-> *thing that gets missed becomes the next row.*
+> *(C2) · **visitors and tenants, walked one by one**: anonymous · guest ·*
+> *account · member with an own address · member with a shared address ·*
+> *board user without a person · signed in at another tenant · operator;*
+> *a tenant with members · without members (a company) · the platform*
+> *tenant — per kind, what they see and may do after this change ·*
+> ***order inside a transaction**: a mail, an event or a job this change*
+> *starts — does it leave after the outer commit? A "yes" points at the*
+> *section that handles it. The next thing that gets missed becomes the*
+> *next row.*
 
 ## C4. Detailed decisions — one subsection each, with the reasons
 
@@ -416,7 +482,9 @@ and deliberately not done — recorded so it is not asked again).
 > *changes, a fixture that no longer matches. A change that breaks no*
 > *existing test says so, and why that is plausible. A test and a section of*
 > *this document that contradict each other are a finding: CR-14's B5 said a*
-> *spent link answers 404 while its test 3 expected "al ingevuld".*
+> *spent link answers 404 while its test 3 expected "al ingevuld". **Every*
+> *decision that changes behaviour names its test**: a Q in the log gets a*
+> *test number here, or one line on why no test can show it.*
 
 ## C7. The gate — what refuses a deviation from now on
 
@@ -443,7 +511,13 @@ and deliberately not done — recorded so it is not asked again).
 > [!NOTE]
 > *What was learnt from prototypes and spikes before the build:*
 > *measurements, refusals, things that did not work, the sizes and times*
-> *that decided a choice in B1.*
+> *that decided a choice in B1. **The rule against the existing suite**:*
+> *where the change adds or tightens a rule, shaping applies it as a*
+> *throw-away patch and runs the suite; every red test is a finding, listed*
+> *here. Where that cannot be done, at least the names of the tests that*
+> *mention the concept are read (CR-22:*
+> *`test_membership_dedup_allows_after_failed_payment` guarded the old*
+> *behaviour).*
 
 ## C9. Screens before the build — the concepts the approver saw
 
@@ -455,7 +529,10 @@ and deliberately not done — recorded so it is not asked again).
 > *shows, and the date the approver saw it. A change request that changes a*
 > *screen is not assigned without this row. Two of CR-14's four follow-ups*
 > *at the HDEV validation were visible on a drawing: a question block that*
-> *looked different from the form, a button named after the domain.*
+> *looked different from the form, a button named after the domain. A*
+> *concept uses only kit macros (`ui.field`, …) and passes the UI gates*
+> *before it is shown; a claim such as "no new component" is measured*
+> *against `_macros.html`.*
 
 ## C10. Close-out at the release
 

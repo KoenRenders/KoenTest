@@ -32,6 +32,7 @@ change to all four, in one pull request.
 
 | Date | Decision | Issue |
 |---|---|---|
+| 7 Oct 2026 | **v2.14.0 on PROD — CR-11 pilot C folded** (§7, §13): the public activity and photo pages on the kit components of `_public_macros.html`; the year heading 18 px at every width (Koen); the lightbox beside `ui.modal`; a fourth ratchet rule. Form branching on one page confirmed by Koen on 6 October (§7). | architecture CLI |
 | 6 Oct 2026 | **v2.13.0 on PROD — CR-11 pilots A and B closed out**: the public form page (P2, P3) folded into §7; the proposer on the activity into §2.11; view transitions on navigation only into P12; the correction slices of 5–6 October were written into §1.2, §2.3, §2.7, §3.4 and §7 as they were decided (CR-11 Q61–Q87). Pilot C follows on v2.14.0. | #1589–#1591, #1604–#1660 |
 | 5 Oct 2026 | **CR-11 pilot B, P1 — the public shell**: the band in the tenant's colour with the logo, Fraunces for the public headings, the drawer over the page, one account menu on the first name, the footer as one row (newsletter · social links · sponsors) with the legal line carrying the organisation's details; `site-footer` no longer rendered. Folded from the end state §2.5 into §1.2, §1.6, §7. | #1588 |
 | 5 Oct 2026 | **CR-11 K9 — the gates as ratchets**: `test_ui_ratchets.py` + `ui_baseline.py`, ten rules with one exact number per template, the pilot at zero; the standings in §13. Two older tests that demand what B7 refuses stay until the roll-out slice that moves their lists (CR-11 B10, 5 Oct). | #1563 |
@@ -1451,7 +1452,7 @@ Same kit, warmer expression. Specifics beyond §3.1:
   decision) → "Inschrijven en betalen" or "Inschrijven"; no "Wie doet er
   mee?" on the form; the return page says "ontvangen" only when the ledger
   confirms. **A public form**: one long page, a section's branching built as
-  visibility on that page (provisional until Koen confirms). **Word lid and
+  visibility on that page (confirmed by Koen on 6 October 2026; CR-11 B9). **Word lid and
   Mijn gezin**: Hoofdlid (a fixed section) → Adres → Gezinsleden (the
   composite group, its add button under the last person, one e-mail field
   shown per person, no label on an e-mail row, Geslacht a select beside
@@ -1460,6 +1461,24 @@ Same kit, warmer expression. Specifics beyond §3.1:
   **Mijn gezin** opens on the Lidmaatschap card with its three states, the
   transfer instructions as an inset sub-card, no second screen; renewing is
   its own page and act. The sign-in page is called Inloggen.
+- **The public activity and photo pages since pilot C** (#1663, #1664,
+  #1665; v2.14.0, on PROD 7 October 2026): no redesign — the same pages on
+  kit components in `_public_macros.html`: `date_tile(date, size)` (card
+  48 / 56 px, page 56 / 64 px), `year_heading(year)` (**18 px at every
+  width**, semibold, a 1 px line — Koen, 7 October 2026), `activity_facts`,
+  `photo_card` on `ui.card(href=…)`, `public_back_link(origin, href)` (the
+  kit's chevron and the origin's name: "‹ Activiteiten", "‹ Archief",
+  "‹ Foto's"; 44 px high on a phone), the partial `component_actions`,
+  `photo_grid` and `lightbox`. The sponsor block of the footer ends on the
+  container's right edge. The lightbox stands beside `ui.modal`: kit icons in
+  44 × 44 px buttons named Sluiten · Vorige foto · Volgende foto, the focus
+  trapped and returned to the thumbnail that opened it, a photo bounded and
+  never enlarged, thumbnails radius 10 px, the thumbs-up with a 44 × 44 px
+  hit area; no swipe, counter or zoom. The browser title is "<page> · <site
+  name>", never a literal tenant name. The description of an activity shows
+  a little space at every Enter, as on the poster (#1688). Ratchet: no
+  hand-written date tile, year heading or way back in a public template.
+  Norm: end state §2.7; CR-11 Q88 and the as-built rows of 7 October 2026.
 - **CTA hierarchy**: the core action of a page is always `btn-primary`
   (`btn-sm` in a list); secondary `btn-secondary`; tertiary (Info ↗, "Wie doet
   er mee?") may stay a text link. "Wie doet er mee?" is one compact inline line
@@ -1671,5 +1690,6 @@ and sections update per execution issue (see the execution note in §0).
 | "Opslaan" also called "Bewaar" / "Toevoegen" | always "Opslaan" | gate (terminology) |
 | Loose hex codes in templates | tokens only | gate |
 | Three style assets (stijlgids / ui-conventies / spec) plus an HTML mock | this document + the live route | this document; route #783 |
+| Hand-written date tile, year heading or way back in a public template | zero | ratchet (pilot C, #1663; v2.14.0) |
 | Raw form elements outside `ui.field` | zero (B7 test 8) | ratchet `ui_baseline.py` (K9, #1563): 105 in 29 files on 5 Oct 2026, the pilot screens at zero; the roll-out slices lower it |
 | Raw checkboxes · spacing on a field · raw surfaces · extra head buttons · hand-drawn tiles · sideways scroll · nowrap rows · admin pages straight on the shell | zero each | ratchets: 24/12 · 76/22 · 95/50 · 20/12 · 3/3 · 9/8 · 7/3 · 60/60 (count/files, 5 Oct 2026); against A2's 1 October counts: raw elements 456 → 236 with hidden inputs (105 without), raw surfaces 224 → 95; the 1 215 spacing classes could not be reconstructed by one definition |

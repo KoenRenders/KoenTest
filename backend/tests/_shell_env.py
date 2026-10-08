@@ -46,6 +46,12 @@ def bare_shell_env(*extra_dirs) -> Environment:
     from app.ui import _is_screenshot
 
     env.globals["is_screenshot"] = _is_screenshot
+    # #1748: the kit's `total_line` formats its amount with `geld`, and a filter is
+    # looked up when `_macros.html` is compiled — so every shell needs it, also one
+    # that shows no amount. The app's own function, not a copy.
+    from app.ui import templates
+
+    env.filters["geld"] = templates.env.filters["geld"]
     # `beheer_account(request)` staat achter `request is defined` in de schil en
     # hoeft hier dus niet.
     return env

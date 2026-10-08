@@ -1,0 +1,22 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% import "_sign_in_card.html" as card %}
+{% block title %}{{ title }} · {{ site_name }}{% endblock %}
+{% block meta %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+{# The code of a waiting e-mail address (CR-22 S6b, #1711; R15): the sign-in's
+   own code step (`_sign_in_code.html`, answered by `/aanmelden/code`) in the
+   sign-in's card — one code step for every purpose. The token says what the
+   code does: here it makes the address count, and nobody else is signed in.
+
+   The card is the sign-in screens' own (`_sign_in_card.html`, #1737): this
+   page is their sister, and their width is set in that one place. #}
+{% call card.sign_in_card() %}
+  <h1 class="text-2xl font-bold text-kop mb-2">{{ title }}</h1>
+  <p class="text-gray-600 mb-6 [overflow-wrap:anywhere]" data-confirm-address>{{ _("Vul de code in die we stuurden naar %(adres)s.", adres=email) }}</p>
+  <div id="aanmelden-stap" data-sign-in-step>
+    {% include "_sign_in_code.html" %}
+  </div>
+  <p class="mt-4"><a class="text-sm text-link underline" href="{{ path_for(terug) }}">{{ _("Terug") }}</a></p>
+{% endcall %}
+{% endblock %}

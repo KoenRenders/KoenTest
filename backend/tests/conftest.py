@@ -14,9 +14,17 @@ import os
 
 # Moet vóór het importeren van app-modules gezet worden: app.database leest deze
 # bij import. We gebruiken een aparte testdatabase.
-TEST_DATABASE_URL = os.environ.get(
+BASE_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
     "postgresql+psycopg2://postgres@localhost:5432/raaktest",
+)
+# CR-29 F1: under pytest-xdist every worker runs on a database of its own. The name
+# is chosen HERE and not in a fixture: `app.database` creates the engine at import,
+# a few lines down, and a fixture runs long after that.
+from tests._worker_db import fresh_worker_database, worker_database_url  # noqa: E402
+
+TEST_DATABASE_URL = worker_database_url(
+    BASE_DATABASE_URL, os.environ.get("PYTEST_XDIST_WORKER", "")
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ.setdefault("APP_ENV", "dev")
@@ -29,9 +37,8 @@ from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import event
-from sqlalchemy.orm import sessionmaker
 
-from app.database import engine, get_db
+from app.database import SessionLocal, engine, get_db
 from app.domains.auth.api import create_access_token
 from app.main import app
 
@@ -54,6 +61,8 @@ def _migrate_schema():
     if _SCHEMA_BUILT:
         yield
         return
+    # CR-29 F1: a worker starts on an empty database of its own; without xdist this does nothing.
+    fresh_worker_database(BASE_DATABASE_URL, TEST_DATABASE_URL)
     # Schemas hard resetten (v2.0, #398): drop_all kent alleen tabellen die nog
     # in de metadata leven — na verwijderde modellen (ideas) blijven wezen
     # achter en botst de keten. CASCADE veegt álles, ook alembic_version.
@@ -75,6 +84,12 @@ def _migrate_schema():
             "meetings",
             "newsletter",
             "designstudio",
+            # CR-21 (the webshop, #1748): its four schemas, before the first
+            # migration creates one — a schema left out here survives the reset.
+            "product",
+            "pricing",
+            "stock",
+            "sales",
             "public",
         ):
             conn.exec_driver_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
@@ -95,6 +110,24 @@ def _migrate_schema():
     yield
 
 
+def pytest_collection_modifyitems(config, items):
+    """`TEST_SHUFFLE=<seed>` runs the suite in a shuffled order (CR-29 F3).
+
+    A test that passes only because of the tests before it is found by running
+    the suite in another order; the seed is printed, so a red run can be repeated.
+    Without the variable the order is pytest's own. Every domain's conftest
+    re-exports this hook, so it marks the config and shuffles once.
+    """
+    seed = os.environ.get("TEST_SHUFFLE")
+    if not seed or getattr(config, "_cr29_shuffled", False):
+        return
+    config._cr29_shuffled = True
+    import random
+
+    random.Random(seed).shuffle(items)
+    print(f"\nTEST_SHUFFLE={seed}: {len(items)} tests in a shuffled order")
+
+
 @pytest.fixture(autouse=True)
 def _reset_rate_limiters():
     """De rate-limiters houden in-memory state per IP; in tests komt alles van
@@ -112,6 +145,82 @@ def _reset_rate_limiters():
     from app.domains.chatbot.router import chat_char_budget
 
     chat_char_budget._usage.clear()
+    yield
+
+
+@pytest.fixture(autouse=True)
+def job_queue_starts_empty(_migrate_schema):
+    """No test inherits a job another test left in the queue (CR-29 F3).
+
+    A test's writes are rolled back with its SAVEPOINT — except the ones the
+    application makes in a transaction of its own. A failed mail plans its retry
+    that way (`mail.service._enqueue_retry`), so a `mail.retry` row outlives the
+    test that caused it, and `run_due_jobs` processes whatever is due: in a
+    shuffled order the kernel's job test ran one job more than it had queued, and
+    the newsletter's `batch=1` ran the stranger instead of its own job. In the
+    usual order none happened to be due. Emptied before the test opens its
+    connection; named without an underscore so the domains' `from tests.conftest
+    import *` picks it up (CR-13 R15).
+
+    Broken to check it can go red: a scratch test that calls `_enqueue_retry` and
+    then `tests/test_kernel.py`, with the DELETE below replaced by a no-op → the
+    two job tests fail on `2 == 1` and `1 == 0`, exactly as in the shuffled run.
+    """
+    with engine.begin() as conn:
+        conn.exec_driver_sql("DELETE FROM kernel_jobs")
+    yield
+
+
+#: What Inkscape answered for an input, kept for the length of the process (below).
+_INKSCAPE_EXPORTS: dict[tuple, bytes] = {}
+_INKSCAPE_QUERIES: dict[str, dict] = {}
+_SVG_PREVIEWS: dict[tuple, bytes] = {}
+
+
+@pytest.fixture
+def one_render_per_input(monkeypatch):
+    """Inkscape renders and measures each distinct input once per process (CR-29 R7).
+
+    Every Design Studio test that makes a version starts Inkscape five times —
+    one measurement, four exports — at seconds apiece, and most of them hand it
+    the very same poster: the same fixture, or the same design saved four times
+    in a row. Both calls are pure functions of what they are given (an SVG, a
+    kind, a width), so the answer to an input already asked is the answer. Each
+    distinct input still goes through the real binary; a test that needs a
+    different poster gets a different render. Errors are not kept.
+
+    Asked for by name (`pytest.mark.usefixtures`), not autouse: only the tests
+    that reach Inkscape pay for the patch.
+    """
+    from pathlib import Path
+
+    from app.domains.designstudio import render
+    from app.domains.media import svg as media_svg
+
+    real_export, real_query = render.export, render.query_all
+    real_preview = media_svg.render_png
+
+    def export(svg, kind, *, png_width_px=None):
+        key = (svg, kind, png_width_px)
+        if key not in _INKSCAPE_EXPORTS:
+            _INKSCAPE_EXPORTS[key] = real_export(svg, kind, png_width_px=png_width_px)
+        return _INKSCAPE_EXPORTS[key]
+
+    def query_all(svg_path):
+        key = Path(svg_path).read_text(encoding="utf-8")
+        if key not in _INKSCAPE_QUERIES:
+            _INKSCAPE_QUERIES[key] = real_query(svg_path)
+        return dict(_INKSCAPE_QUERIES[key])
+
+    def render_png(svg, width, height):
+        key = (svg, width, height)
+        if key not in _SVG_PREVIEWS:
+            _SVG_PREVIEWS[key] = real_preview(svg, width, height)
+        return _SVG_PREVIEWS[key]
+
+    monkeypatch.setattr(render, "export", export)
+    monkeypatch.setattr(render, "query_all", query_all)
+    monkeypatch.setattr(media_svg, "render_png", render_png)
     yield
 
 
@@ -153,8 +262,11 @@ def db_session(_migrate_schema):
     """Een sessie met SAVEPOINT-isolatie die endpoint-commits overleeft."""
     connection = engine.connect()
     trans = connection.begin()
-    Session = sessionmaker(bind=connection)
-    session = Session()
+    # The app's own factory, bound to this test's connection (#1771): a second
+    # `sessionmaker(...)` here had SQLAlchemy's default autoflush where the app
+    # runs without, so a service that adds a row and looks it up again in the
+    # same request passed here and failed in the app.
+    session = SessionLocal(bind=connection)
     session.begin_nested()
 
     @event.listens_for(session, "after_transaction_end")
@@ -265,6 +377,9 @@ def send_queued_mail(db) -> None:
     """
     from app.kernel.jobs import run_due_jobs
 
+    # The request that queued the job has committed before the runner reads the
+    # queue; the app's session does not flush on that read (#1771).
+    db.flush()
     run_due_jobs(db)
 
 
@@ -566,6 +681,110 @@ def seed_activity_with_product(db, price="10.00", is_free=False, max_participant
     db.add(product)
     db.flush()
     return activity, comp, product
+
+
+def register_through_the_service(
+    activity_id: int,
+    component_id: int,
+    product_id: int,
+    *,
+    quantity: int,
+    name: str,
+    email: str,
+) -> int:
+    """A registration as the public form makes it — the registration service, in a
+    session of its own, committed — for a test that needs one to exist before it
+    opens a screen. Returns the registration's id.
+
+    CR-13 phase 4b (#1251): two browser tests made theirs through the JSON route
+    `POST /api/v1/activities/{id}/register`, which had no other caller. `app.main`
+    is imported so the event subscribers are there (the confirmation mail is
+    queued by one): a service called without them loses its consequences silently.
+    """
+    from fastapi import BackgroundTasks
+
+    import app.main  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.activities.api import register_for_activity
+    from app.schemas.activity import RegistrationCreate, RegistrationItemCreate
+
+    db = SessionLocal()
+    try:
+        result = register_for_activity(
+            db,
+            activity_id,
+            RegistrationCreate(
+                contact_name=name,
+                contact_email=email,
+                phone="0470000000",
+                component_id=component_id,
+                payment_method="transfer",
+                items=[RegistrationItemCreate(product_id=product_id, quantity=quantity)],
+            ),
+            BackgroundTasks(),
+        )
+        return result["id"] if isinstance(result, dict) else result.id
+    finally:
+        db.close()
+
+
+class DoorAnswer:
+    """What a test reads off the answer of a door: the status and the body."""
+
+    def __init__(self, status_code: int, body):
+        self.status_code = status_code
+        self._body = body
+
+    def json(self):
+        return self._body
+
+    @property
+    def is_success(self) -> bool:
+        return 200 <= self.status_code < 300
+
+    @property
+    def text(self) -> str:
+        import json
+
+        return json.dumps(self._body, ensure_ascii=False, default=str)
+
+
+def register_at_the_door(client, activity_id: int, json: dict, *, member_email: str | None = None):
+    """A registration as the public form's door makes it, answered as the JSON route
+    `POST /api/v1/activities/{id}/register` answered it (CR-13 phase 4b, #1251).
+
+    That route had no caller but tests — 64 test functions made their registration
+    through it. Its function stays: it is what `activities.api.register_for_activity`
+    calls for the public form. So the tests call that facade, in the session `client`
+    shares with the endpoints, and read the same answer: the body shaped by
+    `RegistrationResponse` on success, the status and `detail` of a refusal, a 422 for
+    a body the schema refuses. `member_email` signs the registrant in, as the bearer
+    token did.
+    """
+    from fastapi import BackgroundTasks
+    from fastapi.encoders import jsonable_encoder
+    from pydantic import ValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    from app.database import get_db
+    from app.domains.activities.api import register_for_activity
+    from app.domains.auth.api import login_person_for_email
+    from app.schemas.activity import RegistrationCreate, RegistrationResponse
+
+    db = next(client.app.dependency_overrides[get_db]())
+    try:
+        data = RegistrationCreate.model_validate(json)
+    except ValidationError as refusal:
+        return DoorAnswer(422, {"detail": jsonable_encoder(refusal.errors())})
+    member = login_person_for_email(db, member_email) if member_email else None
+    try:
+        result = register_for_activity(
+            db, int(activity_id), data, BackgroundTasks(), current_member=member
+        )
+    except StarletteHTTPException as refusal:
+        return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
+    body = RegistrationResponse.model_validate(result).model_dump(mode="json")
+    return DoorAnswer(200, body)
 
 
 def seed_question_form(db, title="Sint 2026", **settings):

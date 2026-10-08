@@ -9,19 +9,29 @@ schermen), member_identity.py (e-mail -> Person/gezin) en router.py
 
 # CR-12 phase 2: the role list belongs to this domain's public surface, so
 # that `workflow` reaches its FK target and its enum through one door.
-from app.domains.auth.codes import ROLE  # noqa: F401
+from app.domains.auth.codes import LOGIN_PURPOSE, ROLE  # noqa: F401
 from app.domains.auth.login import (  # noqa: F401
+    AccountRequest,
+    AccountRequestInvalid,
+    Consumed,
     check_otp,
+    consume_code,
+    consume_link,
     consume_magic_link,
+    start_account,
     start_login,
 )
 from app.domains.auth.member_identity import (  # noqa: F401
+    address_says_nobody,
     find_persons_by_email,
+    has_household,
     login_person_for_email,
     resolve_household,
+    sign_in_identity,
 )
 from app.domains.auth.models import (  # noqa: F401
     ApiKey,
+    LoginPurpose,
     LoginToken,
     Role,
     RoleCode,
@@ -50,6 +60,7 @@ from app.domains.auth.session import (  # noqa: F401
     SESSION_COOKIE,
     admin_user_by_email,
     admits_admin_ui,
+    back_office_home,
     csrf_from_request,
     csrf_token_for,
     make_session_value,
@@ -82,7 +93,12 @@ __all__ = [
     "find_persons_by_email",
     "login_person_for_email",
     "resolve_household",
+    "has_household",
+    "address_says_nobody",
+    "sign_in_identity",
     "ApiKey",
+    "LoginPurpose",
+    "LOGIN_PURPOSE",
     "LoginToken",
     "Role",
     "RoleCode",
@@ -108,6 +124,7 @@ __all__ = [
     "SESSION_COOKIE",
     "admin_user_by_email",
     "admits_admin_ui",
+    "back_office_home",
     "csrf_from_request",
     "csrf_token_for",
     "make_session_value",

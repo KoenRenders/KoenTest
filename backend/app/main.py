@@ -15,11 +15,15 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import soft_delete  # noqa: F401 - registreert de globale soft-delete-filter
 from app.config import settings
+from app.domains.activities.account_ui import router as activities_account_ui_router
 from app.domains.activities.admin_ui import router as activities_admin_ui_router
 from app.domains.activities.router import router as activities_router
 from app.domains.activities.ui import router as activities_ui_router
 from app.domains.audit.router import router as audit_router
 from app.domains.auth.admin_ui import router as auth_admin_ui_router
+from app.domains.auth.handlers import (  # noqa: F401 - event subscriptions (#1711)
+    send_address_code,
+)
 from app.domains.auth.router import router as auth_router
 from app.domains.auth.ui import router as auth_ui_router
 from app.domains.chatbot.admin_ui import router as chatbot_admin_ui_router
@@ -42,18 +46,20 @@ from app.domains.forms.admin_ui import router as forms_admin_ui_router
 from app.domains.forms.handlers import (  # noqa: F401 - event subscriptions (#1509)
     seed_contact_form_of_new_tenant,
 )
-from app.domains.forms.router import router as forms_router
 from app.domains.forms.ui import router as forms_ui_router
 from app.domains.mail.handlers import (
     retry_mail,  # noqa: F401 - registreert de mail.retry-job (#399)
 )
 from app.domains.mail.router import router as email_log_router
 from app.domains.mail.ui import router as email_log_ui_router
+from app.domains.mdm.account_ui import router as mdm_account_ui_router
+from app.domains.mdm.api import EmailAddressInUse
 from app.domains.mdm.handlers import (  # noqa: F401 - event subscriptions (#1346)
     set_circle_start_when_chosen,
 )
 from app.domains.mdm.household_router import router as mdm_household_router
 from app.domains.mdm.import_router import router as member_import_router
+from app.domains.mdm.persons_ui import router as mdm_persons_ui_router
 from app.domains.mdm.router import router as mdm_router
 from app.domains.mdm.ui import router as mdm_ui_router
 from app.domains.media.admin_ui import router as media_admin_ui_router
@@ -85,6 +91,7 @@ from app.domains.workflow.ui import router as workflow_ui_router
 from app.kernel.modules import ModuleCode, require_module
 from app.logging_config import configure_logging
 from app.models import *  # noqa: F401, F403 - ensures all models are registered
+from app.ui.account_ui import router as account_ui_router
 from app.ui.admin_api import router as admin_api_router
 from app.ui.changes_ui import router as changes_ui_router
 from app.ui.design_system_ui import router as design_system_ui_router
@@ -132,6 +139,16 @@ async def _lifespan(app: FastAPI):
     yield
 
 
+# What a payment is for is told by the domain that owns the payable (CR-21 Q48,
+# #1748): each registers its describer here, beside the event subscribers above. A
+# payable type without one is refused by `payment/tests/test_payable_describers.py`.
+from app.domains.activities.api import registration_describer  # noqa: E402
+from app.domains.membership.api import membership_describer  # noqa: E402
+from app.domains.payment.api import PayableType, register_describer  # noqa: E402
+
+register_describer(PayableType.REGISTRATION, registration_describer())
+register_describer(PayableType.MEMBERSHIP, membership_describer())
+
 app = FastAPI(
     lifespan=_lifespan,
     title="Raak Millegem API",
@@ -173,6 +190,9 @@ SHELL_ROUTERS = (
     auth_ui_router,
     auth_admin_ui_router,
     changes_ui_router,
+    account_ui_router,
+    mdm_account_ui_router,
+    mdm_persons_ui_router,
     design_system_ui_router,
     system_ui_router,
     organisaties_ui_router,
@@ -196,10 +216,10 @@ app.include_router(admin_api_router, prefix="/api/v1/admin")
 app.include_router(member_household_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
 app.include_router(mdm_household_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
 app.include_router(member_import_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
-app.include_router(forms_router, prefix="/api/v1", dependencies=_module(M.FORMS))
 app.include_router(forms_ui_router, dependencies=_module(M.FORMS))
 app.include_router(forms_admin_ui_router, dependencies=_module(M.FORMS))
 app.include_router(activities_ui_router, dependencies=_module(M.ACTIVITIES))
+app.include_router(activities_account_ui_router, dependencies=_module(M.ACTIVITIES))
 app.include_router(activities_admin_ui_router, dependencies=_module(M.ACTIVITIES))
 app.include_router(chatbot_ui_router, dependencies=_module(M.CHATBOT))
 app.include_router(chatbot_admin_ui_router, dependencies=_module(M.CHATBOT))
@@ -214,6 +234,9 @@ app.include_router(
     media_ui_router, dependencies=[Depends(require_module(M.MEDIA, also=(M.ACTIVITIES,)))]
 )
 app.include_router(changes_ui_router)
+app.include_router(account_ui_router)
+app.include_router(mdm_account_ui_router)
+app.include_router(mdm_persons_ui_router)
 app.include_router(design_system_ui_router)
 app.include_router(system_ui_router)
 app.include_router(organisaties_ui_router)
@@ -525,6 +548,22 @@ async def _http_exception_handler(request: Request, exc: StarletteHTTPException)
         if page is not None:
             return page
     return await http_exception_handler(request, exc)
+
+
+@app.exception_handler(EmailAddressInUse)
+async def _email_address_in_use_handler(request: Request, exc: EmailAddressInUse):
+    """CR-22 (#1704): an e-mail address another person already uses is a refusal
+    with its reason, at whichever door it was typed — the answer a form shows
+    under its field or in its message, never the 500 of an unhandled error.
+
+    One handler and not a `try` in every route: the rule has one home (master
+    data's `new_contact_detail`) and ten writers reach it through a dozen
+    doors; a door that forgot its `try` would answer "Interne serverfout" to
+    someone who only typed an address that was taken.
+    """
+    return await http_exception_handler(
+        request, StarletteHTTPException(status_code=422, detail=str(exc))
+    )
 
 
 @app.exception_handler(Exception)

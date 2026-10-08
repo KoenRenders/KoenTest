@@ -14,14 +14,12 @@ three pages are rebuilt on the kit, and the two partials of the old pages
 HAND_WRITTEN_BUTTONS: dict[str, int] = {
     "domains/activities/templates/_onderdeel_acties.html": 1,
     "domains/media/templates/_duim.html": 1,
-    "domains/media/templates/fotos_album.html": 4,
 }
 
 #: A card drawn by the template itself (a rounded, bordered, white surface) —
 #: a card comes from `ui.section`, `ui.flow_card` or `ui.card`. 2 in 2 files.
 HAND_WRITTEN_CARDS: dict[str, int] = {
     "domains/auth/templates/login_verlopen.html": 1,
-    "domains/media/templates/fotos.html": 1,
 }
 
 #: A field of the organisation (address, e-mail, phone, account number) written
@@ -31,4 +29,13 @@ HAND_WRITTEN_CARDS: dict[str, int] = {
 #: six here, and it is meant to stay; a seventh, or a second file, is red.
 ORGANISATION_FIELDS: dict[str, int] = {
     "domains/cms/templates/cms_pagina.html": 6,
+}
+
+#: A date tile, a year heading or a way back written by the template itself
+#: (#1663, CR-11 pilot C, C1): they come from `_public_macros.html`. Counted
+#: on 7 October 2026, after C1.
+HAND_WRITTEN_ACTIVITY_PARTS: dict[str, int] = {
+    # The archive's link back to the list, in the page header: not one of
+    # the three origins of the way back (§2.7) and so left as it is.
+    "domains/activities/templates/activiteiten.html": 1,
 }

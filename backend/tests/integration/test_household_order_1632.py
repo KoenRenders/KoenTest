@@ -42,7 +42,7 @@ pytestmark = pytest.mark.ui_serverrendered
 READ, EDIT, SIGN_UP = "/leden/gezin", "/leden/gezin?bewerken=1", "/lid-worden"
 #: The word as a label of its own: in a label, a read-mode line or a column head.
 LABEL = re.compile(
-    r">\s*E-mailadres\s*(?:<span class=\"text-red-600\">\*</span>)?\s*</(?:label|p|span)>"
+    r">\s*E-mail(?:adres)?\s*(?:<span class=\"text-red-600\">\*</span>)?\s*</(?:label|p|span)>"
 )
 OGM = "+++123/4567/89012+++"
 
@@ -102,7 +102,7 @@ def test_an_email_row_carries_no_label_of_its_own(client, db_session, path):
 
     assert html.count("rijen@example.com") >= 2, "the addresses are not on the page"
     assert html.count(">E-mailadressen</h3>") == 2, "the group's title is the label"
-    assert LABEL.findall(html) == [] and not LABEL.search(html), "a row says E-mailadres itself"
+    assert LABEL.findall(html) == [] and not LABEL.search(html), "a row says E-mail itself"
 
 
 def test_the_email_field_keeps_its_accessible_name(client, db_session):
@@ -110,13 +110,13 @@ def test_the_email_field_keeps_its_accessible_name(client, db_session):
     html = _main(_page(client, "naam@example.com", EDIT))
     fields = re.findall(r'<input[^>]*name="e\.[^"]+\.value"[^>]*>', html)
     assert len(fields) == 3, "the three addresses of the household"
-    assert all('aria-label="E-mailadres"' in field for field in fields)
+    assert all('aria-label="E-mail"' in field for field in fields)
     assert not re.search(r'<label[^>]*for="e-[^"]+-value"', html), "a label element is back"
 
 
 def test_word_lid_has_no_label_on_its_email_row_either(client, db_session):
     html = _main(client.get(SIGN_UP).text)
-    assert 'name="e.n0e.value"' in html and 'aria-label="E-mailadres"' in html
+    assert 'name="e.n0e.value"' in html and 'aria-label="E-mail"' in html
     assert not LABEL.search(html)
 
 
@@ -245,20 +245,39 @@ def test_a_renewal_that_waits_for_a_transfer_shows_what_to_pay_in_the_card(clien
     db_session.commit()
 
     card = _card(_page(client, "storting@example.com", READ))
-    assert "Je vernieuwing loopt nog." in card
+    assert "Je betaling loopt nog." in card
     assert card.count("data-transfer-due") == 1
     assert OGM in card and "35,00" in card and "betaal via overschrijving:" in card
 
 
 def test_only_the_card_writes_what_a_running_renewal_asks():
-    """One source (#1641: the renewal page lost its running view): only
-    `_renewal_running.html` writes the lines, and only the card includes it."""
+    """One source (#1641: the renewal page lost its running view; CR-22 S2,
+    #1705: moved, never copied). In EVERY template of the application:
+
+    - the lines of a transfer are written by `_transfer_due.html` alone, the
+      shared partial, and the membership card reaches it through
+      `_renewal_running.html`;
+    - the membership card is written by `_membership_card.html` alone, which the
+      household page includes.
+
+    Red by putting a second `data-transfer-due` inset into the household page
+    (the first list names two files), and by writing the card's hook into it."""
     from pathlib import Path
 
-    templates = Path(__file__).resolve().parents[2] / "app/domains/membership/templates"
-    writers = [p.name for p in templates.glob("*.html") if "Mededeling (OGM)" in p.read_text()]
-    assert writers == ["_renewal_running.html"]
-    users = sorted(
-        p.name for p in templates.glob("*.html") if '"_renewal_running.html"' in p.read_text()
-    )
-    assert users == ["gezin_portaal.html"]
+    app = Path(__file__).resolve().parents[2] / "app"
+    sources = {p.name: p.read_text() for p in app.rglob("templates/*.html")}
+    assert len(sources) > 150, f"only {len(sources)} templates found — the glob looks nowhere"
+
+    def holding(needle: str) -> list[str]:
+        return sorted(name for name, text in sources.items() if needle in text)
+
+    # The kit page draws an inset with made-up lines to SHOW the kit's inset; it
+    # is no place that says what somebody owes.
+    assert holding("Mededeling (OGM)") == ["_transfer_due.html", "design_system.html"]
+    assert holding('attrs="data-transfer-due"') == ["_transfer_due.html"]
+    # Since CR-22 S5 (#1709) a registration still to be paid shows the same block.
+    assert holding('"_transfer_due.html"') == ["_my_registration.html", "_renewal_running.html"]
+    assert holding('"_renewal_running.html"') == ["_membership_card.html"]
+    assert holding('attrs="data-membership-status"') == ["_membership_card.html"]
+    # Since CR-22 S3 (#1706) the landing page shows the same card.
+    assert holding('"_membership_card.html"') == ["account_home.html", "household_page.html"]

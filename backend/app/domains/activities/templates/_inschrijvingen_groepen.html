@@ -22,7 +22,7 @@
 {% if reg_groups %}
 {% call ui.data_table(reg_columns, hx_target=reg_target, caption=_("Inschrijvingen"), open_row=reg_open_row) %}
   {% for group in reg_groups %}
-  {% call ui.table_group(group.name, group.count, 8, items=group["items"], link=group.link, id=group.id) %}
+  {% call ui.table_group(group.name, group.count, 8, items=group["items"], link=group.link, id=group.id, optional=[1, 2]) %}
     {% for r in group.rows %}
     <tr data-row data-row-key="{{ r.key }}" class="align-middle">
       <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
@@ -31,13 +31,13 @@
       </td>
       <td data-cell="context" class="border-b border-line px-3 py-2">
         {% if r.email %}<a data-above-row href="mailto:{{ r.email }}" class="text-blue-500 underline">{{ r.email }}</a>{% else %}—{% endif %}
-        {% if r.phone %}<div class="text-xs text-ink-soft">{{ r.phone }}</div>{% endif %}
+        {% if r.phone %}<div class="text-xs text-ink-soft">{{ r.phone|phone }}</div>{% endif %}
       </td>
       <td data-cell="date" class="whitespace-nowrap border-b border-line px-3 py-2 tabular-nums">{{ r.date|kortedatum if r.date else "—" }}</td>
-      <td data-cell="more" class="border-b border-line px-3 py-2">{{ r.products|join(" · ") if r.products else "—" }}</td>
+      <td data-cell="more" data-p="1" class="border-b border-line px-3 py-2">{{ r.products|join(" · ") if r.products else "—" }}</td>
       {# A registration without a booking has nothing to pay: a dash, not € 0,00. #}
       <td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right">{% if r.payment %}{{ ui.amount(r.payment.due, balance=r.payment.saldo) }}{% else %}—{% endif %}</td>
-      <td data-cell="extra" data-balance class="border-b border-line px-3 py-2 text-right">{% if r.payment %}{{ ui.amount(r.payment.saldo, warning=r.payment.saldo != 0) }}{% else %}—{% endif %}</td>
+      <td data-cell="extra" data-p="2" data-balance class="border-b border-line px-3 py-2 text-right">{% if r.payment %}{{ ui.amount(r.payment.saldo, warning=r.payment.saldo != 0) }}{% else %}—{% endif %}</td>
       <td data-cell="status" class="border-b border-line px-3 py-2">{% if r.badge %}{{ ui.badge(r.badge.label, r.badge.tone, met_vinkje=r.badge.check) }}{% endif %}</td>
       <td data-cell="actions" class="border-b border-line px-3 py-2">{{ ui.row_actions_cell(r.action, r.menu, label=r.name) }}</td>
     </tr>

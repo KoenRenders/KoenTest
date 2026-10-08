@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -113,6 +113,25 @@ class ApiKey(Base):
     last_used_at = Column(DateTime(timezone=True), nullable=True)
 
 
+class LoginPurpose(CodeEnum):
+    """What a code sent by mail is for (CR-22 §B1 D2, #1704).
+
+    One code mechanism for all three: the fifteen minutes, the hashed code,
+    the five attempts and the one live token per address (#268, #395) hold
+    whatever the purpose. A second token table would have to repeat them, and
+    would drift.
+
+    No standard names this (CR-22 §B3a); a code list as every list here.
+    """
+
+    SIGN_IN = "SIGN_IN"
+    #: The person and its confirmed address are made when this code is
+    #: entered; the four fields wait in the token's `payload` until then.
+    CREATE_ACCOUNT = "CREATE_ACCOUNT"
+    #: A new or changed address counts once this code is entered.
+    CONFIRM_ADDRESS = "CONFIRM_ADDRESS"
+
+
 class LoginToken(Base):
     __tablename__ = "login_tokens"
     __table_args__ = {"schema": "auth"}
@@ -134,6 +153,55 @@ class LoginToken(Base):
     # nieuwe code aanvragen.
     attempts = Column(Integer, nullable=False, default=0, server_default="0")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    # CR-22 (#1704): what entering this code does. Every token written before
+    # the column existed was a sign-in, hence the default on both sides.
+    purpose: Mapped[LoginPurpose] = mapped_column(
+        EnumColumn(LoginPurpose, length=20),
+        ForeignKey("auth.login_purpose_codes.code"),
+        nullable=False,
+        default=LoginPurpose.SIGN_IN,
+        server_default="SIGN_IN",
+    )
+    # What the purpose needs to do its work: the four fields of an account
+    # that does not exist yet, or the id of the contact detail to confirm. The
+    # token has no tenant and no person of its own (CR-22 §C1), so this is
+    # where they travel. NULL for a sign-in.
+    payload = Column(JSON, nullable=True)
+
+
+class LoginPurposeCode(Base):
+    """Which purposes exist — the target of the foreign key (CR-22, #1704)."""
+
+    __tablename__ = "login_purpose_codes"
+    __table_args__ = {"schema": "auth"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
+class LoginPurposeLabel(Base):
+    """The word for a purpose, per language (CR-22, #1704)."""
+
+    __tablename__ = "login_purpose_labels"
+    __table_args__ = {"schema": "auth"}
+
+    code = Column(String(20), ForeignKey("auth.login_purpose_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
 
 class RoleCode(Base):

@@ -18,7 +18,7 @@ from app.domains.audit.api import (  # noqa: F401
     PUBLIEKE_ACTOR,
     snapshot_membership,
 )
-from app.domains.auth.api import User, get_current_admin
+from app.domains.auth.api import User, get_current_admin, get_current_member
 from app.domains.mdm.api import (
     CONTACT,
     ContactDetail,
@@ -30,11 +30,9 @@ from app.domains.mdm.api import (
     RelationType,
 )
 from app.domains.membership import household_service as _service
-from app.domains.membership.models import Membership
+from app.domains.membership.models import KnownAddress, Membership
 from app.domains.membership.schemas_family import FamilyCreate
 from app.domains.membership.schemas_member import (
-    AddressUpdate,
-    BoardMemberAssign,
     ContactsUpdate,
     FamilyMemberResponse,
     FamilyRegisteredResponse,
@@ -45,7 +43,6 @@ from app.domains.membership.schemas_member import (
     MembershipResponse,
     PaginatedFamiliesResponse,
     PaginatedMembersResponse,
-    PersonAddToFamily,
     PersonListItem,
     PersonUpdate,
 )
@@ -255,21 +252,6 @@ def update_person(
     return _service.update_person(db, person_id=person_id, data=data, admin=admin)
 
 
-@router.put("/persons/{person_id}/address", response_model=FamilyMemberResponse)
-def update_person_address(
-    person_id: int,
-    data: AddressUpdate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
-    return _service.update_person_address(
-        db,
-        person_id=person_id,
-        data=data,
-        admin=admin,
-    )
-
-
 @router.put("/persons/{person_id}/contacts", response_model=FamilyMemberResponse)
 def update_person_contacts(
     person_id: int,
@@ -294,21 +276,6 @@ def delete_person(
     return _service.delete_person(db, person_id=person_id, admin=admin)
 
 
-@router.post("/families/{family_id}/persons", response_model=FamilyResponse)
-def add_person_to_family(
-    family_id: int,
-    data: PersonAddToFamily,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
-    return _service.add_person_to_family(
-        db,
-        family_id=family_id,
-        data=data,
-        admin=admin,
-    )
-
-
 @router.delete("/memberships/{membership_id}", status_code=204)
 def delete_membership(
     membership_id: int,
@@ -318,21 +285,6 @@ def delete_membership(
     return _service.delete_membership(db, membership_id=membership_id, admin=admin)
 
 
-@router.put("/families/{family_id}/board-member", response_model=FamilyResponse)
-def assign_board_member(
-    family_id: int,
-    data: BoardMemberAssign,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
-    return _service.assign_board_member(
-        db,
-        family_id=family_id,
-        data=data,
-        admin=admin,
-    )
-
-
 @router.post(
     "/families",
     status_code=201,
@@ -340,7 +292,10 @@ def assign_board_member(
     dependencies=[Depends(registration_limiter)],
 )
 def register_family(
-    data: FamilyCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+    data: FamilyCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    signed_in=Depends(get_current_member),
 ):
     """Public endpoint: register a new family (member household).
 
@@ -406,8 +361,19 @@ def register_family(
                         % {"year": today.year},
                     )
 
+    # CR-22 R9, Q28, Q40 (#1713): the rule is the service's; this door gives
+    # its refusal a status.
+    try:
+        main_member = _service.main_member_for_sign_up(db, hoofdlid_email, signed_in)
+    except KnownAddress as refusal:
+        raise HTTPException(status_code=409, detail=str(refusal)) from refusal
     member, membership = _service.create_family_with_members(
-        db, data, actor=PUBLIEKE_ACTOR, source="registration", today=today
+        db,
+        data,
+        actor=PUBLIEKE_ACTOR,
+        source="registration",
+        today=today,
+        main_member=main_member,
     )
     pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
 

@@ -46,6 +46,8 @@ def test_definitie_start_advance_complete(db_session):
         subject_id=1,
         context={"wie": "Koen"},
     )
+    # The request's commit, which the app's session does not anticipate (#1771).
+    db_session.flush()
     taak1 = db_session.query(WorkflowTask).filter(WorkflowTask.instance_id == instance.id).one()
     assert taak1.kind == "stap.een" and taak1.title == "Eerst Koen"
 
@@ -136,6 +138,8 @@ def test_sweep_vult_werkbank_uit_de_bronnen(db_session):
     db_session.flush()
 
     sweep(db_session, {"once": True})
+    # The request's commit, which the app's session does not anticipate (#1771).
+    db_session.flush()
     kinds = {
         t.kind for t in db_session.query(WorkflowTask).filter(WorkflowTask.status == "open").all()
     }

@@ -81,7 +81,8 @@ def test_an_admin_on_an_operator_only_screen_gets_the_page_and_a_way_to_the_work
     assert answer.status_code == 403
     assert "data-no-access" in answer.text and SENTENCE in answer.text
     target = _way_out(answer.text)
-    assert target == "/admin/werkbank"
+    # #1740: the page a role enters the back office by (`back_office_home`).
+    assert target == "/admin"
     assert client.get(target, headers=BROWSER).status_code == 200
 
 

@@ -43,8 +43,27 @@ def _login_as(client, email):
     return csrf_token_for(value)
 
 
+def _was_a_paid_member(db, member) -> None:
+    """A renewal presupposes a membership that was paid before (#1730): without
+    one this household would be paying its FIRST membership, with other words.
+    Last year's, so it is not valid any more."""
+    year = date.today().year - 1
+    if db.query(Membership).filter_by(member_id=member.id, year=year).first() is None:
+        db.add(
+            Membership(
+                member_id=member.id,
+                year=year,
+                is_active=True,
+                valid_from=date(year, 1, 1),
+                valid_to=date(year, 12, 31),
+            )
+        )
+        db.flush()
+
+
 def _openstaande_vernieuwing(db, member, method="transfer", gateway_payment_id=None):
     """Een niet-betaalde vernieuwing, zoals de renew-flow ze achterlaat."""
+    _was_a_paid_member(db, member)
     jaar = date.today().year + 1
     ms = Membership(
         member_id=member.id,
@@ -86,7 +105,7 @@ def test_overschrijving_toont_instructies_bij_een_verse_get(client, db_session):
     # het bedrag nu zoals overal elders. Wat deze test hier bewaakt — dat het BEDRAG er
     # staat na een verse GET — verandert daar niet door.
     assert "35,00" in html
-    assert "Vernieuwing geregistreerd" in html
+    assert "Lidmaatschap geregistreerd" in html
     assert FORM not in html
 
 
@@ -95,17 +114,18 @@ def test_mijn_gezin_points_to_the_running_renewal_and_offers_no_second_one(clien
     payment; without one the same card offers the renewal. A pair, so the
     missing button is the running renewal's doing."""
     member, _person = create_test_family(db_session, email="wijzer@example.com")
+    _was_a_paid_member(db_session, member)
     db_session.commit()
     _login_as(client, "wijzer@example.com")
     button = 'href="/leden/gezin/vernieuwen"'
 
     before = client.get("/leden/gezin").text
-    assert "Je vernieuwing loopt nog." not in before
+    assert "Je betaling loopt nog." not in before
     assert button in before and ">Lidmaatschap vernieuwen</a>" in before
 
     _openstaande_vernieuwing(db_session, member)
     after = client.get("/leden/gezin").text
-    assert "Je vernieuwing loopt nog." in after
+    assert "Je betaling loopt nog." in after
     # #1641: the card is the one place — no link to a second screen.
     assert "Bekijk de betaling" not in after and button not in after
     assert ">Lidmaatschap vernieuwen</a>" not in after, "a second renewal is offered"
@@ -148,7 +168,7 @@ def test_online_zonder_checkout_url_toont_uitleg(client, db_session):
     answer = client.get(RENEW_PAGE, follow_redirects=False)
     assert answer.status_code == 303 and answer.headers["location"] == HOUSEHOLD
     html = client.get(HOUSEHOLD).text
-    assert "Je vernieuwing loopt nog" in html and "nog niet afgerond" in html
+    assert "Je betaling loopt nog" in html and "nog niet afgerond" in html
     assert "Betaling hervatten" not in html
     assert FORM not in html
 
@@ -212,7 +232,8 @@ def test_a_renewal_without_a_payment_method_is_refused_at_that_field(client, db_
 def test_a_transfer_renewal_answers_the_page_with_what_to_pay(client, db_session):
     """#497: the payment details on the screen, from the booking itself — and
     the form is gone, because this renewal now runs (#618)."""
-    create_test_family(db_session, email="overschrijver@example.com")
+    member, _person = create_test_family(db_session, email="overschrijver@example.com")
+    _was_a_paid_member(db_session, member)
     db_session.commit()
     csrf = _login_as(client, "overschrijver@example.com")
 
@@ -228,7 +249,7 @@ def test_a_transfer_renewal_answers_the_page_with_what_to_pay(client, db_session
     html = client.get(HOUSEHOLD).text
     start = html.index("data-transfer-due")
     block = html[start : html.index("</ul>", start)]
-    assert "Vernieuwing geregistreerd" in block
+    assert "Lidmaatschap geregistreerd" in block
     assert booked.structured_communication in block
     assert f"€ {booked.amount:.2f}".replace(".", ",") in block
     assert FORM not in html
@@ -246,6 +267,9 @@ def test_a_second_renewal_is_refused_while_the_first_runs(client, db_session):
     assert answer.status_code == 422
     assert answer.headers["HX-Retarget"] == "#vernieuw-melding"
     assert "Verzenden is niet gelukt." in answer.text
+    # #1747: the reason speaks of a payment, for a first membership too.
+    assert "Je betaling loopt nog — rond eerst de openstaande betaling af." in answer.text
+    assert "vernieuwing loopt nog" not in answer.text
     assert "data-error-for" not in answer.text, "this refusal has no field"
     assert "<html" not in answer.text.lower()
     assert _open_payments(db_session) == 1

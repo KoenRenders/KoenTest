@@ -14,7 +14,7 @@
     <input type="hidden" name="actief" value="{{ actief }}">
     {{ ui.input_control("email", id="gu-email-" ~ u.id, type="email", value=u.email,
                         required=True, cls="font-medium min-w-56",
-                        aria_label=_("E-mailadres")) }}
+                        aria_label=_("E-mail")) }}
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" {% if u.is_active %}checked{% endif %}> {{ _("Actief") }}</label>
     {# #963 + 16 sep: rolvelden via de gedeelde partial — per werkruimte op
        het platform, één werkruimte daarbuiten. #}

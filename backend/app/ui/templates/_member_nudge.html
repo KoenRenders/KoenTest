@@ -6,9 +6,14 @@
    public page already builds, so the nudge costs no query of its own.
 
    The sign-in link returns here: `/aanmelden?terug=` carries this page, and the
-   sign-in only follows it when it is a path on this site (`veilige_terug`). #}
+   sign-in only follows it when it is a path on this site (`veilige_terug`).
+
+   CR-22 (#1709; A3, Q39): the words name no association and give no reason —
+   "Heb je een account of ben je lid? Log je eerst aan."; where the tenant has
+   no members (`has_members`, the membership module) only the account is
+   named. #}
 {% if not (gebruiker and gebruiker.is_member) %}
 {% set _here = request.url.path ~ ("?" ~ request.url.query if request.url.query else "") %}
-<p class="rounded-md bg-blue-50 px-3 py-2 text-sm leading-[21px] text-ink" data-member-nudge data-span="full">{{ _("Lid van RAAK?") }}
-  <a class="text-link underline" href="/aanmelden?terug={{ _here | urlencode }}">{{ _("Log je eerst aan") }}</a>{{ _(": dan staat de inschrijving bij je gezin.") }}</p>
+<p class="rounded-md bg-blue-50 px-3 py-2 text-sm leading-[21px] text-ink" data-member-nudge data-span="full">{% if has_members|default(true) %}{{ _("Heb je een account of ben je lid?") }}{% else %}{{ _("Heb je een account?") }}{% endif %}
+  <a class="text-link underline" href="/aanmelden?terug={{ _here | urlencode }}">{{ _("Log je eerst aan") }}</a>.</p>
 {% endif %}

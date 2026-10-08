@@ -28,6 +28,12 @@ class MembershipError(ValueError):
     """
 
 
+class KnownAddress(MembershipError):
+    """The public Lid worden was given, for the main member, an e-mail address
+    that already belongs to a person (CR-22 R9, Q28, Q40; #1713): he signs in
+    first — which proves the address — and becomes a member from there."""
+
+
 @aggregate
 class Membership(TenantMixin, SoftDeleteMixin, Base):
     """Annual membership record per member household (CR-13 phase 3, #1250).

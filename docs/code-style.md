@@ -78,6 +78,17 @@ function for anything that needs other rows; `NOT NULL`/`CHECK`/`UNIQUE`/`FOREIG
 KEY` for what must hold at rest, in the same commit as its validator. A
 `check()` reads what is loaded and never queries.
 
+**An e-mail address of a person is written only through master data's contact
+service** (`mdm.service.new_contact_detail`; CR-22 §B7, built in #1704). It
+decides whether the address counts (`confirmed_at`) and refuses it when another
+person outside the household already uses it (`email_refusal`). The rule cannot
+be a unique index — "except inside the household" is another table — so it
+lives in the service, and `tests/test_contact_detail_factory_gate.py` keeps
+that service the only place a contact detail is made. A writer that changes the
+value of an existing row calls `require_email_free`; tests hold that, not the
+gate. No door is outside the rule: the public sign-up for a membership was,
+until CR-22's slice S8 (#1713).
+
 **An event handler** is a `@subscribe` function. It touches the session and the
 job queue, never the network, and never commits. A `@job` function is where a
 mail or an HTTP call belongs.
@@ -109,6 +120,15 @@ a menu item, route prefix, tile or path of a switchable module goes in its
 registry entry, and its routers get `require_module` where `main.py` includes
 them — never a hard-coded list in a screen. The gate is
 `backend/tests/test_module_gate.py`.
+
+**Payment never branches on a payable type to describe it** (CR-21 phase 0,
+#1748). A domain that becomes payable registers a `Describer` for its type
+(`payment.api.register_describer`, called from `app/main.py`), and every
+screen, export and audit line asks the describers (`describe_many`,
+`describe_one`, `payables_of_household`). What a payment is called, where it
+links, where it stands in the filter tree and whose it is are the owner's to
+say. The gate is `payment/tests/test_payable_describers.py` (every
+`PayableType` member has one).
 
 **A picture's address and bytes belong to media** (CR-15 §C4.6, #1473): a module
 asks `media.api.media_url` for `/api/v1/media/<id>` and `media.api.asset_bytes`

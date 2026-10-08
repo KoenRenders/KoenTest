@@ -147,8 +147,24 @@ def test_a_member_sees_the_first_name_and_mijn_gezin(client, db_session):
     # The first name on the button, the full name in the menu.
     assert ">Emma<" in button and "Voorbeeld" not in button
     assert "Emma Voorbeeld" in _menu(html)
-    assert _items(_menu(html)) == ["member", "sign-out"]
-    assert re.search(r'href="[^"]*/leden/gezin"[^>]*data-account-item="member"', _menu(html))
+    # CR-22 S3 (#1706): the account menu — the landing page first, then what the
+    # modules list, each with its own icon.
+    assert _items(_menu(html)) == ["member"] * 4 + ["sign-out"]
+    links = re.findall(
+        r'<a href="([^"]+)"[^>]*data-account-item="member"[^>]*>(.*?)</a>', _menu(html), re.S
+    )
+    assert [href for href, _body in links] == [
+        "/mijn",
+        "/mijn/gegevens",
+        "/leden/gezin",
+        "/mijn/inschrijvingen",
+    ]
+    assert "Mijn Raak Millegem" in links[0][1] and "Mijn gegevens" in links[1][1]
+    assert "Mijn gezin" in links[2][1]
+    # One glyph per meaning (Q38): the house for the landing page, the group for the household.
+    assert all(body.count("<svg") == 1 for _href, body in links)
+    icons = {re.sub(r">[^<]*$", "", body) for _href, body in links}
+    assert len(icons) == 4, "two items draw the same icon"
     # No way into the back office for a member, in neither place.
     assert 'href="/admin"' not in html
 
@@ -166,10 +182,21 @@ def test_admin_stands_in_the_menu_for_who_the_back_office_admits(client, db_sess
     assert "/admin" not in row
 
 
-def test_another_role_gets_no_admin_item(client, db_session):
+def test_finance_alone_gets_the_way_to_payments_and_not_to_the_start_page(client, db_session):
+    """#1740: until then FINANCE alone had no Admin item — signing in landed him on
+    payments. He lands on the site now, so the menu is his way in: to payments,
+    the page his role enters the back office by, never to the start page that
+    would refuse him."""
     email = _user(db_session, "finance-1588@example.org", "FINANCE")
     html = _home(client, email)
-    assert _items(_menu(html)) == ["sign-out"] and 'href="/admin"' not in html
+    assert _items(_menu(html)) == ["admin", "sign-out"]
+    assert 'href="/admin/betalingen"' in _menu(html) and 'href="/admin"' not in html
+
+
+def test_a_role_without_a_page_in_the_back_office_gets_no_admin_item(client, db_session):
+    email = _user(db_session, "account-admin-1740@example.org", "ACCOUNT_ADMIN")
+    html = _home(client, email)
+    assert _items(_menu(html)) == ["sign-out"] and "/admin" not in _menu(html)
 
 
 def test_the_drawer_carries_the_same_items_as_the_menu(client, db_session):
@@ -183,7 +210,7 @@ def test_the_drawer_carries_the_same_items_as_the_menu(client, db_session):
     db_session.add(UserRole(user_id=user.id, role_code="ADMIN"))
     db_session.commit()
     html = _home(client, email)
-    assert _items(_menu(html)) == ["member", "admin", "sign-out"]
+    assert _items(_menu(html)) == ["member"] * 4 + ["admin", "sign-out"]
     assert _items(_drawer(html)) == _items(_menu(html))
     # One source for both (`_site_account.html`): the same addresses too.
     hrefs = lambda block: re.findall(r'<a href="([^"]+)"[^>]*data-account-item', block)  # noqa: E731
@@ -345,3 +372,25 @@ def test_the_header_and_the_footer_share_one_container(client):
     html = _home(client)
     assert html.count('class="site-container') == 3  # header, main, footer
     assert '<main id="main" class="site-container' in html
+
+
+def test_the_browser_title_of_a_public_page_names_the_site_it_is_on(client, db_session):
+    """#1664 (Z7): "<page> · <the site's name>". A site with a name of its own shows
+    THAT name in the tab of every public page — until now twelve pages said "— Raak"
+    or "— Raak Millegem" whatever the site was called. Red against C1: the title of
+    `/fotos` was "Foto's — Raak Millegem" on this site too."""
+    _organisation(db_session).site_name = "Voorbeeldafdeling Meting"
+    db_session.commit()
+    for path, page in (
+        ("/fotos", "Foto's"),
+        ("/activiteiten", "Activiteiten"),
+        ("/archief", "Archief"),
+        ("/aanmelden", "Inloggen"),
+        ("/lid-worden", "Word lid"),
+        ("/nieuwsbrief", "Nieuwsbrief"),
+    ):
+        response = client.get(path)
+        assert response.status_code == 200, path
+        title = re.search(r"<title>(?:\[\w+\] )?(.*?)</title>", response.text, re.S).group(1)
+        title = title.strip().replace("&#39;", "'")
+        assert title == f"{page} · Voorbeeldafdeling Meting", f"{path}: {title!r}"

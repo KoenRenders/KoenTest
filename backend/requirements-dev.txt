@@ -3,6 +3,8 @@
 # Test-only dependencies (niet nodig in productie-image).
 pytest==8.3.4
 pytest-cov==6.0.0
+# The suite in four processes, each on its own database (CR-29).
+pytest-xdist==3.8.0
 
 # YAML lezen in tests (#798): de gate die controleert dat elke SEED_-variabele in
 # het environment:-blok van de compose-bestanden staat, parseert die bestanden echt
