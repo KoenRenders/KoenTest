@@ -1,0 +1,94 @@
+<div class="data-table-frame mb-4 rounded-card border border-line bg-white" data-table-frame>
+<table class="data-table text-sm" data-p1="auto" data-p2="auto">
+<caption class="sr-only">Betalingen</caption>
+<thead>
+<tr>
+<th scope="col" data-cell="name"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left ">
+<a href="/admin/betalingen?zicht=alle&amp;context=year-2026&amp;sort=naam" hx-get="/admin/betalingen/lijst?zicht=alle&amp;context=year-2026&amp;sort=naam" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="naam"
+ class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Boeking<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
+</th>
+<th scope="col" data-cell="context" data-p="2"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[24%]">
+<a href="/admin/betalingen?zicht=alle&amp;context=year-2026&amp;sort=context" hx-get="/admin/betalingen/lijst?zicht=alle&amp;context=year-2026&amp;sort=context" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="context"
+ class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Context<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
+</th>
+<th scope="col" data-cell="status"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[136px]">
+<a href="/admin/betalingen?zicht=alle&amp;context=year-2026&amp;sort=status" hx-get="/admin/betalingen/lijst?zicht=alle&amp;context=year-2026&amp;sort=status" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="status"
+ class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Status<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
+</th>
+<th scope="col" data-cell="amount"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right w-[104px]">
+<a href="/admin/betalingen?zicht=alle&amp;context=year-2026&amp;sort=bedrag" hx-get="/admin/betalingen/lijst?zicht=alle&amp;context=year-2026&amp;sort=bedrag" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="bedrag"
+ class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 justify-end ">Bedrag<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
+</th>
+<th scope="col" data-cell="extra" data-p="1"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right w-[104px]">
+ Ontvangen
+ </th>
+<th scope="col" data-cell="extra"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right w-[104px]">
+<a href="/admin/betalingen?zicht=alle&amp;context=year-2026&amp;sort=saldo" hx-get="/admin/betalingen/lijst?zicht=alle&amp;context=year-2026&amp;sort=saldo" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="saldo"
+ class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 justify-end ">Saldo<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
+</th>
+<th scope="col" data-cell="actions"
+ class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[156px]">
+<span class="sr-only">Acties</span>
+</th>
+</tr>
+</thead>
+<tbody>
+<tr data-row data-row-key="<REC:membership>" class="align-middle">
+<td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
+<a href="/admin/betalingen/<REC:membership>?terug=/admin/betalingen%3Fcontext%3Dyear-2026" data-row-link class="font-semibold text-ink hover:no-underline">Betty Betaalmans</a>
+</td>
+<td data-cell="context" data-p="2" class="border-b border-line px-3 py-2">
+<span data-above-row><a href="/admin/leden/gezin/<MEMBER>?terug=/admin/betalingen%3Fcontext%3Dyear-2026%26boeking%3D<REC:membership>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline ">Lidmaatschap 2026<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></span>
+<div class="max-w-[22rem] truncate text-xs text-ink-soft">Overschrijving</div>
+</td>
+<td data-cell="status" class="border-b border-line px-3 py-2">
+<span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
+</td>
+<td data-cell="amount" data-amount class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 30,00</span></td>
+<td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 30,00</span></td>
+<td data-cell="extra" data-balance class="border-b border-line px-3 py-2 text-right"><span class="tabular-nums whitespace-nowrap">€ 0,00</span></td>
+<td data-cell="actions" class="border-b border-line px-3 py-2">
+<div data-above-row data-row-controls class="flex items-center justify-end gap-2"
+ x-data="{ open: false }" :style="open ? 'z-index: 30' : ''" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<div class="relative">
+<button type="button" x-ref="trigger" data-row-menu-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+ class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink"
+ aria-label="Meer acties: Betty Betaalmans" @click="open = !open"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" role="menu" data-row-menu
+ class="absolute right-0 z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
+<a role="menuitem" href="/admin/betalingen/<REC:membership>?terug=/admin/betalingen%3Fcontext%3Dyear-2026#terugbetaling" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline">Terugbetaling</a>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="bt-boven" hx-swap-oob="true">
+</div>
+<input type="hidden" id="bt-filter-sort" name="sort" value="" data-sort-field hx-swap-oob="true">
+<span id="bt-filter-count" hx-swap-oob="true" data-toolbar-count class="ml-auto whitespace-nowrap text-xs tabular-nums text-ink-soft">1–1 van 1</span>
+<span id="bt-filter-n-openstaand" hx-swap-oob="true" class="tabular-nums">(0)</span>
+<div id="list-figures" hx-swap-oob="innerHTML"><div data-figures class="overflow-hidden md:overflow-visible min-w-0">
+<dl class="m-0 flex flex-wrap items-start gap-y-2 -ml-[17px] md:ml-0">
+<div class="flex flex-col min-w-0 border-l border-line px-4" title="Wat er in deze selectie te betalen is, na terugbetalingen.">
+<dd data-figure class="order-first m-0 text-2xl leading-[30px] font-semibold tracking-tight tabular-nums whitespace-nowrap text-ink">€ 30,00</dd>
+<dt data-figure-label class="text-[13px] leading-5 text-ink-soft whitespace-nowrap overflow-hidden text-ellipsis">Netto te betalen</dt>
+</div>
+<div class="flex flex-col min-w-0 border-l border-line px-4" title="Wat er in deze selectie nog moet binnenkomen.">
+<dd data-figure class="order-first m-0 text-2xl leading-[30px] font-semibold tracking-tight tabular-nums whitespace-nowrap text-ink">€ 0,00</dd>
+<dt data-figure-label class="text-[13px] leading-5 text-ink-soft whitespace-nowrap overflow-hidden text-ellipsis">Nog te ontvangen</dt>
+</div>
+<div class="flex flex-col min-w-0 border-l border-line px-4" title="Wat er in deze selectie nog terugbetaald moet worden.">
+<dd data-figure class="order-first m-0 text-2xl leading-[30px] font-semibold tracking-tight tabular-nums whitespace-nowrap text-ink">€ 0,00</dd>
+<dt data-figure-label class="text-[13px] leading-5 text-ink-soft whitespace-nowrap overflow-hidden text-ellipsis">Nog terug te betalen</dt>
+</div>
+</dl>
+</div></div>

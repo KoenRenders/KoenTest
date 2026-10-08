@@ -293,11 +293,8 @@ def _row(
         f"{return_url}{'&' if '?' in return_url else '?'}{BOOKING_PARAM}={rec.id}", safe="/"
     )
     page = f"{BOOKINGS}/{rec.id}?terug={from_booking if on_tab else back}"
-    context_href = None
-    if rec.activity_id:
-        context_href = f"/admin/activiteiten/{rec.activity_id}?terug={from_booking}"
-    elif rec.family_id:
-        context_href = f"/admin/leden/gezin/{rec.family_id}?terug={from_booking}"
+    # CR-21 phase 0 (#1748): where the payable hangs is its describer's to say.
+    context_href = f"{rec.context_href}?terug={from_booking}" if rec.context_href else None
 
     action = None
     menu: list[dict] = []
@@ -313,11 +310,11 @@ def _row(
             }
         if may_mutate and rec.is_paid and not rec.is_refund:
             menu.append({"label": _("Terugbetaling"), "href": f"{page}#terugbetaling"})
-        if rec.is_registration and rec.payable_id:
+        if rec.payable_href:
             menu.append(
                 {
-                    "label": _("Inschrijving openen"),
-                    "href": f"/admin/inschrijvingen/{rec.payable_id}?terug={from_booking}",
+                    "label": _("%(what)s openen") % {"what": _(rec.payable_label)},
+                    "href": f"{rec.payable_href}?terug={from_booking}",
                 }
             )
         if may_mutate and card["mag_verwijderen"]:
@@ -1087,29 +1084,17 @@ def _booking_view(
     if rec.component_name:
         context = f"{context} — {rec.component_name}"
     facts: list[dict] = []
-    if rec.activity_id:
+    if rec.context_href:
         facts.append(
-            {
-                "text": context,
-                "href": f"/admin/activiteiten/{rec.activity_id}?terug={back_here}",
-                "kind": "reference",
-            }
-        )
-    elif rec.family_id:
-        facts.append(
-            {
-                "text": context,
-                "href": f"/admin/leden/gezin/{rec.family_id}?terug={back_here}",
-                "kind": "reference",
-            }
+            {"text": context, "href": f"{rec.context_href}?terug={back_here}", "kind": "reference"}
         )
     else:
         facts.append({"text": context})
-    if rec.is_registration and rec.payable_id:
+    if rec.payable_href:
         facts.append(
             {
-                "text": _("Inschrijving"),
-                "href": f"/admin/inschrijvingen/{rec.payable_id}?terug={back_here}",
+                "text": _(rec.payable_label),
+                "href": f"{rec.payable_href}?terug={back_here}",
                 "kind": "reference",
             }
         )

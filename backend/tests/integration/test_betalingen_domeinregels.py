@@ -44,8 +44,9 @@ def rec(**kw):
         payable_type=PayableType.REGISTRATION,
         payable_id=1,
         refund_of_id=None,
-        membership_year=None,
-        component_id=None,
+        # CR-21 phase 0 (#1748): the place in the filter tree, as the payable's
+        # describer gives it.
+        filter_context=None,
         contact_name=None,
         structured_communication=None,
         description=None,
@@ -86,15 +87,15 @@ def test_openstaand_komt_uit_het_saldo_niet_uit_de_statuskolom():
 def test_onderdeelfilter_eist_een_inschrijving():
     """De export-variant controleerde payable_type, het scherm niet. Een
     lidmaatschapsrecord hoort nooit onder een onderdeelfilter te vallen."""
-    inschrijving = rec(id="reg", component_id=7)
-    lidmaatschap = rec(id="lid", payable_type=PayableType.MEMBERSHIP, component_id=7)
+    inschrijving = rec(id="reg", filter_context="comp-7")
+    lidmaatschap = rec(id="lid", payable_type=PayableType.MEMBERSHIP, filter_context="comp-7")
     uit = filter_records([inschrijving, lidmaatschap], context="comp-7")
     assert [r.id for r in uit] == ["reg"]
 
 
 def test_jaarfilter_kijkt_naar_het_lidmaatschapsjaar():
-    lid25 = rec(id="25", payable_type=PayableType.MEMBERSHIP, membership_year=2025)
-    lid26 = rec(id="26", payable_type=PayableType.MEMBERSHIP, membership_year=2026)
+    lid25 = rec(id="25", payable_type=PayableType.MEMBERSHIP, filter_context="year-2025")
+    lid26 = rec(id="26", payable_type=PayableType.MEMBERSHIP, filter_context="year-2026")
     uit = filter_records([lid25, lid26], context="year-2026")
     assert [r.id for r in uit] == ["26"]
 
@@ -102,8 +103,8 @@ def test_jaarfilter_kijkt_naar_het_lidmaatschapsjaar():
 def test_zoekterm_zoekt_binnen_het_gekozen_filter():
     """De zoekterm staat vóór de andere filters (#591): je zoekt binnen je
     selectie, niet erbuiten."""
-    binnen = rec(id="binnen", component_id=7, contact_name="Jef Peeters")
-    buiten = rec(id="buiten", component_id=9, contact_name="Jef Peeters")
+    binnen = rec(id="binnen", filter_context="comp-7", contact_name="Jef Peeters")
+    buiten = rec(id="buiten", filter_context="comp-9", contact_name="Jef Peeters")
     uit = filter_records([binnen, buiten], context="comp-7", q="jef")
     assert [r.id for r in uit] == ["binnen"]
 
@@ -127,12 +128,13 @@ def test_de_export_gebruikt_dezelfde_filter():
     assert not hasattr(exports, "_passes_filter")
 
 
-def test_expliciete_verrijking_wint_van_het_record():
-    """De export verrijkt rauwe records; het scherm krijgt ze al verrijkt binnen.
-    Eén functie moet allebei aankunnen."""
-    kaal = rec(component_id=None)
-    assert matches_filter(kaal, context="comp-7", component_id=7) is True
+def test_a_record_without_a_place_falls_outside_a_component_or_year():
+    """CR-21 phase 0 (#1748): the place comes from the payable's describer, for the
+    screen and the export alike — the export no longer hands a year or a component
+    to this function. A record no describer placed is under no component and no year."""
+    kaal = rec()
     assert matches_filter(kaal, context="comp-7") is False
+    assert matches_filter(kaal, context="all") is True
 
 
 # ── Aggregatie ───────────────────────────────────────────────────────────────
