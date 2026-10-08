@@ -587,6 +587,20 @@ def active_sites_by_account(db):
     return named + ([(None, groups[None])] if None in groups else [])
 
 
+def circle_organization(db):
+    """The organisation a circle hangs on: this database's own. While none is set
+    up nobody can be put in a circle — refused here, in the words the two circle
+    screens always gave. That rule stood in those screens until CR-13 phase 4c
+    (#1251)."""
+    from app.domains.mdm.models import MasterDataError
+    from app.i18n import _
+
+    organization = platform_org(db)
+    if organization is None:
+        raise MasterDataError(_("Er is nog geen organisatie ingesteld."))
+    return organization
+
+
 def platform_org(db):
     """The PLATFORM organization, or None if this database has none (#854).
 

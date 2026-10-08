@@ -45,6 +45,7 @@ from app.domains.activities.models import (  # noqa: F401
     RegistrationHistory,
     RegistrationItem,
     RegistrationItemHistory,
+    RegistrationRefused,
 )
 from app.domains.activities.my_registrations import (  # noqa: F401
     MyRegistration,
@@ -362,6 +363,7 @@ __all__ = [
     "Outcome",
     "OutcomeKind",
     "board_channel",
+    "RegistrationRefused",
     "contact_refusals",
     "form_context",
     "form_quantities",
