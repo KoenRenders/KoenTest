@@ -20,8 +20,13 @@ on:
 
 # One run per commit (CR-29): a newer push cancels a pull request's stale run;
 # the run of a master commit always finishes — HDEV and the release wait for it.
+# A pull request shares one group per branch; a master commit gets a group of
+# its own. With one group for all of master, runs queued behind each other and
+# GitHub cancelled the waiting one as soon as a newer commit arrived
+# (8 October 2026: the run of 6a655a30 was cancelled by the push of 927f5f53)
+# — `cancel-in-progress: false` spares only the run that is already running.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
