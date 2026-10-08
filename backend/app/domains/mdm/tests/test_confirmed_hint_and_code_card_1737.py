@@ -44,6 +44,30 @@ def test_the_household_screen_promises_only_what_a_confirmed_address_does(client
     assert "Een gewijzigde tekst bewaar je met Opslaan" in page.text
 
 
+@pytest.mark.parametrize("page", ["/leden/gezin", "/mijn/gegevens"])
+def test_the_members_own_screens_say_confirmed_too(client, db_session, page):
+    """#1752: Mijn gezin and Mijn gegevens said "Met elk adres kan je inloggen." above
+    the e-mail addresses, also above one that still waits for its confirmation — and
+    a waiting address does not sign in (#1711). Both screens take the sentence from
+    one place, the person block of `_household_rows.html`.
+
+    Red: the old sentence put back in that one place → both screens, naming it.
+    """
+    _household, person = create_test_family(db_session, email=EMAIL)
+    db_session.add(
+        new_contact_detail(db_session, person, "EMAIL", WAITING, is_primary=False, confirmed=False)
+    )
+    db_session.commit()
+    client.cookies.set(SESSION_COOKIE, make_session_value(EMAIL))
+    answer = client.get(page)
+    assert answer.status_code == 200, answer.text[:300]
+    assert WAITING in answer.text, "the waiting address is not on the screen"
+    assert "Met elk bevestigd adres kan je inloggen." in answer.text
+    assert "Met elk adres kan je inloggen" not in answer.text
+    # What follows it stays.
+    assert "Het hoofdadres ontvangt de bevestiging." in answer.text
+
+
 def test_the_code_page_stands_on_the_card_of_the_sign_in_screens(client, db_session):
     _household, person = create_test_family(db_session, email=EMAIL)
     row = new_contact_detail(
