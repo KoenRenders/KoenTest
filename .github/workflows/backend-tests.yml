@@ -89,10 +89,35 @@ jobs:
       # Design Studio (#1007) renders posters through Inkscape as a subprocess;
       # the render tests call the real binary, as the image does. The poster
       # fonts come from app/static/fonts through the renderer's own fontconfig.
-      - name: Install Inkscape
+      #
+      # CR-29 (#1745; Koen, 8 October 2026): the packages are kept between
+      # runs. Measured over twenty runs the step took 12-40 seconds, and three
+      # times 7, 10 and 15 minutes — the package mirror, not the install. The
+      # key is the version of the runner image, so the kept packages are
+      # renewed with every new image and never installed onto another one.
+      - name: Runner image version
+        id: image
+        run: echo "version=$ImageVersion" >> "$GITHUB_OUTPUT"
+
+      - name: Kept Inkscape packages
+        id: inkscape-debs
+        uses: actions/cache@v4
+        with:
+          path: ~/inkscape-debs
+          key: inkscape-debs-${{ runner.os }}-${{ steps.image.outputs.version }}
+
+      - name: Download Inkscape (nothing kept for this image yet)
+        if: steps.inkscape-debs.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends inkscape
+          sudo apt-get install -y -q --no-install-recommends --download-only inkscape
+          mkdir -p ~/inkscape-debs
+          cp /var/cache/apt/archives/*.deb ~/inkscape-debs/
+
+      - name: Install Inkscape
+        run: |
+          sudo dpkg -i ~/inkscape-debs/*.deb
+          inkscape --version
 
       # Static type-check vangt None-dereferences en verkeerde argument-types vóór
       # de deploy — voorheen sneuvelden die pas op runtime (PROD). Symmetrie met
@@ -190,6 +215,18 @@ jobs:
 
       # playwright-python vervangt de Node-Playwright (React-exit #405): de
       # golden flows draaien in een echte Chromium tegen de server-rendered site.
+      #
+      # CR-29 (#1745; Koen, 8 October 2026): the downloaded browser is kept
+      # between runs; `playwright install` skips a browser that is already
+      # there. requirements-e2e.txt pins Playwright, and each release ships its
+      # own Chromium, so a new pin is a new key. The system packages of
+      # `--with-deps` still come from the package mirror on every run.
+      - name: Kept Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('backend/requirements-e2e.txt') }}
+
       - name: Backend-deps + Playwright-browser
         working-directory: backend
         run: |
