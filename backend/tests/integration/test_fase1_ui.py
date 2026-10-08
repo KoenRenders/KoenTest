@@ -32,7 +32,9 @@ def test_aanmelden_flow_sets_session_cookie(client, monkeypatch):
     step2 = client.post("/aanmelden/code", data={"email": SEEDED_ADMIN_EMAIL, "code": "424242"})
     assert step2.status_code == 200
     assert SESSION_COOKIE in step2.cookies
-    assert step2.headers.get("HX-Redirect") == "/admin/werkbank"
+    # #1740: the door decides, not the role — signed in on the site, the seeded
+    # administrator (no person on this tenant) lands on the site.
+    assert step2.headers.get("HX-Redirect") == "/"
 
 
 def test_aanmelden_wrong_code_shows_error_without_cookie(client, monkeypatch):

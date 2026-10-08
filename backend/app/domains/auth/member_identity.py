@@ -96,6 +96,14 @@ def sign_in_identity(db: Session, email: str) -> Tuple[str, Optional[Person]]:
     return MULTIPLE, None
 
 
+def address_says_nobody(db: Session, email: str) -> bool:
+    """Does this confirmed address stand on more than one person, so that it
+    signs nobody in (#1740)? The answer of `sign_in_identity`, for a screen
+    that shows it — Personen marks such an address as double. Two persons of
+    one household who share an address are not double: that signs in."""
+    return sign_in_identity(db, email)[0] == MULTIPLE
+
+
 def login_person_for_email(db: Session, email: str) -> Optional[Person]:
     """The person an e-mail address signs in as, or None — the one place every
     reader of "who is signed in" asks (CR-22 C1: nine callers).

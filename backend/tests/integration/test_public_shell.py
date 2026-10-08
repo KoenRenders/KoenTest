@@ -182,10 +182,21 @@ def test_admin_stands_in_the_menu_for_who_the_back_office_admits(client, db_sess
     assert "/admin" not in row
 
 
-def test_another_role_gets_no_admin_item(client, db_session):
+def test_finance_alone_gets_the_way_to_payments_and_not_to_the_start_page(client, db_session):
+    """#1740: until then FINANCE alone had no Admin item — signing in landed him on
+    payments. He lands on the site now, so the menu is his way in: to payments,
+    the page his role enters the back office by, never to the start page that
+    would refuse him."""
     email = _user(db_session, "finance-1588@example.org", "FINANCE")
     html = _home(client, email)
-    assert _items(_menu(html)) == ["sign-out"] and 'href="/admin"' not in html
+    assert _items(_menu(html)) == ["admin", "sign-out"]
+    assert 'href="/admin/betalingen"' in _menu(html) and 'href="/admin"' not in html
+
+
+def test_a_role_without_a_page_in_the_back_office_gets_no_admin_item(client, db_session):
+    email = _user(db_session, "account-admin-1740@example.org", "ACCOUNT_ADMIN")
+    html = _home(client, email)
+    assert _items(_menu(html)) == ["sign-out"] and "/admin" not in _menu(html)
 
 
 def test_the_drawer_carries_the_same_items_as_the_menu(client, db_session):

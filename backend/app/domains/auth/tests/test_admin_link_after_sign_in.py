@@ -114,4 +114,5 @@ def test_the_mail_link_brings_you_to_the_admin_page(client, board_member, mail_l
 def test_a_foreign_way_back_in_the_code_step_is_refused(client, board_member, mail_link, foreign):
     client.post("/aanmelden", data={"email": EMAIL, "terug": foreign})
     done = client.post("/aanmelden/code", data={"email": EMAIL, "code": "585858", "terug": foreign})
-    assert done.headers.get("HX-Redirect") == "/admin/werkbank"
+    # A foreign way back is dropped; the fallback is the site's landing (#1740).
+    assert done.headers.get("HX-Redirect") == "/"

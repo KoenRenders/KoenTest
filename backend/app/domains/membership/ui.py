@@ -172,7 +172,7 @@ def _to_sign_in(request: Request, db: Session):
 
     # CR-22 (#1707): whoever IS signed in and has no household — an account —
     # would be sent to sign in, and come straight back here: a loop. He goes
-    # where he lands instead (his account page; a board user, the back office).
+    # where he lands instead (his account page, or the site without a person).
     email = read_session_value(request.cookies.get(SESSION_COOKIE))
     if email:
         return RedirectResponse(landing_for(db, email), status_code=302)
