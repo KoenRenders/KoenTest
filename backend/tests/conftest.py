@@ -625,6 +625,51 @@ def seed_activity_with_product(db, price="10.00", is_free=False, max_participant
     return activity, comp, product
 
 
+def register_through_the_service(
+    activity_id: int,
+    component_id: int,
+    product_id: int,
+    *,
+    quantity: int,
+    name: str,
+    email: str,
+) -> int:
+    """A registration as the public form makes it — the registration service, in a
+    session of its own, committed — for a test that needs one to exist before it
+    opens a screen. Returns the registration's id.
+
+    CR-13 phase 4b (#1251): two browser tests made theirs through the JSON route
+    `POST /api/v1/activities/{id}/register`, which had no other caller. `app.main`
+    is imported so the event subscribers are there (the confirmation mail is
+    queued by one): a service called without them loses its consequences silently.
+    """
+    from fastapi import BackgroundTasks
+
+    import app.main  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.activities.api import register_for_activity
+    from app.schemas.activity import RegistrationCreate, RegistrationItemCreate
+
+    db = SessionLocal()
+    try:
+        result = register_for_activity(
+            db,
+            activity_id,
+            RegistrationCreate(
+                contact_name=name,
+                contact_email=email,
+                phone="0470000000",
+                component_id=component_id,
+                payment_method="transfer",
+                items=[RegistrationItemCreate(product_id=product_id, quantity=quantity)],
+            ),
+            BackgroundTasks(),
+        )
+        return result["id"] if isinstance(result, dict) else result.id
+    finally:
+        db.close()
+
+
 def seed_question_form(db, title="Sint 2026", **settings):
     """A form a component can ask (CR-14): open, one section, three questions —
     "Tijdslot" (checkbox, required, with "Andere…"), "Verhaal" (textarea, required)

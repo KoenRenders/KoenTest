@@ -42,8 +42,7 @@ from tests_e2e.schermen import (  # noqa: E402
 
 @pytest.fixture(scope="module")
 def setup():
-    """A paid component at €10, a registration of 2 through the public API, and a
-    board member."""
+    """A paid component at €10 and a board member."""
     import secrets
 
     import app.models  # noqa: F401
@@ -82,23 +81,19 @@ def browser():
 
 
 @pytest.fixture(scope="module")
-def registration(browser, setup):
-    context = browser.new_context(base_url=BASE)
-    answer = context.request.post(
-        f"/api/v1/activities/{setup['activity']}/register",
-        data={
-            "contact_name": "E2E Regel",
-            "phone": "0470000000",
-            "contact_email": "regel@example.com",
-            "component_id": setup["component"],
-            "payment_method": "transfer",
-            "items": [{"product_id": setup["product"], "quantity": 2}],
-        },
+def registration(setup):
+    """A registration of 2, through the registration service (#1251: not through a
+    JSON route that had no caller but this set-up)."""
+    from tests.conftest import register_through_the_service
+
+    return register_through_the_service(
+        setup["activity"],
+        setup["component"],
+        setup["product"],
+        quantity=2,
+        name="E2E Regel",
+        email="regel@example.com",
     )
-    assert answer.ok, answer.text()
-    registration_id = answer.json()["id"]
-    context.close()
-    return registration_id
 
 
 def _page(browser, width, session=None):
