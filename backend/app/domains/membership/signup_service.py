@@ -38,9 +38,9 @@ from app.kernel.events import publish
 logger = logging.getLogger(__name__)
 
 
-# No router since CR-13 phase 4b (#1251): the JSON routes of this file are gone,
-# none had a caller. What is left is the function behind `membership.api.register_family`, which the
-# public form calls; it stays in this file until phase 4c moves it.
+# The function behind `membership.api.register_family`, which the public form calls.
+# Until CR-13 phase 4c (#1251) this file was `register_router.py`; its JSON routes went
+# in phase 4b, none had a caller, and a file that holds no route is not a router.
 def register_family(
     data: FamilyCreate,
     background_tasks: BackgroundTasks,

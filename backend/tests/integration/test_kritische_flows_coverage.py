@@ -68,7 +68,7 @@ def test_families_betaalfout_rolt_alles_terug(client, db_session, monkeypatch):
     def _boom(*args, **kwargs):
         raise ValueError("betaalprovider onbereikbaar")
 
-    monkeypatch.setattr("app.domains.membership.register_router.create_payment_record", _boom)
+    monkeypatch.setattr("app.domains.membership.signup_service.create_payment_record", _boom)
 
     resp = sign_up_at_the_door(client, json=_family_payload(email="boom@example.com"))
     assert resp.status_code == 422

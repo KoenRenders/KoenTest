@@ -605,8 +605,8 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/meetings/admin_ui.py::circle_end → mdm.api.end_circle_relation",
         "domains/meetings/admin_ui.py::circle_new_person → mdm.api.create_person_for_circle",
         "domains/meetings/service.py::send_meeting_mail → mail.api.send_with_attachments",
-        "domains/membership/household_router.py::renew_membership → audit.api.snapshot_membership",
-        "domains/membership/household_router.py::renew_membership → payment.api.create_payment_record",
+        "domains/membership/portal_service.py::renew_membership → audit.api.snapshot_membership",
+        "domains/membership/portal_service.py::renew_membership → payment.api.create_payment_record",
         "domains/membership/household_service.py::_reconcile_geschrapt_lidmaatschap → payment.api.reconcile_charges",
         "domains/membership/household_service.py::add_person_to_family → audit.api.snapshot_contact_detail",
         "domains/membership/household_service.py::add_person_to_family → audit.api.snapshot_member_person",
@@ -637,7 +637,7 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/membership/household_service.py::update_person → audit.api.snapshot_person",
         "domains/membership/household_service.py::update_person_address → audit.api.snapshot_address",
         "domains/membership/household_service.py::update_person_contacts._upsert_contact → mdm.api.upsert_primary_contact",
-        "domains/membership/register_router.py::register_family → payment.api.create_payment_record",
+        "domains/membership/signup_service.py::register_family → payment.api.create_payment_record",
         "domains/membership/service.py::activate_after_payment → audit.api.snapshot_membership",
         "domains/newsletter/service.py::add_attachment → media.api.add_document",
         "domains/newsletter/service.py::send_batch → mail.api.send_campaign_mail",
@@ -675,10 +675,6 @@ RULE_IN_ROUTER: dict[str, str] = {
     "domains/mdm/import_router.py::_take::time.monotonic() - entry['created_at'] > _TTL_SECONDS": "door: the preview token expired — the request's shape, not a rule on the data",
     "domains/mdm/import_router.py::preview::len(content) > _MAX_FILE_BYTES": "door: the upload's size — the request's shape, not a rule on the data",
     "domains/mdm/import_router.py::preview::not content": "door: an empty upload — the request's shape, not a rule on the data",
-    "domains/membership/household_router.py::renew_membership::has_valid_membership(person) and (not renewal_window_open)": "rule: renewal only inside the renewal window (Membership) — phase 3",
-    "domains/membership/household_router.py::renew_membership::membership and membership.is_active": "rule: no second active membership (Membership) — phase 3",
-    "domains/membership/household_router.py::renew_membership::open_renewal_payment(db, member)": "rule: one open renewal payment at a time (Membership) — phase 3",
-    "domains/membership/register_router.py::register_family::not recs or any((r.status in (PaymentStatus.PAID, PaymentStatus.PENDING) for r in recs))": "rule: a family registers once while a payment is open or paid (Member) — phase 3",
     "domains/newsletter/admin_ui.py::subscriber_import_preview::len(data) > MAX_IMPORT_BYTES": "door: the upload's size — the request's shape, not a rule on the data",
     "domains/reporting/admin_ui.py::_ask::not vraag": "door: an empty question in the assistant box — the request's shape, not a rule on the data",
 }
@@ -692,7 +688,6 @@ WRITE_OUTSIDE_SERVICE: frozenset[str] = frozenset(
         "domains/auth/router.py::create_api_key → auth.ApiKey",
         "domains/auth/router.py::revoke_api_key → auth.ApiKey",
         "domains/auth/router.py::verify_login → auth.LoginToken",
-        "domains/membership/household_router.py::renew_membership → membership.Membership",
     }
 )
 

@@ -33,8 +33,9 @@ from app.i18n import _
 
 logger = logging.getLogger(__name__)
 
-# No router since CR-13 phase 4b (#1251): the JSON routes of this file are gone, none had a
-# caller. What is left are the functions the facade calls (`api.py`); phase 4c moves them.
+# The functions the facade calls for the portal (`api.py`). Until CR-13 phase 4c (#1251)
+# this file was `household_router.py`; its JSON routes went in phase 4b, none had a caller,
+# and a file that holds no route is not a router.
 
 
 def _member_for(person, db: Session) -> Member:
