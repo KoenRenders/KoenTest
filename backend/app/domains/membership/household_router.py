@@ -25,9 +25,7 @@ from app.domains.mdm.api import (
     CONTACT,
     Member,
     MemberPerson,
-    Person,
     household_of,
-    household_person,
     household_refusals_as_http,
     person_payload,
 )
@@ -213,69 +211,3 @@ def get_household(*, person, db: Session) -> dict:
         ),
         "persons": [person_payload(mp.person) for mp in links],
     }
-
-
-# ── E-mailadressen van een gezinslid (#1174) ─────────────────────────────────
-#
-# Ook door het LID zelf, niet alleen door het bestuur. Koen, 27 september 2026:
-# *"Wat mij betreft kan een lid dat zelfs in het publieke deel bepalen, dan zien
-# we dat ook in de wijzigingen."* De lus die dat sluit bestaat al — portaal →
-# auditlogboek → de .ods-export van de ledenwijzigingen → met de hand overtypen
-# in het Raak Nationaal-programma.
-#
-# Dezelfde gezinsgrens als elke andere portaalbewerking: `mdm.api.household_person`.
-# Zonder die controle kon een lid met een persoon-id van iemand anders diens
-# adressen beheren.
-
-
-def _household_target(person, person_id: int, db: Session) -> Person:
-    member = _member_for(person, db)
-    with household_refusals_as_http():
-        return household_person(db, member, person_id)
-
-
-def _actor_van(person) -> str | None:
-    return next(
-        (c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None
-    )
-
-
-def household_add_email(person_id: int, data: dict, *, person, db: Session):
-    from app.domains.mdm.api import add_email_address
-
-    _household_target(person, person_id, db)
-    # CR-22 R15 (#1711): the member adds it himself, so it waits for its code.
-    add_email_address(
-        db, person_id, (data or {}).get("email") or "", actor=_actor_van(person), confirmed=False
-    )
-    return {"ok": True}
-
-
-def household_apply_email_rows(person_id: int, formulier, *, person, db: Session):
-    """De e-mailrijen uit het portaalformulier toepassen (#1219).
-
-    Dezelfde gezinsgrens als elke andere portaalbewerking: zonder
-    `household_person` kon een lid met het persoon-id van een vreemde diens
-    adressen bewerken.
-    """
-    from app.domains.mdm.api import apply_email_rows
-
-    _household_target(person, person_id, db)
-    apply_email_rows(db, person_id, formulier, actor=_actor_van(person), confirmed=False)
-    return {"ok": True}
-
-
-def household_make_email_primary(person_id: int, contact_id: int, *, person, db: Session):
-    from app.domains.mdm.api import make_email_primary
-
-    _household_target(person, person_id, db)
-    make_email_primary(db, person_id, contact_id, actor=_actor_van(person))
-    return {"ok": True}
-
-
-def household_remove_email(person_id: int, contact_id: int, *, person, db: Session):
-    from app.domains.mdm.api import remove_email_address
-
-    _household_target(person, person_id, db)
-    remove_email_address(db, person_id, contact_id, actor=_actor_van(person))
-    return None

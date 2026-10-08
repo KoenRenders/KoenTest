@@ -142,30 +142,6 @@ def household_member_for(db, person):
     return _member_for(person, db)
 
 
-def household_add_email(db, person, person_id: int, email: str):
-    from app.domains.membership.household_router import household_add_email as _impl
-
-    return _impl(person_id, {"email": email}, person=person, db=db)
-
-
-def household_apply_email_rows(db, person, person_id: int, formulier):
-    from app.domains.membership.household_router import household_apply_email_rows as _impl
-
-    return _impl(person_id, formulier, person=person, db=db)
-
-
-def household_make_email_primary(db, person, person_id: int, contact_id: int):
-    from app.domains.membership.household_router import household_make_email_primary as _impl
-
-    return _impl(person_id, contact_id, person=person, db=db)
-
-
-def household_remove_email(db, person, person_id: int, contact_id: int):
-    from app.domains.membership.household_router import household_remove_email as _impl
-
-    return _impl(person_id, contact_id, person=person, db=db)
-
-
 def portal_member(request, db):
     """The member logged in on the family portal, with the CSRF check of a mutation;
     a 401 without one. For a door of another domain on the portal (CR-13 phase 3)."""
