@@ -120,6 +120,8 @@ binding: each step has one use, applied by a macro, never by a template.
 | record page | the full frame; inside it one **reading group** of 768 px form column + 24 px gap + 300 px summary column (1 092 px), **left-aligned against the page margin** — never centred — so a form starts on the same x as a list, the title and the tabs; the space beyond the summary stays empty on a wide screen (Koen, 4 Oct 2026, correcting block 1's "centred when the frame is wider") | one column, 16 px gutters; the summary as a strip under the tabs |
 | document page | reading width 768 px, left-aligned like the record page | one column, 16 px gutters |
 
+**These three are the whole scale** (Koen, 8 October 2026, CR-11 Q89, after the sign-in card went 1 248 → 448 → 768 px in two days). A screen that stands alone — the sign-in card, a page with one message and one button, a short admin form — is a document page at 768 px; there is no narrow-card and no short-form width. The public site adds one: its container of 1 024 px with text at 768 px (CR-17 Q20). A modal and the 300 px summary column are the kit's own and not page widths. A domain template sets no `max-w-*` of its own: the width is the layout's. The 448, 576 and 672 px boxes that exist today move to 768 px in CR-11 phase 5, behind a count that may only fall to zero.
+
 **Two priorities, one kit** (Koen, 2 October 2026): the public site is
 designed phone-first — 390 px is where a public page is drawn first and
 judged first; the back office is designed desktop-first — 1 440 px is where
