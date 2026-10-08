@@ -85,21 +85,19 @@ flowchart LR
     s1[Bring sizes to try]
     s2[Change the order]
     s3[Register the delivery]
-    s4[Remind or cancel] --> se2((Cancelled))
+    s4[Follow up open orders] --> se2((Cancelled))
   end
   subgraph Boekhouding
     t1[Check the account] --> tq{Money in?}
   end
   subgraph Portal
     p1[Reserve the articles] --> pq{How paid?}
-    pq -- transfer --> p3[Open a task for Boekhouding]
     p2[Record the payment]
     p4[Lower the stock] --> pe((Delivered))
   end
   b2 -.-> p1
   pq -- online, paid --> p2
   pq -- online, failed or hanging --> s4
-  p3 -.-> t1
   b4 -.-> t1
   tq -- yes --> p2
   tq -- not yet paid --> s4
@@ -110,14 +108,14 @@ flowchart LR
   bq -- yes --> s3 --> p4
 ```
 
-*What to see: the portal now holds what the e-mail and the Excel list held — the order, the reservation, the price and the open payment — and the treasurer's chase becomes a task that reaches Verkoop only when Boekhouding says the money is not there.*
+*What to see: the portal now holds what the e-mail and the Excel list held — the order, the reservation, the price and the open payment; Boekhouding books transfers as for registrations, and Verkoop follows what is still open in its list of orders. Tasks on the workbench come later (CR-28).*
 
 What changes against A2, one line each:
 
 - **Asking for a size** becomes filling a basket in the Webshop: the buyer sees what exists, in which size, at what price (pain 1).
 - **The mail with price and account number** is no longer written by hand: the portal sends the buyer a confirmation mail with the order, the amount and — for a transfer — the account number and the structured communication, exactly as for a registration (pain 4, pain 5; R38).
 - **The stock** is in the portal: reserved at the order, lowered at delivery (pain 3).
-- **The Excel list** disappears: an unpaid transfer is a task on the workbench, first Boekhouding, then Verkoop (pain 6, R18).
+- **The Excel list** disappears: what is unpaid is in Verkoop's list of orders, filtered on "Te betalen" (pain 6, Q50); tasks on the workbench follow in CR-28.
 - **Trying on and exchanging** stay by agreement, outside the portal; a change of size changes the order and the money follows it (R15, R16).
 - **Bringing sizes** still depends on a volunteer (pain 2): the portal shows what is reserved, it does not deliver.
 
@@ -126,8 +124,8 @@ What changes against A2, one line each:
 | 1 | Fill the basket, order, choose online or transfer | Buyer | Webshop | was: ask by word of mouth |
 | 2 | Reserve the articles | Portal | — | new: what is reserved cannot be sold again (R13) |
 | 3 | Receive the confirmation mail; pay online, or transfer with the structured communication | Buyer | e-mail, Mollie, own bank | was: a mail written by hand, and a free-text transfer (R38) |
-| 4 | Check the account and book the transfer | Boekhouding | workbench task, bank | was: the Excel list; the task is due in 14 days and turns red after (R18, Q38) |
-| 5 | Remind the buyer or cancel the order | Verkoop | workbench task | new: only when Boekhouding says "not yet paid", or an online payment failed (R17, R18) |
+| 4 | Check the account and book the transfer | Boekhouding | Betalingen, bank | was: the Excel list; now "Bevestig betaald" as for a registration |
+| 5 | Follow up open orders: remind the buyer outside the portal, or cancel | Verkoop | Verkoop › list of orders, filter "Te betalen" | new: the open orders in one list (Q50); tasks on the workbench in CR-28 |
 | 6 | Bring sizes, try on, change the order | Verkoop, Buyer | Verkoop screen | the order and the money follow the change (R15, R16) |
 | 7 | Register the delivery, per line | Verkoop | Verkoop screen | new: the stock goes down here (R21) |
 | 8 | Book a receipt from the supplier, correct the stock | Voorraadbeheer | Voorraadbeheer screen | new (R36, R37) |
@@ -167,7 +165,7 @@ No benefit carries a figure: the volumes were deliberately not measured (A2). Th
 | 3 | No mail is written by hand for a sale: the price comes from one place, the member price applies by itself | pain 4 | one mail per sale |
 | 4 | A transfer carries a structured communication and is matched by it, not by eye | pain 5 | — |
 | 5 | What is in stock is known without going to look, and a reserved garment cannot be sold twice | pain 3 | — |
-| 6 | The Excel list of open sales disappears: what is unpaid is a task on the workbench, with whom it lies and since when | pain 6 | one list less |
+| 6 | The Excel list of open sales disappears: what is unpaid is in Verkoop's list of orders | pain 6 | one list less |
 | 7 | Another tenant of the platform can sell its own articles with the same module | A1, R5 | a principle; no tenant asks for it yet |
 
 **Not earned:** bringing sizes to try still depends on one volunteer being available (pain 2); the portal shows what is reserved, it does not deliver.
@@ -190,7 +188,7 @@ No benefit carries a figure: the volumes were deliberately not measured (A2). Th
 | The Excel list of open sales | with the treasurer; holds names and amounts, so it stays outside the repository | the open sales are followed apart from the bank and the mails (pain 6); the workbench task replaces it (R18), nothing is imported from it |
 | Pictures of the garments | none supplied yet; taken when the products are entered | one to four per product (R3) |
 
-**Reporting need.** None asked (Koen, 7 Oct 2026, Q46) beyond what the screens show: the orders with their statuses (R34), the stock per location (R7) and the open tasks on the workbench (R18). No export, no printed list, no figure for the board; stock value is Won't (R8). If one is wanted, it becomes a requirement in A6.
+**Reporting need.** None asked (Koen, 7 Oct 2026, Q46) beyond what the screens show: the orders with their statuses (R34), the stock per location (R7) and the open orders in Verkoop's list (Q50). No export, no printed list, no figure for the board; stock value is Won't (R8). If one is wanted, it becomes a requirement in A6.
 
 ## A6. Business requirements — what the board asks, with MoSCoW
 
@@ -217,12 +215,12 @@ No benefit carries a figure: the volumes were deliberately not measured (A2). Th
 | R14 | The buyer pays online or by bank transfer, as with a registration for an activity. | Must | Koen, 6 Oct 2026 | |
 | R15 | An order can be changed after trying on — a bigger size for a smaller one, a T-shirt instead of a sweater — and the stock follows the change. | Must | Koen, 6 Oct 2026 | same principle as changing a registration |
 | R16 | The money follows a changed order as it does for a registration: an extra payment when it was paid and the new amount is higher, an updated amount when it was not paid yet, a refund when it was paid and the new amount is lower. | Must | Koen, 6 Oct 2026 | |
-| R17 | An order whose online payment fails, or stays hanging (the buyer closed the browser), becomes a task on the workbench for Sales, because something has to happen with it. | Must | Koen, 6 Oct 2026 | replaces "cancelled by itself" of the same day (Q15); the reservation stays until someone acts (Q17) |
-| R18 | An order paid by bank transfer becomes a workbench task at once, due within 14 days, and runs as a workflow of two steps: first **Boekhouding** ("is the money on the account?" — it books the transfer, and the task closes by itself), then **Verkoop** (remind the buyer or cancel the order) — the task moves to Verkoop only when Boekhouding answers "nog niet betaald", not by itself. Verkoop's task shows how recent the information is: the date on which Boekhouding answered "nog niet betaald" (Q47). A task past its due date only turns red on the workbench; no mail goes out (Q38). | Must | Koen, 6 and 7 Oct 2026 | "de boekhouding moet wel op tijd de betaling afboeken, anders heeft sales geen juiste informatie"; Q15, Q36. Built on the steps of `WorkflowDefinition` (a role per step); a due date on a task is new to the workbench. Importing bank statements is a change request of its own, reserved and not planned (Q37) |
+| R17 | *Moved to CR-28* (webshop follow-up on the workbench, split off on 8 October 2026, Q56). A failed or hanging online payment leaves the order "Te betalen" in Verkoop's list. | — | Koen, 6 Oct 2026 | |
+| R18 | *Moved to CR-28* (webshop follow-up on the workbench, split off on 8 October 2026, Q56). A transfer is confirmed by Boekhouding on the payments screen, as for registrations. | — | Koen, 6–8 Oct 2026 | |
 | R19 | The roles that carry the process: Masterdata (keeps the product list — product master data), Prijsbeheer (sets the price of an article), Verkoop (the webshop: orders, delivery, fitting moments, exchanges), Boekhouding (follows up payments — the existing role `FINANCE`) and Voorraadbeheer (enters stock and changes it by hand). One person may hold several. | Must | Koen, 6–7 Oct 2026 (Q11, Q33) | Productbeheer became part of Masterdata (CR-24); screen names follow CR-24 |
 | R20 | *Merged into R3.* | — | Koen, 6 Oct 2026 | the number stays empty, so later references do not shift |
 | R21 | Sales registers per order line that it is delivered; picked up or brought makes no difference. That is the moment the stock goes down. | Must | Koen, 6–7 Oct 2026 (Q30) | the goods issue (GI) of an ERP: in one transaction the line is delivered, the stock goes down and the reservation closes; a line is delivered whole — a partial delivery is a change that splits the line (R15) (Q30) |
-| R22 | An unpaid order ends in one of three ways: the buyer still pays — for example through a new payment link — and the task closes by itself; the buyer cancels it (R23); or Sales cancels it from the task. | Must | Koen, 6 Oct 2026 | |
+| R22 | An unpaid order ends in one of three ways: the buyer still pays — for example through a new payment link — and the task closes by itself; the buyer cancels it (R23); or Sales cancels it from the order (Verkoop's list of orders). | Must | Koen, 6 Oct 2026 | |
 | R23 | A signed-in buyer (member or account) can cancel his own order in the webshop, on the same page Sales uses in the back office. | Must | Koen, 6 Oct 2026 | first Won't, taken in the same day: "if we use the same screen in public and in the back office, we may get it for free" (Q19); until delivery (Q20); the buyer gets back to his order through a link in the confirmation mail (Q21); a guest cannot — without an account nothing is changed afterwards (CR-22 Q10): he asks Sales |
 | R24 | The buyer collects articles in a shopping basket and orders and pays two, three or more articles in one go. | Must | Koen, 6 Oct 2026 | the basket reserves nothing and needs no account; it lives in the buyer's browser (Q22, Q23) |
 | R25 | The buyer may cancel until the order is delivered. A return after delivery is out of scope: it is handled by hand — Sales removes the order and books the refund. | Must | Koen, 6–7 Oct 2026 | "retour is out-of-scope, gaan we doen door bestelling te verwijderen en terugbetaling te boeken" — "manueel" (Q40) |
@@ -271,15 +269,15 @@ The last column names the steps of the walkthrough (B2) that show each criterion
 | AC4 | Voorraadbeheer books a receipt of ten T-shirts size M at the warehouse; the stock shows ten. | R7, R37 | W6 |
 | AC5 | A buyer puts two articles in the basket, closes the browser, comes back: the basket is still there. They order and pay online (Mollie test mode). The order reads **Betaald** and **Klaar om af te halen**; one M is reserved, the stock still counts ten. | R13, R14, R24, R33, R34 | W7, W8 |
 | AC6 | When every M is reserved, a second buyer cannot order an M. | R13 | W9 |
-| AC7 | A buyer orders and pays by transfer. They receive a confirmation mail with the articles, the amount, the account number and the structured communication; a task appears on the workbench for Boekhouding, due within 14 days. | R18, R38 | W10, W12 |
-| AC8 | Boekhouding confirms the transfer: the task closes by itself and the order reads **Betaald**. | R18 | W13 |
-| AC9 | Boekhouding answers "nog niet betaald": the task moves to Verkoop and shows "Boekhouding: nog niet betaald" with the date of that answer. A task past its due date turns red on the workbench; nobody gets a mail. | R18 | W14, W15 |
-| AC10 | An online payment that fails, or that the buyer abandons, becomes a task for Verkoop; the articles stay reserved until someone acts. | R17, R13 | W16 |
+| AC7 | A buyer orders and pays by transfer. They receive a confirmation mail with the articles, the amount, the account number and the structured communication; the order appears in Verkoop's list under \"Te betalen\". | R38, Q50 | W10, W12 |
+| AC8 | Boekhouding confirms the transfer on the payments screen, as for a registration: the order reads **Betaald** and leaves "Te betalen". | R14 | W13 |
+| AC9 | *Moved to CR-28* (webshop follow-up on the workbench, split off on 8 October 2026, Q56). | — | — |
+| AC10 | *Moved to CR-28* (webshop follow-up on the workbench, split off on 8 October 2026, Q56). | — | — |
 | AC11 | After trying on, Verkoop changes an M into an L. The reservation moves to the L; the amount follows: an extra payment when the L costs more and the order was paid, a refund due when it costs less, a new amount when it was not paid yet. | R15, R16 | W17 |
 | AC12 | Verkoop registers one line of a two-line order as delivered: the order reads **Deels afgeleverd**, the stock of that article goes down by one and its reservation closes. When the second line is delivered, the order reads **Afgeleverd**. | R21, R34 | W18 |
 | AC13 | A signed-in buyer cancels their own order before delivery, on the same page Verkoop uses: the order reads **Geannuleerd**, the articles are free to sell again, and a paid order shows a refund due. | R13, R23, R25 | W11 |
 | AC14 | After delivery, the buyer can no longer cancel. | R25 | W18 |
-| AC15 | Verkoop cancels an unpaid order from the task: the task closes, the articles are free again. | R22 | W19 |
+| AC15 | Verkoop finds an unpaid order in its list under "Te betalen" and cancels it: the articles are free again. | R22, Q50 | W19 |
 | AC16 | Voorraadbeheer corrects the stock up by one after a return; the correction is visible apart from the receipt of AC4. | R36, R37 | W20 |
 | AC17 | A second tenant on HDEV has its own products in its own Webshop; it does not see Raak's, nor Raak its. | R5 | W21 |
 
@@ -314,7 +312,7 @@ Four new domains, one per role that keeps them: **`product`** (the catalogue —
 - **D2 — Stock is a ledger of movements; a reservation is apart.** On hand = the sum of movements; available = on hand − open reservations, per variant and location (Q3, Q16). Rejected: one stock number per variant — it forgets why it changed and cannot carry a value later (R8).
 - **D3 — The price is fixed on the line when the order is placed.** `pricing` answers "the price of this variant on this day, for a member or not"; `sales` writes it on the line and computes the total inline. Rejected: reading `pricing` at every display — a new price would change orders already placed.
 - **D4 — An order is a payable of `payment`, like a registration.** Online and transfer, the structured communication, refunds and the recalculation after a change (`reconcile_charges`, R16) are reused, not rebuilt. The event that announces a change is `SalesOrderChanged`: `OrderChanged` already names a registration's items (C1).
-- **D5 — The unpaid transfer is a workflow definition of two steps** (Q36): Boekhouding, then Verkoop, each step a task with its role; `PaymentReceived` for the order ends the run; Boekhouding's "nog niet betaald" completes step 1 and starts step 2. A failed or expired online payment starts a one-step run for Verkoop. Rejected: a sweep task keyed by its title, as refunds have — it cannot carry two steps.
+- **D5 — Follow-up of unpaid orders: Verkoop's list now, the workbench later.** Verkoop's list of orders filters on "Te betalen" (Q50); the workflow of two steps on the workbench is CR-28 (Q56).
 - **D6 — One order page, in the site shell for the buyer and the admin shell for Verkoop** (R23), as registration is one page since CR-14. The basket lives in the browser and reserves nothing (Q22, Q23).
 - **D7 — Pictures and documents live in the media library**, with two new kinds, linked to the product by `product_attachment` (B3a). Rejected: files on the product — the library already stores, thumbnails and deletes.
 
@@ -331,8 +329,8 @@ Four new domains, one per role that keeps them: **`product`** (the catalogue —
 | F7 | A change replaces lines; reservations follow; `SalesOrderChanged` lets `payment` recalculate. A partial delivery is a change that splits the line first. | R15, R16, Q30 |
 | F8 | Cancelling takes the whole order and is possible while no line is delivered: reservations cancel, open tasks close, a paid order gets its refund through the same recalculation. | R22, R23, R25 |
 | F9 | Movement reasons are a code list: RECEIPT, GOODS_ISSUE, CORRECTION. | R36, R37 |
-| F10 | A task carries `due_at`; the workbench shows a task past it in red; nothing is mailed. The transfer step is due 14 days after the order. | R18, Q38 |
-| F11 | Verkoop's task shows Boekhouding's answer on the step before, with its date: "Boekhouding: nog niet betaald — <date>". The decision and `done_at` of the closed task are kept today; they are only shown on the next task. Nothing is derived, nothing new to click (Q47). | R18 |
+| F10 | *Moved to CR-28* (webshop follow-up on the workbench, split off on 8 October 2026, Q56). | — |
+| F11 | *Moved to CR-28* (webshop follow-up on the workbench, split off on 8 October 2026, Q56). | — |
 | F12 | Placing an order mails the confirmation with its lines, the amount and, for a transfer, the transfer instructions the registration mail already builds. | R38 |
 | F13 | The link in the mail signs the buyer in and opens the order (CR-22). | Q21, Q26 |
 | F14 | Every new table is tenant-scoped (`TenantMixin`); no screen shows another tenant's rows. | R5 |
@@ -374,18 +372,17 @@ flowchart LR
     s1["Bring sizes to try<br/><i>outside the portal</i>"]:::outside
     s2["Change the order<br/><i>Verkoop › Bestelling</i>"]:::sales
     s3["Register the delivery<br/><i>Verkoop › Bestelling</i>"]:::sales
-    s4["Remind or cancel<br/><i>Werkbank</i>"]:::workflow
+    s4["Follow up open orders<br/><i>Verkoop › Bestellingen</i>"]:::sales
   end
   subgraph Boekhouding
-    t1["Check the account<br/><i>Werkbank › Betalingen</i>"]:::payment
+    t1["Check the account<br/><i>Betalingen</i>"]:::payment
   end
   subgraph Portal
     p1["Reserve the articles<br/><i>stock</i>"]:::stock
-    p3["Open a task<br/><i>workflow</i>"]:::workflow
     p2["Record the payment<br/><i>payment</i>"]:::payment
     p4["Lower the stock<br/><i>stock</i>"]:::stock
   end
-  b2 -.-> p1 --> p3 -.-> t1
+  b2 -.-> p1
   p1 --> p2
   t1 -- not yet paid --> s4
   s1 -.-> b3 --> s2 --> p1
@@ -398,7 +395,7 @@ flowchart LR
   classDef outside fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:3
 ```
 
-*Legend: blue `sales` · green `stock` · yellow `payment` · purple `workflow` · grey outside the portal. The setting-up roles have their own screens, not drawn: Masterdata › Productbeheer (`product`), Prijsbeheer (`pricing`), Voorraadbeheer (`stock`).*
+*Legend: blue `sales` · green `stock` · yellow `payment` · grey outside the portal (the purple `workflow` class stays unused until CR-28). The setting-up roles have their own screens, not drawn: Masterdata › Productbeheer (`product`), Prijsbeheer (`pricing`), Voorraadbeheer (`stock`).*
 
 **Traceability matrix**
 
@@ -415,11 +412,10 @@ flowchart LR
 | R13 | Reserve at "Bestellen"; refuse when short | F1 | stock, sales | T6 | AC5, AC6 |
 | R14 | Online or transfer through `payment` | — | payment, sales | T7 | AC5, AC7 |
 | R15, R16 | Change replaces lines; payment recalculates | F7 | sales, payment | T8 | AC11 |
-| R17 | Failed or expired online payment → task for Verkoop | — | sales, workflow | T9 | AC10 |
-| R18 | Two-step run, due date, freshness | F10, F11 | sales, workflow, payment | T10 | AC7–AC9 |
+| R17, R18 | Moved to CR-28 (Q56) | — | — | — | — |
 | R19 | The roles of CR-24 gate the four screens; Boekhouding is FINANCE | — | all | T2 | AC2 |
 | R21 | Delivery per line lowers the stock | F6 | sales, stock | T11 | AC12 |
-| R22 | Verkoop cancels from the task | F8 | sales, workflow | T12 | AC15 |
+| R22 | Verkoop cancels from its list of orders | F8 | sales | T12 | AC15 |
 | R23, R25 | The buyer cancels on the same page while nothing is delivered | F8 | sales | T12 | AC13, AC14 |
 | R24 | Basket in the browser | — | sales | T13 | AC5 |
 | R33 | Sign-in of CR-22 | F13 | auth, sales | T14 | AC5 |
@@ -437,9 +433,9 @@ flowchart LR
 
 *Buyer* — W7 Webshop: an M and an L in the basket; close the browser, return: the basket is there. W8 Bestellen, pay online (Mollie test): the order reads Betaald and Klaar om af te halen; available M 9, stock 10. W9 With all M reserved, order an M: refused, with the reason. W10 Order and pay by transfer: the mail holds the articles, the amount, the account number and the structured communication. W11 Before delivery, cancel the order from "Mijn aankopen": Geannuleerd, the articles available again.
 
-*Boekhouding* — W12 Werkbank: a task for the order of W10, due in 14 days. W13 Confirm the transfer: the task closes, the order reads Betaald. W14 On a second transfer order, answer "nog niet betaald": the task leaves Boekhouding's list.
+*Boekhouding* — W12 Betalingen: the order of W10 stands as an open transfer, with its structured communication. W13 Confirm the transfer: the order reads Betaald. W14 *moved to CR-28*.
 
-*Verkoop* — W15 Werkbank: the task of W14, with "Boekhouding: nog niet betaald — <today>"; set its due date in the past on HDEV: red, no mail. W16 Abandon an online payment as buyer: a task for Verkoop. W17 Change an M into an L on a paid order where the L costs more: an extra payment is due. W18 Deliver one line of a two-line order: Deels afgeleverd, stock down by one; deliver the second: Afgeleverd; the buyer can no longer cancel. W19 Cancel the order of W16 from its task: the task closes, the articles are free. W20 Voorraadbeheer › Correctie +1 after a return: shown apart from the receipt.
+*Verkoop* — W15 Verkoop › Bestellingen, filter "Te betalen": the open orders, the order of W10 no longer among them after W13. W16 *moved to CR-28*. W17 Change an M into an L on a paid order where the L costs more: an extra payment is due. W18 Deliver one line of a two-line order: Deels afgeleverd, stock down by one; deliver the second: Afgeleverd; the buyer can no longer cancel. W19 Cancel an unpaid order from the list: the articles are free. W20 Voorraadbeheer › Correctie +1 after a return: shown apart from the receipt.
 
 *Second tenant* — W21 Sign in at the second tenant on HDEV: its Webshop and screens show none of Raak's products.
 
@@ -484,9 +480,6 @@ flowchart TB
   subgraph payment
     pac["changed: PayableType ORDER · describers instead of if/elif (Q48)"]:::chg
   end
-  subgraph workflow
-    wc["changed: WorkflowTask.due_at · SubjectType SALES_ORDER · red on the workbench"]:::chg
-  end
   subgraph mail
     mc["changed: order confirmation, reusing the transfer instructions"]:::chg
   end
@@ -498,7 +491,7 @@ flowchart TB
   end
   pricing --> product
   stock --> product
-  sales --> product & pricing & stock & payment & workflow
+  sales --> product & pricing & stock & payment
   sales --> u
   payment -. event PaymentReceived .-> sales
   sales -. event SalesOrderChanged / OrderPlaced .-> payment & mail
@@ -535,7 +528,7 @@ erDiagram
   SALES_ORDER_LINE { int order_id int variant_id int quantity decimal unit_price datetime delivered_at }
 ```
 
-`sales` calls `product`, `pricing`, `stock`, `payment` and `workflow` through their facades and depends on nothing else new; `pricing` and `stock` read `product`; nothing calls `sales` except through events. `payment` does not import `sales`: it learns an order's name, link, filter label and export kind from a describer that `sales` registers (Q48, decided). Placing an order is one transaction — lines, prices, reservations, the payment record, the workflow run — and the mail leaves after the outer commit (`OrderPlaced`). Delivering a line and cancelling an order are each one transaction. The impact on what exists: `payment`'s readers of the payable type, the workbench's task row, the module list and its CHECK, the payable delete gate and the reporting view `f_payments`. The import gate and the layer gate hold: screens read view-models, domains meet in `api.py`.
+`sales` calls `product`, `pricing`, `stock` and `payment` through their facades and depends on nothing else new; `pricing` and `stock` read `product`; nothing calls `sales` except through events. `payment` does not import `sales`: it learns an order's name, link, filter label and export kind from a describer that `sales` registers (Q48, decided). Placing an order is one transaction — lines, prices, reservations, the payment record — and the mail leaves after the outer commit (`OrderPlaced`). Delivering a line and cancelling an order are each one transaction. The impact on what exists: `payment`'s readers of the payable type, the workbench's task row, the module list and its CHECK, the payable delete gate and the reporting view `f_payments`. The import gate and the layer gate hold: screens read view-models, domains meet in `api.py`.
 
 ## B3a. Standards the model follows — and where it deviates, on purpose
 
@@ -600,25 +593,24 @@ Checked and not bent: the import gate (facades only), the layer gate, the templa
 
 **Investment** (S ≈ 1, M ≈ 2–3, L ≈ 4–6 CLI-days)
 
-| Module | Phase 0 (Claude) | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Total |
-|---|---|---|---|---|---|---|
-| kernel (module SHOP, PAYMENT dependency, contract `SalesOrderChanged`) | S | — | — | — | — | S |
-| payment (payable ORDER, describers, view `f_payments`) | M | — | S | S | — | M+2S |
-| mail (transfer instructions through the facade) | S | — | — | — | — | S |
-| media (two kinds) and the admin menu | S | — | — | — | — | S |
-| path check for `opencode1` | S | — | — | — | — | S |
-| workflow (due date, subject SALES_ORDER) | — | — | — | — | S (Claude, before phase 4) | S |
-| product | — | M | — | — | — | M |
-| pricing | — | S | — | — | — | S |
-| stock | — | M | S | — | — | M+S |
-| sales (Webshop, order page, list of orders, mail, handlers) | — | — | L | M | M | L+2M |
-| **Per phase** | **≈ 5** | **≈ 5** | **≈ 8** | **≈ 4** | **≈ 4** | **≈ 26 CLI-days** |
+| Module | Phase 0 (Claude) | Phase 1 | Phase 2 | Phase 3 | Total |
+|---|---|---|---|---|---|
+| kernel (PAYMENT dependency, contract `SalesOrderChanged`) | S | — | — | — | S |
+| payment (payable ORDER, describers, view `f_payments`) | M | — | S | S | M+2S |
+| mail (transfer instructions through the facade) | S | — | — | — | S |
+| media (two kinds), the cart icon | S | — | — | — | S |
+| path check for `opencode1` | S | — | — | — | S |
+| product, and the module entry with its menu (Q55) | — | M | — | — | M |
+| pricing | — | S | — | — | S |
+| stock | — | M | S | — | M+S |
+| sales (Webshop, order page, list of orders, mail, handlers) | — | — | L | M | L+M |
+| **Per phase** | **≈ 5** | **≈ 5** | **≈ 8** | **≈ 4** | **≈ 22 CLI-days** |
 
 Besides: the build read before assignment, review per phase, Koen's HDEV validation of the walkthrough, phase 0 through a release to `master`; phases 1–4 on the integration branch `cr21/webshop`, Koen's approval on `opencode1`'s local test version, then one release. No purchases.
 
 **Running cost:** none new. Mollie charges per online payment as it does for registrations; pictures and documents go into the existing media storage and its backup.
 
-**Operations:** no env vars. The module SHOP is switched on per tenant in the tenant editor; the module is off by default for every kind of tenant, also for an association, whose defaults are otherwise every module (Q49); the existing workbench kill switch (`workbench_enabled`) also stops the sweep for these tasks. Migrations: phase 0 (module CHECK, media kinds, payable type), phases 1, 2 and 4.
+**Operations:** no env vars. The module SHOP is switched on per tenant in the tenant editor; the module is off by default for every kind of tenant, also for an association, whose defaults are otherwise every module (Q49). Migrations: phase 0 (module CHECK, media kinds, payable type), phases 1 and 2.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
@@ -641,11 +633,10 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | 1 — Catalogue, prices, stock | Productbeheer, Prijsbeheer, Voorraadbeheer with receipt and correction; nothing public | `product`, `pricing`, `stock` schemas | none | none | a product with prices or movements refuses deletion, naming why | W1–W6, W20 |
 | 2 — Ordering and paying | Webshop, basket, order page, online and transfer, confirmation mail, delivery per line; **Verkoop's list of orders, filterable on "Te betalen"**, and cancelling from the order page; Boekhouding confirms transfers on the payments screen, as for registrations | `sales` schema; view `f_payments` learns the order | none | none | an order short of stock is refused whole, nothing reserved; a payment that fails leaves the order "Te betalen" with its reservation, visible in the list; a mail that fails does not undo the order | W7–W10, W13, W18, W21 (Mollie test mode) |
 | 3 — Change and self-cancel | change after trying on with recalculation; the buyer cancels on the same page | none expected | none | none | a change short of stock is refused and the order stays as it was; a cancel after a delivery is refused | W11, W17 |
-| 4 — Workbench tasks | the two-step run for an unpaid transfer (Boekhouding, then Verkoop) with its due date and red; the task for a failed or expired online payment; cancelling from the task (R17, R18, R22) | task `due_at`; subject SALES_ORDER | none | the transfer workflow definition seeded per tenant with SHOP; a run started for every order still "Te betalen" by transfer when the phase goes live | a task whose order is paid or cancelled meanwhile closes by itself; a payment confirmed while the run is at Verkoop ends the run | W12, W14–W16, W19 |
 
-**Until phase 4,** open orders are followed in Verkoop's list (filter "Te betalen") instead of on the workbench. *Koen asked on 7 October 2026: "Zouden we alles met betrekking tot werkbank-taken als een laatste fase in CR21 kunnen zetten?" Claude proposed this phasing in answer; asked "volstaat tot fase 4 een lijst van bestellingen met filter 'Te betalen' voor Verkoop?", Koen answered "ja" (Q50).*
+**Open orders** are followed in Verkoop's list (filter "Te betalen"); the follow-up on the workbench is CR-28 (Q50, Q56).
 
-**Builders:** phase 0, and the workflow seam before phase 4, by a Claude dev CLI to `master`; phases 1–4 by `opencode1` on `cr21/webshop`, one pull request per slice, each read by a Claude dev CLI, refused by the path check outside `backend/app/domains/{product,pricing,stock,sales}/` and new migrations (Q52). **Dependencies:** CR-24 part 1 (the rights and the webshop roles) before phase 0 or with it; CR-22 (sign-in, built in v2.15) before phase 2. **Not** dependent on CR-20: the shop hangs on `tenant_id`, which keeps its ids there, and the buyer is a person, not an organisation.
+**Builders:** phase 0 by a Claude dev CLI to `master`; phases 1–3 by `opencode1` on `cr21/webshop`, one pull request per slice, each read by a Claude dev CLI, refused by the path check outside `backend/app/domains/{product,pricing,stock,sales}/` and new migrations (Q52). **Dependencies:** CR-24 part 1 (the rights and the webshop roles) before phase 0 or with it; CR-22 (sign-in, built in v2.15) before phase 2. **Not** dependent on CR-20: the shop hangs on `tenant_id`, which keeps its ids there, and the buyer is a person, not an organisation.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -726,6 +717,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | 7 Oct 2026 | "How recent the information is" is Boekhouding's answer on the order itself, with its date, shown on Verkoop's task; no tenant-wide "account last checked", no button (Q47). | Koen |
 | 7 Oct 2026 | Every workbench task is the last phase (4); until then Verkoop follows open orders in its list of orders filtered on "Te betalen" and cancels from the order page; Boekhouding confirms transfers on the payments screen (Q50). Koen asked "Zouden we alles met betrekking tot werkbank-taken als een laatste fase in CR21 kunnen zetten?"; to "volstaat tot fase 4 een lijst van bestellingen met filter 'Te betalen' voor Verkoop?" he answered "ja". | Koen |
 | 7 Oct 2026 | Phases 1–4 are built by `opencode1` on an integration branch `cr21/webshop`, one pull request per slice, only inside the four new domains and new migrations, refused by a path check otherwise; the branch goes to `master` after Koen's approval on its local test version (`AGENTS.md`, *A builder outside the Claude series*). Asked whether phase 0 goes to a Claude dev CLI and phases 1–4 to `opencode1` with the path check, Koen answered: "wat is fase 0? Voor de rest akkoord." Phase 0, explained to him as the six seams in existing code a Claude dev CLI opens first, answered "akkoord" (Q52). | Koen |
+| 8 Oct 2026 | Everything about workbench tasks — what was phase 4: the two-step run for an unpaid transfer, the due date and red, the task for a failed online payment, cancelling from a task — is split off into CR-28 and is out of scope of CR-21 (Q56). CR-21 keeps Verkoop's list of orders filtered on "Te betalen" and Boekhouding's "Bevestig betaald". Koen: "Splits je dit af naar een aparte CR? Dit gaan we out-of-scope van deze CR zetten." | Koen |
 | 8 Oct 2026 | The domain is `sales`; purchasing will be a domain of its own, `purchasing`, hiring transport included; moving stock between own locations is out of scope and not decided now (Q54). Koen: "akkoord, met uitzondering dat verplaatsingen bij stock hoort, dat is nu out-of-scope, dus hoeven we nu niet uit te klaren". | Koen |
 | 8 Oct 2026 | Reminding the buyer of an unpaid transfer is out of scope, for later; until then Verkoop reminds outside the portal (Q39). Koen: "inderdaad, geen deel van de scope, is voor later." | Koen |
 | 8 Oct 2026 | The document may stay over the word budget: its length is the requirements with their sources, the traceability and the walkthrough (Q53). Koen: "akkoord". | Koen |
@@ -753,7 +745,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | Concept | What changes | Readers today (file:line) | Verdict |
 |---|---|---|---|
 | `PayableType` (`payment/models.py:78`, code list `payment/codes.py:60-73`) | a third value, ORDER | ~40 reader sites in ~22 files, every one an if/elif on two values. **Silently wrong for an order (~14):** `payment/service.py:265` `family_payables` and `:306`; `:951` `matches_filter` (no "Bestellingen" context); `:1385` `enriched_records` (no name, description, link); `payment/exports.py:40-71` (raw "order #id") and `:144` (exported as "Activiteit"); `payment/ui.py:296-321, 1089-1115` (no context link) and `:729-740` (no filter entry); `_betalingen_lijst.html:40,86` ("inschrijving" wording); `audit/changes.py:225-234` (empty subject); `reporting/universe.py:2409-2420` ("two streams"); view `reporting.f_payments` (`alembic/106:226-290`: CASE gives Activiteit/Lidgeld, joins registration/membership only). **Refused (1):** `kernel/modules.py:193` PAYMENT `depends_on (ACTIVITIES, MEMBERSHIP)` — a shop-only tenant cannot switch payments on. **Handled generically:** `create_payment_record`, `group_cards`, `status_router`, workflow refund title, event fields. | every "silently wrong" site must learn ORDER in this change (C2 payment, reporting); the dependency must accept the shop (C2 kernel) |
-| `PaymentReceived` / `RefundDue` (`kernel/contracts/payment.py`) | an order must react when it is paid | 2 subscribers: `membership/handlers.py:16-28` (ignores non-membership), `workflow/handlers.py:40-50` (type-agnostic). Nothing subscribes for registrations. | an order needs its own subscriber for "paid" (closing the workbench task of R18) |
+| `PaymentReceived` / `RefundDue` (`kernel/contracts/payment.py`) | an order must react when it is paid | 2 subscribers: `membership/handlers.py:16-28` (ignores non-membership), `workflow/handlers.py:40-50` (type-agnostic). Nothing subscribes for registrations. | an order needs no subscriber of its own in CR-21 (its status is read from payment, R34); closing a workbench task on "paid" is CR-28's |
 | `reconcile_charges` (`payment/service.py:769`) | a third caller (R16) | `payment/handlers.py:24` (`OrderChanged` → registrations), `membership/household_service.py:169`; `reconcile_registration_charges` exported, no non-test caller | reusable as planned |
 | `OrderChanged` (`kernel/contracts/activities.py:11`) | name collision | its "order" means a registration's items (`payment/handlers.py:16-21`, `activities/service.py:1821-1838`) | the webshop's event needs another name (e.g. `SalesOrderChanged`); naming in B3a |
 | member price: `has_valid_membership` (`membership/service.py:25`), `_unit_price` (`activities/totals.py:35`) | the shop prices by the same rule (Q5) | ~13 readers of the rule, ~9 of the totals (`totals.py:109-190`, `registration_form.py:92-101`, `activities/service.py:1843-1867`, `auth/router.py:157,167`, mail, payment, export, kernel/rules). **Three different "is member":** `membership.has_valid_membership` (dues), `mdm/service.py:274` `is_member` (in a household), `ui/__init__.py:954` and `auth/router.py:135` `is_member = person is not None` (read by `_member_nudge.html`, `_site_account.html`, `cms/home.html`) — the last one is what CR-22 had to split | the shop reads `has_valid_membership` only; the price column `member_price` stays on activity products (Non-goal), the shop's member price lives in `pricing` |
@@ -796,7 +788,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 > *follows. "Reporting — none: no view reads these columns" is a subsection*
 > *too.*
 
-Grouped by phase, because each phase has one builder (Q52): phase 0 and the seam before phase 4 by a Claude dev CLI on `master`; phases 1–4 by `opencode1` on `cr21/webshop`, inside `backend/app/domains/{product,pricing,stock,sales}/` and new migrations only (C7). Each slice reads only this section, B3a for names, C4 for the mechanics and C6 for its tests.
+Grouped by phase, because each phase has one builder (Q52): phase 0 by a Claude dev CLI on `master`; phases 1–3 by `opencode1` on `cr21/webshop`, inside `backend/app/domains/{product,pricing,stock,sales}/` and new migrations only (C7). Each slice reads only this section, B3a for names, C4 for the mechanics and C6 for its tests.
 
 ### Phase 0 — the seams (Claude dev CLI, to `master`)
 
@@ -811,7 +803,6 @@ Grouped by phase, because each phase has one builder (Q52): phase 0 and the seam
 | **CI** | the path check of C7, in `.github/workflows/` — an outside builder may not edit `.github/` (`AGENTS.md`). | — |
 | **reporting** | the `f_payments` branch above; nothing else in phase 0. | `alembic/106` |
 
-**Before phase 4 (Claude):** `workflow` — `WorkflowTask.due_at` (nullable `DateTime(timezone=True)`), a step's `due_in_days` read by `_create_step_task` (`workflow/api.py:263`), the workbench row red when `due_at < now` and open; `SubjectType.SALES_ORDER = "sales_order"` with its code-list row (`workflow/models.py:41-54`). `payment` — a contract `PaymentFailed(payment_record_id, payable_type, payable_id, status)` published where the provider's status becomes failed, expired or canceled. Migration for the column and the code row.
 
 ### Phase 1 — catalogue, prices, stock (`opencode1`)
 
@@ -834,12 +825,6 @@ Grouped by phase, because each phase has one builder (Q52): phase 0 and the seam
 |---|---|
 | **sales** | change an order (F7): replace lines in one transaction, reservations follow, publish `SalesOrderChanged(order_id, total_due)`; `payment` subscribes (phase 0 seam) and calls `reconcile_charges(ORDER, id, total_due, source="sales-order-edit")`. The buyer's cancel on `/mijn/aankopen/{id}` while no line is delivered (F8), the same action as Verkoop's. |
 
-### Phase 4 — workbench tasks (`opencode1`, after the Claude seam)
-
-| Domain | What must happen |
-|---|---|
-| **sales** | at placing with method transfer: `workflow.api.start("sales_transfer_due", subject_type=SALES_ORDER, subject_id=order.id)` — a definition seeded per tenant with SHOP: step 1 role FINANCE "Overschrijving nakijken — bestelling {nr}", `due_in_days` 14; step 2 role SALES "Klant herinneren of annuleren — bestelling {nr}". Boekhouding's answer "nog niet betaald" completes step 1 (`complete_task(decision=…)`); Verkoop's task shows the previous task's decision and `done_at` (F11). `PaymentReceived` (fully paid) for `order` → `close_subject_tasks(SALES_ORDER, id, reason="Betaald")`; `SalesOrderCancelled` → the same with "Geannuleerd". `PaymentFailed` for `order` → a one-step run for SALES. A run is started at go-live for every open order still "Te betalen" by transfer (B6). |
-
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
 
 > [!NOTE]
@@ -858,7 +843,7 @@ Grouped by phase, because each phase has one builder (Q52): phase 0 and the seam
 | Concern | This change |
 |---|---|
 | **Visitors and tenants** | anonymous: sees the Webshop, orders as a guest (R33, CR-22); account and member: order, see "Mijn aankopen"; member price only with a valid membership (F3). Board user without a person: back-office roles only, no buying. Signed in at another tenant: nothing of this tenant (F14). Operator: every right (CR-24). Tenant with members: member price; company: no member price, no "of ben je lid"; platform: SHOP off. A tenant with SHOP off: every route 404 (T3). |
-| **Order inside a transaction** | the mail and the workbench run leave after the outer commit (`OrderPlaced`); a failing mail does not undo the order. |
+| **Order inside a transaction** | the mail leaves after the outer commit (`OrderPlaced`); a failing mail does not undo the order. |
 | **Reporting** | `f_payments` learns `order` (phase 0 label, phase 2 join); no new reporting objects (Q46). |
 | **Existing tests** | the payable delete gate (B4), the module gates, the payments-screen tests that list two payable types (C1). |
 | **390 px** | the Webshop, the product page, the basket, the order page, Verkoop's list. |
@@ -924,8 +909,8 @@ As registration since CR-14: the public route renders it in the site shell, the 
 | T6 | Two concurrent orders for the last unit: one succeeds, one is refused, nothing half reserved; a posted price is ignored | the lock or the server-side price is missing | 2 |
 | T7 | Online and transfer create the payment record of the right amount; the webhook re-fetches | the order bypasses `payment` | 2 |
 | T8 | A change up, down and before payment gives an extra charge, a refund due, a new amount | the event or `reconcile_charges` is not reached | 3 |
-| T9 | A failed or expired online payment opens one task for Verkoop | `PaymentFailed` is not handled | 4 |
-| T10 | Transfer: task for Boekhouding due in 14 days; "nog niet betaald" → task for Verkoop with that answer and date; payment closes the run; past due → red, no mail | the workflow or F11 breaks | 4 |
+| T9 | Moved to CR-28 (Q56) | — | — |
+| T10 | Moved to CR-28 (Q56) | — | — |
 | T11 | Delivering a line: movement, reservation DELIVERED, status Deels afgeleverd → Afgeleverd | F5 or F6 breaks | 2 |
 | T12 | Cancel while nothing delivered frees the stock and, if paid, makes a refund due; after a delivery it is refused | F8 breaks | 2–3 |
 | T13 | The basket survives a reload and posts as one order | the basket is server-side or lost | 2 |
@@ -1078,12 +1063,14 @@ Made on 8 October 2026 and shown to Koen in the chat, at 390 px, rendered from t
 | Q52 | 7 Oct 2026 | The split: phase 0 (opening the existing code) by a Claude dev CLI to `master`; phases 1–4 by `opencode1` on `cr21/webshop`, with the path check? (Claude) | "wat is fase 0? Voor de rest akkoord." (Koen) — phases 1–4 agreed. Phase 0 explained as six seams in existing code (module, payable ORDER with describers, transfer instructions, media kinds, menu, path check; the workbench due date before phase 4): "akkoord" (Koen). |
 | Q53 | 8 Oct 2026 | May CR-21 stay over the word budget (A ≈ 4 300, B ≈ 4 000) — its length being the 38 requirements with sources, the traceability and the walkthrough? (Claude) | "akkoord" (Koen) |
 | Q54 | 8 Oct 2026 | (Koen) If purchases and transports come later, a separate domain or one "Orders"? Claude proposed: `sales` now, `purchasing` later (hiring transport included), moving between own locations in `stock`. | "akkoord, met uitzondering dat verplaatsingen bij stock hoort, dat is nu out-of-scope, dus hoeven we nu niet uit te klaren" (Koen) |
+| Q56 | 8 Oct 2026 | (Koen) Split the workbench tasks (phase 4) off into a separate change request, out of scope of this one? | Yes: CR-28 (branch `claude/cr-28-shop-workbench-tasks`), carrying R17, R18, F10, F11, AC9, AC10, T9, T10 and the phase-4 build notes as they stood. (Koen asked, Claude did) |
 
 ## Non-goals — deliberately outside this change
 
 > [!NOTE]
 > *What is deliberately outside this change.*
 
+- **Workbench tasks for unpaid orders** (Q56): CR-28.
 - **Purchasing** (purchase orders, hiring transport) and **moving stock between own locations** (Q54): later; where moving belongs is not decided.
 - **Reminding the buyer** of an unpaid transfer from the portal (Q39): for later; Verkoop reminds outside the portal.
 - **Returns after delivery** (R25, Q40). Handled by hand: Sales removes the order and books the refund; the portal has no return flow.
