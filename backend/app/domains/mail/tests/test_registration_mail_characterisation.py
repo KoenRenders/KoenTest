@@ -39,6 +39,16 @@ MASKS = (
 )
 
 
+@pytest.fixture(autouse=True)
+def account(monkeypatch):
+    """An account and its holder, so the transfer block shows its five lines
+    (#1775): without them the lines "IBAN" and "Begunstigde" are left out."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "payment_iban", "BE00 0000 0000 0000")
+    monkeypatch.setattr(settings, "payment_beneficiary", "Voorbeeldvereniging")
+
+
 @pytest.fixture
 def sent(monkeypatch):
     from app.domains.mail import service

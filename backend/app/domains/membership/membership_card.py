@@ -19,7 +19,6 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
-from app.domains.mdm.api import PaymentMethod
 from app.domains.payment.api import TransferDue
 
 
@@ -76,9 +75,9 @@ def _running_renewal(db: Session, person) -> tuple[Optional[TransferDue], Option
     record = open_renewal_payment(db, member) if member is not None else None
     if record is None:
         return None, None
-    if record.method == PaymentMethod.TRANSFER:
-        heading = _("Lidmaatschap geregistreerd — betaal via overschrijving:")
-        return transfer_due(db, record, heading), None
+    due = transfer_due(db, record, _("Lidmaatschap geregistreerd — betaal via overschrijving:"))
+    if due is not None:
+        return due, None
     # Broken off at the provider (#618-3): with a checkout URL the member can
     # resume; without one only the explanation that it is still running.
     return None, OnlineDue(amount=record.amount, checkout_url=checkout_url_for(db, record))
