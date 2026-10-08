@@ -36,7 +36,10 @@
     {% endif %}
   </div>
 
-  <div class="space-y-4">
+  {# #1782: `min-w-0` — below `lg` the grid has one implicit column, and an item
+     without it is as wide as its widest content: a table with a long address
+     then widened the whole page on a phone instead of scrolling in its card. #}
+  <div class="space-y-4 min-w-0">
     <div class="bg-surface border border-line rounded-2xl p-5">
       <h2 class="font-semibold text-blue-700">{{ _("De tekst zoals hij vertrok") }}</h2>
       <div class="cms-content mt-3 text-sm">{{ letter.body_html|safe }}</div>
