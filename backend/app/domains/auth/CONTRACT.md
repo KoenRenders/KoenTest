@@ -8,7 +8,7 @@ de HttpOnly-sessie + CSRF voor server-rendered schermen, en gebruikersbeheer.
 
 - **JWT/rollen** (`service.py`): `create_access_token`, `decode_token`,
   `get_current_identity`, `get_user_roles`, `require_roles`,
-  `get_current_admin`, `get_current_finance`, `get_finance_or_admin`,
+  `get_current_admin`,
   `get_current_member`, `require_member`.
 - **Sessie/CSRF** (`session.py`, #398): `SESSION_COOKIE`, `make_session_value`,
   `read_session_value`, `set_session_cookie`, `csrf_token_for`,

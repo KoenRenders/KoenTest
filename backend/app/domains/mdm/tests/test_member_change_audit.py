@@ -6,6 +6,7 @@ history-rij maken (anders 3 rijen voor één mobiel-wijziging)."""
 from datetime import date
 
 from app.domains.mdm.api import CONTACT, ContactDetailHistory, Person, PersonHistory
+from tests import backoffice_door
 from tests.conftest import seed_postal_code
 
 
@@ -78,11 +79,7 @@ def test_contact_change_shows_old_to_new(client, db_session, admin_headers):
         json={"email": "suske@suske.be", "mobile": "0470222222"},
         headers=admin_headers,
     )
-    resp = client.get(
-        "/api/v1/admin/member-changes",
-        params={"since": date.today().isoformat()},
-        headers=admin_headers,
-    )
+    resp = backoffice_door.member_changes(client, date.today().isoformat())
     rows = resp.json()
     mobile = [
         r
@@ -105,11 +102,7 @@ def test_person_name_change_shows_old_to_new(client, db_session, admin_headers):
         headers=admin_headers,
     )
     assert r.status_code == 200, r.text
-    resp = client.get(
-        "/api/v1/admin/member-changes",
-        params={"since": date.today().isoformat()},
-        headers=admin_headers,
-    )
+    resp = backoffice_door.member_changes(client, date.today().isoformat())
     rows = resp.json()
     naam = [row for row in rows if row["entity"] == "Persoon" and "→" in row["summary"]]
     assert naam, rows

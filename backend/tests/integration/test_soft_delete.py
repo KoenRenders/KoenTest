@@ -12,7 +12,7 @@ from app.domains.auth.api import User
 from app.domains.mdm.api import Member
 from app.domains.membership.api import Membership
 from app.domains.payment.api import PayableType, PaymentRecord
-from tests import payments_door
+from tests import backoffice_door, payments_door
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     register_at_the_door,
@@ -109,11 +109,7 @@ def test_recreate_membership_for_same_member_year_after_soft_delete(
 def test_soft_delete_still_recorded_in_member_changes(client, db_session, admin_headers):
     member = _create_family(client, db_session)
     client.delete(f"/api/v1/families/{member.id}", headers=admin_headers)
-    changes = client.get(
-        "/api/v1/admin/member-changes",
-        params={"since": date.today().isoformat()},
-        headers=admin_headers,
-    ).json()
+    changes = backoffice_door.member_changes(client, date.today().isoformat()).json()
     assert any(c["operation_label"] == "Verwijderd" for c in changes)
 
 

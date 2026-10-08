@@ -19,7 +19,6 @@ from app.domains.activities.account_ui import router as activities_account_ui_ro
 from app.domains.activities.admin_ui import router as activities_admin_ui_router
 from app.domains.activities.router import router as activities_router
 from app.domains.activities.ui import router as activities_ui_router
-from app.domains.audit.router import router as audit_router
 from app.domains.auth.admin_ui import router as auth_admin_ui_router
 from app.domains.auth.handlers import (  # noqa: F401 - event subscriptions (#1711)
     send_address_code,
@@ -50,7 +49,6 @@ from app.domains.forms.ui import router as forms_ui_router
 from app.domains.mail.handlers import (
     retry_mail,  # noqa: F401 - registreert de mail.retry-job (#399)
 )
-from app.domains.mail.router import router as email_log_router
 from app.domains.mail.ui import router as email_log_ui_router
 from app.domains.mdm.account_ui import router as mdm_account_ui_router
 from app.domains.mdm.api import EmailAddressInUse
@@ -92,7 +90,6 @@ from app.kernel.modules import ModuleCode, require_module
 from app.logging_config import configure_logging
 from app.models import *  # noqa: F401, F403 - ensures all models are registered
 from app.ui.account_ui import router as account_ui_router
-from app.ui.admin_api import router as admin_api_router
 from app.ui.changes_ui import router as changes_ui_router
 from app.ui.design_system_ui import router as design_system_ui_router
 from app.ui.organisaties_ui import router as organisaties_ui_router
@@ -185,8 +182,6 @@ SHELL_ROUTERS = (
     auth_router,
     stt_router,
     mdm_router,
-    audit_router,
-    admin_api_router,
     auth_ui_router,
     auth_admin_ui_router,
     changes_ui_router,
@@ -198,7 +193,6 @@ SHELL_ROUTERS = (
     organisaties_ui_router,
     tenants_ui_router,
     email_log_ui_router,
-    email_log_router,
     cms_public_ui_router,
 )
 
@@ -211,8 +205,6 @@ app.include_router(cms_router, prefix="/api/v1", dependencies=_module(M.CMS))
 app.include_router(mdm_router, prefix="/api/v1")
 app.include_router(media_router, prefix="/api/v1", dependencies=_module(M.MEDIA))
 app.include_router(chatbot_info_router, prefix="/api/v1", dependencies=_module(M.CHATBOT))
-app.include_router(audit_router, prefix="/api/v1/admin")
-app.include_router(admin_api_router, prefix="/api/v1/admin")
 app.include_router(member_household_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
 app.include_router(mdm_household_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
 app.include_router(member_import_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
@@ -250,7 +242,6 @@ app.include_router(designstudio_admin_ui_router, dependencies=_module(M.DESIGNST
 app.include_router(newsletter_admin_ui_router, dependencies=_module(M.NEWSLETTER))
 app.include_router(newsletter_ui_router, dependencies=_module(M.NEWSLETTER))
 app.include_router(workflow_ui_router, dependencies=_module(M.WORKFLOW))
-app.include_router(email_log_router, prefix="/api/v1/admin")
 app.include_router(payment_router, prefix="/api/v1", dependencies=_module(M.PAYMENT))
 
 
