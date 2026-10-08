@@ -1106,9 +1106,7 @@
   {{ ui.save_refusal([{"field": "kit_pf_name", "message": _("Vul je naam in.")}], send=True) }}
   {% call ui.form_grid() %}
     {{ ui.field("kit_pf_name", _("Naam"), id="kit-pf-name", required=True, value="") }}
-    {{ ui.field("kit_pf_pay", _("Betaalwijze"), kind="radio_group", id="kit-pf-pay", required=True, value="online",
-                options=[("online", _("Online betalen"), _("Na het verzenden ga je naar de beveiligde betaalpagina.")),
-                         ("transfer", _("Overschrijving"), _("De betaalgegevens staan in de bevestiging."))]) }}
+    {{ ui.payment_choice() }}
     <div data-span="full">{{ ui.stepper("kit_pf_qty", id="kit-pf-qty", value=1, touch=True) }}</div>
   {% endcall %}
   {{ ui.action_bar(record=True, send=True, cancel_href="#", save_attrs='type="button"',

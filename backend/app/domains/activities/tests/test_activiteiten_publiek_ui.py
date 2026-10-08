@@ -34,7 +34,10 @@ def test_the_registration_fields_are_stacked():
     )
     assert "bg-blue-50" not in inhoud
     assert "grid-cols-" not in inhoud, "a grid of its own beside the kit's"
-    assert velden.count("ui.section(") == 4 and velden.count("ui.field(") >= 7
+    # #1748: the payment choice is the kit's own call since CR-21 phase 0 — still a
+    # kit field, counted with the others.
+    kit_fields = velden.count("ui.field(") + velden.count("ui.payment_choice(")
+    assert velden.count("ui.section(") == 4 and kit_fields >= 7
     assert 'reg_target = "#inschrijf-pagina"' in inhoud and 'hx-target="{{ reg_target }}"' in inhoud
 
 

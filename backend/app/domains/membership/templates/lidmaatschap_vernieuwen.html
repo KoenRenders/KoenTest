@@ -36,9 +36,7 @@
         {{ _("Lidgeld:") }} <strong class="text-2xl font-semibold text-ink">€ {{ page.terms.amount|geld }}</strong> {{ _("per gezin.") }}<br>
         {{ _("Geldig tot en met %(date)s.", date=page.terms.valid_to|langedatum) }}
       </p>
-      {{ ui.field("payment_method", _("Betaalwijze"), kind="radio_group", required=True, value="online",
-                  options=[("online", _("Online betalen"), _("Na het verzenden ga je naar de beveiligde betaalpagina.")),
-                           ("transfer", _("Overschrijving"), _("De betaalgegevens staan in de bevestiging."))]) }}
+      {{ ui.payment_choice() }}
     {% endcall %}
   </form>
   {% set _follow %}data-pay="{{ _("Betalen") }}" data-plain="{{ _("Lidmaatschap aanvragen") }}" x-text="pm === 'online' ? $el.dataset.pay : $el.dataset.plain"{% endset %}

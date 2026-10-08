@@ -589,6 +589,20 @@
 </div>
 {%- endmacro %}
 
+{# `payment_choice(value)` — how someone pays what a form asks: online or by
+   transfer, as two vertical radios with their consequence under each (§2.6,
+   #1589). One call for every form that asks it — registering, becoming a member,
+   paying the membership, and the webshop's order page (CR-21 phase 0, #1748) — so
+   the two options and their words stand once. The values are the codes of
+   `mdm.payment_method_codes`; "online" is chosen when the page opens (the fixed
+   decision *Payment default*). The field is named `payment_method`: the pages
+   follow a change of that name for the words of their button. #}
+{% macro payment_choice(value="online") -%}
+{{ field("payment_method", _("Betaalwijze"), kind="radio_group", required=True, value=value,
+         options=[("online", _("Online betalen"), _("Na het verzenden ga je naar de beveiligde betaalpagina.")),
+                  ("transfer", _("Overschrijving"), _("De betaalgegevens staan in de bevestiging."))]) }}
+{%- endmacro %}
+
 {# `rare_settings(title, summary)` — one closed section in the LAST slot of the
    form: what is rarely set (external links, a poster address). Closed by
    default; the one-line `summary` says what is set inside ("2 externe links"),
