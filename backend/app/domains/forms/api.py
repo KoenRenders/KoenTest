@@ -162,8 +162,9 @@ from app.domains.forms.schemas import AnswerIn  # noqa: E402,F401
 
 # CR-14 phase 2 adds what `activities` uses to ask a component's questions:
 # `attach_refusal`, `attachable_forms`, `answers_from_form` (the one parser of a
-# posted form), `submit_attached` (inside the registration's transaction),
-# `submission_views` and `form_questions` (many registrations in one read).
+# posted form), `submission_views` and `form_questions` (many registrations in one
+# read). Storing and correcting the answers is asked through the ports
+# `SubmitAttached` and `UpdateAttached` (`handlers.py`) since CR-13 phase 4c.
 from app.domains.forms.service import (  # noqa: E402,F401
     CONTACT_FORM_SLUG,
     FormulierFout,
@@ -208,8 +209,6 @@ from app.domains.forms.service import (  # noqa: E402,F401
     submission_form_values,
     submission_url,
     submission_views,
-    submit_attached,
-    update_attached,
     update_field,
     update_form_settings,
     update_option,
