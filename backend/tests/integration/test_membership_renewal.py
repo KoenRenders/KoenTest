@@ -13,7 +13,7 @@ import pytest
 from app.domains.auth.api import create_access_token
 from app.domains.payment.api import PayableType
 from tests import payments_door
-from tests.conftest import seed_postal_code
+from tests.conftest import seed_postal_code, sign_up_at_the_door
 from tests.integration.test_functional_regression import _family_payload
 from tests.integration.test_membership_pricing import seed_household
 
@@ -50,9 +50,7 @@ def test_manual_payment_confirmation_activates_membership(client, db_session, ad
     lidmaatschap activeren — net als de Mollie-webhook (#143)."""
     seed_postal_code(db_session)
     assert (
-        client.post(
-            "/api/v1/families", json=_family_payload(email="manualpay@example.com")
-        ).status_code
+        sign_up_at_the_door(client, json=_family_payload(email="manualpay@example.com")).status_code
         == 201
     )
 

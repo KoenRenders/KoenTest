@@ -4,7 +4,7 @@ Exerceert de admin-gated lijst/detail-endpoints en de read-builders
 (_build_family_response / _person_to_schema), plus admin-lidmaatschap aanmaken.
 """
 
-from tests.conftest import seed_postal_code
+from tests.conftest import seed_postal_code, sign_up_at_the_door
 
 
 def _family_payload(email="admincrud@example.com"):
@@ -29,7 +29,7 @@ def _family_payload(email="admincrud@example.com"):
 
 def _make_family(client, db_session):
     seed_postal_code(db_session)
-    resp = client.post("/api/v1/families", json=_family_payload())
+    resp = sign_up_at_the_door(client, json=_family_payload())
     assert resp.status_code == 201, resp.text
     return resp.json()["id"]
 

@@ -5,12 +5,12 @@ de huidige pagina niet vindbaar. De zoekterm matcht op voor-/achternaam, volledi
 naam of e-mail van een gezinslid.
 """
 
-from tests.conftest import seed_postal_code
+from tests.conftest import seed_postal_code, sign_up_at_the_door
 
 
 def _make_family(client, last, first, email, mobile, *, street="Milostraat", nr="40"):
-    resp = client.post(
-        "/api/v1/families",
+    resp = sign_up_at_the_door(
+        client,
         json={
             "street": street,
             "house_number": nr,

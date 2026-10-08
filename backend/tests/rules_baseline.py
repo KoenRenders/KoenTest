@@ -84,7 +84,6 @@ JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset(
         "POST /api/v1/auth/request-login",
         "POST /api/v1/auth/verify-otp",
         "POST /api/v1/chat",
-        "POST /api/v1/families",
         "POST /api/v1/families/{family_id}/memberships",
         "POST /api/v1/member/household/persons",
         "POST /api/v1/member/household/renew-membership",

@@ -817,6 +817,41 @@ def register_at_the_door(client, activity_id: int, json: dict, *, member_email: 
     return DoorAnswer(200, body)
 
 
+def sign_up_at_the_door(client, json: dict, *, signed_in_email: str | None = None):
+    """A family signing up as the public form's door does it, answered as the JSON
+    route `POST /api/v1/families` answered it (CR-13 phase 4b, #1251).
+
+    That route had no caller but tests. Its function stays: it is what
+    `membership.api.register_family` calls for the public form. So the tests call
+    that facade, in the session `client` shares with the endpoints, and read the
+    same answer: 201 with the body shaped by `FamilyRegisteredResponse`, the status
+    and `detail` of a refusal, a 422 for a body the schema refuses.
+    `signed_in_email` signs the visitor in, as the bearer token did.
+    """
+    from fastapi import BackgroundTasks
+    from fastapi.encoders import jsonable_encoder
+    from pydantic import ValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    from app.database import get_db
+    from app.domains.auth.api import login_person_for_email
+    from app.domains.membership.api import FamilyCreate, register_family
+    from app.domains.membership.schemas_member import FamilyRegisteredResponse
+
+    db = next(client.app.dependency_overrides[get_db]())
+    try:
+        data = FamilyCreate.model_validate(json)
+    except ValidationError as refusal:
+        return DoorAnswer(422, {"detail": jsonable_encoder(refusal.errors())})
+    signed_in = login_person_for_email(db, signed_in_email) if signed_in_email else None
+    try:
+        result = register_family(db, data, BackgroundTasks(), signed_in=signed_in)
+    except StarletteHTTPException as refusal:
+        return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
+    body = FamilyRegisteredResponse.model_validate(result).model_dump(mode="json")
+    return DoorAnswer(201, body)
+
+
 def ask_questions(db, component, form_id: int | None):
     """Let a component ask the questions of a form, as a test's set-up: through
     `apply_component_update`, the core `save_fiche` calls for every component row,

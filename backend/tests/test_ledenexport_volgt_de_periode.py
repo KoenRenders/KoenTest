@@ -51,7 +51,7 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
+from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code, sign_up_at_the_door
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -110,8 +110,8 @@ def _twee_perioden(client, db_session) -> tuple[str, str]:
     seed_postal_code(db_session)
 
     def maak(voornaam: str) -> None:
-        resp = client.post(
-            "/api/v1/families",
+        resp = sign_up_at_the_door(
+            client,
             json={
                 "street": "Milostraat",
                 "house_number": "40",

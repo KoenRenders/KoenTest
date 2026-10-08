@@ -7,7 +7,12 @@ import pytest
 
 from app.domains.payment.api import PayableType, PaymentStatus
 from tests import payments_door
-from tests.conftest import register_at_the_door, seed_activity_with_product, seed_postal_code
+from tests.conftest import (
+    register_at_the_door,
+    seed_activity_with_product,
+    seed_postal_code,
+    sign_up_at_the_door,
+)
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -35,7 +40,7 @@ def _family_payload(email="lid@example.com", street="Milostraat", postal="2400")
 def test_membership_amount_is_server_side(client, db_session):
     """Het lidgeld wordt server-side bepaald; de client stuurt geen bedrag mee."""
     seed_postal_code(db_session)
-    resp = client.post("/api/v1/families", json=_family_payload())
+    resp = sign_up_at_the_door(client, json=_family_payload())
     assert resp.status_code == 201, resp.text
     # Volprijs uit config (35.00) of halfprijs (17.50) afhankelijk van de datum.
     assert Decimal(str(resp.json()["amount"])) in (Decimal("35.00"), Decimal("17.50"))
@@ -97,9 +102,9 @@ def test_activity_quantity_over_max_rejected(client, db_session):
 def test_membership_dedup_blocks_second(client, db_session):
     """Tweede registratie met hetzelfde e-mailadres + jaar wordt geblokkeerd."""
     seed_postal_code(db_session)
-    first = client.post("/api/v1/families", json=_family_payload(email="dub@example.com"))
+    first = sign_up_at_the_door(client, json=_family_payload(email="dub@example.com"))
     assert first.status_code == 201, first.text
-    second = client.post("/api/v1/families", json=_family_payload(email="dub@example.com"))
+    second = sign_up_at_the_door(client, json=_family_payload(email="dub@example.com"))
     assert second.status_code == 409
 
 
@@ -114,7 +119,7 @@ def test_a_new_try_after_a_failed_payment_makes_no_second_household(client, db_s
     form is refused with the sentence that says what to do, he signs in, and
     pays from Mijn gezin."""
     seed_postal_code(db_session)
-    first = client.post("/api/v1/families", json=_family_payload(email="retry@example.com"))
+    first = sign_up_at_the_door(client, json=_family_payload(email="retry@example.com"))
     assert first.status_code == 201
 
     # Zet het betaalrecord van die inschrijving op 'failed'.
@@ -128,7 +133,7 @@ def test_a_new_try_after_a_failed_payment_makes_no_second_household(client, db_s
     rec.status = "failed"
     db_session.flush()
 
-    second = client.post("/api/v1/families", json=_family_payload(email="retry@example.com"))
+    second = sign_up_at_the_door(client, json=_family_payload(email="retry@example.com"))
     assert second.status_code == 409, second.text
     assert second.json()["detail"] == (
         "Dit e-mailadres is al gekend. Log je eerst aan om lid te worden."
@@ -216,7 +221,7 @@ def test_registration_limit_is_per_component_not_per_activity(client, db_session
 def test_amount_paid_cannot_exceed_due(client, db_session, admin_headers):
     """Admin kan geen hoger betaald bedrag registreren dan verschuldigd."""
     seed_postal_code(db_session)
-    client.post("/api/v1/families", json=_family_payload(email="pay@example.com"))
+    sign_up_at_the_door(client, json=_family_payload(email="pay@example.com"))
     from app.domains.payment.api import PaymentRecord
 
     rec = db_session.query(PaymentRecord).first()
@@ -228,7 +233,7 @@ def test_amount_paid_cannot_exceed_due(client, db_session, admin_headers):
 def test_amount_paid_cannot_be_negative(client, db_session, admin_headers):
     """Admin kan geen negatief betaald bedrag registreren."""
     seed_postal_code(db_session)
-    client.post("/api/v1/families", json=_family_payload(email="neg@example.com"))
+    sign_up_at_the_door(client, json=_family_payload(email="neg@example.com"))
     from app.domains.payment.api import PaymentRecord
 
     rec = db_session.query(PaymentRecord).first()

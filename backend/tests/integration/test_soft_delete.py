@@ -18,6 +18,7 @@ from tests.conftest import (
     register_at_the_door,
     seed_activity_with_product,
     seed_postal_code,
+    sign_up_at_the_door,
 )
 
 
@@ -43,7 +44,7 @@ def _payload(email="lid@example.com"):
 
 def _create_family(client, db, email="lid@example.com"):
     seed_postal_code(db)
-    resp = client.post("/api/v1/families", json=_payload(email))
+    resp = sign_up_at_the_door(client, json=_payload(email))
     assert resp.status_code == 201, resp.text
     return db.query(Member).order_by(Member.id.desc()).first()
 
@@ -88,7 +89,7 @@ def test_reregister_same_email_after_soft_delete(client, db_session, admin_heade
     assert client.delete(f"/api/v1/families/{member.id}", headers=admin_headers).status_code == 204
     # Opnieuw inschrijven met hetzelfde e-mail/jaar mag: de dedup ziet de
     # soft-deleted niet en de partiële uniciteit blokkeert niet.
-    r2 = client.post("/api/v1/families", json=_payload("x@example.com"))
+    r2 = sign_up_at_the_door(client, json=_payload("x@example.com"))
     assert r2.status_code == 201, r2.text
 
 

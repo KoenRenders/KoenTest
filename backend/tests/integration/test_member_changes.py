@@ -8,7 +8,7 @@ from odf.table import Table, TableCell, TableRow
 from odf.teletype import extractText
 
 from tests import backoffice_door
-from tests.conftest import register_at_the_door, seed_postal_code
+from tests.conftest import register_at_the_door, seed_postal_code, sign_up_at_the_door
 
 
 def _family_payload(email="lid@example.com"):
@@ -33,7 +33,7 @@ def _family_payload(email="lid@example.com"):
 
 def _create_family(client, db_session):
     seed_postal_code(db_session)
-    resp = client.post("/api/v1/families", json=_family_payload())
+    resp = sign_up_at_the_door(client, json=_family_payload())
     assert resp.status_code == 201, resp.text
 
 

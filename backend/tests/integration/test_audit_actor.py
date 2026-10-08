@@ -30,7 +30,12 @@ import pytest
 
 from app.domains.audit.api import PUBLIEKE_ACTOR
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door, seed_postal_code
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    register_at_the_door,
+    seed_postal_code,
+    sign_up_at_the_door,
+)
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -89,8 +94,8 @@ def test_een_publieke_gezinsaanvraag_draagt_de_publieke_markering(client, db_ses
     from app.domains.mdm.api import MemberHistory
 
     seed_postal_code(db_session)
-    resp = client.post(
-        "/api/v1/families",
+    resp = sign_up_at_the_door(
+        client,
         json={
             "street": "Milostraat",
             "house_number": "40",

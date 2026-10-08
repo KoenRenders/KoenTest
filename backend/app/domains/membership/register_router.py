@@ -18,7 +18,7 @@ from app.domains.audit.api import (  # noqa: F401
     PUBLIEKE_ACTOR,
     snapshot_membership,
 )
-from app.domains.auth.api import User, get_current_admin, get_current_member
+from app.domains.auth.api import User, get_current_admin
 from app.domains.mdm.api import (
     CONTACT,
     ContactDetail,
@@ -50,7 +50,6 @@ from app.domains.payment.api import create_payment_record, membership_price_for_
 from app.i18n import _
 from app.kernel.contracts.membership import FamilyRegistered
 from app.kernel.events import publish
-from app.limiter import registration_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -285,19 +284,17 @@ def delete_membership(
     return _service.delete_membership(db, membership_id=membership_id, admin=admin)
 
 
-@router.post(
-    "/families",
-    status_code=201,
-    response_model=FamilyRegisteredResponse,
-    dependencies=[Depends(registration_limiter)],
-)
+# No route of its own since CR-13 phase 4b (#1251): `POST /api/v1/families` had no
+# caller. This is the function behind `membership.api.register_family`, which the
+# public form calls; it stays in this file until phase 4c moves it.
 def register_family(
     data: FamilyCreate,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    signed_in=Depends(get_current_member),
-):
-    """Public endpoint: register a new family (member household).
+    *,
+    db: Session,
+    signed_in: Person | None,
+) -> FamilyRegisteredResponse:
+    """The public door: register a new family (member household).
 
     Het schrijven zelf — gezin, personen, adres, contactgegevens, lidmaatschap —
     staat sinds #1110 in `household_service.create_family_with_members`, want de

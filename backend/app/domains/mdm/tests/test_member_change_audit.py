@@ -7,13 +7,13 @@ from datetime import date
 
 from app.domains.mdm.api import CONTACT, ContactDetailHistory, Person, PersonHistory
 from tests import backoffice_door
-from tests.conftest import seed_postal_code
+from tests.conftest import seed_postal_code, sign_up_at_the_door
 
 
 def _make_person(client, db):
     seed_postal_code(db)
-    resp = client.post(
-        "/api/v1/families",
+    resp = sign_up_at_the_door(
+        client,
         json={
             "street": "Milostraat",
             "house_number": "40",

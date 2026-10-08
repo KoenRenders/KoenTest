@@ -11,6 +11,7 @@ from tests.conftest import (
     create_test_person,
     seed_activity_with_product,
     seed_postal_code,
+    sign_up_at_the_door,
 )
 
 
@@ -49,7 +50,7 @@ def _family_payload(email="cover@example.com", **overrides):
 def test_families_onbekende_postcode_422_geen_partial_rows(client, db_session):
     """Een niet-bestaande postcode → 422, en er blijft geen half gezin achter."""
     # Bewust GEEN seed_postal_code → "2400" bestaat niet.
-    resp = client.post("/api/v1/families", json=_family_payload())
+    resp = sign_up_at_the_door(client, json=_family_payload())
     assert resp.status_code == 422
 
     from app.domains.mdm.api import Member, Person
@@ -68,7 +69,7 @@ def test_families_betaalfout_rolt_alles_terug(client, db_session, monkeypatch):
 
     monkeypatch.setattr("app.domains.membership.register_router.create_payment_record", _boom)
 
-    resp = client.post("/api/v1/families", json=_family_payload(email="boom@example.com"))
+    resp = sign_up_at_the_door(client, json=_family_payload(email="boom@example.com"))
     assert resp.status_code == 422
 
     from app.domains.mdm.api import Member, Person
@@ -90,7 +91,7 @@ def test_families_bijkomend_lid_zonder_dob_geslacht_422(client, db_session):
     payload["members"][1].pop("date_of_birth")
     payload["members"][1].pop("gender_code")
 
-    resp = client.post("/api/v1/families", json=payload)
+    resp = sign_up_at_the_door(client, json=payload)
     assert resp.status_code == 422
 
     from app.domains.mdm.api import Member
@@ -113,10 +114,10 @@ def test_families_hoofdlid_zonder_dob_mag_niet(client, db_session):
         k: v for k, v in payload["members"][0].items() if k not in ("date_of_birth", "gender_code")
     }
     payload["members"] = [hoofdlid]
-    assert client.post("/api/v1/families", json=payload).status_code == 422
+    assert sign_up_at_the_door(client, json=payload).status_code == 422
 
     payload["members"] = [{**hoofdlid, "date_of_birth": "1980-01-01", "gender_code": "M"}]
-    resp = client.post("/api/v1/families", json=payload)
+    resp = sign_up_at_the_door(client, json=payload)
     assert resp.status_code == 201, resp.text
 
 
