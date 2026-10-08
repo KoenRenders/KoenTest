@@ -1611,7 +1611,13 @@ async def inschrijving_nieuw_opslaan(
     """The board's channel of the one form (#1284): the processing is shared with
     the public form (`activities.api.submit`); what differs is where it lands —
     Mollie, or the registration in the back office (Koen: "de terugroutering")."""
-    from app.domains.activities.api import OutcomeKind, board_channel, get_activity, submit
+    from app.domains.activities.api import (
+        OutcomeKind,
+        RegistrationRefused,
+        board_channel,
+        get_activity,
+        submit,
+    )
 
     activiteit = get_activity(db, activity_id)
     if activiteit is None:
@@ -1619,15 +1625,16 @@ async def inschrijving_nieuw_opslaan(
     form = await request.form()
     values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
     onderdeel_id, component = _board_component(activiteit, values)
-    if component is None:
+    try:
+        channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
+    except RegistrationRefused as refusal:
         return templates.TemplateResponse(
             request,
             "admin_inschrijving_nieuw.html",
             _board_form_page(
-                request, db, activiteit, onderdeel_id, values=values, error=_("Kies een onderdeel.")
+                request, db, activiteit, onderdeel_id, values=values, error=str(refusal)
             ),
         )
-    channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
     outcome = submit(db, channel, activiteit, component, form, background_tasks, actor=email)
     if outcome.kind is OutcomeKind.REFUSED:
         # #1589: the same answer as the public page — the banner, into the

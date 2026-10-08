@@ -131,7 +131,12 @@ def test_preview_invalid_file_400(db_session):
 
 
 def test_preview_xlsx_rejected(db_session):
-    assert _refusal(lambda: _upload(db_session, name="ledenrapport.xlsx")) == 400
+    """Refused for its type, in the words about the format — not the "cannot
+    read" of an invalid file, which is a 400 as well."""
+    with pytest.raises(HTTPException) as refused:
+        _upload(db_session, name="ledenrapport.xlsx")
+    assert refused.value.status_code == 400
+    assert ".xlsx-formaat wordt niet ondersteund" in refused.value.detail
 
 
 def test_preview_empty_file_400(db_session):

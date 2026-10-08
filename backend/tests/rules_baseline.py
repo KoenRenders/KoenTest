@@ -591,7 +591,7 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/mdm/service.py::promote_email_row → audit.api.snapshot_contact_detail",
         "domains/mdm/service.py::remove_email_address → audit.api.snapshot_contact_detail",
         "domains/mdm/service.py::upsert_primary_contact → audit.api.snapshot_contact_detail",
-        "domains/mdm/ui.py::adres_opslaan → membership.api.update_person_address",
+        "domains/mdm/ui.py::adres_opslaan → membership.api.update_family_address",
         "domains/mdm/ui.py::bestuurslid_zetten → membership.api.assign_board_member",
         "domains/mdm/ui.py::gezin_aanmaken → membership.api.create_family_by_admin",
         "domains/mdm/ui.py::gezin_verwijderen → membership.api.delete_family",
@@ -667,7 +667,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
 # sweeps its domain decides whether the gate learns to except it or it stays named.
 # Keys are `file::function::condition` — the condition text, not a line number.
 RULE_IN_ROUTER: dict[str, str] = {
-    "domains/activities/admin_ui.py::inschrijving_nieuw_opslaan::component is None": "door: the board form asks for a component before it can be filled — the request's shape, not a rule on the data",
     "domains/auth/router.py::create_api_key::db.query(ApiKey).filter(ApiKey.name == name).first()": "rule: API key names are unique (ApiKey, with a UNIQUE constraint) — phase 4",
     "domains/auth/router.py::create_api_key::not name": "rule: an API key has a name (ApiKey) — phase 4",
     "domains/chatbot/ui.py::notitie_toevoegen::not title.strip() or not text_addition.strip()": "rule: a note has a title and a text — phase 4",
@@ -676,14 +675,10 @@ RULE_IN_ROUTER: dict[str, str] = {
     "domains/forms/admin_ui.py::instellingen_opslaan::status not in FORM_STATUSES": "rule: a form's status comes from the closed set (Form) — phase 4",
     "domains/forms/admin_ui.py::json_import::file is not None and file.filename": "door: reads the uploaded JSON file — the request's shape, not a rule on the data",
     "domains/forms/admin_ui.py::json_import::not payload.strip()": "door: nothing pasted and nothing uploaded — the request's shape, not a rule on the data",
-    "domains/mdm/import_router.py::_parse_or_400::filename and filename.lower().endswith('.xlsx')": "door: the uploaded file's type — the request's shape, not a rule on the data",
+    "domains/mdm/import_router.py::preview::file.filename and file.filename.lower().endswith('.xlsx')": "door: the uploaded file's type — the request's shape, not a rule on the data",
     "domains/mdm/import_router.py::_take::time.monotonic() - entry['created_at'] > _TTL_SECONDS": "door: the preview token expired — the request's shape, not a rule on the data",
     "domains/mdm/import_router.py::preview::len(content) > _MAX_FILE_BYTES": "door: the upload's size — the request's shape, not a rule on the data",
     "domains/mdm/import_router.py::preview::not content": "door: an empty upload — the request's shape, not a rule on the data",
-    "domains/mdm/ui.py::adres_opslaan::hoofdlid is None": "rule: a household has a primary member (Member) — phase 3",
-    "domains/mdm/ui.py::gezin_aanmaken::not rijen": "rule: a family has at least its primary member (Member) — phase 3",
-    "domains/meetings/admin_ui.py::circle_add::organization is None": "door: the tenant has no organisation configured yet — a setup message — the request's shape, not a rule on the data",
-    "domains/meetings/admin_ui.py::circle_new_person::organization is None": "door: the tenant has no organisation configured yet — a setup message — the request's shape, not a rule on the data",
     "domains/membership/household_router.py::renew_membership::has_valid_membership(person) and (not renewal_window_open)": "rule: renewal only inside the renewal window (Membership) — phase 3",
     "domains/membership/household_router.py::renew_membership::membership and membership.is_active": "rule: no second active membership (Membership) — phase 3",
     "domains/membership/household_router.py::renew_membership::open_renewal_payment(db, member)": "rule: one open renewal payment at a time (Membership) — phase 3",

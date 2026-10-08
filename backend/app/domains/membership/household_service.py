@@ -16,7 +16,7 @@ schillen die deze functies aanroepen.
 """
 
 from datetime import date
-from typing import Optional
+from typing import Mapping, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import and_, func, or_
@@ -36,6 +36,7 @@ from app.domains.mdm.api import (
     new_contact_detail,
 )
 from app.domains.membership.models import Membership
+from app.domains.membership.schemas_family import FamilyCreate, FamilyMemberCreate
 from app.domains.membership.schemas_member import (  # noqa: F401
     AddressUpdate,
     BoardMemberAssign,
@@ -793,6 +794,52 @@ def update_person(db: Session, person_id: int, data: PersonUpdate, admin=None):
     db.refresh(person)
     mp = next((mp for mp in person.member_persons), None)
     return _person_to_schema(person, mp.relation_type if mp else "HOOFDLID")
+
+
+def update_family_address(db: Session, family_id: int, data: AddressUpdate, admin=None):
+    """The household's one address. It hangs on the main member — on the first
+    person where none is marked — and a household without persons has nobody to
+    hang it on. That rule stood in the screen until CR-13 phase 4c (#1251)."""
+    family = get_family(db, family_id)
+    holder = next(
+        (m for m in family.members if m.relation_type == RelationType.PRIMARY_MEMBER),
+        family.members[0] if family.members else None,
+    )
+    if holder is None:
+        raise HTTPException(status_code=400, detail=_("Gezin zonder personen."))
+    return update_person_address(db, holder.id, data, admin=admin)
+
+
+def family_from_rows(values: Mapping[str, str], rows: list[dict]) -> FamilyCreate:
+    """What the board's "Nieuw lid" form carries, as the household to create: the
+    address fields and one member per filled-in row (`parse_member_rows`). The
+    first row is the main member unless the row says otherwise, the others are
+    partners.
+
+    A household has at least its main member: no row at all is refused here, in
+    the words the screen always gave. That rule stood in the screen until CR-13
+    phase 4c (#1251)."""
+    if not rows:
+        raise HTTPException(status_code=422, detail=_("Vul minstens het hoofdlid in."))
+    return FamilyCreate(
+        street=(values.get("street") or "").strip(),
+        house_number=(values.get("house_number") or "").strip(),
+        bus_number=(values.get("bus_number") or "").strip() or None,
+        postal_code=(values.get("postal_code") or "").strip(),
+        members=[
+            FamilyMemberCreate(
+                first_name=row["first_name"],
+                last_name=row["last_name"],
+                date_of_birth=row["date_of_birth"] or None,
+                gender_code=row["gender_code"] or None,
+                email=row["email"] or None,
+                phone=row["phone"] or None,
+                mobile=row["mobile"] or None,
+                relation_type=row["relation_type"] or ("HOOFDLID" if i == 0 else "PARTNER"),
+            )
+            for i, row in enumerate(rows)
+        ],
+    )
 
 
 def update_person_address(

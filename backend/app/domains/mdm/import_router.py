@@ -72,14 +72,7 @@ def _take(token: str) -> dict:
     return _PENDING.pop(token)
 
 
-def _parse_or_400(content: bytes, filename: str | None):
-    if filename and filename.lower().endswith(".xlsx"):
-        raise HTTPException(
-            status_code=400,
-            detail=_(
-                "Het .xlsx-formaat wordt niet ondersteund. Gebruik .xls (export uit Raak Nationaal) of .ods (LibreOffice Calc)."
-            ),
-        )
+def _parse_or_400(content: bytes):
     try:
         return parse_families(content)
     except Exception:
@@ -101,8 +94,17 @@ async def preview(*, file: UploadFile, db: Session, admin: User) -> dict:
         raise HTTPException(status_code=400, detail=_("Leeg bestand."))
     if len(content) > _MAX_FILE_BYTES:
         raise HTTPException(status_code=413, detail=_("Bestand te groot (max 5 MB)."))
+    # The upload's type, read where the upload is (CR-13 phase 4c, #1251): a check
+    # on the file, as its size and its emptiness above.
+    if file.filename and file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(
+            status_code=400,
+            detail=_(
+                "Het .xlsx-formaat wordt niet ondersteund. Gebruik .xls (export uit Raak Nationaal) of .ods (LibreOffice Calc)."
+            ),
+        )
 
-    families, bl_index, all_bl_names, _rest = _parse_or_400(content, file.filename)
+    families, bl_index, all_bl_names, _rest = _parse_or_400(content)
     # apply=False muteert de sessie niet: het rapport beschrijft enkel wat zou
     # veranderen. Pas bij commit wordt er weggeschreven.
     report = upsert_families(db, families, bl_index, all_bl_names, apply=False, actor=admin.email)
@@ -120,7 +122,7 @@ async def preview(*, file: UploadFile, db: Session, admin: User) -> dict:
 # function for the screen; it stays in this file until phase 4c moves it.
 def commit(req: CommitRequest, *, db: Session, admin: User) -> dict:
     entry = _take(req.token)
-    families, bl_index, all_bl_names, _rest = _parse_or_400(entry["content"], None)
+    families, bl_index, all_bl_names, _rest = _parse_or_400(entry["content"])
     report = upsert_families(db, families, bl_index, all_bl_names, apply=True, actor=admin.email)
     db.commit()
     return {

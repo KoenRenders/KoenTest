@@ -267,9 +267,8 @@ async def gezin_aanmaken(
 
     from app.domains.mdm.api import list_postal_codes
     from app.domains.membership.api import (
-        FamilyCreate,
-        FamilyMemberCreate,
         create_family_by_admin,
+        family_from_rows,
         parse_member_rows,
     )
 
@@ -298,29 +297,10 @@ async def gezin_aanmaken(
             status_code=422,
         )
 
-    rijen = parse_member_rows(form)
-    if not rijen:
-        return _fout(_("Vul minstens het hoofdlid in."))
     try:
-        data = FamilyCreate(
-            street=(values.get("street") or "").strip(),
-            house_number=(values.get("house_number") or "").strip(),
-            bus_number=(values.get("bus_number") or "").strip() or None,
-            postal_code=(values.get("postal_code") or "").strip(),
-            members=[
-                FamilyMemberCreate(
-                    first_name=r["first_name"],
-                    last_name=r["last_name"],
-                    date_of_birth=r["date_of_birth"] or None,
-                    gender_code=r["gender_code"] or None,
-                    email=r["email"] or None,
-                    phone=r["phone"] or None,
-                    mobile=r["mobile"] or None,
-                    relation_type=r["relation_type"] or ("HOOFDLID" if i == 0 else "PARTNER"),
-                )
-                for i, r in enumerate(rijen)
-            ],
-        )
+        data = family_from_rows(values, parse_member_rows(form))
+    except HTTPException as exc:
+        return _fout(str(exc.detail))
     except ValidationError as exc:
         return _fout(str(exc.errors()[0].get("msg", _("Ongeldige invoer."))))
 
@@ -600,18 +580,11 @@ def adres_opslaan(
     bus_number: str = Form(""),
     postal_code: str = Form(""),
 ):
-    from app.domains.membership.api import AddressUpdate, get_family, update_person_address
+    from app.domains.membership.api import AddressUpdate, update_family_address
 
-    family = get_family(db, family_id)
-    hoofdlid = next(
-        (m for m in family.members if m.relation_type == RelationType.PRIMARY_MEMBER),
-        family.members[0] if family.members else None,
-    )
-    if hoofdlid is None:
-        raise HTTPException(status_code=400, detail=_("Gezin zonder personen."))
-    update_person_address(
+    update_family_address(
         db,
-        hoofdlid.id,
+        family_id,
         AddressUpdate(
             street=street.strip(),
             house_number=house_number.strip(),
