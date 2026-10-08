@@ -665,18 +665,14 @@ COMMAND_CALLS: frozenset[str] = frozenset(
 RULE_IN_ROUTER: dict[str, str] = {
     "domains/auth/router.py::create_api_key::db.query(ApiKey).filter(ApiKey.name == name).first()": "rule: API key names are unique (ApiKey, with a UNIQUE constraint) — phase 4",
     "domains/auth/router.py::create_api_key::not name": "rule: an API key has a name (ApiKey) — phase 4",
-    "domains/chatbot/ui.py::notitie_toevoegen::not title.strip() or not text_addition.strip()": "rule: a note has a title and a text — phase 4",
     "domains/cms/admin_ui.py::pagina_aanmaken::not title.strip() or not slug.strip()": "rule: a page has a title and a slug (CmsPage) — phase 4",
     "domains/cms/admin_ui.py::pagina_bijwerken::sort_order is not None": "door: parses the form's number field — the request's shape, not a rule on the data",
-    "domains/forms/admin_ui.py::instellingen_opslaan::status not in FORM_STATUSES": "rule: a form's status comes from the closed set (Form) — phase 4",
     "domains/forms/admin_ui.py::json_import::file is not None and file.filename": "door: reads the uploaded JSON file — the request's shape, not a rule on the data",
-    "domains/forms/admin_ui.py::json_import::not payload.strip()": "door: nothing pasted and nothing uploaded — the request's shape, not a rule on the data",
     "domains/mdm/import_router.py::preview::file.filename and file.filename.lower().endswith('.xlsx')": "door: the uploaded file's type — the request's shape, not a rule on the data",
     "domains/mdm/import_router.py::_take::time.monotonic() - entry['created_at'] > _TTL_SECONDS": "door: the preview token expired — the request's shape, not a rule on the data",
     "domains/mdm/import_router.py::preview::len(content) > _MAX_FILE_BYTES": "door: the upload's size — the request's shape, not a rule on the data",
     "domains/mdm/import_router.py::preview::not content": "door: an empty upload — the request's shape, not a rule on the data",
     "domains/newsletter/admin_ui.py::subscriber_import_preview::len(data) > MAX_IMPORT_BYTES": "door: the upload's size — the request's shape, not a rule on the data",
-    "domains/reporting/admin_ui.py::_ask::not vraag": "door: an empty question in the assistant box — the request's shape, not a rule on the data",
 }
 
 

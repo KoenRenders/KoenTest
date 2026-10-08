@@ -1092,9 +1092,11 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
     from app.domains.chatbot.api import (
         ChatTimeout,
         GuardedProvider,
+        QuestionRefused,
         SeamBlocked,
         admin_chat_char_budget,
         admin_rules,
+        asked,
         get_provider,
         run_chat,
         sink_for,
@@ -1117,14 +1119,16 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
     enabled, reason = _assistant_state(db, request)
     if not enabled:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    if not vraag:
+    try:
+        vraag = asked(vraag)
+    except QuestionRefused as refusal:
         return templates.TemplateResponse(
             request,
             "_rp_raakje_antwoord.html",
             AssistantTurnView(
                 vraag="",
                 antwoord="",
-                error=_("Typ eerst een vraag."),
+                error=str(refusal),
                 payload="",
                 history=_history_out(turns),
             ).as_context(),

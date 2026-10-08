@@ -19,12 +19,13 @@ from sqlalchemy.orm import Session
 from app.domains.activities.api import Activity, ActivitySubRegistration
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
-from app.kernel.codes import code_of
 
 # media wordt per functie geïmporteerd: `media/extraction.py` importeert op
 # modulniveau `ChatbotInfo` uit chatbot.api, dat op zijn beurt deze module laadt.
 # Een module-level import hier zou EXTRACTABLE_KINDS opvragen terwijl
 # media/api.py nog aan het initialiseren is.
+from app.i18n import _
+from app.kernel.codes import code_of
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
 
 if TYPE_CHECKING:  # alleen voor de typechecker — geen import bij het draaien
@@ -130,6 +131,22 @@ def _apply_edit(ci: ChatbotInfo, data: ChatbotInfoEdit) -> None:
     ci.is_active = data.is_active
     if data.sort_order is not None:
         ci.sort_order = data.sort_order
+
+
+class InfoRefused(ValueError):
+    """A refusal of this service, in the words the administrator reads."""
+
+
+def add_note(db: Session, *, title: str, text: str) -> dict:
+    """A note of our own for Raakje: it has a title and a text.
+
+    The screen decided this itself until CR-13 phase 4c (#1251); a rule at one
+    door holds for that door only. Both are asked for the note, not for every
+    row of this table — a document's or a page's row carries no title."""
+    title, text = title.strip(), text.strip()
+    if not title or not text:
+        raise InfoRefused(_("Titel en tekst zijn verplicht."))
+    return create_note(db, NoteCreate(title=title, text_addition=text, is_active=True))
 
 
 def create_note(db: Session, data: NoteCreate, _admin=None):

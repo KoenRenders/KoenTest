@@ -88,3 +88,39 @@ def test_reextract_endpoint(client, db_session, admin_headers):
 def test_reextract_unknown_asset_404(client, admin_headers):
     r = media_door.reextract(client, 999999)
     assert r.status_code == 404
+
+
+# ── A note has a title and a text: the service's rule (CR-13 phase 4c, #1251) ──
+
+
+def test_a_note_without_a_title_or_a_text_is_refused_by_the_service(db_session):
+    """The rule stood in the screen alone; it holds for every entrance now.
+
+    Proven red (8 October 2026): the check taken out of `info_service.add_note` →
+    a note without a title is stored (no refusal raised).
+    """
+    import pytest
+
+    before = db_session.query(ChatbotInfo).count()
+    for title, text in (("", "Antwoord beknopt."), ("Toon", "   "), ("  ", "")):
+        with pytest.raises(info_service.InfoRefused, match="Titel en tekst zijn verplicht"):
+            info_service.add_note(db_session, title=title, text=text)
+    assert db_session.query(ChatbotInfo).count() == before
+
+    made = info_service.add_note(db_session, title="  Toon ", text=" Antwoord beknopt. ")
+    assert (made["title"], made["text_addition"]) == ("Toon", "Antwoord beknopt.")
+
+
+def test_the_screen_shows_the_services_refusal_in_the_same_words(client, db_session):
+    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    value = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, value)
+    answer = client.post(
+        "/admin/ai-context/notities",
+        data={"title": "Toon", "text_addition": ""},
+        headers={"X-CSRF-Token": csrf_token_for(value)},
+    )
+    assert answer.status_code == 400
+    assert answer.json()["detail"] == "Titel en tekst zijn verplicht."
