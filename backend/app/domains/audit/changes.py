@@ -494,10 +494,10 @@ def all_changes_since(
 ) -> List[dict]:
     """Unified audit-feed (#189): alle history-tabellen sinds ``since``, met een
     objectgroep per rij; optioneel gefilterd op groep en/of actor. Nieuw → oud."""
-    # Imported here and not at the top (#781), for the same reason as in
-    # `audit.service.snapshot_payment_record`: `payment.service` imports
-    # `audit.api` at load time, so a top-level `payment.api` import here closes a
-    # cycle that only held because of the order the imports stood in.
+    # Imported here and not at the top (#781): `payment.service` reaches
+    # `audit.api` at load time through the domains it imports, as long as those
+    # call audit's snapshot helpers, so a top-level `payment.api` import here closes
+    # a cycle that only held because of the order the imports stood in.
     from app.domains.payment.api import PaymentRecordHistory
 
     since_dt = datetime.combine(since, time.min, tzinfo=timezone.utc)
