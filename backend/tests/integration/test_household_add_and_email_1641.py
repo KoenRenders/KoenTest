@@ -191,13 +191,18 @@ def test_saving_with_the_partners_field_empty_writes_no_address_and_no_history(c
     assert rows == [], "an empty field became a row"
     assert db_session.query(ContactDetailHistory).count() == before, "an empty field left history"
 
-    # the other half: typed, the same field becomes the partner's main address
+    # the other half: typed, the same field becomes the partner's address —
+    # waiting for its code since CR-22 R15 (#1711), so not the main one yet
     fields = form_fields(client.get(EDIT).text, "gezin-form")
     fields[f"e.n{partner.id}e.value"] = "partner.leeg@example.com"
     assert client.post("/leden/gezin", data=fields, headers=headers).status_code == 200
     db_session.expire_all()
     stored = db_session.query(ContactDetail).filter_by(person_id=partner.id).one()
-    assert (stored.value, stored.is_primary) == ("partner.leeg@example.com", True)
+    assert (stored.value, stored.is_primary, stored.confirmed_at) == (
+        "partner.leeg@example.com",
+        False,
+        None,
+    )
 
 
 def test_the_main_members_empty_field_is_refused_on_the_field(client, db_session):

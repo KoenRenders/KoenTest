@@ -901,7 +901,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {% for a, text in [("up", _("Omhoog")), ("down", _("Omlaag")), ("duplicate", _("Dupliceren"))] if a in menu %}
     <button type="button" role="menuitem" data-row-action="{{ a }}" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2 disabled:text-ink-soft disabled:opacity-60 disabled:cursor-not-allowed">{{ text }}</button>
     {% endfor %}
-    {% if one %}<button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2"{% if one.chosen %} hidden{% endif %}>{{ one.make }}</button>{% endif %}
+    {% if one and one.get("choosable", True) %}<button type="button" role="menuitem" data-row-action="choose" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-ink hover:bg-surface-2"{% if one.chosen %} hidden{% endif %}>{{ one.make }}</button>{% endif %}
     {% if "remove" in menu %}
     {% if menu|length > 1 %}<div class="my-1 border-t border-line"></div>{% endif %}
     <button type="button" role="menuitem" data-row-action="remove" class="flex items-center w-full min-h-11 px-3 text-sm text-left text-red-700 hover:bg-surface-2"{% if one and one.chosen and not _keeps %} hidden{% endif %}{% if _keeps %} data-row-keeps{% endif %}>{{ _("Verwijderen") }}</button>
@@ -919,7 +919,12 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    `title` is the composite item's heading (in edit mode it follows the field
    marked `data-row-title-source`); `title_href` makes it a jump link; `tag` is
    a badge beside it ("op de affiche", "hoofdadres"). `handle` only where the
-   order means something. `label` names the row for its menu's accessible name. #}
+   order means something. `label` names the row for its menu's accessible name.
+
+   A SIMPLE row of a group that marks one row (`one`) shows `tag` where the
+   one-tag stands — right of its field — for a row that cannot be the marked
+   one: an e-mail address that "wacht op bevestiging" (#1711). Such a row
+   passes `one.choosable = False`, and its menu offers no "Maak …". #}
 {% macro group_row(group, key, edit=False, variant="simple", handle=False,
                    menu=["up", "down", "duplicate", "remove"], title="", title_href=None, tag=None, label="",
                    fold=None, subtitle=None, title_prefix=None, one=None) -%}
@@ -959,7 +964,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     <div data-form-grid class="form-grid">{{ caller() }}</div>
     {% endif %}
   </div>
-  {% if variant == "simple" %}{{ _one_tag }}{% endif %}
+  {% if variant == "simple" %}{{ _one_tag }}{% if tag %}<span data-row-tag class="shrink-0">{{ badge(tag.label, tag.get("tone") or "gray") }}</span>{% endif %}{% endif %}
   {% if edit and menu and variant == "simple" %}{{ _row_menu(menu, label or title, one) }}{% endif %}
 </div>
 {%- endmacro %}

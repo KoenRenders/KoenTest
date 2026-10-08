@@ -302,9 +302,22 @@ def _save_emails(db: Session, person: Person, row: PersonRow, actor: Optional[st
     sent = {int(e.key): e.value.strip() for e in row.emails if e.key.isdigit()}
     texts = {row_id: sent.get(row_id, "") for row_id in mine}
     new = [e.value.strip() for e in row.emails if not e.key.isdigit()]
-    write_email_rows(db, person, texts, new, actor=actor, source=hs.SOURCE)
-
+    # The person types these himself: a new or changed address waits for its
+    # code (CR-22 R15, #1711).
+    # The row the form marks as the primary one. When that is an address typed
+    # in this save it waits, and the mark waits with it — carried out at its
+    # code (#1590: adding an address and making it the main one is one save).
     chosen = next((e for e in row.emails if e.primary and e.value.strip()), None)
+    write_email_rows(
+        db,
+        person,
+        texts,
+        new,
+        actor=actor,
+        source=hs.SOURCE,
+        confirmed=False,
+        primary_wanted=chosen.value.strip() if chosen is not None else "",
+    )
     if chosen is None:
         return
     target = next(
@@ -322,7 +335,8 @@ def _save_emails(db: Session, person: Person, row: PersonRow, actor: Optional[st
         ),
         None,
     )
-    if target is not None and not target.is_primary:
+    # A waiting address cannot be made the primary one: it is not proven yet.
+    if target is not None and not target.is_primary and target.confirmed_at is not None:
         promote_email_row(db, person, target, actor=actor, source=hs.SOURCE)
 
 

@@ -33,9 +33,11 @@ from app.domains.mail.api import send_magic_link, send_member_contact_board_noti
 from app.i18n import _
 from app.kernel.contracts.auth import (
     ACCOUNT_CONFIRMATION,
+    ADDRESS_CONFIRMATION,
     AMBIGUOUS_ADDRESS,
     EXISTING_ACCOUNT,
     AccountCodeEntered,
+    AddressCodeEntered,
     CodeMailRequested,
 )
 from app.kernel.events import has_subscribers, publish
@@ -77,11 +79,15 @@ class Consumed(NamedTuple):
     code was right and its purpose could not be carried out — the address of a
     new account got an owner since the form was sent. The token is spent
     either way; the caller shows the reason and signs nobody in.
+
+    `replaced` (#1711): the address a confirmed one took the place of, "" when
+    none — a session that was signed in with it has to move to the new one.
     """
 
     email: str
     purpose: LoginPurpose
     refusal: Optional[str] = None
+    replaced: str = ""
 
 
 @dataclass(frozen=True)
@@ -250,6 +256,54 @@ def start_account(db: Session, request: AccountRequest, return_to: str = "") -> 
     db.commit()
 
 
+def issue_address_code(
+    db: Session,
+    *,
+    contact_id: int,
+    email: str,
+    replaces_id: Optional[int] = None,
+    replaces_email: str = "",
+    make_primary: bool = False,
+) -> None:
+    """A code that confirms a waiting e-mail address, and its mail (CR-22 R15,
+    F6; #1711). Not committed: it runs in the transaction that stored the row.
+
+    The token carries which row it confirms, which one that row replaces and
+    whether it was asked for as the primary address. A second code for the
+    same row — "Code opnieuw sturen", or a waiting address typed over —
+    comes without those: then what the row's earlier code said is kept, so
+    asking again never turns a replacement into an extra address.
+    """
+    if replaces_id is None and not make_primary:
+        earlier = (
+            db.query(LoginToken)
+            .filter(
+                LoginToken.purpose == LoginPurpose.CONFIRM_ADDRESS,
+                LoginToken.payload["contact_id"].as_integer() == contact_id,
+            )
+            .order_by(LoginToken.id.desc())
+            .first()
+        )
+        if earlier is not None:
+            replaces_id = (earlier.payload or {}).get("replaces_id")
+            replaces_email = (earlier.payload or {}).get("replaces_email") or ""
+            make_primary = bool((earlier.payload or {}).get("make_primary"))
+    token, otp_code = _issue(
+        db,
+        email,
+        purpose=LoginPurpose.CONFIRM_ADDRESS,
+        payload={
+            "contact_id": contact_id,
+            "replaces_id": replaces_id,
+            "replaces_email": replaces_email,
+            "make_primary": make_primary,
+            # As for an account: the token has no tenant of its own (C1).
+            "tenant_id": _tenant(),
+        },
+    )
+    _request_mail(db, email, ADDRESS_CONFIRMATION, _link(db, token, ""), otp_code)
+
+
 def _request_mail(db: Session, email: str, kind: str, link: str = "", otp_code: str = "") -> None:
     """Ask `mail` for one of the account mails. Publishing into silence would
     answer "we sent a code" and send nothing, so somebody must be listening."""
@@ -271,18 +325,56 @@ def _consume(db: Session, login_token: LoginToken) -> Consumed:
     email = login_token.email or ""
     purpose = LoginPurpose(login_token.purpose)
     refusal: Optional[str] = None
+    replaced = ""
     if purpose is LoginPurpose.CREATE_ACCOUNT:
         refusal = _make_account(db, login_token)
+    elif purpose is LoginPurpose.CONFIRM_ADDRESS:
+        refusal = _confirm_address(db, login_token)
+        if refusal is None:
+            replaced = str((login_token.payload or {}).get("replaces_email") or "")
     elif purpose is not LoginPurpose.SIGN_IN:
-        # A purpose this build does not carry out yet (CONFIRM_ADDRESS, the
-        # slice after this one): never a sign-in by accident.
+        # A purpose this build does not know: never a sign-in by accident.
         refusal = _("Deze code kan hier niet gebruikt worden.")
     login_token.used = True
     db.commit()
     logger.info(
         "code consumed: purpose=%s outcome=%s", purpose.value, "refused" if refusal else "ok"
     )
-    return Consumed(email=email, purpose=purpose, refusal=refusal)
+    return Consumed(email=email, purpose=purpose, refusal=refusal, replaced=replaced)
+
+
+def _confirm_address(db: Session, login_token: LoginToken) -> Optional[str]:
+    """Carry out CONFIRM_ADDRESS; the refusal's words, or None when the
+    address counts (CR-22 R15, #1711).
+
+    Events, not calls: master data owns the row and confirms it when told the
+    code was entered. Its refusal — the row is gone, or the address got an
+    owner while it waited — reaches us as the exception.
+    """
+    from app.domains.mdm.api import MasterDataError
+
+    payload = login_token.payload or {}
+    if payload.get("tenant_id") != _tenant():
+        return _("Deze code hoort bij een andere site.")
+    if not has_subscribers(AddressCodeEntered):
+        raise RuntimeError(
+            "AddressCodeEntered has no subscriber: is app.domains.mdm.handlers loaded?"
+        )
+    try:
+        # No savepoint, as for an account: master data refuses BEFORE it
+        # writes anything (`confirm_email` checks first).
+        publish(
+            AddressCodeEntered(
+                contact_id=int(payload.get("contact_id") or 0),
+                email=login_token.email or "",
+                replaces_id=payload.get("replaces_id"),
+                make_primary=bool(payload.get("make_primary")),
+            ),
+            db,
+        )
+    except MasterDataError as refused:
+        return str(refused)
+    return None
 
 
 def _make_account(db: Session, login_token: LoginToken) -> Optional[str]:

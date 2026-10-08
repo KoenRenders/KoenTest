@@ -9,6 +9,7 @@ not called from another.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 from app.kernel.events import KernelEvent
 
@@ -35,7 +36,30 @@ class AccountCodeEntered(KernelEvent):
     mobile: str
 
 
+@dataclass(frozen=True)
+class AddressCodeEntered(KernelEvent):
+    """The code of a waiting e-mail address was entered (CR-22 R15, F6; #1711).
+
+    Published by `auth.login` when a token with the purpose CONFIRM_ADDRESS is
+    consumed, in that transaction. `mdm` subscribes: the row counts from now
+    on, and takes the place of `replaces_id` when it has one. **A subscriber
+    that refuses raises, and the refusal reaches the publisher** — the address
+    got an owner while it waited (a waiting row claims nothing), or the row is
+    gone; the code is spent and nothing changes.
+
+    `email` is the address the code was sent to: a row whose text was changed
+    since is another address, and that code does not confirm it.
+    """
+
+    contact_id: int
+    email: str
+    replaces_id: Optional[int] = None
+    #: The person asked for this address as the primary one when he added it.
+    make_primary: bool = False
+
+
 #: The kinds of `CodeMailRequested`.
+ADDRESS_CONFIRMATION = "address_confirmation"
 ACCOUNT_CONFIRMATION = "account_confirmation"
 EXISTING_ACCOUNT = "existing_account"
 AMBIGUOUS_ADDRESS = "ambiguous_address"
@@ -50,7 +74,9 @@ class CodeMailRequested(KernelEvent):
     job in that transaction: it leaves only if the token was stored, and a
     handler never reaches the network (CR-13 §B4.1).
 
-    `kind`: `ACCOUNT_CONFIRMATION` ("Bevestig je account", with the link and
+    `kind`: `ADDRESS_CONFIRMATION` ("Bevestig je e-mailadres", with the link
+    and the code that make a waiting address count; #1711),
+    `ACCOUNT_CONFIRMATION` ("Bevestig je account", with the link and
     the code that make it), `EXISTING_ACCOUNT` ("Je hebt al een account", with
     a link and a code to sign in — the only place that says so, to the owner),
     `AMBIGUOUS_ADDRESS` (the address does not say who signs in: the board

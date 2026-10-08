@@ -24,6 +24,29 @@ from app.ui.viewmodel import ViewModel
 router = APIRouter(include_in_schema=False)
 
 
+def _session_address(request: Request, consumed) -> str:
+    """The address the session carries once a code or a link did its work.
+
+    A sign-in and a new account: the address of the code. A CONFIRMED address
+    (CR-22 R15, #1711) signs nobody else in: whoever is signed in stays who he
+    is — a parent confirming a child's address stays the parent. Two cases
+    move to the new address: nobody is signed in on this device (the link was
+    opened elsewhere; the code proved the address, as a sign-in does), and the
+    session was signed in with the address that was just replaced — that one
+    no longer exists.
+    """
+    from app.domains.auth.api import SESSION_COOKIE, LoginPurpose, read_session_value
+
+    current = read_session_value(request.cookies.get(SESSION_COOKIE))
+    if (
+        consumed.purpose is LoginPurpose.CONFIRM_ADDRESS
+        and current
+        and current.lower() != consumed.replaced.lower()
+    ):
+        return current
+    return consumed.email
+
+
 @router.get("/aanmelden", response_class=HTMLResponse)
 def aanmelden_page(request: Request, db: Session = Depends(get_db)):
     from app.ui import site_context
@@ -104,6 +127,7 @@ def aanmelden_code(
     # rule as the mail link, from the one place it lives.
     from app.domains.auth.api import landing_for
 
+    email = _session_address(request, consumed)
     dest = return_to or landing_for(db, email)
     response = templates.TemplateResponse(request, "_sign_in_done.html", {})
     set_session_cookie(response, email, request)
@@ -250,7 +274,7 @@ def login_verify(request: Request, token: str = "", terug: str = "", db: Session
         return templates.TemplateResponse(
             request, "login_verlopen.html", site_context(db, request), status_code=401
         )
-    email = consumed.email
+    email = _session_address(request, consumed)
     # The page that asked (#1437), checked by the one `veilige_terug` — a link
     # can be edited, so only a path on this site counts; else the landing by
     # role (#530), the same rule as the code step.

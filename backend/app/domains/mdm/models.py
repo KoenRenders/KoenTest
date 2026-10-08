@@ -42,6 +42,12 @@ class EmailAddressInUse(MasterDataError):
     signs in."""
 
 
+class AddressNotWaiting(MasterDataError):
+    """A code for an e-mail address that does not wait for one any more: the
+    row was removed, or its text was changed since the code was sent (CR-22
+    R15, #1711)."""
+
+
 class PersonDetailsMissing(MasterDataError):
     """A member of a household without a birth date or a gender (#681)."""
 

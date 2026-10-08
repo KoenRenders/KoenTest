@@ -31,6 +31,9 @@ class EmailView:
     key: str
     value: str = ""
     primary: bool = False
+    #: The address waits for its code (CR-22 R15, #1711): it does not sign
+    #: in and receives nothing yet. The row says so and offers the code.
+    pending: bool = False
 
 
 @dataclass(frozen=True)
@@ -120,7 +123,13 @@ def person_block(person: Any, *, edit: bool = False) -> PersonBlock:
         key=lambda c: (not c.is_primary, c.id),
     )
     emails = tuple(
-        EmailView(key=str(c.id), value=c.value or "", primary=bool(c.is_primary)) for c in stored
+        EmailView(
+            key=str(c.id),
+            value=c.value or "",
+            primary=bool(c.is_primary),
+            pending=c.confirmed_at is None,
+        )
+        for c in stored
     )
     if edit and not emails:
         emails = (EmailView(key=f"n{person.id}e", primary=True),)
@@ -279,7 +288,12 @@ def household_group(
     for p in household["persons"]:
         relation = _relation_code(p.get("relation_type"))
         emails = tuple(
-            EmailView(key=str(m["id"]), value=m["value"], primary=bool(m["is_primary"]))
+            EmailView(
+                key=str(m["id"]),
+                value=m["value"],
+                primary=bool(m["is_primary"]),
+                pending=not m.get("confirmed", True),
+            )
             for m in p.get("emails") or []
         )
         born = p.get("date_of_birth") or ""

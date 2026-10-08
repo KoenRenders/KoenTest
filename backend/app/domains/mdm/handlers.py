@@ -12,8 +12,8 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.domains.mdm.service import create_account_person, set_circle_start
-from app.kernel.contracts.auth import AccountCodeEntered
+from app.domains.mdm.service import confirm_email, create_account_person, set_circle_start
+from app.kernel.contracts.auth import AccountCodeEntered, AddressCodeEntered
 from app.kernel.contracts.meetings import CircleStartChosen
 from app.kernel.events import subscribe
 
@@ -63,3 +63,39 @@ def make_account_when_code_entered(event: AccountCodeEntered, db: Session) -> No
             source=ACCOUNT_SOURCE,
             actor=event.email,
         )
+
+
+@subscribe(AddressCodeEntered)
+def confirm_address_when_code_entered(event: AddressCodeEntered, db: Session) -> None:
+    """A waiting e-mail address counts from now on, and takes the place of the
+    one it was typed over (CR-22 R15, #1711). `confirm_email` refuses a row
+    that is gone and an address that got an owner while it waited; the refusal
+    reaches the publisher, which spends the code and changes nothing.
+
+    The history rows are written here: `confirm_email` says which row counts
+    now and which one it replaced, this subscriber records both."""
+    from app.domains.audit.api import snapshot_contact_detail
+
+    changed = confirm_email(
+        db, event.contact_id, event.email, event.replaces_id, make_primary=event.make_primary
+    )
+    if changed is None:
+        return  # the address counted already: a code entered twice
+    row, replaced = changed
+    if replaced is not None:
+        snapshot_contact_detail(
+            db,
+            replaced,
+            operation="delete",
+            action="email_replaced",
+            source="member_self",
+            actor=event.email,
+        )
+    snapshot_contact_detail(
+        db,
+        row,
+        operation="update",
+        action="email_confirmed",
+        source="member_self",
+        actor=event.email,
+    )
