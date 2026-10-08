@@ -78,6 +78,13 @@ def _counts(db):
     )
 
 
+def _guard_line(caplog) -> str:
+    """The last line the form guard itself logged."""
+    lines = [r.getMessage() for r in caplog.records if r.name == "app.kernel.form_guard"]
+    assert lines, "the form guard logged nothing"
+    return lines[-1]
+
+
 # ── /berichten ────────────────────────────────────────────────────────────────
 
 BERICHT = {"naam": "Abcdefghij", "email": "probe@example.com", "bericht": "x" * 30}
@@ -92,9 +99,33 @@ def test_berichten_drops_what_is_not_a_person(client, db_session, caplog, varian
 
     assert answer.headers.get("HX-Redirect") == "/?bericht=verzonden", "not the ordinary thanks"
     assert _counts(db_session) == before, "a dropped message left a row or a task"
-    line = caplog.records[-1].getMessage()
+    # The guard's own line, not whatever was logged last (#1777): a request slower
+    # than `slow_request_ms` gets a WARNING of its own after the guard's.
+    line = _guard_line(caplog)
     assert "berichten" in line and REASON[variant] in line, line
     assert "x" * 30 not in line and "probe@example.com" not in line, line
+
+
+def test_the_reason_is_read_from_the_guards_line_also_when_the_request_is_slow(
+    client, db_session, caplog, monkeypatch
+):
+    """#1777: on a loaded runner the request took 685 ms, the application logged
+    its slow-request WARNING after the guard's line, and the test above read
+    that one — "POST /berichten -> 200 (684.8 ms)" — for the reason.
+
+    Here every request is slow, so the slow-request line is always the last.
+    Red every time on the old reading (`caplog.records[-1]`), proven on
+    8 October 2026 by putting that line back in `_guard_line`.
+    """
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "slow_request_ms", -1)
+    caplog.set_level(logging.WARNING, logger="app.kernel.form_guard")
+
+    client.post("/berichten", data={**_dropped_variants()["no-token"], **BERICHT})
+
+    assert "POST /berichten" in caplog.records[-1].getMessage(), "no slow-request line"
+    assert REASON["no-token"] in _guard_line(caplog)
 
 
 def test_berichten_lets_a_person_through(client, db_session):
