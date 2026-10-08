@@ -1,6 +1,7 @@
 """Penningmeester-filter (#90): de records-lijst geeft genoeg context mee om per
 lidmaatschap-vernieuwing of per activiteit-onderdeel te filteren."""
 
+from tests import payments_door
 from tests.conftest import register_at_the_door, seed_activity_with_product
 
 
@@ -21,7 +22,7 @@ def test_registration_record_exposes_component(client, db_session, admin_headers
     )
     assert resp.status_code in (200, 201), resp.text
 
-    records = client.get("/api/v1/payment-status/records", headers=admin_headers).json()
+    records = payments_door.records(client).json()
     reg_rec = next(r for r in records if r["payable_type"] == "registration")
     # #1748: the record no longer carries `activity_id` — its one reader, the jump
     # link on the booking's page, follows the describer's `context_href` now.
@@ -48,7 +49,7 @@ def test_registration_record_exposes_structured_communication(client, db_session
     )
     assert resp.status_code in (200, 201), resp.text
 
-    records = client.get("/api/v1/payment-status/records", headers=admin_headers).json()
+    records = payments_door.records(client).json()
     reg_rec = next(r for r in records if r["payable_type"] == "registration")
     assert reg_rec["structured_communication"]
     assert reg_rec["structured_communication"].startswith("+++")

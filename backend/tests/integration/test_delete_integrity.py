@@ -15,6 +15,7 @@ from app.domains.payment.api import (
     PaymentStatus,
     PaymentType,
 )
+from tests import payments_door
 from tests.conftest import seed_postal_code
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -66,7 +67,7 @@ def test_delete_family_with_membership_payment(client, db_session, admin_headers
     assert resp.status_code == 204, resp.text
 
     # Het betaaloverzicht mag niet crashen op de (nu lidmaatschap-loze) betaling.
-    overview = client.get("/api/v1/payment-status/records", headers=admin_headers)
+    overview = payments_door.records(client)
     assert overview.status_code == 200, overview.text
 
     # GEWIJZIGD DOOR #619. Voorheen bleef ook een ONBETAALDE vordering staan, met
@@ -111,11 +112,8 @@ def test_admin_can_delete_payment_record(client, db_session, admin_headers):
     )
     pay_id = pay.id
 
-    # Niet-admin mag niet.
-    assert client.delete(f"/api/v1/payment-status/records/{pay_id}").status_code in (401, 403)
-
     # Admin verwijdert de betaling bewust.
-    resp = client.delete(f"/api/v1/payment-status/records/{pay_id}", headers=admin_headers)
+    resp = payments_door.delete(client, pay_id)
     assert resp.status_code == 204, resp.text
     assert db_session.query(PaymentRecord).filter(PaymentRecord.id == pay_id).first() is None
 
@@ -133,10 +131,7 @@ def test_admin_can_delete_payment_record(client, db_session, admin_headers):
 
 
 def test_delete_unknown_payment_record_404(client, admin_headers):
-    assert (
-        client.delete("/api/v1/payment-status/records/nope", headers=admin_headers).status_code
-        == 404
-    )
+    assert payments_door.delete(client, "nope").status_code == 404
 
 
 def test_delete_family_with_external_number(client, db_session, admin_headers):

@@ -4,6 +4,7 @@ webhook-idempotentie en de gedeelde totaalberekening."""
 from decimal import Decimal
 
 from app.domains.payment.api import PayableType, PaymentStatus
+from tests import payments_door
 from tests.conftest import register_at_the_door, seed_activity_with_product, seed_postal_code
 
 
@@ -80,7 +81,7 @@ def test_payment_overview_membership_shows_family_and_year(client, db_session, a
 
     ms = db_session.query(Membership).first()
 
-    resp = client.get("/api/v1/payment-status/records", headers=admin_headers)
+    resp = payments_door.records(client)
     assert resp.status_code == 200, resp.text
     rec = next(r for r in resp.json() if r["payable_type"] == "membership")
     assert rec["description"] == f"Lidmaatschap {ms.year}"
@@ -104,11 +105,7 @@ def test_manual_confirm_writes_audit_with_actor(client, db_session, admin_header
 
     rec = db_session.query(PaymentRecord).first()
 
-    resp = client.patch(
-        f"/api/v1/payment-status/records/{rec.id}",
-        json={"status": "paid"},
-        headers=admin_headers,
-    )
+    resp = payments_door.update(client, rec.id, {"status": "paid"})
     assert resp.status_code == 200, resp.text
 
     from app.domains.payment.api import PaymentRecordHistory

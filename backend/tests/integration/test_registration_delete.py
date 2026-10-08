@@ -9,6 +9,7 @@ terugbetaling-verplichting aan (geld = financieel feit, verdwijnt niet zomaar).
 from app.domains.activities import service as activities_service
 from app.domains.activities.api import Registration, public_registrations
 from app.domains.payment.api import PayableType, PaymentRecord, PaymentType
+from tests import payments_door
 from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door, seed_activity_with_product
 
 _REG = {
@@ -25,7 +26,7 @@ def _public(db, activity_id, comp_id):
 
 
 def _records(client, admin_headers):
-    return client.get("/api/v1/payment-status/records", headers=admin_headers).json()
+    return payments_door.records(client).json()
 
 
 def _register(client, db_session, qty=2, price="18.00"):
@@ -80,11 +81,7 @@ def test_delete_paid_registration_keeps_charge_and_creates_pending_refund(
         .order_by(PaymentRecord.created_at.desc())
         .first()
     )
-    client.patch(
-        f"/api/v1/payment-status/records/{charge.id}",
-        json={"status": "paid", "amount_paid": "36.00"},
-        headers=admin_headers,
-    )
+    payments_door.update(client, charge.id, {"status": "paid", "amount_paid": "36.00"})
 
     assert activities_service.delete_registration(
         db_session, comp.activity_id, reg.id, actor=SEEDED_ADMIN_EMAIL

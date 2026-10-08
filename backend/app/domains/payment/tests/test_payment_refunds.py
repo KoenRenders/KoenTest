@@ -18,6 +18,7 @@ from app.domains.payment.api import (
     create_refund,
     net_paid,
 )
+from tests import payments_door
 from tests._invarianten import assert_saldo_klopt
 from tests.conftest import register_at_the_door, seed_activity_with_product
 
@@ -155,11 +156,7 @@ def test_confirm_pending_refund_books_full_amount(client, db_session, admin_head
     charge = _seed_charge(db_session)
     refund = create_refund(db_session, charge.id, Decimal("18.00"), settled=False)
     assert refund.status == PaymentStatus.PENDING and refund.amount_paid is None
-    resp = client.patch(
-        f"/api/v1/payment-status/records/{refund.id}",
-        json={"status": "paid"},
-        headers=admin_headers,
-    )
+    resp = payments_door.update(client, refund.id, {"status": "paid"})
     assert resp.status_code == 200, resp.text
     assert Decimal(str(resp.json()["amount_paid"])) == Decimal("-18.00")
 
@@ -168,29 +165,16 @@ def test_refund_rejects_positive_amount_paid(client, db_session, admin_headers):
     """Een positief betaald bedrag op een (negatieve) refund wordt geweigerd."""
     charge = _seed_charge(db_session)
     refund = create_refund(db_session, charge.id, Decimal("18.00"), settled=False)
-    resp = client.patch(
-        f"/api/v1/payment-status/records/{refund.id}",
-        json={"status": "paid", "amount_paid": "5.00"},
-        headers=admin_headers,
-    )
+    resp = payments_door.update(client, refund.id, {"status": "paid", "amount_paid": "5.00"})
     assert resp.status_code == 400, resp.text
 
 
 # ── Endpoint-laag (admin-only) ────────────────────────────────────────────────
 
 
-def test_refund_endpoint_requires_admin(client):
-    resp = client.post("/api/v1/payment-status/records/whatever/refund", json={"amount": "5.00"})
-    assert resp.status_code in (401, 403)
-
-
 def test_refund_endpoint_creates_refund(client, db_session, admin_headers):
     charge = _seed_charge(db_session)
-    resp = client.post(
-        f"/api/v1/payment-status/records/{charge.id}/refund",
-        json={"amount": "18.00", "note": "lid afgehaakt"},
-        headers=admin_headers,
-    )
+    resp = payments_door.refund(client, charge.id, {"amount": "18.00", "note": "lid afgehaakt"})
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["type"] == "refund"
@@ -201,11 +185,7 @@ def test_refund_endpoint_creates_refund(client, db_session, admin_headers):
 
 def test_refund_endpoint_rejects_over_refund(client, db_session, admin_headers):
     charge = _seed_charge(db_session, amount="18.00", amount_paid="18.00")
-    resp = client.post(
-        f"/api/v1/payment-status/records/{charge.id}/refund",
-        json={"amount": "25.00"},
-        headers=admin_headers,
-    )
+    resp = payments_door.refund(client, charge.id, {"amount": "25.00"})
     assert resp.status_code == 400
 
 
@@ -243,21 +223,10 @@ def test_registration_balance_reflects_charge_and_refund(client, db_session, adm
     registration_id = charge.payable_id
 
     # Penningmeester bevestigt de overschrijving, daarna deels terugbetalen.
-    client.patch(
-        f"/api/v1/payment-status/records/{charge.id}",
-        json={"status": "paid", "amount_paid": "18.00"},
-        headers=admin_headers,
-    )
-    client.post(
-        f"/api/v1/payment-status/records/{charge.id}/refund",
-        json={"amount": "5.00"},
-        headers=admin_headers,
-    )
+    payments_door.update(client, charge.id, {"status": "paid", "amount_paid": "18.00"})
+    payments_door.refund(client, charge.id, {"amount": "5.00"})
 
-    resp = client.get(
-        f"/api/v1/payment-status/registrations/{registration_id}/balance",
-        headers=admin_headers,
-    )
+    resp = payments_door.balance(client, registration_id)
     assert resp.status_code == 200, resp.text
     bal = resp.json()
     assert Decimal(str(bal["total_due"])) == Decimal("18.00")

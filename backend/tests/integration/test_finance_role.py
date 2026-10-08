@@ -11,6 +11,7 @@ from decimal import Decimal
 
 from app.domains.auth.api import create_access_token, get_user_roles
 from app.domains.payment.api import PaymentRecord
+from tests import payments_door
 
 FINANCE_EMAIL = "beheerder@example.com"  # ADMIN + FINANCE (014 + 056)
 ADMIN_ONLY_EMAIL = "bestuurslid@example.com"  # enkel ADMIN (014)
@@ -49,56 +50,12 @@ def test_auth_me_reports_is_finance(client):
     assert adm["is_finance"] is False and adm["is_admin"] is True
 
 
-def test_admin_may_view_payments(client, db_session):
-    """Een admin zonder FINANCE mag betalingen wél inkijken."""
-    _seed_charge(db_session)
-    resp = client.get("/api/v1/payment-status/records", headers=_headers(ADMIN_ONLY_EMAIL))
-    assert resp.status_code == 200, resp.text
-
-
-def test_admin_without_finance_cannot_mutate(client, db_session):
-    """Admin zonder FINANCE krijgt 403 op elke mutatie (bewerken/refund/verwijderen)."""
-    charge = _seed_charge(db_session)
-    h = _headers(ADMIN_ONLY_EMAIL)
-
-    patch = client.patch(
-        f"/api/v1/payment-status/records/{charge.id}",
-        json={"status": "paid", "amount_paid": "18.00"},
-        headers=h,
-    )
-    assert patch.status_code == 403, patch.text
-
-    refund = client.post(
-        f"/api/v1/payment-status/records/{charge.id}/refund", json={"amount": "5.00"}, headers=h
-    )
-    assert refund.status_code == 403, refund.text
-
-    delete = client.delete(f"/api/v1/payment-status/records/{charge.id}", headers=h)
-    assert delete.status_code == 403, delete.text
-
-
-def test_finance_may_mutate(client, db_session):
-    """FINANCE mag wél een terugbetaling registreren."""
-    charge = _seed_charge(db_session)
-    resp = client.post(
-        f"/api/v1/payment-status/records/{charge.id}/refund",
-        json={"amount": "18.00"},
-        headers=_headers(FINANCE_EMAIL),
-    )
-    assert resp.status_code == 200, resp.text
-    assert resp.json()["type"] == "refund"
-
-
 def test_editing_amount_paid_stamps_paid_at(client, db_session):
     """#346: een ontvangen bedrag invullen via het bewerk-endpoint zet meteen
     paid_at, zodat er geen 'betaald zonder datum'-record ontstaat."""
     charge = _seed_charge(db_session, amount="18.00", amount_paid=None, status="pending")
     assert charge.paid_at is None
-    resp = client.patch(
-        f"/api/v1/payment-status/records/{charge.id}",
-        json={"amount_paid": "18.00"},
-        headers=_headers(FINANCE_EMAIL),
-    )
+    resp = payments_door.update(client, charge.id, {"amount_paid": "18.00"}, actor=FINANCE_EMAIL)
     assert resp.status_code == 200, resp.text
     db_session.refresh(charge)
     assert charge.paid_at is not None

@@ -11,9 +11,8 @@ from odf.table import Table, TableCell, TableRow
 from odf.teletype import extractText
 
 from app.domains.payment.api import PayableType, PaymentRecord, PaymentType
+from tests import payments_door
 from tests.conftest import register_at_the_door, seed_activity_with_product
-
-_EXPORT = "/api/v1/payment-status/records/export"
 
 
 def _cell_value(tc):
@@ -24,8 +23,8 @@ def _cell_value(tc):
     return extractText(tc)
 
 
-def _rows(resp):
-    doc = load(BytesIO(resp.content))
+def _rows(content: bytes):
+    doc = load(BytesIO(content))
     table = doc.getElementsByType(Table)[0]
     out = []
     for tr in table.getElementsByType(TableRow):
@@ -37,9 +36,16 @@ def _rows(resp):
     return out
 
 
-def test_payments_export_requires_auth(client, db_session):
-    resp = client.get(_EXPORT)
-    assert resp.status_code in (401, 403)
+def test_the_export_of_the_payments_screen_asks_for_a_sign_in(client, db_session):
+    """The screen's export is the only door to this file since the JSON route
+    went (#1251).
+
+    Proven red (8 October 2026): `require_finance_ui` taken off
+    `betalingen_export` → the file comes with a 200.
+    """
+    resp = client.get("/admin/betalingen/export", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"].startswith("/aanmelden?terug=")
 
 
 def test_payments_export_records_and_totals(client, db_session, admin_headers):
@@ -65,16 +71,9 @@ def test_payments_export_records_and_totals(client, db_session, admin_headers):
         .order_by(PaymentRecord.created_at.desc())
         .first()
     )
-    client.patch(
-        f"/api/v1/payment-status/records/{charge.id}",
-        json={"status": "paid", "amount_paid": "36.00"},
-        headers=admin_headers,
-    )
+    payments_door.update(client, charge.id, {"status": "paid", "amount_paid": "36.00"})
 
-    resp = client.get(_EXPORT, headers=admin_headers)
-    assert resp.status_code == 200, resp.text
-    assert "opendocument.spreadsheet" in resp.headers.get("content-type", "")
-    assert "attachment" in resp.headers.get("content-disposition", "")
+    resp = payments_door.export_ods(client)
 
     rows = _rows(resp)
     headers = list(rows[0])
@@ -113,8 +112,7 @@ def test_payments_export_respects_context_filter(client, db_session, admin_heade
     )
 
     # context=membership → de (enige) activiteit-inschrijving valt weg, totaal 0.
-    resp = client.get(_EXPORT, headers=admin_headers, params={"context": "membership"})
-    assert resp.status_code == 200, resp.text
+    resp = payments_door.export_ods(client, context="membership")
     rows = _rows(resp)
     headers = list(rows[0])
     i_what = headers.index("Waarvoor")
@@ -123,7 +121,7 @@ def test_payments_export_respects_context_filter(client, db_session, admin_heade
     assert rows[-1][i_due] == 0
 
     # context=comp-<id> → de inschrijving staat er wél in.
-    resp2 = client.get(_EXPORT, headers=admin_headers, params={"context": f"comp-{comp.id}"})
+    resp2 = payments_door.export_ods(client, context=f"comp-{comp.id}")
     rows2 = _rows(resp2)
     assert any("An Janssens" in str(r[i_what]) for r in rows2[1:-1])
     assert rows2[-1][i_due] == 36.0

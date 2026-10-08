@@ -31,6 +31,7 @@ from app.domains.payment.api import (
     PaymentType,
     registration_balance,
 )
+from tests import payments_door
 from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door, seed_activity_with_product
 
 
@@ -118,11 +119,7 @@ def test_swap_to_helper_product_auto_refunds(client, db_session, admin_headers):
         )
         .first()
     )
-    client.patch(
-        f"/api/v1/payment-status/records/{charge.id}",
-        json={"status": "paid", "amount_paid": "18.00"},
-        headers=admin_headers,
-    )
+    payments_door.update(client, charge.id, {"status": "paid", "amount_paid": "18.00"})
 
     # Bestelregel naar de gratis helper-variant → verschuldigd 0; de €18 wordt als
     # terugbetaal-verplichting aangemaakt (#216), pending tot bevestiging.
@@ -147,14 +144,8 @@ def test_swap_to_helper_product_auto_refunds(client, db_session, admin_headers):
         .first()
     )
     assert refund.status == PaymentStatus.PENDING and refund.amount_paid is None
-    client.patch(
-        f"/api/v1/payment-status/records/{refund.id}",
-        json={"status": "paid"},
-        headers=admin_headers,
-    )
-    bal = client.get(
-        f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers
-    ).json()
+    payments_door.update(client, refund.id, {"status": "paid"})
+    bal = payments_door.balance(client, reg.id).json()
     assert Decimal(str(bal["balance"])) == Decimal("0.00")
     assert Decimal(str(bal["total_refunded"])) == Decimal("18.00")
 
