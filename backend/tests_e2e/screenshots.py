@@ -139,6 +139,14 @@ class Screen:
     # afbeelding bij passend zoomen sterk verkleint en vaag oogt. Een
     # overlay-scherm knipt daarom alleen de viewport.
     viewport_only: bool = False
+    # CR-22 (#1714): runs BEFORE navigation and puts a state in the database
+    # that the seed does not hold — a waiting e-mail address, an account, a
+    # registration to pay. Not in the seed itself: the measurement baseline
+    # and a dozen browser tests read that seed, and a waiting address on the
+    # seeded member would move them all. Idempotent, and `main` takes
+    # everything staged out again when the set is done; screens that stage
+    # stand LAST, so no earlier screen shows what they added.
+    stage: Optional[Callable[[], None]] = None
 
 
 def _open_first_link(page, text: str, url_glob: str) -> None:
@@ -201,6 +209,164 @@ def _wait_for_the_household_form(page) -> None:
     page.wait_for_selector("input[id$='-first_name']", timeout=5000)
 
 
+# ── CR-22 (#1714): what the new screens need that the seed does not hold ────
+
+#: The account of the set: a person without a household. Made up, like the
+#: seed's households.
+ACCOUNT_EMAIL = "annemieke.vlinder@example.com"
+#: The address that waits for its code on the seeded member.
+WAITING_EMAIL = "theofiel.nieuw@example.com"
+#: The transfer of the staged registration: a structured communication of
+#: nobody — its check digits do not hold (they would be 09), as the seed's
+#: IBAN carries `00`.
+STAGED_OGM = "+++171/4000/00096+++"
+
+
+def _stage_account() -> None:
+    """The account of `ACCOUNT_EMAIL`, as "Account aanmaken" makes one."""
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.auth.api import login_person_for_email
+    from app.domains.mdm.api import create_account_person
+
+    db = SessionLocal()
+    try:
+        if login_person_for_email(db, ACCOUNT_EMAIL) is None:
+            _person, details = create_account_person(
+                db,
+                first_name="Annemieke",
+                last_name="Vlinder",
+                email=ACCOUNT_EMAIL,
+                mobile="0470 00 00 22",
+            )
+            db.add_all(details)
+            db.commit()
+    finally:
+        db.close()
+
+
+def _stage_waiting_address() -> None:
+    """An address the seeded member typed himself, waiting for its code."""
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.auth.api import login_person_for_email
+    from app.domains.mdm.api import ContactDetail, new_contact_detail
+    from seed_e2e import MARKER_EMAIL
+
+    db = SessionLocal()
+    try:
+        if db.query(ContactDetail).filter(ContactDetail.value == WAITING_EMAIL).first() is None:
+            person = login_person_for_email(db, MARKER_EMAIL)
+            db.add(
+                new_contact_detail(
+                    db, person, "EMAIL", WAITING_EMAIL, is_primary=False, confirmed=False
+                )
+            )
+            db.commit()
+    finally:
+        db.close()
+
+
+def _stage_registration() -> None:
+    """The seeded member's own registration for the seeded activity, with a
+    transfer still to make — what Mijn Raak and Mijn inschrijvingen show."""
+    from decimal import Decimal
+
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.activities.api import Activity, Registration, RegistrationItem
+    from app.domains.auth.api import login_person_for_email
+    from app.domains.payment.api import PaymentRecord
+    from seed_e2e import MARKER_EMAIL
+
+    db = SessionLocal()
+    try:
+        if db.query(PaymentRecord).filter_by(structured_communication=STAGED_OGM).first():
+            return
+        person = login_person_for_email(db, MARKER_EMAIL)
+        activity = db.query(Activity).filter(Activity.name == "E2E-activiteit").one()
+        component = activity.sub_registrations[0]
+        registration = Registration(
+            activity_id=activity.id,
+            component_id=component.id,
+            person_id=person.id,
+            registration_type="INDIVIDUAL",
+            contact_name=f"{person.first_name} {person.last_name}",
+            contact_email=MARKER_EMAIL,
+            phone="0470 00 00 01",
+        )
+        db.add(registration)
+        db.flush()
+        db.add(
+            RegistrationItem(
+                registration_id=registration.id, product_id=component.products[0].id, quantity=3
+            )
+        )
+        db.add(
+            PaymentRecord(
+                payable_type="registration",
+                payable_id=registration.id,
+                amount=Decimal("30.00"),
+                method="transfer",
+                status="pending",
+                structured_communication=STAGED_OGM,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
+def _unstage() -> None:
+    """Take out what the three functions above put in: the next run, and any
+    browser test on this database, finds the seed as it was."""
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.activities.api import Registration, RegistrationItem
+    from app.domains.mdm.api import ContactDetail, Person
+    from app.domains.payment.api import PaymentRecord
+    from app.soft_delete import soft_delete
+
+    db = SessionLocal()
+    try:
+        for booking in db.query(PaymentRecord).filter_by(structured_communication=STAGED_OGM):
+            db.query(RegistrationItem).filter_by(registration_id=booking.payable_id).delete()
+            db.query(Registration).filter_by(id=booking.payable_id).delete()
+            db.delete(booking)
+        for contact in db.query(ContactDetail).filter(ContactDetail.value == WAITING_EMAIL):
+            soft_delete(contact)
+        for contact in db.query(ContactDetail).filter(ContactDetail.value == ACCOUNT_EMAIL).all():
+            person = db.query(Person).filter(Person.id == contact.person_id).first()
+            if person is not None:
+                for other in person.contact_details:
+                    soft_delete(other)
+                soft_delete(person)
+        db.commit()
+    finally:
+        db.close()
+
+
+def _ask_the_account_code(page) -> None:
+    """From the four fields of "Account aanmaken" to its code step. A fixed
+    address that is nobody's: the step answers the same for every address."""
+    form = page.locator("[data-create-account-form]")
+    form.locator('input[name="first_name"]').fill("Annemieke")
+    form.locator('input[name="last_name"]').fill("Vlinder")
+    form.locator('input[name="email"]').fill("annemieke.nieuw@example.com")
+    form.locator('input[name="mobile"]').fill("0470 00 00 22")
+    form.locator("button").click()
+    page.wait_for_selector("#code", timeout=5000)
+
+
+def _open_the_code_page(page) -> None:
+    """ "Code invoeren" under the waiting address. A full load of the link's
+    address, for the reason `_open_first_link` gives."""
+    link = page.locator("[data-enter-code]").first
+    link.wait_for(state="visible", timeout=5000)
+    page.goto(urljoin(page.url, link.get_attribute("href")))
+    page.wait_for_selector("#code", timeout=5000)
+
+
 SCREENS: tuple[Screen, ...] = (
     # Public — judged phone-first.
     Screen("public-home", "/", admin=False),
@@ -222,7 +388,10 @@ SCREENS: tuple[Screen, ...] = (
         "admin-activiteit-detail",
         "/admin/activiteiten",
         admin=True,
-        action=lambda page: _open_first_link(page, "E2E-activiteit", "**/admin/activiteiten/*"),
+        # `/**` and not `/*` (#1714): since #1557 the link carries
+        # `?terug=/admin/activiteiten`, and `*` stops at a slash — this screen
+        # was missing from every set since.
+        action=lambda page: _open_first_link(page, "E2E-activiteit", "**/admin/activiteiten/**"),
     ),
     Screen(
         "admin-formulierbouwer",
@@ -285,6 +454,57 @@ SCREENS: tuple[Screen, ...] = (
         admin=False,
         sessie="lid-overschrijving",
     ),
+    # CR-22 (#1714): the screens of signing in with an account. `leden-aanmelden`
+    # above is the sign-in screen with the link "Account aanmaken" since #1708.
+    # Phone-first, like the member flow. The screens that `stage` stand last —
+    # see `Screen.stage`.
+    Screen("account-aanmaken", "/account-aanmaken", admin=False, sessie=None),
+    Screen(
+        "account-aanmaken-code",
+        "/account-aanmaken",
+        admin=False,
+        sessie=None,
+        action=_ask_the_account_code,
+    ),
+    Screen("mijn-gegevens", "/mijn/gegevens", admin=False, sessie="lid"),
+    Screen("mijn-raak-lid", "/mijn", admin=False, sessie="lid", stage=_stage_registration),
+    Screen(
+        "mijn-inschrijvingen",
+        "/mijn/inschrijvingen",
+        admin=False,
+        sessie="lid",
+        stage=_stage_registration,
+    ),
+    Screen("mijn-raak-account", "/mijn", admin=False, sessie="account", stage=_stage_account),
+    Screen(
+        "mijn-gegevens-account",
+        "/mijn/gegevens",
+        admin=False,
+        sessie="account",
+        stage=_stage_account,
+    ),
+    Screen(
+        "mijn-gezin-wachtend-adres",
+        "/leden/gezin",
+        admin=False,
+        sessie="lid",
+        stage=_stage_waiting_address,
+    ),
+    Screen(
+        "mijn-gegevens-wachtend-adres",
+        "/mijn/gegevens",
+        admin=False,
+        sessie="lid",
+        stage=_stage_waiting_address,
+    ),
+    Screen(
+        "adres-bevestigen-code",
+        "/mijn/gegevens",
+        admin=False,
+        sessie="lid",
+        stage=_stage_waiting_address,
+        action=_open_the_code_page,
+    ),
 )
 
 
@@ -314,6 +534,8 @@ def _sessiewaarden() -> dict[str, str]:
         "lid-verlopen": make_session_value(MARKER_EMAIL_VERLOPEN),
         "lid-vernieuwd": make_session_value(MARKER_EMAIL_VERNIEUWD),
         "lid-overschrijving": make_session_value(MARKER_EMAIL_OVERSCHRIJVING),
+        # CR-22 (#1714): a person without a household, staged by its screens.
+        "account": make_session_value(ACCOUNT_EMAIL),
     }
 
 
@@ -331,6 +553,8 @@ def _zet_sessie(page, waarde: Optional[str]) -> None:
 
 def _capture(page, screen: Screen, width: dict, out_dir: Path) -> Path:
     page.set_viewport_size(width)
+    if screen.stage:
+        screen.stage()
     page.goto(screen.path)
     page.wait_for_load_state("networkidle")
     if screen.action:
@@ -402,6 +626,8 @@ def main(argv: list[str]) -> int:
                 except Exception as exc:  # noqa: BLE001 - report, don't die mid-set
                     missing.append(f"{screen.key} @ {width['width']}: {exc}")
         browser.close()
+    if any(screen.stage for screen in SCREENS):
+        _unstage()
 
     manifest = out_dir / "manifest.txt"
     lines = []
