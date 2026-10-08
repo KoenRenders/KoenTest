@@ -124,8 +124,10 @@ def test_de_router_heeft_geen_eigen_kopie_meer():
     from app.domains.forms import service
 
     assert router.assert_submitter is service.assert_submitter
-    assert router.apply_definition is service.apply_definition
-    assert router.validate_definition is service.validate_definition
+    # The two definition rules had their caller in the JSON routes that went with
+    # #1251: the router no longer names them at all, and may not grow its own.
+    for name in ("apply_definition", "validate_definition"):
+        assert getattr(router, name, getattr(service, name)) is getattr(service, name)
 
 
 # ── HOOFDLID-regel (#635 F) ──────────────────────────────────────────────────

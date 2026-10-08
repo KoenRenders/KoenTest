@@ -21,6 +21,7 @@ in het midden staan. Geen onzichtbare regel die haar achteraan duwt.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -33,11 +34,7 @@ def _login(client):
 
 
 def _formulier(client, admin_headers, velden):
-    r = client.post(
-        "/api/v1/forms",
-        json={"title": "Ordenen", "status": "draft", "fields": velden},
-        headers=admin_headers,
-    )
+    r = forms_door.create_form(client, {"title": "Ordenen", "status": "draft", "fields": velden})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -63,7 +60,7 @@ def _verplaats(client, csrf, form_id, option_id, richting):
 
 
 def _labels(client, admin_headers, form_id, veld_label):
-    na = client.get(f"/api/v1/forms/{form_id}", headers=admin_headers).json()
+    na = forms_door.read_form(client, form_id)
     veld = next(f for f in na["fields"] if f["label"] == veld_label)
     return [o["label"] for o in sorted(veld["options"], key=lambda o: (o["position"], o["id"]))]
 
@@ -162,9 +159,9 @@ def test_de_sprong_blijft_aan_dezelfde_optie_hangen(client, admin_headers):
     zie je alleen door ernaar te vragen — hetzelfde soort onzichtbare schade als in
     #692.
     """
-    r = client.post(
-        "/api/v1/forms",
-        json={
+    r = forms_door.create_form(
+        client,
+        {
             "title": "Sprong",
             "status": "draft",
             "sections": [
@@ -186,7 +183,6 @@ def test_de_sprong_blijft_aan_dezelfde_optie_hangen(client, admin_headers):
                 }
             ],
         },
-        headers=admin_headers,
     )
     assert r.status_code == 200, r.text
     form = r.json()
@@ -197,7 +193,7 @@ def test_de_sprong_blijft_aan_dezelfde_optie_hangen(client, admin_headers):
     assert _verplaats(client, csrf, form["id"], springt["id"], "op").status_code == 200
 
     assert _labels(client, admin_headers, form["id"], "Kies") == ["Springt", "Gewoon", "Einde"]
-    na = client.get(f"/api/v1/forms/{form['id']}", headers=admin_headers).json()
+    na = forms_door.read_form(client, form["id"])
     per_label = {o["label"]: o for o in na["fields"][0]["options"]}
     assert per_label["Springt"]["skip_to_section_id"] == derde["id"], (
         "de sprong is van optie verwisseld"
@@ -215,7 +211,7 @@ def test_de_id_van_een_optie_blijft_bestaan(client, admin_headers):
 
     _verplaats(client, csrf, form["id"], twee["id"], "op")
 
-    na = client.get(f"/api/v1/forms/{form['id']}", headers=admin_headers).json()
+    na = forms_door.read_form(client, form["id"])
     assert twee["id"] in {o["id"] for o in na["fields"][0]["options"]}
 
 
@@ -225,9 +221,9 @@ def test_de_id_van_een_optie_blijft_bestaan(client, admin_headers):
 def test_anders_mag_ook_in_het_midden_staan(client, admin_headers):
     """Beslissing Koen: geen bijzondere behandeling, dus ook geen onzichtbare regel
     die haar achteraan duwt of de ↑-knop laat weigeren."""
-    r = client.post(
-        "/api/v1/forms",
-        json={
+    r = forms_door.create_form(
+        client,
+        {
             "title": "Anders",
             "status": "draft",
             "fields": [
@@ -243,7 +239,6 @@ def test_anders_mag_ook_in_het_midden_staan(client, admin_headers):
                 }
             ],
         },
-        headers=admin_headers,
     )
     form = r.json()
     csrf = _login(client)
@@ -252,7 +247,7 @@ def test_anders_mag_ook_in_het_midden_staan(client, admin_headers):
     assert _verplaats(client, csrf, form["id"], anders["id"], "op").status_code == 200
     assert _labels(client, admin_headers, form["id"], "Kies") == ["Een", "Andere", "Twee"]
 
-    na = client.get(f"/api/v1/forms/{form['id']}", headers=admin_headers).json()
+    na = forms_door.read_form(client, form["id"])
     per_label = {o["label"]: o for o in na["fields"][0]["options"]}
     assert per_label["Andere"]["is_other"] is True, "de vlag is meeverhuisd"
 

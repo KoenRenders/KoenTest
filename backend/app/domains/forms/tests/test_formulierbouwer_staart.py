@@ -22,6 +22,7 @@ dan klopt de keuze om direct te posten niet meer.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -34,15 +35,14 @@ def _login(client):
 
 
 def _formulier(client, admin_headers, velden=None, secties=None):
-    r = client.post(
-        "/api/v1/forms",
-        json={
+    r = forms_door.create_form(
+        client,
+        {
             "title": "Staart",
             "status": "draft",
             "sections": secties if secties is not None else [],
             "fields": velden or [],
         },
-        headers=admin_headers,
     )
     assert r.status_code == 200, r.text
     return r.json()

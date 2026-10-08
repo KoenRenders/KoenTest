@@ -22,6 +22,7 @@ een geblokkeerde typekeuze, en het `disabled`/`title`-gedrag uit #700.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -34,15 +35,14 @@ def _login(client):
 
 
 def _formulier(client, admin_headers):
-    r = client.post(
-        "/api/v1/forms",
-        json={
+    r = forms_door.create_form(
+        client,
+        {
             "title": "Indeling",
             "status": "open",
             "is_anonymous": True,
             "fields": [{"field_type": "text", "label": "Vraag", "position": 0}],
         },
-        headers=admin_headers,
     )
     assert r.status_code == 200, r.text
     return r.json()

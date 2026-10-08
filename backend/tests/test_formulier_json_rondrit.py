@@ -23,6 +23,7 @@ import json
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -72,7 +73,7 @@ def _payload_met_sprongen():
 
 
 def _maak(client, admin_headers, payload=None):
-    r = client.post("/api/v1/forms", json=payload or _payload_met_sprongen(), headers=admin_headers)
+    r = forms_door.create_form(client, payload or _payload_met_sprongen())
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -123,7 +124,7 @@ def test_de_rondrit_behoudt_de_indeling(client, admin_headers):
 
     assert _importeer(client, csrf, doel["id"], _download(client, bron["id"])).status_code == 200
 
-    na = client.get(f"/api/v1/forms/{doel['id']}", headers=admin_headers).json()
+    na = forms_door.read_form(client, doel["id"])
     assert len(na["sections"]) == 3
     per_index = {s["title"]: s["id"] for s in na["sections"]}
     for veld, sectie in (("Kies", "Een"), ("Vraag twee", "Twee"), ("Vraag drie", "Drie")):
@@ -140,7 +141,7 @@ def test_de_rondrit_behoudt_de_sprongen(client, admin_headers):
     csrf = _login(client)
     assert _importeer(client, csrf, doel["id"], _download(client, bron["id"])).status_code == 200
 
-    na = client.get(f"/api/v1/forms/{doel['id']}", headers=admin_headers).json()
+    na = forms_door.read_form(client, doel["id"])
     secties = sorted(na["sections"], key=lambda s: s["position"])
     assert secties[0]["next_section_id"] == secties[2]["id"], "de sectiesprong is weg"
     assert secties[2]["next_is_end"] is True
@@ -159,7 +160,7 @@ def test_de_rondrit_behoudt_de_instellingen(client, admin_headers):
     csrf = _login(client)
     assert _importeer(client, csrf, doel["id"], _download(client, bron["id"])).status_code == 200
 
-    na = client.get(f"/api/v1/forms/{doel['id']}", headers=admin_headers).json()
+    na = forms_door.read_form(client, doel["id"])
     assert na["title"] == "Rondrit"
     assert na["description"] == "Met sprongen"
     assert na["status"] == "open"
@@ -208,7 +209,7 @@ def test_een_handgeschreven_bestand_zonder_ids_werkt_gewoon(client, admin_header
     assert resp.status_code == 200, resp.text
     assert "oudere export" not in resp.text
 
-    na = client.get(f"/api/v1/forms/{doel['id']}", headers=admin_headers).json()
+    na = forms_door.read_form(client, doel["id"])
     assert len(na["sections"]) == 3 and len(na["fields"]) == 3
 
 
@@ -217,9 +218,7 @@ def test_de_json_api_aanvaardt_nog_altijd_extra_sleutels(client, admin_headers):
     `extra="forbid"` op de schema's: die bedienen óók `POST /forms`, en daar zou
     elke extra sleutel plots een 422 geven. Een reparatie van de import hoort de API
     niet te breken."""
-    r = client.post(
-        "/api/v1/forms",
-        json={"title": "Met extra", "status": "draft", "fields": [], "iets_onbekends": True},
-        headers=admin_headers,
+    r = forms_door.create_form(
+        client, {"title": "Met extra", "status": "draft", "fields": [], "iets_onbekends": True}
     )
     assert r.status_code == 200, r.text

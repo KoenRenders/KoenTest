@@ -46,7 +46,6 @@ from app.domains.forms.admin_ui import router as forms_admin_ui_router
 from app.domains.forms.handlers import (  # noqa: F401 - event subscriptions (#1509)
     seed_contact_form_of_new_tenant,
 )
-from app.domains.forms.router import router as forms_router
 from app.domains.forms.ui import router as forms_ui_router
 from app.domains.mail.handlers import (
     retry_mail,  # noqa: F401 - registreert de mail.retry-job (#399)
@@ -217,7 +216,6 @@ app.include_router(admin_api_router, prefix="/api/v1/admin")
 app.include_router(member_household_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
 app.include_router(mdm_household_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
 app.include_router(member_import_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
-app.include_router(forms_router, prefix="/api/v1", dependencies=_module(M.FORMS))
 app.include_router(forms_ui_router, dependencies=_module(M.FORMS))
 app.include_router(forms_admin_ui_router, dependencies=_module(M.FORMS))
 app.include_router(activities_ui_router, dependencies=_module(M.ACTIVITIES))

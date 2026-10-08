@@ -158,7 +158,7 @@ MODULES: tuple[Module, ...] = (
         M.FORMS,
         "Formulieren",
         admin_items=(("/admin/formulieren", "Formulieren"),),
-        route_prefixes=("/api/v1/forms", "/admin/formulieren", "/f/", "/formulier/"),
+        route_prefixes=("/admin/formulieren", "/f/", "/formulier/"),
         sitemap_paths=("/berichten",),
         reporting_folders=("Formulieren",),
         record_tables=("form.forms", "form.form_submissions"),

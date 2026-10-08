@@ -30,6 +30,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.forms.models import FormSection
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -96,11 +97,7 @@ def _login(client) -> str:
 
 
 def _formulier_met_sectie(client, admin_headers, db, csrf) -> tuple[int, FormSection]:
-    r = client.post(
-        "/api/v1/forms",
-        json={"title": "Sectievorm", "status": "draft", "fields": []},
-        headers=admin_headers,
-    )
+    r = forms_door.create_form(client, {"title": "Sectievorm", "status": "draft", "fields": []})
     assert r.status_code == 200, r.text
     form_id = r.json()["id"]
     r = client.post(

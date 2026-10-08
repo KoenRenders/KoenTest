@@ -20,6 +20,7 @@ maakte.
 import pytest
 
 from app.domains.forms.models import FormSubmissionAnswer
+from tests import forms_door
 from tests.conftest import form_guard_fields
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -45,9 +46,7 @@ def _payload(veldtype: str, *, verplicht: bool = False) -> dict:
 
 
 def _bouw(client, admin_headers, veldtype: str, *, verplicht: bool = False):
-    form = client.post(
-        "/api/v1/forms", json=_payload(veldtype, verplicht=verplicht), headers=admin_headers
-    ).json()
+    form = forms_door.create_form(client, _payload(veldtype, verplicht=verplicht)).json()
     veld = form["fields"][0]
     anders = next(o for o in veld["options"] if o["is_other"])
     gewoon = next(o for o in veld["options"] if not o["is_other"])
@@ -186,7 +185,7 @@ def test_tekst_op_een_veld_zonder_anders_optie_wordt_genegeerd(client, admin_hea
             }
         ],
     }
-    form = client.post("/api/v1/forms", json=payload, headers=admin_headers).json()
+    form = forms_door.create_form(client, payload).json()
     veld = form["fields"][0]
 
     resp = _verstuur(client, form, veld, tekst="iets")
@@ -265,9 +264,7 @@ def test_de_optierij_mag_afbreken_op_een_smal_scherm(client, admin_headers, veld
 
 
 def _resultaten(client, admin_headers, form_id: int) -> dict:
-    r = client.get(f"/api/v1/forms/{form_id}/results", headers=admin_headers)
-    assert r.status_code == 200, r.text
-    return r.json()
+    return forms_door.results(client, form_id)
 
 
 def test_de_anders_tekst_staat_bij_de_resultaten(client, admin_headers, db_session):
