@@ -43,8 +43,27 @@ def _login_as(client, email):
     return csrf_token_for(value)
 
 
+def _was_a_paid_member(db, member) -> None:
+    """A renewal presupposes a membership that was paid before (#1730): without
+    one this household would be paying its FIRST membership, with other words.
+    Last year's, so it is not valid any more."""
+    year = date.today().year - 1
+    if db.query(Membership).filter_by(member_id=member.id, year=year).first() is None:
+        db.add(
+            Membership(
+                member_id=member.id,
+                year=year,
+                is_active=True,
+                valid_from=date(year, 1, 1),
+                valid_to=date(year, 12, 31),
+            )
+        )
+        db.flush()
+
+
 def _openstaande_vernieuwing(db, member, method="transfer", gateway_payment_id=None):
     """Een niet-betaalde vernieuwing, zoals de renew-flow ze achterlaat."""
+    _was_a_paid_member(db, member)
     jaar = date.today().year + 1
     ms = Membership(
         member_id=member.id,
@@ -95,6 +114,7 @@ def test_mijn_gezin_points_to_the_running_renewal_and_offers_no_second_one(clien
     payment; without one the same card offers the renewal. A pair, so the
     missing button is the running renewal's doing."""
     member, _person = create_test_family(db_session, email="wijzer@example.com")
+    _was_a_paid_member(db_session, member)
     db_session.commit()
     _login_as(client, "wijzer@example.com")
     button = 'href="/leden/gezin/vernieuwen"'
@@ -212,7 +232,8 @@ def test_a_renewal_without_a_payment_method_is_refused_at_that_field(client, db_
 def test_a_transfer_renewal_answers_the_page_with_what_to_pay(client, db_session):
     """#497: the payment details on the screen, from the booking itself — and
     the form is gone, because this renewal now runs (#618)."""
-    create_test_family(db_session, email="overschrijver@example.com")
+    member, _person = create_test_family(db_session, email="overschrijver@example.com")
+    _was_a_paid_member(db_session, member)
     db_session.commit()
     csrf = _login_as(client, "overschrijver@example.com")
 

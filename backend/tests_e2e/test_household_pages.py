@@ -1000,7 +1000,8 @@ def test_the_transfer_stands_in_the_card_as_an_inset_of_the_kit(browser, viewpor
     try:
         m = page.evaluate(_INSET)
         print("MEASURE inset", viewport["width"], m)
-        assert m["title"] == "Vernieuwing geregistreerd — betaal via overschrijving:"
+        # #1730: this household just signed up — its first membership, not a renewal.
+        assert m["title"] == "Aanmelding geregistreerd — betaal via overschrijving:"
         assert m["padding"] == ["16px"] * 4 and m["radius"] == "6px"
         assert m["tint"] not in ("rgb(255, 255, 255)", "rgba(0, 0, 0, 0)"), "no tint"
         assert m["border"] == "0px" and m["shadow"] == "none", "an inset is no card"

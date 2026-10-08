@@ -1,9 +1,10 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
+{% import "_sign_in_card.html" as card %}
 {% block title %}{{ _("Inloggen") }} · {{ site_name }}{% endblock %}
 {% block meta %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
-{% call ui.card() %}
+{% call card.sign_in_card() %}
   {# #1642: the page is named as the header's link names it, "Inloggen"
      (#1588); its address stays /aanmelden. #}
   <h1 class="text-2xl font-bold text-kop mb-2">{{ _("Inloggen") }}</h1>

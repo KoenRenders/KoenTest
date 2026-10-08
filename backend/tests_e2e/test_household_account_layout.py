@@ -1,7 +1,7 @@
 """E2E: Mijn gezin and the renewal page stand in the account layout (CR-22,
 #1723) — the menu of the account pages on the left, as on Mijn gegevens.
 
-- at 1440, 768 and 390 px the menu's box and the content's box on Mijn gezin
+- at 1440, 1280, 900, 768 and 390 px the menu's box and the content's box on Mijn gezin
   (reading and editing) and on the renewal page equal those on Mijn gegevens;
   "Mijn gezin" is the marked item; nothing is wider than the window; in the
   edit mode the action bar and every field stand inside the content column;
@@ -70,7 +70,16 @@ def _measure(page, path: str) -> dict:
 
 
 @pytest.mark.parametrize(
-    ("width", "height", "menu"), [(390, 844, False), (768, 1024, True), (1440, 900, True)]
+    # #1730: the menu stands beside the content from 1 088 px, where the content
+    # has its 768 px beside it; below that the page has no menu, as on a phone.
+    ("width", "height", "menu"),
+    [
+        (390, 844, False),
+        (768, 1024, False),
+        (900, 1024, False),
+        (1280, 900, True),
+        (1440, 900, True),
+    ],
 )
 def test_the_household_pages_stand_in_the_account_layout(browser, width, height, menu):
     page = _member(browser, width, height)
@@ -97,7 +106,9 @@ def test_the_household_pages_stand_in_the_account_layout(browser, width, height,
         assert found["page"][0] == found["page"][1], f"{path}: wider than the window"
         if edit:
             # On a phone the bar is the window's, edge to edge, as on every form page.
-            assert found["bar"] is menu, f"{path}: the action bar is not inside the content column"
+            assert found["bar"] is (width >= 768), (
+                f"{path}: the action bar is not inside the content column"
+            )
             assert found["fields"] > 8 and found["outside"] == 0, found
         elif edit is False:
             assert found["bar"] is None
@@ -119,4 +130,41 @@ def test_from_the_landing_page_to_mijn_gezin_and_on_through_the_menu_on_the_left
     page.wait_for_url("**/mijn/gegevens")
     pagina_klaar(page)
     assert page.locator("#main h1").inner_text().strip() == "Mijn gegevens"
+    page.close()
+
+
+TABLET = """() => { const q = s => document.querySelector(s);
+  const box = e => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.width)]; };
+  const links = q('[data-account-links]'), account = q('[data-site-account]');
+  return {menu: q('[data-account-page-menu]').checkVisibility(), content: box(q('[data-account-content]')),
+          main: box(q('[data-main]')), links: !!links && links.checkVisibility(),
+          header: !!account && account.checkVisibility(),
+          page: [document.documentElement.scrollWidth, innerWidth]}; }"""
+
+
+@pytest.mark.parametrize(
+    ("width", "menu"), [(768, False), (900, False), (1087, False), (1088, True), (1280, True)]
+)
+def test_the_menu_stands_beside_the_content_only_where_both_fit(browser, width, menu):
+    """#1730 (Koen, 8 October 2026): between a phone and 1 088 px the menu took
+    the width the content needs — the content was 448 px at 768. Now the menu is
+    off the page there, as on a phone, and the content is as wide as the page
+    allows; the bottom links and the header's account menu are the navigation.
+
+    Red: the breakpoint put back to `md` → at 768 and 900 the menu shows and the
+    content is 448 and 580 px."""
+    page = _member(browser, width, 900)
+    page.goto("/mijn")
+    pagina_klaar(page)
+    found = page.evaluate(TABLET)
+    print("MEASURE account menu breakpoint", width, found)
+    assert found["menu"] is menu, found
+    assert found["page"][0] == found["page"][1], "wider than the window"
+    assert found["header"], "no account menu in the header to navigate with"
+    if menu:
+        assert found["content"] == [found["main"][0] + 272, 768], found
+        assert not found["links"], "the bottom links show beside the menu"
+    else:
+        assert found["content"] == [found["main"][0], min(768, found["main"][1])], found
+        assert found["links"], "no menu on the page and no links at the bottom"
     page.close()

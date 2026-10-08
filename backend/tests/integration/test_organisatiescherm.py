@@ -315,7 +315,8 @@ def test_the_payment_instructions_a_member_reads_come_from_the_organisation(clie
     # The block is an inset of that card; its details are one list.
     start = html.index("data-transfer-due")
     blok = html[start : html.index("</ul>", start)]
-    assert "Vernieuwing geregistreerd" in blok
+    # #1730: this household never had a paid membership — its first.
+    assert "Aanmelding geregistreerd" in blok
 
     assert "BE68 5390 0754 7034" in blok, blok
     assert "Vereniging Zevenbergen" in blok
