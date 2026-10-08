@@ -28,6 +28,7 @@ from app.domains.auth.api import (
 )
 from app.domains.newsletter import api as nb
 from app.domains.newsletter.viewmodels import (
+    AudienceLine,
     NewsletterAppliedView,
     NewsletterArchiveView,
     NewsletterChoicesView,
@@ -939,15 +940,93 @@ def newsletter_delete(
 # ── Sending ──────────────────────────────────────────────────────────────────
 
 
+def _audience_said(db: Session, audience) -> tuple[list[AudienceLine], str, str, int]:
+    """Who the letter goes to, in words (#1780): the lines of the first card,
+    what the two lists share, the words on the send button, and the number of
+    recipients. The numbers are the service's (`audience_summary`); only the
+    words are made here. "Abonnees" is said only of subscribers."""
+    from app.domains.mdm.api import module_enabled
+    from app.kernel.modules import ModuleCode
+
+    def ngettext(one: str, many: str, n: int) -> str:
+        # As the templates' own `ngettext` (`app.i18n`): one form for 1, the other for the rest.
+        return _(one) if n == 1 else _(many)
+
+    if not audience:
+        return [], "", "", 0
+    said = nb.audience_summary(db, audience)
+    # CR-19 (#1477): without the membership module there are no members, and
+    # "both" is the subscribers.
+    with_members = audience in (nb.Audience.MEMBERS, nb.Audience.BOTH) and module_enabled(
+        ModuleCode.MEMBERSHIP
+    )
+    with_subscribers = audience in (nb.Audience.NON_MEMBERS, nb.Audience.BOTH)
+
+    def addresses(n: int) -> str:
+        return ngettext("%(num)s adres", "%(num)s adressen", n) % {"num": n}
+
+    lines = []
+    if with_members:
+        households = ngettext("%(num)s gezin", "%(num)s gezinnen", said.households) % {
+            "num": said.households
+        }
+        lines.append(
+            AudienceLine(
+                head=_("Leden van werkjaar %(jaar)s · %(adressen)s")
+                % {"jaar": said.year, "adressen": addresses(said.member_addresses)},
+                sentence=_(
+                    "Elk e-mailadres van elke persoon in een gezin met een lidmaatschap "
+                    "voor dit werkjaar: %(adressen)s in %(gezinnen)s. Oud-leden en gezinnen "
+                    "zonder lidmaatschap dit jaar krijgen hem niet."
+                )
+                % {"adressen": addresses(said.member_addresses), "gezinnen": households},
+            )
+        )
+    if with_subscribers:
+        lines.append(
+            AudienceLine(
+                head=_("Abonnees · %(adressen)s")
+                % {"adressen": addresses(said.subscriber_addresses)},
+                sentence=_("Iedereen die zich inschreef op de nieuwsbrief en dat bevestigde."),
+            )
+        )
+    overlap = ""
+    if with_members and with_subscribers:
+        overlap = (
+            ngettext(
+                "%(num)s adres staat op beide lijsten en krijgt hem één keer, als lid.",
+                "%(num)s adressen staan op beide lijsten en krijgen hem één keer, als lid.",
+                said.in_both,
+            )
+            % {"num": said.in_both}
+            if said.in_both
+            else _("Geen enkel adres staat op beide lijsten.")
+        )
+        send_label = ngettext(
+            "Verstuur naar %(num)s ontvanger", "Verstuur naar %(num)s ontvangers", said.recipients
+        )
+    elif with_members:
+        send_label = ngettext(
+            "Verstuur naar %(num)s lid", "Verstuur naar %(num)s leden", said.recipients
+        )
+    else:
+        send_label = ngettext(
+            "Verstuur naar %(num)s abonnee", "Verstuur naar %(num)s abonnees", said.recipients
+        )
+    return lines, overlap, send_label % {"num": said.recipients}, said.recipients
+
+
 def _send_view(
     request: Request, db: Session, letter, email: str, error: Optional[str] = None
 ) -> NewsletterSendView:
     from app.kernel.tenant_config import tenant_newsletter_daily_cap
 
-    count = len(nb.recipients_for(db, letter.audience)) if letter.audience else 0
+    lines, overlap, send_label, count = _audience_said(db, letter.audience)
     return NewsletterSendView(
         letter=letter,
-        audience_label=code_label(nb.AUDIENCE.name, letter.audience or "", db=db),
+        audience_lines=lines,
+        audience_overlap=overlap,
+        send_label=send_label,
         recipient_count=count,
         days=nb.expected_days(db, count) if count else 0,
         blocked=bool(nb.unfilled_placeholders(letter.body_html)),
