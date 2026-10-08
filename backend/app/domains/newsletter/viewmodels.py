@@ -121,6 +121,12 @@ class NewsletterArchiveView(ViewModel):
     q: str
     csrf_token: str
     error: Optional[str] = None
+    #: What the last action did (#1783): how many failed addresses are queued again.
+    notice: str = ""
+    #: The question "Opnieuw versturen" asks first; names how many addresses.
+    resend_question: str = ""
+    #: The words on that button: whom it sends to, with the number.
+    resend_label: str = ""
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 

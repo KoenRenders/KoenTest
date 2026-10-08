@@ -604,8 +604,28 @@ def _archive_view(
     status: str = "",
     q: str = "",
     error: Optional[str] = None,
+    requeued: int = 0,
 ) -> NewsletterArchiveView:
     progress = nb.progress_of(db, letter)
+    notice = ""
+    if requeued:
+        notice = (
+            _("%(n)s mislukt adres staat opnieuw in de wachtrij.")
+            if requeued == 1
+            else _("%(n)s mislukte adressen staan opnieuw in de wachtrij.")
+        ) % {"n": requeued}
+    # Not a delete: the question keeps its own words and names the number (#1783).
+    resend_question = (
+        _("De nieuwsbrief opnieuw sturen naar %(n)s mislukt adres?")
+        if progress.failed == 1
+        else _("De nieuwsbrief opnieuw sturen naar %(n)s mislukte adressen?")
+    ) % {"n": progress.failed}
+    # A send button names whom it sends to (#1780), with the same count.
+    resend_label = (
+        _("Opnieuw versturen naar %(n)s mislukt adres")
+        if progress.failed == 1
+        else _("Opnieuw versturen naar %(n)s mislukte adressen")
+    ) % {"n": progress.failed}
     deliveries = nb.deliveries_of(db, letter, status=status, query=q)
     return NewsletterArchiveView(
         letter=letter,
@@ -623,6 +643,9 @@ def _archive_view(
         q=q,
         csrf_token=_csrf(request),
         error=error,
+        notice=notice,
+        resend_question=resend_question,
+        resend_label=resend_label,
         nav_items=admin_nav(NAV),
     )
 
@@ -635,13 +658,14 @@ def newsletter_screen(
     _email: str = Depends(require_admin_ui),
     status: str = "",
     q: str = "",
+    opnieuw: int = 0,
 ):
     letter = _letter_or_404(db, newsletter_id)
     if letter.status == nb.LetterStatus.DRAFT:
         return templates.TemplateResponse(
             request, "admin_nieuwsbrief.html", _compose_view(request, db, letter).as_context()
         )
-    view = _archive_view(request, db, letter, status=status, q=q)
+    view = _archive_view(request, db, letter, status=status, q=q, requeued=opnieuw)
     template = (
         "_nb_afleveringen.html"
         if is_fragment_request(request)
@@ -898,6 +922,30 @@ def newsletter_test_mail(
     return templates.TemplateResponse(
         request, "_nb_bewaard.html", _compose_view(request, db, letter, notice=notice).as_context()
     )
+
+
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/opnieuw",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def newsletter_resend_failed(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
+    """Send the letter again to its failed addresses, and only to those (#1783)."""
+    letter = _letter_or_404(db, newsletter_id)
+    try:
+        requeued = nb.resend_failed(db, letter)
+    except nb.NewsletterError as exc:
+        return templates.TemplateResponse(
+            request,
+            "admin_nieuwsbrief_archief.html",
+            _archive_view(request, db, letter, error=str(exc)).as_context(),
+        )
+    return _go(request, f"/admin/nieuwsbrieven/{letter.id}?opnieuw={requeued}")
 
 
 @router.post(
