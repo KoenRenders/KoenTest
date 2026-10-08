@@ -136,3 +136,46 @@ def test_the_sticky_bar_covers_no_field_on_a_phone(setup):
         assert page.errors == [], f"the screen throws: {page.errors}"
     finally:
         page.close()
+
+
+def test_a_page_created_through_the_screen_opens_and_saves(setup):
+    """The author's first minute with a new page, through the real app.
+
+    The create screen was the one door without an e2e — and the one that
+    broke (Koen, 8 October 2026, on the local version): the app's session
+    does not autoflush, so the create's double translation row died at the
+    commit and the author read "Er ging iets mis; je wijziging is niet
+    bewaard." A pytest could not see it — the test session autoflushes,
+    the app session does not. Create through the screen, land on her
+    record page, write a block, save: the new page works like a saved one.
+    """
+    import re as _re
+
+    b, _page_id, _slug, session = setup
+    tag = secrets.token_hex(3)
+    page = b.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
+    page.errors = []
+    page.on("pageerror", lambda e: page.errors.append(str(e)))
+    try:
+        login_met_sessie(page, session)
+        page.goto("/admin/paginas/nieuw")
+        pagina_klaar(page)
+        page.fill("#title", "E2e aanmaak")
+        page.fill("#slug", f"e2e-aanmaak-{tag}")
+        page.locator('form[hx-post="/admin/paginas"] button[type="submit"]').click()
+        page.wait_for_url(_re.compile(r"/admin/paginas/\d+"), timeout=15000)
+        pagina_klaar(page)
+        page.wait_for_selector(f"{EDITOR} .tiptap")
+
+        page.click(f"{EDITOR} .tiptap")
+        page.keyboard.type("Het eerste blok van een nieuwe pagina.")
+        page.locator("[data-action-bar] button[data-form-save]").click()
+        page.wait_for_url(_re.compile(r"opgeslagen=1"), timeout=15000)
+        pagina_klaar(page)
+        page.wait_for_selector(f"{EDITOR} .tiptap")
+        assert "Het eerste blok van een nieuwe pagina." in page.locator(EDITOR).inner_text(), (
+            "the typed words are gone after the save"
+        )
+        assert page.errors == [], f"the screen throws: {page.errors}"
+    finally:
+        page.close()

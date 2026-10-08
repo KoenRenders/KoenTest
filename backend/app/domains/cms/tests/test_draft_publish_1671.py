@@ -226,3 +226,49 @@ def test_a_title_change_follows_the_translation_row(db_session):
     translation = get_translation(db_session, page)
     assert translation.title == "Nieuwe titel"
     assert get_page_by_id(db_session, page.id).title == "Nieuwe titel"
+
+
+def test_create_page_writes_one_translation_row_on_the_app_s_session(_migrate_schema):
+    """Red proof of the create screen's "Er ging iets mis" (Koen, 8 October
+    2026): the app's sessionmaker runs autoflush=False, the test fixture's
+    the SQLAlchemy default (True) — and that difference was the whole bug.
+    With autoflush ON, a translation row added earlier in the transaction is
+    flushed before the derive step's lookup, so the lookup finds her; with
+    autoflush OFF (the app), she stays pending and invisible, the derive
+    step created a SECOND row for the same (page, language) and the commit
+    died on the primary key. Broken on the old code, this test runs the
+    create through a session built exactly like the app's and demands ONE
+    row for the page — not a crash, not two.
+    """
+    from sqlalchemy import event
+    from sqlalchemy.orm import sessionmaker
+
+    from app.database import engine
+    from app.domains.cms.models import CmsPageTranslation
+
+    connection = engine.connect()
+    trans = connection.begin()
+    session = sessionmaker(bind=connection, autoflush=False)()
+    session.begin_nested()
+
+    @event.listens_for(session, "after_transaction_end")
+    def _restart_savepoint(sess, transaction):
+        if transaction.nested and not transaction._parent.nested:
+            sess.begin_nested()
+
+    try:
+        page = create_page(
+            session, CmsPageCreate(title="Aanmaaktest", slug="aanmaaktest-appsessie")
+        )
+        rows = (
+            session.query(CmsPageTranslation).filter(CmsPageTranslation.page_id == page.id).count()
+        )
+        assert rows == 1, "two translation rows were written for one page"
+        assert get_translation(session, page).draft_json is not None, (
+            "the page was created without a draft document"
+        )
+    finally:
+        event.remove(session, "after_transaction_end", _restart_savepoint)
+        session.close()
+        trans.rollback()
+        connection.close()

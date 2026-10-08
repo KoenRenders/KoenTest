@@ -130,10 +130,13 @@ def create_page(db, data) -> CmsPage:
     # CR-17 fase 1 (#1671): a new page starts with a translation row in the
     # tenant's language, its documents derived from the content it was
     # created with (review C3, #1673) — an empty draft for an empty page.
-    translation = CmsPageTranslation(
-        page_id=page.id, language=_language(db, page), title=data.title
-    )
-    db.add(translation)
+    # The derive step is the row's ONE creation site. An explicit add here
+    # besides her meant TWO rows for the same (page, language) on the app's
+    # autoflush=False session: the pending first row is invisible to the
+    # derive step's lookup, so it created a second and the commit died on
+    # the primary key — the create screen's "Er ging iets mis" (Koen, 8
+    # October 2026, on the local version; the suite was blind because the
+    # test session autoflushes, the app session does not).
     _derive_documents_from_content(db, page)
     db.commit()
     db.refresh(page)
