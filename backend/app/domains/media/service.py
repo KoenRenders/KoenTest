@@ -13,9 +13,15 @@ gevonden); de route vertaalt die naar een statuscode.
 from dataclasses import dataclass
 from typing import NamedTuple, Optional, Sequence
 
+from fastapi import HTTPException, UploadFile
 from sqlalchemy import and_
 
-from app.domains.media.images import ALLOWED_CONTENT_TYPES, ImageError, process_image
+from app.domains.media.images import (
+    ALLOWED_CONTENT_TYPES,
+    MAX_UPLOAD_BYTES,
+    ImageError,
+    process_image,
+)
 from app.domains.media.models import (
     MediaAsset,
     MediaAssetTag,
@@ -400,6 +406,112 @@ def delete_media(db, asset_id: int) -> None:
     db.commit()
 
 
+# ── One document: a poster or an info sheet ─────────────────────────────
+#
+# These stood in `media/router.py`, and this module imported them from there —
+# the dependency ran backwards until CR-13 phase 4c (#1251).
+
+# Poster/reglement mag een afbeelding óf een PDF zijn (#223).
+DOC_CONTENT_TYPES = ALLOWED_CONTENT_TYPES | {"application/pdf"}
+_EXT_BY_TYPE = {
+    "application/pdf": ".pdf",
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
+
+
+def _process_document(raw: bytes, content_type: str, *, kind: MediaKind | str = "") -> dict:
+    """Verwerk een poster/reglement-upload: PDF wordt ongewijzigd bewaard (geen
+    thumbnail), een afbeelding gaat door de gewone verkleining + thumbnail."""
+    if content_type == "application/pdf":
+        if not raw:
+            raise ImageError("Leeg bestand")
+        if len(raw) > MAX_UPLOAD_BYTES:
+            raise ImageError("Bestand te groot")
+        # #1019: de eerste bladzijde als afbeelding, zodat een scherm of een mail
+        # die geen PDF toont er tóch een beeld van heeft. Lukt het niet, dan blijft
+        # het document gewoon een document — geen mislukte upload.
+        png = first_page_png(raw)
+        return {
+            "data": raw,
+            "content_type": "application/pdf",
+            "thumbnail": png,
+            "thumb_content_type": PNG_CONTENT_TYPE if png else None,
+            "width": None,
+            "height": None,
+            "byte_size": len(raw),
+        }
+    return process_image(raw, kind=kind)
+
+
+async def _replace_single_asset(
+    db,
+    file: UploadFile,
+    *,
+    kind: MediaKind | str,
+    activity_id=None,
+    component_id=None,
+    title_base: Optional[str] = None,
+) -> MediaAsset:
+    """Bewaar één poster/reglement-bestand en vervang het vorige (hard delete —
+    media kent geen soft delete). ``title_base`` geeft een betekenisvolle naam
+    (zonder extensie); de extensie volgt uit het type. Geeft het nieuwe asset terug."""
+    if file.content_type not in DOC_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=_("Niet-ondersteund bestandstype: %(filename)s") % {"filename": file.filename},
+        )
+    raw = await file.read()
+    try:
+        processed = _process_document(raw, file.content_type)
+    except ImageError as exc:
+        raise HTTPException(status_code=400, detail=f"{file.filename}: {exc}")
+
+    q = db.query(MediaAsset).filter(MediaAsset.kind == as_media_kind(kind))
+    q = (
+        q.filter(MediaAsset.activity_id == activity_id)
+        if activity_id is not None
+        else q.filter(MediaAsset.component_id == component_id)
+    )
+    for old in q.all():
+        db.delete(old)  # hard delete, geen ballast
+
+    title: Optional[str]
+    if title_base:
+        title = f"{title_base}{_EXT_BY_TYPE.get(processed['content_type'], '')}"
+    else:
+        title = file.filename
+    asset = MediaAsset(
+        kind=kind,
+        activity_id=activity_id,
+        component_id=component_id,
+        title=title,
+        sort_order=0,
+        is_active=True,
+        **processed,
+    )
+    db.add(asset)
+    # A flush, not a commit (CR-13 phase 4): the caller's door commits — the
+    # replace functions of the service, or a design's version for the Design Studio.
+    db.flush()
+    db.refresh(asset)
+    return asset
+
+
+def give_pdf_its_picture(db, asset: MediaAsset) -> None:
+    """#1019: a PDF from before that release has no picture yet. It is made once,
+    when its thumbnail is first asked for, and kept — that spares a one-off script,
+    and without it the "thumb" of a PDF would be the PDF itself."""
+    if asset.content_type == PDF_CONTENT_TYPE and asset.thumbnail is None:
+        png = first_page_png(asset.data or b"")
+        if png:
+            asset.thumbnail = png
+            asset.thumb_content_type = PNG_CONTENT_TYPE
+            db.commit()
+
+
 async def upload_media(
     db,
     *,
@@ -536,8 +648,6 @@ def add_document(
     function without cleaning, nothing may break. Trusting the caller is a rule
     that holds until someone new reads the signature and not the history.
     """
-    from app.domains.media.router import DOC_CONTENT_TYPES, _process_document
-
     media_kind = as_media_kind(kind)
     toegestane_soorten = DOCUMENT_KINDS | {DESIGN_RENDER_KIND}
     if media_kind not in toegestane_soorten:
@@ -621,7 +731,6 @@ async def store_activity_poster(db, activity_id: int, file, background_tasks):
     """
     from app.domains.activities.api import get_activity
     from app.domains.media.extraction import update_media_extracted_text
-    from app.domains.media.router import _replace_single_asset
 
     activity = get_activity(db, activity_id)
     if activity is None:
@@ -686,7 +795,6 @@ async def store_component_info(db, component_id: int, file, background_tasks):
     """
     from app.domains.activities.api import get_component
     from app.domains.media.extraction import update_media_extracted_text
-    from app.domains.media.router import _replace_single_asset
 
     component = get_component(db, component_id)
     if component is None:

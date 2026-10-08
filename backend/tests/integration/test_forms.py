@@ -1109,8 +1109,8 @@ def test_niet_anoniem_vereist_naam_en_email(db_session):
     from starlette.background import BackgroundTasks
 
     from app.domains.forms.models import Form
-    from app.domains.forms.router import submit_form
     from app.domains.forms.schemas import SubmissionIn
+    from app.domains.forms.service import submit_form
 
     form = Form(title="Contact", share_token="tok-501", status="open", is_anonymous=False)
     db_session.add(form)

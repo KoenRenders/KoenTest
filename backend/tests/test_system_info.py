@@ -13,10 +13,10 @@ from app.config import settings
 
 
 def test_system_info_contains_no_secrets():
-    """What the system screen reads (`app.ui.admin_api.get_system_info`)."""
-    from app.ui.admin_api import get_system_info
+    """What the system screen reads (`app.ui.system_info.system_info`)."""
+    from app.ui.system_info import system_info
 
-    body = get_system_info()
+    body = system_info()
     blob = json.dumps(body)
 
     # Geen enkele secret-waarde mag in de payload zitten.
