@@ -1,18 +1,14 @@
 """System info for the system screen (#444, §21): the curated whitelist of
 settings — never a secret.
 
-No JSON route is left in this file (CR-13 phase 4b, #1251): `/admin/system-info`
-and `/admin/stats` had no caller but tests. `get_system_info` stays because
-`system_ui.py` calls it in process; it moves in phase 4c. The stats handler is
-gone as a whole — no screen read it.
+This was `app/ui/admin_api.py`, the JSON composer under `/api/v1/admin`. Its
+two routes went with CR-13 phase 4b (#1251); what the system screen reads
+stayed, and the file is named after it since phase 4c.
 """
 
 from datetime import datetime, timezone
 
-from fastapi import Depends
-
 from app.config import settings
-from app.domains.auth.api import User, get_current_admin
 
 
 def _mollie_mode(api_key: str | None) -> str:
@@ -26,8 +22,8 @@ def _mollie_mode(api_key: str | None) -> str:
     return "onbekend"
 
 
-def get_system_info(_admin: User = Depends(get_current_admin)):
-    """Gecureerde, admin-only runtime/config-info. Bewust opgebouwd uit een
+def system_info() -> dict:
+    """Gecureerde runtime/config-info voor het systeemscherm (dat zelf admin-only is). Bewust opgebouwd uit een
     expliciete whitelist (geen model_dump) zodat secrets nooit kunnen lekken:
     SECRET_KEY, DATABASE_URL, MOLLIE_API_KEY en GMAIL_APP_PASSWORD blijven eruit."""
     return {

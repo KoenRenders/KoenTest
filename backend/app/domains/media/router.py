@@ -14,20 +14,13 @@ from fastapi import (
     Depends,
     HTTPException,
     Request,
-    UploadFile,
 )
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.media.images import (
-    ALLOWED_CONTENT_TYPES,
-    MAX_UPLOAD_BYTES,
-    ImageError,
-    process_image,
-)
-from app.domains.media.models import MediaAsset, MediaKind, as_media_kind
-from app.domains.media.pdf import PDF_CONTENT_TYPE, PNG_CONTENT_TYPE, first_page_png
+from app.domains.media import service as _service
+from app.domains.media.models import MediaAsset
 from app.domains.media.svg import SVG_CONTENT_TYPE
 from app.i18n import _
 
@@ -37,94 +30,6 @@ router = APIRouter(tags=["media"])
 # plaats van bijgewerkt: twee lijsten van dezelfde soorten lopen uit elkaar, en
 # de service heeft de enige die telt.
 SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'"
-
-# Poster/reglement mag een afbeelding óf een PDF zijn (#223).
-DOC_CONTENT_TYPES = ALLOWED_CONTENT_TYPES | {"application/pdf"}
-_EXT_BY_TYPE = {
-    "application/pdf": ".pdf",
-    "image/png": ".png",
-    "image/jpeg": ".jpg",
-    "image/webp": ".webp",
-    "image/gif": ".gif",
-}
-
-
-def _process_document(raw: bytes, content_type: str, *, kind: MediaKind | str = "") -> dict:
-    """Verwerk een poster/reglement-upload: PDF wordt ongewijzigd bewaard (geen
-    thumbnail), een afbeelding gaat door de gewone verkleining + thumbnail."""
-    if content_type == "application/pdf":
-        if not raw:
-            raise ImageError("Leeg bestand")
-        if len(raw) > MAX_UPLOAD_BYTES:
-            raise ImageError("Bestand te groot")
-        # #1019: de eerste bladzijde als afbeelding, zodat een scherm of een mail
-        # die geen PDF toont er tóch een beeld van heeft. Lukt het niet, dan blijft
-        # het document gewoon een document — geen mislukte upload.
-        png = first_page_png(raw)
-        return {
-            "data": raw,
-            "content_type": "application/pdf",
-            "thumbnail": png,
-            "thumb_content_type": PNG_CONTENT_TYPE if png else None,
-            "width": None,
-            "height": None,
-            "byte_size": len(raw),
-        }
-    return process_image(raw, kind=kind)
-
-
-async def _replace_single_asset(
-    db,
-    file: UploadFile,
-    *,
-    kind: MediaKind | str,
-    activity_id=None,
-    component_id=None,
-    title_base: Optional[str] = None,
-) -> MediaAsset:
-    """Bewaar één poster/reglement-bestand en vervang het vorige (hard delete —
-    media kent geen soft delete). ``title_base`` geeft een betekenisvolle naam
-    (zonder extensie); de extensie volgt uit het type. Geeft het nieuwe asset terug."""
-    if file.content_type not in DOC_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=_("Niet-ondersteund bestandstype: %(filename)s") % {"filename": file.filename},
-        )
-    raw = await file.read()
-    try:
-        processed = _process_document(raw, file.content_type)
-    except ImageError as exc:
-        raise HTTPException(status_code=400, detail=f"{file.filename}: {exc}")
-
-    q = db.query(MediaAsset).filter(MediaAsset.kind == as_media_kind(kind))
-    q = (
-        q.filter(MediaAsset.activity_id == activity_id)
-        if activity_id is not None
-        else q.filter(MediaAsset.component_id == component_id)
-    )
-    for old in q.all():
-        db.delete(old)  # hard delete, geen ballast
-
-    title: Optional[str]
-    if title_base:
-        title = f"{title_base}{_EXT_BY_TYPE.get(processed['content_type'], '')}"
-    else:
-        title = file.filename
-    asset = MediaAsset(
-        kind=kind,
-        activity_id=activity_id,
-        component_id=component_id,
-        title=title,
-        sort_order=0,
-        is_active=True,
-        **processed,
-    )
-    db.add(asset)
-    # A flush, not a commit (CR-13 phase 4): the caller's door commits — the
-    # replace functions of the service, or a design's version for the Design Studio.
-    db.flush()
-    db.refresh(asset)
-    return asset
 
 
 # ---------------------------------------------------------------------------
@@ -190,15 +95,7 @@ def serve_thumb(asset_id: int, request: Request, db: Session = Depends(get_db)):
     a = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if not a:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    # #1019: een PDF van vóór deze release heeft nog geen afbeelding. Ze wordt hier
-    # één keer gemaakt en bewaard — dat spaart een eenmalig script, en zonder dit
-    # zou de "thumb" van een PDF de PDF zelf zijn.
-    if a.content_type == PDF_CONTENT_TYPE and a.thumbnail is None:
-        png = first_page_png(a.data or b"")
-        if png:
-            a.thumbnail = png
-            a.thumb_content_type = PNG_CONTENT_TYPE
-            db.commit()
+    _service.give_pdf_its_picture(db, a)
     blob = a.thumbnail or a.data
     ctype = a.thumb_content_type or a.content_type
     return _serve(blob, ctype, request, f"thumb-{a.id}")

@@ -116,18 +116,19 @@ def test_een_bericht_mag_niet_leeg_zijn_als_dat_gevraagd_is():
 
 
 def test_de_router_heeft_geen_eigen_kopie_meer():
-    """De private helpers waar admin_ui.py uit importeerde, bestaan niet meer."""
-    from app.domains.forms import router
+    """There is no forms router any more, so no second copy of a rule in one.
 
-    assert not hasattr(router, "_assert_submitter_impl")
-    # De namen wijzen naar de service, niet naar een tweede implementatie.
-    from app.domains.forms import service
+    The JSON routes went with CR-13 phase 4b and what the screens still used
+    moved to the service in phase 4c (#1251). The rules have one home: the
+    service, and the facade hands out the same objects."""
+    import importlib.util
 
-    assert router.assert_submitter is service.assert_submitter
-    # The two definition rules had their caller in the JSON routes that went with
-    # #1251: the router no longer names them at all, and may not grow its own.
-    for name in ("apply_definition", "validate_definition"):
-        assert getattr(router, name, getattr(service, name)) is getattr(service, name)
+    from app.domains.forms import api, service
+
+    assert importlib.util.find_spec("app.domains.forms.router") is None
+    assert not hasattr(service, "_assert_submitter_impl")
+    for name in ("assert_submitter", "apply_definition", "validate_definition"):
+        assert getattr(api, name) is getattr(service, name), name
 
 
 # ── HOOFDLID-regel (#635 F) ──────────────────────────────────────────────────

@@ -104,7 +104,6 @@ def test_import_boundaries():
                     "system_ui",
                     "tenants_ui",
                     "import_router",
-                    "admin_api",
                     "register_router",
                     "household_router",
                     "stub_router",

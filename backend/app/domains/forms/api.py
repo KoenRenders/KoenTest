@@ -224,33 +224,28 @@ from app.domains.forms.service import (  # noqa: E402,F401
 
 def submit_public_form(db, share_token: str, payload, background_tasks, *, proof):
     """Een publieke inzending verwerken. `proof`: see `submit_bericht` (#1297)."""
-    from app.domains.forms.router import submit_form
+    from app.domains.forms.service import submit_form
 
     return submit_form(db, share_token, payload, background_tasks, proof=proof)
 
 
 def update_public_submission(db, edit_token: str, payload):
     """Een eigen inzending bijwerken via de edit-link."""
-    from app.domains.forms.router import update_submission as _impl
+    from app.domains.forms.service import update_submission
 
-    return _impl(edit_token, payload, db=db)
+    return update_submission(db, edit_token, payload)
 
 
 def export_submissions_ods(db, form_id: int):
-    """De inzendingen als .ods.
+    """De inzendingen als .ods."""
+    from app.domains.forms.service import export_form
 
-    `format` expliciet: `export_form` heeft `format=Query("ods")`, en bij een
-    directe aanroep is die default een FastAPI Query-object i.p.v. de string —
-    anders faalt de format-check met 422 "Ongeldig formaat".
-    """
-    from app.domains.forms.router import export_form as _impl
-
-    return _impl(form_id, format="ods", db=db, _admin=None)  # type: ignore[arg-type]
+    return export_form(db, form_id)
 
 
 def form_definition(db, form) -> dict:
     """De volledige definitie als dict (backup, inspectie, AI-gids)."""
-    from app.domains.forms.router import _admin_out
+    from app.domains.forms.service import _admin_out
 
     return _admin_out(db, form)
 
@@ -270,6 +265,6 @@ def copy_form(db, form_id: int, *, old_year: int | None, new_year: int | None) -
 
 
 def unique_share_token(db) -> str:
-    from app.domains.forms.router import _unique_share_token
+    from app.domains.forms.service import _unique_share_token
 
     return _unique_share_token(db)

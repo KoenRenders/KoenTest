@@ -247,11 +247,13 @@ def test_the_edit_link_in_the_mail_points_at_where_the_afdeling_lives(db_session
 def test_the_mail_uses_the_home_url(db_session):
     """En de route gebruikt effectief die functie — anders bewijst het bovenstaande
     alleen iets over twee helpers die niemand aanroept."""
-    from pathlib import Path
+    import inspect
 
-    ruw = (
-        Path(__file__).resolve().parents[2] / "app" / "domains" / "forms" / "router.py"
-    ).read_text(encoding="utf-8")
+    from app.domains.forms import service
+
+    # The function that sends the mail; it stood in `forms/router.py` until CR-13
+    # phase 4c (#1251) and the test read that whole file.
+    ruw = inspect.getsource(service.submit_form)
     # Commentaar eerst weg. De uitleg bóven deze regel noemt `tenant_base_url` met
     # opzet — ze legt uit waarom het die niet is — en een scan die dat als code
     # leest, is dezelfde valse treffer die de #866-poort ooit rood maakte.
