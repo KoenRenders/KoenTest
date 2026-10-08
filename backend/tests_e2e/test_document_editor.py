@@ -2,13 +2,14 @@
 
 In a browser, because the editor is what the eye gets: the toolbar her
 configuration builds, the blocks she inserts, and the document she keeps in
-step with her hidden input. The kit page (`/admin/design-system`) is the one
-screen that carries her in this slice — the page screen follows in slice 3.
+step with her hidden input. The kit page (`/admin/design-system`) carries
+the editor with every block of the set; the page screen's own e2e — open,
+insert, SAVE — stands in test_page_screen_1671.py (slice 3).
 
 Measured, not asserted from templates: the buttons' labels and aria-labels,
 the demo's blocks, the inserted table, the typed word in the editor AND in
 the input's JSON, and the page's width at 390 px (AC6's first half —
-saving arrives with the page screen).
+the save stands in the page screen's e2e).
 """
 
 import json
@@ -142,15 +143,17 @@ def test_everything_the_editor_writes_validates(setup):
     writing them in the browser and feeding the emitted JSON to the
     server's own gate.
 
-    The table is excluded until slice 3's save adapter maps her attributes
-    (colspan, align — named in the PR); the quote, code, code block, rule
-    and underline are switched OFF, so their shortcuts write plain text
-    instead of a block the server refuses."""
+    Since slice 3 the table validates too: the save adapter maps her cell
+    chrome onto the stored document's dialect, so the emission passes the
+    gate as she is — the round-trip test the review asked for first.
+    The quote, code, code block, rule and underline are switched OFF, so
+    their shortcuts write plain text instead of a block the server
+    refuses. The link goes through the macro's dialog (B5): the browser's
+    prompt is gone, so this also drives the dialog in the browser."""
     b, session = setup
     page = b.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
     page.errors = []
     page.on("pageerror", lambda e: page.errors.append(str(e)))
-    page.on("dialog", lambda d: d.accept("https://voorbeeld.test"))
     try:
         login_met_sessie(page, session)
         page.goto("/admin/design-system")
@@ -172,7 +175,11 @@ def test_everything_the_editor_writes_validates(setup):
             page.keyboard.type(word)
             page.locator(f"{EDITOR} button[aria-label='{aria}']").click()
         page.keyboard.type(" en ")
+        # The link dialog (B5): the button opens the macro's modal, the
+        # author types her address, Opslaan applies her to the selection.
         page.locator(f"{EDITOR} .de-btn", has_text="Link").first.click()
+        page.locator("#ds-document-link-url").fill("https://voorbeeld.test")
+        page.locator("div[role='dialog'] button", has_text="Opslaan").click()
         page.keyboard.type("een link")
         page.keyboard.press("Shift+Enter")
         page.keyboard.type("na de harde return")
@@ -192,31 +199,23 @@ def test_everything_the_editor_writes_validates(setup):
             "document.querySelector('[data-document-editor]').dataset.input).value"
         )
         print("MEASURE document editor emitted", emitted[:400])
-        from app.domains.cms.schema import UnknownAttribute, validate_document
+        from app.domains.cms.schema import validate_document
 
         document = json.loads(emitted)
         assert "blockquote" not in emitted, "a quote block was written after all"
 
-        # The one declared gap: the demo's table, round-tripped through
-        # TipTap, carries her own cell attributes (colspan, align — the
-        # slice-3 adapter, named in the PR). Everything ELSE the editor
-        # wrote must validate: the refusal, if any, names exactly a table
-        # attribute, and the same document without her tables passes.
-        refusal = None
-        try:
-            validate_document(document)
-        except UnknownAttribute as error:
-            refusal = str(error)
-        assert refusal is None or "table" in refusal, f"an unexpected refusal: {refusal}"
+        # The save adapter's translation runs first — the route runs it
+        # before the gate — and then the whole emission validates, table
+        # included. The RAW emission still carries the editor's chrome
+        # (colwidth); that is the adapter's contract, not the gate's.
+        from app.domains.cms.api import document_from_editor
 
-        stripped = json.loads(emitted)
-        stripped["content"] = [b for b in stripped["content"] if b.get("type") != "table"]
-        validate_document(stripped)
+        validate_document(document_from_editor(document))
         # The test holds her name only if what she meant to write IS in the
         # emission (the second look, #1699): a click that silently does
         # nothing would otherwise stay green. Every node and mark the
         # toolbar offers stands in the emitted JSON.
-        written = json.dumps(stripped, separators=(",", ":"))
+        written = json.dumps(document, separators=(",", ":"))
         assert '"type":"heading"' in written and "Kopregel" in written, "no heading was written"
         for mark in ("bold", "italic", "strike"):
             assert f'"type":"{mark}"' in written, f"the {mark} mark was not written"
@@ -224,6 +223,7 @@ def test_everything_the_editor_writes_validates(setup):
         assert '"type":"hardBreak"' in written, "no hard break was written"
         assert '"type":"bulletList"' in written, "no bullet list was written"
         assert '"type":"orderedList"' in written, "no ordered list was written"
+        assert '"type":"table"' in written, "the demo's table left the emission"
         assert page.errors == [], f"the editor throws: {page.errors}"
     finally:
         page.close()

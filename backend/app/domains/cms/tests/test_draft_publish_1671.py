@@ -16,15 +16,23 @@ import json
 from app.domains.cms.api import (
     create_page,
     get_page_by_id,
+    get_published_page,
     get_translation,
     publish,
+    published_html,
     restore,
+    save_document,
     save_draft,
     update_page,
     versions,
 )
 from app.domains.cms.models import CmsPageHistory
 from app.schemas.cms import CmsPageCreate, CmsPageUpdate
+
+
+def _paragraph(text: str) -> dict:
+    """One paragraph of text — the smallest document with words."""
+    return {"type": "paragraph", "content": [{"type": "text", "text": text}]}
 
 
 def _page(db_session, **fields):
@@ -112,29 +120,32 @@ def test_an_unknown_block_is_refused_with_its_name(db_session):
     assert get_translation(db_session, page).draft_json != document
 
 
-def test_a_trix_save_re_derives_the_documents(db_session):
-    """Slice 1 (revised assignment, #1671): while Trix is the page editor,
-    every save re-derives the document from `content` — the documents cannot
-    go stale. `published_json` follows where the page is live; a code stays
-    text; a Trix <div> paragraph converts (review A4/ii, #1673)."""
+def test_a_content_update_leaves_the_documents_alone(db_session):
+    """Slice 3 (the review's A1, #1734): the derivation of slice 1 — every
+    content save re-making the documents — left WITH Trix. The editor writes
+    documents; `content` is a page's honest fallback, not her source, and a
+    content update may not replace what the author saved."""
     page = _page(db_session, is_published=True, content="<p>Eerste tekst.</p>")
+    save_document(
+        db_session,
+        page.id,
+        {"type": "doc", "content": [_paragraph("Wat de redacteur schreef.")]},
+    )
+    publish(db_session, page.id)
     update_page(
         db_session,
         page.id,
         CmsPageUpdate(content="<p>Tweede tekst met een {{membership_price_full}}.</p>"),
     )
     translation = get_translation(db_session, page)
-    paragraph = translation.draft_json["content"][0]
-    texts = [n["text"] for n in paragraph["content"]]
-    assert any("{{membership_price_full}}" in t for t in texts), "the code is not text"
-    assert translation.published_json is not None, "a live page does not follow"
-    # A div paragraph does not convert (no legacy flags): her words stand in
-    # the draft, and the live document is cleared until the content is a <p>.
-    update_page(db_session, page.id, CmsPageUpdate(content="<div>Derde tekst.</div>"))
-    translation = get_translation(db_session, page)
-    words = [n["text"] for n in translation.draft_json["content"][0]["content"]]
-    assert any("Derde tekst." in w for w in words)
-    assert translation.published_json is None, "a div page is not byte-equal"
+    texts = [n["text"] for n in translation.draft_json["content"][0]["content"]]
+    assert any("Wat de redacteur schreef." in t for t in texts), (
+        "a content update replaced the editor's document"
+    )
+    published = [n["text"] for n in translation.published_json["content"][0]["content"]]
+    assert any("Wat de redacteur schreef." in t for t in published), (
+        "a content update replaced the published document"
+    )
 
 
 def test_create_page_derives_the_document_from_its_content(db_session):
@@ -146,28 +157,57 @@ def test_create_page_derives_the_document_from_its_content(db_session):
     assert any("Meteen inhoud." in t for t in texts)
 
 
-def test_unpublishing_without_a_content_change_clears_published_json(db_session):
-    """Review C3 (#1673): the publish switch alone must follow too — the
-    documents may not claim a page is live when its flag says otherwise."""
+def test_the_flag_takes_the_page_offline_and_back(db_session):
+    """Slice 3 (the review's A2, #1734): with the checkbox gone from the
+    screen, the flag is the JSON door's — and the public route reads her
+    (`get_published_page`), so off is off. The published document STAYS:
+    a page taken offline and flagged back is live again with the same
+    words, no re-publish needed. The SCREEN's way to do this is Koen's to
+    decide; this pins the door the flag still has."""
     page = _page(db_session, is_published=True, content="<p>Live tekst.</p>")
+    save_document(db_session, page.id, {"type": "doc", "content": [_paragraph("Live document.")]})
+    publish(db_session, page.id)
     assert get_translation(db_session, page).published_json is not None
+
     update_page(db_session, page.id, CmsPageUpdate(is_published=False))
-    assert get_translation(db_session, page).published_json is None
+    db_session.expire_all()
+    assert get_published_page(db_session, page.slug) is None, "the page is still live"
+    assert get_translation(db_session, page).published_json is not None, (
+        "the flag destroyed the published document"
+    )
+
+    update_page(db_session, page.id, CmsPageUpdate(is_published=True))
+    db_session.expire_all()
+    assert get_published_page(db_session, page.slug) is not None, "she did not come back"
 
 
-def test_a_not_converting_save_gets_only_a_draft(db_session):
-    """F11 under the old editor: content with a quote does not convert
-    losslessly — the draft keeps the words, `published_json` is cleared and
-    the site keeps serving the HTML until an author publishes."""
-    page = _page(db_session, is_published=True, content="<p>Eerste tekst.</p>")
+def test_a_page_without_a_published_document_keeps_serving_her_html(db_session):
+    """F11's honest fallback, slice 3's shape. A page whose content never
+    converts (a quote) is created with a draft of her words and NO
+    published document — the site keeps rendering her stored HTML. A
+    content update changes nothing about her documents (A1, #1734): the
+    fallback follows `content` while no document is published, and the
+    editor's draft stays what it was."""
+    page = _page(db_session, is_published=True, content="<blockquote>Een citaat.</blockquote>")
+    translation = get_translation(db_session, page)
+    assert translation.draft_json is not None, "creation lost her words"
+    assert translation.published_json is None, "a quote page does not convert"
+    assert "Een citaat." in published_html(db_session, page), "she lost her HTML"
+
+    draft_before = json.dumps(translation.draft_json)
     update_page(
         db_session,
         page.id,
-        CmsPageUpdate(content="<blockquote>Een citaat.</blockquote><p>En een alinea.</p>"),
+        CmsPageUpdate(content="<blockquote>Een tweede citaat.</blockquote>"),
     )
+    db_session.expire_all()
     translation = get_translation(db_session, page)
-    assert translation.draft_json is not None
-    assert translation.published_json is None
+    assert json.dumps(translation.draft_json) == draft_before, (
+        "a content update re-derived the editor's document"
+    )
+    assert "Een tweede citaat." in published_html(db_session, page), (
+        "the fallback no longer follows her content"
+    )
 
 
 def test_the_draft_accepts_a_json_string_and_a_dict(db_session):
@@ -186,3 +226,49 @@ def test_a_title_change_follows_the_translation_row(db_session):
     translation = get_translation(db_session, page)
     assert translation.title == "Nieuwe titel"
     assert get_page_by_id(db_session, page.id).title == "Nieuwe titel"
+
+
+def test_create_page_writes_one_translation_row_on_the_app_s_session(_migrate_schema):
+    """Red proof of the create screen's "Er ging iets mis" (Koen, 8 October
+    2026): the app's sessionmaker runs autoflush=False, the test fixture's
+    the SQLAlchemy default (True) — and that difference was the whole bug.
+    With autoflush ON, a translation row added earlier in the transaction is
+    flushed before the derive step's lookup, so the lookup finds her; with
+    autoflush OFF (the app), she stays pending and invisible, the derive
+    step created a SECOND row for the same (page, language) and the commit
+    died on the primary key. Broken on the old code, this test runs the
+    create through a session built exactly like the app's and demands ONE
+    row for the page — not a crash, not two.
+    """
+    from sqlalchemy import event
+    from sqlalchemy.orm import sessionmaker
+
+    from app.database import engine
+    from app.domains.cms.models import CmsPageTranslation
+
+    connection = engine.connect()
+    trans = connection.begin()
+    session = sessionmaker(bind=connection, autoflush=False)()
+    session.begin_nested()
+
+    @event.listens_for(session, "after_transaction_end")
+    def _restart_savepoint(sess, transaction):
+        if transaction.nested and not transaction._parent.nested:
+            sess.begin_nested()
+
+    try:
+        page = create_page(
+            session, CmsPageCreate(title="Aanmaaktest", slug="aanmaaktest-appsessie")
+        )
+        rows = (
+            session.query(CmsPageTranslation).filter(CmsPageTranslation.page_id == page.id).count()
+        )
+        assert rows == 1, "two translation rows were written for one page"
+        assert get_translation(session, page).draft_json is not None, (
+            "the page was created without a draft document"
+        )
+    finally:
+        event.remove(session, "after_transaction_end", _restart_savepoint)
+        session.close()
+        trans.rollback()
+        connection.close()

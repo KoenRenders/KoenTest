@@ -814,11 +814,19 @@ def test_geen_scriptbestand_buiten_een_schil():
     htmx voert <script>-tags in geswapte inhoud uit. Trix een tweede keer laden
     faalt op customElements.define('trix-editor'); stt.js/tts.js zouden hun
     document-listeners dubbel ophangen.
+
+    Één uitzondering sinds CR-17 slice 3 (B4, Koen 7 oktober 2026, optie a):
+    de document-editor laadt haar bundel en haar script BIJ DE MACRO
+    (`ui.document_editor`), op de pagina's die een editor dragen — nooit in
+    de schil, want anders draagt élk beheerscherm 441 KB JavaScript voor
+    niets. De eigen guard van het script (`window.raakDocumentEditor`) maakt
+    de tweede run een no-op, en de bundel definieert geen custom element.
+    Elke andere scriptlading buiten de schil blijft een foutmelding waard.
     """
     fouten = [
         f"{pad.relative_to(APP)}: {regel.strip()[:90]}"
         for pad in TEMPLATES
-        if pad.name not in SCHILLEN
+        if pad.name not in SCHILLEN and pad.name != "_macros.html"
         for regel in _zonder_commentaar(pad).splitlines()
         if "<script src=" in regel
     ]

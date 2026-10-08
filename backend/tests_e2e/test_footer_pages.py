@@ -35,9 +35,10 @@ _FOOTER = """() => {
 }"""
 
 _BOXES = """() => {
-  const names = ['is_published', 'show_in_nav', 'is_home', 'show_in_footer'];
+  const names = ['show_in_nav', 'is_home', 'show_in_footer'];
   return {boxes: names.map(n => { const i = document.querySelector(`input[type=checkbox][name=${n}]`); if (!i) return null;
             const b = i.closest('label').getBoundingClientRect(); return {name: n, x: Math.round(b.left), right: Math.round(b.right), y: Math.round(b.top + scrollY), text: i.closest('label').innerText.trim(), checked: i.checked}; }),
+          publish: !![...document.querySelectorAll('[data-record-head] button')].find(b => b.innerText.trim() === 'Publiceren'),
           widest: [...document.querySelectorAll('main *')].filter(e => e.checkVisibility())
             .map(e => [Math.round(e.getBoundingClientRect().right), e.tagName, (e.id || e.className + '').slice(0, 50)])
             .sort((a, b) => b[0] - a[0])[0],
@@ -76,6 +77,25 @@ def _footer_pages() -> int:
                 db.flush()
             first_id = first_id or page.id
         db.commit()
+        # Snede 3 (#1671): Publiceren staat op de recordpagina zodra er een
+        # concept te publiceren is — een pagina zonder concept heeft geen
+        # knop. Dit scherm meet de schakelaars, dus krijgt de eerste pagina
+        # een concept door de deur van de app.
+        from app.domains.cms.api import save_document
+
+        save_document(
+            db,
+            first_id,
+            {
+                "type": "doc",
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [{"type": "text", "text": "Tekst van de pagina."}],
+                    }
+                ],
+            },
+        )
         return first_id
     finally:
         db.close()
@@ -137,10 +157,14 @@ def test_the_editor_shows_the_footer_checkbox_with_the_others(setup, width):
     pagina_klaar(page)
     m = page.evaluate(_BOXES)
     print("MEASURE editor", width, m)
-    assert all(m["boxes"]), "all four checkboxes are in the editor"
-    footer = m["boxes"][3]
+    # Snede 3 (#1671): publishing is the Publiceren action of the record
+    # head — the checkbox is gone with the master-detail screen; the three
+    # places a page stands are switches on the record.
+    assert m["publish"], "the record head lost her Publiceren action"
+    assert all(m["boxes"]), "all three switches are on the record"
+    footer = m["boxes"][2]
     assert footer["text"] == "Toon in de voettekst" and footer["checked"] is True
-    # The row of checkboxes wraps and stays inside the screen. The page width is
+    # The row of switches wraps and stays inside the screen. The page width is
     # recorded, not held: at 390 px the editor is 450 px wide through a row of
     # buttons (`widest`, a `flex gap-2` row) that this issue does not touch.
     for box in m["boxes"]:

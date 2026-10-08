@@ -280,9 +280,10 @@
 {# ── 6c. The document editor (CR-17 #1671, slice 2) ─────────────────────────── #}
 {# TipTap beside Trix: `ui.rich_text` above keeps serving the newsletter and
    the meeting notes until phase 7; a page gets this editor. The toolbar is
-   built by the JavaScript from the set's configuration — here the `page` set
-   with every block she offers (C6 3: no toolbar markup in a template). The
-   figure shows no image yet: the picker arrives with the page screen. #}
+   built by the JavaScript from the set's configuration — here the `page`
+   set with every block she offers (C6 3: no toolbar markup in a template).
+   Since slice 3 the figure dialog and the link dialog travel with the
+   macro, and the figure renders her picture in the site's own classes. #}
 {{ ui.section_header(_("6c · Document-editor (TipTap)"), _("Naar de pagina's"),
                      action_href="/admin/paginas", cls="mt-10") }}
 {% call ui.card() %}

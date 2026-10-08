@@ -6,18 +6,20 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.auth.api import User, get_current_admin
 from app.domains.cms import service as _service
+from app.domains.cms.api import published_html
 from app.domains.cms.models import CmsPage
-from app.domains.cms.render import render_cms_content
 from app.i18n import _
-from app.schemas.cms import CmsPageCreate, CmsPageResponse, CmsPageUpdate
+from app.schemas.cms import CmsPageApiUpdate, CmsPageCreate, CmsPageResponse
 
 router = APIRouter(tags=["cms"])
 
 
-def _public_page(page: CmsPage) -> CmsPageResponse:
-    """Bouw een publieke respons met placeholders ingevuld vanuit config."""
+def _public_page(db: Session, page: CmsPage) -> CmsPageResponse:
+    """Bouw een publieke respons: vanaf snede 3 het gepubliceerde document,
+    zolang er geen is de opgeslagen HTML (snede 3 van #1671 — de lezers
+    verhuizen, één bron in `published_html`)."""
     resp = CmsPageResponse.model_validate(page)
-    resp.content = render_cms_content(resp.content)
+    resp.content = published_html(db, page)
     return resp
 
 
@@ -29,7 +31,7 @@ def list_pages(db: Session = Depends(get_db)):
         .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
         .all()
     )
-    return [_public_page(p) for p in pages]
+    return [_public_page(db, p) for p in pages]
 
 
 @router.get("/pages/{slug}", response_model=CmsPageResponse)
@@ -37,7 +39,7 @@ def get_page(slug: str, db: Session = Depends(get_db)):
     page = db.query(CmsPage).filter(CmsPage.slug == slug, CmsPage.is_published == True).first()
     if not page:
         raise HTTPException(status_code=404, detail=_("Page not found"))
-    return _public_page(page)
+    return _public_page(db, page)
 
 
 @router.get("/blocks/{slug}", response_model=CmsPageResponse)
@@ -46,7 +48,7 @@ def get_block(slug: str, db: Session = Depends(get_db)):
     page = db.query(CmsPage).filter(CmsPage.slug == slug).first()
     if not page:
         raise HTTPException(status_code=404, detail=_("Block not found"))
-    return _public_page(page)
+    return _public_page(db, page)
 
 
 @router.get("/cms/placeholders")
@@ -78,7 +80,7 @@ def create_page(
 @router.put("/pages/{page_id}", response_model=CmsPageResponse)
 def update_page(
     page_id: int,
-    data: CmsPageUpdate,
+    data: CmsPageApiUpdate,
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):

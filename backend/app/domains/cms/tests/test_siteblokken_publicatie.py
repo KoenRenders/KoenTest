@@ -101,7 +101,18 @@ def test_een_niet_gepubliceerde_intro_staat_niet_op_de_homepagina(client, db_ses
 
 
 def test_een_gepubliceerde_intro_staat_er_wel(client, db_session):
-    _blok(db_session, "home-intro", INTROTEKST, gepubliceerd=True)
+    """Sinds de lezers naar het document verhuisden (snede 3, #1671) staat
+    "gepubliceerd" op het document, niet meer op de HTML alleen: wie achter
+    de dienst om schrijft, verandert de openbare pagina niet meer. De tekst
+    reist zoals bij een auteur: het document in, en dan publiceren."""
+    from app.domains.cms.parse import parse_html
+    from app.domains.cms.service import publish, save_draft
+
+    rijen = _blok(db_session, "home-intro", INTROTEKST, gepubliceerd=True)
+    for rij in rijen:
+        document = parse_html(f"<p>{INTROTEKST}</p>", on_page=False, lenient=True)
+        save_draft(db_session, rij.id, document, by="test")
+        publish(db_session, rij.id, by="test")
 
     assert INTROTEKST in client.get("/").text
 

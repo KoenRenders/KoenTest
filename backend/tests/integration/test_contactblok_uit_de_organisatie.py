@@ -187,9 +187,27 @@ def test_the_privacy_page_shows_the_block(client, db_session):
     if pagina is None:
         pagina = CmsPage(tenant_id=tenant, slug="privacy", title="Privacy")
         db_session.add(pagina)
-    pagina.content = "<p>Wij verwerken je gegevens zorgvuldig.</p>"
+    # CR-17 (#1671): de site toont het GEPUBLICEERDE DOCUMENT — de tekst gaat
+    # door de deuren van de app (Opslaan, Publiceren), zoals een redacteur
+    # haar zet. `pagina.content` overschrijven toetst niets meer.
+    from app.domains.cms.api import publish, save_document
+
     pagina.is_published = True
-    db_session.commit()
+    db_session.flush()
+    save_document(
+        db_session,
+        pagina.id,
+        {
+            "type": "doc",
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [{"type": "text", "text": "Wij verwerken je gegevens zorgvuldig."}],
+                }
+            ],
+        },
+    )
+    publish(db_session, pagina.id)
 
     html = client.get("/privacy").text
     assert "Wij verwerken je gegevens zorgvuldig." in html

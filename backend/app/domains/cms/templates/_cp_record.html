@@ -1,0 +1,104 @@
+{% import "_macros.html" as ui %}
+{# The page screen as a record page of the kit (snede 3, #1671). This
+   fragment is the content of #main: the shell page (`admin_pagina.html`)
+   includes her, and a refused save swaps her back in with the reason — one
+   source for both renderings, the lesson of _cp_detail's double context.
+   The record head is her own partial (`_cp_recordkop.html`): a head partial
+   hands her actions as data and draws nothing beside her (§3.9). #}
+{% include "_cp_recordkop.html" %}
+{% if toast_opgeslagen|default(False) %}{{ ui.toast_oob() }}{% endif %}
+{{ ui.error_banner(error) }}
+{% set samenvatting %}
+  {% call ui.section(_("Status")) %}
+  <dl class="text-sm space-y-2">
+    {# The status reads the FLAG — the public route's one rule (offline
+       halen, Koen 8 October 2026, #1734) — and names what she shows. #}
+    {% if p.is_published and vertaling and vertaling.published_json %}
+    <div><dt class="text-ink-soft">{{ _("Gepubliceerd") }}</dt>
+      <dd>{% if vertaling.published_at %}{{ vertaling.published_at|short_datetime }}{% if vertaling.published_by %} · {{ vertaling.published_by }}{% endif %}{% else %}{{ _("door de migratie") }}{% endif %}</dd></div>
+    {% elif p.is_published %}
+    <div><dt class="text-ink-soft">{{ _("Gepubliceerd") }}</dt>
+      <dd>{{ _("Via haar oude tekst — de bezoeker ziet die, tot een document wordt gepubliceerd.") }}</dd></div>
+    {% elif vertaling and vertaling.published_json %}
+    <div><dt class="text-ink-soft">{{ _("Offline") }}</dt>
+      <dd>{{ _("De bezoeker ziet haar niet. Publiceren maakt haar weer zichtbaar, met dezelfde woorden.") }}</dd></div>
+    {% else %}
+    <div><dt class="text-ink-soft">{{ _("Niet gepubliceerd") }}</dt>
+      <dd>{{ _("De bezoeker ziet haar niet; opslaan en publiceren maken haar zichtbaar.") }}</dd></div>
+    {% endif %}
+    {% if wijzigend %}
+    <div><dt class="text-ink-soft">{{ _("Concept") }}</dt>
+      <dd>{{ _("Gewijzigd — publiceren maakt haar zichtbaar.") }}</dd></div>
+    {% endif %}
+  </dl>
+  {% endcall %}
+  {% call ui.section(_("Geschiedenis")) %}
+  {# The versions the author can go back to (C4.3): newest first, and
+     Terugzetten writes the chosen one into the DRAFT only (C6 6) — the
+     site keeps showing the published document until the author publishes
+     the restored draft. Not a delete, so her own confirm text (§2.12). #}
+  {% if versies %}
+  <ul class="text-sm space-y-2">
+    {% for versie in versies %}
+    <li class="flex items-center justify-between gap-2">
+      <span>{{ versie.at|short_datetime }}{% if versie.by %} · {{ versie.by }}{% endif %}</span>
+      <button type="button" class="text-blue-700 underline"
+              data-confirm="{{ _('Terugzetten naar deze versie? Het concept wordt deze versie; de openbare pagina verandert pas na publiceren.') }}"
+              hx-post="/admin/paginas/{{ p.id }}/terugzetten/{{ versie.id }}">{{ _("Terugzetten") }}</button>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-sm text-ink-soft">{{ _("Nog geen versies — publiceren schrijft de eerste.") }}</p>
+  {% endif %}
+  {% endcall %}
+  {# The value codes the author can type (#1615): the legend in WORDS, the
+     same source as the public renderer's examples. A code stays TEXT in
+     the document — the renderer replaces her, exactly as before. #}
+  {% if placeholders %}
+  {% call ui.section(_("Codes")) %}
+  <dl data-placeholders class="grid grid-cols-1 gap-y-1 text-sm">
+    {% for ph in placeholders %}
+    <div><dt class="font-mono text-xs text-blue-700">{{ ph.code }}</dt>
+      {#- #1615: a long example (the accounts with their sites) wraps inside
+          the aside and never widens the page. -#}
+      <dd class="text-ink-soft [overflow-wrap:anywhere]">{{ ph.label }} — {{ ph.preview }}</dd></div>
+    {% endfor %}
+  </dl>
+  {% endcall %}
+  {% endif %}
+{% endset %}
+{% call ui.record_columns(aside=samenvatting) %}
+<form id="cp-form" class="space-y-4" hx-post="/admin/paginas/{{ p.id }}" hx-target="#main" hx-swap="innerHTML">
+  {% call ui.section(_("Gegevens")) %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>{{ ui.label(_("Titel"), "cp-title", required=True) }}
+      {{ ui.input_control("title", id="cp-title", value=p.title, required=True, cls="w-full") }}</div>
+    <div>{{ ui.label(_("Webadres"), "cp-slug", required=True) }}
+      {{ ui.input_control("slug", id="cp-slug", value=p.slug, required=True, cls="w-full", attrs='pattern="[a-z0-9-]+"') }}</div>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+    {{ ui.switch("show_in_nav", _("In het menu"), checked=p.show_in_nav) }}
+    {{ ui.switch("show_in_footer", _("Toon in de voettekst"), checked=p.show_in_footer) }}
+    {{ ui.switch("is_home", _("Startpagina"), checked=p.is_home) }}
+  </div>
+  {% endcall %}
+  {% call ui.section(_("Inhoud")) %}
+  {# The document is the author's page (snede 3): TipTap through the macro,
+     her configuration from the set, her document as JSON. The figure's
+     dialog — the kit's picker (#1474, CR-15 §C2 cms), the alternative
+     text, the caption and the placement — travels WITH the macro, like
+     the toolbar: one place the editor exists. #}
+  {{ ui.document_editor("document", editor_config, document_json, id="cp-document") }}
+  {% endcall %}
+</form>
+{# The action bar of a record form (§3.6, #1561): the ONE save of the whole
+   screen, with her states — the question on Annuleren with changes, the
+   busy Opslaan, the reason when saving failed. Verwijderen stands here in
+   edit mode (the record screen IS edit mode for a page), like the activity
+   fiche's bar; the header's actions stay the positive ones. #}
+{{ ui.action_bar(record=True, form="cp-form", cancel_href="/admin/paginas",
+                 delete_attrs='hx-post="/admin/paginas/' ~ p.id ~ '/verwijderen"',
+                 delete_title=_('“%(naam)s” verwijderen?', naam=p.title),
+                 delete_confirm=_('“%(naam)s” definitief verwijderen?', naam=p.title)) }}
+{% endcall %}

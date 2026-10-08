@@ -353,3 +353,43 @@ def test_the_optional_mark_attributes_are_typed_too():
                     )
                 )
             )
+
+
+def test_a_lists_start_is_a_whole_number_of_one_or_more():
+    """The decision on #1699: the start the site renders is a whole number
+    of 1 or more. Red on e3f5d30b: 0 and −3 validated there."""
+    for start in (0, -3):
+        with pytest.raises(UnknownAttribute, match="orderedList.start"):
+            validate_document(
+                {
+                    "type": "doc",
+                    "content": [
+                        {
+                            "type": "orderedList",
+                            "attrs": {"start": start, "type": None},
+                            "content": [{"type": "listItem", "content": [_par("eerst")]}],
+                        }
+                    ],
+                }
+            )
+
+
+def test_the_lists_type_holds_no_value_but_the_editors_null():
+    """The decision on #1699: an attribute the editor writes, the server
+    accepts and the site ignores is a gap — `type` closes it by refusing
+    any value: the author has no control that makes one, the kit has one
+    list look, and only the null TipTap emits stays valid. Red on
+    e3f5d30b: `type="a"` validated there."""
+    with pytest.raises(UnknownAttribute, match="orderedList.type"):
+        validate_document(
+            {
+                "type": "doc",
+                "content": [
+                    {
+                        "type": "orderedList",
+                        "attrs": {"start": 1, "type": "a"},
+                        "content": [{"type": "listItem", "content": [_par("eerst")]}],
+                    }
+                ],
+            }
+        )

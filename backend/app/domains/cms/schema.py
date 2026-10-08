@@ -40,7 +40,10 @@ VALUE_CODES: tuple[str, ...] = (
 #: and shadow (C4.8). No legacy sizes (Koen, 6 October 2026: no legacy
 #: baggage): a page whose picture carries a Trix-era size keeps her HTML —
 #: her words stand in the draft, and the author places the picture anew.
-FIGURE_PLACEMENTS: tuple[str, ...] = ("left", "right", "full", "small")
+#: The order is the DIALOG's order too (schema_for zips her with the words):
+#: full first — the default and the most chosen — then the placements that
+#: set her beside the text, then the small one.
+FIGURE_PLACEMENTS: tuple[str, ...] = ("full", "left", "right", "small")
 
 #: The heading levels an author can choose: Kop, Subkop, Kleine kop — the same
 #: three as today (#1656), stored as levels 1–3. The renderer picks the TAG
@@ -71,9 +74,12 @@ NODES: dict[str, dict[str, Any]] = {
         "content": "listItem+",
         # TipTap's ordered list carries her own `start` (and a `type` the
         # editor writes as null) — the B1 test of #1699 measured the
-        # emission. The schema knows them; the renderer starts at one,
-        # exactly as the page always did.
-        "attrs": {"start": "int?", "type": "str?"},
+        # emission. The `start` is the author's own and the site renders
+        # her (Koen, option 1); a `type` the site ignores may not hold a
+        # value at all: only the null the editor emits validates
+        # (`"null?"`, the decision on #1699 — an attribute accepted and
+        # ignored is the gap this closes).
+        "attrs": {"start": "int?", "type": "null?"},
     },
     "listItem": {"content": "block+"},
     "table": {"group": "block", "content": "tableRow+"},
@@ -83,8 +89,14 @@ NODES: dict[str, dict[str, Any]] = {
         # renders bare — None in the tuple marks the attribute optional.
         "attrs": {"section": ("head", "body", None)},
     },
-    "tableHeader": {"content": "block+", "attrs": {"colspan": "int?"}},
-    "tableCell": {"content": "block+", "attrs": {"colspan": "int?"}},
+    # A merged cell is the author's own (Koen, 8 October 2026: what the
+    # editor shows and the author means, the site shows too): `colspan`
+    # and `rowspan` are content and survive the round trip. The editor's
+    # other cell attributes — column widths and alignment, chrome our
+    # toolbar never offers and the site never shows — the save adapter
+    # drops before this validation sees them.
+    "tableHeader": {"content": "block+", "attrs": {"colspan": "int?", "rowspan": "int?"}},
+    "tableCell": {"content": "block+", "attrs": {"colspan": "int?", "rowspan": "int?"}},
     "figure": {
         "group": "block",
         "attrs": {
@@ -308,7 +320,19 @@ def _validate_node(node: Any, path: str) -> None:
                     raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
             # An id is a row that exists: 0 and negatives are "no image",
             # "no form" — refused (review A3, #1699; the PR's own promise).
-            elif value is not None and attr.endswith("_id") and value <= 0:
+            # A list's `start` is her number, and a merged cell spans at
+            # least one row and one column: whole numbers of one or more
+            # (the decision on #1699 and the table's, of 8 October).
+            elif (
+                value is not None
+                and (attr.endswith("_id") or attr in ("start", "colspan", "rowspan"))
+                and value <= 0
+            ):
+                raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
+        elif allowed == "null?":
+            # Only the null the editor emits (the ordered list's `type`,
+            # #1699): a value the site ignores may not be stored.
+            if value is not None:
                 raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
         elif allowed in ("str", "str?"):
             if not isinstance(value, str):
@@ -475,8 +499,43 @@ def schema_for(set_name: str) -> dict[str, Any]:
         ]
         if "value" in BLOCK_SETS[set_name]["insert"]
         else [],
+        # The figure dialog and the editor's figure (slice 3): the placements
+        # the author chooses between — the same set the validation accepts,
+        # generated here like the toolbar — and the address every picture is
+        # served under. Media owns that shape (`media_url_prefix`, CR-15
+        # §C4.6): the editor's preview asks here, so the browser carries no
+        # URL of her own. `None` for a set without the figure block: the
+        # dialog and the figure button belong to the sets that offer her.
+        "figure": (
+            {
+                "placements": [
+                    {"id": placement, "label": label}
+                    for placement, label in zip(
+                        FIGURE_PLACEMENTS,
+                        # UI copy behind `_()` — a translator owns these
+                        # (review C, #1699), like every word the editor
+                        # shows. The words follow the PLACEMENTS' order —
+                        # a misaligned pair was measured in the browser
+                        # ("Rechts" carried the id "full").
+                        (_("Vol"), _("Links"), _("Rechts"), _("Klein")),
+                        strict=False,
+                    )
+                ],
+                "mediaUrl": _media_url_prefix(),
+            }
+            if "figure" in BLOCK_SETS[set_name]["insert"]
+            else None
+        ),
         "nodes": sorted(NODES),
     }
+
+
+def _media_url_prefix() -> str:
+    """The picture address without her id — media's facade, lazily imported
+    (media imports this facade back for `uses_by_asset`'s questions)."""
+    from app.domains.media.api import media_url_prefix
+
+    return media_url_prefix()
 
 
 def _value_of(code: str) -> str:

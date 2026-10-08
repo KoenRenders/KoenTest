@@ -1,8 +1,10 @@
 """Functionele regressietests op de kern-flows: registratie, audit-trail,
 webhook-idempotentie en de gedeelde totaalberekening."""
 
+import json
 from decimal import Decimal
 
+from app.domains.cms.api import CmsPage
 from app.domains.payment.api import PayableType, PaymentStatus
 from tests.conftest import seed_activity_with_product, seed_postal_code
 
@@ -179,15 +181,35 @@ def test_cms_placeholders_public_vs_editor(client, admin_headers, db_session):
     prijscodes meer — het tarief komt uit de betaal-api in de introband. Het
     placeholder-mechanisme zelf blijft bestaan voor redacteurs die de codes
     typen, dus de test zaait zijn eigen tekst mét code in plaats van op de
-    standaardtekst te leunen."""
+    standaardtekst te leunen.
+
+    CR-17 (#1671): de site toont het GEPUBLICEERDE DOCUMENT — de tekst gaat
+    door de deuren van de app (Opslaan, Publiceren), en de ruwe code blijft
+    TEKST in het concept, precies daar waar de redacteur haar bewerkt.
+    """
     import sqlalchemy as sa
 
-    db_session.execute(
-        sa.text("UPDATE cms.cms_pages SET content = :c WHERE slug = 'home-intro'").bindparams(
-            c="<p>Lidgeld: {{membership_price_full}} per gezin.</p>"
-        )
+    from app.domains.cms.api import draft_document, publish, save_document
+
+    intro_id = db_session.execute(
+        sa.text("SELECT id FROM cms.cms_pages WHERE slug = 'home-intro' ORDER BY id")
+    ).scalar()
+    save_document(
+        db_session,
+        intro_id,
+        {
+            "type": "doc",
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [
+                        {"type": "text", "text": "Lidgeld: {{membership_price_full}} per gezin."}
+                    ],
+                }
+            ],
+        },
     )
-    db_session.commit()
+    publish(db_session, intro_id)
 
     public = client.get("/api/v1/blocks/home-intro")
     assert public.status_code == 200
@@ -195,10 +217,9 @@ def test_cms_placeholders_public_vs_editor(client, admin_headers, db_session):
     assert "{{" not in content  # codes vervangen
     assert "€35,00" in content or "€17,50" in content
 
-    admin = client.get("/api/v1/admin/pages", headers=admin_headers)
-    assert admin.status_code == 200
-    home = next(p for p in admin.json() if p["slug"] == "home-intro")
-    assert "{{membership_price_full}}" in home["content"]  # ruwe code blijft
+    # De redacteur bewerkt het CONCEPT: de code staat er nog, ruw.
+    draft = draft_document(db_session, db_session.get(CmsPage, intro_id))
+    assert "{{membership_price_full}}" in json.dumps(draft), "de ruwe code is niet bewerkbaar"
 
 
 def test_admin_creates_paid_activity_and_public_registration(client, db_session, admin_headers):

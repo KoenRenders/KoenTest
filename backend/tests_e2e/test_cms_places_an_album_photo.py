@@ -1,13 +1,18 @@
 """E2E: the CMS page places an album photo from the kit's picker (CR-15 C6 test 2, #1474).
 
-In a browser, on a CMS page: open "Afbeelding", find an album photo of the Sint
-in the picker by searching for it, choose it — the alt is its title — insert,
-save. Measured:
+In a browser, on a CMS page: open the insert menu, choose "Afbeelding", find
+an album photo of the Sint in the picker by searching for it, choose it — the
+alt starts at its title — pick the placement, insert, save, publish. Measured:
 
 - the number of media rows before and after: equal (a reference, no copy);
-- the page shows the photo, and it loads (`naturalWidth`);
+- the figure lands in the editor's document with her media id and placement;
+- the preview shows the photo, and she loads (`naturalWidth`);
 - the dialog at 1 440 and 390 px: its panel fits the viewport, the picker's
   thumbnails show, and nothing in the dialog sticks out.
+
+Snede 3 (#1671): the dialog travels with the `ui.document_editor` macro —
+the kit's picker inside the figure dialog, the alt required, the caption
+and the placement from the set's configuration.
 
 Screenshots go outside the repo.
 """
@@ -23,12 +28,20 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, Paginascherm, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    Paginascherm,
+    htmx_afgerond,
+    login_met_sessie,
+    pagina_klaar,
+)
 
 SHOTS = "/scratch/shots_1474"
 
+PICKER = "#mp-cp-document-figuur"
+
 _DIALOG = """() => {
-  const box = document.querySelector('#mp-cp-beeld');
+  const box = document.querySelector('#mp-cp-document-figuur');
   const paneel = box.closest('[role=dialog] > div');
   const r = e => { const b = e.getBoundingClientRect(); return {x: Math.round(b.x), right: Math.round(b.right), y: Math.round(b.y), w: Math.round(b.width)}; };
   const duim = box.querySelector('button[data-url]');
@@ -103,19 +116,22 @@ def _open_dialog(browser_and_photo, width: int):
     scherm = Paginascherm(page).open_eerste()
     if scherm is None:
         pytest.fail("e2e-seed geladen maar: geen cms-pagina")
-    page.get_by_role("button", name="Afbeelding").first.click()
+    # The insert menu's figure item opens the dialog (B4: the toolbar's
+    # buttons come from the configuration; the dialog is the macro's).
+    page.locator("#cp-document details summary").click()
+    page.locator("#cp-document details button", has_text="Afbeelding").click()
     dialoog = page.get_by_role("dialog")
     expect(dialoog).to_be_visible()
     # The picker loads when the dialog opens; type only once htmx has taken it
     # in — typed sooner, the input event fires before anything listens.
-    dialoog.locator("#mp-cp-beeld button[data-url]").first.wait_for()
+    dialoog.locator(f"{PICKER} button[data-url]").first.wait_for()
     pagina_klaar(page)
-    dialoog.locator("#mp-cp-beeld input[name=q]").fill(title)
+    dialoog.locator(f"{PICKER} input[name=q]").fill(title)
     keuze = dialoog.locator(f"button[data-id='{photo_id}']")
     keuze.wait_for()
     # The search ran: only the album photo is left (a failed search kept the
     # whole list, the photo included).
-    expect(dialoog.locator("#mp-cp-beeld button[data-url]")).to_have_count(1)
+    expect(dialoog.locator(f"{PICKER} button[data-url]")).to_have_count(1)
     pagina_klaar(page)
     return page, scherm, dialoog, keuze
 
@@ -133,16 +149,30 @@ def test_an_album_photo_is_placed_as_a_reference(browser_and_photo):
     before = _media_rows()
 
     keuze.click()
-    assert dialoog.locator("#cp-alt").input_value() == title, (
+    assert dialoog.locator("#cp-document-fig-alt").input_value() == title, (
         "the alt starts at the picture's title"
     )
-    expect(dialoog.locator("img[data-cp-gekozen]")).to_be_visible()
+    dialoog.get_by_role("button", name="Rechts").click()
     dialoog.get_by_role("button", name="Invoegen").click()
-    assert f"/api/v1/media/{photo_id}" in scherm.editorinhoud()
+    # The figure lands in the document the server will receive: her media id
+    # and the placement the author chose.
+    document = scherm.editorinhoud()
+    assert f'"media_id":{photo_id}' in document.replace(" ", ""), (
+        "the figure's media id is not in the document"
+    )
+    assert '"placement":"right"' in document.replace(" ", ""), (
+        "the chosen placement is not in the document"
+    )
     scherm.opslaan()
+    # Publishing makes her live — the record head's primary, with the
+    # 204-and-redirect the whole screen speaks.
+    page_id = re.search(r"/admin/paginas/(\d+)", page.url).group(1)
+    pagina_klaar(page)
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Publiceren").first.click()
+    pagina_klaar(page)
     after = _media_rows()
 
-    page_id = re.search(r"/admin/paginas/(\d+)", page.url).group(1)
     page.goto(f"/admin/paginas/{page_id}/voorbeeld")
     beeld = page.locator(f"img[src='/api/v1/media/{photo_id}']")
     expect(beeld).to_have_count(1)
