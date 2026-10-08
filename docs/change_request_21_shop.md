@@ -141,7 +141,7 @@ Step 8 has no place in the drawing: it is not part of a sale.
 | Role and screen: prices | Prijsbeheer |
 | Role and screen: orders, delivery, fitting, exchanges | Verkoop |
 | Role and screen: stock | Voorraadbeheer |
-| Delivery status of an order, for the buyer | **Klaar om af te halen** (nothing delivered yet) · **Deels afgeleverd** · **Afgeleverd** · **Geannuleerd** |
+| Delivery status of an order, for the buyer | **Klaar om af te halen** (nothing delivered yet) · **Deels afgeleverd** · **Afgeleverd** — a cancelled order leaves the lists (Q65) |
 | Payment status of an order | Te betalen · Betaald · Terugbetaald — the payment domain's words, as on registrations |
 
 ## A4. Benefits — what the change earns
@@ -324,7 +324,7 @@ Four new domains, one per role that keeps them: **`product`** (the catalogue —
 | F2 | A tenant has one default location; an order reserves there. More locations hold stock; moving stock between them is out of scope and not decided (Q54). | R7, R13 |
 | F3 | The price of a line: the variant's price valid on the order date, else the product's; the member price when the buyer has a valid membership (`has_valid_membership`) and the article has one. | R6, R11 |
 | F4 | A line keeps variant, quantity, unit (C62) and unit price; the order total is computed while the lines are made, never from the relationship after a flush. | R16, B3a |
-| F5 | The delivery status is derived from the lines: none delivered → Klaar om af te halen; some → Deels afgeleverd; all → Afgeleverd; a cancelled order → Geannuleerd. | R34 |
+| F5 | The delivery status is derived from the lines: none delivered → Klaar om af te halen; some → Deels afgeleverd; all → Afgeleverd; a cancelled order is soft-deleted and leaves the lists (Q61, Q65). | R34 |
 | F6 | Delivering a line is one transaction: the line is delivered, a movement GOODS_ISSUE takes its quantity, its reservation closes. | R21 |
 | F7 | A change replaces lines; reservations follow; `SalesOrderChanged` lets `payment` recalculate. A partial delivery is a change that splits the line first. | R15, R16, Q30 |
 | F8 | Cancelling takes the whole order and is possible while no line is delivered: reservations cancel, open tasks close, a paid order gets its refund through the same recalculation. | R22, R23, R25 |
@@ -717,6 +717,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 | 7 Oct 2026 | "How recent the information is" is Boekhouding's answer on the order itself, with its date, shown on Verkoop's task; no tenant-wide "account last checked", no button (Q47). | Koen |
 | 7 Oct 2026 | Every workbench task is the last phase (4); until then Verkoop follows open orders in its list of orders filtered on "Te betalen" and cancels from the order page; Boekhouding confirms transfers on the payments screen (Q50). Koen asked "Zouden we alles met betrekking tot werkbank-taken als een laatste fase in CR21 kunnen zetten?"; to "volstaat tot fase 4 een lijst van bestellingen met filter 'Te betalen' voor Verkoop?" he answered "ja". | Koen |
 | 7 Oct 2026 | Phases 1–4 are built by `opencode1` on an integration branch `cr21/webshop`, one pull request per slice, only inside the four new domains and new migrations, refused by a path check otherwise; the branch goes to `master` after Koen's approval on its local test version (`AGENTS.md`, *A builder outside the Claude series*). Asked whether phase 0 goes to a Claude dev CLI and phases 1–4 to `opencode1` with the path check, Koen answered: "wat is fase 0? Voor de rest akkoord." Phase 0, explained to him as the six seams in existing code a Claude dev CLI opens first, answered "akkoord" (Q52). | Koen |
+| 8 Oct 2026 | Cancelling an order: one behaviour, the soft delete of a registration (Q61); the words follow who clicks — the buyer sees "Bestelling annuleren", Verkoop sees "Verwijderen" as for a registration. No status "Geannuleerd": the order leaves the lists as a deleted registration does; the payment and any refund stay visible under Betalingen (Q65). Koen: "akkoord met 1 en 2". A member cancelling his own registration is a separate issue, for v2.16 (Koen: "ja, dat issue mag als apart issue, ook mee te nemen in v2.16"). | Koen |
 | 8 Oct 2026 | The module SHOP depends on PAYMENT and MEDIA: it can be switched on only when both are on (#1743 A14, Q59). Koen: "akkoord". | Koen |
 | 8 Oct 2026 | A guest who pays online returns to a thank-you page of the shop's own ("Bedankt, je bestelling 1042 is betaald"); otherwise a guest gets only the mail, without a sign-in link, as CR-22 decides (#1743 A11, Q60). Koen: "akkoord". | Koen |
 | 8 Oct 2026 | Cancelling an order works as deleting a registration: a soft delete of the order and its lines, the total reconciled to zero in the same transaction (a paid amount becomes a refund due, an unpaid charge disappears), the reservations released; the payment record stays visible. A return after delivery is the same, with the stock corrected by hand (#1743 A7, Q61). Koen, to the proposal "never deleted, cancelling is a status": "dit is anders dan inschrijvingen, daar kan je wel verwijderen, volgens mij is dat een soft delete" — measured: `activities/service.py:2427-2466`, `delete_registration`. | Koen |
@@ -1081,6 +1082,7 @@ Made on 8 October 2026 and shown to Koen in the chat, at 390 px, rendered from t
 | Q61 | 8 Oct 2026 | Is an order never deleted — cancelling a status with date and who? (Claude) | "dit is anders dan inschrijvingen, daar kan je wel verwijderen, volgens mij is dat een soft delete" — so: as a registration, a soft delete with the total reconciled to zero. (Koen; measured by Claude) |
 | Q62 | 8 Oct 2026 | Who sees an order: the person and his household, as for registrations? | "akkoord" (Koen) |
 | Q63 | 8 Oct 2026 | Against anonymous orders that hold stock: a rate limit and a maximum per article per order? | "akkoord, idem zoals bij inschrijven" (Koen) |
+| Q65 | 8 Oct 2026 | Cancel on both sides? (Koen) Proposed: one behaviour (the soft delete), the buyer's word "Bestelling annuleren", Verkoop's "Verwijderen"; no status "Geannuleerd"; a member cancelling a registration as a separate issue. | "akkoord met 1 en 2, en ja, dat issue mag als apart issue, ook mee te nemen in v2.16" (Koen) |
 
 ## Non-goals — deliberately outside this change
 
