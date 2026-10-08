@@ -1,7 +1,7 @@
 # Change Request 21 — Webshop: products, stock and pricing
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** being shaped since 6 October 2026 · Parts A, B and C written; C8 (the rule against the suite) and C9 (concepts) still to run; not yet read against the code · nothing is built; not on a release
+**Status:** being shaped since 6 October 2026 · Parts A, B and C written; C8 run (8 October 2026), C9 concepts made (8 October 2026); not yet read against the code · nothing is built; not on a release
 **Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** to be filled in once Part B is shaped
 **Reading:** A 4 333 words · B 4 014 (the decisions log excluded) · C 3 181 — measured on 8 October 2026 without drawings and notes; the budget is A ≤ 1 500  B ≤ 2 500: **over budget, accepted by Koen (Q53)** — A6 carries 38 requirements in the business's words with their sources  B2 the traceability of all of them and a walkthrough of 21 steps; cutting them would cut what the build read and Koen's validation need
@@ -677,6 +677,7 @@ Besides: the build read before assignment, review per phase, Koen's HDEV validat
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
+| Q55 | The module gate refuses a module whose routes do not exist yet (C8), so the module's registry entry and its menu line must come with the routes of phase 1–2 — in `kernel/modules.py` and the admin layout, existing files outside `opencode1`'s paths. How? (a) the path check allows `opencode1` exactly those two files, for lines that name the shop only, each such change read by the Claude reviewer; (b) a Claude dev CLI adds the entry by a commit on `cr21/webshop` when the routes are there; (c) the shop's routes, menu and module entry are all built by Claude, `opencode1` builds only the domains' insides. | (a): one named exception to the path check, small and visible; the module and its routes arrive in one pull request, as the gate demands. | (b) keeps `opencode1` fully isolated but needs a Claude step inside each phase; (c) leaves `opencode1` little to evaluate. |
 
 ## B9. Decisions log — dated answers
 
@@ -966,7 +967,23 @@ Two gates.
 > *measurements, refusals, things that did not work, the sizes and times*
 > *that decided a choice in B1.*
 
-No prototype yet. **The rule against the existing suite**: phase 0 adds `ORDER` and changes the module defaults; the tests of C1 that assert two payable types and the module set go red by design and are updated in the same commit. To be run once on a throwaway branch before the build read of CR-21, listing every red test here.
+**Run on 8 October 2026** (Q55), against master `fc2798d8`, on a local Postgres 16: the full suite (5 580 tests) once as it stands, once with phase 0's changes applied as a throwaway patch — `ModuleCode.SHOP` with its registry entry, `DEFAULTS["VERENIGING"]` without SHOP, PAYMENT's dependency widened, `PayableType.ORDER` with its code row, the two media kinds with their rows. Not in the patch: the describers (a restructuring proven by T16) and the workflow seam of phase 4.
+
+- **Baseline:** 5 565 passed, 14 skipped, 1 failed — `test_designstudio_service.py::test_at_most_three_versions_and_the_published_one_survives`, because Inkscape is not installed in the measuring container; not this change's.
+- **Patched:** 5 557 passed, 9 failed: the one above and **eight new**.
+
+| Red test | Why | Verdict |
+|---|---|---|
+| `tests/integration/test_tenant_kind_and_modules.py::test_a_new_tenant_starts_with_its_kinds_modules_and_two_site_blocks` [VERENIGING], [None] | a new association no longer starts with every module | by design (Q49): the expected set leaves SHOP out |
+| `tests/integration/test_tenant_kind_and_modules.py::test_a_dependency_is_refused_before_anything_changes` | the refusal now reads "Betalingen heeft Activiteiten of Leden of Webshop nodig." | by design: the message follows the dependency |
+| `app/domains/mdm/tests/test_tenant_modules.py::test_every_unit_is_seeded_full_and_the_platform_with_its_own_set`, `::test_the_defaults_per_kind_and_a_new_tenant` | existing and new units are no longer "full" | by design (Q49): "full" becomes every module but SHOP |
+| `tests/test_module_gate.py::test_every_registry_entry_is_real` | "shop: guards no router · no guarded route under /webshop, /admin/producten, … · menu item /admin/verkoop is no route" | **a finding**: the module gate refuses a module whose routes and menu items do not exist |
+| `tests/test_module_gate.py::test_every_counted_table_exists_and_belongs_to_a_tenant` | "shop: counts nothing and is not in UNCOUNTED" | **a finding**: the module names its tables, which exist only from phase 1 |
+| `app/domains/mdm/tests/test_nav_per_request.py::test_every_registry_admin_item_stands_in_the_layout_once_by_href_only` | `/admin/verkoop` stands in the admin layout 0× | **a finding**: a menu item of the registry must also stand in the layout |
+
+**What follows.** The module's registry entry — its routes, menu items and counted tables — can only land **together with the routes it names**, so it cannot be part of phase 0 as written: phase 0 keeps the code `ModuleCode.SHOP`, the defaults and the dependency only if the gate accepts a module without routes, which it does not. The entry and the layout's menu line move into the phase that builds the routes, and both live in existing files (`kernel/modules.py`, the admin layout) outside `opencode1`'s paths — an open decision (Q55, B8). Not red, and still to be built: the CHECK on `mdm.tenant_modules` lives only in migration 187 and the test database is built from the models, so no test sees it — phase 0's migration must widen it and a test must prove it. `PayableType.ORDER` and the media kinds turned nothing red: the payable delete gate reads the types from the code (no change needed to its list after all — B4's first row to be re-read at the build).
+
+
 
 ## C9. Screens before the build — the concepts the approver saw
 
