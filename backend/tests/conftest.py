@@ -75,6 +75,12 @@ def _migrate_schema():
             "meetings",
             "newsletter",
             "designstudio",
+            # CR-21 (the webshop, #1748): its four schemas, before the first
+            # migration creates one — a schema left out here survives the reset.
+            "product",
+            "pricing",
+            "stock",
+            "sales",
             "public",
         ):
             conn.exec_driver_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
