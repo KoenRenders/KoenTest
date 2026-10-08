@@ -45,6 +45,7 @@ from app.domains.mdm.api import ContactDetail, MemberPerson, Person
 from app.domains.mdm.models import ContactDetailHistory, MemberPersonHistory, PersonHistory
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
+    board_at_the_household,
     create_test_family,
     create_test_person,
     seed_activity_with_product,
@@ -323,15 +324,12 @@ def test_the_main_member_is_refused_on_the_household_record_route(client, db_ses
 
 
 def test_the_main_member_is_refused_on_the_json_route(client, db_session, world, admin_headers):
-    answer = client.delete(f"/api/v1/persons/{world['main']}", headers=admin_headers)
+    answer = board_at_the_household(client, "delete_person", world["main"])
     assert answer.status_code == 400, answer.text
     assert answer.json()["detail"] == "Een gezin heeft een hoofdlid nodig."
     _main_member_stays(db_session, world)
     # The same route still deletes a partner, through the same rule.
-    assert (
-        client.delete(f"/api/v1/persons/{world['partner']}", headers=admin_headers).status_code
-        == 204
-    )
+    assert board_at_the_household(client, "delete_person", world["partner"]).status_code == 204
     db_session.expire_all()
     assert db_session.query(Person).filter(Person.id == world["partner"]).first() is None
     assert (

@@ -44,7 +44,7 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.mdm.api import Address, ContactDetail, Member, MemberPerson, Person, PostalCode
 from app.domains.membership.api import Membership
 from tests._snapshot import compare, main_region, normalise
-from tests.conftest import household_fields
+from tests.conftest import household_at_the_portal, household_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -279,7 +279,7 @@ def test_the_json_answers(client, db_session, household):
 
     headers = {"Authorization": f"Bearer {create_access_token({'sub': MAIN_EMAIL})}"}
     answers = [
-        _json(client.get("/api/v1/member/household", headers=headers)),
+        _json(household_at_the_portal(client, MAIN_EMAIL)),
         _json(
             client.put(
                 f"/api/v1/member/household/persons/{CHILD_ID}",
@@ -359,7 +359,6 @@ def test_the_household_is_in_its_own_order(client, db_session):
     list(member.member_persons)` added after the sort in `get_household` → this
     test fails with the partner first.
     """
-    from app.domains.auth.api import create_access_token
     from app.domains.mdm.models import HOUSEHOLD_MEMBER_DETAILS
     from app.kernel.rules import exempt
 
@@ -394,11 +393,8 @@ def test_the_household_is_in_its_own_order(client, db_session):
             )
     db_session.commit()
 
-    headers = {
-        "Authorization": f"Bearer {create_access_token({'sub': 'volgorde-hoofd@example.com'})}"
-    }
     for _ in range(3):
-        answer = client.get("/api/v1/member/household", headers=headers)
+        answer = household_at_the_portal(client, "volgorde-hoofd@example.com")
         assert answer.status_code == 200, answer.text
         assert [p["first_name"] for p in answer.json()["persons"]] == [
             "Hoofd",

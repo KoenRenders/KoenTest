@@ -10,7 +10,9 @@ from app.domains.activities import service as activities_service
 from app.domains.activities.api import Activity, Registration
 from app.domains.auth.api import User
 from app.domains.mdm.api import Member
+from app.domains.membership import household_service
 from app.domains.membership.api import Membership
+from app.domains.membership.schemas_member import MembershipCreate
 from app.domains.payment.api import PayableType, PaymentRecord
 from tests import backoffice_door, payments_door
 from tests.conftest import (
@@ -18,6 +20,7 @@ from tests.conftest import (
     register_at_the_door,
     seed_activity_with_product,
     seed_postal_code,
+    seeded_admin,
     sign_up_at_the_door,
 )
 
@@ -52,7 +55,7 @@ def _create_family(client, db, email="lid@example.com"):
 def test_soft_deleted_family_hidden_but_retained(client, db_session, admin_headers):
     member = _create_family(client, db_session)
     mid = member.id
-    assert client.delete(f"/api/v1/families/{mid}", headers=admin_headers).status_code == 204
+    household_service.delete_family(db_session, mid, admin=seeded_admin(db_session))
 
     # Verborgen voor gewone reads (member + bijhorende rijen).
     assert db_session.query(Member).filter(Member.id == mid).first() is None
@@ -77,16 +80,15 @@ def test_soft_deleted_family_hidden_but_retained(client, db_session, admin_heade
 
 def test_family_list_excludes_soft_deleted(client, db_session, admin_headers):
     member = _create_family(client, db_session)
-    client.delete(f"/api/v1/families/{member.id}", headers=admin_headers)
-    listing = client.get("/api/v1/families", headers=admin_headers)
-    assert listing.status_code == 200, listing.text
-    ids = [f["id"] for f in listing.json()["items"]]
+    household_service.delete_family(db_session, member.id, admin=seeded_admin(db_session))
+    listing = household_service.list_families(db_session, _admin=seeded_admin(db_session))
+    ids = [family.id for family in listing.items]
     assert member.id not in ids
 
 
 def test_reregister_same_email_after_soft_delete(client, db_session, admin_headers):
     member = _create_family(client, db_session, email="x@example.com")
-    assert client.delete(f"/api/v1/families/{member.id}", headers=admin_headers).status_code == 204
+    household_service.delete_family(db_session, member.id, admin=seeded_admin(db_session))
     # Opnieuw inschrijven met hetzelfde e-mail/jaar mag: de dedup ziet de
     # soft-deleted niet en de partiële uniciteit blokkeert niet.
     r2 = sign_up_at_the_door(client, json=_payload("x@example.com"))
@@ -99,17 +101,17 @@ def test_recreate_membership_for_same_member_year_after_soft_delete(
     member = _create_family(client, db_session)
     ms = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     year = ms.year
-    assert client.delete(f"/api/v1/memberships/{ms.id}", headers=admin_headers).status_code == 204
+    household_service.delete_membership(db_session, ms.id, admin=seeded_admin(db_session))
     # Nieuw lidmaatschap voor hetzelfde gezin+jaar mag (partiële uniciteit).
-    r = client.post(
-        f"/api/v1/families/{member.id}/memberships", json={"year": year}, headers=admin_headers
+    again = household_service.create_membership_for_family(
+        db_session, member.id, MembershipCreate(year=year), admin=seeded_admin(db_session)
     )
-    assert r.status_code in (200, 201), r.text
+    assert again.year == year and again.id != ms.id
 
 
 def test_soft_delete_still_recorded_in_member_changes(client, db_session, admin_headers):
     member = _create_family(client, db_session)
-    client.delete(f"/api/v1/families/{member.id}", headers=admin_headers)
+    household_service.delete_family(db_session, member.id, admin=seeded_admin(db_session))
     changes = backoffice_door.member_changes(client, date.today().isoformat()).json()
     assert any(c["operation_label"] == "Verwijderd" for c in changes)
 

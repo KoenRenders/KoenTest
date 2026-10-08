@@ -150,13 +150,13 @@ def test_member_token_forbidden_on_admin_endpoint(client, db_session):
     assert resp.status_code == 403
 
 
-def test_member_token_can_access_household(client, db_session):
+def test_member_token_reaches_the_members_own_endpoint(client, db_session):
     _seed_member(client, db_session, "lid@example.com")
     client.post("/api/v1/auth/request-login", json={"email": "lid@example.com"})
     magic = _latest_token(db_session, "lid@example.com").token
     token = client.get("/api/v1/auth/verify-login", params={"token": magic}).json()["access_token"]
 
-    resp = client.get("/api/v1/member/household", headers={"Authorization": f"Bearer {token}"})
+    resp = client.get("/api/v1/auth/member/me", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200, resp.text
 
 

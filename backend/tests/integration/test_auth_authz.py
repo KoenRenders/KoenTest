@@ -66,7 +66,9 @@ def test_tampered_token_is_rejected(client):
 
 
 def test_missing_token_on_protected_endpoint(client):
-    resp = client.get("/api/v1/member/household")
+    # The member's own JSON endpoint; the household view that stood here lost its
+    # route with CR-13 phase 4b (#1251).
+    resp = client.get("/api/v1/auth/member/me")
     assert resp.status_code == 401
 
 

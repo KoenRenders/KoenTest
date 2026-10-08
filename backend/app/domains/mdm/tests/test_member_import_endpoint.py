@@ -1,18 +1,23 @@
-"""Tests voor de admin-upload-endpoints van het ledenrapport (#170).
+"""The two steps of the member report's upload (#170): a preview that writes
+nothing and hands out a token, and a commit that takes the token once.
 
-De parsing zelf wordt voor de happy-path gemonkeypatcht (geen .xls nodig); de
-foutpaden (ongeldig bestand, .xlsx) gebruiken de echte parser. De upsert-logica
-is uitvoerig getest in test_member_import_upsert.py.
+Asked at the facade the import screen calls (`mdm.api.import_preview`,
+`import_commit`); the JSON routes that passed the same calls on had no caller
+and are gone (CR-13 phase 4b, #1251). The parsing itself is replaced for the
+happy path (no .xls needed); the failure paths (an invalid file, .xlsx) use the
+real parser. The upsert is tested in test_member_import_upsert.py.
 """
 
+import asyncio
+import io
+
 import pytest
+from fastapi import HTTPException
+from starlette.datastructures import UploadFile
 
 import app.domains.mdm.import_router as mi
-from app.domains.mdm.api import Member
-from tests.conftest import seed_postal_code
-
-PREVIEW = "/api/v1/admin/member-import/preview"
-COMMIT = "/api/v1/admin/member-import/commit"
+from app.domains.mdm.api import Member, import_commit, import_preview
+from tests.conftest import seed_postal_code, seeded_admin
 
 
 @pytest.fixture(autouse=True)
@@ -49,83 +54,85 @@ def _fake_parse(families):
     return _inner
 
 
-def _upload(client, headers, *, name="ledenrapport.xls", content=b"binary"):
-    return client.post(
-        PREVIEW,
-        files={"file": (name, content, "application/vnd.ms-excel")},
-        headers=headers,
+def _upload(db, *, name="ledenrapport.xls", content=b"binary") -> dict:
+    file = UploadFile(io.BytesIO(content), filename=name)
+    return asyncio.run(import_preview(db, file, admin=seeded_admin(db)))
+
+
+def _commit(db, token: str) -> dict:
+    return import_commit(db, token, admin=seeded_admin(db))
+
+
+def _refusal(call) -> int:
+    with pytest.raises(HTTPException) as refused:
+        call()
+    return refused.value.status_code
+
+
+def test_the_import_screen_asks_a_session(client, db_session):
+    """Without a session neither step of the import screen does anything. The two
+    JSON routes each refused a visitor; the screen's routes are what is left."""
+    client.cookies.clear()
+    preview = client.post(
+        "/admin/leden-import/preview",
+        files={"file": ("ledenrapport.xls", b"binary", "application/vnd.ms-excel")},
+        follow_redirects=False,
     )
+    commit = client.post("/admin/leden-import/commit", data={"token": "x"}, follow_redirects=False)
+    assert preview.status_code in (303, 403) and commit.status_code in (303, 403)
+    assert mi._PENDING == {} and db_session.query(Member).count() == 0
 
 
-def test_preview_requires_admin(client):
-    r = _upload(client, {})
-    assert r.status_code in (401, 403)
-
-
-def test_commit_requires_admin(client):
-    r = client.post(COMMIT, json={"token": "x"})
-    assert r.status_code in (401, 403)
-
-
-def test_preview_then_commit_applies(client, db_session, admin_headers, monkeypatch):
+def test_preview_then_commit_applies(db_session, monkeypatch):
     seed_postal_code(db_session)
     families = [[_row("100", "Jan", "Janssens", email="jan@example.com")]]
     monkeypatch.setattr(mi, "parse_families", _fake_parse(families))
 
-    r = _upload(client, admin_headers)
-    assert r.status_code == 200, r.text
-    body = r.json()
+    body = _upload(db_session)
     assert body["report"]["new_families"] == 1
     assert body["selected_families"] == 1
     token = body["token"]
     # Dry-run: nog niets weggeschreven.
     assert db_session.query(Member).count() == 0
 
-    r2 = client.post(COMMIT, json={"token": token}, headers=admin_headers)
-    assert r2.status_code == 200, r2.text
-    assert r2.json()["report"]["new_families"] == 1
+    assert _commit(db_session, token)["report"]["new_families"] == 1
     assert db_session.query(Member).count() == 1
 
 
-def test_commit_unknown_token_404(client, admin_headers):
-    r = client.post(COMMIT, json={"token": "bestaat-niet"}, headers=admin_headers)
-    assert r.status_code == 404
+def test_commit_unknown_token_404(db_session):
+    assert _refusal(lambda: _commit(db_session, "bestaat-niet")) == 404
 
 
-def test_commit_expired_token_410(client, db_session, admin_headers, monkeypatch):
+def test_commit_expired_token_410(db_session, monkeypatch):
     families = [[_row("100", "Jan", "Janssens")]]
     monkeypatch.setattr(mi, "parse_families", _fake_parse(families))
     seed_postal_code(db_session)
 
-    token = _upload(client, admin_headers).json()["token"]
+    token = _upload(db_session)["token"]
     # Forceer verloop: zet de aanmaaktijd ver in het verleden.
     mi._PENDING[token]["created_at"] -= mi._TTL_SECONDS + 1
 
-    r = client.post(COMMIT, json={"token": token}, headers=admin_headers)
-    assert r.status_code == 410
+    assert _refusal(lambda: _commit(db_session, token)) == 410
 
 
-def test_token_single_use(client, db_session, admin_headers, monkeypatch):
+def test_token_single_use(db_session, monkeypatch):
     families = [[_row("100", "Jan", "Janssens")]]
     monkeypatch.setattr(mi, "parse_families", _fake_parse(families))
     seed_postal_code(db_session)
 
-    token = _upload(client, admin_headers).json()["token"]
-    assert client.post(COMMIT, json={"token": token}, headers=admin_headers).status_code == 200
+    token = _upload(db_session)["token"]
+    assert _commit(db_session, token)["report"]["new_families"] == 1
     # Tweede keer: token is verbruikt.
-    assert client.post(COMMIT, json={"token": token}, headers=admin_headers).status_code == 404
+    assert _refusal(lambda: _commit(db_session, token)) == 404
 
 
-def test_preview_invalid_file_400(client, admin_headers):
-    r = _upload(client, admin_headers, content=b"dit is geen excel")
-    assert r.status_code == 400
+def test_preview_invalid_file_400(db_session):
+    assert _refusal(lambda: _upload(db_session, content=b"dit is geen excel")) == 400
 
 
-def test_preview_xlsx_rejected(client, admin_headers):
-    r = _upload(client, admin_headers, name="ledenrapport.xlsx")
-    assert r.status_code == 400
+def test_preview_xlsx_rejected(db_session):
+    assert _refusal(lambda: _upload(db_session, name="ledenrapport.xlsx")) == 400
 
 
-def test_preview_empty_file_400(client, admin_headers):
-    r = _upload(client, admin_headers, content=b"")
-    assert r.status_code == 400
+def test_preview_empty_file_400(db_session):
+    assert _refusal(lambda: _upload(db_session, content=b"")) == 400

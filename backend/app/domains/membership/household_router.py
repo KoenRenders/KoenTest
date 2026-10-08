@@ -18,11 +18,9 @@ De member_id wordt server-side afgeleid uit het JWT, nooit uit de request.
 import logging
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.database import get_db
-from app.domains.auth.api import require_member
 from app.domains.mdm.api import (
     CONTACT,
     Member,
@@ -37,7 +35,8 @@ from app.i18n import _
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["member-self"])
+# No router since CR-13 phase 4b (#1251): the JSON routes of this file are gone, none had a
+# caller. What is left are the functions the facade calls (`api.py`); phase 4c moves them.
 
 
 def _member_for(person, db: Session) -> Member:
@@ -46,10 +45,9 @@ def _member_for(person, db: Session) -> Member:
         return household_of(db, person)
 
 
-@router.post("/member/household/renew-membership")
-def renew_membership(
-    person=Depends(require_member), db: Session = Depends(get_db), payment_method: str = "online"
-):
+# No route of its own since CR-13 phase 4b (#1251): no caller. The facade (`api.py`) calls this
+# function for the screen; it stays in this file until phase 4c moves it.
+def renew_membership(*, person, db: Session, payment_method: str = "online") -> dict:
     """Activeer/vernieuw het lidmaatschap van het eigen gezin via een online
     betaling (#113). Maakt géén nieuw gezin: het bestaande Member-record wordt
     hergebruikt. Een nieuw (nog niet-actief) Membership wordt aangemaakt; de
@@ -196,8 +194,9 @@ def renew_membership(
     }
 
 
-@router.get("/member/household")
-def get_household(person=Depends(require_member), db: Session = Depends(get_db)):
+# No route of its own since CR-13 phase 4b (#1251): no caller. The facade (`api.py`) calls this
+# function for the screen; it stays in this file until phase 4c moves it.
+def get_household(*, person, db: Session) -> dict:
     member = _member_for(person, db)
     # One order for the JSON and the portal page (Koen, 29 September 2026): the
     # household's own, not the order the database happens to return the rows in.
@@ -241,9 +240,7 @@ def _actor_van(person) -> str | None:
     )
 
 
-def household_add_email(
-    person_id: int, data: dict, person=Depends(require_member), db: Session = Depends(get_db)
-):
+def household_add_email(person_id: int, data: dict, *, person, db: Session):
     from app.domains.mdm.api import add_email_address
 
     _household_target(person, person_id, db)
@@ -254,9 +251,7 @@ def household_add_email(
     return {"ok": True}
 
 
-def household_apply_email_rows(
-    person_id: int, formulier, person=Depends(require_member), db: Session = Depends(get_db)
-):
+def household_apply_email_rows(person_id: int, formulier, *, person, db: Session):
     """De e-mailrijen uit het portaalformulier toepassen (#1219).
 
     Dezelfde gezinsgrens als elke andere portaalbewerking: zonder
@@ -270,9 +265,7 @@ def household_apply_email_rows(
     return {"ok": True}
 
 
-def household_make_email_primary(
-    person_id: int, contact_id: int, person=Depends(require_member), db: Session = Depends(get_db)
-):
+def household_make_email_primary(person_id: int, contact_id: int, *, person, db: Session):
     from app.domains.mdm.api import make_email_primary
 
     _household_target(person, person_id, db)
@@ -280,9 +273,7 @@ def household_make_email_primary(
     return {"ok": True}
 
 
-def household_remove_email(
-    person_id: int, contact_id: int, person=Depends(require_member), db: Session = Depends(get_db)
-):
+def household_remove_email(person_id: int, contact_id: int, *, person, db: Session):
     from app.domains.mdm.api import remove_email_address
 
     _household_target(person, person_id, db)

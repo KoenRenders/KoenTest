@@ -416,6 +416,15 @@ def create_test_member(db, **kwargs):
     return member
 
 
+def seeded_admin(db):
+    """The administrator migration 014 seeds, as the `User` a service function
+    takes for its audit rows — what `get_current_admin` handed the JSON routes
+    until CR-13 phase 4b removed them (#1251)."""
+    from app.domains.auth.api import User
+
+    return db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).one()
+
+
 def create_test_family(db, *, email="hoofdlid@example.com", relation_type="HOOFDLID", mobile=None):
     """Eén gezin met één persoon (als hoofdlid) en een EMAIL-contact.
 
@@ -815,6 +824,75 @@ def register_at_the_door(client, activity_id: int, json: dict, *, member_email: 
         return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
     body = RegistrationResponse.model_validate(result).model_dump(mode="json")
     return DoorAnswer(200, body)
+
+
+def board_at_the_household(client, action: str, target_id: int, json: dict | None = None):
+    """A change the board makes on the members screen, asked of the service function
+    that screen calls (`membership.household_service`) and answered as the JSON
+    route answered it — those routes had no caller (CR-13 phase 4b, #1251).
+
+    `action`: "update_person", "update_person_contacts" (both with `json`, read by
+    the route's own schema) or "delete_person"."""
+    from pydantic import ValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    from app.database import get_db
+    from app.domains.membership import household_service
+    from app.domains.membership.schemas_member import ContactsUpdate, PersonUpdate
+
+    db = next(client.app.dependency_overrides[get_db]())
+    admin = seeded_admin(db)
+    schemas = {"update_person": PersonUpdate, "update_person_contacts": ContactsUpdate}
+    try:
+        if action == "delete_person":
+            household_service.delete_person(db, target_id, admin=admin)
+            return DoorAnswer(204, None)
+        data = schemas[action].model_validate(json or {})
+        result = getattr(household_service, action)(db, target_id, data, admin=admin)
+    except ValidationError as refusal:
+        return DoorAnswer(422, {"detail": refusal.errors(include_context=False, include_url=False)})
+    except StarletteHTTPException as refusal:
+        return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
+    body = result.model_dump(mode="json") if hasattr(result, "model_dump") else result
+    return DoorAnswer(200, body)
+
+
+def _at_the_portal(client, email: str, ask):
+    """Ask the household portal's facade as the member with `email`, and answer as the
+    JSON route answered: the body, or the status and `detail` of a refusal."""
+    from fastapi.encoders import jsonable_encoder
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    from app.database import get_db
+    from app.domains.auth.api import login_person_for_email
+
+    db = next(client.app.dependency_overrides[get_db]())
+    person = login_person_for_email(db, email)
+    try:
+        return DoorAnswer(200, jsonable_encoder(ask(db, person)))
+    except StarletteHTTPException as refusal:
+        return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
+
+
+def household_at_the_portal(client, email: str):
+    """The member's household as the portal shows it (`membership.api.household_view`).
+    The JSON route `GET /api/v1/member/household` had no caller (CR-13 phase 4b, #1251)."""
+    from app.domains.membership.api import household_view
+
+    return _at_the_portal(client, email, household_view)
+
+
+def renew_at_the_portal(client, email: str, payment_method: str = "online"):
+    """The member renews the household's membership as the portal does it
+    (`membership.api.household_renew_membership`). The JSON route
+    `POST /api/v1/member/household/renew-membership` had no caller (#1251)."""
+    from app.domains.membership.api import household_renew_membership
+
+    return _at_the_portal(
+        client,
+        email,
+        lambda db, person: household_renew_membership(db, person, payment_method=payment_method),
+    )
 
 
 def sign_up_at_the_door(client, json: dict, *, signed_in_email: str | None = None):

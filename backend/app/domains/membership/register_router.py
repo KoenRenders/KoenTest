@@ -4,9 +4,8 @@ admin-CRUD (verhuisd uit app/routers/members.py, #444).
 
 import logging
 from datetime import date
-from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
@@ -22,7 +21,6 @@ from app.domains.auth.api import User, get_current_admin
 from app.domains.mdm.api import (
     CONTACT,
     ContactDetail,
-    Member,
     MemberPerson,
     PaymentMethod,
     Person,
@@ -33,18 +31,9 @@ from app.domains.membership import household_service as _service
 from app.domains.membership.models import KnownAddress, Membership
 from app.domains.membership.schemas_family import FamilyCreate
 from app.domains.membership.schemas_member import (
-    ContactsUpdate,
-    FamilyMemberResponse,
     FamilyRegisteredResponse,
-    FamilyResponse,
     MemberCreate,
     MemberResponse,
-    MembershipCreate,
-    MembershipResponse,
-    PaginatedFamiliesResponse,
-    PaginatedMembersResponse,
-    PersonListItem,
-    PersonUpdate,
 )
 from app.domains.payment.api import create_payment_record, membership_price_for_date
 from app.i18n import _
@@ -56,30 +45,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["members"])
 
 
-@router.get("/members", response_model=PaginatedMembersResponse)
-def list_members(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=100),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    total = db.query(Member).count()
-    members = (
-        db.query(Member)
-        .order_by(Member.created_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-        .all()
-    )
-    return PaginatedMembersResponse(
-        items=members,
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=(total + page_size - 1) // page_size,
-    )
-
-
 @router.post("/members", response_model=MemberResponse)
 def create_member(
     data: MemberCreate,
@@ -88,200 +53,6 @@ def create_member(
 ):
     # #713: de parameter heet `admin` sinds die de auditregel écht tekent.
     return _service.create_member(db, data=data, admin=_admin)
-
-
-@router.get("/members/{member_id}", response_model=MemberResponse)
-def get_member(
-    member_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    member = db.query(Member).filter(Member.id == member_id).first()
-    if not member:
-        raise HTTPException(status_code=404, detail=_("Member not found"))
-    return member
-
-
-@router.get("/memberships", response_model=List[MembershipResponse])
-def list_memberships(
-    year: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    query = db.query(Membership)
-    if year is not None:
-        query = query.filter(Membership.year == year)
-    return query.order_by(Membership.created_at.desc()).all()
-
-
-@router.post("/members/{member_id}/memberships", response_model=MembershipResponse)
-def create_membership(
-    member_id: int,
-    data: MembershipCreate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
-    member = db.query(Member).filter(Member.id == member_id).first()
-    if not member:
-        raise HTTPException(status_code=404, detail=_("Member not found"))
-
-    existing = (
-        db.query(Membership)
-        .filter(Membership.member_id == member_id, Membership.year == data.year)
-        .first()
-    )
-    if existing:
-        existing.is_active = data.is_active
-        # Vul een ontbrekende geldigheidsperiode aan, anders telt het lidmaatschap
-        # nooit als 'geldig' (valid_membership_until vereist valid_from/valid_to). #143
-        existing.valid_from = existing.valid_from or date(data.year, 1, 1)
-        existing.valid_to = existing.valid_to or date(data.year, 12, 31)
-        snapshot_membership(
-            db,
-            existing,
-            operation="update",
-            action="membership_updated",
-            source="admin_update",
-            actor=admin.email,
-        )
-        db.commit()
-        db.refresh(existing)
-        return existing
-
-    membership = Membership(
-        member_id=member_id,
-        year=data.year,
-        is_active=data.is_active,
-        valid_from=date(data.year, 1, 1),
-        valid_to=date(data.year, 12, 31),
-    )
-    db.add(membership)
-    db.flush()
-    snapshot_membership(
-        db,
-        membership,
-        operation="insert",
-        action="membership_created",
-        source="admin_manual",
-        actor=admin.email,
-    )
-    db.commit()
-    db.refresh(membership)
-    return membership
-
-
-@router.get("/families", response_model=PaginatedFamiliesResponse)
-def list_families(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=100),
-    # #1169: AFGELEID uit `SEARCHED_FIELDS`, niet overgetypt. Deze omschrijving
-    # beloofde "naam of e-mail" terwijl dezelfde `list_families` sinds #1165 ook
-    # op de straat zoekt — een tweede plek voor hetzelfde feit die stil verouderde.
-    q: Optional[str] = Query(
-        None, description=f"Zoek op {_service.family_search_hint()} van een gezinslid"
-    ),
-    status: Optional[str] = Query(None, description="actief | opgezegd (lidmaatschap vandaag)"),
-    membership_year: Optional[int] = Query(
-        None, description="Enkel gezinnen met een lidmaatschap dat dit jaar dekt"
-    ),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    return _service.list_families(
-        db,
-        page=page,
-        page_size=page_size,
-        q=q,
-        status=status,
-        membership_year=membership_year,
-        _admin=_admin,
-    )
-
-
-@router.get("/families/{family_id}", response_model=FamilyResponse)
-def get_family(
-    family_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    return _service.get_family(db, family_id=family_id, _admin=_admin)
-
-
-@router.post(
-    "/families/{family_id}/memberships", status_code=201, response_model=MembershipResponse
-)
-def create_membership_for_family(
-    family_id: int,
-    data: MembershipCreate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
-    return _service.create_membership_for_family(
-        db,
-        family_id=family_id,
-        data=data,
-        admin=admin,
-    )
-
-
-@router.delete("/families/{family_id}", status_code=204)
-def delete_family(
-    family_id: int,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
-    return _service.delete_family(db, family_id=family_id, admin=admin)
-
-
-@router.get("/persons", response_model=List[PersonListItem])
-def list_persons(
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    return db.query(Person).order_by(Person.last_name, Person.first_name).all()
-
-
-@router.put("/persons/{person_id}", response_model=FamilyMemberResponse)
-def update_person(
-    person_id: int,
-    data: PersonUpdate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
-    return _service.update_person(db, person_id=person_id, data=data, admin=admin)
-
-
-@router.put("/persons/{person_id}/contacts", response_model=FamilyMemberResponse)
-def update_person_contacts(
-    person_id: int,
-    data: ContactsUpdate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
-    return _service.update_person_contacts(
-        db,
-        person_id=person_id,
-        data=data,
-        admin=admin,
-    )
-
-
-@router.delete("/persons/{person_id}", status_code=204)
-def delete_person(
-    person_id: int,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
-    return _service.delete_person(db, person_id=person_id, admin=admin)
-
-
-@router.delete("/memberships/{membership_id}", status_code=204)
-def delete_membership(
-    membership_id: int,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
-    return _service.delete_membership(db, membership_id=membership_id, admin=admin)
 
 
 # No route of its own since CR-13 phase 4b (#1251): `POST /api/v1/families` had no

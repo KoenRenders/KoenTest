@@ -7,6 +7,7 @@ from datetime import date
 import pytest
 
 from app.domains.mdm.api import ExternalNumber, Member
+from app.domains.membership import household_service
 from app.domains.membership.api import Membership
 from app.domains.payment.api import (
     PayableType,
@@ -16,7 +17,7 @@ from app.domains.payment.api import (
     PaymentType,
 )
 from tests import backoffice_door, payments_door
-from tests.conftest import seed_postal_code, sign_up_at_the_door
+from tests.conftest import seed_postal_code, seeded_admin, sign_up_at_the_door
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -63,8 +64,7 @@ def test_delete_family_with_membership_payment(client, db_session, admin_headers
     assert pay is not None  # er is een lidmaatschap-betaling
 
     # Gezin verwijderen mag niet falen.
-    resp = client.delete(f"/api/v1/families/{member.id}", headers=admin_headers)
-    assert resp.status_code == 204, resp.text
+    household_service.delete_family(db_session, member.id, admin=seeded_admin(db_session))
 
     # Het betaaloverzicht mag niet crashen op de (nu lidmaatschap-loze) betaling.
     overview = payments_door.records(client)
@@ -138,8 +138,7 @@ def test_delete_family_with_external_number(client, db_session, admin_headers):
     )
     db_session.flush()
 
-    resp = client.delete(f"/api/v1/families/{member.id}", headers=admin_headers)
-    assert resp.status_code == 204, resp.text
+    household_service.delete_family(db_session, member.id, admin=seeded_admin(db_session))
 
 
 def test_betaald_lidmaatschap_blijft_als_financieel_feit(client, db_session, admin_headers):
@@ -164,7 +163,7 @@ def test_betaald_lidmaatschap_blijft_als_financieel_feit(client, db_session, adm
     pay.status = "paid"
     db_session.commit()
 
-    assert client.delete(f"/api/v1/families/{member.id}", headers=admin_headers).status_code == 204
+    household_service.delete_family(db_session, member.id, admin=seeded_admin(db_session))
 
     records = (
         db_session.query(PaymentRecord)
