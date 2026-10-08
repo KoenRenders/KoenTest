@@ -2,7 +2,7 @@ import logging
 from datetime import date
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import func, nulls_last
 from sqlalchemy.orm import Session, selectinload
 
@@ -35,18 +35,14 @@ from app.schemas.activity import (
     ActivityDateResponse,
     ActivityDateUpdate,
     ActivityResponse,
-    ActivityUpdate,
     ComponentCreate,
     ComponentResponse,
     ComponentUpdate,
     ProductCreate,
     ProductResponse,
     ProductUpdate,
-    RegistrationContactUpdate,
     RegistrationCreate,
     RegistrationItemCreate,
-    RegistrationItemUpdate,
-    RegistrationResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -173,28 +169,19 @@ def _build_response(
 # ── Activities ────────────────────────────────────────────────────────────────
 
 
-@router.get("/activities", response_model=List[ActivityResponse])
-def list_activities(
-    scope: str = "upcoming", db: Session = Depends(get_db)
-) -> List[ActivityResponse]:
-    """Eén endpoint met een scope-param (#136):
-    - ``upcoming`` (default): activiteiten met ≥1 toekomstige datum, gesorteerd op
-      de eerstvolgende datum; enkel de toekomstige datums worden getoond.
-    - ``archived``: activiteiten met ≥1 voorbije datum, gesorteerd op de meest
-      recente voorbije datum; enkel de voorbije datums; status altijd Voorbij.
-    - ``all`` (admin): álle activiteiten met álle datums.
-    """
-    # #1428: the public JSON list never carries a draft, whatever the scope. The
-    # docstring above is the route's OpenAPI description, so it stays as it was.
-    return activities_for(db, scope, include_drafts=False)
-
-
 def activities_for(
     db: Session, scope: str = "upcoming", *, include_drafts: bool = False
 ) -> List[ActivityResponse]:
-    """The activities of a scope, as `list_activities` describes them, for every
-    caller: the public route and the facade. `include_drafts` only for the
-    board's own list (#1428)."""
+    """The activities of a scope (#136), for the facade — the JSON route that
+    also answered with it is gone (CR-13 phase 4b, #1251):
+
+    - ``upcoming`` (default): activities with at least one date ahead, sorted on
+      the next one; only the dates ahead are shown.
+    - ``archived``: activities with at least one passed date, sorted on the most
+      recent one; only the passed dates; the status is always "Voorbij".
+    - ``all`` (the board): every activity with every date.
+
+    `include_drafts` only for the board's own list (#1428)."""
     today = belgian_today()
     # "Passed" and "ahead" are the service's, the same comparison `registration_state`
     # makes (CR-13 phase 4).
@@ -360,42 +347,6 @@ def create_activity(
     # "Open" — ze kan met een voorbije deadline of een voorbije datum aangemaakt zijn.
     info = compute_activity_status(activity, 0)
     return _build_response(activity, belgian_today(), status=info["status"], reg_count=0)
-
-
-@router.put("/activities/{activity_id}", response_model=ActivityResponse)
-def update_activity(
-    activity_id: int,
-    data: ActivityUpdate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> ActivityResponse:
-    from app.domains.activities import service
-
-    velden = data.model_dump(exclude_none=True)
-    activity = service.update_activity(db, activity_id, velden, actor=admin.email)
-    if activity is None:
-        raise HTTPException(status_code=404, detail=_("Activity not found"))
-    info = compute_activity_status(activity)
-    return _build_response(
-        activity, belgian_today(), status=info["status"], reg_count=info["registration_count"]
-    )
-
-
-@router.delete("/activities/{activity_id}", response_model=None)
-def delete_activity(
-    activity_id: int,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> dict[str, str]:
-    from app.domains.activities import service
-
-    try:
-        deleted = service.delete_activity(db, activity_id, actor=admin.email)
-    except service.ActiviteitFout as refusal:
-        raise HTTPException(status_code=422, detail=str(refusal)) from refusal
-    if not deleted:
-        raise HTTPException(status_code=404, detail=_("Activity not found"))
-    return {"detail": "deleted"}
 
 
 # ── Activity dates ────────────────────────────────────────────────────────────
@@ -594,50 +545,6 @@ def _enrich_registration(reg: Registration, activity: Activity) -> dict:
     return service.enrich_registration(reg, activity)
 
 
-@router.get("/activities/{activity_id}/registrations", response_model=List[RegistrationResponse])
-def get_registrations(
-    activity_id: int,
-    component_id: Optional[int] = None,
-    without_component: bool = False,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> list[dict]:
-    from app.domains.activities import service
-
-    regs = service.registrations_for(
-        db, activity_id, component_id=component_id, without_component=without_component
-    )
-    if regs is None:
-        raise HTTPException(status_code=404, detail=_("Activity not found"))
-    return regs
-
-
-# ── OpenDocument-export per onderdeel (#85/#200) ──────────────────────────────
-
-
-@router.get("/activities/{activity_id}/components/{component_id}/export")
-def export_component_ods(
-    activity_id: int,
-    component_id: int,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> Response:
-    """Download een .ods met aantallen per product + financials voor één
-    onderdeel, zoals ze nu in de DB staan (#85). Admin-only; bevat persoons- en
-    financiële data."""
-    from app.domains.activities import service
-
-    resultaat = service.component_export(db, activity_id, component_id)
-    if resultaat is None:
-        raise HTTPException(status_code=404, detail=_("Component not found"))
-    content, bestandsnaam = resultaat
-    return Response(
-        content=content,
-        media_type="application/vnd.oasis.opendocument.spreadsheet",
-        headers={"Content-Disposition": f'attachment; filename="{bestandsnaam}"'},
-    )
-
-
 # ── Bestelregels bewerken (admin) + audit (#84) ───────────────────────────────
 
 
@@ -705,37 +612,6 @@ def add_order_line(
     return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
-@router.patch(
-    "/activities/{activity_id}/registrations/{registration_id}/items/{item_id}", response_model=None
-)
-def update_order_line(
-    activity_id: int,
-    registration_id: int,
-    item_id: int,
-    data: RegistrationItemUpdate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> dict:
-    from app.domains.activities import service
-
-    activity = _load_activity_or_404(db, activity_id)
-    try:
-        reg = service.update_order_line(
-            db,
-            activity_id,
-            registration_id,
-            item_id,
-            product_id=data.product_id,
-            quantity=data.quantity,
-            actor=admin.email,
-        )
-    except service.ActiviteitFout as fout:
-        raise HTTPException(status_code=400, detail=str(fout))
-    if reg is None:
-        raise HTTPException(status_code=404, detail=_("Order line not found"))
-    return _order_edit_result(db, activity, reg, actor=admin.email)
-
-
 @router.delete(
     "/activities/{activity_id}/registrations/{registration_id}/items/{item_id}", response_model=None
 )
@@ -755,67 +631,9 @@ def delete_order_line(
     return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
-@router.patch("/activities/{activity_id}/registrations/{registration_id}", response_model=None)
-def update_registration_remarks(
-    activity_id: int,
-    registration_id: int,
-    data: RegistrationContactUpdate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> dict:
-    """Admin corrigeert de contactgegevens en/of de opmerking (#283, uitgebreid #624).
-
-    Raakt bestelregels, saldo en OGM NIET aan — dit is geen geldwijziging. Leeg of
-    enkel witruimte → NULL. Soft-deleted inschrijvingen zijn via de globale filter
-    onzichtbaar → 404 (niet bewerkbaar).
-
-    Enkel meegestuurde velden veranderen: wie alleen `remarks` post, laat de
-    contactgegevens ongemoeid — zo blijft de oude #283-aanroep werken.
-
-    Elke wijziging krijgt een audit-snapshot; zonder spoor is een stille correctie op
-    iemands contactgegevens niet te verklaren. De gekoppelde `Person` blijft
-    ongemoeid: die corrigeer je op /admin/leden.
-    """
-    from app.domains.activities import service
-
-    activity = _load_activity_or_404(db, activity_id)
-    reg = service.update_registration_contact(
-        db, activity_id, registration_id, data.model_dump(exclude_unset=True), actor=admin.email
-    )
-    if reg is None:
-        raise HTTPException(status_code=404, detail=_("Registration not found"))
-    return _enrich_registration(reg, activity)
-
-
-@router.delete("/activities/{activity_id}/registrations/{registration_id}", response_model=None)
-def delete_registration(
-    activity_id: int,
-    registration_id: int,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> dict[str, str | int]:
-    """Verwijder (soft-delete) een hele inschrijving incl. haar bestelregels (#313).
-
-    Raakt de betaling NIET aan: een ``PaymentRecord`` is een financieel feit en
-    blijft bestaan én zichtbaar in het betaaloverzicht (de enrichment haalt ook
-    soft-deleted inschrijvingen op via ``include_deleted``, #190). De bestelregels
-    worden mee soft-deleted (met audit-snapshot) zodat ze niet in aantal-/
-    saldoberekeningen lekken (#194)."""
-    from app.domains.activities import service
-
-    _load_activity_or_404(db, activity_id)
-    if not service.delete_registration(db, activity_id, registration_id, actor=admin.email):
-        raise HTTPException(status_code=404, detail=_("Registration not found"))
-    return {"status": "deleted", "registration_id": registration_id}
-
-
-@router.get("/activities/{activity_id}/public-registrations", response_model=None)
-def get_public_registrations(
-    activity_id: int,
-    component_id: int,
-    db: Session = Depends(get_db),
-) -> list[dict]:
-    """Return public participant list for a given component."""
+def get_public_registrations(activity_id: int, component_id: int, *, db: Session) -> list[dict]:
+    """The public participant list of one component. No route of its own since
+    CR-13 phase 4b (#1251): the activity card and page ask it through the facade."""
     from app.domains.activities.service import is_published
 
     activity = db.query(Activity).filter(Activity.id == activity_id).first()

@@ -6,11 +6,23 @@ en een refund op een lidmaatschap-betaling (niet enkel registratie)."""
 
 from decimal import Decimal
 
+from app.domains.activities import service as activities_service
 from app.domains.activities.api import ActivityProduct, Registration, RegistrationItem
 from app.domains.mdm.api import Member, PaymentMethod
 from app.domains.membership.api import Membership
-from app.domains.payment.api import PayableType, PaymentRecord, PaymentStatus, PaymentType
-from tests.conftest import register_at_the_door, seed_activity_with_product, seed_postal_code
+from app.domains.payment.api import (
+    PayableType,
+    PaymentRecord,
+    PaymentStatus,
+    PaymentType,
+    registration_balance,
+)
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    register_at_the_door,
+    seed_activity_with_product,
+    seed_postal_code,
+)
 
 
 def _add_product(db, comp, *, name, price, is_free=False):
@@ -102,16 +114,13 @@ def test_order_lowered_after_payment_creates_pending_refund(client, db_session, 
         .filter(RegistrationItem.registration_id == reg.id)
         .first()
     )
-    resp = client.patch(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
-        json={"quantity": 1},
-        headers=admin_headers,  # verschuldigd zakt naar 18
-    )
-    body = resp.json()
-    # Verplichting, nog niet uitbetaald: saldo blijft −18, refund_due True, niets terugbetaald.
-    assert Decimal(str(body["balance"]["balance"])) == Decimal("-18.00")
-    assert body["refund_due"] is True
-    assert Decimal(str(body["balance"]["total_refunded"])) == Decimal("0.00")
+    activities_service.update_order_line(
+        db_session, activity_id, reg.id, item.id, quantity=1, actor=SEEDED_ADMIN_EMAIL
+    )  # verschuldigd zakt naar 18
+    balance = registration_balance(db_session, reg)
+    # Verplichting, nog niet uitbetaald: saldo blijft −18, niets terugbetaald.
+    assert Decimal(str(balance["balance"])) == Decimal("-18.00")
+    assert Decimal(str(balance["total_refunded"])) == Decimal("0.00")
 
     # De refund is automatisch aangemaakt: precies één, dus de penningmeester moet
     # hem bevestigen — niet zelf een tweede registreren (#220 / UI-melding).
@@ -150,10 +159,8 @@ def test_order_decrease_does_not_double_refund(client, db_session, admin_headers
         .first()
     )
     for _ in range(2):
-        client.patch(
-            f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
-            json={"quantity": 1},
-            headers=admin_headers,
+        activities_service.update_order_line(
+            db_session, activity_id, reg.id, item.id, quantity=1, actor=SEEDED_ADMIN_EMAIL
         )
     db_session.expire_all()
     refunds = (
@@ -262,10 +269,8 @@ def test_lowering_unpaid_order_consolidates_to_one_open_charge(client, db_sessio
         )
         .first()
     )
-    client.patch(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
-        json={"quantity": 1},
-        headers=admin_headers,
+    activities_service.update_order_line(
+        db_session, activity_id, reg.id, item.id, quantity=1, actor=SEEDED_ADMIN_EMAIL
     )  # → 34
     assert sorted(Decimal(str(c.amount)) for c in _charges(db_session, reg)) == [Decimal("34.00")]
 
@@ -302,10 +307,8 @@ def test_quantity_increase_creates_supplemental_charge(client, db_session, admin
         .filter(RegistrationItem.registration_id == reg.id)
         .first()
     )
-    client.patch(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
-        json={"quantity": 3},
-        headers=admin_headers,
+    activities_service.update_order_line(
+        db_session, activity_id, reg.id, item.id, quantity=3, actor=SEEDED_ADMIN_EMAIL
     )  # €54 → +€36
     amounts = sorted(Decimal(str(c.amount)) for c in _charges(db_session, reg))
     assert amounts == [Decimal("18.00"), Decimal("36.00")]
@@ -354,10 +357,8 @@ def test_partial_payment_lower_via_patch_reduces_to_paid(client, db_session, adm
         .filter(RegistrationItem.registration_id == reg.id)
         .first()
     )
-    client.patch(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
-        json={"quantity": 1},
-        headers=admin_headers,
+    activities_service.update_order_line(
+        db_session, activity_id, reg.id, item.id, quantity=1, actor=SEEDED_ADMIN_EMAIL
     )  # D = 18
     charges = _charges(db_session, reg)
     assert len(charges) == 1
@@ -455,10 +456,8 @@ def test_koen_scenario_integral_recompute(client, db_session, admin_headers):
 
     # 2) Verlaging P1×2 → ×1 (€18) → terugbetaling €18 als verplichting; de
     #    penningmeester bevestigt de terugstorting, pas dan vereffent het saldo.
-    client.patch(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item1.id}",
-        json={"quantity": 1},
-        headers=admin_headers,
+    activities_service.update_order_line(
+        db_session, activity_id, reg.id, item1.id, quantity=1, actor=SEEDED_ADMIN_EMAIL
     )
     refund = _latest_refund(db_session, reg)
     assert refund.status == PaymentStatus.PENDING and refund.amount_paid is None
@@ -554,10 +553,8 @@ def test_full_refund_scenario(client, db_session, admin_headers):
         .filter(RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == p1.id)
         .first()
     )
-    client.patch(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item_p1.id}",
-        json={"product_id": free.id},
-        headers=admin_headers,
+    activities_service.update_order_line(
+        db_session, activity_id, reg.id, item_p1.id, product_id=free.id, actor=SEEDED_ADMIN_EMAIL
     )
     _confirm_refund(client, admin_headers, _latest_refund(db_session, reg).id)
 

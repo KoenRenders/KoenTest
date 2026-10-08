@@ -18,6 +18,7 @@ from datetime import date, time, timedelta
 
 import pytest
 
+from app.domains.activities import service as activities_service
 from app.domains.activities.models import (
     Activity,
     ActivityDate,
@@ -792,7 +793,7 @@ def test_an_activity_without_registrations_is_deleted_after_the_dialog(client, d
     assert db_session.query(ActivitySubRegistration).filter_by(activity_id=activity.id).count() == 0
 
 
-def test_new_an_activity_with_registrations_cannot_be_deleted(client, db_session, admin_headers):
+def test_new_an_activity_with_registrations_cannot_be_deleted(client, db_session):
     """NEW (Koen, 4 October 2026): until #1561 the delete took the registrations
     along. The screen says why BEFORE any click — the item in Acties is no button,
     the bar's button opens a notice — and the service refuses the request that
@@ -836,11 +837,11 @@ def test_new_an_activity_with_registrations_cannot_be_deleted(client, db_session
     )
     assert "hx-post" not in button and "data-confirm" not in button
 
-    for answer in (
-        client.post(f"/admin/activiteiten/{activity.id}/verwijderen", headers=headers),
-        client.delete(f"/api/v1/activities/{activity.id}", headers=admin_headers),
-    ):
-        assert answer.status_code == 422 and answer.json()["detail"] == two
+    answer = client.post(f"/admin/activiteiten/{activity.id}/verwijderen", headers=headers)
+    assert answer.status_code == 422 and answer.json()["detail"] == two
+    with pytest.raises(activities_service.ActiviteitFout) as refusal:
+        activities_service.delete_activity(db_session, activity.id, actor=SEEDED_ADMIN_EMAIL)
+    assert str(refusal.value) == two
     db_session.expire_all()
     assert db_session.query(Activity).filter_by(id=activity.id).count() == 1
     assert db_session.query(Registration).filter_by(activity_id=activity.id).count() == 2
@@ -854,9 +855,7 @@ def test_new_an_activity_with_registrations_cannot_be_deleted(client, db_session
     soft_delete(db_session.get(Registration, registrations[1].id))
     db_session.commit()
     assert "data-menu-refused" not in _page(client, activity.id)
-    assert (
-        client.delete(f"/api/v1/activities/{activity.id}", headers=admin_headers).status_code == 200
-    )
+    assert activities_service.delete_activity(db_session, activity.id, actor=SEEDED_ADMIN_EMAIL)
 
 
 def test_every_state_command_names_its_consequence_and_its_toast(client, db_session):

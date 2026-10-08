@@ -82,7 +82,9 @@ def test_off_is_404_for_every_route_of_the_module(client, modules_of):
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     modules_of({TENANT_MILLEGEM_ID: EVERY})
     live = [p for p in paths if client.get(p, follow_redirects=False).status_code != 404]
-    assert len(live) >= len(paths) // 2, f"only {len(live)} of {len(paths)} answer when on"
+    # A third and not a half since CR-13 phase 4b (#1251): the JSON GET routes that
+    # answered without an existing id are gone, the screens of one activity remain.
+    assert len(live) >= len(paths) // 3, f"only {len(live)} of {len(paths)} answer when on"
     client.cookies.clear()
     modules_of({TENANT_MILLEGEM_ID: EVERY - {"activities"}})
 
@@ -97,7 +99,7 @@ def test_off_is_404_for_every_route_of_the_module(client, modules_of):
 def test_on_answers_as_before_and_other_modules_stay(client, modules_of):
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     modules_of({TENANT_MILLEGEM_ID: EVERY})
-    for path in ("/admin/activiteiten", "/activiteiten", "/api/v1/activities"):
+    for path in ("/admin/activiteiten", "/activiteiten"):
         assert client.get(path).status_code == 200, path
 
     modules_of({TENANT_MILLEGEM_ID: EVERY - {"activities"}})

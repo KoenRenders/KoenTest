@@ -72,7 +72,6 @@ def _publieke_wegen(activiteit) -> list[tuple[str, str]]:
         ("de lijst met komende activiteiten", "/activiteiten"),
         ("de homepage", "/"),
         ("het archief", "/archief"),
-        ("het publieke JSON-antwoord", "/api/v1/activities"),
     ]
 
 

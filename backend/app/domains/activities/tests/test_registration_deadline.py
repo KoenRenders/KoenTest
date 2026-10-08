@@ -23,6 +23,7 @@ import re
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
+from app.domains.activities import service as activities_service
 from app.domains.activities.api import (
     Activity,
     ActivityDate,
@@ -30,7 +31,7 @@ from app.domains.activities.api import (
     ActivitySubRegistration,
     Registration,
 )
-from tests.conftest import register_at_the_door
+from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door
 
 DEADLINE = date(2027, 7, 15)  # zomer: Brussel = UTC+2
 
@@ -318,9 +319,7 @@ def test_a_modal_opened_after_the_deadline_says_why(client, db_session, monkeypa
 # ── Beheer mag nog corrigeren ────────────────────────────────────────────────
 
 
-def test_the_board_can_still_correct_an_existing_registration(
-    client, db_session, monkeypatch, admin_headers
-):
+def test_the_board_can_still_correct_an_existing_registration(client, db_session, monkeypatch):
     """A correction is not a new registration (#974).
 
     Registered before the deadline, corrected after it. And the same for a
@@ -340,13 +339,11 @@ def test_the_board_can_still_correct_an_existing_registration(
     a.is_cancelled = True
     db_session.flush()
 
-    resp = client.patch(
-        f"/api/v1/activities/{a.id}/registrations/{reg.id}/items/{item.id}",
-        json={"quantity": 2},
-        headers=admin_headers,
+    corrected = activities_service.update_order_line(
+        db_session, a.id, reg.id, item.id, quantity=2, actor=SEEDED_ADMIN_EMAIL
     )
 
-    assert resp.status_code == 200, resp.text[:300]
+    assert corrected is not None
     db_session.refresh(item)
     assert item.quantity == 2
 
