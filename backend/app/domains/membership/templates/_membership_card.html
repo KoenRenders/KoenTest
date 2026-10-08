@@ -14,7 +14,8 @@
       {% else %}{{ _("Je gezin heeft momenteel geen geldig lidmaatschap.") }}{% endif %}
     </p>
     {% if card.renewal_running %}
-    <p class="mt-2 text-base text-ink">{{ _("Je vernieuwing loopt nog.") }}</p>
+    {# One sentence for a new household and a returning one (#1737). #}
+    <p class="mt-2 text-base text-ink">{{ _("Je betaling loopt nog.") }}</p>
     <div class="mt-2">{% include "_renewal_running.html" %}</div>
     {% elif card.renewal_available %}
     <p class="mt-3">{{ ui.btn_secondary(card.pay_label, href="/leden/gezin/vernieuwen") }}</p>

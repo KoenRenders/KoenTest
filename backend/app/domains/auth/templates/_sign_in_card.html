@@ -1,11 +1,15 @@
 {% import "_macros.html" as ui %}
 {# The card of the sign-in screens (#1730; Koen, 8 October 2026: "smaller is
    goed"): Inloggen and Account aanmaken are sister screens with ONE width, set
-   here — a comfortable form, 448 px, centred. On a phone the card takes the
+   here. 768 px, centred (#1737; Koen on HDEV, 8 October 2026: 448 px felt
+   too narrow where the full width had felt too wide — "dan gaan we nu naar
+   768 px"): the reading width the kit already has for a record page, the
+   account pages and a long form, so no new size. The code page of a
+   waiting address is the third screen on it. On a phone the card takes the
    width it has. #}
 {% macro sign_in_card() -%}
 {% set _body = caller() %}
-<div data-sign-in-card class="mx-auto w-full max-w-md">
+<div data-sign-in-card class="mx-auto w-full max-w-3xl">
 {% call ui.card() %}{{ _body }}{% endcall %}
 </div>
 {%- endmacro %}

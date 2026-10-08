@@ -17,6 +17,29 @@ first household reads "Vernieuwing" and "vernieuwen"; returning True always →
 the renewing household reads "Aanmelding" and "betalen"; the `first=` taken off
 the call in `membership_card` → the transfer block says "Vernieuwing" for a
 first membership while the button says "betalen".
+
+**Since #1737** (Koen, 8 October 2026: "ja op 1" to one wording for new and
+existing members) the sentences are ONE for everyone, and `is_first_membership`
+decides the card's button only:
+
+| Place | For everyone |
+|---|---|
+| the card, while a payment is open | "Je betaling loopt nog." |
+| the transfer block | "Lidmaatschap geregistreerd — betaal via overschrijving:" |
+| the title of the page behind the button | "Lidmaatschap betalen" |
+| the button of that page, paying online | "Betalen" |
+
+The tests of #1730 above are turned round where they held the two sentences
+apart; the ones at the end of this file hold the table, each for a household
+that never paid and for one that did.
+
+Red for #1737 (each restored after): the card's old line put back → both
+households read "vernieuwing"; the transfer block's old sentence put back →
+"Vernieuwing geregistreerd" for both; the online inset repeating the card's
+line → the sentence stands twice; the page's old title or old button put back
+→ "Lidmaatschap vernieuwen" above a first payment, "Vernieuwen en betalen" on
+its button; `pay_label` returning one word for both → the two buttons read the
+same.
 """
 
 from __future__ import annotations
@@ -34,8 +57,11 @@ from tests.conftest import create_test_family
 pytestmark = pytest.mark.ui_serverrendered
 
 HOUSEHOLD = "/leden/gezin"
-FIRST = "Aanmelding geregistreerd — betaal via overschrijving:"
-RENEWAL = "Vernieuwing geregistreerd — betaal via overschrijving:"
+# #1737 (Koen, 8 October 2026): one sentence for a first membership and a
+# renewal alike; only the card's button still tells them apart. The two
+# sentences this file was written for are gone, and must stay gone.
+REGISTERED = "Lidmaatschap geregistreerd — betaal via overschrijving:"
+GONE = ("Aanmelding geregistreerd", "Vernieuwing geregistreerd")
 PAY = "Lidmaatschap betalen"
 RENEW = "Lidmaatschap vernieuwen"
 
@@ -86,16 +112,16 @@ def test_the_service_tells_a_first_membership_from_a_renewal(db_session):
     assert not is_first_membership(db_session, before), "an expired paid membership counts"
 
 
-def test_a_first_membership_by_transfer_says_aanmelding(client, db_session):
+def test_a_first_membership_by_transfer_reads_as_a_renewal_does(client, db_session):
     member, _person = create_test_family(db_session, email="eerste-1730@example.org")
     _membership(db_session, member, year=date.today().year, paid=False)
     _sign_in(client, "eerste-1730@example.org")
     card = _card(client.get(HOUSEHOLD).text)
-    assert FIRST in card and RENEWAL not in card
+    assert REGISTERED in card and not any(old in card for old in GONE)
     assert "+++173/0000/00173+++" in card and "35,00" in card
     # The landing page shows the same card, with the same words.
     landing = _card(client.get("/mijn").text)
-    assert FIRST in landing and RENEWAL not in landing
+    assert REGISTERED in landing and not any(old in landing for old in GONE)
 
 
 def test_a_first_membership_with_an_open_online_payment_has_no_renewal_button(client, db_session):
@@ -128,4 +154,64 @@ def test_a_household_that_was_a_paid_member_keeps_vernieuwen(client, db_session)
 
     _membership(db_session, member, year=date.today().year, paid=False)
     running = _card(client.get(HOUSEHOLD).text)
-    assert RENEWAL in running and FIRST not in running
+    assert REGISTERED in running and not any(old in running for old in GONE)
+
+
+# ── #1737: one wording for a first membership and a renewal ─────────────────
+
+RUNNING = "Je betaling loopt nog."
+PAGE = "/leden/gezin/vernieuwen"
+
+
+def _household(db, kind: str, email: str):
+    """A household that never had a paid membership (`never`) or one whose
+    paid membership of last year ran out (`before`)."""
+    member, _person = create_test_family(db, email=email)
+    if kind == "before":
+        _membership(db, member, year=date.today().year - 1, paid=True)
+    return member
+
+
+@pytest.mark.parametrize("kind", ["never", "before"])
+def test_an_open_transfer_reads_the_same_for_everyone(client, db_session, kind):
+    email = f"overschrijving-{kind}-1737@example.com"
+    member = _household(db_session, kind, email)
+    _membership(db_session, member, year=date.today().year, paid=False)
+    _sign_in(client, email)
+    card = _card(client.get(HOUSEHOLD).text)
+    assert RUNNING in card and REGISTERED in card
+    for old in (*GONE, "Je vernieuwing loopt nog"):
+        assert old not in card, old
+
+
+@pytest.mark.parametrize("kind", ["never", "before"])
+def test_an_open_online_payment_reads_the_same_for_everyone(client, db_session, kind):
+    email = f"online-{kind}-1737@example.com"
+    member = _household(db_session, kind, email)
+    _membership(db_session, member, year=date.today().year, paid=False, method="online")
+    _sign_in(client, email)
+    card = _card(client.get(HOUSEHOLD).text)
+    assert RUNNING in card and "De betaling is nog niet afgerond." in card
+    assert "vernieuwing loopt" not in card
+    # The line and the inset do not say the same sentence twice.
+    assert card.count("Je betaling loopt nog") == 1
+
+
+@pytest.mark.parametrize(("kind", "button"), [("never", PAY), ("before", RENEW)])
+def test_the_cards_button_is_the_one_difference_and_the_page_is_one(
+    client, db_session, kind, button
+):
+    email = f"knop-{kind}-1737@example.com"
+    _household(db_session, kind, email)
+    _sign_in(client, email)
+    card = _card(client.get(HOUSEHOLD).text)
+    other = RENEW if button == PAY else PAY
+    assert f">{button}</a>" in card and other not in card, card[-600:]
+
+    page = client.get(PAGE).text
+    main = page[page.index('<main id="main"') : page.index("</main>")]
+    assert "Lidmaatschap betalen · " in page[page.index("<title>") : page.index("</title>")]
+    assert ">Lidmaatschap betalen</h1>" in main
+    assert 'data-pay="Betalen"' in main and "Vernieuwen en betalen" not in main
+    idle = main[main.index("data-save-idle") :]
+    assert idle[idle.index(">") + 1 : idle.index("</span>")].strip() == "Betalen"

@@ -169,3 +169,55 @@ def test_a_typed_address_waits_and_its_code_makes_it_count(browser):
     finally:
         page.close()
         _remove(ADDRESS)
+
+
+CARD = """() => { const c = document.querySelector('[data-sign-in-card]').getBoundingClientRect();
+  return {x: Math.round(c.left), width: Math.round(c.width),
+          title: document.querySelector('#main h1').textContent.trim(),
+          page: [document.documentElement.scrollWidth, innerWidth]}; }"""
+
+
+@pytest.mark.parametrize("width", [1440, 390])
+def test_the_code_page_stands_where_the_sign_in_card_stands(browser, width):
+    """#1737: "Bevestig je e-mailadres" is the sister of Inloggen and Account
+    aanmaken, on their one card (`_sign_in_card.html`): the same x and the same
+    width at a desktop width — it filled the page before — and on a phone, where
+    the card takes the width it has, nothing changed.
+
+    Red when the page goes back to the wide card: no `[data-sign-in-card]`."""
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.auth.api import login_person_for_email, make_session_value
+    from app.domains.mdm.api import new_contact_detail
+    from seed_e2e import MARKER_EMAIL
+
+    _remove(ADDRESS)
+    db = SessionLocal()
+    try:
+        person = login_person_for_email(db, MARKER_EMAIL)
+        row = new_contact_detail(db, person, "EMAIL", ADDRESS, is_primary=False, confirmed=False)
+        db.add(row)
+        db.commit()
+        row_id = row.id
+    finally:
+        db.close()
+    try:
+        visitor = browser.new_page(base_url=BASE, viewport={"width": width, "height": 900})
+        visitor.goto("/aanmelden")
+        pagina_klaar(visitor)
+        sign_in = visitor.evaluate(CARD)
+        visitor.close()
+
+        page = browser.new_page(base_url=BASE, viewport={"width": width, "height": 900})
+        login_met_sessie(page, make_session_value(MARKER_EMAIL), BASE)
+        page.goto(f"/mijn/e-mailadres/{row_id}/bevestigen")
+        pagina_klaar(page)
+        code = page.evaluate(CARD)
+        page.close()
+        print("MEASURE code page card", width, {"code": code, "sign_in": sign_in})
+        assert code["title"] == "Bevestig je e-mailadres" and sign_in["title"] == "Inloggen"
+        assert (code["x"], code["width"]) == (sign_in["x"], sign_in["width"]), (code, sign_in)
+        assert code["width"] == (768 if width == 1440 else 358), code
+        assert code["page"][0] == code["page"][1], code
+    finally:
+        _remove(ADDRESS)

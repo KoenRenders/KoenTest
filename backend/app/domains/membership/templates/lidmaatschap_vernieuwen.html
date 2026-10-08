@@ -1,7 +1,7 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
 {% import "_public_macros.html" as pub %}
-{% block title %}{{ _("Lidmaatschap vernieuwen") }} · {{ site_name }}{% endblock %}
+{% block title %}{{ _("Lidmaatschap betalen") }} · {{ site_name }}{% endblock %}
 {% block content %}
 {# Renewing the membership, its own act on its own page (CR-11 pilot B, #1590;
    end state §2.6): the status line, the card with the price, the validity and
@@ -16,7 +16,9 @@
    What an answer replaces stays inside it. #}
 {% call pub.account_page(_("Mijn gezin"), member_nav, "/leden/gezin", heading=False) %}
 <div id="vernieuw-pagina">
-{% call ui.public_form_page(_("Lidmaatschap vernieuwen"), intro=_("Vernieuw het lidmaatschap voor je hele gezin."),
+{# #1737 (Koen, 8 October 2026): the page is named for what everyone does
+   on it — a household that never paid does not renew. #}
+{% call ui.public_form_page(_("Lidmaatschap betalen"), intro=_("Vernieuw het lidmaatschap voor je hele gezin."),
                             back_href="/leden/gezin", back_label=_("Mijn gezin")) %}
 <div data-form-flow data-mode="edit" class="form-flow" x-data="{ pm: 'online' }"
      @change="if ($event.target.name === 'payment_method') pm = $event.target.value">
@@ -39,9 +41,9 @@
                            ("transfer", _("Overschrijving"), _("De betaalgegevens staan in de bevestiging."))]) }}
     {% endcall %}
   </form>
-  {% set _follow %}data-pay="{{ _("Vernieuwen en betalen") }}" data-plain="{{ _("Lidmaatschap vernieuwen") }}" x-text="pm === 'online' ? $el.dataset.pay : $el.dataset.plain"{% endset %}
+  {% set _follow %}data-pay="{{ _("Betalen") }}" data-plain="{{ _("Lidmaatschap vernieuwen") }}" x-text="pm === 'online' ? $el.dataset.pay : $el.dataset.plain"{% endset %}
   {{ ui.action_bar(record=True, send=True, form="vernieuw-form", cancel_href="/leden/gezin",
-                   save_label=_("Vernieuwen en betalen"), busy_label=_("Bezig…"), save_label_attrs=_follow) }}
+                   save_label=_("Betalen"), busy_label=_("Bezig…"), save_label_attrs=_follow) }}
   {% else %}
   {% call ui.flow_card(_("Nu niets te vernieuwen"), attrs="data-renewal-none") %}
     <p class="text-base text-ink">{{ _("Je lidmaatschap loopt nog. Vernieuwen kan zodra de vernieuwingsperiode open is.") }}</p>
