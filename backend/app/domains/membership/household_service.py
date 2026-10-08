@@ -303,6 +303,9 @@ def create_family_with_members(
             detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": data.postal_code},
         )
 
+    # After the postal code, so an unknown one keeps its own words.
+    _require_whole_address(data.street, data.house_number, data.postal_code)
+
     # Server-side, vóór er iets geschreven wordt: de client-`required` is enkel UX.
     for lid in data.members:
         try:
@@ -796,6 +799,21 @@ def update_person(db: Session, person_id: int, data: PersonUpdate, admin=None):
     return _person_to_schema(person, mp.relation_type if mp else "HOOFDLID")
 
 
+def _require_whole_address(street, house_number, postal_code) -> None:
+    """An address has a street, a house number and a postal code — mdm's one rule
+    (`require_whole_address`, #1603), which the portal's save always asked. The
+    back office's forms mark the three as required, and the server keeps that
+    promise here (CR-13 phase 4c, #1251). A 422, as this service's other refusals."""
+    from app.domains.mdm.api import HouseholdRefused, require_whole_address
+
+    try:
+        require_whole_address(
+            {"street": street, "house_number": house_number, "postal_code": postal_code}
+        )
+    except HouseholdRefused as refusal:
+        raise HTTPException(status_code=422, detail=str(refusal)) from refusal
+
+
 def update_family_address(db: Session, family_id: int, data: AddressUpdate, admin=None):
     """The household's one address. It hangs on the main member — on the first
     person where none is marked — and a household without persons has nobody to
@@ -860,10 +878,7 @@ def update_person_address(
         # address with 404 "Address not found", and the screen showed the
         # generic banner. Saving an address on a household without one means
         # creating it; the three required parts must all be there.
-        if not (data.street and data.house_number and data.postal_code):
-            raise HTTPException(
-                status_code=422, detail=_("Straat, huisnummer en postcode zijn verplicht.")
-            )
+        _require_whole_address(data.street, data.house_number, data.postal_code)
         pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
         if not pc:
             raise HTTPException(
@@ -899,6 +914,13 @@ def update_person_address(
                 detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": data.postal_code},
             )
         address.postal_code_id = pc.id
+    # What the address would be after this save: a field the form did not send
+    # stays, an emptied one does not pass.
+    _require_whole_address(
+        address.street if data.street is None else data.street,
+        address.house_number if data.house_number is None else data.house_number,
+        address.postal_code.postal_code if address.postal_code else None,
+    )
     for field in ("street", "house_number"):
         value = getattr(data, field)
         if value is not None:
