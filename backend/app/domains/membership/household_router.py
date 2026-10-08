@@ -92,7 +92,7 @@ def renew_membership(
     if open_renewal_payment(db, member):
         raise HTTPException(
             status_code=409,
-            detail=_("Je vernieuwing loopt nog — rond eerst de openstaande betaling af."),
+            detail=_("Je betaling loopt nog — rond eerst de openstaande betaling af."),
         )
 
     # Hergebruik een bestaand (niet-actief) lidmaatschap voor het doeljaar i.p.v.

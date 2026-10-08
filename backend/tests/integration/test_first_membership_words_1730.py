@@ -213,5 +213,10 @@ def test_the_cards_button_is_the_one_difference_and_the_page_is_one(
     assert "Lidmaatschap betalen · " in page[page.index("<title>") : page.index("</title>")]
     assert ">Lidmaatschap betalen</h1>" in main
     assert 'data-pay="Betalen"' in main and "Vernieuwen en betalen" not in main
+    # #1747: the intro and the button of a transfer say what everyone does here.
+    assert "Betaal het lidmaatschap voor je hele gezin." in main
+    assert 'data-plain="Lidmaatschap aanvragen"' in main
+    for old in ("Vernieuw het lidmaatschap", 'data-plain="Lidmaatschap vernieuwen"'):
+        assert old not in main, old
     idle = main[main.index("data-save-idle") :]
     assert idle[idle.index(">") + 1 : idle.index("</span>")].strip() == "Betalen"

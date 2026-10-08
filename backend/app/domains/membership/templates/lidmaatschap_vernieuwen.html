@@ -18,7 +18,7 @@
 <div id="vernieuw-pagina">
 {# #1737 (Koen, 8 October 2026): the page is named for what everyone does
    on it — a household that never paid does not renew. #}
-{% call ui.public_form_page(_("Lidmaatschap betalen"), intro=_("Vernieuw het lidmaatschap voor je hele gezin."),
+{% call ui.public_form_page(_("Lidmaatschap betalen"), intro=_("Betaal het lidmaatschap voor je hele gezin."),
                             back_href="/leden/gezin", back_label=_("Mijn gezin")) %}
 <div data-form-flow data-mode="edit" class="form-flow" x-data="{ pm: 'online' }"
      @change="if ($event.target.name === 'payment_method') pm = $event.target.value">
@@ -41,7 +41,7 @@
                            ("transfer", _("Overschrijving"), _("De betaalgegevens staan in de bevestiging."))]) }}
     {% endcall %}
   </form>
-  {% set _follow %}data-pay="{{ _("Betalen") }}" data-plain="{{ _("Lidmaatschap vernieuwen") }}" x-text="pm === 'online' ? $el.dataset.pay : $el.dataset.plain"{% endset %}
+  {% set _follow %}data-pay="{{ _("Betalen") }}" data-plain="{{ _("Lidmaatschap aanvragen") }}" x-text="pm === 'online' ? $el.dataset.pay : $el.dataset.plain"{% endset %}
   {{ ui.action_bar(record=True, send=True, form="vernieuw-form", cancel_href="/leden/gezin",
                    save_label=_("Betalen"), busy_label=_("Bezig…"), save_label_attrs=_follow) }}
   {% else %}

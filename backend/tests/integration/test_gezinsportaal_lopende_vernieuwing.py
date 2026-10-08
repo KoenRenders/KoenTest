@@ -267,6 +267,9 @@ def test_a_second_renewal_is_refused_while_the_first_runs(client, db_session):
     assert answer.status_code == 422
     assert answer.headers["HX-Retarget"] == "#vernieuw-melding"
     assert "Verzenden is niet gelukt." in answer.text
+    # #1747: the reason speaks of a payment, for a first membership too.
+    assert "Je betaling loopt nog — rond eerst de openstaande betaling af." in answer.text
+    assert "vernieuwing loopt nog" not in answer.text
     assert "data-error-for" not in answer.text, "this refusal has no field"
     assert "<html" not in answer.text.lower()
     assert _open_payments(db_session) == 1
