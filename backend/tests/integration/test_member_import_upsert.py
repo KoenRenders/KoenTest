@@ -738,6 +738,8 @@ def test_import_reverts_manually_changed_board_member(db_session):
 
     db_session.refresh(member)
     assert member.board_member_id == hoofd.id  # teruggezet naar het rapport
+    # The request's commit, which the app's session does not anticipate (#1771).
+    db_session.flush()
     feed = member_changes_since(db_session, date(2000, 1, 1))
     assert any(r["entity"] == "Gezin" and r["summary"] == "Bestuurslid: Mon Essers" for r in feed)
 
@@ -772,6 +774,8 @@ def test_person_field_change_shows_old_to_new(db_session):
         [],
         apply=True,
     )
+    # The request's commit, which the app's session does not anticipate (#1771).
+    db_session.flush()
 
     feed = member_changes_since(db_session, date(2000, 1, 1))
     persoon = [

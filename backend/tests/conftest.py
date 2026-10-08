@@ -37,9 +37,8 @@ from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import event
-from sqlalchemy.orm import sessionmaker
 
-from app.database import engine, get_db
+from app.database import SessionLocal, engine, get_db
 from app.domains.auth.api import create_access_token
 from app.main import app
 
@@ -263,8 +262,11 @@ def db_session(_migrate_schema):
     """Een sessie met SAVEPOINT-isolatie die endpoint-commits overleeft."""
     connection = engine.connect()
     trans = connection.begin()
-    Session = sessionmaker(bind=connection)
-    session = Session()
+    # The app's own factory, bound to this test's connection (#1771): a second
+    # `sessionmaker(...)` here had SQLAlchemy's default autoflush where the app
+    # runs without, so a service that adds a row and looks it up again in the
+    # same request passed here and failed in the app.
+    session = SessionLocal(bind=connection)
     session.begin_nested()
 
     @event.listens_for(session, "after_transaction_end")
@@ -375,6 +377,9 @@ def send_queued_mail(db) -> None:
     """
     from app.kernel.jobs import run_due_jobs
 
+    # The request that queued the job has committed before the runner reads the
+    # queue; the app's session does not flush on that read (#1771).
+    db.flush()
     run_due_jobs(db)
 
 
