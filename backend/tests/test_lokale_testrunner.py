@@ -29,6 +29,7 @@ beschermt een DROP DATABASE.
 """
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -41,7 +42,7 @@ E2E_SCRIPT = SCRIPTS / "e2e-local.sh"
 pytestmark = pytest.mark.ui_agnostisch
 
 
-def _draai(tmp_path, script=None, faal_op=None, **omgeving):
+def _draai(tmp_path, script=None, faal_op=None, argumenten=(), **omgeving):
     """Draait het script met een neppe `docker` die elke aanroep noteert.
 
     `faal_op` laat die neppe docker met 1 stoppen zodra het woord in de argumenten
@@ -63,7 +64,11 @@ def _draai(tmp_path, script=None, faal_op=None, **omgeving):
     env.update(omgeving)
 
     klaar = subprocess.run(
-        ["bash", str(script or SCRIPT)], env=env, capture_output=True, text=True, timeout=60
+        ["bash", str(script or SCRIPT), *argumenten],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
     return klaar, spoor
 
@@ -91,7 +96,11 @@ def test_ook_een_volledige_url_wordt_getoetst(tmp_path):
 
 def test_een_echte_testdatabank_komt_er_wel_door(tmp_path):
     """De tegenhanger: alles weigeren is geen vangrail maar een kapot script."""
-    klaar, spoor = _draai(tmp_path, TEST_DB_NAME="raaktest_proef")
+    # The copy with a stub css build (CR-29): this run passes mypy and would
+    # otherwise rewrite the real app.css beside three other processes.
+    klaar, spoor = _draai(
+        tmp_path, script=_script_with_a_stub_css_build(tmp_path), TEST_DB_NAME="raaktest_proef"
+    )
 
     assert klaar.returncode != 2, klaar.stderr
     assert spoor.exists(), "het script bereikte docker niet met een geldige naam"
@@ -164,3 +173,112 @@ def test_snel_slaat_de_poort_over_maar_is_niet_de_standaard(tmp_path):
     assert "mypy" not in aanroepen, "SNEL=1 draait mypy toch"
     assert "pytest" in aanroepen, "SNEL=1 draait niet eens pytest meer"
     assert klaar.returncode == 0, klaar.stderr
+
+
+# ── What CI runs, the local run runs too (CR-29 D4) ──────────────────────────
+# CI's `lint` job blocks on ruff and the local script ran none: a branch that was
+# green here went red there on a line length. And CI runs pytest in four processes;
+# a local run in one would be the slow half of the same gate.
+#
+# Broken to check that these can go red (run, not reasoned):
+#   * the two ruff lines moved below mypy → the first test fails on "mypy" in the trace;
+#   * `WORKERS=()` as the first line of that block → the second test fails;
+#   * the `"$#" -gt 0` half of the condition removed → the third test fails for the
+#     path argument;
+#   * the guard's `raaktest_*` narrowed to `raaktest_proef` → the last test fails.
+
+
+def _script_with_a_stub_css_build(tmp_path) -> Path:
+    """A copy of the script in a checkout of its own, whose css build does nothing.
+
+    A run that passes mypy reaches the css check, and that one calls the real
+    `build-css.sh`, which rewrites `app.css` in the work folder. Several of these
+    tests at once — the suite runs in four processes — would rewrite that file
+    under each other and under every test that reads it.
+    """
+    root = tmp_path / "checkout"
+    (root / "scripts").mkdir(parents=True)
+    shutil.copy(SCRIPT, root / "scripts" / "test-local.sh")
+    stub = root / "scripts" / "build-css.sh"
+    stub.write_text("#!/bin/sh\nexit 0\n")
+    stub.chmod(0o755)
+    (root / "backend" / "app" / "static").mkdir(parents=True)
+    (root / "backend" / "app" / "static" / "app.css").write_text("")
+    for name in ("requirements.txt", "requirements-dev.txt"):
+        (root / "backend" / name).write_text("")
+    return root / "scripts" / "test-local.sh"
+
+
+def _pytest_call(spoor) -> str:
+    calls = [line for line in spoor.read_text().splitlines() if "-m pytest" in line]
+    assert len(calls) == 1, f"expected one pytest call, found {len(calls)}"
+    return calls[0]
+
+
+def test_the_gate_stops_on_ruff_before_mypy_and_pytest(tmp_path):
+    """The cheapest verdict first, as in CI: a style finding does not wait for a suite."""
+    klaar, spoor = _draai(tmp_path, faal_op="ruff", TEST_DB_NAME="raaktest_proef")
+
+    assert klaar.returncode != 0, "a failing ruff must stop the script"
+    aanroepen = spoor.read_text()
+    assert "ruff format --check" in aanroepen, "ruff format --check does not run"
+    assert "mypy" not in aanroepen, "mypy ran although ruff failed"
+    assert "-m pytest" not in aanroepen, "pytest ran although ruff failed"
+
+
+def test_ruff_check_runs_too(tmp_path):
+    """The formatter and the linter are two commands; CI blocks on both."""
+    klaar, spoor = _draai(
+        tmp_path, script=_script_with_a_stub_css_build(tmp_path), TEST_DB_NAME="raaktest_proef"
+    )
+
+    assert klaar.returncode == 0, klaar.stderr
+    aanroepen = spoor.read_text().splitlines()
+    assert any("ruff format --check" in regel for regel in aanroepen)
+    assert any("ruff check" in regel for regel in aanroepen)
+
+
+def test_the_full_run_uses_four_processes(tmp_path):
+    klaar, spoor = _draai(
+        tmp_path, script=_script_with_a_stub_css_build(tmp_path), TEST_DB_NAME="raaktest_proef"
+    )
+
+    assert klaar.returncode == 0, klaar.stderr
+    assert " -n 4 --dist loadgroup" in _pytest_call(spoor)
+
+
+@pytest.mark.parametrize(
+    ("argumenten", "omgeving"),
+    [
+        (("tests/test_iets.py",), {}),
+        (("-k", "naam"), {}),
+        ((), {"SNEL": "1"}),
+    ],
+)
+def test_a_partial_run_stays_in_one_process(tmp_path, argumenten, omgeving):
+    """A selection is not split: one test in four processes only pays four setups."""
+    klaar, spoor = _draai(
+        tmp_path,
+        script=_script_with_a_stub_css_build(tmp_path),
+        argumenten=argumenten,
+        TEST_DB_NAME="raaktest_proef",
+        **omgeving,
+    )
+
+    assert klaar.returncode == 0, klaar.stderr
+    call = _pytest_call(spoor)
+    assert " -n " not in call, f"a partial run was split over processes: {call}"
+    for argument in argumenten:
+        assert argument in call, "the selection did not reach pytest"
+
+
+def test_the_guard_admits_the_database_of_a_worker(tmp_path):
+    """Under four processes the suite runs on `<base>_gw0` … `_gw3` (CR-29 F1)."""
+    klaar, spoor = _draai(
+        tmp_path,
+        script=_script_with_a_stub_css_build(tmp_path),
+        TEST_DB_NAME="raaktest_proef_gw0",
+    )
+
+    assert klaar.returncode != 2, klaar.stderr
+    assert spoor.exists(), "the script refused the name of a worker's database"

@@ -41,7 +41,10 @@ from urllib.parse import urlparse
 
 import pytest
 
-pytestmark = pytest.mark.ui_agnostisch
+# CR-29: the script under test restores into ONE scratch database with a fixed
+# name (`restore_test`) on the server, whatever worker calls it. Two of these
+# tests in two processes would drop it under each other, so they share a worker.
+pytestmark = [pytest.mark.ui_agnostisch, pytest.mark.xdist_group("restore_test")]
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "restore-test.sh"

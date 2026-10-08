@@ -7,6 +7,9 @@
 # dan een groene CI-run, en dat is erger dan geen lokale run.
 #
 # Draait dezelfde poort als CI: eerst mypy, dan de css-controle, dan pytest (#739).
+# Since CR-29 also what the `lint` job runs — `ruff format --check` and `ruff check`,
+# before mypy — and pytest in four processes as CI does, each on its own database
+# (`<name>_gw0` … `_gw3`, made by the suite itself: tests/_worker_db.py).
 # "Lokaal groen" hoort hetzelfde te betekenen als "CI groen"; toen dit script alleen
 # pytest draaide, meldde het 1532 passed terwijl CI omviel op een typefout en een
 # niet-herbouwde app.css. Dat is dezelfde valse zekerheid waar #719 tegen geschreven
@@ -20,12 +23,14 @@
 # sowieso doet. Dat is een keuze, geen vergetelheid.
 #
 # Gebruik:
-#   scripts/test-local.sh                          # de hele poort
-#   scripts/test-local.sh tests/test_iets.py       # één bestand (nog steeds mét poort)
+#   scripts/test-local.sh                          # de hele poort, pytest in vier processen
+#   scripts/test-local.sh tests/test_iets.py       # één bestand (nog steeds mét poort),
+#                                                  # in één proces: een selectie splits je niet
 #   SNEL=1 scripts/test-local.sh -k naam           # alleen pytest, tijdens het bouwen
 #
 # Omgevingsvariabelen:
-#   SNEL=1              sla mypy en de css-controle over (de STANDAARD is de volle poort)
+#   SNEL=1              sla ruff, mypy en de css-controle over, en draai in één proces
+#                       (de STANDAARD is de volle poort)
 #   TEST_DB_NAME        overschrijft de afgeleide databanknaam
 #   TEST_DATABASE_URL   overschrijft de hele URL (wordt óók door de vangrail getoetst)
 #   VERS                zet dit op 1 om de hulpcontainer opnieuw op te bouwen
@@ -116,8 +121,14 @@ if ! docker inspect -f '{{.State.Running}}' "$NAAM" >/dev/null 2>&1; then
     -v "$ROOT:/app" -w /app/backend \
     -e APP_ENV=dev -e JOBS_ENABLED=false \
     "$IMAGE" sleep infinity >/dev/null
-  docker exec "$NAAM" pip install -q -r requirements-dev.txt
 fi
+
+# The helper container lives long, so its packages must follow the requirement
+# files: a container built before CR-29 has no pytest-xdist and would stop on
+# `-n`. Installed when the files changed since the last install, not on every run.
+SOM="$(cat "$ROOT/backend/requirements.txt" "$ROOT/backend/requirements-dev.txt" | sha256sum | cut -c1-16)"
+docker exec "$NAAM" sh -c "[ \"\$(cat /tmp/requirements.som 2>/dev/null)\" = '$SOM' ] \
+  || { pip install -q -r requirements-dev.txt && echo '$SOM' > /tmp/requirements.som; }"
 
 # ── Databank aanmaken als ze nog niet bestaat ────────────────────────────────
 # Foutloos herhaalbaar: bestaat ze al, dan is er niets te doen.
@@ -127,6 +138,12 @@ fi
 
 # ── De rest van de poort ─────────────────────────────────────────────────────
 if [ "${SNEL:-}" != "1" ]; then
+  echo "→ ruff"
+  # What CI's `lint` job blocks on (CR-29 D4), with the ruff of requirements-dev.txt.
+  # --no-cache: the work folder is a bind mount the container cannot write its cache to.
+  docker exec "$NAAM" ruff format --check --no-cache .
+  docker exec "$NAAM" ruff check --no-cache .
+
   echo "→ mypy"
   # --cache-dir buiten /app: de werkmap is een bind mount en de container draait als
   # een andere gebruiker, dus mypy kan er zijn cache niet aanmaken. Zonder dit stopt
@@ -153,9 +170,14 @@ if [ "${SNEL:-}" != "1" ]; then
   rm -f "$VOOR"
 fi
 
+# CR-29: the full run uses four processes, as CI does; a partial run — SNEL=1 or
+# any pytest argument — stays in one. The next line is the whole of that choice (Q2).
+WORKERS=(-n 4 --dist loadgroup)
+if [ "${SNEL:-}" = "1" ] || [ "$#" -gt 0 ]; then WORKERS=(); fi
+
 echo "→ pytest tegen ${DB_NAAM}"
 # cache_dir buiten /app: die map is een bind mount naar de werkmap en de container
 # draait als een andere gebruiker, dus pytest kreeg daar geen schrijfrechten (en het
 # hoort er ook niet thuis).
 exec docker exec -e TEST_DATABASE_URL="$URL" "$NAAM" \
-  python -m pytest -o cache_dir=/tmp/pytest_cache "$@"
+  python -m pytest -o cache_dir=/tmp/pytest_cache "${WORKERS[@]}" "$@"
