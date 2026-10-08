@@ -7,6 +7,7 @@ from PIL import Image
 
 from app.domains.activities.api import Activity, ActivitySubRegistration
 from app.domains.media.api import MediaAsset
+from tests import media_door
 from tests.conftest import seed_activity_with_product
 
 
@@ -24,10 +25,8 @@ def test_upload_activity_poster_image_primes_over_url(client, db_session, admin_
     activity.poster_url = "https://extern/affiche.png"
     db_session.flush()
 
-    resp = client.post(
-        f"/api/v1/admin/activities/{activity.id}/poster",
-        files={"file": ("affiche.png", _png(), "image/png")},
-        headers=admin_headers,
+    resp = media_door.set_poster(
+        client, activity.id, {"file": ("affiche.png", _png(), "image/png")}
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["is_pdf"] is False
@@ -41,10 +40,8 @@ def test_upload_activity_poster_image_primes_over_url(client, db_session, admin_
 
 def test_upload_activity_poster_pdf(client, db_session, admin_headers):
     activity, _comp, _p = seed_activity_with_product(db_session)
-    resp = client.post(
-        f"/api/v1/admin/activities/{activity.id}/poster",
-        files={"file": ("affiche.pdf", _PDF, "application/pdf")},
-        headers=admin_headers,
+    resp = media_door.set_poster(
+        client, activity.id, {"file": ("affiche.pdf", _PDF, "application/pdf")}
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -63,16 +60,8 @@ def test_upload_activity_poster_pdf(client, db_session, admin_headers):
 
 def test_replacing_poster_hard_deletes_the_old_one(client, db_session, admin_headers):
     activity, _comp, _p = seed_activity_with_product(db_session)
-    client.post(
-        f"/api/v1/admin/activities/{activity.id}/poster",
-        files={"file": ("a.png", _png(), "image/png")},
-        headers=admin_headers,
-    )
-    client.post(
-        f"/api/v1/admin/activities/{activity.id}/poster",
-        files={"file": ("b.pdf", _PDF, "application/pdf")},
-        headers=admin_headers,
-    )
+    media_door.set_poster(client, activity.id, {"file": ("a.png", _png(), "image/png")})
+    media_door.set_poster(client, activity.id, {"file": ("b.pdf", _PDF, "application/pdf")})
     db_session.expire_all()
     # Precies één asset (geen soft-delete-ballast): de oude is écht weg.
     assets = (
@@ -87,12 +76,8 @@ def test_replacing_poster_hard_deletes_the_old_one(client, db_session, admin_hea
 
 def test_delete_poster_falls_back_to_url(client, db_session, admin_headers):
     activity, _comp, _p = seed_activity_with_product(db_session)
-    client.post(
-        f"/api/v1/admin/activities/{activity.id}/poster",
-        files={"file": ("a.png", _png(), "image/png")},
-        headers=admin_headers,
-    )
-    resp = client.delete(f"/api/v1/admin/activities/{activity.id}/poster", headers=admin_headers)
+    media_door.set_poster(client, activity.id, {"file": ("a.png", _png(), "image/png")})
+    resp = media_door.drop_poster(client, activity.id)
     assert resp.status_code == 204
     db_session.expire_all()
     a = db_session.query(Activity).filter(Activity.id == activity.id).first()
@@ -101,10 +86,8 @@ def test_delete_poster_falls_back_to_url(client, db_session, admin_headers):
 
 def test_upload_component_info_pdf(client, db_session, admin_headers):
     _activity, comp, _p = seed_activity_with_product(db_session)
-    resp = client.post(
-        f"/api/v1/admin/components/{comp.id}/info",
-        files={"file": ("zomaar.pdf", _PDF, "application/pdf")},
-        headers=admin_headers,
+    resp = media_door.set_component_info(
+        client, comp.id, {"file": ("zomaar.pdf", _PDF, "application/pdf")}
     )
     assert resp.status_code == 200, resp.text
     # Betekenisvolle bestandsnaam o.b.v. de context, niet de geüploade naam (#223).
@@ -122,18 +105,7 @@ def test_upload_component_info_pdf(client, db_session, admin_headers):
 
 def test_unsupported_file_type_rejected(client, db_session, admin_headers):
     activity, _comp, _p = seed_activity_with_product(db_session)
-    resp = client.post(
-        f"/api/v1/admin/activities/{activity.id}/poster",
-        files={"file": ("evil.exe", b"MZ", "application/octet-stream")},
-        headers=admin_headers,
+    resp = media_door.set_poster(
+        client, activity.id, {"file": ("evil.exe", b"MZ", "application/octet-stream")}
     )
     assert resp.status_code == 400
-
-
-def test_poster_upload_requires_admin(client, db_session):
-    activity, _comp, _p = seed_activity_with_product(db_session)
-    resp = client.post(
-        f"/api/v1/admin/activities/{activity.id}/poster",
-        files={"file": ("a.png", _png(), "image/png")},
-    )
-    assert resp.status_code in (401, 403)

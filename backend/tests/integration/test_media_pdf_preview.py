@@ -13,6 +13,7 @@ from app.domains.activities.api import Activity  # noqa: F401  (registers the ma
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.media.api import MediaAsset
 from app.domains.media.pdf import first_page_png
+from tests import media_door
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 
@@ -53,10 +54,8 @@ _ONLEESBAAR = b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF"
 def test_een_opgeladen_pdf_affiche_krijgt_een_afbeelding(client, db_session, admin_headers):
     activity, _comp, _p = seed_activity_with_product(db_session)
 
-    resp = client.post(
-        f"/api/v1/admin/activities/{activity.id}/poster",
-        files={"file": ("affiche.pdf", _pdf(), "application/pdf")},
-        headers=admin_headers,
+    resp = media_door.set_poster(
+        client, activity.id, {"file": ("affiche.pdf", _pdf(), "application/pdf")}
     )
     assert resp.status_code == 200, resp.text
 
@@ -77,10 +76,8 @@ def test_een_opgeladen_pdf_affiche_krijgt_een_afbeelding(client, db_session, adm
 def test_een_onleesbare_pdf_levert_geen_afbeelding_en_geen_fout(client, db_session, admin_headers):
     activity, _comp, _p = seed_activity_with_product(db_session)
 
-    resp = client.post(
-        f"/api/v1/admin/activities/{activity.id}/poster",
-        files={"file": ("kapot.pdf", _ONLEESBAAR, "application/pdf")},
-        headers=admin_headers,
+    resp = media_door.set_poster(
+        client, activity.id, {"file": ("kapot.pdf", _ONLEESBAAR, "application/pdf")}
     )
     assert resp.status_code == 200, "de upload slaagt; een affiche zonder beeld blijft een affiche"
 

@@ -363,9 +363,11 @@ def _api_routes() -> dict[str, str]:
                 routes[f"{method} {path}"] = module
 
     walk(app.routes)
-    # The floor follows the pruning of CR-13 phase 4b (#1251): it was 100 while the
-    # routes without a caller still stood.
-    assert len(routes) > 50, f"only {len(routes)} /api/v1 routes found — the walk is blind"
+    # The floor is what stays when CR-13 phase 4b (#1251) has pruned the rest: the
+    # media file and its thumbnail and the two payment webhooks. It was 100 while the
+    # routes without a caller still stood, then 50; a floor above what is left stops
+    # the pruning, and a blind walk finds none.
+    assert len(routes) >= 4, f"only {len(routes)} /api/v1 routes found — the walk is blind"
     return routes
 
 

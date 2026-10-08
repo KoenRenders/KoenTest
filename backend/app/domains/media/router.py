@@ -1,4 +1,4 @@
-"""Assetbibliotheek: upload (admin) en serveren (publiek) van afbeeldingen.
+"""Assetbibliotheek: serveren (publiek) van afbeeldingen en documenten.
 
 Afbeeldingen worden in Postgres (BYTEA) bewaard, dus ze zitten automatisch mee
 in de DB-backup. Bij upload worden ze verkleind en van een thumbnail voorzien
@@ -7,16 +7,12 @@ in de DB-backup. Bij upload worden ze verkleind en van een thumbnail voorzien
 
 import hashlib
 import re
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
-    File,
-    Form,
     HTTPException,
-    Query,
     Request,
     UploadFile,
 )
@@ -24,8 +20,6 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import User, get_current_admin
-from app.domains.media import service as _service
 from app.domains.media.images import (
     ALLOWED_CONTENT_TYPES,
     MAX_UPLOAD_BYTES,
@@ -42,7 +36,6 @@ router = APIRouter(tags=["media"])
 # #1005: hier stond een tweede kopie van VALID_KINDS, die niemand las. Weg in
 # plaats van bijgewerkt: twee lijsten van dezelfde soorten lopen uit elkaar, en
 # de service heeft de enige die telt.
-MAX_BATCH = 20
 SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'"
 
 # Poster/reglement mag een afbeelding óf een PDF zijn (#223).
@@ -134,11 +127,6 @@ async def _replace_single_asset(
     return asset
 
 
-def _meta(a: MediaAsset) -> dict:
-    """Lichte metadata-respons (zonder de blobs) — één bron in de service."""
-    return _service.meta(a)
-
-
 # ---------------------------------------------------------------------------
 # Publiek serveren
 # ---------------------------------------------------------------------------
@@ -216,144 +204,11 @@ def serve_thumb(asset_id: int, request: Request, db: Session = Depends(get_db)):
     return _serve(blob, ctype, request, f"thumb-{a.id}")
 
 
-@router.get("/sponsors")
-def list_sponsors(db: Session = Depends(get_db)):
-    """Actieve sponsorlogo's voor footer en homepage."""
-    rows = (
-        db.query(MediaAsset)
-        .filter(MediaAsset.kind == MediaKind.SPONSOR, MediaAsset.is_active == True)  # noqa: E712
-        .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.asc())
-        .all()
-    )
-    return [_meta(a) for a in rows]
-
-
-@router.get("/activities/{activity_id}/photos")
-def list_activity_photos(activity_id: int, db: Session = Depends(get_db)):
-    return _service.list_activity_photos(db, activity_id)
-
-
 # ---------------------------------------------------------------------------
 # Admin
 # ---------------------------------------------------------------------------
-@router.get("/admin/media")
-def admin_list_media(
-    kind: Optional[str] = Query(None),
-    activity_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    return _service.list_media(db, kind=kind, activity_id=activity_id)
-
-
-@router.post("/admin/media")
-async def upload_media(
-    files: List[UploadFile] = File(...),
-    kind: str = Form(...),
-    activity_id: Optional[int] = Form(None),
-    title: Optional[str] = Form(None),
-    link_url: Optional[str] = Form(None),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    try:
-        return await _service.upload_media(
-            db, files=files, kind=kind, activity_id=activity_id, title=title, link_url=link_url
-        )
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=_(str(exc)))
-    except _service.MediaFout as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
 
 
 # ---------------------------------------------------------------------------
 # Poster (activiteit) en info/reglement (onderdeel): één bestand, vervangbaar (#223)
 # ---------------------------------------------------------------------------
-
-
-@router.post("/admin/activities/{activity_id}/poster")
-async def upload_activity_poster(
-    activity_id: int,
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    try:
-        return await _service.replace_activity_poster(db, activity_id, file, background_tasks)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
-
-
-@router.delete("/admin/activities/{activity_id}/poster", status_code=204)
-def delete_activity_poster(
-    activity_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    _service.delete_activity_poster(db, activity_id)
-
-
-@router.post("/admin/components/{component_id}/info")
-async def upload_component_info(
-    component_id: int,
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    try:
-        return await _service.replace_component_info(db, component_id, file, background_tasks)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Onderdeel niet gevonden"))
-
-
-@router.post("/admin/media/{asset_id}/extract", status_code=202)
-def reextract_media_text(
-    asset_id: int,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    """De 'Opnieuw lezen'-knop (#235) — implementatie in de service."""
-    try:
-        return _service.reextract_text(db, asset_id, background_tasks)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Document niet gevonden"))
-
-
-@router.patch("/admin/media/{asset_id}")
-def update_media(
-    asset_id: int,
-    payload: dict,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    try:
-        return _service.update_media(db, asset_id, payload)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    except _service.MediaFout as exc:
-        # #707: de linkcontrole zit in de service, dus ook deze ingang kan hem nu
-        # werpen. Zonder deze tak werd een geweigerde link een 500. 400 zoals de
-        # uploadroute hierboven — één statuscode voor dezelfde soort fout.
-        raise HTTPException(status_code=400, detail=str(exc))
-
-
-@router.delete("/admin/media/{asset_id}")
-def delete_media(
-    asset_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    try:
-        _service.delete_media(db, asset_id)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    except _service.MediaInUse as exc:
-        # #1471: still shown somewhere — the caller gets the uses, not a delete.
-        raise HTTPException(
-            status_code=409,
-            detail={"message": str(exc), "uses": [vars(u) for u in exc.uses]},
-        ) from exc
-    return {"detail": "Verwijderd"}

@@ -24,6 +24,7 @@ import io
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import media_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -149,11 +150,7 @@ def test_de_regel_geldt_ook_op_de_json_route(client, db_session, admin_headers):
     db_session.commit()
     asset = _asset(db_session, "Viaapi")
 
-    resp = client.patch(
-        f"/api/v1/admin/media/{asset.id}",
-        json={"link_url": "javascript:alert(1)"},
-        headers=admin_headers,
-    )
+    resp = media_door.update(client, asset.id, {"link_url": "javascript:alert(1)"})
     assert resp.status_code == 400, resp.text[:300]
 
     db_session.expire_all()
