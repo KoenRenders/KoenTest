@@ -322,7 +322,7 @@
     }
     var input = document.getElementById(mount.dataset.input);
     var surface = document.createElement("div");
-    surface.className = "de-surface cms-content";
+    surface.className = "de-surface prose-raak";
     mount.appendChild(surface);
 
     var extensions = [

@@ -5,7 +5,7 @@ at (the cascade decides, not a template), and the buttons of the editor's bar.
 
 Measured on master, the reason for this issue: a heading in the text was drawn
 at 40 px (32 on a phone) — the page-title rule `body[data-shell="site"] #main
-h1` (an id) won from `.cms-content h1` (1.5rem, a class) — and the page had
+h1` (an id) won from `.prose-raak h1` (1.5rem, a class) — and the page had
 three h1's.
 
 Broken on purpose (6 October 2026): the `.cms-page` rules taken out of the

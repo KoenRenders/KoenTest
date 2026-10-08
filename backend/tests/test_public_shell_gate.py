@@ -153,7 +153,7 @@ def test_no_template_renders_the_free_footer_block():
 
 
 CLEAN = """{% extends "site_base.html" %}
-{% block content %}<h1>{{ page.title }}</h1><div class="cms-content">{{ content|safe }}</div>{% endblock %}"""
+{% block content %}<h1>{{ page.title }}</h1><div class="prose-raak">{{ content|safe }}</div>{% endblock %}"""
 
 
 @pytest.mark.parametrize(

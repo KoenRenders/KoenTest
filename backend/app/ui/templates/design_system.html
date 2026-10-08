@@ -1138,6 +1138,34 @@
 {% endcall %}
 </div>
 
+{# ── 13h. The prose of a document (CR-17 #1671, slice 4) ─────────────────────
+   The reading rules a page's body carries: ONE class, `prose-raak`, the
+   same rules on the site and in the editor's preview. The column is the
+   document page's own: 768 px, left-aligned (`.doc-page`). Judged at 390 px
+   too — the table below is wider than a phone, and there her block scrolls
+   inside itself while the page does not. #}
+{{ ui.section_header(_("13h · Proza van een document"), cls="mt-10") }}
+<p class="text-sm text-gray-600 mb-3">
+  {{ _("De leesregels van een paginakop: één klasse, `prose-raak`, dezelfde op de site en in de preview van de editor. De kolom is die van de documentpagina: 768 px, links uitgelijnd. Op een telefoon schuift de tabel binnen haar eigen blok — de pagina schuift niet.") }}
+</p>
+<div class="doc-page">
+  <div class="prose-raak">
+    <h2>Een kop in de tekst</h2>
+    <p>Een alinea met <strong>vette</strong> en <em>cursieve</em> woorden, en een <a href="#kit-proza">link in de merkkleur</a>. De regels zitten in <code>app.css</code>, niet in de schil: de beheer- en de publieke kant delen ze.</p>
+    <ul>
+      <li>Een lijstregel met korte tekst.</li>
+      <li>En nog één, met wat meer woorden zodat de inspringing zichtbaar blijft.</li>
+    </ul>
+    <table>
+      <thead><tr><th>Onderdeel</th><th>Wat het kost</th><th>Wanneer</th><th>Waar</th><th>Inschrijven</th></tr></thead>
+      <tbody>
+        <tr><td>Wandeling</td><td>€ 3,00</td><td>zondagochtend</td><td>ontmoetingsplaats aan de kerk</td><td>aan de balie</td></tr>
+        <tr><td>Soep na afloop</td><td>€ 5,00</td><td>rond de middag</td><td>in de zaal</td><td>met de wandeling</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 {# ── 14. Publieke schil ────────────────────────────────────────────────────── #}
 {{ ui.section_header(_("14 · Publieke schil"), _("Naar de publieke activiteiten"), action_href="/activiteiten", action_attrs='hx-boost="false"', cls="mt-10") }}
 {% call ui.card() %}
