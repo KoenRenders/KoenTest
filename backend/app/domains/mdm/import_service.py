@@ -35,13 +35,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.domains.audit.api import (
-    snapshot_address,
-    snapshot_member,
-    snapshot_member_person,
-    snapshot_membership,
-    snapshot_person,
-)
+from app.domains.audit.api import snapshot_membership
 from app.domains.auth.api import User, UserRole
 from app.domains.mdm.api import (
     Address,
@@ -62,6 +56,12 @@ from app.domains.mdm.change_lines import (
     relation_value,
 )
 from app.domains.mdm.codes import CONTACT, EXTERNAL
+from app.domains.mdm.history import (
+    snapshot_address,
+    snapshot_member,
+    snapshot_member_person,
+    snapshot_person,
+)
 from app.domains.mdm.service import email_refusal
 from app.domains.membership.api import Membership
 from app.kernel.codes import code_of

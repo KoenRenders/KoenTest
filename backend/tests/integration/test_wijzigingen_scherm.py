@@ -46,7 +46,7 @@ def _wijzigingen(db, aantal):
     aan. Voor deze schermtest doen we hetzelfde, met dezelfde functie die de
     productiecode gebruikt.
     """
-    from app.domains.audit.api import snapshot_person
+    from app.domains.mdm.api import snapshot_person
 
     for i in range(aantal):
         person = Person(first_name=f"Test{i}", last_name="Wijziging")

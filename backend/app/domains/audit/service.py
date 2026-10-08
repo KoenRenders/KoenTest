@@ -11,15 +11,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.domains.mdm.api import (
-    AddressHistory,
-    ContactDetailHistory,
-    MemberHistory,
-    MemberPersonHistory,
-    PersonHistory,
-)
 from app.domains.membership.api import MembershipHistory
-from app.kernel.codes import code_of
 
 # #713: wat er in `actor` staat wanneer er níemand aangemeld was.
 #
@@ -32,56 +24,6 @@ from app.kernel.codes import code_of
 # niet te verwarren met een e-mailadres. Bestaande rijen blijven leeg: die kunnen we
 # niet met terugwerkende kracht duiden en horen we ook niet zo te behandelen.
 PUBLIEKE_ACTOR = "publiek"
-
-
-def snapshot_person(
-    db: Session, person, *, operation: str, action: str, source: str, actor: Optional[str] = None
-) -> None:
-    db.add(
-        PersonHistory(
-            person_id=person.id,
-            last_name=person.last_name,
-            first_name=person.first_name,
-            date_of_birth=person.date_of_birth,
-            gender_code=code_of(person.gender_code),
-            operation=operation,
-            action=action,
-            source=source,
-            actor=actor,
-        )
-    )
-
-
-def snapshot_member(
-    db: Session, member, *, operation: str, action: str, source: str, actor: Optional[str] = None
-) -> None:
-    db.add(
-        MemberHistory(
-            member_id=member.id,
-            board_member_id=member.board_member_id,
-            operation=operation,
-            action=action,
-            source=source,
-            actor=actor,
-        )
-    )
-
-
-def snapshot_member_person(
-    db: Session, mp, *, operation: str, action: str, source: str, actor: Optional[str] = None
-) -> None:
-    db.add(
-        MemberPersonHistory(
-            member_person_id=mp.id,
-            member_id=mp.member_id,
-            person_id=mp.person_id,
-            relation_type=code_of(mp.relation_type),
-            operation=operation,
-            action=action,
-            source=source,
-            actor=actor,
-        )
-    )
 
 
 def snapshot_membership(
@@ -101,43 +43,6 @@ def snapshot_membership(
             is_active=membership.is_active,
             valid_from=membership.valid_from,
             valid_to=membership.valid_to,
-            operation=operation,
-            action=action,
-            source=source,
-            actor=actor,
-        )
-    )
-
-
-def snapshot_address(
-    db: Session, address, *, operation: str, action: str, source: str, actor: Optional[str] = None
-) -> None:
-    db.add(
-        AddressHistory(
-            address_id=address.id,
-            person_id=address.person_id,
-            street=address.street,
-            house_number=address.house_number,
-            bus_number=address.bus_number,
-            postal_code_id=address.postal_code_id,
-            operation=operation,
-            action=action,
-            source=source,
-            actor=actor,
-        )
-    )
-
-
-def snapshot_contact_detail(
-    db: Session, contact, *, operation: str, action: str, source: str, actor: Optional[str] = None
-) -> None:
-    db.add(
-        ContactDetailHistory(
-            contact_detail_id=contact.id,
-            person_id=contact.person_id,
-            contact_type_code=code_of(contact.contact_type_code),
-            value=contact.value,
-            is_primary=contact.is_primary,
             operation=operation,
             action=action,
             source=source,

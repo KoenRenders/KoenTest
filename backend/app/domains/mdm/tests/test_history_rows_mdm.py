@@ -5,7 +5,8 @@ The snapshot functions of mdm move from `audit/service.py` to their owner
 owner). The move changes no row: each function is given one fixed source and
 every column of the row it writes is compared with what the code wrote before
 the move. `EXPECTED` was recorded on the old code (9 October 2026, the functions
-still in `audit/service.py`) and has not been touched since.
+still in `audit/service.py`) and has not been touched since: the move changed the import
+above and nothing below it.
 
 Proven red (9 October 2026): `value=contact.value` taken out of `snapshot_contact_detail` → its row differs.
 """
@@ -17,13 +18,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.domains.audit.api import (
-    snapshot_address,
-    snapshot_contact_detail,
-    snapshot_member,
-    snapshot_member_person,
-    snapshot_person,
-)
 from app.domains.mdm.api import (
     CONTACT,
     AddressHistory,
@@ -32,6 +26,13 @@ from app.domains.mdm.api import (
     MemberPersonHistory,
     PersonHistory,
     RelationType,
+)
+from app.domains.mdm.history import (
+    snapshot_address,
+    snapshot_contact_detail,
+    snapshot_member,
+    snapshot_member_person,
+    snapshot_person,
 )
 from tests._snapshot import recorded_history_rows
 
