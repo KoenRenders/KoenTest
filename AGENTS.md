@@ -675,7 +675,8 @@ Since 6 October 2026 a CLI that is not Claude Code builds in this repository too
 
 | Name | Tool | Local port | How it listens |
 |---|---|---|---|
-| `mistral-vibe1` | the Mistral CLI | 8082 | polls its pull request (seen by Koen on 7 October 2026) |
+| `mistral-vibe1` | the Mistral CLI, on Koen's machine | — (was 8082) | **stopped on 8 October 2026**: handed CR-17 over to `mistral-cloud1` and builds nothing any more |
+| `mistral-cloud1` | the Mistral CLI, as a cloud session — not on Koen's machine | 8082, started by the master CLI (*A builder that does not run on Koen's machine* below) | said in its first comment on its pull request |
 | `opencode1` | OpenCode, on DeepSeek's API (the limits below) | 8083 | said in its first pull request |
 
 A name is the tool and a number, always — `mistral-vibe1`, `opencode1`, and a second session of a tool is `mistral-vibe2`, `opencode2`. A new builder is added to this table by Koen or the master CLI at his request and gets the next free port (8084, 8085, …). The master CLI watches the branches of every name in the table. The branches the Mistral CLI opened before 7 October 2026 are named `feature/mistral-…`; they are `mistral-vibe1`'s.
@@ -726,13 +727,17 @@ An outside builder also never deploys, never reads an environment (`raak` is the
 
 **A local test version for Koen, always.** For everything Koen has to judge with his own eyes — a screen, a flow, a migration of content — the builder gives him a local version of its branch to test on, before the work goes to `master`:
 - its **own compose project**, named after the builder (`mistral-vibe1-<short>`), with its own database volume, served on **the builder's port from the table above** and on no other, also when another port looks free; it never uses and never recreates the shared development database, and its database publishes no port at all;
-- **one local version per builder at a time**: to show another branch it stops the first, so the address of a builder never changes — `localhost:8082` is always `mistral-vibe1`. Port 8081 is HDEV's and port 5432 the shared development database's;
+- **one local version per builder at a time**: to show another branch it stops the first, so the address of a builder never changes — `localhost:8082` is always CR-17's builder (`mistral-vibe1` until 8 October 2026, `mistral-cloud1` since). Port 8081 is HDEV's and port 5432 the shared development database's;
 - **made-up data only**, with accounts on a reserved example domain for the roles Koen needs to walk (an administrator, a treasurer, a board member);
 - **nothing leaves the machine**: no mail is sent, no payment provider and no AI provider is called;
 - **one way in that needs no secret**: a small script that prints the sign-in link from the version's own mail log;
 - the start and stop commands, the address and the script live **outside this repository**, in Koen's project folder next to the change request; no local path and no credential enters the repository, an issue or a pull request (For `opencode1`: in a folder of its own, limit 5 above.)
 
 The pull request says that the local version exists and which branch it runs; where it stands is said to Koen in the builder's own chat.
+
+**A builder that does not run on Koen's machine** (a cloud session; Koen, 8 October 2026, when `mistral-cloud1` took CR-17 over) cannot give him that local version, so **the master CLI starts it**, on the builder's port and under the same rules as above. The signal is the builder's *ready for review, commit `<sha>`* with a green run on that commit — not every commit: a rebuild takes time and the run filters the red tips out — or the builder's comment *test version please* for one in between. Before it starts, the master CLI looks at what the commit changes in the container set-up and the start-up scripts (`Dockerfile`, the compose files, `startup.sh`): if it touches them, the version waits for the review of that commit, because this is a builder's code run from a session that can reach the environments. It does not start a rebuild beside a full local run of another CLI. When the version stands, the master CLI says so to Koen in its chat and in one line on the pull request. Such a builder keeps nothing on Koen's machine: no working copy, no script, no access to his project folder.
+
+**A builder that hands its work over** to another builder says so in one comment on the pull request — everything pushed, what is done and what is not, every decision of Koen it heard that is not on the pull request yet — and then stops: it pushes nothing more and answers no comment. The pull request's first line names the builder that continues, and from that comment on only that builder acts on it.
 
 **One machine, several CLIs.** Every CLI works in its own checkout with its own folder name: the local test scripts derive their database and container names from that name, so two checkouts with one name fight over one database. The shared database container is started with `up -d --no-recreate db`, by whoever needs it first, and is never recreated. A full local run is heavy: when another CLI's run is under way, wait for it rather than start a second full suite beside it — two at once make the browser tests flaky for both.
 
