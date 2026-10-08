@@ -175,13 +175,23 @@ def _is_subscribe(decorator: ast.expr) -> bool:
     return name == "subscribe"
 
 
+def _is_handles(decorator: ast.expr) -> bool:
+    """`@handles(SomePort)` — the one handler of a port (`kernel/ports.py`)."""
+    target = decorator.func if isinstance(decorator, ast.Call) else decorator
+    name = target.attr if isinstance(target, ast.Attribute) else getattr(target, "id", "")
+    return name == "handles"
+
+
 def _event_handlers() -> list[tuple[Path, ast.Module, ast.FunctionDef]]:
+    """The functions that run inside somebody else's transaction: the handlers of
+    an event (`@subscribe`) and of a port (`@handles`). Neither commits and neither
+    reaches the network — the door service that started it all commits once."""
     handlers = []
     for path in _python_files():
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
-                _is_subscribe(d) for d in node.decorator_list
+                _is_subscribe(d) or _is_handles(d) for d in node.decorator_list
             ):
                 handlers.append((path, tree, node))
     assert len(handlers) >= 2, f"only {len(handlers)} @subscribe handlers found — the walk is blind"
@@ -214,16 +224,39 @@ def _module_path(dotted: str) -> Path | None:
 Reached = tuple[Path, ast.Module, ast.FunctionDef, str]
 
 
+def _imported_file(importer: Path, node: ast.ImportFrom, name: str = "") -> Path | None:
+    """The file an import names — `from app.x import f` and `from .x import f` → x;
+    with `name`, the module that name itself is (`from . import service` → service)."""
+    if node.level:
+        base = importer.parents[node.level - 1]
+        base = base.joinpath(*node.module.split(".")) if node.module else base
+    elif node.module and node.module.startswith("app."):
+        base = BACKEND.joinpath(*node.module.split("."))
+    else:
+        return None
+    base = base / name if name else base
+    for candidate in (base.with_suffix(".py"), base / "__init__.py"):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def _reachable(
     path: Path, tree: ast.Module, function: ast.FunctionDef, depth: int = 3
 ) -> list[Reached]:
     """The function itself and what it calls, up to `depth` levels, following calls
-    into the same module and into functions imported from other `app.` modules.
+    into the same module, into functions imported from other `app.` modules
+    (absolute or relative) and into `module.function()` of an imported module.
 
     Why further than "one level in the same module": the one handler that reaches
     SMTP today does it through `mail.service._dispatch` → `_send`, two calls and one
     module away. A gate that cannot find its own known offender proves nothing.
-    Calls through attributes (`obj.method()`) and dynamic dispatch are not followed.
+    Calls on an object (`obj.method()`) and dynamic dispatch are not followed.
+
+    Why `service.function()` and `from .service import` are followed (#1251, the
+    port gate): a port handler is thin by design — it turns a contract into one
+    call of its own service — and that call is usually written one of those two
+    ways. A walk that stopped at the handler would hold nothing of what it does.
     """
     seen: set[tuple[Path, str]] = set()
     out: list[Reached] = []
@@ -236,28 +269,45 @@ def _reachable(
         if level == depth:
             return
         local = _module_functions(t)
-        imported: dict[str, tuple[str, str]] = {}
+        imported: dict[str, tuple[Path, str]] = {}
+        modules: dict[str, Path] = {}
         # Module-level imports, and the ones inside the function itself — a late
         # import (`from app.kernel.jobs import enqueue`) is a call target all the same.
         for node in [*t.body, *ast.walk(fn)]:
-            if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("app."):
-                for alias in node.names:
-                    imported[alias.asname or alias.name] = (node.module, alias.name)
-        for n in ast.walk(fn):
-            if not (isinstance(n, ast.Call) and isinstance(n.func, ast.Name)):
+            if not isinstance(node, ast.ImportFrom):
                 continue
-            name = n.func.id
-            chain = f"{via} → {name}" if via else name
-            if name in local and local[name] is not fn:
-                visit(p, t, local[name], chain, level + 1)
-            elif name in imported:
-                module, original = imported[name]
-                target = _module_path(module)
-                if target is not None:
-                    target_tree = _tree(target)
-                    callee = _module_functions(target_tree).get(original)
-                    if callee is not None:
-                        visit(target, target_tree, callee, chain, level + 1)
+            source = _imported_file(p, node)
+            for alias in node.names:
+                as_module = _imported_file(p, node, alias.name)
+                if as_module is not None:
+                    modules[alias.asname or alias.name] = as_module
+                elif source is not None:
+                    imported[alias.asname or alias.name] = (source, alias.name)
+        for n in ast.walk(fn):
+            if not isinstance(n, ast.Call):
+                continue
+            func = n.func
+            if isinstance(func, ast.Name):
+                name = func.id
+                if name in local and local[name] is not fn:
+                    visit(p, t, local[name], f"{via} → {name}" if via else name, level + 1)
+                    continue
+                target, original = imported.get(name, (None, ""))
+            elif (
+                isinstance(func, ast.Attribute)
+                and isinstance(func.value, ast.Name)
+                and func.value.id in modules
+            ):
+                name = f"{func.value.id}.{func.attr}"
+                target, original = modules[func.value.id], func.attr
+            else:
+                continue
+            if target is None:
+                continue
+            target_tree = _tree(target)
+            callee = _module_functions(target_tree).get(original)
+            if callee is not None:
+                visit(target, target_tree, callee, f"{via} → {name}" if via else name, level + 1)
 
     visit(path, tree, function, "", 0)
     return out
@@ -1359,6 +1409,13 @@ def collect_command_calls_outside_handlers() -> dict[str, str]:
         for function in ast.walk(tree):
             if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
+            # An EVENT handler is exempt and a PORT handler is not, on purpose. An
+            # event handler reacts to a fact: its own domain decides what follows,
+            # and a command of another domain from there is that domain's doing. A
+            # port handler IS a command from outside: were it exempt, a domain could
+            # walk into a third one through its own handler, and the port would be a
+            # licence instead of a boundary. A port handler that needs another domain
+            # calls a port or publishes an event itself.
             if any(_is_subscribe(d) for d in function.decorator_list):
                 continue
             for node in _own_nodes(function):
@@ -1385,6 +1442,197 @@ def collect_command_calls_outside_handlers() -> dict[str, str]:
                     f"`{target[0]}` subscribe (CR-13 §B4.9)",
                 )
     return found
+
+
+# ── 14. Ports: a synchronous command between domains (architecture §3.2.1 step 2) ──
+#
+# A port is a contract in `kernel/contracts/<owner>.py` (a subclass of `Port`) with
+# exactly one handler (`@handles(ThePort)`) in the owner's domain; a caller in
+# another domain goes through `kernel.ports.call(ThePort(...), db)`. What the gates
+# hold, and where:
+#
+# - a call through `kernel.ports.call` is no command call (it calls no `api.py`), and
+#   a command through another domain's `api.py` outside an event handler stays red —
+#   `collect_command_calls_outside_handlers`, unchanged;
+# - a port handler is no licence there — see the comment at that collector's exemption;
+# - a port handler does not commit and reaches no network — `_event_handlers`;
+# - every port has exactly one handler, at home; a contract carries plain values
+#   only; a port is called from a service or a handler, never from a door — below.
+#
+# A repository without a port is in order as long as nothing handles or calls one;
+# "found nothing" is accepted only together with "nothing asks for one".
+
+#: What a contract's field may be: a plain value, or a dataclass of `kernel/contracts/`.
+_PLAIN = {"int", "str", "bool", "float", "bytes", "None", "date", "datetime", "Decimal"}
+_PLAIN_GENERICS = {"Optional", "tuple"}
+
+
+def _contracts_dir() -> Path:
+    return APP / "kernel" / "contracts"
+
+
+def _annotation_offences(annotation: ast.AST | None, contract_classes: set[str]) -> list[str]:
+    """The names in an annotation that are no plain value — looked for inside
+    generics and unions too (`tuple[Form, ...]`, `Form | None`, `"Form"`)."""
+    if annotation is None:
+        return ["an unannotated field"]
+    if isinstance(annotation, ast.Constant):
+        if annotation.value is None or annotation.value is Ellipsis:
+            return []
+        if isinstance(annotation.value, str):
+            return _annotation_offences(
+                ast.parse(annotation.value, mode="eval").body, contract_classes
+            )
+        return [repr(annotation.value)]
+    if isinstance(annotation, ast.Name):
+        known = _PLAIN | _PLAIN_GENERICS | contract_classes
+        return [] if annotation.id in known else [annotation.id]
+    if isinstance(annotation, ast.Attribute):
+        return [] if annotation.attr in _PLAIN else [ast.unparse(annotation)]
+    if isinstance(annotation, ast.Subscript):
+        outer = _annotation_offences(annotation.value, contract_classes)
+        inner = annotation.slice
+        parts = inner.elts if isinstance(inner, ast.Tuple) else [inner]
+        return outer + [o for part in parts for o in _annotation_offences(part, contract_classes)]
+    if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
+        return _annotation_offences(annotation.left, contract_classes) + _annotation_offences(
+            annotation.right, contract_classes
+        )
+    return [ast.unparse(annotation)]
+
+
+def collect_port_findings() -> list[str]:
+    """Hard, without a baseline: what is wrong with the ports, their handlers, their
+    contracts and their callers."""
+    contracts = _contracts_dir()
+    modules = sorted(p for p in contracts.glob("*.py") if p.name != "__init__.py")
+    assert modules, f"no contract modules under {contracts} — the walk is blind"
+
+    classes: dict[str, tuple[Path, ast.ClassDef]] = {}
+    for path in modules:
+        for node in _tree(path).body:
+            if isinstance(node, ast.ClassDef):
+                classes[node.name] = (path, node)
+
+    def is_port(name: str, seen: frozenset[str] = frozenset()) -> bool:
+        if name == "Port":
+            return True
+        if name not in classes or name in seen:
+            return False
+        bases = [getattr(b, "attr", getattr(b, "id", "")) for b in classes[name][1].bases]
+        return any(is_port(base, seen | {name}) for base in bases)
+
+    ports = {name: where for name, where in classes.items() if is_port(name)}
+    findings: list[str] = []
+
+    handlers: dict[str, list[tuple[Path, ast.FunctionDef]]] = {}
+    callers: list[tuple[Path, int]] = []
+    for path in _python_files():
+        tree = _tree(path)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for decorator in node.decorator_list:
+                    if (
+                        _is_handles(decorator)
+                        and isinstance(decorator, ast.Call)
+                        and decorator.args
+                    ):
+                        handlers.setdefault(ast.unparse(decorator.args[0]), []).append((path, node))
+            if (
+                isinstance(node, (ast.Import, ast.ImportFrom))
+                and "kernel" not in path.relative_to(APP).parts[:1]
+            ):
+                named = [a.name for a in node.names]
+                module = getattr(node, "module", "") or ""
+                if (
+                    module == "app.kernel.ports"
+                    or "app.kernel.ports" in named
+                    or (module == "app.kernel" and "ports" in named)
+                ):
+                    callers.append((path, node.lineno))
+
+    # Rule 2: exactly one handler per port, in the domain its contract file is named after.
+    for name, (contract, _cls) in sorted(ports.items()):
+        owner = contract.stem
+        found = handlers.get(name, [])
+        if not found:
+            findings.append(
+                f"port `{name}` ({_rel(contract)}) has no handler — `@handles({name})` belongs "
+                f"in `domains/{owner}/handlers.py`"
+            )
+        if len(found) > 1:
+            where = ", ".join(sorted(f"{_rel(p)}::{fn.name}" for p, fn in found))
+            findings.append(
+                f"port `{name}` has {len(found)} handlers ({where}) — a port has exactly one"
+            )
+        for path, function in found:
+            if _owner_of_file(path) != owner:
+                findings.append(
+                    f"{_rel(path)}::{function.name} handles port `{name}`, whose contract is "
+                    f"`{owner}`'s — the handler lives in the owner's domain"
+                )
+    for name, found in sorted(handlers.items()):
+        if name not in ports:
+            for path, function in found:
+                findings.append(
+                    f"{_rel(path)}::{function.name} handles `{name}`, which is no `Port` of "
+                    f"`kernel/contracts/`"
+                )
+
+    # Rule 5: a contract carries plain values — the port, what it holds, and its outcome.
+    judged: set[str] = set()
+
+    def judge(name: str) -> None:
+        if name in judged or name not in classes:
+            return
+        judged.add(name)
+        path, cls = classes[name]
+        for stmt in cls.body:
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                findings.append(
+                    f"{_rel(path)}:{stmt.lineno} `{name}.{stmt.name}` is a method — a contract "
+                    f"is data only: what builds it or reads it lives in the domain that does"
+                )
+            if not isinstance(stmt, ast.AnnAssign) or not isinstance(stmt.target, ast.Name):
+                continue
+            for offence in _annotation_offences(stmt.annotation, set(classes)):
+                findings.append(
+                    f"{_rel(path)}:{stmt.lineno} `{name}.{stmt.target.id}` carries `{offence}` — a "
+                    f"contract carries plain values, tuples of them, or dataclasses of "
+                    f"`kernel/contracts/` (no ORM object, no schema of a domain, no list or dict)"
+                )
+            for inner in ast.walk(stmt.annotation):
+                if isinstance(inner, ast.Name):
+                    judge(inner.id)
+
+    for name in sorted(ports):
+        judge(name)
+        for path, function in handlers.get(name, []):
+            outcome = function.returns
+            outcome_name = getattr(outcome, "id", None)
+            if outcome_name not in classes:
+                findings.append(
+                    f"{_rel(path)}::{function.name} returns "
+                    f"`{ast.unparse(outcome) if outcome else 'nothing declared'}` — a port's "
+                    f"outcome is a dataclass of `kernel/contracts/`"
+                )
+            else:
+                judge(outcome_name)
+
+    # Rule 6: called from a service or a handler, never from a door.
+    for path, line in callers:
+        if _is_door(path):
+            findings.append(
+                f"{_rel(path)}:{line} imports `kernel.ports` — a port is called from a service "
+                f"or a handler; a router or a screen calls its own domain's service"
+            )
+    # Nothing found is in order only when nothing asks for a port.
+    if not ports and callers:
+        where = ", ".join(sorted(f"{_rel(p)}:{line}" for p, line in callers))
+        findings.append(
+            f"`kernel.ports` is imported ({where}) and `kernel/contracts/` defines no `Port`"
+        )
+    return findings
 
 
 # ── 11. No rule in a router (ratchet with a reason per entry) ───────────────
@@ -2113,7 +2361,9 @@ def test_events_not_calls():
         ("payment", "reconcile_charges", True),
         ("workflow", "vervroeg_sweep", True),
         # #1368: a write through a mapped collection and a flush is a write too.
-        ("forms", "update_attached", True),
+        # (The example was `forms.update_attached`, where #1368 was found; that one
+        # leaves the facade when it is reached through its port.)
+        ("workflow", "close_subject_tasks", True),
         ("media", "activity_image_path", True),
         # Reads are not commands.
         ("mdm", "get_person", False),
