@@ -444,7 +444,7 @@ def test_the_payments_screen_is_measured_the_same_whatever_ran_before(client, db
 
 def test_a_membership_payment_of_the_fixture_points_at_its_membership(db_session):
     """What the test above rests on, said directly: the fixture builds what the
-    application builds (`register_router`: `payable_id=membership.id`)."""
+    application builds (`signup_service`: `payable_id=membership.id`)."""
     from app.domains.membership.api import Membership
     from app.domains.payment.api import PaymentRecord
 

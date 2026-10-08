@@ -368,7 +368,7 @@ def open_renewal_payment(db, member):
     """De openstaande vernieuwingsbetaling van dit gezin, of ``None`` (#618).
 
     Eén bron voor de vraag "loopt er nog een vernieuwing?". Ze werd gesteld door de
-    guard in ``household_router`` (die een tweede procedure blokkeert) en moest ook
+    guard in ``portal_service`` (die een tweede procedure blokkeert) en moest ook
     door het gezinsportaal gesteld worden (dat anders het vernieuwformulier toont
     voor een handeling die gegarandeerd faalt). Twee eigen varianten die uit elkaar
     groeien is precies hoe je opnieuw een scherm krijgt dat iets anders beweert dan
