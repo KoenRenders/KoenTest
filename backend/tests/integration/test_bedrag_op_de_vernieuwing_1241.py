@@ -95,7 +95,7 @@ def _portaal(client, db, method: str) -> str:
 
 def test_de_overschrijving_toont_het_bedrag_met_een_komma(client, db_session):
     html = _portaal(client, db_session, "transfer")
-    assert "Vernieuwing geregistreerd" in html, (
+    assert "Lidmaatschap geregistreerd" in html, (
         "het blok met de betaalinstructies staat er niet; deze test meet dan niets"
     )
     assert BELGISCH in html, f"geen {BELGISCH} op het scherm"
@@ -107,7 +107,7 @@ def test_de_overschrijving_toont_het_bedrag_met_een_komma(client, db_session):
 def test_de_lopende_online_betaling_toont_het_bedrag_met_een_komma(client, db_session):
     """De tak die op geen enkele afdruk staat, en juist daarom hier."""
     html = _portaal(client, db_session, "online")
-    assert "Je vernieuwing loopt nog" in html, (
+    assert "Je betaling loopt nog" in html, (
         "het blok voor een niet-afgeronde online betaling staat er niet; deze test meet dan niets"
     )
     assert BELGISCH in html, f"geen {BELGISCH} op het scherm"

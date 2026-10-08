@@ -289,7 +289,7 @@ def test_the_card_shows_the_transfer_as_an_inset_and_links_nowhere(client, db_se
     assert "rounded-md" in inset.group(0) and "bg-blue-50" in inset.group(0)
     assert " p-4 " in inset.group(0), "16 px of padding"
     body = inset.group(1)
-    assert "Vernieuwing geregistreerd — betaal via overschrijving:" in body
+    assert "Lidmaatschap geregistreerd — betaal via overschrijving:" in body
     places = [body.index(word) for word in ("Bedrag", "Mededeling (OGM)")]
     assert places == sorted(places) and OGM in body and "35,00" in body
 

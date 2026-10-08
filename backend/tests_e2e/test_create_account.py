@@ -154,10 +154,10 @@ CARD = """() => { const q = s => document.querySelector(s);
           page: [document.documentElement.scrollWidth, innerWidth]}; }"""
 
 
-@pytest.mark.parametrize(("width", "card"), [(1440, 448), (1920, 448), (390, 358)])
+@pytest.mark.parametrize(("width", "card"), [(1440, 768), (1920, 768), (390, 358)])
 def test_the_two_sign_in_screens_share_one_narrow_card(browser, width, card):
     """#1730 (Koen, 8 October 2026: "smaller is goed"): one card for Inloggen
-    and Account aanmaken — 448 px, centred, the same on both; on a phone the
+    and Account aanmaken — 768 px since #1737 (448 px in #1730), centred, the same on both; on a phone the
     width it had.
 
     Red: the wrapper taken out of `_sign_in_card.html` → the card is 1 248 px

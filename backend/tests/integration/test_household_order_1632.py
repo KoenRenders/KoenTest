@@ -245,7 +245,7 @@ def test_a_renewal_that_waits_for_a_transfer_shows_what_to_pay_in_the_card(clien
     db_session.commit()
 
     card = _card(_page(client, "storting@example.com", READ))
-    assert "Je vernieuwing loopt nog." in card
+    assert "Je betaling loopt nog." in card
     assert card.count("data-transfer-due") == 1
     assert OGM in card and "35,00" in card and "betaal via overschrijving:" in card
 

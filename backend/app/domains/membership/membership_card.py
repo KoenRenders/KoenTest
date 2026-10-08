@@ -39,7 +39,8 @@ class MembershipCard:
     transfer: Optional[TransferDue] = None
     online: Optional[OnlineDue] = None
     #: The household never had a paid membership (#1730; Koen, 8 October 2026):
-    #: it pays a membership, it does not renew one.
+    #: it pays a membership, it does not renew one. Since #1737 this decides
+    #: the card's button only; every other sentence is one for everyone.
     first_membership: bool = False
 
     @property
@@ -63,12 +64,10 @@ def _household(db: Session, person):
         return None
 
 
-def _running_renewal(
-    db: Session, person, *, first: bool = False
-) -> tuple[Optional[TransferDue], Optional[OnlineDue]]:
+def _running_renewal(db: Session, person) -> tuple[Optional[TransferDue], Optional[OnlineDue]]:
     """How an open membership payment stands (#618): `(transfer, online)`, at
-    most one set. `first`: the household never had a paid membership, so the
-    transfer block says "Aanmelding" where a renewal says "Vernieuwing" (#1730)."""
+    most one set. The transfer block reads the same for a household that
+    never paid and for one that renews (#1737): "Lidmaatschap geregistreerd"."""
     from app.domains.membership.api import open_renewal_payment
     from app.domains.payment.api import checkout_url_for, transfer_due
     from app.i18n import _
@@ -78,11 +77,7 @@ def _running_renewal(
     if record is None:
         return None, None
     if record.method == PaymentMethod.TRANSFER:
-        heading = (
-            _("Aanmelding geregistreerd — betaal via overschrijving:")
-            if first
-            else _("Vernieuwing geregistreerd — betaal via overschrijving:")
-        )
+        heading = _("Lidmaatschap geregistreerd — betaal via overschrijving:")
         return transfer_due(db, record, heading), None
     # Broken off at the provider (#618-3): with a checkout URL the member can
     # resume; without one only the explanation that it is still running.
@@ -111,7 +106,7 @@ def membership_card(db: Session, person, *, household: Optional[dict] = None) ->
     valid_until = membership_coverage_until(person)
     member = _household(db, person)
     first = member is not None and is_first_membership(db, member)
-    transfer, online = _running_renewal(db, person, first=first)
+    transfer, online = _running_renewal(db, person)
     return MembershipCard(
         valid_until=valid_until,
         renewal_available=renewal_available(valid_until, date.today()),

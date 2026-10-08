@@ -105,7 +105,7 @@ def test_overschrijving_toont_instructies_bij_een_verse_get(client, db_session):
     # het bedrag nu zoals overal elders. Wat deze test hier bewaakt — dat het BEDRAG er
     # staat na een verse GET — verandert daar niet door.
     assert "35,00" in html
-    assert "Vernieuwing geregistreerd" in html
+    assert "Lidmaatschap geregistreerd" in html
     assert FORM not in html
 
 
@@ -120,12 +120,12 @@ def test_mijn_gezin_points_to_the_running_renewal_and_offers_no_second_one(clien
     button = 'href="/leden/gezin/vernieuwen"'
 
     before = client.get("/leden/gezin").text
-    assert "Je vernieuwing loopt nog." not in before
+    assert "Je betaling loopt nog." not in before
     assert button in before and ">Lidmaatschap vernieuwen</a>" in before
 
     _openstaande_vernieuwing(db_session, member)
     after = client.get("/leden/gezin").text
-    assert "Je vernieuwing loopt nog." in after
+    assert "Je betaling loopt nog." in after
     # #1641: the card is the one place — no link to a second screen.
     assert "Bekijk de betaling" not in after and button not in after
     assert ">Lidmaatschap vernieuwen</a>" not in after, "a second renewal is offered"
@@ -168,7 +168,7 @@ def test_online_zonder_checkout_url_toont_uitleg(client, db_session):
     answer = client.get(RENEW_PAGE, follow_redirects=False)
     assert answer.status_code == 303 and answer.headers["location"] == HOUSEHOLD
     html = client.get(HOUSEHOLD).text
-    assert "Je vernieuwing loopt nog" in html and "nog niet afgerond" in html
+    assert "Je betaling loopt nog" in html and "nog niet afgerond" in html
     assert "Betaling hervatten" not in html
     assert FORM not in html
 
@@ -249,7 +249,7 @@ def test_a_transfer_renewal_answers_the_page_with_what_to_pay(client, db_session
     html = client.get(HOUSEHOLD).text
     start = html.index("data-transfer-due")
     block = html[start : html.index("</ul>", start)]
-    assert "Vernieuwing geregistreerd" in block
+    assert "Lidmaatschap geregistreerd" in block
     assert booked.structured_communication in block
     assert f"€ {booked.amount:.2f}".replace(".", ",") in block
     assert FORM not in html
