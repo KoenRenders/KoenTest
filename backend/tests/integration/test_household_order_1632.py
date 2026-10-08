@@ -30,6 +30,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import text
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.mdm.api import ContactDetail, MemberPerson
@@ -173,6 +174,64 @@ def test_word_lid_ends_with_the_price_and_starts_with_an_empty_group(client, db_
     assert not re.search(r"data-group-row\b(?!s)", group), "a row before anyone is added"
 
 
+def _person_rows(html: str) -> list[str]:
+    """The keys of the PERSON rows of the group Gezinsleden.
+
+    A person's row holds a group of its own — the e-mail addresses — whose rows
+    carry the id of a contact detail. Counting every `data-group-row` under the
+    heading read such an id as a person's (#1777); a person's row is the
+    composite one.
+    """
+    return re.findall(
+        r'data-group-row data-row-key="(\d+)" class="group-row group-row--composite',
+        html[html.index('id="gezinsleden"') :],
+    )
+
+
+def test_an_e_mail_row_with_the_main_members_number_is_not_the_main_member(client, db_session):
+    """#1777: the partner's e-mail address got, by the state of two sequences, the
+    id of the main member — and the test below read "the main member is a row".
+    Which ids meet depends on what ran before in the same process; here they are
+    made to meet.
+
+    Red every time on the old reading (every `data-group-row` under the heading),
+    proven on 8 October 2026 by putting that pattern back in `_person_rows`.
+    """
+    from sqlalchemy import func
+
+    from app.domains.mdm.api import Person
+
+    # A main member whose id no contact detail has: move the persons' sequence
+    # past every contact detail there is or will be made here.
+    ceiling = (db_session.query(func.max(ContactDetail.id)).scalar() or 0) + 1000
+    ceiling = max(ceiling, (db_session.query(func.max(Person.id)).scalar() or 0) + 1000)
+    db_session.execute(
+        text("SELECT setval(pg_get_serial_sequence('mdm.persons', 'id'), :value)"),
+        {"value": ceiling},
+    )
+    member, main = create_test_family(db_session, email="botsing@example.com", mobile="0470000000")
+    partner = create_test_person(db_session)
+    db_session.add(MemberPerson(member_id=member.id, person_id=partner.id, relation_type="PARTNER"))
+    db_session.add(
+        ContactDetail(
+            id=main.id,
+            person_id=partner.id,
+            contact_type_code="EMAIL",
+            value="partner.botsing@example.com",
+            is_primary=True,
+        )
+    )
+    db_session.commit()
+
+    html = _main(_page(client, "botsing@example.com", EDIT))
+
+    every_row = re.findall(
+        r'data-group-row data-row-key="(\d+)"', html[html.index('id="gezinsleden"') :]
+    )
+    assert str(main.id) in every_row, "the e-mail row with the main member's number is not there"
+    assert _person_rows(html) == [str(partner.id)]
+
+
 def test_the_main_member_is_no_row_and_the_form_still_sends_them_first(client, db_session):
     _member, main, partner = _household(db_session, "vast@example.com")
     html = _main(_page(client, "vast@example.com", EDIT))
@@ -183,9 +242,7 @@ def test_the_main_member_is_no_row_and_the_form_still_sends_them_first(client, d
     assert 'data-row-action="remove"' not in head.split("E-mailadressen")[0], (
         "the main member can be removed"
     )
-    rows = re.findall(
-        r'data-group-row data-row-key="(\d+)"', html[html.index('id="gezinsleden"') :]
-    )
+    rows = _person_rows(html)
     assert str(partner.id) in rows and str(main.id) not in rows, "the main member is a row"
     # what the browser would send: one list of persons, the main member first
     sent = form_fields(_page(client, "vast@example.com", EDIT), "gezin-form")
