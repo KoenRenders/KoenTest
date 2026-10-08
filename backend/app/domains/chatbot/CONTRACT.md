@@ -26,8 +26,6 @@ sowieso niet mogen hebben.
 
 ## Routers & schermen
 
-- `router.py` — `POST /api/v1/chat` (SSE, React-widget; vervalt bij #405).
-- `info_router.py` — admin-API voor de ai-context.
 - `ui.py` — **`/raakje`** (htmx-vraag/antwoord, server-side compleet — geen
   SSE) en **`/admin/ai-context`** (notities, aan/uit, verwijderen).
 - Kill-switch: `CHAT_ENABLED` (bestaand) geldt ook voor het htmx-scherm.

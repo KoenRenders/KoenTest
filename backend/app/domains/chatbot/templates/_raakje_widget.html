@@ -25,6 +25,7 @@
     {{ panel.inner(_("Raakje"), _("over %(name)s", name=site_name), "/raakje/vraag",
                    "raakje-widget-gesprek", "raakje-widget-vraag", stt_mode, key="public",
                    suggestions=[_("Welke activiteiten komen eraan?"), _("Hoe word ik lid?"), _("Hoe neem ik contact op?")],
-                   opening=teksten.intro(), heading_cls="font-brand") }}
+                   opening=teksten.intro(), heading_cls="font-brand",
+                   max_chars=chat_max_input_chars) }}
   {% endcall %}
 </div>

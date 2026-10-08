@@ -45,12 +45,16 @@
    answer. The macro's variant would put a second x-on:input beside it, of which
    the browser drops one. The ceiling is the `max-h-[120px]` below, which the
    function reads; past it the field scrolls inside itself. The handlers need an
-   Alpine scope: the panel has one on its outer element. #}
-{% macro input_row(id, stt_mode, icoon_verzenden=False) -%}
+   Alpine scope: the panel has one on its outer element.
+
+   `max_chars` (#1251): the longest question the surface takes, as the field's
+   `maxlength`. The public widget passes the number its route refuses above
+   (`CHAT_MAX_INPUT_CHARS`); a surface without a cap passes nothing. #}
+{% macro input_row(id, stt_mode, icoon_verzenden=False, max_chars=0) -%}
 {{ ui.textarea_control("vraag", id=id, rows=1, required=True,
                        placeholder=_("Typ je vraag…"), autogrow=False,
                        cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
-                       attrs='autocomplete="off"'
+                       attrs=('maxlength="' ~ max_chars ~ '" ' if max_chars else '') ~ 'autocomplete="off"'
                              ' x-on:input="raakjeFit($el)"'
                              ' x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); $el.form.requestSubmit(); }"') }}
 {# Dictation (#567/#917). The three states travel as kit SVGs on the button

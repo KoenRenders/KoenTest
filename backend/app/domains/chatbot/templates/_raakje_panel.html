@@ -38,7 +38,7 @@
    server keeps for that record when the panel opens. #}
 {% macro inner(title, context, post_url, gesprek_id, field_id, stt_mode, key="",
                suggestions=[], opening="", blocked="", history_id="", heading_cls="",
-               include="", vals="", history_url="") -%}
+               include="", vals="", history_url="", max_chars=0) -%}
 <div data-context-key="{{ key }}" class="flex min-h-0 flex-1 flex-col">
   <header class="shrink-0 border-b border-line px-4 py-3">
     <div class="flex items-center justify-between gap-2">
@@ -88,7 +88,7 @@
         hx-on::after-request="raakjeAfterAnswer(this, event)"
         class="flex shrink-0 items-end gap-2 border-t border-line px-4 py-3">
     {% if history_id %}<input type="hidden" name="historie" id="{{ history_id }}" value="">{% endif %}
-    {{ controls.input_row(field_id, stt_mode, icoon_verzenden=True) }}
+    {{ controls.input_row(field_id, stt_mode, icoon_verzenden=True, max_chars=max_chars) }}
   </form>
   <p class="shrink-0 px-4 pb-3 text-xs text-ink-soft">{{ _("Enter verzendt · Shift+Enter voor een nieuwe regel") }}</p>
   {% endif %}

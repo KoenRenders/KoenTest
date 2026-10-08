@@ -70,7 +70,6 @@ services:
       # Raakje, publiek en backoffice (#205, #917). Allemaal optioneel: een lege
       # waarde betekent 'niet gezet' en valt terug op de default in config.py.
       CHAT_MODEL: ${CHAT_MODEL:-}
-      CHAT_MAX_HISTORY_MESSAGES: ${CHAT_MAX_HISTORY_MESSAGES:-}
       CHAT_DAILY_CHAR_BUDGET: ${CHAT_DAILY_CHAR_BUDGET:-}
       CHAT_MAX_TOOL_ROUNDS: ${CHAT_MAX_TOOL_ROUNDS:-}
       ADMIN_CHAT_ENABLED: ${ADMIN_CHAT_ENABLED:-}
