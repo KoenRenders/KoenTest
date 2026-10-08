@@ -39,3 +39,16 @@ zonder consumers te raken.
 
 Schema `media` (migratie 085): `media_assets`. Koppelingen naar activiteiten
 en ai-context zijn soft-refs (§8, gedropt in 081/084).
+
+## Callers
+
+The JSON routes of this component that exist for a named caller (R14, CR-13 phase
+4b, #1251 — no other caller found in: the repository, the PROD application log of
+10 September – 8 October 2026):
+
+- `GET /api/v1/media/{asset_id}` — every page, mail and newsletter that shows or
+  links a stored file: `media_url` builds the address (the activity poster, the
+  component info file, a page's pictures, the newsletter's pictures and
+  attachments, the logo).
+- `GET /api/v1/media/{asset_id}/thumb` — the same, for the small rendering of an
+  image or of the first page of a PDF.

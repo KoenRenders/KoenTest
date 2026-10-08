@@ -41,3 +41,27 @@ def platform_host(monkeypatch):
 def test_the_prefix_reaches_the_association_on_the_api(client, platform_host, path, status):
     client.cookies.clear()
     assert client.get(path, headers={"host": HOST}).status_code == status
+
+
+# CR-13 phase 4b (#1251): the smoke test checks screens, not JSON routes that have
+# no other caller. The same measurement for its new lines: under the prefix the
+# public pages answer 200 and a back-office screen sends a visitor without a
+# session to the sign-in (303, #1458); on the bare platform host the activities
+# page is absent, which is what the platform check asserts.
+@pytest.mark.parametrize(
+    "path,status",
+    [
+        ("/raakmillegem/", 200),
+        ("/raakmillegem/activiteiten", 200),
+        ("/raakmillegem/lid-worden", 200),
+        ("/raakmillegem/admin/betalingen", 303),
+        ("/raakmillegem/admin/media", 303),
+        ("/activiteiten", 404),
+    ],
+)
+def test_the_prefix_reaches_the_association_on_the_screens(client, platform_host, path, status):
+    client.cookies.clear()
+    answer = client.get(path, headers={"host": HOST}, follow_redirects=False)
+    assert answer.status_code == status, (path, answer.status_code)
+    if status == 303:
+        assert "/aanmelden" in answer.headers["location"], answer.headers["location"]
