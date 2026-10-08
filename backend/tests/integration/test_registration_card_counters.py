@@ -24,7 +24,7 @@ import pytest
 from app.domains.activities.api import ActivityProduct, Registration, RegistrationItem
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.payment.api import PayableType, confirm_manual_payment, get_records_for
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -46,8 +46,9 @@ def _three_products(client, db):
     )
     db.add_all([second, third])
     db.commit()
-    answer = client.post(
-        f"/api/v1/activities/{activity.id}/register",
+    answer = register_at_the_door(
+        client,
+        activity.id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",

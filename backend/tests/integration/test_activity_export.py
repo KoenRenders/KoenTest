@@ -10,7 +10,7 @@ from odf.teletype import extractText
 
 from app.domains.activities.api import ActivityProduct, Registration
 from app.domains.payment.api import PayableType, PaymentRecord, PaymentType
-from tests.conftest import seed_activity_with_product
+from tests.conftest import register_at_the_door, seed_activity_with_product
 
 _ODS_MIME = "opendocument.spreadsheet"
 
@@ -72,8 +72,9 @@ def test_export_quantities_and_financials(client, db_session, admin_headers):
     activity_id = comp.activity_id
 
     # Inschrijving: 2 stuks → verschuldigd €36.
-    reg_resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    reg_resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",
@@ -147,8 +148,9 @@ def test_export_second_sheet_payments_and_totals(client, db_session, admin_heade
     netto zoals op de admin-betalingenpagina."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
-    client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",
@@ -232,8 +234,9 @@ def test_export_aggregates_duplicate_product_lines(client, db_session, admin_hea
     product opgeteld (1 + 2 = 3), niet als losse/verloren aantallen."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
-    reg_resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    reg_resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "An",
             "phone": "0470000000",
@@ -288,8 +291,9 @@ def test_export_multiple_products_and_registrations(client, db_session, admin_he
     activity_id = comp.activity_id
 
     # Inschrijving A: 2× p1, 1× p2 = 25 ; B: 3× p2 = 15
-    client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "A",
             "phone": "0470000000",
@@ -299,8 +303,9 @@ def test_export_multiple_products_and_registrations(client, db_session, admin_he
             "items": [{"product_id": p1.id, "quantity": 2}, {"product_id": p2.id, "quantity": 1}],
         },
     )
-    client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "B",
             "phone": "0470000000",
@@ -327,8 +332,9 @@ def test_export_multiple_products_and_registrations(client, db_session, admin_he
 def test_export_online_payment_in_online_column(client, db_session, admin_headers):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
-    client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "An",
             "phone": "0470000000",
@@ -373,8 +379,9 @@ def test_export_includes_remarks_column(client, db_session, admin_headers):
     een lege opmerking geeft een lege cel."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
-    client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "An",
             "phone": "0470000000",
@@ -385,8 +392,9 @@ def test_export_includes_remarks_column(client, db_session, admin_headers):
             "items": [{"product_id": product.id, "quantity": 1}],
         },
     )
-    client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "Bo",
             "phone": "0470000000",
@@ -418,8 +426,9 @@ def test_export_includes_email_and_mobile(client, db_session, admin_headers):
     mobiele nummer (+32…) verschijnt letterlijk, zonder apostrof-prefix (#288)."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
-    client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "An Janssens",
             "contact_email": "an@example.com",

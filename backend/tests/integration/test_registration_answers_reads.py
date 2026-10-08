@@ -35,6 +35,7 @@ from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
+    register_at_the_door,
     seed_activity_with_product,
     seed_postal_code,
     seed_question_form,
@@ -57,7 +58,7 @@ def _register(client, s, name: str, answers):
     }
     if answers is not None:
         body["answers"] = answers
-    r = client.post(f"/api/v1/activities/{s.activity.id}/register", json=body)
+    r = register_at_the_door(client, s.activity.id, json=body)
     assert r.status_code == 200, r.text
     return r.json()["id"]
 

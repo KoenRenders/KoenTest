@@ -4,7 +4,7 @@ webhook-idempotentie en de gedeelde totaalberekening."""
 from decimal import Decimal
 
 from app.domains.payment.api import PayableType, PaymentStatus
-from tests.conftest import seed_activity_with_product, seed_postal_code
+from tests.conftest import register_at_the_door, seed_activity_with_product, seed_postal_code
 
 
 def _family_payload(email="happy@example.com"):
@@ -233,8 +233,9 @@ def test_admin_creates_paid_activity_and_public_registration(client, db_session,
     assert prod.status_code == 200, prod.text
     product_id = prod.json()["id"]
 
-    reg = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    reg = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "Flow Inschrijver",
             "phone": "0470000000",
@@ -263,8 +264,9 @@ def test_registration_total_matches_payment_amount(client, db_session, mock_moll
     _, comp, product = seed_activity_with_product(db_session, price="12.50")
     activity_id = comp.activity_id
 
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "Test",
             "phone": "0470000000",

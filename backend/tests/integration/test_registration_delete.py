@@ -8,7 +8,7 @@ terugbetaling-verplichting aan (geld = financieel feit, verdwijnt niet zomaar).
 
 from app.domains.activities.api import Registration
 from app.domains.payment.api import PayableType, PaymentRecord, PaymentType
-from tests.conftest import seed_activity_with_product
+from tests.conftest import register_at_the_door, seed_activity_with_product
 
 _REG = {
     "contact_name": "An Janssens",
@@ -31,8 +31,9 @@ def _records(client, admin_headers):
 
 def _register(client, db_session, qty=2, price="18.00"):
     _, comp, product = seed_activity_with_product(db_session, price=price)
-    client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             **_REG,
             "component_id": comp.id,

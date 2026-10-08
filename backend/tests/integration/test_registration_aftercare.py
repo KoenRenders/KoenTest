@@ -34,7 +34,7 @@ import pytest
 
 from app.domains.activities import service
 from app.kernel.jobs import KernelJob
-from tests.conftest import seed_activity_with_product, seed_question_form
+from tests.conftest import register_at_the_door, seed_activity_with_product, seed_question_form
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -57,7 +57,7 @@ def _register(client, s, answers):
     }
     if answers is not None:
         body["answers"] = answers
-    r = client.post(f"/api/v1/activities/{s.activity.id}/register", json=body)
+    r = register_at_the_door(client, s.activity.id, json=body)
     assert r.status_code == 200, r.text
 
 

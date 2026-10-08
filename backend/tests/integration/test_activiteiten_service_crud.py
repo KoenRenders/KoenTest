@@ -21,6 +21,7 @@ import pytest
 
 from app.domains.activities import service
 from app.domains.activities.api import Activity, ActivityDate
+from tests.conftest import register_at_the_door
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -292,8 +293,9 @@ def _inschrijving_met_regel(client, db, aantal=2):
     from tests.conftest import seed_activity_with_product
 
     activity, comp, product = seed_activity_with_product(db, price="10.00")
-    resp = client.post(
-        f"/api/v1/activities/{activity.id}/register",
+    resp = register_at_the_door(
+        client,
+        activity.id,
         json={
             "contact_name": "An",
             "phone": "0470000000",

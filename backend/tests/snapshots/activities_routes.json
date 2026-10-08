@@ -1245,67 +1245,6 @@
   "response_class": "",
   "response_model": "<class 'app.schemas.activity.ActivityDateResponse'>"
  },
- "POST /api/v1/activities/{activity_id}/register": {
-  "endpoint": "app.domains.activities.router.register_for_activity",
-  "openapi": {
-   "description": "The public way in: the registration hangs on whoever is signed in.",
-   "operationId": "register_for_activity_api_v1_activities__activity_id__register_post",
-   "parameters": [
-    {
-     "in": "path",
-     "name": "activity_id",
-     "required": true,
-     "schema": {
-      "title": "Activity Id",
-      "type": "integer"
-     }
-    }
-   ],
-   "requestBody": {
-    "content": {
-     "application/json": {
-      "schema": {
-       "$ref": "#/components/schemas/RegistrationCreate"
-      }
-     }
-    },
-    "required": true
-   },
-   "responses": {
-    "200": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "$ref": "#/components/schemas/RegistrationResponse"
-       }
-      }
-     },
-     "description": "Successful Response"
-    },
-    "422": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "$ref": "#/components/schemas/HTTPValidationError"
-       }
-      }
-     },
-     "description": "Validation Error"
-    }
-   },
-   "security": [
-    {
-     "OAuth2PasswordBearer": []
-    }
-   ],
-   "summary": "Register For Activity",
-   "tags": [
-    "activities"
-   ]
-  },
-  "response_class": "",
-  "response_model": "<class 'app.schemas.activity.RegistrationResponse'>"
- },
  "POST /api/v1/activities/{activity_id}/registrations/{registration_id}/items": {
   "endpoint": "app.domains.activities.router.add_order_line",
   "openapi": {

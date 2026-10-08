@@ -20,7 +20,7 @@ Gekozen: de rij wijkt voor het paneel (§2.8, zoals de betaalkaart). Het alterna
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -33,8 +33,9 @@ def _login(client):
 
 def _met_inschrijving(client, db):
     activity, comp, product = seed_activity_with_product(db, price="10.00")
-    resp = client.post(
-        f"/api/v1/activities/{activity.id}/register",
+    resp = register_at_the_door(
+        client,
+        activity.id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",

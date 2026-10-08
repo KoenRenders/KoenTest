@@ -27,7 +27,7 @@ import pytest
 
 from app.domains.activities.api import Registration
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -52,7 +52,7 @@ def _inschrijving(client, db, *, ploegnaam="A-team 1", vraagt_ploegnaam=True):
     }
     if ploegnaam is not None:
         payload["team_name"] = ploegnaam
-    resp = client.post(f"/api/v1/activities/{activity.id}/register", json=payload)
+    resp = register_at_the_door(client, activity.id, json=payload)
     assert resp.status_code in (200, 201), resp.text
     return resp.json()["id"]
 

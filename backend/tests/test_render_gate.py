@@ -25,6 +25,7 @@ from tests.conftest import (
     PLATFORM_TEST_HOST,
     SEEDED_ADMIN_EMAIL,
     create_test_family,
+    register_at_the_door,
     seed_activity_with_product,
     seed_postal_code,
 )
@@ -94,8 +95,9 @@ def gevulde_admin(client, db_session):
     member, person = create_test_family(db_session, email="rendergate@example.com")
     activity, comp, product = seed_activity_with_product(db_session, is_free=False)
 
-    resp = client.post(
-        f"/api/v1/activities/{activity.id}/register",
+    resp = register_at_the_door(
+        client,
+        activity.id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",

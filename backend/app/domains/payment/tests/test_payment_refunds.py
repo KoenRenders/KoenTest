@@ -19,7 +19,7 @@ from app.domains.payment.api import (
     net_paid,
 )
 from tests._invarianten import assert_saldo_klopt
-from tests.conftest import seed_activity_with_product
+from tests.conftest import register_at_the_door, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -214,8 +214,9 @@ def test_registration_balance_reflects_charge_and_refund(client, db_session, adm
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
 
-    reg_resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    reg_resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",

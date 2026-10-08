@@ -30,7 +30,7 @@ from app.domains.activities.api import (
     activities_from,
 )
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields, register_at_the_door
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -90,8 +90,9 @@ def test_a_draft_takes_no_registration_from_the_site(client, db_session):
         f"/api/v1/activities/{draft.id}/public-registrations?component_id={component.id}"
     )
     assert participants.status_code == 404
-    answer = client.post(
-        f"/api/v1/activities/{draft.id}/register",
+    answer = register_at_the_door(
+        client,
+        draft.id,
         json={
             "component_id": component.id,
             "contact_name": "Iemand",
