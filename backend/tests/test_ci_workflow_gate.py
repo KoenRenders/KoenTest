@@ -2,8 +2,9 @@
 
 The CI run is as long as its longest job, and four things keep it short without
 making it test less: every job has a time limit, pytest runs in several processes,
-one commit starts one run, and a commit that changes only documents no test reads
-starts none. The workflow file is edited by Koen or the master CLI only; this gate
+one commit starts one run, a commit that changes only documents no test reads
+starts none, and the browser tests run in parts that together hold every one of
+them exactly once. The workflow file is edited by Koen or the master CLI only; this gate
 is the one place that keeps it from drifting away from the rule.
 
 Each rule is a function that takes the PARSED workflow and returns its findings,
@@ -19,7 +20,10 @@ at the bottom, so nobody has to think them up again:
     waiting master run is cancelled by the next commit → rule 3;
   * `docs/reporting-universe.md` added to `paths-ignore` → rule 4 names the test
     that reads it, while a document named in a docstring only passes;
-  * a filter entry that matches no file → rule 4.
+  * a filter entry that matches no file → rule 4;
+  * a folder of browser tests taken out of its part, put in both parts, a part
+    naming a folder that is not there, the e2e step running all of `tests_e2e`
+    whatever the part → rule 5 (phase 2, T6).
 """
 
 import ast
@@ -190,10 +194,85 @@ def docs_filter_findings(workflow: dict, strings: dict[str, list[str]] | None = 
     return findings
 
 
+# ── Rule 5: every browser test runs in exactly one part (phase 2, T6) ─────────
+
+E2E = BACKEND / "tests_e2e"
+#: The script the `measure` job runs; the root files it names are its own.
+MEASURE_SCRIPT = REPO / "scripts" / "measure-run.sh"
+
+
+def browser_test_units(root: Path = E2E) -> list[str]:
+    """What the parts must divide: every folder under `tests_e2e/` that holds a
+    test file, and every test file that stands beside the folders — as the path
+    pytest is given, from `backend/`."""
+    folders = sorted(
+        f"tests_e2e/{d.name}" for d in root.iterdir() if d.is_dir() and any(d.rglob("test_*.py"))
+    )
+    files = sorted(f"tests_e2e/{f.name}" for f in root.glob("test_*.py"))
+    units = folders + files
+    assert len(units) >= 9, (
+        f"only {len(units)} folders and files of browser tests: the walk is blind"
+    )
+    return units
+
+
+def e2e_parts(workflow: dict) -> dict[str, list[str]]:
+    """The parts of the e2e job, read from the workflow: part → the paths it runs."""
+    include = workflow["jobs"]["e2e"].get("strategy", {}).get("matrix", {}).get("include") or []
+    return {str(entry.get("part")): str(entry.get("paths", "")).split() for entry in include}
+
+
+def e2e_part_findings(
+    workflow: dict, units: list[str] | None = None, measured: str | None = None
+) -> list[str]:
+    units = browser_test_units() if units is None else units
+    measured = MEASURE_SCRIPT.read_text(encoding="utf-8") if measured is None else measured
+    parts = e2e_parts(workflow)
+    runs = [
+        str(step.get("run", "")).split()
+        for step in workflow["jobs"]["e2e"]["steps"]
+        if "pytest" in str(step.get("run", ""))
+    ]
+    if not parts:
+        # One job, undivided: every folder runs once when a step runs the whole of
+        # `tests_e2e` — the state before the parts, and a state this rule accepts.
+        if any("tests_e2e" in run for run in runs):
+            return []
+        return ["the e2e job has no parts and no step that runs pytest on `tests_e2e`"]
+    if len(parts) < 2:
+        return ["the e2e matrix has one part — a matrix of one divides nothing (CR-29 D5)"]
+    findings = []
+    if not any("${{" in run and "matrix.paths" in run and "tests_e2e" not in run for run in runs):
+        findings.append(
+            "no step of the e2e job runs pytest on `${{ matrix.paths }}` alone — a part "
+            "that runs all of `tests_e2e` runs every test in every part"
+        )
+    for unit in units:
+        homes = [part for part, paths in parts.items() if unit in paths]
+        if unit.endswith(".py") and unit in measured:
+            if homes:
+                findings.append(f"`{unit}` is the measure job's and stands in part {homes[0]} too")
+            continue
+        if not homes:
+            findings.append(
+                f"`{unit}` stands in no part of the e2e matrix — its tests would never run"
+            )
+        elif len(homes) > 1:
+            findings.append(f"`{unit}` stands in parts {' and '.join(homes)} — its tests run twice")
+    for part, paths in parts.items():
+        for path in paths:
+            if path not in units:
+                findings.append(
+                    f"part {part} names `{path}`, which is no folder or file of browser tests"
+                )
+    return findings
+
+
 # ── The workflow as it stands ────────────────────────────────────────────────
 
 
 def test_every_job_has_a_time_limit():
+
     assert jobs_without_time_limit(load_workflow()) == []
 
 
@@ -211,6 +290,10 @@ def test_the_docs_filter_skips_nothing_a_test_reads():
         "no `paths-ignore` on the push trigger — this test would look at nothing"
     )
     assert docs_filter_findings(workflow) == []
+
+
+def test_every_browser_test_runs_in_exactly_one_part():
+    assert e2e_part_findings(load_workflow()) == []
 
 
 # ── The proofs: each rule goes red on a changed copy ─────────────────────────
@@ -300,3 +383,113 @@ def test_proof_a_filter_on_one_trigger_only_is_refused(changed):
     assert docs_filter_findings(changed) == [
         "`paths-ignore` differs between `push` and `pull_request` — CR-29"
     ]
+
+
+# Rule 5 is proven on a small world of its own: two parts, three folders, a flow
+# file and a measure file — so the proofs hold whatever the real folders are.
+_UNITS = [
+    "tests_e2e/forms",
+    "tests_e2e/members",
+    "tests_e2e/shell",
+    "tests_e2e/test_golden_flows.py",
+    "tests_e2e/test_measure_baselines.py",
+]
+_MEASURED = "python -m pytest tests_e2e/test_measure_baselines.py"
+
+
+def _two_parts(
+    first: str, second: str, run: str = "python -m pytest -v ${{ matrix.paths }}"
+) -> dict:
+    return {
+        "jobs": {
+            "e2e": {
+                "strategy": {
+                    "matrix": {
+                        "include": [{"part": 1, "paths": first}, {"part": 2, "paths": second}]
+                    }
+                },
+                "steps": [{"name": "Run e2e", "run": run}],
+            }
+        }
+    }
+
+
+def _part_findings(first: str, second: str, **kwargs) -> list[str]:
+    return e2e_part_findings(_two_parts(first, second, **kwargs), _UNITS, _MEASURED)
+
+
+def test_proof_two_parts_that_hold_everything_once_pass():
+    assert (
+        _part_findings(
+            "tests_e2e/forms", "tests_e2e/members tests_e2e/shell tests_e2e/test_golden_flows.py"
+        )
+        == []
+    )
+
+
+def test_proof_a_folder_in_no_part_is_named():
+    assert _part_findings(
+        "tests_e2e/forms", "tests_e2e/members tests_e2e/test_golden_flows.py"
+    ) == ["`tests_e2e/shell` stands in no part of the e2e matrix — its tests would never run"]
+
+
+def test_proof_a_folder_in_both_parts_is_named():
+    assert _part_findings(
+        "tests_e2e/forms tests_e2e/shell",
+        "tests_e2e/members tests_e2e/shell tests_e2e/test_golden_flows.py",
+    ) == ["`tests_e2e/shell` stands in parts 1 and 2 — its tests run twice"]
+
+
+def test_proof_a_root_file_in_no_part_is_named():
+    assert _part_findings("tests_e2e/forms", "tests_e2e/members tests_e2e/shell") == [
+        "`tests_e2e/test_golden_flows.py` stands in no part of the e2e matrix — its tests would never run"
+    ]
+
+
+def test_proof_a_part_that_names_what_is_not_there_is_refused():
+    assert _part_findings(
+        "tests_e2e/forms tests_e2e/shop",
+        "tests_e2e/members tests_e2e/shell tests_e2e/test_golden_flows.py",
+    ) == ["part 1 names `tests_e2e/shop`, which is no folder or file of browser tests"]
+
+
+def test_proof_the_measure_file_is_the_measure_jobs_alone():
+    assert _part_findings(
+        "tests_e2e/forms tests_e2e/test_measure_baselines.py",
+        "tests_e2e/members tests_e2e/shell tests_e2e/test_golden_flows.py",
+    ) == ["`tests_e2e/test_measure_baselines.py` is the measure job's and stands in part 1 too"]
+
+
+def test_proof_a_part_that_runs_everything_is_refused():
+    findings = _part_findings(
+        "tests_e2e/forms",
+        "tests_e2e/members tests_e2e/shell tests_e2e/test_golden_flows.py",
+        run="python -m pytest -v tests_e2e",
+    )
+    assert len(findings) == 1 and "matrix.paths" in findings[0]
+
+
+def test_proof_a_job_without_parts_must_run_the_whole_folder():
+    workflow = _two_parts("tests_e2e/forms", "tests_e2e/members")
+    del workflow["jobs"]["e2e"]["strategy"]
+    assert e2e_part_findings(workflow, _UNITS, _MEASURED) == [
+        "the e2e job has no parts and no step that runs pytest on `tests_e2e`"
+    ]
+    workflow["jobs"]["e2e"]["steps"][0]["run"] = "python -m pytest -v tests_e2e"
+    assert e2e_part_findings(workflow, _UNITS, _MEASURED) == []
+
+
+def test_proof_a_matrix_of_one_part_is_refused():
+    workflow = _two_parts("tests_e2e/forms", "tests_e2e/members")
+    workflow["jobs"]["e2e"]["strategy"]["matrix"]["include"].pop()
+    assert e2e_part_findings(workflow, _UNITS, _MEASURED) == [
+        "the e2e matrix has one part — a matrix of one divides nothing (CR-29 D5)"
+    ]
+
+
+def test_the_units_on_disk_are_the_nine_folders_and_the_root_files():
+    """The walk itself: it finds the folders that hold a test and the files beside
+    them — and nothing that holds none (`baselines/`, `snapshots/`)."""
+    units = browser_test_units()
+    assert "tests_e2e/forms" in units and "tests_e2e/test_golden_flows.py" in units
+    assert not any(u.endswith(("baselines", "snapshots", "__pycache__")) for u in units), units
