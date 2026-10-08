@@ -1,10 +1,10 @@
 # Change Request 29 — A shorter CI: the wait per push
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 8 October 2026 at Koen's request ("Hoe zouden we de CI korter kunnen maken? Dat is nu ongeveer 20 minuten."), on the master CLI's measurement and three proposals of the same day · tracking issue #1745 · build read by dev2 on #1745 taken in (8 October 2026) · not assigned to a release · nothing is built
+**Status:** shaped on 8 October 2026 at Koen's request ("Hoe zouden we de CI korter kunnen maken? Dat is nu ongeveer 20 minuten."), on the master CLI's measurement and three proposals of the same day · tracking issue #1745 · build read by dev2 on #1745 taken in (8 October 2026) · **planned on v2.16 by Koen on 8 October 2026, as its first item** (phase 1 before CR-13 phase 4b; phases 2 and 3 inside v2.16) · Mistral's external review awaited · nothing is built
 **Tracking issue:** #1745 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the CI workflow (`.github/workflows/backend-tests.yml`), the pytest fixtures (`backend/tests/conftest.py`), the local test scripts (`scripts/test-local.sh`, `scripts/e2e-local.sh`), and the master CLI's scripts outside the repository that wait for a run
-**Reading:** A 1 302 words · B 2 542 (2 380 without the decisions log) · C 3 370 — measured on 8 October 2026 after the build read, without drawings; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1353 words · B 3004 · C 3458 (B includes the decisions log, about 230 words) — measured on 8 October 2026 without drawings; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -104,6 +104,7 @@ flowchart LR
 | R4 | What CI checks, the local script checks too, with the same tools and the same speed. | Should | A2 step 5 | `ruff` locally; the same number of processes |
 | R5 | No test is made weaker, skipped or dropped to gain time; the coverage threshold stays. | Must | Koen's standing rule (`AGENTS.md`, *Testen en test-evidence*) | speed comes from parallel work and fewer runs, not from fewer tests |
 | R6 | The browser tests get the same treatment when they become the longest job. | Should | the master CLI's proposal 2 | after R1 is built and measured (B6 phase 2) |
+| R7 | The slowest test files are made faster themselves, without losing a case: faster locally too, where no parallel run helps a single file. | Should | Koen, 8 Oct 2026 ("stap 3") | the four files of C1, 42 % of the test time (B6 phase 3) |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
 
@@ -140,6 +141,7 @@ The run's wall time is its longest job, pytest at 11 to 19 minutes, of which the
 - **D3 — a time limit of 30 minutes per job.** Today five of six jobs have none (e2e got one on 8 October, `71ec5ac4`), and one run lived six hours. Rejected: a limit per step — more lines for the same guard.
 - **D4 — the local script equals CI.** `scripts/test-local.sh` adds `ruff format --check` and `ruff check` before mypy, and `-n 4` to pytest; the e2e script stays as it is. Rejected: making CI call the local scripts — they run in a helper container against the dev stack; a unification of the two is a change of its own, and this one only closes the two known gaps. The machine rule stays: one full suite at a time per machine (`AGENTS.md`), now four processes per suite.
 - **D5 — the browser tests in two jobs, only when measured as the longest (phase 2).** A matrix of two, each starting its own backend and taking the files whose name hashes to its part (a stable key: a new file does not move the others); the measurement baseline becomes a job of its own. Rejected for phase 1: splitting before measuring.
+- **D6 — the four slowest files made faster themselves (phase 3).** The three gates that parse the whole tree per test parse it once per session; the Design Studio tests render once per input, or at a lower resolution where the assertion does not read pixels. Every test and every assertion stays. Rejected: marking them slow and running them less often — a gate that runs less often is a weaker gate.
 
 **Derived requirements**
 
@@ -185,6 +187,7 @@ flowchart LR
 | R4 | ruff and `-n 4` in the local script | — | scripts | T5 | AC6 |
 | R5 | the same tests, the coverage combined | F2, F3 | tests | T1, T3 | AC5 |
 | R6 | phase 2, measured first | — | workflow | T6 | — |
+| R7 | phase 3: parse once, render once | — | tests | T7 | — |
 
 **Walkthrough** — W1 After the merge: `gh run list --branch master --limit 5` shows five runs, each under 6 minutes; the pytest job's summary line says `5598 passed` (or more, never fewer) and the coverage line stands. W2 Push a commit to a branch with a pull request, then a second one: `gh run list --branch <branch>` shows one run per commit, the first cancelled if it was still running. W3 Push a change under `docs/` to master: no new run appears. W4 Open the workflow file: every job has `timeout-minutes: 30`. W5 Run `scripts/test-local.sh` on the same commit: it prints the ruff, mypy and css steps and `5598 passed` in four workers, and the verdict equals CI's.
 
@@ -235,7 +238,7 @@ Checked and not bent: `.github/` is edited by Koen or the master CLI only (`AGEN
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-**Investment:** phase 1 — the fixture, the dependency, the local script, the gate, the worker-safety sweep of F3: S to M, about 1.5 CLI-days; the workflow change: S, the master CLI; the two scripts outside the repo: S, the master CLI. Phase 2 (browser tests in two jobs): S, about 0.5 CLI-day, after measuring. Total about 2.5 CLI-days, plus the build read.
+**Investment:** phase 1 — the fixture, the dependency, the local script, the gate, the worker-safety sweep of F3: S to M, about 1.5 CLI-days; the workflow change: S, the master CLI; the two scripts outside the repo: S, the master CLI. Phase 2 (browser tests in two jobs): S, about 0.5 CLI-day, after measuring. Phase 3 (the four files): S, about 1 CLI-day. Total about 3.5 CLI-days, plus the build read.
 
 **Running cost:** none — a public repository's GitHub-hosted runners are free; the change uses fewer minutes, not more. No purchases: no larger runner, no self-hosted machine (Non-goals).
 
@@ -247,12 +250,15 @@ Checked and not bent: `.github/` is edited by Koen or the master CLI only (`AGEN
 |---|---|---|---|---|---|---|
 | 1 — one pull request | D1 to D4: four workers with a database each, one run per commit, none for docs, time limits, the local script, the gate; the two scripts outside the repo | none | none | none | a test that needed the whole runner alone now fails in a worker (F3 finds them first); a hung job ends red at 30 minutes instead of running on; a branch without a pull request gets no run and no verdict; a docs-only pull request or master commit has no run and passes on the docs-only rule (F4) | W1–W5 |
 | 2 — after phase 1 is measured | D5: the browser tests in two jobs, the measurement baseline in its own job | none | none | none | a browser test that depended on the order of files is found: each job seeds its own database and starts its own backend, so the sign-in limiter (five per minute per address) is per job | W1 measured again |
+| 3 — independent, inside v2.16 | D6: the three tree-parsing gates parse once per session; the Design Studio tests render once per input or at lower resolution | none | none | none | none: the same tests, the same assertions (T7) | `--durations=25` before and after |
 
-**Order:** phase 1 first, on a branch with a pull request, so its own run proves the time; the number for AC1 comes from that pull request's runs. Nothing depends on another change request; no release holds it (status line). **Rollback:** revert the pull request; there is no data.
+**Order:** the **first item of v2.16** (Koen, 8 October 2026), before CR-13 phase 4b: it touches no application code and every later pull request of that release waits six minutes instead of twenty. Phase 1 first, on a branch with a pull request, so its own run proves the time; the number for AC1 comes from that pull request's runs; phase 2 after that measurement; phase 3 at any point of v2.16. Nothing depends on another change request. **Rollback:** revert the pull request; there is no data.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
 **The rule:** the CI run is as long as its longest job, and that job is kept under about five minutes: a job has a time limit; pytest runs in as many processes as the runner has cores, each with its own database; one commit starts one run and a documentation commit none. It goes into `AGENTS.md` *CI* (one paragraph, by the master CLI on Koen's word) — the workflow file itself is the other place, and the gate of C7 keeps the two from drifting.
+
+**The levels, and where each runs** (Koen, 8 October 2026: a view on test levels, one codebase). The suite already has three levels, placed by CR-13 R15: **domain tests** in `app/domains/<x>/tests/` — fast, in-process, one domain, the facades of the others called for real; **integration tests** in `tests/integration/` and the gates in `tests/` — flows across domains, and the rules over the whole tree; **browser tests** in `tests_e2e/`. The fast loop is local: a dev CLI runs the tests of the domain it builds (`pytest app/domains/payment/tests`, CR-13 AC10) while it builds. CI runs everything, in parallel, on every commit — one mechanism, never a selection by changed paths: after parallelisation a selection saves little, and it is exactly the mechanism that skips something silently (the build read's A4). Splitting the codebase is not needed for any of this: the domain folders and the import gate give the separation inside one repository. **Contract tests** (consumer and provider each tested against an agreed contract, Pact-style) are the instrument for a *network* boundary: they return when a component is extracted (`docs/architecture.md` R7) or when an outside party consumes the JSON API; inside one process the facade signature, `CONTRACT.md` and the import gate are the contract, enforced at import.
 
 **Reach and baseline:** one workflow file, six jobs; today 1 of 6 has a time limit (e2e, since `71ec5ac4` of 8 October) and pytest runs in 1 process. After this change 6 of 6 and 4 processes. **Hard** gate for the time limit and the process count (C7). The run's wall time is **not** gated — a gate cannot measure its own run — it is reported: the master CLI records the time of the master run in the release tracker as part of the CI evidence (`AGENTS.md`, *Test-evidence*), beside the run id and `N passed`.
 
@@ -271,6 +277,7 @@ Checked and not bent: `.github/` is edited by Koen or the master CLI only (`AGEN
 |---|---|---|
 | 8 Oct 2026 | Koen asks how the CI can be shorter; the master CLI measures three runs and proposes pytest in parallel, the browser tests in two halves, and one run per commit with none for docs; Koen sends the three to the architecture CLI for a change request. Shaped here as D1–D5; not on a release. | Koen |
 | 8 Oct 2026 | Build read by dev2 (#1745) taken in, every point; the Q&A log lists them. One is Koen's to decide: Q5. | architecture CLI |
+| 8 Oct 2026 | Steps 1–3 on v2.16, as its first item ("Ik ben het helemaal met je eens"); phase 3 — the four slow files — added as D6/R7; the three test levels and the place of contract testing recorded in B7. Mistral reads the document as the external review; a targeted look by the master CLI at F4, B4 and Q1 (her scripts) proposed. | Koen |
 | 8 Oct 2026 | Q4 answered by Koen's rule of the same day (`AGENTS.md` *A builder outside the Claude series*, `fa4f3f0a`): an outside builder builds a change request on one branch `cr<nn>/<name>` with one open pull request against master from day one — so the pull-request run is its run, and no integration branch enters the triggers. | Koen |
 
 ---
@@ -315,6 +322,7 @@ Checked and not bent: `.github/` is edited by Koen or the master CLI only (`AGEN
 | **tests — the gate** | `tests/test_ci_workflow_gate.py` (C7). | the workflow file |
 | **the master CLI's scripts and the conventions** (outside the repository) | the merge script asks the pull-request run only, and treats a pull request without a run as green when its diff is docs-only; the HDEV script treats a master commit without a run as "nothing to deploy" when `git diff --stat <prev>..<sha>` is docs-only (Q1); the release evidence cites the run of the last code commit when the tip is a docs commit. The handover convention (`AGENTS.md`, the pull-request template, the dev CLIs' memories): one run id on the tip, the pull-request run; the branch-name rule for the push run goes. | `bin/master-cli`; `AGENTS.md` *Development workflow* |
 | **docs** | `AGENTS.md` *CI* gets the rule of B7 (the master CLI, on Koen's word); the test-evidence paragraph gains "and the wall time of the run". | |
+| **phase 3 — the four files** | `tests/test_rules_gate.py` (31 tests, 16 places that parse the tree), `tests/test_codes_gate.py` (15 tests, 7) and `tests/test_render_gate.py` (6 tests rendering every admin page): the parsed tree, respectively the rendered set, built once per session in a fixture the tests read — no assertion changes. `tests/integration/test_designstudio_service.py` (37 tests, Inkscape): one render per distinct input shared across the tests that only read it, and a lower resolution where no assertion reads pixels. Measured with `--durations=25` before and after; the count of tests and of assertions per file is equal (T7). | C1 *Where the test time goes* |
 | **phase 2 — workflow** | the e2e job becomes a matrix of two (`part: [1, 2]`), each starting its own backend and running the files whose name hashes to its part (a stable key, so a new file does not reshuffle the others; T6 checks that the parts together cover every file once); the measurement baseline moves to a job `measure` of its own with its own Postgres. | `backend-tests.yml:123-215` |
 | **reporting** | none: no table, no view. | |
 
@@ -368,6 +376,7 @@ Nothing leaves or enters: CI runs on invented seed data, as today. The new depen
 | T4 | The gate of C7: every job has `timeout-minutes`; the pytest step carries `-n`; `push` triggers on `master` only; cancel-in-progress excludes master; no test names a path in `paths-ignore` | the workflow drifts, or stops testing something silently |
 | T5 | `tests/test_lokale_testrunner.py`: the script runs ruff before mypy and pytest with `-n 4`, and its guard admits `raaktest_<slug>_gw0` | the local script loses a step, or refuses a worker's name |
 | T6 | Phase 2: the two e2e parts together list every file of `tests_e2e/` once | a file falls between the parts |
+| T7 | Phase 3: the four files keep every test and every assertion (counted per file before and after); their time is reported from `--durations`, not gated | a test or an assertion is dropped for speed |
 
 The existing tests change only where F3 names them; a test that was green alone and is red in a worker is a finding about that test, written in its docstring when fixed.
 
@@ -377,7 +386,7 @@ The existing tests change only where F3 names them; a test that was green alone 
 
 ## C8. Prototype findings — what was measured before the build
 
-No prototype ran; the measurements of C1 stand in for it. Two findings worth the next change, **not this one** (R5 and *Keep it simple*: one mechanism): the four slowest files (267 s) are two gates that re-parse the tree per test and the Design Studio renders through Inkscape — a parse cached per session and a lower render resolution would cut perhaps two minutes of single-process time, and each is a change of its own test; and the Inkscape install varies from 14 to 121 s between runners (an apt mirror), which an action cache could pin. Both recorded in Non-goals.
+No prototype ran; the measurements of C1 stand in for it. The four slowest files (267 s) are gates that re-parse the tree per test and the Design Studio renders through Inkscape: phase 3 (D6). The Inkscape install varies from 14 to 121 s between runners (an apt mirror), which an action cache could pin — a Could, recorded in Non-goals.
 
 ## C9. Screens before the build — the concepts the approver saw
 
@@ -405,7 +414,7 @@ No screen: nothing to show.
 ## Non-goals — deliberately outside this change
 
 - A self-hosted runner or a larger GitHub runner: the first needs a machine to keep, the second costs money; neither is needed to reach five minutes.
-- Making the slow tests themselves faster (the two parsing gates, the Inkscape renders): C8 names them; each is a change of its own test, and the speed here comes from running them beside the rest.
+- A CI that runs a selection of tests by changed paths, and splitting the codebase into repositories: B7 says why neither is needed.
 - Caching the Inkscape install: a Could, if the variance (14 to 121 s) still shows after phase 1.
 - Unifying the local scripts with the workflow into one mechanism: D4 closes the two known gaps; the unification is a change of its own.
 - Branch protection with required checks: no run exists for a docs-only commit by design, so a required check would block the merge of documentation.
