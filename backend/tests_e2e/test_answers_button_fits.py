@@ -32,14 +32,19 @@ def setup():
     from app.domains.activities import service
     from app.domains.auth.api import make_session_value
     from app.schemas.activity import RegistrationCreate
-    from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product, seed_question_form
+    from tests.conftest import (
+        SEEDED_ADMIN_EMAIL,
+        ask_questions,
+        seed_activity_with_product,
+        seed_question_form,
+    )
 
     db = SessionLocal()
     activity, component, product = seed_activity_with_product(db, price="0", is_free=True)
     component.name = "Bezoek aan huis in de voormiddag"
     db.commit()
     form = seed_question_form(db)
-    service.update_component(db, activity.id, component.id, {"form_id": form.id})
+    ask_questions(db, component, form.id)
     data = RegistrationCreate(
         contact_name="Rij Proef",
         contact_email="rij@example.com",

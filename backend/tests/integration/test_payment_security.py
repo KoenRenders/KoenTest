@@ -255,18 +255,6 @@ def test_activity_invalid_email_rejected(client, db_session):
     assert resp.status_code == 422
 
 
-def test_negative_product_price_rejected(client, db_session, admin_headers):
-    """Admin kan geen product met een negatieve prijs aanmaken."""
-    activity, comp, _product = seed_activity_with_product(db_session)
-    resp = client.post(
-        f"/api/v1/activities/{activity.id}/components/{comp.id}/products",
-        json={"name": "Negatief", "price": -1, "is_free": False},
-        headers=admin_headers,
-    )
-    # 422 = vorm-validatie; 400 = expliciete afwijzing; 500 = DB-constraint vangnet.
-    assert resp.status_code in (422, 400, 500)
-
-
 def test_pay_on_site_not_counted_in_total():
     """#373: een 'ter plaatse te betalen' (eigen budget) product telt — net als
     gratis — niet mee in het (Mollie-)totaal, maar staat wél als regel."""
@@ -305,17 +293,6 @@ def test_pay_on_site_not_counted_in_total():
     by_name = {line["name"]: line for line in lines}
     assert by_name["Eten (eigen budget)"]["pay_on_site"] is True
     assert len(lines) == 3
-
-
-def test_product_cannot_be_free_and_pay_on_site(client, db_session, admin_headers):
-    """#373: gratis én ter plaatse te betalen sluiten elkaar uit."""
-    activity, comp, _p = seed_activity_with_product(db_session)
-    resp = client.post(
-        f"/api/v1/activities/{activity.id}/components/{comp.id}/products",
-        json={"name": "Fout", "is_free": True, "pay_on_site": True},
-        headers=admin_headers,
-    )
-    assert resp.status_code == 422
 
 
 def test_mollie_webhook_is_rate_limited(client):

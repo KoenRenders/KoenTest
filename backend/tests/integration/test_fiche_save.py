@@ -9,7 +9,7 @@ anywhere leaves nothing behind.
 New with #1559, and marked NEW at their test:
 
 - a component with registrations and a product on a registration cannot go
-  (Koen, 4 October 2026) — in the service, so the JSON API refuses too;
+  (Koen, 4 October 2026) — in the service, so every entrance refuses;
 - an empty name, a maximum of zero or less and a negative price are refused
   with a message (they were a 500 through the row routes);
 - a row that did not change is not written and gets no history row;
@@ -891,49 +891,6 @@ def test_a_refused_file_refuses_the_whole_save(db_session):
 
 
 # ── The same refusals through the doors that stay ────────────────────────────
-
-
-def test_new_the_committing_doors_refuse_too(db_session):
-    """The rule is the service's, so `delete_component` and `delete_product` —
-    the doors of the JSON API — refuse as the fiche does."""
-    activity, component, product = _seed(db_session)
-    _registration(db_session, component, product)
-    ids = (component.id, product.id)
-    with pytest.raises(ActiviteitFout, match="heeft één inschrijving"):
-        service.delete_component(db_session, activity.id, component.id, actor="test")
-    with pytest.raises(ActiviteitFout, match="staat op een inschrijving"):
-        service.delete_product(db_session, component.id, product.id, actor="test")
-    # No rollback here: in the test session it would take the seed along.
-    assert db_session.query(ActivitySubRegistration).filter_by(id=ids[0]).count() == 1
-    assert db_session.query(ActivityProduct).filter_by(id=ids[1]).count() == 1
-
-
-def test_new_the_json_api_answers_the_refusal_with_a_422(client, db_session, admin_headers):
-    """`DELETE /api/v1/activities/{id}/components/{id}` and `…/products/{id}`: the
-    refusal with its words, where both answered `deleted` before. Without the
-    `except` in the router the rule would be a 500 there."""
-    activity, component, product = _seed(db_session)
-    _registration(db_session, component, product)
-    ids = (activity.id, component.id, product.id)
-    base = f"/api/v1/activities/{ids[0]}/components/{ids[1]}"
-
-    answer = client.delete(f"{base}/products/{ids[2]}", headers=admin_headers)
-    assert answer.status_code == 422, answer.text
-    assert "staat op een inschrijving" in answer.json()["detail"]
-    answer = client.delete(base, headers=admin_headers)
-    assert answer.status_code == 422, answer.text
-    assert "heeft één inschrijving" in answer.json()["detail"]
-    assert db_session.query(ActivitySubRegistration).filter_by(id=ids[1]).count() == 1
-    assert db_session.query(ActivityProduct).filter_by(id=ids[2]).count() == 1
-
-
-def test_the_json_api_still_deletes_what_nothing_holds(client, db_session, admin_headers):
-    activity, component, product = _seed(db_session)
-    ids = (activity.id, component.id, product.id)
-    base = f"/api/v1/activities/{ids[0]}/components/{ids[1]}"
-    assert client.delete(f"{base}/products/{ids[2]}", headers=admin_headers).status_code == 200
-    assert client.delete(base, headers=admin_headers).status_code == 200
-    assert db_session.query(ActivitySubRegistration).filter_by(id=ids[1]).count() == 0
 
 
 # ── #1561: a refusal names its place, and the save names all of them ─────────

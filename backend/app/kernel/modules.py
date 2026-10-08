@@ -116,7 +116,6 @@ MODULES: tuple[Module, ...] = (
         # CR-22 S5 (#1709): the registrations of whoever is signed in.
         member_items=(("/mijn/inschrijvingen", "Mijn inschrijvingen", "calendar-days"),),
         route_prefixes=(
-            "/api/v1/activities",
             "/admin/activiteiten",
             "/activiteiten",
             "/archief",

@@ -49,15 +49,14 @@ MEASURE = """(title) => {
 def setup():
     import app.models  # noqa: F401
     from app.database import SessionLocal
-    from app.domains.activities import service
-    from tests.conftest import seed_activity_with_product, seed_question_form
+    from tests.conftest import ask_questions, seed_activity_with_product, seed_question_form
 
     db = SessionLocal()
     activity, component, _product = seed_activity_with_product(db, price="0", is_free=True)
     form = seed_question_form(db, title=TITLE)
     form.description = "Voor de Sint: vul dit samen met je kinderen in."
     db.commit()
-    service.update_component(db, activity.id, component.id, {"form_id": form.id})
+    ask_questions(db, component, form.id)
     out = {
         "form": f"/formulier/{form.share_token}",
         "registration": f"/activiteiten/{activity.id}/inschrijven/{component.id}",

@@ -33,12 +33,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.domains.activities import service
 from app.domains.activities.api import Registration
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.forms.models import FormSubmission, FormSubmissionAnswer
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
+    ask_questions,
     form_guard_fields,
     register_at_the_door,
     seed_activity_with_product,
@@ -51,7 +51,7 @@ def sint(db_session):
     """A free component that asks the Sint questions."""
     activity, component, product = seed_activity_with_product(db_session, price="0", is_free=True)
     form = seed_question_form(db_session)
-    service.update_component(db_session, activity.id, component.id, {"form_id": form.id})
+    ask_questions(db_session, component, form.id)
     return SimpleNamespace(activity=activity, component=component, product=product, form=form)
 
 
@@ -206,7 +206,7 @@ def test_nothing_is_committed_before_the_payment_step(client, db_session, monkey
     side committing its submission, say), and that is what this counts."""
     activity, component, product = seed_activity_with_product(db_session, price="10.00")
     form = seed_question_form(db_session)
-    service.update_component(db_session, activity.id, component.id, {"form_id": form.id})
+    ask_questions(db_session, component, form.id)
     s = SimpleNamespace(activity=activity, component=component, product=product, form=form)
     slot, story = _field(form, "Tijdslot"), _field(form, "Verhaal")
     answers = [

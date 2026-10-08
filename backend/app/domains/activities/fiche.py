@@ -6,9 +6,10 @@ their products and its organisers are one form, and one "Opslaan" writes them in
 them — and each committed by itself. `save_fiche` replaces them for the screen.
 
 It writes nothing the row functions did not write, and refuses everything they
-refused: it calls the same non-committing cores (`insert_date`,
-`apply_component_update`, `remove_product`, …) that the committing doors — still
-used by the JSON API — call. What is new is said where it stands:
+refused: it calls the non-committing cores (`insert_date`,
+`apply_component_update`, `remove_product`, …) the committing doors of the JSON
+API called, until CR-13 phase 4b (#1251) removed those doors with their routes.
+What is new is said where it stands:
 
 - a row that did not change is not written and gets no history row (a save of
   the whole fiche would otherwise log an update for every row at every save);
@@ -251,7 +252,7 @@ async def save_fiche(
 
 #: What a new activity starts as when the board makes it on the fiche (#1649):
 #: a draft — an empty fiche saved with a name must not stand on the site unseen;
-#: publishing is its own act. (The JSON API creates as before.)
+#: publishing is its own act.
 NEW_ACTIVITY_STATUS = ActivityStatus.DRAFT
 #: The fields `service._add_activity` takes at the creation itself, so they are
 #: part of the one history row "created".
@@ -282,7 +283,7 @@ async def create_fiche(
     Opslaan either: the page that asks is a form, not a record.
 
     The rules are the fiche's own (a name, the rules of a date, a component, a
-    product), plus the one the start screen and the JSON API always asked: **a
+    product), plus the one the start screen always asked: **a
     new activity has a first date.** The friendly URL is proposed from the name
     when the form gives none, as every creation does (#884)."""
     errors = _errors(fiche.errors)

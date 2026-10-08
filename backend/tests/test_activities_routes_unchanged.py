@@ -70,10 +70,9 @@ def routes() -> dict:
 
 def test_the_walk_sees_the_routes():
     found = routes()
-    # Floors lowered with CR-13 phase 4b (#1251), which prunes the JSON routes: 60 → 40
-    # routes, 20 → 10 in the schema.
+    # 60 → 40 with CR-13 phase 4b (#1251), which pruned every JSON route of the
+    # activities; the floor on routes in the schema went with the last of them.
     assert len(found) >= 40, f"only {len(found)} activities routes — the walk is blind"
-    assert sum(1 for r in found.values() if r["openapi"]) >= 10, "no JSON route in the schema"
 
 
 def test_every_activities_route_is_what_it_was():
