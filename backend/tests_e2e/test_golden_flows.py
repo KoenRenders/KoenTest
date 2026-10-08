@@ -244,11 +244,12 @@ def test_publieke_kern_bereikbaar(page):
 
 def _door(page, number: int, width: int = 390):
     """A visitor of their own: a fresh context (no cookie of another flow), at
-    the width most visitors have, from an address of their own (`number`)."""
+    the width most visitors have. The address of their own comes from the
+    `own_visitor` fixture of `tests_e2e/conftest.py` (#1787), as for every
+    browser test; `number` names the door in the three flows below."""
     context = page.context.browser.new_context(
         base_url=BASE,
         viewport={"width": width, "height": 844},
-        extra_http_headers={"X-Forwarded-For": f"198.51.100.{number}"},
     )
     return context.new_page()
 

@@ -64,22 +64,10 @@ def _set_code(email: str, code: str) -> None:
         db.close()
 
 
-#: The sign-in is limited to five sends a minute per visitor address
-#: (`login_limiter`), counted in the one backend every browser test shares.
-#: This test sends once — and failed whenever the files before it had used the
-#: minute up, which depended on the order of the files (#1745). It comes as a
-#: visitor of its own: without a proxy in front, the backend reads the address
-#: from this header, as it reads the one the proxy sets in production.
-#: (An address of the block reserved for documentation.)
-OWN_VISITOR = {"X-Forwarded-For": "203.0.113.67"}
-
-
 def test_the_portal_link_signs_in_and_comes_back_to_the_portal(board_member):
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        page = browser.new_page(
-            viewport={"width": 390, "height": 844}, extra_http_headers=OWN_VISITOR
-        )
+        page = browser.new_page(viewport={"width": 390, "height": 844})
 
         page.goto(BASE + "/leden/gezin")
         pagina_klaar(page)
