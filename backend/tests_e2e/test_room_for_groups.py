@@ -6,11 +6,14 @@ longer stood on one line. Three things, all geometry, so all measured from the
 rendered DOM:
 
 - **the wide column in edit mode**: a record with a composite group that is being
-  edited takes the reading group, 1 092 px, with its summary above it as a
-  strip; reading, saving and cancelling give 768 px and the card at the right
-  again; a field of full width fills the column, a text box included (#1635:
-  #1610 kept long text at 768 px, with a gap at its right); with less than
-  1 092 px of frame (the Assistent's panel open) nothing changes;
+  edited takes the whole reading group — 1 380 px since CR-17 slice 4 (Koen, 9
+  October 2026: "links houden, maar het scherm benutten"; the group was 1 092),
+  with its summary above it as a strip; reading, saving and cancelling give
+  the reading column and the card at the right again (844 px of frame at
+  1 440, the 1 056 cap above); a field of full width fills the column, a text
+  box included (#1635: #1610 kept long text at 768 px, with a gap at its
+  right); below 1 380 px of frame the composite simply takes what the frame
+  gives, summary beside her (the Assistent's panel: nothing changes);
 - **denser rows**: a product's name · price · member price · maximum on one
   line, the settlement and "Publiek zichtbaar" on the second;
 - **a narrower gutter**: 28 px for a composite item's handle, the child group
@@ -94,26 +97,41 @@ def _page(setup, width: int, edit: bool = True):
 
 @pytest.mark.parametrize("width", [1440, 1920])
 def test_the_editor_takes_the_reading_group_and_the_summary_stands_above(setup, width):
-    """Red on master: 768 px in both modes, the summary beside the form."""
+    """Red on master: 768 px in both modes, the summary beside the form.
+
+    Since CR-17 slice 4 the composite strip needs 1 380 px of frame: at
+    1 920 the editor takes the whole reading group with her summary above;
+    at 1 440 (1 168 px of frame) the composite takes what the frame gives
+    and the summary stands beside her — the norm's own "with less than the
+    frame, nothing changes".
+    """
     page = _page(setup, width)
     try:
         m = page.evaluate(_M)
         print("MEASURE room edit", width, m["column"], m["summary"], m["description"], m["body"])
-        assert m["mode"] == "edit" and m["column"]["w"] == 1092
-        assert (m["summary"]["x"], m["summary"]["w"]) == (m["column"]["x"], 1092)
-        assert m["summary"]["bottom"] + 24 == m["column"]["y"], (
-            "the strip is not 24 px above the form"
-        )
-        assert m["summary"]["h"] < 160, "above the form the summary is a strip, not the card"
+        assert m["mode"] == "edit"
+        if width == 1920:
+            assert m["column"]["w"] == 1380, "the editor does not take the whole reading group"
+            assert (m["summary"]["x"], m["summary"]["w"]) == (m["column"]["x"], 1380)
+            assert m["summary"]["bottom"] + 24 == m["column"]["y"], (
+                "the strip is not 24 px above the form"
+            )
+            assert m["summary"]["h"] < 160, "above the form the summary is a strip, not the card"
+        else:
+            assert m["column"]["w"] == 844, "the composite column does not follow the frame"
+            assert m["summary"]["x"] == m["column"]["right"] + 24 and m["summary"]["w"] == 300
         # #1635: a field of full width fills the column, a text box included —
         # Omschrijving and Interne nota from the left edge of Naam to the right
         # edge of Vriendelijke URL. Red on master: 768 px in a grid of 1 058.
+        # Since CR-17 slice 4 the composite's whole group needs 1 380 px of
+        # frame, so at 1 440 the grid fills the 844 px column (810 inside)
+        # and at 1 920 the 1 380 px strip (1 346 inside).
         print("MEASURE text boxes", width, m["description"], m["notes"], m["grid"], m["boxes"])
         for label, field, grid in (
             ("Omschrijving", m["description"], m["grid"]),
             ("Interne nota", m["notes"], m["notes_grid"]),
         ):
-            assert field["w"] == grid["w"] > 1000, (
+            assert field["w"] == grid["w"] > 700, (
                 f"{label} is {field['w']} px in a grid of {grid['w']}"
             )
         assert m["description"]["x"] == m["name_field"]["x"]
@@ -122,7 +140,12 @@ def test_the_editor_takes_the_reading_group_and_the_summary_stands_above(setup, 
             assert box["w"] == field["w"], (
                 f"the text box is {box['w']} px in a field of {field['w']}"
             )
-        assert m["name_field"]["w"] > 500
+        if width == 1920:
+            assert m["name_field"]["w"] > 500
+        else:
+            # The reading column's own halves (the kit's 399 at this frame,
+            # measured in test_form_fields too).
+            assert m["name_field"]["w"] == 399
         assert m["page"][0] == width
         assert page.errors == []
     finally:
@@ -132,9 +155,10 @@ def test_the_editor_takes_the_reading_group_and_the_summary_stands_above(setup, 
     try:
         r = read.evaluate(_M)
         print("MEASURE room read", width, r["column"], r["summary"])
-        assert r["mode"] == "read" and r["column"]["w"] == 768
-        # #1635: nothing changes in read mode — the value stays inside the 768 px column.
-        assert r["description"]["w"] == r["grid"]["w"] < 768
+        assert r["mode"] == "read" and r["column"]["w"] == (844 if width == 1440 else 1056)
+        # #1635: nothing changes in read mode — the value stays inside the
+        # reading column, whatever she is at this width.
+        assert r["description"]["w"] == r["grid"]["w"] < r["column"]["w"]
         assert r["summary"]["x"] == r["column"]["right"] + 24 and r["summary"]["w"] == 300
         assert r["summary"]["y"] == r["column"]["y"], "#1587: the two cards start level"
     finally:
@@ -147,11 +171,11 @@ def test_saving_and_cancelling_give_the_reading_column_back(setup):
     page = _page(setup, 1440)
     try:
         page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
-        assert page.evaluate(_M)["column"]["w"] == 1092
+        assert page.evaluate(_M)["column"]["w"] == 844
         page.locator("[data-form-save]").click()
         expect(page.locator("[data-form-flow]")).to_have_attribute("data-mode", "read")
         saved = page.evaluate(_M)
-        assert saved["column"]["w"] == 768
+        assert saved["column"]["w"] == 844
         assert (
             saved["summary"]["x"] == saved["column"]["right"] + 24 and saved["summary"]["w"] == 300
         )
@@ -164,7 +188,7 @@ def test_saving_and_cancelling_give_the_reading_column_back(setup):
         page.locator("[data-form-cancel]").click()
         pagina_klaar(page)
         expect(page.locator("[data-form-flow]")).to_have_attribute("data-mode", "read")
-        assert page.evaluate(_M)["column"]["w"] == 768
+        assert page.evaluate(_M)["column"]["w"] == 844
     finally:
         page.close()
 
@@ -184,7 +208,12 @@ def _one_line(m: dict) -> None:
 
 
 def test_a_product_stands_on_one_line_and_its_choice_on_the_second(setup):
-    """Red on master: the maximum stood on the second line, beside the settlement."""
+    """Red on master: the maximum stood on the second line, beside the settlement.
+
+    Since CR-17 slice 4 the composite strip needs 1 380 px of frame, so at
+    1 440 the product's row is 725 px wide — and the four fields are still
+    one line, with the settlement and the switch on the second.
+    """
     page = _page(setup, 1440)
     try:
         m = page.evaluate(_M)
@@ -194,7 +223,7 @@ def test_a_product_stands_on_one_line_and_its_choice_on_the_second(setup):
             [m[k]["w"] for k in ("name", "price", "member", "max")],
         )
         _one_line(m)
-        assert m["body"]["w"] > 900
+        assert m["body"]["w"] > 700
     finally:
         page.close()
 

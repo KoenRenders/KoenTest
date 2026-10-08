@@ -492,7 +492,7 @@ def test_the_authors_markup_never_reaches_the_visitor_raw(client, db_session):
     assert _publish(client, session, page.id) == 204
 
     site = client.get("/opmaak-1671").text
-    body = site[site.index("cms-content") :]
+    body = site[site.index("prose-raak") :]
     assert "javascript:" not in body, "the link's address reached the visitor"
     # The sanitiser may spell an attribute's value her own way (a `<` is
     # legal inside a quoted one and no markup to the browser); what the

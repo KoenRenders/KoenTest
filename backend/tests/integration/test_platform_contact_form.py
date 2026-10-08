@@ -282,7 +282,7 @@ def test_a_label_with_markup_is_escaped(client, platform_workspace, db_session):
         "&lt;b&gt;vet&lt;/b&gt;",
         "&lt;script&gt;alert(1)&lt;/script&gt; &amp; meer",
     ], f"the labels lost their escaping: {labels}"
-    main = home_html[home_html.index("cms-content") :]
+    main = home_html[home_html.index("prose-raak") :]
     assert "<b>vet</b>" not in main and "<script>alert(1)" not in main
 
 

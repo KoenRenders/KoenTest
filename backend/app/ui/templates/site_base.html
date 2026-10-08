@@ -53,49 +53,14 @@
   {# The figure rules of a page document (CR-17 #1671, slice 3) — ONE source
      with the editor: `prose-figures.css` rides on the tokens both shells
      define, so the visitor sees the placements the author saw in the
-     editor. Hand-written, like the CMS block below: the figure's markup is
-     built by the renderer, and a renderer's class must not depend on one
-     that happens to be generated. #}
+     editor, scoped under the prose class `.prose-raak` (slice 4: the ONE
+     class of the reading rules, `scripts/build-css.sh`). Hand-written, not
+     generated: the figure's markup is built by the renderer, and a
+     renderer's class must not depend on one that happens to be generated. #}
   <link rel="stylesheet" href="{{ statisch('prose-figures.css') }}">
   <style>
     /* Alpine: verberg x-cloak-elementen tot Alpine geïnitialiseerd is (geen flits). */
     [x-cloak]{display:none!important}
-    /* CMS-content-opmaak (#457): Tailwind-reset laat koppen/lijsten kaal → stijl geven. */
-    .cms-content h1{font-size:1.5rem;font-weight:700;color:var(--brand-ocean);margin:1rem 0 .5rem}
-    .cms-content h2{font-size:1.25rem;font-weight:700;color:var(--brand-ocean);margin:1rem 0 .5rem}
-    .cms-content h3{font-size:1.1rem;font-weight:600;margin:.75rem 0 .25rem}
-    .cms-content h4{font-weight:600;margin:.5rem 0 .25rem}
-    .cms-content p{margin:.5rem 0;line-height:1.6}
-    .cms-content ul{list-style:disc;padding-left:1.5rem;margin:.5rem 0}
-    .cms-content ol{list-style:decimal;padding-left:1.5rem;margin:.5rem 0}
-    .cms-content li{margin:.25rem 0}
-    .cms-content a{color:var(--link);text-decoration:underline}
-    /* #1567: a form button placed by the form placeholder is the kit button, not a text link. */
-    .cms-content [data-form-button] a{color:var(--ink);text-decoration:none}
-    .cms-content strong,.cms-content b{font-weight:700}
-    .cms-content em,.cms-content i{font-style:italic}
-    .cms-content blockquote{border-left:3px solid var(--line);padding-left:1rem;color:var(--ink-soft);margin:.5rem 0}
-    .cms-content img{max-width:100%;height:auto;border-radius:.5rem;margin:.5rem 0}
-    /* Drie maten voor een pagina-afbeelding (#1207). Relatief aan de kolom en
-       niet in pixels: een vaste breedte breekt op een telefoon. `max-width` en
-       geen `width`, zodat de regel hierboven blijft gelden — een maat maakt een
-       afbeelding kleiner, nooit breder dan de kolom. "Volle breedte" draagt geen
-       klasse; dat is precies de stand van vóór dit issue, dus bestaande pagina's
-       renderen ongewijzigd. */
-
-    .cms-content img.cms-beeld-klein{max-width:33%}
-    .cms-content img.cms-beeld-half{max-width:50%}
-    /* Onder 640 px vervalt de maat — de keuze die #1207 vraagt op te schrijven.
-       Gemeten op een venster van 390 px: de tekstkolom is daar 358 px, dus een
-       halve kolom is 179 px en een kleine 118. Een schermafdruk met tekst is op
-       die breedte niet te lezen, en dat is nu juist waarvoor deze beelden op de
-       uitlegpagina staan. Beter volle breedte dan een onleesbaar prentje.
-       Nagemeten na de reparatie: op 390 px zijn alle drie de maten 358 px, op
-       1440 px zijn ze 412, 624 en 1248. */
-    @media (max-width:640px){
-      .cms-content img.cms-beeld-klein,.cms-content img.cms-beeld-half{max-width:100%}
-    }
-    .cms-content hr{border-top:1px solid var(--line);margin:1rem 0}
   </style>
   {# View Transitions voor gebooste navigatie (#634). Browsers zonder ondersteuning
      negeren dit; geen terugval nodig. #}
