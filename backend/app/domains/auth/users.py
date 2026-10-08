@@ -230,7 +230,6 @@ def create_user(body: UserCreate, db: Session = Depends(get_db), _admin=Depends(
     return user
 
 
-@router.put("/{user_id}", response_model=UserOut)
 def update_user(
     user_id: int, body: UserUpdate, db: Session = Depends(get_db), _admin=Depends(get_current_admin)
 ):

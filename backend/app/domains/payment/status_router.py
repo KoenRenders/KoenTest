@@ -18,7 +18,6 @@ from .schemas import (
 from .service import (
     create_refund,
     edit_payment_record,
-    get_records_for,
     refresh_record_status,
     registration_balance,
 )
@@ -81,17 +80,6 @@ def export_all_payment_records(
         media_type="application/vnd.oasis.opendocument.spreadsheet",
         headers={"Content-Disposition": 'attachment; filename="betalingen-en-vorderingen.ods"'},
     )
-
-
-@router.get("/records/{payable_type}/{payable_id}", response_model=List[PaymentRecordResponse])
-def get_payment_records(
-    payable_type: str,
-    payable_id: int,
-    db: Session = Depends(get_db),
-    _viewer: User = Depends(get_finance_or_admin),
-):
-    records = get_records_for(db, payable_type, payable_id)
-    return [_to_response(r) for r in records]
 
 
 @router.post("/records/{record_id}/refresh", response_model=PaymentRecordResponse)

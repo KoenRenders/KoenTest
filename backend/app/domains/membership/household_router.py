@@ -241,7 +241,6 @@ def _actor_van(person) -> str | None:
     )
 
 
-@router.post("/member/household/persons/{person_id}/emails", status_code=201)
 def household_add_email(
     person_id: int, data: dict, person=Depends(require_member), db: Session = Depends(get_db)
 ):
@@ -255,7 +254,6 @@ def household_add_email(
     return {"ok": True}
 
 
-@router.post("/member/household/persons/{person_id}/emails/rows")
 def household_apply_email_rows(
     person_id: int, formulier, person=Depends(require_member), db: Session = Depends(get_db)
 ):
@@ -272,7 +270,6 @@ def household_apply_email_rows(
     return {"ok": True}
 
 
-@router.post("/member/household/persons/{person_id}/emails/{contact_id}/primary")
 def household_make_email_primary(
     person_id: int, contact_id: int, person=Depends(require_member), db: Session = Depends(get_db)
 ):
@@ -283,7 +280,6 @@ def household_make_email_primary(
     return {"ok": True}
 
 
-@router.delete("/member/household/persons/{person_id}/emails/{contact_id}", status_code=204)
 def household_remove_email(
     person_id: int, contact_id: int, person=Depends(require_member), db: Session = Depends(get_db)
 ):
