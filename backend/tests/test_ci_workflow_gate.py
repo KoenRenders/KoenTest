@@ -15,6 +15,8 @@ at the bottom, so nobody has to think them up again:
   * the pytest step without `-n` → rule 2;
   * `feature/**` added to the push trigger → rule 3;
   * `cancel-in-progress: true`, which would cancel a master run → rule 3;
+  * the group `ci-${{ github.ref }}`, which all master commits share, so a
+    waiting master run is cancelled by the next commit → rule 3;
   * `docs/reporting-universe.md` added to `paths-ignore` → rule 4 names the test
     that reads it, while a document named in a docstring only passes;
   * a filter entry that matches no file → rule 4.
@@ -96,8 +98,20 @@ def trigger_findings(workflow: dict) -> list[str]:
     concurrency = workflow.get("concurrency")
     if not isinstance(concurrency, dict):
         return [*findings, f"{message}: no `concurrency` block"]
-    if "github.ref" not in str(concurrency.get("group", "")):
+    group = str(concurrency.get("group", ""))
+    if "github.ref" not in group:
         findings.append(f"{message}: the concurrency group does not separate by `github.ref`")
+    # One group for the whole of master makes a master run WAIT behind the running
+    # one, and GitHub cancels a waiting run as soon as a newer commit arrives —
+    # `cancel-in-progress: false` spares only the run that already runs (8 October
+    # 2026: a master commit lost its run that way, the day the rule came in). So a
+    # push gets a group per commit, and only a pull request shares one per branch.
+    if not ("github.event_name == 'pull_request' && github.ref" in group and "github.sha" in group):
+        findings.append(
+            f"{message}: the concurrency group is {group!r}; a push must get a group "
+            "per commit (`github.sha`), or master commits queue behind each other "
+            "and the waiting run is cancelled"
+        )
     cancel = concurrency.get("cancel-in-progress")
     spares_master = isinstance(cancel, str) and (
         "github.event_name == 'pull_request'" in cancel
@@ -227,6 +241,20 @@ def test_proof_a_second_branch_pattern_is_refused(changed):
     changed["on"]["push"]["branches"].append("feature/**")
     findings = trigger_findings(changed)
     assert len(findings) == 1 and "on.push.branches" in findings[0], findings
+
+
+@pytest.mark.parametrize(
+    "group",
+    [
+        "ci-${{ github.ref }}",  # what phase 1 shipped: one group for all of master
+        "ci-${{ github.sha }}",  # a group per commit for a pull request too: nothing is cancelled
+    ],
+)
+def test_proof_a_group_that_master_commits_share_is_refused(changed, group):
+    changed["concurrency"]["group"] = group
+    findings = trigger_findings(changed)
+    assert findings, f"the group {group!r} passed"
+    assert all("concurrency group" in finding for finding in findings), findings
 
 
 @pytest.mark.parametrize("cancel", [True, False, "true", None])
