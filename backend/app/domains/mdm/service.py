@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import date
-from typing import Iterable, NamedTuple, Optional
+from typing import Any, Iterable, NamedTuple, Optional
 
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -24,8 +24,8 @@ from app.domains.mdm.codes import CONTACT
 from app.domains.mdm.models import Person, PersonHistory, RelationType
 from app.i18n import _
 from app.kernel.codes import code_of
-from app.kernel.contracts.mdm import EntityMerged
-from app.kernel.events import publish
+from app.kernel.contracts.mdm import EmailAddressAdded, EntityMerged
+from app.kernel.events import has_subscribers, publish
 
 logger = logging.getLogger(__name__)
 
@@ -854,7 +854,14 @@ def _persoon_of_404(db: Session, person_id: int):
     return person
 
 
-def add_email_address(db: Session, person_id: int, value: str, *, actor: Optional[str] = None):
+def add_email_address(
+    db: Session,
+    person_id: int,
+    value: str,
+    *,
+    actor: Optional[str] = None,
+    confirmed: bool = True,
+):
     """Zet er een e-mailadres bij (#1174). Het eerste adres wordt het hoofdadres.
 
     De nieuwsbriefverantwoordelijke heeft een tiental adressen die het portaal
@@ -866,12 +873,23 @@ def add_email_address(db: Session, person_id: int, value: str, *, actor: Optiona
     geval, dus die wordt stil overgeslagen in plaats van een dubbele rij te maken.
     Hoofdletterongevoelig vergeleken: een mens typt zijn eigen adres niet twee
     keer identiek.
+
+    `confirmed=False` (CR-22 R15, #1711): the person adds it himself — the
+    portal's JSON door. Then it waits for its code, as a row typed in Mijn
+    gezin does, through the same `write_email_rows`.
     """
     from app.domains.audit.api import snapshot_contact_detail
 
     person = _persoon_of_404(db, person_id)
     waarde = (value or "").strip()
     if not waarde:
+        return person
+    if not confirmed:
+        write_email_rows(
+            db, person, {}, [waarde], actor=actor, source="member_self", confirmed=False
+        )
+        db.commit()
+        db.refresh(person)
         return person
     bestaand = [c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL]
     if any((c.value or "").strip().lower() == waarde.lower() for c in bestaand):
@@ -907,7 +925,12 @@ def _heeft_hoofdadres(person) -> bool:
 
 
 def apply_email_rows(
-    db: Session, person_id: int, formulier, *, actor: Optional[str] = None
+    db: Session,
+    person_id: int,
+    formulier,
+    *,
+    actor: Optional[str] = None,
+    confirmed: bool = True,
 ) -> None:
     """Pas de e-mailadres-RIJEN uit een ledenformulier toe (#1219).
 
@@ -960,7 +983,9 @@ def apply_email_rows(
         elif sleutel.startswith("email_new_"):
             new.append(_waarde(sleutel))
 
-    if write_email_rows(db, person, existing, new, actor=actor):
+    # `confirmed=False` (#1711): the member's own door — what he types waits.
+    source = "admin_update" if confirmed else "member_self"
+    if write_email_rows(db, person, existing, new, actor=actor, source=source, confirmed=confirmed):
         # **Commit, geen flush** (#1223). De aanroeper heeft zijn eigen wijziging
         # al vastgelegd vóór deze functie draait, dus na een flush alleen wordt
         # dit weer weggegooid bij het einde van het verzoek: de rij verschijnt, de
@@ -982,6 +1007,8 @@ def write_email_rows(
     *,
     actor: Optional[str] = None,
     source: str = "admin_update",
+    confirmed: bool = True,
+    primary_wanted: str = "",
 ) -> bool:
     """The e-mail rows of one person, written with their history and WITHOUT a
     commit (#1590: shared by `apply_email_rows` and the save of the whole
@@ -990,11 +1017,31 @@ def write_email_rows(
     texts of rows without an id — empty ones and doubles are skipped; a new row
     becomes the primary address only when the person has none. Returns whether
     anything changed. `source` names who acts in the history (`member_self` when
-    the member saves their own household)."""
+    the member saves their own household).
+
+    `confirmed=False` (CR-22 R15, #1711): the person types the address himself,
+    so it waits for its code — Mijn gezin and Mijn gegevens. Then
+
+    - a new address is stored waiting, never as the primary one, and its code
+      is asked (`EmailAddressAdded`);
+    - a CHANGED address does not touch the row that is there: the old address
+      stays and keeps signing in, the new one is stored waiting beside it and
+      takes its place — and its primary mark — when its code is entered (Koen,
+      8 October 2026). Otherwise a typing mistake in one's only address would
+      lock the person out;
+    - a waiting row that is changed is changed in place, and gets a new code;
+    - `primary_wanted`: the address the form marks as the primary one. When
+      it is stored waiting in this write, the mark is carried out at its code.
+
+    The board's writes keep the default: what the board types counts at once.
+    """
     from app.domains.audit.api import snapshot_contact_detail
 
     bestaand = {c.id: c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL}
     gewijzigd = False
+    # (waiting row, the confirmed row it replaces or None): announced once the
+    # rows are flushed — the event carries the row's id.
+    waiting: list[tuple[Any, Any]] = []
     for rij_id, waarde in existing.items():
         rij = bestaand.get(rij_id)
         if rij is None:
@@ -1005,10 +1052,32 @@ def write_email_rows(
             )
             person.contact_details.remove(rij)
             gewijzigd = True
+        elif (
+            not confirmed
+            and rij.confirmed_at is not None
+            and waarde.lower() != (rij.value or "").strip().lower()
+        ):
+            # Another address typed over one that counts: the old row stays as
+            # it is; the new address waits beside it.
+            if waarde.lower() in _email_values(person):
+                continue  # an address this person already has is no second row
+            nieuw = new_contact_detail(
+                db, person, CONTACT.EMAIL, waarde, is_primary=False, confirmed=False
+            )
+            person.contact_details.append(nieuw)
+            db.flush()
+            snapshot_contact_detail(
+                db, nieuw, operation="insert", action="email_added", source=source, actor=actor
+            )
+            waiting.append((nieuw, rij))
+            gewijzigd = True
         elif waarde != rij.value:
             # CR-22 (#1704): a changed address passes the rule a new one does.
             require_email_free(db, person, waarde)
+            other_address = waarde.lower() != (rij.value or "").strip().lower()
             rij.value = waarde
+            if rij.confirmed_at is None and other_address:
+                waiting.append((rij, None))
             db.flush()
             snapshot_contact_detail(
                 db, rij, operation="update", action="email_edited", source=source, actor=actor
@@ -1027,16 +1096,17 @@ def write_email_rows(
         # Dezelfde waarde twee keer bij één persoon is een vergissing en geen
         # tweede geval; hoofdletterongevoelig, want een mens typt zijn eigen
         # adres niet twee keer identiek.
-        al_er = {
-            (c.value or "").strip().lower()
-            for c in person.contact_details
-            if c.contact_type_code == CONTACT.EMAIL
-        }
-        if waarde.lower() in al_er:
+        if waarde.lower() in _email_values(person):
             continue
-        wordt_hoofd = not _heeft_hoofdadres(person)
-        rij = new_contact_detail(db, person, CONTACT.EMAIL, waarde, is_primary=wordt_hoofd)
+        # A waiting address is never the primary one: the primary address
+        # receives the association's mail, and this one is not proven yet.
+        wordt_hoofd = confirmed and not _heeft_hoofdadres(person)
+        rij = new_contact_detail(
+            db, person, CONTACT.EMAIL, waarde, is_primary=wordt_hoofd, confirmed=confirmed
+        )
         person.contact_details.append(rij)
+        if not confirmed:
+            waiting.append((rij, None))
         db.flush()
         snapshot_contact_detail(
             db,
@@ -1047,7 +1117,162 @@ def write_email_rows(
             actor=actor,
         )
         gewijzigd = True
+    wanted = primary_wanted.strip().lower()
+    for row, replaced in waiting:
+        make_primary = bool(wanted) and (row.value or "").strip().lower() == wanted
+        _ask_address_code(db, row, replaced, make_primary=make_primary)
     return gewijzigd
+
+
+def _email_values(person) -> set[str]:
+    """This person's e-mail addresses, lower case — waiting ones too."""
+    return {
+        (c.value or "").strip().lower()
+        for c in person.contact_details
+        if c.contact_type_code == CONTACT.EMAIL
+    }
+
+
+def _ask_address_code(db: Session, row, replaced=None, *, make_primary: bool = False) -> None:
+    """Say that this waiting row needs its code (CR-22 R15, #1711). `auth`
+    issues it and `mail` queues the mail, in this transaction and without a
+    commit: the mail leaves only once the row is stored."""
+    if not has_subscribers(EmailAddressAdded):
+        raise RuntimeError(
+            "EmailAddressAdded has no subscriber: is app.domains.auth.handlers loaded?"
+        )
+    publish(
+        EmailAddressAdded(
+            contact_id=row.id,
+            email=row.value,
+            replaces_id=replaced.id if replaced is not None else None,
+            replaces_email=(replaced.value or "") if replaced is not None else "",
+            make_primary=make_primary,
+        ),
+        db,
+    )
+
+
+def _waiting_row(db: Session, by, contact_id: int):
+    """The waiting e-mail row `contact_id` when `by` may act on it: his own, or
+    a housemate's — whoever edits the household in Mijn gezin. None otherwise,
+    and for a row that already counts."""
+    from app.domains.mdm.models import ContactDetail, MemberPerson
+
+    row = db.get(ContactDetail, contact_id)
+    if (
+        row is None
+        or row.deleted_at is not None
+        or row.person_id is None
+        or code_of(row.contact_type_code) != code_of(CONTACT.EMAIL)
+        or row.confirmed_at is not None
+    ):
+        return None
+    if row.person_id == by.id:
+        return row
+    mine = {link.member_id for link in by.member_persons}
+    shared = (
+        db.query(MemberPerson.id)
+        .filter(MemberPerson.person_id == row.person_id, MemberPerson.member_id.in_(mine))
+        .first()
+        if mine
+        else None
+    )
+    return row if shared else None
+
+
+def waiting_address(db: Session, by, contact_id: int) -> Optional[str]:
+    """The address of the waiting row `contact_id`, for the page that asks its
+    code — None when `by` has nothing to do with it or it waits no more."""
+    row = _waiting_row(db, by, contact_id)
+    return row.value if row is not None else None
+
+
+def request_address_code(db: Session, by, contact_id: int) -> Optional[str]:
+    """ "Code opnieuw sturen" (#1711): a new code for a waiting address, which
+    replaces the one before. Returns the address, None when there is no such
+    row for `by`. Commits — the door's one transaction."""
+    row = _waiting_row(db, by, contact_id)
+    if row is None:
+        return None
+    _ask_address_code(db, row)
+    db.commit()
+    return row.value
+
+
+def confirm_email(
+    db: Session,
+    contact_id: int,
+    email: str,
+    replaces_id: Optional[int] = None,
+    *,
+    make_primary: bool = False,
+):
+    """The code of a waiting address was entered: the address counts from now
+    on (CR-22 R15, F6; #1711). Not committed — the code's transaction does.
+
+    Refused, before anything is written:
+
+    - `AddressNotWaiting`: the row is gone, or its text is no longer the
+      address the code was sent to;
+    - `EmailAddressInUse`: somebody outside the household confirmed this
+      address while it waited here. A waiting row claims nothing, so the rule
+      is asked again at this moment (C5).
+
+    **It takes the place of `replaces_id`**: that row — the address the person
+    typed this one over — goes, and its primary mark comes here. The old row
+    is taken out and flushed FIRST: one primary address per person
+    (`uq_contact_details_one_primary_per_type`). A row that replaces nothing
+    becomes the primary address when the person has none, or when he asked
+    for it as he added it (`make_primary`).
+
+    Returns `(row, replaced row or None)` for the subscriber, which writes
+    the history of those two (CR-13 §B4.9: a command of `audit` is not
+    called from here) — or None when nothing changed.
+
+    A row that already counts is left as it is: entering a code twice changes
+    nothing.
+    """
+    from datetime import datetime, timezone
+
+    from app.domains.mdm.models import AddressNotWaiting, ContactDetail
+
+    row = db.get(ContactDetail, contact_id)
+    if (
+        row is None
+        or row.deleted_at is not None
+        or row.person is None
+        or code_of(row.contact_type_code) != code_of(CONTACT.EMAIL)
+        or (row.value or "").strip().lower() != (email or "").strip().lower()
+    ):
+        raise AddressNotWaiting(_("Dit e-mailadres wacht niet meer op een code."))
+    if row.confirmed_at is not None:
+        return None
+    person = row.person
+    require_email_free(db, person, row.value)
+
+    old = next(
+        (
+            c
+            for c in person.contact_details
+            if replaces_id is not None
+            and c.id == replaces_id
+            and c is not row
+            and c.contact_type_code == CONTACT.EMAIL
+        ),
+        None,
+    )
+    takes_over = old is not None and bool(old.is_primary)
+    if old is not None:
+        person.contact_details.remove(old)
+        db.flush()
+    row.confirmed_at = datetime.now(timezone.utc)
+    db.flush()
+    if takes_over or make_primary or not _heeft_hoofdadres(person):
+        # The one way a row becomes the primary one, with its two history
+        # rows — what the export to the national programme reads.
+        promote_email_row(db, person, row, actor=row.value, source="member_self")
+    return row, old
 
 
 def make_email_primary(
@@ -1073,6 +1298,14 @@ def make_email_primary(
         raise HTTPException(status_code=404, detail=_("Adres niet gevonden"))
     if doel.is_primary:
         return person
+    if doel.confirmed_at is None:
+        # CR-22 R15 (#1711): the primary address receives the association's
+        # mail; an address that waits for its code is not proven yet.
+        from fastapi import HTTPException
+
+        from app.i18n import _
+
+        raise HTTPException(status_code=409, detail=_("Dit e-mailadres wacht nog op bevestiging."))
     promote_email_row(db, person, doel, actor=actor)
     db.commit()
     db.refresh(person)
@@ -1359,7 +1592,14 @@ def email_addresses_of_members(db: Session, member_ids) -> list[str]:
     addresses = set()
     for person in persons:
         for contact in getattr(person, "contact_details", []) or []:
-            if contact.contact_type_code == CONTACT.EMAIL and (contact.value or "").strip():
+            # CR-22 R15 (#1711): an address that waits for its code is nobody's
+            # proven mailbox yet — a typing mistake would send the letter to a
+            # stranger.
+            if (
+                contact.contact_type_code == CONTACT.EMAIL
+                and contact.confirmed_at is not None
+                and (contact.value or "").strip()
+            ):
                 addresses.add(contact.value.strip().lower())
     return sorted(addresses)
 

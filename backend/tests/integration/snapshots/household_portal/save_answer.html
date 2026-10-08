@@ -164,9 +164,18 @@
 <div data-field="e.<NEW-CONTACT-3>.value" data-kind="email" data-span="full" class="min-w-0">
 <p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]"><a href="mailto:portaal-nieuw@example.com" class="text-blue-500 underline">portaal-nieuw@example.com</a></p>
 </div>
+<div data-span="full" data-email-waiting class="-mt-2">
+<p><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-yellow-100 text-yellow-800">wacht op bevestiging</span></p>
+<p class="flex flex-wrap items-center gap-x-4">
+<a href="/mijn/e-mailadres/<NEW-CONTACT-3>/bevestigen" data-enter-code
+ class="inline-flex items-center min-h-11 text-sm text-link underline">Code invoeren</a>
+<button type="button" data-send-code hx-post="/mijn/e-mailadres/<NEW-CONTACT-3>/code" hx-swap="none"
+ class="inline-flex items-center min-h-11 text-sm text-link underline">Code opnieuw sturen</button>
+</p>
 </div>
 </div>
-<span data-row-one-tag class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
+</div>
+<span data-row-one-tag class="shrink-0" hidden><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
 </div>
 </div>
 <p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen e-mailadres.</p>

@@ -454,13 +454,26 @@ def code_mail_message(kind: str, link: str, otp_code: str) -> tuple[str, str]:
     """`(subject, body)` of a mail that carries a link AND a code for the same
     token — either does it (CR-22 Q36), as the sign-in mail above does.
 
-    `kind` is `ACCOUNT_CONFIRMATION` or `EXISTING_ACCOUNT` of
-    `kernel.contracts.auth`; the words that differ are here, the body is one.
+    `kind` is `ADDRESS_CONFIRMATION`, `ACCOUNT_CONFIRMATION` or
+    `EXISTING_ACCOUNT` of `kernel.contracts.auth`; the words that differ are
+    here, the body is one.
     """
-    from app.kernel.contracts.auth import ACCOUNT_CONFIRMATION, EXISTING_ACCOUNT
+    from app.kernel.contracts.auth import (
+        ACCOUNT_CONFIRMATION,
+        ADDRESS_CONFIRMATION,
+        EXISTING_ACCOUNT,
+    )
 
     name = _display_name()
-    if kind == ACCOUNT_CONFIRMATION:
+    if kind == ADDRESS_CONFIRMATION:
+        # "Bevestig je e-mailadres" (R15, #1711): an address somebody typed in
+        # Mijn gezin or Mijn gegevens counts once the link or the code is used.
+        subject = _("Bevestig je e-mailadres bij %(naam)s") % {"naam": name}
+        lead = _(
+            "Dit e-mailadres werd toegevoegd bij %(naam)s. Klik op onderstaande link "
+            "om het te bevestigen."
+        ) % {"naam": name}
+    elif kind == ACCOUNT_CONFIRMATION:
         # "Bevestig je account" (R3): the account exists once the link or the
         # code is used — not before.
         subject = _("Bevestig je account bij %(naam)s") % {"naam": name}

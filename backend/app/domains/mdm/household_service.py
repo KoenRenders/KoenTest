@@ -529,7 +529,13 @@ def person_payload(person: Person) -> dict[str, Any]:
     # The same shape as `FamilyMemberResponse.emails` on the admin screen, so the
     # two templates read the same.
     emails = [
-        {"id": c.id, "value": c.value, "is_primary": bool(c.is_primary)}
+        {
+            "id": c.id,
+            "value": c.value,
+            "is_primary": bool(c.is_primary),
+            # CR-22 R15 (#1711): False while the address waits for its code.
+            "confirmed": c.confirmed_at is not None,
+        }
         for c in sorted(
             (c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL and c.value),
             key=lambda c: (not c.is_primary, c.id or 0),

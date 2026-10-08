@@ -248,7 +248,10 @@ def household_add_email(
     from app.domains.mdm.api import add_email_address
 
     _household_target(person, person_id, db)
-    add_email_address(db, person_id, (data or {}).get("email") or "", actor=_actor_van(person))
+    # CR-22 R15 (#1711): the member adds it himself, so it waits for its code.
+    add_email_address(
+        db, person_id, (data or {}).get("email") or "", actor=_actor_van(person), confirmed=False
+    )
     return {"ok": True}
 
 
@@ -265,7 +268,7 @@ def household_apply_email_rows(
     from app.domains.mdm.api import apply_email_rows
 
     _household_target(person, person_id, db)
-    apply_email_rows(db, person_id, formulier, actor=_actor_van(person))
+    apply_email_rows(db, person_id, formulier, actor=_actor_van(person), confirmed=False)
     return {"ok": True}
 
 

@@ -21,6 +21,9 @@ from app.domains.activities.router import router as activities_router
 from app.domains.activities.ui import router as activities_ui_router
 from app.domains.audit.router import router as audit_router
 from app.domains.auth.admin_ui import router as auth_admin_ui_router
+from app.domains.auth.handlers import (  # noqa: F401 - event subscriptions (#1711)
+    send_address_code,
+)
 from app.domains.auth.router import router as auth_router
 from app.domains.auth.ui import router as auth_ui_router
 from app.domains.chatbot.admin_ui import router as chatbot_admin_ui_router

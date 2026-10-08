@@ -67,6 +67,17 @@ def _rij_id(db, person, waarde: str) -> int:
     )
 
 
+def _confirm(db, value: str) -> None:
+    """Enter the code of this waiting address (CR-22 R15, #1711): through the
+    link of its mail, the door a member uses."""
+    from app.domains.auth.api import LoginToken, consume_link
+
+    token = db.query(LoginToken).filter_by(email=value, used=False).one()
+    consumed = consume_link(db, token.token)
+    assert consumed is not None and consumed.refusal is None, consumed
+    db.expire_all()
+
+
 def _save(client, csrf, fields):
     return client.post("/leden/gezin", data=fields, headers={"X-CSRF-Token": csrf})
 
@@ -89,6 +100,10 @@ def test_een_lid_zet_er_zelf_een_adres_bij(client, db_session, lid):
 
     assert respons.status_code == 200
     assert _adressen(db_session, person) == {HOOFD: True, TWEEDE: False}
+    # CR-22 R15 (#1711): it waits for its code, and signs nobody in before.
+    from app.domains.auth.api import login_person_for_email
+
+    assert login_person_for_email(db_session, TWEEDE) is None
 
 
 def test_een_lid_duidt_zelf_zijn_hoofdadres_aan(client, db_session, lid):
@@ -102,6 +117,8 @@ def test_een_lid_duidt_zelf_zijn_hoofdadres_aan(client, db_session, lid):
     _member, person = lid
     csrf = _aanmelden(client, HOOFD)
     _save(client, csrf, _add_row(household_fields(client), person, "nx1", TWEEDE))
+    # Since #1711 the address has to be confirmed before it can be marked.
+    _confirm(db_session, TWEEDE)
     second_id = _rij_id(db_session, person, TWEEDE)
 
     fields = household_fields(client)
@@ -117,13 +134,20 @@ def test_een_lid_duidt_zelf_zijn_hoofdadres_aan(client, db_session, lid):
 
 
 def test_a_member_marks_a_new_row_as_main_in_the_same_save(client, db_session, lid):
-    """New with #1590: adding an address and making it the main one is one save."""
+    """New with #1590: adding an address and making it the main one is one save.
+
+    Since CR-22 R15 (#1711) the new address waits for its code, and the mark
+    waits with it: the old address stays the main one until then. Red when
+    the wish is not carried along with the code: the address is confirmed
+    and stays an ordinary one."""
     _member, person = lid
     csrf = _aanmelden(client, HOOFD)
     fields = _add_row(household_fields(client), person, "nx1", TWEEDE)
     fields[f"e_primary.{person.id}"] = "nx1"
 
     assert _save(client, csrf, fields).status_code == 200
+    assert _adressen(db_session, person) == {HOOFD: True, TWEEDE: False}
+    _confirm(db_session, TWEEDE)
     assert _adressen(db_session, person) == {HOOFD: False, TWEEDE: True}
 
 
@@ -208,6 +232,7 @@ def test_de_export_zegt_dat_het_hoofdadres_verplaatst_is(client, db_session, lid
     _member, person = lid
     csrf = _aanmelden(client, HOOFD)
     _save(client, csrf, _add_row(household_fields(client), person, "nx1", TWEEDE))
+    _confirm(db_session, TWEEDE)
     fields = household_fields(client)
     fields[f"e_primary.{person.id}"] = str(_rij_id(db_session, person, TWEEDE))
     assert _save(client, csrf, fields).status_code == 200

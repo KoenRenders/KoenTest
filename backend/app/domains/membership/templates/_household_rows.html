@@ -12,13 +12,33 @@
    says what the rows are, in read and edit mode and at every width. The field
    keeps its accessible name, and where an address is asked (Word lid, the main
    member) the title carries the red star a label would (#646). The *hoofdadres* tag may be removed like any other
-   address, and then nothing takes its place (Koen, 27 September 2026; #1603). #}
+   address, and then nothing takes its place (Koen, 27 September 2026; #1603).
+
+   **A waiting address says so** (CR-22 R15, #1711): an address the person
+   typed himself counts once its code is entered. Until then the row carries
+   "wacht op bevestiging" — while editing where another carries "hoofdadres",
+   for it cannot be the primary address; where the page is read under the
+   address (beside it, the long mark squeezed the address on a phone), with
+   the two ways on: enter the code, or have a new one sent. #}
 {% macro email_row(pkey, m, required, edit) -%}
 {% call ui.group_row("e_order." ~ pkey, m.key, edit=edit, menu=["remove"],
                      label=m.value or _("nieuw e-mailadres"),
-                     one={"chosen": m.primary, "tag": _("hoofdadres"), "make": _("Maak hoofdadres"), "removable": True}) %}
+                     tag=({"label": _("wacht op bevestiging"), "tone": "yellow"} if m.pending and edit else None),
+                     one={"chosen": m.primary and not m.pending, "tag": _("hoofdadres"), "make": _("Maak hoofdadres"),
+                          "removable": True, "choosable": not m.pending}) %}
   {{ ui.field("e." ~ m.key ~ ".value", _("E-mail"), kind="email", value=m.value, edit=edit,
               id="e-" ~ m.key ~ "-value", required=required, label_hidden=True) }}
+  {% if m.pending and not edit %}
+  <div data-span="full" data-email-waiting class="-mt-2">
+    <p>{{ ui.badge(_("wacht op bevestiging"), "yellow") }}</p>
+    <p class="flex flex-wrap items-center gap-x-4">
+    <a href="/mijn/e-mailadres/{{ m.key }}/bevestigen" data-enter-code
+       class="inline-flex items-center min-h-11 text-sm text-link underline">{{ _("Code invoeren") }}</a>
+    <button type="button" data-send-code hx-post="/mijn/e-mailadres/{{ m.key }}/code" hx-swap="none"
+            class="inline-flex items-center min-h-11 text-sm text-link underline">{{ _("Code opnieuw sturen") }}</button>
+    </p>
+  </div>
+  {% endif %}
 {% endcall %}
 {%- endmacro %}
 
