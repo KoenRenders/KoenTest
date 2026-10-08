@@ -21,7 +21,12 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import csrf_from_request, require_admin_ui, require_csrf
+from app.domains.auth.api import (
+    address_says_nobody,
+    csrf_from_request,
+    require_admin_ui,
+    require_csrf,
+)
 from app.domains.mdm.api import (
     PERSON_VIEWS,
     MasterDataError,
@@ -76,7 +81,7 @@ def _confirmation(row) -> str:
     return _("%(name)s verwijderen?") % {"name": row.name}
 
 
-def _row(row, households: bool) -> dict[str, Any]:
+def _row(row, households: bool, double_email: bool) -> dict[str, Any]:
     attrs = f'hx-post="{PAGE}/{row.id}/verwijderen" hx-target="#personen-lijst" hx-swap="innerHTML"'
     return {
         "person": row,
@@ -87,6 +92,9 @@ def _row(row, households: bool) -> dict[str, Any]:
         else None,
         "in_household": row.household_id is not None,
         "is_account": row.is_account,
+        # #1740: his address stands on someone else too and signs nobody in —
+        # asked of the sign-in's own rule (`auth.address_says_nobody`).
+        "double_email": double_email,
         "menu": [
             {
                 "kind": "delete",
@@ -124,7 +132,15 @@ def _view(request: Request, db: Session, *, error: str | None = None, **extra) -
     query = {VIEW_PARAM: view, "q": q, "per_page": per_page}
     households = module_enabled(ModuleCode.MEMBERSHIP)
     return PersonsView(
-        rows=[_row(r, households) for r in found.rows],
+        rows=[
+            _row(
+                r,
+                households,
+                # A waiting address counts for nothing yet, so it cannot be double.
+                bool(r.email and not r.email_waiting and address_says_nobody(db, r.email)),
+            )
+            for r in found.rows
+        ],
         columns=[
             {"key": "naam", "label": _("Naam"), "cell": "name"},
             {"key": "contact", "label": _("E-mail en mobiel"), "cell": "context"},

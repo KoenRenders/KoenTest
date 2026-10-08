@@ -132,6 +132,25 @@ def admits_admin_ui(roles) -> bool:
     return bool(_GENERAL_ADMIN_ROLES & set(roles))
 
 
+def back_office_home(roles) -> Optional[str]:
+    """The page these roles enter the back office by, or None when they open
+    none of it (#1740): its start page for whoever `require_admin_ui` admits,
+    payments for someone who may only see those (FINANCE alone — the start page
+    would refuse him).
+
+    One home for that knowledge, here with the sets it reads: the public
+    header's way in and the way out of the "no access" page both ask it. Until
+    #1740 the sign-in's landing carried a copy and sent a board member who
+    signed in on the public site into the back office.
+    """
+    held = set(roles)
+    if _GENERAL_ADMIN_ROLES & held:
+        return "/admin"
+    if _PAYMENTS_VIEW_ROLES & held:
+        return "/admin/betalingen"
+    return None
+
+
 def _require_ui_roles(request: Request, db: Session, allowed: set[str]) -> str:
     """Identiteit + rolcheck voor server-rendered schermen. Zonder geldige sessie:
     een 401-pagina-redirect naar de login (303 via HTTPException zou de htmx-flow

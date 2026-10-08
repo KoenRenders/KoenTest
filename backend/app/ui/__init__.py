@@ -923,14 +923,14 @@ def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
 
 
 def _current_user(db, request) -> dict | None:
-    """Ingelogde gebruiker uit de sessie-cookie (#467): naam + is_admin, of None.
+    """Ingelogde gebruiker uit de sessie-cookie (#467): naam + admin_home, of None.
     Mag het renderen nooit breken."""
     if request is None:
         return None
     try:
         from app.domains.auth.api import (
             SESSION_COOKIE,
-            admits_admin_ui,
+            back_office_home,
             get_user_roles,
             has_household,
             login_person_for_email,
@@ -952,10 +952,12 @@ def _current_user(db, request) -> dict | None:
             # #1588: the header's account button says the first name; the menu
             # and the drawer the full one.
             "voornaam": voornaam,
-            # #1499: whoever `require_admin_ui` admits — an operator too, who
-            # holds OPERATOR everywhere and ADMIN on no tenant. The same set,
-            # asked of the auth domain, not a copy of it here.
-            "is_admin": admits_admin_ui(get_user_roles(db, email)),
+            # The way into the back office for whoever has one (#1499, #1740):
+            # its start page, or payments for someone who may only see those;
+            # None for everyone else. Asked of the auth domain, where the sets
+            # of roles live — after signing in on the site nobody lands there
+            # by himself any more, so the menu is the way.
+            "admin_home": back_office_home(get_user_roles(db, email)),
             "is_member": person is not None,
             # CR-22 (#1707): an account is a person too, so "there is a person"
             # no longer means "there is a household" — Mijn gezin asks this.

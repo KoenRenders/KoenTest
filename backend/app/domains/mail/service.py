@@ -511,11 +511,14 @@ def member_contact_board_notice_message() -> tuple[str, str]:
 
 
 def _board_notice_body() -> str:
-    """The notice's text; a function, because it translates per request."""
+    """The notice's text; a function, because it translates per request.
+
+    One text for every address that does not say who signs in (#1740): two
+    households, two persons without one, or one of each. Until then it said
+    "bij meerdere gezinnen gekend", wrong for the last two."""
     return _("""
-        <p>Je probeerde in te loggen als lid, maar dit e-mailadres is bij meerdere
-        gezinnen gekend. Daardoor kunnen we niet automatisch bepalen welk gezin
-        je wil beheren.</p>
+        <p>Je probeerde in te loggen, maar dit e-mailadres is bij meer dan één
+        persoon gekend. Daardoor kunnen we niet bepalen wie je bent.</p>
         <p>Neem contact op met het bestuur, dan zetten we dit recht.</p>
         <p>Met vriendelijke groeten,<br>%(naam)s</p>
         """)

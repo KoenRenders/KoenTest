@@ -213,8 +213,10 @@ def test_magic_link_landing_per_rol(client, db_session):
 
     fin = _token("fin-magic@example.com", "FINANCE")
     r_fin = client.get(f"/login/verify?token={fin}", follow_redirects=False)
-    assert r_fin.headers["location"] == "/admin/betalingen"
+    # #1740: the door decides, not the role — signed in on the site, whatever the role;
+    # these two have no person here, so the site.
+    assert r_fin.headers["location"] == "/"
 
     adm = _token("adm-magic@example.com", "ADMIN")
     r_adm = client.get(f"/login/verify?token={adm}", follow_redirects=False)
-    assert r_adm.headers["location"] == "/admin/werkbank"
+    assert r_adm.headers["location"] == "/"

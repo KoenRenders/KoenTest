@@ -351,7 +351,7 @@ def test_a_code_asked_at_one_tenant_makes_no_account_at_another(db_session, sent
 # ── T9: the landing ──────────────────────────────────────────────────────────
 
 
-def test_a_member_and_an_account_land_on_the_account_page_and_a_board_user_as_before(db_session):
+def test_a_member_and_an_account_land_on_the_account_page_and_a_board_user_on_the_site(db_session):
     _person(db_session, "Lid", household=_household(db_session), email="lid@example.com")
     _person(db_session, "Account", email="account@example.com")
     board = User(email="bestuur@example.com", is_active=True)
@@ -361,7 +361,9 @@ def test_a_member_and_an_account_land_on_the_account_page_and_a_board_user_as_be
     db_session.commit()
     assert landing_for(db_session, "lid@example.com") == "/mijn"
     assert landing_for(db_session, "account@example.com") == "/mijn"
-    assert landing_for(db_session, "bestuur@example.com") == "/admin/werkbank"
+    # #1740: the door decides, not the role — signed in on the site, a board user
+    # without a person here lands on the site, with Admin in his menu.
+    assert landing_for(db_session, "bestuur@example.com") == "/"
 
 
 def test_the_page_that_asked_still_wins_over_the_landing(client, db_session, sent):

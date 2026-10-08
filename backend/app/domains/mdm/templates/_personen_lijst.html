@@ -23,9 +23,13 @@
         {% if p.mobile %}<div class="text-xs text-ink-soft">{{ p.mobile|phone }}</div>{% endif %}
       </td>
       <td data-cell="status" class="border-b border-line px-3 py-2">
+        {# #1740 (Koen, 8 October 2026): an address that stands on more than one
+           person signs nobody in — "dubbel e-mailadres", with the word e-mail in
+           it, in place of "Account" and beside "Gezin". #}
         {% if r.in_household %}{{ ui.badge(_("Gezin"), "blue") }}
-        {% elif r.is_account %}{{ ui.badge(_("Account"), "green") }}
-        {% else %}<span class="text-ink-soft">—</span>{% endif %}
+        {% elif r.is_account and not r.double_email %}{{ ui.badge(_("Account"), "green") }}
+        {% elif not r.double_email %}<span class="text-ink-soft">—</span>{% endif %}
+        {% if r.double_email %}<span data-double-email>{{ ui.badge(_("dubbel e-mailadres"), "yellow") }}</span>{% endif %}
       </td>
       <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2">
         {% if r.in_household and r.href %}<span data-above-row>{{ ui.reference(p.household_name, r.href) }}</span>

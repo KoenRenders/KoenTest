@@ -123,7 +123,7 @@ def aanmelden_code(
                 "new_account": new_account == "1",
             },
         )
-    # The page that asked, else the landing by role (#530, #1437) — the same
+    # The page that asked (#1437), else the account page (#1740) — the same
     # rule as the mail link, from the one place it lives.
     from app.domains.auth.api import landing_for
 
@@ -276,8 +276,8 @@ def login_verify(request: Request, token: str = "", terug: str = "", db: Session
         )
     email = _session_address(request, consumed)
     # The page that asked (#1437), checked by the one `veilige_terug` — a link
-    # can be edited, so only a path on this site counts; else the landing by
-    # role (#530), the same rule as the code step.
+    # can be edited, so only a path on this site counts; else the account
+    # page (#1740), the same rule as the code step.
     response = RedirectResponse(veilige_terug(terug, landing_for(db, email)), status_code=302)
     set_session_cookie(response, email, request)
     return response
