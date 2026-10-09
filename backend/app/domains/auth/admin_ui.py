@@ -77,6 +77,7 @@ def _lijst_ctx(
     """
     from app.domains.auth.api import list_assignable_roles, role_options
     from app.domains.auth.users import is_platform_workspace, list_users, users_of_workspace
+    from app.kernel.codes import code_label
     from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 
     actieve_werkruimte = current_tenant_id.get() or DEFAULT_TENANT_ID
@@ -124,8 +125,9 @@ def _lijst_ctx(
     # service — het scherm hoeft die regel niet te kennen (#635 regel 2).
     # OPERATOR zit hier nooit tussen: die is platformbreed en heeft op het
     # platform zijn eigen vinkje (aanscherping 16 sep — nergens anders).
-    is_operator = "OPERATOR" in get_user_roles(db, viewer_email)
-    rollen = [r for r in list_assignable_roles(db) if r.code != "OPERATOR"]
+    platform_wide = Role.OPERATOR.value
+    is_operator = platform_wide in get_user_roles(db, viewer_email)
+    rollen = [r for r in list_assignable_roles(db) if r.code != platform_wide]
     return {
         "users": users,
         "q": q,
@@ -148,6 +150,9 @@ def _lijst_ctx(
         "rol_options": [("", _("Alle rollen"))] + role_options(rollen),
         "actief_options": [("", _("Alle accounts")), ("ja", _("Actief")), ("nee", _("Inactief"))],
         "role_codes": rollen,
+        # CR-24: a role is shown by its label from the code list, never by its code.
+        "role_labels": dict(role_options(rollen)),
+        "operator_label": code_label("role", platform_wide),
         "csrf_token": csrf_from_request(request),
     }
 
@@ -182,7 +187,7 @@ def admin_gebruikers(
         request,
         "admin_gebruikers.html",
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             "error": None,
             **_lijst_ctx(request, db, q, rol, actief, viewer_email=email),
         },
@@ -202,7 +207,7 @@ def access_overview_page(
     return templates.TemplateResponse(
         request,
         "admin_gebruikers_overzicht.html",
-        {"nav_items": admin_nav(NAV), "rows": access_overview(db)},
+        {"nav_items": admin_nav(NAV, request), "rows": access_overview(db)},
     )
 
 
@@ -224,7 +229,7 @@ def gebruiker_nieuw(
         request,
         "admin_gebruiker_nieuw.html",
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             "csrf_token": csrf_from_request(request),
             "error": None,
             **_lijst_ctx(request, db, viewer_email=email),
@@ -274,7 +279,7 @@ async def gebruiker_aanmaken(
     except HTTPException as exc:
         # Op het aanmaakscherm blijven mét de fout (#627).
         ctx = _lijst_ctx(request, db, **filters, viewer_email=email)
-        ctx["nav_items"] = admin_nav(NAV)
+        ctx["nav_items"] = admin_nav(NAV, request)
         ctx["error"] = str(exc.detail)
         return templates.TemplateResponse(request, "admin_gebruiker_nieuw.html", ctx)
     # Een gebruiker is met één handeling compleet, dus terug naar de lijst (#627).

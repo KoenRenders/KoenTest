@@ -142,7 +142,7 @@ def ai_context_page(
     return templates.TemplateResponse(
         request,
         "ai_context.html",
-        {"nav_items": admin_nav("/admin/ai-context"), **_context_ctx(request, db, email)},
+        {"nav_items": admin_nav("/admin/ai-context", request), **_context_ctx(request, db, email)},
     )
 
 

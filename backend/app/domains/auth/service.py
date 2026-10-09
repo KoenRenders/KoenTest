@@ -82,7 +82,14 @@ def rights_of(db: Session, email: str) -> set:
     Empty for an address without an active account and for a role whose bundle
     holds nothing.
     """
-    return {r[0] for r in _held(db, email).distinct().all()}
+    from sqlalchemy import String, cast
+
+    from app.domains.auth.models import Right, RoleRight
+
+    # One row, the codes gathered: the menu asks this on every page, and a row
+    # per right was some thirty rows beside whatever the page itself reads.
+    gathered = func.array_agg(func.distinct(cast(RoleRight.right_code, String)))
+    return {Right(code) for code in _held(db, email).with_entities(gathered).scalar() or ()}
 
 
 def _held(db: Session, email: str):

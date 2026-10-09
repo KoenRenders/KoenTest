@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
-from app.ui import admin_nav
+from app.ui import _right_of_screen, nav_for
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -39,7 +39,11 @@ def _admin_session(client, db, email="ds-bar@example.com"):
 
 
 def test_the_bar_no_longer_offers_the_design_system():
-    hrefs = [item["href"] for groep in admin_nav("/admin/werkbank") for item in groep["items"]]
+    hrefs = [
+        item["href"]
+        for groep in nav_for("/admin/werkbank", frozenset(_right_of_screen().values()))
+        for item in groep["items"]
+    ]
 
     assert "/admin/design-system" not in hrefs
     assert "/admin/info" in hrefs, "Info is weg — en dat is juist de weg naar het design system"
@@ -68,7 +72,11 @@ def test_the_page_still_opens_and_its_bar_renders_normally(client, db_session):
 
 def test_none_of_the_bar_items_is_marked_active_here():
     """Geen actief item is een geldige toestand; één verkeerd actief item niet."""
-    items = [i for groep in admin_nav("/admin/design-system") for i in groep["items"]]
+    items = [
+        i
+        for groep in nav_for("/admin/design-system", frozenset(_right_of_screen().values()))
+        for i in groep["items"]
+    ]
 
     assert items, "de balk is leeg"
     assert not [i for i in items if i["active"]], (

@@ -176,21 +176,20 @@ def test_admin_stands_in_the_menu_for_who_the_back_office_admits(client, db_sess
     assert _items(_menu(html)) == ["admin", "sign-out"]
     admin = re.search(r"<a[^>]*data-account-item=\"admin\"[^>]*>", _menu(html)).group(0)
     # A way out of the boosted public shell, as before.
-    assert 'href="/admin"' in admin and 'hx-boost="false"' in admin
+    assert 'href="/admin/werkbank"' in admin and 'hx-boost="false"' in admin
     # One menu: no separate Admin link beside it in the header's row.
     row = html[html.index('id="site-nav-breed"') : html.index("data-site-account")]
     assert "/admin" not in row
 
 
-def test_finance_alone_gets_the_way_to_payments_and_not_to_the_start_page(client, db_session):
-    """#1740: until then FINANCE alone had no Admin item — signing in landed him on
-    payments. He lands on the site now, so the menu is his way in: to payments,
-    the page his role enters the back office by, never to the start page that
-    would refuse him."""
+def test_finance_alone_gets_the_way_to_the_workbench_and_not_to_the_start_page(client, db_session):
+    """#1740: FINANCE alone lands on the site like everyone, so the menu is his way
+    in. CR-24 (Q13, Q16): to the workbench, where everyone enters the back office
+    — never to the start page, which would refuse him."""
     email = _user(db_session, "finance-1588@example.org", "FINANCE")
     html = _home(client, email)
     assert _items(_menu(html)) == ["admin", "sign-out"]
-    assert 'href="/admin/betalingen"' in _menu(html) and 'href="/admin"' not in html
+    assert 'href="/admin/werkbank"' in _menu(html) and 'href="/admin"' not in html
 
 
 def test_a_role_without_a_page_in_the_back_office_gets_no_admin_item(client, db_session):

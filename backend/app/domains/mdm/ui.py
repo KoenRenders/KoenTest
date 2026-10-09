@@ -197,7 +197,9 @@ def leden_page(
     email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     return templates.TemplateResponse(
-        request, "leden.html", _lijst_view(request, db, nav_items=admin_nav(NAV)).as_context()
+        request,
+        "leden.html",
+        _lijst_view(request, db, nav_items=admin_nav(NAV, request)).as_context(),
     )
 
 
@@ -227,7 +229,7 @@ def lid_nieuw(
         request,
         "leden_nieuw.html",
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             "csrf_token": csrf_from_request(request),
             "postal_codes": list_postal_codes(db),
             "values": {},
@@ -298,7 +300,7 @@ async def gezin_aanmaken(
             request,
             "leden_nieuw.html",
             {
-                "nav_items": admin_nav(NAV),
+                "nav_items": admin_nav(NAV, request),
                 "csrf_token": csrf_from_request(request),
                 "postal_codes": list_postal_codes(db),
                 "values": values,
@@ -339,7 +341,7 @@ def gezin_detail(
         request,
         "leden_gezin.html",
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             **ctx,
             "record_tabs": gezin_tabs(db, ctx["family"], email, "overzicht"),
         },
@@ -387,7 +389,7 @@ def gezin_inschrijvingen_tab(
         request,
         "admin_gezin_inschrijvingen.html",
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             "family": family,
             "record_tabs": gezin_tabs(db, family, email, "inschrijvingen"),
             **table,
@@ -780,7 +782,7 @@ def import_page(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
-    nav = [dict(item, active=False) for item in admin_nav(NAV)]
+    nav = [dict(item, active=False) for item in admin_nav(NAV, request)]
     return templates.TemplateResponse(
         request,
         "leden_import.html",

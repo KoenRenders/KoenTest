@@ -77,18 +77,19 @@ def test_a_finance_only_user_is_refused_with_the_reason(client, db_session):
     for url in ("/admin/rapporten", "/admin/rapporten/nieuw", "/admin/rapporten/paneel"):
         antwoord = client.get(url)
         assert antwoord.status_code == 403, url
-        assert antwoord.json()["detail"] == "Geen toegang", url
+        assert antwoord.json()["detail"] == "Je hebt geen toegang tot deze actie.", url
 
 
 def test_a_finance_only_user_does_not_see_the_menu_item(db_session):
-    from app.ui import admin_nav
+    from app.ui import _right_of_screen, nav_for
 
+    finance = {
+        r for r in _right_of_screen().values() if r.value.split(".")[0] in ("payment", "workbench")
+    }
     labels = [
-        item["href"]
-        for groep in admin_nav("/admin/betalingen", roles=["FINANCE"])
-        for item in groep["items"]
+        item["href"] for groep in nav_for("/admin/betalingen", finance) for item in groep["items"]
     ]
-    assert labels == ["/admin/betalingen"]
+    assert labels == ["/admin/werkbank", "/admin/betalingen"]
 
 
 def test_an_admin_and_an_operator_both_get_in(client, db_session, situation):

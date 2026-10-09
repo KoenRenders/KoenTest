@@ -213,7 +213,7 @@ def _list_view(
             )
         )
     return DesignListView(
-        rows=rows, q=q, csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV)
+        rows=rows, q=q, csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV, request)
     )
 
 
@@ -250,7 +250,7 @@ def _new_view(
         preset=preset,
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -513,7 +513,7 @@ def _editor_view(
         csrf_token=_csrf(request),
         error=error,
         notice=notice,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 

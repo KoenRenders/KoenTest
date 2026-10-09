@@ -59,10 +59,10 @@ def test_is_admin_is_who_the_back_office_admits(client, db_session, roles, admin
 
 def test_an_operator_enters_the_back_office_by_its_start_page(db_session):
     """#1740: the sign-in no longer lands anyone in the back office; which page
-    a role enters it by is the back office's own answer — and an operator, who
-    holds OPERATOR and no ADMIN, gets the start page like an administrator."""
-    from app.domains.auth.api import back_office_home, get_user_roles
+    a user enters it by is the back office's own answer — the workbench, for
+    everyone with a back-office role (CR-24 Q13), an operator like anyone."""
+    from app.domains.auth.api import back_office_home
 
     email = _user(db_session, "operator-landing-1513@example.com", "OPERATOR")
 
-    assert back_office_home(get_user_roles(db_session, email)) == "/admin"
+    assert back_office_home(db_session, email) == "/admin/werkbank"

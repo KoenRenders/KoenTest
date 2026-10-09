@@ -175,7 +175,7 @@ def test_only_finance_may_mutate(client, db_session, pad, data):
     not change (#83/#530) — and that distinction is exactly what was uncovered here.
 
     The gate asks a right since CR-24 (#1722), so the refusal names no role any
-    more: it is the gate's one answer, "Geen toegang".
+    more: it is the gate's one answer, "Je hebt geen toegang tot deze actie."
 
     Proven red for all six (9 October 2026): the seven routes asked
     `payment.view` instead → every case answers 200 (or its own 4xx past the
@@ -196,7 +196,7 @@ def test_only_finance_may_mutate(client, db_session, pad, data):
     resp = client.post(f"/admin/betalingen/{record.id}/{pad}", headers=headers, data=data)
 
     assert resp.status_code == 403, f"{pad}: {resp.status_code} — {resp.text[:200]}"
-    assert resp.json() == {"detail": "Geen toegang"}
+    assert resp.json() == {"detail": "Je hebt geen toegang tot deze actie."}
     db_session.refresh(record)
     assert record.status == PaymentStatus.PENDING, f"{pad} muteerde ondanks de weigering"
 

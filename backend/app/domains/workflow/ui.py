@@ -8,7 +8,13 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf
+from app.domains.auth.api import (
+    SESSION_COOKIE,
+    Right,
+    csrf_token_for,
+    require_csrf,
+    require_right,
+)
 from app.domains.workflow import api
 from app.domains.workflow.api import TASK_CATEGORY, TASK_KIND, TASK_STATUS, SubjectType, TaskStatus
 from app.kernel.codes import code_label, code_labels, code_of
@@ -95,7 +101,7 @@ def _ctx(
         "roles": roles,
         "tasks": tasks,
         "q": q,
-        "nav_items": admin_nav("/admin/werkbank"),
+        "nav_items": admin_nav("/admin/werkbank", request),
         "filter_top": filter_top,
         "filter_groups": filter_groups,
         "kind": kind,
@@ -111,7 +117,7 @@ def _ctx(
 def werkbank(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.WORKBENCH_USE)),
     kind: str = "",
     q: str = "",
     status: str = "open",
@@ -127,7 +133,7 @@ def werkbank(
 def werkbank_lijst(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.WORKBENCH_USE)),
     kind: str = "",
     q: str = "",
     status: str = "open",
@@ -223,7 +229,7 @@ def taak_detail(
     task_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.WORKBENCH_USE)),
 ):
     """Fragment (htmx) én deep-link (volle pagina zonder HX-Request, §20.5)."""
     task = api.get_task(db, task_id)
@@ -265,7 +271,7 @@ def taak_afhandelen(
     task_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.WORKBENCH_USE)),
     besluit: str = Form(""),
     standalone: str = Form(""),
 ):

@@ -171,7 +171,7 @@ def persons_page_screen(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
-    view = _view(request, db, nav_items=admin_nav(PAGE))
+    view = _view(request, db, nav_items=admin_nav(PAGE, request))
     return templates.TemplateResponse(request, "personen.html", view.as_context())
 
 

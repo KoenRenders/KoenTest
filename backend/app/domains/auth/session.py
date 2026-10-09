@@ -133,23 +133,23 @@ def admits_admin_ui(roles) -> bool:
     return bool(_GENERAL_ADMIN_ROLES & set(roles))
 
 
-def back_office_home(roles) -> Optional[str]:
-    """The page these roles enter the back office by, or None when they open
-    none of it (#1740): its start page for whoever `require_admin_ui` admits,
-    payments for someone who may only see those (FINANCE alone — the start page
-    would refuse him).
+#: Where the back office is entered: the workbench, for everyone (Q13).
+BACK_OFFICE_HOME = "/admin/werkbank"
 
-    One home for that knowledge, here with the sets it reads: the public
-    header's way in and the way out of the "no access" page both ask it. Until
-    #1740 the sign-in's landing carried a copy and sent a board member who
-    signed in on the public site into the back office.
+
+def back_office_home(db: Session, email: str) -> Optional[str]:
+    """The page this user enters the back office by, or None when he opens none
+    of it: the workbench, for everyone who holds a back-office role (CR-24 Q13;
+    Koen, 9 October 2026: one address for everyone, signing in stays as #1740
+    made it). Every such role bundles `workbench.use`, so that right is the
+    question.
+
+    One home for that knowledge: the public header's way in and the way out of
+    the "no access" page both ask it.
     """
-    held = set(roles)
-    if _GENERAL_ADMIN_ROLES & held:
-        return "/admin"
-    if _PAYMENTS_VIEW_ROLES & held:
-        return "/admin/betalingen"
-    return None
+    from app.domains.auth.service import may  # lazy: avoids a cycle
+
+    return BACK_OFFICE_HOME if may(db, email, Right.WORKBENCH_USE) else None
 
 
 def _require_ui_roles(request: Request, db: Session, allowed: set[str]) -> str:
@@ -207,13 +207,23 @@ def require_right(right: Right):
         raise TypeError(f"require_right takes a member of Right, not {right!r}")
 
     def gate(request: Request, db: Session = Depends(get_db)) -> str:
-        from app.domains.auth.service import may  # lazy: avoids a cycle
+        from app.domains.auth.service import rights_of  # lazy: avoids a cycle
 
         email = _signed_in(request)
-        if not may(db, email, right):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_("Geen toegang"))
+        # The whole set, in one row: the gate answers from it, and the page's menu
+        # reads the same set from the request instead of asking again.
+        held = request.state.rights = rights_of(db, email)
+        if right not in held:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                # Q12: one sentence, whatever was asked — it names no role and no right.
+                detail=_("Je hebt geen toegang tot deze actie."),
+            )
         return email
 
+    # Read by whoever shows a way in only to who may use it: the menu asks the
+    # right of the screen an item leads to, instead of keeping a list of its own.
+    gate.right = right  # type: ignore[attr-defined]
     return gate
 
 
@@ -291,6 +301,7 @@ def require_platform_right(right: Right):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_("Niet gevonden."))
         return email
 
+    gate.right = right  # type: ignore[attr-defined]
     return gate
 
 

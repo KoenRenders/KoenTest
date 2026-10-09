@@ -141,16 +141,29 @@ def test_the_renewal_link_still_opens_the_renewal(client, db_session, sent, role
 # ── the way into the back office ────────────────────────────────────────────
 
 
-def test_the_back_office_says_which_page_a_role_enters_by():
-    assert back_office_home({"ADMIN"}) == back_office_home({"OPERATOR"}) == "/admin"
-    assert back_office_home({"ADMIN", "FINANCE"}) == "/admin"
-    assert back_office_home({"FINANCE"}) == "/admin/betalingen"
-    assert back_office_home(set()) is None
-    assert back_office_home({"ACCOUNT_ADMIN"}) is None
+@pytest.mark.parametrize(
+    ("roles", "home"),
+    [
+        (("ADMIN",), "/admin/werkbank"),
+        (("OPERATOR",), "/admin/werkbank"),
+        (("FINANCE",), "/admin/werkbank"),
+        (("MASTERDATA",), "/admin/werkbank"),
+        (("ACCOUNT_ADMIN",), None),
+        ((), None),
+    ],
+)
+def test_the_back_office_says_which_page_a_user_enters_by(db_session, roles, home):
+    """CR-24 Q13 (Koen, 9 October 2026): one address for everyone with a
+    back-office role, the workbench; the branch that sent FINANCE alone to
+    payments is gone. A role that bundles nothing has no way in."""
+    email = f"home-{'-'.join(roles) or 'none'}-1722@example.org".lower()
+    _board(db_session, email, *roles)
+    assert back_office_home(db_session, email) == home
 
 
 @pytest.mark.parametrize(
-    ("roles", "href"), [(("ADMIN",), "/admin"), (("FINANCE",), "/admin/betalingen"), ((), None)]
+    ("roles", "href"),
+    [(("ADMIN",), "/admin/werkbank"), (("FINANCE",), "/admin/werkbank"), ((), None)],
 )
 def test_the_public_menu_leads_into_the_back_office_for_whoever_has_a_way_in(
     client, db_session, roles, href
