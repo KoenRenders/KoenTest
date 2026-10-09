@@ -32,7 +32,7 @@ from app.domains.membership.api import Membership
 from tests._snapshot import compare
 from tests.conftest import seed_postal_code
 
-SNAPSHOTS = Path(__file__).parent / "snapshots" / "import_1832"
+SNAPSHOTS = Path(__file__).parent / "snapshots" / "import_group_without_main_member"
 BEFORE = "what the import does with an address group without a main member (#1832)"
 NO_MAIN = "op een adres zonder lid"
 
