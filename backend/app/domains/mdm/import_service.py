@@ -360,6 +360,38 @@ def _meld_onvolledig(row: dict, report: ImportReport, person: Person | None = No
         )
 
 
+def _report_incomplete_address(row: dict, change: FieldChange | None, report: ImportReport) -> None:
+    """Say that the report gives this household an address without a street or a
+    house number, and what the import does with it (#1832; Koen, 9 October 2026:
+    "dat is in orde, wel in de detail van de dry run die getoond wordt tonen").
+
+    The import does NOT refuse it — the report of the national programme is the
+    source, as for a missing birth date (`_meld_onvolledig`) — but until #1832 it
+    said nothing: a new household got an address with an empty street, and an
+    address that was there lost its house number, without a line that said so.
+    `change` is what the import writes for this address, None when it stays as
+    it is. In the preview and in the run alike.
+    """
+    missing = [
+        word
+        for word, column in (("straat", "straat"), ("huisnummer", "huisnummer"))
+        if not (row[column] or "").strip()
+    ]
+    if not missing:
+        return
+    what = " en ".join(missing)
+    if change is None:
+        does = "het adres blijft zoals het is, onvolledig"
+    elif change.old is None:
+        does = f"het adres wordt ingelezen zonder {what}"
+    else:
+        does = f"het adres wordt bijgewerkt en verliest zijn {what} (was: {change.old})"
+    report.warn(
+        f"{row['voornaam']} {row['naam']}: het adres in het rapport heeft geen {what} — "
+        f"{does}. Vul het aan in het rapport, of daarna in het ledenbeheer."
+    )
+
+
 def _apply_person_fields(person: Person, row: dict) -> None:
     for attr, waarde in _person_field_values(person, row).items():
         setattr(person, attr, waarde)
@@ -595,6 +627,7 @@ def _report_new_details(
     `apply`, and in either mode reported with the writes they stand for (#1314)."""
     if row["_relatie"] == "HOOFDLID" and pc is not None:
         address = _sync_address(db, person, row, pc, apply=apply, actor=actor)
+        _report_incomplete_address(row, address, report)
         if address:
             report.line(
                 f"  + adres #{row['lidnr']}  {row['voornaam']} {row['naam']}  {address.text()}",
@@ -863,6 +896,7 @@ def _sync_family(
         # with `apply`, but whether they WOULD change is part of the report.
         if row["_relatie"] == "HOOFDLID" and pc is not None:
             address = _sync_address(db, existing, row, pc, apply=apply, actor=actor)
+            _report_incomplete_address(row, address, report)
             if address:
                 report.line(
                     f"  ~ adres #{row['lidnr']}  {row['voornaam']} {row['naam']}  {address.text()}",
@@ -1141,6 +1175,38 @@ def _resolve_existing_member(
 # ── Publieke entrypoint ─────────────────────────────────────────────────────
 
 
+def _refuse_two_main_members(families: list[list[dict]], report: ImportReport) -> set[int]:
+    """The address groups that hold more than one row "lid": none of their rows is
+    loaded, and the report says so (#1832; Koen, 9 October 2026: "dat mag niet
+    kunnen, ik stel voor ze beiden niet op te laden en dat in detail zo te zeggen,
+    dan moet er aan de aangeleverde file iets aangepast worden").
+
+    A household has one main member (`require_one_main_member`). The import groups
+    rows by address — street, house number, bus and postal code, exactly as typed
+    (`group_families`) — so two rows "lid" on one address would become ONE household
+    with two main members, each with the household's address. Which of the two the
+    partners and children at that address belong to cannot be told, so the whole
+    group waits: nothing of it is added, changed or removed. Returns the indexes of
+    those groups in `families`.
+    """
+    refused: set[int] = set()
+    for index, fam in enumerate(families):
+        mains = [row for row in fam if row["_relatie"] == "HOOFDLID"]
+        if len(mains) < 2:
+            continue
+        refused.add(index)
+        report.skipped += 1
+        who = " en ".join(f"{row['voornaam']} {row['naam']} (#{row['lidnr']})" for row in mains)
+        report.warn(
+            f"{who} staan allebei als lid op hetzelfde adres — niemand van dit adres is "
+            f"ingelezen ({len(fam)} rijen). Een gezin heeft één hoofdlid, en één adres is "
+            f"dezelfde straat, huisnummer, bus en postcode. Pas het rapport aan: geef elk "
+            f"gezin zijn eigen adres (bijvoorbeeld een busnummer), of zet één van beide als "
+            f"partner of kind."
+        )
+    return refused
+
+
 def upsert_families(
     db: Session,
     families: list[list[dict]],
@@ -1171,7 +1237,12 @@ def upsert_families(
     # Eerst: soft-deleted personen/gezinnen die terugkeren herleven (#227), zodat de
     # maps hieronder (gewone, gefilterde queries) ze als actief zien en de upsert ze
     # bijwerkt i.p.v. dupliceert.
-    _revive_soft_deleted(db, families, apply=apply, report=report, actor=actor)
+    # #1832: an address group with two main members is not loaded — and so not
+    # revived either. Its member numbers stay in `report_lidnrs` below: a person
+    # the report still names is nobody the import removes.
+    refused = _refuse_two_main_members(families, report)
+    loaded = [fam for index, fam in enumerate(families) if index not in refused]
+    _revive_soft_deleted(db, loaded, apply=apply, report=report, actor=actor)
 
     # Preload bestaande lidnummers → persoon (met gezinnen/contacten/adres).
     ext_rows = (
@@ -1197,6 +1268,8 @@ def upsert_families(
     households: dict[int, _Household] = {}
     report_lidnrs = frozenset(r["lidnr"] for fam in families for r in fam if r["lidnr"])
     for index, fam in enumerate(families):
+        if index in refused:
+            continue
         pc = pc_map.get(fam[0]["postcode"])
         member = _resolve_existing_member(fam, ext_map, identity_map, report)
         is_new = member is None
