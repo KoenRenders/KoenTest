@@ -29,7 +29,6 @@ from app.domains.auth.member_identity import (  # noqa: F401
     sign_in_identity,
 )
 from app.domains.auth.models import (  # noqa: F401
-    ApiKey,
     LoginPurpose,
     LoginToken,
     Role,
@@ -82,7 +81,6 @@ __all__ = [
     "has_household",
     "address_says_nobody",
     "sign_in_identity",
-    "ApiKey",
     "LoginPurpose",
     "LOGIN_PURPOSE",
     "LoginToken",

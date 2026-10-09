@@ -17,11 +17,11 @@ guards that read it are gone — no caller was found for any of them.
   `require_admin_ui`, `require_csrf`.
 - **Lid-identiteit** (`member_identity.py`): `find_persons_by_email`,
   `resolve_household`, `login_person_for_email`.
-- **Modellen als type**: `User`, `UserRole`, `LoginToken`, `ApiKey` (voor
+- **Modellen als type**: `User`, `UserRole`, `LoginToken` (voor
   Depends-annotaties; queries erop horen binnen dit component).
 - **Machine-consumenten** (§19.3): none. The guard `require_api_key` never
   guarded a route and left with the API-key routes; the model `ApiKey` and the
-  table `auth.api_keys` (migratie 077) hold no row.
+  empty table `auth.api_keys` (migratie 077) left in the same release.
 
 ## Router
 
