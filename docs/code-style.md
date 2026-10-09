@@ -6,7 +6,8 @@ repeating what is already written down.
 > **Note on this file.** Created by CR-12 phase 0 (26 September 2026) for the
 > code-list rule; CR-13 phase 0a (#755) added the rule of a rule's home. Ruff —
 > formatter and linter, blocking in CI — came with #781, so what ruff decides is
-> not repeated here. #1464 added the rule for copied models.
+> not repeated here. #1464 added the rule for copied models; CR-24 (#1722) the
+> rule that a gate names a right.
 
 ## A fixed vocabulary is a code table
 
@@ -147,3 +148,24 @@ is classified in the same change** — `backend/tests/test_copy_plans_gate.py`
 fails, naming the model and the column, until it is. A new `copy_*` function
 needs a plan, or a reason in the gate's register of functions that copy nothing
 (#1464, after #1463 left `target_audience` behind).
+
+## A gate names a right, never a role
+
+A role is a bundle of rights, kept as rows (`auth.role_rights`); what a role may
+do is said there and nowhere else. So code never asks for a role by name
+(CR-24 §B7):
+
+- **A route** depends on `require_right(Right.…)`, the right chosen by its
+  method: a GET asks `<object>.view`, every other method the changing right
+  (`<object>.manage`; for master data `<object>.masterdata`). A GET that writes
+  asks the changing right.
+- **A place that shows a way in or an action** asks `may(db, email, Right.…)`;
+  one that needs several answers — a menu — asks `rights_of(db, email)` once.
+- **A new kind of work** is a right in `auth/codes.py` and rows in a bundle,
+  both by a migration. No gate is edited for a new role.
+- **A role code in code is for assigning a role**, not for deciding: a seed, a
+  task that names the role it is for, the one platform-wide role where it is
+  given.
+
+The gate is `backend/tests/test_rights_gate.py`: no role-named gate or question
+exists, and role names in application code may only become fewer.
