@@ -34,12 +34,6 @@ from app.domains.activities.history import (
     snapshot_product,
     snapshot_registration_item,
 )
-from app.domains.audit.api import (
-    GROUPS,
-    all_changes_since,
-    build_member_changes_ods,
-    member_changes_since,
-)
 from app.domains.mdm.api import (
     CONTACT,
     RelationType,
@@ -51,6 +45,12 @@ from app.domains.mdm.api import (
 )
 from app.domains.membership.api import snapshot_membership
 from app.domains.payment.history import snapshot_payment_record
+from app.domains.reporting.api import (
+    GROUPS,
+    all_changes_since,
+    build_member_changes_ods,
+    member_changes_since,
+)
 
 pytestmark = pytest.mark.ui_agnostisch
 

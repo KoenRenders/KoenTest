@@ -174,7 +174,7 @@ msgstr ""
 msgid "Inschrijver"
 msgstr ""
 
-#: app/domains/activities/export.py:66 app/domains/audit/changes.py:448
+#: app/domains/activities/export.py:66 app/domains/reporting/changes.py:448
 #: app/domains/forms/templates/_fb_builder.html:32 app/domains/mail/ui.py:44
 msgid "Type"
 msgstr ""
@@ -1110,7 +1110,7 @@ msgid "Contact"
 msgstr ""
 
 #: app/domains/activities/templates/_inschrijvingen_groepen.html:52
-#: app/domains/audit/changes.py:449 app/ui/templates/_lw_inhoud.html:49
+#: app/domains/reporting/changes.py:449 app/ui/templates/_lw_inhoud.html:49
 #: app/ui/templates/_macros.html:1123
 msgid "Details"
 msgstr ""
@@ -1252,39 +1252,39 @@ msgstr ""
 msgid "Alles"
 msgstr ""
 
-#: app/domains/audit/changes.py:448
+#: app/domains/reporting/changes.py:448
 msgid "Tijdstip"
 msgstr ""
 
-#: app/domains/audit/changes.py:448
+#: app/domains/reporting/changes.py:448
 msgid "Wat"
 msgstr ""
 
-#: app/domains/audit/changes.py:448
+#: app/domains/reporting/changes.py:448
 msgid "ID"
 msgstr ""
 
-#: app/domains/audit/changes.py:448
+#: app/domains/reporting/changes.py:448
 msgid "Naam persoon"
 msgstr ""
 
-#: app/domains/audit/changes.py:448
+#: app/domains/reporting/changes.py:448
 msgid "Adres hoofdlid"
 msgstr ""
 
-#: app/domains/audit/changes.py:449
+#: app/domains/reporting/changes.py:449
 msgid "Externe ID persoon"
 msgstr ""
 
-#: app/domains/audit/changes.py:449
+#: app/domains/reporting/changes.py:449
 msgid "Externe ID hoofdlid"
 msgstr ""
 
-#: app/domains/audit/changes.py:449
+#: app/domains/reporting/changes.py:449
 msgid "Actie"
 msgstr ""
 
-#: app/domains/audit/changes.py:449
+#: app/domains/reporting/changes.py:449
 msgid "Door"
 msgstr ""
 

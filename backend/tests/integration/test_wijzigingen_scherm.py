@@ -107,7 +107,7 @@ def test_elke_rij_heeft_een_samenvatting_zonder_het_object_te_herhalen(client, d
     kolom, dus de samenvatting hoeft "(person #90)" niet te herhalen."""
     from datetime import date
 
-    from app.domains.audit.api import all_changes_since
+    from app.domains.reporting.api import all_changes_since
 
     _wijzigingen(db_session, 3)
     rijen = all_changes_since(db_session, date.today())
