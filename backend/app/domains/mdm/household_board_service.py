@@ -413,7 +413,7 @@ def assign_board_member(
     db.commit()
 
 
-def set_relation_type(db, family_id: int, person_id: int, relation_type: str) -> bool:
+def set_relation_type(db, family_id: int, person_id: int, relation_type: str, admin=None) -> bool:
     """Wijzig de rol van een persoon binnen zijn gezin (#635 F).
 
     Twee regels, en ze golden alleen zolang dit scherm ze onthield: je kan iemand
@@ -427,6 +427,11 @@ def set_relation_type(db, family_id: int, person_id: int, relation_type: str) ->
     transactiegrens ligt in de service (#635 regel 2).
 
     Geeft terug of er iets gewijzigd is.
+
+    A change writes its history row (#1833), like every other change to a
+    household: the board retypes the list of changes into the national programme,
+    and until then a changed relation was the one change that never reached that
+    list. The same relation again is no change: nothing is written, no row.
     """
     # CR-12 phase 2: this used to apply `(x or "").strip().upper()` on both
     # sides — a normalisation that was needed because the column accepted any
@@ -438,7 +443,20 @@ def set_relation_type(db, family_id: int, person_id: int, relation_type: str) ->
     if asked is None:
         return False
     link, relation = asked
+    if link.relation_type is relation:
+        return False
+    from app.domains.mdm.history import snapshot_member_person
+
     link.relation_type = relation
+    db.flush()
+    snapshot_member_person(
+        db,
+        link,
+        operation="update",
+        action="relation_changed",
+        source="admin_update",
+        actor=admin.email,
+    )
     db.commit()
     return True
 

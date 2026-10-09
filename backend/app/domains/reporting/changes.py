@@ -364,12 +364,27 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
         )
 
     for h in db.query(MemberPersonHistory).filter(MemberPersonHistory.recorded_at >= since_dt):
+        summary = f"In gezin als {_fmt(h.relation_type)}"
+        if h.operation == "update":
+            # #1833: a changed relation says what it was — the board retypes this
+            # list into the national programme.
+            prev = (
+                db.query(MemberPersonHistory)
+                .filter(
+                    MemberPersonHistory.member_person_id == h.member_person_id,
+                    MemberPersonHistory.id < h.id,
+                )
+                .order_by(MemberPersonHistory.id.desc())
+                .first()
+            )
+            if prev is not None and prev.relation_type != h.relation_type:
+                summary = f"relatie {_fmt(prev.relation_type)} → {_fmt(h.relation_type)}"
         rows.append(
             _row(
                 h,
                 entity="Gezinslid",
                 entity_id=h.member_person_id,
-                summary=f"In gezin als {_fmt(h.relation_type)}",
+                summary=summary,
                 subject=subj.fields(person_id=h.person_id, member_id=h.member_id),
             )
         )
