@@ -34,6 +34,29 @@ if TYPE_CHECKING:  # alleen voor de typechecker — geen import bij het draaien
     from app.domains.media.api import MediaAsset
 
 
+def has_extracted_text(db: Session, asset_id: int) -> bool:
+    """Whether the text of this document was read already — the question media's
+    reading job asks before it reads again (CR-13 phase 4d, #1251). A read."""
+    row = db.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id == asset_id).first()
+    return bool(row and row.extracted_text)
+
+
+def keep_extracted_text(
+    db: Session, asset_id: int, *, title: Optional[str], text: str, extracted_at
+) -> None:
+    """The text media read of a document, into the chatbot's own row for it: the
+    row is made when there is none (with the document's title), and only the
+    extracted text and its moment are written — a manual override, an addition
+    and the row's own title stay. No commit: the reading job's transaction."""
+    row = db.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id == asset_id).first()
+    if row is None:
+        row = ChatbotInfo(media_asset_id=asset_id, title=title)
+        db.add(row)
+    row.extracted_text = text or None
+    row.extracted_at = extracted_at
+    db.flush()
+
+
 def _row(ci: Optional[ChatbotInfo]) -> Optional[dict]:
     if ci is None:
         return None

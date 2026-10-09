@@ -24,6 +24,9 @@ from app.domains.auth.handlers import (  # noqa: F401 - event subscriptions (#17
 )
 from app.domains.auth.ui import router as auth_ui_router
 from app.domains.chatbot.admin_ui import router as chatbot_admin_ui_router
+from app.domains.chatbot.handlers import (  # noqa: F401 - event subscriptions (#1251)
+    keep_text_of_document,
+)
 from app.domains.chatbot.stt.router import router as stt_router
 from app.domains.chatbot.ui import router as chatbot_ui_router
 from app.domains.cms.admin_ui import router as cms_admin_ui_router

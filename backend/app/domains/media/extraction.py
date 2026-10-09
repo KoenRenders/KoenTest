@@ -37,10 +37,12 @@ from app.domains.chatbot.api import (
     AiProvider,
     AiStatus,
     AiSurface,
-    ChatbotInfo,
+    has_extracted_text,
     sink_for,
 )
 from app.domains.media.models import MediaAsset, MediaKind
+from app.kernel.contracts.media import DocumentTextExtracted
+from app.kernel.events import has_subscribers, publish
 
 logger = logging.getLogger(__name__)
 
@@ -227,16 +229,23 @@ def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> 
         if asset.kind not in EXTRACTABLE_KINDS:
             return
 
-        row = db.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id == asset_id).first()
-        if row and row.extracted_text and not force:
+        # CR-13 phase 4d (#1251): the row is the chatbot's. Whether the document
+        # was read already is a question to it; what was read is a fact it hears.
+        if not force and has_extracted_text(db, asset_id):
             return  # al uitgelezen → niets te doen
+        if not has_subscribers(DocumentTextExtracted):
+            raise RuntimeError("nothing listens for DocumentTextExtracted")
 
         text = extract_document_text(asset.data, asset.content_type, tenant_id=asset.tenant_id)
-        if row is None:
-            row = ChatbotInfo(media_asset_id=asset_id, title=asset.title)
-            db.add(row)
-        row.extracted_text = text or None
-        row.extracted_at = datetime.now(timezone.utc)
+        publish(
+            DocumentTextExtracted(
+                asset_id=asset_id,
+                title=asset.title,
+                text=text or "",
+                extracted_at=datetime.now(timezone.utc),
+            ),
+            db,
+        )
         db.commit()
         logger.info(
             "chatbot_info.extracted_text bijgewerkt voor media-asset %s (%d tekens)",

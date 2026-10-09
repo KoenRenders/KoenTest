@@ -24,6 +24,7 @@ from app.domains.chatbot.info_service import (  # noqa: F401
     delete_row,
     edit_page,
     get_row,
+    has_extracted_text,
     list_chatbot_info,
     read_document_again,
     toggle_page,

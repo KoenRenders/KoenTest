@@ -27,11 +27,7 @@ JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset({})
 # membership/payment 13 (the history snapshots), mdm → auth 2, mdm → membership 1,
 # media → chatbot 1, payment → membership 1. Phase 3 moves the household writes to
 # mdm (B2.5); phase 2 turns `_activate_membership` into a membership handler.
-FOREIGN_WRITES: frozenset[str] = frozenset(
-    {
-        "domains/media/extraction.py::update_media_extracted_text → chatbot.ChatbotInfo",
-    }
-)
+FOREIGN_WRITES: frozenset[str] = frozenset()
 
 
 # Functions another domain's service, handler or tool calls through `api.py` and that
