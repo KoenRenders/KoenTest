@@ -12,6 +12,7 @@
   <div class="bg-surface border border-line rounded-2xl p-5">
     {{ ui.label(_("Nieuwsbriefmails per dag"), "nb-plafond") }}
     <p class="text-sm text-ink-soft mb-2">{{ _("Het mailaccount van het portaal verstuurt ook de inschrijvings- en betaalmails. Hou dit getal onder de daglimiet van dat account, zodat die altijd vertrekken. Leeg = %(n)s.", n=daily_cap_default) }}</p>
+    {# promise walked by: test_the_daily_cap_of_the_newsletter_is_not_set_below_one #}
     {{ ui.input_control("daily_cap", id="nb-plafond", type="number", value=daily_cap, cls="w-32", attrs='min="1"') }}
   </div>
   <div class="flex justify-end">{{ ui.btn_primary(_("Bewaren"), type="submit") }}</div>

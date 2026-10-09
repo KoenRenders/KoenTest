@@ -27,6 +27,11 @@ def test_raakje_vraag_geeft_antwoord_via_mock(client, db_session, monkeypatch):
 
 
 def test_raakje_lege_vraag(client, monkeypatch):
+    """Form: the question form of Raakje's panel (`chatbot/_raakje_panel.html`, its
+    field in `_raakje_controls.html`), route `POST /raakje/vraag`. Posts `"vraag"`
+    with nothing but spaces — empty once trimmed. The visitor gets a turn in the
+    conversation with the sentence in it (200); nothing is asked of the model.
+    This test walks the `required` of that field for the gate (#1251, cut C8)."""
     from app.config import settings
 
     monkeypatch.setattr(settings, "chat_enabled", True)

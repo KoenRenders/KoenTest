@@ -51,6 +51,7 @@
    `maxlength`. The public widget passes the number its route refuses above
    (`CHAT_MAX_INPUT_CHARS`); a surface without a cap passes nothing. #}
 {% macro input_row(id, stt_mode, icoon_verzenden=False, max_chars=0) -%}
+{# promise walked by: test_raakje_lege_vraag #}
 {{ ui.textarea_control("vraag", id=id, rows=1, required=True,
                        placeholder=_("Typ je vraag…"), autogrow=False,
                        cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
