@@ -1135,14 +1135,38 @@ def _revive_soft_deleted(
             )
 
 
+def _claimed_households(families: list[list[dict]], ext_map: dict) -> frozenset[int]:
+    """The households an address group of this report claims through its own main
+    member — the first lookup of `_resolve_existing_member`, for every group.
+    Read before anything is written."""
+    claimed = set()
+    for fam in families:
+        main = ext_map.get(fam[0]["lidnr"]) if fam[0]["lidnr"] else None
+        member = _current_member(main) if main else None
+        if member is not None:
+            claimed.add(member.id)
+    return frozenset(claimed)
+
+
 def _resolve_existing_member(
-    fam: list[dict], ext_map: dict, identity_map: dict, report: ImportReport
+    fam: list[dict],
+    ext_map: dict,
+    identity_map: dict,
+    report: ImportReport,
+    claimed: frozenset[int],
 ) -> Member | None:
     """Bepaal het bestaande gezin voor een adresgroep uit het rapport via het
     lidnummer van het hoofdlid. Lukt dat niet (hoofdlid onbekend of verweesd),
     val terug op een bestaand gezin van een ander gematcht gezinslid, en als
     laatste op het bestaande gezin van een lidnummer-loos lid dat op identiteit
-    matcht (#192). Geen match → None (nieuw)."""
+    matcht (#192). Geen match → None (nieuw).
+
+    #1832: the two fallbacks pass over a household in `claimed` — one that another
+    address group of this report has through its own main member. Without that,
+    a member who moved in with a main member the report did not know yet led
+    this group to the household he LEFT, and the import made one household of
+    the two: two main members, two addresses. The group is a new household
+    then, and the member moves into it ("~ verhuisd")."""
     hoofd = ext_map.get(fam[0]["lidnr"]) if fam[0]["lidnr"] else None
     member = _current_member(hoofd) if hoofd else None
     if member is not None:
@@ -1150,7 +1174,7 @@ def _resolve_existing_member(
     for row in fam[1:]:
         p = ext_map.get(row["lidnr"]) if row["lidnr"] else None
         m = _current_member(p) if p else None
-        if m is not None:
+        if m is not None and m.id not in claimed:
             report.warn(
                 f"gezin {fam[0]['naam']}: hoofdlid-lidnummer "
                 f"{fam[0]['lidnr']} onbekend of verweesd; gekoppeld via "
@@ -1162,7 +1186,7 @@ def _resolve_existing_member(
     for row in fam:
         p, _ambiguous = _identity_lookup(identity_map, row)
         m = _current_member(p) if p else None
-        if m is not None:
+        if m is not None and m.id not in claimed:
             report.warn(
                 f"gezin {fam[0]['naam']}: geen lidnummer-match; gekoppeld "
                 f"aan bestaand gezin via identiteit "
@@ -1267,11 +1291,12 @@ def upsert_families(
 
     households: dict[int, _Household] = {}
     report_lidnrs = frozenset(r["lidnr"] for fam in families for r in fam if r["lidnr"])
+    claimed = _claimed_households(loaded, ext_map)
     for index, fam in enumerate(families):
         if index in refused:
             continue
         pc = pc_map.get(fam[0]["postcode"])
-        member = _resolve_existing_member(fam, ext_map, identity_map, report)
+        member = _resolve_existing_member(fam, ext_map, identity_map, report, claimed)
         is_new = member is None
 
         if is_new:
