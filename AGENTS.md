@@ -919,14 +919,23 @@ per commit on GitHub.
 fase-issues under #393) every domain owns its own routers, models, service and
 templates under `backend/app/domains/`:
 
-| Domain | JSON router(s) | Notable endpoints |
+**Since v2.16.0 almost nothing answers under `/api/v1`** (CR-13 phase 4, #1251:
+the JSON routes without a caller were pruned — 124 of them, with the bearer
+tokens and the API keys; Koen, 9 October 2026, agreed to bring this table up to
+date). What is left is what a machine or a browser element really calls:
+
+| Domain | JSON router | What it serves |
 |---|---|---|
-| `auth/` | `router.py` | login, magic link, API keys |
-| `membership/` | `register_router.py`, `household_router.py` | `POST /families` = public registration |
-| `mdm/` | `router.py`, `import_router.py` | `GET /postal-codes` (moved here from cms) |
-| `activities/` | `router.py` | `POST /activities/{id}/register` |
-| `payment/` | `router.py`, `gateway_router.py`, `status_router.py` | Mollie + payment records |
-| `cms/`, `media/`, `forms/`, `chatbot/`, `stt/`, `mail/`, `workflow/`, `audit/` | `router.py` per domain | — |
+| `media/` | `router.py` | `GET /media/{id}` and `GET /media/{id}/thumb` — the bytes of a picture or a document, for an `<img>` or a download |
+| `payment/` | `router.py`, `gateway_router.py` | `POST /payment-gateway/webhooks/mollie` — the provider's webhook (the security invariant below); `stub_router.py` is the stand-in provider of dev and the browser tests |
+| `chatbot/stt/` | `router.py` | the websocket `/stt/voxtral` — dictation |
+
+Every other domain has no JSON router: a screen calls its own domain's service,
+another domain's `api.py`, a port or an event (`docs/architecture.md` §3.2.1).
+A file that is still called `router.py` or `*_router.py` without being in this
+table holds plain functions behind a facade, not routes. A new JSON route needs
+a caller named in its domain's `CONTRACT.md`
+(`tests/test_rules_gate.py::test_every_json_route_names_its_caller`).
 
 Each domain also carries its server-rendered screens (`ui.py` for the public
 side, `admin_ui.py` for the back office). Cross-cutting admin screens that belong
