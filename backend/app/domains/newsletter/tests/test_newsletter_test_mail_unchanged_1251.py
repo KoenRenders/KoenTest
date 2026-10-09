@@ -11,8 +11,8 @@ the screen answers, through the door, for the two versions of a letter: with
 non-members in the audience (the unsubscribe line shows) and for members only.
 Recorded on the code before the cut; the code after it must send the same.
 
-The tenant's own address is masked: it comes from the configuration, and CI's
-is not this machine's.
+Nothing is masked: the one address in the mail follows the host of the request
+(#860), and that is the test client's on every machine.
 """
 
 from __future__ import annotations
@@ -24,7 +24,6 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.newsletter.api import Audience
 from app.domains.newsletter.models import Newsletter
-from app.kernel.tenant_config import tenant_base_url
 from tests._snapshot import compare
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -56,13 +55,12 @@ def _letter(db, audience: Audience) -> Newsletter:
     return letter
 
 
-def _recorded(db, call: dict, answer) -> str:
-    home = tenant_base_url(db).rstrip("/")
+def _recorded(call: dict, answer) -> str:
     notice = f"Testmail verstuurd naar {SEEDED_ADMIN_EMAIL}."
     parts = [f"status: {answer.status_code}", f"says {notice!r}: {notice in answer.text}"]
     for key in sorted(call):
         parts.append(f"== {key}\n{call[key]}")
-    return "\n".join(parts).replace(home, "<HOME>") + "\n"
+    return "\n".join(parts) + "\n"
 
 
 @pytest.mark.parametrize(
@@ -78,7 +76,7 @@ def test_the_test_mail_is_what_it_was(client, db_session, asked, audience, name)
     answer = client.post(f"/admin/nieuwsbrieven/{letter.id}/testmail", headers=headers)
 
     assert len(asked) == 1, "mail was not asked exactly once"
-    compare(SNAPSHOTS, name, _recorded(db_session, asked[0], answer), BEFORE)
+    compare(SNAPSHOTS, name, _recorded(asked[0], answer), BEFORE)
 
 
 def test_a_letter_without_a_subject_sends_nothing_and_says_so(client, db_session, asked):
