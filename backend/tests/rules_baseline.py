@@ -107,7 +107,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
 RULE_IN_ROUTER: dict[str, str] = {
     "domains/auth/router.py::create_api_key::db.query(ApiKey).filter(ApiKey.name == name).first()": "rule: API key names are unique (ApiKey, with a UNIQUE constraint) — phase 4",
     "domains/auth/router.py::create_api_key::not name": "rule: an API key has a name (ApiKey) — phase 4",
-    "domains/cms/admin_ui.py::pagina_aanmaken::not title.strip() or not slug.strip()": "rule: a page has a title and a slug (CmsPage) — phase 4",
 }
 
 

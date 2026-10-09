@@ -113,8 +113,8 @@ def get_page_by_id(db, page_id: int) -> Optional[CmsPage]:
 
 
 def create_page(db, data) -> CmsPage:
-    if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
-        raise SlugBestaatAl("Slug already exists")
+    # The page first: its own rule (a title and a slug) speaks before the lookup,
+    # as it did when the screen asked it.
     page = CmsPage(
         title=data.title,
         slug=data.slug,
@@ -123,6 +123,8 @@ def create_page(db, data) -> CmsPage:
         show_in_nav=data.show_in_nav,
         sort_order=data.sort_order,
     )
+    if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
+        raise SlugBestaatAl("Slug already exists")
     db.add(page)
     db.commit()
     db.refresh(page)
