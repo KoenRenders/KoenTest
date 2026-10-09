@@ -24,7 +24,7 @@ from app.domains.auth import login as auth_login
 from app.domains.auth.api import (
     SESSION_COOKIE,
     LoginToken,
-    admits_admin_ui,
+    back_office_home,
     get_user_roles,
     login_person_for_email,
 )
@@ -128,7 +128,7 @@ def test_admin_login_via_otp_and_capabilities(client, db_session, monkeypatch):
 
     roles = get_user_roles(db_session, SEEDED_ADMIN_EMAIL)
     assert "ADMIN" in roles
-    assert admits_admin_ui(roles) is True
+    assert back_office_home(db_session, SEEDED_ADMIN_EMAIL) is not None
     assert login_person_for_email(db_session, SEEDED_ADMIN_EMAIL) is None  # hangt aan geen persoon
     # En het beheer laat hem binnen.
     assert client.get("/admin/gebruikers", follow_redirects=False).status_code == 200
@@ -148,7 +148,7 @@ def test_member_login_via_magic_link_and_capabilities(client, db_session):
     assert f"{person.first_name} {person.last_name}" == "Jan Lid"
     roles = get_user_roles(db_session, "lid@example.com")
     assert sorted(roles) == []
-    assert admits_admin_ui(roles) is False
+    assert back_office_home(db_session, "lid@example.com") is None
 
 
 def test_admin_who_is_also_member(client, db_session, monkeypatch):
@@ -158,7 +158,7 @@ def test_admin_who_is_also_member(client, db_session, monkeypatch):
     _ask(client, SEEDED_ADMIN_EMAIL)
     assert _signed_in(_code(client, SEEDED_ADMIN_EMAIL))
 
-    assert admits_admin_ui(get_user_roles(db_session, SEEDED_ADMIN_EMAIL)) is True
+    assert back_office_home(db_session, SEEDED_ADMIN_EMAIL) is not None
     assert login_person_for_email(db_session, SEEDED_ADMIN_EMAIL) is not None
 
 

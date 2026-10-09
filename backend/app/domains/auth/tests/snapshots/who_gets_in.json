@@ -1,9 +1,5 @@
 {
  "questions": {
-  "enters the back office": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
   "may change payments": {
    "platform": "FINANCE OPERATOR",
    "tenant": "FINANCE OPERATOR"
@@ -17,8 +13,8 @@
    "tenant": "ADMIN OPERATOR"
   },
   "way into the back office": {
-   "platform": "ADMIN: /admin · FINANCE: /admin/betalingen · OPERATOR: /admin · ACCOUNT_ADMIN: — · none: —",
-   "tenant": "ADMIN: /admin · FINANCE: /admin/betalingen · OPERATOR: /admin · ACCOUNT_ADMIN: — · none: —"
+   "platform": "ADMIN: /admin/werkbank · FINANCE: /admin/werkbank · OPERATOR: /admin/werkbank · ACCOUNT_ADMIN: — · none: —",
+   "tenant": "ADMIN: /admin/werkbank · FINANCE: /admin/werkbank · OPERATOR: /admin/werkbank · ACCOUNT_ADMIN: — · none: —"
   }
  },
  "routes": {
@@ -63,8 +59,8 @@
    "tenant": "ADMIN OPERATOR"
   },
   "GET /admin/accountmenu": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
   },
   "GET /admin/activiteiten": {
    "platform": "ADMIN OPERATOR",
@@ -407,8 +403,8 @@
    "tenant": "ADMIN OPERATOR"
   },
   "GET /admin/profiel": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
   },
   "GET /admin/rapporten": {
    "platform": "ADMIN OPERATOR",
@@ -499,24 +495,24 @@
    "tenant": "ADMIN OPERATOR"
   },
   "GET /admin/werkbank": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
   },
   "GET /admin/werkbank/lijst": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
   },
   "GET /admin/werkbank/taken/{task_id}": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
   },
   "GET /admin/werkruimte-wisselen": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
   },
   "GET /admin/werkruimte-wisselen/{tenant_id}": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
   },
   "GET /afmelden": {
    "platform": "everyone",
@@ -1275,8 +1271,8 @@
    "tenant": "ADMIN OPERATOR"
   },
   "POST /admin/werkbank/taken/{task_id}/afgehandeld": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
   },
   "POST /api/v1/payment-gateway/webhooks/mollie": {
    "platform": "everyone",

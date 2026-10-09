@@ -4,7 +4,9 @@
    werkruimte (zo maakt een OPERATOR de eerste gebruikers van een nieuwe
    tenant aan en beheert hij ze namens de afdelingen), plus het platformbrede
    OPERATOR-vinkje voor wie zelf OPERATOR is.
-   Context: role_codes, op_platform, werkruimtes, toon_operator,
+   Een rol staat er met zijn label uit de codelijst, niet met zijn code
+   (CR-24: Beheerder, Boekhouding, Masterdata, …).
+   Context: role_codes, role_labels, operator_label, op_platform, werkruimtes, toon_operator,
    sel (set — of {tenant_id: set} op het platform) en operator_aan. #}
 {% if op_platform %}
 <div class="space-y-1 text-sm w-full">
@@ -12,21 +14,21 @@
   <div class="flex flex-wrap items-center gap-4">
     <span class="w-44 text-ink-soft">{{ wnaam }}</span>
     {% for rc in role_codes %}
-    <label class="flex items-center gap-2"><input type="checkbox" name="rollen_{{ wid }}" value="{{ rc.code }}" {% if rc.code in sel.get(wid, ()) %}checked{% endif %}> {{ rc.code }}</label>
+    <label class="flex items-center gap-2"><input type="checkbox" name="rollen_{{ wid }}" value="{{ rc.code }}" {% if rc.code in sel.get(wid, ()) %}checked{% endif %}> {{ role_labels[rc.code] }}</label>
     {% endfor %}
   </div>
   {% endfor %}
   {% if toon_operator %}
   <div class="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-1 mt-1">
     <span class="w-44 text-ink-soft">{{ _("Platformbreed") }}</span>
-    <label class="flex items-center gap-2"><input type="checkbox" name="operator" value="1" {% if operator_aan %}checked{% endif %}> OPERATOR</label>
+    <label class="flex items-center gap-2"><input type="checkbox" name="operator" value="1" {% if operator_aan %}checked{% endif %}> {{ operator_label }}</label>
   </div>
   {% endif %}
 </div>
 {% else %}
 {# #1500: a platform-wide role holds here too; it is shown, not edited here. #}
-{% if operator_aan %}<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{{ _("OPERATOR · alle werkruimtes") }}</span>{% endif %}
+{% if operator_aan %}<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{{ _("%(role)s · alle werkruimtes", role=operator_label) }}</span>{% endif %}
 {% for rc in role_codes %}
-<label class="flex items-center gap-2 text-sm"><input type="checkbox" name="role_codes" value="{{ rc.code }}" {% if rc.code in sel %}checked{% endif %}> {{ rc.code }}</label>
+<label class="flex items-center gap-2 text-sm"><input type="checkbox" name="role_codes" value="{{ rc.code }}" {% if rc.code in sel %}checked{% endif %}> {{ role_labels[rc.code] }}</label>
 {% endfor %}
 {% endif %}

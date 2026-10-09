@@ -78,7 +78,12 @@ def test_b_lists_its_role_holders_and_the_operator(client, db_session, two_works
     assert listed == expected, f"listed {sorted(listed)}, expected {sorted(expected)}"
     assert two_workspaces["admin_a"] not in listed, "an ADMIN of A is listed in B"
     assert two_workspaces["nobody"] not in listed
-    assert "OPERATOR · alle werkruimtes" in html, "the platform-wide role is marked as such"
+    # CR-24: by its label, not its code.
+    assert "Platformbeheerder · alle werkruimtes" in html, "the platform-wide role is marked"
+    # The roles to tick stand there by their label; no label is a role's code.
+    ticks = re.findall(r'name="role_codes" value="(\w+)"[^>]*>\s*([^<]+)</label>', html)
+    assert ("FINANCE", "Boekhouding") in ticks and ("MASTERDATA", "Masterdata") in ticks, ticks
+    assert not [(code, label) for code, label in ticks if label.strip() == code], ticks
 
 
 def test_an_admin_of_a_gets_403_in_b(client, two_workspaces):

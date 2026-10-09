@@ -97,7 +97,7 @@ photo edges, stroke with `paint-order` for bolder titles.
 `/admin/ontwerpen` (list, new design per activity) and
 `/admin/ontwerpen/{id}` (the editor: form, preview per layout, violations,
 images, AI variants with a style and "wat wil je anders?" on a variant,
-versions, publish, SVG download/upload). ADMIN/OPERATOR only
-(`require_admin_ui`). Presets: `eenvoudig` (one picture over the full width,
+versions, publish, SVG download/upload). Behind the rights
+`design.view` and `design.manage`. Presets: `eenvoudig` (one picture over the full width,
 a few facts), `beeld` (picture right, highlights left), `tekst` (highlights
 left, description right).

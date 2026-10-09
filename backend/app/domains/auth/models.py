@@ -19,11 +19,10 @@ class Role(CodeEnum):
     foundation domain: it depends on `mdm` only, and other schemas may put a
     foreign key to its code tables.
 
-    **This enum decides nothing.** `require_admin_ui` and `require_finance_ui`
-    still determine who may do what; the only thing that changes here is the
-    *form* in which the codes exist. Which role is needed for what is in
-    `docs/rollen-en-rechten.md`, and that document was left unchanged by this
-    change.
+    **This enum decides nothing.** It says which roles exist. What a role may
+    do is its bundle of rights (`auth.role_rights`, CR-24), and a gate asks a
+    right, never a member of this enum; who holds what is written out in
+    `docs/rollen-en-rechten.md`.
     """
 
     ADMIN = "ADMIN"

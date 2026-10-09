@@ -673,7 +673,7 @@ _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
             # GEEN Design system hier (#878). De balk is voor schermen waar een bestuurder
             # werk doet; `/admin/design-system` is naslag over knoppen, kleuren en afstanden —
             # nuttig bij het bouwen, niet bij het besturen. De route blijft bestaan achter
-            # `require_admin_ui`, en je gaat ernaartoe via Info. "Uit het menu" is dus iets
+            # haar recht, en je gaat ernaartoe via Info. "Uit het menu" is dus iets
             # anders dan "weg": ruim de route niet op omdat er niets meer naar wijst.
             ("/admin/info", "Info"),
         ],
@@ -914,14 +914,41 @@ def sort_description(column_label: str, direction: str, is_date: bool = False) -
     return sjabloon % {"kolom": column_label}
 
 
-def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
-    """Navigatiegroepen voor de AdminShell; `active` is de href van het scherm.
+@functools.cache
+def _right_of_screen() -> dict[str, object]:
+    """The address of every screen a gate guards → the right that gate asks,
+    read from the running routes (`require_right` leaves it on its gate). The
+    menu asks this instead of keeping a list of its own beside the routes."""
+    from app.main import app  # lazy: `app.main` imports this module
 
-    Sinds golf 2 (#913) per werkgebied: [{"label": ..|None, "items": [...]}].
+    found: dict[str, object] = {}
 
-    Role-aware (#530): een FINANCE-only gebruiker (geen ADMIN/OPERATOR) mag enkel de
-    betalingen-schermen openen — toon dan enkel Betalingen, zodat de nav niet vol
-    links staat die 403'en. ADMIN/OPERATOR (of geen `roles` meegegeven) zien alles.
+    def walk(items, prefix: str = "") -> None:
+        for item in items:
+            context = getattr(item, "include_context", None)
+            if context is not None:
+                walk(item.original_router.routes, prefix + (context.prefix or ""))
+            elif "GET" in (getattr(item, "methods", None) or ()) and hasattr(item, "dependant"):
+                for dependency in item.dependant.dependencies:
+                    right = getattr(dependency.call, "right", None)
+                    if right is not None:
+                        found[prefix + item.path] = right
+
+    walk(app.routes)
+    return found
+
+
+def nav_for(active: str, rights, modules=None) -> list[dict]:
+    """The navigation groups of the admin shell for someone who holds `rights`;
+    `active` is the address of the screen.
+
+    Per work area since #913: [{"label": ..|None, "items": [...]}].
+
+    By right (CR-24): an item is shown when the viewer holds the right its
+    screen asks — the right of that screen's own gate, so a link that would
+    answer "no access" is never offered, and a screen that asks no right is not
+    in the menu at all. One rule for everyone: until CR-24 a user without the
+    general set of roles got one hand-made group with Betalingen alone.
 
     Module-aware (CR-19, #1476): an item of a module that is off for this
     tenant is left out (`kernel.modules.nav_item_shown`), and a group left
@@ -934,28 +961,20 @@ def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
 
     enabled = modules if modules is not None else current_enabled_modules()
     hidden = TENANT_ONLY_ITEMS if _on_platform_workspace() else PLATFORM_ONLY_ITEMS
+    asked = _right_of_screen()
     groepen = [
         (
             label,
             [
                 (h, lbl)
                 for h, lbl in items
-                if h not in hidden and nav_item_shown("admin_items", h, enabled)
+                if h not in hidden
+                and nav_item_shown("admin_items", h, enabled)
+                and asked.get(h) in rights
             ],
         )
         for label, items in _ADMIN_NAV_GROEPEN
     ]
-    from app.domains.auth.api import admits_admin_ui
-
-    # #1513: who is not admitted to the general back office sees payments only.
-    if roles is not None and not admits_admin_ui(roles):
-        # FINANCE-only: één ongelabelde groep met enkel Betalingen.
-        groepen = [
-            (
-                None,
-                [(h, lbl) for _g, items in groepen for h, lbl in items if h == "/admin/betalingen"],
-            )
-        ]
     return [
         {
             "label": _(label) if label else None,
@@ -977,6 +996,13 @@ def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
     ]
 
 
+def admin_nav(active: str, request, modules=None) -> list[dict]:
+    """The menu for whoever this request's gate let in: the rights that gate
+    read (`request.state.rights`), so the menu costs no question of its own. A
+    request no gate has seen holds none, and its menu is empty."""
+    return nav_for(active, getattr(request.state, "rights", frozenset()), modules)
+
+
 def _current_user(db, request) -> dict | None:
     """Ingelogde gebruiker uit de sessie-cookie (#467): naam + admin_home, of None.
     Mag het renderen nooit breken."""
@@ -986,7 +1012,6 @@ def _current_user(db, request) -> dict | None:
         from app.domains.auth.api import (
             SESSION_COOKIE,
             back_office_home,
-            get_user_roles,
             has_household,
             login_person_for_email,
             read_session_value,
@@ -1008,11 +1033,11 @@ def _current_user(db, request) -> dict | None:
             # and the drawer the full one.
             "voornaam": voornaam,
             # The way into the back office for whoever has one (#1499, #1740):
-            # its start page, or payments for someone who may only see those;
-            # None for everyone else. Asked of the auth domain, where the sets
-            # of roles live — after signing in on the site nobody lands there
-            # by himself any more, so the menu is the way.
-            "admin_home": back_office_home(get_user_roles(db, email)),
+            # the workbench, for everyone with a back-office role (CR-24 Q13,
+            # Q16); None for everyone else. Asked of the auth domain — after
+            # signing in on the site nobody lands there by himself any more,
+            # so the menu is the way.
+            "admin_home": back_office_home(db, email),
             "is_member": person is not None,
             # CR-22 (#1707): an account is a person too, so "there is a person"
             # no longer means "there is a household" — Mijn gezin asks this.

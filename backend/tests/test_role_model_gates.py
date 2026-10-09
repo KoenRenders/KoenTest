@@ -10,7 +10,8 @@
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
-GENERAL_SCREENS = ["/admin", "/admin/werkbank", "/admin/leden", "/admin/paginas"]
+# The workbench is no longer among them: Boekhouding opens it since CR-24 (Q11).
+GENERAL_SCREENS = ["/admin", "/admin/leden", "/admin/paginas"]
 
 
 def _session(client, email):

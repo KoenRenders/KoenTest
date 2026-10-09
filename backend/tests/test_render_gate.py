@@ -385,13 +385,17 @@ def test_the_menu_per_kind_renders_and_what_is_off_is_404(client, gevulde_admin,
     from app.domains.mdm.api import invalidate_tenant_codes
     from app.kernel.modules import DEFAULTS, MODULES
     from app.kernel.tenancy import TENANT_MILLEGEM_ID
-    from app.ui import admin_nav
+    from app.ui import _right_of_screen, nav_for
 
     company = frozenset(code.value for code in DEFAULTS["BEDRIJF"])
     invalidate_tenant_codes()
     monkeypatch.setattr(tenant_lookup, "_modules_cache", {TENANT_MILLEGEM_ID: company})
     try:
-        menu = [i["href"] for g in admin_nav("", modules=company) for i in g["items"]]
+        menu = [
+            i["href"]
+            for g in nav_for("", frozenset(_right_of_screen().values()), modules=company)
+            for i in g["items"]
+        ]
         assert "/admin/media" in menu and "/admin/activiteiten" not in menu, menu
         broken = [p for p in menu if client.get(p).status_code != 200]
         off = [m for m in MODULES if m.code.value not in company and m.admin_items]

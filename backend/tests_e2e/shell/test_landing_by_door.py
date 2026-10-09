@@ -130,7 +130,8 @@ def test_a_board_member_who_signs_in_on_the_site_stays_on_the_site(browser, boar
         expect(drawer).to_be_visible()
         admin = drawer.locator('[data-account-item="admin"]')
         expect(admin).to_have_text("Admin")
-        assert admin.get_attribute("href") == "/admin"
+        # CR-24 Q13: everyone enters the back office by the workbench.
+        assert admin.get_attribute("href") == "/admin/werkbank"
         items = [i.strip() for i in drawer.locator("[data-account-item]").all_inner_texts()]
         print("MEASURE landing by door 390, menu:", items)
         assert items[-2:] == ["Admin", "Uitloggen"], items

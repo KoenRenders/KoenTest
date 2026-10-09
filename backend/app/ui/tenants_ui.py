@@ -200,7 +200,7 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     accounts = list_accounts(db)
     kinds = _kind_labels()
     return {
-        "nav_items": admin_nav("/admin/tenants"),
+        "nav_items": admin_nav("/admin/tenants", request),
         "units": units,
         # CR-19 (#1478): the kind of each tenant, as its label — the platform's
         # own kind too, since #1523.
@@ -372,7 +372,7 @@ def _editor_ctx(
     }
     secrets_gezet = _secrets_gezet(db, tenant_id, [key for key, _label, _hulp in geheim])
     return {
-        "nav_items": admin_nav("/admin/instellingen" if own else "/admin/tenants"),
+        "nav_items": admin_nav("/admin/instellingen" if own else "/admin/tenants", request),
         "unit": unit,
         "tenant_id": tenant_id,
         # #1535: where this editor posts and leads, per scope.

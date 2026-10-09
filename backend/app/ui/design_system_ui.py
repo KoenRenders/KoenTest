@@ -391,7 +391,7 @@ def _document_demo() -> tuple[dict, str]:
 def design_system(request: Request, email: str = Depends(require_right(Right.SETTINGS_VIEW))):
     document_config, document_value = _document_demo()
     view = DesignSystemView(
-        nav_items=admin_nav("/admin/design-system"),
+        nav_items=admin_nav("/admin/design-system", request),
         tokens=_tokens(),
         demo_colours=dict(SITE_COLOR_DEFAULTS),
         radii=_radii(),

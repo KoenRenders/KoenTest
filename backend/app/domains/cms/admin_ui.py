@@ -164,7 +164,7 @@ def admin_paginas(
         request,
         sjabloon,
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             "csrf_token": csrf_from_request(request),
             **_lijst_ctx(db, q, status),
         },
@@ -182,7 +182,7 @@ def pagina_nieuw(
         request,
         "admin_pagina_nieuw.html",
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             "csrf_token": csrf_from_request(request),
         },
     )

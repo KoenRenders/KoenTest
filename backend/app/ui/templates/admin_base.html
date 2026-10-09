@@ -205,7 +205,10 @@
       {# Pakket-2-feedback (14 sep): tenantnaam + productlabel i.p.v. het
          Raak-woordmerk — de schil bedient ook organisaties buiten Raak. In de
          rail staat alleen de eerste letter. #}
-      <a href="/admin" class="min-w-0 flex-1 hover:opacity-90" aria-label="{{ werkruimte_naam() }}">
+      {# CR-24 (Q13): the brand leads where everyone enters the back office, the
+         workbench. The start page with its tiles is the menu's Dashboard, for who
+         may see reports. #}
+      <a href="/admin/werkbank" class="min-w-0 flex-1 hover:opacity-90" aria-label="{{ werkruimte_naam() }}">
         <span class="nav-rail-mark hidden text-xl font-bold text-nav-ink text-center" aria-hidden="true">{{ werkruimte_naam()[:1] }}</span>
         <span class="nav-label block text-base font-semibold text-nav-ink leading-tight truncate">{{ werkruimte_naam() }}</span>
         <span class="nav-label block text-xs text-nav-soft mt-0.5">{{ _("Werkruimte") }}</span>
