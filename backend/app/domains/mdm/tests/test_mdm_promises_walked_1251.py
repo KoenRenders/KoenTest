@@ -47,6 +47,9 @@ def postal_code(db_session):
 
 @pytest.mark.parametrize("empty", ["street", "house_number"])
 def test_a_first_address_without_it_is_refused(client, db_session, postal_code, empty):
+    """The address card of a household (`_leden_kaarten.html`, `POST
+    /admin/leden/gezin/<id>/adres`): the field is posted empty, which the
+    browser's `required` would have stopped."""
     household, _main = create_test_family(db_session, email="belofte-a@example.com")
     db_session.commit()
 
@@ -87,6 +90,8 @@ def test_an_address_that_is_there_cannot_lose_it(client, db_session, postal_code
 
 @pytest.mark.parametrize("empty", ["street", "house_number"])
 def test_a_new_household_without_it_is_refused(client, db_session, empty):
+    """The form of a new household (`leden_nieuw.html`, `POST /admin/leden`): the
+    field is posted empty, which the browser's `required` would have stopped."""
     fields = nieuw_lid_velden(db_session, **{empty: ""})
     households = db_session.query(Member).count()
 
@@ -118,6 +123,9 @@ def test_the_import_without_a_file_is_refused(client, db_session):
 
 
 def test_the_import_with_an_empty_file_is_refused(client, db_session):
+    """The member import (`leden_import.html`, `POST /admin/leden-import/preview`):
+    the field `file` is posted with an empty file, which is as far as a
+    browser's `required` on a file input can be passed with a file at all."""
     response = client.post(
         "/admin/leden-import/preview",
         files={"file": ("ledenrapport.xls", b"", "application/vnd.ms-excel")},

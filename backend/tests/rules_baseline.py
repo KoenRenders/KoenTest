@@ -571,8 +571,4 @@ PROMISE_NOT_KEPT: frozenset[str] = frozenset()
 # 27 September; the gate's 19 bind). A partial without its own <form> (the
 # registration fields among them) is the largest group; phase 1 walks the
 # registration form through its facade.
-PROMISE_UNWALKABLE: dict[str, str] = {
-    "domains/mdm/templates/_leden_adres_velden.html::house_number::required": "no form target (built in JS, by a macro, or GET)",
-    "domains/mdm/templates/_leden_adres_velden.html::street::required": "no form target (built in JS, by a macro, or GET)",
-    "domains/mdm/templates/leden_import.html::file::required": "no column named `file`",
-}
+PROMISE_UNWALKABLE: dict[str, str] = {}
