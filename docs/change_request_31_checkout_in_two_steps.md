@@ -1,10 +1,10 @@
 # Change Request 31 — The checkout in two steps: a registration stands with an open charge when the provider does not answer
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 9 October 2026 · **not on a release** (Koen, 9 October 2026: "ja, goed idee, maar niet in v2.16") · the build read (template rule 6) and the screen concepts (C9) are still to come before Koen assigns it
+**Status:** shaped on 9 October 2026 · **not planned on any release** (Koen, 9 October 2026: "ja, goed idee, maar niet in v2.16" and "Dit plannen we ooit") · the build read is routed to dev2 (#1829, without hurry); the screen concepts (C9) follow it · one question open (Q6)
 **Tracking issue:** #1829 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** payment (a port, a pay route with its page, one column), activities and membership (the three doors that open a charge), cms (the return page's retry), the events gate of CR-13 (three declared calls leave it); mail and reporting are used, not changed
-**Reading:** A 1 475 words · B 2 476 · C 3 843 — code fences excluded, table pipes counted, measured on 9 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 500 words · B 2 496 · C 4 101 — code fences excluded, table pipes counted, measured on 9 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -12,9 +12,9 @@
 
 ## A1. Reason to act — the trigger
 
-A member who registers for an activity, renews a membership or signs up a family and chooses to pay online is sent to the payment page of the provider. When the provider does not answer at that moment, the portal throws the whole thing away: the registration, the answers typed, the family with its persons. The screen says *"De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw"*, and the member starts over, if they come back at all.
+A member who registers, renews a membership or signs up a family and pays online is sent to the provider's payment page. When the provider does not answer, the portal throws everything away: registration, answers, family. The screen says *"… Je inschrijving is niet bewaard — probeer ze later opnieuw"*, and the member starts over, if at all.
 
-That is not acceptable for a thing the member did right. The association wants the registration kept, and the payment tried again — now, or later. Koen, 9 October 2026, to the proposal: *"ja, goed idee, maar niet in v2.16."*
+Not acceptable for a thing the member did right: the association wants the registration kept and the payment tried again, now or later. Koen, 9 October 2026, to the proposal: *"ja, goed idee, maar niet in v2.16."*
 
 Two more reasons made it a change request and not a repair: the domain-boundary work (CR-13) found these three places the last where one part of the portal reaches an outside service on another's behalf, and the coming webshop (CR-21) needs the same two steps — order, then pay.
 
@@ -45,17 +45,17 @@ flowchart LR
   p6 -.-> m6
 ```
 
-*What to see: saving and asking the provider are one step; when the provider is silent, the saved registration goes with it.*
+*What to see: saving and asking the provider are one step; a silent provider takes the saving with it.*
 
 | # | Step | Who | Pain |
 |---|---|---|---|
 | 1 | Fill in the form, choose online payment | member | — |
-| 2 | Save the registration and ask the provider for a payment page, in one movement | portal | when the provider does not answer, the saving is undone too |
+| 2 | Save and ask the provider, in one movement | portal | a silent provider undoes the saving |
 | 3 | Error "niet bewaard — probeer later opnieuw" | portal → member | everything typed is gone: registration, answers, family and persons |
 | 4 | Pay at the provider, come back | member | — |
 | 5 | Record the payment, confirm by mail | portal | — |
 
-Three places work this way: registering for an activity (public and from the board), renewing a membership in *Mijn gezin*, and *Word lid*. How often the provider is silent is not measured; the backend log carries one line per occurrence (*"Betaling aanmaken mislukt"*), countable on PROD before the build.
+Three places do this: registering for an activity (public and from the board), renewing a membership in *Mijn gezin*, and *Word lid*. How often the provider is silent is not measured; the backend log carries one line per occurrence (*"Betaling aanmaken mislukt"*), countable on PROD before the build.
 
 ## A3. To-be process — how it should work afterwards
 
@@ -86,20 +86,20 @@ flowchart LR
   p7 -.-> m6
 ```
 
-*What to see: one step split in two. Saving happens first and stands; asking the provider is a step of its own, on a page of the portal, and can be repeated.*
+*What to see: one step split in two; saving stands, asking the provider is its own repeatable step.*
 
 | # | Step | Who | What changes |
 |---|---|---|---|
 | 1 | Fill in the form, choose online payment | member | — |
 | 2 | Save the registration **and the open charge** | portal | the saving stands, whatever the provider does |
-| 3 | Open the portal's pay page, which asks the provider and sends the member on | portal | new; normally invisible — the browser goes straight on |
-| 4 | When the provider does not answer: the pay page says the registration is kept and offers to try again | portal → member | replaces the error |
+| 3 | The portal's pay page asks the provider and sends the member on | portal | new; normally invisible — the browser goes straight on |
+| 4 | Silent provider: the pay page says the registration is kept, offers to try again | portal → member | replaces the error |
 | 5 | Pay at the provider, come back | member | — |
 | 6 | Record the payment, confirm by mail | portal | — |
 
 The state "registered, not yet paid" exists today for a member who closes the provider's page; the board sees an open booking in *Betalingen*. A silent provider now leaves the same state instead of an error.
 
-**What it says on the screen** (decided here, business copy):
+**What it says on the screen:**
 
 | Where | Text |
 |---|---|
@@ -108,48 +108,52 @@ The state "registered, not yet paid" exists today for a member who closes the pr
 | its buttons | *Opnieuw proberen* (primary) · *Terug naar de startpagina* |
 | the return page after a payment that did not go through | gets a working *Opnieuw proberen*, to the same pay page |
 | *Mijn gezin*, a renewal whose payment is open | *Betaling hervatten* (as today), now always offered |
+| *Mijn inschrijvingen*, an online registration whose payment is open | *Betaling hervatten* (new; the card's word) |
+| the confirmation mail, online, signed in | *Nog niet betaald? Je kan de betaling hervatten onder Mijn inschrijvingen.* (renewal or sign-up: *… in Mijn gezin*); a guest: Q6 |
 
 ## A4. Benefits — what the change earns
 
 - **No registration lost to a silent provider.** Today an occurrence costs a member a whole form and the association maybe a participant; afterwards a click.
-- **No volunteer work to repair it.** Today a member who gave up registers again or mails the board, who registers them by hand.
+- **No repair work for volunteers.** Today a member who gave up mails the board, who registers them by hand.
 - **A payment that can always be resumed.** Today *Betaling hervatten* depends on the provider still knowing the old page; afterwards the portal asks for a fresh one.
 - **The webshop (CR-21) gets its checkout step**, and CR-13's last three direct provider calls disappear.
 
 ## A5. Supplied material — and what it taught us
 
-None from the board; the source is the code on master and CR-13 phase 4c/4d (#1251). Reporting need: none new — the open charge is a booking like any other in *Betalingen* and the payment reports.
+None from the board; the source is the code on master and CR-13 phase 4c/4d (#1251). Reporting need: none — the open charge is a booking like any other in *Betalingen* and the payment reports.
 
 ## A6. Business requirements — what the board asks, with MoSCoW
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
-| R1 | A registration, a renewal or a sign-up with online payment is saved even when the provider does not answer; the payment stays open. | Must | Koen, 9 Oct 2026 ("ja, goed idee") | the state exists today for an abandoned payment |
-| R2 | The member is told that the registration is kept and can try the payment again from the same screen. | Must | Koen, 9 Oct 2026 | replaces the error |
-| R3 | Trying again never makes the member pay twice: one open payment at the provider per charge. | Must | shaping | |
-| R4 | The board sees such a registration as it sees an abandoned payment today: an open booking, no new state, no new screen. | Must | shaping | |
-| R5 | The *Opnieuw proberen* of the return page and the *Betaling hervatten* of *Mijn gezin* lead to the same pay page. | Should | shaping | the return page's button goes to the home page today |
-| R6 | The confirmation mail of an online registration carries the link to pay, so a member who closed the browser can still pay. | Could | shaping | Q1 for Koen |
+| R1 | A registration, a renewal or a sign-up with online payment is saved even when the provider does not answer; the payment stays open. | Must | Koen, 9 Oct 2026 ("ja, goed idee") | today's state of an abandoned payment |
+| R2 | The member is told the registration is kept and can retry the payment from the same screen. | Must | Koen, 9 Oct 2026 | replaces the error |
+| R3 | Retrying never makes the member pay twice: one open provider payment per charge. | Must | shaping | |
+| R4 | The board sees it as an abandoned payment today: an open booking, no new state or screen. | Must | shaping | |
+| R5 | The return page's *Opnieuw proberen* and *Mijn gezin*'s *Betaling hervatten* lead to the same pay page. | Should | shaping | the first goes to the home page today |
+| R6 | The confirmation mail of an online registration tells the member where on the site the payment can be resumed. | Should | Koen, 9 Oct 2026 ("laten verwijzen naar het scherm waar de betaling kan hernomen worden, waar het zichtbaar is in de site") | not a pay link of its own; the guest's mail: Q6 |
+| R8 | *Mijn inschrijvingen* offers *Betaling hervatten* for an online registration whose payment is open, as the membership card does for a renewal. | Should | shaping, from Koen's answer on R6 | today only the card has it |
 | R7 | A waiting page that keeps asking the provider in the background. | Won't | architecture CLI, 9 Oct 2026 | a new screen for every payment, for a rare failure |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
 
 | Concern | This change |
 |---|---|
-| **Security** — who may do what; new inputs from outside; secrets | a public page behind an unguessable link; it starts a payment only for that charge, once while one is open; rate-limited like the webhook; no new secret |
+| **Security** — who may do what; new inputs from outside; secrets | a public page behind an unguessable link; one payment per charge while one is open; rate-limited like the webhook; no new secret |
 | **Privacy** — personal data: what, where, who sees it, what leaves the system | the page shows what the charge is for and the amount — the provider's words today; nothing new leaves the system; the link is personal, like the confirmation mail |
-| **House style / UI norm** — `docs/design-system.md`; brand rules | one public page in the site shell, built from the kit (the result-page shape of the return page) |
+| **House style / UI norm** — `docs/design-system.md`; brand rules | one public page in the site shell, from the kit (the return page's shape) |
 | **Multi-tenant** — what differs per unit, what is platform-wide | each unit's own provider account, as today; a unit's pay link does not work on another's address |
 
 ## A8. Acceptance criteria — what the business signs off on HDEV
 
 | # | Criterion | Requirement | Walkthrough steps |
 |---|---|---|---|
-| AC1 | With the provider unreachable, registering online shows the pay page with *Je inschrijving is bewaard* and *Opnieuw proberen*; the registration stands in the board's list with an open booking. | R1, R2, R4 | W1–W4 |
-| AC2 | With the provider back, *Opnieuw proberen* brings the member to the provider's payment page; paying marks the booking paid and the return page says *Betaling ontvangen*. | R2, R3 | W5–W7 |
-| AC3 | Opening the pay link twice while a payment is open brings the member to the same payment page; *Betalingen* shows one booking, the provider one payment. | R3 | W8 |
+| AC1 | Provider unreachable: registering online shows the pay page with *Je inschrijving is bewaard* and *Opnieuw proberen*; the board's list has the registration with an open booking. | R1, R2, R4 | W1–W4 |
+| AC2 | Provider back: *Opnieuw proberen* opens the provider's page; paying marks the booking paid, the return page says *Betaling ontvangen*. | R2, R3 | W5–W7 |
+| AC3 | The pay link opened twice while a payment is open: the same payment page; one booking, one provider payment. | R3 | W8 |
 | AC4 | The same for *Word lid* and for a renewal in *Mijn gezin*; *Betaling hervatten* opens the pay page. | R1, R5 | W9–W11 |
-| AC5 | With the provider reachable from the start, nothing looks different from today: the form sends the member straight to the provider. | R1 | W12 |
+| AC5 | Provider reachable from the start: nothing looks different — the form sends the member straight to the provider. | R1 | W12 |
+| AC6 | Signed in, an online registration left unpaid shows *Betaling hervatten* under *Mijn inschrijvingen*, which opens the pay page; the confirmation mail names that screen. | R6, R8 | W13–W14 |
 
 ---
 
@@ -157,25 +161,26 @@ None from the board; the source is the code on master and CR-13 phase 4c/4d (#12
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
-Opening a charge and asking the provider for a payment page become two steps in two requests. The first is a **port** of payment, `OpenCharge`: the door service of a registration, a renewal or a sign-up calls it inside its own transaction; payment writes the charge (for a transfer with its structured communication), reaches no network, and answers with the charge's id and its pay path. The door commits and redirects there. The second is **payment's own pay route**, `/betalen/<token>`: it finds the charge by its token, asks the provider for a payment page unless one is open, and sends the browser on; when the provider does not answer it renders the page with the message and *Opnieuw proberen*, the charge untouched. Transfer and free charges take the same port and change nothing visible; the webhook, the ledger, the status screens and the mails stay as they are.
+Opening a charge and asking the provider for a payment page become two steps in two requests. The first is a **port** of payment, `OpenCharge`, called by the door service of a registration, renewal or sign-up inside its own transaction; payment writes the charge (for a transfer with its structured communication), reaches no network, and answers with the charge's id and its pay path. The door commits and redirects there. The second is **payment's own pay route**, `/betalen/<token>`: it finds the charge by its token, asks the provider for a payment page unless one is open, and sends the browser on; when the provider does not answer it renders the page with the message and *Opnieuw proberen*, the charge untouched. Transfer and free charges take the same port and change nothing visible; webhook, ledger, status screens and mails stay as they are.
 
-- **D1 — a port, not a direct call with a licence.** `OpenCharge(payable_type, payable_id, amount, method, actor, source) → ChargeOpened(record_id, pay_path, structured_communication)`, in `kernel/contracts/payment.py`, handled in payment (§3.2.1: the caller needs the answer). Rejected: keeping the direct call as a named network exception — the provider stays inside the door's transaction and the three gate entries stay for good. Reasons: C4.1.
-- **D2 — the provider is reached by payment's own route, after the commit.** One place knows how to start a checkout, how to resume one and what to say when it fails. Rejected: the door reaching the provider itself after its commit — a second transaction in each of three doors, and the retry written three times. Reasons: C4.2.
-- **D3 — one open payment at the provider per charge.** The route reuses the provider payment while the provider says it is open, asks for a new one when it lapsed (expired, failed, cancelled), and sends a paid charge to the return page. Rejected: a new provider payment on every visit — duplicates at the provider, a webhook that finds the wrong one. Reasons: C4.3.
-- **D4 — an opaque token column on the charge, not the charge's id.** The id travels in board URLs, exports and logs; a capability should not. Rejected: the uuid id as the link (no migration, but an identifier that doubles as a key). Reasons: C4.4.
-- **D5 — the failure is the pay page itself, with a button.** Rejected: a job that keeps asking the provider and a waiting page that polls (R7) — a screen for every payment to cover a rare case. Reasons: C4.5.
-- **D6 — the return page and *Mijn gezin* point at the pay route.** `checkout_url_for` returns the pay path instead of the provider's URL, so a lapsed provider page is no dead end. Reasons: C4.6.
+- **D1 — a port, not a direct call with a licence.** `OpenCharge(…) → ChargeOpened(record_id, pay_path, structured_communication)` in `kernel/contracts/payment.py`, handled in payment (§3.2.1: the caller needs the answer). Rejected: the direct call as a named network exception — the provider stays inside the door's transaction, the three gate entries for good. C4.1.
+- **D2 — the provider is reached by payment's own route, after the commit.** One place knows how to start, resume and fail a checkout. Rejected: each door reaching the provider after its commit — a second transaction in three doors, the retry written three times. C4.2.
+- **D3 — one open provider payment per charge.** Reused while open, replaced when lapsed (expired, failed, cancelled); a paid charge goes to the return page. Rejected: a new provider payment per visit — duplicates, a webhook finding the wrong one. C4.3.
+- **D4 — an opaque token column, not the charge's id.** The id travels in board URLs, exports and logs; a capability should not. Rejected: the id as the link (no migration, an identifier doubling as a key). C4.4.
+- **D5 — the failure is the pay page itself, with a button.** Rejected: a job and a polling wait page (R7) — a screen for every payment for a rare case. C4.5.
+- **D6 — the existing retry paths point at the pay route.** `checkout_url_for` returns the pay path, so a lapsed provider page is no dead end. C4.6.
 
 | # | Derived requirement | From |
 |---|---|---|
 | F1 | A port `OpenCharge` with exactly one handler in payment; the handler writes the charge, flushes, commits nothing, reaches no network. | R1, CR-13 |
 | F2 | Every charge has an opaque token, unique, set at creation, never shown in a board screen. | R2, R3 |
-| F3 | `GET /betalen/<token>` answers 303 to the provider's page, or 200 with the message and the button, or 303 to the return page when the charge is paid; 404 for an unknown token or another unit's. | R2, R3 |
+| F3 | `GET /betalen/<token>`: 303 to the provider, or 200 with message and button, or 303 to the return page when paid; 404 for an unknown or another unit's token. | R2, R3 |
 | F4 | The route holds the charge while it asks the provider, so two visits at once make one provider payment. | R3 |
-| F5 | The three doors call the port from a service, commit, and redirect to the pay path for an online charge; transfer and free paths behave as today. | R1, R4 |
-| F6 | The return page offers *Opnieuw proberen* to the pay path while the charge is open and the provider reported a lapsed payment; *Mijn gezin*'s *Betaling hervatten* is the pay path. | R5 |
+| F5 | The three doors call the port from a service, commit, redirect to the pay path for an online charge; transfer and free as today. | R1, R4 |
+| F6 | The return page's *Opnieuw proberen* (while the charge is open and the provider's payment lapsed), *Mijn gezin*'s *Betaling hervatten* and a new one under *Mijn inschrijvingen* all open the pay path. | R5, R8 |
+| F9 | The confirmation mail of an unpaid online charge names the screen where it can be resumed — *Mijn inschrijvingen* or *Mijn gezin*; a guest's mail: Q6. | R6 |
 | F7 | The three entries of the events gate's declared set go; `create_payment_record` is called by payment only. | CR-13 F7/AC7 |
-| F8 | A way to make the provider fail on HDEV and in the e2e: a wrong provider key for the unit (HDEV), a switch on the stub (e2e). | AC1 |
+| F8 | A way to make the provider fail: a wrong provider key for the unit (HDEV), a switch on the stub (e2e). | AC1 |
 
 ## B2. Fit with the process and the requirements — for the business
 
@@ -204,7 +209,7 @@ flowchart LR
   classDef x fill:#e5e7eb,stroke:#374151
 ```
 
-*Blue: activities and membership (the doors). Green: payment (the port, the pay page, the webhook). Yellow: mail. Grey: outside the portal.*
+*Blue: the doors (activities, membership). Green: payment. Yellow: mail. Grey: outside the portal.*
 
 | R | How the solution meets it (in the role's words) | F | Module (C2) | Test (C6) | AC |
 |---|---|---|---|---|---|
@@ -213,16 +218,17 @@ flowchart LR
 | R3 | "Clicking twice does not make me pay twice." | F2, F3, F4 | payment | T6, T7 | AC3 |
 | R4 | "The treasurer sees it as an open booking, nothing new to learn." | F5 | payment (unchanged screens) | T2 | AC1 |
 | R5 | "Every 'try again' goes to the same page." | F6 | cms, membership | T8 | AC4 |
-| R6 | pay link in the mail — Could, open (Q1) | — | mail | — | — |
+| R6 | "The mail tells me where on the site I can finish paying." | F9 | mail | T12 | AC6 |
+| R8 | "My unpaid registration shows a button to pay, like my membership does." | F6 | activities | T8 | AC6 |
 | R7 | Won't: no waiting page | — | — | — | — |
 
-**Walkthrough on HDEV.** *Member (visitor), activity with a paid product; the operator first sets a wrong provider key for the unit on `/admin/tenants` (F8):*
+**Walkthrough on HDEV.** *Visitor, activity with a paid product; the operator first sets a wrong provider key on `/admin/tenants` (F8):*
 
-1. W1 Open the activity, register, choose *Online betalen*, send. **See:** the page *Betalen* with *De betaalpagina is even niet bereikbaar. Je inschrijving is bewaard.* and *Opnieuw proberen*.
+1. W1 Register for the activity, *Online betalen*, send. **See:** *Betalen* with *De betaalpagina is even niet bereikbaar. Je inschrijving is bewaard.* and *Opnieuw proberen*.
 2. W2 Press *Opnieuw proberen*. **See:** the same page again (the provider is still unreachable).
 3. W3 As board: *Inschrijvingen* of the activity. **See:** the registration, its booking *Open*, the amount.
 4. W4 As board: *Betalingen*. **See:** one open booking for it.
-5. W5 The operator restores the provider key. Member: *Opnieuw proberen*. **See:** the provider's payment page (test mode) with the amount.
+5. W5 Key restored; *Opnieuw proberen*. **See:** the provider's payment page (test mode) with the amount.
 6. W6 Pay. **See:** the return page; within moments *Betaling ontvangen*.
 7. W7 As board: *Betalingen*. **See:** the booking *Betaald*.
 8. W8 Open the pay link of W1 again. **See:** the return page, no second payment. A fresh online registration, its pay link opened twice: **see** the same provider page; the board one booking.
@@ -230,9 +236,11 @@ flowchart LR
 *Member of a household, `Mijn gezin`; wrong key first:*
 
 9. W9 *Lidmaatschap vernieuwen*, online, send. **See:** the pay page with *Je lidmaatschap is geregistreerd.* and the button.
-10. W10 Back to *Mijn gezin*. **See:** the card says a renewal is running, with *Betaling hervatten*; pressing it opens the pay page.
+10. W10 Back to *Mijn gezin*. **See:** the card with *Betaling hervatten*, which opens the pay page.
 11. W11 Key restored; *Word lid* with a new family, online. **See:** straight to the provider's page, as today.
 12. W12 Any registration, online, provider reachable. **See:** nothing of the pay page — the form goes straight to the provider.
+13. W13 Signed in, register online, close the provider's page unpaid; open *Mijn inschrijvingen*. **See:** *Betaling hervatten* on the registration; it opens the provider's page.
+14. W14 Read the confirmation mail of W13 (the e-mail log on HDEV). **See:** the sentence naming *Mijn inschrijvingen*.
 
 ## B3. The whole across the modules — for the architect
 
@@ -275,7 +283,7 @@ flowchart TB
   classDef used fill:#e5e7eb,stroke:#374151
 ```
 
-*Green new, orange changed, grey used. Every arrow between modules is a port call or a facade import.*
+*Green new, orange changed, grey used; arrows are port calls or facade imports.*
 
 ```mermaid
 erDiagram
@@ -308,7 +316,7 @@ erDiagram
   PAYMENT_RECORD }o..o| MEMBERSHIP : "payable_type = membership"
 ```
 
-Who calls whom: `activities/service.py` and the two membership services call `kernel.ports.call(OpenCharge(...), db)`; payment's handler writes `PaymentRecord` (and the structured communication for a transfer), flushes, and returns `ChargeOpened`. The door commits — one transaction, one commit, as today. The pay route (`payment/ui.py`) is the only code that asks the provider for a new payment: it locks the charge, reads its provider payment, calls `gateway_service.create_payment` when none is open, writes the new `GatewayPayment` and the link, commits, redirects. No new dependency direction: activities and membership already depend on payment; payment reads membership through `membership.api` for the household of a membership (the return address), a read. Transaction boundary: the provider is reached only in payment's own request, never inside a door's transaction. Impact: one additive column on `payment.payment_records`; `create_payment_record`'s gateway branch moves to `start_checkout`; the three door blocks reading `GatewayPayment` go; the import and layer gates hold (a `ui.py` on `payment.api`; the port called from services, never a router — rule 6, which moves the activities block out of `router.py`).
+Who calls whom: `activities/service.py` and the two membership services call `kernel.ports.call(OpenCharge(...), db)`; payment's handler writes `PaymentRecord`, flushes, returns `ChargeOpened`; the door commits — one transaction, as today. The pay route (`payment/ui.py`) alone asks the provider: it locks the charge, calls `gateway_service.create_payment` when no payment is open, writes the `GatewayPayment` and the link, commits, redirects. No new dependency direction: activities and membership already depend on payment; payment reads membership through `membership.api` for the household of a membership (the return address), a read. Transaction boundary: the provider is reached only in payment's own request, never inside a door's transaction. Impact: one additive column on `payment.payment_records`; `create_payment_record`'s gateway branch moves to `start_checkout`; the three door blocks reading `GatewayPayment` go; the import and layer gates hold (a `ui.py` on `payment.api`; the port called from services, never a router — rule 6, which moves the activities block out of `router.py`).
 
 ## B3a. Standards the model follows — and where it deviates, on purpose
 
@@ -324,27 +332,27 @@ Standards checked: UBL 2.1 / EN 16931 (`cac:PaymentMeans`, `cbc:PaymentID`), ISO
 
 | Rule (where) | What the design does instead | Mechanism | Temporary until … / the new rule | Decided |
 |---|---|---|---|---|
-| none — gates checked: *events, not calls* (a port call is no command call; three declared entries go), rule 6 *a port is called from a service, never from a door* (the activities block moves into the service), *no network in a handler*, *no commit behind another domain's api*, the layer gate (a `ui.py` on `payment.api`), the import gate (payment → membership, a read), `NETWORK_MODULES` (the provider's client stays in payment's adapter) | — | — | — | architecture CLI, 9 Oct 2026 |
+| none — gates checked: *events, not calls* (a port call is no command call; three declared entries go), rule 6 *a port is called from a service, never from a door* (the activities block moves to the service), *no network in a handler*, *no commit behind another domain's api*, the layer gate (a `ui.py` on `payment.api`), the import gate (payment → membership, a read), `NETWORK_MODULES` (the provider's client stays in payment's adapter) | — | — | — | architecture CLI, 9 Oct 2026 |
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-**Investment:** one phase. payment — the contract, the handler, `checkout.py` with the idempotent start, the route and page, the column and migration, `checkout_url_for`, the tests: M, about 1.5 CLI-days. activities and membership — the three doors on the port, the redirect to the pay path, the card: S, 0.5. cms — the return page's button: S, 0.25. The stub's switch and the e2e of the failure path: S, 0.5. Total about 2.75 CLI-days, plus the build read and the two screen concepts (C9).
+**Investment:** one phase. payment — contract, handler, `checkout.py`, route and page, column and migration, tests: M, about 1.5 CLI-days. activities and membership — the three doors on the port, the redirect to the pay path, the card, *Betaling hervatten* under *Mijn inschrijvingen*: S, 0.75. cms — the return page's button: S, 0.25. mail — one sentence in two confirmation mails: S, 0.25. The stub's switch and the e2e of the failure path: S, 0.5. Total about 3.25 CLI-days, plus the build read and the three screen concepts (C9).
 
 **Running cost:** none: no new service or dependency; the provider is called as often as today or less.
 
-**Operations:** one additive migration (column, default, unique index; existing charges get a token). No env var. On HDEV, AC1 uses a wrong provider key on the unit's settings screen, set and restored by the operator (W1, W5) — in the "Na de merge" block. Rollback: the previous tag; the column is harmless to the old code.
+**Operations:** one additive migration (column, default, unique index; existing charges get a token). No env var. On HDEV, AC1 uses a wrong provider key on the unit's settings screen (W1, W5) — in the "Na de merge" block. Rollback: the previous tag; the column is harmless to the old code.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
 | Phase | Delivers | Migration | Env vars | Data | Failure paths that change | Manual validation |
 |---|---|---|---|---|---|---|
-| 1 — two pull requests | (a) the port, the handler, the column, the pay route and page, the three doors, the stub switch, the tests; (b) the return page's and *Mijn gezin*'s link to the pay path, and the three entries out of the events gate | one, additive | none | tokens for existing charges, in the migration | **provider unreachable at registration:** today 502, nothing saved; afterwards saved, the pay page (R1, R2). **At the retry:** the same page, charge untouched. **Provider payment lapsed:** today a dead provider page behind *Betaling hervatten*; afterwards a fresh payment. **Two visits at once:** one provider payment. **A paid charge's link:** the return page. Unchanged: the webhook, an abandoned payment, a refused form | W1–W12 |
+| 1 — two pull requests | (a) port, handler, column, pay route and page, the three doors, the stub switch, tests; (b) the retry paths on the pay path, the mail sentence, the three entries out of the events gate | one, additive | none | tokens for existing charges, in the migration | **provider unreachable at registration:** today 502, nothing saved; afterwards saved, the pay page (R1, R2). **At the retry:** the same page, charge untouched. **Provider payment lapsed:** today a dead provider page behind *Betaling hervatten*; afterwards a fresh payment. **Two visits at once:** one provider payment. **A paid charge's link:** the return page. Unchanged: the webhook, an abandoned payment, a refused form | W1–W12 |
 
-**Order:** not in v2.16 (Koen). Before CR-21 phase 0, which builds on the port and the route (the order Koen set on 8 October: v2.15 → v2.16 → CR-24 → CR-21). The three declared calls on the events gate name this change request until (b) merges.
+**Order:** not planned on a release (Koen, 9 October 2026: "niet voor v2.16. Dit plannen we ooit"). When it is planned: before CR-21 phase 0. The three declared calls on the events gate name this change request until (b) merges.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
-**The rule:** a charge is opened in the caller's transaction through payment's port and never reaches the provider; the provider is reached only by payment's own pay route, in a request of its own, after the commit. It goes into `docs/architecture.md` §3.2.1 (the second worked example of a port) and payment's `CONTRACT.md`.
+**The rule:** a charge is opened through payment's port in the caller's transaction and never reaches the provider; only payment's own pay route does, in its own request, after the commit. It goes into `docs/architecture.md` §3.2.1 (the second worked example of a port) and payment's `CONTRACT.md`.
 
 **Reach and baseline:** three call sites today, none afterwards. The events gate (`test_events_not_calls`) holds the three as declared exceptions naming this change request; pull request (b) removes them and the gate is **hard** for activities → payment and membership → payment. *No network in a handler* covers the port handler. No new gate.
 
@@ -352,8 +360,7 @@ Standards checked: UBL 2.1 / EN 16931 (`cac:PaymentMeans`, `cbc:PaymentID`), ISO
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q1 | Does the confirmation mail of an online registration carry the pay link (R6, Could)? | Yes, one line under the amount: *Nog niet betaald? Betaal via deze link.* — a member who closed the browser can still pay; the mail already carries the transfer instructions. One more consumer of the pay path, from the record mail's handler reads. | mail's two confirmation handlers and templates join C2; without it a guest who closed the pay page pays only through the board. |
-| Q2 | Which release? | The one after v2.16, before CR-21 phase 0: CR-21's checkout is this port and this route. | the status line; whether CR-21 waits for it or builds a second checkout. |
+| Q6 | A guest (no account; CR-22 R6: no sign-in link) has no screen where the payment can be resumed. What does the guest's mail say about an unpaid online charge? | What the return page says today: *Nog niet betaald? Je kan de betaling later voltooien via een bestuurslid.* — consistent with CR-22, and the board sees the open booking. The alternative, a pay link for guests only, is the link Koen did not choose. | the mail's template branches on "has a person" (it does for the history line); whether a guest can pay without the board. |
 
 ## B9. Decisions log — dated answers
 
@@ -362,6 +369,8 @@ Standards checked: UBL 2.1 / EN 16931 (`cac:PaymentMeans`, `cbc:PaymentID`), ISO
 | 9 Oct 2026 | On the master CLI's question C7-B (CR-13 phase 4c): proposal (a) — a port that writes the charge, a route of payment's own that starts the checkout, idempotent, behind an opaque token; *Opnieuw proberen* instead of a 502. Rejected: a named network exception; a job with a wait page. A functional change (CR-13 R13), so its own change request, 2–3 CLI-days. | architecture CLI |
 | 9 Oct 2026 | "ja, goed idee, maar niet in v2.16. Maak je issue aan?" — the registration may stand with an open charge; a change request of its own; not on v2.16. Tracking issue #1829. | Koen, to the master CLI |
 | 9 Oct 2026 | Shaped as CR-31; the three calls stand declared on the events gate until this change removes them (CR-13 phase 4d, five declared entries). | architecture CLI |
+| 9 Oct 2026 | Q1: no pay link of its own in the mail; it refers to the screen where the payment can be resumed — "Ik zou laten verwijzen naar het scherm waar de betaling kan hernomen worden, waar het zichtbaar is in de site." R6 reworded; R8 and F9 follow (*Mijn inschrijvingen* gets *Betaling hervatten*). The guest's mail: Q6. | Koen, via the master CLI |
+| 9 Oct 2026 | Q2: "En neen, niet voor v2.16. Dit plannen we ooit." — not planned on any release; shaped and unassigned. | Koen, via the master CLI |
 
 ---
 
@@ -390,7 +399,8 @@ Measured on master @ `b8abc0bd` on 9 October 2026 (the merge of #1824); to be re
 | the stub provider has no failure switch; the e2e chain waits for the stub's checkout URL after submit | changes | `payment/providers/stub.py`, `tests_e2e/activities/test_online_payment_chain.py:39` | the wait holds through the 303 of the pay route; a switch is added (F8) | T10 |
 | `test_nothing_is_committed_before_the_payment_step` expects the 502 to take the answers back | changes | `tests/integration/test_registration_questions.py:198–231` | must change: the premise ("a payment that cannot start") no longer exists at the door | rewritten as T3: a refused port (an amount of 0 for online) rolls everything back; a silent provider never reaches the door |
 | other tests naming `create_payment_record` or the 502 | changes | `payment/tests/test_payment_history_rows.py`, `test_payment_stub_1274.py`, `test_webhook_url_1279.py`; `tests/integration/test_codes_phase1.py`, `test_kritische_flows_coverage.py`, `test_membership_payment_return.py`, `test_structured_communication.py`, `test_transfer_wording_1775.py`; `tests/test_record_form_gate.py` | the payment-internal ones stay right (the function stays); the webhook-URL test moves to `start_checkout`; the flows tests are read one by one in the build read | C6 |
-| the confirmation mails read `payment_record_id` from the event and build the transfer block | relies on | `mail/handlers.py:131–245` (`_transfer_of`) | holds | Q1 would add the pay path beside it |
+| the confirmation mails read `payment_record_id` from the event and build the transfer block; the registration mail already carries a line with the history URL for a registration made while signed in | relies on | `mail/handlers.py:131–245` (`_transfer_of`, `history_url`), `mail/service.py:755` | holds | F9 adds its sentence to that line; the family welcome mail gets one naming *Mijn gezin* |
+| *Mijn inschrijvingen* shows the transfer block for an unpaid registration and nothing for an unpaid online one | changes | `activities/my_registrations.py:68–74`, `templates/_my_registration.html:33`; the card's online block `membership/membership_card.py:83`, `_renewal_running.html:18` | must change (R8): the online block as the card has it | C2 activities, T8 |
 | reporting: no view reads a column this change adds | relies on | migrations 096, 100, 102, 106, 116 read `payment_records` columns; none is `pay_token` | holds | reporting — none (C2) |
 | PostgreSQL 16 has `gen_random_uuid()` in core | relies on | the stack's image (`docker-compose.*.yml`, Postgres 16) | to confirm in the build read | the migration's default for existing rows |
 | which provider HDEV runs | relies on | the server's env (`PAYMENT_PROVIDER`), not in the repository | **to measure by the master CLI** | the walkthrough's F8 path: a wrong key (Mollie test mode) or the stub's switch |
@@ -416,7 +426,7 @@ Measured on master @ `b8abc0bd` on 9 October 2026 (the merge of #1824); to be re
 
 ### activities
 
-**Screens:** none change. **Code:** the payment block of `router.py::create_registration` (lines 456–510 today) moves into `activities/service.py` as the step after `register`: compute the total, call `OpenCharge` for a paid method, publish `RegistrationConfirmed` with the record id as today, return the record and the pay path; the router keeps the HTTP mapping and sets `result["checkout_url"]` to the pay path, so `registration_form.py` and the two doors (`ui.py:282`, `admin_ui.py:1643`) redirect as they do; the board's door appends `?terug=/admin/inschrijvingen/<id>`. `api.py:354`'s `return_path` parameter goes with the block. **Database:** none. **Tests:** T2, T3, the rewritten `test_nothing_is_committed_before_the_payment_step`.
+**Screens:** none change. **Code:** the payment block of `router.py::create_registration` (lines 456–510 today) moves into `activities/service.py` as the step after `register`: compute the total, call `OpenCharge` for a paid method, publish `RegistrationConfirmed` with the record id as today, return the record and the pay path; the router keeps the HTTP mapping and sets `result["checkout_url"]` to the pay path, so `registration_form.py` and the two doors (`ui.py:282`, `admin_ui.py:1643`) redirect as they do; the board's door appends `?terug=/admin/inschrijvingen/<id>`. `api.py:354`'s `return_path` parameter goes with the block. *Mijn inschrijvingen* (R8): `my_registrations.py` adds the online block beside the transfer block — amount and `checkout_url_for` as `membership_card.py::_running_renewal` does — and `_my_registration.html` renders *Betaling hervatten* as `_renewal_running.html` does (`ui.btn_primary`, `href`); one block shape for both screens. **Database:** none. **Tests:** T2, T3, T8, the rewritten `test_nothing_is_committed_before_the_payment_step`.
 
 ### membership
 
@@ -428,7 +438,7 @@ Measured on master @ `b8abc0bd` on 9 October 2026 (the merge of #1824); to be re
 
 ### mail
 
-Used, not changed: the two confirmation handlers read the record for the transfer block. Q1 would add one line and `pay_path_for`.
+**Templates and mail:** the activity confirmation (`activity_confirmation_message`) gets one sentence when the charge is online and not paid: for a registration with a person, *Nog niet betaald? Je kan de betaling hervatten onder Mijn inschrijvingen.* beside the history URL it already carries (CR-22 R6); for a guest, the sentence of Q6. The family welcome mail (`family_welcome_message`) gets *… in Mijn gezin.* No pay link in a mail (Koen, 9 October 2026). The handlers read the record already; the words are A3's. **Tests:** T12.
 
 ### reporting
 
@@ -497,10 +507,11 @@ The token is 122 bits of randomness (uuid4), unique, never shown in a board scre
 | T5 | the pay route, provider raising: 200, the page with *Je inschrijving is bewaard* and the button to the same path; the record unchanged, no `GatewayPayment` | a 5xx, a changed record |
 | T6 | the pay route twice for an open payment: one `GatewayPayment`, the same URL; after the stub marks it lapsed: a second `GatewayPayment`, the first unlinked, the record's `gateway_payment_id` on the new one | a second payment while open, or no new one when lapsed |
 | T7 | the pay route for a paid charge: 303 to the return address; an unknown token: 404; a token of another tenant on this host: 404; `?terug=//evil` ignored | — |
-| T8 | `checkout_url_for` returns the pay path for an open online charge; the card's `OnlineDue` carries it; the return page in a lapsed state renders *Opnieuw proberen* to it | — |
+| T8 | `checkout_url_for` returns the pay path for an open online charge; the card's `OnlineDue` carries it; *Mijn inschrijvingen* renders *Betaling hervatten* to it for an unpaid online registration and nothing for a transfer; the return page in a lapsed state renders *Opnieuw proberen* to it | — |
 | T9 | the migration gives every existing charge a distinct token (a seeded table before the upgrade, counted after) | a null or a duplicate |
 | T10 | e2e with the stub: the chain as today (the wait for the stub's checkout URL holds through the 303); and the failure page: stub switched down → register online → the page with the button; switched up → the button → the stub's checkout → pay → webhook → *Betaling ontvangen* | — |
 | T11 | the events gate: the three entries removed from the declared set, the gate red when one of the old calls is put back (the proof, additive, in the docstring) | — |
+| T12 | the confirmation mail of an online registration made while signed in carries the *Mijn inschrijvingen* sentence; a guest's carries the Q6 sentence; the family welcome mail names *Mijn gezin*; a transfer or paid charge gets none of them | a mail with a pay link, or a sentence for the wrong case |
 
 **Impact on the test landscape:** `test_registration_questions.py::test_nothing_is_committed_before_the_payment_step` is rewritten (T3); `test_webhook_url_1279.py` asserts on `start_checkout`'s call to the provider instead of `create_payment_record`'s; the flows tests listed in C1 are read one by one in the build read, each with a verdict; the e2e chain is unchanged in its steps; one new screenshot set (`betalen`, 390 px). No other test should change: the webhook, the ledger, the transfer path and the admin screens are untouched.
 
@@ -514,7 +525,7 @@ Nothing was run. The names of the tests that mention the concept were read (C1):
 
 ## C9. Screens before the build — the concepts the approver saw
 
-Two concepts to render at 390 px and show Koen before the handover, kept in the CR-31 folder of the project material outside the repository: (1) the pay page in its failure state for a registration (heading, message, amount, two buttons); (2) the return page's lapsed state with *Opnieuw proberen*. Not yet shown; the status line says so.
+Three concepts to render at 390 px and show Koen before the handover, kept in the CR-31 folder of the project material outside the repository: (1) the pay page in its failure state for a registration (heading, message, amount, two buttons); (2) the return page's lapsed state with *Opnieuw proberen*; (3) *Mijn inschrijvingen* with an unpaid online registration and its *Betaling hervatten*. Not yet shown; the status line says so.
 
 ## C10. Close-out at the release
 
@@ -526,8 +537,9 @@ Not written: the change is not built.
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
-| Q1 | 9 Oct 2026 | Does the confirmation mail carry the pay link? (architecture CLI) | **Open — B8.** |
-| Q2 | 9 Oct 2026 | Which release? (architecture CLI) | **Open — B8.** Not v2.16 (Koen). |
+| Q1 | 9 Oct 2026 | Does the confirmation mail carry the pay link? (architecture CLI, through the master CLI) | Koen asked "wat is de betaalpagina?" and answered: "Ik zou laten verwijzen naar het scherm waar de betaling kan hernomen worden, waar het zichtbaar is in de site." — the mail names the screen, no link of its own (R6, F9, B9). That screen does not exist yet for a registration: R8 adds it. For a guest, who has no screen: Q6. |
+| Q2 | 9 Oct 2026 | Which release? (architecture CLI, through the master CLI) | "En neen, niet voor v2.16. Dit plannen we ooit." — not planned (B9). |
+| Q6 | 9 Oct 2026 | What does a guest's confirmation mail say about an unpaid online charge? (architecture CLI) | **Open — B8.** |
 | Q3 | 9 Oct 2026 | Why not the record's uuid id as the link, without a migration? (shaping) | It is an identifier that appears in board URLs, exports and logs; a capability should appear nowhere else (C4.4). |
 | Q4 | 9 Oct 2026 | Why no job and waiting page for the silent provider? (master CLI, CR-13 C7-B) | A screen and a state for every payment to cover a rare, short failure; the page with the button says it in one sentence (C4.5). |
 | Q5 | 9 Oct 2026 | Where does the pay route get the return address and the description from, since the port does not carry them? (shaping) | Derived from the payable at checkout time, with today's words; the board passes `?terug=` as a local path (C4.2, C5). The build read confirms the words. |
@@ -535,6 +547,7 @@ Not written: the change is not built.
 ## Non-goals — deliberately outside this change
 
 - A waiting page or a job that keeps asking the provider (R7).
+- A pay link of its own in a mail (Koen, 9 October 2026: the mail refers to the screen on the site).
 - The mails that wait for their answer (the meeting mail, the newsletter sign-up's confirmation): a change request about mail's own queue, not yet shaped (CR-13 phase 4d).
 - The unreachable `/betaling/geannuleerd` route: reported, not touched.
 - The webshop's basket and order (CR-21): it uses this port and this route.
