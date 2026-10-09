@@ -339,7 +339,11 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    32 px between the sections of a form column. */
 .admin-content:has([data-record-head]){max-width:none}
 .record-frame{container-type:inline-size;container-name:record}
-.record-columns{display:grid;grid-template-columns:minmax(0,1056px);gap:24px;align-items:start}
+.record-columns{display:grid;grid-template-columns:minmax(0,768px);gap:24px;align-items:start}
+/* CR-17 slice 4, scoped after the CI run of 9 October (#1770): the wide
+   reading group is the PAGE screen's own (Koen's words were about her
+   form), carried by her own attribute — an existing record keeps her width. */
+.record-columns[data-wide]{grid-template-columns:minmax(0,1056px)}
 .record-form-column{min-width:0}
 .form-flow{display:grid;gap:32px;min-width:0}
 /* CR-11 pilot B (#1589, §2.6): the public form page — one column of 768 px,
@@ -363,7 +367,8 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    space in it. */
 .form-flow>[data-form-message]:not(:has(*)){display:none}
 .record-summary-column{min-width:0;order:-1}
-@container (min-width:964px){.record-columns:has(>.record-summary-column){grid-template-columns:minmax(0,1056px) 300px}.record-summary-column{order:0}}
+@container (min-width:964px){.record-columns:has(>.record-summary-column){grid-template-columns:minmax(0,768px) 300px}.record-summary-column{order:0}}
+@container (min-width:964px){.record-columns[data-wide]:has(>.record-summary-column){grid-template-columns:minmax(0,1056px) 300px}}
 /* #1610 (Koen, 5 October 2026; end state §2.2): room for the groups. A record
    that is being EDITED and holds a composite repeating group (components with
    their products) takes the whole reading group and its summary
@@ -379,9 +384,13 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    the wider column, a text box included — the width of a field follows its
    column. #1610 kept `textarea`, `url` and `email` at 768 px here, which left
    Omschrijving and Interne nota with a gap of 290 px at their right. */
-@container record (min-width:1380px){
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1380px)}
+@container record (min-width:1092px){
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1092px)}
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1}
+}
+@container record (min-width:1380px){
+  .record-columns[data-wide]:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1380px)}
+  .record-columns[data-wide]:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1}
 }
 .summary-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;align-items:center}
 .summary-card [data-summary-state]{grid-column:1;grid-row:1}

@@ -141,21 +141,15 @@ def test_the_reading_group_is_left_aligned_never_centred(setup, width, suffix):
     assert f["head"]["x"] == f["margin"] and f["tabs"]["x"] == f["margin"], (
         "on the same x as the head and the tabs"
     )
-    if suffix and width == 1920:
-        # #1610 (Koen, 5 October 2026), widened by CR-17 slice 4 (Koen, 9
-        # October 2026: "links houden, maar het scherm benutten"): a record
-        # with a composite group that is being EDITED takes the whole
-        # reading group — 1 380 px where the frame has her — and its summary
-        # stands above the form as a strip. Red on master: 768 beside 300.
-        assert f["form"]["w"] == 1380, "the editor does not take the reading group"
-        assert (f["summary"]["x"], f["summary"]["w"]) == (f["form"]["x"], 1380)
+    if suffix:
+        # #1610 (Koen, 5 October 2026): a record with a composite group that is
+        # being EDITED takes the whole reading group, and its summary stands
+        # above the form as a strip. Red on master: 768 beside 300.
+        assert f["form"]["w"] == 1092, "the editor does not take the reading group"
+        assert (f["summary"]["x"], f["summary"]["w"]) == (f["form"]["x"], 1092)
         assert f["summary"]["y"] + f["summary"]["h"] <= f["form"]["y"], "the summary is not above"
     else:
-        # The reading column grows with the screen up to her 1 056 px cap
-        # (CR-17 slice 4): 844 px of frame at 1 440, the cap at 1 920. Below
-        # 1 380 px of frame the composite takes what the frame gives and the
-        # summary simply stands beside her.
-        assert f["form"]["w"] == (844 if width == 1440 else 1056)
+        assert f["form"]["w"] == 768
         assert f["summary"]["x"] == f["form"]["right"] + 24 and f["summary"]["w"] == 300
     assert f["frame_right"] - f["summary"]["right"] >= 0, "the room beyond the summary stays empty"
     assert f["page"][0] <= f["page"][1]
@@ -166,17 +160,15 @@ def test_the_kit_grid_gives_each_kind_its_width(setup):
     page = _page(setup, 1440, "/admin/design-system")
     k = page.evaluate(_KIT)
     print("MEASURE kit 1440", k)
-    # CR-17 slice 4: the kit's form column grew with the screen (844 px of
-    # frame at 1 440), and every field follows her column (#1635).
-    assert k["section"]["w"] == 844
-    assert k["name"]["w"] == 399 and k["slug"]["w"] == 399, "two halves in 810 px"
-    assert k["name"]["y"] == k["slug"]["y"] and k["slug"]["x"] - (k["name"]["x"] + 399) == 12
-    assert k["location"]["y"] > k["name"]["y"] and k["location"]["w"] == 399, (
+    assert k["section"]["w"] == 768
+    assert k["name"]["w"] == 361 and k["slug"]["w"] == 361, "two halves in 734 px"
+    assert k["name"]["y"] == k["slug"]["y"] and k["slug"]["x"] - (k["name"]["x"] + 361) == 12
+    assert k["location"]["y"] > k["name"]["y"] and k["location"]["w"] == 361, (
         "a half field alone on its row"
     )
-    assert k["description"]["w"] == 810, "a textarea is full"
+    assert k["description"]["w"] == 734, "a textarea is full"
     for quarter in ("max", "price", "date", "time"):
-        assert k[quarter]["w"] == 193.5, quarter
+        assert k[quarter]["w"] == 174.5, quarter
     assert len({k[q]["y"] for q in ("max", "price", "date", "time")}) == 1, (
         "four quarters on one row"
     )
@@ -255,12 +247,11 @@ def test_the_activity_section_keeps_its_measured_heights(setup):
     assert e["sections"][0]["h"] > r["sections"][0]["h"], (
         "the editor takes more room, in the same place"
     )
-    # At 1 440 the editor's summary stands BESIDE the form since CR-17 slice 4
-    # (the composite strip of #1610 needs 1 380 px of frame), so the first
-    # field keeps the y of reading; where the strip does stand (1 920, the
-    # room test), the first field starts lower by the strip and her 24 px.
+    # Until #1610 the first field stood on the same y in both states. The editor
+    # now has the summary above it (the strip), so its first field starts lower —
+    # by the strip and the 24 px under it, and by nothing else.
     lower = e["fields"][0]["y"] - r["fields"][0]["y"]
-    assert lower == 0, (lower, e["summary"])
+    assert lower == e["summary"]["h"] + 24, (lower, e["summary"])
     gaps = [b["y"] - (a["y"] + a["h"]) for a, b in zip(e["sections"], e["sections"][1:])]
     assert gaps == [32, 32], "32 px between sections"
 
@@ -366,16 +357,13 @@ def test_the_first_card_starts_where_the_summary_card_starts(setup, width, suffi
     assert len(tops) == 1, "the fiche has one pair of columns"
     pair = tops[0]
     assert pair["form_is"] == "aa-section-activity", pair
-    if suffix and width == 1920:
-        # #1610: the editor takes the whole reading group (1 380 px, CR-17
-        # slice 4) and its summary stands above it — the frame starts with
-        # the summary, and the first card comes under it.
+    if suffix:
+        # #1610: the editor is wide and its summary stands above it — the frame
+        # starts with the summary, and the first card comes under it.
         assert not pair["beside"], "the summary still stands beside a wide editor"
         assert abs(pair["summary"] - pair["columns"]) <= 1, "room above the summary strip"
         assert pair["form"] > pair["summary"]
     else:
-        # Below 1 380 px of frame (and in reading at every width) the summary
-        # stands beside the form.
         assert pair["beside"], "the two cards stand beside each other at this width"
         assert abs(pair["form"] - pair["summary"]) <= 1, pair
         assert abs(pair["form"] - pair["columns"]) <= 1, "no room above the first card"

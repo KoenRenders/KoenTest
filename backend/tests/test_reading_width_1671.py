@@ -61,13 +61,26 @@ def test_the_kit_knows_the_reading_column_and_the_tables_escape():
     )
 
 
-def test_the_record_form_grows_with_the_screen_up_to_her_cap():
-    """Koen, 9 October 2026: "links houden, maar het scherm benutten" — the
-    record form column grows with the screen up to a readable cap of
-    1 056 px, the summary stays 300 px beside her, left-aligned and never
-    centred. The reading group is 1 380 px at her widest."""
+def test_the_record_form_grows_only_where_the_screen_asks_for_it():
+    """Koen, 9 October 2026: "links houden, maar het scherm benutten" — his
+    words were about the PAGE screen's form. The wide reading group
+    (1 056 px, summary 300 beside her, left-aligned) is carried by
+    `data-wide`, which only the page screen's template sets (the CI run
+    of 9 October scoped her, #1770: an existing record — the activity —
+    keeps master's width)."""
     build = BUILD.read_text()
-    assert "minmax(0,1056px) 300px" in build, "the form column no longer grows"
+    assert ".record-columns[data-wide]{grid-template-columns:minmax(0,1056px)}" in build, (
+        "the wide group lost her own selector"
+    )
+    assert "minmax(0,768px)" in build.split(".record-columns{")[1].split("}")[0], (
+        "the default record column grew beyond master's width"
+    )
+    record = (APP / "ui" / "templates" / "_macros.html").read_text()
+    assert "wide=False" in record, "the macro grew every record"
+    pagina = (APP / "domains" / "cms" / "templates" / "_cp_record.html").read_text()
+    assert "wide=True" in pagina, "the page screen lost her wide group"
+    activiteit = (APP / "domains" / "activities" / "templates" / "_aa_record.html").read_text()
+    assert "wide" not in activiteit, "the activity record grew with the page"
     assert "margin-inline:auto" not in build.split(".record-columns{")[1].split("}")[0], (
         "the reading group is centred — she must stay left"
     )

@@ -70,7 +70,7 @@
   {% endcall %}
   {% endif %}
 {% endset %}
-{% call ui.record_columns(aside=samenvatting) %}
+{% call ui.record_columns(aside=samenvatting, wide=True) %}
 <form id="cp-form" class="space-y-4" hx-post="/admin/paginas/{{ p.id }}" hx-target="#main" hx-swap="innerHTML">
   {% call ui.section(_("Gegevens")) %}
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
