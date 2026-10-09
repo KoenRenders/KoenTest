@@ -291,8 +291,16 @@ def test_8_a_form_on_a_page_lands_under_formulieren(browser, company):
     # the `raak_tenant` cookie is only the safety net). Without the cookie, a
     # bare `/formulier/…` reached the platform tenant: "Formulier niet gevonden".
     page.context.clear_cookies()
-    page.get_by_role("button", name="Verzenden").first.click()
-    page.wait_for_load_state("networkidle")
+    # Wait for the answer of the post itself (#1812). The page reached
+    # `networkidle` long before the click — the typing above takes seconds — so
+    # waiting for that state returned at once, and the page was closed while the
+    # post was still on its way: on a busy runner the submission was never sent.
+    with page.expect_response(
+        lambda answer: answer.request.method == "POST" and "/formulier/" in answer.url
+    ) as answered:
+        page.get_by_role("button", name="Verzenden").first.click()
+    assert answered.value.status == 200, answered.value.status
+    assert f"/{CODE}/formulier/" in answered.value.url, "the post lost the tenant's prefix"
     page.close()
 
     page = _page(browser, company["admin"])
