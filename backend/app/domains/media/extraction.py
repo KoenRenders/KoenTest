@@ -31,16 +31,17 @@ from typing import Optional
 import httpx
 
 from app.config import settings
-from app.database import SessionLocal
 from app.domains.chatbot.api import (
     AiCapability,
     AiProvider,
     AiStatus,
     AiSurface,
-    ChatbotInfo,
+    has_extracted_text,
     sink_for,
 )
 from app.domains.media.models import MediaAsset, MediaKind
+from app.kernel.contracts.media import DocumentTextExtracted
+from app.kernel.events import has_subscribers, publish
 
 logger = logging.getLogger(__name__)
 
@@ -209,17 +210,27 @@ def extract_document_text(raw: bytes, content_type: str, tenant_id: Optional[int
     return _clean_extracted_text(_select_text(raw, content_type, tenant_id=tenant_id))
 
 
-def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> None:
-    """Achtergrond-taak: extraheer de tekst van één media-asset naar chatbot_info.
+def update_media_extracted_text(asset_id: int, db, force: bool = False) -> None:
+    """The reading job's work: read the text of one stored document and say what
+    was read (CR-13 phase 4d, #1251).
 
-    Zonder ``db`` (als achtergrond-taak) → eigen sessie. Vindt-of-maakt de
-    ``chatbot_info``-rij voor dit asset en vult ``extracted_text``. Slaat over als
-    die al gevuld is, tenzij ``force`` (de 'Opnieuw lezen'-knop). Raakt nooit
-    ``text_override``/``text_addition`` aan — handmatige bewerkingen blijven staan.
+    Publishes `DocumentTextExtracted`, in the job's transaction; the chatbot
+    keeps the text in its own row for the document — this function writes no row
+    of the AI context. Skipped when the chatbot has the text already, unless
+    `force` (the "Opnieuw lezen" button).
+
+    A reading that FAILS — the provider, the file — is logged and leaves the
+    document as it was: it never breaks what planned it. A reading that NOBODY
+    HEARS is another thing: the process did not register the chatbot's handler
+    (`app.main` does), and the text would be read and lost. That raises, outside
+    the catch below, so the job fails where someone sees it instead of ending
+    "done" after one warning.
     """
-    own_session = db is None
-    if own_session:
-        db = SessionLocal()
+    if not has_subscribers(DocumentTextExtracted):
+        raise RuntimeError(
+            "nothing listens for DocumentTextExtracted: the chatbot's handler is not "
+            "registered in this process (app.main imports it)"
+        )
     try:
         asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
         if not asset or not asset.data:
@@ -227,16 +238,21 @@ def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> 
         if asset.kind not in EXTRACTABLE_KINDS:
             return
 
-        row = db.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id == asset_id).first()
-        if row and row.extracted_text and not force:
+        # CR-13 phase 4d (#1251): the row is the chatbot's. Whether the document
+        # was read already is a question to it; what was read is a fact it hears.
+        if not force and has_extracted_text(db, asset_id):
             return  # al uitgelezen → niets te doen
 
         text = extract_document_text(asset.data, asset.content_type, tenant_id=asset.tenant_id)
-        if row is None:
-            row = ChatbotInfo(media_asset_id=asset_id, title=asset.title)
-            db.add(row)
-        row.extracted_text = text or None
-        row.extracted_at = datetime.now(timezone.utc)
+        publish(
+            DocumentTextExtracted(
+                asset_id=asset_id,
+                title=asset.title,
+                text=text or "",
+                extracted_at=datetime.now(timezone.utc),
+            ),
+            db,
+        )
         db.commit()
         logger.info(
             "chatbot_info.extracted_text bijgewerkt voor media-asset %s (%d tekens)",
@@ -246,6 +262,3 @@ def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> 
     except Exception as exc:  # nooit de upload-flow breken
         logger.warning("Tekstextractie voor media-asset %s mislukte: %s", asset_id, exc)
         db.rollback()
-    finally:
-        if own_session:
-            db.close()

@@ -57,6 +57,12 @@ kind); the kernel has none.
 | `RemoveFileOf` | removes what an owner has of a kind (an activity's poster, a component's info document) | `AssetsRemoved(count)` — zero when there was nothing | `MediaFout` when no owner is named |
 | `ReadTextAgain` | plans the reading of a stored document's text once more (the "Opnieuw lezen" button of the AI context) as the same job; only the extracted text is replaced | `ReadingPlanned(asset_id)` | `LookupError` for an asset that is not there or of a kind whose text is never read |
 
+**Publishes** `DocumentTextExtracted(asset_id, title, text, extracted_at)`
+(`kernel/contracts/media.py`, CR-13 phase 4d, #1251): the reading job read a
+poster or an info document — also when it found no text. The chatbot keeps the
+text in its own row; media writes no row of the AI context. Whether a document
+was read already, the job asks the chatbot (`chatbot.api.has_extracted_text`).
+
 Not a port: `activity_image_path`, the picture that stands for an activity in a
 letter. It is a read through `api.py` and writes nothing.
 

@@ -146,7 +146,7 @@ tekst** = `COALESCE(text_override, basis)` ＋ `text_addition`; `is_active=false
 > de `chatbot_info`-rij van dat asset. De bot leest via `get_activity_detail`
 > (poster → `flyer_text`, onderdeel → `info_text`).
 > Code: `app/services/media_extraction.py`, model `app/models/chatbot_info.py`,
-> migratie 059. Backfill: `backend/backfill_extracted_text.py`.
+> migratie 059.
 
 - **Wanneer:** bij **upload**, één keer, op de **achtergrond** (`BackgroundTasks`
   — geen queue/Redis). De upload slaagt direct; extractie loopt erachteraan. De
