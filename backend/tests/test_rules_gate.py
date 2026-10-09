@@ -868,6 +868,18 @@ def _own_nodes(function: ast.AST):
             todo.extend(ast.iter_child_nodes(node))
 
 
+#: What three hard gates must at least RECOGNISE on every run, now that no list
+#: proves it (dev2's review of the last step of phase 4d). Each is about half of
+#: what was measured on 9 October 2026 — 440 writes to a domain's own classes,
+#: 440 writes outside the doors, 104 calls followed behind a facade, 174
+#: functions that commit — so ordinary change does not trip it, and a recogniser
+#: gone blind, which finds zero, does.
+FLOOR_OWN_WRITES = 200
+FLOOR_SERVICE_WRITES = 200
+FLOOR_RESOLVED_CALLS = 50
+FLOOR_COMMITS = 80
+
+
 def _foreign_writes_in(function, resolve, schemas: dict[str, str], owner: str):
     """Yield `(class or schema, line, what)` for every write to a class of another owner."""
     typed: dict[str, str] = {}
@@ -958,6 +970,7 @@ def collect_foreign_writes() -> dict[str, str]:
     `file::function → owner.Class` (CR-13 §B9.3, *no foreign writes*). Reads are free."""
     classes, schemas = _mapped_owners()
     found: dict[str, str] = {}
+    own = 0  # writes to a class of the file's own domain: recognised, and allowed
     for path in _python_files():
         owner = _owner_of_file(path)
         tree = _tree(path)
@@ -976,6 +989,7 @@ def collect_foreign_writes() -> dict[str, str]:
             for cls, line, what in _foreign_writes_in(function, resolve, schemas, owner):
                 target = cls if cls.startswith("schema ") else f"{classes[cls]}.{cls}"
                 if not cls.startswith("schema ") and classes[cls] == owner:
+                    own += 1
                     continue
                 name = qualified.get(function, function.name)
                 key = f"{_rel(path)}::{name} → {target}"
@@ -985,6 +999,12 @@ def collect_foreign_writes() -> dict[str, str]:
                     f"written by its owner: call its `api.py` or publish the event it "
                     f"subscribes to (CR-13 §B9.3)",
                 )
+    # The gate reads no list any more, so nothing else proves that the recogniser
+    # still recognises a write (dev2's review; measured at FLOOR_OWN_WRITES).
+    assert own > FLOOR_OWN_WRITES, (
+        f"only {own} writes to a domain's own classes recognised — the walk no longer "
+        f"sees a write, so it would not see a foreign one either"
+    )
     return found
 
 
@@ -1157,6 +1177,76 @@ def _is_door(path: Path) -> bool:
     )
 
 
+def _held_facades(tree: ast.Module):
+    """Which facade function a call in this module reaches: a function that takes a
+    call's target (`node.func`) and answers `(domain, exported name)` or None — or
+    None itself when the module holds no facade at all.
+
+    ONE place for the spellings, asked by every collector that follows a call into
+    another domain (dev2's review of the last step of phase 4d: the form
+    `import … as` had been taught to one collector and not to the other):
+
+    - `from app.domains.x.api import f` (also `as g`) → `f(…)`;
+    - `from app.domains.x import api` (also `as a`) → `api.f(…)`;
+    - `import app.domains.x.api as a` → `a.f(…)`;
+    - `from app.domains import x` (also `as y`) → `x.api.f(…)`;
+    - `import app.domains.x.api` → `app.domains.x.api.f(…)`.
+
+    The last two occur nowhere under `app/` today; they are read all the same, so
+    a new spelling is not a way past the gates. What stays unseen is a facade
+    reached without an import statement (`importlib`, `getattr`).
+    """
+    direct: dict[str, tuple[str, str]] = {}
+    modules: dict[str, str] = {}
+    packages: dict[str, str] = {}
+    dotted = False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            parts = node.module.split(".")
+            if parts[:2] != ["app", "domains"]:
+                continue
+            if len(parts) == 4 and parts[3] == "api":
+                for alias in node.names:
+                    direct[alias.asname or alias.name] = (parts[2], alias.name)
+            elif len(parts) == 3:
+                for alias in node.names:
+                    if alias.name == "api":
+                        modules[alias.asname or alias.name] = parts[2]
+            elif len(parts) == 2:
+                for alias in node.names:
+                    packages[alias.asname or alias.name] = alias.name
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                parts = alias.name.split(".")
+                if parts[:2] == ["app", "domains"] and len(parts) == 4 and parts[3] == "api":
+                    if alias.asname:
+                        modules[alias.asname] = parts[2]
+                    else:
+                        dotted = True
+    if not (direct or modules or packages or dotted):
+        return None
+
+    def target_of(func: ast.expr) -> tuple[str, str] | None:
+        if isinstance(func, ast.Name):
+            return direct.get(func.id)
+        if not isinstance(func, ast.Attribute):
+            return None
+        holder = func.value
+        if isinstance(holder, ast.Name):
+            domain = modules.get(holder.id)
+            return (domain, func.attr) if domain else None
+        if isinstance(holder, ast.Attribute) and holder.attr == "api":
+            if isinstance(holder.value, ast.Name) and holder.value.id in packages:
+                return packages[holder.value.id], func.attr
+            if dotted:
+                named = re.fullmatch(r"app\.domains\.(\w+)\.api", ast.unparse(holder))
+                if named:
+                    return named.group(1), func.attr
+        return None
+
+    return target_of
+
+
 def _foreign_api_calls() -> dict[tuple[str, str], str]:
     """(domain, exported name) → one caller in another domain's non-door code
     (a service, a handler, a tool), `file:line`. A router or screen calling another
@@ -1167,33 +1257,13 @@ def _foreign_api_calls() -> dict[tuple[str, str], str]:
             continue
         caller_domain = _owner_of_file(path)
         tree = _tree(path)
-        direct: dict[str, tuple[str, str]] = {}
-        modules: dict[str, str] = {}
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module:
-                parts = node.module.split(".")
-                if parts[:2] == ["app", "domains"] and len(parts) == 4 and parts[3] == "api":
-                    for alias in node.names:
-                        direct[alias.asname or alias.name] = (parts[2], alias.name)
-                elif node.module == "app.domains" or (
-                    parts[:2] == ["app", "domains"] and len(parts) == 3
-                ):
-                    for alias in node.names:
-                        if alias.name == "api":
-                            modules[alias.asname or alias.name] = parts[2]
+        target_of = _held_facades(tree)
+        if target_of is None:
+            continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
-            func = node.func
-            target = None
-            if isinstance(func, ast.Name) and func.id in direct:
-                target = direct[func.id]
-            elif (
-                isinstance(func, ast.Attribute)
-                and isinstance(func.value, ast.Name)
-                and func.value.id in modules
-            ):
-                target = (modules[func.value.id], func.attr)
+            target = target_of(node.func)
             if target and target[0] != caller_domain:
                 callers.setdefault(target, f"{_rel(path)}:{node.lineno}")
     return callers
@@ -1295,10 +1365,12 @@ def collect_commit_behind_api() -> dict[str, str]:
     # A package without `api.py` (stt) exports nothing; module shape reports it.
     exports = {p.name: _api_exports(p) for p in _packages() if (p / "api.py").is_file()}
     found: dict[str, str] = {}
+    resolved = 0  # calls followed to the function behind the facade
     for (domain, name), caller in sorted(callers.items()):
         target = exports.get(domain, {}).get(name)
         if target is None:
             continue
+        resolved += 1
         path, tree, function = target
         for reached_path, reached_tree, reached, via in _reachable(path, tree, function):
             declared = _own_transaction(reached)
@@ -1317,6 +1389,22 @@ def collect_commit_behind_api() -> dict[str, str]:
                     f"service commits, once (CR-13 §B9.3)"
                 )
                 break
+    # No list is read any more, so two things prove the walk still looks: it
+    # followed calls to the function behind the facade, and what it asks of each
+    # — "does this commit?" — still recognises the commits the application has.
+    assert resolved > FLOOR_RESOLVED_CALLS, (
+        f"only {resolved} calls between domains followed behind the facade — the walk is blind"
+    )
+    commits = sum(
+        1
+        for path in _python_files()
+        for node in ast.walk(_tree(path))
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _commits(node)
+    )
+    assert commits > FLOOR_COMMITS, (
+        f"only {commits} functions that commit recognised in the whole application — "
+        f"the walk no longer sees a commit, so it would not see one behind a facade"
+    )
     return found
 
 
@@ -1417,20 +1505,34 @@ def _writes_in_its_own_domain(path: Path, tree: ast.Module, function: ast.AST, d
 def _references() -> dict[str, list[ast.AST | None]]:
     """name → the top-level function of every place in the application that names
     it — a call, or the bare name handed on — and None for a place outside any
-    function. Imports and the definition itself do not count: they reach nothing.
+    function. Imports and the definition itself do not count: they reach nothing —
+    but a name imported `as` another counts where that other name is used (dev2's
+    review: a step called through an alias from a door read as the queue's own).
 
     Not cached: the collector that asks it is, for the real tree, and the port
     gate's proofs call that collector on a small world of their own — a walk kept
     per process would answer them with the wrong tree."""
     found: dict[str, list[ast.AST | None]] = {}
     for path in _python_files():
-        for top in _tree(path).body:
+        tree = _tree(path)
+        # A function imported under another name is called under that name: the
+        # alias stands for the original, wherever in the module it was imported.
+        aliases = {
+            alias.asname: alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom)
+            for alias in node.names
+            if alias.asname and alias.asname != alias.name
+        }
+        for top in tree.body:
             if isinstance(top, (ast.Import, ast.ImportFrom)):
                 continue
             holder = top if isinstance(top, (ast.FunctionDef, ast.AsyncFunctionDef)) else None
             for node in ast.walk(top):
                 if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
                     found.setdefault(node.id, []).append(holder)
+                    if node.id in aliases:
+                        found.setdefault(aliases[node.id], []).append(holder)
                 elif isinstance(node, ast.Attribute):
                     found.setdefault(node.attr, []).append(holder)
     assert found, "no name referenced anywhere — the walk is blind"
@@ -1448,7 +1550,12 @@ def _only_from_a_job(
     side — a second function of the same name that a request calls makes this one
     "reached from a request" too, and a function nothing names is not a job path
     either. What it cannot see is dynamic dispatch (`getattr`, a name in a string):
-    a function reached only that way is not found and stays red.
+    a function reached only that way is not found and stays red. A function
+    reached through an alias (`from … import step as go`, then `go()`) IS seen:
+    the alias counts as the name. Proof (run, removed), additive: the `_probe_step`
+    and `probe_job` of the proof below, and in `newsletter/admin_ui.py` the step
+    imported `as probe_go` and called → red, on `_probe_step`; green before the
+    alias counted.
 
     A `@job` function counts as the queue's only when NOTHING ELSE names it: the
     decorator registers it, so any other mention is a caller — or a namesake,
@@ -1510,32 +1617,8 @@ def collect_command_calls_outside_handlers() -> dict[str, str]:
         if caller in {"app", "kernel"}:
             continue  # not a domain: the rule is about domain pairs
         tree = _tree(path)
-        direct: dict[str, tuple[str, str]] = {}
-        modules: dict[str, str] = {}
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module:
-                parts = node.module.split(".")
-                if parts[:2] == ["app", "domains"] and len(parts) == 4 and parts[3] == "api":
-                    for alias in node.names:
-                        direct[alias.asname or alias.name] = (parts[2], alias.name)
-                elif parts[:2] == ["app", "domains"] and len(parts) == 3:
-                    for alias in node.names:
-                        if alias.name == "api":
-                            modules[alias.asname or alias.name] = parts[2]
-            elif isinstance(node, ast.Import):
-                # `import app.domains.mail.api as mail` — the third way to hold a
-                # facade. Unseen until the last step of phase 4d: a call through it
-                # was no call to this gate.
-                for alias in node.names:
-                    parts = alias.name.split(".")
-                    if (
-                        alias.asname
-                        and parts[:2] == ["app", "domains"]
-                        and len(parts) == 4
-                        and parts[3] == "api"
-                    ):
-                        modules[alias.asname] = parts[2]
-        if not direct and not modules:
+        target_of = _held_facades(tree)
+        if target_of is None:
             continue
         qualified = _enclosing(tree)
         for function in ast.walk(tree):
@@ -1554,16 +1637,7 @@ def collect_command_calls_outside_handlers() -> dict[str, str]:
             for node in _own_nodes(function):
                 if not isinstance(node, ast.Call):
                     continue
-                func = node.func
-                target = None
-                if isinstance(func, ast.Name) and func.id in direct:
-                    target = direct[func.id]
-                elif (
-                    isinstance(func, ast.Attribute)
-                    and isinstance(func.value, ast.Name)
-                    and func.value.id in modules
-                ):
-                    target = (modules[func.value.id], func.attr)
+                target = target_of(node.func)
                 if not target or target[0] == caller or target not in commands:
                     continue
                 calls.append((node.lineno, target))
@@ -2067,8 +2141,22 @@ def collect_write_outside_service() -> dict[str, str]:
     where the aggregate's `check()` runs on flush for every entrance alike."""
     classes, schemas = _mapped_owners()
     found: dict[str, str] = {}
+    in_services = 0  # the same recogniser, on what is not a door or a handler
     for path in _python_files():
         tree = _tree(path)
+        if not _is_door(path):
+            in_names, in_modules = _class_names(tree, classes)
+            for function in ast.walk(tree):
+                if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    in_services += sum(
+                        1
+                        for _write in _foreign_writes_in(
+                            function,
+                            lambda node, n=in_names, m=in_modules: _class_of(node, n, m, classes),
+                            {},
+                            owner="",
+                        )
+                    )
         functions = (
             [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
             if _is_door(path)
@@ -2093,6 +2181,12 @@ def collect_write_outside_service() -> dict[str, str]:
                     f"service — move the write to the service; `check()` runs on flush "
                     f"(CR-13 §B9.3)",
                 )
+    # No list is read any more: the writes the same recogniser finds where they
+    # belong prove it still recognises one (measured at FLOOR_SERVICE_WRITES).
+    assert in_services > FLOOR_SERVICE_WRITES, (
+        f"only {in_services} writes recognised outside the doors — the walk no longer "
+        f"sees a write, so it would not see one in a door either"
+    )
     return found
 
 
@@ -2843,8 +2937,9 @@ def test_events_not_calls():
 def test_every_declared_command_call_says_what_it_is_and_what_removes_it():
     """A declared call is no exemption without a reason: each entry says which
     coupling it is and what takes it away, or that it is left on purpose and by
-    whom. Five, and the number is part of the declaration."""
-    assert len(DECLARED_COMMAND_CALLS) == 5
+    whom. How many there are is the set's own to say: the ratchet holds both
+    halves, so the set shrinks with one edit."""
+    assert DECLARED_COMMAND_CALLS, "the declared set is empty — then this test and the set go"
     bad = {
         key: reason
         for key, reason in DECLARED_COMMAND_CALLS.items()
