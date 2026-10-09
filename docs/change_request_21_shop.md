@@ -1191,5 +1191,7 @@ Made on 8 October 2026 and shown to Koen in the chat, at 390 px, rendered from t
 - **CR-27** (bank statement import, reserved) — booking transfers from the bank's file.
 - **CR-28** (webshop follow-up on the workbench) — the workbench tasks split off (Q56).
 - **#1746** — a member cancels his own registration, the counterpart of R23 for activities (Q65), not on a release.
-- **#1875** — the registration's confirmation page shows the five transfer lines too, as the shop's thank-you page does (Q78), not on a release.
-- **#1878** — the registration mail writes amounts with a comma, as the order mail will (Q88), not on a release.
+- **Companion issues** — not part of this change and not built on `cr21/webshop`, but to ship in the **same release as phase 2**, so the registration says what the shop says for the same payment (Koen, 9 October 2026; #1743 issuecomment-6087886936):
+  - **#1875** — the registration's confirmation page shows the five transfer lines, as the shop's thank-you page does (Q78);
+  - **#1878** — the registration mail writes amounts with a comma, as the order mail does (Q88).
+  Neither is on a release yet; Koen puts them on the tracker that carries phase 2.
