@@ -147,6 +147,17 @@ def save_organization(db, organization_id: int, form: Mapping) -> None:
     db.commit()
 
 
+def _email_address(text: str) -> None:
+    """The rule of the contact detail (`require_email_address`, #1853), as a refusal
+    on the organisation form's field."""
+    from app.domains.mdm.models import EmailAddressInvalid, require_email_address
+
+    try:
+        require_email_address(text)
+    except EmailAddressInvalid as refused:
+        raise OngeldigeInstelling({"email": str(refused)}) from None
+
+
 def update_organization_details(db, organization_id: int, form: Mapping) -> None:
     """The details on their own, committed. The screen uses `save_organization`."""
     _write_organization_details(db, organization_id, form)
@@ -179,6 +190,11 @@ def _write_organization_details(db, organization_id: int, form: Mapping) -> None
     # #1545: the Belgian VAT number too — BE and the enterprise number.
     if (form.get("vat_number") or "").strip():
         form = {**form, "vat_number": _vat_number(form["vat_number"])}
+    # #1853: the organisation's e-mail address is an address. The contact detail
+    # holds that rule itself at the flush; asked here first, so the refusal
+    # stands on its field and a refused form leaves the organisation untouched.
+    if (form.get("email") or "").strip():
+        _email_address(form["email"].strip())
 
     # Eerst weigeren, dan pas schrijven: een afgekeurde opslag mag niet half
     # doorgevoerd zijn. `name` voedt sinds #945 de paginatitel, de afzender van

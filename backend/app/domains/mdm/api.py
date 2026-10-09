@@ -40,6 +40,7 @@ from app.domains.mdm.household_board_schemas import (  # noqa: F401
     AddressUpdate,
     BoardMemberAssign,
     ContactsUpdate,
+    EmailAddress,
     PersonAddToFamily,
     PersonUpdate,
 )
@@ -103,6 +104,7 @@ from app.domains.mdm.models import (  # noqa: F401
     ContactTypeCode,
     ContactTypeLabel,
     EmailAddressInUse,
+    EmailAddressInvalid,
     ExternalNumber,
     GenderCode,
     GenderLabel,
@@ -135,6 +137,7 @@ from app.domains.mdm.models import (  # noqa: F401
     RelationType,
     RelationTypeCode,
     TenantKind,
+    require_email_address,
 )
 
 # De organisatie als rechtspersoon staat sinds #971 apart van de tenant als site.
@@ -369,6 +372,9 @@ __all__ = [
     "new_contact_detail",
     "require_email_free",
     "EmailAddressInUse",
+    "EmailAddressInvalid",
+    "EmailAddress",
+    "require_email_address",
     "apply_email_rows",
     "make_email_primary",
     "remove_email_address",

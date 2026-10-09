@@ -204,7 +204,7 @@ def save_person(
             hs.apply_person_fields(db, person, values, actor=actor, details_required=False)
         if not found.touches(at):
             hs._upsert_contact(db, person, "MOBILE", row.mobile.strip(), actor=actor)
-            _save_emails(db, person, row, actor)
+            _save_emails(db, person, row, actor, found)
         if found.found:
             raise HouseholdSaveRefused(found.found)
         with found.at(""):
@@ -289,14 +289,32 @@ def _save_person(
     # lid still asks it.
     for type_code, value in (("PHONE", row.phone), ("MOBILE", row.mobile)):
         hs._upsert_contact(db, person, type_code, value.strip(), actor=actor)
-    _save_emails(db, person, row, actor)
+    _save_emails(db, person, row, actor, errors)
 
 
-def _save_emails(db: Session, person: Person, row: PersonRow, actor: Optional[str]) -> None:
+def _save_emails(
+    db: Session, person: Person, row: PersonRow, actor: Optional[str], errors: Refusals
+) -> None:
     """The person's e-mail rows: what the form holds is what stays. A row the
     form no longer has goes (as an emptied one always did); the primary mark
-    moves only when the form marks another row."""
+    moves only when the form marks another row.
+
+    A row whose text is no address is refused at its own field, before any row
+    of this person is written (#1853): the contact detail holds that rule at the
+    flush, and asked here it has a place the screen can mark."""
+    from app.domains.mdm.models import require_email_address
     from app.domains.mdm.service import promote_email_row, write_email_rows
+
+    refused = False
+    for given in row.emails:
+        if not given.value.strip():
+            continue
+        place = f"e.{given.key}.value"
+        with errors.at(place):
+            require_email_address(given.value.strip())
+        refused = refused or errors.touches(place)
+    if refused:
+        return
 
     mine = {c.id for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL}
     sent = {int(e.key): e.value.strip() for e in row.emails if e.key.isdigit()}

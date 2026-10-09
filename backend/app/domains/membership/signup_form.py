@@ -23,9 +23,10 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import EmailStr, TypeAdapter, ValidationError
+from pydantic import ValidationError
 
 from app.domains.mdm.api import (
+    EmailAddressInvalid,
     HouseholdRefused,
     MainMemberMobileMissing,
     MemberPerson,
@@ -34,6 +35,7 @@ from app.domains.mdm.api import (
     RelationType,
     chosen_relation,
     household_from_form,
+    require_email_address,
     schema_refusal_words,
 )
 from app.domains.membership.schemas_family import FamilyCreate, FamilyMemberCreate
@@ -42,8 +44,6 @@ from app.kernel.refusals import FieldError
 
 #: The payment methods a visitor may choose on the public page.
 PAYMENT_METHODS = ("online", "transfer")
-
-_EMAIL = TypeAdapter(EmailStr)
 
 
 def _empty(row: PersonRow) -> bool:
@@ -81,8 +81,8 @@ def _addresses(row: PersonRow, errors: list[FieldError]) -> list[str]:
         if not mail.value:
             continue
         try:
-            _EMAIL.validate_python(mail.value)
-        except ValidationError:
+            require_email_address(mail.value)
+        except EmailAddressInvalid:
             errors.append(FieldError(f"e.{mail.key}.value", _("Vul een geldig e-mailadres in.")))
             continue
         found.append((mail.primary, mail.value))

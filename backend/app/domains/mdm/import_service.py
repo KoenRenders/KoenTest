@@ -60,6 +60,7 @@ from app.domains.mdm.history import (
     snapshot_member_person,
     snapshot_person,
 )
+from app.domains.mdm.models import EmailAddressInvalid, require_email_address
 from app.domains.mdm.service import email_refusal
 from app.domains.membership.api import has_membership_for_year
 from app.kernel.codes import code_of
@@ -440,6 +441,15 @@ def _upsert_contact(
     return contact_change(type_code, changed.old, changed.new, promoted=changed.promoted)
 
 
+def _is_an_address(value: str) -> bool:
+    """The contact detail's own rule (`require_email_address`, #1853), as a question."""
+    try:
+        require_email_address(str(value).strip())
+    except EmailAddressInvalid:
+        return False
+    return True
+
+
 def _sync_contacts(
     db: Session,
     person: Person,
@@ -471,6 +481,17 @@ def _sync_contacts(
         # already uses is not taken over. Reported and skipped — the import does
         # not stop on one row (the reasoning of `_meld_onvolledig`) — and decided
         # HERE, before the write, so the preview and the run say the same.
+        # #1853: neither is a text that is no address — the contact detail would
+        # refuse it at the flush and stop the whole import on one row. Said in the
+        # same place and the same way, so the preview and the run say the same.
+        if type_code == CONTACT.EMAIL and row[column] and not _is_an_address(row[column]):
+            if report is not None:
+                report.warn(
+                    f"#{row['lidnr']} {row['voornaam']} {row['naam']}: e-mailadres niet "
+                    "overgenomen — het is geen e-mailadres. Verbeter het in het rapport, "
+                    "of vul het daarna aan in het ledenbeheer."
+                )
+            continue
         if (
             type_code == CONTACT.EMAIL
             and row[column]

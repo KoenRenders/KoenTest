@@ -98,3 +98,42 @@ def test_the_address_is_still_there_after_a_reload(page):
     page.reload()
     pagina_klaar(page)
     expect(page.locator("#street")).to_have_value("")
+
+
+def test_the_email_field_refuses_what_is_no_address_and_says_so_at_the_field(page):
+    """#1853: the organisation's e-mail field took any text. What a browser lets
+    through by itself — `naam@domein` without a dot — is refused by the rule of
+    the contact detail, at the field, and what was typed comes back.
+
+    Set `E2E_PRINTS` to a folder to keep a print (outside the repository)."""
+    typed = "secretariaat@zonderpunt"
+    page.goto(f"/admin/organisaties/{ORGANISATION_ID}")
+    pagina_klaar(page)
+    page.locator('input[name="email"]').fill(typed)
+
+    with page.expect_response(
+        lambda r: r.request.method == "POST" and f"/admin/organisaties/{ORGANISATION_ID}" in r.url
+    ) as resp:
+        page.get_by_role("button", name="Opslaan").click()
+    assert resp.value.status == 422
+    pagina_klaar(page)
+    page.wait_for_function("() => document.getAnimations().every(a => a.playState !== 'running')")
+
+    field = page.locator('input[name="email"]')
+    expect(field).to_have_value(typed)
+    expect(field).to_have_attribute("aria-invalid", "true")
+    described = field.get_attribute("aria-describedby")
+    reason = page.locator(f"#{described.split()[-1]}")
+    expect(reason).to_contain_text("Vul een geldig e-mailadres in.")
+    field.scroll_into_view_if_needed()
+    below = reason.bounding_box()["y"] - (
+        field.bounding_box()["y"] + field.bounding_box()["height"]
+    )
+    assert 0 <= below <= 24, f"the reason does not stand right below its field: {below} px"
+    assert page.evaluate("document.documentElement.scrollWidth") <= WIDTH, (
+        "the page scrolls sideways on a phone"
+    )
+    folder = os.environ.get("E2E_PRINTS")
+    if folder:
+        page.screenshot(path=os.path.join(folder, "emailveld-organisatie-390.png"))
+    print(f"\nMEASURED organisation: the reason stands {below} px below its field")
