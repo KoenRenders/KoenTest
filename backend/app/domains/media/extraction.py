@@ -31,7 +31,6 @@ from typing import Optional
 import httpx
 
 from app.config import settings
-from app.database import SessionLocal
 from app.domains.chatbot.api import (
     AiCapability,
     AiProvider,
@@ -211,7 +210,7 @@ def extract_document_text(raw: bytes, content_type: str, tenant_id: Optional[int
     return _clean_extracted_text(_select_text(raw, content_type, tenant_id=tenant_id))
 
 
-def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> None:
+def update_media_extracted_text(asset_id: int, db, force: bool = False) -> None:
     """Achtergrond-taak: extraheer de tekst van één media-asset naar chatbot_info.
 
     Zonder ``db`` (als achtergrond-taak) → eigen sessie. Vindt-of-maakt de
@@ -219,9 +218,6 @@ def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> 
     die al gevuld is, tenzij ``force`` (de 'Opnieuw lezen'-knop). Raakt nooit
     ``text_override``/``text_addition`` aan — handmatige bewerkingen blijven staan.
     """
-    own_session = db is None
-    if own_session:
-        db = SessionLocal()
     try:
         asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
         if not asset or not asset.data:
@@ -255,6 +251,3 @@ def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> 
     except Exception as exc:  # nooit de upload-flow breken
         logger.warning("Tekstextractie voor media-asset %s mislukte: %s", asset_id, exc)
         db.rollback()
-    finally:
-        if own_session:
-            db.close()
