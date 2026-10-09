@@ -12,6 +12,12 @@ guards that read it are gone — no caller was found for any of them.
 
 - **Rollen** (`service.py`): `get_user_roles`, `get_user_role_rows`,
   `landing_for`, `has_login` — what someone may, asked of the data per request.
+- **Rights** (CR-24, #1722): `Right` (which rights exist), `rights_of` (the
+  rights an address holds in the active workspace: those its roles there
+  bundle), `may` (the same as a question) and `require_right(Right.…)` (the
+  gate of a screen; it fails closed). A role is a bundle of rights, kept as
+  rows in `auth.role_rights`. The role-named gates below still decide who gets
+  in until every call site names its right.
 - **Sessie/CSRF** (`session.py`, #398): `SESSION_COOKIE`, `make_session_value`,
   `read_session_value`, `set_session_cookie`, `csrf_token_for`,
   `require_admin_ui`, `require_csrf`.
@@ -34,6 +40,10 @@ Schema `auth`: `users`, `user_roles`, `login_tokens` (migratie 076). Bewust
 géén FK naar `public.role_codes` (§8: geen cross-schema FK's) — rolcodes
 worden in de servicelaag gevalideerd. Lid-zijn heeft geen user-record: de
 enige brug tussen backoffice-accounts en het ledendomein is de e-mailwaarde.
+
+Since CR-24 (#1722) also `right_codes` and `right_labels` (the code list of
+rights) and `role_rights` (role code, right code): the bundles, written by a
+migration and the same in every workspace — no tenant column.
 
 ## Principes
 

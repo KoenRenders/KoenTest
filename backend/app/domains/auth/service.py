@@ -69,6 +69,44 @@ def get_user_roles(db: Session, email: str) -> set:
     return {r[0].value for r in rows}
 
 
+def rights_of(db: Session, email: str) -> set:
+    """The rights this address holds in the ACTIVE workspace (CR-24 §B1, #1722):
+    every right one of its roles here bundles. The workspace rule is that of
+    `get_user_roles` (#963) — the platform-wide rows plus those of this
+    workspace — so a right in workspace A is no right in B.
+
+    One query, and the whole set: a caller that asks several rights in one
+    request — a menu — asks once and keeps the answer. Nothing is cached, so a
+    role that is given or withdrawn counts at the next request.
+
+    Empty for an address without an active account and for a role whose bundle
+    holds nothing; a gate that reads an empty set refuses (C4.2).
+    """
+    from sqlalchemy import or_
+
+    from app.domains.auth.models import RoleRight, User, UserRole
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+
+    active = current_tenant_id.get() or DEFAULT_TENANT_ID
+    rows = (
+        db.query(RoleRight.right_code)
+        .join(UserRole, UserRole.role_code == RoleRight.role_code)
+        .join(User, User.id == UserRole.user_id)
+        .filter(func.lower(User.email) == email.strip().lower(), User.is_active == True)
+        .filter(or_(UserRole.tenant_id.is_(None), UserRole.tenant_id == active))
+        .distinct()
+        .all()
+    )
+    return {r[0] for r in rows}
+
+
+def may(db: Session, email: str, right) -> bool:
+    """Does this address hold the right here? The question `require_right`
+    enforces, for a place that shows a way in or an action only to who may use
+    it (CR-24 §C2)."""
+    return right in rights_of(db, email)
+
+
 def get_user_role_rows(db: Session, email: str) -> list:
     """Alle (role_code, tenant_id)-paren van dit account, over de werkruimtes
     heen (#963) — voor Mijn profiel en het accountmenu. tenant_id None is de

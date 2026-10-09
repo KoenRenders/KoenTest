@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.domains.auth.models import Right
 from app.i18n import _
 
 SESSION_COOKIE = "raak_session"
@@ -164,6 +165,16 @@ def _require_ui_roles(request: Request, db: Session, allowed: set[str]) -> str:
     """
     from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
 
+    email = _signed_in(request)
+    if not (allowed & set(get_user_roles(db, email))):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_("Geen toegang"))
+    return email
+
+
+def _signed_in(request: Request) -> str:
+    """Who this request's session says it is, or the way to the sign-in: the
+    303 for a plain browser GET, the 401 otherwise (#1458, described above).
+    The identity half of every gate on a screen."""
     email = read_session_value(_session_raw(request))
     if email is None and request.method == HTTPMethod.GET and not request.headers.get("HX-Request"):
         here = request.url.path + (f"?{request.url.query}" if request.url.query else "")
@@ -178,9 +189,32 @@ def _require_ui_roles(request: Request, db: Session, allowed: set[str]) -> str:
             detail=_("Niet aangemeld"),
             headers={"HX-Redirect": "/aanmelden", "Location": "/aanmelden"},
         )
-    if not (allowed & set(get_user_roles(db, email))):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_("Geen toegang"))
     return email
+
+
+def require_right(right: Right):
+    """The gate of a screen (CR-24 §B1, #1722): a dependency that lets in who
+    holds `right` in this workspace and returns the address, as the role-named
+    gates do — `Depends(require_right(Right.ACTIVITY_MANAGE))`.
+
+    It fails closed (C4.2): it admits on one condition only, the right being in
+    the set the user's roles bundle. No session, a role whose bundle lacks the
+    right, a right no bundle holds — each refuses, the operator included. And
+    what is asked must be a member of `Right`: anything else is refused here,
+    when the route is declared, not at the first request.
+    """
+    if not isinstance(right, Right):
+        raise TypeError(f"require_right takes a member of Right, not {right!r}")
+
+    def gate(request: Request, db: Session = Depends(get_db)) -> str:
+        from app.domains.auth.service import rights_of  # lazy: avoids a cycle
+
+        email = _signed_in(request)
+        if right not in rights_of(db, email):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_("Geen toegang"))
+        return email
+
+    return gate
 
 
 def require_admin_ui(request: Request, db: Session = Depends(get_db)) -> str:
