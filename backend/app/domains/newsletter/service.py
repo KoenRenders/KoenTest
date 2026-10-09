@@ -1596,15 +1596,24 @@ def reply_address(mode: ReplyToMode, sender_email: str) -> Optional[str]:
     return None
 
 
-def send_test(db: Session, letter: Newsletter, *, to_email: str, base_url: str) -> str:
-    """ "Testmail naar mezelf": the real mail, to the signed-in admin only.
+@dataclass(frozen=True)
+class RenderedLetter:
+    """A letter as one mail: what mail is asked to send."""
+
+    subject: str
+    body_html: str
+    body_text: str
+
+
+def render_test(db: Session, letter: Newsletter, *, base_url: str) -> RenderedLetter:
+    """ "Testmail naar mezelf": the real mail, rendered for the signed-in admin.
 
     Shown as a non-member would see it when non-members are among the
-    audience, so the unsubscribe line can be checked too. Changes nothing
-    about the letter.
+    audience, so the unsubscribe line can be checked too. A read: it changes
+    nothing about the letter and sends nothing — the door hands the result to
+    mail (CR-13 phase 4d, #1251: until then this function sent the mail itself,
+    one domain commanding another from below its door).
     """
-    from app.domains.mail.api import send_campaign_mail
-
     if not (letter.subject or "").strip():
         raise NewsletterError(_("Geef de nieuwsbrief eerst een onderwerp."))
     kind = (
@@ -1624,9 +1633,7 @@ def send_test(db: Session, letter: Newsletter, *, to_email: str, base_url: str) 
         base_url=base_url,
     )
     text = render_text(db, letter, unsubscribe_url=unsubscribe_url, base_url=base_url)
-    return send_campaign_mail(
-        to_email, f"[{_('TEST')}] {letter.subject}", body, email_type="newsletter", body_text=text
-    )
+    return RenderedLetter(subject=f"[{_('TEST')}] {letter.subject}", body_html=body, body_text=text)
 
 
 # ── Sending ──────────────────────────────────────────────────────────────────

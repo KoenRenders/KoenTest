@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
+import app.domains.mail.api as mail
 from app.database import get_db
 from app.domains.auth.api import (
     SESSION_COOKIE,
@@ -907,13 +908,21 @@ def newsletter_test_mail(
 ):
     letter = _letter_or_404(db, newsletter_id)
     try:
-        outcome = nb.send_test(db, letter, to_email=email, base_url=_base_url(db))
+        rendered = nb.render_test(db, letter, base_url=_base_url(db))
     except nb.NewsletterError as exc:
         return templates.TemplateResponse(
             request,
             "_nb_bewaard.html",
             _compose_view(request, db, letter, error=str(exc)).as_context(),
         )
+    # The door's one command (§3.2.1): the newsletter rendered, mail sends.
+    outcome = mail.send_campaign_mail(
+        email,
+        rendered.subject,
+        rendered.body_html,
+        email_type="newsletter",
+        body_text=rendered.body_text,
+    )
     notice = (
         _("Testmail verstuurd naar %(adres)s.") % {"adres": email}
         if outcome in ("sent", "logged")
