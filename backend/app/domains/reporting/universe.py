@@ -112,7 +112,7 @@ class Role(str, TechnicalEnum):
 
     **Declared, not enforced — in this release (#832, decision of 10 September
     2026).** v2.3.0 adds no new security surface: reporting sits behind
-    `require_admin_ui`, the same door as every other admin screen, and the engine
+    its own rights (`report.view`, `report.manage`), and the engine
     applies no per-object fence. The role on an object records what must hold once
     that switch is built, as its own change with its own test.
 

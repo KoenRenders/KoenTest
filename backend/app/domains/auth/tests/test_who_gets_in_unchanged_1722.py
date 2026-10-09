@@ -44,6 +44,13 @@ A new route adds its line; a line that changes for a route that already existed
 is somebody's reach changing, and CR-24 names the only one it allows (the
 workbench for FINANCE, Q11).
 
+**Recorded again once, for eleven lines** (slice 4, group c): the platform's
+routes in a tenant's workspace read "ADMIN OPERATOR" and read "OPERATOR" now.
+Nobody's reach changed: an ADMIN got a 404 there — he passed the back office's
+gate and found no such page — and gets a 403, on an address his menu does not
+show, because the gate asks the platform's right first and the workspace after
+(`require_platform_right`).
+
 Proven red (9 October 2026), each additively and removed again:
 - `"FINANCE"` added to `_GENERAL_ADMIN_ROLES` → the routes red with 465
   differences, each "ADMIN OPERATOR → ADMIN FINANCE OPERATOR" (the platform's
@@ -70,6 +77,7 @@ from sqlalchemy import text as sql
 from app.database import SessionLocal, engine, get_db
 from app.domains.auth.api import (
     SESSION_COOKIE,
+    Right,
     User,
     UserRole,
     admits_admin_ui,
@@ -77,8 +85,8 @@ from app.domains.auth.api import (
     csrf_token_for,
     get_user_roles,
     make_session_value,
+    may,
     may_mutate_payments,
-    may_use_admin_assistant,
     may_view_payments,
 )
 from app.kernel.tenancy import current_tenant_id
@@ -209,7 +217,7 @@ def the_questions(world) -> dict[str, dict[str, str]]:
     asked = {
         "may see payments": may_view_payments,
         "may change payments": may_mutate_payments,
-        "may use the assistant": may_use_admin_assistant,
+        "may use the assistant": lambda db, email: may(db, email, Right.ASSISTANT_USE),
         "enters the back office": lambda db, email: admits_admin_ui(get_user_roles(db, email)),
     }
     out: dict[str, dict[str, str]] = {name: {} for name in asked}
@@ -287,7 +295,7 @@ def test_the_list_tells_users_apart():
     assert changes.count("ADMIN OPERATOR") >= 100, "the changing routes do not tell users apart"
     platform_only = [r for r, o in routes.items() if o["platform"] == "OPERATOR"]
     assert len(platform_only) >= 11, platform_only
-    assert routes["GET /admin/tenants"]["tenant"] == "ADMIN OPERATOR"
+    assert routes["GET /admin/tenants"] == {"platform": "OPERATOR", "tenant": "OPERATOR"}
     nobody = {r for r, o in routes.items() if "nobody" in o.values()}
     assert nobody == set(NOBODY), (
         "a route that refuses everyone shows nothing of its gate — name why in NOBODY: "
@@ -328,17 +336,17 @@ def test_the_gate_answers_before_the_body_is_judged(world, route, answers):
 
 
 @pytest.mark.parametrize("screen", ["/admin/tenants", "/admin/organisaties"])
-def test_a_platform_screen_answers_as_before_in_each_workspace(world, screen):
-    """What the list above cannot see, because a 404 counts as let in: in a
-    tenant's workspace a platform screen does not exist — 404 for who passes the
-    back office's gate, the operator included — and whoever does not pass that
-    gate is refused first, 403. On the platform it opens for the operator alone.
-    The order is the one the routes had with the platform check in their body
-    (#1535); `require_platform_operator_ui` stands on `require_admin_ui` to keep
-    it.
+def test_a_platform_screen_asks_the_right_and_then_the_workspace(world, screen):
+    """What the list above cannot see, because a 404 counts as let in (CR-24 F8,
+    T9): on the platform a platform screen opens for who holds its right, the
+    operator alone; in a tenant's workspace it does not exist, also for him —
+    404 — and whoever lacks the right is refused before that, 403.
 
-    Proven red: `is_platform_workspace` made to answer True in
-    `require_platform_operator_ui` → the tenant's column reads 403, 403, 200."""
+    Until slice 4 an ADMIN got the 404 in a tenant's workspace: the first gate
+    was the back office's, by role. The named difference of group (c).
+
+    Proven red: the workspace check taken out of `require_platform_right` →
+    the operator opens the screen in a tenant's workspace, 200."""
     connection, workspaces = world
     got = {}
     with TestClient(app, raise_server_exceptions=False, follow_redirects=False) as client:
@@ -349,7 +357,7 @@ def test_a_platform_screen_answers_as_before_in_each_workspace(world, screen):
                 got[workspace, role] = _ask(client, connection, "GET", screen, headers)
     assert got == {
         ("tenant", "FINANCE"): 403,
-        ("tenant", "ADMIN"): 404,
+        ("tenant", "ADMIN"): 403,
         ("tenant", "OPERATOR"): 404,
         ("platform", "FINANCE"): 403,
         ("platform", "ADMIN"): 403,
@@ -357,68 +365,96 @@ def test_a_platform_screen_answers_as_before_in_each_workspace(world, screen):
     }, got
 
 
-#: The screens whose routes ask a right of their own object (CR-24 slice 4), by
-#: the start of their address, with that object. It grows with each group of
-#: slice 4; when no role-named gate is left, it is every gated screen.
+#: The screens whose routes ask a right (CR-24 slice 4), by the start of their
+#: address, with the right that opens them and the right that changes them. The
+#: longest start that fits is the screen. It grows with each group of slice 4;
+#: when no role-named gate is left, it is every gated screen.
 ON_A_RIGHT = {
-    "/admin/paginas": "page",
-    "/admin/media": "media",
-    "/admin/ontwerpen": "design",
-    "/admin/nieuwsbrieven": "newsletter",
-    "/admin/vergaderingen": "meeting",
-    "/admin/formulieren": "form",
-    "/admin/activiteiten": "activity",
-    "/admin/inschrijvingen": "activity",
-    "/admin/leden": "party",
-    "/admin/leden-import": "party",
-    "/admin/personen": "party",
-    "/admin/betalingen": "payment",
+    "/admin/paginas": ("page.view", "page.manage"),
+    "/admin/media": ("media.view", "media.manage"),
+    "/admin/ontwerpen": ("design.view", "design.manage"),
+    "/admin/nieuwsbrieven": ("newsletter.view", "newsletter.manage"),
+    "/admin/vergaderingen": ("meeting.view", "meeting.manage"),
+    "/admin/formulieren": ("form.view", "form.manage"),
+    "/admin/activiteiten": ("activity.view", "activity.manage"),
+    "/admin/inschrijvingen": ("activity.view", "activity.manage"),
+    "/admin/leden": ("party.view", "party.masterdata"),
+    "/admin/leden-import": ("party.view", "party.masterdata"),
+    "/admin/personen": ("party.view", "party.masterdata"),
+    "/admin/betalingen": ("payment.view", "payment.manage"),
+    "/admin/rapporten": ("report.view", "report.manage"),
+    "/admin/rapporten/raakje": ("assistant.use", "assistant.use"),
+    "/admin/ai-context": ("settings.view", "settings.manage"),
+    "/admin/e-maillog": ("settings.view", "settings.manage"),
+    "/admin/ledenwijzigingen": ("settings.view", "settings.manage"),
+    "/admin/design-system": ("settings.view", "settings.manage"),
+    "/admin/info": ("settings.view", "settings.manage"),
+    "/admin/instellingen": ("settings.view", "settings.manage"),
+    "/admin/organisatie": ("party.view", "party.masterdata"),
+    "/admin/gebruikers": ("user.view", "user.manage"),
+    "/admin/gebruikers/alle-werkruimtes": ("platform.view", "platform.manage"),
+    "/admin/organisaties": ("platform.view", "platform.manage"),
+    "/admin/tenants": ("platform.view", "platform.manage"),
 }
+
 
 #: Routes whose object is not the one their address starts with: the payments
-#: of an activity, a household and a registration are payment's screens, and
-#: the old address of a component's answers is a 301 without a gate (#1382).
+#: of an activity, a household and a registration are payment's screens.
 NOT_BY_ITS_START = {
-    "/admin/activiteiten/{activity_id}/betalingen": "payment",
-    "/admin/leden/gezin/{family_id}/betalingen": "payment",
-    "/admin/inschrijvingen/{registration_id}/betalingen": "payment",
-    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}/boek": None,
+    "/admin/activiteiten/{activity_id}/betalingen": "/admin/betalingen",
+    "/admin/leden/gezin/{family_id}/betalingen": "/admin/betalingen",
+    "/admin/inschrijvingen/{registration_id}/betalingen": "/admin/betalingen",
 }
 
 
-def _object_of(path: str) -> str | None:
-    if path in NOT_BY_ITS_START:
-        return NOT_BY_ITS_START[path]
-    for start, thing in ON_A_RIGHT.items():
-        if path == start or path.startswith(start + "/"):
-            return thing
-    return None
+def _right_of(method: str, path: str) -> str | None:
+    """The right this route is to ask: its screen's viewing right for a GET, its
+    changing right for every other method (C4.3a)."""
+    path = NOT_BY_ITS_START.get(path, path)
+    fits = [s for s in ON_A_RIGHT if path == s or path.startswith(s + "/")]
+    if not fits:
+        return None
+    view, change = ON_A_RIGHT[max(fits, key=len)]
+    return view if method == "GET" else change
 
 
-def _admin_without(world, pattern: str) -> dict[tuple[str, str], bool]:
-    """Per route of `ON_A_RIGHT`, whether the user with ADMIN is let in when
-    ADMIN's bundle has lost the rights matching `pattern` — in the tenant's
-    workspace, the bundle put back afterwards."""
+def _routes_on_a_right() -> list[tuple[str, str]]:
+    """The gated routes of `ON_A_RIGHT`: what the list records as open to everyone
+    has no gate, and what it records as refused to everyone shows none (`NOBODY`)."""
+    recorded = json.loads(SNAPSHOT.read_text())["routes"]
+    routes = [
+        (method, path)
+        for method, path in every_route()
+        if _right_of(method, path)
+        and recorded[f"{method} {path}"]["tenant"] not in ("everyone", "nobody")
+    ]
+    assert len(routes) >= 240, f"only {len(routes)} routes on a right — is the walk still looking?"
+    return routes
+
+
+def _operator_without(world, rights: set[str]) -> dict[tuple[str, str], bool]:
+    """Per route on a right, whether the operator — who holds every right — is
+    let in when his bundle has lost `rights`; in the tenant's workspace, the
+    bundle put back afterwards. A platform screen answers 404 there to who holds
+    its right, and that counts as let in, as in the list."""
     connection, workspaces = world
     _tenant_id, host = workspaces["tenant"]
-    session = make_session_value(_email("ADMIN"))
+    session = make_session_value(_email("OPERATOR"))
     headers = {
         "cookie": f"{SESSION_COOKIE}={session}",
         "x-csrf-token": csrf_token_for(session),
         **host,
     }
-    routes = [(m, p) for m, p in every_route() if _object_of(p)]
-    assert len(routes) >= 191, f"only {len(routes)} routes on a right — is the walk still looking?"
     bundle = connection.begin_nested()
     gone = connection.execute(
-        sql("DELETE FROM auth.role_rights WHERE role_code = 'ADMIN' AND right_code LIKE ANY(:p)"),
-        {"p": pattern.split()},
+        sql("DELETE FROM auth.role_rights WHERE role_code = 'OPERATOR' AND right_code = ANY(:r)"),
+        {"r": sorted(rights)},
     ).rowcount
-    assert gone, f"ADMIN's bundle held no right like {pattern} — nothing was taken away"
+    assert gone == len(rights), f"the operator's bundle held {gone} of {sorted(rights)}"
     out = {}
     try:
         with TestClient(app, raise_server_exceptions=False, follow_redirects=False) as client:
-            for method, path in routes:
+            for method, path in _routes_on_a_right():
                 address = re.sub(r"\{[^}]+\}", "1", path)
                 status = _ask(client, connection, method, address, headers)
                 out[method, path] = status not in REFUSED
@@ -427,40 +463,28 @@ def _admin_without(world, pattern: str) -> dict[tuple[str, str], bool]:
     return out
 
 
-def test_a_route_that_only_reads_asks_viewing_and_every_other_asks_changing(world):
-    """C4.3a: a GET asks `<object>.view`, every other method `<object>.manage`.
-    With every changing right taken out of ADMIN's bundle, the user with ADMIN
-    still opens every GET of the converted screens and no route that changes.
+def _all_rights() -> set[str]:
+    return {right for pair in ON_A_RIGHT.values() for right in pair}
 
-    Proven red: `Right.FORM_VIEW` put on `POST /admin/formulieren` → that route
-    named as "changes, and is open to who may only view"."""
-    let_in = _admin_without(world, "%.manage %.masterdata")
+
+@pytest.mark.parametrize("right", sorted(_all_rights()))
+def test_a_route_asks_the_right_written_beside_its_screen(world, right):
+    """With one right taken out of the operator's bundle, exactly the routes that
+    are to ask it are refused, and every other converted route opens as before:
+    a GET asks its screen's viewing right, every other method its changing right
+    (C4.3a), and each the right of its own object. The list cannot hold this —
+    every bundle holds viewing beside changing, so it reads the same whichever
+    of the two a route asks.
+
+    Proven red, each for the two rights involved: `Right.USER_VIEW` put on the
+    route that deletes a user ("open without user.manage", "refused without
+    user.view"); `Right.SETTINGS_MANAGE` put on the save of Onze organisatie
+    ("open without party.masterdata"); `Right.REPORT_MANAGE` put on opening a
+    saved report ("open without report.view")."""
+    let_in = _operator_without(world, {right})
     wrong = [
-        f"{method} {path}: "
-        + ("reads, and is refused" if method == "GET" else "changes, and is open")
-        + " to who may only view"
+        f"{method} {path}: {'open' if admitted else 'refused'} without {right}"
         for (method, path), admitted in sorted(let_in.items())
-        if admitted != (method == "GET")
-    ]
-    assert not wrong, "\n".join(wrong)
-
-
-@pytest.mark.parametrize("thing", sorted(set(ON_A_RIGHT.values())))
-def test_a_route_asks_the_right_of_its_own_object(world, thing):
-    """With both rights of one object taken out of ADMIN's bundle, exactly the
-    routes of that object's screens are refused, and every other converted
-    screen opens as before.
-
-    Proven red: `Right.MEDIA_VIEW` put on `GET /admin/paginas` → red for `page`
-    (that route still opens) and for `media` (it is refused with media's)."""
-    let_in = _admin_without(world, f"{thing}.%")
-    wrong = [
-        f"{method} {path}: {'open' if admitted else 'refused'} without the rights of {thing}"
-        for (method, path), admitted in sorted(let_in.items())
-        if admitted == (_object_of(path) == thing)
-        # ADMIN never changes a payment (#83: its bundle holds `payment.view`
-        # alone), so these seven are refused whatever is taken away and show
-        # nothing here; the list above and payment's own test hold them.
-        and not (method != "GET" and _object_of(path) == "payment")
+        if admitted == (_right_of(method, path) == right)
     ]
     assert not wrong, "\n".join(wrong)

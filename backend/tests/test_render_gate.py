@@ -34,7 +34,7 @@ from tests.conftest import (
 # below are the pages the next two read (`_rendered_pages`).
 pytestmark = [pytest.mark.ui_serverrendered, pytest.mark.xdist_group("render_gate")]
 
-#: The screens whose route guards with `require_platform_operator_ui` (#1535): they
+#: The screens whose route guards with `require_platform_right` (#1535, CR-24): they
 #: answer in the platform workspace only, so the gate opens them on the platform
 #: host. Read from the source by `_admin_gets_zonder_parameter`, like the paths.
 _PLATFORM_ONLY: set[str] = set()
@@ -215,7 +215,7 @@ def _admin_gets_zonder_parameter() -> list[str]:
                     continue
                 if route.startswith("/admin") and "{" not in route:
                     paden.add(route)
-                    if "require_platform_operator_ui" in ast.unparse(knoop):
+                    if "require_platform_right" in ast.unparse(knoop):
                         _PLATFORM_ONLY.add(route)
     assert _PLATFORM_ONLY, "no platform screen found — the gate would open them all as a tenant"
     return sorted(paden)

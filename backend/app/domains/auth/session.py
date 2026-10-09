@@ -229,23 +229,6 @@ def require_finance_ui(request: Request, db: Session = Depends(get_db)) -> str:
     return _require_ui_roles(request, db, _PAYMENTS_VIEW_ROLES)
 
 
-def may_use_admin_assistant(db: Session, email: str) -> bool:
-    """Mag deze gebruiker de beheer-assistent aanspreken? (#1060)
-
-    Dezelfde vraag als `require_admin_ui`, maar als vraag in plaats van als poort —
-    voor de zichtbaarheid van een ingang. Ze is nodig omdat de twee niet
-    samenvallen: het betalingenscherm draait op `require_finance_ui`, dus een
-    FINANCE-only gebruiker ziet die lijst wél en mag de assistent niet. Zonder deze
-    vraag zou daar een knop staan die op een 403 uitkomt.
-
-    Geen nieuwe rol en geen verbreding (Koen, 20 september 2026): de ingang volgt
-    exact wie de route toelaat.
-    """
-    from app.domains.auth.service import get_user_roles
-
-    return bool(set(get_user_roles(db, email)) & set(_GENERAL_ADMIN_ROLES))
-
-
 def may_view_payments(db: Session, email: str) -> bool:
     """Dezelfde vraag als require_finance_ui, maar als vraag i.p.v. poort —
     voor tab-zichtbaarheid (golf 9, #913): een tab die je niet mag openen
@@ -286,38 +269,29 @@ def require_finance_mutation(
     return email
 
 
-def require_operator_ui(db: Session, email: str) -> None:
-    """Tenantbeheer is OPERATOR-only (#581). Zelfde vorm als
-    `require_finance_mutation`: geen `Depends`, want de identiteit is al
-    vastgesteld en de check komt midden in een route. Woont hier omdat autorisatie
-    één plek hoort te hebben — `app/ui/tenants_ui.py` had er een eigen kopie van
-    (#635 punt 10)."""
-    from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
+def require_platform_right(right: Right):
+    """The gate of a platform screen (CR-24 F8, #1722): Tenants, Organisaties, a
+    new account and the overview of every workspace. The right, and then the
+    workspace: these screens live in the platform workspace only (#1535), so
+    whoever holds the right finds no such page in a tenant's workspace — the
+    operator too, so a workspace shows nothing of the others.
 
-    if "OPERATOR" not in get_user_roles(db, email):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=_("Alleen de platformbeheerder (OPERATOR) mag tenants beheren."),
-        )
-
-
-def require_platform_operator_ui(
-    db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
-) -> str:
-    """Platform administration (#1535): Tenants, Organisaties, a new account and
-    the overview of every workspace. It lives in the platform workspace only —
-    in a tenant workspace these screens answer 404, for the operator too, so a
-    workspace shows nothing of the others — and there it is OPERATOR-only.
-
-    A route's dependency since CR-24 (#1722), standing on `require_admin_ui` as
-    it stood behind it in each route's body: the same checks in the same order.
+    Until CR-24 the order was a role first: who passed the back office's gate
+    without being the operator — an ADMIN — got that 404 too. He holds no
+    platform right and is refused now, 403, on an address his menu does not
+    show.
     """
-    from app.domains.auth.users import is_platform_workspace  # lazy: vermijdt cykel
+    holds = require_right(right)
 
-    if not is_platform_workspace(db):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_("Niet gevonden."))
-    require_operator_ui(db, email)
-    return email
+    def gate(request: Request, db: Session = Depends(get_db)) -> str:
+        from app.domains.auth.users import is_platform_workspace  # lazy: avoids a cycle
+
+        email = holds(request, db)
+        if not is_platform_workspace(db):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_("Niet gevonden."))
+        return email
+
+    return gate
 
 
 def require_tenant_workspace(db: Session) -> int:

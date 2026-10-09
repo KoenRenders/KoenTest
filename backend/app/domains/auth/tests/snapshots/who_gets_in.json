@@ -196,7 +196,7 @@
   },
   "GET /admin/gebruikers/alle-werkruimtes": {
    "platform": "OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "tenant": "OPERATOR"
   },
   "GET /admin/gebruikers/nieuw": {
    "platform": "ADMIN OPERATOR",
@@ -372,15 +372,15 @@
   },
   "GET /admin/organisaties": {
    "platform": "OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "tenant": "OPERATOR"
   },
   "GET /admin/organisaties/nieuw": {
    "platform": "OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "tenant": "OPERATOR"
   },
   "GET /admin/organisaties/{organization_id}": {
    "platform": "OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "tenant": "OPERATOR"
   },
   "GET /admin/paginas": {
    "platform": "ADMIN OPERATOR",
@@ -452,15 +452,15 @@
   },
   "GET /admin/tenants": {
    "platform": "OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "tenant": "OPERATOR"
   },
   "GET /admin/tenants/nieuw": {
    "platform": "OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "tenant": "OPERATOR"
   },
   "GET /admin/tenants/{tenant_id}": {
    "platform": "OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "tenant": "OPERATOR"
   },
   "GET /admin/vergaderingen": {
    "platform": "ADMIN OPERATOR",
@@ -1116,11 +1116,11 @@
   },
   "POST /admin/organisaties": {
    "platform": "OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "tenant": "OPERATOR"
   },
   "POST /admin/organisaties/{organization_id}": {
    "platform": "OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "tenant": "OPERATOR"
   },
   "POST /admin/paginas": {
    "platform": "ADMIN OPERATOR",
@@ -1172,11 +1172,11 @@
   },
   "POST /admin/tenants": {
    "platform": "OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "tenant": "OPERATOR"
   },
   "POST /admin/tenants/{tenant_id}": {
    "platform": "OPERATOR",
-   "tenant": "ADMIN OPERATOR"
+   "tenant": "OPERATOR"
   },
   "POST /admin/vergaderingen": {
    "platform": "ADMIN OPERATOR",

@@ -103,8 +103,10 @@ def test_an_admin_switches_no_module_and_reaches_no_other_tenant(client, db_sess
         f"/admin/tenants/{TENANT_VOORBEELD_ID}",
         f"/admin/organisaties/{TENANT_VOORBEELD_ID}",
     ):
-        assert client.get(path).status_code == 404, path
-        assert _post(client, csrf, path, {"name": "Overgenomen"}).status_code == 404, path
+        # CR-24: the platform's gate asks its right first and the workspace after, so an
+        # ADMIN — who holds no platform right — is refused; until then he got a 404.
+        assert client.get(path).status_code == 403, path
+        assert _post(client, csrf, path, {"name": "Overgenomen"}).status_code == 403, path
     for path in (
         "/raakvoorbeeldafdeling/admin/instellingen",
         "/raakvoorbeeldafdeling/admin/organisatie",
