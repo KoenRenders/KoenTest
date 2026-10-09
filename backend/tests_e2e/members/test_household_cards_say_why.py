@@ -142,13 +142,12 @@ def _measure(page, line: str, card: str, sentence: str, name: str, before: int) 
     assert measured["in_view"], (
         f"the banner is out of view after the button was pressed: {measured}"
     )
-    # Compared with the card as it stood open before the refusal: the banner must
-    # not widen the page. What an open card does to the width by itself is not
-    # this test's; it is printed, so a reader sees it.
+    # No sideways scroll, with the card open before the refusal and after it. The
+    # open card of a person was 76 px wider than the page at 390 px until #1831:
+    # whoever scrolled to Opslaan lost the start of the sentence.
     print(f"SIDEWAYS {name}: {before} px before the refusal, {measured['sideways']} px after")
-    assert measured["sideways"] <= max(before, 0), (
-        f"the banner widens the page: {before} px before, {measured['sideways']} px after"
-    )
+    assert before <= 0, f"the open card is {before} px wider than the page"
+    assert measured["sideways"] <= 0, f"the page scrolls sideways by {measured['sideways']} px"
 
 
 def test_the_address_card_says_why(page, household):
@@ -243,3 +242,46 @@ def test_the_add_card_says_why_by_its_button(page, household):
     assert answered.value.status == 422
     _measure(page, "#persoon-toevoegen-melding", "#persoon-toevoegen", IN_USE, "toevoegen", before)
     assert card.locator('input[name="first_name"]').input_value() == "Extra"
+
+
+_BUTTONS = """(card) => {
+  const box = document.querySelector(card).getBoundingClientRect();
+  const rects = [...document.querySelectorAll(card + ' button')]
+    .filter(b => b.checkVisibility() && ['Verwijderen', 'Annuleren', 'Opslaan'].includes(b.textContent.trim()))
+    .map(b => ({name: b.textContent.trim(), ...b.getBoundingClientRect().toJSON()}));
+  const title = [...document.querySelectorAll(card + ' span')].find(s => s.checkVisibility() && s.textContent.includes('bewerken'));
+  return {
+    rows: new Set(rects.map(r => Math.round(r.top))).size,
+    names: rects.map(r => r.name),
+    inside: rects.every(r => r.left >= box.left - 0.5 && r.right <= box.right + 0.5),
+    beside_title: title ? Math.abs(title.getBoundingClientRect().top - rects[0].top) < 30 : null,
+    sideways: document.documentElement.scrollWidth - window.innerWidth,
+  };
+}"""
+
+
+@pytest.mark.parametrize(("width", "one_row"), [(390, False), (1100, True)])
+def test_the_buttons_of_a_persons_card_stay_inside_it(page, household, width, one_row):
+    """Narrow: the three buttons of the edit state wrap, inside the card, and the
+    page does not scroll sideways. Wide: one row, beside the title, as it was."""
+    page.set_viewport_size({"width": width, "height": 844})
+    try:
+        _open(page, household)
+        card = _partner_card(page)
+        card_id = card.get_attribute("id")
+        card.get_by_role("button", name="Bewerken").click()
+        expect(card.get_by_role("button", name="Opslaan")).to_be_visible()
+        measured = page.evaluate(_BUTTONS, f"#{card_id}")
+        prints = os.environ.get("E2E_PRINTS")
+        if prints:
+            page.screenshot(path=os.path.join(prints, f"persoon-bewerken-{width}.png"))
+    finally:
+        page.set_viewport_size({"width": 390, "height": 844})
+
+    print(f"BUTTONS at {width} px: {measured}")
+    assert measured["names"] == ["Verwijderen", "Annuleren", "Opslaan"], measured
+    assert measured["inside"], f"a button stands outside the card: {measured}"
+    assert measured["sideways"] <= 0, f"the page scrolls sideways by {measured['sideways']} px"
+    assert (measured["rows"] == 1) is one_row, measured
+    if one_row:
+        assert measured["beside_title"], f"the buttons left the title's row: {measured}"

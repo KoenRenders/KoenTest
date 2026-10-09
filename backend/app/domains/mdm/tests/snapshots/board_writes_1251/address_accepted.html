@@ -15,7 +15,8 @@
 </div>
 </div>
 </div>
-<div id="adres-melding" data-form-message class="mt-3 empty:mt-0"></div>
+<div id="adres-melding" data-form-message class="mt-3 empty:mt-0"
+ hx-on::after-swap="this.scrollIntoView({block: 'nearest'})"></div>
 <form id="adres-form" x-show="edit" x-cloak class="space-y-3"
  hx-post="/admin/leden/gezin/881001/adres"
  hx-target="#adres-kaart" hx-swap="outerHTML" style="display: none">

@@ -221,6 +221,8 @@ def test_every_card_carries_its_message_line_once(client, db_session, world):
         "persoon-toevoegen-melding",
     ):
         assert page.count(f'id="{line}" data-form-message') == 1, line
+        # …and brings itself into view when its sentence arrives.
+        assert page.count("hx-on::after-swap=\"this.scrollIntoView({block: 'nearest'})\"") == 4
 
 
 def test_a_good_save_answers_the_card_with_an_empty_line(client, db_session, world):
