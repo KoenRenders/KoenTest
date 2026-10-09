@@ -1,6 +1,7 @@
 """The newsletter screens (CR-05, #984): letters, sending, subscribers.
 
-Behind `require_admin_ui`, like every admin screen. The paths are Dutch because
+Every route asks a right (CR-24): `newsletter.view` to look, `newsletter.manage`
+to change. The paths are Dutch because
 a board member reads them in the address bar; everything else is English.
 
 A draft and a sent letter share one address, `/admin/nieuwsbrieven/{id}`: a
@@ -23,9 +24,10 @@ import app.domains.mail.api as mail
 from app.database import get_db
 from app.domains.auth.api import (
     SESSION_COOKIE,
+    Right,
     csrf_token_for,
-    require_admin_ui,
     require_csrf,
+    require_right,
 )
 from app.domains.newsletter import api as nb
 from app.domains.newsletter.viewmodels import (
@@ -176,7 +178,7 @@ def _list_view(
 def newsletter_list(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
     q: str = "",
 ):
     view = _list_view(request, db, q=q)
@@ -188,7 +190,9 @@ def newsletter_list(
     "/admin/nieuwsbrieven", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
 )
 def newsletter_create(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     """A new, empty draft — the composer is its own full page (no modal)."""
     letter = nb.create_newsletter(db, created_by=email)
@@ -236,7 +240,7 @@ def _subscriber_view(
 def subscriber_list(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
     q: str = "",
     status: str = "",
 ):
@@ -253,7 +257,7 @@ def subscriber_list(
 def subscriber_add(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     subscriber_email: str = Form(""),
     first_name: str = Form(""),
 ):
@@ -276,7 +280,7 @@ def subscriber_unsubscribe(
     subscriber_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     nb.unsubscribe_by_admin(db, subscriber_id)
     return templates.TemplateResponse(
@@ -293,7 +297,7 @@ def subscriber_erase(
     subscriber_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     """The right to erasure: the address disappears, also from the archive."""
     nb.erase(db, subscriber_id)
@@ -311,7 +315,9 @@ def _import_view(
 
 
 @router.get("/admin/nieuwsbrieven/abonnees/import", response_class=HTMLResponse)
-def subscriber_import_screen(request: Request, _email: str = Depends(require_admin_ui)):
+def subscriber_import_screen(
+    request: Request, _email: str = Depends(require_right(Right.NEWSLETTER_VIEW))
+):
     return templates.TemplateResponse(
         request, "admin_abonnees_import.html", _import_view(request).as_context()
     )
@@ -325,7 +331,7 @@ def subscriber_import_screen(request: Request, _email: str = Depends(require_adm
 async def subscriber_import_preview(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     file: UploadFile = File(...),
 ):
     """Step 1 → 2: read the file and show what would happen. Nothing is written."""
@@ -356,7 +362,7 @@ async def subscriber_import_preview(
 def subscriber_import_run(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     text: str = Form(""),
 ):
     """Step 2 → done. The rules are applied again to the text, not to the
@@ -398,7 +404,9 @@ def _settings_view(
 
 @router.get("/admin/nieuwsbrieven/instellingen", response_class=HTMLResponse)
 def settings_screen(
-    request: Request, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     return templates.TemplateResponse(
         request, "admin_nieuwsbrief_instellingen.html", _settings_view(request, db).as_context()
@@ -413,7 +421,7 @@ def settings_screen(
 def settings_save(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     house_style: str = Form(""),
     daily_cap: str = Form(""),
 ):
@@ -641,7 +649,7 @@ def newsletter_screen(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
     status: str = "",
     q: str = "",
     opnieuw: int = 0,
@@ -669,7 +677,7 @@ def newsletter_save(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     subject: str = Form(""),
     body_html: str = Form(""),
     audience: str = Form(""),
@@ -700,7 +708,7 @@ def activity_picker(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
     q: str = "",
     purpose: str = "insert",
 ):
@@ -740,7 +748,7 @@ def choice_add(
     group: str,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     activity_id: int = Form(...),
 ):
     """Put an activity in one of the three groups (#1562)."""
@@ -763,7 +771,7 @@ def choice_remove(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     letter = _letter_or_404(db, newsletter_id)
     try:
@@ -781,7 +789,7 @@ def insert_activity(
     newsletter_id: int,
     activity_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     """The HTML snippet "Activiteit invoegen" puts at the cursor."""
     _letter_or_404(db, newsletter_id)
@@ -803,7 +811,7 @@ def insert_activity(
 def insert_calendar(
     newsletter_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     """The calendar block: one line per activity of the letter's calendar group
     — the group the page shows (#1562), no second choice in a picker."""
@@ -816,7 +824,9 @@ def insert_calendar(
     "/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/afsluiting", response_class=HTMLResponse
 )
 def insert_closing(
-    newsletter_id: int, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui)
+    newsletter_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     _letter_or_404(db, newsletter_id)
     return HTMLResponse(nb.closing_html(db))
@@ -830,7 +840,7 @@ def insert_closing(
 async def insert_attachment(
     newsletter_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     file: UploadFile = File(...),
 ):
     """ "Bijlage invoegen": the file is stored, the answer is the link that the
@@ -855,7 +865,9 @@ async def insert_attachment(
 
 @router.get("/admin/nieuwsbrieven/{newsletter_id:int}/voorbeeld", response_class=HTMLResponse)
 def newsletter_preview(
-    newsletter_id: int, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui)
+    newsletter_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     """The letter as it will arrive — markers expanded, styling applied.
 
@@ -889,7 +901,7 @@ def newsletter_test_mail(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     letter = _letter_or_404(db, newsletter_id)
     try:
@@ -927,7 +939,7 @@ def newsletter_resend_failed(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     """Send the letter again to its failed addresses, and only to those (#1783)."""
     letter = _letter_or_404(db, newsletter_id)
@@ -951,7 +963,7 @@ def newsletter_copy(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     letter = _letter_or_404(db, newsletter_id)
     copy = nb.copy_newsletter(db, letter, created_by=email)
@@ -967,7 +979,7 @@ def newsletter_delete(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     letter = _letter_or_404(db, newsletter_id)
     try:
@@ -1085,7 +1097,7 @@ def send_screen(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     letter = _letter_or_404(db, newsletter_id)
     if letter.status != nb.LetterStatus.DRAFT:
@@ -1110,7 +1122,7 @@ def send_letter(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     reply_to: str = Form(nb.ReplyToMode.ASSOCIATION),
 ):
     """After a human read it (CR-05 §3.9) — never automatically."""
@@ -1159,7 +1171,7 @@ def raakje_conversation(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     """The conversation the draft keeps, for the Assistent's panel when it opens
     beside the letter (#1562)."""
@@ -1176,7 +1188,7 @@ def raakje_ask(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     vraag: str = Form(""),
     body_html: str = Form(""),
     selection: str = Form(""),
@@ -1241,7 +1253,7 @@ async def raakje_apply(
     message_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     """Toepassen: the final values for the form. A marked sentence stays out
     unless it was ticked "klopt, behouden" (CR-05 §3.16). Nothing of the proposal
@@ -1312,7 +1324,7 @@ def raakje_dismiss(
     message_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     letter = _raakje_letter(db, newsletter_id)
     message = nb.get_drafting_message(db, letter, message_id)
