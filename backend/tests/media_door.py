@@ -24,6 +24,9 @@ from fastapi.encoders import jsonable_encoder
 from starlette.datastructures import Headers
 
 from app.domains.media import service
+from app.domains.media.models import MediaAsset
+from app.kernel.contracts.media import RemoveFileOf, StoreFile
+from app.kernel.ports import call as call_port
 from tests.forms_door import Answer, _db
 
 
@@ -93,19 +96,54 @@ def _values(files: Any) -> dict:
     return {"filename": name, "content_type": content_type, "content": data}
 
 
-def set_poster(client, activity_id: int, files: Any) -> Answer:
-    return _answer(
-        lambda: service.replace_activity_poster(_db(client), activity_id, **_values(files))
+def _store(client, port: StoreFile) -> Answer:
+    """Store through media's port and commit, as a door of the application does;
+    the answer is the stored asset as media describes it."""
+    db = _db(client)
+
+    def stored() -> dict:
+        outcome = call_port(port, db)
+        db.commit()
+        return service.meta(db.get(MediaAsset, outcome.asset_id))
+
+    return _answer(stored)
+
+
+def set_poster(
+    client, activity_id: int, files: Any, *, title_base: str = "Activiteit - poster"
+) -> Answer:
+    """An activity's poster, through `StoreFile` — the caller names the file, as
+    the activity fiche does."""
+    return _store(
+        client,
+        StoreFile(
+            kind="activity_poster", activity_id=activity_id, title_base=title_base, **_values(files)
+        ),
     )
 
 
 def drop_poster(client, activity_id: int) -> Answer:
-    return _answer(lambda: service.delete_activity_poster(_db(client), activity_id), done=204)
+    db = _db(client)
+
+    def dropped() -> None:
+        call_port(RemoveFileOf(kind="activity_poster", activity_id=activity_id), db)
+        db.commit()
+
+    return _answer(dropped, done=204)
 
 
-def set_component_info(client, component_id: int, files: Any) -> Answer:
-    return _answer(
-        lambda: service.replace_component_info(_db(client), component_id, **_values(files))
+def set_component_info(
+    client, component_id: int, files: Any, *, title_base: str = "Activiteit - Onderdeel - info"
+) -> Answer:
+    """A component's info document, through `StoreFile`."""
+    return _store(
+        client,
+        StoreFile(
+            kind="component_info",
+            component_id=component_id,
+            title_base=title_base,
+            **_values(files),
+        ),
     )
 
 

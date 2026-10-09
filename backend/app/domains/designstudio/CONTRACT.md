@@ -14,9 +14,10 @@ upload, and a numbered version that can be published as the activity's poster.
   `rendition`.
 - **Write**: `create_design`, `save_design`, `set_slot_image` (a slot points at a
   library picture the picker offers, or is emptied — #1473), `delete_design`, `make_version`
-  (all-or-nothing, Inkscape as authority), `publish` (async — copies the A3 PDF
-  onto the activity through `media.replace_activity_poster`),
-  `upload_edited_svg`, `remove_edited_svg`, `add_design_image` (async),
+  (all-or-nothing, Inkscape as authority), `publish` (copies the A3 PDF onto the
+  activity through media's port `StoreFile`),
+  `upload_edited_svg`, `remove_edited_svg`, `add_design_image` (its door reads the
+  upload; the service takes a name, a type and bytes),
   `request_images` (BFL, four variants, budget reserved first),
   `pick_generation`.
 - **Brand**: `COLOURS`, `DUOS`, `ENABLED_DUOS`, `palette_for`, `check_template`
@@ -31,7 +32,8 @@ upload, and a numbered version that can be published as the activity's poster.
 | Component | For |
 |---|---|
 | `activities.api` | `get_activity` (title, dates, place, deadline, cancelled), `organisers_for` (#1004: the contacts on the poster) |
-| `media.api` | `list_media` (kind `sponsor`), `store_uploads` (kind `design_image`, #1005), `add_document` (kind `design_render`: PDF, PNG, SVG — an SVG is cleaned by media's one allowlist, #1011), `remove_media`, `store_activity_poster` (publishing), `offered_by_picker` (what a slot may hold, #1473), `asset_bytes` (the bytes of an image by id — never `.data`, #1473), `media_url` (a slot's thumbnail), `MediaAsset` (an image's type and size, no bytes) |
+| media's ports (`kernel/contracts/media.py`) | `StoreFile` (kind `design_image`, #1005; kind `design_render`: PDF, PNG, SVG — an SVG is cleaned by media's one allowlist, #1011; kind `activity_poster` when publishing), `RemoveAsset` (a pruned render, a replaced hand-edited SVG) |
+| `media.api` | `list_media` (kind `sponsor`), `MediaFout` (media's refusal, shown as the editor's banner), `offered_by_picker` (what a slot may hold, #1473), `asset_bytes` (the bytes of an image by id — never `.data`, #1473), `media_url` (a slot's thumbnail), `MediaAsset` (an image's type and size, no bytes) |
 | `mdm.api` | `organization_details` (website, e-mail, gsm of the association) |
 | `chatbot.api` | `sink_for` (the AI log, #978) and `cost_per_period` (the month's spend) |
 | `kernel` | `tenant_home_url` (the QR target, https), `current_tenant_id`, `jobs` (`designstudio.generate`) |

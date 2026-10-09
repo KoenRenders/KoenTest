@@ -10,9 +10,9 @@ The rules that live here and nowhere else:
   Inkscape as the authority and exported; one violation and nothing is
   written. At most :data:`MAX_VERSIONS` per design — the oldest unpublished one
   goes when a fourth is made.
-- **Publishing is a copy.** The version's A3 PDF is handed to
-  ``media.store_activity_poster`` exactly like a hand-made upload; the
-  activity never learns the Design Studio exists.
+- **Publishing is a copy.** The version's A3 PDF is handed to media through
+  the port ``StoreFile`` exactly like a hand-made upload; the activity never
+  learns the Design Studio exists.
 - **An uploaded SVG is the unit's.** Cleaned by media's one allowlist
   (#1011 — this component carries no cleaner), kept per layout, used instead
   of the merge for that layout's exports, and named "handmatig bewerkt" until
