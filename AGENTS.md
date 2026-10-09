@@ -1169,7 +1169,7 @@ supply an SVG rather than approximating one.
 
 ## Fixed UI decisions — do not change these
 
-- **Address grid layout:** 4-column grid. Row 1: Straat (col-span-2) + Huisnummer (col-1) + Bus (col-1). Row 2: Postcode (col-span-4, full width). Bus number is always on the same row as house number, to the right of it.
+- **Address grid layout:** 4-column grid. Row 1: Straat (col-span-2) + Huisnummer (col-1) + Bus (col-1). Row 2: Postcode (col-span-4, full width). Bus number is on the same row as house number, to the right of it, on a wide screen. On a phone, where the address stands in a form of the kit (the public Lid worden, Mijn gezin), the kit stacks the fields, so there each stands on a row of its own — Straat, Huisnummer, Bus, Postcode — like every other field of that form; no exception in the kit for the address (Koen, 9 October 2026, to the choice between leaving the phone as it is and correcting this sentence, or building an exception: "a").
 - **Postal code field:** Always a **`<select>`-dropdown** gevuld uit de
   postcodetabel (`PostalCode`) — nooit een vrij tekstveld. Consistent in héél v2.0
   (word-lid én gezinsportaal). `form.postal_code` is enkel gezet als de gebruiker
