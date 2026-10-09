@@ -266,20 +266,24 @@ def may_mutate_payments(db: Session, email: str) -> bool:
     return bool(_PAYMENTS_MUTATE_ROLES & set(get_user_roles(db, email)))
 
 
-def require_finance_mutation(db: Session, email: str) -> None:
+def require_finance_mutation(
+    db: Session = Depends(get_db), email: str = Depends(require_finance_ui)
+) -> str:
     """Betaal-MUTATIES (bevestigen/terugbetalen/bewerken/verwijderen): FINANCE of
     OPERATOR (#83/#530).
 
-    Geen `Depends`: deze check komt ná `require_finance_ui`, die de identiteit al
-    heeft vastgesteld, en wordt midden in een route aangeroepen. Ze woont hier
-    omdat autorisatie één plek hoort te hebben — `payment/ui.py` had er een eigen
-    kopie van (#635 punt 10).
+    A route's dependency since CR-24 (#1722): it stands on `require_finance_ui`,
+    which settles who is there, and then asks the narrower set. Until then a
+    route called it in its body, behind `require_finance_ui` in its signature —
+    the same two checks in the same order, so who gets in did not change. It
+    lives here because authorisation has one place (#635 punt 10).
     """
     if not may_mutate_payments(db, email):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=_("Alleen FINANCE mag betalingen wijzigen."),
         )
+    return email
 
 
 def require_operator_ui(db: Session, email: str) -> None:
@@ -297,16 +301,23 @@ def require_operator_ui(db: Session, email: str) -> None:
         )
 
 
-def require_platform_operator_ui(db: Session, email: str) -> None:
+def require_platform_operator_ui(
+    db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+) -> str:
     """Platform administration (#1535): Tenants, Organisaties, a new account and
     the overview of every workspace. It lives in the platform workspace only —
     in a tenant workspace these screens answer 404, for the operator too, so a
-    workspace shows nothing of the others — and there it is OPERATOR-only."""
+    workspace shows nothing of the others — and there it is OPERATOR-only.
+
+    A route's dependency since CR-24 (#1722), standing on `require_admin_ui` as
+    it stood behind it in each route's body: the same checks in the same order.
+    """
     from app.domains.auth.users import is_platform_workspace  # lazy: vermijdt cykel
 
     if not is_platform_workspace(db):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_("Niet gevonden."))
     require_operator_ui(db, email)
+    return email
 
 
 def require_tenant_workspace(db: Session) -> int:
