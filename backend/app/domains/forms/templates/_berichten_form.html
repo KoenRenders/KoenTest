@@ -3,6 +3,7 @@
 <form hx-post="/berichten" hx-target="#berichten-form" hx-swap="innerHTML" class="space-y-4">
   <div>
     {{ ui.label(_("Je naam"), "b_naam", required=True) }}
+    {# promise walked by: test_the_contact_form_refuses_an_empty_name_and_an_empty_message #}
     {{ ui.input_control("naam", id="b_naam", value=naam|default(""), required=True, cls="w-full") }}
   </div>
   <div>
@@ -11,6 +12,7 @@
   </div>
   <div>
     {{ ui.label(_("Je bericht"), "b_bericht", required=True) }}
+    {# promise walked by: test_the_contact_form_refuses_an_empty_name_and_an_empty_message #}
     {{ ui.textarea_control("bericht", id="b_bericht", rows=5, value=bericht|default(""), required=True, cls="w-full") }}
   </div>
   {{ ui.form_guard_fields() }}

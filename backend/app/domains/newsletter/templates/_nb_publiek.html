@@ -10,6 +10,7 @@
   <form class="mt-5 space-y-3" hx-post="{{ path_for('/nieuwsbrief') }}" hx-target="#nb-publiek" hx-swap="innerHTML">
     <div>
       {{ ui.label(_("E-mail"), "nb-email", required=True) }}
+      {# promise walked by: test_the_newsletter_sign_up_refuses_an_empty_address #}
       {{ ui.input_control("email", id="nb-email", type="email", value=email, required=True, cls="w-full",
                           placeholder=_("jouw@mailadres.be"), attrs='autocomplete="email"') }}
     </div>

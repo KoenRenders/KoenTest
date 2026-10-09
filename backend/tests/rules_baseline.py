@@ -588,19 +588,7 @@ PROMISE_NOT_KEPT: frozenset[str] = frozenset()
 # registration fields among them) is the largest group; phase 1 walks the
 # registration form through its facade.
 PROMISE_UNWALKABLE: dict[str, str] = {
-    "domains/chatbot/templates/_raakje_controls.html::vraag::required": "no form target (built in JS, by a macro, or GET)",
-    "domains/designstudio/templates/admin_ontwerp.html::main_focus_x::min": "route `design_save` does not read `main_focus_x` by name",
-    "domains/designstudio/templates/admin_ontwerp.html::main_focus_y::min": "route `design_save` does not read `main_focus_y` by name",
-    "domains/forms/templates/_berichten_form.html::bericht::required": "no column named `bericht`",
-    "domains/forms/templates/_berichten_form.html::naam::required": "no column named `naam`",
-    "domains/forms/templates/_fb_builder.html::label::required": "no writing route for /admin/formulieren/{}{% if f %}/velden/{}{% else %}/velden{% endif %}",
-    "domains/forms/templates/_fb_builder.html::required::required": "no writing route for /admin/formulieren/{}{% if f %}/velden/{}{% else %}/velden{% endif %}",
     "domains/mdm/templates/_leden_adres_velden.html::house_number::required": "no form target (built in JS, by a macro, or GET)",
     "domains/mdm/templates/_leden_adres_velden.html::street::required": "no form target (built in JS, by a macro, or GET)",
     "domains/mdm/templates/leden_import.html::file::required": "no column named `file`",
-    "domains/media/templates/admin_media_nieuw.html::files::required": "no column named `files`",
-    "domains/meetings/templates/admin_vergadering_nieuw.html::meeting_date::required": "no writing route for {}",
-    "domains/newsletter/templates/_nb_instellingen.html::daily_cap::min": "no column named `daily_cap`",
-    "domains/newsletter/templates/_nb_publiek.html::email::required": "no writing route for {}",
-    "ui/templates/design_system.html::naam::required": "no form target (built in JS, by a macro, or GET)",
 }
