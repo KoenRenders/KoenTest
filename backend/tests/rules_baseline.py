@@ -62,7 +62,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         # rule, `mdm.service.delete_person` — and its history calls with it;
         # membership's door calls that rule. Four entries left, four came.
         "domains/membership/signup_service.py::register_family → payment.api.create_payment_record",
-        "domains/newsletter/service.py::send_test → mail.api.send_campaign_mail",
         "domains/newsletter/service.py::subscribe_public → mail.api.send_newsletter_confirmation",
     }
 )
