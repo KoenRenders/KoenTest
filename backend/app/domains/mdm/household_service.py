@@ -346,6 +346,24 @@ def chosen_relation(asked: object, earlier: Sequence[object]) -> RelationType:
     return relation
 
 
+def require_one_main_member(relations: Sequence[object]) -> None:
+    """A household has one main member — or `HouseholdRefused`.
+
+    `relations` are the relations the household would hold AFTER the write, as
+    codes or as `RelationType`. The one rule for every entrance that gives a
+    person a place in a household: creating it, adding a person, changing a
+    relation. It is a rule over several rows of one household, so it stands in
+    the service and each entrance hands it the rows it is about to have
+    (`docs/code-style.md`, *A rule has one home*): the links of a household that
+    is being created are not loaded on it yet, and a `check()` never queries.
+    """
+    from app.i18n import _
+
+    codes = [str(getattr(r, "value", r)) for r in relations if r]
+    if codes.count(RelationType.PRIMARY_MEMBER.value) > 1:
+        raise HouseholdRefused(_("Een gezin heeft één hoofdlid."))
+
+
 def household_relations(household: Member) -> list[str]:
     """The relations the household holds now, in its own order."""
     links = sorted(
@@ -567,6 +585,7 @@ def create_household(
     # Server-side, before anything is written: the client's `required` is UX only.
     for given in persons:
         MemberPerson.require_details(given.date_of_birth, given.gender_code)
+    require_one_main_member([given.relation_type for given in persons])
 
     household = Member()
     db.add(household)

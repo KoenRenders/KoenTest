@@ -19,6 +19,11 @@ the person's card and on a new person ended the request in a 500 (recorded as
 "raised MasterDataError") and is a 422 with the object's words since the repair
 that followed C6-2 — `test_person_name_refused_1251.py` holds that change, red
 before it. Their rows are as they were: nothing is written either way.
+
+A third was recorded again with the rule that a household has one main member
+(`test_one_main_member_1251.py`): making a child the main
+member saved the rest of the card and dropped the relation without a word — a
+200 — and is a 422 that writes nothing now.
 """
 
 from __future__ import annotations
