@@ -254,7 +254,10 @@ def meeting_create(
     request: Request,
     db: Session = Depends(get_db),
     _email: str = Depends(require_admin_ui),
-    meeting_date: str = Form(...),
+    # #1831: not required here. An empty date is no date: the door's own
+    # sentence answers it in the page's banner — required on the route, the
+    # framework answered a bare JSON 422 and the page showed nothing of use.
+    meeting_date: str = Form(""),
     start_time: str = Form(""),
     location: str = Form(""),
 ):
@@ -770,7 +773,10 @@ def meeting_edit_save(
     request: Request,
     db: Session = Depends(get_db),
     _email: str = Depends(require_admin_ui),
-    meeting_date: str = Form(...),
+    # #1831: not required here. An empty date is no date: the door's own
+    # sentence answers it in the page's banner — required on the route, the
+    # framework answered a bare JSON 422 and the page showed nothing of use.
+    meeting_date: str = Form(""),
     start_time: str = Form(""),
     location: str = Form(""),
 ):
