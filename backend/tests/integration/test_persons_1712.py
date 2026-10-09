@@ -319,7 +319,10 @@ def test_the_main_member_is_refused_on_the_household_record_route(client, db_ses
         f"/admin/leden/gezin/{world['household']}/persoon/{world['main']}/verwijderen",
         headers=headers,
     )
-    assert answer.status_code == 400 and "Een gezin heeft een hoofdlid nodig." in answer.text
+    # Since #1831 the card says it in its own message line: the kit's refusal, a
+    # 422, where it was a bare 400 the screen could not show.
+    assert answer.status_code == 422 and "Een gezin heeft een hoofdlid nodig." in answer.text
+    assert answer.headers["HX-Retarget"] == f"#persoon-{world['main']}-melding"
     _main_member_stays(db_session, world)
 
 
