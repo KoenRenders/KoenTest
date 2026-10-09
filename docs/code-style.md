@@ -68,8 +68,9 @@ loose-string gate is an AST walk and not a mypy rule: the models use the legacy
 
 The design is
 [`change_request_13_oo_foundation.md`](change_request_13_oo_foundation.md); the
-placement rule it builds on is CR-04. The gate is `backend/tests/test_rules_gate.py`,
-its frozen offenders `rules_baseline.py` — a list that may only shrink.
+placement rule it builds on is CR-04. The gate is `backend/tests/test_rules_gate.py`;
+it is hard, but for five declared calls between domains that stand in that file
+with their reasons — a list that may only shrink.
 
 **The four addresses.** `@validates("field")` for one field; `def check(self)`
 for several fields of one object, registered with `@aggregate` from
