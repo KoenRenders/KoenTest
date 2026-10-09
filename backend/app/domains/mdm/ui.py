@@ -32,9 +32,11 @@ NAV = "/admin/leden"
 
 
 def _codes(db: Session) -> dict:
-    from app.domains.mdm.api import admin_code_lists
+    """The code lists a person form shows, and the longest name it takes — the
+    number the server refuses at, so the field's `maxlength` cannot drift from it."""
+    from app.domains.mdm.api import PERSON_NAME_MAX, admin_code_lists
 
-    return admin_code_lists(db)
+    return {**admin_code_lists(db), "person_name_max": PERSON_NAME_MAX}
 
 
 def _lidmaatschapsjaren(db: Session) -> list[int]:
@@ -415,6 +417,7 @@ async def persoon_opslaan(
     from app.domains.mdm.api import (
         ContactsUpdate,
         PersonUpdate,
+        board_request,
         update_person,
         update_person_contacts,
     )
@@ -422,7 +425,8 @@ async def persoon_opslaan(
     update_person(
         db,
         person_id,
-        PersonUpdate(
+        board_request(
+            PersonUpdate,
             first_name=first_name.strip(),
             last_name=last_name.strip(),
             date_of_birth=date_of_birth or None,
@@ -616,14 +620,15 @@ def persoon_toevoegen(
     mobile: str = Form(""),
     relation_type: str = Form("PARTNER"),
 ):
-    from app.domains.mdm.api import PersonAddToFamily, add_person_to_family
+    from app.domains.mdm.api import PersonAddToFamily, add_person_to_family, board_request
 
     # `add_person_to_family` answers with the new person's id (#1111: that
     # person's card is the answer).
     nieuw_id = add_person_to_family(
         db,
         family_id,
-        PersonAddToFamily(
+        board_request(
+            PersonAddToFamily,
             first_name=first_name.strip(),
             last_name=last_name.strip(),
             date_of_birth=date_of_birth or None,
