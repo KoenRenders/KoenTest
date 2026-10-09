@@ -565,11 +565,65 @@ def test_a_page_that_was_never_live_has_no_offline_action(client, db_session):
     assert f'hx-post="/admin/paginas/{page.id}/offline-halen"' not in record
 
 
-def test_the_json_update_refuses_content_and_the_flag(client, db_session, admin_headers):
-    """Koen's decision 2a on #1734: the JSON door may no longer write the
-    old HTML or the publication flag — the editor writes documents,
-    publishing is the screen's action. A caller who still sends them is
-    REFUSED (422), not silently ignored."""
+def test_a_good_document_with_a_taken_slug_leaves_the_draft_unchanged(client, db_session):
+    """N1 (the second reading's order, #1734): every refusal comes BEFORE the
+    first write — the address check first, so a good document posted with a
+    slug that exists changes nothing: the draft keeps her old words, and
+    the fields stay as they were."""
+    session = _login(client)
+    page = _page(db_session, "bezetting-1671", title="Bezet")
+    other = _page(db_session, "vrij-1671", title="Vrij")
+    from app.domains.cms.api import draft_document, save_document
+
+    save_document(
+        db_session,
+        page.id,
+        {
+            "type": "doc",
+            "content": [
+                {"type": "paragraph", "content": [{"type": "text", "text": "Oude woorden."}]}
+            ],
+        },
+    )
+    draft_before = json.dumps(draft_document(db_session, page))
+
+    response = client.post(
+        f"/admin/paginas/{page.id}",
+        data={
+            "title": "Bezet",
+            "slug": other.slug,
+            "document": json.dumps(
+                {
+                    "type": "doc",
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": [{"type": "text", "text": "Nieuwe woorden."}],
+                        }
+                    ],
+                }
+            ),
+        },
+        headers={"X-CSRF-Token": csrf_token_for(session), "HX-Request": "true"},
+    )
+    assert response.status_code == 200, "a refusal does not redirect"
+    assert "bestaat al" in response.text or "Slug already exists" in response.text, (
+        "the refusal does not name the address"
+    )
+    db_session.expire_all()
+    page = db_session.get(CmsPage, page.id)
+    assert page.slug == "bezetting-1671", "the taken slug was written"
+    assert page.title == "Bezet", "the fields were saved despite the refusal"
+    assert json.dumps(draft_document(db_session, page)) == draft_before, (
+        "the draft was written despite the refused address"
+    )
+
+
+def test_the_json_door_is_gone_and_the_page_keeps_her_words(client, db_session, admin_headers):
+    """The stronger form of Koen's decision 2a on #1734: the JSON door of a
+    page does not exist at all anymore (CR-13 4b pruned the routes, #1822) —
+    a page's words and her being live have no door but the screen. A caller
+    who still asks it learns 404, and nothing changes."""
     from app.domains.cms.api import create_page
     from app.schemas.cms import CmsPageCreate
 
@@ -578,20 +632,18 @@ def test_the_json_update_refuses_content_and_the_flag(client, db_session, admin_
         CmsPageCreate(title="Jsondeur", slug="jsondeur-1671", content="<p>Oude tekst.</p>"),
     )
 
-    for forbidden in ({"content": "<p>nieuwe tekst</p>"}, {"is_published": False}):
-        response = client.put(f"/api/v1/pages/{page.id}", json=forbidden, headers=admin_headers)
-        assert response.status_code == 422, (
-            f"{list(forbidden)[0]} rode along instead of being refused"
-        )
-        db_session.expire_all()
-        assert db_session.get(CmsPage, page.id).content == "<p>Oude tekst.</p>", (
-            "the refused field still wrote"
-        )
-
-    # The fields she may still write, write.
     response = client.put(
         f"/api/v1/pages/{page.id}", json={"title": "Jsondeur 2"}, headers=admin_headers
     )
-    assert response.status_code == 200
+    assert response.status_code == 404, "the JSON door of a page answered"
+
     db_session.expire_all()
-    assert db_session.get(CmsPage, page.id).title == "Jsondeur 2"
+    stored = db_session.get(CmsPage, page.id)
+    assert stored.title == "Jsondeur", "the refused update still wrote"
+    assert stored.content == "<p>Oude tekst.</p>", "the refused update still wrote"
+
+    response = client.delete(f"/api/v1/pages/{page.id}", headers=admin_headers)
+    assert response.status_code == 404, "the JSON door of a page answered"
+
+    db_session.expire_all()
+    assert db_session.get(CmsPage, page.id) is not None, "the page is gone"

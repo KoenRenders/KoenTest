@@ -98,7 +98,9 @@ class CmsPageHistory(Base):
         nullable=False,
     )
     language = Column(String(5), nullable=False)
-    # 'published' by Publiceren; 'restored' by Terugzetten (into the draft).
+    # 'published' by Publiceren; 'restored' by Terugzetten (into the draft);
+    # 'offline' by Offline halen (Koen, 8 October 2026: "ja" — the same
+    # rule as the two other actions: who and when, recorded).
     action = Column(String(20), nullable=False)
     document = Column(JSONB, nullable=False)
     at = Column(DateTime(timezone=True), nullable=False)

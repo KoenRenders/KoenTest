@@ -21,7 +21,7 @@
       <dd>{{ _("Via haar oude tekst — de bezoeker ziet die, tot een document wordt gepubliceerd.") }}</dd></div>
     {% elif vertaling and vertaling.published_json %}
     <div><dt class="text-ink-soft">{{ _("Offline") }}</dt>
-      <dd>{{ _("De bezoeker ziet haar niet. Publiceren maakt haar weer zichtbaar, met dezelfde woorden.") }}</dd></div>
+      <dd>{{ _("De bezoeker ziet haar niet. Publiceren zet het concept weer live — zoals het concept dan staat.") }}</dd></div>
     {% else %}
     <div><dt class="text-ink-soft">{{ _("Niet gepubliceerd") }}</dt>
       <dd>{{ _("De bezoeker ziet haar niet; opslaan en publiceren maken haar zichtbaar.") }}</dd></div>
@@ -41,10 +41,12 @@
   <ul class="text-sm space-y-2">
     {% for versie in versies %}
     <li class="flex items-center justify-between gap-2">
-      <span>{{ versie.at|short_datetime }}{% if versie.by %} · {{ versie.by }}{% endif %}</span>
+      <span>{{ versie.at|short_datetime }}{% if versie.by %} · {{ versie.by }}{% endif %}{% if versie.action == "offline" %} · {{ _("offline gehaald") }}{% endif %}</span>
+      {%- if versie.action != "offline" %}
       <button type="button" class="text-blue-700 underline"
               data-confirm="{{ _('Terugzetten naar deze versie? Het concept wordt deze versie; de openbare pagina verandert pas na publiceren.') }}"
               hx-post="/admin/paginas/{{ p.id }}/terugzetten/{{ versie.id }}">{{ _("Terugzetten") }}</button>
+      {%- endif %}
     </li>
     {% endfor %}
   </ul>

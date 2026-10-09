@@ -205,7 +205,9 @@ def upgrade() -> None:
             sa.Column("document", JSONB(), nullable=False),
             sa.Column("at", sa.DateTime(timezone=True), nullable=False),
             sa.Column("by", sa.String(length=255), nullable=True),
-            sa.CheckConstraint("action IN ('published', 'restored')", name="ck_cph_action"),
+            sa.CheckConstraint(
+                "action IN ('published', 'restored', 'offline')", name="ck_cph_action"
+            ),
             sa.ForeignKeyConstraint(
                 ["page_id"], ["cms.cms_pages.id"], ondelete="CASCADE", name="fk_cph_page"
             ),

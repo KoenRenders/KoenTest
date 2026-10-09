@@ -259,6 +259,14 @@ def save_page_form(db, page_id: int, data, document, *, by: str | None = None) -
     page = get_page_by_id(db, page_id)
     if page is None:
         raise LookupError("Page not found")
+    # Every refusal BEFORE the first write (N1, the third reading on
+    # #1734): the fields' own refusals — a slug that exists — come before
+    # the document is written, so a refused address leaves the draft as
+    # it was, pending nothing (the app's session does not flush on its
+    # own; the promise is not left to that).
+    if data.slug and data.slug != page.slug:
+        if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
+            raise SlugBestaatAl("Slug already exists")
     # Whether there IS a document to save is this door's rule, not the
     # screen's (CR-13 §B9.3): an empty field saves the fields alone.
     if document is not None and document.strip():
@@ -577,17 +585,40 @@ def publish(
     return translation
 
 
-def take_page_offline(db, page_id: int) -> CmsPage:
+def take_page_offline(db, page_id: int, *, by: Optional[str] = None) -> CmsPage:
     """Offline halen (Koen, 8 October 2026, decision 1a on #1734): the page
     leaves the site — the public route reads `is_published`, and she is the
     flag — while the page, her draft and her published document all stay.
-    Publiceren puts her back with the same words; nothing is re-published
-    or re-derived by this door.
+    A history row records who took her off and when (Koen: "ja" — the
+    same rule as Publiceren and Terugzetten); her document is the
+    published one at that moment, the empty document for a page live
+    through the HTML fallback. Publiceren puts the DRAFT live again —
+    the draft as it stands then, not necessarily these words.
     """
+    from datetime import datetime, timezone
+
+    from app.domains.cms.models import CmsPageHistory
+
     page = get_page_by_id(db, page_id)
     if page is None:
         raise LookupError("Page not found")
+    translation = get_translation(db, page)
+    now = datetime.now(timezone.utc)
     page.is_published = False
+    db.add(
+        CmsPageHistory(
+            page_id=page.id,
+            language=translation.language if translation else "nl",
+            action="offline",
+            document=(
+                translation.published_json
+                if translation and translation.published_json is not None
+                else {"type": "doc", "content": []}
+            ),
+            at=now,
+            by=by,
+        )
+    )
     db.commit()
     db.refresh(page)
     return page
@@ -604,6 +635,11 @@ def restore(db, page_id: int, history_id: int, *, by: Optional[str] = None) -> "
     page = get_page_by_id(db, page_id)
     if version is None or page is None or version.page_id != page.id:
         raise LookupError("Version not found")
+    # An offline row is an event, not a version (the aside shows her without
+    # a Terugzetten button); she names the moment, she is not a document to
+    # return to.
+    if version.action == "offline":
+        raise ValueError("Offline is geen versie om terug te zetten.")
     translation = (
         db.query(CmsPageTranslation)
         .filter(

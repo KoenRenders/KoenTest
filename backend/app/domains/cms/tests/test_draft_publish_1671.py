@@ -23,6 +23,7 @@ from app.domains.cms.api import (
     restore,
     save_document,
     save_draft,
+    take_page_offline,
     update_page,
     versions,
 )
@@ -157,28 +158,67 @@ def test_create_page_derives_the_document_from_its_content(db_session):
     assert any("Meteen inhoud." in t for t in texts)
 
 
-def test_the_flag_takes_the_page_offline_and_back(db_session):
-    """Slice 3 (the review's A2, #1734): with the checkbox gone from the
-    screen, the flag is the JSON door's — and the public route reads her
-    (`get_published_page`), so off is off. The published document STAYS:
-    a page taken offline and flagged back is live again with the same
-    words, no re-publish needed. The SCREEN's way to do this is Koen's to
-    decide; this pins the door the flag still has."""
+def test_offline_halen_writes_a_history_row_and_publiceren_brings_her_back(db_session):
+    """The doors the flag has since slice 3 (the review's A2) and the history
+    row Koen asked for (8 October 2026: "ja" — the same rule as Publiceren
+    and Terugzetten): Offline halen takes her off the site, keeps draft and
+    published document, and records who and when; the row is an event, not
+    a version (restore refuses her). Publiceren puts the DRAFT live again —
+    the draft as she stands then, here the same words because nothing was
+    edited in between."""
+    from app.domains.cms.models import CmsPageHistory
+
     page = _page(db_session, is_published=True, content="<p>Live tekst.</p>")
     save_document(db_session, page.id, {"type": "doc", "content": [_paragraph("Live document.")]})
-    publish(db_session, page.id)
+    publish(db_session, page.id, by="redacteur@voorbeeld.example")
     assert get_translation(db_session, page).published_json is not None
 
-    update_page(db_session, page.id, CmsPageUpdate(is_published=False))
+    take_page_offline(db_session, page.id, by="beheerder@voorbeeld.example")
     db_session.expire_all()
     assert get_published_page(db_session, page.slug) is None, "the page is still live"
     assert get_translation(db_session, page).published_json is not None, (
-        "the flag destroyed the published document"
+        "going offline destroyed the published document"
+    )
+    row = (
+        db_session.query(CmsPageHistory)
+        .filter(CmsPageHistory.page_id == page.id, CmsPageHistory.action == "offline")
+        .one_or_none()
+    )
+    assert row is not None, "Offline halen wrote no history row"
+    assert row.by == "beheerder@voorbeeld.example", "the row does not say who"
+    assert row.document == get_translation(db_session, page).published_json, (
+        "the row does not hold the published document of that moment"
     )
 
-    update_page(db_session, page.id, CmsPageUpdate(is_published=True))
+    restore_row = (
+        db_session.query(CmsPageHistory)
+        .filter(CmsPageHistory.page_id == page.id, CmsPageHistory.action == "restored")
+        .first()
+    )
+    assert restore_row is None, "restoring an offline row wrote a restored row"
+
+    publish(db_session, page.id, by="redacteur@voorbeeld.example")
     db_session.expire_all()
     assert get_published_page(db_session, page.slug) is not None, "she did not come back"
+
+
+def test_restore_refuses_an_offline_row(db_session):
+    """An offline row is an event, not a version: Terugzetten refuses her by
+    name (the aside shows her without a button; this pins the service door
+    the screen calls)."""
+    page = _page(db_session, is_published=True, content="<p>Live tekst.</p>")
+    save_document(db_session, page.id, {"type": "doc", "content": [_paragraph("Live document.")]})
+    publish(db_session, page.id)
+    take_page_offline(db_session, page.id, by="beheerder@voorbeeld.example")
+    offline_row = (
+        db_session.query(CmsPageHistory)
+        .filter(CmsPageHistory.page_id == page.id, CmsPageHistory.action == "offline")
+        .one()
+    )
+    import pytest
+
+    with pytest.raises(ValueError, match="geen versie"):
+        restore(db_session, page.id, offline_row.id, by="redacteur@voorbeeld.example")
 
 
 def test_a_page_without_a_published_document_keeps_serving_her_html(db_session):

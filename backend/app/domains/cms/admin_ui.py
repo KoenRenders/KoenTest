@@ -317,12 +317,14 @@ def take_offline_page(
 ):
     """Offline halen (Koen, 8 October 2026, decision 1a on #1734): the page
     leaves the site and keeps everything — her draft, her published
-    document, her history. Publiceren puts her back with the same words.
+    document, her history. A history row records who took her off and
+    when (Koen: "ja"). Publiceren puts the draft live again — the draft
+    as it stands then, not necessarily the same words.
     """
     from app.domains.cms.api import take_page_offline
 
     try:
-        take_page_offline(db, page_id)
+        take_page_offline(db, page_id, by=email)
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error))
     return Response(status_code=204, headers={"HX-Redirect": f"/admin/paginas/{page_id}"})
