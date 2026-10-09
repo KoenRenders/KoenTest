@@ -39,11 +39,7 @@ FOREIGN_WRITES: frozenset[str] = frozenset(
 # imports. A router or screen calling another domain's
 # service is not here: that service is the request's door. Mail's `_log_email` is
 # the phase 4 job enqueuer (§B4.1); media and designstudio meet in phase 4.
-COMMIT_BEHIND_API: frozenset[str] = frozenset(
-    {
-        "forms.api.submit_bericht",
-    }
-)
+COMMIT_BEHIND_API: frozenset[str] = frozenset({})
 
 
 # Calls into another domain's command outside a `@subscribe` function (§B4.9, R12),
@@ -60,9 +56,6 @@ COMMIT_BEHIND_API: frozenset[str] = frozenset(
 COMMAND_CALLS: frozenset[str] = frozenset(
     {
         "domains/activities/router.py::create_registration → payment.api.create_payment_record",
-        "domains/chatbot/tools.py::submit_idea → forms.api.submit_bericht",
-        "domains/forms/api.py::submit_bericht → mail.api.send_form_confirmation",
-        "domains/forms/service.py::submit_form → mail.api.send_form_confirmation",
         "domains/meetings/service.py::send_meeting_mail → mail.api.send_with_attachments",
         "domains/membership/portal_service.py::renew_membership → payment.api.create_payment_record",
         # CR-22 S7 (#1712): the delete of a person moved to master data — one

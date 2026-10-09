@@ -60,7 +60,7 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db), vraag: str = F
     from app.domains.chatbot.logbook import sink_for
     from app.domains.chatbot.providers import get_provider
     from app.domains.chatbot.seam import GuardedProvider, SeamBlocked, public_rules
-    from app.domains.chatbot.service import QuestionRefused, asked, run_public_chat
+    from app.domains.chatbot.service import QuestionRefused, answer_visitor, asked
 
     vraag = vraag.strip()
     # #1568: the environment's switch and the tenant's, one rule — the same the
@@ -91,7 +91,7 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db), vraag: str = F
     # e-mailadres te ontvangen.
     provider = GuardedProvider(get_provider(), public_rules(), sink_for())
     try:
-        antwoord = run_public_chat(db, messages, provider, max_rounds=settings.chat_max_tool_rounds)
+        antwoord = answer_visitor(db, messages, provider, max_rounds=settings.chat_max_tool_rounds)
     except SeamBlocked as geblokkeerd:
         # De logregel staat al — het logboek schrijft in zijn eigen sessie, juist
         # omdat deze beurt op een foutpad eindigt.

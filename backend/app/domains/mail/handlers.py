@@ -30,6 +30,7 @@ from app.domains.mail.service import (
 from app.i18n import _
 from app.kernel.contracts.activities import AnswerLinkSent, RegistrationConfirmed
 from app.kernel.contracts.auth import CodeMailRequested
+from app.kernel.contracts.forms import SubmissionCreated
 from app.kernel.contracts.mail import MailRequested
 from app.kernel.contracts.membership import FamilyRegistered
 from app.kernel.events import subscribe
@@ -246,3 +247,22 @@ def queue_family_welcome(event: FamilyRegistered, db: Session) -> None:
         queue_mail(db, **message)
     except Exception as e:  # noqa: BLE001 — a mail never stops a registration
         logger.error("Lidmaatschap bevestigingsmail mislukt naar %s: %s", event.to_email, e)
+
+
+@subscribe(SubmissionCreated)
+def queue_form_confirmation(event: SubmissionCreated, db: Session) -> None:
+    """A submission was made and forms says a confirmation goes out
+    (`confirm_to`): worded here, from what forms reads back about the
+    submission, and queued in the publisher's transaction — the mail leaves only
+    if the submission is kept (CR-13 phase 4d, #1251). Until then forms called
+    mail itself, after its commit."""
+    if not event.confirm_to:
+        return
+    from app.domains.forms.api import submission_confirmation
+    from app.domains.mail.service import form_confirmation_message
+
+    said = submission_confirmation(db, event.submission_id)
+    if said is None:
+        return
+    subject, body = form_confirmation_message(**said)
+    queue_mail(db, event.confirm_to, subject, body, email_type="form_confirmation")

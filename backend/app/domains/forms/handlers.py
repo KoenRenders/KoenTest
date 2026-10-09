@@ -15,7 +15,9 @@ from app.kernel.contracts.forms import (
     AttachedSubmission,
     CopyForm,
     FormCopied,
+    MessageSubmitted,
     SubmitAttached,
+    SubmitMessage,
     UpdateAttached,
 )
 from app.kernel.contracts.mdm import TenantCreated
@@ -93,3 +95,16 @@ def copy_form(port: CopyForm, db: Session) -> FormCopied:
         new_year=port.new_year,
     )
     return FormCopied(form_id=new_id)
+
+
+@handles(SubmitMessage)
+def submit_message(port: SubmitMessage, db: Session) -> MessageSubmitted:
+    """A message for the board from a caller without a visitor's form: the
+    guard's proof is TRUSTED, as the caller's own limits apply (#1297)."""
+    from app.domains.forms.service import submit_message as submit
+    from app.kernel.form_guard import TRUSTED
+
+    submission_id = submit(
+        db, naam=port.name, email=port.email, bericht=port.message, proof=TRUSTED
+    )
+    return MessageSubmitted(submission_id=submission_id)

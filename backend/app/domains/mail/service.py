@@ -761,16 +761,14 @@ def activity_confirmation_message(
     )
 
 
-def send_form_confirmation(
-    to_email: str,
+def form_confirmation_message(
     form_title: str,
     name: Optional[str] = None,
     confirmation_message: Optional[str] = None,
     edit_link: Optional[str] = None,
-    background_tasks=None,
-) -> None:
-    """Bevestiging na het indienen van een formulier (#327). Optioneel een
-    wijzig-link als het formulier dat toelaat."""
+) -> tuple[str, str]:
+    """The confirmation of a form submission (#327), as subject and body. With a
+    link to change the answer when the form allows it."""
     greeting = _("<p>Beste %(name)s,</p>") % {"name": escape(name)} if name else _("<p>Beste,</p>")
     custom = f"<p>{escape(confirmation_message)}</p>" if confirmation_message else ""
     edit_block = ""
@@ -782,17 +780,33 @@ def send_form_confirmation(
             )
             + f'<p><a href="{edit_link}">{edit_link}</a></p>'
         )
+    return (
+        _("Bevestiging: %(title)s") % {"title": escape(form_title)},
+        f"{greeting}"
+        f"<p>We hebben je antwoord op <strong>{escape(form_title)}</strong> goed ontvangen.</p>"
+        f"{custom}{edit_block}"
+        f"<p>Met vriendelijke groeten,<br>{_display_name()}</p>",
+    )
+
+
+def send_form_confirmation(
+    to_email: str,
+    form_title: str,
+    name: Optional[str] = None,
+    confirmation_message: Optional[str] = None,
+    edit_link: Optional[str] = None,
+    background_tasks=None,
+) -> None:
+    """Send that confirmation at once. Since CR-13 phase 4d (#1251) forms no
+    longer calls this: mail queues the confirmation itself when a submission is
+    made (`handlers.queue_form_confirmation`)."""
+    subject, body = form_confirmation_message(form_title, name, confirmation_message, edit_link)
     _dispatch(
         background_tasks,
         to_email=to_email,
         email_type="form_confirmation",
-        subject=_("Bevestiging: %(title)s") % {"title": escape(form_title)},
-        body_html=(
-            f"{greeting}"
-            f"<p>We hebben je antwoord op <strong>{escape(form_title)}</strong> goed ontvangen.</p>"
-            f"{custom}{edit_block}"
-            f"<p>Met vriendelijke groeten,<br>{_display_name()}</p>"
-        ),
+        subject=subject,
+        body_html=body,
     )
 
 

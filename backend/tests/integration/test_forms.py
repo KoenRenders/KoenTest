@@ -1106,7 +1106,6 @@ def test_niet_anoniem_vereist_naam_en_email(db_session):
     check vuurt vóór de veld-validatie, dus er zijn geen velden nodig."""
     import pytest
     from fastapi import HTTPException
-    from starlette.background import BackgroundTasks
 
     from app.domains.forms.models import Form
     from app.domains.forms.schemas import SubmissionIn
@@ -1116,14 +1115,12 @@ def test_niet_anoniem_vereist_naam_en_email(db_session):
     db_session.add(form)
     db_session.commit()
 
-    bt = BackgroundTasks()
     for naam, email in [("Jan", None), ("Jan", "geen-apestaart"), ("", "jan@x.be")]:
         with pytest.raises(HTTPException) as exc:
             submit_form(
                 db_session,
                 "tok-501",
                 SubmissionIn(submitter_name=naam, submitter_email=email, answers=[]),
-                bt,
                 proof=person_proof(),
             )
         assert exc.value.status_code == 422

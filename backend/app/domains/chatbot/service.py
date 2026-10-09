@@ -209,3 +209,21 @@ def run_public_chat(
         dispatch=execute_tool,
         force_first=_wants_activity_data(messages),
     )
+
+
+def answer_visitor(
+    db: Session, messages: list[dict[str, Any]], provider, *, max_rounds: int
+) -> str:
+    """The door of a visitor's question: the public chat, and one commit.
+
+    The chat writes one thing — a message the visitor asked to pass on to the
+    board (the tool `submit_idea`, through forms' port, which does not commit for
+    its caller). It is kept here, in a `finally`: also when the conversation
+    fails after the tool, as it was when forms committed it itself (CR-13 phase
+    4d, #1251). Not in the tool: `execute_read_tool` reaches the tools' one
+    dispatcher, and a commit there would make a command of what other domains
+    call as a read."""
+    try:
+        return run_public_chat(db, messages, provider, max_rounds=max_rounds)
+    finally:
+        db.commit()
