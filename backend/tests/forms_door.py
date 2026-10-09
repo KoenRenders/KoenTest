@@ -28,16 +28,16 @@ schema or the service refuses, 404 for a form that does not exist.
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any, Callable
 
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.domains.forms import api as forms_api
 from app.domains.forms import service
 from app.domains.forms.schemas import FormCreate, FormUpdate, SubmissionIn
 from app.kernel.form_guard import Proof
+from app.kernel.jobs import run_due_jobs
 
 
 class Answer:
@@ -158,10 +158,11 @@ def submit(client, share_token: str, body: dict) -> Answer:
 
     def call():
         data = SubmissionIn.model_validate(body)
-        tasks = BackgroundTasks()
         proof = Proof(honeypot=data.website, token=data.form_ts, client_ip="test")
-        result = forms_api.submit_public_form(db, share_token, data, tasks, proof=proof)
-        asyncio.run(tasks())
+        result = forms_api.submit_public_form(db, share_token, data, proof=proof)
+        # The confirmation is a queued job since CR-13 phase 4d; the runner picks
+        # it up after the commit — here, where the request's background task ran.
+        run_due_jobs(db)
         return _plain(result)
 
     return _answer(call)

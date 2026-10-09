@@ -41,69 +41,6 @@ def submission_count(db: Session, form_id: int) -> int:
     return _impl(db, form_id)
 
 
-def submit_bericht(
-    db: Session, *, naam: str, email: str | None, bericht: str, proof, background_tasks=None
-) -> int | None:
-    """Hét schrijfpad voor een bericht (#398): inzending op het geseede
-    'berichten'-formulier + SubmissionCreated (→ behartigen-taak) + optionele
-    bevestigingsmail. Geeft het submission-id terug, of None als het formulier
-    ontbreekt. Gebruikt door /berichten (ui) én de chatbot — geen tweede weg.
-
-    `proof` (#1297): a `form_guard.Proof` from the visitor's form, or
-    `form_guard.TRUSTED` for a caller without one (the chatbot). A submission the
-    guard drops leaves nothing — no row, no task, no mail — and returns None too:
-    the screen thanks the bot as it thanks a person."""
-    from app.kernel import form_guard
-
-    if form_guard.refused(proof, CONTACT_FORM_SLUG):
-        return None
-
-    from app.domains.forms.service import build_answers
-    from app.domains.mail.api import send_form_confirmation
-    from app.kernel.contracts.forms import SubmissionCreated
-    from app.kernel.events import publish
-
-    # #1509: the one rule — a form that cannot be sent is no form.
-
-    form = contact_form(db)
-    if form is None:
-        return None
-    # De invariant gold "voor élke ingang", maar juist deze riep hem niet aan
-    # (#635-2). De chatbot schrijft hier ook naartoe, dus een leeg bericht of een
-    # ontbrekend adres kwam er langs de zijdeur toch in.
-    assert_submitter(form, naam, email, message=bericht, require_message=True)
-    answers = build_answers(form, [AnswerIn(field_id=form.fields[0].id, text=bericht)])
-    submission = FormSubmission(form_id=form.id, submitter_name=naam, submitter_email=email or None)
-    for row in answers:
-        submission.answers.append(row)
-    db.add(submission)
-    db.flush()
-    publish(
-        SubmissionCreated(
-            form_id=form.id,
-            form_slug=form.slug,
-            submission_id=submission.id,
-            submitter_name=naam,
-            submitter_email=email or None,
-        ),
-        db,
-    )
-    db.commit()
-
-    if form.send_confirmation and email:
-        try:
-            send_form_confirmation(
-                to_email=email,
-                form_title=form.title,
-                name=naam,
-                confirmation_message=form.confirmation_message,
-                background_tasks=background_tasks,
-            )
-        except Exception as exc:  # pragma: no cover
-            logger.warning("Bevestigingsmail bericht kon niet verstuurd worden: %s", exc)
-    return submission.id
-
-
 def submission_view(db: Session, submission_id: int) -> list[tuple[str, str]]:
     """Leesbare (label, waarde)-rijen van één inzending — voor gast-weergave
     buiten het component (werkbank-taakdetail, #398). Geen ORM over de grens."""
@@ -206,6 +143,7 @@ from app.domains.forms.service import (  # noqa: E402,F401
     normaliseer_slug,
     question_groups,
     seed_contact_form,
+    submission_confirmation,
     submission_form_values,
     submission_url,
     submission_views,
@@ -223,11 +161,11 @@ from app.domains.forms.service import (  # noqa: E402,F401
 # hoort het" aanmerkt. Alleen de weg ernaartoe loopt via deze facade.
 
 
-def submit_public_form(db, share_token: str, payload, background_tasks, *, proof):
-    """Een publieke inzending verwerken. `proof`: see `submit_bericht` (#1297)."""
+def submit_public_form(db, share_token: str, payload, *, proof):
+    """Een publieke inzending verwerken. `proof`: see `service.submit_message` (#1297)."""
     from app.domains.forms.service import submit_form
 
-    return submit_form(db, share_token, payload, background_tasks, proof=proof)
+    return submit_form(db, share_token, payload, proof=proof)
 
 
 def update_public_submission(db, edit_token: str, payload):

@@ -159,6 +159,7 @@ def test_submit_idea_creates_bericht_submission(db_session):
             db_session,
         )
     )
+    db_session.commit()  # the chat's door commits; forms' port does not (#1251)
     assert out["ok"] is True
     assert db_session.query(FormSubmission).count() == before + 1
     sub = db_session.query(FormSubmission).order_by(FormSubmission.id.desc()).first()
@@ -274,6 +275,7 @@ def test_submit_idea_lands_in_werkbank(db_session):
             db_session,
         )
     )
+    db_session.commit()  # the chat's door commits; forms' port does not (#1251)
     assert out["ok"] is True
     open_after = db_session.query(WorkflowTask).filter(WorkflowTask.status == "open").count()
     assert open_after == before + 1

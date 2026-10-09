@@ -253,7 +253,9 @@ def test_the_mail_uses_the_home_url(db_session):
 
     # The function that sends the mail; it stood in `forms/router.py` until CR-13
     # phase 4c (#1251) and the test read that whole file.
-    ruw = inspect.getsource(service.submit_form)
+    # Since phase 4d mail words the confirmation and forms reads back what it
+    # says: the link is built in that read.
+    ruw = inspect.getsource(service.submission_confirmation)
     # Commentaar eerst weg. De uitleg bóven deze regel noemt `tenant_base_url` met
     # opzet — ze legt uit waarom het die niet is — en een scan die dat als code
     # leest, is dezelfde valse treffer die de #866-poort ooit rood maakte.
