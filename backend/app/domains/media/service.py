@@ -843,41 +843,10 @@ def activity_ids_with_media(db) -> set[int]:
     }
 
 
-# ── Affiches, onderdeel-info en hertekstextractie (#635 I) ───────────────────
-# Deze vijf stonden als routerfuncties in `router.py` en werden door de
-# beheerschermen geïmporteerd. Ze dragen domeinregels: een affiche vervangt de
-# vorige (er is er één per activiteit), verwijderen neemt de geëxtraheerde tekst
-# vanzelf mee, en hertekstextractie mag alleen op een leesbaar documenttype.
-
-
-def replace_activity_poster(
-    db, activity_id: int, *, filename: str, content_type: str, content: bytes
-) -> dict:
-    """Replace an activity's poster and commit: one poster per activity, named
-    after it; its text is read by a job once this commits (#206). The activity
-    fiche stores through the port `StoreFile`, in its own transaction."""
-    from app.domains.activities.api import get_activity
-
-    activity = get_activity(db, activity_id)
-    if activity is None:
-        raise LookupError("Activiteit niet gevonden")
-    asset = store_file(
-        db,
-        kind=MediaKind.ACTIVITY_POSTER,
-        filename=filename,
-        content_type=content_type,
-        content=content,
-        activity_id=activity_id,
-        title_base=f"{activity.name} - poster",
-    )
-    db.commit()
-    return meta(asset)
-
-
-def delete_activity_poster(db, activity_id: int) -> None:
-    """Hard delete: dat neemt de geëxtraheerde tekst vanzelf mee (#206)."""
-    remove_file_of(db, kind=MediaKind.ACTIVITY_POSTER, activity_id=activity_id)
-    db.commit()
+# ── Hertekstextractie (#635 I) ───────────────────────────────────────────────
+# An activity's poster and a component's info document are stored and removed
+# through the ports (`store_file`, `remove_file_of`); what stands here is the
+# rule of the re-read: only a document of a kind whose text is read.
 
 
 def read_text_again(db, asset_id: int) -> None:
@@ -893,36 +862,6 @@ def read_text_again(db, asset_id: int) -> None:
     if asset is None or asset.kind not in EXTRACTABLE_KINDS:
         raise LookupError("Document niet gevonden")
     start_extraction(db, asset_id, force=True)
-
-
-def replace_component_info(
-    db, component_id: int, *, filename: str, content_type: str, content: bytes
-) -> dict:
-    """Replace a component's info document and commit. An info PDF is context
-    for Raakje too, so its text is read by a job like a poster's (#206). The
-    activity fiche stores through the port `StoreFile`."""
-    from app.domains.activities.api import get_component
-
-    component = get_component(db, component_id)
-    if component is None:
-        raise LookupError("Onderdeel niet gevonden")
-    activiteit_naam = component.activity.name if component.activity else "activiteit"
-    asset = store_file(
-        db,
-        kind=MediaKind.COMPONENT_INFO,
-        filename=filename,
-        content_type=content_type,
-        content=content,
-        component_id=component_id,
-        title_base=f"{activiteit_naam} - {component.name} - info",
-    )
-    db.commit()
-    return meta(asset)
-
-
-def delete_component_info(db, component_id: int) -> None:
-    remove_file_of(db, kind=MediaKind.COMPONENT_INFO, component_id=component_id)
-    db.commit()
 
 
 def activity_image_path(db, activity_id: int) -> Optional[str]:
