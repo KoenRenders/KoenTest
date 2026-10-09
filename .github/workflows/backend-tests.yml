@@ -277,7 +277,7 @@ jobs:
           done
           echo "Backend niet bereikbaar"; tail -50 /tmp/backend.log; exit 1
 
-      - name: Run e2e (the folders of this part)
+      - name: Run e2e (golden flows)
         working-directory: backend
         run: python -m pytest -v ${{ matrix.paths }}
 
