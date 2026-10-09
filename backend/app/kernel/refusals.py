@@ -33,6 +33,27 @@ class FieldError:
     message: str
 
 
+#: The statuses a door answers for a refusal the visitor can do something about.
+#: A 404 is not one — the thing is gone — and neither is a 403.
+REFUSAL_STATUSES = (400, 409, 422)
+
+
+def as_refusal(raised: Exception) -> FieldError:
+    """What a door heard, as a refusal of the form as a whole (#1831) — or the
+    same exception again when it is none.
+
+    Two shapes are a refusal: an HTTP error with one of `REFUSAL_STATUSES`, whose
+    `detail` is the sentence, and a domain's own refusal, whose text is the
+    sentence. An HTTP error with another status is no refusal and is raised on,
+    for the application to answer. Reads `status_code` and `detail` by name: the
+    kernel knows no web framework.
+    """
+    status = getattr(raised, "status_code", None)
+    if status is not None and status not in REFUSAL_STATUSES:
+        raise raised
+    return FieldError("", str(getattr(raised, "detail", raised)))
+
+
 class Refusals:
     """What one save refuses. `kinds` are the exception types that are a refusal
     of a rule (a domain's own error type); `passing` are subtypes of those that

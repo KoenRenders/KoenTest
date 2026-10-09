@@ -6,12 +6,15 @@ gedeelde machinerie: de template-omgeving (met de component-template-mappen),
 de UI-kit-macro's en de shells (base-layouts).
 """
 
+import functools
 import hashlib
+import inspect
 import logging
 from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
 
+from fastapi import HTTPException
 from fastapi.templating import Jinja2Templates
 from jinja2 import (
     Environment,
@@ -24,6 +27,7 @@ from jinja2 import (
 
 from app.config import settings
 from app.kernel.phone import readable_phone
+from app.kernel.refusals import as_refusal
 
 _UI_DIR = Path(__file__).parent
 
@@ -771,6 +775,57 @@ def refusal_response(request, errors, message_line: str, *, send: bool = False):
             "HX-Reselect": "[data-save-refusal]",
         },
     )
+
+
+def says_why_in(line: str, *also: type[Exception]):
+    """A refusal of this route goes to a message line of ITS form (#1831).
+
+    For a page with several forms — a card per person, a form per question. A
+    refusal of one answered a bare JSON error there, and the page showed the
+    general message, "Er ging iets mis … probeer opnieuw", for something no retry
+    mends. The rule's own sentence existed and never reached the screen.
+
+    `line` is the selector of the form's message line, with the route's path
+    parameters in braces (`#persoon-{person_id}-melding`). The answer is
+    `refusal_response` — the banner alone, so the form keeps what was typed and
+    the other forms are not touched. The sentence stands under "Opslaan is niet
+    gelukt." as a whole-form message: the record form, which marks the field
+    itself, serves one form per page.
+
+    A refusal is an `HTTPException` with a status the visitor can do something
+    about (`kernel.refusals.as_refusal`), whose detail is the
+    sentence — and any exception type in `also`, a domain's own refusal that the
+    application would answer as JSON, whose text is the sentence.
+    """
+    caught = (HTTPException, *also)
+
+    def wrap(route):
+        def refused(refusal: Exception, kwargs: dict):
+            # `as_refusal` lets through what is no refusal: a 404, a 403.
+            sentence = as_refusal(refusal)
+            return refusal_response(kwargs["request"], [sentence], line.format(**kwargs))
+
+        if inspect.iscoroutinefunction(route):
+
+            @functools.wraps(route)
+            async def answering(**kwargs):
+                try:
+                    return await route(**kwargs)
+                except caught as refusal:
+                    return refused(refusal, kwargs)
+
+            return answering
+
+        @functools.wraps(route)
+        def answering_sync(**kwargs):
+            try:
+                return route(**kwargs)
+            except caught as refusal:
+                return refused(refusal, kwargs)
+
+        return answering_sync
+
+    return wrap
 
 
 def is_fragment_request(request) -> bool:
