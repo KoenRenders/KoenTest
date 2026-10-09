@@ -229,25 +229,46 @@ def test_een_voorstel_komt_op_de_cursor_of_over_de_selectie(admin_page):
     assert page.locator('[data-field="body_html"][data-proposal-applied]').count() == 1
 
 
-def test_voor_wie_is_een_regel_hoog_en_de_editor_heeft_de_volle_breedte(admin_page):
+def test_the_audience_card_holds_its_content_and_the_editor_has_the_full_width(admin_page):
     """Koen, 17 September 2026: the audience choice stood in the way next to
     Raakje. Since #1562 there is no column beside the editor — the conversation
-    is in the Assistent's panel, the choices stand above — so the card keeps its
-    one line and the form takes the whole content width.
+    is in the Assistent's panel, the choices stand above — and the form takes the
+    whole content width.
+
+    The card is no longer one line high. It says who each audience is (#1834),
+    and the limit of 110 px that stood here lapsed with Koen's answer of
+    9 October 2026 to "Kies je a of b?" (a: the explanation behind a tap; b:
+    always in view): "b, laten we dit oppakken als we GUI redesign verder
+    zetten". What holds until then: the explanation is in the card, nothing of
+    the card sticks out of it, and the page does not scroll sideways — on a
+    desktop and at 390 px.
     """
     page = admin_page
     page.get_by_role("button", name="+ Nieuwe nieuwsbrief").click()
     page.wait_for_selector("#nb-trix", timeout=10_000)
     _klikbaar(page, "#nb-onderwerp")
 
-    maten = page.evaluate("""() => {
+    measure = """() => {
         const r = e => e.getBoundingClientRect();
         const form = document.getElementById('nb-formulier'), keuzes = document.getElementById('nb-keuzes');
-        return {hoogte: r(form.querySelector('fieldset')).height, form: [r(form).left, r(form).width],
-                keuzes: [r(keuzes).left, r(keuzes).width], kolom: !!document.getElementById('nb-raakje'),
-                onder: r(form).top >= r(keuzes).bottom};
-    }""")
-    assert maten["hoogte"] < 110, f"de keuze is {maten['hoogte']} px hoog"
-    assert not maten["kolom"], "no column of Raakje beside the editor"
-    assert maten["form"] == maten["keuzes"], "the editor is as wide as the choices above it"
-    assert maten["onder"], "the choices stand above the form"
+        const card = form.querySelector('fieldset'), box = r(card);
+        const inside = [...card.querySelectorAll('*')].filter(e => e.checkVisibility());
+        return {form: [r(form).left, r(form).width], keuzes: [r(keuzes).left, r(keuzes).width],
+                kolom: !!document.getElementById('nb-raakje'), onder: r(form).top >= r(keuzes).bottom,
+                lines: card.querySelectorAll('[data-audience-line]').length, seen: inside.length,
+                out: inside.filter(e => r(e).left < box.left - 0.5 || r(e).right > box.right + 0.5
+                                     || r(e).bottom > box.bottom + 0.5).length,
+                page: document.documentElement.scrollWidth, window: window.innerWidth};
+    }"""
+    for width in (None, 390):
+        if width:
+            page.set_viewport_size({"width": width, "height": 844})
+        maten = page.evaluate(measure)
+        at = f"at {maten['window']} px"
+        assert not maten["kolom"], "no column of Raakje beside the editor"
+        assert maten["form"] == maten["keuzes"], f"the editor is as wide as the choices, {at}"
+        assert maten["onder"], f"the choices stand above the form, {at}"
+        assert maten["lines"] >= 2, f"the card says who each audience is, {at}: {maten['lines']}"
+        assert maten["seen"] > maten["lines"], "the card's content was not found — still looking?"
+        assert maten["out"] == 0, f"{maten['out']} elements stick out of the card, {at}"
+        assert maten["page"] <= maten["window"], f"the page scrolls sideways, {at}: {maten['page']}"

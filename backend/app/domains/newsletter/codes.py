@@ -66,7 +66,9 @@ SUBSCRIBER_SOURCE = CodeList(
 
 AUDIENCE_CODES = (
     CodeSeed(code="members", nl="Leden", en="Members", sort_order=10),
-    CodeSeed(code="non_members", nl="Niet-leden", en="Non-members", sort_order=20),
+    # The stored code says who they are not; the word says who they are (#1834,
+    # Koen, 9 October 2026: "Abonnees is goed"). One word on every screen.
+    CodeSeed(code="non_members", nl="Abonnees", en="Subscribers", sort_order=20),
     CodeSeed(code="both", nl="Allebei", en="Both", sort_order=30),
 )
 

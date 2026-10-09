@@ -11,13 +11,7 @@
       hx-target="#nb-versturen" hx-swap="innerHTML">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <div class="bg-surface border border-line rounded-2xl p-5 space-y-2">
-    {% for line in audience_lines %}
-    <div data-audience-line>
-      <p class="text-base"><strong>{{ line.head }}</strong></p>
-      <p class="text-sm">{{ line.sentence }}</p>
-    </div>
-    {% endfor %}
-    {% if audience_overlap %}<p class="text-sm" data-audience-overlap>{{ audience_overlap }}</p>{% endif %}
+    {% include "_nb_doelgroep.html" %}
     {% if days > 1 %}
     <p class="text-sm">{{ _("Met hoogstens %(cap)s nieuwsbriefmails per dag duurt dat %(d)s dagen. De rest van het dagquotum blijft vrij voor inschrijvingen en betalingen; je volgt de voortgang in de lijst.", cap=daily_cap, d=days) }}</p>
     {% else %}
@@ -32,7 +26,7 @@
       <dt class="text-ink-soft">{{ _("Van") }}</dt><dd>{{ _("het adres van de vereniging, zoals een inschrijvingsbevestiging") }}</dd>
       <dt class="text-ink-soft">{{ _("Antwoorden") }}</dt><dd>{{ _("naar de vereniging of naar jezelf — je kiest het hieronder") }}</dd>
       <dt class="text-ink-soft">{{ _("Per mail") }}</dt><dd>{{ _("één ontvanger — niemand ziet de anderen") }}</dd>
-      <dt class="text-ink-soft">{{ _("Onderaan") }}</dt><dd>{{ _("de naam van de vereniging; bij niet-leden ook de uitschrijflink") }}</dd>
+      <dt class="text-ink-soft">{{ _("Onderaan") }}</dt><dd>{{ _("de naam van de vereniging; bij abonnees ook de uitschrijflink") }}</dd>
     </dl>
   </div>
 
