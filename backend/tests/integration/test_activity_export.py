@@ -15,7 +15,12 @@ from app.domains.activities.api import ActivityProduct, Registration
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.payment.api import PayableType, PaymentRecord, PaymentType
 from tests import payments_door
-from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door, seed_activity_with_product
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    add_order_line,
+    register_at_the_door,
+    seed_activity_with_product,
+)
 
 _ODS_MIME = "opendocument.spreadsheet"
 
@@ -243,11 +248,7 @@ def test_export_aggregates_duplicate_product_lines(client, db_session, admin_hea
         .first()
     )
     # Zelfde product nog eens als aparte regel (×2).
-    client.post(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-        json={"product_id": product.id, "quantity": 2},
-        headers=admin_headers,
-    )
+    add_order_line(db_session, activity_id, reg.id, product.id, 2)
 
     rows = _load(_export(client, activity_id, comp.id))
     col = 3  # de enige productkolom (na Naam/E-mail/Mobiel)

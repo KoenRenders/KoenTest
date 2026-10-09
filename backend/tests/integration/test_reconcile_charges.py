@@ -176,11 +176,11 @@ def _lidmaatschap(db, member, jaar=None):
 
 
 def _schrap(db, ms, actor="admin@example.com"):
-    from app.domains.membership.household_service import _reconcile_geschrapt_lidmaatschap
+    from app.domains.membership.household_service import _membership_deleted
     from app.soft_delete import soft_delete
 
     soft_delete(ms)
-    _reconcile_geschrapt_lidmaatschap(db, ms, actor)
+    _membership_deleted(db, ms, actor)
     db.flush()
 
 

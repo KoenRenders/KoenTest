@@ -33,7 +33,7 @@ from datetime import date
 
 import pytest
 
-from app.domains.auth.api import SESSION_COOKIE, create_access_token, make_session_value
+from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.mdm.api import (
     ContactDetail,
     EmailAddressInUse,
@@ -45,7 +45,7 @@ from app.domains.mdm.api import (
 )
 from app.domains.membership.api import Membership, create_family_with_members
 from app.domains.membership.schemas_family import FamilyCreate
-from tests.conftest import seed_postal_code, signup_fields
+from tests.conftest import seed_postal_code, sign_up_at_the_door, signup_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -107,10 +107,6 @@ def _counts(db) -> tuple[int, int, int]:
     return db.query(Person).count(), db.query(Member).count(), db.query(Membership).count()
 
 
-def _bearer(email: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {create_access_token(data={'sub': email})}"}
-
-
 # ── a known address, not signed in (Q28, Q40) ────────────────────────────────
 
 
@@ -121,7 +117,7 @@ def test_a_known_address_is_refused_and_makes_nothing(client, db_session, holder
     seed_postal_code(db_session)
     holder(db_session)
     before = _counts(db_session)
-    answer = client.post("/api/v1/families", json=_payload(ADDRESS))
+    answer = sign_up_at_the_door(client, json=_payload(ADDRESS))
     assert answer.status_code == 409, answer.text
     assert answer.json()["detail"] == KNOWN
     assert _counts(db_session) == before, "something was made for a refused sign-up"
@@ -145,10 +141,10 @@ def test_a_signed_in_account_becomes_the_main_member_itself(client, db_session):
     account = _account(db_session)
     persons, households, memberships = _counts(db_session)
 
-    answer = client.post(
-        "/api/v1/families",
+    answer = sign_up_at_the_door(
+        client,
         json=_payload(ADDRESS, first_name="Acco", last_name="Unt-Lid", date_of_birth="1975-03-04"),
-        headers=_bearer(ADDRESS),
+        signed_in_email=ADDRESS,
     )
     assert answer.status_code == 201, answer.text
     assert _counts(db_session) == (persons, households + 1, memberships + 1)
@@ -186,8 +182,8 @@ def test_a_number_that_differs_is_added_beside_the_one_he_confirmed(client, db_s
     """The row that counts stays his; the form's value does not replace it."""
     seed_postal_code(db_session)
     account = _account(db_session, mobile="0470000009")
-    answer = client.post(
-        "/api/v1/families", json=_payload(ADDRESS, mobile="0470000001"), headers=_bearer(ADDRESS)
+    answer = sign_up_at_the_door(
+        client, json=_payload(ADDRESS, mobile="0470000001"), signed_in_email=ADDRESS
     )
     assert answer.status_code == 201, answer.text
     db_session.expire_all()
@@ -207,14 +203,12 @@ def test_an_account_is_not_taken_over_for_an_address_that_is_not_his(client, db_
     _earlier_household(db_session, email="ander@example.com")
     persons, households, _m = _counts(db_session)
 
-    refused = client.post(
-        "/api/v1/families", json=_payload("ander@example.com"), headers=_bearer(ADDRESS)
+    refused = sign_up_at_the_door(
+        client, json=_payload("ander@example.com"), signed_in_email=ADDRESS
     )
     assert refused.status_code == 409 and refused.json()["detail"] == KNOWN
 
-    made = client.post(
-        "/api/v1/families", json=_payload("vrij@example.com"), headers=_bearer(ADDRESS)
-    )
+    made = sign_up_at_the_door(client, json=_payload("vrij@example.com"), signed_in_email=ADDRESS)
     assert made.status_code == 201, made.text
     assert _counts(db_session)[:2] == (persons + 1, households + 1)
     assert not db_session.get(Person, account.id).member_persons, "the account was taken over"

@@ -153,7 +153,7 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
 
     # 6. The send screen repeats audience and count; sending starts the queue.
     stap = client.get(f"/admin/nieuwsbrieven/{letter.id}/versturen")
-    assert "Niet-leden · 1 adressen" in stap.text
+    assert "Abonnees · 1 adres<" in stap.text and "Verstuur naar 1 abonnee<" in stap.text
     verstuurd = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/versturen", headers=headers, data={"reply_to": "sender"}
     )

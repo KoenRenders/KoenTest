@@ -20,9 +20,12 @@ from app.domains.payment.api import (
 from tests import payments_door
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
+    add_order_line,
     register_at_the_door,
+    remove_order_line,
     seed_activity_with_product,
     seed_postal_code,
+    sign_up_at_the_door,
 )
 
 
@@ -174,15 +177,10 @@ def test_order_increased_after_payment_leaves_balance_owed(client, db_session, a
     )  # verschuldigd 18
     _pay(client, admin_headers, charge.id, "18.00")
 
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-        json={"product_id": extra.id, "quantity": 1},
-        headers=admin_headers,  # verschuldigd 36
-    )
-    body = resp.json()
-    assert Decimal(str(body["balance"]["total_due"])) == Decimal("36.00")
-    assert Decimal(str(body["balance"]["balance"])) == Decimal("18.00")  # nog €18 te ontvangen
-    assert body["refund_due"] is False
+    add_order_line(db_session, activity_id, reg.id, extra.id, 1)  # verschuldigd 36
+    balance = registration_balance(db_session, reg)
+    assert Decimal(str(balance["total_due"])) == Decimal("36.00")
+    assert Decimal(str(balance["balance"])) == Decimal("18.00")  # nog €18 te ontvangen
 
 
 def _charges(db, reg):
@@ -207,11 +205,7 @@ def test_order_increase_creates_supplemental_transfer_charge(client, db_session,
     activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)  # €18
     _pay(client, admin_headers, charge.id, "18.00")
 
-    client.post(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-        json={"product_id": extra.id, "quantity": 1},
-        headers=admin_headers,  # +€16
-    )
+    add_order_line(db_session, activity_id, reg.id, extra.id, 1)  # +€16
     amounts = sorted(Decimal(str(c.amount)) for c in _charges(db_session, reg))
     assert amounts == [Decimal("16.00"), Decimal("18.00")]
     supp = next(c for c in _charges(db_session, reg) if Decimal(str(c.amount)) == Decimal("16.00"))
@@ -226,11 +220,7 @@ def test_paying_supplemental_charge_settles_balance(client, db_session, admin_he
     extra = _add_product(db_session, comp, name="Dessert", price="16.00")
     activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)
     _pay(client, admin_headers, charge.id, "18.00")
-    client.post(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-        json={"product_id": extra.id, "quantity": 1},
-        headers=admin_headers,
-    )
+    add_order_line(db_session, activity_id, reg.id, extra.id, 1)
     supp = next(c for c in _charges(db_session, reg) if Decimal(str(c.amount)) == Decimal("16.00"))
     _pay(client, admin_headers, supp.id, "16.00")
     bal = payments_door.balance(client, reg.id).json()
@@ -243,11 +233,7 @@ def test_lowering_unpaid_order_consolidates_to_one_open_charge(client, db_sessio
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     extra = _add_product(db_session, comp, name="Dessert", price="16.00")
     activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)  # 18 open
-    client.post(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-        json={"product_id": extra.id, "quantity": 2},
-        headers=admin_headers,
-    )  # +32 → 50
+    add_order_line(db_session, activity_id, reg.id, extra.id, 2)  # +32 → 50
     assert sorted(Decimal(str(c.amount)) for c in _charges(db_session, reg)) == [Decimal("50.00")]
 
     item = (
@@ -272,11 +258,7 @@ def test_multiple_increases_consolidate_to_single_open_charge(client, db_session
     activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)  # 18
     _pay(client, admin_headers, charge.id, "18.00")  # volledig betaald
     for _ in range(2):
-        client.post(
-            f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-            json={"product_id": extra.id, "quantity": 1},
-            headers=admin_headers,
-        )
+        add_order_line(db_session, activity_id, reg.id, extra.id, 1)
     open_charges = [
         c
         for c in _charges(db_session, reg)
@@ -309,11 +291,7 @@ def test_deleted_order_line_excluded_from_balance(client, db_session, admin_head
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     extra = _add_product(db_session, comp, name="Dessert", price="5.00")
     activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)  # 18
-    client.post(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-        json={"product_id": extra.id, "quantity": 1},
-        headers=admin_headers,
-    )  # +5 → 23
+    add_order_line(db_session, activity_id, reg.id, extra.id, 1)  # +5 → 23
     bal = payments_door.balance(client, reg.id).json()
     assert Decimal(str(bal["total_due"])) == Decimal("23.00")
 
@@ -322,10 +300,7 @@ def test_deleted_order_line_excluded_from_balance(client, db_session, admin_head
         .filter(RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == extra.id)
         .first()
     )
-    client.delete(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
-        headers=admin_headers,
-    )
+    remove_order_line(db_session, activity_id, reg.id, item.id)
     bal = payments_door.balance(client, reg.id).json()
     assert Decimal(str(bal["total_due"])) == Decimal("18.00")  # verwijderde regel telt niet meer
 
@@ -367,11 +342,7 @@ def test_partial_payment_remove_extra_refunds_only_received(client, db_session, 
     extra = _add_product(db_session, comp, name="Dessert", price="18.00")
     activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)  # 18
     _pay(client, admin_headers, charge.id, "18.00")  # origineel volledig betaald
-    client.post(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-        json={"product_id": extra.id, "quantity": 1},
-        headers=admin_headers,
-    )  # +18 → supplement
+    add_order_line(db_session, activity_id, reg.id, extra.id, 1)  # +18 → supplement
     supp = next(c for c in _charges(db_session, reg) if c.id != charge.id)
     _pay(client, admin_headers, supp.id, "8.00")  # partieel 8 → netto ontvangen 26
 
@@ -380,11 +351,8 @@ def test_partial_payment_remove_extra_refunds_only_received(client, db_session, 
         .filter(RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == extra.id)
         .first()
     )
-    resp = client.delete(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
-        headers=admin_headers,
-    )  # D = 18
-    assert resp.status_code == 200, resp.text  # geen 500
+    # D = 18; a save that raised here was the 500 this test is about
+    assert remove_order_line(db_session, activity_id, reg.id, item.id) is not None
     db_session.expire_all()
     refunds = (
         db_session.query(PaymentRecord)
@@ -447,11 +415,7 @@ def test_koen_scenario_integral_recompute(client, db_session, admin_headers):
     assert Decimal(str(b["total_refunded"])) == Decimal("18.00")
 
     # 3) Verhoging: P2 (€20) → totaal €38. Eén open charge €20, partieel €8 betaald.
-    client.post(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-        json={"product_id": p2.id, "quantity": 1},
-        headers=admin_headers,
-    )
+    add_order_line(db_session, activity_id, reg.id, p2.id, 1)
     oc = _open()
     assert len(oc) == 1 and Decimal(str(oc[0].amount)) == Decimal("20.00")
     _pay(client, admin_headers, oc[0].id, "8.00")  # partieel
@@ -459,11 +423,7 @@ def test_koen_scenario_integral_recompute(client, db_session, admin_headers):
 
     # 4) Verhoging met 2× hetzelfde product P3 (€15) → totaal €68. Eén open post.
     for _ in range(2):
-        client.post(
-            f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-            json={"product_id": p3.id, "quantity": 1},
-            headers=admin_headers,
-        )
+        add_order_line(db_session, activity_id, reg.id, p3.id, 1)
     b = _bal()
     assert Decimal(str(b["total_due"])) == Decimal("68.00")
     # netto ontvangen = 36 − 18 (refund) + 8 (partieel) = 26 → openstaand 42
@@ -498,11 +458,7 @@ def test_full_refund_scenario(client, db_session, admin_headers):
     _pay(client, admin_headers, charge.id, "18.00")
 
     # 2) P2 (€20) erbij → totaal €38; de open charge €20 volledig betaald.
-    client.post(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-        json={"product_id": p2.id, "quantity": 1},
-        headers=admin_headers,
-    )
+    add_order_line(db_session, activity_id, reg.id, p2.id, 1)
     open20 = [
         c
         for c in _charges(db_session, reg)
@@ -517,10 +473,7 @@ def test_full_refund_scenario(client, db_session, admin_headers):
         .filter(RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == p2.id)
         .first()
     )
-    client.delete(
-        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item_p2.id}",
-        headers=admin_headers,
-    )
+    remove_order_line(db_session, activity_id, reg.id, item_p2.id)
     _confirm_refund(client, admin_headers, _latest_refund(db_session, reg).id)
     assert Decimal(str(_bal()["total_refunded"])) == Decimal("20.00")
 
@@ -577,11 +530,7 @@ def test_adding_same_product_increments_quantity(client, db_session, admin_heade
     extra = _add_product(db_session, comp, name="Extra", price="5.00")
     activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)
     for _ in range(2):
-        client.post(
-            f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-            json={"product_id": extra.id, "quantity": 1},
-            headers=admin_headers,
-        )
+        add_order_line(db_session, activity_id, reg.id, extra.id, 1)
     db_session.expire_all()
     items = (
         db_session.query(RegistrationItem)
@@ -594,8 +543,8 @@ def test_adding_same_product_increments_quantity(client, db_session, admin_heade
 
 def test_refund_on_membership_payment(client, db_session, admin_headers):
     seed_postal_code(db_session)
-    resp = client.post(
-        "/api/v1/families",
+    resp = sign_up_at_the_door(
+        client,
         json={
             "street": "Milostraat",
             "house_number": "40",

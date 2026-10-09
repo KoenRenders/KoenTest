@@ -27,6 +27,37 @@ from app.domains.mdm.codes import (  # noqa: F401,E402
     RELATION_TYPE,
     TENANT_KIND,
 )
+from app.domains.mdm.history import (
+    snapshot_address,
+    snapshot_contact_detail,
+    snapshot_member,
+    snapshot_member_person,
+    snapshot_person,
+)
+
+# The board's writes on a household (CR-13 phase 4c, #1251).
+from app.domains.mdm.household_board_schemas import (  # noqa: F401
+    AddressUpdate,
+    BoardMemberAssign,
+    ContactsUpdate,
+    PersonAddToFamily,
+    PersonUpdate,
+)
+from app.domains.mdm.household_board_service import (  # noqa: F401  # noqa: F401
+    PERSON_NAME_MAX,
+    add_person_to_family,
+    assign_board_member,
+    board_request,
+    delete_household,
+    require_relation_allowed,
+    set_relation_type,
+    update_family_address,
+    update_person,
+    update_person_contacts,
+)
+from app.domains.mdm.household_board_service import (
+    delete_person as delete_household_person,
+)
 
 # The family portal's mutations (CR-13 phase 3): master data changed by its owner.
 from app.domains.mdm.household_doors import household_refusals_as_http  # noqa: F401
@@ -42,6 +73,7 @@ from app.domains.mdm.household_save import (  # noqa: F401
 )
 from app.domains.mdm.household_service import (  # noqa: F401  # noqa: F401
     ADDED_RELATIONS,
+    HOUSEHOLD_REGISTERED,
     CannotRemoveSelf,
     HouseholdNotFound,
     HouseholdRefused,
@@ -49,14 +81,12 @@ from app.domains.mdm.household_service import (  # noqa: F401  # noqa: F401
     OutsideHousehold,
     PersonNotFound,
     actor_of,
-    add_household_person,
     chosen_relation,
     default_relation,
     household_of,
     household_person,
     person_payload,
-    remove_household_person,
-    update_household_person,
+    require_whole_address,
 )
 from app.domains.mdm.models import (  # noqa: F401
     MEMBER_REPORT_IMPORT,
@@ -136,6 +166,7 @@ from app.domains.mdm.service import (  # noqa: F401  # noqa: F401  # noqa: E402,
     create_person_for_circle,
     delete_person,
     email_addresses_of_members,
+    email_addresses_per_member,
     email_refusal,
     end_circle_relation,
     family_registrations,
@@ -175,6 +206,7 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
     OngeldigeInstelling,
     TenantFout,
     active_sites_by_account,
+    circle_organization,
     create_account,
     create_tenant,
     list_accounts,
@@ -206,6 +238,11 @@ def import_commit(db, token: str, admin=None):
 
 
 __all__ = [
+    "snapshot_address",
+    "snapshot_contact_detail",
+    "snapshot_member",
+    "snapshot_member_person",
+    "snapshot_person",
     "LANGUAGE",
     "family_registrations",
     "gezin_tabs",
@@ -249,6 +286,7 @@ __all__ = [
     "ALLE_ORGANISATIEVELDEN",
     "list_manageable_tenants",
     "platform_org",
+    "circle_organization",
     "Address",
     "AddressHistory",
     "ContactDetail",
@@ -317,6 +355,7 @@ __all__ = [
     "households_as_named",
     "organization_circle",
     "email_addresses_of_members",
+    "email_addresses_per_member",
     "upsert_primary_contact",
     "FieldChange",
     "contact_change",
@@ -337,13 +376,28 @@ __all__ = [
     "PersonNotFound",
     "OutsideHousehold",
     "CannotRemoveSelf",
+    "HOUSEHOLD_REGISTERED",
     "HouseholdRefused",
     "household_of",
     "household_person",
-    "update_household_person",
-    "add_household_person",
-    "remove_household_person",
     "person_payload",
+    "require_whole_address",
+    "AddressUpdate",
+    "BoardMemberAssign",
+    "ContactsUpdate",
+    "PersonAddToFamily",
+    "PersonUpdate",
+    "add_person_to_family",
+    "PERSON_NAME_MAX",
+    "board_request",
+    "assign_board_member",
+    "require_relation_allowed",
+    "set_relation_type",
+    "update_family_address",
+    "update_person",
+    "update_person_contacts",
+    "delete_household",
+    "delete_household_person",
     "household_refusals_as_http",
     "HouseholdSave",
     "HouseholdSaveRefused",

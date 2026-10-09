@@ -1179,7 +1179,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 {% macro person_fields(name_prefix="", id_prefix="", pv=None, values=None,
                        gender_codes=[], relation_types=[], include_relation=True,
                        hoofdlid=False, require_birth_gender=False,
-                       include_email=True, default_relation="") -%}
+                       include_email=True, default_relation="", name_max=None) -%}
 {# `include_email=False` (#1219): het scherm zet de e-mailadressen zelf als RIJEN
    eronder, want een lid mag er meerdere hebben. Eén veld hier én een lijst daar
    zou twee plaatsen voor hetzelfde feit zijn, en dan is het de vraag welke wint
@@ -1197,9 +1197,9 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 {% set _rel = _rel or default_relation %}
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
   <div>{{ label(_("Voornaam"), id_prefix ~ "first_name", required=True) }}
-    <input name="{{ name_prefix }}first_name" id="{{ id_prefix }}first_name" required value="{{ _fn or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    <input name="{{ name_prefix }}first_name" id="{{ id_prefix }}first_name" required{% if name_max %} maxlength="{{ name_max }}"{% endif %} value="{{ _fn or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
   <div>{{ label(_("Achternaam"), id_prefix ~ "last_name", required=True) }}
-    <input name="{{ name_prefix }}last_name" id="{{ id_prefix }}last_name" required value="{{ _ln or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    <input name="{{ name_prefix }}last_name" id="{{ id_prefix }}last_name" required{% if name_max %} maxlength="{{ name_max }}"{% endif %} value="{{ _ln or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
   <div>{{ label(_("Geboortedatum"), id_prefix ~ "date_of_birth", required=require_birth_gender) }}
     <input type="date" name="{{ name_prefix }}date_of_birth" id="{{ id_prefix }}date_of_birth" {% if require_birth_gender %}required{% endif %} value="{{ _dob or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
   <div>{{ label(_("Geslacht"), id_prefix ~ "gender_code", required=require_birth_gender) }}

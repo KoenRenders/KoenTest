@@ -5,13 +5,12 @@ personen is mdm"*); the membership — the yearly record, its payment, the renew
 window — is `membership`'s. Until this phase the family portal's mutations (change a
 person, add one, remove one) were implemented in `membership/household_router.py`
 and reached through `membership.api` functions that called the JSON router: a
-second domain writing `mdm`'s rows. They live here now, behind `mdm.api`; the
-portal's two doors — the JSON route and the screen, both in `mdm` too — call them
-and keep only what a door does: who is logged in and the status code.
+second domain writing `mdm`'s rows. They live here now, behind `mdm.api`.
 
-Each mutation commits, as the other portal mutations of `mdm` (the e-mail
-addresses) already did: a screen may not touch the session (#635 rule 2), so the
-transaction ends where the rule does.
+Since CR-13 phase 4b (#1251) the functions here do not commit: the JSON doors
+for one person had no caller and went, with the three committing functions only
+they called. What stays are the cores the one save of a household
+(`household_save.py`, #1590) calls inside its one transaction.
 
 Same behaviour as before the move (R13), including the order of the checks. The
 refusals are `MasterDataError`s, one kind per answer the door gives, so no door has
@@ -24,13 +23,13 @@ e-mail address of the member who acted, which the door knows and passes in.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
 from app.domains.mdm.codes import CONTACT
 from app.domains.mdm.models import (
+    Address,
     MasterDataError,
     Member,
     MemberPerson,
@@ -110,45 +109,6 @@ def household_person(db: Session, household: Member, person_id: int) -> Person:
     return target
 
 
-def update_household_person(
-    db: Session, household: Member, person_id: int, data: dict, *, actor: Optional[str]
-) -> Person:
-    """Change a person of the household: name, birth date, gender, address, contacts.
-
-    Only these fields; the relation type, the household's board member and the
-    external number are never touched from here. The committing door of the JSON
-    API; the save of the whole household (`household_save`, #1590) calls the same
-    cores inside its one transaction.
-    """
-    target = household_person(db, household, person_id)
-
-    new: dict[str, Any] = {}
-    for field in ("first_name", "last_name", "date_of_birth", "gender_code"):
-        if field not in data:
-            continue
-        value = data[field] or None
-        if field == "date_of_birth" and value is not None and not isinstance(value, date):
-            value = date.fromisoformat(value)
-        new[field] = value
-    apply_person_fields(db, target, new, actor=actor)
-
-    address_data = data.get("address")
-    if "address" in data and address_data:
-        # #1603: a household without an address can get one. It hangs on the main
-        # member, as at sign-up; on anyone else it is left alone, as it always
-        # was — a household has one address.
-        creates = _is_main_member(household, target) and household_address_holder(household) is None
-        if target.address or creates:
-            apply_address(db, target, address_data, actor=actor)
-
-    for type_code, key in (("EMAIL", "email"), ("PHONE", "phone"), ("MOBILE", "mobile")):
-        if key in data:
-            _upsert_contact(db, target, type_code, data[key], actor=actor)
-    db.commit()
-    db.refresh(target)
-    return target
-
-
 def apply_person_fields(
     db: Session,
     target: Person,
@@ -158,9 +118,9 @@ def apply_person_fields(
     details_required: bool = True,
 ) -> bool:
     """Write these person fields with their history, without committing (#1590:
-    shared by `update_household_person` and the save of the whole household).
+    the save of the whole household and of one's own details call it).
     Returns whether anything changed."""
-    from app.domains.audit.api import snapshot_person
+    from app.domains.mdm.history import snapshot_person
 
     # #681: judge the outcome — the portal does not always send every field — and
     # judge it before applying anything: a rollback after the change would also
@@ -258,7 +218,7 @@ def apply_address(db: Session, target: Person, address_data: dict, *, actor: Opt
 
     Refuses a postal code that is not in the table.
     """
-    from app.domains.audit.api import snapshot_address
+    from app.domains.mdm.history import snapshot_address
     from app.domains.mdm.models import Address
 
     address = target.address
@@ -296,7 +256,7 @@ def apply_address(db: Session, target: Person, address_data: dict, *, actor: Opt
 def _upsert_contact(
     db: Session, target: Person, type_code: str, value: Optional[str], *, actor: Optional[str]
 ) -> None:
-    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.history import snapshot_contact_detail
 
     existing = next((c for c in target.contact_details if c.contact_type_code == type_code), None)
     if value:
@@ -386,6 +346,24 @@ def chosen_relation(asked: object, earlier: Sequence[object]) -> RelationType:
     return relation
 
 
+def require_one_main_member(relations: Sequence[object]) -> None:
+    """A household has one main member — or `HouseholdRefused`.
+
+    `relations` are the relations the household would hold AFTER the write, as
+    codes or as `RelationType`. The one rule for every entrance that gives a
+    person a place in a household: creating it, adding a person, changing a
+    relation. It is a rule over several rows of one household, so it stands in
+    the service and each entrance hands it the rows it is about to have
+    (`docs/code-style.md`, *A rule has one home*): the links of a household that
+    is being created are not loaded on it yet, and a `check()` never queries.
+    """
+    from app.i18n import _
+
+    codes = [str(getattr(r, "value", r)) for r in relations if r]
+    if codes.count(RelationType.PRIMARY_MEMBER.value) > 1:
+        raise HouseholdRefused(_("Een gezin heeft één hoofdlid."))
+
+
 def household_relations(household: Member) -> list[str]:
     """The relations the household holds now, in its own order."""
     links = sorted(
@@ -395,24 +373,14 @@ def household_relations(household: Member) -> list[str]:
     return [RelationType(m.relation_type).value for m in links]
 
 
-def add_household_person(
-    db: Session, household: Member, data: dict, *, actor: Optional[str]
-) -> Person:
-    """Add a person to the household: a partner while it has none, otherwise a
-    child, or what the caller chose of those two (`relation_type`, #1603). No
-    address: that belongs to the main member only (#125)."""
-    person = insert_household_person(db, household, data, actor=actor)
-    db.commit()
-    db.refresh(person)
-    return person
-
-
 def insert_household_person(
     db: Session, household: Member, data: dict, *, actor: Optional[str]
 ) -> Person:
     """A new person of the household with the history rows, without committing
-    (#1590: shared by `add_household_person` and the save of the whole household)."""
-    from app.domains.audit.api import (
+    (#1590): a partner while the household has none, otherwise a child, or what
+    the caller chose of those two (`relation_type`, #1603). No address: that
+    belongs to the main member only (#125)."""
+    from app.domains.mdm.history import (
         snapshot_contact_detail,
         snapshot_member_person,
         snapshot_person,
@@ -468,18 +436,6 @@ def insert_household_person(
     return person
 
 
-def remove_household_person(
-    db: Session, household: Member, person_id: int, *, by: Person, actor: Optional[str]
-) -> None:
-    """Take a person out of the household — the link goes, the person stays.
-
-    `by` is the member who acts: nobody removes themselves.
-    """
-    target = household_person(db, household, person_id)
-    detach_household_person(db, household, target, by=by, actor=actor)
-    db.commit()
-
-
 def detach_household_person(
     db: Session,
     household: Member,
@@ -496,7 +452,7 @@ def detach_household_person(
     `by` is the member who acts; the board has no person and passes None
     (CR-22 S7, #1712) — then only the refusal of oneself falls away. `source`
     is what the history row says: the member's own act, or the board's."""
-    from app.domains.audit.api import snapshot_member_person
+    from app.domains.mdm.history import snapshot_member_person
     from app.i18n import _
 
     if by is not None and target.id == by.id:
@@ -571,3 +527,170 @@ def person_payload(person: Person) -> dict[str, Any]:
         "phone": contacts.get("PHONE"),
         "mobile": contacts.get("MOBILE"),
     }
+
+
+# ── A household that is created ──────────────────────────────────────────────
+
+#: The action in every history row of a household that is created. WHO did it
+#: stands in `actor` and `source` — that is the difference between the board's
+#: door and the public sign-up, not the name of the act (#1110). Stored data.
+HOUSEHOLD_REGISTERED = "family_registered"
+
+
+def create_household(
+    db: Session,
+    *,
+    street: str,
+    house_number: str,
+    bus_number: Optional[str],
+    postal_code: str,
+    persons: Sequence[Any],
+    source: str,
+    actor: Optional[str],
+    main_person: Optional[Person] = None,
+) -> tuple[Member, list[Person]]:
+    """A household with all its persons, the address and the contact details, in
+    one go — what the port `CreateHousehold` does (`kernel/contracts/mdm.py`;
+    `persons` are its `HouseholdPerson` values).
+
+    The ONE way a household comes to be (#1110), for the board's door and for
+    the public sign-up; `membership` asks it and adds the membership. No commit:
+    the transaction is the caller's, so a failure half-way leaves nothing.
+
+    The rules here hold for every door: a postal code that exists, a whole
+    address, and a birth date and a gender for every person (#681) — asked before
+    anything is written. The address hangs on the main member (= the household's
+    address, #125).
+
+    `main_person` (CR-22 R9, F7; #1713): the person who becomes the main member
+    instead of a new one — an account that signs up. An account is a person
+    already; a second person for the same human would be the duplicate R9
+    forbids. He gets what the form says: the name as typed, the birth date and
+    the gender a member needs, his place in the household and its address.
+    """
+    from app.domains.mdm.history import (
+        snapshot_address,
+        snapshot_contact_detail,
+        snapshot_member,
+        snapshot_member_person,
+        snapshot_person,
+    )
+
+    stamp = {"action": HOUSEHOLD_REGISTERED, "source": source}
+    pc = _postal_code(db, postal_code)
+    # After the postal code, so an unknown one keeps its own words.
+    require_whole_address(
+        {"street": street, "house_number": house_number, "postal_code": postal_code}
+    )
+    # Server-side, before anything is written: the client's `required` is UX only.
+    for given in persons:
+        MemberPerson.require_details(given.date_of_birth, given.gender_code)
+    require_one_main_member([given.relation_type for given in persons])
+
+    household = Member()
+    db.add(household)
+    db.flush()
+    snapshot_member(db, household, operation="insert", actor=actor, **stamp)
+
+    made: list[Person] = []
+    for given in persons:
+        is_main = RelationType(given.relation_type) == RelationType.PRIMARY_MEMBER
+        adopted = main_person if main_person is not None and is_main else None
+        if adopted is not None:
+            person = adopted
+            person.last_name = given.last_name
+            person.first_name = given.first_name
+            person.date_of_birth = given.date_of_birth
+            person.gender_code = given.gender_code
+            db.flush()
+            snapshot_person(db, person, operation="update", actor=actor, **stamp)
+        else:
+            person = Person(
+                last_name=given.last_name,
+                first_name=given.first_name,
+                date_of_birth=given.date_of_birth,
+                gender_code=given.gender_code,
+            )
+            db.add(person)
+            db.flush()
+            snapshot_person(db, person, operation="insert", actor=actor, **stamp)
+        made.append(person)
+        # What an adopted person already holds is not made a second time: his
+        # address IS the one he signed in with. A value of a type he has
+        # already is added beside it, not put in its place — the row that
+        # counts stays the one he confirmed, and he corrects the rest himself.
+        earlier = person.contact_details if adopted is not None else []
+        held = {(code_of(c.contact_type_code), (c.value or "").strip().lower()) for c in earlier}
+        has_primary = {code_of(c.contact_type_code) for c in earlier if c.is_primary}
+
+        def is_new(type_code: Any, value: Optional[str]) -> bool:
+            return (code_of(type_code), (value or "").strip().lower()) not in held
+
+        link = MemberPerson(
+            member_id=household.id, person_id=person.id, relation_type=given.relation_type
+        )
+        db.add(link)
+        db.flush()
+        snapshot_member_person(db, link, operation="insert", actor=actor, **stamp)
+
+        # The address belongs to the main member alone (= the household's). #125
+        if is_main:
+            address = Address(
+                person_id=person.id,
+                street=street,
+                house_number=house_number,
+                bus_number=bus_number or None,
+                postal_code_id=pc.id,
+            )
+            db.add(address)
+            db.flush()
+            snapshot_address(db, address, operation="insert", actor=actor, **stamp)
+
+        contacts = []
+        if given.phone and is_new(CONTACT.PHONE, given.phone):
+            contacts.append(
+                new_contact_detail(
+                    db,
+                    person,
+                    CONTACT.PHONE,
+                    given.phone,
+                    is_primary=code_of(CONTACT.PHONE) not in has_primary,
+                )
+            )
+        if given.mobile and is_new(CONTACT.MOBILE, given.mobile):
+            contacts.append(
+                new_contact_detail(
+                    db,
+                    person,
+                    CONTACT.MOBILE,
+                    given.mobile,
+                    is_primary=not given.phone and code_of(CONTACT.MOBILE) not in has_primary,
+                )
+            )
+        # #1246: every address typed, in order; the first is the primary one
+        # (Koen, 28 September 2026: "het eerste adres wordt het hoofdadres"). The
+        # same address twice is a slip, not a second address — case-insensitive,
+        # as on the family portal (#1219).
+        seen: set[str] = set()
+        for address_value in given.emails:
+            if not address_value or address_value.lower() in seen:
+                continue
+            seen.add(address_value.lower())
+            if not is_new(CONTACT.EMAIL, address_value):
+                continue
+            contacts.append(
+                new_contact_detail(
+                    db,
+                    person,
+                    CONTACT.EMAIL,
+                    address_value,
+                    is_primary=len(seen) == 1 and code_of(CONTACT.EMAIL) not in has_primary,
+                )
+            )
+        for contact in contacts:
+            db.add(contact)
+        if contacts:
+            db.flush()
+            for contact in contacts:
+                snapshot_contact_detail(db, contact, operation="insert", actor=actor, **stamp)
+    return household, made

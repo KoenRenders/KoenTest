@@ -287,16 +287,27 @@ def _fontconfig_file() -> str:
     installing them. A private config that includes the system one and adds
     ``static/fonts`` does that; ``FONTCONFIG_FILE`` points Inkscape at it. Its
     cache lands next to it, never in a user's home.
+
+    The file is shared by every process that renders, and each writes it at its
+    own first render. So it is never written in place (#1810): a file that
+    already says this is left alone, and any other is replaced as a whole. An
+    Inkscape that read it between a truncate and a write found no fonts
+    directory and set the whole poster in the system's fallback face.
     """
     home = Path(tempfile.gettempdir()) / "designstudio-fontconfig"
     home.mkdir(exist_ok=True)
     conf = home / "fonts.conf"
-    conf.write_text(
+    wanted = (
         '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd">\n<fontconfig>'
         '<include ignore_missing="yes">/etc/fonts/fonts.conf</include>'
-        f"<dir>{FONTS_DIR}</dir><cachedir>{home / 'cache'}</cachedir></fontconfig>\n",
-        encoding="utf-8",
+        f"<dir>{FONTS_DIR}</dir><cachedir>{home / 'cache'}</cachedir></fontconfig>\n"
     )
+    if not (conf.is_file() and conf.read_text(encoding="utf-8") == wanted):
+        handle, scratch = tempfile.mkstemp(dir=home, prefix="fonts.conf.")
+        with os.fdopen(handle, "w", encoding="utf-8") as out:
+            out.write(wanted)
+        os.chmod(scratch, 0o644)  # as `write_text` left it: readable by whoever renders
+        os.replace(scratch, conf)
     return str(conf)
 
 

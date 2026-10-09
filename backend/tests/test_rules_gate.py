@@ -32,6 +32,12 @@ nothing fixed may stay on the list — a list that does not shrink is no ratchet
 The frozen lists are in `rules_baseline.py`; phase 4 deletes that file. Keys carry
 no line numbers (they shift on the first unrelated edit); the messages do.
 
+**A gate whose list is empty is hard** (phase 4d, #1251): it reads no list any more
+(`_hard`), so any offender is red and there is no "left behind" half. Nine are
+hard; the others stay ratchets until their last entries leave. The Dutch
+identifiers (#780) are not CR-13's: their ratchet stays, on a file of its own
+(`dutch_identifiers_baseline.py`).
+
 **Every collector proves it looked** (#678): it asserts it found what it walks —
 the models, the packages, the handlers, the routes, the mappers — before any
 verdict, so a moved folder or a changed decorator cannot turn it silently green.
@@ -45,10 +51,12 @@ from __future__ import annotations
 import ast
 import functools
 import re
+import textwrap
 from pathlib import Path
 
 import pytest
 
+from tests import dutch_identifiers_baseline
 from tests import rules_baseline as baseline
 from tests._bestanden import is_app_test
 
@@ -175,13 +183,23 @@ def _is_subscribe(decorator: ast.expr) -> bool:
     return name == "subscribe"
 
 
+def _is_handles(decorator: ast.expr) -> bool:
+    """`@handles(SomePort)` — the one handler of a port (`kernel/ports.py`)."""
+    target = decorator.func if isinstance(decorator, ast.Call) else decorator
+    name = target.attr if isinstance(target, ast.Attribute) else getattr(target, "id", "")
+    return name == "handles"
+
+
 def _event_handlers() -> list[tuple[Path, ast.Module, ast.FunctionDef]]:
+    """The functions that run inside somebody else's transaction: the handlers of
+    an event (`@subscribe`) and of a port (`@handles`). Neither commits and neither
+    reaches the network — the door service that started it all commits once."""
     handlers = []
     for path in _python_files():
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
-                _is_subscribe(d) for d in node.decorator_list
+                _is_subscribe(d) or _is_handles(d) for d in node.decorator_list
             ):
                 handlers.append((path, tree, node))
     assert len(handlers) >= 2, f"only {len(handlers)} @subscribe handlers found — the walk is blind"
@@ -214,16 +232,39 @@ def _module_path(dotted: str) -> Path | None:
 Reached = tuple[Path, ast.Module, ast.FunctionDef, str]
 
 
+def _imported_file(importer: Path, node: ast.ImportFrom, name: str = "") -> Path | None:
+    """The file an import names — `from app.x import f` and `from .x import f` → x;
+    with `name`, the module that name itself is (`from . import service` → service)."""
+    if node.level:
+        base = importer.parents[node.level - 1]
+        base = base.joinpath(*node.module.split(".")) if node.module else base
+    elif node.module and node.module.startswith("app."):
+        base = BACKEND.joinpath(*node.module.split("."))
+    else:
+        return None
+    base = base / name if name else base
+    for candidate in (base.with_suffix(".py"), base / "__init__.py"):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def _reachable(
     path: Path, tree: ast.Module, function: ast.FunctionDef, depth: int = 3
 ) -> list[Reached]:
     """The function itself and what it calls, up to `depth` levels, following calls
-    into the same module and into functions imported from other `app.` modules.
+    into the same module, into functions imported from other `app.` modules
+    (absolute or relative) and into `module.function()` of an imported module.
 
     Why further than "one level in the same module": the one handler that reaches
     SMTP today does it through `mail.service._dispatch` → `_send`, two calls and one
     module away. A gate that cannot find its own known offender proves nothing.
-    Calls through attributes (`obj.method()`) and dynamic dispatch are not followed.
+    Calls on an object (`obj.method()`) and dynamic dispatch are not followed.
+
+    Why `service.function()` and `from .service import` are followed (#1251, the
+    port gate): a port handler is thin by design — it turns a contract into one
+    call of its own service — and that call is usually written one of those two
+    ways. A walk that stopped at the handler would hold nothing of what it does.
     """
     seen: set[tuple[Path, str]] = set()
     out: list[Reached] = []
@@ -236,28 +277,45 @@ def _reachable(
         if level == depth:
             return
         local = _module_functions(t)
-        imported: dict[str, tuple[str, str]] = {}
+        imported: dict[str, tuple[Path, str]] = {}
+        modules: dict[str, Path] = {}
         # Module-level imports, and the ones inside the function itself — a late
         # import (`from app.kernel.jobs import enqueue`) is a call target all the same.
         for node in [*t.body, *ast.walk(fn)]:
-            if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("app."):
-                for alias in node.names:
-                    imported[alias.asname or alias.name] = (node.module, alias.name)
-        for n in ast.walk(fn):
-            if not (isinstance(n, ast.Call) and isinstance(n.func, ast.Name)):
+            if not isinstance(node, ast.ImportFrom):
                 continue
-            name = n.func.id
-            chain = f"{via} → {name}" if via else name
-            if name in local and local[name] is not fn:
-                visit(p, t, local[name], chain, level + 1)
-            elif name in imported:
-                module, original = imported[name]
-                target = _module_path(module)
-                if target is not None:
-                    target_tree = _tree(target)
-                    callee = _module_functions(target_tree).get(original)
-                    if callee is not None:
-                        visit(target, target_tree, callee, chain, level + 1)
+            source = _imported_file(p, node)
+            for alias in node.names:
+                as_module = _imported_file(p, node, alias.name)
+                if as_module is not None:
+                    modules[alias.asname or alias.name] = as_module
+                elif source is not None:
+                    imported[alias.asname or alias.name] = (source, alias.name)
+        for n in ast.walk(fn):
+            if not isinstance(n, ast.Call):
+                continue
+            func = n.func
+            if isinstance(func, ast.Name):
+                name = func.id
+                if name in local and local[name] is not fn:
+                    visit(p, t, local[name], f"{via} → {name}" if via else name, level + 1)
+                    continue
+                target, original = imported.get(name, (None, ""))
+            elif (
+                isinstance(func, ast.Attribute)
+                and isinstance(func.value, ast.Name)
+                and func.value.id in modules
+            ):
+                name = f"{func.value.id}.{func.attr}"
+                target, original = modules[func.value.id], func.attr
+            else:
+                continue
+            if target is None:
+                continue
+            target_tree = _tree(target)
+            callee = _module_functions(target_tree).get(original)
+            if callee is not None:
+                visit(target, target_tree, callee, f"{via} → {name}" if via else name, level + 1)
 
     visit(path, tree, function, "", 0)
     return out
@@ -363,9 +421,11 @@ def _api_routes() -> dict[str, str]:
                 routes[f"{method} {path}"] = module
 
     walk(app.routes)
-    # The floor follows the pruning of CR-13 phase 4b (#1251): it was 100 while the
-    # routes without a caller still stood.
-    assert len(routes) > 50, f"only {len(routes)} /api/v1 routes found — the walk is blind"
+    # The floor is what stays when CR-13 phase 4b (#1251) has pruned the rest: the
+    # media file and its thumbnail and the two payment webhooks. It was 100 while the
+    # routes without a caller still stood, then 50; a floor above what is left stops
+    # the pruning, and a blind walk finds none.
+    assert len(routes) >= 4, f"only {len(routes)} /api/v1 routes found — the walk is blind"
     return routes
 
 
@@ -1357,6 +1417,13 @@ def collect_command_calls_outside_handlers() -> dict[str, str]:
         for function in ast.walk(tree):
             if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
+            # An EVENT handler is exempt and a PORT handler is not, on purpose. An
+            # event handler reacts to a fact: its own domain decides what follows,
+            # and a command of another domain from there is that domain's doing. A
+            # port handler IS a command from outside: were it exempt, a domain could
+            # walk into a third one through its own handler, and the port would be a
+            # licence instead of a boundary. A port handler that needs another domain
+            # calls a port or publishes an event itself.
             if any(_is_subscribe(d) for d in function.decorator_list):
                 continue
             for node in _own_nodes(function):
@@ -1383,6 +1450,197 @@ def collect_command_calls_outside_handlers() -> dict[str, str]:
                     f"`{target[0]}` subscribe (CR-13 §B4.9)",
                 )
     return found
+
+
+# ── 14. Ports: a synchronous command between domains (architecture §3.2.1 step 2) ──
+#
+# A port is a contract in `kernel/contracts/<owner>.py` (a subclass of `Port`) with
+# exactly one handler (`@handles(ThePort)`) in the owner's domain; a caller in
+# another domain goes through `kernel.ports.call(ThePort(...), db)`. What the gates
+# hold, and where:
+#
+# - a call through `kernel.ports.call` is no command call (it calls no `api.py`), and
+#   a command through another domain's `api.py` outside an event handler stays red —
+#   `collect_command_calls_outside_handlers`, unchanged;
+# - a port handler is no licence there — see the comment at that collector's exemption;
+# - a port handler does not commit and reaches no network — `_event_handlers`;
+# - every port has exactly one handler, at home; a contract carries plain values
+#   only; a port is called from a service or a handler, never from a door — below.
+#
+# A repository without a port is in order as long as nothing handles or calls one;
+# "found nothing" is accepted only together with "nothing asks for one".
+
+#: What a contract's field may be: a plain value, or a dataclass of `kernel/contracts/`.
+_PLAIN = {"int", "str", "bool", "float", "bytes", "None", "date", "datetime", "Decimal"}
+_PLAIN_GENERICS = {"Optional", "tuple"}
+
+
+def _contracts_dir() -> Path:
+    return APP / "kernel" / "contracts"
+
+
+def _annotation_offences(annotation: ast.AST | None, contract_classes: set[str]) -> list[str]:
+    """The names in an annotation that are no plain value — looked for inside
+    generics and unions too (`tuple[Form, ...]`, `Form | None`, `"Form"`)."""
+    if annotation is None:
+        return ["an unannotated field"]
+    if isinstance(annotation, ast.Constant):
+        if annotation.value is None or annotation.value is Ellipsis:
+            return []
+        if isinstance(annotation.value, str):
+            return _annotation_offences(
+                ast.parse(annotation.value, mode="eval").body, contract_classes
+            )
+        return [repr(annotation.value)]
+    if isinstance(annotation, ast.Name):
+        known = _PLAIN | _PLAIN_GENERICS | contract_classes
+        return [] if annotation.id in known else [annotation.id]
+    if isinstance(annotation, ast.Attribute):
+        return [] if annotation.attr in _PLAIN else [ast.unparse(annotation)]
+    if isinstance(annotation, ast.Subscript):
+        outer = _annotation_offences(annotation.value, contract_classes)
+        inner = annotation.slice
+        parts = inner.elts if isinstance(inner, ast.Tuple) else [inner]
+        return outer + [o for part in parts for o in _annotation_offences(part, contract_classes)]
+    if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
+        return _annotation_offences(annotation.left, contract_classes) + _annotation_offences(
+            annotation.right, contract_classes
+        )
+    return [ast.unparse(annotation)]
+
+
+def collect_port_findings() -> list[str]:
+    """Hard, without a baseline: what is wrong with the ports, their handlers, their
+    contracts and their callers."""
+    contracts = _contracts_dir()
+    modules = sorted(p for p in contracts.glob("*.py") if p.name != "__init__.py")
+    assert modules, f"no contract modules under {contracts} — the walk is blind"
+
+    classes: dict[str, tuple[Path, ast.ClassDef]] = {}
+    for path in modules:
+        for node in _tree(path).body:
+            if isinstance(node, ast.ClassDef):
+                classes[node.name] = (path, node)
+
+    def is_port(name: str, seen: frozenset[str] = frozenset()) -> bool:
+        if name == "Port":
+            return True
+        if name not in classes or name in seen:
+            return False
+        bases = [getattr(b, "attr", getattr(b, "id", "")) for b in classes[name][1].bases]
+        return any(is_port(base, seen | {name}) for base in bases)
+
+    ports = {name: where for name, where in classes.items() if is_port(name)}
+    findings: list[str] = []
+
+    handlers: dict[str, list[tuple[Path, ast.FunctionDef]]] = {}
+    callers: list[tuple[Path, int]] = []
+    for path in _python_files():
+        tree = _tree(path)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for decorator in node.decorator_list:
+                    if (
+                        _is_handles(decorator)
+                        and isinstance(decorator, ast.Call)
+                        and decorator.args
+                    ):
+                        handlers.setdefault(ast.unparse(decorator.args[0]), []).append((path, node))
+            if (
+                isinstance(node, (ast.Import, ast.ImportFrom))
+                and "kernel" not in path.relative_to(APP).parts[:1]
+            ):
+                named = [a.name for a in node.names]
+                module = getattr(node, "module", "") or ""
+                if (
+                    module == "app.kernel.ports"
+                    or "app.kernel.ports" in named
+                    or (module == "app.kernel" and "ports" in named)
+                ):
+                    callers.append((path, node.lineno))
+
+    # Rule 2: exactly one handler per port, in the domain its contract file is named after.
+    for name, (contract, _cls) in sorted(ports.items()):
+        owner = contract.stem
+        found = handlers.get(name, [])
+        if not found:
+            findings.append(
+                f"port `{name}` ({_rel(contract)}) has no handler — `@handles({name})` belongs "
+                f"in `domains/{owner}/handlers.py`"
+            )
+        if len(found) > 1:
+            where = ", ".join(sorted(f"{_rel(p)}::{fn.name}" for p, fn in found))
+            findings.append(
+                f"port `{name}` has {len(found)} handlers ({where}) — a port has exactly one"
+            )
+        for path, function in found:
+            if _owner_of_file(path) != owner:
+                findings.append(
+                    f"{_rel(path)}::{function.name} handles port `{name}`, whose contract is "
+                    f"`{owner}`'s — the handler lives in the owner's domain"
+                )
+    for name, found in sorted(handlers.items()):
+        if name not in ports:
+            for path, function in found:
+                findings.append(
+                    f"{_rel(path)}::{function.name} handles `{name}`, which is no `Port` of "
+                    f"`kernel/contracts/`"
+                )
+
+    # Rule 5: a contract carries plain values — the port, what it holds, and its outcome.
+    judged: set[str] = set()
+
+    def judge(name: str) -> None:
+        if name in judged or name not in classes:
+            return
+        judged.add(name)
+        path, cls = classes[name]
+        for stmt in cls.body:
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                findings.append(
+                    f"{_rel(path)}:{stmt.lineno} `{name}.{stmt.name}` is a method — a contract "
+                    f"is data only: what builds it or reads it lives in the domain that does"
+                )
+            if not isinstance(stmt, ast.AnnAssign) or not isinstance(stmt.target, ast.Name):
+                continue
+            for offence in _annotation_offences(stmt.annotation, set(classes)):
+                findings.append(
+                    f"{_rel(path)}:{stmt.lineno} `{name}.{stmt.target.id}` carries `{offence}` — a "
+                    f"contract carries plain values, tuples of them, or dataclasses of "
+                    f"`kernel/contracts/` (no ORM object, no schema of a domain, no list or dict)"
+                )
+            for inner in ast.walk(stmt.annotation):
+                if isinstance(inner, ast.Name):
+                    judge(inner.id)
+
+    for name in sorted(ports):
+        judge(name)
+        for path, function in handlers.get(name, []):
+            outcome = function.returns
+            outcome_name = getattr(outcome, "id", None)
+            if outcome_name not in classes:
+                findings.append(
+                    f"{_rel(path)}::{function.name} returns "
+                    f"`{ast.unparse(outcome) if outcome else 'nothing declared'}` — a port's "
+                    f"outcome is a dataclass of `kernel/contracts/`"
+                )
+            else:
+                judge(outcome_name)
+
+    # Rule 6: called from a service or a handler, never from a door.
+    for path, line in callers:
+        if _is_door(path):
+            findings.append(
+                f"{_rel(path)}:{line} imports `kernel.ports` — a port is called from a service "
+                f"or a handler; a router or a screen calls its own domain's service"
+            )
+    # Nothing found is in order only when nothing asks for a port.
+    if not ports and callers:
+        where = ", ".join(sorted(f"{_rel(p)}:{line}" for p, line in callers))
+        findings.append(
+            f"`kernel.ports` is imported ({where}) and `kernel/contracts/` defines no `Port`"
+        )
+    return findings
 
 
 # ── 11. No rule in a router (ratchet with a reason per entry) ───────────────
@@ -1454,20 +1712,184 @@ def _is_message(node: ast.AST) -> bool:
     return isinstance(node, (ast.Constant, ast.JoinedStr)) and bool(getattr(node, "value", True))
 
 
+# The doorman's own checks are the TRANSPORT, and nothing else (CR-13 phase 4c, #1251;
+# `docs/code-style.md`, *A rule has one home*). Three shapes, told by what the
+# condition reads — never by a list of entries:
+#
+# 1. **a file**: the condition reads only an `UploadFile` parameter (the parameter
+#    itself, or its `filename`, `content_type`, `size`) or the bytes read from one
+#    (`data = await file.read()`), beside constants;
+# 2. **a parse**: the refusal stands in the `except ValueError` of a `try` that
+#    does nothing but parse (`int()`, `float()`, `Decimal()`, a date);
+# 3. **a token's age**: a clock minus a moment, compared with a constant.
+#
+# Everything else that refuses at a door is a rule and has its home in the service
+# or on the entity — also the emptiness of a text. "An empty title" and "an empty
+# question" look alike at the door and are alike: neither is transport, so neither
+# is excepted; the question's rule lives in `chatbot.service.asked`, the title's
+# on its entity. There is no fourth shape for "a text that is not stored": what a
+# condition reads is visible, where a text goes afterwards is not.
+_UPLOAD_ATTRS = {"filename", "content_type", "size"}
+_PARSERS = {"int", "float", "Decimal", "fromisoformat", "strptime"}
+_PARSE_ERRORS = {"ValueError", "InvalidOperation", "TypeError"}
+_CLOCKS = {"time.monotonic", "time.time"}
+_CONSTANT = re.compile(r"_?[A-Z][A-Z0-9_]*$")
+
+
+def _files_of(function: ast.AST) -> tuple[set[str], set[str]]:
+    """The `UploadFile` parameters of a function, and the names that hold bytes
+    read from one of them."""
+    args = function.args
+    files = {
+        a.arg
+        for a in (*args.posonlyargs, *args.args, *args.kwonlyargs)
+        if a.annotation is not None and "UploadFile" in ast.unparse(a.annotation)
+    }
+    read: set[str] = set()
+    for node in ast.walk(function):
+        if not (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+        ):
+            continue
+        value = node.value.value if isinstance(node.value, ast.Await) else node.value
+        if not (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Attribute)
+            and value.func.attr == "read"
+        ):
+            continue
+        source = value.func.value
+        if isinstance(source, ast.Attribute) and source.attr == "file":
+            source = source.value
+        if isinstance(source, ast.Name) and source.id in files:
+            read.add(node.targets[0].id)
+    return files, read
+
+
+def _reads_only_a_file(test: ast.expr, files: set[str], read: set[str]) -> bool:
+    names = [n for n in ast.walk(test) if isinstance(n, ast.Name)]
+    if not any(n.id in files or n.id in read for n in names):
+        return False
+    for name in names:
+        if name.id not in files and name.id not in read and name.id != "len":
+            if not _CONSTANT.match(name.id):
+                return False
+    for node in ast.walk(test):
+        if not isinstance(node, ast.Attribute):
+            continue
+        root: ast.AST = node
+        chain = []
+        while isinstance(root, ast.Attribute):
+            chain.append(root.attr)
+            root = root.value
+        while isinstance(root, ast.Call):  # `file.filename.lower().endswith(…)`
+            root = root.func
+            while isinstance(root, ast.Attribute):
+                chain.append(root.attr)
+                root = root.value
+        if not isinstance(root, ast.Name) or root.id not in files:
+            return False  # an attribute of the bytes, or of anything that is no file
+        if chain[-1] not in _UPLOAD_ATTRS:
+            return False
+    return True
+
+
+def _is_parser(call: ast.AST) -> bool:
+    if not isinstance(call, ast.Call):
+        return False
+    name = call.func.attr if isinstance(call.func, ast.Attribute) else getattr(call.func, "id", "")
+    return name in _PARSERS
+
+
+def _refuses_a_parse(node: ast.If) -> bool:
+    """Every refusal of this `if` stands in the `except` of a `try` that only parses."""
+    tries = [s for s in node.body if isinstance(s, ast.Try)]
+    rest = [s for s in node.body if not isinstance(s, ast.Try)]
+    if not tries or _refusal_in(rest):
+        return False
+    for attempt in tries:
+        parses = all(
+            isinstance(s, (ast.Assign, ast.Expr)) and _is_parser(s.value) for s in attempt.body
+        )
+        caught = {
+            n.id
+            for h in attempt.handlers
+            for n in ast.walk(h.type or ast.Name(id="Exception"))
+            if isinstance(n, ast.Name)
+        } | {
+            n.attr
+            for h in attempt.handlers
+            for n in ast.walk(h.type or ast.Name(id="Exception"))
+            if isinstance(n, ast.Attribute)
+        }
+        if not parses or not caught or not caught <= _PARSE_ERRORS:
+            return False
+    return True
+
+
+def _is_a_tokens_age(test: ast.expr) -> bool:
+    if not (isinstance(test, ast.Compare) and len(test.ops) == 1):
+        return False
+    if not isinstance(test.ops[0], (ast.Gt, ast.GtE)):
+        return False
+    left, limit = test.left, test.comparators[0]
+    if not (isinstance(left, ast.BinOp) and isinstance(left.op, ast.Sub)):
+        return False
+    clock = left.left
+    if not (isinstance(clock, ast.Call) and ast.unparse(clock.func) in _CLOCKS):
+        return False
+    return isinstance(limit, ast.Constant) or (
+        isinstance(limit, ast.Name) and bool(_CONSTANT.match(limit.id))
+    )
+
+
+def transport_shape(node: ast.If, function: ast.AST | None) -> str | None:
+    """The shape that makes this refusal the doorman's own, or None when it is a rule."""
+    if _is_a_tokens_age(node.test):
+        return "a token's age"
+    if _refuses_a_parse(node):
+        return "a parse"
+    if function is not None:
+        files, read = _files_of(function)
+        if (files or read) and _reads_only_a_file(node.test, files, read):
+            return "a file"
+    return None
+
+
+def _functions_around(tree: ast.AST) -> dict[ast.AST, ast.AST]:
+    """Every node → the innermost function around it."""
+    around: dict[ast.AST, ast.AST] = {}
+    for function in ast.walk(tree):
+        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for node in ast.walk(function):
+                if node is not function:
+                    around[node] = function
+    return around
+
+
 def collect_rule_in_router() -> dict[str, str]:
     """An `if` that refuses, in a router or UI module → key `file::function::condition`
-    (§B9.3); the doorman's own refusals — 401, 403, 404, 405, 429 — excepted. A rule at the door holds for that door only;
-    the service's rule holds for every entrance."""
+    (§B9.3); the doorman's own refusals — 401, 403, 404, 405, 429, and a check of the
+    transport (`transport_shape`) — excepted. A rule at the door holds for that door
+    only; the service's rule holds for every entrance."""
     found: dict[str, str] = {}
+    shapes: dict[str, int] = {}
     doors = [p for p in _python_files() if _is_door(p) and p.name != "main.py"]
     assert len(doors) > 30, f"only {len(doors)} router/UI modules — the walk is blind"
     for path in doors:
         tree = _tree(path)
         qualified = _enclosing(tree)
+        around = _functions_around(tree)
         for node in ast.walk(tree):
             if not isinstance(node, ast.If):
                 continue
             refusal = _refusal_in(node.body)
+            shape = transport_shape(node, around.get(node)) if refusal else None
+            if shape:
+                shapes[shape] = shapes.get(shape, 0) + 1
+                continue
             if refusal:
                 name = qualified.get(node, "<module>")
                 condition = ast.unparse(node.test)
@@ -1477,6 +1899,11 @@ def collect_rule_in_router() -> dict[str, str]:
                     f"{refusal[1]} — a rule belongs to the entity or its service, where "
                     f"every entrance meets it (CR-13 §B9.3)",
                 )
+    # The exception is alive only while each shape still meets real code: a shape
+    # that finds nothing excuses nothing, and would hide that its reader broke.
+    assert set(shapes) == {"a file", "a parse", "a token's age"}, (
+        f"the transport shapes found in the doors: {shapes} — one of the three is blind"
+    )
     return found
 
 
@@ -1696,10 +2123,25 @@ _MACRO_PROMISE = re.compile(
 _RAW_INPUT = re.compile(r"<(?:input|select|textarea)\b(?P<attrs>[^>]*)>", re.S)
 _FORM_TARGET = re.compile(r'<form\b[^>]*?(?:hx-post|action)="([^"]+)"', re.S)
 _PROMISE_KINDS = ("required", "pattern", "min")
+#: `{# promise walked by: test_a, test_b #}` — on the line of the input or the one above.
+_WALKED_BY = re.compile(r"\{#\s*promise walked by:\s*([a-z0-9_,\s]+?)\s*#\}")
+
+
+def _declared_walkers(text: str, position: int) -> tuple[str, ...]:
+    """The tests an input names as walking its promise: the declaration stands on
+    the input's own line or on the line above it, nowhere else — so it moves with
+    the input and disappears with it."""
+    start = text.rfind("\n", 0, position) + 1
+    above = text.rfind("\n", 0, max(start - 1, 0)) + 1
+    end = text.find("\n", position)
+    found = _WALKED_BY.search(text, above, end if end != -1 else len(text))
+    if not found:
+        return ()
+    return tuple(name for name in re.split(r"[,\s]+", found.group(1)) if name)
 
 
 def _template_promises(text: str):
-    """Yield `(line, field, kinds, form path)` for every promising input."""
+    """Yield `(line, field, kinds, form path, declared walkers)` for every promising input."""
     forms = [(m.start(), m.group(1)) for m in _FORM_TARGET.finditer(text)]
 
     def form_for(position: int) -> str | None:
@@ -1710,13 +2152,30 @@ def _template_promises(text: str):
         rest = m.group("rest")
         kinds = [k for k in _PROMISE_KINDS if re.search(rf"\b{k}\s*=\s*(True|\")", rest)]
         if kinds:
-            yield text.count("\n", 0, m.start()) + 1, m.group("name"), kinds, form_for(m.start())
+            yield (
+                text.count("\n", 0, m.start()) + 1,
+                m.group("name"),
+                kinds,
+                form_for(m.start()),
+                _declared_walkers(text, m.start()),
+            )
     for m in _RAW_INPUT.finditer(text):
         attrs = m.group("attrs")
         name = re.search(r'\bname="([a-z_0-9]+)"', attrs)
-        kinds = [k for k in _PROMISE_KINDS if re.search(rf"(?<![-\w]){k}\b(?!-)", attrs)]
+        # The attribute, not a word inside another attribute's value or inside the
+        # Jinja between them: the form builder's tick, `<input type="checkbox"
+        # name="required" {% if f.required %}checked{% endif %}>`, promises nothing.
+        bare = re.sub(r'"[^"]*"|\'[^\']*\'', '""', attrs)
+        bare = re.sub(r"\{%.*?%\}|\{\{.*?\}\}", " ", bare, flags=re.S)
+        kinds = [k for k in _PROMISE_KINDS if re.search(rf"(?<![-\w]){k}\b(?!-)", bare)]
         if name and kinds:
-            yield text.count("\n", 0, m.start()) + 1, name.group(1), kinds, form_for(m.start())
+            yield (
+                text.count("\n", 0, m.start()) + 1,
+                name.group(1),
+                kinds,
+                form_for(m.start()),
+                _declared_walkers(text, m.start()),
+            )
 
 
 def _route_path(path: str) -> str:
@@ -1809,6 +2268,68 @@ def _kept_columns() -> tuple[dict[str, bool], set[str]]:
     return columns, schema
 
 
+@functools.cache
+def _test_functions() -> dict[str, tuple[str, ...]]:
+    """Every test function of the suite by its name, with its source — a name may
+    stand in more than one file, which is why the value is a tuple."""
+    found: dict[str, list[str]] = {}
+    files = [*(BACKEND / "tests").rglob("test_*.py"), *DOMAINS.glob("*/tests/**/test_*.py")]
+    for path in files:
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith(
+                "test_"
+            ):
+                found.setdefault(node.name, []).append(ast.unparse(node))
+    assert len(found) > 2000, f"only {len(found)} test functions found — the walk is blind"
+    return {name: tuple(sources) for name, sources in found.items()}
+
+
+def _judge_promise(
+    reason: str | None, walkers: tuple[str, ...], field: str, tests: dict[str, tuple[str, ...]]
+) -> str | None:
+    """What is wrong with a promise the static walk stopped on (`reason`) or
+    followed to its column (`reason is None`), given the tests its input declares.
+    `None` means: in order.
+
+    - stopped, nothing declared → the step where the walk stops, as before;
+    - stopped, declared → every named test exists exactly once and names the field;
+    - followed, declared → the declaration is not needed and must go.
+
+    **What this cannot prove:** that the named test really posts an empty value to
+    the form this input stands in. It checks that the test exists, once, and names
+    the field — so a renamed or deleted test turns the gate red, and a test that
+    never mentions the field does not count. That the test walks THIS promise is
+    review's, which is why the failure message asks for it in the test's docstring.
+    """
+    if reason is None:
+        if walkers:
+            return (
+                f"declares `promise walked by: {', '.join(walkers)}` although the walk follows "
+                f"it to its column — remove the declaration"
+            )
+        return None
+    if not walkers:
+        return reason
+    problems = []
+    for walker in walkers:
+        sources = tests.get(walker, ())
+        if len(sources) != 1:
+            problems.append(
+                f"`{walker}` is the name of {len(sources)} test functions — it must be exactly one"
+            )
+        elif not re.search(rf"['\"]{field}['\"]", sources[0]):
+            problems.append(f"`{walker}` does not name the field `{field}`")
+    if not problems:
+        return None
+    return (
+        f"{reason}; declared walked by {', '.join(walkers)}, but "
+        + "; ".join(problems)
+        + " — name the test that posts what the browser refuses to the form this input stands "
+        "in (one per form for a partial in several), and say in its docstring which form and "
+        "route it walks and that it posts an empty value"
+    )
+
+
 def collect_promises() -> tuple[dict[str, str], dict[str, str]]:
     """Every `required`/`pattern`/`min` a template promises, walked to the column (§B9.3,
     *promise kept*; the spike of §B10): template → the form's `hx-post`/`action` →
@@ -1819,43 +2340,54 @@ def collect_promises() -> tuple[dict[str, str], dict[str, str]]:
     all the way and finds nothing that keeps the promise — the server accepts what the
     browser refuses. `unwalkable` stops earlier; its value is the step where it stops,
     the reason the change request asks for.
+
+    A promise the static walk cannot follow — the field is no column, the form's
+    target is a variable, the input stands in a partial — is walked by a test
+    instead, and the input says which: `{# promise walked by: test_name #}` on its
+    own line or the line above (`_judge_promise`). No list beside the source: the
+    declaration lives at the promise.
     """
     routes = _writing_routes()
     columns, schema = _kept_columns()
+    tests = _test_functions()
     templates = sorted(APP.rglob("templates/**/*.html"))
     assert len(templates) > 100, f"only {len(templates)} templates — the walk is blind"
     not_kept: dict[str, str] = {}
     unwalkable: dict[str, str] = {}
     seen = 0
     for template in templates:
-        for line, name, kinds, form_path in _template_promises(template.read_text()):
+        for line, name, kinds, form_path, walkers in _template_promises(template.read_text()):
             seen += 1
             key = f"{_rel(template)}::{name}::{'/'.join(kinds)}"
             where = f"{_rel(template)}:{line}"
+            reason: str | None = None
+            entry = routes.get(_route_path(form_path)) if form_path else None
             if not form_path:
-                unwalkable.setdefault(key, "no form target (built in JS, by a macro, or GET)")
-                continue
-            entry = routes.get(_route_path(form_path))
-            if entry is None:
-                unwalkable.setdefault(key, f"no writing route for {_route_path(form_path)}")
-                continue
-            route, helpers = entry
-            source = _route_source(route, helpers)
-            if not re.search(rf"['\"]{name}['\"]|\b{name}\s*[:=]", source):
-                unwalkable.setdefault(key, f"route `{route.name}` does not read `{name}` by name")
-                continue
-            if name not in columns:
-                if name in schema:
-                    continue  # kept by the schema
-                unwalkable.setdefault(key, f"no column named `{name}`")
-                continue
-            if not (columns[name] or name in schema):
-                not_kept.setdefault(
-                    key,
-                    f"{where} promises `{name}` {'/'.join(kinds)}; the column `{name}` has no "
-                    f"NOT NULL, CHECK, validator or schema constraint — the server accepts "
-                    f"what the browser refuses (CR-13 §B9.3)",
-                )
+                reason = "no form target (built in JS, by a macro, or GET)"
+            elif entry is None:
+                reason = f"no writing route for {_route_path(form_path)}"
+            else:
+                route, helpers = entry
+                source = _route_source(route, helpers)
+                if not re.search(rf"['\"]{name}['\"]|\b{name}\s*[:=]", source):
+                    reason = f"route `{route.name}` does not read `{name}` by name"
+                elif name not in columns and name not in schema:
+                    reason = f"no column named `{name}`"
+                elif name in columns and not (columns[name] or name in schema):
+                    if not walkers:
+                        not_kept.setdefault(
+                            key,
+                            f"{where} promises `{name}` {'/'.join(kinds)}; the column `{name}` "
+                            f"has no NOT NULL, CHECK, validator or schema constraint — the "
+                            f"server accepts what the browser refuses (CR-13 §B9.3)",
+                        )
+                        continue
+                    # Followed to a column that keeps nothing, and a test is declared:
+                    # the rule lives in the service, and the test is what shows it.
+                    reason = f"the column `{name}` keeps nothing itself"
+            judged = _judge_promise(reason, walkers, name, tests)
+            if judged is not None:
+                unwalkable.setdefault(key, judged)
     assert seen > 30, f"only {seen} promises in the templates — the walk is blind"
     return not_kept, unwalkable
 
@@ -1891,10 +2423,16 @@ COLLECTORS = {
 }
 
 
-def _ratchet(name: str) -> None:
+def _hard(name: str) -> None:
+    """No offender at all: the gate reads no list (phase 4d)."""
+    found = COLLECTORS[name]()
+    assert not found, "Violations:\n  " + "\n  ".join(found[key] for key in sorted(found))
+
+
+def _ratchet(name: str, frozen=None, *, where: str = "rules_baseline") -> None:
     """Nothing new, and nothing left behind."""
     found = COLLECTORS[name]()
-    frozen = getattr(baseline, name)
+    frozen = getattr(baseline, name) if frozen is None else frozen
     added = sorted(set(found) - set(frozen))
     gone = sorted(set(frozen) - set(found))
     errors = []
@@ -1902,7 +2440,7 @@ def _ratchet(name: str) -> None:
         errors.append("New violations:\n  " + "\n  ".join(found[k] for k in added))
     if gone:
         errors.append(
-            f"These are still in `rules_baseline.{name}` but no longer occur:\n  "
+            f"These are still in `{where}.{name}` but no longer occur:\n  "
             + "\n  ".join(gone)
             + "\nRemove them from the list — a ratchet that does not shrink is no ratchet."
         )
@@ -1910,21 +2448,22 @@ def _ratchet(name: str) -> None:
 
 
 def test_no_session_on_an_entity():
-    """Ratchet. Proof (run, restored): a function `_probe_session(db)` returning
+    """Hard since phase 4d — a ratchet until its list was empty. Proof (run,
+    restored; again when it went hard): a function `_probe_session(db)` returning
     `db.query(...)` added to `activities/models.py` → red, "`_probe_session` takes a
     `db` parameter"."""
-    _ratchet("SESSION_ON_ENTITY")
+    _hard("SESSION_ON_ENTITY")
 
 
 def test_module_shape():
-    """Ratchet for today's packages; a new package is not on the list, so any
-    missing piece of it is red. Proof: an empty `app/domains/proefdomein/__init__.py`
+    """Hard since phase 4d: every package has every piece. Proof (again when it
+    went hard): an empty `app/domains/proefdomein/__init__.py`
     added → red with five missing pieces."""
-    _ratchet("MODULE_SHAPE")
+    _hard("MODULE_SHAPE")
 
 
 def test_no_commit_in_an_event_handler():
-    """Ratchet on one entry, hard for any other handler.
+    """Hard since phase 4d — until phase 4 a ratchet on one entry.
 
     The change request planned this gate hard from phase 0, reading "one level in
     the same module". Followed three levels, it finds the one offender that
@@ -1932,14 +2471,14 @@ def test_no_commit_in_an_event_handler():
     _log_email`. Phase 4 turns that handler into a job enqueuer (§B4.1) and removes
     the entry. Proof: `db.commit()` added to
     `workflow.handlers.create_behartigen_task` → red, naming that handler."""
-    _ratchet("COMMIT_IN_HANDLER")
+    _hard("COMMIT_IN_HANDLER")
 
 
 def test_no_network_in_an_event_handler():
-    """Ratchet on `mail.on_mail_requested` (SMTP via `_send`) until phase 4 turns it
-    into a job. Proof: an `import httpx` and an `httpx.get(...)` added to
+    """Hard since phase 4d — a ratchet on `mail.on_mail_requested` (SMTP via `_send`)
+    until phase 4 turned it into a job. Proof (again when it went hard): an `import httpx` and an `httpx.get(...)` added to
     `workflow.handlers.create_behartigen_task` → red, naming that handler."""
-    _ratchet("NETWORK_IN_HANDLER")
+    _hard("NETWORK_IN_HANDLER")
 
 
 def test_every_json_route_names_its_caller():
@@ -1960,7 +2499,11 @@ def test_no_new_dutch_identifier():
     `domains/activities/service.py::bereken_iets` added to the baseline without the
     code → red, "no longer occur"; the existing Dutch names in the baseline → green,
     which this run is."""
-    _ratchet("DUTCH_IDENTIFIERS")
+    _ratchet(
+        "DUTCH_IDENTIFIERS",
+        dutch_identifiers_baseline.DUTCH_IDENTIFIERS,
+        where="dutch_identifiers_baseline",
+    )
 
 
 def test_no_new_foreign_write():
@@ -1974,11 +2517,12 @@ def test_no_new_foreign_write():
 
 
 def test_no_write_after_a_commit():
-    """Ratchet on one entry (`delete_registration`, phase 1). Proof (run, removed): a
+    """Hard since phase 4d — a ratchet on one entry (`delete_registration`) until
+    phase 1. Proof (run, removed; again when it went hard): a
     function `db.add(a); db.commit(); db.add(b)` added to `cms/service.py` → red,
     "db.add() after the commit on line …". The shapes that are not a violation are
     pinned below, on sources of their own."""
-    _ratchet("WRITE_AFTER_COMMIT")
+    _hard("WRITE_AFTER_COMMIT")
 
 
 @pytest.mark.parametrize(
@@ -2111,9 +2655,12 @@ def test_events_not_calls():
         ("payment", "reconcile_charges", True),
         ("workflow", "vervroeg_sweep", True),
         # #1368: a write through a mapped collection and a flush is a write too.
-        ("forms", "update_attached", True),
-        ("media", "activity_image_path", True),
-        # Reads are not commands.
+        # (The example was `forms.update_attached`, where #1368 was found; that one
+        # leaves the facade when it is reached through its port.)
+        ("workflow", "close_subject_tasks", True),
+        # Reads are not commands — the picture of an activity among them, since
+        # its lazy rendering and the flush behind it left (#1251).
+        ("media", "activity_image_path", False),
         ("mdm", "get_person", False),
         ("mdm", "name_parts", False),
     ],
@@ -2157,8 +2704,175 @@ def test_no_new_rule_in_a_router():
     halves at once: a function in `cms/admin_ui.py` with `if page is None: raise
     HTTPException(status_code=404)` and `if page.slug == "home": raise
     HTTPException(status_code=400, …)` → exactly one new violation, the 400 on
-    `page.slug == 'home'`; the doorman's 404 stays off the list."""
+    `page.slug == 'home'`; the doorman's 404 stays off the list.
+
+    CR-13 phase 4c (#1251): a check of the transport is the doorman's too, by three
+    shapes (`transport_shape`). Their proofs are tests of their own below — each
+    shape, and beside it the offence that must stay red."""
     _ratchet("RULE_IN_ROUTER")
+
+
+def _shape_of(source: str) -> str | None:
+    """The shape the gate gives the FIRST `if` of the one function in `source`."""
+    tree = ast.parse(textwrap.dedent(source))
+    function = next(
+        n for n in ast.walk(tree) if isinstance(n, ast.AsyncFunctionDef | ast.FunctionDef)
+    )
+    first = next(n for n in ast.walk(function) if isinstance(n, ast.If))
+    assert _refusal_in(first.body), "the proof's `if` refuses nothing — it would prove nothing"
+    return transport_shape(first, function)
+
+
+_REFUSE = "raise HTTPException(status_code=400, detail='nee')"
+
+
+@pytest.mark.parametrize(
+    "condition",
+    [
+        "not data",
+        "len(data) > MAX_BYTES",
+        "file.content_type not in ALLOWED_TYPES",
+        "file is None or not file.filename",
+        "file.filename.lower().endswith('.xlsx')",
+    ],
+)
+def test_a_check_of_a_file_is_the_doormans(condition):
+    """Shape 1: the condition reads the upload or its bytes, and constants."""
+    assert (
+        _shape_of(f"""
+        async def door(file: UploadFile = File(...), title: str = Form("")):
+            data = await file.read()
+            page = load(title)
+            if {condition}:
+                {_REFUSE}
+        """)
+        == "a file"
+    )
+
+
+@pytest.mark.parametrize(
+    "condition",
+    [
+        # A text's emptiness dressed up beside a check of the file: still a rule.
+        "not data or not title.strip()",
+        # A domain object beside the file.
+        "file.content_type not in ALLOWED_TYPES and page.kind == 'poster'",
+        "len(data) > page.max_bytes",
+        # A text alone, and a text that only LOOKS like the bytes of a file.
+        "not title.strip()",
+        "not text",
+        # An attribute of a file that is no property of the upload.
+        "file.owner is None",
+    ],
+)
+def test_proof_a_rule_beside_a_file_stays_a_rule(condition):
+    assert (
+        _shape_of(f"""
+        async def door(file: UploadFile = File(...), title: str = Form("")):
+            data = await file.read()
+            text = title.strip()
+            page = load(title)
+            if {condition}:
+                {_REFUSE}
+        """)
+        is None
+    )
+
+
+def test_a_refused_parse_is_the_doormans():
+    """Shape 2: the refusal stands in the `except` of a `try` that only parses."""
+    assert (
+        _shape_of(f"""
+        def door(sort_order: str = Form("")):
+            if sort_order is not None:
+                try:
+                    number = int(sort_order or "0")
+                except ValueError:
+                    {_REFUSE}
+        """)
+        == "a parse"
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        # The `try` does more than parse: a service's refusal is not a parse error.
+        "try:\n    number = service.place(page, sort_order)\nexcept ValueError:\n    " + _REFUSE,
+        # Everything is caught: that hides more than a parse.
+        "try:\n    number = int(sort_order)\nexcept Exception:\n    " + _REFUSE,
+    ],
+)
+def test_proof_a_try_that_is_more_than_a_parse_stays_a_rule(body):
+    indented = textwrap.indent(body, " " * 8)
+    source = "def door(sort_order: str = Form('')):\n    if sort_order is not None:\n" + indented
+    tree = ast.parse(source)
+    function = tree.body[0]
+    first = function.body[0]
+    assert _refusal_in(first.body) or any(
+        _refusal_in([s]) for s in ast.walk(first) if isinstance(s, ast.stmt)
+    )
+    assert transport_shape(first, function) is None
+
+
+def test_proof_a_rule_after_a_parse_is_judged_on_its_own():
+    """The parse is the doorman's; the `if` beside it that reads a domain object is a
+    rule, and the gate meets it as an `if` of its own."""
+    tree = ast.parse(
+        textwrap.dedent(f"""
+        def door(sort_order: str = Form("")):
+            if sort_order is not None:
+                try:
+                    number = int(sort_order)
+                except ValueError:
+                    {_REFUSE}
+                if number > page.limit:
+                    {_REFUSE}
+        """)
+    )
+    function = tree.body[0]
+    outer = function.body[0]
+    inner = outer.body[1]
+    assert transport_shape(outer, function) == "a parse"
+    assert _refusal_in(inner.body) and transport_shape(inner, function) is None
+
+
+def test_the_age_of_a_token_is_the_doormans():
+    """Shape 3: a clock minus a moment, against a constant."""
+    for condition in (
+        "time.monotonic() - entry['created_at'] > _TTL_SECONDS",
+        "time.time() - issued >= 900",
+    ):
+        assert (
+            _shape_of(f"""
+            def door(token: str):
+                entry = PENDING.get(token)
+                issued = entry["at"]
+                if {condition}:
+                    {_REFUSE}
+            """)
+            == "a token's age"
+        )
+
+
+@pytest.mark.parametrize(
+    "condition",
+    [
+        # A deadline of a domain object is a rule, however much it looks like a clock.
+        "date.today() > activity.deadline",
+        "time.time() - booking.created_at > booking.component.hold_seconds",
+        "now - membership.valid_until > GRACE",
+    ],
+)
+def test_proof_a_deadline_of_the_domain_stays_a_rule(condition):
+    assert (
+        _shape_of(f"""
+        def door(token: str):
+            if {condition}:
+                {_REFUSE}
+        """)
+        is None
+    )
 
 
 def test_every_rule_in_a_router_carries_its_reason():
@@ -2198,18 +2912,19 @@ def test_no_new_write_outside_a_service():
 
 
 def test_no_new_write_past_the_orm():
-    """Ratchet (§B9.3 (c)). Proof (run, removed): a function in `cms/service.py` doing
+    """Hard since phase 4d (§B9.3 (c)). Proof (run, removed; again when it went
+    hard): a function in `cms/service.py` doing
     `db.query(CmsPage).filter(CmsPage.id == 1).update({"title": "x"})` → red, "bulk
     .update() `cms.CmsPage` past the ORM"."""
-    _ratchet("NON_ORM_WRITES")
+    _hard("NON_ORM_WRITES")
 
 
 def test_one_owner_per_derived_value():
-    """Ratchet (§B9.3). The collector first proves each shape recognises its own owner.
-    Proof (run, removed): a function in `cms/service.py` returning
+    """Hard since phase 4d (§B9.3). The collector first proves each shape recognises
+    its own owner. Proof (run, removed; again when it went hard): a function in `cms/service.py` returning
     `sum(i.quantity * i.product.price for i in items)` → red, "computes
     `registration.total` a second time"."""
-    _ratchet("DERIVED_ELSEWHERE")
+    _hard("DERIVED_ELSEWHERE")
 
 
 @pytest.mark.parametrize(
@@ -2240,19 +2955,108 @@ def test_a_record_state_is_decided_on_the_paid_amount():
 
 
 def test_every_promise_is_kept():
-    """Ratchet on nothing today — so hard (§B9.3). Proof (run, removed), additive, in a
-    new `activities/templates/_zz_probe.html`: a `<textarea name="description"
-    required>` inside `<form hx-post="/admin/activiteiten/{{ a.id }}">` → red,
-    "promises `description` required; the column `description` has no NOT NULL,
-    CHECK, validator or schema constraint"."""
-    _ratchet("PROMISE_NOT_KEPT")
+    """Hard (§B9.3): it never had an entry, and reads no list since phase 4d. Proof
+    (run, removed; again when it went hard), additive, in a
+    new `activities/templates/_zz_probe.html`: an `<input name="bus_number"
+    required>` inside `<form hx-post="/admin/leden/gezin/{{ g.id }}/adres">` → red,
+    "promises `bus_number` required; the column `bus_number` has no NOT NULL, CHECK,
+    validator or schema constraint". (The first proof used the activity fiche's
+    `description`; since #1559 that route reads its form by name in a loop, so the
+    walk stops there — "cannot be walked" — and no longer reaches this gate.)"""
+    _hard("PROMISE_NOT_KEPT")
 
 
 def test_no_new_promise_that_cannot_be_walked():
-    """Ratchet with the step where each walk stops (§B9.3, the 21 of §B10). Proof (run,
-    removed): in the same probe template, an `<input name="zz_probe" required>` before
+    """Hard since phase 4d (§B9.3): a promise the walk cannot follow names the test
+    that walks it (the declaration, below), or is red with the step where the walk
+    stops. Proof (run, removed; again when it went hard): in the same probe template, an `<input name="zz_probe" required>` before
     the form → red, "cannot be walked: no form target"."""
-    _ratchet("PROMISE_UNWALKABLE")
+    _hard("PROMISE_UNWALKABLE")
+
+
+# ── A promise walked by a test: the declaration at the input ─────────────────
+
+_TESTS = {
+    "test_an_empty_street_is_refused": (
+        'def test_an_empty_street_is_refused():\n    post({"street": ""})',
+    ),
+    "test_named_twice": ("def test_named_twice(): ...", "def test_named_twice(): ..."),
+    "test_about_something_else": ('def test_about_something_else():\n    post({"city": ""})',),
+}
+_STOP = "no form target (built in JS, by a macro, or GET)"
+
+
+def test_a_declaration_is_read_on_the_inputs_line_or_the_one_above():
+    """And nowhere else: two lines above is another input's business."""
+    same = '<input name="street" required> {# promise walked by: test_a #}\n'
+    above = '{# promise walked by: test_a, test_b #}\n{{ ui.input("street", required=True) }}\n'
+    far = '{# promise walked by: test_a #}\n<p>text</p>\n<input name="street" required>\n'
+    none = '<input name="street" required>\n'
+    assert [w for *_x, w in _template_promises(same)] == [("test_a",)]
+    assert [w for *_x, w in _template_promises(above)] == [("test_a", "test_b")]
+    assert [w for *_x, w in _template_promises(far)] == [()]
+    assert [w for *_x, w in _template_promises(none)] == [()]
+
+
+def test_proof_a_word_inside_an_attributes_value_is_no_promise():
+    """The form builder's "Verplicht" tick is an input NAMED `required`; that was
+    read as a promise. The attribute itself, with or without a value, still is."""
+    named = '<input type="checkbox" name="required" value="1">\n'
+    ticked = (
+        '<input type="checkbox" name="required" value="1" '
+        "{% if f and f.required %}checked{% endif %}>\n"
+    )
+    assert list(_template_promises(named)) == []
+    assert list(_template_promises(ticked)) == []
+    for real in (
+        '<input name="required" required>\n',
+        '<input name="amount" min="1">\n',
+        '<input name="code" pattern="[0-9]+" title="required digits">\n',
+    ):
+        ((_line, _name, kinds, _form, _walkers),) = _template_promises(real)
+        assert len(kinds) == 1, (real, kinds)
+
+
+def test_a_promise_the_walk_cannot_follow_is_in_order_with_its_test():
+    assert _judge_promise(_STOP, ("test_an_empty_street_is_refused",), "street", _TESTS) is None
+    # Without a declaration it is what it was: the step where the walk stops.
+    assert _judge_promise(_STOP, (), "street", _TESTS) == _STOP
+    # And a promise the walk follows needs nothing.
+    assert _judge_promise(None, (), "street", _TESTS) is None
+
+
+@pytest.mark.parametrize(
+    ("walkers", "said"),
+    [
+        (("test_that_was_renamed",), "is the name of 0 test functions"),
+        (("test_named_twice",), "is the name of 2 test functions"),
+        (("test_about_something_else",), "does not name the field `street`"),
+        # One good test does not carry a bad one: a partial in two forms names both.
+        (
+            ("test_an_empty_street_is_refused", "test_that_was_renamed"),
+            "`test_that_was_renamed` is the name of 0 test functions",
+        ),
+    ],
+)
+def test_proof_a_declaration_that_names_no_real_walk_is_refused(walkers, said):
+    judged = _judge_promise(_STOP, walkers, "street", _TESTS)
+    assert judged is not None and said in judged
+    # The message says what to write, and asks for the docstring review reads.
+    assert "which form and route it walks" in judged and _STOP in judged
+
+
+def test_proof_a_declaration_where_the_walk_can_follow_is_refused():
+    """No decoration where it is not needed: it would read as "this one is special"."""
+    judged = _judge_promise(None, ("test_an_empty_street_is_refused",), "street", _TESTS)
+    assert judged is not None and "remove the declaration" in judged
+
+
+def test_the_test_tree_the_declarations_point_into_is_seen():
+    """The walk of the tests is not blind, and it reads sources: this very test is
+    found once, with its own text."""
+    tests = _test_functions()
+    (source,) = tests["test_the_test_tree_the_declarations_point_into_is_seen"]
+    assert "not blind" in source
 
 
 #: The Registration aggregate (CR-13 phase 1): its classes and its schema.

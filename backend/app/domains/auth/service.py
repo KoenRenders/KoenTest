@@ -184,12 +184,6 @@ def require_roles(*codes: str):
 # zodat bestaande routers (Depends(get_current_admin)) ongemoeid blijven.
 get_current_admin = require_roles("ADMIN")
 
-# Financiële scheiding (penningmeester): enkel FINANCE mag betalingen invullen,
-# bewerken, terugbetalen of verwijderen. ADMIN mag betalingen wél inkijken maar
-# niet wijzigen → de view-endpoints aanvaarden beide rollen.
-get_current_finance = require_roles("FINANCE")
-get_finance_or_admin = require_roles("ADMIN", "FINANCE")
-
 
 def get_current_member(
     token: Optional[str] = Depends(oauth2_scheme_optional),
@@ -262,3 +256,33 @@ def require_api_key(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=_("Ongeldige API-key"))
     entry.last_used_at = datetime.now(timezone.utc)
     return entry
+
+
+def has_login(db: Session, email: str) -> bool:
+    """Whether a login exists for this address."""
+    from app.domains.auth.models import User
+
+    return db.query(User).filter(User.email == email).first() is not None
+
+
+def give_board_member_a_login(db: Session, email: str) -> None:
+    """A login with the role ADMIN for a board member the member report names —
+    only a new one; a login that exists is never overwritten. Flushed, not
+    committed. A login is tied to a person by its address alone (no person id on
+    a user): that is the separation auth keeps on purpose (#226)."""
+    from app.domains.auth.models import User, UserRole
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+
+    if has_login(db, email):
+        return
+    user = User(email=email, is_active=True)
+    db.add(user)
+    db.flush()
+    db.add(
+        UserRole(
+            user_id=user.id,
+            role_code="ADMIN",
+            tenant_id=current_tenant_id.get() or DEFAULT_TENANT_ID,
+        )
+    )
+    db.flush()

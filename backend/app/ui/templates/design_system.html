@@ -193,6 +193,7 @@
   <div class="max-w-md space-y-3">
     <div>
       {{ ui.label(_("Naam"), "ds-naam", required=True) }}
+      {# promise walked by: test_the_specimen_form_of_the_design_system_posts_nowhere #}
       {{ ui.input_control("naam", id="ds-naam", value="Raak Millegem", required=True, cls="w-full") }}
       <p class="text-xs text-gray-500 mt-1">{{ _("Zoals het op de bevestigingsmail komt.") }}</p>
     </div>
@@ -1117,7 +1118,7 @@
     {% call ui.inset(_("Lidmaatschap geregistreerd — betaal via overschrijving:")) %}
       <ul class="mt-1 space-y-0.5">
         <li>{{ _("Bedrag") }}: <strong>€ 35,00</strong></li>
-        <li>{{ _("Mededeling (OGM)") }}: <strong>+++000/0000/00097+++</strong></li>
+        <li>{{ _("Gestructureerde mededeling") }}: <strong>+++000/0000/00097+++</strong></li>
       </ul>
     {% endcall %}
     </div>

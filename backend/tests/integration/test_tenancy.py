@@ -78,7 +78,9 @@ def test_request_krijgt_default_tenant(client, db_session):
     )
     db_session.flush()
     # het request loopt als Millegem (default) → de demo-pagina bestaat daar niet
-    assert client.get("/api/v1/pages/alleen-demo").status_code == 404
+    # (the public page; until CR-13 phase 4b this asked the JSON route of the page)
+    assert client.get("/alleen-demo").status_code == 404
+    assert client.get("/p/alleen-demo").status_code == 404
 
 
 def test_tenant_codes_dynamisch_uit_organizations(db_session):

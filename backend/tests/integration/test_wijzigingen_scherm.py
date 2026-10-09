@@ -46,7 +46,7 @@ def _wijzigingen(db, aantal):
     aan. Voor deze schermtest doen we hetzelfde, met dezelfde functie die de
     productiecode gebruikt.
     """
-    from app.domains.audit.api import snapshot_person
+    from app.domains.mdm.api import snapshot_person
 
     for i in range(aantal):
         person = Person(first_name=f"Test{i}", last_name="Wijziging")
@@ -107,7 +107,7 @@ def test_elke_rij_heeft_een_samenvatting_zonder_het_object_te_herhalen(client, d
     kolom, dus de samenvatting hoeft "(person #90)" niet te herhalen."""
     from datetime import date
 
-    from app.domains.audit.api import all_changes_since
+    from app.domains.reporting.api import all_changes_since
 
     _wijzigingen(db_session, 3)
     rijen = all_changes_since(db_session, date.today())

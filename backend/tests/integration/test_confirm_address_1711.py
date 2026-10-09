@@ -472,25 +472,3 @@ def test_a_waiting_address_gets_no_newsletter(client, db_session, member, sent):
     assert _enter(client, NEW, _code(mail)).headers.get("HX-Redirect")
     db_session.expire_all()
     assert email_addresses_of_members(db_session, [household]) == sorted([EMAIL, NEW])
-
-
-# ── the portal's JSON doors ──────────────────────────────────────────────────
-
-
-def test_the_members_json_doors_store_a_waiting_address_too(db_session, member, sent):
-    """The same person, another door: an address added through the portal's
-    JSON API counted at once — a way round the code. Red when the door does
-    not say that the member types it himself."""
-    from fastapi import HTTPException
-
-    from app.domains.membership.api import household_add_email, household_make_email_primary
-
-    household_add_email(db_session, member, member.id, NEW)
-    assert _rows(db_session, member) == {EMAIL: (True, True), NEW: (False, False)}
-    [mail] = _mails(db_session, sent)
-    assert mail["to"] == NEW
-
-    with pytest.raises(HTTPException) as refused:
-        household_make_email_primary(db_session, member, member.id, _row(db_session, NEW).id)
-    assert refused.value.status_code == 409
-    assert _rows(db_session, member)[EMAIL] == (True, True)

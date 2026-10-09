@@ -14,8 +14,10 @@ from sqlalchemy.orm import Session
 
 from app.domains.mdm.service import confirm_email, create_account_person, set_circle_start
 from app.kernel.contracts.auth import AccountCodeEntered, AddressCodeEntered
+from app.kernel.contracts.mdm import CreateHousehold, HouseholdCreated
 from app.kernel.contracts.meetings import CircleStartChosen
 from app.kernel.events import subscribe
+from app.kernel.ports import handles
 
 
 @subscribe(CircleStartChosen)
@@ -37,7 +39,7 @@ def make_account_when_code_entered(event: AccountCodeEntered, db: Session) -> No
     form was sent (`EmailAddressInUse`); the refusal reaches the publisher,
     which spends the code and makes nobody.
     """
-    from app.domains.audit.api import snapshot_contact_detail, snapshot_person
+    from app.domains.mdm.history import snapshot_contact_detail, snapshot_person
 
     person, details = create_account_person(
         db,
@@ -74,7 +76,7 @@ def confirm_address_when_code_entered(event: AddressCodeEntered, db: Session) ->
 
     The history rows are written here: `confirm_email` says which row counts
     now and which one it replaced, this subscriber records both."""
-    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.history import snapshot_contact_detail
 
     changed = confirm_email(
         db, event.contact_id, event.email, event.replaces_id, make_primary=event.make_primary
@@ -98,4 +100,32 @@ def confirm_address_when_code_entered(event: AddressCodeEntered, db: Session) ->
         action="email_confirmed",
         source="member_self",
         actor=event.email,
+    )
+
+
+@handles(CreateHousehold)
+def create_household(port: CreateHousehold, db: Session) -> HouseholdCreated:
+    """A household with its persons, address and contact details, in the caller's
+    transaction. A refusal of the service reaches the caller unchanged."""
+    from app.domains.mdm.household_service import create_household as create
+    from app.domains.mdm.models import Person
+
+    main_person = None
+    if port.main_person_id is not None:
+        main_person = db.get(Person, port.main_person_id)
+        if main_person is None:
+            raise LookupError(f"person {port.main_person_id} does not exist")
+    household, persons = create(
+        db,
+        street=port.street,
+        house_number=port.house_number,
+        bus_number=port.bus_number,
+        postal_code=port.postal_code,
+        persons=port.persons,
+        source=port.source,
+        actor=port.actor,
+        main_person=main_person,
+    )
+    return HouseholdCreated(
+        household_id=household.id, person_ids=tuple(person.id for person in persons)
     )

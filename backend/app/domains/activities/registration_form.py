@@ -74,10 +74,16 @@ def public_channel(
 
 
 def board_channel(
-    db: Session, activity: Activity, component: ActivitySubRegistration, typed_email: str
+    db: Session, activity: Activity, component: ActivitySubRegistration | None, typed_email: str
 ) -> Channel:
+    from app.domains.activities.models import RegistrationRefused
     from app.domains.auth.api import login_person_for_email
 
+    # The board's form is one page for every component of the activity, so the
+    # component is a choice on it — and a registration is always for one. The
+    # rule stood in the screen until CR-13 phase 4c (#1251).
+    if component is None:
+        raise RegistrationRefused(_("Kies een onderdeel."))
     typed = (typed_email or "").strip()
     base = f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw"
     return Channel(

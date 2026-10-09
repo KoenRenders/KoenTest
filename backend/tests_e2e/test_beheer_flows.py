@@ -141,11 +141,21 @@ def test_lidmaatschap_schrappen_geeft_een_terugbetaling(admin_page):
     # a race, and an empty one: the list page itself already carries that word
     # (measured), so the check passed before the detail was there. Now it waits
     # for the section heading inside the detail.
-    admin_page.locator("#leden-lijst a").first.click()
-    expect(leden.lidmaatschapskop(), "geen lidmaatschapssectie op het gezinsdetail").to_be_visible()
-
-    knop = leden.lidmaatschap_verwijderknop()
-    if knop.count() == 0:
+    #
+    # #1745: a household that HAS a membership, not the first of the list. Which
+    # household stands first depends on what other files added before this one
+    # ran; the flow is about cancelling a membership, so it looks for one.
+    links = admin_page.locator("#leden-lijst a")
+    for row in range(links.count()):
+        links.nth(row).click()
+        expect(
+            leden.lidmaatschapskop(), "geen lidmaatschapssectie op het gezinsdetail"
+        ).to_be_visible()
+        knop = leden.lidmaatschap_verwijderknop()
+        if knop.count():
+            break
+        leden.open()
+    else:
         _ontbreekt("geen lidmaatschap om te schrappen")
     # De knop vraagt om bevestiging via de in-app modal (#595), niet via
     # confirm() — het attribuut is wat die modal aanstuurt.

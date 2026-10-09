@@ -227,7 +227,7 @@ def test_de_export_zegt_dat_het_hoofdadres_verplaatst_is(client, db_session, lid
     """
     from datetime import date, timedelta
 
-    from app.domains.audit.api import member_changes_since
+    from app.domains.reporting.api import member_changes_since
 
     _member, person = lid
     csrf = _aanmelden(client, HOOFD)
@@ -256,8 +256,8 @@ def test_een_gewone_adreswijziging_blijft_lezen_zoals_ze_was(db_session):
     """
     from datetime import date, timedelta
 
-    from app.domains.audit.api import member_changes_since
     from app.domains.mdm.api import upsert_primary_contact
+    from app.domains.reporting.api import member_changes_since
 
     # Eerst het adres langs een geauditeerd pad zetten: zonder een vorige
     # snapshot van dezelfde rij kan "oud → nieuw" niet bestaan, en dan zou deze

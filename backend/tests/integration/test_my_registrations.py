@@ -190,7 +190,8 @@ def test_a_transfer_still_to_make_shows_the_same_block_as_a_renewal(client, db_s
     assert open_card.count("data-transfer-due") == 1
     assert "Inschrijving geregistreerd — betaal via overschrijving:" in open_card
     block = open_card[open_card.index("data-transfer-due") :]
-    assert "€ 20,00" in block and OGM in block and "Mededeling (OGM)" in block
+    assert "€ 20,00" in block and OGM in block and "Gestructureerde mededeling" in block
+    assert "Te betalen vóór" in block and "Mededeling (OGM)" not in block
     assert "data-transfer-due" not in paid_card and "00456" not in paid_card
 
 

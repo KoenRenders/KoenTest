@@ -9,6 +9,7 @@
       hx-encoding="multipart/form-data" class="flex flex-wrap items-end gap-3">
   <div>
     {{ ui.label(_("Ledenrapport"), "file", required=True) }}
+    {# promise walked by: test_the_import_with_an_empty_file_is_refused #}
     {{ ui.input_control("file", type="file", required=True, cls="bg-white", attrs='accept=".xls,.ods"') }}
   </div>
   {{ ui.btn_primary(_("Controleer bestand")) }}

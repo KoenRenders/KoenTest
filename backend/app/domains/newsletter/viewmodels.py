@@ -121,7 +121,21 @@ class NewsletterArchiveView(ViewModel):
     q: str
     csrf_token: str
     error: Optional[str] = None
+    #: What the last action did (#1783): how many failed addresses are queued again.
+    notice: str = ""
+    #: The question "Opnieuw versturen" asks first; names how many addresses.
+    resend_question: str = ""
+    #: The words on that button: whom it sends to, with the number.
+    resend_label: str = ""
     nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class AudienceLine:
+    """One list a newsletter is sent to, as the send screen names it."""
+
+    head: str
+    sentence: str
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -129,7 +143,12 @@ class NewsletterSendView(ViewModel):
     """`admin_nieuwsbrief_versturen.html` — the confirmation step."""
 
     letter: Any
-    audience_label: str
+    #: Who the letter goes to, said before the click (#1780): a head and a
+    #: sentence per list it is sent to, and what the two lists share.
+    audience_lines: list[AudienceLine]
+    audience_overlap: str
+    #: The send button, which names the audience: leden, abonnees, ontvangers.
+    send_label: str
     recipient_count: int
     days: int
     daily_cap: int

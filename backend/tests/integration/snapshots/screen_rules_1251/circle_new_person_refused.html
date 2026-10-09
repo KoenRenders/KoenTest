@@ -1,0 +1,70 @@
+200
+<div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-800" role="alert">Er is nog geen organisatie ingesteld.</div>
+<div class="bg-surface border border-line rounded-2xl p-5">
+<h2 class="font-semibold text-blue-700">In de kring</h2>
+<p class="text-sm text-ink-soft mt-0.5">
+ De kring is breder dan het bestuur: ook vaste deelnemers en de afdelingsondersteuner horen erbij, ook als ze geen lid zijn.
+ </p>
+<p class="text-gray-500 text-sm py-6 text-center">Nog niemand in de kring. Zoek hieronder een persoon om toe te voegen.</p>
+</div>
+<div class="bg-surface border border-line rounded-2xl p-5 mt-4">
+<h2 class="font-semibold text-blue-700">Iemand toevoegen</h2>
+<div class="mt-3">
+<span class="inline-flex items-center gap-2">
+<label for="vg-kring-start" class="text-sm text-ink-soft whitespace-nowrap">In de kring vanaf</label>
+<input type="date" name="start_date" id="vg-kring-start" value="<TODAY>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
+</span>
+</div>
+<input type="search" name="q" value="" placeholder="Zoek op naam…"
+ class="mt-3 w-full sm:w-80 rounded-lg border border-line px-3 py-2 text-sm"
+ hx-get="/admin/vergaderingen/kring" hx-target="#vg-kring-kandidaten"
+ hx-select="#vg-kring-kandidaten" hx-swap="outerHTML"
+ hx-trigger="input changed delay:300ms" aria-label="Zoek een persoon">
+<div id="vg-kring-kandidaten">
+</div>
+</div>
+<div class="bg-surface border border-line rounded-2xl p-5 mt-4">
+<h2 class="font-semibold text-blue-700">Iemand toevoegen die geen lid is</h2>
+<p class="text-sm text-ink-soft mt-0.5">Staat de persoon hierboven niet tussen de zoekresultaten? Dan is hij nog niet gekend — bijvoorbeeld de afdelingsondersteuner. Er wordt een persoon aangemaakt zonder gezin; hij komt meteen in de kring.</p>
+<form class="mt-3 flex flex-wrap items-center gap-2" hx-post="/admin/vergaderingen/kring/nieuw"
+ hx-target="#vg-kring" hx-swap="innerHTML">
+<input type="hidden" name="csrf_token" value="<CSRF>">
+<input type="text" name="first_name" id="first_name" placeholder="Voornaam" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-36" >
+<input type="text" name="last_name" id="last_name" placeholder="Achternaam" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
+<input type="email" name="person_email" id="person_email" placeholder="<EXAMPLE-ADDRESS>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-56" >
+<span class="inline-flex items-center gap-2">
+<label for="vg-kring-nieuw-start" class="text-sm text-ink-soft whitespace-nowrap">vanaf</label>
+<input type="date" name="start_date" id="vg-kring-nieuw-start" value="<TODAY>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
+</span>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Toevoegen aan de kring</button>
+</form>
+</div>
+<div class="bg-surface border border-line rounded-2xl p-5 mt-4">
+<h2 class="font-semibold text-blue-700">Ondertekening van de mails</h2>
+<p class="text-sm text-ink-soft mt-0.5">Komt onderaan de agenda- en verslagmail te staan. Je kunt de tekst per mail nog aanpassen voor je verstuurt.</p>
+<form class="mt-3" hx-post="/admin/vergaderingen/kring/ondertekening"
+ hx-target="#vg-kring" hx-swap="innerHTML">
+<input type="hidden" name="csrf_token" value="<CSRF>">
+<textarea name="signature" id="vg-ondertekening" rows="3" placeholder="Met vriendelijke groet,
+Voornaam, Voornaam en Voornaam"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full sm:w-96"
+ x-data="{ bodem: 0,
+ init() { this.groei(); if (this.bodem) return;
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
+ meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
+ groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
+ this.$el.style.height = `auto`;
+ const rand = this.$el.offsetHeight - this.$el.clientHeight;
+ this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight + rand, this.bodem), 400) + `px`; } }"
+ x-on:input="groei()" ></textarea>
+<div class="mt-2"><button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Ondertekening bewaren</button></div>
+</form>
+</div>

@@ -22,7 +22,6 @@ from typing import Optional
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -681,7 +680,14 @@ async def design_image_upload(
 ):
     design = _design_or_404(db, design_id)
     try:
-        await add_design_image(db, design, file, slot=slot)
+        add_design_image(
+            db,
+            design,
+            filename=file.filename or "",
+            content_type=file.content_type or "",
+            content=await file.read(),
+            slot=slot,
+        )
     except DesignError as exc:
         return templates.TemplateResponse(
             request,
@@ -802,10 +808,9 @@ def design_finalise(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
-async def design_publish(
+def design_publish(
     request: Request,
     design_id: int,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _email: str = Depends(require_admin_ui),
     version_id: int = Form(...),
@@ -816,7 +821,7 @@ async def design_publish(
     if version is None:
         raise HTTPException(status_code=404, detail=_("Versie niet gevonden."))
     try:
-        await publish(db, design, version, background_tasks)
+        publish(db, design, version)
     except DesignError as exc:
         return templates.TemplateResponse(
             request,

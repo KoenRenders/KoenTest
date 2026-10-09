@@ -1,20 +1,34 @@
 {% import "_macros.html" as ui %}
+{# Per adres (#1782). The address is what this list is scanned by: it stands on
+   one line up to a cap of 16.5 rem — an address of some 32 characters — and only
+   a longer one breaks, inside the cap, its whole value in the cell. The cap is
+   on a box INSIDE the cell with `break-words`: that keeps the column at least
+   as wide as its longest address up to the cap, where `break-all` on the cell
+   let the table squeeze every address. The moment and the status never break.
+   The reason takes what is left and may run over two lines; only a row that
+   HAS a reason asks a minimum for it, so an empty column costs nothing. Where
+   the four do not fit (a phone), the table
+   scrolls inside its card and the page does not (docs/design-system.md, lists:
+   "Default list = table in a card with overflow-x-auto"). Not the kit's
+   `data_table`: that one is a list of records — one name, one context column,
+   a row that opens its record — and this is a log with two columns of free
+   text and nothing behind a row. #}
 <div class="overflow-x-auto">
-<table class="w-full text-sm">
+<table class="w-full text-sm" data-deliveries>
   <thead><tr class="text-left text-ink-soft border-b border-line">
     <th scope="col" class="py-2 pr-3 font-semibold">{{ _("Adres") }}</th>
     <th scope="col" class="py-2 pr-3 font-semibold">{{ _("Status") }}</th>
-    <th scope="col" class="py-2 pr-3 font-semibold">{{ _("Wanneer") }}</th>
+    <th scope="col" class="py-2 pr-3 font-semibold whitespace-nowrap">{{ _("Wanneer") }}</th>
     <th scope="col" class="py-2 font-semibold">{{ _("Reden") }}</th>
   </tr></thead>
   <tbody class="divide-y divide-line">
   {% for delivery in deliveries %}
     <tr>
-      <td class="py-2 pr-3">{{ delivery.email }}</td>
-      <td class="py-2 pr-3">{{ ui.badge(delivery.status | code_label("delivery_status"),
+      <td class="py-2 pr-3" data-cell="address"><span class="inline-block max-w-[16.5rem] break-words align-top" data-address>{{ delivery.email }}</span></td>
+      <td class="py-2 pr-3 whitespace-nowrap" data-cell="status">{{ ui.badge(delivery.status | code_label("delivery_status"),
                                    delivery.status | tone("delivery_status")) }}</td>
-      <td class="py-2 pr-3 text-ink-soft">{{ moments[delivery.id] }}</td>
-      <td class="py-2 text-ink-soft">{{ delivery.error or "" }}</td>
+      <td class="py-2 pr-3 text-ink-soft whitespace-nowrap" data-cell="when">{{ moments[delivery.id] }}</td>
+      <td class="py-2 text-ink-soft{% if delivery.error %} min-w-[7rem]{% endif %}" data-cell="reason">{{ delivery.error or "" }}</td>
     </tr>
   {% else %}
     <tr><td colspan="4" class="py-3 text-ink-soft">{{ _("Geen adressen die hierbij passen.") }}</td></tr>

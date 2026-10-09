@@ -46,7 +46,6 @@ NOT_A_MEDIA_ASSET = {
     ("domains/designstudio/blocks.py", "image.data"): "ImageBytes, the bytes asset_bytes returned",
     ("domains/meetings/admin_ui.py", "record.data"): "MeetingFile, a meeting's own file",
     ("domains/meetings/service.py", "record.data"): "MeetingFile, a meeting's own file",
-    ("schemas/chat.py", "info.data"): "pydantic ValidationInfo",
 }
 
 

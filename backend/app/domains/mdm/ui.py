@@ -32,9 +32,11 @@ NAV = "/admin/leden"
 
 
 def _codes(db: Session) -> dict:
-    from app.domains.mdm.api import admin_code_lists
+    """The code lists a person form shows, and the longest name it takes — the
+    number the server refuses at, so the field's `maxlength` cannot drift from it."""
+    from app.domains.mdm.api import PERSON_NAME_MAX, admin_code_lists
 
-    return admin_code_lists(db)
+    return {**admin_code_lists(db), "person_name_max": PERSON_NAME_MAX}
 
 
 def _lidmaatschapsjaren(db: Session) -> list[int]:
@@ -267,9 +269,8 @@ async def gezin_aanmaken(
 
     from app.domains.mdm.api import list_postal_codes
     from app.domains.membership.api import (
-        FamilyCreate,
-        FamilyMemberCreate,
         create_family_by_admin,
+        family_from_rows,
         parse_member_rows,
     )
 
@@ -298,29 +299,10 @@ async def gezin_aanmaken(
             status_code=422,
         )
 
-    rijen = parse_member_rows(form)
-    if not rijen:
-        return _fout(_("Vul minstens het hoofdlid in."))
     try:
-        data = FamilyCreate(
-            street=(values.get("street") or "").strip(),
-            house_number=(values.get("house_number") or "").strip(),
-            bus_number=(values.get("bus_number") or "").strip() or None,
-            postal_code=(values.get("postal_code") or "").strip(),
-            members=[
-                FamilyMemberCreate(
-                    first_name=r["first_name"],
-                    last_name=r["last_name"],
-                    date_of_birth=r["date_of_birth"] or None,
-                    gender_code=r["gender_code"] or None,
-                    email=r["email"] or None,
-                    phone=r["phone"] or None,
-                    mobile=r["mobile"] or None,
-                    relation_type=r["relation_type"] or ("HOOFDLID" if i == 0 else "PARTNER"),
-                )
-                for i, r in enumerate(rijen)
-            ],
-        )
+        data = family_from_rows(values, parse_member_rows(form))
+    except HTTPException as exc:
+        return _fout(str(exc.detail))
     except ValidationError as exc:
         return _fout(str(exc.errors()[0].get("msg", _("Ongeldige invoer."))))
 
@@ -432,17 +414,23 @@ async def persoon_opslaan(
     mobile: str = Form(""),
     relation_type: str = Form(""),
 ):
-    from app.domains.membership.api import (
+    from app.domains.mdm.api import (
         ContactsUpdate,
         PersonUpdate,
+        board_request,
+        require_relation_allowed,
         update_person,
         update_person_contacts,
     )
 
+    # Asked before anything is written: this save commits in steps, and a
+    # relation refused at the end would leave the card half saved.
+    require_relation_allowed(db, family_id, person_id, relation_type)
     update_person(
         db,
         person_id,
-        PersonUpdate(
+        board_request(
+            PersonUpdate,
             first_name=first_name.strip(),
             last_name=last_name.strip(),
             date_of_birth=date_of_birth or None,
@@ -464,10 +452,10 @@ async def persoon_opslaan(
     from app.domains.mdm.api import apply_email_rows
 
     apply_email_rows(db, person_id, await request.form(), actor=email)
-    # Relatietype op de MemberPerson-junctie (#498). De regel — nooit promoveren
-    # tot HOOFDLID, nooit een bestaand HOOFDLID overschrijven — staat sinds #635-F
-    # in de service, met een rauwe query minder in dit scherm.
-    from app.domains.membership.api import set_relation_type
+    # Relatietype op de MemberPerson-junctie (#498). De regel — een gezin heeft
+    # één hoofdlid, en een bestaand HOOFDLID wordt niet overschreven — staat
+    # in de service.
+    from app.domains.mdm.api import set_relation_type
 
     set_relation_type(db, family_id, person_id, relation_type)
     # #742: een afsluitende "Opslaan", dus mét bevestiging. Een persoon toevoegen of
@@ -600,18 +588,11 @@ def adres_opslaan(
     bus_number: str = Form(""),
     postal_code: str = Form(""),
 ):
-    from app.domains.membership.api import AddressUpdate, get_family, update_person_address
+    from app.domains.mdm.api import AddressUpdate, update_family_address
 
-    family = get_family(db, family_id)
-    hoofdlid = next(
-        (m for m in family.members if m.relation_type == RelationType.PRIMARY_MEMBER),
-        family.members[0] if family.members else None,
-    )
-    if hoofdlid is None:
-        raise HTTPException(status_code=400, detail=_("Gezin zonder personen."))
-    update_person_address(
+    update_family_address(
         db,
-        hoofdlid.id,
+        family_id,
         AddressUpdate(
             street=street.strip(),
             house_number=house_number.strip(),
@@ -643,15 +624,15 @@ def persoon_toevoegen(
     mobile: str = Form(""),
     relation_type: str = Form("PARTNER"),
 ):
-    from app.domains.membership.api import PersonAddToFamily, add_person_to_family, get_family
+    from app.domains.mdm.api import PersonAddToFamily, add_person_to_family, board_request
 
-    # `add_person_to_family` geeft het hele gezin terug; de nieuwe persoon is de
-    # enige die er vóór de toevoeging niet in zat (#1111: zijn kaart is het antwoord).
-    voorheen = {m.id for m in get_family(db, family_id).members}
-    gezin = add_person_to_family(
+    # `add_person_to_family` answers with the new person's id (#1111: that
+    # person's card is the answer).
+    nieuw_id = add_person_to_family(
         db,
         family_id,
-        PersonAddToFamily(
+        board_request(
+            PersonAddToFamily,
             first_name=first_name.strip(),
             last_name=last_name.strip(),
             date_of_birth=date_of_birth or None,
@@ -665,7 +646,6 @@ def persoon_toevoegen(
     )
     # #1111: de nieuwe persoonkaart plus een verse toevoegkaart, in de plaats van
     # de toevoegkaart die postte; de bestuurslidlijst krijgt de nieuwe naam oob.
-    (nieuw_id,) = {m.id for m in gezin.members} - voorheen
     return _kaart_response(
         request, db, family_id, kaarten=[f"persoon:{nieuw_id}", "toevoegen"], bestuurslid=True
     )
@@ -683,9 +663,9 @@ def persoon_verwijderen(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
-    from app.domains.membership.api import delete_person
+    from app.domains.mdm.api import delete_household_person
 
-    delete_person(db, person_id, admin=admin_user_by_email(db, email))
+    delete_household_person(db, person_id, admin=admin_user_by_email(db, email))
     # #1111: de kaart verdwijnt (leeg antwoord op haar eigen outerHTML-doel); de
     # bestuurslidlijst noemde deze persoon en reist oob mee.
     return _kaart_response(request, db, family_id, kaarten=[], bestuurslid=True)
@@ -703,7 +683,7 @@ def bestuurslid_zetten(
     email: str = Depends(require_admin_ui),
     person_id: str = Form(""),
 ):
-    from app.domains.membership.api import BoardMemberAssign, assign_board_member
+    from app.domains.mdm.api import BoardMemberAssign, assign_board_member
 
     assign_board_member(
         db,
@@ -768,9 +748,9 @@ def gezin_verwijderen(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
-    from app.domains.membership.api import delete_family
+    from app.domains.mdm.api import delete_household
 
-    delete_family(db, family_id, admin=admin_user_by_email(db, email))
+    delete_household(db, family_id, admin=admin_user_by_email(db, email))
     # Verwijderen gebeurt vanuit de gezinseditor; die pagina bestaat daarna niet
     # meer, dus terug naar de lijst (#582).
     return Response(status_code=204, headers={"HX-Redirect": "/admin/leden"})

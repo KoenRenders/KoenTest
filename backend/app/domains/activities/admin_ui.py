@@ -389,7 +389,6 @@ def new_activity_organisers(
 )
 async def activiteit_aanmaken(
     request: Request,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ) -> Response:
@@ -406,19 +405,18 @@ async def activiteit_aanmaken(
         FieldError,
         create_fiche,
     )
-    from app.domains.activities.fiche_form import fiche_from_form
+    from app.domains.activities.fiche_form import fiche_from_form, read_files
 
     form = await request.form()
-    poster = form.get("file")
     try:
-        fiche, component_files = fiche_from_form(form)
-        created = await create_fiche(
+        fiche, uploads = fiche_from_form(form)
+        poster, component_files = await read_files(form, uploads)
+        created = create_fiche(
             db,
             fiche,
             actor=email,
-            poster=None if isinstance(poster, str) else poster,
+            poster=poster,
             component_files=component_files,
-            background_tasks=background_tasks,
         )
     except ContactConfirmation as question:
         return _refusal(request, question=str(question))
@@ -728,7 +726,6 @@ def _proposal_turn(
 async def activiteit_bijwerken(
     activity_id: int,
     request: Request,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ) -> Response:
@@ -751,20 +748,19 @@ async def activiteit_bijwerken(
         FieldError,
         save_fiche,
     )
-    from app.domains.activities.fiche_form import fiche_from_form
+    from app.domains.activities.fiche_form import fiche_from_form, read_files
 
     form = await request.form()
-    poster = form.get("file")
     try:
-        fiche, component_files = fiche_from_form(form)
-        saved = await save_fiche(
+        fiche, uploads = fiche_from_form(form)
+        poster, component_files = await read_files(form, uploads)
+        saved = save_fiche(
             db,
             activity_id,
             fiche,
             actor=email,
-            poster=None if isinstance(poster, str) else poster,
+            poster=poster,
             component_files=component_files,
-            background_tasks=background_tasks,
         )
     except ContactConfirmation as question:
         return _refusal(request, question=str(question))
@@ -1611,7 +1607,13 @@ async def inschrijving_nieuw_opslaan(
     """The board's channel of the one form (#1284): the processing is shared with
     the public form (`activities.api.submit`); what differs is where it lands —
     Mollie, or the registration in the back office (Koen: "de terugroutering")."""
-    from app.domains.activities.api import OutcomeKind, board_channel, get_activity, submit
+    from app.domains.activities.api import (
+        OutcomeKind,
+        RegistrationRefused,
+        board_channel,
+        get_activity,
+        submit,
+    )
 
     activiteit = get_activity(db, activity_id)
     if activiteit is None:
@@ -1619,15 +1621,16 @@ async def inschrijving_nieuw_opslaan(
     form = await request.form()
     values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
     onderdeel_id, component = _board_component(activiteit, values)
-    if component is None:
+    try:
+        channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
+    except RegistrationRefused as refusal:
         return templates.TemplateResponse(
             request,
             "admin_inschrijving_nieuw.html",
             _board_form_page(
-                request, db, activiteit, onderdeel_id, values=values, error=_("Kies een onderdeel.")
+                request, db, activiteit, onderdeel_id, values=values, error=str(refusal)
             ),
         )
-    channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
     outcome = submit(db, channel, activiteit, component, form, background_tasks, actor=email)
     if outcome.kind is OutcomeKind.REFUSED:
         # #1589: the same answer as the public page — the banner, into the

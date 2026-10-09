@@ -15,7 +15,7 @@ Bewijst de kerngaranties van de auth-unificatie:
 # geen router); patchen doe je waar de implementatie staat.
 from app.domains.auth import login as auth_login
 from app.domains.auth.api import LoginToken
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
+from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code, sign_up_at_the_door
 
 FIXED_OTP = "424242"
 
@@ -47,7 +47,7 @@ def _family_payload(email):
 
 def _seed_member(client, db_session, email):
     seed_postal_code(db_session)
-    resp = client.post("/api/v1/families", json=_family_payload(email))
+    resp = sign_up_at_the_door(client, json=_family_payload(email))
     assert resp.status_code == 201, resp.text
 
 
@@ -150,13 +150,13 @@ def test_member_token_forbidden_on_admin_endpoint(client, db_session):
     assert resp.status_code == 403
 
 
-def test_member_token_can_access_household(client, db_session):
+def test_member_token_reaches_the_members_own_endpoint(client, db_session):
     _seed_member(client, db_session, "lid@example.com")
     client.post("/api/v1/auth/request-login", json={"email": "lid@example.com"})
     magic = _latest_token(db_session, "lid@example.com").token
     token = client.get("/api/v1/auth/verify-login", params={"token": magic}).json()["access_token"]
 
-    resp = client.get("/api/v1/member/household", headers={"Authorization": f"Bearer {token}"})
+    resp = client.get("/api/v1/auth/member/me", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200, resp.text
 
 

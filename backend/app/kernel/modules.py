@@ -116,7 +116,6 @@ MODULES: tuple[Module, ...] = (
         # CR-22 S5 (#1709): the registrations of whoever is signed in.
         member_items=(("/mijn/inschrijvingen", "Mijn inschrijvingen", "calendar-days"),),
         route_prefixes=(
-            "/api/v1/activities",
             "/admin/activiteiten",
             "/activiteiten",
             "/archief",
@@ -134,7 +133,7 @@ MODULES: tuple[Module, ...] = (
         "Leden",
         admin_items=(("/admin/leden", "Leden"),),
         member_items=(("/leden/gezin", "Mijn gezin", "users"),),
-        route_prefixes=("/api/v1/families", "/lid-worden", "/leden/gezin", "/admin/leden"),
+        route_prefixes=("/lid-worden", "/leden/gezin", "/admin/leden"),
         dashboard_tiles=(
             "dashboard_members",
             "dashboard_active_members",
@@ -167,7 +166,7 @@ MODULES: tuple[Module, ...] = (
         M.CMS,
         "Pagina's",
         admin_items=(("/admin/paginas", "Pagina's"),),
-        route_prefixes=("/api/v1/pages", "/admin/paginas"),
+        route_prefixes=("/admin/paginas",),
         record_tables=("cms.cms_pages",),
     ),
     Module(
@@ -187,7 +186,7 @@ MODULES: tuple[Module, ...] = (
         # K8 (#1562): the assistant itself has no menu item — it is the panel
         # behind the top bar's trigger. What stays is what it knows.
         admin_items=(("/admin/ai-context", "Raakje"),),
-        route_prefixes=("/api/v1/chat", "/admin/ai-context", "/raakje/"),
+        route_prefixes=("/admin/ai-context", "/raakje/"),
         record_tables=("ai.chatbot_info",),
         tenant_settings=("admin_chat_enabled", "public_chat_enabled"),
     ),

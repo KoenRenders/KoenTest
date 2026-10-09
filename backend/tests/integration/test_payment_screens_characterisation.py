@@ -350,8 +350,8 @@ def test_the_screens_export_reads_as_before(client, world, name, query):
 
 def test_the_change_lines_of_a_payment_name_their_subject_as_before(client, world, db_session):
     """The subject of a payment's change line comes through the payable: the person of a
-    registration, the household of a membership (`audit/changes.py::from_payment`)."""
-    from app.domains.audit.changes import _SubjectResolver
+    registration, the household of a membership (`reporting/changes.py::from_payment`)."""
+    from app.domains.reporting.changes import _SubjectResolver
 
     _sign_in(client)
     lines = []

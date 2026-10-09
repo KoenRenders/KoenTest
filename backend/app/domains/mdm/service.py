@@ -878,7 +878,7 @@ def add_email_address(
     portal's JSON door. Then it waits for its code, as a row typed in Mijn
     gezin does, through the same `write_email_rows`.
     """
-    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.history import snapshot_contact_detail
 
     person = _persoon_of_404(db, person_id)
     waarde = (value or "").strip()
@@ -1035,7 +1035,7 @@ def write_email_rows(
 
     The board's writes keep the default: what the board types counts at once.
     """
-    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.history import snapshot_contact_detail
 
     bestaand = {c.id: c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL}
     gewijzigd = False
@@ -1319,7 +1319,7 @@ def promote_email_row(
     WITHOUT a commit (#1590). The old one is put back FIRST: the database allows one
     primary address per person, so in the other order there would be two for a
     moment and the flush would refuse."""
-    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.history import snapshot_contact_detail
 
     for rij in person.contact_details:
         if rij.contact_type_code == CONTACT.EMAIL and rij.is_primary and rij is not doel:
@@ -1359,7 +1359,7 @@ def remove_email_address(
     wordt geauditeerd, en het nationale programma wordt er met de hand op
     bijgewerkt.
     """
-    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.history import snapshot_contact_detail
 
     person = _persoon_of_404(db, person_id)
     adressen = sorted(
@@ -1444,7 +1444,7 @@ def upsert_primary_contact(
     `action` en `source` gaan naar de audit-snapshot, zodat een rij uit een import
     en een rij uit het beheerscherm in de geschiedenis uit elkaar te houden zijn.
     """
-    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.history import snapshot_contact_detail
 
     van_dit_type = [c for c in person.contact_details if c.contact_type_code == type_code]
     # Which primary row, when a person has more than one of this type (#1676:
@@ -1578,19 +1578,29 @@ def email_addresses_of_members(db: Session, member_ids) -> list[str]:
     shared mailbox), so without the set that mailbox gets the letter twice —
     independent of anyone holding a second address.
     """
+    per_member = email_addresses_per_member(db, member_ids)
+    return sorted(set().union(*per_member.values())) if per_member else []
+
+
+def email_addresses_per_member(db: Session, member_ids) -> dict[int, set[str]]:
+    """The same addresses as `email_addresses_of_members`, per household (#1780):
+    the households that get at least one mail are the keys with a non-empty set.
+    A household of the list in which nobody has a confirmed address has an empty
+    set. One query for both questions, so the count of households on the send
+    screen is the count of the households the addresses came from."""
     from app.domains.mdm.models import MemberPerson, Person
 
     ids = list(member_ids or [])
     if not ids:
-        return []
-    persons = (
-        db.query(Person)
-        .join(MemberPerson, MemberPerson.person_id == Person.id)
+        return {}
+    rows = (
+        db.query(MemberPerson.member_id, Person)
+        .join(Person, MemberPerson.person_id == Person.id)
         .filter(MemberPerson.member_id.in_(ids))
         .all()
     )
-    addresses = set()
-    for person in persons:
+    per_member: dict[int, set[str]] = {member_id: set() for member_id in ids}
+    for member_id, person in rows:
         for contact in getattr(person, "contact_details", []) or []:
             # CR-22 R15 (#1711): an address that waits for its code is nobody's
             # proven mailbox yet — a typing mistake would send the letter to a
@@ -1600,8 +1610,8 @@ def email_addresses_of_members(db: Session, member_ids) -> list[str]:
                 and contact.confirmed_at is not None
                 and (contact.value or "").strip()
             ):
-                addresses.add(contact.value.strip().lower())
-    return sorted(addresses)
+                per_member[member_id].add(contact.value.strip().lower())
+    return per_member
 
 
 def gezin_tabs(db, family, viewer_email: str, actief: str) -> list[dict]:
@@ -1778,11 +1788,7 @@ def delete_person(db: Session, person: Person, *, actor: Optional[str]) -> None:
     Does not commit — the door that calls it does, once (CR-13 §B9.3); a
     refusal (`MasterDataError`) leaves nothing written.
     """
-    from app.domains.audit.api import (
-        snapshot_address,
-        snapshot_contact_detail,
-        snapshot_person,
-    )
+    from app.domains.mdm.history import snapshot_address, snapshot_contact_detail, snapshot_person
     from app.domains.mdm.household_service import detach_household_person
     from app.soft_delete import soft_delete
 

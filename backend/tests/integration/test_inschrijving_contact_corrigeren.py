@@ -91,7 +91,7 @@ def test_ongeldig_e_mailadres_wordt_geweigerd(client, db_session):
 def test_de_correctie_staat_in_het_auditlogboek(client, db_session):
     """Zonder spoor is een stille correctie op iemands contactgegevens niet te
     verklaren — het logboek toont oud → nieuw."""
-    from app.domains.audit.api import all_changes_since
+    from app.domains.reporting.api import all_changes_since
 
     reg_id = _inschrijving(client, db_session)
     hdr = _login(client)

@@ -12,6 +12,7 @@ proves nothing: record on the old code, read the diff before committing it.
 
 from __future__ import annotations
 
+import contextlib
 import difflib
 import os
 import re
@@ -59,3 +60,74 @@ def compare(folder: Path, screen: str, got: str, before: str) -> None:
             )
         )
         pytest.fail(f"{screen} renders differently from before {before}:\n{diff}")
+
+
+@contextlib.contextmanager
+def fixed_ids(db, models, start: int = 881_000):
+    """Every row of these models made inside the block gets the same id on every
+    run — and one no class name or house number can be mistaken for when a
+    recording masks it. The sequences go back to where they stood: the tests
+    after the block count on theirs."""
+    import sqlalchemy as sa
+
+    before = {}
+    for index, model in enumerate(models):
+        table = f"{model.__table__.schema}.{model.__table__.name}"
+        sequence = db.execute(
+            sa.text("SELECT pg_get_serial_sequence(:t, 'id')"), {"t": table}
+        ).scalar()
+        before[sequence] = db.execute(
+            sa.text(f"SELECT last_value, is_called FROM {sequence}")
+        ).one()
+        db.execute(sa.text("SELECT setval(:s, :n)"), {"s": sequence, "n": start + index * 1_000})
+    try:
+        yield
+    finally:
+        db.rollback()
+        for sequence, (last_value, is_called) in before.items():
+            db.execute(
+                sa.text("SELECT setval(:s, :n, :c)"),
+                {"s": sequence, "n": last_value, "c": is_called},
+            )
+        db.commit()
+
+
+def recorded_history_rows(db, snapshots) -> list[tuple[str, dict]]:
+    """What each snapshot function writes for one fixed source, column by column
+    (CR-13 B8 test 12, for a snapshot function that moves to its owner).
+
+    `snapshots` is `[(function, HistoryModel, source)]`; the source is a plain
+    object with the attributes the function reads, so the input is the same on
+    every run and needs no row of its own. Every column of the history row is
+    returned but its own id, its tenant and the moment it was written — a column the function
+    forgot, or one it filled from the wrong attribute, shows in the comparison."""
+    rows = []
+    for index, (function, model, source) in enumerate(snapshots):
+        action = f"recorded_{index}"
+        function(
+            db,
+            source,
+            operation="update",
+            action=action,
+            source="recording",
+            actor="board@example.org",
+        )
+        db.flush()
+        row = db.query(model).filter(model.action == action).one()
+        columns = {
+            column.key: getattr(row, column.key)
+            for column in model.__table__.columns
+            if column.key not in {"id", "recorded_at", "tenant_id"}
+        }
+        rows.append(
+            (
+                function.__name__,
+                {
+                    key: value
+                    if value is None or isinstance(value, (bool, int, str))
+                    else str(value)
+                    for key, value in columns.items()
+                },
+            )
+        )
+    return rows

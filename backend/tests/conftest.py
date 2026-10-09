@@ -142,7 +142,7 @@ def _reset_rate_limiters():
     for lim in found:
         lim._calls.clear()
     # Chatbot-dagbudget houdt eigen state per IP; reset zodat tests niet erven.
-    from app.domains.chatbot.router import chat_char_budget
+    from app.domains.chatbot.limits import chat_char_budget
 
     chat_char_budget._usage.clear()
     yield
@@ -414,6 +414,15 @@ def create_test_member(db, **kwargs):
     db.add(member)
     db.flush()
     return member
+
+
+def seeded_admin(db):
+    """The administrator migration 014 seeds, as the `User` a service function
+    takes for its audit rows — what `get_current_admin` handed the JSON routes
+    until CR-13 phase 4b removed them (#1251)."""
+    from app.domains.auth.api import User
+
+    return db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).one()
 
 
 def create_test_family(db, *, email="hoofdlid@example.com", relation_type="HOOFDLID", mobile=None):
@@ -749,6 +758,36 @@ class DoorAnswer:
         return json.dumps(self._body, ensure_ascii=False, default=str)
 
 
+def add_order_line(db, activity_id: int, registration_id: int, product_id: int, quantity: int = 1):
+    """Add `quantity` of a product to an order as the registration screen saves it:
+    `set_order_quantities` with the new number for that product. The JSON route
+    that added a line, and the service function only it called, are gone (CR-13
+    phase 4b, #1251)."""
+    from app.domains.activities import service
+    from app.domains.activities.api import RegistrationItem
+
+    have = sum(
+        item.quantity
+        for item in db.query(RegistrationItem).filter_by(
+            registration_id=registration_id, product_id=product_id
+        )
+    )
+    return service.set_order_quantities(
+        db, activity_id, registration_id, {product_id: have + quantity}, actor=SEEDED_ADMIN_EMAIL
+    )
+
+
+def remove_order_line(db, activity_id: int, registration_id: int, item_id: int):
+    """Take a line off an order as the registration screen saves it: its product at 0."""
+    from app.domains.activities import service
+    from app.domains.activities.api import RegistrationItem
+
+    product_id = db.get(RegistrationItem, item_id).product_id
+    return service.set_order_quantities(
+        db, activity_id, registration_id, {product_id: 0}, actor=SEEDED_ADMIN_EMAIL
+    )
+
+
 def register_at_the_door(client, activity_id: int, json: dict, *, member_email: str | None = None):
     """A registration as the public form's door makes it, answered as the JSON route
     `POST /api/v1/activities/{id}/register` answered it (CR-13 phase 4b, #1251).
@@ -785,6 +824,120 @@ def register_at_the_door(client, activity_id: int, json: dict, *, member_email: 
         return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
     body = RegistrationResponse.model_validate(result).model_dump(mode="json")
     return DoorAnswer(200, body)
+
+
+def board_at_the_household(client, action: str, target_id: int, json: dict | None = None):
+    """A change the board makes on the members screen, asked of the service function
+    that screen calls (`mdm.household_board_service`) and answered as the JSON
+    route answered it — those routes had no caller (CR-13 phase 4b, #1251).
+
+    `action`: "update_person", "update_person_contacts" (both with `json`, read by
+    the route's own schema) or "delete_person"."""
+    from pydantic import ValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    from app.database import get_db
+    from app.domains.mdm import household_board_service as household_service
+    from app.domains.mdm.household_board_schemas import ContactsUpdate, PersonUpdate
+
+    db = next(client.app.dependency_overrides[get_db]())
+    admin = seeded_admin(db)
+    schemas = {"update_person": PersonUpdate, "update_person_contacts": ContactsUpdate}
+    try:
+        if action == "delete_person":
+            household_service.delete_person(db, target_id, admin=admin)
+            return DoorAnswer(204, None)
+        data = schemas[action].model_validate(json or {})
+        getattr(household_service, action)(db, target_id, data, admin=admin)
+    except ValidationError as refusal:
+        return DoorAnswer(422, {"detail": refusal.errors(include_context=False, include_url=False)})
+    except StarletteHTTPException as refusal:
+        return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
+    return DoorAnswer(200, None)
+
+
+def _at_the_portal(client, email: str, ask):
+    """Ask the household portal's facade as the member with `email`, and answer as the
+    JSON route answered: the body, or the status and `detail` of a refusal."""
+    from fastapi.encoders import jsonable_encoder
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    from app.database import get_db
+    from app.domains.auth.api import login_person_for_email
+
+    db = next(client.app.dependency_overrides[get_db]())
+    person = login_person_for_email(db, email)
+    try:
+        return DoorAnswer(200, jsonable_encoder(ask(db, person)))
+    except StarletteHTTPException as refusal:
+        return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
+
+
+def household_at_the_portal(client, email: str):
+    """The member's household as the portal shows it (`membership.api.household_view`).
+    The JSON route `GET /api/v1/member/household` had no caller (CR-13 phase 4b, #1251)."""
+    from app.domains.membership.api import household_view
+
+    return _at_the_portal(client, email, household_view)
+
+
+def renew_at_the_portal(client, email: str, payment_method: str = "online"):
+    """The member renews the household's membership as the portal does it
+    (`membership.api.household_renew_membership`). The JSON route
+    `POST /api/v1/member/household/renew-membership` had no caller (#1251)."""
+    from app.domains.membership.api import household_renew_membership
+
+    return _at_the_portal(
+        client,
+        email,
+        lambda db, person: household_renew_membership(db, person, payment_method=payment_method),
+    )
+
+
+def sign_up_at_the_door(client, json: dict, *, signed_in_email: str | None = None):
+    """A family signing up as the public form's door does it, answered as the JSON
+    route `POST /api/v1/families` answered it (CR-13 phase 4b, #1251).
+
+    That route had no caller but tests. Its function stays: it is what
+    `membership.api.register_family` calls for the public form. So the tests call
+    that facade, in the session `client` shares with the endpoints, and read the
+    same answer: 201 with the body shaped by `FamilyRegisteredResponse`, the status
+    and `detail` of a refusal, a 422 for a body the schema refuses.
+    `signed_in_email` signs the visitor in, as the bearer token did.
+    """
+    from fastapi import BackgroundTasks
+    from fastapi.encoders import jsonable_encoder
+    from pydantic import ValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    from app.database import get_db
+    from app.domains.auth.api import login_person_for_email
+    from app.domains.membership.api import FamilyCreate, register_family
+    from app.domains.membership.schemas_member import FamilyRegisteredResponse
+
+    db = next(client.app.dependency_overrides[get_db]())
+    try:
+        data = FamilyCreate.model_validate(json)
+    except ValidationError as refusal:
+        return DoorAnswer(422, {"detail": jsonable_encoder(refusal.errors())})
+    signed_in = login_person_for_email(db, signed_in_email) if signed_in_email else None
+    try:
+        result = register_family(db, data, BackgroundTasks(), signed_in=signed_in)
+    except StarletteHTTPException as refusal:
+        return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
+    body = FamilyRegisteredResponse.model_validate(result).model_dump(mode="json")
+    return DoorAnswer(201, body)
+
+
+def ask_questions(db, component, form_id: int | None):
+    """Let a component ask the questions of a form, as a test's set-up: through
+    `apply_component_update`, the core `save_fiche` calls for every component row,
+    and a commit. The rules of attaching fire here as they do on the fiche."""
+    from app.domains.activities import service
+
+    service.apply_component_update(db, component, {"form_id": form_id}, actor="test")
+    db.commit()
+    return component
 
 
 def seed_question_form(db, title="Sint 2026", **settings):

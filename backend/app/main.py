@@ -17,9 +17,7 @@ from app import soft_delete  # noqa: F401 - registreert de globale soft-delete-f
 from app.config import settings
 from app.domains.activities.account_ui import router as activities_account_ui_router
 from app.domains.activities.admin_ui import router as activities_admin_ui_router
-from app.domains.activities.router import router as activities_router
 from app.domains.activities.ui import router as activities_ui_router
-from app.domains.audit.router import router as audit_router
 from app.domains.auth.admin_ui import router as auth_admin_ui_router
 from app.domains.auth.handlers import (  # noqa: F401 - event subscriptions (#1711)
     send_address_code,
@@ -27,15 +25,12 @@ from app.domains.auth.handlers import (  # noqa: F401 - event subscriptions (#17
 from app.domains.auth.router import router as auth_router
 from app.domains.auth.ui import router as auth_ui_router
 from app.domains.chatbot.admin_ui import router as chatbot_admin_ui_router
-from app.domains.chatbot.info_router import router as chatbot_info_router
-from app.domains.chatbot.router import router as chat_router
 from app.domains.chatbot.stt.router import router as stt_router
 from app.domains.chatbot.ui import router as chatbot_ui_router
 from app.domains.cms.admin_ui import router as cms_admin_ui_router
 from app.domains.cms.handlers import (  # noqa: F401 - event subscriptions (#1478)
     seed_blocks_of_new_tenant,
 )
-from app.domains.cms.router import router as cms_router
 from app.domains.cms.ui import router as cms_public_ui_router
 from app.domains.designstudio.admin_ui import router as designstudio_admin_ui_router
 from app.domains.designstudio.handlers import (
@@ -50,27 +45,24 @@ from app.domains.forms.ui import router as forms_ui_router
 from app.domains.mail.handlers import (
     retry_mail,  # noqa: F401 - registreert de mail.retry-job (#399)
 )
-from app.domains.mail.router import router as email_log_router
 from app.domains.mail.ui import router as email_log_ui_router
 from app.domains.mdm.account_ui import router as mdm_account_ui_router
 from app.domains.mdm.api import EmailAddressInUse
 from app.domains.mdm.handlers import (  # noqa: F401 - event subscriptions (#1346)
     set_circle_start_when_chosen,
 )
-from app.domains.mdm.household_router import router as mdm_household_router
-from app.domains.mdm.import_router import router as member_import_router
 from app.domains.mdm.persons_ui import router as mdm_persons_ui_router
-from app.domains.mdm.router import router as mdm_router
 from app.domains.mdm.ui import router as mdm_ui_router
 from app.domains.media.admin_ui import router as media_admin_ui_router
+from app.domains.media.handlers import (  # noqa: F401 - its three ports and the extraction job (#1251)
+    store_file,
+)
 from app.domains.media.router import router as media_router
 from app.domains.media.ui import router as media_ui_router
 from app.domains.meetings.admin_ui import router as meetings_admin_ui_router
 from app.domains.membership.handlers import (  # noqa: F401 - event-abonnementen (CR-13 phase 2)
     activate_membership_on_payment,
 )
-from app.domains.membership.household_router import router as member_household_router
-from app.domains.membership.register_router import router as members_router
 from app.domains.membership.ui import router as membership_ui_router
 from app.domains.newsletter.admin_ui import router as newsletter_admin_ui_router
 from app.domains.newsletter.handlers import (
@@ -92,7 +84,6 @@ from app.kernel.modules import ModuleCode, require_module
 from app.logging_config import configure_logging
 from app.models import *  # noqa: F401, F403 - ensures all models are registered
 from app.ui.account_ui import router as account_ui_router
-from app.ui.admin_api import router as admin_api_router
 from app.ui.changes_ui import router as changes_ui_router
 from app.ui.design_system_ui import router as design_system_ui_router
 from app.ui.organisaties_ui import router as organisaties_ui_router
@@ -179,14 +170,10 @@ def _module(code: ModuleCode) -> list:
 
 #: Routers of the shell: login, account, system, tenants, users, changes, the
 #: e-mail log; the public site core (home, sitemap, robots, CMS pages), which
-#: every tenant has; the master data that is never off (postal codes); the
-#: dictation used by screens of several modules.
+#: every tenant has; the dictation used by screens of several modules.
 SHELL_ROUTERS = (
     auth_router,
     stt_router,
-    mdm_router,
-    audit_router,
-    admin_api_router,
     auth_ui_router,
     auth_admin_ui_router,
     changes_ui_router,
@@ -198,24 +185,12 @@ SHELL_ROUTERS = (
     organisaties_ui_router,
     tenants_ui_router,
     email_log_ui_router,
-    email_log_router,
     cms_public_ui_router,
 )
 
 app.include_router(auth_router, prefix="/api/v1")
-app.include_router(members_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
-app.include_router(activities_router, prefix="/api/v1", dependencies=_module(M.ACTIVITIES))
-app.include_router(chat_router, prefix="/api/v1", dependencies=_module(M.CHATBOT))
 app.include_router(stt_router, prefix="/api/v1")
-app.include_router(cms_router, prefix="/api/v1", dependencies=_module(M.CMS))
-app.include_router(mdm_router, prefix="/api/v1")
 app.include_router(media_router, prefix="/api/v1", dependencies=_module(M.MEDIA))
-app.include_router(chatbot_info_router, prefix="/api/v1", dependencies=_module(M.CHATBOT))
-app.include_router(audit_router, prefix="/api/v1/admin")
-app.include_router(admin_api_router, prefix="/api/v1/admin")
-app.include_router(member_household_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
-app.include_router(mdm_household_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
-app.include_router(member_import_router, prefix="/api/v1", dependencies=_module(M.MEMBERSHIP))
 app.include_router(forms_ui_router, dependencies=_module(M.FORMS))
 app.include_router(forms_admin_ui_router, dependencies=_module(M.FORMS))
 app.include_router(activities_ui_router, dependencies=_module(M.ACTIVITIES))
@@ -250,7 +225,6 @@ app.include_router(designstudio_admin_ui_router, dependencies=_module(M.DESIGNST
 app.include_router(newsletter_admin_ui_router, dependencies=_module(M.NEWSLETTER))
 app.include_router(newsletter_ui_router, dependencies=_module(M.NEWSLETTER))
 app.include_router(workflow_ui_router, dependencies=_module(M.WORKFLOW))
-app.include_router(email_log_router, prefix="/api/v1/admin")
 app.include_router(payment_router, prefix="/api/v1", dependencies=_module(M.PAYMENT))
 
 

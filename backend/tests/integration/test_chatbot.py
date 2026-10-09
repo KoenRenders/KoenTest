@@ -261,34 +261,6 @@ def test_system_prompt_includes_today(db_session):
     assert "Bereken zelf geen concrete datums" in prompt
 
 
-# ── Vorm-validatie: cap enkel op bezoeker-berichten (#251) ───────────────────
-
-
-def test_long_assistant_message_in_history_is_allowed():
-    """Een lang bot-antwoord in de geschiedenis mag — anders blokkeert één lang
-    antwoord het hele gesprek met een 422."""
-    from app.schemas.chat import ChatRequest
-
-    req = ChatRequest(
-        messages=[
-            {"role": "user", "content": "hoi"},
-            {"role": "assistant", "content": "a" * 5000},
-            {"role": "user", "content": "en nu?"},
-        ]
-    )
-    assert len(req.messages) == 3
-
-
-def test_long_user_message_is_rejected():
-    import pytest
-    from pydantic import ValidationError
-
-    from app.schemas.chat import ChatRequest
-
-    with pytest.raises(ValidationError):
-        ChatRequest(messages=[{"role": "user", "content": "a" * 5000}])
-
-
 def test_submit_idea_lands_in_werkbank(db_session):
     """#398 (verving #260): de bestuursmail is vervangen door een open
     behartigen-taak in de werkbank — dáár blijft niets onopgemerkt."""
@@ -364,38 +336,58 @@ def test_activity_question_forces_a_tool_call():
     assert seen["begroeting"] is None
 
 
-# ── HTTP-vangrails op /api/v1/chat ───────────────────────────────────────────
+# ── The guards at the visitor's door, /raakje/vraag ───────────────────────────────────────────
 
 
-def test_message_over_cap_is_rejected_422(client):
+def test_a_question_over_the_cap_is_refused_before_the_provider_and_the_budget(client, monkeypatch):
+    """One question has a length, at the door a visitor uses (#1251). The cap
+    stood at the JSON route alone; the screen route took a question of any
+    length, bounded only by what was left of the day's budget.
+
+    Refused in the panel with the sentence that names the number, the question
+    kept in the field, nothing sent to the provider, nothing charged.
+
+    Proven red (8 October 2026): the check taken out of `raakje_vraag` → the
+    provider is called ("the provider was asked") and the answer is shown.
+    """
     from app.config import settings
+    from app.domains.chatbot import service
+    from app.domains.chatbot.limits import chat_char_budget
+
+    monkeypatch.setattr(settings, "chat_enabled", True)
+    monkeypatch.setattr(settings, "chat_llm_provider", "mock")
+    asked, charged = [], []
+    monkeypatch.setattr(service, "run_public_chat", lambda *a, **k: asked.append(1) or "antwoord")
+    monkeypatch.setattr(chat_char_budget, "charge", lambda request, n, **k: charged.append(n))
 
     too_long = "a" * (settings.chat_max_input_chars + 1)
-    r = client.post("/api/v1/chat", json={"messages": [{"role": "user", "content": too_long}]})
-    assert r.status_code == 422
+    r = client.post("/raakje/vraag", data={"vraag": too_long})
+
+    assert not asked, "the provider was asked"
+    assert not charged, "the day's budget was charged for a refused question"
+    assert r.status_code == 200
+    assert f"max {settings.chat_max_input_chars} tekens" in r.text
+    assert r.headers.get("X-Raakje-Failed") == "1", "the field does not keep the question"
+
+    # A question of exactly the cap passes.
+    r = client.post("/raakje/vraag", data={"vraag": "a" * settings.chat_max_input_chars})
+    assert asked == [1] and charged == [settings.chat_max_input_chars]
 
 
-def test_last_message_must_be_user(client):
-    r = client.post(
-        "/api/v1/chat",
-        json={"messages": [{"role": "assistant", "content": "hoi"}]},
-    )
-    assert r.status_code == 422
+def test_the_field_carries_the_cap_as_its_maxlength(client, monkeypatch):
+    """The same number, from the setting: the browser stops the typing where the
+    route would refuse. Proven red (8 October 2026): `max_chars` not passed by
+    the widget → no `maxlength` on the field."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "chat_enabled", True)
+    monkeypatch.setattr(settings, "chat_max_input_chars", 1234)
+    home = client.get("/").text
+    field = home[home.index('id="raakje-widget-vraag"') - 400 :][:900]
+    assert 'maxlength="1234"' in field, field
 
 
 # ── Provider-swap: Mock loopt de volledige tool-loop af ──────────────────────
-
-
-def _collect_sse(text: str) -> str:
-    parts = []
-    for line in text.splitlines():
-        line = line.strip()
-        if not line.startswith("data:"):
-            continue
-        payload = json.loads(line[5:].strip())
-        if payload.get("delta"):
-            parts.append(payload["delta"])
-    return "".join(parts)
 
 
 def test_chat_disabled_returns_404(client, monkeypatch):
@@ -403,10 +395,7 @@ def test_chat_disabled_returns_404(client, monkeypatch):
     from app.config import settings
 
     monkeypatch.setattr(settings, "chat_enabled", False)
-    r = client.post(
-        "/api/v1/chat",
-        json={"messages": [{"role": "user", "content": "Hallo"}]},
-    )
+    r = client.post("/raakje/vraag", data={"vraag": "Hallo"})
     assert r.status_code == 404
 
 
@@ -415,13 +404,9 @@ def test_chat_endpoint_mock_simple_answer(client, monkeypatch):
 
     monkeypatch.setattr(settings, "chat_enabled", True)
     monkeypatch.setattr(settings, "chat_llm_provider", "mock")
-    r = client.post(
-        "/api/v1/chat",
-        json={"messages": [{"role": "user", "content": "Wie zijn jullie?"}]},
-    )
+    r = client.post("/raakje/vraag", data={"vraag": "Wie zijn jullie?"})
     assert r.status_code == 200
-    answer = _collect_sse(r.text)
-    assert "Raakje" in answer
+    assert "Raakje" in r.text
 
 
 def test_chat_endpoint_mock_runs_tool_loop(client, db_session, monkeypatch):
@@ -432,11 +417,7 @@ def test_chat_endpoint_mock_runs_tool_loop(client, db_session, monkeypatch):
     # Een activiteit zodat de tool data heeft.
     _activity(db_session, "Quiz", date.today() + timedelta(days=5))
 
-    r = client.post(
-        "/api/v1/chat",
-        json={"messages": [{"role": "user", "content": "Welke activiteiten zijn er?"}]},
-    )
+    r = client.post("/raakje/vraag", data={"vraag": "Welke activiteiten zijn er?"})
     assert r.status_code == 200
-    answer = _collect_sse(r.text)
     # De data-bewuste mock toont de echte opgehaalde activiteit in het antwoord.
-    assert "Quiz" in answer
+    assert "Quiz" in r.text

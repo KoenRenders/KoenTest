@@ -114,10 +114,12 @@
         </div>
         <div>
           {{ ui.label(_("Links–rechts"), "ds-focus-x") }}
+          {# promise walked by: test_a_focus_point_outside_the_picture_is_stored_at_its_edge #}
           {{ ui.input_control("main_focus_x", id="ds-focus-x", type="number", value=main_focus_x, cls="w-full", attrs='min="0" max="1" step="0.05"') }}
         </div>
         <div>
           {{ ui.label(_("Boven–onder"), "ds-focus-y") }}
+          {# promise walked by: test_a_focus_point_outside_the_picture_is_stored_at_its_edge #}
           {{ ui.input_control("main_focus_y", id="ds-focus-y", type="number", value=main_focus_y, cls="w-full", attrs='min="0" max="1" step="0.05"') }}
         </div>
       </div>

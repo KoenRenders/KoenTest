@@ -26,6 +26,8 @@ from typing import Any, Callable
 
 from sqlalchemy.orm import Session
 
+from app.i18n import _
+
 from .providers.base import LLMProvider
 from .seam import SeamBlocked
 
@@ -42,6 +44,28 @@ from .seam import SeamBlocked
 Dispatcher = Callable[[str, dict[str, Any], Session], str]
 
 logger = logging.getLogger(__name__)
+
+
+class QuestionRefused(ValueError):
+    """A question Raakje does not take, in the words the asker reads."""
+
+
+def asked(text: str, *, max_chars: int | None = None) -> str:
+    """The question as it will be asked: trimmed, not empty, and — where the
+    surface has a cap — not longer than it.
+
+    One rule for every surface that asks (CR-13 phase 4c, #1251): the public
+    panel and the back-office assistant each decided this at their own door, in
+    the same words. The public panel passes its cap (`chat_max_input_chars`);
+    the assistant has none."""
+    text = text.strip()
+    if not text:
+        raise QuestionRefused(_("Typ eerst een vraag."))
+    if max_chars is not None and len(text) > max_chars:
+        raise QuestionRefused(
+            _("Bericht is te lang (max {max} tekens). Stel je vraag korter.").format(max=max_chars)
+        )
+    return text
 
 
 class ChatTimeout(RuntimeError):

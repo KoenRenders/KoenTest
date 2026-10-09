@@ -132,8 +132,8 @@ class Fiche:
         return self._row(prefix, key, parent=parent, **fields)
 
     def set(self, prefix: str, key: Any, **fields: Any) -> None:
-        # A test that names the two flags speaks as a caller of the old shape (the
-        # JSON API still does): the one choice the screen sends is then left out,
+        # A test that names the two flags speaks as a caller of the old shape:
+        # the one choice the screen sends is then left out,
         # so the flags are what the reader hears.
         if prefix == "p" and ("is_free" in fields or "pay_on_site" in fields):
             self.data.pop(f"p.{key}.settlement", None)

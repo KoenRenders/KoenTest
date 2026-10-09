@@ -368,7 +368,7 @@ def open_renewal_payment(db, member):
     """De openstaande vernieuwingsbetaling van dit gezin, of ``None`` (#618).
 
     Eén bron voor de vraag "loopt er nog een vernieuwing?". Ze werd gesteld door de
-    guard in ``household_router`` (die een tweede procedure blokkeert) en moest ook
+    guard in ``portal_service`` (die een tweede procedure blokkeert) en moest ook
     door het gezinsportaal gesteld worden (dat anders het vernieuwformulier toont
     voor een handeling die gegarandeerd faalt). Twee eigen varianten die uit elkaar
     groeien is precies hoe je opnieuw een scherm krijgt dat iets anders beweert dan
@@ -394,48 +394,6 @@ def open_renewal_payment(db, member):
         .filter(Membership.member_id == member.id)
         .first()
     )
-
-
-def set_relation_type(db, family_id: int, person_id: int, relation_type: str) -> bool:
-    """Wijzig de rol van een persoon binnen zijn gezin (#635 F).
-
-    Twee regels, en ze golden alleen zolang dit scherm ze onthield: je kan iemand
-    niet tot HOOFDLID promoveren via dit pad, en een bestaand HOOFDLID wordt nooit
-    overschreven. Dat laatste is de belangrijke: het hoofdlid is de drager van het
-    adres, het lidmaatschap en de betaalcommunicatie — hem stil degraderen laat een
-    gezin zonder aanspreekpunt achter.
-
-    De regel stond in `mdm/ui.py`, met een rauwe query erbij, en was daardoor niet
-    los testbaar (#498). Commit zelf, net als de andere gezinsbewerkingen: de
-    transactiegrens ligt in de service (#635 regel 2).
-
-    Geeft terug of er iets gewijzigd is.
-    """
-    # CR-12 phase 2: this used to apply `(x or "").strip().upper()` on both
-    # sides — a normalisation that was needed because the column accepted any
-    # spelling. The code list does that now: a value that is not in it does
-    # not get in, and `RelationType(...)` already refuses it here with the
-    # name of the list.
-    from app.domains.mdm.api import MemberPerson, RelationType
-
-    try:
-        gevraagd = RelationType((relation_type or "").strip())
-    except ValueError:
-        return False
-    if gevraagd is RelationType.PRIMARY_MEMBER:
-        return False
-
-    koppeling = (
-        db.query(MemberPerson)
-        .filter(MemberPerson.member_id == family_id, MemberPerson.person_id == person_id)
-        .first()
-    )
-    if koppeling is None or koppeling.relation_type is RelationType.PRIMARY_MEMBER:
-        return False
-
-    koppeling.relation_type = gevraagd
-    db.commit()
-    return True
 
 
 def membership_years(db) -> list[int]:
@@ -508,7 +466,7 @@ def activate_after_payment(
     second history row. A membership without a period gets the one that contains
     today. Moved here from `payment` in CR-13 phase 2 — the owner writes its rows.
     """
-    from app.domains.audit.api import snapshot_membership
+    from app.domains.membership.history import snapshot_membership
     from app.domains.membership.models import Membership
     from app.domains.payment.api import membership_valid_period
 
@@ -526,6 +484,46 @@ def activate_after_payment(
         membership,
         operation="update",
         action="membership_activated",
+        source=source,
+        actor=actor,
+    )
+
+
+def has_membership_for_year(member, year: int) -> bool:
+    """Whether this household has a membership for this year."""
+    return any(membership.year == year for membership in member.memberships)
+
+
+def add_reported_membership(
+    db, household_id: int, year: int, *, source: str, actor: Optional[str]
+) -> None:
+    """The year's membership of a household the member report lists — active and
+    valid for the whole year, with its history row; a household that has one for
+    that year keeps it (#74: never a second). Flushed, not committed."""
+    from app.domains.membership.history import snapshot_membership
+    from app.domains.membership.models import Membership
+
+    existing = (
+        db.query(Membership)
+        .filter(Membership.member_id == household_id, Membership.year == year)
+        .first()
+    )
+    if existing is not None:
+        return
+    membership = Membership(
+        member_id=household_id,
+        year=year,
+        is_active=True,
+        valid_from=date(year, 1, 1),
+        valid_to=date(year, 12, 31),
+    )
+    db.add(membership)
+    db.flush()
+    snapshot_membership(
+        db,
+        membership,
+        operation="insert",
+        action="membership_imported",
         source=source,
         actor=actor,
     )

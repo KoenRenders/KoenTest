@@ -294,7 +294,12 @@ def instellingen_opslaan(
     requires_login: str = Form(""),
     slug: str = Form(""),
 ):
-    from app.domains.forms.api import assert_slug_vrij, normaliseer_slug, update_form_settings
+    from app.domains.forms.api import (
+        assert_known_status,
+        assert_slug_vrij,
+        normaliseer_slug,
+        update_form_settings,
+    )
 
     form = _form_or_404(db, form_id)
     # #694: als foutbanner, niet als kale 422. Dit scherm swapt zijn antwoord, dus
@@ -303,10 +308,7 @@ def instellingen_opslaan(
     # leesbare link zette. Dezelfde fout als in de importroute hieronder (#692),
     # één route verder; beide gaan nu door dezelfde behandeling.
     try:
-        if status not in FORM_STATUSES:
-            raise HTTPException(
-                status_code=422, detail=_("Ongeldige status: %(status)s") % {"status": status}
-            )
+        assert_known_status(status)
         # #690: vorm en uniciteit horen bij de regel, niet bij het scherm. De service
         # werpt een leesbare 422; de unieke index (091) is het vangnet daaronder.
         nieuwe_slug = normaliseer_slug(slug)
@@ -733,7 +735,13 @@ async def json_import(
     op de poster-URL (#223). The screen offers only the file since CR-11 W18
     (#1391); `payload` stays for a caller that posts the JSON as text.
     """
-    from app.domains.forms.api import assert_geen_id_vorm, import_definition, submission_count
+    from app.domains.forms.api import (
+        FormulierFout,
+        assert_definition_given,
+        assert_geen_id_vorm,
+        import_definition,
+        submission_count,
+    )
     from app.domains.forms.schemas import FormUpdate
 
     form = _form_or_404(db, form_id)
@@ -759,10 +767,10 @@ async def json_import(
             return _builder_response(
                 request, db, form, error=_("Het bestand is geen leesbare UTF-8-tekst.")
             )
-    if not payload.strip():
-        return _builder_response(
-            request, db, form, error=_("Plak een JSON-definitie of kies een bestand.")
-        )
+    try:
+        assert_definition_given(payload)
+    except FormulierFout as refusal:
+        return _builder_response(request, db, form, error=str(refusal))
     try:
         rauw_json = json.loads(payload)
         # #692: een bestand uit de oude, id-gebaseerde export leest niet terug. De

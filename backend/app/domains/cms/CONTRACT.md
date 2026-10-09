@@ -11,8 +11,9 @@ leesbaar, admin schrijfbaar.
 ## Router
 
 `router.py` — publieke reads (pagina's/blokken op slug) + admin-CRUD onder
-`/api/v1`. Het postcode-endpoint is verhuisd naar de mdm-router
-(zelfde URL, `/api/v1/postal-codes`).
+`/api/v1`. The postal-code endpoint (`/api/v1/postal-codes`) moved to mdm and
+is gone since CR-13 phase 4b (#1251): it had no caller, the screens read the
+postal codes through `mdm.api.list_postal_codes`.
 
 ## Data
 

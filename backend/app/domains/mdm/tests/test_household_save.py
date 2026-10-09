@@ -190,7 +190,7 @@ def test_new_an_untouched_household_writes_no_row_and_no_history(db_session):
 
 
 def test_a_person_is_changed_with_one_history_row(db_session):
-    """`update_household_person`: name, birth date, gender — `person_updated`,
+    """A person's own fields: name, birth date, gender — `person_updated`,
     source `member_self`, and only what changed."""
     world = _household(db_session)
     payload = _as_is(db_session, world["household"])
@@ -389,7 +389,7 @@ def test_the_relation_of_a_person_who_is_there_is_not_read(db_session):
 
 
 def test_a_person_the_form_no_longer_has_leaves_the_household(db_session):
-    """`remove_household_person`: the LINK is soft-deleted with
+    """A removal: the LINK is soft-deleted with
     `person_removed_from_family`; the person and their rows stay."""
     world = _household(db_session)
     payload = _as_is(db_session, world["household"])

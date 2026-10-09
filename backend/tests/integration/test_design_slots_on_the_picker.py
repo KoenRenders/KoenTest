@@ -209,3 +209,44 @@ def test_an_upload_in_the_studio_adds_one_row_at_2400(client, db_session):
     assert (total, images) == (before[0] + 1, before[1] + 1)
     stored = db_session.get(MediaAsset, db_session.get(type(design), design.id).main_image_id)
     assert (stored.width, stored.height) == (2400, 1200)
+
+
+@pytest.mark.parametrize(
+    ("filename", "content_type", "content", "sentence"),
+    [
+        ("notitie.txt", "text/plain", b"geen beeld", "Niet-ondersteund bestandstype: notitie.txt"),
+        ("kapot.png", "image/png", b"geen png", "kapot.png: Geen geldige afbeelding"),
+    ],
+)
+def test_a_refused_upload_in_the_studio_shows_medias_sentence(
+    client, db_session, filename, content_type, content, sentence
+):
+    """The door of the studio reads the upload and its service stores it through
+    media's port (#1251); what media refuses is shown in the editor, in media's
+    words, and nothing is stored. The same answer as before the port: the editor
+    again (200) with the sentence, no redirect.
+
+    Proven red (9 October 2026): `except MediaFout` taken out of
+    `add_design_image` → the refusal is no `DesignError` and the door fails.
+    """
+    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    activity = _activity(db_session, "Kerstmarkt")
+    design = _design(db_session, activity)
+    db_session.commit()
+    session = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, session)
+
+    before = _counts(db_session)
+    answer = client.post(
+        f"/admin/ontwerpen/{design.id}/afbeelding",
+        files={"file": (filename, content, content_type)},
+        data={"slot": "main_image_id", "layout": "print_a"},
+        headers={"X-CSRF-Token": csrf_token_for(session)},
+        follow_redirects=False,
+    )
+    assert answer.status_code == 200, answer.text[:200]
+    assert sentence in answer.text
+    db_session.expire_all()
+    assert _counts(db_session) == before

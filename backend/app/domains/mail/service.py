@@ -206,29 +206,6 @@ def _gmail_config() -> tuple:
         return (settings.gmail_user, settings.gmail_app_password, settings.gmail_from)
 
 
-def _payment_config() -> tuple:
-    """(betaaltermijn-dagen, IBAN, begunstigde) van de actieve tenant; .env-fallback."""
-    try:
-        from app.database import SessionLocal
-        from app.kernel.tenant_config import (
-            tenant_payment_beneficiary,
-            tenant_payment_iban,
-            tenant_payment_term_days,
-        )
-
-        db = SessionLocal()
-        try:
-            return (
-                tenant_payment_term_days(db),
-                tenant_payment_iban(db),
-                tenant_payment_beneficiary(db),
-            )
-        finally:
-            db.close()
-    except Exception:
-        return (settings.payment_term_days, settings.payment_iban, settings.payment_beneficiary)
-
-
 def _send(
     to_email: str, subject: str, body_html: str, cc: Optional[str] = None, email_type: str = "other"
 ) -> None:
@@ -298,6 +275,56 @@ def _is_quota_error(exc: Exception) -> bool:
     return any(marker in text for marker in _QUOTA_MARKERS)
 
 
+class SendOutcome:
+    """What became of one campaign mail (`send_campaign_mail`): it left, or the
+    kind of fault that kept it — named here, so a caller acts on the kind and
+    never reads the technical message (#1783).
+
+    Three kinds of fault a board member can act on, and the rest:
+
+    - `UNREACHABLE` — this server could not reach the mail server: no route, a
+      time-out, a connection that broke. Temporary; nothing was refused.
+    - `REFUSED_FOR_NOW` — the mail server answered with a temporary refusal
+      (an SMTP 4xx).
+    - `REFUSED` — the mail server answered with a permanent refusal (an SMTP
+      5xx): the address is wrong or blocked.
+    - `FAILED` — anything else, the sign-in of the mail account among it."""
+
+    SENT = "sent"
+    LOGGED = "logged"
+    SKIPPED = "skipped"
+    UNREACHABLE = "unreachable"
+    REFUSED_FOR_NOW = "refused_for_now"
+    REFUSED = "refused"
+    FAILED = "failed"
+
+    #: The faults that may be gone a moment later: worth one more try.
+    TEMPORARY = frozenset({UNREACHABLE, REFUSED_FOR_NOW})
+
+
+def fault_of(exc: Exception) -> str:
+    """The kind of fault behind an exception of the SMTP exchange (`SendOutcome`).
+
+    The order matters: every `smtplib` exception is an `OSError` too, so the
+    answers of the mail server are told apart first and what is left of
+    `OSError` is the connection itself — "[Errno 101] Network is unreachable",
+    a time-out, a name that does not resolve. `smtplib` tries every address the
+    name resolves to and raises the error of the last one."""
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        return SendOutcome.FAILED
+    if isinstance(exc, smtplib.SMTPRecipientsRefused):
+        codes = [code for code, _text in exc.recipients.values()]
+        permanent = any(code >= 500 for code in codes)
+        return SendOutcome.REFUSED if permanent else SendOutcome.REFUSED_FOR_NOW
+    if isinstance(exc, smtplib.SMTPConnectError):
+        return SendOutcome.UNREACHABLE
+    if isinstance(exc, smtplib.SMTPResponseException):
+        return SendOutcome.REFUSED if exc.smtp_code >= 500 else SendOutcome.REFUSED_FOR_NOW
+    if isinstance(exc, (smtplib.SMTPServerDisconnected, OSError)):
+        return SendOutcome.UNREACHABLE
+    return SendOutcome.FAILED
+
+
 def send_campaign_mail(
     to_email: str,
     subject: str,
@@ -314,7 +341,9 @@ def send_campaign_mail(
 
     - **No retry job.** The campaign keeps its own queue row per recipient; a
       second, independent retry mechanism could send the same letter twice.
-      The outcome is returned, and the caller records it.
+      The outcome is returned (`SendOutcome`) — for a mail that did not leave,
+      the KIND of fault (#1783) — and the caller records it and decides
+      whether to try once more.
     - **A used-up Gmail quota raises** ``SendingQuotaReached`` instead of being
       logged as a failure: the mail is fine, the day is full.
     - **Unsubscribe headers** when ``unsubscribe_url`` is given: a
@@ -374,11 +403,12 @@ def send_campaign_mail(
         if _is_quota_error(exc):
             logger.warning("Gmail-dagquotum bereikt bij %s: %s", to_email, exc)
             raise SendingQuotaReached(str(exc)) from exc
-        logger.error("Campagnemail naar %s mislukt: %s", to_email, exc)
+        fault = fault_of(exc)
+        logger.error("Campagnemail naar %s mislukt (%s): %s", to_email, fault, exc)
         _log_email(to_email, subject, body_html, email_type, MailStatus.FAILED, str(exc))
-        return "failed"
+        return fault
     _log_email(to_email, subject, body_html, email_type, MailStatus.SENT, None)
-    return "sent"
+    return SendOutcome.SENT
 
 
 def send_newsletter_confirmation(to_email: str, first_name: Optional[str], confirm_url: str) -> str:
@@ -399,33 +429,23 @@ def send_newsletter_confirmation(to_email: str, first_name: Optional[str], confi
     )
 
 
-def _transfer_instructions_html(payment_record) -> str:
-    """Betaalinstructies-blok voor een overschrijving (#157): bedrag, IBAN,
-    begunstigde, gestructureerde mededeling en betaaltermijn. Leeg voor andere
-    betaalmethodes of wanneer de OGM ontbreekt."""
-    if not payment_record or getattr(payment_record, "method", None) != "transfer":
+def _transfer_instructions_html(transfer) -> str:
+    """The transfer block of a confirmation mail (#157). `transfer` is payment's
+    `TransferDue` — the lines, their words and their values are the ones the
+    screens show (#1775) — or None for a payment that is not a transfer."""
+    if transfer is None:
         return ""
-    ogm = getattr(payment_record, "structured_communication", None)
-    if not ogm:
-        return ""
-    from datetime import date, timedelta
-
-    term_days, iban, beneficiary = _payment_config()
-    due = date.today() + timedelta(days=term_days)
-    rows = [f"<li><strong>Bedrag:</strong> €{payment_record.amount:.2f}</li>"]
-    if iban:
-        rows.append(f"<li><strong>Rekeningnummer:</strong> {escape(iban)}</li>")
-    if beneficiary:
-        rows.append(f"<li><strong>Begunstigde:</strong> {escape(beneficiary)}</li>")
-    rows.append(f"<li><strong>Gestructureerde mededeling:</strong> {escape(ogm)}</li>")
-    rows.append(f"<li><strong>Te betalen vóór:</strong> {due.strftime('%d/%m/%Y')}</li>")
+    rows = "".join(
+        f"<li><strong>{escape(line.label)}:</strong> {escape(line.value)}</li>"
+        for line in transfer.lines
+    )
     return (
-        _(
-            "<h4 style='margin-top:12px;margin-bottom:4px'>Betaalinstructies (overschrijving)</h4>"
+        f"<h4 style='margin-top:12px;margin-bottom:4px'>{escape(transfer.heading)}</h4>"
+        + _(
             "<p>Schrijf het bedrag over met de gestructureerde mededeling hieronder, "
             "zodat we je betaling correct kunnen verwerken:</p>"
         )
-        + f"<ul>{''.join(rows)}</ul>"
+        + f"<ul>{rows}</ul>"
     )
 
 
@@ -537,7 +557,7 @@ def family_welcome_message(
     name: str,
     data=None,
     pc_municipality: str = "",
-    payment_record=None,
+    transfer=None,
 ) -> dict:
     """The welcome mail of a household that registered itself, as a finished message
     for `queue_mail` (CR-13 phase 4: built in the request, sent by a job)."""
@@ -598,7 +618,7 @@ def family_welcome_message(
         <p>Beste {escape(name)},</p>
         <p>Je registratie bij {_display_name()} is ontvangen. Welkom!</p>
         {details}
-        {_transfer_instructions_html(payment_record)}
+        {_transfer_instructions_html(transfer)}
         <p>Met vriendelijke groeten,<br>{_display_name()}</p>
         """,
     )
@@ -609,7 +629,7 @@ def activity_confirmation_message(
     name: str,
     activity,
     registration=None,
-    payment_record=None,
+    transfer=None,
     answer_url=None,
     answers=None,
     subject=None,
@@ -709,7 +729,7 @@ def activity_confirmation_message(
                 f"<ul>{''.join(details)}</ul>"
             )
 
-    message += _transfer_instructions_html(payment_record)
+    message += _transfer_instructions_html(transfer)
 
     if answers:
         rows = "".join(

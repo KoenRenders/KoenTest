@@ -108,14 +108,3 @@ def test_chatbot_context_reports_member_counts(db_session):
     assert "## Ledenaantal" in prompt
     assert "1 aangesloten gezin" in prompt
     assert "2 personen" in prompt
-
-
-def test_admin_stats_includes_member_persons(client, db_session, admin_headers):
-    db = db_session
-    _household(db, 2)
-    _household(db, 1)
-    resp = client.get("/api/v1/admin/stats", headers=admin_headers)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["active_member_households"] == 2
-    assert data["active_member_persons"] == 3

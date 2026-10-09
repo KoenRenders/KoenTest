@@ -1,0 +1,44 @@
+--- report ---
+{
+ "new_families": 3,
+ "updated_families": 0,
+ "unchanged_families": 0,
+ "persons_added": 3,
+ "persons_updated": 0,
+ "persons_removed": 0,
+ "persons_revived": 0,
+ "memberships_created": 3,
+ "admins_created": 1,
+ "admins_existing": 1,
+ "skipped": 0,
+ "warnings": [],
+ "lines": [
+ "NIEUW gezin: Milostraat 1, 2400 Mol",
+ " + nieuw #101 Mon Proefmans",
+ " + adres #101 Mon Proefmans Adres: Milostraat 1, 2400 Mol",
+ " + contact #101 Mon Proefmans E-mail: mon-1251@example.com",
+ " + lidmaatschap 2026",
+ " ~ bestuurslid: — → Mon Proefmans",
+ "NIEUW gezin: Milostraat 2, 2400 Mol",
+ " + nieuw #102 Bo Proefboons",
+ " + adres #102 Bo Proefboons Adres: Milostraat 2, 2400 Mol",
+ " + contact #102 Bo Proefboons E-mail: bo-1251@example.com",
+ " + lidmaatschap 2026",
+ " ~ bestuurslid: — → Bo Proefboons",
+ "NIEUW gezin: Milostraat 3, 2400 Mol",
+ " + nieuw #103 Fien Proefs",
+ " + adres #103 Fien Proefs Adres: Milostraat 3, 2400 Mol",
+ " + lidmaatschap 2026",
+ " ~ bestuurslid: — → Mon Proefmans",
+ " admin: Mon Proefmans <mon-1251@example.com>"
+ ]
+}
+--- rows ---
+login bo-1251@example.com: active=True roles=[]
+login mon-1251@example.com: active=True roles=[<Role.ADMIN: 'ADMIN'>]
+membership 886001: household=881001 year=2026 active=True valid=2026-01-01..2026-12-31
+membership 886002: household=881002 year=2026 active=True valid=2026-01-01..2026-12-31
+membership 886003: household=881003 year=2026 active=True valid=2026-01-01..2026-12-31
+membership history: insert membership_imported source=ledenadministratie actor=invoerder-1251@example.com membership=886001
+membership history: insert membership_imported source=ledenadministratie actor=invoerder-1251@example.com membership=886002
+membership history: insert membership_imported source=ledenadministratie actor=invoerder-1251@example.com membership=886003

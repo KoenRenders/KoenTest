@@ -11,6 +11,12 @@ from this domain is the vocabulary (the universe) and the two entry points that
 run it.
 """
 
+from app.domains.reporting.changes import (
+    GROUPS,
+    all_changes_since,
+    build_member_changes_ods,
+    member_changes_since,
+)
 from app.domains.reporting.chart import (  # noqa: F401
     CHART_LAYOUTS,
     SERIES_COLORS,
@@ -112,6 +118,10 @@ from app.domains.reporting.universe import (  # noqa: F401
 )
 
 __all__ = [
+    "GROUPS",
+    "all_changes_since",
+    "build_member_changes_ods",
+    "member_changes_since",
     "BY_KEY",
     "CHART_LAYOUTS",
     "CLASSES",

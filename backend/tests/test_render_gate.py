@@ -187,12 +187,12 @@ def _admin_gets_zonder_parameter() -> list[str]:
 
         De repo-conventie geeft het antwoord: schermen zitten in `ui.py` /
         `admin_ui.py` per domein en in `app/ui/`; JSON zit in `router.py` en
-        `*_router.py`. `app/ui/admin_api.py` is de genoemde uitzondering — JSON in
-        het UI-pakket, en zo ook in de laag-gate opgenomen.
+        `*_router.py`. (`app/ui/admin_api.py`, once JSON in the UI package and the
+        named exception here, is gone since CR-13 phase 4c, #1251.)
         """
         if pad.name in ("ui.py", "admin_ui.py"):
             return True
-        return "ui" in pad.parts and pad.name not in ("admin_api.py", "__init__.py")
+        return "ui" in pad.parts and pad.name != "__init__.py"
 
     app_map = Path(__file__).resolve().parents[1] / "app"
     paden = set()

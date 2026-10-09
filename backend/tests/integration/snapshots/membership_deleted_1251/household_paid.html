@@ -1,0 +1,8 @@
+204
+--- rows ---
+membership 886001: active=True deleted=yes
+record <RECORD-1>: charge paid transfer amount=PRICE paid=PRICE refund_of=None note=None deleted=no
+record <RECORD-2>: refund pending transfer amount=-PRICE paid=None refund_of=<RECORD-1> note='Automatisch bij schrappen lidmaatschap — terugstorting te bevestigen' deleted=no
+history <RECORD-1>: insert payment_created source=registration actor=None status=pending amount=PRICE paid=None note=None
+history <RECORD-1>: update payment_manually_confirmed source=admin_manual actor=beheerder@example.com status=paid amount=PRICE paid=PRICE note=None
+history <RECORD-2>: insert payment_refunded source=membership-delete actor=beheerder@example.com status=pending amount=-PRICE paid=None note='Automatisch bij schrappen lidmaatschap — terugstorting te bevestigen'

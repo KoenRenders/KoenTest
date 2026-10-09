@@ -14,6 +14,7 @@ import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
@@ -33,6 +34,9 @@ from app.kernel.contracts.mail import MailRequested
 from app.kernel.contracts.membership import FamilyRegistered
 from app.kernel.events import subscribe
 from app.kernel.jobs import job
+
+if TYPE_CHECKING:
+    from app.domains.payment.api import TransferDue
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +167,7 @@ def queue_activity_confirmation(event: RegistrationConfirmed, db: Session) -> No
             name=event.name,
             activity=registration.activity,
             registration=registration,
-            payment_record=payment_record,
+            transfer=_transfer_of(db, payment_record),
             answer_url=f"{tenant_base_url(db)}{path}" if path else None,
             answers=answers,
             # CR-22 R6 (#1707): made while signed in → it stands under Mijn
@@ -204,6 +208,14 @@ def queue_answer_link_reminder(event: AnswerLinkSent, db: Session) -> None:
         logger.error("Herinnering antwoordlink mislukt naar %s: %s", event.to_email, e)
 
 
+def _transfer_of(db: Session, payment_record) -> TransferDue | None:
+    """How to pay this booking by transfer, as payment says it (#1775): the block
+    of the confirmation mail. None for a payment that is no transfer."""
+    from app.domains.payment.api import transfer_due
+
+    return transfer_due(db, payment_record, _("Betaalinstructies (overschrijving)"))
+
+
 @subscribe(FamilyRegistered)
 def queue_family_welcome(event: FamilyRegistered, db: Session) -> None:
     """The welcome mail of a registered household, built now and queued to leave
@@ -220,7 +232,7 @@ def queue_family_welcome(event: FamilyRegistered, db: Session) -> None:
             name=event.name,
             data=FamilyCreate.model_validate(event.form),
             pc_municipality=event.municipality,
-            payment_record=payment_record,
+            transfer=_transfer_of(db, payment_record),
         )
         queue_mail(db, **message)
     except Exception as e:  # noqa: BLE001 — a mail never stops a registration

@@ -129,7 +129,7 @@ def test_a_fragment_a_write_and_a_json_request_keep_the_plain_403(client, db_ses
 
 def test_the_json_api_still_answers_json(client, db_session):
     _signed_in(client, db_session, "penning@example.com", "FINANCE")
-    answer = client.get("/api/v1/admin/stats", headers=BROWSER)
+    answer = client.get("/api/v1/users", headers=BROWSER)
     assert answer.status_code in (401, 403)
     assert answer.headers["content-type"].startswith("application/json")
     assert "detail" in answer.json() and "data-no-access" not in answer.text
@@ -138,4 +138,31 @@ def test_the_json_api_still_answers_json(client, db_session):
 def test_a_visitor_without_a_session_is_still_sent_to_the_sign_in_screen(client):
     answer = client.get("/admin/activiteiten", headers=BROWSER, follow_redirects=False)
     assert answer.status_code == 303
+    assert answer.headers["location"].startswith("/aanmelden?terug=")
+
+
+@pytest.mark.parametrize(
+    "screen",
+    [
+        "/admin/ledenwijzigingen",
+        "/admin/ledenwijzigingen/export",
+        "/admin/e-maillog",
+        "/admin/info",
+        # The media cut of the same phase: the library and its upload form.
+        "/admin/media",
+        "/admin/media/nieuw",
+        # The chatbot cut: what Raakje knows.
+        "/admin/ai-context",
+    ],
+)
+def test_the_screens_whose_json_routes_went_ask_for_a_sign_in(client, screen):
+    """The change feed, the e-mail log and the system info are reachable through
+    their screens only since their JSON routes went (CR-13 phase 4b, #1251); the
+    routes' own "no token → 401" tests went with them, this is the screens'.
+
+    Proven red (8 October 2026): `require_admin_ui` taken off the system info
+    screen → its case answers 200.
+    """
+    answer = client.get(screen, headers=BROWSER, follow_redirects=False)
+    assert answer.status_code == 303, screen
     assert answer.headers["location"].startswith("/aanmelden?terug=")

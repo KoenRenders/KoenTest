@@ -1354,6 +1354,9 @@ def site_context(db, request=None) -> dict:
         # (`tenant_public_chat_enabled`), which the chat endpoints read too.
         "chat_enabled": tenant_public_chat_enabled(db) and module_enabled(ModuleCode.CHATBOT),
         "stt_mode": settings.stt_mode,  # spraakinvoer in de widget (#567)
+        # #1251: the longest question the public Raakje takes — the field's
+        # `maxlength`, from the setting its route refuses above.
+        "chat_max_input_chars": settings.chat_max_input_chars,
         "gebruiker": user,
         # Branding per tenant (#407/#519): naam/tagline/Facebook uit de
         # tenant-config. GEEN Millegem-specifieke defaults meer — die lekten

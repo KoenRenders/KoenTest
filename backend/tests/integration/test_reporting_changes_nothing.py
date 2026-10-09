@@ -241,7 +241,7 @@ def test_the_dashboard_keeps_its_six_tiles_and_its_place(client, db_session):
     That the six NUMBERS did not change is a different test and a sharper one:
     `test_reporting_dashboard.py` computes each of them the old way and through
     its report and compares. It only works while both roads exist, which is why
-    `get_stats` stays.
+    that test keeps the direct computation as its own helper (`_old_stats`).
     """
     from tests.conftest import SEEDED_ADMIN_EMAIL
 

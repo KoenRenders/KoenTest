@@ -43,6 +43,7 @@
        formulier mét inzendingen. #}
     {% if _slot %}<p class="text-xs text-ink-soft mt-1">{{ _("Er zijn al inzendingen; het type ligt vast.") }}</p>{% endif %}</div>
   <div class="sm:col-span-2">{{ ui.label(_("Vraag"), "fl-" ~ _id, required=True) }}
+    {# promise walked by: test_the_form_builder_refuses_a_question_without_a_label #}
     {{ ui.input_control("label", id="fl-" ~ _id, value=(f.label if f else ""), required=True, cls="w-full") }}</div>
   <div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" {% if f and f.required %}checked{% endif %}> {{ _("Verplicht") }}</label></div>
   {# #1136: a question moves to another section and keeps its id — and with it
@@ -107,6 +108,7 @@
   <form class="flex flex-wrap items-center gap-2 grow"
         hx-post="/admin/formulieren/{{ form.id }}{% if o %}/opties/{{ o.id }}{% else %}/velden/{{ f.id }}/opties{% endif %}"
         hx-target="#fb-detail" hx-swap="innerHTML">
+    {# promise walked by: test_the_form_builder_refuses_an_option_without_a_label #}
     {{ ui.input_control("label", value=(o.label if o else ""), required=True,
                         placeholder=("" if o else _("Nieuwe optie")),
                         cls="grow min-w-32", aria_label=_("Label van de optie")) }}

@@ -1,7 +1,7 @@
 """Server-rendered Systeeminfo-scherm (React-exit 405-d, #405 — §21).
 
 Read-only weergave van de gecureerde runtime/config-whitelist uit de
-admin-api-composer (`app.ui.admin_api`, #444 — nooit secrets). Umami-analytics komt hier server-side uit de
+whitelist van `app.ui.system_info` (#444 — nooit secrets). Umami-analytics komt hier server-side uit de
 settings i.p.v. NEXT_PUBLIC_*-variabelen.
 """
 
@@ -47,8 +47,8 @@ def admin_dashboard(
     """Dashboard-startpagina met de kerncijfers (URL-pariteit met React /admin).
 
     De cijfers komen sinds #848 uit de bewaarde rapporten van het
-    rapportagedomein. `app.ui.admin_api.get_stats` blijft bestaan — het is de
-    JSON-API — maar het scherm rekent niet meer zelf.
+    rapportagedomein; het scherm rekent niet zelf. (The JSON twin that computed
+    them a second way, `/api/v1/admin/stats`, went with CR-13 phase 4b, #1251.)
     """
     from datetime import datetime
 
@@ -264,9 +264,9 @@ def admin_info(
     request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
 ):
     from app.kernel.tenant_config import tenant_umami_src, umami_tracking
-    from app.ui.admin_api import get_system_info
+    from app.ui.system_info import system_info
 
-    info = get_system_info(_admin=None)  # type: ignore[arg-type]
+    info = system_info()
     # #808: dezelfde functie als de publieke schil, zodat dit scherm niet iets
     # anders kan beweren dan er gebeurt. Vóór #808 stond hier `bool(src and id)` en
     # dat toetste of er tekst stond — het scherm meldde "geconfigureerd" terwijl er

@@ -32,9 +32,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.domains.activities import service
 from app.kernel.jobs import KernelJob
-from tests.conftest import register_at_the_door, seed_activity_with_product, seed_question_form
+from tests.conftest import (
+    ask_questions,
+    register_at_the_door,
+    seed_activity_with_product,
+    seed_question_form,
+)
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -43,7 +47,7 @@ pytestmark = pytest.mark.ui_agnostisch
 def sint(db_session):
     activity, component, product = seed_activity_with_product(db_session, price="0", is_free=True)
     form = seed_question_form(db_session)
-    service.update_component(db_session, activity.id, component.id, {"form_id": form.id})
+    ask_questions(db_session, component, form.id)
     return SimpleNamespace(activity=activity, component=component, product=product, form=form)
 
 
@@ -170,7 +174,7 @@ def test_a_registration_from_before_the_form_gets_a_new_link(client, db_session)
     s = SimpleNamespace(activity=activity, component=component, product=product)
     _register(client, s, None)
     form = seed_question_form(db_session)
-    service.update_component(db_session, activity.id, component.id, {"form_id": form.id})
+    ask_questions(db_session, component, form.id)
     registration = db_session.query(Registration).filter_by(activity_id=activity.id).one()
     assert registration.answer_token is None
     csrf = _as_board(client)

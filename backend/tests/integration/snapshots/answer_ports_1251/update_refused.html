@@ -1,0 +1,184 @@
+200
+<div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-2 text-sm"
+ x-data="{ edit: true }">
+<div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-800" role="alert">&#39;Verhaal&#39;: dit veld is verplicht.</div>
+<div class="flex flex-wrap items-start justify-between gap-2">
+<div class="min-w-0 break-words">
+<div class="font-medium">Ward Poort</div>
+<div class="text-gray-500 [overflow-wrap:anywhere]">ward-1251@example.com · 0470 00 00 00</div>
+</div>
+<div class="flex flex-wrap justify-end gap-2 ml-auto">
+<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
+<div x-show="edit" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="insch-form-884001" >Opslaan</button>
+</span>
+</div>
+</div>
+</div>
+</div>
+<div x-show="!edit">
+<ul class="mt-2 text-gray-700">
+<li>1× Testproduct</li>
+</ul>
+<div class="mt-1 font-medium">Totaal: € 0,00</div>
+<dl class="mt-3 space-y-1">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-x-3"><dt class="font-medium text-ink">Tijdslot</dt><dd class="sm:col-span-2 text-gray-700">Voormiddag</dd></div>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-x-3"><dt class="font-medium text-ink">Verhaal</dt><dd class="sm:col-span-2 text-gray-700">Braaf geweest</dd></div>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-x-3"><dt class="font-medium text-ink">Opmerkingen</dt><dd class="sm:col-span-2 text-gray-700">—</dd></div>
+</dl>
+</div>
+<div x-show="edit" x-cloak class="mt-3 space-y-3">
+<form id="insch-form-884001" class="space-y-3" hx-post="/admin/inschrijvingen/884001/opslaan"
+ hx-target="closest .bg-gray-50" hx-swap="outerHTML">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+<div><label for="reg-naam-884001" class="block text-sm font-medium text-gray-700 mb-1">Naam <span class="text-red-600">*</span></label>
+<input type="text" name="contact_name" id="reg-naam-884001" value="Ward Poort"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="reg-email-884001" class="block text-sm font-medium text-gray-700 mb-1">E-mail <span class="text-red-600">*</span></label>
+<input type="email" name="contact_email" id="reg-email-884001" value="ward-1251@example.com"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="reg-gsm-884001" class="block text-sm font-medium text-gray-700 mb-1">Mobiel <span class="text-red-600">*</span></label>
+<input type="tel" name="phone" id="reg-gsm-884001" value="0470000000"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+</div>
+<p class="text-xs text-ink-soft">Dit corrigeert enkel deze inschrijving. Het ledenbestand pas je aan bij Leden.</p>
+<div id="reg-prijsblok-884001" class="space-y-2">
+<div class="flex items-center justify-between gap-x-3" data-product-row>
+<div class="text-sm">
+<span class="font-medium">Testproduct</span>
+<span class="ml-2 text-gray-500">€ 0,00</span>
+</div>
+<div class="inline-flex shrink-0 items-stretch rounded-xl border border-gray-300 overflow-hidden bg-white"
+ x-data="{ stap(richting) {
+ const veld = $refs.veld;
+ const nu = Number(veld.value) || 0;
+ const grens = Number(richting < 0 ? veld.min : veld.max);
+ const nieuw = richting < 0 ? Math.max(grens, nu + richting)
+ : Math.min(grens, nu + richting);
+ if (nieuw === nu) return;
+ veld.value = nieuw;
+ veld.dispatchEvent(new Event('change', { bubbles: true }));
+ } }">
+<button type="button" @click="stap(-1)"
+ aria-label="Eén minder — Testproduct"
+ class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
+<input type="number" name="product_883001" id="product-884001-883001" x-ref="veld" value="1"
+ min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 md:h-9 md:w-12 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+ hx-post="/admin/inschrijvingen/884001/totaal" hx-include="closest form" hx-target="#reg-totaal-884001" hx-swap="innerHTML" hx-sync="#reg-prijsblok-884001:replace" hx-trigger="change, input delay:300ms">
+<button type="button" @click="stap(1)"
+ aria-label="Eén meer — Testproduct"
+ class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
+</div>
+</div>
+</div>
+<div id="reg-totaal-884001">
+<div data-total data-registration-total class="border-t border-line pt-3 text-sm font-semibold text-ink-soft">
+ Totaal: €0,00
+</div>
+</div>
+<div>
+<label for="reg-remarks-884001" class="block text-sm font-medium text-gray-700 mb-1">Opmerking</label>
+<textarea name="remarks" id="reg-remarks-884001" rows="2"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
+ x-data="{ bodem: 0,
+ init() { this.groei(); if (this.bodem) return;
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
+ meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
+ groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
+ this.$el.style.height = `auto`;
+ const rand = this.$el.offsetHeight - this.$el.clientHeight;
+ this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight + rand, this.bodem), 400) + `px`; } }"
+ x-on:input="groei()" ></textarea>
+</div>
+</form>
+<form class="space-y-3 border-t border-gray-200 pt-3" hx-post="/admin/inschrijvingen/884001/antwoorden"
+ hx-target="closest .bg-gray-50" hx-swap="outerHTML">
+<div>
+<h3 class="text-xl font-bold text-kop mb-2">Sint <YEAR></h3>
+</div>
+<div data-question-cards class="grid gap-8 min-w-0" >
+<section data-form-section class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+<h2 class="text-base font-semibold leading-6 text-ink mb-4">Deel 1</h2>
+<div data-form-grid class="form-grid">
+<div data-field="f889001" data-kind="checkbox_group" data-span="full" class="min-w-0">
+<p id="f889001-label" class="text-sm font-medium leading-[21px] text-ink mb-1">Tijdslot <span class="text-red-600">*</span></p>
+<div role="group" aria-labelledby="f889001-label" class="grid" x-data
+ @change="if ($refs.anders && $refs.keuze && !$refs.keuze.checked) $refs.anders.value = ''">
+<label class="flex flex-wrap items-center gap-2 min-h-11 md:min-h-10 text-sm text-ink cursor-pointer">
+<input type="checkbox" name="f889001" value="890001" class="h-[18px] w-[18px] shrink-0"
+ >
+ Voormiddag
+ </label>
+<label class="flex flex-wrap items-center gap-2 min-h-11 md:min-h-10 text-sm text-ink cursor-pointer">
+<input type="checkbox" name="f889001" value="890002" class="h-[18px] w-[18px] shrink-0"
+ checked>
+ Namiddag
+ </label>
+<label class="flex flex-wrap items-center gap-2 min-h-11 md:min-h-10 text-sm text-ink cursor-pointer">
+<input type="checkbox" name="f889001" value="890003" class="h-[18px] w-[18px] shrink-0"
+ x-ref="keuze"
+ >
+ Andere <input type="text" name="f889001_other" id="f889001_other" placeholder="…"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none flex-1 min-w-0" aria-label="Andere" x-ref="anders" @input="$refs.keuze.checked = $event.target.value.trim().length > 0">
+</label>
+</div>
+</div>
+<div data-span="full" data-question-refused class="rounded-md ring-2 ring-red-600 p-2">
+<div data-field="f889002" data-kind="textarea" data-span="full" class="min-w-0">
+<label for="f889002" class="block text-sm font-medium leading-[21px] text-ink mb-1">Verhaal <span class="text-red-600">*</span></label>
+<textarea name="f889002" id="f889002" rows="4" required
+ class="block w-full min-w-0 rounded-md border border-control-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus"
+ x-data="{ bodem: 0,
+ init() { this.groei(); if (this.bodem) return;
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
+ meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
+ groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
+ this.$el.style.height = `auto`;
+ const rand = this.$el.offsetHeight - this.$el.clientHeight;
+ this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight + rand, this.bodem), 400) + `px`; } }"
+ x-on:input="groei()" ></textarea>
+</div>
+</div>
+<div data-field="f889003" data-kind="textarea" data-span="full" class="min-w-0">
+<label for="f889003" class="block text-sm font-medium leading-[21px] text-ink mb-1">Opmerkingen</label>
+<textarea name="f889003" id="f889003" rows="4"
+ class="block w-full min-w-0 rounded-md border border-control-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus"
+ x-data="{ bodem: 0,
+ init() { this.groei(); if (this.bodem) return;
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
+ meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
+ groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
+ this.$el.style.height = `auto`;
+ const rand = this.$el.offsetHeight - this.$el.clientHeight;
+ this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight + rand, this.bodem), 400) + `px`; } }"
+ x-on:input="groei()" ></textarea>
+</div>
+</div>
+</section>
+</div>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+</form>
+</div>
+</div>
+--- rows ---
+registration 884001: submission=891001 answer_link=no
+submission 891001: form=887001 attached=True by Ward Poort <ward-1251@example.com>
+ answer field=889001 text=None number=None option=890001 rating=None
+ answer field=889002 text='Braaf geweest' number=None option=None rating=None

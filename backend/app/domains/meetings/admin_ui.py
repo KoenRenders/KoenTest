@@ -339,16 +339,13 @@ def circle_add(
     person_id: int = Form(...),
     start_date: str = Form(""),
 ):
-    from app.domains.mdm.api import add_to_circle, platform_org
+    from app.domains.mdm.api import MasterDataError, add_to_circle, circle_organization
 
-    organization = platform_org(db)
-    if organization is None:
+    try:
+        organization = circle_organization(db)
+    except MasterDataError as refusal:
         return templates.TemplateResponse(
-            request,
-            "_vg_kring.html",
-            _circle_view(
-                request, db, error=_("Er is nog geen organisatie ingesteld.")
-            ).as_context(),
+            request, "_vg_kring.html", _circle_view(request, db, error=str(refusal)).as_context()
         )
     try:
         on_day = _start_day(start_date)
@@ -418,16 +415,17 @@ def circle_new_person(
     persoon via een gezin, dus een niet-lid bestond niet en kon dus ook niet in de
     kring (#939).
     """
-    from app.domains.mdm.api import create_person_for_circle, platform_org
+    from app.domains.mdm.api import (
+        MasterDataError,
+        circle_organization,
+        create_person_for_circle,
+    )
 
-    organization = platform_org(db)
-    if organization is None:
+    try:
+        organization = circle_organization(db)
+    except MasterDataError as refusal:
         return templates.TemplateResponse(
-            request,
-            "_vg_kring.html",
-            _circle_view(
-                request, db, error=_("Er is nog geen organisatie ingesteld.")
-            ).as_context(),
+            request, "_vg_kring.html", _circle_view(request, db, error=str(refusal)).as_context()
         )
     try:
         on_day = _start_day(start_date)
