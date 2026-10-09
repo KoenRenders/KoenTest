@@ -322,7 +322,8 @@ def test_login_rate_limited(client):
     """De login-limiter geeft 429 na te veel pogingen per minuut."""
     saw_429 = False
     for _ in range(11):
-        r = client.post("/api/v1/auth/request-login", json={"email": "ratelimit-test@example.com"})
+        # the sign-in screen's own post, behind the same limiter (until CR-13 phase 4b, #1251, this asked a JSON route with a bearer token)
+        r = client.post("/aanmelden", data={"email": "ratelimit-test@example.com"})
         if r.status_code == 429:
             saw_429 = True
             break

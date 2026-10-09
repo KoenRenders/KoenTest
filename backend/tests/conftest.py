@@ -39,7 +39,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import event
 
 from app.database import SessionLocal, engine, get_db
-from app.domains.auth.api import create_access_token
 from app.main import app
 
 # Bestaat in de seed-migratie 014; gebruiken we als ingelogde admin. Het is de
@@ -341,9 +340,11 @@ def workspace_host(monkeypatch):
 
 @pytest.fixture
 def admin_headers():
-    """Authorization-header voor de in migratie 014 geseede admin."""
-    token = create_access_token({"sub": SEEDED_ADMIN_EMAIL})
-    return {"Authorization": f"Bearer {token}"}
+    """Empty since the bearer stack left (CR-13 phase 4b, #1251): there is no token
+    to carry. Tests still name this fixture as a parameter that nothing reads; the
+    next change takes those parameters out and this fixture with them. A test of
+    the back office signs in with the session (`make_session_value`)."""
+    return {}
 
 
 @pytest.fixture

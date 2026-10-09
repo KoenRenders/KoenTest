@@ -7,13 +7,25 @@ the public header of #1499, on the API side. Red against master on the
 operator. The users screen's check, `landing_for` and `admin_nav`'s cut for
 FINANCE derive from the same set; `tests/test_role_set_gate.py` holds that no
 module spells it out again.
+
+`/auth/me` left with the bearer token (CR-13 phase 4b, #1251). What it was
+repaired to say is asked here where every screen asks it: the roles of the
+address, through `admits_admin_ui` — and the users screen admits or refuses
+the same people.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from app.domains.auth.api import User, UserRole, create_access_token
+from app.domains.auth.api import (
+    SESSION_COOKIE,
+    User,
+    UserRole,
+    admits_admin_ui,
+    get_user_roles,
+    make_session_value,
+)
 
 
 def _user(db, email: str, *roles: str) -> str:
@@ -26,13 +38,12 @@ def _user(db, email: str, *roles: str) -> str:
     return email
 
 
-def _me(client, email: str) -> dict:
-    resp = client.get(
-        "/api/v1/auth/me",
-        headers={"Authorization": f"Bearer {create_access_token({'sub': email})}"},
-    )
-    assert resp.status_code == 200, resp.text
-    return resp.json()
+def _enters_the_back_office(client, email: str) -> bool:
+    """Signed in as this address, does the users screen open?"""
+    client.cookies.set(SESSION_COOKIE, make_session_value(email))
+    status = client.get("/admin/gebruikers", follow_redirects=False).status_code
+    assert status in (200, 403), status
+    return status == 200
 
 
 @pytest.mark.parametrize(
@@ -42,7 +53,8 @@ def _me(client, email: str) -> dict:
 def test_is_admin_is_who_the_back_office_admits(client, db_session, roles, admin):
     email = _user(db_session, f"{'-'.join(roles).lower()}-1513@example.com", *roles)
 
-    assert _me(client, email)["is_admin"] is admin, roles
+    assert admits_admin_ui(get_user_roles(db_session, email)) is admin, roles
+    assert _enters_the_back_office(client, email) is admin, roles
 
 
 def test_an_operator_enters_the_back_office_by_its_start_page(db_session):
