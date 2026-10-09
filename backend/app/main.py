@@ -31,7 +31,6 @@ from app.domains.cms.admin_ui import router as cms_admin_ui_router
 from app.domains.cms.handlers import (  # noqa: F401 - event subscriptions (#1478)
     seed_blocks_of_new_tenant,
 )
-from app.domains.cms.router import router as cms_router
 from app.domains.cms.ui import router as cms_public_ui_router
 from app.domains.designstudio.admin_ui import router as designstudio_admin_ui_router
 from app.domains.designstudio.handlers import (
@@ -191,7 +190,6 @@ SHELL_ROUTERS = (
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(stt_router, prefix="/api/v1")
-app.include_router(cms_router, prefix="/api/v1", dependencies=_module(M.CMS))
 app.include_router(media_router, prefix="/api/v1", dependencies=_module(M.MEDIA))
 app.include_router(forms_ui_router, dependencies=_module(M.FORMS))
 app.include_router(forms_admin_ui_router, dependencies=_module(M.FORMS))

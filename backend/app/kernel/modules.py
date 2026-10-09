@@ -166,7 +166,7 @@ MODULES: tuple[Module, ...] = (
         M.CMS,
         "Pagina's",
         admin_items=(("/admin/paginas", "Pagina's"),),
-        route_prefixes=("/api/v1/pages", "/admin/paginas"),
+        route_prefixes=("/admin/paginas",),
         record_tables=("cms.cms_pages",),
     ),
     Module(

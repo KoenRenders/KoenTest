@@ -1,8 +1,8 @@
 """Server-rendered CMS-paginabeheer (React-exit 405-d, #405 — §21).
 
 Lijst + aanmaken + bewerken (titel, slug, inhoud, publicatie, navigatie,
-volgorde) + verwijderen. Hergebruikt de bestaande cms-routerfuncties als
-servicelaag; toont de beschikbare placeholder-codes bij het bewerken.
+volgorde) + verwijderen. De regels staan in `cms/service.py`; toont de
+beschikbare placeholder-codes bij het bewerken.
 """
 
 from __future__ import annotations
