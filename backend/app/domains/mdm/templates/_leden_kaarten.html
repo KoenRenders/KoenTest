@@ -18,13 +18,28 @@
    `gender_codes`, `postal_codes`, `all_persons`, `current_year`) the way the
    block did before they were macros. #}
 
+{# #1831: the message line of ONE card — where its refusal is said (`says_why_in`
+   answers the kit's banner into it). Each card puts it by the buttons that were
+   pressed. When a sentence arrives the line scrolls itself into view if it is
+   not: a button at the foot of a phone's screen would leave it under the fold.
+   Emptied when the card is redrawn by its good answer. #}
+{% macro card_message(id, cls="") -%}
+<div id="{{ id }}" data-form-message{% if cls %} class="{{ cls }}"{% endif %}
+     hx-on::after-swap="this.scrollIntoView({block: 'nearest'})"></div>
+{%- endmacro %}
+
 {% macro persoon_card(m, hoofd) %}
 <div id="persoon-{{ m.id }}" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
   {# #639-patroon, maar de KNOPPEN horen buiten de x-show: Koens bevinding op
      golfpakket-6 v2 — in bewerkmodus verdween de hele kop en was er geen
      Opslaan. De leesinfo wijkt, de knoppenrij blijft. #}
   <div>
-    <div class="flex items-start justify-between">
+    {# #1831: on a narrow screen the three buttons of the edit state are wider
+       than the card — the page scrolled sideways by 76 px at 390 px, and a
+       refusal's sentence was cut off for whoever had scrolled to Opslaan. The
+       row wraps: the buttons go under the name, and wrap among themselves. From
+       `md` on nothing changes. #}
+    <div class="flex flex-wrap items-start justify-between gap-y-2">
       <div x-show="!edit">
         <span class="font-semibold">{{ m.first_name }} {{ m.last_name }}</span>
         <span class="text-xs text-gray-500 ml-1">({{ m.relation_type | relatielabel }})</span>
@@ -46,7 +61,7 @@
         </div>
       </div>
       <span x-show="edit" x-cloak class="text-sm text-gray-500 self-center">{{ m.first_name }} {{ m.last_name }} — {{ _("bewerken") }}</span>
-      <div class="flex gap-2 shrink-0 ml-4">
+      <div class="flex flex-wrap justify-end gap-2 ml-auto md:shrink-0 md:pl-4">
         {{ ui.edit_toggle("edit") }}
         {# Verwijderen vervangt deze kaart door niets (leeg antwoord, outerHTML);
            de bestuurslidlijst reist oob mee, want die noemt elke persoon. #}
@@ -55,6 +70,7 @@
       </div>
     </div>
   </div>
+  {{ card_message("persoon-" ~ m.id ~ "-melding", "mt-3 empty:mt-0") }}
   <form id="pc-{{ m.id }}" x-show="edit" x-cloak class="space-y-3"
         hx-post="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}"
         hx-target="#persoon-{{ m.id }}" hx-swap="outerHTML" style="display: none">
@@ -110,6 +126,7 @@
       <div x-show="edit" x-cloak>{{ ui.action_bar(form="adres-form", cancel_attrs='@click="edit = false"') }}</div>
     </div>
   </div>
+  {{ card_message("adres-melding", "mt-3 empty:mt-0") }}
   <form id="adres-form" x-show="edit" x-cloak class="space-y-3"
         hx-post="/admin/leden/gezin/{{ family.id }}/adres"
         hx-target="#adres-kaart" hx-swap="outerHTML" style="display: none">
@@ -134,6 +151,9 @@
         hx-target="#persoon-toevoegen" hx-swap="outerHTML">
     {# Veldenset incl. relatie via de gedeelde macro (#511/#498). #}
     {% with p = None %}{% include "_leden_persoon_velden.html" %}{% endwith %}
+    {# #1831: by the button that was pressed — this form's button stands at its
+       foot, where the two cards above have theirs in the head. #}
+    {{ card_message("persoon-toevoegen-melding") }}
     {{ ui.btn_primary(_("Toevoegen")) }}
   </form>
 </div>

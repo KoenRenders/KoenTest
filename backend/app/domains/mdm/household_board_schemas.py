@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from app.domains.mdm.models import RelationType
 
@@ -28,7 +28,9 @@ class AddressUpdate(BaseModel):
 
 
 class ContactsUpdate(BaseModel):
-    email: Optional[str] = None
+    # #1831: an address has the shape of an address — the schema's question, as
+    # for the household that signs up (`FamilyMemberCreate.email`).
+    email: Optional[EmailStr] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
 
@@ -38,10 +40,16 @@ class PersonAddToFamily(BaseModel):
     first_name: str
     date_of_birth: Optional[date] = None
     gender_code: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
     relation_type: RelationType = RelationType.PARTNER
+
+
+class RelationChoice(BaseModel):
+    """The relation a person's card asks for: one of the list (#1831)."""
+
+    relation_type: RelationType
 
 
 class BoardMemberAssign(BaseModel):

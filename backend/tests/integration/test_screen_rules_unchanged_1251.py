@@ -92,7 +92,10 @@ def test_an_address_for_a_household_without_persons_is_refused_as_before(client,
         f"/admin/leden/gezin/{household.id}/adres", data=ADDRESS, headers=_login(client)
     )
 
-    assert response.status_code == 400
+    # Recorded again with #1831: the address card says it in its message line —
+    # the kit's refusal, a 422 — where it was a bare 400 the screen could not
+    # show; and the card of the stored address below carries that line.
+    assert response.status_code == 422
     assert "Gezin zonder personen." in response.text
     compare(SNAPSHOTS, "address_refused", _answer(response, {household.id: "<HOUSEHOLD>"}), BEFORE)
     assert db_session.query(Address).count() == 0

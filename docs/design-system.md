@@ -1257,6 +1257,30 @@ back · forbidden · test.** Fields marked *open* are decisions still to take
 - **Test**: the failure path asserts the reason text, not just a status ≥ 400
   (#680).
 
+**A refusal the visitor can cause never gets the general message** (#1831;
+Koen, 9 October 2026: *"de foutmelding op een scherm moet zeggen wat er moet
+gebeuren"*). The general sentence — "Er ging iets mis; je wijziging is niet
+bewaard. Probeer opnieuw." — is for a fault: a server that fails, a session
+that ended. A rule that refuses what was typed is no fault and no retry mends
+it; the screen says the rule's own sentence, and the sentence says what must
+happen. In practice: a door of a screen answers a refusal with the kit's
+`refusal_response` (an HTML 422 for the form's message line), never with a bare
+JSON 4xx — htmx does not swap that, and the reader gets the general sentence
+for something he could have corrected.
+
+- **One form on the page**: the record form (§3.4) — a message line above the
+  form, the fields the banner names marked, the first one focused.
+- **Several forms on one page** (the household's cards, #1831): the record
+  form serves one form per page, so each card carries **its own message line
+  by the buttons that were pressed**, and its door answers into that line. The
+  banner reads "Opslaan is niet gelukt." with the sentence under it — no count
+  and no link, since nothing marks a field there; the sentence names the field.
+  The line scrolls itself into view when a sentence arrives, the other cards
+  are not touched, and the card's good answer redraws it empty.
+- **Test**: the route test reads the banner and the line it is sent to
+  (`tests/_refusal.py`), and a browser test at 390 px reads the sentence in the
+  card, inside it and in view.
+
 ### P8 · List, detail, edit (#510; B2 since wave 4, #913)
 
 - **When**: a list of concrete records.

@@ -31,15 +31,18 @@ from app.domains.mdm.household_board_schemas import (
     ContactsUpdate,
     PersonAddToFamily,
     PersonUpdate,
+    RelationChoice,
 )
+from app.domains.mdm.household_doors import schema_refusal_words
 from app.domains.mdm.household_service import (
+    PERSON_NAME_MAX,  # noqa: F401 — the facade reads it here
     HouseholdRefused,
     household_relations,
     require_one_main_member,
+    require_storable_person,
 )
 from app.domains.mdm.models import (
     Address,
-    GenderCode,
     MasterDataError,
     Member,
     MemberPerson,
@@ -51,43 +54,30 @@ from app.domains.mdm.models import (
 from app.domains.mdm.service import new_contact_detail
 from app.i18n import _
 
-#: The longest first or last name a person can have: the length of the two
-#: columns (`varchar(100)`, both). The rule below refuses a longer one, and the
-#: person forms of the Leden screen carry it as their fields' `maxlength`, so
-#: the browser stops where the server refuses — one number, read from the column.
-PERSON_NAME_MAX: int = Person.__table__.c.last_name.type.length
-
 
 def board_request(schema, **fields):
     """What a form of the Leden screen sent, as the request of one of the writes
     below. A value that cannot be read — a birth date that is no date, a relation
     that is not of the list — is refused here with words, where it ended the
     request in a 500 until #1251. The form sends neither from a browser (a date
-    field, a select list); another client can."""
-    words = {
-        "date_of_birth": _("Vul een geldige geboortedatum in."),
-        "relation_type": _("Kies een relatie uit de lijst."),
-    }
+    field, a select list); another client can. Since #1831 an e-mail address that
+    is none is refused here too: it was stored as typed."""
     try:
         return schema(**fields)
     except ValidationError as refusal:
-        field = refusal.errors()[0]["loc"][0]
-        if field not in words:
+        words = schema_refusal_words(refusal)
+        if words is None:
             raise
-        raise HTTPException(status_code=422, detail=words[field]) from refusal
+        raise HTTPException(status_code=422, detail=words) from refusal
 
 
 def _require_storable(db: Session, first_name, last_name, gender_code) -> None:
-    """What the columns of a person cannot hold is refused before the write, where
-    the database refused it after (a 500 until #1251): a name longer than its
-    column, and a gender code that is not of the list (`mdm.gender_codes`)."""
-    if any(len(name or "") > PERSON_NAME_MAX for name in (first_name, last_name)):
-        raise HTTPException(
-            status_code=422,
-            detail=_("Een naam is ten hoogste %(n)s tekens lang.") % {"n": PERSON_NAME_MAX},
-        )
-    if gender_code and db.get(GenderCode, gender_code) is None:
-        raise HTTPException(status_code=422, detail=_("Kies een geslacht uit de lijst."))
+    """mdm's one rule of what a person's columns can hold
+    (`require_storable_person`), with the status this door gives a refusal."""
+    try:
+        require_storable_person(db, first_name, last_name, gender_code)
+    except HouseholdRefused as refusal:
+        raise HTTPException(status_code=422, detail=str(refusal)) from refusal
 
 
 def update_person(db: Session, person_id: int, data: PersonUpdate, admin=None):
@@ -331,6 +321,16 @@ def add_person_to_family(
         raise HTTPException(status_code=422, detail=str(fout))
     _require_one_main_member([*household_relations(member), data.relation_type])
     _require_storable(db, data.first_name, data.last_name, data.gender_code)
+    # Asked before the person is made (#1831): the same rule `new_contact_detail`
+    # asks further down, for the household he is about to join. Until then the
+    # person was written first and the refusal counted on the request ending
+    # without a commit.
+    from app.domains.mdm.models import EmailAddressInUse
+    from app.domains.mdm.service import email_refusal
+
+    in_use = email_refusal(db, None, data.email, household_id=family_id)
+    if in_use:
+        raise EmailAddressInUse(in_use)
 
     # A blank first or last name is refused by the person itself (#1251: it
     # ended the request in a 500).
@@ -465,17 +465,19 @@ def require_relation_allowed(
     db: Session, family_id: int, person_id: int, relation_type: str
 ) -> Optional[tuple[MemberPerson, RelationType]]:
     """The link and the relation a change of relation would write — None when
-    there is nothing to change (an unknown word, a person outside the household,
+    there is nothing to change (no relation named, a person outside the household,
     the main member himself, who keeps his place) — or a 422 when the household
     would get a second main member (`require_one_main_member`).
 
     The save of a person's card asks it first, before it writes anything, and
     `set_relation_type` asks it again where it writes: one function, so the
     card cannot be half saved and then refused."""
-    try:
-        relation = RelationType((relation_type or "").strip())
-    except ValueError:
-        return None
+    asked_for = (relation_type or "").strip()
+    if not asked_for:
+        return None  # the form names no relation: nothing is asked
+    # A word that is not of the list is refused, as it is for a person who is
+    # added (#1831) — until then it was dropped without a word.
+    relation = board_request(RelationChoice, relation_type=asked_for).relation_type
     links = (
         db.query(MemberPerson).filter(MemberPerson.member_id == family_id).order_by(MemberPerson.id)
     ).all()

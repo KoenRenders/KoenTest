@@ -34,6 +34,7 @@ from app.domains.mdm.api import (
     RelationType,
     chosen_relation,
     household_from_form,
+    schema_refusal_words,
 )
 from app.domains.membership.schemas_family import FamilyCreate, FamilyMemberCreate
 from app.i18n import _
@@ -176,4 +177,5 @@ def signup_from_form(form: Any) -> tuple[Optional[FamilyCreate], list[FieldError
         )
     except ValidationError as refusal:
         # Whatever the schema still refuses has no field of its own here.
-        return None, [FieldError("", str(refusal.errors()[0].get("msg", _("Ongeldige invoer."))))]
+        words = schema_refusal_words(refusal) or _("Ongeldige invoer.")
+        return None, [FieldError("", words)]
