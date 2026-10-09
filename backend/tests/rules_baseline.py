@@ -465,11 +465,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
 FOREIGN_WRITES: frozenset[str] = frozenset(
     {
         "domains/media/extraction.py::update_media_extracted_text → chatbot.ChatbotInfo",
-        "domains/membership/household_service.py::create_family_with_members → mdm.Address",
-        "domains/membership/household_service.py::create_family_with_members → mdm.Member",
-        "domains/membership/household_service.py::create_family_with_members → mdm.MemberPerson",
-        "domains/membership/household_service.py::create_family_with_members → mdm.Person",
-        "domains/membership/household_service.py::delete_family → mdm.Member",
     }
 )
 
@@ -511,7 +506,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/forms/api.py::submit_bericht → mail.api.send_form_confirmation",
         "domains/forms/service.py::submit_form → mail.api.send_form_confirmation",
         "domains/mdm/ui.py::gezin_aanmaken → membership.api.create_family_by_admin",
-        "domains/mdm/ui.py::gezin_verwijderen → membership.api.delete_family",
         "domains/mdm/ui.py::lidmaatschap_toevoegen → membership.api.create_membership_for_family",
         "domains/mdm/ui.py::lidmaatschap_verwijderen → membership.api.delete_membership",
         "domains/meetings/admin_ui.py::circle_add → mdm.api.add_to_circle",
@@ -519,16 +513,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/meetings/admin_ui.py::circle_new_person → mdm.api.create_person_for_circle",
         "domains/meetings/service.py::send_meeting_mail → mail.api.send_with_attachments",
         "domains/membership/portal_service.py::renew_membership → payment.api.create_payment_record",
-        "domains/membership/household_service.py::create_family_with_members → mdm.api.snapshot_address",
-        "domains/membership/household_service.py::create_family_with_members → mdm.api.snapshot_contact_detail",
-        "domains/membership/household_service.py::create_family_with_members → mdm.api.snapshot_member",
-        "domains/membership/household_service.py::create_family_with_members → mdm.api.snapshot_member_person",
-        "domains/membership/household_service.py::create_family_with_members → mdm.api.snapshot_person",
-        "domains/membership/household_service.py::delete_family → mdm.api.snapshot_address",
-        "domains/membership/household_service.py::delete_family → mdm.api.snapshot_contact_detail",
-        "domains/membership/household_service.py::delete_family → mdm.api.snapshot_member",
-        "domains/membership/household_service.py::delete_family → mdm.api.snapshot_member_person",
-        "domains/membership/household_service.py::delete_family → mdm.api.snapshot_person",
         # CR-22 S7 (#1712): the delete of a person moved to master data — one
         # rule, `mdm.service.delete_person` — and its history calls with it;
         # membership's door calls that rule. Four entries left, four came.

@@ -43,17 +43,18 @@ from app.domains.mdm.household_board_schemas import (  # noqa: F401
     PersonAddToFamily,
     PersonUpdate,
 )
-from app.domains.mdm.household_board_service import (  # noqa: F401
+from app.domains.mdm.household_board_service import (  # noqa: F401  # noqa: F401
     PERSON_NAME_MAX,
     add_person_to_family,
     assign_board_member,
     board_request,
+    delete_household,
     set_relation_type,
     update_family_address,
     update_person,
     update_person_contacts,
 )
-from app.domains.mdm.household_board_service import (  # noqa: F401
+from app.domains.mdm.household_board_service import (
     delete_person as delete_household_person,
 )
 
@@ -71,6 +72,7 @@ from app.domains.mdm.household_save import (  # noqa: F401
 )
 from app.domains.mdm.household_service import (  # noqa: F401  # noqa: F401
     ADDED_RELATIONS,
+    HOUSEHOLD_REGISTERED,
     CannotRemoveSelf,
     HouseholdNotFound,
     HouseholdRefused,
@@ -373,6 +375,7 @@ __all__ = [
     "PersonNotFound",
     "OutsideHousehold",
     "CannotRemoveSelf",
+    "HOUSEHOLD_REGISTERED",
     "HouseholdRefused",
     "household_of",
     "household_person",
@@ -391,6 +394,7 @@ __all__ = [
     "update_family_address",
     "update_person",
     "update_person_contacts",
+    "delete_household",
     "delete_household_person",
     "household_refusals_as_http",
     "HouseholdSave",

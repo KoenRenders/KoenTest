@@ -446,3 +446,61 @@ def set_relation_type(db, family_id: int, person_id: int, relation_type: str) ->
     koppeling.relation_type = gevraagd
     db.commit()
     return True
+
+
+#: The action in every history row of a household that is deleted. Stored data.
+HOUSEHOLD_DELETED = "family_deleted"
+
+
+def delete_household(db: Session, family_id: int, admin=None) -> None:
+    """The board deletes a household: its persons, their contact details, the
+    address and the links, each with its history row — a soft delete (#166),
+    nothing is removed.
+
+    Then it says so (`HouseholdDeleted`): the memberships are membership's, which
+    deletes them on hearing it, and the payments follow their membership. Until
+    CR-13 phase 4c (#1251) membership deleted all of it itself, its own rows
+    first. Not optional — a household gone with its memberships still standing
+    would leave charges nobody owes, so this refuses when nothing subscribes.
+    """
+    from app.domains.mdm.history import (
+        snapshot_address,
+        snapshot_contact_detail,
+        snapshot_member,
+        snapshot_member_person,
+        snapshot_person,
+    )
+    from app.kernel.contracts.mdm import HouseholdDeleted
+    from app.kernel.events import has_subscribers, publish
+    from app.soft_delete import soft_delete
+
+    member = db.query(Member).filter(Member.id == family_id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail=_("Family not found"))
+    if not has_subscribers(HouseholdDeleted):
+        raise RuntimeError("nothing subscribes to HouseholdDeleted; import membership.handlers")
+
+    stamp = {
+        "operation": "delete",
+        "action": HOUSEHOLD_DELETED,
+        "source": "admin_manual",
+    }
+    for link in member.member_persons:
+        person = link.person
+        for contact in person.contact_details:
+            snapshot_contact_detail(db, contact, actor=admin.email, **stamp)
+            soft_delete(contact)
+        for number in person.external_numbers:
+            soft_delete(number)
+        if person.address:
+            snapshot_address(db, person.address, actor=admin.email, **stamp)
+            soft_delete(person.address)
+        snapshot_member_person(db, link, actor=admin.email, **stamp)
+        soft_delete(link)
+        snapshot_person(db, person, actor=admin.email, **stamp)
+        soft_delete(person)
+    snapshot_member(db, member, actor=admin.email, **stamp)
+    soft_delete(member)
+    db.flush()
+    publish(HouseholdDeleted(household_id=family_id, actor=admin.email), db)
+    db.commit()

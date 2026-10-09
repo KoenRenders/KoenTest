@@ -9,7 +9,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.domains.membership.service import activate_after_payment, add_reported_membership
-from app.kernel.contracts.mdm import MembershipReported
+from app.kernel.contracts.mdm import HouseholdDeleted, MembershipReported
 from app.kernel.contracts.payment import PaymentReceived
 from app.kernel.events import subscribe
 
@@ -37,3 +37,12 @@ def add_membership_of_reported_household(event: MembershipReported, db: Session)
     add_reported_membership(
         db, event.household_id, event.year, source=event.source, actor=event.actor
     )
+
+
+@subscribe(HouseholdDeleted)
+def delete_memberships_of_deleted_household(event: HouseholdDeleted, db: Session) -> None:
+    """mdm deleted a household: its memberships, which are membership's, go with
+    it (CR-13 phase 4c, #1251) — in the deletion's transaction."""
+    from app.domains.membership.household_service import delete_memberships_of_household
+
+    delete_memberships_of_household(db, event.household_id, event.actor)
