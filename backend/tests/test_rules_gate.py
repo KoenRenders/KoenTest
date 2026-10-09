@@ -2116,10 +2116,25 @@ _MACRO_PROMISE = re.compile(
 _RAW_INPUT = re.compile(r"<(?:input|select|textarea)\b(?P<attrs>[^>]*)>", re.S)
 _FORM_TARGET = re.compile(r'<form\b[^>]*?(?:hx-post|action)="([^"]+)"', re.S)
 _PROMISE_KINDS = ("required", "pattern", "min")
+#: `{# promise walked by: test_a, test_b #}` — on the line of the input or the one above.
+_WALKED_BY = re.compile(r"\{#\s*promise walked by:\s*([a-z0-9_,\s]+?)\s*#\}")
+
+
+def _declared_walkers(text: str, position: int) -> tuple[str, ...]:
+    """The tests an input names as walking its promise: the declaration stands on
+    the input's own line or on the line above it, nowhere else — so it moves with
+    the input and disappears with it."""
+    start = text.rfind("\n", 0, position) + 1
+    above = text.rfind("\n", 0, max(start - 1, 0)) + 1
+    end = text.find("\n", position)
+    found = _WALKED_BY.search(text, above, end if end != -1 else len(text))
+    if not found:
+        return ()
+    return tuple(name for name in re.split(r"[,\s]+", found.group(1)) if name)
 
 
 def _template_promises(text: str):
-    """Yield `(line, field, kinds, form path)` for every promising input."""
+    """Yield `(line, field, kinds, form path, declared walkers)` for every promising input."""
     forms = [(m.start(), m.group(1)) for m in _FORM_TARGET.finditer(text)]
 
     def form_for(position: int) -> str | None:
@@ -2130,13 +2145,30 @@ def _template_promises(text: str):
         rest = m.group("rest")
         kinds = [k for k in _PROMISE_KINDS if re.search(rf"\b{k}\s*=\s*(True|\")", rest)]
         if kinds:
-            yield text.count("\n", 0, m.start()) + 1, m.group("name"), kinds, form_for(m.start())
+            yield (
+                text.count("\n", 0, m.start()) + 1,
+                m.group("name"),
+                kinds,
+                form_for(m.start()),
+                _declared_walkers(text, m.start()),
+            )
     for m in _RAW_INPUT.finditer(text):
         attrs = m.group("attrs")
         name = re.search(r'\bname="([a-z_0-9]+)"', attrs)
-        kinds = [k for k in _PROMISE_KINDS if re.search(rf"(?<![-\w]){k}\b(?!-)", attrs)]
+        # The attribute, not a word inside another attribute's value or inside the
+        # Jinja between them: the form builder's tick, `<input type="checkbox"
+        # name="required" {% if f.required %}checked{% endif %}>`, promises nothing.
+        bare = re.sub(r'"[^"]*"|\'[^\']*\'', '""', attrs)
+        bare = re.sub(r"\{%.*?%\}|\{\{.*?\}\}", " ", bare, flags=re.S)
+        kinds = [k for k in _PROMISE_KINDS if re.search(rf"(?<![-\w]){k}\b(?!-)", bare)]
         if name and kinds:
-            yield text.count("\n", 0, m.start()) + 1, name.group(1), kinds, form_for(m.start())
+            yield (
+                text.count("\n", 0, m.start()) + 1,
+                name.group(1),
+                kinds,
+                form_for(m.start()),
+                _declared_walkers(text, m.start()),
+            )
 
 
 def _route_path(path: str) -> str:
@@ -2229,6 +2261,68 @@ def _kept_columns() -> tuple[dict[str, bool], set[str]]:
     return columns, schema
 
 
+@functools.cache
+def _test_functions() -> dict[str, tuple[str, ...]]:
+    """Every test function of the suite by its name, with its source — a name may
+    stand in more than one file, which is why the value is a tuple."""
+    found: dict[str, list[str]] = {}
+    files = [*(BACKEND / "tests").rglob("test_*.py"), *DOMAINS.glob("*/tests/**/test_*.py")]
+    for path in files:
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith(
+                "test_"
+            ):
+                found.setdefault(node.name, []).append(ast.unparse(node))
+    assert len(found) > 2000, f"only {len(found)} test functions found — the walk is blind"
+    return {name: tuple(sources) for name, sources in found.items()}
+
+
+def _judge_promise(
+    reason: str | None, walkers: tuple[str, ...], field: str, tests: dict[str, tuple[str, ...]]
+) -> str | None:
+    """What is wrong with a promise the static walk stopped on (`reason`) or
+    followed to its column (`reason is None`), given the tests its input declares.
+    `None` means: in order.
+
+    - stopped, nothing declared → the step where the walk stops, as before;
+    - stopped, declared → every named test exists exactly once and names the field;
+    - followed, declared → the declaration is not needed and must go.
+
+    **What this cannot prove:** that the named test really posts an empty value to
+    the form this input stands in. It checks that the test exists, once, and names
+    the field — so a renamed or deleted test turns the gate red, and a test that
+    never mentions the field does not count. That the test walks THIS promise is
+    review's, which is why the failure message asks for it in the test's docstring.
+    """
+    if reason is None:
+        if walkers:
+            return (
+                f"declares `promise walked by: {', '.join(walkers)}` although the walk follows "
+                f"it to its column — remove the declaration"
+            )
+        return None
+    if not walkers:
+        return reason
+    problems = []
+    for walker in walkers:
+        sources = tests.get(walker, ())
+        if len(sources) != 1:
+            problems.append(
+                f"`{walker}` is the name of {len(sources)} test functions — it must be exactly one"
+            )
+        elif not re.search(rf"['\"]{field}['\"]", sources[0]):
+            problems.append(f"`{walker}` does not name the field `{field}`")
+    if not problems:
+        return None
+    return (
+        f"{reason}; declared walked by {', '.join(walkers)}, but "
+        + "; ".join(problems)
+        + " — name the test that posts what the browser refuses to the form this input stands "
+        "in (one per form for a partial in several), and say in its docstring which form and "
+        "route it walks and that it posts an empty value"
+    )
+
+
 def collect_promises() -> tuple[dict[str, str], dict[str, str]]:
     """Every `required`/`pattern`/`min` a template promises, walked to the column (§B9.3,
     *promise kept*; the spike of §B10): template → the form's `hx-post`/`action` →
@@ -2239,43 +2333,54 @@ def collect_promises() -> tuple[dict[str, str], dict[str, str]]:
     all the way and finds nothing that keeps the promise — the server accepts what the
     browser refuses. `unwalkable` stops earlier; its value is the step where it stops,
     the reason the change request asks for.
+
+    A promise the static walk cannot follow — the field is no column, the form's
+    target is a variable, the input stands in a partial — is walked by a test
+    instead, and the input says which: `{# promise walked by: test_name #}` on its
+    own line or the line above (`_judge_promise`). No list beside the source: the
+    declaration lives at the promise.
     """
     routes = _writing_routes()
     columns, schema = _kept_columns()
+    tests = _test_functions()
     templates = sorted(APP.rglob("templates/**/*.html"))
     assert len(templates) > 100, f"only {len(templates)} templates — the walk is blind"
     not_kept: dict[str, str] = {}
     unwalkable: dict[str, str] = {}
     seen = 0
     for template in templates:
-        for line, name, kinds, form_path in _template_promises(template.read_text()):
+        for line, name, kinds, form_path, walkers in _template_promises(template.read_text()):
             seen += 1
             key = f"{_rel(template)}::{name}::{'/'.join(kinds)}"
             where = f"{_rel(template)}:{line}"
+            reason: str | None = None
+            entry = routes.get(_route_path(form_path)) if form_path else None
             if not form_path:
-                unwalkable.setdefault(key, "no form target (built in JS, by a macro, or GET)")
-                continue
-            entry = routes.get(_route_path(form_path))
-            if entry is None:
-                unwalkable.setdefault(key, f"no writing route for {_route_path(form_path)}")
-                continue
-            route, helpers = entry
-            source = _route_source(route, helpers)
-            if not re.search(rf"['\"]{name}['\"]|\b{name}\s*[:=]", source):
-                unwalkable.setdefault(key, f"route `{route.name}` does not read `{name}` by name")
-                continue
-            if name not in columns:
-                if name in schema:
-                    continue  # kept by the schema
-                unwalkable.setdefault(key, f"no column named `{name}`")
-                continue
-            if not (columns[name] or name in schema):
-                not_kept.setdefault(
-                    key,
-                    f"{where} promises `{name}` {'/'.join(kinds)}; the column `{name}` has no "
-                    f"NOT NULL, CHECK, validator or schema constraint — the server accepts "
-                    f"what the browser refuses (CR-13 §B9.3)",
-                )
+                reason = "no form target (built in JS, by a macro, or GET)"
+            elif entry is None:
+                reason = f"no writing route for {_route_path(form_path)}"
+            else:
+                route, helpers = entry
+                source = _route_source(route, helpers)
+                if not re.search(rf"['\"]{name}['\"]|\b{name}\s*[:=]", source):
+                    reason = f"route `{route.name}` does not read `{name}` by name"
+                elif name not in columns and name not in schema:
+                    reason = f"no column named `{name}`"
+                elif name in columns and not (columns[name] or name in schema):
+                    if not walkers:
+                        not_kept.setdefault(
+                            key,
+                            f"{where} promises `{name}` {'/'.join(kinds)}; the column `{name}` "
+                            f"has no NOT NULL, CHECK, validator or schema constraint — the "
+                            f"server accepts what the browser refuses (CR-13 §B9.3)",
+                        )
+                        continue
+                    # Followed to a column that keeps nothing, and a test is declared:
+                    # the rule lives in the service, and the test is what shows it.
+                    reason = f"the column `{name}` keeps nothing itself"
+            judged = _judge_promise(reason, walkers, name, tests)
+            if judged is not None:
+                unwalkable.setdefault(key, judged)
     assert seen > 30, f"only {seen} promises in the templates — the walk is blind"
     return not_kept, unwalkable
 
@@ -2843,6 +2948,91 @@ def test_no_new_promise_that_cannot_be_walked():
     removed): in the same probe template, an `<input name="zz_probe" required>` before
     the form → red, "cannot be walked: no form target"."""
     _ratchet("PROMISE_UNWALKABLE")
+
+
+# ── A promise walked by a test: the declaration at the input ─────────────────
+
+_TESTS = {
+    "test_an_empty_street_is_refused": (
+        'def test_an_empty_street_is_refused():\n    post({"street": ""})',
+    ),
+    "test_named_twice": ("def test_named_twice(): ...", "def test_named_twice(): ..."),
+    "test_about_something_else": ('def test_about_something_else():\n    post({"city": ""})',),
+}
+_STOP = "no form target (built in JS, by a macro, or GET)"
+
+
+def test_a_declaration_is_read_on_the_inputs_line_or_the_one_above():
+    """And nowhere else: two lines above is another input's business."""
+    same = '<input name="street" required> {# promise walked by: test_a #}\n'
+    above = '{# promise walked by: test_a, test_b #}\n{{ ui.input("street", required=True) }}\n'
+    far = '{# promise walked by: test_a #}\n<p>text</p>\n<input name="street" required>\n'
+    none = '<input name="street" required>\n'
+    assert [w for *_x, w in _template_promises(same)] == [("test_a",)]
+    assert [w for *_x, w in _template_promises(above)] == [("test_a", "test_b")]
+    assert [w for *_x, w in _template_promises(far)] == [()]
+    assert [w for *_x, w in _template_promises(none)] == [()]
+
+
+def test_proof_a_word_inside_an_attributes_value_is_no_promise():
+    """The form builder's "Verplicht" tick is an input NAMED `required`; that was
+    read as a promise. The attribute itself, with or without a value, still is."""
+    named = '<input type="checkbox" name="required" value="1">\n'
+    ticked = (
+        '<input type="checkbox" name="required" value="1" '
+        "{% if f and f.required %}checked{% endif %}>\n"
+    )
+    assert list(_template_promises(named)) == []
+    assert list(_template_promises(ticked)) == []
+    for real in (
+        '<input name="required" required>\n',
+        '<input name="amount" min="1">\n',
+        '<input name="code" pattern="[0-9]+" title="required digits">\n',
+    ):
+        ((_line, _name, kinds, _form, _walkers),) = _template_promises(real)
+        assert len(kinds) == 1, (real, kinds)
+
+
+def test_a_promise_the_walk_cannot_follow_is_in_order_with_its_test():
+    assert _judge_promise(_STOP, ("test_an_empty_street_is_refused",), "street", _TESTS) is None
+    # Without a declaration it is what it was: the step where the walk stops.
+    assert _judge_promise(_STOP, (), "street", _TESTS) == _STOP
+    # And a promise the walk follows needs nothing.
+    assert _judge_promise(None, (), "street", _TESTS) is None
+
+
+@pytest.mark.parametrize(
+    ("walkers", "said"),
+    [
+        (("test_that_was_renamed",), "is the name of 0 test functions"),
+        (("test_named_twice",), "is the name of 2 test functions"),
+        (("test_about_something_else",), "does not name the field `street`"),
+        # One good test does not carry a bad one: a partial in two forms names both.
+        (
+            ("test_an_empty_street_is_refused", "test_that_was_renamed"),
+            "`test_that_was_renamed` is the name of 0 test functions",
+        ),
+    ],
+)
+def test_proof_a_declaration_that_names_no_real_walk_is_refused(walkers, said):
+    judged = _judge_promise(_STOP, walkers, "street", _TESTS)
+    assert judged is not None and said in judged
+    # The message says what to write, and asks for the docstring review reads.
+    assert "which form and route it walks" in judged and _STOP in judged
+
+
+def test_proof_a_declaration_where_the_walk_can_follow_is_refused():
+    """No decoration where it is not needed: it would read as "this one is special"."""
+    judged = _judge_promise(None, ("test_an_empty_street_is_refused",), "street", _TESTS)
+    assert judged is not None and "remove the declaration" in judged
+
+
+def test_the_test_tree_the_declarations_point_into_is_seen():
+    """The walk of the tests is not blind, and it reads sources: this very test is
+    found once, with its own text."""
+    tests = _test_functions()
+    (source,) = tests["test_the_test_tree_the_declarations_point_into_is_seen"]
+    assert "not blind" in source
 
 
 #: The Registration aggregate (CR-13 phase 1): its classes and its schema.

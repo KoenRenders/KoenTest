@@ -594,7 +594,6 @@ PROMISE_UNWALKABLE: dict[str, str] = {
     "domains/forms/templates/_berichten_form.html::bericht::required": "no column named `bericht`",
     "domains/forms/templates/_berichten_form.html::naam::required": "no column named `naam`",
     "domains/forms/templates/_fb_builder.html::label::required": "no writing route for /admin/formulieren/{}{% if f %}/velden/{}{% else %}/velden{% endif %}",
-    "domains/forms/templates/_fb_builder.html::required::required": "no writing route for /admin/formulieren/{}{% if f %}/velden/{}{% else %}/velden{% endif %}",
     "domains/mdm/templates/_leden_adres_velden.html::house_number::required": "no form target (built in JS, by a macro, or GET)",
     "domains/mdm/templates/_leden_adres_velden.html::street::required": "no form target (built in JS, by a macro, or GET)",
     "domains/mdm/templates/leden_import.html::file::required": "no column named `file`",
