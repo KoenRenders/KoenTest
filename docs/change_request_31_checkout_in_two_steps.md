@@ -1,7 +1,7 @@
 # Change Request 31 — The checkout in two steps: a registration stands with an open charge when the provider does not answer
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 9 October 2026 · **not planned on any release** (Koen, 9 October 2026: "ja, goed idee, maar niet in v2.16" and "Dit plannen we ooit") · the build read is routed to dev2 (#1829, without hurry); the screen concepts (C9) follow it · one question open (Q6)
+**Status:** shaped on 9 October 2026 · **not planned on any release** (Koen, 9 October 2026: "ja, goed idee, maar niet in v2.16" and "Dit plannen we ooit") · the build read is routed to dev2 (#1829, without hurry); the screen concepts (C9) follow it · one question open, Q6, parked by Koen on 9 October 2026 for when the change request is planned
 **Tracking issue:** #1829 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** payment (a port, a pay route with its page, one column), activities and membership (the three doors that open a charge), cms (the return page's retry), the events gate of CR-13 (three declared calls leave it); mail and reporting are used, not changed
 **Reading:** A 1 500 words · B 2 496 · C 4 101 — code fences excluded, table pipes counted, measured on 9 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
@@ -360,7 +360,7 @@ Standards checked: UBL 2.1 / EN 16931 (`cac:PaymentMeans`, `cbc:PaymentID`), ISO
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q6 | A guest (no account; CR-22 R6: no sign-in link) has no screen where the payment can be resumed. What does the guest's mail say about an unpaid online charge? | What the return page says today: *Nog niet betaald? Je kan de betaling later voltooien via een bestuurslid.* — consistent with CR-22, and the board sees the open booking. The alternative, a pay link for guests only, is the link Koen did not choose. | the mail's template branches on "has a person" (it does for the history line); whether a guest can pay without the board. |
+| Q6 | **Parked by Koen on 9 October 2026 ("graag laten liggen, is voor later"): to answer when the change request is planned, not before.** A guest (no account; CR-22 R6: no sign-in link) has no screen where the payment can be resumed. What does the guest's mail say about an unpaid online charge? | What the return page says today: *Nog niet betaald? Je kan de betaling later voltooien via een bestuurslid.* — consistent with CR-22, and the board sees the open booking. The alternative, a pay link for guests only, is the link Koen did not choose. | the mail's template branches on "has a person" (it does for the history line); whether a guest can pay without the board. |
 
 ## B9. Decisions log — dated answers
 
@@ -539,7 +539,7 @@ Not written: the change is not built.
 |---|---|---|---|
 | Q1 | 9 Oct 2026 | Does the confirmation mail carry the pay link? (architecture CLI, through the master CLI) | Koen asked "wat is de betaalpagina?" and answered: "Ik zou laten verwijzen naar het scherm waar de betaling kan hernomen worden, waar het zichtbaar is in de site." — the mail names the screen, no link of its own (R6, F9, B9). That screen does not exist yet for a registration: R8 adds it. For a guest, who has no screen: Q6. |
 | Q2 | 9 Oct 2026 | Which release? (architecture CLI, through the master CLI) | "En neen, niet voor v2.16. Dit plannen we ooit." — not planned (B9). |
-| Q6 | 9 Oct 2026 | What does a guest's confirmation mail say about an unpaid online charge? (architecture CLI) | **Open — B8.** |
+| Q6 | 9 Oct 2026 | What does a guest's confirmation mail say about an unpaid online charge? (architecture CLI) | **Open — B8.** Parked by Koen the same day: "graag laten liggen, is voor later" — asked again only when the change request is planned. |
 | Q3 | 9 Oct 2026 | Why not the record's uuid id as the link, without a migration? (shaping) | It is an identifier that appears in board URLs, exports and logs; a capability should appear nowhere else (C4.4). |
 | Q4 | 9 Oct 2026 | Why no job and waiting page for the silent provider? (master CLI, CR-13 C7-B) | A screen and a state for every payment to cover a rare, short failure; the page with the button says it in one sentence (C4.5). |
 | Q5 | 9 Oct 2026 | Where does the pay route get the return address and the description from, since the port does not carry them? (shaping) | Derived from the payable at checkout time, with today's words; the board passes `?terug=` as a local path (C4.2, C5). The build read confirms the words. |
