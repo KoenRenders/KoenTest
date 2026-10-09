@@ -265,9 +265,7 @@ async def gezin_aanmaken(
 
     #713: de beheerder tekent de auditregels.
     """
-    from pydantic import ValidationError
-
-    from app.domains.mdm.api import list_postal_codes
+    from app.domains.mdm.api import EmailAddressInUse, list_postal_codes
     from app.domains.membership.api import (
         create_family_by_admin,
         family_from_rows,
@@ -301,15 +299,13 @@ async def gezin_aanmaken(
 
     try:
         data = family_from_rows(values, parse_member_rows(form))
-    except HTTPException as exc:
-        return _fout(str(exc.detail))
-    except ValidationError as exc:
-        return _fout(str(exc.errors()[0].get("msg", _("Ongeldige invoer."))))
-
-    try:
         gezin = create_family_by_admin(db, data, actor=email)
     except HTTPException as exc:
         return _fout(str(exc.detail))
+    except EmailAddressInUse as in_use:
+        # mdm's own refusal, which the application answers as a JSON 422 for
+        # every other door: here it belongs in the page's banner (#1831).
+        return _fout(str(in_use))
 
     return Response(status_code=204, headers={"HX-Redirect": f"/admin/leden/gezin/{gezin.id}"})
 

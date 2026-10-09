@@ -37,3 +37,16 @@ def message_line(answer) -> str:
     assert line, "the refusal names no message line (HX-Retarget)"
     assert answer.headers.get("HX-Reselect") == "[data-save-refusal]"
     return line
+
+
+_PAGE_BANNER = re.compile(r'role="alert"[^>]*>(.*?)</div>', re.S)
+
+
+def page_banner(answer) -> str:
+    """The text of the error banner of a page that answers its whole form again
+    (the kit's `error_banner`), as the reader sees it."""
+    kind = answer.headers.get("content-type", "")
+    assert "text/html" in kind, f"not an HTML answer ({kind}): the screen shows its general message"
+    found = _PAGE_BANNER.search(answer.text)
+    assert found, "the page carries no error banner"
+    return html.unescape(" ".join(re.sub(r"<[^>]+>", " ", found.group(1)).split()))

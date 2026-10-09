@@ -107,3 +107,32 @@ def says_why_in(line: str):
         return answering_sync
 
     return wrap
+
+
+def schema_refusal_words(refusal) -> str | None:
+    """What a screen says when a request schema refuses a form of a household — one
+    table for the Leden screen's cards, "Nieuw lid" and the public sign-up (#1831).
+
+    A field of the wrong shape gets its own sentence, by the field's name; a rule
+    the schema itself words (`raise ValueError("…")` in a validator) is passed on
+    without the library's "Value error, " in front. None for anything else: the
+    caller decides — a schema that refuses something no form can send is a fault,
+    not a refusal.
+    """
+    from app.i18n import _
+
+    words = {
+        "date_of_birth": _("Vul een geldige geboortedatum in."),
+        "relation_type": _("Kies een relatie uit de lijst."),
+        "email": _("Vul een geldig e-mailadres in."),
+        "extra_emails": _("Vul een geldig e-mailadres in."),
+    }
+    error = refusal.errors()[0]
+    names = [part for part in error.get("loc", ()) if isinstance(part, str)]
+    for name in reversed(names):
+        if name in words:
+            return words[name]
+    if error.get("type") == "value_error":
+        raised = (error.get("ctx") or {}).get("error")
+        return str(raised) if raised is not None else None
+    return None

@@ -63,6 +63,7 @@ from app.domains.mdm.household_board_service import (
 from app.domains.mdm.household_doors import (  # noqa: F401
     household_refusals_as_http,
     says_why_in,
+    schema_refusal_words,
 )
 
 # The one save of a household (CR-11 pilot B, #1590).
@@ -403,6 +404,7 @@ __all__ = [
     "delete_household_person",
     "household_refusals_as_http",
     "says_why_in",
+    "schema_refusal_words",
     "HouseholdSave",
     "HouseholdSaveRefused",
     "household_from_form",

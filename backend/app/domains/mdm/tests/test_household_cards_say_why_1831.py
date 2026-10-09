@@ -34,7 +34,7 @@ from app.domains.mdm.api import (
     PostalCode,
     new_contact_detail,
 )
-from tests._refusal import heading, message_line, said
+from tests._refusal import heading, message_line, page_banner, said
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -231,3 +231,68 @@ def test_a_good_save_answers_the_card_with_an_empty_line(client, db_session, wor
     assert answer.status_code == 200
     assert f'<div id="persoon-{world.partner}-melding" data-form-message' in answer.text
     assert "data-save-refusal" not in answer.text
+
+
+# ── "Nieuw lid": the page's own banner, the list's sentences ─────────────────
+#
+# The page of a new household answered its form again with the reason in a banner
+# — but not always a sentence of the list. Measured before #1831: the schema's
+# rules came with the library's "Value error, " in front, three shapes came in the
+# library's English, an address in use came as a JSON error (the general message),
+# and a name over its column or a gender outside the list ended the request in a
+# 500. Its shape stays; every case answers its sentence now, and makes nothing.
+
+NEW_HOUSEHOLD = [
+    (
+        "no_person",
+        {key: "" for key in NEW if key.endswith("_name")},
+        "Vul minstens het hoofdlid in.",
+    ),
+    ("no_street", {"street": ""}, ADDRESS_RULE),
+    ("unknown_postal_code", {"postal_code": "9999"}, "Onbekende postcode: 9999"),
+    ("no_date_of_birth", {"m1_date_of_birth": ""}, DETAILS_RULE),
+    ("no_gender", {"m1_gender_code": ""}, DETAILS_RULE),
+    ("two_main_members", {"m1_relation_type": "HOOFDLID"}, ONE_MAIN),
+    # Each of these was something else than its sentence until #1831:
+    ("main_without_address", {"m0_email": ""}, "E-mailadres is verplicht voor het hoofdgezinslid."),
+    (
+        "main_without_mobile",
+        {"m0_mobile": ""},
+        "Mobiel nummer is verplicht voor het hoofdgezinslid.",
+    ),
+    ("address_that_is_none", {"m0_email": "geen-adres"}, NO_ADDRESS),
+    ("date_that_is_none", {"m1_date_of_birth": "gisteren"}, DATE_RULE),
+    ("relation_outside_the_list", {"m1_relation_type": "TANTE"}, RELATION_RULE),
+    ("address_of_someone_else", {"m0_email": TAKEN}, IN_USE),
+    ("name_too_long", {"m1_first_name": "x" * 101}, LENGTH_RULE),
+    ("unknown_gender", {"m1_gender_code": "Q"}, GENDER_RULE),
+]
+
+
+@pytest.fixture
+def door(client, db_session) -> dict[str, str]:
+    """The board member's session, a postal code, and one person who holds an
+    address — no household yet."""
+    db_session.add(PostalCode(postal_code="2399", municipality="Proefdorp"))
+    outsider = Person(first_name="Buiten", last_name="Staander")
+    db_session.add(outsider)
+    db_session.flush()
+    db_session.add(new_contact_detail(db_session, outsider, "EMAIL", TAKEN, is_primary=True))
+    db_session.flush()
+    value = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, value)
+    return {"X-CSRF-Token": csrf_token_for(value)}
+
+
+@pytest.mark.parametrize(("case", "changes", "sentence"), NEW_HOUSEHOLD)
+def test_a_new_household_says_why_in_its_banner_and_makes_nothing(
+    client, db_session, door, case, changes, sentence
+):
+    before = _state(db_session)
+
+    answer = client.post("/admin/leden", data=NEW | changes, headers=door)
+
+    assert answer.status_code == 422, (case, answer.status_code)
+    assert page_banner(answer) == sentence
+    assert "Value error" not in answer.text
+    assert _state(db_session) == before, f"{case}: something was made"
