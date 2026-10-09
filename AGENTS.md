@@ -115,6 +115,7 @@ docstrings and tests. This file points there and does not repeat it.
 Never commit secrets, credentials, or operational/infrastructure details to this
 repo. Specifically NOT in git:
 - Server IPs, real domain names, Storage Box users/hosts → use placeholders or env vars.
+  One exception (Koen, 9 October 2026, to the proposal of one sentence that allows it: "akkoord"; earlier that day: "als deze adressen niets zeggen over natuurlijke personen is er wat mij betreft geen probleem"): the association's own public web address may stand as an example — it names no natural person and it already stood in the code. The addresses of the environments (UAT, the platform) and every hostname of the server stay out, as before.
 - Personal backup/ops tooling (Restic scripts, off-site backup pipelines, server
   runbooks, systemd units for personal infra). Keep those local on the server only,
   outside the git checkout.
@@ -676,19 +677,19 @@ Since 6 October 2026 a CLI that is not Claude Code builds in this repository too
 | Name | Tool | Local port | How it listens |
 |---|---|---|---|
 | `mistral-vibe1` | the Mistral CLI, on Koen's machine | — (was 8082) | **stopped on 8 October 2026**: handed CR-17 over to `mistral-cloud1` and builds nothing any more |
-| `mistral-cloud1` | the Mistral CLI, as a cloud session — not on Koen's machine | 8082, started by the master CLI (*A builder that does not run on Koen's machine* below) | said in its first comment on its pull request |
-| `opencode1` | OpenCode, on DeepSeek's API (the limits below) | 8083 | said in its first pull request |
+| `mistral-cloud1` | the Mistral CLI, as a cloud session — not on Koen's machine | 8082, started by the master CLI (*A builder that does not run in Koen's own account* below) | said in its first comment on its pull request |
+| `opencode1` | OpenCode, on DeepSeek's API (the limits below) — on Koen's desktop, as a system user of its own with rootless Docker | 8083, started by the master CLI (*A builder that does not run in Koen's own account* below) | said in its first pull request |
 
 A name is the tool and a number, always — `mistral-vibe1`, `opencode1`, and a second session of a tool is `mistral-vibe2`, `opencode2`. A new builder is added to this table by Koen or the master CLI at his request and gets the next free port (8084, 8085, …). The master CLI watches the branches of every name in the table. The branches the Mistral CLI opened before 7 October 2026 are named `feature/mistral-…`; they are `mistral-vibe1`'s.
 
 **`opencode1` runs on DeepSeek, through DeepSeek's own API — a named deviation from Europe First, with hard limits** (Koen, 7 October 2026, choosing it as an evaluation over DeepSeek's open weights at an EU host). What the model is sent is stored in China. The source of this repository is public, so the code is not the risk; the risk is everything else within the tool's reach. Ten limits, and they hold for as long as `opencode1` uses a model outside the EU:
 
-*Set up on the machine by Koen — no reviewer can see these:*
+*Enforced by the machine since 9 October 2026 — no reviewer can see these, and none has to. `opencode1` runs as a system user of its own: without sudo, outside the Docker group (its Docker is rootless, in its own session), with a clone of this repository of its own and a GitHub token that reaches this repository only, and without any access to Koen's home folder. Until then these five were agreements, because the tool ran in Koen's own account:*
 1. A working copy that holds only a clone of this repository: its own folder, nothing else in reach.
 2. No `.env*` file with real values in that working copy or in its parent folders.
 3. No `raak` alias, no SSH keys, no access to the server.
-4. Never against HDEV, UAT or PROD: only its own local test version (port 8083), with made-up data.
-5. **No access to Koen's project folder outside the repository** — it holds member reports and logs with real personal data. The start and stop commands and the sign-in script of its local test version live in a folder of its own beside its working copy, not next to the change request as for the other builders.
+4. Never against HDEV, UAT or PROD: only its own development containers, with made-up data. The machine takes the keys away (limit 3), not the network: the public address of an environment stays reachable, so this one remains an agreement and the reviewer watches for it (limits 6 and 7).
+5. **No access to Koen's project folder outside the repository** — it holds member reports and logs with real personal data. What `opencode1` needs to read about its change request is put in a documents folder in its own home; the test version Koen judges is not its own to start (below).
 
 *Checked by the Claude dev CLI in every pull request of `opencode1`, and named in its review:*
 6. No `.env*` file, credential, token, hostname, IP address or real domain in the diff.
@@ -731,11 +732,11 @@ An outside builder also never deploys, never reads an environment (`raak` is the
 - **made-up data only**, with accounts on a reserved example domain for the roles Koen needs to walk (an administrator, a treasurer, a board member);
 - **nothing leaves the machine**: no mail is sent, no payment provider and no AI provider is called;
 - **one way in that needs no secret**: a small script that prints the sign-in link from the version's own mail log;
-- the start and stop commands, the address and the script live **outside this repository**, in Koen's project folder next to the change request; no local path and no credential enters the repository, an issue or a pull request (For `opencode1`: in a folder of its own, limit 5 above.)
+- the start and stop commands, the address and the script live **outside this repository**, in Koen's project folder next to the change request; no local path and no credential enters the repository, an issue or a pull request (For a builder outside Koen's own account they are the master CLI's, below.)
 
 The pull request says that the local version exists and which branch it runs; where it stands is said to Koen in the builder's own chat.
 
-**A builder that does not run on Koen's machine** (a cloud session; Koen, 8 October 2026, when `mistral-cloud1` took CR-17 over) cannot give him that local version, so **the master CLI starts it**, on the builder's port and under the same rules as above. The signal is the builder's *ready for review, commit `<sha>`* with a green run on that commit — not every commit: a rebuild takes time and the run filters the red tips out — or the builder's comment *test version please* for one in between. Before it starts, the master CLI looks at what the commit changes in the container set-up and the start-up scripts (`Dockerfile`, the compose files, `startup.sh`): if it touches them, the version waits for the review of that commit, because this is a builder's code run from a session that can reach the environments. It does not start a rebuild beside a full local run of another CLI. When the version stands, the master CLI says so to Koen in its chat and in one line on the pull request. Such a builder keeps nothing on Koen's machine: no working copy, no script, no access to his project folder.
+**A builder that does not run in Koen's own account** — a cloud session, or a system user of its own on his machine (Koen, 8 October 2026, when `mistral-cloud1` took CR-17 over; widened on 9 October 2026 to `opencode1`, on the proposal "een builder die niet in Koens eigen gebruiker draait, krijgt zijn testversie van de master-CLI": "helemaal mee eens") — cannot give him that local version, so **the master CLI starts it**, on the builder's port and under the same rules as above. The signal is the builder's *ready for review, commit `<sha>`* with a green run on that commit — not every commit: a rebuild takes time and the run filters the red tips out — or the builder's comment *test version please* for one in between. Before it starts, the master CLI looks at what the commit changes in the container set-up and the start-up scripts (`Dockerfile`, the compose files, `startup.sh`): if it touches them, the version waits for the review of that commit, because this is a builder's code run from a session that can reach the environments. **For `opencode1` the version waits for the review of every commit**, whatever it touches (Koen, 9 October 2026, asked whether that was his meaning: "ja"): its model runs outside the EU and its code is then run in Koen's own account. Its own rootless Docker is for building and testing only, on other ports; port 8083 is the master CLI's version for Koen. It does not start a rebuild beside a full local run of another CLI. When the version stands, the master CLI says so to Koen in its chat and in one line on the pull request. Such a builder keeps nothing in Koen's account: no working copy, no script, no access to his project folder.
 
 **A builder that hands its work over** to another builder says so in one comment on the pull request — everything pushed, what is done and what is not, every decision of Koen it heard that is not on the pull request yet — and then stops: it pushes nothing more and answers no comment. The pull request's first line names the builder that continues, and from that comment on only that builder acts on it.
 
