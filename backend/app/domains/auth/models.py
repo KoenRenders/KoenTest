@@ -30,12 +30,68 @@ class Role(CodeEnum):
     FINANCE = "FINANCE"
     OPERATOR = "OPERATOR"
     ACCOUNT_ADMIN = "ACCOUNT_ADMIN"
+    #: CR-24 (#1722): master data, and the three roles the webshop needs
+    #: (CR-21). In the enum in the same change as the migration that adds the
+    #: codes: a stored code that is no member raises on read (F9).
+    MASTERDATA = "MASTERDATA"
+    PRICING = "PRICING"
+    SALES = "SALES"
+    STOCK = "STOCK"
     #: Retired since CR-12 phase 2. They existed since migration 001, were
     #: filtered out on every screen, and nobody holds them. The member stays,
     #: because a retired code keeps its member (§B4.3) — otherwise an old row
     #: would read back as a bare string.
     MEMBER = "MEMBER"
     USER = "USER"
+
+
+class Right(CodeEnum):
+    """What a gate asks for (CR-24 §B1, #1722): a right, never a role's name.
+
+    Per kind of object two rights (D1): `<object>.view` for a route that only
+    reads, `<object>.manage` for one that changes — for master data
+    `party.masterdata` and `product.masterdata`. `assistant.use` and
+    `workbench.use` have no changing counterpart. A role is a bundle of these,
+    kept as rows in `auth.role_rights`; who holds what is data, and this enum
+    only says which rights exist.
+    """
+
+    ACTIVITY_VIEW = "activity.view"
+    ACTIVITY_MANAGE = "activity.manage"
+    FORM_VIEW = "form.view"
+    FORM_MANAGE = "form.manage"
+    PAGE_VIEW = "page.view"
+    PAGE_MANAGE = "page.manage"
+    MEDIA_VIEW = "media.view"
+    MEDIA_MANAGE = "media.manage"
+    DESIGN_VIEW = "design.view"
+    DESIGN_MANAGE = "design.manage"
+    NEWSLETTER_VIEW = "newsletter.view"
+    NEWSLETTER_MANAGE = "newsletter.manage"
+    MEETING_VIEW = "meeting.view"
+    MEETING_MANAGE = "meeting.manage"
+    REPORT_VIEW = "report.view"
+    REPORT_MANAGE = "report.manage"
+    ASSISTANT_USE = "assistant.use"
+    PARTY_VIEW = "party.view"
+    PARTY_MASTERDATA = "party.masterdata"
+    PRODUCT_VIEW = "product.view"
+    PRODUCT_MASTERDATA = "product.masterdata"
+    PRICE_VIEW = "price.view"
+    PRICE_MANAGE = "price.manage"
+    SALES_VIEW = "sales.view"
+    SALES_MANAGE = "sales.manage"
+    STOCK_VIEW = "stock.view"
+    STOCK_MANAGE = "stock.manage"
+    PAYMENT_VIEW = "payment.view"
+    PAYMENT_MANAGE = "payment.manage"
+    WORKBENCH_USE = "workbench.use"
+    USER_VIEW = "user.view"
+    USER_MANAGE = "user.manage"
+    SETTINGS_VIEW = "settings.view"
+    SETTINGS_MANAGE = "settings.manage"
+    PLATFORM_VIEW = "platform.view"
+    PLATFORM_MANAGE = "platform.manage"
 
 
 class User(SoftDeleteMixin, Base):
@@ -220,4 +276,59 @@ class RoleLabel(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
+    )
+
+
+class RightCode(Base):
+    """Which rights exist — the target of the foreign key (CR-24, #1722)."""
+
+    __tablename__ = "right_codes"
+    __table_args__ = {"schema": "auth"}
+
+    code = Column(String(50), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
+class RightLabel(Base):
+    """The word for a right, per language (CR-24, #1722)."""
+
+    __tablename__ = "right_labels"
+    __table_args__ = {"schema": "auth"}
+
+    code = Column(String(50), ForeignKey("auth.right_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class RoleRight(Base):
+    """One right in one role's bundle (CR-24 §B1 D2, #1722).
+
+    A role is a bundle of rights and the bundle is these rows: written by a
+    migration, the same in every workspace — hence no tenant column, and
+    deliberately no tenant mixin. No screen composes them (R14); one that
+    later does edits these same rows.
+    """
+
+    __tablename__ = "role_rights"
+    __table_args__ = {"schema": "auth"}
+
+    role_code: Mapped[Role] = mapped_column(
+        EnumColumn(Role, length=20), ForeignKey("auth.role_codes.code"), primary_key=True
+    )
+    right_code: Mapped[Right] = mapped_column(
+        EnumColumn(Right, length=50), ForeignKey("auth.right_codes.code"), primary_key=True
     )
