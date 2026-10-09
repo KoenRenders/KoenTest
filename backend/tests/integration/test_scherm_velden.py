@@ -66,6 +66,8 @@ BIJZONDERE_WAARDEN = {
     "legal_form": "VZW",
     # #1517: a checked enterprise number, in its stored form (ten digits).
     "enterprise_number": "0123456749",
+    # #1853: an e-mail address that is one.
+    "email": "proef@example.com",
     "mail_mode": "log_only",
     "noindex": "1",
     "language": "nl_BE",
@@ -312,3 +314,56 @@ def test_de_naam_wijzigen_verandert_de_paginatitel(client, platform_workspace, d
     from app.kernel.tenant_config import tenant_display_name
 
     assert tenant_display_name(db_session, TENANT) == "Raak Andersgem"
+
+
+def test_een_emailadres_dat_geen_adres_is_wordt_op_zijn_veld_geweigerd(
+    client, platform_workspace, db_session
+):
+    """#1853: the organisation's e-mail field took any text; the address was stored
+    and a mail to it never left. The rule is the contact detail's own
+    (`require_email_address`); this screen asks it first, so the refusal stands on
+    the field, what was typed comes back, and nothing of the form is written.
+
+    Red: the question in `_write_organization_details` removed → the contact
+    detail refuses at the flush and the screen answers a server error."""
+    from app.domains.mdm.api import ContactDetail, Organization
+
+    csrf = _operator(client, db_session)
+    client.post(
+        f"/admin/organisaties/{TENANT}",
+        data=_organisatieformulier(),
+        headers={"X-CSRF-Token": csrf},
+    )
+
+    def stored() -> tuple:
+        db_session.expire_all()
+        organisatie = (
+            db_session.query(Organization)
+            .filter(Organization.id == TENANT)
+            .execution_options(include_all_tenants=True)
+            .one()
+        )
+        rows = (
+            db_session.query(ContactDetail)
+            .filter(ContactDetail.organization_id == TENANT)
+            .execution_options(include_all_tenants=True)
+        )
+        return organisatie.name, sorted((r.contact_type_code, r.value) for r in rows)
+
+    before = stored()
+    assert ("EMAIL", "proef@example.com") in before[1]
+
+    antwoord = client.post(
+        f"/admin/organisaties/{TENANT}",
+        data={
+            **_organisatieformulier(),
+            "name": "Andere naam",
+            "email": "secretariaat zonder adres",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
+
+    assert antwoord.status_code == 422
+    assert "Vul een geldig e-mailadres in." in antwoord.text
+    assert 'value="secretariaat zonder adres"' in antwoord.text, "what was typed is gone"
+    assert stored() == before, "a refused form was written all the same"

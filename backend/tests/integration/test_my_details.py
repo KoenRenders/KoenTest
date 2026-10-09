@@ -156,6 +156,26 @@ def test_the_mobile_number_and_the_e_mail_rows_are_written(client, db_session, m
     assert "tweede-1710@example.org" in read and "hoofdadres" in read
 
 
+def test_an_e_mail_row_that_is_no_address_is_refused_at_its_row(client, db_session, member):
+    """#1853: the rule of the contact detail, asked at the row's own field — and a
+    refused save writes nothing, also not the mobile number typed beside it."""
+    block = person_block(member, edit=True)
+    key = block.person.key
+    data = _form(member, block, mobile="0470 11 22 33")
+    data[f"e_order.{key}"] = [*data[f"e_order.{key}"], "nieuw1"]
+    data["e.nieuw1.value"] = "emma zonder adres"
+
+    answer = _save(client, data)
+
+    assert answer.status_code == 422
+    assert "Vul een geldig e-mailadres in." in answer.text
+    assert "e.nieuw1.value" in answer.text, "the refusal does not name the row's field"
+    db_session.expire_all()
+    person = db_session.get(Person, member.id)
+    rows = {(c.contact_type_code, c.value) for c in person.contact_details if c.deleted_at is None}
+    assert rows == {("EMAIL", EMAIL)}, rows
+
+
 def test_a_form_that_names_another_person_is_refused_whole(client, db_session, member):
     _other_household, other = create_test_family(db_session, email="ander-1710@example.org")
     other.first_name = "Ander"

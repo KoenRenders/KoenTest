@@ -21,7 +21,12 @@ from app.domains.mdm.household_service import (
     OutsideHousehold,
     PersonNotFound,
 )
-from app.domains.mdm.models import EmailAddressInUse, MasterDataError, PersonDetailsMissing
+from app.domains.mdm.models import (
+    EmailAddressInUse,
+    EmailAddressInvalid,
+    MasterDataError,
+    PersonDetailsMissing,
+)
 
 STATUS = {
     HouseholdNotFound: 404,
@@ -48,12 +53,12 @@ def household_refusals_as_http() -> Iterator[None]:
 
 def says_why_in(line: str):
     """A refusal of this route goes to the message line of ITS card (#1831): the
-    kit's `says_why_in`, with mdm's own refusal beside the status codes — an
-    address in use, which the application answers as a JSON 422 for every other
-    door (`main.py`)."""
+    kit's `says_why_in`, with mdm's own refusals beside the status codes — an
+    address in use, and a text that is no address (#1853) — which the application
+    answers as a JSON 422 for every other door (`main.py`)."""
     from app.ui import says_why_in as kit_says_why_in
 
-    return kit_says_why_in(line, EmailAddressInUse)
+    return kit_says_why_in(line, EmailAddressInUse, EmailAddressInvalid)
 
 
 def schema_refusal_words(refusal) -> str | None:

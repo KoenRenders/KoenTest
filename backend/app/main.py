@@ -49,7 +49,7 @@ from app.domains.mail.handlers import (
 )
 from app.domains.mail.ui import router as email_log_ui_router
 from app.domains.mdm.account_ui import router as mdm_account_ui_router
-from app.domains.mdm.api import EmailAddressInUse
+from app.domains.mdm.api import EmailAddressInUse, EmailAddressInvalid
 from app.domains.mdm.handlers import (  # noqa: F401 - event subscriptions (#1346)
     set_circle_start_when_chosen,
 )
@@ -524,8 +524,9 @@ async def _http_exception_handler(request: Request, exc: StarletteHTTPException)
     return await http_exception_handler(request, exc)
 
 
+@app.exception_handler(EmailAddressInvalid)
 @app.exception_handler(EmailAddressInUse)
-async def _email_address_in_use_handler(request: Request, exc: EmailAddressInUse):
+async def _email_address_in_use_handler(request: Request, exc: Exception):
     """CR-22 (#1704): an e-mail address another person already uses is a refusal
     with its reason, at whichever door it was typed — the answer a form shows
     under its field or in its message, never the 500 of an unhandled error.
@@ -534,6 +535,9 @@ async def _email_address_in_use_handler(request: Request, exc: EmailAddressInUse
     data's `new_contact_detail`) and ten writers reach it through a dozen
     doors; a door that forgot its `try` would answer "Interne serverfout" to
     someone who only typed an address that was taken.
+
+    #1853: the same for a text that is no address — the contact detail refuses
+    it at the flush, whatever door wrote it.
     """
     return await http_exception_handler(
         request, StarletteHTTPException(status_code=422, detail=str(exc))

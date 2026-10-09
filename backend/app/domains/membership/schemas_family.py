@@ -6,9 +6,14 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr, model_validator
+from pydantic import BaseModel, model_validator
 
-from app.domains.mdm.api import MainMemberMobileMissing, MemberPerson, RelationType
+from app.domains.mdm.api import (
+    EmailAddress,
+    MainMemberMobileMissing,
+    MemberPerson,
+    RelationType,
+)
 
 
 class FamilyMemberCreate(BaseModel):
@@ -18,11 +23,11 @@ class FamilyMemberCreate(BaseModel):
     # Canoniek is `gender_code`; `gender` blijft als alias aanvaard voor compat (#125).
     gender_code: Optional[str] = None
     gender: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[EmailAddress] = None
     # #1246: further addresses of this person. `email` is the primary one — at a
     # first registration the first address typed is the primary address (Koen,
     # 28 September 2026); these are stored beside it, not as primary.
-    extra_emails: List[EmailStr] = []
+    extra_emails: List[EmailAddress] = []
     phone: Optional[str] = None
     mobile: Optional[str] = None
     # CR-12 phase 2: form → router (Pydantic). An unknown relation type is now
