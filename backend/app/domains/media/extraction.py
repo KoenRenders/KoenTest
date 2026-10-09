@@ -211,13 +211,26 @@ def extract_document_text(raw: bytes, content_type: str, tenant_id: Optional[int
 
 
 def update_media_extracted_text(asset_id: int, db, force: bool = False) -> None:
-    """Achtergrond-taak: extraheer de tekst van één media-asset naar chatbot_info.
+    """The reading job's work: read the text of one stored document and say what
+    was read (CR-13 phase 4d, #1251).
 
-    Zonder ``db`` (als achtergrond-taak) → eigen sessie. Vindt-of-maakt de
-    ``chatbot_info``-rij voor dit asset en vult ``extracted_text``. Slaat over als
-    die al gevuld is, tenzij ``force`` (de 'Opnieuw lezen'-knop). Raakt nooit
-    ``text_override``/``text_addition`` aan — handmatige bewerkingen blijven staan.
+    Publishes `DocumentTextExtracted`, in the job's transaction; the chatbot
+    keeps the text in its own row for the document — this function writes no row
+    of the AI context. Skipped when the chatbot has the text already, unless
+    `force` (the "Opnieuw lezen" button).
+
+    A reading that FAILS — the provider, the file — is logged and leaves the
+    document as it was: it never breaks what planned it. A reading that NOBODY
+    HEARS is another thing: the process did not register the chatbot's handler
+    (`app.main` does), and the text would be read and lost. That raises, outside
+    the catch below, so the job fails where someone sees it instead of ending
+    "done" after one warning.
     """
+    if not has_subscribers(DocumentTextExtracted):
+        raise RuntimeError(
+            "nothing listens for DocumentTextExtracted: the chatbot's handler is not "
+            "registered in this process (app.main imports it)"
+        )
     try:
         asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
         if not asset or not asset.data:
@@ -229,8 +242,6 @@ def update_media_extracted_text(asset_id: int, db, force: bool = False) -> None:
         # was read already is a question to it; what was read is a fact it hears.
         if not force and has_extracted_text(db, asset_id):
             return  # al uitgelezen → niets te doen
-        if not has_subscribers(DocumentTextExtracted):
-            raise RuntimeError("nothing listens for DocumentTextExtracted")
 
         text = extract_document_text(asset.data, asset.content_type, tenant_id=asset.tenant_id)
         publish(
