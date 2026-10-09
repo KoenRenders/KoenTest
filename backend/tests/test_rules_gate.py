@@ -32,6 +32,12 @@ nothing fixed may stay on the list — a list that does not shrink is no ratchet
 The frozen lists are in `rules_baseline.py`; phase 4 deletes that file. Keys carry
 no line numbers (they shift on the first unrelated edit); the messages do.
 
+**A gate whose list is empty is hard** (phase 4d, #1251): it reads no list any more
+(`_hard`), so any offender is red and there is no "left behind" half. Nine are
+hard; the others stay ratchets until their last entries leave. The Dutch
+identifiers (#780) are not CR-13's: their ratchet stays, on a file of its own
+(`dutch_identifiers_baseline.py`).
+
 **Every collector proves it looked** (#678): it asserts it found what it walks —
 the models, the packages, the handlers, the routes, the mappers — before any
 verdict, so a moved folder or a changed decorator cannot turn it silently green.
@@ -50,6 +56,7 @@ from pathlib import Path
 
 import pytest
 
+from tests import dutch_identifiers_baseline
 from tests import rules_baseline as baseline
 from tests._bestanden import is_app_test
 
@@ -2416,10 +2423,16 @@ COLLECTORS = {
 }
 
 
-def _ratchet(name: str) -> None:
+def _hard(name: str) -> None:
+    """No offender at all: the gate reads no list (phase 4d)."""
+    found = COLLECTORS[name]()
+    assert not found, "Violations:\n  " + "\n  ".join(found[key] for key in sorted(found))
+
+
+def _ratchet(name: str, frozen=None, *, where: str = "rules_baseline") -> None:
     """Nothing new, and nothing left behind."""
     found = COLLECTORS[name]()
-    frozen = getattr(baseline, name)
+    frozen = getattr(baseline, name) if frozen is None else frozen
     added = sorted(set(found) - set(frozen))
     gone = sorted(set(frozen) - set(found))
     errors = []
@@ -2427,7 +2440,7 @@ def _ratchet(name: str) -> None:
         errors.append("New violations:\n  " + "\n  ".join(found[k] for k in added))
     if gone:
         errors.append(
-            f"These are still in `rules_baseline.{name}` but no longer occur:\n  "
+            f"These are still in `{where}.{name}` but no longer occur:\n  "
             + "\n  ".join(gone)
             + "\nRemove them from the list — a ratchet that does not shrink is no ratchet."
         )
@@ -2435,21 +2448,22 @@ def _ratchet(name: str) -> None:
 
 
 def test_no_session_on_an_entity():
-    """Ratchet. Proof (run, restored): a function `_probe_session(db)` returning
+    """Hard since phase 4d — a ratchet until its list was empty. Proof (run,
+    restored; again when it went hard): a function `_probe_session(db)` returning
     `db.query(...)` added to `activities/models.py` → red, "`_probe_session` takes a
     `db` parameter"."""
-    _ratchet("SESSION_ON_ENTITY")
+    _hard("SESSION_ON_ENTITY")
 
 
 def test_module_shape():
-    """Ratchet for today's packages; a new package is not on the list, so any
-    missing piece of it is red. Proof: an empty `app/domains/proefdomein/__init__.py`
+    """Hard since phase 4d: every package has every piece. Proof (again when it
+    went hard): an empty `app/domains/proefdomein/__init__.py`
     added → red with five missing pieces."""
-    _ratchet("MODULE_SHAPE")
+    _hard("MODULE_SHAPE")
 
 
 def test_no_commit_in_an_event_handler():
-    """Ratchet on one entry, hard for any other handler.
+    """Hard since phase 4d — until phase 4 a ratchet on one entry.
 
     The change request planned this gate hard from phase 0, reading "one level in
     the same module". Followed three levels, it finds the one offender that
@@ -2457,14 +2471,14 @@ def test_no_commit_in_an_event_handler():
     _log_email`. Phase 4 turns that handler into a job enqueuer (§B4.1) and removes
     the entry. Proof: `db.commit()` added to
     `workflow.handlers.create_behartigen_task` → red, naming that handler."""
-    _ratchet("COMMIT_IN_HANDLER")
+    _hard("COMMIT_IN_HANDLER")
 
 
 def test_no_network_in_an_event_handler():
-    """Ratchet on `mail.on_mail_requested` (SMTP via `_send`) until phase 4 turns it
-    into a job. Proof: an `import httpx` and an `httpx.get(...)` added to
+    """Hard since phase 4d — a ratchet on `mail.on_mail_requested` (SMTP via `_send`)
+    until phase 4 turned it into a job. Proof (again when it went hard): an `import httpx` and an `httpx.get(...)` added to
     `workflow.handlers.create_behartigen_task` → red, naming that handler."""
-    _ratchet("NETWORK_IN_HANDLER")
+    _hard("NETWORK_IN_HANDLER")
 
 
 def test_every_json_route_names_its_caller():
@@ -2485,7 +2499,11 @@ def test_no_new_dutch_identifier():
     `domains/activities/service.py::bereken_iets` added to the baseline without the
     code → red, "no longer occur"; the existing Dutch names in the baseline → green,
     which this run is."""
-    _ratchet("DUTCH_IDENTIFIERS")
+    _ratchet(
+        "DUTCH_IDENTIFIERS",
+        dutch_identifiers_baseline.DUTCH_IDENTIFIERS,
+        where="dutch_identifiers_baseline",
+    )
 
 
 def test_no_new_foreign_write():
@@ -2499,11 +2517,12 @@ def test_no_new_foreign_write():
 
 
 def test_no_write_after_a_commit():
-    """Ratchet on one entry (`delete_registration`, phase 1). Proof (run, removed): a
+    """Hard since phase 4d — a ratchet on one entry (`delete_registration`) until
+    phase 1. Proof (run, removed; again when it went hard): a
     function `db.add(a); db.commit(); db.add(b)` added to `cms/service.py` → red,
     "db.add() after the commit on line …". The shapes that are not a violation are
     pinned below, on sources of their own."""
-    _ratchet("WRITE_AFTER_COMMIT")
+    _hard("WRITE_AFTER_COMMIT")
 
 
 @pytest.mark.parametrize(
@@ -2893,18 +2912,19 @@ def test_no_new_write_outside_a_service():
 
 
 def test_no_new_write_past_the_orm():
-    """Ratchet (§B9.3 (c)). Proof (run, removed): a function in `cms/service.py` doing
+    """Hard since phase 4d (§B9.3 (c)). Proof (run, removed; again when it went
+    hard): a function in `cms/service.py` doing
     `db.query(CmsPage).filter(CmsPage.id == 1).update({"title": "x"})` → red, "bulk
     .update() `cms.CmsPage` past the ORM"."""
-    _ratchet("NON_ORM_WRITES")
+    _hard("NON_ORM_WRITES")
 
 
 def test_one_owner_per_derived_value():
-    """Ratchet (§B9.3). The collector first proves each shape recognises its own owner.
-    Proof (run, removed): a function in `cms/service.py` returning
+    """Hard since phase 4d (§B9.3). The collector first proves each shape recognises
+    its own owner. Proof (run, removed; again when it went hard): a function in `cms/service.py` returning
     `sum(i.quantity * i.product.price for i in items)` → red, "computes
     `registration.total` a second time"."""
-    _ratchet("DERIVED_ELSEWHERE")
+    _hard("DERIVED_ELSEWHERE")
 
 
 @pytest.mark.parametrize(
@@ -2935,19 +2955,23 @@ def test_a_record_state_is_decided_on_the_paid_amount():
 
 
 def test_every_promise_is_kept():
-    """Ratchet on nothing today — so hard (§B9.3). Proof (run, removed), additive, in a
-    new `activities/templates/_zz_probe.html`: a `<textarea name="description"
-    required>` inside `<form hx-post="/admin/activiteiten/{{ a.id }}">` → red,
-    "promises `description` required; the column `description` has no NOT NULL,
-    CHECK, validator or schema constraint"."""
-    _ratchet("PROMISE_NOT_KEPT")
+    """Hard (§B9.3): it never had an entry, and reads no list since phase 4d. Proof
+    (run, removed; again when it went hard), additive, in a
+    new `activities/templates/_zz_probe.html`: an `<input name="bus_number"
+    required>` inside `<form hx-post="/admin/leden/gezin/{{ g.id }}/adres">` → red,
+    "promises `bus_number` required; the column `bus_number` has no NOT NULL, CHECK,
+    validator or schema constraint". (The first proof used the activity fiche's
+    `description`; since #1559 that route reads its form by name in a loop, so the
+    walk stops there — "cannot be walked" — and no longer reaches this gate.)"""
+    _hard("PROMISE_NOT_KEPT")
 
 
 def test_no_new_promise_that_cannot_be_walked():
-    """Ratchet with the step where each walk stops (§B9.3, the 21 of §B10). Proof (run,
-    removed): in the same probe template, an `<input name="zz_probe" required>` before
+    """Hard since phase 4d (§B9.3): a promise the walk cannot follow names the test
+    that walks it (the declaration, below), or is red with the step where the walk
+    stops. Proof (run, removed; again when it went hard): in the same probe template, an `<input name="zz_probe" required>` before
     the form → red, "cannot be walked: no form target"."""
-    _ratchet("PROMISE_UNWALKABLE")
+    _hard("PROMISE_UNWALKABLE")
 
 
 # ── A promise walked by a test: the declaration at the input ─────────────────
