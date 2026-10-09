@@ -418,10 +418,14 @@ async def persoon_opslaan(
         ContactsUpdate,
         PersonUpdate,
         board_request,
+        require_relation_allowed,
         update_person,
         update_person_contacts,
     )
 
+    # Asked before anything is written: this save commits in steps, and a
+    # relation refused at the end would leave the card half saved.
+    require_relation_allowed(db, family_id, person_id, relation_type)
     update_person(
         db,
         person_id,
@@ -448,9 +452,9 @@ async def persoon_opslaan(
     from app.domains.mdm.api import apply_email_rows
 
     apply_email_rows(db, person_id, await request.form(), actor=email)
-    # Relatietype op de MemberPerson-junctie (#498). De regel — nooit promoveren
-    # tot HOOFDLID, nooit een bestaand HOOFDLID overschrijven — staat sinds #635-F
-    # in de service, met een rauwe query minder in dit scherm.
+    # Relatietype op de MemberPerson-junctie (#498). De regel — een gezin heeft
+    # één hoofdlid, en een bestaand HOOFDLID wordt niet overschreven — staat
+    # in de service.
     from app.domains.mdm.api import set_relation_type
 
     set_relation_type(db, family_id, person_id, relation_type)

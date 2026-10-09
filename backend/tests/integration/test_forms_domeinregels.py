@@ -184,4 +184,11 @@ def test_promoveren_tot_hoofdlid_kan_niet_via_dit_pad(db_session):
     db_session.add(MemberPerson(member_id=member.id, person_id=kind.id, relation_type="KIND"))
     db_session.flush()
 
-    assert set_relation_type(db_session, member.id, kind.id, "HOOFDLID") is False
+    # Until the one-main-member rule this was dropped in silence (`False`);
+    # it is refused now, like at every entrance (`test_one_main_member_1251.py`).
+    with pytest.raises(HTTPException) as refusal:
+        set_relation_type(db_session, member.id, kind.id, "HOOFDLID")
+    assert (refusal.value.status_code, refusal.value.detail) == (
+        422,
+        "Een gezin heeft één hoofdlid.",
+    )

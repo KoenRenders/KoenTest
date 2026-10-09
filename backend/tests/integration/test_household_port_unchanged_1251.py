@@ -197,9 +197,11 @@ def test_the_board_creates_a_household_as_it_did(client, db_session, world):
         ("board_refused_no_street", {"street": ""}),
         ("board_refused_no_birth_date", {"m2_date_of_birth": ""}),
         ("board_refused_no_gender", {"m1_gender_code": ""}),
-        # Not a refusal today: a second main member is taken as typed. Recorded
-        # as it is — this cut changes no rule.
-        ("board_takes_two_main_members", {"m1_relation_type": "HOOFDLID"}),
+        # Recorded again on purpose, after the move: a second main member was
+        # taken as typed (a 204, two main members, two addresses) and is refused
+        # since the repair that followed — `test_one_main_member_1251.py` holds
+        # that change, red before it.
+        ("board_refused_two_main_members", {"m1_relation_type": "HOOFDLID"}),
         (
             "board_refused_no_person",
             {key: "" for key in BOARD if key.endswith(("_first_name", "_last_name"))},

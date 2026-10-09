@@ -32,6 +32,11 @@ from app.domains.mdm.household_board_schemas import (
     PersonAddToFamily,
     PersonUpdate,
 )
+from app.domains.mdm.household_service import (
+    HouseholdRefused,
+    household_relations,
+    require_one_main_member,
+)
 from app.domains.mdm.models import (
     Address,
     GenderCode,
@@ -141,7 +146,7 @@ def _require_whole_address(street, house_number, postal_code) -> None:
     (`require_whole_address`, #1603), which the portal's save always asked. The
     back office's forms mark the three as required, and the server keeps that
     promise here (CR-13 phase 4c, #1251). A 422, as this service's other refusals."""
-    from app.domains.mdm.household_service import HouseholdRefused, require_whole_address
+    from app.domains.mdm.household_service import require_whole_address
 
     try:
         require_whole_address(
@@ -324,6 +329,7 @@ def add_person_to_family(
         MemberPerson.require_details(data.date_of_birth, data.gender_code)
     except PersonDetailsMissing as fout:
         raise HTTPException(status_code=422, detail=str(fout))
+    _require_one_main_member([*household_relations(member), data.relation_type])
     _require_storable(db, data.first_name, data.last_name, data.gender_code)
 
     # A blank first or last name is refused by the person itself (#1251: it
@@ -428,24 +434,47 @@ def set_relation_type(db, family_id: int, person_id: int, relation_type: str) ->
     # not get in, and `RelationType(...)` already refuses it here with the
     # name of the list.
 
-    try:
-        gevraagd = RelationType((relation_type or "").strip())
-    except ValueError:
+    asked = require_relation_allowed(db, family_id, person_id, relation_type)
+    if asked is None:
         return False
-    if gevraagd is RelationType.PRIMARY_MEMBER:
-        return False
-
-    koppeling = (
-        db.query(MemberPerson)
-        .filter(MemberPerson.member_id == family_id, MemberPerson.person_id == person_id)
-        .first()
-    )
-    if koppeling is None or koppeling.relation_type is RelationType.PRIMARY_MEMBER:
-        return False
-
-    koppeling.relation_type = gevraagd
+    link, relation = asked
+    link.relation_type = relation
     db.commit()
     return True
+
+
+def require_relation_allowed(
+    db: Session, family_id: int, person_id: int, relation_type: str
+) -> Optional[tuple[MemberPerson, RelationType]]:
+    """The link and the relation a change of relation would write — None when
+    there is nothing to change (an unknown word, a person outside the household,
+    the main member himself, who keeps his place) — or a 422 when the household
+    would get a second main member (`require_one_main_member`).
+
+    The save of a person's card asks it first, before it writes anything, and
+    `set_relation_type` asks it again where it writes: one function, so the
+    card cannot be half saved and then refused."""
+    try:
+        relation = RelationType((relation_type or "").strip())
+    except ValueError:
+        return None
+    links = (
+        db.query(MemberPerson).filter(MemberPerson.member_id == family_id).order_by(MemberPerson.id)
+    ).all()
+    link = next((one for one in links if one.person_id == person_id), None)
+    if link is None or link.relation_type is RelationType.PRIMARY_MEMBER:
+        return None
+    others = [one.relation_type for one in links if one is not link]
+    _require_one_main_member([*others, relation])
+    return link, relation
+
+
+def _require_one_main_member(relations) -> None:
+    """mdm's one rule, with the status this door gives a refusal."""
+    try:
+        require_one_main_member(relations)
+    except HouseholdRefused as refusal:
+        raise HTTPException(status_code=422, detail=str(refusal)) from refusal
 
 
 #: The action in every history row of a household that is deleted. Stored data.
