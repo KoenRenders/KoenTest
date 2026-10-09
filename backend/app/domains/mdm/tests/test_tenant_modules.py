@@ -143,9 +143,9 @@ def test_every_unit_is_seeded_full_and_the_platform_with_its_own_set(db_session)
 
 def test_the_defaults_per_kind_and_a_new_tenant(db_session):
     """C6 test 2, the defaults: an association has everything, a company the
-    four of §C2. A tenant made today starts as an association (the kind is #1478)."""
+    three of §C2 that are modules (the workbench, its fourth, is core: #1876). A tenant made today starts as an association (the kind is #1478)."""
     assert DEFAULTS["VERENIGING"] == frozenset(ModuleCode)
-    assert {c.value for c in DEFAULTS["BEDRIJF"]} == {"cms", "media", "forms", "workflow"}
+    assert {c.value for c in DEFAULTS["BEDRIJF"]} == {"cms", "media", "forms"}
 
     org = create_tenant(db_session, name="Proeftenant 1475", code="proef-1475")
     assert enabled_modules(org.id, db=db_session) == EVERY

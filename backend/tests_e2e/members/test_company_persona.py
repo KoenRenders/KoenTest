@@ -4,7 +4,8 @@ B2 steps 1–8 on a tenant of kind BEDRIJF.
 1. The operator creates the tenant through "Nieuwe tenant", type Bedrijf. Through
    the screen and not in this process: the server's tenant cache is cleared only
    by the process that creates the tenant, and it has no time limit.
-2. Its editor ticks exactly Pagina's, Media, Formulieren and Werkbank.
+2. Its editor ticks exactly Pagina's, Media and Formulieren, and offers no
+   switch for the workbench: that is core (#1876).
 3. A user with ADMIN in that workspace sees only the menu of those modules and
    the shell's own items.
 4. The dashboard shows "Open taken (werkbank)" only.
@@ -46,7 +47,7 @@ from tests_e2e.schermen import BASE, PLATFORM, login_met_sessie, pagina_klaar  #
 
 CODE = f"bakker-{secrets.token_hex(3)}"
 NAME = f"Bakkerij Peeters {CODE[-6:]}"
-COMPANY_MODULES = {"cms", "media", "forms", "workflow"}
+COMPANY_MODULES = {"cms", "media", "forms"}
 
 _MENU = """() => [...new Set([...document.querySelectorAll('aside a[href*="/admin"], nav a[href*="/admin"]')]
   .map(a => a.textContent.replace(/\\s+/g, ' ').trim()))]"""

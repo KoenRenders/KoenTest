@@ -34,7 +34,7 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 pytestmark = pytest.mark.ui_serverrendered
 
 EVERY = frozenset(code.value for code in ModuleCode)
-COMPANY = frozenset({"cms", "media", "forms", "workflow"})
+COMPANY = frozenset({"cms", "media", "forms"})
 TILES = (
     "Gezinnen",
     "Actieve gezinnen",

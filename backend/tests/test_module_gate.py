@@ -34,7 +34,6 @@ MODULE_ONLY_PACKAGES = {
     "app.domains.membership",
     "app.domains.newsletter",
     "app.domains.reporting",
-    "app.domains.workflow",
 }
 
 # Included by `include_stub_routes` in development and the tests only: the stub
