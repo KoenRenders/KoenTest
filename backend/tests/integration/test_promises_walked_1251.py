@@ -83,10 +83,10 @@ def test_a_meeting_is_not_made_without_its_date(client, db_session):
     """Form: the new-meeting form (`meetings/admin_vergadering_nieuw.html`), route
     `POST /admin/vergaderingen` (the same template posts an edit to
     `/admin/vergaderingen/{id}/bewerken`; its target is a variable, which is why
-    the gate cannot walk it). Posts `"meeting_date"` empty. The server answers a
-    bare 422 and makes no meeting. It is a plain form post: in a browser the
-    `required` on the date stops it; past that check the visitor gets the bare
-    refusal as a page, not words in the form."""
+    the gate cannot walk it). Posts `"meeting_date"` empty. The server answers
+    the form again with "Vul een geldige datum in." in its banner and makes no
+    meeting (#1831; it was a bare 422 of the route's required field). In a
+    browser the `required` on the date stops it before it is sent."""
     headers = _board(client)
     before = db_session.query(Meeting).count()
     answer = client.post(
@@ -95,7 +95,8 @@ def test_a_meeting_is_not_made_without_its_date(client, db_session):
         headers=headers,
         follow_redirects=False,
     )
-    assert answer.status_code == 422
+    assert answer.status_code == 200
+    assert "Vul een geldige datum in." in answer.text
     db_session.expire_all()
     assert db_session.query(Meeting).count() == before
 
