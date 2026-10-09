@@ -197,6 +197,48 @@ def toggle_row(db: Session, row_id: int) -> ChatbotInfo:
     return rij
 
 
+def _page_row(db: Session, page_id: int) -> ChatbotInfo:
+    """The info row of a page, made at its first use (#1791).
+
+    A page is in what Raakje knows by default and has no row until an
+    administrator says something about it: switch it off, replace its text, add
+    to it. The screen offered those actions only for a page that had a row, and
+    nothing made one — so a new page could not be taken out. The row is made
+    here, switched on, and whoever asked for it changes it in the same
+    transaction.
+    """
+    if db.query(CmsPage.id).filter(CmsPage.id == page_id).first() is None:
+        raise LookupError("Pagina niet gevonden")
+    row = (
+        db.query(ChatbotInfo)
+        .filter(ChatbotInfo.cms_page_id == page_id)
+        .order_by(ChatbotInfo.id.desc())
+        .first()
+    )
+    if row is None:
+        row = ChatbotInfo(cms_page_id=page_id, is_active=True)
+        db.add(row)
+        db.flush()
+    return row
+
+
+def toggle_page(db: Session, page_id: int) -> None:
+    """Switch a page off for Raakje, or on again. A page without a row is on, so
+    its first switch turns it off."""
+    row = _page_row(db, page_id)
+    row.is_active = not row.is_active
+    db.commit()
+
+
+def edit_page(db: Session, page_id: int, *, text_override: str, text_addition: str) -> None:
+    """The text Raakje reads instead of the page, and the text it reads beside
+    it. An empty one is no text: the page itself is read again."""
+    row = _page_row(db, page_id)
+    row.text_override = text_override.strip() or None
+    row.text_addition = text_addition.strip() or None
+    db.commit()
+
+
 def get_row(db: Session, row_id: int) -> ChatbotInfo:
     rij = db.query(ChatbotInfo).filter(ChatbotInfo.id == row_id).first()
     if rij is None:

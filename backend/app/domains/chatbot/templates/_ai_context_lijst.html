@@ -1,21 +1,29 @@
 {% import "_macros.html" as ui %}
-{% macro rij(label, info, soort="bron", asset_id=None) %}
-<div class="py-2 border-b border-gray-100"{% if info %} x-data="{ edit: false }"{% endif %}>
-  <div class="flex items-center justify-between text-sm">
-    <div>
+{# A page's actions go by the page (`page_id`), with or without an info row: the
+   row is made at the first use (#1791). A document's and a note's go by their row. #}
+{% macro rij(label, info, soort="bron", asset_id=None, page_id=None) %}
+{% set key = ("p" ~ page_id) if page_id else (info.id if info else "") %}
+{% set base = ("/admin/ai-context/paginas/" ~ page_id) if page_id else (("/admin/ai-context/" ~ info.id) if info else "") %}
+<div class="py-2 border-b border-gray-100"{% if base %} x-data="{ edit: false }"{% endif %}{% if page_id %} data-page="{{ page_id }}"{% endif %}>
+  {# The actions drop under the label when the two do not fit on one line (#1791:
+     every page has actions now, and a long title pushed them out of the card). #}
+  <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-sm">
+    <div class="min-w-0">
       <span class="font-medium">{{ label }}</span>
       {% if info %}
         {% if info.is_active %}{{ ui.badge(_("actief"), "green") }}{% else %}{{ ui.badge(_("uit")) }}{% endif %}
       {% else %}{{ ui.badge(_("standaard"), "blue") }}{% endif %}
     </div>
-    {% if info or asset_id %}
-    {# Rij-acties via de kit (#528-nulmeting #2): max 2 zichtbaar + ⋯-menu,
-       "Verwijder" laatst/rood. #}
+    {% if base or asset_id %}
+    {# Row actions through the kit, capped (#1791): "Bewerken" inline, "Aan/uit" and
+       "Opnieuw lezen" behind ⋯, "Verwijderen" last and red beside them. With three
+       inline and the delete a row was 330 px wide in a 308 px card at 390 px — four
+       on a document that has a row — and "Verwijderen" fell off the screen. #}
     {% set _acts = [] %}
-    {% if info %}{% set _ignore = _acts.append(ui.edit_toggle("edit", size="sm")) %}{% endif %}
+    {% if base %}{% set _ignore = _acts.append(ui.edit_toggle("edit", size="sm")) %}{% endif %}
+    {% if base %}{% set _ignore = _acts.append(ui.btn_secondary(_("Aan/uit"), size="sm", attrs='hx-post="' ~ base ~ '/toggle" hx-target="#ai-context-lijst" hx-swap="innerHTML"')) %}{% endif %}
     {% if asset_id %}{% set _ignore = _acts.append(ui.btn_secondary(_("Opnieuw lezen"), size="sm", attrs='hx-post="/admin/ai-context/documenten/' ~ asset_id ~ '/opnieuw-lezen" hx-target="#ai-context-lijst" hx-swap="innerHTML"', confirm=_("De tekst van dit document opnieuw inlezen?"))) %}{% endif %}
-    {% if info %}{% set _ignore = _acts.append(ui.btn_secondary(_("Aan/uit"), size="sm", attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/toggle" hx-target="#ai-context-lijst" hx-swap="innerHTML"')) %}{% endif %}
-    {{ ui.row_actions(actions=_acts, max_visible=3, delete_attrs=('hx-post="/admin/ai-context/' ~ info.id ~ '/verwijderen" hx-target="#ai-context-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Contextrij"), label)) if info else '') }}
+    <div class="ml-auto">{{ ui.row_actions(actions=_acts, max_visible=1, delete_attrs=('hx-post="/admin/ai-context/' ~ info.id ~ '/verwijderen" hx-target="#ai-context-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Contextrij"), label)) if info else '') }}</div>
     {% endif %}
   </div>
   {% if soort == "bron" %}
@@ -43,28 +51,39 @@
     </div>
   </div>
   {% endif %}
-  {% if info %}
-  <form x-show="edit" x-cloak class="space-y-2 mt-3 bg-gray-50 rounded-lg p-3"
+  {# One panel, two forms: a note's and a source's, each with its own address —
+     the promise gate reads a form's address and cannot follow a branch in it. #}
+  {% if base %}
+  <div x-show="edit" x-cloak class="mt-3 bg-gray-50 rounded-lg p-3">
+  {% if soort == "notitie" %}
+  <form class="space-y-2"
         hx-post="/admin/ai-context/{{ info.id }}/bewerken"
         hx-target="#ai-context-lijst" hx-swap="innerHTML">
-    {% if soort == "notitie" %}
     <div>{{ ui.label(_("Titel"), "edit-title-" ~ info.id) }}
       {{ ui.input_control("title", id="edit-title-" ~ info.id, value=info.title or "", cls="w-full") }}</div>
     <div>{{ ui.label(_("Tekst"), "edit-add-" ~ info.id, required=True) }}
       {{ ui.textarea_control("text_addition", id="edit-add-" ~ info.id, rows=3, value=info.text_addition or "", required=True, cls="w-full") }}</div>
-    {% else %}
-    <div>{{ ui.label(_("Vervangende tekst (leeg = automatisch gelezen tekst gebruiken)"), "edit-over-" ~ info.id) }}
-      {{ ui.textarea_control("text_override", id="edit-over-" ~ info.id, rows=3, value=info.text_override or "", cls="w-full") }}</div>
-    {# Eigen id (`edit-add2-`) omdat de notitie-tak hierboven `edit-add-` gebruikt.
-       De twee takken sluiten elkaar uit, dus ze botsen nooit — maar het LABEL wees
-       nog naar het id van de andere tak en dus naar iets wat hier niet bestaat. #}
-    <div>{{ ui.label(_("Extra tekst (toegevoegd aan de bron)"), "edit-add2-" ~ info.id) }}
-      {{ ui.textarea_control("text_addition", id="edit-add2-" ~ info.id, rows=2, value=info.text_addition or "", cls="w-full") }}</div>
-    {% endif %}
     {# Golf 6 (#913, A2): de balk sluit het bewerkvlak af; Verwijderen blijft
        een rij-actie — dit is een lijstrij, geen detailscherm. #}
     {{ ui.action_bar(cancel_attrs='@click="edit = false"') }}
   </form>
+  {% else %}
+  <form class="space-y-2"
+        hx-post="{{ base }}/bewerken"
+        hx-target="#ai-context-lijst" hx-swap="innerHTML">
+    <div>{{ ui.label(_("Vervangende tekst (leeg = automatisch gelezen tekst gebruiken)"), "edit-over-" ~ key) }}
+      {{ ui.textarea_control("text_override", id="edit-over-" ~ key, rows=3, value=(info.text_override if info else "") or "", cls="w-full") }}</div>
+    {# Eigen id (`edit-add2-`) omdat de notitie-tak hierboven `edit-add-` gebruikt.
+       De twee takken sluiten elkaar uit, dus ze botsen nooit — maar het LABEL wees
+       nog naar het id van de andere tak en dus naar iets wat hier niet bestaat. #}
+    <div>{{ ui.label(_("Extra tekst (toegevoegd aan de bron)"), "edit-add2-" ~ key) }}
+      {{ ui.textarea_control("text_addition", id="edit-add2-" ~ key, rows=2, value=(info.text_addition if info else "") or "", cls="w-full") }}</div>
+    {# Golf 6 (#913, A2): de balk sluit het bewerkvlak af; Verwijderen blijft
+       een rij-actie — dit is een lijstrij, geen detailscherm. #}
+    {{ ui.action_bar(cancel_attrs='@click="edit = false"') }}
+  </form>
+  {% endif %}
+  </div>
   {% endif %}
 </div>
 {% endmacro %}
@@ -76,7 +95,7 @@
 <div class="mt-4"></div>
 {% call ui.card() %}
   <h2 class="font-semibold mb-2">{{ _("CMS-pagina's") }}</h2>
-  {% for c in cms %}{{ rij(c.title, c.info) }}{% else %}{{ ui.empty_state(_("Geen pagina's.")) }}{% endfor %}
+  {% for c in cms %}{{ rij(c.title, c.info, page_id=c.page_id) }}{% else %}{{ ui.empty_state(_("Geen pagina's.")) }}{% endfor %}
 {% endcall %}
 <div class="mt-4"></div>
 {% call ui.card() %}
