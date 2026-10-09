@@ -940,19 +940,24 @@ VERTAKBARE_VELDEN = BRANCHABLE
 BRANCHABLE_CODES = tuple(m.value for m in VERTAKBARE_VELDEN)
 
 
+def _option_label(label: str) -> str:
+    """An option has a label, new or changed (#711, #1831). Without one the public
+    form shows a radio button WITHOUT TEXT — invisible to whoever fills it in. A
+    changed option kept its old label without a word; the route's required
+    field hid that."""
+    given = (label or "").strip()
+    if not given:
+        raise FormulierFout("Elke optie heeft een label nodig.")
+    return given
+
+
 def add_option(db, form: Form, field_id: int, *, label: str, is_other: bool = False) -> None:
     veld = next((f for f in form.fields if f.id == field_id), None)
     if veld is None or veld.field_type not in KEUZEVELDEN:
         raise FormulierFout("Opties kunnen enkel bij keuzevelden.")
-    # #711: een leeg label werd zonder klagen bewaard, en dat levert een radioknop
-    # ZONDER TEKST op in het publieke formulier — onzichtbaar voor wie het invult.
-    # `update_option` weigerde dit al; de aanmaakweg was het enige lek.
-    if not (label or "").strip():
-        raise FormulierFout("Elke optie heeft een label nodig.")
+    given = _option_label(label)
     veld.options.append(
-        FormFieldOption(
-            label=(label or "").strip(), position=len(veld.options), is_other=bool(is_other)
-        )
+        FormFieldOption(label=given, position=len(veld.options), is_other=bool(is_other))
     )
     db.commit()
 
@@ -977,6 +982,7 @@ def update_option(
     optie = next((o for f in form.fields for o in f.options if o.id == option_id), None)
     if optie is None:
         raise LookupError("Optie niet gevonden")
+    given = _option_label(label)
 
     veld = optie.field
     doel_id = int(skip_to_section_id) if str(skip_to_section_id).strip().isdigit() else None
@@ -995,7 +1001,7 @@ def update_option(
         if doel is None or (eigen is not None and doel.position <= eigen.position):
             raise FormulierFout("Een vertakking moet naar een latere sectie springen.")
 
-    optie.label = (label or "").strip() or optie.label
+    optie.label = given
     optie.is_other = bool(is_other)
     optie.skip_to_section_id = doel_id
     optie.skip_to_end = bool(skip_to_end)
