@@ -9,7 +9,7 @@ de placeholder-defaults van SEED_ADMIN_EMAILS/SEED_FINANCE_EMAILS.
 
 from decimal import Decimal
 
-from app.domains.auth.api import admits_admin_ui, get_user_roles
+from app.domains.auth.api import back_office_home, get_user_roles
 from app.domains.payment.api import PaymentRecord
 from tests import payments_door
 
@@ -42,10 +42,10 @@ def test_a_treasurer_is_finance_and_enters_the_back_office(db_session):
     """Was `test_auth_me_reports_is_finance` (until CR-13 phase 4b, #1251, this asked a JSON route with a bearer token):
     the two facts `/auth/me` reported, asked where the screens ask them."""
     fin = get_user_roles(db_session, FINANCE_EMAIL)
-    assert "FINANCE" in fin and admits_admin_ui(fin) is True
+    assert "FINANCE" in fin and back_office_home(db_session, FINANCE_EMAIL) is not None
 
     adm = get_user_roles(db_session, ADMIN_ONLY_EMAIL)
-    assert "FINANCE" not in adm and admits_admin_ui(adm) is True
+    assert "FINANCE" not in adm and back_office_home(db_session, ADMIN_ONLY_EMAIL) is not None
 
 
 def test_editing_amount_paid_stamps_paid_at(client, db_session):

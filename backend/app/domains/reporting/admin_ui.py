@@ -1055,7 +1055,7 @@ async def assistant_ask_about_screen(
     uit het formulier van de vraag. Een vervalst veld daarin verandert dus niets.
 
     The gate is `assistant.use` (CR-24), for every question route. Op Betalingen
-    betekent dat iets: dat scherm draait op `require_finance_ui`, dus een
+    betekent dat iets: dat scherm vraagt `payment.view`, dus een
     FINANCE-only gebruiker ziet de lijst wél en mag de assistent niet. Die krijgt
     hier een 403 en op het scherm geen ingang — geen nieuwe rol, geen verbreding
     (Koen, 20 september 2026).

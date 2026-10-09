@@ -16,11 +16,11 @@ guards that read it are gone — no caller was found for any of them.
   rights an address holds in the active workspace: those its roles there
   bundle), `may` (the same as a question) and `require_right(Right.…)` (the
   gate of a screen; it fails closed). A role is a bundle of rights, kept as
-  rows in `auth.role_rights`. The role-named gates below still decide who gets
-  in until every call site names its right.
+  rows in `auth.role_rights`. No gate or question names a role: the
+  role-named ones left with CR-24 (`backend/tests/test_rights_gate.py`).
 - **Sessie/CSRF** (`session.py`, #398): `SESSION_COOKIE`, `make_session_value`,
   `read_session_value`, `set_session_cookie`, `csrf_token_for`,
-  `require_admin_ui`, `require_csrf`.
+  `require_csrf`.
 - **Lid-identiteit** (`member_identity.py`): `find_persons_by_email`,
   `resolve_household`, `login_person_for_email`.
 - **Modellen als type**: `User`, `UserRole`, `LoginToken` (voor

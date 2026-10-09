@@ -2521,7 +2521,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     //
     // htmx handelt HX-Redirect/HX-Location/HX-Refresh af vóór het statusonderscheid
     // en stopt daar (handleAjaxResponse in htmx 2.0.4), dus een 401 met
-    // `HX-Redirect: /aanmelden` — wat _require_ui_roles zet — komt hier niet eens
+    // `HX-Redirect: /aanmelden` — wat de poort van een scherm zet — komt hier niet eens
     // langs. Wat hier binnenkomt, is dus precies het stille geval.
     // #1561: the toast of a command whose answer is a reload. Kept in the
     // session for exactly one page load.
