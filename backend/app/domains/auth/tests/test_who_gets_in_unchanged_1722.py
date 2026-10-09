@@ -65,6 +65,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text as sql
 
 from app.database import SessionLocal, engine, get_db
 from app.domains.auth.api import (
@@ -354,3 +355,90 @@ def test_a_platform_screen_answers_as_before_in_each_workspace(world, screen):
         ("platform", "ADMIN"): 403,
         ("platform", "OPERATOR"): 200,
     }, got
+
+
+#: The screens whose routes ask a right of their own object (CR-24 slice 4), by
+#: the start of their address, with that object. It grows with each group of
+#: slice 4; when no role-named gate is left, it is every gated screen.
+ON_A_RIGHT = {
+    "/admin/paginas": "page",
+    "/admin/media": "media",
+    "/admin/ontwerpen": "design",
+    "/admin/nieuwsbrieven": "newsletter",
+    "/admin/vergaderingen": "meeting",
+    "/admin/formulieren": "form",
+}
+
+
+def _object_of(path: str) -> str | None:
+    for start, thing in ON_A_RIGHT.items():
+        if path == start or path.startswith(start + "/"):
+            return thing
+    return None
+
+
+def _admin_without(world, pattern: str) -> dict[tuple[str, str], bool]:
+    """Per route of `ON_A_RIGHT`, whether the user with ADMIN is let in when
+    ADMIN's bundle has lost the rights matching `pattern` — in the tenant's
+    workspace, the bundle put back afterwards."""
+    connection, workspaces = world
+    _tenant_id, host = workspaces["tenant"]
+    session = make_session_value(_email("ADMIN"))
+    headers = {
+        "cookie": f"{SESSION_COOKIE}={session}",
+        "x-csrf-token": csrf_token_for(session),
+        **host,
+    }
+    routes = [(m, p) for m, p in every_route() if _object_of(p)]
+    assert len(routes) >= 121, f"only {len(routes)} routes on a right — is the walk still looking?"
+    bundle = connection.begin_nested()
+    gone = connection.execute(
+        sql("DELETE FROM auth.role_rights WHERE role_code = 'ADMIN' AND right_code LIKE :p"),
+        {"p": pattern},
+    ).rowcount
+    assert gone, f"ADMIN's bundle held no right like {pattern} — nothing was taken away"
+    out = {}
+    try:
+        with TestClient(app, raise_server_exceptions=False, follow_redirects=False) as client:
+            for method, path in routes:
+                address = re.sub(r"\{[^}]+\}", "1", path)
+                status = _ask(client, connection, method, address, headers)
+                out[method, path] = status not in REFUSED
+    finally:
+        bundle.rollback()
+    return out
+
+
+def test_a_route_that_only_reads_asks_viewing_and_every_other_asks_changing(world):
+    """C4.3a: a GET asks `<object>.view`, every other method `<object>.manage`.
+    With every changing right taken out of ADMIN's bundle, the user with ADMIN
+    still opens every GET of the converted screens and no route that changes.
+
+    Proven red: `Right.FORM_VIEW` put on `POST /admin/formulieren` → that route
+    named as "changes, and is open to who may only view"."""
+    let_in = _admin_without(world, "%.manage")
+    wrong = [
+        f"{method} {path}: "
+        + ("reads, and is refused" if method == "GET" else "changes, and is open")
+        + " to who may only view"
+        for (method, path), admitted in sorted(let_in.items())
+        if admitted != (method == "GET")
+    ]
+    assert not wrong, "\n".join(wrong)
+
+
+@pytest.mark.parametrize("thing", sorted(set(ON_A_RIGHT.values())))
+def test_a_route_asks_the_right_of_its_own_object(world, thing):
+    """With both rights of one object taken out of ADMIN's bundle, exactly the
+    routes of that object's screens are refused, and every other converted
+    screen opens as before.
+
+    Proven red: `Right.MEDIA_VIEW` put on `GET /admin/paginas` → red for `page`
+    (that route still opens) and for `media` (it is refused with media's)."""
+    let_in = _admin_without(world, f"{thing}.%")
+    wrong = [
+        f"{method} {path}: {'open' if admitted else 'refused'} without the rights of {thing}"
+        for (method, path), admitted in sorted(let_in.items())
+        if admitted == (_object_of(path) == thing)
+    ]
+    assert not wrong, "\n".join(wrong)
