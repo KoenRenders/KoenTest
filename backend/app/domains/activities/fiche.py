@@ -220,33 +220,32 @@ def _checked(
             )
 
 
-async def save_fiche(
+def save_fiche(
     db: Session,
     activity_id: int,
     fiche: FicheSave,
     *,
     actor: str | None = None,
-    poster: Any = None,
-    component_files: dict[str, Any] | None = None,
-    background_tasks: Any = None,
+    poster: FicheFile | None = None,
+    component_files: dict[str, FicheFile] | None = None,
 ) -> Optional[Activity]:
     """Write the whole fiche in one transaction. None when the activity does not
     exist; `ActiviteitFout` with nothing written when any part is refused.
 
-    `poster` and `component_files` (by the component row's key) are uploads; they
-    are stored in the same transaction, so a refused file refuses the save.
+    `poster` and `component_files` (by the component row's key) are the uploaded
+    files, read at the door; they are stored in the same transaction, so a
+    refused file refuses the save.
     """
     activity = service._activity_met_boom(db, activity_id)
     if activity is None:
         return None
-    return await _write(
+    return _write(
         db,
         activity,
         fiche,
         actor=actor,
         poster=poster,
         component_files=component_files,
-        background_tasks=background_tasks,
     )
 
 
@@ -266,14 +265,13 @@ _AT_CREATION = (
 )
 
 
-async def create_fiche(
+def create_fiche(
     db: Session,
     fiche: FicheSave,
     *,
     actor: str | None = None,
-    poster: Any = None,
-    component_files: dict[str, Any] | None = None,
-    background_tasks: Any = None,
+    poster: FicheFile | None = None,
+    component_files: dict[str, FicheFile] | None = None,
 ) -> Activity:
     """Create an activity from the fiche (#1649, CR-11 Q84): the same one save
     as `save_fiche`, on a record that does not exist yet. One transaction — the
@@ -314,29 +312,27 @@ async def create_fiche(
             members_only=bool(fields.get("members_only")),
         )
 
-    written = await _write(
+    written = _write(
         db,
         add,
         fiche,
         actor=actor,
         poster=poster,
         component_files=component_files,
-        background_tasks=background_tasks,
         errors=errors,
     )
     assert written is not None
     return written
 
 
-async def _write(
+def _write(
     db: Session,
     target: Any,
     fiche: FicheSave,
     *,
     actor: str | None,
-    poster: Any,
-    component_files: dict[str, Any] | None,
-    background_tasks: Any,
+    poster: FicheFile | None,
+    component_files: dict[str, FicheFile] | None,
     errors: Refusals | None = None,
 ) -> Activity:
     """The one write of the fiche. `target` is the activity, or — for a
@@ -368,14 +364,13 @@ async def _write(
         with errors.at(""):
             db.flush()  # the object rules fire here once more, at the write itself (#792)
         if not errors.found:
-            await _store_files(
+            _store_files(
                 db,
                 activity,
                 fiche,
                 component_ids,
                 poster,
                 component_files or {},
-                background_tasks,
                 errors,
             )
         if errors.found:
@@ -650,58 +645,77 @@ def _save_organisers(
 # ── Uploads ──────────────────────────────────────────────────────────────────
 
 
-async def _store_files(
+@dataclass(frozen=True)
+class FicheFile:
+    """One uploaded file of the fiche as plain values: the door read it once."""
+
+    filename: str
+    content_type: str
+    content: bytes
+
+
+def _store_files(
     db: Session,
     activity: Activity,
     fiche: FicheSave,
     component_ids: dict[str, int],
-    poster: Any,
-    component_files: dict[str, Any],
-    background_tasks: Any,
+    poster: FicheFile | None,
+    component_files: dict[str, FicheFile],
     errors: Refusals,
 ) -> None:
-    """The poster and the info attachments, stored in the open transaction. A
-    refused file (its type, an empty file) refuses the save with media's words."""
-    from fastapi import HTTPException
-
-    from app.domains.media.api import (
-        drop_activity_poster,
-        drop_component_info,
-        store_activity_poster,
-        store_component_info,
-    )
+    """The poster and the info attachments, stored in the open transaction —
+    asked of media through its ports (CR-13 phase 4c). A refused file (its type,
+    an empty file) refuses the save with media's words."""
+    from app.domains.media.api import MediaFout, MediaKind
+    from app.kernel.contracts.media import RemoveFileOf, StoreFile
+    from app.kernel.ports import call
 
     @contextmanager
     def stored(place: str) -> Iterator[None]:
         try:
             yield
-        except HTTPException as exc:
-            errors.add(place, upload_refusal(exc))
-        except LookupError as exc:
-            errors.add(place, str(exc))
+        except MediaFout as refusal:
+            errors.add(place, upload_refusal(refusal))
 
+    def store(file: FicheFile, kind: MediaKind, title_base: str, **owner: int) -> None:
+        call(
+            StoreFile(
+                kind=kind.value,
+                filename=file.filename,
+                content_type=file.content_type,
+                content=file.content,
+                title_base=title_base,
+                **owner,
+            ),
+            db,
+        )
+
+    poster_kind, info_kind = MediaKind.ACTIVITY_POSTER, MediaKind.COMPONENT_INFO
     with stored("file"):
-        if poster is not None and getattr(poster, "filename", None):
-            await store_activity_poster(db, activity.id, poster, background_tasks)
+        if poster is not None:
+            store(poster, poster_kind, f"{activity.name} - poster", activity_id=activity.id)
         elif fiche.drop_poster:
-            drop_activity_poster(db, activity.id)
+            call(RemoveFileOf(kind=poster_kind.value, activity_id=activity.id), db)
     for row in fiche.components:
         component_id = component_ids.get(row.key)
         if component_id is None:
             continue
         with stored(f"c.{row.key}.file"):
             upload = component_files.get(row.key)
-            if upload is not None and getattr(upload, "filename", None):
-                await store_component_info(db, component_id, upload, background_tasks)
+            if upload is not None:
+                component = service.get_component(db, component_id)
+                assert component is not None  # written by this save
+                title = f"{activity.name} - {component.name} - info"
+                store(upload, info_kind, title, component_id=component_id)
             elif row.drop_info:
-                drop_component_info(db, component_id)
+                call(RemoveFileOf(kind=info_kind.value, component_id=component_id), db)
 
 
 def upload_refusal(exc: Exception) -> str:
     """What the screen says about a refused upload, instead of failing in silence.
     A type that is not supported — on an iPhone usually a HEIC photo — gets the
-    way out with it. Takes media's `HTTPException` as well as a plain error."""
-    detail = str(getattr(exc, "detail", exc))
+    way out with it."""
+    detail = str(exc)
     if "bestandstype" in detail.lower():
         return (
             detail

@@ -389,7 +389,6 @@ def new_activity_organisers(
 )
 async def activiteit_aanmaken(
     request: Request,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ) -> Response:
@@ -406,19 +405,18 @@ async def activiteit_aanmaken(
         FieldError,
         create_fiche,
     )
-    from app.domains.activities.fiche_form import fiche_from_form
+    from app.domains.activities.fiche_form import fiche_from_form, read_files
 
     form = await request.form()
-    poster = form.get("file")
     try:
-        fiche, component_files = fiche_from_form(form)
-        created = await create_fiche(
+        fiche, uploads = fiche_from_form(form)
+        poster, component_files = await read_files(form, uploads)
+        created = create_fiche(
             db,
             fiche,
             actor=email,
-            poster=None if isinstance(poster, str) else poster,
+            poster=poster,
             component_files=component_files,
-            background_tasks=background_tasks,
         )
     except ContactConfirmation as question:
         return _refusal(request, question=str(question))
@@ -728,7 +726,6 @@ def _proposal_turn(
 async def activiteit_bijwerken(
     activity_id: int,
     request: Request,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ) -> Response:
@@ -751,20 +748,19 @@ async def activiteit_bijwerken(
         FieldError,
         save_fiche,
     )
-    from app.domains.activities.fiche_form import fiche_from_form
+    from app.domains.activities.fiche_form import fiche_from_form, read_files
 
     form = await request.form()
-    poster = form.get("file")
     try:
-        fiche, component_files = fiche_from_form(form)
-        saved = await save_fiche(
+        fiche, uploads = fiche_from_form(form)
+        poster, component_files = await read_files(form, uploads)
+        saved = save_fiche(
             db,
             activity_id,
             fiche,
             actor=email,
-            poster=None if isinstance(poster, str) else poster,
+            poster=poster,
             component_files=component_files,
-            background_tasks=background_tasks,
         )
     except ContactConfirmation as question:
         return _refusal(request, question=str(question))

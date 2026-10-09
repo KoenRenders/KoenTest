@@ -504,10 +504,6 @@ COMMIT_BEHIND_API: frozenset[str] = frozenset(
 # here — is one rule, written once: `docs/architecture.md` §3.2.1.
 COMMAND_CALLS: frozenset[str] = frozenset(
     {
-        "domains/activities/fiche.py::_store_files → media.api.drop_activity_poster",  # #1559: the attachments of the one save
-        "domains/activities/fiche.py::_store_files → media.api.drop_component_info",  # #1559: the attachments of the one save
-        "domains/activities/fiche.py::_store_files → media.api.store_activity_poster",  # #1559: the attachments of the one save
-        "domains/activities/fiche.py::_store_files → media.api.store_component_info",  # #1559: the attachments of the one save
         "domains/activities/router.py::create_registration → payment.api.create_payment_record",
         "domains/auth/login.py::start_login → mail.api.send_magic_link",
         "domains/auth/login.py::start_login → mail.api.send_member_contact_board_notice",

@@ -39,6 +39,7 @@ from app.domains.activities.fiche import (
     COMPONENT_LINKS,
     ComponentRow,
     DateRow,
+    FicheFile,
     FicheSave,
     FieldError,
     OrganiserRow,
@@ -154,6 +155,22 @@ def fiche_from_form(form: Any) -> tuple[FicheSave, dict[str, Any]]:
     if "organisers" in groups:
         fiche.organisers = [_organiser_row(form, key, errors) for key in form.getlist("o_order")]
     return fiche, files
+
+
+async def read_files(
+    form: Any, uploads: dict[str, Any]
+) -> tuple[Optional[FicheFile], dict[str, FicheFile]]:
+    """The fiche's uploads as plain values — the poster and, by the component
+    row's key, the info documents. Read once, here at the door; a file field
+    left empty is no file."""
+
+    async def read(upload: Any) -> Optional[FicheFile]:
+        if upload is None or isinstance(upload, str) or not upload.filename:
+            return None
+        return FicheFile(upload.filename, upload.content_type or "", await upload.read())
+
+    files = {key: await read(upload) for key, upload in uploads.items()}
+    return await read(form.get("file")), {key: file for key, file in files.items() if file}
 
 
 #: The fields of the fiche a proposal can touch, and so the ones the
