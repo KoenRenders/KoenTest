@@ -167,6 +167,6 @@ def ai_costs(
         prev_month=_shift(eerste, -1),
         next_month=_shift(eerste, 1),
         totals=totals,
-        nav_items=admin_nav("/admin/info"),
+        nav_items=admin_nav("/admin/info", request),
     )
     return templates.TemplateResponse(request, "admin_ai_kosten.html", view.as_context())

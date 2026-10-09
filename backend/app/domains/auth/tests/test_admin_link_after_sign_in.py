@@ -80,7 +80,7 @@ def test_signed_in_without_the_role_is_still_refused(client, db_session):
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value("geen-rol-1458@example.com"))
     answer = client.get("/admin/leden", follow_redirects=False)
-    assert answer.status_code == 403 and "Geen toegang" in answer.text
+    assert answer.status_code == 403 and "Je hebt geen toegang tot deze actie." in answer.text
 
 
 def test_the_code_brings_you_to_the_admin_page(client, board_member, mail_link):

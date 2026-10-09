@@ -170,7 +170,7 @@ def _list_view(
         moments=moments,
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -232,7 +232,7 @@ def _subscriber_view(
         csrf_token=_csrf(request),
         error=error,
         notice=notice,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -310,7 +310,11 @@ def _import_view(
     request: Request, preview=None, text: str = "", error: Optional[str] = None
 ) -> SubscriberImportView:
     return SubscriberImportView(
-        preview=preview, text=text, csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV)
+        preview=preview,
+        text=text,
+        csrf_token=_csrf(request),
+        error=error,
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -398,7 +402,7 @@ def _settings_view(
         csrf_token=_csrf(request),
         notice=notice,
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -570,7 +574,7 @@ def _compose_view(
         error=error,
         notice=notice,
         choices_error=choices_error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -640,7 +644,7 @@ def _archive_view(
         notice=notice,
         resend_question=resend_question,
         resend_label=resend_label,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -1088,7 +1092,7 @@ def _send_view(
         reply_to_sender=email,
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 

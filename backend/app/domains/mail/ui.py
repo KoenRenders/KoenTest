@@ -151,7 +151,7 @@ def _ctx(request: Request, db: Session) -> dict:
         # `(code, word)` for the two filters, in the lists' own order.
         "type_options": code_labels(EMAIL_TYPE.name, db=db),
         "status_options": code_labels(MAIL_STATUS.name, db=db),
-        "nav_items": admin_nav("/admin/e-maillog"),
+        "nav_items": admin_nav("/admin/e-maillog", request),
     }
 
 

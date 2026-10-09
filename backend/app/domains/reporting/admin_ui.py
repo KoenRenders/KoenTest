@@ -597,7 +597,7 @@ def _panel(
         error=error,
         toast=toast,
         csrf_token=_csrf(request),
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -660,7 +660,7 @@ def _list_view(request: Request, db: Session, email: str) -> ReportListView:
         owner=owner,
         shared=shared,
         csrf_token=_csrf(request),
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 

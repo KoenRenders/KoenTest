@@ -553,7 +553,7 @@ def admin_media(
         request,
         "admin_media.html",
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             "error": None,
             **_lijst_ctx(request, db, kind, q, page=page),
         },
@@ -578,7 +578,7 @@ def media_nieuw(
     ctx = _lijst_ctx(request, db, kind=(request.query_params.get("kind") or "").strip())
     ctx["tak"] = _branch_of(ctx)
     ctx["upload_kind"] = _upload_kind(ctx["kind"], ctx["upload_kind_options"])
-    ctx["nav_items"] = admin_nav(NAV)
+    ctx["nav_items"] = admin_nav(NAV, request)
     return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
 
 
@@ -648,7 +648,7 @@ async def media_uploaden(
         )
         ctx["tak"] = _branch_of(ctx)
         ctx["upload_kind"] = _upload_kind(kind, ctx["upload_kind_options"])
-        ctx["nav_items"] = admin_nav(NAV)
+        ctx["nav_items"] = admin_nav(NAV, request)
         ctx["error"] = str(exc)
         return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
     # Media is met één handeling compleet, dus terug naar de lijst (#627) — en naar

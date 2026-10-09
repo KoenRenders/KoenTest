@@ -173,7 +173,7 @@ def _list_view(
         dates={m.id: long_date(m.meeting_date) for m in meetings},
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -198,7 +198,7 @@ def _new_view(request: Request, db: Session, error: Optional[str] = None) -> Mee
         cancel_href="/admin/vergaderingen",
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -220,7 +220,7 @@ def _edit_view(
         cancel_href=f"/admin/vergaderingen/{meeting.id}",
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -317,7 +317,7 @@ def _circle_view(
         today=date.today().isoformat(),
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -549,7 +549,7 @@ def _document_view(
         editable=meeting.status != MeetingStatus.SENT,
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -1134,7 +1134,7 @@ def _send_view(
         ),
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 

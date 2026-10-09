@@ -58,7 +58,7 @@ def test_a_finance_only_user_does_not_reach_reporting(client, db_session):
     _login_as(client, db_session, "alleen-penning@example.com", ("FINANCE",))
     antwoord = client.get(URL)
     assert antwoord.status_code == 403
-    assert antwoord.json()["detail"] == "Geen toegang"
+    assert antwoord.json()["detail"] == "Je hebt geen toegang tot deze actie."
 
 
 def test_an_admin_and_an_operator_both_get_the_file(client, db_session):

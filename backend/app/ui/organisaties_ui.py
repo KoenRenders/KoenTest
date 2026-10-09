@@ -135,7 +135,7 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
         organisaties = [o for o in organisaties if o["org_type"] == soort]
 
     return {
-        "nav_items": admin_nav(NAV),
+        "nav_items": admin_nav(NAV, request),
         "organisaties": organisaties,
         "q": zoek,
         "org_type": soort,
@@ -169,7 +169,7 @@ def _editor_ctx(
     heeft_site = organisatie["org_type"] in ("UNIT", "PLATFORM")
 
     return {
-        "nav_items": admin_nav("/admin/organisatie" if own else NAV),
+        "nav_items": admin_nav("/admin/organisatie" if own else NAV, request),
         "organisatie": organisatie,
         "organization_id": organization_id,
         "heeft_site": heeft_site,
@@ -207,7 +207,7 @@ def organisaties(
 
 def _new_account_ctx(request: Request, *, name: str = "", code: str = "", error=None) -> dict:
     return {
-        "nav_items": admin_nav(NAV),
+        "nav_items": admin_nav(NAV, request),
         "name": name,
         "code": code,
         "error": error,

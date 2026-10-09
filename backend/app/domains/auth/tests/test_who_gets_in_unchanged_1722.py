@@ -51,6 +51,16 @@ gate and found no such page — and gets a 403, on an address his menu does not
 show, because the gate asks the platform's right first and the workspace after
 (`require_platform_right`).
 
+**And once more, for sixteen lines and two questions** (slice 5) — the
+difference CR-24 names (Q11) and Koen's answer of 9 October 2026 on the shell
+around it: Boekhouding opens the workbench. Eight routes, in both workspaces,
+read "ADMIN OPERATOR" and read "ADMIN FINANCE OPERATOR" now — the four of the
+workbench, and the account menu, the profile and the two of switching
+workspace. The start page `/admin` did not move: it asks `report.view`. The
+way into the back office is one address, the workbench, for all three (Q13);
+and the question "enters the back office" is gone with the role set that
+answered it — whoever has a way in, enters.
+
 Proven red (9 October 2026), each additively and removed again:
 - `"FINANCE"` added to `_GENERAL_ADMIN_ROLES` → the routes red with 465
   differences, each "ADMIN OPERATOR → ADMIN FINANCE OPERATOR" (the platform's
@@ -80,14 +90,10 @@ from app.domains.auth.api import (
     Right,
     User,
     UserRole,
-    admits_admin_ui,
     back_office_home,
     csrf_token_for,
-    get_user_roles,
     make_session_value,
     may,
-    may_mutate_payments,
-    may_view_payments,
 )
 from app.kernel.tenancy import current_tenant_id
 from app.main import app
@@ -215,10 +221,9 @@ def the_questions(world) -> dict[str, dict[str, str]]:
     connection, workspaces = world
     db = SessionLocal(bind=connection, join_transaction_mode="create_savepoint")
     asked = {
-        "may see payments": may_view_payments,
-        "may change payments": may_mutate_payments,
+        "may see payments": lambda db, email: may(db, email, Right.PAYMENT_VIEW),
+        "may change payments": lambda db, email: may(db, email, Right.PAYMENT_MANAGE),
         "may use the assistant": lambda db, email: may(db, email, Right.ASSISTANT_USE),
-        "enters the back office": lambda db, email: admits_admin_ui(get_user_roles(db, email)),
     }
     out: dict[str, dict[str, str]] = {name: {} for name in asked}
     out["way into the back office"] = {}
@@ -229,7 +234,7 @@ def the_questions(world) -> dict[str, dict[str, str]]:
                 for name, question in asked.items():
                     out[name][workspace] = _who([r for r in USERS if question(db, _email(r))])
                 out["way into the back office"][workspace] = " · ".join(
-                    f"{r}: {back_office_home(get_user_roles(db, _email(r))) or '—'}" for r in USERS
+                    f"{r}: {back_office_home(db, _email(r)) or '—'}" for r in USERS
                 )
             finally:
                 current_tenant_id.reset(token)
@@ -395,6 +400,14 @@ ON_A_RIGHT = {
     "/admin/gebruikers/alle-werkruimtes": ("platform.view", "platform.manage"),
     "/admin/organisaties": ("platform.view", "platform.manage"),
     "/admin/tenants": ("platform.view", "platform.manage"),
+    # Slice 5. The workbench and the shell around it: one right, to look and to act.
+    "/admin/werkbank": ("workbench.use", "workbench.use"),
+    "/admin/accountmenu": ("workbench.use", "workbench.use"),
+    "/admin/profiel": ("workbench.use", "workbench.use"),
+    "/admin/werkruimte-wisselen": ("workbench.use", "workbench.use"),
+    # The start page: its tiles are figures of saved reports (#848). The shortest
+    # start of all — every other screen above is a longer one and wins.
+    "/admin": ("report.view", "report.manage"),
 }
 
 
@@ -428,7 +441,7 @@ def _routes_on_a_right() -> list[tuple[str, str]]:
         if _right_of(method, path)
         and recorded[f"{method} {path}"]["tenant"] not in ("everyone", "nobody")
     ]
-    assert len(routes) >= 240, f"only {len(routes)} routes on a right — is the walk still looking?"
+    assert len(routes) >= 252, f"only {len(routes)} routes on a right — is the walk still looking?"
     return routes
 
 

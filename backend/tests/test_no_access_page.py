@@ -1,7 +1,7 @@
 """A signed-in user without the role gets a calm page, not bare JSON (#1583).
 
 `_require_ui_roles` answers 403 for a signed-in user whose role may not see the
-screen. Until #1583 a browser showed `{"detail": "Geen toegang"}`. One handler
+screen. Until #1583 a browser showed `{"detail": "Geen toegang"}` (the words then). One handler
 (`app.main`, `app.ui.no_access`) now renders a page for a browser navigation to
 an admin screen — and for nothing else: the JSON API, an htmx fragment and a
 write keep their plain 403, and a visitor without a session is still sent to
@@ -54,7 +54,7 @@ def _way_out(html: str) -> str:
     return re.search(r'<a href="([^"]+)"[^>]*data-no-access-way-out', html).group(1)
 
 
-def test_a_finance_user_on_a_general_admin_screen_gets_the_page_and_a_way_to_payments(
+def test_a_finance_user_on_a_screen_he_may_not_see_gets_the_page_and_a_way_to_the_workbench(
     client, db_session
 ):
     """A screen FINANCE may not see. The page keeps the user's own navigation —
@@ -67,8 +67,11 @@ def test_a_finance_user_on_a_general_admin_screen_gets_the_page_and_a_way_to_pay
         html = answer.text
         assert "data-no-access" in html and SENTENCE in html
         assert '{"detail"' not in html
-        assert _way_out(html) == "/admin/betalingen"
+        # CR-24 Q13: one way into the back office for everyone, the workbench.
+        assert _way_out(html) == "/admin/werkbank"
         assert 'href="/admin/leden"' not in html, "no navigation the role may not open"
+        assert 'href="/admin/betalingen"' in html, "and what he may open is in it"
+    assert client.get("/admin/werkbank", headers=BROWSER).status_code == 200
     assert client.get("/admin/betalingen", headers=BROWSER).status_code == 200
 
 
@@ -81,8 +84,8 @@ def test_an_admin_on_an_operator_only_screen_gets_the_page_and_a_way_to_the_work
     assert answer.status_code == 403
     assert "data-no-access" in answer.text and SENTENCE in answer.text
     target = _way_out(answer.text)
-    # #1740: the page a role enters the back office by (`back_office_home`).
-    assert target == "/admin"
+    # #1740, CR-24 Q13: the page everyone enters the back office by (`back_office_home`).
+    assert target == "/admin/werkbank"
     assert client.get(target, headers=BROWSER).status_code == 200
 
 
@@ -116,7 +119,7 @@ def test_a_fragment_a_write_and_a_json_request_keep_the_plain_403(client, db_ses
     """An htmx request must not get a whole page inside its target; a POST stays
     refused; a client that asks for JSON gets JSON."""
     headers = _signed_in(client, db_session, "penning@example.com", "FINANCE")
-    plain = {"detail": "Geen toegang"}
+    plain = {"detail": "Je hebt geen toegang tot deze actie."}
     fragment = client.get("/admin/activiteiten", headers={**BROWSER, "HX-Request": "true"})
     assert fragment.status_code == 403 and fragment.json() == plain
     write = client.post(

@@ -94,11 +94,6 @@ STILL_NAMED: dict[str, set[str]] = {
         "require_finance_mutation",
         "require_finance_ui",
     },
-    # Slice 5: the nine routes of the shell and the workbench, and the public
-    # header's way into the back office.
-    "domains/workflow/ui.py": {"require_admin_ui"},
-    "ui/system_ui.py": {"require_admin_ui"},
-    "ui/__init__.py": {"admits_admin_ui"},
 }
 
 #: The role codes a gate could be tempted to name. The two retired codes are
@@ -122,7 +117,7 @@ THE_LIST = {"domains/auth/codes.py", "domains/auth/models.py"}
 ROLE_NAMES: dict[str, int] = {
     # OPERATOR, the one platform-wide role: shown apart, kept out of a
     # workspace's ticks, and assigned by an operator only.
-    "domains/auth/admin_ui.py": 4,
+    "domains/auth/admin_ui.py": 3,
     "domains/auth/users.py": 6,
     # A board member the member report names gets a login with ADMIN.
     "domains/auth/service.py": 1,

@@ -298,7 +298,7 @@ def _voorbeeldvelden() -> list:
 @router.get("/admin/design-system", response_class=HTMLResponse)
 def design_system(request: Request, email: str = Depends(require_right(Right.SETTINGS_VIEW))):
     view = DesignSystemView(
-        nav_items=admin_nav("/admin/design-system"),
+        nav_items=admin_nav("/admin/design-system", request),
         tokens=_tokens(),
         demo_colours=dict(SITE_COLOR_DEFAULTS),
         radii=_radii(),

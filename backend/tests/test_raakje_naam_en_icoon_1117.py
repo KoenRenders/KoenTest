@@ -149,9 +149,12 @@ def test_the_insight_group_has_no_assistant_item():
     """#1117 gave the assistant its own item in *Inzicht*; #1562 took it out:
     the trigger in the top bar is on every screen, a menu item beside it would
     be a second way in to the same panel."""
-    from app.ui import admin_nav
+    from app.ui import _right_of_screen, nav_for
 
-    groepen = {g["label"]: g["items"] for g in admin_nav("/admin/rapporten")}
+    groepen = {
+        g["label"]: g["items"]
+        for g in nav_for("/admin/rapporten", frozenset(_right_of_screen().values()))
+    }
     assert "Inzicht" in groepen, sorted(groepen)
     labels = [i["label"] for i in groepen["Inzicht"]]
     assert labels == ["Dashboard", "Rapporten"], labels
@@ -164,14 +167,19 @@ def test_the_old_page_moves_to_the_reports_list(client, db_session, assistent_aa
     """The assistant's page is gone (#1562). Its address answers with a
     permanent redirect to the reports list, and that is the item that lights up
     there — one, not two."""
-    from app.ui import admin_nav
+    from app.ui import _right_of_screen, nav_for
 
     _login(client, db_session)
     antwoord = client.get("/admin/rapporten/raakje", follow_redirects=False)
     assert antwoord.status_code == 301
     assert antwoord.headers["location"] == "/admin/rapporten"
 
-    actief = [i["href"] for g in admin_nav("/admin/rapporten") for i in g["items"] if i["active"]]
+    actief = [
+        i["href"]
+        for g in nav_for("/admin/rapporten", frozenset(_right_of_screen().values()))
+        for i in g["items"]
+        if i["active"]
+    ]
     assert actief == ["/admin/rapporten"], actief
 
 

@@ -46,9 +46,13 @@ def test_admin_nav_info_onderaan_en_een_tenant_item():
     """#505: 'Info' staat onderaan. #581: één item per object — and since #1535 the
     object depends on the workspace: a tenant workspace (the default here) has its
     own "Instellingen" and no Tenants; never both for the same site."""
-    from app.ui import admin_nav
+    from app.ui import _right_of_screen, nav_for
 
-    hrefs = [i["href"] for groep in admin_nav("/admin/werkbank") for i in groep["items"]]
+    hrefs = [
+        i["href"]
+        for groep in nav_for("/admin/werkbank", frozenset(_right_of_screen().values()))
+        for i in groep["items"]
+    ]
     assert "/admin/tenants" not in hrefs
     assert hrefs.index("/admin/instellingen") < hrefs.index("/admin/info")
     assert hrefs[-1] == "/admin/info"

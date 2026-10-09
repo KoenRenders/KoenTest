@@ -21,7 +21,6 @@ from app.domains.auth.api import (
     SESSION_COOKIE,
     Right,
     csrf_token_for,
-    get_user_roles,
     may,
     require_csrf,
     require_right,
@@ -857,7 +856,7 @@ def betalingen_page(
 ):
     # Role-aware nav (#530): een FINANCE-only gebruiker (geen ADMIN/OPERATOR) ziet
     # enkel de schermen die hij mag openen — anders 403't elke andere nav-link.
-    nav = admin_nav("/admin/betalingen", roles=get_user_roles(db, email))
+    nav = admin_nav("/admin/betalingen", request)
     return templates.TemplateResponse(
         request, "betalingen.html", _view(request, db, email, nav_items=nav).as_context()
     )
@@ -881,7 +880,7 @@ def activiteit_betalingen_tab(
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     # Nav-focus (Koen, 15 sep): je zit ín Activiteiten — de linkernavigatie
     # blijft daar staan, ook al rendert het betalingenscherm.
-    nav = admin_nav("/admin/activiteiten", roles=get_user_roles(db, email))
+    nav = admin_nav("/admin/activiteiten", request)
     ctx = _view(
         request, db, email, nav_items=nav, forceer_activiteit=activity_id, scope_stil=True
     ).as_context()
@@ -915,7 +914,7 @@ def gezin_betalingen_tab(
         gezin = None
     if gezin is None:
         raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
-    nav = admin_nav("/admin/leden", roles=get_user_roles(db, email))
+    nav = admin_nav("/admin/leden", request)
     ctx = _view(
         request, db, email, nav_items=nav, forceer_gezin=family_id, scope_stil=True
     ).as_context()
@@ -943,7 +942,7 @@ def inschrijving_betalingen_tab(
         raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
     # Nav-focus (Koen, 15 sep): je kwam uit Activiteiten — de navigatie blijft
     # daar staan, ook al rendert het betalingenscherm.
-    nav = admin_nav("/admin/activiteiten", roles=get_user_roles(db, email))
+    nav = admin_nav("/admin/activiteiten", request)
     ctx = _view(
         request, db, email, nav_items=nav, forceer_inschrijving=registration_id, scope_stil=True
     ).as_context()
@@ -1166,7 +1165,7 @@ def _booking_view(
         ),
         here=here,
         csrf_token=csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
-        nav_items=admin_nav(BOOKINGS, roles=get_user_roles(db, email)),
+        nav_items=admin_nav(BOOKINGS, request),
         error=error,
         toast_opgeslagen=saved,
     )

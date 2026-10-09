@@ -307,7 +307,9 @@ def test_a_role_whose_bundle_lacks_the_right_is_refused(gated, db_session, role)
     answer = gated.get("/gated")
 
     assert answer.status_code == 403
-    assert answer.json() == {"detail": "Geen toegang"}, "the refusal names no right and no role"
+    assert answer.json() == {"detail": "Je hebt geen toegang tot deze actie."}, (
+        "the refusal names no right and no role"
+    )
     assert gated.post("/gated").status_code == 403
 
 
