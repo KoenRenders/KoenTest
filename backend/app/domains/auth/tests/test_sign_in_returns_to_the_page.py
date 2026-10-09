@@ -16,6 +16,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 
 from app.domains.auth.api import User, UserRole
+from tests._queued_mail import queued_link
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -36,18 +37,13 @@ def board_member_who_is_a_member(db_session):
 
 
 @pytest.fixture
-def mail_link(monkeypatch):
-    """The link the sign-in mail would carry, and the code beside it."""
+def mail_link(monkeypatch, db_session):
+    """The link the sign-in mail carries, read from the queue it waits in, and a
+    known code beside it."""
     from app.domains.auth import login as auth_login
 
-    sent = {}
-
-    def fake_send(*, to_email, magic_link, otp_code):
-        sent.update(to=to_email, link=magic_link, code=otp_code)
-
-    monkeypatch.setattr(auth_login, "send_magic_link", fake_send)
     monkeypatch.setattr(auth_login, "_generate_otp", lambda: "424242")
-    return sent
+    return lambda: queued_link(db_session, EMAIL)
 
 
 def test_the_portal_sends_a_signed_out_visitor_to_sign_in_with_the_way_back(client):
@@ -73,7 +69,7 @@ def test_the_mail_link_brings_a_board_member_back_to_the_portal(
     """The sign-in started from the portal; the link in the mail carries the
     page, and following it lands in the portal — not on the workbench."""
     client.post("/aanmelden", data={"email": EMAIL, "terug": "/leden/gezin"})
-    link = urlparse(mail_link["link"])
+    link = urlparse(mail_link())
     assert parse_qs(link.query)["terug"] == ["/leden/gezin"]
 
     landed = client.get(f"{link.path}?{link.query}", follow_redirects=False)
@@ -85,7 +81,7 @@ def test_without_a_page_the_mail_link_lands_on_the_account_page(
     client, board_member_who_is_a_member, mail_link
 ):
     client.post("/aanmelden", data={"email": EMAIL})
-    link = urlparse(mail_link["link"])
+    link = urlparse(mail_link())
     assert "terug" not in parse_qs(link.query)
     landed = client.get(f"{link.path}?{link.query}", follow_redirects=False)
     # #1740: a board member who is a member too lands on his account page.
@@ -100,7 +96,7 @@ def test_a_foreign_way_back_in_the_mail_link_is_ignored(
     `veilige_terug`, and anything that is not a path on this site falls back to
     the landing by role."""
     client.post("/aanmelden", data={"email": EMAIL})
-    link = urlparse(mail_link["link"])
+    link = urlparse(mail_link())
     landed = client.get(
         link.path,
         params={**{k: v[0] for k, v in parse_qs(link.query).items()}, "terug": foreign},

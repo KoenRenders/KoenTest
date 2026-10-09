@@ -60,8 +60,6 @@ COMMIT_BEHIND_API: frozenset[str] = frozenset(
 COMMAND_CALLS: frozenset[str] = frozenset(
     {
         "domains/activities/router.py::create_registration → payment.api.create_payment_record",
-        "domains/auth/login.py::start_login → mail.api.send_magic_link",
-        "domains/auth/login.py::start_login → mail.api.send_member_contact_board_notice",
         "domains/chatbot/tools.py::submit_idea → forms.api.submit_bericht",
         "domains/forms/api.py::submit_bericht → mail.api.send_form_confirmation",
         "domains/forms/service.py::submit_form → mail.api.send_form_confirmation",

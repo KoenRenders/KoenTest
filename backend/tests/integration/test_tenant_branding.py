@@ -9,11 +9,12 @@ from app.kernel.tenant_config import set_setting
 
 
 def test_mail_draagt_tenantnaam(client, db_session):
-    from app.domains.mail.service import send_magic_link
+    from app.domains.mail.service import _send, sign_in_message
 
     token = current_tenant_id.set(TENANT_VOORBEELD_ID)
     try:
-        send_magic_link("branding@example.com", "https://platform.example/x")
+        subject, body = sign_in_message("https://platform.example/x")
+        _send("branding@example.com", subject, body, email_type="magic_link")
     finally:
         current_tenant_id.reset(token)
     log = (

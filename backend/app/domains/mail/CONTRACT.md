@@ -5,8 +5,6 @@ centrale logging (`mail.email_log`) en herverzending bij falen.
 
 ## Facade (`api.py`) — de enige toegangsdeur voor andere componenten
 
-- `send_magic_link(to_email, magic_link, otp_code=None)`
-- `send_member_contact_board_notice(to_email)`
 - `send_registration_confirmation(to_email, name, family, ...)`
 - `send_activity_registration_confirmation(...)`
 - `send_form_confirmation(...)`

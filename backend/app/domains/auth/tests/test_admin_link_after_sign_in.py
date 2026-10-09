@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 
 from app.domains.auth.api import User, UserRole
+from tests._queued_mail import queued_link
 from tests.conftest import sent_to_sign_in
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -38,18 +39,13 @@ def board_member(db_session):
 
 
 @pytest.fixture
-def mail_link(monkeypatch):
-    """The link the sign-in mail would carry, and the code beside it."""
+def mail_link(monkeypatch, db_session):
+    """The link the sign-in mail carries, read from the queue it waits in, and a
+    known code beside it."""
     from app.domains.auth import login as auth_login
 
-    sent = {}
-
-    def fake_send(*, to_email, magic_link, otp_code):
-        sent.update(to=to_email, link=magic_link, code=otp_code)
-
-    monkeypatch.setattr(auth_login, "send_magic_link", fake_send)
     monkeypatch.setattr(auth_login, "_generate_otp", lambda: "585858")
-    return sent
+    return lambda: queued_link(db_session, EMAIL)
 
 
 def _way_back_on_the_sign_in_page(client) -> str:
@@ -103,7 +99,7 @@ def test_the_mail_link_brings_you_to_the_admin_page(client, board_member, mail_l
     way_back = _way_back_on_the_sign_in_page(client)
     client.post("/aanmelden", data={"email": EMAIL, "terug": way_back})
 
-    link = urlparse(mail_link["link"])
+    link = urlparse(mail_link())
     assert parse_qs(link.query)["terug"] == [PAGE]
     landed = client.get(f"{link.path}?{link.query}", follow_redirects=False)
     assert landed.status_code == 302 and landed.headers["location"] == PAGE
