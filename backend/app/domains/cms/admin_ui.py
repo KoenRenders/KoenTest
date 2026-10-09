@@ -289,7 +289,7 @@ def publish_page(
     page_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PAGE_MANAGE)),
 ):
     """Publiceren (C4.3, snede 3): the draft becomes the published document
     and exactly one history row is written, in one transaction. The site
@@ -314,7 +314,7 @@ def take_offline_page(
     page_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PAGE_MANAGE)),
 ):
     """Offline halen (Koen, 8 October 2026, decision 1a on #1734): the page
     leaves the site and keeps everything — her draft, her published
@@ -341,7 +341,7 @@ def restore_page(
     history_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PAGE_MANAGE)),
 ):
     """Terugzetten (C6 6): writes the chosen version into the draft only —
     the site keeps showing the published document until the author
