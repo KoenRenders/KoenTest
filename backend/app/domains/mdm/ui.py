@@ -21,7 +21,7 @@ from app.domains.auth.api import (
     require_admin_ui,
     require_csrf,
 )
-from app.domains.mdm.api import RelationType
+from app.domains.mdm.api import RelationType, says_why_in
 from app.domains.mdm.viewmodels import LedenView
 from app.i18n import _
 from app.ui import admin_nav, filterparams, is_fragment_request, refusal_response, templates
@@ -399,6 +399,7 @@ def gezin_inschrijvingen_tab(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#persoon-{person_id}-melding")
 async def persoon_opslaan(
     family_id: int,
     person_id: int,
@@ -446,7 +447,10 @@ async def persoon_opslaan(
     if contact_email.strip():
         contacten["email"] = contact_email.strip()
     update_person_contacts(
-        db, person_id, ContactsUpdate(**contacten), admin=admin_user_by_email(db, email)
+        db,
+        person_id,
+        board_request(ContactsUpdate, **contacten),
+        admin=admin_user_by_email(db, email),
     )
     # De adresrijen uit ditzelfde formulier — één opslaan, één transactie (#1110).
     from app.domains.mdm.api import apply_email_rows
@@ -578,6 +582,7 @@ def email_verwijderen(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#adres-melding")
 def adres_opslaan(
     family_id: int,
     request: Request,
@@ -610,6 +615,7 @@ def adres_opslaan(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#persoon-toevoegen-melding")
 def persoon_toevoegen(
     family_id: int,
     request: Request,
@@ -656,6 +662,7 @@ def persoon_toevoegen(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#persoon-{person_id}-melding")
 def persoon_verwijderen(
     family_id: int,
     person_id: int,

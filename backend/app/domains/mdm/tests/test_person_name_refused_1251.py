@@ -27,6 +27,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Person, PersonHistory
+from tests._refusal import said
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -62,7 +63,7 @@ def test_a_persons_card_without_a_name_is_refused(client, db_session, blank):
     )
 
     assert response.status_code == 422, response.text[:200]
-    assert response.json()["detail"] == WORDS
+    assert said(response) == [WORDS]
     db_session.expire_all()
     person = db_session.get(Person, main.id)
     assert (person.first_name, person.last_name) == before, "the name was changed after all"
@@ -82,7 +83,7 @@ def test_a_new_person_without_a_name_is_refused(client, db_session, blank):
     )
 
     assert response.status_code == 422, response.text[:200]
-    assert response.json()["detail"] == WORDS
+    assert said(response) == [WORDS]
     assert db_session.query(Person).count() == persons, "a person was added after all"
 
 
@@ -146,7 +147,7 @@ def test_a_persons_card_with_it_is_refused(client, db_session, case, field, valu
     )
 
     assert response.status_code == 422, response.text[:200]
-    assert response.json()["detail"] == words
+    assert said(response) == [words]
     db_session.expire_all()
     person = db_session.get(Person, main.id)
     assert (person.first_name, person.last_name, person.date_of_birth, person.gender_code) == (
@@ -172,7 +173,7 @@ def test_a_new_person_with_it_is_refused(client, db_session, case, field, value,
     )
 
     assert response.status_code == 422, response.text[:200]
-    assert response.json()["detail"] == words
+    assert said(response) == [words]
     assert db_session.query(Person).count() == persons, "a person was added after all"
 
 

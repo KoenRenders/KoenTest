@@ -55,6 +55,9 @@
       </div>
     </div>
   </div>
+  {# #1831: why a save or a delete of THIS card was refused — the rule's sentence,
+     right under the buttons that were pressed. Emptied when the card is redrawn. #}
+  <div id="persoon-{{ m.id }}-melding" data-form-message class="mt-3 empty:mt-0"></div>
   <form id="pc-{{ m.id }}" x-show="edit" x-cloak class="space-y-3"
         hx-post="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}"
         hx-target="#persoon-{{ m.id }}" hx-swap="outerHTML" style="display: none">
@@ -110,6 +113,7 @@
       <div x-show="edit" x-cloak>{{ ui.action_bar(form="adres-form", cancel_attrs='@click="edit = false"') }}</div>
     </div>
   </div>
+  <div id="adres-melding" data-form-message class="mt-3 empty:mt-0"></div>
   <form id="adres-form" x-show="edit" x-cloak class="space-y-3"
         hx-post="/admin/leden/gezin/{{ family.id }}/adres"
         hx-target="#adres-kaart" hx-swap="outerHTML" style="display: none">
@@ -134,6 +138,9 @@
         hx-target="#persoon-toevoegen" hx-swap="outerHTML">
     {# Veldenset incl. relatie via de gedeelde macro (#511/#498). #}
     {% with p = None %}{% include "_leden_persoon_velden.html" %}{% endwith %}
+    {# #1831: by the button that was pressed — this form's button stands at its
+       foot, where the two cards above have theirs in the head. #}
+    <div id="persoon-toevoegen-melding" data-form-message></div>
     {{ ui.btn_primary(_("Toevoegen")) }}
   </form>
 </div>

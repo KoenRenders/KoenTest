@@ -31,6 +31,7 @@ from app.domains.mdm.household_board_schemas import (
     ContactsUpdate,
     PersonAddToFamily,
     PersonUpdate,
+    RelationChoice,
 )
 from app.domains.mdm.household_service import (
     HouseholdRefused,
@@ -63,10 +64,12 @@ def board_request(schema, **fields):
     below. A value that cannot be read — a birth date that is no date, a relation
     that is not of the list — is refused here with words, where it ended the
     request in a 500 until #1251. The form sends neither from a browser (a date
-    field, a select list); another client can."""
+    field, a select list); another client can. Since #1831 an e-mail address that
+    is none is refused here too: it was stored as typed."""
     words = {
         "date_of_birth": _("Vul een geldige geboortedatum in."),
         "relation_type": _("Kies een relatie uit de lijst."),
+        "email": _("Vul een geldig e-mailadres in."),
     }
     try:
         return schema(**fields)
@@ -331,6 +334,16 @@ def add_person_to_family(
         raise HTTPException(status_code=422, detail=str(fout))
     _require_one_main_member([*household_relations(member), data.relation_type])
     _require_storable(db, data.first_name, data.last_name, data.gender_code)
+    # Asked before the person is made (#1831): the same rule `new_contact_detail`
+    # asks further down, for the household he is about to join. Until then the
+    # person was written first and the refusal counted on the request ending
+    # without a commit.
+    from app.domains.mdm.models import EmailAddressInUse
+    from app.domains.mdm.service import email_refusal
+
+    in_use = email_refusal(db, None, data.email, household_id=family_id)
+    if in_use:
+        raise EmailAddressInUse(in_use)
 
     # A blank first or last name is refused by the person itself (#1251: it
     # ended the request in a 500).
@@ -465,17 +478,19 @@ def require_relation_allowed(
     db: Session, family_id: int, person_id: int, relation_type: str
 ) -> Optional[tuple[MemberPerson, RelationType]]:
     """The link and the relation a change of relation would write — None when
-    there is nothing to change (an unknown word, a person outside the household,
+    there is nothing to change (no relation named, a person outside the household,
     the main member himself, who keeps his place) — or a 422 when the household
     would get a second main member (`require_one_main_member`).
 
     The save of a person's card asks it first, before it writes anything, and
     `set_relation_type` asks it again where it writes: one function, so the
     card cannot be half saved and then refused."""
-    try:
-        relation = RelationType((relation_type or "").strip())
-    except ValueError:
-        return None
+    asked_for = (relation_type or "").strip()
+    if not asked_for:
+        return None  # the form names no relation: nothing is asked
+    # A word that is not of the list is refused, as it is for a person who is
+    # added (#1831) — until then it was dropped without a word.
+    relation = board_request(RelationChoice, relation_type=asked_for).relation_type
     links = (
         db.query(MemberPerson).filter(MemberPerson.member_id == family_id).order_by(MemberPerson.id)
     ).all()

@@ -60,7 +60,10 @@ from app.domains.mdm.household_board_service import (
 )
 
 # The family portal's mutations (CR-13 phase 3): master data changed by its owner.
-from app.domains.mdm.household_doors import household_refusals_as_http  # noqa: F401
+from app.domains.mdm.household_doors import (  # noqa: F401
+    household_refusals_as_http,
+    says_why_in,
+)
 
 # The one save of a household (CR-11 pilot B, #1590).
 from app.domains.mdm.household_form import household_from_form  # noqa: F401
@@ -399,6 +402,7 @@ __all__ = [
     "delete_household",
     "delete_household_person",
     "household_refusals_as_http",
+    "says_why_in",
     "HouseholdSave",
     "HouseholdSaveRefused",
     "household_from_form",
