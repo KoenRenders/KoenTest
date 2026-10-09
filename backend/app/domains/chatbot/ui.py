@@ -211,6 +211,54 @@ def rij_bewerken(
 
 
 @router.post(
+    "/admin/ai-context/paginas/{page_id}/toggle",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def page_toggle(
+    page_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
+    """A page's switch goes by the page, not by its info row: a page that never
+    got a row can be switched off too (#1791)."""
+    from app.domains.chatbot.api import toggle_page
+
+    try:
+        toggle_page(db, page_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
+    return templates.TemplateResponse(
+        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
+    )
+
+
+@router.post(
+    "/admin/ai-context/paginas/{page_id}/bewerken",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def page_edit(
+    page_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    text_override: str = Form(""),
+    text_addition: str = Form(""),
+):
+    from app.domains.chatbot.api import edit_page
+
+    try:
+        edit_page(db, page_id, text_override=text_override, text_addition=text_addition)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
+    return templates.TemplateResponse(
+        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
+    )
+
+
+@router.post(
     "/admin/ai-context/documenten/{asset_id}/opnieuw-lezen",
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
