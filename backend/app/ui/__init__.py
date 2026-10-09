@@ -673,7 +673,7 @@ _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
             # GEEN Design system hier (#878). De balk is voor schermen waar een bestuurder
             # werk doet; `/admin/design-system` is naslag over knoppen, kleuren en afstanden —
             # nuttig bij het bouwen, niet bij het besturen. De route blijft bestaan achter
-            # `require_admin_ui`, en je gaat ernaartoe via Info. "Uit het menu" is dus iets
+            # haar recht, en je gaat ernaartoe via Info. "Uit het menu" is dus iets
             # anders dan "weg": ruim de route niet op omdat er niets meer naar wijst.
             ("/admin/info", "Info"),
         ],

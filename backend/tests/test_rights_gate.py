@@ -16,13 +16,6 @@ the next role, or a bundle that changes, then means editing code again. So:
    something true. What is left assigns a role or names the one platform-wide
    role, and is listed below with the reason.
 
-**`STILL_NAMED` is the part of (1) that is not finished.** The call sites
-convert domain by domain (CR-24 slice 4) and the screens last (slice 5); until
-they have, the names below still stand in the files listed with them. Nothing
-may join: a name in a file that is not listed is refused today. A file that
-stops using a name must leave its line, so the name cannot come back there;
-when the dictionary is empty it goes, and (1) is hard without it.
-
 Proven by violation (9 October 2026), each added and removed again:
 - `def require_admin_ui(): ...` in a new module `app/domains/cms/zz_proof.py`
   → (1) red, naming the module;
@@ -32,8 +25,14 @@ Proven by violation (9 October 2026), each added and removed again:
   name where 0 are allowed";
 - `{% if "OPERATOR" in roles %}` in a template → (2) red, naming the template;
 - a number of `ROLE_NAMES` raised by one without the code changing → (2) red:
-  "lower its number"; a name added to `STILL_NAMED` for a file that does not
-  use it → (1) red: "take it out of STILL_NAMED".
+  "lower its number".
+
+Until the last call site was converted (CR-24 slices 4 and 5) check (1) kept
+an exact list of the files that still used such a name; it reached zero on
+9 October 2026 and went, with the functions themselves. On that day three
+proofs were done on the hard check: the first one above, and in auth's own
+`session.py` an old question (`may_view_payments`) and an old role set
+(`_GENERAL_ADMIN_ROLES`) put back — the set red on both checks.
 """
 
 from __future__ import annotations
@@ -68,34 +67,6 @@ ROLE_NAMED = {
     "may_use_admin_assistant",
 }
 
-#: Not finished yet (see the docstring): file → the role-named gates and
-#: questions it still defines or uses. It only shrinks.
-STILL_NAMED: dict[str, set[str]] = {
-    # auth's own definitions and its facade. The payment questions and gates
-    # have no caller left since slice 4; the rest waits for the nine routes
-    # and the header below. All of it goes in the last step of slice 6.
-    "domains/auth/api.py": {
-        "admits_admin_ui",
-        "may_mutate_payments",
-        "may_view_payments",
-        "require_admin_ui",
-        "require_finance_mutation",
-        "require_finance_ui",
-    },
-    "domains/auth/session.py": {
-        "_GENERAL_ADMIN_ROLES",
-        "_PAYMENTS_MUTATE_ROLES",
-        "_PAYMENTS_VIEW_ROLES",
-        "_require_ui_roles",
-        "admits_admin_ui",
-        "may_mutate_payments",
-        "may_view_payments",
-        "require_admin_ui",
-        "require_finance_mutation",
-        "require_finance_ui",
-    },
-}
-
 #: The role codes a gate could be tempted to name. The two retired codes are
 #: left out: "USER" and "MEMBER" are ordinary words in other vocabularies.
 ROLE_CODES = {
@@ -121,8 +92,6 @@ ROLE_NAMES: dict[str, int] = {
     "domains/auth/users.py": 6,
     # A board member the member report names gets a login with ADMIN.
     "domains/auth/service.py": 1,
-    # The three role sets: they go with the role-named gates (STILL_NAMED).
-    "domains/auth/session.py": 7,
     # A workbench task names the role it is for (CR-24 D4: tasks keep their
     # role in part 1; the workbench per role is CR-25).
     "domains/workflow/api.py": 3,
@@ -183,22 +152,8 @@ def test_no_role_named_gate_or_question_exists():
         names = _names_in(ast.parse(path.read_text(encoding="utf-8")))
         if names:
             found[str(path.relative_to(APP))] = names
-    new = {
-        file: sorted(names - STILL_NAMED.get(file, set()))
-        for file, names in found.items()
-        if names - STILL_NAMED.get(file, set())
-    }
-    assert not new, f"{MESSAGE}:\n" + "\n".join(
-        f"  {f}: {', '.join(n)}" for f, n in sorted(new.items())
-    )
-    gone = {
-        file: sorted(names - found.get(file, set()))
-        for file, names in STILL_NAMED.items()
-        if names - found.get(file, set())
-    }
-    assert not gone, (
-        "no longer named there — take it out of STILL_NAMED, so it cannot come back:\n"
-        + "\n".join(f"  {f}: {', '.join(n)}" for f, n in sorted(gone.items()))
+    assert not found, f"{MESSAGE}:\n" + "\n".join(
+        f"  {file}: {', '.join(sorted(names))}" for file, names in sorted(found.items())
     )
 
 

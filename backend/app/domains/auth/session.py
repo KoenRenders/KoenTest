@@ -111,28 +111,6 @@ def _session_raw(request: Request) -> Optional[str]:
     return request.cookies.get(SESSION_COOKIE)
 
 
-# Rollenmodel (#530, beslissing Koen): FINANCE = enkel betalingen/vorderingen;
-# de algemene admin-schermen zijn ADMIN (of OPERATOR-superuser). ACCOUNT_ADMIN is
-# nog niet functioneel ingevuld → geen algemene toegang tot het gedefinieerd is.
-_GENERAL_ADMIN_ROLES = {"ADMIN", "OPERATOR"}
-_PAYMENTS_VIEW_ROLES = {"ADMIN", "FINANCE", "OPERATOR"}
-# Muteren van geld is nauwer dan bekijken: een ADMIN mag de betalingenpagina zien,
-# maar niet bevestigen of terugbetalen (financiële scheiding, #83).
-_PAYMENTS_MUTATE_ROLES = {"FINANCE", "OPERATOR"}
-
-
-def admits_admin_ui(roles) -> bool:
-    """Would `require_admin_ui` let someone with these roles in? (#1499)
-
-    For a place that shows the way in — the public header's back-office link —
-    and must not keep its own copy of the set: an operator holds OPERATOR on
-    every tenant and ADMIN on none, and a link that asked for ADMIN alone hid
-    the back office from them. Reads `_GENERAL_ADMIN_ROLES` when called, the
-    set `require_admin_ui` checks.
-    """
-    return bool(_GENERAL_ADMIN_ROLES & set(roles))
-
-
 #: Where the back office is entered: the workbench, for everyone (Q13).
 BACK_OFFICE_HOME = "/admin/werkbank"
 
@@ -152,29 +130,17 @@ def back_office_home(db: Session, email: str) -> Optional[str]:
     return BACK_OFFICE_HOME if may(db, email, Right.WORKBENCH_USE) else None
 
 
-def _require_ui_roles(request: Request, db: Session, allowed: set[str]) -> str:
-    """Identiteit + rolcheck voor server-rendered schermen. Zonder geldige sessie:
-    een 401-pagina-redirect naar de login (303 via HTTPException zou de htmx-flow
-    breken).
-
-    #1458: a plain browser GET — a link someone was sent — gets the 303 after all,
-    to the sign-in page carrying the requested page as `terug`, so signing in
-    lands there (the sign-in flow checks it with `veilige_terug`, #1437). A
-    browser does not follow `Location` on a 401 and showed the bare JSON. htmx
-    requests and other methods keep the 401 above.
-    """
-    from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
-
-    email = _signed_in(request)
-    if not (allowed & set(get_user_roles(db, email))):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_("Geen toegang"))
-    return email
-
-
 def _signed_in(request: Request) -> str:
-    """Who this request's session says it is, or the way to the sign-in: the
-    303 for a plain browser GET, the 401 otherwise (#1458, described above).
-    The identity half of every gate on a screen."""
+    """Who this request's session says it is, or the way to the sign-in — the
+    identity half of every gate on a screen.
+
+    Without a valid session a request gets a 401 with `HX-Redirect`: a 303
+    would break the htmx flow. A plain browser GET — a link someone was sent —
+    gets the 303 after all (#1458), to the sign-in page carrying the page asked
+    for as `terug`, so signing in lands there (the sign-in flow checks it with
+    `veilige_terug`, #1437): a browser does not follow `Location` on a 401 and
+    showed the bare JSON.
+    """
     email = read_session_value(_session_raw(request))
     if email is None and request.method == HTTPMethod.GET and not request.headers.get("HX-Request"):
         here = request.url.path + (f"?{request.url.query}" if request.url.query else "")
@@ -194,8 +160,8 @@ def _signed_in(request: Request) -> str:
 
 def require_right(right: Right):
     """The gate of a screen (CR-24 §B1, #1722): a dependency that lets in who
-    holds `right` in this workspace and returns the address, as the role-named
-    gates do — `Depends(require_right(Right.ACTIVITY_MANAGE))`.
+    holds `right` in this workspace and returns the address —
+    `Depends(require_right(Right.ACTIVITY_MANAGE))`.
 
     It fails closed (C4.2): it admits on one condition only, the right being in
     the set the user's roles bundle. No session, a role whose bundle lacks the
@@ -225,58 +191,6 @@ def require_right(right: Right):
     # right of the screen an item leads to, instead of keeping a list of its own.
     gate.right = right  # type: ignore[attr-defined]
     return gate
-
-
-def require_admin_ui(request: Request, db: Session = Depends(get_db)) -> str:
-    """Algemene admin-schermen: enkel ADMIN of OPERATOR (#530). FINANCE-only en het
-    (nog ongedefinieerde) ACCOUNT_ADMIN komen hier NIET in — die scheiding voorkomt
-    dat een penningmeester leden/CMS/activiteiten kan muteren."""
-    return _require_ui_roles(request, db, _GENERAL_ADMIN_ROLES)
-
-
-def require_finance_ui(request: Request, db: Session = Depends(get_db)) -> str:
-    """Betalingen-schermen: ADMIN, FINANCE of OPERATOR mogen kijken/exporteren."""
-    return _require_ui_roles(request, db, _PAYMENTS_VIEW_ROLES)
-
-
-def may_view_payments(db: Session, email: str) -> bool:
-    """Dezelfde vraag als require_finance_ui, maar als vraag i.p.v. poort —
-    voor tab-zichtbaarheid (golf 9, #913): een tab die je niet mag openen
-    hoort er niet te staan, maar een tab die je wél mag openen ook niet te
-    ontbreken. Golf 8 gate-te op FINANCE alleen en verstopte de tab dus voor
-    een gewone ADMIN."""
-    from app.domains.auth.service import get_user_roles
-
-    return bool(set(get_user_roles(db, email)) & set(_PAYMENTS_VIEW_ROLES))
-
-
-def may_mutate_payments(db: Session, email: str) -> bool:
-    """May this user change a payment — confirm, refund, edit, delete? FINANCE or
-    OPERATOR (#83/#530). The question `require_finance_mutation` enforces, for a
-    screen that shows the actions only to who may use them (#1574)."""
-    from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
-
-    return bool(_PAYMENTS_MUTATE_ROLES & set(get_user_roles(db, email)))
-
-
-def require_finance_mutation(
-    db: Session = Depends(get_db), email: str = Depends(require_finance_ui)
-) -> str:
-    """Betaal-MUTATIES (bevestigen/terugbetalen/bewerken/verwijderen): FINANCE of
-    OPERATOR (#83/#530).
-
-    A route's dependency since CR-24 (#1722): it stands on `require_finance_ui`,
-    which settles who is there, and then asks the narrower set. Until then a
-    route called it in its body, behind `require_finance_ui` in its signature —
-    the same two checks in the same order, so who gets in did not change. It
-    lives here because authorisation has one place (#635 punt 10).
-    """
-    if not may_mutate_payments(db, email):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=_("Alleen FINANCE mag betalingen wijzigen."),
-        )
-    return email
 
 
 def require_platform_right(right: Right):
