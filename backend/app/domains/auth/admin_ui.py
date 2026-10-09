@@ -19,6 +19,7 @@ from app.domains.auth.api import (
     get_user_roles,
     require_admin_ui,
     require_csrf,
+    require_platform_operator_ui,
 )
 from app.i18n import _
 from app.ui import admin_nav, is_fragment_request, templates
@@ -28,7 +29,7 @@ router = APIRouter(include_in_schema=False)
 NAV = "/admin/gebruikers"
 
 
-def _require_admin(db: Session, email: str) -> None:
+def _require_admin(db: Session = Depends(get_db), email: str = Depends(require_admin_ui)) -> str:
     """Gebruikersbeheer is ADMIN-only (#530). `require_admin_ui` laat de bredere
     backoffice-set (ADMIN/FINANCE/ACCOUNT_ADMIN/OPERATOR) toe zodat die rollen de
     admin-schil kunnen gebruiken — maar accounts/rollen beheren (incl. de ADMIN-rol
@@ -44,6 +45,7 @@ def _require_admin(db: Session, email: str) -> None:
             status_code=403,
             detail=_("Alleen een beheerder (ADMIN) mag gebruikers en rollen beheren."),
         )
+    return email
 
 
 def _werkruimtes(db) -> list:
@@ -188,12 +190,11 @@ def _lijst_response(
 def admin_gebruikers(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(_require_admin),
     q: str = "",
     rol: str = "",
     actief: str = "",
 ):
-    _require_admin(db, email)
     if is_fragment_request(request):
         return _lijst_response(request, db, q=q, rol=rol, actief=actief, viewer_email=email)
     return templates.TemplateResponse(
@@ -209,14 +210,14 @@ def admin_gebruikers(
 
 @router.get("/admin/gebruikers/alle-werkruimtes", response_class=HTMLResponse)
 def access_overview_page(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_platform_operator_ui),
 ):
     """Every account, every workspace, every role — read-only, OPERATOR only (#1500),
     in the platform workspace only (#1535)."""
-    from app.domains.auth.api import require_platform_operator_ui
     from app.domains.auth.users import access_overview
 
-    require_platform_operator_ui(db, email)
     return templates.TemplateResponse(
         request,
         "admin_gebruikers_overzicht.html",
@@ -250,7 +251,7 @@ def gebruiker_nieuw(
 
 @router.post("/admin/gebruikers", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 async def gebruiker_aanmaken(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request, db: Session = Depends(get_db), email: str = Depends(_require_admin)
 ):
     from app.domains.auth.api import get_user_roles as _rollen_van
     from app.domains.auth.users import (
@@ -260,7 +261,6 @@ async def gebruiker_aanmaken(
         set_roles_for_workspaces,
     )
 
-    _require_admin(db, email)
     form = await request.form()
     filters = _filters_uit(form)
     nieuw_email = str(form.get("email") or "").strip().lower()
@@ -303,7 +303,7 @@ async def gebruiker_bijwerken(
     user_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(_require_admin),
 ):
     from app.domains.auth.api import get_user_roles as _rollen_van
     from app.domains.auth.users import (
@@ -313,7 +313,6 @@ async def gebruiker_bijwerken(
         update_user,
     )
 
-    _require_admin(db, email)
     form = await request.form()
     filters = _filters_uit(form)
     try:
@@ -357,11 +356,10 @@ async def gebruiker_verwijderen(
     user_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(_require_admin),
 ):
     from app.domains.auth.users import delete_user
 
-    _require_admin(db, email)
     # async om de meegestuurde filters (hx-vals) te kunnen lezen: na het
     # verwijderen hoort de lijst nog steeds gefilterd te zijn.
     filters = _filters_uit(await request.form())

@@ -8,10 +8,12 @@ none — in a tenant's workspace and in the platform's, and per route who was le
 in. The outcome is `snapshots/who_gets_in.json`, taken on master `d68dbc21`
 before any gate moved; the test asks again and wants the same list.
 
-**Asked of the running routes, not read from the dependencies.** Twenty-two
-routes keep their real gate in the body, behind a wider one in the signature
-(`require_finance_mutation`, `require_platform_operator_ui`, `_require_admin`);
-a walk over the dependencies would record the wider gate for them.
+**Asked of the running routes, not read from the dependencies.** When the list
+was taken, twenty-two routes kept their real gate in the body, behind a wider
+one in the signature (`require_finance_mutation`, `require_platform_operator_ui`,
+`_require_admin`); a walk over the dependencies would have recorded the wider
+gate for them. They are dependencies since slice 2 (C2), and the list did not
+move by a line: that is the proof that the move changed nobody's reach.
 
 **Let in** is every answer but 401 and 403. That is on purpose:
 
@@ -20,13 +22,10 @@ a walk over the dependencies would record the wider gate for them.
   request without a body still shows who passes;
 - a 404 is let in — path parameters are filled with `1`, and most rows do not
   exist. Nothing is lost by that: no route looks a row up before it asks who is
-  there (each of the twenty-two gates in a body is its first statement). It also
+  there (each of the twenty-two gates in a body was its first statement). It also
   means the platform's screens read "let in" for an operator in a tenant's
   workspace, where they answer 404 to who passes the first gate; that condition
   has a test of its own (T9).
-
-One route gets a body, `BODIES`: its gate in the body is only reached when the
-form is valid.
 
 Each user signs in and sends the CSRF token of his own session with every
 request: `require_csrf` stands on the decorator and answers 403 before the gate,
@@ -90,9 +89,6 @@ SNAPSHOT = Path(__file__).resolve().parent / "snapshots" / "who_gets_in.json"
 
 #: One user per role, and one with a login and no role at all.
 USERS = ("ADMIN", "FINANCE", "OPERATOR", "ACCOUNT_ADMIN", "none")
-
-#: The routes whose gate in the body is only reached with a valid form.
-BODIES = {"POST /admin/betalingen/{record_id}/status": {"status": "PAID"}}
 
 REFUSED = (401, 403)
 
@@ -159,7 +155,7 @@ def world(every_module_on, _migrate_schema):
     app.dependency_overrides.clear()
 
 
-def _ask(client, connection, method: str, path: str, headers: dict, data: dict | None) -> int:
+def _ask(client, connection, method: str, path: str, headers: dict) -> int:
     """One request in a savepoint of its own, rolled back whatever it did."""
     savepoint = connection.begin_nested()
     db = SessionLocal(bind=connection, join_transaction_mode="create_savepoint")
@@ -170,7 +166,7 @@ def _ask(client, connection, method: str, path: str, headers: dict, data: dict |
     app.dependency_overrides[get_db] = _this_session
     client.cookies.clear()
     try:
-        return client.request(method, path, headers=headers, data=data).status_code
+        return client.request(method, path, headers=headers).status_code
     finally:
         db.close()
         savepoint.rollback()
@@ -197,7 +193,7 @@ def who_gets_in(world, *, csrf: bool = True) -> dict[str, dict[str, str]]:
                     headers = {"cookie": f"{SESSION_COOKIE}={sessions[role]}", **host}
                     if csrf:
                         headers["x-csrf-token"] = csrf_token_for(sessions[role])
-                    status = _ask(client, connection, method, address, headers, BODIES.get(route))
+                    status = _ask(client, connection, method, address, headers)
                     if status not in REFUSED:
                         admitted.append(role)
                 out[route][workspace] = _who(admitted)
@@ -298,19 +294,63 @@ def test_the_list_tells_users_apart():
     )
 
 
-def test_the_gate_answers_before_the_body_is_judged(world):
+@pytest.mark.parametrize(
+    ("route", "answers"),
+    [
+        # `title` is required; the gate was always in the signature.
+        ("/admin/formulieren", {"none": 403, "ADMIN": 422, "FINANCE": 403}),
+        # `status` is required; its narrower gate stood in the body until slice 2,
+        # and a request without the field then answered 422 to ADMIN, who may not
+        # change a payment. The one failure path CR-24 B6 names as changing.
+        ("/admin/betalingen/1/status", {"none": 403, "ADMIN": 403, "FINANCE": 422}),
+    ],
+)
+def test_the_gate_answers_before_the_body_is_judged(world, route, answers):
     """Why a 422 counts as let in: on a route with a required field, a request
     without it is refused 403 for who lacks the role and 422 for who holds it —
-    the dependencies, and so the gate, are solved before the body is validated."""
+    the dependencies, and so the gate, are solved before the body is validated.
+
+    Proven red: `Depends(require_finance_mutation)` put back to
+    `Depends(require_finance_ui)` on `betaling_status`, without the line in its
+    body → the second case red (ADMIN 422), and the list red on that route."""
     connection, _workspaces = world
-    route = "/admin/formulieren"  # `title` is required; the gate is in the signature
-    answers = {}
+    got = {}
     with TestClient(app, raise_server_exceptions=False, follow_redirects=False) as client:
-        for role in ("none", "ADMIN"):
+        for role in answers:
             session = make_session_value(_email(role))
             headers = {
                 "cookie": f"{SESSION_COOKIE}={session}",
                 "x-csrf-token": csrf_token_for(session),
             }
-            answers[role] = _ask(client, connection, "POST", route, headers, None)
-    assert answers == {"none": 403, "ADMIN": 422}, answers
+            got[role] = _ask(client, connection, "POST", route, headers)
+    assert got == answers, got
+
+
+@pytest.mark.parametrize("screen", ["/admin/tenants", "/admin/organisaties"])
+def test_a_platform_screen_answers_as_before_in_each_workspace(world, screen):
+    """What the list above cannot see, because a 404 counts as let in: in a
+    tenant's workspace a platform screen does not exist — 404 for who passes the
+    back office's gate, the operator included — and whoever does not pass that
+    gate is refused first, 403. On the platform it opens for the operator alone.
+    The order is the one the routes had with the platform check in their body
+    (#1535); `require_platform_operator_ui` stands on `require_admin_ui` to keep
+    it.
+
+    Proven red: `is_platform_workspace` made to answer True in
+    `require_platform_operator_ui` → the tenant's column reads 403, 403, 200."""
+    connection, workspaces = world
+    got = {}
+    with TestClient(app, raise_server_exceptions=False, follow_redirects=False) as client:
+        for workspace, (_tenant_id, host) in workspaces.items():
+            for role in ("FINANCE", "ADMIN", "OPERATOR"):
+                session = make_session_value(_email(role))
+                headers = {"cookie": f"{SESSION_COOKIE}={session}", **host}
+                got[workspace, role] = _ask(client, connection, "GET", screen, headers)
+    assert got == {
+        ("tenant", "FINANCE"): 403,
+        ("tenant", "ADMIN"): 404,
+        ("tenant", "OPERATOR"): 404,
+        ("platform", "FINANCE"): 403,
+        ("platform", "ADMIN"): 403,
+        ("platform", "OPERATOR"): 200,
+    }, got

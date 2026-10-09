@@ -1207,10 +1207,9 @@ def betaling_bevestigen(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_finance_mutation),
     note: str = Form(""),
 ):
-    require_finance_mutation(db, email)
     return _uitvoeren(bevestig_betaling, request, db, email, record_id, note=note, actor=email)
 
 
@@ -1223,11 +1222,10 @@ def betaling_refund(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_finance_mutation),
     amount: str = Form(""),
     note: str = Form(""),
 ):
-    require_finance_mutation(db, email)
     return _uitvoeren(
         registreer_terugbetaling,
         request,
@@ -1249,12 +1247,11 @@ def betaling_bijwerken(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_finance_mutation),
     amount_paid: str = Form(""),
     note: str = Form(""),
 ):
     """Betaald bedrag invullen + als betaald bevestigen (#455)."""
-    require_finance_mutation(db, email)
     return _uitvoeren(
         bevestig_betaling,
         request,
@@ -1276,7 +1273,7 @@ def betaling_bewerken(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_finance_mutation),
     status: str = Form(""),
     amount_paid: str = Form(""),
     note: str = Form(""),
@@ -1285,7 +1282,6 @@ def betaling_bewerken(
     form, voor charges én refunds (zo registreer je op een refund de effectief
     uitbetaalde som). Hergebruikt de gedeelde service-regel `edit_payment_record`,
     zodat de admin-UI en de JSON-API dezelfde validatie delen."""
-    require_finance_mutation(db, email)
     # Het omdraaien van het teken bij een terugbetaling en de bovengrens erop
     # stonden hier; ze bepalen hoeveel geld er terugvloeit en horen dus in de
     # service (#635-I).
@@ -1311,10 +1307,9 @@ def betaling_verversen(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_finance_mutation),
 ):
     """Mollie-status ophalen en toepassen (handmatige tegenhanger van de webhook, #455)."""
-    require_finance_mutation(db, email)
     return _uitvoeren(ververs_betaalstatus, request, db, email, record_id, actor=email)
 
 
@@ -1327,12 +1322,11 @@ def betaling_status(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_finance_mutation),
     status: str = Form(...),
     note: str = Form(""),
 ):
     """Vrije status-correctie door de penningmeester (#455)."""
-    require_finance_mutation(db, email)
     return _uitvoeren(
         zet_betaalstatus, request, db, email, record_id, status, note=note, actor=email
     )
@@ -1347,10 +1341,9 @@ def betaling_verwijderen(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_finance_mutation),
     note: str = Form(""),
 ):
     """Betaal-/terugbetaalrecord verwijderen (soft-delete, uit het saldo, #455).
     Corrigeert ook een foute refund."""
-    require_finance_mutation(db, email)
     return _uitvoeren(verwijder_betaling, request, db, email, record_id, note=note, actor=email)

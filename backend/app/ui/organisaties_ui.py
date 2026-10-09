@@ -196,9 +196,10 @@ def _editor_ctx(
 
 @router.get("/admin/organisaties", response_class=HTMLResponse)
 def organisaties(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_platform_operator_ui),
 ):
-    require_platform_operator_ui(db, email)
     sjabloon = "_org_kaarten.html" if is_fragment_request(request) else "admin_organisaties.html"
     return templates.TemplateResponse(request, sjabloon, _lijst_ctx(request, db))
 
@@ -216,10 +217,11 @@ def _new_account_ctx(request: Request, *, name: str = "", code: str = "", error=
 # Declared before `/{organization_id}`: FastAPI matches in declaration order.
 @router.get("/admin/organisaties/nieuw", response_class=HTMLResponse)
 def new_account_form(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_platform_operator_ui),
 ):
     """ "Nieuw account" (CR-19, #1495): OPERATOR only, on GET as on POST."""
-    require_platform_operator_ui(db, email)
     return templates.TemplateResponse(
         request, "admin_organisatie_nieuw.html", _new_account_ctx(request)
     )
@@ -231,7 +233,7 @@ def new_account_form(
 def create_account_route(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_platform_operator_ui),
     name: str = Form(""),
     code: str = Form(""),
 ):
@@ -239,7 +241,6 @@ def create_account_route(
     is filled in. A refusal shows the form again with what was typed."""
     from app.domains.mdm.api import TenantFout, create_account
 
-    require_platform_operator_ui(db, email)
     try:
         account = create_account(db, name=name, code=code)
     except TenantFout as fout:
@@ -259,9 +260,8 @@ def organisatie_editor(
     organization_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_platform_operator_ui),
 ):
-    require_platform_operator_ui(db, email)
     return templates.TemplateResponse(
         request, "admin_organisatie.html", _editor_ctx(request, db, organization_id)
     )
@@ -276,9 +276,8 @@ async def organisatie_opslaan(
     organization_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_platform_operator_ui),
 ):
-    require_platform_operator_ui(db, email)
     return await _save(request, db, organization_id, own=False)
 
 
