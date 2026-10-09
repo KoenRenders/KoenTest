@@ -127,14 +127,6 @@ def test_a_fragment_a_write_and_a_json_request_keep_the_plain_403(client, db_ses
     assert json_client.status_code == 403 and json_client.json() == plain
 
 
-def test_the_json_api_still_answers_json(client, db_session):
-    _signed_in(client, db_session, "penning@example.com", "FINANCE")
-    answer = client.get("/api/v1/users", headers=BROWSER)
-    assert answer.status_code in (401, 403)
-    assert answer.headers["content-type"].startswith("application/json")
-    assert "detail" in answer.json() and "data-no-access" not in answer.text
-
-
 def test_a_visitor_without_a_session_is_still_sent_to_the_sign_in_screen(client):
     answer = client.get("/admin/activiteiten", headers=BROWSER, follow_redirects=False)
     assert answer.status_code == 303

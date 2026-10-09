@@ -45,7 +45,6 @@ from app.domains.forms.models import (
 )
 from app.domains.forms.schemas import AnswerIn, FormAdminOut, SubmissionIn, SubmissionResult
 from app.domains.forms.screenfields import BRANCHABLE, CHOICES
-from app.domains.mail.api import send_form_confirmation
 from app.i18n import _
 from app.kernel.codes import code_of
 from app.kernel.copying import CopyPlan
@@ -1940,9 +1939,7 @@ def _load_public_form(db: Session, share_token: str) -> Form:
     return form
 
 
-def submit_form(
-    db: Session, share_token: str, data: SubmissionIn, background_tasks, *, proof
-) -> SubmissionResult:
+def submit_form(db: Session, share_token: str, data: SubmissionIn, *, proof) -> SubmissionResult:
     """One public submission, for the screen and the JSON way in alike.
 
     A submission the guard drops (#1297) answers like a stored one — `status`
@@ -1970,45 +1967,27 @@ def submit_form(
     for row in answers:
         submission.answers.append(row)
     db.add(submission)
+    db.flush()
+    # Said before the commit (CR-13 phase 4d, #1251): `mail` subscribes and queues
+    # the confirmation in this transaction, so it leaves only if the submission
+    # is kept. Until then forms called mail itself, after the commit.
+    from app.kernel.contracts.forms import SubmissionCreated
+    from app.kernel.events import publish
+
+    wants_mail = form.send_confirmation and not form.is_anonymous and sub_email
+    publish(
+        SubmissionCreated(
+            form_id=form.id,
+            form_slug=form.slug,
+            submission_id=submission.id,
+            submitter_name=sub_name,
+            submitter_email=sub_email,
+            confirm_to=sub_email if wants_mail else None,
+        ),
+        db,
+    )
     db.commit()
     db.refresh(submission)
-
-    if form.send_confirmation and not form.is_anonymous and sub_email:
-        edit_link = None
-        if form.allow_edit and submission.edit_token:
-            from app.kernel.tenant_config import tenant_home_url
-
-            # `tenant_home_url` en niet `tenant_base_url` (#928). Geen bugfix maar
-            # een betekeniscorrectie, en het verschil is de moeite waard omdat het
-            # klein is: allebei zetten ze de pad-prefix op een platform-host, dus de
-            # link was niet stuk. Ze lopen uiteen zodra de afdeling een EIGEN domein
-            # heeft. Dan geeft `tenant_base_url` de host waar de beheerder toevallig
-            # werkte (`https://platform.example/raakmillegem`) en `tenant_home_url`
-            # het adres waar de afdeling woont (`https://afdeling.example`).
-            #
-            # Voor een link in een MAIL is dat tweede het juiste: er is geen "terug".
-            # Hij wordt geopend vanuit een andere browser, zonder de cookie die de
-            # afdeling onthield, misschien weken later — en dan hoort er het adres
-            # van de afdeling te staan en niet dat van de beheerder zijn werkdag.
-            #
-            # De SLEUTEL-URL blijft staan, ook als het formulier een slug heeft
-            # (#690/#928): bewerken bestaat alleen onder
-            # `/formulier/{share_token}/edit/{edit_token}`. De slug verandert wat je
-            # DEELT, niet waarlangs een inzending bewerkt wordt.
-            edit_link = (
-                f"{tenant_home_url(db)}/formulier/{form.share_token}/edit/{submission.edit_token}"
-            )
-        try:
-            send_form_confirmation(
-                to_email=sub_email,
-                form_title=form.title,
-                name=sub_name,
-                confirmation_message=form.confirmation_message,
-                edit_link=edit_link,
-                background_tasks=background_tasks,
-            )
-        except Exception as exc:  # pragma: no cover
-            logger.warning("Bevestigingsmail formulier kon niet verstuurd worden: %s", exc)
 
     return SubmissionResult(id=submission.id, status="ok", edit_token=submission.edit_token)
 
@@ -2034,3 +2013,93 @@ def update_submission(db: Session, edit_token: str, data: SubmissionIn):
     submission.submitter_email = data.submitter_email
     db.commit()
     return SubmissionResult(id=submission.id, status="updated", edit_token=submission.edit_token)
+
+
+# ── A message for the board ──────────────────────────────────────────────────
+
+
+def submit_message(db: Session, *, naam: str, email: str | None, bericht: str, proof) -> int | None:
+    """THE write path of a message (#398): a submission on the seeded contact
+    form, and `SubmissionCreated` — the task in the workbench follows, and the
+    confirmation mail when the form asks for one. Returns the submission's id, or
+    None when the form is missing. Used by the contact page and, through the port
+    `SubmitMessage`, by the chatbot — no second way.
+
+    `proof` (#1297): a `form_guard.Proof` from the visitor's form, or
+    `form_guard.TRUSTED` for a caller without one (the chatbot). A submission the
+    guard drops leaves nothing — no row, no task, no mail — and returns None too:
+    the screen thanks the bot as it thanks a person.
+
+    No commit (CR-13 phase 4d, #1251): the request's door commits. Until then this
+    stood in `forms.api.submit_bericht`, committed itself and called mail."""
+    from app.kernel import form_guard
+    from app.kernel.contracts.forms import SubmissionCreated
+    from app.kernel.events import publish
+
+    if form_guard.refused(proof, CONTACT_FORM_SLUG):
+        return None
+
+    # #1509: the one rule — a form that cannot be sent is no form.
+    form = contact_form(db)
+    if form is None:
+        return None
+    # The invariant held "for every entrance", but this one did not ask it
+    # (#635-2). The chatbot writes here too, so an empty message or a missing
+    # address got in through the side door.
+    assert_submitter(form, naam, email, message=bericht, require_message=True)
+    answers = build_answers(form, [AnswerIn(field_id=form.fields[0].id, text=bericht)])
+    submission = FormSubmission(form_id=form.id, submitter_name=naam, submitter_email=email or None)
+    for row in answers:
+        submission.answers.append(row)
+    db.add(submission)
+    db.flush()
+    publish(
+        SubmissionCreated(
+            form_id=form.id,
+            form_slug=form.slug,
+            submission_id=submission.id,
+            submitter_name=naam,
+            submitter_email=email or None,
+            confirm_to=(email or None) if form.send_confirmation else None,
+        ),
+        db,
+    )
+    return submission.id
+
+
+def send_message(db: Session, *, naam: str, email: str | None, bericht: str, proof) -> int | None:
+    """The contact page's door: the message is stored (`submit_message`) and kept.
+    The one commit of that request — a screen module never touches the session,
+    and the service behind the port must not commit for its caller."""
+    submission_id = submit_message(db, naam=naam, email=email, bericht=bericht, proof=proof)
+    db.commit()
+    return submission_id
+
+
+def submission_confirmation(db: Session, submission_id: int) -> Optional[dict]:
+    """What the confirmation of a submission says, for whoever words the mail: the
+    form's title, the submitter's name, the form's own sentence and — when the
+    form lets an answer be changed — the link to do so. A read."""
+    submission = db.get(FormSubmission, submission_id)
+    form = db.get(Form, submission.form_id) if submission is not None else None
+    if submission is None or form is None:
+        return None
+    edit_link = None
+    if form.allow_edit and submission.edit_token:
+        # `tenant_home_url` and not `tenant_base_url` (#928): a link in a MAIL is
+        # opened from another browser, perhaps weeks later, so it carries the
+        # address where the tenant lives and not the host the board happened to
+        # work on. The KEY url stays, also when the form has a slug (#690, #928):
+        # changing an answer exists only under
+        # `/formulier/{share_token}/edit/{edit_token}`.
+        from app.kernel.tenant_config import tenant_home_url
+
+        edit_link = (
+            f"{tenant_home_url(db)}/formulier/{form.share_token}/edit/{submission.edit_token}"
+        )
+    return {
+        "form_title": form.title,
+        "name": submission.submitter_name,
+        "confirmation_message": form.confirmation_message,
+        "edit_link": edit_link,
+    }

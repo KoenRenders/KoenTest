@@ -218,7 +218,7 @@ def test_registration_limit_is_per_component_not_per_activity(client, db_session
     assert register(comp_b, product_b).status_code == 200
 
 
-def test_amount_paid_cannot_exceed_due(client, db_session, admin_headers):
+def test_amount_paid_cannot_exceed_due(client, db_session):
     """Admin kan geen hoger betaald bedrag registreren dan verschuldigd."""
     seed_postal_code(db_session)
     sign_up_at_the_door(client, json=_family_payload(email="pay@example.com"))
@@ -230,7 +230,7 @@ def test_amount_paid_cannot_exceed_due(client, db_session, admin_headers):
     assert resp.status_code == 400
 
 
-def test_amount_paid_cannot_be_negative(client, db_session, admin_headers):
+def test_amount_paid_cannot_be_negative(client, db_session):
     """Admin kan geen negatief betaald bedrag registreren."""
     seed_postal_code(db_session)
     sign_up_at_the_door(client, json=_family_payload(email="neg@example.com"))
@@ -322,14 +322,15 @@ def test_login_rate_limited(client):
     """De login-limiter geeft 429 na te veel pogingen per minuut."""
     saw_429 = False
     for _ in range(11):
-        r = client.post("/api/v1/auth/request-login", json={"email": "ratelimit-test@example.com"})
+        # the sign-in screen's own post, behind the same limiter (until CR-13 phase 4b, #1251, this asked a JSON route with a bearer token)
+        r = client.post("/aanmelden", data={"email": "ratelimit-test@example.com"})
         if r.status_code == 429:
             saw_429 = True
             break
     assert saw_429
 
 
-def test_payment_endpoint_admin_only_and_hides_checkout_url(client, db_session, admin_headers):
+def test_payment_endpoint_admin_only_and_hides_checkout_url(client, db_session):
     """Het gateway-endpoint is admin-only (#146) en geeft nooit de betaallink terug."""
     from decimal import Decimal
 
@@ -349,7 +350,4 @@ def test_payment_endpoint_admin_only_and_hides_checkout_url(client, db_session, 
 
     # Het React-only lees-endpoint is verwijderd (#407-O): elke variant is 404.
     assert client.get(f"/api/v1/payment-gateway/payments/{gp.id}").status_code == 404
-    assert (
-        client.get(f"/api/v1/payment-gateway/payments/{gp.id}", headers=admin_headers).status_code
-        == 404
-    )
+    assert client.get(f"/api/v1/payment-gateway/payments/{gp.id}").status_code == 404

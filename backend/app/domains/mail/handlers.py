@@ -30,6 +30,7 @@ from app.domains.mail.service import (
 from app.i18n import _
 from app.kernel.contracts.activities import AnswerLinkSent, RegistrationConfirmed
 from app.kernel.contracts.auth import CodeMailRequested
+from app.kernel.contracts.forms import SubmissionCreated
 from app.kernel.contracts.mail import MailRequested
 from app.kernel.contracts.membership import FamilyRegistered
 from app.kernel.events import subscribe
@@ -88,7 +89,8 @@ MY_REGISTRATIONS = "/mijn/inschrijvingen"
 
 @subscribe(CodeMailRequested)
 def queue_code_mail(event: CodeMailRequested, db: Session) -> None:
-    """The mails of an account request (CR-22 R3, R4; #1707): worded here by
+    """The mails of a sign-in and of an account request (CR-22 R3, R4; #1707;
+    the sign-in's since CR-13 phase 4d, #1251): worded here by
     kind, queued in the publisher's transaction — the one that issues the
     token — so the mail leaves only if the code it carries exists.
 
@@ -96,12 +98,20 @@ def queue_code_mail(event: CodeMailRequested, db: Session) -> None:
     asked for an account is told "we sent a code"; saying so while nothing
     can be sent would leave him waiting for a mail that never comes.
     """
-    from app.domains.mail.service import code_mail_message, member_contact_board_notice_message
-    from app.kernel.contracts.auth import AMBIGUOUS_ADDRESS
+    from app.domains.mail.service import (
+        code_mail_message,
+        member_contact_board_notice_message,
+        sign_in_message,
+    )
+    from app.kernel.contracts.auth import AMBIGUOUS_ADDRESS, SIGN_IN
 
     if event.kind == AMBIGUOUS_ADDRESS:
         subject, body = member_contact_board_notice_message()
         queue_mail(db, event.to_email, subject, body, email_type="member_contact_notice")
+        return
+    if event.kind == SIGN_IN:
+        subject, body = sign_in_message(event.link, event.otp_code)
+        queue_mail(db, event.to_email, subject, body, email_type="magic_link")
         return
     subject, body = code_mail_message(event.kind, event.link, event.otp_code)
     # Logged under the type of the sign-in mail: the same kind of mail, a link
@@ -237,3 +247,22 @@ def queue_family_welcome(event: FamilyRegistered, db: Session) -> None:
         queue_mail(db, **message)
     except Exception as e:  # noqa: BLE001 — a mail never stops a registration
         logger.error("Lidmaatschap bevestigingsmail mislukt naar %s: %s", event.to_email, e)
+
+
+@subscribe(SubmissionCreated)
+def queue_form_confirmation(event: SubmissionCreated, db: Session) -> None:
+    """A submission was made and forms says a confirmation goes out
+    (`confirm_to`): worded here, from what forms reads back about the
+    submission, and queued in the publisher's transaction — the mail leaves only
+    if the submission is kept (CR-13 phase 4d, #1251). Until then forms called
+    mail itself, after its commit."""
+    if not event.confirm_to:
+        return
+    from app.domains.forms.api import submission_confirmation
+    from app.domains.mail.service import form_confirmation_message
+
+    said = submission_confirmation(db, event.submission_id)
+    if said is None:
+        return
+    subject, body = form_confirmation_message(**said)
+    queue_mail(db, event.confirm_to, subject, body, email_type="form_confirmation")

@@ -10,7 +10,7 @@ from tests import backoffice_door
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 
-def test_unified_changes_feed(client, db_session, admin_headers):
+def test_unified_changes_feed(client, db_session):
     """#189: de uniforme feed bevat activiteit-wijzigingen, met een werkende
     objectgroep-filter."""
     activity, _component, _product = seed_activity_with_product(db_session)

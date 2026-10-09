@@ -51,7 +51,7 @@ def _pdf() -> bytes:
 _ONLEESBAAR = b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF"
 
 
-def test_een_opgeladen_pdf_affiche_krijgt_een_afbeelding(client, db_session, admin_headers):
+def test_een_opgeladen_pdf_affiche_krijgt_een_afbeelding(client, db_session):
     activity, _comp, _p = seed_activity_with_product(db_session)
 
     resp = media_door.set_poster(
@@ -73,7 +73,7 @@ def test_een_opgeladen_pdf_affiche_krijgt_een_afbeelding(client, db_session, adm
     assert "image/png" in getoond.headers.get("content-type", "")
 
 
-def test_een_onleesbare_pdf_levert_geen_afbeelding_en_geen_fout(client, db_session, admin_headers):
+def test_een_onleesbare_pdf_levert_geen_afbeelding_en_geen_fout(client, db_session):
     activity, _comp, _p = seed_activity_with_product(db_session)
 
     resp = media_door.set_poster(

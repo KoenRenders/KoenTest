@@ -5,6 +5,7 @@ from app.domains.cms.models import (  # noqa: F401
     CmsPage,
     CmsPageHistory,
     CmsPageTranslation,
+    PageIncomplete,
 )
 from app.domains.cms.render import (  # noqa: F401
     _format_md,
@@ -50,6 +51,7 @@ from app.domains.cms.service import (  # noqa: F401
 )
 
 __all__ = [
+    "PageIncomplete",
     "SlugBestaatAl",
     "create_page",
     "delete_page",

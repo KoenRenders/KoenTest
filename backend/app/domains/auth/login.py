@@ -7,6 +7,10 @@ als servicelaag. Ze dragen de regels die tellen — een onbekend adres krijgt g�
 signaal, een adres bij meerdere gezinnen krijgt uitleg in plaats van een link, en
 de pogingteller met lockout (#268) — dus ze horen in de service.
 
+`check_otp` left in CR-13 phase 4b (#1251): its last caller was the JSON route
+`verify-otp`; the sign-in screen asks `consume_code`, which also says why a right
+code was refused.
+
 **One code mechanism, three purposes** (CR-22 §B1 D2, #1707). Every code the
 portal sends comes from the one token here: to sign in, to make an account, to
 confirm a new address. The fifteen minutes, the hashed code, the five attempts
@@ -29,13 +33,13 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.domains.auth.member_identity import ACCOUNT, HOUSEHOLD, MULTIPLE, sign_in_identity
 from app.domains.auth.models import LoginPurpose, LoginToken, User
-from app.domains.mail.api import send_magic_link, send_member_contact_board_notice
 from app.i18n import _
 from app.kernel.contracts.auth import (
     ACCOUNT_CONFIRMATION,
     ADDRESS_CONFIRMATION,
     AMBIGUOUS_ADDRESS,
     EXISTING_ACCOUNT,
+    SIGN_IN,
     AccountCodeEntered,
     AddressCodeEntered,
     CodeMailRequested,
@@ -194,15 +198,19 @@ def start_login(db: Session, email: str, return_to: str = "") -> None:
 
     if user is not None or identity in (HOUSEHOLD, ACCOUNT):
         token, otp_code = _issue(db, email, purpose=LoginPurpose.SIGN_IN)
-        db.commit()
         magic_link = _link(db, token, return_to)
         if settings.debug:
             logger.warning("[DEBUG] Inloglink voor %s: %s", email, magic_link)
-        send_magic_link(to_email=email, magic_link=magic_link, otp_code=otp_code)
+        # The mail is queued in the transaction that stores the code (CR-13
+        # phase 4d, #1251): it leaves only if the code exists, and the request
+        # no longer waits for the mail server.
+        _request_mail(db, email, SIGN_IN, magic_link, otp_code)
+        db.commit()
     elif identity == MULTIPLE:
         # E-mailadres hangt aan meerdere gezinnen en is geen account: geen link,
         # wel uitleg per mail (we mogen niet gokken welk gezin bedoeld is).
-        send_member_contact_board_notice(to_email=email)
+        _request_mail(db, email, AMBIGUOUS_ADDRESS)
+        db.commit()
 
 
 def start_account(db: Session, request: AccountRequest, return_to: str = "") -> None:
@@ -467,22 +475,3 @@ def consume_link(db: Session, token: str) -> Optional[Consumed]:
     if login_token.expires_at.replace(tzinfo=timezone.utc) < nu:
         return None
     return _consume(db, login_token)
-
-
-def check_otp(db: Session, email: str, code: str) -> bool:
-    """De volledige OTP-controle (ook gebruikt door de JSON-API, fase 1 #399).
-    True = code klopt, het token is verbruikt en wat het moest doen is gedaan;
-    False = generiek ongeldig (geen detail-onderscheid). Whoever needs the
-    reason of a refusal asks `consume_code`."""
-    consumed = consume_code(db, email, code)
-    return consumed is not None and consumed.refusal is None
-
-
-def consume_magic_link(db: Session, token: str) -> Optional[str]:
-    """Verzilver een magic link: geeft het e-mailadres terug, of None — also
-    when the link was right and its purpose was refused. Whoever needs the
-    reason asks `consume_link`."""
-    consumed = consume_link(db, token)
-    if consumed is None or consumed.refusal is not None:
-        return None
-    return consumed.email

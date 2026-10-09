@@ -37,7 +37,7 @@ def _form_payload(**overrides):
     return payload
 
 
-def _create_form(client, admin_headers, **overrides):
+def _create_form(client, **overrides):
     resp = forms_door.create_form(client, _form_payload(**overrides))
     assert resp.status_code == 200, resp.text
     return resp.json()
@@ -74,14 +74,14 @@ def test_creating_a_form_asks_for_a_sign_in(client, db_session):
     assert db_session.query(Form).filter(Form.title == "Zonder sessie").count() == 0
 
 
-def test_create_generates_unique_share_token(client, admin_headers):
-    f1 = _create_form(client, admin_headers)
-    f2 = _create_form(client, admin_headers)
+def test_create_generates_unique_share_token(client):
+    f1 = _create_form(client)
+    f2 = _create_form(client)
     assert f1["share_token"] and f2["share_token"]
     assert f1["share_token"] != f2["share_token"]
 
 
-def test_invalid_field_type_rejected(client, admin_headers):
+def test_invalid_field_type_rejected(client):
     bad = _form_payload(fields=[{"field_type": "date", "label": "Wanneer", "position": 0}])
     assert forms_door.create_form(client, bad).status_code == 422
 
@@ -89,8 +89,8 @@ def test_invalid_field_type_rejected(client, admin_headers):
 # ── Publieke render ─────────────────────────────────────────────────────────────
 
 
-def test_draft_form_not_public(client, admin_headers):
-    form = _create_form(client, admin_headers, status="draft")
+def test_draft_form_not_public(client):
+    form = _create_form(client, status="draft")
     # The public page refuses a form that is not open (403); the JSON read that
     # answered 404 for a draft went with its route (#1251). Proven red (8 October
     # 2026): `assert_open_for_submission` taken out of `ui._load_open_form` → 200.
@@ -105,8 +105,8 @@ def test_unknown_token_404(client):
 # ── Inzending + validatie ───────────────────────────────────────────────────────
 
 
-def test_submit_missing_required_422(client, admin_headers):
-    form = _create_form(client, admin_headers)
+def test_submit_missing_required_422(client):
+    form = _create_form(client)
     token = form["share_token"]
     body = {
         "submitter_name": "Jan",
@@ -116,8 +116,8 @@ def test_submit_missing_required_422(client, admin_headers):
     assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 422
 
 
-def test_submit_valid_and_checkbox_creates_multiple_answers(client, admin_headers, db_session):
-    form = _create_form(client, admin_headers)
+def test_submit_valid_and_checkbox_creates_multiple_answers(client, db_session):
+    form = _create_form(client)
     token = form["share_token"]
     body = {
         "submitter_name": "Jan",
@@ -155,8 +155,8 @@ def test_submit_valid_and_checkbox_creates_multiple_answers(client, admin_header
     assert rating_row.value_rating == 5
 
 
-def test_invalid_email_rejected(client, admin_headers):
-    form = _create_form(client, admin_headers)
+def test_invalid_email_rejected(client):
+    form = _create_form(client)
     token = form["share_token"]
     body = {
         "submitter_name": "Jan",
@@ -169,8 +169,8 @@ def test_invalid_email_rejected(client, admin_headers):
     assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 422
 
 
-def test_rating_out_of_range_rejected(client, admin_headers):
-    form = _create_form(client, admin_headers)
+def test_rating_out_of_range_rejected(client):
+    form = _create_form(client)
     token = form["share_token"]
     body = {
         "submitter_name": "Jan",
@@ -184,8 +184,8 @@ def test_rating_out_of_range_rejected(client, admin_headers):
     assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 422
 
 
-def test_submit_on_closed_form_rejected(client, admin_headers):
-    form = _create_form(client, admin_headers, status="closed")
+def test_submit_on_closed_form_rejected(client):
+    form = _create_form(client, status="closed")
     token = form["share_token"]
     body = {
         "submitter_name": "Jan",
@@ -201,8 +201,8 @@ def test_submit_on_closed_form_rejected(client, admin_headers):
     assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 403
 
 
-def test_max_submissions_enforced(client, admin_headers):
-    form = _create_form(client, admin_headers, max_submissions=1)
+def test_max_submissions_enforced(client):
+    form = _create_form(client, max_submissions=1)
     token = form["share_token"]
     body = {
         "submitter_name": "Jan",
@@ -219,8 +219,8 @@ def test_max_submissions_enforced(client, admin_headers):
 # ── Resultaten-aggregatie ───────────────────────────────────────────────────────
 
 
-def test_results_aggregation(client, admin_headers):
-    form = _create_form(client, admin_headers)
+def test_results_aggregation(client):
+    form = _create_form(client)
     token = form["share_token"]
 
     def submit(rating, opt_labels):
@@ -259,10 +259,10 @@ def test_results_aggregation(client, admin_headers):
 # ── Export ──────────────────────────────────────────────────────────────────────
 
 
-def test_export_ods_only(client, admin_headers):
+def test_export_ods_only(client):
     """#371: export is ODS (cellen zijn string-getypeerd → geen formule-injectie);
     CSV bestaat niet meer."""
-    form = _create_form(client, admin_headers)
+    form = _create_form(client)
     token = form["share_token"]
     forms_door.submit(
         client,
@@ -282,9 +282,9 @@ def test_export_ods_only(client, admin_headers):
     assert ods_resp.headers["content-type"] == "application/vnd.oasis.opendocument.spreadsheet"
 
 
-def test_public_submit_is_rate_limited(client, admin_headers):
+def test_public_submit_is_rate_limited(client):
     """#371: het publieke inzend-endpoint heeft een rem tegen spam/DoS."""
-    form = _create_form(client, admin_headers)
+    form = _create_form(client)
     token = form["share_token"]
     # Through the public screen: the brake is on the door a person posts to
     # (`formulier_submit`), and counts every post, stored or not. Proven red
@@ -306,8 +306,8 @@ def test_public_submit_is_rate_limited(client, admin_headers):
 # ── Bevestigingsmail + wijzig-flow ──────────────────────────────────────────────
 
 
-def test_confirmation_email_logged_when_enabled(client, admin_headers):
-    form = _create_form(client, admin_headers, send_confirmation=True)
+def test_confirmation_email_logged_when_enabled(client):
+    form = _create_form(client, send_confirmation=True)
     token = form["share_token"]
     recipient = "confirm-flow@example.com"
     forms_door.submit(
@@ -353,10 +353,10 @@ def _fields_as_update(form):
     return out
 
 
-def test_edit_preserves_answers_when_field_added(client, admin_headers):
+def test_edit_preserves_answers_when_field_added(client):
     """#356: als de admin een vraag toevoegt, mogen de eerdere antwoorden van
     een respondent NIET verdwijnen. Het veld (en zijn id) blijft behouden."""
-    form = _create_form(client, admin_headers, allow_edit=True)
+    form = _create_form(client, allow_edit=True)
     token = form["share_token"]
     resp = forms_door.submit(
         client,
@@ -398,8 +398,8 @@ def test_edit_preserves_answers_when_field_added(client, admin_headers):
     assert by_field[rating_id]["rating"] == 4
 
 
-def test_no_edit_token_without_allow_edit(client, admin_headers):
-    form = _create_form(client, admin_headers)
+def test_no_edit_token_without_allow_edit(client):
+    form = _create_form(client)
     token = form["share_token"]
     resp = forms_door.submit(
         client,
@@ -417,8 +417,8 @@ def test_no_edit_token_without_allow_edit(client, admin_headers):
     assert resp.json()["edit_token"] is None
 
 
-def test_edit_flow(client, admin_headers):
-    form = _create_form(client, admin_headers, allow_edit=True)
+def test_edit_flow(client):
+    form = _create_form(client, allow_edit=True)
     token = form["share_token"]
     resp = forms_door.submit(
         client,
@@ -505,7 +505,7 @@ def _sectioned_payload():
     }
 
 
-def test_sections_returned_and_fields_linked(client, admin_headers):
+def test_sections_returned_and_fields_linked(client):
     form = forms_door.create_form(client, _sectioned_payload()).json()
     assert len(form["sections"]) == 2
     naam = next(f for f in form["fields"] if f["label"] == "Naam")
@@ -521,7 +521,7 @@ def test_sections_returned_and_fields_linked(client, admin_headers):
     assert "Intro" in page and "Vragen" in page
 
 
-def test_info_field_never_required(client, admin_headers):
+def test_info_field_never_required(client):
     # Een 'info'-veld met required=true mag een inzending nooit blokkeren.
     form = forms_door.create_form(client, _sectioned_payload()).json()
     token = form["share_token"]
@@ -539,7 +539,7 @@ def test_info_field_never_required(client, admin_headers):
     assert resp.status_code == 200, resp.text
 
 
-def test_other_option_stores_free_text(client, admin_headers, db_session):
+def test_other_option_stores_free_text(client, db_session):
     form = forms_door.create_form(client, _sectioned_payload()).json()
     token = form["share_token"]
     naam_id = next(f["id"] for f in form["fields"] if f["label"] == "Naam")
@@ -639,14 +639,14 @@ def _branching_payload():
     }
 
 
-def _mk(client, admin_headers, payload):
+def _mk(client, payload):
     r = forms_door.create_form(client, payload)
     assert r.status_code == 200, r.text
     return r.json()
 
 
-def test_branching_skips_other_branch(client, admin_headers):
-    form = _mk(client, admin_headers, _branching_payload())
+def test_branching_skips_other_branch(client):
+    form = _mk(client, _branching_payload())
     token = form["share_token"]
     ja = _option_id(form, "Aanwezig?", "Ja")
     # Ja-tak: Wel + Slot ingevuld, "Waarom niet?" (Niet-tak) overgeslagen → OK.
@@ -662,8 +662,8 @@ def test_branching_skips_other_branch(client, admin_headers):
     assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 200
 
 
-def test_branching_required_in_taken_branch_enforced(client, admin_headers):
-    form = _mk(client, admin_headers, _branching_payload())
+def test_branching_required_in_taken_branch_enforced(client):
+    form = _mk(client, _branching_payload())
     token = form["share_token"]
     ja = _option_id(form, "Aanwezig?", "Ja")
     # Ja-tak maar "Wat was leuk?" (verplicht, in doorlopen sectie) ontbreekt → 422.
@@ -678,8 +678,8 @@ def test_branching_required_in_taken_branch_enforced(client, admin_headers):
     assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 422
 
 
-def test_branching_nee_branch(client, admin_headers):
-    form = _mk(client, admin_headers, _branching_payload())
+def test_branching_nee_branch(client):
+    form = _mk(client, _branching_payload())
     token = form["share_token"]
     nee = _option_id(form, "Aanwezig?", "Nee")
     body = {
@@ -694,7 +694,7 @@ def test_branching_nee_branch(client, admin_headers):
     assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 200
 
 
-def test_skip_to_end_ignores_later_sections(client, admin_headers):
+def test_skip_to_end_ignores_later_sections(client):
     payload = {
         "title": "Skip-to-end",
         "status": "open",
@@ -723,7 +723,7 @@ def test_skip_to_end_ignores_later_sections(client, admin_headers):
             },
         ],
     }
-    form = _mk(client, admin_headers, payload)
+    form = _mk(client, payload)
     token = form["share_token"]
     stop = _option_id(form, "Stoppen?", "Stop nu")
     # "Stop nu" → einde; de verplichte "Vervolgvraag" wordt niet afgedwongen.
@@ -735,28 +735,28 @@ def test_skip_to_end_ignores_later_sections(client, admin_headers):
     assert forms_door.submit(client, token, {**form_guard_fields(), **body}).status_code == 200
 
 
-def test_branching_only_on_choice_fields(client, admin_headers):
+def test_branching_only_on_choice_fields(client):
     payload = _branching_payload()
     # Zet een skip op een checkbox-optie → moet geweigerd worden.
     payload["fields"][0]["field_type"] = "checkbox"
     assert forms_door.create_form(client, payload).status_code == 422
 
 
-def test_backward_section_jump_rejected(client, admin_headers):
+def test_backward_section_jump_rejected(client):
     payload = _branching_payload()
     payload["sections"][3]["next_section_index"] = 1  # Slot terug naar Wel = lus
     assert forms_door.create_form(client, payload).status_code == 422
 
 
-def test_empty_label_rejected(client, admin_headers):
+def test_empty_label_rejected(client):
     bad = _form_payload(fields=[{"field_type": "text", "label": "   ", "position": 0}])
     assert forms_door.create_form(client, bad).status_code == 422
 
 
-def test_branch_config_persisted_on_form_and_sections(client, admin_headers):
+def test_branch_config_persisted_on_form_and_sections(client):
     """De branch-config (sectie-sprong + keuze-sprong) wordt bewaard en correct
     teruggegeven met de juiste sectie-ids."""
-    form = _mk(client, admin_headers, _branching_payload())
+    form = _mk(client, _branching_payload())
     fetched = forms_door.read_form(client, form["id"])
     secs = sorted(fetched["sections"], key=lambda s: s["position"])
     slot_id = secs[3]["id"]
@@ -775,10 +775,9 @@ def test_branch_config_persisted_on_form_and_sections(client, admin_headers):
 # ── Contactblok/anoniem (#343) + phone (#344) ────────────────────────────────────
 
 
-def test_phone_field_validation(client, admin_headers):
+def test_phone_field_validation(client):
     form = _create_form(
         client,
-        admin_headers,
         fields=[
             {"field_type": "phone", "label": "GSM", "required": True, "position": 0},
         ],
@@ -811,10 +810,9 @@ def test_phone_field_validation(client, admin_headers):
     assert bad.status_code == 422
 
 
-def test_anonymous_form_stores_no_submitter(client, admin_headers, db_session):
+def test_anonymous_form_stores_no_submitter(client, db_session):
     form = _create_form(
         client,
-        admin_headers,
         is_anonymous=True,
         send_confirmation=True,
         fields=[
@@ -845,12 +843,11 @@ def test_anonymous_form_stores_no_submitter(client, admin_headers, db_session):
         s.close()
 
 
-def test_contact_email_decoupled_from_form_email_field(client, admin_headers):
+def test_contact_email_decoupled_from_form_email_field(client):
     """De bevestiging gaat naar het contactblok-adres, niet naar een e-mailveld
     in het formulier (bv. partner)."""
     form = _create_form(
         client,
-        admin_headers,
         send_confirmation=True,
         fields=[
             {"field_type": "email", "label": "E-mail partner", "position": 0},
@@ -886,10 +883,9 @@ def test_contact_email_decoupled_from_form_email_field(client, admin_headers):
 # ── Configureerbare rating-schaal (#341) ─────────────────────────────────────────
 
 
-def test_configurable_rating_scale(client, admin_headers):
+def test_configurable_rating_scale(client):
     form = _create_form(
         client,
-        admin_headers,
         fields=[
             {
                 "field_type": "rating",
@@ -935,13 +931,12 @@ def test_configurable_rating_scale(client, admin_headers):
     assert "Zeer belangrijk" in rating["distribution"][2]["label"]
 
 
-def test_rating_scale_capped_at_ten(client, admin_headers):
+def test_rating_scale_capped_at_ten(client):
     """#341: rating_max wordt begrensd tot 10 en een waarde 10 kan opgeslagen
     worden (de DB-CHECK laat 1..10 toe, geen interne serverfout meer)."""
     # rating_max 25 wordt server-side geplafonneerd tot 10.
     form = _create_form(
         client,
-        admin_headers,
         fields=[
             {"field_type": "rating", "label": "Score", "position": 0, "rating_max": 25},
         ],
@@ -993,7 +988,7 @@ def _load_formaatgids_example() -> dict:
     return json.loads(m.group(1))
 
 
-def test_formaatgids_example_imports_and_covers_all_field_types(client, admin_headers):
+def test_formaatgids_example_imports_and_covers_all_field_types(client):
     """#367: het voorbeeld uit de formaatgids importeert (POST /forms → 200) én gebruikt
     ELK veldtype. Faalt zodra de doc-payload niet meer geldig is of een veldtype mist —
     zo blijft de descriptor bij elke build gevalideerd tegen de engine."""
@@ -1008,13 +1003,13 @@ def test_formaatgids_example_imports_and_covers_all_field_types(client, admin_he
     assert not missing, f"formaatgids-voorbeeld dekt niet alle veldtypes; mist: {sorted(missing)}"
 
 
-def test_public_form_exposes_confirmation_message(client, admin_headers):
+def test_public_form_exposes_confirmation_message(client):
     """#353: the thank-you screen shows the form's own thank-you text.
 
     Proven red (8 October 2026): `false and` in front of the condition in
     `formulier_klaar.html` → the text is not on the page.
     """
-    form = _create_form(client, admin_headers, confirmation_message="Hartelijk bedankt!")
+    form = _create_form(client, confirmation_message="Hartelijk bedankt!")
     thanks = client.post(
         f"/formulier/{form['share_token']}",
         data={
@@ -1028,9 +1023,9 @@ def test_public_form_exposes_confirmation_message(client, admin_headers):
     assert "Hartelijk bedankt!" in thanks.text
 
 
-def test_admin_list_and_delete_submission(client, admin_headers, db_session):
+def test_admin_list_and_delete_submission(client, db_session):
     """#356: admin ziet individuele inzendingen en kan er één verwijderen."""
-    form = _create_form(client, admin_headers)
+    form = _create_form(client)
     token = form["share_token"]
     body = {
         "submitter_name": "Jan",
@@ -1106,7 +1101,6 @@ def test_niet_anoniem_vereist_naam_en_email(db_session):
     check vuurt vóór de veld-validatie, dus er zijn geen velden nodig."""
     import pytest
     from fastapi import HTTPException
-    from starlette.background import BackgroundTasks
 
     from app.domains.forms.models import Form
     from app.domains.forms.schemas import SubmissionIn
@@ -1116,14 +1110,12 @@ def test_niet_anoniem_vereist_naam_en_email(db_session):
     db_session.add(form)
     db_session.commit()
 
-    bt = BackgroundTasks()
     for naam, email in [("Jan", None), ("Jan", "geen-apestaart"), ("", "jan@x.be")]:
         with pytest.raises(HTTPException) as exc:
             submit_form(
                 db_session,
                 "tok-501",
                 SubmissionIn(submitter_name=naam, submitter_email=email, answers=[]),
-                bt,
                 proof=person_proof(),
             )
         assert exc.value.status_code == 422

@@ -16,8 +16,8 @@ def _login(client):
     return csrf_token_for(value)
 
 
-def test_admin_ods_export_returns_ods_not_json_error(client, admin_headers):
-    form = _create_form(client, admin_headers)
+def test_admin_ods_export_returns_ods_not_json_error(client):
+    form = _create_form(client)
     # één inzending zodat er iets te exporteren valt
     forms_door.submit(
         client,

@@ -600,7 +600,11 @@ async def media_uploaden(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-    files: List[UploadFile] = File(...),
+    # #1831: not required here. A post without a file is refused by the service's
+    # own rule, in the page's banner — required on the route, the framework
+    # answered a bare JSON 422 and the page showed the kit's general message.
+    # `str`: a file input nobody filled arrives as an empty text field.
+    files: List[UploadFile | str] = File([]),
     kind: str = Form("sponsor"),
     activity_id: Optional[int] = Form(None),
     title: str = Form(""),
@@ -617,7 +621,7 @@ async def media_uploaden(
     try:
         stored = await upload_media(
             db,
-            files=files,
+            files=[given for given in files if not isinstance(given, str)],
             kind=kind,
             activity_id=activity_id,
             title=title.strip() or None,

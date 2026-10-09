@@ -12,9 +12,15 @@ from sqlalchemy import (
     false,
 )
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import validates
 
 from app.database import Base
 from app.kernel.tenancy import TenantMixin
+
+
+class PageIncomplete(ValueError):
+    """A page without a title or without a slug. Not an HTTPException: that
+    belongs to the door, not to the rule."""
 
 
 class CmsPage(TenantMixin, Base):
@@ -23,6 +29,19 @@ class CmsPage(TenantMixin, Base):
         UniqueConstraint("tenant_id", "slug", name="ix_cms_pages_tenant_slug"),
         {"schema": "cms"},
     )
+
+    @validates("title", "slug")
+    def _has_text(self, _field: str, value: object) -> object:
+        """A page has a title and a slug (CR-13 §B9.1, one field each): `NOT NULL`
+        lets an empty string and a string of spaces through, and a page without
+        a title has no name in the list, one without a slug no address. Until
+        phase 4d the screen that makes a page decided this; it holds for every
+        writer now."""
+        if not isinstance(value, str) or not value.strip():
+            from app.i18n import _
+
+            raise PageIncomplete(_("Titel en slug zijn verplicht."))
+        return value
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)

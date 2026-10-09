@@ -15,7 +15,7 @@ def _png_bytes(size=(300, 200), color=(10, 120, 200)):
     return buf.getvalue()
 
 
-def test_sponsor_upload_serve_and_list(client, admin_headers):
+def test_sponsor_upload_serve_and_list(client):
     files = {"files": ("logo.png", _png_bytes(), "image/png")}
     resp = media_door.upload(
         client, files, {"kind": "sponsor", "title": "Mona", "link_url": "https://example.org"}
@@ -42,13 +42,13 @@ def test_sponsor_upload_serve_and_list(client, admin_headers):
     assert again.status_code == 304
 
 
-def test_activity_photo_requires_activity_id(client, admin_headers):
+def test_activity_photo_requires_activity_id(client):
     files = {"files": ("foto.png", _png_bytes(), "image/png")}
     resp = media_door.upload(client, files, {"kind": "activity_photo"})
     assert resp.status_code == 400
 
 
-def test_activity_photos_listed_per_activity(client, db_session, admin_headers):
+def test_activity_photos_listed_per_activity(client, db_session):
     activity, _comp, _product = seed_activity_with_product(db_session)
     files = [
         ("files", ("a.png", _png_bytes(), "image/png")),
@@ -68,7 +68,7 @@ def test_activity_photos_listed_per_activity(client, db_session, admin_headers):
     assert thumb.status_code == 200
 
 
-def test_non_image_rejected(client, admin_headers):
+def test_non_image_rejected(client):
     files = {"files": ("stuk.txt", b"geen afbeelding", "text/plain")}
     resp = media_door.upload(client, files, {"kind": "sponsor"})
     assert resp.status_code == 400

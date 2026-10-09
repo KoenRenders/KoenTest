@@ -575,7 +575,7 @@ never a claim you did not check:
 | `alembic current` | `… exec -T backend alembic current` | equal to that head |
 | Migrations, if the release adds any | backend logs | the expected `Running upgrade NNN -> NNN+1` |
 | Startup | backend logs | `Uvicorn running on http://0.0.0.0:8000`, zero `ERROR`/`Traceback` lines |
-| Smoke + reachability | the deploy's own output, plus a few `curl`s | `N OK · 0 gefaald`; public pages 200, an admin screen 303 to `/aanmelden?terug=…` without a session (#1458), an `/api/v1/` admin path 401 |
+| Smoke + reachability | the deploy's own output, plus a few `curl`s | `N OK · 0 gefaald`; public pages 200, an admin screen 303 to `/aanmelden?terug=…` without a session (#1458). No `/api/v1/` path asks for an admin any more since v2.16.0 (#1251: the JSON routes without a caller were pruned), so the former third check — an `/api/v1/` admin path 401 — has nothing to measure; on a tag older than v2.16.0 it still holds |
 
 `raak diagnose <env>` collects the first five in one report (`logging.sh`), so use
 it instead of hand-writing `docker compose` commands; `raak fetch <env>` pulls the
@@ -919,14 +919,23 @@ per commit on GitHub.
 fase-issues under #393) every domain owns its own routers, models, service and
 templates under `backend/app/domains/`:
 
-| Domain | JSON router(s) | Notable endpoints |
+**Since v2.16.0 almost nothing answers under `/api/v1`** (CR-13 phase 4, #1251:
+the JSON routes without a caller were pruned — 124 of them, with the bearer
+tokens and the API keys; Koen, 9 October 2026, agreed to bring this table up to
+date). What is left is what a machine or a browser element really calls:
+
+| Domain | JSON router | What it serves |
 |---|---|---|
-| `auth/` | `router.py` | login, magic link, API keys |
-| `membership/` | `register_router.py`, `household_router.py` | `POST /families` = public registration |
-| `mdm/` | `router.py`, `import_router.py` | `GET /postal-codes` (moved here from cms) |
-| `activities/` | `router.py` | `POST /activities/{id}/register` |
-| `payment/` | `router.py`, `gateway_router.py`, `status_router.py` | Mollie + payment records |
-| `cms/`, `media/`, `forms/`, `chatbot/`, `stt/`, `mail/`, `workflow/`, `audit/` | `router.py` per domain | — |
+| `media/` | `router.py` | `GET /media/{id}` and `GET /media/{id}/thumb` — the bytes of a picture or a document, for an `<img>` or a download |
+| `payment/` | `router.py`, `gateway_router.py` | `POST /payment-gateway/webhooks/mollie` — the provider's webhook (the security invariant below); `stub_router.py` is the stand-in provider of dev and the browser tests |
+| `chatbot/stt/` | `router.py` | the websocket `/stt/voxtral` — dictation |
+
+Every other domain has no JSON router: a screen calls its own domain's service,
+another domain's `api.py`, a port or an event (`docs/architecture.md` §3.2.1).
+A file that is still called `router.py` or `*_router.py` without being in this
+table holds plain functions behind a facade, not routes. A new JSON route needs
+a caller named in its domain's `CONTRACT.md`
+(`tests/test_rules_gate.py::test_every_json_route_names_its_caller`).
 
 Each domain also carries its server-rendered screens (`ui.py` for the public
 side, `admin_ui.py` for the back office). Cross-cutting admin screens that belong
@@ -974,7 +983,7 @@ domain's internals (`tests/test_import_boundaries.py` enforces this).
 - `Registration` → `RegistrationItem` (één regel per gekozen product/aantal)
 - `GatewayPayment.payment_metadata` (JSON column — NOT `metadata`)
 
-**Auth:** JWT Bearer tokens voor de JSON-API (`get_current_admin` op alle admin-endpoints); de server-rendered schermen gebruiken de HttpOnly-sessiecookie + CSRF via `app.domains.auth.api` (`require_admin_ui`, `require_csrf`).
+**Auth:** de sessie is de enige identiteit sinds v2.16.0 (#1251: de bearer-tokens en API-sleutels van de JSON-API zijn met hun routes verdwenen); de server-rendered schermen gebruiken de HttpOnly-sessiecookie + CSRF via `app.domains.auth.api` (`require_admin_ui`, `require_csrf`).
 
 **Rollen (ADMIN/FINANCE/OPERATOR/ACCOUNT_ADMIN) → wat mag/ziet wie:** zie de
 autoritatieve, met-de-code-geverifieerde matrix in `docs/rollen-en-rechten.md`

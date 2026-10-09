@@ -154,7 +154,9 @@ def test_de_reden_komt_uit_hetzelfde_schema_als_publiek(client, db_session):
             postal_code="2400",
             members=[FamilyMemberCreate(first_name="A", last_name="B", relation_type="HOOFDLID")],
         )
-    schema_reden = str(fout.value.errors()[0]["msg"])
+    # The schema's own words, without the library's "Value error, " in front:
+    # since #1831 that prefix no longer reaches the screen.
+    schema_reden = str(fout.value.errors()[0]["ctx"]["error"])
 
     csrf = _login(client)
     antwoord = client.post(
@@ -162,7 +164,8 @@ def test_de_reden_komt_uit_hetzelfde_schema_als_publiek(client, db_session):
         data=nieuw_lid_velden(db_session, m0_email=None),
         headers={"X-CSRF-Token": csrf},
     )
-    assert schema_reden.split(":")[-1].strip() in antwoord.text
+    assert schema_reden in antwoord.text
+    assert "Value error" not in antwoord.text
 
 
 # ── 3. Hoofdlid plus twee gezinsleden, in één keer ───────────────────────────

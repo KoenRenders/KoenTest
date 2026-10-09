@@ -131,9 +131,7 @@ def test_the_screen_refresh_books_what_the_gateway_calls_paid(client, db_session
     _assert_paid_once(_reread(db_session, record.id), received)
 
 
-def test_the_json_refresh_books_what_the_gateway_calls_paid(
-    client, db_session, admin_headers, received
-):
+def test_the_json_refresh_books_what_the_gateway_calls_paid(client, db_session, received):
     _finance(db_session)
     record = _online_charge(db_session, at_gateway=PaymentStatus.PAID, payable_id=12492)
 

@@ -20,15 +20,29 @@ Proven red (29 September 2026), both directions, additively:
   "dropped" test fails on a row or a task that should not be there;
 - `MIN_SECONDS = 60` added (the guard too strict) → every "let through" test fails
   on a missing row: that is the silent refusal of a person the issue warns of.
+
+#1839 — the "too fresh" case holds the guard's clock. It issued a token and
+posted at once, on the wall clock, and went red once on CI: the guard counts
+from a floored second, so a token issued late in a second is two seconds old
+about one second later, and a slow first request was enough. With the clock
+held the token is younger than a second whatever the request takes. Where the
+line of two seconds lies exactly is pinned in `tests/test_form_guard_rules.py`.
+Proven, with a slow request simulated by a sleep of 1.2 s at the top of the
+guard's check (additive, put back): with the clock held the three "too-fresh"
+cases stay green; with the fixture's clock let go and the token issued at x.9
+of a second, all three are red — the failure of CI, made certain.
 """
 
 import logging
+import time
+from types import SimpleNamespace
 
 import pytest
 
 from app.domains.forms.models import Form, FormField, FormSubmission
 from app.domains.newsletter.models import Subscriber
 from app.domains.workflow.models import WorkflowTask
+from app.kernel import form_guard
 from app.kernel.form_guard import issue_token
 from tests.conftest import form_guard_fields
 
@@ -46,6 +60,18 @@ def _dropped_variants():
 
 
 VARIANTS = ["honeypot", "no-token", "too-fresh"]
+
+
+@pytest.fixture
+def held_clock(monkeypatch):
+    """The guard's clock stands still at this moment (#1839): a token issued
+    under it is less than a second old when the guard reads it, however long
+    the request takes. Only the guard's clock — the rest of the application
+    keeps the real one."""
+    moment = time.time()
+    monkeypatch.setattr(form_guard, "time", SimpleNamespace(time=lambda: moment))
+
+
 REASON = {"honeypot": "honeypot", "no-token": "no_token", "too-fresh": "too_fast"}
 
 
@@ -91,7 +117,7 @@ BERICHT = {"naam": "Abcdefghij", "email": "probe@example.com", "bericht": "x" * 
 
 
 @pytest.mark.parametrize("variant", VARIANTS)
-def test_berichten_drops_what_is_not_a_person(client, db_session, caplog, variant):
+def test_berichten_drops_what_is_not_a_person(client, db_session, caplog, held_clock, variant):
     caplog.set_level(logging.WARNING, logger="app.kernel.form_guard")
     before = _counts(db_session)
 
@@ -146,7 +172,9 @@ def _answer(field):
 
 
 @pytest.mark.parametrize("variant", VARIANTS)
-def test_the_public_form_drops_what_is_not_a_person(client, db_session, public_form, variant):
+def test_the_public_form_drops_what_is_not_a_person(
+    client, db_session, public_form, held_clock, variant
+):
     form, field = public_form
 
     answer = client.post(
@@ -170,7 +198,9 @@ def test_the_public_form_lets_a_person_through(client, db_session, public_form):
 
 
 @pytest.mark.parametrize("variant", VARIANTS)
-def test_the_newsletter_drops_what_is_not_a_person(client, db_session, confirmations, variant):
+def test_the_newsletter_drops_what_is_not_a_person(
+    client, db_session, confirmations, held_clock, variant
+):
     answer = client.post(
         "/nieuwsbrief", data={**_dropped_variants()[variant], "email": "probe@example.org"}
     )

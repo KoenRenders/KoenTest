@@ -25,7 +25,7 @@ def _public(db, activity_id, comp_id):
     return public_registrations(db, activity_id, comp_id)
 
 
-def _records(client, admin_headers):
+def _records(client):
     return payments_door.records(client).json()
 
 
@@ -46,7 +46,7 @@ def _register(client, db_session, qty=2, price="18.00"):
     return comp, reg
 
 
-def test_delete_unpaid_registration_clears_pending_charge(client, db_session, admin_headers):
+def test_delete_unpaid_registration_clears_pending_charge(client, db_session):
     """Onbetaald verwijderen → weg uit de deelnemerslijst én de openstaande charge
     verdwijnt (niets verschuldigd voor een verwijderde inschrijving)."""
     comp, reg = _register(client, db_session)
@@ -61,13 +61,11 @@ def test_delete_unpaid_registration_clears_pending_charge(client, db_session, ad
     assert not any(
         p["contact_name"] == "An Janssens" for p in _public(db_session, comp.activity_id, comp.id)
     )
-    keys = [(r["payable_type"], r["payable_id"]) for r in _records(client, admin_headers)]
+    keys = [(r["payable_type"], r["payable_id"]) for r in _records(client)]
     assert ("registration", reg.id) not in keys  # pending charge opgeruimd
 
 
-def test_delete_paid_registration_keeps_charge_and_creates_pending_refund(
-    client, db_session, admin_headers
-):
+def test_delete_paid_registration_keeps_charge_and_creates_pending_refund(client, db_session):
     """Betaald verwijderen → identiek aan alle producten weghalen (#185): de betaalde
     charge blijft 'vereffend' (geld werd ontvangen) en er komt één **pending**
     terugbetaling bij (niet als teruggestort getoond tot de penningmeester bevestigt)."""
@@ -94,7 +92,7 @@ def test_delete_paid_registration_keeps_charge_and_creates_pending_refund(
 
     recs = [
         r
-        for r in _records(client, admin_headers)
+        for r in _records(client)
         if r["payable_type"] == "registration" and r["payable_id"] == reg.id
     ]
     charges = [r for r in recs if r["type"] == "charge"]

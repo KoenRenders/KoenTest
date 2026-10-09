@@ -114,7 +114,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "domains/forms/admin_ui.py::veld_toevoegen",
         "domains/forms/admin_ui.py::veld_verplaatsen",
         "domains/forms/admin_ui.py::veld_verwijderen",
-        "domains/forms/api.py::submit_bericht",
         "domains/forms/service.py::FormulierFout",
         "domains/forms/service.py::VeldFout",
         "domains/forms/service.py::_sectie_indexen",

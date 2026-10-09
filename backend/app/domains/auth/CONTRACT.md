@@ -1,32 +1,32 @@
 # auth — componentcontract (fase 1b, #399)
 
 **Doel.** Identiteit en autorisatie: de e-maillogin-flow (magic-link + OTP),
-JWT-uitgifte, rol-afleiding per request, lid-identificatie (e-mail → Person),
+rol-afleiding per request, lid-identificatie (e-mail → Person),
 de HttpOnly-sessie + CSRF voor server-rendered schermen, en gebruikersbeheer.
+
+Since CR-13 phase 4b (#1251) the session is the one identity: the JSON routes
+under `/api/v1/auth` and `/api/v1/users`, the bearer token they issued and the
+guards that read it are gone — no caller was found for any of them.
 
 ## Facade (`api.py`) — de enige toegangsdeur voor andere componenten
 
-- **JWT/rollen** (`service.py`): `create_access_token`, `decode_token`,
-  `get_current_identity`, `get_user_roles`, `require_roles`,
-  `get_current_admin`,
-  `get_current_member`, `require_member`.
+- **Rollen** (`service.py`): `get_user_roles`, `get_user_role_rows`,
+  `landing_for`, `has_login` — what someone may, asked of the data per request.
 - **Sessie/CSRF** (`session.py`, #398): `SESSION_COOKIE`, `make_session_value`,
   `read_session_value`, `set_session_cookie`, `csrf_token_for`,
   `require_admin_ui`, `require_csrf`.
 - **Lid-identiteit** (`member_identity.py`): `find_persons_by_email`,
   `resolve_household`, `login_person_for_email`.
-- **Modellen als type**: `User`, `UserRole`, `LoginToken`, `ApiKey` (voor
+- **Modellen als type**: `User`, `UserRole`, `LoginToken` (voor
   Depends-annotaties; queries erop horen binnen dit component).
-- **Machine-consumenten** (§19.3): `require_api_key` (X-API-Key-header),
-  `hash_api_key`, `API_KEY_HEADER`. Beheer via `/auth/api-keys` (admin); de
-  key is exact één keer zichtbaar bij aanmaak en wordt enkel gehasht bewaard
-  (tabel `auth.api_keys`, migratie 077).
+- **Machine-consumenten** (§19.3): none. The guard `require_api_key` never
+  guarded a route and left with the API-key routes; the model `ApiKey` and the
+  empty table `auth.api_keys` (migratie 077) left in the same release.
 
 ## Router
 
-`router.py` — `/auth/*` (request-login, verify-login, verify-otp, me,
-member/me) + gebruikersbeheer `/users/*` (via `users.py`), gemount onder
-`/api/v1`.
+None. The sign-in is the screen's (`ui.py`: `/aanmelden`, `/aanmelden/code`, the
+mail's link); the users screen (`admin_ui.py`) calls `users.py` as its service.
 
 ## Data
 
@@ -37,7 +37,7 @@ enige brug tussen backoffice-accounts en het ledendomein is de e-mailwaarde.
 
 ## Principes
 
-- Het token bevat enkel identiteit (`sub` = e-mail); capabilities worden per
-  request uit de data afgeleid — nooit in het token gebakken.
+- De sessie bevat enkel identiteit (het e-mailadres); capabilities worden per
+  request uit de data afgeleid — nooit naast de identiteit bewaard.
 - OTP's worden gehasht opgeslagen (SHA-256 + SECRET_KEY-pepper, #395), met
   brute-force-lockout (#268).

@@ -78,8 +78,10 @@ Verifying tests: `test_rollen_per_werkruimte.py`.
 - **Algemene admin-gate**: `require_admin_ui` → `{ADMIN, OPERATOR}` (`auth/session.py`).
 - **Betalingen-kijkgate**: `require_finance_ui` → `{ADMIN, FINANCE, OPERATOR}`.
 - **Betalingen-schrijfgate**: `_require_finance` → `{FINANCE, OPERATOR}`.
-- **JSON-API** (`/api/v1/...`): `get_current_admin` (ADMIN-only), `get_current_finance`,
-  `require_roles(...)` (OPERATOR telt altijd mee).
+- **JSON-API** (`/api/v1/...`): geen eigen rolbewaking meer sinds v2.16.0 (#1251) — de
+  JSON-routes zonder aanroeper zijn gesnoeid en met hen `get_current_admin`,
+  `get_current_finance` en `require_roles(...)`. Wat rest onder `/api/v1` (mediabestand,
+  miniatuur, de twee betaalwebhooks) vraagt geen rol.
 - **Login-landing** volgt de rol: ADMIN/OPERATOR → `/admin/werkbank`, FINANCE →
   `/admin/betalingen`, gewoon lid → `/leden/gezin` (OTP- én magic-link-pad).
 - **Nav** is role-aware: een FINANCE-only gebruiker ziet enkel Betalingen.

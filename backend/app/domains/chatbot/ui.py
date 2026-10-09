@@ -60,7 +60,7 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db), vraag: str = F
     from app.domains.chatbot.logbook import sink_for
     from app.domains.chatbot.providers import get_provider
     from app.domains.chatbot.seam import GuardedProvider, SeamBlocked, public_rules
-    from app.domains.chatbot.service import QuestionRefused, asked, run_public_chat
+    from app.domains.chatbot.service import QuestionRefused, answer_visitor, asked
 
     vraag = vraag.strip()
     # #1568: the environment's switch and the tenant's, one rule — the same the
@@ -91,7 +91,7 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db), vraag: str = F
     # e-mailadres te ontvangen.
     provider = GuardedProvider(get_provider(), public_rules(), sink_for())
     try:
-        antwoord = run_public_chat(db, messages, provider, max_rounds=settings.chat_max_tool_rounds)
+        antwoord = answer_visitor(db, messages, provider, max_rounds=settings.chat_max_tool_rounds)
     except SeamBlocked as geblokkeerd:
         # De logregel staat al — het logboek schrijft in zijn eigen sessie, juist
         # omdat deze beurt op een foutpad eindigt.
@@ -205,6 +205,54 @@ def rij_bewerken(
             sort_order=ci.sort_order,
         ),
     )
+    return templates.TemplateResponse(
+        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
+    )
+
+
+@router.post(
+    "/admin/ai-context/paginas/{page_id}/toggle",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def page_toggle(
+    page_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
+    """A page's switch goes by the page, not by its info row: a page that never
+    got a row can be switched off too (#1791)."""
+    from app.domains.chatbot.api import toggle_page
+
+    try:
+        toggle_page(db, page_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
+    return templates.TemplateResponse(
+        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
+    )
+
+
+@router.post(
+    "/admin/ai-context/paginas/{page_id}/bewerken",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def page_edit(
+    page_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    text_override: str = Form(""),
+    text_addition: str = Form(""),
+):
+    from app.domains.chatbot.api import edit_page
+
+    try:
+        edit_page(db, page_id, text_override=text_override, text_addition=text_addition)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
     return templates.TemplateResponse(
         request, "_ai_context_lijst.html", _context_ctx(request, db, email)
     )

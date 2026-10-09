@@ -37,6 +37,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.mdm.api import OrganizationType
+from tests._queued_mail import newest_queued_mail
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -127,18 +128,6 @@ def test_the_login_mail_from_a_platform_host_carries_the_platform_name(
     Koen's report was literally an e-mail titled *"Inloglink Raak Millegem"* arriving
     after logging in on the platform.
     """
-    verstuurd = {}
-
-    from app.domains.mail import service as mail_service
-
-    # `_send` and not `_dispatch`: the magic-link mail calls `_send` directly, so a
-    # patch one layer higher never fires and the test would fail for the wrong reason.
-    def _capture(to_email, subject, body_html, **kwargs):
-        verstuurd["subject"] = subject
-        verstuurd["html"] = body_html
-
-    monkeypatch.setattr(mail_service, "_send", _capture)
-
     # A KNOWN address: `start_login` stays silent for an unknown one — deliberately,
     # so the screen never reveals who has an account.
     resp = client.post(
@@ -146,10 +135,12 @@ def test_the_login_mail_from_a_platform_host_carries_the_platform_name(
     )
 
     assert resp.status_code == 200
-    assert verstuurd, "no mail was sent at all"
+    # The mail is worded during the request and waits in the queue (#1251): the
+    # name it carries is the one of the host the visitor was on.
+    verstuurd = newest_queued_mail(db_session)
     assert "Digital Platform" in verstuurd["subject"], verstuurd["subject"]
     assert "Raak Millegem" not in verstuurd["subject"]
-    assert "Raak Millegem" not in verstuurd["html"], (
+    assert "Raak Millegem" not in verstuurd["body_html"], (
         "the signature still carries the name of an afdeling"
     )
 

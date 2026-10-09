@@ -10,7 +10,7 @@ Invarianten:
 
 import pytest
 
-from app.domains.auth.api import create_access_token
+from app.domains.auth.api import login_person_for_email
 from app.domains.membership import household_service
 from app.domains.membership.schemas_member import MembershipCreate
 from app.domains.payment.api import PayableType
@@ -22,11 +22,7 @@ from tests.integration.test_membership_pricing import seed_household
 pytestmark = pytest.mark.ui_agnostisch
 
 
-def _headers(email):
-    return {"Authorization": f"Bearer {create_access_token({'sub': email})}"}
-
-
-def test_admin_created_membership_is_valid(client, db_session, admin_headers):
+def test_admin_created_membership_is_valid(client, db_session):
     """Admin 'Lid maken' moet een geldig lidmaatschap opleveren (met
     valid_from/valid_to), anders telt het nergens als geldig (#143)."""
     from datetime import date
@@ -46,7 +42,7 @@ def test_admin_created_membership_is_valid(client, db_session, admin_headers):
     assert has_valid_membership(person) is True
 
 
-def test_manual_payment_confirmation_activates_membership(client, db_session, admin_headers):
+def test_manual_payment_confirmation_activates_membership(client, db_session):
     """Een handmatig bevestigde lidmaatschap-betaling (cash/overschrijving) moet het
     lidmaatschap activeren — net als de Mollie-webhook (#143)."""
     seed_postal_code(db_session)
@@ -231,21 +227,27 @@ def test_webhook_activates_membership_on_paid(client, db_session, mock_mollie):
     assert has_valid_membership(person) is True
 
 
-def test_member_me_reports_membership_validity(client, db_session):
+def test_a_signed_in_member_has_a_membership_that_is_valid_until_a_date(db_session):
+    """Was `test_member_me_reports_membership_validity` (until CR-13 phase 4b, #1251, this asked a JSON route with a bearer token):
+    the person the sign-in finds for the address, and the two facts the account
+    page shows of the membership."""
+    from app.domains.membership.api import has_valid_membership, valid_membership_until
+
     email = "mestatus@example.com"
     seed_household(db_session, email)
-    resp = client.get("/api/v1/auth/member/me", headers=_headers(email))
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    assert body["has_valid_membership"] is True
-    assert body["membership_valid_until"] is not None
+    person = login_person_for_email(db_session, email)
+    assert person is not None
+    assert has_valid_membership(person) is True
+    assert valid_membership_until(person) is not None
 
 
-def test_member_me_without_membership(client, db_session):
+def test_a_signed_in_person_without_a_membership_has_none(db_session):
+    """Was `test_member_me_without_membership` (until CR-13 phase 4b, #1251, this asked a JSON route with a bearer token)."""
+    from app.domains.membership.api import has_valid_membership, valid_membership_until
+
     email = "nomember@example.com"
     seed_household(db_session, email, with_membership=False)
-    resp = client.get("/api/v1/auth/member/me", headers=_headers(email))
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    assert body["has_valid_membership"] is False
-    assert body["membership_valid_until"] is None
+    person = login_person_for_email(db_session, email)
+    assert person is not None
+    assert has_valid_membership(person) is False
+    assert valid_membership_until(person) is None

@@ -208,15 +208,13 @@ def pagina_aanmaken(
     title: str = Form(""),
     slug: str = Form(""),
 ):
-    from app.domains.cms.api import create_page
+    from app.domains.cms.api import PageIncomplete, SlugBestaatAl, create_page
     from app.schemas.cms import CmsPageCreate
-
-    if not title.strip() or not slug.strip():
-        raise HTTPException(status_code=400, detail=_("Titel en slug zijn verplicht."))
-    from app.domains.cms.api import SlugBestaatAl
 
     try:
         nieuw = create_page(db, CmsPageCreate(title=title.strip(), slug=slug.strip().lower()))
+    except PageIncomplete as refusal:
+        raise HTTPException(status_code=400, detail=str(refusal)) from refusal
     except SlugBestaatAl:
         raise HTTPException(status_code=400, detail=_("Die slug bestaat al."))
     # Aanmaken opent meteen de editor: een verse pagina heeft nog inhoud nodig.

@@ -20,7 +20,7 @@ def _png() -> bytes:
 _PDF = b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF"
 
 
-def test_upload_activity_poster_image_primes_over_url(client, db_session, admin_headers):
+def test_upload_activity_poster_image_primes_over_url(client, db_session):
     activity, _comp, _p = seed_activity_with_product(db_session)
     activity.poster_url = "https://extern/affiche.png"
     db_session.flush()
@@ -38,7 +38,7 @@ def test_upload_activity_poster_image_primes_over_url(client, db_session, admin_
     assert a.poster_url == "https://extern/affiche.png"  # URL blijft als fallback bewaard
 
 
-def test_upload_activity_poster_pdf(client, db_session, admin_headers):
+def test_upload_activity_poster_pdf(client, db_session):
     activity, _comp, _p = seed_activity_with_product(db_session)
     resp = media_door.set_poster(
         client, activity.id, {"file": ("affiche.pdf", _PDF, "application/pdf")}
@@ -58,7 +58,7 @@ def test_upload_activity_poster_pdf(client, db_session, admin_headers):
     assert a.poster_asset_is_pdf is True
 
 
-def test_replacing_poster_hard_deletes_the_old_one(client, db_session, admin_headers):
+def test_replacing_poster_hard_deletes_the_old_one(client, db_session):
     activity, _comp, _p = seed_activity_with_product(db_session)
     media_door.set_poster(client, activity.id, {"file": ("a.png", _png(), "image/png")})
     media_door.set_poster(client, activity.id, {"file": ("b.pdf", _PDF, "application/pdf")})
@@ -74,7 +74,7 @@ def test_replacing_poster_hard_deletes_the_old_one(client, db_session, admin_hea
     assert assets[0].content_type == "application/pdf"
 
 
-def test_delete_poster_falls_back_to_url(client, db_session, admin_headers):
+def test_delete_poster_falls_back_to_url(client, db_session):
     activity, _comp, _p = seed_activity_with_product(db_session)
     media_door.set_poster(client, activity.id, {"file": ("a.png", _png(), "image/png")})
     resp = media_door.drop_poster(client, activity.id)
@@ -84,7 +84,7 @@ def test_delete_poster_falls_back_to_url(client, db_session, admin_headers):
     assert a.poster_asset_url is None
 
 
-def test_upload_component_info_pdf(client, db_session, admin_headers):
+def test_upload_component_info_pdf(client, db_session):
     _activity, comp, _p = seed_activity_with_product(db_session)
     resp = media_door.set_component_info(
         client, comp.id, {"file": ("zomaar.pdf", _PDF, "application/pdf")}
@@ -103,7 +103,7 @@ def test_upload_component_info_pdf(client, db_session, admin_headers):
     assert c.info_asset_is_pdf is True
 
 
-def test_unsupported_file_type_rejected(client, db_session, admin_headers):
+def test_unsupported_file_type_rejected(client, db_session):
     activity, _comp, _p = seed_activity_with_product(db_session)
     resp = media_door.set_poster(
         client, activity.id, {"file": ("evil.exe", b"MZ", "application/octet-stream")}

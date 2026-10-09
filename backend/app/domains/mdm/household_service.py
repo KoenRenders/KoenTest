@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 from app.domains.mdm.codes import CONTACT
 from app.domains.mdm.models import (
     Address,
+    GenderCode,
     MasterDataError,
     Member,
     MemberPerson,
@@ -346,6 +347,26 @@ def chosen_relation(asked: object, earlier: Sequence[object]) -> RelationType:
     return relation
 
 
+#: A person's name is as long as its column: where a form says `maxlength`, so
+#: the browser stops where the server refuses — one number, read from the column.
+PERSON_NAME_MAX: int = Person.__table__.c.last_name.type.length
+
+
+def require_storable_person(db: Session, first_name, last_name, gender_code) -> None:
+    """What the columns of a person cannot hold is refused before the write, where
+    the database refused it after (a 500 until #1251, and until #1831 for a
+    household that is made): a name longer than its column, and a gender code that
+    is not of the list (`mdm.gender_codes`)."""
+    from app.i18n import _
+
+    if any(len(name or "") > PERSON_NAME_MAX for name in (first_name, last_name)):
+        raise HouseholdRefused(
+            _("Een naam is ten hoogste %(n)s tekens lang.") % {"n": PERSON_NAME_MAX}
+        )
+    if gender_code and db.get(GenderCode, gender_code) is None:
+        raise HouseholdRefused(_("Kies een geslacht uit de lijst."))
+
+
 def require_one_main_member(relations: Sequence[object]) -> None:
     """A household has one main member — or `HouseholdRefused`.
 
@@ -585,6 +606,7 @@ def create_household(
     # Server-side, before anything is written: the client's `required` is UX only.
     for given in persons:
         MemberPerson.require_details(given.date_of_birth, given.gender_code)
+        require_storable_person(db, given.first_name, given.last_name, given.gender_code)
     require_one_main_member([given.relation_type for given in persons])
 
     household = Member()

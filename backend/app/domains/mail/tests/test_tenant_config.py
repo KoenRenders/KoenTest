@@ -1,8 +1,7 @@
 """Fase 5b (#406): per-tenant config/secrets, demo-mail-modus (log_only),
 per-tenant Mollie-key/base-URL en de OPERATOR-platformrol."""
 
-from app.domains.auth.models import User, UserRole
-from app.domains.auth.service import create_access_token
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
 from app.domains.mail.models import EmailLog, MailStatus
 from app.kernel.tenancy import TENANT_VOORBEELD_ID, current_tenant_id
 from app.kernel.tenant_config import (
@@ -58,11 +57,12 @@ def test_demo_tenant_seed(db_session):
 
 
 def test_demo_mails_worden_enkel_gelogd(db_session):
-    from app.domains.mail.service import send_magic_link
+    from app.domains.mail.service import _send, sign_in_message
 
     token = current_tenant_id.set(TENANT_VOORBEELD_ID)
     try:
-        send_magic_link("demo@example.com", "https://platform.example/x")
+        subject, body = sign_in_message("https://platform.example/x")
+        _send("demo@example.com", subject, body, email_type="magic_link")
     finally:
         current_tenant_id.reset(token)
 
@@ -84,8 +84,10 @@ def test_operator_passeert_elke_rolcheck(client, db_session):
     db_session.add(UserRole(user_id=user.id, role_code="OPERATOR"))
     db_session.commit()
 
-    token = create_access_token({"sub": "operator@example.com"})
-    resp = client.get("/api/v1/users", headers={"Authorization": f"Bearer {token}"})
+    # The users screen asks for ADMIN; an operator holds no ADMIN and enters all the same
+    # (until CR-13 phase 4b, #1251, this asked a JSON route with a bearer token).
+    client.cookies.set(SESSION_COOKIE, make_session_value("operator@example.com"))
+    resp = client.get("/admin/gebruikers", follow_redirects=False)
     assert resp.status_code == 200
 
 

@@ -1,10 +1,11 @@
 """Publieke facade van het auth-component (fase 1b, #399).
 
 Andere componenten en de oude wereld importeren authenticatie/autorisatie
-uitsluitend via deze module. De implementatie leeft in service.py (JWT +
-rol-dependencies), session.py (HttpOnly-sessie + CSRF voor server-rendered
-schermen), member_identity.py (e-mail -> Person/gezin) en router.py
-(login-flow + gebruikersbeheer).
+uitsluitend via deze module. De implementatie leeft in service.py (rollen per
+request), session.py (HttpOnly-sessie + CSRF voor server-rendered schermen),
+member_identity.py (e-mail -> Person/gezin), login.py (the sign-in flow) and
+users.py (the users service of the back office). There is no JSON API and no
+bearer token: the session is the one identity (CR-13 phase 4b, #1251).
 """
 
 # CR-12 phase 2: the role list belongs to this domain's public surface, so
@@ -14,10 +15,8 @@ from app.domains.auth.login import (  # noqa: F401
     AccountRequest,
     AccountRequestInvalid,
     Consumed,
-    check_otp,
     consume_code,
     consume_link,
-    consume_magic_link,
     start_account,
     start_login,
 )
@@ -30,7 +29,6 @@ from app.domains.auth.member_identity import (  # noqa: F401
     sign_in_identity,
 )
 from app.domains.auth.models import (  # noqa: F401
-    ApiKey,
     LoginPurpose,
     LoginToken,
     Role,
@@ -40,20 +38,10 @@ from app.domains.auth.models import (  # noqa: F401
     UserRole,
 )
 from app.domains.auth.service import (  # noqa: F401
-    API_KEY_HEADER,
-    create_access_token,
-    decode_token,
-    get_current_admin,
-    get_current_identity,
-    get_current_member,
     get_user_role_rows,
     get_user_roles,
     has_login,
-    hash_api_key,
     landing_for,
-    require_api_key,
-    require_member,
-    require_roles,
 )
 from app.domains.auth.session import (  # noqa: F401
     SESSION_COOKIE,
@@ -84,8 +72,6 @@ from app.domains.auth.users import (  # noqa: F401
 )
 
 __all__ = [
-    "check_otp",
-    "consume_magic_link",
     "list_assignable_roles",
     "role_options",
     "start_login",
@@ -95,7 +81,6 @@ __all__ = [
     "has_household",
     "address_says_nobody",
     "sign_in_identity",
-    "ApiKey",
     "LoginPurpose",
     "LOGIN_PURPOSE",
     "LoginToken",
@@ -105,20 +90,10 @@ __all__ = [
     "ROLE",
     "User",
     "UserRole",
-    "API_KEY_HEADER",
-    "hash_api_key",
-    "require_api_key",
-    "create_access_token",
-    "decode_token",
-    "get_current_admin",
-    "get_current_identity",
-    "get_current_member",
     "get_user_role_rows",
     "get_user_roles",
     "has_login",
     "landing_for",
-    "require_member",
-    "require_roles",
     "SESSION_COOKIE",
     "admin_user_by_email",
     "admits_admin_ui",

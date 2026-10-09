@@ -8,7 +8,7 @@ de React-exit (#405).
 
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
@@ -42,7 +42,6 @@ def berichten_page(request: Request, db: Session = Depends(get_db)):
 @router.post("/berichten", response_class=HTMLResponse, dependencies=[Depends(form_submit_limiter)])
 async def berichten_submit(
     request: Request,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     naam: str = Form(""),
     email: str = Form(""),
@@ -83,16 +82,15 @@ async def berichten_submit(
             },
         )
 
-    from app.domains.forms.api import submit_bericht
+    from app.domains.forms.service import send_message
     from app.kernel.form_guard import Proof
 
-    submit_bericht(
+    send_message(
         db,
         naam=naam,
         email=email or None,
         bericht=bericht,
         proof=Proof.from_request(request, await request.form()),
-        background_tasks=background_tasks,
     )
     # Terug naar de homepage met een bedankt-flash (#451) i.p.v. op /berichten
     # blijven hangen; htmx doet een volledige navigatie op de HX-Redirect-header.
@@ -231,7 +229,6 @@ def formulier_page(share_token: str, request: Request, db: Session = Depends(get
 async def formulier_submit(
     share_token: str,
     request: Request,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     from app.domains.forms.api import submit_public_form
@@ -269,7 +266,6 @@ async def formulier_submit(
             db,
             share_token,
             payload,
-            background_tasks,
             proof=Proof.from_request(request, form_data),
         )
     except HTTPException as exc:

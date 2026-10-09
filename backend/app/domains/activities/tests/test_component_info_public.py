@@ -8,7 +8,7 @@ from tests.conftest import seed_activity_with_product
 _PDF = b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF"
 
 
-def test_uploaded_component_info_shows_as_info_link_on_card(client, db_session, admin_headers):
+def test_uploaded_component_info_shows_as_info_link_on_card(client, db_session):
     _activity, comp, _p = seed_activity_with_product(db_session)
     # Admin uploadt een info/reglement-document bij het onderdeel.
     resp = media_door.set_component_info(

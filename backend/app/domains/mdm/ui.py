@@ -21,7 +21,7 @@ from app.domains.auth.api import (
     require_admin_ui,
     require_csrf,
 )
-from app.domains.mdm.api import RelationType
+from app.domains.mdm.api import RelationType, says_why_in
 from app.domains.mdm.viewmodels import LedenView
 from app.i18n import _
 from app.ui import admin_nav, filterparams, is_fragment_request, refusal_response, templates
@@ -265,9 +265,7 @@ async def gezin_aanmaken(
 
     #713: de beheerder tekent de auditregels.
     """
-    from pydantic import ValidationError
-
-    from app.domains.mdm.api import list_postal_codes
+    from app.domains.mdm.api import EmailAddressInUse, list_postal_codes
     from app.domains.membership.api import (
         create_family_by_admin,
         family_from_rows,
@@ -301,15 +299,13 @@ async def gezin_aanmaken(
 
     try:
         data = family_from_rows(values, parse_member_rows(form))
-    except HTTPException as exc:
-        return _fout(str(exc.detail))
-    except ValidationError as exc:
-        return _fout(str(exc.errors()[0].get("msg", _("Ongeldige invoer."))))
-
-    try:
         gezin = create_family_by_admin(db, data, actor=email)
     except HTTPException as exc:
         return _fout(str(exc.detail))
+    except EmailAddressInUse as in_use:
+        # mdm's own refusal, which the application answers as a JSON 422 for
+        # every other door: here it belongs in the page's banner (#1831).
+        return _fout(str(in_use))
 
     return Response(status_code=204, headers={"HX-Redirect": f"/admin/leden/gezin/{gezin.id}"})
 
@@ -399,6 +395,7 @@ def gezin_inschrijvingen_tab(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#persoon-{person_id}-melding")
 async def persoon_opslaan(
     family_id: int,
     person_id: int,
@@ -446,7 +443,10 @@ async def persoon_opslaan(
     if contact_email.strip():
         contacten["email"] = contact_email.strip()
     update_person_contacts(
-        db, person_id, ContactsUpdate(**contacten), admin=admin_user_by_email(db, email)
+        db,
+        person_id,
+        board_request(ContactsUpdate, **contacten),
+        admin=admin_user_by_email(db, email),
     )
     # De adresrijen uit ditzelfde formulier — één opslaan, één transactie (#1110).
     from app.domains.mdm.api import apply_email_rows
@@ -457,7 +457,7 @@ async def persoon_opslaan(
     # in de service.
     from app.domains.mdm.api import set_relation_type
 
-    set_relation_type(db, family_id, person_id, relation_type)
+    set_relation_type(db, family_id, person_id, relation_type, admin=admin_user_by_email(db, email))
     # #742: een afsluitende "Opslaan", dus mét bevestiging. Een persoon toevoegen of
     # verwijderen is een deelactie en krijgt er géén — dezelfde grens als bij #717.
     # #1111: alleen deze kaart; de naam staat ook in de kop en in de
@@ -578,6 +578,7 @@ def email_verwijderen(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#adres-melding")
 def adres_opslaan(
     family_id: int,
     request: Request,
@@ -610,6 +611,7 @@ def adres_opslaan(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#persoon-toevoegen-melding")
 def persoon_toevoegen(
     family_id: int,
     request: Request,
@@ -656,6 +658,7 @@ def persoon_toevoegen(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#persoon-{person_id}-melding")
 def persoon_verwijderen(
     family_id: int,
     person_id: int,

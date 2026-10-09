@@ -21,6 +21,10 @@ class SubmissionCreated(KernelEvent):
     submission_id: int
     submitter_name: Optional[str]
     submitter_email: Optional[str]
+    #: The address a confirmation goes to, or None for none. Forms decides — its
+    #: form asks for one, is not anonymous, and an address was given — and `mail`
+    #: subscribes, words the confirmation and queues it (CR-13 phase 4d, #1251).
+    confirm_to: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -115,3 +119,31 @@ class CopyForm(Port):
     form_id: int
     old_year: Optional[int]
     new_year: Optional[int]
+
+
+@dataclass(frozen=True)
+class MessageSubmitted:
+    """The outcome of `SubmitMessage`: the submission that holds the message, or
+    None when there is no contact form to hold it."""
+
+    submission_id: Optional[int]
+
+
+@dataclass(frozen=True)
+class SubmitMessage(Port):
+    """Store a message for the board on the contact form — the one write path of
+    a message (#398), asked by a caller that has no form of a visitor in hand
+    (the chatbot's tool). The contact page calls the same service in its own
+    domain.
+
+    Forms stores the submission and says so (`SubmissionCreated`: the task in
+    the workbench follows, and the confirmation when the form asks for one). No
+    commit: the caller's transaction commits.
+
+    Refused as the contact form refuses: a missing name or address, an address
+    that is none, an empty message — forms' own refusal, unchanged.
+    """
+
+    name: str
+    email: Optional[str]
+    message: str

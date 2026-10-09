@@ -13,9 +13,9 @@ same sentence and writes nothing.
 
 **What the refusals are measured at:** the answers of the routes. "Nieuw lid"
 answers its form again as an HTML 422 with the sentence in it, which the kit
-swaps into the page. Adding a person and saving a person's card answer a JSON
-422 — on the Leden screen that shows as the general toast, not as the sentence
-(the message line on those forms is not built). Not a browser test.
+swaps into the page. Adding a person and saving a person's card answer the
+kit's refusal for the card's own message line since #1831 (until then a JSON
+422, which the screen showed as its general message). Not a browser test.
 
 Proven red on the code before the rule: all three entrance tests fail — two
 households with two main members are made, and the card is saved with a 200.
@@ -27,6 +27,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Member, MemberPerson, Person, PostalCode, RelationType
+from tests._refusal import said
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -109,7 +110,7 @@ def test_adding_a_second_main_member_is_refused(client, db_session, headers, hou
         headers=headers,
     )
 
-    assert (answer.status_code, answer.json()) == (422, {"detail": ONE})
+    assert (answer.status_code, said(answer)) == (422, [ONE])
     assert len(_links(db_session, household_id)) == 2, "the refused person was added"
     assert _main_members(db_session, household_id) == 1
 
@@ -128,7 +129,7 @@ def test_making_the_partner_a_main_member_is_refused_and_saves_nothing(
         headers=headers,
     )
 
-    assert (answer.status_code, answer.json()) == (422, {"detail": ONE})
+    assert (answer.status_code, said(answer)) == (422, [ONE])
     db_session.expire_all()
     assert db_session.get(Person, partner).first_name == "Bram", "half the card was saved"
     assert _main_members(db_session, household_id) == 1

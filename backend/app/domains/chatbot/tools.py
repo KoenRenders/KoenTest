@@ -389,13 +389,18 @@ def submit_idea(
 
     # Eén schrijfpad (#398): bericht-inzending + behartigen-taak (werkbank) +
     # bevestigingsmail — de aparte bestuursmail is vervangen door de taak.
-    from app.domains.forms.api import submit_bericht
-    from app.kernel.form_guard import TRUSTED
+    # Asked of forms through its port (CR-13 phase 4d, #1251). The chatbot has no
+    # form a visitor loaded, so no honeypot and no signed time (#1297): the port's
+    # handler trusts the caller, whose own limits (per-IP budget, the tool
+    # dispatch) apply.
+    from app.kernel.contracts.forms import SubmitMessage
+    from app.kernel.ports import call
 
-    # TRUSTED (#1297): the chatbot has no form a visitor loaded, so no honeypot and
-    # no signed time; its own limits (per-IP budget, the tool dispatch) apply.
-    submission_id = submit_bericht(db, naam=name, email=email, bericht=content, proof=TRUSTED)
-    if submission_id is None:
+    # No commit here: forms no longer commits behind its port, and a tool is no
+    # door — the chat's door commits (`chatbot/ui.py`), whatever the rest of the
+    # conversation does.
+    submitted = call(SubmitMessage(name=name, email=email, message=content), db)
+    if submitted.submission_id is None:
         return {"ok": False, "error": "Berichten zijn tijdelijk niet beschikbaar."}
 
     return {

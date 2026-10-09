@@ -587,25 +587,36 @@ def family_from_rows(values: Mapping[str, str], rows: list[dict]) -> FamilyCreat
     phase 4c (#1251)."""
     if not rows:
         raise HTTPException(status_code=422, detail=_("Vul minstens het hoofdlid in."))
-    return FamilyCreate(
-        street=(values.get("street") or "").strip(),
-        house_number=(values.get("house_number") or "").strip(),
-        bus_number=(values.get("bus_number") or "").strip() or None,
-        postal_code=(values.get("postal_code") or "").strip(),
-        members=[
-            FamilyMemberCreate(
-                first_name=row["first_name"],
-                last_name=row["last_name"],
-                date_of_birth=row["date_of_birth"] or None,
-                gender_code=row["gender_code"] or None,
-                email=row["email"] or None,
-                phone=row["phone"] or None,
-                mobile=row["mobile"] or None,
-                relation_type=row["relation_type"] or ("HOOFDLID" if i == 0 else "PARTNER"),
-            )
-            for i, row in enumerate(rows)
-        ],
-    )
+    from pydantic import ValidationError
+
+    from app.domains.mdm.api import schema_refusal_words
+
+    try:
+        return FamilyCreate(
+            street=(values.get("street") or "").strip(),
+            house_number=(values.get("house_number") or "").strip(),
+            bus_number=(values.get("bus_number") or "").strip() or None,
+            postal_code=(values.get("postal_code") or "").strip(),
+            members=[
+                FamilyMemberCreate(
+                    first_name=row["first_name"],
+                    last_name=row["last_name"],
+                    date_of_birth=row["date_of_birth"] or None,
+                    gender_code=row["gender_code"] or None,
+                    email=row["email"] or None,
+                    phone=row["phone"] or None,
+                    mobile=row["mobile"] or None,
+                    relation_type=row["relation_type"] or ("HOOFDLID" if i == 0 else "PARTNER"),
+                )
+                for i, row in enumerate(rows)
+            ],
+        )
+    except ValidationError as refusal:
+        # What the schema refuses, in the screen's words (#1831) — until then the
+        # library's own message went to the banner, in English or with its
+        # "Value error, " in front.
+        words = schema_refusal_words(refusal) or _("Ongeldige invoer.")
+        raise HTTPException(status_code=422, detail=words) from refusal
 
 
 def delete_membership(db: Session, membership_id: int, admin=None):

@@ -19,21 +19,7 @@ Measured by the collectors themselves on `master` of 28 September 2026 (after
 # Every /api/v1 route (method × path) as of 28 September 2026: none is named
 # under ## Callers in a CONTRACT.md yet. Phase 4 names each remaining route or removes
 # it (R14), measured in the repository and in the PROD access log.
-JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset(
-    {
-        "DELETE /api/v1/auth/api-keys/{key_id}",
-        "DELETE /api/v1/users/{user_id}",
-        "GET /api/v1/auth/api-keys",
-        "GET /api/v1/auth/me",
-        "GET /api/v1/auth/member/me",
-        "GET /api/v1/auth/verify-login",
-        "GET /api/v1/users",
-        "POST /api/v1/auth/api-keys",
-        "POST /api/v1/auth/request-login",
-        "POST /api/v1/auth/verify-otp",
-        "POST /api/v1/users",
-    }
-)
+JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset({})
 
 
 # Writes to another domain's mapped classes as of 29 September 2026 (#1254), one key
@@ -53,11 +39,7 @@ FOREIGN_WRITES: frozenset[str] = frozenset(
 # imports. A router or screen calling another domain's
 # service is not here: that service is the request's door. Mail's `_log_email` is
 # the phase 4 job enqueuer (§B4.1); media and designstudio meet in phase 4.
-COMMIT_BEHIND_API: frozenset[str] = frozenset(
-    {
-        "forms.api.submit_bericht",
-    }
-)
+COMMIT_BEHIND_API: frozenset[str] = frozenset({})
 
 
 # Calls into another domain's command outside a `@subscribe` function (§B4.9, R12),
@@ -74,24 +56,12 @@ COMMIT_BEHIND_API: frozenset[str] = frozenset(
 COMMAND_CALLS: frozenset[str] = frozenset(
     {
         "domains/activities/router.py::create_registration → payment.api.create_payment_record",
-        "domains/auth/login.py::start_login → mail.api.send_magic_link",
-        "domains/auth/login.py::start_login → mail.api.send_member_contact_board_notice",
-        "domains/chatbot/tools.py::submit_idea → forms.api.submit_bericht",
-        "domains/forms/api.py::submit_bericht → mail.api.send_form_confirmation",
-        "domains/forms/service.py::submit_form → mail.api.send_form_confirmation",
-        "domains/mdm/ui.py::gezin_aanmaken → membership.api.create_family_by_admin",
-        "domains/mdm/ui.py::lidmaatschap_toevoegen → membership.api.create_membership_for_family",
-        "domains/mdm/ui.py::lidmaatschap_verwijderen → membership.api.delete_membership",
-        "domains/meetings/admin_ui.py::circle_add → mdm.api.add_to_circle",
-        "domains/meetings/admin_ui.py::circle_end → mdm.api.end_circle_relation",
-        "domains/meetings/admin_ui.py::circle_new_person → mdm.api.create_person_for_circle",
         "domains/meetings/service.py::send_meeting_mail → mail.api.send_with_attachments",
         "domains/membership/portal_service.py::renew_membership → payment.api.create_payment_record",
         # CR-22 S7 (#1712): the delete of a person moved to master data — one
         # rule, `mdm.service.delete_person` — and its history calls with it;
         # membership's door calls that rule. Four entries left, four came.
         "domains/membership/signup_service.py::register_family → payment.api.create_payment_record",
-        "domains/newsletter/service.py::send_batch → mail.api.send_campaign_mail",
         "domains/newsletter/service.py::send_test → mail.api.send_campaign_mail",
         "domains/newsletter/service.py::subscribe_public → mail.api.send_newsletter_confirmation",
     }
@@ -104,20 +74,10 @@ COMMAND_CALLS: frozenset[str] = frozenset(
 # type, an empty upload, a parameter) and is the doorman's own — the phase that
 # sweeps its domain decides whether the gate learns to except it or it stays named.
 # Keys are `file::function::condition` — the condition text, not a line number.
-RULE_IN_ROUTER: dict[str, str] = {
-    "domains/auth/router.py::create_api_key::db.query(ApiKey).filter(ApiKey.name == name).first()": "rule: API key names are unique (ApiKey, with a UNIQUE constraint) — phase 4",
-    "domains/auth/router.py::create_api_key::not name": "rule: an API key has a name (ApiKey) — phase 4",
-    "domains/cms/admin_ui.py::pagina_aanmaken::not title.strip() or not slug.strip()": "rule: a page has a title and a slug (CmsPage) — phase 4",
-}
+RULE_IN_ROUTER: dict[str, str] = {}
 
 
 # Writes to a mapped class in a router, UI module or `@subscribe` handler (§B9.3,
 # *one entrance rule* (b)), 29 September 2026. The household router (phase 3) and the
 # registration router (phase 1) are the ones the change request names.
-WRITE_OUTSIDE_SERVICE: frozenset[str] = frozenset(
-    {
-        "domains/auth/router.py::create_api_key → auth.ApiKey",
-        "domains/auth/router.py::revoke_api_key → auth.ApiKey",
-        "domains/auth/router.py::verify_login → auth.LoginToken",
-    }
-)
+WRITE_OUTSIDE_SERVICE: frozenset[str] = frozenset({})

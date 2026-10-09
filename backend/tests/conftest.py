@@ -39,7 +39,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import event
 
 from app.database import SessionLocal, engine, get_db
-from app.domains.auth.api import create_access_token
 from app.main import app
 
 # Bestaat in de seed-migratie 014; gebruiken we als ingelogde admin. Het is de
@@ -337,13 +336,6 @@ def workspace_host(monkeypatch):
 
     yield headers
     invalidate_tenant_codes()
-
-
-@pytest.fixture
-def admin_headers():
-    """Authorization-header voor de in migratie 014 geseede admin."""
-    token = create_access_token({"sub": SEEDED_ADMIN_EMAIL})
-    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture

@@ -141,7 +141,7 @@ def test_het_rapportpaneel_rendert_het_cluster_in_volgorde(client, db_session):
     _controleer_cluster(cluster, met_verwijderen=False)
 
 
-def test_de_optierij_rendert_het_cluster_in_volgorde(client, db_session, admin_headers):
+def test_de_optierij_rendert_het_cluster_in_volgorde(client, db_session):
     antwoord = forms_door.create_form(
         client,
         {
