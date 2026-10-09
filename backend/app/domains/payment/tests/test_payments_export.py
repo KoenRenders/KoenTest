@@ -48,7 +48,7 @@ def test_the_export_of_the_payments_screen_asks_for_a_sign_in(client, db_session
     assert resp.headers["location"].startswith("/aanmelden?terug=")
 
 
-def test_payments_export_records_and_totals(client, db_session, admin_headers):
+def test_payments_export_records_and_totals(client, db_session):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     register_at_the_door(
         client,
@@ -94,7 +94,7 @@ def test_payments_export_records_and_totals(client, db_session, admin_headers):
     assert total[i_saldo] == 0.0
 
 
-def test_payments_export_respects_context_filter(client, db_session, admin_headers):
+def test_payments_export_respects_context_filter(client, db_session):
     """De export volgt het paginafilter (#90/#308): context=membership weert de
     activiteit-inschrijving; context=comp-<id> houdt ze."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")

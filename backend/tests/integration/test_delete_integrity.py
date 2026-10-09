@@ -49,7 +49,7 @@ def _create_family(client, db_session):
     return member
 
 
-def test_delete_family_with_membership_payment(client, db_session, admin_headers):
+def test_delete_family_with_membership_payment(client, db_session):
     member = _create_family(client, db_session)
     membership = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     pay = (
@@ -94,7 +94,7 @@ def test_delete_family_with_membership_payment(client, db_session, admin_headers
     assert any(c["operation_label"] == "Verwijderd" for c in changes)
 
 
-def test_admin_can_delete_payment_record(client, db_session, admin_headers):
+def test_admin_can_delete_payment_record(client, db_session):
     member = _create_family(client, db_session)
     membership = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     pay = (
@@ -125,11 +125,11 @@ def test_admin_can_delete_payment_record(client, db_session, admin_headers):
     assert hist.action == "payment_deleted"
 
 
-def test_delete_unknown_payment_record_404(client, admin_headers):
+def test_delete_unknown_payment_record_404(client):
     assert payments_door.delete(client, "nope").status_code == 404
 
 
-def test_delete_family_with_external_number(client, db_session, admin_headers):
+def test_delete_family_with_external_number(client, db_session):
     member = _create_family(client, db_session)
     mp = member.member_persons[0]
     db_session.add(
@@ -140,7 +140,7 @@ def test_delete_family_with_external_number(client, db_session, admin_headers):
     delete_household(db_session, member.id, admin=seeded_admin(db_session))
 
 
-def test_betaald_lidmaatschap_blijft_als_financieel_feit(client, db_session, admin_headers):
+def test_betaald_lidmaatschap_blijft_als_financieel_feit(client, db_session):
     """De keerzijde van #619: geld dat ontvangen is, verdwijnt nooit stil.
 
     Bij het schrappen van het gezin blijft de betaalde charge staan en komt er één

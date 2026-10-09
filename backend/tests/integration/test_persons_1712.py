@@ -323,7 +323,7 @@ def test_the_main_member_is_refused_on_the_household_record_route(client, db_ses
     _main_member_stays(db_session, world)
 
 
-def test_the_main_member_is_refused_on_the_json_route(client, db_session, world, admin_headers):
+def test_the_main_member_is_refused_on_the_json_route(client, db_session, world):
     answer = board_at_the_household(client, "delete_person", world["main"])
     assert answer.status_code == 400, answer.text
     assert answer.json()["detail"] == "Een gezin heeft een hoofdlid nodig."

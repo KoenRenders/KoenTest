@@ -150,7 +150,7 @@ def test_refund_writes_audit_history(db_session):
 # ── Pending refund bevestigen (#219) ──────────────────────────────────────────
 
 
-def test_confirm_pending_refund_books_full_amount(client, db_session, admin_headers):
+def test_confirm_pending_refund_books_full_amount(client, db_session):
     """Een pending refund bevestigen (status=paid, géén bedrag) boekt het volledige
     negatieve bedrag; de tekengevoelige validatie blokkeert dit niet (#219)."""
     charge = _seed_charge(db_session)
@@ -161,7 +161,7 @@ def test_confirm_pending_refund_books_full_amount(client, db_session, admin_head
     assert Decimal(str(resp.json()["amount_paid"])) == Decimal("-18.00")
 
 
-def test_refund_rejects_positive_amount_paid(client, db_session, admin_headers):
+def test_refund_rejects_positive_amount_paid(client, db_session):
     """Een positief betaald bedrag op een (negatieve) refund wordt geweigerd."""
     charge = _seed_charge(db_session)
     refund = create_refund(db_session, charge.id, Decimal("18.00"), settled=False)
@@ -172,7 +172,7 @@ def test_refund_rejects_positive_amount_paid(client, db_session, admin_headers):
 # ── Endpoint-laag (admin-only) ────────────────────────────────────────────────
 
 
-def test_refund_endpoint_creates_refund(client, db_session, admin_headers):
+def test_refund_endpoint_creates_refund(client, db_session):
     charge = _seed_charge(db_session)
     resp = payments_door.refund(client, charge.id, {"amount": "18.00", "note": "lid afgehaakt"})
     assert resp.status_code == 200, resp.text
@@ -183,7 +183,7 @@ def test_refund_endpoint_creates_refund(client, db_session, admin_headers):
     assert_saldo_klopt(db_session, "registration", charge.payable_id, "0.00")
 
 
-def test_refund_endpoint_rejects_over_refund(client, db_session, admin_headers):
+def test_refund_endpoint_rejects_over_refund(client, db_session):
     charge = _seed_charge(db_session, amount="18.00", amount_paid="18.00")
     resp = payments_door.refund(client, charge.id, {"amount": "25.00"})
     assert resp.status_code == 400
@@ -192,7 +192,7 @@ def test_refund_endpoint_rejects_over_refund(client, db_session, admin_headers):
 # ── Saldo per inschrijving (live DB als waarheid) ─────────────────────────────
 
 
-def test_registration_balance_reflects_charge_and_refund(client, db_session, admin_headers):
+def test_registration_balance_reflects_charge_and_refund(client, db_session):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
 

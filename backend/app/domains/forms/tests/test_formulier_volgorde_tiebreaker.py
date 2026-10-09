@@ -102,7 +102,7 @@ def test_de_positie_blijft_de_eerste_sleutel(db_session):
     assert _labels(db_session, form) == ["Vraag 3", "Vraag 2", "Vraag 1"]
 
 
-def test_de_bouwer_toont_dezelfde_volgorde_als_de_relatie(client, db_session, admin_headers):
+def test_de_bouwer_toont_dezelfde_volgorde_als_de_relatie(client, db_session):
     """De bouwer sorteert zelf (per sectie), dus die weg moet apart afgedekt.
 
     Zonder deze test kan de relatie kloppen terwijl het scherm iets anders toont —

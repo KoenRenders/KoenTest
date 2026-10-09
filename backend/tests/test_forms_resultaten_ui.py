@@ -34,13 +34,13 @@ def _submit(client, form, *, checkbox_opt, rating):
     assert r.status_code == 200, r.text
 
 
-def test_resultaten_requires_session(client, admin_headers):
-    form = _create_form(client, admin_headers)
+def test_resultaten_requires_session(client):
+    form = _create_form(client)
     assert sent_to_sign_in(client, f"/admin/formulieren/{form['id']}/resultaten")
 
 
-def test_resultaten_toont_tellingen_en_gemiddelde(client, admin_headers):
-    form = _create_form(client, admin_headers)
+def test_resultaten_toont_tellingen_en_gemiddelde(client):
+    form = _create_form(client)
     _submit(client, form, checkbox_opt="BBQ bakken", rating=4)
     _submit(client, form, checkbox_opt="BBQ bakken", rating=2)
     _login(client)
@@ -53,8 +53,8 @@ def test_resultaten_toont_tellingen_en_gemiddelde(client, admin_headers):
     assert "Gemiddelde" in r.text and "3.0" in r.text
 
 
-def test_json_export_levert_definitie(client, admin_headers):
-    form = _create_form(client, admin_headers)
+def test_json_export_levert_definitie(client):
+    form = _create_form(client)
     _login(client)
     r = client.get(f"/admin/formulieren/{form['id']}/json")
     assert r.status_code == 200

@@ -154,7 +154,7 @@ def test_a_page_with_a_longer_id_does_not_count_as_a_use(db_session):
     assert uses_of(db_session, asset.id) == []
 
 
-def test_the_json_route_answers_409_with_the_uses(client, db_session, admin_headers):
+def test_the_json_route_answers_409_with_the_uses(client, db_session):
     activity = _activity(db_session, "Bowlen")
     photo = _picture(db_session, activity_id=activity.id)
     design = _design(db_session, activity, third_image_id=photo.id)

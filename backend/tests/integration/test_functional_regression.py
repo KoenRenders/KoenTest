@@ -71,7 +71,7 @@ def test_family_registration_happy_path_writes_data_and_audit(client, db_session
     assert ph is not None and ph.source == "registration"
 
 
-def test_payment_overview_membership_shows_family_and_year(client, db_session, admin_headers):
+def test_payment_overview_membership_shows_family_and_year(client, db_session):
     """Het betaaloverzicht verrijkt een lidmaatschapsbetaling met het gezin
     (hoofdlid-naam) en het jaar — payable_id is de Membership.id, niet de Member.id (#141)."""
     seed_postal_code(db_session)
@@ -101,7 +101,7 @@ def test_family_registration_requires_hoofdlid_contact(client, db_session):
     assert resp.status_code == 422
 
 
-def test_manual_confirm_writes_audit_with_actor(client, db_session, admin_headers):
+def test_manual_confirm_writes_audit_with_actor(client, db_session):
     seed_postal_code(db_session)
     sign_up_at_the_door(client, json=_family_payload(email="confirm@example.com"))
     from app.domains.payment.api import PaymentRecord
@@ -171,7 +171,7 @@ def test_webhook_update_idempotent_no_double_credit(client, db_session):
     assert transitions == 1
 
 
-def test_cms_placeholders_public_vs_editor(client, admin_headers, db_session):
+def test_cms_placeholders_public_vs_editor(client, db_session):
     """Publiek worden de prijscodes ingevuld vanuit config; de editor (admin)
     krijgt de ruwe codes zodat ze bewerkbaar blijven.
 
@@ -206,7 +206,7 @@ def test_cms_placeholders_public_vs_editor(client, admin_headers, db_session):
     assert "{{membership_price_full}}" in home.content  # ruwe code blijft
 
 
-def test_admin_creates_paid_activity_and_public_registration(client, db_session, admin_headers):
+def test_admin_creates_paid_activity_and_public_registration(client, db_session):
     """End-to-end: het bestuur maakt op de fiche een activiteit en bewaart er een
     onderdeel met een betaald product bij; een bezoeker schrijft zich publiek in
     via overschrijving; het betaalrecord-bedrag is gelijk aan de productprijs.

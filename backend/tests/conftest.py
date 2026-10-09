@@ -339,15 +339,6 @@ def workspace_host(monkeypatch):
 
 
 @pytest.fixture
-def admin_headers():
-    """Empty since the bearer stack left (CR-13 phase 4b, #1251): there is no token
-    to carry. Tests still name this fixture as a parameter that nothing reads; the
-    next change takes those parameters out and this fixture with them. A test of
-    the back office signs in with the session (`make_session_value`)."""
-    return {}
-
-
-@pytest.fixture
 def mock_mollie(monkeypatch):
     """Vervang de Mollie-provider zodat online betalingen geen netwerk raken."""
     from app.domains.payment.providers import mollie

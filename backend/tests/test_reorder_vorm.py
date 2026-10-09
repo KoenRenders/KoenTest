@@ -40,7 +40,7 @@ def _login(client):
     return csrf_token_for(waarde)
 
 
-def _bouwer(client, admin_headers) -> str:
+def _bouwer(client) -> str:
     r = forms_door.create_form(
         client,
         {
@@ -89,16 +89,16 @@ def _staat_uit(knop: str) -> bool:
 # ── 1. De vorm ─────────────────────────────────────────────────────────────
 
 
-def test_de_knoppen_dragen_pijlen_en_geen_chevrons(client, admin_headers):
+def test_de_knoppen_dragen_pijlen_en_geen_chevrons(client):
     """Toetst het gerenderde `<path>`: `ui.icon` faalt stil bij een onbekende naam,
     dus `arrow-upp` zou een knop zonder icoon geven en geen foutmelding."""
-    html = _bouwer(client, admin_headers)
+    html = _bouwer(client)
     assert PIJL_OMHOOG in html, "de pijl omhoog rendert niet"
     assert PIJL_OMLAAG in html, "de pijl omlaag rendert niet"
 
 
-def test_de_knoppen_hebben_chroom_en_staan_naast_elkaar(client, admin_headers):
-    html = _bouwer(client, admin_headers)
+def test_de_knoppen_hebben_chroom_en_staan_naast_elkaar(client):
+    html = _bouwer(client)
     knop = _knoppen(html, "Naar boven")[0]
     assert "rounded" in knop and "px-1.5" in knop, (
         f"geen chroom, dus twee knoppen versmelten tot één strookje: {knop}"
@@ -115,9 +115,9 @@ def test_de_knoppen_hebben_chroom_en_staan_naast_elkaar(client, admin_headers):
     assert "gap-" in blok, "geen tussenruimte tussen de twee knoppen"
 
 
-def test_de_knoppen_lezen_niet_meer_als_versiering(client, admin_headers):
+def test_de_knoppen_lezen_niet_meer_als_versiering(client):
     """`text-gray-400` was de derde oorzaak."""
-    knop = _knoppen(_bouwer(client, admin_headers), "Naar boven")[0]
+    knop = _knoppen(_bouwer(client), "Naar boven")[0]
     assert "text-gray-400" not in knop, knop
 
 
@@ -150,9 +150,9 @@ def test_er_is_maar_een_plek_met_pijltjesknoppen():
 # ── 3. Wat bij het herbouwen kon sneuvelen ─────────────────────────────────
 
 
-def test_de_eindstanden_blijven_uitgeschakeld(client, admin_headers):
+def test_de_eindstanden_blijven_uitgeschakeld(client):
     """Bestond al en moet blijven: de bovenste omhoog en de onderste omlaag."""
-    html = _bouwer(client, admin_headers)
+    html = _bouwer(client)
     omhoog = _knoppen(html, "Naar boven")
     omlaag = _knoppen(html, "Naar onder")
 
@@ -163,14 +163,14 @@ def test_de_eindstanden_blijven_uitgeschakeld(client, admin_headers):
     )
 
 
-def test_de_aria_labels_blijven(client, admin_headers):
-    html = _bouwer(client, admin_headers)
+def test_de_aria_labels_blijven(client):
+    html = _bouwer(client)
     assert _knoppen(html, "Naar boven"), "aria-label 'Naar boven' is verdwenen"
     assert _knoppen(html, "Naar onder"), "aria-label 'Naar onder' is verdwenen"
 
 
-def test_de_knoppen_dragen_ook_een_tooltip(client, admin_headers):
+def test_de_knoppen_dragen_ook_een_tooltip(client):
     """Symboolknoppen (§2.12, #698). Ze gaan niet door de `button`-macro, dus de
     tooltip staat hier met de hand — en dat is precies waarom hij getoetst wordt."""
-    knop = _knoppen(_bouwer(client, admin_headers), "Naar boven")[0]
+    knop = _knoppen(_bouwer(client), "Naar boven")[0]
     assert 'title="Naar boven"' in knop, knop

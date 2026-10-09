@@ -84,12 +84,12 @@ def test_export_requires_admin(client, db_session):
     assert resp.status_code == 303 and "/aanmelden" in resp.headers["location"]
 
 
-def test_export_unknown_component_404(client, db_session, admin_headers):
+def test_export_unknown_component_404(client, db_session):
     _, comp, _ = seed_activity_with_product(db_session)
     assert _download(client, comp.activity_id, comp.id + 9999).status_code == 404
 
 
-def test_export_quantities_and_financials(client, db_session, admin_headers):
+def test_export_quantities_and_financials(client, db_session):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
 
@@ -153,7 +153,7 @@ def test_export_quantities_and_financials(client, db_session, admin_headers):
     assert total[i_saldo] == 6.0
 
 
-def test_export_second_sheet_payments_and_totals(client, db_session, admin_headers):
+def test_export_second_sheet_payments_and_totals(client, db_session):
     """#307: een tweede blad 'Betalingen en vorderingen' met de losse betaalrecords
     (vordering + terugbetaling) en een totaalrij (te betalen / betaald / saldo),
     netto zoals op de admin-betalingenpagina."""
@@ -213,7 +213,7 @@ def test_export_second_sheet_payments_and_totals(client, db_session, admin_heade
     assert total[i_saldo] == 0.0
 
 
-def test_export_second_sheet_exists_without_registrations(client, db_session, admin_headers):
+def test_export_second_sheet_exists_without_registrations(client, db_session):
     """Sheet 2 bestaat ook zonder inschrijvingen: kop + totaalrij op nul."""
     _, comp, _ = seed_activity_with_product(db_session, price="18.00")
     sheets = _load_all(_export(client, comp.activity_id, comp.id))
@@ -223,7 +223,7 @@ def test_export_second_sheet_exists_without_registrations(client, db_session, ad
     assert pay[-1][0] == "Totaal"
 
 
-def test_export_aggregates_duplicate_product_lines(client, db_session, admin_headers):
+def test_export_aggregates_duplicate_product_lines(client, db_session):
     """#85: twee aparte bestelregels van hetzelfde product worden in de export per
     product opgeteld (1 + 2 = 3), niet als losse/verloren aantallen."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
@@ -258,7 +258,7 @@ def test_export_aggregates_duplicate_product_lines(client, db_session, admin_hea
     assert total_row[col] == 3
 
 
-def test_export_empty_component_does_not_crash(client, db_session, admin_headers):
+def test_export_empty_component_does_not_crash(client, db_session):
     _, comp, _ = seed_activity_with_product(db_session, price="18.00")
     resp = _export(client, comp.activity_id, comp.id)
     rows = _load(resp)
@@ -266,7 +266,7 @@ def test_export_empty_component_does_not_crash(client, db_session, admin_headers
     assert rows[-1][0] == "Totaal"  # totaalrij bestaat ook zonder inschrijvingen
 
 
-def test_export_multiple_products_and_registrations(client, db_session, admin_headers):
+def test_export_multiple_products_and_registrations(client, db_session):
     _, comp, p1 = seed_activity_with_product(db_session, price="10.00")
     p2 = ActivityProduct(component_id=comp.id, name="Tweede", price=Decimal("5.00"), is_free=False)
     db_session.add(p2)
@@ -310,7 +310,7 @@ def test_export_multiple_products_and_registrations(client, db_session, admin_he
     assert total[i_due] == 40.0  # 25 + 15
 
 
-def test_export_online_payment_in_online_column(client, db_session, admin_headers):
+def test_export_online_payment_in_online_column(client, db_session):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
     register_at_the_door(
@@ -353,7 +353,7 @@ def test_export_online_payment_in_online_column(client, db_session, admin_header
     assert rows[1][i_offline] == 0.0
 
 
-def test_export_includes_remarks_column(client, db_session, admin_headers):
+def test_export_includes_remarks_column(client, db_session):
     """#284: de opmerking van de inschrijver komt mee in de .ods (laatste kolom);
     een lege opmerking geeft een lege cel."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
@@ -396,7 +396,7 @@ def test_export_includes_remarks_column(client, db_session, admin_headers):
     assert len(bo) <= i_rem or bo[i_rem] in ("", None)
 
 
-def test_export_includes_email_and_mobile(client, db_session, admin_headers):
+def test_export_includes_email_and_mobile(client, db_session):
     """#289: e-mail + mobiel nummer komen mee in de export (na "Naam"); het
     mobiele nummer (+32…) verschijnt letterlijk, zonder apostrof-prefix (#288)."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
