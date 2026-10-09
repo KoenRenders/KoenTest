@@ -145,7 +145,7 @@ def _record_response(
         request,
         "admin_pagina.html",
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             **_record_ctx(request, db, page, error=error, toast=toast, document=document),
         },
     )
