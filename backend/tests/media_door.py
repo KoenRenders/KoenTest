@@ -86,17 +86,17 @@ def upload(client, files: Any, data: dict | None = None) -> Answer:
     )
 
 
+def _values(files: Any) -> dict:
+    """The one file of the field `file`, as the values the service takes."""
+    pairs = files.items() if isinstance(files, dict) else files
+    name, data, content_type = next(spec for field, spec in pairs if field == "file")
+    return {"filename": name, "content_type": content_type, "content": data}
+
+
 def set_poster(client, activity_id: int, files: Any) -> Answer:
-    tasks = BackgroundTasks()
-    answer = _answer(
-        lambda: asyncio.run(
-            service.replace_activity_poster(
-                _db(client), activity_id, _files(files, "file")[0], tasks
-            )
-        )
+    return _answer(
+        lambda: service.replace_activity_poster(_db(client), activity_id, **_values(files))
     )
-    _after(tasks)
-    return answer
 
 
 def drop_poster(client, activity_id: int) -> Answer:
@@ -104,16 +104,9 @@ def drop_poster(client, activity_id: int) -> Answer:
 
 
 def set_component_info(client, component_id: int, files: Any) -> Answer:
-    tasks = BackgroundTasks()
-    answer = _answer(
-        lambda: asyncio.run(
-            service.replace_component_info(
-                _db(client), component_id, _files(files, "file")[0], tasks
-            )
-        )
+    return _answer(
+        lambda: service.replace_component_info(_db(client), component_id, **_values(files))
     )
-    _after(tasks)
-    return answer
 
 
 def update(client, asset_id: int, payload: dict) -> Answer:

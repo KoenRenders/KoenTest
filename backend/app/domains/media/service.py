@@ -13,7 +13,6 @@ gevonden); de route vertaalt die naar een statuscode.
 from dataclasses import dataclass
 from typing import NamedTuple, Optional, Sequence
 
-from fastapi import HTTPException, UploadFile
 from sqlalchemy import and_
 
 from app.domains.media.images import (
@@ -502,32 +501,6 @@ def _replace_single_asset_bytes(
     return asset
 
 
-async def _replace_single_asset(
-    db,
-    file: UploadFile,
-    *,
-    kind: MediaKind | str,
-    activity_id=None,
-    component_id=None,
-    title_base: Optional[str] = None,
-) -> MediaAsset:
-    """The same for an upload that is still a file: media's own routes and, until
-    it goes through the port, the activity fiche. They show a refusal as a 400."""
-    try:
-        return _replace_single_asset_bytes(
-            db,
-            filename=file.filename,
-            content_type=file.content_type,
-            raw=await file.read(),
-            kind=kind,
-            activity_id=activity_id,
-            component_id=component_id,
-            title_base=title_base,
-        )
-    except MediaFout as refusal:
-        raise HTTPException(status_code=400, detail=str(refusal))
-
-
 def give_pdf_its_picture(db, asset: MediaAsset) -> None:
     """#1019: a PDF from before that release has no picture yet. It is made once,
     when its thumbnail is first asked for, and kept — that spares a one-off script,
@@ -877,52 +850,34 @@ def activity_ids_with_media(db) -> set[int]:
 # vanzelf mee, en hertekstextractie mag alleen op een leesbaar documenttype.
 
 
-async def replace_activity_poster(db, activity_id: int, file, background_tasks):
-    """Replace an activity's poster and commit — the door of the activity screens
-    and media's route. The Design Studio stores through `store_activity_poster`."""
-    stored = await store_activity_poster(db, activity_id, file, background_tasks)
-    db.commit()
-    return stored
-
-
-async def store_activity_poster(db, activity_id: int, file, background_tasks):
-    """Vervang de affiche van een activiteit.
-
-    De tekstextractie loopt op de achtergrond (#206): de upload slaagt meteen, de
-    (mogelijk betalende) OCR raakt de respons niet. De tekst komt op het
-    media-record, niet op de activiteit.
-    """
+def replace_activity_poster(
+    db, activity_id: int, *, filename: str, content_type: str, content: bytes
+) -> dict:
+    """Replace an activity's poster and commit: one poster per activity, named
+    after it; its text is read by a job once this commits (#206). The activity
+    fiche stores through the port `StoreFile`, in its own transaction."""
     from app.domains.activities.api import get_activity
 
     activity = get_activity(db, activity_id)
     if activity is None:
         raise LookupError("Activiteit niet gevonden")
-    asset = await _replace_single_asset(
+    asset = store_file(
         db,
-        file,
         kind=MediaKind.ACTIVITY_POSTER,
+        filename=filename,
+        content_type=content_type,
+        content=content,
         activity_id=activity_id,
         title_base=f"{activity.name} - poster",
     )
-    start_extraction(db, asset.id)
+    db.commit()
     return meta(asset)
 
 
 def delete_activity_poster(db, activity_id: int) -> None:
     """Hard delete: dat neemt de geëxtraheerde tekst vanzelf mee (#206)."""
-    drop_activity_poster(db, activity_id)
+    remove_file_of(db, kind=MediaKind.ACTIVITY_POSTER, activity_id=activity_id)
     db.commit()
-
-
-def drop_activity_poster(db, activity_id: int) -> None:
-    """Remove an activity's poster without committing (#1559: the fiche removes
-    it in the transaction of its one save)."""
-    for asset in (
-        db.query(MediaAsset)
-        .filter(MediaAsset.kind == MediaKind.ACTIVITY_POSTER, MediaAsset.activity_id == activity_id)
-        .all()
-    ):
-        db.delete(asset)
 
 
 def read_text_again(db, asset_id: int) -> None:
@@ -940,53 +895,34 @@ def read_text_again(db, asset_id: int) -> None:
     start_extraction(db, asset_id, force=True)
 
 
-async def replace_component_info(db, component_id: int, file, background_tasks):
-    """Replace a component's info document and commit — the door of media's own
-    route. The activity fiche stores through `store_component_info` (#1559)."""
-    stored = await store_component_info(db, component_id, file, background_tasks)
-    db.commit()  # the door of the component screens (CR-13 phase 4)
-    return stored
-
-
-async def store_component_info(db, component_id: int, file, background_tasks):
-    """Vervang het info-document van een onderdeel, zonder commit (#1559: the
-    fiche saves its attachments in the transaction of its one save).
-
-    Ook info-PDF's leveren context voor Raakje, dus de tekstextractie loopt hier
-    net zo goed op de achtergrond (#206).
-    """
+def replace_component_info(
+    db, component_id: int, *, filename: str, content_type: str, content: bytes
+) -> dict:
+    """Replace a component's info document and commit. An info PDF is context
+    for Raakje too, so its text is read by a job like a poster's (#206). The
+    activity fiche stores through the port `StoreFile`."""
     from app.domains.activities.api import get_component
 
     component = get_component(db, component_id)
     if component is None:
         raise LookupError("Onderdeel niet gevonden")
     activiteit_naam = component.activity.name if component.activity else "activiteit"
-    asset = await _replace_single_asset(
+    asset = store_file(
         db,
-        file,
         kind=MediaKind.COMPONENT_INFO,
+        filename=filename,
+        content_type=content_type,
+        content=content,
         component_id=component_id,
         title_base=f"{activiteit_naam} - {component.name} - info",
     )
-    start_extraction(db, asset.id)
+    db.commit()
     return meta(asset)
 
 
 def delete_component_info(db, component_id: int) -> None:
-    drop_component_info(db, component_id)
+    remove_file_of(db, kind=MediaKind.COMPONENT_INFO, component_id=component_id)
     db.commit()
-
-
-def drop_component_info(db, component_id: int) -> None:
-    """Hard-delete a component's info document, without committing (#1559)."""
-    for asset in (
-        db.query(MediaAsset)
-        .filter(
-            MediaAsset.kind == MediaKind.COMPONENT_INFO, MediaAsset.component_id == component_id
-        )
-        .all()
-    ):
-        db.delete(asset)
 
 
 def activity_image_path(db, activity_id: int) -> Optional[str]:

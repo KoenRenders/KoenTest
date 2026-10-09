@@ -22,19 +22,16 @@ test's docstring.
 
 from __future__ import annotations
 
-import asyncio
-import io
 from datetime import date, time, timedelta
 from decimal import Decimal
 
 import pytest
-from fastapi import BackgroundTasks
-from starlette.datastructures import UploadFile
 
 from app.domains.activities import service
 from app.domains.activities.fiche import (
     ComponentRow,
     DateRow,
+    FicheFile,
     FicheRefusal,
     FicheSave,
     FieldError,
@@ -127,16 +124,7 @@ def _as_is(db, activity_id: int) -> FicheSave:
 
 
 def _save(db, activity_id: int, fiche: FicheSave, **files):
-    return asyncio.run(
-        save_fiche(
-            db,
-            activity_id,
-            fiche,
-            actor="board@example.com",
-            background_tasks=BackgroundTasks(),
-            **files,
-        )
-    )
+    return save_fiche(db, activity_id, fiche, actor="board@example.com", **files)
 
 
 def _refused(db, activity_id: int, fiche: FicheSave, **files) -> str:
@@ -206,8 +194,8 @@ def _registration(db, component, product=None) -> Registration:
 
 def _upload(
     name: str = "info.png", content_type: str = "image/png", data: bytes = PNG
-) -> UploadFile:
-    return UploadFile(io.BytesIO(data), filename=name, headers={"content-type": content_type})
+) -> FicheFile:
+    return FicheFile(name, content_type, data)
 
 
 def _places(db, activity_id: int, fiche: FicheSave, **files) -> dict[str, str]:
