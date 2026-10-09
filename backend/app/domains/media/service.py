@@ -1010,14 +1010,8 @@ def activity_image_path(db, activity_id: int) -> Optional[str]:
     )
     if poster is not None:
         if poster.content_type == PDF_CONTENT_TYPE:
-            if poster.thumbnail is None:
-                png = first_page_png(poster.data or b"")
-                if png:
-                    poster.thumbnail = png
-                    poster.thumb_content_type = PNG_CONTENT_TYPE
-                    # A flush (CR-13 phase 4): the rendering is a cache; the caller's
-                    # door keeps it if it commits, and it is made again if not.
-                    db.flush()
+            # A read and nothing else (#1251): every PDF gets its rendering when it
+            # is stored (#1019), and one that could not be rendered has none.
             return f"/api/v1/media/{poster.id}/thumb" if poster.thumbnail else None
         return f"/api/v1/media/{poster.id}"
     cover = (

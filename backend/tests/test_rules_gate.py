@@ -2534,8 +2534,9 @@ def test_events_not_calls():
         # (The example was `forms.update_attached`, where #1368 was found; that one
         # leaves the facade when it is reached through its port.)
         ("workflow", "close_subject_tasks", True),
-        ("media", "activity_image_path", True),
-        # Reads are not commands.
+        # Reads are not commands — the picture of an activity among them, since
+        # its lazy rendering and the flush behind it left (#1251).
+        ("media", "activity_image_path", False),
         ("mdm", "get_person", False),
         ("mdm", "name_parts", False),
     ],
