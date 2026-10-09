@@ -29,14 +29,17 @@ network belongs — so the handler gates never look at the file name.
 
 **A ratchet has two halves** (the CR-12 shape): nothing new may appear, and
 nothing fixed may stay on the list — a list that does not shrink is no ratchet.
-The frozen lists are in `rules_baseline.py`; phase 4 deletes that file. Keys carry
-no line numbers (they shift on the first unrelated edit); the messages do.
+The frozen lists stood in `rules_baseline.py`; the last step of phase 4d deleted
+that file. Keys carry no line numbers (they shift on the first unrelated edit);
+the messages do.
 
 **A gate whose list is empty is hard** (phase 4d, #1251): it reads no list any more
-(`_hard`), so any offender is red and there is no "left behind" half. Nine are
-hard; the others stay ratchets until their last entries leave. The Dutch
-identifiers (#780) are not CR-13's: their ratchet stays, on a file of its own
-(`dutch_identifiers_baseline.py`).
+(`_hard`), so any offender is red and there is no "left behind" half. Since the
+last step of phase 4d every gate of CR-13 is hard but one: *events, not calls*
+keeps a ratchet on five DECLARED calls, which stand in this file with their
+reasons (`DECLARED_COMMAND_CALLS`). The "ratchet" in the table above is what
+each gate was. The Dutch identifiers (#780) are not CR-13's: their ratchet
+stays, on a file of its own (`dutch_identifiers_baseline.py`).
 
 **Every collector proves it looked** (#678): it asserts it found what it walks —
 the models, the packages, the handlers, the routes, the mappers — before any
@@ -57,7 +60,6 @@ from pathlib import Path
 import pytest
 
 from tests import dutch_identifiers_baseline
-from tests import rules_baseline as baseline
 from tests._bestanden import is_app_test
 
 # CR-29 R7: one worker for the file, so what a walk of the tree found is found once
@@ -1396,7 +1398,14 @@ def api_commands() -> dict[tuple[str, str], str]:
 def _writes_in_its_own_domain(path: Path, tree: ast.Module, function: ast.AST, domain: str) -> bool:
     """Whether the function writes itself, or through what it calls in its OWN
     domain — the walk `api_commands()` makes (`_reachable`, `_writes`), kept to the
-    files of `domain`. What a foreign command writes is that command's."""
+    files of `domain`. What a foreign command writes is that command's.
+
+    Its limits, which are the walk's: three calls deep and no further; a call
+    on an object (`obj.method()`) is not followed, only a function called by its
+    name or through an imported module; and a write that happens only inside a
+    helper of the kernel is not "its own domain" — the kernel is nobody's. A
+    door that writes only in one of those ways reads as a door without a write
+    of its own, and its foreign command as the door's one command."""
     for reached_path, _t, reached, _via in _reachable(path, tree, function):
         if _owner_of_file(reached_path) != domain or _not_a_command(reached):
             continue
@@ -1440,6 +1449,18 @@ def _only_from_a_job(
     "reached from a request" too, and a function nothing names is not a job path
     either. What it cannot see is dynamic dispatch (`getattr`, a name in a string):
     a function reached only that way is not found and stays red.
+
+    A `@job` function counts as the queue's only when NOTHING ELSE names it: the
+    decorator registers it, so any other mention is a caller — or a namesake,
+    which the walk cannot tell apart. That is what happens to media's job
+    `extract_text`: the PDF reader's `page.extract_text()` carries the same name,
+    so that job is not a job path to this gate. Nothing is red for it — the
+    reading job calls no command of another domain — and should it ever need
+    one, the gate asks for another name first. Proof (run, removed), additive:
+    in `newsletter/service.py` a `_probe_step` calling `mail.api.
+    send_campaign_mail`, named only by a `@job` function `probe_job` added to
+    `newsletter/handlers.py` → green; a second function there that calls
+    `probe_job(db, {})` → red, on `_probe_step`.
     """
     holders = [h for h in references.get(function.name, []) if h is not function]
     if not holders:
@@ -1448,6 +1469,10 @@ def _only_from_a_job(
         if holder is None:
             return False
         if any(_is_job(d) for d in holder.decorator_list):
+            # A job function that something else names too is not only the
+            # queue's: a request could call it like any function.
+            if any(h is not holder for h in references.get(holder.name, [])):
+                return False
             continue
         if depth and _only_from_a_job(holder, references, depth - 1):
             continue
@@ -1497,6 +1522,19 @@ def collect_command_calls_outside_handlers() -> dict[str, str]:
                     for alias in node.names:
                         if alias.name == "api":
                             modules[alias.asname or alias.name] = parts[2]
+            elif isinstance(node, ast.Import):
+                # `import app.domains.mail.api as mail` — the third way to hold a
+                # facade. Unseen until the last step of phase 4d: a call through it
+                # was no call to this gate.
+                for alias in node.names:
+                    parts = alias.name.split(".")
+                    if (
+                        alias.asname
+                        and parts[:2] == ["app", "domains"]
+                        and len(parts) == 4
+                        and parts[3] == "api"
+                    ):
+                        modules[alias.asname] = parts[2]
         if not direct and not modules:
             continue
         qualified = _enclosing(tree)
@@ -2533,10 +2571,10 @@ def _hard(name: str) -> None:
     assert not found, "Violations:\n  " + "\n  ".join(found[key] for key in sorted(found))
 
 
-def _ratchet(name: str, frozen=None, *, where: str = "rules_baseline") -> None:
-    """Nothing new, and nothing left behind."""
+def _ratchet(name: str, frozen, *, where: str) -> None:
+    """Nothing new, and nothing left behind: `frozen` is the one list the gate
+    still reads for this collector, and `where` names it in the message."""
     found = COLLECTORS[name]()
-    frozen = getattr(baseline, name) if frozen is None else frozen
     added = sorted(set(found) - set(frozen))
     gone = sorted(set(frozen) - set(found))
     errors = []
@@ -2544,7 +2582,7 @@ def _ratchet(name: str, frozen=None, *, where: str = "rules_baseline") -> None:
         errors.append("New violations:\n  " + "\n  ".join(found[k] for k in added))
     if gone:
         errors.append(
-            f"These are still in `{where}.{name}` but no longer occur:\n  "
+            f"These are still in `{where}` but no longer occur:\n  "
             + "\n  ".join(gone)
             + "\nRemove them from the list — a ratchet that does not shrink is no ratchet."
         )
@@ -2586,14 +2624,15 @@ def test_no_network_in_an_event_handler():
 
 
 def test_every_json_route_names_its_caller():
-    """Ratchet on today's routes; a new route is red until its domain's
-    `CONTRACT.md` names its caller under `## Callers`. Proofs (run, restored): a
+    """Hard since the last step of phase 4d — a ratchet until its list was empty.
+    A route is red until its domain's `CONTRACT.md` names its caller under
+    `## Callers`. Proofs (run, restored; the first again when it went hard): a
     `@router.get("/probe")` added to `cms/router.py` → red, "`GET /api/v1/probe` has
     no caller"; a `## Callers` line for `GET /api/v1/sponsors` added to
     `media/CONTRACT.md` → red, "no longer occur", because a named route must leave
-    the list. The same line in `cms/CONTRACT.md` stayed green: only the contract of
-    the domain that defines the route counts."""
-    _ratchet("JSON_ROUTE_WITHOUT_CALLER")
+    the list (while there was a list). The same line in `cms/CONTRACT.md` stayed
+    green: only the contract of the domain that defines the route counts."""
+    _hard("JSON_ROUTE_WITHOUT_CALLER")
 
 
 def test_no_new_dutch_identifier():
@@ -2606,18 +2645,20 @@ def test_no_new_dutch_identifier():
     _ratchet(
         "DUTCH_IDENTIFIERS",
         dutch_identifiers_baseline.DUTCH_IDENTIFIERS,
-        where="dutch_identifiers_baseline",
+        where="dutch_identifiers_baseline.DUTCH_IDENTIFIERS",
     )
 
 
 def test_no_new_foreign_write():
-    """Ratchet, hard for a new package (CR-13 §B9.3). Proofs (run, removed), each
+    """Hard since the last step of phase 4d — a ratchet until its list was empty.
+    The last entry was media's write of the chatbot's row. Proofs (run, removed;
+    the first again when it went hard), each
     additive, in `cms/service.py`: a function constructing `Person` imported from
     `mdm.api` → red, "constructs `mdm.Person`"; a function doing
     `person = db.get(Person, 1)` then `person.first_name = "x"` → red, "assigns
     .first_name"; a function holding the string `"UPDATE mdm.persons SET …"` → red,
     "raw SQL writes `schema mdm`"."""
-    _ratchet("FOREIGN_WRITES")
+    _hard("FOREIGN_WRITES")
 
 
 def test_no_write_after_a_commit():
@@ -2651,11 +2692,13 @@ def test_what_counts_as_a_write_after_a_commit(source, red):
 
 
 def test_no_commit_behind_another_domains_api():
-    """Ratchet on twelve (§B9.3 (c)). Proof (run, removed): a function in
+    """Hard since the last step of phase 4d — a ratchet until its list was empty.
+    Twelve stood on it (§B9.3 (c)). Proof (run, removed; again when it went hard):
+    a function in
     `cms/service.py` calling `add_to_circle` imported from `mdm.api` → red,
     "`mdm.api.add_to_circle` commits (domains/mdm/service.py:…) and is called from
     another domain (domains/cms/service.py:…)"."""
-    _ratchet("COMMIT_BEHIND_API")
+    _hard("COMMIT_BEHIND_API")
 
 
 _SINK = """
@@ -2737,8 +2780,40 @@ def test_only_the_ai_call_log_is_an_own_transaction_that_is_not_a_command():
     )
 
 
+#: The calls into another domain's command that are DECLARED (§B4.9): five, each
+#: with what it is and what takes it away. The one list this gate still reads —
+#: `rules_baseline.py`, the burn-down of the other gates, is gone (phase 4d). A
+#: sixth call is red; an entry that no longer occurs is red too, so the list can
+#: only shrink. Keys carry no line numbers.
+DECLARED_COMMAND_CALLS: dict[str, str] = {
+    "domains/activities/router.py::create_registration → payment.api.create_payment_record": (
+        "checkout: a registration makes its payment in the same request — leaves with "
+        "CR-31 (#1829), the checkout's own change request"
+    ),
+    "domains/membership/portal_service.py::renew_membership → payment.api.create_payment_record": (
+        "checkout: a renewal makes its payment in the same request — leaves with CR-31 (#1829)"
+    ),
+    "domains/membership/signup_service.py::register_family → payment.api.create_payment_record": (
+        "checkout: a sign-up makes its payment in the same request — leaves with CR-31 (#1829)"
+    ),
+    "domains/meetings/service.py::send_meeting_mail → mail.api.send_with_attachments": (
+        "the meeting mail: sent with its attachments while the board waits for the "
+        "outcome — declared, to leave with a change request of its own"
+    ),
+    "domains/newsletter/service.py::subscribe_public → mail.api.send_newsletter_confirmation": (
+        "the newsletter's sign-up confirmation: sent in the request, so a full day "
+        "refuses the sign-up — declared and left as it is (the master CLI, 9 October 2026)"
+    ),
+}
+
+
 def test_events_not_calls():
-    """Ratchet (§B4.9), hard for a new package. Proof (run, removed), additive, both
+    """Ratchet on the five declared calls (§B4.9), hard for everything else. Proofs
+    of the two halves on the declared set (run, restored, when the set moved here):
+    a declared entry removed from the set → red, as a new violation; an entry
+    added for a call that does not exist → red, "no longer occur".
+
+    Proof (run, removed), additive, both
     halves at once: in `cms/api.py` a `probe_write(db)` that commits through a helper
     in `cms/service.py`, and a `probe_read(db)` that only queries; both called from
     `forms/service.py` → exactly one new violation, "`forms/service.py` … calls
@@ -2758,7 +2833,24 @@ def test_events_not_calls():
       handlers.py` → green; the same with a second function in `service.py` that
       names it → red; the same with nothing naming it → red.
     """
-    _ratchet("COMMAND_CALLS")
+    _ratchet(
+        "COMMAND_CALLS",
+        DECLARED_COMMAND_CALLS,
+        where="test_rules_gate.DECLARED_COMMAND_CALLS",
+    )
+
+
+def test_every_declared_command_call_says_what_it_is_and_what_removes_it():
+    """A declared call is no exemption without a reason: each entry says which
+    coupling it is and what takes it away, or that it is left on purpose and by
+    whom. Five, and the number is part of the declaration."""
+    assert len(DECLARED_COMMAND_CALLS) == 5
+    bad = {
+        key: reason
+        for key, reason in DECLARED_COMMAND_CALLS.items()
+        if not re.search(r" — (leaves with CR-\d+ \(#\d+\)|declared)", reason)
+    }
+    assert not bad, bad
 
 
 @pytest.mark.parametrize(
@@ -2818,7 +2910,9 @@ def test_the_walk_sees_a_write_through_a_collection_or_a_flush():
 
 
 def test_no_new_rule_in_a_router():
-    """Ratchet with a reason per entry (§B9.3). Proof (run, removed), additive, both
+    """Hard since the last step of phase 4d — a ratchet until its list was empty.
+    While it had a list, each entry carried its reason (§B9.3). Proof (run, removed;
+    again when it went hard), additive, both
     halves at once: a function in `cms/admin_ui.py` with `if page is None: raise
     HTTPException(status_code=404)` and `if page.slug == "home": raise
     HTTPException(status_code=400, …)` → exactly one new violation, the 400 on
@@ -2827,7 +2921,7 @@ def test_no_new_rule_in_a_router():
     CR-13 phase 4c (#1251): a check of the transport is the doorman's too, by three
     shapes (`transport_shape`). Their proofs are tests of their own below — each
     shape, and beside it the offence that must stay red."""
-    _ratchet("RULE_IN_ROUTER")
+    _hard("RULE_IN_ROUTER")
 
 
 def _shape_of(source: str) -> str | None:
@@ -2993,17 +3087,6 @@ def test_proof_a_deadline_of_the_domain_stays_a_rule(condition):
     )
 
 
-def test_every_rule_in_a_router_carries_its_reason():
-    """The change request's condition for this baseline: each entry says whether it
-    is a rule on its way to the entity (and in which phase) or the doorman's own."""
-    bad = {
-        key: reason
-        for key, reason in baseline.RULE_IN_ROUTER.items()
-        if not re.match(r"(rule: .+ — phase [1-4]|door: .+)$", reason)
-    }
-    assert not bad, bad
-
-
 def test_every_aggregate_is_mapped_and_defines_its_own_check():
     """Hard (§B9.3 (a)). `aggregate()` already refuses a class without `check`; this
     also refuses one that only inherits it, or is not mapped — a registration the
@@ -3024,9 +3107,11 @@ def test_every_aggregate_is_mapped_and_defines_its_own_check():
 
 
 def test_no_new_write_outside_a_service():
-    """Ratchet (§B9.3 (b)). Proof (run, removed): a function in `cms/admin_ui.py` doing
+    """Hard since the last step of phase 4d — a ratchet until its list was empty.
+    (§B9.3 (b)). Proof (run, removed; again when it went hard): a function in
+    `cms/admin_ui.py` doing
     `db.add(CmsPage(title="x"))` → red, "constructs `cms.CmsPage` outside a service"."""
-    _ratchet("WRITE_OUTSIDE_SERVICE")
+    _hard("WRITE_OUTSIDE_SERVICE")
 
 
 def test_no_new_write_past_the_orm():
