@@ -24,6 +24,11 @@ A third was recorded again with the rule that a household has one main member
 (`test_one_main_member_1251.py`): making a child the main
 member saved the rest of the card and dropped the relation without a word — a
 200 — and is a 422 that writes nothing now.
+
+A fourth gained one line with #1833: a partner who becomes a child leaves a
+history row of the link now (`relation_changed`), where the change left none —
+the missing row this recording was the first to show. Nothing else in it moved
+(`tests/integration/test_relation_change_in_changes_1833.py`).
 """
 
 from __future__ import annotations

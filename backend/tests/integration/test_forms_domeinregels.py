@@ -19,6 +19,9 @@ from fastapi import HTTPException
 from app.domains.forms.service import assert_submitter, update_settings
 from app.domains.mdm.api import RelationType
 
+#: Who changes a relation in these tests: the history row names him (#1833).
+_ADMIN = SimpleNamespace(email="beheer-1833@example.com")
+
 pytestmark = pytest.mark.ui_agnostisch
 
 
@@ -145,7 +148,7 @@ def test_hoofdlid_wordt_nooit_overschreven(db_session):
     member, person = create_test_family(db_session, email="hoofdlid@example.com")
     db_session.flush()
 
-    gewijzigd = set_relation_type(db_session, member.id, person.id, "PARTNER")
+    gewijzigd = set_relation_type(db_session, member.id, person.id, "PARTNER", admin=_ADMIN)
 
     koppeling = (
         db_session.query(MemberPerson)
@@ -165,7 +168,7 @@ def test_een_gewoon_gezinslid_krijgt_wel_een_andere_rol(db_session):
     db_session.add(MemberPerson(member_id=member.id, person_id=kind.id, relation_type="PARTNER"))
     db_session.flush()
 
-    assert set_relation_type(db_session, member.id, kind.id, "KIND") is True
+    assert set_relation_type(db_session, member.id, kind.id, "KIND", admin=_ADMIN) is True
 
     koppeling = (
         db_session.query(MemberPerson)
@@ -187,7 +190,7 @@ def test_promoveren_tot_hoofdlid_kan_niet_via_dit_pad(db_session):
     # Until the one-main-member rule this was dropped in silence (`False`);
     # it is refused now, like at every entrance (`test_one_main_member_1251.py`).
     with pytest.raises(HTTPException) as refusal:
-        set_relation_type(db_session, member.id, kind.id, "HOOFDLID")
+        set_relation_type(db_session, member.id, kind.id, "HOOFDLID", admin=_ADMIN)
     assert (refusal.value.status_code, refusal.value.detail) == (
         422,
         "Een gezin heeft één hoofdlid.",

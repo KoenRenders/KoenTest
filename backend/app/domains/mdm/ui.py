@@ -457,7 +457,7 @@ async def persoon_opslaan(
     # in de service.
     from app.domains.mdm.api import set_relation_type
 
-    set_relation_type(db, family_id, person_id, relation_type)
+    set_relation_type(db, family_id, person_id, relation_type, admin=admin_user_by_email(db, email))
     # #742: een afsluitende "Opslaan", dus mét bevestiging. Een persoon toevoegen of
     # verwijderen is een deelactie en krijgt er géén — dezelfde grens als bij #717.
     # #1111: alleen deze kaart; de naam staat ook in de kop en in de
