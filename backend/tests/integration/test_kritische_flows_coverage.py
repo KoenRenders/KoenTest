@@ -188,7 +188,7 @@ def _add_person_to_family(db, member, *, relation_type="KIND", **kwargs):
     return p
 
 
-def test_admin_update_person_wijzigt_relation_type_niet(client, db_session, admin_headers):
+def test_admin_update_person_wijzigt_relation_type_niet(client, db_session):
     """`PUT /persons/{id}` (admin) kan het relatietype niet degraderen: het veld
     zit op MemberPerson, niet op Person, en het schema negeert het. Een meegestuurd
     `relation_type` laat het hoofdlid hoofdlid."""
@@ -206,7 +206,7 @@ def test_admin_update_person_wijzigt_relation_type_niet(client, db_session, admi
     assert mp.relation_type == RelationType.PRIMARY_MEMBER
 
 
-def test_admin_verwijder_bijkomend_lid_laat_hoofdlid_intact(client, db_session, admin_headers):
+def test_admin_verwijder_bijkomend_lid_laat_hoofdlid_intact(client, db_session):
     """Een bijkomend lid verwijderen laat het hoofdlid (en dus het gezin) coherent
     achter — de HOOFDLID-koppeling blijft bestaan."""
     member, hoofdlid = create_test_family(db_session, email="coherent@example.com")

@@ -5,7 +5,7 @@ from tests import payments_door
 from tests.conftest import register_at_the_door, seed_activity_with_product
 
 
-def test_registration_record_exposes_component(client, db_session, admin_headers):
+def test_registration_record_exposes_component(client, db_session):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
     resp = register_at_the_door(
@@ -31,7 +31,7 @@ def test_registration_record_exposes_component(client, db_session, admin_headers
     assert reg_rec["component_name"] == comp.name
 
 
-def test_registration_record_exposes_structured_communication(client, db_session, admin_headers):
+def test_registration_record_exposes_structured_communication(client, db_session):
     """De OGM van een overschrijving staat in de betalingenlijst, zodat de
     penningmeester ze kan gebruiken om manueel af te boeken (#224)."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")

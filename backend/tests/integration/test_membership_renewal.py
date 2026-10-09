@@ -22,7 +22,7 @@ from tests.integration.test_membership_pricing import seed_household
 pytestmark = pytest.mark.ui_agnostisch
 
 
-def test_admin_created_membership_is_valid(client, db_session, admin_headers):
+def test_admin_created_membership_is_valid(client, db_session):
     """Admin 'Lid maken' moet een geldig lidmaatschap opleveren (met
     valid_from/valid_to), anders telt het nergens als geldig (#143)."""
     from datetime import date
@@ -42,7 +42,7 @@ def test_admin_created_membership_is_valid(client, db_session, admin_headers):
     assert has_valid_membership(person) is True
 
 
-def test_manual_payment_confirmation_activates_membership(client, db_session, admin_headers):
+def test_manual_payment_confirmation_activates_membership(client, db_session):
     """Een handmatig bevestigde lidmaatschap-betaling (cash/overschrijving) moet het
     lidmaatschap activeren — net als de Mollie-webhook (#143)."""
     seed_postal_code(db_session)

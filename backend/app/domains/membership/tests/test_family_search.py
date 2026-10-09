@@ -39,7 +39,7 @@ def _make_family(client, last, first, email, mobile, *, street="Milostraat", nr=
     assert resp.status_code == 201, resp.text
 
 
-def test_families_search_by_name_full_name_and_email(client, db_session, admin_headers):
+def test_families_search_by_name_full_name_and_email(client, db_session):
     seed_postal_code(db_session)
     _make_family(client, "Renders", "Koen", "koen.renders@example.com", "0470111111")
     _make_family(
@@ -66,7 +66,7 @@ def test_families_search_by_name_full_name_and_email(client, db_session, admin_h
     assert r4["total"] == 2
 
 
-def test_families_pagination_caps_and_counts(client, db_session, admin_headers):
+def test_families_pagination_caps_and_counts(client, db_session):
     seed_postal_code(db_session)
     for i in range(3):
         _make_family(

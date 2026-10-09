@@ -7,8 +7,8 @@ from tests.conftest import create_test_family
 from tests.integration.test_forms import _create_form
 
 
-def test_form_prefilled_for_logged_in_member(client, admin_headers, db_session):
-    form = _create_form(client, admin_headers, is_anonymous=False)
+def test_form_prefilled_for_logged_in_member(client, db_session):
+    form = _create_form(client, is_anonymous=False)
     create_test_family(db_session, email="lid@example.com")
     db_session.commit()
 
@@ -20,8 +20,8 @@ def test_form_prefilled_for_logged_in_member(client, admin_headers, db_session):
     assert 'value="Test Persoon"' in html
 
 
-def test_form_not_prefilled_for_anonymous_visitor(client, admin_headers):
-    form = _create_form(client, admin_headers, is_anonymous=False)
+def test_form_not_prefilled_for_anonymous_visitor(client):
+    form = _create_form(client, is_anonymous=False)
     html = client.get(f"/formulier/{form['share_token']}").text
     assert 'id="submitter_email"' in html
     assert 'value="lid@example.com"' not in html

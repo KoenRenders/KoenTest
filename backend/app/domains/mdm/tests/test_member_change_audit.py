@@ -36,7 +36,7 @@ def _make_person(client, db):
     return db.query(Person).order_by(Person.id.desc()).first()
 
 
-def test_only_changed_contact_is_snapshotted(client, db_session, admin_headers):
+def test_only_changed_contact_is_snapshotted(client, db_session):
     person = _make_person(client, db_session)
     before_contacts = (
         db_session.query(ContactDetailHistory)
@@ -72,7 +72,7 @@ def test_only_changed_contact_is_snapshotted(client, db_session, admin_headers):
     assert after_persons == before_persons  # geen onnodige persoon-rij
 
 
-def test_contact_change_shows_old_to_new(client, db_session, admin_headers):
+def test_contact_change_shows_old_to_new(client, db_session):
     """#188: een gewijzigd contact toont 'oud → nieuw' in de wijzigingen-feed."""
     person = _make_person(client, db_session)
     board_at_the_household(
@@ -95,7 +95,7 @@ def test_contact_change_shows_old_to_new(client, db_session, admin_headers):
     assert not [r for r in rows if "MOBILE" in r["summary"]]
 
 
-def test_person_name_change_shows_old_to_new(client, db_session, admin_headers):
+def test_person_name_change_shows_old_to_new(client, db_session):
     """#188: een naamswijziging toont 'oud → nieuw' in de wijzigingen-feed."""
     person = _make_person(client, db_session)
     r = board_at_the_household(
@@ -109,7 +109,7 @@ def test_person_name_change_shows_old_to_new(client, db_session, admin_headers):
     assert "Suske Wiske" in naam[0]["summary"] and "Suske Vandersteen" in naam[0]["summary"]
 
 
-def test_person_update_without_change_makes_no_history(client, db_session, admin_headers):
+def test_person_update_without_change_makes_no_history(client, db_session):
     person = _make_person(client, db_session)
     before = db_session.query(PersonHistory).filter(PersonHistory.person_id == person.id).count()
 

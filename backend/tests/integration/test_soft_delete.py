@@ -52,7 +52,7 @@ def _create_family(client, db, email="lid@example.com"):
     return db.query(Member).order_by(Member.id.desc()).first()
 
 
-def test_soft_deleted_family_hidden_but_retained(client, db_session, admin_headers):
+def test_soft_deleted_family_hidden_but_retained(client, db_session):
     member = _create_family(client, db_session)
     mid = member.id
     delete_household(db_session, mid, admin=seeded_admin(db_session))
@@ -78,7 +78,7 @@ def test_soft_deleted_family_hidden_but_retained(client, db_session, admin_heade
     assert kept_ms is not None and kept_ms.deleted_at is not None
 
 
-def test_family_list_excludes_soft_deleted(client, db_session, admin_headers):
+def test_family_list_excludes_soft_deleted(client, db_session):
     member = _create_family(client, db_session)
     delete_household(db_session, member.id, admin=seeded_admin(db_session))
     listing = household_service.list_families(db_session, _admin=seeded_admin(db_session))
@@ -86,7 +86,7 @@ def test_family_list_excludes_soft_deleted(client, db_session, admin_headers):
     assert member.id not in ids
 
 
-def test_reregister_same_email_after_soft_delete(client, db_session, admin_headers):
+def test_reregister_same_email_after_soft_delete(client, db_session):
     member = _create_family(client, db_session, email="x@example.com")
     delete_household(db_session, member.id, admin=seeded_admin(db_session))
     # Opnieuw inschrijven met hetzelfde e-mail/jaar mag: de dedup ziet de
@@ -95,9 +95,7 @@ def test_reregister_same_email_after_soft_delete(client, db_session, admin_heade
     assert r2.status_code == 201, r2.text
 
 
-def test_recreate_membership_for_same_member_year_after_soft_delete(
-    client, db_session, admin_headers
-):
+def test_recreate_membership_for_same_member_year_after_soft_delete(client, db_session):
     member = _create_family(client, db_session)
     ms = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     year = ms.year
@@ -109,7 +107,7 @@ def test_recreate_membership_for_same_member_year_after_soft_delete(
     assert again.year == year and again.id != ms.id
 
 
-def test_soft_delete_still_recorded_in_member_changes(client, db_session, admin_headers):
+def test_soft_delete_still_recorded_in_member_changes(client, db_session):
     member = _create_family(client, db_session)
     delete_household(db_session, member.id, admin=seeded_admin(db_session))
     changes = backoffice_door.member_changes(client, date.today().isoformat()).json()
@@ -119,7 +117,7 @@ def test_soft_delete_still_recorded_in_member_changes(client, db_session, admin_
 # ── Stage 2/3: activiteiten, betalingen, gebruikers ──────────────────────────
 
 
-def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin_headers):
+def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
     register_at_the_door(
@@ -170,7 +168,7 @@ def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin
     assert pay is not None and pay.deleted_at is None
 
 
-def test_soft_delete_payment_hidden_but_kept(client, db_session, admin_headers):
+def test_soft_delete_payment_hidden_but_kept(client, db_session):
     member = _create_family(client, db_session)
     ms = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     pay = (
@@ -193,7 +191,7 @@ def test_soft_delete_payment_hidden_but_kept(client, db_session, admin_headers):
     assert kept is not None and kept.deleted_at is not None
 
 
-def test_soft_delete_user_and_reuse_email(client, db_session, admin_headers):
+def test_soft_delete_user_and_reuse_email(client, db_session):
     from app.domains.auth.api import admin_user_by_email
     from app.domains.auth.users import delete_user
     from tests.conftest import SEEDED_ADMIN_EMAIL

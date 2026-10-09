@@ -200,9 +200,7 @@ def test_only_finance_may_mutate(client, db_session, pad, data):
 # ── B. de handmatige Mollie-verversing ───────────────────────────────────────
 
 
-def test_the_manual_refresh_takes_its_status_from_mollie(
-    client, db_session, admin_headers, mock_mollie
-):
+def test_the_manual_refresh_takes_its_status_from_mollie(client, db_session, mock_mollie):
     """Het vangnet voor een gemiste webhook, en het endpoint waarvan de veiligheid ís
     dat het de status bij Mollie ópvraagt in plaats van iets te geloven."""
     from app.domains.auth.api import User, UserRole
@@ -238,7 +236,7 @@ def test_the_manual_refresh_takes_its_status_from_mollie(
     ), "de status is niet toegepast, dus de handmatige tegenhanger van de webhook doet niets"
 
 
-def test_a_transfer_cannot_be_refreshed_at_mollie(client, db_session, admin_headers):
+def test_a_transfer_cannot_be_refreshed_at_mollie(client, db_session):
     """De tegenproef: zonder haar zou "hij antwoordt 200" ook groen staan als het
     endpoint elk record zomaar aanraakt."""
     from app.domains.auth.api import User, UserRole

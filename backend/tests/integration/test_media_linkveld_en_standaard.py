@@ -140,7 +140,7 @@ def test_gewone_links_blijven_toegestaan(client, db_session, goed):
     assert _asset(db_session, f"Ok {goed}").link_url == goed
 
 
-def test_de_regel_geldt_ook_op_de_json_route(client, db_session, admin_headers):
+def test_de_regel_geldt_ook_op_de_json_route(client, db_session):
     """Twee ingangen, één regel. Stond ze in het scherm, dan was ze hier omzeild —
     en dat is precies waarom ze in de service hoort."""
     from app.domains.media.api import MediaAsset

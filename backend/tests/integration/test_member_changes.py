@@ -37,7 +37,7 @@ def _create_family(client, db_session):
     assert resp.status_code == 201, resp.text
 
 
-def test_member_changes_lists_recent_changes(client, db_session, admin_headers):
+def test_member_changes_lists_recent_changes(client, db_session):
     _create_family(client, db_session)
     resp = backoffice_door.member_changes(client, date.today().isoformat())
     assert resp.status_code == 200, resp.text
@@ -50,7 +50,7 @@ def test_member_changes_lists_recent_changes(client, db_session, admin_headers):
     assert "An" in person_row["summary"]
 
 
-def test_change_summaries_have_no_raw_ids(client, db_session, admin_headers):
+def test_change_summaries_have_no_raw_ids(client, db_session):
     """De Details-kolom toont geen nietszeggende #ID's meer; een adres toont de
     gemeente i.p.v. een postcode-id."""
     _create_family(client, db_session)
@@ -63,7 +63,7 @@ def test_change_summaries_have_no_raw_ids(client, db_session, admin_headers):
     assert "2400 Mol" in adres["summary"]
 
 
-def test_member_changes_respects_since_date(client, db_session, admin_headers):
+def test_member_changes_respects_since_date(client, db_session):
     _create_family(client, db_session)
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
     resp = backoffice_door.member_changes(client, tomorrow)
@@ -71,7 +71,7 @@ def test_member_changes_respects_since_date(client, db_session, admin_headers):
     assert resp.json() == []
 
 
-def test_member_changes_ods_export(client, db_session, admin_headers):
+def test_member_changes_ods_export(client, db_session):
     _create_family(client, db_session)
     content = backoffice_door.member_changes_ods(client, date.today().isoformat())
     table = load(BytesIO(content)).getElementsByType(Table)[0]
@@ -84,7 +84,7 @@ def test_member_changes_ods_export(client, db_session, admin_headers):
     assert len(trs) >= 2  # kop + minstens één wijziging
 
 
-def test_member_changes_enriched_with_person_and_head(client, db_session, admin_headers):
+def test_member_changes_enriched_with_person_and_head(client, db_session):
     """Elke ledenwijziging draagt de naam van de persoon, het hoofdlid-adres en
     (in de feed/export) de externe ID's van persoon en hoofdlid."""
     _create_family(client, db_session)
@@ -111,7 +111,7 @@ def test_member_changes_enriched_with_person_and_head(client, db_session, admin_
     assert gezin_row["head_address"] == "Milostraat 40, 2400 Mol"
 
 
-def test_changes_feed_enriches_payment_with_registration_person(client, db_session, admin_headers):
+def test_changes_feed_enriches_payment_with_registration_person(client, db_session):
     """Een betaling/bestelregel hangt aan een inschrijving → de feed toont de
     persoon + hoofdlid-adres van die inschrijving (niet langer '—')."""
     from app.domains.activities.api import Registration
@@ -150,7 +150,7 @@ def test_changes_feed_enriches_payment_with_registration_person(client, db_sessi
     assert pay["head_address"] == "Milostraat 40, 2400 Mol"
 
 
-def test_changes_feed_matches_guest_payment_by_email(client, db_session, admin_headers):
+def test_changes_feed_matches_guest_payment_by_email(client, db_session):
     """Een gast-inschrijving (geen person_id) waarvan het contact-e-mailadres een lid
     is, toont tóch de persoon + hoofdlid-adres via de e-mailmatch (#221)."""
     from app.domains.mdm.api import ExternalNumber, Person
@@ -189,7 +189,7 @@ def test_changes_feed_matches_guest_payment_by_email(client, db_session, admin_h
     assert pay["head_external_id"] == "RN-9"
 
 
-def test_changes_feed_person_and_head_columns_differ(client, db_session, admin_headers):
+def test_changes_feed_person_and_head_columns_differ(client, db_session):
     """Persoon én hoofdlid worden los ingevuld (#221): een gezinslid (kind) inschrijven
     toont naam + extern nummer van het kind als persoon, maar adres + extern nummer van
     het hoofdlid."""

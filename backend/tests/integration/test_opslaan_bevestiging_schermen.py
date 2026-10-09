@@ -101,7 +101,7 @@ def test_een_pagina_openen_bevestigt_niets(client, db_session):
 # ── Activiteit ───────────────────────────────────────────────────────────────
 
 
-def _activiteit(client, db, admin_headers):
+def _activiteit(client, db):
     from datetime import date, timedelta
 
     from app.domains.activities.api import Activity, ActivityDate
@@ -114,8 +114,8 @@ def _activiteit(client, db, admin_headers):
     return activity.id
 
 
-def test_een_activiteit_opslaan_bevestigt(client, db_session, admin_headers):
-    activity_id = _activiteit(client, db_session, admin_headers)
+def test_een_activiteit_opslaan_bevestigt(client, db_session):
+    activity_id = _activiteit(client, db_session)
     hdr = _login(client)
 
     resp = client.post(

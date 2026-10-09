@@ -111,7 +111,7 @@ def test_update_quantity_recomputes_due_and_audits(client, db_session):
     assert rows[-1].source == "admin_manual"
 
 
-def test_swap_to_helper_product_auto_refunds(client, db_session, admin_headers):
+def test_swap_to_helper_product_auto_refunds(client, db_session):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     helper = _add_product(db_session, comp, name="Vlees - helper", price="0", is_free=True)
     activity_id, reg, item = _register(client, db_session, comp, product)
@@ -156,7 +156,7 @@ def test_swap_to_helper_product_auto_refunds(client, db_session, admin_headers):
     assert Decimal(str(bal["total_refunded"])) == Decimal("18.00")
 
 
-def test_add_order_line(client, db_session, admin_headers):
+def test_add_order_line(client, db_session):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     extra = _add_product(db_session, comp, name="Dessert", price="5.00")
     activity_id, reg, _item = _register(client, db_session, comp, product)
@@ -178,7 +178,7 @@ def test_add_order_line(client, db_session, admin_headers):
     assert rows[0].action == "order_changed"
 
 
-def test_delete_order_line_audited_before_delete(client, db_session, admin_headers):
+def test_delete_order_line_audited_before_delete(client, db_session):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id, reg, item = _register(client, db_session, comp, product)
     item_id = item.id
