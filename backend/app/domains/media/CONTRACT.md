@@ -40,6 +40,25 @@ zonder consumers te raken.
 Schema `media` (migratie 085): `media_assets`. Koppelingen naar activiteiten
 en ai-context zijn soft-refs (§8, gedropt in 081/084).
 
+## Ports this domain offers
+
+A port is a synchronous command another domain may ask of media, with an answer
+(`kernel/ports.py`, `docs/architecture.md` §3.2.1 step 2). The contracts stand in
+`kernel/contracts/media.py`, the handlers in `handlers.py`. The bytes cross once:
+the caller's door read the upload and its service hands a name, a type and the
+bytes over. A handler flushes and never commits — the caller's transaction
+commits. The limits are media's own (`MAX_UPLOAD_BYTES`, the content types per
+kind); the kernel has none.
+
+| Port | What media does | Outcome | Refuses with |
+|---|---|---|---|
+| `StoreFile` | stores one file of a kind, by the kind: an activity's poster and a component's info document take the place of the one their owner had and get their text read by a job that starts when the caller commits; a render and a newsletter's attachment are kept beside the others; a design image is re-encoded like every uploaded image | `AssetStored(asset_id, title, content_type)` | `MediaFout`, with the sentence for the screen: a content type the kind does not take, an empty file, a file over the limit, a file that is not what its type says, a poster or an info document without its owner; `LookupError` for a design image of an activity that does not exist |
+| `RemoveAsset` | removes one asset by its id | `AssetsRemoved(1)` | `LookupError` for an id that is not there |
+| `RemoveFileOf` | removes what an owner has of a kind (an activity's poster, a component's info document) | `AssetsRemoved(count)` — zero when there was nothing | `MediaFout` when no owner is named |
+
+Not a port: `activity_image_path`, the picture that stands for an activity in a
+letter. It is a read through `api.py` and writes nothing.
+
 ## Callers
 
 The JSON routes of this component that exist for a named caller (R14, CR-13 phase

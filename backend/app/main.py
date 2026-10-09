@@ -55,6 +55,9 @@ from app.domains.mdm.handlers import (  # noqa: F401 - event subscriptions (#134
 from app.domains.mdm.persons_ui import router as mdm_persons_ui_router
 from app.domains.mdm.ui import router as mdm_ui_router
 from app.domains.media.admin_ui import router as media_admin_ui_router
+from app.domains.media.handlers import (  # noqa: F401 - its three ports and the extraction job (#1251)
+    store_file,
+)
 from app.domains.media.router import router as media_router
 from app.domains.media.ui import router as media_ui_router
 from app.domains.meetings.admin_ui import router as meetings_admin_ui_router

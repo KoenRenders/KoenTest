@@ -513,14 +513,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/auth/login.py::start_login → mail.api.send_magic_link",
         "domains/auth/login.py::start_login → mail.api.send_member_contact_board_notice",
         "domains/chatbot/tools.py::submit_idea → forms.api.submit_bericht",
-        "domains/designstudio/handlers.py::generate_image → media.api.store_uploads",
-        "domains/designstudio/service.py::_prune_versions → media.api.remove_media",
-        "domains/designstudio/service.py::_store_render → media.api.add_document",
-        "domains/designstudio/service.py::add_design_image → media.api.store_uploads",
-        "domains/designstudio/service.py::publish → media.api.store_activity_poster",
-        "domains/designstudio/service.py::remove_edited_svg → media.api.remove_media",
-        "domains/designstudio/service.py::upload_edited_svg → media.api.add_document",
-        "domains/designstudio/service.py::upload_edited_svg → media.api.remove_media",
         "domains/forms/api.py::submit_bericht → mail.api.send_form_confirmation",
         "domains/forms/service.py::submit_form → mail.api.send_form_confirmation",
         "domains/mdm/ui.py::gezin_aanmaken → membership.api.create_family_by_admin",
@@ -546,7 +538,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         # rule, `mdm.service.delete_person` — and its history calls with it;
         # membership's door calls that rule. Four entries left, four came.
         "domains/membership/signup_service.py::register_family → payment.api.create_payment_record",
-        "domains/newsletter/service.py::add_attachment → media.api.add_document",
         "domains/newsletter/service.py::send_batch → mail.api.send_campaign_mail",
         "domains/newsletter/service.py::send_test → mail.api.send_campaign_mail",
         "domains/newsletter/service.py::subscribe_public → mail.api.send_newsletter_confirmation",

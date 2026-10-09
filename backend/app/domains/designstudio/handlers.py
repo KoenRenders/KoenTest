@@ -10,18 +10,18 @@ on the screen, not a retry that spends again.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from io import BytesIO
 
 from sqlalchemy.orm import Session
-from starlette.datastructures import Headers, UploadFile
 
 from app.domains.designstudio import imaging
 from app.domains.designstudio.models import GenerationStatus, ImageGeneration
 from app.kernel.contracts.activities import ActivityCopied
+from app.kernel.contracts.media import StoreFile
 from app.kernel.events import subscribe
 from app.kernel.jobs import job
+from app.kernel.ports import call
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,6 @@ def whiten(png: bytes) -> bytes:
 @job("designstudio.generate")
 def generate_image(db: Session, payload: dict) -> None:
     from app.domains.chatbot.api import AiStatus, sink_for
-    from app.domains.media.api import store_uploads
 
     row = db.query(ImageGeneration).filter(ImageGeneration.id == payload["generation_id"]).first()
     if row is None:
@@ -96,17 +95,17 @@ def generate_image(db: Session, payload: dict) -> None:
             tenant_id=tenant_id,
         )
     else:
-        upload = UploadFile(
-            file=BytesIO(whiten(result.image)),
-            filename=f"ai-{row.id}.png",
-            headers=Headers({"content-type": "image/png"}),
+        stored = call(
+            StoreFile(
+                kind="design_image",
+                filename=f"ai-{row.id}.png",
+                content_type="image/png",
+                content=whiten(result.image),
+                activity_id=row.design.activity_id,
+            ),
+            db,
         )
-        stored = asyncio.run(
-            store_uploads(
-                db, files=[upload], kind="design_image", activity_id=row.design.activity_id
-            )
-        )
-        row.media_asset_id = stored[0]["id"]
+        row.media_asset_id = stored.asset_id
         row.seed = result.seed
         row.status = GenerationStatus.FETCHED
         usd = result.credits * imaging.CREDIT_USD

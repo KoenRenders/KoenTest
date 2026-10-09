@@ -29,12 +29,10 @@ import re
 import unicodedata
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from io import BytesIO
 from typing import Iterable, Optional
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from starlette.datastructures import Headers, UploadFile
 
 from app.domains.designstudio import brand, imaging, render
 from app.domains.designstudio.codes import LAYOUT
@@ -55,8 +53,10 @@ from app.domains.designstudio.models import (
     RenderVariant,
 )
 from app.kernel.codes import code_label, code_of
+from app.kernel.contracts.media import RemoveAsset, StoreFile
 from app.kernel.copying import CopyPlan
 from app.kernel.phone import readable_phone
+from app.kernel.ports import call
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 
 
@@ -871,12 +871,11 @@ def check_design(db: Session, design: Design) -> dict[Layout, list[str]]:
 
 
 def _store_render(db: Session, *, filename: str, content_type: str, data: bytes) -> int:
-    from app.domains.media.api import add_document
-
-    asset = add_document(
-        db, kind="design_render", filename=filename, content_type=content_type, data=data
+    stored = call(
+        StoreFile(kind="design_render", filename=filename, content_type=content_type, content=data),
+        db,
     )
-    return asset.id
+    return stored.asset_id
 
 
 def make_version(db: Session, design: Design, *, created_by: str = "") -> DesignVersion:
@@ -954,8 +953,6 @@ def make_version(db: Session, design: Design, *, created_by: str = "") -> Design
 
 def _prune_versions(db: Session, design: Design) -> None:
     """Keep the newest MAX_VERSIONS; the published one is never pruned."""
-    from app.domains.media.api import remove_media
-
     versions = sorted(design.versions, key=lambda v: v.number)
     while len(versions) > MAX_VERSIONS:
         victim = next((v for v in versions if v.id != design.published_version_id), None)
@@ -965,12 +962,12 @@ def _prune_versions(db: Session, design: Design) -> None:
         versions.remove(victim)
         # The collection cascades delete-orphan: removing the version is the
         # delete; its renditions go with it. The media files go afterwards —
-        # `remove_media` flushes; it runs after this flush, not in the middle of it.
+        # media's remove flushes; it runs after this flush, not in the middle of it.
         design.versions.remove(victim)
         db.flush()
         for asset_id in asset_ids:
             try:
-                remove_media(db, asset_id)
+                call(RemoveAsset(asset_id), db)
             except Exception:  # noqa: BLE001 - a missing file must not block the new version
                 logger.warning("designstudio: render %s already gone", asset_id)
 
@@ -985,21 +982,33 @@ def rendition(version: DesignVersion, layout, variant, size: str = "") -> Option
     return None
 
 
-async def publish(db: Session, design: Design, version: DesignVersion, background_tasks) -> None:
-    """Copy the A3 PDF onto the activity as its poster — through the same door
+def publish(db: Session, design: Design, version: DesignVersion) -> None:
+    """Copy the A3 PDF onto the activity as its poster — through the same port
     a hand-made poster takes. The confirmation is the screen's job."""
-    from app.domains.media.api import store_activity_poster
+    from app.domains.activities.api import get_activity
+    from app.domains.media.api import MediaFout
 
     pdf = rendition(version, Layout.PRINT_A, RenderVariant.PDF, "a3")
     if pdf is None:
         raise DesignError("Deze versie heeft geen A3-pdf.")
     data = _asset_bytes(db, pdf.media_asset_id)
-    upload = UploadFile(
-        file=BytesIO(data),
-        filename=f"affiche-{design.activity_id}-v{version.number}.pdf",
-        headers=Headers({"content-type": "application/pdf"}),
-    )
-    await store_activity_poster(db, design.activity_id, upload, background_tasks)
+    activity = get_activity(db, design.activity_id)
+    if activity is None:
+        raise LookupError("Activiteit niet gevonden")
+    try:
+        call(
+            StoreFile(
+                kind="activity_poster",
+                filename=f"affiche-{design.activity_id}-v{version.number}.pdf",
+                content_type="application/pdf",
+                content=data,
+                activity_id=design.activity_id,
+                title_base=f"{activity.name} - poster",
+            ),
+            db,
+        )
+    except MediaFout as exc:
+        raise DesignError(str(exc)) from exc
     design.published_version_id = version.id
     design.updated_at = _now()
     db.commit()
@@ -1013,29 +1022,31 @@ def upload_edited_svg(db: Session, design: Design, layout, raw: bytes) -> list[s
     allowlist (#1011) — check the page size on what came back, replace for
     this layout. Returns the brand warnings — warnings only (§3.6a): a
     hand-made poster may break the guide, knowingly."""
-    from app.domains.media.api import MediaFout, add_document, remove_media
+    from app.domains.media.api import MediaFout
 
     layout = _layout(layout)
     if not raw:
         raise DesignError("Leeg bestand.")
     try:
         slug = file_slug(facts_for(db, design).get("title", ""), f"ontwerp-{design.id}")
-        asset = add_document(
+        asset = call(
+            StoreFile(
+                kind="design_render",
+                filename=f"{slug}-{FILE_LAYOUT_LABELS.get(layout, layout)}-bewerkt.svg",
+                content_type="image/svg+xml",
+                content=raw,
+            ),
             db,
-            kind="design_render",
-            filename=f"{slug}-{FILE_LAYOUT_LABELS.get(layout, layout)}-bewerkt.svg",
-            content_type="image/svg+xml",
-            data=raw,
         )
     except MediaFout as exc:
         raise DesignError(str(exc)) from exc
     from app.domains.media.api import asset_bytes
 
-    cleaned = (asset_bytes(db, asset.id) or b"").decode("utf-8")
+    cleaned = (asset_bytes(db, asset.asset_id) or b"").decode("utf-8")
     spec = render.contract(design.template_key)["layouts"][layout.value]
     w, h = render.page_size_mm(cleaned)
     if abs(w - spec["width_mm"]) > 1 or abs(h - spec["height_mm"]) > 1:
-        remove_media(db, asset.id)
+        call(RemoveAsset(asset.asset_id), db)
         raise DesignError(
             f"Het paginaformaat klopt niet: {w:.0f} × {h:.0f} mm in plaats van "
             f"{spec['width_mm']:.0f} × {spec['height_mm']:.0f} mm."
@@ -1049,7 +1060,7 @@ def upload_edited_svg(db: Session, design: Design, layout, raw: bytes) -> list[s
             layout_code=layout,
             variant=RenderVariant.SVG_EDITED,
             size_code="",
-            media_asset_id=asset.id,
+            media_asset_id=asset.asset_id,
             facts_fingerprint=fingerprint(facts_for(db, design)),
         )
     )
@@ -1059,12 +1070,10 @@ def upload_edited_svg(db: Session, design: Design, layout, raw: bytes) -> list[s
 
 
 def remove_edited_svg(db: Session, design: Design, layout) -> None:
-    from app.domains.media.api import remove_media
-
     existing = edited_svg_for(db, design, layout)
     if existing is not None:
         try:
-            remove_media(db, existing.media_asset_id)
+            call(RemoveAsset(existing.media_asset_id), db)
         except Exception:  # noqa: BLE001
             logger.warning("designstudio: edited svg %s already gone", existing.media_asset_id)
         db.delete(existing)
@@ -1074,20 +1083,36 @@ def remove_edited_svg(db: Session, design: Design, layout) -> None:
 # ── Images ──────────────────────────────────────────────────────────────────
 
 
-async def add_design_image(db: Session, design: Design, upload, *, slot: str = "") -> int:
+def add_design_image(
+    db: Session,
+    design: Design,
+    *,
+    filename: str,
+    content_type: str,
+    content: bytes,
+    slot: str = "",
+) -> int:
     """Store one uploaded picture as a design image and, with ``slot``, put it
-    in that place of the design right away."""
-    from app.domains.media.api import MediaFout, store_uploads
+    in that place of the design right away. The door read the upload: here it
+    is a name, a type and bytes."""
+    from app.domains.media.api import MediaFout
 
     if slot and slot not in IMAGE_SLOTS:
         raise DesignError("Onbekende plaats voor het beeld.")
     try:
-        rows = await store_uploads(
-            db, files=[upload], kind="design_image", activity_id=design.activity_id
+        stored = call(
+            StoreFile(
+                kind="design_image",
+                filename=filename,
+                content_type=content_type,
+                content=content,
+                activity_id=design.activity_id,
+            ),
+            db,
         )
     except MediaFout as exc:
         raise DesignError(str(exc)) from exc
-    asset_id = rows[0]["id"]
+    asset_id = stored.asset_id
     if slot:
         setattr(design, slot, asset_id)
         design.status = DesignStatus.DRAFT

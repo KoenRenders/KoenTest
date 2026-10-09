@@ -16,24 +16,17 @@ are the only thing that changed since; the cases and `EXPECTED` did not.
 
 from __future__ import annotations
 
-import asyncio
 from io import BytesIO
 
 import pytest
-from fastapi import BackgroundTasks, UploadFile
 from PIL import Image
-from starlette.datastructures import Headers
 
-from app.domains.media.api import (
-    MediaAsset,
-    add_document,
-    drop_activity_poster,
-    drop_component_info,
-    remove_media,
-    store_activity_poster,
-    store_component_info,
-    store_uploads,
-)
+import app.main  # noqa: F401 — the handlers of the ports are loaded through the app
+from app.domains.media.api import MediaAsset
+from app.domains.media.service import EXTRACT_JOB
+from app.kernel.contracts.media import RemoveAsset, RemoveFileOf, StoreFile
+from app.kernel.jobs import KernelJob
+from app.kernel.ports import call
 from tests.conftest import seed_activity_with_product
 from tests.integration.test_media_pdf_preview import _pdf
 
@@ -50,42 +43,43 @@ def _png(size=(60, 40)) -> bytes:
 
 # ── The way in ───────────────────────────────────────────────────────────────
 
-
-def _upload(filename: str, content_type: str, content: bytes) -> UploadFile:
-    return UploadFile(
-        file=BytesIO(content), filename=filename, headers=Headers({"content-type": content_type})
-    )
+#: What the caller names a poster and an info document by; media read it from
+#: the activity itself before the ports.
+TITLE_BASE = {
+    "activity_poster": "Testactiviteit - poster",
+    "component_info": "Testactiviteit - Onderdeel - info",
+}
 
 
 def _store(db, world, *, kind, filename, content_type, content, owner=None) -> tuple[int, bool]:
     """Store one file; returns the asset's id and whether a text extraction was
     started for it."""
-    upload = _upload(filename, content_type, content)
-    tasks = BackgroundTasks()
-    if kind == "activity_poster":
-        stored = asyncio.run(store_activity_poster(db, world["activity"], upload, tasks))
-        return stored["id"], bool(tasks.tasks)
-    if kind == "component_info":
-        stored = asyncio.run(store_component_info(db, world["component"], upload, tasks))
-        return stored["id"], bool(tasks.tasks)
-    if kind == "design_image":
-        rows = asyncio.run(store_uploads(db, files=[upload], kind=kind, activity_id=owner))
-        return rows[0]["id"], False
-    asset = add_document(
-        db, kind=kind, filename=filename, content_type=content_type, data=content, activity_id=owner
+    stored = call(
+        StoreFile(
+            kind=kind,
+            filename=filename,
+            content_type=content_type,
+            content=content,
+            activity_id=world["activity"] if kind == "activity_poster" else owner,
+            component_id=world["component"] if kind == "component_info" else None,
+            title_base=TITLE_BASE.get(kind),
+        ),
+        db,
     )
-    return asset.id, False
+    db.flush()  # the job is added, not flushed: the caller's commit sends it
+    jobs = db.query(KernelJob).filter(KernelJob.name == EXTRACT_JOB).all()
+    return stored.asset_id, any(job.payload["asset_id"] == stored.asset_id for job in jobs)
 
 
 def _remove_asset(db, asset_id: int) -> None:
-    remove_media(db, asset_id)
+    call(RemoveAsset(asset_id), db)
 
 
 def _remove_file_of(db, world, kind: str) -> None:
     if kind == "activity_poster":
-        drop_activity_poster(db, world["activity"])
+        call(RemoveFileOf(kind=kind, activity_id=world["activity"]), db)
     else:
-        drop_component_info(db, world["component"])
+        call(RemoveFileOf(kind=kind, component_id=world["component"]), db)
 
 
 # ── The cases ────────────────────────────────────────────────────────────────
