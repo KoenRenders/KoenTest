@@ -1,4 +1,4 @@
-"""What media handles for the others: its three ports (`kernel/contracts/media.py`)
+"""What media handles for the others: its four ports (`kernel/contracts/media.py`)
 and the job that reads a document's text.
 
 A port handler is thin: it turns the contract into one call of the service
@@ -16,6 +16,8 @@ from app.domains.media.extraction import update_media_extracted_text
 from app.kernel.contracts.media import (
     AssetsRemoved,
     AssetStored,
+    ReadingPlanned,
+    ReadTextAgain,
     RemoveAsset,
     RemoveFileOf,
     StoreFile,
@@ -51,6 +53,12 @@ def remove_file_of(port: RemoveFileOf, db: Session) -> AssetsRemoved:
         db, kind=port.kind, activity_id=port.activity_id, component_id=port.component_id
     )
     return AssetsRemoved(count=removed)
+
+
+@handles(ReadTextAgain)
+def read_text_again(port: ReadTextAgain, db: Session) -> ReadingPlanned:
+    service.read_text_again(db, port.asset_id)
+    return ReadingPlanned(asset_id=port.asset_id)
 
 
 @job(service.EXTRACT_JOB)

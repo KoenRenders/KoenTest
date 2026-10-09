@@ -76,3 +76,21 @@ class RemoveFileOf(Port):
     kind: str
     activity_id: Optional[int] = None
     component_id: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class ReadingPlanned:
+    """The outcome of `ReadTextAgain`: the document whose text will be read."""
+
+    asset_id: int
+
+
+@dataclass(frozen=True)
+class ReadTextAgain(Port):
+    """Read the text of a stored document once more — the "Opnieuw lezen" button
+    of the AI context. Media plans the reading as a job that starts when the
+    caller's transaction commits; only the extracted text is replaced, a manual
+    override or addition stays. An asset that is not there, or of a kind whose
+    text is never read, raises `LookupError`."""
+
+    asset_id: int

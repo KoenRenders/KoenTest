@@ -55,6 +55,7 @@ kind); the kernel has none.
 | `StoreFile` | stores one file of a kind, by the kind: an activity's poster and a component's info document take the place of the one their owner had and get their text read by a job that starts when the caller commits; a render and a newsletter's attachment are kept beside the others; a design image is re-encoded like every uploaded image | `AssetStored(asset_id, title, content_type)` | `MediaFout`, with the sentence for the screen: a content type the kind does not take, an empty file, a file over the limit, a file that is not what its type says, a poster or an info document without its owner; `LookupError` for a design image of an activity that does not exist |
 | `RemoveAsset` | removes one asset by its id | `AssetsRemoved(1)` | `LookupError` for an id that is not there |
 | `RemoveFileOf` | removes what an owner has of a kind (an activity's poster, a component's info document) | `AssetsRemoved(count)` — zero when there was nothing | `MediaFout` when no owner is named |
+| `ReadTextAgain` | plans the reading of a stored document's text once more (the "Opnieuw lezen" button of the AI context) as the same job; only the extracted text is replaced | `ReadingPlanned(asset_id)` | `LookupError` for an asset that is not there or of a kind whose text is never read |
 
 Not a port: `activity_image_path`, the picture that stands for an activity in a
 letter. It is a read through `api.py` and writes nothing.

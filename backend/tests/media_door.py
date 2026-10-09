@@ -116,13 +116,6 @@ def set_component_info(client, component_id: int, files: Any) -> Answer:
     return answer
 
 
-def reextract(client, asset_id: int) -> Answer:
-    tasks = BackgroundTasks()
-    answer = _answer(lambda: service.reextract_text(_db(client), asset_id, tasks), done=202)
-    _after(tasks)
-    return answer
-
-
 def update(client, asset_id: int, payload: dict) -> Answer:
     return _answer(lambda: service.update_media(_db(client), asset_id, payload))
 

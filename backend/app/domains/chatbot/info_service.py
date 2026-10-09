@@ -26,6 +26,8 @@ from app.domains.cms.api import CmsPage
 # media/api.py nog aan het initialiseren is.
 from app.i18n import _
 from app.kernel.codes import code_of
+from app.kernel.contracts.media import ReadTextAgain
+from app.kernel.ports import call
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
 
 if TYPE_CHECKING:  # alleen voor de typechecker — geen import bij het draaien
@@ -200,3 +202,12 @@ def get_row(db: Session, row_id: int) -> ChatbotInfo:
     if rij is None:
         raise LookupError("Rij niet gevonden")
     return rij
+
+
+def read_document_again(db: Session, asset_id: int) -> None:
+    """The "Opnieuw lezen" button of the AI context: have media read the text of
+    this document once more. This service is the door of the button, so the
+    commit is here — the reading starts with it. A document that is not there
+    raises media's `LookupError`."""
+    call(ReadTextAgain(asset_id), db)
+    db.commit()
