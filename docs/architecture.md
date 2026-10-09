@@ -13,13 +13,13 @@ Scope: every claim in this document is traceable to code in the repository; see 
 
 **What runs today.** Activity registration, family membership with renewal, online and bank-transfer payments through Mollie, a form engine, a CMS, a chatbot, reporting with an admin assistant, board-meeting support, a newsletter with an AI co-writer, a poster design studio and a restyled back office (Cobalt design track; the norm is `docs/design-system.md`). In production for Raak Millegem since June 2026.
 
-**Why it is an ERP foundation and not a club portal.** The functional surface is small; the *structure* is that of business software: seventeen domain packages behind facades with one Postgres schema each, master data with merge and survivorship, a payment ledger with a stated reconciliation invariant, row-level multi-tenancy, a kernel with in-transaction events and a durable job queue, and a workbench that turns every exception into a task. None of that is needed to sell tickets for a barbecue; all of it is needed the day the same code runs an order book, a warehouse or a second customer (Chapter 8).
+**Why it is an ERP foundation and not a club portal.** The functional surface is small; the *structure* is that of business software: fifteen domain packages behind facades with one Postgres schema each, master data with merge and survivorship, a payment ledger with a stated reconciliation invariant, row-level multi-tenancy, a kernel with in-transaction events and a durable job queue, and a workbench that turns every exception into a task. None of that is needed to sell tickets for a barbecue; all of it is needed the day the same code runs an order book, a warehouse or a second customer (Chapter 8).
 
 **How it was built.** By one architect directing AI coding agents. That only works when agents cannot quietly break things, so much of the engineering went into *gates*: 3,323 tests against a real PostgreSQL, eighteen gate files that fail the build on architectural drift, a rendered-HTML gate, browser flows where money moves, and a CI that boots the real startup script. The agent corrects itself on the failing test (Chapter 6).
 
 **The five architectural choices that make it scale to business software**
 
-1. **Domain packages behind facades, one schema each.** Seventeen packages, each with `api.py` as its only public door and its own Postgres schema; two AST-based tests enforce it on every push.
+1. **Domain packages behind facades, one schema each.** Fifteen packages (9 October 2026; seventeen in September, before `audit` dissolved into its owners, CR-13 phase 4c), each with `api.py` as its only public door and its own Postgres schema; two AST-based tests enforce it on every push.
 2. **ERP-style master data.** Never hard-deleted; duplicates merge into a golden record with a survivorship chain; every entity has an append-only history table; other domains reference it by value, without cross-schema foreign keys — with one named exception, the code tables of the two foundation domains (§2.1).
 3. **A ledger, not a payment field.** Every charge and refund is a record with a polymorphic reference to what is paid; one function owns the invariant *sum of records equals amount due*; the Mollie webhook never trusts its own body.
 4. **Row-level multi-tenancy from the kernel.** A `tenant_id` mixin on 63 tables, resolved per request and applied as a global ORM filter no query can forget. A third tenant is configuration, not code.
@@ -151,7 +151,6 @@ flowchart TB
     direction LR
     MEDIA["media<br/>assets · OCR · extraction"]:::x
     STT["stt<br/>Voxtral realtime proxy"]:::x
-    AUD["audit<br/>history · change report"]:::x
   end
   K[("kernel — no business logic, imports no domain<br/>tenancy · tenant_config · events · jobs · history · ordering · ods")]
   USERS --> L2
@@ -197,12 +196,13 @@ flowchart TB
 | media | media | yes | yes | yes | admin | yes |
 | chatbot | ai | yes | yes | 2 routers | widget + admin | yes |
 | workflow | workflow | yes | in facade | none | werkbank | yes |
-| audit | (uses domain schemas) | yes | yes | yes | changes screen | no |
 | meetings | meetings | yes | yes | none | admin | yes |
 | newsletter | newsletter | yes | yes | none | admin | yes |
 | designstudio | designstudio | yes | yes | yes | admin | yes |
-| reporting | reporting | yes | yes | none | admin + assistant | no |
+| reporting | reporting | yes | yes | none | admin + assistant + change report | yes |
 | stt | none | none | none | WebSocket | none | no |
+
+`audit` left this table on 9 October 2026 (CR-13 phase 4c, #1251): it owned no table and no rule. Each history table is written by its owner (`<domain>/history.py` over `kernel/history.py`, §5.8), the change report that reads them is `reporting/changes.py`, and the name of the actor when nobody was signed in is `kernel/history.py`'s `PUBLIC_ACTOR`.
 
 Rules that hold on master: kernel imports no domain; cross-domain imports target only `.api`; no cross-schema foreign keys except towards a code table of `mdm` or `auth` (§2.1); a UI module never touches the session. Two facades still delegate part of their implementation back into a router (`activities`, `forms`), which the layer gate tolerates for services but not for screens. That is honest debt, and it is listed in Chapter 9.
 
@@ -232,13 +232,13 @@ Integrity is not what separates them. Today events and ports both run synchronou
 
 - no message broker (RabbitMQ, Kafka);
 - no general workflow engine — `workflow` stays the werkbank for people;
-- no event sourcing, and no permanent log of every event — the history tables and `audit` keep what must be kept.
+- no event sourcing, and no permanent log of every event — the history tables keep what must be kept, each written by its owner and read by the change report in `reporting` (§5.8).
 
 ## 3.3 Master data and membership
 
 The MDM domain is generic on purpose: an `Organization` tree (ACCOUNT above UNIT) is the tenant registry; `Person` and `Member` (a household) are linked through a junction with a relation type; addresses use a postal-code lookup table; contact details are typed rows rather than columns on the person; legacy identifiers live in a separate external-number table. Every entity has an append-only history table with no foreign keys, so history survives the deletion of its subject (the figure shows the person's; membership has its own).
 
-Merge and survivorship are implemented: `merge_persons` flattens chains so `resolve()` is O(1), writes a `person_merged` snapshot as the anchor for `unmerge_person`, and publishes an `EntityMerged` event. Nothing is hard-deleted; a global soft-delete filter hides `deleted_at` rows from every ORM query, including relationship loads, with an explicit escape hatch for the audit screen. [HDEV]
+Merge and survivorship are implemented: `merge_persons` flattens chains so `resolve()` is O(1), writes a `person_merged` snapshot as the anchor for `unmerge_person`, and publishes an `EntityMerged` event. Nothing is hard-deleted; a global soft-delete filter hides `deleted_at` rows from every ORM query, including relationship loads, with an explicit escape hatch for the change screens. [HDEV]
 
 <!-- figure: name=er-mdm caption=Master_data_and_membership_(schemas_mdm,_membership)_-_key_columns_per_entity -->
 ```mermaid
@@ -763,7 +763,7 @@ The working document `docs/intermediate-architecture-upgrade-v1.md` (July 2026) 
 | Package-by-domain with `api.py` as the only door | in code | 13 packages; import-boundary test with an empty allowlist |
 | Import linter enforcing the boundary | in code, as a pytest | `tests/test_import_boundaries.py`; no third-party tool |
 | Own Postgres schema per component, one Alembic chain | in code | 11 schemas, 92 migrations, one head |
-| `CONTRACT.md` per component | partial | 11 of 13; missing for `audit` and `stt` |
+| `CONTRACT.md` per component | in code | 15 of 15 on 9 October 2026 (11 of 13 in September; the module-shape gate of CR-13 phase 0a requires it) |
 | Per-component `tests/` and `seeds.py` | not in code | tests are central; seeds are top-level scripts |
 | OpenAPI export with a drift gate (§19.4) | not in code | the opposite exists: docs are hidden in uat/prod |
 | Synchronous in-transaction events (ladder rung 1) | in code | `kernel/events.py`, four contracts |
@@ -808,7 +808,7 @@ The working document `docs/intermediate-architecture-upgrade-v1.md` (July 2026) 
 | Kernel | `backend/app/kernel/{tenancy,tenant_config,events,jobs,history,ordering,ods}.py`, `kernel/contracts/` |
 | Gatekeepers | `backend/app/main.py`, `app/limiter.py`, `app/soft_delete.py`, `domains/auth/{session,service,login}.py`, `caddy/parts/snippets.caddy` |
 | Ledger and Mollie | `domains/payment/{service,gateway_service,gateway_router,structured_communication,exports}.py`, `providers/{base,mollie}.py` |
-| Master data | `domains/mdm/{models,service,tenant_service,import_service}.py`, `domains/audit/{service,changes}.py` |
+| Master data | `domains/mdm/{models,service,tenant_service,import_service,history}.py`, `kernel/history.py`, `domains/reporting/changes.py` (the change report) |
 | Form engine | `domains/forms/{models,service,results,export,ui}.py`, `app/static/form-json-formaat.md` |
 | AI | `domains/chatbot/{context,tools,service,render}.py`, `chatbot/providers/`, `domains/media/extraction.py`, `domains/chatbot/stt/` |
 | Gates | `backend/tests/test_{import_boundaries,schema_boundaries,layer_gate,template_variables_gate,ui_conventions_gate,gate_niet_leeg,payable_delete_gate,query_budget,render_gate,docs_gating,i18n_gate}.py` |
