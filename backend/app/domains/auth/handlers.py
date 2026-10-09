@@ -11,7 +11,8 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.domains.auth.login import issue_address_code
-from app.kernel.contracts.mdm import EmailAddressAdded
+from app.domains.auth.service import give_board_member_a_login
+from app.kernel.contracts.mdm import BoardMemberReported, EmailAddressAdded
 from app.kernel.events import subscribe
 
 
@@ -28,3 +29,11 @@ def send_address_code(event: EmailAddressAdded, db: Session) -> None:
         replaces_email=event.replaces_email,
         make_primary=event.make_primary,
     )
+
+
+@subscribe(BoardMemberReported)
+def give_reported_board_member_a_login(event: BoardMemberReported, db: Session) -> None:
+    """The member report names a board member with an address and no login: auth,
+    which owns every login, makes it (CR-13 phase 4c, #1251) — in the import's
+    transaction."""
+    give_board_member_a_login(db, event.email)

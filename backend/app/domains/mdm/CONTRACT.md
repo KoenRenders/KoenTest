@@ -35,6 +35,13 @@ bijbehorende codetabellen — plus merge/survivorship.
 ## Events (kernel, §5.8 — trede 1)
 
 - Publiceert `EntityMerged` (`app.kernel.contracts.mdm`) bij elke merge.
+- Publishes `BoardMemberReported` and `MembershipReported` (CR-13 phase 4c, #1251)
+  when the member import is applied: the report names a board member with an
+  address and no login, and lists a household as a member for its year. `auth`
+  makes the login, `membership` adds the membership, each in the import's
+  transaction. Not optional: the import refuses to publish into silence. What the
+  preview counts is read through `auth.api.has_login` and
+  `membership.api.has_membership_for_year`.
 - Subscribes to `CircleStartChosen` (`app.kernel.contracts.meetings`, #1346): stores
   the start date of a circle relation, refused by `OrganizationPerson.check()` when
   it lies after the end (`mdm.handlers`).

@@ -529,3 +529,43 @@ def activate_after_payment(
         source=source,
         actor=actor,
     )
+
+
+def has_membership_for_year(member, year: int) -> bool:
+    """Whether this household has a membership for this year."""
+    return any(membership.year == year for membership in member.memberships)
+
+
+def add_reported_membership(
+    db, household_id: int, year: int, *, source: str, actor: Optional[str]
+) -> None:
+    """The year's membership of a household the member report lists — active and
+    valid for the whole year, with its history row; a household that has one for
+    that year keeps it (#74: never a second). Flushed, not committed."""
+    from app.domains.membership.history import snapshot_membership
+    from app.domains.membership.models import Membership
+
+    existing = (
+        db.query(Membership)
+        .filter(Membership.member_id == household_id, Membership.year == year)
+        .first()
+    )
+    if existing is not None:
+        return
+    membership = Membership(
+        member_id=household_id,
+        year=year,
+        is_active=True,
+        valid_from=date(year, 1, 1),
+        valid_to=date(year, 12, 31),
+    )
+    db.add(membership)
+    db.flush()
+    snapshot_membership(
+        db,
+        membership,
+        operation="insert",
+        action="membership_imported",
+        source=source,
+        actor=actor,
+    )
