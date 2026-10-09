@@ -171,11 +171,15 @@ def test_the_delete_route_takes_the_record_out_of_the_balance(client, db_session
     ],
 )
 def test_only_finance_may_mutate(client, db_session, pad, data):
-    """`require_finance_mutation` op elke mutatie. ADMIN mag kijken en exporteren maar
-    niet muteren (#83/#530) — en dat onderscheid is precies wat hier ongedekt was.
+    """The right `payment.manage` on every mutation. ADMIN may look and export but
+    not change (#83/#530) — and that distinction is exactly what was uncovered here.
 
-    Proven red for all six (8 October 2026): an early `return` added at the top of
-    `require_finance_mutation` → every case answers 200.
+    The gate asks a right since CR-24 (#1722), so the refusal names no role any
+    more: it is the gate's one answer, "Geen toegang".
+
+    Proven red for all six (9 October 2026): the seven routes asked
+    `payment.view` instead → every case answers 200 (or its own 4xx past the
+    gate), and the list of who gets in differs on fourteen lines.
     """
     # Een EIGEN gebruiker: de geseede beheerder kan FINANCE al dragen, en dan zou deze
     # test groen staan zonder iets over de rolcheck te bewijzen.
@@ -192,7 +196,7 @@ def test_only_finance_may_mutate(client, db_session, pad, data):
     resp = client.post(f"/admin/betalingen/{record.id}/{pad}", headers=headers, data=data)
 
     assert resp.status_code == 403, f"{pad}: {resp.status_code} — {resp.text[:200]}"
-    assert "FINANCE" in resp.text
+    assert resp.json() == {"detail": "Geen toegang"}
     db_session.refresh(record)
     assert record.status == PaymentStatus.PENDING, f"{pad} muteerde ondanks de weigering"
 

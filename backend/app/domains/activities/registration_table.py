@@ -86,7 +86,7 @@ def registration_table(
     list alone; without one (the household's tab) the link is the page.
     `sub_is_component` puts the component's name under the contact's (the
     household groups by activity, so the component is not the group).
-    `may_mutate` (`may_mutate_payments`): whether the viewer may confirm a
+    `may_mutate` (the right `payment.manage`): whether the viewer may confirm a
     payment — the row's one action. `open_row` is the row a visitor came back
     to.
 

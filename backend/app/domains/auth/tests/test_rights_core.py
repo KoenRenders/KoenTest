@@ -14,10 +14,10 @@ Red proofs, one edit each in the code under test, put back afterwards:
 
 | Broken | Red |
 |---|---|
-| `require_right`: `right not in held` → `held and right not in held` | the empty bundle and the address without a role |
+| `may`: "no row" made true when the user holds no right at all | the empty bundle and the address without a role |
 | `require_right`: the 403 taken out | every refusal of a role, the unheld right included |
-| `rights_of`: the workspace filter taken out | the role held in another workspace (T2), on the set and on the gate |
-| `rights_of`: `User.is_active` taken out | the inactive user |
+| `_held`: the workspace filter taken out | the role held in another workspace (T2), on the set and on the gate |
+| `_held`: `User.is_active` taken out | the inactive user |
 | the migration: `payment.manage` given to ADMIN | the bundles against B1 |
 | the migration: `workbench.use` taken from FINANCE | the bundles against B1 |
 | `Role`: MASTERDATA taken out of the enum | a user with MASTERDATA read back (T10) |

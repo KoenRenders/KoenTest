@@ -367,10 +367,28 @@ ON_A_RIGHT = {
     "/admin/nieuwsbrieven": "newsletter",
     "/admin/vergaderingen": "meeting",
     "/admin/formulieren": "form",
+    "/admin/activiteiten": "activity",
+    "/admin/inschrijvingen": "activity",
+    "/admin/leden": "party",
+    "/admin/leden-import": "party",
+    "/admin/personen": "party",
+    "/admin/betalingen": "payment",
+}
+
+#: Routes whose object is not the one their address starts with: the payments
+#: of an activity, a household and a registration are payment's screens, and
+#: the old address of a component's answers is a 301 without a gate (#1382).
+NOT_BY_ITS_START = {
+    "/admin/activiteiten/{activity_id}/betalingen": "payment",
+    "/admin/leden/gezin/{family_id}/betalingen": "payment",
+    "/admin/inschrijvingen/{registration_id}/betalingen": "payment",
+    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}/boek": None,
 }
 
 
 def _object_of(path: str) -> str | None:
+    if path in NOT_BY_ITS_START:
+        return NOT_BY_ITS_START[path]
     for start, thing in ON_A_RIGHT.items():
         if path == start or path.startswith(start + "/"):
             return thing
@@ -390,11 +408,11 @@ def _admin_without(world, pattern: str) -> dict[tuple[str, str], bool]:
         **host,
     }
     routes = [(m, p) for m, p in every_route() if _object_of(p)]
-    assert len(routes) >= 121, f"only {len(routes)} routes on a right — is the walk still looking?"
+    assert len(routes) >= 191, f"only {len(routes)} routes on a right — is the walk still looking?"
     bundle = connection.begin_nested()
     gone = connection.execute(
-        sql("DELETE FROM auth.role_rights WHERE role_code = 'ADMIN' AND right_code LIKE :p"),
-        {"p": pattern},
+        sql("DELETE FROM auth.role_rights WHERE role_code = 'ADMIN' AND right_code LIKE ANY(:p)"),
+        {"p": pattern.split()},
     ).rowcount
     assert gone, f"ADMIN's bundle held no right like {pattern} — nothing was taken away"
     out = {}
@@ -416,7 +434,7 @@ def test_a_route_that_only_reads_asks_viewing_and_every_other_asks_changing(worl
 
     Proven red: `Right.FORM_VIEW` put on `POST /admin/formulieren` → that route
     named as "changes, and is open to who may only view"."""
-    let_in = _admin_without(world, "%.manage")
+    let_in = _admin_without(world, "%.manage %.masterdata")
     wrong = [
         f"{method} {path}: "
         + ("reads, and is refused" if method == "GET" else "changes, and is open")
@@ -440,5 +458,9 @@ def test_a_route_asks_the_right_of_its_own_object(world, thing):
         f"{method} {path}: {'open' if admitted else 'refused'} without the rights of {thing}"
         for (method, path), admitted in sorted(let_in.items())
         if admitted == (_object_of(path) == thing)
+        # ADMIN never changes a payment (#83: its bundle holds `payment.view`
+        # alone), so these seven are refused whatever is taken away and show
+        # nothing here; the list above and payment's own test hold them.
+        and not (method != "GET" and _object_of(path) == "payment")
     ]
     assert not wrong, "\n".join(wrong)
