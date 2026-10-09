@@ -446,10 +446,12 @@ def _process_document(raw: bytes, content_type: str, *, kind: MediaKind | str = 
     return process_image(raw, kind=kind)
 
 
-async def _replace_single_asset(
+def _replace_single_asset_bytes(
     db,
-    file: UploadFile,
     *,
+    filename: Optional[str],
+    content_type: Optional[str],
+    raw: bytes,
     kind: MediaKind | str,
     activity_id=None,
     component_id=None,
@@ -457,17 +459,17 @@ async def _replace_single_asset(
 ) -> MediaAsset:
     """Bewaar één poster/reglement-bestand en vervang het vorige (hard delete —
     media kent geen soft delete). ``title_base`` geeft een betekenisvolle naam
-    (zonder extensie); de extensie volgt uit het type. Geeft het nieuwe asset terug."""
-    if file.content_type not in DOC_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=_("Niet-ondersteund bestandstype: %(filename)s") % {"filename": file.filename},
-        )
-    raw = await file.read()
+    (zonder extensie); de extensie volgt uit het type. Geeft het nieuwe asset terug.
+
+    The bytes and not the upload: the door reads the file once and every caller
+    — a port's handler, media's own route — hands the same three values in. A
+    refusal is a `MediaFout`; the door decides how it shows it."""
+    if content_type not in DOC_CONTENT_TYPES:
+        raise MediaFout(_("Niet-ondersteund bestandstype: %(filename)s") % {"filename": filename})
     try:
-        processed = _process_document(raw, file.content_type)
+        processed = _process_document(raw, content_type)
     except ImageError as exc:
-        raise HTTPException(status_code=400, detail=f"{file.filename}: {exc}")
+        raise MediaFout(f"{filename}: {exc}")
 
     q = db.query(MediaAsset).filter(MediaAsset.kind == as_media_kind(kind))
     q = (
@@ -482,7 +484,7 @@ async def _replace_single_asset(
     if title_base:
         title = f"{title_base}{_EXT_BY_TYPE.get(processed['content_type'], '')}"
     else:
-        title = file.filename
+        title = filename
     asset = MediaAsset(
         kind=kind,
         activity_id=activity_id,
@@ -498,6 +500,32 @@ async def _replace_single_asset(
     db.flush()
     db.refresh(asset)
     return asset
+
+
+async def _replace_single_asset(
+    db,
+    file: UploadFile,
+    *,
+    kind: MediaKind | str,
+    activity_id=None,
+    component_id=None,
+    title_base: Optional[str] = None,
+) -> MediaAsset:
+    """The same for an upload that is still a file: media's own routes and, until
+    it goes through the port, the activity fiche. They show a refusal as a 400."""
+    try:
+        return _replace_single_asset_bytes(
+            db,
+            filename=file.filename,
+            content_type=file.content_type,
+            raw=await file.read(),
+            kind=kind,
+            activity_id=activity_id,
+            component_id=component_id,
+            title_base=title_base,
+        )
+    except MediaFout as refusal:
+        raise HTTPException(status_code=400, detail=str(refusal))
 
 
 def give_pdf_its_picture(db, asset: MediaAsset) -> None:
@@ -546,6 +574,44 @@ async def store_uploads(
     hoogstens MAX_BATCH bestanden per keer, en de nieuwe `sort_order` volgt op wat
     er al in die groep staat.
     """
+    media_kind, activity_id = _image_target(db, kind, activity_id)
+
+    # #707: één plek voor de regel, dus ook op deze ingang. Bij een foto valt de
+    # waarde weg; bij een sponsor moet het schema in een href mogen.
+    link_url = controleer_link(link_url, kind=media_kind)
+
+    if not files:
+        raise MediaFout("Geen bestanden")
+    if len(files) > MAX_BATCH:
+        raise MediaFout(f"Maximaal {MAX_BATCH} bestanden per keer")
+
+    volgende = _images_in_group(db, media_kind, activity_id)
+    gemaakt = []
+    for index, upload in enumerate(files):
+        asset = _image_asset(
+            media_kind,
+            filename=upload.filename,
+            content_type=upload.content_type,
+            raw=await upload.read(),
+            activity_id=activity_id,
+            title=title,
+            link_url=link_url,
+            sort_order=volgende + index,
+        )
+        db.add(asset)
+        gemaakt.append(asset)
+
+    # A flush, not a commit (CR-13 phase 4): `upload_media` commits for media's own
+    # doors; another domain's service stores through here and its door commits.
+    db.flush()
+    for asset in gemaakt:
+        db.refresh(asset)
+    return [meta(a) for a in gemaakt]
+
+
+def _image_target(db, kind: MediaKind | str, activity_id: Optional[int]):
+    """What an image of this kind may hang on: the kind is one that is uploaded,
+    an activity photo belongs to an existing activity, a sponsor to none."""
     from app.domains.activities.api import Activity
 
     media_kind = as_media_kind(kind)
@@ -566,59 +632,156 @@ async def store_uploads(
             and not db.query(Activity).filter(Activity.id == activity_id).first()
         ):
             raise LookupError("Activiteit niet gevonden")
-    else:
-        activity_id = None  # sponsors hangen niet aan een activiteit
+        return media_kind, activity_id
+    return media_kind, None  # sponsors hangen niet aan een activiteit
 
-    # #707: één plek voor de regel, dus ook op deze ingang. Bij een foto valt de
-    # waarde weg; bij een sponsor moet het schema in een href mogen.
-    link_url = controleer_link(link_url, kind=media_kind)
 
-    if not files:
-        raise MediaFout("Geen bestanden")
-    if len(files) > MAX_BATCH:
-        raise MediaFout(f"Maximaal {MAX_BATCH} bestanden per keer")
-
+def _images_in_group(db, media_kind: MediaKind, activity_id: Optional[int]) -> int:
+    """How many there are already: the new `sort_order` follows on them."""
     basis = db.query(MediaAsset).filter(MediaAsset.kind == media_kind)
     if activity_id is not None:
         basis = basis.filter(MediaAsset.activity_id == activity_id)
-    volgende = basis.count()
+    return basis.count()
 
-    gemaakt = []
-    for index, upload in enumerate(files):
-        # #989: SVG only for the association logo, and then cleaned rather than
-        # re-encoded (see `media/svg.py`). Every other kind stays raster.
-        is_svg = upload.content_type == SVG_CONTENT_TYPE
-        if is_svg and media_kind is not MediaKind.TENANT_LOGO:
-            raise MediaFout(
-                _("%(bestand)s: een SVG kan alleen als logo van de vereniging.")
-                % {"bestand": upload.filename}
-            )
-        if not is_svg and upload.content_type not in ALLOWED_CONTENT_TYPES:
-            raise MediaFout(f"Niet-ondersteund bestandstype: {upload.filename}")
-        rauw = await upload.read()
-        try:
-            verwerkt = process_svg(rauw) if is_svg else process_image(rauw, kind=media_kind)
-        except ImageError as exc:
-            raise MediaFout(f"{upload.filename}: {exc}")
 
-        asset = MediaAsset(
-            kind=media_kind,
-            activity_id=activity_id,
-            title=title or upload.filename,
-            link_url=link_url,
-            sort_order=volgende + index,
-            is_active=True,
-            **verwerkt,
+def _image_asset(
+    media_kind: MediaKind,
+    *,
+    filename: Optional[str],
+    content_type: Optional[str],
+    raw: bytes,
+    activity_id: Optional[int],
+    title: Optional[str],
+    link_url: Optional[str],
+    sort_order: int,
+) -> MediaAsset:
+    """One uploaded image as an asset, not yet added — the single file both the
+    album's batch and the port's store are made of."""
+    # #989: SVG only for the association logo, and then cleaned rather than
+    # re-encoded (see `media/svg.py`). Every other kind stays raster.
+    is_svg = content_type == SVG_CONTENT_TYPE
+    if is_svg and media_kind is not MediaKind.TENANT_LOGO:
+        raise MediaFout(
+            _("%(bestand)s: een SVG kan alleen als logo van de vereniging.") % {"bestand": filename}
         )
-        db.add(asset)
-        gemaakt.append(asset)
+    if not is_svg and content_type not in ALLOWED_CONTENT_TYPES:
+        raise MediaFout(f"Niet-ondersteund bestandstype: {filename}")
+    try:
+        verwerkt = process_svg(raw) if is_svg else process_image(raw, kind=media_kind)
+    except ImageError as exc:
+        raise MediaFout(f"{filename}: {exc}")
+    return MediaAsset(
+        kind=media_kind,
+        activity_id=activity_id,
+        title=title or filename,
+        link_url=link_url,
+        sort_order=sort_order,
+        is_active=True,
+        **verwerkt,
+    )
 
-    # A flush, not a commit (CR-13 phase 4): `upload_media` commits for media's own
-    # doors; another domain's service stores through here and its door commits.
+
+#: The kinds of which an owner has one: a new file takes the place of the old one.
+SINGLE_FILE_KINDS = {MediaKind.ACTIVITY_POSTER, MediaKind.COMPONENT_INFO}
+
+
+def store_file(
+    db,
+    *,
+    kind: MediaKind | str,
+    filename: str,
+    content_type: str,
+    content: bytes,
+    activity_id: Optional[int] = None,
+    component_id: Optional[int] = None,
+    title_base: Optional[str] = None,
+) -> MediaAsset:
+    """Store one file for another domain — what the port `StoreFile` does.
+
+    Media decides by the kind what happens to the bytes, as it did per caller:
+    a poster or an info document takes the place of the one its owner had and
+    gets its text read; a render or an attachment is kept beside the others; an
+    image is re-encoded like every upload. Every refusal is a `MediaFout`, in
+    the words each of those ways already used. No commit: the caller's door
+    commits, and the text extraction starts only if it does.
+    """
+    media_kind = as_media_kind(kind)
+    if media_kind in SINGLE_FILE_KINDS:
+        owner = activity_id if media_kind is MediaKind.ACTIVITY_POSTER else component_id
+        if owner is None:
+            raise MediaFout(_("Kies eerst een activiteit."))
+        asset = _replace_single_asset_bytes(
+            db,
+            filename=filename,
+            content_type=content_type,
+            raw=content,
+            kind=media_kind,
+            activity_id=activity_id if media_kind is MediaKind.ACTIVITY_POSTER else None,
+            component_id=component_id if media_kind is MediaKind.COMPONENT_INFO else None,
+            title_base=title_base,
+        )
+        start_extraction(db, asset.id)
+        return asset
+    if media_kind in DOCUMENT_KINDS | {DESIGN_RENDER_KIND}:
+        return add_document(
+            db,
+            kind=media_kind,
+            filename=filename,
+            content_type=content_type,
+            data=content,
+            activity_id=activity_id,
+        )
+    image_kind, activity_id = _image_target(db, kind, activity_id)
+    asset = _image_asset(
+        image_kind,
+        filename=filename,
+        content_type=content_type,
+        raw=content,
+        activity_id=activity_id,
+        title=None,
+        link_url=None,
+        sort_order=_images_in_group(db, image_kind, activity_id),
+    )
+    db.add(asset)
     db.flush()
-    for asset in gemaakt:
-        db.refresh(asset)
-    return [meta(a) for a in gemaakt]
+    db.refresh(asset)
+    return asset
+
+
+def remove_file_of(
+    db,
+    *,
+    kind: MediaKind | str,
+    activity_id: Optional[int] = None,
+    component_id: Optional[int] = None,
+) -> int:
+    """Remove what this owner has of this kind, without committing — what the
+    port `RemoveFileOf` does. Returns how many there were; none is no refusal."""
+    query = db.query(MediaAsset).filter(MediaAsset.kind == as_media_kind(kind))
+    if activity_id is not None:
+        query = query.filter(MediaAsset.activity_id == activity_id)
+    elif component_id is not None:
+        query = query.filter(MediaAsset.component_id == component_id)
+    else:
+        raise MediaFout(_("Kies eerst een activiteit."))
+    assets = query.all()
+    for asset in assets:
+        db.delete(asset)
+    return len(assets)
+
+
+#: The job that reads a document's text (`media/handlers.py`).
+EXTRACT_JOB = "media.extract_text"
+
+
+def start_extraction(db, asset_id: int, *, force: bool = False) -> None:
+    """Have the text of this document read — as a job in the caller's transaction:
+    a save that is rolled back starts no extraction, and nothing here reaches the
+    OCR provider. For a stored poster and an info document; the "Opnieuw lezen"
+    button of the AI context keeps its background task (`reextract_text`)."""
+    from app.kernel.jobs import enqueue
+
+    enqueue(db, EXTRACT_JOB, {"asset_id": asset_id, "force": force})
 
 
 def add_document(
@@ -730,7 +893,6 @@ async def store_activity_poster(db, activity_id: int, file, background_tasks):
     media-record, niet op de activiteit.
     """
     from app.domains.activities.api import get_activity
-    from app.domains.media.extraction import update_media_extracted_text
 
     activity = get_activity(db, activity_id)
     if activity is None:
@@ -742,7 +904,7 @@ async def store_activity_poster(db, activity_id: int, file, background_tasks):
         activity_id=activity_id,
         title_base=f"{activity.name} - poster",
     )
-    background_tasks.add_task(update_media_extracted_text, asset.id)
+    start_extraction(db, asset.id)
     return meta(asset)
 
 
@@ -794,7 +956,6 @@ async def store_component_info(db, component_id: int, file, background_tasks):
     net zo goed op de achtergrond (#206).
     """
     from app.domains.activities.api import get_component
-    from app.domains.media.extraction import update_media_extracted_text
 
     component = get_component(db, component_id)
     if component is None:
@@ -807,7 +968,7 @@ async def store_component_info(db, component_id: int, file, background_tasks):
         component_id=component_id,
         title_base=f"{activiteit_naam} - {component.name} - info",
     )
-    background_tasks.add_task(update_media_extracted_text, asset.id)
+    start_extraction(db, asset.id)
     return meta(asset)
 
 
@@ -849,14 +1010,8 @@ def activity_image_path(db, activity_id: int) -> Optional[str]:
     )
     if poster is not None:
         if poster.content_type == PDF_CONTENT_TYPE:
-            if poster.thumbnail is None:
-                png = first_page_png(poster.data or b"")
-                if png:
-                    poster.thumbnail = png
-                    poster.thumb_content_type = PNG_CONTENT_TYPE
-                    # A flush (CR-13 phase 4): the rendering is a cache; the caller's
-                    # door keeps it if it commits, and it is made again if not.
-                    db.flush()
+            # A read and nothing else (#1251): every PDF gets its rendering when it
+            # is stored (#1019), and one that could not be rendered has none.
             return f"/api/v1/media/{poster.id}/thumb" if poster.thumbnail else None
         return f"/api/v1/media/{poster.id}"
     cover = (

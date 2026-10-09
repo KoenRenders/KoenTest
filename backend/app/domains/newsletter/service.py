@@ -35,7 +35,9 @@ from app.domains.newsletter.models import (
 )
 from app.i18n import _
 from app.kernel.codes import code_of
+from app.kernel.contracts.media import StoreFile
 from app.kernel.copying import CopyPlan
+from app.kernel.ports import call
 
 logger = logging.getLogger(__name__)
 
@@ -1342,17 +1344,20 @@ def add_attachment(
     """
     import os
 
-    from app.domains.media.api import MediaFout, add_document
+    from app.domains.media.api import MediaFout
 
     _refuse_unless_draft(letter)
     try:
-        asset = add_document(
-            db, kind="newsletter_file", filename=filename, content_type=content_type, data=data
+        asset = call(
+            StoreFile(
+                kind="newsletter_file", filename=filename, content_type=content_type, content=data
+            ),
+            db,
         )
     except MediaFout as exc:
         raise NewsletterError(str(exc)) from exc
     # This service is the door of its screen, so the commit is here (CR-13 phase 4:
-    # `add_document` no longer commits behind its caller).
+    # media's store does not commit behind its caller).
     db.commit()
     stem, extension = os.path.splitext(filename or "")
     label = stem.replace("_", " ").strip() or _("bestand")
@@ -1361,7 +1366,9 @@ def add_attachment(
     text = _("Download %(naam)s") % {"naam": label} + (f" ({kind})" if kind else "")
     from app.domains.media.api import media_url
 
-    return f'<div><a href="{esc(media_url(asset.id, base_url=base_url))}">{esc(text)}</a></div>'
+    return (
+        f'<div><a href="{esc(media_url(asset.asset_id, base_url=base_url))}">{esc(text)}</a></div>'
+    )
 
 
 def save_settings(db: Session, *, house_style: str, daily_cap: Optional[int]) -> None:
