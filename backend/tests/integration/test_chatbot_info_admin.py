@@ -1,12 +1,16 @@
 """Tests voor het admin-beheer van chatbot_info (#235)."""
 
 from app.domains.activities.api import Activity
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.chatbot import info_service
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
+from app.domains.media import extraction
 from app.domains.media.api import MediaAsset
+from app.domains.media.service import EXTRACT_JOB
+from app.kernel.jobs import KernelJob, run_due_jobs
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
-from tests import media_door
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
 def _poster(db):
@@ -79,15 +83,56 @@ def test_create_update_delete_note(db_session):
 # ── 'Opnieuw lezen'-endpoint ─────────────────────────────────────────────────
 
 
-def test_reextract_endpoint(client, db_session, admin_headers):
+def _press(client, asset_id: int):
+    session = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, session)
+    return client.post(
+        f"/admin/ai-context/documenten/{asset_id}/opnieuw-lezen",
+        headers={"X-CSRF-Token": csrf_token_for(session)},
+    )
+
+
+def test_the_button_plans_a_forced_reading_and_the_job_replaces_the_text(
+    client, db_session, monkeypatch
+):
+    """The button asks media through the port `ReadTextAgain` (#1251): one job,
+    forced, planned in the request's transaction — and when it runs only the
+    extracted text is replaced; what the board wrote beside it stays.
+
+    Proven red (9 October 2026): the commit taken out of
+    `chatbot.info_service.read_document_again` → no job is found after the
+    request, and the text stays the old one."""
     asset = _poster(db_session)
-    r = media_door.reextract(client, asset.id)
-    assert r.status_code == 202
+    db_session.add(
+        ChatbotInfo(
+            media_asset_id=asset.id,
+            title=asset.title,
+            extracted_text="oude tekst",
+            text_addition="door het bestuur toegevoegd",
+        )
+    )
+    db_session.commit()
+    monkeypatch.setattr(extraction, "extract_document_text", lambda raw, ct, **_k: "nieuwe tekst")
+
+    answer = _press(client, asset.id)
+
+    assert answer.status_code == 200, answer.text[:200]
+    db_session.expire_all()
+    jobs = db_session.query(KernelJob).filter(KernelJob.name == EXTRACT_JOB).all()
+    assert [job.payload for job in jobs] == [{"asset_id": asset.id, "force": True}]
+    run_due_jobs(db_session)
+    db_session.expire_all()
+    row = db_session.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id == asset.id).one()
+    assert (row.extracted_text, row.text_addition) == (
+        "nieuwe tekst",
+        "door het bestuur toegevoegd",
+    )
 
 
-def test_reextract_unknown_asset_404(client, admin_headers):
-    r = media_door.reextract(client, 999999)
-    assert r.status_code == 404
+def test_the_button_on_a_document_that_is_not_there_answers_404(client, db_session):
+    answer = _press(client, 999_999)
+    assert answer.status_code == 404
+    assert db_session.query(KernelJob).filter(KernelJob.name == EXTRACT_JOB).count() == 0
 
 
 # ── A note has a title and a text: the service's rule (CR-13 phase 4c, #1251) ──

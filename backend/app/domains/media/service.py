@@ -777,8 +777,8 @@ EXTRACT_JOB = "media.extract_text"
 def start_extraction(db, asset_id: int, *, force: bool = False) -> None:
     """Have the text of this document read — as a job in the caller's transaction:
     a save that is rolled back starts no extraction, and nothing here reaches the
-    OCR provider. For a stored poster and an info document; the "Opnieuw lezen"
-    button of the AI context keeps its background task (`reextract_text`)."""
+    OCR provider. One way to start it: for a stored poster, an info document and
+    the "Opnieuw lezen" button."""
     from app.kernel.jobs import enqueue
 
     enqueue(db, EXTRACT_JOB, {"asset_id": asset_id, "force": force})
@@ -925,19 +925,19 @@ def drop_activity_poster(db, activity_id: int) -> None:
         db.delete(asset)
 
 
-def reextract_text(db, asset_id: int, background_tasks) -> dict:
-    """De "Opnieuw lezen"-knop (#235).
+def read_text_again(db, asset_id: int) -> None:
+    """De "Opnieuw lezen"-knop (#235) — what the port `ReadTextAgain` does.
 
-    Draait op de achtergrond en raakt enkel `extracted_text` aan — een handmatige
-    override of aanvulling in de AI-context blijft staan.
+    Plans the reading as the job every stored document gets, forced: it raakt
+    enkel `extracted_text` aan — een handmatige override of aanvulling in de
+    AI-context blijft staan. No commit: the caller's door commits.
     """
-    from app.domains.media.extraction import EXTRACTABLE_KINDS, update_media_extracted_text
+    from app.domains.media.extraction import EXTRACTABLE_KINDS
 
     asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if asset is None or asset.kind not in EXTRACTABLE_KINDS:
         raise LookupError("Document niet gevonden")
-    background_tasks.add_task(update_media_extracted_text, asset_id, None, True)
-    return {"status": "bezig", "asset_id": asset_id}
+    start_extraction(db, asset_id, force=True)
 
 
 async def replace_component_info(db, component_id: int, file, background_tasks):

@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
@@ -218,16 +218,15 @@ def rij_bewerken(
 def document_opnieuw_lezen(
     asset_id: int,
     request: Request,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
     """'Opnieuw lezen' (#235): her-extraheer de tekst van een document-asset. Draait
     op de achtergrond; override/aanvulling blijven staan."""
-    from app.domains.media.api import reextract_text
+    from app.domains.chatbot.api import read_document_again
 
     try:
-        reextract_text(db, asset_id, background_tasks)
+        read_document_again(db, asset_id)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Document niet gevonden"))
     return templates.TemplateResponse(

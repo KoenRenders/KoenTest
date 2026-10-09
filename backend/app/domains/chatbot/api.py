@@ -24,6 +24,7 @@ from app.domains.chatbot.info_service import (  # noqa: F401
     delete_row,
     get_row,
     list_chatbot_info,
+    read_document_again,
     toggle_row,
     update_row,
 )
@@ -112,6 +113,7 @@ __all__ = [
     "read_tool_specs",
     "InfoRefused",
     "add_note",
+    "read_document_again",
     "create_note",
     "delete_row",
     "get_row",
