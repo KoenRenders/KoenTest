@@ -15,7 +15,7 @@ from datetime import date
 
 from fastapi.encoders import jsonable_encoder
 
-from app.domains.audit import api as audit_api
+from app.domains.reporting import api as reporting_api
 from tests.forms_door import Answer, _db
 
 
@@ -27,7 +27,7 @@ def member_changes(client, since: date | str) -> Answer:
     """Every change to member data since a day, as the Changes screen lists them."""
     db = _db(client)
     db.flush()
-    return Answer(200, jsonable_encoder(audit_api.member_changes_since(db, _day(since))))
+    return Answer(200, jsonable_encoder(reporting_api.member_changes_since(db, _day(since))))
 
 
 def changes(
@@ -36,12 +36,14 @@ def changes(
     """The one feed of every change since a day, optionally one group or one actor."""
     db = _db(client)
     db.flush()
-    rows = audit_api.all_changes_since(db, _day(since), group=group, actor=actor)
-    return Answer(200, jsonable_encoder({"groups": audit_api.GROUPS, "rows": rows}))
+    rows = reporting_api.all_changes_since(db, _day(since), group=group, actor=actor)
+    return Answer(200, jsonable_encoder({"groups": reporting_api.GROUPS, "rows": rows}))
 
 
 def member_changes_ods(client, since: date | str) -> bytes:
     """The member changes since a day as a spreadsheet."""
     db = _db(client)
     db.flush()
-    return audit_api.build_member_changes_ods(audit_api.member_changes_since(db, _day(since)))
+    return reporting_api.build_member_changes_ods(
+        reporting_api.member_changes_since(db, _day(since))
+    )

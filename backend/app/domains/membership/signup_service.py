@@ -9,9 +9,6 @@ from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
-# #1110: het schrijven van een gezin staat in household_service, dus de snapshots
-# daarvan ook. Wat hier rest is het lidmaatschap dat deze router zelf bijwerkt.
-from app.domains.audit.api import PUBLIEKE_ACTOR  # noqa: F401
 from app.domains.mdm.api import (
     CONTACT,
     ContactDetail,
@@ -31,6 +28,10 @@ from app.domains.payment.api import create_payment_record, membership_price_for_
 from app.i18n import _
 from app.kernel.contracts.membership import FamilyRegistered
 from app.kernel.events import publish
+
+# #1110: het schrijven van een gezin staat in household_service, dus de snapshots
+# daarvan ook. Wat hier rest is het lidmaatschap dat deze router zelf bijwerkt.
+from app.kernel.history import PUBLIC_ACTOR
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +119,7 @@ def register_family(
     member, membership = _service.create_family_with_members(
         db,
         data,
-        actor=PUBLIEKE_ACTOR,
+        actor=PUBLIC_ACTOR,
         source="registration",
         today=today,
         main_member=main_member,

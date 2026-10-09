@@ -520,7 +520,7 @@ def test_identity_match_attaches_lidnr_no_duplicate(db_session):
         == 1
     )
     # En leesbaar in de Wijzigingen-feed: "Lidnummer gekoppeld" (#229), niet enkel de naam.
-    from app.domains.audit.changes import member_changes_since
+    from app.domains.reporting.changes import member_changes_since
 
     feed = member_changes_since(db_session, date(2000, 1, 1))
     assert any(r["entity"] == "Persoon" and r["summary"] == "Lidnummer gekoppeld" for r in feed)
@@ -709,7 +709,7 @@ def test_commit_creates_admin_login_for_board_member_end_to_end(db_session):
 
     # In de Wijzigingen-feed staat de bestuurslid-wijziging met de naam (#228),
     # niet enkel "Gezin".
-    from app.domains.audit.changes import member_changes_since
+    from app.domains.reporting.changes import member_changes_since
 
     feed = member_changes_since(db_session, date(2000, 1, 1))
     assert any(r["entity"] == "Gezin" and r["summary"] == "Bestuurslid: Mon Essers" for r in feed)
@@ -718,8 +718,8 @@ def test_commit_creates_admin_login_for_board_member_end_to_end(db_session):
 def test_import_reverts_manually_changed_board_member(db_session):
     """De import zet het verantwoordelijke bestuurslid terug volgens het rapport,
     ook als het manueel gewijzigd was — en logt dat leesbaar (#228)."""
-    from app.domains.audit.changes import member_changes_since
     from app.domains.mdm.import_service import _norm
+    from app.domains.reporting.changes import member_changes_since
 
     seed_postal_code(db_session)
     member, hoofd, _mp, _en = _seed_imported(db_session, "100", "Mon", "Essers", date(1956, 5, 8))
@@ -747,7 +747,7 @@ def test_import_reverts_manually_changed_board_member(db_session):
 def test_person_field_change_shows_old_to_new(db_session):
     """#230: een persoonswijziging die de naam niet raakt (geboortedatum) toont
     'geb. oud → nieuw' in de Details — niet langer de ongewijzigde naam."""
-    from app.domains.audit.changes import member_changes_since
+    from app.domains.reporting.changes import member_changes_since
 
     seed_postal_code(db_session)
     # Eerste import maakt de persoon (geb. 1980-05-01).
@@ -843,7 +843,7 @@ def test_soft_deleted_person_revived_on_reimport(db_session):
     assert persons[0].id == pid and persons[0].deleted_at is None  # hersteld
 
     # In de Wijzigingen-feed staat de heractivering leesbaar in Details (#227).
-    from app.domains.audit.changes import member_changes_since
+    from app.domains.reporting.changes import member_changes_since
 
     feed = member_changes_since(db_session, date(2000, 1, 1))
     assert any(r["entity"] == "Persoon" and r["summary"] == "Heractivering" for r in feed)
@@ -887,7 +887,7 @@ def test_soft_deleted_family_revived_on_reimport(db_session):
     assert len(active) == 1 and active[0].id == mid
 
     # De gezin-heractivering staat als eigen, leesbare rij in de feed (#227).
-    from app.domains.audit.changes import member_changes_since
+    from app.domains.reporting.changes import member_changes_since
 
     feed = member_changes_since(db_session, date(2000, 1, 1))
     assert any(r["entity"] == "Gezin" and r["summary"] == "Heractivering gezin" for r in feed)

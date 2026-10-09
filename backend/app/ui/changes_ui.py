@@ -4,7 +4,8 @@ Eén primaire weergave over de append-only history (#512, v1.4-pariteit): het
 uniforme audit-logboek met groep-/actorfilter. De ledendata-wijzigingen voor
 manuele overname in Raak Nationaal blijven beschikbaar als .ods-export (aparte
 route), niet meer als altijd-zichtbare tabel. Composer-module: leest via de
-audit-facade (`app.domains.audit.api`, #444), geen domein-internals.
+facade van reporting (`app.domains.reporting.api` — the change report, CR-13
+phase 4c), geen domein-internals.
 """
 
 from __future__ import annotations
@@ -81,7 +82,7 @@ def wijzigingen_ctx(
     richting: str = "desc",
     per_page: str = "",
 ) -> dict:
-    from app.domains.audit.api import GROUPS, all_changes_since
+    from app.domains.reporting.api import GROUPS, all_changes_since
 
     vanaf = _since(since)
     # #512 (v1.4-pariteit): één algemeen audit-logboek als primaire, gefilterde
@@ -221,7 +222,7 @@ def ledenwijzigingen_export(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ) -> Response:
-    from app.domains.audit.api import build_member_changes_ods, member_changes_since
+    from app.domains.reporting.api import build_member_changes_ods, member_changes_since
 
     vanaf = _since(since)
     content = build_member_changes_ods(member_changes_since(db, vanaf))

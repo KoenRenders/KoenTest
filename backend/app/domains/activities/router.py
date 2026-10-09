@@ -339,10 +339,10 @@ def _inschrijver(current_member: Person | None) -> str:
     publieke markering. Leeg laten zou "we weten het niet" betekenen, en dat is hier
     niet waar — de helft van de tijd weten we het wél.
     """
-    from app.domains.audit.api import PUBLIEKE_ACTOR
+    from app.kernel.history import PUBLIC_ACTOR
 
     if current_member is None:
-        return PUBLIEKE_ACTOR
+        return PUBLIC_ACTOR
     mail = next(
         (
             c.value
@@ -351,7 +351,7 @@ def _inschrijver(current_member: Person | None) -> str:
         ),
         None,
     )
-    return mail or PUBLIEKE_ACTOR
+    return mail or PUBLIC_ACTOR
 
 
 # No route of its own since CR-13 phase 4b (#1251): the JSON door

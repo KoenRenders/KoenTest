@@ -28,8 +28,16 @@ selection, with every name masked on its way to the language model (CR-07).
   `build_pivot_ods`, `build_dataset_ods`, `report_filename`, `dataset_filename`,
   `filter_summary`, `log_export`, `ExportKind`, `EXPORT_KIND`.
 - **The dashboard**: `dashboard_numbers`, `dashboard_tile_of`, `DASHBOARD_TEGELS`,
-  `TileNumber` — used by `app/ui/system_ui.py`, the one module outside this domain
-  that imports it.
+  `TileNumber` — used by `app/ui/system_ui.py`.
+- **The change report** (`changes.py`; here since CR-13 phase 4c, when the audit
+  package left): `all_changes_since`, `member_changes_since`,
+  `build_member_changes_ods`, `GROUPS` — what changed since a date, read from the
+  history tables of activities, mdm, membership and payment through their
+  facades (each owner writes its own history, `<domain>/history.py`). Used by
+  `app/ui/changes_ui.py`: the two change screens and their .ods export.
+
+Two modules outside this domain import it, both screens: `app/ui/system_ui.py`
+and `app/ui/changes_ui.py` (`test_reporting_terminus_gate.py` holds the list).
 
 ## Data
 
