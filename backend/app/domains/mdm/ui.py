@@ -520,6 +520,7 @@ def email_rij(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#persoon-{person_id}-melding")
 def email_toevoegen(
     family_id: int,
     person_id: int,

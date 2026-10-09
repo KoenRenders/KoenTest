@@ -93,7 +93,10 @@ from tests.integration.test_designstudio_service import activity, design  # noqa
 #: second place where the words live.
 LABELS_BEFORE_CR12 = {
     "letter_status": {"draft": "Concept", "sending": "Wordt verstuurd", "sent": "Verstuurd"},
-    "audience": {"members": "Leden", "non_members": "Niet-leden", "both": "Allebei"},
+    # `non_members` read "Niet-leden" on the day of CR-12 and was reworded on
+    # purpose afterwards (#1834; Koen, 9 October 2026: "Abonnees is goed") — one
+    # word for that list on every screen of the newsletter.
+    "audience": {"members": "Leden", "non_members": "Abonnees", "both": "Allebei"},
     "delivery_status": {
         "queued": "In de wachtrij",
         "sent": "Verstuurd",

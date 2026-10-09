@@ -726,6 +726,13 @@
     {{ ui.input_control("ds_fout", id="ds-fout", value="0123.456.789", cls="w-full",
                         attrs=ui.field_error_attrs("ds-fout", _("Dit ondernemingsnummer heeft niet de juiste structuur. Kijk het na."))) }}
     {{ ui.field_error("ds-fout", _("Dit ondernemingsnummer heeft niet de juiste structuur. Kijk het na.")) }}</div>
+  {# #1831: a page with several forms — a card per person, a form per question —
+     gives each form its own message line, by its buttons. The line is empty
+     until its door refuses; below it stands what then arrives in it. #}
+  <div class="mt-4 max-w-sm">
+    <p class="text-sm text-gray-600 mb-2">{{ _("Meerdere formulieren op één pagina: elk formulier heeft zijn eigen meldingsregel, bij zijn knoppen. Een weigering komt daar terecht en de andere formulieren blijven staan.") }}</p>
+    {{ ui.form_message("ds-form-message") }}
+    {{ ui.save_refusal([{"field": "", "message": _("Elke optie heeft een label nodig.")}]) }}</div>
   <div class="mt-4 space-y-2">
     {{ ui.toast(_("Opgeslagen."), kind="success") }}
     {{ ui.toast(_("Er ging iets mis."), kind="error") }}

@@ -1,0 +1,11 @@
+{# Who a newsletter goes to, in words (#1780, #1834): per list a head with the number
+   of addresses and a sentence, and what the two lists share. One partial for the
+   send screen and the concept screen, fed by one function (`_audience_said`), so
+   the two never say it differently. #}
+{% for line in audience_lines %}
+<div data-audience-line>
+  <p class="text-base"><strong>{{ line.head }}</strong></p>
+  <p class="text-sm">{{ line.sentence }}</p>
+</div>
+{% endfor %}
+{% if audience_overlap %}<p class="text-sm" data-audience-overlap>{{ audience_overlap }}</p>{% endif %}

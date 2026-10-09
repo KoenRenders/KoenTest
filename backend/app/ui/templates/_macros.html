@@ -285,6 +285,18 @@
    browser-confirm is verbannen. Gebruik: op de knop:
    attrs='hx-post="…" hx-target="…" hx-swap="…" ' ~ confirm_attrs('Type', naam). #}
 
+{# The message line of ONE form on a page with several (#1831): a card per
+   person, a form per question. Its door answers a refusal into it
+   (`app.ui.says_why_in`), so the sentence stands in the form that was saved and
+   the other forms keep what was typed. Put it by the buttons that were pressed.
+   It brings itself into view when a sentence arrives (`nearest`: nothing moves
+   when it is in view) — a button at the foot of a phone's screen left the line
+   under the fold. Emptied when the form is redrawn by its good answer. #}
+{% macro form_message(id, cls="") -%}
+<div id="{{ id }}" data-form-message{% if cls %} class="{{ cls }}"{% endif %}
+     hx-on::after-swap="this.scrollIntoView({block: 'nearest'})"></div>
+{%- endmacro %}
+
 {# Foutbanner (B2-conventie: banner boven het formulier, geen alert()). #}
 {% macro error_banner(message) -%}
 {% if message %}<div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-800" role="alert">{{ message }}</div>{% endif %}

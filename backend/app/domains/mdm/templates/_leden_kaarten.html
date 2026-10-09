@@ -18,16 +18,6 @@
    `gender_codes`, `postal_codes`, `all_persons`, `current_year`) the way the
    block did before they were macros. #}
 
-{# #1831: the message line of ONE card — where its refusal is said (`says_why_in`
-   answers the kit's banner into it). Each card puts it by the buttons that were
-   pressed. When a sentence arrives the line scrolls itself into view if it is
-   not: a button at the foot of a phone's screen would leave it under the fold.
-   Emptied when the card is redrawn by its good answer. #}
-{% macro card_message(id, cls="") -%}
-<div id="{{ id }}" data-form-message{% if cls %} class="{{ cls }}"{% endif %}
-     hx-on::after-swap="this.scrollIntoView({block: 'nearest'})"></div>
-{%- endmacro %}
-
 {% macro persoon_card(m, hoofd) %}
 <div id="persoon-{{ m.id }}" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
   {# #639-patroon, maar de KNOPPEN horen buiten de x-show: Koens bevinding op
@@ -70,7 +60,7 @@
       </div>
     </div>
   </div>
-  {{ card_message("persoon-" ~ m.id ~ "-melding", "mt-3 empty:mt-0") }}
+  {{ ui.form_message("persoon-" ~ m.id ~ "-melding", "mt-3 empty:mt-0") }}
   <form id="pc-{{ m.id }}" x-show="edit" x-cloak class="space-y-3"
         hx-post="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}"
         hx-target="#persoon-{{ m.id }}" hx-swap="outerHTML" style="display: none">
@@ -118,15 +108,18 @@
      begon te bewerken — §2.8 noemt precies dat: verbergen geeft layout-shift, en
      je hebt geen weg terug. Nu ui.edit_toggle(), net als de personenlijst
      hierboven: de knop blijft staan en heet "Annuleren" tijdens het bewerken. #}
-  <div class="flex items-center justify-between gap-2">
+  {# #1854: in the edit state the title stood on two lines beside the buttons
+     at 390 px. There the row wraps — the title on one line, the buttons under
+     it — as the person's card does since #1831. The read state keeps its row. #}
+  <div class="flex items-center justify-between gap-2" :class="{ 'flex-wrap': edit }">
     <span x-show="!edit" class="text-sm text-gray-700 inline-flex items-start gap-1">{{ ui.icon("map-pin", cls="mt-0.5 shrink-0") }} {% if family.street %}{{ family.street }} {{ family.house_number }}{% if family.bus_number %} bus {{ family.bus_number }}{% endif %}, {{ family.postal_code }} {{ family.municipality }}{% else %}{{ _("Nog geen adres") }}{% endif %}</span>
     <span x-show="edit" x-cloak class="text-sm text-gray-500">{{ _("Adres bewerken") }}</span>
-    <div class="flex gap-2">
+    <div class="flex gap-2 ml-auto">
       {{ ui.edit_toggle("edit") }}
       <div x-show="edit" x-cloak>{{ ui.action_bar(form="adres-form", cancel_attrs='@click="edit = false"') }}</div>
     </div>
   </div>
-  {{ card_message("adres-melding", "mt-3 empty:mt-0") }}
+  {{ ui.form_message("adres-melding", "mt-3 empty:mt-0") }}
   <form id="adres-form" x-show="edit" x-cloak class="space-y-3"
         hx-post="/admin/leden/gezin/{{ family.id }}/adres"
         hx-target="#adres-kaart" hx-swap="outerHTML" style="display: none">
@@ -153,7 +146,7 @@
     {% with p = None %}{% include "_leden_persoon_velden.html" %}{% endwith %}
     {# #1831: by the button that was pressed — this form's button stands at its
        foot, where the two cards above have theirs in the head. #}
-    {{ card_message("persoon-toevoegen-melding") }}
+    {{ ui.form_message("persoon-toevoegen-melding") }}
     {{ ui.btn_primary(_("Toevoegen")) }}
   </form>
 </div>

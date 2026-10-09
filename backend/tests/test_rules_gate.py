@@ -29,14 +29,17 @@ network belongs — so the handler gates never look at the file name.
 
 **A ratchet has two halves** (the CR-12 shape): nothing new may appear, and
 nothing fixed may stay on the list — a list that does not shrink is no ratchet.
-The frozen lists are in `rules_baseline.py`; phase 4 deletes that file. Keys carry
-no line numbers (they shift on the first unrelated edit); the messages do.
+The frozen lists stood in `rules_baseline.py`; the last step of phase 4d deleted
+that file. Keys carry no line numbers (they shift on the first unrelated edit);
+the messages do.
 
 **A gate whose list is empty is hard** (phase 4d, #1251): it reads no list any more
-(`_hard`), so any offender is red and there is no "left behind" half. Nine are
-hard; the others stay ratchets until their last entries leave. The Dutch
-identifiers (#780) are not CR-13's: their ratchet stays, on a file of its own
-(`dutch_identifiers_baseline.py`).
+(`_hard`), so any offender is red and there is no "left behind" half. Since the
+last step of phase 4d every gate of CR-13 is hard but one: *events, not calls*
+keeps a ratchet on five DECLARED calls, which stand in this file with their
+reasons (`DECLARED_COMMAND_CALLS`). The "ratchet" in the table above is what
+each gate was. The Dutch identifiers (#780) are not CR-13's: their ratchet
+stays, on a file of its own (`dutch_identifiers_baseline.py`).
 
 **Every collector proves it looked** (#678): it asserts it found what it walks —
 the models, the packages, the handlers, the routes, the mappers — before any
@@ -57,7 +60,6 @@ from pathlib import Path
 import pytest
 
 from tests import dutch_identifiers_baseline
-from tests import rules_baseline as baseline
 from tests._bestanden import is_app_test
 
 # CR-29 R7: one worker for the file, so what a walk of the tree found is found once
@@ -866,6 +868,52 @@ def _own_nodes(function: ast.AST):
             todo.extend(ast.iter_child_nodes(node))
 
 
+#: What three hard gates must at least RECOGNISE on every run, now that no list
+#: proves it (dev2's review of the last step of phase 4d). Each is about half of
+#: what was measured on 9 October 2026 — 440 writes to a domain's own classes,
+#: 440 writes outside the doors, 104 calls followed behind a facade, 174
+#: functions that commit — so ordinary change does not trip it, and a recogniser
+#: gone blind, which finds zero, does.
+FLOOR_OWN_WRITES = 200
+#: A floor catches a recogniser gone blind, not one that lost a single shape: of
+#: the 440 writes the largest shape is 167, so 273 would still pass 200 (dev2's
+#: second reading). So each write gate also asserts that every shape the
+#: application uses today was met at least once, by name — as *no rule in a
+#: router* does for its three transport shapes. The recogniser knows more shapes
+#: (a bulk write, a core statement, raw SQL): those occur nowhere, and what occurs
+#: nowhere cannot be required.
+WRITE_SHAPES_MET = frozenset(
+    {
+        "assigns",
+        "constructs",
+        "db.add()",
+        "db.delete()",
+        "setattr()",
+        "relationship",
+        "soft_delete()",
+    }
+)
+
+
+def _write_shape(what: str) -> str:
+    """The shape of a recognised write, without what it was done to: `assigns .name`
+    → `assigns`, `relationship .append()` → `relationship`."""
+    return what.split(" .")[0]
+
+
+def _require_write_shapes(seen: set[str], where: str) -> None:
+    lost = sorted(WRITE_SHAPES_MET - seen)
+    assert not lost, (
+        f"{where}: the write recogniser met no {' and no '.join(lost)} anywhere — it lost "
+        f"that shape, so it would not see a write of that shape where it is not allowed"
+    )
+
+
+FLOOR_SERVICE_WRITES = 200
+FLOOR_RESOLVED_CALLS = 50
+FLOOR_COMMITS = 80
+
+
 def _foreign_writes_in(function, resolve, schemas: dict[str, str], owner: str):
     """Yield `(class or schema, line, what)` for every write to a class of another owner."""
     typed: dict[str, str] = {}
@@ -956,6 +1004,8 @@ def collect_foreign_writes() -> dict[str, str]:
     `file::function → owner.Class` (CR-13 §B9.3, *no foreign writes*). Reads are free."""
     classes, schemas = _mapped_owners()
     found: dict[str, str] = {}
+    own = 0  # writes to a class of the file's own domain: recognised, and allowed
+    shapes: set[str] = set()
     for path in _python_files():
         owner = _owner_of_file(path)
         tree = _tree(path)
@@ -972,8 +1022,10 @@ def collect_foreign_writes() -> dict[str, str]:
         qualified = _enclosing(tree)
         for function in functions:
             for cls, line, what in _foreign_writes_in(function, resolve, schemas, owner):
+                shapes.add(_write_shape(what))
                 target = cls if cls.startswith("schema ") else f"{classes[cls]}.{cls}"
                 if not cls.startswith("schema ") and classes[cls] == owner:
+                    own += 1
                     continue
                 name = qualified.get(function, function.name)
                 key = f"{_rel(path)}::{name} → {target}"
@@ -983,6 +1035,13 @@ def collect_foreign_writes() -> dict[str, str]:
                     f"written by its owner: call its `api.py` or publish the event it "
                     f"subscribes to (CR-13 §B9.3)",
                 )
+    # The gate reads no list any more, so nothing else proves that the recogniser
+    # still recognises a write (dev2's review; measured at FLOOR_OWN_WRITES).
+    assert own > FLOOR_OWN_WRITES, (
+        f"only {own} writes to a domain's own classes recognised — the walk no longer "
+        f"sees a write, so it would not see a foreign one either"
+    )
+    _require_write_shapes(shapes, "no foreign write")
     return found
 
 
@@ -1155,6 +1214,79 @@ def _is_door(path: Path) -> bool:
     )
 
 
+def _held_facades(tree: ast.Module):
+    """Which facade function a call in this module reaches: a function that takes a
+    call's target (`node.func`) and answers `(domain, exported name)` or None — or
+    None itself when the module holds no facade at all.
+
+    ONE place for the spellings, asked by every collector that follows a call into
+    another domain (dev2's review of the last step of phase 4d: the form
+    `import … as` had been taught to one collector and not to the other):
+
+    - `from app.domains.x.api import f` (also `as g`) → `f(…)`;
+    - `from app.domains.x import api` (also `as a`) → `api.f(…)`;
+    - `import app.domains.x.api as a` → `a.f(…)`;
+    - `from app.domains import x` (also `as y`) → `x.api.f(…)`;
+    - `import app.domains.x as y` → `y.api.f(…)`;
+    - `import app.domains.x.api` → `app.domains.x.api.f(…)`.
+
+    The last three occur nowhere under `app/` today; they are read all the same, so
+    a new spelling is not a way past the gates. What stays unseen is a facade
+    reached without an import statement (`importlib`, `getattr`).
+    """
+    direct: dict[str, tuple[str, str]] = {}
+    modules: dict[str, str] = {}
+    packages: dict[str, str] = {}
+    dotted = False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            parts = node.module.split(".")
+            if parts[:2] != ["app", "domains"]:
+                continue
+            if len(parts) == 4 and parts[3] == "api":
+                for alias in node.names:
+                    direct[alias.asname or alias.name] = (parts[2], alias.name)
+            elif len(parts) == 3:
+                for alias in node.names:
+                    if alias.name == "api":
+                        modules[alias.asname or alias.name] = parts[2]
+            elif len(parts) == 2:
+                for alias in node.names:
+                    packages[alias.asname or alias.name] = alias.name
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                parts = alias.name.split(".")
+                if parts[:2] == ["app", "domains"] and len(parts) == 4 and parts[3] == "api":
+                    if alias.asname:
+                        modules[alias.asname] = parts[2]
+                    else:
+                        dotted = True
+                elif parts[:2] == ["app", "domains"] and len(parts) == 3 and alias.asname:
+                    packages[alias.asname] = parts[2]
+    if not (direct or modules or packages or dotted):
+        return None
+
+    def target_of(func: ast.expr) -> tuple[str, str] | None:
+        if isinstance(func, ast.Name):
+            return direct.get(func.id)
+        if not isinstance(func, ast.Attribute):
+            return None
+        holder = func.value
+        if isinstance(holder, ast.Name):
+            domain = modules.get(holder.id)
+            return (domain, func.attr) if domain else None
+        if isinstance(holder, ast.Attribute) and holder.attr == "api":
+            if isinstance(holder.value, ast.Name) and holder.value.id in packages:
+                return packages[holder.value.id], func.attr
+            if dotted:
+                named = re.fullmatch(r"app\.domains\.(\w+)\.api", ast.unparse(holder))
+                if named:
+                    return named.group(1), func.attr
+        return None
+
+    return target_of
+
+
 def _foreign_api_calls() -> dict[tuple[str, str], str]:
     """(domain, exported name) → one caller in another domain's non-door code
     (a service, a handler, a tool), `file:line`. A router or screen calling another
@@ -1165,33 +1297,13 @@ def _foreign_api_calls() -> dict[tuple[str, str], str]:
             continue
         caller_domain = _owner_of_file(path)
         tree = _tree(path)
-        direct: dict[str, tuple[str, str]] = {}
-        modules: dict[str, str] = {}
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module:
-                parts = node.module.split(".")
-                if parts[:2] == ["app", "domains"] and len(parts) == 4 and parts[3] == "api":
-                    for alias in node.names:
-                        direct[alias.asname or alias.name] = (parts[2], alias.name)
-                elif node.module == "app.domains" or (
-                    parts[:2] == ["app", "domains"] and len(parts) == 3
-                ):
-                    for alias in node.names:
-                        if alias.name == "api":
-                            modules[alias.asname or alias.name] = parts[2]
+        target_of = _held_facades(tree)
+        if target_of is None:
+            continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
-            func = node.func
-            target = None
-            if isinstance(func, ast.Name) and func.id in direct:
-                target = direct[func.id]
-            elif (
-                isinstance(func, ast.Attribute)
-                and isinstance(func.value, ast.Name)
-                and func.value.id in modules
-            ):
-                target = (modules[func.value.id], func.attr)
+            target = target_of(node.func)
             if target and target[0] != caller_domain:
                 callers.setdefault(target, f"{_rel(path)}:{node.lineno}")
     return callers
@@ -1293,10 +1405,12 @@ def collect_commit_behind_api() -> dict[str, str]:
     # A package without `api.py` (stt) exports nothing; module shape reports it.
     exports = {p.name: _api_exports(p) for p in _packages() if (p / "api.py").is_file()}
     found: dict[str, str] = {}
+    resolved = 0  # calls followed to the function behind the facade
     for (domain, name), caller in sorted(callers.items()):
         target = exports.get(domain, {}).get(name)
         if target is None:
             continue
+        resolved += 1
         path, tree, function = target
         for reached_path, reached_tree, reached, via in _reachable(path, tree, function):
             declared = _own_transaction(reached)
@@ -1315,6 +1429,22 @@ def collect_commit_behind_api() -> dict[str, str]:
                     f"service commits, once (CR-13 §B9.3)"
                 )
                 break
+    # No list is read any more, so two things prove the walk still looks: it
+    # followed calls to the function behind the facade, and what it asks of each
+    # — "does this commit?" — still recognises the commits the application has.
+    assert resolved > FLOOR_RESOLVED_CALLS, (
+        f"only {resolved} calls between domains followed behind the facade — the walk is blind"
+    )
+    commits = sum(
+        1
+        for path in _python_files()
+        for node in ast.walk(_tree(path))
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _commits(node)
+    )
+    assert commits > FLOOR_COMMITS, (
+        f"only {commits} functions that commit recognised in the whole application — "
+        f"the walk no longer sees a commit, so it would not see one behind a facade"
+    )
     return found
 
 
@@ -1396,7 +1526,14 @@ def api_commands() -> dict[tuple[str, str], str]:
 def _writes_in_its_own_domain(path: Path, tree: ast.Module, function: ast.AST, domain: str) -> bool:
     """Whether the function writes itself, or through what it calls in its OWN
     domain — the walk `api_commands()` makes (`_reachable`, `_writes`), kept to the
-    files of `domain`. What a foreign command writes is that command's."""
+    files of `domain`. What a foreign command writes is that command's.
+
+    Its limits, which are the walk's: three calls deep and no further; a call
+    on an object (`obj.method()`) is not followed, only a function called by its
+    name or through an imported module; and a write that happens only inside a
+    helper of the kernel is not "its own domain" — the kernel is nobody's. A
+    door that writes only in one of those ways reads as a door without a write
+    of its own, and its foreign command as the door's one command."""
     for reached_path, _t, reached, _via in _reachable(path, tree, function):
         if _owner_of_file(reached_path) != domain or _not_a_command(reached):
             continue
@@ -1408,20 +1545,34 @@ def _writes_in_its_own_domain(path: Path, tree: ast.Module, function: ast.AST, d
 def _references() -> dict[str, list[ast.AST | None]]:
     """name → the top-level function of every place in the application that names
     it — a call, or the bare name handed on — and None for a place outside any
-    function. Imports and the definition itself do not count: they reach nothing.
+    function. Imports and the definition itself do not count: they reach nothing —
+    but a name imported `as` another counts where that other name is used (dev2's
+    review: a step called through an alias from a door read as the queue's own).
 
     Not cached: the collector that asks it is, for the real tree, and the port
     gate's proofs call that collector on a small world of their own — a walk kept
     per process would answer them with the wrong tree."""
     found: dict[str, list[ast.AST | None]] = {}
     for path in _python_files():
-        for top in _tree(path).body:
+        tree = _tree(path)
+        # A function imported under another name is called under that name: the
+        # alias stands for the original, wherever in the module it was imported.
+        aliases = {
+            alias.asname: alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom)
+            for alias in node.names
+            if alias.asname and alias.asname != alias.name
+        }
+        for top in tree.body:
             if isinstance(top, (ast.Import, ast.ImportFrom)):
                 continue
             holder = top if isinstance(top, (ast.FunctionDef, ast.AsyncFunctionDef)) else None
             for node in ast.walk(top):
                 if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
                     found.setdefault(node.id, []).append(holder)
+                    if node.id in aliases:
+                        found.setdefault(aliases[node.id], []).append(holder)
                 elif isinstance(node, ast.Attribute):
                     found.setdefault(node.attr, []).append(holder)
     assert found, "no name referenced anywhere — the walk is blind"
@@ -1439,7 +1590,24 @@ def _only_from_a_job(
     side — a second function of the same name that a request calls makes this one
     "reached from a request" too, and a function nothing names is not a job path
     either. What it cannot see is dynamic dispatch (`getattr`, a name in a string):
-    a function reached only that way is not found and stays red.
+    a function reached only that way is not found and stays red. A function
+    reached through an alias (`from … import step as go`, then `go()`) IS seen:
+    the alias counts as the name. Proof (run, removed), additive: the `_probe_step`
+    and `probe_job` of the proof below, and in `newsletter/admin_ui.py` the step
+    imported `as probe_go` and called → red, on `_probe_step`; green before the
+    alias counted.
+
+    A `@job` function counts as the queue's only when NOTHING ELSE names it: the
+    decorator registers it, so any other mention is a caller — or a namesake,
+    which the walk cannot tell apart. That is what happens to media's job
+    `extract_text`: the PDF reader's `page.extract_text()` carries the same name,
+    so that job is not a job path to this gate. Nothing is red for it — the
+    reading job calls no command of another domain — and should it ever need
+    one, the gate asks for another name first. Proof (run, removed), additive:
+    in `newsletter/service.py` a `_probe_step` calling `mail.api.
+    send_campaign_mail`, named only by a `@job` function `probe_job` added to
+    `newsletter/handlers.py` → green; a second function there that calls
+    `probe_job(db, {})` → red, on `_probe_step`.
     """
     holders = [h for h in references.get(function.name, []) if h is not function]
     if not holders:
@@ -1448,6 +1616,10 @@ def _only_from_a_job(
         if holder is None:
             return False
         if any(_is_job(d) for d in holder.decorator_list):
+            # A job function that something else names too is not only the
+            # queue's: a request could call it like any function.
+            if any(h is not holder for h in references.get(holder.name, [])):
+                return False
             continue
         if depth and _only_from_a_job(holder, references, depth - 1):
             continue
@@ -1485,19 +1657,8 @@ def collect_command_calls_outside_handlers() -> dict[str, str]:
         if caller in {"app", "kernel"}:
             continue  # not a domain: the rule is about domain pairs
         tree = _tree(path)
-        direct: dict[str, tuple[str, str]] = {}
-        modules: dict[str, str] = {}
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module:
-                parts = node.module.split(".")
-                if parts[:2] == ["app", "domains"] and len(parts) == 4 and parts[3] == "api":
-                    for alias in node.names:
-                        direct[alias.asname or alias.name] = (parts[2], alias.name)
-                elif parts[:2] == ["app", "domains"] and len(parts) == 3:
-                    for alias in node.names:
-                        if alias.name == "api":
-                            modules[alias.asname or alias.name] = parts[2]
-        if not direct and not modules:
+        target_of = _held_facades(tree)
+        if target_of is None:
             continue
         qualified = _enclosing(tree)
         for function in ast.walk(tree):
@@ -1516,16 +1677,7 @@ def collect_command_calls_outside_handlers() -> dict[str, str]:
             for node in _own_nodes(function):
                 if not isinstance(node, ast.Call):
                     continue
-                func = node.func
-                target = None
-                if isinstance(func, ast.Name) and func.id in direct:
-                    target = direct[func.id]
-                elif (
-                    isinstance(func, ast.Attribute)
-                    and isinstance(func.value, ast.Name)
-                    and func.value.id in modules
-                ):
-                    target = (modules[func.value.id], func.attr)
+                target = target_of(node.func)
                 if not target or target[0] == caller or target not in commands:
                     continue
                 calls.append((node.lineno, target))
@@ -2029,8 +2181,22 @@ def collect_write_outside_service() -> dict[str, str]:
     where the aggregate's `check()` runs on flush for every entrance alike."""
     classes, schemas = _mapped_owners()
     found: dict[str, str] = {}
+    in_services = 0  # the same recogniser, on what is not a door or a handler
+    shapes: set[str] = set()
     for path in _python_files():
         tree = _tree(path)
+        if not _is_door(path):
+            in_names, in_modules = _class_names(tree, classes)
+            for function in ast.walk(tree):
+                if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    for _cls, _line, what in _foreign_writes_in(
+                        function,
+                        lambda node, n=in_names, m=in_modules: _class_of(node, n, m, classes),
+                        {},
+                        owner="",
+                    ):
+                        in_services += 1
+                        shapes.add(_write_shape(what))
         functions = (
             [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
             if _is_door(path)
@@ -2055,6 +2221,13 @@ def collect_write_outside_service() -> dict[str, str]:
                     f"service — move the write to the service; `check()` runs on flush "
                     f"(CR-13 §B9.3)",
                 )
+    # No list is read any more: the writes the same recogniser finds where they
+    # belong prove it still recognises one (measured at FLOOR_SERVICE_WRITES).
+    assert in_services > FLOOR_SERVICE_WRITES, (
+        f"only {in_services} writes recognised outside the doors — the walk no longer "
+        f"sees a write, so it would not see one in a door either"
+    )
+    _require_write_shapes(shapes, "no write outside a service")
     return found
 
 
@@ -2533,10 +2706,10 @@ def _hard(name: str) -> None:
     assert not found, "Violations:\n  " + "\n  ".join(found[key] for key in sorted(found))
 
 
-def _ratchet(name: str, frozen=None, *, where: str = "rules_baseline") -> None:
-    """Nothing new, and nothing left behind."""
+def _ratchet(name: str, frozen, *, where: str) -> None:
+    """Nothing new, and nothing left behind: `frozen` is the one list the gate
+    still reads for this collector, and `where` names it in the message."""
     found = COLLECTORS[name]()
-    frozen = getattr(baseline, name) if frozen is None else frozen
     added = sorted(set(found) - set(frozen))
     gone = sorted(set(frozen) - set(found))
     errors = []
@@ -2544,7 +2717,7 @@ def _ratchet(name: str, frozen=None, *, where: str = "rules_baseline") -> None:
         errors.append("New violations:\n  " + "\n  ".join(found[k] for k in added))
     if gone:
         errors.append(
-            f"These are still in `{where}.{name}` but no longer occur:\n  "
+            f"These are still in `{where}` but no longer occur:\n  "
             + "\n  ".join(gone)
             + "\nRemove them from the list — a ratchet that does not shrink is no ratchet."
         )
@@ -2586,14 +2759,15 @@ def test_no_network_in_an_event_handler():
 
 
 def test_every_json_route_names_its_caller():
-    """Ratchet on today's routes; a new route is red until its domain's
-    `CONTRACT.md` names its caller under `## Callers`. Proofs (run, restored): a
+    """Hard since the last step of phase 4d — a ratchet until its list was empty.
+    A route is red until its domain's `CONTRACT.md` names its caller under
+    `## Callers`. Proofs (run, restored; the first again when it went hard): a
     `@router.get("/probe")` added to `cms/router.py` → red, "`GET /api/v1/probe` has
     no caller"; a `## Callers` line for `GET /api/v1/sponsors` added to
     `media/CONTRACT.md` → red, "no longer occur", because a named route must leave
-    the list. The same line in `cms/CONTRACT.md` stayed green: only the contract of
-    the domain that defines the route counts."""
-    _ratchet("JSON_ROUTE_WITHOUT_CALLER")
+    the list (while there was a list). The same line in `cms/CONTRACT.md` stayed
+    green: only the contract of the domain that defines the route counts."""
+    _hard("JSON_ROUTE_WITHOUT_CALLER")
 
 
 def test_no_new_dutch_identifier():
@@ -2606,18 +2780,20 @@ def test_no_new_dutch_identifier():
     _ratchet(
         "DUTCH_IDENTIFIERS",
         dutch_identifiers_baseline.DUTCH_IDENTIFIERS,
-        where="dutch_identifiers_baseline",
+        where="dutch_identifiers_baseline.DUTCH_IDENTIFIERS",
     )
 
 
 def test_no_new_foreign_write():
-    """Ratchet, hard for a new package (CR-13 §B9.3). Proofs (run, removed), each
+    """Hard since the last step of phase 4d — a ratchet until its list was empty.
+    The last entry was media's write of the chatbot's row. Proofs (run, removed;
+    the first again when it went hard), each
     additive, in `cms/service.py`: a function constructing `Person` imported from
     `mdm.api` → red, "constructs `mdm.Person`"; a function doing
     `person = db.get(Person, 1)` then `person.first_name = "x"` → red, "assigns
     .first_name"; a function holding the string `"UPDATE mdm.persons SET …"` → red,
     "raw SQL writes `schema mdm`"."""
-    _ratchet("FOREIGN_WRITES")
+    _hard("FOREIGN_WRITES")
 
 
 def test_no_write_after_a_commit():
@@ -2651,11 +2827,13 @@ def test_what_counts_as_a_write_after_a_commit(source, red):
 
 
 def test_no_commit_behind_another_domains_api():
-    """Ratchet on twelve (§B9.3 (c)). Proof (run, removed): a function in
+    """Hard since the last step of phase 4d — a ratchet until its list was empty.
+    Twelve stood on it (§B9.3 (c)). Proof (run, removed; again when it went hard):
+    a function in
     `cms/service.py` calling `add_to_circle` imported from `mdm.api` → red,
     "`mdm.api.add_to_circle` commits (domains/mdm/service.py:…) and is called from
     another domain (domains/cms/service.py:…)"."""
-    _ratchet("COMMIT_BEHIND_API")
+    _hard("COMMIT_BEHIND_API")
 
 
 _SINK = """
@@ -2737,8 +2915,40 @@ def test_only_the_ai_call_log_is_an_own_transaction_that_is_not_a_command():
     )
 
 
+#: The calls into another domain's command that are DECLARED (§B4.9): five, each
+#: with what it is and what takes it away. The one list this gate still reads —
+#: `rules_baseline.py`, the burn-down of the other gates, is gone (phase 4d). A
+#: sixth call is red; an entry that no longer occurs is red too, so the list can
+#: only shrink. Keys carry no line numbers.
+DECLARED_COMMAND_CALLS: dict[str, str] = {
+    "domains/activities/router.py::create_registration → payment.api.create_payment_record": (
+        "checkout: a registration makes its payment in the same request — leaves with "
+        "CR-31 (#1829), the checkout's own change request"
+    ),
+    "domains/membership/portal_service.py::renew_membership → payment.api.create_payment_record": (
+        "checkout: a renewal makes its payment in the same request — leaves with CR-31 (#1829)"
+    ),
+    "domains/membership/signup_service.py::register_family → payment.api.create_payment_record": (
+        "checkout: a sign-up makes its payment in the same request — leaves with CR-31 (#1829)"
+    ),
+    "domains/meetings/service.py::send_meeting_mail → mail.api.send_with_attachments": (
+        "the meeting mail: sent with its attachments while the board waits for the "
+        "outcome — declared, to leave with a change request of its own"
+    ),
+    "domains/newsletter/service.py::subscribe_public → mail.api.send_newsletter_confirmation": (
+        "the newsletter's sign-up confirmation: sent in the request, so a full day "
+        "refuses the sign-up — declared and left as it is (the master CLI, 9 October 2026)"
+    ),
+}
+
+
 def test_events_not_calls():
-    """Ratchet (§B4.9), hard for a new package. Proof (run, removed), additive, both
+    """Ratchet on the five declared calls (§B4.9), hard for everything else. Proofs
+    of the two halves on the declared set (run, restored, when the set moved here):
+    a declared entry removed from the set → red, as a new violation; an entry
+    added for a call that does not exist → red, "no longer occur".
+
+    Proof (run, removed), additive, both
     halves at once: in `cms/api.py` a `probe_write(db)` that commits through a helper
     in `cms/service.py`, and a `probe_read(db)` that only queries; both called from
     `forms/service.py` → exactly one new violation, "`forms/service.py` … calls
@@ -2758,7 +2968,25 @@ def test_events_not_calls():
       handlers.py` → green; the same with a second function in `service.py` that
       names it → red; the same with nothing naming it → red.
     """
-    _ratchet("COMMAND_CALLS")
+    _ratchet(
+        "COMMAND_CALLS",
+        DECLARED_COMMAND_CALLS,
+        where="test_rules_gate.DECLARED_COMMAND_CALLS",
+    )
+
+
+def test_every_declared_command_call_says_what_it_is_and_what_removes_it():
+    """A declared call is no exemption without a reason: each entry says which
+    coupling it is and what takes it away, or that it is left on purpose and by
+    whom. How many there are is the set's own to say: the ratchet holds both
+    halves, so the set shrinks with one edit."""
+    assert DECLARED_COMMAND_CALLS, "the declared set is empty — then this test and the set go"
+    bad = {
+        key: reason
+        for key, reason in DECLARED_COMMAND_CALLS.items()
+        if not re.search(r" — (leaves with CR-\d+ \(#\d+\)|declared)", reason)
+    }
+    assert not bad, bad
 
 
 @pytest.mark.parametrize(
@@ -2818,7 +3046,9 @@ def test_the_walk_sees_a_write_through_a_collection_or_a_flush():
 
 
 def test_no_new_rule_in_a_router():
-    """Ratchet with a reason per entry (§B9.3). Proof (run, removed), additive, both
+    """Hard since the last step of phase 4d — a ratchet until its list was empty.
+    While it had a list, each entry carried its reason (§B9.3). Proof (run, removed;
+    again when it went hard), additive, both
     halves at once: a function in `cms/admin_ui.py` with `if page is None: raise
     HTTPException(status_code=404)` and `if page.slug == "home": raise
     HTTPException(status_code=400, …)` → exactly one new violation, the 400 on
@@ -2827,7 +3057,7 @@ def test_no_new_rule_in_a_router():
     CR-13 phase 4c (#1251): a check of the transport is the doorman's too, by three
     shapes (`transport_shape`). Their proofs are tests of their own below — each
     shape, and beside it the offence that must stay red."""
-    _ratchet("RULE_IN_ROUTER")
+    _hard("RULE_IN_ROUTER")
 
 
 def _shape_of(source: str) -> str | None:
@@ -2993,17 +3223,6 @@ def test_proof_a_deadline_of_the_domain_stays_a_rule(condition):
     )
 
 
-def test_every_rule_in_a_router_carries_its_reason():
-    """The change request's condition for this baseline: each entry says whether it
-    is a rule on its way to the entity (and in which phase) or the doorman's own."""
-    bad = {
-        key: reason
-        for key, reason in baseline.RULE_IN_ROUTER.items()
-        if not re.match(r"(rule: .+ — phase [1-4]|door: .+)$", reason)
-    }
-    assert not bad, bad
-
-
 def test_every_aggregate_is_mapped_and_defines_its_own_check():
     """Hard (§B9.3 (a)). `aggregate()` already refuses a class without `check`; this
     also refuses one that only inherits it, or is not mapped — a registration the
@@ -3024,9 +3243,11 @@ def test_every_aggregate_is_mapped_and_defines_its_own_check():
 
 
 def test_no_new_write_outside_a_service():
-    """Ratchet (§B9.3 (b)). Proof (run, removed): a function in `cms/admin_ui.py` doing
+    """Hard since the last step of phase 4d — a ratchet until its list was empty.
+    (§B9.3 (b)). Proof (run, removed; again when it went hard): a function in
+    `cms/admin_ui.py` doing
     `db.add(CmsPage(title="x"))` → red, "constructs `cms.CmsPage` outside a service"."""
-    _ratchet("WRITE_OUTSIDE_SERVICE")
+    _hard("WRITE_OUTSIDE_SERVICE")
 
 
 def test_no_new_write_past_the_orm():

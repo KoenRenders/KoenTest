@@ -576,15 +576,18 @@ def test_antwoorden_gaan_naar_de_vereniging_of_naar_mezelf(db_session, mailbox):
 # ── 10. The test mail ────────────────────────────────────────────────────────
 
 
-def test_de_testmail_gaat_alleen_naar_mezelf(db_session, mailbox):
+def test_de_testmail_is_de_niet_ledenversie_en_verstuurt_zelf_niets(db_session, mailbox):
+    """`render_test` is a read (#1251): it renders and sends nothing. That the mail
+    goes to the signed-in admin only is the door's — `test_nieuwsbrief_routes.py`
+    and `test_newsletter_test_mail_unchanged_1251.py` hold it."""
     _subscriber(db_session, "a@example.org")
     letter = _letter(db_session, audience=Audience.BOTH)
 
-    nb.send_test(db_session, letter, to_email="s@example.org", base_url=BASE)
+    rendered = nb.render_test(db_session, letter, base_url=BASE)
 
-    assert mailbox.addresses == ["s@example.org"]
-    assert mailbox.sent[0]["subject"].startswith("[TEST]")
-    assert "Uitschrijven" in mailbox.sent[0]["body"], "toont de niet-ledenversie"
+    assert mailbox.addresses == []
+    assert rendered.subject.startswith("[TEST]")
+    assert "Uitschrijven" in rendered.body_html, "toont de niet-ledenversie"
     assert letter.status == LetterStatus.DRAFT
     assert db_session.query(Delivery).count() == 0
 
@@ -625,13 +628,12 @@ def test_elke_plaatshouder_telt(placeholder):
     assert nb.unfilled_placeholders("<div>Met dank aan iedereen [x].</div>") == []
 
 
-def test_de_testmail_mag_met_een_plaatshouder(db_session, mailbox):
+def test_de_testmail_mag_met_een_plaatshouder(db_session):
     letter = _letter(db_session, audience=Audience.MEMBERS, body=VERGETEN)
 
-    nb.send_test(db_session, letter, to_email="s@example.org", base_url=BASE)
+    rendered = nb.render_test(db_session, letter, base_url=BASE)
 
-    assert mailbox.addresses == ["s@example.org"]
-    assert "[e-mailadres]" in mailbox.sent[0]["body"]
+    assert "[e-mailadres]" in rendered.body_html
 
 
 # ── Sent letters stay as they went out ───────────────────────────────────────
@@ -1049,12 +1051,12 @@ def test_de_voorbeeldtekst_staat_in_de_mail_en_valt_terug_op_de_eerste_zin(db_se
     )
 
 
-def test_de_mail_draagt_ook_een_tekstversie(db_session, mailbox):
+def test_de_mail_draagt_ook_een_tekstversie(db_session):
     """A mail announcing itself as multipart/alternative with only an HTML part
     is a blank page in a reader that strips HTML.
 
-    Broken on purpose: `body_text` not passed in `send_test` → the mail leaves
-    without its text part and this test fails.
+    Broken on purpose: `body_text` left empty in `render_test` → this test fails;
+    not passed on by the door → the recording of #1251 fails.
     """
     vandaag = date.today()
     activity = _dated_activity(db_session, "Rumproefavond", vandaag + timedelta(days=10))
@@ -1065,9 +1067,7 @@ def test_de_mail_draagt_ook_een_tekstversie(db_session, mailbox):
         body=f"<div>Beste,</div><div>{nb.activity_card_html(facts[activity.id])}</div>",
     )
 
-    nb.send_test(db_session, letter, to_email="s@example.org", base_url=BASE)
-
-    tekst = mailbox.sent[0]["body_text"]
+    tekst = nb.render_test(db_session, letter, base_url=BASE).body_text
     assert "Rumproefavond" in tekst
     assert "<div" not in tekst and "&nbsp;" not in tekst
     # Links as the letter of Raak nationaal writes them: the text, then the URL.

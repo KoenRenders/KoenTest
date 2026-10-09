@@ -840,3 +840,54 @@ def test_new_every_refusal_comes_back_at_once_and_nothing_is_written(db_session)
     assert db_session.get(Person, world["Cas"].id).first_name == "Cas", (
         "the good row is not written either"
     )
+
+
+# ── #1853: an e-mail row is an address ───────────────────────────────────────
+
+
+def _snapshot(db, world) -> list[tuple]:
+    db.expire_all()
+    return sorted(
+        (c.person_id, c.contact_type_code, c.value, c.is_primary)
+        for c in db.query(ContactDetail).filter(
+            ContactDetail.person_id.in_([world["An"].id, world["Bert"].id])
+        )
+    )
+
+
+def test_a_new_email_row_that_is_no_address_is_refused_at_its_own_field(db_session):
+    """The rule of the contact detail (#1853), asked early so the refusal has a
+    place the screen can mark: the row's own field. Nothing of the save is
+    written — also not the good row beside it."""
+    world = _household(db_session)
+    before = _snapshot(db_session, world)
+    payload = _as_is(db_session, world["household"])
+    _row(payload, world["An"]).emails += [
+        EmailRow("n1", "an zonder adres"),
+        EmailRow("n2", "an.goed@example.com"),
+    ]
+
+    assert _places(db_session, world, payload) == {"e.n1.value": "Vul een geldig e-mailadres in."}
+    assert _snapshot(db_session, world) == before
+
+
+def test_an_existing_email_row_changed_into_no_address_is_refused_at_its_field(db_session):
+    world = _household(db_session)
+    before = _snapshot(db_session, world)
+    payload = _as_is(db_session, world["household"])
+    stored = next(e for e in _row(payload, world["An"]).emails if e.key.isdigit())
+    stored.value = "an@"
+
+    assert _places(db_session, world, payload) == {
+        f"e.{stored.key}.value": "Vul een geldig e-mailadres in."
+    }
+    assert _snapshot(db_session, world) == before
+
+
+def test_two_rows_that_are_no_address_are_each_named(db_session):
+    world = _household(db_session)
+    payload = _as_is(db_session, world["household"])
+    _row(payload, world["An"]).emails.append(EmailRow("n1", "geen"))
+    _row(payload, world["Bert"]).emails.append(EmailRow("n2", "ook geen"))
+
+    assert set(_places(db_session, world, payload)) == {"e.n1.value", "e.n2.value"}

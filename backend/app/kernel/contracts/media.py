@@ -10,8 +10,10 @@ caller's door does.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional
 
+from app.kernel.events import KernelEvent
 from app.kernel.ports import Port
 
 
@@ -94,3 +96,21 @@ class ReadTextAgain(Port):
     text is never read, raises `LookupError`."""
 
     asset_id: int
+
+
+@dataclass(frozen=True)
+class DocumentTextExtracted(KernelEvent):
+    """Media read the text of a stored document (CR-13 phase 4d, #1251).
+
+    Published by media's reading job, in the job's transaction, for a poster or
+    an info document — also when the reading found nothing (`text` is empty).
+    The chatbot subscribes and keeps the text in its own row for that document;
+    until phase 4d media wrote that row itself. Not optional: the job refuses to
+    publish when nothing subscribes.
+    """
+
+    asset_id: int
+    #: The asset's title, for a row that does not exist yet.
+    title: Optional[str]
+    text: str
+    extracted_at: datetime

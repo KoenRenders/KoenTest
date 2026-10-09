@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
+import app.domains.mail.api as mail
 from app.database import get_db
 from app.domains.auth.api import (
     SESSION_COOKIE,
@@ -522,30 +523,20 @@ def _compose_view(
     choices_error: Optional[str] = None,
 ) -> NewsletterComposeView:
     counts = nb.audience_counts(db)
-    # (code, label, count, hint): the count is on the button, the hint in the
-    # tooltip — the choice is one line high (Koen, 17 September 2026). The
-    # value is the CODE, because it goes into the form as the radio value; the
-    # word comes from the label table and so does not appear twice (CR-12
-    # phase 3).
+    # Who each audience is, in words: what the send screen says of "both" names
+    # the two lists and what they share, so it is said here once for all three
+    # choices — one function, one wording (#1834). Without the membership module
+    # it names the subscribers only (CR-19, #1477).
+    lines, overlap, _send_label, _count = _audience_said(db, nb.Audience.BOTH)
+    # (code, label, count): the count is on the button (Koen, 17 September 2026).
+    # The value is the CODE, because it goes into the form as the radio value; the
+    # word comes from the label table and so does not appear twice (CR-12 phase 3).
     options = [
-        (audience.value, code_label(nb.AUDIENCE.name, audience, db=db), count, hint)
-        for audience, count, hint in (
-            (
-                nb.Audience.MEMBERS,
-                str(counts.members),
-                _("Iedereen met een adres in een gezin met lidmaatschap %(j)s")
-                % {"j": datetime.now().year},
-            ),
-            (
-                nb.Audience.NON_MEMBERS,
-                str(counts.non_members),
-                _("Bevestigde abonnees; elke mail heeft een uitschrijflink"),
-            ),
-            (
-                nb.Audience.BOTH,
-                str(counts.both),
-                _("Samengevoegd; %(d)s adressen stonden op beide lijsten") % {"d": counts.overlap},
-            ),
+        (audience.value, code_label(nb.AUDIENCE.name, audience, db=db), count)
+        for audience, count in (
+            (nb.Audience.MEMBERS, str(counts.members)),
+            (nb.Audience.NON_MEMBERS, str(counts.non_members)),
+            (nb.Audience.BOTH, str(counts.both)),
         )
     ]
     # CR-19 (#1477): without the membership module there are no members, so the
@@ -555,18 +546,13 @@ def _compose_view(
     from app.kernel.modules import ModuleCode
 
     if not module_enabled(ModuleCode.MEMBERSHIP):
-        options = [
-            (
-                nb.Audience.BOTH.value,
-                _("Iedereen"),
-                str(counts.both),
-                _("Bevestigde abonnees; elke mail heeft een uitschrijflink"),
-            )
-        ]
+        options = [(nb.Audience.BOTH.value, _("Iedereen"), str(counts.both))]
     return NewsletterComposeView(
         letter=letter,
         counts=counts,
         audience_options=options,
+        audience_lines=lines,
+        audience_overlap=overlap,
         audience=code_of(letter.audience) or "",
         saved_at=_moment(letter.updated_at),
         raakje_enabled=_raakje_enabled(db),
@@ -907,13 +893,21 @@ def newsletter_test_mail(
 ):
     letter = _letter_or_404(db, newsletter_id)
     try:
-        outcome = nb.send_test(db, letter, to_email=email, base_url=_base_url(db))
+        rendered = nb.render_test(db, letter, base_url=_base_url(db))
     except nb.NewsletterError as exc:
         return templates.TemplateResponse(
             request,
             "_nb_bewaard.html",
             _compose_view(request, db, letter, error=str(exc)).as_context(),
         )
+    # The door's one command (§3.2.1): the newsletter rendered, mail sends.
+    outcome = mail.send_campaign_mail(
+        email,
+        rendered.subject,
+        rendered.body_html,
+        email_type="newsletter",
+        body_text=rendered.body_text,
+    )
     notice = (
         _("Testmail verstuurd naar %(adres)s.") % {"adres": email}
         if outcome in ("sent", "logged")

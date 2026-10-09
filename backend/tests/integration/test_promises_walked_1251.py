@@ -106,8 +106,10 @@ def test_the_form_builder_refuses_a_question_without_a_label(client, db_session)
     route `POST /admin/formulieren/{form_id}/velden` (a new question; the same
     form posts an existing one to `…/velden/{field_id}`, chosen by a Jinja `if`,
     which is why the gate cannot walk it). Posts `"label"` empty. The server
-    answers a bare 422 and adds no question; in a browser the `required` on the
-    label stops it, and past that check the builder shows its general refusal."""
+    refuses (a 422) and adds no question; in a browser the `required` on the
+    label stops it. Since #1831 the refusal is the kit's, with the service's
+    sentence, for the form's own message line — what the screen shows is held in
+    `forms/tests/test_builder_labels_say_why_1831.py`."""
     headers = _board(client)
     form_id = forms_door.create_form(client, {"title": "Wandeling", "sections": []}).json()["id"]
     answer = client.post(
@@ -125,9 +127,9 @@ def test_the_form_builder_refuses_an_option_without_a_label(client, db_session):
     `forms/_fb_builder.html`), route
     `POST /admin/formulieren/{form_id}/velden/{field_id}/opties` (a new option;
     an existing one posts to `…/opties/{option_id}`, chosen by a Jinja `if`).
-    Posts `"label"` empty. The server answers a bare 422 and adds no option; in a
-    browser the `required` on the label stops it, and past that check the builder
-    shows its general refusal."""
+    Posts `"label"` empty. The server refuses (a 422) and adds no option; in a
+    browser the `required` on the label stops it. Since #1831 the refusal is the
+    kit's, with the service's sentence, for the row's own message line."""
     headers = _board(client)
     form_id = forms_door.create_form(client, {"title": "Wandeling", "sections": []}).json()["id"]
     made = client.post(

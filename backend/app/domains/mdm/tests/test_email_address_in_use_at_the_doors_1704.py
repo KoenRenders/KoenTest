@@ -23,6 +23,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import ContactDetail, Member, MemberPerson, Person, new_contact_detail
 from app.domains.mdm.import_service import upsert_families
+from tests._refusal import message_line, said
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -68,7 +69,9 @@ def _holders(db) -> int:
 
 
 def test_the_boards_person_screen_says_why(client, db_session, two_households):
-    """Red without the handler: 500, "Interne serverfout"."""
+    """Red without the handler: 500, "Interne serverfout". Since #1853 this door
+    answers into the line of the person's card (the kit's refusal) — the JSON it
+    answered before was a refusal the screen showed as its general message."""
     _holder, other, household = two_households
     answer = client.post(
         f"/admin/leden/gezin/{household.id}/persoon/{other.id}/email",
@@ -76,7 +79,8 @@ def test_the_boards_person_screen_says_why(client, db_session, two_households):
         headers=_admin(client),
     )
     assert answer.status_code == 422, answer.text[:200]
-    assert answer.json()["detail"] == REASON
+    assert said(answer) == [REASON]
+    assert message_line(answer) == f"#persoon-{other.id}-melding"
     assert _holders(db_session) == 1, "the address got a second holder after all"
 
 

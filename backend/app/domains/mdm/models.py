@@ -10,12 +10,23 @@ keten plat (O(1) doordat merges platgeslagen worden bijgehouden).
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, String
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    text,
+)
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.database import Base
-from app.kernel.codes import CodeEnum, EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn, code_of
 from app.kernel.rules import aggregate, exemption
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
@@ -46,6 +57,28 @@ class AddressNotWaiting(MasterDataError):
     """A code for an e-mail address that does not wait for one any more: the
     row was removed, or its text was changed since the code was sent (CR-22
     R15, #1711)."""
+
+
+class EmailAddressInvalid(MasterDataError):
+    """A contact detail of the e-mail kind whose text is no address (#1853): a
+    name without an @, a typing slip. It was stored, used as a recipient, and the
+    mail never left without anybody noticing."""
+
+
+def require_email_address(value: Optional[str]) -> None:
+    """The rule of #1853, asked: this text is an e-mail address. Judged by the
+    validator the code base already uses for one (the one behind pydantic's
+    `EmailStr`), without looking the domain up and without rewriting what was
+    typed. `ContactDetail.check()` holds it at every flush; a door that wants to
+    refuse before it changes anything asks it here — the same rule, asked early."""
+    from email_validator import EmailNotValidError, validate_email
+
+    from app.i18n import _
+
+    try:
+        validate_email(value or "", check_deliverability=False)
+    except EmailNotValidError as refused:
+        raise EmailAddressInvalid(_("Vul een geldig e-mailadres in.")) from refused
 
 
 class PersonDetailsMissing(MasterDataError):
@@ -292,7 +325,20 @@ class MemberPerson(TenantMixin, SoftDeleteMixin, Base):
     """
 
     __tablename__ = "member_persons"
-    __table_args__ = {"schema": "mdm"}
+    __table_args__ = (
+        # #1832: the last net under `require_one_main_member`. Living links only —
+        # a softly deleted link does not stand in the way of a new main member.
+        # Checked when the transaction ends: the member import passes through
+        # two main members on its way to a right end state.
+        ExcludeConstraint(
+            ("member_id", "="),
+            where=text("relation_type = 'HOOFDLID' AND deleted_at IS NULL"),
+            name="ex_member_persons_one_main_member",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        {"schema": "mdm"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     member_id = Column(Integer, ForeignKey("mdm.members.id"), nullable=False)
@@ -510,6 +556,7 @@ class Address(TenantMixin, SoftDeleteMixin, Base):
     postal_code = relationship("PostalCode")
 
 
+@aggregate
 class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
     """Een contactgegeven van een persoon OF van een organisatie (#945).
 
@@ -587,6 +634,17 @@ class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
     confirmed_at = Column(DateTime(timezone=True).evaluates_none(), default=_now_utc, nullable=True)
 
     person = relationship("Person", back_populates="contact_details")
+
+    def check(self) -> None:
+        """A contact detail of the e-mail kind holds an e-mail address (#1853) — of a
+        person and of an organisation alike, whatever door writes it. Judged when
+        the row is new or its text or kind changed, so a row that is only
+        confirmed, made primary or softly deleted is not judged again."""
+        if code_of(self.contact_type_code) != "EMAIL":
+            return
+        if not (sa_inspect(self).pending or _changed(self, "value", "contact_type_code")):
+            return
+        require_email_address(self.value)
 
 
 class PostalCode(Base):

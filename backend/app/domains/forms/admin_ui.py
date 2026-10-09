@@ -34,7 +34,7 @@ from app.domains.forms.api import (
 from app.domains.forms.screenfields import FieldKind, screen_fields
 from app.i18n import _
 from app.kernel.codes import code_labels, code_of, register_tones, tone
-from app.ui import admin_nav, is_fragment_request, templates
+from app.ui import admin_nav, is_fragment_request, says_why_in, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -448,12 +448,15 @@ def sectie_verwijderen(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#fb-veld-nieuw-{section_id}-melding")
 def veld_toevoegen(
     form_id: int,
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-    label: str = Form(...),
+    # #1831: not required here — an empty label is refused by the service's own
+    # sentence, which `says_why_in` sends to this form's message line.
+    label: str = Form(""),
     field_type: str = Form("text"),
     section_id: str = Form(""),
     help_text: str = Form(""),
@@ -506,7 +509,9 @@ def veld_bewerken(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-    label: str = Form(...),
+    # #1831: not required here — an empty label is refused by the service's own
+    # sentence, which `says_why_in` sends to this form's message line.
+    label: str = Form(""),
     field_type: str = Form(""),
     help_text: str = Form(""),
     required: str = Form(""),
@@ -608,13 +613,16 @@ def veld_verwijderen(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#fb-optie-nieuw-{field_id}-melding")
 def optie_toevoegen(
     form_id: int,
     field_id: int,
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-    label: str = Form(...),
+    # #1831: not required here — an empty label is refused by the service's own
+    # sentence, which `says_why_in` sends to this form's message line.
+    label: str = Form(""),
     is_other: str = Form(""),
 ):
     from app.domains.forms.api import add_option
@@ -629,13 +637,16 @@ def optie_toevoegen(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#fb-optie-{option_id}-melding")
 def optie_bewerken(
     form_id: int,
     option_id: int,
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-    label: str = Form(...),
+    # #1831: not required here — an empty label is refused by the service's own
+    # sentence, which `says_why_in` sends to this form's message line.
+    label: str = Form(""),
     is_other: str = Form(""),
     bestemming: str = Form(""),
 ):

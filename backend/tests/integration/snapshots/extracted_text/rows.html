@@ -1,0 +1,8 @@
+first reading: reader called 1x — title='Affiche lente', extracted_text='Breng stevige schoenen mee.', text_override=None, text_addition=None, is_active=True, sort_order=0, extracted_at=set
+second run, not forced: reader called 1x — title='Affiche lente', extracted_text='Breng stevige schoenen mee.', text_override=None, text_addition=None, is_active=True, sort_order=0, extracted_at=set
+forced reading, with a manual override and addition: reader called 2x — title='Affiche lente', extracted_text='Verse OCR.', text_override='Handmatig gecorrigeerd.', text_addition='Honden welkom.', is_active=True, sort_order=0, extracted_at=set
+forced reading that finds no text: reader called 3x — title='Affiche lente', extracted_text=None, text_override='Handmatig gecorrigeerd.', text_addition='Honden welkom.', is_active=True, sort_order=0, extracted_at=set
+a run on a row without text, not forced: reader called 4x — title='Affiche lente', extracted_text='Nu wel tekst.', text_override='Handmatig gecorrigeerd.', text_addition='Honden welkom.', is_active=True, sort_order=0, extracted_at=set
+a row that existed without text, with its own title: reader called 5x — title='Eigen titel', extracted_text='Nu wel tekst.', text_override=None, text_addition='Los.', is_active=True, sort_order=0, extracted_at=set
+a kind whose text is never read: reader called 5x — no row
+an asset that is not there: reader called 5x

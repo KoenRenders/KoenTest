@@ -28,15 +28,27 @@ class NewsletterListView(ViewModel):
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class AudienceLine:
+    """One list a newsletter is sent to, as the send screen and the concept screen name it."""
+
+    head: str
+    sentence: str
+
+
 @dataclass(frozen=True, kw_only=True)
 class NewsletterComposeView(ViewModel):
     """`admin_nieuwsbrief.html` for a draft, with its fragments."""
 
     letter: Any
     counts: Any
-    #: `(code, label, count, hint)` — the code is the radio value, so the
+    #: `(code, label, count)` — the code is the radio value, so the
     #: template never renders an enum member into an attribute.
-    audience_options: list[tuple[str, str, str, str]]
+    audience_options: list[tuple[str, str, str]]
+    #: Who each audience is, in the send screen's words (#1834): the lists and
+    #: what they share, from the same function as that screen.
+    audience_lines: list[AudienceLine]
+    audience_overlap: str
     #: The letter's own audience as a code, to tick the right radio.
     audience: str
     saved_at: str
@@ -128,14 +140,6 @@ class NewsletterArchiveView(ViewModel):
     #: The words on that button: whom it sends to, with the number.
     resend_label: str = ""
     nav_items: list[dict[str, Any]] = field(default_factory=list)
-
-
-@dataclass(frozen=True)
-class AudienceLine:
-    """One list a newsletter is sent to, as the send screen names it."""
-
-    head: str
-    sentence: str
 
 
 @dataclass(frozen=True, kw_only=True)
