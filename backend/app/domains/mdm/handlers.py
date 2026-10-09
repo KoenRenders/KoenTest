@@ -37,7 +37,7 @@ def make_account_when_code_entered(event: AccountCodeEntered, db: Session) -> No
     form was sent (`EmailAddressInUse`); the refusal reaches the publisher,
     which spends the code and makes nobody.
     """
-    from app.domains.audit.api import snapshot_contact_detail, snapshot_person
+    from app.domains.mdm.history import snapshot_contact_detail, snapshot_person
 
     person, details = create_account_person(
         db,
@@ -74,7 +74,7 @@ def confirm_address_when_code_entered(event: AddressCodeEntered, db: Session) ->
 
     The history rows are written here: `confirm_email` says which row counts
     now and which one it replaced, this subscriber records both."""
-    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.history import snapshot_contact_detail
 
     changed = confirm_email(
         db, event.contact_id, event.email, event.replaces_id, make_primary=event.make_primary

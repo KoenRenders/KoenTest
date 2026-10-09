@@ -394,7 +394,7 @@ def _add_activity(
     (#1649): everything the form carries goes into the one row of history that
     says "created". Without a `status` the model's own default holds (published).
     """
-    from app.domains.audit.api import snapshot_activity, snapshot_activity_date
+    from app.domains.activities.history import snapshot_activity, snapshot_activity_date
 
     # #884: bij het AANMAKEN een voorstel uit de naam, tenzij er één meegegeven is.
     # Botst het voorstel, dan blijft de slug leeg in plaats van te falen: de activiteit
@@ -890,7 +890,7 @@ def apply_activity_update(
 ) -> None:
     """Write `velden` on the activity with its history, without committing (#1559:
     shared by `update_activity` and the save of the whole fiche)."""
-    from app.domains.audit.api import snapshot_activity
+    from app.domains.activities.history import snapshot_activity
 
     activity_id = activity.id
     # #884: een slug volgt de naam NIET. Hij verandert alleen wanneer hij expliciet in
@@ -919,7 +919,7 @@ def delete_activity(db: Session, activity_id: int, *, actor: str | None = None) 
     Betalingen NIET: die zijn een financieel feit en blijven bestaan — dat is
     dezelfde regel die #667 met een gate vastlegde.
     """
-    from app.domains.audit.api import (
+    from app.domains.activities.history import (
         snapshot_activity,
         snapshot_activity_date,
         snapshot_component,
@@ -981,7 +981,7 @@ def insert_date(
 ) -> ActivityDate:
     """Add a date row with its history, without committing (#1559: for the save
     of the whole fiche). The coherence rule of the row fires in the flush."""
-    from app.domains.audit.api import snapshot_activity_date
+    from app.domains.activities.history import snapshot_activity_date
 
     ad = ActivityDate(
         activity_id=activity_id,
@@ -1002,7 +1002,7 @@ def apply_date_update(
     db: Session, ad: ActivityDate, velden: dict, *, actor: str | None = None
 ) -> None:
     """Write `velden` on a date row with its history, without committing (#1559)."""
-    from app.domains.audit.api import snapshot_activity_date
+    from app.domains.activities.history import snapshot_activity_date
 
     for veld, waarde in velden.items():
         setattr(ad, veld, waarde)
@@ -1013,7 +1013,7 @@ def apply_date_update(
 
 def remove_date(db: Session, ad: ActivityDate, *, actor: str | None = None) -> None:
     """Soft-delete a date row with its history, without committing (#1559)."""
-    from app.domains.audit.api import snapshot_activity_date
+    from app.domains.activities.history import snapshot_activity_date
     from app.soft_delete import soft_delete
 
     snapshot_activity_date(
@@ -1066,7 +1066,7 @@ def _insert_component(
 ) -> None:
     """Add a component row with its history, without committing (#1397: shared
     by the save of the whole fiche and `copy_activity`)."""
-    from app.domains.audit.api import snapshot_component
+    from app.domains.activities.history import snapshot_component
 
     db.add(component)
     db.flush()
@@ -1080,7 +1080,7 @@ def apply_component_update(
 ) -> None:
     """Write `velden` on a component with its history, without committing (#1559).
     The question form is checked before anything is written."""
-    from app.domains.audit.api import snapshot_component
+    from app.domains.activities.history import snapshot_component
 
     if "form_id" in velden:
         _check_questions(db, component, velden["form_id"])
@@ -1175,7 +1175,7 @@ def remove_component(
     what keeps one click and a save from taking a component with thirty
     registrations along. In the service, so every entrance refuses.
     """
-    from app.domains.audit.api import snapshot_component, snapshot_product
+    from app.domains.activities.history import snapshot_component, snapshot_product
     from app.i18n import _ as vertaal
     from app.soft_delete import soft_delete
 
@@ -1252,7 +1252,7 @@ def new_product(component_id: int, gegevens: Any) -> ActivityProduct:
 def _insert_product(db: Session, product: Any, *, actor: str | None, action: str) -> None:
     """Add a product row with its history, without committing (#1397: shared by
     the save of the whole fiche and `copy_activity`)."""
-    from app.domains.audit.api import snapshot_product
+    from app.domains.activities.history import snapshot_product
 
     db.add(product)
     db.flush()
@@ -1265,7 +1265,7 @@ def apply_product_update(
     db: Session, product: ActivityProduct, velden: dict, *, actor: str | None = None
 ) -> None:
     """Write `velden` on a product with its history, without committing (#1559)."""
-    from app.domains.audit.api import snapshot_product
+    from app.domains.activities.history import snapshot_product
 
     for veld, waarde in velden.items():
         setattr(product, veld, waarde)
@@ -1290,8 +1290,8 @@ def remove_product(db: Session, product: ActivityProduct, *, actor: str | None =
     products. `is_active` exists for exactly that case — off, the product leaves
     the public form and the board keeps it.
     """
+    from app.domains.activities.history import snapshot_product
     from app.domains.activities.models import RegistrationItem
-    from app.domains.audit.api import snapshot_product
     from app.i18n import _ as vertaal
     from app.soft_delete import soft_delete
 
@@ -1418,7 +1418,7 @@ def update_order_line(
     actor: str | None = None,
 ) -> Registration | None:
     """Wijzig een bestelregel. None als activiteit/inschrijving/regel niet bestaat."""
-    from app.domains.audit.api import snapshot_registration_item
+    from app.domains.activities.history import snapshot_registration_item
     from app.i18n import _ as vertaal
 
     reg = _registratie(db, activity_id, registration_id)
@@ -1466,8 +1466,8 @@ def set_order_quantities(
     None when the registration is not found; a product that is not the
     component's is refused (`controleer_bestelproduct`), before anything changes.
     """
+    from app.domains.activities.history import snapshot_registration_item
     from app.domains.activities.models import RegistrationItem
-    from app.domains.audit.api import snapshot_registration_item
     from app.i18n import _ as vertaal
     from app.soft_delete import soft_delete
 
@@ -1643,12 +1643,12 @@ def register(
     flushes. It does not commit: the door does, once, with the payment record and
     everything else of the request (§B4.1).
     """
+    from app.domains.activities.history import snapshot_registration_item
     from app.domains.activities.models import (
         RegistrationItem,
         RegistrationLimitReached,
         RegistrationRefused,
     )
-    from app.domains.audit.api import snapshot_registration_item
     from app.i18n import _ as vertaal
     from app.kernel.tenant_config import (
         tenant_max_item_quantity,
@@ -2209,7 +2209,7 @@ def delete_registration(
     terugbetaalverplichting en een onbetaalde charge verdwijnt (#185/#313) — through
     `OrderChanged` since CR-13 phase 1, in the one transaction.
     """
-    from app.domains.audit.api import snapshot_registration_item
+    from app.domains.activities.history import snapshot_registration_item
     from app.soft_delete import soft_delete
 
     reg = _registratie(db, activity_id, registration_id)

@@ -11,10 +11,7 @@ from sqlalchemy.orm import Session
 
 # #1110: het schrijven van een gezin staat in household_service, dus de snapshots
 # daarvan ook. Wat hier rest is het lidmaatschap dat deze router zelf bijwerkt.
-from app.domains.audit.api import (  # noqa: F401
-    PUBLIEKE_ACTOR,
-    snapshot_membership,
-)
+from app.domains.audit.api import PUBLIEKE_ACTOR  # noqa: F401
 from app.domains.mdm.api import (
     CONTACT,
     ContactDetail,

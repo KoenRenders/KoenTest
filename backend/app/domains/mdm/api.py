@@ -27,6 +27,13 @@ from app.domains.mdm.codes import (  # noqa: F401,E402
     RELATION_TYPE,
     TENANT_KIND,
 )
+from app.domains.mdm.history import (
+    snapshot_address,
+    snapshot_contact_detail,
+    snapshot_member,
+    snapshot_member_person,
+    snapshot_person,
+)
 
 # The family portal's mutations (CR-13 phase 3): master data changed by its owner.
 from app.domains.mdm.household_doors import household_refusals_as_http  # noqa: F401
@@ -206,6 +213,11 @@ def import_commit(db, token: str, admin=None):
 
 
 __all__ = [
+    "snapshot_address",
+    "snapshot_contact_detail",
+    "snapshot_member",
+    "snapshot_member_person",
+    "snapshot_person",
     "LANGUAGE",
     "family_registrations",
     "gezin_tabs",

@@ -508,7 +508,7 @@ def activate_after_payment(
     second history row. A membership without a period gets the one that contains
     today. Moved here from `payment` in CR-13 phase 2 — the owner writes its rows.
     """
-    from app.domains.audit.api import snapshot_membership
+    from app.domains.membership.history import snapshot_membership
     from app.domains.membership.models import Membership
     from app.domains.payment.api import membership_valid_period
 

@@ -2,6 +2,6 @@
 
 Every history table (`PersonHistory`, `MembershipHistory`, `PaymentRecordHistory`,
 …) is its domain's model, next to the table it records, in that domain's schema.
-Audit writes rows into them through its snapshot helpers (`service.py`) and reads
-them for the change screens (`changes.py`). A table audit owns goes here.
+Each owner writes its own rows (`<domain>/history.py`); audit reads them for the
+change screens (`changes.py`). A table audit owns goes here.
 """

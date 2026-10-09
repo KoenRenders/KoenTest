@@ -119,7 +119,7 @@ def apply_person_fields(
     """Write these person fields with their history, without committing (#1590:
     the save of the whole household and of one's own details call it).
     Returns whether anything changed."""
-    from app.domains.audit.api import snapshot_person
+    from app.domains.mdm.history import snapshot_person
 
     # #681: judge the outcome — the portal does not always send every field — and
     # judge it before applying anything: a rollback after the change would also
@@ -217,7 +217,7 @@ def apply_address(db: Session, target: Person, address_data: dict, *, actor: Opt
 
     Refuses a postal code that is not in the table.
     """
-    from app.domains.audit.api import snapshot_address
+    from app.domains.mdm.history import snapshot_address
     from app.domains.mdm.models import Address
 
     address = target.address
@@ -255,7 +255,7 @@ def apply_address(db: Session, target: Person, address_data: dict, *, actor: Opt
 def _upsert_contact(
     db: Session, target: Person, type_code: str, value: Optional[str], *, actor: Optional[str]
 ) -> None:
-    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.history import snapshot_contact_detail
 
     existing = next((c for c in target.contact_details if c.contact_type_code == type_code), None)
     if value:
@@ -361,7 +361,7 @@ def insert_household_person(
     (#1590): a partner while the household has none, otherwise a child, or what
     the caller chose of those two (`relation_type`, #1603). No address: that
     belongs to the main member only (#125)."""
-    from app.domains.audit.api import (
+    from app.domains.mdm.history import (
         snapshot_contact_detail,
         snapshot_member_person,
         snapshot_person,
@@ -433,7 +433,7 @@ def detach_household_person(
     `by` is the member who acts; the board has no person and passes None
     (CR-22 S7, #1712) — then only the refusal of oneself falls away. `source`
     is what the history row says: the member's own act, or the board's."""
-    from app.domains.audit.api import snapshot_member_person
+    from app.domains.mdm.history import snapshot_member_person
     from app.i18n import _
 
     if by is not None and target.id == by.id:

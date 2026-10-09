@@ -280,14 +280,14 @@ def create_family_with_members(
     the gender a member needs, his place in the household and its address. The
     contact details he already holds stay; what the form adds is added.
     """
-    from app.domains.audit.api import (
+    from app.domains.mdm.api import (
         snapshot_address,
         snapshot_contact_detail,
         snapshot_member,
         snapshot_member_person,
-        snapshot_membership,
         snapshot_person,
     )
+    from app.domains.membership.history import snapshot_membership
     from app.domains.payment.api import membership_valid_period
 
     # Eén actie voor de hele handeling: er is één gezin geregistreerd. WIE het
@@ -624,7 +624,7 @@ def create_membership_for_family(
     data: MembershipCreate,
     admin=None,
 ):
-    from app.domains.audit.api import snapshot_membership
+    from app.domains.membership.history import snapshot_membership
 
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
@@ -674,14 +674,14 @@ def create_membership_for_family(
 
 
 def delete_family(db: Session, family_id: int, admin=None):
-    from app.domains.audit.api import (
+    from app.domains.mdm.api import (
         snapshot_address,
         snapshot_contact_detail,
         snapshot_member,
         snapshot_member_person,
-        snapshot_membership,
         snapshot_person,
     )
+    from app.domains.membership.history import snapshot_membership
 
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
@@ -758,7 +758,7 @@ def delete_family(db: Session, family_id: int, admin=None):
 
 
 def update_person(db: Session, person_id: int, data: PersonUpdate, admin=None):
-    from app.domains.audit.api import snapshot_person
+    from app.domains.mdm.api import snapshot_person
 
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
@@ -866,7 +866,7 @@ def update_person_address(
     data: AddressUpdate,
     admin=None,
 ):
-    from app.domains.audit.api import snapshot_address
+    from app.domains.mdm.api import snapshot_address
 
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
@@ -1010,11 +1010,7 @@ def add_person_to_family(
     data: PersonAddToFamily,
     admin=None,
 ):
-    from app.domains.audit.api import (
-        snapshot_contact_detail,
-        snapshot_member_person,
-        snapshot_person,
-    )
+    from app.domains.mdm.api import snapshot_contact_detail, snapshot_member_person, snapshot_person
 
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
@@ -1076,7 +1072,7 @@ def add_person_to_family(
 
 
 def delete_membership(db: Session, membership_id: int, admin=None):
-    from app.domains.audit.api import snapshot_membership
+    from app.domains.membership.history import snapshot_membership
 
     membership = db.query(Membership).filter(Membership.id == membership_id).first()
     if not membership:
@@ -1100,7 +1096,7 @@ def assign_board_member(
     data: BoardMemberAssign,
     admin=None,
 ):
-    from app.domains.audit.api import snapshot_member
+    from app.domains.mdm.api import snapshot_member
 
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
