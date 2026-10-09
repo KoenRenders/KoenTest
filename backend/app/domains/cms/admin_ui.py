@@ -13,9 +13,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
+    Right,
     csrf_from_request,
-    require_admin_ui,
     require_csrf,
+    require_right,
 )
 from app.i18n import _
 from app.ui import admin_nav, filterparams, is_fragment_request, templates
@@ -154,7 +155,7 @@ def _record_response(
 def admin_paginas(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PAGE_VIEW)),
     q: str = "",
     status: str = "",
 ):
@@ -172,7 +173,9 @@ def admin_paginas(
 
 @router.get("/admin/paginas/nieuw", response_class=HTMLResponse)
 def pagina_nieuw(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PAGE_VIEW)),
 ):
     """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
     return templates.TemplateResponse(
@@ -190,7 +193,7 @@ def pagina_detail(
     page_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PAGE_VIEW)),
 ):
     """The page screen is a record page of the kit (snede 3, #1671): the
     header carries title and address, the actions are Voorbeeld, Publiceren
@@ -204,7 +207,7 @@ def pagina_detail(
 def pagina_aanmaken(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PAGE_MANAGE)),
     title: str = Form(""),
     slug: str = Form(""),
 ):
@@ -228,7 +231,7 @@ def pagina_bijwerken(
     page_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PAGE_MANAGE)),
     title: str = Form(""),
     slug: str = Form(""),
     document: str = Form(""),
@@ -364,7 +367,7 @@ def pagina_verplaatsen(
     richting: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PAGE_MANAGE)),
 ):
     """Eén plaats omhoog of omlaag (#745).
 
@@ -406,7 +409,7 @@ def pagina_verwijderen(
     page_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PAGE_MANAGE)),
 ):
     from app.domains.cms.api import delete_page
 
@@ -420,7 +423,7 @@ def pagina_voorbeeld(
     page_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PAGE_VIEW)),
 ):
     """Admin-voorbeeld van een pagina — óók een concept (ongepubliceerd), #554. De
     publieke /{slug}-route blijft enkel gepubliceerde pagina's tonen (404 op concept),

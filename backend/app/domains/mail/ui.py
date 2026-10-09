@@ -11,7 +11,13 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf
+from app.domains.auth.api import (
+    SESSION_COOKIE,
+    Right,
+    csrf_token_for,
+    require_csrf,
+    require_right,
+)
 from app.domains.mail.api import (
     EMAIL_LOG_SORT_KEYS,
     EMAIL_TYPE,
@@ -151,14 +157,18 @@ def _ctx(request: Request, db: Session) -> dict:
 
 @router.get("/admin/e-maillog", response_class=HTMLResponse)
 def email_log_page(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
     return templates.TemplateResponse(request, "email_log.html", _ctx(request, db))
 
 
 @router.get("/admin/e-maillog/lijst", response_class=HTMLResponse)
 def email_log_lijst(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
     """Fragment voor filterwissels (htmx)."""
     return templates.TemplateResponse(request, "_email_log_lijst.html", _ctx(request, db))
@@ -173,7 +183,7 @@ def email_log_verwijderen(
     log_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
 ):
     delete_email_log(db, log_id)
     # #760-absorptie (golf 3): elke mutatie bevestigt — fragment-antwoord, dus

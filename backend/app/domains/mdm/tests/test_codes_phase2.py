@@ -80,6 +80,8 @@ def _clean_label_cache():
 #: freshly migrated database on 26 September 2026. This is the "before" of the
 #: before/after that §B8.9 asks for; the "after" is the assertion below.
 ROLE_CODES_BEFORE_THE_MOVE = {"ADMIN", "FINANCE", "OPERATOR", "ACCOUNT_ADMIN", "MEMBER", "USER"}
+#: Added by CR-24 (#1722, §B4): master data and the three roles of the webshop.
+ROLE_CODES_OF_CR_24 = {"MASTERDATA", "PRICING", "SALES", "STOCK"}
 
 
 def test_the_set_of_role_codes_is_the_same_after_the_move(db_session):
@@ -89,15 +91,17 @@ def test_the_set_of_role_codes_is_the_same_after_the_move(db_session):
     existing assignment keeps a valid target and the enum keeps its member. A
     delete would have been the easy reading of "nobody carries them" and the
     wrong one.
+
+    CR-24 (#1722) added four roles since; nothing that was there has gone.
     """
     now = {r[0] for r in db_session.execute(text("SELECT code FROM auth.role_codes")).all()}
-    assert now == ROLE_CODES_BEFORE_THE_MOVE
-    assert {m.value for m in Role} == ROLE_CODES_BEFORE_THE_MOVE
+    assert now == ROLE_CODES_BEFORE_THE_MOVE | ROLE_CODES_OF_CR_24
+    assert {m.value for m in Role} == ROLE_CODES_BEFORE_THE_MOVE | ROLE_CODES_OF_CR_24
 
 
 def test_the_retired_roles_are_inactive_but_still_there(db_session):
     active = {code for code, _ in code_labels("role")}
-    assert active == {"ADMIN", "FINANCE", "OPERATOR", "ACCOUNT_ADMIN"}
+    assert active == {"ADMIN", "FINANCE", "OPERATOR", "ACCOUNT_ADMIN"} | ROLE_CODES_OF_CR_24
     # And their label stays readable, because an existing assignment has to render.
     assert code_label("role", "MEMBER", language="nl") == "Lid"
 

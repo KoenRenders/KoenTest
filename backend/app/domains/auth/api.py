@@ -10,7 +10,7 @@ bearer token: the session is the one identity (CR-13 phase 4b, #1251).
 
 # CR-12 phase 2: the role list belongs to this domain's public surface, so
 # that `workflow` reaches its FK target and its enum through one door.
-from app.domains.auth.codes import LOGIN_PURPOSE, ROLE  # noqa: F401
+from app.domains.auth.codes import LOGIN_PURPOSE, RIGHT, ROLE  # noqa: F401
 from app.domains.auth.login import (  # noqa: F401
     AccountRequest,
     AccountRequestInvalid,
@@ -31,9 +31,11 @@ from app.domains.auth.member_identity import (  # noqa: F401
 from app.domains.auth.models import (  # noqa: F401
     LoginPurpose,
     LoginToken,
+    Right,
     Role,
     RoleCode,
     RoleLabel,
+    RoleRight,
     User,
     UserRole,
 )
@@ -42,6 +44,8 @@ from app.domains.auth.service import (  # noqa: F401
     get_user_roles,
     has_login,
     landing_for,
+    may,
+    rights_of,
 )
 from app.domains.auth.session import (  # noqa: F401
     SESSION_COOKIE,
@@ -52,15 +56,14 @@ from app.domains.auth.session import (  # noqa: F401
     csrf_token_for,
     make_session_value,
     may_mutate_payments,
-    may_use_admin_assistant,
     may_view_payments,
     read_session_value,
     require_admin_ui,
     require_csrf,
     require_finance_mutation,
     require_finance_ui,
-    require_operator_ui,
-    require_platform_operator_ui,
+    require_platform_right,
+    require_right,
     require_tenant_workspace,
     session_cookie_secure,
     set_session_cookie,
@@ -88,6 +91,12 @@ __all__ = [
     "RoleCode",
     "RoleLabel",
     "ROLE",
+    "Right",
+    "RIGHT",
+    "RoleRight",
+    "rights_of",
+    "may",
+    "require_right",
     "User",
     "UserRole",
     "get_user_role_rows",
@@ -106,10 +115,8 @@ __all__ = [
     "may_mutate_payments",
     "require_finance_mutation",
     "may_view_payments",
-    "may_use_admin_assistant",
     "require_finance_ui",
-    "require_operator_ui",
-    "require_platform_operator_ui",
+    "require_platform_right",
     "require_tenant_workspace",
     "is_platform_workspace",
     "require_csrf",

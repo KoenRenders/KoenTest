@@ -5,8 +5,8 @@ tenant, the view "Zonder gezin" first, a search, and one action behind `⋯` —
 Verwijderen, with a confirmation that names the household when there is one.
 Nothing is edited here.
 
-The gate is today's `require_admin_ui` (ADMIN, OPERATOR); CR-24 replaces it by
-a right later. A shell router: persons are master data, with or without the
+The gate asks the rights of master data, `party.view` and `party.masterdata`
+(CR-24 §C2), like the other person screens. A shell router: persons are master data, with or without the
 membership module.
 """
 
@@ -22,10 +22,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
+    Right,
     address_says_nobody,
     csrf_from_request,
-    require_admin_ui,
     require_csrf,
+    require_right,
 )
 from app.domains.mdm.api import (
     PERSON_VIEWS,
@@ -166,7 +167,9 @@ def _view(request: Request, db: Session, *, error: str | None = None, **extra) -
 
 @router.get(PAGE, response_class=HTMLResponse)
 def persons_page_screen(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     view = _view(request, db, nav_items=admin_nav(PAGE))
     return templates.TemplateResponse(request, "personen.html", view.as_context())
@@ -174,7 +177,9 @@ def persons_page_screen(
 
 @router.get(LIST, response_class=HTMLResponse)
 def persons_list(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """The list alone: the toolbar swaps this fragment, so the search field is
     not replaced under the fingers."""
@@ -192,7 +197,7 @@ def person_delete(
     person_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ):
     """Delete a person; the list comes back as it was filtered, with the reason
     above it when the delete is refused (the main member of a household)."""

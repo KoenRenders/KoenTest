@@ -1,0 +1,1342 @@
+{
+ "questions": {
+  "enters the back office": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "may change payments": {
+   "platform": "FINANCE OPERATOR",
+   "tenant": "FINANCE OPERATOR"
+  },
+  "may see payments": {
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
+  },
+  "may use the assistant": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "way into the back office": {
+   "platform": "ADMIN: /admin · FINANCE: /admin/betalingen · OPERATOR: /admin · ACCOUNT_ADMIN: — · none: —",
+   "tenant": "ADMIN: /admin · FINANCE: /admin/betalingen · OPERATOR: /admin · ACCOUNT_ADMIN: — · none: —"
+  }
+ },
+ "routes": {
+  "GET /": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /aanmelden": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /account-aanmaken": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /activiteiten": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /activiteiten/archief": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /activiteiten/{activity_id}/deelnemers/{component_id}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /activiteiten/{activity_id}/inschrijven/{component_id}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /activiteiten/{activity_key}/fotos": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /activiteiten/{sleutel}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /admin": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/accountmenu": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/activiteiten": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/activiteiten/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/activiteiten/nieuw/organisatoren": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/activiteiten/{activity_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/activiteiten/{activity_id}/betalingen": {
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
+  },
+  "GET /admin/activiteiten/{activity_id}/inschrijvingen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/activiteiten/{activity_id}/inschrijvingen/lijst": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/activiteiten/{activity_id}/inschrijvingen/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/activiteiten/{activity_id}/kopieren": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/activiteiten/{activity_id}/onderdelen/{component_id}/antwoorden": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/activiteiten/{activity_id}/onderdelen/{component_id}/boek": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /admin/activiteiten/{activity_id}/onderdelen/{component_id}/export": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/activiteiten/{activity_id}/organisatoren": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/ai-context": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/ai-context/lijst": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/betalingen": {
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
+  },
+  "GET /admin/betalingen/export": {
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
+  },
+  "GET /admin/betalingen/lijst": {
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
+  },
+  "GET /admin/betalingen/{record_id}": {
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
+  },
+  "GET /admin/design-system": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/e-maillog": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/e-maillog/lijst": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/emails": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /admin/formulieren": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/formulieren/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/formulieren/{form_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/formulieren/{form_id}/afdruk": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/formulieren/{form_id}/export": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/formulieren/{form_id}/inzendingen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/formulieren/{form_id}/json": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/formulieren/{form_id}/resultaten": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/gebruikers": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/gebruikers/alle-werkruimtes": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/gebruikers/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/info": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/info/ai-kosten": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/inschrijvingen/{registration_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/inschrijvingen/{registration_id}/betalingen": {
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
+  },
+  "GET /admin/inschrijvingen/{registration_id}/fragment": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/instellingen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/leden": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/leden-import": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/leden/gezin/{family_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/leden/gezin/{family_id}/betalingen": {
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
+  },
+  "GET /admin/leden/gezin/{family_id}/inschrijvingen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/leden/gezin/{family_id}/persoon/{person_id}/email-rij": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/leden/lijst": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/leden/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/leden/nieuw/persoon-rij": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/ledenwijzigingen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/ledenwijzigingen/export": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/login": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /admin/login/verify": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /admin/media": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/media/kiezer": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/media/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven/abonnees": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven/abonnees/import": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven/instellingen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven/{newsletter_id:int}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven/{newsletter_id:int}/activiteiten": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven/{newsletter_id:int}/invoegen/activiteit/{activity_id:int}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven/{newsletter_id:int}/invoegen/afsluiting": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven/{newsletter_id:int}/invoegen/kalender": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven/{newsletter_id:int}/raakje/gesprek": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven/{newsletter_id:int}/versturen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven/{newsletter_id:int}/voorbeeld": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/ontwerpen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/ontwerpen/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/ontwerpen/{design_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/ontwerpen/{design_id}/svg/{layout}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/ontwerpen/{design_id}/varianten": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/ontwerpen/{design_id}/voorbeeld.pdf": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/ontwerpen/{design_id}/voorbeeld.png": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/organisatie": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/organisaties": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/organisaties/nieuw": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/organisaties/{organization_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/paginas": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/paginas/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/paginas/{page_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/paginas/{page_id}/voorbeeld": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/personen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/personen/lijst": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/profiel": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/rapporten": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/rapporten/dataset/{fact_key}.ods": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/rapporten/export.ods": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/rapporten/lijst": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/rapporten/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/rapporten/paneel": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/rapporten/raakje": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/rapporten/raakje/knop": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /admin/rapporten/raakje/paneel": {
+   "platform": "nobody",
+   "tenant": "nobody"
+  },
+  "GET /admin/rapporten/{report_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/tenants": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/tenants/nieuw": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/tenants/{tenant_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/vergaderingen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/vergaderingen/kring": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/vergaderingen/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/vergaderingen/{meeting_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/vergaderingen/{meeting_id}/bestand/{file_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/vergaderingen/{meeting_id}/bewerken": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/vergaderingen/{meeting_id}/kiezer": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/vergaderingen/{meeting_id}/pdf": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/vergaderingen/{meeting_id}/verstuur": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/werkbank": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/werkbank/lijst": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/werkbank/taken/{task_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/werkruimte-wisselen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/werkruimte-wisselen/{tenant_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /afmelden": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /api/health": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /api/v1/media/{asset_id}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /api/v1/media/{asset_id}/thumb": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /archief": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /berichten": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /betaling/geannuleerd": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /betaling/stub/{payment_id}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /betaling/succes": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /docs": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /docs/oauth2-redirect": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /f/{slug}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /favicon.ico": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /formulier/{share_token}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /formulier/{share_token}/edit/{edit_token}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /fotos": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /inschrijving/{token}/vragen": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /leden/gezin": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /leden/gezin/vernieuwen": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /leden/login": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /leden/login/verify": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /lid-worden": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /lid-worden/email-rij": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /lid-worden/relatie": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /login": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /login/verify": {
+   "platform": "nobody",
+   "tenant": "nobody"
+  },
+  "GET /mijn": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /mijn/e-mailadres/{contact_id}/bevestigen": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /mijn/gegevens": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /mijn/inschrijvingen": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /nieuwsbrief": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /nieuwsbrief/bevestigen/{token}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /nieuwsbrief/uitschrijven/{token}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /openapi.json": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /p/{slug}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /redoc": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /robots.txt": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /sitemap.xml": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /{slug}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /aanmelden": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /aanmelden/code": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /account-aanmaken": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /activiteiten/{activity_id}/inschrijven/{component_id}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /activiteiten/{activity_id}/inschrijven/{component_id}/totaal": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /admin/activiteiten/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/activiteiten/nieuw/raakje/voorstel": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/activiteiten/{activity_id:int}/raakje/voorstel": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/activiteiten/{activity_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/activiteiten/{activity_id}/annulering": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/activiteiten/{activity_id}/inschrijvingen/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/activiteiten/{activity_id}/inschrijvingen/nieuw/prijzen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/activiteiten/{activity_id}/inschrijvingen/nieuw/totaal": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/activiteiten/{activity_id}/inschrijvingen/{registration_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/activiteiten/{activity_id}/kopieren": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/activiteiten/{activity_id}/status": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/activiteiten/{activity_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ai-context/documenten/{asset_id}/opnieuw-lezen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ai-context/notities": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ai-context/paginas/{page_id}/bewerken": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ai-context/paginas/{page_id}/toggle": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ai-context/{row_id}/bewerken": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ai-context/{row_id}/toggle": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ai-context/{row_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/betalingen/{record_id}/bevestigen": {
+   "platform": "FINANCE OPERATOR",
+   "tenant": "FINANCE OPERATOR"
+  },
+  "POST /admin/betalingen/{record_id}/bewerken": {
+   "platform": "FINANCE OPERATOR",
+   "tenant": "FINANCE OPERATOR"
+  },
+  "POST /admin/betalingen/{record_id}/bijwerken": {
+   "platform": "FINANCE OPERATOR",
+   "tenant": "FINANCE OPERATOR"
+  },
+  "POST /admin/betalingen/{record_id}/refund": {
+   "platform": "FINANCE OPERATOR",
+   "tenant": "FINANCE OPERATOR"
+  },
+  "POST /admin/betalingen/{record_id}/status": {
+   "platform": "FINANCE OPERATOR",
+   "tenant": "FINANCE OPERATOR"
+  },
+  "POST /admin/betalingen/{record_id}/verversen": {
+   "platform": "FINANCE OPERATOR",
+   "tenant": "FINANCE OPERATOR"
+  },
+  "POST /admin/betalingen/{record_id}/verwijderen": {
+   "platform": "FINANCE OPERATOR",
+   "tenant": "FINANCE OPERATOR"
+  },
+  "POST /admin/e-maillog/{log_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/instellingen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/inzendingen/{submission_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/json-import": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/opties/{option_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/opties/{option_id}/verplaats": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/opties/{option_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/secties": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/secties/{section_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/secties/{section_id}/verplaats": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/secties/{section_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/velden": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/velden/{field_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/velden/{field_id}/opties": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/velden/{field_id}/verplaats": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/velden/{field_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/formulieren/{form_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/gebruikers": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/gebruikers/{user_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/gebruikers/{user_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/inschrijvingen/{registration_id}/antwoorden": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/inschrijvingen/{registration_id}/antwoordlink": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/inschrijvingen/{registration_id}/opmerking": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/inschrijvingen/{registration_id}/opslaan": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/inschrijvingen/{registration_id}/regels/{item_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/inschrijvingen/{registration_id}/totaal": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/instellingen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden-import/commit": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden-import/preview": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden/gezin/{family_id}/adres": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden/gezin/{family_id}/bestuurslid": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden/gezin/{family_id}/lidmaatschappen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden/gezin/{family_id}/lidmaatschappen/{membership_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden/gezin/{family_id}/personen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/hoofd": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/leden/gezin/{family_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/media": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/media/tags": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/media/tags/{tag_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/media/tags/{tag_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/media/{asset_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/media/{asset_id}/verplaats": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/media/{asset_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/abonnees": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/abonnees/import": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/abonnees/import/bevestigen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/abonnees/{subscriber_id:int}/uitschrijven": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/abonnees/{subscriber_id:int}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/instellingen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/bewaren": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/bijlage": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/keuzes/{group}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/keuzes/{group}/{activity_id:int}/weg": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/kopieren": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/opnieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/raakje/vraag": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/raakje/{message_id:int}/toepassen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/raakje/{message_id:int}/weigeren": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/testmail": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/versturen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ontwerpen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ontwerpen/{design_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ontwerpen/{design_id}/afbeelding": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ontwerpen/{design_id}/definitief": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ontwerpen/{design_id}/genereer": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ontwerpen/{design_id}/kies/{generation_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ontwerpen/{design_id}/publiceer": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ontwerpen/{design_id}/svg": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ontwerpen/{design_id}/svg/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/ontwerpen/{design_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/organisatie": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/organisaties": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/organisaties/{organization_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/paginas": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/paginas/{page_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/paginas/{page_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/paginas/{page_id}/volgorde/{richting}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/personen/{person_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/rapporten": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/rapporten/raakje": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/rapporten/raakje/activiteit/{activity_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/rapporten/raakje/scherm/{scherm}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/rapporten/{report_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/rapporten/{report_id}/kopieren": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/rapporten/{report_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/tenants": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/tenants/{tenant_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/vergaderingen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/kring": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/kring/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/kring/ondertekening": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/kring/{relation_id}/beeindigen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/kring/{relation_id}/start": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/aanwezigheid": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/bewerken": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/bijlage": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/bijlage/{file_id}/meesturen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/bijlage/{file_id}/verwijder": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/gast": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/gast/{guest_id}/verwijder": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/heropen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/ontvanger": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/ontvanger/{recipient_id}/verwijder": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/punt": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/punt/{item_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/punt/{item_id}/verwijder": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/sectie": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/vergaderingen/{meeting_id}/verstuur": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/werkbank/taken/{task_id}/afgehandeld": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /api/v1/payment-gateway/webhooks/mollie": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /api/v1/payment-gateway/webhooks/stub": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /berichten": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /betaling/stub/{payment_id}/betaal": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /formulier/{share_token}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /formulier/{share_token}/edit/{edit_token}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /fotos/{asset_id}/duim": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /inschrijving/{token}/vragen": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /leden/gezin": {
+   "platform": "nobody",
+   "tenant": "nobody"
+  },
+  "POST /leden/gezin/vernieuwen": {
+   "platform": "nobody",
+   "tenant": "nobody"
+  },
+  "POST /lid-worden": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /mijn/e-mailadres/{contact_id}/code": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /mijn/gegevens": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /nieuwsbrief": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /nieuwsbrief/bevestigen/{token}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /nieuwsbrief/opnieuw/{token}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /nieuwsbrief/uitschrijven/{token}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /raakje/vraag": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  }
+ }
+}

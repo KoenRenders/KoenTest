@@ -109,5 +109,5 @@ def test_the_link_and_the_guard_read_one_set(client, db_session, monkeypatch):
 
     # A screen behind `require_admin_ui` alone (`/admin/gebruikers` adds a
     # check of its own with a literal copy of the set).
-    assert client.get("/admin/design-system").status_code == 200, "the guard reads the widened set"
+    assert client.get("/admin/accountmenu").status_code == 200, "the guard reads the widened set"
     assert _links(_home_as(client, email)) == SHOWN, "the header kept its own copy of the set"

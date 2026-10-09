@@ -20,12 +20,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (  # noqa: F401
+    Right,
     csrf_from_request,
     get_user_roles,
-    require_admin_ui,
     require_csrf,
-    require_operator_ui,
-    require_platform_operator_ui,
+    require_platform_right,
+    require_right,
     require_tenant_workspace,
 )
 from app.domains.mdm.api import OrganizationType
@@ -426,7 +426,9 @@ def _editor_ctx(
 
 @router.get("/admin/instellingen", response_class=HTMLResponse)
 def own_settings(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
     """The tenant workspace's own site settings (#1535), for its ADMIN and the
     operator: the tenant editor of this workspace's tenant, its secrets included
@@ -444,16 +446,19 @@ def own_settings(
     "/admin/instellingen", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
 )
 async def own_settings_save(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
 ):
     return await _save(request, db, require_tenant_workspace(db), email, own=True)
 
 
 @router.get("/admin/tenants", response_class=HTMLResponse)
 def tenants(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_platform_right(Right.PLATFORM_VIEW)),
 ):
-    require_platform_operator_ui(db, email)
     # De filterbalk haalt enkel de kaarten op; een pagina-swap zou het zoekveld
     # tijdens het typen vervangen en de focus wegnemen.
     sjabloon = "_tn_kaarten.html" if is_fragment_request(request) else "admin_tenants.html"
@@ -462,7 +467,9 @@ def tenants(
 
 @router.get("/admin/tenants/nieuw", response_class=HTMLResponse)
 def tenant_nieuw(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_platform_right(Right.PLATFORM_VIEW)),
 ):
     """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal.
 
@@ -472,7 +479,6 @@ def tenant_nieuw(
     ADMIN could open the form, which leaked the accounts list and promised a
     save that was then refused.
     """
-    require_platform_operator_ui(db, email)
     return templates.TemplateResponse(request, "admin_tenant_nieuw.html", _lijst_ctx(request, db))
 
 
@@ -481,9 +487,8 @@ def tenant_editor(
     tenant_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_platform_right(Right.PLATFORM_VIEW)),
 ):
-    require_platform_operator_ui(db, email)
     return templates.TemplateResponse(
         request, "admin_tenant.html", _editor_ctx(request, db, tenant_id)
     )
@@ -493,7 +498,7 @@ def tenant_editor(
 def tenant_aanmaken(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_platform_right(Right.PLATFORM_MANAGE)),
     name: str = Form(""),
     code: str = Form(""),
     account_id: str = Form(""),
@@ -502,7 +507,6 @@ def tenant_aanmaken(
 ):
     from app.domains.mdm.api import TenantFout, create_tenant
 
-    require_platform_operator_ui(db, email)
     try:
         create_tenant(
             db,
@@ -529,13 +533,12 @@ async def tenant_opslaan(
     tenant_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_platform_right(Right.PLATFORM_MANAGE)),
 ):
     """The editor's one Opslaan (#1498): the module set and the settings in one
     transaction (`save_tenant`); "Modules bewaren" and its route are gone. A
     refusal shows the form again as it was sent, with the 422 both routes gave
     (#797, #1478); whether htmx shows a 4xx is an open question to Koen."""
-    require_platform_operator_ui(db, email)
     return await _save(request, db, tenant_id, email, own=False)
 
 

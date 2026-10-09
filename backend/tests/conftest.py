@@ -343,6 +343,35 @@ def platform_workspace(client, monkeypatch):
 
 
 @pytest.fixture
+def every_module_on(monkeypatch):
+    """Both kinds of workspace with every module switched on (CR-24 C4.1): a
+    route of a module that is off answers 404, and that says nothing about who
+    may open it. Gives, per kind of workspace, its tenant id and the headers
+    that send a request there. It answers the query behind the cache the
+    middleware reads, not the cache: the app empties that one when it starts."""
+    from app.config import settings
+    from app.domains.mdm import tenant_lookup
+    from app.domains.mdm.api import invalidate_tenant_codes, platform_tenant_id
+    from app.kernel.modules import ModuleCode
+    from app.kernel.tenancy import TENANT_MILLEGEM_ID
+
+    monkeypatch.setattr(settings, "platform_hosts", PLATFORM_TEST_HOST)
+    invalidate_tenant_codes()
+    platform = platform_tenant_id()
+    assert platform is not None, "this database has no platform workspace"
+    every = frozenset(code.value for code in ModuleCode)
+    monkeypatch.setattr(
+        tenant_lookup, "_query_modules", lambda db: {TENANT_MILLEGEM_ID: every, platform: every}
+    )
+    invalidate_tenant_codes()
+    yield {
+        "tenant": (TENANT_MILLEGEM_ID, {}),
+        "platform": (platform, {"host": PLATFORM_TEST_HOST}),
+    }
+    invalidate_tenant_codes()
+
+
+@pytest.fixture
 def workspace_host(monkeypatch):
     """For a test that walks a list of admin paths of both kinds (#1535): a
     function giving the headers that put a path in its own workspace — the

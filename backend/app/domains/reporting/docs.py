@@ -76,7 +76,7 @@ def _facts_section() -> list[str]:
         "",
         "The role column is the role the fact's **flat dataset dump** will "
         "need once the fence is built; see Roles below. Today every dump "
-        "sits behind `require_admin_ui` like the rest of the back office.",
+        "sits behind the right `report.view`.",
         "",
         "| Fact | Name | Grain | Role | People | What it holds |",
         "|---|---|---|---|---|---|",
@@ -118,8 +118,8 @@ def _roles_section() -> list[str]:
         "## Roles",
         "",
         "Every object carries a role. In v2.3.0 these are **declared and not "
-        "enforced**: reporting sits behind `require_admin_ui`, the same door "
-        "as every other admin screen, and the engine applies no per-object "
+        "enforced**: reporting sits behind its own rights (`report.view`, "
+        "`report.manage`), and the engine applies no per-object "
         "fence. The declaration records what must hold once that switch is "
         "built — as its own change, with its own test. Half a fence suggests "
         "a protection that is not there.",

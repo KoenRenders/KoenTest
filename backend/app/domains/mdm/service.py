@@ -1620,7 +1620,7 @@ def gezin_tabs(db, family, viewer_email: str, actief: str) -> list[dict]:
     Betalingen N (dat laatste alleen voor wie betalingen mag zien, #544).
     De Wijzigingen-tab verviel op Koens vraag (15 sep). Lokale imports:
     auth en payment importeren zelf uit mdm."""
-    from app.domains.auth.api import may_view_payments
+    from app.domains.auth.api import Right, may
     from app.domains.payment.api import count_records_for_family
     from app.i18n import _
 
@@ -1636,7 +1636,7 @@ def gezin_tabs(db, family, viewer_email: str, actief: str) -> list[dict]:
             "active": actief == "inschrijvingen",
         },
     ]
-    if may_view_payments(db, viewer_email):
+    if may(db, viewer_email, Right.PAYMENT_VIEW):
         n = count_records_for_family(db, family.id)
         tabs.append(
             {

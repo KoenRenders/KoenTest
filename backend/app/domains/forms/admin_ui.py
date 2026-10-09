@@ -15,9 +15,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
+    Right,
     csrf_from_request,
-    require_admin_ui,
     require_csrf,
+    require_right,
 )
 from app.domains.forms.api import (
     FIELD_TYPE,
@@ -143,7 +144,7 @@ register_tones(
 def formulieren_page(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_VIEW)),
     q: str = "",
     status: str = "",
 ):
@@ -179,7 +180,9 @@ def formulieren_page(
 
 @router.get("/admin/formulieren/nieuw", response_class=HTMLResponse)
 def formulier_nieuw(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.FORM_VIEW)),
 ):
     """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
     return templates.TemplateResponse(
@@ -196,7 +199,7 @@ def formulier_nieuw(
 def formulier_aanmaken(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
     title: str = Form(...),
 ) -> Response:
     """Aanmaken opent meteen de paginabrede form-builder (C1, #585).
@@ -240,7 +243,7 @@ def formulier_builder(
     form_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_VIEW)),
 ):
     form = _form_or_404(db, form_id)
     if is_fragment_request(request):
@@ -255,7 +258,7 @@ def formulier_verwijderen(
     form_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
 ) -> Response:
     """Verwijderen gebeurt vanuit de builder, dus terug naar de lijst (#585).
 
@@ -282,7 +285,7 @@ def instellingen_opslaan(
     form_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
     title: str = Form(...),
     description: str = Form(""),
     status: str = Form("draft"),
@@ -344,7 +347,7 @@ def sectie_toevoegen(
     form_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
     title: str = Form(""),
 ):
     from app.domains.forms.api import add_section
@@ -379,7 +382,7 @@ def sectie_bewerken(
     section_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
     title: str = Form(""),
     description: str = Form(""),
     bestemming: str = Form(""),
@@ -411,7 +414,7 @@ def sectie_verplaatsen(
     section_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
     richting: str = Form("op"),
 ):
     from app.domains.forms.api import move_section
@@ -431,7 +434,7 @@ def sectie_verwijderen(
     section_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
 ):
     from app.domains.forms.api import delete_section
 
@@ -453,7 +456,7 @@ def veld_toevoegen(
     form_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
     # #1831: not required here — an empty label is refused by the service's own
     # sentence, which `says_why_in` sends to this form's message line.
     label: str = Form(""),
@@ -508,7 +511,7 @@ def veld_bewerken(
     field_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
     # #1831: not required here — an empty label is refused by the service's own
     # sentence, which `says_why_in` sends to this form's message line.
     label: str = Form(""),
@@ -569,7 +572,7 @@ def veld_verplaatsen(
     field_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
     richting: str = Form("op"),
 ):
     from app.domains.forms.api import move_field
@@ -589,7 +592,7 @@ def veld_verwijderen(
     field_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
 ):
     from app.domains.forms.api import delete_field
 
@@ -619,7 +622,7 @@ def optie_toevoegen(
     field_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
     # #1831: not required here — an empty label is refused by the service's own
     # sentence, which `says_why_in` sends to this form's message line.
     label: str = Form(""),
@@ -643,7 +646,7 @@ def optie_bewerken(
     option_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
     # #1831: not required here — an empty label is refused by the service's own
     # sentence, which `says_why_in` sends to this form's message line.
     label: str = Form(""),
@@ -677,7 +680,7 @@ def optie_verplaatsen(
     option_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
     richting: str = Form("op"),
 ):
     """Een keuze-optie omhoog of omlaag binnen haar eigen veld (#697)."""
@@ -698,7 +701,7 @@ def optie_verwijderen(
     option_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
 ):
     from app.domains.forms.api import delete_option
 
@@ -725,7 +728,7 @@ async def json_import(
     form_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
     payload: str = Form(""),
     file: Optional[UploadFile] = File(None),
 ):
@@ -820,7 +823,7 @@ def inzendingen_tab(
     form_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_VIEW)),
 ):
     from app.domains.forms.api import submission_view
 
@@ -846,7 +849,7 @@ def inzending_verwijderen(
     submission_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_MANAGE)),
 ):
     from app.domains.forms.api import submission_view
 
@@ -866,7 +869,7 @@ def inzendingen_export(
     form_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_VIEW)),
 ) -> Response:
     from app.domains.forms.api import export_submissions_ods
 
@@ -881,7 +884,7 @@ def resultaten_tab(
     form_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_VIEW)),
 ):
     """Server-side geaggregeerde resultaten per veld (#455/#454): staafjes per
     optie, rating-gemiddelde + verdeling, number-stats, tekstantwoorden."""
@@ -909,7 +912,7 @@ def json_export(
     form_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_VIEW)),
 ) -> Response:
     """Volledige formulierdefinitie als downloadbare JSON (backup/inspectie/AI)."""
     from app.domains.forms.api import export_definition
@@ -931,7 +934,7 @@ def formulier_afdruk(
     form_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.FORM_VIEW)),
 ):
     form = _form_or_404(db, form_id)
     sections = sorted(form.sections, key=lambda s: (s.position, s.id))

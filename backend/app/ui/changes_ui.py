@@ -17,7 +17,12 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui
+from app.domains.auth.api import (
+    SESSION_COOKIE,
+    Right,
+    csrf_token_for,
+    require_right,
+)
 from app.i18n import _
 from app.ui import (
     PER_PAGE_OPTIONS,
@@ -201,7 +206,7 @@ def admin_ledenwijzigingen(
     richting: str = "desc",
     per_page: str = "",
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
     ctx = wijzigingen_ctx(request, db, since, group, actor, page, sort, richting, per_page)
     template = "_lw_inhoud.html" if is_fragment_request(request) else "admin_ledenwijzigingen.html"
@@ -220,7 +225,7 @@ def ledenwijzigingen_export(
     request: Request,
     since: str = "",
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ) -> Response:
     from app.domains.reporting.api import build_member_changes_ods, member_changes_since
 
