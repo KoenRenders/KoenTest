@@ -22,7 +22,6 @@ from app.domains.auth.admin_ui import router as auth_admin_ui_router
 from app.domains.auth.handlers import (  # noqa: F401 - event subscriptions (#1711)
     send_address_code,
 )
-from app.domains.auth.router import router as auth_router
 from app.domains.auth.ui import router as auth_ui_router
 from app.domains.chatbot.admin_ui import router as chatbot_admin_ui_router
 from app.domains.chatbot.stt.router import router as stt_router
@@ -172,7 +171,6 @@ def _module(code: ModuleCode) -> list:
 #: e-mail log; the public site core (home, sitemap, robots, CMS pages), which
 #: every tenant has; the dictation used by screens of several modules.
 SHELL_ROUTERS = (
-    auth_router,
     stt_router,
     auth_ui_router,
     auth_admin_ui_router,
@@ -188,7 +186,6 @@ SHELL_ROUTERS = (
     cms_public_ui_router,
 )
 
-app.include_router(auth_router, prefix="/api/v1")
 app.include_router(stt_router, prefix="/api/v1")
 app.include_router(media_router, prefix="/api/v1", dependencies=_module(M.MEDIA))
 app.include_router(forms_ui_router, dependencies=_module(M.FORMS))

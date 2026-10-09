@@ -19,21 +19,7 @@ Measured by the collectors themselves on `master` of 28 September 2026 (after
 # Every /api/v1 route (method × path) as of 28 September 2026: none is named
 # under ## Callers in a CONTRACT.md yet. Phase 4 names each remaining route or removes
 # it (R14), measured in the repository and in the PROD access log.
-JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset(
-    {
-        "DELETE /api/v1/auth/api-keys/{key_id}",
-        "DELETE /api/v1/users/{user_id}",
-        "GET /api/v1/auth/api-keys",
-        "GET /api/v1/auth/me",
-        "GET /api/v1/auth/member/me",
-        "GET /api/v1/auth/verify-login",
-        "GET /api/v1/users",
-        "POST /api/v1/auth/api-keys",
-        "POST /api/v1/auth/request-login",
-        "POST /api/v1/auth/verify-otp",
-        "POST /api/v1/users",
-    }
-)
+JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset({})
 
 
 # Writes to another domain's mapped classes as of 29 September 2026 (#1254), one key
@@ -97,19 +83,10 @@ COMMAND_CALLS: frozenset[str] = frozenset(
 # type, an empty upload, a parameter) and is the doorman's own — the phase that
 # sweeps its domain decides whether the gate learns to except it or it stays named.
 # Keys are `file::function::condition` — the condition text, not a line number.
-RULE_IN_ROUTER: dict[str, str] = {
-    "domains/auth/router.py::create_api_key::db.query(ApiKey).filter(ApiKey.name == name).first()": "rule: API key names are unique (ApiKey, with a UNIQUE constraint) — phase 4",
-    "domains/auth/router.py::create_api_key::not name": "rule: an API key has a name (ApiKey) — phase 4",
-}
+RULE_IN_ROUTER: dict[str, str] = {}
 
 
 # Writes to a mapped class in a router, UI module or `@subscribe` handler (§B9.3,
 # *one entrance rule* (b)), 29 September 2026. The household router (phase 3) and the
 # registration router (phase 1) are the ones the change request names.
-WRITE_OUTSIDE_SERVICE: frozenset[str] = frozenset(
-    {
-        "domains/auth/router.py::create_api_key → auth.ApiKey",
-        "domains/auth/router.py::revoke_api_key → auth.ApiKey",
-        "domains/auth/router.py::verify_login → auth.LoginToken",
-    }
-)
+WRITE_OUTSIDE_SERVICE: frozenset[str] = frozenset({})

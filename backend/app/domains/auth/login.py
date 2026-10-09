@@ -7,6 +7,10 @@ als servicelaag. Ze dragen de regels die tellen — een onbekend adres krijgt g�
 signaal, een adres bij meerdere gezinnen krijgt uitleg in plaats van een link, en
 de pogingteller met lockout (#268) — dus ze horen in de service.
 
+`check_otp` left in CR-13 phase 4b (#1251): its last caller was the JSON route
+`verify-otp`; the sign-in screen asks `consume_code`, which also says why a right
+code was refused.
+
 **One code mechanism, three purposes** (CR-22 §B1 D2, #1707). Every code the
 portal sends comes from the one token here: to sign in, to make an account, to
 confirm a new address. The fifteen minutes, the hashed code, the five attempts
@@ -467,22 +471,3 @@ def consume_link(db: Session, token: str) -> Optional[Consumed]:
     if login_token.expires_at.replace(tzinfo=timezone.utc) < nu:
         return None
     return _consume(db, login_token)
-
-
-def check_otp(db: Session, email: str, code: str) -> bool:
-    """De volledige OTP-controle (ook gebruikt door de JSON-API, fase 1 #399).
-    True = code klopt, het token is verbruikt en wat het moest doen is gedaan;
-    False = generiek ongeldig (geen detail-onderscheid). Whoever needs the
-    reason of a refusal asks `consume_code`."""
-    consumed = consume_code(db, email, code)
-    return consumed is not None and consumed.refusal is None
-
-
-def consume_magic_link(db: Session, token: str) -> Optional[str]:
-    """Verzilver een magic link: geeft het e-mailadres terug, of None — also
-    when the link was right and its purpose was refused. Whoever needs the
-    reason asks `consume_link`."""
-    consumed = consume_link(db, token)
-    if consumed is None or consumed.refusal is not None:
-        return None
-    return consumed.email

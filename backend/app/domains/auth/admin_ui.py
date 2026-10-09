@@ -33,8 +33,8 @@ def _require_admin(db: Session, email: str) -> None:
     backoffice-set (ADMIN/FINANCE/ACCOUNT_ADMIN/OPERATOR) toe zodat die rollen de
     admin-schil kunnen gebruiken — maar accounts/rollen beheren (incl. de ADMIN-rol
     toekennen) mag enkel een ADMIN, anders escaleert bv. een FINANCE-account zichzelf
-    naar ADMIN via dit scherm. De JSON-API dwingt dit al af via get_current_admin;
-    deze check sluit het server-rendered UI-pad dat die dependency omzeilt."""
+    naar ADMIN via dit scherm. This check is the one place that holds it: the JSON
+    routes that asked the same of a bearer token left in CR-13 phase 4b."""
     # OPERATOR telt overal mee (rollen-matrix #544: gebruikersbeheer =
     # ADMIN/OPERATOR) — vóór 16 sep verstopte deze check dat, wat op het
     # platform meteen opviel: een OPERATOR heeft daar geen eigen ADMIN-rij.
