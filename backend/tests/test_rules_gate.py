@@ -875,6 +875,40 @@ def _own_nodes(function: ast.AST):
 #: functions that commit — so ordinary change does not trip it, and a recogniser
 #: gone blind, which finds zero, does.
 FLOOR_OWN_WRITES = 200
+#: A floor catches a recogniser gone blind, not one that lost a single shape: of
+#: the 440 writes the largest shape is 167, so 273 would still pass 200 (dev2's
+#: second reading). So each write gate also asserts that every shape the
+#: application uses today was met at least once, by name — as *no rule in a
+#: router* does for its three transport shapes. The recogniser knows more shapes
+#: (a bulk write, a core statement, raw SQL): those occur nowhere, and what occurs
+#: nowhere cannot be required.
+WRITE_SHAPES_MET = frozenset(
+    {
+        "assigns",
+        "constructs",
+        "db.add()",
+        "db.delete()",
+        "setattr()",
+        "relationship",
+        "soft_delete()",
+    }
+)
+
+
+def _write_shape(what: str) -> str:
+    """The shape of a recognised write, without what it was done to: `assigns .name`
+    → `assigns`, `relationship .append()` → `relationship`."""
+    return what.split(" .")[0]
+
+
+def _require_write_shapes(seen: set[str], where: str) -> None:
+    lost = sorted(WRITE_SHAPES_MET - seen)
+    assert not lost, (
+        f"{where}: the write recogniser met no {' and no '.join(lost)} anywhere — it lost "
+        f"that shape, so it would not see a write of that shape where it is not allowed"
+    )
+
+
 FLOOR_SERVICE_WRITES = 200
 FLOOR_RESOLVED_CALLS = 50
 FLOOR_COMMITS = 80
@@ -971,6 +1005,7 @@ def collect_foreign_writes() -> dict[str, str]:
     classes, schemas = _mapped_owners()
     found: dict[str, str] = {}
     own = 0  # writes to a class of the file's own domain: recognised, and allowed
+    shapes: set[str] = set()
     for path in _python_files():
         owner = _owner_of_file(path)
         tree = _tree(path)
@@ -987,6 +1022,7 @@ def collect_foreign_writes() -> dict[str, str]:
         qualified = _enclosing(tree)
         for function in functions:
             for cls, line, what in _foreign_writes_in(function, resolve, schemas, owner):
+                shapes.add(_write_shape(what))
                 target = cls if cls.startswith("schema ") else f"{classes[cls]}.{cls}"
                 if not cls.startswith("schema ") and classes[cls] == owner:
                     own += 1
@@ -1005,6 +1041,7 @@ def collect_foreign_writes() -> dict[str, str]:
         f"only {own} writes to a domain's own classes recognised — the walk no longer "
         f"sees a write, so it would not see a foreign one either"
     )
+    _require_write_shapes(shapes, "no foreign write")
     return found
 
 
@@ -1190,9 +1227,10 @@ def _held_facades(tree: ast.Module):
     - `from app.domains.x import api` (also `as a`) → `api.f(…)`;
     - `import app.domains.x.api as a` → `a.f(…)`;
     - `from app.domains import x` (also `as y`) → `x.api.f(…)`;
+    - `import app.domains.x as y` → `y.api.f(…)`;
     - `import app.domains.x.api` → `app.domains.x.api.f(…)`.
 
-    The last two occur nowhere under `app/` today; they are read all the same, so
+    The last three occur nowhere under `app/` today; they are read all the same, so
     a new spelling is not a way past the gates. What stays unseen is a facade
     reached without an import statement (`importlib`, `getattr`).
     """
@@ -1223,6 +1261,8 @@ def _held_facades(tree: ast.Module):
                         modules[alias.asname] = parts[2]
                     else:
                         dotted = True
+                elif parts[:2] == ["app", "domains"] and len(parts) == 3 and alias.asname:
+                    packages[alias.asname] = parts[2]
     if not (direct or modules or packages or dotted):
         return None
 
@@ -2142,21 +2182,21 @@ def collect_write_outside_service() -> dict[str, str]:
     classes, schemas = _mapped_owners()
     found: dict[str, str] = {}
     in_services = 0  # the same recogniser, on what is not a door or a handler
+    shapes: set[str] = set()
     for path in _python_files():
         tree = _tree(path)
         if not _is_door(path):
             in_names, in_modules = _class_names(tree, classes)
             for function in ast.walk(tree):
                 if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    in_services += sum(
-                        1
-                        for _write in _foreign_writes_in(
-                            function,
-                            lambda node, n=in_names, m=in_modules: _class_of(node, n, m, classes),
-                            {},
-                            owner="",
-                        )
-                    )
+                    for _cls, _line, what in _foreign_writes_in(
+                        function,
+                        lambda node, n=in_names, m=in_modules: _class_of(node, n, m, classes),
+                        {},
+                        owner="",
+                    ):
+                        in_services += 1
+                        shapes.add(_write_shape(what))
         functions = (
             [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
             if _is_door(path)
@@ -2187,6 +2227,7 @@ def collect_write_outside_service() -> dict[str, str]:
         f"only {in_services} writes recognised outside the doors — the walk no longer "
         f"sees a write, so it would not see one in a door either"
     )
+    _require_write_shapes(shapes, "no write outside a service")
     return found
 
 
