@@ -43,19 +43,14 @@ JSON_ROUTE_WITHOUT_CALLER: frozenset[str] = frozenset(
     {
         "DELETE /api/v1/auth/api-keys/{key_id}",
         "DELETE /api/v1/users/{user_id}",
-        "GET /api/v1/admin/pages",
         "GET /api/v1/auth/api-keys",
         "GET /api/v1/auth/me",
         "GET /api/v1/auth/member/me",
         "GET /api/v1/auth/verify-login",
-        "GET /api/v1/blocks/{slug}",
-        "GET /api/v1/pages",
-        "GET /api/v1/pages/{slug}",
         "GET /api/v1/users",
         "POST /api/v1/auth/api-keys",
         "POST /api/v1/auth/request-login",
         "POST /api/v1/auth/verify-otp",
-        "POST /api/v1/pages",
         "POST /api/v1/users",
     }
 )

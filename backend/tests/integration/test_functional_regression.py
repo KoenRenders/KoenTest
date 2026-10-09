@@ -189,16 +189,21 @@ def test_cms_placeholders_public_vs_editor(client, admin_headers, db_session):
     )
     db_session.commit()
 
-    public = client.get("/api/v1/blocks/home-intro")
+    # The public side: the home page shows the block with its code filled in.
+    # (Until CR-13 phase 4b this asked the JSON route of the block.)
+    public = client.get("/")
     assert public.status_code == 200
-    content = public.json()["content"]
-    assert "{{" not in content  # codes vervangen
-    assert "€35,00" in content or "€17,50" in content
+    assert "{{membership_price_full}}" not in public.text  # code vervangen
+    assert (
+        "Lidgeld: €35,00 per gezin." in public.text or "Lidgeld: €17,50 per gezin." in public.text
+    )
 
-    admin = client.get("/api/v1/admin/pages", headers=admin_headers)
-    assert admin.status_code == 200
-    home = next(p for p in admin.json() if p["slug"] == "home-intro")
-    assert "{{membership_price_full}}" in home["content"]  # ruwe code blijft
+    # The back office's side: the page as it is stored keeps the raw code.
+    from app.domains.cms.api import list_pages
+
+    db_session.expire_all()
+    home = next(p for p in list_pages(db_session) if p.slug == "home-intro")
+    assert "{{membership_price_full}}" in home.content  # ruwe code blijft
 
 
 def test_admin_creates_paid_activity_and_public_registration(client, db_session, admin_headers):
