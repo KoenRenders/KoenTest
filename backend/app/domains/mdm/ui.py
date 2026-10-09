@@ -744,9 +744,9 @@ def gezin_verwijderen(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
-    from app.domains.membership.api import delete_family
+    from app.domains.mdm.api import delete_household
 
-    delete_family(db, family_id, admin=admin_user_by_email(db, email))
+    delete_household(db, family_id, admin=admin_user_by_email(db, email))
     # Verwijderen gebeurt vanuit de gezinseditor; die pagina bestaat daarna niet
     # meer, dus terug naar de lijst (#582).
     return Response(status_code=204, headers={"HX-Redirect": "/admin/leden"})

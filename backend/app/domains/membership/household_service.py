@@ -30,10 +30,8 @@ from app.domains.mdm.api import (
     MemberPerson,
     Person,
     PersonDetailsMissing,
-    PostalCode,
     RelationType,
     email_refusal,
-    new_contact_detail,
 )
 from app.domains.membership.models import Membership
 from app.domains.membership.schemas_family import FamilyCreate, FamilyMemberCreate
@@ -259,161 +257,54 @@ def create_family_with_members(
     in); here he gets what the form says: the name as typed, the birth date and
     the gender a member needs, his place in the household and its address. The
     contact details he already holds stay; what the form adds is added.
+
+    Since CR-13 phase 4c (#1251) the household itself — its persons, their
+    links, the address, the contact details and their history rows — is made
+    by mdm, asked through the port `CreateHousehold`; the rules named above
+    are mdm's and are asked there. What is written here is the membership.
     """
-    from app.domains.mdm.api import (
-        snapshot_address,
-        snapshot_contact_detail,
-        snapshot_member,
-        snapshot_member_person,
-        snapshot_person,
-    )
+    from app.domains.mdm.api import HOUSEHOLD_REGISTERED, HouseholdRefused
     from app.domains.membership.history import snapshot_membership
     from app.domains.payment.api import membership_valid_period
+    from app.kernel.contracts.mdm import CreateHousehold, HouseholdPerson
+    from app.kernel.ports import call
 
-    # Eén actie voor de hele handeling: er is één gezin geregistreerd. WIE het
-    # deed staat in `actor`/`source` — dat is het onderscheid, niet de naam van
-    # de handeling (#1110; vóór dit issue heette de beheerweg `member_created`).
-    ACTIE = "family_registered"
     vandaag = today or date.today()
-
-    pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
-    if not pc:
-        raise HTTPException(
-            status_code=422,
-            detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": data.postal_code},
-        )
-
-    # After the postal code, so an unknown one keeps its own words.
-    _require_whole_address(data.street, data.house_number, data.postal_code)
-
-    # Server-side, vóór er iets geschreven wordt: de client-`required` is enkel UX.
-    for lid in data.members:
-        try:
-            MemberPerson.require_details(lid.date_of_birth, lid.resolved_gender_code)
-        except PersonDetailsMissing as fout:
-            raise HTTPException(status_code=422, detail=str(fout))
-
-    member = Member()
-    db.add(member)
-    db.flush()
-    snapshot_member(db, member, operation="insert", action=ACTIE, source=source, actor=actor)
-
-    for person_data in data.members:
-        adopted = (
-            main_member
-            if main_member is not None and person_data.relation_type == RelationType.PRIMARY_MEMBER
-            else None
-        )
-        if adopted is not None:
-            person = adopted
-            person.last_name = person_data.last_name
-            person.first_name = person_data.first_name
-            person.date_of_birth = person_data.date_of_birth
-            person.gender_code = person_data.resolved_gender_code
-            db.flush()
-            snapshot_person(
-                db, person, operation="update", action=ACTIE, source=source, actor=actor
-            )
-        else:
-            person = Person(
-                last_name=person_data.last_name,
-                first_name=person_data.first_name,
-                date_of_birth=person_data.date_of_birth,
-                gender_code=person_data.resolved_gender_code,
-            )
-            db.add(person)
-            db.flush()
-            snapshot_person(
-                db, person, operation="insert", action=ACTIE, source=source, actor=actor
-            )
-        # What an adopted person already holds is not made a second time: his
-        # address IS the one he signed in with. A value of a type he has
-        # already is added beside it, not put in its place — the row that
-        # counts stays the one he confirmed, and he corrects the rest himself.
-        held = {
-            (code_of(c.contact_type_code), (c.value or "").strip().lower())
-            for c in (person.contact_details if adopted is not None else [])
-        }
-        has_primary = {
-            code_of(c.contact_type_code)
-            for c in (person.contact_details if adopted is not None else [])
-            if c.is_primary
-        }
-
-        def is_new(type_code, value) -> bool:
-            return (code_of(type_code), (value or "").strip().lower()) not in held
-
-        mp = MemberPerson(
-            member_id=member.id, person_id=person.id, relation_type=person_data.relation_type
-        )
-        db.add(mp)
-        db.flush()
-        snapshot_member_person(db, mp, operation="insert", action=ACTIE, source=source, actor=actor)
-
-        # Adres hoort enkel bij het hoofdlid (= gezinsadres). #125
-        if person_data.relation_type == RelationType.PRIMARY_MEMBER:
-            address = Address(
-                person_id=person.id,
+    try:
+        created = call(
+            CreateHousehold(
                 street=data.street,
                 house_number=data.house_number,
-                bus_number=data.bus_number or None,
-                postal_code_id=pc.id,
-            )
-            db.add(address)
-            db.flush()
-            snapshot_address(
-                db, address, operation="insert", action=ACTIE, source=source, actor=actor
-            )
-
-        contacts = []
-        if person_data.phone and is_new(CONTACT.PHONE, person_data.phone):
-            contacts.append(
-                new_contact_detail(
-                    db,
-                    person,
-                    CONTACT.PHONE,
-                    person_data.phone,
-                    is_primary=code_of(CONTACT.PHONE) not in has_primary,
-                )
-            )
-        if person_data.mobile and is_new(CONTACT.MOBILE, person_data.mobile):
-            contacts.append(
-                new_contact_detail(
-                    db,
-                    person,
-                    CONTACT.MOBILE,
-                    person_data.mobile,
-                    is_primary=not person_data.phone and code_of(CONTACT.MOBILE) not in has_primary,
-                )
-            )
-        # #1246: every address typed, in order; the first is the primary one
-        # (Koen, 28 September 2026: "het eerste adres wordt het hoofdadres"). The
-        # same address twice is a slip, not a second address — case-insensitive,
-        # as on the family portal (#1219).
-        seen: set[str] = set()
-        for address_value in [person_data.email, *person_data.extra_emails]:
-            if not address_value or address_value.lower() in seen:
-                continue
-            seen.add(address_value.lower())
-            if not is_new(CONTACT.EMAIL, address_value):
-                continue
-            contacts.append(
-                new_contact_detail(
-                    db,
-                    person,
-                    CONTACT.EMAIL,
-                    address_value,
-                    is_primary=len(seen) == 1 and code_of(CONTACT.EMAIL) not in has_primary,
-                )
-            )
-        for contact in contacts:
-            db.add(contact)
-        if contacts:
-            db.flush()
-            for contact in contacts:
-                snapshot_contact_detail(
-                    db, contact, operation="insert", action=ACTIE, source=source, actor=actor
-                )
+                bus_number=data.bus_number,
+                postal_code=data.postal_code,
+                persons=tuple(
+                    HouseholdPerson(
+                        first_name=given.first_name,
+                        last_name=given.last_name,
+                        relation_type=RelationType(given.relation_type).value,
+                        date_of_birth=given.date_of_birth,
+                        gender_code=given.resolved_gender_code,
+                        phone=given.phone,
+                        mobile=given.mobile,
+                        emails=tuple(
+                            str(address)
+                            for address in (given.email, *given.extra_emails)
+                            if address
+                        ),
+                    )
+                    for given in data.members
+                ),
+                source=source,
+                actor=actor,
+                main_person_id=main_member.id if main_member is not None else None,
+            ),
+            db,
+        )
+    except (HouseholdRefused, PersonDetailsMissing) as refusal:
+        # mdm's rules, with the status this service's doors give a refusal.
+        raise HTTPException(status_code=422, detail=str(refusal)) from refusal
+    member = db.get(Member, created.household_id)
+    assert member is not None  # made by the port, in this transaction
 
     valid_from, valid_to = membership_valid_period(vandaag)
     membership = Membership(
@@ -426,7 +317,12 @@ def create_family_with_members(
     db.add(membership)
     db.flush()
     snapshot_membership(
-        db, membership, operation="insert", action=ACTIE, source=source, actor=actor
+        db,
+        membership,
+        operation="insert",
+        action=HOUSEHOLD_REGISTERED,
+        source=source,
+        actor=actor,
     )
     return member, membership
 
@@ -653,104 +549,31 @@ def create_membership_for_family(
     return MembershipResponse.model_validate(membership)
 
 
-def delete_family(db: Session, family_id: int, admin=None):
-    from app.domains.mdm.api import (
-        snapshot_address,
-        snapshot_contact_detail,
-        snapshot_member,
-        snapshot_member_person,
-        snapshot_person,
-    )
+def delete_memberships_of_household(db: Session, household_id: int, actor: str | None) -> None:
+    """A household is deleted (`HouseholdDeleted`, published by mdm): its
+    memberships go with it — a soft delete (#166) with a history row each. The
+    payments stay (a financial fact) and follow their own membership (#619-3):
+    each deletion is said in turn, as when one membership is deleted.
+
+    Read from membership's own table by the household's id, never through the
+    household: it is soft-deleted by now. No commit — the transaction is the
+    deletion's."""
     from app.domains.membership.history import snapshot_membership
 
-    member = db.query(Member).filter(Member.id == family_id).first()
-    if not member:
-        raise HTTPException(status_code=404, detail=_("Family not found"))
-
-    # Soft delete (#166): snapshot vastleggen en deleted_at zetten — niets hard
-    # verwijderen. Lidmaatschap-betalingen blijven bestaan (financieel feit); de
-    # admin kan een individuele betaling apart verwijderen via het betaalscherm.
-    for ms in member.memberships:
+    memberships = (
+        db.query(Membership).filter(Membership.member_id == household_id).order_by(Membership.id)
+    )
+    for membership in memberships.all():
         snapshot_membership(
             db,
-            ms,
+            membership,
             operation="delete",
             action="family_deleted",
             source="admin_manual",
-            actor=admin.email,
+            actor=actor,
         )
-        soft_delete(ms)
-        # Stiller én groter dan één lidmaatschap schrappen, maar exact dezelfde
-        # situatie (#619-3): elke betaling volgt haar eigen lidmaatschap.
-        _membership_deleted(db, ms, admin.email)
-    for mp in member.member_persons:
-        person = mp.person
-        for contact in person.contact_details:
-            snapshot_contact_detail(
-                db,
-                contact,
-                operation="delete",
-                action="family_deleted",
-                source="admin_manual",
-                actor=admin.email,
-            )
-            soft_delete(contact)
-        for en in person.external_numbers:
-            soft_delete(en)
-        if person.address:
-            snapshot_address(
-                db,
-                person.address,
-                operation="delete",
-                action="family_deleted",
-                source="admin_manual",
-                actor=admin.email,
-            )
-            soft_delete(person.address)
-        snapshot_member_person(
-            db,
-            mp,
-            operation="delete",
-            action="family_deleted",
-            source="admin_manual",
-            actor=admin.email,
-        )
-        soft_delete(mp)
-        snapshot_person(
-            db,
-            person,
-            operation="delete",
-            action="family_deleted",
-            source="admin_manual",
-            actor=admin.email,
-        )
-        soft_delete(person)
-    snapshot_member(
-        db,
-        member,
-        operation="delete",
-        action="family_deleted",
-        source="admin_manual",
-        actor=admin.email,
-    )
-    soft_delete(member)
-    db.commit()
-
-
-def _require_whole_address(street, house_number, postal_code) -> None:
-    """An address has a street, a house number and a postal code — mdm's one rule
-    (`require_whole_address`, #1603), asked here for a household that is created.
-    The board's changes of an address ask it in mdm since CR-13 phase 4c
-    (`mdm/household_board_service.py`); this copy of the three lines goes when
-    the creation moves too. A 422, as this service's other refusals."""
-    from app.domains.mdm.api import HouseholdRefused, require_whole_address
-
-    try:
-        require_whole_address(
-            {"street": street, "house_number": house_number, "postal_code": postal_code}
-        )
-    except HouseholdRefused as refusal:
-        raise HTTPException(status_code=422, detail=str(refusal)) from refusal
+        soft_delete(membership)
+        _membership_deleted(db, membership, actor)
 
 
 def family_from_rows(values: Mapping[str, str], rows: list[dict]) -> FamilyCreate:

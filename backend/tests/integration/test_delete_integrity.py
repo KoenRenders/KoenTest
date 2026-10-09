@@ -6,8 +6,7 @@ from datetime import date
 
 import pytest
 
-from app.domains.mdm.api import ExternalNumber, Member
-from app.domains.membership import household_service
+from app.domains.mdm.api import ExternalNumber, Member, delete_household
 from app.domains.membership.api import Membership
 from app.domains.payment.api import (
     PayableType,
@@ -64,7 +63,7 @@ def test_delete_family_with_membership_payment(client, db_session, admin_headers
     assert pay is not None  # er is een lidmaatschap-betaling
 
     # Gezin verwijderen mag niet falen.
-    household_service.delete_family(db_session, member.id, admin=seeded_admin(db_session))
+    delete_household(db_session, member.id, admin=seeded_admin(db_session))
 
     # Het betaaloverzicht mag niet crashen op de (nu lidmaatschap-loze) betaling.
     overview = payments_door.records(client)
@@ -138,7 +137,7 @@ def test_delete_family_with_external_number(client, db_session, admin_headers):
     )
     db_session.flush()
 
-    household_service.delete_family(db_session, member.id, admin=seeded_admin(db_session))
+    delete_household(db_session, member.id, admin=seeded_admin(db_session))
 
 
 def test_betaald_lidmaatschap_blijft_als_financieel_feit(client, db_session, admin_headers):
@@ -163,7 +162,7 @@ def test_betaald_lidmaatschap_blijft_als_financieel_feit(client, db_session, adm
     pay.status = "paid"
     db_session.commit()
 
-    household_service.delete_family(db_session, member.id, admin=seeded_admin(db_session))
+    delete_household(db_session, member.id, admin=seeded_admin(db_session))
 
     records = (
         db_session.query(PaymentRecord)

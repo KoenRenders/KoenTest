@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.domains.mdm.codes import CONTACT
 from app.domains.mdm.models import (
+    Address,
     MasterDataError,
     Member,
     MemberPerson,
@@ -508,3 +509,169 @@ def person_payload(person: Person) -> dict[str, Any]:
         "phone": contacts.get("PHONE"),
         "mobile": contacts.get("MOBILE"),
     }
+
+
+# ── A household that is created ──────────────────────────────────────────────
+
+#: The action in every history row of a household that is created. WHO did it
+#: stands in `actor` and `source` — that is the difference between the board's
+#: door and the public sign-up, not the name of the act (#1110). Stored data.
+HOUSEHOLD_REGISTERED = "family_registered"
+
+
+def create_household(
+    db: Session,
+    *,
+    street: str,
+    house_number: str,
+    bus_number: Optional[str],
+    postal_code: str,
+    persons: Sequence[Any],
+    source: str,
+    actor: Optional[str],
+    main_person: Optional[Person] = None,
+) -> tuple[Member, list[Person]]:
+    """A household with all its persons, the address and the contact details, in
+    one go — what the port `CreateHousehold` does (`kernel/contracts/mdm.py`;
+    `persons` are its `HouseholdPerson` values).
+
+    The ONE way a household comes to be (#1110), for the board's door and for
+    the public sign-up; `membership` asks it and adds the membership. No commit:
+    the transaction is the caller's, so a failure half-way leaves nothing.
+
+    The rules here hold for every door: a postal code that exists, a whole
+    address, and a birth date and a gender for every person (#681) — asked before
+    anything is written. The address hangs on the main member (= the household's
+    address, #125).
+
+    `main_person` (CR-22 R9, F7; #1713): the person who becomes the main member
+    instead of a new one — an account that signs up. An account is a person
+    already; a second person for the same human would be the duplicate R9
+    forbids. He gets what the form says: the name as typed, the birth date and
+    the gender a member needs, his place in the household and its address.
+    """
+    from app.domains.mdm.history import (
+        snapshot_address,
+        snapshot_contact_detail,
+        snapshot_member,
+        snapshot_member_person,
+        snapshot_person,
+    )
+
+    stamp = {"action": HOUSEHOLD_REGISTERED, "source": source}
+    pc = _postal_code(db, postal_code)
+    # After the postal code, so an unknown one keeps its own words.
+    require_whole_address(
+        {"street": street, "house_number": house_number, "postal_code": postal_code}
+    )
+    # Server-side, before anything is written: the client's `required` is UX only.
+    for given in persons:
+        MemberPerson.require_details(given.date_of_birth, given.gender_code)
+
+    household = Member()
+    db.add(household)
+    db.flush()
+    snapshot_member(db, household, operation="insert", actor=actor, **stamp)
+
+    made: list[Person] = []
+    for given in persons:
+        is_main = RelationType(given.relation_type) == RelationType.PRIMARY_MEMBER
+        adopted = main_person if main_person is not None and is_main else None
+        if adopted is not None:
+            person = adopted
+            person.last_name = given.last_name
+            person.first_name = given.first_name
+            person.date_of_birth = given.date_of_birth
+            person.gender_code = given.gender_code
+            db.flush()
+            snapshot_person(db, person, operation="update", actor=actor, **stamp)
+        else:
+            person = Person(
+                last_name=given.last_name,
+                first_name=given.first_name,
+                date_of_birth=given.date_of_birth,
+                gender_code=given.gender_code,
+            )
+            db.add(person)
+            db.flush()
+            snapshot_person(db, person, operation="insert", actor=actor, **stamp)
+        made.append(person)
+        # What an adopted person already holds is not made a second time: his
+        # address IS the one he signed in with. A value of a type he has
+        # already is added beside it, not put in its place — the row that
+        # counts stays the one he confirmed, and he corrects the rest himself.
+        earlier = person.contact_details if adopted is not None else []
+        held = {(code_of(c.contact_type_code), (c.value or "").strip().lower()) for c in earlier}
+        has_primary = {code_of(c.contact_type_code) for c in earlier if c.is_primary}
+
+        def is_new(type_code: Any, value: Optional[str]) -> bool:
+            return (code_of(type_code), (value or "").strip().lower()) not in held
+
+        link = MemberPerson(
+            member_id=household.id, person_id=person.id, relation_type=given.relation_type
+        )
+        db.add(link)
+        db.flush()
+        snapshot_member_person(db, link, operation="insert", actor=actor, **stamp)
+
+        # The address belongs to the main member alone (= the household's). #125
+        if is_main:
+            address = Address(
+                person_id=person.id,
+                street=street,
+                house_number=house_number,
+                bus_number=bus_number or None,
+                postal_code_id=pc.id,
+            )
+            db.add(address)
+            db.flush()
+            snapshot_address(db, address, operation="insert", actor=actor, **stamp)
+
+        contacts = []
+        if given.phone and is_new(CONTACT.PHONE, given.phone):
+            contacts.append(
+                new_contact_detail(
+                    db,
+                    person,
+                    CONTACT.PHONE,
+                    given.phone,
+                    is_primary=code_of(CONTACT.PHONE) not in has_primary,
+                )
+            )
+        if given.mobile and is_new(CONTACT.MOBILE, given.mobile):
+            contacts.append(
+                new_contact_detail(
+                    db,
+                    person,
+                    CONTACT.MOBILE,
+                    given.mobile,
+                    is_primary=not given.phone and code_of(CONTACT.MOBILE) not in has_primary,
+                )
+            )
+        # #1246: every address typed, in order; the first is the primary one
+        # (Koen, 28 September 2026: "het eerste adres wordt het hoofdadres"). The
+        # same address twice is a slip, not a second address — case-insensitive,
+        # as on the family portal (#1219).
+        seen: set[str] = set()
+        for address_value in given.emails:
+            if not address_value or address_value.lower() in seen:
+                continue
+            seen.add(address_value.lower())
+            if not is_new(CONTACT.EMAIL, address_value):
+                continue
+            contacts.append(
+                new_contact_detail(
+                    db,
+                    person,
+                    CONTACT.EMAIL,
+                    address_value,
+                    is_primary=len(seen) == 1 and code_of(CONTACT.EMAIL) not in has_primary,
+                )
+            )
+        for contact in contacts:
+            db.add(contact)
+        if contacts:
+            db.flush()
+            for contact in contacts:
+                snapshot_contact_detail(db, contact, operation="insert", actor=actor, **stamp)
+    return household, made

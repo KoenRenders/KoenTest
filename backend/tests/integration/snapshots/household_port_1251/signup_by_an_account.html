@@ -1,0 +1,20 @@
+201
+(registered)
+--- rows ---
+household 881001: board_member=None deleted=no
+person 882001: 'Opnieuw' 'Proef' born=1980-01-01 gender=M deleted=no
+link 883001: household=881001 person=882001 HOOFDLID deleted=no
+address 884001 of 882001: 'Dorpsplein' '40' bus=None postal=886001 deleted=no
+contact 885001 of 882001: EMAIL 'account-1251@example.com' primary=True deleted=no
+contact 885002 of 882001: MOBILE '0470000009' primary=True deleted=no
+contact 885003 of 882001: PHONE '014 11 22 33' primary=True deleted=no
+contact 885004 of 882001: MOBILE '0470000001' primary=False deleted=no
+membership 887001: household=881001 active=False deleted=no
+payment record: membership 887001 amount=35.00 status=pending
+MemberHistory 888001: insert family_registered source=registration actor=publiek
+PersonHistory 889001: update family_registered source=registration actor=publiek
+MemberPersonHistory 890001: insert family_registered source=registration actor=publiek
+AddressHistory 891001: insert family_registered source=registration actor=publiek
+ContactDetailHistory 892001: insert family_registered source=registration actor=publiek
+ContactDetailHistory 892002: insert family_registered source=registration actor=publiek
+MembershipHistory 893001: insert family_registered source=registration actor=publiek

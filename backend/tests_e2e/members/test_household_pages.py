@@ -150,14 +150,16 @@ def _history(member_id: int) -> list[str]:
 
 
 def _remove(email: str) -> None:
-    from app.domains.membership.api import delete_family
+    from app.domains.mdm.api import delete_household
 
     stored = _household(email)
     if stored is None:
         return
     db = _db()
     try:
-        delete_family(db, stored["member_id"], admin=SimpleNamespace(email="e2e-1590@example.com"))
+        delete_household(
+            db, stored["member_id"], admin=SimpleNamespace(email="e2e-1590@example.com")
+        )
     finally:
         db.close()
 
