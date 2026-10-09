@@ -24,6 +24,8 @@ import re
 from datetime import date
 from pathlib import Path
 
+from sqlalchemy import text
+
 from app.domains.mdm.api import Address, Member, MemberPerson, Person
 from app.domains.mdm.import_service import upsert_families
 from app.domains.membership.api import Membership
@@ -132,3 +134,93 @@ def test_the_detail_when_a_loaded_household_loses_its_main_member_in_the_report(
         BEFORE,
     )
     compare(SNAPSHOTS, "main_gone_run", _detail(db_session, _load(db_session, rows)), BEFORE)
+
+
+# ── the rule ─────────────────────────────────────────────────────────────────
+
+
+def test_a_group_without_a_main_member_is_not_loaded(db_session):
+    seed_postal_code(db_session)
+    before = _counts(db_session)
+
+    report = _load(db_session, [_without_main()])
+
+    assert _counts(db_session) == before, "a row of the refused address was written"
+    assert db_session.query(Membership).count() == 0
+    assert report.skipped == 1
+    assert report.new_families == 0 and report.persons_added == 0
+    assert not report.lines, "the refused address has lines in the detail of what is written"
+    (sentence,) = report.warnings
+    assert NO_MAIN in sentence
+    # Every row by name and member number, so the report can be corrected.
+    assert "Sam Thys (#400) en Lou Thys (#401) staan" in sentence
+    assert "(2 rijen)" in sentence
+    assert "één adres is dezelfde straat, huisnummer, bus en postcode" in sentence
+    assert "zet op dit adres één persoon als lid" in sentence
+
+
+def test_one_row_without_a_main_member_is_said_in_the_singular(db_session):
+    seed_postal_code(db_session)
+
+    report = _load(db_session, [[_row("400", "Sam", "Thys", "PARTNER", "5")]])
+
+    (sentence,) = report.warnings
+    assert "Sam Thys (#400) staat op een adres zonder lid" in sentence
+    assert "(1 rij)" in sentence and "geef deze persoon het adres" in sentence
+
+
+def test_the_other_households_of_the_report_are_loaded(db_session):
+    seed_postal_code(db_session)
+
+    report = _load(db_session, [_without_main(), _good()])
+
+    assert report.new_families == 1 and report.persons_added == 2 and report.skipped == 1
+    assert {p.first_name for p in db_session.query(Person)} == {"Jan", "An"}
+
+
+def test_the_preview_says_the_same_as_the_run(db_session):
+    seed_postal_code(db_session)
+    rows = [_good(), _without_main()]
+
+    preview = _load(db_session, rows, apply=False)
+    assert _counts(db_session) == (0, 0, 0, 0), "the preview wrote"
+    run = _load(db_session, rows)
+
+    assert preview.warnings == run.warnings and len(run.warnings) == 1
+    assert preview.lines == run.lines
+    assert preview.skipped == run.skipped == 1
+
+
+def test_a_loaded_household_keeps_its_main_member_when_the_report_drops_him(db_session):
+    """The report lists An alone, as partner. Before the rule Jan was taken out of
+    the household and An stayed behind without a main member and without an
+    address. Now nothing of that address is touched: the household waits for a
+    report that names a main member on it."""
+    seed_postal_code(db_session)
+    _load(db_session, [_good()])
+    before = (_counts(db_session), _stored(db_session))
+
+    report = _load(db_session, [[_row("101", "An", "Janssens", "PARTNER", "1")]])
+
+    assert (_counts(db_session), _stored(db_session)) == before
+    assert report.persons_removed == 0 and report.updated_families == 0
+    assert any(NO_MAIN in sentence for sentence in report.warnings)
+    db_session.flush()
+    db_session.execute(text("SET CONSTRAINTS ALL IMMEDIATE"))
+    db_session.execute(text("SET CONSTRAINTS ALL DEFERRED"))
+
+
+def test_a_group_that_gets_its_main_member_in_a_later_report_is_loaded_then(db_session):
+    """What the sentence asks for works: one of them as "lid", and the address loads."""
+    seed_postal_code(db_session)
+    _load(db_session, [_without_main()])
+
+    report = _load(
+        db_session,
+        [[_row("400", "Sam", "Thys", "HOOFDLID", "5"), _row("401", "Lou", "Thys", "KIND", "5")]],
+    )
+
+    assert report.new_families == 1 and report.skipped == 0 and not report.warnings
+    assert _stored(db_session) == [
+        "household: [('Lou', 'KIND'), ('Sam', 'HOOFDLID')] addresses 1 memberships 1"
+    ]
