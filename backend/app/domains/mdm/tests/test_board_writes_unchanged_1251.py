@@ -29,6 +29,13 @@ A fourth gained one line with #1833: a partner who becomes a child leaves a
 history row of the link now (`relation_changed`), where the change left none —
 the missing row this recording was the first to show. Nothing else in it moved
 (`tests/integration/test_relation_change_in_changes_1833.py`).
+
+With #1831 nine were recorded again, on purpose, for two things that issue
+changes: every card carries its message line (and a person's card lets its
+buttons wrap on a narrow screen), which shows in the cards the accepted cases
+answer; and a refusal is the kit's banner for that line — an HTML 422 with the
+same sentence — where it was a bare JSON error the screen could not show. What
+is written is unchanged in every case (`test_household_cards_say_why_1831.py`).
 """
 
 from __future__ import annotations
