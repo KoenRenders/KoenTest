@@ -2632,7 +2632,7 @@ def record_tabs(
     naar de INGEBEDDE pagina onder het record. Lokale imports: auth en payment
     importeren zelf uit activities.
     """
-    from app.domains.auth.api import may_view_payments
+    from app.domains.auth.api import Right, may
     from app.domains.payment.api import count_registration_records_by_activity
     from app.i18n import _
 
@@ -2652,7 +2652,7 @@ def record_tabs(
             "active": actief == "inschrijvingen",
         },
     ]
-    if may_view_payments(db, viewer_email):
+    if may(db, viewer_email, Right.PAYMENT_VIEW):
         n = count_registration_records_by_activity(db, activiteit.id)
         tabs.append(
             {
@@ -2699,7 +2699,7 @@ def inschrijving_tabs(
     beide tabs mee, zodat de A7-terugweg een tabwissel overleeft."""
     from urllib.parse import quote
 
-    from app.domains.auth.api import may_view_payments
+    from app.domains.auth.api import Right, may
     from app.domains.payment.api import get_records_for
     from app.i18n import _
 
@@ -2711,7 +2711,7 @@ def inschrijving_tabs(
             "active": actief == "overzicht",
         }
     ]
-    if may_view_payments(db, viewer_email):
+    if may(db, viewer_email, Right.PAYMENT_VIEW):
         n = len(get_records_for(db, "registration", registration_id))
         tabs.append(
             {

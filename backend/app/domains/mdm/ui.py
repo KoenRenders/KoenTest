@@ -16,10 +16,11 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.auth.api import (
     SESSION_COOKIE,
+    Right,
     admin_user_by_email,
     csrf_from_request,
-    require_admin_ui,
     require_csrf,
+    require_right,
 )
 from app.domains.mdm.api import RelationType, says_why_in
 from app.domains.mdm.viewmodels import LedenView
@@ -191,7 +192,9 @@ def _kaart_response(
 
 @router.get("/admin/leden", response_class=HTMLResponse)
 def leden_page(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     return templates.TemplateResponse(
         request, "leden.html", _lijst_view(request, db, nav_items=admin_nav(NAV)).as_context()
@@ -200,7 +203,9 @@ def leden_page(
 
 @router.get("/admin/leden/lijst", response_class=HTMLResponse)
 def leden_lijst(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """Enkel de kaarten: de filterbalk swapt dit fragment, zodat het zoekveld niet
     onder je vingers vervangen wordt."""
@@ -211,7 +216,9 @@ def leden_lijst(
 
 @router.get("/admin/leden/nieuw", response_class=HTMLResponse)
 def lid_nieuw(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
     from app.domains.mdm.api import list_postal_codes
@@ -232,7 +239,9 @@ def lid_nieuw(
 
 @router.get("/admin/leden/nieuw/persoon-rij", response_class=HTMLResponse)
 def lid_nieuw_persoon_rij(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """Een lege rij voor een extra gezinslid (#1110).
 
@@ -252,7 +261,9 @@ def lid_nieuw_persoon_rij(
 
 @router.post("/admin/leden", dependencies=[Depends(require_csrf)])
 async def gezin_aanmaken(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ) -> Response:
     """Nieuw gezin met hoofdlid, adres, contactgegevens en lidmaatschap (#1110).
 
@@ -315,7 +326,7 @@ def gezin_detail(
     family_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """Een kaart opent de paginabrede gezinseditor (C1, #582); de bewerkingen
     daarbinnen blijven htmx-fragmenten die in #leden-detail landen."""
@@ -343,7 +354,7 @@ def gezin_inschrijvingen_tab(
     richting: str = "",
     rij: str = "",
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """The Inschrijvingen tab of the household's page (Koen, 15 September — it
     replaced the Wijzigingen tab): what this household registered for, grouped
@@ -352,7 +363,7 @@ def gezin_inschrijvingen_tab(
     tab). The table is the one of the activity's tab (K6, #1560); the toolbar
     and the rest of the household's page are pilot B."""
     from app.domains.activities.api import parse_registration_sort, registration_table
-    from app.domains.auth.api import may_mutate_payments
+    from app.domains.auth.api import Right, may
     from app.domains.mdm.api import family_registrations, gezin_tabs
     from app.domains.membership.api import get_family
 
@@ -370,7 +381,7 @@ def gezin_inschrijvingen_tab(
         sort=parse_registration_sort(sort, richting),
         open_row=rij,
         sub_is_component=True,
-        may_mutate=may_mutate_payments(db, email),
+        may_mutate=may(db, email, Right.PAYMENT_MANAGE),
     )
     return templates.TemplateResponse(
         request,
@@ -401,7 +412,7 @@ async def persoon_opslaan(
     person_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     first_name: str = Form(""),
     last_name: str = Form(""),
     date_of_birth: str = Form(""),
@@ -492,7 +503,7 @@ def email_rij(
     index: str = "",
     nummer: str = "",
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """Een lege e-mailrij om onderaan te plakken (#1219).
 
@@ -526,7 +537,7 @@ def email_toevoegen(
     person_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     extra_email: str = Form(""),
 ):
     from app.domains.mdm.api import add_email_address
@@ -546,7 +557,7 @@ def email_hoofdadres(
     contact_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ):
     from app.domains.mdm.api import make_email_primary
 
@@ -566,7 +577,7 @@ def email_verwijderen(
     contact_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ):
     from app.domains.mdm.api import remove_email_address
 
@@ -584,7 +595,7 @@ def adres_opslaan(
     family_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     street: str = Form(""),
     house_number: str = Form(""),
     bus_number: str = Form(""),
@@ -617,7 +628,7 @@ def persoon_toevoegen(
     family_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     first_name: str = Form(""),
     last_name: str = Form(""),
     date_of_birth: str = Form(""),
@@ -665,7 +676,7 @@ def persoon_verwijderen(
     person_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ):
     from app.domains.mdm.api import delete_household_person
 
@@ -684,7 +695,7 @@ def bestuurslid_zetten(
     family_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     person_id: str = Form(""),
 ):
     from app.domains.mdm.api import BoardMemberAssign, assign_board_member
@@ -709,7 +720,7 @@ def lidmaatschap_toevoegen(
     family_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     year: int = Form(...),
 ):
     from app.domains.membership.api import MembershipCreate, create_membership_for_family
@@ -733,7 +744,7 @@ def lidmaatschap_verwijderen(
     membership_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ):
     from app.domains.membership.api import delete_membership
 
@@ -750,7 +761,7 @@ def gezin_verwijderen(
     family_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ):
     from app.domains.mdm.api import delete_household
 
@@ -765,7 +776,9 @@ def gezin_verwijderen(
 
 @router.get("/admin/leden-import", response_class=HTMLResponse)
 def import_page(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     nav = [dict(item, active=False) for item in admin_nav(NAV)]
     return templates.TemplateResponse(
@@ -784,7 +797,7 @@ def import_page(
 async def import_preview(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     file: UploadFile = File(...),
 ):
     from app.domains.mdm.api import import_preview
@@ -808,7 +821,7 @@ async def import_preview(
 def import_commit(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     token: str = Form(...),
 ):
     from app.domains.mdm.api import import_commit

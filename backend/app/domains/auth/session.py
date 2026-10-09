@@ -207,10 +207,10 @@ def require_right(right: Right):
         raise TypeError(f"require_right takes a member of Right, not {right!r}")
 
     def gate(request: Request, db: Session = Depends(get_db)) -> str:
-        from app.domains.auth.service import rights_of  # lazy: avoids a cycle
+        from app.domains.auth.service import may  # lazy: avoids a cycle
 
         email = _signed_in(request)
-        if right not in rights_of(db, email):
+        if not may(db, email, right):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_("Geen toegang"))
         return email
 

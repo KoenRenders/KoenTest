@@ -80,31 +80,42 @@ def rights_of(db: Session, email: str) -> set:
     role that is given or withdrawn counts at the next request.
 
     Empty for an address without an active account and for a role whose bundle
-    holds nothing; a gate that reads an empty set refuses (C4.2).
+    holds nothing.
     """
+    return {r[0] for r in _held(db, email).distinct().all()}
+
+
+def _held(db: Session, email: str):
+    """The rows of the bundles this address holds here — the one definition of
+    "holds", for the set (`rights_of`) and for the question (`may`)."""
     from sqlalchemy import or_
 
     from app.domains.auth.models import RoleRight, User, UserRole
     from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 
     active = current_tenant_id.get() or DEFAULT_TENANT_ID
-    rows = (
+    return (
         db.query(RoleRight.right_code)
         .join(UserRole, UserRole.role_code == RoleRight.role_code)
         .join(User, User.id == UserRole.user_id)
         .filter(func.lower(User.email) == email.strip().lower(), User.is_active == True)
         .filter(or_(UserRole.tenant_id.is_(None), UserRole.tenant_id == active))
-        .distinct()
-        .all()
     )
-    return {r[0] for r in rows}
 
 
 def may(db: Session, email: str, right) -> bool:
-    """Does this address hold the right here? The question `require_right`
-    enforces, for a place that shows a way in or an action only to who may use
-    it (CR-24 §C2)."""
-    return right in rights_of(db, email)
+    """Does this address hold the right here? The one condition `require_right`
+    admits on, and the question of a place that shows a way in or an action
+    only to who may use it (CR-24 §C2).
+
+    It asks for this one right and reads one row: a gate runs on every request
+    and a screen asks a few times more, so neither fetches a whole bundle. True
+    only when a row says so — no account, no role here, an empty bundle and a
+    right no bundle holds are all "no" (C4.2).
+    """
+    from app.domains.auth.models import RoleRight
+
+    return _held(db, email).filter(RoleRight.right_code == right).first() is not None
 
 
 def get_user_role_rows(db: Session, email: str) -> list:

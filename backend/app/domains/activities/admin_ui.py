@@ -31,10 +31,11 @@ from app.domains.activities.viewmodels import (
 )
 from app.domains.auth.api import (
     SESSION_COOKIE,
+    Right,
     csrf_from_request,
-    may_mutate_payments,
-    require_admin_ui,
+    may,
     require_csrf,
+    require_right,
 )
 from app.i18n import _
 from app.ui import admin_nav, is_fragment_request, refusal_response, templates
@@ -214,7 +215,7 @@ def _detail_response(
     ctx["toast_opgeslagen"] = toast
     # HDEV-melding 15 sep: kop en rail staan buiten #aa-detail en bleven na een
     # opslag op de oude stand. Het fragment stuurt ze nu out-of-band mee; de
-    # e-mail (voor de tab-rollen) komt uit de sessie die require_admin_ui al
+    # e-mail (voor de tab-rollen) komt uit de sessie die de poort van de route al
     # gevalideerd heeft.
     from app.domains.activities.api import registration_count_for
     from app.domains.auth.api import read_session_value
@@ -243,7 +244,7 @@ def _detail_response(
 def admin_activiteiten(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
     scope: str = "upcoming",
     q: str = "",
 ) -> Response:
@@ -355,7 +356,9 @@ def _new_record_ctx(request: Request, db: Session) -> dict:
 
 @router.get("/admin/activiteiten/nieuw", response_class=HTMLResponse)
 def activiteit_nieuw(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
 ) -> Response:
     """ "+ Nieuwe activiteit" (#1649, CR-11 Q84; P2 of the design system): the
     record page itself, in edit mode, empty — the same sections, groups and bar
@@ -375,7 +378,7 @@ def activiteit_nieuw(
 def new_activity_organisers(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
     organiser_q: str = "",
 ) -> Response:
     """The organiser search of the new fiche: nobody is taken yet."""
@@ -390,7 +393,7 @@ def new_activity_organisers(
 async def activiteit_aanmaken(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
 ) -> Response:
     """The one "Opslaan" of a new fiche (#1649): the activity with its dates,
     components, products, organisers and files, in one transaction
@@ -448,7 +451,7 @@ async def _posted_form(request: Request) -> Any:
 def new_activity_proposal(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
     vraag: str = Form(""),
     form: Any = Depends(_posted_form),
 ) -> HTMLResponse:
@@ -500,7 +503,7 @@ def activity_status_submit(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
     status: str = Form(""),
 ) -> Response:
     """Publish a draft or take it back to draft (#1428); the rule is the service's."""
@@ -527,7 +530,7 @@ def activity_cancellation_submit(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
     cancelled: str = Form(""),
 ) -> Response:
     """Call the activity off, or take that back (#1558): a record action in the
@@ -548,7 +551,7 @@ def copy_activity_step(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
 ) -> Response:
     """The step before a copy (#1397): where the dates move to."""
     return templates.TemplateResponse(
@@ -565,7 +568,7 @@ def copy_activity_submit(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
     start_date: Optional[date] = Form(None),
     with_components: bool = Form(False),
     status: str = Form(""),
@@ -599,7 +602,7 @@ def admin_activiteit_detail(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
 ) -> Response:
     """Een kaart opent de paginabrede editor (C1, #586); de bewerkingen daarin
     blijven htmx-fragmenten die in #aa-detail landen."""
@@ -644,7 +647,7 @@ def activity_proposal(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
     vraag: str = Form(""),
     form: Any = Depends(_posted_form),
 ) -> HTMLResponse:
@@ -727,7 +730,7 @@ async def activiteit_bijwerken(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
 ) -> Response:
     """The one "Opslaan" of the fiche (#1559): its sections, its dates, its
     components with their products, its organisers and its attachments, written
@@ -803,7 +806,7 @@ def activiteit_verwijderen(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
 ) -> Response:
     from app.domains.activities import service
 
@@ -1031,7 +1034,7 @@ def inschrijving_detail(
     registration_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
 ) -> Response:
     """Detail/editor van één inschrijving (contact + producten + opmerking) als
     htmx-fragment. Herbruikbaar vanuit betalingen ('Toon inschrijvingsdetails')
@@ -1050,7 +1053,7 @@ def inschrijving_pagina(
     request: Request,
     terug: str = "",
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
 ) -> Response:
     """De inschrijving als volwaardige pagina (golf 4, #913 — B2).
 
@@ -1102,7 +1105,7 @@ async def inschrijving_totaal(
     registration_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
 ) -> Response:
     """Herberekent regelbedragen en totaal bij een gewijzigd aantal (#670).
 
@@ -1112,7 +1115,7 @@ async def inschrijving_totaal(
     dit leest het formulier en rekent — meer niet. Daar staat een test op.
 
     Eigen endpoint en niet het publieke `/totaal`: dat laatste is open, dit vraagt
-    `require_admin_ui` + CSRF. Het patroon is hetzelfde, de rekenkant is dezelfde
+    het recht `activity.manage` + CSRF. Het patroon is hetzelfde, de rekenkant is dezelfde
     (`totals.py`), alleen de deur verschilt.
 
     #1613: the answer is the TOTAL and nothing else. It used to be the whole
@@ -1159,7 +1162,7 @@ def inschrijving_opmerking(
     registration_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
     remarks: str = Form(""),
 ) -> Response:
     from app.domains.activities import service
@@ -1190,7 +1193,7 @@ def answer_link_send(
     registration_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
 ) -> Response:
     """ "Link sturen" / "link opnieuw sturen" (CR-14 §B4.8): the answer link by mail
     to the registration's contact address, and a history row."""
@@ -1216,7 +1219,7 @@ async def answers_save(
     registration_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
 ) -> Response:
     """Correct a registration's answers (CR-14 §B4.7, R7): the same fields and rules
     as when they were given, a history row with old and new."""
@@ -1255,7 +1258,7 @@ async def inschrijving_opslaan(
     registration_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
 ) -> Response:
     """Aantallen én opmerking in één "Opslaan" (#613-2).
 
@@ -1348,7 +1351,7 @@ def inschrijving_regel_bijwerken(
     item_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
     quantity: int = Form(...),
 ) -> Response:
     from app.domains.activities import service
@@ -1503,7 +1506,7 @@ def inschrijving_nieuw(
     request: Request,
     onderdeel: int = 0,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
 ) -> Response:
     """The board adds a registration (#1192). With one component it is chosen."""
     from app.domains.activities.api import get_activity
@@ -1529,7 +1532,7 @@ async def inschrijving_nieuw_totaal(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
 ) -> Response:
     """The board's recalculation (#1284): the public one's `total_context`, priced
     by the person of the TYPED e-mail address."""
@@ -1558,7 +1561,7 @@ async def inschrijving_nieuw_prijzen(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
 ) -> Response:
     """The board's prices and total after the e-mail address or a quantity
     changed (#1284).
@@ -1602,7 +1605,7 @@ async def inschrijving_nieuw_opslaan(
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
 ) -> Response:
     """The board's channel of the one form (#1284): the processing is shared with
     the public form (`activities.api.submit`); what differs is where it lands —
@@ -1702,7 +1705,7 @@ def _registrations_ctx(db: Session, activiteit: Any, request: Request, email: st
             q=stand.get("q", ""),
             sort=parse_registration_sort(stand.get("sort", "datum"), stand.get("richting", "")),
             open_row=stand.get("rij", ""),
-            may_mutate=may_mutate_payments(db, email),
+            may_mutate=may(db, email, Right.PAYMENT_MANAGE),
         ),
         "reg_target": "#inschrijvingen-lijst",
         "reg_count": len(regs),
@@ -1714,7 +1717,7 @@ def activiteit_inschrijvingen_tab(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
 ) -> Response:
     """The Inschrijvingen tab of the record page (golf 8, #913; K6, #1560): every
     registration of the activity in one table, a collapsible group row per
@@ -1744,7 +1747,7 @@ def activity_registrations_list(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
 ) -> Response:
     """The list alone, for the toolbar and a sort link: the table, and
     out-of-band the toolbar's count, the count on "Openstaand" and the sort."""
@@ -1774,7 +1777,7 @@ def inschrijving_verwijderen(
     richting: str = "asc",
     vanuit: str = "",
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
 ) -> Response:
     """Verwijdert een inschrijving en keert terug naar de activiteit.
 
@@ -1795,7 +1798,7 @@ def onderdeel_export(
     component_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
 ) -> Response:
     from app.domains.activities import service
 
@@ -1829,7 +1832,7 @@ def component_book_page(
     component_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
 ) -> HTMLResponse:
     """The answers of a component (CR-14 F14, "Antwoorden" since #1382 — the book in
     the code): one page per registration, to print or to read and copy. Admin only,
@@ -1865,7 +1868,7 @@ def organisatoren_zoeken(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
     organiser_q: str = "",
 ) -> Response:
     """The candidates of the organiser search — members only (#1004).
