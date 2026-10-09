@@ -56,11 +56,13 @@ from app.i18n import _
 from app.kernel.codes import code_of
 from app.soft_delete import soft_delete
 
-# De audit-snapshots worden **per functie** geïmporteerd, niet hier. `audit/api.py`
-# trekt via `audit/service.py` de payment- en membership-facades binnen, en die
-# importeren audit weer terug; een module-level import hier maakt de volgorde
-# waarin dat oplost afhankelijk van wie er toevallig als eerste geïmporteerd wordt.
-# Binnen een functie gebeurt de import pas bij de aanroep, als alles geladen is.
+# The snapshot functions are imported **per function**, not here. That began as a
+# way round an import cycle: `audit/service.py` pulled in the payment and
+# membership facades, which imported audit back. Since CR-13 phase 4c (#1251)
+# the snapshot functions are their owners' (`membership/history.py`, and mdm's
+# through `mdm.api`) and `audit/service.py` imports no facade at module level,
+# so that cycle is gone. The imports stand where they stood: moving them to the
+# top was not part of that change and has not been tried.
 
 
 def _person_to_schema(person: Person, relation_type) -> FamilyMemberResponse:
@@ -159,35 +161,18 @@ def _build_family_response(m: Member) -> FamilyResponse:
     )
 
 
-def _reconcile_geschrapt_lidmaatschap(
-    db: Session,
-    membership,
-    actor: str | None,
-) -> None:
-    """Laat de financiële kant een geschrapt lidmaatschap volgen (#619).
+def _membership_deleted(db: Session, membership, actor: str | None) -> None:
+    """Say that this membership is deleted, so the money can follow (#619):
+    `payment` subscribes to `MembershipDeleted` and reconciles its charges, in
+    this transaction. Until CR-13 phase 4c (#1251) this function called payment
+    itself. Not optional — publishing into silence would leave an open charge or
+    a missing refund behind, so it refuses when nothing subscribes."""
+    from app.kernel.contracts.membership import MembershipDeleted
+    from app.kernel.events import has_subscribers, publish
 
-    Bij activiteiten deed ``reconcile_registration_charges`` dit al; bij
-    lidmaatschappen gebeurde er niets. Een onbetaalde vordering bleef dan eeuwig op de
-    betalingenlijst staan voor een lidmaatschap dat niet meer bestaat, en bij een
-    betaald lidmaatschap ontstond géén terugbetaling — niets signaleerde dat er geld
-    terug moest. De wees-job merkt dat niet op, want die beschouwt een soft-deleted
-    payable bewust als bestaand.
-
-    ``total_due = 0``: niemand is nog iets verschuldigd, dus onbetaalde posten
-    verdwijnen; een betaald bedrag blijft als financieel feit staan en levert één
-    ``pending`` terugbetaling op, die de penningmeester bevestigt (zoals bij #617).
-    """
-    from app.domains.payment.api import reconcile_charges
-
-    reconcile_charges(
-        db,
-        "membership",
-        membership.id,
-        0,
-        audit_actor=actor,
-        source="membership-delete",
-        refund_note="Automatisch bij schrappen lidmaatschap — terugstorting te bevestigen",
-    )
+    if not has_subscribers(MembershipDeleted):
+        raise RuntimeError("nothing subscribes to MembershipDeleted; import payment.handlers")
+    publish(MembershipDeleted(membership_id=membership.id, actor=actor), db)
 
 
 #: CR-22 R9, Q28 and Q40: what the public Lid worden answers for an address that
@@ -702,7 +687,7 @@ def delete_family(db: Session, family_id: int, admin=None):
         soft_delete(ms)
         # Stiller én groter dan één lidmaatschap schrappen, maar exact dezelfde
         # situatie (#619-3): elke betaling volgt haar eigen lidmaatschap.
-        _reconcile_geschrapt_lidmaatschap(db, ms, admin.email)
+        _membership_deleted(db, ms, admin.email)
     for mp in member.member_persons:
         person = mp.person
         for contact in person.contact_details:
@@ -1086,7 +1071,7 @@ def delete_membership(db: Session, membership_id: int, admin=None):
         actor=admin.email,
     )
     soft_delete(membership)
-    _reconcile_geschrapt_lidmaatschap(db, membership, admin.email)
+    _membership_deleted(db, membership, admin.email)
     db.commit()
 
 

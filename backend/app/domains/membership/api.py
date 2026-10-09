@@ -178,11 +178,12 @@ def register_family(db, data, background_tasks, *, signed_in=None):
 
 
 # ── Onderaan, en dat is opzet ────────────────────────────────────────────────
-# `audit/service.py` importeert op modulniveau `MembershipHistory` uit déze
-# facade. Staat de import hieronder bovenaan, dan is die naam nog niet gebonden
-# wanneer die keten terugkomt en klapt het op een "partially initialized module".
-# Onderaan is `MembershipHistory` er wél. Zo lost de cyclus zichzelf op, zonder de
-# lazy proxy die #635 H juist wegneemt.
+# These imports were put at the bottom when `audit/service.py` imported
+# `MembershipHistory` from this facade at module level: at the top the name was
+# not bound yet when that chain came back ("partially initialized module").
+# Since CR-13 phase 4c (#1251) `audit/service.py` imports no facade at module
+# level, so that reason is gone; the imports stand where they stood — moving
+# them up was not part of that change and has not been tried.
 # Sinds #635 H expliciet, niet meer via een lazy `__getattr__`-proxy naar
 # register_router. Die proxy gaf routerfuncties door als "servicelaag" — HTTP-
 # handlers met `Depends` in hun signatuur — en bestond om een importcyclus te

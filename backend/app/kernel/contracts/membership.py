@@ -27,3 +27,23 @@ class FamilyRegistered(KernelEvent):
     municipality: str = ""
     payment_record_id: str | None = None
     form: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class MembershipDeleted(KernelEvent):
+    """A membership was deleted by the board — on its own, or with its household
+    (CR-13 phase 4c, #1251).
+
+    Published by membership right after the membership is soft-deleted, in the
+    transaction of the deletion. `payment` subscribes and lets the money follow
+    (#619): an open charge of the membership goes, a paid amount stays as a fact
+    and gets one pending refund for the treasurer to confirm. Until phase 4c
+    membership called `payment.api.reconcile_charges` for it.
+
+    The consequence is not optional: the publisher refuses to publish when
+    nothing subscribes.
+    """
+
+    membership_id: int
+    #: The board member who deleted it, for payment's history rows.
+    actor: str | None = None
