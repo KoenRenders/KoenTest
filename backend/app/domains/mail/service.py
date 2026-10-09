@@ -449,20 +449,21 @@ def _transfer_instructions_html(transfer) -> str:
     )
 
 
-def send_magic_link(to_email: str, magic_link: str, otp_code: Optional[str] = None) -> None:
+def sign_in_message(link: str, otp_code: Optional[str] = None) -> tuple[str, str]:
+    """`(subject, body)` of the sign-in mail: the link, and the code for whoever
+    signs in on another device. Queued by `mail.handlers.queue_code_mail` — the
+    words are the ones this mail had when the sign-in sent it itself."""
     otp_block = ""
     if otp_code:
         otp_block = f"""
         <p>Of voer deze code in op het apparaat waar je wil inloggen:</p>
         <p style="font-size:1.6em;font-weight:bold;letter-spacing:0.15em">{otp_code}</p>
         """
-    _send(
-        to_email=to_email,
-        email_type="magic_link",
-        subject=_("Inloglink %(naam)s") % {"naam": _display_name()},
-        body_html=f"""
+    return (
+        _("Inloglink %(naam)s") % {"naam": _display_name()},
+        f"""
         <p>Klik op onderstaande link om in te loggen. De link is 15 minuten geldig.</p>
-        <p><a href="{magic_link}">{magic_link}</a></p>
+        <p><a href="{link}">{link}</a></p>
         {otp_block}
         <p>Als je deze mail niet verwachtte, kun je hem negeren.</p>
         <p>Met vriendelijke groeten,<br>{_display_name()}</p>
@@ -522,8 +523,9 @@ def code_mail_message(kind: str, link: str, otp_code: str) -> tuple[str, str]:
 
 
 def member_contact_board_notice_message() -> tuple[str, str]:
-    """`(subject, body)` of the notice below — for whoever queues it instead of
-    sending it (the account request, CR-22). One text, two ways out."""
+    """`(subject, body)` of the board notice: an address that does not say who
+    signs in gets no link, and is asked to contact the board. Queued by
+    `mail.handlers.queue_code_mail`."""
     return (
         _("Inloggen %(naam)s") % {"naam": _display_name()},
         _board_notice_body() % {"naam": _display_name()},
@@ -542,14 +544,6 @@ def _board_notice_body() -> str:
         <p>Neem contact op met het bestuur, dan zetten we dit recht.</p>
         <p>Met vriendelijke groeten,<br>%(naam)s</p>
         """)
-
-
-def send_member_contact_board_notice(to_email: str) -> None:
-    """Wanneer een e-mailadres aan meerdere gezinnen hangt, kunnen we niet
-    veilig bepalen op welk gezin in te loggen. We sturen geen inloglink maar
-    vragen contact op te nemen met het bestuur."""
-    subject, body = member_contact_board_notice_message()
-    _send(to_email=to_email, email_type="member_contact_notice", subject=subject, body_html=body)
 
 
 def family_welcome_message(

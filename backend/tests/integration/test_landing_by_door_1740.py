@@ -39,6 +39,7 @@ from app.domains.auth.api import (
     make_session_value,
 )
 from app.domains.mdm.api import ContactDetail, Member, MemberPerson
+from app.kernel.jobs import run_due_jobs
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, create_test_person
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -204,6 +205,8 @@ def test_the_notice_has_one_text_for_every_address_that_says_nobody(client, db_s
     _double(db_session, "gemengd-1740@example.org", mixed=True)
     step = client.post("/aanmelden", data={"email": "gemengd-1740@example.org"})
     assert "We stuurden een code naar dit adres." in step.text
+    assert sent == [], "the request itself sends nothing; the notice waits in the queue"
+    run_due_jobs(db_session)
     (mail,) = sent
     assert mail["type"] == "member_contact_notice"
     body = re.sub(r"\s+", " ", mail["body"])

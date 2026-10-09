@@ -59,6 +59,7 @@ class AddressCodeEntered(KernelEvent):
 
 
 #: The kinds of `CodeMailRequested`.
+SIGN_IN = "sign_in"
 ADDRESS_CONFIRMATION = "address_confirmation"
 ACCOUNT_CONFIRMATION = "account_confirmation"
 EXISTING_ACCOUNT = "existing_account"
@@ -67,14 +68,15 @@ AMBIGUOUS_ADDRESS = "ambiguous_address"
 
 @dataclass(frozen=True)
 class CodeMailRequested(KernelEvent):
-    """A mail about an account must leave (CR-22 R3, R4).
+    """A mail about a sign-in or an account must leave (CR-22 R3, R4).
 
-    Published by `auth.login.start_account` in the transaction that issues the
-    token. `mail` subscribes, words the message by `kind` and queues it as a
+    Published by `auth.login` — `start_login`, `start_account`,
+    `issue_address_code` — in the transaction that issues the token. `mail` subscribes, words the message by `kind` and queues it as a
     job in that transaction: it leaves only if the token was stored, and a
     handler never reaches the network (CR-13 §B4.1).
 
-    `kind`: `ADDRESS_CONFIRMATION` ("Bevestig je e-mailadres", with the link
+    `kind`: `SIGN_IN` ("Inloglink", with the link and the code that sign a known
+    address in), `ADDRESS_CONFIRMATION` ("Bevestig je e-mailadres", with the link
     and the code that make a waiting address count; #1711),
     `ACCOUNT_CONFIRMATION` ("Bevestig je account", with the link and
     the code that make it), `EXISTING_ACCOUNT` ("Je hebt al een account", with

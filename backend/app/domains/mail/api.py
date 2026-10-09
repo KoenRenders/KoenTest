@@ -23,8 +23,6 @@ from app.domains.mail.service import (  # noqa: F401  # noqa: F401
     purge_old_email_logs,
     send_campaign_mail,
     send_form_confirmation,
-    send_magic_link,
-    send_member_contact_board_notice,
     send_newsletter_confirmation,
     send_with_attachments,
 )
@@ -43,8 +41,6 @@ __all__ = [
     "EmailLog",
     "purge_old_email_logs",
     "send_form_confirmation",
-    "send_magic_link",
-    "send_member_contact_board_notice",
     "send_with_attachments",
     "send_campaign_mail",
     "send_newsletter_confirmation",

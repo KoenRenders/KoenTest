@@ -33,13 +33,13 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.domains.auth.member_identity import ACCOUNT, HOUSEHOLD, MULTIPLE, sign_in_identity
 from app.domains.auth.models import LoginPurpose, LoginToken, User
-from app.domains.mail.api import send_magic_link, send_member_contact_board_notice
 from app.i18n import _
 from app.kernel.contracts.auth import (
     ACCOUNT_CONFIRMATION,
     ADDRESS_CONFIRMATION,
     AMBIGUOUS_ADDRESS,
     EXISTING_ACCOUNT,
+    SIGN_IN,
     AccountCodeEntered,
     AddressCodeEntered,
     CodeMailRequested,
@@ -198,15 +198,19 @@ def start_login(db: Session, email: str, return_to: str = "") -> None:
 
     if user is not None or identity in (HOUSEHOLD, ACCOUNT):
         token, otp_code = _issue(db, email, purpose=LoginPurpose.SIGN_IN)
-        db.commit()
         magic_link = _link(db, token, return_to)
         if settings.debug:
             logger.warning("[DEBUG] Inloglink voor %s: %s", email, magic_link)
-        send_magic_link(to_email=email, magic_link=magic_link, otp_code=otp_code)
+        # The mail is queued in the transaction that stores the code (CR-13
+        # phase 4d, #1251): it leaves only if the code exists, and the request
+        # no longer waits for the mail server.
+        _request_mail(db, email, SIGN_IN, magic_link, otp_code)
+        db.commit()
     elif identity == MULTIPLE:
         # E-mailadres hangt aan meerdere gezinnen en is geen account: geen link,
         # wel uitleg per mail (we mogen niet gokken welk gezin bedoeld is).
-        send_member_contact_board_notice(to_email=email)
+        _request_mail(db, email, AMBIGUOUS_ADDRESS)
+        db.commit()
 
 
 def start_account(db: Session, request: AccountRequest, return_to: str = "") -> None:

@@ -58,6 +58,7 @@ Broken on purpose to check that these tests can go red:
 
 import pytest
 
+from tests._queued_mail import newest_queued_mail
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -77,17 +78,10 @@ def platform_host(monkeypatch):
 
 
 @pytest.fixture
-def captured_mail(monkeypatch):
-    sent = {}
-
-    from app.domains.mail import service as mail_service
-
-    def _capture(to_email, subject, body_html, **kwargs):
-        sent["subject"] = subject
-        sent["html"] = body_html
-
-    monkeypatch.setattr(mail_service, "_send", _capture)
-    return sent
+def captured_mail(db_session):
+    """The sign-in mail as it waits in the queue (#1251): worded during the
+    request, with the host the visitor arrived on, and sent by the job."""
+    return lambda: newest_queued_mail(db_session)
 
 
 def test_the_login_link_points_at_the_host_you_arrived_on(
@@ -99,9 +93,8 @@ def test_the_login_link_points_at_the_host_you_arrived_on(
     )
 
     assert resp.status_code == 200
-    assert captured_mail, "no mail was sent"
-    assert f"//{platform_host}/login/verify" in captured_mail["html"], (
-        f"the login link does not point at the platform host:\n{captured_mail['html']}"
+    assert f"//{platform_host}/login/verify" in captured_mail()["body_html"], (
+        f"the login link does not point at the platform host:\n{captured_mail()['body_html']}"
     )
 
 
@@ -130,11 +123,11 @@ def test_a_base_url_from_another_environment_is_still_ignored(
 
     client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL}, headers={"host": platform_host})
 
-    assert "raakmillegem.be" not in captured_mail["html"], (
+    assert "raakmillegem.be" not in captured_mail()["body_html"], (
         "a production address from the database leaked into a login link on a test "
         "environment — that is exactly what #477 exists to prevent"
     )
-    assert f"//{platform_host}/" in captured_mail["html"]
+    assert f"//{platform_host}/" in captured_mail()["body_html"]
 
 
 def test_a_base_url_this_environment_serves_is_accepted(
@@ -157,9 +150,9 @@ def test_a_base_url_this_environment_serves_is_accepted(
         "/aanmelden", data={"email": SEEDED_ADMIN_EMAIL}, headers={"host": "eigen.example.test"}
     )
 
-    assert "//eigen.example.test/login/verify" in captured_mail["html"], (
+    assert "//eigen.example.test/login/verify" in captured_mail()["body_html"], (
         f"the stored base_url of an afdeling with its own domain was ignored:\n"
-        f"{captured_mail['html']}"
+        f"{captured_mail()['body_html']}"
     )
 
 
@@ -277,6 +270,6 @@ def test_the_return_url_follows_the_incoming_host_even_with_an_own_domain(
     finally:
         invalidate_tenant_codes()
 
-    assert f"//{platform_host}/login/verify" in captured_mail["html"], (
+    assert f"//{platform_host}/login/verify" in captured_mail()["body_html"], (
         "the login link sent you to a tenant's own domain instead of back to the host you were on"
     )
