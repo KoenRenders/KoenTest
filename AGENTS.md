@@ -575,7 +575,7 @@ never a claim you did not check:
 | `alembic current` | `… exec -T backend alembic current` | equal to that head |
 | Migrations, if the release adds any | backend logs | the expected `Running upgrade NNN -> NNN+1` |
 | Startup | backend logs | `Uvicorn running on http://0.0.0.0:8000`, zero `ERROR`/`Traceback` lines |
-| Smoke + reachability | the deploy's own output, plus a few `curl`s | `N OK · 0 gefaald`; public pages 200, an admin screen 303 to `/aanmelden?terug=…` without a session (#1458), an `/api/v1/` admin path 401 |
+| Smoke + reachability | the deploy's own output, plus a few `curl`s | `N OK · 0 gefaald`; public pages 200, an admin screen 303 to `/aanmelden?terug=…` without a session (#1458). No `/api/v1/` path asks for an admin any more since v2.16.0 (#1251: the JSON routes without a caller were pruned), so the former third check — an `/api/v1/` admin path 401 — has nothing to measure; on a tag older than v2.16.0 it still holds |
 
 `raak diagnose <env>` collects the first five in one report (`logging.sh`), so use
 it instead of hand-writing `docker compose` commands; `raak fetch <env>` pulls the
@@ -974,7 +974,7 @@ domain's internals (`tests/test_import_boundaries.py` enforces this).
 - `Registration` → `RegistrationItem` (één regel per gekozen product/aantal)
 - `GatewayPayment.payment_metadata` (JSON column — NOT `metadata`)
 
-**Auth:** JWT Bearer tokens voor de JSON-API (`get_current_admin` op alle admin-endpoints); de server-rendered schermen gebruiken de HttpOnly-sessiecookie + CSRF via `app.domains.auth.api` (`require_admin_ui`, `require_csrf`).
+**Auth:** de sessie is de enige identiteit sinds v2.16.0 (#1251: de bearer-tokens en API-sleutels van de JSON-API zijn met hun routes verdwenen); de server-rendered schermen gebruiken de HttpOnly-sessiecookie + CSRF via `app.domains.auth.api` (`require_admin_ui`, `require_csrf`).
 
 **Rollen (ADMIN/FINANCE/OPERATOR/ACCOUNT_ADMIN) → wat mag/ziet wie:** zie de
 autoritatieve, met-de-code-geverifieerde matrix in `docs/rollen-en-rechten.md`
