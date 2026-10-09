@@ -1,0 +1,142 @@
+200
+<div id="persoon-882005" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
+<div>
+<div class="flex items-start justify-between">
+<div x-show="!edit">
+<span class="font-semibold">Nieuw Proef</span>
+<span class="text-xs text-gray-500 ml-1">((meerderjarig) kind)</span>
+<p class="text-sm text-gray-500 mt-0.5">° 02-01-2015 · Man</p>
+<div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
+<span class="inline-flex items-start gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 mt-0.5 shrink-0" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> nieuwkind-1251@example.com</span>
+</div>
+</div>
+<span x-show="edit" x-cloak class="text-sm text-gray-500 self-center">Nieuw Proef — bewerken</span>
+<div class="flex gap-2 shrink-0 ml-4">
+<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
+<div x-show="edit" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/leden/gezin/881001/persoon/882005/verwijderen" hx-target="#persoon-882005" hx-swap="outerHTML" data-confirm='Persoon "Nieuw Proef" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="pc-882005" >Opslaan</button>
+</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<form id="pc-882005" x-show="edit" x-cloak class="space-y-3"
+ hx-post="/admin/leden/gezin/881001/persoon/882005"
+ hx-target="#persoon-882005" hx-swap="outerHTML" style="display: none">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+<div><label for="lp882005-first_name" class="block text-sm font-medium text-gray-700 mb-1">Voornaam <span class="text-red-600">*</span></label>
+<input name="first_name" id="lp882005-first_name" required value="Nieuw" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="lp882005-last_name" class="block text-sm font-medium text-gray-700 mb-1">Achternaam <span class="text-red-600">*</span></label>
+<input name="last_name" id="lp882005-last_name" required value="Proef" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="lp882005-date_of_birth" class="block text-sm font-medium text-gray-700 mb-1">Geboortedatum <span class="text-red-600">*</span></label>
+<input type="date" name="date_of_birth" id="lp882005-date_of_birth" required value="2015-01-02" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="lp882005-gender_code" class="block text-sm font-medium text-gray-700 mb-1">Geslacht <span class="text-red-600">*</span></label>
+<select name="gender_code" id="lp882005-gender_code" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+<option value="">—</option>
+<option value="M" selected>Man</option><option value="F" >Vrouw</option><option value="X" >X</option>
+</select></div>
+<div><label for="lp882005-mobile" class="block text-sm font-medium text-gray-700 mb-1">Mobiel</label>
+<input type="tel" name="mobile" id="lp882005-mobile" value="" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="lp882005-phone" class="block text-sm font-medium text-gray-700 mb-1">Telefoon</label>
+<input name="phone" id="lp882005-phone" value="" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="lp882005-relation_type" class="block text-sm font-medium text-gray-700 mb-1">Relatie</label>
+<select name="relation_type" id="lp882005-relation_type" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+<option value="PARTNER" >Partner</option>
+<option value="KIND" >(meerderjarig) kind</option>
+</select></div>
+</div>
+<div x-show="edit" x-cloak class="mt-3 border-t border-gray-100 pt-3" style="display: none">
+<div class="flex items-center justify-between gap-2">
+<label for="emails-882005" class="block text-sm font-medium text-gray-700 mb-1">E-mailadressen</label>
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0"
+ hx-get="/admin/leden/gezin/881001/persoon/882005/email-rij"
+ hx-target="#emails-882005" hx-swap="beforeend"
+ hx-vals='js:{index: Date.now(), nummer: 1 + document.querySelectorAll("#emails-882005 [data-email-rij]").length}'>+ E-mailadres</button>
+</div>
+<div id="emails-882005" class="mt-1 space-y-3">
+<div class="flex flex-wrap items-center gap-x-2 gap-y-1" data-email-rij>
+<div class="flex-1 min-w-[12rem]">
+<input type="email" name="email_existing_885002" id="em-885002" value="nieuwkind-1251@example.com" placeholder="<EXAMPLE-ADDRESS>"
+ aria-label="E-mail 1" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
+</div>
+<span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span>
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0"
+ aria-label="Verwijder nieuwkind-1251@example.com"
+ hx-post="/admin/leden/gezin/881001/persoon/882005/email/885002/verwijderen"
+ hx-target="#persoon-882005" hx-swap="outerHTML"
+ data-confirm="Dit e-mailadres verwijderen?">Verwijderen</button>
+</div>
+</div>
+<p class="text-xs text-ink-soft mt-1">Met elk bevestigd adres kan dit lid inloggen, en de nieuwsbrief gaat naar elk bevestigd adres. Een gewijzigde tekst bewaar je met Opslaan; het hoofdadres is het adres dat Raak Nationaal in zijn programma heeft.</p>
+</div>
+</form>
+</div>
+<div id="persoon-toevoegen" class="bg-blue-50 rounded-2xl border border-blue-100 p-4" x-data="{ open: false }">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-4 py-2.5 text-base min-h-11 md:py-2 md:min-h-0" hx-disabled-elt="this" @click="open = !open">+ Persoon toevoegen</button>
+<form x-show="open" x-cloak class="space-y-3 mt-3"
+ hx-post="/admin/leden/gezin/881001/personen"
+ hx-target="#persoon-toevoegen" hx-swap="outerHTML">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+<div><label for="np-first_name" class="block text-sm font-medium text-gray-700 mb-1">Voornaam <span class="text-red-600">*</span></label>
+<input name="first_name" id="np-first_name" required value="" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="np-last_name" class="block text-sm font-medium text-gray-700 mb-1">Achternaam <span class="text-red-600">*</span></label>
+<input name="last_name" id="np-last_name" required value="" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="np-date_of_birth" class="block text-sm font-medium text-gray-700 mb-1">Geboortedatum <span class="text-red-600">*</span></label>
+<input type="date" name="date_of_birth" id="np-date_of_birth" required value="" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="np-gender_code" class="block text-sm font-medium text-gray-700 mb-1">Geslacht <span class="text-red-600">*</span></label>
+<select name="gender_code" id="np-gender_code" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+<option value="">—</option>
+<option value="M" >Man</option><option value="F" >Vrouw</option><option value="X" >X</option>
+</select></div>
+<div><label for="np-email" class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+<input type="email" name="email" id="np-email" value="" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="np-mobile" class="block text-sm font-medium text-gray-700 mb-1">Mobiel</label>
+<input type="tel" name="mobile" id="np-mobile" value="" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="np-phone" class="block text-sm font-medium text-gray-700 mb-1">Telefoon</label>
+<input name="phone" id="np-phone" value="" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="np-relation_type" class="block text-sm font-medium text-gray-700 mb-1">Relatie</label>
+<select name="relation_type" id="np-relation_type" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+<option value="PARTNER" >Partner</option>
+<option value="KIND" >(meerderjarig) kind</option>
+</select></div>
+</div>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-4 py-2.5 text-base min-h-11 md:py-2 md:min-h-0" hx-disabled-elt="this" >Toevoegen</button>
+</form>
+</div>
+<div id="bestuurslid-kaart" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" hx-swap-oob="true">
+<h3 class="font-semibold mb-2">Verantwoordelijk bestuurslid</h3>
+<form hx-post="/admin/leden/gezin/881001/bestuurslid"
+ hx-target="#bestuurslid-kaart" hx-swap="outerHTML" hx-trigger="change">
+<select name="person_id" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
+<option value="">— Geen —</option>
+<option value="882002" >Proef Bram</option>
+<option value="882001" >Proef Hanne</option>
+<option value="882003" >Proef Lotte</option>
+<option value="882005" >Proef Nieuw</option>
+<option value="882004" >Staander Buiten</option>
+</select>
+<p class="text-xs text-ink-soft mt-1">Een keuze wordt meteen bewaard.</p>
+</form>
+</div>
+--- rows ---
+household 881001: board_member=None
+link person=882001: HOOFDLID deleted=no
+link person=882002: PARTNER deleted=no
+link person=882003: KIND deleted=no
+link person=882005: KIND deleted=no
+person 882001: 'Hanne' 'Proef' born=1980-03-04 gender=F deleted=no
+person 882002: 'Bram' 'Proef' born=1979-05-06 gender=M deleted=no
+person 882003: 'Lotte' 'Proef' born=2010-07-08 gender=F deleted=no
+person 882004: 'Buiten' 'Staander' born=1990-01-01 gender=M deleted=no
+person 882005: 'Nieuw' 'Proef' born=2015-01-02 gender=M deleted=no
+address of 882001: 'Proefstraat' '1' bus=None postal=886001
+contact of 882001: EMAIL 'bestuur-1251@example.com' primary=True deleted=no
+contact of 882005: EMAIL 'nieuwkind-1251@example.com' primary=True deleted=no
+PersonHistory: insert person_added_to_family source=admin_manual actor=beheerder@example.com
+MemberPersonHistory: insert person_added_to_family source=admin_manual actor=beheerder@example.com
+ContactDetailHistory: insert person_added_to_family source=admin_manual actor=beheerder@example.com

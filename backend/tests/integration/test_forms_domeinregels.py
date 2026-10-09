@@ -139,8 +139,7 @@ def test_de_router_heeft_geen_eigen_kopie_meer():
 def test_hoofdlid_wordt_nooit_overschreven(db_session):
     """Het hoofdlid draagt het adres, het lidmaatschap en de betaalcommunicatie.
     Hem stil degraderen laat een gezin zonder aanspreekpunt achter (#498)."""
-    from app.domains.mdm.api import MemberPerson
-    from app.domains.membership.api import set_relation_type
+    from app.domains.mdm.api import MemberPerson, set_relation_type
     from tests.conftest import create_test_family
 
     member, person = create_test_family(db_session, email="hoofdlid@example.com")
@@ -158,8 +157,7 @@ def test_hoofdlid_wordt_nooit_overschreven(db_session):
 
 
 def test_een_gewoon_gezinslid_krijgt_wel_een_andere_rol(db_session):
-    from app.domains.mdm.api import MemberPerson
-    from app.domains.membership.api import set_relation_type
+    from app.domains.mdm.api import MemberPerson, set_relation_type
     from tests.conftest import create_test_family, create_test_person
 
     member, _hoofdlid = create_test_family(db_session, email="hl@example.com")
@@ -178,8 +176,7 @@ def test_een_gewoon_gezinslid_krijgt_wel_een_andere_rol(db_session):
 
 
 def test_promoveren_tot_hoofdlid_kan_niet_via_dit_pad(db_session):
-    from app.domains.mdm.api import MemberPerson
-    from app.domains.membership.api import set_relation_type
+    from app.domains.mdm.api import MemberPerson, set_relation_type
     from tests.conftest import create_test_family, create_test_person
 
     member, _hoofdlid = create_test_family(db_session, email="hl2@example.com")

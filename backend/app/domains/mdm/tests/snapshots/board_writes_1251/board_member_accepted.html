@@ -1,0 +1,27 @@
+200
+<div id="bestuurslid-kaart" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+<h3 class="font-semibold mb-2">Verantwoordelijk bestuurslid</h3>
+<form hx-post="/admin/leden/gezin/881001/bestuurslid"
+ hx-target="#bestuurslid-kaart" hx-swap="outerHTML" hx-trigger="change">
+<select name="person_id" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
+<option value="">— Geen —</option>
+<option value="882002" selected>Proef Bram</option>
+<option value="882001" >Proef Hanne</option>
+<option value="882003" >Proef Lotte</option>
+<option value="882004" >Staander Buiten</option>
+</select>
+<p class="text-xs text-ink-soft mt-1">Een keuze wordt meteen bewaard.</p>
+</form>
+</div>
+--- rows ---
+household 881001: board_member=882002
+link person=882001: HOOFDLID deleted=no
+link person=882002: PARTNER deleted=no
+link person=882003: KIND deleted=no
+person 882001: 'Hanne' 'Proef' born=1980-03-04 gender=F deleted=no
+person 882002: 'Bram' 'Proef' born=1979-05-06 gender=M deleted=no
+person 882003: 'Lotte' 'Proef' born=2010-07-08 gender=F deleted=no
+person 882004: 'Buiten' 'Staander' born=1990-01-01 gender=M deleted=no
+address of 882001: 'Proefstraat' '1' bus=None postal=886001
+contact of 882001: EMAIL 'bestuur-1251@example.com' primary=True deleted=no
+MemberHistory: update board_member_assigned source=admin_update actor=beheerder@example.com

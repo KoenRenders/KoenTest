@@ -12,12 +12,7 @@ from app.domains.membership.history import snapshot_membership
 from app.domains.membership.models import Membership, MembershipHistory  # noqa: F401
 from app.domains.membership.payables import membership_describer  # noqa: E402, F401
 from app.domains.membership.schemas_member import (  # noqa: F401
-    AddressUpdate,
-    BoardMemberAssign,
-    ContactsUpdate,
     MembershipCreate,
-    PersonAddToFamily,
-    PersonUpdate,
     PostalCodeResponse,
 )
 from app.domains.membership.service import (  # noqa: F401
@@ -38,7 +33,6 @@ from app.domains.membership.service import (  # noqa: F401
     renewal_open,
     renewal_terms,
     renewal_years,
-    set_relation_type,
     valid_membership_until,
 )
 
@@ -67,32 +61,20 @@ __all__ = [
     "renewal_terms",
     "valid_membership_until",
     # Schrijfbewerkingen op gezinnen/personen/lidmaatschappen (#635 H)
-    "add_person_to_family",
-    "assign_board_member",
     "create_family_by_admin",
     "create_family_with_members",
     "family_from_rows",
-    "update_family_address",
     "parse_member_rows",
     "FamilyCreate",
     "FamilyMemberCreate",
     "create_membership_for_family",
     "delete_family",
     "delete_membership",
-    "delete_person",
     "family_label",
     "get_family",
     "list_families",
-    "update_person",
-    "update_person_address",
-    "update_person_contacts",
     # Schemas (#444)
-    "AddressUpdate",
-    "BoardMemberAssign",
-    "ContactsUpdate",
     "MembershipCreate",
-    "PersonAddToFamily",
-    "PersonUpdate",
     "PostalCodeResponse",
 ]
 
@@ -192,22 +174,15 @@ def register_family(db, data, background_tasks, *, signed_in=None):
 # vermijden. De cyclus is weg nu de implementatie in household_service woont, dat
 # zelf geen router importeert.
 from app.domains.membership.household_service import (  # noqa: E402, F401 — at the bottom on purpose: audit.service imports MembershipHistory from here at load time (cycle, see above)
-    add_person_to_family,
-    assign_board_member,
     create_family_by_admin,
     create_family_with_members,
     create_membership_for_family,
     delete_family,
     delete_membership,
-    delete_person,
     family_from_rows,
     family_label,
     get_family,
     list_families,
-    update_family_address,
-    update_person,
-    update_person_address,
-    update_person_contacts,
 )
 from app.domains.membership.schemas_family import (  # noqa: E402, F401 — at the bottom on purpose: audit.service imports MembershipHistory from here at load time (cycle, see above)
     FamilyCreate,

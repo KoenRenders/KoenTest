@@ -38,9 +38,6 @@ from app.domains.mdm.api import (
 from app.domains.membership.models import Membership
 from app.domains.membership.schemas_family import FamilyCreate, FamilyMemberCreate
 from app.domains.membership.schemas_member import (  # noqa: F401
-    AddressUpdate,
-    BoardMemberAssign,
-    ContactsUpdate,
     EmailAddressResponse,
     FamilyMemberResponse,
     FamilyResponse,
@@ -48,9 +45,7 @@ from app.domains.membership.schemas_member import (  # noqa: F401
     MembershipCreate,
     MembershipResponse,
     PaginatedFamiliesResponse,
-    PersonAddToFamily,
     PersonListItem,
-    PersonUpdate,
 )
 from app.i18n import _
 from app.kernel.codes import code_of
@@ -742,53 +737,12 @@ def delete_family(db: Session, family_id: int, admin=None):
     db.commit()
 
 
-def update_person(db: Session, person_id: int, data: PersonUpdate, admin=None):
-    from app.domains.mdm.api import snapshot_person
-
-    person = db.query(Person).filter(Person.id == person_id).first()
-    if not person:
-        raise HTTPException(status_code=404, detail=_("Person not found"))
-    # Enkel snapshotten wat écht wijzigt (#188): een formulier stuurt alle velden mee,
-    # maar een onveranderd veld hoort geen history-rij te maken.
-    wijzigingen = data.model_dump(exclude_unset=True)
-    # #681: toets de UITKOMST, en toets ze vóór het toepassen. Een gedeeltelijke
-    # wijziging (enkel de naam) mag niet afketsen op een veld dat niet meegestuurd
-    # werd, maar ze mag de persoon evenmin zónder deze twee achterlaten. Vooraf,
-    # niet achteraf: een `rollback()` ná het muteren gooit ook al het andere werk
-    # in dezelfde sessie weg.
-    try:
-        MemberPerson.require_details(
-            wijzigingen.get("date_of_birth", person.date_of_birth),
-            wijzigingen.get("gender_code", person.gender_code),
-        )
-    except PersonDetailsMissing as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-
-    changed = False
-    for field, value in wijzigingen.items():
-        if getattr(person, field) != value:
-            setattr(person, field, value)
-            changed = True
-    if changed:
-        snapshot_person(
-            db,
-            person,
-            operation="update",
-            action="person_updated",
-            source="admin_update",
-            actor=admin.email,
-        )
-    db.commit()
-    db.refresh(person)
-    mp = next((mp for mp in person.member_persons), None)
-    return _person_to_schema(person, mp.relation_type if mp else "HOOFDLID")
-
-
 def _require_whole_address(street, house_number, postal_code) -> None:
     """An address has a street, a house number and a postal code — mdm's one rule
-    (`require_whole_address`, #1603), which the portal's save always asked. The
-    back office's forms mark the three as required, and the server keeps that
-    promise here (CR-13 phase 4c, #1251). A 422, as this service's other refusals."""
+    (`require_whole_address`, #1603), asked here for a household that is created.
+    The board's changes of an address ask it in mdm since CR-13 phase 4c
+    (`mdm/household_board_service.py`); this copy of the three lines goes when
+    the creation moves too. A 422, as this service's other refusals."""
     from app.domains.mdm.api import HouseholdRefused, require_whole_address
 
     try:
@@ -797,20 +751,6 @@ def _require_whole_address(street, house_number, postal_code) -> None:
         )
     except HouseholdRefused as refusal:
         raise HTTPException(status_code=422, detail=str(refusal)) from refusal
-
-
-def update_family_address(db: Session, family_id: int, data: AddressUpdate, admin=None):
-    """The household's one address. It hangs on the main member — on the first
-    person where none is marked — and a household without persons has nobody to
-    hang it on. That rule stood in the screen until CR-13 phase 4c (#1251)."""
-    family = get_family(db, family_id)
-    holder = next(
-        (m for m in family.members if m.relation_type == RelationType.PRIMARY_MEMBER),
-        family.members[0] if family.members else None,
-    )
-    if holder is None:
-        raise HTTPException(status_code=400, detail=_("Gezin zonder personen."))
-    return update_person_address(db, holder.id, data, admin=admin)
 
 
 def family_from_rows(values: Mapping[str, str], rows: list[dict]) -> FamilyCreate:
@@ -845,217 +785,6 @@ def family_from_rows(values: Mapping[str, str], rows: list[dict]) -> FamilyCreat
     )
 
 
-def update_person_address(
-    db: Session,
-    person_id: int,
-    data: AddressUpdate,
-    admin=None,
-):
-    from app.domains.mdm.api import snapshot_address
-
-    person = db.query(Person).filter(Person.id == person_id).first()
-    if not person:
-        raise HTTPException(status_code=404, detail=_("Person not found"))
-    address = person.address
-    if not address:
-        # #1111: a household created in the back office has no address row —
-        # `create_member` (gone since CR-13 phase 4b) never made one — so "update" refused every first
-        # address with 404 "Address not found", and the screen showed the
-        # generic banner. Saving an address on a household without one means
-        # creating it; the three required parts must all be there.
-        _require_whole_address(data.street, data.house_number, data.postal_code)
-        pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
-        if not pc:
-            raise HTTPException(
-                status_code=422,
-                detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": data.postal_code},
-            )
-        address = Address(
-            person_id=person.id,
-            street=data.street,
-            house_number=data.house_number,
-            bus_number=data.bus_number or None,
-            postal_code_id=pc.id,
-        )
-        db.add(address)
-        db.flush()
-        snapshot_address(
-            db,
-            address,
-            operation="insert",
-            action="address_created",
-            source="admin_manual",
-            actor=admin.email,
-        )
-        db.commit()
-        db.refresh(person)
-        mp = next((mp for mp in person.member_persons), None)
-        return _person_to_schema(person, mp.relation_type if mp else "HOOFDLID")
-    if data.postal_code is not None:
-        pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
-        if not pc:
-            raise HTTPException(
-                status_code=422,
-                detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": data.postal_code},
-            )
-        address.postal_code_id = pc.id
-    # What the address would be after this save: a field the form did not send
-    # stays, an emptied one does not pass.
-    _require_whole_address(
-        address.street if data.street is None else data.street,
-        address.house_number if data.house_number is None else data.house_number,
-        address.postal_code.postal_code if address.postal_code else None,
-    )
-    for field in ("street", "house_number"):
-        value = getattr(data, field)
-        if value is not None:
-            setattr(address, field, value)
-    if data.bus_number is not None or "bus_number" in (data.model_fields_set or set()):
-        address.bus_number = data.bus_number or None
-    snapshot_address(
-        db,
-        address,
-        operation="update",
-        action="address_updated",
-        source="admin_update",
-        actor=admin.email,
-    )
-    db.commit()
-    db.refresh(person)
-    mp = next((mp for mp in person.member_persons), None)
-    return _person_to_schema(person, mp.relation_type if mp else "HOOFDLID")
-
-
-def update_person_contacts(
-    db: Session,
-    person_id: int,
-    data: ContactsUpdate,
-    admin=None,
-):
-
-    person = db.query(Person).filter(Person.id == person_id).first()
-    if not person:
-        raise HTTPException(status_code=404, detail=_("Person not found"))
-
-    # #1174: langs de gedeelde regel, niet langs een eigen binnenfunctie. Die
-    # stond hier met exact dezelfde "eerste rij"-fout als de import — dit scherm
-    # kon dus een extra e-mailadres overschrijven of, bij een leeggemaakt veld,
-    # verwijderen. Dat is precies het adres dat de nieuwsbriefverantwoordelijke
-    # net had ingevoerd.
-    from app.domains.mdm.api import upsert_primary_contact
-
-    def _upsert_contact(type_code: str, value: Optional[str]):
-        upsert_primary_contact(
-            db,
-            person,
-            type_code,
-            value,
-            action="contacts_updated",
-            source="admin_update",
-            actor=admin.email,
-        )
-
-    # #1219: een veld dat het formulier NIET meegaf, blijft met rust. Sinds de
-    # e-mailadressen rijen zijn, draagt het ledenformulier van een bestaande
-    # persoon geen `email` meer — en `email=None` betekent hier "verwijder het
-    # hoofdadres". Zonder deze grens wist elke opslag het hoofdadres.
-    gegeven = data.model_fields_set
-    if "email" in gegeven:
-        _upsert_contact("EMAIL", data.email)
-    if "phone" in gegeven:
-        _upsert_contact("PHONE", data.phone)
-    if "mobile" in gegeven:
-        _upsert_contact("MOBILE", data.mobile)
-    db.commit()
-    db.refresh(person)
-    mp = next((mp for mp in person.member_persons), None)
-    return _person_to_schema(person, mp.relation_type if mp else "HOOFDLID")
-
-
-def delete_person(db: Session, person_id: int, admin=None):
-    """The board deletes a person of a household. The rule is master data's
-    (`mdm.delete_person`, CR-22 S7 — #1712): this door only finds the person and
-    answers a refusal as a 400."""
-    from app.domains.mdm.api import MasterDataError
-    from app.domains.mdm.api import delete_person as delete_master_person
-
-    person = db.query(Person).filter(Person.id == person_id).first()
-    if not person:
-        raise HTTPException(status_code=404, detail=_("Person not found"))
-    try:
-        delete_master_person(db, person, actor=admin.email)
-        db.commit()
-    except MasterDataError as refusal:
-        raise HTTPException(status_code=400, detail=str(refusal)) from refusal
-
-
-def add_person_to_family(
-    db: Session,
-    family_id: int,
-    data: PersonAddToFamily,
-    admin=None,
-):
-    from app.domains.mdm.api import snapshot_contact_detail, snapshot_member_person, snapshot_person
-
-    member = db.query(Member).filter(Member.id == family_id).first()
-    if not member:
-        raise HTTPException(status_code=404, detail=_("Family not found"))
-
-    try:
-        MemberPerson.require_details(data.date_of_birth, data.gender_code)
-    except PersonDetailsMissing as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-
-    person = Person(
-        last_name=data.last_name,
-        first_name=data.first_name,
-        date_of_birth=data.date_of_birth,
-        gender_code=data.gender_code,
-    )
-    db.add(person)
-    db.flush()
-    snapshot_person(
-        db,
-        person,
-        operation="insert",
-        action="person_added_to_family",
-        source="admin_manual",
-        actor=admin.email,
-    )
-
-    mp = MemberPerson(member_id=family_id, person_id=person.id, relation_type=data.relation_type)
-    db.add(mp)
-    db.flush()
-    snapshot_member_person(
-        db,
-        mp,
-        operation="insert",
-        action="person_added_to_family",
-        source="admin_manual",
-        actor=admin.email,
-    )
-
-    # Geen adres voor extra gezinsleden: het adres hoort enkel bij het hoofdlid (#125).
-
-    for type_code, value in (("EMAIL", data.email), ("PHONE", data.phone), ("MOBILE", data.mobile)):
-        if value:
-            contact = new_contact_detail(db, person, type_code, value, is_primary=True)
-            db.add(contact)
-            db.flush()
-            snapshot_contact_detail(
-                db,
-                contact,
-                operation="insert",
-                action="person_added_to_family",
-                source="admin_manual",
-                actor=admin.email,
-            )
-
-    db.commit()
-    db.refresh(member)
-    return _build_family_response(member)
-
-
 def delete_membership(db: Session, membership_id: int, admin=None):
     from app.domains.membership.history import snapshot_membership
 
@@ -1073,32 +802,3 @@ def delete_membership(db: Session, membership_id: int, admin=None):
     soft_delete(membership)
     _membership_deleted(db, membership, admin.email)
     db.commit()
-
-
-def assign_board_member(
-    db: Session,
-    family_id: int,
-    data: BoardMemberAssign,
-    admin=None,
-):
-    from app.domains.mdm.api import snapshot_member
-
-    member = db.query(Member).filter(Member.id == family_id).first()
-    if not member:
-        raise HTTPException(status_code=404, detail=_("Family not found"))
-    if data.person_id is not None:
-        person = db.query(Person).filter(Person.id == data.person_id).first()
-        if not person:
-            raise HTTPException(status_code=404, detail=_("Person not found"))
-    member.board_member_id = data.person_id
-    snapshot_member(
-        db,
-        member,
-        operation="update",
-        action="board_member_assigned",
-        source="admin_update",
-        actor=admin.email,
-    )
-    db.commit()
-    db.refresh(member)
-    return _build_family_response(member)

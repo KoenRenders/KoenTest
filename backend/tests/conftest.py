@@ -828,7 +828,7 @@ def register_at_the_door(client, activity_id: int, json: dict, *, member_email: 
 
 def board_at_the_household(client, action: str, target_id: int, json: dict | None = None):
     """A change the board makes on the members screen, asked of the service function
-    that screen calls (`membership.household_service`) and answered as the JSON
+    that screen calls (`mdm.household_board_service`) and answered as the JSON
     route answered it — those routes had no caller (CR-13 phase 4b, #1251).
 
     `action`: "update_person", "update_person_contacts" (both with `json`, read by
@@ -837,8 +837,8 @@ def board_at_the_household(client, action: str, target_id: int, json: dict | Non
     from starlette.exceptions import HTTPException as StarletteHTTPException
 
     from app.database import get_db
-    from app.domains.membership import household_service
-    from app.domains.membership.schemas_member import ContactsUpdate, PersonUpdate
+    from app.domains.mdm import household_board_service as household_service
+    from app.domains.mdm.household_board_schemas import ContactsUpdate, PersonUpdate
 
     db = next(client.app.dependency_overrides[get_db]())
     admin = seeded_admin(db)
@@ -848,13 +848,12 @@ def board_at_the_household(client, action: str, target_id: int, json: dict | Non
             household_service.delete_person(db, target_id, admin=admin)
             return DoorAnswer(204, None)
         data = schemas[action].model_validate(json or {})
-        result = getattr(household_service, action)(db, target_id, data, admin=admin)
+        getattr(household_service, action)(db, target_id, data, admin=admin)
     except ValidationError as refusal:
         return DoorAnswer(422, {"detail": refusal.errors(include_context=False, include_url=False)})
     except StarletteHTTPException as refusal:
         return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
-    body = result.model_dump(mode="json") if hasattr(result, "model_dump") else result
-    return DoorAnswer(200, body)
+    return DoorAnswer(200, None)
 
 
 def _at_the_portal(client, email: str, ask):
