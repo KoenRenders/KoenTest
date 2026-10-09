@@ -178,6 +178,24 @@ jobs:
     timeout-minutes: 30
     # BLOKKEREND sinds #395: de e2e-geldflow is de laatste verdediging vóór een
     # deploy; een rode e2e = geen merge.
+    #
+    # CR-29 phase 2 (#1745; Koen, 8 and 9 October 2026): the browser tests run
+    # in two parts beside each other, by domain folder (D5, Q6). Each part
+    # starts its own Postgres, seeds it itself and starts its own backend
+    # (Q7: a seed takes five seconds, and the tests write). A folder or a root
+    # file stands in exactly one part — backend/tests/test_ci_workflow_gate.py
+    # reads this matrix and fails on a folder in no part or in two. A new
+    # folder under tests_e2e/ is added to one of the two lines below.
+    # `fail-fast: false`: a red part does not hide what the other one found.
+    name: e2e (part ${{ matrix.part }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: 1
+            paths: tests_e2e/forms tests_e2e/media tests_e2e/pages tests_e2e/meetings tests_e2e/assistant tests_e2e/reports
+          - part: 2
+            paths: tests_e2e/members tests_e2e/activities tests_e2e/shell tests_e2e/test_golden_flows.py tests_e2e/test_beheer_flows.py tests_e2e/test_measure_compare.py
 
     services:
       postgres:
@@ -261,21 +279,66 @@ jobs:
 
       - name: Run e2e (golden flows)
         working-directory: backend
-        run: python -m pytest -v tests_e2e
-
-      # #1605: the measurement baseline of the pilot screens — its own database
-      # and its own server under a frozen clock (scripts/measure-run.sh says why).
-      - name: Measurement baseline of the pilot screens (#1605)
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/raakmeet
-        run: |
-          sudo apt-get install -y -q faketime
-          PGPASSWORD=postgres psql -h localhost -U postgres -c 'CREATE DATABASE raakmeet'
-          scripts/measure-run.sh -v
+        run: python -m pytest -v ${{ matrix.paths }}
 
       - name: Backend-log bij falen
         if: failure()
         run: tail -100 /tmp/backend.log
+
+  # #1605: the measurement baseline of the pilot screens — its own database and
+  # its own server under a frozen clock (scripts/measure-run.sh says why). A job
+  # of its own since CR-29 phase 2 (D5): it shared the e2e job and its runner;
+  # beside the two parts it costs no waiting time. Its database is the service's
+  # own (`raakmeet`), so nothing is created by hand.
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: raakmeet
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/raakmeet
+      SECRET_KEY: ci-e2e-secret-key-long-enough-for-hs256
+      E2E_BASE_URL: http://localhost:8000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: e2e environment (backend/tests_e2e/e2e.env)
+        run: grep -Ev '^[[:space:]]*(#|$)' backend/tests_e2e/e2e.env >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Kept Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('backend/requirements-e2e.txt') }}
+
+      - name: Backend-deps + Playwright-browser + faketime
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt -r requirements-e2e.txt
+          playwright install --with-deps chromium
+          sudo apt-get install -y -q faketime
+
+      - name: Measurement baseline of the pilot screens (#1605)
+        run: scripts/measure-run.sh -v
 
       - name: Measurement server log on failure
         if: failure()
