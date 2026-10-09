@@ -1199,35 +1199,53 @@ def _resolve_existing_member(
 # ── Publieke entrypoint ─────────────────────────────────────────────────────
 
 
-def _refuse_two_main_members(families: list[list[dict]], report: ImportReport) -> set[int]:
-    """The address groups that hold more than one row "lid": none of their rows is
-    loaded, and the report says so (#1832; Koen, 9 October 2026: "dat mag niet
-    kunnen, ik stel voor ze beiden niet op te laden en dat in detail zo te zeggen,
-    dan moet er aan de aangeleverde file iets aangepast worden").
+def _refuse_without_one_main_member(families: list[list[dict]], report: ImportReport) -> set[int]:
+    """The address groups that do not hold exactly one row "lid": none of their rows
+    is loaded, and the report says so (#1832). Two decisions of Koen, both of
+    9 October 2026:
+
+    - more than one — "dat mag niet kunnen, ik stel voor ze beiden niet op te laden
+      en dat in detail zo te zeggen, dan moet er aan de aangeleverde file iets
+      aangepast worden";
+    - none — "a", to the master CLI's question "Kies je a of b?", a being: not
+      loaded and said in the detail, the same rule as for two main members.
 
     A household has one main member (`require_one_main_member`). The import groups
     rows by address — street, house number, bus and postal code, exactly as typed
-    (`group_families`) — so two rows "lid" on one address would become ONE household
-    with two main members, each with the household's address. Which of the two the
-    partners and children at that address belong to cannot be told, so the whole
-    group waits: nothing of it is added, changed or removed. Returns the indexes of
-    those groups in `families`.
+    (`group_families`). Two rows "lid" on one address would become ONE household
+    with two main members; which of the two the partners and children belong to
+    cannot be told. A group without any became a household without a main member
+    and without an address — the address hangs on the main member's row — and a
+    household that was loaded before lost its main member to it. So the whole
+    group waits: nothing of it is added, changed or removed. Returns the indexes
+    of those groups in `families`.
     """
+    one_address = "één adres is dezelfde straat, huisnummer, bus en postcode"
     refused: set[int] = set()
     for index, fam in enumerate(families):
         mains = [row for row in fam if row["_relatie"] == "HOOFDLID"]
-        if len(mains) < 2:
+        if len(mains) == 1:
             continue
         refused.add(index)
         report.skipped += 1
-        who = " en ".join(f"{row['voornaam']} {row['naam']} (#{row['lidnr']})" for row in mains)
-        report.warn(
-            f"{who} staan allebei als lid op hetzelfde adres — niemand van dit adres is "
-            f"ingelezen ({len(fam)} rijen). Een gezin heeft één hoofdlid, en één adres is "
-            f"dezelfde straat, huisnummer, bus en postcode. Pas het rapport aan: geef elk "
-            f"gezin zijn eigen adres (bijvoorbeeld een busnummer), of zet één van beide als "
-            f"partner of kind."
-        )
+        named = mains or fam
+        who = " en ".join(f"{row['voornaam']} {row['naam']} (#{row['lidnr']})" for row in named)
+        if mains:
+            report.warn(
+                f"{who} staan allebei als lid op hetzelfde adres — niemand van dit adres is "
+                f"ingelezen ({len(fam)} rijen). Een gezin heeft één hoofdlid, en {one_address}. "
+                f"Pas het rapport aan: geef elk gezin zijn eigen adres (bijvoorbeeld een "
+                f"busnummer), of zet één van beide als partner of kind."
+            )
+        else:
+            stands = "staat" if len(fam) == 1 else "staan"
+            report.warn(
+                f"{who} {stands} op een adres zonder lid — niemand van dit adres is ingelezen "
+                f"({len(fam)} {'rij' if len(fam) == 1 else 'rijen'}). Een gezin heeft één "
+                f"hoofdlid, en {one_address}. Pas het rapport aan: zet op dit adres één "
+                f"persoon als lid, of geef {'deze persoon' if len(fam) == 1 else 'deze personen'} "
+                f"het adres van het lid bij wie {'hij of zij hoort' if len(fam) == 1 else 'ze horen'}."
+            )
     return refused
 
 
@@ -1261,10 +1279,10 @@ def upsert_families(
     # Eerst: soft-deleted personen/gezinnen die terugkeren herleven (#227), zodat de
     # maps hieronder (gewone, gefilterde queries) ze als actief zien en de upsert ze
     # bijwerkt i.p.v. dupliceert.
-    # #1832: an address group with two main members is not loaded — and so not
-    # revived either. Its member numbers stay in `report_lidnrs` below: a person
-    # the report still names is nobody the import removes.
-    refused = _refuse_two_main_members(families, report)
+    # #1832: an address group without exactly one main member is not loaded — and
+    # so not revived either. Its member numbers stay in `report_lidnrs` below: a
+    # person the report still names is nobody the import removes.
+    refused = _refuse_without_one_main_member(families, report)
     loaded = [fam for index, fam in enumerate(families) if index not in refused]
     _revive_soft_deleted(db, loaded, apply=apply, report=report, actor=actor)
 
