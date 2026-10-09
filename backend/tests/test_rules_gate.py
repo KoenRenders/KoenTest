@@ -183,6 +183,13 @@ def _is_subscribe(decorator: ast.expr) -> bool:
     return name == "subscribe"
 
 
+def _is_job(decorator: ast.expr) -> bool:
+    """`@job("name")` — a function the queue runs, past the request (`kernel/jobs.py`)."""
+    target = decorator.func if isinstance(decorator, ast.Call) else decorator
+    name = target.attr if isinstance(target, ast.Attribute) else getattr(target, "id", "")
+    return name == "job"
+
+
 def _is_handles(decorator: ast.expr) -> bool:
     """`@handles(SomePort)` — the one handler of a port (`kernel/ports.py`)."""
     target = decorator.func if isinstance(decorator, ast.Call) else decorator
@@ -1386,13 +1393,92 @@ def api_commands() -> dict[tuple[str, str], str]:
     return commands
 
 
+def _writes_in_its_own_domain(path: Path, tree: ast.Module, function: ast.AST, domain: str) -> bool:
+    """Whether the function writes itself, or through what it calls in its OWN
+    domain — the walk `api_commands()` makes (`_reachable`, `_writes`), kept to the
+    files of `domain`. What a foreign command writes is that command's."""
+    for reached_path, _t, reached, _via in _reachable(path, tree, function):
+        if _owner_of_file(reached_path) != domain or _not_a_command(reached):
+            continue
+        if _writes(reached) is not None:
+            return True
+    return False
+
+
+def _references() -> dict[str, list[ast.AST | None]]:
+    """name → the top-level function of every place in the application that names
+    it — a call, or the bare name handed on — and None for a place outside any
+    function. Imports and the definition itself do not count: they reach nothing.
+
+    Not cached: the collector that asks it is, for the real tree, and the port
+    gate's proofs call that collector on a small world of their own — a walk kept
+    per process would answer them with the wrong tree."""
+    found: dict[str, list[ast.AST | None]] = {}
+    for path in _python_files():
+        for top in _tree(path).body:
+            if isinstance(top, (ast.Import, ast.ImportFrom)):
+                continue
+            holder = top if isinstance(top, (ast.FunctionDef, ast.AsyncFunctionDef)) else None
+            for node in ast.walk(top):
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+                    found.setdefault(node.id, []).append(holder)
+                elif isinstance(node, ast.Attribute):
+                    found.setdefault(node.attr, []).append(holder)
+    assert found, "no name referenced anywhere — the walk is blind"
+    return found
+
+
+def _only_from_a_job(
+    function: ast.AST, references: dict[str, list[ast.AST | None]], depth: int = 3
+) -> bool:
+    """Whether everything in the application that names this function is a `@job`
+    function, or a function only a job reaches (three levels up).
+
+    Found by the walk and by NAME, not by a file name: the gate looks for every
+    place the name stands and asks what stands around it. So it errs to the red
+    side — a second function of the same name that a request calls makes this one
+    "reached from a request" too, and a function nothing names is not a job path
+    either. What it cannot see is dynamic dispatch (`getattr`, a name in a string):
+    a function reached only that way is not found and stays red.
+    """
+    holders = [h for h in references.get(function.name, []) if h is not function]
+    if not holders:
+        return False
+    for holder in holders:
+        if holder is None:
+            return False
+        if any(_is_job(d) for d in holder.decorator_list):
+            continue
+        if depth and _only_from_a_job(holder, references, depth - 1):
+            continue
+        return False
+    return True
+
+
 # Once per process (CR-29 R7): a ratchet test and the meter both ask it.
 @functools.cache
 def collect_command_calls_outside_handlers() -> dict[str, str]:
     """A call from domain A into a command of domain B outside a `@subscribe`
     function → key `file::function → B.api.name` (§B4.9, R12). A consequence in
-    another domain goes through an event; a read through `api.py` is free."""
+    another domain goes through an event; a read through `api.py` is free.
+
+    Two calls are no consequence, and are let through (phase 4d, #1251):
+
+    - **The door's one command.** A screen can be domain A's while the act is
+      domain B's — the Leden screen and a membership, the meetings screen and a
+      circle. In a door function (`_is_door`, as `COMMIT_BEHIND_API` reasons: "that
+      service is the request's door") a foreign command is the door's when it is the
+      ONLY command the function calls: no write of its own, in the function or
+      through its own domain (`_writes_in_its_own_domain`), and no second command of
+      any domain. Reads before and after are free. A second command beside it is a
+      consequence, and red.
+    - **Past the queue.** A function reached ONLY from a `@job` may call another
+      domain's command and act on its outcome: the request is over, and what the
+      job does is its domain's own doing (the newsletter's batch, which is its own
+      queue). `_only_from_a_job` says how that is found and what it cannot see.
+    """
     commands = api_commands()
+    references = _references()
     found: dict[str, str] = {}
     for path in _python_files():
         caller = _owner_of_file(path)
@@ -1426,6 +1512,7 @@ def collect_command_calls_outside_handlers() -> dict[str, str]:
             # calls a port or publishes an event itself.
             if any(_is_subscribe(d) for d in function.decorator_list):
                 continue
+            calls: list[tuple[int, tuple[str, str]]] = []
             for node in _own_nodes(function):
                 if not isinstance(node, ast.Call):
                     continue
@@ -1441,13 +1528,30 @@ def collect_command_calls_outside_handlers() -> dict[str, str]:
                     target = (modules[func.value.id], func.attr)
                 if not target or target[0] == caller or target not in commands:
                     continue
-                name = qualified.get(function, function.name)
+                calls.append((node.lineno, target))
+            if not calls:
+                continue
+            calls.sort()
+            if not _is_door(path) and _only_from_a_job(function, references):
+                continue  # past the queue: the domain's own doing
+            the_doors = None
+            if _is_door(path) and not _writes_in_its_own_domain(path, tree, function, caller):
+                the_doors = calls[0][1]  # the one command of this request
+            name = qualified.get(function, function.name)
+            for line, target in calls:
+                if target == the_doors:
+                    continue
                 key = f"{_rel(path)}::{name} → {target[0]}.api.{target[1]}"
+                advice = (
+                    f"a second command beside `{the_doors[0]}.api.{the_doors[1]}`, the door's "
+                    f"own, is a consequence — publish an event or call a port"
+                    if the_doors
+                    else f"publish an event and let `{target[0]}` subscribe"
+                )
                 found.setdefault(
                     key,
-                    f"{_rel(path)}:{node.lineno} `{name}` calls `{target[0]}.api.{target[1]}` "
-                    f"(a command: writes at {commands[target]}) — publish an event and let "
-                    f"`{target[0]}` subscribe (CR-13 §B4.9)",
+                    f"{_rel(path)}:{line} `{name}` calls `{target[0]}.api.{target[1]}` "
+                    f"(a command: writes at {commands[target]}) — {advice} (CR-13 §B4.9)",
                 )
     return found
 
@@ -2639,7 +2743,21 @@ def test_events_not_calls():
     in `cms/service.py`, and a `probe_read(db)` that only queries; both called from
     `forms/service.py` → exactly one new violation, "`forms/service.py` … calls
     `cms.api.probe_write` (a command: writes at domains/cms/service.py:… via
-    _probe_helper)"; the read stays off the list."""
+    _probe_helper)"; the read stays off the list.
+
+    The two calls that are let through (phase 4d), each proven additively with a
+    probe function appended to a real file (run, removed):
+
+    - the door — in `mdm/ui.py`, a `_probe_door` calling `membership.api.
+      delete_membership` alone → green; the same after a `db.add(row)` of its own →
+      red, naming that call; the same followed by `create_membership_for_family` →
+      red on the second only, "a second command beside `membership.api.
+      delete_membership`, the door's own, is a consequence";
+    - the job — in `newsletter/service.py`, a `_probe_step` calling `mail.api.
+      send_campaign_mail`, named only by a `@job` function added to `newsletter/
+      handlers.py` → green; the same with a second function in `service.py` that
+      names it → red; the same with nothing naming it → red.
+    """
     _ratchet("COMMAND_CALLS")
 
 
