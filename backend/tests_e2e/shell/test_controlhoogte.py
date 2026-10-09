@@ -13,10 +13,21 @@ LABEL boven de kortere kolom mee. Zelfde zichtbare fout als #656, andere oorzaak
 Een rendertest op klassen is hier zwak: de HTML klopte al. Dit meet wat de browser
 ervan maakt. Eén meting op de "+ Product"-vorm dekt de hele kit, want de
 maatvoering komt uit één gedeelde bron.
+
+#1865: the first test builds the activity it measures — one component with one
+product row — and removes it again. It used to open the seed's first activity,
+so what it measured depended on the data it met: a product row brings the
+segmented choice "Afrekening", whose radio is a visually hidden box of 1 px.
+
+Broken on purpose (9 October 2026), each added and taken away again: the radio
+measured again (the `:not([type=radio])` taken off the helper) → "p.N.settlement"
+at 1 px beside the fields at 40; a rule added to the page that gives the product's
+price field another height → that one field named at its own height.
 """
 
 import os
 import sys
+from decimal import Decimal
 
 import pytest
 from playwright.sync_api import expect, sync_playwright
@@ -56,23 +67,67 @@ def admin_page():
 
 
 COMPONENT = "#aa-group-components > [data-group-rows] > [data-group-row]"
+NAME = "Veldhoogtetest met een product"
 
 
-def test_input_en_select_zijn_even_hoog(admin_page):
+def _db():
+    import app.main  # noqa: F401  the whole app, so the domain facades import in order
+    from app.database import SessionLocal
+
+    return SessionLocal()
+
+
+@pytest.fixture(scope="module")
+def activity_with_product():
+    """An activity with one component and one product row, made for this file
+    and removed again: the e2e tests share their seed."""
+    from app.domains.activities import service
+    from app.domains.activities.api import Activity, ActivityProduct, ActivitySubRegistration
+
+    db = _db()
+    try:
+        activity = Activity(name=NAME)
+        db.add(activity)
+        db.flush()
+        component = ActivitySubRegistration(
+            activity_id=activity.id,
+            name="Etentje",
+            registration_type_code="INDIVIDUAL",
+            price=0,
+            is_free=True,
+            sort_order=0,
+        )
+        db.add(component)
+        db.flush()
+        db.add(ActivityProduct(component_id=component.id, name="Soep", price=Decimal("5.00")))
+        db.commit()
+        activity_id = activity.id
+    finally:
+        db.close()
+    yield activity_id
+    db = _db()
+    try:
+        service.delete_activity(db, activity_id, actor="e2e-1865@example.com")
+    finally:
+        db.close()
+
+
+def test_input_en_select_zijn_even_hoog(admin_page, activity_with_product):
     """A component in the editor: text, number and date fields and one select
-    (the question form) in one grid."""
-    scherm = Activiteitdetail(admin_page)
-    if not scherm.open_eerste():
-        _ontbreekt("geen activiteit om te openen")
-    scherm.bewerk()
-    if admin_page.locator(COMPONENT).count() == 0:
-        _ontbreekt("de activiteit heeft geen onderdeel om te meten")
+    (the question form) in one grid, and under it a product row with its fields
+    and the segmented choice "Afrekening"."""
+    admin_page.goto(f"/admin/activiteiten/{activity_with_product}")
+    admin_page.wait_for_selector("#aa-detail", timeout=5000)
+    Activiteitdetail(admin_page).bewerk()
     expect(admin_page.locator(f"{COMPONENT} select").first).to_be_visible()
+    # The case #1865 was about is on the page: the segmented choice and its radios.
+    expect(admin_page.locator(f"{COMPONENT} [role=radiogroup]")).to_have_count(1)
+    assert admin_page.locator(f"{COMPONENT} input[type=radio]").count() == 3
 
     hoogtes = controlhoogtes(admin_page, COMPONENT)
-    if len(hoogtes) < 2:
-        _ontbreekt("het onderdeel toont geen velden om te meten")
     assert any("form_id" in naam for naam in hoogtes), f"geen keuzelijst gemeten: {hoogtes}"
+    assert any(naam.endswith(".price") for naam in hoogtes), f"no product field: {hoogtes}"
+    assert not any("settlement" in naam for naam in hoogtes), f"a radio was measured: {hoogtes}"
 
     uniek = set(hoogtes.values())
     assert len(uniek) == 1, (
