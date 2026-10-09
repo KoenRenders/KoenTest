@@ -412,7 +412,7 @@ async def persoon_opslaan(
     mobile: str = Form(""),
     relation_type: str = Form(""),
 ):
-    from app.domains.membership.api import (
+    from app.domains.mdm.api import (
         ContactsUpdate,
         PersonUpdate,
         update_person,
@@ -447,7 +447,7 @@ async def persoon_opslaan(
     # Relatietype op de MemberPerson-junctie (#498). De regel — nooit promoveren
     # tot HOOFDLID, nooit een bestaand HOOFDLID overschrijven — staat sinds #635-F
     # in de service, met een rauwe query minder in dit scherm.
-    from app.domains.membership.api import set_relation_type
+    from app.domains.mdm.api import set_relation_type
 
     set_relation_type(db, family_id, person_id, relation_type)
     # #742: een afsluitende "Opslaan", dus mét bevestiging. Een persoon toevoegen of
@@ -580,7 +580,7 @@ def adres_opslaan(
     bus_number: str = Form(""),
     postal_code: str = Form(""),
 ):
-    from app.domains.membership.api import AddressUpdate, update_family_address
+    from app.domains.mdm.api import AddressUpdate, update_family_address
 
     update_family_address(
         db,
@@ -616,12 +616,11 @@ def persoon_toevoegen(
     mobile: str = Form(""),
     relation_type: str = Form("PARTNER"),
 ):
-    from app.domains.membership.api import PersonAddToFamily, add_person_to_family, get_family
+    from app.domains.mdm.api import PersonAddToFamily, add_person_to_family
 
-    # `add_person_to_family` geeft het hele gezin terug; de nieuwe persoon is de
-    # enige die er vóór de toevoeging niet in zat (#1111: zijn kaart is het antwoord).
-    voorheen = {m.id for m in get_family(db, family_id).members}
-    gezin = add_person_to_family(
+    # `add_person_to_family` answers with the new person's id (#1111: that
+    # person's card is the answer).
+    nieuw_id = add_person_to_family(
         db,
         family_id,
         PersonAddToFamily(
@@ -638,7 +637,6 @@ def persoon_toevoegen(
     )
     # #1111: de nieuwe persoonkaart plus een verse toevoegkaart, in de plaats van
     # de toevoegkaart die postte; de bestuurslidlijst krijgt de nieuwe naam oob.
-    (nieuw_id,) = {m.id for m in gezin.members} - voorheen
     return _kaart_response(
         request, db, family_id, kaarten=[f"persoon:{nieuw_id}", "toevoegen"], bestuurslid=True
     )
@@ -656,9 +654,9 @@ def persoon_verwijderen(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
 ):
-    from app.domains.membership.api import delete_person
+    from app.domains.mdm.api import delete_household_person
 
-    delete_person(db, person_id, admin=admin_user_by_email(db, email))
+    delete_household_person(db, person_id, admin=admin_user_by_email(db, email))
     # #1111: de kaart verdwijnt (leeg antwoord op haar eigen outerHTML-doel); de
     # bestuurslidlijst noemde deze persoon en reist oob mee.
     return _kaart_response(request, db, family_id, kaarten=[], bestuurslid=True)
@@ -676,7 +674,7 @@ def bestuurslid_zetten(
     email: str = Depends(require_admin_ui),
     person_id: str = Form(""),
 ):
-    from app.domains.membership.api import BoardMemberAssign, assign_board_member
+    from app.domains.mdm.api import BoardMemberAssign, assign_board_member
 
     assign_board_member(
         db,

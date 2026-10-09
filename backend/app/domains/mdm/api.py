@@ -35,6 +35,26 @@ from app.domains.mdm.history import (
     snapshot_person,
 )
 
+# The board's writes on a household (CR-13 phase 4c, #1251).
+from app.domains.mdm.household_board_schemas import (  # noqa: F401
+    AddressUpdate,
+    BoardMemberAssign,
+    ContactsUpdate,
+    PersonAddToFamily,
+    PersonUpdate,
+)
+from app.domains.mdm.household_board_service import (  # noqa: F401
+    add_person_to_family,
+    assign_board_member,
+    set_relation_type,
+    update_family_address,
+    update_person,
+    update_person_contacts,
+)
+from app.domains.mdm.household_board_service import (  # noqa: F401
+    delete_person as delete_household_person,
+)
+
 # The family portal's mutations (CR-13 phase 3): master data changed by its owner.
 from app.domains.mdm.household_doors import household_refusals_as_http  # noqa: F401
 
@@ -356,6 +376,18 @@ __all__ = [
     "household_person",
     "person_payload",
     "require_whole_address",
+    "AddressUpdate",
+    "BoardMemberAssign",
+    "ContactsUpdate",
+    "PersonAddToFamily",
+    "PersonUpdate",
+    "add_person_to_family",
+    "assign_board_member",
+    "set_relation_type",
+    "update_family_address",
+    "update_person",
+    "update_person_contacts",
+    "delete_household_person",
     "household_refusals_as_http",
     "HouseholdSave",
     "HouseholdSaveRefused",

@@ -465,17 +465,11 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
 FOREIGN_WRITES: frozenset[str] = frozenset(
     {
         "domains/media/extraction.py::update_media_extracted_text → chatbot.ChatbotInfo",
-        "domains/membership/household_service.py::add_person_to_family → mdm.MemberPerson",
-        "domains/membership/household_service.py::add_person_to_family → mdm.Person",
-        "domains/membership/household_service.py::assign_board_member → mdm.Member",
         "domains/membership/household_service.py::create_family_with_members → mdm.Address",
         "domains/membership/household_service.py::create_family_with_members → mdm.Member",
         "domains/membership/household_service.py::create_family_with_members → mdm.MemberPerson",
         "domains/membership/household_service.py::create_family_with_members → mdm.Person",
         "domains/membership/household_service.py::delete_family → mdm.Member",
-        "domains/membership/household_service.py::update_person → mdm.Person",
-        "domains/membership/household_service.py::update_person_address → mdm.Address",
-        "domains/membership/service.py::set_relation_type → mdm.MemberPerson",
     }
 )
 
@@ -529,25 +523,15 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/designstudio/service.py::upload_edited_svg → media.api.remove_media",
         "domains/forms/api.py::submit_bericht → mail.api.send_form_confirmation",
         "domains/forms/service.py::submit_form → mail.api.send_form_confirmation",
-        "domains/mdm/ui.py::adres_opslaan → membership.api.update_family_address",
-        "domains/mdm/ui.py::bestuurslid_zetten → membership.api.assign_board_member",
         "domains/mdm/ui.py::gezin_aanmaken → membership.api.create_family_by_admin",
         "domains/mdm/ui.py::gezin_verwijderen → membership.api.delete_family",
         "domains/mdm/ui.py::lidmaatschap_toevoegen → membership.api.create_membership_for_family",
         "domains/mdm/ui.py::lidmaatschap_verwijderen → membership.api.delete_membership",
-        "domains/mdm/ui.py::persoon_opslaan → membership.api.set_relation_type",
-        "domains/mdm/ui.py::persoon_opslaan → membership.api.update_person",
-        "domains/mdm/ui.py::persoon_opslaan → membership.api.update_person_contacts",
-        "domains/mdm/ui.py::persoon_toevoegen → membership.api.add_person_to_family",
         "domains/meetings/admin_ui.py::circle_add → mdm.api.add_to_circle",
         "domains/meetings/admin_ui.py::circle_end → mdm.api.end_circle_relation",
         "domains/meetings/admin_ui.py::circle_new_person → mdm.api.create_person_for_circle",
         "domains/meetings/service.py::send_meeting_mail → mail.api.send_with_attachments",
         "domains/membership/portal_service.py::renew_membership → payment.api.create_payment_record",
-        "domains/membership/household_service.py::add_person_to_family → mdm.api.snapshot_contact_detail",
-        "domains/membership/household_service.py::add_person_to_family → mdm.api.snapshot_member_person",
-        "domains/membership/household_service.py::add_person_to_family → mdm.api.snapshot_person",
-        "domains/membership/household_service.py::assign_board_member → mdm.api.snapshot_member",
         "domains/membership/household_service.py::create_family_with_members → mdm.api.snapshot_address",
         "domains/membership/household_service.py::create_family_with_members → mdm.api.snapshot_contact_detail",
         "domains/membership/household_service.py::create_family_with_members → mdm.api.snapshot_member",
@@ -561,11 +545,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         # CR-22 S7 (#1712): the delete of a person moved to master data — one
         # rule, `mdm.service.delete_person` — and its history calls with it;
         # membership's door calls that rule. Four entries left, four came.
-        "domains/mdm/ui.py::persoon_verwijderen → membership.api.delete_person",
-        "domains/membership/household_service.py::delete_person → mdm.api.delete_person",
-        "domains/membership/household_service.py::update_person → mdm.api.snapshot_person",
-        "domains/membership/household_service.py::update_person_address → mdm.api.snapshot_address",
-        "domains/membership/household_service.py::update_person_contacts._upsert_contact → mdm.api.upsert_primary_contact",
         "domains/membership/signup_service.py::register_family → payment.api.create_payment_record",
         "domains/newsletter/service.py::add_attachment → media.api.add_document",
         "domains/newsletter/service.py::send_batch → mail.api.send_campaign_mail",
