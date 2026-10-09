@@ -22,6 +22,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.domains.mdm.household_board_schemas import (
@@ -33,6 +34,8 @@ from app.domains.mdm.household_board_schemas import (
 )
 from app.domains.mdm.models import (
     Address,
+    GenderCode,
+    MasterDataError,
     Member,
     MemberPerson,
     Person,
@@ -42,6 +45,44 @@ from app.domains.mdm.models import (
 )
 from app.domains.mdm.service import new_contact_detail
 from app.i18n import _
+
+#: The longest first or last name a person can have: the length of the two
+#: columns (`varchar(100)`, both). The rule below refuses a longer one, and the
+#: person forms of the Leden screen carry it as their fields' `maxlength`, so
+#: the browser stops where the server refuses — one number, read from the column.
+PERSON_NAME_MAX: int = Person.__table__.c.last_name.type.length
+
+
+def board_request(schema, **fields):
+    """What a form of the Leden screen sent, as the request of one of the writes
+    below. A value that cannot be read — a birth date that is no date, a relation
+    that is not of the list — is refused here with words, where it ended the
+    request in a 500 until #1251. The form sends neither from a browser (a date
+    field, a select list); another client can."""
+    words = {
+        "date_of_birth": _("Vul een geldige geboortedatum in."),
+        "relation_type": _("Kies een relatie uit de lijst."),
+    }
+    try:
+        return schema(**fields)
+    except ValidationError as refusal:
+        field = refusal.errors()[0]["loc"][0]
+        if field not in words:
+            raise
+        raise HTTPException(status_code=422, detail=words[field]) from refusal
+
+
+def _require_storable(db: Session, first_name, last_name, gender_code) -> None:
+    """What the columns of a person cannot hold is refused before the write, where
+    the database refused it after (a 500 until #1251): a name longer than its
+    column, and a gender code that is not of the list (`mdm.gender_codes`)."""
+    if any(len(name or "") > PERSON_NAME_MAX for name in (first_name, last_name)):
+        raise HTTPException(
+            status_code=422,
+            detail=_("Een naam is ten hoogste %(n)s tekens lang.") % {"n": PERSON_NAME_MAX},
+        )
+    if gender_code and db.get(GenderCode, gender_code) is None:
+        raise HTTPException(status_code=422, detail=_("Kies een geslacht uit de lijst."))
 
 
 def update_person(db: Session, person_id: int, data: PersonUpdate, admin=None):
@@ -65,12 +106,24 @@ def update_person(db: Session, person_id: int, data: PersonUpdate, admin=None):
         )
     except PersonDetailsMissing as fout:
         raise HTTPException(status_code=422, detail=str(fout))
+    _require_storable(
+        db,
+        wijzigingen.get("first_name"),
+        wijzigingen.get("last_name"),
+        wijzigingen.get("gender_code"),
+    )
 
     changed = False
-    for field, value in wijzigingen.items():
-        if getattr(person, field) != value:
-            setattr(person, field, value)
-            changed = True
+    # A blank first or last name is refused by the person itself as it is set
+    # (`Person._name_not_blank`); answered here like this function's other
+    # refusals, where it ended the request in a 500 until #1251.
+    try:
+        for field, value in wijzigingen.items():
+            if getattr(person, field) != value:
+                setattr(person, field, value)
+                changed = True
+    except MasterDataError as refusal:
+        raise HTTPException(status_code=422, detail=str(refusal)) from refusal
     if changed:
         snapshot_person(
             db,
@@ -271,13 +324,19 @@ def add_person_to_family(
         MemberPerson.require_details(data.date_of_birth, data.gender_code)
     except PersonDetailsMissing as fout:
         raise HTTPException(status_code=422, detail=str(fout))
+    _require_storable(db, data.first_name, data.last_name, data.gender_code)
 
-    person = Person(
-        last_name=data.last_name,
-        first_name=data.first_name,
-        date_of_birth=data.date_of_birth,
-        gender_code=data.gender_code,
-    )
+    # A blank first or last name is refused by the person itself (#1251: it
+    # ended the request in a 500).
+    try:
+        person = Person(
+            last_name=data.last_name,
+            first_name=data.first_name,
+            date_of_birth=data.date_of_birth,
+            gender_code=data.gender_code,
+        )
+    except MasterDataError as refusal:
+        raise HTTPException(status_code=422, detail=str(refusal)) from refusal
     db.add(person)
     db.flush()
     snapshot_person(

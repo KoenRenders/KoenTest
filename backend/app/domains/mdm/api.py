@@ -44,8 +44,10 @@ from app.domains.mdm.household_board_schemas import (  # noqa: F401
     PersonUpdate,
 )
 from app.domains.mdm.household_board_service import (  # noqa: F401
+    PERSON_NAME_MAX,
     add_person_to_family,
     assign_board_member,
+    board_request,
     set_relation_type,
     update_family_address,
     update_person,
@@ -382,6 +384,8 @@ __all__ = [
     "PersonAddToFamily",
     "PersonUpdate",
     "add_person_to_family",
+    "PERSON_NAME_MAX",
+    "board_request",
     "assign_board_member",
     "set_relation_type",
     "update_family_address",

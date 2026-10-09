@@ -13,6 +13,12 @@ the way that is accepted and once the way that is refused, and for each the
 screen's answer, the rows of the household and **every history row the write
 left** were recorded on the code BEFORE the move; the moved code must give them
 again, character for character (`tests/_snapshot.py`).
+
+Two of the twelve were recorded again on purpose, after the move: a blank name on
+the person's card and on a new person ended the request in a 500 (recorded as
+"raised MasterDataError") and is a 422 with the object's words since the repair
+that followed C6-2 — `test_person_name_refused_1251.py` holds that change, red
+before it. Their rows are as they were: nothing is written either way.
 """
 
 from __future__ import annotations
