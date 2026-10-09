@@ -46,6 +46,9 @@ ASK = "/admin/rapporten/raakje"
 
 #: Screens of the shell that are about the reporting universe as a whole.
 _GENERAL_PATHS = ("/admin", "/admin/dashboard")
+#: The workbench is core since #1876 and its tasks are in the reporting
+#: universe: every screen under it offers the assistant, as when it was a module.
+_WORKBENCH = "/admin/werkbank"
 
 _ACTIVITY = re.compile(r"^/admin/activiteiten/(\d+)(?:/|$)")
 _NEWSLETTER = re.compile(r"^/admin/nieuwsbrieven/(\d+)$")
@@ -82,9 +85,11 @@ class AssistantContext:
 def module_knows_the_assistant(code: ModuleCode | None, path: str) -> bool:
     """Is the assistant offered on this module's screens? Derived from the
     registry: the module has objects in the reporting universe, or it is
-    reporting itself; of the shell's own screens only the dashboard."""
+    reporting itself; of the shell's own screens the dashboard and the
+    workbench."""
     if code is None:
-        return path.rstrip("/") in _GENERAL_PATHS
+        stem = path.rstrip("/")
+        return stem in (*_GENERAL_PATHS, _WORKBENCH) or stem.startswith(_WORKBENCH + "/")
     return code is ModuleCode.REPORTING or bool(REGISTRY[code].reporting_folders)
 
 

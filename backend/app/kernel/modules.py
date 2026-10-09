@@ -48,7 +48,6 @@ class ModuleCode(str, TechnicalEnum):
     MEETINGS = "meetings"
     DESIGNSTUDIO = "designstudio"
     REPORTING = "reporting"
-    WORKFLOW = "workflow"
     CHATBOT = "chatbot"
 
     def __str__(self) -> str:
@@ -94,17 +93,11 @@ M = ModuleCode
 
 #: Every module, in menu order. The boundaries that are not obvious are written
 #: out in CR-19 §C2: mdm's master data (persons, households as data,
-#: organisations, postal codes, tenants) is core and never off.
+#: organisations, postal codes, tenants) is core and never off. So is the
+#: workbench (#1876): since CR-24 it is the one way into the back office, and
+#: a tenant without it had a way in that answered "niet gevonden". Its menu
+#: item, its dashboard tile and its reporting folder belong to no module.
 MODULES: tuple[Module, ...] = (
-    Module(
-        M.WORKFLOW,
-        "Werkbank",
-        admin_items=(("/admin/werkbank", "Werkbank"),),
-        route_prefixes=("/admin/werkbank",),
-        dashboard_tiles=("dashboard_open_tasks",),
-        reporting_folders=("Taken",),
-        record_tables=("workflow.workflow_tasks",),
-    ),
     Module(
         M.ACTIVITIES,
         "Activiteiten",
@@ -297,12 +290,12 @@ UNCOUNTED: dict[ModuleCode, str] = {
 #: the platform's own set (#1523).
 DEFAULTS: dict[str, frozenset[ModuleCode]] = {
     "VERENIGING": frozenset(ModuleCode),
-    "BEDRIJF": frozenset({M.CMS, M.MEDIA, M.FORMS, M.WORKFLOW}),
-    # #1523: the platform — pages, media, forms and the workbench, for help
+    "BEDRIJF": frozenset({M.CMS, M.MEDIA, M.FORMS}),
+    # #1523: the platform — pages, media and forms, for help
     # pages and a contact or request form. Equal to BEDRIJF's today ("op dit
     # moment dus dezelfde scope als bedrijf", Koen) but its own entry: the two
     # kinds will grow apart, and then one line changes, not a shared constant.
-    "PLATFORM": frozenset({M.CMS, M.MEDIA, M.FORMS, M.WORKFLOW}),
+    "PLATFORM": frozenset({M.CMS, M.MEDIA, M.FORMS}),
 }
 
 
