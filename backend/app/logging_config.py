@@ -26,6 +26,42 @@ EXTRA_VELDEN = (
 )
 
 
+#: The application's own loggers: every module logs as `app.…` (`getLogger(__name__)`).
+OWN_LOGGER = "app"
+
+#: The level of every logger that is not the application's own (#1828). A library's
+#: DEBUG and INFO are its wire talk — what it sends and receives, line by line — and
+#: that does not belong in an application log, whatever `LOG_LEVEL` says.
+LIBRARY_LEVEL = logging.WARNING
+
+#: The libraries that get a level of their own, each with the reason. This is the one
+#: place: a library that must be heard at INFO is a line here, and none may go below
+#: INFO (`configure_logging` refuses it) — no setting of an environment reaches a
+#: library.
+LIBRARY_LEVELS: dict[str, tuple[int, str]] = {
+    "uvicorn": (
+        logging.INFO,
+        "its start-up line 'Uvicorn running' is what the deploy's clean-start check "
+        "reads; uvicorn writes it on a handler of its own, not on the application's",
+    ),
+    "uvicorn.access": (
+        logging.WARNING,
+        "uvicorn puts it at INFO itself, on a handler of its own; the application "
+        "writes its own access line with the duration (#645)",
+    ),
+    "sqlalchemy.engine": (
+        logging.WARNING,
+        "SQL echo goes through the engine (`settings.sql_echo`), never through "
+        "LOG_LEVEL: a query carries bind parameters, which may be personal data",
+    ),
+}
+
+
+def is_own(name: str) -> bool:
+    """Whether a logger is the application's own."""
+    return name == OWN_LOGGER or name.startswith(OWN_LOGGER + ".")
+
+
 class JsonFormatter(logging.Formatter):
     """Gestructureerde logregels (#395): één JSON-object per regel, zodat de
     backend-logs machinaal filterbaar zijn (level, logger, exc) zonder externe
@@ -76,11 +112,27 @@ def app_log_file() -> Path | None:
 
 
 def configure_logging() -> None:
+    """Handlers on the root logger, and the levels — all of them, here (#1828).
+
+    `LOG_LEVEL` is the level of the application's own loggers and of nothing else.
+    The root logger stands at `LIBRARY_LEVEL`, so every other logger — one that
+    exists now, or one a library makes when it first connects — inherits WARNING.
+    Before, the root carried `LOG_LEVEL` and every library inherited that: a process
+    started with `LOG_LEVEL=DEBUG` wrote each library's wire talk into the log.
+
+    The handlers carry no level of their own: stdout and the file hold the same
+    lines, and what reaches them is decided by the loggers alone.
+    """
     level = getattr(logging, settings.log_level.upper(), logging.INFO)
+    too_low = sorted(
+        name for name, (lowest, _why) in LIBRARY_LEVELS.items() if lowest < logging.INFO
+    )
+    if too_low:
+        raise ValueError(f"A library never logs below INFO (#1828): {', '.join(too_low)}")
 
     logging.basicConfig(
         stream=sys.stdout,
-        level=level,
+        level=LIBRARY_LEVEL,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S",
         force=True,
@@ -101,7 +153,6 @@ def configure_logging() -> None:
     log_file = app_log_file()
     if log_file is not None:
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
-        file_handler.setLevel(level)
         file_handler.setFormatter(
             JsonFormatter()
             if settings.log_format == "json"
@@ -111,9 +162,12 @@ def configure_logging() -> None:
         )
         logging.getLogger().addHandler(file_handler)
 
-    # Verlaag ruis van drukke third-party loggers
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-    # SQL-echo loopt via de engine (settings.sql_echo), NIET via LOG_LEVEL.
-    # Zo logt LOG_LEVEL=DEBUG wel rijke app-logs, maar geen queries met
-    # persoonsgegevens. De engine-logger houden we daarom op WARNING.
-    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    # A level somebody else gave a library's logger — the library itself at import,
+    # a config file read earlier in the process — is taken back: this is the one
+    # place. Loggers made later inherit the root.
+    for name, logger in logging.root.manager.loggerDict.items():
+        if isinstance(logger, logging.Logger) and not is_own(name):
+            logger.setLevel(logging.NOTSET)
+    logging.getLogger(OWN_LOGGER).setLevel(level)
+    for name, (lowest, _why) in LIBRARY_LEVELS.items():
+        logging.getLogger(name).setLevel(lowest)
