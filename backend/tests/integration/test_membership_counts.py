@@ -26,7 +26,9 @@ def _household(db, n_persons=1, *, is_active=True, valid_from=None, valid_to=Non
         )
         db.add(p)
         db.flush()
-        db.add(MemberPerson(member_id=member.id, person_id=p.id, relation_type="HOOFDLID"))
+        # One main member per household (#1832); the others are children.
+        relation = "HOOFDLID" if i == 0 else "KIND"
+        db.add(MemberPerson(member_id=member.id, person_id=p.id, relation_type=relation))
         persons.append(p)
     db.add(
         Membership(

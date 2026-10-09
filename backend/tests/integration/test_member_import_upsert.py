@@ -266,6 +266,26 @@ def test_person_moves_between_households(db_session):
         .one()
     )
     assert p200.member_persons[0].member_id == new_member_id
+    # #1832: and that household is NEW — not the one An left. Until then this test
+    # held only that An and Bob share a household, and they shared Jan's: one
+    # household with two main members and two addresses.
+    p100 = (
+        db_session.query(Person)
+        .join(ExternalNumber)
+        .filter(ExternalNumber.external_id == "100")
+        .one()
+    )
+    assert p100.member_persons[0].member_id != new_member_id
+    assert db_session.query(Member).count() == 2
+    for member in db_session.query(Member):
+        relations = sorted(mp.relation_type.value for mp in _household(db_session, member.id))
+        assert relations.count("HOOFDLID") == 1, relations
+        main = next(mp for mp in member.member_persons if mp.relation_type.value == "HOOFDLID")
+        assert main.person.address is not None
+    assert {mp.relation_type.value for mp in _household(db_session, new_member_id)} == {
+        "HOOFDLID",
+        "KIND",
+    }
 
 
 # ── Verweesde persoon wordt hergebruikt, niet gedupliceerd ───────────────────

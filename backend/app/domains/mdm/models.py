@@ -10,8 +10,19 @@ keten plat (O(1) doordat merges platgeslagen worden bijgehouden).
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, String
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    text,
+)
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.database import Base
@@ -292,7 +303,20 @@ class MemberPerson(TenantMixin, SoftDeleteMixin, Base):
     """
 
     __tablename__ = "member_persons"
-    __table_args__ = {"schema": "mdm"}
+    __table_args__ = (
+        # #1832: the last net under `require_one_main_member`. Living links only —
+        # a softly deleted link does not stand in the way of a new main member.
+        # Checked when the transaction ends: the member import passes through
+        # two main members on its way to a right end state.
+        ExcludeConstraint(
+            ("member_id", "="),
+            where=text("relation_type = 'HOOFDLID' AND deleted_at IS NULL"),
+            name="ex_member_persons_one_main_member",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        {"schema": "mdm"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     member_id = Column(Integer, ForeignKey("mdm.members.id"), nullable=False)
