@@ -22,6 +22,7 @@ from app.domains.membership.schemas_member import (  # noqa: F401
 )
 from app.domains.membership.service import (  # noqa: F401
     current_membership_counts,
+    has_membership_for_year,
     has_valid_membership,
     household_payment_state,
     is_first_membership,
@@ -50,6 +51,7 @@ __all__ = [
     "household_payment_state",
     "is_member",
     "membership_coverage_until",
+    "has_membership_for_year",
     "is_first_membership",
     "open_renewal_payment",
     "members_valid_on",

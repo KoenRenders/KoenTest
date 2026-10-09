@@ -30,12 +30,11 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from datetime import date
 from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.domains.auth.api import User, UserRole
+from app.domains.auth.api import has_login
 from app.domains.mdm.api import (
     Address,
     ExternalNumber,
@@ -62,8 +61,10 @@ from app.domains.mdm.history import (
     snapshot_person,
 )
 from app.domains.mdm.service import email_refusal
-from app.domains.membership.api import Membership, snapshot_membership
+from app.domains.membership.api import has_membership_for_year
 from app.kernel.codes import code_of
+from app.kernel.contracts.mdm import BoardMemberReported, MembershipReported
+from app.kernel.events import KernelEvent, has_subscribers, publish
 
 # Bronsysteem-label voor de lidnummers en de audit-source.
 LEGACY_SOURCE = EXTERNAL.MEMBER_ADMINISTRATION
@@ -614,6 +615,17 @@ def _report_new_details(
 # ── Lidmaatschap ────────────────────────────────────────────────────────────
 
 
+def _say(db: Session, event: KernelEvent) -> None:
+    """Publish what the report says to the domain that owns the consequence. Not
+    optional: an import into silence would count a membership or a login it never
+    made, so it refuses when nothing subscribes."""
+    if not has_subscribers(type(event)):
+        raise RuntimeError(
+            f"nothing subscribes to {type(event).__name__}; import the owner's handlers.py"
+        )
+    publish(event, db)
+
+
 def _ensure_membership(
     db: Session,
     member: Member,
@@ -626,23 +638,18 @@ def _ensure_membership(
     """Eén lidmaatschap voor het importjaar — nooit dupliceren (#74).
 
     Returns whether it creates one (#1308)."""
-    existing = next((m for m in member.memberships if m.year == import_year), None)
-    if existing:
+    if has_membership_for_year(member, import_year):
         return False
     report.memberships_created += 1
     if not apply:
         return True
-    ms = Membership(
-        member_id=member.id,
-        year=import_year,
-        is_active=True,
-        valid_from=date(import_year, 1, 1),
-        valid_to=date(import_year, 12, 31),
-    )
-    db.add(ms)
-    db.flush()
-    snapshot_membership(
-        db, ms, operation="insert", action="membership_imported", source=LEGACY_SOURCE, actor=actor
+    # The membership is membership's to write: the import says what the report
+    # says, and membership adds it in this transaction (CR-13 phase 4c, #1251).
+    _say(
+        db,
+        MembershipReported(
+            household_id=member.id, year=import_year, source=str(LEGACY_SOURCE), actor=actor
+        ),
     )
     return True
 
@@ -995,7 +1002,7 @@ def _create_admin_users(
         best = min(candidates, key=lambda r: _sort_lidnr(r["lidnr"]))
         if not best.get("email"):
             continue
-        if db.query(User).filter(User.email == best["email"]).first():
+        if has_login(db, best["email"]):
             report.admins_existing += 1
             continue
         pid = best.get("_person_id")
@@ -1006,21 +1013,9 @@ def _create_admin_users(
             f"  admin: {best['voornaam']} {best['naam']} <{best['email']}>", "user", "user_role"
         )
         if apply:
-            # User↔Person koppelt enkel via e-mail (geen FK/person_id-kolom op users):
-            # dat is de bewuste auth-scheiding. Hier dus géén person_id meegeven (#226).
-            user = User(email=best["email"], is_active=True)
-            db.add(user)
-            db.flush()
-            from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
-
-            db.add(
-                UserRole(
-                    user_id=user.id,
-                    role_code="ADMIN",
-                    tenant_id=current_tenant_id.get() or DEFAULT_TENANT_ID,
-                )
-            )
-            db.flush()
+            # The login is auth's to write: the import says who the report names,
+            # and auth makes the login in this transaction (CR-13 phase 4c, #1251).
+            _say(db, BoardMemberReported(email=best["email"]))
 
 
 def _norm(s: str) -> str:

@@ -464,9 +464,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
 # mdm (B2.5); phase 2 turns `_activate_membership` into a membership handler.
 FOREIGN_WRITES: frozenset[str] = frozenset(
     {
-        "domains/mdm/import_service.py::_create_admin_users → auth.User",
-        "domains/mdm/import_service.py::_create_admin_users → auth.UserRole",
-        "domains/mdm/import_service.py::_ensure_membership → membership.Membership",
         "domains/media/extraction.py::update_media_extracted_text → chatbot.ChatbotInfo",
         "domains/membership/household_service.py::add_person_to_family → mdm.MemberPerson",
         "domains/membership/household_service.py::add_person_to_family → mdm.Person",
@@ -532,7 +529,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/designstudio/service.py::upload_edited_svg → media.api.remove_media",
         "domains/forms/api.py::submit_bericht → mail.api.send_form_confirmation",
         "domains/forms/service.py::submit_form → mail.api.send_form_confirmation",
-        "domains/mdm/import_service.py::_ensure_membership → membership.api.snapshot_membership",
         "domains/mdm/ui.py::adres_opslaan → membership.api.update_family_address",
         "domains/mdm/ui.py::bestuurslid_zetten → membership.api.assign_board_member",
         "domains/mdm/ui.py::gezin_aanmaken → membership.api.create_family_by_admin",

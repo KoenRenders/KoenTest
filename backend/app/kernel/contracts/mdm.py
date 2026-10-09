@@ -59,3 +59,37 @@ class EmailAddressAdded(KernelEvent):
     replaces_id: Optional[int] = None
     replaces_email: str = ""
     make_primary: bool = False
+
+
+@dataclass(frozen=True)
+class BoardMemberReported(KernelEvent):
+    """The member report names this address as a board member's, and the import
+    is applied (CR-13 phase 4c, #1251).
+
+    Published by the member import for a board member who has an e-mail address
+    and no login yet. `auth` subscribes and gives that address a login with the
+    role ADMIN — only a new one; a login that exists is never touched. Until
+    phase 4c the import wrote auth's rows itself. Not optional: the import
+    refuses to publish when nothing subscribes.
+    """
+
+    email: str
+
+
+@dataclass(frozen=True)
+class MembershipReported(KernelEvent):
+    """The member report lists this household as a member for this year, and the
+    import is applied (CR-13 phase 4c, #1251).
+
+    Published by the member import for a household that has no membership for
+    the year. `membership` subscribes and adds it — active, valid for the whole
+    year — with its history row; a household that has one keeps it. Until phase
+    4c the import wrote membership's rows itself. Not optional: the import
+    refuses to publish when nothing subscribes.
+    """
+
+    household_id: int
+    year: int
+    #: What the history row says of where the membership comes from.
+    source: str
+    actor: Optional[str] = None
