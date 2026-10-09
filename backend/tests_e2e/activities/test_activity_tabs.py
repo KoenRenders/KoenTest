@@ -18,7 +18,13 @@ What a server test cannot see:
 - on the embedded Betalingen tab a click on a row unfolds it and leaves the
   page where it is, and the row's own action stays a button of its own.
 
-The activity is the seeded one the payments list names. Nothing is changed.
+The activity is made for this file (#1880): one component, one product and two
+registrations by transfer, so two open bookings. It used to be "the activity the
+payments list names first", and that is whichever activity got the newest
+booking: after `shell/test_view_transition_rule.py`, which registers once on an
+activity of its own, the tabs tests met an activity with one registration. The
+activity stays — one with registrations is not deleted (#1561), and its bookings
+are a financial fact — as the seed's own does.
 
 Proven red (each on this branch, restored after):
 - the list's one `openRow` state made a state per row → the one-open-row test
@@ -32,8 +38,9 @@ Proven red (each on this branch, restored after):
 """
 
 import os
-import re
 import sys
+from datetime import date, timedelta
+from decimal import Decimal
 
 import pytest
 from playwright.sync_api import sync_playwright
@@ -89,19 +96,93 @@ def _page(browser, size, **context):
     return page
 
 
+#: The registrations of this file's activity. Each has an address of its own
+#: that holds no name: the list's search reads the address too.
+REGISTRATIONS = (
+    ("Lowie Tabbladen", "e2e-1880-a@example.org"),
+    ("Fien Lijstrij", "e2e-1880-b@example.org"),
+)
+
+
 @pytest.fixture(scope="module")
-def activity(browser) -> str:
-    """The address of the seeded activity that has registrations and bookings:
-    the one the payments list names under Context."""
-    page = _page(browser, (1440, 900))
-    page.goto("/admin/betalingen")
-    pagina_klaar(page)
-    found = re.search(
-        r"/admin/activiteiten/(\d+)\?terug=", page.locator("#betalingen-lijst").inner_html()
+def activity() -> str:
+    """The address of an activity made for this file, with the registrations
+    and the bookings the tests count. Through the real way in, as the seed
+    does it: a hand-built registration would carry no booking."""
+    from fastapi import BackgroundTasks
+
+    import app.main  # noqa: F401  the whole app: the handlers a registration publishes to
+    from app.database import SessionLocal
+    from app.domains.activities.api import (
+        Activity,
+        ActivityDate,
+        ActivityProduct,
+        ActivitySubRegistration,
+        Registration,
+        register_for_activity,
     )
-    page.close()
-    assert found, "the seeded payments list names no activity"
-    return f"/admin/activiteiten/{found.group(1)}"
+    from app.domains.payment.api import PaymentRecord
+    from app.schemas.activity import RegistrationCreate, RegistrationItemCreate
+
+    db = SessionLocal()
+    try:
+        made = Activity(name="Tabbladentest")  # short: the head keeps one line on a phone
+        db.add(made)
+        db.flush()
+        db.add(ActivityDate(activity_id=made.id, start_date=date.today() + timedelta(days=45)))
+        component = ActivitySubRegistration(
+            activity_id=made.id,
+            name="Etentje",
+            registration_type_code="INDIVIDUAL",
+            price=Decimal("0"),
+            is_free=True,
+        )
+        db.add(component)
+        db.flush()
+        product = ActivityProduct(
+            component_id=component.id, name="Soep", price=Decimal("10.00"), is_free=False
+        )
+        db.add(product)
+        db.commit()
+        for name, email in REGISTRATIONS:
+            register_for_activity(
+                db,
+                made.id,
+                RegistrationCreate(
+                    contact_name=name,
+                    contact_email=email,
+                    phone="0470000000",
+                    component_id=component.id,
+                    payment_method="transfer",
+                    items=[RegistrationItemCreate(product_id=product.id, quantity=2)],
+                ),
+                BackgroundTasks(),
+            )
+        # One registration is partly settled, as in the seed: beside its open
+        # booking a paid one. Its balance then differs from its amount, which
+        # is what a stacked row shows under the amount.
+        first = (
+            db.query(Registration)
+            .filter(Registration.activity_id == made.id)
+            .order_by(Registration.id)
+            .first()
+        )
+        db.add(
+            PaymentRecord(
+                payable_type="registration",
+                payable_id=first.id,
+                type="charge",
+                amount=Decimal("20.00"),
+                amount_paid=Decimal("20.00"),
+                method="transfer",
+                status="paid",
+                structured_communication="+++000/0000/01880+++",
+            )
+        )
+        db.commit()
+        return f"/admin/activiteiten/{made.id}"
+    finally:
+        db.close()
 
 
 def _boxes(page, url) -> dict:
@@ -160,7 +241,7 @@ def test_a_row_is_the_way_in_and_a_group_still_collapses(browser, activity):
     page.goto(tab)
     pagina_klaar(page)
     rows = page.locator("tr[data-row]")
-    assert rows.count() >= 2, "the seeded activity needs two registrations"
+    assert rows.count() == len(REGISTRATIONS), "the tab does not show this file's registrations"
     assert page.evaluate(_DISCLOSURES) == 0
     first = rows.nth(0)
     key = first.get_attribute("data-row-key")
@@ -251,8 +332,7 @@ def test_the_toolbar_keeps_its_state_in_the_tabs_address(browser, activity):
     page.goto(activity + "/inschrijvingen")
     pagina_klaar(page)
     names = [n.strip() for n in page.locator("[data-row-link]").all_inner_texts()]
-    # The second name: the seeded registrations share an e-mail address that
-    # holds the first one's name, and the search reads the address too.
+    assert sorted(names) == sorted(name for name, _ in REGISTRATIONS), names
     needle = names[1].split()[0]
     page.locator('#reg-filter input[type="search"]').fill(needle)
     page.wait_for_function("() => location.search.includes('q=')")
