@@ -24,7 +24,7 @@ A report is about exactly one fact — its measures decide the grain. Measures f
 
 The last column is how the fact counts the people a group covers. It is a **declaration and nothing more** since 14 September 2026: the small-cell threshold that used to read it has been removed, so no query asks for this count today. It records which facts could answer "how many people are behind this group", which stays true whether or not a rule leans on it — the same honesty as the role column below.
 
-The role column is the role the fact's **flat dataset dump** will need once the fence is built; see Roles below. Today every dump sits behind `require_admin_ui` like the rest of the back office.
+The role column is the role the fact's **flat dataset dump** will need once the fence is built; see Roles below. Today every dump sits behind the right `report.view`.
 
 | Fact | Name | Grain | Role | People | What it holds |
 |---|---|---|---|---|---|
@@ -113,7 +113,7 @@ Every join also matches on `tenant_id`, unconditionally — a dimension row can 
 
 ## Roles
 
-Every object carries a role. In v2.3.0 these are **declared and not enforced**: reporting sits behind `require_admin_ui`, the same door as every other admin screen, and the engine applies no per-object fence. The declaration records what must hold once that switch is built — as its own change, with its own test. Half a fence suggests a protection that is not there.
+Every object carries a role. In v2.3.0 these are **declared and not enforced**: reporting sits behind its own rights (`report.view`, `report.manage`), and the engine applies no per-object fence. The declaration records what must hold once that switch is built — as its own change, with its own test. Half a fence suggests a protection that is not there.
 
 | Universe role | Meaning | Objects |
 |---|---|---|

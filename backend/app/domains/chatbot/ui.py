@@ -17,9 +17,10 @@ from app.config import settings
 from app.database import get_db
 from app.domains.auth.api import (
     SESSION_COOKIE,
+    Right,
     csrf_token_for,
-    require_admin_ui,
     require_csrf,
+    require_right,
 )
 from app.domains.chatbot.render import render_answer_markdown
 from app.i18n import _
@@ -134,7 +135,9 @@ def _context_ctx(request: Request, db: Session, email: str) -> dict:
 
 @router.get("/admin/ai-context", response_class=HTMLResponse)
 def ai_context_page(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
     return templates.TemplateResponse(
         request,
@@ -145,7 +148,9 @@ def ai_context_page(
 
 @router.get("/admin/ai-context/lijst", response_class=HTMLResponse)
 def ai_context_lijst(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
     return templates.TemplateResponse(
         request, "_ai_context_lijst.html", _context_ctx(request, db, email)
@@ -158,7 +163,7 @@ def ai_context_lijst(
 def notitie_toevoegen(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
     title: str = Form(""),
     text_addition: str = Form(""),
 ):
@@ -182,7 +187,7 @@ def rij_bewerken(
     row_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
     title: str = Form(""),
     text_override: str = Form(""),
     text_addition: str = Form(""),
@@ -219,7 +224,7 @@ def page_toggle(
     page_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
 ):
     """A page's switch goes by the page, not by its info row: a page that never
     got a row can be switched off too (#1791)."""
@@ -243,7 +248,7 @@ def page_edit(
     page_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
     text_override: str = Form(""),
     text_addition: str = Form(""),
 ):
@@ -267,7 +272,7 @@ def document_opnieuw_lezen(
     asset_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
 ):
     """'Opnieuw lezen' (#235): her-extraheer de tekst van een document-asset. Draait
     op de achtergrond; override/aanvulling blijven staan."""
@@ -291,7 +296,7 @@ def rij_verwijderen(
     row_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
 ):
     from app.domains.chatbot.api import delete_row
 
@@ -313,7 +318,7 @@ def rij_toggle(
     row_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
 ):
     from app.domains.chatbot.api import toggle_row
 

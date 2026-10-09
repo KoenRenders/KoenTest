@@ -51,10 +51,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
+    Right,
     csrf_from_request,
-    require_admin_ui,
     require_csrf,
-    require_platform_operator_ui,
+    require_platform_right,
+    require_right,
     require_tenant_workspace,
 )
 from app.domains.mdm.api import ORGANIZATION_TYPE, OrganizationType
@@ -198,7 +199,7 @@ def _editor_ctx(
 def organisaties(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_platform_operator_ui),
+    email: str = Depends(require_platform_right(Right.PLATFORM_VIEW)),
 ):
     sjabloon = "_org_kaarten.html" if is_fragment_request(request) else "admin_organisaties.html"
     return templates.TemplateResponse(request, sjabloon, _lijst_ctx(request, db))
@@ -219,7 +220,7 @@ def _new_account_ctx(request: Request, *, name: str = "", code: str = "", error=
 def new_account_form(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_platform_operator_ui),
+    email: str = Depends(require_platform_right(Right.PLATFORM_VIEW)),
 ):
     """ "Nieuw account" (CR-19, #1495): OPERATOR only, on GET as on POST."""
     return templates.TemplateResponse(
@@ -233,7 +234,7 @@ def new_account_form(
 def create_account_route(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_platform_operator_ui),
+    email: str = Depends(require_platform_right(Right.PLATFORM_MANAGE)),
     name: str = Form(""),
     code: str = Form(""),
 ):
@@ -260,7 +261,7 @@ def organisatie_editor(
     organization_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_platform_operator_ui),
+    email: str = Depends(require_platform_right(Right.PLATFORM_VIEW)),
 ):
     return templates.TemplateResponse(
         request, "admin_organisatie.html", _editor_ctx(request, db, organization_id)
@@ -276,14 +277,16 @@ async def organisatie_opslaan(
     organization_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_platform_operator_ui),
+    email: str = Depends(require_platform_right(Right.PLATFORM_MANAGE)),
 ):
     return await _save(request, db, organization_id, own=False)
 
 
 @router.get("/admin/organisatie", response_class=HTMLResponse)
 def own_organisation(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """ "Onze organisatie" (#1535): the tenant workspace's own organisation, for
     its ADMIN and the operator — and nothing of another organisation.
@@ -313,7 +316,9 @@ def _own_organisation(db: Session) -> tuple[int, bool]:
     "/admin/organisatie", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
 )
 async def own_organisation_save(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ):
     org_id, editable = _own_organisation(db)
     if not editable:

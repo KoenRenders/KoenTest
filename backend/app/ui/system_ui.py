@@ -12,7 +12,12 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import csrf_from_request, require_admin_ui
+from app.domains.auth.api import (
+    Right,
+    csrf_from_request,
+    require_admin_ui,
+    require_right,
+)
 from app.domains.reporting.api import DASHBOARD_TEGELS
 from app.i18n import _
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
@@ -261,7 +266,9 @@ def admin_switch_workspace(
 
 @router.get("/admin/info", response_class=HTMLResponse)
 def admin_info(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
     from app.kernel.tenant_config import tenant_umami_src, umami_tracking
     from app.ui.system_info import system_info

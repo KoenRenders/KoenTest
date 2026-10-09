@@ -19,10 +19,10 @@ elke macro aan met argumenten zoals een echt scherm ze geeft, en staan er links 
 die echte schermen. De volledigheidsgate toetst aanwezigheid, niet getrouwheid; dat
 verschil hoort iemand met zijn ogen te controleren.
 
-**Toegang: `require_admin_ui`, dus ADMIN of OPERATOR, op elke omgeving.** Dat is
-bewust niet OPERATOR-only. `require_operator_ui(db, email)` heeft een sessie nodig,
-en dan zou deze route `db` moeten aannemen — precies de eigenschap die dit scherm
-moet bewijzen: het toont geen data en heeft geen databank nodig. Er valt hier ook
+**Toegang: het recht `settings.view` (CR-24), dus ADMIN of OPERATOR, op elke
+omgeving.** Dat is bewust niet het platform alleen. De route zelf neemt geen `db`
+aan — precies de eigenschap die dit scherm moet bewijzen: het toont geen data en
+heeft geen databank nodig. Er valt hier ook
 niets te beschermen dat verder gaat dan "niet publiek": alle demo-waarden staan
 hieronder in de broncode. De route bestaat dus op elke omgeving en de rooktest
 (strikt alleen-lezen, publieke paden) raakt haar niet.
@@ -38,7 +38,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
-from app.domains.auth.api import require_admin_ui
+from app.domains.auth.api import Right, require_right
 from app.kernel.tenant_config import SITE_COLOR_DEFAULTS
 from app.ui import admin_nav, templates
 from app.ui.viewmodels import DesignSystemView
@@ -296,7 +296,7 @@ def _voorbeeldvelden() -> list:
 
 
 @router.get("/admin/design-system", response_class=HTMLResponse)
-def design_system(request: Request, email: str = Depends(require_admin_ui)):
+def design_system(request: Request, email: str = Depends(require_right(Right.SETTINGS_VIEW))):
     view = DesignSystemView(
         nav_items=admin_nav("/admin/design-system"),
         tokens=_tokens(),

@@ -1,6 +1,6 @@
 """The AI cost screen (#978): what the AI cost this department, and each call.
 
-Reached from /admin/info and behind the same door (`require_admin_ui`) —
+Reached from /admin/info and behind the same right (`settings.view`) —
 Koen, 16 September 2026. The list shows who asked (`actor`), also his
 decision; it never shows what was sent (see `chatbot/costs.py`).
 
@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import require_admin_ui
+from app.domains.auth.api import Right, require_right
 from app.domains.chatbot.api import (
     AI_CAPABILITY,
     AI_PROVIDER,
@@ -128,7 +128,7 @@ def _call_lines(db: Session, tenant: int, page: int) -> tuple[list[AiCallLine], 
 def ai_costs(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.SETTINGS_VIEW)),
     maand: str = "",
     page: int = 1,
 ):

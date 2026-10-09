@@ -348,12 +348,17 @@ def test_every_reporting_route_sits_behind_require_admin_ui():
     for decorator, naam in routes:
         # The door is either on the decorator or on the signature; both count.
         signatuur = _REPORTING_UI.split(f"def {naam}(", 1)[1].split("):", 1)[0]
-        if "require_admin_ui" not in decorator and "require_admin_ui" not in signatuur:
+        # CR-24: a right of reporting's own, or the assistant's — never a role's name
+        # and never another object's right.
+        own = ("require_right(Right.REPORT_", "require_right(Right.ASSISTANT_USE)")
+        if not any(right in decorator or right in signatuur for right in own):
             fouten.append(naam)
-        for zwakker in ("require_finance_ui", "require_operator_ui"):
+        for zwakker in ("require_admin_ui", "require_finance_ui"):
             if zwakker in decorator or zwakker in signatuur:
                 fouten.append(f"{naam} gebruikt {zwakker}")
-    assert not fouten, f"elke rapportageroute hoort achter require_admin_ui (CR-06 §7.3): {fouten}"
+    assert not fouten, (
+        f"elke rapportageroute vraagt een recht van rapportering (CR-06 §7.3, CR-24): {fouten}"
+    )
 
 
 def test_no_per_object_role_fence_has_quietly_appeared():
