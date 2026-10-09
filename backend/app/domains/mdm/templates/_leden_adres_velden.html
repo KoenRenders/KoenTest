@@ -11,9 +11,16 @@
    dezelfde rij; postcode over de volle breedte) en de postcode is altijd een
    keuzelijst uit de postcodetabel — nooit een vrij tekstveld. De lege eerste
    optie hoort erbij (#1111): zonder die toont de lijst de eerste postcode alsof
-   dat de waarde van dit gezin was. #}
-<div class="grid grid-cols-4 gap-3">
-  <div class="col-span-2">{{ ui.label(_("Straat"), "street", required=True) }}
+   dat de waarde van dit gezin was.
+
+   #1854: below `md` the three fields of the first row do not share the width
+   in quarters. A quarter of a phone's card is 68 px and the label "Huisnummer *"
+   is 94 px: it ran into "Bus", stood on two lines and pushed its field 20 px
+   below the bus field. So the house number gets the width of its label, the bus
+   keeps its quarter, and the street takes what is left. Still one row, the bus
+   to the right of the house number; from `md` on the four equal columns. #}
+<div class="grid grid-cols-[minmax(0,1fr)_6.25rem_4.25rem] md:grid-cols-4 gap-3">
+  <div class="md:col-span-2">{{ ui.label(_("Straat"), "street", required=True) }}
     {# promise walked by: test_a_first_address_without_it_is_refused, test_a_new_household_without_it_is_refused #}
     {{ ui.input_control("street", id="street", value=av.get("street") or "", required=True, cls="w-full") }}</div>
   <div>{{ ui.label(_("Huisnummer"), "house_number", required=True) }}
@@ -21,7 +28,7 @@
     {{ ui.input_control("house_number", id="house_number", value=av.get("house_number") or "", required=True, cls="w-full") }}</div>
   <div>{{ ui.label(_("Bus"), "bus_number") }}
     {{ ui.input_control("bus_number", id="bus_number", value=av.get("bus_number") or "", cls="w-full") }}</div>
-  <div class="col-span-4">{{ ui.label(_("Postcode"), "postal_code", required=True) }}
+  <div class="col-span-full">{{ ui.label(_("Postcode"), "postal_code", required=True) }}
     {% call ui.select_control("postal_code", cls="w-full", attrs='id="postal_code" required') %}
       <option value="" {% if not av.get("postal_code") %}selected{% endif %}>{{ _("— kies —") }}</option>
       {% for pc in postal_codes %}
