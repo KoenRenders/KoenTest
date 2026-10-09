@@ -70,6 +70,7 @@ def test_a_page_without_a_row_shows_the_same_actions_as_one_with_a_row(admin, db
     assert len(re.findall(r'<textarea[^>]*name="text_override"', block)) == 1
     assert len(re.findall(r'<textarea[^>]*name="text_addition"', block)) == 1
     assert "/verwijderen" not in block, "there is no row to remove yet"
+    assert "gelezen tekst (OCR)" not in block, "a page is never read by OCR"
     assert _rows(db_session, page) == [], "looking at the screen makes no row"
 
 

@@ -26,6 +26,8 @@
     <div class="ml-auto">{{ ui.row_actions(actions=_acts, max_visible=1, delete_attrs=('hx-post="/admin/ai-context/' ~ info.id ~ '/verwijderen" hx-target="#ai-context-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Contextrij"), label)) if info else '') }}</div>
     {% endif %}
   </div>
+  {# Only for a document (`soort == "bron"`): a page is never read by OCR, so on a
+     page row this line could only ever answer "nog niets gelezen". #}
   {% if soort == "bron" %}
   {# #522: toon read-only wat de OCR/extractie uit de affiche/PDF las, inklapbaar
      (kan lang zijn). Zo ziet de beheerder de bron i.p.v. blind te overschrijven. #}
@@ -95,7 +97,7 @@
 <div class="mt-4"></div>
 {% call ui.card() %}
   <h2 class="font-semibold mb-2">{{ _("CMS-pagina's") }}</h2>
-  {% for c in cms %}{{ rij(c.title, c.info, page_id=c.page_id) }}{% else %}{{ ui.empty_state(_("Geen pagina's.")) }}{% endfor %}
+  {% for c in cms %}{{ rij(c.title, c.info, "pagina", page_id=c.page_id) }}{% else %}{{ ui.empty_state(_("Geen pagina's.")) }}{% endfor %}
 {% endcall %}
 <div class="mt-4"></div>
 {% call ui.card() %}
