@@ -619,7 +619,7 @@ def test_a_good_document_with_a_taken_slug_leaves_the_draft_unchanged(client, db
     )
 
 
-def test_the_json_door_is_gone_and_the_page_keeps_her_words(client, db_session, admin_headers):
+def test_the_json_door_is_gone_and_the_page_keeps_her_words(client, db_session):
     """The stronger form of Koen's decision 2a on #1734: the JSON door of a
     page does not exist at all anymore (CR-13 4b pruned the routes, #1822) —
     a page's words and her being live have no door but the screen. A caller
@@ -632,9 +632,8 @@ def test_the_json_door_is_gone_and_the_page_keeps_her_words(client, db_session, 
         CmsPageCreate(title="Jsondeur", slug="jsondeur-1671", content="<p>Oude tekst.</p>"),
     )
 
-    response = client.put(
-        f"/api/v1/pages/{page.id}", json={"title": "Jsondeur 2"}, headers=admin_headers
-    )
+    _login(client)  # the session is the only identity since #1825; the bearer door is gone
+    response = client.put(f"/api/v1/pages/{page.id}", json={"title": "Jsondeur 2"})
     assert response.status_code == 404, "the JSON door of a page answered"
 
     db_session.expire_all()
@@ -642,7 +641,7 @@ def test_the_json_door_is_gone_and_the_page_keeps_her_words(client, db_session, 
     assert stored.title == "Jsondeur", "the refused update still wrote"
     assert stored.content == "<p>Oude tekst.</p>", "the refused update still wrote"
 
-    response = client.delete(f"/api/v1/pages/{page.id}", headers=admin_headers)
+    response = client.delete(f"/api/v1/pages/{page.id}")
     assert response.status_code == 404, "the JSON door of a page answered"
 
     db_session.expire_all()

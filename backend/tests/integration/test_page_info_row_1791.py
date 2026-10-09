@@ -36,9 +36,23 @@ PAGE_TEXT = "De kaartavond is elke eerste vrijdag."
 
 @pytest.fixture
 def page(db_session):
+    # CR-17 (#1671): what Raakje reads of a page is her PUBLISHED DOCUMENT
+    # (published_text), no longer her stored HTML — the text is seeded through
+    # the doors the app has: save the draft, then publish.
+    from app.domains.cms.api import publish, save_document
+
     page = CmsPage(title="Kaartavond", slug="kaartavond", content=PAGE_TEXT, is_published=True)
     db_session.add(page)
     db_session.commit()
+    save_document(
+        db_session,
+        page.id,
+        {
+            "type": "doc",
+            "content": [{"type": "paragraph", "content": [{"type": "text", "text": PAGE_TEXT}]}],
+        },
+    )
+    publish(db_session, page.id)
     return page
 
 
