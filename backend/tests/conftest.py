@@ -36,7 +36,8 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import event
+from sqlalchemy import event, text
+from sqlalchemy.exc import IntegrityError, InternalError
 
 from app.database import SessionLocal, engine, get_db
 from app.main import app
@@ -256,6 +257,26 @@ def session_clock_ticks(monkeypatch):
     yield
 
 
+def _check_deferred_constraints(connection) -> None:
+    """What a commit would check, asked before the test's transaction is rolled
+    back (#1832). A constraint that is checked when the transaction ends is never
+    checked in a suite that never commits: an endpoint's commit here releases a
+    savepoint, and a savepoint checks nothing deferred. Without this, such a
+    constraint is a net no test can fall into.
+
+    A test that left its transaction in a failed state (it expected a refusal of
+    the database) has nothing left to check."""
+    try:
+        connection.execute(text("SET CONSTRAINTS ALL IMMEDIATE"))
+    except InternalError:
+        return  # the transaction is aborted: the test ended on a database error
+    except IntegrityError as broken:
+        pytest.fail(
+            f"this test leaves rows a commit would refuse: {str(broken.orig).splitlines()[0]}",
+            pytrace=False,
+        )
+
+
 @pytest.fixture
 def db_session(_migrate_schema):
     """Een sessie met SAVEPOINT-isolatie die endpoint-commits overleeft."""
@@ -276,8 +297,13 @@ def db_session(_migrate_schema):
     yield session
 
     event.remove(session, "after_transaction_end", _restart_savepoint)
-    session.close()
-    trans.rollback()
+    try:
+        # Before the session closes: closing rolls its savepoint back, and then
+        # there is nothing left to check.
+        _check_deferred_constraints(connection)
+    finally:
+        session.close()
+        trans.rollback()
     connection.close()
 
 
