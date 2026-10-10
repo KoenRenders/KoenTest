@@ -126,3 +126,61 @@ def test_a_member_without_a_member_price_pays_the_regular(db_session):
 def test_a_variant_without_a_price_has_no_price(db_session):
     variant = _variant(db_session)
     assert price_for(db_session, variant.id, date(2026, 10, 1)) is None
+
+
+def test_a_members_price_order_is_size_first_then_product(db_session):
+    """Koen's "b": a size's own prices take precedence, whatever their type.
+
+    The example: article 15, member price 12, one size at 17 with no member price
+    of its own — a member pays 17 for that size, 12 for a size without a price of
+    its own, and 14 once that size gets a member price of 14.
+    """
+    product = Product(name="T-shirt Raak")
+    db_session.add(product)
+    db_session.flush()
+    sized = ProductVariant(product_id=product.id, properties=[{"name": "Maat", "value": "M"}])
+    plain = ProductVariant(product_id=product.id, properties=[{"name": "Maat", "value": "L"}])
+    db_session.add_all([sized, plain])
+    db_session.flush()
+    db_session.add_all(
+        [
+            Price(
+                product_id=product.id,
+                variant_id=None,
+                price_type=PriceType.REGULAR,
+                amount=Decimal("15.00"),
+                valid_from=date(2026, 9, 1),
+            ),
+            Price(
+                product_id=product.id,
+                variant_id=None,
+                price_type=PriceType.MEMBER,
+                amount=Decimal("12.00"),
+                valid_from=date(2026, 9, 1),
+            ),
+            Price(
+                product_id=product.id,
+                variant_id=sized.id,
+                price_type=PriceType.REGULAR,
+                amount=Decimal("17.00"),
+                valid_from=date(2026, 9, 1),
+            ),
+        ]
+    )
+    db_session.flush()
+
+    on = date(2026, 10, 1)
+    assert price_for(db_session, sized.id, on, member=True) == Decimal("17.00")
+    assert price_for(db_session, plain.id, on, member=True) == Decimal("12.00")
+
+    db_session.add(
+        Price(
+            product_id=product.id,
+            variant_id=plain.id,
+            price_type=PriceType.MEMBER,
+            amount=Decimal("14.00"),
+            valid_from=date(2026, 9, 1),
+        )
+    )
+    db_session.flush()
+    assert price_for(db_session, plain.id, on, member=True) == Decimal("14.00")

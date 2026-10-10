@@ -170,6 +170,9 @@ def test_a_delete_with_movements_is_refused_visibly(client, db_session, every_mo
     db_session.flush()
     receive(db_session, variant.id, quantity=5)
 
+    record = client.get(f"/admin/producten/{product.id}")
+    assert 'id="product-melding"' in record.text, "the header names a line the page lacks"
+
     answer = client.post(
         f"/admin/producten/{product.id}/verwijderen",
         headers=headers,

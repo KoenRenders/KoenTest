@@ -89,27 +89,36 @@ def add_prices(
 def price_for(db: Session, variant_id: int, on: date, member: bool = False) -> Decimal | None:
     """The price of a variant on `on`, for a member or not (F3).
 
-    A member with a valid membership pays the MEMBER price of the variant, else
-    of the product; anyone else — or when there is no member price — pays the
-    REGULAR price of the variant, else of the product. A price is in force from
-    its start date until the next one of the same type starts; the latest start
-    on or before `on` is the one that applies. None when the variant does not
-    exist or has no price.
+    A member pays the size's MEMBER price, else the size's REGULAR price, else
+    the product's MEMBER price, else the product's REGULAR price — the size's own
+    prices take precedence, whatever their type (Koen's "b"). Anyone else pays
+    the size's REGULAR price, else the product's. A price is in force from its
+    start date until the next one of the same type starts; the latest start on or
+    before `on` is the one that applies. None when the variant does not exist or
+    has no price.
     """
     variant = get_variant(db, variant_id)
     if variant is None:
         return None
     product_id = variant.product_id
+    order: tuple[tuple[int | None, PriceType], ...]
     if member:
-        price = price_in_force(db, product_id, variant_id, PriceType.MEMBER, on) or price_in_force(
-            db, product_id, None, PriceType.MEMBER, on
+        order = (
+            (variant_id, PriceType.MEMBER),
+            (variant_id, PriceType.REGULAR),
+            (None, PriceType.MEMBER),
+            (None, PriceType.REGULAR),
         )
+    else:
+        order = (
+            (variant_id, PriceType.REGULAR),
+            (None, PriceType.REGULAR),
+        )
+    for v_id, price_type in order:
+        price = price_in_force(db, product_id, v_id, price_type, on)
         if price is not None:
             return price.amount
-    price = price_in_force(db, product_id, variant_id, PriceType.REGULAR, on) or price_in_force(
-        db, product_id, None, PriceType.REGULAR, on
-    )
-    return price.amount if price is not None else None
+    return None
 
 
 def price_in_force(

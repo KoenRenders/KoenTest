@@ -19,7 +19,7 @@ from app.domains.product.models import (
 )
 from app.kernel.contracts.media import RemoveAsset
 from app.kernel.contracts.product import ProductDeleted
-from app.kernel.events import publish
+from app.kernel.events import has_subscribers, publish
 from app.kernel.ports import call
 
 
@@ -193,6 +193,10 @@ def delete_product(db: Session, product_id: int) -> None:
     if product is None:
         return
     variant_ids = tuple(variant.id for variant in product.variants)
+    if not has_subscribers(ProductDeleted):
+        raise RuntimeError(
+            "nothing subscribes to ProductDeleted; import pricing.handlers and stock.handlers"
+        )
     _release_unshared_assets(db, product.attachments)
     publish(ProductDeleted(product_id=product_id, variant_ids=variant_ids, product_gone=True), db)
     db.delete(product)
@@ -209,6 +213,10 @@ def delete_variant(db: Session, variant_id: int) -> None:
     variant = db.get(ProductVariant, variant_id)
     if variant is None:
         return
+    if not has_subscribers(ProductDeleted):
+        raise RuntimeError(
+            "nothing subscribes to ProductDeleted; import pricing.handlers and stock.handlers"
+        )
     publish(
         ProductDeleted(
             product_id=variant.product_id, variant_ids=(variant_id,), product_gone=False
