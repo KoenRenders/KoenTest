@@ -199,6 +199,8 @@ def _script_with_a_stub_css_build(tmp_path) -> Path:
     root = tmp_path / "checkout"
     (root / "scripts").mkdir(parents=True)
     shutil.copy(SCRIPT, root / "scripts" / "test-local.sh")
+    # The script sources it (#1891).
+    shutil.copy(SCRIPTS / "local-db-lib.sh", root / "scripts" / "local-db-lib.sh")
     stub = root / "scripts" / "build-css.sh"
     stub.write_text("#!/bin/sh\nexit 0\n")
     stub.chmod(0o755)
