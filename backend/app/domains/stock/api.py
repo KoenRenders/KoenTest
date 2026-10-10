@@ -8,6 +8,7 @@ from app.domains.stock.codes import MOVEMENT_REASON, RESERVATION_STATUS  # noqa:
 from app.domains.stock.models import (  # noqa: F401
     MovementReason,
     NotEnoughStock,
+    ProductHasMovements,
     ReservationStatus,
     StockError,
     StockLocation,
@@ -20,6 +21,7 @@ from app.domains.stock.service import (  # noqa: F401
     lock_key,
     on_hand,
     receive,
+    reserved,
 )
 
 __all__ = [
@@ -27,6 +29,7 @@ __all__ = [
     "RESERVATION_STATUS",
     "MovementReason",
     "NotEnoughStock",
+    "ProductHasMovements",
     "ReservationStatus",
     "StockError",
     "StockLocation",
@@ -37,4 +40,5 @@ __all__ = [
     "lock_key",
     "on_hand",
     "receive",
+    "reserved",
 ]

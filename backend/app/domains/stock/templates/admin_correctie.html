@@ -1,0 +1,21 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Correctie — Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.record_header(_("Correctie"), back={"label": _("Voorraadbeheer"), "href": "/admin/voorraad"}) }}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+<form id="correctie-form" method="post" action="/admin/voorraad/correctie">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {% call ui.record_columns() %}
+  <div class="form-flow">
+    {% call ui.section() %}
+      {{ ui.field("variant_id", _("Artikel en maat"), kind="select", options=options, required=True) }}
+      {{ ui.field("direction", _("Richting"), kind="segmented", value="up", options=directions, required=True) }}
+      {{ ui.field("quantity", _("Aantal"), kind="number", required=True) }}
+      {{ ui.field("note", _("Reden"), kind="text", long=True, required=True) }}
+    {% endcall %}
+  </div>
+  {% endcall %}
+</form>
+{{ ui.action_bar(save_label=_("Correctie opslaan"), form="correctie-form", cancel_href="/admin/voorraad") }}
+{% endblock %}

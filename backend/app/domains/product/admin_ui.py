@@ -40,7 +40,7 @@ from app.domains.product.viewmodels import (
     ProductRefusalView,
     ProductView,
 )
-from app.domains.stock.api import StockError
+from app.domains.stock.api import ProductHasMovements, StockError
 from app.i18n import _
 from app.ui import admin_nav, is_fragment_request, templates
 
@@ -264,6 +264,18 @@ def product_delete(
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     try:
         delete_product(db, product_id)
+    except ProductHasMovements as refusal:
+        # The choice between the two sentences lives here: only the screen knows
+        # the article's status. An article already Afgevoerd is told the bare fact;
+        # any other is offered the alternative (AC19, W23).
+        if product.status is ProductStatus.DISCONTINUED:
+            return _refusal(request, str(refusal))
+        return _refusal(
+            request,
+            _(
+                "Dit artikel heeft voorraadbewegingen en kan niet verwijderd worden — zet het afgevoerd."
+            ),
+        )
     except (ProductError, StockError) as refusal:
         return _refusal(request, str(refusal))
     return _redirect(request, "/admin/producten")

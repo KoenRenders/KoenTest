@@ -20,6 +20,7 @@ from app.domains.stock.api import (
     correct,
     on_hand,
     receive,
+    reserved,
 )
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -46,6 +47,19 @@ def test_a_correction_that_takes_available_below_zero_is_refused(db_session):
 
     with pytest.raises(NotEnoughStock):
         correct(db_session, variant_id=1, quantity=-5, note="retour")
+
+
+def test_a_correction_asks_for_a_reason(db_session):
+    receive(db_session, variant_id=1, quantity=10)
+
+    with pytest.raises(StockError):
+        correct(db_session, variant_id=1, quantity=1, note="   ")
+
+
+def test_reserved_is_zero_while_nothing_reserves(db_session):
+    receive(db_session, variant_id=1, quantity=10)
+
+    assert reserved(db_session, 1) == 0
 
 
 def test_a_receipt_must_be_positive(db_session):

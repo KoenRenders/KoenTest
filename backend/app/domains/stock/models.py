@@ -39,6 +39,17 @@ class StockError(ValueError):
     """A rule of this domain was violated. One class for the domain, English."""
 
 
+class ProductHasMovements(StockError):
+    """A product that still has movements cannot be deleted (Q75, AC19).
+
+    Raised by the stock handler on `ProductDeleted` for the whole-product case
+    (`product_gone`); deleting one size raises a plain `StockError`. The screen
+    that catches this knows the article's status, so it decides between the two
+    sentences: an article already Afgevoerd gets the bare fact, any other article
+    gets the offer "— zet het afgevoerd." appended.
+    """
+
+
 class NotEnoughStock(StockError):
     """There is not enough of a variant available to do what was asked (F1).
 

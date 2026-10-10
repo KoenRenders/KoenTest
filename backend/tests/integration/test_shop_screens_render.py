@@ -12,7 +12,7 @@ from decimal import Decimal
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.pricing.api import Price, PriceType, prices_of
-from app.domains.product.api import add_variant, create_product
+from app.domains.product.api import ProductStatus, add_variant, create_product, set_status
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
@@ -181,3 +181,49 @@ def test_a_delete_with_movements_is_refused_visibly(client, db_session, every_mo
     assert answer.status_code == 422
     assert "voorraadbewegingen" in answer.text
     assert answer.headers.get("HX-Retarget") == "#product-melding"
+
+
+def _article_with_a_movement(client, db_session, every_module_on):
+    """An article with one size and a movement, signed in as the operator."""
+    from app.domains.stock.api import receive
+
+    headers = _operator(client, db_session, every_module_on)
+    product = create_product(db_session, "T-shirt Raak")
+    variant = add_variant(db_session, product.id, "M")
+    receive(db_session, variant.id, quantity=5)
+    return headers, product
+
+
+def test_a_refused_delete_offers_afvoeren_while_the_article_is_not_yet_afgevoerd(
+    client, db_session, every_module_on
+):
+    """An article with a movement that is not Afgevoerd is offered the alternative
+    (AC19, W23): the sentence carries "— zet het afgevoerd."."""
+    headers, product = _article_with_a_movement(client, db_session, every_module_on)
+    set_status(db_session, product.id, ProductStatus.ON_SALE)
+
+    answer = client.post(
+        f"/admin/producten/{product.id}/verwijderen",
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 422
+    assert "zet het afgevoerd" in answer.text
+
+
+def test_a_refused_delete_does_not_offer_afvoeren_when_the_article_is_already_afgevoerd(
+    client, db_session, every_module_on
+):
+    """An article already Afgevoerd is told the bare fact, without the offer
+    (Koen, 10 October 2026): the sentence ends after "kan niet verwijderd worden."."""
+    headers, product = _article_with_a_movement(client, db_session, every_module_on)
+    set_status(db_session, product.id, ProductStatus.DISCONTINUED)
+
+    answer = client.post(
+        f"/admin/producten/{product.id}/verwijderen",
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 422
+    assert "voorraadbewegingen" in answer.text
+    assert "zet het afgevoerd" not in answer.text

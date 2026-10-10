@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.domains.stock.models import StockError
+from app.domains.stock.models import ProductHasMovements, StockError
 from app.domains.stock.service import has_movements
 from app.kernel.contracts.product import ProductDeleted
 from app.kernel.events import subscribe
@@ -23,16 +23,17 @@ from app.kernel.events import subscribe
 def refuse_delete_with_movements(event: ProductDeleted, db: Session) -> None:
     """Refuse a delete — of an article or of one size — that still has movements.
 
-    The sentence names the alternative (AC19, W23): set the article to Afgevoerd
-    instead of deleting it. For a size the article stays; only the size is named.
+    An article with a movement is decommissioned, never deleted (Q75, AC19). The
+    sentence raised here is the bare fact; the screen that catches it decides the
+    offer — an article already Afgevoerd is not offered the alternative again.
+    For a size the article stays; only the size is named.
     """
     if not has_movements(db, event.variant_ids):
         return
     from app.i18n import _
 
-    message = (
-        _("Dit artikel heeft voorraadbewegingen en kan niet verwijderd worden — zet het afgevoerd.")
-        if event.product_gone
-        else _("Deze maat heeft voorraadbewegingen en kan niet verwijderd worden.")
-    )
-    raise StockError(message)
+    if event.product_gone:
+        raise ProductHasMovements(
+            _("Dit artikel heeft voorraadbewegingen en kan niet verwijderd worden.")
+        )
+    raise StockError(_("Deze maat heeft voorraadbewegingen en kan niet verwijderd worden."))

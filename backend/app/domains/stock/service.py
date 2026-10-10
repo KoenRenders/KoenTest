@@ -113,6 +113,18 @@ def available(db: Session, variant_id: int, location_id: int | None = None) -> i
     )
 
 
+def reserved(db: Session, variant_id: int, location_id: int | None = None) -> int:
+    """What open orders still hold back: the sum of the open reservations (D2).
+
+    In phase 1 nothing reserves yet, so this reads zero; the reader exists so the
+    Voorraadbeheer column is right the day `sales` fills it.
+    """
+    location = _resolve_location(db, location_id)
+    if location is None:
+        return 0
+    return _open_reservations_sum(db, variant_id, location.id)
+
+
 def receive(
     db: Session,
     variant_id: int,
@@ -170,6 +182,10 @@ def correct(
     if location is None:
         raise StockError("Onbekende locatie.")
     _acquire_lock(db, location, variant_id)
+    if not (note or "").strip():
+        from app.i18n import _
+
+        raise StockError(_("Een correctie vraagt een reden."))
     if quantity == 0:
         from app.i18n import _
 

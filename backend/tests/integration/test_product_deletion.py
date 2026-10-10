@@ -202,3 +202,23 @@ def test_a_refusal_in_a_handler_rolls_the_delete_back(db_session):
         assert db_session.get(Product, product.id) is not None, "the delete rolled back"
     finally:
         events._subscribers[ProductDeleted].remove(_refuse)
+
+
+def test_a_delete_refuses_to_publish_into_silence(db_session):
+    """The delete's gate lives in the handlers on `ProductDeleted`; with none
+    subscribed, the delete would pass silently and leave the article gone while
+    its movements point at nothing. The publish is refused instead — red without
+    the `has_subscribers` check in `delete_product`."""
+    from app.kernel import events
+    from app.kernel.contracts.product import ProductDeleted
+
+    product, _ = _product_with_variants(db_session, "M")
+    saved = events._subscribers.get(ProductDeleted, [])
+    events._subscribers[ProductDeleted] = []
+    try:
+        with pytest.raises(RuntimeError):
+            delete_product(db_session, product.id)
+        db_session.expire_all()
+        assert db_session.get(Product, product.id) is not None, "nothing was deleted"
+    finally:
+        events._subscribers[ProductDeleted] = saved

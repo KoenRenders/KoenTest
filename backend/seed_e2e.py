@@ -246,6 +246,40 @@ def main() -> None:
                 db, name="Voorbeeldbedrijf", code="voorbeeldbedrijf", kind=TenantKind.COMPANY
             )
 
+        # CR-21 (#1887): a tenant of its own with the shop on, for the browser
+        # test of the refused delete. The module set is cached in the server
+        # process, so a row written by the test is not seen — it must be seeded.
+        # The association's tenant stays untouched. Reached by its hostname
+        # (`TENANT_HOSTNAMES` in `tests_e2e/e2e.env`), because back-office screens
+        # are not reached by a path prefix (`path_for` never prefixes `/admin`).
+        from app.domains.mdm.api import set_modules
+        from app.kernel.modules import DEFAULTS
+        from app.kernel.modules import M as _M
+        from app.kernel.tenancy import current_tenant_id
+
+        if "webshop" not in tenant_codes(db):
+            webshop = create_tenant(db, name="Webshop", code="webshop", kind=TenantKind.ASSOCIATION)
+            set_modules(db, webshop.id, DEFAULTS["VERENIGING"] | {_M.SHOP})
+        webshop_id = tenant_codes(db)["webshop"]
+
+        token = current_tenant_id.set(webshop_id)
+        try:
+            from app.domains.product.models import Product, ProductStatus, ProductVariant
+            from app.domains.stock.api import receive
+
+            if db.query(Product).filter(Product.name == "Webshop T-shirt").first() is None:
+                artikel = Product(name="Webshop T-shirt", status=ProductStatus.ON_SALE)
+                db.add(artikel)
+                db.flush()
+                maat = ProductVariant(
+                    product_id=artikel.id, properties=[{"name": "Maat", "value": "M"}]
+                )
+                db.add(maat)
+                db.flush()
+                receive(db, maat.id, quantity=5)
+        finally:
+            current_tenant_id.reset(token)
+
         bestaat = db.query(ContactDetail).filter(ContactDetail.value == MARKER_EMAIL).first()
         if bestaat is not None:
             print("seed_e2e: data staat er al (marker gevonden) — niets gedaan")

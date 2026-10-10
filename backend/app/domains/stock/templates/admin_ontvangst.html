@@ -1,0 +1,19 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Ontvangst — Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.record_header(_("Ontvangst"), back={"label": _("Voorraadbeheer"), "href": "/admin/voorraad"}) }}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+<form id="ontvangst-form" method="post" action="/admin/voorraad/ontvangst">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {% call ui.record_columns() %}
+  <div class="form-flow">
+    {% call ui.section() %}
+      {{ ui.field("variant_id", _("Artikel en maat"), kind="select", options=options, required=True) }}
+      {{ ui.field("quantity", _("Aantal"), kind="number", required=True) }}
+    {% endcall %}
+  </div>
+  {% endcall %}
+</form>
+{{ ui.action_bar(save_label=_("Ontvangst boeken"), form="ontvangst-form", cancel_href="/admin/voorraad") }}
+{% endblock %}

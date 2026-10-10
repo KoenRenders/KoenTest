@@ -12,3 +12,4 @@ from __future__ import annotations
 def test_the_shop_being_off_makes_its_screens_404(client):
     assert client.get("/admin/producten", follow_redirects=False).status_code == 404
     assert client.get("/admin/producten/nieuw", follow_redirects=False).status_code == 404
+    assert client.get("/admin/voorraad", follow_redirects=False).status_code == 404

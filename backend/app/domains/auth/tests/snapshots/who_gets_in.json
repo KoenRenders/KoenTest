@@ -514,6 +514,18 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/voorraad": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/voorraad/correctie": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/voorraad/ontvangst": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "GET /admin/werkbank": {
    "platform": "ADMIN FINANCE OPERATOR",
    "tenant": "ADMIN FINANCE OPERATOR"
@@ -1297,6 +1309,14 @@
   "POST /admin/vergaderingen/{meeting_id}/verstuur": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/voorraad/correctie": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/voorraad/ontvangst": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
   },
   "POST /admin/werkbank/taken/{task_id}/afgehandeld": {
    "platform": "ADMIN FINANCE OPERATOR",
