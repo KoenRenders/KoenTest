@@ -56,6 +56,14 @@ the user; unset, the calls are those of before (the recording above). Broken:
 
 * `test-local.sh`: `"${USER_ARGS[@]}"` taken off the `docker run` line →
   `test_the_named_user_reaches_the_helper_container` fails: no `-u root`.
+
+#1894 — `git` and a `psql` client in the helper container, for the seven tests
+of the suite that run them. Installed by the script, as root, once per
+container; the recording of `test-local.sh` gained that one call. Broken:
+
+* `test-local.sh`: `-u root` taken off the install line →
+  `test_git_and_psql_are_installed_as_root_from_debians_own_archive` fails:
+  the install would run as the container's user, who may not install.
 """
 
 import os
@@ -357,17 +365,36 @@ def test_the_named_user_reaches_the_helper_container(tmp_path, environment):
     )
 
 
-def test_no_exec_names_a_user_of_its_own(tmp_path):
+def test_no_exec_names_another_user_than_root(tmp_path):
     """A `docker exec` runs as the user the container was created with. One that
     named another would install or write as someone else than the run reads as —
-    and in a rootless Docker it would not start."""
+    and in a rootless Docker it would not start. Root is the exception (#1894):
+    the one user that exists in an ordinary Docker and in a rootless one, and
+    the one that may install."""
     done, calls = _run_local(tmp_path, "test-local.sh", HELPER_CONTAINER_USER="root")
 
     assert done.returncode == 0, done.stderr
     executed = [call for call in calls if call.startswith("exec ")]
     assert len(executed) >= 2, "the script reached its exec calls not at all"
     for call in executed:
-        assert " -u " not in call and "--user" not in call, call
+        assert " -u " not in call.replace(" -u root ", " ") and "--user" not in call, call
+
+
+@pytest.mark.parametrize("environment", [{}, {"HELPER_CONTAINER_USER": "root"}])
+def test_git_and_psql_are_installed_as_root_from_debians_own_archive(tmp_path, environment):
+    """One call, only when one of the two is missing, and no other source than
+    the archive the image already trusts."""
+    done, calls = _run_local(tmp_path, "test-local.sh", **environment)
+
+    assert done.returncode == 0, done.stderr
+    installs = [call for call in calls if "apt-get install" in call]
+    assert len(installs) == 1, f"expected one install call, found {len(installs)}"
+    install = installs[0]
+    assert install.startswith("exec -u root raaktest-checkout "), install
+    assert "command -v git >/dev/null && command -v psql >/dev/null || {" in install
+    assert install.rstrip().endswith("git postgresql-client >/dev/null; }"), install
+    for other_source in ("sources.list", "apt-key", "curl", "wget", "http"):
+        assert other_source not in install, install
 
 
 def test_the_browser_helper_container_keeps_its_own_user(tmp_path):

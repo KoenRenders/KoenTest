@@ -162,6 +162,16 @@ SOM="$(cat "$ROOT/backend/requirements.txt" "$ROOT/backend/requirements-dev.txt"
 docker exec "$NAAM" sh -c "[ \"\$(cat /tmp/requirements.som 2>/dev/null)\" = '$SOM' ] \
   || { pip install -q -r requirements-dev.txt && echo '$SOM' > /tmp/requirements.som; }"
 
+# #1894: seven tests of the suite run a real `git` and a real `psql`
+# (tests/test_deploy_rollback_migration.py, tests/test_restore_exercise.py). The
+# pull-request run has both; the image has neither, and must not get them — it
+# is the image that goes to the environments. So they are installed HERE, in the
+# helper container, once per container, from Debian's own archive.
+# As root: installing needs it, and root is the one user that exists in an
+# ordinary Docker (where the container runs as `app`) and in a rootless one
+# (where it runs as root already, HELPER_CONTAINER_USER above).
+docker exec -u root "$NAAM" sh -c 'command -v git >/dev/null && command -v psql >/dev/null || { apt-get update -q >/dev/null && apt-get install -y -q --no-install-recommends git postgresql-client >/dev/null; }'
+
 # ── Databank aanmaken als ze nog niet bestaat ────────────────────────────────
 # Foutloos herhaalbaar: bestaat ze al, dan is er niets te doen.
 if [ -n "${EXISTING_DB_URL:-}" ]; then
