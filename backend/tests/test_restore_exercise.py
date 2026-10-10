@@ -37,7 +37,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -78,7 +78,10 @@ BROKEN_DUMP = GOOD_DUMP.replace(
 def _server_env() -> dict[str, str]:
     url = urlparse(os.environ["TEST_DATABASE_URL"].replace("+psycopg2", ""))
     return {
-        "PGHOST": url.hostname or "localhost",
+        # A server reached over a unix socket (#1891, #1894) has no host in its
+        # URL: the socket directory stands in ?host=, and libpq takes a
+        # directory as PGHOST.
+        "PGHOST": parse_qs(url.query).get("host", [""])[0] or url.hostname or "localhost",
         "PGPORT": str(url.port or 5432),
         "PGPASSWORD": url.password or "",
         "POSTGRES_USER": url.username or "",
