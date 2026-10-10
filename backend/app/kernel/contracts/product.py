@@ -17,9 +17,12 @@ from app.kernel.events import KernelEvent
 class ProductDeleted(KernelEvent):
     """A product — or one of its sizes — is deleted, and its prices with it.
 
-    `variant_ids` are the variants that go with the product; deleting one size
-    carries just that one id. Events are plain data.
+    `variant_ids` are the variants whose prices go. `product_gone` says the whole
+    product is deleted, so its own price (`variant_id` NULL) goes too; deleting
+    one size leaves the product and its own price in place. Events are plain
+    data.
     """
 
     product_id: int
     variant_ids: tuple[int, ...]
+    product_gone: bool

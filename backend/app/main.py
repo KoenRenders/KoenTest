@@ -77,6 +77,9 @@ from app.domains.payment.handlers import (  # noqa: F401 - event-abonnementen (C
 from app.domains.payment.router import router as payment_router
 from app.domains.payment.stub_router import include_stub_routes
 from app.domains.payment.ui import router as payment_ui_router
+from app.domains.pricing.handlers import (  # noqa: F401 - event subscription (CR-21)
+    drop_prices_of_deleted_product,
+)
 from app.domains.reporting.admin_ui import router as reporting_admin_ui_router
 from app.domains.workflow import (
     handlers as workflow_handlers,  # noqa: F401 - event-abonnementen (#398)

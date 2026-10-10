@@ -92,6 +92,17 @@ def on_hand(db: Session, variant_id: int, location_id: int | None = None) -> int
     return _movements_sum(db, variant_id, location.id)
 
 
+def has_movements(db: Session, variant_ids: tuple[int, ...]) -> bool:
+    """Do any of these variants have a movement? The gate of a delete (Q75): an
+    article with a movement is decommissioned, never deleted."""
+    if not variant_ids:
+        return False
+    return (
+        db.query(StockMovement.id).filter(StockMovement.variant_id.in_(variant_ids)).first()
+        is not None
+    )
+
+
 def available(db: Session, variant_id: int, location_id: int | None = None) -> int:
     """What can still be sold: on hand minus the open reservations (D2)."""
     location = _resolve_location(db, location_id)
