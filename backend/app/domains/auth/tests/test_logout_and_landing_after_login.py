@@ -7,7 +7,8 @@ Two uncovered spots in `auth/ui.py` on this tree:
   the cookie still works. That half is authorisation.
 - **the role-dependent landing (69-72)**. Only the ADMIN/OPERATOR branch was tested; the
   FINANCE-only branch (→ `/admin/betalingen`, because the workbench would 403) and the
-  plain-member branch (→ `/leden/gezin`) were not.
+  plain-member branch (→ `/leden/gezin`; since CR-22, #1707, the account page `/mijn`)
+  were not.
 
 The hermeting called those landings optional — *"inconvenience, not a leak"*. Koen took them
 anyway, and that is defensible: three tests of five lines, and a landing that ends up
@@ -73,13 +74,24 @@ def test_logging_out_really_ends_the_session(client, db_session, monkeypatch):
 @pytest.mark.parametrize(
     "rollen,doel",
     [
-        (("ADMIN",), "/admin/werkbank"),
-        (("FINANCE",), "/admin/betalingen"),
-        ((), "/leden/gezin"),
+        # #1740 (Koen, 8 October 2026): the door decides, not the role. These rows
+        # said the workbench and payments; a board user who signs in on the site
+        # lands on the site like everyone else, and finds Admin in his menu.
+        (("ADMIN",), "/"),
+        (("FINANCE",), "/"),
+        # CR-22 (#1707): this user has no role and is no person on this tenant, so
+        # he has no account page — he lands on the site. Until then this row said
+        # `/leden/gezin`, a page that sent him straight back to the sign-in. Who
+        # signs in AS a person lands on `/mijn`: `test_account_sign_in_1707.py`.
+        ((), "/"),
     ],
 )
-def test_you_land_where_your_role_may_go(client, db_session, monkeypatch, rollen, doel):
-    """#530: FINANCE-only hoort op betalingen uit te komen, want de werkbank zou 403'en.
+def test_you_land_on_the_site_whatever_your_role(client, db_session, monkeypatch, rollen, doel):
+    """#1740: nobody lands in the back office by signing in on the site. (#530 sent
+    FINANCE to payments because the workbench refused them; that knowledge is the
+    back office's now — `back_office_home`, held in `test_landing_by_door_1740.py`.)
+
+    #530: FINANCE-only hoort op betalingen uit te komen, want de werkbank zou 403'en.
 
     Alleen de ADMIN-tak was getest. Een landing die na een release ergens anders uitkomt,
     meldt niemand — en een FINANCE-gebruiker die op een 403 landt, denkt dat hij geen

@@ -1,8 +1,8 @@
 """The meeting screens (CR-09, #258): the list, the document, sending, the circle.
 
 Board-only and desktop-first (§3.2): there is no public counterpart and no plan
-for one. Everything sits behind `require_admin_ui` — ADMIN or OPERATOR, the same
-door as every other admin screen.
+for one. Every route asks a right (CR-24): `meeting.view` to look,
+`meeting.manage` to change.
 
 **Agenda and report are one screen.** Preparing and taking minutes differ by a
 label, not by a mode: ticking attendance or typing a note *is* entering the
@@ -28,10 +28,12 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.auth.api import (
     SESSION_COOKIE,
+    Right,
     csrf_token_for,
-    require_admin_ui,
     require_csrf,
+    require_right,
 )
+from app.domains.mdm.api import EmailAddressInUse
 from app.domains.meetings.api import (
     MEETING_STATUS,
     Attendance,
@@ -171,7 +173,7 @@ def _list_view(
         dates={m.id: long_date(m.meeting_date) for m in meetings},
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -196,7 +198,7 @@ def _new_view(request: Request, db: Session, error: Optional[str] = None) -> Mee
         cancel_href="/admin/vergaderingen",
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -218,7 +220,7 @@ def _edit_view(
         cancel_href=f"/admin/vergaderingen/{meeting.id}",
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -226,7 +228,7 @@ def _edit_view(
 def meeting_list(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_VIEW)),
     q: str = "",
 ):
     view = _list_view(request, db, q=q)
@@ -238,7 +240,9 @@ def meeting_list(
 
 @router.get("/admin/vergaderingen/nieuw", response_class=HTMLResponse)
 def meeting_new(
-    request: Request, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.MEETING_VIEW)),
 ):
     """Aanmaken op een eigen scherm en niet in een modal (#627, §2.8)."""
     return templates.TemplateResponse(
@@ -252,8 +256,11 @@ def meeting_new(
 def meeting_create(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
-    meeting_date: str = Form(...),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
+    # #1831: not required here. An empty date is no date: the door's own
+    # sentence answers it in the page's banner — required on the route, the
+    # framework answered a bare JSON 422 and the page showed nothing of use.
+    meeting_date: str = Form(""),
     start_time: str = Form(""),
     location: str = Form(""),
 ):
@@ -310,7 +317,7 @@ def _circle_view(
         today=date.today().isoformat(),
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -318,7 +325,7 @@ def _circle_view(
 def circle_screen(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_VIEW)),
     q: str = "",
 ):
     view = _circle_view(request, db, query=q)
@@ -334,20 +341,17 @@ def circle_screen(
 def circle_add(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
     person_id: int = Form(...),
     start_date: str = Form(""),
 ):
-    from app.domains.mdm.api import add_to_circle, platform_org
+    from app.domains.mdm.api import MasterDataError, add_to_circle, circle_organization
 
-    organization = platform_org(db)
-    if organization is None:
+    try:
+        organization = circle_organization(db)
+    except MasterDataError as refusal:
         return templates.TemplateResponse(
-            request,
-            "_vg_kring.html",
-            _circle_view(
-                request, db, error=_("Er is nog geen organisatie ingesteld.")
-            ).as_context(),
+            request, "_vg_kring.html", _circle_view(request, db, error=str(refusal)).as_context()
         )
     try:
         on_day = _start_day(start_date)
@@ -381,7 +385,7 @@ def circle_start(
     relation_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
     start_date: str = Form(""),
 ):
     """Change since when someone counts for the circle (#1346)."""
@@ -405,7 +409,7 @@ def circle_start(
 def circle_new_person(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
     first_name: str = Form(""),
     last_name: str = Form(""),
     person_email: str = Form(""),
@@ -417,16 +421,17 @@ def circle_new_person(
     persoon via een gezin, dus een niet-lid bestond niet en kon dus ook niet in de
     kring (#939).
     """
-    from app.domains.mdm.api import create_person_for_circle, platform_org
+    from app.domains.mdm.api import (
+        MasterDataError,
+        circle_organization,
+        create_person_for_circle,
+    )
 
-    organization = platform_org(db)
-    if organization is None:
+    try:
+        organization = circle_organization(db)
+    except MasterDataError as refusal:
         return templates.TemplateResponse(
-            request,
-            "_vg_kring.html",
-            _circle_view(
-                request, db, error=_("Er is nog geen organisatie ingesteld.")
-            ).as_context(),
+            request, "_vg_kring.html", _circle_view(request, db, error=str(refusal)).as_context()
         )
     try:
         on_day = _start_day(start_date)
@@ -442,6 +447,12 @@ def circle_new_person(
             email=person_email,
             organization_id=organization.id,
             on_day=on_day,
+        )
+    except EmailAddressInUse as refusal:
+        # CR-22 (#1704): the address is another person's — its own reason, not
+        # the "fill in a name" below, which this error would otherwise get.
+        return templates.TemplateResponse(
+            request, "_vg_kring.html", _circle_view(request, db, error=str(refusal)).as_context()
         )
     except ValueError:
         return templates.TemplateResponse(
@@ -464,7 +475,7 @@ def circle_new_person(
 def circle_signature(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
     signature: str = Form(""),
 ):
     """De ondertekening onder elke vergadermail — per afdeling, niet in de code.
@@ -489,7 +500,7 @@ def circle_end(
     relation_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
 ):
     from app.domains.mdm.api import end_circle_relation
 
@@ -538,7 +549,7 @@ def _document_view(
         editable=meeting.status != MeetingStatus.SENT,
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -580,7 +591,7 @@ def meeting_document(
     meeting_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_VIEW)),
 ):
     meeting = _meeting_or_404(db, meeting_id)
     return templates.TemplateResponse(
@@ -593,7 +604,7 @@ def item_picker(
     meeting_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_VIEW)),
     section_id: int = 0,
     q: str = "",
 ):
@@ -613,7 +624,7 @@ def item_add(
     meeting_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
     section_id: int = Form(...),
     activity_id: str = Form(""),
     activity_date_id: str = Form(""),
@@ -647,7 +658,7 @@ def item_update(
     item_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
     notes: str = Form(None),
     title: str = Form(None),
     steward_person_id: str = Form(None),
@@ -681,7 +692,7 @@ def item_delete(
     item_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
 ):
     meeting = _meeting_or_404(db, meeting_id)
     try:
@@ -700,7 +711,7 @@ def section_add(
     meeting_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
     title: str = Form(""),
 ):
     """A named block for a big topic — always before Varia, which stays last."""
@@ -721,7 +732,7 @@ def attendance_toggle(
     meeting_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
     person_id: str = Form(""),
     guest_id: str = Form(""),
     current: str = Form(""),
@@ -746,7 +757,7 @@ def meeting_edit(
     meeting_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_VIEW)),
 ):
     """Datum, uur en locatie van een bestaande vergadering."""
     meeting = _meeting_or_404(db, meeting_id)
@@ -764,8 +775,11 @@ def meeting_edit_save(
     meeting_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
-    meeting_date: str = Form(...),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
+    # #1831: not required here. An empty date is no date: the door's own
+    # sentence answers it in the page's banner — required on the route, the
+    # framework answered a bare JSON 422 and the page showed nothing of use.
+    meeting_date: str = Form(""),
     start_time: str = Form(""),
     location: str = Form(""),
 ):
@@ -809,7 +823,7 @@ def guest_add(
     meeting_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
     guest_name: str = Form(""),
     guest_email: str = Form(""),
 ):
@@ -833,7 +847,7 @@ def guest_remove(
     guest_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
 ):
     meeting = _meeting_or_404(db, meeting_id)
     remove_extra_recipient(db, meeting, guest_id)
@@ -849,7 +863,7 @@ def meeting_reopen(
     meeting_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
 ):
     """Reopen a sent report for the correction that comes the day after (§3.23)."""
     meeting = _meeting_or_404(db, meeting_id)
@@ -869,7 +883,7 @@ async def attachment_add(
     meeting_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
     file: UploadFile = File(...),
 ):
     meeting = _meeting_or_404(db, meeting_id)
@@ -897,7 +911,7 @@ def attachment_mailing(
     file_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
     mail: str = Form(...),
 ):
     """Zet deze bijlage aan of uit voor de agenda- of de verslagmail."""
@@ -919,7 +933,7 @@ def attachment_delete(
     file_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_MANAGE)),
 ):
     meeting = _meeting_or_404(db, meeting_id)
     try:
@@ -934,7 +948,7 @@ def file_download(
     meeting_id: int,
     file_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_VIEW)),
 ):
     """Download an attachment or an archived PDF — admin session required.
 
@@ -1021,7 +1035,7 @@ def _pdf_context(db: Session, meeting, *, kind: str) -> dict:
 def meeting_pdf(
     meeting_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.MEETING_VIEW)),
     kind: str = "verslag",
 ):
     """Download the PDF as the circle will receive it (§3.16).
@@ -1120,7 +1134,7 @@ def _send_view(
         ),
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -1129,7 +1143,7 @@ def send_screen(
     meeting_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.MEETING_VIEW)),
     kind: str = "verslag",
 ):
     meeting = _meeting_or_404(db, meeting_id)
@@ -1149,7 +1163,7 @@ def recipient_add(
     meeting_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.MEETING_MANAGE)),
     kind: str = Form("verslag"),
     extra_email: str = Form(""),
 ):
@@ -1177,7 +1191,7 @@ def recipient_remove(
     recipient_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.MEETING_MANAGE)),
     kind: str = Form("verslag"),
 ):
     meeting = _meeting_or_404(db, meeting_id)
@@ -1196,7 +1210,7 @@ def send_mail(
     meeting_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.MEETING_MANAGE)),
     kind: str = Form("verslag"),
     subject: str = Form(""),
     body: str = Form(""),

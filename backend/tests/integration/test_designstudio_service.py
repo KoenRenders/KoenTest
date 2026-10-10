@@ -48,6 +48,16 @@ from tests.integration.test_designstudio_engine import PNG_2x2
 INKSCAPE = shutil.which(render.INKSCAPE) is not None
 needs_inkscape = pytest.mark.skipif(not INKSCAPE, reason="inkscape not installed")
 
+# CR-29 R7: these tests are about what the SERVICE does with a render — versions,
+# file names, staleness, publishing — and most of them render the same poster. One
+# render per distinct input (the fixture says why that is the same answer), and one
+# worker for the file, so the renders are shared instead of made once per process.
+# The renderer's own tests (`test_designstudio_engine.py`) call Inkscape unpatched.
+pytestmark = [
+    pytest.mark.usefixtures("one_render_per_input"),
+    pytest.mark.xdist_group("designstudio_renders"),
+]
+
 
 @pytest.fixture
 def activity(db_session):
@@ -728,18 +738,15 @@ def test_an_uploaded_svg_survives_media_cleaning_replaces_the_merge_and_ages_wit
 
 
 @needs_inkscape
-@pytest.mark.anyio
-async def test_publishing_an_older_version_restores_that_poster(db_session, design, activity):
-    from fastapi import BackgroundTasks
-
+def test_publishing_an_older_version_restores_that_poster(db_session, design, activity):
     from app.domains.designstudio.api import publish
     from app.domains.media.api import list_media
 
     v1 = make_version(db_session, design)
     design.subtitle = "tweede versie"
     v2 = make_version(db_session, design)
-    await publish(db_session, design, v2, BackgroundTasks())
-    await publish(db_session, design, v1, BackgroundTasks())
+    publish(db_session, design, v2)
+    publish(db_session, design, v1)
     assert design.published_version_id == v1.id
     posters = list_media(db_session, kind="activity_poster", activity_id=activity.id)
     assert len(posters) == 1 and posters[0]["content_type"] == "application/pdf"

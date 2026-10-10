@@ -1,8 +1,8 @@
 """The Design Studio screens (CR-10, #1007): the list, the new-design screen,
 the editor.
 
-Board-only and desktop-first: a poster is made at a desk. Everything sits
-behind `require_admin_ui`. The paths are Dutch because a board member reads
+Board-only and desktop-first: a poster is made at a desk. Every route asks a
+right (CR-24): `design.view` to look, `design.manage` to change. The paths are Dutch because a board member reads
 them in the address bar; the module, routes and parameters are English.
 
 The editor is one screen: the form on the left, the preview on the right. The
@@ -22,7 +22,6 @@ from typing import Optional
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -34,7 +33,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf
+from app.domains.auth.api import SESSION_COOKIE, Right, csrf_token_for, require_csrf, require_right
 from app.domains.designstudio import render
 from app.domains.designstudio.api import (
     DESIGN_STATUS,
@@ -214,7 +213,7 @@ def _list_view(
             )
         )
     return DesignListView(
-        rows=rows, q=q, csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV)
+        rows=rows, q=q, csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV, request)
     )
 
 
@@ -222,7 +221,7 @@ def _list_view(
 def design_list(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_VIEW)),
     q: str = "",
     activity_id: Optional[int] = None,
 ):
@@ -251,7 +250,7 @@ def _new_view(
         preset=preset,
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -259,7 +258,7 @@ def _new_view(
 def design_new(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_VIEW)),
     activity_id: str = "",
 ):
     return templates.TemplateResponse(
@@ -273,7 +272,7 @@ def design_new(
 def design_create(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.DESIGN_MANAGE)),
     activity_id: str = Form(""),
     duo_code: str = Form(""),
     preset: str = Form("beeld"),
@@ -514,7 +513,7 @@ def _editor_view(
         csrf_token=_csrf(request),
         error=error,
         notice=notice,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -523,7 +522,7 @@ def design_editor(
     request: Request,
     design_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_VIEW)),
     layout: str = "print_a",
     notice: str = "",
 ):
@@ -538,7 +537,7 @@ def design_variants(
     request: Request,
     design_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_VIEW)),
     layout: str = "print_a",
 ):
     """The variants grid alone, polled by the editor while a request runs, so
@@ -552,7 +551,7 @@ def design_variants(
 def design_preview(
     design_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_VIEW)),
     layout: str = "print_a",
     groot: bool = False,
 ):
@@ -574,7 +573,7 @@ def design_preview(
 def design_preview_pdf(
     design_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_VIEW)),
     layout: str = "print_a",
 ):
     """The draft as a PDF, to look at it large or print a proof — no version
@@ -602,7 +601,7 @@ def design_svg_download(
     design_id: int,
     layout: str,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_VIEW)),
 ):
     """The editable SVG of the current draft, to rework in Inkscape (§3.6a)."""
     from app.domains.designstudio.service import merged_for
@@ -633,7 +632,7 @@ async def design_save(
     request: Request,
     design_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_MANAGE)),
 ):
     design = _design_or_404(db, design_id)
     form = await request.form()
@@ -674,14 +673,21 @@ async def design_image_upload(
     request: Request,
     design_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_MANAGE)),
     file: UploadFile = File(...),
     slot: str = Form("main_image_id"),
     layout: str = Form("print_a"),
 ):
     design = _design_or_404(db, design_id)
     try:
-        await add_design_image(db, design, file, slot=slot)
+        add_design_image(
+            db,
+            design,
+            filename=file.filename or "",
+            content_type=file.content_type or "",
+            content=await file.read(),
+            slot=slot,
+        )
     except DesignError as exc:
         return templates.TemplateResponse(
             request,
@@ -700,7 +706,7 @@ def design_generate(
     request: Request,
     design_id: int,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.DESIGN_MANAGE)),
     scene: str = Form(""),
     layout: str = Form("print_a"),
     reference_id: str = Form(""),
@@ -742,7 +748,7 @@ def design_pick(
     design_id: int,
     generation_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_MANAGE)),
     slot: str = Form("main_image_id"),
     layout: str = Form("print_a"),
 ):
@@ -767,7 +773,7 @@ def design_finalise(
     request: Request,
     design_id: int,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.DESIGN_MANAGE)),
     layout: str = Form("print_a"),
 ):
     design = _design_or_404(db, design_id)
@@ -802,12 +808,11 @@ def design_finalise(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
-async def design_publish(
+def design_publish(
     request: Request,
     design_id: int,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_MANAGE)),
     version_id: int = Form(...),
     layout: str = Form("print_a"),
 ):
@@ -816,7 +821,7 @@ async def design_publish(
     if version is None:
         raise HTTPException(status_code=404, detail=_("Versie niet gevonden."))
     try:
-        await publish(db, design, version, background_tasks)
+        publish(db, design, version)
     except DesignError as exc:
         return templates.TemplateResponse(
             request,
@@ -835,7 +840,7 @@ async def design_svg_upload(
     request: Request,
     design_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_MANAGE)),
     file: UploadFile = File(...),
     layout: str = Form("print_a"),
 ):
@@ -874,7 +879,7 @@ def design_svg_remove(
     request: Request,
     design_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_MANAGE)),
     layout: str = Form("print_a"),
 ):
     design = _design_or_404(db, design_id)
@@ -891,7 +896,7 @@ def design_delete(
     request: Request,
     design_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.DESIGN_MANAGE)),
 ):
     design = _design_or_404(db, design_id)
     delete_design(db, design)

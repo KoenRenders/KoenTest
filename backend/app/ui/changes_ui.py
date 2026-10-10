@@ -4,7 +4,8 @@ Eén primaire weergave over de append-only history (#512, v1.4-pariteit): het
 uniforme audit-logboek met groep-/actorfilter. De ledendata-wijzigingen voor
 manuele overname in Raak Nationaal blijven beschikbaar als .ods-export (aparte
 route), niet meer als altijd-zichtbare tabel. Composer-module: leest via de
-audit-facade (`app.domains.audit.api`, #444), geen domein-internals.
+facade van reporting (`app.domains.reporting.api` — the change report, CR-13
+phase 4c), geen domein-internals.
 """
 
 from __future__ import annotations
@@ -16,7 +17,12 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui
+from app.domains.auth.api import (
+    SESSION_COOKIE,
+    Right,
+    csrf_token_for,
+    require_right,
+)
 from app.i18n import _
 from app.ui import (
     PER_PAGE_OPTIONS,
@@ -81,7 +87,7 @@ def wijzigingen_ctx(
     richting: str = "desc",
     per_page: str = "",
 ) -> dict:
-    from app.domains.audit.api import GROUPS, all_changes_since
+    from app.domains.reporting.api import GROUPS, all_changes_since
 
     vanaf = _since(since)
     # #512 (v1.4-pariteit): één algemeen audit-logboek als primaire, gefilterde
@@ -200,12 +206,12 @@ def admin_ledenwijzigingen(
     richting: str = "desc",
     per_page: str = "",
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
     ctx = wijzigingen_ctx(request, db, since, group, actor, page, sort, richting, per_page)
     template = "_lw_inhoud.html" if is_fragment_request(request) else "admin_ledenwijzigingen.html"
     if template == "admin_ledenwijzigingen.html":
-        ctx["nav_items"] = admin_nav(NAV)
+        ctx["nav_items"] = admin_nav(NAV, request)
     else:
         # #1141: de exportknop staat buiten het swap-doel en reist out-of-band
         # mee. Alleen hier en niet op de paginaroute: daar rendert de kop hem
@@ -219,9 +225,9 @@ def ledenwijzigingen_export(
     request: Request,
     since: str = "",
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ) -> Response:
-    from app.domains.audit.api import build_member_changes_ods, member_changes_since
+    from app.domains.reporting.api import build_member_changes_ods, member_changes_since
 
     vanaf = _since(since)
     content = build_member_changes_ods(member_changes_since(db, vanaf))

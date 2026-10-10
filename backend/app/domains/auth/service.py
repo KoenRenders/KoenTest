@@ -1,93 +1,38 @@
-from datetime import datetime, timedelta, timezone
-from typing import Optional
-
-import jwt
-from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.config import settings
-from app.database import get_db
-from app.i18n import _
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
-# Voor lid-endpoints: een ontbrekend token mag geen 401 geven (publieke
-# registratie werkt ook zonder login), vandaar auto_error=False.
-oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
-
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.access_token_expire_minutes
-        )
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
-    return encoded_jwt
-
-
-def decode_token(token: str) -> dict:
-    try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-        return payload
-    except jwt.PyJWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_("Could not validate credentials"),
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-
-def _email_from_token(token: str) -> str:
-    """Het e-mailadres (`sub`) uit een geldig token, of 401."""
-    payload = decode_token(token)
-    email = payload.get("sub")
-    if not email:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_("Could not validate credentials"),
-        )
-    return email
-
-
-# ── Eén identiteit, capabilities per request afgeleid ──────────────────────────
+# ── One identity; what someone may is derived per request ────────────────────
 #
-# Het token bevat enkel de identiteit ({"sub": email}). Wat iemand mág wordt bij
-# élke request opnieuw bepaald uit de data — nooit gebakken in het token. Zo
-# verleent een token altijd exact wat de data op dat moment zegt (een ingetrokken
-# rol of vervallen koppeling werkt meteen door) en blijven twee domeinen
-# maximaal gescheiden:
-#   - backoffice-rollen (ADMIN, later bv. FINANCE) leven in users/user_roles;
-#   - lid-zijn is afgeleid uit ContactDetail (e-mail hangt aan een Person).
-# De enige brug tussen beide domeinen is de e-mailwaarde, geen foreign key.
+# The session carries only who someone is (an e-mail address). What they may is
+# asked of the data at every request — never kept beside the identity — so a role
+# that is withdrawn or a link that lapsed works at once, and two domains stay
+# apart: back-office roles live in users/user_roles; being a member is derived
+# from ContactDetail (the address hangs on a Person). The one bridge between
+# them is the value of the address, no foreign key.
+
+
+#: The account page of whoever is signed in (CR-22): the landing of everyone
+#: who is no board user. The page itself lives in `app/ui/account_ui.py`.
+ACCOUNT_HOME = "/mijn"
 
 
 def landing_for(db: Session, email: str) -> str:
-    """Where someone lands after signing in when no page asked for them (#530).
+    """Where someone lands after signing in on the site when no page asked for
+    them: their account page, "Mijn <tenant>" — for everyone, whatever their
+    role (#1740; Koen, 8 October 2026: "waar men aanlogt komt men terecht").
 
-    ADMIN/OPERATOR → the workbench; FINANCE only → payments (the workbench would
-    refuse them); everyone else → their household. One place since #1437: the
-    code step and the mail link each carried a copy. A page that asked comes
-    first — the caller passes this as the fallback of `veilige_terug`.
+    A page that asked comes first — the caller passes this as the fallback of
+    `veilige_terug` — so the renewal link in a mail opens the renewal, and an
+    admin screen that sent its visitor to sign in gets him back: that is how
+    the back office is the door.
+
+    The account page is a person's page. A session that signs in as no person
+    here — a board account without a person, an address that does not say who
+    signs in — has none (that route answers 404), so it lands on the site.
     """
-    from app.domains.auth.session import admits_admin_ui  # lazy: session imports this module
+    from app.domains.auth.member_identity import login_person_for_email
 
-    roles = set(get_user_roles(db, email))
-    # #1513: the back office's own set decides who lands in it.
-    if admits_admin_ui(roles):
-        return "/admin/werkbank"
-    if "FINANCE" in roles:
-        return "/admin/betalingen"
-    # CR-19 C6 test 9 (#1478): a tenant without members has no household
-    # portal — that route answers 404 there — so its users land on the site.
-    from app.domains.mdm.api import module_enabled
-    from app.kernel.modules import ModuleCode
-
-    return "/leden/gezin" if module_enabled(ModuleCode.MEMBERSHIP) else "/"
+    return ACCOUNT_HOME if login_person_for_email(db, email) is not None else "/"
 
 
 def get_user_roles(db: Session, email: str) -> set:
@@ -124,6 +69,62 @@ def get_user_roles(db: Session, email: str) -> set:
     return {r[0].value for r in rows}
 
 
+def rights_of(db: Session, email: str) -> set:
+    """The rights this address holds in the ACTIVE workspace (CR-24 §B1, #1722):
+    every right one of its roles here bundles. The workspace rule is that of
+    `get_user_roles` (#963) — the platform-wide rows plus those of this
+    workspace — so a right in workspace A is no right in B.
+
+    One query, and the whole set: a caller that asks several rights in one
+    request — a menu — asks once and keeps the answer. Nothing is cached, so a
+    role that is given or withdrawn counts at the next request.
+
+    Empty for an address without an active account and for a role whose bundle
+    holds nothing.
+    """
+    from sqlalchemy import String, cast
+
+    from app.domains.auth.models import Right, RoleRight
+
+    # One row, the codes gathered: the menu asks this on every page, and a row
+    # per right was some thirty rows beside whatever the page itself reads.
+    gathered = func.array_agg(func.distinct(cast(RoleRight.right_code, String)))
+    return {Right(code) for code in _held(db, email).with_entities(gathered).scalar() or ()}
+
+
+def _held(db: Session, email: str):
+    """The rows of the bundles this address holds here — the one definition of
+    "holds", for the set (`rights_of`) and for the question (`may`)."""
+    from sqlalchemy import or_
+
+    from app.domains.auth.models import RoleRight, User, UserRole
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+
+    active = current_tenant_id.get() or DEFAULT_TENANT_ID
+    return (
+        db.query(RoleRight.right_code)
+        .join(UserRole, UserRole.role_code == RoleRight.role_code)
+        .join(User, User.id == UserRole.user_id)
+        .filter(func.lower(User.email) == email.strip().lower(), User.is_active == True)
+        .filter(or_(UserRole.tenant_id.is_(None), UserRole.tenant_id == active))
+    )
+
+
+def may(db: Session, email: str, right) -> bool:
+    """Does this address hold the right here? The one condition `require_right`
+    admits on, and the question of a place that shows a way in or an action
+    only to who may use it (CR-24 §C2).
+
+    It asks for this one right and reads one row: a gate runs on every request
+    and a screen asks a few times more, so neither fetches a whole bundle. True
+    only when a row says so — no account, no role here, an empty bundle and a
+    right no bundle holds are all "no" (C4.2).
+    """
+    from app.domains.auth.models import RoleRight
+
+    return _held(db, email).filter(RoleRight.right_code == right).first() is not None
+
+
 def get_user_role_rows(db: Session, email: str) -> list:
     """Alle (role_code, tenant_id)-paren van dit account, over de werkruimtes
     heen (#963) — voor Mijn profiel en het accountmenu. tenant_id None is de
@@ -141,124 +142,31 @@ def get_user_role_rows(db: Session, email: str) -> list:
     return [(r[0].value, r[1]) for r in rows]
 
 
-def get_current_identity(token: str = Depends(oauth2_scheme)) -> str:
-    """Vereist enkel een geldig token; geeft het e-mailadres terug (geen rolcheck)."""
-    return _email_from_token(token)
-
-
-def require_roles(*codes: str):
-    """Dependency-factory: vereist minstens één van de opgegeven backoffice-rollen.
-
-    Generiek opgezet: een nieuwe rol (bv. FINANCE) aan een router hangen is
-    `Depends(require_roles("ADMIN", "FINANCE"))` — zonder wijziging aan de
-    auth-laag zelf. Geeft de bijbehorende User terug.
-    """
+def has_login(db: Session, email: str) -> bool:
+    """Whether a login exists for this address."""
     from app.domains.auth.models import User
 
-    def _dep(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-        email = _email_from_token(token)
-        roles = get_user_roles(db, email)
-        # OPERATOR (fase 5b, #406) is de platformrol: ziet en mag alles,
-        # over alle tenants heen — telt dus mee voor elke rolcheck.
-        if not roles.intersection((*codes, "OPERATOR")):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=_("Insufficient permissions"),
-            )
-        user = (
-            db.query(User)
-            .filter(func.lower(User.email) == email.strip().lower(), User.is_active == True)
-            .first()
+    return db.query(User).filter(User.email == email).first() is not None
+
+
+def give_board_member_a_login(db: Session, email: str) -> None:
+    """A login with the role ADMIN for a board member the member report names —
+    only a new one; a login that exists is never overwritten. Flushed, not
+    committed. A login is tied to a person by its address alone (no person id on
+    a user): that is the separation auth keeps on purpose (#226)."""
+    from app.domains.auth.models import User, UserRole
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+
+    if has_login(db, email):
+        return
+    user = User(email=email, is_active=True)
+    db.add(user)
+    db.flush()
+    db.add(
+        UserRole(
+            user_id=user.id,
+            role_code="ADMIN",
+            tenant_id=current_tenant_id.get() or DEFAULT_TENANT_ID,
         )
-        if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=_("User not found"),
-            )
-        return user
-
-    return _dep
-
-
-# Admin = backoffice-rol ADMIN. Dunne alias bovenop de generieke require_roles,
-# zodat bestaande routers (Depends(get_current_admin)) ongemoeid blijven.
-get_current_admin = require_roles("ADMIN")
-
-# Financiële scheiding (penningmeester): enkel FINANCE mag betalingen invullen,
-# bewerken, terugbetalen of verwijderen. ADMIN mag betalingen wél inkijken maar
-# niet wijzigen → de view-endpoints aanvaarden beide rollen.
-get_current_finance = require_roles("FINANCE")
-get_finance_or_admin = require_roles("ADMIN", "FINANCE")
-
-
-def get_current_member(
-    token: Optional[str] = Depends(oauth2_scheme_optional),
-    db: Session = Depends(get_db),
-):
-    """Optionele lid-identificatie. Geeft de ingelogde Person terug, of None.
-
-    Geeft nooit 401: ontbreekt het token of leidt het e-mailadres niet naar een
-    Person, dan is de aanvrager simpelweg anoniem (None). De koppeling
-    e-mail -> Person gebeurt elke request opnieuw via het leden-domein
-    (ContactDetail), volledig los van het users-domein. Een admin die met
-    hetzelfde e-mailadres als zijn Person inlogt, is daardoor automatisch óók
-    lid — zonder opgeslagen koppeling.
-    """
-    from app.domains.auth.member_identity import login_person_for_email
-
-    if not token:
-        return None
-    try:
-        payload = decode_token(token)
-    except HTTPException:
-        return None
-    email = payload.get("sub")
-    if not email:
-        return None
-    return login_person_for_email(db, email)
-
-
-def require_member(member=Depends(get_current_member)):
-    """Lid-endpoints die wél inloggen vereisen (bv. profiel, gezin)."""
-    if member is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_("Niet ingelogd als lid."),
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return member
-
-
-# ── Machine-consumenten: statische API-key (§19.3) ──────────────────────────────
-#
-# Browser-verkeer gebruikt de HttpOnly-sessie of het JWT; machines (integraties,
-# scripts) sturen een statische key in de X-API-Key-header. De key wordt nooit
-# opgeslagen — enkel gehasht (SHA-256 + SECRET_KEY-pepper, zelfde recept als de
-# OTP's, #395).
-
-API_KEY_HEADER = "x-api-key"
-
-
-def hash_api_key(key: str) -> str:
-    import hashlib
-
-    return hashlib.sha256(f"{settings.secret_key}:{key}".encode()).hexdigest()
-
-
-def require_api_key(request: Request, db: Session = Depends(get_db)):
-    """Dependency voor machine-endpoints: geldige actieve API-key of 401.
-    Geeft de ApiKey-rij terug (o.a. ``name`` identificeert de consument)."""
-    from app.domains.auth.models import ApiKey
-
-    raw = request.headers.get(API_KEY_HEADER)
-    if not raw:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=_("API-key ontbreekt"))
-    entry = (
-        db.query(ApiKey)
-        .filter(ApiKey.key_hash == hash_api_key(raw), ApiKey.is_active == True)
-        .first()
     )
-    if entry is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=_("Ongeldige API-key"))
-    entry.last_used_at = datetime.now(timezone.utc)
-    return entry
+    db.flush()

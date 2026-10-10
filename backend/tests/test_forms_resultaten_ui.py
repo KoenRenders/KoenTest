@@ -5,6 +5,7 @@ admin-UI-routes ze correct ontsluiten (auth, telling, gemiddelde, JSON-vorm)."""
 import json
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields, sent_to_sign_in
 from tests.integration.test_forms import _create_form, _field_id, _option_id
 
@@ -29,19 +30,17 @@ def _submit(client, form, *, checkbox_opt, rating):
             {"field_id": _field_id(form, "Tevredenheid"), "rating": rating},
         ],
     }
-    r = client.post(
-        f"/api/v1/forms/by-token/{form['share_token']}/submit", json={**form_guard_fields(), **body}
-    )
+    r = forms_door.submit(client, form["share_token"], {**form_guard_fields(), **body})
     assert r.status_code == 200, r.text
 
 
-def test_resultaten_requires_session(client, admin_headers):
-    form = _create_form(client, admin_headers)
+def test_resultaten_requires_session(client):
+    form = _create_form(client)
     assert sent_to_sign_in(client, f"/admin/formulieren/{form['id']}/resultaten")
 
 
-def test_resultaten_toont_tellingen_en_gemiddelde(client, admin_headers):
-    form = _create_form(client, admin_headers)
+def test_resultaten_toont_tellingen_en_gemiddelde(client):
+    form = _create_form(client)
     _submit(client, form, checkbox_opt="BBQ bakken", rating=4)
     _submit(client, form, checkbox_opt="BBQ bakken", rating=2)
     _login(client)
@@ -54,8 +53,8 @@ def test_resultaten_toont_tellingen_en_gemiddelde(client, admin_headers):
     assert "Gemiddelde" in r.text and "3.0" in r.text
 
 
-def test_json_export_levert_definitie(client, admin_headers):
-    form = _create_form(client, admin_headers)
+def test_json_export_levert_definitie(client):
+    form = _create_form(client)
     _login(client)
     r = client.get(f"/admin/formulieren/{form['id']}/json")
     assert r.status_code == 200

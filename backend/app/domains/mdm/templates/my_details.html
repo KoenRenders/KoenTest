@@ -1,0 +1,45 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% import "_public_macros.html" as pub %}
+{% import "_household_rows.html" as rows %}
+{% block title %}{{ title }} · {{ site_name }}{% endblock %}
+{% block content %}
+{# Mijn gegevens (CR-22 S6a, #1710; R16, R17): one's own name, mobile number and
+   e-mail addresses — the person block of Mijn gezin (`_household_rows.html`),
+   for this one person. READ first, "Bewerken" in the head, `?bewerken=1` the
+   edit mode with ONE "Opslaan", as Mijn gezin (#1590). `#gegevens-pagina` is
+   what a good answer replaces. #}
+{% set _p = block.person %}
+{% set _action = None if edit else {"label": _("Bewerken"), "href": "/mijn/gegevens?bewerken=1"} %}
+{% call pub.account_page(title, nav, active, heading=False) %}
+<div id="gegevens-pagina">
+{% call ui.public_form_page(title, action=_action, state=(_("Bewerken") if edit else None),
+                            intro=(_("Pas je gegevens aan. Je bewaart alles samen met Opslaan.") if edit
+                                   else _("Je gegevens zoals de vereniging ze kent."))) %}
+<div data-form-flow data-mode="{{ 'edit' if edit else 'read' }}" class="form-flow">
+  <div id="gegevens-melding" data-form-message></div>
+  {% if edit %}
+  <form id="gegevens-form" class="contents" data-record-form data-message="#gegevens-melding" novalidate
+        hx-post="/mijn/gegevens" hx-target="#gegevens-pagina" hx-select="#gegevens-pagina"
+        hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+  {% endif %}
+  {% call ui.section(_("Persoonsgegevens"), id="mijn-gegevens", attrs="data-my-details") %}
+    {% if edit %}{{ ui.fixed_row("h_order", _p.key) }}{% endif %}
+    {{ rows.person_fields(block, _p, edit, in_row=False, own=True) }}
+    <div data-span="full" data-main-emails>{{ rows.email_group(block, _p, edit) }}</div>
+  {% endcall %}
+  {% if edit %}
+  </form>
+  {{ ui.action_bar(record=True, form="gegevens-form", cancel_href="/mijn/gegevens") }}
+  {% endif %}
+  {% if household_href and not edit %}
+  <p data-to-household class="mt-4 text-sm text-ink-soft">{{ _("Je adres en je gezinsleden beheer je in") }}
+    <a class="text-link underline" href="{{ path_for(household_href) }}">{{ _("Mijn gezin") }}</a>.</p>
+  {% endif %}
+</div>
+{% endcall %}
+</div>
+{% endcall %}
+{# The toast lands in the shell's host, outside what the answer replaces. #}
+{% if saved %}{{ ui.toast_oob() }}{% endif %}
+{% endblock %}

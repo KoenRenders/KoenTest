@@ -35,6 +35,7 @@ import re
 import pytest
 
 from app.domains.forms.models import FormSubmission
+from tests import forms_door
 from tests.conftest import form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -43,7 +44,7 @@ INTRO = "Lees dit eerst aandachtig."
 SOMEBODY = {"submitter_name": "Jan", "submitter_email": "jan@example.com"}
 
 
-def _form(client, admin_headers, *, sections: int = 3, branch: bool = False, **settings):
+def _form(client, sections: int = 3, branch: bool = False, **settings):
     """A form that asks name and e-mail, one required text question per section.
     `branch`: section 1 asks a choice, and its option "B" skips to the last."""
     fields = [
@@ -77,7 +78,7 @@ def _form(client, admin_headers, *, sections: int = 3, branch: bool = False, **s
         "fields": fields,
         **settings,
     }
-    r = client.post("/api/v1/forms", json=payload, headers=admin_headers)
+    r = forms_door.create_form(client, payload)
     assert r.status_code in (200, 201), r.text
     return r.json()
 
@@ -99,8 +100,8 @@ def _field_id(form, label: str) -> int:
 # ── One page ─────────────────────────────────────────────────────────────────
 
 
-def test_three_sections_are_three_cards_on_one_page(client, admin_headers):
-    html = _page(client, _form(client, admin_headers, sections=3))
+def test_three_sections_are_three_cards_on_one_page(client):
+    html = _page(client, _form(client, sections=3))
     flow = html[html.index("data-form-flow") : html.index("data-action-bar")]
 
     # The name card, Contact, and one card per section — in that order.
@@ -115,16 +116,16 @@ def test_three_sections_are_three_cards_on_one_page(client, admin_headers):
         assert trace not in html, f"a trace of the steps: {trace}"
 
 
-def test_the_name_card_holds_the_title_and_the_intro_once(client, admin_headers):
-    html = _page(client, _form(client, admin_headers, sections=2))
+def test_the_name_card_holds_the_title_and_the_intro_once(client):
+    html = _page(client, _form(client, sections=2))
     card = html[html.index("data-form-name") : html.index('id="formulier-melding"')]
     assert re.search(r'<h1 [^>]*class="public-form-title">Enquête</h1>', card)
     assert INTRO in card and html.count(INTRO) == 1
     assert html.count("<h1") == 1
 
 
-def test_name_and_e_mail_are_asked_once_as_fields_of_the_kit(client, admin_headers):
-    html = _page(client, _form(client, admin_headers, sections=2))
+def test_name_and_e_mail_are_asked_once_as_fields_of_the_kit(client):
+    html = _page(client, _form(client, sections=2))
     assert html.count('data-field="submitter_name"') == 1
     assert html.count('data-field="submitter_email"') == 1
     # The asterisk says it; there is no "* Verplicht veld" legend (§2.6).
@@ -133,13 +134,13 @@ def test_name_and_e_mail_are_asked_once_as_fields_of_the_kit(client, admin_heade
     assert "Verplicht veld" not in html
 
 
-def test_an_anonymous_form_asks_no_name(client, admin_headers):
-    html = _page(client, _form(client, admin_headers, sections=2, is_anonymous=True))
+def test_an_anonymous_form_asks_no_name(client):
+    html = _page(client, _form(client, sections=2, is_anonymous=True))
     assert "submitter_name" not in html and ">Contact</h2>" not in html
 
 
-def test_the_form_is_a_form_of_the_kit_with_one_bar(client, admin_headers):
-    html = _page(client, _form(client, admin_headers, sections=2))
+def test_the_form_is_a_form_of_the_kit_with_one_bar(client):
+    html = _page(client, _form(client, sections=2))
     tag = re.search(r"<form\b[^>]*data-record-form[^>]*>", html, re.S).group(0)
     assert 'data-message="#formulier-melding"' in tag and "novalidate" in tag
     assert 'hx-target="#formulier-pagina"' in tag
@@ -160,11 +161,11 @@ def test_the_form_is_a_form_of_the_kit_with_one_bar(client, admin_headers):
     ],
 )
 def test_without_a_name_or_an_address_the_form_is_refused_at_the_field(
-    client, admin_headers, db_session, data, fields
+    client, db_session, data, fields
 ):
     """The attribute was the friendly variant, never the rule (#688). Nothing is
     stored: a banner AND a stored row would look the same from outside."""
-    form = _form(client, admin_headers, sections=2)
+    form = _form(client, sections=2)
 
     r = client.post(f"/formulier/{form['share_token']}", data={**form_guard_fields(), **data})
 
@@ -176,10 +177,10 @@ def test_without_a_name_or_an_address_the_form_is_refused_at_the_field(
     assert _stored(db_session, form) == 0
 
 
-def test_an_empty_required_question_is_refused_and_named(client, admin_headers, db_session):
+def test_an_empty_required_question_is_refused_and_named(client, db_session):
     """The browser's check never replaced the server's (#724): a post that goes
     past the page is refused, and the banner names the question by its field."""
-    form = _form(client, admin_headers, sections=2)
+    form = _form(client, sections=2)
 
     r = client.post(
         f"/formulier/{form['share_token']}",
@@ -192,8 +193,8 @@ def test_an_empty_required_question_is_refused_and_named(client, admin_headers, 
     assert _stored(db_session, form) == 0
 
 
-def test_a_good_submission_gets_the_thank_you_page(client, admin_headers, db_session):
-    form = _form(client, admin_headers, sections=2)
+def test_a_good_submission_gets_the_thank_you_page(client, db_session):
+    form = _form(client, sections=2)
     answers = {f"f{f['id']}": "antwoord" for f in form["fields"]}
 
     r = client.post(
@@ -211,11 +212,11 @@ def test_a_good_submission_gets_the_thank_you_page(client, admin_headers, db_ses
 # ── A form that branches ─────────────────────────────────────────────────────
 
 
-def test_only_a_branching_form_carries_a_path(client, admin_headers):
-    plain = _page(client, _form(client, admin_headers, sections=3))
+def test_only_a_branching_form_carries_a_path(client):
+    plain = _page(client, _form(client, sections=3))
     assert "formPath" not in plain and "data-step" not in plain
 
-    html = _page(client, _form(client, admin_headers, sections=3, branch=True))
+    html = _page(client, _form(client, sections=3, branch=True))
     assert re.findall(r'data-step="(\d)" x-show="shown\((\d)\)"', html) == [
         ("0", "0"),
         ("1", "1"),
@@ -231,7 +232,7 @@ def test_only_a_branching_form_carries_a_path(client, admin_headers):
     assert path[0]["skips"][0]["section"] == 2 and path[0]["skips"][0]["end"] is False
 
 
-def test_a_section_or_an_option_that_ends_the_form_is_on_the_path(client, admin_headers):
+def test_a_section_or_an_option_that_ends_the_form_is_on_the_path(client):
     """The path knows the two ways a form ends early (#454): a section that is
     the last by its own setting, and an option that ends the form."""
     payload = {
@@ -256,7 +257,7 @@ def test_a_section_or_an_option_that_ends_the_form_is_on_the_path(client, admin_
             {"field_type": "text", "label": "Naam", "position": 1, "section_index": 1},
         ],
     }
-    r = client.post("/api/v1/forms", json=payload, headers=admin_headers)
+    r = forms_door.create_form(client, payload)
     assert r.status_code in (200, 201), r.text
     import html as html_lib
     import json
@@ -268,11 +269,11 @@ def test_a_section_or_an_option_that_ends_the_form_is_on_the_path(client, admin_
     assert path[0]["skips"][0]["end"] is True and path[1]["end"] is True
 
 
-def test_a_required_question_in_a_skipped_section_blocks_nothing(client, admin_headers, db_session):
+def test_a_required_question_in_a_skipped_section_blocks_nothing(client, db_session):
     """#336, #724: with "B" the middle section is never reached, so its required
     question is not judged. Without this the page would be stricter than the
     path, and a branching form could not be sent at all."""
-    form = _form(client, admin_headers, sections=3, branch=True)
+    form = _form(client, sections=3, branch=True)
     route = next(f for f in form["fields"] if f["label"] == "Welke route?")
     option_b = next(o["id"] for o in route["options"] if o["label"] == "B")
     data = {

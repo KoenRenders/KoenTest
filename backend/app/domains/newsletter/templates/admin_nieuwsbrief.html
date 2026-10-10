@@ -140,24 +140,27 @@
         hx-post="/admin/nieuwsbrieven/{{ letter.id }}/bewaren"
         hx-target="#nb-bewaard" hx-swap="innerHTML" hx-indicator="#nb-bewaard"
         hx-trigger="change, keyup changed delay:1500ms from:#nb-onderwerp, trix-change delay:1500ms from:#nb-trix, trix-blur from:#nb-trix">
-    {# Eén regel hoog, zodat de keuze niet in de weg staat naast Raakje (Koen,
-       17 september 2026). Het aantal staat op de knop, de uitleg in de tooltip.
+    {# The choice is one line of pills with the number on each (Koen, 17 September
+       2026); who each audience is stands under it in the send screen's own words
+       (#1834) — nothing a reader needs in order to choose is in a hover text.
        Het verborgen veld staat ONDERAAN: als eerste kind telde het mee voor
        `space-y-4`, en zakte deze kaart 16 px onder het Raakje-paneel. #}
     <fieldset class="bg-surface border border-line rounded-2xl px-5 py-3">
       <legend class="sr-only">{{ _("Voor wie?") }}</legend>
       <div class="flex flex-wrap items-center gap-2">
         <h2 class="font-semibold text-blue-700 mr-1">{{ _("Voor wie?") }}</h2>
-        {% for value, label, count, hint in audience_options %}
-        <label title="{{ hint }}"
-               class="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1.5 text-sm cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:ring-2 has-[:checked]:ring-blue-200">
+        {% for value, label, count in audience_options %}
+        <label class="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1.5 text-sm cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:ring-2 has-[:checked]:ring-blue-200">
           <input type="radio" name="audience" value="{{ value }}"{% if audience == value %} checked{% endif %}>
           <span class="font-semibold">{{ label }}</span>
           <span class="text-ink-soft">{{ count }}</span>
         </label>
         {% endfor %}
       </div>
-      <p class="text-xs text-ink-soft mt-1.5">{{ _("Geen standaardkeuze: een ledenbrief vertelt dingen die niet voor niet-leden bedoeld zijn.") }}</p>
+      <div class="mt-3 space-y-2" data-audience-said>
+        {% include "_nb_doelgroep.html" %}
+      </div>
+      <p class="text-xs text-ink-soft mt-2">{{ _("Geen standaardkeuze: een ledenbrief vertelt dingen die niet voor abonnees bedoeld zijn.") }}</p>
     </fieldset>
 
     <div class="bg-surface border border-line rounded-2xl p-5 space-y-3">

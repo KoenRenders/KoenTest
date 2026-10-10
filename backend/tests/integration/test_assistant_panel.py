@@ -261,7 +261,8 @@ def test_availability_is_derived_from_the_module_registry():
     """Not a typed list: a module that gains a reporting folder is offered the
     assistant without a change here, and one without is not."""
     with_folder = [m for m in MODULES if m.reporting_folders]
-    assert len(with_folder) >= 5, "the registry lost its reporting folders — the rule reads nothing"
+    # Four since #1876: the workbench's folder is the shell's, see below.
+    assert len(with_folder) >= 4, "the registry lost its reporting folders — the rule reads nothing"
     for module in MODULES:
         path = next(
             (prefix for prefix in module.route_prefixes if prefix.startswith("/admin")), None
@@ -271,6 +272,13 @@ def test_availability_is_derived_from_the_module_registry():
         code = serving_module(path)
         expected = bool(module.reporting_folders) or module.code.value == "reporting"
         assert module_knows_the_assistant(code, path) is expected, module.code
+    # #1876: the workbench is core, no module — and every screen of it still
+    # offers the assistant; a shell screen without figures does not.
+    for path in ("/admin/werkbank", "/admin/werkbank/taken/7"):
+        assert serving_module(path) is None
+        assert module_knows_the_assistant(None, path), path
+    assert not module_knows_the_assistant(None, "/admin/werkbanken")
+    assert not module_knows_the_assistant(None, "/admin/gebruikers")
 
 
 # ── the trigger and the panel ────────────────────────────────────────────────

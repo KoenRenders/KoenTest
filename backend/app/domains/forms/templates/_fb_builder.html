@@ -43,6 +43,7 @@
        formulier mét inzendingen. #}
     {% if _slot %}<p class="text-xs text-ink-soft mt-1">{{ _("Er zijn al inzendingen; het type ligt vast.") }}</p>{% endif %}</div>
   <div class="sm:col-span-2">{{ ui.label(_("Vraag"), "fl-" ~ _id, required=True) }}
+    {# promise walked by: test_the_form_builder_refuses_a_question_without_a_label #}
     {{ ui.input_control("label", id="fl-" ~ _id, value=(f.label if f else ""), required=True, cls="w-full") }}</div>
   <div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" {% if f and f.required %}checked{% endif %}> {{ _("Verplicht") }}</label></div>
   {# #1136: a question moves to another section and keeps its id — and with it
@@ -74,7 +75,10 @@
   {% endif %}
   {# Golf 6, kop-herziening: bij een bestaand veld staat het cluster in de
      kaartkop; alleen de toevoegvariant houdt zijn knoppen in de vorm. #}
-  {% if not f %}<div class="sm:col-span-4">{{ ui.action_bar(cancel_attrs='@click="' ~ tonen ~ ' = false"') }}</div>{% endif %}
+  {# #1831: the new question's message line, by its buttons. A CHANGED question
+     that is refused redraws the builder with its banner (#1136). #}
+  {% if not f %}<div class="sm:col-span-4">{{ ui.form_message("fb-veld-nieuw-" ~ (sid or "") ~ "-melding", "mb-2 empty:mb-0") }}
+    {{ ui.action_bar(cancel_attrs='@click="' ~ tonen ~ ' = false"') }}</div>{% endif %}
 </form>
 {% endmacro %}
 
@@ -107,6 +111,7 @@
   <form class="flex flex-wrap items-center gap-2 grow"
         hx-post="/admin/formulieren/{{ form.id }}{% if o %}/opties/{{ o.id }}{% else %}/velden/{{ f.id }}/opties{% endif %}"
         hx-target="#fb-detail" hx-swap="innerHTML">
+    {# promise walked by: test_the_form_builder_refuses_an_option_without_a_label #}
     {{ ui.input_control("label", value=(o.label if o else ""), required=True,
                         placeholder=("" if o else _("Nieuwe optie")),
                         cls="grow min-w-32", aria_label=_("Label van de optie")) }}
@@ -136,6 +141,8 @@
          cancel_attrs='hx-get="/admin/formulieren/' ~ form.id ~ '" hx-target="#fb-detail" hx-swap="innerHTML"',
          delete_attrs=('hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Optie"), o.label))
                       if o else "") }}
+    {# #1831: the option's message line, under the row's buttons. #}
+    {{ ui.form_message(("fb-optie-" ~ o.id if o else "fb-optie-nieuw-" ~ f.id) ~ "-melding", "basis-full") }}
   </form>
 </div>
 {% endmacro %}

@@ -16,14 +16,13 @@ from app.domains.mail.models import (  # noqa: F401
 from app.domains.mail.service import (  # noqa: F401  # noqa: F401
     EMAIL_LOG_SORT_KEYS,
     SendingQuotaReached,
+    SendOutcome,
     delete_email_log,
     email_log_url,
     list_email_log,
     purge_old_email_logs,
     send_campaign_mail,
     send_form_confirmation,
-    send_magic_link,
-    send_member_contact_board_notice,
     send_newsletter_confirmation,
     send_with_attachments,
 )
@@ -42,10 +41,9 @@ __all__ = [
     "EmailLog",
     "purge_old_email_logs",
     "send_form_confirmation",
-    "send_magic_link",
-    "send_member_contact_board_notice",
     "send_with_attachments",
     "send_campaign_mail",
     "send_newsletter_confirmation",
     "SendingQuotaReached",
+    "SendOutcome",
 ]

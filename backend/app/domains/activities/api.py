@@ -45,6 +45,11 @@ from app.domains.activities.models import (  # noqa: F401
     RegistrationHistory,
     RegistrationItem,
     RegistrationItemHistory,
+    RegistrationRefused,
+)
+from app.domains.activities.my_registrations import (  # noqa: F401
+    MyRegistration,
+    my_registrations,
 )
 from app.domains.activities.proposer import ProposerError, no_answer_text  # noqa: F401
 from app.domains.activities.registration_form import (  # noqa: F401
@@ -350,11 +355,15 @@ def board_register_for_activity(
     )
 
 
+from app.domains.activities.payables import registration_describer  # noqa: E402, F401
+
 __all__ = [
+    "registration_describer",
     "Channel",
     "Outcome",
     "OutcomeKind",
     "board_channel",
+    "RegistrationRefused",
     "contact_refusals",
     "form_context",
     "form_quantities",

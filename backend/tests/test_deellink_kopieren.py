@@ -18,6 +18,7 @@ Drie dingen waar deze tests op letten, omdat ze alle drie stil kunnen wegvallen:
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -29,12 +30,8 @@ def _login(client):
     return csrf_token_for(waarde)
 
 
-def _formulier(client, admin_headers):
-    r = client.post(
-        "/api/v1/forms",
-        json={"title": "Deelbaar", "status": "open", "fields": []},
-        headers=admin_headers,
-    )
+def _formulier(client):
+    r = forms_door.create_form(client, {"title": "Deelbaar", "status": "open", "fields": []})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -42,16 +39,16 @@ def _formulier(client, admin_headers):
 # ── De knop staat op beide schermen ──────────────────────────────────────────
 
 
-def test_de_kaartenlijst_heeft_een_kopieerknop(client, admin_headers):
-    form = _formulier(client, admin_headers)
+def test_de_kaartenlijst_heeft_een_kopieerknop(client):
+    form = _formulier(client)
     _login(client)
 
     html = client.get("/admin/formulieren").text
     assert f'data-copy="/formulier/{form["share_token"]}"' in html
 
 
-def test_het_bouwscherm_heeft_een_kopieerknop(client, admin_headers):
-    form = _formulier(client, admin_headers)
+def test_het_bouwscherm_heeft_een_kopieerknop(client):
+    form = _formulier(client)
     _login(client)
 
     html = client.get(f"/admin/formulieren/{form['id']}").text
@@ -61,7 +58,7 @@ def test_het_bouwscherm_heeft_een_kopieerknop(client, admin_headers):
 # ── Wat de knop kopieert ─────────────────────────────────────────────────────
 
 
-def test_de_helper_maakt_er_een_volledige_url_van(client, admin_headers):
+def test_de_helper_maakt_er_een_volledige_url_van(client):
     """Een bronregel: JavaScript draait hier niet, maar het verschil tussen een pad
     en een volledige URL is precies wat het issue vroeg. Zonder deze assertie kan
     de origin-prefix verdwijnen zonder dat iets rood wordt."""
@@ -74,7 +71,7 @@ def test_de_helper_maakt_er_een_volledige_url_van(client, admin_headers):
     )
 
 
-def test_er_is_een_terugval_zonder_secure_context(client, admin_headers):
+def test_er_is_een_terugval_zonder_secure_context(client):
     _login(client)
     html = client.get("/admin/formulieren").text
 
@@ -85,7 +82,7 @@ def test_er_is_een_terugval_zonder_secure_context(client, admin_headers):
     )
 
 
-def test_de_knop_liegt_niet_bij_een_mislukte_kopie(client, admin_headers):
+def test_de_knop_liegt_niet_bij_een_mislukte_kopie(client):
     """`raakKopieer` geeft false terug bij mislukking, en het vinkje hangt aan die
     uitkomst. Een knop die altijd bevestigt is erger dan een knop die niets doet:
     dan denk je dat de link op je klembord staat."""
@@ -100,10 +97,10 @@ def test_de_knop_liegt_niet_bij_een_mislukte_kopie(client, admin_headers):
 # ── Toegankelijkheid en geldige opmaak ───────────────────────────────────────
 
 
-def test_de_knop_draagt_een_aria_label(client, admin_headers):
+def test_de_knop_draagt_een_aria_label(client):
     """Alleen een icoon, dus verplicht (§2.6) — de lint-gate bewaakt dit ook, maar
     hier staat het bij het component zelf."""
-    _formulier(client, admin_headers)
+    _formulier(client)
     _login(client)
 
     html = client.get("/admin/formulieren").text
@@ -112,11 +109,11 @@ def test_de_knop_draagt_een_aria_label(client, admin_headers):
     assert "aria-label=" in knop, knop
 
 
-def test_de_kaart_zet_geen_knop_in_een_anchor(client, admin_headers):
+def test_de_kaart_zet_geen_knop_in_een_anchor(client):
     """Een `<button>` in een `<a>` is ongeldige HTML. De kaart blijft één grote link
     via het uitgerekte-link-patroon: de <a> dekt de kaart als absolute laag en
     alleen de knop ligt erboven."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     html = client.get("/admin/formulieren").text
 

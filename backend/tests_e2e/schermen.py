@@ -612,10 +612,15 @@ def controlhoogtes(page, container_selector: str) -> dict:
     opmaak. De fout zit in wat de BROWSER ervan maakt — een <select> krijgt
     intrinsieke ruimte voor zijn pijltje, een <input> niet. Alleen een echte
     browser kan dat meten.
+
+    A radio is left out as a checkbox is (#1865): neither is a control with the
+    kit's height, and the radio of a segmented choice is a visually hidden box
+    of 1 px that a visitor never sees.
     """
     hoogtes: dict = {}
     velden = page.locator(
-        f"{container_selector} input:not([type=checkbox]):not([type=hidden]):not([type=file]), "
+        f"{container_selector} input:not([type=checkbox]):not([type=radio])"
+        ":not([type=hidden]):not([type=file]), "
         f"{container_selector} select"
     )
     for i in range(velden.count()):

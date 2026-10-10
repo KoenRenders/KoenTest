@@ -1,6 +1,6 @@
 """Publieke facade van het cms-component (fase 4c, #404)."""
 
-from app.domains.cms.models import CmsPage  # noqa: F401
+from app.domains.cms.models import CmsPage, PageIncomplete  # noqa: F401
 from app.domains.cms.render import (  # noqa: F401
     _format_md,
     _format_price,
@@ -27,6 +27,7 @@ from app.domains.cms.service import (  # noqa: F401
 )
 
 __all__ = [
+    "PageIncomplete",
     "SlugBestaatAl",
     "create_page",
     "delete_page",

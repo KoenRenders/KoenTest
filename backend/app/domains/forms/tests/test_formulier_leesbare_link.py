@@ -13,6 +13,7 @@ onbruikbaar maakt. Dat is de belangrijkste test hier.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -24,11 +25,9 @@ def _login(client):
     return csrf_token_for(waarde)
 
 
-def _formulier(client, admin_headers, titel="Zomerfeest"):
-    r = client.post(
-        "/api/v1/forms",
-        json={"title": titel, "status": "open", "is_anonymous": True, "fields": []},
-        headers=admin_headers,
+def _formulier(client, titel="Zomerfeest"):
+    r = forms_door.create_form(
+        client, {"title": titel, "status": "open", "is_anonymous": True, "fields": []}
     )
     assert r.status_code == 200, r.text
     return r.json()
@@ -45,8 +44,8 @@ def _zet_slug(client, csrf, form, slug, *, titel=None):
 # ── 1. De leesbare link werkt ────────────────────────────────────────────────
 
 
-def test_een_formulier_is_bereikbaar_via_zijn_slug(client, admin_headers):
-    form = _formulier(client, admin_headers)
+def test_een_formulier_is_bereikbaar_via_zijn_slug(client):
+    form = _formulier(client)
     csrf = _login(client)
     assert _zet_slug(client, csrf, form, "zomerfeest").status_code == 200
 
@@ -55,16 +54,16 @@ def test_een_formulier_is_bereikbaar_via_zijn_slug(client, admin_headers):
     assert "Zomerfeest" in pagina.text
 
 
-def test_een_onbekende_slug_geeft_404(client, admin_headers):
+def test_een_onbekende_slug_geeft_404(client):
     assert client.get("/f/bestaat-niet").status_code == 404
 
 
 # ── 2. De tokenlink blijft werken — test 3 uit het issue ────────────────────
 
 
-def test_de_tokenlink_blijft_werken_naast_een_slug(client, admin_headers):
+def test_de_tokenlink_blijft_werken_naast_een_slug(client):
     """De belangrijkste van de reeks: rondgestuurde links mogen niet breken."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
 
     via_token = client.get(f"/formulier/{form['share_token']}")
@@ -80,9 +79,9 @@ def test_de_tokenlink_blijft_werken_naast_een_slug(client, admin_headers):
 # ── 3. Uniek, en `berichten` is verboden ────────────────────────────────────
 
 
-def test_twee_formulieren_kunnen_niet_dezelfde_slug_hebben(client, admin_headers):
-    eerste = _formulier(client, admin_headers, "Eerste")
-    tweede = _formulier(client, admin_headers, "Tweede")
+def test_twee_formulieren_kunnen_niet_dezelfde_slug_hebben(client):
+    eerste = _formulier(client, "Eerste")
+    tweede = _formulier(client, "Tweede")
     csrf = _login(client)
 
     assert _zet_slug(client, csrf, eerste, "feest").status_code == 200
@@ -94,10 +93,10 @@ def test_twee_formulieren_kunnen_niet_dezelfde_slug_hebben(client, admin_headers
     assert "Eerste" in client.get("/f/feest").text
 
 
-def test_een_formulier_mag_zijn_eigen_slug_houden(client, admin_headers):
+def test_een_formulier_mag_zijn_eigen_slug_houden(client):
     """De keerzijde: zonder deze test zou "weiger elke bestaande slug" ook slagen,
     en dan kun je een formulier met een slug nooit meer opslaan."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
     assert _zet_slug(client, csrf, form, "feest").status_code == 200
 
@@ -105,10 +104,10 @@ def test_een_formulier_mag_zijn_eigen_slug_houden(client, admin_headers):
     assert opnieuw.status_code == 200, opnieuw.text
 
 
-def test_berichten_is_voorbehouden_aan_de_site(client, admin_headers):
+def test_berichten_is_voorbehouden_aan_de_site(client):
     """`/berichten` zoekt het contactformulier op slug op; een tweede formulier met
     die naam zou dat scherm kapen."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
 
     geweigerd = _zet_slug(client, csrf, form, "berichten")
@@ -122,14 +121,14 @@ def test_berichten_is_voorbehouden_aan_de_site(client, admin_headers):
 @pytest.mark.parametrize(
     "slug", ["Zomer Feest", "zomer_feest", "zomer/feest", "-feest", "feest-", "zomer feest"]
 )
-def test_een_ongeldige_vorm_wordt_geweigerd(client, admin_headers, slug):
+def test_een_ongeldige_vorm_wordt_geweigerd(client, slug):
     """Spaties, liggende streepjes en schuine strepen worden geweigerd.
 
     Ze zijn niet ondubbelzinnig te herstellen: wordt "zomer feest" nu
     "zomer-feest" of "zomerfeest"? Stil iets kiezen levert een link op die de
     beheerder niet intypte, en die hij dus verkeerd doorstuurt.
     """
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
 
     resp = _zet_slug(client, csrf, form, slug)
@@ -140,9 +139,7 @@ def test_een_ongeldige_vorm_wordt_geweigerd(client, admin_headers, slug):
 
 
 @pytest.mark.parametrize("ingetypt", ["Zomerfeest", "ZOMERFEEST", "  zomerfeest  "])
-def test_hoofdletters_en_spatie_eromheen_worden_rechtgezet(
-    client, admin_headers, db_session, ingetypt
-):
+def test_hoofdletters_en_spatie_eromheen_worden_rechtgezet(client, db_session, ingetypt):
     """Hier wél normaliseren, en dat is geen inconsistentie met de test hierboven.
 
     Een hoofdletter of een spatie aan de rand heeft precies één redelijke lezing;
@@ -151,7 +148,7 @@ def test_hoofdletters_en_spatie_eromheen_worden_rechtgezet(
     """
     from app.domains.forms.models import Form
 
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
 
     assert _zet_slug(client, csrf, form, ingetypt).status_code == 200
@@ -159,28 +156,28 @@ def test_hoofdletters_en_spatie_eromheen_worden_rechtgezet(
     assert db_session.get(Form, form["id"]).slug == "zomerfeest"
 
 
-def test_leeg_laten_betekent_geen_leesbare_link(client, admin_headers, db_session):
+def test_leeg_laten_betekent_geen_leesbare_link(client, db_session):
     """Optioneel is optioneel: leeg mag, en levert NULL op — niet een lege string,
     want die zou met de unieke index botsen zodra een tweede formulier ook leeg is.
     """
     from app.domains.forms.models import Form
 
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
     assert _zet_slug(client, csrf, form, "").status_code == 200
 
     db_session.expire_all()
     assert db_session.get(Form, form["id"]).slug is None
 
-    tweede = _formulier(client, admin_headers, "Tweede")
+    tweede = _formulier(client, "Tweede")
     assert _zet_slug(client, csrf, tweede, "").status_code == 200
 
 
 # ── 5. Het scherm ───────────────────────────────────────────────────────────
 
 
-def test_de_bouwer_toont_beide_links(client, admin_headers):
-    form = _formulier(client, admin_headers)
+def test_de_bouwer_toont_beide_links(client):
+    form = _formulier(client)
     csrf = _login(client)
     _zet_slug(client, csrf, form, "zomerfeest")
 
@@ -190,8 +187,8 @@ def test_de_bouwer_toont_beide_links(client, admin_headers):
     assert 'data-copy="/f/zomerfeest"' in html, "en is niet te kopiëren"
 
 
-def test_zonder_slug_staat_er_geen_lege_regel(client, admin_headers):
-    form = _formulier(client, admin_headers)
+def test_zonder_slug_staat_er_geen_lege_regel(client):
+    form = _formulier(client)
     _login(client)
 
     html = client.get(f"/admin/formulieren/{form['id']}").text
@@ -201,7 +198,7 @@ def test_zonder_slug_staat_er_geen_lege_regel(client, admin_headers):
 # ── 6. Een geweigerde instelling zegt wát er mis is (#694) ──────────────────
 
 
-def test_een_geweigerde_link_toont_de_reden_in_het_scherm(client, admin_headers):
+def test_een_geweigerde_link_toont_de_reden_in_het_scherm(client):
     """Koen zette een liggend streepje in de link en kreeg de generieke toast.
 
     De 422 ontsnapte aan `instellingen_opslaan`, dus htmx kreeg een kale foutcode en
@@ -211,7 +208,7 @@ def test_een_geweigerde_link_toont_de_reden_in_het_scherm(client, admin_headers)
     Toetsen op de **reden**, niet op de statuscode: een 422 krijg je ook bij een
     ongeldige status, en dan bewijst de test niets over déze melding.
     """
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
 
     resp = _zet_slug(client, csrf, form, "zomer feest")
@@ -219,10 +216,10 @@ def test_een_geweigerde_link_toont_de_reden_in_het_scherm(client, admin_headers)
     assert "koppeltekens" in resp.text, resp.text[:400]
 
 
-def test_een_bezette_link_toont_de_reden_in_het_scherm(client, admin_headers):
+def test_een_bezette_link_toont_de_reden_in_het_scherm(client):
     """Zelfde weg, andere regel — anders dekt de test alleen de vormcontrole."""
-    eerste = _formulier(client, admin_headers, "Eerste")
-    tweede = _formulier(client, admin_headers, "Tweede")
+    eerste = _formulier(client, "Eerste")
+    tweede = _formulier(client, "Tweede")
     csrf = _login(client)
     _zet_slug(client, csrf, eerste, "feest")
 
@@ -231,9 +228,9 @@ def test_een_bezette_link_toont_de_reden_in_het_scherm(client, admin_headers):
     assert "bestaat al een formulier" in resp.text, resp.text[:400]
 
 
-def test_een_ongeldige_status_toont_ook_de_reden(client, admin_headers):
+def test_een_ongeldige_status_toont_ook_de_reden(client):
     """De statuscontrole in dezelfde route wierp op dezelfde manier."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
 
     resp = client.post(
@@ -251,12 +248,12 @@ def test_een_ongeldige_status_toont_ook_de_reden(client, admin_headers):
 @pytest.mark.parametrize(
     "slug", ["enquete_ledenfeest_2026", "zomer_feest", "zomer-feest", "zomer_feest-2026"]
 )
-def test_een_liggend_streepje_is_toegestaan(client, admin_headers, db_session, slug):
+def test_een_liggend_streepje_is_toegestaan(client, db_session, slug):
     """Koen vroeg in #690 letterlijk om `enquete_ledenfeest_2026`. Die notatie
     weigeren terwijl ze in een URL niets breekt, is een regel omwille van de regel."""
     from app.domains.forms.models import Form
 
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
 
     assert _zet_slug(client, csrf, form, slug).status_code == 200
@@ -266,10 +263,10 @@ def test_een_liggend_streepje_is_toegestaan(client, admin_headers, db_session, s
 
 
 @pytest.mark.parametrize("slug", ["_feest", "feest_", "zomer__feest"])
-def test_een_liggend_streepje_aan_de_rand_of_dubbel_blijft_geweigerd(client, admin_headers, slug):
+def test_een_liggend_streepje_aan_de_rand_of_dubbel_blijft_geweigerd(client, slug):
     """Dezelfde grens als voor het koppelteken. Zonder deze test zou "laat `_` toe"
     ook een slug als `__` doorlaten, en dat leest niemand meer als een naam."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
 
     resp = _zet_slug(client, csrf, form, slug)

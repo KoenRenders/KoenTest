@@ -1,0 +1,35 @@
+{% import "_macros.html" as ui %}
+{# One registration as a signed-in person sees it (CR-22 S5, #1709; R8, R27): the
+   activity, its date, what was ordered, the amount with its payment state, and
+   — while a transfer is still to make — how to make it: the shared
+   `_transfer_due.html`, the block of a renewal (S2). ONE partial for Mijn
+   inschrijvingen and for the latest registration on the landing page. `reg` is
+   a `MyRegistration`. #}
+{% call ui.flow_card(reg.activity_name, attrs="data-my-registration") %}
+  <p data-registration-when class="text-base text-ink-soft">
+    {%- if reg.activity_date %}{{ reg.activity_date | langedatum }}{% endif %}
+    {%- if reg.activity_date and reg.component_name %} · {% endif %}
+    {%- if reg.component_name %}{{ reg.component_name }}{% endif -%}
+  </p>
+  {% if reg.lines %}
+  <ul data-registration-lines class="mt-2 space-y-0.5 text-base text-ink">
+    {% for line in reg.lines %}<li>{{ line }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% if reg.has_payment %}
+  <p class="mt-2 flex flex-wrap items-center gap-2 text-base text-ink">
+    <strong data-registration-amount>€ {{ reg.amount | geld }}</strong>
+    <span data-payment-state="{{ 'open' if reg.to_pay else 'settled' }}">
+      {%- if reg.to_pay %}{{ ui.badge(_("Te betalen"), "yellow") }}
+      {%- else %}{{ ui.badge(_("Betaald"), "green", met_vinkje=True) }}{% endif -%}
+    </span>
+  </p>
+  {% endif %}
+  {% if reg.registered_by %}
+  <p data-registered-by class="mt-1 text-sm text-ink-soft">{{ _("ingeschreven door %(naam)s", naam=reg.registered_by) }}</p>
+  {% endif %}
+  {% if reg.transfer %}
+  {% set due = reg.transfer %}
+  <div class="mt-3">{% include "_transfer_due.html" %}</div>
+  {% endif %}
+{% endcall %}

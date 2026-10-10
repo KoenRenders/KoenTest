@@ -115,8 +115,14 @@ async def sign_up_submit(
     data, errors = signup_from_form(await request.form())
     if data is None:
         return refusal_response(request, errors, SIGNUP_MESSAGE, send=True)
+    # CR-22 R9 (#1713): an account that signs up while signed in becomes the
+    # main member itself — the door says who is signed in, the service decides.
+    from app.domains.auth.api import SESSION_COOKIE, login_person_for_email, read_session_value
+
+    session_email = read_session_value(request.cookies.get(SESSION_COOKIE))
+    signed_in = login_person_for_email(db, session_email) if session_email else None
     try:
-        result = register_family(db, data, background_tasks)
+        result = register_family(db, data, background_tasks, signed_in=signed_in)
     except HTTPException as refusal:
         # What the service refuses has no field here (a known household, a rule on
         # the object): it stands in the banner, the form stays as typed.
@@ -135,22 +141,41 @@ async def sign_up_submit(
 
 
 def _session_member(request: Request, db: Session):
-    """Ingelogd lid via de HttpOnly-sessie, of None."""
-    from app.domains.auth.api import SESSION_COOKIE, login_person_for_email, read_session_value
+    """The signed-in member of a household through the HttpOnly session, or None.
+
+    None for an account too (CR-22, #1707): a person without a household has no
+    Mijn gezin. `_to_sign_in` sends him to his account page, not to the sign-in
+    he already passed.
+    """
+    from app.domains.auth.api import (
+        SESSION_COOKIE,
+        has_household,
+        login_person_for_email,
+        read_session_value,
+    )
 
     email = read_session_value(request.cookies.get(SESSION_COOKIE))
     if not email:
         return None
-    return login_person_for_email(db, email)
+    person = login_person_for_email(db, email)
+    return person if has_household(person) else None
 
 
-def _to_sign_in(request: Request):
+def _to_sign_in(request: Request, db: Session):
     """#1437: remember the page, so the sign-in comes back here — whatever the role
     (a board member who is also a member lands in the portal)."""
     from urllib.parse import quote
 
     from fastapi.responses import RedirectResponse
 
+    from app.domains.auth.api import SESSION_COOKIE, landing_for, read_session_value
+
+    # CR-22 (#1707): whoever IS signed in and has no household — an account —
+    # would be sent to sign in, and come straight back here: a loop. He goes
+    # where he lands instead (his account page, or the site without a person).
+    email = read_session_value(request.cookies.get(SESSION_COOKIE))
+    if email:
+        return RedirectResponse(landing_for(db, email), status_code=302)
     here = request.url.path + (f"?{request.url.query}" if request.url.query else "")
     return RedirectResponse(f"/aanmelden?terug={quote(here, safe='/')}", status_code=302)
 
@@ -184,7 +209,7 @@ def _household_page(
 def household_page(request: Request, db: Session = Depends(get_db)):
     person = _session_member(request, db)
     if person is None:
-        return _to_sign_in(request)
+        return _to_sign_in(request, db)
     return _household_page(request, db, person, edit=request.query_params.get("bewerken") == "1")
 
 
@@ -242,7 +267,7 @@ def _renew_page(request: Request, db: Session, person) -> HTMLResponse:
 def renew_page(request: Request, db: Session = Depends(get_db)):
     person = _session_member(request, db)
     if person is None:
-        return _to_sign_in(request)
+        return _to_sign_in(request, db)
     # #1641 (CR-11 Q79): this page starts a renewal. One that runs stands in the
     # Lidmaatschap card of Mijn gezin — the one place — so that is where
     # opening this page lands meanwhile.

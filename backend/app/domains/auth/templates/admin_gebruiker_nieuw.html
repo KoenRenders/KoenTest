@@ -26,7 +26,7 @@
       <input type="hidden" name="q" value="{{ q }}">
       <input type="hidden" name="rol" value="{{ rol }}">
       <input type="hidden" name="actief" value="{{ actief }}">
-      <div>{{ ui.label(_("E-mailadres"), "gu-email", required=True) }}
+      <div>{{ ui.label(_("E-mail"), "gu-email", required=True) }}
         <input type="email" name="email" id="gu-email" required class="w-full"></div>
       <div class="flex flex-wrap gap-4 text-sm">
         {% with sel = {}, operator_aan = False %}

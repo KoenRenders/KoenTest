@@ -30,19 +30,11 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from datetime import date
 from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.domains.audit.api import (
-    snapshot_address,
-    snapshot_member,
-    snapshot_member_person,
-    snapshot_membership,
-    snapshot_person,
-)
-from app.domains.auth.api import User, UserRole
+from app.domains.auth.api import has_login
 from app.domains.mdm.api import (
     Address,
     ExternalNumber,
@@ -62,8 +54,18 @@ from app.domains.mdm.change_lines import (
     relation_value,
 )
 from app.domains.mdm.codes import CONTACT, EXTERNAL
-from app.domains.membership.api import Membership
+from app.domains.mdm.history import (
+    snapshot_address,
+    snapshot_member,
+    snapshot_member_person,
+    snapshot_person,
+)
+from app.domains.mdm.models import EmailAddressInvalid, require_email_address
+from app.domains.mdm.service import email_refusal
+from app.domains.membership.api import has_membership_for_year
 from app.kernel.codes import code_of
+from app.kernel.contracts.mdm import BoardMemberReported, MembershipReported
+from app.kernel.events import KernelEvent, has_subscribers, publish
 
 # Bronsysteem-label voor de lidnummers en de audit-source.
 LEGACY_SOURCE = EXTERNAL.MEMBER_ADMINISTRATION
@@ -206,6 +208,25 @@ def _person_lidnr(person: Person, source: str) -> str | None:
     return None
 
 
+def _delete_link(db: Session, link: MemberPerson) -> None:
+    """Delete a household link, and forget the two collections that held it.
+
+    `db.delete` removes the row, not the object from `person.member_persons` and
+    `member.member_persons`: both keep listing a link that is gone for as long as
+    their owner stays in the session. Every decision below reads those collections
+    — which household is this person in, is he linked to this one already — so a
+    later one in the same session decided on a link that no longer existed (#1756:
+    a person who left a household and came back as the head of a new one was sent
+    to the old household, found "already linked" there, and ended with no link at
+    all). Expired, the collections are read from the database when next asked.
+    """
+    person, member = link.person, link.member
+    db.delete(link)
+    db.flush()
+    db.expire(person, ["member_persons"])
+    db.expire(member, ["member_persons"])
+
+
 def _current_member(person: Person) -> Member | None:
     mp = next((m for m in person.member_persons), None)
     return mp.member if mp else None
@@ -340,6 +361,38 @@ def _meld_onvolledig(row: dict, report: ImportReport, person: Person | None = No
         )
 
 
+def _report_incomplete_address(row: dict, change: FieldChange | None, report: ImportReport) -> None:
+    """Say that the report gives this household an address without a street or a
+    house number, and what the import does with it (#1832; Koen, 9 October 2026:
+    "dat is in orde, wel in de detail van de dry run die getoond wordt tonen").
+
+    The import does NOT refuse it — the report of the national programme is the
+    source, as for a missing birth date (`_meld_onvolledig`) — but until #1832 it
+    said nothing: a new household got an address with an empty street, and an
+    address that was there lost its house number, without a line that said so.
+    `change` is what the import writes for this address, None when it stays as
+    it is. In the preview and in the run alike.
+    """
+    missing = [
+        word
+        for word, column in (("straat", "straat"), ("huisnummer", "huisnummer"))
+        if not (row[column] or "").strip()
+    ]
+    if not missing:
+        return
+    what = " en ".join(missing)
+    if change is None:
+        does = "het adres blijft zoals het is, onvolledig"
+    elif change.old is None:
+        does = f"het adres wordt ingelezen zonder {what}"
+    else:
+        does = f"het adres wordt bijgewerkt en verliest zijn {what} (was: {change.old})"
+    report.warn(
+        f"{row['voornaam']} {row['naam']}: het adres in het rapport heeft geen {what} — "
+        f"{does}. Vul het aan in het rapport, of daarna in het ledenbeheer."
+    )
+
+
 def _apply_person_fields(person: Person, row: dict) -> None:
     for attr, waarde in _person_field_values(person, row).items():
         setattr(person, attr, waarde)
@@ -388,8 +441,24 @@ def _upsert_contact(
     return contact_change(type_code, changed.old, changed.new, promoted=changed.promoted)
 
 
+def _is_an_address(value: str) -> bool:
+    """The contact detail's own rule (`require_email_address`, #1853), as a question."""
+    try:
+        require_email_address(str(value).strip())
+    except EmailAddressInvalid:
+        return False
+    return True
+
+
 def _sync_contacts(
-    db: Session, person: Person, row: dict, *, apply: bool, actor: str | None = None
+    db: Session,
+    person: Person,
+    row: dict,
+    *,
+    apply: bool,
+    actor: str | None = None,
+    report: ImportReport | None = None,
+    household_id: int | None = None,
 ) -> list[FieldChange]:
     """The contacts of one person; returns the fields that change (#1308),
     each with the value that stood and the value the report brings (#1687).
@@ -408,6 +477,32 @@ def _sync_contacts(
         ("telefoon", CONTACT.PHONE),
         ("gsm", CONTACT.MOBILE),
     ):
+        # CR-22 (#1704): an address another person outside the household
+        # already uses is not taken over. Reported and skipped — the import does
+        # not stop on one row (the reasoning of `_meld_onvolledig`) — and decided
+        # HERE, before the write, so the preview and the run say the same.
+        # #1853: neither is a text that is no address — the contact detail would
+        # refuse it at the flush and stop the whole import on one row. Said in the
+        # same place and the same way, so the preview and the run say the same.
+        if type_code == CONTACT.EMAIL and row[column] and not _is_an_address(row[column]):
+            if report is not None:
+                report.warn(
+                    f"#{row['lidnr']} {row['voornaam']} {row['naam']}: e-mailadres niet "
+                    "overgenomen — het is geen e-mailadres. Verbeter het in het rapport, "
+                    "of vul het daarna aan in het ledenbeheer."
+                )
+            continue
+        if (
+            type_code == CONTACT.EMAIL
+            and row[column]
+            and email_refusal(db, person, row[column], household_id=household_id)
+        ):
+            if report is not None:
+                report.warn(
+                    f"#{row['lidnr']} {row['voornaam']} {row['naam']}: e-mailadres niet "
+                    "overgenomen — al in gebruik door iemand anders."
+                )
+            continue
         change = _upsert_contact(db, person, type_code, row[column], True, apply=apply, actor=actor)
         if change is not None:
             changed.append(change)
@@ -512,7 +607,7 @@ def _create_person(
         gender_code=row["geslacht"],
     )
     if not apply:
-        _report_new_details(db, person, row, pc, report)
+        _report_new_details(db, person, row, pc, report, household_id=getattr(member, "id", None))
         return None
 
     db.add(person)
@@ -532,7 +627,9 @@ def _create_person(
         db, mp, operation="insert", action="person_imported", source=LEGACY_SOURCE, actor=actor
     )
 
-    _report_new_details(db, person, row, pc, report, apply=True, actor=actor)
+    _report_new_details(
+        db, person, row, pc, report, apply=True, actor=actor, household_id=member.id
+    )
     return person
 
 
@@ -545,17 +642,21 @@ def _report_new_details(
     *,
     apply: bool = False,
     actor: str | None = None,
+    household_id: int | None = None,
 ) -> None:
     """A new person's address (head of household only) and contacts: written with
     `apply`, and in either mode reported with the writes they stand for (#1314)."""
     if row["_relatie"] == "HOOFDLID" and pc is not None:
         address = _sync_address(db, person, row, pc, apply=apply, actor=actor)
+        _report_incomplete_address(row, address, report)
         if address:
             report.line(
                 f"  + adres #{row['lidnr']}  {row['voornaam']} {row['naam']}  {address.text()}",
                 "address",
             )
-    contacts = _sync_contacts(db, person, row, apply=apply, actor=actor)
+    contacts = _sync_contacts(
+        db, person, row, apply=apply, actor=actor, report=report, household_id=household_id
+    )
     if contacts:
         # A new person: there is nothing these replace, so the new values alone.
         new_only = [FieldChange(c.key, c.label, None, c.new) for c in contacts]
@@ -566,6 +667,17 @@ def _report_new_details(
 
 
 # ── Lidmaatschap ────────────────────────────────────────────────────────────
+
+
+def _say(db: Session, event: KernelEvent) -> None:
+    """Publish what the report says to the domain that owns the consequence. Not
+    optional: an import into silence would count a membership or a login it never
+    made, so it refuses when nothing subscribes."""
+    if not has_subscribers(type(event)):
+        raise RuntimeError(
+            f"nothing subscribes to {type(event).__name__}; import the owner's handlers.py"
+        )
+    publish(event, db)
 
 
 def _ensure_membership(
@@ -580,23 +692,18 @@ def _ensure_membership(
     """Eén lidmaatschap voor het importjaar — nooit dupliceren (#74).
 
     Returns whether it creates one (#1308)."""
-    existing = next((m for m in member.memberships if m.year == import_year), None)
-    if existing:
+    if has_membership_for_year(member, import_year):
         return False
     report.memberships_created += 1
     if not apply:
         return True
-    ms = Membership(
-        member_id=member.id,
-        year=import_year,
-        is_active=True,
-        valid_from=date(import_year, 1, 1),
-        valid_to=date(import_year, 12, 31),
-    )
-    db.add(ms)
-    db.flush()
-    snapshot_membership(
-        db, ms, operation="insert", action="membership_imported", source=LEGACY_SOURCE, actor=actor
+    # The membership is membership's to write: the import says what the report
+    # says, and membership adds it in this transaction (CR-13 phase 4c, #1251).
+    _say(
+        db,
+        MembershipReported(
+            household_id=member.id, year=import_year, source=str(LEGACY_SOURCE), actor=actor
+        ),
     )
     return True
 
@@ -740,8 +847,7 @@ def _sync_family(
                             source=LEGACY_SOURCE,
                             actor=actor,
                         )
-                        db.delete(old_mp)
-                        db.flush()
+                        _delete_link(db, old_mp)
                 # Relatie-attributen zetten (niet enkel de FK's) zodat zowel
                 # member.member_persons als existing.member_persons consistent
                 # blijven binnen de sessie.
@@ -811,12 +917,21 @@ def _sync_family(
         # with `apply`, but whether they WOULD change is part of the report.
         if row["_relatie"] == "HOOFDLID" and pc is not None:
             address = _sync_address(db, existing, row, pc, apply=apply, actor=actor)
+            _report_incomplete_address(row, address, report)
             if address:
                 report.line(
                     f"  ~ adres #{row['lidnr']}  {row['voornaam']} {row['naam']}  {address.text()}",
                     "address",
                 )
-        contacts = _sync_contacts(db, existing, row, apply=apply, actor=actor)
+        contacts = _sync_contacts(
+            db,
+            existing,
+            row,
+            apply=apply,
+            actor=actor,
+            report=report,
+            household_id=None if is_new else member.id,
+        )
         if contacts:
             report.line(
                 f"  ~ contact #{row['lidnr']}  {row['voornaam']} {row['naam']}  "
@@ -853,8 +968,7 @@ def _sync_family(
                     source=LEGACY_SOURCE,
                     actor=actor,
                 )
-                db.delete(mp)
-                db.flush()
+                _delete_link(db, mp)
 
     if _ensure_membership(db, member, IMPORT_YEAR, apply=apply, report=report, actor=actor):
         report.line(f"  + lidmaatschap {IMPORT_YEAR}", "membership")
@@ -943,7 +1057,7 @@ def _create_admin_users(
         best = min(candidates, key=lambda r: _sort_lidnr(r["lidnr"]))
         if not best.get("email"):
             continue
-        if db.query(User).filter(User.email == best["email"]).first():
+        if has_login(db, best["email"]):
             report.admins_existing += 1
             continue
         pid = best.get("_person_id")
@@ -954,21 +1068,9 @@ def _create_admin_users(
             f"  admin: {best['voornaam']} {best['naam']} <{best['email']}>", "user", "user_role"
         )
         if apply:
-            # User↔Person koppelt enkel via e-mail (geen FK/person_id-kolom op users):
-            # dat is de bewuste auth-scheiding. Hier dus géén person_id meegeven (#226).
-            user = User(email=best["email"], is_active=True)
-            db.add(user)
-            db.flush()
-            from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
-
-            db.add(
-                UserRole(
-                    user_id=user.id,
-                    role_code="ADMIN",
-                    tenant_id=current_tenant_id.get() or DEFAULT_TENANT_ID,
-                )
-            )
-            db.flush()
+            # The login is auth's to write: the import says who the report names,
+            # and auth makes the login in this transaction (CR-13 phase 4c, #1251).
+            _say(db, BoardMemberReported(email=best["email"]))
 
 
 def _norm(s: str) -> str:
@@ -1054,14 +1156,38 @@ def _revive_soft_deleted(
             )
 
 
+def _claimed_households(families: list[list[dict]], ext_map: dict) -> frozenset[int]:
+    """The households an address group of this report claims through its own main
+    member — the first lookup of `_resolve_existing_member`, for every group.
+    Read before anything is written."""
+    claimed = set()
+    for fam in families:
+        main = ext_map.get(fam[0]["lidnr"]) if fam[0]["lidnr"] else None
+        member = _current_member(main) if main else None
+        if member is not None:
+            claimed.add(member.id)
+    return frozenset(claimed)
+
+
 def _resolve_existing_member(
-    fam: list[dict], ext_map: dict, identity_map: dict, report: ImportReport
+    fam: list[dict],
+    ext_map: dict,
+    identity_map: dict,
+    report: ImportReport,
+    claimed: frozenset[int],
 ) -> Member | None:
     """Bepaal het bestaande gezin voor een adresgroep uit het rapport via het
     lidnummer van het hoofdlid. Lukt dat niet (hoofdlid onbekend of verweesd),
     val terug op een bestaand gezin van een ander gematcht gezinslid, en als
     laatste op het bestaande gezin van een lidnummer-loos lid dat op identiteit
-    matcht (#192). Geen match → None (nieuw)."""
+    matcht (#192). Geen match → None (nieuw).
+
+    #1832: the two fallbacks pass over a household in `claimed` — one that another
+    address group of this report has through its own main member. Without that,
+    a member who moved in with a main member the report did not know yet led
+    this group to the household he LEFT, and the import made one household of
+    the two: two main members, two addresses. The group is a new household
+    then, and the member moves into it ("~ verhuisd")."""
     hoofd = ext_map.get(fam[0]["lidnr"]) if fam[0]["lidnr"] else None
     member = _current_member(hoofd) if hoofd else None
     if member is not None:
@@ -1069,7 +1195,7 @@ def _resolve_existing_member(
     for row in fam[1:]:
         p = ext_map.get(row["lidnr"]) if row["lidnr"] else None
         m = _current_member(p) if p else None
-        if m is not None:
+        if m is not None and m.id not in claimed:
             report.warn(
                 f"gezin {fam[0]['naam']}: hoofdlid-lidnummer "
                 f"{fam[0]['lidnr']} onbekend of verweesd; gekoppeld via "
@@ -1081,7 +1207,7 @@ def _resolve_existing_member(
     for row in fam:
         p, _ambiguous = _identity_lookup(identity_map, row)
         m = _current_member(p) if p else None
-        if m is not None:
+        if m is not None and m.id not in claimed:
             report.warn(
                 f"gezin {fam[0]['naam']}: geen lidnummer-match; gekoppeld "
                 f"aan bestaand gezin via identiteit "
@@ -1092,6 +1218,56 @@ def _resolve_existing_member(
 
 
 # ── Publieke entrypoint ─────────────────────────────────────────────────────
+
+
+def _refuse_without_one_main_member(families: list[list[dict]], report: ImportReport) -> set[int]:
+    """The address groups that do not hold exactly one row "lid": none of their rows
+    is loaded, and the report says so (#1832). Two decisions of Koen, both of
+    9 October 2026:
+
+    - more than one — "dat mag niet kunnen, ik stel voor ze beiden niet op te laden
+      en dat in detail zo te zeggen, dan moet er aan de aangeleverde file iets
+      aangepast worden";
+    - none — "a", to the master CLI's question "Kies je a of b?", a being: not
+      loaded and said in the detail, the same rule as for two main members.
+
+    A household has one main member (`require_one_main_member`). The import groups
+    rows by address — street, house number, bus and postal code, exactly as typed
+    (`group_families`). Two rows "lid" on one address would become ONE household
+    with two main members; which of the two the partners and children belong to
+    cannot be told. A group without any became a household without a main member
+    and without an address — the address hangs on the main member's row — and a
+    household that was loaded before lost its main member to it. So the whole
+    group waits: nothing of it is added, changed or removed. Returns the indexes
+    of those groups in `families`.
+    """
+    one_address = "één adres is dezelfde straat, huisnummer, bus en postcode"
+    refused: set[int] = set()
+    for index, fam in enumerate(families):
+        mains = [row for row in fam if row["_relatie"] == "HOOFDLID"]
+        if len(mains) == 1:
+            continue
+        refused.add(index)
+        report.skipped += 1
+        named = mains or fam
+        who = " en ".join(f"{row['voornaam']} {row['naam']} (#{row['lidnr']})" for row in named)
+        if mains:
+            report.warn(
+                f"{who} staan allebei als lid op hetzelfde adres — niemand van dit adres is "
+                f"ingelezen ({len(fam)} rijen). Een gezin heeft één hoofdlid, en {one_address}. "
+                f"Pas het rapport aan: geef elk gezin zijn eigen adres (bijvoorbeeld een "
+                f"busnummer), of zet één van beide als partner of kind."
+            )
+        else:
+            stands = "staat" if len(fam) == 1 else "staan"
+            report.warn(
+                f"{who} {stands} op een adres zonder lid — niemand van dit adres is ingelezen "
+                f"({len(fam)} {'rij' if len(fam) == 1 else 'rijen'}). Een gezin heeft één "
+                f"hoofdlid, en {one_address}. Pas het rapport aan: zet op dit adres één "
+                f"persoon als lid, of geef {'deze persoon' if len(fam) == 1 else 'deze personen'} "
+                f"het adres van het lid bij wie {'hij of zij hoort' if len(fam) == 1 else 'ze horen'}."
+            )
+    return refused
 
 
 def upsert_families(
@@ -1124,7 +1300,12 @@ def upsert_families(
     # Eerst: soft-deleted personen/gezinnen die terugkeren herleven (#227), zodat de
     # maps hieronder (gewone, gefilterde queries) ze als actief zien en de upsert ze
     # bijwerkt i.p.v. dupliceert.
-    _revive_soft_deleted(db, families, apply=apply, report=report, actor=actor)
+    # #1832: an address group without exactly one main member is not loaded — and
+    # so not revived either. Its member numbers stay in `report_lidnrs` below: a
+    # person the report still names is nobody the import removes.
+    refused = _refuse_without_one_main_member(families, report)
+    loaded = [fam for index, fam in enumerate(families) if index not in refused]
+    _revive_soft_deleted(db, loaded, apply=apply, report=report, actor=actor)
 
     # Preload bestaande lidnummers → persoon (met gezinnen/contacten/adres).
     ext_rows = (
@@ -1149,9 +1330,12 @@ def upsert_families(
 
     households: dict[int, _Household] = {}
     report_lidnrs = frozenset(r["lidnr"] for fam in families for r in fam if r["lidnr"])
+    claimed = _claimed_households(loaded, ext_map)
     for index, fam in enumerate(families):
+        if index in refused:
+            continue
         pc = pc_map.get(fam[0]["postcode"])
-        member = _resolve_existing_member(fam, ext_map, identity_map, report)
+        member = _resolve_existing_member(fam, ext_map, identity_map, report, claimed)
         is_new = member is None
 
         if is_new:

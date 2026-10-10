@@ -1,7 +1,7 @@
 """A signed-in user without the role gets a calm page, not bare JSON (#1583).
 
 `_require_ui_roles` answers 403 for a signed-in user whose role may not see the
-screen. Until #1583 a browser showed `{"detail": "Geen toegang"}`. One handler
+screen. Until #1583 a browser showed `{"detail": "Geen toegang"}` (the words then). One handler
 (`app.main`, `app.ui.no_access`) now renders a page for a browser navigation to
 an admin screen — and for nothing else: the JSON API, an htmx fragment and a
 write keep their plain 403, and a visitor without a session is still sent to
@@ -54,7 +54,7 @@ def _way_out(html: str) -> str:
     return re.search(r'<a href="([^"]+)"[^>]*data-no-access-way-out', html).group(1)
 
 
-def test_a_finance_user_on_a_general_admin_screen_gets_the_page_and_a_way_to_payments(
+def test_a_finance_user_on_a_screen_he_may_not_see_gets_the_page_and_a_way_to_the_workbench(
     client, db_session
 ):
     """A screen FINANCE may not see. The page keeps the user's own navigation —
@@ -67,8 +67,11 @@ def test_a_finance_user_on_a_general_admin_screen_gets_the_page_and_a_way_to_pay
         html = answer.text
         assert "data-no-access" in html and SENTENCE in html
         assert '{"detail"' not in html
-        assert _way_out(html) == "/admin/betalingen"
+        # CR-24 Q13: one way into the back office for everyone, the workbench.
+        assert _way_out(html) == "/admin/werkbank"
         assert 'href="/admin/leden"' not in html, "no navigation the role may not open"
+        assert 'href="/admin/betalingen"' in html, "and what he may open is in it"
+    assert client.get("/admin/werkbank", headers=BROWSER).status_code == 200
     assert client.get("/admin/betalingen", headers=BROWSER).status_code == 200
 
 
@@ -81,6 +84,7 @@ def test_an_admin_on_an_operator_only_screen_gets_the_page_and_a_way_to_the_work
     assert answer.status_code == 403
     assert "data-no-access" in answer.text and SENTENCE in answer.text
     target = _way_out(answer.text)
+    # #1740, CR-24 Q13: the page everyone enters the back office by (`back_office_home`).
     assert target == "/admin/werkbank"
     assert client.get(target, headers=BROWSER).status_code == 200
 
@@ -115,7 +119,7 @@ def test_a_fragment_a_write_and_a_json_request_keep_the_plain_403(client, db_ses
     """An htmx request must not get a whole page inside its target; a POST stays
     refused; a client that asks for JSON gets JSON."""
     headers = _signed_in(client, db_session, "penning@example.com", "FINANCE")
-    plain = {"detail": "Geen toegang"}
+    plain = {"detail": "Je hebt geen toegang tot deze actie."}
     fragment = client.get("/admin/activiteiten", headers={**BROWSER, "HX-Request": "true"})
     assert fragment.status_code == 403 and fragment.json() == plain
     write = client.post(
@@ -126,15 +130,34 @@ def test_a_fragment_a_write_and_a_json_request_keep_the_plain_403(client, db_ses
     assert json_client.status_code == 403 and json_client.json() == plain
 
 
-def test_the_json_api_still_answers_json(client, db_session):
-    _signed_in(client, db_session, "penning@example.com", "FINANCE")
-    answer = client.get("/api/v1/admin/stats", headers=BROWSER)
-    assert answer.status_code in (401, 403)
-    assert answer.headers["content-type"].startswith("application/json")
-    assert "detail" in answer.json() and "data-no-access" not in answer.text
-
-
 def test_a_visitor_without_a_session_is_still_sent_to_the_sign_in_screen(client):
     answer = client.get("/admin/activiteiten", headers=BROWSER, follow_redirects=False)
     assert answer.status_code == 303
+    assert answer.headers["location"].startswith("/aanmelden?terug=")
+
+
+@pytest.mark.parametrize(
+    "screen",
+    [
+        "/admin/ledenwijzigingen",
+        "/admin/ledenwijzigingen/export",
+        "/admin/e-maillog",
+        "/admin/info",
+        # The media cut of the same phase: the library and its upload form.
+        "/admin/media",
+        "/admin/media/nieuw",
+        # The chatbot cut: what Raakje knows.
+        "/admin/ai-context",
+    ],
+)
+def test_the_screens_whose_json_routes_went_ask_for_a_sign_in(client, screen):
+    """The change feed, the e-mail log and the system info are reachable through
+    their screens only since their JSON routes went (CR-13 phase 4b, #1251); the
+    routes' own "no token → 401" tests went with them, this is the screens'.
+
+    Proven red (8 October 2026): `require_admin_ui` taken off the system info
+    screen → its case answers 200.
+    """
+    answer = client.get(screen, headers=BROWSER, follow_redirects=False)
+    assert answer.status_code == 303, screen
     assert answer.headers["location"].startswith("/aanmelden?terug=")

@@ -30,6 +30,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.forms.models import FormSection
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -95,12 +96,8 @@ def _login(client) -> str:
     return csrf_token_for(waarde)
 
 
-def _formulier_met_sectie(client, admin_headers, db, csrf) -> tuple[int, FormSection]:
-    r = client.post(
-        "/api/v1/forms",
-        json={"title": "Sectievorm", "status": "draft", "fields": []},
-        headers=admin_headers,
-    )
+def _formulier_met_sectie(client, db, csrf) -> tuple[int, FormSection]:
+    r = forms_door.create_form(client, {"title": "Sectievorm", "status": "draft", "fields": []})
     assert r.status_code == 200, r.text
     form_id = r.json()["id"]
     r = client.post(
@@ -114,9 +111,9 @@ def _formulier_met_sectie(client, admin_headers, db, csrf) -> tuple[int, FormSec
     return form_id, sectie
 
 
-def test_opslaan_in_de_sectievorm_bewaart_de_titel(client, admin_headers, db_session):
+def test_opslaan_in_de_sectievorm_bewaart_de_titel(client, db_session):
     csrf = _login(client)
-    form_id, sectie = _formulier_met_sectie(client, admin_headers, db_session, csrf)
+    form_id, sectie = _formulier_met_sectie(client, db_session, csrf)
 
     bouwer = client.get(f"/admin/formulieren/{form_id}")
     assert bouwer.status_code == 200
@@ -144,11 +141,11 @@ def test_opslaan_in_de_sectievorm_bewaart_de_titel(client, admin_headers, db_ses
     assert re.search(r"Sectie 1 van 1\s*·\s*Nieuwe titel", antwoord.text), antwoord.text[:400]
 
 
-def test_de_sectievorm_wijst_naar_haar_eigen_sectie(client, admin_headers, db_session):
+def test_de_sectievorm_wijst_naar_haar_eigen_sectie(client, db_session):
     """Twee secties, twee vormen, elk met haar eigen bestemming — een vorm die naar
     de verkeerde sectie post, bewaart de titel op de verkeerde plek."""
     csrf = _login(client)
-    form_id, eerste = _formulier_met_sectie(client, admin_headers, db_session, csrf)
+    form_id, eerste = _formulier_met_sectie(client, db_session, csrf)
     client.post(
         f"/admin/formulieren/{form_id}/secties",
         data={"title": "Tweede"},

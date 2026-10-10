@@ -15,10 +15,9 @@ Bevat persoons- en financiële data: enkel admin/penningmeester, nooit in de rep
 """
 
 from decimal import Decimal
-from typing import Optional
 
-from app.domains.mdm.api import RelationType
 from app.domains.payment.api import PayableType, PaymentRecord
+from app.domains.payment.describers import describe_many, describer, in_filter_context
 from app.kernel.codes import code_label
 from app.kernel.ods import build_ods
 
@@ -26,49 +25,6 @@ from app.kernel.ods import build_ods
 # Dutch dictionaries that said the same as the screens next to them, with their
 # own deviations. The labels now come from the label tables, so the export and
 # the screen show the same word by definition (AC3).
-
-
-def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
-    """Geeft (label, membership_year, component_id) voor een betaalrecord.
-
-    Verrijking haalt bewust óók soft-deleted entiteiten op (een betaling is een
-    financieel feit; toon de bewaarde naam)."""
-
-    def q(model):
-        return db.query(model).execution_options(include_deleted=True)
-
-    if r.payable_type == PayableType.REGISTRATION:
-        from app.domains.activities.api import Activity, Registration
-
-        reg = q(Registration).filter(Registration.id == r.payable_id).first()
-        if reg:
-            act = q(Activity).filter(Activity.id == reg.activity_id).first()
-            parts = [reg.contact_name, act.name if act else None]
-            label = " — ".join(p for p in parts if p) or f"Inschrijving #{r.payable_id}"
-            return label, None, reg.component_id
-    elif r.payable_type == PayableType.MEMBERSHIP:
-        from app.domains.mdm.api import MemberPerson, Person
-        from app.domains.membership.api import Membership
-
-        ms = q(Membership).filter(Membership.id == r.payable_id).first()
-        name = None
-        year = ms.year if ms else None
-        if ms:
-            mp = (
-                q(MemberPerson)
-                .filter(
-                    MemberPerson.member_id == ms.member_id,
-                    MemberPerson.relation_type == RelationType.PRIMARY_MEMBER,
-                )
-                .first()
-            )
-            if mp:
-                p = q(Person).filter(Person.id == mp.person_id).first()
-                if p:
-                    name = f"{p.first_name} {p.last_name}"
-        period = f"Lidmaatschap {ms.year}" if ms else "Lidmaatschap"
-        return " — ".join(x for x in (name, period) if x), year, None
-    return f"{r.payable_type.value} #{r.payable_id}", None, None
 
 
 def build_payments_export_ods(
@@ -118,17 +74,14 @@ def build_payments_export_ods(
     rows = []
     tot_due = Decimal("0")
     tot_paid = Decimal("0")
+    # CR-21 phase 0 (#1748): the first two columns and the place in the filter tree
+    # come from the payable's describer, as on the screen — one batch per type.
+    described = describe_many(db, {(r.payable_type, r.payable_id) for r in records})
     for r in records:
-        label, membership_year, component_id = _enrich(db, r)
-        if not matches_filter(
-            r,
-            context=context,
-            status=status,
-            q=q,
-            openstaand=openstaand,
-            membership_year=membership_year,
-            component_id=component_id,
-        ):
+        what = described[(r.payable_type, r.payable_id)]
+        if not in_filter_context(r.payable_type, what.filter_context, context):
+            continue
+        if not matches_filter(r, status=status, q=q, openstaand=openstaand):
             continue
         # Golf 10 (#913): het actieve statustab-zicht geldt ook in de export —
         # anders exporteert "Openstaand" stil alles.
@@ -140,8 +93,8 @@ def build_payments_export_ods(
         tot_paid += paid
         rows.append(
             [
-                label,
-                "Lidgeld" if r.payable_type == PayableType.MEMBERSHIP else "Activiteit",
+                what.export_label,
+                describer(r.payable_type).export_kind,
                 code_label("payment_type", r.type),
                 code_label("payment_method", r.method),
                 code_label("payment_status", r.status),

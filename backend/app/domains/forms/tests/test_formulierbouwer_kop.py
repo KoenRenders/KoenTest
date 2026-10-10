@@ -25,6 +25,7 @@ wanneer zoiets opnieuw sneuvelt.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -36,15 +37,14 @@ def _login(client):
     return csrf_token_for(waarde)
 
 
-def _formulier(client, admin_headers, slug=None):
-    r = client.post(
-        "/api/v1/forms",
-        json={
+def _formulier(client, slug=None):
+    r = forms_door.create_form(
+        client,
+        {
             "title": "Kop",
             "status": "draft",
             "fields": [{"field_type": "text", "label": "Vraag", "position": 0}],
         },
-        headers=admin_headers,
     )
     assert r.status_code == 200, r.text
     form = r.json()
@@ -92,8 +92,8 @@ def _instellingenknop(html: str) -> str:
 # ── 1. Bewerken/Annuleren ──────────────────────────────────────────────────
 
 
-def test_de_instellingenknop_is_een_bewerktoggle(client, admin_headers):
-    form = _formulier(client, admin_headers)
+def test_de_instellingenknop_is_een_bewerktoggle(client):
+    form = _formulier(client)
     _login(client)
     knop = _instellingenknop(_bouwer(client, form["id"]))
 
@@ -104,10 +104,10 @@ def test_de_instellingenknop_is_een_bewerktoggle(client, admin_headers):
     assert "Instellingen" not in knop, knop
 
 
-def test_de_oude_knop_is_verdwenen(client, admin_headers):
+def test_de_oude_knop_is_verdwenen(client):
     """De keerzijde van de test hierboven: zonder haar zou een tweede knop naast de
     toggle ook slagen."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     html = _bouwer(client, form["id"])
     # #1535: the menu has an "Instellingen" item of its own; the button is in #main.
@@ -117,8 +117,8 @@ def test_de_oude_knop_is_verdwenen(client, admin_headers):
 # ── 2. De links op één regel ───────────────────────────────────────────────
 
 
-def test_beide_links_staan_op_een_regel(client, admin_headers):
-    form = _formulier(client, admin_headers, slug="kopregel")
+def test_beide_links_staan_op_een_regel(client):
+    form = _formulier(client, slug="kopregel")
     _login(client)
     html = _bouwer(client, form["id"])
 
@@ -128,9 +128,9 @@ def test_beide_links_staan_op_een_regel(client, admin_headers):
     assert "inzendingen" in regel
 
 
-def test_zonder_slug_blijft_de_regel_heel(client, admin_headers):
+def test_zonder_slug_blijft_de_regel_heel(client):
     """Dat is wat stukgaat bij het samenvoegen: een los `·` of een lege span."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     html = _bouwer(client, form["id"])
 
@@ -145,8 +145,8 @@ def test_zonder_slug_blijft_de_regel_heel(client, admin_headers):
 
 
 @pytest.mark.parametrize("veld_id", ["fbd", "fbc"])
-def test_de_tekstvakken_volgen_de_kitstandaard(client, admin_headers, veld_id):
-    form = _formulier(client, admin_headers)
+def test_de_tekstvakken_volgen_de_kitstandaard(client, veld_id):
+    form = _formulier(client)
     _login(client)
     html = _bouwer(client, form["id"])
 
@@ -155,18 +155,17 @@ def test_de_tekstvakken_volgen_de_kitstandaard(client, admin_headers, veld_id):
     assert 'rows="4"' in tag, f"{veld_id} wijkt af van de kit: {tag}"
 
 
-def test_de_sectie_omschrijving_blijft_bewust_korter(client, admin_headers):
+def test_de_sectie_omschrijving_blijft_bewust_korter(client):
     """Geen inconsistentie: de omschrijving van een sectie is een korte toelichting
     boven een groep vragen, geen lopende tekst."""
-    r = client.post(
-        "/api/v1/forms",
-        json={
+    r = forms_door.create_form(
+        client,
+        {
             "title": "Met sectie",
             "status": "draft",
             "sections": [{"title": "Een", "position": 0}],
             "fields": [{"field_type": "text", "label": "V", "position": 0, "section_index": 0}],
         },
-        headers=admin_headers,
     )
     form = r.json()
     _login(client)
@@ -181,9 +180,9 @@ def test_de_sectie_omschrijving_blijft_bewust_korter(client, admin_headers):
 # ── 4. De volgorde van de velden ───────────────────────────────────────────
 
 
-def test_de_korte_velden_staan_bij_elkaar(client, admin_headers):
+def test_de_korte_velden_staan_bij_elkaar(client):
     """Titel · Leesbare link → Status · Max. inzendingen → vinkjes → de tekstvakken."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     html = _bouwer(client, form["id"])
 
@@ -204,9 +203,9 @@ def test_de_korte_velden_staan_bij_elkaar(client, admin_headers):
     assert plek["send_confirmation"] < plek["description"] < plek["confirmation_message"]
 
 
-def test_het_vinkjesblok_zweeft_niet_meer(client, admin_headers):
+def test_het_vinkjesblok_zweeft_niet_meer(client):
     """`pt-5` lijnde uit met een label ernaast; op een eigen regel is dat een gat."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     html = _bouwer(client, form["id"])
 
@@ -221,22 +220,22 @@ def test_het_vinkjesblok_zweeft_niet_meer(client, admin_headers):
 @pytest.mark.parametrize(
     "naam", ["send_confirmation", "allow_edit", "is_anonymous", "requires_login"]
 )
-def test_alle_vier_de_vinkjes_staan_er_nog(client, admin_headers, naam):
+def test_alle_vier_de_vinkjes_staan_er_nog(client, naam):
     """Geen vormtest maar een regressietest. `requires_login` ontbrak ooit (#629) en
     dan viel die beveiligingsinstelling bij élke opslag stil om, want een niet
     verstuurd vakje leest als False. Een herindeling is precies wanneer dat opnieuw
     gebeurt."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     assert f'name="{naam}"' in _bouwer(client, form["id"])
 
 
-def test_opslaan_laat_requires_login_staan(client, admin_headers, db_session):
+def test_opslaan_laat_requires_login_staan(client, db_session):
     """En het gedrag eronder, want de aanwezigheid van een vakje is niet genoeg: het
     moet ook zijn stand meesturen."""
     from app.domains.forms.models import Form
 
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
     client.post(
         f"/admin/formulieren/{form['id']}/instellingen",

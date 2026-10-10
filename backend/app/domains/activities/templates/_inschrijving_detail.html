@@ -84,9 +84,9 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <div>{{ ui.label(_("Naam"), "reg-naam-" ~ reg.id, required=True) }}
           {{ ui.input_control("contact_name", id="reg-naam-" ~ reg.id, value=reg.contact_name or "", cls="w-full") }}</div>
-        <div>{{ ui.label(_("E-mailadres"), "reg-email-" ~ reg.id, required=True) }}
+        <div>{{ ui.label(_("E-mail"), "reg-email-" ~ reg.id, required=True) }}
           {{ ui.input_control("contact_email", id="reg-email-" ~ reg.id, type="email", value=reg.contact_email or "", cls="w-full") }}</div>
-        <div>{{ ui.label(_("Mobiel nummer"), "reg-gsm-" ~ reg.id, required=True) }}
+        <div>{{ ui.label(_("Mobiel"), "reg-gsm-" ~ reg.id, required=True) }}
           {{ ui.input_control("phone", id="reg-gsm-" ~ reg.id, type="tel", value=reg.phone or "", cls="w-full") }}</div>
         {# Ploegnaam (#716). Ze stond wél in de kop hierboven en was niet te
            wijzigen; een tikfout was enkel recht te zetten door de inschrijving te

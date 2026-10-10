@@ -24,6 +24,7 @@ lagen uit de architectuurregel: vorm bij de ingang, betekenis in de service.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -35,10 +36,10 @@ def _login(client):
     return csrf_token_for(waarde)
 
 
-def _formulier(client, admin_headers):
-    r = client.post(
-        "/api/v1/forms",
-        json={
+def _formulier(client):
+    r = forms_door.create_form(
+        client,
+        {
             "title": "Sprong",
             "status": "draft",
             "sections": [
@@ -56,7 +57,6 @@ def _formulier(client, admin_headers):
                 }
             ],
         },
-        headers=admin_headers,
     )
     assert r.status_code == 200, r.text
     return r.json()
@@ -66,14 +66,14 @@ def _optie(form, label):
     return next(o for o in form["fields"][0]["options"] if o["label"] == label)
 
 
-def _lees(client, admin_headers, form_id):
-    return client.get(f"/api/v1/forms/{form_id}", headers=admin_headers).json()
+def _lees(client, form_id):
+    return forms_door.read_form(client, form_id)
 
 
 # ── 1. De opgeslagen toestand ───────────────────────────────────────────────
 
 
-def test_de_service_weigert_sectie_en_einde_tegelijk(client, admin_headers, db_session):
+def test_de_service_weigert_sectie_en_einde_tegelijk(client, db_session):
     """De onmogelijke toestand, getoetst op wat er in de databank staat.
 
     De keuzelijst kan dit niet meer versturen, maar de regel hoort in de service:
@@ -83,7 +83,7 @@ def test_de_service_weigert_sectie_en_einde_tegelijk(client, admin_headers, db_s
     from app.domains.forms.api import FormulierFout, update_option
     from app.domains.forms.models import Form, FormFieldOption
 
-    form_json = _formulier(client, admin_headers)
+    form_json = _formulier(client)
     a = _optie(form_json, "A")
     derde = sorted(form_json["sections"], key=lambda s: s["position"])[2]
     form = db_session.get(Form, form_json["id"])
@@ -108,11 +108,11 @@ def test_de_service_weigert_sectie_en_einde_tegelijk(client, admin_headers, db_s
     )
 
 
-def test_via_het_scherm_kan_er_maar_een_bestemming_zijn(client, admin_headers, db_session):
+def test_via_het_scherm_kan_er_maar_een_bestemming_zijn(client, db_session):
     """Wat het scherm post is één waarde, dus de combinatie kan niet ontstaan."""
     from app.domains.forms.models import FormFieldOption
 
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
     a = _optie(form, "A")
     derde = sorted(form["sections"], key=lambda s: s["position"])[2]
@@ -130,12 +130,12 @@ def test_via_het_scherm_kan_er_maar_een_bestemming_zijn(client, admin_headers, d
     assert bewaard.skip_to_end is False, "het einde staat er óók bij"
 
 
-def test_einde_kiezen_wist_een_eerdere_sectie(client, admin_headers, db_session):
+def test_einde_kiezen_wist_een_eerdere_sectie(client, db_session):
     """De omgekeerde volgorde: van een sectie naar het einde mag geen restant
     achterlaten dat later stil de doorslag geeft."""
     from app.domains.forms.models import FormFieldOption
 
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
     a = _optie(form, "A")
     derde = sorted(form["sections"], key=lambda s: s["position"])[2]
@@ -157,10 +157,10 @@ def test_einde_kiezen_wist_een_eerdere_sectie(client, admin_headers, db_session)
     assert bewaard.skip_to_section_id is None, "de oude sectie staat er nog"
 
 
-def test_gewone_volgorde_wist_allebei(client, admin_headers, db_session):
+def test_gewone_volgorde_wist_allebei(client, db_session):
     from app.domains.forms.models import FormFieldOption
 
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
     a = _optie(form, "A")
 
@@ -183,11 +183,11 @@ def test_gewone_volgorde_wist_allebei(client, admin_headers, db_session):
 # ── 2. Hetzelfde één niveau hoger ───────────────────────────────────────────
 
 
-def test_een_sectie_kent_dezelfde_ene_bestemming(client, admin_headers, db_session):
+def test_een_sectie_kent_dezelfde_ene_bestemming(client, db_session):
     """Anders is de bouwer op twee plekken verschillend voor hetzelfde begrip."""
     from app.domains.forms.models import FormSection
 
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     csrf = _login(client)
     secties = sorted(form["sections"], key=lambda s: s["position"])
 
@@ -206,10 +206,10 @@ def test_een_sectie_kent_dezelfde_ene_bestemming(client, admin_headers, db_sessi
 # ── 3. Wat de keuzelijst aanbiedt ───────────────────────────────────────────
 
 
-def test_de_lijst_biedt_alleen_latere_secties_aan(client, admin_headers):
+def test_de_lijst_biedt_alleen_latere_secties_aan(client):
     """Niet aanbieden wat verboden is. Het veld staat in sectie 1, dus alleen 2 en 3
     horen erin te staan — en "einde"."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     html = client.get(f"/admin/formulieren/{form['id']}").text
     secties = sorted(form["sections"], key=lambda s: s["position"])
@@ -222,8 +222,8 @@ def test_de_lijst_biedt_alleen_latere_secties_aan(client, admin_headers):
     assert 'value="end"' in lijst
 
 
-def test_er_is_geen_los_einde_vakje_meer(client, admin_headers):
-    form = _formulier(client, admin_headers)
+def test_er_is_geen_los_einde_vakje_meer(client):
+    form = _formulier(client)
     _login(client)
     html = client.get(f"/admin/formulieren/{form['id']}").text
 
@@ -234,10 +234,10 @@ def test_er_is_geen_los_einde_vakje_meer(client, admin_headers):
 # ── 4. De optierij is inline ────────────────────────────────────────────────
 
 
-def test_de_optierij_heeft_geen_bewerktoggle_meer(client, admin_headers):
+def test_de_optierij_heeft_geen_bewerktoggle_meer(client):
     """Drie klikken voor één handeling, en een rij die er in twee toestanden anders
     uitzag. De velden staan nu altijd zichtbaar."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     html = client.get(f"/admin/formulieren/{form['id']}").text
 
@@ -247,11 +247,11 @@ def test_de_optierij_heeft_geen_bewerktoggle_meer(client, admin_headers):
     assert 'name="label"' in html and 'name="is_other"' in html
 
 
-def test_er_wordt_niet_automatisch_bewaard_bij_change(client, admin_headers):
+def test_er_wordt_niet_automatisch_bewaard_bij_change(client):
     """Bewust niet: elke post rendert `#fb-detail` opnieuw, dus bij het verlaten van
     een tekstveld zou de focus springen en de scroll verschuiven. Dat vraagt eerst
     een gerichter swapdoel, en dat is een andere wijziging."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     html = client.get(f"/admin/formulieren/{form['id']}").text
 

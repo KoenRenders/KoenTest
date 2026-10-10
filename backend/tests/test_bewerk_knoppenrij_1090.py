@@ -36,6 +36,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.ui import templates
+from tests import forms_door
 from tests._reporting_seed import seed
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -140,10 +141,10 @@ def test_het_rapportpaneel_rendert_het_cluster_in_volgorde(client, db_session):
     _controleer_cluster(cluster, met_verwijderen=False)
 
 
-def test_de_optierij_rendert_het_cluster_in_volgorde(client, db_session, admin_headers):
-    antwoord = client.post(
-        "/api/v1/forms",
-        json={
+def test_de_optierij_rendert_het_cluster_in_volgorde(client, db_session):
+    antwoord = forms_door.create_form(
+        client,
+        {
             "title": "Knoppenrij",
             "status": "draft",
             "fields": [
@@ -155,7 +156,6 @@ def test_de_optierij_rendert_het_cluster_in_volgorde(client, db_session, admin_h
                 }
             ],
         },
-        headers=admin_headers,
     )
     assert antwoord.status_code == 200, antwoord.text
     _login(client, db_session)

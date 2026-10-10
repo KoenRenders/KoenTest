@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.conftest import register_at_the_door
+
 pytestmark = pytest.mark.ui_serverrendered
 
 _TEMPLATES = Path(__file__).resolve().parents[2] / "app" / "domains"
@@ -69,8 +71,9 @@ def test_open_krijgt_geen_badge_maar_vol_wel(client, db_session):
     from tests.conftest import seed_activity_with_product
 
     _, comp, product = seed_activity_with_product(db_session, max_participants=2)
-    resp = client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",

@@ -34,6 +34,7 @@ from app.domains.media.api import (
     list_activity_photos,
     uses_of,
 )
+from tests import media_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 from tests.integration.test_designstudio_engine import PNG_2x2
 
@@ -153,13 +154,13 @@ def test_a_page_with_a_longer_id_does_not_count_as_a_use(db_session):
     assert uses_of(db_session, asset.id) == []
 
 
-def test_the_json_route_answers_409_with_the_uses(client, db_session, admin_headers):
+def test_the_json_route_answers_409_with_the_uses(client, db_session):
     activity = _activity(db_session, "Bowlen")
     photo = _picture(db_session, activity_id=activity.id)
     design = _design(db_session, activity, third_image_id=photo.id)
     db_session.commit()
 
-    answer = client.delete(f"/api/v1/admin/media/{photo.id}", headers=admin_headers)
+    answer = media_door.delete(client, photo.id)
     assert answer.status_code == 409, answer.text
     assert answer.json()["detail"]["uses"] == [
         {"label": "Ontwerp voor Bowlen", "href": f"/admin/ontwerpen/{design.id}"}

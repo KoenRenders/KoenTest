@@ -4,7 +4,13 @@ webhook-idempotentie en de gedeelde totaalberekening."""
 from decimal import Decimal
 
 from app.domains.payment.api import PayableType, PaymentStatus
-from tests.conftest import seed_activity_with_product, seed_postal_code
+from tests import payments_door
+from tests.conftest import (
+    register_at_the_door,
+    seed_activity_with_product,
+    seed_postal_code,
+    sign_up_at_the_door,
+)
 
 
 def _family_payload(email="happy@example.com"):
@@ -37,7 +43,7 @@ def _family_payload(email="happy@example.com"):
 
 def test_family_registration_happy_path_writes_data_and_audit(client, db_session):
     seed_postal_code(db_session)
-    resp = client.post("/api/v1/families", json=_family_payload())
+    resp = sign_up_at_the_door(client, json=_family_payload())
     assert resp.status_code == 201, resp.text
 
     from app.domains.mdm.api import Member, MemberHistory, Person
@@ -65,14 +71,12 @@ def test_family_registration_happy_path_writes_data_and_audit(client, db_session
     assert ph is not None and ph.source == "registration"
 
 
-def test_payment_overview_membership_shows_family_and_year(client, db_session, admin_headers):
+def test_payment_overview_membership_shows_family_and_year(client, db_session):
     """Het betaaloverzicht verrijkt een lidmaatschapsbetaling met het gezin
     (hoofdlid-naam) en het jaar — payable_id is de Membership.id, niet de Member.id (#141)."""
     seed_postal_code(db_session)
     assert (
-        client.post(
-            "/api/v1/families", json=_family_payload(email="overview@example.com")
-        ).status_code
+        sign_up_at_the_door(client, json=_family_payload(email="overview@example.com")).status_code
         == 201
     )
 
@@ -80,7 +84,7 @@ def test_payment_overview_membership_shows_family_and_year(client, db_session, a
 
     ms = db_session.query(Membership).first()
 
-    resp = client.get("/api/v1/payment-status/records", headers=admin_headers)
+    resp = payments_door.records(client)
     assert resp.status_code == 200, resp.text
     rec = next(r for r in resp.json() if r["payable_type"] == "membership")
     assert rec["description"] == f"Lidmaatschap {ms.year}"
@@ -93,22 +97,18 @@ def test_family_registration_requires_hoofdlid_contact(client, db_session):
     seed_postal_code(db_session)
     payload = _family_payload()
     payload["members"][0]["email"] = None  # hoofdlid zonder e-mail
-    resp = client.post("/api/v1/families", json=payload)
+    resp = sign_up_at_the_door(client, json=payload)
     assert resp.status_code == 422
 
 
-def test_manual_confirm_writes_audit_with_actor(client, db_session, admin_headers):
+def test_manual_confirm_writes_audit_with_actor(client, db_session):
     seed_postal_code(db_session)
-    client.post("/api/v1/families", json=_family_payload(email="confirm@example.com"))
+    sign_up_at_the_door(client, json=_family_payload(email="confirm@example.com"))
     from app.domains.payment.api import PaymentRecord
 
     rec = db_session.query(PaymentRecord).first()
 
-    resp = client.patch(
-        f"/api/v1/payment-status/records/{rec.id}",
-        json={"status": "paid"},
-        headers=admin_headers,
-    )
+    resp = payments_door.update(client, rec.id, {"status": "paid"})
     assert resp.status_code == 200, resp.text
 
     from app.domains.payment.api import PaymentRecordHistory
@@ -171,7 +171,7 @@ def test_webhook_update_idempotent_no_double_credit(client, db_session):
     assert transitions == 1
 
 
-def test_cms_placeholders_public_vs_editor(client, admin_headers, db_session):
+def test_cms_placeholders_public_vs_editor(client, db_session):
     """Publiek worden de prijscodes ingevuld vanuit config; de editor (admin)
     krijgt de ruwe codes zodat ze bewerkbaar blijven.
 
@@ -189,52 +189,65 @@ def test_cms_placeholders_public_vs_editor(client, admin_headers, db_session):
     )
     db_session.commit()
 
-    public = client.get("/api/v1/blocks/home-intro")
+    # The public side: the home page shows the block with its code filled in.
+    # (Until CR-13 phase 4b this asked the JSON route of the block.)
+    public = client.get("/")
     assert public.status_code == 200
-    content = public.json()["content"]
-    assert "{{" not in content  # codes vervangen
-    assert "€35,00" in content or "€17,50" in content
+    assert "{{membership_price_full}}" not in public.text  # code vervangen
+    assert (
+        "Lidgeld: €35,00 per gezin." in public.text or "Lidgeld: €17,50 per gezin." in public.text
+    )
 
-    admin = client.get("/api/v1/admin/pages", headers=admin_headers)
-    assert admin.status_code == 200
-    home = next(p for p in admin.json() if p["slug"] == "home-intro")
-    assert "{{membership_price_full}}" in home["content"]  # ruwe code blijft
+    # The back office's side: the page as it is stored keeps the raw code.
+    from app.domains.cms.api import list_pages
+
+    db_session.expire_all()
+    home = next(p for p in list_pages(db_session) if p.slug == "home-intro")
+    assert "{{membership_price_full}}" in home.content  # ruwe code blijft
 
 
-def test_admin_creates_paid_activity_and_public_registration(client, db_session, admin_headers):
-    """End-to-end: admin maakt via de API een activiteit + onderdeel + betaald
-    product; een bezoeker schrijft zich publiek in via overschrijving; het
-    betaalrecord-bedrag is gelijk aan de productprijs."""
-    act = client.post(
-        "/api/v1/activities",
-        headers=admin_headers,
-        json={
+def test_admin_creates_paid_activity_and_public_registration(client, db_session):
+    """End-to-end: het bestuur maakt op de fiche een activiteit en bewaart er een
+    onderdeel met een betaald product bij; een bezoeker schrijft zich publiek in
+    via overschrijving; het betaalrecord-bedrag is gelijk aan de productprijs.
+    (Tot CR-13 fase 4b, #1251, via de JSON-routes die niemand anders aanriep.)"""
+    from app.domains.activities.api import Activity
+    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+    from tests._fiche import Fiche, post_new_activity
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    session = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, session)
+    board = {"X-CSRF-Token": csrf_token_for(session)}
+    created = post_new_activity(
+        client,
+        board,
+        {
             "name": "Flowtest betaalde activiteit",
-            "dates": [{"start_date": "2099-12-31"}],
+            "start_date": "2099-12-31",
             "location": "Teststraat",
         },
     )
-    assert act.status_code == 200, act.text
-    activity_id = act.json()["id"]
-
-    comp = client.post(
-        f"/api/v1/activities/{activity_id}/components",
-        headers=admin_headers,
-        json={"name": "Flowtest onderdeel"},
+    assert created.status_code == 200, created.text[:300]
+    activity = db_session.query(Activity).filter_by(name="Flowtest betaalde activiteit").one()
+    activity_id = activity.id
+    fiche = Fiche(db_session, activity_id)
+    row = fiche.add("c", name="Flowtest onderdeel")
+    fiche.add("p", parent=row, name="Flowtest product", price="7,50")
+    assert fiche.post(client, board).status_code == 200
+    # A new activity is a draft; registering opens when the board publishes it.
+    published = client.post(
+        f"/admin/activiteiten/{activity_id}/status", data={"status": "published"}, headers=board
     )
-    assert comp.status_code == 200, comp.text
-    component_id = comp.json()["id"]
+    assert published.status_code in (200, 204), published.text[:300]
+    client.cookies.clear()
+    db_session.expire_all()
+    component = activity.sub_registrations[0]
+    component_id, product_id = component.id, component.products[0].id
 
-    prod = client.post(
-        f"/api/v1/activities/{activity_id}/components/{component_id}/products",
-        headers=admin_headers,
-        json={"name": "Flowtest product", "price": "7.50", "is_free": False},
-    )
-    assert prod.status_code == 200, prod.text
-    product_id = prod.json()["id"]
-
-    reg = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    reg = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "Flow Inschrijver",
             "phone": "0470000000",
@@ -263,8 +276,9 @@ def test_registration_total_matches_payment_amount(client, db_session, mock_moll
     _, comp, product = seed_activity_with_product(db_session, price="12.50")
     activity_id = comp.activity_id
 
-    resp = client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "Test",
             "phone": "0470000000",

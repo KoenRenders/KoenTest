@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
@@ -17,9 +17,10 @@ from app.config import settings
 from app.database import get_db
 from app.domains.auth.api import (
     SESSION_COOKIE,
+    Right,
     csrf_token_for,
-    require_admin_ui,
     require_csrf,
+    require_right,
 )
 from app.domains.chatbot.render import render_answer_markdown
 from app.i18n import _
@@ -60,18 +61,25 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db), vraag: str = F
     from app.domains.chatbot.logbook import sink_for
     from app.domains.chatbot.providers import get_provider
     from app.domains.chatbot.seam import GuardedProvider, SeamBlocked, public_rules
-    from app.domains.chatbot.service import run_public_chat
+    from app.domains.chatbot.service import QuestionRefused, answer_visitor, asked
 
     vraag = vraag.strip()
     # #1568: the environment's switch and the tenant's, one rule — the same the
     # site shell reads for the bell.
     if not tenant_public_chat_enabled(db):
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    if not vraag:
+    # One question: not empty, and with a length (#1251) — the service's rule,
+    # before the budget is charged and before anything goes to the provider.
+    # The field carries the same number as its `maxlength`; this is what holds
+    # when a script posts. A refused question that has words stays in the field.
+    try:
+        vraag = asked(vraag, max_chars=settings.chat_max_input_chars)
+    except QuestionRefused as refusal:
         return templates.TemplateResponse(
             request,
             "_raakje_antwoord.html",
-            {"vraag": vraag, "antwoord": None, "error": _("Typ eerst een vraag.")},
+            {"vraag": vraag, "antwoord": None, "error": str(refusal)},
+            headers=NOT_ANSWERED if vraag else None,
         )
     chat_char_budget.charge(request, len(vraag))
     messages = [
@@ -84,7 +92,7 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db), vraag: str = F
     # e-mailadres te ontvangen.
     provider = GuardedProvider(get_provider(), public_rules(), sink_for())
     try:
-        antwoord = run_public_chat(db, messages, provider, max_rounds=settings.chat_max_tool_rounds)
+        antwoord = answer_visitor(db, messages, provider, max_rounds=settings.chat_max_tool_rounds)
     except SeamBlocked as geblokkeerd:
         # De logregel staat al — het logboek schrijft in zijn eigen sessie, juist
         # omdat deze beurt op een foutpad eindigt.
@@ -127,18 +135,22 @@ def _context_ctx(request: Request, db: Session, email: str) -> dict:
 
 @router.get("/admin/ai-context", response_class=HTMLResponse)
 def ai_context_page(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
     return templates.TemplateResponse(
         request,
         "ai_context.html",
-        {"nav_items": admin_nav("/admin/ai-context"), **_context_ctx(request, db, email)},
+        {"nav_items": admin_nav("/admin/ai-context", request), **_context_ctx(request, db, email)},
     )
 
 
 @router.get("/admin/ai-context/lijst", response_class=HTMLResponse)
 def ai_context_lijst(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
     return templates.TemplateResponse(
         request, "_ai_context_lijst.html", _context_ctx(request, db, email)
@@ -151,18 +163,16 @@ def ai_context_lijst(
 def notitie_toevoegen(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
     title: str = Form(""),
     text_addition: str = Form(""),
 ):
-    from app.domains.chatbot.api import create_note
-    from app.schemas.chatbot_info import NoteCreate
+    from app.domains.chatbot.api import InfoRefused, add_note
 
-    if not title.strip() or not text_addition.strip():
-        raise HTTPException(status_code=400, detail=_("Titel en tekst zijn verplicht."))
-    create_note(
-        db, NoteCreate(title=title.strip(), text_addition=text_addition.strip(), is_active=True)
-    )
+    try:
+        add_note(db, title=title, text=text_addition)
+    except InfoRefused as refusal:
+        raise HTTPException(status_code=400, detail=str(refusal)) from refusal
     return templates.TemplateResponse(
         request, "_ai_context_lijst.html", _context_ctx(request, db, email)
     )
@@ -177,7 +187,7 @@ def rij_bewerken(
     row_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
     title: str = Form(""),
     text_override: str = Form(""),
     text_addition: str = Form(""),
@@ -206,6 +216,54 @@ def rij_bewerken(
 
 
 @router.post(
+    "/admin/ai-context/paginas/{page_id}/toggle",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def page_toggle(
+    page_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
+):
+    """A page's switch goes by the page, not by its info row: a page that never
+    got a row can be switched off too (#1791)."""
+    from app.domains.chatbot.api import toggle_page
+
+    try:
+        toggle_page(db, page_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
+    return templates.TemplateResponse(
+        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
+    )
+
+
+@router.post(
+    "/admin/ai-context/paginas/{page_id}/bewerken",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def page_edit(
+    page_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
+    text_override: str = Form(""),
+    text_addition: str = Form(""),
+):
+    from app.domains.chatbot.api import edit_page
+
+    try:
+        edit_page(db, page_id, text_override=text_override, text_addition=text_addition)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
+    return templates.TemplateResponse(
+        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
+    )
+
+
+@router.post(
     "/admin/ai-context/documenten/{asset_id}/opnieuw-lezen",
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
@@ -213,16 +271,15 @@ def rij_bewerken(
 def document_opnieuw_lezen(
     asset_id: int,
     request: Request,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
 ):
     """'Opnieuw lezen' (#235): her-extraheer de tekst van een document-asset. Draait
     op de achtergrond; override/aanvulling blijven staan."""
-    from app.domains.media.api import reextract_text
+    from app.domains.chatbot.api import read_document_again
 
     try:
-        reextract_text(db, asset_id, background_tasks)
+        read_document_again(db, asset_id)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Document niet gevonden"))
     return templates.TemplateResponse(
@@ -239,7 +296,7 @@ def rij_verwijderen(
     row_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
 ):
     from app.domains.chatbot.api import delete_row
 
@@ -261,7 +318,7 @@ def rij_toggle(
     row_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
 ):
     from app.domains.chatbot.api import toggle_row
 

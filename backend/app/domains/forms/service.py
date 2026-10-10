@@ -20,13 +20,17 @@ Twee lagen domeinlogica:
    helemaal niet aanriep.
 """
 
+import logging
 import re
 import secrets
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
+from app.domains.forms.export import export_ods
 from app.domains.forms.models import (
     FIELD_TYPES,
     FORM_STATUSES,
@@ -36,9 +40,10 @@ from app.domains.forms.models import (
     FormFieldOption,
     FormSection,
     FormStatus,
+    FormSubmission,
     FormSubmissionAnswer,
 )
-from app.domains.forms.schemas import AnswerIn
+from app.domains.forms.schemas import AnswerIn, FormAdminOut, SubmissionIn, SubmissionResult
 from app.domains.forms.screenfields import BRANCHABLE, CHOICES
 from app.i18n import _
 from app.kernel.codes import code_of
@@ -935,19 +940,24 @@ VERTAKBARE_VELDEN = BRANCHABLE
 BRANCHABLE_CODES = tuple(m.value for m in VERTAKBARE_VELDEN)
 
 
+def _option_label(label: str) -> str:
+    """An option has a label, new or changed (#711, #1831). Without one the public
+    form shows a radio button WITHOUT TEXT — invisible to whoever fills it in. A
+    changed option kept its old label without a word; the route's required
+    field hid that."""
+    given = (label or "").strip()
+    if not given:
+        raise FormulierFout("Elke optie heeft een label nodig.")
+    return given
+
+
 def add_option(db, form: Form, field_id: int, *, label: str, is_other: bool = False) -> None:
     veld = next((f for f in form.fields if f.id == field_id), None)
     if veld is None or veld.field_type not in KEUZEVELDEN:
         raise FormulierFout("Opties kunnen enkel bij keuzevelden.")
-    # #711: een leeg label werd zonder klagen bewaard, en dat levert een radioknop
-    # ZONDER TEKST op in het publieke formulier — onzichtbaar voor wie het invult.
-    # `update_option` weigerde dit al; de aanmaakweg was het enige lek.
-    if not (label or "").strip():
-        raise FormulierFout("Elke optie heeft een label nodig.")
+    given = _option_label(label)
     veld.options.append(
-        FormFieldOption(
-            label=(label or "").strip(), position=len(veld.options), is_other=bool(is_other)
-        )
+        FormFieldOption(label=given, position=len(veld.options), is_other=bool(is_other))
     )
     db.commit()
 
@@ -972,6 +982,7 @@ def update_option(
     optie = next((o for f in form.fields for o in f.options if o.id == option_id), None)
     if optie is None:
         raise LookupError("Optie niet gevonden")
+    given = _option_label(label)
 
     veld = optie.field
     doel_id = int(skip_to_section_id) if str(skip_to_section_id).strip().isdigit() else None
@@ -990,7 +1001,7 @@ def update_option(
         if doel is None or (eigen is not None and doel.position <= eigen.position):
             raise FormulierFout("Een vertakking moet naar een latere sectie springen.")
 
-    optie.label = (label or "").strip() or optie.label
+    optie.label = given
     optie.is_other = bool(is_other)
     optie.skip_to_section_id = doel_id
     optie.skip_to_end = bool(skip_to_end)
@@ -1077,6 +1088,15 @@ def delete_submission(db, form_id: int, submission_id: int) -> None:
     _publish_submission_deleted(db, inzending.form, inzending.id)
     db.delete(inzending)
     db.commit()
+
+
+def assert_definition_given(text: str) -> None:
+    """An import needs a definition: something pasted, or a file that held text.
+
+    The import screen decided this itself until CR-13 phase 4c (#1251). The words
+    are the screen's as they were."""
+    if not text.strip():
+        raise FormulierFout(_("Plak een JSON-definitie of kies een bestand."))
 
 
 def import_definition(db, form: Form, data) -> None:
@@ -1298,6 +1318,18 @@ def normaliseer_slug(waarde) -> Optional[str]:
             detail=_("Deze naam is voorbehouden aan de site zelf; kies een andere."),
         )
     return slug
+
+
+def assert_known_status(status: str) -> None:
+    """A form's status comes from the closed set (`FORM_STATUSES`).
+
+    The settings screen decided this itself until CR-13 phase 4c (#1251); a rule
+    at one door holds for that door only. The refusal and its words are the
+    screen's as they were."""
+    if status not in FORM_STATUSES:
+        raise HTTPException(
+            status_code=422, detail=_("Ongeldige status: %(status)s") % {"status": status}
+        )
 
 
 def assert_slug_vrij(db, slug: Optional[str], *, huidige_id: Optional[int] = None) -> None:
@@ -1850,4 +1882,230 @@ def form_page_context(
         if show_submitter is None
         else show_submitter,
         "intro": intro,
+    }
+
+
+# ── The share link, the submission, the export ────────────────────────────────
+#
+# These stood in `forms/router.py` until CR-13 phase 4c (#1251). Their JSON
+# routes went in phase 4b; the screens reach them through `forms.api`.
+
+logger = logging.getLogger(__name__)
+
+
+def _new_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def _unique_share_token(db: Session) -> str:
+    for _poging in range(10):
+        tok = _new_token()
+        if not db.query(Form.id).filter(Form.share_token == tok).first():
+            return tok
+    raise HTTPException(status_code=500, detail=_("Kon geen unieke deellink genereren."))
+
+
+def _submission_count(db: Session, form_id: int) -> int:
+    return (
+        db.query(func.count(FormSubmission.id)).filter(FormSubmission.form_id == form_id).scalar()
+        or 0
+    )
+
+
+def _admin_out(db: Session, form: Form) -> dict:
+    data = FormAdminOut.model_validate(form).model_dump()
+    data["submission_count"] = _submission_count(db, form.id)
+    return data
+
+
+# ── Export ──────────────────────────────────────────────────────────────────────
+
+
+def export_form(db: Session, form_id: int) -> Response:
+    """The submissions of a form as an .ods download."""
+    form = db.query(Form).filter(Form.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
+    safe = re.sub(r"[^A-Za-z0-9_-]+", "_", form.title or "formulier").strip("_") or "formulier"
+    return Response(
+        content=export_ods(db, form),
+        media_type="application/vnd.oasis.opendocument.spreadsheet",
+        headers={"Content-Disposition": f'attachment; filename="{safe}.ods"'},
+    )
+
+
+# ── Publiek: invullen ───────────────────────────────────────────────────────────
+
+
+def _load_public_form(db: Session, share_token: str) -> Form:
+    form = db.query(Form).filter(Form.share_token == share_token).first()
+    # Concept-formulieren zijn niet publiek zichtbaar.
+    if not form or form.status is FormStatus.DRAFT:
+        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
+    return form
+
+
+def submit_form(db: Session, share_token: str, data: SubmissionIn, *, proof) -> SubmissionResult:
+    """One public submission, for the screen and the JSON way in alike.
+
+    A submission the guard drops (#1297) answers like a stored one — `status`
+    "ok" — but with id 0 and no edit link, and leaves no row and no mail.
+    """
+    from app.kernel import form_guard
+
+    form = _load_public_form(db, share_token)
+    assert_open_for_submission(db, form)
+    if form_guard.refused(proof, f"form {form.id}"):
+        return SubmissionResult(id=0, status="ok", edit_token=None)
+    assert_submitter(form, data.submitter_name, data.submitter_email)
+    answers = build_answers(form, data.answers)
+
+    # Anoniem (#343): geen submitter bewaren. Anders het contactblok-adres.
+    sub_name = None if form.is_anonymous else data.submitter_name
+    sub_email = None if form.is_anonymous else data.submitter_email
+
+    submission = FormSubmission(
+        form_id=form.id,
+        submitter_name=sub_name,
+        submitter_email=sub_email,
+        edit_token=_new_token() if form.allow_edit else None,
+    )
+    for row in answers:
+        submission.answers.append(row)
+    db.add(submission)
+    db.flush()
+    # Said before the commit (CR-13 phase 4d, #1251): `mail` subscribes and queues
+    # the confirmation in this transaction, so it leaves only if the submission
+    # is kept. Until then forms called mail itself, after the commit.
+    from app.kernel.contracts.forms import SubmissionCreated
+    from app.kernel.events import publish
+
+    wants_mail = form.send_confirmation and not form.is_anonymous and sub_email
+    publish(
+        SubmissionCreated(
+            form_id=form.id,
+            form_slug=form.slug,
+            submission_id=submission.id,
+            submitter_name=sub_name,
+            submitter_email=sub_email,
+            confirm_to=sub_email if wants_mail else None,
+        ),
+        db,
+    )
+    db.commit()
+    db.refresh(submission)
+
+    return SubmissionResult(id=submission.id, status="ok", edit_token=submission.edit_token)
+
+
+# ── Publiek: wijzigen via edit_token ────────────────────────────────────────────
+
+
+def update_submission(db: Session, edit_token: str, data: SubmissionIn):
+    submission = db.query(FormSubmission).filter(FormSubmission.edit_token == edit_token).first()
+    if not submission:
+        raise HTTPException(status_code=404, detail=_("Inzending niet gevonden"))
+    form = db.query(Form).filter(Form.id == submission.form_id).first()
+    if not form or not form.allow_edit:
+        raise HTTPException(status_code=403, detail=_("Wijzigen is niet toegestaan."))
+    if form.status is not FormStatus.OPEN:
+        raise HTTPException(status_code=403, detail=_("Dit formulier staat niet (meer) open."))
+    assert_submitter(form, data.submitter_name, data.submitter_email)
+
+    from app.domains.forms.service import replace_answers
+
+    replace_answers(submission, build_answers(form, data.answers))
+    submission.submitter_name = data.submitter_name
+    submission.submitter_email = data.submitter_email
+    db.commit()
+    return SubmissionResult(id=submission.id, status="updated", edit_token=submission.edit_token)
+
+
+# ── A message for the board ──────────────────────────────────────────────────
+
+
+def submit_message(db: Session, *, naam: str, email: str | None, bericht: str, proof) -> int | None:
+    """THE write path of a message (#398): a submission on the seeded contact
+    form, and `SubmissionCreated` — the task in the workbench follows, and the
+    confirmation mail when the form asks for one. Returns the submission's id, or
+    None when the form is missing. Used by the contact page and, through the port
+    `SubmitMessage`, by the chatbot — no second way.
+
+    `proof` (#1297): a `form_guard.Proof` from the visitor's form, or
+    `form_guard.TRUSTED` for a caller without one (the chatbot). A submission the
+    guard drops leaves nothing — no row, no task, no mail — and returns None too:
+    the screen thanks the bot as it thanks a person.
+
+    No commit (CR-13 phase 4d, #1251): the request's door commits. Until then this
+    stood in `forms.api.submit_bericht`, committed itself and called mail."""
+    from app.kernel import form_guard
+    from app.kernel.contracts.forms import SubmissionCreated
+    from app.kernel.events import publish
+
+    if form_guard.refused(proof, CONTACT_FORM_SLUG):
+        return None
+
+    # #1509: the one rule — a form that cannot be sent is no form.
+    form = contact_form(db)
+    if form is None:
+        return None
+    # The invariant held "for every entrance", but this one did not ask it
+    # (#635-2). The chatbot writes here too, so an empty message or a missing
+    # address got in through the side door.
+    assert_submitter(form, naam, email, message=bericht, require_message=True)
+    answers = build_answers(form, [AnswerIn(field_id=form.fields[0].id, text=bericht)])
+    submission = FormSubmission(form_id=form.id, submitter_name=naam, submitter_email=email or None)
+    for row in answers:
+        submission.answers.append(row)
+    db.add(submission)
+    db.flush()
+    publish(
+        SubmissionCreated(
+            form_id=form.id,
+            form_slug=form.slug,
+            submission_id=submission.id,
+            submitter_name=naam,
+            submitter_email=email or None,
+            confirm_to=(email or None) if form.send_confirmation else None,
+        ),
+        db,
+    )
+    return submission.id
+
+
+def send_message(db: Session, *, naam: str, email: str | None, bericht: str, proof) -> int | None:
+    """The contact page's door: the message is stored (`submit_message`) and kept.
+    The one commit of that request — a screen module never touches the session,
+    and the service behind the port must not commit for its caller."""
+    submission_id = submit_message(db, naam=naam, email=email, bericht=bericht, proof=proof)
+    db.commit()
+    return submission_id
+
+
+def submission_confirmation(db: Session, submission_id: int) -> Optional[dict]:
+    """What the confirmation of a submission says, for whoever words the mail: the
+    form's title, the submitter's name, the form's own sentence and — when the
+    form lets an answer be changed — the link to do so. A read."""
+    submission = db.get(FormSubmission, submission_id)
+    form = db.get(Form, submission.form_id) if submission is not None else None
+    if submission is None or form is None:
+        return None
+    edit_link = None
+    if form.allow_edit and submission.edit_token:
+        # `tenant_home_url` and not `tenant_base_url` (#928): a link in a MAIL is
+        # opened from another browser, perhaps weeks later, so it carries the
+        # address where the tenant lives and not the host the board happened to
+        # work on. The KEY url stays, also when the form has a slug (#690, #928):
+        # changing an answer exists only under
+        # `/formulier/{share_token}/edit/{edit_token}`.
+        from app.kernel.tenant_config import tenant_home_url
+
+        edit_link = (
+            f"{tenant_home_url(db)}/formulier/{form.share_token}/edit/{submission.edit_token}"
+        )
+    return {
+        "form_title": form.title,
+        "name": submission.submitter_name,
+        "confirmation_message": form.confirmation_message,
+        "edit_link": edit_link,
     }

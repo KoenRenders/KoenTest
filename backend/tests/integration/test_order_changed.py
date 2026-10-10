@@ -27,13 +27,14 @@ from app.domains.payment import handlers as payment_handlers
 from app.domains.payment.api import PayableType, PaymentRecord
 from app.kernel import events
 from app.kernel.contracts.activities import OrderChanged
-from tests.conftest import seed_activity_with_product
+from tests.conftest import register_at_the_door, seed_activity_with_product
 
 
 def _register(client, db_session, quantity=2, price="18.00"):
     _activity, component, product = seed_activity_with_product(db_session, price=price)
-    response = client.post(
-        f"/api/v1/activities/{component.activity_id}/register",
+    response = register_at_the_door(
+        client,
+        component.activity_id,
         json={
             "contact_name": "An Janssens",
             "contact_email": "an@example.org",

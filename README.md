@@ -65,7 +65,6 @@ Default admin credentials (change immediately):
 | `MOLLIE_API_KEY` | Mollie payment API key | `test_xxxx` |
 | `GMAIL_USER` | Gmail address for sending email | `yourapp@gmail.com` |
 | `GMAIL_APP_PASSWORD` | Gmail app password (request at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)) | `xxxx xxxx xxxx xxxx` |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT token TTL in minutes | `60` |
 
 ## Features
 

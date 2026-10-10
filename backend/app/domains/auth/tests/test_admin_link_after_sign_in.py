@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 
 from app.domains.auth.api import User, UserRole
+from tests._queued_mail import queued_link
 from tests.conftest import sent_to_sign_in
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -38,18 +39,13 @@ def board_member(db_session):
 
 
 @pytest.fixture
-def mail_link(monkeypatch):
-    """The link the sign-in mail would carry, and the code beside it."""
+def mail_link(monkeypatch, db_session):
+    """The link the sign-in mail carries, read from the queue it waits in, and a
+    known code beside it."""
     from app.domains.auth import login as auth_login
 
-    sent = {}
-
-    def fake_send(*, to_email, magic_link, otp_code):
-        sent.update(to=to_email, link=magic_link, code=otp_code)
-
-    monkeypatch.setattr(auth_login, "send_magic_link", fake_send)
     monkeypatch.setattr(auth_login, "_generate_otp", lambda: "585858")
-    return sent
+    return lambda: queued_link(db_session, EMAIL)
 
 
 def _way_back_on_the_sign_in_page(client) -> str:
@@ -84,7 +80,7 @@ def test_signed_in_without_the_role_is_still_refused(client, db_session):
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value("geen-rol-1458@example.com"))
     answer = client.get("/admin/leden", follow_redirects=False)
-    assert answer.status_code == 403 and "Geen toegang" in answer.text
+    assert answer.status_code == 403 and "Je hebt geen toegang tot deze actie." in answer.text
 
 
 def test_the_code_brings_you_to_the_admin_page(client, board_member, mail_link):
@@ -103,7 +99,7 @@ def test_the_mail_link_brings_you_to_the_admin_page(client, board_member, mail_l
     way_back = _way_back_on_the_sign_in_page(client)
     client.post("/aanmelden", data={"email": EMAIL, "terug": way_back})
 
-    link = urlparse(mail_link["link"])
+    link = urlparse(mail_link())
     assert parse_qs(link.query)["terug"] == [PAGE]
     landed = client.get(f"{link.path}?{link.query}", follow_redirects=False)
     assert landed.status_code == 302 and landed.headers["location"] == PAGE
@@ -114,4 +110,5 @@ def test_the_mail_link_brings_you_to_the_admin_page(client, board_member, mail_l
 def test_a_foreign_way_back_in_the_code_step_is_refused(client, board_member, mail_link, foreign):
     client.post("/aanmelden", data={"email": EMAIL, "terug": foreign})
     done = client.post("/aanmelden/code", data={"email": EMAIL, "code": "585858", "terug": foreign})
-    assert done.headers.get("HX-Redirect") == "/admin/werkbank"
+    # A foreign way back is dropped; the fallback is the site's landing (#1740).
+    assert done.headers.get("HX-Redirect") == "/"

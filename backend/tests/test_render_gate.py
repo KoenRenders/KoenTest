@@ -25,13 +25,16 @@ from tests.conftest import (
     PLATFORM_TEST_HOST,
     SEEDED_ADMIN_EMAIL,
     create_test_family,
+    register_at_the_door,
     seed_activity_with_product,
     seed_postal_code,
 )
 
-pytestmark = pytest.mark.ui_serverrendered
+# CR-29 R7: one worker for the file, so the pages rendered for the first test
+# below are the pages the next two read (`_rendered_pages`).
+pytestmark = [pytest.mark.ui_serverrendered, pytest.mark.xdist_group("render_gate")]
 
-#: The screens whose route guards with `require_platform_operator_ui` (#1535): they
+#: The screens whose route guards with `require_platform_right` (#1535, CR-24): they
 #: answer in the platform workspace only, so the gate opens them on the platform
 #: host. Read from the source by `_admin_gets_zonder_parameter`, like the paths.
 _PLATFORM_ONLY: set[str] = set()
@@ -92,8 +95,9 @@ def gevulde_admin(client, db_session):
     member, person = create_test_family(db_session, email="rendergate@example.com")
     activity, comp, product = seed_activity_with_product(db_session, is_free=False)
 
-    resp = client.post(
-        f"/api/v1/activities/{activity.id}/register",
+    resp = register_at_the_door(
+        client,
+        activity.id,
         json={
             "contact_name": "An Janssens",
             "phone": "0470000000",
@@ -183,12 +187,12 @@ def _admin_gets_zonder_parameter() -> list[str]:
 
         De repo-conventie geeft het antwoord: schermen zitten in `ui.py` /
         `admin_ui.py` per domein en in `app/ui/`; JSON zit in `router.py` en
-        `*_router.py`. `app/ui/admin_api.py` is de genoemde uitzondering — JSON in
-        het UI-pakket, en zo ook in de laag-gate opgenomen.
+        `*_router.py`. (`app/ui/admin_api.py`, once JSON in the UI package and the
+        named exception here, is gone since CR-13 phase 4c, #1251.)
         """
         if pad.name in ("ui.py", "admin_ui.py"):
             return True
-        return "ui" in pad.parts and pad.name not in ("admin_api.py", "__init__.py")
+        return "ui" in pad.parts and pad.name != "__init__.py"
 
     app_map = Path(__file__).resolve().parents[1] / "app"
     paden = set()
@@ -211,7 +215,7 @@ def _admin_gets_zonder_parameter() -> list[str]:
                     continue
                 if route.startswith("/admin") and "{" not in route:
                     paden.add(route)
-                    if "require_platform_operator_ui" in ast.unparse(knoop):
+                    if "require_platform_right" in ast.unparse(knoop):
                         _PLATFORM_ONLY.add(route)
     assert _PLATFORM_ONLY, "no platform screen found — the gate would open them all as a tenant"
     return sorted(paden)
@@ -249,13 +253,33 @@ def _paginas(ids) -> list[str]:
     return _admin_gets_zonder_parameter() + detail
 
 
+#: Every admin page that opens, as (path, html) — rendered once per process.
+_RENDERED: list[tuple[str, str]] = []
+
+
+def _rendered_pages(client, ids) -> list[tuple[str, str]]:
+    """The HTML of every admin page, rendered ONCE per process (CR-29 R7).
+
+    Three tests each read the same pages for another fault — escaped attributes,
+    an unusable `hx-target`, `hx-confirm` — and each rendered all of them again:
+    three times the slowest thing in this file. The pages do not depend on which
+    of the three asks (the same fixture fills the same data), so the first one
+    renders and the others read. Kept only when the whole walk succeeded: a page
+    that fails to render fails each of the three tests, as before.
+    """
+    if not _RENDERED:
+        pages = [(pad, html) for pad in _paginas(ids) if (html := _open(client, pad)) is not None]
+        assert len(pages) > 40, (
+            f"only {len(pages)} admin pages rendered — the walk found too little"
+        )
+        _RENDERED.extend(pages)
+    return _RENDERED
+
+
 def test_geen_geescapete_attributen_op_enige_adminpagina(client, gevulde_admin):
     """De klasse die drie keer opdook (#514/#613/#616), nu op de output getoetst."""
     fouten = []
-    for pad in _paginas(gevulde_admin):
-        html = _open(client, pad)
-        if html is None:
-            continue
+    for pad, html in _rendered_pages(client, gevulde_admin):
         for treffer in GEESCAPED.finditer(html):
             regel = html[: treffer.start()].count("\n") + 1
             fouten.append(f"{pad} (regel {regel}): {treffer.group(0)}")
@@ -268,10 +292,7 @@ def test_geen_geescapete_attributen_op_enige_adminpagina(client, gevulde_admin):
 def test_elk_htmx_element_heeft_een_bruikbaar_doel(client, gevulde_admin):
     """Een hx-target die niet als selector te lezen is, mislukt stil in de browser."""
     fouten = []
-    for pad in _paginas(gevulde_admin):
-        html = _open(client, pad)
-        if html is None:
-            continue
+    for pad, html in _rendered_pages(client, gevulde_admin):
         volledige_pagina = "<html" in html
         for element in HX_ELEMENT.finditer(html):
             doel = HX_TARGET.search(element.group(0))
@@ -312,7 +333,7 @@ def test_elk_htmx_element_heeft_een_bruikbaar_doel(client, gevulde_admin):
 def test_geen_hx_confirm_in_de_output(client, gevulde_admin):
     """Bevestiging gaat sinds #595 via de in-app modal; hx-confirm toont het native
     browser-confirm. De lint-gate dekt de templates, dit de gerenderde output."""
-    fouten = [pad for pad in _paginas(gevulde_admin) if "hx-confirm" in (_open(client, pad) or "")]
+    fouten = [pad for pad, html in _rendered_pages(client, gevulde_admin) if "hx-confirm" in html]
     assert not fouten, f"hx-confirm in de output van: {fouten}"
 
 
@@ -364,13 +385,17 @@ def test_the_menu_per_kind_renders_and_what_is_off_is_404(client, gevulde_admin,
     from app.domains.mdm.api import invalidate_tenant_codes
     from app.kernel.modules import DEFAULTS, MODULES
     from app.kernel.tenancy import TENANT_MILLEGEM_ID
-    from app.ui import admin_nav
+    from app.ui import _right_of_screen, nav_for
 
     company = frozenset(code.value for code in DEFAULTS["BEDRIJF"])
     invalidate_tenant_codes()
     monkeypatch.setattr(tenant_lookup, "_modules_cache", {TENANT_MILLEGEM_ID: company})
     try:
-        menu = [i["href"] for g in admin_nav("", modules=company) for i in g["items"]]
+        menu = [
+            i["href"]
+            for g in nav_for("", frozenset(_right_of_screen().values()), modules=company)
+            for i in g["items"]
+        ]
         assert "/admin/media" in menu and "/admin/activiteiten" not in menu, menu
         broken = [p for p in menu if client.get(p).status_code != 200]
         off = [m for m in MODULES if m.code.value not in company and m.admin_items]

@@ -1,3 +1,4 @@
+{% import "_macros.html" as ui %}
 {# Totaal (#607). Altijd zichtbaar zodra het onderdeel iets te betalen heeft —
    ook op €0,00. Voorheen verscheen dit blok pas bij het eerste aantal, waardoor
    het formulier versprong (design-system §4: "no unexpected page jumps").
@@ -10,9 +11,9 @@
    button reads "Inschrijven en betalen" only then. The server's total decides,
    as it decides the amount; `typeof`, because the total also renders where no
    page listens. #}
+{# The line itself is the kit's (`ui.total_line`, CR-21 phase 0, #1748). #}
 {% if heeft_prijs %}
 {% set _leeg = not totaal or totaal <= 0 %}
-<div data-total x-data x-init="if (typeof betalen !== 'undefined') betalen = {{ 'false' if _leeg else 'true' }}" class="border-t border-line pt-3 text-sm font-semibold {% if _leeg %}text-ink-soft{% else %}text-ink{% endif %}">
-  {{ _("Totaal:") }} €{{ (totaal or 0)|geld }}{% if is_member and not _leeg %} <span class="font-normal text-ink-soft">{{ _("(ledenprijs)") }}</span>{% endif %}
-</div>
+{% set _listen %}x-data x-init="if (typeof betalen !== 'undefined') betalen = {{ 'false' if _leeg else 'true' }}"{% endset %}
+{{ ui.total_line(totaal, note=_("(ledenprijs)") if is_member else "", attrs=_listen) }}
 {% endif %}

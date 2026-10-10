@@ -34,7 +34,6 @@ MODULE_ONLY_PACKAGES = {
     "app.domains.membership",
     "app.domains.newsletter",
     "app.domains.reporting",
-    "app.domains.workflow",
 }
 
 # Included by `include_stub_routes` in development and the tests only: the stub
@@ -55,7 +54,10 @@ def _included():
             if getattr(dep.dependency, "module_code", None) is not None
         ]
         found.append((route.original_router, context.prefix, codes))
-    assert len(found) >= 40, f"the app includes only {len(found)} routers — did the walk break?"
+    # A floor, not a count: it only proves the walk found the routers. 38 after CR-13
+    # phase 4b took the JSON routers of membership and mdm (#1251); the rest of that
+    # phase takes a few more.
+    assert len(found) >= 30, f"the app includes only {len(found)} routers — did the walk break?"
     return found
 
 

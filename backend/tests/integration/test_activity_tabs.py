@@ -211,7 +211,14 @@ def test_who_may_not_see_payments_gets_no_open_balance(client, db_session, world
     off at its one source — the card must follow it, as the tab does."""
     import app.domains.auth.api as auth_api
 
-    monkeypatch.setattr(auth_api, "may_view_payments", lambda db, email: False)
+    held = auth_api.may
+    monkeypatch.setattr(
+        auth_api,
+        "may",
+        lambda db, email, right: (
+            right is not auth_api.Right.PAYMENT_VIEW and held(db, email, right)
+        ),
+    )
     _login(client, db_session)
     html = client.get(_base(world)).text
     assert f'href="{_base(world)}/betalingen"' not in html

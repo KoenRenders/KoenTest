@@ -60,21 +60,45 @@ def _tile_number(db, key: str):
 
 
 def _old_stats(db):
-    """The dashboard's own query, with the tenant context a request would have.
+    """The six numbers computed the direct way, with the tenant context a request
+    would have — the second road of the cross-check below.
 
-    `get_stats` has no tenant condition of its own; it leans entirely on the
-    ORM's global filter, which the middleware arms per request. That is correct in
-    the application and invisible in a test, where the context variable is unset
-    and the query quietly counts every tenant. Setting it here is what makes the
-    comparison a comparison — and it is worth knowing that the old query has no
-    second line of defence if that context is ever missing.
+    This was `app.ui.admin_api.get_stats`, the handler of `/api/v1/admin/stats`.
+    The route had no caller and went with CR-13 phase 4b (#1251); no screen read
+    the function, so it would have stayed in the application for this test alone.
+    The computation lives here now, unchanged: a cross-check needs a second road,
+    and the second road is the test's.
+
+    It has no tenant condition of its own; it leans entirely on the ORM's global
+    filter, which the middleware arms per request. That is invisible in a test,
+    where the context variable is unset and the query quietly counts every
+    tenant. Setting it here is what makes the comparison a comparison.
     """
+    from datetime import date
+
+    from sqlalchemy import func
+
+    from app.domains.activities.api import ActivityDate
+    from app.domains.mdm.api import Member
+    from app.domains.membership.api import current_membership_counts
+    from app.domains.payment.api import PaymentRecord, aggregate
+    from app.domains.workflow.api import open_count
     from app.kernel.tenancy import current_tenant_id
-    from app.ui.admin_api import get_stats
 
     token = current_tenant_id.set(TENANT_A)
     try:
-        return get_stats(db=db, _admin=None)  # type: ignore[arg-type]
+        today = date.today()
+        households, persons = current_membership_counts(db, today)
+        return {
+            "members": db.query(func.count(Member.id)).scalar(),
+            "active_member_households": households,
+            "active_member_persons": persons,
+            "upcoming_activities": db.query(func.count(func.distinct(ActivityDate.activity_id)))
+            .filter(func.coalesce(ActivityDate.end_date, ActivityDate.start_date) >= today)
+            .scalar(),
+            "open_tasks": open_count(db, ["ADMIN", "FINANCE"]),
+            "outstanding_balance": float(aggregate(db.query(PaymentRecord).all())["saldo"]),
+        }
     finally:
         current_tenant_id.reset(token)
 

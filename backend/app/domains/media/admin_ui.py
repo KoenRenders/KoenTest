@@ -15,9 +15,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
+    Right,
     csrf_from_request,
-    require_admin_ui,
     require_csrf,
+    require_right,
 )
 from app.i18n import _
 from app.ui import admin_nav, is_fragment_request, templates
@@ -541,7 +542,7 @@ def admin_media(
     q: str = "",
     page: int = 1,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.MEDIA_VIEW)),
 ):
     # #1527: no kind is the landing — "Kies een tak in de boom" (#891).
     # htmx (de filterbalk) krijgt enkel de kaarten terug: een pagina-swap zou het
@@ -552,7 +553,7 @@ def admin_media(
         request,
         "admin_media.html",
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             "error": None,
             **_lijst_ctx(request, db, kind, q, page=page),
         },
@@ -561,7 +562,9 @@ def admin_media(
 
 @router.get("/admin/media/nieuw", response_class=HTMLResponse)
 def media_nieuw(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.MEDIA_VIEW)),
 ):
     """Uploaden als volledige pagina (#627, §2.8) i.p.v. een modal.
 
@@ -575,7 +578,7 @@ def media_nieuw(
     ctx = _lijst_ctx(request, db, kind=(request.query_params.get("kind") or "").strip())
     ctx["tak"] = _branch_of(ctx)
     ctx["upload_kind"] = _upload_kind(ctx["kind"], ctx["upload_kind_options"])
-    ctx["nav_items"] = admin_nav(NAV)
+    ctx["nav_items"] = admin_nav(NAV, request)
     return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
 
 
@@ -599,8 +602,12 @@ def _upload_kind(kind: str, options: list) -> str:
 async def media_uploaden(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
-    files: List[UploadFile] = File(...),
+    email: str = Depends(require_right(Right.MEDIA_MANAGE)),
+    # #1831: not required here. A post without a file is refused by the service's
+    # own rule, in the page's banner — required on the route, the framework
+    # answered a bare JSON 422 and the page showed the kit's general message.
+    # `str`: a file input nobody filled arrives as an empty text field.
+    files: List[UploadFile | str] = File([]),
     kind: str = Form("sponsor"),
     activity_id: Optional[int] = Form(None),
     title: str = Form(""),
@@ -617,7 +624,7 @@ async def media_uploaden(
     try:
         stored = await upload_media(
             db,
-            files=files,
+            files=[given for given in files if not isinstance(given, str)],
             kind=kind,
             activity_id=activity_id,
             title=title.strip() or None,
@@ -641,7 +648,7 @@ async def media_uploaden(
         )
         ctx["tak"] = _branch_of(ctx)
         ctx["upload_kind"] = _upload_kind(kind, ctx["upload_kind_options"])
-        ctx["nav_items"] = admin_nav(NAV)
+        ctx["nav_items"] = admin_nav(NAV, request)
         ctx["error"] = str(exc)
         return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
     # Media is met één handeling compleet, dus terug naar de lijst (#627) — en naar
@@ -702,7 +709,7 @@ def _to_tag(tag_id: Optional[int]) -> Response:
 def create_tag_submit(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.MEDIA_MANAGE)),
     name: str = Form(""),
     parent_id: Optional[int] = Form(None),
 ):
@@ -722,7 +729,7 @@ def update_tag_submit(
     tag_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.MEDIA_MANAGE)),
     name: str = Form(""),
     parent_id: Optional[int] = Form(None),
 ):
@@ -746,7 +753,7 @@ def delete_tag_submit(
     tag_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.MEDIA_MANAGE)),
 ):
     from app.domains.media.api import MediaFout, delete_tag
 
@@ -768,7 +775,7 @@ def media_bijwerken(
     asset_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.MEDIA_MANAGE)),
     kind: str = Form("sponsor"),
     title: str = Form(""),
     link_url: str = Form(""),
@@ -826,7 +833,7 @@ def media_verplaatsen(
     asset_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.MEDIA_MANAGE)),
     kind: str = Form("sponsor"),
     richting: str = Form("omhoog"),
     q: str = Form(""),
@@ -858,7 +865,7 @@ def media_verwijderen(
     asset_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.MEDIA_MANAGE)),
     kind: str = Form("sponsor"),
     q: str = Form(""),
     filter_activity_id: Optional[int] = Form(None),
@@ -929,7 +936,7 @@ def media_picker(
     kind: str = "",
     page: int = 1,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.MEDIA_VIEW)),
 ):
     from app.domains.activities.api import activity_options
     from app.domains.media.api import (

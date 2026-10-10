@@ -10,7 +10,14 @@ twee: dezelfde lus met een andere gereedschapskist.
 
 ## Facade (`api.py`)
 
-- `ChatbotInfo` (model als type; gebruikt door de media-extractie).
+- `ChatbotInfo` (model als type).
+- `has_extracted_text(db, asset_id)` — a read: whether a document's text was read
+  already. Media's reading job asks it before it reads again (CR-13 phase 4d,
+  #1251).
+- **Subscribes to** `DocumentTextExtracted` (`kernel/contracts/media.py`,
+  `handlers.py`): the text media read of a document goes into the chatbot's own
+  row for it, in the reading job's transaction. Until phase 4d media wrote that
+  row itself.
 - **De naad**, voor wie een pakket bouwt: `run_chat` (de lus; krijgt `tools` en
   `dispatch` als parameter), `GuardedProvider` + `public_rules`/`admin_rules`
   (de wachter), `sink_for` (het logboek), `get_provider`, `SeamBlocked`,
@@ -26,8 +33,6 @@ sowieso niet mogen hebben.
 
 ## Routers & schermen
 
-- `router.py` — `POST /api/v1/chat` (SSE, React-widget; vervalt bij #405).
-- `info_router.py` — admin-API voor de ai-context.
 - `ui.py` — **`/raakje`** (htmx-vraag/antwoord, server-side compleet — geen
   SSE) en **`/admin/ai-context`** (notities, aan/uit, verwijderen).
 - Kill-switch: `CHAT_ENABLED` (bestaand) geldt ook voor het htmx-scherm.

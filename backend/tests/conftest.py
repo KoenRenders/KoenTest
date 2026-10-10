@@ -14,9 +14,17 @@ import os
 
 # Moet vóór het importeren van app-modules gezet worden: app.database leest deze
 # bij import. We gebruiken een aparte testdatabase.
-TEST_DATABASE_URL = os.environ.get(
+BASE_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
     "postgresql+psycopg2://postgres@localhost:5432/raaktest",
+)
+# CR-29 F1: under pytest-xdist every worker runs on a database of its own. The name
+# is chosen HERE and not in a fixture: `app.database` creates the engine at import,
+# a few lines down, and a fixture runs long after that.
+from tests._worker_db import fresh_worker_database, worker_database_url  # noqa: E402
+
+TEST_DATABASE_URL = worker_database_url(
+    BASE_DATABASE_URL, os.environ.get("PYTEST_XDIST_WORKER", "")
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ.setdefault("APP_ENV", "dev")
@@ -28,11 +36,10 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import event
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import event, text
+from sqlalchemy.exc import IntegrityError, InternalError
 
-from app.database import engine, get_db
-from app.domains.auth.api import create_access_token
+from app.database import SessionLocal, engine, get_db
 from app.main import app
 
 # Bestaat in de seed-migratie 014; gebruiken we als ingelogde admin. Het is de
@@ -54,6 +61,8 @@ def _migrate_schema():
     if _SCHEMA_BUILT:
         yield
         return
+    # CR-29 F1: a worker starts on an empty database of its own; without xdist this does nothing.
+    fresh_worker_database(BASE_DATABASE_URL, TEST_DATABASE_URL)
     # Schemas hard resetten (v2.0, #398): drop_all kent alleen tabellen die nog
     # in de metadata leven — na verwijderde modellen (ideas) blijven wezen
     # achter en botst de keten. CASCADE veegt álles, ook alembic_version.
@@ -75,6 +84,12 @@ def _migrate_schema():
             "meetings",
             "newsletter",
             "designstudio",
+            # CR-21 (the webshop, #1748): its four schemas, before the first
+            # migration creates one — a schema left out here survives the reset.
+            "product",
+            "pricing",
+            "stock",
+            "sales",
             "public",
         ):
             conn.exec_driver_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
@@ -95,6 +110,24 @@ def _migrate_schema():
     yield
 
 
+def pytest_collection_modifyitems(config, items):
+    """`TEST_SHUFFLE=<seed>` runs the suite in a shuffled order (CR-29 F3).
+
+    A test that passes only because of the tests before it is found by running
+    the suite in another order; the seed is printed, so a red run can be repeated.
+    Without the variable the order is pytest's own. Every domain's conftest
+    re-exports this hook, so it marks the config and shuffles once.
+    """
+    seed = os.environ.get("TEST_SHUFFLE")
+    if not seed or getattr(config, "_cr29_shuffled", False):
+        return
+    config._cr29_shuffled = True
+    import random
+
+    random.Random(seed).shuffle(items)
+    print(f"\nTEST_SHUFFLE={seed}: {len(items)} tests in a shuffled order")
+
+
 @pytest.fixture(autouse=True)
 def _reset_rate_limiters():
     """De rate-limiters houden in-memory state per IP; in tests komt alles van
@@ -109,9 +142,85 @@ def _reset_rate_limiters():
     for lim in found:
         lim._calls.clear()
     # Chatbot-dagbudget houdt eigen state per IP; reset zodat tests niet erven.
-    from app.domains.chatbot.router import chat_char_budget
+    from app.domains.chatbot.limits import chat_char_budget
 
     chat_char_budget._usage.clear()
+    yield
+
+
+@pytest.fixture(autouse=True)
+def job_queue_starts_empty(_migrate_schema):
+    """No test inherits a job another test left in the queue (CR-29 F3).
+
+    A test's writes are rolled back with its SAVEPOINT — except the ones the
+    application makes in a transaction of its own. A failed mail plans its retry
+    that way (`mail.service._enqueue_retry`), so a `mail.retry` row outlives the
+    test that caused it, and `run_due_jobs` processes whatever is due: in a
+    shuffled order the kernel's job test ran one job more than it had queued, and
+    the newsletter's `batch=1` ran the stranger instead of its own job. In the
+    usual order none happened to be due. Emptied before the test opens its
+    connection; named without an underscore so the domains' `from tests.conftest
+    import *` picks it up (CR-13 R15).
+
+    Broken to check it can go red: a scratch test that calls `_enqueue_retry` and
+    then `tests/test_kernel.py`, with the DELETE below replaced by a no-op → the
+    two job tests fail on `2 == 1` and `1 == 0`, exactly as in the shuffled run.
+    """
+    with engine.begin() as conn:
+        conn.exec_driver_sql("DELETE FROM kernel_jobs")
+    yield
+
+
+#: What Inkscape answered for an input, kept for the length of the process (below).
+_INKSCAPE_EXPORTS: dict[tuple, bytes] = {}
+_INKSCAPE_QUERIES: dict[str, dict] = {}
+_SVG_PREVIEWS: dict[tuple, bytes] = {}
+
+
+@pytest.fixture
+def one_render_per_input(monkeypatch):
+    """Inkscape renders and measures each distinct input once per process (CR-29 R7).
+
+    Every Design Studio test that makes a version starts Inkscape five times —
+    one measurement, four exports — at seconds apiece, and most of them hand it
+    the very same poster: the same fixture, or the same design saved four times
+    in a row. Both calls are pure functions of what they are given (an SVG, a
+    kind, a width), so the answer to an input already asked is the answer. Each
+    distinct input still goes through the real binary; a test that needs a
+    different poster gets a different render. Errors are not kept.
+
+    Asked for by name (`pytest.mark.usefixtures`), not autouse: only the tests
+    that reach Inkscape pay for the patch.
+    """
+    from pathlib import Path
+
+    from app.domains.designstudio import render
+    from app.domains.media import svg as media_svg
+
+    real_export, real_query = render.export, render.query_all
+    real_preview = media_svg.render_png
+
+    def export(svg, kind, *, png_width_px=None):
+        key = (svg, kind, png_width_px)
+        if key not in _INKSCAPE_EXPORTS:
+            _INKSCAPE_EXPORTS[key] = real_export(svg, kind, png_width_px=png_width_px)
+        return _INKSCAPE_EXPORTS[key]
+
+    def query_all(svg_path):
+        key = Path(svg_path).read_text(encoding="utf-8")
+        if key not in _INKSCAPE_QUERIES:
+            _INKSCAPE_QUERIES[key] = real_query(svg_path)
+        return dict(_INKSCAPE_QUERIES[key])
+
+    def render_png(svg, width, height):
+        key = (svg, width, height)
+        if key not in _SVG_PREVIEWS:
+            _SVG_PREVIEWS[key] = real_preview(svg, width, height)
+        return _SVG_PREVIEWS[key]
+
+    monkeypatch.setattr(render, "export", export)
+    monkeypatch.setattr(render, "query_all", query_all)
+    monkeypatch.setattr(media_svg, "render_png", render_png)
     yield
 
 
@@ -148,13 +257,36 @@ def session_clock_ticks(monkeypatch):
     yield
 
 
+def _check_deferred_constraints(connection) -> None:
+    """What a commit would check, asked before the test's transaction is rolled
+    back (#1832). A constraint that is checked when the transaction ends is never
+    checked in a suite that never commits: an endpoint's commit here releases a
+    savepoint, and a savepoint checks nothing deferred. Without this, such a
+    constraint is a net no test can fall into.
+
+    A test that left its transaction in a failed state (it expected a refusal of
+    the database) has nothing left to check."""
+    try:
+        connection.execute(text("SET CONSTRAINTS ALL IMMEDIATE"))
+    except InternalError:
+        return  # the transaction is aborted: the test ended on a database error
+    except IntegrityError as broken:
+        pytest.fail(
+            f"this test leaves rows a commit would refuse: {str(broken.orig).splitlines()[0]}",
+            pytrace=False,
+        )
+
+
 @pytest.fixture
 def db_session(_migrate_schema):
     """Een sessie met SAVEPOINT-isolatie die endpoint-commits overleeft."""
     connection = engine.connect()
     trans = connection.begin()
-    Session = sessionmaker(bind=connection)
-    session = Session()
+    # The app's own factory, bound to this test's connection (#1771): a second
+    # `sessionmaker(...)` here had SQLAlchemy's default autoflush where the app
+    # runs without, so a service that adds a row and looks it up again in the
+    # same request passed here and failed in the app.
+    session = SessionLocal(bind=connection)
     session.begin_nested()
 
     @event.listens_for(session, "after_transaction_end")
@@ -165,8 +297,13 @@ def db_session(_migrate_schema):
     yield session
 
     event.remove(session, "after_transaction_end", _restart_savepoint)
-    session.close()
-    trans.rollback()
+    try:
+        # Before the session closes: closing rolls its savepoint back, and then
+        # there is nothing left to check.
+        _check_deferred_constraints(connection)
+    finally:
+        session.close()
+        trans.rollback()
     connection.close()
 
 
@@ -206,6 +343,35 @@ def platform_workspace(client, monkeypatch):
 
 
 @pytest.fixture
+def every_module_on(monkeypatch):
+    """Both kinds of workspace with every module switched on (CR-24 C4.1): a
+    route of a module that is off answers 404, and that says nothing about who
+    may open it. Gives, per kind of workspace, its tenant id and the headers
+    that send a request there. It answers the query behind the cache the
+    middleware reads, not the cache: the app empties that one when it starts."""
+    from app.config import settings
+    from app.domains.mdm import tenant_lookup
+    from app.domains.mdm.api import invalidate_tenant_codes, platform_tenant_id
+    from app.kernel.modules import ModuleCode
+    from app.kernel.tenancy import TENANT_MILLEGEM_ID
+
+    monkeypatch.setattr(settings, "platform_hosts", PLATFORM_TEST_HOST)
+    invalidate_tenant_codes()
+    platform = platform_tenant_id()
+    assert platform is not None, "this database has no platform workspace"
+    every = frozenset(code.value for code in ModuleCode)
+    monkeypatch.setattr(
+        tenant_lookup, "_query_modules", lambda db: {TENANT_MILLEGEM_ID: every, platform: every}
+    )
+    invalidate_tenant_codes()
+    yield {
+        "tenant": (TENANT_MILLEGEM_ID, {}),
+        "platform": (platform, {"host": PLATFORM_TEST_HOST}),
+    }
+    invalidate_tenant_codes()
+
+
+@pytest.fixture
 def workspace_host(monkeypatch):
     """For a test that walks a list of admin paths of both kinds (#1535): a
     function giving the headers that put a path in its own workspace — the
@@ -225,13 +391,6 @@ def workspace_host(monkeypatch):
 
     yield headers
     invalidate_tenant_codes()
-
-
-@pytest.fixture
-def admin_headers():
-    """Authorization-header voor de in migratie 014 geseede admin."""
-    token = create_access_token({"sub": SEEDED_ADMIN_EMAIL})
-    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
@@ -265,6 +424,9 @@ def send_queued_mail(db) -> None:
     """
     from app.kernel.jobs import run_due_jobs
 
+    # The request that queued the job has committed before the runner reads the
+    # queue; the app's session does not flush on that read (#1771).
+    db.flush()
     run_due_jobs(db)
 
 
@@ -299,6 +461,15 @@ def create_test_member(db, **kwargs):
     db.add(member)
     db.flush()
     return member
+
+
+def seeded_admin(db):
+    """The administrator migration 014 seeds, as the `User` a service function
+    takes for its audit rows — what `get_current_admin` handed the JSON routes
+    until CR-13 phase 4b removed them (#1251)."""
+    from app.domains.auth.api import User
+
+    return db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).one()
 
 
 def create_test_family(db, *, email="hoofdlid@example.com", relation_type="HOOFDLID", mobile=None):
@@ -566,6 +737,254 @@ def seed_activity_with_product(db, price="10.00", is_free=False, max_participant
     db.add(product)
     db.flush()
     return activity, comp, product
+
+
+def register_through_the_service(
+    activity_id: int,
+    component_id: int,
+    product_id: int,
+    *,
+    quantity: int,
+    name: str,
+    email: str,
+) -> int:
+    """A registration as the public form makes it — the registration service, in a
+    session of its own, committed — for a test that needs one to exist before it
+    opens a screen. Returns the registration's id.
+
+    CR-13 phase 4b (#1251): two browser tests made theirs through the JSON route
+    `POST /api/v1/activities/{id}/register`, which had no other caller. `app.main`
+    is imported so the event subscribers are there (the confirmation mail is
+    queued by one): a service called without them loses its consequences silently.
+    """
+    from fastapi import BackgroundTasks
+
+    import app.main  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.activities.api import register_for_activity
+    from app.schemas.activity import RegistrationCreate, RegistrationItemCreate
+
+    db = SessionLocal()
+    try:
+        result = register_for_activity(
+            db,
+            activity_id,
+            RegistrationCreate(
+                contact_name=name,
+                contact_email=email,
+                phone="0470000000",
+                component_id=component_id,
+                payment_method="transfer",
+                items=[RegistrationItemCreate(product_id=product_id, quantity=quantity)],
+            ),
+            BackgroundTasks(),
+        )
+        return result["id"] if isinstance(result, dict) else result.id
+    finally:
+        db.close()
+
+
+class DoorAnswer:
+    """What a test reads off the answer of a door: the status and the body."""
+
+    def __init__(self, status_code: int, body):
+        self.status_code = status_code
+        self._body = body
+
+    def json(self):
+        return self._body
+
+    @property
+    def is_success(self) -> bool:
+        return 200 <= self.status_code < 300
+
+    @property
+    def text(self) -> str:
+        import json
+
+        return json.dumps(self._body, ensure_ascii=False, default=str)
+
+
+def add_order_line(db, activity_id: int, registration_id: int, product_id: int, quantity: int = 1):
+    """Add `quantity` of a product to an order as the registration screen saves it:
+    `set_order_quantities` with the new number for that product. The JSON route
+    that added a line, and the service function only it called, are gone (CR-13
+    phase 4b, #1251)."""
+    from app.domains.activities import service
+    from app.domains.activities.api import RegistrationItem
+
+    have = sum(
+        item.quantity
+        for item in db.query(RegistrationItem).filter_by(
+            registration_id=registration_id, product_id=product_id
+        )
+    )
+    return service.set_order_quantities(
+        db, activity_id, registration_id, {product_id: have + quantity}, actor=SEEDED_ADMIN_EMAIL
+    )
+
+
+def remove_order_line(db, activity_id: int, registration_id: int, item_id: int):
+    """Take a line off an order as the registration screen saves it: its product at 0."""
+    from app.domains.activities import service
+    from app.domains.activities.api import RegistrationItem
+
+    product_id = db.get(RegistrationItem, item_id).product_id
+    return service.set_order_quantities(
+        db, activity_id, registration_id, {product_id: 0}, actor=SEEDED_ADMIN_EMAIL
+    )
+
+
+def register_at_the_door(client, activity_id: int, json: dict, *, member_email: str | None = None):
+    """A registration as the public form's door makes it, answered as the JSON route
+    `POST /api/v1/activities/{id}/register` answered it (CR-13 phase 4b, #1251).
+
+    That route had no caller but tests — 64 test functions made their registration
+    through it. Its function stays: it is what `activities.api.register_for_activity`
+    calls for the public form. So the tests call that facade, in the session `client`
+    shares with the endpoints, and read the same answer: the body shaped by
+    `RegistrationResponse` on success, the status and `detail` of a refusal, a 422 for
+    a body the schema refuses. `member_email` signs the registrant in, as the bearer
+    token did.
+    """
+    from fastapi import BackgroundTasks
+    from fastapi.encoders import jsonable_encoder
+    from pydantic import ValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    from app.database import get_db
+    from app.domains.activities.api import register_for_activity
+    from app.domains.auth.api import login_person_for_email
+    from app.schemas.activity import RegistrationCreate, RegistrationResponse
+
+    db = next(client.app.dependency_overrides[get_db]())
+    try:
+        data = RegistrationCreate.model_validate(json)
+    except ValidationError as refusal:
+        return DoorAnswer(422, {"detail": jsonable_encoder(refusal.errors())})
+    member = login_person_for_email(db, member_email) if member_email else None
+    try:
+        result = register_for_activity(
+            db, int(activity_id), data, BackgroundTasks(), current_member=member
+        )
+    except StarletteHTTPException as refusal:
+        return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
+    body = RegistrationResponse.model_validate(result).model_dump(mode="json")
+    return DoorAnswer(200, body)
+
+
+def board_at_the_household(client, action: str, target_id: int, json: dict | None = None):
+    """A change the board makes on the members screen, asked of the service function
+    that screen calls (`mdm.household_board_service`) and answered as the JSON
+    route answered it — those routes had no caller (CR-13 phase 4b, #1251).
+
+    `action`: "update_person", "update_person_contacts" (both with `json`, read by
+    the route's own schema) or "delete_person"."""
+    from pydantic import ValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    from app.database import get_db
+    from app.domains.mdm import household_board_service as household_service
+    from app.domains.mdm.household_board_schemas import ContactsUpdate, PersonUpdate
+
+    db = next(client.app.dependency_overrides[get_db]())
+    admin = seeded_admin(db)
+    schemas = {"update_person": PersonUpdate, "update_person_contacts": ContactsUpdate}
+    try:
+        if action == "delete_person":
+            household_service.delete_person(db, target_id, admin=admin)
+            return DoorAnswer(204, None)
+        data = schemas[action].model_validate(json or {})
+        getattr(household_service, action)(db, target_id, data, admin=admin)
+    except ValidationError as refusal:
+        return DoorAnswer(422, {"detail": refusal.errors(include_context=False, include_url=False)})
+    except StarletteHTTPException as refusal:
+        return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
+    return DoorAnswer(200, None)
+
+
+def _at_the_portal(client, email: str, ask):
+    """Ask the household portal's facade as the member with `email`, and answer as the
+    JSON route answered: the body, or the status and `detail` of a refusal."""
+    from fastapi.encoders import jsonable_encoder
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    from app.database import get_db
+    from app.domains.auth.api import login_person_for_email
+
+    db = next(client.app.dependency_overrides[get_db]())
+    person = login_person_for_email(db, email)
+    try:
+        return DoorAnswer(200, jsonable_encoder(ask(db, person)))
+    except StarletteHTTPException as refusal:
+        return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
+
+
+def household_at_the_portal(client, email: str):
+    """The member's household as the portal shows it (`membership.api.household_view`).
+    The JSON route `GET /api/v1/member/household` had no caller (CR-13 phase 4b, #1251)."""
+    from app.domains.membership.api import household_view
+
+    return _at_the_portal(client, email, household_view)
+
+
+def renew_at_the_portal(client, email: str, payment_method: str = "online"):
+    """The member renews the household's membership as the portal does it
+    (`membership.api.household_renew_membership`). The JSON route
+    `POST /api/v1/member/household/renew-membership` had no caller (#1251)."""
+    from app.domains.membership.api import household_renew_membership
+
+    return _at_the_portal(
+        client,
+        email,
+        lambda db, person: household_renew_membership(db, person, payment_method=payment_method),
+    )
+
+
+def sign_up_at_the_door(client, json: dict, *, signed_in_email: str | None = None):
+    """A family signing up as the public form's door does it, answered as the JSON
+    route `POST /api/v1/families` answered it (CR-13 phase 4b, #1251).
+
+    That route had no caller but tests. Its function stays: it is what
+    `membership.api.register_family` calls for the public form. So the tests call
+    that facade, in the session `client` shares with the endpoints, and read the
+    same answer: 201 with the body shaped by `FamilyRegisteredResponse`, the status
+    and `detail` of a refusal, a 422 for a body the schema refuses.
+    `signed_in_email` signs the visitor in, as the bearer token did.
+    """
+    from fastapi import BackgroundTasks
+    from fastapi.encoders import jsonable_encoder
+    from pydantic import ValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    from app.database import get_db
+    from app.domains.auth.api import login_person_for_email
+    from app.domains.membership.api import FamilyCreate, register_family
+    from app.domains.membership.schemas_member import FamilyRegisteredResponse
+
+    db = next(client.app.dependency_overrides[get_db]())
+    try:
+        data = FamilyCreate.model_validate(json)
+    except ValidationError as refusal:
+        return DoorAnswer(422, {"detail": jsonable_encoder(refusal.errors())})
+    signed_in = login_person_for_email(db, signed_in_email) if signed_in_email else None
+    try:
+        result = register_family(db, data, BackgroundTasks(), signed_in=signed_in)
+    except StarletteHTTPException as refusal:
+        return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
+    body = FamilyRegisteredResponse.model_validate(result).model_dump(mode="json")
+    return DoorAnswer(201, body)
+
+
+def ask_questions(db, component, form_id: int | None):
+    """Let a component ask the questions of a form, as a test's set-up: through
+    `apply_component_update`, the core `save_fiche` calls for every component row,
+    and a commit. The rules of attaching fire here as they do on the fiche."""
+    from app.domains.activities import service
+
+    service.apply_component_update(db, component, {"form_id": form_id}, actor="test")
+    db.commit()
+    return component
 
 
 def seed_question_form(db, title="Sint 2026", **settings):

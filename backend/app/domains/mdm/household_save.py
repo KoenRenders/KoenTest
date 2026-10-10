@@ -7,11 +7,11 @@ transactions (the person, then the e-mail rows): a refusal in the second left th
 first stored.
 
 `save_household` writes nothing the row functions did not write and refuses
-everything they refused: it calls the same non-committing cores
+everything they refused: it calls the non-committing cores
 (`household_service.apply_person_fields`, `insert_household_person`,
 `detach_household_person`, `apply_address`; `service.write_email_rows`,
-`promote_email_row`) that the committing doors — still used by the JSON API —
-call. What is new is said where it stands:
+`promote_email_row`) that the committing doors of the JSON API called until
+those went with CR-13 phase 4b (#1251). What was new is said where it stands:
 
 - every refusal comes back at once, each at its place (`kernel.refusals`): a
   field (`h.<key>.first_name`, `e.<key>.value`, `address.postal_code`), a row
@@ -168,6 +168,61 @@ def save_household(
     return household
 
 
+def save_person(
+    db: Session,
+    person: Person,
+    rows: list[PersonRow],
+    *,
+    actor: Optional[str],
+    errors: Optional[list[FieldError]] = None,
+) -> Person:
+    """Write ONE person's own details — name, mobile number, e-mail rows — in one
+    transaction (Mijn gegevens, CR-22 S6a, #1710); `HouseholdSaveRefused` with
+    nothing written when any part is refused.
+
+    The same helpers as the household's save, so a change here is the change
+    Mijn gezin would make: the person's fields with their history, the mobile
+    row, the e-mail rows. Not asked and not touched: birth date, gender, the
+    telephone number, the relation, the address (R17). `rows` is what the form
+    carried: exactly this person, or the save is refused."""
+    from app.i18n import _
+
+    savepoint = db.begin_nested()
+    found = Refusals(list(errors or []), kinds=(MasterDataError,), passing=(HouseholdSaveRefused,))
+    try:
+        if len(rows) != 1 or rows[0].key != str(person.id):
+            found.add(
+                "",
+                _("Je kan alleen je eigen gegevens bewaren. Herlaad de pagina en probeer opnieuw."),
+            )
+            raise HouseholdSaveRefused(found.found)
+        row = rows[0]
+        at = f"h.{row.key}"
+        values = {"first_name": row.first_name.strip(), "last_name": row.last_name.strip()}
+        missing = _first_missing(row, ("first_name", "last_name"))
+        with found.at(f"{at}.{missing}" if missing else at):
+            hs.apply_person_fields(db, person, values, actor=actor, details_required=False)
+        if not found.touches(at):
+            hs._upsert_contact(db, person, "MOBILE", row.mobile.strip(), actor=actor)
+            _save_emails(db, person, row, actor, found)
+        if found.found:
+            raise HouseholdSaveRefused(found.found)
+        with found.at(""):
+            db.flush()
+        if found.found:
+            raise HouseholdSaveRefused(found.found)
+    except Exception:
+        try:
+            savepoint.rollback()
+        except InvalidRequestError:
+            pass  # already closed
+        raise
+    savepoint.commit()
+    db.commit()
+    db.refresh(person)
+    return person
+
+
 def _first_missing(row: PersonRow, order: tuple[str, ...]) -> str:
     """The field the person rules refuse first, in the order they ask — so the
     one message they give stands at the field it is about."""
@@ -234,22 +289,53 @@ def _save_person(
     # lid still asks it.
     for type_code, value in (("PHONE", row.phone), ("MOBILE", row.mobile)):
         hs._upsert_contact(db, person, type_code, value.strip(), actor=actor)
-    _save_emails(db, person, row, actor)
+    _save_emails(db, person, row, actor, errors)
 
 
-def _save_emails(db: Session, person: Person, row: PersonRow, actor: Optional[str]) -> None:
+def _save_emails(
+    db: Session, person: Person, row: PersonRow, actor: Optional[str], errors: Refusals
+) -> None:
     """The person's e-mail rows: what the form holds is what stays. A row the
     form no longer has goes (as an emptied one always did); the primary mark
-    moves only when the form marks another row."""
+    moves only when the form marks another row.
+
+    A row whose text is no address is refused at its own field, before any row
+    of this person is written (#1853): the contact detail holds that rule at the
+    flush, and asked here it has a place the screen can mark."""
+    from app.domains.mdm.models import require_email_address
     from app.domains.mdm.service import promote_email_row, write_email_rows
+
+    refused = False
+    for given in row.emails:
+        if not given.value.strip():
+            continue
+        place = f"e.{given.key}.value"
+        with errors.at(place):
+            require_email_address(given.value.strip())
+        refused = refused or errors.touches(place)
+    if refused:
+        return
 
     mine = {c.id for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL}
     sent = {int(e.key): e.value.strip() for e in row.emails if e.key.isdigit()}
     texts = {row_id: sent.get(row_id, "") for row_id in mine}
     new = [e.value.strip() for e in row.emails if not e.key.isdigit()]
-    write_email_rows(db, person, texts, new, actor=actor, source=hs.SOURCE)
-
+    # The person types these himself: a new or changed address waits for its
+    # code (CR-22 R15, #1711).
+    # The row the form marks as the primary one. When that is an address typed
+    # in this save it waits, and the mark waits with it — carried out at its
+    # code (#1590: adding an address and making it the main one is one save).
     chosen = next((e for e in row.emails if e.primary and e.value.strip()), None)
+    write_email_rows(
+        db,
+        person,
+        texts,
+        new,
+        actor=actor,
+        source=hs.SOURCE,
+        confirmed=False,
+        primary_wanted=chosen.value.strip() if chosen is not None else "",
+    )
     if chosen is None:
         return
     target = next(
@@ -267,7 +353,8 @@ def _save_emails(db: Session, person: Person, row: PersonRow, actor: Optional[st
         ),
         None,
     )
-    if target is not None and not target.is_primary:
+    # A waiting address cannot be made the primary one: it is not proven yet.
+    if target is not None and not target.is_primary and target.confirmed_at is not None:
         promote_email_row(db, person, target, actor=actor, source=hs.SOURCE)
 
 

@@ -6,7 +6,8 @@ repeating what is already written down.
 > **Note on this file.** Created by CR-12 phase 0 (26 September 2026) for the
 > code-list rule; CR-13 phase 0a (#755) added the rule of a rule's home. Ruff —
 > formatter and linter, blocking in CI — came with #781, so what ruff decides is
-> not repeated here. #1464 added the rule for copied models.
+> not repeated here. #1464 added the rule for copied models; CR-24 (#1722) the
+> rule that a gate names a right.
 
 ## A fixed vocabulary is a code table
 
@@ -68,8 +69,9 @@ loose-string gate is an AST walk and not a mypy rule: the models use the legacy
 
 The design is
 [`change_request_13_oo_foundation.md`](change_request_13_oo_foundation.md); the
-placement rule it builds on is CR-04. The gate is `backend/tests/test_rules_gate.py`,
-its frozen offenders `rules_baseline.py` — a list that may only shrink.
+placement rule it builds on is CR-04. The gate is `backend/tests/test_rules_gate.py`;
+it is hard, but for five declared calls between domains that stand in that file
+with their reasons — a list that may only shrink.
 
 **The four addresses.** `@validates("field")` for one field; `def check(self)`
 for several fields of one object, registered with `@aggregate` from
@@ -77,6 +79,17 @@ for several fields of one object, registered with `@aggregate` from
 function for anything that needs other rows; `NOT NULL`/`CHECK`/`UNIQUE`/`FOREIGN
 KEY` for what must hold at rest, in the same commit as its validator. A
 `check()` reads what is loaded and never queries.
+
+**An e-mail address of a person is written only through master data's contact
+service** (`mdm.service.new_contact_detail`; CR-22 §B7, built in #1704). It
+decides whether the address counts (`confirmed_at`) and refuses it when another
+person outside the household already uses it (`email_refusal`). The rule cannot
+be a unique index — "except inside the household" is another table — so it
+lives in the service, and `tests/test_contact_detail_factory_gate.py` keeps
+that service the only place a contact detail is made. A writer that changes the
+value of an existing row calls `require_email_free`; tests hold that, not the
+gate. No door is outside the rule: the public sign-up for a membership was,
+until CR-22's slice S8 (#1713).
 
 **An event handler** is a `@subscribe` function. It touches the session and the
 job queue, never the network, and never commits. A `@job` function is where a
@@ -110,6 +123,15 @@ registry entry, and its routers get `require_module` where `main.py` includes
 them — never a hard-coded list in a screen. The gate is
 `backend/tests/test_module_gate.py`.
 
+**Payment never branches on a payable type to describe it** (CR-21 phase 0,
+#1748). A domain that becomes payable registers a `Describer` for its type
+(`payment.api.register_describer`, called from `app/main.py`), and every
+screen, export and audit line asks the describers (`describe_many`,
+`describe_one`, `payables_of_household`). What a payment is called, where it
+links, where it stands in the filter tree and whose it is are the owner's to
+say. The gate is `payment/tests/test_payable_describers.py` (every
+`PayableType` member has one).
+
 **A picture's address and bytes belong to media** (CR-15 §C4.6, #1473): a module
 asks `media.api.media_url` for `/api/v1/media/<id>` and `media.api.asset_bytes`
 for the bytes — it never writes the address or reads `MediaAsset.data` itself —
@@ -126,3 +148,24 @@ is classified in the same change** — `backend/tests/test_copy_plans_gate.py`
 fails, naming the model and the column, until it is. A new `copy_*` function
 needs a plan, or a reason in the gate's register of functions that copy nothing
 (#1464, after #1463 left `target_audience` behind).
+
+## A gate names a right, never a role
+
+A role is a bundle of rights, kept as rows (`auth.role_rights`); what a role may
+do is said there and nowhere else. So code never asks for a role by name
+(CR-24 §B7):
+
+- **A route** depends on `require_right(Right.…)`, the right chosen by its
+  method: a GET asks `<object>.view`, every other method the changing right
+  (`<object>.manage`; for master data `<object>.masterdata`). A GET that writes
+  asks the changing right.
+- **A place that shows a way in or an action** asks `may(db, email, Right.…)`;
+  one that needs several answers — a menu — asks `rights_of(db, email)` once.
+- **A new kind of work** is a right in `auth/codes.py` and rows in a bundle,
+  both by a migration. No gate is edited for a new role.
+- **A role code in code is for assigning a role**, not for deciding: a seed, a
+  task that names the role it is for, the one platform-wide role where it is
+  given.
+
+The gate is `backend/tests/test_rights_gate.py`: no role-named gate or question
+exists, and role names in application code may only become fewer.

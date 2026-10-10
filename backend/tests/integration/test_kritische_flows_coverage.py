@@ -7,10 +7,12 @@ from decimal import Decimal
 
 from app.domains.mdm.api import RelationType
 from tests.conftest import (
+    board_at_the_household,
     create_test_family,
     create_test_person,
     seed_activity_with_product,
     seed_postal_code,
+    sign_up_at_the_door,
 )
 
 
@@ -49,7 +51,7 @@ def _family_payload(email="cover@example.com", **overrides):
 def test_families_onbekende_postcode_422_geen_partial_rows(client, db_session):
     """Een niet-bestaande postcode → 422, en er blijft geen half gezin achter."""
     # Bewust GEEN seed_postal_code → "2400" bestaat niet.
-    resp = client.post("/api/v1/families", json=_family_payload())
+    resp = sign_up_at_the_door(client, json=_family_payload())
     assert resp.status_code == 422
 
     from app.domains.mdm.api import Member, Person
@@ -66,9 +68,9 @@ def test_families_betaalfout_rolt_alles_terug(client, db_session, monkeypatch):
     def _boom(*args, **kwargs):
         raise ValueError("betaalprovider onbereikbaar")
 
-    monkeypatch.setattr("app.domains.membership.register_router.create_payment_record", _boom)
+    monkeypatch.setattr("app.domains.membership.signup_service.create_payment_record", _boom)
 
-    resp = client.post("/api/v1/families", json=_family_payload(email="boom@example.com"))
+    resp = sign_up_at_the_door(client, json=_family_payload(email="boom@example.com"))
     assert resp.status_code == 422
 
     from app.domains.mdm.api import Member, Person
@@ -90,7 +92,7 @@ def test_families_bijkomend_lid_zonder_dob_geslacht_422(client, db_session):
     payload["members"][1].pop("date_of_birth")
     payload["members"][1].pop("gender_code")
 
-    resp = client.post("/api/v1/families", json=payload)
+    resp = sign_up_at_the_door(client, json=payload)
     assert resp.status_code == 422
 
     from app.domains.mdm.api import Member
@@ -113,10 +115,10 @@ def test_families_hoofdlid_zonder_dob_mag_niet(client, db_session):
         k: v for k, v in payload["members"][0].items() if k not in ("date_of_birth", "gender_code")
     }
     payload["members"] = [hoofdlid]
-    assert client.post("/api/v1/families", json=payload).status_code == 422
+    assert sign_up_at_the_door(client, json=payload).status_code == 422
 
     payload["members"] = [{**hoofdlid, "date_of_birth": "1980-01-01", "gender_code": "M"}]
-    resp = client.post("/api/v1/families", json=payload)
+    resp = sign_up_at_the_door(client, json=payload)
     assert resp.status_code == 201, resp.text
 
 
@@ -186,16 +188,14 @@ def _add_person_to_family(db, member, *, relation_type="KIND", **kwargs):
     return p
 
 
-def test_admin_update_person_wijzigt_relation_type_niet(client, db_session, admin_headers):
+def test_admin_update_person_wijzigt_relation_type_niet(client, db_session):
     """`PUT /persons/{id}` (admin) kan het relatietype niet degraderen: het veld
     zit op MemberPerson, niet op Person, en het schema negeert het. Een meegestuurd
     `relation_type` laat het hoofdlid hoofdlid."""
     member, person = create_test_family(db_session, email="hoofd-immut@example.com")
 
-    resp = client.put(
-        f"/api/v1/persons/{person.id}",
-        json={"first_name": "Nieuw", "relation_type": "KIND"},
-        headers=admin_headers,
+    resp = board_at_the_household(
+        client, "update_person", person.id, json={"first_name": "Nieuw", "relation_type": "KIND"}
     )
     assert resp.status_code == 200, resp.text
 
@@ -206,7 +206,7 @@ def test_admin_update_person_wijzigt_relation_type_niet(client, db_session, admi
     assert mp.relation_type == RelationType.PRIMARY_MEMBER
 
 
-def test_admin_verwijder_bijkomend_lid_laat_hoofdlid_intact(client, db_session, admin_headers):
+def test_admin_verwijder_bijkomend_lid_laat_hoofdlid_intact(client, db_session):
     """Een bijkomend lid verwijderen laat het hoofdlid (en dus het gezin) coherent
     achter — de HOOFDLID-koppeling blijft bestaan."""
     member, hoofdlid = create_test_family(db_session, email="coherent@example.com")
@@ -214,7 +214,7 @@ def test_admin_verwijder_bijkomend_lid_laat_hoofdlid_intact(client, db_session, 
         db_session, member, relation_type="KIND", first_name="Kind", last_name="Persoon"
     )
 
-    resp = client.delete(f"/api/v1/persons/{kind.id}", headers=admin_headers)
+    resp = board_at_the_household(client, "delete_person", kind.id)
     assert resp.status_code == 204
 
     db_session.expire_all()

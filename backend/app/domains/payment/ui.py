@@ -19,12 +19,11 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.auth.api import (
     SESSION_COOKIE,
+    Right,
     csrf_token_for,
-    get_user_roles,
-    may_mutate_payments,
+    may,
     require_csrf,
-    require_finance_mutation,
-    require_finance_ui,
+    require_right,
 )
 from app.domains.payment.api import PayableType
 from app.domains.payment.service import (
@@ -293,11 +292,8 @@ def _row(
         f"{return_url}{'&' if '?' in return_url else '?'}{BOOKING_PARAM}={rec.id}", safe="/"
     )
     page = f"{BOOKINGS}/{rec.id}?terug={from_booking if on_tab else back}"
-    context_href = None
-    if rec.activity_id:
-        context_href = f"/admin/activiteiten/{rec.activity_id}?terug={from_booking}"
-    elif rec.family_id:
-        context_href = f"/admin/leden/gezin/{rec.family_id}?terug={from_booking}"
+    # CR-21 phase 0 (#1748): where the payable hangs is its describer's to say.
+    context_href = f"{rec.context_href}?terug={from_booking}" if rec.context_href else None
 
     action = None
     menu: list[dict] = []
@@ -313,11 +309,11 @@ def _row(
             }
         if may_mutate and rec.is_paid and not rec.is_refund:
             menu.append({"label": _("Terugbetaling"), "href": f"{page}#terugbetaling"})
-        if rec.is_registration and rec.payable_id:
+        if rec.payable_href:
             menu.append(
                 {
-                    "label": _("Inschrijving openen"),
-                    "href": f"/admin/inschrijvingen/{rec.payable_id}?terug={from_booking}",
+                    "label": _("%(what)s openen") % {"what": _(rec.payable_label)},
+                    "href": f"{rec.payable_href}?terug={from_booking}",
                 }
             )
         if may_mutate and card["mag_verwijderen"]:
@@ -652,7 +648,7 @@ def _view(
             list_path = tab_path.format(id=scope["param_waarde"])
     return_url = list_path + (f"?{urlencode(_own)}" if _own else "")
     groepen = groepen[(page - 1) * per_page : page * per_page]
-    may_mutate = may_mutate_payments(db, email)
+    may_mutate = may(db, email, Right.PAYMENT_MANAGE)
     for groep in groepen:
         groep["kaarten"] = [
             (
@@ -854,11 +850,13 @@ def _view(
 
 @router.get("/admin/betalingen", response_class=HTMLResponse)
 def betalingen_page(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_finance_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PAYMENT_VIEW)),
 ):
     # Role-aware nav (#530): een FINANCE-only gebruiker (geen ADMIN/OPERATOR) ziet
     # enkel de schermen die hij mag openen — anders 403't elke andere nav-link.
-    nav = admin_nav("/admin/betalingen", roles=get_user_roles(db, email))
+    nav = admin_nav("/admin/betalingen", request)
     return templates.TemplateResponse(
         request, "betalingen.html", _view(request, db, email, nav_items=nav).as_context()
     )
@@ -869,7 +867,7 @@ def activiteit_betalingen_tab(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_right(Right.PAYMENT_VIEW)),
 ):
     """De Betalingen-tab van de activiteit-recordpagina (golf 8-feedback):
     exact het betalingenscherm, gefilterd op dit record, onder de recordkop —
@@ -882,7 +880,7 @@ def activiteit_betalingen_tab(
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     # Nav-focus (Koen, 15 sep): je zit ín Activiteiten — de linkernavigatie
     # blijft daar staan, ook al rendert het betalingenscherm.
-    nav = admin_nav("/admin/activiteiten", roles=get_user_roles(db, email))
+    nav = admin_nav("/admin/activiteiten", request)
     ctx = _view(
         request, db, email, nav_items=nav, forceer_activiteit=activity_id, scope_stil=True
     ).as_context()
@@ -902,7 +900,7 @@ def gezin_betalingen_tab(
     family_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_right(Right.PAYMENT_VIEW)),
 ):
     """De Betalingen-tab van de gezinspagina (golf 9, #913): het gewone
     betalingenscherm, gefilterd op dit gezin, onder de gezins-recordkop.
@@ -916,7 +914,7 @@ def gezin_betalingen_tab(
         gezin = None
     if gezin is None:
         raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
-    nav = admin_nav("/admin/leden", roles=get_user_roles(db, email))
+    nav = admin_nav("/admin/leden", request)
     ctx = _view(
         request, db, email, nav_items=nav, forceer_gezin=family_id, scope_stil=True
     ).as_context()
@@ -931,7 +929,7 @@ def inschrijving_betalingen_tab(
     request: Request,
     terug: str = "",
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_right(Right.PAYMENT_VIEW)),
 ):
     """De Betalingen-tab van de inschrijvingspagina (feedback 15 sep): het
     gewone betalingenscherm in de inschrijvingscope, onder de gedeelde
@@ -944,7 +942,7 @@ def inschrijving_betalingen_tab(
         raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
     # Nav-focus (Koen, 15 sep): je kwam uit Activiteiten — de navigatie blijft
     # daar staan, ook al rendert het betalingenscherm.
-    nav = admin_nav("/admin/activiteiten", roles=get_user_roles(db, email))
+    nav = admin_nav("/admin/activiteiten", request)
     ctx = _view(
         request, db, email, nav_items=nav, forceer_inschrijving=registration_id, scope_stil=True
     ).as_context()
@@ -958,7 +956,9 @@ def inschrijving_betalingen_tab(
 
 @router.get("/admin/betalingen/lijst", response_class=HTMLResponse)
 def betalingen_lijst(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_finance_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PAYMENT_VIEW)),
 ):
     ctx = _view(request, db, email).as_context()
     ctx["oob_boven"] = True
@@ -973,7 +973,9 @@ def betalingen_lijst(
 
 @router.get("/admin/betalingen/export")
 def betalingen_export(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_finance_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PAYMENT_VIEW)),
 ):
     from app.domains.payment.exports import build_payments_export_ods
 
@@ -1062,7 +1064,7 @@ def _booking_view(
     # A record opened from here leads back to this page, which keeps its own way
     # back (`keep`) — so the origin survives two steps.
     back_here = quote(here, safe="/")
-    may_mutate = may_mutate_payments(db, email)
+    may_mutate = may(db, email, Right.PAYMENT_MANAGE)
     badges = _status_badges()
     labels = _status_labels()
     name = rec.contact_name or "—"
@@ -1087,29 +1089,17 @@ def _booking_view(
     if rec.component_name:
         context = f"{context} — {rec.component_name}"
     facts: list[dict] = []
-    if rec.activity_id:
+    if rec.context_href:
         facts.append(
-            {
-                "text": context,
-                "href": f"/admin/activiteiten/{rec.activity_id}?terug={back_here}",
-                "kind": "reference",
-            }
-        )
-    elif rec.family_id:
-        facts.append(
-            {
-                "text": context,
-                "href": f"/admin/leden/gezin/{rec.family_id}?terug={back_here}",
-                "kind": "reference",
-            }
+            {"text": context, "href": f"{rec.context_href}?terug={back_here}", "kind": "reference"}
         )
     else:
         facts.append({"text": context})
-    if rec.is_registration and rec.payable_id:
+    if rec.payable_href:
         facts.append(
             {
-                "text": _("Inschrijving"),
-                "href": f"/admin/inschrijvingen/{rec.payable_id}?terug={back_here}",
+                "text": _(rec.payable_label),
+                "href": f"{rec.payable_href}?terug={back_here}",
                 "kind": "reference",
             }
         )
@@ -1175,7 +1165,7 @@ def _booking_view(
         ),
         here=here,
         csrf_token=csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
-        nav_items=admin_nav(BOOKINGS, roles=get_user_roles(db, email)),
+        nav_items=admin_nav(BOOKINGS, request),
         error=error,
         toast_opgeslagen=saved,
     )
@@ -1203,7 +1193,7 @@ def booking_page(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_right(Right.PAYMENT_VIEW)),
 ):
     """The record page of one booking (#1574). Who may see the payments list may
     see it; only FINANCE and OPERATOR get its actions."""
@@ -1222,10 +1212,9 @@ def betaling_bevestigen(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_right(Right.PAYMENT_MANAGE)),
     note: str = Form(""),
 ):
-    require_finance_mutation(db, email)
     return _uitvoeren(bevestig_betaling, request, db, email, record_id, note=note, actor=email)
 
 
@@ -1238,11 +1227,10 @@ def betaling_refund(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_right(Right.PAYMENT_MANAGE)),
     amount: str = Form(""),
     note: str = Form(""),
 ):
-    require_finance_mutation(db, email)
     return _uitvoeren(
         registreer_terugbetaling,
         request,
@@ -1264,12 +1252,11 @@ def betaling_bijwerken(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_right(Right.PAYMENT_MANAGE)),
     amount_paid: str = Form(""),
     note: str = Form(""),
 ):
     """Betaald bedrag invullen + als betaald bevestigen (#455)."""
-    require_finance_mutation(db, email)
     return _uitvoeren(
         bevestig_betaling,
         request,
@@ -1291,7 +1278,7 @@ def betaling_bewerken(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_right(Right.PAYMENT_MANAGE)),
     status: str = Form(""),
     amount_paid: str = Form(""),
     note: str = Form(""),
@@ -1300,7 +1287,6 @@ def betaling_bewerken(
     form, voor charges én refunds (zo registreer je op een refund de effectief
     uitbetaalde som). Hergebruikt de gedeelde service-regel `edit_payment_record`,
     zodat de admin-UI en de JSON-API dezelfde validatie delen."""
-    require_finance_mutation(db, email)
     # Het omdraaien van het teken bij een terugbetaling en de bovengrens erop
     # stonden hier; ze bepalen hoeveel geld er terugvloeit en horen dus in de
     # service (#635-I).
@@ -1326,10 +1312,9 @@ def betaling_verversen(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_right(Right.PAYMENT_MANAGE)),
 ):
     """Mollie-status ophalen en toepassen (handmatige tegenhanger van de webhook, #455)."""
-    require_finance_mutation(db, email)
     return _uitvoeren(ververs_betaalstatus, request, db, email, record_id, actor=email)
 
 
@@ -1342,12 +1327,11 @@ def betaling_status(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_right(Right.PAYMENT_MANAGE)),
     status: str = Form(...),
     note: str = Form(""),
 ):
     """Vrije status-correctie door de penningmeester (#455)."""
-    require_finance_mutation(db, email)
     return _uitvoeren(
         zet_betaalstatus, request, db, email, record_id, status, note=note, actor=email
     )
@@ -1362,10 +1346,9 @@ def betaling_verwijderen(
     record_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_finance_ui),
+    email: str = Depends(require_right(Right.PAYMENT_MANAGE)),
     note: str = Form(""),
 ):
     """Betaal-/terugbetaalrecord verwijderen (soft-delete, uit het saldo, #455).
     Corrigeert ook een foute refund."""
-    require_finance_mutation(db, email)
     return _uitvoeren(verwijder_betaling, request, db, email, record_id, note=note, actor=email)

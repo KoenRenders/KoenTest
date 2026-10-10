@@ -19,6 +19,9 @@ from fastapi import HTTPException
 from app.domains.forms.service import assert_submitter, update_settings
 from app.domains.mdm.api import RelationType
 
+#: Who changes a relation in these tests: the history row names him (#1833).
+_ADMIN = SimpleNamespace(email="beheer-1833@example.com")
+
 pytestmark = pytest.mark.ui_agnostisch
 
 
@@ -116,16 +119,19 @@ def test_een_bericht_mag_niet_leeg_zijn_als_dat_gevraagd_is():
 
 
 def test_de_router_heeft_geen_eigen_kopie_meer():
-    """De private helpers waar admin_ui.py uit importeerde, bestaan niet meer."""
-    from app.domains.forms import router
+    """There is no forms router any more, so no second copy of a rule in one.
 
-    assert not hasattr(router, "_assert_submitter_impl")
-    # De namen wijzen naar de service, niet naar een tweede implementatie.
-    from app.domains.forms import service
+    The JSON routes went with CR-13 phase 4b and what the screens still used
+    moved to the service in phase 4c (#1251). The rules have one home: the
+    service, and the facade hands out the same objects."""
+    import importlib.util
 
-    assert router.assert_submitter is service.assert_submitter
-    assert router.apply_definition is service.apply_definition
-    assert router.validate_definition is service.validate_definition
+    from app.domains.forms import api, service
+
+    assert importlib.util.find_spec("app.domains.forms.router") is None
+    assert not hasattr(service, "_assert_submitter_impl")
+    for name in ("assert_submitter", "apply_definition", "validate_definition"):
+        assert getattr(api, name) is getattr(service, name), name
 
 
 # ── HOOFDLID-regel (#635 F) ──────────────────────────────────────────────────
@@ -136,14 +142,13 @@ def test_de_router_heeft_geen_eigen_kopie_meer():
 def test_hoofdlid_wordt_nooit_overschreven(db_session):
     """Het hoofdlid draagt het adres, het lidmaatschap en de betaalcommunicatie.
     Hem stil degraderen laat een gezin zonder aanspreekpunt achter (#498)."""
-    from app.domains.mdm.api import MemberPerson
-    from app.domains.membership.api import set_relation_type
+    from app.domains.mdm.api import MemberPerson, set_relation_type
     from tests.conftest import create_test_family
 
     member, person = create_test_family(db_session, email="hoofdlid@example.com")
     db_session.flush()
 
-    gewijzigd = set_relation_type(db_session, member.id, person.id, "PARTNER")
+    gewijzigd = set_relation_type(db_session, member.id, person.id, "PARTNER", admin=_ADMIN)
 
     koppeling = (
         db_session.query(MemberPerson)
@@ -155,8 +160,7 @@ def test_hoofdlid_wordt_nooit_overschreven(db_session):
 
 
 def test_een_gewoon_gezinslid_krijgt_wel_een_andere_rol(db_session):
-    from app.domains.mdm.api import MemberPerson
-    from app.domains.membership.api import set_relation_type
+    from app.domains.mdm.api import MemberPerson, set_relation_type
     from tests.conftest import create_test_family, create_test_person
 
     member, _hoofdlid = create_test_family(db_session, email="hl@example.com")
@@ -164,7 +168,7 @@ def test_een_gewoon_gezinslid_krijgt_wel_een_andere_rol(db_session):
     db_session.add(MemberPerson(member_id=member.id, person_id=kind.id, relation_type="PARTNER"))
     db_session.flush()
 
-    assert set_relation_type(db_session, member.id, kind.id, "KIND") is True
+    assert set_relation_type(db_session, member.id, kind.id, "KIND", admin=_ADMIN) is True
 
     koppeling = (
         db_session.query(MemberPerson)
@@ -175,8 +179,7 @@ def test_een_gewoon_gezinslid_krijgt_wel_een_andere_rol(db_session):
 
 
 def test_promoveren_tot_hoofdlid_kan_niet_via_dit_pad(db_session):
-    from app.domains.mdm.api import MemberPerson
-    from app.domains.membership.api import set_relation_type
+    from app.domains.mdm.api import MemberPerson, set_relation_type
     from tests.conftest import create_test_family, create_test_person
 
     member, _hoofdlid = create_test_family(db_session, email="hl2@example.com")
@@ -184,4 +187,11 @@ def test_promoveren_tot_hoofdlid_kan_niet_via_dit_pad(db_session):
     db_session.add(MemberPerson(member_id=member.id, person_id=kind.id, relation_type="KIND"))
     db_session.flush()
 
-    assert set_relation_type(db_session, member.id, kind.id, "HOOFDLID") is False
+    # Until the one-main-member rule this was dropped in silence (`False`);
+    # it is refused now, like at every entrance (`test_one_main_member_1251.py`).
+    with pytest.raises(HTTPException) as refusal:
+        set_relation_type(db_session, member.id, kind.id, "HOOFDLID", admin=_ADMIN)
+    assert (refusal.value.status_code, refusal.value.detail) == (
+        422,
+        "Een gezin heeft één hoofdlid.",
+    )

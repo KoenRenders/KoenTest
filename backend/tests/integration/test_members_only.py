@@ -174,7 +174,6 @@ def test_the_board_is_not_held_to_it(db_session, sint):
 def mail_link(monkeypatch):
     from app.domains.auth import login as auth_login
 
-    monkeypatch.setattr(auth_login, "send_magic_link", lambda **kwargs: None)
     monkeypatch.setattr(auth_login, "_generate_otp", lambda: "424242")
 
 

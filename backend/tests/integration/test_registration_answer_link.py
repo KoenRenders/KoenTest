@@ -27,11 +27,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.domains.activities import service
 from app.domains.activities.api import Registration
 from app.domains.forms.models import FormSubmission
 from app.kernel.jobs import KernelJob
-from tests.conftest import seed_activity_with_product, seed_question_form
+from tests.conftest import ask_questions, seed_activity_with_product, seed_question_form
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -41,7 +40,7 @@ def later(client, db_session):
     """A registration on a component with questions that chose "later"."""
     activity, component, product = seed_activity_with_product(db_session, price="0", is_free=True)
     form = seed_question_form(db_session)
-    service.update_component(db_session, activity.id, component.id, {"form_id": form.id})
+    ask_questions(db_session, component, form.id)
     r = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={

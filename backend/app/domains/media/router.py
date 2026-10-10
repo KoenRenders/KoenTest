@@ -1,4 +1,4 @@
-"""Assetbibliotheek: upload (admin) en serveren (publiek) van afbeeldingen.
+"""Assetbibliotheek: serveren (publiek) van afbeeldingen en documenten.
 
 Afbeeldingen worden in Postgres (BYTEA) bewaard, dus ze zitten automatisch mee
 in de DB-backup. Bij upload worden ze verkleind en van een thumbnail voorzien
@@ -7,33 +7,20 @@ in de DB-backup. Bij upload worden ze verkleind en van een thumbnail voorzien
 
 import hashlib
 import re
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
-    File,
-    Form,
     HTTPException,
-    Query,
     Request,
-    UploadFile,
 )
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import User, get_current_admin
 from app.domains.media import service as _service
-from app.domains.media.images import (
-    ALLOWED_CONTENT_TYPES,
-    MAX_UPLOAD_BYTES,
-    ImageError,
-    process_image,
-)
-from app.domains.media.models import MediaAsset, MediaKind, as_media_kind
-from app.domains.media.pdf import PDF_CONTENT_TYPE, PNG_CONTENT_TYPE, first_page_png
+from app.domains.media.models import MediaAsset
 from app.domains.media.svg import SVG_CONTENT_TYPE
 from app.i18n import _
 
@@ -42,101 +29,7 @@ router = APIRouter(tags=["media"])
 # #1005: hier stond een tweede kopie van VALID_KINDS, die niemand las. Weg in
 # plaats van bijgewerkt: twee lijsten van dezelfde soorten lopen uit elkaar, en
 # de service heeft de enige die telt.
-MAX_BATCH = 20
 SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'"
-
-# Poster/reglement mag een afbeelding óf een PDF zijn (#223).
-DOC_CONTENT_TYPES = ALLOWED_CONTENT_TYPES | {"application/pdf"}
-_EXT_BY_TYPE = {
-    "application/pdf": ".pdf",
-    "image/png": ".png",
-    "image/jpeg": ".jpg",
-    "image/webp": ".webp",
-    "image/gif": ".gif",
-}
-
-
-def _process_document(raw: bytes, content_type: str, *, kind: MediaKind | str = "") -> dict:
-    """Verwerk een poster/reglement-upload: PDF wordt ongewijzigd bewaard (geen
-    thumbnail), een afbeelding gaat door de gewone verkleining + thumbnail."""
-    if content_type == "application/pdf":
-        if not raw:
-            raise ImageError("Leeg bestand")
-        if len(raw) > MAX_UPLOAD_BYTES:
-            raise ImageError("Bestand te groot")
-        # #1019: de eerste bladzijde als afbeelding, zodat een scherm of een mail
-        # die geen PDF toont er tóch een beeld van heeft. Lukt het niet, dan blijft
-        # het document gewoon een document — geen mislukte upload.
-        png = first_page_png(raw)
-        return {
-            "data": raw,
-            "content_type": "application/pdf",
-            "thumbnail": png,
-            "thumb_content_type": PNG_CONTENT_TYPE if png else None,
-            "width": None,
-            "height": None,
-            "byte_size": len(raw),
-        }
-    return process_image(raw, kind=kind)
-
-
-async def _replace_single_asset(
-    db,
-    file: UploadFile,
-    *,
-    kind: MediaKind | str,
-    activity_id=None,
-    component_id=None,
-    title_base: Optional[str] = None,
-) -> MediaAsset:
-    """Bewaar één poster/reglement-bestand en vervang het vorige (hard delete —
-    media kent geen soft delete). ``title_base`` geeft een betekenisvolle naam
-    (zonder extensie); de extensie volgt uit het type. Geeft het nieuwe asset terug."""
-    if file.content_type not in DOC_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=_("Niet-ondersteund bestandstype: %(filename)s") % {"filename": file.filename},
-        )
-    raw = await file.read()
-    try:
-        processed = _process_document(raw, file.content_type)
-    except ImageError as exc:
-        raise HTTPException(status_code=400, detail=f"{file.filename}: {exc}")
-
-    q = db.query(MediaAsset).filter(MediaAsset.kind == as_media_kind(kind))
-    q = (
-        q.filter(MediaAsset.activity_id == activity_id)
-        if activity_id is not None
-        else q.filter(MediaAsset.component_id == component_id)
-    )
-    for old in q.all():
-        db.delete(old)  # hard delete, geen ballast
-
-    title: Optional[str]
-    if title_base:
-        title = f"{title_base}{_EXT_BY_TYPE.get(processed['content_type'], '')}"
-    else:
-        title = file.filename
-    asset = MediaAsset(
-        kind=kind,
-        activity_id=activity_id,
-        component_id=component_id,
-        title=title,
-        sort_order=0,
-        is_active=True,
-        **processed,
-    )
-    db.add(asset)
-    # A flush, not a commit (CR-13 phase 4): the caller's door commits — the
-    # replace functions of the service, or a design's version for the Design Studio.
-    db.flush()
-    db.refresh(asset)
-    return asset
-
-
-def _meta(a: MediaAsset) -> dict:
-    """Lichte metadata-respons (zonder de blobs) — één bron in de service."""
-    return _service.meta(a)
 
 
 # ---------------------------------------------------------------------------
@@ -202,194 +95,17 @@ def serve_thumb(asset_id: int, request: Request, db: Session = Depends(get_db)):
     a = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if not a:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    # #1019: een PDF van vóór deze release heeft nog geen afbeelding. Ze wordt hier
-    # één keer gemaakt en bewaard — dat spaart een eenmalig script, en zonder dit
-    # zou de "thumb" van een PDF de PDF zelf zijn.
-    if a.content_type == PDF_CONTENT_TYPE and a.thumbnail is None:
-        png = first_page_png(a.data or b"")
-        if png:
-            a.thumbnail = png
-            a.thumb_content_type = PNG_CONTENT_TYPE
-            db.commit()
+    _service.give_pdf_its_picture(db, a)
     blob = a.thumbnail or a.data
     ctype = a.thumb_content_type or a.content_type
     return _serve(blob, ctype, request, f"thumb-{a.id}")
 
 
-@router.get("/sponsors")
-def list_sponsors(db: Session = Depends(get_db)):
-    """Actieve sponsorlogo's voor footer en homepage."""
-    rows = (
-        db.query(MediaAsset)
-        .filter(MediaAsset.kind == MediaKind.SPONSOR, MediaAsset.is_active == True)  # noqa: E712
-        .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.asc())
-        .all()
-    )
-    return [_meta(a) for a in rows]
-
-
-@router.get("/media/activity-photos/availability")
-def activity_photos_availability(db: Session = Depends(get_db)):
-    """Activity-id's die actieve foto's hebben — in één query.
-
-    Laat de frontend de "Foto's"-knop tonen zonder per activiteit een aparte
-    fotorequest te doen (vermijdt het N+1-patroon op de archieflijst). Blijft
-    volledig binnen het media-domein; raakt het activiteiten-schema niet aan.
-    """
-    rows = (
-        db.query(MediaAsset.activity_id)
-        .filter(
-            MediaAsset.kind == MediaKind.ACTIVITY_PHOTO,
-            MediaAsset.is_active == True,  # noqa: E712
-            MediaAsset.activity_id.isnot(None),
-        )
-        .distinct()
-        .all()
-    )
-    return [r[0] for r in rows]
-
-
-@router.get("/media/activity-photos/covers")
-def activity_photo_covers(db: Session = Depends(get_db)):
-    """Per activiteit met foto's één cover-thumbnail (service, #635 I)."""
-    return _service.activity_photo_covers(db)
-
-
-@router.get("/activities/{activity_id}/photos")
-def list_activity_photos(activity_id: int, db: Session = Depends(get_db)):
-    return _service.list_activity_photos(db, activity_id)
-
-
 # ---------------------------------------------------------------------------
 # Admin
 # ---------------------------------------------------------------------------
-@router.get("/admin/media")
-def admin_list_media(
-    kind: Optional[str] = Query(None),
-    activity_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    return _service.list_media(db, kind=kind, activity_id=activity_id)
-
-
-@router.post("/admin/media")
-async def upload_media(
-    files: List[UploadFile] = File(...),
-    kind: str = Form(...),
-    activity_id: Optional[int] = Form(None),
-    title: Optional[str] = Form(None),
-    link_url: Optional[str] = Form(None),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    try:
-        return await _service.upload_media(
-            db, files=files, kind=kind, activity_id=activity_id, title=title, link_url=link_url
-        )
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=_(str(exc)))
-    except _service.MediaFout as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
 
 
 # ---------------------------------------------------------------------------
 # Poster (activiteit) en info/reglement (onderdeel): één bestand, vervangbaar (#223)
 # ---------------------------------------------------------------------------
-
-
-@router.post("/admin/activities/{activity_id}/poster")
-async def upload_activity_poster(
-    activity_id: int,
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    try:
-        return await _service.replace_activity_poster(db, activity_id, file, background_tasks)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
-
-
-@router.delete("/admin/activities/{activity_id}/poster", status_code=204)
-def delete_activity_poster(
-    activity_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    _service.delete_activity_poster(db, activity_id)
-
-
-@router.post("/admin/components/{component_id}/info")
-async def upload_component_info(
-    component_id: int,
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    try:
-        return await _service.replace_component_info(db, component_id, file, background_tasks)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Onderdeel niet gevonden"))
-
-
-@router.delete("/admin/components/{component_id}/info", status_code=204)
-def delete_component_info(
-    component_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    _service.delete_component_info(db, component_id)
-
-
-@router.post("/admin/media/{asset_id}/extract", status_code=202)
-def reextract_media_text(
-    asset_id: int,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    """De 'Opnieuw lezen'-knop (#235) — implementatie in de service."""
-    try:
-        return _service.reextract_text(db, asset_id, background_tasks)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Document niet gevonden"))
-
-
-@router.patch("/admin/media/{asset_id}")
-def update_media(
-    asset_id: int,
-    payload: dict,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    try:
-        return _service.update_media(db, asset_id, payload)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    except _service.MediaFout as exc:
-        # #707: de linkcontrole zit in de service, dus ook deze ingang kan hem nu
-        # werpen. Zonder deze tak werd een geweigerde link een 500. 400 zoals de
-        # uploadroute hierboven — één statuscode voor dezelfde soort fout.
-        raise HTTPException(status_code=400, detail=str(exc))
-
-
-@router.delete("/admin/media/{asset_id}")
-def delete_media(
-    asset_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    try:
-        _service.delete_media(db, asset_id)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    except _service.MediaInUse as exc:
-        # #1471: still shown somewhere — the caller gets the uses, not a delete.
-        raise HTTPException(
-            status_code=409,
-            detail={"message": str(exc), "uses": [vars(u) for u in exc.uses]},
-        ) from exc
-    return {"detail": "Verwijderd"}

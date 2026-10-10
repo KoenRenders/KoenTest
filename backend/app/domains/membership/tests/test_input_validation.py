@@ -7,7 +7,7 @@ Demonstreert ook het gebruik van de factories in conftest (create_test_family).
 
 import pytest
 
-from tests.conftest import create_test_family, seed_postal_code
+from tests.conftest import create_test_family, seed_postal_code, sign_up_at_the_door
 
 _BASE = {
     "street": "Milostraat",
@@ -50,7 +50,7 @@ _HOOFDLID = {
 )
 def test_family_registration_rejects_invalid_input(client, db_session, payload, reason):
     seed_postal_code(db_session)
-    resp = client.post("/api/v1/families", json=payload)
+    resp = sign_up_at_the_door(client, json=payload)
     assert resp.status_code == 422, f"{reason}: kreeg {resp.status_code} — {resp.text}"
 
 

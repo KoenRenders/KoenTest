@@ -152,9 +152,4 @@ LOOSE_STRINGS_NOT_A_CODE: dict[str, str] = {
             "pdf.py:mode!=RGB",
         )
     },
-    "app/domains/chatbot/router.py:role==user": (
-        "The role of a chat message (`user`/`assistant`/`system`) is the "
-        "chat-completions API's vocabulary, not ours (§B4.10)."
-    ),
-    "app/schemas/chat.py:role!=user": ("The same chat-message role, validated on the way in."),
 }

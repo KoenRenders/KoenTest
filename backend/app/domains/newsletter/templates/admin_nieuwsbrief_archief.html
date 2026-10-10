@@ -12,6 +12,7 @@
   </form>
 {% endcall %}
 {% if error %}{{ ui.error_banner(error) }}{% endif %}
+{% if notice %}{{ ui.success_banner(notice) }}{% endif %}
 
 <div class="grid gap-4 lg:grid-cols-[22rem_minmax(0,1fr)] items-start">
   <div class="bg-surface border border-line rounded-2xl p-5 space-y-3">
@@ -28,6 +29,13 @@
       <dt class="text-ink-soft">{{ _("Antwoorden") }}</dt>
       <dd>{% if letter.reply_to_address %}{{ letter.reply_to_address }}{% else %}{{ _("naar de vereniging") }}{% endif %}</dd>
     </dl>
+    {# #1783: the failed addresses can be sent again, and only those. #}
+    {% if progress.failed %}
+    <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/opnieuw" data-resend-failed>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {{ ui.btn_secondary(resend_label, type="submit", lead_icon="send", confirm=resend_question) }}
+    </form>
+    {% endif %}
     {% if progress.queued %}
     <div class="h-1.5 w-full rounded-full bg-line overflow-hidden" role="progressbar"
          aria-valuemin="0" aria-valuemax="{{ progress.total }}" aria-valuenow="{{ progress.total - progress.queued }}">
@@ -36,7 +44,10 @@
     {% endif %}
   </div>
 
-  <div class="space-y-4">
+  {# #1782: `min-w-0` — below `lg` the grid has one implicit column, and an item
+     without it is as wide as its widest content: a table with a long address
+     then widened the whole page on a phone instead of scrolling in its card. #}
+  <div class="space-y-4 min-w-0">
     <div class="bg-surface border border-line rounded-2xl p-5">
       <h2 class="font-semibold text-blue-700">{{ _("De tekst zoals hij vertrok") }}</h2>
       <div class="cms-content mt-3 text-sm">{{ letter.body_html|safe }}</div>

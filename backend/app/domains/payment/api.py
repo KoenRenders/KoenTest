@@ -14,6 +14,13 @@ from app.domains.payment.codes import (  # noqa: F401
     PAYMENT_STATUS,
     PAYMENT_TYPE,
 )
+from app.domains.payment.describers import (  # noqa: F401
+    Describer,
+    PayableDescription,
+    describe_one,
+    register_describer,
+    registered_describers,
+)
 from app.domains.payment.gateway_service import (  # noqa: F401
     create_payment,
     refresh_payment_status,
@@ -66,6 +73,11 @@ from app.domains.payment.service import (  # noqa: F401
 from app.domains.payment.transfer_due import TransferDue, transfer_due  # noqa: F401
 
 __all__ = [
+    "Describer",
+    "PayableDescription",
+    "describe_one",
+    "register_describer",
+    "registered_describers",
     "PAYABLE_TYPE",
     "PAYMENT_PROVIDER",
     "PAYMENT_STATUS",

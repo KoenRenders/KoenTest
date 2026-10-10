@@ -12,7 +12,7 @@ ever" (CR-06 §7.5): object keys are looked up, unknown ones are refused before 
 query runs, and filter values never touch the statement text.
 
 **No per-object role fence in this release** (decision of 10 September 2026, #832):
-reporting sits behind `require_admin_ui` like every other admin screen, and the
+reporting sits behind its own rights (`report.view`, `report.manage`), and the
 roles in the universe are a declaration of what must hold once that switch is
 built. Half a fence would suggest a protection that is not there. The tenant
 filter is a different matter and is applied unconditionally, here, on every

@@ -5,8 +5,6 @@ centrale logging (`mail.email_log`) en herverzending bij falen.
 
 ## Facade (`api.py`) — de enige toegangsdeur voor andere componenten
 
-- `send_magic_link(to_email, magic_link, otp_code=None)`
-- `send_member_contact_board_notice(to_email)`
 - `send_registration_confirmation(to_email, name, family, ...)`
 - `send_activity_registration_confirmation(...)`
 - `send_form_confirmation(...)`
@@ -24,6 +22,10 @@ SMTP-call ná de response uitgevoerd, zónder synchroon.
 - Abonnee van `MailRequested` (`app.kernel.contracts.mail`): componenten
   zonder directe mail-afhankelijkheid publiceren dit event; het mail-component
   verstuurt en logt via het `_send`-chokepoint.
+- Subscriber of `SubmissionCreated` (`app.kernel.contracts.forms`, CR-13 phase 4d): when
+  forms names an address in `confirm_to`, mail words the confirmation of the submission
+  (`form_confirmation_message`, from `forms.api.submission_confirmation`) and queues it in
+  the publisher's transaction. Forms no longer calls `send_form_confirmation`.
 
 ## Jobs (kernel, §5.8)
 

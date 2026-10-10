@@ -32,9 +32,13 @@ from types import SimpleNamespace
 import pytest
 from jinja2 import ChoiceLoader, DictLoader
 
-from app.domains.activities import service
 from app.ui import templates
-from tests.conftest import seed_activity_with_product, seed_question_form
+from tests.conftest import (
+    ask_questions,
+    register_at_the_door,
+    seed_activity_with_product,
+    seed_question_form,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -73,7 +77,7 @@ def probed_partial():
 def sint(client, db_session):
     activity, component, product = seed_activity_with_product(db_session, price="0", is_free=True)
     form = seed_question_form(db_session)
-    service.update_component(db_session, activity.id, component.id, {"form_id": form.id})
+    ask_questions(db_session, component, form.id)
     return SimpleNamespace(activity=activity, component=component, product=product, form=form)
 
 
@@ -118,7 +122,7 @@ def test_the_answer_link_and_the_correction_render_it_too(client, db_session, si
         }
         if answers is not None:
             body["answers"] = answers
-        assert client.post(f"/api/v1/activities/{sint.activity.id}/register", json=body).is_success
+        assert register_at_the_door(client, sint.activity.id, json=body).is_success
     regs = {
         r.contact_name: r
         for r in db_session.query(Registration).filter_by(activity_id=sint.activity.id)

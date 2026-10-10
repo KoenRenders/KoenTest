@@ -24,8 +24,6 @@ PAYMENT_STUB_ENVIRONMENTS = ("dev", "test")
 class Settings(BaseSettings):
     database_url: str = "postgresql://postgres:postgres@localhost:5432/raakmillegem"
     secret_key: str
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60 * 24  # 24 hours
 
     debug: bool = False
 
@@ -58,7 +56,6 @@ class Settings(BaseSettings):
     chat_model: str = "mistral-small-latest"  # = Mistral Small 4
     # Vangrails (kosten/misbruik): cap per bericht, geschiedenis en dag.
     chat_max_input_chars: int = 2000
-    chat_max_history_messages: int = 20
     chat_daily_char_budget: int = 20000
     chat_max_tool_rounds: int = 4
 

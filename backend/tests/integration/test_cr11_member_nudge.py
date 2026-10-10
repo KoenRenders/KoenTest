@@ -1,7 +1,8 @@
 """CR-11 W17 (#1391): the member nudge on the public registration.
 
-One sentence, unconditional, above the contact fields: *"Lid van RAAK? Log je
-eerst aan: dan staat de inschrijving bij je gezin."* — with a sign-in link that
+One sentence, unconditional, above the contact fields — since CR-22 S5 (#1709;
+A3, Q39) *"Heb je een account of ben je lid? Log je eerst aan."*; it was *"Lid
+van RAAK? Log je eerst aan: dan staat de inschrijving bij je gezin."* — with a sign-in link that
 returns to the page. Never on recognition of an address (the form looks nothing
 up, and a hint would leak whether an address is a member's). A signed-in member
 does not see it.
@@ -28,7 +29,7 @@ from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
 
-SENTENCE_START = "Lid van RAAK?"
+SENTENCE_START = "Heb je een account of ben je lid?"
 
 
 def _registration_page(db):
@@ -93,4 +94,5 @@ def test_a_foreign_address_is_not_followed(client, db_session, monkeypatch):
     db_session.commit()
     first, _step, done = _sign_in(client, monkeypatch, "evil-w17@example.com", "//evil.example/x")
     assert 'name="terug"' not in first
-    assert done.headers.get("HX-Redirect") == "/leden/gezin", "the landing by role"
+    # CR-22 (#1707): a member lands on the account page, no longer on Mijn gezin.
+    assert done.headers.get("HX-Redirect") == "/mijn", "the landing by role"

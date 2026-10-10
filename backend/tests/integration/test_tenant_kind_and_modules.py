@@ -35,7 +35,7 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 pytestmark = pytest.mark.ui_serverrendered
 
 EVERY = {code.value for code in ModuleCode}
-COMPANY = {"cms", "media", "forms", "workflow"}
+COMPANY = {"cms", "media", "forms"}
 
 
 def _operator(client, db_session) -> str:
@@ -180,7 +180,7 @@ def test_the_editor_shows_the_kind_and_the_modules_and_refuses_a_missing_depende
 
     saved = client.post(
         f"/admin/tenants/{org.id}",
-        data={"modules_shown": "1", "modules": ["cms", "media", "forms", "workflow", "newsletter"]},
+        data={"modules_shown": "1", "modules": ["cms", "media", "forms", "newsletter"]},
         headers={"X-CSRF-Token": csrf, "HX-Request": "true"},
     )
     assert saved.status_code == 200
@@ -214,15 +214,28 @@ def test_the_new_tenant_page_is_operator_only_and_offers_the_kind(
 # ── C6 test 9: landing without membership ───────────────────────────────────
 
 
-def test_a_user_without_an_admin_role_lands_on_the_site_without_membership(db_session):
-    token = current_modules.set(frozenset(EVERY - {"membership"}))
-    try:
-        assert landing_for(db_session, "iemand-1478@example.com") == "/"
-    finally:
-        current_modules.reset(token)
-    token = current_modules.set(frozenset(EVERY))
-    try:
-        assert landing_for(db_session, "iemand-1478@example.com") == "/leden/gezin"
-    finally:
-        current_modules.reset(token)
+def test_a_user_without_an_admin_role_lands_on_the_account_page_with_or_without_membership(
+    db_session,
+):
+    """Rewritten with CR-22 (#1707; Koen, 7 October 2026). This test pinned "/"
+    for a tenant without the membership module, because Mijn gezin — the
+    landing then — answers 404 there. The landing is the account page now, and
+    that page exists on every tenant: with or without members, whoever signs
+    in as a person lands on "Mijn <tenant>".
+
+    What it still guards, as test 9 did: the landing never points at a page
+    this tenant does not serve. A session that signs in as no person has no
+    account page either, and lands on the site.
+    """
+    from tests.conftest import create_test_family
+
+    create_test_family(db_session, email="iemand-1478@example.com")
+    db_session.commit()
+    for modules in (EVERY - {"membership"}, EVERY):
+        token = current_modules.set(frozenset(modules))
+        try:
+            assert landing_for(db_session, "iemand-1478@example.com") == "/mijn"
+            assert landing_for(db_session, "niemand-1478@example.com") == "/"
+        finally:
+            current_modules.reset(token)
     assert TENANT_MILLEGEM_ID  # the default tenant keeps every module

@@ -7,9 +7,10 @@ member, so the lookup was always false and the refresh applied nothing: the
 button answered, the record stayed open. No test ran the refresh with a gateway
 that says *paid* and then looked at the record.
 
-Both ways in are covered, because both now ask the same service function: the
-screen (`/admin/betalingen/{id}/verversen`) and the JSON route
-(`/api/v1/payment-status/records/{id}/refresh`). The gateway is the stub provider
+The screen (`/admin/betalingen/{id}/verversen`) and the service function it asks
+(`payment.service.refresh_record_status`, through `tests.payments_door`) are both
+covered; the JSON route that asked the same function went with CR-13 phase 4b
+(#1251). The gateway is the stub provider
 (#1274), so the amount check of #92 runs on a real amount instead of being skipped.
 
 **Writing these tests found a second bug under the first.** With the comparison
@@ -37,6 +38,7 @@ from app.domains.payment.api import GatewayPayment, PaymentRecord, PaymentStatus
 from app.domains.payment.providers import stub
 from app.kernel.contracts.payment import PaymentReceived
 from app.kernel.events import _subscribers, subscribe
+from tests import payments_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -129,13 +131,11 @@ def test_the_screen_refresh_books_what_the_gateway_calls_paid(client, db_session
     _assert_paid_once(_reread(db_session, record.id), received)
 
 
-def test_the_json_refresh_books_what_the_gateway_calls_paid(
-    client, db_session, admin_headers, received
-):
+def test_the_json_refresh_books_what_the_gateway_calls_paid(client, db_session, received):
     _finance(db_session)
     record = _online_charge(db_session, at_gateway=PaymentStatus.PAID, payable_id=12492)
 
-    resp = client.post(f"/api/v1/payment-status/records/{record.id}/refresh", headers=admin_headers)
+    resp = payments_door.refresh(client, record.id)
 
     assert resp.status_code == 200, resp.text[:300]
     _assert_paid_once(_reread(db_session, record.id), received)

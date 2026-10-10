@@ -393,3 +393,19 @@ def test_the_payload_can_be_copied_out_in_one_click(client, db_session, aan):
     assert "Kopieer wat Mistral zag" in resp.text
     # De payload staat één keer in de pagina, niet ook nog eens in een attribuut.
     assert 'data-copy="[' not in resp.text
+
+
+@pytest.mark.parametrize("vraag", ["", "   "])
+def test_an_empty_question_is_refused_in_the_services_words(client, db_session, aan, vraag):
+    """ "A question is not empty" is `chatbot.service.asked`'s (CR-13 phase 4c,
+    #1251); this door shows its refusal in the turn, as it showed its own.
+
+    Proven red (8 October 2026): the emptiness check switched off in `asked` → the
+    empty question goes on to the model and the sentence is not on the page.
+    """
+    csrf = login(client, db_session)
+    resp = client.post(
+        PATH, data={"vraag": vraag, "historie": "[]"}, headers={"X-CSRF-Token": csrf}
+    )
+    assert resp.status_code == 200
+    assert "Typ eerst een vraag." in resp.text

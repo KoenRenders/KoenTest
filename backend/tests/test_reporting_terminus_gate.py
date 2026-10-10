@@ -45,6 +45,11 @@ MIGRATIONS = Path(__file__).resolve().parents[1] / "alembic" / "versions"
 ALLOWED_IMPORTERS = {
     "app.main",  # route registration
     "app.ui.system_ui",  # the dashboard tiles
+    # The two change screens and their export (CR-13 phase 4c, #1251). The change
+    # report reads four owners' history through their facades — reading across
+    # the others is reporting's job, so its module lives here (`changes.py`) —
+    # and these screens are that report shown: a screen, not a process on top.
+    "app.ui.changes_ui",
 }
 # Deliberately not on the list: the assistant (CR-07 §4.1). Its capability pack
 # lives *inside* reporting (`reporting/assistant.py`), because reporting imports

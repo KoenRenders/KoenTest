@@ -43,7 +43,7 @@ NOT_COPY_ACTIONS = {
     "activities.service.copy_suggestions": "returns two suggested dates; copies nothing",
     "activities.admin_ui.copy_activity_step": "the route that shows the copy step",
     "activities.admin_ui.copy_activity_submit": "the route that calls copy_activity",
-    "forms.api.copy_form": "the facade of forms.service.copy_form",
+    "forms.handlers.copy_form": "the handler of the port CopyForm; calls forms.service.copy_form",
     "designstudio.handlers.copy_designs_of_copied_activity": "calls designstudio.service.copy_designs",
 }
 

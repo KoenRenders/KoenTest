@@ -33,13 +33,16 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.forms.api import FormulierFout, delete_form, delete_submission
 from app.domains.forms.models import Form, FormSubmission
 from app.kernel.tenancy import TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID, current_tenant_id
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product, seed_question_form
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    ask_questions,
+    seed_activity_with_product,
+    seed_question_form,
+)
 
 
 def _attach(db, component, form_id):
-    return service.update_component(
-        db, component.activity_id, component.id, {"form_id": form_id}, actor="test"
-    )
+    return ask_questions(db, component, form_id)
 
 
 def _answered(db, component, form):

@@ -19,6 +19,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import text as sql
 
 from app.domains.activities.api import (
@@ -28,9 +29,11 @@ from app.domains.activities.api import (
     ActivityStatus,
     ActivitySubRegistration,
     activities_from,
+    list_activities,
+    public_registrations,
 )
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields, register_at_the_door
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -65,7 +68,7 @@ def test_a_draft_is_off_the_site_until_it_is_published(client, db_session):
     assert "Bouwen in concept" not in client.get("/activiteiten").text
     assert client.get(f"/activiteiten/{activity_id}").status_code == 404
     assert "Bouwen in concept" not in client.get("/").text
-    assert all(a["id"] != activity_id for a in client.get("/api/v1/activities?scope=all").json())
+    assert all(a.id != activity_id for a in list_activities(db_session, "all"))
 
     csrf = _board(client)
     answer = client.post(
@@ -86,12 +89,12 @@ def test_a_draft_takes_no_registration_from_the_site(client, db_session):
 
     page = client.get(f"/activiteiten/{draft.id}/inschrijven/{component.id}")
     assert page.status_code == 404
-    participants = client.get(
-        f"/api/v1/activities/{draft.id}/public-registrations?component_id={component.id}"
-    )
-    assert participants.status_code == 404
-    answer = client.post(
-        f"/api/v1/activities/{draft.id}/register",
+    with pytest.raises(HTTPException) as participants:
+        public_registrations(db_session, draft.id, component.id)
+    assert participants.value.status_code == 404
+    answer = register_at_the_door(
+        client,
+        draft.id,
         json={
             "component_id": component.id,
             "contact_name": "Iemand",

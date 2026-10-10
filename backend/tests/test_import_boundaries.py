@@ -104,10 +104,11 @@ def test_import_boundaries():
                     "system_ui",
                     "tenants_ui",
                     "import_router",
-                    "admin_api",
-                    "register_router",
-                    "household_router",
                     "stub_router",
+                    # CR-22 S6a (#1710): a domain's pages under "Mijn <site>".
+                    "account_ui",
+                    # CR-22 S7 (#1712): Personen, master data's own back-office screen.
+                    "persons_ui",
                 )
             ) or (
                 module == "app.models.__init__"

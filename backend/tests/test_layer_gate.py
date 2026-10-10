@@ -50,12 +50,6 @@ APP = Path(__file__).resolve().parents[1] / "app"
 # module — de hele codebase importeert hem zo. Enige uitzondering op regel 1.
 VERTAALFUNCTIE = ("app.i18n", "_")
 
-# app/ui/admin_api.py is JSON, geen UI: hij hangt onder /api/v1/admin, staat in het
-# OpenAPI-schema en gebruikt de JWT-deurwachter (get_current_admin). Hij valt dus
-# buiten de laag-gate, maar staat hier bij naam genoemd i.p.v. stil te ontsnappen
-# aan de scoperegel hieronder. (#635 stap A: "beslis en documenteer".)
-JSON_IN_UI_PAKKET = {"admin_api.py"}
-
 # ── Allowlist ────────────────────────────────────────────────────────────────
 # (module, regel) waarbij regel ∈ {"imports", "orm", "facade"}. Leeg = eindtoestand.
 # Schermen die hun context nog als letterlijke dict doorgeven (#643-F). Krimpt met
@@ -225,11 +219,12 @@ def test_een_scherm_ontsnapt_niet_aan_de_gate_via_zijn_naam():
     """#635-J5: alles in app/ui/ met een APIRouter heet `*_ui.py`.
 
     Zonder deze regel valt een nieuw scherm buiten de scope door het `admin_beheer.py`
-    te noemen. De JSON-composer staat bij naam in JSON_IN_UI_PAKKET.
+    te noemen. (The one named exception, the JSON composer `admin_api.py`, lost its
+    routes with CR-13 phase 4b and its name with phase 4c, #1251.)
     """
     fouten = []
     for pad in bestanden(APP.glob("ui/*.py"), wat="de modules in app/ui/", minstens=3):
-        if pad.name.endswith("_ui.py") or pad.name in JSON_IN_UI_PAKKET:
+        if pad.name.endswith("_ui.py"):
             continue
         if "APIRouter" in pad.read_text(encoding="utf-8"):
             fouten.append(f"app/ui/{pad.name} bevat een APIRouter maar heet geen *_ui.py")

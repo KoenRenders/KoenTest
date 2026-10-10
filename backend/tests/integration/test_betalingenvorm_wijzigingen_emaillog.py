@@ -48,8 +48,7 @@ def _login(client, db):
 
 def _wijzigingen(db, aantal):
     """Audit-rijen via dezelfde functie als de productiecode (zie #620-tests)."""
-    from app.domains.audit.api import snapshot_person
-    from app.domains.mdm.api import Person
+    from app.domains.mdm.api import Person, snapshot_person
 
     for i in range(aantal):
         person = Person(first_name=f"Vorm{i}", last_name="Test")

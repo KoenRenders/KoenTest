@@ -31,3 +31,7 @@ de ORM-relatie via backref blijft voor intern gemak.
   activates a membership once its payment covers it — idempotently, a repeated
   event activates once (#113, #720). Until phase 2 the payment component wrote
   this itself; the owner writes its rows now (`service.activate_after_payment`).
+- Publishes `MembershipDeleted` (CR-13 phase 4c, `kernel/contracts/membership.py`):
+  the board deleted a membership, on its own or with its household. `payment`
+  subscribes and lets the money follow (#619). Not optional: membership refuses
+  to publish when nothing subscribes.

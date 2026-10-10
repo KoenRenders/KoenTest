@@ -203,6 +203,9 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
         # #971: Organisaties staat vóór Tenants, en het zijn twee items omdat het
         # twee dingen zijn — een rechtspersoon en een site. De ACCOUNT-organisatie
         # is geen tenant en stond daardoor in geen enkel menu.
+        # CR-22 S7 (#1712): Personen, a tenant workspace's item, before the
+        # organisation.
+        "/admin/personen",
         "/admin/organisaties",
         "/admin/tenants",
         # #1535: a tenant workspace's own organisation and settings, where the
@@ -238,7 +241,7 @@ def test_the_dashboard_keeps_its_six_tiles_and_its_place(client, db_session):
     That the six NUMBERS did not change is a different test and a sharper one:
     `test_reporting_dashboard.py` computes each of them the old way and through
     its report and compares. It only works while both roads exist, which is why
-    `get_stats` stays.
+    that test keeps the direct computation as its own helper (`_old_stats`).
     """
     from tests.conftest import SEEDED_ADMIN_EMAIL
 

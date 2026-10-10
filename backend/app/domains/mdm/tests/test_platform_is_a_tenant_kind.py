@@ -31,13 +31,14 @@ pytestmark = pytest.mark.ui_serverrendered
 
 PLATFORM_HOST = "platform.example.test"
 SHELL = (
+    "/admin/werkbank",
     "/admin/tenants",
     "/admin/organisaties",
     "/admin/gebruikers",
     "/admin/ledenwijzigingen",
     "/admin/info",
 )
-ON = ("/admin/paginas", "/admin/media", "/admin/formulieren", "/admin/werkbank")
+ON = ("/admin/paginas", "/admin/media", "/admin/formulieren")
 OFF = ("/admin/activiteiten", "/admin/leden", "/admin/vergaderingen", "/admin/nieuwsbrieven")
 
 
@@ -74,10 +75,10 @@ def test_the_platform_has_its_kind_and_its_set(db_session):
     platform = _platform(db_session)
 
     assert platform.kind is TenantKind.PLATFORM
-    assert enabled_modules(platform.id, db=db_session) == {"cms", "media", "forms", "workflow"}
+    assert enabled_modules(platform.id, db=db_session) == {"cms", "media", "forms"}
 
 
-def test_the_platform_menu_is_the_shell_and_its_four_modules(client, db_session, platform_host):
+def test_the_platform_menu_is_the_shell_and_its_three_modules(client, db_session, platform_host):
     _operator(client, db_session)
     html = client.get("/admin/gebruikers", headers={"host": platform_host}).text
     nav = re.search(r'<nav id="admin-nav-zijbalk".*?</nav>', html, re.S)
@@ -98,7 +99,6 @@ def test_the_registry_has_the_platforms_own_entry():
         ModuleCode.CMS,
         ModuleCode.MEDIA,
         ModuleCode.FORMS,
-        ModuleCode.WORKFLOW,
     }
 
 

@@ -9,6 +9,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div>
       {{ ui.label(_("Datum"), "vg-datum", required=True) }}
+      {# promise walked by: test_a_meeting_is_not_made_without_its_date #}
       {{ ui.input_control("meeting_date", id="vg-datum", type="date", value=suggested_date, required=True, cls="w-full") }}
     </div>
     <div class="grid grid-cols-2 gap-3">

@@ -15,3 +15,16 @@ def snapshot_row(obj: Any, exclude: tuple[str, ...] = ()) -> dict[str, Any]:
     een history-rij (wie/wat/wanneer voegt het component zelf toe)."""
     mapper = inspect(obj).mapper
     return {col.key: getattr(obj, col.key) for col in mapper.column_attrs if col.key not in exclude}
+
+
+# #713: what stands in `actor` when NOBODY was signed in.
+#
+# Empty used to mean two things at once — "nobody was signed in" and "we forgot who
+# did this" — and a screen shows both as an empty cell. So nobody could read such a
+# cell, and the next omission could join it unseen; that is how the four came about
+# that #713 put right.
+#
+# Since then the public roads write this, and empty means **a fault**. No `@`, so it
+# is never read as an e-mail address. Rows from before stay empty: they cannot be
+# explained in hindsight and are not to be treated as if they could.
+PUBLIC_ACTOR = "publiek"

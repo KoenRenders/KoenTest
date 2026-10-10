@@ -51,10 +51,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
+    Right,
     csrf_from_request,
-    require_admin_ui,
     require_csrf,
-    require_platform_operator_ui,
+    require_platform_right,
+    require_right,
     require_tenant_workspace,
 )
 from app.domains.mdm.api import ORGANIZATION_TYPE, OrganizationType
@@ -70,7 +71,7 @@ NAV = "/admin/organisaties"
 # hier — één plek, zodat een veld niet in de ene helft van de code bestaat en in de
 # andere niet.
 CONTACTGROEP = [
-    ("email", "E-mailadres", "Contactadres van de organisatie; komt in de footer."),
+    ("email", "E-mail", "Contactadres van de organisatie; komt in de footer."),
     ("phone", "Telefoon", "Optioneel; komt in de footer."),
     ("mobile", "Mobiel", "Optioneel."),
     ("website", "Website", "Optioneel."),
@@ -134,7 +135,7 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
         organisaties = [o for o in organisaties if o["org_type"] == soort]
 
     return {
-        "nav_items": admin_nav(NAV),
+        "nav_items": admin_nav(NAV, request),
         "organisaties": organisaties,
         "q": zoek,
         "org_type": soort,
@@ -168,7 +169,7 @@ def _editor_ctx(
     heeft_site = organisatie["org_type"] in ("UNIT", "PLATFORM")
 
     return {
-        "nav_items": admin_nav("/admin/organisatie" if own else NAV),
+        "nav_items": admin_nav("/admin/organisatie" if own else NAV, request),
         "organisatie": organisatie,
         "organization_id": organization_id,
         "heeft_site": heeft_site,
@@ -196,16 +197,17 @@ def _editor_ctx(
 
 @router.get("/admin/organisaties", response_class=HTMLResponse)
 def organisaties(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_platform_right(Right.PLATFORM_VIEW)),
 ):
-    require_platform_operator_ui(db, email)
     sjabloon = "_org_kaarten.html" if is_fragment_request(request) else "admin_organisaties.html"
     return templates.TemplateResponse(request, sjabloon, _lijst_ctx(request, db))
 
 
 def _new_account_ctx(request: Request, *, name: str = "", code: str = "", error=None) -> dict:
     return {
-        "nav_items": admin_nav(NAV),
+        "nav_items": admin_nav(NAV, request),
         "name": name,
         "code": code,
         "error": error,
@@ -216,10 +218,11 @@ def _new_account_ctx(request: Request, *, name: str = "", code: str = "", error=
 # Declared before `/{organization_id}`: FastAPI matches in declaration order.
 @router.get("/admin/organisaties/nieuw", response_class=HTMLResponse)
 def new_account_form(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_platform_right(Right.PLATFORM_VIEW)),
 ):
     """ "Nieuw account" (CR-19, #1495): OPERATOR only, on GET as on POST."""
-    require_platform_operator_ui(db, email)
     return templates.TemplateResponse(
         request, "admin_organisatie_nieuw.html", _new_account_ctx(request)
     )
@@ -231,7 +234,7 @@ def new_account_form(
 def create_account_route(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_platform_right(Right.PLATFORM_MANAGE)),
     name: str = Form(""),
     code: str = Form(""),
 ):
@@ -239,7 +242,6 @@ def create_account_route(
     is filled in. A refusal shows the form again with what was typed."""
     from app.domains.mdm.api import TenantFout, create_account
 
-    require_platform_operator_ui(db, email)
     try:
         account = create_account(db, name=name, code=code)
     except TenantFout as fout:
@@ -259,9 +261,8 @@ def organisatie_editor(
     organization_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_platform_right(Right.PLATFORM_VIEW)),
 ):
-    require_platform_operator_ui(db, email)
     return templates.TemplateResponse(
         request, "admin_organisatie.html", _editor_ctx(request, db, organization_id)
     )
@@ -276,15 +277,16 @@ async def organisatie_opslaan(
     organization_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_platform_right(Right.PLATFORM_MANAGE)),
 ):
-    require_platform_operator_ui(db, email)
     return await _save(request, db, organization_id, own=False)
 
 
 @router.get("/admin/organisatie", response_class=HTMLResponse)
 def own_organisation(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """ "Onze organisatie" (#1535): the tenant workspace's own organisation, for
     its ADMIN and the operator — and nothing of another organisation.
@@ -314,7 +316,9 @@ def _own_organisation(db: Session) -> tuple[int, bool]:
     "/admin/organisatie", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
 )
 async def own_organisation_save(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ):
     org_id, editable = _own_organisation(db)
     if not editable:

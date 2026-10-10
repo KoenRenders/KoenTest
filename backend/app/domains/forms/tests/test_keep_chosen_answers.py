@@ -35,6 +35,7 @@ from app.domains.forms.models import (
     FormSubmission,
     FormSubmissionAnswer,
 )
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -142,10 +143,10 @@ def test_an_unanswered_question_is_removed(client, db_session):
     assert db_session.get(FormField, note.id) is None
 
 
-def test_the_json_api_cannot_drop_a_chosen_option(client, db_session, admin_headers):
-    """`PUT /api/v1/forms/{id}` runs `apply_definition`, which removes every option
-    not in the payload. It relied on SET NULL; now it is refused, and nothing is
-    stored."""
+def test_a_definition_laid_over_cannot_drop_a_chosen_option(client, db_session):
+    """Laying a definition over a form (the back office's JSON import) runs
+    `apply_definition`, which removes every option not in the payload. It relied on
+    SET NULL; now it is refused, and nothing is stored."""
     form, day, note, saturday, sunday = _form(db_session)
     payload = {
         "title": "Dagkeuze",
@@ -162,7 +163,7 @@ def test_the_json_api_cannot_drop_a_chosen_option(client, db_session, admin_head
         ],
     }
 
-    answer = client.put(f"/api/v1/forms/{form.id}", json=payload, headers=admin_headers)
+    answer = forms_door.update_form(client, form.id, payload)
 
     assert answer.status_code == 422, answer.text[:300]
     assert "Welke dag?: " + REFUSED_OPTION in answer.json()["detail"]

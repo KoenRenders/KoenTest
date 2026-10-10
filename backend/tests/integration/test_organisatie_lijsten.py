@@ -283,7 +283,7 @@ def test_the_audit_lookup_ignores_the_organisation_row(db_session, organisatie):
     `changes.py` weggehaald. Deze test faalt dan met `None`, want de
     organisatierij wordt als eerste aangemaakt en komt dus eerst.
     """
-    from app.domains.audit.changes import _SubjectResolver
+    from app.domains.reporting.changes import _SubjectResolver
 
     _contact(db_session, organisatie, "EMAIL", "gedeeld@example.com")
     db_session.flush()

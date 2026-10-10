@@ -76,7 +76,9 @@ def _run_scheduled_sweeps(db):
     for job in jobs:
         sweep(db, job.payload or {})
         job.status = "done"
-    db.commit()
+        # As the job runner does: every job in its own transaction (#1771) —
+        # a second sweep reads what the first one wrote.
+        db.commit()
     return jobs
 
 

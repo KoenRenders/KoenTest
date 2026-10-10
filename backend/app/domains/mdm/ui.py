@@ -16,12 +16,13 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.auth.api import (
     SESSION_COOKIE,
+    Right,
     admin_user_by_email,
     csrf_from_request,
-    require_admin_ui,
     require_csrf,
+    require_right,
 )
-from app.domains.mdm.api import RelationType
+from app.domains.mdm.api import RelationType, says_why_in
 from app.domains.mdm.viewmodels import LedenView
 from app.i18n import _
 from app.ui import admin_nav, filterparams, is_fragment_request, refusal_response, templates
@@ -32,9 +33,11 @@ NAV = "/admin/leden"
 
 
 def _codes(db: Session) -> dict:
-    from app.domains.mdm.api import admin_code_lists
+    """The code lists a person form shows, and the longest name it takes — the
+    number the server refuses at, so the field's `maxlength` cannot drift from it."""
+    from app.domains.mdm.api import PERSON_NAME_MAX, admin_code_lists
 
-    return admin_code_lists(db)
+    return {**admin_code_lists(db), "person_name_max": PERSON_NAME_MAX}
 
 
 def _lidmaatschapsjaren(db: Session) -> list[int]:
@@ -189,16 +192,22 @@ def _kaart_response(
 
 @router.get("/admin/leden", response_class=HTMLResponse)
 def leden_page(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     return templates.TemplateResponse(
-        request, "leden.html", _lijst_view(request, db, nav_items=admin_nav(NAV)).as_context()
+        request,
+        "leden.html",
+        _lijst_view(request, db, nav_items=admin_nav(NAV, request)).as_context(),
     )
 
 
 @router.get("/admin/leden/lijst", response_class=HTMLResponse)
 def leden_lijst(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """Enkel de kaarten: de filterbalk swapt dit fragment, zodat het zoekveld niet
     onder je vingers vervangen wordt."""
@@ -209,7 +218,9 @@ def leden_lijst(
 
 @router.get("/admin/leden/nieuw", response_class=HTMLResponse)
 def lid_nieuw(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
     from app.domains.mdm.api import list_postal_codes
@@ -218,7 +229,7 @@ def lid_nieuw(
         request,
         "leden_nieuw.html",
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             "csrf_token": csrf_from_request(request),
             "postal_codes": list_postal_codes(db),
             "values": {},
@@ -230,7 +241,9 @@ def lid_nieuw(
 
 @router.get("/admin/leden/nieuw/persoon-rij", response_class=HTMLResponse)
 def lid_nieuw_persoon_rij(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """Een lege rij voor een extra gezinslid (#1110).
 
@@ -250,7 +263,9 @@ def lid_nieuw_persoon_rij(
 
 @router.post("/admin/leden", dependencies=[Depends(require_csrf)])
 async def gezin_aanmaken(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ) -> Response:
     """Nieuw gezin met hoofdlid, adres, contactgegevens en lidmaatschap (#1110).
 
@@ -263,13 +278,10 @@ async def gezin_aanmaken(
 
     #713: de beheerder tekent de auditregels.
     """
-    from pydantic import ValidationError
-
-    from app.domains.mdm.api import list_postal_codes
+    from app.domains.mdm.api import EmailAddressInUse, list_postal_codes
     from app.domains.membership.api import (
-        FamilyCreate,
-        FamilyMemberCreate,
         create_family_by_admin,
+        family_from_rows,
         parse_member_rows,
     )
 
@@ -288,7 +300,7 @@ async def gezin_aanmaken(
             request,
             "leden_nieuw.html",
             {
-                "nav_items": admin_nav(NAV),
+                "nav_items": admin_nav(NAV, request),
                 "csrf_token": csrf_from_request(request),
                 "postal_codes": list_postal_codes(db),
                 "values": values,
@@ -298,36 +310,15 @@ async def gezin_aanmaken(
             status_code=422,
         )
 
-    rijen = parse_member_rows(form)
-    if not rijen:
-        return _fout(_("Vul minstens het hoofdlid in."))
     try:
-        data = FamilyCreate(
-            street=(values.get("street") or "").strip(),
-            house_number=(values.get("house_number") or "").strip(),
-            bus_number=(values.get("bus_number") or "").strip() or None,
-            postal_code=(values.get("postal_code") or "").strip(),
-            members=[
-                FamilyMemberCreate(
-                    first_name=r["first_name"],
-                    last_name=r["last_name"],
-                    date_of_birth=r["date_of_birth"] or None,
-                    gender_code=r["gender_code"] or None,
-                    email=r["email"] or None,
-                    phone=r["phone"] or None,
-                    mobile=r["mobile"] or None,
-                    relation_type=r["relation_type"] or ("HOOFDLID" if i == 0 else "PARTNER"),
-                )
-                for i, r in enumerate(rijen)
-            ],
-        )
-    except ValidationError as exc:
-        return _fout(str(exc.errors()[0].get("msg", _("Ongeldige invoer."))))
-
-    try:
+        data = family_from_rows(values, parse_member_rows(form))
         gezin = create_family_by_admin(db, data, actor=email)
     except HTTPException as exc:
         return _fout(str(exc.detail))
+    except EmailAddressInUse as in_use:
+        # mdm's own refusal, which the application answers as a JSON 422 for
+        # every other door: here it belongs in the page's banner (#1831).
+        return _fout(str(in_use))
 
     return Response(status_code=204, headers={"HX-Redirect": f"/admin/leden/gezin/{gezin.id}"})
 
@@ -337,7 +328,7 @@ def gezin_detail(
     family_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """Een kaart opent de paginabrede gezinseditor (C1, #582); de bewerkingen
     daarbinnen blijven htmx-fragmenten die in #leden-detail landen."""
@@ -350,7 +341,7 @@ def gezin_detail(
         request,
         "leden_gezin.html",
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             **ctx,
             "record_tabs": gezin_tabs(db, ctx["family"], email, "overzicht"),
         },
@@ -365,7 +356,7 @@ def gezin_inschrijvingen_tab(
     richting: str = "",
     rij: str = "",
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """The Inschrijvingen tab of the household's page (Koen, 15 September — it
     replaced the Wijzigingen tab): what this household registered for, grouped
@@ -374,7 +365,7 @@ def gezin_inschrijvingen_tab(
     tab). The table is the one of the activity's tab (K6, #1560); the toolbar
     and the rest of the household's page are pilot B."""
     from app.domains.activities.api import parse_registration_sort, registration_table
-    from app.domains.auth.api import may_mutate_payments
+    from app.domains.auth.api import Right, may
     from app.domains.mdm.api import family_registrations, gezin_tabs
     from app.domains.membership.api import get_family
 
@@ -392,13 +383,13 @@ def gezin_inschrijvingen_tab(
         sort=parse_registration_sort(sort, richting),
         open_row=rij,
         sub_is_component=True,
-        may_mutate=may_mutate_payments(db, email),
+        may_mutate=may(db, email, Right.PAYMENT_MANAGE),
     )
     return templates.TemplateResponse(
         request,
         "admin_gezin_inschrijvingen.html",
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             "family": family,
             "record_tabs": gezin_tabs(db, family, email, "inschrijvingen"),
             **table,
@@ -417,12 +408,13 @@ def gezin_inschrijvingen_tab(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#persoon-{person_id}-melding")
 async def persoon_opslaan(
     family_id: int,
     person_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     first_name: str = Form(""),
     last_name: str = Form(""),
     date_of_birth: str = Form(""),
@@ -432,17 +424,23 @@ async def persoon_opslaan(
     mobile: str = Form(""),
     relation_type: str = Form(""),
 ):
-    from app.domains.membership.api import (
+    from app.domains.mdm.api import (
         ContactsUpdate,
         PersonUpdate,
+        board_request,
+        require_relation_allowed,
         update_person,
         update_person_contacts,
     )
 
+    # Asked before anything is written: this save commits in steps, and a
+    # relation refused at the end would leave the card half saved.
+    require_relation_allowed(db, family_id, person_id, relation_type)
     update_person(
         db,
         person_id,
-        PersonUpdate(
+        board_request(
+            PersonUpdate,
             first_name=first_name.strip(),
             last_name=last_name.strip(),
             date_of_birth=date_of_birth or None,
@@ -458,18 +456,21 @@ async def persoon_opslaan(
     if contact_email.strip():
         contacten["email"] = contact_email.strip()
     update_person_contacts(
-        db, person_id, ContactsUpdate(**contacten), admin=admin_user_by_email(db, email)
+        db,
+        person_id,
+        board_request(ContactsUpdate, **contacten),
+        admin=admin_user_by_email(db, email),
     )
     # De adresrijen uit ditzelfde formulier — één opslaan, één transactie (#1110).
     from app.domains.mdm.api import apply_email_rows
 
     apply_email_rows(db, person_id, await request.form(), actor=email)
-    # Relatietype op de MemberPerson-junctie (#498). De regel — nooit promoveren
-    # tot HOOFDLID, nooit een bestaand HOOFDLID overschrijven — staat sinds #635-F
-    # in de service, met een rauwe query minder in dit scherm.
-    from app.domains.membership.api import set_relation_type
+    # Relatietype op de MemberPerson-junctie (#498). De regel — een gezin heeft
+    # één hoofdlid, en een bestaand HOOFDLID wordt niet overschreven — staat
+    # in de service.
+    from app.domains.mdm.api import set_relation_type
 
-    set_relation_type(db, family_id, person_id, relation_type)
+    set_relation_type(db, family_id, person_id, relation_type, admin=admin_user_by_email(db, email))
     # #742: een afsluitende "Opslaan", dus mét bevestiging. Een persoon toevoegen of
     # verwijderen is een deelactie en krijgt er géén — dezelfde grens als bij #717.
     # #1111: alleen deze kaart; de naam staat ook in de kop en in de
@@ -504,7 +505,7 @@ def email_rij(
     index: str = "",
     nummer: str = "",
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
     """Een lege e-mailrij om onderaan te plakken (#1219).
 
@@ -532,12 +533,13 @@ def email_rij(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#persoon-{person_id}-melding")
 def email_toevoegen(
     family_id: int,
     person_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     extra_email: str = Form(""),
 ):
     from app.domains.mdm.api import add_email_address
@@ -557,7 +559,7 @@ def email_hoofdadres(
     contact_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ):
     from app.domains.mdm.api import make_email_primary
 
@@ -577,7 +579,7 @@ def email_verwijderen(
     contact_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ):
     from app.domains.mdm.api import remove_email_address
 
@@ -590,28 +592,22 @@ def email_verwijderen(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#adres-melding")
 def adres_opslaan(
     family_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     street: str = Form(""),
     house_number: str = Form(""),
     bus_number: str = Form(""),
     postal_code: str = Form(""),
 ):
-    from app.domains.membership.api import AddressUpdate, get_family, update_person_address
+    from app.domains.mdm.api import AddressUpdate, update_family_address
 
-    family = get_family(db, family_id)
-    hoofdlid = next(
-        (m for m in family.members if m.relation_type == RelationType.PRIMARY_MEMBER),
-        family.members[0] if family.members else None,
-    )
-    if hoofdlid is None:
-        raise HTTPException(status_code=400, detail=_("Gezin zonder personen."))
-    update_person_address(
+    update_family_address(
         db,
-        hoofdlid.id,
+        family_id,
         AddressUpdate(
             street=street.strip(),
             house_number=house_number.strip(),
@@ -629,11 +625,12 @@ def adres_opslaan(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#persoon-toevoegen-melding")
 def persoon_toevoegen(
     family_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     first_name: str = Form(""),
     last_name: str = Form(""),
     date_of_birth: str = Form(""),
@@ -643,15 +640,15 @@ def persoon_toevoegen(
     mobile: str = Form(""),
     relation_type: str = Form("PARTNER"),
 ):
-    from app.domains.membership.api import PersonAddToFamily, add_person_to_family, get_family
+    from app.domains.mdm.api import PersonAddToFamily, add_person_to_family, board_request
 
-    # `add_person_to_family` geeft het hele gezin terug; de nieuwe persoon is de
-    # enige die er vóór de toevoeging niet in zat (#1111: zijn kaart is het antwoord).
-    voorheen = {m.id for m in get_family(db, family_id).members}
-    gezin = add_person_to_family(
+    # `add_person_to_family` answers with the new person's id (#1111: that
+    # person's card is the answer).
+    nieuw_id = add_person_to_family(
         db,
         family_id,
-        PersonAddToFamily(
+        board_request(
+            PersonAddToFamily,
             first_name=first_name.strip(),
             last_name=last_name.strip(),
             date_of_birth=date_of_birth or None,
@@ -665,7 +662,6 @@ def persoon_toevoegen(
     )
     # #1111: de nieuwe persoonkaart plus een verse toevoegkaart, in de plaats van
     # de toevoegkaart die postte; de bestuurslidlijst krijgt de nieuwe naam oob.
-    (nieuw_id,) = {m.id for m in gezin.members} - voorheen
     return _kaart_response(
         request, db, family_id, kaarten=[f"persoon:{nieuw_id}", "toevoegen"], bestuurslid=True
     )
@@ -676,16 +672,17 @@ def persoon_toevoegen(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#persoon-{person_id}-melding")
 def persoon_verwijderen(
     family_id: int,
     person_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ):
-    from app.domains.membership.api import delete_person
+    from app.domains.mdm.api import delete_household_person
 
-    delete_person(db, person_id, admin=admin_user_by_email(db, email))
+    delete_household_person(db, person_id, admin=admin_user_by_email(db, email))
     # #1111: de kaart verdwijnt (leeg antwoord op haar eigen outerHTML-doel); de
     # bestuurslidlijst noemde deze persoon en reist oob mee.
     return _kaart_response(request, db, family_id, kaarten=[], bestuurslid=True)
@@ -700,10 +697,10 @@ def bestuurslid_zetten(
     family_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     person_id: str = Form(""),
 ):
-    from app.domains.membership.api import BoardMemberAssign, assign_board_member
+    from app.domains.mdm.api import BoardMemberAssign, assign_board_member
 
     assign_board_member(
         db,
@@ -725,7 +722,7 @@ def lidmaatschap_toevoegen(
     family_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     year: int = Form(...),
 ):
     from app.domains.membership.api import MembershipCreate, create_membership_for_family
@@ -749,7 +746,7 @@ def lidmaatschap_verwijderen(
     membership_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ):
     from app.domains.membership.api import delete_membership
 
@@ -766,11 +763,11 @@ def gezin_verwijderen(
     family_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ):
-    from app.domains.membership.api import delete_family
+    from app.domains.mdm.api import delete_household
 
-    delete_family(db, family_id, admin=admin_user_by_email(db, email))
+    delete_household(db, family_id, admin=admin_user_by_email(db, email))
     # Verwijderen gebeurt vanuit de gezinseditor; die pagina bestaat daarna niet
     # meer, dus terug naar de lijst (#582).
     return Response(status_code=204, headers={"HX-Redirect": "/admin/leden"})
@@ -781,9 +778,11 @@ def gezin_verwijderen(
 
 @router.get("/admin/leden-import", response_class=HTMLResponse)
 def import_page(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
-    nav = [dict(item, active=False) for item in admin_nav(NAV)]
+    nav = [dict(item, active=False) for item in admin_nav(NAV, request)]
     return templates.TemplateResponse(
         request,
         "leden_import.html",
@@ -800,7 +799,7 @@ def import_page(
 async def import_preview(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     file: UploadFile = File(...),
 ):
     from app.domains.mdm.api import import_preview
@@ -824,7 +823,7 @@ async def import_preview(
 def import_commit(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
     token: str = Form(...),
 ):
     from app.domains.mdm.api import import_commit

@@ -6,12 +6,15 @@ gedeelde machinerie: de template-omgeving (met de component-template-mappen),
 de UI-kit-macro's en de shells (base-layouts).
 """
 
+import functools
 import hashlib
+import inspect
 import logging
 from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
 
+from fastapi import HTTPException
 from fastapi.templating import Jinja2Templates
 from jinja2 import (
     Environment,
@@ -24,6 +27,7 @@ from jinja2 import (
 
 from app.config import settings
 from app.kernel.phone import readable_phone
+from app.kernel.refusals import as_refusal
 
 _UI_DIR = Path(__file__).parent
 
@@ -603,7 +607,8 @@ templates.env.globals["path_for"] = path_for
 # `_ADMIN_NAV` wordt eruit afgeleid voor wie de vlakke lijst nodig heeft
 # (de render-gate bezoekt élk item, groep of niet).
 _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
-    (None, ["/admin/werkbank"]),
+    # #1876: the workbench is core — a shell item, like Dashboard and Gebruikers.
+    (None, [("/admin/werkbank", "Werkbank")]),
     (
         "Werking",
         [
@@ -657,6 +662,9 @@ _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
             # en een TENANT is een site met haar instellingen. Meestal vallen ze samen,
             # maar de ACCOUNT-organisatie is geen tenant en stond daardoor nergens in
             # dit menu; net zij is de vzw met een ondernemingsnummer.
+            # CR-22 S7 (#1712): the natural persons of this tenant, before the
+            # organisation — master data, in the tenant workspace only.
+            ("/admin/personen", "Personen"),
             ("/admin/organisaties", "Organisaties"),
             ("/admin/tenants", "Tenants"),
             # #1535: a tenant workspace's own organisation and site settings, in
@@ -666,7 +674,7 @@ _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
             # GEEN Design system hier (#878). De balk is voor schermen waar een bestuurder
             # werk doet; `/admin/design-system` is naslag over knoppen, kleuren en afstanden —
             # nuttig bij het bouwen, niet bij het besturen. De route blijft bestaan achter
-            # `require_admin_ui`, en je gaat ernaartoe via Info. "Uit het menu" is dus iets
+            # haar recht, en je gaat ernaartoe via Info. "Uit het menu" is dus iets
             # anders dan "weg": ruim de route niet op omdat er niets meer naar wijst.
             ("/admin/info", "Info"),
         ],
@@ -712,6 +720,7 @@ _ADMIN_NAV_ICONS: dict[str, str] = {
     "/admin/gebruikers": "user-cog",
     "/admin/ledenwijzigingen": "history",
     "/admin/e-maillog": "inbox",
+    "/admin/personen": "user",
     "/admin/organisaties": "building-2",
     "/admin/tenants": "globe",
     # #1535: one meaning per glyph — the own organisation is an organisation, and
@@ -725,7 +734,7 @@ _ADMIN_NAV_ICONS: dict[str, str] = {
 #: every tenant, every organisation — is in the platform workspace's menu; a
 #: tenant workspace has its own organisation and settings in their place.
 PLATFORM_ONLY_ITEMS = frozenset({"/admin/organisaties", "/admin/tenants"})
-TENANT_ONLY_ITEMS = frozenset({"/admin/organisatie", "/admin/instellingen"})
+TENANT_ONLY_ITEMS = frozenset({"/admin/personen", "/admin/organisatie", "/admin/instellingen"})
 
 
 def _on_platform_workspace() -> bool:
@@ -767,6 +776,57 @@ def refusal_response(request, errors, message_line: str, *, send: bool = False):
             "HX-Reselect": "[data-save-refusal]",
         },
     )
+
+
+def says_why_in(line: str, *also: type[Exception]):
+    """A refusal of this route goes to a message line of ITS form (#1831).
+
+    For a page with several forms — a card per person, a form per question. A
+    refusal of one answered a bare JSON error there, and the page showed the
+    general message, "Er ging iets mis … probeer opnieuw", for something no retry
+    mends. The rule's own sentence existed and never reached the screen.
+
+    `line` is the selector of the form's message line, with the route's path
+    parameters in braces (`#persoon-{person_id}-melding`). The answer is
+    `refusal_response` — the banner alone, so the form keeps what was typed and
+    the other forms are not touched. The sentence stands under "Opslaan is niet
+    gelukt." as a whole-form message: the record form, which marks the field
+    itself, serves one form per page.
+
+    A refusal is an `HTTPException` with a status the visitor can do something
+    about (`kernel.refusals.as_refusal`), whose detail is the
+    sentence — and any exception type in `also`, a domain's own refusal that the
+    application would answer as JSON, whose text is the sentence.
+    """
+    caught = (HTTPException, *also)
+
+    def wrap(route):
+        def refused(refusal: Exception, kwargs: dict):
+            # `as_refusal` lets through what is no refusal: a 404, a 403.
+            sentence = as_refusal(refusal)
+            return refusal_response(kwargs["request"], [sentence], line.format(**kwargs))
+
+        if inspect.iscoroutinefunction(route):
+
+            @functools.wraps(route)
+            async def answering(**kwargs):
+                try:
+                    return await route(**kwargs)
+                except caught as refusal:
+                    return refused(refusal, kwargs)
+
+            return answering
+
+        @functools.wraps(route)
+        def answering_sync(**kwargs):
+            try:
+                return route(**kwargs)
+            except caught as refusal:
+                return refused(refusal, kwargs)
+
+        return answering_sync
+
+    return wrap
 
 
 def is_fragment_request(request) -> bool:
@@ -855,14 +915,41 @@ def sort_description(column_label: str, direction: str, is_date: bool = False) -
     return sjabloon % {"kolom": column_label}
 
 
-def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
-    """Navigatiegroepen voor de AdminShell; `active` is de href van het scherm.
+@functools.cache
+def _right_of_screen() -> dict[str, object]:
+    """The address of every screen a gate guards → the right that gate asks,
+    read from the running routes (`require_right` leaves it on its gate). The
+    menu asks this instead of keeping a list of its own beside the routes."""
+    from app.main import app  # lazy: `app.main` imports this module
 
-    Sinds golf 2 (#913) per werkgebied: [{"label": ..|None, "items": [...]}].
+    found: dict[str, object] = {}
 
-    Role-aware (#530): een FINANCE-only gebruiker (geen ADMIN/OPERATOR) mag enkel de
-    betalingen-schermen openen — toon dan enkel Betalingen, zodat de nav niet vol
-    links staat die 403'en. ADMIN/OPERATOR (of geen `roles` meegegeven) zien alles.
+    def walk(items, prefix: str = "") -> None:
+        for item in items:
+            context = getattr(item, "include_context", None)
+            if context is not None:
+                walk(item.original_router.routes, prefix + (context.prefix or ""))
+            elif "GET" in (getattr(item, "methods", None) or ()) and hasattr(item, "dependant"):
+                for dependency in item.dependant.dependencies:
+                    right = getattr(dependency.call, "right", None)
+                    if right is not None:
+                        found[prefix + item.path] = right
+
+    walk(app.routes)
+    return found
+
+
+def nav_for(active: str, rights, modules=None) -> list[dict]:
+    """The navigation groups of the admin shell for someone who holds `rights`;
+    `active` is the address of the screen.
+
+    Per work area since #913: [{"label": ..|None, "items": [...]}].
+
+    By right (CR-24): an item is shown when the viewer holds the right its
+    screen asks — the right of that screen's own gate, so a link that would
+    answer "no access" is never offered, and a screen that asks no right is not
+    in the menu at all. One rule for everyone: until CR-24 a user without the
+    general set of roles got one hand-made group with Betalingen alone.
 
     Module-aware (CR-19, #1476): an item of a module that is off for this
     tenant is left out (`kernel.modules.nav_item_shown`), and a group left
@@ -875,28 +962,20 @@ def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
 
     enabled = modules if modules is not None else current_enabled_modules()
     hidden = TENANT_ONLY_ITEMS if _on_platform_workspace() else PLATFORM_ONLY_ITEMS
+    asked = _right_of_screen()
     groepen = [
         (
             label,
             [
                 (h, lbl)
                 for h, lbl in items
-                if h not in hidden and nav_item_shown("admin_items", h, enabled)
+                if h not in hidden
+                and nav_item_shown("admin_items", h, enabled)
+                and asked.get(h) in rights
             ],
         )
         for label, items in _ADMIN_NAV_GROEPEN
     ]
-    from app.domains.auth.api import admits_admin_ui
-
-    # #1513: who is not admitted to the general back office sees payments only.
-    if roles is not None and not admits_admin_ui(roles):
-        # FINANCE-only: één ongelabelde groep met enkel Betalingen.
-        groepen = [
-            (
-                None,
-                [(h, lbl) for _g, items in groepen for h, lbl in items if h == "/admin/betalingen"],
-            )
-        ]
     return [
         {
             "label": _(label) if label else None,
@@ -918,16 +997,23 @@ def admin_nav(active: str, roles=None, modules=None) -> list[dict]:
     ]
 
 
+def admin_nav(active: str, request, modules=None) -> list[dict]:
+    """The menu for whoever this request's gate let in: the rights that gate
+    read (`request.state.rights`), so the menu costs no question of its own. A
+    request no gate has seen holds none, and its menu is empty."""
+    return nav_for(active, getattr(request.state, "rights", frozenset()), modules)
+
+
 def _current_user(db, request) -> dict | None:
-    """Ingelogde gebruiker uit de sessie-cookie (#467): naam + is_admin, of None.
+    """Ingelogde gebruiker uit de sessie-cookie (#467): naam + admin_home, of None.
     Mag het renderen nooit breken."""
     if request is None:
         return None
     try:
         from app.domains.auth.api import (
             SESSION_COOKIE,
-            admits_admin_ui,
-            get_user_roles,
+            back_office_home,
+            has_household,
             login_person_for_email,
             read_session_value,
         )
@@ -947,11 +1033,16 @@ def _current_user(db, request) -> dict | None:
             # #1588: the header's account button says the first name; the menu
             # and the drawer the full one.
             "voornaam": voornaam,
-            # #1499: whoever `require_admin_ui` admits — an operator too, who
-            # holds OPERATOR everywhere and ADMIN on no tenant. The same set,
-            # asked of the auth domain, not a copy of it here.
-            "is_admin": admits_admin_ui(get_user_roles(db, email)),
+            # The way into the back office for whoever has one (#1499, #1740):
+            # the workbench, for everyone with a back-office role (CR-24 Q13,
+            # Q16); None for everyone else. Asked of the auth domain — after
+            # signing in on the site nobody lands there by himself any more,
+            # so the menu is the way.
+            "admin_home": back_office_home(db, email),
             "is_member": person is not None,
+            # CR-22 (#1707): an account is a person too, so "there is a person"
+            # no longer means "there is a household" — Mijn gezin asks this.
+            "has_household": has_household(person),
         }
     except Exception:
         return None
@@ -1183,11 +1274,19 @@ def _public_nav(field: str) -> list[dict]:
     ]
 
 
-def account_nav(db) -> list[dict]:
+#: Mijn gezin, the one item of the account menu that needs a household.
+HOUSEHOLD_HOME = "/leden/gezin"
+
+
+def account_nav(db, *, household: bool = True) -> list[dict]:
     """The account menu of the public site (CR-22 S3, #1706; R14): ONE list for
     the header's menu, the drawer and the menu on the account pages. Its first
     item is the landing page, called "Mijn " + the site's name (Q32, Q35); the
-    rest comes from the modules' `member_items`, each with its own icon."""
+    rest comes from the modules' `member_items`, each with its own icon.
+
+    `household` (#1707): whether the signed-in person is in one. Mijn gezin is
+    listed only then — an account has no household, and the item would open a
+    page that sends him back (R14: "what applies to him")."""
     from app.i18n import _
     from app.kernel.tenant_config import tenant_display_name
 
@@ -1197,7 +1296,22 @@ def account_nav(db) -> list[dict]:
         "match": None,
         "icon": "house",
     }
-    return [home, *_public_nav("member_items")]
+    # Mijn gegevens (CR-22 S6a, #1710): always there — everyone with an account
+    # page is a person.
+    details = {
+        "href": "/mijn/gegevens",
+        "label": _("Mijn gegevens"),
+        "match": None,
+        "icon": "user",
+    }
+    # The order of the menu is its own (CR-22 A3): Mijn gezin before Mijn
+    # inschrijvingen, whatever order the registry lists the modules in; an item
+    # this list does not name yet (Mijn aankopen, CR-21) comes after them.
+    order = {HOUSEHOLD_HOME: 0, "/mijn/inschrijvingen": 1}
+    modules = sorted(_public_nav("member_items"), key=lambda n: order.get(n["href"], len(order)))
+    if not household:
+        modules = [item for item in modules if item["href"] != HOUSEHOLD_HOME]
+    return [home, details, *modules]
 
 
 def site_context(db, request=None) -> dict:
@@ -1289,6 +1403,7 @@ def site_context(db, request=None) -> dict:
     # dag daarvóór, nul erna. Dat uur is precies de omschakeling van `prod-frontend`
     # naar `prod-backend`.
     umami_src, umami_website_id = umami_tracking(db)
+    user = _current_user(db, request)
 
     return {
         "nav_pages": pages,
@@ -1296,7 +1411,10 @@ def site_context(db, request=None) -> dict:
         # CR-19 (#1476): the module links of the header, from the registry —
         # what a module that is off lists or serves is not there.
         "public_nav": _public_nav("public_items"),
-        "member_nav": account_nav(db),
+        "member_nav": account_nav(db, household=bool(user and user["has_household"])),
+        # CR-22 Q39: a company tenant has accounts and no members — the hint above
+        # the registration form words itself by it.
+        "has_members": module_enabled(ModuleCode.MEMBERSHIP),
         # #1588: the legal line's parts. (The newsletter column's heading is
         # the word "Nieuwsbrief" in the shell since #1647; "Nieuws van <the
         # site's name>" of #1606 is gone, with its key here.)
@@ -1317,7 +1435,10 @@ def site_context(db, request=None) -> dict:
         # (`tenant_public_chat_enabled`), which the chat endpoints read too.
         "chat_enabled": tenant_public_chat_enabled(db) and module_enabled(ModuleCode.CHATBOT),
         "stt_mode": settings.stt_mode,  # spraakinvoer in de widget (#567)
-        "gebruiker": _current_user(db, request),
+        # #1251: the longest question the public Raakje takes — the field's
+        # `maxlength`, from the setting its route refuses above.
+        "chat_max_input_chars": settings.chat_max_input_chars,
+        "gebruiker": user,
         # Branding per tenant (#407/#519): naam/tagline/Facebook uit de
         # tenant-config. GEEN Millegem-specifieke defaults meer — die lekten
         # naar andere tenants (multi-tenancy-fout). Leeg = niet tonen, net als

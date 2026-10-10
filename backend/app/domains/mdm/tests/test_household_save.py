@@ -190,7 +190,7 @@ def test_new_an_untouched_household_writes_no_row_and_no_history(db_session):
 
 
 def test_a_person_is_changed_with_one_history_row(db_session):
-    """`update_household_person`: name, birth date, gender — `person_updated`,
+    """A person's own fields: name, birth date, gender — `person_updated`,
     source `member_self`, and only what changed."""
     world = _household(db_session)
     payload = _as_is(db_session, world["household"])
@@ -313,9 +313,10 @@ def test_a_person_is_added_with_its_history_and_a_child_where_there_is_a_partner
     )
     assert dien.address is None
     mail = next(c for c in dien.contact_details if c.contact_type_code == "EMAIL")
-    assert mail.value == "dien@example.com" and mail.is_primary, (
-        "the first address is the primary one"
-    )
+    # CR-22 R15 (#1711): an address typed in Mijn gezin waits for its code,
+    # and a waiting address is never the primary one. It was primary at once.
+    assert mail.value == "dien@example.com" and not mail.is_primary
+    assert mail.confirmed_at is None, "an address the member typed counted without its code"
     assert _history(db_session, PersonHistory, person_id=dien.id) == [
         ("insert", "person_created", "member_self")
     ]
@@ -388,7 +389,7 @@ def test_the_relation_of_a_person_who_is_there_is_not_read(db_session):
 
 
 def test_a_person_the_form_no_longer_has_leaves_the_household(db_session):
-    """`remove_household_person`: the LINK is soft-deleted with
+    """A removal: the LINK is soft-deleted with
     `person_removed_from_family`; the person and their rows stay."""
     world = _household(db_session)
     payload = _as_is(db_session, world["household"])
@@ -522,9 +523,12 @@ def test_a_person_of_another_household_is_not_touched(db_session):
 
 
 def test_email_rows_are_edited_added_and_removed_with_the_members_own_source(db_session):
-    """`apply_email_rows`: changed text follows, a new row is added (not primary
-    while one exists), a row the form no longer has goes. NEW: the history says
-    `member_self` — the row functions wrote `admin_update` for the member too."""
+    """A new row is added (never primary: it waits), a row the form no longer
+    has goes, and the history says `member_self`.
+
+    Since CR-22 R15 (#1711) changed text does NOT follow: the address that
+    counts stays as it is and the new one waits beside it — this test expected
+    `an.werk` to become `an.kantoor` in place, with `email_edited`."""
     world = _household(db_session)
     an = world["An"]
     payload = _as_is(db_session, world["household"])
@@ -541,15 +545,20 @@ def test_email_rows_are_edited_added_and_removed_with_the_members_own_source(db_
         for c in db_session.get(Person, an.id).contact_details
         if c.contact_type_code == "EMAIL"
     }
-    assert mails == {ACTOR: True, "an.kantoor@example.com": False, "an.extra@example.com": False}
+    assert mails == {
+        ACTOR: True,
+        "an.werk@example.com": False,
+        "an.kantoor@example.com": False,
+        "an.extra@example.com": False,
+    }
     history = _history(db_session, ContactDetailHistory, person_id=an.id)
     assert history == [
-        ("update", "email_edited", "member_self"),
+        ("insert", "email_added", "member_self"),
         ("insert", "email_added", "member_self"),
     ]
     assert _history(db_session, ContactDetailHistory, person_id=world["Bert"].id) == [
-        ("insert", "email_promoted", "member_self")
-    ], "a person's first address becomes the primary one"
+        ("insert", "email_added", "member_self")
+    ], "a person's first address waits too: it is not the primary one before its code"
 
     payload = _as_is(db_session, world["household"])
     row = _row(payload, an)
@@ -561,7 +570,7 @@ def test_email_rows_are_edited_added_and_removed_with_the_members_own_source(db_
         for c in db_session.get(Person, an.id).contact_details
         if c.contact_type_code == "EMAIL"
     }
-    assert left == {ACTOR, "an.kantoor@example.com"}
+    assert left == {ACTOR, "an.werk@example.com", "an.kantoor@example.com"}
 
 
 def test_the_same_address_twice_is_stored_once_and_an_empty_row_is_nothing(db_session):
@@ -630,11 +639,9 @@ def test_the_primary_address_removed_and_another_added_in_one_save(db_session):
     before it deleted the old one, and `uq_contact_details_one_primary_per_type`
     refused. The removals are flushed first now.
 
-    The new address becomes the primary one, by the rule that was always there:
-    a row added to a person who has no primary address is it. That is not
-    "promoting" a row that was left: the address that stays is not touched.
-
-    Proven red by taking the flush out of `write_email_rows`: IntegrityError.
+    Through the member's own save the new address waits (CR-22 R15, #1711)
+    and is not the primary one before its code: the person has none meanwhile.
+    The address that stays is not touched.
     """
     world = _household(db_session)
     an = world["An"]
@@ -648,7 +655,37 @@ def test_the_primary_address_removed_and_another_added_in_one_save(db_session):
         for c in db_session.get(Person, an.id).contact_details
         if c.contact_type_code == "EMAIL"
     }
-    assert mails == {"an.werk@example.com": False, "an.nieuw@example.com": True}
+    assert mails == {"an.werk@example.com": False, "an.nieuw@example.com": False}
+
+
+def test_the_board_removes_the_primary_address_and_adds_another_in_one_write(db_session):
+    """The board's write counts at once, so its new row IS the primary one when
+    the person has none left — and the removal must reach the database first.
+
+    Until #1711 the test above showed this through the member's save, proven
+    red by taking the flush out of `write_email_rows`. That proof no longer
+    turns red (tried on 8 October 2026): since #1704 the address rule queries
+    before a row is made, and that query flushes the removal by itself. The
+    flush stays as it is; this test holds the outcome.
+    """
+    from app.domains.mdm.service import write_email_rows
+
+    world = _household(db_session)
+    an = world["An"]
+    rows = {c.id: c for c in an.contact_details if c.contact_type_code == "EMAIL"}
+    texts = {row_id: ("" if c.is_primary else c.value) for row_id, c in rows.items()}
+    write_email_rows(db_session, an, texts, ["an.nieuw@example.com"], actor="bestuur@example.com")
+    db_session.commit()
+    db_session.expire_all()
+    mails = {
+        c.value: (c.is_primary, c.confirmed_at is not None)
+        for c in db_session.get(Person, an.id).contact_details
+        if c.contact_type_code == "EMAIL"
+    }
+    assert mails == {
+        "an.werk@example.com": (False, True),
+        "an.nieuw@example.com": (True, True),
+    }
 
 
 # ── The address ──────────────────────────────────────────────────────────────
@@ -803,3 +840,54 @@ def test_new_every_refusal_comes_back_at_once_and_nothing_is_written(db_session)
     assert db_session.get(Person, world["Cas"].id).first_name == "Cas", (
         "the good row is not written either"
     )
+
+
+# ── #1853: an e-mail row is an address ───────────────────────────────────────
+
+
+def _snapshot(db, world) -> list[tuple]:
+    db.expire_all()
+    return sorted(
+        (c.person_id, c.contact_type_code, c.value, c.is_primary)
+        for c in db.query(ContactDetail).filter(
+            ContactDetail.person_id.in_([world["An"].id, world["Bert"].id])
+        )
+    )
+
+
+def test_a_new_email_row_that_is_no_address_is_refused_at_its_own_field(db_session):
+    """The rule of the contact detail (#1853), asked early so the refusal has a
+    place the screen can mark: the row's own field. Nothing of the save is
+    written — also not the good row beside it."""
+    world = _household(db_session)
+    before = _snapshot(db_session, world)
+    payload = _as_is(db_session, world["household"])
+    _row(payload, world["An"]).emails += [
+        EmailRow("n1", "an zonder adres"),
+        EmailRow("n2", "an.goed@example.com"),
+    ]
+
+    assert _places(db_session, world, payload) == {"e.n1.value": "Vul een geldig e-mailadres in."}
+    assert _snapshot(db_session, world) == before
+
+
+def test_an_existing_email_row_changed_into_no_address_is_refused_at_its_field(db_session):
+    world = _household(db_session)
+    before = _snapshot(db_session, world)
+    payload = _as_is(db_session, world["household"])
+    stored = next(e for e in _row(payload, world["An"]).emails if e.key.isdigit())
+    stored.value = "an@"
+
+    assert _places(db_session, world, payload) == {
+        f"e.{stored.key}.value": "Vul een geldig e-mailadres in."
+    }
+    assert _snapshot(db_session, world) == before
+
+
+def test_two_rows_that_are_no_address_are_each_named(db_session):
+    world = _household(db_session)
+    payload = _as_is(db_session, world["household"])
+    _row(payload, world["An"]).emails.append(EmailRow("n1", "geen"))
+    _row(payload, world["Bert"]).emails.append(EmailRow("n2", "ook geen"))
+
+    assert set(_places(db_session, world, payload)) == {"e.n1.value", "e.n2.value"}

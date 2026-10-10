@@ -1,102 +1,456 @@
-# Rollen & rechten — autoritatieve referentie
+# Roles and rights
 
-> Deze matrix is **afgeleid en geverifieerd tegen de echte endpoint-checks** (niet
-> bedacht). Bron: de security-audit #530 (endpoint × authz-matrix) + de daaruit
-> geïmplementeerde gates (#543, #547). Bij twijfel wint de code; werk dit document
-> bij als een gate wijzigt. Verifiërende tests: `test_role_model_gates.py`,
-> `test_admin_users_authz.py`, `test_betalingen_ui.py`.
+> **Rendered, never written.** This document comes from `app/domains/auth/docs.py`:
+> the bundles in `auth.role_rights` and the right each route's gate asks. Change a
+> bundle (a migration) or a gate, then run `python -m app.domains.auth.docs`; a
+> test fails while the two differ. Design: CR-24, *Rights, part 1*.
 
-## De rollen (RoleCode)
+## How it works
 
-| Rol | Seed | Betekenis | Scope |
-|-----|------|-----------|-------|
-| **ADMIN** | 001 "Beheerder" | Volledige beheerder **binnen één tenant** — sinds #963 letterlijk: de rolrij draagt de werkruimte. | per tenant |
-| **FINANCE** | 056 "Penningmeester" | **Enkel** betalingen/vorderingen. Verder géén beheer. | per tenant |
-| **OPERATOR** | 087 "Platformbeheerder" | **Platform-superuser**: telt mee voor élke rolcheck (`require_roles`), ziet/beheert alles over **alle tenants**. Enige die tenant-instellingen wijzigt en (toekomstig #546) tenants aanmaakt. | platform |
-| **ACCOUNT_ADMIN** | 087 "Accountbeheerder" | Bedoeld voor "alle units binnen één account". **Nog niet functioneel ingevuld** — geeft vandaag géén algemene toegang (placeholder tot het multi-unit-verhaal). | (account) |
-| ~~MEMBER~~ / ~~USER~~ | 001 | **Dood/legacy** — geen enkele autorisatie hangt eraan; uit de rollenkeuzelijst gefilterd (#521/#458). Lidmaatschap is **data-gedreven** (`Membership`), geen rol. | — |
+- **A gate asks a right, never a role.** A route names one right in its
+  dependencies (`require_right`); whoever holds it in this workspace gets in.
+- **A right is about one kind of object**, and there are two per object: viewing
+  (`<object>.view`), asked by a route that only reads (GET), and changing
+  (`<object>.manage`, for master data `<object>.masterdata`), asked by every
+  other method.
+- **A role is a bundle of rights**, kept as rows and the same in every workspace.
+  A user may hold several roles; he holds a right when one of them bundles it.
+- **Roles are given per workspace** (`auth.user_roles.tenant_id`): a role in
+  workspace A is no role in workspace B. One role is platform-wide — the row
+  without a workspace — and it is granted inside the platform workspace only.
+- **A platform screen asks its right and the platform workspace**
+  (`require_platform_right`): in a tenant's workspace it does not exist, also
+  for who holds the right.
+- **Everyone with a back-office role enters the back office by the workbench**,
+  and sees in its menu the screens whose right he holds — nothing else.
+- **A visitor and a member hold no role and no right.** What a member may do with
+  his own household is decided by ownership, not by a right.
 
-## Roles per workspace (#963, 16 September 2026)
+## The roles
 
-Since migration 126 a role assignment carries a **workspace dimension**:
-`auth.user_roles.tenant_id` names the workspace the role applies in, and
-`NULL` means **platform-wide** (today only OPERATOR). The consequences, per
-Koen's three decisions of 15 September 2026:
+| Role | On screen | Rights it bundles |
+|---|---|---|
+| `ADMIN` | Beheerder | 25 |
+| `FINANCE` | Boekhouding | 3 |
+| `OPERATOR` | Platformbeheerder | 36 |
+| `ACCOUNT_ADMIN` | Accountbeheerder | 0 |
+| `MASTERDATA` | Masterdata | 5 |
+| `PRICING` | Prijsbeheer | 3 |
+| `SALES` | Verkoop | 3 |
+| `STOCK` | Voorraadbeheer | 3 |
 
-- **ADMIN in workspace A is not ADMIN in workspace B.** `get_user_roles`
-  answers "what may I do *here*": the platform-wide rows plus the rows of the
-  workspace the request resolves to (§7 of the architecture doc — hostname,
-  path prefix, tenant cookie).
-- **OPERATOR is platform-wide** — one `NULL` row, valid in every workspace.
-- **User management is workspace-bound.** The role checkboxes in
-  `/admin/gebruikers` show and replace only the roles of the *active*
-  workspace; assignments in other workspaces are never touched.
-- **OPERATOR is granted only inside the platform workspace** (Koen,
-  16 September 2026) — in a regular workspace the checkbox exists for no one,
-  and a forged submission gets a 403 (`_ken_rollen_toe`, `auth/users.py`).
-  Inside the platform the checkbox exists only for operators, and changing it
-  is guarded again in the service layer (`set_roles_for_workspaces`).
-- **The platform user screen manages roles per workspace**: one row of
-  checkboxes per workspace on each user card, so an OPERATOR creates the
-  first users of a new tenant and manages accounts on behalf of the
-  afdelingen. OPERATOR counts for the user-management gate itself
-  (ADMIN/OPERATOR, as the matrix below always said).
-- **Existing data** migrated to Raak Millegem (org 2), except the accounts in
-  the `SEED_ALLE_WERKRUIMTES_EMAILS` env var (comma-separated, set per host,
-  never committed), whose non-OPERATOR roles were copied to every workspace.
-- **My profile** (`/admin/profiel`) lists roles per workspace; the account
-  menu offers "Werkruimte wisselen" only when more than one workspace applies
-  (`/admin/werkruimte-wisselen`, links via the path prefix).
+A role that bundles nothing opens nothing of the back office.
 
-Verifying tests: `test_rollen_per_werkruimte.py`.
+## Which role holds which right
 
-## Rol → bevoegdheden
+| Right | On screen | `ADMIN` | `FINANCE` | `OPERATOR` | `ACCOUNT_ADMIN` | `MASTERDATA` | `PRICING` | `SALES` | `STOCK` |
+|---|---|---|---|---|---|---|---|---|---|
+| `activity.view` | Activiteiten bekijken | ✓ |  | ✓ |  |  |  |  |  |
+| `activity.manage` | Activiteiten beheren | ✓ |  | ✓ |  |  |  |  |  |
+| `form.view` | Formulieren bekijken | ✓ |  | ✓ |  |  |  |  |  |
+| `form.manage` | Formulieren beheren | ✓ |  | ✓ |  |  |  |  |  |
+| `page.view` | Pagina's bekijken | ✓ |  | ✓ |  |  |  |  |  |
+| `page.manage` | Pagina's beheren | ✓ |  | ✓ |  |  |  |  |  |
+| `media.view` | Media bekijken | ✓ |  | ✓ |  |  |  |  |  |
+| `media.manage` | Media beheren | ✓ |  | ✓ |  |  |  |  |  |
+| `design.view` | Ontwerpen bekijken | ✓ |  | ✓ |  |  |  |  |  |
+| `design.manage` | Ontwerpen beheren | ✓ |  | ✓ |  |  |  |  |  |
+| `newsletter.view` | Nieuwsbrieven bekijken | ✓ |  | ✓ |  |  |  |  |  |
+| `newsletter.manage` | Nieuwsbrieven beheren | ✓ |  | ✓ |  |  |  |  |  |
+| `meeting.view` | Vergaderingen bekijken | ✓ |  | ✓ |  |  |  |  |  |
+| `meeting.manage` | Vergaderingen beheren | ✓ |  | ✓ |  |  |  |  |  |
+| `report.view` | Rapporten bekijken | ✓ |  | ✓ |  |  |  |  |  |
+| `report.manage` | Rapporten beheren | ✓ |  | ✓ |  |  |  |  |  |
+| `assistant.use` | Raakje gebruiken | ✓ |  | ✓ |  |  |  |  |  |
+| `party.view` | Personen en organisaties bekijken | ✓ |  | ✓ |  | ✓ |  |  |  |
+| `party.masterdata` | Personen en organisaties beheren | ✓ |  | ✓ |  | ✓ |  |  |  |
+| `product.view` | Producten bekijken |  |  | ✓ |  | ✓ |  |  |  |
+| `product.masterdata` | Producten beheren |  |  | ✓ |  | ✓ |  |  |  |
+| `price.view` | Prijzen bekijken |  |  | ✓ |  |  | ✓ |  |  |
+| `price.manage` | Prijzen beheren |  |  | ✓ |  |  | ✓ |  |  |
+| `sales.view` | Bestellingen bekijken |  |  | ✓ |  |  |  | ✓ |  |
+| `sales.manage` | Bestellingen beheren |  |  | ✓ |  |  |  | ✓ |  |
+| `stock.view` | Voorraad bekijken |  |  | ✓ |  |  |  |  | ✓ |
+| `stock.manage` | Voorraad beheren |  |  | ✓ |  |  |  |  | ✓ |
+| `payment.view` | Betalingen bekijken | ✓ | ✓ | ✓ |  |  |  |  |  |
+| `payment.manage` | Betalingen beheren |  | ✓ | ✓ |  |  |  |  |  |
+| `workbench.use` | Werkbank gebruiken | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ | ✓ |
+| `user.view` | Gebruikers bekijken | ✓ |  | ✓ |  |  |  |  |  |
+| `user.manage` | Gebruikers beheren | ✓ |  | ✓ |  |  |  |  |  |
+| `settings.view` | Instellingen bekijken | ✓ |  | ✓ |  |  |  |  |  |
+| `settings.manage` | Instellingen beheren | ✓ |  | ✓ |  |  |  |  |  |
+| `platform.view` | Platform bekijken |  |  | ✓ |  |  |  |  |  |
+| `platform.manage` | Platform beheren |  |  | ✓ |  |  |  |  |  |
 
-| Vlak | Publiek (geen rol) | FINANCE | ADMIN | OPERATOR |
-|------|--------------------|---------|-------|----------|
-| Publieke registratie/inschrijving/idee/formulier | ✅ (rate-limited) | ✅ | ✅ | ✅ |
-| Ledenportaal "Mijn gezin" (`/leden/gezin`) — **enkel eigen gezin** | ✅ na login (ownership afgedwongen) | — | — | — |
-| Algemene admin-schermen (CMS, media, activiteiten, **leden**, formulieren, pagina's, wijzigingen, Raakje, e-maillog, werkbank, info) | ❌ | ❌ (403) | ✅ | ✅ |
-| Betalingen **bekijken**/exporteren (`/admin/betalingen`) | ❌ | ✅ | ✅ | ✅ |
-| Betalingen **muteren** (bevestigen/terugbetalen/bewerken) | ❌ | ✅ | ❌ | ✅ |
-| **Gebruikers & rollen** beheren (`/admin/gebruikers`) | ❌ | ❌ (403) | ✅ | ✅ |
-| **Tenants** — lijst, aanmaken én instellingen (`/admin/tenants`) | ❌ | ❌ | ❌ (403) | ✅ |
-| **Type en modules van een tenant** (CR-19, #1478) — het type bij het aanmaken, de modules in de editor | ❌ | ❌ | ❌ (403) | ✅ |
+## What each right opens
 
-## Exclusieve bevoegdheden (wie is de énige)
+Every route whose gate asks the right. A right without a route here opens nothing yet: its screens come with a later change.
 
-- **Betalingen bevestigen/terugbetalen/bewerken** → FINANCE (of OPERATOR). Financiële
-  scheiding (#83): een ADMIN zonder FINANCE mag betalingen wél zien, niet muteren.
-  Afgedwongen door `_require_finance` (`domains/payment/ui.py`).
-- **Gebruikers/rollen beheren** → ADMIN (of OPERATOR). Voorkomt dat FINANCE zichzelf
-  naar ADMIN escaleert (#543). Afgedwongen door `_require_admin` (`auth/admin_ui.py`).
-- **Tenant-config wijzigen / tenants aanmaken** → OPERATOR. Afgedwongen door
-  `_require_operator` (`ui/settings_ui.py`).
+### `activity.view` — 13 routes
 
-## Waar het in de code zit
+- `GET /admin/activiteiten`
+- `GET /admin/activiteiten/nieuw`
+- `GET /admin/activiteiten/nieuw/organisatoren`
+- `GET /admin/activiteiten/{activity_id}`
+- `GET /admin/activiteiten/{activity_id}/inschrijvingen`
+- `GET /admin/activiteiten/{activity_id}/inschrijvingen/lijst`
+- `GET /admin/activiteiten/{activity_id}/inschrijvingen/nieuw`
+- `GET /admin/activiteiten/{activity_id}/kopieren`
+- `GET /admin/activiteiten/{activity_id}/onderdelen/{component_id}/antwoorden`
+- `GET /admin/activiteiten/{activity_id}/onderdelen/{component_id}/export`
+- `GET /admin/activiteiten/{activity_id}/organisatoren`
+- `GET /admin/inschrijvingen/{registration_id}`
+- `GET /admin/inschrijvingen/{registration_id}/fragment`
 
-- **Algemene admin-gate**: `require_admin_ui` → `{ADMIN, OPERATOR}` (`auth/session.py`).
-- **Betalingen-kijkgate**: `require_finance_ui` → `{ADMIN, FINANCE, OPERATOR}`.
-- **Betalingen-schrijfgate**: `_require_finance` → `{FINANCE, OPERATOR}`.
-- **JSON-API** (`/api/v1/...`): `get_current_admin` (ADMIN-only), `get_current_finance`,
-  `require_roles(...)` (OPERATOR telt altijd mee).
-- **Login-landing** volgt de rol: ADMIN/OPERATOR → `/admin/werkbank`, FINANCE →
-  `/admin/betalingen`, gewoon lid → `/leden/gezin` (OTP- én magic-link-pad).
-- **Nav** is role-aware: een FINANCE-only gebruiker ziet enkel Betalingen.
+### `activity.manage` — 18 routes
 
-## Scope-dimensie (multi-tenancy)
+- `POST /admin/activiteiten/nieuw`
+- `POST /admin/activiteiten/nieuw/raakje/voorstel`
+- `POST /admin/activiteiten/{activity_id:int}/raakje/voorstel`
+- `POST /admin/activiteiten/{activity_id}`
+- `POST /admin/activiteiten/{activity_id}/annulering`
+- `POST /admin/activiteiten/{activity_id}/inschrijvingen/nieuw`
+- `POST /admin/activiteiten/{activity_id}/inschrijvingen/nieuw/prijzen`
+- `POST /admin/activiteiten/{activity_id}/inschrijvingen/nieuw/totaal`
+- `POST /admin/activiteiten/{activity_id}/inschrijvingen/{registration_id}/verwijderen`
+- `POST /admin/activiteiten/{activity_id}/kopieren`
+- `POST /admin/activiteiten/{activity_id}/status`
+- `POST /admin/activiteiten/{activity_id}/verwijderen`
+- `POST /admin/inschrijvingen/{registration_id}/antwoorden`
+- `POST /admin/inschrijvingen/{registration_id}/antwoordlink`
+- `POST /admin/inschrijvingen/{registration_id}/opmerking`
+- `POST /admin/inschrijvingen/{registration_id}/opslaan`
+- `POST /admin/inschrijvingen/{registration_id}/regels/{item_id}`
+- `POST /admin/inschrijvingen/{registration_id}/totaal`
 
-- **Tenant-isolatie** is globaal afgedwongen (SQLAlchemy `do_orm_execute`-filter op
-  `TenantMixin`, `kernel/tenancy.py`): ADMIN/FINANCE zien enkel data van hun eigen
-  tenant. OPERATOR overstijgt tenants (platform). ACCOUNT_ADMIN zou per **account**
-  (meerdere units) werken — die scope is nog niet gebouwd.
-- Backoffice-accounts/rollen (`auth.users`/`user_roles`) zijn **globaal** (geen
-  `TenantMixin`) — auth is een gedeeld domein.
+### `form.view` — 8 routes
 
-## Openstaande punten
+- `GET /admin/formulieren`
+- `GET /admin/formulieren/nieuw`
+- `GET /admin/formulieren/{form_id}`
+- `GET /admin/formulieren/{form_id}/afdruk`
+- `GET /admin/formulieren/{form_id}/export`
+- `GET /admin/formulieren/{form_id}/inzendingen`
+- `GET /admin/formulieren/{form_id}/json`
+- `GET /admin/formulieren/{form_id}/resultaten`
 
-- **ACCOUNT_ADMIN** functioneel invullen (of bewust uit de brede set houden tot dan) —
-  gekoppeld aan #546 (tenants) en het multi-unit-account-model.
-- Een geautomatiseerde **doc-vs-code-consistentietest** (rol-eisen ↔ route-dependencies)
-  is een mogelijke uitbreiding (raakt #529/#530); vandaag dekken de authz-tests
-  hierboven de kern.
+### `form.manage` — 17 routes
+
+- `POST /admin/formulieren`
+- `POST /admin/formulieren/{form_id}/instellingen`
+- `POST /admin/formulieren/{form_id}/inzendingen/{submission_id}/verwijderen`
+- `POST /admin/formulieren/{form_id}/json-import`
+- `POST /admin/formulieren/{form_id}/opties/{option_id}`
+- `POST /admin/formulieren/{form_id}/opties/{option_id}/verplaats`
+- `POST /admin/formulieren/{form_id}/opties/{option_id}/verwijderen`
+- `POST /admin/formulieren/{form_id}/secties`
+- `POST /admin/formulieren/{form_id}/secties/{section_id}`
+- `POST /admin/formulieren/{form_id}/secties/{section_id}/verplaats`
+- `POST /admin/formulieren/{form_id}/secties/{section_id}/verwijderen`
+- `POST /admin/formulieren/{form_id}/velden`
+- `POST /admin/formulieren/{form_id}/velden/{field_id}`
+- `POST /admin/formulieren/{form_id}/velden/{field_id}/opties`
+- `POST /admin/formulieren/{form_id}/velden/{field_id}/verplaats`
+- `POST /admin/formulieren/{form_id}/velden/{field_id}/verwijderen`
+- `POST /admin/formulieren/{form_id}/verwijderen`
+
+### `page.view` — 4 routes
+
+- `GET /admin/paginas`
+- `GET /admin/paginas/nieuw`
+- `GET /admin/paginas/{page_id}`
+- `GET /admin/paginas/{page_id}/voorbeeld`
+
+### `page.manage` — 4 routes
+
+- `POST /admin/paginas`
+- `POST /admin/paginas/{page_id}`
+- `POST /admin/paginas/{page_id}/verwijderen`
+- `POST /admin/paginas/{page_id}/volgorde/{richting}`
+
+### `media.view` — 3 routes
+
+- `GET /admin/media`
+- `GET /admin/media/kiezer`
+- `GET /admin/media/nieuw`
+
+### `media.manage` — 7 routes
+
+- `POST /admin/media`
+- `POST /admin/media/tags`
+- `POST /admin/media/tags/{tag_id}`
+- `POST /admin/media/tags/{tag_id}/verwijderen`
+- `POST /admin/media/{asset_id}`
+- `POST /admin/media/{asset_id}/verplaats`
+- `POST /admin/media/{asset_id}/verwijderen`
+
+### `design.view` — 7 routes
+
+- `GET /admin/ontwerpen`
+- `GET /admin/ontwerpen/nieuw`
+- `GET /admin/ontwerpen/{design_id}`
+- `GET /admin/ontwerpen/{design_id}/svg/{layout}`
+- `GET /admin/ontwerpen/{design_id}/varianten`
+- `GET /admin/ontwerpen/{design_id}/voorbeeld.pdf`
+- `GET /admin/ontwerpen/{design_id}/voorbeeld.png`
+
+### `design.manage` — 10 routes
+
+- `POST /admin/ontwerpen`
+- `POST /admin/ontwerpen/{design_id}`
+- `POST /admin/ontwerpen/{design_id}/afbeelding`
+- `POST /admin/ontwerpen/{design_id}/definitief`
+- `POST /admin/ontwerpen/{design_id}/genereer`
+- `POST /admin/ontwerpen/{design_id}/kies/{generation_id}`
+- `POST /admin/ontwerpen/{design_id}/publiceer`
+- `POST /admin/ontwerpen/{design_id}/svg`
+- `POST /admin/ontwerpen/{design_id}/svg/verwijderen`
+- `POST /admin/ontwerpen/{design_id}/verwijderen`
+
+### `newsletter.view` — 12 routes
+
+- `GET /admin/nieuwsbrieven`
+- `GET /admin/nieuwsbrieven/abonnees`
+- `GET /admin/nieuwsbrieven/abonnees/import`
+- `GET /admin/nieuwsbrieven/instellingen`
+- `GET /admin/nieuwsbrieven/{newsletter_id:int}`
+- `GET /admin/nieuwsbrieven/{newsletter_id:int}/activiteiten`
+- `GET /admin/nieuwsbrieven/{newsletter_id:int}/invoegen/activiteit/{activity_id:int}`
+- `GET /admin/nieuwsbrieven/{newsletter_id:int}/invoegen/afsluiting`
+- `GET /admin/nieuwsbrieven/{newsletter_id:int}/invoegen/kalender`
+- `GET /admin/nieuwsbrieven/{newsletter_id:int}/raakje/gesprek`
+- `GET /admin/nieuwsbrieven/{newsletter_id:int}/versturen`
+- `GET /admin/nieuwsbrieven/{newsletter_id:int}/voorbeeld`
+
+### `newsletter.manage` — 19 routes
+
+- `POST /admin/nieuwsbrieven`
+- `POST /admin/nieuwsbrieven/abonnees`
+- `POST /admin/nieuwsbrieven/abonnees/import`
+- `POST /admin/nieuwsbrieven/abonnees/import/bevestigen`
+- `POST /admin/nieuwsbrieven/abonnees/{subscriber_id:int}/uitschrijven`
+- `POST /admin/nieuwsbrieven/abonnees/{subscriber_id:int}/verwijderen`
+- `POST /admin/nieuwsbrieven/instellingen`
+- `POST /admin/nieuwsbrieven/{newsletter_id:int}/bewaren`
+- `POST /admin/nieuwsbrieven/{newsletter_id:int}/bijlage`
+- `POST /admin/nieuwsbrieven/{newsletter_id:int}/keuzes/{group}`
+- `POST /admin/nieuwsbrieven/{newsletter_id:int}/keuzes/{group}/{activity_id:int}/weg`
+- `POST /admin/nieuwsbrieven/{newsletter_id:int}/kopieren`
+- `POST /admin/nieuwsbrieven/{newsletter_id:int}/opnieuw`
+- `POST /admin/nieuwsbrieven/{newsletter_id:int}/raakje/vraag`
+- `POST /admin/nieuwsbrieven/{newsletter_id:int}/raakje/{message_id:int}/toepassen`
+- `POST /admin/nieuwsbrieven/{newsletter_id:int}/raakje/{message_id:int}/weigeren`
+- `POST /admin/nieuwsbrieven/{newsletter_id:int}/testmail`
+- `POST /admin/nieuwsbrieven/{newsletter_id:int}/versturen`
+- `POST /admin/nieuwsbrieven/{newsletter_id:int}/verwijderen`
+
+### `meeting.view` — 9 routes
+
+- `GET /admin/vergaderingen`
+- `GET /admin/vergaderingen/kring`
+- `GET /admin/vergaderingen/nieuw`
+- `GET /admin/vergaderingen/{meeting_id}`
+- `GET /admin/vergaderingen/{meeting_id}/bestand/{file_id}`
+- `GET /admin/vergaderingen/{meeting_id}/bewerken`
+- `GET /admin/vergaderingen/{meeting_id}/kiezer`
+- `GET /admin/vergaderingen/{meeting_id}/pdf`
+- `GET /admin/vergaderingen/{meeting_id}/verstuur`
+
+### `meeting.manage` — 21 routes
+
+- `POST /admin/vergaderingen`
+- `POST /admin/vergaderingen/kring`
+- `POST /admin/vergaderingen/kring/nieuw`
+- `POST /admin/vergaderingen/kring/ondertekening`
+- `POST /admin/vergaderingen/kring/{relation_id}/beeindigen`
+- `POST /admin/vergaderingen/kring/{relation_id}/start`
+- `POST /admin/vergaderingen/{meeting_id}/aanwezigheid`
+- `POST /admin/vergaderingen/{meeting_id}/bewerken`
+- `POST /admin/vergaderingen/{meeting_id}/bijlage`
+- `POST /admin/vergaderingen/{meeting_id}/bijlage/{file_id}/meesturen`
+- `POST /admin/vergaderingen/{meeting_id}/bijlage/{file_id}/verwijder`
+- `POST /admin/vergaderingen/{meeting_id}/gast`
+- `POST /admin/vergaderingen/{meeting_id}/gast/{guest_id}/verwijder`
+- `POST /admin/vergaderingen/{meeting_id}/heropen`
+- `POST /admin/vergaderingen/{meeting_id}/ontvanger`
+- `POST /admin/vergaderingen/{meeting_id}/ontvanger/{recipient_id}/verwijder`
+- `POST /admin/vergaderingen/{meeting_id}/punt`
+- `POST /admin/vergaderingen/{meeting_id}/punt/{item_id}`
+- `POST /admin/vergaderingen/{meeting_id}/punt/{item_id}/verwijder`
+- `POST /admin/vergaderingen/{meeting_id}/sectie`
+- `POST /admin/vergaderingen/{meeting_id}/verstuur`
+
+### `report.view` — 8 routes
+
+- `GET /admin`
+- `GET /admin/rapporten`
+- `GET /admin/rapporten/dataset/{fact_key}.ods`
+- `GET /admin/rapporten/export.ods`
+- `GET /admin/rapporten/lijst`
+- `GET /admin/rapporten/nieuw`
+- `GET /admin/rapporten/paneel`
+- `GET /admin/rapporten/{report_id}`
+
+### `report.manage` — 4 routes
+
+- `POST /admin/rapporten`
+- `POST /admin/rapporten/{report_id}`
+- `POST /admin/rapporten/{report_id}/kopieren`
+- `POST /admin/rapporten/{report_id}/verwijderen`
+
+### `assistant.use` — 5 routes
+
+- `GET /admin/rapporten/raakje`
+- `POST /admin/rapporten/raakje`
+- `POST /admin/rapporten/raakje/activiteit/{activity_id}`
+- `GET /admin/rapporten/raakje/paneel`
+- `POST /admin/rapporten/raakje/scherm/{scherm}`
+
+### `party.view` — 11 routes
+
+- `GET /admin/leden`
+- `GET /admin/leden-import`
+- `GET /admin/leden/gezin/{family_id}`
+- `GET /admin/leden/gezin/{family_id}/inschrijvingen`
+- `GET /admin/leden/gezin/{family_id}/persoon/{person_id}/email-rij`
+- `GET /admin/leden/lijst`
+- `GET /admin/leden/nieuw`
+- `GET /admin/leden/nieuw/persoon-rij`
+- `GET /admin/organisatie`
+- `GET /admin/personen`
+- `GET /admin/personen/lijst`
+
+### `party.masterdata` — 16 routes
+
+- `POST /admin/leden`
+- `POST /admin/leden-import/commit`
+- `POST /admin/leden-import/preview`
+- `POST /admin/leden/gezin/{family_id}/adres`
+- `POST /admin/leden/gezin/{family_id}/bestuurslid`
+- `POST /admin/leden/gezin/{family_id}/lidmaatschappen`
+- `POST /admin/leden/gezin/{family_id}/lidmaatschappen/{membership_id}/verwijderen`
+- `POST /admin/leden/gezin/{family_id}/personen`
+- `POST /admin/leden/gezin/{family_id}/persoon/{person_id}`
+- `POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email`
+- `POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/hoofd`
+- `POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/verwijderen`
+- `POST /admin/leden/gezin/{family_id}/persoon/{person_id}/verwijderen`
+- `POST /admin/leden/gezin/{family_id}/verwijderen`
+- `POST /admin/organisatie`
+- `POST /admin/personen/{person_id}/verwijderen`
+
+### `product.view` — 0 routes
+
+- none
+
+### `product.masterdata` — 0 routes
+
+- none
+
+### `price.view` — 0 routes
+
+- none
+
+### `price.manage` — 0 routes
+
+- none
+
+### `sales.view` — 0 routes
+
+- none
+
+### `sales.manage` — 0 routes
+
+- none
+
+### `stock.view` — 0 routes
+
+- none
+
+### `stock.manage` — 0 routes
+
+- none
+
+### `payment.view` — 7 routes
+
+- `GET /admin/activiteiten/{activity_id}/betalingen`
+- `GET /admin/betalingen`
+- `GET /admin/betalingen/export`
+- `GET /admin/betalingen/lijst`
+- `GET /admin/betalingen/{record_id}`
+- `GET /admin/inschrijvingen/{registration_id}/betalingen`
+- `GET /admin/leden/gezin/{family_id}/betalingen`
+
+### `payment.manage` — 7 routes
+
+- `POST /admin/betalingen/{record_id}/bevestigen`
+- `POST /admin/betalingen/{record_id}/bewerken`
+- `POST /admin/betalingen/{record_id}/bijwerken`
+- `POST /admin/betalingen/{record_id}/refund`
+- `POST /admin/betalingen/{record_id}/status`
+- `POST /admin/betalingen/{record_id}/verversen`
+- `POST /admin/betalingen/{record_id}/verwijderen`
+
+### `workbench.use` — 8 routes
+
+- `GET /admin/accountmenu`
+- `GET /admin/profiel`
+- `GET /admin/werkbank`
+- `GET /admin/werkbank/lijst`
+- `GET /admin/werkbank/taken/{task_id}`
+- `POST /admin/werkbank/taken/{task_id}/afgehandeld`
+- `GET /admin/werkruimte-wisselen`
+- `GET /admin/werkruimte-wisselen/{tenant_id}`
+
+### `user.view` — 2 routes
+
+- `GET /admin/gebruikers`
+- `GET /admin/gebruikers/nieuw`
+
+### `user.manage` — 3 routes
+
+- `POST /admin/gebruikers`
+- `POST /admin/gebruikers/{user_id}`
+- `POST /admin/gebruikers/{user_id}/verwijderen`
+
+### `settings.view` — 10 routes
+
+- `GET /admin/ai-context`
+- `GET /admin/ai-context/lijst`
+- `GET /admin/design-system`
+- `GET /admin/e-maillog`
+- `GET /admin/e-maillog/lijst`
+- `GET /admin/info`
+- `GET /admin/info/ai-kosten`
+- `GET /admin/instellingen`
+- `GET /admin/ledenwijzigingen`
+- `GET /admin/ledenwijzigingen/export`
+
+### `settings.manage` — 9 routes
+
+- `POST /admin/ai-context/documenten/{asset_id}/opnieuw-lezen`
+- `POST /admin/ai-context/notities`
+- `POST /admin/ai-context/paginas/{page_id}/bewerken`
+- `POST /admin/ai-context/paginas/{page_id}/toggle`
+- `POST /admin/ai-context/{row_id}/bewerken`
+- `POST /admin/ai-context/{row_id}/toggle`
+- `POST /admin/ai-context/{row_id}/verwijderen`
+- `POST /admin/e-maillog/{log_id}/verwijderen`
+- `POST /admin/instellingen`
+
+### `platform.view` — 7 routes
+
+- `GET /admin/gebruikers/alle-werkruimtes`
+- `GET /admin/organisaties`
+- `GET /admin/organisaties/nieuw`
+- `GET /admin/organisaties/{organization_id}`
+- `GET /admin/tenants`
+- `GET /admin/tenants/nieuw`
+- `GET /admin/tenants/{tenant_id}`
+
+### `platform.manage` — 4 routes
+
+- `POST /admin/organisaties`
+- `POST /admin/organisaties/{organization_id}`
+- `POST /admin/tenants`
+- `POST /admin/tenants/{tenant_id}`

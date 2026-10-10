@@ -162,6 +162,14 @@ PUBLIC_HOOKS: dict[str, str] = {
     "drawer account": "[data-drawer-account]",
     "account item": "[data-account-item]",
     "transfer due": "[data-transfer-due]",
+    # A registration's card and the latest one on the landing page (CR-22 S5).
+    "registration": "[data-my-registration]",
+    "latest registration": "[data-latest-registration]",
+    "hint": "[data-member-nudge]",
+    # The step of the sign-in screens (CR-22 S4b): the address, the four
+    # fields of a new account, the code.
+    "sign-in step": "[data-sign-in-step]",
+    "code sent": "[data-code-sent]",
     "action bar": "[data-action-bar]",
     "footer row": "[data-footer-row]",
     "legal line": "[data-footer-line]",
@@ -263,6 +271,18 @@ def _open_the_drawer(page) -> None:
     page.locator("[data-drawer-account]").wait_for(state="visible", timeout=5000)
 
 
+def _account_code_step(page) -> None:
+    """Account aanmaken, sent: the code step of a new account. The address is
+    nobody's, so no person is made — a token waits and is never used."""
+    form = page.locator("[data-create-account-form]")
+    form.locator('input[name="first_name"]').fill("Meting")
+    form.locator('input[name="last_name"]').fill("Codestap")
+    form.locator('input[name="email"]').fill("meting.codestap@example.com")
+    form.locator('input[name="mobile"]').fill("0470 00 00 08")
+    form.locator("button").click()
+    page.locator("[data-code-sent]").wait_for(state="visible", timeout=5000)
+
+
 def _album(page) -> None:
     _goto_link(page, "[data-photo-card]")
 
@@ -306,6 +326,15 @@ SCREENS: tuple[Screen, ...] = (
         "betalingen",
         "/admin/betalingen",
         ("top bar title", "toolbar", "key figure", "content row"),
+        session="admin",
+        widths=ADMIN,
+    ),
+    # CR-22 S7 (#1712): Personen, on its default view "Zonder gezin" — the one
+    # person the measurement seed makes without a household.
+    Screen(
+        "personen",
+        "/admin/personen",
+        ("top bar title", "toolbar", "table", "content row"),
         session="admin",
         widths=ADMIN,
     ),
@@ -415,6 +444,42 @@ SCREENS: tuple[Screen, ...] = (
         "mijn",
         "/mijn",
         ("brand", "account content", "page title", "membership card"),
+        session="lid",
+    ),
+    # The sign-in screens (CR-22 S4b, #1708): the address with the second
+    # door, the four fields of a new account, and its code step.
+    Screen("public-aanmelden", "/aanmelden", ("brand", "content", "sign-in step")),
+    Screen(
+        "public-account-aanmaken",
+        "/account-aanmaken",
+        ("brand", "content", "sign-in step", "field"),
+    ),
+    Screen(
+        "public-account-code",
+        "/account-aanmaken",
+        ("brand", "content", "sign-in step", "code sent"),
+        action=_account_code_step,
+    ),
+    # Mijn gegevens, read and in edit mode (CR-22 S6a): the person block for
+    # oneself, inside the account layout.
+    Screen(
+        "mijn-gegevens",
+        "/mijn/gegevens",
+        ("brand", "account content", "form page", "form section"),
+        session="lid",
+    ),
+    Screen(
+        "mijn-gegevens-bewerken",
+        "/mijn/gegevens?bewerken=1",
+        ("brand", "account content", "form page", "field", "action bar"),
+        session="lid",
+    ),
+    # Mijn inschrijvingen (CR-22 S5): a registration's card with the transfer
+    # still to make.
+    Screen(
+        "mijn-inschrijvingen",
+        "/mijn/inschrijvingen",
+        ("brand", "account content", "page title", "registration", "transfer due"),
         session="lid",
     ),
     # The drawer on a phone, signed in: the site's pages, then the account menu.

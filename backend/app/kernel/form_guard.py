@@ -18,7 +18,7 @@ A refused submission gets the ordinary thanks and leaves nothing behind: no row,
 task, no mail. So the bot learns nothing. It is logged with its reason and an IP
 prefix, never with its content, so the refusals can be counted.
 
-The checks live in the services (`submit_bericht`, the public form's submit,
+The checks live in the services (`submit_message`, the public form's submit,
 `subscribe_public`), which take a `Proof`: a route cannot forget them, and the JSON
 way in falls under them too. A caller that is not a visitor's form — the chatbot,
 which has no form to load — says so with `TRUSTED`, visibly, in its own line.

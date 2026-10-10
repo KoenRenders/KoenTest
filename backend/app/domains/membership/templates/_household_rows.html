@@ -12,13 +12,33 @@
    says what the rows are, in read and edit mode and at every width. The field
    keeps its accessible name, and where an address is asked (Word lid, the main
    member) the title carries the red star a label would (#646). The *hoofdadres* tag may be removed like any other
-   address, and then nothing takes its place (Koen, 27 September 2026; #1603). #}
+   address, and then nothing takes its place (Koen, 27 September 2026; #1603).
+
+   **A waiting address says so** (CR-22 R15, #1711): an address the person
+   typed himself counts once its code is entered. Until then the row carries
+   "wacht op bevestiging" — while editing where another carries "hoofdadres",
+   for it cannot be the primary address; where the page is read under the
+   address (beside it, the long mark squeezed the address on a phone), with
+   the two ways on: enter the code, or have a new one sent. #}
 {% macro email_row(pkey, m, required, edit) -%}
 {% call ui.group_row("e_order." ~ pkey, m.key, edit=edit, menu=["remove"],
                      label=m.value or _("nieuw e-mailadres"),
-                     one={"chosen": m.primary, "tag": _("hoofdadres"), "make": _("Maak hoofdadres"), "removable": True}) %}
-  {{ ui.field("e." ~ m.key ~ ".value", _("E-mailadres"), kind="email", value=m.value, edit=edit,
+                     tag=({"label": _("wacht op bevestiging"), "tone": "yellow"} if m.pending and edit else None),
+                     one={"chosen": m.primary and not m.pending, "tag": _("hoofdadres"), "make": _("Maak hoofdadres"),
+                          "removable": True, "choosable": not m.pending}) %}
+  {{ ui.field("e." ~ m.key ~ ".value", _("E-mail"), kind="email", value=m.value, edit=edit,
               id="e-" ~ m.key ~ "-value", required=required, label_hidden=True) }}
+  {% if m.pending and not edit %}
+  <div data-span="full" data-email-waiting class="-mt-2">
+    <p>{{ ui.badge(_("wacht op bevestiging"), "yellow") }}</p>
+    <p class="flex flex-wrap items-center gap-x-4">
+    <a href="/mijn/e-mailadres/{{ m.key }}/bevestigen" data-enter-code
+       class="inline-flex items-center min-h-11 text-sm text-link underline">{{ _("Code invoeren") }}</a>
+    <button type="button" data-send-code hx-post="/mijn/e-mailadres/{{ m.key }}/code" hx-swap="none"
+            class="inline-flex items-center min-h-11 text-sm text-link underline">{{ _("Code opnieuw sturen") }}</button>
+    </p>
+  </div>
+  {% endif %}
 {% endcall %}
 {%- endmacro %}
 
@@ -28,19 +48,23 @@
 {% call ui.repeating_group(_("E-mailadressen"), "e_order." ~ p.key, token=group.new_email.key,
                            add_label=_("E-mailadres"), edit=edit, child=True, count=p.emails|length,
                            empty=_("Nog geen e-mailadres."), template=_template,
-                           hint=_("Met elk adres kan je inloggen. Het hoofdadres ontvangt de bevestiging."),
+                           hint=_("Met elk bevestigd adres kan je inloggen. Het hoofdadres ontvangt de bevestiging."),
                            one={"name": "e_primary." ~ p.key, "value": p.primary_key}, required=_required) %}
   {% for m in p.emails %}{{ email_row(p.key, m, _required and m.primary, edit) }}{% endfor %}
 {% endcall %}
 {%- endmacro %}
 
-{# `in_row`: the name fields feed the title of the row they stand in. #}
-{% macro person_fields(group, p, edit, in_row=True) -%}
+{# `in_row`: the name fields feed the title of the row they stand in.
+   `own`: the block on a person's OWN page (Mijn gegevens, CR-22 S6a, #1710):
+   the name and the mobile number — birth date, gender, relation and telephone
+   are the household's and stay in Mijn gezin (R17). #}
+{% macro person_fields(group, p, edit, in_row=True, own=False) -%}
 {% set _title = "data-row-title-source " if in_row else "" %}
 {{ ui.field("h." ~ p.key ~ ".first_name", _("Voornaam"), value=p.first_name, edit=edit, required=True,
             id="h-" ~ p.key ~ "-first_name", attrs=_title ~ "autocomplete=given-name") }}
 {{ ui.field("h." ~ p.key ~ ".last_name", _("Achternaam"), value=p.last_name, edit=edit, required=True,
             id="h-" ~ p.key ~ "-last_name", attrs=_title ~ "autocomplete=family-name") }}
+{% if not own %}
 {{ ui.field("h." ~ p.key ~ ".date_of_birth", _("Geboortedatum"), kind="date", value=p.date_of_birth,
             display=p.birth_display, edit=edit, required=True, id="h-" ~ p.key ~ "-date_of_birth") }}
 {{ ui.field("h." ~ p.key ~ ".gender_code", _("Geslacht"), kind="select", value=p.gender_code, edit=edit,
@@ -51,8 +75,11 @@
             options=group.relation_options, id="h-" ~ p.key ~ "-relation_type",
             attrs="data-row-title-prefix-source") }}
 {% endif %}
-{{ ui.field("h." ~ p.key ~ ".mobile", _("Gsm"), kind="phone", value=p.mobile, edit=edit,
+{% endif %}
+{{ ui.field("h." ~ p.key ~ ".mobile", _("Mobiel"), kind="phone", value=p.mobile, edit=edit,
             required=(group.contact_required and p.is_main), id="h-" ~ p.key ~ "-mobile") }}
+{% if not own %}
 {{ ui.field("h." ~ p.key ~ ".phone", _("Telefoon"), kind="phone", value=p.phone, edit=edit,
             id="h-" ~ p.key ~ "-phone") }}
+{%- endif %}
 {%- endmacro %}

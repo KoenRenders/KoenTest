@@ -1,0 +1,131 @@
+"""Fase 5b (#406): per-tenant config/secrets, demo-mail-modus (log_only),
+per-tenant Mollie-key/base-URL en de OPERATOR-platformrol."""
+
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
+from app.domains.mail.models import EmailLog, MailStatus
+from app.kernel.tenancy import TENANT_VOORBEELD_ID, current_tenant_id
+from app.kernel.tenant_config import (
+    TenantSetting,
+    get_setting,
+    set_setting,
+    tenant_base_url,
+    tenant_mail_mode,
+    tenant_mollie_key,
+)
+
+
+def test_setting_plain_en_secret(db_session):
+    set_setting(db_session, "display_name", "Testafdeling", tenant_id=99)
+    set_setting(db_session, "mollie_api_key", "test_geheim123", secret=True, tenant_id=99)
+    db_session.flush()
+
+    assert get_setting(db_session, "display_name", tenant_id=99) == "Testafdeling"
+    assert get_setting(db_session, "mollie_api_key", tenant_id=99) == "test_geheim123"
+
+    # secret staat versleuteld op rust: nooit als klartekst in de rij
+    rij = db_session.query(TenantSetting).filter_by(tenant_id=99, key="mollie_api_key").one()
+    assert rij.value is None
+    assert rij.value_encrypted and "test_geheim123" not in rij.value_encrypted
+
+    # overschrijven en wissen
+    set_setting(db_session, "display_name", None, tenant_id=99)
+    db_session.flush()
+    assert get_setting(db_session, "display_name", "fallback", tenant_id=99) == "fallback"
+
+
+def test_env_defaults(db_session):
+    from app.config import settings
+
+    # zonder DB-waarde vallen de helpers terug op de .env-settings
+    assert tenant_base_url(db_session, tenant_id=98) == settings.frontend_url.rstrip("/")
+    assert tenant_mollie_key(db_session, tenant_id=98) == settings.mollie_api_key
+    assert tenant_mail_mode(db_session, tenant_id=98) == "send"
+
+
+def test_demo_tenant_seed(db_session):
+    # migratie 087 seedt de voorbeeldafdeling: mails enkel loggen + noindex
+    assert tenant_mail_mode(db_session, tenant_id=TENANT_VOORBEELD_ID) == "log_only"
+    assert get_setting(db_session, "noindex", tenant_id=TENANT_VOORBEELD_ID) == "1"
+    # De seed slaat de base_url-setting op (per-tenant, voor prod-gebruik). We
+    # checken de setting zélf — niet via tenant_base_url, want die negeert in
+    # niet-prod bewust elke DB-base_url (#477, omgevingsisolatie).
+    seeded = get_setting(db_session, "base_url", tenant_id=TENANT_VOORBEELD_ID)
+    # Bewust het echte domein: dit controleert de waarde die migratie 087 seedt,
+    # en een gemergede migratie wijzigen we niet (zie CLAUDE.md). Wil je die seed
+    # anders, dan hoort daar een NIEUWE migratie bij — en dan pas deze regel.
+    assert seeded and "renko.be/raakvoorbeeldafdeling" in seeded
+
+
+def test_demo_mails_worden_enkel_gelogd(db_session):
+    from app.domains.mail.service import _send, sign_in_message
+
+    token = current_tenant_id.set(TENANT_VOORBEELD_ID)
+    try:
+        subject, body = sign_in_message("https://platform.example/x")
+        _send("demo@example.com", subject, body, email_type="magic_link")
+    finally:
+        current_tenant_id.reset(token)
+
+    log = (
+        db_session.query(EmailLog)
+        .execution_options(include_all_tenants=True)
+        .filter(EmailLog.recipient == "demo@example.com")
+        .order_by(EmailLog.id.desc())
+        .first()
+    )
+    assert log is not None and log.status is MailStatus.LOGGED
+    assert log.tenant_id == TENANT_VOORBEELD_ID
+
+
+def test_operator_passeert_elke_rolcheck(client, db_session):
+    user = User(email="operator@example.com", is_active=True)
+    db_session.add(user)
+    db_session.flush()
+    db_session.add(UserRole(user_id=user.id, role_code="OPERATOR"))
+    db_session.commit()
+
+    # The users screen asks for ADMIN; an operator holds no ADMIN and enters all the same
+    # (until CR-13 phase 4b, #1251, this asked a JSON route with a bearer token).
+    client.cookies.set(SESSION_COOKIE, make_session_value("operator@example.com"))
+    resp = client.get("/admin/gebruikers", follow_redirects=False)
+    assert resp.status_code == 200
+
+
+# ── #571: Fernet wire format survives a cryptography major bump ─────────────
+
+
+def test_fernet_reads_a_token_from_an_older_release():
+    """A tenant secret encrypted by an earlier ``cryptography`` release must stay
+    readable after an upgrade.
+
+    ``set_setting(secret=True)`` stores a Fernet token in ``value_encrypted``;
+    rows written before the bump are decrypted by the new library at runtime. A
+    round-trip test cannot see that — it encrypts and decrypts with the same
+    version. So decrypt the canonical Fernet vector from the ``cryptography``
+    project instead: a fixed key + token that has been valid since Fernet v1. If
+    a major bump ever changes the on-disk format, every stored Mollie key
+    silently becomes unreadable — this turns that into a red test.
+    """
+    from cryptography.fernet import Fernet
+
+    key = "cw_0x689RpI-jtRR7oE8h_eQsKImvJapLeSbXpwF4e4="
+    token = (
+        "gAAAAAAdwJ6wAAECAwQFBgcICQoLDA0ODy021cpGVWKZ_eEwCGM4BLLF"
+        "_5CV9dOPmrhuVUPgJobwOz7JcbmrR64jVmpU4IwqDA=="
+    )
+    # No ttl: the vector is timestamped 1985, only the HMAC and the version byte
+    # are what we are pinning here.
+    assert Fernet(key).decrypt(token.encode()) == b"hello"
+
+
+def test_stored_secret_is_a_v1_fernet_token(db_session):
+    """The token the app writes is Fernet v1 (version byte 0x80), so it stays
+    interchangeable with what previous releases stored."""
+    import base64 as _b64
+
+    set_setting(db_session, "mollie_api_key", "test_geheim123", secret=True, tenant_id=97)
+    db_session.flush()
+
+    row = db_session.query(TenantSetting).filter_by(tenant_id=97, key="mollie_api_key").one()
+    raw = _b64.urlsafe_b64decode(row.value_encrypted.encode())
+    assert raw[0] == 0x80

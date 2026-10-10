@@ -10,7 +10,7 @@ Invarianten:
 from decimal import Decimal
 
 from app.domains.mail import service as email_mod
-from app.domains.payment.api import create_payment_record
+from app.domains.payment.api import create_payment_record, transfer_due
 from app.domains.payment.structured_communication import generate_structured_communication
 
 
@@ -49,27 +49,30 @@ def test_cash_payment_has_no_ogm(db_session):
     assert r.structured_communication is None
 
 
-def test_transfer_instructions_contain_iban_ogm_amount(monkeypatch):
+def test_transfer_instructions_contain_iban_ogm_amount(monkeypatch, db_session):
+    """On a real payment record, not on a stand-in: the stand-in carried the text
+    "transfer" where a record carries the enum member, and so stayed green while
+    the block was empty in every mail (#1775). Broken to see it red: the method
+    compared with the text "transfer" again."""
     from app.config import settings
 
     monkeypatch.setattr(settings, "payment_iban", "BE68 5390 0754 7034")
     monkeypatch.setattr(settings, "payment_beneficiary", "Raak Millegem")
 
-    class FakeRecord:
-        method = "transfer"
-        structured_communication = "+++123/4567/89012+++"
-        amount = Decimal("35.00")
+    record = create_payment_record(db_session, "membership", 1, Decimal("35.00"), "transfer")
 
-    html = email_mod._transfer_instructions_html(FakeRecord())
-    assert "BE68 5390 0754 7034" in html
-    assert "+++123/4567/89012+++" in html
-    assert "35.00" in html
+    due = transfer_due(db_session, record, "Betaalinstructies (overschrijving)")
+    html = email_mod._transfer_instructions_html(due)
+    assert "<strong>IBAN:</strong> BE68 5390 0754 7034" in html
+    assert "<strong>Begunstigde:</strong> Raak Millegem" in html
+    assert f"<strong>Gestructureerde mededeling:</strong> {record.structured_communication}" in html
+    assert "<strong>Bedrag:</strong> € 35,00" in html
+    assert "<strong>Te betalen vóór:</strong>" in html
 
 
-def test_online_payment_has_no_instructions():
-    class FakeRecord:
-        method = "online"
-        structured_communication = None
-        amount = Decimal("35.00")
+def test_a_payment_that_is_no_transfer_has_no_instructions(db_session):
+    record = create_payment_record(db_session, "membership", 1, Decimal("35.00"), "cash")
 
-    assert email_mod._transfer_instructions_html(FakeRecord()) == ""
+    assert transfer_due(db_session, record, "x") is None
+    assert transfer_due(db_session, None, "x") is None
+    assert email_mod._transfer_instructions_html(None) == ""

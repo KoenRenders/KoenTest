@@ -19,7 +19,7 @@ actor als een lege cel, dus "we weten niet wie dit deed" en "er was niemand aang
 zagen er identiek uit. Daardoor kon niemand zo'n cel lezen, en kon een volgende
 vergetelheid er ongemerkt bij komen — zo zijn deze vier ontstaan.
 
-Vanaf nu schrijven de publieke wegen `PUBLIEKE_ACTOR`, en betekent **leeg = fout**.
+Vanaf nu schrijven de publieke wegen `PUBLIC_ACTOR`, en betekent **leeg = fout**.
 Bestaande rijen blijven leeg: die kunnen we niet met terugwerkende kracht duiden.
 """
 
@@ -28,9 +28,14 @@ from pathlib import Path
 
 import pytest
 
-from app.domains.audit.api import PUBLIEKE_ACTOR
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
+from app.kernel.history import PUBLIC_ACTOR
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    register_at_the_door,
+    seed_postal_code,
+    sign_up_at_the_door,
+)
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -66,18 +71,18 @@ def test_elke_snapshot_tekent_zijn_actor():
     zo zijn de vier ontstaan die dit issue rechtzet.
 
     **Bewijs dat deze gate werkt** (gedraaid vóór deze commit, niet beweerd): ik heb
-    `actor=PUBLIEKE_ACTOR` weggehaald bij `snapshot_membership` in
+    `actor=PUBLIC_ACTOR` weggehaald bij `snapshot_membership` in
     `membership/register_router.py`. De controle meldde daarop precies één regel —
     `app/domains/membership/register_router.py:435` — en na herstel weer geen enkele.
     Eén overtreding in, één treffer uit: hij kijkt dus écht, en niet naar iets anders.
 
-    Een publieke weg geeft `PUBLIEKE_ACTOR` mee; een beheerdersweg het e-mailadres.
+    Een publieke weg geeft `PUBLIC_ACTOR` mee; een beheerdersweg het e-mailadres.
     Beide zijn een actor. Wat niet mag, is de vraag helemaal niet beantwoorden.
     """
     fouten = _snapshots_zonder_actor()
     assert not fouten, (
         "Elke snapshot hoort te zeggen wie de handeling deed. Is er niemand "
-        "aangemeld, geef dan `actor=PUBLIEKE_ACTOR` mee — leeg betekent sinds #713 "
+        "aangemeld, geef dan `actor=PUBLIC_ACTOR` mee — leeg betekent sinds #713 "
         "dat we het niet weten, en dat is een fout:\n  " + "\n  ".join(fouten)
     )
 
@@ -89,8 +94,8 @@ def test_een_publieke_gezinsaanvraag_draagt_de_publieke_markering(client, db_ses
     from app.domains.mdm.api import MemberHistory
 
     seed_postal_code(db_session)
-    resp = client.post(
-        "/api/v1/families",
+    resp = sign_up_at_the_door(
+        client,
         json={
             "street": "Milostraat",
             "house_number": "40",
@@ -115,7 +120,7 @@ def test_een_publieke_gezinsaanvraag_draagt_de_publieke_markering(client, db_ses
         db_session.query(MemberHistory).filter(MemberHistory.action == "family_registered").all()
     )
     assert rijen, "geen auditregel"
-    assert all(r.actor == PUBLIEKE_ACTOR for r in rijen), [r.actor for r in rijen]
+    assert all(r.actor == PUBLIC_ACTOR for r in rijen), [r.actor for r in rijen]
 
 
 def test_een_anonieme_inschrijving_draagt_de_publieke_markering(client, db_session):
@@ -125,8 +130,9 @@ def test_een_anonieme_inschrijving_draagt_de_publieke_markering(client, db_sessi
     from tests.conftest import seed_activity_with_product
 
     activity, comp, product = seed_activity_with_product(db_session, price="10.00")
-    resp = client.post(
-        f"/api/v1/activities/{activity.id}/register",
+    resp = register_at_the_door(
+        client,
+        activity.id,
         json={
             "contact_name": "An",
             "phone": "0470000000",
@@ -143,7 +149,7 @@ def test_een_anonieme_inschrijving_draagt_de_publieke_markering(client, db_sessi
         .filter(RegistrationItemHistory.action == "order_created")
         .all()
     )
-    assert rijen and all(r.actor == PUBLIEKE_ACTOR for r in rijen), [r.actor for r in rijen]
+    assert rijen and all(r.actor == PUBLIC_ACTOR for r in rijen), [r.actor for r in rijen]
 
 
 # ── 3. De beheerdersweg tekent met een naam ────────────────────────────────

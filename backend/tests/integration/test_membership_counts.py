@@ -26,7 +26,9 @@ def _household(db, n_persons=1, *, is_active=True, valid_from=None, valid_to=Non
         )
         db.add(p)
         db.flush()
-        db.add(MemberPerson(member_id=member.id, person_id=p.id, relation_type="HOOFDLID"))
+        # One main member per household (#1832); the others are children.
+        relation = "HOOFDLID" if i == 0 else "KIND"
+        db.add(MemberPerson(member_id=member.id, person_id=p.id, relation_type=relation))
         persons.append(p)
     db.add(
         Membership(
@@ -108,14 +110,3 @@ def test_chatbot_context_reports_member_counts(db_session):
     assert "## Ledenaantal" in prompt
     assert "1 aangesloten gezin" in prompt
     assert "2 personen" in prompt
-
-
-def test_admin_stats_includes_member_persons(client, db_session, admin_headers):
-    db = db_session
-    _household(db, 2)
-    _household(db, 1)
-    resp = client.get("/api/v1/admin/stats", headers=admin_headers)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["active_member_households"] == 2
-    assert data["active_member_persons"] == 3

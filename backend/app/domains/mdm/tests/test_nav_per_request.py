@@ -28,7 +28,14 @@ from app.domains.mdm import tenant_lookup
 from app.domains.mdm.api import invalidate_tenant_codes
 from app.kernel.modules import DEFAULTS, MODULES, ModuleCode, current_modules, nav_item_shown
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
-from app.ui import _ADMIN_NAV, _ADMIN_NAV_LAYOUT, PLATFORM_ONLY_ITEMS, _public_nav, admin_nav
+from app.ui import (
+    _ADMIN_NAV,
+    _ADMIN_NAV_LAYOUT,
+    PLATFORM_ONLY_ITEMS,
+    _public_nav,
+    _right_of_screen,
+    nav_for,
+)
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -103,19 +110,26 @@ def test_an_association_sees_the_full_menu_as_before(client, modules_of):
 
 
 def test_a_group_left_empty_goes(client):
-    groups = [g["label"] for g in admin_nav("/admin", modules=COMPANY)]
+    groups = [
+        g["label"]
+        for g in nav_for("/admin", frozenset(_right_of_screen().values()), modules=COMPANY)
+    ]
 
     assert "Financieel" not in groups, "Betalingen is off: no empty Financieel heading"
     assert "Werking" in groups, "Formulieren keeps Werking"
 
 
-def test_finance_only_still_sees_payments_and_only_when_payment_is_on():
-    """#530 and #1476 together: the role cut works on the tenant's menu."""
-    items = [
-        i["href"] for g in admin_nav("/x", roles=["FINANCE"], modules=EVERY) for i in g["items"]
-    ]
-    assert items == ["/admin/betalingen"]
-    assert not [i for g in admin_nav("/x", roles=["FINANCE"], modules=COMPANY) for i in g["items"]]
+def test_boekhouding_sees_the_workbench_and_payments_and_payments_only_when_on():
+    """#1476 and CR-24 together: the menu by right works on the tenant's menu.
+    Whoever holds what Boekhouding bundles sees the workbench and Betalingen;
+    in a company, where payments are off, the workbench alone."""
+    finance = {
+        r for r in _right_of_screen().values() if r.value.split(".")[0] in ("payment", "workbench")
+    }
+    items = [i["href"] for g in nav_for("/x", finance, modules=EVERY) for i in g["items"]]
+    assert items == ["/admin/werkbank", "/admin/betalingen"]
+    company = [i["href"] for g in nav_for("/x", finance, modules=COMPANY) for i in g["items"]]
+    assert company == ["/admin/werkbank"]
 
 
 def test_an_item_needs_the_module_that_lists_it_and_the_one_that_serves_it(monkeypatch):
@@ -181,14 +195,14 @@ def test_an_association_header_is_as_before(client, modules_of):
 def test_mijn_gezin_goes_with_membership():
     token = current_modules.set(EVERY)
     try:
-        assert [n["href"] for n in _public_nav("member_items")] == ["/leden/gezin"]
-        # CR-22 S3 (#1706): an account-menu item brings its own icon.
-        assert [n["icon"] for n in _public_nav("member_items")] == ["users"]
+        # CR-22 S3 and S5 (#1706, #1709): an account-menu item brings its own icon.
+        items = {n["href"]: n["icon"] for n in _public_nav("member_items")}
+        assert items == {"/leden/gezin": "users", "/mijn/inschrijvingen": "calendar-days"}
     finally:
         current_modules.reset(token)
     token = current_modules.set(EVERY - {ModuleCode.MEMBERSHIP.value})
     try:
-        assert _public_nav("member_items") == []
+        assert [n["href"] for n in _public_nav("member_items")] == ["/mijn/inschrijvingen"]
     finally:
         current_modules.reset(token)
 

@@ -1,16 +1,11 @@
 from typing import List, NamedTuple, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.database import get_db
 from app.domains.auth.models import Role, User, UserRole
-from app.domains.auth.service import get_current_admin
 from app.i18n import _
-
-router = APIRouter(prefix="/users", tags=["users"])
-
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -211,13 +206,11 @@ def _validate_role_codes(db: Session, codes: List[str]) -> None:
         )
 
 
-@router.get("", response_model=List[UserOut])
-def list_users(db: Session = Depends(get_db), _admin=Depends(get_current_admin)):
+def list_users(db: Session, _admin=None):
     return db.query(User).order_by(User.email).all()
 
 
-@router.post("", response_model=UserOut, status_code=201)
-def create_user(body: UserCreate, db: Session = Depends(get_db), _admin=Depends(get_current_admin)):
+def create_user(body: UserCreate, db: Session, _admin=None):
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=400, detail=_("E-mailadres is al in gebruik."))
     _validate_role_codes(db, body.role_codes)
@@ -230,10 +223,7 @@ def create_user(body: UserCreate, db: Session = Depends(get_db), _admin=Depends(
     return user
 
 
-@router.put("/{user_id}", response_model=UserOut)
-def update_user(
-    user_id: int, body: UserUpdate, db: Session = Depends(get_db), _admin=Depends(get_current_admin)
-):
+def update_user(user_id: int, body: UserUpdate, db: Session, _admin=None):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail=_("Gebruiker niet gevonden."))
@@ -252,10 +242,7 @@ def update_user(
     return user
 
 
-@router.delete("/{user_id}", status_code=204)
-def delete_user(
-    user_id: int, db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)
-):
+def delete_user(user_id: int, db: Session, current_admin: User):
     if current_admin.id == user_id:
         raise HTTPException(status_code=400, detail=_("Je kan jezelf niet verwijderen."))
     user = db.query(User).filter(User.id == user_id).first()

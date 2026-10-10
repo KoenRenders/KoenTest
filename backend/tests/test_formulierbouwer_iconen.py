@@ -20,6 +20,7 @@ icoon en geen enkele foutmelding. Daarom toetsen deze tests het gerenderde
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -36,10 +37,10 @@ def _login(client):
     return csrf_token_for(waarde)
 
 
-def _bouwer(client, admin_headers) -> str:
-    r = client.post(
-        "/api/v1/forms",
-        json={
+def _bouwer(client) -> str:
+    r = forms_door.create_form(
+        client,
+        {
             "title": "Iconen",
             "status": "draft",
             "fields": [
@@ -51,7 +52,6 @@ def _bouwer(client, admin_headers) -> str:
                 }
             ],
         },
-        headers=admin_headers,
     )
     assert r.status_code == 200, r.text
     _login(client)
@@ -105,8 +105,8 @@ def _optie_verwijderknop(html: str, tot: str = "</button>") -> str:
     return html[html.rindex("<button", 0, start) : html.index(tot, start)]
 
 
-def test_de_glyphs_zijn_weg_van_de_knoppen(client, admin_headers):
-    html = _bouwer(client, admin_headers)
+def test_de_glyphs_zijn_weg_van_de_knoppen(client):
+    html = _bouwer(client)
     assert "⚙" not in html, "het tandwiel staat er nog"
     # `×` mag nog voorkomen als sluitknop van de toast-sjabloon in de schil; wat weg
     # moet is de verwijderknop. Sinds #1090 is dat een tekstknop ("Verwijderen")
@@ -116,10 +116,10 @@ def test_de_glyphs_zijn_weg_van_de_knoppen(client, admin_headers):
     assert "Verwijderen" in knop
 
 
-def test_verwijderen_blijft_rood(client, admin_headers):
+def test_verwijderen_blijft_rood(client):
     """§2.12: een verwijderknop is altijd rood. De tekst vervangt het teken, niet
     het signaal."""
-    html = _bouwer(client, admin_headers)
+    html = _bouwer(client)
     knop = _optie_verwijderknop(html, tot=">")
     assert "red" in knop, knop
 
@@ -133,19 +133,19 @@ def test_verwijderen_blijft_rood(client, admin_headers):
 # het verwijderen zit in de actiebalk als tekstknop, en een knop met tekst krijgt
 # geen tooltip. Wat rest aan symboolknoppen zijn de verplaatspijlen (`ui.reorder`).
 @pytest.mark.parametrize("label", ["Naar boven", "Naar onder"])
-def test_elke_symboolknop_draagt_een_tooltip(client, admin_headers, label):
+def test_elke_symboolknop_draagt_een_tooltip(client, label):
     """De schermlezer had het label al; wie met een muis werkt zag enkel een
     symbool."""
-    html = _bouwer(client, admin_headers)
+    html = _bouwer(client)
     start = html.index(f'aria-label="{label}"')
     knop = html[html.rindex("<button", 0, start) : html.index(">", start)]
     assert f'title="{label}"' in knop, knop
 
 
-def test_een_knop_met_tekst_krijgt_geen_tooltip(client, admin_headers):
+def test_een_knop_met_tekst_krijgt_geen_tooltip(client):
     """De keerzijde: zonder deze grens zou élke knop een tooltip krijgen die
     herhaalt wat er al leesbaar op staat."""
-    html = _bouwer(client, admin_headers)
+    html = _bouwer(client)
     start = html.index(">Opslaan<")
     knop = html[html.rindex("<button", 0, start) : start]
     assert "title=" not in knop, knop
@@ -154,7 +154,7 @@ def test_een_knop_met_tekst_krijgt_geen_tooltip(client, admin_headers):
 # ── 3. De sluitknoppen elders blijven ──────────────────────────────────────
 
 
-def test_de_toast_sluit_nog_altijd_met_een_kruisje(client, admin_headers):
+def test_de_toast_sluit_nog_altijd_met_een_kruisje(client):
     """Dat is de toets of de regel klopt: ná deze wijziging betekent `×` in de hele
     app nog maar één ding. Verdwijnt hij hier óók, dan is de regel te breed
     toegepast en heeft "sluiten" geen teken meer."""
@@ -167,22 +167,21 @@ def test_de_toast_sluit_nog_altijd_met_een_kruisje(client, admin_headers):
 # ── 4. De sectiebalk verwijdert ook met een prullenbak (#706) ───────────────
 
 
-def test_de_sectiebalk_verwijdert_niet_meer_met_een_kruisje(client, admin_headers):
+def test_de_sectiebalk_verwijdert_niet_meer_met_een_kruisje(client):
     """`section_bar` schreef zijn knop als rauwe HTML binnen een kit-macro, en die
     vorm glipte door de gate van #698 — die kijkt naar macro-aanroepen.
 
     Op de bouwer stond daardoor nog steeds hetzelfde teken voor "sluit deze melding"
     en voor "vernietig deze sectie met haar velden, opties en sprongregels".
     """
-    r = client.post(
-        "/api/v1/forms",
-        json={
+    r = forms_door.create_form(
+        client,
+        {
             "title": "Sectiebalk",
             "status": "draft",
             "sections": [{"title": "Een", "position": 0}],
             "fields": [{"field_type": "text", "label": "V", "position": 0, "section_index": 0}],
         },
-        headers=admin_headers,
     )
     assert r.status_code == 200, r.text
     _login(client)
@@ -201,7 +200,7 @@ def test_de_sectiebalk_verwijdert_niet_meer_met_een_kruisje(client, admin_header
     )
 
 
-def test_de_foutmelding_sluit_nog_steeds_met_een_kruisje(client, admin_headers):
+def test_de_foutmelding_sluit_nog_steeds_met_een_kruisje(client):
     """Na #698 én #706 betekent `×` in de hele app nog precies één ding — en dat
     ding heeft nog steeds een knop. Zonder deze test zou "haal de kruisjes weg" ook
     slagen."""

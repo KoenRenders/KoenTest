@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-DESC="Live stack antwoordt: publieke endpoints geven 200, admin is afgeschermd"
+DESC="Live stack antwoordt: publieke pagina's geven 200, het beheer is afgeschermd"
 # Post-deploy ROOKTEST — strikt ALLEEN-LEZEN. Maakt GEEN data aan (geen leden,
 # pagina's, betalingen of inschrijvingen). Veilig om op PROD te draaien.
 #
@@ -19,22 +19,25 @@ for _ in $(seq 1 30); do
 done
 [ "$ready" = "1" ] || fatal "stack niet gezond binnen de tijd (/api/health gaf geen 200 op ${BASE})"
 
-# 2) Publieke leesendpoints moeten 200 geven (app + DB verbonden).
+# 2) Publieke pagina's moeten 200 geven (app + DB verbonden). What a visitor sees,
+#    not a JSON route nobody else calls (CR-13 phase 4b, #1251): the home page
+#    carries the sponsors in its footer and the CMS content, the activities list
+#    reads the activities, "Word lid" reads the postal codes.
 check_get() {  # URL OMSCHRIJVING
   local code
   code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}$1" 2>/dev/null || echo 000)
   expect_status 200 "$code" "$2"
 }
 check_get "/api/health"            "health-endpoint"
-check_get "/api/v1/activities"     "publieke activiteitenlijst"
-check_get "/api/v1/postal-codes"   "postcode-lookup"
-check_get "/api/v1/pages"          "publieke CMS-pagina's"
-check_get "/api/v1/sponsors"       "sponsorlijst (footer)"
+check_get "/"                      "startpagina (CMS-inhoud, sponsors in de footer)"
+check_get "/activiteiten"          "publieke activiteitenlijst"
+check_get "/lid-worden"            "word lid (postcodes uit de databank)"
 
-# 3) Admin-administratie moet afgeschermd zijn zonder token (geen datalek).
-code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/api/v1/payment-status/records" 2>/dev/null || echo 000)
-expect_status 401 "$code" "betaaladministratie eist auth"
-code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/api/v1/admin/media" 2>/dev/null || echo 000)
-expect_status_one_of "$code" "media-beheer eist auth" 401 403
+# 3) Het beheer moet afgeschermd zijn zonder sessie (geen datalek): een scherm
+#    stuurt een bezoeker zonder sessie naar het aanmelden (303, #1458).
+code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/admin/betalingen" 2>/dev/null || echo 000)
+expect_status 303 "$code" "betaalbeheer eist een sessie"
+code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/admin/media" 2>/dev/null || echo 000)
+expect_status 303 "$code" "mediabeheer eist een sessie"
 
 t_summary

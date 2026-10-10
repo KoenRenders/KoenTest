@@ -14,13 +14,20 @@ komt** en waar de grenzen liggen.
 
 ## Schema — hoe de chat werkt
 
+> Bijgewerkt op 8 oktober 2026 (CR-13 fase 4b, #1251): de JSON-route
+> `POST /api/v1/chat` en haar SSE-stroom zijn verwijderd — ze hoorden bij de
+> React-widget en hadden geen oproeper meer. De publieke Raakje loopt via de
+> schermroute `POST /raakje/vraag`; de twee tekeningen hieronder tonen die deur.
+> De secties verderop die nog React-bestanden noemen (`ChatWidget.tsx`,
+> `routers/chat.py`) beschrijven de toestand van vóór de React-exit (#405).
+
 Architectuur op hoog niveau (de browser praat nooit rechtstreeks met Mistral; de
 API-sleutel staat serverside):
 
 ```mermaid
 flowchart LR
-    U[Bezoeker] -->|tekst/STT| W[ChatWidget<br/>SSE]
-    W -->|POST /api/v1/chat| R[Backend-router<br/>chat.py<br/>key serverside]
+    U[Bezoeker] -->|tekst/STT| W[Raakje-paneel<br/>htmx]
+    W -->|POST /raakje/vraag| R[Schermroute<br/>chatbot/ui.py<br/>key serverside]
     R --> G[Vangrails<br/>rate-limit · dagbudget · 2000-tekens]
     G --> S[Tool-loop<br/>service.py]
     S -->|prompt: persona + CMS + tools| P[Provider-naad<br/>providers/]
@@ -29,18 +36,18 @@ flowchart LR
     S -->|tool-call| T[Tools = security-grens<br/>get_activities<br/>get_activity_detail<br/>submit_idea]
     T --> DB[(Onze DB<br/>publieke data + idee)]
     M -->|antwoord/tool-keuze| S
-    S -->|SSE-stream| W
+    S -->|antwoord als HTML-fragment| W
 ```
 
 Eén chatbeurt met de tool-lus (max 4 rondes), schematisch:
 
 ```mermaid
 sequenceDiagram
-    participant W as ChatWidget
-    participant R as Backend (chat.py)
+    participant W as Raakje-paneel
+    participant R as Backend (chatbot/ui.py)
     participant L as Mistral Small 4
     participant T as Tools (DB)
-    W->>R: POST /api/v1/chat (geschiedenis + vraag)
+    W->>R: POST /raakje/vraag (één vraag)
     R->>R: vangrails + system-prompt (persona + CMS-tekst)
     loop tot eindantwoord (max 4 rondes)
         R->>L: messages + lijst van 3 tools
@@ -52,7 +59,7 @@ sequenceDiagram
             L-->>R: eindtekst
         end
     end
-    R-->>W: SSE-stream van het antwoord
+    R-->>W: het antwoord als HTML-fragment
 ```
 
 ## De kern in drie zinnen
@@ -139,7 +146,7 @@ tekst** = `COALESCE(text_override, basis)` ＋ `text_addition`; `is_active=false
 > de `chatbot_info`-rij van dat asset. De bot leest via `get_activity_detail`
 > (poster → `flyer_text`, onderdeel → `info_text`).
 > Code: `app/services/media_extraction.py`, model `app/models/chatbot_info.py`,
-> migratie 059. Backfill: `backend/backfill_extracted_text.py`.
+> migratie 059.
 
 - **Wanneer:** bij **upload**, één keer, op de **achtergrond** (`BackgroundTasks`
   — geen queue/Redis). De upload slaagt direct; extractie loopt erachteraan. De

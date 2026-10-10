@@ -4,12 +4,25 @@ de history (en dus de #82-export) toont de verwijdering nog steeds."""
 
 from datetime import date
 
+import pytest
+
+from app.domains.activities import service as activities_service
 from app.domains.activities.api import Activity, Registration
 from app.domains.auth.api import User
-from app.domains.mdm.api import Member
+from app.domains.mdm.api import Member, delete_household
+from app.domains.membership import household_service
 from app.domains.membership.api import Membership
+from app.domains.membership.schemas_member import MembershipCreate
 from app.domains.payment.api import PayableType, PaymentRecord
-from tests.conftest import seed_activity_with_product, seed_postal_code
+from tests import backoffice_door, payments_door
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    register_at_the_door,
+    seed_activity_with_product,
+    seed_postal_code,
+    seeded_admin,
+    sign_up_at_the_door,
+)
 
 
 def _payload(email="lid@example.com"):
@@ -34,15 +47,15 @@ def _payload(email="lid@example.com"):
 
 def _create_family(client, db, email="lid@example.com"):
     seed_postal_code(db)
-    resp = client.post("/api/v1/families", json=_payload(email))
+    resp = sign_up_at_the_door(client, json=_payload(email))
     assert resp.status_code == 201, resp.text
     return db.query(Member).order_by(Member.id.desc()).first()
 
 
-def test_soft_deleted_family_hidden_but_retained(client, db_session, admin_headers):
+def test_soft_deleted_family_hidden_but_retained(client, db_session):
     member = _create_family(client, db_session)
     mid = member.id
-    assert client.delete(f"/api/v1/families/{mid}", headers=admin_headers).status_code == 204
+    delete_household(db_session, mid, admin=seeded_admin(db_session))
 
     # Verborgen voor gewone reads (member + bijhorende rijen).
     assert db_session.query(Member).filter(Member.id == mid).first() is None
@@ -65,57 +78,51 @@ def test_soft_deleted_family_hidden_but_retained(client, db_session, admin_heade
     assert kept_ms is not None and kept_ms.deleted_at is not None
 
 
-def test_family_list_excludes_soft_deleted(client, db_session, admin_headers):
+def test_family_list_excludes_soft_deleted(client, db_session):
     member = _create_family(client, db_session)
-    client.delete(f"/api/v1/families/{member.id}", headers=admin_headers)
-    listing = client.get("/api/v1/families", headers=admin_headers)
-    assert listing.status_code == 200, listing.text
-    ids = [f["id"] for f in listing.json()["items"]]
+    delete_household(db_session, member.id, admin=seeded_admin(db_session))
+    listing = household_service.list_families(db_session, _admin=seeded_admin(db_session))
+    ids = [family.id for family in listing.items]
     assert member.id not in ids
 
 
-def test_reregister_same_email_after_soft_delete(client, db_session, admin_headers):
+def test_reregister_same_email_after_soft_delete(client, db_session):
     member = _create_family(client, db_session, email="x@example.com")
-    assert client.delete(f"/api/v1/families/{member.id}", headers=admin_headers).status_code == 204
+    delete_household(db_session, member.id, admin=seeded_admin(db_session))
     # Opnieuw inschrijven met hetzelfde e-mail/jaar mag: de dedup ziet de
     # soft-deleted niet en de partiële uniciteit blokkeert niet.
-    r2 = client.post("/api/v1/families", json=_payload("x@example.com"))
+    r2 = sign_up_at_the_door(client, json=_payload("x@example.com"))
     assert r2.status_code == 201, r2.text
 
 
-def test_recreate_membership_for_same_member_year_after_soft_delete(
-    client, db_session, admin_headers
-):
+def test_recreate_membership_for_same_member_year_after_soft_delete(client, db_session):
     member = _create_family(client, db_session)
     ms = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     year = ms.year
-    assert client.delete(f"/api/v1/memberships/{ms.id}", headers=admin_headers).status_code == 204
+    household_service.delete_membership(db_session, ms.id, admin=seeded_admin(db_session))
     # Nieuw lidmaatschap voor hetzelfde gezin+jaar mag (partiële uniciteit).
-    r = client.post(
-        f"/api/v1/families/{member.id}/memberships", json={"year": year}, headers=admin_headers
+    again = household_service.create_membership_for_family(
+        db_session, member.id, MembershipCreate(year=year), admin=seeded_admin(db_session)
     )
-    assert r.status_code in (200, 201), r.text
+    assert again.year == year and again.id != ms.id
 
 
-def test_soft_delete_still_recorded_in_member_changes(client, db_session, admin_headers):
+def test_soft_delete_still_recorded_in_member_changes(client, db_session):
     member = _create_family(client, db_session)
-    client.delete(f"/api/v1/families/{member.id}", headers=admin_headers)
-    changes = client.get(
-        "/api/v1/admin/member-changes",
-        params={"since": date.today().isoformat()},
-        headers=admin_headers,
-    ).json()
+    delete_household(db_session, member.id, admin=seeded_admin(db_session))
+    changes = backoffice_door.member_changes(client, date.today().isoformat()).json()
     assert any(c["operation_label"] == "Verwijderd" for c in changes)
 
 
 # ── Stage 2/3: activiteiten, betalingen, gebruikers ──────────────────────────
 
 
-def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin_headers):
+def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
-    client.post(
-        f"/api/v1/activities/{activity_id}/register",
+    register_at_the_door(
+        client,
+        activity_id,
         json={
             "contact_name": "An",
             "phone": "0470000000",
@@ -130,16 +137,13 @@ def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin
 
     # #1561 (Koen, 4 October 2026): an activity with a registration is refused;
     # the registration goes first, and then the payment still stays.
-    assert (
-        client.delete(f"/api/v1/activities/{activity_id}", headers=admin_headers).status_code == 422
-    )
+    with pytest.raises(activities_service.ActiviteitFout):
+        activities_service.delete_activity(db_session, activity_id, actor=SEEDED_ADMIN_EMAIL)
     from app.soft_delete import soft_delete
 
     soft_delete(reg)
     db_session.commit()
-    assert (
-        client.delete(f"/api/v1/activities/{activity_id}", headers=admin_headers).status_code == 200
-    )
+    assert activities_service.delete_activity(db_session, activity_id, actor=SEEDED_ADMIN_EMAIL)
 
     # Activiteit + inschrijving verborgen, maar bewaard.
     assert db_session.query(Activity).filter(Activity.id == activity_id).first() is None
@@ -164,7 +168,7 @@ def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin
     assert pay is not None and pay.deleted_at is None
 
 
-def test_soft_delete_payment_hidden_but_kept(client, db_session, admin_headers):
+def test_soft_delete_payment_hidden_but_kept(client, db_session):
     member = _create_family(client, db_session)
     ms = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     pay = (
@@ -176,10 +180,7 @@ def test_soft_delete_payment_hidden_but_kept(client, db_session, admin_headers):
         .first()
     )
     pid = pay.id
-    assert (
-        client.delete(f"/api/v1/payment-status/records/{pid}", headers=admin_headers).status_code
-        == 204
-    )
+    assert payments_door.delete(client, pid).status_code == 204
     assert db_session.query(PaymentRecord).filter(PaymentRecord.id == pid).first() is None
     kept = (
         db_session.query(PaymentRecord)
@@ -190,12 +191,17 @@ def test_soft_delete_payment_hidden_but_kept(client, db_session, admin_headers):
     assert kept is not None and kept.deleted_at is not None
 
 
-def test_soft_delete_user_and_reuse_email(client, db_session, admin_headers):
+def test_soft_delete_user_and_reuse_email(client, db_session):
+    from app.domains.auth.api import admin_user_by_email
+    from app.domains.auth.users import delete_user
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
     u = User(email="temp@example.com")
     db_session.add(u)
     db_session.flush()
     uid = u.id
-    assert client.delete(f"/api/v1/users/{uid}", headers=admin_headers).status_code == 204
+    # The function the users screen calls (until CR-13 phase 4b, #1251, this asked a JSON route with a bearer token).
+    delete_user(uid, db_session, admin_user_by_email(db_session, SEEDED_ADMIN_EMAIL))
     assert db_session.query(User).filter(User.id == uid).first() is None
     # Zelfde e-mail opnieuw mag (partiële uniciteit).
     u2 = User(email="temp@example.com")

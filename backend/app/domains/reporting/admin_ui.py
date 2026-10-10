@@ -1,7 +1,7 @@
 """The reporting screens (#833, CR-06 §5): the list and the query panel.
 
-Everything sits behind `require_admin_ui` — ADMIN or OPERATOR, the same door as
-every other admin screen. v2.3.0 adds no new security surface: the roles the
+Every route asks a right (CR-24): `report.view` to look, `report.manage` to change,
+`assistant.use` for the Assistent. v2.3.0 adds no new security surface: the roles the
 universe declares per object are a declaration, not a fence (#832).
 
 **The panel's whole state lives in the query string.** Which objects are chosen,
@@ -29,9 +29,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.auth.api import (
     SESSION_COOKIE,
+    Right,
     csrf_token_for,
-    require_admin_ui,
     require_csrf,
+    require_right,
 )
 from app.domains.reporting.api import (
     BY_KEY,
@@ -596,7 +597,7 @@ def _panel(
         error=error,
         toast=toast,
         csrf_token=_csrf(request),
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -659,13 +660,15 @@ def _list_view(request: Request, db: Session, email: str) -> ReportListView:
         owner=owner,
         shared=shared,
         csrf_token=_csrf(request),
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
 @router.get("/admin/rapporten", response_class=HTMLResponse)
 def reports_index(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.REPORT_VIEW)),
 ):
     view = _list_view(request, db, email)
     template = "_rp_kaarten.html" if is_fragment_request(request) else "admin_rapporten.html"
@@ -674,7 +677,9 @@ def reports_index(
 
 @router.get("/admin/rapporten/lijst", response_class=HTMLResponse)
 def reports_list_fragment(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.REPORT_VIEW)),
 ):
     return templates.TemplateResponse(
         request, "_rp_kaarten.html", _list_view(request, db, email).as_context()
@@ -686,7 +691,9 @@ def reports_list_fragment(
 
 
 @router.get(
-    "/admin/rapporten/nieuw", response_class=HTMLResponse, dependencies=[Depends(require_admin_ui)]
+    "/admin/rapporten/nieuw",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_right(Right.REPORT_VIEW))],
 )
 def report_new(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
@@ -697,7 +704,9 @@ def report_new(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get(
-    "/admin/rapporten/paneel", response_class=HTMLResponse, dependencies=[Depends(require_admin_ui)]
+    "/admin/rapporten/paneel",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_right(Right.REPORT_VIEW))],
 )
 def report_panel_fragment(
     request: Request, db: Session = Depends(get_db), report: int | None = None
@@ -722,7 +731,7 @@ def report_panel_fragment(
 def report_export(
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.REPORT_VIEW)),
     report: int | None = None,
 ):
     """The report on screen as a spreadsheet — sheet 1 the table, sheet 2 the detail."""
@@ -798,7 +807,7 @@ def dataset_export(
     fact_key: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.REPORT_VIEW)),
 ):
     """One fact, flat, as a spreadsheet (#832).
 
@@ -896,7 +905,7 @@ def _history_out(turns: list[dict[str, str]]) -> str:
 
 
 @router.get("/admin/rapporten/raakje")
-def assistant_page_moved(email: str = Depends(require_admin_ui)) -> Response:
+def assistant_page_moved(email: str = Depends(require_right(Right.ASSISTANT_USE))) -> Response:
     """The assistant page is gone (CR-11 K8, #1562): the Assistent is a panel
     that opens beside any screen. An old bookmark lands on the reports list,
     where the panel speaks about the whole tenant — permanently, so the address
@@ -906,11 +915,11 @@ def assistant_page_moved(email: str = Depends(require_admin_ui)) -> Response:
 
 def _may_ask(db: Session, request: Request) -> bool:
     """Is there an Assistent for this visitor? The two switches (`_assistant_state`),
-    the module, and the role the question routes admit — FINANCE alone sees the
-    payments list and may not ask (#1060)."""
+    the module, and the right the question routes ask (`assistant.use`) — FINANCE
+    alone sees the payments list and may not ask (#1060)."""
     from app.domains.auth.api import (
         SESSION_COOKIE,
-        may_use_admin_assistant,
+        may,
         read_session_value,
     )
     from app.domains.mdm.api import module_enabled
@@ -921,7 +930,7 @@ def _may_ask(db: Session, request: Request) -> bool:
         email
         and _assistant_state(db, request)[0]
         and module_enabled(ModuleCode.CHATBOT)
-        and may_use_admin_assistant(db, email)
+        and may(db, email, Right.ASSISTANT_USE)
     )
 
 
@@ -952,7 +961,7 @@ def assistant_panel(
     request: Request,
     huidig: str = "",
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ASSISTANT_USE)),
 ) -> Response:
     """What stands in the panel for this screen. `huidig` is the context the
     panel shows already: while the screen's context is that one, nothing is
@@ -977,7 +986,9 @@ def assistant_panel(
     "/admin/rapporten/raakje", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
 )
 async def assistant_ask(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.ASSISTANT_USE)),
 ):
     return await _ask(request, db, email, scope=None)
 
@@ -991,7 +1002,7 @@ async def assistant_ask_about_activity(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ASSISTANT_USE)),
 ):
     """Raakje bound to one activity (#975) — the endpoint behind the overlay.
 
@@ -1003,7 +1014,7 @@ async def assistant_ask_about_activity(
     tenant. The tenant filter on the query answers the second question —
     another tenant's activity is simply not found, which is also the answer the
     visitor gets: 404, no hint that it exists elsewhere. Every admin role may see
-    an activity, so `require_admin_ui` is the role check.
+    an activity, so `assistant.use` is the check.
     """
     from app.domains.activities.api import get_activity
 
@@ -1035,7 +1046,7 @@ async def assistant_ask_about_screen(
     scherm: str,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.ASSISTANT_USE)),
 ):
     """Raakje met de selectie van het scherm waar hij aangeroepen wordt (#1060).
 
@@ -1043,8 +1054,8 @@ async def assistant_ask_about_screen(
     SERVER-SIDE herleid uit dezelfde filterstand die het scherm zelf leest — nooit
     uit het formulier van de vraag. Een vervalst veld daarin verandert dus niets.
 
-    De rol blijft `require_admin_ui`, zoals elk rapportenscherm. Op Betalingen
-    betekent dat iets: dat scherm draait op `require_finance_ui`, dus een
+    The gate is `assistant.use` (CR-24), for every question route. Op Betalingen
+    betekent dat iets: dat scherm vraagt `payment.view`, dus een
     FINANCE-only gebruiker ziet de lijst wél en mag de assistent niet. Die krijgt
     hier een 403 en op het scherm geen ingang — geen nieuwe rol, geen verbreding
     (Koen, 20 september 2026).
@@ -1092,9 +1103,11 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
     from app.domains.chatbot.api import (
         ChatTimeout,
         GuardedProvider,
+        QuestionRefused,
         SeamBlocked,
         admin_chat_char_budget,
         admin_rules,
+        asked,
         get_provider,
         run_chat,
         sink_for,
@@ -1117,14 +1130,16 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
     enabled, reason = _assistant_state(db, request)
     if not enabled:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    if not vraag:
+    try:
+        vraag = asked(vraag)
+    except QuestionRefused as refusal:
         return templates.TemplateResponse(
             request,
             "_rp_raakje_antwoord.html",
             AssistantTurnView(
                 vraag="",
                 antwoord="",
-                error=_("Typ eerst een vraag."),
+                error=str(refusal),
                 payload="",
                 history=_history_out(turns),
             ).as_context(),
@@ -1256,7 +1271,7 @@ def report_open(
     report_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.REPORT_VIEW)),
 ):
     """Open a saved report in the panel.
 
@@ -1294,7 +1309,9 @@ def report_open(
 
 @router.post("/admin/rapporten", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 async def report_save(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.REPORT_MANAGE)),
 ):
     form = await request.form()
     name, description = str(form.get("name") or ""), str(form.get("description") or "")
@@ -1332,7 +1349,7 @@ async def report_update(
     report_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.REPORT_MANAGE)),
 ):
     report = get_saved_report(db, report_id, tenant_id=_tenant(request), viewer=email)
     if report is None:
@@ -1370,7 +1387,7 @@ def report_copy(
     report_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.REPORT_MANAGE)),
 ):
     """ "Kopiëren": your own copy. The original is never touched."""
     report = get_saved_report(db, report_id, tenant_id=_tenant(request), viewer=email)
@@ -1385,7 +1402,7 @@ def report_delete(
     report_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.REPORT_MANAGE)),
 ):
     report = get_saved_report(db, report_id, tenant_id=_tenant(request), viewer=email)
     if report is None:

@@ -34,6 +34,7 @@ from tests.conftest import (
     create_test_family,
     household_fields,
     seed_postal_code,
+    sign_up_at_the_door,
 )
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -82,14 +83,14 @@ def test_publieke_registratie_eist_de_velden_ook_van_het_hoofdlid(client, db_ses
     """
     seed_postal_code(db_session)
 
-    zonder = client.post("/api/v1/families", json=_gezin_payload())
+    zonder = sign_up_at_the_door(client, json=_gezin_payload())
     assert zonder.status_code == 422, zonder.text
     assert not db_session.query(Person).filter(Person.first_name == "Jan").all(), (
         "een geweigerde registratie mag niemand aanmaken"
     )
 
-    met = client.post(
-        "/api/v1/families", json=_gezin_payload(date_of_birth="1980-01-01", gender_code="M")
+    met = sign_up_at_the_door(
+        client, json=_gezin_payload(date_of_birth="1980-01-01", gender_code="M")
     )
     assert met.status_code == 201, met.text
 
@@ -100,11 +101,11 @@ def test_publieke_registratie_eist_ze_ook_van_een_bijkomend_lid(client, db_sessi
     basis = _gezin_payload(date_of_birth="1980-01-01", gender_code="M")
     kind = {"last_name": "Peeters", "first_name": "Kind", "relation_type": "KIND"}
 
-    zonder = client.post("/api/v1/families", json={**basis, "members": basis["members"] + [kind]})
+    zonder = sign_up_at_the_door(client, json={**basis, "members": basis["members"] + [kind]})
     assert zonder.status_code == 422, zonder.text
 
-    met = client.post(
-        "/api/v1/families",
+    met = sign_up_at_the_door(
+        client,
         json={
             **basis,
             "members": basis["members"]

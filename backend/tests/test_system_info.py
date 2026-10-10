@@ -12,15 +12,11 @@ import json
 from app.config import settings
 
 
-def test_system_info_requires_admin(client):
-    resp = client.get("/api/v1/admin/system-info")
-    assert resp.status_code in (401, 403)
+def test_system_info_contains_no_secrets():
+    """What the system screen reads (`app.ui.system_info.system_info`)."""
+    from app.ui.system_info import system_info
 
-
-def test_system_info_contains_no_secrets(client, admin_headers):
-    resp = client.get("/api/v1/admin/system-info", headers=admin_headers)
-    assert resp.status_code == 200
-    body = resp.json()
+    body = system_info()
     blob = json.dumps(body)
 
     # Geen enkele secret-waarde mag in de payload zitten.

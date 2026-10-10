@@ -48,7 +48,6 @@ class ModuleCode(str, TechnicalEnum):
     MEETINGS = "meetings"
     DESIGNSTUDIO = "designstudio"
     REPORTING = "reporting"
-    WORKFLOW = "workflow"
     CHATBOT = "chatbot"
 
     def __str__(self) -> str:
@@ -94,17 +93,11 @@ M = ModuleCode
 
 #: Every module, in menu order. The boundaries that are not obvious are written
 #: out in CR-19 §C2: mdm's master data (persons, households as data,
-#: organisations, postal codes, tenants) is core and never off.
+#: organisations, postal codes, tenants) is core and never off. So is the
+#: workbench (#1876): since CR-24 it is the one way into the back office, and
+#: a tenant without it had a way in that answered "niet gevonden". Its menu
+#: item, its dashboard tile and its reporting folder belong to no module.
 MODULES: tuple[Module, ...] = (
-    Module(
-        M.WORKFLOW,
-        "Werkbank",
-        admin_items=(("/admin/werkbank", "Werkbank"),),
-        route_prefixes=("/admin/werkbank",),
-        dashboard_tiles=("dashboard_open_tasks",),
-        reporting_folders=("Taken",),
-        record_tables=("workflow.workflow_tasks",),
-    ),
     Module(
         M.ACTIVITIES,
         "Activiteiten",
@@ -113,7 +106,14 @@ MODULES: tuple[Module, ...] = (
         # without activities there is nothing in it (#1476). `nav_item_shown`
         # asks for both.
         public_items=(("/fotos", "Foto's"), ("/archief", "Archief")),
-        route_prefixes=("/api/v1/activities", "/admin/activiteiten", "/activiteiten", "/archief"),
+        # CR-22 S5 (#1709): the registrations of whoever is signed in.
+        member_items=(("/mijn/inschrijvingen", "Mijn inschrijvingen", "calendar-days"),),
+        route_prefixes=(
+            "/admin/activiteiten",
+            "/activiteiten",
+            "/archief",
+            "/mijn/inschrijvingen",
+        ),
         dashboard_tiles=("dashboard_upcoming_activities",),
         home_blocks=("activity_cards",),
         sitemap_paths=("/activiteiten", "/activiteiten/archief"),
@@ -126,7 +126,7 @@ MODULES: tuple[Module, ...] = (
         "Leden",
         admin_items=(("/admin/leden", "Leden"),),
         member_items=(("/leden/gezin", "Mijn gezin", "users"),),
-        route_prefixes=("/api/v1/families", "/lid-worden", "/leden/gezin", "/admin/leden"),
+        route_prefixes=("/lid-worden", "/leden/gezin", "/admin/leden"),
         dashboard_tiles=(
             "dashboard_members",
             "dashboard_active_members",
@@ -150,7 +150,7 @@ MODULES: tuple[Module, ...] = (
         M.FORMS,
         "Formulieren",
         admin_items=(("/admin/formulieren", "Formulieren"),),
-        route_prefixes=("/api/v1/forms", "/admin/formulieren", "/f/", "/formulier/"),
+        route_prefixes=("/admin/formulieren", "/f/", "/formulier/"),
         sitemap_paths=("/berichten",),
         reporting_folders=("Formulieren",),
         record_tables=("form.forms", "form.form_submissions"),
@@ -159,7 +159,7 @@ MODULES: tuple[Module, ...] = (
         M.CMS,
         "Pagina's",
         admin_items=(("/admin/paginas", "Pagina's"),),
-        route_prefixes=("/api/v1/pages", "/admin/paginas"),
+        route_prefixes=("/admin/paginas",),
         record_tables=("cms.cms_pages",),
     ),
     Module(
@@ -179,7 +179,7 @@ MODULES: tuple[Module, ...] = (
         # K8 (#1562): the assistant itself has no menu item — it is the panel
         # behind the top bar's trigger. What stays is what it knows.
         admin_items=(("/admin/ai-context", "Raakje"),),
-        route_prefixes=("/api/v1/chat", "/admin/ai-context", "/raakje/"),
+        route_prefixes=("/admin/ai-context", "/raakje/"),
         record_tables=("ai.chatbot_info",),
         tenant_settings=("admin_chat_enabled", "public_chat_enabled"),
     ),
@@ -290,12 +290,12 @@ UNCOUNTED: dict[ModuleCode, str] = {
 #: the platform's own set (#1523).
 DEFAULTS: dict[str, frozenset[ModuleCode]] = {
     "VERENIGING": frozenset(ModuleCode),
-    "BEDRIJF": frozenset({M.CMS, M.MEDIA, M.FORMS, M.WORKFLOW}),
-    # #1523: the platform — pages, media, forms and the workbench, for help
+    "BEDRIJF": frozenset({M.CMS, M.MEDIA, M.FORMS}),
+    # #1523: the platform — pages, media and forms, for help
     # pages and a contact or request form. Equal to BEDRIJF's today ("op dit
     # moment dus dezelfde scope als bedrijf", Koen) but its own entry: the two
     # kinds will grow apart, and then one line changes, not a shared constant.
-    "PLATFORM": frozenset({M.CMS, M.MEDIA, M.FORMS, M.WORKFLOW}),
+    "PLATFORM": frozenset({M.CMS, M.MEDIA, M.FORMS}),
 }
 
 

@@ -191,13 +191,18 @@ def test_saving_with_the_partners_field_empty_writes_no_address_and_no_history(c
     assert rows == [], "an empty field became a row"
     assert db_session.query(ContactDetailHistory).count() == before, "an empty field left history"
 
-    # the other half: typed, the same field becomes the partner's main address
+    # the other half: typed, the same field becomes the partner's address —
+    # waiting for its code since CR-22 R15 (#1711), so not the main one yet
     fields = form_fields(client.get(EDIT).text, "gezin-form")
     fields[f"e.n{partner.id}e.value"] = "partner.leeg@example.com"
     assert client.post("/leden/gezin", data=fields, headers=headers).status_code == 200
     db_session.expire_all()
     stored = db_session.query(ContactDetail).filter_by(person_id=partner.id).one()
-    assert (stored.value, stored.is_primary) == ("partner.leeg@example.com", True)
+    assert (stored.value, stored.is_primary, stored.confirmed_at) == (
+        "partner.leeg@example.com",
+        False,
+        None,
+    )
 
 
 def test_the_main_members_empty_field_is_refused_on_the_field(client, db_session):
@@ -230,6 +235,17 @@ def test_the_main_members_empty_field_is_refused_on_the_field(client, db_session
 
 
 def _running(db, member, *, method="transfer", gateway_payment_id=None) -> None:
+    # A renewal presupposes a membership that was paid before (#1730): without
+    # one this household would be paying its FIRST membership, with other words.
+    db.add(
+        Membership(
+            member_id=member.id,
+            year=date.today().year - 1,
+            is_active=True,
+            valid_from=date(date.today().year - 1, 1, 1),
+            valid_to=date(date.today().year - 1, 12, 31),
+        )
+    )
     year = date.today().year + 1
     membership = Membership(
         member_id=member.id,
@@ -273,8 +289,10 @@ def test_the_card_shows_the_transfer_as_an_inset_and_links_nowhere(client, db_se
     assert "rounded-md" in inset.group(0) and "bg-blue-50" in inset.group(0)
     assert " p-4 " in inset.group(0), "16 px of padding"
     body = inset.group(1)
-    assert "Vernieuwing geregistreerd — betaal via overschrijving:" in body
-    places = [body.index(word) for word in ("Bedrag", "Mededeling (OGM)")]
+    assert "Lidmaatschap geregistreerd — betaal via overschrijving:" in body
+    places = [
+        body.index(word) for word in ("Bedrag", "Gestructureerde mededeling", "Te betalen vóór")
+    ]
     assert places == sorted(places) and OGM in body and "35,00" in body
 
 

@@ -15,17 +15,17 @@ De upsert-logica en de rapport-parsing zijn gedeeld met het CLI-script.
 import secrets
 import time
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.database import get_db
-from app.domains.auth.api import User, get_current_admin
+from app.domains.auth.api import User
 from app.domains.mdm.import_service import upsert_families
 from app.domains.mdm.ledenrapport import parse_families
 from app.i18n import _
 
-router = APIRouter(tags=["member-import"])
+# No router since CR-13 phase 4b (#1251): the JSON routes of this file are gone, none had a
+# caller. What is left are the functions the facade calls (`api.py`); phase 4c moves them.
 
 # Server-side cache van geüploade bestanden tussen preview en commit.
 # In-memory met TTL — een import is een eenmalige, kortlevende admin-actie.
@@ -72,14 +72,7 @@ def _take(token: str) -> dict:
     return _PENDING.pop(token)
 
 
-def _parse_or_400(content: bytes, filename: str | None):
-    if filename and filename.lower().endswith(".xlsx"):
-        raise HTTPException(
-            status_code=400,
-            detail=_(
-                "Het .xlsx-formaat wordt niet ondersteund. Gebruik .xls (export uit Raak Nationaal) of .ods (LibreOffice Calc)."
-            ),
-        )
+def _parse_or_400(content: bytes):
     try:
         return parse_families(content)
     except Exception:
@@ -93,19 +86,25 @@ class CommitRequest(BaseModel):
     token: str
 
 
-@router.post("/admin/member-import/preview")
-async def preview(
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
+# No route of its own since CR-13 phase 4b (#1251): no caller. The facade (`api.py`) calls this
+# function for the screen; it stays in this file until phase 4c moves it.
+async def preview(*, file: UploadFile, db: Session, admin: User) -> dict:
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail=_("Leeg bestand."))
     if len(content) > _MAX_FILE_BYTES:
         raise HTTPException(status_code=413, detail=_("Bestand te groot (max 5 MB)."))
+    # The upload's type, read where the upload is (CR-13 phase 4c, #1251): a check
+    # on the file, as its size and its emptiness above.
+    if file.filename and file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(
+            status_code=400,
+            detail=_(
+                "Het .xlsx-formaat wordt niet ondersteund. Gebruik .xls (export uit Raak Nationaal) of .ods (LibreOffice Calc)."
+            ),
+        )
 
-    families, bl_index, all_bl_names, _rest = _parse_or_400(content, file.filename)
+    families, bl_index, all_bl_names, _rest = _parse_or_400(content)
     # apply=False muteert de sessie niet: het rapport beschrijft enkel wat zou
     # veranderen. Pas bij commit wordt er weggeschreven.
     report = upsert_families(db, families, bl_index, all_bl_names, apply=False, actor=admin.email)
@@ -119,14 +118,11 @@ async def preview(
     }
 
 
-@router.post("/admin/member-import/commit")
-def commit(
-    req: CommitRequest,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-):
+# No route of its own since CR-13 phase 4b (#1251): no caller. The facade (`api.py`) calls this
+# function for the screen; it stays in this file until phase 4c moves it.
+def commit(req: CommitRequest, *, db: Session, admin: User) -> dict:
     entry = _take(req.token)
-    families, bl_index, all_bl_names, _rest = _parse_or_400(entry["content"], None)
+    families, bl_index, all_bl_names, _rest = _parse_or_400(entry["content"])
     report = upsert_families(db, families, bl_index, all_bl_names, apply=True, actor=admin.email)
     db.commit()
     return {

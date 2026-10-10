@@ -7,7 +7,8 @@ from odf.opendocument import load
 from odf.table import Table, TableCell, TableRow
 from odf.teletype import extractText
 
-from tests.conftest import seed_postal_code
+from tests import backoffice_door
+from tests.conftest import register_at_the_door, seed_postal_code, sign_up_at_the_door
 
 
 def _family_payload(email="lid@example.com"):
@@ -32,22 +33,13 @@ def _family_payload(email="lid@example.com"):
 
 def _create_family(client, db_session):
     seed_postal_code(db_session)
-    resp = client.post("/api/v1/families", json=_family_payload())
+    resp = sign_up_at_the_door(client, json=_family_payload())
     assert resp.status_code == 201, resp.text
 
 
-def test_member_changes_requires_admin(client):
-    resp = client.get("/api/v1/admin/member-changes", params={"since": date.today().isoformat()})
-    assert resp.status_code in (401, 403)
-
-
-def test_member_changes_lists_recent_changes(client, db_session, admin_headers):
+def test_member_changes_lists_recent_changes(client, db_session):
     _create_family(client, db_session)
-    resp = client.get(
-        "/api/v1/admin/member-changes",
-        params={"since": date.today().isoformat()},
-        headers=admin_headers,
-    )
+    resp = backoffice_door.member_changes(client, date.today().isoformat())
     assert resp.status_code == 200, resp.text
     rows = resp.json()
     entities = {r["entity"] for r in rows}
@@ -58,15 +50,11 @@ def test_member_changes_lists_recent_changes(client, db_session, admin_headers):
     assert "An" in person_row["summary"]
 
 
-def test_change_summaries_have_no_raw_ids(client, db_session, admin_headers):
+def test_change_summaries_have_no_raw_ids(client, db_session):
     """De Details-kolom toont geen nietszeggende #ID's meer; een adres toont de
     gemeente i.p.v. een postcode-id."""
     _create_family(client, db_session)
-    rows = client.get(
-        "/api/v1/admin/member-changes",
-        params={"since": date.today().isoformat()},
-        headers=admin_headers,
-    ).json()
+    rows = backoffice_door.member_changes(client, date.today().isoformat()).json()
     summaries = " | ".join(r["summary"] for r in rows)
     assert "persoon #" not in summaries
     assert "gezin #" not in summaries
@@ -75,26 +63,18 @@ def test_change_summaries_have_no_raw_ids(client, db_session, admin_headers):
     assert "2400 Mol" in adres["summary"]
 
 
-def test_member_changes_respects_since_date(client, db_session, admin_headers):
+def test_member_changes_respects_since_date(client, db_session):
     _create_family(client, db_session)
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
-    resp = client.get(
-        "/api/v1/admin/member-changes", params={"since": tomorrow}, headers=admin_headers
-    )
+    resp = backoffice_door.member_changes(client, tomorrow)
     assert resp.status_code == 200
     assert resp.json() == []
 
 
-def test_member_changes_ods_export(client, db_session, admin_headers):
+def test_member_changes_ods_export(client, db_session):
     _create_family(client, db_session)
-    resp = client.get(
-        "/api/v1/admin/member-changes/export",
-        params={"since": date.today().isoformat()},
-        headers=admin_headers,
-    )
-    assert resp.status_code == 200, resp.text
-    assert "opendocument.spreadsheet" in resp.headers.get("content-type", "")
-    table = load(BytesIO(resp.content)).getElementsByType(Table)[0]
+    content = backoffice_door.member_changes_ods(client, date.today().isoformat())
+    table = load(BytesIO(content)).getElementsByType(Table)[0]
     trs = table.getElementsByType(TableRow)
     headers = [extractText(tc) for tc in trs[0].getElementsByType(TableCell)]
     assert headers[0] == "Tijdstip" and "Details" in headers
@@ -104,7 +84,7 @@ def test_member_changes_ods_export(client, db_session, admin_headers):
     assert len(trs) >= 2  # kop + minstens één wijziging
 
 
-def test_member_changes_enriched_with_person_and_head(client, db_session, admin_headers):
+def test_member_changes_enriched_with_person_and_head(client, db_session):
     """Elke ledenwijziging draagt de naam van de persoon, het hoofdlid-adres en
     (in de feed/export) de externe ID's van persoon en hoofdlid."""
     _create_family(client, db_session)
@@ -117,11 +97,7 @@ def test_member_changes_enriched_with_person_and_head(client, db_session, admin_
     )
     db_session.flush()
 
-    resp = client.get(
-        "/api/v1/admin/member-changes",
-        params={"since": date.today().isoformat()},
-        headers=admin_headers,
-    )
+    resp = backoffice_door.member_changes(client, date.today().isoformat())
     rows = resp.json()
     person_row = next(r for r in rows if r["entity"] == "Persoon")
     assert person_row["person_name"] == "An Janssens"
@@ -135,7 +111,7 @@ def test_member_changes_enriched_with_person_and_head(client, db_session, admin_
     assert gezin_row["head_address"] == "Milostraat 40, 2400 Mol"
 
 
-def test_changes_feed_enriches_payment_with_registration_person(client, db_session, admin_headers):
+def test_changes_feed_enriches_payment_with_registration_person(client, db_session):
     """Een betaling/bestelregel hangt aan een inschrijving → de feed toont de
     persoon + hoofdlid-adres van die inschrijving (niet langer '—')."""
     from app.domains.activities.api import Registration
@@ -149,8 +125,9 @@ def test_changes_feed_enriches_payment_with_registration_person(client, db_sessi
     )
 
     _, comp, product = seed_activity_with_product(db_session, price="2.00")
-    reg_resp = client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    reg_resp = register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "Gast X",
             "phone": "0470000000",
@@ -167,17 +144,13 @@ def test_changes_feed_enriches_payment_with_registration_person(client, db_sessi
     reg.person_id = person.id
     db_session.flush()
 
-    resp = client.get(
-        "/api/v1/admin/changes",
-        params={"since": date.today().isoformat(), "group": "Betalingen"},
-        headers=admin_headers,
-    )
+    resp = backoffice_door.changes(client, date.today().isoformat(), group="Betalingen")
     pay = next(r for r in resp.json()["rows"] if r["entity"] == "Betaling")
     assert pay["person_name"] == "An Janssens"
     assert pay["head_address"] == "Milostraat 40, 2400 Mol"
 
 
-def test_changes_feed_matches_guest_payment_by_email(client, db_session, admin_headers):
+def test_changes_feed_matches_guest_payment_by_email(client, db_session):
     """Een gast-inschrijving (geen person_id) waarvan het contact-e-mailadres een lid
     is, toont tóch de persoon + hoofdlid-adres via de e-mailmatch (#221)."""
     from app.domains.mdm.api import ExternalNumber, Person
@@ -193,8 +166,9 @@ def test_changes_feed_matches_guest_payment_by_email(client, db_session, admin_h
     db_session.flush()
 
     _, comp, product = seed_activity_with_product(db_session, price="2.00")
-    reg_resp = client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    reg_resp = register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "Gast Naam",
             "phone": "0470000000",
@@ -206,11 +180,7 @@ def test_changes_feed_matches_guest_payment_by_email(client, db_session, admin_h
     )
     assert reg_resp.status_code in (200, 201), reg_resp.text
 
-    resp = client.get(
-        "/api/v1/admin/changes",
-        params={"since": date.today().isoformat(), "group": "Betalingen"},
-        headers=admin_headers,
-    )
+    resp = backoffice_door.changes(client, date.today().isoformat(), group="Betalingen")
     pay = next(r for r in resp.json()["rows"] if r["entity"] == "Betaling")
     # An is zelf het hoofdlid → persoon- en hoofdlid-kolommen wijzen naar haar.
     assert pay["person_name"] == "An Janssens"
@@ -219,7 +189,7 @@ def test_changes_feed_matches_guest_payment_by_email(client, db_session, admin_h
     assert pay["head_external_id"] == "RN-9"
 
 
-def test_changes_feed_person_and_head_columns_differ(client, db_session, admin_headers):
+def test_changes_feed_person_and_head_columns_differ(client, db_session):
     """Persoon én hoofdlid worden los ingevuld (#221): een gezinslid (kind) inschrijven
     toont naam + extern nummer van het kind als persoon, maar adres + extern nummer van
     het hoofdlid."""
@@ -251,8 +221,9 @@ def test_changes_feed_person_and_head_columns_differ(client, db_session, admin_h
     db_session.flush()
 
     _, comp, product = seed_activity_with_product(db_session, price="2.00")
-    reg_resp = client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    reg_resp = register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "Tom",
             "phone": "0470000000",
@@ -264,11 +235,9 @@ def test_changes_feed_person_and_head_columns_differ(client, db_session, admin_h
     )
     assert reg_resp.status_code in (200, 201), reg_resp.text
 
-    rows = client.get(
-        "/api/v1/admin/changes",
-        params={"since": date.today().isoformat(), "group": "Betalingen"},
-        headers=admin_headers,
-    ).json()["rows"]
+    rows = backoffice_door.changes(client, date.today().isoformat(), group="Betalingen").json()[
+        "rows"
+    ]
     pay = next(r for r in rows if r["entity"] == "Betaling")
     # Persoon = het kind:
     assert pay["person_name"] == "Tom Janssens"
@@ -284,8 +253,9 @@ def test_changes_feed_payment_guest_shows_contact_name(client, db_session):
 
     seed_postal_code(db_session)
     _, comp, product = seed_activity_with_product(db_session, price="2.00")
-    reg_resp = client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    reg_resp = register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "Gast Zonderlid",
             "phone": "0470000000",
@@ -297,14 +267,7 @@ def test_changes_feed_payment_guest_shows_contact_name(client, db_session):
     )
     assert reg_resp.status_code in (200, 201), reg_resp.text
 
-    from app.domains.auth.api import create_access_token
-
-    headers = {"Authorization": f"Bearer {create_access_token({'sub': 'beheerder@example.com'})}"}
-    resp = client.get(
-        "/api/v1/admin/changes",
-        params={"since": date.today().isoformat(), "group": "Betalingen"},
-        headers=headers,
-    )
+    resp = backoffice_door.changes(client, date.today().isoformat(), group="Betalingen")
     pay = next(r for r in resp.json()["rows"] if r["entity"] == "Betaling")
     assert pay["person_name"] == "Gast Zonderlid"
     assert pay["head_address"] == ""

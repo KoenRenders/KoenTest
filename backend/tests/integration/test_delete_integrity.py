@@ -6,7 +6,7 @@ from datetime import date
 
 import pytest
 
-from app.domains.mdm.api import ExternalNumber, Member
+from app.domains.mdm.api import ExternalNumber, Member, delete_household
 from app.domains.membership.api import Membership
 from app.domains.payment.api import (
     PayableType,
@@ -15,7 +15,8 @@ from app.domains.payment.api import (
     PaymentStatus,
     PaymentType,
 )
-from tests.conftest import seed_postal_code
+from tests import backoffice_door, payments_door
+from tests.conftest import seed_postal_code, seeded_admin, sign_up_at_the_door
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -42,13 +43,13 @@ def _family_payload(email="lid@example.com"):
 
 def _create_family(client, db_session):
     seed_postal_code(db_session)
-    resp = client.post("/api/v1/families", json=_family_payload())
+    resp = sign_up_at_the_door(client, json=_family_payload())
     assert resp.status_code == 201, resp.text
     member = db_session.query(Member).order_by(Member.id.desc()).first()
     return member
 
 
-def test_delete_family_with_membership_payment(client, db_session, admin_headers):
+def test_delete_family_with_membership_payment(client, db_session):
     member = _create_family(client, db_session)
     membership = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     pay = (
@@ -62,11 +63,10 @@ def test_delete_family_with_membership_payment(client, db_session, admin_headers
     assert pay is not None  # er is een lidmaatschap-betaling
 
     # Gezin verwijderen mag niet falen.
-    resp = client.delete(f"/api/v1/families/{member.id}", headers=admin_headers)
-    assert resp.status_code == 204, resp.text
+    delete_household(db_session, member.id, admin=seeded_admin(db_session))
 
     # Het betaaloverzicht mag niet crashen op de (nu lidmaatschap-loze) betaling.
-    overview = client.get("/api/v1/payment-status/records", headers=admin_headers)
+    overview = payments_door.records(client)
     assert overview.status_code == 200, overview.text
 
     # GEWIJZIGD DOOR #619. Voorheen bleef ook een ONBETAALDE vordering staan, met
@@ -90,15 +90,11 @@ def test_delete_family_with_membership_payment(client, db_session, admin_headers
     assert openstaand is None, "een onbetaalde vordering hoort mee op te ruimen (#619)"
 
     # De verwijdering van het gezin staat wél in de ledenwijzigingen-export.
-    changes = client.get(
-        "/api/v1/admin/member-changes",
-        params={"since": date.today().isoformat()},
-        headers=admin_headers,
-    ).json()
+    changes = backoffice_door.member_changes(client, date.today().isoformat()).json()
     assert any(c["operation_label"] == "Verwijderd" for c in changes)
 
 
-def test_admin_can_delete_payment_record(client, db_session, admin_headers):
+def test_admin_can_delete_payment_record(client, db_session):
     member = _create_family(client, db_session)
     membership = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     pay = (
@@ -111,11 +107,8 @@ def test_admin_can_delete_payment_record(client, db_session, admin_headers):
     )
     pay_id = pay.id
 
-    # Niet-admin mag niet.
-    assert client.delete(f"/api/v1/payment-status/records/{pay_id}").status_code in (401, 403)
-
     # Admin verwijdert de betaling bewust.
-    resp = client.delete(f"/api/v1/payment-status/records/{pay_id}", headers=admin_headers)
+    resp = payments_door.delete(client, pay_id)
     assert resp.status_code == 204, resp.text
     assert db_session.query(PaymentRecord).filter(PaymentRecord.id == pay_id).first() is None
 
@@ -132,14 +125,11 @@ def test_admin_can_delete_payment_record(client, db_session, admin_headers):
     assert hist.action == "payment_deleted"
 
 
-def test_delete_unknown_payment_record_404(client, admin_headers):
-    assert (
-        client.delete("/api/v1/payment-status/records/nope", headers=admin_headers).status_code
-        == 404
-    )
+def test_delete_unknown_payment_record_404(client):
+    assert payments_door.delete(client, "nope").status_code == 404
 
 
-def test_delete_family_with_external_number(client, db_session, admin_headers):
+def test_delete_family_with_external_number(client, db_session):
     member = _create_family(client, db_session)
     mp = member.member_persons[0]
     db_session.add(
@@ -147,11 +137,10 @@ def test_delete_family_with_external_number(client, db_session, admin_headers):
     )
     db_session.flush()
 
-    resp = client.delete(f"/api/v1/families/{member.id}", headers=admin_headers)
-    assert resp.status_code == 204, resp.text
+    delete_household(db_session, member.id, admin=seeded_admin(db_session))
 
 
-def test_betaald_lidmaatschap_blijft_als_financieel_feit(client, db_session, admin_headers):
+def test_betaald_lidmaatschap_blijft_als_financieel_feit(client, db_session):
     """De keerzijde van #619: geld dat ontvangen is, verdwijnt nooit stil.
 
     Bij het schrappen van het gezin blijft de betaalde charge staan en komt er één
@@ -173,7 +162,7 @@ def test_betaald_lidmaatschap_blijft_als_financieel_feit(client, db_session, adm
     pay.status = "paid"
     db_session.commit()
 
-    assert client.delete(f"/api/v1/families/{member.id}", headers=admin_headers).status_code == 204
+    delete_household(db_session, member.id, admin=seeded_admin(db_session))
 
     records = (
         db_session.query(PaymentRecord)

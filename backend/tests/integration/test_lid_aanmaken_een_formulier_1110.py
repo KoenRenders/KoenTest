@@ -154,7 +154,9 @@ def test_de_reden_komt_uit_hetzelfde_schema_als_publiek(client, db_session):
             postal_code="2400",
             members=[FamilyMemberCreate(first_name="A", last_name="B", relation_type="HOOFDLID")],
         )
-    schema_reden = str(fout.value.errors()[0]["msg"])
+    # The schema's own words, without the library's "Value error, " in front:
+    # since #1831 that prefix no longer reaches the screen.
+    schema_reden = str(fout.value.errors()[0]["ctx"]["error"])
 
     csrf = _login(client)
     antwoord = client.post(
@@ -162,7 +164,8 @@ def test_de_reden_komt_uit_hetzelfde_schema_als_publiek(client, db_session):
         data=nieuw_lid_velden(db_session, m0_email=None),
         headers={"X-CSRF-Token": csrf},
     )
-    assert schema_reden.split(":")[-1].strip() in antwoord.text
+    assert schema_reden in antwoord.text
+    assert "Value error" not in antwoord.text
 
 
 # ── 3. Hoofdlid plus twee gezinsleden, in één keer ───────────────────────────
@@ -237,12 +240,12 @@ def test_een_fout_na_de_eerste_rijen_laat_niets_achter(client, db_session, monke
     lidmaatschap — ná gezin, persoon, adres en contactgegevens. Blijft daar iets
     van staan, dan was "één opslaan-actie" alleen een schermkwestie.
     """
-    from app.domains.audit import api as audit_api
+    from app.domains.membership import history as membership_history
 
     def _knal(*args, **kwargs):
         raise RuntimeError("bewust kapot, na de eerste rijen")
 
-    monkeypatch.setattr(audit_api, "snapshot_membership", _knal)
+    monkeypatch.setattr(membership_history, "snapshot_membership", _knal)
 
     csrf = _login(client)
     voor = _telling(db_session)

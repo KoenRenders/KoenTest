@@ -41,69 +41,6 @@ def submission_count(db: Session, form_id: int) -> int:
     return _impl(db, form_id)
 
 
-def submit_bericht(
-    db: Session, *, naam: str, email: str | None, bericht: str, proof, background_tasks=None
-) -> int | None:
-    """Hét schrijfpad voor een bericht (#398): inzending op het geseede
-    'berichten'-formulier + SubmissionCreated (→ behartigen-taak) + optionele
-    bevestigingsmail. Geeft het submission-id terug, of None als het formulier
-    ontbreekt. Gebruikt door /berichten (ui) én de chatbot — geen tweede weg.
-
-    `proof` (#1297): a `form_guard.Proof` from the visitor's form, or
-    `form_guard.TRUSTED` for a caller without one (the chatbot). A submission the
-    guard drops leaves nothing — no row, no task, no mail — and returns None too:
-    the screen thanks the bot as it thanks a person."""
-    from app.kernel import form_guard
-
-    if form_guard.refused(proof, CONTACT_FORM_SLUG):
-        return None
-
-    from app.domains.forms.service import build_answers
-    from app.domains.mail.api import send_form_confirmation
-    from app.kernel.contracts.forms import SubmissionCreated
-    from app.kernel.events import publish
-
-    # #1509: the one rule — a form that cannot be sent is no form.
-
-    form = contact_form(db)
-    if form is None:
-        return None
-    # De invariant gold "voor élke ingang", maar juist deze riep hem niet aan
-    # (#635-2). De chatbot schrijft hier ook naartoe, dus een leeg bericht of een
-    # ontbrekend adres kwam er langs de zijdeur toch in.
-    assert_submitter(form, naam, email, message=bericht, require_message=True)
-    answers = build_answers(form, [AnswerIn(field_id=form.fields[0].id, text=bericht)])
-    submission = FormSubmission(form_id=form.id, submitter_name=naam, submitter_email=email or None)
-    for row in answers:
-        submission.answers.append(row)
-    db.add(submission)
-    db.flush()
-    publish(
-        SubmissionCreated(
-            form_id=form.id,
-            form_slug=form.slug,
-            submission_id=submission.id,
-            submitter_name=naam,
-            submitter_email=email or None,
-        ),
-        db,
-    )
-    db.commit()
-
-    if form.send_confirmation and email:
-        try:
-            send_form_confirmation(
-                to_email=email,
-                form_title=form.title,
-                name=naam,
-                confirmation_message=form.confirmation_message,
-                background_tasks=background_tasks,
-            )
-        except Exception as exc:  # pragma: no cover
-            logger.warning("Bevestigingsmail bericht kon niet verstuurd worden: %s", exc)
-    return submission.id
-
-
 def submission_view(db: Session, submission_id: int) -> list[tuple[str, str]]:
     """Leesbare (label, waarde)-rijen van één inzending — voor gast-weergave
     buiten het component (werkbank-taakdetail, #398). Geen ORM over de grens."""
@@ -162,8 +99,9 @@ from app.domains.forms.schemas import AnswerIn  # noqa: E402,F401
 
 # CR-14 phase 2 adds what `activities` uses to ask a component's questions:
 # `attach_refusal`, `attachable_forms`, `answers_from_form` (the one parser of a
-# posted form), `submit_attached` (inside the registration's transaction),
-# `submission_views` and `form_questions` (many registrations in one read).
+# posted form), `submission_views` and `form_questions` (many registrations in one
+# read). Storing and correcting the answers is asked through the ports
+# `SubmitAttached` and `UpdateAttached` (`handlers.py`) since CR-13 phase 4c.
 from app.domains.forms.service import (  # noqa: E402,F401
     CONTACT_FORM_SLUG,
     FormulierFout,
@@ -173,7 +111,9 @@ from app.domains.forms.service import (  # noqa: E402,F401
     add_section,
     answers_from_form,
     apply_definition,
+    assert_definition_given,
     assert_geen_id_vorm,
+    assert_known_status,
     assert_slug_vrij,
     assert_submitter,
     attach_refusal,
@@ -203,11 +143,10 @@ from app.domains.forms.service import (  # noqa: E402,F401
     normaliseer_slug,
     question_groups,
     seed_contact_form,
+    submission_confirmation,
     submission_form_values,
     submission_url,
     submission_views,
-    submit_attached,
-    update_attached,
     update_field,
     update_form_settings,
     update_option,
@@ -222,54 +161,35 @@ from app.domains.forms.service import (  # noqa: E402,F401
 # hoort het" aanmerkt. Alleen de weg ernaartoe loopt via deze facade.
 
 
-def submit_public_form(db, share_token: str, payload, background_tasks, *, proof):
-    """Een publieke inzending verwerken. `proof`: see `submit_bericht` (#1297)."""
-    from app.domains.forms.router import submit_form
+def submit_public_form(db, share_token: str, payload, *, proof):
+    """Een publieke inzending verwerken. `proof`: see `service.submit_message` (#1297)."""
+    from app.domains.forms.service import submit_form
 
-    return submit_form(db, share_token, payload, background_tasks, proof=proof)
+    return submit_form(db, share_token, payload, proof=proof)
 
 
 def update_public_submission(db, edit_token: str, payload):
     """Een eigen inzending bijwerken via de edit-link."""
-    from app.domains.forms.router import update_submission as _impl
+    from app.domains.forms.service import update_submission
 
-    return _impl(edit_token, payload, db=db)
+    return update_submission(db, edit_token, payload)
 
 
 def export_submissions_ods(db, form_id: int):
-    """De inzendingen als .ods.
+    """De inzendingen als .ods."""
+    from app.domains.forms.service import export_form
 
-    `format` expliciet: `export_form` heeft `format=Query("ods")`, en bij een
-    directe aanroep is die default een FastAPI Query-object i.p.v. de string —
-    anders faalt de format-check met 422 "Ongeldig formaat".
-    """
-    from app.domains.forms.router import export_form as _impl
-
-    return _impl(form_id, format="ods", db=db, _admin=None)  # type: ignore[arg-type]
+    return export_form(db, form_id)
 
 
 def form_definition(db, form) -> dict:
     """De volledige definitie als dict (backup, inspectie, AI-gids)."""
-    from app.domains.forms.router import _admin_out
+    from app.domains.forms.service import _admin_out
 
     return _admin_out(db, form)
 
 
-def copy_form(db, form_id: int, *, old_year: int | None, new_year: int | None) -> int:
-    """Copy a form for a copied activity's component (#1397); returns the new id.
-
-    A command with an answer: the caller sets the returned id on its component,
-    in its own transaction. Named in `COMMAND_CALLS` until the port of
-    `docs/architecture.md` §3.2.1 step 2 exists.
-    """
-    from app.domains.forms.service import copy_form as _impl
-
-    return _impl(
-        db, form_id, share_token=unique_share_token(db), old_year=old_year, new_year=new_year
-    )
-
-
 def unique_share_token(db) -> str:
-    from app.domains.forms.router import _unique_share_token
+    from app.domains.forms.service import _unique_share_token
 
     return _unique_share_token(db)

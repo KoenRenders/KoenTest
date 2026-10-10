@@ -22,6 +22,7 @@ een geblokkeerde typekeuze, en het `disabled`/`title`-gedrag uit #700.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests import forms_door
 from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -33,16 +34,15 @@ def _login(client):
     return csrf_token_for(waarde)
 
 
-def _formulier(client, admin_headers):
-    r = client.post(
-        "/api/v1/forms",
-        json={
+def _formulier(client):
+    r = forms_door.create_form(
+        client,
+        {
             "title": "Indeling",
             "status": "open",
             "is_anonymous": True,
             "fields": [{"field_type": "text", "label": "Vraag", "position": 0}],
         },
-        headers=admin_headers,
     )
     assert r.status_code == 200, r.text
     return r.json()
@@ -58,9 +58,9 @@ def _bewerkvorm(html: str, veld_id: int) -> str:
 # ── 1. De volgorde ─────────────────────────────────────────────────────────
 
 
-def test_het_type_staat_voor_de_vraag(client, admin_headers):
+def test_het_type_staat_voor_de_vraag(client):
     """De positie, niet de aanwezigheid: alle drie stonden er al."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     veld = form["fields"][0]
     vorm = _bewerkvorm(client.get(f"/admin/formulieren/{form['id']}").text, veld["id"])
@@ -73,11 +73,11 @@ def test_het_type_staat_voor_de_vraag(client, admin_headers):
     )
 
 
-def test_ook_op_de_toevoegvorm(client, admin_headers):
+def test_ook_op_de_toevoegvorm(client):
     """Eén macro voor beide paden (#701), dus dit hoort automatisch te kloppen — en
     juist daarom is het de moeite om te bewaken: gaan ze ooit weer uit elkaar, dan
     valt het hier op."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     html = client.get(f"/admin/formulieren/{form['id']}").text
     start = html.rindex("<form", 0, html.index('id="fl-nieuw"'))
@@ -86,10 +86,10 @@ def test_ook_op_de_toevoegvorm(client, admin_headers):
     assert vorm.index('name="field_type"') < vorm.index('name="label"')
 
 
-def test_de_drie_passen_op_een_regel(client, admin_headers):
+def test_de_drie_passen_op_een_regel(client):
     """Vier kolommen op `sm`: Type (1) · Vraag (2) · Verplicht (1). Met drie zou de
     vraag te smal worden."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     vorm = _bewerkvorm(client.get(f"/admin/formulieren/{form['id']}").text, form["fields"][0]["id"])
 
@@ -100,9 +100,9 @@ def test_de_drie_passen_op_een_regel(client, admin_headers):
     assert "sm:col-span-2" in vraag_div[: vraag_div.index(">")], vraag_div[:120]
 
 
-def test_op_smal_blijft_alles_gestapeld(client, admin_headers):
+def test_op_smal_blijft_alles_gestapeld(client):
     """Eén kolom zonder breekpunt: op een telefoon horen de velden onder elkaar."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     vorm = _bewerkvorm(client.get(f"/admin/formulieren/{form['id']}").text, form["fields"][0]["id"])
     assert "grid-cols-1 sm:grid-cols-4" in vorm[: vorm.index(">")]
@@ -111,11 +111,11 @@ def test_op_smal_blijft_alles_gestapeld(client, admin_headers):
 # ── 2. Wat bij een herindeling achterblijft ────────────────────────────────
 
 
-def test_de_uitleg_blijft_onder_de_geblokkeerde_typekeuze(client, admin_headers):
+def test_de_uitleg_blijft_onder_de_geblokkeerde_typekeuze(client):
     """Ze verschijnt alleen bij een formulier mét inzendingen, dus dit geval moet
     apart. Zonder die uitleg is een grijze lijst een scherm dat weigert zonder te
     zeggen waarom."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     veld = form["fields"][0]
     resp = client.post(
         f"/formulier/{form['share_token']}", data={**form_guard_fields(), f"f{veld['id']}": "iets"}
@@ -131,9 +131,9 @@ def test_de_uitleg_blijft_onder_de_geblokkeerde_typekeuze(client, admin_headers)
     )
 
 
-def test_het_blokkeergedrag_uit_700_is_ongewijzigd(client, admin_headers):
+def test_het_blokkeergedrag_uit_700_is_ongewijzigd(client):
     """Alleen de indeling verandert; `disabled` en de tooltip blijven."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     veld = form["fields"][0]
     client.post(
         f"/formulier/{form['share_token']}", data={**form_guard_fields(), f"f{veld['id']}": "iets"}
@@ -146,10 +146,10 @@ def test_het_blokkeergedrag_uit_700_is_ongewijzigd(client, admin_headers):
     assert "disabled" in select and "inzendingen" in select, select
 
 
-def test_zonder_inzendingen_staat_er_geen_uitleg(client, admin_headers):
+def test_zonder_inzendingen_staat_er_geen_uitleg(client):
     """De keerzijde: zonder haar zou "zet de uitleg er altijd bij" ook slagen, en
     dan lees je bij elk veld dat het type vastligt terwijl dat niet zo is."""
-    form = _formulier(client, admin_headers)
+    form = _formulier(client)
     _login(client)
     vorm = _bewerkvorm(client.get(f"/admin/formulieren/{form['id']}").text, form["fields"][0]["id"])
     assert "het type ligt vast" not in vorm

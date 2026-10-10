@@ -21,7 +21,12 @@ from app.domains.mdm.household_service import (
     OutsideHousehold,
     PersonNotFound,
 )
-from app.domains.mdm.models import MasterDataError, PersonDetailsMissing
+from app.domains.mdm.models import (
+    EmailAddressInUse,
+    EmailAddressInvalid,
+    MasterDataError,
+    PersonDetailsMissing,
+)
 
 STATUS = {
     HouseholdNotFound: 404,
@@ -44,3 +49,42 @@ def household_refusals_as_http() -> Iterator[None]:
         if status is None:
             raise
         raise HTTPException(status_code=status, detail=str(refusal)) from refusal
+
+
+def says_why_in(line: str):
+    """A refusal of this route goes to the message line of ITS card (#1831): the
+    kit's `says_why_in`, with mdm's own refusals beside the status codes — an
+    address in use, and a text that is no address (#1853) — which the application
+    answers as a JSON 422 for every other door (`main.py`)."""
+    from app.ui import says_why_in as kit_says_why_in
+
+    return kit_says_why_in(line, EmailAddressInUse, EmailAddressInvalid)
+
+
+def schema_refusal_words(refusal) -> str | None:
+    """What a screen says when a request schema refuses a form of a household — one
+    table for the Leden screen's cards, "Nieuw lid" and the public sign-up (#1831).
+
+    A field of the wrong shape gets its own sentence, by the field's name; a rule
+    the schema itself words (`raise ValueError("…")` in a validator) is passed on
+    without the library's "Value error, " in front. None for anything else: the
+    caller decides — a schema that refuses something no form can send is a fault,
+    not a refusal.
+    """
+    from app.i18n import _
+
+    words = {
+        "date_of_birth": _("Vul een geldige geboortedatum in."),
+        "relation_type": _("Kies een relatie uit de lijst."),
+        "email": _("Vul een geldig e-mailadres in."),
+        "extra_emails": _("Vul een geldig e-mailadres in."),
+    }
+    error = refusal.errors()[0]
+    names = [part for part in error.get("loc", ()) if isinstance(part, str)]
+    for name in reversed(names):
+        if name in words:
+            return words[name]
+    if error.get("type") == "value_error":
+        raised = (error.get("ctx") or {}).get("error")
+        return str(raised) if raised is not None else None
+    return None

@@ -5,8 +5,9 @@
    the drawer under its divider on a phone — so the two cannot differ.
 
    - the account menu (`account_nav`, CR-22 S3): "Mijn <site>" first, then what
-     the module registry lists — each item with its OWN icon (Q38) — only for
-     a member until S4a;
+     the module registry lists — each item with its OWN icon (Q38) — for
+     everyone signed in as a person, a member or an account (S4a); Mijn gezin
+     is in the list only for who has a household;
    - "Admin" only for who the back office admits (a board member or an
      operator, #1499) — never as a separate link beside the menu;
    - "Uitloggen" always.
@@ -18,8 +19,8 @@
 {% if gebruiker.is_member %}{% for n in member_nav %}
 <a href="{{ path_for(n.href) }}" data-account-item="member" class="{{ row_cls }}"{% if close %} @click="{{ close }}"{% endif %}>{{ ui.icon(n.icon, 18) }}{{ n.label }}</a>
 {% endfor %}{% endif %}
-{% if gebruiker.is_admin %}
-<a href="/admin" hx-boost="false" data-account-item="admin" class="{{ row_cls }}">{{ ui.icon("layout-grid", 18) }}{{ _("Admin") }}</a>
+{% if gebruiker.admin_home %}
+<a href="{{ gebruiker.admin_home }}" hx-boost="false" data-account-item="admin" class="{{ row_cls }}">{{ ui.icon("layout-grid", 18) }}{{ _("Admin") }}</a>
 {% endif %}
 <a href="{{ path_for("/afmelden") }}" hx-boost="false" data-account-item="sign-out" class="{{ row_cls }}">{{ ui.icon("log-out", 18) }}{{ _("Uitloggen") }}</a>
 {%- endmacro %}

@@ -58,45 +58,23 @@ class PaymentRecordResponse(BaseModel):
         return self.method is PaymentMethod.ONLINE
 
     @property
-    def is_registration(self) -> bool:
-        return self.payable_type is PayableType.REGISTRATION
-
-    @property
     def status_code(self) -> str:
         """The raw code, for an `x-data` that turns it into a form value."""
         return self.status.value
 
 
-class RefundCreate(BaseModel):
-    """Terugbetaling op een charge-record. ``amount`` is het positieve te
-    refunden bedrag; de service slaat het op als negatief record."""
-
-    amount: Decimal
-    note: Optional[str] = None
-    method: PaymentMethod = PaymentMethod.TRANSFER
-
-
-class RegistrationBalance(BaseModel):
-    total_due: Decimal
-    total_paid: Decimal
-    total_refunded: Decimal
-    balance: Decimal
-
-
 class EnrichedPaymentRecord(PaymentRecordResponse):
     description: Optional[str] = None
     contact_name: Optional[str] = None
-    activity_id: Optional[int] = None
     component_id: Optional[int] = None  # voor de penningmeester-filter (#90)
     component_name: Optional[str] = None
     membership_year: Optional[int] = None  # lidgeld-jaar voor de jaarfilter (#308)
-    # The household behind a membership booking, for the jump link on the booking
-    # page (#1574, CR-11 Q56).
-    family_id: Optional[int] = None
     items: list = []
-
-
-class PaymentRecordUpdate(BaseModel):
-    status: Optional[PaymentStatus] = None
-    amount_paid: Optional[Decimal] = None
-    note: Optional[str] = None
+    # CR-21 phase 0 (#1748), from the payable's describer: the page of what the
+    # payable hangs on, the payable's own page with its link text, and its place in
+    # the filter tree — so the screen follows a link instead of knowing which type
+    # has which page.
+    context_href: Optional[str] = None
+    payable_href: Optional[str] = None
+    payable_label: Optional[str] = None
+    filter_context: Optional[str] = None

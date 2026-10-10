@@ -80,6 +80,7 @@ evidence side of it.
 """
 
 import ast
+import functools
 import re
 from pathlib import Path
 
@@ -96,6 +97,10 @@ from app.kernel.codes import (
 )
 from tests import codes_baseline as baseline
 from tests._bestanden import bestanden
+
+# CR-29 R7: one worker for the file, so a walk of the tree is made once for every
+# test that reads it and not once per process.
+pytestmark = pytest.mark.xdist_group("codes_gate")
 
 BACKEND = Path(__file__).resolve().parents[1]
 APP = BACKEND / "app"
@@ -224,6 +229,8 @@ def collect_enums_without_list(seen: list[str] | None = None) -> dict[str, str]:
     return found
 
 
+# Once per process (CR-29 R7): several tests and the ratchet table ask it.
+@functools.cache
 def collect_label_dictionaries() -> dict[str, str]:
     """Assignments like `X_LABELS = {...}` under `app/` → key: message."""
     found: dict[str, str] = {}
@@ -289,6 +296,8 @@ def _string_constants(node: ast.AST) -> list[str]:
     return []
 
 
+# Once per process (CR-29 R7): several tests and the ratchet table ask it.
+@functools.cache
 def collect_loose_strings() -> dict[str, str]:
     """`record.status == "paid"` in `app/**/*.py` → key: message.
 

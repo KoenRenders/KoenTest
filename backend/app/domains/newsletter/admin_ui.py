@@ -1,6 +1,7 @@
 """The newsletter screens (CR-05, #984): letters, sending, subscribers.
 
-Behind `require_admin_ui`, like every admin screen. The paths are Dutch because
+Every route asks a right (CR-24): `newsletter.view` to look, `newsletter.manage`
+to change. The paths are Dutch because
 a board member reads them in the address bar; everything else is English.
 
 A draft and a sent letter share one address, `/admin/nieuwsbrieven/{id}`: a
@@ -19,15 +20,18 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
+import app.domains.mail.api as mail
 from app.database import get_db
 from app.domains.auth.api import (
     SESSION_COOKIE,
+    Right,
     csrf_token_for,
-    require_admin_ui,
     require_csrf,
+    require_right,
 )
 from app.domains.newsletter import api as nb
 from app.domains.newsletter.viewmodels import (
+    AudienceLine,
     NewsletterAppliedView,
     NewsletterArchiveView,
     NewsletterChoicesView,
@@ -166,7 +170,7 @@ def _list_view(
         moments=moments,
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -174,7 +178,7 @@ def _list_view(
 def newsletter_list(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
     q: str = "",
 ):
     view = _list_view(request, db, q=q)
@@ -186,7 +190,9 @@ def newsletter_list(
     "/admin/nieuwsbrieven", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
 )
 def newsletter_create(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     """A new, empty draft — the composer is its own full page (no modal)."""
     letter = nb.create_newsletter(db, created_by=email)
@@ -226,7 +232,7 @@ def _subscriber_view(
         csrf_token=_csrf(request),
         error=error,
         notice=notice,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -234,7 +240,7 @@ def _subscriber_view(
 def subscriber_list(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
     q: str = "",
     status: str = "",
 ):
@@ -251,7 +257,7 @@ def subscriber_list(
 def subscriber_add(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     subscriber_email: str = Form(""),
     first_name: str = Form(""),
 ):
@@ -274,7 +280,7 @@ def subscriber_unsubscribe(
     subscriber_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     nb.unsubscribe_by_admin(db, subscriber_id)
     return templates.TemplateResponse(
@@ -291,7 +297,7 @@ def subscriber_erase(
     subscriber_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     """The right to erasure: the address disappears, also from the archive."""
     nb.erase(db, subscriber_id)
@@ -304,12 +310,18 @@ def _import_view(
     request: Request, preview=None, text: str = "", error: Optional[str] = None
 ) -> SubscriberImportView:
     return SubscriberImportView(
-        preview=preview, text=text, csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV)
+        preview=preview,
+        text=text,
+        csrf_token=_csrf(request),
+        error=error,
+        nav_items=admin_nav(NAV, request),
     )
 
 
 @router.get("/admin/nieuwsbrieven/abonnees/import", response_class=HTMLResponse)
-def subscriber_import_screen(request: Request, _email: str = Depends(require_admin_ui)):
+def subscriber_import_screen(
+    request: Request, _email: str = Depends(require_right(Right.NEWSLETTER_VIEW))
+):
     return templates.TemplateResponse(
         request, "admin_abonnees_import.html", _import_view(request).as_context()
     )
@@ -323,7 +335,7 @@ def subscriber_import_screen(request: Request, _email: str = Depends(require_adm
 async def subscriber_import_preview(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     file: UploadFile = File(...),
 ):
     """Step 1 → 2: read the file and show what would happen. Nothing is written."""
@@ -354,7 +366,7 @@ async def subscriber_import_preview(
 def subscriber_import_run(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     text: str = Form(""),
 ):
     """Step 2 → done. The rules are applied again to the text, not to the
@@ -390,13 +402,15 @@ def _settings_view(
         csrf_token=_csrf(request),
         notice=notice,
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
 @router.get("/admin/nieuwsbrieven/instellingen", response_class=HTMLResponse)
 def settings_screen(
-    request: Request, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     return templates.TemplateResponse(
         request, "admin_nieuwsbrief_instellingen.html", _settings_view(request, db).as_context()
@@ -411,7 +425,7 @@ def settings_screen(
 def settings_save(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     house_style: str = Form(""),
     daily_cap: str = Form(""),
 ):
@@ -521,30 +535,20 @@ def _compose_view(
     choices_error: Optional[str] = None,
 ) -> NewsletterComposeView:
     counts = nb.audience_counts(db)
-    # (code, label, count, hint): the count is on the button, the hint in the
-    # tooltip — the choice is one line high (Koen, 17 September 2026). The
-    # value is the CODE, because it goes into the form as the radio value; the
-    # word comes from the label table and so does not appear twice (CR-12
-    # phase 3).
+    # Who each audience is, in words: what the send screen says of "both" names
+    # the two lists and what they share, so it is said here once for all three
+    # choices — one function, one wording (#1834). Without the membership module
+    # it names the subscribers only (CR-19, #1477).
+    lines, overlap, _send_label, _count = _audience_said(db, nb.Audience.BOTH)
+    # (code, label, count): the count is on the button (Koen, 17 September 2026).
+    # The value is the CODE, because it goes into the form as the radio value; the
+    # word comes from the label table and so does not appear twice (CR-12 phase 3).
     options = [
-        (audience.value, code_label(nb.AUDIENCE.name, audience, db=db), count, hint)
-        for audience, count, hint in (
-            (
-                nb.Audience.MEMBERS,
-                str(counts.members),
-                _("Iedereen met een adres in een gezin met lidmaatschap %(j)s")
-                % {"j": datetime.now().year},
-            ),
-            (
-                nb.Audience.NON_MEMBERS,
-                str(counts.non_members),
-                _("Bevestigde abonnees; elke mail heeft een uitschrijflink"),
-            ),
-            (
-                nb.Audience.BOTH,
-                str(counts.both),
-                _("Samengevoegd; %(d)s adressen stonden op beide lijsten") % {"d": counts.overlap},
-            ),
+        (audience.value, code_label(nb.AUDIENCE.name, audience, db=db), count)
+        for audience, count in (
+            (nb.Audience.MEMBERS, str(counts.members)),
+            (nb.Audience.NON_MEMBERS, str(counts.non_members)),
+            (nb.Audience.BOTH, str(counts.both)),
         )
     ]
     # CR-19 (#1477): without the membership module there are no members, so the
@@ -554,18 +558,13 @@ def _compose_view(
     from app.kernel.modules import ModuleCode
 
     if not module_enabled(ModuleCode.MEMBERSHIP):
-        options = [
-            (
-                nb.Audience.BOTH.value,
-                _("Iedereen"),
-                str(counts.both),
-                _("Bevestigde abonnees; elke mail heeft een uitschrijflink"),
-            )
-        ]
+        options = [(nb.Audience.BOTH.value, _("Iedereen"), str(counts.both))]
     return NewsletterComposeView(
         letter=letter,
         counts=counts,
         audience_options=options,
+        audience_lines=lines,
+        audience_overlap=overlap,
         audience=code_of(letter.audience) or "",
         saved_at=_moment(letter.updated_at),
         raakje_enabled=_raakje_enabled(db),
@@ -575,7 +574,7 @@ def _compose_view(
         error=error,
         notice=notice,
         choices_error=choices_error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -603,8 +602,28 @@ def _archive_view(
     status: str = "",
     q: str = "",
     error: Optional[str] = None,
+    requeued: int = 0,
 ) -> NewsletterArchiveView:
     progress = nb.progress_of(db, letter)
+    notice = ""
+    if requeued:
+        notice = (
+            _("%(n)s mislukt adres staat opnieuw in de wachtrij.")
+            if requeued == 1
+            else _("%(n)s mislukte adressen staan opnieuw in de wachtrij.")
+        ) % {"n": requeued}
+    # Not a delete: the question keeps its own words and names the number (#1783).
+    resend_question = (
+        _("De nieuwsbrief opnieuw sturen naar %(n)s mislukt adres?")
+        if progress.failed == 1
+        else _("De nieuwsbrief opnieuw sturen naar %(n)s mislukte adressen?")
+    ) % {"n": progress.failed}
+    # A send button names whom it sends to (#1780), with the same count.
+    resend_label = (
+        _("Opnieuw versturen naar %(n)s mislukt adres")
+        if progress.failed == 1
+        else _("Opnieuw versturen naar %(n)s mislukte adressen")
+    ) % {"n": progress.failed}
     deliveries = nb.deliveries_of(db, letter, status=status, query=q)
     return NewsletterArchiveView(
         letter=letter,
@@ -622,7 +641,10 @@ def _archive_view(
         q=q,
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        notice=notice,
+        resend_question=resend_question,
+        resend_label=resend_label,
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -631,16 +653,17 @@ def newsletter_screen(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
     status: str = "",
     q: str = "",
+    opnieuw: int = 0,
 ):
     letter = _letter_or_404(db, newsletter_id)
     if letter.status == nb.LetterStatus.DRAFT:
         return templates.TemplateResponse(
             request, "admin_nieuwsbrief.html", _compose_view(request, db, letter).as_context()
         )
-    view = _archive_view(request, db, letter, status=status, q=q)
+    view = _archive_view(request, db, letter, status=status, q=q, requeued=opnieuw)
     template = (
         "_nb_afleveringen.html"
         if is_fragment_request(request)
@@ -658,7 +681,7 @@ def newsletter_save(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     subject: str = Form(""),
     body_html: str = Form(""),
     audience: str = Form(""),
@@ -689,7 +712,7 @@ def activity_picker(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
     q: str = "",
     purpose: str = "insert",
 ):
@@ -729,7 +752,7 @@ def choice_add(
     group: str,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     activity_id: int = Form(...),
 ):
     """Put an activity in one of the three groups (#1562)."""
@@ -752,7 +775,7 @@ def choice_remove(
     activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     letter = _letter_or_404(db, newsletter_id)
     try:
@@ -770,7 +793,7 @@ def insert_activity(
     newsletter_id: int,
     activity_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     """The HTML snippet "Activiteit invoegen" puts at the cursor."""
     _letter_or_404(db, newsletter_id)
@@ -792,7 +815,7 @@ def insert_activity(
 def insert_calendar(
     newsletter_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     """The calendar block: one line per activity of the letter's calendar group
     — the group the page shows (#1562), no second choice in a picker."""
@@ -805,7 +828,9 @@ def insert_calendar(
     "/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/afsluiting", response_class=HTMLResponse
 )
 def insert_closing(
-    newsletter_id: int, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui)
+    newsletter_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     _letter_or_404(db, newsletter_id)
     return HTMLResponse(nb.closing_html(db))
@@ -819,7 +844,7 @@ def insert_closing(
 async def insert_attachment(
     newsletter_id: int,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     file: UploadFile = File(...),
 ):
     """ "Bijlage invoegen": the file is stored, the answer is the link that the
@@ -844,7 +869,9 @@ async def insert_attachment(
 
 @router.get("/admin/nieuwsbrieven/{newsletter_id:int}/voorbeeld", response_class=HTMLResponse)
 def newsletter_preview(
-    newsletter_id: int, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui)
+    newsletter_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     """The letter as it will arrive — markers expanded, styling applied.
 
@@ -878,17 +905,25 @@ def newsletter_test_mail(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     letter = _letter_or_404(db, newsletter_id)
     try:
-        outcome = nb.send_test(db, letter, to_email=email, base_url=_base_url(db))
+        rendered = nb.render_test(db, letter, base_url=_base_url(db))
     except nb.NewsletterError as exc:
         return templates.TemplateResponse(
             request,
             "_nb_bewaard.html",
             _compose_view(request, db, letter, error=str(exc)).as_context(),
         )
+    # The door's one command (§3.2.1): the newsletter rendered, mail sends.
+    outcome = mail.send_campaign_mail(
+        email,
+        rendered.subject,
+        rendered.body_html,
+        email_type="newsletter",
+        body_text=rendered.body_text,
+    )
     notice = (
         _("Testmail verstuurd naar %(adres)s.") % {"adres": email}
         if outcome in ("sent", "logged")
@@ -900,6 +935,30 @@ def newsletter_test_mail(
 
 
 @router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/opnieuw",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def newsletter_resend_failed(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
+):
+    """Send the letter again to its failed addresses, and only to those (#1783)."""
+    letter = _letter_or_404(db, newsletter_id)
+    try:
+        requeued = nb.resend_failed(db, letter)
+    except nb.NewsletterError as exc:
+        return templates.TemplateResponse(
+            request,
+            "admin_nieuwsbrief_archief.html",
+            _archive_view(request, db, letter, error=str(exc)).as_context(),
+        )
+    return _go(request, f"/admin/nieuwsbrieven/{letter.id}?opnieuw={requeued}")
+
+
+@router.post(
     "/admin/nieuwsbrieven/{newsletter_id:int}/kopieren",
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
@@ -908,7 +967,7 @@ def newsletter_copy(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     letter = _letter_or_404(db, newsletter_id)
     copy = nb.copy_newsletter(db, letter, created_by=email)
@@ -924,7 +983,7 @@ def newsletter_delete(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     letter = _letter_or_404(db, newsletter_id)
     try:
@@ -939,15 +998,93 @@ def newsletter_delete(
 # ── Sending ──────────────────────────────────────────────────────────────────
 
 
+def _audience_said(db: Session, audience) -> tuple[list[AudienceLine], str, str, int]:
+    """Who the letter goes to, in words (#1780): the lines of the first card,
+    what the two lists share, the words on the send button, and the number of
+    recipients. The numbers are the service's (`audience_summary`); only the
+    words are made here. "Abonnees" is said only of subscribers."""
+    from app.domains.mdm.api import module_enabled
+    from app.kernel.modules import ModuleCode
+
+    def ngettext(one: str, many: str, n: int) -> str:
+        # As the templates' own `ngettext` (`app.i18n`): one form for 1, the other for the rest.
+        return _(one) if n == 1 else _(many)
+
+    if not audience:
+        return [], "", "", 0
+    said = nb.audience_summary(db, audience)
+    # CR-19 (#1477): without the membership module there are no members, and
+    # "both" is the subscribers.
+    with_members = audience in (nb.Audience.MEMBERS, nb.Audience.BOTH) and module_enabled(
+        ModuleCode.MEMBERSHIP
+    )
+    with_subscribers = audience in (nb.Audience.NON_MEMBERS, nb.Audience.BOTH)
+
+    def addresses(n: int) -> str:
+        return ngettext("%(num)s adres", "%(num)s adressen", n) % {"num": n}
+
+    lines = []
+    if with_members:
+        households = ngettext("%(num)s gezin", "%(num)s gezinnen", said.households) % {
+            "num": said.households
+        }
+        lines.append(
+            AudienceLine(
+                head=_("Leden van werkjaar %(jaar)s · %(adressen)s")
+                % {"jaar": said.year, "adressen": addresses(said.member_addresses)},
+                sentence=_(
+                    "Elk e-mailadres van elke persoon in een gezin met een lidmaatschap "
+                    "voor dit werkjaar: %(adressen)s in %(gezinnen)s. Oud-leden en gezinnen "
+                    "zonder lidmaatschap dit jaar krijgen hem niet."
+                )
+                % {"adressen": addresses(said.member_addresses), "gezinnen": households},
+            )
+        )
+    if with_subscribers:
+        lines.append(
+            AudienceLine(
+                head=_("Abonnees · %(adressen)s")
+                % {"adressen": addresses(said.subscriber_addresses)},
+                sentence=_("Iedereen die zich inschreef op de nieuwsbrief en dat bevestigde."),
+            )
+        )
+    overlap = ""
+    if with_members and with_subscribers:
+        overlap = (
+            ngettext(
+                "%(num)s adres staat op beide lijsten en krijgt hem één keer, als lid.",
+                "%(num)s adressen staan op beide lijsten en krijgen hem één keer, als lid.",
+                said.in_both,
+            )
+            % {"num": said.in_both}
+            if said.in_both
+            else _("Geen enkel adres staat op beide lijsten.")
+        )
+        send_label = ngettext(
+            "Verstuur naar %(num)s ontvanger", "Verstuur naar %(num)s ontvangers", said.recipients
+        )
+    elif with_members:
+        send_label = ngettext(
+            "Verstuur naar %(num)s lid", "Verstuur naar %(num)s leden", said.recipients
+        )
+    else:
+        send_label = ngettext(
+            "Verstuur naar %(num)s abonnee", "Verstuur naar %(num)s abonnees", said.recipients
+        )
+    return lines, overlap, send_label % {"num": said.recipients}, said.recipients
+
+
 def _send_view(
     request: Request, db: Session, letter, email: str, error: Optional[str] = None
 ) -> NewsletterSendView:
     from app.kernel.tenant_config import tenant_newsletter_daily_cap
 
-    count = len(nb.recipients_for(db, letter.audience)) if letter.audience else 0
+    lines, overlap, send_label, count = _audience_said(db, letter.audience)
     return NewsletterSendView(
         letter=letter,
-        audience_label=code_label(nb.AUDIENCE.name, letter.audience or "", db=db),
+        audience_lines=lines,
+        audience_overlap=overlap,
+        send_label=send_label,
         recipient_count=count,
         days=nb.expected_days(db, count) if count else 0,
         blocked=bool(nb.unfilled_placeholders(letter.body_html)),
@@ -955,7 +1092,7 @@ def _send_view(
         reply_to_sender=email,
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV),
+        nav_items=admin_nav(NAV, request),
     )
 
 
@@ -964,7 +1101,7 @@ def send_screen(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     letter = _letter_or_404(db, newsletter_id)
     if letter.status != nb.LetterStatus.DRAFT:
@@ -989,7 +1126,7 @@ def send_letter(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     reply_to: str = Form(nb.ReplyToMode.ASSOCIATION),
 ):
     """After a human read it (CR-05 §3.9) — never automatically."""
@@ -1038,7 +1175,7 @@ def raakje_conversation(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
 ):
     """The conversation the draft keeps, for the Assistent's panel when it opens
     beside the letter (#1562)."""
@@ -1055,7 +1192,7 @@ def raakje_ask(
     newsletter_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    email: str = Depends(require_admin_ui),
+    email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     vraag: str = Form(""),
     body_html: str = Form(""),
     selection: str = Form(""),
@@ -1120,7 +1257,7 @@ async def raakje_apply(
     message_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     """Toepassen: the final values for the form. A marked sentence stays out
     unless it was ticked "klopt, behouden" (CR-05 §3.16). Nothing of the proposal
@@ -1191,7 +1328,7 @@ def raakje_dismiss(
     message_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_admin_ui),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
     letter = _raakje_letter(db, newsletter_id)
     message = nb.get_drafting_message(db, letter, message_id)

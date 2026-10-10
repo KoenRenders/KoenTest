@@ -75,7 +75,7 @@ def test_after_midnight_the_activity_is_in_the_archive_although_utc_says_otherwi
 ):
     """The test that matters (#977).
 
-    Broken to see it red: `today = belgian_today()` in `list_activities` put back
+    Broken to see it red: `today = belgian_today()` in `activities_for` put back
     on `date.today()`. The UTC date is still the last day, so the activity stays in
     the upcoming list and both assertions fall over.
     """
@@ -121,17 +121,13 @@ def test_a_passed_deadline_reads_afgesloten_and_not_open(client, db_session, mon
 
 def test_the_admin_does_not_count_a_closed_activity_as_open(db_session, monkeypatch):
     from app.domains.activities.admin_ui import _kpi
-    from app.domains.activities.router import list_activities
+    from app.domains.activities.api import list_activities
 
     _activity(db_session, "Open ding", last_day=LAST_DAY + timedelta(days=30))
     _activity(db_session, "Dicht ding", last_day=LAST_DAY + timedelta(days=30), closes_on=LAST_DAY)
     _pin(monkeypatch, datetime(2027, 7, 20, 10, 0, tzinfo=timezone.utc))
 
-    lijst = [
-        a
-        for a in list_activities(scope="all", db=db_session)
-        if a.name in ("Open ding", "Dicht ding")
-    ]
+    lijst = [a for a in list_activities(db_session, "all") if a.name in ("Open ding", "Dicht ding")]
 
     assert _kpi(lijst)["kpi_open"] == 1
 

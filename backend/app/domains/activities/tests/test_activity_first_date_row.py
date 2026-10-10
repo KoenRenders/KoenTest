@@ -223,19 +223,3 @@ def test_a_night_across_two_days_is_allowed(client, db_session):
 
     assert resp.status_code == 200, resp.text
     assert _latest_activity(db_session).dates[0].end_time == time(2, 0)
-
-
-def test_the_json_api_inherits_the_same_rule(client, admin_headers):
-    """The fourth entrance. A rule that only knows the screens is not a rule on the
-    object — and this route is exactly how #720/#727/#733 came about."""
-    resp = client.post(
-        "/api/v1/activities",
-        headers=admin_headers,
-        json={
-            "name": "Through the API",
-            "dates": [{"start_date": "2026-09-20", "end_date": "2026-09-18"}],
-        },
-    )
-
-    assert resp.status_code == 422, resp.text
-    assert "einddatum ligt vóór de begindatum" in resp.text

@@ -114,6 +114,8 @@ def test_opmerking_bewaard_en_in_audit(db_session):
         actor="fin@test",
     )
     assert charge.note == "cash ontvangen aan de kassa"
+    # The request's commit, which the app's session does not anticipate (#1771).
+    db_session.flush()
     rows = (
         db_session.query(PaymentRecordHistory)
         .filter(

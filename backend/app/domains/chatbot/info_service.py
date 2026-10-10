@@ -19,16 +19,42 @@ from sqlalchemy.orm import Session
 from app.domains.activities.api import Activity, ActivitySubRegistration
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
-from app.kernel.codes import code_of
 
 # media wordt per functie geïmporteerd: `media/extraction.py` importeert op
 # modulniveau `ChatbotInfo` uit chatbot.api, dat op zijn beurt deze module laadt.
 # Een module-level import hier zou EXTRACTABLE_KINDS opvragen terwijl
 # media/api.py nog aan het initialiseren is.
+from app.i18n import _
+from app.kernel.codes import code_of
+from app.kernel.contracts.media import ReadTextAgain
+from app.kernel.ports import call
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
 
 if TYPE_CHECKING:  # alleen voor de typechecker — geen import bij het draaien
     from app.domains.media.api import MediaAsset
+
+
+def has_extracted_text(db: Session, asset_id: int) -> bool:
+    """Whether the text of this document was read already — the question media's
+    reading job asks before it reads again (CR-13 phase 4d, #1251). A read."""
+    row = db.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id == asset_id).first()
+    return bool(row and row.extracted_text)
+
+
+def keep_extracted_text(
+    db: Session, asset_id: int, *, title: Optional[str], text: str, extracted_at
+) -> None:
+    """The text media read of a document, into the chatbot's own row for it: the
+    row is made when there is none (with the document's title), and only the
+    extracted text and its moment are written — a manual override, an addition
+    and the row's own title stay. No commit: the reading job's transaction."""
+    row = db.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id == asset_id).first()
+    if row is None:
+        row = ChatbotInfo(media_asset_id=asset_id, title=title)
+        db.add(row)
+    row.extracted_text = text or None
+    row.extracted_at = extracted_at
+    db.flush()
 
 
 def _row(ci: Optional[ChatbotInfo]) -> Optional[dict]:
@@ -132,6 +158,22 @@ def _apply_edit(ci: ChatbotInfo, data: ChatbotInfoEdit) -> None:
         ci.sort_order = data.sort_order
 
 
+class InfoRefused(ValueError):
+    """A refusal of this service, in the words the administrator reads."""
+
+
+def add_note(db: Session, *, title: str, text: str) -> dict:
+    """A note of our own for Raakje: it has a title and a text.
+
+    The screen decided this itself until CR-13 phase 4c (#1251); a rule at one
+    door holds for that door only. Both are asked for the note, not for every
+    row of this table — a document's or a page's row carries no title."""
+    title, text = title.strip(), text.strip()
+    if not title or not text:
+        raise InfoRefused(_("Titel en tekst zijn verplicht."))
+    return create_note(db, NoteCreate(title=title, text_addition=text, is_active=True))
+
+
 def create_note(db: Session, data: NoteCreate, _admin=None):
     ci = ChatbotInfo(
         title=data.title,
@@ -178,8 +220,59 @@ def toggle_row(db: Session, row_id: int) -> ChatbotInfo:
     return rij
 
 
+def _page_row(db: Session, page_id: int) -> ChatbotInfo:
+    """The info row of a page, made at its first use (#1791).
+
+    A page is in what Raakje knows by default and has no row until an
+    administrator says something about it: switch it off, replace its text, add
+    to it. The screen offered those actions only for a page that had a row, and
+    nothing made one — so a new page could not be taken out. The row is made
+    here, switched on, and whoever asked for it changes it in the same
+    transaction.
+    """
+    if db.query(CmsPage.id).filter(CmsPage.id == page_id).first() is None:
+        raise LookupError("Pagina niet gevonden")
+    row = (
+        db.query(ChatbotInfo)
+        .filter(ChatbotInfo.cms_page_id == page_id)
+        .order_by(ChatbotInfo.id.desc())
+        .first()
+    )
+    if row is None:
+        row = ChatbotInfo(cms_page_id=page_id, is_active=True)
+        db.add(row)
+        db.flush()
+    return row
+
+
+def toggle_page(db: Session, page_id: int) -> None:
+    """Switch a page off for Raakje, or on again. A page without a row is on, so
+    its first switch turns it off."""
+    row = _page_row(db, page_id)
+    row.is_active = not row.is_active
+    db.commit()
+
+
+def edit_page(db: Session, page_id: int, *, text_override: str, text_addition: str) -> None:
+    """The text Raakje reads instead of the page, and the text it reads beside
+    it. An empty one is no text: the page itself is read again."""
+    row = _page_row(db, page_id)
+    row.text_override = text_override.strip() or None
+    row.text_addition = text_addition.strip() or None
+    db.commit()
+
+
 def get_row(db: Session, row_id: int) -> ChatbotInfo:
     rij = db.query(ChatbotInfo).filter(ChatbotInfo.id == row_id).first()
     if rij is None:
         raise LookupError("Rij niet gevonden")
     return rij
+
+
+def read_document_again(db: Session, asset_id: int) -> None:
+    """The "Opnieuw lezen" button of the AI context: have media read the text of
+    this document once more. This service is the door of the button, so the
+    commit is here — the reading starts with it. A document that is not there
+    raises media's `LookupError`."""
+    call(ReadTextAgain(asset_id), db)
+    db.commit()

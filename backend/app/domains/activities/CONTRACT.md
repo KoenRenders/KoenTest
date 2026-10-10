@@ -14,9 +14,16 @@
 
 ## Router
 
-`router.py` — de volledige activiteiten-API onder `/api/v1/activities`
-(22 routes; dead-endpoint-sweep uitgevoerd bij de verhuis: alle routes zijn
-in gebruik door de frontend).
+The activities have no JSON API any more. CR-13 phase 4b (#1251) pruned every
+route under `/api/v1/activities` — none had a caller: the screens are
+server-rendered and ask the facade — and with the last routes the service
+functions only they called (creating an activity, and the single date,
+component, product and order-line doors; the fiche save and
+`set_order_quantities` are what the screens use). `router.py` is no router:
+it is not included in `main.py`. The functions the facade calls
+(`activities_for`, `get_activity_detail`, `get_public_registrations`,
+`register_for_activity`, `create_registration`) stay in this file until
+phase 4c moves them.
 
 ## Data
 

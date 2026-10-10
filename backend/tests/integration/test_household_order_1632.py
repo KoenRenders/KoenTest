@@ -30,6 +30,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import text
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.mdm.api import ContactDetail, MemberPerson
@@ -42,7 +43,7 @@ pytestmark = pytest.mark.ui_serverrendered
 READ, EDIT, SIGN_UP = "/leden/gezin", "/leden/gezin?bewerken=1", "/lid-worden"
 #: The word as a label of its own: in a label, a read-mode line or a column head.
 LABEL = re.compile(
-    r">\s*E-mailadres\s*(?:<span class=\"text-red-600\">\*</span>)?\s*</(?:label|p|span)>"
+    r">\s*E-mail(?:adres)?\s*(?:<span class=\"text-red-600\">\*</span>)?\s*</(?:label|p|span)>"
 )
 OGM = "+++123/4567/89012+++"
 
@@ -102,7 +103,7 @@ def test_an_email_row_carries_no_label_of_its_own(client, db_session, path):
 
     assert html.count("rijen@example.com") >= 2, "the addresses are not on the page"
     assert html.count(">E-mailadressen</h3>") == 2, "the group's title is the label"
-    assert LABEL.findall(html) == [] and not LABEL.search(html), "a row says E-mailadres itself"
+    assert LABEL.findall(html) == [] and not LABEL.search(html), "a row says E-mail itself"
 
 
 def test_the_email_field_keeps_its_accessible_name(client, db_session):
@@ -110,13 +111,13 @@ def test_the_email_field_keeps_its_accessible_name(client, db_session):
     html = _main(_page(client, "naam@example.com", EDIT))
     fields = re.findall(r'<input[^>]*name="e\.[^"]+\.value"[^>]*>', html)
     assert len(fields) == 3, "the three addresses of the household"
-    assert all('aria-label="E-mailadres"' in field for field in fields)
+    assert all('aria-label="E-mail"' in field for field in fields)
     assert not re.search(r'<label[^>]*for="e-[^"]+-value"', html), "a label element is back"
 
 
 def test_word_lid_has_no_label_on_its_email_row_either(client, db_session):
     html = _main(client.get(SIGN_UP).text)
-    assert 'name="e.n0e.value"' in html and 'aria-label="E-mailadres"' in html
+    assert 'name="e.n0e.value"' in html and 'aria-label="E-mail"' in html
     assert not LABEL.search(html)
 
 
@@ -173,6 +174,64 @@ def test_word_lid_ends_with_the_price_and_starts_with_an_empty_group(client, db_
     assert not re.search(r"data-group-row\b(?!s)", group), "a row before anyone is added"
 
 
+def _person_rows(html: str) -> list[str]:
+    """The keys of the PERSON rows of the group Gezinsleden.
+
+    A person's row holds a group of its own — the e-mail addresses — whose rows
+    carry the id of a contact detail. Counting every `data-group-row` under the
+    heading read such an id as a person's (#1777); a person's row is the
+    composite one.
+    """
+    return re.findall(
+        r'data-group-row data-row-key="(\d+)" class="group-row group-row--composite',
+        html[html.index('id="gezinsleden"') :],
+    )
+
+
+def test_an_e_mail_row_with_the_main_members_number_is_not_the_main_member(client, db_session):
+    """#1777: the partner's e-mail address got, by the state of two sequences, the
+    id of the main member — and the test below read "the main member is a row".
+    Which ids meet depends on what ran before in the same process; here they are
+    made to meet.
+
+    Red every time on the old reading (every `data-group-row` under the heading),
+    proven on 8 October 2026 by putting that pattern back in `_person_rows`.
+    """
+    from sqlalchemy import func
+
+    from app.domains.mdm.api import Person
+
+    # A main member whose id no contact detail has: move the persons' sequence
+    # past every contact detail there is or will be made here.
+    ceiling = (db_session.query(func.max(ContactDetail.id)).scalar() or 0) + 1000
+    ceiling = max(ceiling, (db_session.query(func.max(Person.id)).scalar() or 0) + 1000)
+    db_session.execute(
+        text("SELECT setval(pg_get_serial_sequence('mdm.persons', 'id'), :value)"),
+        {"value": ceiling},
+    )
+    member, main = create_test_family(db_session, email="botsing@example.com", mobile="0470000000")
+    partner = create_test_person(db_session)
+    db_session.add(MemberPerson(member_id=member.id, person_id=partner.id, relation_type="PARTNER"))
+    db_session.add(
+        ContactDetail(
+            id=main.id,
+            person_id=partner.id,
+            contact_type_code="EMAIL",
+            value="partner.botsing@example.com",
+            is_primary=True,
+        )
+    )
+    db_session.commit()
+
+    html = _main(_page(client, "botsing@example.com", EDIT))
+
+    every_row = re.findall(
+        r'data-group-row data-row-key="(\d+)"', html[html.index('id="gezinsleden"') :]
+    )
+    assert str(main.id) in every_row, "the e-mail row with the main member's number is not there"
+    assert _person_rows(html) == [str(partner.id)]
+
+
 def test_the_main_member_is_no_row_and_the_form_still_sends_them_first(client, db_session):
     _member, main, partner = _household(db_session, "vast@example.com")
     html = _main(_page(client, "vast@example.com", EDIT))
@@ -183,9 +242,7 @@ def test_the_main_member_is_no_row_and_the_form_still_sends_them_first(client, d
     assert 'data-row-action="remove"' not in head.split("E-mailadressen")[0], (
         "the main member can be removed"
     )
-    rows = re.findall(
-        r'data-group-row data-row-key="(\d+)"', html[html.index('id="gezinsleden"') :]
-    )
+    rows = _person_rows(html)
     assert str(partner.id) in rows and str(main.id) not in rows, "the main member is a row"
     # what the browser would send: one list of persons, the main member first
     sent = form_fields(_page(client, "vast@example.com", EDIT), "gezin-form")
@@ -245,7 +302,7 @@ def test_a_renewal_that_waits_for_a_transfer_shows_what_to_pay_in_the_card(clien
     db_session.commit()
 
     card = _card(_page(client, "storting@example.com", READ))
-    assert "Je vernieuwing loopt nog." in card
+    assert "Je betaling loopt nog." in card
     assert card.count("data-transfer-due") == 1
     assert OGM in card and "35,00" in card and "betaal via overschrijving:" in card
 
@@ -254,9 +311,11 @@ def test_only_the_card_writes_what_a_running_renewal_asks():
     """One source (#1641: the renewal page lost its running view; CR-22 S2,
     #1705: moved, never copied). In EVERY template of the application:
 
-    - the lines of a transfer are written by `_transfer_due.html` alone, the
+    - the lines of a transfer are drawn by `_transfer_due.html` alone, the
       shared partial, and the membership card reaches it through
-      `_renewal_running.html`;
+      `_renewal_running.html`; since #1775 the partial holds no word of its
+      own — the labels are `TransferDue.lines`, in `payment`, which the
+      confirmation mails render too;
     - the membership card is written by `_membership_card.html` alone, which the
       household page includes.
 
@@ -273,9 +332,12 @@ def test_only_the_card_writes_what_a_running_renewal_asks():
 
     # The kit page draws an inset with made-up lines to SHOW the kit's inset; it
     # is no place that says what somebody owes.
-    assert holding("Mededeling (OGM)") == ["_transfer_due.html", "design_system.html"]
+    assert holding("Gestructureerde mededeling") == ["design_system.html"]
+    assert holding("Mededeling (OGM)") == [] and holding("Te betalen vóór") == []
+    assert holding("due.lines") == ["_transfer_due.html"]
     assert holding('attrs="data-transfer-due"') == ["_transfer_due.html"]
-    assert holding('"_transfer_due.html"') == ["_renewal_running.html"]
+    # Since CR-22 S5 (#1709) a registration still to be paid shows the same block.
+    assert holding('"_transfer_due.html"') == ["_my_registration.html", "_renewal_running.html"]
     assert holding('"_renewal_running.html"') == ["_membership_card.html"]
     assert holding('attrs="data-membership-status"') == ["_membership_card.html"]
     # Since CR-22 S3 (#1706) the landing page shows the same card.

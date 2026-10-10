@@ -22,7 +22,7 @@ components rendered live from the real macros at `/admin/design-system` (#783).
 Do not translate it unless Koen asks. User-facing UI copy is Dutch and is not
 documentation — it is unaffected by this rule.
 
-## Referring to issues in chat
+## Referring to issues and change requests in chat
 
 Koen does not know issue numbers by heart, and there are hundreds of them.
 Keep using the numbers — they are the link into GitHub — but **in chat, every
@@ -35,9 +35,19 @@ the issue's name rather than a fresh summary. Pick it from the issue title and
 reuse it. A number without a name costs Koen a lookup for every sentence; the
 name is what makes his answer fast. (Asked for on 9 September 2026.)
 
+**The same holds for a change request** (Koen, 8 October 2026: *"Ik kan al die
+nummers niet onthouden. Zelfde als met de issuenummers."*). In chat, every
+mention of a change request carries its title in parentheses, every time:
+`CR-24 (rechten in het beheer)`, `CR-21 (webshop)`, `CR-13 (domeingrenzen)`.
+Two to four Dutch words taken from the document's title, the same words every
+time. A phase or a part is named too — *fase 4 van CR-13 (domeingrenzen), de
+JSON-routes snoeien* — never a bare "4b". The same for a pull request: its
+number carries what it is, `PR #1734 (paginascherm van CR-17)`.
+
 In GitHub text — issue bodies, tracker lines, commit messages — the number alone
 is fine: GitHub shows the title on hover, and tracker lines already carry a
-description per issue.
+description per issue. A change request has no hover: in GitHub text its first
+mention in a body or a comment carries the title as well.
 
 ## Code language
 
@@ -105,6 +115,7 @@ docstrings and tests. This file points there and does not repeat it.
 Never commit secrets, credentials, or operational/infrastructure details to this
 repo. Specifically NOT in git:
 - Server IPs, real domain names, Storage Box users/hosts → use placeholders or env vars.
+  One exception (Koen, 9 October 2026, to the proposal of one sentence that allows it: "akkoord"; earlier that day: "als deze adressen niets zeggen over natuurlijke personen is er wat mij betreft geen probleem"): the association's own public web address may stand as an example — it names no natural person and it already stood in the code. The addresses of the environments (UAT, the platform) and every hostname of the server stay out, as before.
 - Personal backup/ops tooling (Restic scripts, off-site backup pipelines, server
   runbooks, systemd units for personal infra). Keep those local on the server only,
   outside the git checkout.
@@ -565,7 +576,7 @@ never a claim you did not check:
 | `alembic current` | `… exec -T backend alembic current` | equal to that head |
 | Migrations, if the release adds any | backend logs | the expected `Running upgrade NNN -> NNN+1` |
 | Startup | backend logs | `Uvicorn running on http://0.0.0.0:8000`, zero `ERROR`/`Traceback` lines |
-| Smoke + reachability | the deploy's own output, plus a few `curl`s | `N OK · 0 gefaald`; public pages 200, an admin screen 303 to `/aanmelden?terug=…` without a session (#1458), an `/api/v1/` admin path 401 |
+| Smoke + reachability | the deploy's own output, plus a few `curl`s | `N OK · 0 gefaald`; public pages 200, an admin screen 303 to `/aanmelden?terug=…` without a session (#1458). No `/api/v1/` path asks for an admin any more since v2.16.0 (#1251: the JSON routes without a caller were pruned), so the former third check — an `/api/v1/` admin path 401 — has nothing to measure; on a tag older than v2.16.0 it still holds |
 
 `raak diagnose <env>` collects the first five in one report (`logging.sh`), so use
 it instead of hand-writing `docker compose` commands; `raak fetch <env>` pulls the
@@ -644,17 +655,10 @@ visitor nobody had walked — each of which could have been found before the
 approval. What the build read looks for stands in
 `docs/change_request_template.md`.
 
-**Every pull request of the Mistral CLI is read by a Claude dev CLI before a
-merge** (Koen, 7 October 2026). This is the one standing review: the master
-CLI routes it without being asked, for a new pull request and for every later
-commit on it, and reports the findings to Koen with a proposal. It stays
-advisory, and it does not replace Koen's own test of the branch. Two
-conventions make a Mistral pull request findable, because nothing wakes the
-master CLI when one is opened or updated: the branch is named
-`feature/mistral-<issue>-<short>`, and when a pull request or a new commit is
-ready, the Mistral CLI says so in one comment on it — *ready for review,
-commit `<sha>`* — so a half-finished push is not what gets read. The master
-CLI watches for both and checks at every handover.
+**A pull request of a builder outside the Claude series** (the Mistral CLI,
+OpenCode) is always read by a Claude dev CLI before a merge; that standing
+review and everything else about such a builder stands in *A builder outside
+the Claude series* below.
 
 Shaping agents: the header of this file (*Who may change this file*) already
 says that an agent asked to write a change request writes only that one
@@ -663,6 +667,91 @@ to Koen instead of writing it in. Three agreements add to it: the branch is
 created from master; the agent never works on another agent's branch; and it
 never pushes to master -- the merge to master happens only by the master CLI.
 (Koen, 2 October 2026.)
+
+## A builder outside the Claude series
+
+Since 6 October 2026 a CLI that is not Claude Code builds in this repository too: the Mistral CLI first, others (OpenCode) when Koen starts them. Everything in this file holds for such a builder as for any agent. This section adds what follows from one fact: **an outside builder and the Claude sessions cannot message each other, and nothing wakes the master CLI when a branch is pushed.** GitHub is the only channel between them. (Koen, 7 October 2026.)
+
+**Who they are.** The builders outside the Claude series today, each with its name and the port of its local test version:
+
+| Name | Tool | Local port | How it listens |
+|---|---|---|---|
+| `mistral-vibe1` | the Mistral CLI, on Koen's machine | — (was 8082) | **stopped on 8 October 2026**: handed CR-17 over to `mistral-cloud1` and builds nothing any more |
+| `mistral-cloud1` | the Mistral CLI, as a cloud session — not on Koen's machine | 8082, started by the master CLI (*A builder that does not run in Koen's own account* below) | said in its first comment on its pull request |
+| `opencode1` | OpenCode, on DeepSeek's API (the limits below) — on Koen's desktop, as a system user of its own with rootless Docker | 8083, started by the master CLI (*A builder that does not run in Koen's own account* below) | said in its first pull request |
+
+A name is the tool and a number, always — `mistral-vibe1`, `opencode1`, and a second session of a tool is `mistral-vibe2`, `opencode2`. A new builder is added to this table by Koen or the master CLI at his request and gets the next free port (8084, 8085, …). The master CLI watches the branches of every name in the table. The branches the Mistral CLI opened before 7 October 2026 are named `feature/mistral-…`; they are `mistral-vibe1`'s.
+
+**`opencode1` runs on DeepSeek, through DeepSeek's own API — a named deviation from Europe First, with hard limits** (Koen, 7 October 2026, choosing it as an evaluation over DeepSeek's open weights at an EU host). What the model is sent is stored in China. The source of this repository is public, so the code is not the risk; the risk is everything else within the tool's reach. Ten limits, and they hold for as long as `opencode1` uses a model outside the EU:
+
+*Enforced by the machine since 9 October 2026 — no reviewer can see these, and none has to. `opencode1` runs as a system user of its own: without sudo, outside the Docker group (its Docker is rootless, in its own session), with a clone of this repository of its own and a GitHub token that reaches this repository only, and without any access to Koen's home folder. Until then these five were agreements, because the tool ran in Koen's own account:*
+1. A working copy that holds only a clone of this repository: its own folder, nothing else in reach.
+2. No `.env*` file with real values in that working copy or in its parent folders.
+3. No `raak` alias, no SSH keys, no access to the server.
+4. Never against HDEV, UAT or PROD: only its own development containers, with made-up data. The machine takes the keys away (limit 3), not the network: the public address of an environment stays reachable, so this one remains an agreement and the reviewer watches for it (limits 6 and 7).
+5. **No access to Koen's project folder outside the repository** — it holds member reports and logs with real personal data. What `opencode1` needs to read about its change request is put in a documents folder in its own home; the test version Koen judges is not its own to start (below).
+
+*Checked by the Claude dev CLI in every pull request of `opencode1`, and named in its review:*
+6. No `.env*` file, credential, token, hostname, IP address or real domain in the diff.
+7. No pasted output of an environment — logs, `psql` output, audit rows — in the pull request, its comments or its commits.
+8. Test data is made up: no real names, e-mail addresses, phone numbers, IBANs or structured communications; accounts on the reserved example domain.
+9. No code and no test that calls an outside service (Mollie, mail, an AI provider) for real; the local version sends nothing.
+10. Every commit carries `Tool: opencode1`.
+
+A finding on 6 to 9 is not advisory: the pull request is not merged until it is gone, and what was pasted is treated as leaked (*This repository is PUBLIC* above: editing removes nothing, a credential is rotated).
+
+**The branch and the two ways to master.** Koen says which one at the assignment:
+- *an issue on a release* — a branch `feature/<tool>-<issue>-<short>`, created from `master`, and a pull request against `master`; the master CLI merges it when it is read and CI is green, as for a Claude dev CLI;
+- *a whole change request* — **one branch for the change request, `cr<nn>/<name>`, and one pull request from it against `master` that stays open from the first day**, marked as not to be merged. The builder builds every slice on that branch and pushes to it. The pull request is where each commit is read; it is merged into `master` only after Koen's own approval on a local test version of it.
+
+**Why one branch and not a branch per slice** (Koen, 8 October 2026: "Nu bouwt mistral CR17 op een branch, waarom is dat niet de integratietak?"). CR-17 began with two levels: a branch per slice, a pull request against an integration branch, and a merge by the master CLI per slice. The second level existed so that each slice could be read and accepted on its own — but reading happens per commit anyway, and the integration branch had no CI of its own: two slices could each be green and red together, and the migration of CR-17 carried the number of a migration on `master` for two days without anything turning red. A pull request against `master` runs the suite on the branch **merged with `master`** at every push, so a collision shows the day it arises, with no change to the workflow and one run per push. The name `cr<nn>/…` is part of that: a `feature/…` branch with a pull request gets two runs per push.
+
+**Read up to a commit.** There is no merge per slice any more, so the reviewer's answer says how far the reading reaches — *read up to commit `<sha>`* — and what, if anything, must be repaired before the builder goes on. The builder keeps its branch current with `master` itself (it merges `master` in; it never rewrites pushed history without Koen's word), and a red pull-request run is its to repair before the next slice.
+
+**A whole change request starts with a plan, not with code** (Koen, 10 October 2026, to "Mag ik de plan-eerst-afspraak voor buitenbouwers in `AGENTS.md` zetten?" and "Geldt ze voor elke buitenbouwer met een heel CR, of alleen voor `opencode1`?": "ja op 2 en voor elke buitenbouweer op 3"). Before the first code of a phase, the builder writes its plan for that phase on the one pull request of its `cr<nn>/…` branch: the order of its commits, which tests the change request names go green at which step, and what it does not understand in the document. The Claude dev CLI that reads its pull request reads the plan before the builder starts, and the master CLI reports the findings to Koen with a proposal; the builder starts on the comment *For the builder (`<name>`)* that says so. The same at the start of every later phase. The builder plans from the change request, its screen material and this file; no session writes the plan for it — how a builder plans is part of what Koen wants to learn about it.
+
+**Only the master CLI merges to `master`.** An outside builder never runs a merge into `master` and never pushes to `master`: it pushes to its own branch — a `feature/…` branch for an issue, the `cr<nn>/…` branch of the change request Koen assigned to it — and nowhere else. The master CLI coordinates the merge: it has the pull request read, checks CI on the tip, merges, deploys HDEV and reports to Koen. This holds for the Mistral CLI, for OpenCode and for every builder added to the table above, also when its pull request is green and read, and also when Koen has approved the content: approval of the content is not a merge. (Koen, 7 October 2026; the merge per slice into an integration branch lapsed on 8 October 2026 with the one branch above.)
+
+An outside builder also never deploys, never reads an environment (`raak` is the master CLI's), and never edits this file, `CLAUDE.md`, `.github/` or a process document.
+
+**Inside its module an outside builder builds; outside it, it adds and does not change** (Koen, 9 October 2026, to three agreements proposed for CR-17's pull request: "ja, zet ze op de PR. En kan je dit ook vastleggen als afspraak richting andere bouwers zoals bvb. OpenCode?"). The module is the domain its change request builds — its folder under `backend/app/domains/` and its schema in the database. Everything else belongs to every screen: the kit and the two shells (`backend/app/ui/`), the static files, `scripts/`, the kernel and the other domains.
+- **Adding is free.** A new macro, a new file, a new parameter whose default is what the macro did before, the seam another domain's facade needs.
+- **Changing what exists is not.** The behaviour of an existing macro, a shell or `scripts/build-css.sh` does not change without Koen's word, asked first. The builder writes on its pull request what it needs and why, and does not build it. The master CLI puts it to Koen, who chooses per case: a Claude dev CLI builds it on `master` under an issue of its own and the builder merges `master` in (the way for whatever touches every screen — a dev CLI can run the browser tests and the measurements), the builder builds it on its own branch, or it is not done.
+- **Every *ready for review* lists the files touched outside the module**, with the reason per file. The reviewer reads those first.
+
+The reason: on 9 October 2026 CR-17 widened the kit's reading group for its own page screen, and the activity form changed width with it. The measurement baseline caught it, but it covers a few screens only; as a rule it holds for all of them.
+
+**The pull request is the mailbox.** What a Claude dev CLI tells the master CLI in a message, an outside builder writes in the pull request, following `.github/PULL_REQUEST_TEMPLATE.md`: the tip, the two CI runs with their summaries, the measurements, the deviations from the issue, "Na de merge". And at the start of every session the builder reads the comments on its pull requests and its issues before it continues: that is where the review, the master CLI's advice and Koen's decisions arrive.
+
+**Who a comment is for.** A pull request belongs to one builder — the one whose name stands in its branch, or, for a `cr<nn>/…` branch, the one the pull request names in its first line — and only that builder acts on it; another builder's pull request may be read, never answered and never built on. The name is unique per session, as in the table above. Every comment opens by saying whom it is for: *For the builder (`<name>`): …* or *review please, … — `@<reviewer>`*. A builder acts only on a comment that carries its name. A review is addressed to nobody's hands: the builder may take in a finding that repairs a defect at once; a finding that holds a choice waits for a comment with its name.
+
+**Koen does not read pull requests.** The comments are between the builder, the reviewer and the master CLI — there is no "for Koen" on GitHub, and Koen follows no extra channel. What needs his decision is asked to him in a chat, by one of two parties: the master CLI (a choice a review raises, anything about a merge, a release or the process) or the builder in its own chat (a question about what it is building). Whoever hears his answer writes it on the pull request, dated, so the other side knows; a decision that only one chat knows does not exist for the other.
+
+**"Koen decided" is written only when Koen decided.** This holds for every agent, Claude sessions included. A decision is what Koen answered to a question that was put to him; it is reported with **his own words in quotation marks, the date, and the question they answered**. Nothing else is a decision of Koen: not his silence, not an earlier answer to a different question, not what he would probably want, not an agent's proposal he has not answered, not "Koen approved the content" stretched into a merge or a release. An agent that infers, says that it infers — "my reading", "my proposal, not answered yet" — and one that is not sure asks again rather than writes. Paraphrasing his words into a stronger claim than he made is the same fault as inventing them. An agent that finds it reported a decision wrongly corrects it in the same place, at once, and tells Koen.
+
+**Whoever waits, listens.** Nothing on GitHub wakes a session, so every party sets its own listener for what it waits on, and clears it when the answer stands. The master CLI watches the branches of the builders named above for a new or updated pull request. A builder that has written *ready for review* watches its own pull request until one of three things stands: a review comment, a comment *For the builder (`<name>`)*, or the merge. A tool that can be woken by an event uses that; a tool that cannot, polls — every two minutes is enough — and the poll is a small script that asks GitHub and wakes the session only when something changed, not the model asking again and again. A builder whose tool can do neither says so in its first pull request; then Koen is the doorbell for that tool, and that is written on the line of builders above. Koen does not have to say "the review is there". (Koen, 7 October 2026.)
+
+**Ready means ready.** When a pull request or a new commit is complete and CI is green on it, the builder says so in one comment: *ready for review, commit `<sha>`*. Before that comment, on the commit it names: `ruff format --check`, `ruff check`, mypy, the full pytest suite, the e2e suite and the measurement baseline have run. A red tip is not read.
+
+**Every pull request is read.** Each pull request of an outside builder is read by a Claude dev CLI before a merge, the first time and after every later commit. This is the one standing review: the master CLI routes it without being asked and reports the findings to Koen with a proposal. The builder answers a review in one comment, per finding: taken in, already decided, or not taken with the reason. The review stays advisory and does not replace Koen's own test.
+
+**A local test version for Koen, always.** For everything Koen has to judge with his own eyes — a screen, a flow, a migration of content — the builder gives him a local version of its branch to test on, before the work goes to `master`:
+- its **own compose project**, named after the builder (`mistral-vibe1-<short>`), with its own database volume, served on **the builder's port from the table above** and on no other, also when another port looks free; it never uses and never recreates the shared development database, and its database publishes no port at all;
+- **one local version per builder at a time**: to show another branch it stops the first, so the address of a builder never changes — `localhost:8082` is always CR-17's builder (`mistral-vibe1` until 8 October 2026, `mistral-cloud1` since). Port 8081 is HDEV's and port 5432 the shared development database's;
+- **made-up data only**, with accounts on a reserved example domain for the roles Koen needs to walk (an administrator, a treasurer, a board member);
+- **nothing leaves the machine**: no mail is sent, no payment provider and no AI provider is called;
+- **one way in that needs no secret**: a small script that prints the sign-in link from the version's own mail log;
+- the start and stop commands, the address and the script live **outside this repository**, in Koen's project folder next to the change request; no local path and no credential enters the repository, an issue or a pull request (For a builder outside Koen's own account they are the master CLI's, below.)
+
+The pull request says that the local version exists and which branch it runs; where it stands is said to Koen in the builder's own chat.
+
+**A builder that does not run in Koen's own account** — a cloud session, or a system user of its own on his machine (Koen, 8 October 2026, when `mistral-cloud1` took CR-17 over; widened on 9 October 2026 to `opencode1`, on the proposal "een builder die niet in Koens eigen gebruiker draait, krijgt zijn testversie van de master-CLI": "helemaal mee eens") — cannot give him that local version, so **the master CLI starts it**, on the builder's port and under the same rules as above. The signal is the builder's *ready for review, commit `<sha>`* with a green run on that commit — not every commit: a rebuild takes time and the run filters the red tips out — or the builder's comment *test version please* for one in between. Before it starts, the master CLI looks at what the commit changes in the container set-up and the start-up scripts (`Dockerfile`, the compose files, `startup.sh`): if it touches them, the version waits for the review of that commit, because this is a builder's code run from a session that can reach the environments. **For `opencode1` the version waits for the review of every commit**, whatever it touches (Koen, 9 October 2026, asked whether that was his meaning: "ja"): its model runs outside the EU and its code is then run in Koen's own account. Its own rootless Docker is for building and testing only, on other ports; port 8083 is the master CLI's version for Koen. It does not start a rebuild beside a full local run of another CLI. When the version stands, the master CLI says so to Koen in its chat and in one line on the pull request. Such a builder keeps nothing in Koen's account: no working copy, no script, no access to his project folder.
+
+**A builder that hands its work over** to another builder says so in one comment on the pull request — everything pushed, what is done and what is not, every decision of Koen it heard that is not on the pull request yet — and then stops: it pushes nothing more and answers no comment. The pull request's first line names the builder that continues, and from that comment on only that builder acts on it.
+
+**One machine, several CLIs.** Every CLI works in its own checkout with its own folder name: the local test scripts derive their database and container names from that name, so two checkouts with one name fight over one database. The shared database container is started with `up -d --no-recreate db`, by whoever needs it first, and is never recreated. A full local run is heavy: when another CLI's run is under way, wait for it rather than start a second full suite beside it — two at once make the browser tests flaky for both.
+
+**Who wrote a commit.** Every commit carries a trailer naming the tool that wrote it (`Tool: mistral-vibe1`), as the Claude sessions carry theirs. All commits bear Koen's name as author; the trailer is what tells them apart.
 
 ## Data operations on an environment — through the app, never raw SQL
 
@@ -840,14 +929,23 @@ per commit on GitHub.
 fase-issues under #393) every domain owns its own routers, models, service and
 templates under `backend/app/domains/`:
 
-| Domain | JSON router(s) | Notable endpoints |
+**Since v2.16.0 almost nothing answers under `/api/v1`** (CR-13 phase 4, #1251:
+the JSON routes without a caller were pruned — 124 of them, with the bearer
+tokens and the API keys; Koen, 9 October 2026, agreed to bring this table up to
+date). What is left is what a machine or a browser element really calls:
+
+| Domain | JSON router | What it serves |
 |---|---|---|
-| `auth/` | `router.py` | login, magic link, API keys |
-| `membership/` | `register_router.py`, `household_router.py` | `POST /families` = public registration |
-| `mdm/` | `router.py`, `import_router.py` | `GET /postal-codes` (moved here from cms) |
-| `activities/` | `router.py` | `POST /activities/{id}/register` |
-| `payment/` | `router.py`, `gateway_router.py`, `status_router.py` | Mollie + payment records |
-| `cms/`, `media/`, `forms/`, `chatbot/`, `stt/`, `mail/`, `workflow/`, `audit/` | `router.py` per domain | — |
+| `media/` | `router.py` | `GET /media/{id}` and `GET /media/{id}/thumb` — the bytes of a picture or a document, for an `<img>` or a download |
+| `payment/` | `router.py`, `gateway_router.py` | `POST /payment-gateway/webhooks/mollie` — the provider's webhook (the security invariant below); `stub_router.py` is the stand-in provider of dev and the browser tests |
+| `chatbot/stt/` | `router.py` | the websocket `/stt/voxtral` — dictation |
+
+Every other domain has no JSON router: a screen calls its own domain's service,
+another domain's `api.py`, a port or an event (`docs/architecture.md` §3.2.1).
+A file that is still called `router.py` or `*_router.py` without being in this
+table holds plain functions behind a facade, not routes. A new JSON route needs
+a caller named in its domain's `CONTRACT.md`
+(`tests/test_rules_gate.py::test_every_json_route_names_its_caller`).
 
 Each domain also carries its server-rendered screens (`ui.py` for the public
 side, `admin_ui.py` for the back office). Cross-cutting admin screens that belong
@@ -895,7 +993,7 @@ domain's internals (`tests/test_import_boundaries.py` enforces this).
 - `Registration` → `RegistrationItem` (één regel per gekozen product/aantal)
 - `GatewayPayment.payment_metadata` (JSON column — NOT `metadata`)
 
-**Auth:** JWT Bearer tokens voor de JSON-API (`get_current_admin` op alle admin-endpoints); de server-rendered schermen gebruiken de HttpOnly-sessiecookie + CSRF via `app.domains.auth.api` (`require_admin_ui`, `require_csrf`).
+**Auth:** de sessie is de enige identiteit sinds v2.16.0 (#1251: de bearer-tokens en API-sleutels van de JSON-API zijn met hun routes verdwenen); de server-rendered schermen gebruiken de HttpOnly-sessiecookie + CSRF via `app.domains.auth.api` (`require_admin_ui`, `require_csrf`).
 
 **Rollen (ADMIN/FINANCE/OPERATOR/ACCOUNT_ADMIN) → wat mag/ziet wie:** zie de
 autoritatieve, met-de-code-geverifieerde matrix in `docs/rollen-en-rechten.md`
@@ -1080,7 +1178,7 @@ supply an SVG rather than approximating one.
 
 ## Fixed UI decisions — do not change these
 
-- **Address grid layout:** 4-column grid. Row 1: Straat (col-span-2) + Huisnummer (col-1) + Bus (col-1). Row 2: Postcode (col-span-4, full width). Bus number is always on the same row as house number, to the right of it.
+- **Address grid layout:** 4-column grid. Row 1: Straat (col-span-2) + Huisnummer (col-1) + Bus (col-1). Row 2: Postcode (col-span-4, full width). Bus number is on the same row as house number, to the right of it, on a wide screen. On a phone, where the address stands in a form of the kit (the public Lid worden, Mijn gezin), the kit stacks the fields, so there each stands on a row of its own — Straat, Huisnummer, Bus, Postcode — like every other field of that form; no exception in the kit for the address (Koen, 9 October 2026, to the choice between leaving the phone as it is and correcting this sentence, or building an exception: "a").
 - **Postal code field:** Always a **`<select>`-dropdown** gevuld uit de
   postcodetabel (`PostalCode`) — nooit een vrij tekstveld. Consistent in héél v2.0
   (word-lid én gezinsportaal). `form.postal_code` is enkel gezet als de gebruiker
@@ -1127,12 +1225,60 @@ it.** Europe First.
 - If no viable EU option exists, say so explicitly and explain the trade-off
   before adding the non-EU dependency.
 
+**Claude Code is a deviation from Europe First too** (Koen, 8 October 2026).
+Its vendor is not European, and what a Claude session reads — a file, the
+output of a command — is sent to that vendor, exactly as for `opencode1` on
+DeepSeek. The source of this repository is public, so the code is not the risk;
+what a session can reach on an environment is. So **a Claude session takes no
+personal data from an environment into the chat**: no names, e-mail addresses,
+phone numbers, addresses, IBANs or structured communications from HDEV, UAT or
+PROD, and none from a member report or a log in Koen's project folder. It
+measures with counts, internal ids, amounts and dates, and leaves the identity
+columns out of the query rather than out of the answer — the left column of the
+table in *This repository is PUBLIC*, applied to what is read and not only to
+what is published. Where a task cannot be done without a person's data, the
+session says so and Koen decides.
+
 ## Code change discipline
 
 - Only change what was explicitly requested. Nothing more.
 - If something looks odd or suboptimal but wasn't mentioned, say so in chat and wait for approval — do not change it.
 - Never "clean up" surrounding code while fixing something else.
 - If a requested change requires touching something adjacent, explain what and why before doing it.
+
+## Keep it simple — straightforward software that is cheap to maintain
+
+Asked for by Koen on 8 October 2026: *"Ik hou altijd van KIS (Keep It Simple)"*
+— we build and maintain software that is straightforward and takes little
+upkeep. It is the measure for every proposal, every issue and every review.
+
+- **One rule for everyone beats a rule with exceptions.** A branch per role,
+  per kind of visitor or per screen is a cost that is paid at every later
+  change. Before adding a case, ask whether the general rule can simply hold
+  for it too. Koen on CR-22: *"ik wil zo weinig mogelijk uitzonderingen"*
+  (7 October 2026), and on a layout refinement: *"neen, we gaan het niet nog
+  complexer maken"* (8 October 2026).
+- **A proposal names the simplest option, and says what it costs to keep the
+  other.** When two options differ in what must be maintained afterwards — a
+  second wording, an extra setting, a special case — that difference is part of
+  the choice put to Koen, not a detail for the builder.
+- **A decision that makes code superfluous removes that code in the same
+  change.** The issue asks for it by name: what the old rule needed and the new
+  one does not — a branch, a helper, a test of the old behaviour, a sentence of
+  copy. This is not the "cleaning up" that *Code change discipline* forbids:
+  that is about code the change does not touch; this is the dead half of the
+  change itself. What is left standing "for now" is what nobody dares to remove
+  a year later.
+- **Fewer moving parts over cleverness.** No setting where one value will do,
+  no abstraction for a second case that does not exist yet (*Modelleer op
+  standaarden* says the same of the schema), no fallback that hides a fault.
+
+The example it was written for: where someone lands after signing in. The rule
+was "by role" — a board member to the workbench, a treasurer to payments,
+everyone else to the account page — with a page that asked for the sign-in on
+top. It became "the door decides": whoever signs in on the public site stays on
+the public site, whoever signs in to the back office lands there, for everyone.
+One sentence, no table of roles in the sign-in.
 
 ## Twee keer dezelfde reparatie? Dan is de duplicatie de bug
 

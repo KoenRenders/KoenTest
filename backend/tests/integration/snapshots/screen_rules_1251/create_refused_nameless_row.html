@@ -1,0 +1,90 @@
+422
+<main id="main" class="flex-1 px-4 md:px-6 min-[1680px]:px-8 py-8">
+<div class="admin-content max-w-5xl mx-auto">
+<div data-page-header class="flex flex-wrap gap-x-3 gap-y-2 mb-6 items-end">
+<div data-title-block class="block min-w-0 max-w-full flex-[1_0_auto]">
+<h1 tabindex="-1" class="text-3xl font-bold text-kop truncate">Nieuw lid</h1>
+<p class="text-sm text-gray-500 mt-1 w-0 min-w-full">Hoofdlid, adres en eventueel extra gezinsleden — in één keer bewaard.</p>
+</div>
+</div>
+<div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-800" role="alert">Vul minstens het hoofdlid in.</div>
+<div class="max-w-2xl">
+<form hx-post="/admin/leden" hx-target="body" hx-swap="innerHTML" class="space-y-4">
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="flex gap-2">
+<a href="/admin/leden" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >Annuleren</a>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+<div id="hoofdlid">
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 space-y-3" id="persoon-rij-0">
+<div class="flex items-center justify-between">
+<h3 class="font-semibold text-sm text-gray-700">Hoofdlid</h3>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+<div><label for="m0_first_name" class="block text-sm font-medium text-gray-700 mb-1">Voornaam <span class="text-red-600">*</span></label>
+<input name="m0_first_name" id="m0_first_name" required value="" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="m0_last_name" class="block text-sm font-medium text-gray-700 mb-1">Achternaam <span class="text-red-600">*</span></label>
+<input name="m0_last_name" id="m0_last_name" required value="" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="m0_date_of_birth" class="block text-sm font-medium text-gray-700 mb-1">Geboortedatum <span class="text-red-600">*</span></label>
+<input type="date" name="m0_date_of_birth" id="m0_date_of_birth" required value="" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="m0_gender_code" class="block text-sm font-medium text-gray-700 mb-1">Geslacht <span class="text-red-600">*</span></label>
+<select name="m0_gender_code" id="m0_gender_code" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+<option value="">—</option>
+<option value="M" >Man</option><option value="F" >Vrouw</option><option value="X" >X</option>
+</select></div>
+<div><label for="m0_mobile" class="block text-sm font-medium text-gray-700 mb-1">Mobiel <span class="text-red-600">*</span></label>
+<input type="tel" name="m0_mobile" id="m0_mobile" required value="" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<div><label for="m0_phone" class="block text-sm font-medium text-gray-700 mb-1">Telefoon</label>
+<input name="m0_phone" id="m0_phone" value="" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+<input type="hidden" name="m0_relation_type" value="HOOFDLID">
+</div>
+<div>
+<div class="flex items-center justify-between gap-2">
+<label for="m0_email" class="block text-sm font-medium text-gray-700 mb-1">E-mailadressen <span class="text-red-600">*</span></label>
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0"
+ hx-get="/lid-worden/email-rij" hx-target="#emails-0" hx-swap="beforeend"
+ hx-vals='js:{member: 0, index: Date.now(), nummer: 1 + document.querySelectorAll("#emails-0 [data-email-rij]").length}'>+ E-mailadres</button>
+</div>
+<div id="emails-0" class="mt-1 space-y-3">
+<div class="flex flex-wrap items-center gap-x-2 gap-y-1" data-email-rij>
+<div class="flex-1 min-w-[12rem]">
+<input type="email" name="m0_email" id="m0_email" value="leeg-1251@example.com" placeholder="<EXAMPLE-ADDRESS>" required
+ aria-label="E-mail 1" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
+</div>
+<span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span>
+</div>
+</div>
+<p class="text-xs text-ink-soft mt-1">Met elk van deze adressen kan je aanmelden. Het eerste is je hoofdadres.</p>
+</div>
+</div>
+</div>
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+<div class="grid grid-cols-[minmax(0,1fr)_6.25rem_4.25rem] md:grid-cols-4 gap-3">
+<div class="md:col-span-2"><label for="street" class="block text-sm font-medium text-gray-700 mb-1">Straat <span class="text-red-600">*</span></label>
+<input type="text" name="street" id="street" value="Nieuwstraat" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="house_number" class="block text-sm font-medium text-gray-700 mb-1">Huisnummer <span class="text-red-600">*</span></label>
+<input type="text" name="house_number" id="house_number" value="7" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="bus_number" class="block text-sm font-medium text-gray-700 mb-1">Bus</label>
+<input type="text" name="bus_number" id="bus_number"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div class="col-span-full"><label for="postal_code" class="block text-sm font-medium text-gray-700 mb-1">Postcode <span class="text-red-600">*</span></label>
+<select name="postal_code" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" id="postal_code" required>
+<option value="" >— kies —</option>
+<option value="2399" selected>2399 Proefdorp</option>
+</select></div>
+</div>
+</div>
+<div id="extra-personen" class="space-y-4"></div>
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-4 py-2.5 text-base min-h-11 md:py-2 md:min-h-0"
+ hx-get="/admin/leden/nieuw/persoon-rij" hx-target="#extra-personen" hx-swap="beforeend"
+ hx-vals='js:{index: 1 + document.querySelectorAll("#extra-personen > div").length}'>
+ + Gezinslid toevoegen
+ </button>
+<p class="text-xs text-ink-soft">Het lidmaatschap voor dit jaar wordt meteen aangemaakt. Een ander jaar voeg je toe op de gezinspagina.</p>
+</form>
+</div>
+</div>
+</main>

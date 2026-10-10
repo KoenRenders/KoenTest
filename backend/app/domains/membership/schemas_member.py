@@ -11,26 +11,6 @@ from pydantic import BaseModel
 from app.domains.mdm.api import RelationType
 
 
-class PersonCreate(BaseModel):
-    last_name: str
-    first_name: str
-    date_of_birth: Optional[date] = None
-    gender_code: Optional[str] = None
-    gender: Optional[str] = None  # alias used by public registration form
-    is_primary: bool = False
-    # CR-12 phase 2: form → router (Pydantic). An unknown relation type is
-    # now a 422 naming the field, instead of a row that only trips over the
-    # foreign key.
-    relation_type: RelationType = RelationType.PRIMARY_MEMBER
-
-
-class PersonUpdate(BaseModel):
-    last_name: Optional[str] = None
-    first_name: Optional[str] = None
-    date_of_birth: Optional[date] = None
-    gender_code: Optional[str] = None
-
-
 class PersonResponse(BaseModel):
     id: int
     last_name: str
@@ -41,10 +21,6 @@ class PersonResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
-
-
-class MemberCreate(BaseModel):
-    persons: List[PersonCreate] = []
 
 
 class MemberResponse(BaseModel):
@@ -84,6 +60,17 @@ class EmailAddressResponse(BaseModel):
     id: int
     value: str
     is_primary: bool
+    #: CR-22 R15 (#1711, #1733): False while the address waits for its code —
+    #: it does not sign in and cannot be the main address. The same field as
+    #: on the member's side (`mdm.person_payload`).
+    confirmed: bool = True
+
+    @property
+    def can_be_primary(self) -> bool:
+        """Is "Maak hoofdadres" an action that can succeed on this row? Not on
+        the main address itself, and not on one that waits (the rule refuses it,
+        `mdm.service.make_email_primary`)."""
+        return self.confirmed and not self.is_primary
 
 
 class FamilyMemberResponse(BaseModel):
@@ -96,6 +83,9 @@ class FamilyMemberResponse(BaseModel):
     # elk scherm dat "het e-mailadres" toont bedoelt dit; de rest staat in
     # `emails`.
     email: Optional[str] = None
+    #: #1733: `email` is an address that still waits for its code — the person
+    #: has none that counts.
+    email_waiting: bool = False
     phone: Optional[str] = None
     mobile: Optional[str] = None
     relation_type: RelationType
@@ -144,34 +134,6 @@ class FamilyResponse(BaseModel):
         return next(
             (m for m in self.members if m.relation_type is RelationType.PRIMARY_MEMBER), None
         )
-
-
-class AddressUpdate(BaseModel):
-    street: Optional[str] = None
-    house_number: Optional[str] = None
-    bus_number: Optional[str] = None
-    postal_code: Optional[str] = None
-
-
-class ContactsUpdate(BaseModel):
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    mobile: Optional[str] = None
-
-
-class PersonAddToFamily(BaseModel):
-    last_name: str
-    first_name: str
-    date_of_birth: Optional[date] = None
-    gender_code: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    mobile: Optional[str] = None
-    relation_type: RelationType = RelationType.PARTNER
-
-
-class BoardMemberAssign(BaseModel):
-    person_id: Optional[int] = None
 
 
 class FamilyRegisteredResponse(BaseModel):

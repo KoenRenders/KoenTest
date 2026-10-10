@@ -14,6 +14,7 @@ import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
@@ -28,10 +29,15 @@ from app.domains.mail.service import (
 )
 from app.i18n import _
 from app.kernel.contracts.activities import AnswerLinkSent, RegistrationConfirmed
+from app.kernel.contracts.auth import CodeMailRequested
+from app.kernel.contracts.forms import SubmissionCreated
 from app.kernel.contracts.mail import MailRequested
 from app.kernel.contracts.membership import FamilyRegistered
 from app.kernel.events import subscribe
 from app.kernel.jobs import job
+
+if TYPE_CHECKING:
+    from app.domains.payment.api import TransferDue
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +80,44 @@ def send_queued_mail(db: Session, payload: dict) -> None:
         payload.get("cc"),
         payload.get("email_type") or "other",
     )
+
+
+#: Where a signed-in person finds his registrations (CR-22; the page is
+#: `activities/account_ui.py`).
+MY_REGISTRATIONS = "/mijn/inschrijvingen"
+
+
+@subscribe(CodeMailRequested)
+def queue_code_mail(event: CodeMailRequested, db: Session) -> None:
+    """The mails of a sign-in and of an account request (CR-22 R3, R4; #1707;
+    the sign-in's since CR-13 phase 4d, #1251): worded here by
+    kind, queued in the publisher's transaction — the one that issues the
+    token — so the mail leaves only if the code it carries exists.
+
+    Not caught: a mail that cannot be built must stop the request. Whoever
+    asked for an account is told "we sent a code"; saying so while nothing
+    can be sent would leave him waiting for a mail that never comes.
+    """
+    from app.domains.mail.service import (
+        code_mail_message,
+        member_contact_board_notice_message,
+        sign_in_message,
+    )
+    from app.kernel.contracts.auth import AMBIGUOUS_ADDRESS, SIGN_IN
+
+    if event.kind == AMBIGUOUS_ADDRESS:
+        subject, body = member_contact_board_notice_message()
+        queue_mail(db, event.to_email, subject, body, email_type="member_contact_notice")
+        return
+    if event.kind == SIGN_IN:
+        subject, body = sign_in_message(event.link, event.otp_code)
+        queue_mail(db, event.to_email, subject, body, email_type="magic_link")
+        return
+    subject, body = code_mail_message(event.kind, event.link, event.otp_code)
+    # Logged under the type of the sign-in mail: the same kind of mail, a link
+    # and a code to prove an address. A type of its own is a new row in the
+    # code list `mail.email_type_codes`, and CR-22's one migration is merged.
+    queue_mail(db, event.to_email, subject, body, email_type="magic_link")
 
 
 @subscribe(MailRequested)
@@ -133,9 +177,14 @@ def queue_activity_confirmation(event: RegistrationConfirmed, db: Session) -> No
             name=event.name,
             activity=registration.activity,
             registration=registration,
-            payment_record=payment_record,
+            transfer=_transfer_of(db, payment_record),
             answer_url=f"{tenant_base_url(db)}{path}" if path else None,
             answers=answers,
+            # CR-22 R6 (#1707): made while signed in → it stands under Mijn
+            # inschrijvingen, and the mail says where. A guest's has no person.
+            history_url=(
+                f"{tenant_base_url(db)}{MY_REGISTRATIONS}" if registration.person_id else None
+            ),
         )
         queue_mail(db, **message)
     except Exception as e:  # noqa: BLE001 — a mail never stops a registration
@@ -169,6 +218,14 @@ def queue_answer_link_reminder(event: AnswerLinkSent, db: Session) -> None:
         logger.error("Herinnering antwoordlink mislukt naar %s: %s", event.to_email, e)
 
 
+def _transfer_of(db: Session, payment_record) -> TransferDue | None:
+    """How to pay this booking by transfer, as payment says it (#1775): the block
+    of the confirmation mail. None for a payment that is no transfer."""
+    from app.domains.payment.api import transfer_due
+
+    return transfer_due(db, payment_record, _("Betaalinstructies (overschrijving)"))
+
+
 @subscribe(FamilyRegistered)
 def queue_family_welcome(event: FamilyRegistered, db: Session) -> None:
     """The welcome mail of a registered household, built now and queued to leave
@@ -185,8 +242,27 @@ def queue_family_welcome(event: FamilyRegistered, db: Session) -> None:
             name=event.name,
             data=FamilyCreate.model_validate(event.form),
             pc_municipality=event.municipality,
-            payment_record=payment_record,
+            transfer=_transfer_of(db, payment_record),
         )
         queue_mail(db, **message)
     except Exception as e:  # noqa: BLE001 — a mail never stops a registration
         logger.error("Lidmaatschap bevestigingsmail mislukt naar %s: %s", event.to_email, e)
+
+
+@subscribe(SubmissionCreated)
+def queue_form_confirmation(event: SubmissionCreated, db: Session) -> None:
+    """A submission was made and forms says a confirmation goes out
+    (`confirm_to`): worded here, from what forms reads back about the
+    submission, and queued in the publisher's transaction — the mail leaves only
+    if the submission is kept (CR-13 phase 4d, #1251). Until then forms called
+    mail itself, after its commit."""
+    if not event.confirm_to:
+        return
+    from app.domains.forms.api import submission_confirmation
+    from app.domains.mail.service import form_confirmation_message
+
+    said = submission_confirmation(db, event.submission_id)
+    if said is None:
+        return
+    subject, body = form_confirmation_message(**said)
+    queue_mail(db, event.confirm_to, subject, body, email_type="form_confirmation")

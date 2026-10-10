@@ -76,6 +76,30 @@ def test_what_is_not_a_person_is_refused(proof, reason):
     assert refusal(proof, now=NOW) is reason
 
 
+@pytest.mark.parametrize(
+    ("issued_at", "posted_after", "reason"),
+    [
+        # Issued on the second: the line lies at two seconds exactly.
+        (NOW, 1.999, Refusal.TOO_FAST),
+        (NOW, 2.0, None),
+        # Issued late in a second: the guard counts from the START of that second,
+        # so 1.099 s later is "1.999 s old" and dropped, and 1.1 s later is "2 s
+        # old" and let through. The second of these is the case that went red on
+        # CI (#1839): a test that posted "at once" met a request of about a second.
+        (NOW + 0.9, 1.099, Refusal.TOO_FAST),
+        (NOW + 0.9, 1.1, None),
+    ],
+)
+def test_two_seconds_are_counted_from_the_start_of_the_second(issued_at, posted_after, reason):
+    """Both sides of the line, with the clock held (#1839). The token carries the
+    render time floored to the second, so for a visitor "two seconds" is anything
+    from just over one to two — pinned here as what the guard does, so a change of
+    it shows up as a change."""
+    proof = Proof(token=issue_token(now=issued_at))
+
+    assert refusal(proof, now=issued_at + posted_after) is reason
+
+
 def test_a_token_moved_to_another_time_is_refused():
     """The signature covers the time: an older stamp with a fresh signature fails."""
     stamp, signature = issue_token(now=NOW - 1).split(".")

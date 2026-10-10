@@ -14,7 +14,8 @@ and a send of one mail per recipient in a queue under a daily cap.
   `copy_newsletter`, `delete_draft`, `list_newsletters`, `get_newsletter`.
 - **Content helpers:** `activity_facts`, `activity_line_html`, `calendar_html`,
   `closing_html`, `insertable_activities`.
-- **Sending:** `send_test`, `start_sending`, `send_batch` (the job's work),
+- **Sending:** `render_test` (a read: the test mail rendered; the door hands it
+  to mail), `start_sending`, `send_batch` (the job's work),
   `progress_of`, `expected_days`, `deliveries_of`,
   `unfilled_placeholders`, `placeholder_refusal` (a placeholder stops the send).
 - **Raakje:** `ask_raakje`, `apply_proposal`, `dismiss_proposal`,

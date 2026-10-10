@@ -5,13 +5,14 @@ met `include_deleted=True`, dus de naam blijft zichtbaar i.p.v. '—'."""
 
 from app.domains.mdm.api import Member, MemberPerson, Person
 from app.soft_delete import soft_delete
-from tests.conftest import seed_postal_code
+from tests import payments_door
+from tests.conftest import register_at_the_door, seed_postal_code, sign_up_at_the_door
 
 
 def _family_with_membership(client, db):
     seed_postal_code(db)
-    resp = client.post(
-        "/api/v1/families",
+    resp = sign_up_at_the_door(
+        client,
         json={
             "street": "Milostraat",
             "house_number": "40",
@@ -34,20 +35,21 @@ def _family_with_membership(client, db):
     return db.query(Member).order_by(Member.id.desc()).first()
 
 
-def _membership_record(client, admin_headers):
-    recs = client.get("/api/v1/payment-status/records", headers=admin_headers).json()
+def _membership_record(client):
+    recs = payments_door.records(client).json()
     return next(r for r in recs if r["payable_type"] == "membership")
 
 
-def test_registration_description_survives_activity_soft_delete(client, db_session, admin_headers):
+def test_registration_description_survives_activity_soft_delete(client, db_session):
     """#190: na soft-delete van de activiteit blijft de betalingsrij de activiteitnaam
     tonen (de verrijking haalt de activiteit op met include_deleted)."""
     from app.domains.activities.api import Activity, Registration
     from tests.conftest import seed_activity_with_product
 
     _, comp, product = seed_activity_with_product(db_session, price="12.00")
-    resp = client.post(
-        f"/api/v1/activities/{comp.activity_id}/register",
+    resp = register_at_the_door(
+        client,
+        comp.activity_id,
         json={
             "contact_name": "An",
             "phone": "0470000000",
@@ -66,7 +68,7 @@ def test_registration_description_survives_activity_soft_delete(client, db_sessi
     )
 
     def _rec():
-        recs = client.get("/api/v1/payment-status/records", headers=admin_headers).json()
+        recs = payments_door.records(client).json()
         return next(
             r for r in recs if r["payable_type"] == "registration" and r["payable_id"] == reg.id
         )
@@ -78,9 +80,9 @@ def test_registration_description_survives_activity_soft_delete(client, db_sessi
     assert _rec()["description"] == name  # nog steeds de activiteitnaam
 
 
-def test_membership_payment_keeps_name_after_soft_delete(client, db_session, admin_headers):
+def test_membership_payment_keeps_name_after_soft_delete(client, db_session):
     member = _family_with_membership(client, db_session)
-    assert _membership_record(client, admin_headers)["contact_name"] == "Suske Wiske"
+    assert _membership_record(client)["contact_name"] == "Suske Wiske"
 
     # Soft-delete het gezin (member + band + persoon), zoals de delete-actie doet.
     for mp in db_session.query(MemberPerson).filter(MemberPerson.member_id == member.id).all():
@@ -92,4 +94,4 @@ def test_membership_payment_keeps_name_after_soft_delete(client, db_session, adm
     db_session.commit()
 
     # Nog steeds de naam, geen '—'.
-    assert _membership_record(client, admin_headers)["contact_name"] == "Suske Wiske"
+    assert _membership_record(client)["contact_name"] == "Suske Wiske"

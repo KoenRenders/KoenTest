@@ -10,20 +10,19 @@ Invarianten:
 
 import pytest
 
-from app.domains.auth.api import create_access_token
+from app.domains.auth.api import login_person_for_email
+from app.domains.membership import household_service
+from app.domains.membership.schemas_member import MembershipCreate
 from app.domains.payment.api import PayableType
-from tests.conftest import seed_postal_code
+from tests import payments_door
+from tests.conftest import renew_at_the_portal, seed_postal_code, seeded_admin, sign_up_at_the_door
 from tests.integration.test_functional_regression import _family_payload
 from tests.integration.test_membership_pricing import seed_household
 
 pytestmark = pytest.mark.ui_agnostisch
 
 
-def _headers(email):
-    return {"Authorization": f"Bearer {create_access_token({'sub': email})}"}
-
-
-def test_admin_created_membership_is_valid(client, db_session, admin_headers):
+def test_admin_created_membership_is_valid(client, db_session):
     """Admin 'Lid maken' moet een geldig lidmaatschap opleveren (met
     valid_from/valid_to), anders telt het nergens als geldig (#143)."""
     from datetime import date
@@ -32,26 +31,23 @@ def test_admin_created_membership_is_valid(client, db_session, admin_headers):
 
     member, person = seed_household(db_session, "adminmade@example.com", with_membership=False)
     year = date.today().year
-    resp = client.post(
-        f"/api/v1/families/{member.id}/memberships",
-        headers=admin_headers,
-        json={"year": year, "is_active": True},
+    made = household_service.create_membership_for_family(
+        db_session,
+        member.id,
+        MembershipCreate(year=year, is_active=True),
+        admin=seeded_admin(db_session),
     )
-    assert resp.status_code == 201, resp.text
-    body = resp.json()
-    assert body["valid_from"] is not None and body["valid_to"] is not None
+    assert made.valid_from is not None and made.valid_to is not None
     db_session.expire_all()
     assert has_valid_membership(person) is True
 
 
-def test_manual_payment_confirmation_activates_membership(client, db_session, admin_headers):
+def test_manual_payment_confirmation_activates_membership(client, db_session):
     """Een handmatig bevestigde lidmaatschap-betaling (cash/overschrijving) moet het
     lidmaatschap activeren — net als de Mollie-webhook (#143)."""
     seed_postal_code(db_session)
     assert (
-        client.post(
-            "/api/v1/families", json=_family_payload(email="manualpay@example.com")
-        ).status_code
+        sign_up_at_the_door(client, json=_family_payload(email="manualpay@example.com")).status_code
         == 201
     )
 
@@ -67,11 +63,7 @@ def test_manual_payment_confirmation_activates_membership(client, db_session, ad
     ms = db_session.query(Membership).first()
     assert ms.is_active is False  # nog niet betaald
 
-    resp = client.patch(
-        f"/api/v1/payment-status/records/{rec.id}",
-        headers=admin_headers,
-        json={"status": "paid"},
-    )
+    resp = payments_door.update(client, rec.id, {"status": "paid"})
     assert resp.status_code == 200, resp.text
 
     db_session.expire_all()
@@ -83,7 +75,7 @@ def test_renew_creates_inactive_membership_and_checkout(client, db_session, mock
     email = "renew@example.com"
     member, _person = seed_household(db_session, email, with_membership=False)
 
-    resp = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+    resp = renew_at_the_portal(client, email)
     assert resp.status_code == 200, resp.text
     assert resp.json()["checkout_url"].startswith("https://mollie.test")
 
@@ -103,7 +95,7 @@ def test_renew_creates_inactive_membership_and_checkout(client, db_session, mock
 def test_renew_refused_when_already_valid(client, db_session, mock_mollie):
     email = "alvalid@example.com"
     seed_household(db_session, email)  # actief, geldig vandaag
-    resp = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+    resp = renew_at_the_portal(client, email)
     assert resp.status_code == 409, resp.text
 
 
@@ -131,7 +123,7 @@ def test_membership_payment_description_uses_raak_not_kwb(client, db_session, mo
     old = settings.membership_renewal_start_md
     settings.membership_renewal_start_md = "01-01"  # open het hernieuwingsvenster
     try:
-        resp = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+        resp = renew_at_the_portal(client, email)
     finally:
         settings.membership_renewal_start_md = old
     assert resp.status_code == 200, resp.text
@@ -155,9 +147,9 @@ def test_double_renew_is_refused(client, db_session, mock_mollie):
     old = settings.membership_renewal_start_md
     settings.membership_renewal_start_md = "01-01"
     try:
-        first = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+        first = renew_at_the_portal(client, email)
         assert first.status_code == 200, first.text
-        second = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+        second = renew_at_the_portal(client, email)
     finally:
         settings.membership_renewal_start_md = old
 
@@ -191,7 +183,7 @@ def test_early_renew_while_valid_targets_next_year(client, db_session, mock_moll
     old = settings.membership_renewal_start_md
     settings.membership_renewal_start_md = "01-01"
     try:
-        resp = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+        resp = renew_at_the_portal(client, email)
     finally:
         settings.membership_renewal_start_md = old
 
@@ -220,12 +212,7 @@ def test_early_renew_while_valid_targets_next_year(client, db_session, mock_moll
 def test_webhook_activates_membership_on_paid(client, db_session, mock_mollie):
     email = "activate@example.com"
     _member, person = seed_household(db_session, email, with_membership=False)
-    assert (
-        client.post(
-            "/api/v1/member/household/renew-membership", headers=_headers(email)
-        ).status_code
-        == 200
-    )
+    assert renew_at_the_portal(client, email).status_code == 200
 
     # Mollie roept de webhook met de provider_payment_id (mock = tr_test_123).
     hook = client.post("/api/v1/payment-gateway/webhooks/mollie", data={"id": "tr_test_123"})
@@ -240,21 +227,27 @@ def test_webhook_activates_membership_on_paid(client, db_session, mock_mollie):
     assert has_valid_membership(person) is True
 
 
-def test_member_me_reports_membership_validity(client, db_session):
+def test_a_signed_in_member_has_a_membership_that_is_valid_until_a_date(db_session):
+    """Was `test_member_me_reports_membership_validity` (until CR-13 phase 4b, #1251, this asked a JSON route with a bearer token):
+    the person the sign-in finds for the address, and the two facts the account
+    page shows of the membership."""
+    from app.domains.membership.api import has_valid_membership, valid_membership_until
+
     email = "mestatus@example.com"
     seed_household(db_session, email)
-    resp = client.get("/api/v1/auth/member/me", headers=_headers(email))
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    assert body["has_valid_membership"] is True
-    assert body["membership_valid_until"] is not None
+    person = login_person_for_email(db_session, email)
+    assert person is not None
+    assert has_valid_membership(person) is True
+    assert valid_membership_until(person) is not None
 
 
-def test_member_me_without_membership(client, db_session):
+def test_a_signed_in_person_without_a_membership_has_none(db_session):
+    """Was `test_member_me_without_membership` (until CR-13 phase 4b, #1251, this asked a JSON route with a bearer token)."""
+    from app.domains.membership.api import has_valid_membership, valid_membership_until
+
     email = "nomember@example.com"
     seed_household(db_session, email, with_membership=False)
-    resp = client.get("/api/v1/auth/member/me", headers=_headers(email))
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    assert body["has_valid_membership"] is False
-    assert body["membership_valid_until"] is None
+    person = login_person_for_email(db_session, email)
+    assert person is not None
+    assert has_valid_membership(person) is False
+    assert valid_membership_until(person) is None

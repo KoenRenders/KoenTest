@@ -51,6 +51,11 @@ class AccountHome(ViewModel):
     #: How the household's membership stands — the card of Mijn gezin (R26);
     #: None for whoever has no household, or where the tenant has no members.
     card: Optional[Any] = None
+    #: The latest registration (`activities.api.MyRegistration`), None when
+    #: there is none — then the page shows no card for it, not an empty one.
+    latest: Optional[Any] = None
+    #: Where all of them stand.
+    registrations_href: Optional[str] = None
 
 
 def signed_in_person(request: Request, db: Session):
@@ -81,6 +86,17 @@ def _membership_card(db: Session, person) -> Optional[Any]:
     return membership_card(db, person)
 
 
+def _latest_registration(db: Session, person) -> Optional[Any]:
+    from app.domains.mdm.api import module_enabled
+    from app.kernel.modules import ModuleCode
+
+    if not module_enabled(ModuleCode.ACTIVITIES):
+        return None
+    from app.domains.activities.api import my_registrations
+
+    return next(iter(my_registrations(db, person, limit=1)), None)
+
+
 @router.get(ACCOUNT_HOME, response_class=HTMLResponse)
 def account_home(request: Request, db: Session = Depends(get_db)):
     signed_in, person = signed_in_person(request, db)
@@ -90,13 +106,15 @@ def account_home(request: Request, db: Session = Depends(get_db)):
         # A session without a person here has no account page; sending it to
         # the sign-in would loop, it IS signed in.
         raise HTTPException(status_code=404)
-    nav = account_nav(db)
+    nav = account_nav(db, household=bool(person.member_persons))
     page = AccountHome(
         title=nav[0]["label"],
         first_name=(person.first_name or "").strip(),
         nav=nav,
         active=ACCOUNT_HOME,
         card=_membership_card(db, person),
+        latest=_latest_registration(db, person),
+        registrations_href="/mijn/inschrijvingen",
     )
     context = site_context(db, request)
     context.update(page.as_context())

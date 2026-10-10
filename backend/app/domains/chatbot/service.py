@@ -26,6 +26,8 @@ from typing import Any, Callable
 
 from sqlalchemy.orm import Session
 
+from app.i18n import _
+
 from .providers.base import LLMProvider
 from .seam import SeamBlocked
 
@@ -42,6 +44,28 @@ from .seam import SeamBlocked
 Dispatcher = Callable[[str, dict[str, Any], Session], str]
 
 logger = logging.getLogger(__name__)
+
+
+class QuestionRefused(ValueError):
+    """A question Raakje does not take, in the words the asker reads."""
+
+
+def asked(text: str, *, max_chars: int | None = None) -> str:
+    """The question as it will be asked: trimmed, not empty, and — where the
+    surface has a cap — not longer than it.
+
+    One rule for every surface that asks (CR-13 phase 4c, #1251): the public
+    panel and the back-office assistant each decided this at their own door, in
+    the same words. The public panel passes its cap (`chat_max_input_chars`);
+    the assistant has none."""
+    text = text.strip()
+    if not text:
+        raise QuestionRefused(_("Typ eerst een vraag."))
+    if max_chars is not None and len(text) > max_chars:
+        raise QuestionRefused(
+            _("Bericht is te lang (max {max} tekens). Stel je vraag korter.").format(max=max_chars)
+        )
+    return text
 
 
 class ChatTimeout(RuntimeError):
@@ -185,3 +209,21 @@ def run_public_chat(
         dispatch=execute_tool,
         force_first=_wants_activity_data(messages),
     )
+
+
+def answer_visitor(
+    db: Session, messages: list[dict[str, Any]], provider, *, max_rounds: int
+) -> str:
+    """The door of a visitor's question: the public chat, and one commit.
+
+    The chat writes one thing — a message the visitor asked to pass on to the
+    board (the tool `submit_idea`, through forms' port, which does not commit for
+    its caller). It is kept here, in a `finally`: also when the conversation
+    fails after the tool, as it was when forms committed it itself (CR-13 phase
+    4d, #1251). Not in the tool: `execute_read_tool` reaches the tools' one
+    dispatcher, and a commit there would make a command of what other domains
+    call as a read."""
+    try:
+        return run_public_chat(db, messages, provider, max_rounds=max_rounds)
+    finally:
+        db.commit()

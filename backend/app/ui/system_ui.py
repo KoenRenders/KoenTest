@@ -1,7 +1,7 @@
 """Server-rendered Systeeminfo-scherm (React-exit 405-d, #405 — §21).
 
 Read-only weergave van de gecureerde runtime/config-whitelist uit de
-admin-api-composer (`app.ui.admin_api`, #444 — nooit secrets). Umami-analytics komt hier server-side uit de
+whitelist van `app.ui.system_info` (#444 — nooit secrets). Umami-analytics komt hier server-side uit de
 settings i.p.v. NEXT_PUBLIC_*-variabelen.
 """
 
@@ -12,7 +12,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import csrf_from_request, require_admin_ui
+from app.domains.auth.api import (
+    Right,
+    csrf_from_request,
+    require_right,
+)
 from app.domains.reporting.api import DASHBOARD_TEGELS
 from app.i18n import _
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
@@ -42,13 +46,17 @@ NAV = "/admin/info"
 
 @router.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    # The start page is tiles, and every figure on a tile comes from a saved
+    # report (#848): whoever may look at reports may look at these (CR-24).
+    email: str = Depends(require_right(Right.REPORT_VIEW)),
 ):
     """Dashboard-startpagina met de kerncijfers (URL-pariteit met React /admin).
 
     De cijfers komen sinds #848 uit de bewaarde rapporten van het
-    rapportagedomein. `app.ui.admin_api.get_stats` blijft bestaan — het is de
-    JSON-API — maar het scherm rekent niet meer zelf.
+    rapportagedomein; het scherm rekent niet zelf. (The JSON twin that computed
+    them a second way, `/api/v1/admin/stats`, went with CR-13 phase 4b, #1251.)
     """
     from datetime import datetime
 
@@ -103,7 +111,7 @@ def admin_dashboard(
         request,
         "admin_dashboard.html",
         {
-            "nav_items": admin_nav("/admin"),
+            "nav_items": admin_nav("/admin", request),
             "tegels": tegels,
             "peilmoment": peilmoment,
             "csrf_token": csrf_from_request(request),
@@ -136,7 +144,9 @@ def _mijn_werkruimtes(db, email: str) -> list:
 
 @router.get("/admin/profiel", response_class=HTMLResponse)
 def admin_profiel(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.WORKBENCH_USE)),
 ):
     """Mijn profiel (golf 9, #913): read-only — e-mail, werkruimte, en sinds
     #963 de rollen pér werkruimte, met de platformbrede rollen apart."""
@@ -152,7 +162,7 @@ def admin_profiel(
         request,
         "admin_profiel.html",
         {
-            "nav_items": admin_nav(""),
+            "nav_items": admin_nav("", request),
             "profiel_email": email,
             "profiel_platform_rollen": sorted({c for c, t in rows if t is None}),
             "profiel_werkruimtes": [
@@ -166,7 +176,9 @@ def admin_profiel(
 
 @router.get("/admin/accountmenu", response_class=HTMLResponse)
 def admin_accountmenu(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.WORKBENCH_USE)),
 ):
     """De inhoud van het accountmenu (#963): lui geladen zodra het menu
     opengaat, want of "Werkruimte wisselen" bestaat hangt aan de database en
@@ -179,7 +191,9 @@ def admin_accountmenu(
 
 @router.get("/admin/werkruimte-wisselen", response_class=HTMLResponse)
 def admin_werkruimte_wisselen(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.WORKBENCH_USE)),
 ):
     """Kies een werkruimte (#963): elke werkruimte waar dit account een rol
     heeft, met de padprefix-link die de tenantkeuze zet (§7). De actieve
@@ -201,7 +215,11 @@ def admin_werkruimte_wisselen(
     return templates.TemplateResponse(
         request,
         "admin_werkruimte_wisselen.html",
-        {"nav_items": admin_nav(""), "keuzes": keuzes, "csrf_token": csrf_from_request(request)},
+        {
+            "nav_items": admin_nav("", request),
+            "keuzes": keuzes,
+            "csrf_token": csrf_from_request(request),
+        },
     )
 
 
@@ -226,7 +244,9 @@ def _workspace_href(db: Session, t: int, platform: int | None, codes: dict[int, 
 
 @router.get("/admin/werkruimte-wisselen/{tenant_id}")
 def admin_switch_workspace(
-    tenant_id: int, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.WORKBENCH_USE)),
 ):
     """Switch to one workspace (#1536), explicitly.
 
@@ -261,12 +281,14 @@ def admin_switch_workspace(
 
 @router.get("/admin/info", response_class=HTMLResponse)
 def admin_info(
-    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
     from app.kernel.tenant_config import tenant_umami_src, umami_tracking
-    from app.ui.admin_api import get_system_info
+    from app.ui.system_info import system_info
 
-    info = get_system_info(_admin=None)  # type: ignore[arg-type]
+    info = system_info()
     # #808: dezelfde functie als de publieke schil, zodat dit scherm niet iets
     # anders kan beweren dan er gebeurt. Vóór #808 stond hier `bool(src and id)` en
     # dat toetste of er tekst stond — het scherm meldde "geconfigureerd" terwijl er
@@ -280,7 +302,7 @@ def admin_info(
         request,
         "admin_info.html",
         {
-            "nav_items": admin_nav(NAV),
+            "nav_items": admin_nav(NAV, request),
             "info": info,
             "umami_actief": bool(umami_src and umami_website_id),
             "umami_dashboard": umami_dashboard,
