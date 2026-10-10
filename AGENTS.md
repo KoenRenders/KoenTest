@@ -733,6 +733,13 @@ The reason: on 9 October 2026 CR-17 widened the kit's reading group for its own 
 
 **Ready means ready.** When a pull request or a new commit is complete and CI is green on it, the builder says so in one comment: *ready for review, commit `<sha>`*. Before that comment, on the commit it names: `ruff format --check`, `ruff check`, mypy, the full pytest suite, the e2e suite and the measurement baseline have run. A red tip is not read.
 
+**Exactly when and how** (Koen, 10 October 2026, when `opencode1`'s first commit stood green without the comment and its pull request spoke of a phase being ready: "Zorg je ervoor dat die concretisering ergens heel exact in de werkafspraken staat"):
+- *Ready for review* is said **per commit of the plan, not per phase** — and per commit that repairs a finding. Nine commits are nine comments.
+- **The moment:** the commit is pushed and the pull-request run on that commit has finished green on every job. The builder looks that up itself; nobody tells it.
+- **The comment**, one: first line *ready for review, commit `<sha>`*; then the run id with its summary; the tests of the change request this commit turns green; the files touched outside the module with the reason per file; deviations from the plan.
+- **After the comment the builder goes on with the next commit of the approved plan**; it does not wait for the review (Koen, the same day, to the choice between going on and waiting per commit: "a"). A finding that repairs a defect becomes a new commit. A review that says *stop before you go on* stops it.
+- When it wakes on a new comment it reads **every** comment since the last one it read, not only the newest.
+
 **Every pull request is read.** Each pull request of an outside builder is read by a Claude dev CLI before a merge, the first time and after every later commit. This is the one standing review: the master CLI routes it without being asked and reports the findings to Koen with a proposal. The builder answers a review in one comment, per finding: taken in, already decided, or not taken with the reason. The review stays advisory and does not replace Koen's own test.
 
 **A local test version for Koen, always.** For everything Koen has to judge with his own eyes — a screen, a flow, a migration of content — the builder gives him a local version of its branch to test on, before the work goes to `master`:
