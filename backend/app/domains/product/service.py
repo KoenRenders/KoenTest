@@ -40,7 +40,77 @@ def create_product(db: Session, name: str) -> Product:
     product = Product(name=name)
     db.add(product)
     db.flush()
+    db.commit()
     return product
+
+
+def update_product(db: Session, product_id: int, *, name: str, description: str | None) -> Product:
+    """Change an article's name and description (Q1: the article is what it is)."""
+    from app.i18n import _
+
+    product = get_product(db, product_id)
+    if product is None:
+        raise ProductError(_("Dit artikel bestaat niet."))
+    name = (name or "").strip()
+    if not name:
+        raise ProductError(_("Geef het artikel een naam."))
+    product.name = name
+    product.description = (description or "").strip() or None
+    db.flush()
+    db.commit()
+    return product
+
+
+def set_status(db: Session, product_id: int, status: ProductStatus) -> Product:
+    """Move an article along its life cycle. The aggregate's `check()` refuses a
+    walk back to Concept; the allowed changes are the ones of Q74."""
+    from app.i18n import _
+
+    product = get_product(db, product_id)
+    if product is None:
+        raise ProductError(_("Dit artikel bestaat niet."))
+    product.status = status
+    db.flush()
+    db.commit()
+    return product
+
+
+def set_pre_order(
+    db: Session, product_id: int, *, pre_order: bool, pre_order_until: date | None
+) -> Product:
+    """Switch "Op bestelling" on or off, with its last day (R39)."""
+    from app.i18n import _
+
+    product = get_product(db, product_id)
+    if product is None:
+        raise ProductError(_("Dit artikel bestaat niet."))
+    product.pre_order = pre_order
+    product.pre_order_until = pre_order_until
+    db.flush()
+    db.commit()
+    return product
+
+
+def add_variant(db: Session, product_id: int, size: str) -> ProductVariant:
+    """Add one size to an article. The size is the variant's one property
+    (`[{"name": "Maat", "value": …}]`, B3a)."""
+    from app.i18n import _
+
+    size = (size or "").strip()
+    if not size:
+        raise ProductError(_("Geef de maat een naam."))
+    product = get_product(db, product_id)
+    if product is None:
+        raise ProductError(_("Dit artikel bestaat niet."))
+    variant = ProductVariant(
+        product_id=product_id,
+        properties=[{"name": "Maat", "value": size}],
+        sort_order=len(product.variants),
+    )
+    db.add(variant)
+    db.flush()
+    db.commit()
+    return variant
 
 
 def list_products(db: Session, active_only: bool = False) -> list[Product]:
@@ -133,6 +203,8 @@ def delete_product(db: Session, product_id: int) -> None:
     _release_unshared_assets(db, product.attachments)
     publish(ProductDeleted(product_id=product_id, variant_ids=variant_ids, product_gone=True), db)
     db.delete(product)
+    db.flush()
+    db.commit()
 
 
 def delete_variant(db: Session, variant_id: int) -> None:
@@ -155,6 +227,8 @@ def delete_variant(db: Session, variant_id: int) -> None:
         db,
     )
     db.delete(variant)
+    db.flush()
+    db.commit()
 
 
 def _release_unshared_assets(db: Session, attachments: list[ProductAttachment]) -> None:

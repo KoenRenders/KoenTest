@@ -13,6 +13,7 @@ from app.domains.product.models import (  # noqa: F401
     ProductVariant,
 )
 from app.domains.product.service import (  # noqa: F401
+    add_variant,
     create_product,
     delete_product,
     delete_variant,
@@ -22,6 +23,9 @@ from app.domains.product.service import (  # noqa: F401
     list_products,
     pre_order_window,
     references_to_media,
+    set_pre_order,
+    set_status,
+    update_product,
     variants_of,
 )
 
@@ -32,6 +36,7 @@ __all__ = [
     "ProductError",
     "ProductStatus",
     "ProductVariant",
+    "add_variant",
     "create_product",
     "delete_product",
     "delete_variant",
@@ -41,5 +46,8 @@ __all__ = [
     "list_products",
     "pre_order_window",
     "references_to_media",
+    "set_pre_order",
+    "set_status",
+    "update_product",
     "variants_of",
 ]

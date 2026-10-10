@@ -339,14 +339,18 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/organisatie`
 - `POST /admin/personen/{person_id}/verwijderen`
 
-### `product.view` — 2 routes
+### `product.view` — 3 routes
 
 - `GET /admin/producten`
 - `GET /admin/producten/nieuw`
+- `GET /admin/producten/{product_id}`
 
-### `product.masterdata` — 1 routes
+### `product.masterdata` — 4 routes
 
 - `POST /admin/producten`
+- `POST /admin/producten/{product_id}`
+- `POST /admin/producten/{product_id}/status`
+- `POST /admin/producten/{product_id}/verwijderen`
 
 ### `price.view` — 0 routes
 

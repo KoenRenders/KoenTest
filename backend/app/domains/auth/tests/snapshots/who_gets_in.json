@@ -410,6 +410,10 @@
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
   },
+  "GET /admin/producten/{product_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "GET /admin/profiel": {
    "platform": "ADMIN FINANCE OPERATOR",
    "tenant": "ADMIN FINANCE OPERATOR"
@@ -1147,6 +1151,18 @@
    "tenant": "ADMIN OPERATOR"
   },
   "POST /admin/producten": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}/status": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}/verwijderen": {
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
   },

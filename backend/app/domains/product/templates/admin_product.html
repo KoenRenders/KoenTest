@@ -1,0 +1,64 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ product.name }} — {{ _("Productbeheer") }}{% endblock %}
+{% block content %}
+{# The article record (CR-21, Q74): the life cycle in the head, then the article,
+   its sizes and "Op bestelling". Read first, "Bewerken" puts it in edit mode. The
+   head's actions are data (`primary`, `actions`), never a button the screen draws. #}
+{{ ui.record_header(product.name,
+    badges=[{"label": product.status | code_label("product_status"),
+             "tone": product.status | tone("product_status")}],
+    primary=primary, actions=actions,
+    back={"label": _("Productbeheer"), "href": "/admin/producten"}, editing=editing) }}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+
+{% if not editing %}
+{% call ui.record_columns() %}
+<div class="form-flow">
+  {% call ui.section(_("Artikel")) %}
+    {{ ui.field("name", _("Naam"), value=product.name, edit=False) }}
+    {{ ui.field("description", _("Omschrijving"), kind="textarea", value=product.description or "", edit=False) }}
+  {% endcall %}
+  {% call ui.section(_("Maten")) %}
+    <div data-span="full" class="flex flex-wrap gap-2">
+      {% for _id, size in sizes %}
+      <span class="rounded-md border border-line px-3 py-1 text-sm">{{ size }}</span>
+      {% else %}
+      <span class="text-sm text-ink-soft">{{ _("Nog geen maten.") }}</span>
+      {% endfor %}
+    </div>
+  {% endcall %}
+  {% call ui.section(_("Op bestelling")) %}
+    {{ ui.field("pre_order", _("Op bestelling"), kind="switch", value=product.pre_order, edit=False) }}
+    {% if product.pre_order_until %}{{ ui.field("pre_order_until", _("Bestellen tot en met"), kind="date", value=product.pre_order_until.isoformat(), edit=False) }}{% endif %}
+  {% endcall %}
+</div>
+{% endcall %}
+{% else %}
+<form id="product-form" method="post" action="/admin/producten/{{ product.id }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {% call ui.record_columns() %}
+  <div class="form-flow">
+    {% call ui.section(_("Artikel")) %}
+      {{ ui.field("name", _("Naam"), value=product.name, required=True, long=True) }}
+      {{ ui.field("description", _("Omschrijving"), kind="textarea", value=product.description or "") }}
+    {% endcall %}
+    {% call ui.section(_("Maten")) %}
+      <div data-span="full" class="flex flex-wrap gap-2">
+        {% for _id, size in sizes %}
+        <span class="rounded-md border border-line px-3 py-1 text-sm">{{ size }}</span>
+        {% else %}
+        <span class="text-sm text-ink-soft">{{ _("Nog geen maten.") }}</span>
+        {% endfor %}
+      </div>
+    {% endcall %}
+    {% call ui.section(_("Op bestelling")) %}
+      {{ ui.field("pre_order", _("Op bestelling"), kind="switch", value=product.pre_order, span="full", help=_("Kopers bestellen en betalen ook zonder voorraad. Wat besteld is, zie je in Voorraadbeheer.")) }}
+      {{ ui.field("pre_order_until", _("Bestellen tot en met"), kind="date", value=(product.pre_order_until.isoformat() if product.pre_order_until else ""), help=_("Leeg: zonder einddatum. Daarna verkoopt het artikel wat in voorraad ligt.")) }}
+    {% endcall %}
+  </div>
+  {% endcall %}
+</form>
+{{ ui.action_bar(record=True, form="product-form", cancel_href="/admin/producten/{{ product.id }}") }}
+{% endif %}
+{% endblock %}
