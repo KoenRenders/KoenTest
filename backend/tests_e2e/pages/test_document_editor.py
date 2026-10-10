@@ -94,7 +94,11 @@ def test_the_editor_opens_with_the_page_sets_toolbar(setup, width):
         e = page.evaluate(_EDITOR)
         print("MEASURE document editor blocks", width, e)
         assert e["headings"] == ["H1"], "the demo's Kop stands as a heading"
-        assert e["lists"] == 1 and e["tables"] == 1 and e["figures"] == 1
+        # The demo carries no figure since the review of 10 October 2026
+        # (#1770): a figure node names a media id, and id 1 is a real row on
+        # every environment. Her LOOK stands in section 13h as static markup;
+        # the toolbar still offers her (the insert menu below).
+        assert e["lists"] == 1 and e["tables"] == 1 and e["figures"] == 0
         assert "Een pagina als document" in e["text"]
         assert e["page"] == [width, width], "the page scrolls sideways"
         assert page.errors == [], f"the editor throws: {page.errors}"
