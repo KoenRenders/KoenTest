@@ -52,7 +52,7 @@ PAGE_IMAGE_KIND = MediaKind.PAGE_IMAGE
 VALID_KINDS = {MediaKind.SPONSOR, MediaKind.ACTIVITY_PHOTO, MediaKind.TENANT_LOGO, PAGE_IMAGE_KIND}
 # Files that another component links to from a text — not part of the media
 # library screen, which is why they are not in VALID_KINDS (#984).
-DOCUMENT_KINDS = {MediaKind.NEWSLETTER_FILE}
+DOCUMENT_KINDS = {MediaKind.NEWSLETTER_FILE, MediaKind.PRODUCT_DOCUMENT}
 # The Design Studio (CR-10 §3.11, #1005). `design_image` is the picture that goes
 # INTO a poster and is uploaded like any other image — re-encoded, to the one size
 # of 2 400 px every upload has since #1473. `design_render` is the rendered poster,
@@ -63,7 +63,7 @@ DESIGN_RENDER_KIND = MediaKind.DESIGN_RENDER
 DESIGN_KINDS = {DESIGN_IMAGE_KIND, DESIGN_RENDER_KIND}
 # What may come in through the upload endpoint. The library screen still offers
 # only VALID_KINDS — a design image belongs to its activity, not to the library.
-UPLOADABLE_KINDS = VALID_KINDS | {DESIGN_IMAGE_KIND}
+UPLOADABLE_KINDS = VALID_KINDS | {DESIGN_IMAGE_KIND, MediaKind.PRODUCT_PHOTO}
 MAX_BATCH = 20
 
 
@@ -104,12 +104,13 @@ def uses_by_asset(db, asset_ids) -> dict[int, list[MediaUse]]:
     """
     from app.domains.cms.api import references_to_media as pages_using
     from app.domains.designstudio.api import references_to_media as designs_using
+    from app.domains.product.api import references_to_media as products_using
 
     ids = sorted({int(i) for i in asset_ids})
     found: dict[int, list[MediaUse]] = {i: [] for i in ids}
     if not ids:
         return found
-    for references in (designs_using(db, ids), pages_using(db, ids)):
+    for references in (designs_using(db, ids), pages_using(db, ids), products_using(db, ids)):
         for asset_id, uses in references.items():
             found.setdefault(asset_id, []).extend(uses)
     return found

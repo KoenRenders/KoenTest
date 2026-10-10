@@ -69,6 +69,31 @@ def pre_order_window(product: Product, on: date) -> tuple[bool, date | None]:
     return open_, product.pre_order_until
 
 
+def references_to_media(db: Session, asset_ids) -> dict[int, list]:
+    """The products that show these pictures, per asset id (CR-15 §C4.4, #1471).
+
+    Media's "where used" hook asks this: a product holds a picture by its media
+    asset id, through `ProductAttachment`.
+    """
+    from app.domains.media.api import MediaUse
+
+    wanted = {int(i) for i in asset_ids}
+    if not wanted:
+        return {}
+    found: dict[int, list] = {}
+    rows = (
+        db.query(ProductAttachment.media_asset_id, Product.name, Product.id)
+        .join(Product, ProductAttachment.product_id == Product.id)
+        .filter(ProductAttachment.media_asset_id.in_(wanted))
+        .all()
+    )
+    for asset_id, name, product_id in rows:
+        found.setdefault(asset_id, []).append(
+            MediaUse(label=f"Artikel {name}", href=f"/admin/producten/{product_id}")
+        )
+    return found
+
+
 def delete_product(db: Session, product_id: int) -> None:
     """Delete a product and its sizes, its prices going with them (Q75).
 

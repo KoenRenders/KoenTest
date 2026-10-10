@@ -30,6 +30,8 @@ MEDIA_KIND_CODES = (
     CodeSeed(code="newsletter_file", nl="Nieuwsbriefbestand", en="Newsletter file", sort_order=70),
     CodeSeed(code="design_image", nl="Ontwerpbeeld", en="Design image", sort_order=80),
     CodeSeed(code="design_render", nl="Gerenderd ontwerp", en="Rendered design", sort_order=90),
+    CodeSeed(code="product_photo", nl="Productfoto", en="Product photo", sort_order=100),
+    CodeSeed(code="product_document", nl="Productdocument", en="Product document", sort_order=110),
 )
 
 MEDIA_KIND = CodeList(

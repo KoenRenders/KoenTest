@@ -20,6 +20,7 @@ from app.domains.product.service import (  # noqa: F401
     is_on_sale,
     list_products,
     pre_order_window,
+    references_to_media,
     variants_of,
 )
 
@@ -37,5 +38,6 @@ __all__ = [
     "is_on_sale",
     "list_products",
     "pre_order_window",
+    "references_to_media",
     "variants_of",
 ]

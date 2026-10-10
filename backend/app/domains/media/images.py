@@ -75,7 +75,13 @@ JPEG_QUALITY = 82
 # 1600 px the difference is exactly zero. Its own MAX_FULL would cost bytes for
 # something nobody sees.
 LOSSLESS_KINDS = frozenset(
-    {MediaKind.DESIGN_RENDER, MediaKind.SPONSOR, MediaKind.TENANT_LOGO, MediaKind.PAGE_IMAGE}
+    {
+        MediaKind.DESIGN_RENDER,
+        MediaKind.SPONSOR,
+        MediaKind.TENANT_LOGO,
+        MediaKind.PAGE_IMAGE,
+        MediaKind.PRODUCT_DOCUMENT,
+    }
 )
 
 
