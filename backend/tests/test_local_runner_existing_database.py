@@ -346,9 +346,7 @@ def test_a_refusal_does_not_print_the_url(tmp_path):
 @pytest.mark.parametrize("environment", [{}, {"EXISTING_DB_URL": SOCKET_URL}])
 def test_the_named_user_reaches_the_helper_container(tmp_path, environment):
     """With or without the switch of #1891: the two are set apart."""
-    done, calls = _run_local(
-        tmp_path, "test-local.sh", HELPER_CONTAINER_USER="root", **environment
-    )
+    done, calls = _run_local(tmp_path, "test-local.sh", HELPER_CONTAINER_USER="root", **environment)
 
     assert done.returncode == 0, done.stderr
     created = [call for call in calls if call.startswith("run ")]
