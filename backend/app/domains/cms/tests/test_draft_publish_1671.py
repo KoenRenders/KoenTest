@@ -25,6 +25,7 @@ from app.domains.cms.api import (
     restore,
     save_document,
     save_draft,
+    save_page_form,
     take_page_offline,
     update_page,
     versions,
@@ -468,16 +469,29 @@ def test_the_chatbot_walks_a_nested_list():
 def test_a_title_longer_than_her_column_is_refused_in_words(db_session):
     """`page_translations.title` carries 200 characters; a longer title
     aborted the save on the INSERT (review B3, #1770). Goes red on the
-    missing check — and carries Dutch words, not Python's.
+    missing check — and carries Dutch words, not Python's. With a
+    document in the same save: the refusal comes before the document is
+    written, so the draft she would replace is untouched (the second
+    read's finding 2, #1770).
     """
     page = _page(db_session)
+    save_draft(db_session, page.id, _document("Het bestaande concept."))
     with pytest.raises(ValueError) as refusal:
-        update_page(
+        save_page_form(
             db_session,
             page.id,
-            CmsPageUpdate(title="T" * 201),
+            CmsPageUpdate(
+                title="T" * 201,
+                slug=page.slug,
+                show_in_nav=False,
+                is_home=False,
+                show_in_footer=False,
+            ),
+            json.dumps(_document("De nieuwe tekst.")),
         )
     assert "200" in str(refusal.value)
+    # The refusal left the draft as she was.
+    assert get_translation(db_session, page).draft_json == _document("Het bestaande concept.")
 
 
 def test_the_slug_refusal_is_dutch(db_session):

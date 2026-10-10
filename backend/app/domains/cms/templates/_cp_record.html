@@ -48,7 +48,8 @@
       {%- if versie.action != "offline" %}
       <button type="button" class="text-blue-700 underline"
               data-confirm="{{ _('Terugzetten naar deze versie? Het concept wordt deze versie; de openbare pagina verandert pas na publiceren.') }}"
-              hx-post="/admin/paginas/{{ p.id }}/terugzetten/{{ versie.id }}">{{ _("Terugzetten") }}</button>
+              hx-post="/admin/paginas/{{ p.id }}/terugzetten/{{ versie.id }}"
+              hx-target="#main" hx-swap="innerHTML">{{ _("Terugzetten") }}</button>
       {%- endif %}
     </li>
     {% endfor %}

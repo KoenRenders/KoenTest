@@ -731,3 +731,32 @@ def test_a_page_with_a_published_document_carries_neither(client, db_session):
     route_at = html.index(f"/admin/paginas/{page.id}/publiceren")
     button = html[max(0, route_at - 250) : route_at + 100]
     assert "data-confirm" not in button, "Publiceren confirms over a published document"
+
+
+def test_the_refusing_buttons_name_where_their_answer_goes(client, db_session):
+    """The third read's defect (#1770): a refusal answers with the record
+    fragment, and htmx swaps to hx-target — without her, the fragment
+    lands inside the pressed button. The browser test reads the swap; this
+    pin reads the attrs, so the fault is red before a browser sees her.
+    Goes red on a Publiceren or Terugzetten button without hx-target.
+    """
+    _login(client)
+    page = _page(db_session, "hx-target-1671")
+    from app.domains.cms.api import save_document
+
+    save_document(db_session, page.id, _document(_paragraph("Concept.")))
+    html = client.get(f"/admin/paginas/{page.id}").text
+    for route in ("publiceren", "terugzetten"):
+        needle = f'hx-post="/admin/paginas/{page.id}/{route}'
+        start = 0
+        while True:
+            hit = html.find(needle, start)
+            if hit == -1:
+                break
+            # The whole opening tag around the route: the attrs may stand
+            # in any order around her.
+            tag_start = html.rfind("<", 0, hit)
+            tag_end = html.index(">", hit)
+            attrs = html[tag_start:tag_end]
+            assert 'hx-target="#main"' in attrs, f"the {route} button swallows her own refusal"
+            start = hit + 1

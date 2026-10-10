@@ -255,7 +255,7 @@ def upgrade() -> None:
     log.info(
         "#1671: %d page(s): %d converted to a document, %d kept their HTML (ids and slugs: %s);"
         " %d convert to an empty draft or document (ids and slugs: %s);"
-        " %d tenant language(s) mapped to nl, %d title(s) cut to 200 characters",
+        " %d page(s) on a tenant whose language fell back to nl, %d title(s) cut to 200 characters",
         counts["pages"],
         counts["converted"],
         counts["kept_html"],

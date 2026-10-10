@@ -22,9 +22,13 @@
     reason the record actions carry theirs: the old text does not come
     back once the draft replaces her. The confirm travels as DATA (the
     macro's own door), never as an attribute string. -#}
-{%- set publiceren = {"label": _("Publiceren"), "attrs": 'hx-post="/admin/paginas/' ~ p.id ~ '/publiceren"'} %}
+{#- `hx-target="#main"`: a refusal answers with the record fragment, and
+    the fragment belongs in #main — without her the swap lands inside the
+    pressed button (the third read's defect, #1770). The save form does
+    the same. -#}
+{%- set publiceren = {"label": _("Publiceren"), "attrs": 'hx-post="/admin/paginas/' ~ p.id ~ '/publiceren" hx-target="#main" hx-swap="innerHTML"'} %}
 {%- if live_via_oude_tekst|default(False) %}
-{%- set publiceren = {"label": _("Publiceren"), "attrs": 'hx-post="/admin/paginas/' ~ p.id ~ '/publiceren"',
+{%- set publiceren = {"label": _("Publiceren"), "attrs": 'hx-post="/admin/paginas/' ~ p.id ~ '/publiceren" hx-target="#main" hx-swap="innerHTML"',
                       "confirm": _("Deze pagina loopt nu nog op haar oude tekst. Publiceren zet het concept live en de oude tekst bestaat dan niet meer — vergelijk het concept eerst met de live pagina (Voorbeeld).")} %}
 {%- endif %}
 {{ ui.record_header(

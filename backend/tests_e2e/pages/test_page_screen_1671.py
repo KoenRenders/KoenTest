@@ -179,3 +179,117 @@ def test_a_page_created_through_the_screen_opens_and_saves(setup):
         assert page.errors == [], f"the screen throws: {page.errors}"
     finally:
         page.close()
+
+
+@pytest.fixture(scope="module")
+def refused_setup():
+    """A page whose DRAFT and whose HISTORY ROW hold a later-phase node —
+    the state only the migration or an older build can write. Publiceren
+    and Terugzetten refuse her at the door of A3; the browser test reads
+    where htmx puts the refusal (the third read's defect, #1770: without
+    hx-target the swap landed inside the pressed button)."""
+
+    from app.database import SessionLocal
+    from app.domains.auth.api import make_session_value
+    from app.domains.cms.models import CmsPage, CmsPageHistory, CmsPageTranslation
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    tag = secrets.token_hex(3)
+    db = SessionLocal()
+    page = CmsPage(
+        title="Geweigerd",
+        slug=f"geweigerd-{tag}",
+        content="<p>De oude tekst.</p>",
+        is_published=True,
+    )
+    db.add(page)
+    db.flush()
+    translation = CmsPageTranslation(
+        page_id=page.id,
+        language="nl",
+        title="Geweigerd",
+        draft_json={
+            "type": "doc",
+            "content": [{"type": "button", "attrs": {"label": "Klik", "target": "/x"}}],
+        },
+    )
+    db.add(translation)
+    db.add(
+        CmsPageHistory(
+            page_id=page.id,
+            language="nl",
+            action="published",
+            document={
+                "type": "doc",
+                "content": [{"type": "callout", "content": [{"type": "text", "text": "Oud."}]}],
+            },
+            at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+            by="een-oude-build",
+        )
+    )
+    db.commit()
+    page_id, history_id = (
+        page.id,
+        db.query(CmsPageHistory).filter(CmsPageHistory.page_id == page.id).first().id,
+    )
+    db.close()
+    yield page_id, history_id, make_session_value(SEEDED_ADMIN_EMAIL)
+
+
+_ONE_HEAD = "() => document.querySelectorAll('[data-record-head]').length"
+_ONE_FORM = "() => document.querySelectorAll('#cp-form').length"
+
+
+@pytest.mark.parametrize("width", [1100, 390])
+def test_a_refused_publiceren_lands_in_main_not_in_the_button(refused_setup, width):
+    """The refusal's fragment belongs in #main: one record head, one form,
+    her words — and no sideways scroll on a phone."""
+    page_id, _history_id, session = refused_setup
+    b = None
+    with sync_playwright() as pw:
+        exe = os.environ.get("E2E_CHROMIUM_PATH")
+        b = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
+        page = b.new_page(
+            base_url=BASE, viewport={"width": width, "height": 844 if width < 768 else 900}
+        )
+        try:
+            login_met_sessie(page, session)
+            page.goto(f"/admin/paginas/{page_id}")
+            pagina_klaar(page)
+            page.wait_for_selector(f"{EDITOR} .tiptap")
+            page.locator("button", has_text="Publiceren").click()
+            page.wait_for_function(f"{_ONE_HEAD} === 1")
+            assert page.evaluate(_ONE_FORM) == 1, "two forms: the swap landed in the button"
+            assert "Onbekend blok" in page.locator("#main").inner_text(), "the refusal's words"
+            assert page.evaluate("() => document.documentElement.scrollWidth <= innerWidth + 1"), (
+                "the page scrolls sideways after the refusal"
+            )
+        finally:
+            b.close()
+
+
+@pytest.mark.parametrize("width", [1100, 390])
+def test_a_refused_terugzetten_lands_in_main_not_in_the_button(refused_setup, width):
+    """The same door for Terugzetten: the history row an older build wrote
+    refuses in #main, one head, one form, no sideways scroll."""
+    page_id, history_id, session = refused_setup
+    with sync_playwright() as pw:
+        exe = os.environ.get("E2E_CHROMIUM_PATH")
+        b = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
+        page = b.new_page(
+            base_url=BASE, viewport={"width": width, "height": 844 if width < 768 else 900}
+        )
+        try:
+            login_met_sessie(page, session)
+            page.goto(f"/admin/paginas/{page_id}")
+            pagina_klaar(page)
+            page.wait_for_selector("text=Terugzetten")
+            page.locator("button", has_text="Terugzetten").first.click()
+            page.wait_for_function(f"{_ONE_HEAD} === 1")
+            assert page.evaluate(_ONE_FORM) == 1, "two forms: the swap landed in the button"
+            assert "Onbekend blok" in page.locator("#main").inner_text(), "the refusal's words"
+            assert page.evaluate("() => document.documentElement.scrollWidth <= innerWidth + 1"), (
+                "the page scrolls sideways after the refusal"
+            )
+        finally:
+            b.close()
