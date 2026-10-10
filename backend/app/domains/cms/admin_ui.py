@@ -311,6 +311,12 @@ def publish_page(
         publish(db, page_id, by=email)
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error))
+    except ValueError as refusal:
+        # The door of A3 (the second read's finding 1, #1770): a draft the
+        # migration or a lenient parse wrote meets the schema HERE, and the
+        # author reads her refusal in the screen, not a 500 — the same
+        # words the save route gives, the screen the author stands in.
+        return _record_response(request, db, page_id, error=str(refusal))
     return Response(
         status_code=204, headers={"HX-Redirect": f"/admin/paginas/{page_id}?opgeslagen=1"}
     )
@@ -363,6 +369,10 @@ def restore_page(
         restore(db, page_id, history_id, by=email)
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error))
+    except ValueError as refusal:
+        # As Publiceren (the second read's finding 1, #1770): a history row
+        # an older build wrote refuses with her name, in the screen.
+        return _record_response(request, db, page_id, error=str(refusal))
     return Response(
         status_code=204, headers={"HX-Redirect": f"/admin/paginas/{page_id}?opgeslagen=1"}
     )

@@ -68,6 +68,7 @@ def _tenant_languages(bind) -> dict[int, str]:
 def _convert_pages(bind) -> dict:
     """Every page into a translation row; the counts for the log line."""
     from app.domains.cms.parse import parse_html, plain_text_document
+    from app.domains.cms.schema import locale_language
     from app.domains.cms.service import SITE_BLOCK_SLUGS
 
     languages = _tenant_languages(bind)
@@ -75,8 +76,17 @@ def _convert_pages(bind) -> dict:
         sa.text("SELECT id, tenant_id, title, slug, content, is_published FROM cms.cms_pages")
     ).fetchall()
     converted, kept_html, published, failed, empty = 0, 0, 0, [], []
+    language_mapped, titles_cut = 0, 0
     for page_id, tenant_id, title, slug, content, is_published in pages:
-        language = _known_language(bind, languages.get(tenant_id, "nl_BE"))
+        asked = languages.get(tenant_id, "nl_BE")
+        language = _known_language(bind, asked)
+        if language != locale_language(asked):
+            # The tenant's setting is not a code the database carries: the
+            # row falls back to `nl` (review A5, #1770) — counted, so a
+            # deploy shows which tenants were mapped.
+            language_mapped += 1
+        if len(title or "") > 200:
+            titles_cut += 1
         on_page = slug not in SITE_BLOCK_SLUGS
         existing = bind.execute(
             sa.text(
@@ -190,6 +200,8 @@ def _convert_pages(bind) -> dict:
         "kept_html": kept_html,
         "kept": failed,
         "empty": empty,
+        "language_mapped": language_mapped,
+        "titles_cut": titles_cut,
     }
 
 
@@ -242,13 +254,16 @@ def upgrade() -> None:
     counts = _convert_pages(bind)
     log.info(
         "#1671: %d page(s): %d converted to a document, %d kept their HTML (ids and slugs: %s);"
-        " %d convert to an empty draft or document (ids and slugs: %s)",
+        " %d convert to an empty draft or document (ids and slugs: %s);"
+        " %d tenant language(s) mapped to nl, %d title(s) cut to 200 characters",
         counts["pages"],
         counts["converted"],
         counts["kept_html"],
         ", ".join(counts["kept"]) or "none",
         len(counts["empty"]),
         ", ".join(counts["empty"]) or "none",
+        counts["language_mapped"],
+        counts["titles_cut"],
     )
 
 

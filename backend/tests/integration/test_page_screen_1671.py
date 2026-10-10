@@ -190,9 +190,11 @@ def test_the_sections_contents_take_the_full_row(client, db_session):
     _login(client)
     page = _page(db_session, "full-span-1671")
     html = client.get(f"/admin/paginas/{page.id}").text
-    # The editor's wrapper, the status dl, the history ul/p and the codes dl
-    # all carry the full span — each could go red on its own.
-    assert html.count('data-span="full"') >= 5, "a section's non-field contents lost the full span"
+    # The five the count means (the second read's finding 3, #1770): the
+    # editor's wrapper, the status dl, the codes dl, and the history's list
+    # or her empty paragraph — the fifth moves with the page's versions.
+    # Each could go red on its own.
+    assert html.count('data-span="full"') == 5, "a section's non-field contents lost the full span"
     # The wrapper sits around the editor, the editor not on a quarter track.
     # The wrapper holds the macro's whole output (her input, her styles,
     # her script and the editor itself) — the editor div follows within it,
@@ -669,3 +671,63 @@ def test_the_json_door_is_gone_and_the_page_keeps_her_words(client, db_session):
 
     db_session.expire_all()
     assert db_session.get(CmsPage, page.id) is not None, "the page is gone"
+
+
+def _publish_html_page(db_session, **fields):
+    """A page live through her STORED HTML (the migration's fallback): the
+    flag says published, the translation carries no published document —
+    the state A4's notice and confirmation were built for.
+    """
+    from app.domains.cms.models import CmsPage
+
+    page = CmsPage(
+        tenant_id=TENANT_MILLEGEM_ID,
+        title=fields.get("title", "Oude tekst"),
+        slug=fields.get("slug", "oude-tekst-1671"),
+        is_published=True,
+        content="<p>De oude tekst.</p>",
+    )
+    db_session.add(page)
+    db_session.flush()
+    return page
+
+
+def test_a_page_on_her_stored_html_carries_the_notice_and_the_confirmation(client, db_session):
+    """A4 (the second read's finding 3, #1770): while a page runs on her
+    stored HTML, the editor opens with the notice to compare the draft with
+    the live page, and Publiceren asks a confirmation. Goes red when
+    either disappears.
+    """
+    _login(client)
+    page = _publish_html_page(db_session)
+    html = client.get(f"/admin/paginas/{page.id}").text
+    assert "loopt nu nog op haar oude tekst" in html, "the notice is gone"
+    # The button asks for a draft; the author saves one first — over her
+    # stored-HTML page, exactly the flow the confirmation guards.
+    session = _login(client)
+    _save(client, session, page, _document(_paragraph("De nieuwe tekst.")))
+    html = client.get(f"/admin/paginas/{page.id}").text
+    route_at = html.index(f"/admin/paginas/{page.id}/publiceren")
+    knop = html[max(0, route_at - 250) : route_at + 450]
+    assert "data-confirm=" in knop and "oude tekst" in knop, (
+        "Publiceren confirms nothing over a stored-HTML page"
+    )
+
+
+def test_a_page_with_a_published_document_carries_neither(client, db_session):
+    """The other side of A4: a page whose document is live needs no notice
+    and no confirmation — Publiceren is her ordinary action. Goes red when
+    the confirmation leaks to every page.
+    """
+    _login(client)
+    page = _page(db_session, "gewone-pagina-1671")
+    from app.domains.cms.api import publish as publish_api
+    from app.domains.cms.api import save_document
+
+    save_document(db_session, page.id, _document(_paragraph("Eerste tekst.")))
+    publish_api(db_session, page.id, by="tester")
+    html = client.get(f"/admin/paginas/{page.id}").text
+    assert "loopt nu nog op haar oude tekst" not in html, "the notice is on a published page"
+    route_at = html.index(f"/admin/paginas/{page.id}/publiceren")
+    button = html[max(0, route_at - 250) : route_at + 100]
+    assert "data-confirm" not in button, "Publiceren confirms over a published document"

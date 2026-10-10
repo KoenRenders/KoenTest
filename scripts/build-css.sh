@@ -185,7 +185,7 @@ cat > "$TMP/in.css" << 'CSS'
      renderer shows them one level down, so the editor's Kop, Subkop and Kleine
      kop arrive as h2, h3 and h4: 24, 18 and 16 px, semibold, in the site's
      heading colour, 24 px of air above and 8 px under. Measured on master: the
-     page-title rule above (`#main h1`, an id) won from `.home-intro h1`
+     page-title rule above (`#main h1`, an id) won from `.cms-content h1`
      (1.5rem, a class), so a heading in the text stood 40 px tall beside the
      page's title. The h1 is named here too, so the title role can never reach
      into a page body. */
@@ -694,8 +694,9 @@ body[data-shell="site"]>main{padding-bottom:24px}
    Both shells lost their hand-written `.cms-content` blocks (site_base and
    admin_base carried near-identical sets — two places for one fact): every
    wrapper that styles rendered content now carries `.prose-raak`, and the
-   rules live HERE. The link colour is the shell's own token (`--link`):
-   the site keeps her brighter tint, the admin her ocean. The table rules
+   rules live HERE. The link colour is the shell's own token (`--link`) —
+   ONE set, both shells the brighter tint (Koen, 10 October 2026,
+   "Akkoord"; the ocean stays the headings' colour). The table rules
    are new (measured in phase 0: nothing styled a table); on a phone a
    table's block scrolls inside itself while the page does not (CR-11 Q14's
    declared exception) — `width:max-content` keeps her natural width, the

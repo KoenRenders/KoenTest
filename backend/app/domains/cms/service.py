@@ -275,6 +275,13 @@ def save_page_form(db, page_id: int, data, document, *, by: str | None = None) -
     if data.slug and data.slug != page.slug:
         if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
             raise SlugBestaatAl("Dit webadres bestaat al.")
+    if data.title and len(data.title) > 200:
+        # `page_translations.title` is String(200); a longer title would
+        # abort on the INSERT (review B3) — and this door promises every
+        # refusal BEFORE the first write (the second read's finding 2,
+        # #1770): the check stands beside the slug's, ahead of the
+        # document.
+        raise ValueError("De titel is te lang: hooguit 200 tekens.")
     # Whether there IS a document to save is this door's rule, not the
     # screen's (CR-13 §B9.3): an empty field saves the fields alone.
     if document is not None and document.strip():
@@ -337,8 +344,10 @@ def known_language(db, locale: Optional[str]) -> str:
     `mdm.language_codes`; the tenant's `language` setting is free text,
     so `frans`, `FR` or `vlaams` would abort a migration on the INSERT and
     break every later save. One place maps the setting: the part before
-    the underscore, lower-cased, when `mdm.language_codes` carries her,
-    else `nl` — the association's own language, the row every tenant has
+    the underscore, as she stands (`FR` falls back — the code is a row's
+    key, not a case-insensitive name), when `mdm.language_codes` carries
+    her, else `nl` — the association's own language, the row every tenant
+    has
     today. A tenant that changes its setting later keeps its documents:
     the reader asks for the new language, finds nothing and falls back,
     exactly as a visitor of a language without content does (C4.3)."""

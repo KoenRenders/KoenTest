@@ -824,8 +824,10 @@ def test_geen_scriptbestand_buiten_een_schil():
     De uitzondering zijn de TWEE bestandsnamen van de editor (review A6,
     #1770) — de gepinde TipTap-bundel en `document-editor.js` — niet het
     bestand dat ze draagt: `_macros.html` als geheel vrijstellen zou elke
-    kit-macro een script laten laden. Elke andere scriptlading buiten de
-    schil blijft een foutmelding waard.
+    kit-macro een script laten laden. De twee namen gelden in élk sjabloon
+    (een scherm dat zelf de editor laadt mag haar twee bestanden noemen);
+    elk ánder script in elk sjabloon buiten de schil blijft een
+    foutmelding waard.
     """
     editor_scripts = ("vendor/tiptap-", "document-editor.js")
     fouten = [
