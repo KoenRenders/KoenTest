@@ -26,84 +26,122 @@ branch_labels = None
 depends_on = None
 
 
+def _has_table(schema: str, table: str) -> bool:
+    return bool(
+        op.get_bind()
+        .execute(
+            sa.text(
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_schema = :s AND table_name = :t"
+            ),
+            {"s": schema, "t": table},
+        )
+        .scalar()
+    )
+
+
 def upgrade() -> None:
     op.execute("CREATE SCHEMA IF NOT EXISTS stock")
 
-    op.create_table(
-        "stock_locations",
-        sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("tenant_id", sa.Integer, nullable=False, index=True),
-        sa.Column("name", sa.String(255), nullable=False),
-        sa.Column("is_default", sa.Boolean, nullable=False, server_default=sa.false()),
-        sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        schema="stock",
-    )
-    # One default location per tenant; a plain UNIQUE would allow several
-    # non-default rows but the default is what the rule is about.
-    op.execute(
-        "CREATE UNIQUE INDEX uq_stock_locations_default "
-        "ON stock.stock_locations (tenant_id) WHERE is_default"
-    )
+    if not _has_table("stock", "stock_locations"):
+        op.create_table(
+            "stock_locations",
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("tenant_id", sa.Integer, nullable=False, index=True),
+            sa.Column("name", sa.String(255), nullable=False),
+            sa.Column("is_default", sa.Boolean, nullable=False, server_default=sa.false()),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            schema="stock",
+        )
+        # One default location per tenant; a plain UNIQUE would allow several
+        # non-default rows but the default is what the rule is about.
+        op.execute(
+            "CREATE UNIQUE INDEX uq_stock_locations_default "
+            "ON stock.stock_locations (tenant_id) WHERE is_default"
+        )
 
-    op.create_table(
-        "stock_movements",
-        sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("tenant_id", sa.Integer, nullable=False, index=True),
-        sa.Column("variant_id", sa.Integer, nullable=False, index=True),
-        sa.Column(
-            "location_id",
-            sa.Integer,
-            sa.ForeignKey("stock.stock_locations.id", ondelete="RESTRICT"),
-            nullable=False,
-            index=True,
-        ),
-        sa.Column("quantity", sa.Integer, nullable=False),
-        sa.Column("reason", sa.String(20), nullable=False),
-        sa.Column(
-            "occurred_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        sa.Column("order_line_id", sa.Integer, nullable=True, index=True),
-        sa.Column("note", sa.Text, nullable=True),
-        sa.Column("actor", sa.String(255), nullable=True),
-        sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        sa.CheckConstraint("quantity <> 0", name="ck_stock_movements_quantity_not_zero"),
-        schema="stock",
-    )
+    if not _has_table("stock", "stock_movements"):
+        op.create_table(
+            "stock_movements",
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("tenant_id", sa.Integer, nullable=False, index=True),
+            sa.Column("variant_id", sa.Integer, nullable=False, index=True),
+            sa.Column(
+                "location_id",
+                sa.Integer,
+                sa.ForeignKey("stock.stock_locations.id", ondelete="RESTRICT"),
+                nullable=False,
+                index=True,
+            ),
+            sa.Column("quantity", sa.Integer, nullable=False),
+            sa.Column("reason", sa.String(20), nullable=False),
+            sa.Column(
+                "occurred_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.Column("order_line_id", sa.Integer, nullable=True, index=True),
+            sa.Column("note", sa.Text, nullable=True),
+            sa.Column("actor", sa.String(255), nullable=True),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.CheckConstraint("quantity <> 0", name="ck_stock_movements_quantity_not_zero"),
+            schema="stock",
+        )
 
-    op.create_table(
-        "stock_reservations",
-        sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("tenant_id", sa.Integer, nullable=False, index=True),
-        sa.Column("order_line_id", sa.Integer, nullable=True, index=True),
-        sa.Column("variant_id", sa.Integer, nullable=False, index=True),
-        sa.Column(
-            "location_id",
-            sa.Integer,
-            sa.ForeignKey("stock.stock_locations.id", ondelete="RESTRICT"),
-            nullable=False,
-            index=True,
-        ),
-        sa.Column("quantity", sa.Integer, nullable=False),
-        sa.Column("status", sa.String(20), nullable=False, server_default="OPEN"),
-        sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        sa.CheckConstraint("quantity > 0", name="ck_stock_reservations_quantity_positive"),
-        schema="stock",
-    )
+    if not _has_table("stock", "stock_reservations"):
+        op.create_table(
+            "stock_reservations",
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("tenant_id", sa.Integer, nullable=False, index=True),
+            sa.Column("order_line_id", sa.Integer, nullable=True, index=True),
+            sa.Column("variant_id", sa.Integer, nullable=False, index=True),
+            sa.Column(
+                "location_id",
+                sa.Integer,
+                sa.ForeignKey("stock.stock_locations.id", ondelete="RESTRICT"),
+                nullable=False,
+                index=True,
+            ),
+            sa.Column("quantity", sa.Integer, nullable=False),
+            sa.Column("status", sa.String(20), nullable=False, server_default="OPEN"),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.CheckConstraint("quantity > 0", name="ck_stock_reservations_quantity_positive"),
+            schema="stock",
+        )
 
     # The reasons and statuses are code lists; their foreign keys go on only
     # now, once the tables they guard exist.

@@ -6,13 +6,22 @@
 - the sku is unique per tenant, at rest (`uq_product_variants_sku`);
 - an attachment points at a media asset (a soft reference, no foreign key).
 
-Broken on purpose to check these tests can go red (run, then restored), each
-additively, with what failed: `return` as the first line of `Product.check()` →
-the walk-back test alone (the walk back is accepted); removing the
-`history.deleted` guard → the explicit-CONCEPT test alone (a new article named
-Concept is refused); dropping `uq_product_variants_sku` from the migration → the
-sku test alone. The walk-back rule holds on an expired instance too
-(`active_history` on the column).
+Broken on purpose to check these tests can go red — each was run on this branch
+and its own test failed with its own assertion, then restored:
+
+- `return` as the first line of `Product.check()` → the two walk-back tests,
+  `test_walking_back_to_concept_is_refused` and
+  `test_walking_back_to_concept_is_refused_even_when_not_loaded`, both red with
+  `Failed: DID NOT RAISE ProductError` (the walk back is accepted);
+- the `history.deleted` guard removed → `test_a_new_article_may_start_at_concept_explicitly`
+  red, alone, with `ProductError: Een artikel kan niet terug naar concept.` (a
+  new article named Concept is refused);
+- `uq_product_variants_sku` dropped from migration 203 → `test_the_sku_is_unique_within_a_tenant`
+  red, alone, with `Failed: DID NOT RAISE IntegrityError` (the second sku is
+  accepted).
+
+The walk-back rule holds on an expired instance too (`active_history` on the
+column).
 """
 
 from __future__ import annotations

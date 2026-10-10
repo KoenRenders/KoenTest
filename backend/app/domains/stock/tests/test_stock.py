@@ -62,3 +62,21 @@ def test_the_default_location_appears_on_the_first_write_not_on_a_read(db_sessio
     locations = db_session.query(StockLocation).all()
     assert len(locations) == 1
     assert locations[0].is_default is True
+
+
+def test_the_writer_holds_the_advisory_lock(db_session):
+    """A writer of the ledger holds the transaction-scoped lock per tenant,
+    variant and location (C4.1): a second connection cannot take the same key
+    while the writer's transaction is open. Red when the lock is a no-op."""
+    from sqlalchemy import text
+
+    from app.database import engine
+    from app.domains.stock.api import StockLocation, lock_key
+
+    receive(db_session, variant_id=1, quantity=1)
+    location = db_session.query(StockLocation).filter(StockLocation.is_default.is_(True)).one()
+    key = lock_key(location.tenant_id, 1, location.id)
+
+    with engine.connect() as conn:
+        got = conn.execute(text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": key}).scalar()
+    assert got is False, "the writer holds the lock; a second connection took it"

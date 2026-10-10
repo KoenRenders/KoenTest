@@ -142,3 +142,36 @@ def test_a_shared_file_stays_while_another_attachment_points_at_it(db_session):
     delete_product(db_session, second.id)
     db_session.flush()
     assert db_session.get(MediaAsset, asset.id) is None
+
+
+def test_a_refusal_in_a_handler_rolls_the_delete_back(db_session):
+    """T19's third leg: the event is published before the delete, so a refusal in
+    a handler on `ProductDeleted` leaves the article standing (the delete never
+    happens)."""
+    from app.kernel import events
+    from app.kernel.contracts.product import ProductDeleted
+
+    def _refuse(event, db):
+        raise ProductError("refused by a handler")
+
+    events.subscribe(ProductDeleted)(_refuse)
+    try:
+        product, _ = _product_with_variants(db_session, "M")
+        db_session.add(
+            Price(
+                product_id=product.id,
+                variant_id=None,
+                price_type=PriceType.REGULAR,
+                amount=Decimal("15.00"),
+                valid_from=date(2026, 9, 1),
+            )
+        )
+        db_session.flush()
+
+        with pytest.raises(ProductError):
+            delete_product(db_session, product.id)
+
+        db_session.expire_all()
+        assert db_session.get(Product, product.id) is not None, "the delete rolled back"
+    finally:
+        events._subscribers[ProductDeleted].remove(_refuse)

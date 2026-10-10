@@ -5,11 +5,9 @@ walked by `tests/integration/test_pricing_rules.py`.
 
 from __future__ import annotations
 
-from datetime import date
-
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
-from app.domains.pricing.api import Price, prices_of
-from app.domains.product.api import Product, create_product
+from app.domains.pricing.api import prices_of
+from app.domains.product.api import create_product
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 

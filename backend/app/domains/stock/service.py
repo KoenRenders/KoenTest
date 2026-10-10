@@ -26,7 +26,7 @@ from app.domains.stock.models import (
 DEFAULT_LOCATION_NAME = "Magazijn"
 
 
-def _lock_key(tenant_id: int, variant_id: int, location_id: int) -> int:
+def lock_key(tenant_id: int, variant_id: int, location_id: int) -> int:
     """A stable 64-bit key for the advisory lock of one variant at one location."""
     digest = hashlib.blake2b(
         f"{tenant_id}:{variant_id}:{location_id}".encode("ascii"), digest_size=8
@@ -37,7 +37,7 @@ def _lock_key(tenant_id: int, variant_id: int, location_id: int) -> int:
 def _acquire_lock(db: Session, location: StockLocation, variant_id: int) -> None:
     db.execute(
         text("SELECT pg_advisory_xact_lock(:key)"),
-        {"key": _lock_key(location.tenant_id, variant_id, location.id)},
+        {"key": lock_key(location.tenant_id, variant_id, location.id)},
     )
 
 

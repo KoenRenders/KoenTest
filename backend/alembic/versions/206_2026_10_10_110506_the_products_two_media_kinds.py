@@ -43,8 +43,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Schema and data: the two new kinds go, and any row that stored them. This
-    # migration added nothing else.
+    # Schema and data: the two new kinds' rows go. When an asset of one of the
+    # kinds is still stored, the DELETE stops on `fk_media_assets_kind_code` and
+    # the downgrade refuses — the revision stays at 206 and the file stays. That
+    # is on purpose: a downgrade destroys nothing. This migration added nothing
+    # else.
     op.execute(
         "DELETE FROM media.media_kind_labels WHERE code IN ('product_photo', 'product_document')"
     )

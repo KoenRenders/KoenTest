@@ -18,6 +18,7 @@ from app.domains.stock.service import (  # noqa: F401
     available,
     correct,
     has_movements,
+    lock_key,
     on_hand,
     receive,
 )
@@ -35,6 +36,7 @@ __all__ = [
     "available",
     "correct",
     "has_movements",
+    "lock_key",
     "on_hand",
     "receive",
 ]
