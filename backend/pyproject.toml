@@ -63,8 +63,8 @@ module = [
     "app.domains.designstudio.*", "app.domains.forms.*", "app.domains.mail.*",
     "app.domains.mdm.*", "app.domains.media.*", "app.domains.meetings.*",
     "app.domains.membership.*", "app.domains.newsletter.*",
-    "app.domains.payment.*", "app.domains.product.*", "app.domains.reporting.*",
-    "app.domains.workflow.*",
+    "app.domains.payment.*", "app.domains.pricing.*", "app.domains.product.*",
+    "app.domains.reporting.*", "app.domains.workflow.*",
     "app.kernel.jobs", "app.kernel.operations",
 ]
 strict_equality = true
