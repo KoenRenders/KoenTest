@@ -37,6 +37,18 @@
 #   EXISTING_DB_URL, EXISTING_DB_SOCKET_DIR
 #                       a database server that already runs, in place of the dev
 #                       stack's (#1891) — see scripts/local-db-lib.sh
+#   HELPER_CONTAINER_USER
+#                       the user the helper container runs as (#1893). Unset: the
+#                       image's own user, `app` — right for an ordinary Docker,
+#                       where root in the container would leave root-owned files
+#                       (`__pycache__`) in the working copy. Set it to `root` in a
+#                       rootless Docker: there a container cannot run as another
+#                       user than root at all (it stops on "libc.so.6: … Permission
+#                       denied"), and root in the container IS the calling user on
+#                       the machine, so it widens nothing. Every `docker exec`
+#                       runs as the user the container was created with, so the
+#                       variable is read when the container is made: a change
+#                       needs one run with VERS=1, as for the network and the mounts.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -132,7 +144,12 @@ if ! docker inspect -f '{{.State.Running}}' "$NAAM" >/dev/null 2>&1; then
   # bestanden buiten backend/ kijken (de vangrail van dit script zelf, #719). Met
   # /app als repowortel en /app/backend als werkmap ligt de indeling in de container
   # gelijk aan die in de checkout, dus `parents[2]` klopt hier én in CI.
-  docker run -d --name "$NAAM" "${RUN_ARGS[@]}" \
+  # #1893: the user only when the caller names one; without it the image's own.
+  USER_ARGS=()
+  if [ -n "${HELPER_CONTAINER_USER:-}" ]; then
+    USER_ARGS=(-u "$HELPER_CONTAINER_USER")
+  fi
+  docker run -d --name "$NAAM" "${RUN_ARGS[@]}" "${USER_ARGS[@]}" \
     -v "$ROOT:/app" -w /app/backend \
     -e APP_ENV=dev -e JOBS_ENABLED=false \
     "$IMAGE" sleep infinity >/dev/null
@@ -144,6 +161,16 @@ fi
 SOM="$(cat "$ROOT/backend/requirements.txt" "$ROOT/backend/requirements-dev.txt" | sha256sum | cut -c1-16)"
 docker exec "$NAAM" sh -c "[ \"\$(cat /tmp/requirements.som 2>/dev/null)\" = '$SOM' ] \
   || { pip install -q -r requirements-dev.txt && echo '$SOM' > /tmp/requirements.som; }"
+
+# #1894: seven tests of the suite run a real `git` and a real `psql`
+# (tests/test_deploy_rollback_migration.py, tests/test_restore_exercise.py). The
+# pull-request run has both; the image has neither, and must not get them — it
+# is the image that goes to the environments. So they are installed HERE, in the
+# helper container, once per container, from Debian's own archive.
+# As root: installing needs it, and root is the one user that exists in an
+# ordinary Docker (where the container runs as `app`) and in a rootless one
+# (where it runs as root already, HELPER_CONTAINER_USER above).
+docker exec -u root "$NAAM" sh -c 'command -v git >/dev/null && command -v psql >/dev/null || { apt-get update -q >/dev/null && apt-get install -y -q --no-install-recommends git postgresql-client >/dev/null; }'
 
 # ── Databank aanmaken als ze nog niet bestaat ────────────────────────────────
 # Foutloos herhaalbaar: bestaat ze al, dan is er niets te doen.
