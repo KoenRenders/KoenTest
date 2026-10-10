@@ -28,75 +28,110 @@ branch_labels = None
 depends_on = None
 
 
+def _has_table(schema: str, table: str) -> bool:
+    return bool(
+        op.get_bind()
+        .execute(
+            sa.text(
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_schema = :s AND table_name = :t"
+            ),
+            {"s": schema, "t": table},
+        )
+        .scalar()
+    )
+
+
 def upgrade() -> None:
     op.execute("CREATE SCHEMA IF NOT EXISTS product")
 
-    op.create_table(
-        "products",
-        sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("tenant_id", sa.Integer, nullable=False, index=True),
-        sa.Column("name", sa.String(255), nullable=False),
-        sa.Column("description", sa.Text, nullable=True),
-        sa.Column("status", sa.String(20), nullable=False, server_default="CONCEPT"),
-        sa.Column("pre_order", sa.Boolean, nullable=False, server_default=sa.false()),
-        sa.Column("pre_order_until", sa.Date, nullable=True),
-        sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        schema="product",
-    )
+    if not _has_table("product", "products"):
+        op.create_table(
+            "products",
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("tenant_id", sa.Integer, nullable=False, index=True),
+            sa.Column("name", sa.String(255), nullable=False),
+            sa.Column("description", sa.Text, nullable=True),
+            sa.Column("status", sa.String(20), nullable=False, server_default="CONCEPT"),
+            sa.Column("pre_order", sa.Boolean, nullable=False, server_default=sa.false()),
+            sa.Column("pre_order_until", sa.Date, nullable=True),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            schema="product",
+        )
 
-    op.create_table(
-        "product_variants",
-        sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("tenant_id", sa.Integer, nullable=False, index=True),
-        sa.Column(
-            "product_id",
-            sa.Integer,
-            sa.ForeignKey("product.products.id", ondelete="RESTRICT"),
-            nullable=False,
-            index=True,
-        ),
-        sa.Column("sku", sa.String(64), nullable=True),
-        sa.Column("properties", sa.JSON, nullable=False, server_default=sa.text("'[]'::json")),
-        sa.Column("sort_order", sa.Integer, nullable=False, server_default="0"),
-        sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        sa.UniqueConstraint("tenant_id", "sku", name="uq_product_variants_sku"),
-        schema="product",
-    )
+    if not _has_table("product", "product_variants"):
+        op.create_table(
+            "product_variants",
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("tenant_id", sa.Integer, nullable=False, index=True),
+            sa.Column(
+                "product_id",
+                sa.Integer,
+                sa.ForeignKey("product.products.id", ondelete="RESTRICT"),
+                nullable=False,
+                index=True,
+            ),
+            sa.Column("sku", sa.String(64), nullable=True),
+            sa.Column("properties", sa.JSON, nullable=False, server_default=sa.text("'[]'::json")),
+            sa.Column("sort_order", sa.Integer, nullable=False, server_default="0"),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.UniqueConstraint("tenant_id", "sku", name="uq_product_variants_sku"),
+            schema="product",
+        )
 
-    op.create_table(
-        "product_attachments",
-        sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("tenant_id", sa.Integer, nullable=False, index=True),
-        sa.Column(
-            "product_id",
-            sa.Integer,
-            sa.ForeignKey("product.products.id", ondelete="CASCADE"),
-            nullable=False,
-            index=True,
-        ),
-        # A soft reference to media.media_assets (B3a): the asset's kind says
-        # whether it is a picture or a document.
-        sa.Column("media_asset_id", sa.Integer, nullable=False, index=True),
-        sa.Column("title", sa.String(255), nullable=True),
-        sa.Column("sort_order", sa.Integer, nullable=False, server_default="0"),
-        sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        schema="product",
-    )
+    if not _has_table("product", "product_attachments"):
+        op.create_table(
+            "product_attachments",
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("tenant_id", sa.Integer, nullable=False, index=True),
+            sa.Column(
+                "product_id",
+                sa.Integer,
+                sa.ForeignKey("product.products.id", ondelete="CASCADE"),
+                nullable=False,
+                index=True,
+            ),
+            # A soft reference to media.media_assets (B3a): the asset's kind says
+            # whether it is a picture or a document.
+            sa.Column("media_asset_id", sa.Integer, nullable=False, index=True),
+            sa.Column("title", sa.String(255), nullable=True),
+            sa.Column("sort_order", sa.Integer, nullable=False, server_default="0"),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            schema="product",
+        )
 
     # The life cycle is a code list: the foreign key goes on only now, once the
     # `products` table it guards exists.

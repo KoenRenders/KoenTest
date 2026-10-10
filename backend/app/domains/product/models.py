@@ -115,6 +115,10 @@ class Product(TenantMixin, Base):
         ForeignKey("product.product_status_codes.code"),
         nullable=False,
         default=ProductStatus.CONCEPT,
+        # The aggregate's rule reads the previous value; active_history loads it
+        # when the new one is set, so the rule holds also on an instance that
+        # was expired before the change (the review of commit 1, A1).
+        active_history=True,
     )
     # Ordering in advance (R39): the article may be ordered before there is
     # stock. `pre_order_until` is the last day of that window; empty means the
@@ -152,9 +156,7 @@ class Product(TenantMixin, Base):
         if history.has_changes() and history.deleted and self.status is ProductStatus.CONCEPT:
             from app.i18n import _
 
-            raise ProductError(
-                _("Een artikel dat al in verkoop is geweest, kan niet terug naar concept.")
-            )
+            raise ProductError(_("Een artikel kan niet terug naar concept."))
 
 
 class ProductVariant(TenantMixin, Base):
