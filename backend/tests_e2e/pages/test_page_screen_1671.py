@@ -182,7 +182,7 @@ def test_a_page_created_through_the_screen_opens_and_saves(setup):
 
 
 @pytest.fixture(scope="module")
-def refused_setup():
+def refused_setup(setup):
     """A page whose DRAFT and whose HISTORY ROW hold a later-phase node —
     the state only the migration or an older build can write. Publiceren
     and Terugzetten refuse her at the door of A3; the browser test reads
@@ -233,11 +233,11 @@ def refused_setup():
         db.query(CmsPageHistory).filter(CmsPageHistory.page_id == page.id).first().id,
     )
     db.close()
-    with sync_playwright() as pw:
-        exe = os.environ.get("E2E_CHROMIUM_PATH")
-        b = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
-        yield b, page_id, history_id, make_session_value(SEEDED_ADMIN_EMAIL)
-        b.close()
+    # The module's setup fixture OWNS the browser (one Playwright per
+    # process — a second instance here was the ERROR of two runs); this
+    # fixture asks her for it and adds her own refused page.
+    b = setup[0]
+    yield b, page_id, history_id, make_session_value(SEEDED_ADMIN_EMAIL)
 
 
 _ONE_HEAD = "() => document.querySelectorAll('[data-record-head]').length"
