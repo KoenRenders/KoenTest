@@ -37,6 +37,18 @@
 #   EXISTING_DB_URL, EXISTING_DB_SOCKET_DIR
 #                       a database server that already runs, in place of the dev
 #                       stack's (#1891) — see scripts/local-db-lib.sh
+#   HELPER_CONTAINER_USER
+#                       the user the helper container runs as (#1893). Unset: the
+#                       image's own user, `app` — right for an ordinary Docker,
+#                       where root in the container would leave root-owned files
+#                       (`__pycache__`) in the working copy. Set it to `root` in a
+#                       rootless Docker: there a container cannot run as another
+#                       user than root at all (it stops on "libc.so.6: … Permission
+#                       denied"), and root in the container IS the calling user on
+#                       the machine, so it widens nothing. Every `docker exec`
+#                       runs as the user the container was created with, so the
+#                       variable is read when the container is made: a change
+#                       needs one run with VERS=1, as for the network and the mounts.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -132,7 +144,12 @@ if ! docker inspect -f '{{.State.Running}}' "$NAAM" >/dev/null 2>&1; then
   # bestanden buiten backend/ kijken (de vangrail van dit script zelf, #719). Met
   # /app als repowortel en /app/backend als werkmap ligt de indeling in de container
   # gelijk aan die in de checkout, dus `parents[2]` klopt hier én in CI.
-  docker run -d --name "$NAAM" "${RUN_ARGS[@]}" \
+  # #1893: the user only when the caller names one; without it the image's own.
+  USER_ARGS=()
+  if [ -n "${HELPER_CONTAINER_USER:-}" ]; then
+    USER_ARGS=(-u "$HELPER_CONTAINER_USER")
+  fi
+  docker run -d --name "$NAAM" "${RUN_ARGS[@]}" "${USER_ARGS[@]}" \
     -v "$ROOT:/app" -w /app/backend \
     -e APP_ENV=dev -e JOBS_ENABLED=false \
     "$IMAGE" sleep infinity >/dev/null

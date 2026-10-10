@@ -48,6 +48,14 @@ reasoned; each restored afterwards):
 * `tests/_local_db.py`: the condition of `_refuse_another_name` replaced by
   `False` → the six cases of `test_another_name_is_refused_by_the_module_too`
   fail on the connection the module then attempts.
+
+#1893 — the user of `test-local.sh`'s helper container. In a rootless Docker a
+container only runs as root, and that script passed no user, so its container
+started as the image's own and stopped at once. `HELPER_CONTAINER_USER` names
+the user; unset, the calls are those of before (the recording above). Broken:
+
+* `test-local.sh`: `"${USER_ARGS[@]}"` taken off the `docker run` line →
+  `test_the_named_user_reaches_the_helper_container` fails: no `-u root`.
 """
 
 import os
@@ -75,6 +83,7 @@ SWITCHES = (
     "MEASURE_DB_NAME",
     "EXISTING_DB_URL",
     "EXISTING_DB_SOCKET_DIR",
+    "HELPER_CONTAINER_USER",
     "DATABASE_URL",
     "SNEL",
     "VERS",
@@ -329,6 +338,47 @@ def test_a_refusal_does_not_print_the_url(tmp_path):
 
     assert done.returncode == 2
     assert "secret-in-here" not in done.stderr + done.stdout
+
+
+# ── The user of the helper container (#1893) ─────────────────────────────────
+
+
+@pytest.mark.parametrize("environment", [{}, {"EXISTING_DB_URL": SOCKET_URL}])
+def test_the_named_user_reaches_the_helper_container(tmp_path, environment):
+    """With or without the switch of #1891: the two are set apart."""
+    done, calls = _run_local(tmp_path, "test-local.sh", HELPER_CONTAINER_USER="root", **environment)
+
+    assert done.returncode == 0, done.stderr
+    created = [call for call in calls if call.startswith("run ")]
+    assert len(created) == 1, f"expected one docker run, found {len(created)}"
+    assert " -u root " in created[0], created[0]
+    assert created[0].index(" -u root ") < created[0].index(" raaktest-backend:"), (
+        "the user stands after the image, where docker reads it as the command"
+    )
+
+
+def test_no_exec_names_a_user_of_its_own(tmp_path):
+    """A `docker exec` runs as the user the container was created with. One that
+    named another would install or write as someone else than the run reads as —
+    and in a rootless Docker it would not start."""
+    done, calls = _run_local(tmp_path, "test-local.sh", HELPER_CONTAINER_USER="root")
+
+    assert done.returncode == 0, done.stderr
+    executed = [call for call in calls if call.startswith("exec ")]
+    assert len(executed) >= 2, "the script reached its exec calls not at all"
+    for call in executed:
+        assert " -u " not in call and "--user" not in call, call
+
+
+def test_the_browser_helper_container_keeps_its_own_user(tmp_path):
+    """`e2e-local.sh` creates its container as root, always; the variable is
+    `test-local.sh`'s and must not land there a second time."""
+    done, calls = _run_local(tmp_path, "e2e-local.sh", HELPER_CONTAINER_USER="someone")
+
+    assert done.returncode == 0, done.stderr
+    created = [call for call in calls if call.startswith("run ")]
+    assert len(created) == 1
+    assert created[0].count(" -u ") == 1 and " -u root " in created[0], created[0]
 
 
 # ── tests._local_db: what makes the database when no container can be asked ──

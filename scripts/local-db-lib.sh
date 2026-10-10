@@ -23,6 +23,9 @@
 #
 # A helper container keeps the network and the mounts it was created with: after
 # switching between the two ways, run once with VERS=1.
+#
+# In a rootless Docker one more variable goes with these two, for test-local.sh
+# only: HELPER_CONTAINER_USER=root (#1893; that script's header says why).
 
 # db_url_parse URL — the parts of scheme://authority/name[?query]. Sets
 # DB_URL_HEAD (scheme://authority), DB_URL_NAME and DB_URL_QUERY; fails on
