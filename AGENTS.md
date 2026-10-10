@@ -1289,6 +1289,25 @@ top. It became "the door decides": whoever signs in on the public site stays on
 the public site, whoever signs in to the back office lands there, for everyone.
 One sentence, no table of roles in the sign-in.
 
+**A screen says what a value is, never what another domain does with it**
+(Koen, 10 October 2026, to the proposal of this rule for screens and for code:
+"ik had het enkel over commentaar op het scherm, niet in de code, daar kan het
+handig zijn voor een ontwikkelaar, dus gelieve enkel het punt ivm de schermen
+in de agents.md te zetten"). Copy, a help line, a hint or a badge on a domain's
+screen describes the value in that domain's own terms — "hoofdadres",
+"Contactpersoon" — and does not say what another domain does with it: not that
+the newsletter goes to that address, not that the first three contacts go on
+the poster. The other domain's use can change tomorrow, and then the screen is
+wrong without anyone having touched it. An exception needs Koen's explicit
+approval per case, written on the issue; without it the reviewer flags the
+sentence. Found twice that day, with Koen's words as the architecture CLI
+reported them from its chat with him: the e-mail hint on the household screens ("Nu
+vertellen we wat andere domeinen ermee doen, dat kan morgen anders zijn") and
+the organiser's tag "op de affiche: alleen de eerste drie" ("dat is het label,
+nu komt het op de affiche, morgen op de website. Dat weet dat domein niet").
+The rule is about what a user reads on a screen. A code comment or a docstring
+may still say how another domain uses a field: that helps a developer.
+
 ## Twee keer dezelfde reparatie? Dan is de duplicatie de bug
 
 Merk je dat je dezelfde wijziging op twee plaatsen aanbrengt, stop dan. **De fout is niet
