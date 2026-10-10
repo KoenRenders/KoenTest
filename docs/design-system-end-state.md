@@ -380,11 +380,14 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   **Nothing folds on a record** (same answer, point 2): a composite group
   row stands open in read and in edit mode; the `fold` of `group_row` is not
   used on a record page. The same on Mijn gezin.
-  **A child list of one field is lines, not a framed group** (point 3): an
-  e-mail address is a line — icon, field, the *hoofdadres* tag or *Maak
-  hoofdadres*, × — with a small "+ E-mailadres" under the lines; no frame,
-  no title. The framed repeating group stays for what is a group (a
-  membership year list, the components of an activity).
+  **A child list of one field is lines under a label, not a framed group**
+  (point 3, shaped by Koen on the concept the same day): a label like the
+  fields' ("E-mailadressen") with the small secondary "+ E-mailadres" at its
+  right end; under it one row per address — the field, the *hoofdadres* tag
+  on the primary one, and the kit's ⋯ with *Verwijderen* and *Maak
+  hoofdadres* — the simple `group_row` without the group's frame and title;
+  no icon in edit mode. The framed repeating group stays for what is a group
+  (the components of an activity).
 - **A new record** is the same page in edit mode, empty: "+ Nieuwe
   activiteit" opens it, Opslaan creates, Annuleren leaves nothing behind; no
   start screen with a few fields (Koen, 6 October 2026; the Assistent proposes
