@@ -42,6 +42,26 @@ def add_prices(
         raise PriceError(_("Geef een prijs van nul of meer."))
     if member_amount is not None and member_amount < 0:
         raise PriceError(_("Geef een ledenprijs van nul of meer."))
+    if variant_id is not None:
+        variant = get_variant(db, variant_id)
+        if variant is None or variant.product_id != product_id:
+            raise PriceError(_("Deze maat hoort niet bij dit artikel."))
+    # C4.2: a price ends where the next one of the same type starts — a second
+    # price of the same type and date is refused, in words, before the key does.
+    kinds = (PriceType.REGULAR,) if member_amount is None else (PriceType.REGULAR, PriceType.MEMBER)
+    for price_type in kinds:
+        if (
+            db.query(Price)
+            .filter(
+                Price.product_id == product_id,
+                Price.variant_id == variant_id,
+                Price.price_type == price_type,
+                Price.valid_from == valid_from,
+            )
+            .first()
+            is not None
+        ):
+            raise PriceError(_("Er staat al een prijs voor deze maat op deze datum."))
     regular = Price(
         product_id=product_id,
         variant_id=variant_id,
@@ -52,8 +72,6 @@ def add_prices(
     db.add(regular)
     added = [regular]
     if member_amount is not None:
-        if member_amount < 0:
-            raise PriceError(_("Geef een ledenprijs van nul of meer."))
         member = Price(
             product_id=product_id,
             variant_id=variant_id,
@@ -83,18 +101,20 @@ def price_for(db: Session, variant_id: int, on: date, member: bool = False) -> D
         return None
     product_id = variant.product_id
     if member:
-        price = _latest(db, product_id, variant_id, PriceType.MEMBER, on) or _latest(
+        price = price_in_force(db, product_id, variant_id, PriceType.MEMBER, on) or price_in_force(
             db, product_id, None, PriceType.MEMBER, on
         )
         if price is not None:
             return price.amount
-    price = _latest(db, product_id, variant_id, PriceType.REGULAR, on) or _latest(
+    price = price_in_force(db, product_id, variant_id, PriceType.REGULAR, on) or price_in_force(
         db, product_id, None, PriceType.REGULAR, on
     )
     return price.amount if price is not None else None
 
 
-def _latest(db: Session, product_id: int, variant_id: int | None, price_type: PriceType, on: date):
+def price_in_force(
+    db: Session, product_id: int, variant_id: int | None, price_type: PriceType, on: date
+):
     """The newest price of `price_type` for this product and variant that starts
     on or before `on` — the variant's when `variant_id` is given, the product's
     when it is None."""

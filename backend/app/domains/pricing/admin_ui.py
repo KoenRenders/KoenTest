@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, Right, csrf_token_for, require_csrf, require_right
-from app.domains.pricing.api import PriceError, PriceType, add_prices, prices_of
+from app.domains.pricing.api import PriceError, PriceType, add_prices, price_in_force, prices_of
 from app.domains.pricing.viewmodels import PriceListView, PriceView
 from app.domains.product.api import get_product, get_variant, list_products, size_of, variants_of
 from app.i18n import _
@@ -49,12 +49,12 @@ def _variant_size(db: Session, variant_id: int | None) -> str:
     return size_of(variant) if variant else ""
 
 
-def _price_state(valid_from: date, today: date, current: date | None) -> str:
+def _price_state(valid_from: date, today: date, in_force: bool) -> str:
     from app.i18n import long_date
 
     if valid_from > today:
         return _("Vanaf %(date)s") % {"date": long_date(valid_from)}
-    if valid_from == current:
+    if in_force:
         return _("Vandaag")
     return _("Voorbij")
 
@@ -62,7 +62,6 @@ def _price_state(valid_from: date, today: date, current: date | None) -> str:
 def _price_view(request: Request, db: Session, product, error: Optional[str] = None) -> PriceView:
     today = belgian_today()
     prices = prices_of(db, product.id)
-    current = max((p.valid_from for p in prices if p.valid_from <= today), default=None)
     grouped: dict[tuple[date, int | None], dict] = {}
     for price in prices:
         key = (price.valid_from, price.variant_id)
@@ -75,13 +74,18 @@ def _price_view(request: Request, db: Session, product, error: Optional[str] = N
             row["member"] = price.amount
     rows = []
     for (valid_from, variant_id), amounts in grouped.items():
+        regular_now = price_in_force(db, product.id, variant_id, PriceType.REGULAR, today)
+        member_now = price_in_force(db, product.id, variant_id, PriceType.MEMBER, today)
+        in_force = (regular_now is not None and regular_now.valid_from == valid_from) or (
+            member_now is not None and member_now.valid_from == valid_from
+        )
         rows.append(
             {
                 "valid_from": valid_from,
                 "size": _variant_size(db, variant_id),
                 "regular": amounts["regular"],
                 "member": amounts["member"],
-                "state": _price_state(valid_from, today, current),
+                "state": _price_state(valid_from, today, in_force),
             }
         )
     return PriceView(

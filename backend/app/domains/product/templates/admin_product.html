@@ -59,6 +59,6 @@
   </div>
   {% endcall %}
 </form>
-{{ ui.action_bar(record=True, form="product-form", cancel_href="/admin/producten/{{ product.id }}") }}
+{{ ui.action_bar(record=True, form="product-form", cancel_href="/admin/producten/" ~ product.id) }}
 {% endif %}
 {% endblock %}

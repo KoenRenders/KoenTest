@@ -1,9 +1,10 @@
-"""Productbeheer (CR-21): the product list and the create form, behind the
-product rights.
+"""Productbeheer (CR-21): the product list, the create form and the article
+record, behind the product rights.
 
 Master data, kept apart from any activity (R2). A GET asks `product.view`, a
-change asks `product.masterdata` (CR-24 D1). The article record — the sizes, the
-life cycle, the pictures and documents, the delete — comes with the next commit.
+change asks `product.masterdata` (CR-24 D1). The life cycle walks through the
+record's head; adding and removing a size on the screen, and the pictures and
+documents, follow in their own commit.
 
 The path is Dutch because a board member reads it in the address bar; the
 module, the routes and the parameters are English like all new code.
@@ -187,6 +188,9 @@ def product_update(
     _email: str = Depends(require_right(Right.PRODUCT_MASTERDATA)),
     _csrf: None = Depends(require_csrf),
 ):
+    product = get_product(db, product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     try:
         update_product(db, product_id, name=name, description=description)
         set_pre_order(
@@ -196,7 +200,6 @@ def product_update(
             pre_order_until=_parse_date(pre_order_until),
         )
     except ProductError as refusal:
-        product = get_product(db, product_id)
         return templates.TemplateResponse(
             request,
             "admin_product.html",
@@ -216,6 +219,8 @@ def product_status(
     _csrf: None = Depends(require_csrf),
 ):
     product = get_product(db, product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     try:
         set_status(db, product_id, ProductStatus(status))
     except (ProductError, ValueError) as refusal:
@@ -237,6 +242,8 @@ def product_delete(
     _csrf: None = Depends(require_csrf),
 ):
     product = get_product(db, product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     try:
         delete_product(db, product_id)
     except ProductError as refusal:

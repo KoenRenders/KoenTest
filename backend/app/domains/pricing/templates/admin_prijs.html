@@ -37,11 +37,11 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {{ ui.field("valid_from", _("Vanaf"), kind="date", required=True) }}
     {{ ui.field("variant_id", _("Maten"), kind="select", value="", options=options) }}
-    {{ ui.field("amount", _("Prijs"), kind="number", unit="€", required=True) }}
-    {{ ui.field("member_amount", _("Ledenprijs"), kind="number", unit="€", help=_("Leeg: leden betalen de gewone prijs.")) }}
+    {{ ui.field("amount", _("Prijs"), kind="number", unit="€", required=True, attrs='step="0.01" min="0"') }}
+    {{ ui.field("member_amount", _("Ledenprijs"), kind="number", unit="€", attrs='step="0.01" min="0"', help=_("Leeg: leden betalen de gewone prijs.")) }}
   </form>
   {% endcall %}
 </div>
 {% endcall %}
-{{ ui.action_bar(record=True, send=True, form="prijs-form", cancel_href="/admin/prijzen/{{ product.id }}", save_label=_("Prijs toevoegen")) }}
+{{ ui.action_bar(record=True, form="prijs-form", cancel_href="/admin/prijzen/" ~ product.id, save_label=_("Prijs toevoegen")) }}
 {% endblock %}
