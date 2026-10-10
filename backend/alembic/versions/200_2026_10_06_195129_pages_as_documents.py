@@ -31,14 +31,28 @@ from sqlalchemy.dialects.postgresql import JSONB
 # quotes (#781): the generated file must already be what `ruff format` writes.
 revision = "200_2026_10_06_195129"
 down_revision = "202_2026_10_09_191828"
-# On the CR-17 branch this migration stood on 197; master added its own
-# 198 meanwhile. The branch keeps its migration on ONE linear chain: this
-# revision renumbered to 199 and repointed onto master's 198 (the arrangement
-# of 8 October 2026 — read the head, never type it).
+# On the CR-17 branch this migration stood on 197; master moved on (198,
+# 199, 200, 201, 202) meanwhile. The branch keeps its migration on ONE
+# linear chain: this revision is 200 and hangs under master's 202 (the
+# arrangement of 8 October 2026 — read the head, never type it).
 branch_labels = None
 depends_on = None
 
 log = logging.getLogger("alembic.runtime.migration")
+
+
+def _known_language(bind, locale: str | None) -> str:
+    """Map the setting to a code the foreign key accepts (review A5, #1770):
+    the part before the underscore when `mdm.language_codes` carries her,
+    else `nl`. A migration reads SQL, never the live service — the same
+    rule, its own door."""
+    from app.domains.cms.schema import locale_language
+
+    code = locale_language(locale)
+    known = bind.execute(
+        sa.text("SELECT 1 FROM mdm.language_codes WHERE code = :code"), {"code": code}
+    ).first()
+    return code if known else "nl"
 
 
 def _tenant_languages(bind) -> dict[int, str]:
@@ -54,7 +68,6 @@ def _tenant_languages(bind) -> dict[int, str]:
 def _convert_pages(bind) -> dict:
     """Every page into a translation row; the counts for the log line."""
     from app.domains.cms.parse import parse_html, plain_text_document
-    from app.domains.cms.schema import locale_language
     from app.domains.cms.service import SITE_BLOCK_SLUGS
 
     languages = _tenant_languages(bind)
@@ -63,7 +76,7 @@ def _convert_pages(bind) -> dict:
     ).fetchall()
     converted, kept_html, published, failed, empty = 0, 0, 0, [], []
     for page_id, tenant_id, title, slug, content, is_published in pages:
-        language = locale_language(languages.get(tenant_id, "nl_BE"))
+        language = _known_language(bind, languages.get(tenant_id, "nl_BE"))
         on_page = slug not in SITE_BLOCK_SLUGS
         existing = bind.execute(
             sa.text(
@@ -103,7 +116,16 @@ def _convert_pages(bind) -> dict:
                     " published_at, published_by) "
                     "VALUES (:page, :lang, :title, NULL, CAST(:draft AS jsonb), NULL, NULL, NULL)"
                 ),
-                {"page": page_id, "lang": language, "title": title, "draft": json.dumps(draft)},
+                # `page_translations.title` is VARCHAR(200), `cms_pages.title`
+                # 255: a page with a longer title (possible today) would abort
+                # the upgrade on the INSERT (review B3, #1770) — the migration
+                # truncates to the column she writes.
+                {
+                    "page": page_id,
+                    "lang": language,
+                    "title": (title or "")[:200],
+                    "draft": json.dumps(draft),
+                },
             )
             if not draft.get("content"):
                 # Review 4 (Koen, 7 October 2026): a draft that converts to
@@ -129,7 +151,8 @@ def _convert_pages(bind) -> dict:
             {
                 "page": page_id,
                 "lang": language,
-                "title": title,
+                # As above: the translation column carries 200 (review B3).
+                "title": (title or "")[:200],
                 "draft": json.dumps(document),
                 "published": json.dumps(document) if is_published else None,
                 "at": now if is_published else None,

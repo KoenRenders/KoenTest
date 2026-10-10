@@ -821,14 +821,19 @@ def test_geen_scriptbestand_buiten_een_schil():
     de schil, want anders draagt élk beheerscherm 441 KB JavaScript voor
     niets. De eigen guard van het script (`window.raakDocumentEditor`) maakt
     de tweede run een no-op, en de bundel definieert geen custom element.
-    Elke andere scriptlading buiten de schil blijft een foutmelding waard.
+    De uitzondering zijn de TWEE bestandsnamen van de editor (review A6,
+    #1770) — de gepinde TipTap-bundel en `document-editor.js` — niet het
+    bestand dat ze draagt: `_macros.html` als geheel vrijstellen zou elke
+    kit-macro een script laten laden. Elke andere scriptlading buiten de
+    schil blijft een foutmelding waard.
     """
+    editor_scripts = ("vendor/tiptap-", "document-editor.js")
     fouten = [
         f"{pad.relative_to(APP)}: {regel.strip()[:90]}"
         for pad in TEMPLATES
-        if pad.name not in SCHILLEN and pad.name != "_macros.html"
+        if pad.name not in SCHILLEN
         for regel in _zonder_commentaar(pad).splitlines()
-        if "<script src=" in regel
+        if "<script src=" in regel and not any(naam in regel for naam in editor_scripts)
     ]
     assert not fouten, "Verhuis het script naar de <head> van de schil:\n  " + "\n  ".join(fouten)
 

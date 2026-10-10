@@ -126,7 +126,7 @@ def create_page(db, data) -> CmsPage:
         sort_order=data.sort_order,
     )
     if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
-        raise SlugBestaatAl("Slug already exists")
+        raise SlugBestaatAl("Dit webadres bestaat al.")
     db.add(page)
     db.flush()
     # CR-17 fase 1 (#1671): a new page starts with a translation row in the
@@ -205,9 +205,15 @@ def _apply_page_fields(db, page: CmsPage, data) -> None:
     applying half of `update_page` and of the screen's one save (the review's
     A3, #1734): the document is validated before she runs, so a refusal has
     written nothing that this half would leave behind."""
+    if data.title and len(data.title) > 200:
+        # `page_translations.title` is String(200); `cms_pages.title` carries
+        # 255. A 201–255 character title aborted the save on the INSERT
+        # (review B3, #1770) — every door speaks her, this is the one that
+        # applies the title.
+        raise ValueError("De titel is te lang: hooguit 200 tekens.")
     if data.slug and data.slug != page.slug:
         if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
-            raise SlugBestaatAl("Slug already exists")
+            raise SlugBestaatAl("Dit webadres bestaat al.")
     if data.is_home and not page.is_home:
         # #1477: one home page per tenant — the flag moves, it is not refused.
         # Flushed first, so the unique index never sees two at once.
@@ -262,13 +268,13 @@ def save_page_form(db, page_id: int, data, document, *, by: str | None = None) -
     if page is None:
         raise LookupError("Page not found")
     # Every refusal BEFORE the first write (N1, the third reading on
-    # #1734): the fields' own refusals — a slug that exists — come before
-    # the document is written, so a refused address leaves the draft as
-    # it was, pending nothing (the app's session does not flush on its
-    # own; the promise is not left to that).
+    # #1734): the fields' own refusals — a slug that exists, a title longer
+    # than her column — come before the document is written, so a refused
+    # address leaves the draft as it was, pending nothing (the app's session
+    # does not flush on its own; the promise is not left to that).
     if data.slug and data.slug != page.slug:
         if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
-            raise SlugBestaatAl("Slug already exists")
+            raise SlugBestaatAl("Dit webadres bestaat al.")
     # Whether there IS a document to save is this door's rule, not the
     # screen's (CR-13 §B9.3): an empty field saves the fields alone.
     if document is not None and document.strip():
@@ -325,13 +331,32 @@ def delete_page(db, page_id: int) -> None:
 # ── Documents (CR-17 fase 1, #1671) ───────────────────────────────────────────
 
 
+def known_language(db, locale: Optional[str]) -> str:
+    """Map a locale to a language code the database knows (review A5,
+    #1770). `page_translations.language` carries a foreign key to
+    `mdm.language_codes`; the tenant's `language` setting is free text,
+    so `frans`, `FR` or `vlaams` would abort a migration on the INSERT and
+    break every later save. One place maps the setting: the part before
+    the underscore, lower-cased, when `mdm.language_codes` carries her,
+    else `nl` — the association's own language, the row every tenant has
+    today. A tenant that changes its setting later keeps its documents:
+    the reader asks for the new language, finds nothing and falls back,
+    exactly as a visitor of a language without content does (C4.3)."""
+    from app.domains.mdm.api import language_code_exists
+
+    code = _schema.locale_language(locale or "nl_BE")
+    if language_code_exists(db, code):
+        return code
+    return "nl"
+
+
 def _language(db, page: CmsPage, language: Optional[str] = None) -> str:
     """The language of a page's translation row: the one asked for, else the
     tenant's — as a language CODE (`nl`), the key `mdm.language_codes`
     carries. Phase 1 has exactly one row per page."""
     from app.kernel.tenant_config import tenant_language
 
-    return _schema.locale_language(language or tenant_language(db, tenant_id=page.tenant_id))
+    return known_language(db, language or tenant_language(db, tenant_id=page.tenant_id))
 
 
 def get_translation(db, page: CmsPage, language: Optional[str] = None):
@@ -550,13 +575,38 @@ def save_document(
     return save_draft(db, page_id, document, by=by, commit=commit)
 
 
+def _assert_publishable(db, document) -> dict:
+    """The door every live-going document passes (review A3, #1770): what
+    Opslaan already refuses — an unknown node, a shape the schema does not
+    allow, a picture the picker would not offer — a draft the migration or
+    the lenient parse wrote, and a restored version, meet HERE too, before
+    the first write. The renderer and the sanitiser still stand behind her;
+    this is integrity, not injection."""
+    import json as _json
+
+    from app.domains.cms import schema as _schema
+    from app.domains.media.api import offered_by_picker
+
+    doc = _json.loads(document) if isinstance(document, str) else document
+    doc = document_from_editor(doc)
+    _schema.validate_document(doc)
+    for media_id in sorted(_figure_media_ids(doc)):
+        if not offered_by_picker(db, media_id):
+            raise _schema.InvalidShape(f"Onbekende afbeelding: {media_id}")
+    return doc
+
+
 def publish(
     db, page_id: int, *, language: Optional[str] = None, by: Optional[str] = None
 ) -> "CmsPageTranslation":
     """Publiceren: draft → published, in one transaction, with exactly one
     history row (C4.3). `is_published` on the page means "has a published
     document in the tenant's language" from now on; for a page without a
-    document (the HTML fallback) the flag keeps its old meaning."""
+    document (the HTML fallback) the flag keeps its old meaning.
+
+    The draft is validated before the first write (review A3, #1770): a
+    draft the migration or a lenient parse left behind cannot go live
+    unread."""
     from datetime import datetime, timezone
 
     from app.domains.cms.models import CmsPageHistory
@@ -567,8 +617,11 @@ def publish(
     translation = get_translation(db, page, language)
     if translation is None or translation.draft_json is None:
         raise LookupError("Nothing to publish")
+    # A3: the draft meets the same door as a save — before the first write,
+    # so a refusal leaves the page exactly as she was.
+    document = _assert_publishable(db, translation.draft_json)
     now = datetime.now(timezone.utc)
-    translation.published_json = translation.draft_json
+    translation.published_json = document
     translation.published_at = now
     translation.published_by = by
     page.is_published = True
@@ -577,7 +630,7 @@ def publish(
             page_id=page.id,
             language=translation.language,
             action="published",
-            document=translation.draft_json,
+            document=document,
             at=now,
             by=by,
         )
@@ -642,6 +695,9 @@ def restore(db, page_id: int, history_id: int, *, by: Optional[str] = None) -> "
     # return to.
     if version.action == "offline":
         raise ValueError("Offline is geen versie om terug te zetten.")
+    # A3: a restored version meets the same door as a save — a history row
+    # the migration or an older build wrote cannot return unread.
+    document = _assert_publishable(db, version.document)
     translation = (
         db.query(CmsPageTranslation)
         .filter(
@@ -655,13 +711,13 @@ def restore(db, page_id: int, history_id: int, *, by: Optional[str] = None) -> "
             page_id=page.id, language=version.language, title=page.title
         )
         db.add(translation)
-    translation.draft_json = version.document
+    translation.draft_json = document
     db.add(
         CmsPageHistory(
             page_id=page.id,
             language=version.language,
             action="restored",
-            document=version.document,
+            document=document,
             at=datetime.now(timezone.utc),
             by=by,
         )

@@ -111,8 +111,15 @@ def _record_ctx(
         "error": error,
         "toast_opgeslagen": toast,
         "wijzigend": draft_differs(db, page),
-        "vertaling": get_translation(db, page),
+        "vertaling": (vertaling := get_translation(db, page)),
         "versies": versions(db, page.id),
+        # A page the migration could not convert losslessly is live through
+        # her stored HTML; Publiceren would replace that with the (lossy)
+        # draft — the CR asks a notice to compare the two first (F11, C2
+        # cms; review A4, #1770).
+        "live_via_oude_tekst": bool(
+            page.is_published and (vertaling is None or vertaling.published_json is None)
+        ),
     }
 
 
@@ -268,6 +275,10 @@ def pagina_bijwerken(
     )
     try:
         save_page_form(db, page_id, data, document, by=email)
+    except LookupError:
+        # An unknown page id is the author's own door: the words the list
+        # screen uses, not Python's 500 (review B4, #1770).
+        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden."))
     except (ValueError, TypeError) as error:
         # UnknownBlock, UnknownAttribute, InvalidShape, a slug that exists,
         # an unreadable document and a picture the picker does not offer

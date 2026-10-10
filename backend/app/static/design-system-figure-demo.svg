@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-label=" Een getekende afbeelding: heuvels onder een lucht met een wolk">
+  <rect width="800" height="450" fill="#dbeafe"/>
+  <path d="M0 450 L0 300 Q 120 220 260 290 T 520 260 T 800 320 L800 450 Z" fill="#93c5fd"/>
+  <path d="M0 450 L0 360 Q 160 300 340 355 T 660 340 T 800 380 L800 450 Z" fill="#60a5fa"/>
+  <ellipse cx="560" cy="110" rx="90" ry="34" fill="#ffffff"/>
+  <ellipse cx="630" cy="120" rx="60" ry="26" fill="#ffffff"/>
+  <circle cx="150" cy="90" r="42" fill="#fde68a"/>
+</svg>

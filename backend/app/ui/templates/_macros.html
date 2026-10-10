@@ -489,7 +489,10 @@
     {% if (primary and not editing) or actions or _extra %}
     <div data-head-controls class="flex flex-wrap justify-end items-center gap-2 ml-auto shrink-0 max-w-full">
       {% if primary and not editing %}
-      {{ button(primary.label, variant="primary", type="button", href=primary.get("href"), size="sm", attrs=primary.get("attrs", ""), cls="min-h-11 md:min-h-9") }}
+      {#- `confirm` on a primary action (review A4, #1770): passed as data to
+          the button macro's own confirm door — a screen that gives none
+          keeps exactly the button she had. -#}
+      {{ button(primary.label, variant="primary", type="button", href=primary.get("href"), size="sm", attrs=primary.get("attrs", ""), cls="min-h-11 md:min-h-9", confirm=primary.get("confirm")) }}
       {% endif %}
       {% if actions %}
       <div class="relative" x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">

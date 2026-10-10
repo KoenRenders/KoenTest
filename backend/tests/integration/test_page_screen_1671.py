@@ -182,6 +182,29 @@ def test_the_record_page_carries_the_kit_s_screen(client, db_session):
     assert "raak-link-edit" in client.get(f"/admin/paginas/{page.id}").text
 
 
+def test_the_sections_contents_take_the_full_row(client, db_session):
+    """A section lays a 4-track field grid; the editor, the status list, the
+    history list and the codes list are words and controls, not fields —
+    without the full span the grid quarters them (Koen's eyes on the local
+    version, 10 October 2026: a 5 cm editor and "Einddat/um")."""
+    _login(client)
+    page = _page(db_session, "full-span-1671")
+    html = client.get(f"/admin/paginas/{page.id}").text
+    # The editor's wrapper, the status dl, the history ul/p and the codes dl
+    # all carry the full span — each could go red on its own.
+    assert html.count('data-span="full"') >= 5, "a section's non-field contents lost the full span"
+    # The wrapper sits around the editor, the editor not on a quarter track.
+    # The wrapper holds the macro's whole output (her input, her styles,
+    # her script and the editor itself) — the editor div follows within it,
+    # on the next lines: order in the page, not one line of it.
+    editor_at = html.find("data-document-editor")
+    wrapper_at = html.rfind('data-span="full"', 0, editor_at)
+    assert wrapper_at != -1, "the document editor does not take the full row"
+    # And nothing between the wrapper and the editor re-opens a form grid.
+    between = html[wrapper_at:editor_at]
+    assert "form-grid" not in between, "a grid stands between the wrapper and the editor"
+
+
 def test_a_table_survives_the_save_and_reaches_the_site(client, db_session):
     """C6 1, red on the old screen: a table typed through the editor saves,
     comes back as a table, and publishes as one — with her header row.

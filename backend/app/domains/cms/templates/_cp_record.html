@@ -10,7 +10,10 @@
 {{ ui.error_banner(error) }}
 {% set samenvatting %}
   {% call ui.section(_("Status")) %}
-  <dl class="text-sm space-y-2">
+  {#- Full span: a section lays a 4-track field grid; a list of words is
+      not a field and takes the whole row (Koen's eyes on the local version,
+      10 October 2026: the aside quartered her lists). -#}
+  <dl data-span="full" class="text-sm space-y-2">
     {# The status reads the FLAG — the public route's one rule (offline
        halen, Koen 8 October 2026, #1734) — and names what she shows. #}
     {% if p.is_published and vertaling and vertaling.published_json %}
@@ -38,7 +41,7 @@
      site keeps showing the published document until the author publishes
      the restored draft. Not a delete, so her own confirm text (§2.12). #}
   {% if versies %}
-  <ul class="text-sm space-y-2">
+  <ul data-span="full" class="text-sm space-y-2">
     {% for versie in versies %}
     <li class="flex items-center justify-between gap-2">
       <span>{{ versie.at|short_datetime }}{% if versie.by %} · {{ versie.by }}{% endif %}{% if versie.action == "offline" %} · {{ _("offline gehaald") }}{% endif %}</span>
@@ -51,7 +54,7 @@
     {% endfor %}
   </ul>
   {% else %}
-  <p class="text-sm text-ink-soft">{{ _("Nog geen versies — publiceren schrijft de eerste.") }}</p>
+  <p data-span="full" class="text-sm text-ink-soft">{{ _("Nog geen versies — publiceren schrijft de eerste.") }}</p>
   {% endif %}
   {% endcall %}
   {# The value codes the author can type (#1615): the legend in WORDS, the
@@ -59,7 +62,7 @@
      the document — the renderer replaces her, exactly as before. #}
   {% if placeholders %}
   {% call ui.section(_("Codes")) %}
-  <dl data-placeholders class="grid grid-cols-1 gap-y-1 text-sm">
+  <dl data-placeholders data-span="full" class="grid grid-cols-1 gap-y-1 text-sm">
     {% for ph in placeholders %}
     <div><dt class="font-mono text-xs text-blue-700">{{ ph.code }}</dt>
       {#- #1615: a long example (the accounts with their sites) wraps inside
@@ -91,7 +94,20 @@
      dialog — the kit's picker (#1474, CR-15 §C2 cms), the alternative
      text, the caption and the placement — travels WITH the macro, like
      the toolbar: one place the editor exists. #}
-  {{ ui.document_editor("document", editor_config, document_json, id="cp-document") }}
+  {#- A page the migration could not convert losslessly is live through her
+      stored HTML; this draft replaces that on Publiceren — the CR asks the
+      notice to compare the two first (F11, review A4, #1770). The draft
+      itself is not lost (she stays in the history), but the old text is:
+      nothing sets `published_json` back to empty. -#}
+  {% if live_via_oude_tekst|default(False) %}
+  <p data-span="full" class="mb-2 text-sm leading-[21px] text-yellow-800">
+    {{ _("Deze pagina loopt nu nog op haar oude tekst. Vergelijk het concept hieronder met de live pagina (Voorbeeld) — Publiceren zet het concept live en de oude tekst bestaat dan niet meer.") }}
+  </p>
+  {% endif %}
+  {#- Full span: the editor is not a field either; the wrapper makes her
+      one child of the 4-track grid instead of four quarter tracks
+      (the toolbar wrapped over four rows on the local version). -#}
+  <div data-span="full">{{ ui.document_editor("document", editor_config, document_json, id="cp-document") }}</div>
   {% endcall %}
 </form>
 {# The action bar of a record form (§3.6, #1561): the ONE save of the whole

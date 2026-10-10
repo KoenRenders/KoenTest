@@ -179,13 +179,13 @@ cat > "$TMP/in.css" << 'CSS'
   /* The site's name in the header where a tenant has no logo, and the drawer's
      head: semibold like the headings (the serif face had one weight only). */
   body[data-shell="site"] .font-brand{font-weight:600}
-  body[data-shell="site"] .cms-content :is(h1,h2){color:rgb(var(--c-kop))}
+  body[data-shell="site"] .home-intro :is(h1,h2){color:rgb(var(--c-kop))}
   /* #1656 (Koen, 6 October 2026; CR-11 Q87, design-system.md §7): the headings
      of a public page's BODY (`.cms-page`, under the page's own title). The
      renderer shows them one level down, so the editor's Kop, Subkop and Kleine
      kop arrive as h2, h3 and h4: 24, 18 and 16 px, semibold, in the site's
      heading colour, 24 px of air above and 8 px under. Measured on master: the
-     page-title rule above (`#main h1`, an id) won from `.cms-content h1`
+     page-title rule above (`#main h1`, an id) won from `.home-intro h1`
      (1.5rem, a class), so a heading in the text stood 40 px tall beside the
      page's title. The h1 is named here too, so the title role can never reach
      into a page body. */
@@ -327,11 +327,12 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 /* CR-11 block 6 (#1558), design-system-end-state §1.4, §3.2 — widened by CR-17
    slice 4 (Koen, 9 October 2026: "links houden, maar het scherm benutten").
    A record page (it carries the record head) takes the frame like a list
-   page; inside it the reading group is LEFT-aligned and never centred, and
-   the form column now GROWS WITH THE SCREEN up to a readable cap of
-   1 056 px (his words: the screen may be used; the cap keeps her lines
-   readable) with the 300 px summary beside her — a frame of 1 380 px;
-   narrower, the form column simply takes what the frame gives. The summary
+   page; inside it the reading group is LEFT-aligned and never centred.
+   The PAGE screen's form column grows with the screen up to a readable
+   cap of 1 056 px (his words: the screen may be used; the cap keeps her
+   lines readable) — hers alone, carried by `[data-wide]`; every other
+   record keeps her 768 px. Narrower, the form column simply takes what
+   the frame gives. The summary
    stands beside the form while the form keeps 640 px (964 px of frame),
    else above it. The form grid has four tracks, 12 px apart; it goes to
    one column when the section is narrower than 532 px inside (two half fields
@@ -379,6 +380,8 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    Assistent's panel open, or on a smaller window, nothing changes. The group
    widened with the form column (CR-17 slice 4, Koen 9 October 2026: the form
    grows to 1 056 px, the summary keeps 300, so the whole group is 1 380 px).
+   The wide variant of her (the page screen's) waits for a repeating group on
+   a wide page — none carries one today; the rule stands for when one does.
 
    #1635 (Koen, 5 October 2026; CR-11 Q74): every field of full width fills
    the wider column, a text box included — the width of a field follows its

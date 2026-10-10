@@ -300,12 +300,14 @@ def _document_demo() -> tuple[dict, str]:
     configuration and a document holding every block the set offers —
     invented data, like every demo on this page; no database.
 
-    The figure carries her image (media id 1, invented like every demo here)
-    in the placement `right`: since slice 3 the editor renders her picture
-    through the address of `media_url_prefix`, in the same classes the
-    site's renderer writes, and the figure's dialog — the kit's picker,
-    the alternative text, the caption, the placement — travels with the
-    `ui.document_editor` macro.
+    The demo document carries NO figure (the review of 10 October 2026,
+    #1770): a figure node names a media id, and id 1 is a real row on
+    every environment — whatever picture happens to carry the number
+    there, or none. The toolbar still offers her (the set says so); her
+    LOOK stands in section 13h as static markup, with a static file of
+    the kit, and the figure's dialog — the kit's picker, the alternative
+    text, the caption, the placement — travels with the
+    `ui.document_editor` macro as before.
     """
     import json
 
@@ -377,10 +379,6 @@ def _document_demo() -> tuple[dict, str]:
                         ],
                     },
                 ],
-            },
-            {
-                "type": "figure",
-                "attrs": {"media_id": 1, "alt": "Het lokaal", "placement": "right"},
             },
         ],
     }

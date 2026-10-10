@@ -82,9 +82,12 @@ def test_a_block_inside_an_inline_place_is_refused():
 
 
 def test_a_button_without_her_label_is_refused():
-    """Required attributes are refused by name, also when the node sits in
-    the right place (a button without her label)."""
-    with pytest.raises(UnknownAttribute, match="button.label"):
+    """A button is a later phase's node: the schema holds her shape, the
+    renderer does not walk her — so a stored document refuses her at the
+    border (review A2, #1770), before her missing label is even named.
+    The shape half still names required attributes on the nodes that DO
+    render (the figure below)."""
+    with pytest.raises(UnknownBlock):
         validate_document(_doc({"type": "button", "attrs": {"target": "/x", "variant": "primary"}}))
 
 
@@ -291,7 +294,9 @@ def test_an_id_of_nothing_is_refused():
     for media_id in (0, -1):
         with pytest.raises(UnknownAttribute, match="figure.media_id"):
             validate_document(_doc({"type": "figure", "attrs": {"media_id": media_id}}))
-    with pytest.raises(UnknownAttribute, match="form.form_id"):
+    # The form node is a later phase's: the border of A2 (#1770) refuses
+    # her before her shape is read.
+    with pytest.raises(UnknownBlock):
         validate_document(_doc({"type": "form", "attrs": {"form_id": 0}}))
 
 
@@ -393,3 +398,94 @@ def test_the_lists_type_holds_no_value_but_the_editors_null():
                 ],
             }
         )
+
+
+class TestRenderableBorder:
+    """The schema holds the whole design — the renderer walks only part of
+    it today. A stored document with a later-phase node (a button, a
+    callout) would publish fine and take the public page down at render
+    (review A2, #1770): the validator refuses what the renderer cannot
+    render. Every test here goes red on the validator without her
+    renderable border — each node of `RENDERABLE`'s complement walks.
+    """
+
+    def test_a_button_is_refused(self):
+        with pytest.raises(UnknownBlock):
+            validate_document(
+                _doc(
+                    {
+                        "type": "button",
+                        "attrs": {"label": "Klik", "target": "/lid-worden"},
+                    }
+                )
+            )
+
+    def test_a_callout_is_refused(self):
+        with pytest.raises(UnknownBlock):
+            validate_document(
+                _doc({"type": "callout", "content": [{"type": "text", "text": "Let op."}]})
+            )
+
+    def test_a_columns_node_is_refused(self):
+        with pytest.raises(UnknownBlock):
+            validate_document(_doc({"type": "columns", "content": []}))
+
+    def test_a_form_node_is_refused(self):
+        with pytest.raises(UnknownBlock):
+            validate_document(_doc({"type": "form", "attrs": {"form_id": 1}}))
+
+    def test_a_button_nested_deeper_is_refused_too(self):
+        with pytest.raises(UnknownBlock):
+            validate_document(
+                _doc(
+                    _par("Voor:"),
+                    {
+                        "type": "button",
+                        "attrs": {"label": "Klik", "target": "/lid-worden"},
+                    },
+                )
+            )
+
+    def test_every_renderable_node_really_renders(self):
+        # The border's other side: every node of RENDERABLE that a document
+        # can hold must render, not raise — a node in the set without a
+        # renderer branch is the same 500 from the other direction.
+        from app.domains.cms.render import render_document
+
+        document = validate_document(
+            _doc(
+                {
+                    "type": "heading",
+                    "attrs": {"level": 2},
+                    "content": [{"type": "text", "text": "Kop"}],
+                },
+                _par("Alinea."),
+                {
+                    "type": "bulletList",
+                    "content": [{"type": "listItem", "content": [_par("Punt.")]}],
+                },
+                {
+                    "type": "orderedList",
+                    "attrs": {"start": 2},
+                    "content": [{"type": "listItem", "content": [_par("Twee.")]}],
+                },
+                {
+                    "type": "table",
+                    "content": [
+                        {
+                            "type": "tableRow",
+                            "attrs": {"section": "head"},
+                            "content": [{"type": "tableHeader", "content": [_par("Kop")]}],
+                        },
+                        {
+                            "type": "tableRow",
+                            "attrs": {"section": "body"},
+                            "content": [{"type": "tableCell", "content": [_par("Cel")]}],
+                        },
+                    ],
+                },
+            )
+        )
+        html = render_document(document)
+        for word in ("Kop", "Alinea.", "Punt.", "Twee.", "Cel"):
+            assert word in html

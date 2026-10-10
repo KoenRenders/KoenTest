@@ -17,13 +17,22 @@
    route opens on her (#1734's review B3, resolved where the offline action
    forced the question: the list already read the flag, the record now does
    too). #}
+{#- The publish action: her route always, and — while the page still runs
+    on her stored HTML (review A4, #1770) — a confirmation, for the same
+    reason the record actions carry theirs: the old text does not come
+    back once the draft replaces her. The confirm travels as DATA (the
+    macro's own door), never as an attribute string. -#}
+{%- set publiceren = {"label": _("Publiceren"), "attrs": 'hx-post="/admin/paginas/' ~ p.id ~ '/publiceren"'} %}
+{%- if live_via_oude_tekst|default(False) %}
+{%- set publiceren = {"label": _("Publiceren"), "attrs": 'hx-post="/admin/paginas/' ~ p.id ~ '/publiceren"',
+                      "confirm": _("Deze pagina loopt nu nog op haar oude tekst. Publiceren zet het concept live en de oude tekst bestaat dan niet meer — vergelijk het concept eerst met de live pagina (Voorbeeld).")} %}
+{%- endif %}
 {{ ui.record_header(
     p.title,
     badges=([{"label": _("Gepubliceerd"), "tone": "green"}] if p.is_published else [{"label": _("Concept"), "tone": "gray"}])
             + ([{"label": _("Concept gewijzigd"), "tone": "blue"}] if wijzigend else []),
     facts=[{"kind": "reference", "text": "/" ~ p.slug, "href": "/" ~ p.slug}],
-    primary=({"label": _("Publiceren"), "attrs": 'hx-post="/admin/paginas/' ~ p.id ~ '/publiceren"'}
-             if vertaling and vertaling.draft_json is not none else None),
+    primary=(publiceren if vertaling and vertaling.draft_json is not none else None),
     actions=([
       {"kind": "record", "verb": "state", "label": _("Offline halen"),
        "confirm": _("Deze pagina van de site halen? De pagina zelf en haar concept blijven staan."),

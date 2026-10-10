@@ -475,7 +475,11 @@ def _blocks_html(blocks: "list[dict] | None", cell: bool = False) -> str:
     parts = []
     for node in blocks or []:
         parts.append(_block_html(node, cell))
-    return "".join(parts)
+    # A cell or a list item holds bare paragraphs (no <p>); Enter in a cell
+    # is the author's own line break — blocks joined with nothing ran her
+    # lines together on the site (review B1, #1770). Outside a cell the
+    # blocks carry their own margins; nothing joins them.
+    return "<br>".join(parts) if cell else "".join(parts)
 
 
 def _block_html(node: dict, cell: bool = False) -> str:
@@ -646,22 +650,28 @@ def _document_text(document, db=None) -> str:
             # bare dash that could be any list.
             number = (node.get("attrs") or {}).get("start") if kind == "orderedList" else None
             for item in content:
-                words = " ".join(
-                    _inline_text(b.get("content") or []) for b in item.get("content") or []
-                )
-                if number is None:
-                    lines.append(f"- {words}")
-                else:
-                    lines.append(f"{number}. {words}")
-                    number += 1
+                # An item holds blocks, not only inlines: a nested list (or a
+                # paragraph after her) lost her words when only the inline
+                # parts were read (review B2, #1770). Blocks walk in order;
+                # an inline-only item keeps her one line.
+                for b in item.get("content") or []:
+                    if b.get("type") in ("bulletList", "orderedList", "table", "figure"):
+                        walk(b)
+                    else:
+                        words = _inline_text(b.get("content") or [])
+                        if number is None:
+                            lines.append(f"- {words}")
+                        else:
+                            lines.append(f"{number}. {words}")
+                            number += 1
         elif kind == "table":
             for row in content:
-                cells = [
-                    " ".join(
+                cells = []
+                for cell in row.get("content") or []:
+                    words = " ".join(
                         _inline_text(p.get("content") or []) for p in cell.get("content") or []
                     )
-                    for cell in row.get("content") or []
-                ]
+                    cells.append(words)
                 lines.append(" | ".join(cells))
         elif kind == "figure":
             alt = (node.get("attrs") or {}).get("alt") or ""
@@ -681,7 +691,15 @@ def _document_text(document, db=None) -> str:
             kind = node["type"]
             if kind == "text":
                 words.append(unescape(node.get("text", "")))
-        text = " ".join(words)
+            elif kind == "hardBreak":
+                words.append(" ")
+            elif kind == "value":
+                words.append(unescape(_values().get(node.get("attrs", {}).get("code", ""), "")))
+        # A word split over two marks ("wo" + "rd", each bold) is one word:
+        # joining with a space made "wo rd" of her (review B2, #1770). The
+        # spaces the author typed sit IN her text nodes; a hardBreak is the
+        # only inline that stands for a break of her own.
+        text = "".join(words)
         for code, value in _values().items():
             text = text.replace(f"{{{{{code}}}}}", value)
         return text.strip()

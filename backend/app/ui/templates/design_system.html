@@ -1170,6 +1170,27 @@
         <tr><td>Soep na afloop</td><td>€ 5,00</td><td>rond de middag</td><td>in de zaal</td><td>met de wandeling</td></tr>
       </tbody>
     </table>
+    {#- The figure's look, as static markup (the review of 10 October 2026,
+        #1770): the editor's demo document carries no figure — a figure node
+        names a media id, a real row on every environment — so her LOOK
+        stands here, in the renderer's own classes, with a drawn file of
+        the kit. The four placements the set offers, one figure each. -#}
+    <figure class="prose-figure prose-figure--full">
+      <img src="{{ statisch('design-system-figure-demo.svg') }}" alt="Een getekende afbeelding: heuvels onder een lucht met een wolk" loading="lazy">
+      <figcaption>Vol — het beeld over de volle kolom, met haar bijschrift.</figcaption>
+    </figure>
+    <figure class="prose-figure prose-figure--right">
+      <img src="{{ statisch('design-system-figure-demo.svg') }}" alt="Een getekende afbeelding: heuvels onder een lucht met een wolk" loading="lazy">
+      <figcaption>Rechts — de tekst stroomt om haar heen.</figcaption>
+    </figure>
+    <figure class="prose-figure prose-figure--left">
+      <img src="{{ statisch('design-system-figure-demo.svg') }}" alt="Een getekende afbeelding: heuvels onder een lucht met een wolk" loading="lazy">
+      <figcaption>Links — de spiegel van rechts.</figcaption>
+    </figure>
+    <figure class="prose-figure prose-figure--small">
+      <img src="{{ statisch('design-system-figure-demo.svg') }}" alt="Een getekende afbeelding: heuvels onder een lucht met een wolk" loading="lazy">
+      <figcaption>Klein — een beeld naast de tekst.</figcaption>
+    </figure>
   </div>
 </div>
 

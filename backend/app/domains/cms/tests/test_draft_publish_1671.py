@@ -13,6 +13,8 @@ Every test here can go red: move one assignment from `draft_json` to
 
 import json
 
+import pytest
+
 from app.domains.cms.api import (
     create_page,
     get_page_by_id,
@@ -312,3 +314,180 @@ def test_create_page_writes_one_translation_row_on_the_app_s_session(_migrate_sc
         session.close()
         trans.rollback()
         connection.close()
+
+
+class TestTheLiveGoingDoorsValidate:
+    """Publish and restore meet the same door as a save (review A3, #1770):
+    a draft the migration or a lenient parse left behind, and a history row
+    of an older build, cannot go live unread. Every test writes the bad
+    document straight into the row — the way only the migration can — and
+    each goes red on a publish/restore that skips the door.
+    """
+
+    def test_publish_refuses_a_document_with_a_later_phase_node(self, db_session):
+        from app.domains.cms.schema import UnknownBlock
+
+        page = _page(db_session)
+        translation = save_draft(db_session, page.id, _document("Goed."))
+        # The migration's own way of writing: straight into the row.
+        translation.draft_json = {
+            "type": "doc",
+            "content": [{"type": "button", "attrs": {"label": "Klik", "target": "/x"}}],
+        }
+        db_session.commit()
+        with pytest.raises(UnknownBlock):
+            publish(db_session, page.id)
+        again = get_translation(db_session, page)
+        assert again.published_json is None, "a refused publish still went live"
+
+    def test_publish_refuses_a_picture_the_picker_does_not_offer(self, db_session):
+        page = _page(db_session)
+        translation = save_draft(db_session, page.id, _document("Goed."))
+        translation.draft_json = {
+            "type": "doc",
+            "content": [{"type": "figure", "attrs": {"media_id": 999999, "alt": "Weg."}}],
+        }
+        db_session.commit()
+        from app.domains.cms.schema import InvalidShape
+
+        with pytest.raises(InvalidShape):
+            publish(db_session, page.id)
+
+    def test_restore_refuses_a_history_row_the_renderer_cannot_walk(self, db_session):
+        from app.domains.cms.models import CmsPageHistory
+
+        page = _page(db_session, is_published=False)
+        save_draft(db_session, page.id, _document("Tweede versie."))
+        publish(db_session, page.id, by="tester")
+        db_session.commit()
+        # A history row as an older build might have written her.
+        row = db_session.query(CmsPageHistory).filter(CmsPageHistory.page_id == page.id).first()
+        row.document = {
+            "type": "doc",
+            "content": [{"type": "callout", "content": [{"type": "text", "text": "Oud."}]}],
+        }
+        db_session.commit()
+        from app.domains.cms.schema import UnknownBlock
+
+        with pytest.raises(UnknownBlock):
+            restore(db_session, page.id, row.id)
+
+
+def test_a_cell_keeps_her_line_breaks_on_the_site():
+    """Enter in a table cell is the author's own line break: two paragraphs
+    in a cell ran together as `regel1regel2` on the site (review B1,
+    #1770). Goes red on a join with nothing.
+    """
+    from app.domains.cms.render import render_document
+
+    document = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "table",
+                "content": [
+                    {
+                        "type": "tableRow",
+                        "attrs": {"section": "body"},
+                        "content": [
+                            {
+                                "type": "tableCell",
+                                "content": [
+                                    _paragraph("Regel een."),
+                                    _paragraph("Regel twee."),
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    html = render_document(document)
+    assert "Regel een.<br>Regel twee." in html
+
+
+def test_the_chatbot_keeps_a_word_split_over_two_marks():
+    """A word typed and then partly bolded arrives as two text nodes; the
+    chatbot's text walker joined them with a space — 'wo rd' (review B2,
+    #1770). Goes red on the space-join.
+    """
+    from app.domains.cms.render import render_document
+
+    document = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [
+                    {"type": "text", "text": "wo"},
+                    {"type": "text", "marks": [{"type": "bold"}], "text": "ord"},
+                ],
+            }
+        ],
+    }
+    text = render_document(document, target="text")
+    assert "woord" in text, f"the text walker lost the word: {text!r}"
+
+
+def test_the_chatbot_walks_a_nested_list():
+    """A list inside a list item lost her words in the chatbot's read
+    (review B2, #1770). Goes red on the inline-only walker.
+    """
+    from app.domains.cms.render import render_document
+
+    document = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "bulletList",
+                "content": [
+                    {
+                        "type": "listItem",
+                        "content": [
+                            _paragraph("Bovenpunt."),
+                            {
+                                "type": "bulletList",
+                                "content": [
+                                    {
+                                        "type": "listItem",
+                                        "content": [_paragraph("Onderpunt.")],
+                                    }
+                                ],
+                            },
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    text = render_document(document, target="text")
+    assert "Onderpunt." in text
+
+
+def test_a_title_longer_than_her_column_is_refused_in_words(db_session):
+    """`page_translations.title` carries 200 characters; a longer title
+    aborted the save on the INSERT (review B3, #1770). Goes red on the
+    missing check — and carries Dutch words, not Python's.
+    """
+    page = _page(db_session)
+    with pytest.raises(ValueError) as refusal:
+        update_page(
+            db_session,
+            page.id,
+            CmsPageUpdate(title="T" * 201),
+        )
+    assert "200" in str(refusal.value)
+
+
+def test_the_slug_refusal_is_dutch(db_session):
+    """The slug refusal reaches the author in Dutch (review B4, #1770), at
+    every door that speaks her. Goes red on the English `Slug already
+    exists` — the two doors carry the same words.
+    """
+    page = _page(db_session)
+    other = create_page(db_session, CmsPageCreate(title="Andere", slug="andere-1671"))
+    assert other is not None
+    with pytest.raises(ValueError) as refusal:
+        update_page(db_session, page.id, CmsPageUpdate(slug=other.slug))
+    assert "bestaat al" in str(refusal.value)

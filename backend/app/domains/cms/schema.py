@@ -141,6 +141,32 @@ MARK_ATTRS: dict[str, dict[str, Any]] = {
     "link": {"href": "str", "target": "str?", "rel": "str?", "class": "str?", "title": "str?"}
 }
 
+#: The nodes the renderer can render today (review A2, #1770). NODES holds
+#: the whole design from the start — the shapes of the later phases stand
+#: there — but a stored document may hold only what the renderer can turn
+#: into HTML, or a published page takes the site down with a ValueError. The
+#: renderer is the source: this is the set she walks, named here once so the
+#: validator and the renderer cannot drift apart. A later phase adds its
+#: nodes to the renderer first, then here.
+RENDERABLE: frozenset[str] = frozenset(
+    {
+        "doc",
+        "paragraph",
+        "heading",
+        "bulletList",
+        "orderedList",
+        "listItem",
+        "table",
+        "tableRow",
+        "tableHeader",
+        "tableCell",
+        "figure",
+        "text",
+        "hardBreak",
+        "value",
+    }
+)
+
 #: The sets (C4.5). The toolbar and the insert menu offer exactly these; the
 #: editor's configuration is generated from this, never hand-written in a
 #: template (gate 14).
@@ -232,7 +258,7 @@ def validate_document(document: Any, set_name: str = "page") -> dict:
         # The root is the document itself; a paragraph (or a text node) at
         # the top is a client's mistake, not a document (review A3, #1699).
         raise InvalidShape(f"Onjuiste wortel: {document.get('type')}")
-    _validate_node(document, "doc")
+    _validate_node(document, "doc", renderable=True)
     return document
 
 
@@ -275,11 +301,16 @@ def _content_rule(node_type: str) -> tuple[set[str], int, int | None] | None:
 MAX_DEPTH = 64
 
 
-def _validate_node(node: Any, path: str) -> None:
+def _validate_node(node: Any, path: str, renderable: bool = False) -> None:
     if path.count("/") >= MAX_DEPTH:
         raise InvalidShape("Te diep genest: het document heeft te veel niveaus")
     node_type = node.get("type") if isinstance(node, dict) else None
     if node_type not in NODES:
+        raise UnknownBlock(f"Onbekend blok: {node_type}")
+    if renderable and node_type not in RENDERABLE:
+        # The schema knows the node (a later phase's shape) but the renderer
+        # does not walk it — a stored document with her would take the
+        # public page down the moment it renders (review A2, #1770).
         raise UnknownBlock(f"Onbekend blok: {node_type}")
     spec = NODES[node_type]
     # A malformed document is refused with a name, never a crash (review A2,
@@ -423,7 +454,7 @@ def _validate_node(node: Any, path: str) -> None:
             raise UnknownBlock(f"Onbekend blok: {type(child).__name__}")
         if child_type not in allowed_children:
             raise InvalidShape(f"Onjuiste plaats: {child_type} onder {node_type}")
-        _validate_node(child, f"{path}/{node_type}")
+        _validate_node(child, f"{path}/{node_type}", renderable=renderable)
     if len(children) < minimum:
         raise InvalidShape(f"Leeg blok: {node_type}")
     if maximum is not None and len(children) > maximum:
