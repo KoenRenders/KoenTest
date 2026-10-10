@@ -738,7 +738,7 @@ dialog is for deleting a record, and whether a component with
 registrations may go is the service's answer at Opslaan, shown on the
 row (Koen's correction). **The one-among-many tag** ("hoofdadres", 4 px)
 shows in both modes; another row takes it over through "Maak hoofdadres"
-in its `⋯`; the main row's `⋯` has no Verwijderen. Measured at 1 440 px:
+in its `⋯`; the main row's `⋯` has no Verwijderen — except where the rows are `removable` (#1603, the e-mail addresses of a person: the *hoofdadres* row keeps Verwijderen too, and nothing is promoted when it goes; Koen, 10 Oct 2026, on the household record: "Dan zou ik dat bij het hoofdadres ook doen"). Measured at 1 440 px:
 Onderdelen with two components (one with two products) 719 px read /
 1 380 px edit; a date row 46 / 65 px; an organiser row 44 px.
 
