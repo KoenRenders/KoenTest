@@ -13,13 +13,13 @@ Scope: every claim in this document is traceable to code in the repository; see 
 
 **What runs today.** Activity registration, family membership with renewal, online and bank-transfer payments through Mollie, a form engine, a CMS, a chatbot, reporting with an admin assistant, board-meeting support, a newsletter with an AI co-writer, a poster design studio and a restyled back office (Cobalt design track; the norm is `docs/design-system.md`). In production for Raak Millegem since June 2026.
 
-**Why it is an ERP foundation and not a club portal.** The functional surface is small; the *structure* is that of business software: seventeen domain packages behind facades with one Postgres schema each, master data with merge and survivorship, a payment ledger with a stated reconciliation invariant, row-level multi-tenancy, a kernel with in-transaction events and a durable job queue, and a workbench that turns every exception into a task. None of that is needed to sell tickets for a barbecue; all of it is needed the day the same code runs an order book, a warehouse or a second customer (Chapter 8).
+**Why it is an ERP foundation and not a club portal.** The functional surface is small; the *structure* is that of business software: fifteen domain packages behind facades with one Postgres schema each, master data with merge and survivorship, a payment ledger with a stated reconciliation invariant, row-level multi-tenancy, a kernel with in-transaction events and a durable job queue, and a workbench that turns every exception into a task. None of that is needed to sell tickets for a barbecue; all of it is needed the day the same code runs an order book, a warehouse or a second customer (Chapter 8).
 
 **How it was built.** By one architect directing AI coding agents. That only works when agents cannot quietly break things, so much of the engineering went into *gates*: 3,323 tests against a real PostgreSQL, eighteen gate files that fail the build on architectural drift, a rendered-HTML gate, browser flows where money moves, and a CI that boots the real startup script. The agent corrects itself on the failing test (Chapter 6).
 
 **The five architectural choices that make it scale to business software**
 
-1. **Domain packages behind facades, one schema each.** Seventeen packages, each with `api.py` as its only public door and its own Postgres schema; two AST-based tests enforce it on every push.
+1. **Domain packages behind facades, one schema each.** Fifteen packages (9 October 2026; seventeen in September, before `audit` dissolved into its owners, CR-13 phase 4c), each with `api.py` as its only public door and its own Postgres schema; two AST-based tests enforce it on every push.
 2. **ERP-style master data.** Never hard-deleted; duplicates merge into a golden record with a survivorship chain; every entity has an append-only history table; other domains reference it by value, without cross-schema foreign keys — with one named exception, the code tables of the two foundation domains (§2.1).
 3. **A ledger, not a payment field.** Every charge and refund is a record with a polymorphic reference to what is paid; one function owns the invariant *sum of records equals amount due*; the Mollie webhook never trusts its own body.
 4. **Row-level multi-tenancy from the kernel.** A `tenant_id` mixin on 63 tables, resolved per request and applied as a global ORM filter no query can forget. A third tenant is configuration, not code.
@@ -151,7 +151,6 @@ flowchart TB
     direction LR
     MEDIA["media<br/>assets · OCR · extraction"]:::x
     STT["stt<br/>Voxtral realtime proxy"]:::x
-    AUD["audit<br/>history · change report"]:::x
   end
   K[("kernel — no business logic, imports no domain<br/>tenancy · tenant_config · events · jobs · history · ordering · ods")]
   USERS --> L2
@@ -197,48 +196,51 @@ flowchart TB
 | media | media | yes | yes | yes | admin | yes |
 | chatbot | ai | yes | yes | 2 routers | widget + admin | yes |
 | workflow | workflow | yes | in facade | none | werkbank | yes |
-| audit | (uses domain schemas) | yes | yes | yes | changes screen | no |
 | meetings | meetings | yes | yes | none | admin | yes |
 | newsletter | newsletter | yes | yes | none | admin | yes |
 | designstudio | designstudio | yes | yes | yes | admin | yes |
-| reporting | reporting | yes | yes | none | admin + assistant | no |
+| reporting | reporting | yes | yes | none | admin + assistant + change report | yes |
 | stt | none | none | none | WebSocket | none | no |
+
+`audit` left this table on 9 October 2026 (CR-13 phase 4c, #1251): it owned no table and no rule. Each history table is written by its owner (`<domain>/history.py` over `kernel/history.py`, §5.8), the change report that reads them is `reporting/changes.py`, and the name of the actor when nobody was signed in is `kernel/history.py`'s `PUBLIC_ACTOR`.
 
 Rules that hold on master: kernel imports no domain; cross-domain imports target only `.api`; no cross-schema foreign keys except towards a code table of `mdm` or `auth` (§2.1); a UI module never touches the session. Two facades still delegate part of their implementation back into a router (`activities`, `forms`), which the layer gate tolerates for services but not for screens. That is honest debt, and it is listed in Chapter 9.
 
 ### 3.2.1 Events, ports and reads: which one, and when to build more
 
-Decided with Koen on 30 September 2026, after CR-14 needed two synchronous calls from `activities` into `forms`. This section is the rule; `kernel/events.py`, `kernel/jobs.py` and the `COMMAND_CALLS` gate (CR-13 §B4.9) are its mechanics.
+Decided with Koen on 30 September 2026, after CR-14 needed two synchronous calls from `activities` into `forms`. This section is the rule; `kernel/events.py`, `kernel/ports.py`, `kernel/jobs.py` and the `COMMAND_CALLS` gate (CR-13 §B4.9) are its mechanics.
 
 **The choice is made by what the caller says, not by transactional integrity.**
 
 | The caller… | Use | Receivers | Answer back |
 |---|---|---|---|
 | reports a fact ("a payment was received") | an **event** (`publish` / `@subscribe`, contract in `kernel/contracts/`) | zero or more | none |
-| needs something done *and* the result to continue ("store these answers, tell me whether they are valid and their id") | a **port** (a command with one handler) | exactly one | yes |
+| needs something done *and* the result to continue ("store these answers, tell me whether they are valid and their id") | a **port** (`call` / `@handles`, a command with exactly one handler; contract in `kernel/contracts/`) | exactly one | yes |
 | only wants to know something | a **read** through the other domain's `api.py` | — | yes |
 
-Integrity is not what separates them. Today events run synchronously in the caller's transaction (rung 1), and a port would too, so both are all-or-nothing. The difference only surfaces when a component is extracted. An event then goes through an outbox and tolerates delay (eventual consistency). A port cannot wait, because the caller needs the answer, so it needs its own means (idempotent calls, compensation). That is why the default is an event, and a port is used only where an answer is really needed.
+Integrity is not what separates them. Today events and ports both run synchronously in the caller's transaction (rung 1), so both are all-or-nothing. The difference only surfaces when a component is extracted. An event then goes through an outbox and tolerates delay (eventual consistency). A port cannot wait, because the caller needs the answer, so it needs its own means (idempotent calls, compensation). That is why the default is an event, and a port is used only where an answer is really needed.
 
-**Where it lives: the kernel, not a domain.** Messaging is plumbing without business meaning. In `workflow` (a business domain that *consumes* events) it would make every domain depend on a business domain. In `kernel/rules.py` it would mix *whether something may happen* with *how domains talk*. As a domain of its own it would become the hub everything couples to. When ports are built, events and ports move together into one small kernel package (for example `kernel/messaging/`), so the kernel does not become a junk drawer.
+**Two shapes beside the three** (CR-13 phase 4d, #1824, v2.16.0): a *door* — a route or screen module — may call exactly one command of another domain, its own or a foreign one, and read freely; a second command is refused. Code reached only from a `@job` may call another domain's command and act on its outcome, because a job has its own means (its retry, an outcome of its own). What fits none of these stands declared with its reason in the gate's own file (`DECLARED_COMMAND_CALLS` in `tests/test_rules_gate.py`, five entries on 9 October 2026: the checkout's three until CR-31, the meeting mail, the newsletter's sign-up confirmation) — no baseline file any more.
+
+**Where it lives: the kernel, not a domain.** Messaging is plumbing without business meaning. In `workflow` (a business domain that *consumes* events) it would make every domain depend on a business domain. In `kernel/rules.py` it would mix *whether something may happen* with *how domains talk*. As a domain of its own it would become the hub everything couples to. Events and ports are two modules side by side, `kernel/events.py` and `kernel/ports.py` (built 9 October 2026, CR-13 phase 4c, #1251). A package of their own waits for a third kind of plumbing, the outbox of step 3; two modules do not make a junk drawer, a package for two would be a drawer with a label.
 
 **When to build more — three steps, each only when its trigger occurs:**
 
-1. **Now: nothing.** A synchronous command into another domain is a named exception in the `COMMAND_CALLS` baseline, with its reason on the line. On 30 September 2026 there are two, both `activities → forms` for attached answers (`submit_attached`, `update_attached`, CR-14 §B4.2 and §B4.7).
-2. **Trigger: a third synchronous command, or a second domain pair.** Build the port mechanism next to events: a contract in `kernel/contracts/`, a registry with one handler per port, and the gate treating a call through a port as allowed. The named exceptions then leave the baseline in the same change.
+1. **Done (30 September to 9 October 2026).** A synchronous command into another domain was a named exception in the `COMMAND_CALLS` baseline, with its reason on the line: two, both `activities → forms` for attached answers (`submit_attached`, `update_attached`, CR-14 §B4.2 and §B4.7).
+2. **Built 9 October 2026** (CR-13 phase 4c, #1251), when CR-13 phase 4 brought the second domain pair (`membership → mdm`, household creation). The mechanism is `kernel/ports.py`: a `Port` is a frozen dataclass with data only, its contract in `kernel/contracts/<owner>.py` next to the owner's events, naming its outcome and its refusals in the docstring; the owner registers the one handler with `@handles` in its `handlers.py`; the caller runs `call(port, db)` and gets the outcome back. A refusal is the owner's own exception, raised through `call` unchanged; `PortNotHandled` and `PortHandledTwice` are `RuntimeError`s, a wiring fault and never a refusal (the same function registered twice, a reload, is ignored). The two attached-answer commands were the first ports (`SubmitAttached`, `UpdateAttached`, outcome `AttachedSubmission`); their `COMMAND_CALLS` lines left the baseline in the same change. The rules gate reads the ports hard and without a baseline: one handler per port, a contract of plain values, and no `kernel.ports` import in a router or screen module — a port is called from a service, not from a door. The gate lives in the rules gate and not in the layer gate, because the layer gate reads imports by module and would let `from app.kernel import ports` through. `CreateHousehold` (`membership → mdm`) follows in the same phase.
 3. **Trigger: a component is actually extracted (R7). Future extension: the event queue in the database (transactional outbox).** Today `publish()` delivers at once, inside the caller's transaction. With the outbox, `publish()` instead writes the event as a row in the same transaction as the business change, and a runner delivers it afterwards, retrying until the receiver succeeds. The publisher no longer waits for, or rolls back with, its receivers; they become eventually consistent. Build it on the existing job table (`kernel_jobs`: enqueued in the business transaction, retried with backoff, `FOR UPDATE SKIP LOCKED`, failures visible on the werkbank), one job per subscriber, not as a second mechanism beside it. Mail already works this way in the small: its event handler enqueues a job. Only events whose receiver lives in the extracted component need it; the rest may stay synchronous. Which ports become network calls is decided at that moment, not in advance.
 
 **Deliberately not done**, because at this scale each only adds upkeep:
 
 - no message broker (RabbitMQ, Kafka);
 - no general workflow engine — `workflow` stays the werkbank for people;
-- no event sourcing, and no permanent log of every event — the history tables and `audit` keep what must be kept.
+- no event sourcing, and no permanent log of every event — the history tables keep what must be kept, each written by its owner and read by the change report in `reporting` (§5.8).
 
 ## 3.3 Master data and membership
 
 The MDM domain is generic on purpose: an `Organization` tree (ACCOUNT above UNIT) is the tenant registry; `Person` and `Member` (a household) are linked through a junction with a relation type; addresses use a postal-code lookup table; contact details are typed rows rather than columns on the person; legacy identifiers live in a separate external-number table. Every entity has an append-only history table with no foreign keys, so history survives the deletion of its subject (the figure shows the person's; membership has its own).
 
-Merge and survivorship are implemented: `merge_persons` flattens chains so `resolve()` is O(1), writes a `person_merged` snapshot as the anchor for `unmerge_person`, and publishes an `EntityMerged` event. Nothing is hard-deleted; a global soft-delete filter hides `deleted_at` rows from every ORM query, including relationship loads, with an explicit escape hatch for the audit screen. [HDEV]
+Merge and survivorship are implemented: `merge_persons` flattens chains so `resolve()` is O(1), writes a `person_merged` snapshot as the anchor for `unmerge_person`, and publishes an `EntityMerged` event. Nothing is hard-deleted; a global soft-delete filter hides `deleted_at` rows from every ORM query, including relationship loads, with an explicit escape hatch for the change screens. [HDEV]
 
 <!-- figure: name=er-mdm caption=Master_data_and_membership_(schemas_mdm,_membership)_-_key_columns_per_entity -->
 ```mermaid
@@ -340,7 +342,7 @@ flowchart LR
     direction TB
     G9["9 · rate limiter<br/>login 5/min · registration 10/min<br/>chat 20/min · webhook 60/min"]
     G10["10 · authentication<br/>JWT (API) · signed HttpOnly session (UI)<br/>X-API-Key"]
-    G11["11 · authorisation<br/>require_admin_ui · require_finance_mutation<br/>require_operator_ui"]
+    G11["11 · authorisation<br/>require_right(code) · may(db, email, right)<br/>a role is a bundle of rights (CR-24, v2.16.0)"]
     G12["12 · CSRF double-submit<br/>HMAC over the session value · 94 routes"]
     G13["13 · Pydantic validation<br/>422 logs field names, never values"]
     G14["14 · ownership<br/>a member reaches only their own household"]
@@ -429,9 +431,9 @@ flowchart TB
   E[e-mail address] --> L{known?}
   L -->|active User or Person| T["magic link + OTP<br/>hashed · 5 attempts · 15 min"]
   L -->|unknown| Q["same generic answer<br/>(no enumeration)"]
-  T --> R{roles, derived per request}
-  R -->|ADMIN · OPERATOR| WB["/admin/werkbank<br/>full back office within the tenant"]
-  R -->|FINANCE only| PAY["/admin/betalingen<br/>read + mutate payments, nothing else"]
+  T --> R{rights, derived per request<br/>from the roles' bundles}
+  R -->|any back-office role| WB["/admin/werkbank<br/>the one way in; the menu shows what the rights open"]
+  R -->|FINANCE| PAY["Betalingen beside the workbench<br/>payment.view · payment.manage"]
   R -->|OPERATOR| TEN["/admin/tenants<br/>tenant provisioning and settings"]
   R -->|member, no role| HH["/leden/gezin<br/>own household only"]
   classDef r fill:#e8f0ff,stroke:#0051a4;
@@ -510,8 +512,9 @@ items, route prefixes, dashboard tiles, home blocks, sitemap paths, newsletter
 audiences, reporting folders and dependencies (the Design Studio needs
 activities; payments need activities or membership) — and `mdm.tenant_modules`
 holds each tenant's enabled set, its values held to the registry's codes by a
-CHECK. Defaults per kind: an association has every module, a company cms, media,
-forms and the workbench.
+CHECK. Defaults per kind: an association has every module, a company cms, media and
+forms. The workbench is core, not a module, since v2.16.0 (#1876, with CR-24): it
+is the one way into the back office for every role, so it cannot be off.
 
 A module that is off is not unmounted — one process serves every tenant — but
 refused: `main.py` includes each module router with `require_module(code)`, which
@@ -651,7 +654,7 @@ flowchart TB
     SAN["output: markdown → nh3<br/>no img · no table"]
   end
   USER["visitor<br/>20 req/min · 20k chars/day"]
-  FORM["forms.submit_bericht<br/>the site's own write path"]
+  FORM["the forms port SubmitMessage<br/>the site's own write path (CR-13 4d)"]
   WB["workbench task"]
   CMS --> CTX
   NOTES --> CTX
@@ -745,7 +748,7 @@ The roadmap has two horizons. R0 to R5 finish the platform as it runs for the fi
 | R5 | Remaining view-model conversions (14 modules) and facade clean-up (`activities`, `forms` still delegate into routers) | finishes principle 2.2 for every screen | [PARTIAL], gated by allowlists |
 | R6 | Consent register in MDM, then segments, then the AI-drafted newsletter with workbench review | the recruitment engine of 7.2; consent first, by law and by design | [ROADMAP] |
 | R7 | Transactional outbox for events (the event queue in the database, §3.2.1 step 3); component extraction where a driver appears (STT first) | today's events are synchronous and in-transaction by design; extraction is a deployable decision, not a code decision | [ROADMAP] |
-| R10 | Ports for synchronous commands between domains, next to events in one kernel package (§3.2.1 step 2) | trigger: a third synchronous command, or a second domain pair; replaces the named `COMMAND_CALLS` exceptions (two on 30 September 2026) | [ROADMAP] |
+| R10 | Ports for synchronous commands between domains, `kernel/ports.py` next to `kernel/events.py` (§3.2.1 step 2) | the trigger was the second domain pair (`membership → mdm`, CR-13 phase 4); the two named `COMMAND_CALLS` exceptions became the first two ports | on `master` since 9 October 2026 (#1251); `CreateHousehold` follows in CR-13 phase 4 |
 | R8 | Object storage adapter for media | blobs live in Postgres today; the adapter seam is named in the media facade | [ROADMAP] |
 | R9 | PWA manifest and service worker | designed in the frontend decision, not started | [ROADMAP] |
 | R11 | Modules per tenant (CR-19): the registry and guard (5.3), then menus, screens, the tenant kind and its editor | a tenant that is not an association — a company site with forms and a workbench — on the same platform, as configuration | [PARTIAL], phase 1 on `master` |
@@ -763,7 +766,7 @@ The working document `docs/intermediate-architecture-upgrade-v1.md` (July 2026) 
 | Package-by-domain with `api.py` as the only door | in code | 13 packages; import-boundary test with an empty allowlist |
 | Import linter enforcing the boundary | in code, as a pytest | `tests/test_import_boundaries.py`; no third-party tool |
 | Own Postgres schema per component, one Alembic chain | in code | 11 schemas, 92 migrations, one head |
-| `CONTRACT.md` per component | partial | 11 of 13; missing for `audit` and `stt` |
+| `CONTRACT.md` per component | in code | 15 of 15 on 9 October 2026 (11 of 13 in September; the module-shape gate of CR-13 phase 0a requires it) |
 | Per-component `tests/` and `seeds.py` | not in code | tests are central; seeds are top-level scripts |
 | OpenAPI export with a drift gate (§19.4) | not in code | the opposite exists: docs are hidden in uat/prod |
 | Synchronous in-transaction events (ladder rung 1) | in code | `kernel/events.py`, four contracts |
@@ -808,7 +811,7 @@ The working document `docs/intermediate-architecture-upgrade-v1.md` (July 2026) 
 | Kernel | `backend/app/kernel/{tenancy,tenant_config,events,jobs,history,ordering,ods}.py`, `kernel/contracts/` |
 | Gatekeepers | `backend/app/main.py`, `app/limiter.py`, `app/soft_delete.py`, `domains/auth/{session,service,login}.py`, `caddy/parts/snippets.caddy` |
 | Ledger and Mollie | `domains/payment/{service,gateway_service,gateway_router,structured_communication,exports}.py`, `providers/{base,mollie}.py` |
-| Master data | `domains/mdm/{models,service,tenant_service,import_service}.py`, `domains/audit/{service,changes}.py` |
+| Master data | `domains/mdm/{models,service,tenant_service,import_service,history}.py`, `kernel/history.py`, `domains/reporting/changes.py` (the change report) |
 | Form engine | `domains/forms/{models,service,results,export,ui}.py`, `app/static/form-json-formaat.md` |
 | AI | `domains/chatbot/{context,tools,service,render}.py`, `chatbot/providers/`, `domains/media/extraction.py`, `domains/chatbot/stt/` |
 | Gates | `backend/tests/test_{import_boundaries,schema_boundaries,layer_gate,template_variables_gate,ui_conventions_gate,gate_niet_leeg,payable_delete_gate,query_budget,render_gate,docs_gating,i18n_gate}.py` |

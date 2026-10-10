@@ -1,7 +1,7 @@
 # Change Request 16 — The port (het loket): one command with one answer between domains
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 1 October 2026 · on hold — Koen walks through it first, then plans it; not deferred, not rushed
+**Status:** shaped on 1 October 2026 · on hold — Koen walks through it first, then plans it; not deferred, not rushed · **re-measure before planning** (10 October 2026, at the close-out of CR-13 phase 4): CR-13 phase 4c built the port mechanism (`kernel/ports.py`) and the two forms ports `SubmitAttached` and `UpdateAttached` in v2.16.0 (#1251), and `tests/rules_baseline.py` is deleted — the rows of C1 and the passages that cite it describe the code of 1 October; what this change request still adds is measured against v2.16.0 before Koen plans it
 **Tracking issue:** #1411 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the kernel (a new `kernel/messaging/` package holding events and ports); the three synchronous commands from `activities` into `forms`; the `COMMAND_CALLS` gate and its baseline; `docs/architecture.md` §3.2.1 and `docs/code-style.md`.
 **Reading:** A 1898 words · B 2417 · C 2434 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
