@@ -220,6 +220,8 @@ Decided with Koen on 30 September 2026, after CR-14 needed two synchronous calls
 
 Integrity is not what separates them. Today events and ports both run synchronously in the caller's transaction (rung 1), so both are all-or-nothing. The difference only surfaces when a component is extracted. An event then goes through an outbox and tolerates delay (eventual consistency). A port cannot wait, because the caller needs the answer, so it needs its own means (idempotent calls, compensation). That is why the default is an event, and a port is used only where an answer is really needed.
 
+**Two shapes beside the three** (CR-13 phase 4d, #1824, v2.16.0): a *door* — a route or screen module — may call exactly one command of another domain, its own or a foreign one, and read freely; a second command is refused. Code reached only from a `@job` may call another domain's command and act on its outcome, because a job has its own means (its retry, an outcome of its own). What fits none of these stands declared with its reason in the gate's own file (`DECLARED_COMMAND_CALLS` in `tests/test_rules_gate.py`, five entries on 9 October 2026: the checkout's three until CR-31, the meeting mail, the newsletter's sign-up confirmation) — no baseline file any more.
+
 **Where it lives: the kernel, not a domain.** Messaging is plumbing without business meaning. In `workflow` (a business domain that *consumes* events) it would make every domain depend on a business domain. In `kernel/rules.py` it would mix *whether something may happen* with *how domains talk*. As a domain of its own it would become the hub everything couples to. Events and ports are two modules side by side, `kernel/events.py` and `kernel/ports.py` (built 9 October 2026, CR-13 phase 4c, #1251). A package of their own waits for a third kind of plumbing, the outbox of step 3; two modules do not make a junk drawer, a package for two would be a drawer with a label.
 
 **When to build more — three steps, each only when its trigger occurs:**
@@ -340,7 +342,7 @@ flowchart LR
     direction TB
     G9["9 · rate limiter<br/>login 5/min · registration 10/min<br/>chat 20/min · webhook 60/min"]
     G10["10 · authentication<br/>JWT (API) · signed HttpOnly session (UI)<br/>X-API-Key"]
-    G11["11 · authorisation<br/>require_admin_ui · require_finance_mutation<br/>require_operator_ui"]
+    G11["11 · authorisation<br/>require_right(code) · may(db, email, right)<br/>a role is a bundle of rights (CR-24, v2.16.0)"]
     G12["12 · CSRF double-submit<br/>HMAC over the session value · 94 routes"]
     G13["13 · Pydantic validation<br/>422 logs field names, never values"]
     G14["14 · ownership<br/>a member reaches only their own household"]
@@ -429,9 +431,9 @@ flowchart TB
   E[e-mail address] --> L{known?}
   L -->|active User or Person| T["magic link + OTP<br/>hashed · 5 attempts · 15 min"]
   L -->|unknown| Q["same generic answer<br/>(no enumeration)"]
-  T --> R{roles, derived per request}
-  R -->|ADMIN · OPERATOR| WB["/admin/werkbank<br/>full back office within the tenant"]
-  R -->|FINANCE only| PAY["/admin/betalingen<br/>read + mutate payments, nothing else"]
+  T --> R{rights, derived per request<br/>from the roles' bundles}
+  R -->|any back-office role| WB["/admin/werkbank<br/>the one way in; the menu shows what the rights open"]
+  R -->|FINANCE| PAY["Betalingen beside the workbench<br/>payment.view · payment.manage"]
   R -->|OPERATOR| TEN["/admin/tenants<br/>tenant provisioning and settings"]
   R -->|member, no role| HH["/leden/gezin<br/>own household only"]
   classDef r fill:#e8f0ff,stroke:#0051a4;
@@ -510,8 +512,9 @@ items, route prefixes, dashboard tiles, home blocks, sitemap paths, newsletter
 audiences, reporting folders and dependencies (the Design Studio needs
 activities; payments need activities or membership) — and `mdm.tenant_modules`
 holds each tenant's enabled set, its values held to the registry's codes by a
-CHECK. Defaults per kind: an association has every module, a company cms, media,
-forms and the workbench.
+CHECK. Defaults per kind: an association has every module, a company cms, media and
+forms. The workbench is core, not a module, since v2.16.0 (#1876, with CR-24): it
+is the one way into the back office for every role, so it cannot be off.
 
 A module that is off is not unmounted — one process serves every tenant — but
 refused: `main.py` includes each module router with `require_module(code)`, which
@@ -651,7 +654,7 @@ flowchart TB
     SAN["output: markdown → nh3<br/>no img · no table"]
   end
   USER["visitor<br/>20 req/min · 20k chars/day"]
-  FORM["forms.submit_bericht<br/>the site's own write path"]
+  FORM["the forms port SubmitMessage<br/>the site's own write path (CR-13 4d)"]
   WB["workbench task"]
   CMS --> CTX
   NOTES --> CTX
