@@ -156,6 +156,9 @@ MODULES: tuple[Module, ...] = (
         admin_items=(("/admin/producten", "Productbeheer"),),
         route_prefixes=("/admin/producten",),
         record_tables=("product.products",),
+        # The shop pays its orders through payment, and its pictures come from
+        # media (CR-21 Q59).
+        depends_on=((M.PAYMENT,), (M.MEDIA,)),
     ),
     Module(
         M.FORMS,
@@ -201,8 +204,8 @@ MODULES: tuple[Module, ...] = (
         route_prefixes=("/admin/betalingen", "/api/v1/payment-gateway"),
         dashboard_tiles=("dashboard_outstanding",),
         reporting_folders=("Betalingen",),
-        # Payments pay for a registration or a membership (`PayableType`).
-        depends_on=((M.ACTIVITIES, M.MEMBERSHIP),),
+        # Payments pay for a registration, a membership or an order (`PayableType`).
+        depends_on=((M.ACTIVITIES, M.MEMBERSHIP, M.SHOP),),
         record_tables=("payment.payment_records",),
         tenant_settings=("payment_term_days", "mollie_api_key"),
     ),

@@ -110,7 +110,7 @@ def test_every_existing_unit_is_an_association_and_nothing_else_has_a_kind(db_se
     "codes,message",
     [
         ({"cms", "designstudio"}, "Design Studio heeft Activiteiten nodig."),
-        ({"cms", "payment"}, "Betalingen heeft Activiteiten of Leden nodig."),
+        ({"cms", "payment"}, "Betalingen heeft Activiteiten of Leden of Webshop nodig."),
         ({"cms", "stamboom"}, "Onbekende module."),
     ],
 )
