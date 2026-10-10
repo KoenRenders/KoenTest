@@ -133,6 +133,7 @@ def test_de_uitzonderingslijst_blijft_een_uitzondering():
         "sponsor",
         "tenant_logo",
         "page_image",
+        "product_document",
     }, LOSSLESS_KINDS
     assert MediaKind.ACTIVITY_PHOTO not in LOSSLESS_KINDS
     assert MediaKind.DESIGN_IMAGE not in LOSSLESS_KINDS, (
