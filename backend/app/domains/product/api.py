@@ -29,6 +29,15 @@ from app.domains.product.service import (  # noqa: F401
     variants_of,
 )
 
+
+def size_of(variant: ProductVariant) -> str:
+    """The size of a variant, from its one `Maat` property (B3a)."""
+    for prop in variant.properties or []:
+        if prop.get("name") == "Maat":
+            return str(prop.get("value", ""))
+    return ""
+
+
 __all__ = [
     "PRODUCT_STATUS",
     "Product",
@@ -48,6 +57,7 @@ __all__ = [
     "references_to_media",
     "set_pre_order",
     "set_status",
+    "size_of",
     "update_product",
     "variants_of",
 ]

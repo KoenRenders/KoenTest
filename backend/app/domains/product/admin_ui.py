@@ -29,10 +29,11 @@ from app.domains.product.api import (
     list_products,
     set_pre_order,
     set_status,
+    size_of,
     update_product,
     variants_of,
 )
-from app.domains.product.viewmodels import ProductListView, ProductNewView, ProductView, size_of
+from app.domains.product.viewmodels import ProductListView, ProductNewView, ProductView
 from app.i18n import _
 from app.ui import admin_nav, is_fragment_request, templates
 

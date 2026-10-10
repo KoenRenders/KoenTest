@@ -77,6 +77,7 @@ from app.domains.payment.handlers import (  # noqa: F401 - event-abonnementen (C
 from app.domains.payment.router import router as payment_router
 from app.domains.payment.stub_router import include_stub_routes
 from app.domains.payment.ui import router as payment_ui_router
+from app.domains.pricing.admin_ui import router as pricing_admin_ui_router
 from app.domains.pricing.handlers import (  # noqa: F401 - event subscription (CR-21)
     drop_prices_of_deleted_product,
 )
@@ -225,6 +226,7 @@ app.include_router(email_log_ui_router)
 app.include_router(mdm_ui_router, dependencies=_module(M.MEMBERSHIP))
 app.include_router(payment_ui_router, dependencies=_module(M.PAYMENT))
 app.include_router(product_admin_ui_router, dependencies=_module(M.SHOP))
+app.include_router(pricing_admin_ui_router, dependencies=_module(M.SHOP))
 app.include_router(reporting_admin_ui_router, dependencies=_module(M.REPORTING))
 app.include_router(meetings_admin_ui_router, dependencies=_module(M.MEETINGS))
 app.include_router(designstudio_admin_ui_router, dependencies=_module(M.DESIGNSTUDIO))

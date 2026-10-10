@@ -402,6 +402,14 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/prijzen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/prijzen/{product_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "GET /admin/producten": {
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
@@ -1149,6 +1157,10 @@
   "POST /admin/personen/{person_id}/verwijderen": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/prijzen/{product_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
   },
   "POST /admin/producten": {
    "platform": "OPERATOR",

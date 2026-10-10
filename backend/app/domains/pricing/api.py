@@ -10,12 +10,14 @@ from app.domains.pricing.models import (  # noqa: F401
     PriceError,
     PriceType,
 )
-from app.domains.pricing.service import price_for  # noqa: F401
+from app.domains.pricing.service import add_prices, price_for, prices_of  # noqa: F401
 
 __all__ = [
     "PRICE_TYPE",
     "Price",
     "PriceError",
     "PriceType",
+    "add_prices",
     "price_for",
+    "prices_of",
 ]

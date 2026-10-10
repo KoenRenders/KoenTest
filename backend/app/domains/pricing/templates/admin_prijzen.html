@@ -1,0 +1,22 @@
+{% extends "list_page.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Prijsbeheer — Raak beheer") }}{% endblock %}
+{% block list_title %}{{ _("Prijsbeheer") }}{% endblock %}
+{% block list_body %}
+{% if not products %}
+  {{ ui.empty_state(_("Nog geen artikelen. Maak er eerst een aan in Productbeheer.")) }}
+{% else %}
+<div class="space-y-2">
+  {% for product in products %}
+  <a href="/admin/prijzen/{{ product.id }}"
+     class="block bg-surface border border-line rounded-2xl px-5 py-4 hover:bg-surface-2 transition-colors">
+    <div class="flex items-center gap-3 flex-wrap">
+      <span class="font-semibold text-ink">{{ product.name }}</span>
+      {{ ui.badge(product.status | code_label("product_status"),
+                  product.status | tone("product_status")) }}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -3,16 +3,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from app.domains.product.models import Product, ProductVariant
+from app.domains.product.models import Product
 from app.ui.viewmodel import ViewModel
-
-
-def size_of(variant: ProductVariant) -> str:
-    """The size of a variant, from its one `Maat` property (B3a)."""
-    for prop in variant.properties or []:
-        if prop.get("name") == "Maat":
-            return str(prop.get("value", ""))
-    return ""
 
 
 @dataclass(frozen=True, kw_only=True)

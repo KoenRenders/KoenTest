@@ -1,4 +1,5 @@
-"""The price question (CR-21), behind `api.py`: the price of a variant on a day."""
+"""The price question (CR-21), behind `api.py`: the price of a variant on a day,
+and the prices a screen manages."""
 
 from datetime import date
 from decimal import Decimal
@@ -7,6 +8,64 @@ from sqlalchemy.orm import Session
 
 from app.domains.pricing.models import Price, PriceType
 from app.domains.product.api import get_variant
+
+
+def prices_of(db: Session, product_id: int) -> list[Price]:
+    """The prices of an article, newest start first (C4.2: a price ends where
+    the next one of the same type starts)."""
+    return (
+        db.query(Price)
+        .filter(Price.product_id == product_id)
+        .order_by(Price.valid_from.desc(), Price.variant_id, Price.price_type)
+        .all()
+    )
+
+
+def add_prices(
+    db: Session,
+    *,
+    product_id: int,
+    variant_id: int | None,
+    valid_from: date | None,
+    amount: Decimal | None,
+    member_amount: Decimal | None,
+) -> list[Price]:
+    """Set the price from `valid_from` (C4.2): a REGULAR price always, and a
+    MEMBER price when `member_amount` is given — empty means members pay the
+    regular price. A variant's price overrides the product's (Q4)."""
+    from app.domains.pricing.models import PriceError
+    from app.i18n import _
+
+    if valid_from is None:
+        raise PriceError(_("Vul een datum in."))
+    if amount is None or amount < 0:
+        raise PriceError(_("Geef een prijs van nul of meer."))
+    if member_amount is not None and member_amount < 0:
+        raise PriceError(_("Geef een ledenprijs van nul of meer."))
+    regular = Price(
+        product_id=product_id,
+        variant_id=variant_id,
+        price_type=PriceType.REGULAR,
+        amount=amount,
+        valid_from=valid_from,
+    )
+    db.add(regular)
+    added = [regular]
+    if member_amount is not None:
+        if member_amount < 0:
+            raise PriceError(_("Geef een ledenprijs van nul of meer."))
+        member = Price(
+            product_id=product_id,
+            variant_id=variant_id,
+            price_type=PriceType.MEMBER,
+            amount=member_amount,
+            valid_from=valid_from,
+        )
+        db.add(member)
+        added.append(member)
+    db.flush()
+    db.commit()
+    return added
 
 
 def price_for(db: Session, variant_id: int, on: date, member: bool = False) -> Decimal | None:

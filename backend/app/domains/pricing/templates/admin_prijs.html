@@ -1,0 +1,47 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ product.name }} — {{ _("Prijsbeheer") }}{% endblock %}
+{% block content %}
+{# One article's prices by start date (C4.2), and the new-price form. #}
+{{ ui.record_header(product.name,
+    badges=[{"label": product.status | code_label("product_status"),
+             "tone": product.status | tone("product_status")}],
+    back={"label": _("Prijsbeheer"), "href": "/admin/prijzen"}) }}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+{% call ui.record_columns() %}
+<div class="form-flow">
+  {% call ui.data_table([
+      {"key": "from", "label": _("Vanaf"), "cell": "name"},
+      {"key": "size", "label": _("Maten"), "cell": "context"},
+      {"key": "p", "label": _("Prijs / leden"), "cell": "amount", "num": True},
+      {"key": "s", "label": _("Geldt"), "cell": "status"},
+  ], caption=_("Prijzen")) %}
+  <tbody>
+    {% for row in rows %}
+    <tr class="align-middle">
+      <td data-cell="name" class="border-b border-line px-3 py-2 font-medium">{{ row.valid_from | langedatum }}</td>
+      <td data-cell="context" class="border-b border-line px-3 py-2 text-ink-soft">{{ row.size }}</td>
+      <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums whitespace-nowrap">
+        {% if row.regular is not none %}€ {{ row.regular | geld }}{% endif %}
+        <span class="text-ink-soft">{% if row.member is not none %} / € {{ row.member | geld }}{% else %} / —{% endif %}</span>
+      </td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(row.state, "blue") }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="px-3 py-4 text-ink-soft">{{ _("Nog geen prijzen.") }}</td></tr>
+    {% endfor %}
+  </tbody>
+  {% endcall %}
+  {% call ui.section(_("Nieuwe prijs")) %}
+  <form id="prijs-form" method="post" action="/admin/prijzen/{{ product.id }}" class="form-flow">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.field("valid_from", _("Vanaf"), kind="date", required=True) }}
+    {{ ui.field("variant_id", _("Maten"), kind="select", value="", options=options) }}
+    {{ ui.field("amount", _("Prijs"), kind="number", unit="€", required=True) }}
+    {{ ui.field("member_amount", _("Ledenprijs"), kind="number", unit="€", help=_("Leeg: leden betalen de gewone prijs.")) }}
+  </form>
+  {% endcall %}
+</div>
+{% endcall %}
+{{ ui.action_bar(record=True, send=True, form="prijs-form", cancel_href="/admin/prijzen/{{ product.id }}", save_label=_("Prijs toevoegen")) }}
+{% endblock %}
