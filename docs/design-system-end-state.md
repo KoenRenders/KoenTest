@@ -105,7 +105,7 @@ binding: each step has one use, applied by a macro, never by a template.
 | 12 | field to field inside a section | `form_grid` |
 | 16 | card padding; gap between toolbar controls | `card`, `toolbar` |
 | 24 | card to card; summary card to content | layouts |
-| 24 (was 32) | section to section inside a form, read and edit mode alike — the cards of a record page are cards (Koen, 10 Oct 2026, on the household record, to the proposal of 24 px in both modes: "ja, 24 px is goed"; the `form-flow` gap goes from 32 to 24 with slice 1 of the roll-out, for every record page and the public forms) | `section` |
+| 16 (was 32) | section to section inside a form — the cards of a record page, read and edit mode alike, every card, no exception for a group of them (Koen, 10 Oct 2026, on the household record, after seeing 32, 24 and 16 side by side and that PROD's household screen has 16: first "ja, 24 px is goed", then, on the advice that 16 matches the card's own padding and PROD: "OK, zet het op 16 px"; the `form-flow` gap goes from 32 to 16 with slice 1 of the roll-out, for every record page and the public forms) | `section` |
 | 48 | header to content on a record page | `record_page` |
 | 24 / 32 | page margin on a desktop: 24 px at 1 440 px, 32 px from 1 680 px (block 1, 2 Oct 2026; replaces the 64 px here before) | shells |
 | 64 | no use in the frame; kept in the scale for a poster area on the public site | — |
@@ -502,7 +502,7 @@ public forms — register, a public form, Word lid, renew, Mijn gezin:
   records stay left-aligned, §2.2), 720 px on a tablet, 358 px on a phone;
   the title in Inter 600 (32 / 40 px, the public scale of §1.6), everything
   else Inter; one card per
-  section (radius 14, 16 px padding), 24 px between cards (32 until 10 Oct 2026), 12 px between
+  section (radius 14, 16 px padding), 16 px between cards (32 until 10 Oct 2026), 12 px between
   fields; the kit's `field` macro, no public variant. **No "* Verplicht
   veld" legend**: the red asterisk on the label is enough.
 - **Register** (CR-14 B4.1 kept): Contact with the member nudge as a quiet
