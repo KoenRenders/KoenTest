@@ -10,7 +10,7 @@
              "tone": product.status | tone("product_status")}],
     primary=primary, actions=actions,
     back={"label": _("Productbeheer"), "href": "/admin/producten"}, editing=editing) }}
-{% if error %}{{ ui.error_banner(error) }}{% endif %}
+<div id="product-melding" data-form-message>{{ ui.error_banner(error|default(None)) }}</div>
 
 {% if not editing %}
 {% call ui.record_columns() %}

@@ -773,6 +773,45 @@ def main() -> None:
         )
         db.commit()
 
+        # ── The shop, for the delete-gate e2e (CR-21) ─────────────────────────
+        # The shop is off by default (`modules.DEFAULTS`), and the delete refusal
+        # needs an article with a movement — which no screen can make yet
+        # (Voorraadbeheer is the commit after the gate). Switched on and seeded
+        # here, next to the rest of the seed, on the association's tenant.
+        from app.domains.mdm.models import TenantModule
+        from app.domains.pricing.api import Price, PriceType
+        from app.domains.product.api import add_variant, create_product
+        from app.domains.stock.api import receive
+        from app.kernel.modules import ModuleCode
+        from app.kernel.tenancy import DEFAULT_TENANT_ID
+
+        if (
+            db.query(TenantModule)
+            .filter(
+                TenantModule.tenant_id == DEFAULT_TENANT_ID,
+                TenantModule.module_code == ModuleCode.SHOP.value,
+            )
+            .first()
+            is None
+        ):
+            db.add(TenantModule(tenant_id=DEFAULT_TENANT_ID, module_code=ModuleCode.SHOP.value))
+            db.flush()
+
+        shop_artikel = create_product(db, "E2E T-shirt met voorraad")
+        shop_maat = add_variant(db, shop_artikel.id, "M")
+        db.add(
+            Price(
+                product_id=shop_artikel.id,
+                variant_id=None,
+                price_type=PriceType.REGULAR,
+                amount=Decimal("15.00"),
+                valid_from=date(2026, 1, 1),
+            )
+        )
+        db.flush()
+        receive(db, shop_maat.id, quantity=5)
+        db.commit()
+
         print(
             f"seed_e2e: gezin={member.id} lidmaatschap={membership.id} "
             f"activiteit={activity.id} "

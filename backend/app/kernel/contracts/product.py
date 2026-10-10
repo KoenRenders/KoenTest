@@ -1,9 +1,10 @@
 """Events the product component publishes (contract, CR-21 — the webshop).
 
 `ProductDeleted` is published by the product's delete inside its transaction
-(CR-21 phase 1), so `pricing` can drop the product's prices in that same
-transaction — a refusal there rolls the delete back (Q75). The handler comes
-with the deletion flow; the contract stands here so both sides share one shape.
+(CR-21 phase 1), so `pricing` can drop the product's prices and `stock` can
+refuse a delete that still has movements in that same transaction — a refusal in
+either rolls the delete back (Q75). The handlers come with the deletion flow;
+the contract stands here so all sides share one shape.
 """
 
 from __future__ import annotations

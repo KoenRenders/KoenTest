@@ -15,7 +15,7 @@ from decimal import Decimal
 import pytest
 
 from app.domains.media.api import MediaAsset
-from app.domains.pricing.api import Price, PriceType
+from app.domains.pricing.api import Price, PriceType, prices_of
 from app.domains.product.api import (
     Product,
     ProductAttachment,
@@ -24,7 +24,7 @@ from app.domains.product.api import (
     delete_product,
     delete_variant,
 )
-from app.domains.stock.api import receive
+from app.domains.stock.api import StockError, receive
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -77,8 +77,35 @@ def test_a_product_with_a_movement_cannot_be_deleted(db_session):
     product, variants = _product_with_variants(db_session, "M")
     receive(db_session, variant_id=variants[0].id, quantity=10)
 
-    with pytest.raises(ProductError):
+    with pytest.raises(StockError):
         delete_product(db_session, product.id)
+
+
+def test_a_movement_refusal_rolls_the_prices_back_too(db_session):
+    """A3: the stock handler refuses after pricing dropped the prices — the
+    rollback of the delete's transaction brings the prices back, so the article
+    and its prices stand after the refusal."""
+    product, variants = _product_with_variants(db_session, "M")
+    db_session.add(
+        Price(
+            product_id=product.id,
+            variant_id=None,
+            price_type=PriceType.REGULAR,
+            amount=Decimal("15.00"),
+            valid_from=date(2026, 9, 1),
+        )
+    )
+    db_session.flush()
+    receive(db_session, variant_id=variants[0].id, quantity=10)
+
+    savepoint = db_session.begin_nested()  # the delete's own transaction
+    with pytest.raises(StockError):
+        delete_product(db_session, product.id)
+    savepoint.rollback()  # what get_db's close does in production
+
+    db_session.expire_all()
+    assert db_session.get(Product, product.id) is not None
+    assert prices_of(db_session, product.id) != []
 
 
 def test_deleting_a_size_keeps_the_products_own_price(db_session):

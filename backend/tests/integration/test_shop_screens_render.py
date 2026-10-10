@@ -35,7 +35,7 @@ def test_the_product_list_renders_an_article_and_links_to_it(client, db_session,
     assert page.status_code == 200
     assert "T-shirt Raak" in page.text
     assert f'href="/admin/producten/{product.id}"' in page.text
-    assert "1 maten" in page.text
+    assert "1 maat" in page.text
 
 
 def test_the_price_form_accepts_cents(client, db_session, every_module_on):
@@ -147,3 +147,34 @@ def test_a_missing_article_on_update_is_404_not_500(client, db_session, every_mo
         "/admin/producten/999999", data={"name": "x"}, headers=headers, follow_redirects=False
     )
     assert answer.status_code == 404
+
+
+def test_a_delete_with_movements_is_refused_visibly(client, db_session, every_module_on):
+    """The delete gate lives in `stock`'s handler (Q75, AC19): an article with a
+    movement is refused, and the sentence reaches the record's message line — the
+    visible box — not the closed menu that was clicked."""
+    from app.domains.stock.api import receive
+
+    headers = _operator(client, db_session, every_module_on)
+    product = create_product(db_session, "T-shirt Raak")
+    variant = add_variant(db_session, product.id, "M")
+    db_session.add(
+        Price(
+            product_id=product.id,
+            variant_id=None,
+            price_type=PriceType.REGULAR,
+            amount=Decimal("15.00"),
+            valid_from=date(2026, 1, 1),
+        )
+    )
+    db_session.flush()
+    receive(db_session, variant.id, quantity=5)
+
+    answer = client.post(
+        f"/admin/producten/{product.id}/verwijderen",
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 422
+    assert "voorraadbewegingen" in answer.text
+    assert answer.headers.get("HX-Retarget") == "#product-melding"

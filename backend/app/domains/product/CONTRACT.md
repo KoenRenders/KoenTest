@@ -29,8 +29,8 @@ facade.
 ## Events
 
 Publishes `ProductDeleted(product_id, variant_ids)` (`kernel/contracts/product.py`),
-inside the transaction of the delete, so `pricing` drops the prices in the same
-transaction (Q75).
+inside the transaction of the delete, so `pricing` drops the prices and `stock`
+refuses a delete that still has movements in the same transaction (Q75).
 
 ## Callers
 

@@ -1,0 +1,5 @@
+{% import "_macros.html" as ui %}
+{# Why a command of the article's head was refused (CR-21, AC19/W23): the banner
+   alone, for the record's message line — a visible box with the reason, instead
+   of the answer swapped into the closed menu that was clicked. #}
+{{ ui.error_banner(message) }}

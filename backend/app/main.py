@@ -83,6 +83,9 @@ from app.domains.pricing.handlers import (  # noqa: F401 - event subscription (C
 )
 from app.domains.product.admin_ui import router as product_admin_ui_router
 from app.domains.reporting.admin_ui import router as reporting_admin_ui_router
+from app.domains.stock.handlers import (  # noqa: F401 - event subscription (CR-21)
+    refuse_delete_with_movements,
+)
 from app.domains.workflow import (
     handlers as workflow_handlers,  # noqa: F401 - event-abonnementen (#398)
 )

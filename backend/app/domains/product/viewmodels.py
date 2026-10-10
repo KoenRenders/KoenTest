@@ -28,6 +28,13 @@ class ProductNewView(ViewModel):
 
 
 @dataclass(frozen=True, kw_only=True)
+class ProductRefusalView(ViewModel):
+    """`_product_refusal.html` — why a command of the record's head was refused."""
+
+    message: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class ProductView(ViewModel):
     """`admin_product.html` — the article record, read and edit mode."""
 

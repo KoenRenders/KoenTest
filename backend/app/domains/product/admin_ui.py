@@ -34,7 +34,13 @@ from app.domains.product.api import (
     update_product,
     variants_of,
 )
-from app.domains.product.viewmodels import ProductListView, ProductNewView, ProductView
+from app.domains.product.viewmodels import (
+    ProductListView,
+    ProductNewView,
+    ProductRefusalView,
+    ProductView,
+)
+from app.domains.stock.api import StockError
 from app.i18n import _
 from app.ui import admin_nav, is_fragment_request, templates
 
@@ -53,6 +59,23 @@ def _redirect(request: Request, url: str) -> Response:
     if request.headers.get("HX-Request"):
         return Response(status_code=204, headers={"HX-Redirect": url})
     return RedirectResponse(url, status_code=303)
+
+
+def _refusal(request: Request, message: str) -> Response:
+    """Why a command of the record's head was refused, for its message line.
+
+    The sentence is a box the browser shows (not a banner inside the closed menu
+    that was clicked — it rendered at 0 × 0 there). An HTML 422 with `HX-Retarget`
+    sends it to `#product-melding` instead of the action's own target, so the user
+    reads the reason and the offer of Afgevoerd (AC19, W23).
+    """
+    return templates.TemplateResponse(
+        request,
+        "_product_refusal.html",
+        ProductRefusalView(message=message).as_context(),
+        status_code=422,
+        headers={"HX-Retarget": "#product-melding", "HX-Reswap": "innerHTML"},
+    )
 
 
 def _list_view(request: Request, db: Session, error: Optional[str] = None) -> ProductListView:
@@ -224,12 +247,7 @@ def product_status(
     try:
         set_status(db, product_id, ProductStatus(status))
     except (ProductError, ValueError) as refusal:
-        return templates.TemplateResponse(
-            request,
-            "admin_product.html",
-            _record_view(request, db, product, editing=False, error=str(refusal)).as_context(),
-            status_code=422,
-        )
+        return _refusal(request, str(refusal))
     return _redirect(request, f"/admin/producten/{product_id}")
 
 
@@ -246,13 +264,8 @@ def product_delete(
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     try:
         delete_product(db, product_id)
-    except ProductError as refusal:
-        return templates.TemplateResponse(
-            request,
-            "admin_product.html",
-            _record_view(request, db, product, editing=False, error=str(refusal)).as_context(),
-            status_code=422,
-        )
+    except (ProductError, StockError) as refusal:
+        return _refusal(request, str(refusal))
     return _redirect(request, "/admin/producten")
 
 

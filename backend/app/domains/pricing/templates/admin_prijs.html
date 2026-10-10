@@ -7,7 +7,7 @@
     badges=[{"label": product.status | code_label("product_status"),
              "tone": product.status | tone("product_status")}],
     back={"label": _("Prijsbeheer"), "href": "/admin/prijzen"}) }}
-{% if error %}{{ ui.error_banner(error) }}{% endif %}
+<div id="prijs-melding" data-form-message>{{ ui.error_banner(error|default(None)) }}</div>
 {% call ui.record_columns() %}
 <div class="form-flow">
   {% call ui.data_table([
@@ -33,7 +33,8 @@
   </tbody>
   {% endcall %}
   {% call ui.section(_("Nieuwe prijs")) %}
-  <form id="prijs-form" method="post" action="/admin/prijzen/{{ product.id }}" class="form-flow">
+  <form id="prijs-form" method="post" action="/admin/prijzen/{{ product.id }}" class="form-flow"
+        hx-post="/admin/prijzen/{{ product.id }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {{ ui.field("valid_from", _("Vanaf"), kind="date", required=True) }}
     {{ ui.field("variant_id", _("Maten"), kind="select", value="", options=options) }}

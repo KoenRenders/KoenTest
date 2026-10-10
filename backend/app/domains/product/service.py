@@ -17,7 +17,6 @@ from app.domains.product.models import (
     ProductStatus,
     ProductVariant,
 )
-from app.domains.stock.api import has_movements
 from app.kernel.contracts.media import RemoveAsset
 from app.kernel.contracts.product import ProductDeleted
 from app.kernel.events import publish
@@ -182,24 +181,18 @@ def delete_product(db: Session, product_id: int) -> None:
     """Delete a product and its sizes, its prices going with them (Q75).
 
     Refused while the product has stock movements — such an article is set
-    DISCONTINUED, never deleted. The order-line gate joins in phase 2, when
-    `sales` exists. The files of the product's attachments are removed through
-    media's `RemoveAsset` port, but only when no other attachment points at
-    them. Publishes `ProductDeleted` inside the transaction, so a refusal in
-    `pricing` rolls the delete back.
+    DISCONTINUED, never deleted. The gate lives in `stock`'s handler on
+    `ProductDeleted`, not here: the product does not know its movements. The
+    order-line gate joins in phase 2, when `sales` exists. The files of the
+    product's attachments are removed through media's `RemoveAsset` port, but
+    only when no other attachment points at them. Publishes `ProductDeleted`
+    inside the transaction, so a refusal in `pricing` or `stock` rolls the
+    delete back.
     """
     product = db.get(Product, product_id)
     if product is None:
         return
     variant_ids = tuple(variant.id for variant in product.variants)
-    if has_movements(db, variant_ids):
-        from app.i18n import _
-
-        raise ProductError(
-            _(
-                "Dit artikel heeft voorraadbewegingen en kan niet verwijderd worden — zet het afgevoerd."
-            )
-        )
     _release_unshared_assets(db, product.attachments)
     publish(ProductDeleted(product_id=product_id, variant_ids=variant_ids, product_gone=True), db)
     db.delete(product)
@@ -211,15 +204,11 @@ def delete_variant(db: Session, variant_id: int) -> None:
     """Delete one size of a product, its prices going with it (Q75).
 
     The product and its own price stay; only the size's prices go. Refused while
-    the size has stock movements.
+    the size has stock movements — the gate lives in `stock`'s handler.
     """
     variant = db.get(ProductVariant, variant_id)
     if variant is None:
         return
-    if has_movements(db, (variant_id,)):
-        from app.i18n import _
-
-        raise ProductError(_("Deze maat heeft voorraadbewegingen en kan niet verwijderd worden."))
     publish(
         ProductDeleted(
             product_id=variant.product_id, variant_ids=(variant_id,), product_gone=False

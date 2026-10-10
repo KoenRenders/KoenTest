@@ -25,7 +25,8 @@ from app.domains.pricing.viewmodels import PriceListView, PriceView
 from app.domains.product.api import get_product, get_variant, list_products, size_of, variants_of
 from app.i18n import _
 from app.kernel.clock import belgian_today
-from app.ui import admin_nav, templates
+from app.kernel.refusals import FieldError
+from app.ui import admin_nav, refusal_response, templates
 
 router = APIRouter()
 
@@ -153,12 +154,7 @@ def price_create(
             member_amount=member,
         )
     except (PriceError, ValueError, InvalidOperation) as refusal:
-        return templates.TemplateResponse(
-            request,
-            "admin_prijs.html",
-            _price_view(request, db, product, error=str(refusal)).as_context(),
-            status_code=422,
-        )
+        return refusal_response(request, [FieldError("", str(refusal))], "#prijs-melding")
     return _redirect(request, f"/admin/prijzen/{product_id}")
 
 
