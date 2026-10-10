@@ -244,6 +244,17 @@ def import_commit(db, token: str, admin=None):
     return _impl(CommitRequest(token=token), db=db, admin=admin)
 
 
+def language_code_exists(db, code: str) -> bool:
+    """Whether `mdm.language_codes` carries a code (CR-17 fase 1, review A5,
+    #1770). Master data's own vocabulary: a domain that stores a language
+    asks HER owner, never the table — the one seam the cms needs to map a
+    tenant's free-text language setting to a code the foreign key accepts.
+    """
+    from app.domains.mdm.models import LanguageCode
+
+    return db.query(LanguageCode).filter(LanguageCode.code == code).first() is not None
+
+
 __all__ = [
     "snapshot_address",
     "snapshot_contact_detail",
@@ -260,6 +271,7 @@ __all__ = [
     "CREATABLE_TENANT_KINDS",
     "admin_code_lists",
     "import_commit",
+    "language_code_exists",
     "import_preview",
     "ModuleRefused",
     "create_account",

@@ -1208,13 +1208,23 @@ KIND_BRANCHES = tuple(kind for _key, kinds in KIND_GROUPS for kind in kinds)
 PICK_PAGE_SIZE = 60
 
 
+def media_url_prefix() -> str:
+    """The address every picture is served under, without her id — the one
+    place that knows the shape, like `media_url`. The document editor builds
+    her figure's preview from this prefix plus the media id (CR-17 #1671),
+    so the browser carries no URL shape of her own: storing bytes
+    elsewhere (architecture R8) is a change inside media, not in the editor.
+    """
+    return "/api/v1/media/"
+
+
 def media_url(asset_id: int, *, base_url: str = "", thumb: bool = False) -> str:
     """The address a picture is served at — the one place that knows its shape
     (CR-15 §C4.6, #1473). Every module asks here instead of writing
     `/api/v1/media/<id>`, so that storing bytes elsewhere (architecture R8) is a
     change inside media. `base_url` for a mail, which needs an absolute address.
     """
-    return f"{base_url}/api/v1/media/{asset_id}" + ("/thumb" if thumb else "")
+    return f"{base_url}{media_url_prefix()}{asset_id}" + ("/thumb" if thumb else "")
 
 
 def asset_bytes(db, asset_id: int) -> Optional[bytes]:

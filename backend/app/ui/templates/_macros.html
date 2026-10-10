@@ -241,7 +241,7 @@
 {# A site as a card that is a link as a whole (#1566): the name in semibold, the
    address under it, small and grey, and it may break. The card of the former
    platform landing; `{{tenants}}` renders its sites with it. The `!` utilities
-   win from `.cms-content a`, which would colour and underline the whole card. #}
+   win from `.prose-raak a`, which would colour and underline the whole card. #}
 {% macro site_card(name, url) -%}
 <a href="{{ url }}" data-site-card class="block bg-white border border-gray-200 rounded-2xl p-5 !no-underline hover:shadow-md transition-shadow"><span class="block font-semibold !text-ink">{{ name }}</span><span class="block text-sm text-gray-500 mt-1 break-all">{{ url }}</span></a>
 {%- endmacro %}
@@ -469,7 +469,7 @@
 {#- #1561: a command that is refused says why, before any click: no dialog first. -#}
 {% if a.get("disabled") %}<div role="menuitem" aria-disabled="true" data-menu-refused class="px-3 py-2 text-sm text-ink-soft">
   <span class="block font-medium">{{ a.label }}</span><span class="block text-[13px] leading-[19.5px]">{{ a.disabled }}</span></div>
-{% elif a.get("href") %}<a role="menuitem" href="{{ a.href }}" class="{{ _cls }}">{{ a.label }}</a>
+{% elif a.get("href") %}<a role="menuitem" href="{{ a.href }}"{% if a.get("target") %} target="{{ a.target }}" rel="noopener noreferrer"{% endif %} class="{{ _cls }}">{{ a.label }}</a>
 {% else %}<button role="menuitem" type="button" class="{{ _cls }}" {{ a.get("attrs", "")|safe }}{% if a.get("confirm") %} data-confirm="{{ a.confirm }}"{% if a.get("confirm_title") %} data-confirm-title="{{ a.confirm_title }}"{% endif %}{% if a.get("confirm_ok") %} data-confirm-ok="{{ a.confirm_ok }}"{% endif %}{% if danger %} data-confirm-tone="delete"{% endif %}{% endif %}{% if a.get("toast") %} data-toast-after="{{ a.toast }}"{% endif %}>{{ a.label }}</button>{% endif %}
 {%- endmacro %}
 <header data-record-head class="mb-3">
@@ -489,7 +489,10 @@
     {% if (primary and not editing) or actions or _extra %}
     <div data-head-controls class="flex flex-wrap justify-end items-center gap-2 ml-auto shrink-0 max-w-full">
       {% if primary and not editing %}
-      {{ button(primary.label, variant="primary", type="button", href=primary.get("href"), size="sm", attrs=primary.get("attrs", ""), cls="min-h-11 md:min-h-9") }}
+      {#- `confirm` on a primary action (review A4, #1770): passed as data to
+          the button macro's own confirm door — a screen that gives none
+          keeps exactly the button she had. -#}
+      {{ button(primary.label, variant="primary", type="button", href=primary.get("href"), size="sm", attrs=primary.get("attrs", ""), cls="min-h-11 md:min-h-9", confirm=primary.get("confirm")) }}
       {% endif %}
       {% if actions %}
       <div class="relative" x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
@@ -540,15 +543,20 @@
    design-system-end-state §1.3, §1.4, §3.1, §3.2, §3.4, §3.5) ─────────────────
 
    `record_columns` — the reading group of a record page: a form column of
-   768 px, 24 px, a summary column of 300 px (1 092 px), left-aligned against the
-   page margin and never centred, so a form starts on the same x as a list, the
-   title and the tabs. The summary stands beside the form while the form keeps
-   640 px (a frame of 964 px); narrower, it goes above the form.
+   768 px by default, GROWING WITH THE SCREEN up to a readable cap of
+   1 056 px when the caller asks `wide=True` (Koen, 9 October 2026: "links
+   houden, maar het scherm benutten" — his words about the PAGE screen's
+   form; the CI run of 9 October scoped her, #1770), 24 px, a summary
+   column of 300 px beside her, left-aligned against the page margin and
+   never centred, so a form starts on the same x as a list, the title and
+   the tabs. The summary stands beside the form while the form keeps
+   640 px (964 px of frame); narrower, it goes above the form.
    `aside` is the summary's HTML (`{% set %}` … `{% endset %}`); the caller is the
-   form column. A screen sets no width of its own. #}
-{% macro record_columns(aside=None) -%}
+   form column. A screen sets no width of its own beyond asking for the
+   wide group. #}
+{% macro record_columns(aside=None, wide=False) -%}
 <div data-record-frame class="record-frame">
-<div data-record-columns class="record-columns">
+<div data-record-columns class="record-columns"{% if wide %} data-wide{% endif %}>
   <div data-form-column class="record-form-column">{{ caller() }}</div>
   {% if aside %}<aside data-summary-column class="record-summary-column">{{ aside }}</aside>{% endif %}
 </div>
@@ -1469,8 +1477,124 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 {%- set veld = input_id or (id ~ "-input") -%}
 <input type="hidden" id="{{ veld }}" name="{{ name }}" value="{{ value or '' }}">
 <div class="rich-text{% if toolbar_on_focus %} rich-text--balk-bij-focus{% endif %}">
-<trix-editor id="{{ id }}" input="{{ veld }}" class="cms-content bg-white text-sm rounded-lg border border-line{% if cls %} {{ cls }}{% endif %}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %} {{ attrs|safe }}></trix-editor>
+<trix-editor id="{{ id }}" input="{{ veld }}" class="prose-raak bg-white text-sm rounded-lg border border-line{% if cls %} {{ cls }}{% endif %}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %} {{ attrs|safe }}></trix-editor>
 </div>
+{%- endmacro %}
+
+{# ── The document editor (CR-17 #1671, slice 2) ────────────────────────────────
+   TipTap beside Trix: `ui.rich_text` (Trix) keeps serving the newsletter and
+   the meeting notes until phase 7; a page gets this editor. No macro with
+   two engines. `blocks` is the set's configuration (the domain provides
+   her) and `value_json` the document, both as JSON in the page; the toolbar
+   is built by `document-editor.js` FROM that configuration — no toolbar
+   markup or configuration in a domain template (C6 3, gate 14 widened):
+   this macro is the one place an editor stands in a template.
+
+   Slice 3: the editor's own files travel WITH this macro and not with the
+   admin shell (B4, Koen 7 October 2026, option a) — a back-office screen
+   without an editor carries none of her bytes. `defer` keeps the files
+   after the first a no-op, on a full page as in swapped content; the
+   script's own guard exits on a second run. `prose-figures.css` is the
+   ONE source of the figure's look — the site links her too, so the author
+   sees the placement the visitor gets (the parity #1230 guarded).
+
+   The dialogs the toolbar opens stand here for the same reason as the
+   toolbar: a screen that writes its own figure or link dialog is a third
+   copy of the editor. The figure dialog asks the kit's picker
+   (`media.api`, #1474) for the picture, the author for the alternative
+   text (required — a page without her is unusable with a screen reader),
+   the caption and the placement; the editor hears the choice as
+   `raak-figure-chosen`. The link dialog replaces the browser's `prompt`
+   (B5, review of #1699): the UI norm has no browser dialogs. #}
+{% macro document_editor(name, blocks, value_json, id=None, cls="") -%}
+{%- set editor_id = id or (name ~ "-editor") -%}
+<link rel="stylesheet" href="{{ statisch('vendor/tiptap-3.31.4.css') }}">
+<link rel="stylesheet" href="{{ statisch('prose-figures.css') }}">
+<script src="{{ statisch('vendor/tiptap-3.31.4.min.js') }}" defer></script>
+<script src="{{ statisch('document-editor.js') }}" defer></script>
+<input type="hidden" id="{{ editor_id }}-input" name="{{ name }}" value="{{ value_json }}">
+<div class="document-editor{% if cls %} {{ cls }}{% endif %}" id="{{ editor_id }}"
+     data-document-editor data-input="{{ editor_id }}-input"
+     data-config='{{ blocks|tojson }}'></div>
+{% if blocks.figure %}
+<div x-data="{ figure: false, chosen: null, alt: '', caption: '', placement: 'full' }"
+     @raak-figure-choose.window="if ($event.detail.editor === '{{ editor_id }}') { figure = true; chosen = null; alt = ''; caption = ''; placement = 'full' }"
+     @media-picked="chosen = { id: Number($event.detail.id), url: $event.detail.url,
+                              width: Number($event.detail.width) || null,
+                              height: Number($event.detail.height) || null };
+                    alt = $event.detail.title"
+     @raak-figure-insert="if (chosen && alt.trim()) {
+                            $dispatch('raak-figure-chosen', { editor: '{{ editor_id }}',
+                                                              media_id: chosen.id, alt: alt,
+                                                              caption: caption, placement: placement,
+                                                              width: chosen.width, height: chosen.height });
+                            figure = false }">
+  {% call modal("figure", _("Afbeelding"), max_w="max-w-5xl") %}
+  {# Invoegen gebeurt UIT DE BIBLIOTHEEK en niet door te slepen — de editor
+     weigert bestanden met opzet, want dat zou een onbeperkt uploadpad naar
+     een publieke pagina zijn (#1173). Wie een nieuwe afbeelding wil, laadt
+     ze eerst op bij Media. #}
+  <p class="text-sm text-gray-600 mb-3">{{ _("Kies een afbeelding uit de bibliotheek.") }}</p>
+  <div id="mp-{{ editor_id }}-figuur" class="min-h-[12rem]" hx-get="/admin/media/kiezer?field={{ editor_id }}-figuur" hx-target="this"
+       hx-trigger="revealed once" hx-swap="innerHTML"></div>
+  <div class="mt-4 flex items-center gap-3" x-show="chosen" x-cloak>
+    <img :src="chosen ? chosen.url : ''" alt="" class="h-16 w-16 rounded-lg border border-gray-200 object-cover bg-gray-50">
+    <span class="text-sm text-gray-600">{{ _("Gekozen afbeelding") }}</span>
+  </div>
+  <div class="mt-4">
+    {{ label(_("Alternatieve tekst"), editor_id ~ "-fig-alt", required=True) }}
+    {{ input_control("", id=editor_id ~ "-fig-alt", cls="w-full", attrs='x-model="alt"') }}
+    <p class="text-xs text-gray-500 mt-1">{{ _("Wat er op de afbeelding te zien is — dit leest een schermlezer voor.") }}</p>
+  </div>
+  <div class="mt-4">
+    {{ label(_("Bijschrift"), editor_id ~ "-fig-caption") }}
+    {{ input_control("", id=editor_id ~ "-fig-caption", cls="w-full", attrs='x-model="caption"') }}
+    <p class="text-xs text-gray-500 mt-1">{{ _("Staat onder de afbeelding op de pagina; mag leeg blijven.") }}</p>
+  </div>
+  {# De plaatsingen van de set, met hun woorden uit de configuratie — geen
+     vrij percentage, om dezelfde reden als #1207's drie maten: pagina's met
+     37, 40 en 45 % naast elkaar zien er rommelig uit zonder dat iemand
+     ziet waarom. Gewone knoppen en geen radio's: dit dialoogje staat in
+     geen form, maar de waarde reist toch niet via een name. #}
+  <div class="mt-4">
+    <span class="block text-sm font-medium text-gray-700 mb-1">{{ _("Plaatsing") }}</span>
+    <div class="flex flex-wrap gap-2">
+      {% for pl in blocks.figure.placements %}
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="placement === '{{ pl.id }}' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
+              @click="placement = '{{ pl.id }}'">{{ pl.label }}</button>
+      {% endfor %}
+    </div>
+    <p class="text-xs text-gray-500 mt-1">{{ _("Op een smal scherm staat elke afbeelding op volle breedte.") }}</p>
+  </div>
+  <div class="mt-4 flex justify-end gap-2">
+    {{ btn_secondary(_("Annuleren"), attrs='@click="figure = false"') }}
+    {# `disabled:opacity-30` net als de pijltjes in de kit: zonder zichtbare
+       uit-stand leest een knop die niets doet als kapot. De alt is verplicht,
+       ook bij opnieuw invoegen — een uitlegpagina zonder alternatieve tekst
+       is onbruikbaar met een schermlezer. #}
+    {{ btn_primary(_("Invoegen"), type="button", cls="disabled:opacity-30",
+                   attrs='@click="$dispatch(\'raak-figure-insert\')"'
+                         ' :disabled="!chosen || !alt.trim()"') }}
+  </div>
+  {% endcall %}
+</div>
+{% endif %}
+{% if "link" in blocks.marks %}
+<div x-data="{ link: false, url: '' }"
+     @raak-link-edit.window="if ($event.detail.editor === '{{ editor_id }}') { url = $event.detail.href || ''; link = true; $nextTick(() => $refs.linkInput.select()) }"
+     @raak-link-apply.window="if (link) { $dispatch('raak-link-save', { editor: '{{ editor_id }}', url: url.trim() }); link = false }">
+  {% call modal("link", _("Link"), max_w="max-w-lg") %}
+  {{ label(_("Webadres"), editor_id ~ "-link-url") }}
+  {{ input_control("", id=editor_id ~ "-link-url", cls="w-full", attrs='x-model="url" x-ref="linkInput" placeholder="https://"') }}
+  <p class="text-xs text-gray-500 mt-1">{{ _("Leeg laten en opslaan haalt de link weg.") }}</p>
+  <div class="mt-4 flex justify-end gap-2">
+    {{ btn_secondary(_("Annuleren"), attrs='@click="link = false"') }}
+    {{ btn_primary(_("Opslaan"), type="button", attrs='@click="$dispatch(\'raak-link-apply\')"') }}
+  </div>
+  {% endcall %}
+</div>
+{% endif %}
 {%- endmacro %}
 
 {# `aria_label` als parameter en niet via `attrs` (#663/#699): `_()` levert Markup,

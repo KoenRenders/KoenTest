@@ -1,7 +1,7 @@
 """Een pagina-afbeelding krijgt een maat (#1207).
 
 Koen na het invoegen van zijn eerste pagina-afbeelding: *"Ik voegde er één in en
-het was meteen een zeer groot geval."* Het gedrag klopte — `.cms-content img`
+het was meteen een zeer groot geval."* Het gedrag klopte — `.prose-raak img`
 begrenst een beeld op de kolombreedte — maar er was geen manier om te zeggen dat
 het kleiner mocht.
 

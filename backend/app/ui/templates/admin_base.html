@@ -1,5 +1,8 @@
 {% import "_macros.html" as ui %}
 {% import "_raakje_frame.html" as raakje_frame %}
+{# The env banner stands above the header on every non-PROD shell: the one
+   decision the header, the sidebar and the sticky offset all read. #}
+{% set env_bar = omgeving and omgeving != 'prod' and not is_screenshot() %}
 {# AdminShell (#396, §13.1; UI-sweep #482): base-layout voor de beheer-schermen.
    Items komen uit app.ui.admin_nav() via `nav_items`. Since CR-11 block 1 (#1482)
    the frame of design-system-end-state §1.4: a light sidebar of 224 px that is
@@ -91,23 +94,10 @@
   </script>
   <style>
     [x-cloak]{display:none!important}
-    /* CMS-content-opmaak (#457): ook in de admin voor de WYSIWYG-preview. */
-    .cms-content h1{font-size:1.5rem;font-weight:700;color:var(--brand-ocean);margin:1rem 0 .5rem}
-    .cms-content h2{font-size:1.25rem;font-weight:700;color:var(--brand-ocean);margin:1rem 0 .5rem}
-    .cms-content h3{font-size:1.1rem;font-weight:600;margin:.75rem 0 .25rem}
-    .cms-content p{margin:.5rem 0;line-height:1.6}
-    .cms-content ul{list-style:disc;padding-left:1.5rem;margin:.5rem 0}
-    .cms-content ol{list-style:decimal;padding-left:1.5rem;margin:.5rem 0}
-    .cms-content a{color:var(--brand-ocean);text-decoration:underline}
-    .cms-content strong,.cms-content b{font-weight:700}
-    .cms-content em,.cms-content i{font-style:italic}
-    /* Zonder deze regels ziet een citaat, code of doorstreping er precies uit als
-       gewone tekst — en dan lijkt de knop stuk terwijl de opmaak wel degelijk
-       bewaard wordt (#939, gemeten in een browser). */
-    .cms-content del,.cms-content s{text-decoration:line-through}
-    .cms-content blockquote{border-left:3px solid var(--line);padding-left:.75rem;margin:.5rem 0;color:var(--ink-soft)}
-    .cms-content pre{background:var(--surface-2);border:1px solid var(--line);border-radius:.375rem;padding:.5rem .75rem;margin:.5rem 0;font-family:ui-monospace,monospace;font-size:.875em;white-space:pre-wrap}
-    .cms-content code{font-family:ui-monospace,monospace;font-size:.875em}
+    /* The shell header's height for everything that sticks under her
+       (the editor's toolbar, #1391 W3, snede 3 #1671): the env bar counts,
+       24 px + the header's 64. */
+    :root{--shell-kop:{{ '5.5rem' if env_bar else '4rem' }}}
   </style>
   {# View Transitions voor gebooste navigatie (#634). Browsers zonder ondersteuning
      negeren dit; geen terugval nodig. #}
@@ -127,6 +117,14 @@
      precies één keer per sessie — met hx-boost zelfs goedkoper dan per pagina. #}
   <link rel="stylesheet" href="{{ statisch('vendor/trix.css') }}">
   <script src="{{ statisch('vendor/trix.min.js') }}" defer></script>
+  {# The document editor (CR-17 #1671, slice 3, B4 — Koen, 7 October 2026,
+     option a): TipTap, her chrome and her script load NOWHERE here. They
+     travel with the `ui.document_editor` macro — on the pages that carry
+     an editor, and only there; a back-office screen without an editor
+     carries none of the editor's bytes (441 KB of JavaScript). The same
+     guard as Trix's above holds inside the macro: `defer` keeps every
+     instance after the first a no-op, and the script's own guard exits on
+     a second run. #}
   {# Bijlagen in een Trix-editor bestaan hier nergens: er is geen upload-hook, dus
      een gesleept bestand zou een data-URI worden die de HTML opblaast en toch door
      de sanitisatie sneuvelt. De knop verbergen en het accepteren blokkeren hoort
@@ -179,7 +177,6 @@
   {# Zie site_base: de banner is sticky (#610). De zijbalk staat vast en begint
      eronder (`top-6`); op PROD geen banner, dus `top-0`. Beide varianten letterlijk
      in de template, anders genereert Tailwind de klassen niet. #}
-  {% set env_bar = omgeving and omgeving != 'prod' and not is_screenshot() %}
   {% if env_bar %}{{ ui.env_banner(omgeving) }}{% endif %}
   {# #718: de out-of-band navigatie hoort ALLEEN bij een gebooste navigatie.
      Daar swapt htmx via HX-Reselect enkel `#main`, dus zonder deze truc bleef de

@@ -161,10 +161,13 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/paginas/{page_id}`
 - `GET /admin/paginas/{page_id}/voorbeeld`
 
-### `page.manage` — 4 routes
+### `page.manage` — 7 routes
 
 - `POST /admin/paginas`
 - `POST /admin/paginas/{page_id}`
+- `POST /admin/paginas/{page_id}/offline-halen`
+- `POST /admin/paginas/{page_id}/publiceren`
+- `POST /admin/paginas/{page_id}/terugzetten/{history_id}`
 - `POST /admin/paginas/{page_id}/verwijderen`
 - `POST /admin/paginas/{page_id}/volgorde/{richting}`
 

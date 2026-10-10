@@ -170,8 +170,13 @@ def test_link_tint_token_en_cms_link():
     assert "--c-link:35 103 189" in build  # de ene bron (= #2367bd)
     assert "--link:rgb(var(--c-link))" in build  # leesbare alias
     assert "link: 'rgb(var(--c-link) / <alpha-value>)'" in build  # Tailwind text-link-utility
+    # CR-17 slice 4: the prose rules moved from the shells into app.css
+    # under the ONE class `.prose-raak` - the shells carry nothing
+    # hand-written of them any more.
     site = (APP / "ui" / "templates" / "site_base.html").read_text()
-    assert ".cms-content a{color:var(--link)" in site and "underline" in site
+    assert ".cms-content" not in site, "the shell still carries prose rules"
+    css = (APP / "static" / "app.css").read_text()
+    assert ".prose-raak a{color:var(--link)" in css and "underline" in css
 
 
 def test_create_schermen_gebruiken_opslaan():

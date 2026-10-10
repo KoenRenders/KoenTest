@@ -36,6 +36,12 @@ class DesignSystemView(ViewModel):
     #: Eén echte datum voor de meetwaarden-demo (#875): een datum is de enige
     #: opmaaksoort die je niet als letterlijke waarde in het sjabloon kunt zetten.
     demo_datum: Any = None
+    #: The document editor (CR-17 #1671, slice 2): the `page` set's
+    #: configuration from `cms.api.schema_for`, and the demo document as
+    #: JSON — the macro puts them in the page, the JavaScript builds the
+    #: toolbar from them.
+    document_editor_config: dict[str, Any] = field(default_factory=dict)
+    document_editor_value: str = ""
     #: De macro `veld()` leest de ingevulde waarden uit `values`. Die moet in de
     #: context staan op het moment van importeren, niet pas in het sjabloon: Jinja
     #: bindt de context bij `{% from … with context %}`.

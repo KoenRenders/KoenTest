@@ -180,12 +180,13 @@ def test_the_opened_menu_starts_with_who_is_signed_in(client, db_session):
 
 # The activity's three pages left this list with #1557: their way back is drawn
 # by `ui.record_header`, and `test_record_header_gate.py` pins that the head is
-# the first thing they render.
+# the first thing they render. The page screen joined them in CR-17 slice 3
+# (#1671): her way back is the head's `back` too — the head partial is the whole
+# of #main there, because a refused save swaps her back in whole.
 RECORD_PAGES = [
     "domains/mdm/templates/leden_gezin.html",
     "domains/mdm/templates/admin_gezin_inschrijvingen.html",
     "domains/payment/templates/admin_gezin_betalingen.html",
-    "domains/cms/templates/admin_pagina.html",
     "domains/activities/templates/_insch_recordkop.html",
     "domains/forms/templates/_fb_recordkop.html",
     "domains/workflow/templates/werkbank_taak.html",

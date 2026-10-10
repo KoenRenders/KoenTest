@@ -1,12 +1,20 @@
-# cms — componentcontract (fase 4c, #404)
+# cms — componentcontract (CR-17 fase 1, #1671)
 
-**Doel.** CMS-pagina's en -blokken (markdown met placeholders), publiek
-leesbaar, admin schrijfbaar.
+**Doel.** Pagina's als gestructureerde documenten (blokken als JSON tegen
+één schema), publiek leesbaar, admin schrijfbaar — met concept, publicatie
+en geschiedenis per taal.
 
 ## Facade (`api.py`)
 
-- `CmsPage` (model als type), `render_cms_content` (placeholder-rendering,
-  óók gebruikt door de chatbot-context) + de interne format-helpers.
+- `CmsPage`, `CmsPageTranslation` (modellen als type), `render_cms_content`
+  (placeholder-rendering) + de interne format-helpers.
+- CR-17: `save_document`, `save_page_form`, `publish`, `take_page_offline`,
+  `restore`, `versions`, `draft_differs`, `editable_document`,
+  `published_document`, `published_html`, `published_text`, `placeholders`,
+  `schema` (waaronder `schema_for`, `validate_document`), `get_translation`,
+  `create_page`, `references`.
+- De chatbot-context leest `published_text` (niet meer
+  `render_cms_content`): de gepubliceerde versie, nooit het concept.
 
 ## Router
 
@@ -17,11 +25,15 @@ postal codes through `mdm.api.list_postal_codes`.
 
 ## Data
 
-Schema `cms` (migratie 083): `cms_pages`. `chatbot_info.cms_page_id` is nu
-een soft-ref (§8, FK gedropt; ORM via expliciete primaryjoin).
+Schema `cms`: `cms_pages` (migratie 083), `page_translations` en
+`cms_page_history` (migratie 200, CR-17 fase 1). De vertaalrij draagt
+`draft_json` en `published_json`; de site toont de gepubliceerde versie,
+en een pagina die de migratie niet verliesvrij kon omzetten houdt haar
+opgeslagen HTML tot de auteur publiceert. `chatbot_info.cms_page_id` is een
+soft-ref (§8, FK gedropt; ORM via expliciete primaryjoin).
 
 ## Schermen
 
-De admin-CMS-schermen klappen om naar htmx bij de React-exit (#405), samen
-met de publieke slug-pagina's (die vergen de frontend-catch-all); de
-markdown/editor-afweging (§19.3-Tiptap-nota) hoort bij die omklap.
+`/admin/paginas` (lijst) en `/admin/paginas/{id}` (recordscherm met de
+TipTap-editor, snede 3) via `admin_ui.py`; de publieke pagina via
+`router.py`. De editor noemt haar set via `schema.schema_for("page")`.

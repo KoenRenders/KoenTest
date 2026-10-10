@@ -279,6 +279,25 @@
   </div>
 {% endcall %}
 
+{# ── 6c. The document editor (CR-17 #1671, slice 2) ─────────────────────────── #}
+{# TipTap beside Trix: `ui.rich_text` above keeps serving the newsletter and
+   the meeting notes until phase 7; a page gets this editor. The toolbar is
+   built by the JavaScript from the set's configuration — here the `page`
+   set with every block she offers (C6 3: no toolbar markup in a template).
+   Since slice 3 the figure dialog and the link dialog travel with the
+   macro, and the figure renders her picture in the site's own classes. #}
+{{ ui.section_header(_("6c · Document-editor (TipTap)"), _("Naar de pagina's"),
+                     action_href="/admin/paginas", cls="mt-10") }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("De editor van een pagina, met elk blok van de set: koppen, opmaak, lijsten, link, tabel en figuur. Opslaan bewaart het document als JSON; de server weigert een blok dat het schema niet kent.") }}
+  </p>
+  {{ ui.document_editor("document", document_editor_config, document_editor_value, id="ds-document") }}
+  <p class="text-xs text-gray-500 mt-3">
+    <code>ui.document_editor(name, blocks, value_json)</code> — {{ _("de werkbalk bouwt de JavaScript uit de configuratie van de set.") }}
+  </p>
+{% endcall %}
+
 {# ── 7. Persoonsvelden ─────────────────────────────────────────────────────── #}
 {{ ui.section_header(_("7 · Persoonsvelden"), _("Naar de leden"), action_href="/admin/leden", cls="mt-10") }}
 {% call ui.card() %}
@@ -1124,6 +1143,55 @@
                    save_label=_("Inschrijven en betalen"), busy_label=_("Inschrijven…")) }}
 </div>
 {% endcall %}
+</div>
+
+{# ── 13h. The prose of a document (CR-17 #1671, slice 4) ─────────────────────
+   The reading rules a page's body carries: ONE class, `prose-raak`, the
+   same rules on the site and in the editor's preview. The column is the
+   document page's own: 768 px, left-aligned (`.doc-page`). Judged at 390 px
+   too — the table below is wider than a phone, and there her block scrolls
+   inside itself while the page does not. #}
+{{ ui.section_header(_("13h · Proza van een document"), cls="mt-10") }}
+<p class="text-sm text-gray-600 mb-3">
+  {{ _("De leesregels van een paginakop: één klasse, `prose-raak`, dezelfde op de site en in de preview van de editor. De kolom is die van de documentpagina: 768 px, links uitgelijnd. Op een telefoon schuift de tabel binnen haar eigen blok — de pagina schuift niet.") }}
+</p>
+<div class="doc-page">
+  <div class="prose-raak">
+    <h2>Een kop in de tekst</h2>
+    <p>Een alinea met <strong>vette</strong> en <em>cursieve</em> woorden, en een <a href="#kit-proza">link in de merkkleur</a>. De regels zitten in <code>app.css</code>, niet in de schil: de beheer- en de publieke kant delen ze.</p>
+    <ul>
+      <li>Een lijstregel met korte tekst.</li>
+      <li>En nog één, met wat meer woorden zodat de inspringing zichtbaar blijft.</li>
+    </ul>
+    <table>
+      <thead><tr><th>Onderdeel</th><th>Wat het kost</th><th>Wanneer</th><th>Waar</th><th>Inschrijven</th></tr></thead>
+      <tbody>
+        <tr><td>Wandeling</td><td>€ 3,00</td><td>zondagochtend</td><td>ontmoetingsplaats aan de kerk</td><td>aan de balie</td></tr>
+        <tr><td>Soep na afloop</td><td>€ 5,00</td><td>rond de middag</td><td>in de zaal</td><td>met de wandeling</td></tr>
+      </tbody>
+    </table>
+    {#- The figure's look, as static markup (the review of 10 October 2026,
+        #1770): the editor's demo document carries no figure — a figure node
+        names a media id, a real row on every environment — so her LOOK
+        stands here, in the renderer's own classes, with a drawn file of
+        the kit. The four placements the set offers, one figure each. -#}
+    <figure class="prose-figure prose-figure--full">
+      <img src="{{ statisch('design-system-figure-demo.svg') }}" alt="Een getekende afbeelding: heuvels onder een lucht met een wolk" loading="lazy">
+      <figcaption>Vol — het beeld over de volle kolom, met haar bijschrift.</figcaption>
+    </figure>
+    <figure class="prose-figure prose-figure--right">
+      <img src="{{ statisch('design-system-figure-demo.svg') }}" alt="Een getekende afbeelding: heuvels onder een lucht met een wolk" loading="lazy">
+      <figcaption>Rechts — de tekst stroomt om haar heen.</figcaption>
+    </figure>
+    <figure class="prose-figure prose-figure--left">
+      <img src="{{ statisch('design-system-figure-demo.svg') }}" alt="Een getekende afbeelding: heuvels onder een lucht met een wolk" loading="lazy">
+      <figcaption>Links — de spiegel van rechts.</figcaption>
+    </figure>
+    <figure class="prose-figure prose-figure--small">
+      <img src="{{ statisch('design-system-figure-demo.svg') }}" alt="Een getekende afbeelding: heuvels onder een lucht met een wolk" loading="lazy">
+      <figcaption>Klein — een beeld naast de tekst.</figcaption>
+    </figure>
+  </div>
 </div>
 
 {# ── 14. Publieke schil ────────────────────────────────────────────────────── #}

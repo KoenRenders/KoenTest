@@ -1,9 +1,10 @@
-"""E2E: the page editor's toolbars stay in view while a long page scrolls (#1391 W3).
+"""E2E: the page editor's toolbar stays in view while a long page scrolls (#1391 W3).
 
-CR-11 W3: the page's own button row and Trix's toolbar stick under the sticky
-header (title + Opslaan). Measured as the issue asks, at 390 and 1280 px: after
-scrolling 2 000 px in a long page, the button "Afbeelding" and Trix's toolbar
-are inside the viewport, and neither overlaps the header.
+CR-11 W3: the tools stick under the sticky header. Snede 3 (#1671) carried the
+behaviour to the document editor's toolbar: sticky under the shell's header,
+whose height the shell names in --shell-kop. Measured as the issue asks, at
+390 and 1280 px: after scrolling 2 000 px in a long page, the toolbar and her
+"Blok invoegen" are inside the viewport, and neither overlaps the header.
 
 Proven red against master `112ed593` (served from an export of it): after the
 scroll the button row had gone off the top of the screen.
@@ -24,10 +25,10 @@ SHOTS = "/scratch/shots_1391"
 
 _MEASURE = """() => {
   const r = e => { const b = e.getBoundingClientRect(); return {top: Math.round(b.top), bottom: Math.round(b.bottom)}; };
-  const kop = document.querySelector('#cp-detail .sticky');
-  const knop = [...document.querySelectorAll('#cp-detail button')].find(b => b.textContent.trim() === 'Afbeelding');
-  const trix = document.querySelector('#cp-detail trix-toolbar');
-  return {scroll: Math.round(scrollY), vh: innerHeight, kop: r(kop), knop: r(knop), trix: r(trix),
+  const kop = document.querySelector('header.sticky');
+  const bar = document.querySelector('#cp-document .de-bar');
+  const knop = [...bar.querySelectorAll('.de-btn')].find(b => b.textContent.trim() === 'Blok invoegen ▾');
+  return {scroll: Math.round(scrollY), vh: innerHeight, kop: r(kop), bar: r(bar), knop: knop ? r(knop) : null,
           doc: document.documentElement.scrollWidth, vw: innerWidth};
 }"""
 
@@ -72,9 +73,16 @@ def test_the_toolbars_stay_in_view_under_the_header(browser, width):
         login_met_sessie(page, session_value)
         page.goto(f"/admin/paginas/{page_id}")
         pagina_klaar(page)
-        page.wait_for_selector("#cp-detail trix-toolbar")
-        page.evaluate("() => window.scrollTo(0, 2000)")
-        page.wait_for_function("() => Math.round(scrollY) === 2000")
+        page.wait_for_selector("#cp-document .tiptap")
+        # Scroll PAST the toolbar — 400 px beyond her own place in the
+        # document, so she must stick to stay in reach. A fixed 2 000 px
+        # does not reach the editor on a phone, where the page stacks
+        # three times as tall.
+        page.evaluate(
+            "() => { const bar = document.querySelector('#cp-document .de-bar');"
+            " window.scrollTo(0, Math.round(bar.getBoundingClientRect().top + scrollY) + 400); }"
+        )
+        page.wait_for_function("() => scrollY > 100")
         page.evaluate(
             "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))"
         )
@@ -84,13 +92,17 @@ def test_the_toolbars_stay_in_view_under_the_header(browser, width):
             os.makedirs(SHOTS, exist_ok=True)
             page.screenshot(path=f"{SHOTS}/{width}-w3-pagina.png")
 
-        assert m["scroll"] == 2000, "the page is long enough to scroll 2 000 px"
-        assert 0 <= m["knop"]["top"] and m["knop"]["bottom"] <= m["vh"], f"'Afbeelding' left: {m}"
-        assert 0 <= m["trix"]["top"] and m["trix"]["bottom"] <= m["vh"], f"Trix's toolbar left: {m}"
-        assert m["knop"]["top"] >= m["kop"]["bottom"] - 1, (
-            f"the button row overlaps the header: {m}"
+        assert m["scroll"] > 100, "the page scrolled"
+        # The editor's toolbar stays in reach — the tools of a long page
+        # (snede 3: the document editor kept #1391 W3's behaviour, sticky
+        # under the shell's header, whose height the shell names).
+        assert m["bar"] is not None and 0 <= m["bar"]["top"] and m["bar"]["bottom"] <= m["vh"], (
+            f"the toolbar left the viewport: {m}"
         )
-        assert m["trix"]["top"] >= m["knop"]["bottom"] - 1, f"Trix's toolbar overlaps the row: {m}"
+        assert m["knop"] is not None and m["knop"]["bottom"] <= m["vh"], (
+            f"'Blok invoegen' left: {m}"
+        )
+        assert m["bar"]["top"] >= m["kop"]["bottom"] - 1, f"the toolbar overlaps the header: {m}"
         assert m["doc"] <= m["vw"], m
     finally:
         page.close()

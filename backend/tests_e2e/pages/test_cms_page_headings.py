@@ -5,7 +5,7 @@ at (the cascade decides, not a template), and the buttons of the editor's bar.
 
 Measured on master, the reason for this issue: a heading in the text was drawn
 at 40 px (32 on a phone) — the page-title rule `body[data-shell="site"] #main
-h1` (an id) won from `.cms-content h1` (1.5rem, a class) — and the page had
+h1` (an id) won from `.prose-raak h1` (1.5rem, a class) — and the page had
 three h1's.
 
 Broken on purpose (6 October 2026): the `.cms-page` rules taken out of the
@@ -21,7 +21,7 @@ import secrets
 import sys
 
 import pytest
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -126,12 +126,15 @@ def test_the_title_is_the_only_h1_and_the_three_levels_are_24_18_and_16_px(setup
         page.close()
 
 
-_BAR = """() => { const bar = document.querySelector('[data-cp-balk]'), tool = document.querySelector('#cp-detail trix-toolbar');
-  return {labels: [...bar.querySelectorAll('[data-cp-heading]')].map(b => b.innerText.trim()),
-          levels: [...bar.querySelectorAll('[data-cp-heading]')].map(b => b.dataset.cpHeading),
-          own_heading_button: tool.querySelectorAll('[data-trix-attribute="heading1"]').length,
-          other_buttons: tool.querySelectorAll('[data-trix-attribute]').length,
-          old_labels: [...bar.querySelectorAll('button')].filter(b => /^(H[123]|Titel)$/.test(b.innerText.trim())).length}; }"""
+_BAR = """() => { const editor = document.querySelector('#cp-document');
+  const bar = editor.querySelector('.de-bar');
+  const knoppen = [...bar.querySelectorAll('.de-btn')].filter(b => b.closest('details') === null);
+  const headings = knoppen.filter(b => /^(Kop|Subkop|Kleine kop)$/.test(b.innerText.trim()));
+  return {labels: headings.map(b => b.innerText.trim()),
+          levels: headings.map(b => b.innerText.trim() === 'Kop' ? 1 : b.innerText.trim() === 'Subkop' ? 2 : 3),
+          own_heading_button: [...bar.querySelectorAll('.de-btn')].filter(b => b.innerText.trim() === 'Titel').length,
+          other_buttons: [...bar.querySelectorAll('.de-btn')].length,
+          old_labels: [...bar.querySelectorAll('.de-btn')].filter(b => /^(H[123]|Titel)$/.test(b.innerText.trim())).length}; }"""
 
 
 def test_the_page_editor_offers_kop_subkop_and_kleine_kop_and_saves_what_was_stored(setup):
@@ -143,36 +146,52 @@ def test_the_page_editor_offers_kop_subkop_and_kleine_kop_and_saves_what_was_sto
         login_met_sessie(page, session)
         page.goto(f"/admin/paginas/{page_id}")
         pagina_klaar(page)
-        page.wait_for_selector("#cp-detail trix-toolbar")
-        page.wait_for_function("document.getElementById('cp-trix').editor")
+        page.wait_for_selector("#cp-document .tiptap")
         m = page.evaluate(_BAR)
         print("MEASURE editor bar", m)
-        assert m["labels"] == ["Kop", "Subkop", "Kleine kop"] and m["levels"] == ["1", "2", "3"]
+        assert m["labels"] == ["Kop", "Subkop", "Kleine kop"] and m["levels"] == [1, 2, 3]
         assert m["old_labels"] == 0, 'a button still reads "H2" or "Titel"'
         assert m["own_heading_button"] == 0, "the level Kop is offered twice"
         assert m["other_buttons"] >= 5, "the rest of the editor's toolbar is gone"
 
-        # each button makes its own level in what is stored
-        made = page.evaluate(
-            """() => { const e = document.getElementById('cp-trix').editor, out = {};
-                 for (const n of ['1', '2', '3']) { e.loadHTML('<div>Een regel</div>'); e.setSelectedRange([0, 3]);
-                   document.querySelector(`[data-cp-heading="${n}"]`).click();
-                   out[n] = document.getElementById('cp-content-input').value; }
-                 return out; }"""
-        )
-        assert made["1"].startswith("<h1>") and made["2"].startswith("<h2>")
-        assert made["3"].startswith("<h3>"), made
+        # Each button makes its own level in the document the server
+        # receives: click at the document's end, type a word per level, and
+        # read what the editor wrote to her hidden input.
+        page.locator("#cp-document .tiptap").click()
+        page.keyboard.press("Control+End")
+        for label in ("Kop", "Subkop", "Kleine kop"):
+            page.locator("#cp-document .de-bar .de-btn", has_text=label).first.click()
+            page.keyboard.type(f"{label} van de test")
+            page.keyboard.press("Enter")
+        document = page.locator("#cp-document-input").input_value()
+        compact = document.replace(" ", "")
+        print("MEASURE document after the three headings", document[:200])
+        # The page's own headings may satisfy a bare level check — the proof
+        # is the TYPED words, each under her own level.
+        for level, label in ((1, "Kop"), (2, "Subkop"), (3, "Kleine kop")):
+            assert f"{label} van de test" in document, f"the typed {label} was not written"
+            assert f'"level":{level}' in compact, f"level {level} was not written"
 
-        # an existing page opens and saves without losing its levels
+        # The typed levels must survive the SAVE and the reopen: save the
+        # document, reload, and the draft the editor opens holds the page's
+        # own headings plus the three typed ones — and no level the schema
+        # refuses.
+        page.locator("[data-action-bar] button[data-form-save]").first.click()
+        pagina_klaar(page)
         page.reload()
         pagina_klaar(page)
-        page.wait_for_function("document.getElementById('cp-trix').editor")
-        page.locator("#cp-detail [data-form-save], #cp-detail button[type=submit]").first.click()
-        expect(page.locator("#toasts")).to_contain_text("Opgeslagen")
-        stored = _stored(page_id)
-        assert (stored.count("<h1"), stored.count("<h2"), stored.count("<h3")) == (2, 1, 1), stored
-        assert "<h4" not in stored, "the shift was written into the stored text"
-        assert page.errors == []
+        page.wait_for_selector("#cp-document .tiptap")
+        document_na = page.locator("#cp-document-input").input_value()
+        compact = document_na.replace(" ", "")
+        # The page's own levels may satisfy a bare level check — the proof
+        # is the TYPED words, each under her own level.
+        for level, label in ((1, "Kop"), (2, "Subkop"), (3, "Kleine kop")):
+            assert f"{label} van de test" in document_na, (
+                f"the typed {label} did not survive the save and the reopen"
+            )
+            assert f'"level":{level}' in compact, f"level {level} left the document"
+        assert '"level":4' not in compact, "the shift was written into the stored document"
+        assert page.errors == [], f"the editor throws: {page.errors}"
     finally:
         page.close()
 

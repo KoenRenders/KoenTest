@@ -88,8 +88,11 @@ def test_the_editor_offers_the_checkbox_and_saves_it(client, db_session):
     client.cookies.set(SESSION_COOKIE, session)
 
     editor = client.get(f"/admin/paginas/{page.id}").text
-    box = re.search(r'<input type="checkbox" name="show_in_footer" value="1"([^>]*)>', editor)
-    assert box and "checked" not in box.group(1), "off by default"
+    # Snede 3 (#1671): the kit's switch is the screen's control now — the
+    # hand-built checkbox left with the hand-built detail fragment. The
+    # hidden field carries the off value, the checkbox the on value.
+    box = re.search(r'<input type="checkbox"[^>]*name="show_in_footer"[^>]*>', editor)
+    assert box and "checked" not in box.group(0), "off by default"
     assert "Toon in de voettekst" in editor
 
     def save(**extra):
@@ -105,12 +108,15 @@ def test_the_editor_offers_the_checkbox_and_saves_it(client, db_session):
             headers={"X-CSRF-Token": csrf_token_for(session), "HX-Request": "true"},
         )
 
-    assert save(show_in_footer="1").status_code == 200
+    # Snede 3 (#1671): a save that succeeds is a 204 with the way back —
+    # htmx follows the header (the browser navigates), the old 200-with-
+    # fragment is gone with the master-detail.
+    assert save(show_in_footer="1").status_code == 204
     db_session.expire_all()
     assert db_session.get(CmsPage, page.id).show_in_footer is True
     assert "in voettekst" in client.get("/admin/paginas").text, "the list shows a badge"
 
-    assert save().status_code == 200, "unticked: the key is absent from the form"
+    assert save().status_code == 204, "unticked: the key is absent from the form"
     db_session.expire_all()
     assert db_session.get(CmsPage, page.id).show_in_footer is False
 

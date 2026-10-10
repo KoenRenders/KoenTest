@@ -32,9 +32,13 @@ def _lijst_ctx(db: Session, q: str = "", status: str = "") -> dict:
     Er zijn tientallen CMS-pagina's, geen duizenden: filteren gebeurt op de al
     opgehaalde lijst i.p.v. in een tweede query.
     """
+    from app.domains.cms.api import draft_states
     from app.domains.cms.api import list_pages as list_all_pages
 
     alle = list_all_pages(db)
+    # Snede 3 (#1671): the list says "concept gewijzigd" where the draft
+    # differs from the published document (C4.3) — one source: draft_states.
+    gewijzigd = draft_states(db, [p.id for p in alle])
     # #745: de pijltjes verplaatsen binnen de VOLLEDIGE verzameling; het filter
     # bepaalt alleen wat je ziet. Daarom wordt "eerste" en "laatste" ook daaraan
     # afgemeten: met een filter aan is de bovenste zichtbare rij zelden de eerste
@@ -55,6 +59,8 @@ def _lijst_ctx(db: Session, q: str = "", status: str = "") -> dict:
         pages = [p for p in pages if not p.is_published]
     elif status == "in_nav":
         pages = [p for p in pages if p.show_in_nav]
+    for page in pages:
+        page.concept_gewijzigd = gewijzigd.get(page.id, False)
     return {
         "pages": pages,
         "q": q,
@@ -65,33 +71,90 @@ def _lijst_ctx(db: Session, q: str = "", status: str = "") -> dict:
     }
 
 
-def _editor_ctx(request: Request, db: Session, page) -> dict:
-    """Everything `_cp_detail.html` needs, built in one place.
+def _record_ctx(
+    request: Request,
+    db: Session,
+    page,
+    *,
+    error=None,
+    toast: bool = False,
+    document: str | None = None,
+) -> dict:
+    """Everything the record page needs, built in one place (snede 3, #1671):
+    the editor's configuration and her document, the draft's state against
+    the published version, and the history the author can go back to.
+    `document`: the POSTED document of a refused save (the review's A3,
+    #1734) — the editor re-opens what the author typed, not the stored
+    draft her words would otherwise replace."""
+    import json as _json
 
-    This dict existed twice before #1173 — once for the full page, once for the
-    htmx fragment after a save — and the insert button would have made that a
-    third copy of the same keys. One source; each caller adds only what differs.
-    """
-    from app.domains.cms.api import placeholders
+    from app.domains.cms.api import (
+        draft_differs,
+        editable_document,
+        get_translation,
+        placeholders,
+        schema,
+        versions,
+    )
 
-    # #1474: the insert button's library is the kit's picker, loaded when the
-    # dialog opens (`/admin/media/kiezer`) — no list of page pictures here.
     return {
         "p": page,
+        "document_json": (
+            document if document is not None else _json.dumps(editable_document(db, page))
+        ),
+        "editor_config": schema.schema_for("page"),
+        # The value codes the author can type in the document (#1615): the
+        # legend in WORDS, one source with the public renderer's examples —
+        # the record page's aside shows her.
         "placeholders": placeholders(db),
         "csrf_token": csrf_from_request(request),
-        "error": None,
+        "error": error,
+        "toast_opgeslagen": toast,
+        "wijzigend": draft_differs(db, page),
+        "vertaling": (vertaling := get_translation(db, page)),
+        "versies": versions(db, page.id),
+        # A page the migration could not convert losslessly is live through
+        # her stored HTML; Publiceren would replace that with the (lossy)
+        # draft — the CR asks a notice to compare the two first (F11, C2
+        # cms; review A4, #1770).
+        "live_via_oude_tekst": bool(
+            page.is_published and (vertaling is None or vertaling.published_json is None)
+        ),
     }
 
 
-def _detail_response(request: Request, db: Session, page_id: int, *, toast: bool = False):
+def _record_response(
+    request: Request,
+    db: Session,
+    page_id: int,
+    *,
+    error=None,
+    toast: bool = False,
+    document: str | None = None,
+):
+    """The record page, or a 404 — the hand-built detail fragment of the
+    master-detail is gone (snede 3, #1671: the page screen is a record page
+    of the kit)."""
     from app.domains.cms.api import get_page_by_id
 
     page = get_page_by_id(db, page_id)
     if page is None:
-        return HTMLResponse('<div id="cp-detail" hx-swap-oob="true"></div>')
+        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden."))
+    # A refused save swaps the record back into #main: the fragment, not the
+    # whole shell (nesting shells is how a boosted screen breaks).
+    if is_fragment_request(request):
+        return templates.TemplateResponse(
+            request,
+            "_cp_record.html",
+            _record_ctx(request, db, page, error=error, toast=toast, document=document),
+        )
     return templates.TemplateResponse(
-        request, "_cp_detail.html", {**_editor_ctx(request, db, page), "toast_opgeslagen": toast}
+        request,
+        "admin_pagina.html",
+        {
+            "nav_items": admin_nav(NAV, request),
+            **_record_ctx(request, db, page, error=error, toast=toast, document=document),
+        },
     )
 
 
@@ -139,19 +202,11 @@ def pagina_detail(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PAGE_VIEW)),
 ):
-    """Een kaart opent de paginabrede editor (C1, #587); het opslaan daarbinnen
-    blijft een htmx-fragment dat in #cp-detail landt."""
-    if is_fragment_request(request):
-        return _detail_response(request, db, page_id)
-    from app.domains.cms.api import get_page_by_id
-
-    page = get_page_by_id(db, page_id)
-    if page is None:
-        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
-    return templates.TemplateResponse(
-        request,
-        "admin_pagina.html",
-        {"nav_items": admin_nav(NAV, request), **_editor_ctx(request, db, page)},
+    """The page screen is a record page of the kit (snede 3, #1671): the
+    header carries title and address, the actions are Voorbeeld, Publiceren
+    and Geschiedenis, and the document is the editor's."""
+    return _record_response(
+        request, db, page_id, toast=request.query_params.get("opgeslagen") == "1"
     )
 
 
@@ -186,44 +241,141 @@ def pagina_bijwerken(
     email: str = Depends(require_right(Right.PAGE_MANAGE)),
     title: str = Form(""),
     slug: str = Form(""),
-    content: str = Form(""),
-    is_published: str = Form(""),
+    document: str = Form(""),
     show_in_nav: str = Form(""),
     is_home: str = Form(""),
     show_in_footer: str = Form(""),
     sort_order: str | None = Form(None),
 ):
-    from app.domains.cms.api import update_page
+    """Opslaan (snede 3, #1671): the record's fields and the document in ONE
+    save (the review's A3, #1734) — a refusal saves NOTHING, not the fields
+    without the document, and the editor reopens with what the author
+    POSTED, not with the stored draft her words would otherwise replace.
+    C6 4: nothing published changes here.
+    """
+    from app.domains.cms.api import save_page_form
     from app.schemas.cms import CmsPageUpdate
 
-    # #745: het getalveld is uit de editor verdwenen, dus de sleutel komt niet meer
-    # mee. "Niet meegestuurd" is iets anders dan "op nul gezet": zou dit veld op 0
-    # terugvallen, dan wist een gewone opslag de volgorde die je net met de pijltjes
-    # gezet had — en dat merk je pas als het publieke menu door elkaar staat.
     volgorde = None
     if sort_order is not None:
         try:
             volgorde = int(sort_order or "0")
         except ValueError:
             raise HTTPException(status_code=400, detail=_("Ongeldige volgorde."))
-    # CmsPageUpdate slaat None-velden over (exclude_none) — booleans en content
-    # moeten dus altijd een waarde meekrijgen, anders kun je nooit uitvinken.
+    # No `content` and no `is_published` ride along: the editor is the author
+    # of the document (content is her fallback, not her source), and
+    # publishing is the Publiceren action — not a checkbox.
     data = CmsPageUpdate(
         title=title.strip() or None,
         slug=slug.strip().lower() or None,
-        content=content,
-        is_published=bool(is_published),
         show_in_nav=bool(show_in_nav),
         is_home=bool(is_home),
         show_in_footer=bool(show_in_footer),
         sort_order=volgorde,
     )
-    update_page(db, page_id, data)
-    # Geen HX-Trigger meer voor de zijlijst: die master-detail-lijst bestond
-    # naast de editor en is met #587 verdwenen.
-    # #742: het scherm blijft staan, dus zonder toast zegt een geslaagde opslag
-    # niets — je ziet dezelfde editor terug en weet niet of het gelukt is.
-    return _detail_response(request, db, page_id, toast=True)
+    try:
+        save_page_form(db, page_id, data, document, by=email)
+    except LookupError:
+        # An unknown page id is the author's own door: the words the list
+        # screen uses, not Python's 500 (review B4, #1770).
+        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden."))
+    except (ValueError, TypeError) as error:
+        # UnknownBlock, UnknownAttribute, InvalidShape, a slug that exists,
+        # an unreadable document and a picture the picker does not offer
+        # all carry their own name for the author; the service refused
+        # before the first write — a screen touches no transaction
+        # (#635 rule 2), and the author's posted document comes back.
+        return _record_response(request, db, page_id, error=str(error), document=document)
+    return Response(
+        status_code=204, headers={"HX-Redirect": f"/admin/paginas/{page_id}?opgeslagen=1"}
+    )
+
+
+@router.post(
+    "/admin/paginas/{page_id}/publiceren",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def publish_page(
+    page_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PAGE_MANAGE)),
+):
+    """Publiceren (C4.3, snede 3): the draft becomes the published document
+    and exactly one history row is written, in one transaction. The site
+    shows her from the next request on."""
+    from app.domains.cms.api import publish
+
+    try:
+        publish(db, page_id, by=email)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except ValueError as refusal:
+        # The door of A3 (the second read's finding 1, #1770): a draft the
+        # migration or a lenient parse wrote meets the schema HERE, and the
+        # author reads her refusal in the screen, not a 500 — the same
+        # words the save route gives, the screen the author stands in.
+        return _record_response(request, db, page_id, error=str(refusal))
+    return Response(
+        status_code=204, headers={"HX-Redirect": f"/admin/paginas/{page_id}?opgeslagen=1"}
+    )
+
+
+@router.post(
+    "/admin/paginas/{page_id}/offline-halen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def take_offline_page(
+    page_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PAGE_MANAGE)),
+):
+    """Offline halen (Koen, 8 October 2026, decision 1a on #1734): the page
+    leaves the site and keeps everything — her draft, her published
+    document, her history. A history row records who took her off and
+    when (Koen: "ja"). Publiceren puts the draft live again — the draft
+    as it stands then, not necessarily the same words.
+    """
+    from app.domains.cms.api import take_page_offline
+
+    try:
+        take_page_offline(db, page_id, by=email)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    return Response(status_code=204, headers={"HX-Redirect": f"/admin/paginas/{page_id}"})
+
+
+@router.post(
+    "/admin/paginas/{page_id}/terugzetten/{history_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def restore_page(
+    page_id: int,
+    history_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PAGE_MANAGE)),
+):
+    """Terugzetten (C6 6): writes the chosen version into the draft only —
+    the site keeps showing the published document until the author
+    publishes the restored draft."""
+    from app.domains.cms.api import restore
+
+    try:
+        restore(db, page_id, history_id, by=email)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except ValueError as refusal:
+        # As Publiceren (the second read's finding 1, #1770): a history row
+        # an older build wrote refuses with her name, in the screen.
+        return _record_response(request, db, page_id, error=str(refusal))
+    return Response(
+        status_code=204, headers={"HX-Redirect": f"/admin/paginas/{page_id}?opgeslagen=1"}
+    )
 
 
 @router.post(
@@ -297,8 +449,7 @@ def pagina_voorbeeld(
     """Admin-voorbeeld van een pagina — óók een concept (ongepubliceerd), #554. De
     publieke /{slug}-route blijft enkel gepubliceerde pagina's tonen (404 op concept),
     dus 'Bekijk' linkt hierheen zodat je een concept kan bekijken vóór publicatie."""
-    from app.domains.cms.api import get_page_by_id
-    from app.domains.cms.render import render_cms_content
+    from app.domains.cms.api import draft_html, get_page_by_id
     from app.ui import site_context
 
     page = get_page_by_id(db, page_id)
@@ -310,7 +461,7 @@ def pagina_voorbeeld(
         {
             **site_context(db, request),
             "page": page,
-            "content_html": render_cms_content(page.content or "", db, on_page=True),
+            "content_html": draft_html(db, page),
             # #924: het voorbeeld toont wat de bezoeker ziet, dus ook het contactblok
             # op de privacypagina. Expliciet meegeven en niet aan de sjabloon
             # overlaten: een sjabloon dat om iets vraagt wat zijn aanroeper niet

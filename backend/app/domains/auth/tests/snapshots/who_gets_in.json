@@ -1126,6 +1126,18 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "POST /admin/paginas/{page_id}/offline-halen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/paginas/{page_id}/publiceren": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/paginas/{page_id}/terugzetten/{history_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
   "POST /admin/paginas/{page_id}/verwijderen": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"

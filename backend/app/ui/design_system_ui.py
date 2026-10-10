@@ -295,8 +295,99 @@ def _voorbeeldvelden() -> list:
     )
 
 
+def _document_demo() -> tuple[dict, str]:
+    """The document-editor's demo (CR-17 #1671, slice 2): the `page` set's
+    configuration and a document holding every block the set offers —
+    invented data, like every demo on this page; no database.
+
+    The demo document carries NO figure (the review of 10 October 2026,
+    #1770): a figure node names a media id, and id 1 is a real row on
+    every environment — whatever picture happens to carry the number
+    there, or none. The toolbar still offers her (the set says so); her
+    LOOK stands in section 13h as static markup, with a static file of
+    the kit, and the figure's dialog — the kit's picker, the alternative
+    text, the caption, the placement — travels with the
+    `ui.document_editor` macro as before.
+    """
+    import json
+
+    from app.domains.cms.api import schema
+
+    demo = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "heading",
+                "attrs": {"level": 1},
+                "content": [{"type": "text", "text": "Een pagina als document"}],
+            },
+            {
+                "type": "paragraph",
+                "content": [
+                    {"type": "text", "text": "Een alinea met een "},
+                    {"type": "text", "marks": [{"type": "bold"}], "text": "vet"},
+                    {"type": "text", "text": " en een "},
+                    {"type": "text", "marks": [{"type": "italic"}], "text": "cursief"},
+                    {"type": "text", "text": " woord."},
+                ],
+            },
+            {
+                "type": "bulletList",
+                "content": [
+                    {
+                        "type": "listItem",
+                        "content": [
+                            {
+                                "type": "paragraph",
+                                "content": [{"type": "text", "text": "Een punt in een lijst."}],
+                            }
+                        ],
+                    }
+                ],
+            },
+            {
+                "type": "table",
+                "content": [
+                    {
+                        "type": "tableRow",
+                        "attrs": {"section": "head"},
+                        "content": [
+                            {
+                                "type": "tableHeader",
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "content": [{"type": "text", "text": "Wat"}],
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    {
+                        "type": "tableRow",
+                        "attrs": {"section": "body"},
+                        "content": [
+                            {
+                                "type": "tableCell",
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "content": [{"type": "text", "text": "Koffie"}],
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                ],
+            },
+        ],
+    }
+    return schema.schema_for("page"), json.dumps(demo)
+
+
 @router.get("/admin/design-system", response_class=HTMLResponse)
 def design_system(request: Request, email: str = Depends(require_right(Right.SETTINGS_VIEW))):
+    document_config, document_value = _document_demo()
     view = DesignSystemView(
         nav_items=admin_nav("/admin/design-system", request),
         tokens=_tokens(),
@@ -307,5 +398,7 @@ def design_system(request: Request, email: str = Depends(require_right(Right.SET
         # A real date, because the date format is the one that cannot be written
         # as a literal in the template (#875).
         demo_datum=date(2026, 9, 12),
+        document_editor_config=document_config,
+        document_editor_value=document_value,
     )
     return templates.TemplateResponse(request, "design_system.html", view.as_context())

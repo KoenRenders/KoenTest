@@ -108,7 +108,7 @@ def test_the_public_page_has_one_h1_its_title(client, db_session):
         ("h3", "Samen meer beleven"),
         ("h4", "Praktisch"),
     ]
-    assert 'class="cms-content cms-page"' in main, "the page body does not carry its class"
+    assert 'class="prose-raak cms-page"' in main, "the page body does not carry its class"
     db_session.expire_all()
     stored = db_session.query(CmsPage).filter_by(slug="werking-1656").one().content
     assert stored == BODY, "showing the page changed what is stored"

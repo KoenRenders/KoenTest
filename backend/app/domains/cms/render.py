@@ -53,6 +53,16 @@ _ALLOWED_TAGS = {
     "blockquote",
     "pre",
     "code",
+    # The figure of a published document (CR-17 #1671, slice 3): the wrapper
+    # carries the placement (`prose-figure--…`) and the caption her words —
+    # without her in the allowlist a published figure loses both, exactly
+    # what slice 1's review E note warned about (#1673). Slice 3 is the
+    # moment she first reaches the site: the page screen publishes
+    # documents. A Trix-era figure wrapper also survives now; her `img`
+    # keeps her own size class and the wrapper matches no style — measured
+    # in test_figure_placements_1671.py's sibling, the legacy pin below.
+    "figure",
+    "figcaption",
     "img",
     "table",
     "thead",
@@ -67,6 +77,14 @@ _ALLOWED_TAGS = {
 _ALLOWED_ATTRS = {
     "a": {"href", "title", "target"},
     "img": {"src", "alt", "title", "width", "height"},
+    # An ordered list's start is the author's own (Koen, 7 October 2026,
+    # option 1 of the third look, #1699): the renderer writes her on the
+    # <ol>, so the sanitiser must let her through — one attribute, one
+    # element, nothing else. The same holds for a merged cell's spans
+    # (8 October 2026): what the author merged, the site shows.
+    "ol": {"start"},
+    "th": {"colspan", "rowspan"},
+    "td": {"colspan", "rowspan"},
     "*": {"class"},
 }
 
@@ -399,3 +417,296 @@ def render_cms_content(content: Optional[str], db=None, *, on_page: bool = False
     content = _SITES.sub(lambda m: _sites_html(m.group(1), db), content)
     # And the form buttons (#1567), the same way.
     return _FORM.sub(lambda m: _form_button_html(m.group(1), m.group(2), db), content)
+
+
+# ── Documents (CR-17 phase 1, #1671) ─────────────────────────────────────────
+#
+# A page's content is a structured document against `cms/schema.py`; the HTML
+# below is a RENDERING of it, never the storage. The pipeline mirrors the old
+# one on purpose — the same sanitiser over the output, the same substitutions
+# after it — so a migrated page renders byte-for-byte as it did (R17, test 12):
+# the round trip `render_document(parse_html(page.content)) == the old public
+# output` is the migration's proof of losslessness.
+#
+# No legacy flags (Koen, 6 October 2026): a page whose paragraphs are Trix
+# divs, or whose picture carries a Trix-era size, keeps her HTML — her words
+# stand in the draft. A figure placed through the editor renders as the kit's
+# picture with the public radius and shadow (C4.8). The document never decides
+# pixels — the prose rules do.
+
+
+def _mark_html(mark: dict) -> tuple[str, str]:
+    """The open and close tag of one mark. `del` and not `s`: the stored pages
+    carry Trix' spelling, so the round trip holds; `em`/`strong` for the same
+    reason."""
+    if mark["type"] == "link":
+        href = escape(mark.get("attrs", {}).get("href", ""), quote=True)
+        return f'<a href="{href}">', "</a>"
+    tag = {"bold": "strong", "italic": "em", "strike": "del"}[mark["type"]]
+    return f"<{tag}>", f"</{tag}>"
+
+
+def _inline_html(nodes: "list[dict] | None") -> str:
+    """Inline content: text, marks, hard breaks and value nodes.
+
+    A paragraph inside a table cell renders without its `<p>` (cell context,
+    the shape tables have always had); everywhere else a paragraph keeps it.
+    """
+    parts = []
+    for node in nodes or []:
+        kind = node["type"]
+        if kind == "text":
+            text = escape(node.get("text", ""), quote=False)
+            for mark in node.get("marks") or []:
+                open_tag, close_tag = _mark_html(mark)
+                text = f"{open_tag}{text}{close_tag}"
+            parts.append(text)
+        elif kind == "hardBreak":
+            parts.append("<br>")
+        elif kind == "value":
+            code = node.get("attrs", {}).get("code", "")
+            parts.append(escape(_values().get(code, ""), quote=False))
+        else:
+            raise ValueError(f"unknown inline node: {kind}")
+    return "".join(parts)
+
+
+def _blocks_html(blocks: "list[dict] | None", cell: bool = False) -> str:
+    parts = []
+    for node in blocks or []:
+        parts.append(_block_html(node, cell))
+    # A cell or a list item holds bare paragraphs (no <p>); Enter in a cell
+    # is the author's own line break — blocks joined with nothing ran her
+    # lines together on the site (review B1, #1770). Outside a cell the
+    # blocks carry their own margins; nothing joins them.
+    return "<br>".join(parts) if cell else "".join(parts)
+
+
+def _block_html(node: dict, cell: bool = False) -> str:
+    kind = node["type"]
+    content = node.get("content")
+
+    if kind == "paragraph":
+        inner = _inline_html(content)
+        return inner if cell else f"<p>{inner}</p>"
+
+    if kind == "heading":
+        # The document stores the author's choice; `render_document` shifts a
+        # page body one level down through `headings_one_level_down` — the
+        # ONE place that knows the shift (#1656, review B4a #1673).
+        level = int(node.get("attrs", {}).get("level", 2))
+        return f"<h{level}>{_inline_html(content)}</h{level}>"
+
+    if kind in ("bulletList", "orderedList"):
+        tag = "ul" if kind == "bulletList" else "ol"
+        # A list item's paragraphs render bare, like today's Trix lists: no
+        # <p> inside the <li> (measured: with it, every round trip failed).
+        items = "".join(
+            f"<li>{_blocks_html(item.get('content'), cell=True)}</li>" for item in content or []
+        )
+        # An ordered list's start is the author's own (Koen, 7 October 2026:
+        # render her — option 1 of the third look, #1699). Only a start that
+        # differs from the default lands on the <ol>: TipTap writes start=1
+        # for every list she makes, and a start="1" would change the HTML
+        # of pages that never asked for one.
+        start = ""
+        if kind == "orderedList":
+            value = (node.get("attrs") or {}).get("start")
+            if isinstance(value, int) and value != 1:
+                start = f' start="{value}"'
+        return f"<{tag}{start}>{items}</{tag}>"
+
+    if kind == "table":
+        # The rows carry their section: a table typed WITH <thead> renders
+        # thead + tbody, a bare table renders bare rows — both exactly as
+        # the sanitised HTML of today does (#1671).
+        head = "".join(
+            _block_html(row)
+            for row in content or []
+            if (row.get("attrs") or {}).get("section") == "head"
+        )
+        body = "".join(
+            _block_html(row)
+            for row in content or []
+            if (row.get("attrs") or {}).get("section") == "body"
+        )
+        bare = "".join(
+            _block_html(row) for row in content or [] if not (row.get("attrs") or {}).get("section")
+        )
+        return (
+            "<table>"
+            + (f"<thead>{head}</thead>" if head else "")
+            + (f"<tbody>{body}</tbody>" if body else "")
+            + bare
+            + "</table>"
+        )
+
+    if kind == "tableRow":
+        return f"<tr>{''.join(_block_html(c) for c in content or [])}</tr>"
+
+    if kind in ("tableHeader", "tableCell"):
+        tag = "th" if kind == "tableHeader" else "td"
+        # A merged cell is the author's own (Koen, 8 October 2026): the
+        # spans she merged show on the site as she made them. Only a real
+        # span lands on the tag — the editor's 1s stay invisible, so an
+        # ordinary table keeps today's HTML.
+        attrs = node.get("attrs") or {}
+        spans = ""
+        for name in ("colspan", "rowspan"):
+            value = attrs.get(name)
+            if isinstance(value, int) and value > 1:
+                spans += f' {name}="{value}"'
+        return f"<{tag}{spans}>{_blocks_html(content, cell=True)}</{tag}>"
+
+    if kind == "figure":
+        return _figure_html(node)
+
+    raise ValueError(f"unknown block node: {kind}")
+
+
+def _figure_html(node: dict) -> str:
+    # The address comes from media.api — the one place that knows its shape
+    # (CR-15 §C4.6); no module writes it itself (the media seam gate).
+    from app.domains.media.api import media_url
+
+    attrs = node.get("attrs", {})
+    media_id = attrs.get("media_id")
+    src = media_url(media_id)
+    # The kit's figure — the only rendering: radius and shadow come from the
+    # prose rules, never from the file (C4.8). A Trix-era picture keeps her
+    # page on the HTML fallback (no legacy sizes, Koen 6 October 2026); a
+    # figure placed through the editor lands here. The sanitiser keeps the
+    # wrapper since slice 3 (review E's note on #1673 resolved there): the
+    # page screen publishes documents, and without the wrapper the visitor
+    # loses the placement and the caption.
+    placement = attrs.get("placement") or "full"
+    alt = escape(attrs.get("alt") or "", quote=True)
+    size = ""
+    if attrs.get("width") and attrs.get("height"):
+        size = f' width="{attrs["width"]}" height="{attrs["height"]}"'
+    figure = (
+        f'<figure class="prose-figure prose-figure--{placement}">'
+        f'<img src="{src}" alt="{alt}"{size} loading="lazy">'
+    )
+    if attrs.get("caption"):
+        figure += f"<figcaption>{escape(attrs['caption'])}</figcaption>"
+    return figure + "</figure>"
+
+
+def render_document(document, db=None, *, on_page: bool = False, target: str = "site") -> str:
+    """A validated document (dict or JSON string) to site HTML (CR-17, C4.2) —
+    or to plain text (``target="text"``): the words the chatbot's context
+    reads, no tags at all.
+
+    The same net as the old path, in the same order: build the HTML from the
+    schema's nodes, sanitise the OUTPUT (nh3, the same allowlist), then the
+    substitutions the text may carry — the five configuration codes first
+    (a code stays TEXT in the document; the renderer replaces it as
+    `render_cms_content` does today, the value BLOCK is phase 5), then the
+    sites cards and a form button — code built and escaped, placed after the
+    sanitiser as before (#1543, #1567). The text target walks the same schema
+    and carries the same substitutions, reduced to their words.
+    """
+    if isinstance(document, str):
+        import json
+
+        document = json.loads(document)
+    if target == "text":
+        return _document_text(document, db)
+    html = _blocks_html(document.get("content") or []) if document else ""
+    html = sanitize_cms_html(html) or ""
+    if on_page:
+        html = headings_one_level_down(html)
+    for code, value in _values().items():
+        html = html.replace(f"{{{{{code}}}}}", value)
+    html = _SITES.sub(lambda m: _sites_html(m.group(1), db), html)
+    return _FORM.sub(lambda m: _form_button_html(m.group(1), m.group(2), db), html)
+
+
+def _document_text(document, db=None) -> str:
+    """The words of a document: what the chatbot's context reads (C2 cms,
+    *Readers*). Blocks in order, blank lines between them; a value block its
+    current value; a figure its alt text; the sites cards and a form button
+    their words, not their markup."""
+
+    if not document:
+        return ""
+    lines: list[str] = []
+
+    def walk(node: dict) -> None:
+        kind = node["type"]
+        content = node.get("content") or []
+        if kind == "doc":
+            for child in content:
+                walk(child)
+            return
+        if kind == "paragraph":
+            lines.append(_inline_text(content))
+        elif kind == "heading":
+            lines.append(_inline_text(content))
+        elif kind in ("bulletList", "orderedList"):
+            # An ordered list numbers from her start (option 1, #1699): the
+            # chatbot reads what the author wrote — "5." stays "5.", not a
+            # bare dash that could be any list.
+            number = (node.get("attrs") or {}).get("start") if kind == "orderedList" else None
+            for item in content:
+                # An item holds blocks, not only inlines: a nested list (or a
+                # paragraph after her) lost her words when only the inline
+                # parts were read (review B2, #1770). Blocks walk in order;
+                # an inline-only item keeps her one line.
+                for b in item.get("content") or []:
+                    if b.get("type") in ("bulletList", "orderedList", "table", "figure"):
+                        walk(b)
+                    else:
+                        words = _inline_text(b.get("content") or [])
+                        if number is None:
+                            lines.append(f"- {words}")
+                        else:
+                            lines.append(f"{number}. {words}")
+                            number += 1
+        elif kind == "table":
+            for row in content:
+                cells = []
+                for cell in row.get("content") or []:
+                    words = " ".join(
+                        _inline_text(p.get("content") or []) for p in cell.get("content") or []
+                    )
+                    cells.append(words)
+                lines.append(" | ".join(cells))
+        elif kind == "figure":
+            alt = (node.get("attrs") or {}).get("alt") or ""
+            if alt:
+                lines.append(alt)
+        elif kind in ("button", "callout", "linkCard", "card", "cards"):
+            attrs = node.get("attrs") or {}
+            words = " ".join(
+                str(attrs.get(k, "")) for k in ("heading", "label", "title", "line") if attrs.get(k)
+            )
+            if words:
+                lines.append(words)
+
+    def _inline_text(nodes: list) -> str:
+        words = []
+        for node in nodes:
+            kind = node["type"]
+            if kind == "text":
+                words.append(unescape(node.get("text", "")))
+            elif kind == "hardBreak":
+                words.append(" ")
+            elif kind == "value":
+                words.append(unescape(_values().get(node.get("attrs", {}).get("code", ""), "")))
+        # A word split over two marks ("wo" + "rd", each bold) is one word:
+        # joining with a space made "wo rd" of her (review B2, #1770). The
+        # spaces the author typed sit IN her text nodes; a hardBreak is the
+        # only inline that stands for a break of her own.
+        text = "".join(words)
+        for code, value in _values().items():
+            text = text.replace(f"{{{{{code}}}}}", value)
+        return text.strip()
+
+    walk(document)
+    text = "\n\n".join(line for line in lines if line.strip())
+    # The same substitutions the site carries, as their words (#1615's rule:
+    # a placeholder is shown in WORDS, never its markup).
+    text = _SITES.sub(lambda m: sites_in_words(m.group(1), db), text)
+    return _FORM.sub(lambda m: unescape(m.group(2) or "").strip() or m.group(1), text)

@@ -7,10 +7,12 @@ queries, maar wel met een regel erin die nergens anders staat — "publiek betek
 """
 
 import html
+import json
 import re
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
-from app.domains.cms.models import CmsPage
+from app.domains.cms import schema as _schema
+from app.domains.cms.models import CmsPage, CmsPageTranslation
 from app.i18n import _
 
 # A picture in a page's text is an `<img src="/api/v1/media/<id>">` (or its
@@ -124,8 +126,20 @@ def create_page(db, data) -> CmsPage:
         sort_order=data.sort_order,
     )
     if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
-        raise SlugBestaatAl("Slug already exists")
+        raise SlugBestaatAl("Dit webadres bestaat al.")
     db.add(page)
+    db.flush()
+    # CR-17 fase 1 (#1671): a new page starts with a translation row in the
+    # tenant's language, its documents derived from the content it was
+    # created with (review C3, #1673) — an empty draft for an empty page.
+    # The derive step is the row's ONE creation site. An explicit add here
+    # besides her meant TWO rows for the same (page, language) on the app's
+    # autoflush=False session: the pending first row is invisible to the
+    # derive step's lookup, so it created a second and the commit died on
+    # the primary key — the create screen's "Er ging iets mis" (Koen, 8
+    # October 2026, on the local version; the suite was blind because the
+    # test session autoflushes, the app session does not).
+    _derive_documents_from_content(db, page)
     db.commit()
     db.refresh(page)
     return page
@@ -162,37 +176,155 @@ def seed_site_blocks(db, tenant_id: int, name: str) -> None:
     }
     for slug, title, content in blocks:
         if slug not in existing:
+            page = CmsPage(
+                tenant_id=tenant_id,
+                slug=slug,
+                title=title,
+                content=content,
+                is_published=True,
+                show_in_nav=False,
+            )
+            db.add(page)
+            db.flush()
+            # CR-17 fase 1 (#1671): the seed writes the row — the documents
+            # come from the first save or from the migration, exactly like
+            # every other page; the site renders `content` until the readers
+            # move (snede 3).
             db.add(
-                CmsPage(
-                    tenant_id=tenant_id,
-                    slug=slug,
+                CmsPageTranslation(
+                    page_id=page.id,
+                    language=_language(db, page),
                     title=title,
-                    content=content,
-                    is_published=True,
-                    show_in_nav=False,
                 )
             )
     db.flush()
 
 
-def update_page(db, page_id: int, data) -> CmsPage:
-    page = get_page_by_id(db, page_id)
-    if page is None:
-        raise LookupError("Page not found")
+def _apply_page_fields(db, page: CmsPage, data) -> None:
+    """The record's fields onto the page, in the CALLER's transaction — the
+    applying half of `update_page` and of the screen's one save (the review's
+    A3, #1734): the document is validated before she runs, so a refusal has
+    written nothing that this half would leave behind."""
+    if data.title and len(data.title) > 200:
+        # `page_translations.title` is String(200); `cms_pages.title` carries
+        # 255. A 201–255 character title aborted the save on the INSERT
+        # (review B3, #1770) — every door speaks her, this is the one that
+        # applies the title.
+        raise ValueError("De titel is te lang: hooguit 200 tekens.")
     if data.slug and data.slug != page.slug:
         if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
-            raise SlugBestaatAl("Slug already exists")
+            raise SlugBestaatAl("Dit webadres bestaat al.")
     if data.is_home and not page.is_home:
         # #1477: one home page per tenant — the flag moves, it is not refused.
         # Flushed first, so the unique index never sees two at once.
         for other in db.query(CmsPage).filter(CmsPage.is_home.is_(True)).all():
             other.is_home = False
         db.flush()
-    for veld, waarde in data.model_dump(exclude_none=True).items():
+    velden = data.model_dump(exclude_none=True)
+    for veld, waarde in velden.items():
         setattr(page, veld, waarde)
+    # CR-17 fase 1 (#1671): the translation row is the title's source; the
+    # page column is its one-release shadow (kept in sync here so every
+    # existing reader — the menus, the shell — keeps working unchanged).
+    if data.title:
+        for translation in db.query(CmsPageTranslation).filter(
+            CmsPageTranslation.page_id == page.id
+        ):
+            translation.title = data.title
+
+
+def update_page(db, page_id: int, data) -> CmsPage:
+    """The page's fields, committed — the JSON API's door.
+
+    CR-17 snede 3 (#1671, the review's A1 on #1734): the documents are no
+    longer derived from `content` here. That derivation was slice 1's
+    interim — "zolang Trix de pagina-editor is" — and its premise left with
+    Trix: the editor writes documents, `content` is the honest fallback of a
+    page that never published one, and re-deriving from her would overwrite
+    what the author saved. Only `create_page` still derives (the honest
+    initial state of a new page).
+    """
+    page = get_page_by_id(db, page_id)
+    if page is None:
+        raise LookupError("Page not found")
+    _apply_page_fields(db, page, data)
     db.commit()
     db.refresh(page)
     return page
+
+
+def save_page_form(db, page_id: int, data, document, *, by: str | None = None) -> CmsPage:
+    """The screen's ONE save: the record's fields and the document in a
+    single transaction (the review's A3, #1734) — a refusal saves nothing
+    at all, not half. Every refusal comes BEFORE the first write: the
+    document is translated, validated and her figures' media ids checked
+    (C6 7) first, the fields' own refusals (a slug that exists) before the
+    one flush they can cause — so a refused save leaves the session CLEAN,
+    and the screen re-renders her over the same, untouched session. That
+    ordering is why there is no rollback here: a bare `rollback()` would
+    discard more than this form ever wrote.
+    """
+    page = get_page_by_id(db, page_id)
+    if page is None:
+        raise LookupError("Page not found")
+    # Every refusal BEFORE the first write (N1, the third reading on
+    # #1734): the fields' own refusals — a slug that exists, a title longer
+    # than her column — come before the document is written, so a refused
+    # address leaves the draft as it was, pending nothing (the app's session
+    # does not flush on its own; the promise is not left to that).
+    if data.slug and data.slug != page.slug:
+        if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
+            raise SlugBestaatAl("Dit webadres bestaat al.")
+    if data.title and len(data.title) > 200:
+        # `page_translations.title` is String(200); a longer title would
+        # abort on the INSERT (review B3) — and this door promises every
+        # refusal BEFORE the first write (the second read's finding 2,
+        # #1770): the check stands beside the slug's, ahead of the
+        # document.
+        raise ValueError("De titel is te lang: hooguit 200 tekens.")
+    # Whether there IS a document to save is this door's rule, not the
+    # screen's (CR-13 §B9.3): an empty field saves the fields alone.
+    if document is not None and document.strip():
+        try:
+            parsed = json.loads(document)
+        except ValueError:
+            # A document that does not parse carries no name of her own —
+            # the author reads what to do, not Python's English.
+            raise ValueError("Ongeldige documentopmaak.")
+        save_document(db, page_id, parsed, by=by, commit=False)
+    _apply_page_fields(db, page, data)
+    db.commit()
+    db.refresh(page)
+    return page
+
+
+def _derive_documents_from_content(db, page: CmsPage) -> None:
+    """The documents of a page, re-derived from its content (snede 1).
+
+    Strict where the content converts losslessly, lenient for the draft
+    otherwise (F11): a page that does not convert keeps its words as a draft
+    and an empty `published_json` — the site keeps rendering her `content`
+    until an author publishes the draft (from snede 3 on).
+    """
+    from app.domains.cms.parse import parse_html
+
+    document = parse_html(page.content, on_page=not is_site_block(page.slug))
+    draft = document or parse_html(page.content, on_page=not is_site_block(page.slug), lenient=True)
+    translation = get_translation(db, page)
+    if translation is None:
+        translation = CmsPageTranslation(
+            page_id=page.id, language=_language(db, page), title=page.title
+        )
+        db.add(translation)
+    translation.draft_json = draft
+    if document is not None and page.is_published:
+        translation.published_json = document
+    else:
+        # Not lossless, or unpublished: publishing is an author's act, not a
+        # side effect of a save — `published_json` is cleared and the site
+        # renders content (review C3, #1673: a publish switch without a
+        # content change follows too).
+        translation.published_json = None
 
 
 def delete_page(db, page_id: int) -> None:
@@ -203,10 +335,446 @@ def delete_page(db, page_id: int) -> None:
     db.commit()
 
 
+# ── Documents (CR-17 fase 1, #1671) ───────────────────────────────────────────
+
+
+def known_language(db, locale: Optional[str]) -> str:
+    """Map a locale to a language code the database knows (review A5,
+    #1770). `page_translations.language` carries a foreign key to
+    `mdm.language_codes`; the tenant's `language` setting is free text,
+    so `frans`, `FR` or `vlaams` would abort a migration on the INSERT and
+    break every later save. One place maps the setting: the part before
+    the underscore, as she stands (`FR` falls back — the code is a row's
+    key, not a case-insensitive name), when `mdm.language_codes` carries
+    her, else `nl` — the association's own language, the row every tenant
+    has
+    today. A tenant that changes its setting later keeps its documents:
+    the reader asks for the new language, finds nothing and falls back,
+    exactly as a visitor of a language without content does (C4.3)."""
+    from app.domains.mdm.api import language_code_exists
+
+    code = _schema.locale_language(locale or "nl_BE")
+    if language_code_exists(db, code):
+        return code
+    return "nl"
+
+
+def _language(db, page: CmsPage, language: Optional[str] = None) -> str:
+    """The language of a page's translation row: the one asked for, else the
+    tenant's — as a language CODE (`nl`), the key `mdm.language_codes`
+    carries. Phase 1 has exactly one row per page."""
+    from app.kernel.tenant_config import tenant_language
+
+    return known_language(db, language or tenant_language(db, tenant_id=page.tenant_id))
+
+
+def get_translation(db, page: CmsPage, language: Optional[str] = None):
+    """The page's translation row in this language, or None (C4.3)."""
+    from app.domains.cms.models import CmsPageTranslation
+
+    return (
+        db.query(CmsPageTranslation)
+        .filter(
+            CmsPageTranslation.page_id == page.id,
+            CmsPageTranslation.language == _language(db, page, language),
+        )
+        .first()
+    )
+
+
+def published_document(db, page: CmsPage, language: Optional[str] = None) -> Optional[dict]:
+    """The page's published document, or None. From snede 3 (#1671) this is
+    what the site shows; today the site still renders `content` and this is
+    the accessor the readers will move to. None means the page renders its
+    pre-CR-17 HTML — the migration's honest fallback for a page that did not
+    convert losslessly (R17)."""
+    translation = get_translation(db, page, language)
+    return translation.published_json if translation is not None else None
+
+
+def draft_document(db, page: CmsPage, language: Optional[str] = None) -> Optional[dict]:
+    """The draft, or None when the page has no draft document yet."""
+    translation = get_translation(db, page, language)
+    return translation.draft_json if translation is not None else None
+
+
+def editable_document(db, page: CmsPage, language: Optional[str] = None) -> dict:
+    """What the editor opens: the draft (every page has one since the
+    migration — a page that did not convert losslessly holds its words as a
+    draft, F11), or a lenient parse of its HTML when no row exists yet, or an
+    empty page. The editor shows one document; there is no second page
+    editor (C2 cms)."""
+    from app.domains.cms.parse import parse_html
+
+    draft = draft_document(db, page, language)
+    if draft is not None:
+        return draft
+    parsed = parse_html(page.content, on_page=not is_site_block(page.slug), lenient=True)
+    if parsed and parsed.get("content"):
+        return parsed
+    return {"type": "doc", "content": []}
+
+
+def is_site_block(slug: str) -> bool:
+    """Whether this slug is one of the site's own blocks (#1510) — the blocks
+    render without the page's heading shift, so their documents parse with
+    `on_page=False`."""
+    return slug in SITE_BLOCK_SLUGS
+
+
+def published_html(db, page: CmsPage, language: Optional[str] = None) -> str:
+    """What a visitor sees: the page's published document, rendered; her
+    pre-CR-17 HTML as long as nothing is published (snede 3, #1671 — the
+    readers' ONE source: every screen that shows a page asks here, so the
+    fallback lives in one place and cannot drift between readers)."""
+    from app.domains.cms.render import render_cms_content, render_document
+
+    document = published_document(db, page, language)
+    if document is not None:
+        on_page = not is_site_block(page.slug)
+        return render_document(document, db, on_page=on_page)
+    return render_cms_content(page.content or "", db, on_page=not is_site_block(page.slug)) or ""
+
+
+def draft_html(db, page: CmsPage, language: Optional[str] = None) -> str:
+    """What the preview shows: the DRAFT (C6 5), the published document when
+    no draft exists, the stored HTML as the last fallback."""
+    from app.domains.cms.render import render_cms_content, render_document
+
+    document = draft_document(db, page, language)
+    if document is None:
+        document = published_document(db, page, language)
+    if document is not None:
+        return render_document(document, db, on_page=not is_site_block(page.slug))
+    return render_cms_content(page.content or "", db, on_page=not is_site_block(page.slug)) or ""
+
+
+def published_text(db, page: CmsPage, language: Optional[str] = None) -> str:
+    """What the chatbot reads: the published document as words — no tags, a
+    code its value, a figure her alt text (C2 cms, Readers). A page that still
+    shows her stored HTML keeps today's shape (the rendered HTML), exactly
+    as the chatbot received her before."""
+    from app.domains.cms.render import render_cms_content, render_document
+
+    document = published_document(db, page, language)
+    if document is not None:
+        return render_document(document, db, target="text")
+    return render_cms_content(page.content or "", db) or ""
+
+
+def document_from_editor(document: Any) -> Any:
+    """What the editor sends becomes a stored document (Koen, 8 October 2026).
+
+    Two translations, both measured (#1699's third look): the editor notes
+    her own chrome on every table cell — column widths and alignment,
+    which our toolbar never offers and the site never shows — dropped
+    here; and she marks a header row by the CELL type alone, while the
+    stored document says it on the row — derived here, so the header
+    survives the round trip. What the author sees and means — a merged
+    cell's spans — travels untouched.
+
+    She runs BEFORE the validator (the review's A4, #1734), so malformed
+    shapes pass her by untouched — the validator refuses them by name —
+    and her own walk is bounded: a document nested deeper than the
+    validator's cap is refused with the validator's own words instead of
+    a RecursionError. Those shapes were measured: a cell whose attrs is a
+    list crashed `attrs.items()`, a 3 000-deep document the interpreter.
+    """
+
+    from app.domains.cms.schema import MAX_DEPTH, InvalidShape
+
+    def transform(node: Any, depth: int = 0) -> Any:
+        if depth > MAX_DEPTH:
+            raise InvalidShape("Te diep genest: het document heeft te veel niveaus")
+        if isinstance(node, list):
+            return [transform(child, depth + 1) for child in node]
+        if not isinstance(node, dict):
+            return node
+        kind = node.get("type")
+        if kind in ("tableHeader", "tableCell"):
+            attrs = node.get("attrs")
+            # Not a mapping: leave her for the validator to refuse by name.
+            if isinstance(attrs, dict):
+                kept = {
+                    name: value
+                    for name, value in attrs.items()
+                    if name not in ("colwidth", "align")
+                }
+                if kept or attrs:
+                    node = {**node, "attrs": kept}
+        elif kind == "tableRow":
+            content = node.get("content")
+            cells = content if isinstance(content, list) else []
+            section = (
+                "head"
+                if any(isinstance(c, dict) and c.get("type") == "tableHeader" for c in cells)
+                else "body"
+            )
+            node = {**node, "attrs": {"section": section}}
+        result = dict(node)
+        if isinstance(result.get("content"), list):
+            result["content"] = [transform(child, depth + 1) for child in result["content"]]
+        return result
+
+    return transform(document)
+
+
+def save_draft(
+    db,
+    page_id: int,
+    document,
+    *,
+    language: Optional[str] = None,
+    by: str | None = None,
+    commit: bool = True,
+) -> "CmsPageTranslation":
+    """Opslaan: the document into `draft_json` — the editor's dialect
+    translated HERE (the table rule, so every door speaks the stored
+    dialect; the review's C on #1734), then validated against the schema,
+    an unknown block or attribute refused with its name, never stripped
+    (C6 test 2), and her figures' media ids checked against the picker's
+    offer (C6 7, the review's B1 on #1734): an id the picker would not show
+    this tenant — another tenant's picture, a file, a deleted one — is
+    refused by her number, because publishing her would show the visitor a
+    broken picture. Nothing published changes (test 4)."""
+    import json as _json
+
+    from app.domains.cms import schema as _schema
+    from app.domains.cms.models import CmsPageTranslation
+
+    page = get_page_by_id(db, page_id)
+    if page is None:
+        raise LookupError("Page not found")
+    doc = _json.loads(document) if isinstance(document, str) else document
+    doc = document_from_editor(doc)
+    _schema.validate_document(doc)
+    from app.domains.media.api import offered_by_picker
+
+    for media_id in sorted(_figure_media_ids(doc)):
+        if not offered_by_picker(db, media_id):
+            raise _schema.InvalidShape(f"Onbekende afbeelding: {media_id}")
+    lang = _language(db, page, language)
+    translation = (
+        db.query(CmsPageTranslation)
+        .filter(CmsPageTranslation.page_id == page.id, CmsPageTranslation.language == lang)
+        .first()
+    )
+    if translation is None:
+        translation = CmsPageTranslation(page_id=page.id, language=lang, title=page.title)
+        db.add(translation)
+    translation.draft_json = doc
+    # `commit=False`: the caller owns the transaction (the screen's one save,
+    # #1734 A3) — the draft writes, the caller commits the whole form.
+    if commit:
+        db.commit()
+        db.refresh(translation)
+    return translation
+
+
+def save_document(
+    db, page_id: int, document: Any, *, by: Optional[str] = None, commit: bool = True
+) -> "CmsPageTranslation":
+    """The screen's save door (snede 3, #1671): `save_draft` — every refusal
+    (the schema's, the picker's) comes before the first write, so the
+    session stays clean and the screen re-renders over her untouched
+    (#635 rule 2: a ui touches no transaction; #1734 A3: a refused save
+    wrote nothing to roll back). `commit=False` when the CALLER owns the
+    transaction (the screen's one save): the draft then writes, and the
+    caller commits the whole form."""
+    return save_draft(db, page_id, document, by=by, commit=commit)
+
+
+def _assert_publishable(db, document) -> dict:
+    """The door every live-going document passes (review A3, #1770): what
+    Opslaan already refuses — an unknown node, a shape the schema does not
+    allow, a picture the picker would not offer — a draft the migration or
+    the lenient parse wrote, and a restored version, meet HERE too, before
+    the first write. The renderer and the sanitiser still stand behind her;
+    this is integrity, not injection."""
+    import json as _json
+
+    from app.domains.cms import schema as _schema
+    from app.domains.media.api import offered_by_picker
+
+    doc = _json.loads(document) if isinstance(document, str) else document
+    doc = document_from_editor(doc)
+    _schema.validate_document(doc)
+    for media_id in sorted(_figure_media_ids(doc)):
+        if not offered_by_picker(db, media_id):
+            raise _schema.InvalidShape(f"Onbekende afbeelding: {media_id}")
+    return doc
+
+
+def publish(
+    db, page_id: int, *, language: Optional[str] = None, by: Optional[str] = None
+) -> "CmsPageTranslation":
+    """Publiceren: draft → published, in one transaction, with exactly one
+    history row (C4.3). `is_published` on the page means "has a published
+    document in the tenant's language" from now on; for a page without a
+    document (the HTML fallback) the flag keeps its old meaning.
+
+    The draft is validated before the first write (review A3, #1770): a
+    draft the migration or a lenient parse left behind cannot go live
+    unread."""
+    from datetime import datetime, timezone
+
+    from app.domains.cms.models import CmsPageHistory
+
+    page = get_page_by_id(db, page_id)
+    if page is None:
+        raise LookupError("Page not found")
+    translation = get_translation(db, page, language)
+    if translation is None or translation.draft_json is None:
+        raise LookupError("Nothing to publish")
+    # A3: the draft meets the same door as a save — before the first write,
+    # so a refusal leaves the page exactly as she was.
+    document = _assert_publishable(db, translation.draft_json)
+    now = datetime.now(timezone.utc)
+    translation.published_json = document
+    translation.published_at = now
+    translation.published_by = by
+    page.is_published = True
+    db.add(
+        CmsPageHistory(
+            page_id=page.id,
+            language=translation.language,
+            action="published",
+            document=document,
+            at=now,
+            by=by,
+        )
+    )
+    db.commit()
+    db.refresh(translation)
+    return translation
+
+
+def take_page_offline(db, page_id: int, *, by: Optional[str] = None) -> CmsPage:
+    """Offline halen (Koen, 8 October 2026, decision 1a on #1734): the page
+    leaves the site — the public route reads `is_published`, and she is the
+    flag — while the page, her draft and her published document all stay.
+    A history row records who took her off and when (Koen: "ja" — the
+    same rule as Publiceren and Terugzetten); her document is the
+    published one at that moment, the empty document for a page live
+    through the HTML fallback. Publiceren puts the DRAFT live again —
+    the draft as it stands then, not necessarily these words.
+    """
+    from datetime import datetime, timezone
+
+    from app.domains.cms.models import CmsPageHistory
+
+    page = get_page_by_id(db, page_id)
+    if page is None:
+        raise LookupError("Page not found")
+    translation = get_translation(db, page)
+    now = datetime.now(timezone.utc)
+    page.is_published = False
+    db.add(
+        CmsPageHistory(
+            page_id=page.id,
+            language=translation.language if translation else "nl",
+            action="offline",
+            document=(
+                translation.published_json
+                if translation and translation.published_json is not None
+                else {"type": "doc", "content": []}
+            ),
+            at=now,
+            by=by,
+        )
+    )
+    db.commit()
+    db.refresh(page)
+    return page
+
+
+def restore(db, page_id: int, history_id: int, *, by: Optional[str] = None) -> "CmsPageTranslation":
+    """Terugzetten: a history version into the DRAFT — never live (test 6).
+    Publishing it afterwards is what makes it live again."""
+    from datetime import datetime, timezone
+
+    from app.domains.cms.models import CmsPageHistory, CmsPageTranslation
+
+    version = db.query(CmsPageHistory).filter(CmsPageHistory.id == history_id).first()
+    page = get_page_by_id(db, page_id)
+    if version is None or page is None or version.page_id != page.id:
+        raise LookupError("Version not found")
+    # An offline row is an event, not a version (the aside shows her without
+    # a Terugzetten button); she names the moment, she is not a document to
+    # return to.
+    if version.action == "offline":
+        raise ValueError("Offline is geen versie om terug te zetten.")
+    # A3: a restored version meets the same door as a save — a history row
+    # the migration or an older build wrote cannot return unread.
+    document = _assert_publishable(db, version.document)
+    translation = (
+        db.query(CmsPageTranslation)
+        .filter(
+            CmsPageTranslation.page_id == page.id,
+            CmsPageTranslation.language == version.language,
+        )
+        .first()
+    )
+    if translation is None:
+        translation = CmsPageTranslation(
+            page_id=page.id, language=version.language, title=page.title
+        )
+        db.add(translation)
+    translation.draft_json = document
+    db.add(
+        CmsPageHistory(
+            page_id=page.id,
+            language=version.language,
+            action="restored",
+            document=document,
+            at=datetime.now(timezone.utc),
+            by=by,
+        )
+    )
+    db.commit()
+    db.refresh(translation)
+    return translation
+
+
+def versions(db, page_id: int, language: Optional[str] = None) -> list:
+    """The history of a page's documents, newest first (Geschiedenis)."""
+    from app.domains.cms.models import CmsPageHistory
+
+    page = get_page_by_id(db, page_id)
+    if page is None:
+        raise LookupError("Page not found")
+    query = db.query(CmsPageHistory).filter(CmsPageHistory.page_id == page.id)
+    if language:
+        query = query.filter(CmsPageHistory.language == language)
+    return query.order_by(CmsPageHistory.at.desc(), CmsPageHistory.id.desc()).all()
+
+
+def draft_states(db, page_ids: list[int]) -> dict[int, bool]:
+    """Whether each page's draft differs from its published document, in one
+    query — the list's badge, for a list of pages (AC3)."""
+    if not page_ids:
+        return {}
+    rows = db.query(CmsPageTranslation).filter(CmsPageTranslation.page_id.in_(page_ids)).all()
+    return {r.page_id: r.draft_json is not None and r.draft_json != r.published_json for r in rows}
+
+
+def draft_differs(db, page: CmsPage) -> bool:
+    """Whether the draft differs from what is live — the list's badge and the
+    editor's 'concept gewijzigd' (AC3). A page without documents never shows
+    it: its HTML is its live state. One source: `draft_states` (review
+    B4c, #1673)."""
+    return draft_states(db, [page.id]).get(page.id, False)
+
+
 def references_to_media(db, asset_ids: Iterable[int]) -> dict:
     """The pages whose text shows these pictures, per asset id (CR-15 §C4.4,
     #1471). A scan of the stored HTML: a page holds a picture by its URL, not by
-    a key. Unpublished pages count — publishing one must not find a hole."""
+    a key. Unpublished pages count — publishing one must not find a hole.
+
+    CR-17: the documents of fase 1 are derived from `content` (they follow it
+    on every save), so scanning the HTML sees every picture a page holds. The
+    walk over the figure nodes comes with the readers (fase 1, snede 3,
+    #1671)."""
     from app.domains.media.api import MediaUse
 
     wanted = {int(i) for i in asset_ids}
@@ -224,7 +792,59 @@ def references_to_media(db, asset_ids: Iterable[int]) -> dict:
             found.setdefault(asset_id, []).append(
                 MediaUse(label=f"Pagina {title}", href=f"/admin/paginas/{page_id}")
             )
+    # Snede 3 (#1671): the editor saves documents, and `content` no longer
+    # follows them — a picture chosen through the picker stands in the
+    # document's figure node by her media id. Walk the translations' figures
+    # too: a page whose pictures live only in her documents must be found,
+    # and unpublished (draft) ones count as much as stored HTML did.
+    translations = (
+        db.query(CmsPageTranslation, CmsPage.id, CmsPage.title)
+        .join(CmsPage, CmsPage.id == CmsPageTranslation.page_id)
+        .order_by(CmsPageTranslation.page_id, CmsPageTranslation.language)
+        .all()
+    )
+    for translation, page_id, title in translations:
+        for asset_id in sorted(_figure_media_ids(translation.draft_json) & wanted):
+            found.setdefault(asset_id, []).append(
+                MediaUse(label=f"Pagina {title}", href=f"/admin/paginas/{page_id}")
+            )
+        for asset_id in sorted(_figure_media_ids(translation.published_json) & wanted):
+            found.setdefault(asset_id, []).append(
+                MediaUse(label=f"Pagina {title}", href=f"/admin/paginas/{page_id}")
+            )
+    for uses in found.values():
+        # A page that holds the picture in both her HTML and her document
+        # names her once, not twice.
+        seen: list = []
+        for use in uses:
+            if use.href not in [u.href for u in seen]:
+                seen.append(use)
+        uses[:] = seen
     return found
+
+
+def _figure_media_ids(document: Optional[dict]) -> set[int]:
+    """The media ids a document's figures hold."""
+    ids: set[int] = set()
+    if not isinstance(document, dict):
+        return ids
+
+    def walk(node: Any) -> None:
+        if isinstance(node, list):
+            for child in node:
+                walk(child)
+            return
+        if not isinstance(node, dict):
+            return
+        if node.get("type") == "figure":
+            media_id = (node.get("attrs") or {}).get("media_id")
+            if isinstance(media_id, int) and media_id > 0:
+                ids.add(media_id)
+        for child in node.get("content") or []:
+            walk(child)
+
+    walk(document)
+    return ids
 
 
 def placeholders(db=None) -> list[dict]:

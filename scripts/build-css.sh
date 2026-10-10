@@ -179,7 +179,7 @@ cat > "$TMP/in.css" << 'CSS'
   /* The site's name in the header where a tenant has no logo, and the drawer's
      head: semibold like the headings (the serif face had one weight only). */
   body[data-shell="site"] .font-brand{font-weight:600}
-  body[data-shell="site"] .cms-content :is(h1,h2){color:rgb(var(--c-kop))}
+  body[data-shell="site"] .home-intro :is(h1,h2){color:rgb(var(--c-kop))}
   /* #1656 (Koen, 6 October 2026; CR-11 Q87, design-system.md §7): the headings
      of a public page's BODY (`.cms-page`, under the page's own title). The
      renderer shows them one level down, so the editor's Kop, Subkop and Kleine
@@ -324,16 +324,27 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .admin-sidebar{position:fixed;bottom:0;left:0;z-index:30;width:var(--nav-current);display:flex;flex-direction:column;background:rgb(var(--c-nav));border-right:1px solid rgb(var(--c-line));color:rgb(var(--c-nav-ink));overflow:hidden}
 .admin-frame{margin-left:var(--nav-current);min-width:0}
 .admin-content:has([data-list-page]){max-width:none}
-/* CR-11 block 6 (#1558), design-system-end-state §1.4, §3.2. A record page
-   (it carries the record head) takes the frame like a list page; inside it the reading group is 768 + 24 +
-   300 px, left-aligned; the summary stands beside the form while the form keeps
-   640 px (964 px of frame), else above it. The form grid has four tracks, 12 px apart; it goes to
+/* CR-11 block 6 (#1558), design-system-end-state §1.4, §3.2 — widened by CR-17
+   slice 4 (Koen, 9 October 2026: "links houden, maar het scherm benutten").
+   A record page (it carries the record head) takes the frame like a list
+   page; inside it the reading group is LEFT-aligned and never centred.
+   The PAGE screen's form column grows with the screen up to a readable
+   cap of 1 056 px (his words: the screen may be used; the cap keeps her
+   lines readable) — hers alone, carried by `[data-wide]`; every other
+   record keeps her 768 px. Narrower, the form column simply takes what
+   the frame gives. The summary
+   stands beside the form while the form keeps 640 px (964 px of frame),
+   else above it. The form grid has four tracks, 12 px apart; it goes to
    one column when the section is narrower than 532 px inside (two half fields
    of 260 px and their gap) — a container query, which a utility cannot say.
    32 px between the sections of a form column. */
 .admin-content:has([data-record-head]){max-width:none}
 .record-frame{container-type:inline-size;container-name:record}
 .record-columns{display:grid;grid-template-columns:minmax(0,768px);gap:24px;align-items:start}
+/* CR-17 slice 4, scoped after the CI run of 9 October (#1770): the wide
+   reading group is the PAGE screen's own (Koen's words were about her
+   form), carried by her own attribute — an existing record keeps her width. */
+.record-columns[data-wide]{grid-template-columns:minmax(0,1056px)}
 .record-form-column{min-width:0}
 .form-flow{display:grid;gap:32px;min-width:0}
 /* CR-11 pilot B (#1589, §2.6): the public form page — one column of 768 px,
@@ -358,14 +369,19 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .form-flow>[data-form-message]:not(:has(*)){display:none}
 .record-summary-column{min-width:0;order:-1}
 @container (min-width:964px){.record-columns:has(>.record-summary-column){grid-template-columns:minmax(0,768px) 300px}.record-summary-column{order:0}}
+@container (min-width:964px){.record-columns[data-wide]:has(>.record-summary-column){grid-template-columns:minmax(0,1056px) 300px}}
 /* #1610 (Koen, 5 October 2026; end state §2.2): room for the groups. A record
    that is being EDITED and holds a composite repeating group (components with
-   their products) takes the whole reading group — 1 092 px — and its summary
+   their products) takes the whole reading group and its summary
    goes above the form as the strip it is on a narrow frame. The layout reads
    that from what stands in it (`:has`), so a save or a cancel — the form back
-   in read mode — gives the 768 px column and the card at the right again
-   without anybody saying so. Only where the frame has the 1 092 px: with the
-   Assistent's panel open, or on a smaller window, nothing changes.
+   in read mode — gives the reading group and the card at the right again
+   without anybody saying so. Only where the frame has the width: with the
+   Assistent's panel open, or on a smaller window, nothing changes. The group
+   widened with the form column (CR-17 slice 4, Koen 9 October 2026: the form
+   grows to 1 056 px, the summary keeps 300, so the whole group is 1 380 px).
+   The wide variant of her (the page screen's) waits for a repeating group on
+   a wide page — none carries one today; the rule stands for when one does.
 
    #1635 (Koen, 5 October 2026; CR-11 Q74): every field of full width fills
    the wider column, a text box included — the width of a field follows its
@@ -374,6 +390,10 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 @container record (min-width:1092px){
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1092px)}
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1}
+}
+@container record (min-width:1380px){
+  .record-columns[data-wide]:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1380px)}
+  .record-columns[data-wide]:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1}
 }
 .summary-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;align-items:center}
 .summary-card [data-summary-state]{grid-column:1;grid-row:1}
@@ -670,6 +690,56 @@ body[data-shell="site"]>main{padding-bottom:24px}
   .site-pages{height:auto}
   .site-footer-row{gap:48px}
 }
+/* ── CR-17 (#1671, slice 4): the prose rules — `.prose-raak`, one class ───────
+   Both shells lost their hand-written `.cms-content` blocks (site_base and
+   admin_base carried near-identical sets — two places for one fact): every
+   wrapper that styles rendered content now carries `.prose-raak`, and the
+   rules live HERE. The link colour is the shell's own token (`--link`) —
+   ONE set, both shells the brighter tint (Koen, 10 October 2026,
+   "Akkoord"; the ocean stays the headings' colour). The table rules
+   are new (measured in phase 0: nothing styled a table); on a phone a
+   table's block scrolls inside itself while the page does not (CR-11 Q14's
+   declared exception) — `width:max-content` keeps her natural width, the
+   `max-width` brings the scrollbar the moment she is wider than her
+   column. The figure rules (radius, shadow, placements, the <640 px
+   stack) live in `prose-figures.css` — ONE source with the editor. */
+.prose-raak h1{font-size:1.5rem;font-weight:700;color:var(--brand-ocean);margin:1rem 0 .5rem}
+.prose-raak h2{font-size:1.25rem;font-weight:700;color:var(--brand-ocean);margin:1rem 0 .5rem}
+.prose-raak h3{font-size:1.1rem;font-weight:600;margin:.75rem 0 .25rem}
+.prose-raak h4{font-weight:600;margin:.5rem 0 .25rem}
+.prose-raak p{margin:.5rem 0;line-height:1.6}
+.prose-raak ul{list-style:disc;padding-left:1.5rem;margin:.5rem 0}
+.prose-raak ol{list-style:decimal;padding-left:1.5rem;margin:.5rem 0}
+.prose-raak li{margin:.25rem 0}
+.prose-raak a{color:var(--link);text-decoration:underline}
+/* #1567: a form button placed by the form placeholder is the kit button, not a text link. */
+.prose-raak [data-form-button] a{color:var(--ink);text-decoration:none}
+.prose-raak strong,.prose-raak b{font-weight:700}
+.prose-raak em,.prose-raak i{font-style:italic}
+.prose-raak del,.prose-raak s{text-decoration:line-through}
+.prose-raak blockquote{border-left:3px solid var(--line);padding-left:1rem;color:var(--ink-soft);margin:.5rem 0}
+.prose-raak pre{background:var(--surface-2);border:1px solid var(--line);border-radius:.375rem;padding:.5rem .75rem;margin:.5rem 0;font-family:ui-monospace,monospace;font-size:.875em;white-space:pre-wrap}
+.prose-raak code{font-family:ui-monospace,monospace;font-size:.875em}
+.prose-raak img{max-width:100%;height:auto;border-radius:.5rem;margin:.5rem 0}
+/* Drie maten voor een pagina-afbeelding (#1207), relatief aan de kolom. */
+.prose-raak img.cms-beeld-klein{max-width:33%}
+.prose-raak img.cms-beeld-half{max-width:50%}
+@media (max-width:640px){
+  .prose-raak img.cms-beeld-klein,.prose-raak img.cms-beeld-half{max-width:100%}
+}
+.prose-raak hr{border-top:1px solid var(--line);margin:1rem 0}
+.prose-raak table{border-collapse:collapse;width:100%;margin:.5rem 0}
+.prose-raak :is(th,td){border:1px solid rgb(var(--c-line));padding:.375rem .625rem;text-align:left;vertical-align:top}
+.prose-raak th{font-weight:600;background:rgb(var(--c-surface-2))}
+@media (max-width:767.98px){
+  .prose-raak table{display:block;width:max-content;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+}
+/* ── CR-17 (#1671, slice 4): the document page at reading width ─────────────
+   The public page's column: 768 px of reading width, LEFT-aligned like a
+   record page (design-system-end-state §1.4 — never centred), the viewport
+   minus her gutters on a phone (the shell's <main> gives them). The page's
+   own title, her document and the contact block all stand in her. */
+.doc-page{width:100%;max-width:768px}
 /* ── The Assistent panel (CR-11 pilot A, K8 — #1562; end state §3.15) ──────────
    One component, `_raakje_panel.html`, in two modes.
 

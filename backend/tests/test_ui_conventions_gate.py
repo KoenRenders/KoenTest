@@ -814,13 +814,28 @@ def test_geen_scriptbestand_buiten_een_schil():
     htmx voert <script>-tags in geswapte inhoud uit. Trix een tweede keer laden
     faalt op customElements.define('trix-editor'); stt.js/tts.js zouden hun
     document-listeners dubbel ophangen.
+
+    Één uitzondering sinds CR-17 slice 3 (B4, Koen 7 oktober 2026, optie a):
+    de document-editor laadt haar bundel en haar script BIJ DE MACRO
+    (`ui.document_editor`), op de pagina's die een editor dragen — nooit in
+    de schil, want anders draagt élk beheerscherm 441 KB JavaScript voor
+    niets. De eigen guard van het script (`window.raakDocumentEditor`) maakt
+    de tweede run een no-op, en de bundel definieert geen custom element.
+    De uitzondering zijn de TWEE bestandsnamen van de editor (review A6,
+    #1770) — de gepinde TipTap-bundel en `document-editor.js` — niet het
+    bestand dat ze draagt: `_macros.html` als geheel vrijstellen zou elke
+    kit-macro een script laten laden. De twee namen gelden in élk sjabloon
+    (een scherm dat zelf de editor laadt mag haar twee bestanden noemen);
+    elk ánder script in elk sjabloon buiten de schil blijft een
+    foutmelding waard.
     """
+    editor_scripts = ("vendor/tiptap-", "document-editor.js")
     fouten = [
         f"{pad.relative_to(APP)}: {regel.strip()[:90]}"
         for pad in TEMPLATES
         if pad.name not in SCHILLEN
         for regel in _zonder_commentaar(pad).splitlines()
-        if "<script src=" in regel
+        if "<script src=" in regel and not any(naam in regel for naam in editor_scripts)
     ]
     assert not fouten, "Verhuis het script naar de <head> van de schil:\n  " + "\n  ".join(fouten)
 
@@ -1405,21 +1420,43 @@ def test_assets_dragen_een_inhoudsversie():
     een statisch document (de formaatgids) is geen asset die de pagina uitvoert; die
     mag rechtstreeks.
 
+    Sinds CR-17 (#1699, C6 14) verbreed: élke scriptverwijzing gaat door
+    `statisch()` — ook een die helemaal niet op `/static/` wijst. Een CDN-script
+    (de editor's bundel zou er één kunnen zijn) draait code van buiten de
+    configuratie en valt buiten elke inhoudshash: zelfde regel, zelfde poort, om
+    één ding te bewaken in één test. De ene uitzondering is de publieke
+    analytics-include (`_umami.html`, #176): haar adres is de tenantinstelling,
+    ze staat alleen op de publieke schil, en geen beheerscherm deelt een pagina
+    met haar. Bewezen met een weggooisjabloon met een CDN-src: de test viel om
+    met dat adres.
+
     Kapotgemaakt om te controleren dat deze test rood kan worden: één script in
     `site_base.html` terug op `src="/static/stt.js"` → de test valt om met dat pad.
     """
     fouten = []
+    gevonden = 0
     for pad in TEMPLATES:
+        if pad.name == "_umami.html":
+            continue
         for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
             asset = 'src="/static/' in regel or (
                 "stylesheet" in regel and 'href="/static/' in regel
             )
+            if "statisch(" not in regel and "<script" in regel and "src=" in regel:
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:90]}")
+                continue
             if asset:
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:90]}")
+            if "<script" in regel and "src=" in regel and "statisch(" in regel:
+                gevonden += 1
     assert not fouten, (
         "Laad de asset via `statisch('<naam>')`, zodat de URL een inhoudshash "
         "draagt:\n  " + "\n  ".join(fouten)
     )
+    # Een poort die niets vindt bewijst niets ("hij kijkt nergens", #1699):
+    # de schillen laden minstens deze twaalf scripts — zakt dat getal weg,
+    # dan kijkt de poort niet meer waar ze op keek.
+    assert gevonden >= 12, f"de poort vond maar {gevonden} scriptreferenties"
 
 
 def test_de_hamburger_is_een_icoon_en_geen_teken():

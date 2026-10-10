@@ -1,10 +1,17 @@
-"""Publieke facade van het cms-component (fase 4c, #404)."""
+"""Publieke facade van het cms-component (fase 4c, #404; CR-17 #1671)."""
 
-from app.domains.cms.models import CmsPage, PageIncomplete  # noqa: F401
+from app.domains.cms import schema  # noqa: F401
+from app.domains.cms.models import (  # noqa: F401
+    CmsPage,
+    CmsPageHistory,
+    CmsPageTranslation,
+    PageIncomplete,
+)
 from app.domains.cms.render import (  # noqa: F401
     _format_md,
     _format_price,
     render_cms_content,
+    render_document,
     sanitize_cms_html,
 )
 from app.domains.cms.service import (  # noqa: F401
@@ -12,18 +19,35 @@ from app.domains.cms.service import (  # noqa: F401
     SlugBestaatAl,
     create_page,
     delete_page,
+    document_from_editor,
+    draft_differs,
+    draft_document,
+    draft_html,
+    draft_states,
+    editable_document,
     get_page_by_id,
     get_published_page,
+    get_translation,
     is_page,
     list_pages,
     placeholders,
+    publish,
+    published_document,
     published_home_page,
+    published_html,
     published_page,
     published_slugs,
+    published_text,
     references_to_media,
+    restore,
+    save_document,
+    save_draft,
+    save_page_form,
     seed_site_blocks,
+    take_page_offline,
     update_page,
     verplaats_pagina,
+    versions,
 )
 
 __all__ = [
@@ -47,8 +71,30 @@ __all__ = [
     "SITE_BLOCK_SLUGS",
     "update_page",
     "CmsPage",
+    "CmsPageHistory",
+    "CmsPageTranslation",
     "render_cms_content",
+    "render_document",
     "sanitize_cms_html",
+    # CR-17 fase 1 (#1671): documents — draft, publish, restore, versions.
+    "schema",
+    "save_draft",
+    "save_document",
+    "save_page_form",
+    "take_page_offline",
+    "publish",
+    "restore",
+    "versions",
+    "draft_document",
+    "draft_differs",
+    "draft_states",
+    "published_document",
+    "published_html",
+    "published_text",
+    "draft_html",
+    "document_from_editor",
+    "editable_document",
+    "get_translation",
     "_format_md",
     "_format_price",
 ]

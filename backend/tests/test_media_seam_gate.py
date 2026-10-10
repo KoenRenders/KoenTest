@@ -29,7 +29,13 @@ APP = Path(__file__).resolve().parents[1] / "app"
 MEDIA = APP / "domains" / "media"
 
 # A reader, not a builder: it finds `/api/v1/media/<id>` in stored page HTML.
-READS_THE_ADDRESS = {"domains/cms/service.py": "scans page HTML for the pictures it shows (#1471)"}
+READS_THE_ADDRESS = {
+    "domains/cms/service.py": "scans page HTML for the pictures it shows (#1471)",
+    "domains/cms/parse.py": (
+        "reads the address out of stored page HTML to turn a picture into a "
+        "figure node with its media id (CR-17 #1671)"
+    ),
+}
 
 _ADDRESS = re.compile(r"/api/v1/media/")
 
