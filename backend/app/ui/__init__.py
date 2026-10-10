@@ -607,7 +607,8 @@ templates.env.globals["path_for"] = path_for
 # `_ADMIN_NAV` wordt eruit afgeleid voor wie de vlakke lijst nodig heeft
 # (de render-gate bezoekt élk item, groep of niet).
 _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
-    (None, ["/admin/werkbank"]),
+    # #1876: the workbench is core — a shell item, like Dashboard and Gebruikers.
+    (None, [("/admin/werkbank", "Werkbank")]),
     (
         "Werking",
         [

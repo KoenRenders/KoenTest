@@ -187,6 +187,7 @@ SHELL_ROUTERS = (
     tenants_ui_router,
     email_log_ui_router,
     cms_public_ui_router,
+    workflow_ui_router,
 )
 
 app.include_router(stt_router, prefix="/api/v1")
@@ -224,7 +225,7 @@ app.include_router(meetings_admin_ui_router, dependencies=_module(M.MEETINGS))
 app.include_router(designstudio_admin_ui_router, dependencies=_module(M.DESIGNSTUDIO))
 app.include_router(newsletter_admin_ui_router, dependencies=_module(M.NEWSLETTER))
 app.include_router(newsletter_ui_router, dependencies=_module(M.NEWSLETTER))
-app.include_router(workflow_ui_router, dependencies=_module(M.WORKFLOW))
+app.include_router(workflow_ui_router)
 app.include_router(payment_router, prefix="/api/v1", dependencies=_module(M.PAYMENT))
 
 

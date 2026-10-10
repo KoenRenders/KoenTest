@@ -40,7 +40,7 @@ from app.kernel.tenancy import TENANT_MILLEGEM_ID
 
 pytestmark = pytest.mark.ui_serverrendered
 
-COMPANY = {"cms", "media", "forms", "workflow"}
+COMPANY = {"cms", "media", "forms"}
 # The typed RaaK wordmark of before #1588, as test_company_wordmark reads it: gone.
 RAAK = re.compile(r'aria-label="Raak">R<span class="text-\[1\.3em\]">aa</span>K</span>')
 

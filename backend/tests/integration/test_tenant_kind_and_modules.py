@@ -35,7 +35,7 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 pytestmark = pytest.mark.ui_serverrendered
 
 EVERY = {code.value for code in ModuleCode}
-COMPANY = {"cms", "media", "forms", "workflow"}
+COMPANY = {"cms", "media", "forms"}
 
 
 def _operator(client, db_session) -> str:
@@ -180,7 +180,7 @@ def test_the_editor_shows_the_kind_and_the_modules_and_refuses_a_missing_depende
 
     saved = client.post(
         f"/admin/tenants/{org.id}",
-        data={"modules_shown": "1", "modules": ["cms", "media", "forms", "workflow", "newsletter"]},
+        data={"modules_shown": "1", "modules": ["cms", "media", "forms", "newsletter"]},
         headers={"X-CSRF-Token": csrf, "HX-Request": "true"},
     )
     assert saved.status_code == 200
