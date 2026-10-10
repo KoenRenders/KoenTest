@@ -1,0 +1,10 @@
+compose -f <root>/docker-compose.dev.yml up -d --no-recreate db
+compose -f <root>/docker-compose.dev.yml exec -T db printenv POSTGRES_USER
+compose -f <root>/docker-compose.dev.yml exec -T db printenv POSTGRES_PASSWORD
+build -q -t raaktest-backend:checkout <root>/backend
+inspect -f {{.State.Running}} raaktest-checkout
+rm -f raaktest-checkout
+run -d --name raaktest-checkout --network dev_internal -v <root>:/app -w /app/backend -e APP_ENV=dev -e JOBS_ENABLED=false raaktest-backend:checkout sleep infinity
+exec raaktest-checkout sh -c [ "$(cat /tmp/requirements.som 2>/dev/null)" = '<sum>' ]   || { pip install -q -r requirements-dev.txt && echo '<sum>' > /tmp/requirements.som; }
+compose -f <root>/docker-compose.dev.yml exec -T db sh -c psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tc "SELECT 1 FROM pg_database WHERE datname='raaktest_checkout'"    | grep -q 1 || psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c 'CREATE DATABASE raaktest_checkout'
+exec -e TEST_DATABASE_URL=postgresql+psycopg2://u:p@db:5432/raaktest_checkout raaktest-checkout python -m pytest -o cache_dir=/tmp/pytest_cache

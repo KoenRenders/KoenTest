@@ -733,6 +733,15 @@ The reason: on 9 October 2026 CR-17 widened the kit's reading group for its own 
 
 **Ready means ready.** When a pull request or a new commit is complete and CI is green on it, the builder says so in one comment: *ready for review, commit `<sha>`*. Before that comment, on the commit it names: `ruff format --check`, `ruff check`, mypy, the full pytest suite, the e2e suite and the measurement baseline have run. A red tip is not read.
 
+**Exactly when and how** (Koen, 10 October 2026, when `opencode1`'s first commit stood green without the comment and its pull request spoke of a phase being ready: "Zorg je ervoor dat die concretisering ergens heel exact in de werkafspraken staat"):
+- *Ready for review* is said **per commit of the plan, not per phase** — and per commit that repairs a finding. Nine commits are nine comments.
+- **The moment:** the commit is pushed and the pull-request run on that commit has finished green on every job. The builder looks that up itself; nobody tells it.
+- **The comment**, one: first line *ready for review, commit `<sha>`*; then the run id with its summary; the tests of the change request this commit turns green; the files touched outside the module with the reason per file; deviations from the plan.
+- **After the comment the builder goes on with the next commit of the approved plan**; it does not wait for the review (Koen, the same day, to the choice between going on and waiting per commit: "a"). A finding that repairs a defect becomes a new commit. A review that says *stop before you go on* stops it.
+- **`opencode1` waits after every *ready for review*** (Koen, 10 October 2026, to "Mag ik voor `opencode1` vastleggen dat hij na elke *ready for review* wacht op een comment vóór hij verdergaat?": "ja, leg vast dat hij wacht na elke ready"). It builds and pushes nothing until a comment *For the builder (`opencode1`)* on that commit says it may go on. That day it went on twice over a comment that said *stop*, the second time three hours after it was written: its poll only runs while it waits, so a builder that goes on does not read. The other builders keep the rule above.
+- When it wakes on a new comment it reads **every** comment since the last one it read, not only the newest.
+- **Before every push, two things** (Koen, 10 October 2026, to "Mag ik de twee regels in `AGENTS.md` zetten: vóór elke push eerst de comments lezen, en pas pushen als de vorige run klaar is?": "ja"): the builder reads the new comments on its pull request first, and it pushes only when the run on the previous tip has finished. A push cancels the run in progress, so a commit pushed over a running one never gets a run of its own; and a builder that goes on without waiting stops listening unless it reads before it pushes. "Going on" is building the next commit locally — the push waits. That day `opencode1` pushed five commits one after the other: four runs were cancelled and a comment that said *stop* stood unread.
+
 **Every pull request is read.** Each pull request of an outside builder is read by a Claude dev CLI before a merge, the first time and after every later commit. This is the one standing review: the master CLI routes it without being asked and reports the findings to Koen with a proposal. The builder answers a review in one comment, per finding: taken in, already decided, or not taken with the reason. The review stays advisory and does not replace Koen's own test.
 
 **A local test version for Koen, always.** For everything Koen has to judge with his own eyes — a screen, a flow, a migration of content — the builder gives him a local version of its branch to test on, before the work goes to `master`:
@@ -751,7 +760,7 @@ The pull request says that the local version exists and which branch it runs; wh
 
 **One machine, several CLIs.** Every CLI works in its own checkout with its own folder name: the local test scripts derive their database and container names from that name, so two checkouts with one name fight over one database. The shared database container is started with `up -d --no-recreate db`, by whoever needs it first, and is never recreated. A full local run is heavy: when another CLI's run is under way, wait for it rather than start a second full suite beside it — two at once make the browser tests flaky for both.
 
-**Who wrote a commit.** Every commit carries a trailer naming the tool that wrote it (`Tool: mistral-vibe1`), as the Claude sessions carry theirs. All commits bear Koen's name as author; the trailer is what tells them apart.
+**Who wrote a commit.** Every commit carries a trailer naming the tool that wrote it (`Tool: mistral-vibe1`), as the Claude sessions carry theirs. All commits bear Koen's name as author; the trailer is what tells them apart. A builder that runs as a system user of its own may carry its own name as author instead (`opencode1` does) — Koen, 10 October 2026, to the choice between leaving that and asking his name: "akkoord" to leaving it, since the history then shows at a glance what came from it. The trailer stays required.
 
 ## Data operations on an environment — through the app, never raw SQL
 
@@ -1279,6 +1288,25 @@ everyone else to the account page — with a page that asked for the sign-in on
 top. It became "the door decides": whoever signs in on the public site stays on
 the public site, whoever signs in to the back office lands there, for everyone.
 One sentence, no table of roles in the sign-in.
+
+**A screen says what a value is, never what another domain does with it**
+(Koen, 10 October 2026, to the proposal of this rule for screens and for code:
+"ik had het enkel over commentaar op het scherm, niet in de code, daar kan het
+handig zijn voor een ontwikkelaar, dus gelieve enkel het punt ivm de schermen
+in de agents.md te zetten"). Copy, a help line, a hint or a badge on a domain's
+screen describes the value in that domain's own terms — "hoofdadres",
+"Contactpersoon" — and does not say what another domain does with it: not that
+the newsletter goes to that address, not that the first three contacts go on
+the poster. The other domain's use can change tomorrow, and then the screen is
+wrong without anyone having touched it. An exception needs Koen's explicit
+approval per case, written on the issue; without it the reviewer flags the
+sentence. Found twice that day, with Koen's words as the architecture CLI
+reported them from its chat with him: the e-mail hint on the household screens ("Nu
+vertellen we wat andere domeinen ermee doen, dat kan morgen anders zijn") and
+the organiser's tag "op de affiche: alleen de eerste drie" ("dat is het label,
+nu komt het op de affiche, morgen op de website. Dat weet dat domein niet").
+The rule is about what a user reads on a screen. A code comment or a docstring
+may still say how another domain uses a field: that helps a developer.
 
 ## Twee keer dezelfde reparatie? Dan is de duplicatie de bug
 
