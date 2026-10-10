@@ -162,8 +162,11 @@ if [ "${SNEL:-}" != "1" ]; then
   echo "→ ruff"
   # What CI's `lint` job blocks on (CR-29 D4), with the ruff of requirements-dev.txt.
   # --no-cache: the work folder is a bind mount the container cannot write its cache to.
-  docker exec "$NAAM" ruff format --check --no-cache .
-  docker exec "$NAAM" ruff check --no-cache .
+  # `python -m`, like mypy and pytest below (#1891): pip installs for the image's
+  # user outside the PATH, so in a helper container built fresh the bare `ruff`
+  # was not found and the gate stopped on its first line.
+  docker exec "$NAAM" python -m ruff format --check --no-cache .
+  docker exec "$NAAM" python -m ruff check --no-cache .
 
   echo "→ mypy"
   # --cache-dir buiten /app: de werkmap is een bind mount en de container draait als

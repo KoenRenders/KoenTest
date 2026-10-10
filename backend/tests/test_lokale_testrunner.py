@@ -240,6 +240,23 @@ def test_ruff_check_runs_too(tmp_path):
     assert any("ruff check" in regel for regel in aanroepen)
 
 
+def test_ruff_runs_as_a_module(tmp_path):
+    """#1891: in a helper container built fresh, pip installs for the image's user
+    outside the PATH — the bare `ruff` was not found there, `python -m ruff` is.
+
+    Broken to check that this can go red (run, not reasoned): `python -m` taken
+    off the `ruff check` line → the second assert fails.
+    """
+    klaar, spoor = _draai(
+        tmp_path, script=_script_with_a_stub_css_build(tmp_path), TEST_DB_NAME="raaktest_proef"
+    )
+
+    assert klaar.returncode == 0, klaar.stderr
+    aanroepen = spoor.read_text().splitlines()
+    assert any(" python -m ruff format --check" in regel for regel in aanroepen)
+    assert any(" python -m ruff check" in regel for regel in aanroepen)
+
+
 def test_the_full_run_uses_four_processes(tmp_path):
     klaar, spoor = _draai(
         tmp_path, script=_script_with_a_stub_css_build(tmp_path), TEST_DB_NAME="raaktest_proef"
