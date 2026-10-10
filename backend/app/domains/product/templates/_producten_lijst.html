@@ -1,0 +1,18 @@
+{% import "_macros.html" as ui %}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+{% if not products %}
+  {{ ui.empty_state(_("Nog geen artikelen. Het eerste artikel maak je aan zodra je een prijs en voorraad hebt.")) }}
+{% else %}
+<div class="space-y-2">
+  {% for product in products %}
+  <div class="block bg-surface border border-line rounded-2xl px-5 py-4">
+    <div class="flex items-center gap-3 flex-wrap">
+      <span class="font-semibold text-ink">{{ product.name }}</span>
+      {{ ui.badge(product.status | code_label("product_status"),
+                  product.status | tone("product_status")) }}
+      <span class="text-sm text-ink-soft">{{ _("%(n)s maten") | format(n=sizes[product.id]) }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

@@ -60,8 +60,8 @@ def test_every_menu_icon_exists_in_the_kit():
     assert not empty, f"icons the kit does not have (an empty rail button): {empty}"
 
 
-#: The webshop's icons (CR-21 phase 0, #1748): what each will mean. No menu item
-#: uses them before phase 1, so the two tests above do not look at them yet.
+#: The webshop's icons (CR-21 phase 0, #1748): what each will mean. Since phase 1
+#: the shop's own menu items use them, so the overlap below skips those hrefs.
 SHOP_ICONS = {
     "Productbeheer": "package",
     "Prijsbeheer": "tag",
@@ -70,6 +70,7 @@ SHOP_ICONS = {
     "Mijn aankopen": "shopping-bag",
     "the basket": "shopping-cart",
 }
+SHOP_HREFS = {"/admin/producten", "/admin/prijzen", "/admin/voorraad", "/admin/verkoop"}
 
 
 def _drawing(name: str) -> str:
@@ -91,7 +92,11 @@ def test_the_webshops_icons_render_and_each_means_one_thing():
     assert not empty, f"icons the kit does not have (an empty square): {empty}"
     assert len(set(SHOP_ICONS.values())) == len(SHOP_ICONS), "one glyph, two meanings"
     assert len(set(drawings.values())) == len(drawings), "two names draw the same glyph"
-    taken = sorted(set(SHOP_ICONS.values()) & set(_ADMIN_NAV_ICONS.values()))
+    taken = sorted(
+        glyph
+        for href, glyph in _ADMIN_NAV_ICONS.items()
+        if href not in SHOP_HREFS and glyph in set(SHOP_ICONS.values())
+    )
     assert not taken, f"already the glyph of another menu item: {taken}"
 
 

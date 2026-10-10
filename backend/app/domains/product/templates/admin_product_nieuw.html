@@ -1,0 +1,19 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Nieuw artikel — Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.record_header(_("Nieuw artikel"), editing=True, back={"label": _("Productbeheer"), "href": "/admin/producten"}) }}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+<form id="product-form" method="post" action="/admin/producten">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {% call ui.record_columns() %}
+  <div class="form-flow">
+    {% call ui.section(_("Artikel")) %}
+      {{ ui.field("name", _("Naam"), required=True, long=True) }}
+      <p class="text-sm text-ink-soft" data-span="full">{{ _("De maten, prijzen en foto's voeg je daarna toe.") }}</p>
+    {% endcall %}
+  </div>
+  {% endcall %}
+</form>
+{{ ui.action_bar(record=True, form="product-form", cancel_href="/admin/producten") }}
+{% endblock %}

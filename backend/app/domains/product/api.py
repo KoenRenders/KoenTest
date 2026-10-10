@@ -13,6 +13,7 @@ from app.domains.product.models import (  # noqa: F401
     ProductVariant,
 )
 from app.domains.product.service import (  # noqa: F401
+    create_product,
     delete_product,
     delete_variant,
     get_product,
@@ -31,6 +32,7 @@ __all__ = [
     "ProductError",
     "ProductStatus",
     "ProductVariant",
+    "create_product",
     "delete_product",
     "delete_variant",
     "get_product",

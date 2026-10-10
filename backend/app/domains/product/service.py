@@ -29,6 +29,20 @@ def get_product(db: Session, product_id: int) -> Product | None:
     return db.get(Product, product_id)
 
 
+def create_product(db: Session, name: str) -> Product:
+    """Create an article with a name; it starts as Concept (Q74). The sizes,
+    prices and pictures come later, on the article record."""
+    from app.i18n import _
+
+    name = (name or "").strip()
+    if not name:
+        raise ProductError(_("Geef het artikel een naam."))
+    product = Product(name=name)
+    db.add(product)
+    db.flush()
+    return product
+
+
 def list_products(db: Session, active_only: bool = False) -> list[Product]:
     """The tenant's products, by name. `active_only` keeps only the ones on sale
     — the public catalogue's view (F16)."""

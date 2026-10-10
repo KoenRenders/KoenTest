@@ -80,6 +80,7 @@ from app.domains.payment.ui import router as payment_ui_router
 from app.domains.pricing.handlers import (  # noqa: F401 - event subscription (CR-21)
     drop_prices_of_deleted_product,
 )
+from app.domains.product.admin_ui import router as product_admin_ui_router
 from app.domains.reporting.admin_ui import router as reporting_admin_ui_router
 from app.domains.workflow import (
     handlers as workflow_handlers,  # noqa: F401 - event-abonnementen (#398)
@@ -223,6 +224,7 @@ app.include_router(tenants_ui_router)
 app.include_router(email_log_ui_router)
 app.include_router(mdm_ui_router, dependencies=_module(M.MEMBERSHIP))
 app.include_router(payment_ui_router, dependencies=_module(M.PAYMENT))
+app.include_router(product_admin_ui_router, dependencies=_module(M.SHOP))
 app.include_router(reporting_admin_ui_router, dependencies=_module(M.REPORTING))
 app.include_router(meetings_admin_ui_router, dependencies=_module(M.MEETINGS))
 app.include_router(designstudio_admin_ui_router, dependencies=_module(M.DESIGNSTUDIO))

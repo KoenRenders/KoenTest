@@ -1,0 +1,12 @@
+{% extends "list_page.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Productbeheer — Raak beheer") }}{% endblock %}
+{% block list_title %}{{ _("Productbeheer") }}{% endblock %}
+{% block list_primary %}
+  {{ ui.btn_primary(_("+ Nieuw artikel"), href="/admin/producten/nieuw") }}
+{% endblock %}
+{% block list_body %}
+<div id="producten-lijst">
+  {% include "_producten_lijst.html" %}
+</div>
+{% endblock %}

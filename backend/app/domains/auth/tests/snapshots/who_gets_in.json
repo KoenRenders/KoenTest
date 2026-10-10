@@ -402,6 +402,14 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/producten": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/producten/nieuw": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "GET /admin/profiel": {
    "platform": "ADMIN FINANCE OPERATOR",
    "tenant": "ADMIN FINANCE OPERATOR"
@@ -1137,6 +1145,10 @@
   "POST /admin/personen/{person_id}/verwijderen": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/producten": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
   },
   "POST /admin/rapporten": {
    "platform": "ADMIN OPERATOR",

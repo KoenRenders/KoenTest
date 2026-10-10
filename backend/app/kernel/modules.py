@@ -49,6 +49,7 @@ class ModuleCode(str, TechnicalEnum):
     DESIGNSTUDIO = "designstudio"
     REPORTING = "reporting"
     CHATBOT = "chatbot"
+    SHOP = "shop"
 
     def __str__(self) -> str:
         return self.value
@@ -145,6 +146,16 @@ MODULES: tuple[Module, ...] = (
             "membership_next_year_from_md",
             "membership_renewal_start_md",
         ),
+    ),
+    Module(
+        M.SHOP,
+        "Webshop",
+        # The four back-office screens stand in their own menu group, "Webshop"
+        # (Koen, 10 October 2026). Verkoop joins them in phase 2; the public
+        # `/webshop` and "Mijn aankopen" come with it.
+        admin_items=(("/admin/producten", "Productbeheer"),),
+        route_prefixes=("/admin/producten",),
+        record_tables=("product.products",),
     ),
     Module(
         M.FORMS,
@@ -289,7 +300,9 @@ UNCOUNTED: dict[ModuleCode, str] = {
 #: The modules a tenant starts with, per kind (CR-19 §C2 kernel; #1478), and
 #: the platform's own set (#1523).
 DEFAULTS: dict[str, frozenset[ModuleCode]] = {
-    "VERENIGING": frozenset(ModuleCode),
+    # CR-21 (Q49): the shop is off by default for every kind of tenant, the
+    # association included — it is switched on per tenant.
+    "VERENIGING": frozenset(code for code in ModuleCode if code is not M.SHOP),
     "BEDRIJF": frozenset({M.CMS, M.MEDIA, M.FORMS}),
     # #1523: the platform — pages, media and forms, for help
     # pages and a contact or request form. Equal to BEDRIJF's today ("op dit
