@@ -276,7 +276,7 @@ def _rendered_pages(client, ids) -> list[tuple[str, str]]:
     return _RENDERED
 
 
-def test_geen_geescapete_attributen_op_enige_adminpagina(client, gevulde_admin):
+def test_geen_geescapete_attributen_op_enige_adminpagina(client, gevulde_admin, every_module_on):
     """De klasse die drie keer opdook (#514/#613/#616), nu op de output getoetst."""
     fouten = []
     for pad, html in _rendered_pages(client, gevulde_admin):
@@ -289,7 +289,7 @@ def test_geen_geescapete_attributen_op_enige_adminpagina(client, gevulde_admin):
     )
 
 
-def test_elk_htmx_element_heeft_een_bruikbaar_doel(client, gevulde_admin):
+def test_elk_htmx_element_heeft_een_bruikbaar_doel(client, gevulde_admin, every_module_on):
     """Een hx-target die niet als selector te lezen is, mislukt stil in de browser."""
     fouten = []
     for pad, html in _rendered_pages(client, gevulde_admin):
@@ -330,14 +330,14 @@ def test_elk_htmx_element_heeft_een_bruikbaar_doel(client, gevulde_admin):
     )
 
 
-def test_geen_hx_confirm_in_de_output(client, gevulde_admin):
+def test_geen_hx_confirm_in_de_output(client, gevulde_admin, every_module_on):
     """Bevestiging gaat sinds #595 via de in-app modal; hx-confirm toont het native
     browser-confirm. De lint-gate dekt de templates, dit de gerenderde output."""
     fouten = [pad for pad, html in _rendered_pages(client, gevulde_admin) if "hx-confirm" in html]
     assert not fouten, f"hx-confirm in de output van: {fouten}"
 
 
-def test_de_gate_dekt_alle_menu_items(client, gevulde_admin):
+def test_de_gate_dekt_alle_menu_items(client, gevulde_admin, every_module_on):
     """Bewaakt de bron: een nieuw menu-item wordt automatisch meegetest, en een
     scherm dat 500't valt hier op in plaats van in productie."""
     assert len(_ADMIN_NAV) >= 13

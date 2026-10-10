@@ -617,6 +617,16 @@ _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
             "/admin/formulieren",
         ],
     ),
+    # CR-21: the webshop's own group, after Werking and before Inhoud (Koen,
+    # 10 October 2026: "b na werken, voor inhoud"). Verkoop joins it in phase 2.
+    (
+        "Webshop",
+        [
+            "/admin/producten",
+            "/admin/prijzen",
+            "/admin/voorraad",
+        ],
+    ),
     (
         "Inhoud",
         [
@@ -711,6 +721,9 @@ _ADMIN_NAV_ICONS: dict[str, str] = {
     "/admin/paginas": "panels-top-left",
     "/admin/media": "image",
     "/admin/ai-context": "book-open",
+    "/admin/producten": "package",
+    "/admin/prijzen": "tag",
+    "/admin/voorraad": "warehouse",
     "/admin/betalingen": "wallet",
     "/admin/vergaderingen": "presentation",
     "/admin/nieuwsbrieven": "newspaper",

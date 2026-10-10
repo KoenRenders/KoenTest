@@ -40,6 +40,10 @@ class MediaKind(CodeEnum):
     DESIGN_IMAGE = "design_image"
     DESIGN_RENDER = "design_render"
     PAGE_IMAGE = "page_image"
+    # CR-21 (the webshop): a product's picture and a product's document (a size
+    # chart). Neither is a library kind — they are added on the article itself.
+    PRODUCT_PHOTO = "product_photo"
+    PRODUCT_DOCUMENT = "product_document"
 
 
 def as_media_kind(value) -> "MediaKind | None":

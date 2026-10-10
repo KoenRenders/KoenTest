@@ -183,6 +183,10 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
         "/admin/activiteiten",
         "/admin/leden",
         "/admin/formulieren",
+        # CR-21: the webshop's own group, after Werking and before Inhoud.
+        "/admin/producten",
+        "/admin/prijzen",
+        "/admin/voorraad",
         "/admin/paginas",
         "/admin/media",
         "/admin/ai-context",

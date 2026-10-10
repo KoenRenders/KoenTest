@@ -339,21 +339,27 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/organisatie`
 - `POST /admin/personen/{person_id}/verwijderen`
 
-### `product.view` — 0 routes
+### `product.view` — 3 routes
 
-- none
+- `GET /admin/producten`
+- `GET /admin/producten/nieuw`
+- `GET /admin/producten/{product_id}`
 
-### `product.masterdata` — 0 routes
+### `product.masterdata` — 4 routes
 
-- none
+- `POST /admin/producten`
+- `POST /admin/producten/{product_id}`
+- `POST /admin/producten/{product_id}/status`
+- `POST /admin/producten/{product_id}/verwijderen`
 
-### `price.view` — 0 routes
+### `price.view` — 2 routes
 
-- none
+- `GET /admin/prijzen`
+- `GET /admin/prijzen/{product_id}`
 
-### `price.manage` — 0 routes
+### `price.manage` — 1 routes
 
-- none
+- `POST /admin/prijzen/{product_id}`
 
 ### `sales.view` — 0 routes
 
@@ -363,13 +369,16 @@ Every route whose gate asks the right. A right without a route here opens nothin
 
 - none
 
-### `stock.view` — 0 routes
+### `stock.view` — 3 routes
 
-- none
+- `GET /admin/voorraad`
+- `GET /admin/voorraad/correctie`
+- `GET /admin/voorraad/ontvangst`
 
-### `stock.manage` — 0 routes
+### `stock.manage` — 2 routes
 
-- none
+- `POST /admin/voorraad/correctie`
+- `POST /admin/voorraad/ontvangst`
 
 ### `payment.view` — 7 routes
 

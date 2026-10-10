@@ -402,6 +402,26 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/prijzen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/prijzen/{product_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/producten": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/producten/nieuw": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/producten/{product_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "GET /admin/profiel": {
    "platform": "ADMIN FINANCE OPERATOR",
    "tenant": "ADMIN FINANCE OPERATOR"
@@ -493,6 +513,18 @@
   "GET /admin/vergaderingen/{meeting_id}/verstuur": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/voorraad": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/voorraad/correctie": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/voorraad/ontvangst": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
   },
   "GET /admin/werkbank": {
    "platform": "ADMIN FINANCE OPERATOR",
@@ -1138,6 +1170,26 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "POST /admin/prijzen/{product_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}/status": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}/verwijderen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "POST /admin/rapporten": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
@@ -1257,6 +1309,14 @@
   "POST /admin/vergaderingen/{meeting_id}/verstuur": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/voorraad/correctie": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/voorraad/ontvangst": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
   },
   "POST /admin/werkbank/taken/{task_id}/afgehandeld": {
    "platform": "ADMIN FINANCE OPERATOR",

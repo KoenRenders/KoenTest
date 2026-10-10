@@ -1,0 +1,35 @@
+{% extends "list_page.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Voorraadbeheer — Raak beheer") }}{% endblock %}
+{% block list_title %}{{ _("Voorraadbeheer") }}{% endblock %}
+{% block list_primary %}
+  {{ ui.btn_primary(_("+ Ontvangst"), href="/admin/voorraad/ontvangst") }}
+{% endblock %}
+{% block list_body %}
+{% if not rows %}
+  {{ ui.empty_state(_("Nog geen maten met voorraad. Boek eerst een ontvangst.")) }}
+{% else %}
+{% call ui.data_table([
+    {"key": "artikel", "label": _("Artikel"), "cell": "name"},
+    {"key": "maat", "label": _("Maat"), "cell": "context"},
+    {"key": "voorraad", "label": _("In voorraad"), "cell": "amount", "num": True},
+    {"key": "gereserveerd", "label": _("Gereserveerd"), "cell": "amount", "num": True},
+    {"key": "beschikbaar", "label": _("Beschikbaar"), "cell": "amount", "num": True},
+], caption=_("Voorraad")) %}
+<tbody>
+  {% for row in rows %}
+  <tr class="align-middle">
+    <td data-cell="name" class="border-b border-line px-3 py-2 font-medium">{{ row.product }}</td>
+    <td data-cell="context" class="border-b border-line px-3 py-2 text-ink-soft">{{ row.size }}</td>
+    <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ row.on_hand }}</td>
+    <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums text-ink-soft">{{ row.reserved }}</td>
+    <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ row.available }}</td>
+  </tr>
+  {% endfor %}
+</tbody>
+{% endcall %}
+<div class="mt-2">
+  {{ ui.btn_outline(_("Correctie"), href="/admin/voorraad/correctie") }}
+</div>
+{% endif %}
+{% endblock %}

@@ -49,6 +49,7 @@ class ModuleCode(str, TechnicalEnum):
     DESIGNSTUDIO = "designstudio"
     REPORTING = "reporting"
     CHATBOT = "chatbot"
+    SHOP = "shop"
 
     def __str__(self) -> str:
         return self.value
@@ -147,6 +148,23 @@ MODULES: tuple[Module, ...] = (
         ),
     ),
     Module(
+        M.SHOP,
+        "Webshop",
+        # The four back-office screens stand in their own menu group, "Webshop"
+        # (Koen, 10 October 2026). Verkoop joins them in phase 2; the public
+        # `/webshop` and "Mijn aankopen" come with it.
+        admin_items=(
+            ("/admin/producten", "Productbeheer"),
+            ("/admin/prijzen", "Prijsbeheer"),
+            ("/admin/voorraad", "Voorraadbeheer"),
+        ),
+        route_prefixes=("/admin/producten", "/admin/prijzen", "/admin/voorraad"),
+        record_tables=("product.products",),
+        # The shop pays its orders through payment, and its pictures come from
+        # media (CR-21 Q59).
+        depends_on=((M.PAYMENT,), (M.MEDIA,)),
+    ),
+    Module(
         M.FORMS,
         "Formulieren",
         admin_items=(("/admin/formulieren", "Formulieren"),),
@@ -190,8 +208,8 @@ MODULES: tuple[Module, ...] = (
         route_prefixes=("/admin/betalingen", "/api/v1/payment-gateway"),
         dashboard_tiles=("dashboard_outstanding",),
         reporting_folders=("Betalingen",),
-        # Payments pay for a registration or a membership (`PayableType`).
-        depends_on=((M.ACTIVITIES, M.MEMBERSHIP),),
+        # Payments pay for a registration, a membership or an order (`PayableType`).
+        depends_on=((M.ACTIVITIES, M.MEMBERSHIP, M.SHOP),),
         record_tables=("payment.payment_records",),
         tenant_settings=("payment_term_days", "mollie_api_key"),
     ),
@@ -289,7 +307,9 @@ UNCOUNTED: dict[ModuleCode, str] = {
 #: The modules a tenant starts with, per kind (CR-19 §C2 kernel; #1478), and
 #: the platform's own set (#1523).
 DEFAULTS: dict[str, frozenset[ModuleCode]] = {
-    "VERENIGING": frozenset(ModuleCode),
+    # CR-21 (Q49): the shop is off by default for every kind of tenant, the
+    # association included — it is switched on per tenant.
+    "VERENIGING": frozenset(code for code in ModuleCode if code is not M.SHOP),
     "BEDRIJF": frozenset({M.CMS, M.MEDIA, M.FORMS}),
     # #1523: the platform — pages, media and forms, for help
     # pages and a contact or request form. Equal to BEDRIJF's today ("op dit

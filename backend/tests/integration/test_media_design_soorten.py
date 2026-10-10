@@ -206,10 +206,14 @@ def test_the_upload_kinds_are_exactly_what_may_come_in():
         UPLOADABLE_KINDS,
         VALID_KINDS,
     )
+    from app.domains.media.models import MediaKind
 
     assert DESIGN_IMAGE_KIND in UPLOADABLE_KINDS
     assert DESIGN_RENDER_KIND not in UPLOADABLE_KINDS
-    assert UPLOADABLE_KINDS == VALID_KINDS | {DESIGN_IMAGE_KIND}
+    # CR-21: a product's photo is uploaded on the article itself, so it may come
+    # in — but like a design image it is not a library kind.
+    assert MediaKind.PRODUCT_PHOTO in UPLOADABLE_KINDS
+    assert UPLOADABLE_KINDS == VALID_KINDS | {DESIGN_IMAGE_KIND, MediaKind.PRODUCT_PHOTO}
     assert DESIGN_IMAGE_KIND not in VALID_KINDS, (
         "een design-beeld hoort bij zijn activiteit, niet in de mediabibliotheek"
     )

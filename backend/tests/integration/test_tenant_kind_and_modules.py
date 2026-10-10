@@ -34,7 +34,9 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
 
-EVERY = {code.value for code in ModuleCode}
+# CR-21 (Q49): the shop is off by default, so an association's "full" set is
+# every module but the shop.
+EVERY = {code.value for code in ModuleCode if code is not ModuleCode.SHOP}
 COMPANY = {"cms", "media", "forms"}
 
 
@@ -108,7 +110,7 @@ def test_every_existing_unit_is_an_association_and_nothing_else_has_a_kind(db_se
     "codes,message",
     [
         ({"cms", "designstudio"}, "Design Studio heeft Activiteiten nodig."),
-        ({"cms", "payment"}, "Betalingen heeft Activiteiten of Leden nodig."),
+        ({"cms", "payment"}, "Betalingen heeft Activiteiten of Leden of Webshop nodig."),
         ({"cms", "stamboom"}, "Onbekende module."),
     ],
 )
