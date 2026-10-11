@@ -733,21 +733,33 @@ body[data-shell="site"]>main{padding-bottom:24px}
    author's own on surface-2, semibold; cells 12/16 px, text 14 px. Decided
    with the look (Koen, 11 October 2026): NO line under a wide table — no
    script on the public site — and NO right-aligned numbers; everything
-   stays left. */
+   stays left.
+   A table stays a table at every width, and what holds her scrolls (the
+   design review's choice, the master CLI's comment of 11 October 2026):
+   she fills her holder and her lines run to her holder's edge; the moment
+   her content is wider, the HOLDER scrolls — one rule on `.prose-raak`
+   covers the page's container, the home intro and the newsletter archive
+   alike. The `table>tr` rule of the first cut is gone: measured, every
+   parsed table carries her rows in a tbody (a bare `<table><tr>` is
+   parsed with section "body"), so nothing ever matched her. */
+.prose-raak{overflow-x:auto}
 .prose-raak table{border-collapse:collapse;width:100%;margin:.5rem 0;font-size:.875rem;line-height:1.5}
 .prose-raak :is(th,td){border-bottom:1px solid rgb(var(--c-line));padding:.75rem 1rem;text-align:left;vertical-align:top}
 .prose-raak tbody tr:last-child :is(th,td){border-bottom:none}
-.prose-raak table>tr:last-child :is(th,td){border-bottom:none}
 .prose-raak th{font-weight:600;background:rgb(var(--c-surface-2))}
-@media (max-width:767.98px){
-  .prose-raak table{display:block;width:max-content;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
-}
-/* ── CR-17 (#1671, slice 4): the document page at reading width ─────────────
-   The public page's column: 768 px of reading width, LEFT-aligned like a
-   record page (design-system-end-state §1.4 — never centred), the viewport
-   minus her gutters on a phone (the shell's <main> gives them). The page's
-   own title, her document and the contact block all stand in her. */
-.doc-page{width:100%;max-width:768px}
+/* ── CR-17 (#1671 slice 4; phase 2 #1679, C4.13 "Where the width lives"):
+   ONE container of 1 024 px, CENTRED (the master CLI's comment of
+   11 October 2026 is the source until the paragraph stands on `master`),
+   with one left line INSIDE her: the text blocks run to at most 768 px,
+   the blocks C4.13 names wide (the table, a figure on "volledig" —
+   columns and cards as their commits add them) fill the container. The
+   cap names no element types: every direct child is narrow unless the
+   wide list says otherwise, so a new text block is narrow without anyone
+   remembering her. On a phone the viewport minus her gutters (the shell's
+   <main> gives them). */
+.doc-page{width:100%;max-width:1024px;margin-left:auto;margin-right:auto}
+.doc-page>:not(.prose-raak){max-width:768px}
+.doc-page .prose-raak>*:not(table):not(.prose-figure--full){max-width:768px}
 /* ── The Assistent panel (CR-11 pilot A, K8 — #1562; end state §3.15) ──────────
    One component, `_raakje_panel.html`, in two modes.
 

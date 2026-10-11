@@ -258,6 +258,9 @@
         items.appendChild(el);
       });
       menu.appendChild(items);
+      menu.addEventListener("toggle", function () {
+        if (menu.open) openInRoom(menu, items);
+      });
       bar.appendChild(menu);
     }
 
@@ -291,6 +294,9 @@
         titems.appendChild(el);
       });
       tmenu.appendChild(titems);
+      tmenu.addEventListener("toggle", function () {
+        if (tmenu.open) openInRoom(tmenu, titems);
+      });
       bar.appendChild(tmenu);
       var tableVisible = function () {
         var inTable = editor.isActive("table");
@@ -313,6 +319,34 @@
       });
     });
     return bar;
+  }
+
+
+  /* A menu opens where there is room (the review of #3110b37e, A2): on a
+     short page the dropdown lands under the record bar, and some of her
+     items can then not be pressed at all — measured, no scroll of the
+     page clears her. On opening she measures her room herself: below to
+     the window's edge and the record bar's top (where the screen carries
+     one), above to the toolbar's. She opens downward when she fits, flips
+     up when the room above is the larger, and caps herself with a scroll
+     when neither holds — every item pressable on every page. */
+  function openInRoom(menu, items) {
+    items.style.maxHeight = "";
+    menu.classList.remove("de-menu--up");
+    var rect = items.getBoundingClientRect();
+    var limit = window.innerHeight;
+    var bar = document.querySelector("[data-action-bar]");
+    if (bar) {
+      var barTop = bar.getBoundingClientRect().top;
+      if (barTop < limit) limit = barTop;
+    }
+    var below = limit - rect.top - 8;
+    if (rect.height <= below) return;
+    if (rect.top - rect.height - 12 >= 0) {
+      menu.classList.add("de-menu--up");
+      return;
+    }
+    items.style.maxHeight = Math.max(Math.round(below), 120) + "px";
   }
 
   /* The dialogs answer here: the macro's markup collects the choice and

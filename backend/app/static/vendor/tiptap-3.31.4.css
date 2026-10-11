@@ -64,6 +64,19 @@
   border-radius: 0.5rem;
   background: #fff;
   box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  /* Capped by `openInRoom` when neither below nor above holds her (the
+     review of #3110b37e, A2): the menu scrolls inside herself rather
+     than offering items nothing can reach. */
+  overflow-y: auto;
+}
+
+/* The flipped menu (the same review): she opens above her summary when
+   the room there is the larger — on a short page the room below is the
+   record bar's. */
+.document-editor .de-menu--up .de-menu-items {
+  top: auto;
+  bottom: calc(100% + 4px);
+  margin-top: 0;
 }
 
 .document-editor .de-menu-item {
@@ -98,9 +111,13 @@
   pointer-events: none;
 }
 
-/* A table in the editor: the same hairline the site's tables carry. The
-   selected cell carries the kit's focus tint, so the author sees which
-   cell the cursor is in. */
+/* A table in the editor: the author's EDITING GRID, a deliberate
+   difference from the site (the review of #3110b37e, B1, said here where
+   the choice lives): a full hairline grid and tighter cells (4/8 px) —
+   the cell edges stay visible while editing, where the site shows one
+   line under a row (C4.13) and her wider cells (12/16 px). The selected
+   cell carries the kit's focus tint, so the author sees which cell the
+   cursor is in. */
 .document-editor .tiptap table {
   border-collapse: collapse;
   width: 100%;

@@ -1,11 +1,13 @@
 {% extends "site_base.html" %}
 {% block title %}{{ page.title }} · {{ site_name }}{% endblock %}
 {% block content %}
-{# CR-17 snede 4 (#1671, C6 11): the page is a document page — her whole
-   column (title, document, contact block) reads at 768 px, LEFT-aligned
-   like a record page (design-system-end-state §1.4), the viewport minus
-   her gutters on a phone. `doc-page` is the column; the prose rules of
-   her body live in ONE class, `prose-raak` (scripts/build-css.sh). #}
+{# CR-17 slice 4 (#1671) and phase 2 (#1679, C4.13 "Where the width lives"):
+   the page is a document page — ONE container of 1 024 px, CENTRED, with
+   one left line INSIDE her: the text blocks run to at most 768 px, the
+   blocks C4.13 names wide (the table, a figure on "volledig") fill the
+   container; on a phone the viewport minus her gutters (the shell gives
+   them). `doc-page` is the container; the prose rules of her body live
+   in ONE class, `prose-raak` (scripts/build-css.sh). #}
 <div class="doc-page">
 {% if concept %}<div class="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 text-sm text-yellow-800">{{ _("Concept-voorbeeld — deze pagina is nog niet gepubliceerd en is publiek niet zichtbaar.") }}</div>{% endif %}
 <h1 class="text-3xl font-bold text-kop mb-8">{{ page.title }}</h1>

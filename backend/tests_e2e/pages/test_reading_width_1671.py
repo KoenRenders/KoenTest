@@ -226,20 +226,40 @@ def setup():
 _COLUMN = "() => { const r = document.querySelector('.doc-page').getBoundingClientRect(); return {x: Math.round(r.x), w: Math.round(r.width)} }"
 
 
-def test_the_page_reads_at_768_left_aligned(setup):
-    """C6 11: the column is 768 px of reading width, left-aligned against
-    the shell's margin — never centred (design-system-end-state §1.4)."""
+def test_the_container_is_1024_centred_with_her_text_at_768(setup):
+    """Phase 2, #1679 (C4.13 "Where the width lives", the master CLI's
+    comment of 11 October 2026 the source until the paragraph stands on
+    `master`): ONE container of 1 024 px, CENTRED — the slice-4 column sat
+    on the shell's left edge and deviated from her own issue — with one
+    left line inside her: the text blocks run to at most 768 px on the
+    container's left edge, the wide blocks (the table, a figure on
+    "volledig") fill the container. The container's centring is proven
+    against the shell: her mid is the main's mid."""
     b, _page_id, slug, _session = setup
     page = b.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
     try:
         page.goto(f"/{slug}")
         pagina_klaar(page)
-        col = page.evaluate(_COLUMN)
-        main = page.evaluate(
-            "() => { const r = document.querySelector('main').getBoundingClientRect(); return {x: Math.round(r.x), w: Math.round(r.width)} }"
+        meten = page.evaluate(
+            """() => { const col = document.querySelector('.doc-page').getBoundingClientRect();
+              const main = document.querySelector('main').getBoundingClientRect();
+              const p = document.querySelector('.doc-page .prose-raak p').getBoundingClientRect();
+              const wide = document.querySelector('.doc-page .prose-raak table');
+              const table = wide ? wide.getBoundingClientRect() : null;
+              return {col: [Math.round(col.x), Math.round(col.width)],
+                      main: [Math.round(main.x), Math.round(main.width)],
+                      text: [Math.round(p.x), Math.round(p.width)],
+                      table: table ? [Math.round(table.width)] : null}; }"""
         )
-        assert col["w"] == 768, f"the reading column is {col['w']} px, not 768"
-        assert col["x"] == main["x"], "the reading column is not left-aligned"
+        print("MEASURE container", meten)
+        assert meten["col"][1] == 1024, f"the container is {meten['col'][1]} px, not 1024"
+        assert meten["col"][0] + 512 == meten["main"][0] + meten["main"][1] // 2, (
+            f"the container is not centred: {meten}"
+        )
+        assert meten["text"] == [meten["col"][0], 768], (
+            f"the text does not run to 768 on the container's left line: {meten}"
+        )
+        assert meten["table"] == [1024], f"the table does not fill the container: {meten}"
     finally:
         page.close()
 
@@ -260,18 +280,23 @@ def test_on_a_phone_the_column_is_the_viewport_minus_her_gutters(setup):
         page.close()
 
 
-def test_a_wide_table_scrolls_inside_her_block_on_a_phone(setup):
-    """C6 11: the table is wider than the phone; her BLOCK scrolls inside
-    itself and the page does not scroll sideways."""
+def test_a_wide_tables_holder_scrolls_on_a_phone(setup):
+    """Phase 2, #1679 (the design review's choice, the master CLI's
+    comment of 11 October 2026): a table stays a table at every width — on
+    a phone WHAT HOLDS HER scrolls (`.prose-raak`), not the table herself,
+    and the page does not scroll sideways. Proven red while building: with
+    the scroll back on the table herself (`display:block`), the holder's
+    `scrollWidth` stayed equal to her `clientWidth` and this fell over."""
     b, _page_id, slug, _session = setup
     page = b.new_page(base_url=BASE, viewport={"width": 390, "height": 844})
     try:
         page.goto(f"/{slug}")
         pagina_klaar(page)
-        table = page.evaluate(
-            "() => { const t = document.querySelector('.doc-page table'); return {sw: t.scrollWidth, cw: t.clientWidth} }"
+        holder = page.evaluate(
+            "() => { const h = document.querySelector('.doc-page .prose-raak'); "
+            "return {sw: h.scrollWidth, cw: h.clientWidth} }"
         )
-        assert table["sw"] > table["cw"], "the wide table does not scroll inside her block"
+        assert holder["sw"] > holder["cw"], "the wide table's holder does not scroll"
         widths = page.evaluate("() => [document.documentElement.scrollWidth, innerWidth]")
         assert widths == [390, 390], "the page scrolls sideways with her table"
     finally:
