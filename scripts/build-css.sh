@@ -380,11 +380,13 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .summary-card [data-summary-state]{grid-column:1;grid-row:1}
 .summary-card [data-summary-action]{grid-column:2;grid-row:1}
 .summary-card [data-summary-link]{display:none}
-.summary-card [data-summary-figures]{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+/* Every figure a row — label left, value right — in the card, in the strip and
+   above a wide form alike (Koen, 11 October 2026: "B voor elke kaart"). */
+.summary-card [data-summary-figures]{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+.summary-card [data-summary-figure]{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 @container (min-width:964px){
   .summary-card{grid-template-columns:minmax(0,1fr);padding:16px}
-  .summary-card [data-summary-figures]{grid-column:1;grid-template-columns:repeat(2,minmax(0,1fr))}
-  .summary-card [data-summary-figure]:nth-child(3){grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  .summary-card [data-summary-figures]{grid-column:1}
   .summary-card [data-summary-action]{grid-column:1;grid-row:auto;display:flex;align-items:center;gap:8px;border-top:1px solid rgb(var(--c-line));padding-top:12px}
   .summary-card [data-summary-link]{display:block;flex:1}
 }
@@ -392,16 +394,10 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    one shape for "above" — so the card shape just said is taken back there. */
 @container record (min-width:1092px){
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card{grid-template-columns:minmax(0,1fr) auto;padding:12px}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figures]{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr))}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figure]:nth-child(3){grid-column:auto;display:block}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figures]{grid-column:1/-1}
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-action]{grid-column:2;grid-row:1;display:block;border-top:0;padding-top:0}
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-link]{display:none}
 }
-/* #1901 §2, a proposal on the design-system page: every figure of the summary
-   a row — label left, value right — in the card, in the strip and above a
-   wide form alike. */
-.summary-card[data-summary-rows] [data-summary-figures],.record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card[data-summary-rows] [data-summary-figures]{grid-column:1/-1;grid-template-columns:minmax(0,1fr);gap:8px}
-.summary-card[data-summary-rows] [data-summary-figure],.record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card[data-summary-rows] [data-summary-figure]:nth-child(n){grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .form-section{container-type:inline-size;min-width:0}
 .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
 .form-grid>[data-span="full"]{grid-column:1/-1}

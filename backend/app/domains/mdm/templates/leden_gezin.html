@@ -15,9 +15,14 @@
    `#gezin-record` is what a good answer replaces. #}
 <div id="gezin-record">
 {% include "_leden_recordkop.html" %}
-{% set _card %}{{ ui.summary_card(summary.state, summary.figures) }}{% endset %}
+{# No summary while editing (Koen, 11 October 2026, to "mag de samenvattingskaart
+   weg zolang je bewerkt?": "ja"; and to "alleen het gezin, of overal laten
+   staan?": "b" — the household only): on a phone the strip left one field and
+   a half between itself and the action bar, and nothing in it is needed to
+   edit a household. The activity keeps its strip, the booking its card. #}
+{% set _card %}{% if not edit %}{{ ui.summary_card(summary.state, summary.figures) }}{% endif %}{% endset %}
 {% set _edit = edit %}
-{% call ui.record_columns(aside=_card) %}
+{% call ui.record_columns(aside=_card|trim) %}
 <div data-form-flow data-mode="{{ 'edit' if edit else 'read' }}" class="form-flow">
   <div id="gezin-melding" data-form-message></div>
   {% if edit %}

@@ -672,22 +672,14 @@
 {% call ui.record_columns(aside=_kit_card) %}
   <div class="bg-surface-2 border border-dashed border-control-line rounded-2xl p-4 text-sm text-ink-soft">{{ _("Het formulier van Gegevens") }}</div>
 {% endcall %}
-{# #1901 §2 — a PROPOSAL for Koen to judge: more than three figures, in the two
-   shapes. A: the card as it is, every figure given. B: every figure a row. #}
+{# #1901 §2 — more than three figures: every figure a row, the one shape of the
+   card (Koen, 11 October 2026). #}
 {% set _five = [{"label": _("Bedrag"), "value": "€ 30,00"}, {"label": _("Ontvangen"), "value": "€ 10,00"},
                 {"label": _("Saldo"), "value": "€ 20,00", "warning": True},
                 {"label": _("Wijze"), "value": _("Overschrijving")}, {"label": _("Aangemaakt"), "value": "01-10-2026"}] %}
-<p class="text-sm text-gray-600 mt-6 mb-3">{{ _("Voorstel — meer dan drie cijfers. A: de kaart zoals ze is, met elk cijfer. B: elk cijfer een rij, label links en waarde rechts.") }}</p>
-<div data-kit-summary-variant="a">
-<p class="text-xs font-semibold text-ink-soft mb-1">{{ _("Variant A") }}</p>
-{% set _card_a %}{{ ui.summary_card({"label": _("Openstaand"), "tone": "yellow"}, _five) }}{% endset %}
-{% call ui.record_columns(aside=_card_a) %}
-  <div class="bg-surface-2 border border-dashed border-control-line rounded-2xl p-4 text-sm text-ink-soft">{{ _("Het formulier van Gegevens") }}</div>
-{% endcall %}
-</div>
-<div data-kit-summary-variant="b" class="mt-4">
-<p class="text-xs font-semibold text-ink-soft mb-1">{{ _("Variant B") }}</p>
-{% set _card_b %}{{ ui.summary_card({"label": _("Openstaand"), "tone": "yellow"}, _five, rows=True) }}{% endset %}
+<p class="text-sm text-gray-600 mt-6 mb-3">{{ _("Met meer dan drie cijfers: elk cijfer een rij, label links en waarde rechts.") }}</p>
+<div data-kit-summary-five class="mt-4">
+{% set _card_b %}{{ ui.summary_card({"label": _("Openstaand"), "tone": "yellow"}, _five) }}{% endset %}
 {% call ui.record_columns(aside=_card_b) %}
   <div class="bg-surface-2 border border-dashed border-control-line rounded-2xl p-4 text-sm text-ink-soft">{{ _("Het formulier van Gegevens") }}</div>
 {% endcall %}

@@ -3368,24 +3368,23 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 
    * `state`: {label, tone} — the badge, first.
    * `figures`: {label, value, warning?}, every one given (#1899; three at
-     most until then). In the card the first two stand side by side and a
-     third under them, label left, value right. An open balance that is not
-     zero takes the warning tone.
-   * `rows` (#1901 §2, a PROPOSAL shown on the design-system page until Koen
-     has judged it): every figure a row — label left, value right — in the
-     text size, in the card and in the strip alike.
+     most until then). Every figure is a row — label left, value right, in
+     the text size — in the card and in the strip alike (#1901 §2; Koen, 11
+     October 2026, to "B for every card, or only from four figures?": "B voor
+     elke kaart, klopt"). An open balance that is not zero takes the warning
+     tone.
    * `action`: {href, text, label} — the public link with the copy button
      (`copy_button`: one press copies, the check mark shows in place; never a
      screen, never a toast — Q49). `text` is the address as it is read; when
      the browser refuses the copy, the helper selects it (`data-copy-bron`). #}
-{% macro summary_card(state=None, figures=[], action=None, rows=False) -%}
-<section data-summary-card{% if rows %} data-summary-rows{% endif %} class="summary-card rounded-card border border-line bg-surface shadow-sm" aria-label="{{ _('Samenvatting') }}">
+{% macro summary_card(state=None, figures=[], action=None) -%}
+<section data-summary-card class="summary-card rounded-card border border-line bg-surface shadow-sm" aria-label="{{ _('Samenvatting') }}">
   {% if state %}<div data-summary-state>{{ badge(state.label, state.get("tone", "gray")) }}</div>{% endif %}
   <dl data-summary-figures class="m-0">
     {% for f in figures %}
     <div data-summary-figure>
       <dt class="text-[13px] leading-5 text-ink-soft">{{ f.label }}</dt>
-      <dd class="m-0 {{ 'text-[15px] leading-[21px]' if rows else 'text-2xl leading-[30px] tracking-tight' }} font-semibold tabular-nums whitespace-nowrap {{ 'text-brand-warning' if f.get('warning') else 'text-ink' }}">{{ f.value }}</dd>
+      <dd class="m-0 text-[15px] leading-[21px] font-semibold tabular-nums whitespace-nowrap {{ 'text-brand-warning' if f.get('warning') else 'text-ink' }}">{{ f.value }}</dd>
     </div>
     {% endfor %}
   </dl>

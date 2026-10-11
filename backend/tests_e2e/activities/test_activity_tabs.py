@@ -224,7 +224,9 @@ def test_on_a_phone_the_summary_is_a_strip_under_the_tabs(browser, activity):
     page.close()
 
     card, form, tabs = gegevens["card"], gegevens["form"], gegevens["tabs"]
-    assert card["w"] == 358 and 110 <= card["h"] <= 150, card
+    # Three figures, each a row (Koen, 11 October 2026: "B voor elke kaart"): 161 px,
+    # where the three stood side by side in 132.
+    assert card["w"] == 358 and 110 <= card["h"] <= 170, card
     # Under the tabs, above the form.
     assert tabs["y"] + tabs["h"] <= card["y"] and card["y"] + card["h"] <= form["y"], gegevens
     for name, tab in (("inschrijvingen", registrations), ("betalingen", payments)):

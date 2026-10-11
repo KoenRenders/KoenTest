@@ -385,6 +385,66 @@ def test_the_board_renews_from_the_record(browser, household):
         page.close()
 
 
+@pytest.mark.parametrize(("width", "height"), [(1440, 900), (390, 844)])
+def test_the_summary_is_rows_to_read_and_gone_while_editing(browser, household, width, height):
+    """The summary card has one shape (Koen, 11 October 2026: "B voor elke kaart"):
+    every figure a row, label left and value right, the values on one right edge
+    — in the card beside the form and in the strip on a phone alike. And on the
+    household's record it is not there while editing (Koen, the same day: "ja",
+    and "b" — the household only): the first input field then stands a card
+    higher on a phone.
+
+    Proven red (locally, restored): the `{% if not edit %}` around the card
+    replaced by `{% if true %}` → "the summary stands above the editor"; the
+    figure's `display:flex` renamed in the css → "label and value do not share
+    a line"."""
+    page = _board(browser, width, height)
+    try:
+        page.goto(f"/admin/leden/gezin/{household['id']}")
+        pagina_klaar(page)
+        read = page.evaluate(
+            """() => { const r = e => e.getBoundingClientRect();
+              const mid = b => Math.round(b.top + b.height / 2);
+              const card = document.querySelector('[data-summary-card]');
+              return {cards: document.querySelectorAll('[data-summary-card]').length,
+                      figures: [...card.querySelectorAll('[data-summary-figure]')].map(f => {
+                        const label = r(f.querySelector('dt')), value = r(f.querySelector('dd'));
+                        return {label: [Math.round(label.left), mid(label)], value: [Math.round(value.right), mid(value)],
+                                apart: Math.round(value.left - label.right)}; }),
+                      card: [Math.round(r(card).left), Math.round(r(card).right)]}; }"""
+        )
+        print("MEASURE summary read", width, read)
+        assert read["cards"] == 1 and len(read["figures"]) >= 1
+        for figure in read["figures"]:
+            assert abs(figure["label"][1] - figure["value"][1]) <= 3, (
+                "label and value do not share a line"
+            )
+            assert figure["apart"] >= 12, "the value runs into its label"
+        assert len({f["label"][0] for f in read["figures"]}) == 1, "the labels share no left edge"
+        assert len({f["value"][0] for f in read["figures"]}) == 1, "the values share no right edge"
+
+        page.goto(f"/admin/leden/gezin/{household['id']}?bewerken=1")
+        pagina_klaar(page)
+        edit = page.evaluate(
+            """() => { const first = document.querySelector('#gezin-form input:not([type=hidden])').getBoundingClientRect();
+              const bar = document.querySelector('[data-action-bar]').getBoundingClientRect();
+              return {cards: document.querySelectorAll('[data-summary-card]').length,
+                      column: !!document.querySelector('[data-summary-column]'),
+                      first_input: [Math.round(first.top), Math.round(first.bottom)], bar_top: Math.round(bar.top),
+                      window: innerHeight, page: [document.documentElement.scrollWidth, innerWidth]}; }"""
+        )
+        print("MEASURE summary edit", width, edit)
+        assert edit["cards"] == 0 and not edit["column"], "the summary stands above the editor"
+        assert edit["page"][0] == edit["page"][1]
+        if width == 390:
+            # It stood at y 615 with the strip above it; the bar starts at 723.
+            assert edit["first_input"][0] < 520, (
+                f"the first field starts at {edit['first_input'][0]}"
+            )
+    finally:
+        page.close()
+
+
 def test_no_line_of_the_heads_facts_ends_on_a_separator(browser, household):
     """The head's facts — address · e-mail address — wrap on a narrow phone. The
     fact that starts a line shows no separator, and no line ends on one: every
