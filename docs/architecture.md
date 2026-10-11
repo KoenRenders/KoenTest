@@ -419,6 +419,8 @@ sequenceDiagram
   Note over A,L: later: order edited → reconcile_charges<br/>→ refund obligation → task refund_bevestigen
 ```
 
+**Every order confirms itself by mail, from whichever door it was placed** (Koen, 11 October 2026, to the question whether a renewal done by the board should mail the household: "Kunnen we dan geen regel instellen dat elke 'bestelling' (lidmaatschap, activiteit, webshop) een mail tot gevolg moet hebben? En het idee moet zijn dat wanneer dit via de backoffice gedaan wordt, de leden dezelfde mail krijgen (hoofdlid of account)." — "twee keer ja" to writing it here and to an issue for the one gap). An order is a membership (new or renewed), a registration for an activity or a shop order. The mail carries what the order is, the amount and, for a transfer, the account number and the structured communication. The back office sends the same mail the member would have received, to the main member or the account; it never replaces the mail by a screen message. Today's gap: a renewal from the back office sends no mail (#1903, v2.17.0). CR-21 R38 and CR-14 lean on this rule rather than restate it.
+
 The rule *never trust the webhook body* is written into the repository's instructions as a security invariant and covered by a regression test that posts a forged `status=paid&amount=999` and asserts the record stays pending. [PROD]
 
 ## 4.4 Roles and how a user reaches their work
