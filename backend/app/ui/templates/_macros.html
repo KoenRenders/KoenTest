@@ -439,6 +439,10 @@
    - `facts`: [{text}] or [{text, href, kind}] with kind "reference" (a jump link)
      or "mail" (a real `mailto:`); the full words at every width.
    - `primary`: {label, href} or {label, attrs} — one, never more.
+   - `secondary` (#1901): {label, href} — the one button beside the primary, for
+     a record whose state has a positive action of its own: an open booking's
+     primary is "Bevestig" and "Bewerken" stands beside it (Koen, 11 October
+     2026). Never a second command: a link to another state of the page.
    - `actions`: [{kind, label, href|attrs, verb?, confirm?}]. `kind` is "record"
      (placed in the fixed order of `verb`: copy, print, export, send, state — the
      record's state action, such as publish or back to draft — and cancel, calling
@@ -456,7 +460,8 @@
    they take a line of their own under it, at the right. The flex rules are the
    prototype's (brief 05): the group may grow but not shrink on a phone, and from
    `md` it shares the row and never gets narrower than 360 px. #}
-{% macro record_header(title, badges=[], facts=[], primary=None, actions=[], back=None, editing=False) -%}
+{% macro record_header(title, badges=[], facts=[], primary=None, actions=[], back=None, editing=False,
+                       secondary=None) -%}
 {# `caller is defined`, not `if caller` (#643): StrictUndefined. #}
 {% set _extra = (caller() if caller is defined else "")|trim %}
 {% set _verbs = ["copy", "print", "export", "send", "state", "cancel"] %}
@@ -486,13 +491,16 @@
       </span>
       {% endif %}
     </div>
-    {% if (primary and not editing) or actions or _extra %}
+    {% if ((primary or secondary) and not editing) or actions or _extra %}
     <div data-head-controls class="flex flex-wrap justify-end items-center gap-2 ml-auto shrink-0 max-w-full">
       {% if primary and not editing %}
       {#- `confirm` on a primary action (review A4, #1770): passed as data to
           the button macro's own confirm door — a screen that gives none
           keeps exactly the button she had. -#}
       {{ button(primary.label, variant="primary", type="button", href=primary.get("href"), size="sm", attrs=primary.get("attrs", ""), cls="min-h-11 md:min-h-9", confirm=primary.get("confirm")) }}
+      {% endif %}
+      {% if secondary and not editing %}
+      {{ button(secondary.label, variant="secondary", type="button", href=secondary.href, size="sm", attrs="data-head-secondary", cls="min-h-11 md:min-h-9") }}
       {% endif %}
       {% if actions %}
       <div class="relative" x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
@@ -512,11 +520,20 @@
     {% endif %}
   </div>
   {% if facts %}
-  <p data-facts class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 md:min-h-6 text-sm text-ink-soft">
-    {% for f in facts %}{% if not loop.first %}<span aria-hidden="true">·</span>{% endif %}
-    {% if f.get("kind") == "reference" %}{{ reference(f.text, f.href, "min-h-11 md:min-h-6") }}
-    {% elif f.get("kind") == "mail" %}<a href="mailto:{{ f.text }}" class="text-blue-500 underline hover:no-underline">{{ f.text }}</a>
-    {% else %}<span>{{ f.text }}</span>{% endif %}{% endfor %}
+  {# Every fact carries its separator IN FRONT, in a box of 16 px, and the line
+     is drawn 16 px to the left of a box that clips: the separator of the fact
+     that starts a line falls outside it. So a fact that wraps takes its dot
+     along and no line ends on one (#1900; seen on the household record, where
+     the e-mail address wrapped and " · " stayed behind the address). #}
+  <p data-facts class="mt-2 md:min-h-6 overflow-x-clip text-sm text-ink-soft">
+    <span class="-ml-4 flex flex-wrap items-center gap-y-1">
+    {% for f in facts %}
+    <span data-fact class="inline-flex items-center min-w-0 max-w-full"><span data-fact-dot aria-hidden="true" class="inline-block w-4 shrink-0 text-center">·</span>
+    {%- if f.get("kind") == "reference" %}{{ reference(f.text, f.href, "min-h-11 md:min-h-6") }}
+    {%- elif f.get("kind") == "mail" %}<a href="mailto:{{ f.text }}" class="min-w-0 text-blue-500 underline hover:no-underline [overflow-wrap:anywhere]">{{ f.text }}</a>
+    {%- else %}<span class="min-w-0">{{ f.text }}</span>{% endif %}</span>
+    {% endfor %}
+    </span>
   </p>
   {% endif %}
 </header>
@@ -566,7 +583,7 @@
 {# `section(title)` — one card per section, never a nested card: the heading
    (16 px semibold), 16 px to the first field, the fields on the form grid — four
    tracks, 12 px apart, one column when the card is narrower than 532 px inside
-   (two half fields of 260 px). 32 px between sections. A template writes no
+   (two half fields of 260 px). 16 px between sections (#1899). A template writes no
    distance: the grid and the section do.
 
    #1589: a section of somebody's own form (a form builder's section) may have
@@ -579,6 +596,82 @@
   {% if intro %}<p class="text-sm leading-[21px] text-ink-soft mb-4 whitespace-pre-wrap">{{ intro }}</p>{% endif %}
   <div data-form-grid class="form-grid">{{ caller() }}</div>
 </section>
+{%- endmacro %}
+
+{# `icon_fact(name, text)` — one fact of a compact read line: the icon says
+   what the value is, so the line carries no label (CR-11 B10 of 10 October
+   2026; end state §2.2). `href` makes the value a link. An empty value is
+   the caller's "—". #}
+{% macro icon_fact(name, text, href=None) -%}
+<span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0 max-w-full">{{ icon(name, cls="shrink-0 text-ink-soft") }}{% if href %}<a href="{{ href }}" class="text-blue-500 underline hover:no-underline truncate">{{ text }}</a>{% else %}<span class="truncate">{{ text }}</span>{% endif %}</span>
+{%- endmacro %}
+
+{# `label_fact(label, text)` — a value that keeps its label in read mode (#1900;
+   end state §5.2): the label in the soft ink with a colon, the value after it
+   on the same line — `Doelpubliek: Gezinnen`, `Maximum: 40`. For a value whose
+   kind has no icon of its own; a conventional kind takes `icon_fact`. #}
+{% macro label_fact(label, text) -%}
+<span data-label-fact class="text-sm leading-[21px] text-ink"><span class="text-ink-soft">{{ label }}:</span> {{ text }}</span>
+{%- endmacro %}
+
+{# `flow_heading(title)` — a heading row in the form flow, above a run of cards
+   that are each one of the same thing (#1900: "Onderdelen" above a card per
+   component) — the cards did not read as components without it. 8 px closer
+   to the cards under it than two cards are to each other. #}
+{% macro flow_heading(title, id=None) -%}
+<h2 data-flow-heading{% if id %} id="{{ id }}"{% endif %} class="-mb-2 text-base font-semibold leading-6 text-ink">{{ title }}</h2>
+{%- endmacro %}
+
+{# `rare_line(title, count)` — what is rarely set, as a closed line in the card
+   of its object (#1900; end state §3.4 as revised on 11 October 2026): the
+   external links of an activity stand under its poster, those of a component
+   under its info attachment. It opens in place to its fields; `count` is how
+   many of them are filled ("· 2 ingevuld"). The fields are sent closed or
+   open, and a refusal on one of them opens the line (`record-form.js`). In
+   edit mode only: read mode shows a filled value as a fact line. #}
+{% macro rare_line(title, count=0) -%}
+<details data-rare-line data-span="full" class="group">
+  <summary class="flex items-center gap-2 min-h-11 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden text-sm leading-[21px] text-ink">
+    {{ icon("chevron-right", 16, "shrink-0 transition-transform group-open:rotate-90") }}<span class="font-medium">{{ title }}</span>{% if count %}<span data-rare-count class="text-ink-soft">· {{ ngettext("%(num)d ingevuld", "%(num)d ingevuld", count) }}</span>{% endif %}
+  </summary>
+  <div data-form-grid class="form-grid pl-6 pb-2">{{ caller() }}</div>
+</details>
+{%- endmacro %}
+
+{# `person_card(name, …)` — one person as a card of the form flow, in READ
+   mode (#1899; end state §2.2, §5.2): the name is the card's heading with the
+   relation at its right as a badge, and under it the lines in the editor's
+   order — birth date and gender, mobile and phone on one line, one line per
+   e-mail address. No labels: the icon says what a value is; an empty one
+   reads "—". Nothing folds.
+
+   * `relation`: the label of the badge (Hoofdlid · Partner · Kind), or None
+     where there is no household (Mijn gegevens); `main` gives the main
+     member's badge its tone.
+   * `birth`, `gender`: as they are read ("14-03-1978", "Vrouw").
+   * `emails`: [{value, primary, pending}] — the grey tag "hoofdadres" on the
+     primary one only when there is more than one; an address that waits for
+     its code says so (CR-22 R15, #1733). On a narrow card the tag goes
+     under its address; the address is not cut for it.
+   * `extra`: what a page adds under the lines (the two ways on of a waiting
+     address, on one's own page). #}
+{% macro person_card(name, relation=None, main=False, birth="", gender="", mobile="", phone="", emails=[], attrs="", extra="") -%}
+{% call section(attrs=("data-person-card " ~ attrs)) %}
+<div data-span="full" class="min-w-0">
+  <div class="flex items-baseline justify-between gap-3">
+    <h2 data-person-name class="text-base font-semibold leading-6 text-ink min-w-0 break-words">{{ name }}</h2>
+    {% if relation %}<span data-person-relation class="shrink-0">{{ badge(relation, "blue" if main else "gray") }}</span>{% endif %}
+  </div>
+  <div class="mt-1 flex flex-col gap-y-1 text-sm leading-[21px] text-ink">
+    {% if birth or gender %}<p data-person-birth class="text-ink-soft">{% if birth %}° {{ birth }}{% endif %}{% if birth and gender %} · {% endif %}{{ gender }}</p>{% endif %}
+    <p class="flex flex-wrap gap-x-5 gap-y-1">{{ icon_fact("mobile", (mobile|phone) if mobile else "—") }} {{ icon_fact("phone", (phone|phone) if phone else "—") }}</p>
+    {% for e in emails %}{% set _tag = _("wacht op bevestiging") if e.pending else (_("hoofdadres") if e.primary and emails|length > 1 else None) %}
+    <p data-person-email class="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">{{ icon_fact("mail", e.value, href="mailto:" ~ e.value) }}{% if _tag %}<span data-person-email-tag class="shrink-0">{{ badge(_tag) }}</span>{% endif %}</p>
+    {% else %}<p data-person-email>{{ icon_fact("mail", "—") }}</p>{% endfor %}
+  </div>
+  {{ extra }}
+</div>
+{% endcall %}
 {%- endmacro %}
 
 {# `flow_card(title)` — a card of the form flow that holds WORDS, not fields
@@ -695,6 +788,10 @@
      the value would, in the soft ink, followed by `fallback_note` ("van de
      fiche") — so the reader sees what is used and that it was not typed here.
      A filled field shows its own value, as always.
+   - `beside_switch` (#1900): the field stands at the right of the switch that
+     says whether its value is used ("Toon e-mail" · "Ander e-mailadres"),
+     so an `email` field takes half the width there — the one case; anywhere
+     else its kind decides and it is full.
    - `delete_name` (upload): "Verwijderen" beside what hangs there does not
      delete it — it marks it (a hidden field of this name becomes "1") and the
      form's save removes it; until then it can be taken back. #}
@@ -707,10 +804,11 @@
                current_label=None, delete_attrs="", delete_confirm=None, disabled=False,
                display=None, help_in_read=False, preview_url=None, delete_name=None,
                beside_field=False, help_lines=False, label_hidden=False,
-               fallback=None, fallback_note=None) -%}
+               fallback=None, fallback_note=None, beside_switch=False) -%}
 {%- set _id = id or name -%}
 {%- if fallback and not placeholder -%}{%- set placeholder = fallback -%}{%- endif -%}
-{%- if kind in _field_full or (kind == "text" and long) -%}{%- set _span = "full" -%}
+{%- if kind == "email" and beside_switch -%}{%- set _span = "half" -%}
+{%- elif kind in _field_full or (kind == "text" and long) -%}{%- set _span = "full" -%}
 {%- elif span == "full" -%}{%- set _span = "full" -%}
 {%- elif span == "quarter" and kind in _field_quarter_ok -%}{%- set _span = "quarter" -%}
 {%- else -%}{%- set _span = "half" -%}{%- endif -%}
@@ -888,23 +986,40 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    button was a screen away from the place it fills. A simple group (rows of
    one line) and a child group (Producten under a component) keep it in the
    head. A property of the form, not of a screen: no parameter chooses it. #}
+{# **Cards** (`cards=True`, #1899; end state §2.2, §5.2): a composite group whose
+   items are each a card of the form flow — the persons of a household — with
+   no frame and no heading around them: the page's flow is their frame, 16 px
+   apart. The rows pass `card=True`. The add button stands under the last card
+   (the rule above), as a full secondary button. `title` is then the group's
+   accessible name only.
+
+   **A plain child list** (`plain=True`, #1899; end state §3.3): a child group
+   whose title reads as a field's label — the e-mail addresses of a person —
+   with the add button at its right; the rows keep the simple row's shape, the
+   tag in a slot of one width so the fields are equally wide. On a group that
+   is no child (the membership years of a household) `plain` only takes the
+   line between the rows away: a short list, one under the other. #}
 {# `required` (#646, #1632): the group's rows are ONE field without a label of
    its own (`label_hidden`) and one of them is asked — the title is that field's
    label, so the red star stands on the title. #}
 {% macro repeating_group(title, name, token="__KEY__", add_label=None, edit=False, empty="",
                          variant="simple", columns=[], child=False, count=0, template="",
-                         handle=False, hint=None, id=None, footer="", one=None, required=False) -%}
-{%- set _tag = "div" if child else "section" -%}
+                         handle=False, hint=None, id=None, footer="", one=None, required=False,
+                         cards=False, plain=False) -%}
+{%- set _tag = "div" if (child or cards) else "section" -%}
 {%- set _add_below = variant == "composite" and not child -%}
 <{{ _tag }} data-repeating-group="{{ name }}" data-variant="{{ variant }}" data-token="{{ token }}"{% if id %} id="{{ id }}"{% endif %}
-   class="{% if child %}group-child{% else %}form-section bg-surface border border-line rounded-2xl shadow-sm p-4{% endif %}">
+   {% if cards %}data-group-cards role="group" aria-label="{{ title }}" {% endif %}class="{% if cards %}group-cards{% elif child %}group-child{% if plain %} group-child--plain{% endif %}{% else %}form-section bg-surface border border-line rounded-2xl shadow-sm p-4{% endif %}">
+  {% if not cards %}
   <div class="flex items-center justify-between gap-3 min-h-9{% if not child %} mb-2{% endif %}">
-    {% if child %}<h3 class="text-base font-semibold leading-6 text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</h3>
+    {% if plain and child %}<p data-group-title class="m-0 text-sm font-medium leading-[21px] text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</p>
+    {% elif child %}<h3 class="text-base font-semibold leading-6 text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</h3>
     {% else %}<h2 class="text-base font-semibold leading-6 text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</h2>{% endif %}
     {% if edit and add_label and not _add_below %}
     <button type="button" data-group-add class="{{ btn_class('secondary', 'sm') }} inline-flex items-center gap-1 min-h-11 md:min-h-9">{{ icon("plus", 16) }}{{ add_label }}</button>
     {% endif %}
   </div>
+  {% endif %}
   {% if hint %}<p class="mb-3 text-[13px] text-ink-soft">{{ hint }}</p>{% endif %}
   {% if edit and variant == "simple" and columns %}
   <div data-group-head aria-hidden="true" class="group-head{% if handle %} group-head--handle{% endif %}"{% if not count %} hidden{% endif %}>
@@ -914,9 +1029,9 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   </div>
   {% endif %}
   {% if edit and one %}<input type="hidden" name="{{ one.name }}" value="{{ one.value or '' }}" data-group-one>{% endif %}
-  <div data-group-rows class="group-rows">{{ caller() }}</div>
-  <p data-group-empty class="text-sm text-ink-soft"{% if count %} hidden{% endif %}>{{ empty }}</p>
-  {% if edit and add_label and _add_below %}<div data-group-add-below class="mt-3"><button type="button" data-group-add class="{{ btn_class('secondary', 'sm') }} inline-flex items-center gap-1 min-h-11 md:min-h-9">{{ icon("plus", 16) }}{{ add_label }}</button></div>{% endif %}
+  <div data-group-rows class="group-rows{% if cards %} group-rows--cards{% endif %}{% if plain %} group-rows--plain{% endif %}">{{ caller() }}</div>
+  <p data-group-empty class="text-sm text-ink-soft"{% if count or (cards and not empty) %} hidden{% endif %}>{{ empty }}</p>
+  {% if edit and add_label and _add_below %}<div data-group-add-below{% if not cards %} class="mt-3"{% endif %}><button type="button" data-group-add class="{{ btn_class('secondary', 'md' if cards else 'sm') }} inline-flex items-center gap-1 min-h-11{% if not cards %} md:min-h-9{% endif %}">{{ icon("plus", 16) }}{{ add_label }}</button></div>{% endif %}
   {% if edit and footer %}<div data-group-footer class="mt-3">{{ footer }}</div>{% endif %}
   {% if edit and template %}<template data-group-template>{{ template }}</template>{% endif %}
 </{{ _tag }}>
@@ -963,19 +1078,27 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 
    `title` is the composite item's heading (in edit mode it follows the field
    marked `data-row-title-source`); `title_href` makes it a jump link; `tag` is
-   a badge beside it ("op de affiche", "hoofdadres"). `handle` only where the
+   a badge beside it ("hoofdadres"). `handle` only where the
    order means something. `label` names the row for its menu's accessible name.
 
    A SIMPLE row of a group that marks one row (`one`) shows `tag` where the
    one-tag stands — right of its field — for a row that cannot be the marked
    one: an e-mail address that "wacht op bevestiging" (#1711). Such a row
-   passes `one.choosable = False`, and its menu offers no "Maak …". #}
+   passes `one.choosable = False`, and its menu offers no "Maak …".
+
+   `card=True` (#1899): the composite item is a card of the form flow — a row
+   of a `cards` group, or the one member that is no row of it (`fixed=True`:
+   the main member of a household, who sends the group's order field first
+   and can be neither moved nor removed). `aside` stands in the title line,
+   left of the `⋯`: the relation of a person as a badge or a select. `attrs`
+   are the caller's hooks on the row (an id, a `data-…`). #}
 {% macro group_row(group, key, edit=False, variant="simple", handle=False,
                    menu=["up", "down", "duplicate", "remove"], title="", title_href=None, tag=None, label="",
-                   fold=None, subtitle=None, title_prefix=None, one=None) -%}
+                   fold=None, subtitle=None, title_prefix=None, one=None,
+                   card=False, aside="", fixed=False, attrs="") -%}
 {%- set _one_tag %}{% if one %}<span data-row-one-tag class="shrink-0"{% if not one.chosen %} hidden{% endif %}>{{ badge(one.tag, "blue") }}</span>{% endif %}{% endset -%}
-<div data-group-row data-row-key="{{ key }}" class="group-row group-row--{{ variant }}{% if edit %} group-row--edit{% endif %}{% if edit and handle %} group-row--handle{% endif %}{% if fold %} group-row--fold{% endif %}{% if one %} group-row--one{% endif %}">
-  {% if edit %}<input type="hidden" name="{{ group }}" value="{{ key }}" data-row-order>{% endif %}
+<div data-group-row data-row-key="{{ key }}" class="group-row group-row--{{ variant }}{% if edit %} group-row--edit{% endif %}{% if edit and handle %} group-row--handle{% endif %}{% if fold %} group-row--fold{% endif %}{% if one %} group-row--one{% endif %}{% if card %} group-row--card form-section bg-surface border border-line rounded-2xl shadow-sm p-4{% endif %}"{% if card %} data-form-section{% endif %}{% if attrs %} {{ attrs|safe }}{% endif %}>
+  {% if edit %}<input type="hidden" name="{{ group }}" value="{{ key }}" data-row-order{% if fixed %} data-row-fixed{% endif %}>{% endif %}
   {% if edit and handle %}<span data-row-handle aria-hidden="true" title="{{ _('Verslepen') }}" class="group-handle">{{ icon("grip-vertical", 16) }}</span>{% endif %}
   <div data-row-body class="group-body min-w-0">
     {% if variant == "composite" and fold %}
@@ -995,14 +1118,18 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     </details>
     {% if edit and menu %}<div class="group-fold-menu">{{ _row_menu(menu, label or title, one) }}</div>{% endif %}
     {% elif variant == "composite" %}
-    <div data-row-title-line class="flex items-center justify-between gap-2 min-h-11">
-      <span class="flex flex-wrap items-center gap-2 min-w-0">
+    {#- A title line that carries a slot (`aside`) wraps where the two do not fit:
+        the name keeps the first line — 44 px high beside a handle, so the two stay
+        on one line — and the slot goes under it, at the right (#1900: an
+        organiser's Contactpersoon switch on a phone). -#}
+    <div data-row-title-line class="flex{% if card %} flex-wrap gap-2{% elif aside %} flex-wrap gap-x-2 gap-y-0{% else %} gap-2{% endif %} items-center justify-between min-h-11">
+      <span class="flex flex-wrap items-center gap-2 min-w-0{% if edit and handle %} min-h-11{% endif %}">
         {% if title_href %}{{ reference(title, title_href, "font-semibold") }}
         {% else %}<h3 data-row-title="{{ title }}" class="min-w-0 text-base font-semibold leading-6 text-ink [overflow-wrap:anywhere]">{{ title }}</h3>{% endif %}
         {% if tag %}{{ badge(tag.label, tag.get("tone") or "gray") }}{% endif %}
         {{ _one_tag }}
       </span>
-      {% if edit and menu %}{{ _row_menu(menu, label or title, one) }}{% endif %}
+      {% if aside or (edit and menu) %}<span data-row-aside class="flex items-center gap-3 shrink-0 ml-auto">{{ aside }}{% if edit and menu %}{{ _row_menu(menu, label or title, one) }}{% endif %}</span>{% endif %}
     </div>
     {{ caller() }}
     {% else %}
@@ -1186,65 +1313,6 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% if ods_url %}<a href="{{ ods_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">{{ icon('download') }} ODS</a>{% endif %}
   {% if csv_url %}<a href="{{ csv_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">{{ icon('download') }} CSV</a>{% endif %}
   {% if json_url %}<a href="{{ json_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">{{ icon('download') }} JSON</a>{% endif %}
-</div>
-{%- endmacro %}
-
-{# Gedeelde gezinslid-veldenset (#511): één bron voor Word lid + admin-leden + Mijn
-   gezin — einde van de 3-voudige duplicatie. `name_prefix` absorbeert het submit-
-   schema (publiek `m{i}_`, admin/portaal leeg); `id_prefix` houdt de element-ids
-   uniek op de pagina. Databron: `pv` = base-keyed person-VM-dict (admin/portaal) OF
-   `values` = prefixed dict (publiek, voorgevuld na validatiefout). `hoofdlid` maakt
-   e-mail/GSM verplicht en zet de relatie vast op HOOFDLID i.p.v. een keuze.
-   Delete/kaart-header blijft per scherm (plaatsing verschilt). #}
-{% macro person_fields(name_prefix="", id_prefix="", pv=None, values=None,
-                       gender_codes=[], relation_types=[], include_relation=True,
-                       hoofdlid=False, require_birth_gender=False,
-                       include_email=True, default_relation="", name_max=None) -%}
-{# `include_email=False` (#1219): het scherm zet de e-mailadressen zelf als RIJEN
-   eronder, want een lid mag er meerdere hebben. Eén veld hier én een lijst daar
-   zou twee plaatsen voor hetzelfde feit zijn, en dan is het de vraag welke wint
-   bij het opslaan. GSM en telefoon blijven wél hier: daarvan is er één. #}
-{% set _fn = pv.get('first_name') if pv else (values.get(name_prefix ~ 'first_name') if values else '') %}
-{% set _ln = pv.get('last_name') if pv else (values.get(name_prefix ~ 'last_name') if values else '') %}
-{% set _dob = pv.get('date_of_birth') if pv else (values.get(name_prefix ~ 'date_of_birth') if values else '') %}
-{% set _gender = pv.get('gender_code') if pv else (values.get(name_prefix ~ 'gender_code') if values else '') %}
-{% set _email = pv.get('email') if pv else (values.get(name_prefix ~ 'email') if values else '') %}
-{% set _mobile = pv.get('mobile') if pv else (values.get(name_prefix ~ 'mobile') if values else '') %}
-{% set _phone = pv.get('phone') if pv else (values.get(name_prefix ~ 'phone') if values else '') %}
-{% set _rel = pv.get('relation_type') if pv else (values.get(name_prefix ~ 'relation_type') if values else '') %}
-{#- #1321: what the screen prefills when nothing is chosen yet (`default_relation` in
-    membership); a chosen or stored relation always wins. -#}
-{% set _rel = _rel or default_relation %}
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-  <div>{{ label(_("Voornaam"), id_prefix ~ "first_name", required=True) }}
-    <input name="{{ name_prefix }}first_name" id="{{ id_prefix }}first_name" required{% if name_max %} maxlength="{{ name_max }}"{% endif %} value="{{ _fn or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ label(_("Achternaam"), id_prefix ~ "last_name", required=True) }}
-    <input name="{{ name_prefix }}last_name" id="{{ id_prefix }}last_name" required{% if name_max %} maxlength="{{ name_max }}"{% endif %} value="{{ _ln or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ label(_("Geboortedatum"), id_prefix ~ "date_of_birth", required=require_birth_gender) }}
-    <input type="date" name="{{ name_prefix }}date_of_birth" id="{{ id_prefix }}date_of_birth" {% if require_birth_gender %}required{% endif %} value="{{ _dob or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ label(_("Geslacht"), id_prefix ~ "gender_code", required=require_birth_gender) }}
-    <select name="{{ name_prefix }}gender_code" id="{{ id_prefix }}gender_code" {% if require_birth_gender %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2">
-      <option value="">—</option>
-      {% for g in gender_codes %}<option value="{{ g.code }}" {% if _gender == g.code %}selected{% endif %}>{{ g.value }}</option>{% endfor %}
-    </select></div>
-  {% if include_email %}
-  <div>{{ label(_("E-mail"), id_prefix ~ "email", required=hoofdlid) }}
-    <input type="email" name="{{ name_prefix }}email" id="{{ id_prefix }}email" {% if hoofdlid %}required{% endif %} value="{{ _email or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  {% endif %}
-  <div>{{ label(_("Mobiel"), id_prefix ~ "mobile", required=hoofdlid) }}
-    <input type="tel" name="{{ name_prefix }}mobile" id="{{ id_prefix }}mobile" {% if hoofdlid %}required{% endif %} value="{{ _mobile or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ label(_("Telefoon"), id_prefix ~ "phone") }}
-    <input name="{{ name_prefix }}phone" id="{{ id_prefix }}phone" value="{{ _phone or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  {% if hoofdlid %}
-  <input type="hidden" name="{{ name_prefix }}relation_type" value="HOOFDLID">
-  {% elif include_relation %}
-  <div>{{ label(_("Relatie"), id_prefix ~ "relation_type") }}
-    <select name="{{ name_prefix }}relation_type" id="{{ id_prefix }}relation_type" class="w-full border border-gray-300 rounded-lg px-3 py-2">
-      {% for r in relation_types if r.code != "HOOFDLID" %}
-      <option value="{{ r.code }}" {% if _rel == r.code %}selected{% endif %}>{{ r.value }}</option>
-      {% endfor %}
-    </select></div>
-  {% endif %}
 </div>
 {%- endmacro %}
 
@@ -3332,10 +3400,12 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 
 {# The row's own link, in its first cell: its click area covers the row (CSS),
    so a click on the amount opens the record too. `sub` is the grey line under
-   it (a reference number). Never "Bewerken" in a row: the row is the way in. #}
-{% macro row_link(label, href, sub=None, cls="") -%}
+   it: monospace for a code (a reference number, the default), plain with
+   `sub_mono=False` for text (an address — #1899). Never "Bewerken" in a row:
+   the row is the way in. #}
+{% macro row_link(label, href, sub=None, cls="", sub_mono=True) -%}
 <a href="{{ href }}" data-row-link class="font-semibold text-ink hover:no-underline{% if cls %} {{ cls }}{% endif %}">{{ label }}</a>
-{% if sub %}<small class="block font-mono text-xs font-normal text-ink-soft">{{ sub }}</small>{% endif %}
+{% if sub %}<small data-row-sub class="block{% if sub_mono %} font-mono{% endif %} text-xs font-normal text-ink-soft">{{ sub }}</small>{% endif %}
 {%- endmacro %}
 
 {# What a row may carry beside its link (block 4, Q35): **at most one visible
@@ -3426,12 +3496,15 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    300 px in the right column on a desktop, a strip under the tabs on a phone
    (badge and the action's icon on the first line, the figures on the second).
    **Only on the Gegevens tab**: a list tab has neither
-   (`tests/test_summary_card_gate.py`).
+   (`tests/test_record_tab_gate.py`).
 
    * `state`: {label, tone} — the badge, first.
-   * `figures`: up to three {label, value, warning?}; in the card the first two
-     stand side by side and a third under them, label left, value right. An
-     open balance that is not zero takes the warning tone.
+   * `figures`: {label, value, warning?}, every one given (#1899; three at
+     most until then). Every figure is a row — label left, value right, in
+     the text size — in the card and in the strip alike (#1901 §2; Koen, 11
+     October 2026, to "B for every card, or only from four figures?": "B voor
+     elke kaart, klopt"). An open balance that is not zero takes the warning
+     tone.
    * `action`: {href, text, label} — the public link with the copy button
      (`copy_button`: one press copies, the check mark shows in place; never a
      screen, never a toast — Q49). `text` is the address as it is read; when
@@ -3440,10 +3513,10 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 <section data-summary-card class="summary-card rounded-card border border-line bg-surface shadow-sm" aria-label="{{ _('Samenvatting') }}">
   {% if state %}<div data-summary-state>{{ badge(state.label, state.get("tone", "gray")) }}</div>{% endif %}
   <dl data-summary-figures class="m-0">
-    {% for f in figures[:3] %}
+    {% for f in figures %}
     <div data-summary-figure>
       <dt class="text-[13px] leading-5 text-ink-soft">{{ f.label }}</dt>
-      <dd class="m-0 text-2xl font-semibold leading-[30px] tracking-tight tabular-nums whitespace-nowrap {{ 'text-brand-warning' if f.get('warning') else 'text-ink' }}">{{ f.value }}</dd>
+      <dd class="m-0 text-[15px] leading-[21px] font-semibold tabular-nums whitespace-nowrap {{ 'text-brand-warning' if f.get('warning') else 'text-ink' }}">{{ f.value }}</dd>
     </div>
     {% endfor %}
   </dl>

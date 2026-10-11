@@ -106,16 +106,20 @@ def _input(page: str, organiser_id: int, field: str) -> dict[str, str]:
 
 
 def _read_value(page: str, organiser_id: int, field: str) -> str:
-    """What read mode shows for one override, tags and all."""
-    found = re.search(
-        rf'<div data-field="o\.{organiser_id}\.{field}".*?<p data-value[^>]*>(.*?)</p>', page, re.S
-    )
-    assert found, f"no read value for {field} of organiser {organiser_id}"
-    return found.group(1).strip()
+    """What read mode shows for one detail of an organiser: the words behind its
+    icon (#1900 — the e-mail address first, the mobile number second)."""
+    start = page.index('id="aa-group-organisers"')
+    row = page[page.index(f'data-row-key="{organiser_id}"', start) :]
+    facts = row[row.index("data-organiser-facts") :].split("</p>", 1)[0]
+    found = re.findall(r"<span data-icon-fact[^>]*>(.*?)</span>\s*</span>", facts, re.S)
+    assert len(found) == 2, f"{len(found)} facts for organiser {organiser_id}"
+    shown = found[0 if field == "email_override" else 1]
+    return " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", shown)).split())
 
 
 def test_an_empty_override_shows_the_members_own_value_as_placeholder(client, record):
-    """Red on master: no placeholder at all."""
+    """Red on master: no placeholder at all. Since #1900 the grey value needs no
+    sentence under the field: it stands in the field, beside its switch."""
     activity_id, both, _neither, _other = record
     page = _page(client, activity_id, edit=True)
     email = _input(page, both, "email_override")
@@ -123,8 +127,7 @@ def test_an_empty_override_shows_the_members_own_value_as_placeholder(client, re
     assert email["placeholder"] == "beide@example.com"
     assert mobile["placeholder"] == "0470 00 00 01", "the number in its readable form (#1675)"
     assert "value" not in email and "value" not in mobile, "the grey value is never a value"
-    assert "Leeg: het adres van het lid, hierboven in het grijs." in page
-    assert "Leeg: het nummer van het lid, hierboven in het grijs." in page
+    assert "hierboven in het grijs" not in page
 
 
 def test_a_member_without_the_detail_says_so(client, record):
@@ -132,11 +135,10 @@ def test_a_member_without_the_detail_says_so(client, record):
     page = _page(client, activity_id, edit=True)
     assert _input(page, neither, "email_override")["placeholder"] == NO_EMAIL
     assert _input(page, neither, "mobile_override")["placeholder"] == NO_MOBILE
+    # #1900: read mode shows what is shown — nothing, so "—".
     read = _page(client, activity_id, edit=False)
-    for field, text in (("email_override", NO_EMAIL), ("mobile_override", NO_MOBILE)):
-        shown = _read_value(read, neither, field)
-        assert text in shown and "data-fallback" in shown
-        assert "van de fiche" not in shown, "nothing comes from the record, so nothing is marked"
+    for field in ("email_override", "mobile_override"):
+        assert _read_value(read, neither, field) == "—"
 
 
 def test_a_filled_override_wins_and_shows_as_a_value(client, record):
@@ -147,23 +149,21 @@ def test_a_filled_override_wins_and_shows_as_a_value(client, record):
         "the input keeps what is stored"
     )
     read = _page(client, activity_id, edit=False)
-    email = _read_value(read, other, "email_override")
-    mobile = _read_value(read, other, "mobile_override")
-    assert "quiz@example.com" in email and "data-fallback" not in email
-    assert "0470 00 00 03" in mobile and "data-fallback" not in mobile
-    assert "ander@example.com" not in email, "the member's own address does not show beside it"
+    assert _read_value(read, other, "email_override") == "quiz@example.com", (
+        "the member's own address shows beside or instead of it"
+    )
+    assert _read_value(read, other, "mobile_override") == "0470 00 00 03"
 
 
-def test_read_mode_shows_the_value_that_is_used_soft_and_marked(client, record):
-    """Red on master: "—"."""
+def test_read_mode_shows_the_value_that_is_used(client, record):
+    """Red on master: "—". Since #1900 read mode shows the value that is used behind
+    its icon and no longer marks where it comes from — that is the editor's, where
+    the member's own value stands in grey in the field."""
     activity_id, both, _neither, _other = record
     read = _page(client, activity_id, edit=False)
-    email = _read_value(read, both, "email_override")
-    mobile = _read_value(read, both, "mobile_override")
-    assert re.search(r'<span data-fallback class="[^"]*text-ink-soft[^"]*">', email)
-    assert "beide@example.com (van de fiche)" in email
-    assert "0470 00 00 01 (van de fiche)" in mobile
-    assert "—" not in email and "—" not in mobile
+    assert _read_value(read, both, "email_override") == "beide@example.com"
+    assert _read_value(read, both, "mobile_override") == "0470 00 00 01"
+    assert "van de fiche" not in read
 
 
 def test_the_grey_value_is_what_the_poster_prints(client, db_session, record):

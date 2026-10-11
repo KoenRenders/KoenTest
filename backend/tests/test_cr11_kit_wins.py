@@ -178,15 +178,14 @@ def test_the_opened_menu_starts_with_who_is_signed_in(client, db_session):
 
 # ── W16: every record page starts with the way back ──────────────────────────
 
+# The household's three pages left this list with #1899, as the activity's did
+# before them.
 # The activity's three pages left this list with #1557: their way back is drawn
 # by `ui.record_header`, and `test_record_header_gate.py` pins that the head is
 # the first thing they render. The page screen joined them in CR-17 slice 3
 # (#1671): her way back is the head's `back` too — the head partial is the whole
 # of #main there, because a refused save swaps her back in whole.
 RECORD_PAGES = [
-    "domains/mdm/templates/leden_gezin.html",
-    "domains/mdm/templates/admin_gezin_inschrijvingen.html",
-    "domains/payment/templates/admin_gezin_betalingen.html",
     "domains/activities/templates/_insch_recordkop.html",
     "domains/forms/templates/_fb_recordkop.html",
     "domains/workflow/templates/werkbank_taak.html",
@@ -266,7 +265,8 @@ def test_every_tile_strip_keeps_its_labels_on_one_line_through_the_shared_rule()
                 assert labels, f"{path.relative_to(APP)}: the scan found no labels"
                 for label in labels:
                     assert "title=" in label, f"{path.relative_to(APP)}: a label without a title"
-    assert len(found) >= 3, f"the scan found only {found}"
+    # Two since #1899: Leden's strip went with the list-page layout.
+    assert len(found) >= 2, f"the scan found only {found}"
     css = (APP / "static" / "app.css").read_text()
     assert ".kpi-strip>*>:first-child{" in css
     rule = css[css.index(".kpi-strip>*>:first-child{") :]

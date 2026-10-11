@@ -17,7 +17,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Optional
 
-from app.domains.mdm.api import CONTACT, RelationType
+from app.domains.mdm.api import CONTACT, PERSON_NAME_MAX, RelationType
 from app.domains.membership.membership_card import MembershipCard
 from app.i18n import _
 
@@ -51,6 +51,8 @@ class PersonView:
     date_of_birth: str = ""
     birth_display: str = ""
     gender_code: str = ""
+    #: The gender as it is read ("Vrouw"), for the read card.
+    gender_label: str = ""
     mobile: str = ""
     phone: str = ""
     emails: tuple[EmailView, ...] = ()
@@ -60,9 +62,10 @@ class PersonView:
     removable: bool = False
     #: "open" or "closed": how the row stands when the page opens.
     fold: str = "closed"
-    #: The relation is chosen on this row: a person added in the page, on Word lid
-    #: and on Mijn gezin alike (#1603). Never for the main member, and not for a
-    #: person who is already in the household.
+    #: The relation is chosen on this card: every person but the main member, a
+    #: person who is already in the household included (Koen, 11 October 2026, on
+    #: Mijn gezin: "b maar uiteraard niet het hoofdlid"; #1899). Partner or child
+    #: — nobody is made or unmade main member through it.
     choose_relation: bool = False
 
 
@@ -81,7 +84,9 @@ class HouseholdGroup:
     The main member stands apart (#1632): a fixed section, first on the page.
     `members` are the others — the rows of the group Gezinsleden."""
 
-    main: PersonView
+    #: None for a household that holds nobody — the board's record can meet one
+    #: (#1899); the pages of a member always have theirs.
+    main: Optional[PersonView]
     members: tuple[PersonView, ...]
     new_person: PersonView
     new_email: EmailView
@@ -97,6 +102,16 @@ class HouseholdGroup:
     #: The main member's e-mail address and mobile number are asked (a sign-up;
     #: Mijn gezin asks neither, #1603).
     contact_required: bool = False
+    #: Birth date and gender are asked of every person of a household (#681).
+    details_required: bool = True
+    #: The longest name a person's columns hold: the name fields' `maxlength`,
+    #: the number the save refuses at (`mdm.PERSON_NAME_MAX`).
+    name_max: int = PERSON_NAME_MAX
+    #: The reader is a person of this household: a waiting e-mail address
+    #: offers its code on the read card (Mijn gezin; not the board's record).
+    own_codes: bool = False
+    #: The address in one line, for the read card; "" when there is none.
+    address_line: str = ""
 
 
 @dataclass(frozen=True)
@@ -107,16 +122,26 @@ class PersonBlock:
 
     person: PersonView
     new_email: EmailView
+    gender_options: tuple[tuple[str, str], ...] = ()
     #: An e-mail address and a mobile number are not asked here (as on Mijn
     #: gezin, #1603).
     contact_required: bool = False
+    #: Birth date and gender are asked of a person in a household and not of
+    #: an account alone (CR-22 R17 as corrected on 10 October 2026; #1899).
+    details_required: bool = False
+    #: One's own page: a waiting address offers its code.
+    own_codes: bool = True
+    name_max: int = PERSON_NAME_MAX
 
 
-def person_block(person: Any, *, edit: bool = False) -> PersonBlock:
-    """The block of this person (an `mdm` Person): the name, the mobile number
-    and the e-mail rows. `edit`: without an address, one empty field to type one
-    in (#1641) — a row that was never stored, which the form's reader leaves out
+def person_block(person: Any, codes: dict, *, short_date, edit: bool = False) -> PersonBlock:
+    """The block of this person (an `mdm` Person): the whole person card without
+    a relation — the name, birth date, gender, mobile, telephone and the e-mail
+    rows (#1899). `edit`: without an address, one empty field to type one in
+    (#1641) — a row that was never stored, which the form's reader leaves out
     when it comes back empty."""
+    genders = tuple((str(g.code), str(g.value)) for g in codes["gender_codes"])
+    in_household = any(link.deleted_at is None for link in person.member_persons)
     rows = [c for c in person.contact_details if c.deleted_at is None]
     stored = sorted(
         (c for c in rows if c.contact_type_code == CONTACT.EMAIL),
@@ -134,6 +159,9 @@ def person_block(person: Any, *, edit: bool = False) -> PersonBlock:
     if edit and not emails:
         emails = (EmailView(key=f"n{person.id}e", primary=True),)
     mobile = next((c.value or "" for c in rows if c.contact_type_code == CONTACT.MOBILE), "")
+    phone = next((c.value or "" for c in rows if c.contact_type_code == CONTACT.PHONE), "")
+    born = person.date_of_birth
+    gender = str(person.gender_code or "")
     view = PersonView(
         key=str(person.id),
         prefix="",
@@ -142,11 +170,21 @@ def person_block(person: Any, *, edit: bool = False) -> PersonBlock:
         is_main=False,
         first_name=person.first_name or "",
         last_name=person.last_name or "",
+        date_of_birth=born.isoformat() if born else "",
+        birth_display=short_date(born) if born else "",
+        gender_code=gender,
+        gender_label=dict(genders).get(gender, ""),
         mobile=mobile,
+        phone=phone,
         emails=emails,
         primary_key=next((m.key for m in emails if m.primary), ""),
     )
-    return PersonBlock(person=view, new_email=EmailView(key=EMAIL_TOKEN))
+    return PersonBlock(
+        person=view,
+        new_email=EmailView(key=EMAIL_TOKEN),
+        gender_options=genders,
+        details_required=in_household,
+    )
 
 
 @dataclass(frozen=True)
@@ -185,6 +223,11 @@ class RenewPage:
     #: The household in one line per person, and its address in one.
     summary: tuple[tuple[str, str, bool], ...]
     address_line: str
+    #: The board renews for the household, from its record (#1899): the page
+    #: speaks of the household and not to it, and posts and returns there.
+    board: bool = False
+    post_url: str = "/leden/gezin/vernieuwen"
+    household_href: str = "/leden/gezin"
 
 
 def _labels(choices: list) -> dict[str, str]:
@@ -245,7 +288,7 @@ def signup_group(codes: dict) -> HouseholdGroup:
     head = PersonView(
         key="n0",
         prefix=relation_labels.get(main, ""),
-        title=_("Jijzelf"),
+        title=_("Hoofdlid"),
         subtitle=_("Persoonsgegevens en e-mailadressen"),
         is_main=True,
         relation_type=main,
@@ -267,11 +310,18 @@ def signup_group(codes: dict) -> HouseholdGroup:
 
 
 def household_group(
-    household: dict, codes: dict, *, me: int, short_date, edit: bool = False
+    household: dict,
+    codes: dict,
+    *,
+    me: Optional[int],
+    short_date,
+    edit: bool = False,
+    own_codes: bool = True,
 ) -> HouseholdGroup:
     """The household of a member, from the portal's own read (`household_view`).
 
-    `me` is the person looking: nobody takes themselves out of the household, and
+    `me` is the person looking (None for the board, who is no person of it, and
+    then `own_codes` is False): nobody takes themselves out of the household, and
     the main member stays whoever looks (#1603) — the main member is no row at
     all (#1632), and one's own row has no "Verwijderen". The rows stand closed.
     A household without a flagged main member shows its first person there.
@@ -313,11 +363,13 @@ def household_group(
                 date_of_birth=born,
                 birth_display=short_date(date.fromisoformat(born)) if born else "",
                 gender_code=p.get("gender_code") or "",
+                gender_label=dict(genders).get(str(p.get("gender_code") or ""), ""),
                 mobile=p.get("mobile") or "",
                 phone=p.get("phone") or "",
                 emails=emails,
                 primary_key=next((m.key for m in emails if m.primary), ""),
                 removable=p["id"] != me and not p.get("is_main_member"),
+                choose_relation=not p.get("is_main_member"),
                 fold="closed",
             )
         )
@@ -329,7 +381,13 @@ def household_group(
                 bus_number=a.get("bus_number") or "",
                 postal_code=a.get("postal_code") or "",
             )
-    main = next((p for p in persons if p.is_main), persons[0])
+    main = next((p for p in persons if p.is_main), persons[0] if persons else None)
+    if main is not None and main.choose_relation:
+        # A household without a flagged main member shows its first person there:
+        # that card is fixed, so it chooses no relation.
+        from dataclasses import replace
+
+        main = replace(main, choose_relation=False)
     return HouseholdGroup(
         main=main,
         members=tuple(p for p in persons if p is not main),
@@ -340,6 +398,8 @@ def household_group(
         postal_options=postal,
         address=address or AddressView(),
         address_required=address is not None,
+        own_codes=own_codes,
+        address_line=household_summary(household, codes)[1],
     )
 
 

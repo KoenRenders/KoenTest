@@ -84,10 +84,9 @@ def test_de_kpi_kaarten_zien_er_op_beide_schermen_hetzelfde_uit(client, db_sessi
     seed_activity_with_product(db_session)
     _login(client, db_session)
 
-    for pad, label in (
-        ("/admin/activiteiten", "Open inschrijving"),
-        ("/admin/leden", "Actieve gezinnen"),
-    ):
+    # #1899: Leden left the tile band for the figures of the list-page layout
+    # (`ui.figures`, held by `test_list_page_gate.py`); Activiteiten still has it.
+    for pad, label in (("/admin/activiteiten", "Open inschrijving"),):
         html = client.get(pad).text
         kaart = html[html.index(label) - 600 : html.index(label) + 200]
         # Sinds #996 delen beide schermen de kengetallenBAND (witte kaart,

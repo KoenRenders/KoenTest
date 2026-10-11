@@ -137,21 +137,15 @@ def test_een_activiteit_opslaan_bevestigt(client, db_session):
 
 
 def test_een_persoon_opslaan_bevestigt(client, db_session):
-    """De afsluitende "Opslaan" van een gezinslid."""
-    member, person = create_test_family(db_session, email="toast@example.com")
-    hdr = _login(client)
+    """De ene "Opslaan" van het gezinsrecord (#1899)."""
+    from tests.conftest import record_fields, save_record
 
-    resp = client.post(
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
-        headers=hdr,
-        data={
-            "first_name": person.first_name,
-            "last_name": person.last_name,
-            "date_of_birth": person.date_of_birth.isoformat(),
-            "gender_code": "M",
-            "relation_type": "HOOFDLID",
-        },
-    )
+    member, person = create_test_family(db_session, email="toast@example.com")
+    db_session.commit()
+    hdr = _login(client)
+    fields = record_fields(client, member.id)
+
+    resp = save_record(client, member.id, fields, hdr)
 
     assert resp.status_code == 200, resp.text
     assert OOB in resp.text

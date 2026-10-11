@@ -122,13 +122,15 @@ def test_de_bijlage_kan_verwijderd_worden(client, db_session):
 
 
 def test_de_info_bijlage_heet_niet_meer_reglement(client, db_session):
-    """§2.12: één woord voor één ding."""
+    """§2.12: één woord voor één ding. Since #1900 read mode shows the attachment
+    behind the file icon — the word stands where it is asked, in the editor, and
+    on the link once there is one."""
     activity, comp, _p = seed_activity_with_product(db_session, is_free=False)
     _login(client)
     for suffix in ("", "?bewerken=1"):
         detail = client.get(f"/admin/activiteiten/{activity.id}{suffix}").text
-        assert "Info-bijlage" in detail
         assert "reglement" not in detail.lower()
+        assert ("Info-bijlage" in detail) == bool(suffix), "the word is the editor's"
 
 
 # ── #1016: the public description ────────────────────────────────────────────

@@ -16,7 +16,7 @@ schillen die deze functies aanroepen.
 """
 
 from datetime import date
-from typing import Mapping, Optional
+from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy import and_, func, or_
@@ -34,7 +34,6 @@ from app.domains.mdm.api import (
     email_refusal,
 )
 from app.domains.membership.models import Membership
-from app.domains.membership.schemas_family import FamilyCreate, FamilyMemberCreate
 from app.domains.membership.schemas_member import (  # noqa: F401
     EmailAddressResponse,
     FamilyMemberResponse,
@@ -121,7 +120,9 @@ def family_label(family) -> str:
     return f"{hoofd.last_name} {hoofd.first_name}"
 
 
-def _build_family_response(m: Member) -> FamilyResponse:
+def _build_family_response(
+    m: Member, state: tuple[Optional[int], bool] = (None, False)
+) -> FamilyResponse:
     primary = next(
         (mp.person for mp in m.member_persons if mp.relation_type == RelationType.PRIMARY_MEMBER),
         None,
@@ -151,6 +152,8 @@ def _build_family_response(m: Member) -> FamilyResponse:
         ],
         memberships=[MembershipResponse.model_validate(ms) for ms in m.memberships],
         board_member=board_member,
+        member_until=state[0],
+        to_renew=state[1],
     )
 
 
@@ -379,7 +382,21 @@ def list_families(
     status: Optional[str] = None,
     membership_year: Optional[int] = None,
     _admin=None,
+    sort: Optional[str] = None,
 ):
+    """The households of the member list, a page of them.
+
+    `status` is the list's segment (#1899; Koen, 11 October 2026): `actief` — a
+    membership that is valid today; `vernieuwen` — the campaign's rule, a member
+    in the reference year who does not cover the target year yet
+    (`renewal_years`, the rule of the figure above the list); `opgezegd` — the
+    rest. After the tenant's tilt date a household can be `actief` and
+    `vernieuwen` at once, and that is meant. The answer's `counts` say how many
+    households the first two hold within the search and the year filter — what
+    a click on the segment yields.
+
+    `sort`: `naam` or `-naam`, the main member's name as the list shows it;
+    without it the newest household first, as before."""
     query = db.query(Member)
     if q and q.strip():
         # Server-side zoeken over álle leden (niet enkel de geladen pagina): match
@@ -443,17 +460,42 @@ def list_families(
         query = query.filter(
             Member.id.in_(members_with_membership_for_year(db, membership_year) or {0})
         )
-    if status in ("actief", "opgezegd"):
-        from app.domains.membership.service import members_valid_on
+    from app.domains.membership.service import members_to_renew, members_valid_on
 
-        # Lege set → in_({0}) zodat "actief" niets teruggeeft i.p.v. alles.
-        geldig = members_valid_on(db) or {0}
-        query = (
-            query.filter(Member.id.in_(geldig))
-            if status == "actief"
-            else query.filter(Member.id.notin_(geldig))
-        )
+    # An empty set → in_({0}), so that a segment nobody is in gives nothing
+    # instead of everything.
+    to_renew = members_to_renew(db)
+    segments = {
+        "actief": members_valid_on(db) or {0},
+        "vernieuwen": to_renew or {0},
+    }
+    counts = {name: query.filter(Member.id.in_(ids)).count() for name, ids in segments.items()}
+    if status in segments:
+        query = query.filter(Member.id.in_(segments[status]))
+    elif status == "opgezegd":
+        query = query.filter(Member.id.notin_(segments["actief"] | segments["vernieuwen"]))
     total = query.count()
+    if sort in ("naam", "-naam"):
+        # The name the list shows (`family_label`): the main member's, last name
+        # first. A household without a main member sorts last.
+        main_name = (
+            db.query(func.lower(func.concat(Person.last_name, " ", Person.first_name)))
+            .join(MemberPerson, MemberPerson.person_id == Person.id)
+            .filter(
+                MemberPerson.member_id == Member.id,
+                MemberPerson.relation_type == RelationType.PRIMARY_MEMBER,
+            )
+            .limit(1)
+            .correlate(Member)
+            .scalar_subquery()
+        )
+        order: tuple = (
+            (main_name.desc().nulls_last(), Member.id.desc())
+            if sort.startswith("-")
+            else (main_name.asc().nulls_last(), Member.id)
+        )
+    else:
+        order = (Member.created_at.desc(),)
     # Eager loading (#645): `_build_family_response` loopt per gezin over de
     # gezinsleden, hun persoon, adres, postcode, contactgegevens en lidmaatschappen.
     # Lui geladen waren dat vijf extra queries per gezin — bij 25 gezinnen op een
@@ -472,14 +514,19 @@ def list_families(
             selectinload(Member.memberships),
             joinedload(Member.board_member),
         )
-        .order_by(Member.created_at.desc())
+        .order_by(*order)
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )
-    result = [_build_family_response(m) for m in families]
+    from app.domains.membership.service import membership_states
+
+    states = membership_states(db, [m.id for m in families], to_renew=to_renew)
+    result = [_build_family_response(m, states[m.id]) for m in families]
     return PaginatedFamiliesResponse(
         items=result,
+        counts=counts,
+        to_renew_total=len(to_renew),
         total=total,
         page=page,
         page_size=page_size,
@@ -491,7 +538,9 @@ def get_family(db: Session, family_id: int, _admin=None):
     m = db.query(Member).filter(Member.id == family_id).first()
     if not m:
         raise HTTPException(status_code=404, detail=_("Family not found"))
-    return _build_family_response(m)
+    from app.domains.membership.service import membership_states
+
+    return _build_family_response(m, membership_states(db, [m.id])[m.id])
 
 
 def create_membership_for_family(
@@ -576,47 +625,37 @@ def delete_memberships_of_household(db: Session, household_id: int, actor: str |
         _membership_deleted(db, membership, actor)
 
 
-def family_from_rows(values: Mapping[str, str], rows: list[dict]) -> FamilyCreate:
-    """What the board's "Nieuw lid" form carries, as the household to create: the
-    address fields and one member per filled-in row (`parse_member_rows`). The
-    first row is the main member unless the row says otherwise, the others are
-    partners.
+def remove_memberships(
+    db: Session, household_id: int, membership_ids: list[int], *, actor: str | None
+) -> None:
+    """Remove these membership years of one household, WITHOUT a commit (#1899:
+    the household record removes a year with its one save, in mdm's
+    transaction). Each goes as a single year always went — a soft delete
+    (#166) with its history row, and the money follows (#619,
+    `MembershipDeleted`): an open charge goes, a received amount becomes a
+    pending refund (Koen, 11 October 2026, to the choice between that and a
+    refusal: "a" — as today). A year that is not this household's is refused:
+    the form named something it does not hold."""
+    from app.domains.membership.history import snapshot_membership
 
-    A household has at least its main member: no row at all is refused here, in
-    the words the screen always gave. That rule stood in the screen until CR-13
-    phase 4c (#1251)."""
-    if not rows:
-        raise HTTPException(status_code=422, detail=_("Vul minstens het hoofdlid in."))
-    from pydantic import ValidationError
-
-    from app.domains.mdm.api import schema_refusal_words
-
-    try:
-        return FamilyCreate(
-            street=(values.get("street") or "").strip(),
-            house_number=(values.get("house_number") or "").strip(),
-            bus_number=(values.get("bus_number") or "").strip() or None,
-            postal_code=(values.get("postal_code") or "").strip(),
-            members=[
-                FamilyMemberCreate(
-                    first_name=row["first_name"],
-                    last_name=row["last_name"],
-                    date_of_birth=row["date_of_birth"] or None,
-                    gender_code=row["gender_code"] or None,
-                    email=row["email"] or None,
-                    phone=row["phone"] or None,
-                    mobile=row["mobile"] or None,
-                    relation_type=row["relation_type"] or ("HOOFDLID" if i == 0 else "PARTNER"),
-                )
-                for i, row in enumerate(rows)
-            ],
+    for membership_id in membership_ids:
+        membership = (
+            db.query(Membership)
+            .filter(Membership.id == membership_id, Membership.member_id == household_id)
+            .first()
         )
-    except ValidationError as refusal:
-        # What the schema refuses, in the screen's words (#1831) — until then the
-        # library's own message went to the banner, in English or with its
-        # "Value error, " in front.
-        words = schema_refusal_words(refusal) or _("Ongeldige invoer.")
-        raise HTTPException(status_code=422, detail=words) from refusal
+        if membership is None:
+            raise HTTPException(status_code=404, detail=_("Membership not found"))
+        snapshot_membership(
+            db,
+            membership,
+            operation="delete",
+            action="membership_deleted",
+            source="admin_manual",
+            actor=actor,
+        )
+        soft_delete(membership)
+        _membership_deleted(db, membership, actor)
 
 
 def delete_membership(db: Session, membership_id: int, admin=None):

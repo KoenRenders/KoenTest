@@ -1615,37 +1615,127 @@ def email_addresses_per_member(db: Session, member_ids) -> dict[int, set[str]]:
 
 
 def gezin_tabs(db, family, viewer_email: str, actief: str) -> list[dict]:
-    """De tabbalk van de gezins-recordpagina (golf 9, #913) — zelfde patroon
-    als activities.record_tabs: P13 in tabvorm. Overzicht · Inschrijvingen N ·
-    Betalingen N (dat laatste alleen voor wie betalingen mag zien, #544).
-    De Wijzigingen-tab verviel op Koens vraag (15 sep). Lokale imports:
-    auth en payment importeren zelf uit mdm."""
+    """The tabs of the household's record (golf 9, #913; #1899: `ui.related_tabs`
+    — Gegevens · Inschrijvingen (n) · Betalingen (n), the last one only for who
+    may see payments, #544). Local imports: auth and payment import from mdm
+    themselves."""
     from app.domains.auth.api import Right, may
     from app.domains.payment.api import count_records_for_family
     from app.i18n import _
 
+    base = f"/admin/leden/gezin/{family.id}"
     tabs = [
+        {"label": _("Gegevens"), "href": base, "active": actief == "overzicht"},
         {
-            "label": _("Overzicht"),
-            "href": f"/admin/leden/gezin/{family.id}",
-            "active": actief == "overzicht",
-        },
-        {
-            "label": _("Inschrijvingen") + f" {family_registration_count(db, family.id)}",
-            "href": f"/admin/leden/gezin/{family.id}/inschrijvingen",
+            "label": _("Inschrijvingen"),
+            "count": family_registration_count(db, family.id),
+            "href": f"{base}/inschrijvingen",
             "active": actief == "inschrijvingen",
         },
     ]
     if may(db, viewer_email, Right.PAYMENT_VIEW):
-        n = count_records_for_family(db, family.id)
         tabs.append(
             {
-                "label": _("Betalingen") + f" {n}",
-                "href": f"/admin/leden/gezin/{family.id}/betalingen",
+                "label": _("Betalingen"),
+                "count": count_records_for_family(db, family.id),
+                "href": f"{base}/betalingen",
                 "active": actief == "betalingen",
             }
         )
     return tabs
+
+
+def membership_badge(family) -> tuple[str, str]:
+    """What a household's badge says of its membership, on the member list and on
+    its record (#1899): the year it runs to for a member of today, "Te
+    vernieuwen" for one that is no member any more but was in the campaign's
+    reference year, "Opgezegd" otherwise. Reads what membership answered
+    (`member_until`, `to_renew`); the rules are membership's."""
+    from app.i18n import _
+
+    if family.member_until is not None:
+        return _("Lid in %(jaar)s") % {"jaar": family.member_until}, "green"
+    if family.to_renew:
+        return _("Te vernieuwen"), "yellow"
+    return _("Opgezegd"), "gray"
+
+
+def household_address_line(family) -> str:
+    """The household's address in one line: street and number, bus, municipality."""
+    from app.i18n import _
+
+    street = " ".join(part for part in (family.street, family.house_number) if part)
+    if street and family.bus_number:
+        street += " " + _("bus %(bus)s") % {"bus": family.bus_number}
+    return ", ".join(part for part in (street, family.municipality) if part)
+
+
+def household_record_head(db, family, *, may_change: bool) -> dict:
+    """The head of the household's record as data for `ui.record_header` (#1899;
+    end state §5.2): the household's name, the membership badge, the address and
+    the main member's e-mail address as facts — no household number. Bewerken is
+    the primary; Verwijderen stands under Acties (and in the action bar while
+    editing, which the macro arranges). **Lidmaatschap vernieuwen** stands
+    under Acties when membership's own rule says a renewal can start: one is
+    available and none runs (`board_membership_card`). Shared by the record's
+    three tabs."""
+    from app.domains.membership.api import board_membership_card, family_label
+    from app.i18n import _
+
+    label, tone = membership_badge(family)
+    name = family_label(family)
+    base = f"/admin/leden/gezin/{family.id}"
+    facts = []
+    address = household_address_line(family)
+    if address:
+        facts.append({"text": address})
+    main = family.primary
+    if main is not None and main.email:
+        facts.append({"text": main.email, "kind": "mail"})
+    actions = []
+    card = board_membership_card(db, family.id) if may_change else None
+    if card and card.renewal_available and not (card.transfer or card.online):
+        actions.append(
+            {"kind": "tool", "label": _("Lidmaatschap vernieuwen"), "href": f"{base}/vernieuwen"}
+        )
+    if may_change:
+        actions.append(
+            {
+                "kind": "delete",
+                "label": _("Verwijderen"),
+                "attrs": f'hx-post="{base}/verwijderen"',
+                "confirm": _(
+                    "Het gezin, zijn personen en zijn lidmaatschappen worden verwijderd. "
+                    "Betalingen blijven bewaard."
+                ),
+                "confirm_title": _("Gezin “%(name)s” verwijderen?") % {"name": name},
+                "confirm_ok": _("Definitief verwijderen"),
+            }
+        )
+    return {
+        "title": name,
+        "badges": [{"label": label, "tone": tone}],
+        "facts": facts,
+        "primary": {"label": _("Bewerken"), "href": f"{base}?bewerken=1"} if may_change else None,
+        "actions": actions,
+    }
+
+
+def household_record_frame(request, db, family, viewer_email: str, tab: str) -> dict:
+    """What `_leden_recordkop.html` asks on a tab of the household's record that
+    is not Gegevens (Inschrijvingen, Betalingen): the head, the tabs and the way
+    back — never the edit state, which is Gegevens' own."""
+    from app.domains.auth.api import Right, may
+    from app.ui import record_frame
+
+    return {
+        "record_head": household_record_head(
+            db, family, may_change=may(db, viewer_email, Right.PARTY_MASTERDATA)
+        ),
+        "record_tabs": gezin_tabs(db, family, viewer_email, tab),
+        "way_back": record_frame(request, db, "/admin/leden")["way_back"],
+        "head_editing": False,
+    }
 
 
 def _family_registration_ids(db, family_id: int) -> list[int]:

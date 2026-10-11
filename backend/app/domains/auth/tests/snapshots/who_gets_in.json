@@ -138,6 +138,10 @@
    "platform": "ADMIN FINANCE OPERATOR",
    "tenant": "ADMIN FINANCE OPERATOR"
   },
+  "GET /admin/betalingen/{record_id}/terugbetaling": {
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
+  },
   "GET /admin/design-system": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
@@ -242,7 +246,7 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
-  "GET /admin/leden/gezin/{family_id}/persoon/{person_id}/email-rij": {
+  "GET /admin/leden/gezin/{family_id}/vernieuwen": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
@@ -251,10 +255,6 @@
    "tenant": "ADMIN OPERATOR"
   },
   "GET /admin/leden/nieuw": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "GET /admin/leden/nieuw/persoon-rij": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
@@ -602,10 +602,6 @@
    "platform": "everyone",
    "tenant": "everyone"
   },
-  "GET /lid-worden/email-rij": {
-   "platform": "everyone",
-   "tenant": "everyone"
-  },
   "GET /lid-worden/relatie": {
    "platform": "everyone",
    "tenant": "everyone"
@@ -918,43 +914,11 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
-  "POST /admin/leden/gezin/{family_id}/adres": {
+  "POST /admin/leden/gezin/{family_id}": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
-  "POST /admin/leden/gezin/{family_id}/bestuurslid": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/lidmaatschappen": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/lidmaatschappen/{membership_id}/verwijderen": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/personen": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/hoofd": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/verwijderen": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}/verwijderen": {
+  "POST /admin/leden/gezin/{family_id}/vernieuwen": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },

@@ -54,13 +54,21 @@ from app.domains.mdm.api import (
     email_addresses_of_members,
     new_contact_detail,
 )
-from app.domains.membership.api import person_block
+from app.domains.membership.api import person_block as _person_block
 from app.kernel.jobs import run_due_jobs
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
 
 EMAIL = "lid-1711@example.org"
+
+
+def person_block(person, *, edit: bool = False):
+    """The block as the page builds it. The code lists play no part in what these
+    tests send or read, so they are empty here."""
+    return _person_block(person, {"gender_codes": []}, short_date=str, edit=edit)
+
+
 NEW = "nieuw-1711@example.org"
 WAITING = "wacht op bevestiging"
 
@@ -127,7 +135,10 @@ def _form(db, person, *, changed: dict | None = None, new=(), primary: str | Non
         "h_order": key,
         f"h.{key}.first_name": block.person.first_name,
         f"h.{key}.last_name": block.person.last_name,
+        f"h.{key}.date_of_birth": block.person.date_of_birth,
+        f"h.{key}.gender_code": block.person.gender_code,
         f"h.{key}.mobile": block.person.mobile,
+        f"h.{key}.phone": block.person.phone,
         f"e_order.{key}": [m.key for m in block.person.emails],
         f"e_primary.{key}": primary or block.person.primary_key,
     }

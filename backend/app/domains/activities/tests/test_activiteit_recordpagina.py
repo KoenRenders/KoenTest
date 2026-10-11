@@ -89,16 +89,21 @@ def test_finance_ziet_de_betalingen_tab(client, db_session):
 
 def test_de_rail_toont_bezetting(client, db_session):
     """K6 (#1560): the card "Publicatie" became the record's summary card, and
-    the occupancy stands on the component itself (#1559): "Bezetting" with the
-    count, or "2 / 20" with a maximum."""
+    the occupancy stands on the component itself (#1559) — since #1900 as the
+    badge "2 ingeschreven" in its title line, with the fact `Maximum: 20` (or
+    "—") under it."""
     activity, component = _activiteit_met_inschrijvingen(client, db_session)
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
     assert "data-summary-card" in html and ">Publicatie<" not in html
-    assert "Bezetting" in html and component.name in html
+    assert "2 ingeschreven" in html and component.name in html
+    assert "Bezetting" not in html
+    assert '<span class="text-ink-soft">Maximum:</span> —' in html
     component.max_participants = 20
     db_session.commit()
-    assert "2 / 20" in client.get(f"/admin/activiteiten/{activity.id}").text
+    with_maximum = client.get(f"/admin/activiteiten/{activity.id}").text
+    assert "2 ingeschreven" in with_maximum
+    assert '<span class="text-ink-soft">Maximum:</span> 20' in with_maximum
     # "Inschrijvingen totaal" verdween op Koens vraag (15 sep): het aantal
     # staat al op de tab.
     assert "Inschrijvingen totaal" not in html
@@ -183,10 +188,10 @@ def test_betalingen_activiteitscope_vervalst_id_lekt_niets(client, db_session):
 
 
 def test_elk_invulbaar_veld_is_zichtbaar_in_leesmodus(client, db_session):
-    """What you can fill in, you also see in read mode — since #1558 every field
-    in its own place, in the same sections and order as the editor. The poster
-    address stands in the closed last section; the friendly URL is a field of
-    the section Activiteit and also the share link's address."""
+    """What you can fill in, you also see in read mode — since #1900 as facts in
+    the card of their object: the poster address as a fact line of the card
+    Activiteit (the closed last section is gone), the friendly URL behind the
+    link icon, and no control anywhere in the card."""
     activity, component = _activiteit_met_inschrijvingen(client, db_session)
     activity.slug = "proefslug-2026"
     activity.poster_url = "https://example.org/affiche.png"
@@ -194,13 +199,13 @@ def test_elk_invulbaar_veld_is_zichtbaar_in_leesmodus(client, db_session):
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
 
-    rare = html[html.index("data-rare-settings") :].split("</details>", 1)[0]
-    assert "Poster-URL" in rare and 'href="https://example.org/affiche.png"' in rare
-    assert "1 externe link" in rare
-    assert "/activiteiten/proefslug-2026" in html
-    slug = html[html.index('data-field="slug"') :].split("</div>", 1)[0]
-    assert "Vriendelijke URL" in slug and "proefslug-2026" in slug
-    assert "<input" not in rare and "<input" not in slug, "read mode shows text, no control"
+    assert "data-rare-settings" not in html and "data-rare-line" not in html
+    start = html.index("data-activity-facts")
+    facts = html[start : html.index("</section>", start)]
+    assert "Poster-URL: https://example.org/affiche.png" in facts
+    assert 'href="https://example.org/affiche.png"' in facts
+    assert 'href="/activiteiten/proefslug-2026"' in facts
+    assert "<input" not in facts, "read mode shows text, no control"
 
 
 def test_deeladres_stuurt_naar_de_juiste_lijst(client, db_session):

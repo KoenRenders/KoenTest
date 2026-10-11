@@ -132,3 +132,28 @@ def test_the_answer_link_and_the_correction_render_it_too(client, db_session, si
     assert CARDS_MARK in link and HEAD_MARK not in link, "the answer link"
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     assert _marked(client.get(f"/admin/inschrijvingen/{regs['Nu Noor'].id}").text)
+
+
+def test_the_registration_page_names_the_form_once_above_its_cards(client, sint):
+    """#1901 §3 (Koen, 11 October 2026: "a" — the form's title once, above the
+    section cards): on the registration page the form is one part of a longer
+    page, so its own title — the one the board gave it in Formulieren — stands
+    as a heading row inside the block, before the first card, and goes where the
+    cards go ("Later"). The form's own page has that title as its page title and
+    gets no second one.
+
+    Proven red (locally, restored): `and false` behind the macro's `{% if title`
+    → "the form's title does not stand above its cards"."""
+    page = client.get(f"/activiteiten/{sint.activity.id}/inschrijven/{sint.component.id}").text
+    block = page[page.index("data-question-cards") :]
+    block = block[: block.index("data-action-bar")] if "data-action-bar" in block else block
+    heading = f">{sint.form.title}</h2>"
+    assert block.count("data-flow-heading") == 1, "the form's title does not stand above its cards"
+    assert heading in block
+    assert block.index("data-flow-heading") < block.index("data-form-section"), (
+        "the title stands under a card"
+    )
+    assert page.count(heading) == 1, "the form is named twice on the page"
+
+    own = client.get(f"/formulier/{sint.form.share_token}").text
+    assert "data-flow-heading" not in own, "the form's own page names itself twice"

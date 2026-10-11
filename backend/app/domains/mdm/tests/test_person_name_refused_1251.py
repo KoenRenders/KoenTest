@@ -27,8 +27,12 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Person, PersonHistory
-from tests._refusal import said
-from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    create_test_family,
+    record_fields,
+    save_record,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -41,6 +45,34 @@ FIELDS = {
     "phone": "",
     "mobile": "",
 }
+
+
+def _change(client, household_id: int, person_id: int, **changes):
+    """The household record's one save (#1899), with these fields of one person
+    typed over. Until #1899 that person's card had a route of its own."""
+    headers = _headers(client)
+    fields = record_fields(client, household_id)
+    for name, value in changes.items():
+        fields[f"h.{person_id}.{name}"] = value
+    return save_record(client, household_id, fields, headers)
+
+
+def _add(client, household_id: int, **person):
+    """The same save, with one person added in the page."""
+    headers = _headers(client)
+    fields = record_fields(client, household_id)
+    fields["h_order"] = [*fields["h_order"], "n9"]
+    for name, value in person.items():
+        if name not in ("phone", "mobile") or value:
+            fields[f"h.n9.{name}"] = value
+    return save_record(client, household_id, fields, headers)
+
+
+def _refused(response, words: str) -> None:
+    """The save is refused in these words — at the field, in the kit's banner."""
+    assert response.status_code == 422, response.text[:200]
+    assert "data-save-refusal" in response.text, "not the kit's refusal banner"
+    assert words in response.text, response.text[:400]
 
 
 def _headers(client) -> dict[str, str]:
@@ -56,14 +88,10 @@ def test_a_persons_card_without_a_name_is_refused(client, db_session, blank):
     before = (main.first_name, main.last_name)
     history = db_session.query(PersonHistory).count()
 
-    response = client.post(
-        f"/admin/leden/gezin/{household.id}/persoon/{main.id}",
-        data={**FIELDS, "relation_type": "HOOFDLID", blank: ""},
-        headers=_headers(client),
-    )
+    response = _change(client, household.id, main.id, **{blank: ""})
 
-    assert response.status_code == 422, response.text[:200]
-    assert said(response) == [WORDS]
+    _refused(response, WORDS)
+    assert f"h.{main.id}.{blank}" in response.text, "the refusal does not name its field"
     db_session.expire_all()
     person = db_session.get(Person, main.id)
     assert (person.first_name, person.last_name) == before, "the name was changed after all"
@@ -76,34 +104,21 @@ def test_a_new_person_without_a_name_is_refused(client, db_session, blank):
     db_session.commit()
     persons = db_session.query(Person).count()
 
-    response = client.post(
-        f"/admin/leden/gezin/{household.id}/personen",
-        data={**FIELDS, "relation_type": "KIND", blank: ""},
-        headers=_headers(client),
-    )
+    response = _add(client, household.id, **{**FIELDS, "relation_type": "KIND", blank: ""})
 
-    assert response.status_code == 422, response.text[:200]
-    assert said(response) == [WORDS]
+    _refused(response, WORDS)
     assert db_session.query(Person).count() == persons, "a person was added after all"
 
 
 def test_a_person_with_both_names_is_still_stored(client, db_session):
-    """The way that is not refused, on both forms: without it a function that
-    refuses everything would pass the four tests above."""
+    """The way that is not refused, for a person who is there and for a new one:
+    without it a function that refuses everything would pass the tests above."""
     household, main = create_test_family(db_session, email="naam-goed-1251@example.com")
     db_session.commit()
-    headers = _headers(client)
-    base = f"/admin/leden/gezin/{household.id}"
     persons = db_session.query(Person).count()
 
-    changed = client.post(
-        f"{base}/persoon/{main.id}",
-        data={**FIELDS, "relation_type": "HOOFDLID", "last_name": "Anders"},
-        headers=headers,
-    )
-    added = client.post(
-        f"{base}/personen", data={**FIELDS, "relation_type": "KIND"}, headers=headers
-    )
+    changed = _change(client, household.id, main.id, last_name="Anders")
+    added = _add(client, household.id, **{**FIELDS, "relation_type": "KIND"})
 
     assert (changed.status_code, added.status_code) == (200, 200)
     db_session.expire_all()
@@ -113,10 +128,14 @@ def test_a_person_with_both_names_is_still_stored(client, db_session):
 
 # ── Four more values that ended in a 500 (the master CLI's words, 9 October 2026) ──
 
-DATE = "Vul een geldige geboortedatum in."
+#: The wording of the form's reader (`mdm.household_form`), which the record's one
+#: save shares with Mijn gezin since #1899.
+DATE = "Ongeldige geboortedatum."
 GENDER = "Kies een geslacht uit de lijst."
 LENGTH = "Een naam is ten hoogste 100 tekens lang."
 RELATION = "Kies een relatie uit de lijst."
+#: #1899: at the one save a person is added as partner or child, in these words.
+CHOOSE = "Kies partner of kind."
 
 OTHER = [
     # (case, the field posted wrong, its value, the words)
@@ -140,14 +159,9 @@ def test_a_persons_card_with_it_is_refused(client, db_session, case, field, valu
     before = (main.first_name, main.last_name, main.date_of_birth, main.gender_code)
     history = db_session.query(PersonHistory).count()
 
-    response = client.post(
-        f"/admin/leden/gezin/{household.id}/persoon/{main.id}",
-        data={**FIELDS, "relation_type": "HOOFDLID", field: value},
-        headers=_headers(client),
-    )
+    response = _change(client, household.id, main.id, **{field: value})
 
-    assert response.status_code == 422, response.text[:200]
-    assert said(response) == [words]
+    _refused(response, words)
     db_session.expire_all()
     person = db_session.get(Person, main.id)
     assert (person.first_name, person.last_name, person.date_of_birth, person.gender_code) == (
@@ -158,7 +172,7 @@ def test_a_persons_card_with_it_is_refused(client, db_session, case, field, valu
 
 @pytest.mark.parametrize(
     "case, field, value, words",
-    [*OTHER, ("a relation that is not of the list", "relation_type", "XYZ", RELATION)],
+    [*OTHER, ("a relation that is not of the list", "relation_type", "XYZ", CHOOSE)],
     ids=[*[c[0] for c in OTHER], "a relation that is not of the list"],
 )
 def test_a_new_person_with_it_is_refused(client, db_session, case, field, value, words):
@@ -166,14 +180,9 @@ def test_a_new_person_with_it_is_refused(client, db_session, case, field, value,
     db_session.commit()
     persons = db_session.query(Person).count()
 
-    response = client.post(
-        f"/admin/leden/gezin/{household.id}/personen",
-        data={**FIELDS, "relation_type": "KIND", field: value},
-        headers=_headers(client),
-    )
+    response = _add(client, household.id, **{**FIELDS, "relation_type": "KIND", field: value})
 
-    assert response.status_code == 422, response.text[:200]
-    assert said(response) == [words]
+    _refused(response, words)
     assert db_session.query(Person).count() == persons, "a person was added after all"
 
 
@@ -182,11 +191,7 @@ def test_a_name_of_exactly_the_columns_length_is_stored(client, db_session):
     household, main = create_test_family(db_session, email="waarde-rand-1251@example.com")
     db_session.commit()
 
-    response = client.post(
-        f"/admin/leden/gezin/{household.id}/persoon/{main.id}",
-        data={**FIELDS, "relation_type": "HOOFDLID", "last_name": "x" * 100},
-        headers=_headers(client),
-    )
+    response = _change(client, household.id, main.id, last_name="x" * 100)
 
     assert response.status_code == 200, response.text[:200]
     db_session.expire_all()
@@ -195,10 +200,10 @@ def test_a_name_of_exactly_the_columns_length_is_stored(client, db_session):
 
 def test_the_name_fields_stop_where_the_server_refuses(client, db_session):
     """A name longer than the column is the one of these values a browser could
-    send, so the two name fields of both person forms carry `maxlength` — the
-    number the rule refuses at (`PERSON_NAME_MAX`), not a second literal. Read
-    from the page the server renders: the card of the one person and the form of
-    a new one, four fields."""
+    send, so the two name fields of a person card carry `maxlength` — the number
+    the rule refuses at (`PERSON_NAME_MAX`), not a second literal. Read from the
+    page the server renders in edit mode: the card of the one person and the
+    template of a new one, four fields."""
     import re
 
     from app.domains.mdm.api import PERSON_NAME_MAX
@@ -207,9 +212,9 @@ def test_the_name_fields_stop_where_the_server_refuses(client, db_session):
     db_session.commit()
     _headers(client)
 
-    page = client.get(f"/admin/leden/gezin/{household.id}").text
+    page = client.get(f"/admin/leden/gezin/{household.id}?bewerken=1").text
 
-    fields = re.findall(r'<input[^>]*name="(?:first_name|last_name)"[^>]*>', page)
+    fields = re.findall(r'<input[^>]*name="h\.[^"]+\.(?:first_name|last_name)"[^>]*>', page)
     assert len(fields) == 4, f"{len(fields)} name fields on the page — is this test still looking?"
     without = [field for field in fields if f'maxlength="{PERSON_NAME_MAX}"' not in field]
     assert not without, without

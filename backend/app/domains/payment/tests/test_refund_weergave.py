@@ -92,7 +92,9 @@ def test_geen_rauwe_statuscodes_in_de_editors(client, db_session):
 
     # K2 (#1556): the editor moved from the row's unfold to the booking's page.
     charge = db_session.query(PaymentRecord).filter(PaymentRecord.type == "charge").first()
-    html = client.get(f"/admin/betalingen/{charge.id}").text
+    # #1901: the editor is the page's edit state.
+    html = client.get(f"/admin/betalingen/{charge.id}?bewerken=1").text
+    assert 'name="status"' in html, "this is not the editor"
     assert "In afwachting" in html
     assert ">pending<" not in html and ">cancelled<" not in html
 

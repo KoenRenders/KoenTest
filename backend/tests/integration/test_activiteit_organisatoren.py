@@ -350,11 +350,15 @@ def test_a_copy_keeps_the_changed_order(db_session, activiteit):
     assert [r.person_id for r in organisers_for(db_session, copy.id)] == original
 
 
-def test_the_group_marks_the_poster_three_and_orders_through_the_row_menu(
+def test_the_group_says_who_is_a_contact_and_orders_through_the_row_menu(
     client, db_session, activiteit
 ):
-    """The first three contacts read "op de affiche", a fourth contact says why
-    it is not. Since #1559 the order is changed with the handle and the row menu
+    """Since #1900 the record says what a value is — "Contactpersoon", as the
+    switch in each organiser's title line — and not what the Design Studio does
+    with it: the tags "op de affiche" and "niet op de affiche: alleen de eerste
+    drie" are gone, and the hint about the poster with them (which three the
+    poster prints is still the Design Studio's rule, `on_the_poster`, tested
+    there). Since #1559 the order is changed with the handle and the row menu
     (Omhoog · Omlaag) of the kit's repeating group, in the page; the arrows of the
     card are gone with the card."""
     import re
@@ -365,8 +369,12 @@ def test_the_group_marks_the_poster_three_and_orders_through_the_row_menu(
     html = client.get(f"/admin/activiteiten/{activiteit.id}?bewerken=1").text
     start = html.index('id="aa-group-organisers"')
     group = html[start : html.index("<template", start)]
-    assert group.count(">op de affiche<") == 3
-    assert group.count("niet op de affiche: alleen de eerste drie") == 3
+    assert "op de affiche" not in group and "eerste drie" not in group
+    assert "affiche" not in group, "the record still speaks of the poster"
+    switches = len(re.findall(r'id="o-\d+-is_contact"', group))
+    assert switches == 6, f"{switches} Contactpersoon switches for six organisers"
+    for line in re.findall(r"data-row-aside.*?data-row-menu-holder", group, re.S):
+        assert ".is_contact" in line, "the switch does not stand in the title line"
     assert group.count("data-row-handle") == 6, "a handle per organiser: the order means something"
     assert len(re.findall(r'data-row-action="up"', group)) == 6
     assert len(re.findall(r'data-row-action="down"', group)) == 6

@@ -314,15 +314,17 @@ def test_the_main_member_is_refused_on_the_screen(client, db_session, world):
 
 
 def test_the_main_member_is_refused_on_the_household_record_route(client, db_session, world):
+    from tests.conftest import record_fields, save_record
+
     headers = _board(client)
-    answer = client.post(
-        f"/admin/leden/gezin/{world['household']}/persoon/{world['main']}/verwijderen",
-        headers=headers,
-    )
-    # Since #1831 the card says it in its own message line: the kit's refusal, a
-    # 422, where it was a bare 400 the screen could not show.
+    fields = record_fields(client, world["household"])
+    fields["h_order"] = [key for key in fields["h_order"] if key != str(world["main"])]
+    answer = save_record(client, world["household"], fields, headers)
+    # The kit's refusal, a 422 (#1831), at the card the form removed — since
+    # #1899 in the record's one message line.
     assert answer.status_code == 422 and "Een gezin heeft een hoofdlid nodig." in answer.text
-    assert answer.headers["HX-Retarget"] == f"#persoon-{world['main']}-melding"
+    assert answer.headers["HX-Retarget"] == "#gezin-melding"
+    assert f"h.{world['main']}" in answer.text
     _main_member_stays(db_session, world)
 
 
