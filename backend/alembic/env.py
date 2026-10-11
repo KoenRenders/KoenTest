@@ -35,7 +35,13 @@ target_metadata = Base.metadata
 
 database_url = os.getenv("DATABASE_URL")
 if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+    # A `%` is doubled (#1897): alembic keeps its options in a configparser, which
+    # reads a bare `%` as the start of an interpolation and refuses the URL
+    # ("invalid interpolation syntax"). A URL holds one as soon as anything in it
+    # is percent-encoded — a password with a special character, or the socket
+    # directory of `?host=` once SQLAlchemy has rendered the URL. Reading the
+    # option back gives the single `%` again.
+    config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 
 def run_migrations_offline():
