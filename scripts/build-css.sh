@@ -763,8 +763,17 @@ body[data-shell="site"]>main{padding-bottom:24px}
    covers the page's container, the home intro and the newsletter archive
    alike. The `table>tr` rule of the first cut is gone: measured, every
    parsed table carries her rows in a tbody (a bare `<table><tr>` is
-   parsed with section "body"), so nothing ever matched her. */
+   parsed with section "body"), so nothing ever matched her.
+   And the holder gives her focus ring room (review S1 of 11 October
+   2026): overflow clips, so a link on the holder's left edge lost her
+   ring's left side. The room is INSIDE the holder — 2 px padding, won
+   back with a 2 px negative margin, so every visible position stays
+   where she was. The Trix editor keeps her own box: her class is on the
+   element herself, a negative margin would push her out of line with the
+   fields beside her, and her internal padding already keeps links off
+   her clip edge. */
 .prose-raak{overflow-x:auto}
+.prose-raak:not(trix-editor){margin-inline:-2px;padding-inline:2px}
 .prose-raak table{border-collapse:collapse;width:100%;margin:.5rem 0;font-size:.875rem;line-height:1.5}
 .prose-raak :is(th,td){border-bottom:1px solid rgb(var(--c-line));padding:.75rem 1rem;text-align:left;vertical-align:top}
 .prose-raak tbody tr:last-child :is(th,td){border-bottom:none}
