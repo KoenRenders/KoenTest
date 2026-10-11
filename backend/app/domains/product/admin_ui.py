@@ -24,10 +24,13 @@ from app.domains.auth.api import SESSION_COOKIE, Right, csrf_token_for, require_
 from app.domains.product.api import (
     ProductError,
     ProductStatus,
+    add_attachment,
+    attachment_cards,
     create_product,
     delete_product,
     get_product,
     list_products,
+    remove_attachment,
     set_pre_order,
     set_status,
     size_of,
@@ -178,6 +181,7 @@ def _record_view(
         sizes=[
             {"id": variant.id, "name": size_of(variant)} for variant in variants_of(db, product.id)
         ],
+        attachments=attachment_cards(db, product.id),
         editing=editing,
         csrf_token=_csrf(request),
         primary={"label": _("Bewerken"), "href": f"{base}?bewerken=1"} if not editing else None,
@@ -297,6 +301,76 @@ def product_delete(
     except (ProductError, StockError) as refusal:
         return _refusal(request, str(refusal))
     return _redirect(request, "/admin/producten")
+
+
+async def _store_upload(request: Request, db: Session, product_id: int, kind: str) -> Response:
+    from app.domains.media.api import MediaFout
+
+    product = get_product(db, product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    form = await request.form()
+    upload = form.get("file")
+    if upload is None or isinstance(upload, str) or not upload.filename:
+        filename = ""
+        content_type = ""
+        content = b""
+    else:
+        filename = upload.filename
+        content_type = upload.content_type or ""
+        content = await upload.read()
+    try:
+        add_attachment(
+            db,
+            product_id,
+            kind=kind,
+            filename=filename,
+            content_type=content_type,
+            content=content,
+        )
+    except (ProductError, MediaFout) as refusal:
+        return templates.TemplateResponse(
+            request,
+            "admin_product.html",
+            _record_view(request, db, product, editing=True, error=str(refusal)).as_context(),
+            status_code=422,
+        )
+    return _redirect(request, f"/admin/producten/{product_id}?bewerken=1")
+
+
+@router.post("/admin/producten/{product_id}/fotos")
+async def product_photo_upload(
+    request: Request,
+    product_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.PRODUCT_MASTERDATA)),
+    _csrf: None = Depends(require_csrf),
+):
+    return await _store_upload(request, db, product_id, "product_photo")
+
+
+@router.post("/admin/producten/{product_id}/documenten")
+async def product_document_upload(
+    request: Request,
+    product_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.PRODUCT_MASTERDATA)),
+    _csrf: None = Depends(require_csrf),
+):
+    return await _store_upload(request, db, product_id, "product_document")
+
+
+@router.post("/admin/producten/{product_id}/bijlage/{attachment_id}/verwijderen")
+def product_attachment_remove(
+    request: Request,
+    product_id: int,
+    attachment_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.PRODUCT_MASTERDATA)),
+    _csrf: None = Depends(require_csrf),
+):
+    remove_attachment(db, attachment_id)
+    return _redirect(request, f"/admin/producten/{product_id}?bewerken=1")
 
 
 def _parse_date(value: str) -> Optional[date]:

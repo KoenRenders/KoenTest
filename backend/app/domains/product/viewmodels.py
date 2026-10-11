@@ -41,6 +41,8 @@ class ProductView(ViewModel):
     product: Product
     #: The sizes, in their sort order: `{"id": variant id, "name": the size}`.
     sizes: list[dict[str, Any]]
+    #: The attachments, in their sort order: `{"id", "media_asset_id", "title", "kind"}`.
+    attachments: list[dict[str, Any]]
     editing: bool
     csrf_token: str
     #: Data for `ui.record_header` (CR-11 block 5): the head's actions are data,

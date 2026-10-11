@@ -190,3 +190,25 @@ def test_the_movements_of_one_size_render_with_their_reason(client, db_session, 
     assert "Ontvangst" in page.text
     assert "Correctie" in page.text
     assert "retour" in page.text
+
+
+def test_a_size_of_another_tenant_is_not_found(client, db_session, every_module_on):
+    from app.domains.product.models import ProductVariant
+    from app.kernel.tenancy import current_tenant_id
+
+    _operator(client, db_session, every_module_on)
+    product = create_product(db_session, "T-shirt Raak")
+
+    token = current_tenant_id.set(999)
+    try:
+        other = ProductVariant(product_id=product.id, properties=[{"name": "Maat", "value": "M"}])
+        db_session.add(other)
+        db_session.flush()
+    finally:
+        current_tenant_id.reset(token)
+    # Out of the identity map, so the route's `get_variant` really queries — and
+    # the tenant filter then refuses the size of another tenant.
+    db_session.expunge(other)
+
+    page = client.get(f"/admin/voorraad/{other.id}")
+    assert page.status_code == 404

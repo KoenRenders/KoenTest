@@ -155,8 +155,40 @@ def test_de_bewegingen_van_een_maat_worden_getoond(webshop_page):
     apart from a correction (AC16)."""
     page = webshop_page
     page.goto("/admin/voorraad")
-    page.locator('td[data-cell="context"] a').first.click()
+    page.locator('a[data-row-link]').first.click()
     page.wait_for_selector("[data-record-head]")
     text = page.locator("main").inner_text()
     assert "Webshop T-shirt" in text
     assert "Ontvangst" in text
+
+
+def test_een_foto_wordt_opgeladen_en_verwijderd(webshop_page):
+    """A picture is uploaded through the record and shown, then removed — read
+    after a fresh load each time (R3)."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    page = webshop_page
+    record = _open_artikel_in_bewerkmodus(page)
+
+    buf = BytesIO()
+    Image.new("RGB", (40, 30), (10, 90, 200)).save(buf, format="PNG")
+    page.locator('form[hx-post$="/fotos"] input[type="file"]').set_input_files(
+        {"name": "foto.png", "mimeType": "image/png", "buffer": buf.getvalue()}
+    )
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Foto opslaan").click()
+
+    page.goto(record)
+    page.wait_for_selector("[data-record-head]")
+    assert page.locator('img[src^="/media/"]').count() == 1
+
+    page.goto(record + "?bewerken=1")
+    page.wait_for_selector('img[src^="/media/"]')
+    with htmx_afgerond(page):
+        page.locator('button[hx-post*="/bijlage/"]').first.click()
+
+    page.goto(record)
+    page.wait_for_selector("[data-record-head]")
+    assert page.locator('img[src^="/media/"]').count() == 0

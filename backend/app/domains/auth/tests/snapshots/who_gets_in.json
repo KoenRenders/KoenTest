@@ -1186,6 +1186,18 @@
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
   },
+  "POST /admin/producten/{product_id}/bijlage/{attachment_id}/verwijderen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}/documenten": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}/fotos": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "POST /admin/producten/{product_id}/status": {
    "platform": "OPERATOR",
    "tenant": "OPERATOR"

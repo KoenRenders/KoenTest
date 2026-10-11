@@ -3,8 +3,9 @@
 {% block title %}{{ product.name }} — {{ _("Productbeheer") }}{% endblock %}
 {% block content %}
 {# The article record (CR-21, Q74): the life cycle in the head, then the article,
-   its sizes and "Op bestelling". Read first, "Bewerken" puts it in edit mode. The
-   head's actions are data (`primary`, `actions`), never a button the screen draws. #}
+   its sizes, its pictures and documents, and "Op bestelling". Read first,
+   "Bewerken" puts it in edit mode. The head's actions are data (`primary`,
+   `actions`), never a button the screen draws. #}
 {{ ui.record_header(product.name,
     badges=[{"label": product.status | code_label("product_status"),
              "tone": product.status | tone("product_status")}],
@@ -16,6 +17,23 @@
 {% call ui.group_row("v_order", key, edit=True, menu=["remove"], label=name) %}
   {{ ui.field("v." ~ key ~ ".name", _("Maat"), value=name, required=True, label_hidden=True) }}
 {% endcall %}
+{% endmacro %}
+
+{% macro _bijlage(a) %}
+<div class="flex items-center gap-2">
+  {% if a.is_photo %}
+  <img src="/media/{{ a.media_asset_id }}" alt="" class="h-20 w-20 object-cover rounded-md border border-line">
+  {% if editing %}
+  {{ ui.field("bijlage-" ~ a.id, _("Verwijderen"), kind="upload", label_hidden=True,
+              current_url="/media/" ~ a.media_asset_id, current_label=_("Bekijken"),
+              delete_attrs='hx-post="/admin/producten/' ~ product.id ~ '/bijlage/' ~ a.id ~ '/verwijderen"') }}
+  {% endif %}
+  {% else %}
+  {{ ui.field("bijlage-" ~ a.id, _("Document"), kind="upload", edit=editing,
+              current_url="/media/" ~ a.media_asset_id, current_label=a.title or _("Bekijken"),
+              delete_attrs='hx-post="/admin/producten/' ~ product.id ~ '/bijlage/' ~ a.id ~ '/verwijderen"' if editing else None) }}
+  {% endif %}
+</div>
 {% endmacro %}
 
 {% if not editing %}
@@ -34,6 +52,20 @@
       {% endfor %}
     </div>
   {% endcall %}
+  {% call ui.section(_("Foto's")) %}
+    <div data-span="full" class="flex flex-wrap gap-2">
+      {% for a in attachments if a.is_photo %}{{ _bijlage(a) }}{% else %}
+      <span class="text-sm text-ink-soft">{{ _("Nog geen foto's.") }}</span>
+      {% endfor %}
+    </div>
+  {% endcall %}
+  {% call ui.section(_("Documenten")) %}
+    <div data-span="full" class="flex flex-col gap-1">
+      {% for a in attachments if not a.is_photo %}{{ _bijlage(a) }}{% else %}
+      <span class="text-sm text-ink-soft">{{ _("Nog geen documenten.") }}</span>
+      {% endfor %}
+    </div>
+  {% endcall %}
   {% call ui.section(_("Op bestelling")) %}
     {{ ui.field("pre_order", _("Op bestelling"), kind="switch", value=product.pre_order, edit=False) }}
     {% if product.pre_order_until %}{{ ui.field("pre_order_until", _("Bestellen tot en met"), kind="date", value=product.pre_order_until.isoformat(), edit=False) }}{% endif %}
@@ -41,10 +73,10 @@
 </div>
 {% endcall %}
 {% else %}
-<form id="product-form" method="post" action="/admin/producten/{{ product.id }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  {% call ui.record_columns() %}
-  <div class="form-flow">
+{% call ui.record_columns() %}
+<div class="form-flow">
+  <form id="product-form" method="post" action="/admin/producten/{{ product.id }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {% call ui.section(_("Artikel")) %}
       {{ ui.field("name", _("Naam"), value=product.name, required=True, long=True) }}
       {{ ui.field("description", _("Omschrijving"), kind="textarea", value=product.description or "") }}
@@ -58,9 +90,29 @@
       {{ ui.field("pre_order", _("Op bestelling"), kind="switch", value=product.pre_order, span="full", help=_("Kopers bestellen en betalen ook zonder voorraad. Wat besteld is, zie je in Voorraadbeheer.")) }}
       {{ ui.field("pre_order_until", _("Bestellen tot en met"), kind="date", value=(product.pre_order_until.isoformat() if product.pre_order_until else ""), help=_("Leeg: zonder einddatum. Daarna verkoopt het artikel wat in voorraad ligt.")) }}
     {% endcall %}
-  </div>
+  </form>
+  {% call ui.section(_("Foto's")) %}
+    <div data-span="full" class="flex flex-wrap gap-2">
+      {% for a in attachments if a.is_photo %}{{ _bijlage(a) }}{% endfor %}
+    </div>
+    <form id="foto-form" method="post" action="/admin/producten/{{ product.id }}/fotos" enctype="multipart/form-data"
+          hx-post="/admin/producten/{{ product.id }}/fotos" hx-encoding="multipart/form-data">
+      {{ ui.field("file", _("Foto toevoegen"), kind="upload", accept="image/*") }}
+    </form>
+    {{ ui.action_bar(save_label=_("Foto opslaan"), form="foto-form", cancel_href="/admin/producten/" ~ product.id ~ "?bewerken=1") }}
   {% endcall %}
-</form>
+  {% call ui.section(_("Documenten")) %}
+    <div data-span="full" class="flex flex-col gap-1">
+      {% for a in attachments if not a.is_photo %}{{ _bijlage(a) }}{% endfor %}
+    </div>
+    <form id="document-form" method="post" action="/admin/producten/{{ product.id }}/documenten" enctype="multipart/form-data"
+          hx-post="/admin/producten/{{ product.id }}/documenten" hx-encoding="multipart/form-data">
+      {{ ui.field("file", _("Document toevoegen"), kind="upload", accept="application/pdf") }}
+    </form>
+    {{ ui.action_bar(save_label=_("Document opslaan"), form="document-form", cancel_href="/admin/producten/" ~ product.id ~ "?bewerken=1") }}
+  {% endcall %}
+</div>
+{% endcall %}
 {{ ui.action_bar(record=True, form="product-form", cancel_href="/admin/producten/" ~ product.id) }}
 {% endif %}
 {% endblock %}

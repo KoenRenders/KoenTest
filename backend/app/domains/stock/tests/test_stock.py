@@ -18,6 +18,7 @@ from app.domains.stock.api import (
     StockMovement,
     available,
     correct,
+    movements_of,
     on_hand,
     receive,
     reserved,
@@ -94,3 +95,15 @@ def test_the_writer_holds_the_advisory_lock(db_session):
     with engine.connect() as conn:
         got = conn.execute(text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": key}).scalar()
     assert got is False, "the writer holds the lock; a second connection took it"
+
+
+def test_movements_of_returns_newest_first(db_session):
+    """AC16: a correction made after a receipt stands above it — the movements
+    read newest first. Red with the order turned round."""
+    receive(db_session, variant_id=1, quantity=10)
+    correct(db_session, variant_id=1, quantity=-2, note="retour")
+
+    assert [m.reason for m in movements_of(db_session, 1)] == [
+        MovementReason.CORRECTION,
+        MovementReason.RECEIPT,
+    ]

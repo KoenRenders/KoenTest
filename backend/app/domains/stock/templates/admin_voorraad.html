@@ -10,8 +10,7 @@
   {{ ui.empty_state(_("Nog geen maten met voorraad. Boek eerst een ontvangst.")) }}
 {% else %}
 {% call ui.data_table([
-    {"key": "artikel", "label": _("Artikel"), "cell": "name"},
-    {"key": "maat", "label": _("Maat"), "cell": "context"},
+    {"key": "artikel", "label": _("Artikel en maat"), "cell": "name"},
     {"key": "voorraad", "label": _("In voorraad"), "cell": "amount", "num": True},
     {"key": "gereserveerd", "label": _("Gereserveerd"), "cell": "amount", "num": True},
     {"key": "beschikbaar", "label": _("Beschikbaar"), "cell": "amount", "num": True},
@@ -19,9 +18,8 @@
 <tbody>
   {% for row in rows %}
   <tr class="align-middle">
-    <td data-cell="name" class="border-b border-line px-3 py-2 font-medium">{{ row.product }}</td>
-    <td data-cell="context" class="border-b border-line px-3 py-2">
-      <a href="/admin/voorraad/{{ row.variant_id }}" class="text-blue-500 underline hover:no-underline">{{ row.size }}</a>
+    <td data-cell="name" class="border-b border-line px-3 py-2">
+      {{ ui.row_link(row.product ~ " · " ~ row.size, href="/admin/voorraad/" ~ row.variant_id) }}
     </td>
     <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ row.on_hand }}</td>
     <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums text-ink-soft">{{ row.reserved }}</td>

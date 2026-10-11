@@ -272,6 +272,87 @@ def sync_variants(db: Session, product_id: int, ordered: list[tuple[str, str]]) 
     db.commit()
 
 
+def attachments_of(db: Session, product_id: int) -> list[ProductAttachment]:
+    """The article's attachments, in their sort order."""
+    return (
+        db.query(ProductAttachment)
+        .filter(ProductAttachment.product_id == product_id)
+        .order_by(ProductAttachment.sort_order, ProductAttachment.id)
+        .all()
+    )
+
+
+def attachment_cards(db: Session, product_id: int) -> list[dict]:
+    """What the record shows: each attachment with `is_photo` and its media id, so
+    the screen tells a picture from a document without comparing a code."""
+    from app.domains.media.api import MediaAsset, MediaKind
+
+    attachments = attachments_of(db, product_id)
+    ids = [attachment.media_asset_id for attachment in attachments]
+    kinds = (
+        {asset.id: asset.kind for asset in db.query(MediaAsset).filter(MediaAsset.id.in_(ids))}
+        if ids
+        else {}
+    )
+    return [
+        {
+            "id": attachment.id,
+            "media_asset_id": attachment.media_asset_id,
+            "title": attachment.title,
+            "is_photo": kinds.get(attachment.media_asset_id) == MediaKind.PRODUCT_PHOTO,
+        }
+        for attachment in attachments
+    ]
+
+
+def add_attachment(
+    db: Session,
+    product_id: int,
+    *,
+    kind: str,
+    filename: str,
+    content_type: str,
+    content: bytes,
+) -> ProductAttachment:
+    """Upload a picture or a document on the article (R3): the bytes go to media
+    through `StoreFile`, the article holds the soft reference. One transaction —
+    the door commits. A file that is not there is refused here, so every entrance
+    meets the rule."""
+    from app.i18n import _
+    from app.kernel.contracts.media import StoreFile
+    from app.kernel.ports import call
+
+    if not filename or not content:
+        raise ProductError(_("Kies een bestand."))
+    stored = call(
+        StoreFile(kind=kind, filename=filename, content_type=content_type, content=content),
+        db,
+    )
+    attachment = ProductAttachment(
+        product_id=product_id,
+        media_asset_id=stored.asset_id,
+        sort_order=len(attachments_of(db, product_id)),
+    )
+    db.add(attachment)
+    db.flush()
+    db.commit()
+    return attachment
+
+
+def remove_attachment(db: Session, attachment_id: int) -> None:
+    """Remove one attachment and its file (through media's `RemoveAsset`)."""
+    from app.kernel.contracts.media import RemoveAsset
+    from app.kernel.ports import call
+
+    attachment = db.get(ProductAttachment, attachment_id)
+    if attachment is None:
+        return
+    call(RemoveAsset(asset_id=attachment.media_asset_id), db)
+    db.delete(attachment)
+    db.flush()
+    db.commit()
+
+
 def _release_unshared_assets(db: Session, attachments: list[ProductAttachment]) -> None:
     """Remove the media files of the attachments that nothing else shows.
 
