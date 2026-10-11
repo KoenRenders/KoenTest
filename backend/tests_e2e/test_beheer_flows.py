@@ -134,7 +134,7 @@ def test_lidmaatschap_schrappen_geeft_een_terugbetaling(admin_page):
     terugbetaling naast — het verdwijnt niet stil uit de boekhouding.
     """
     leden = Ledenscherm(admin_page).open()
-    if admin_page.locator("#leden-lijst a").count() == 0:
+    if admin_page.locator("#leden-lijst a[data-row-link]").count() == 0:
         _ontbreekt("geen gezinnen op deze omgeving")
 
     # #997: this waited 400 ms and then read the whole page for "Lidmaatschappen" —
@@ -145,7 +145,7 @@ def test_lidmaatschap_schrappen_geeft_een_terugbetaling(admin_page):
     # #1745: a household that HAS a membership, not the first of the list. Which
     # household stands first depends on what other files added before this one
     # ran; the flow is about cancelling a membership, so it looks for one.
-    links = admin_page.locator("#leden-lijst a")
+    links = admin_page.locator("#leden-lijst a[data-row-link]")
     for row in range(links.count()):
         links.nth(row).click()
         expect(

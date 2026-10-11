@@ -110,8 +110,6 @@ RAW_SURFACES: dict[str, int] = {
     "domains/mail/templates/_email_log_lijst.html": 3,
     "domains/mdm/templates/_leden_import_resultaat.html": 1,
     "domains/mdm/templates/_leden_kaarten.html": 4,
-    "domains/mdm/templates/_leden_lijst.html": 1,
-    "domains/mdm/templates/leden.html": 1,
     "domains/mdm/templates/leden_import.html": 1,
     "domains/media/templates/_me_boom.html": 1,
     "domains/media/templates/_me_lijst.html": 3,
@@ -141,7 +139,6 @@ HEADER_EXTRAS: dict[str, int] = {
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/admin_formulieren.html": 1,
-    "domains/mdm/templates/leden.html": 1,
     "domains/meetings/templates/_vg_document.html": 5,
     "domains/meetings/templates/_vg_verstuur.html": 1,
     "domains/newsletter/templates/admin_abonnees.html": 1,
@@ -154,7 +151,6 @@ HEADER_EXTRAS: dict[str, int] = {
 #: B7 test 18 — a tile strip outside `ui.key_figures`. 3 in 3 files.
 HAND_DRAWN_TILES: dict[str, int] = {
     "domains/activities/templates/admin_activiteiten.html": 1,
-    "domains/mdm/templates/leden.html": 1,
     "domains/payment/templates/_bt_boven.html": 1,
 }
 
@@ -204,7 +200,6 @@ SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/forms/templates/admin_formulieren.html": 1,
     "domains/mail/templates/email_log.html": 1,
     "domains/mdm/templates/admin_gezin_inschrijvingen.html": 1,
-    "domains/mdm/templates/leden.html": 1,
     "domains/mdm/templates/leden_gezin.html": 1,
     "domains/mdm/templates/leden_import.html": 1,
     "domains/mdm/templates/leden_nieuw.html": 1,

@@ -330,6 +330,14 @@ SCREENS: tuple[Screen, ...] = (
         session="admin",
         widths=ADMIN,
     ),
+    # #1899: Leden on the list-page layout, on its default segment Actief.
+    Screen(
+        "leden",
+        "/admin/leden",
+        ("top bar title", "toolbar", "key figure", "table", "content row"),
+        session="admin",
+        widths=ADMIN,
+    ),
     # CR-22 S7 (#1712): Personen, on its default view "Zonder gezin" — the one
     # person the measurement seed makes without a household.
     Screen(

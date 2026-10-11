@@ -335,14 +335,46 @@ def current_membership_counts(db, today: Optional[date] = None) -> tuple[int, in
     return households, persons
 
 
-def not_renewed_count(db, today: Optional[date] = None) -> int:
-    """Gezinnen die lid waren in het referentiejaar maar het doeljaar nog niet
-    dekken (#582). Soft-deleted rijen vallen weg via de globale ORM-filter."""
+def members_to_renew(db, today: Optional[date] = None) -> set[int]:
+    """The households that were a member in the reference year and do not cover
+    the target year yet (#582) — the one rule of "te vernieuwen", for the
+    figure above the member list and for its segment (#1899). Soft-deleted
+    rows fall away through the global ORM filter."""
     referentie, doel = renewal_years(today)
-    return len(
-        members_with_membership_for_year(db, referentie)
-        - members_with_membership_for_year(db, doel)
+    return members_with_membership_for_year(db, referentie) - members_with_membership_for_year(
+        db, doel
     )
+
+
+def membership_states(
+    db, member_ids, today: Optional[date] = None, to_renew: Optional[set[int]] = None
+) -> dict[int, tuple[Optional[int], bool]]:
+    """Per household: the year its membership of today runs to (None when it is
+    no member today, `valid_on`), and whether it is to renew
+    (`members_to_renew`). What the member list and the household record say in
+    their badge (#1899) — the two rules, asked once for a page of households.
+    `to_renew`: the set of `members_to_renew` when the caller has it already."""
+    from sqlalchemy import func
+
+    from app.domains.membership.models import Membership
+
+    ids = list(member_ids)
+    if not ids:
+        return {}
+    until = dict(
+        db.query(Membership.member_id, func.max(Membership.valid_to))
+        .filter(Membership.member_id.in_(ids), *valid_on(today or date.today()))
+        .group_by(Membership.member_id)
+        .all()
+    )
+    if to_renew is None:
+        to_renew = members_to_renew(db, today)
+    return {i: (until[i].year if i in until else None, i in to_renew) for i in ids}
+
+
+def not_renewed_count(db, today: Optional[date] = None) -> int:
+    """How many households `members_to_renew` names."""
+    return len(members_to_renew(db, today))
 
 
 def is_first_membership(db, member) -> bool:

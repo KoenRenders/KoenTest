@@ -265,7 +265,8 @@ def test_every_tile_strip_keeps_its_labels_on_one_line_through_the_shared_rule()
                 assert labels, f"{path.relative_to(APP)}: the scan found no labels"
                 for label in labels:
                     assert "title=" in label, f"{path.relative_to(APP)}: a label without a title"
-    assert len(found) >= 3, f"the scan found only {found}"
+    # Two since #1899: Leden's strip went with the list-page layout.
+    assert len(found) >= 2, f"the scan found only {found}"
     css = (APP / "static" / "app.css").read_text()
     assert ".kpi-strip>*>:first-child{" in css
     rule = css[css.index(".kpi-strip>*>:first-child{") :]

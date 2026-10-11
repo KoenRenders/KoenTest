@@ -51,9 +51,9 @@ def test_een_getypte_straat_overleeft_de_bestuurslidkeuze(page):
 
     login_met_sessie(page, make_session_value(_admin_email()))
     Ledenscherm(page).open()
-    if page.locator("#leden-lijst a").count() == 0:
+    if page.locator("#leden-lijst a[data-row-link]").count() == 0:
         _ontbreekt("geen gezin om te openen")
-    page.locator("#leden-lijst a").first.click()
+    page.locator("#leden-lijst a[data-row-link]").first.click()
     page.wait_for_selector("#adres-kaart", timeout=5000)
     pagina_klaar(page)
 

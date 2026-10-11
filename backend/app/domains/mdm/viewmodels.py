@@ -12,34 +12,34 @@ from app.ui.viewmodel import ViewModel
 
 @dataclass(frozen=True, kw_only=True)
 class LedenView(ViewModel):
-    """`leden.html` en haar fragment `_leden_lijst.html`.
+    """`leden.html` and its fragment `_leden_lijst.html` (#1899: the list-page
+    layout — the title row with its figures, the toolbar, the kit's table).
 
-    Het fragment wordt los gerenderd bij zoeken, filteren en pagineren, dus alles
-    wat het nodig heeft staat hier — ook de pagineervelden, want `ui.pager()` toont
-    "x–y van n".
-    """
+    The fragment is rendered on its own at a search, a filter, a sort and a page,
+    so everything it needs stands here."""
 
-    families: list[Any]
-    # Paginering (#580).
-    page: int
-    total: int
-    per_page: int
-    total_pages: int
-    # Actieve filterstand; de balk leest ze terug.
-    q: str
+    #: One per household: {id, name, address, persons, badge (label, tone)}.
+    rows: list[dict[str, Any]]
+    columns: list[dict[str, Any]]
+    segments: list[dict[str, Any]]
+    #: The three figures of the title row (`ui.figures`).
+    figures: list[dict[str, Any]]
+    # The list's state; the toolbar reads it back.
     status: str
+    q: str
     jaar: int | None
     jaren: list[int]
-    gefilterd: bool
-    # KPI-rij (#582/#611). `kpi_doeljaar` en `kpi_referentiejaar` staan in de
-    # labels: het campagnejaar kantelt op een tenant-datum en mag dus nergens
-    # hardgecodeerd staan.
-    kpi_gezinnen: int
-    kpi_personen: int
-    kpi_niet_vernieuwd: int
-    kpi_doeljaar: int
-    kpi_referentiejaar: int
+    sort: str
+    sort_options: list[tuple[str, str]]
+    page: int
+    per_page: int
+    total: int
+    page_sizes: list[int]
+    pager_url: str
+    empty_reason: str
 
     csrf_token: str
-    # Alleen de volledige pagina draagt de navigatie; het fragment niet.
+    #: The fragment refreshes the toolbar's count and segment counts out-of-band.
+    oob: bool = False
+    # Only the full page carries the navigation; the fragment does not.
     nav_items: list[dict[str, Any]] = field(default_factory=list)

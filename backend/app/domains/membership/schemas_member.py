@@ -119,6 +119,11 @@ class FamilyResponse(BaseModel):
     members: List[FamilyMemberResponse]
     memberships: List[MembershipResponse] = []
     board_member: Optional[PersonListItem] = None
+    #: The year the membership of today runs to, None for a household that is
+    #: no member today; and whether it is to renew (#1899,
+    #: `membership.service.membership_states`).
+    member_until: Optional[int] = None
+    to_renew: bool = False
 
     @property
     def primary(self) -> Optional[FamilyMemberResponse]:
@@ -154,6 +159,12 @@ class PaginatedFamiliesResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+    #: How many households the segments `actief` and `vernieuwen` hold within
+    #: the search and the year filter (#1899).
+    counts: dict[str, int] = {}
+    #: Every household that is to renew, whatever the search — the figure above
+    #: the list (`not_renewed_count`, asked once with the list).
+    to_renew_total: int = 0
 
 
 class PaginatedMembersResponse(BaseModel):

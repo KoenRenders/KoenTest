@@ -74,11 +74,16 @@ def test_F34_samenvatting_zonder_adres_en_met_enkelvoud(client, db_session):
     db_session.commit()
     _login(client)
 
-    html = client.get("/admin/leden").text
-    assert "1 persoon<" in html
-    assert "1 personen" not in html
-    # Geen wees-leestekens uit een leeg adres.
-    assert " , " not in html
+    # #1899: the list is the kit's table. The persons are a number in a column of
+    # their own (no "1 personen" to get wrong), and a household without an
+    # address has no sub line under its name — no orphan punctuation.
+    html = client.get("/admin/leden?status=opgezegd").text
+    row = html[html.index(f'data-household="{m.id}"') :]
+    row = row[: row.index("</tr>")]
+    assert "Solo Rita" in row
+    assert "<small" not in row and " , " not in row
+    assert 'class="border-b border-line px-3 py-2 text-right tabular-nums">1</td>' in row
+    assert "personen" not in row
 
 
 def test_F3_word_lid_toont_lidgeld_en_geldigheid(client, db_session):

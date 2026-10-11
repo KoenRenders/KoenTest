@@ -46,71 +46,179 @@ def _lidmaatschapsjaren(db: Session) -> list[int]:
     return membership_years(db)
 
 
-def _kpi(db: Session) -> dict:
-    """De drie kengetallen boven het ledenbeheer (C1-KPI-rij, #582).
-
-    "Nog niet vernieuwd" draagt het doeljaar in zijn label, want dat jaar kantelt
-    op de tenant-datum ``membership_next_year_from_md``: vóór die dag gaat de
-    campagne over het lopende jaar, erna over het volgende. De logica zelf staat
-    in het membership-domein — dit scherm telt niet zelf.
-    """
-    from app.domains.membership.api import (
-        current_membership_counts,
-        not_renewed_count,
-        renewal_years,
-    )
-
-    gezinnen, personen = current_membership_counts(db)
-    # Het referentiejaar (#611): de KPI-kaart noemt het jaar waarin iemand lid wás,
-    # zodat duidelijk is dat we naar vorig jaar kijken en niet twee jaar terug. Het
-    # kantelt mee met de tenant-datum, dus het mag niet hardgecodeerd zijn.
-    referentiejaar, doeljaar = renewal_years()
-    return {
-        "kpi_gezinnen": gezinnen,
-        "kpi_personen": personen,
-        "kpi_niet_vernieuwd": not_renewed_count(db),
-        "kpi_doeljaar": doeljaar,
-        "kpi_referentiejaar": referentiejaar,
-    }
+LIST = NAV + "/lijst"
+#: The list's segments (#1899): no "Alle" — a list opens on a status.
+STATUSES = ("actief", "vernieuwen", "opgezegd")
+SORTS = ("naam", "-naam")
 
 
-def _lijst_view(request: Request, db: Session, nav_items: list | None = None) -> LedenView:
-    """View-model van het ledenoverzicht (#643): pagina én fragment.
+def _figures(db: Session, to_renew: int) -> list[dict]:
+    """The three figures in the title row (#582, #1899). "Te vernieuwen" carries
+    its target year, which tilts on the tenant's date
+    ``membership_next_year_from_md``; the rules are membership's — this screen
+    counts nothing itself. `to_renew` comes with the list (`to_renew_total`):
+    the same set its segment filters on."""
+    from app.domains.membership.api import current_membership_counts, renewal_years
 
-    Het fragment wordt los gerenderd bij zoeken, filteren en pagineren, dus het
-    krijgt hetzelfde model — inclusief de KPI-rij, die anders bij een swap zou
-    verdwijnen.
-    """
-    from app.domains.membership.api import list_families
+    households, persons = current_membership_counts(db)
+    reference, target = renewal_years()
+    return [
+        {
+            "value": str(households),
+            "label": _("Actieve gezinnen"),
+            "title": _("Gezinnen met een lidmaatschap dat vandaag geldig is."),
+        },
+        {
+            "value": str(persons),
+            "label": _("Actieve personen"),
+            "title": _("Personen in die gezinnen."),
+        },
+        {
+            "value": str(to_renew),
+            "label": _("Te vernieuwen %(jaar)s") % {"jaar": target},
+            "title": _("Lid in %(referentie)s, nog niet vernieuwd voor %(doel)s.")
+            % {"referentie": reference, "doel": target},
+            "warning": to_renew > 0,
+        },
+    ]
 
-    # #671: uit HX-Current-URL als htmx die meestuurt, anders uit de query-string.
+
+def _membership_badge(family) -> tuple[str, str]:
+    """What the row says of the membership: the year it runs to for a member of
+    today, "Te vernieuwen" for one that is no member any more but was in the
+    campaign's reference year, "Opgezegd" otherwise."""
+    if family.member_until is not None:
+        return _("Lid in %(jaar)s") % {"jaar": family.member_until}, "green"
+    if family.to_renew:
+        return _("Te vernieuwen"), "yellow"
+    return _("Opgezegd"), "gray"
+
+
+def _address_line(family) -> str:
+    street = " ".join(part for part in (family.street, family.house_number) if part)
+    if street and family.bus_number:
+        street += " " + _("bus %(bus)s") % {"bus": family.bus_number}
+    return ", ".join(part for part in (street, family.municipality) if part)
+
+
+def _empty_reason(status: str, q: str, jaar: int | None) -> str:
+    if q or jaar:
+        return _("Geen gezinnen gevonden voor deze zoekopdracht.")
+    if status == "vernieuwen":
+        return _("Er is geen gezin te vernieuwen.")
+    if status == "opgezegd":
+        return _("Er zijn geen opgezegde gezinnen.")
+    return _("Er zijn nog geen actieve gezinnen.")
+
+
+def _lijst_view(request: Request, db: Session, **extra) -> LedenView:
+    """The view-model of the member list (#643, #1899): the page and its fragment.
+
+    The list's state — segment, search, year, sort, page, page size — lives in
+    the URL (#671: from HX-Current-URL when htmx sends it, else the query)."""
+    from urllib.parse import urlencode
+
+    from app.domains.membership.api import family_label, list_families
+    from app.ui import PER_PAGE_OPTIONS, per_page_from
+
     stand = filterparams(request)
     q = (stand.get("q") or "").strip()
     status = (stand.get("status") or "").strip()
+    if status not in STATUSES:
+        status = STATUSES[0]
+    sort = (stand.get("sort") or "").strip()
+    if sort not in SORTS:
+        sort = SORTS[0]
     jaar_raw = (stand.get("jaar") or "").strip()
     jaar = int(jaar_raw) if jaar_raw.isdigit() else None
+    per_page = per_page_from(stand.get("per_page"))
     try:
-        page = max(1, int(stand.get("page", "1")))
+        page = max(1, int(stand.get("page") or 1))
     except ValueError:
         page = 1
-    data = list_families(
-        db, page=page, page_size=25, q=q or None, status=status or None, membership_year=jaar
-    )
-    # total + page_size erbij zodat ui.pager() "x–y van n" kan tonen (#580).
+
+    def _found(at: int):
+        return list_families(
+            db,
+            page=at,
+            page_size=per_page,
+            q=q or None,
+            status=status,
+            membership_year=jaar,
+            sort=sort,
+        )
+
+    data = _found(page)
+    last = max(1, data.total_pages)
+    if page > last:
+        page = last
+        data = _found(page)
+    state = {"status": status, "q": q, "jaar": jaar or "", "per_page": per_page}
+
+    def _query(**more) -> str:
+        return urlencode({k: v for k, v in {**state, **more}.items() if v != ""})
+
+    # A click on the head turns the sort; it keeps the rest and goes to page 1.
+    turned = "-naam" if sort == "naam" else "naam"
+    labels = {
+        "actief": _("Actief"),
+        "vernieuwen": _("Te vernieuwen"),
+        "opgezegd": _("Opgezegd"),
+    }
     return LedenView(
-        families=data.items,
-        page=data.page,
-        total=data.total,
-        per_page=data.page_size,
-        total_pages=data.total_pages,
-        q=q,
+        rows=[
+            {
+                "id": f.id,
+                "name": family_label(f),
+                "address": _address_line(f),
+                "persons": len(f.members),
+                "badge": _membership_badge(f),
+            }
+            for f in data.items
+        ],
+        columns=[
+            {
+                "key": "gezin",
+                "label": _("Gezin"),
+                "cell": "name",
+                "sort_url": f"{LIST}?{_query(sort=turned)}",
+                "sort_page_url": f"{NAV}?{_query(sort=turned)}",
+                "sorted": "desc" if sort.startswith("-") else "asc",
+            },
+            {
+                "key": "personen",
+                "label": _("Personen"),
+                "cell": "extra",
+                "num": True,
+                "priority": 1,
+            },
+            {"key": "lidmaatschap", "label": _("Lidmaatschap"), "cell": "status"},
+        ],
+        segments=[
+            # Opgezegd carries no count (#1899): the two others are what the
+            # board acts on.
+            {
+                "value": s,
+                "label": labels[s],
+                **({"count": data.counts[s]} if s in data.counts else {}),
+            }
+            for s in STATUSES
+        ],
+        figures=_figures(db, data.to_renew_total),
         status=status,
+        q=q,
         jaar=jaar,
         jaren=_lidmaatschapsjaren(db),
-        gefilterd=bool(q or status or jaar),
+        sort=sort,
+        sort_options=[("naam", _("Gezin (A–Z)")), ("-naam", _("Gezin (Z–A)"))],
+        page=page,
+        per_page=per_page,
+        total=data.total,
+        page_sizes=list(PER_PAGE_OPTIONS),
+        pager_url=f"{LIST}?{_query(sort=sort)}",
+        empty_reason=_empty_reason(status, q, jaar),
         csrf_token=csrf_from_request(request),
-        nav_items=nav_items or [],
-        **_kpi(db),
+        **extra,
     )
 
 
@@ -209,10 +317,10 @@ def leden_lijst(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
-    """Enkel de kaarten: de filterbalk swapt dit fragment, zodat het zoekveld niet
-    onder je vingers vervangen wordt."""
+    """The list alone: the toolbar swaps this fragment, so the search field is
+    not replaced under the fingers."""
     return templates.TemplateResponse(
-        request, "_leden_lijst.html", _lijst_view(request, db).as_context()
+        request, "_leden_lijst.html", _lijst_view(request, db, oob=True).as_context()
     )
 
 

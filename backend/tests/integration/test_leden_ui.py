@@ -35,10 +35,12 @@ def test_leden_lijst_and_detail(client, db_session):
     member, person = _family_with_address(db_session)
     _login(client)
 
-    page = client.get("/admin/leden")
+    # #1899: the list opens on Actief; a household without a membership stands
+    # under Opgezegd.
+    page = client.get("/admin/leden?status=opgezegd")
     assert page.status_code == 200 and "Persoon" in page.text
 
-    lijst = client.get("/admin/leden/lijst?q=Persoon")
+    lijst = client.get("/admin/leden/lijst?status=opgezegd&q=Persoon")
     assert lijst.status_code == 200 and "Dorpsstraat" in lijst.text
 
     detail = client.get(f"/admin/leden/gezin/{member.id}")

@@ -11,6 +11,7 @@ op het oog goed uitzien terwijl ze fout staan:
   niet op de opgehaalde pagina, anders klopt de paginering niet meer.
 """
 
+import re
 from datetime import date
 
 import pytest
@@ -129,12 +130,13 @@ def test_inactief_lidmaatschap_telt_niet_als_vernieuwd(db_session):
 
 
 def test_kpi_rij_noemt_het_doeljaar_in_het_label(client, db_session):
+    """#1899: the three figures stand in the title row (`ui.figures`); the third
+    carries its target year, which tilts on the tenant's date."""
     _login(client)
     _, doeljaar = renewal_years()
     html = client.get("/admin/leden").text
-    assert "Actieve gezinnen" in html and "Actieve personen" in html
-    assert "Nog niet vernieuwd</div>" not in html  # zonder jaar is het dubbelzinnig
-    assert f"({doeljaar})" in html
+    labels = re.findall(r"<dt data-figure-label[^>]*>([^<]*)</dt>", html)
+    assert labels == ["Actieve gezinnen", "Actieve personen", f"Te vernieuwen {doeljaar}"]
 
 
 def test_lijst_heeft_nieuw_lid_import_zoek_en_filters(client, db_session):
@@ -142,19 +144,32 @@ def test_lijst_heeft_nieuw_lid_import_zoek_en_filters(client, db_session):
     html = client.get("/admin/leden").text
     assert "+ Nieuw lid" in html and "Leden importeren" in html
     assert 'type="search"' in html
-    assert 'name="status"' in html and 'value="opgezegd"' in html
+    # #1899: three segments and no "Alle" — a list opens on a status.
+    assert re.findall(r'<input type="radio" name="status" value="([^"]*)"', html) == [
+        "actief",
+        "vernieuwen",
+        "opgezegd",
+    ]
+    assert (
+        'name="status" value="actief" class="peer absolute inset-0 h-full w-full m-0 opacity-0 cursor-pointer" checked'
+        in html
+    )
 
 
 def test_jaardropdown_is_datagedreven_en_filtert(client, db_session):
+    """The year select is data-driven and filters WITHIN the segment (#1899: there
+    is no "Alle" any more, so a household of 2024 alone is found under Opgezegd)."""
     _login(client)
     _gezin_met_lidmaatschap(db_session, "Oudlid", [2024])
-    _gezin_met_lidmaatschap(db_session, "Nieuwlid", [2026])
+    _gezin_met_lidmaatschap(db_session, "Nieuwlid", [date.today().year])
 
     pagina = client.get("/admin/leden").text
-    assert "Lidmaatschap 2024" in pagina and "Lidmaatschap 2026" in pagina
+    assert "Lid in 2024" in pagina and f"Lid in {date.today().year}" in pagina
 
-    op_2024 = client.get("/admin/leden/lijst", params={"jaar": "2024"}).text
+    op_2024 = client.get("/admin/leden/lijst", params={"status": "opgezegd", "jaar": "2024"}).text
     assert "Oudlid" in op_2024 and "Nieuwlid" not in op_2024
+    actief_2024 = client.get("/admin/leden/lijst", params={"status": "actief", "jaar": "2024"}).text
+    assert "Oudlid" not in actief_2024 and "Nieuwlid" not in actief_2024
 
 
 def test_statusfilter_scheidt_actief_van_opgezegd(client, db_session):
@@ -211,22 +226,150 @@ def test_kaart_opent_de_paginabrede_editor(client, db_session):
 
 
 def test_acties_staan_op_de_titelregel_boven_de_kpi_rij(client, db_session):
-    """Het C1-referentiescherm zet de knoppen in de kop, niet in een losse rij
-    onder de KPI's (waar de prozatekst van §3.2 ze had staan). Structureel te
-    toetsen: ze komen vóór de KPI-rij in de HTML."""
+    """#1899: the title row carries ONE primary button, "+ Nieuw lid"; the import
+    is a secondary action and lives under the toolbar's `⋯`, not in the title row."""
     _login(client)
     html = client.get("/admin/leden").text
-    assert html.index("+ Nieuw lid") < html.index("Actieve gezinnen")
-    assert html.index("Leden importeren") < html.index("+ Nieuw lid")  # secundair links
+    head = html[html.index("data-list-head") : html.index("data-toolbar")]
+    assert "+ Nieuw lid" in head and "Leden importeren" not in head
+    menu = html[html.index("data-more-menu") :]
+    assert 'href="/admin/leden-import"' in menu[: menu.index("</form>")]
 
 
 def test_kpi_kaart_noemt_het_referentiejaar_niet_nog_eens_het_doeljaar(client, db_session):
-    """De derde regel zegt in welk jaar iemand lid wás — anders herhaalt ze enkel
-    het doeljaar dat al in het label staat. Het jaar kantelt mee met de
-    tenant-datum, dus het komt uit renewal_years() en staat niet hardgecodeerd."""
+    """The third figure says in its title in which year a household WAS a member —
+    otherwise it only repeats the target year of its label. The years tilt with
+    the tenant's date, so they come from renewal_years()."""
     _login(client)
     referentiejaar, doeljaar = renewal_years()
     html = client.get("/admin/leden").text
-    assert f"was lid in {referentiejaar}" in html  # subzin achter · sinds #996
+    assert f'title="Lid in {referentiejaar}, nog niet vernieuwd voor {doeljaar}."' in html
     assert referentiejaar == doeljaar - 1
-    assert "dekt" not in html  # de oude formulering is weg
+
+
+# ── #1899: the list-page layout — segments, counts, sort, the row ───────────────
+
+
+def _rows(html: str) -> list[str]:
+    """The household names of the list, in the order they stand."""
+    return re.findall(r"<a [^>]*data-row-link[^>]*>([^<]*)</a>", html)
+
+
+def _segment_count(html: str, segment: str) -> int:
+    found = re.search(rf'id="leden-filter-n-{segment}"[^>]*>\((\d+)\)<', html)
+    assert found, f"the segment {segment} carries no count"
+    return int(found.group(1))
+
+
+def test_a_household_of_the_reference_year_alone_stands_under_te_vernieuwen(client, db_session):
+    """Koen, 11 October 2026: the campaign's rule decides "te vernieuwen", for the
+    figure and for the segment — a member in the reference year who does not
+    cover the target year. Goes red on a segment that reads another rule than
+    `members_to_renew`."""
+    _login(client)
+    referentiejaar, doeljaar = renewal_years()
+    _gezin_met_lidmaatschap(db_session, "Moetnog", [referentiejaar])
+    _gezin_met_lidmaatschap(db_session, "Isalklaar", [referentiejaar, doeljaar])
+    _gezin_met_lidmaatschap(db_session, "Langweg", [referentiejaar - 3])
+
+    html = client.get("/admin/leden/lijst", params={"status": "vernieuwen"}).text
+    assert _rows(html) == ["Moetnog Test"]
+    # The figure above the list counts the same households.
+    page = client.get("/admin/leden", params={"status": "vernieuwen"}).text
+    figure = re.search(
+        r"<dd data-figure[^>]*>(\d+)</dd>\s*<dt data-figure-label[^>]*>Te vernieuwen", page
+    )
+    assert figure and int(figure.group(1)) == not_renewed_count(db_session) == 1
+
+
+def test_the_segments_count_what_the_click_yields(client, db_session):
+    """#1899: the number on a segment is the number of rows its click gives —
+    within the search. Goes red on a count taken outside the search."""
+    _login(client)
+    referentiejaar, _doeljaar = renewal_years()
+    dit_jaar = date.today().year
+    for name in ("Telmee", "Telook"):
+        _gezin_met_lidmaatschap(db_session, name, [dit_jaar])
+    _gezin_met_lidmaatschap(db_session, "Anders", [dit_jaar])
+    _gezin_met_lidmaatschap(
+        db_session, "Telnog", [referentiejaar] if referentiejaar != dit_jaar else [dit_jaar]
+    )
+
+    for q in ("", "Tel"):
+        for segment in ("actief", "vernieuwen"):
+            html = client.get(
+                "/admin/leden/lijst", params={"status": segment, "q": q, "per_page": "100"}
+            ).text
+            assert _segment_count(html, segment) == len(_rows(html)), (q, segment)
+    searched = client.get("/admin/leden/lijst", params={"status": "actief", "q": "Tel"}).text
+    assert "Anders" not in searched and _segment_count(searched, "actief") < _segment_count(
+        client.get("/admin/leden/lijst", params={"status": "actief"}).text, "actief"
+    )
+
+
+def test_opgezegd_is_the_rest_and_carries_no_count(client, db_session):
+    """Opgezegd is neither Actief nor Te vernieuwen. "Moetnog" was a member in the
+    reference year and is none today — whatever the day this runs on: its period
+    ended yesterday at the latest — so it is to renew and NOT under Opgezegd.
+    Goes red on an Opgezegd that only leaves the members of today out."""
+    from datetime import timedelta
+
+    _login(client)
+    referentiejaar, _doeljaar = renewal_years()
+    _gezin_met_lidmaatschap(db_session, "Langweg", [referentiejaar - 3])
+    moetnog = _gezin(db_session, "Moetnog")
+    db_session.add(
+        Membership(
+            member_id=moetnog.id,
+            year=referentiejaar,
+            is_active=True,
+            valid_from=date(referentiejaar, 1, 1),
+            valid_to=min(date(referentiejaar, 12, 31), date.today() - timedelta(days=1)),
+        )
+    )
+    db_session.commit()
+    assert "Moetnog Test" not in _rows(
+        client.get("/admin/leden/lijst", params={"status": "actief"}).text
+    )
+    html = client.get("/admin/leden/lijst", params={"status": "opgezegd"}).text
+    names = _rows(html)
+    assert "Langweg Test" in names and "Moetnog Test" not in names
+    assert 'id="leden-filter-n-opgezegd"' not in html
+
+
+def test_the_list_sorts_on_the_household_name_both_ways(client, db_session):
+    """The Gezin column sorts; the list opens A–Z. Goes red on a sort that the
+    query does not apply."""
+    _login(client)
+    dit_jaar = date.today().year
+    for name in ("Zwaan", "Adelaar", "Merel"):
+        _gezin_met_lidmaatschap(db_session, name, [dit_jaar])
+    ours = {"Zwaan Test", "Adelaar Test", "Merel Test"}
+
+    def order(**params) -> list[str]:
+        html = client.get("/admin/leden/lijst", params={"per_page": "100", **params}).text
+        return [name for name in _rows(html) if name in ours]
+
+    assert order() == ["Adelaar Test", "Merel Test", "Zwaan Test"]
+    assert order(sort="-naam") == ["Zwaan Test", "Merel Test", "Adelaar Test"]
+    # The head's link turns the sort and keeps the segment.
+    html = client.get("/admin/leden/lijst", params={"status": "actief"}).text
+    assert "/admin/leden/lijst?status=actief&amp;per_page=50&amp;sort=-naam" in html
+
+
+def test_a_row_is_the_household_its_address_its_persons_and_its_badge(client, db_session):
+    """No Gemeente column and no actions column (#1899): the address stands under
+    the name, and a household is deleted on its record."""
+    _login(client)
+    dit_jaar = date.today().year
+    member = _gezin_met_lidmaatschap(db_session, "Rijtje", [dit_jaar])
+    html = client.get("/admin/leden/lijst", params={"q": "Rijtje"}).text
+    row = re.search(rf'<tr data-row data-household="{member.id}".*?</tr>', html, re.S)
+    assert row, "the household has no row"
+    cells = re.findall(r'<td data-cell="([a-z]+)"', row.group(0))
+    assert cells == ["name", "extra", "status"]
+    assert f'href="/admin/leden/gezin/{member.id}"' in row.group(0)
+    assert f"Lid in {dit_jaar}" in row.group(0)
+    assert "hx-post" not in row.group(0) and "Verwijderen" not in html
+    heads = re.findall(r"<th[^>]*>.*?</th>", html, re.S)
+    assert len(heads) == 3 and not any("Gemeente" in h or "Acties" in h for h in heads)
