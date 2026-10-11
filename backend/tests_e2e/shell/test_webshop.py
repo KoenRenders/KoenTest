@@ -101,3 +101,46 @@ def test_een_ontvangst_en_een_correctie_worden_bewaard(webshop_page):
         page.get_by_role("button", name="Correctie opslaan").click()
     page.goto("/admin/voorraad")
     assert _on_hand_van_de_lijst(page) == "9"
+
+
+def _open_artikel_in_bewerkmodus(page) -> str:
+    page.goto("/admin/producten")
+    page.locator('a[href^="/admin/producten/"]:not([href$="/nieuw"])').first.click()
+    page.wait_for_selector("[data-record-head]")
+    record = page.url.split("?")[0]
+    page.goto(record + "?bewerken=1")
+    page.wait_for_selector("[data-group-add]")
+    return record
+
+
+def test_maten_worden_toegevoegd_hernoemd_en_verwijderd(webshop_page):
+    """The record's one save adds, renames and removes sizes, and the result is
+    read on the record after a fresh load — the browser is the layer that proves
+    the sizes were really written."""
+    page = webshop_page
+    record = _open_artikel_in_bewerkmodus(page)
+
+    page.locator("[data-group-add]").click()
+    rows = page.locator("[data-group-row]")
+    rows.first.locator('input[name^="v."]').fill("Mx")
+    rows.last.locator('input[name^="v."]').fill("L")
+    page.locator("[data-form-save]").click()
+    page.wait_for_url("**" + record)
+
+    page.goto(record)
+    page.wait_for_selector("[data-record-head]")
+    body = page.locator("main").inner_text()
+    assert "Mx" in body and "L" in body
+
+    # Remove L again, so the seeded size stays what it was for the next run.
+    page.goto(record + "?bewerken=1")
+    page.wait_for_selector("[data-group-row]")
+    row = page.locator("[data-group-row]").filter(has=page.locator('input[value="L"]'))
+    row.locator("[data-row-menu-trigger]").click()
+    row.locator('[data-row-action="remove"]').click()
+    page.locator("[data-form-save]").click()
+    page.wait_for_url("**" + record)
+
+    page.goto(record)
+    page.wait_for_selector("[data-record-head]")
+    assert "L" not in page.locator("main").inner_text()

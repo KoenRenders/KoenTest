@@ -56,7 +56,6 @@ def update_product(db: Session, product_id: int, *, name: str, description: str 
     product.name = name
     product.description = (description or "").strip() or None
     db.flush()
-    db.commit()
     return product
 
 
@@ -86,13 +85,12 @@ def set_pre_order(
     product.pre_order = pre_order
     product.pre_order_until = pre_order_until
     db.flush()
-    db.commit()
     return product
 
 
 def add_variant(db: Session, product_id: int, size: str) -> ProductVariant:
     """Add one size to an article. The size is the variant's one property
-    (`[{"name": "Maat", "value": …}]`, B3a)."""
+    (`[{"name": "Maat", "value": …}]`, B3a). Flush only: the door commits."""
     from app.i18n import _
 
     size = (size or "").strip()
@@ -108,7 +106,22 @@ def add_variant(db: Session, product_id: int, size: str) -> ProductVariant:
     )
     db.add(variant)
     db.flush()
-    db.commit()
+    return variant
+
+
+def rename_variant(db: Session, variant_id: int, size: str) -> ProductVariant:
+    """Rename a size: the variant's one `Maat` property gets a new value. Flush
+    only: the door commits."""
+    from app.i18n import _
+
+    size = (size or "").strip()
+    if not size:
+        raise ProductError(_("Geef de maat een naam."))
+    variant = get_variant(db, variant_id)
+    if variant is None:
+        raise ProductError(_("Deze maat bestaat niet."))
+    variant.properties = [{"name": "Maat", "value": size}]
+    db.flush()
     return variant
 
 
@@ -192,7 +205,7 @@ def delete_product(db: Session, product_id: int) -> None:
     product = db.get(Product, product_id)
     if product is None:
         return
-    variant_ids = tuple(variant.id for variant in product.variants)
+    variant_ids = tuple(variant.id for variant in variants_of(db, product_id))
     if not has_subscribers(ProductDeleted):
         raise RuntimeError(
             "nothing subscribes to ProductDeleted; import pricing.handlers and stock.handlers"
@@ -208,7 +221,8 @@ def delete_variant(db: Session, variant_id: int) -> None:
     """Delete one size of a product, its prices going with it (Q75).
 
     The product and its own price stay; only the size's prices go. Refused while
-    the size has stock movements — the gate lives in `stock`'s handler.
+    the size has stock movements — the gate lives in `stock`'s handler. Flush
+    only: the door commits.
     """
     variant = db.get(ProductVariant, variant_id)
     if variant is None:
@@ -225,6 +239,36 @@ def delete_variant(db: Session, variant_id: int) -> None:
     )
     db.delete(variant)
     db.flush()
+
+
+def _size_of(variant: ProductVariant) -> str:
+    """The size of a variant, from its one `Maat` property (B3a)."""
+    for prop in variant.properties or []:
+        if prop.get("name") == "Maat":
+            return str(prop.get("value", ""))
+    return ""
+
+
+def sync_variants(db: Session, product_id: int, ordered: list[tuple[str, str]]) -> None:
+    """Bring the article's sizes to `ordered` — a list of `(key, name)` from the
+    record's repeating group. A key that is an existing variant's id renames it, a
+    new key adds a size, and an existing variant not in the list is deleted. One
+    transaction: a refusal in a delete (a size with movements, through `stock`'s
+    handler) rolls every change of this save back.
+    """
+    existing = {str(variant.id): variant for variant in variants_of(db, product_id)}
+    kept: set[str] = set()
+    for key, name in ordered:
+        name = (name or "").strip()
+        if key in existing:
+            if name and name != _size_of(existing[key]):
+                rename_variant(db, existing[key].id, name)
+            kept.add(key)
+        elif name:
+            add_variant(db, product_id, name)
+    for key in list(existing):
+        if key not in kept:
+            delete_variant(db, existing[key].id)
     db.commit()
 
 

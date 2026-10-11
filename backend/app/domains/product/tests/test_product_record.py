@@ -71,3 +71,45 @@ def test_deleting_from_the_record_removes_the_article(client, db_session, every_
     assert answer.status_code == 303
     db_session.expire_all()
     assert get_product(db_session, product.id) is None
+
+
+def _save_sizes(client, db_session, every_module_on, product, ordered):
+    headers = _operator(client, db_session, every_module_on)
+    data: dict = {"name": "T-shirt Raak"}
+    order: list[str] = []
+    for key, name in ordered:
+        order.append(key)
+        data[f"v.{key}.name"] = name
+    data["v_order"] = order
+    return client.post(
+        f"/admin/producten/{product.id}", data=data, headers=headers, follow_redirects=False
+    )
+
+
+def test_sizes_are_added_and_renamed_through_the_record(client, db_session, every_module_on):
+    from app.domains.product.api import size_of, variants_of
+
+    product = create_product(db_session, "T-shirt Raak")
+    m = add_variant(db_session, product.id, "M")
+
+    answer = _save_sizes(
+        client, db_session, every_module_on, product, [(str(m.id), "Mx"), ("n1", "L")]
+    )
+    assert answer.status_code == 303
+
+    variants = variants_of(db_session, product.id)
+    assert [size_of(v) for v in variants] == ["Mx", "L"]
+
+
+def test_removing_a_size_through_the_record(client, db_session, every_module_on):
+    from app.domains.product.api import variants_of
+
+    product = create_product(db_session, "T-shirt Raak")
+    m = add_variant(db_session, product.id, "M")
+    add_variant(db_session, product.id, "L")
+
+    answer = _save_sizes(client, db_session, every_module_on, product, [(str(m.id), "M")])
+    assert answer.status_code == 303
+
+    variants = variants_of(db_session, product.id)
+    assert [v.id for v in variants] == [m.id]

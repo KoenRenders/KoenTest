@@ -129,3 +129,45 @@ def test_an_empty_quantity_reads_as_a_dutch_sentence(client, db_session, every_m
     assert answer.status_code == 422
     assert "invalid literal" not in answer.text
     assert "aantal" in answer.text
+
+
+def test_a_negative_quantity_is_refused_at_the_field(client, db_session, every_module_on):
+    """A correction of −2 with "Eraf" would be flipped to a booking up; a negative
+    quantity is refused on both forms, at the `quantity` field (the review of
+    Voorraadbeheer)."""
+    headers = _operator(client, db_session, every_module_on)
+    product = create_product(db_session, "T-shirt Raak")
+    variant = add_variant(db_session, product.id, "M")
+
+    receipt = client.post(
+        "/admin/voorraad/ontvangst",
+        data={"variant_id": str(variant.id), "quantity": "-2"},
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert receipt.status_code == 422
+    assert "quantity" in receipt.text
+    assert on_hand(db_session, variant.id) == 0
+
+    correction = client.post(
+        "/admin/voorraad/correctie",
+        data={"variant_id": str(variant.id), "quantity": "-2", "direction": "down", "note": "x"},
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert correction.status_code == 422
+    assert "quantity" in correction.text
+    assert on_hand(db_session, variant.id) == 0
+
+
+def test_no_size_chosen_reads_as_its_own_sentence(client, db_session, every_module_on):
+    headers = _operator(client, db_session, every_module_on)
+
+    answer = client.post(
+        "/admin/voorraad/ontvangst",
+        data={"variant_id": "", "quantity": "5"},
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 422
+    assert "Kies een maat" in answer.text

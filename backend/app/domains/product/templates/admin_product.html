@@ -12,6 +12,12 @@
     back={"label": _("Productbeheer"), "href": "/admin/producten"}, editing=editing) }}
 <div id="product-melding" data-form-message>{{ ui.error_banner(error|default(None)) }}</div>
 
+{% macro _size_row(key, name) %}
+{% call ui.group_row("v_order", key, edit=True, menu=["remove"], label=name) %}
+  {{ ui.field("v." ~ key ~ ".name", _("Maat"), value=name, required=True, label_hidden=True) }}
+{% endcall %}
+{% endmacro %}
+
 {% if not editing %}
 {% call ui.record_columns() %}
 <div class="form-flow">
@@ -21,8 +27,8 @@
   {% endcall %}
   {% call ui.section(_("Maten")) %}
     <div data-span="full" class="flex flex-wrap gap-2">
-      {% for _id, size in sizes %}
-      <span class="rounded-md border border-line px-3 py-1 text-sm">{{ size }}</span>
+      {% for size in sizes %}
+      <span class="rounded-md border border-line px-3 py-1 text-sm">{{ size.name }}</span>
       {% else %}
       <span class="text-sm text-ink-soft">{{ _("Nog geen maten.") }}</span>
       {% endfor %}
@@ -43,14 +49,10 @@
       {{ ui.field("name", _("Naam"), value=product.name, required=True, long=True) }}
       {{ ui.field("description", _("Omschrijving"), kind="textarea", value=product.description or "") }}
     {% endcall %}
-    {% call ui.section(_("Maten")) %}
-      <div data-span="full" class="flex flex-wrap gap-2">
-        {% for _id, size in sizes %}
-        <span class="rounded-md border border-line px-3 py-1 text-sm">{{ size }}</span>
-        {% else %}
-        <span class="text-sm text-ink-soft">{{ _("Nog geen maten.") }}</span>
-        {% endfor %}
-      </div>
+    {% set _size_template %}{{ _size_row("__V__", "") }}{% endset %}
+    {% call ui.repeating_group(_("Maten"), "v_order", token="__V__", add_label=_("Maat"), edit=True,
+                               empty=_("Nog geen maten."), count=sizes|length, template=_size_template) %}
+      {% for size in sizes %}{{ _size_row(size.id, size.name) }}{% endfor %}
     {% endcall %}
     {% call ui.section(_("Op bestelling")) %}
       {{ ui.field("pre_order", _("Op bestelling"), kind="switch", value=product.pre_order, span="full", help=_("Kopers bestellen en betalen ook zonder voorraad. Wat besteld is, zie je in Voorraadbeheer.")) }}

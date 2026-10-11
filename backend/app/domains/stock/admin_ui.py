@@ -48,13 +48,24 @@ def _redirect(request: Request, url: str) -> Response:
     return RedirectResponse(url, status_code=303)
 
 
-def _int(value: str) -> int:
-    """The form's number as an int; a non-number reads as a Dutch sentence, not a
-    Python `ValueError`."""
+def _parse_choice(value: str, field: str) -> int | FieldError:
+    """A `<select>` value as an int, or the refusal at that field."""
     try:
         return int(value)
     except ValueError:
-        raise StockError(_("Vul een geldig aantal in.")) from None
+        return FieldError(field, _("Kies een maat."))
+
+
+def _parse_quantity(value: str) -> int | FieldError:
+    """A positive number as an int, or the refusal at the `quantity` field. A
+    negative quantity would be flipped by the direction and book the wrong way."""
+    try:
+        number = int(value)
+    except ValueError:
+        return FieldError("quantity", _("Vul een geldig aantal in."))
+    if number <= 0:
+        return FieldError("quantity", _("Vul een aantal groter dan nul in."))
+    return number
 
 
 def _options(db: Session) -> list[tuple[str, str]]:
@@ -133,8 +144,14 @@ def receipt_create(
     _email: str = Depends(require_right(Right.STOCK_MANAGE)),
     _csrf: None = Depends(require_csrf),
 ):
+    variant = _parse_choice(variant_id, "variant_id")
+    if isinstance(variant, FieldError):
+        return refusal_response(request, [variant], "#ontvangst-melding")
+    aantal = _parse_quantity(quantity)
+    if isinstance(aantal, FieldError):
+        return refusal_response(request, [aantal], "#ontvangst-melding")
     try:
-        book_receipt(db, _int(variant_id), _int(quantity), actor=_email)
+        book_receipt(db, variant, aantal, actor=_email)
     except StockError as refusal:
         return refusal_response(request, [FieldError("", str(refusal))], "#ontvangst-melding")
     return _redirect(request, "/admin/voorraad")
@@ -162,11 +179,15 @@ def correction_create(
     _email: str = Depends(require_right(Right.STOCK_MANAGE)),
     _csrf: None = Depends(require_csrf),
 ):
+    variant = _parse_choice(variant_id, "variant_id")
+    if isinstance(variant, FieldError):
+        return refusal_response(request, [variant], "#correctie-melding")
+    aantal = _parse_quantity(quantity)
+    if isinstance(aantal, FieldError):
+        return refusal_response(request, [aantal], "#correctie-melding")
+    amount = -aantal if direction == "down" else aantal
     try:
-        amount = _int(quantity)
-        if direction == "down":
-            amount = -amount
-        apply_correction(db, _int(variant_id), amount, note=note, actor=_email)
+        apply_correction(db, variant, amount, note=note, actor=_email)
     except StockError as refusal:
         return refusal_response(request, [FieldError("", str(refusal))], "#correctie-melding")
     return _redirect(request, "/admin/voorraad")

@@ -227,3 +227,24 @@ def test_a_refused_delete_does_not_offer_afvoeren_when_the_article_is_already_af
     assert answer.status_code == 422
     assert "voorraadbewegingen" in answer.text
     assert "zet het afgevoerd" not in answer.text
+
+
+def test_removing_a_size_with_movements_is_refused(client, db_session, every_module_on):
+    """The delete gate holds for one size too: removing a size with a movement is
+    refused, and the size stays (the review of Voorraadbeheer)."""
+    from app.domains.product.api import variants_of
+    from app.domains.stock.api import receive
+
+    headers, product = _article_with_a_movement(client, db_session, every_module_on)
+    variant = variants_of(db_session, product.id)[0]
+    receive(db_session, variant.id, quantity=5)
+
+    answer = client.post(
+        f"/admin/producten/{product.id}",
+        data={"name": "T-shirt Raak"},
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 422
+    assert "voorraadbewegingen" in answer.text
+    assert [v.id for v in variants_of(db_session, product.id)] == [variant.id]

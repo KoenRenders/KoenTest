@@ -222,3 +222,21 @@ def test_a_delete_refuses_to_publish_into_silence(db_session):
         assert db_session.get(Product, product.id) is not None, "nothing was deleted"
     finally:
         events._subscribers[ProductDeleted] = saved
+
+
+def test_deleting_a_size_refuses_to_publish_into_silence(db_session):
+    """The same gate holds for one size: `delete_variant` refuses to publish when
+    nothing listens — red without its `has_subscribers` check."""
+    from app.kernel import events
+    from app.kernel.contracts.product import ProductDeleted
+
+    product, variants = _product_with_variants(db_session, "M")
+    saved = events._subscribers.get(ProductDeleted, [])
+    events._subscribers[ProductDeleted] = []
+    try:
+        with pytest.raises(RuntimeError):
+            delete_variant(db_session, variants[0].id)
+        db_session.expire_all()
+        assert db_session.get(Product, product.id) is not None, "the article stays"
+    finally:
+        events._subscribers[ProductDeleted] = saved

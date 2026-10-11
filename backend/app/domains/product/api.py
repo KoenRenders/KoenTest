@@ -23,8 +23,10 @@ from app.domains.product.service import (  # noqa: F401
     list_products,
     pre_order_window,
     references_to_media,
+    rename_variant,
     set_pre_order,
     set_status,
+    sync_variants,
     update_product,
     variants_of,
 )
@@ -55,9 +57,10 @@ __all__ = [
     "list_products",
     "pre_order_window",
     "references_to_media",
+    "rename_variant",
     "set_pre_order",
     "set_status",
-    "size_of",
+    "sync_variants",
     "update_product",
     "variants_of",
 ]

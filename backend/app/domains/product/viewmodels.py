@@ -39,7 +39,8 @@ class ProductView(ViewModel):
     """`admin_product.html` — the article record, read and edit mode."""
 
     product: Product
-    sizes: list[tuple[int, str]]  # (variant id, size) in their sort order
+    #: The sizes, in their sort order: `{"id": variant id, "name": the size}`.
+    sizes: list[dict[str, Any]]
     editing: bool
     csrf_token: str
     #: Data for `ui.record_header` (CR-11 block 5): the head's actions are data,

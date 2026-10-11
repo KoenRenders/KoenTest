@@ -13,7 +13,7 @@ module, the routes and the parameters are English like all new code.
 from __future__ import annotations
 
 from datetime import date
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -31,6 +31,7 @@ from app.domains.product.api import (
     set_pre_order,
     set_status,
     size_of,
+    sync_variants,
     update_product,
     variants_of,
 )
@@ -174,7 +175,9 @@ def _record_view(
     )
     return ProductView(
         product=product,
-        sizes=[(variant.id, size_of(variant)) for variant in variants_of(db, product.id)],
+        sizes=[
+            {"id": variant.id, "name": size_of(variant)} for variant in variants_of(db, product.id)
+        ],
         editing=editing,
         csrf_token=_csrf(request),
         primary={"label": _("Bewerken"), "href": f"{base}?bewerken=1"} if not editing else None,
@@ -199,6 +202,13 @@ def product_record(
     return templates.TemplateResponse(request, "admin_product.html", view.as_context())
 
 
+async def _posted_form(request: Request):
+    """The request's form, read once — for the sizes' repeating group, whose
+    fields carry a key the route cannot name in advance (the activities fiche
+    does the same)."""
+    return await request.form()
+
+
 @router.post("/admin/producten/{product_id}")
 def product_update(
     request: Request,
@@ -207,6 +217,7 @@ def product_update(
     description: str = Form(""),
     pre_order: str = Form(""),
     pre_order_until: str = Form(""),
+    form: Any = Depends(_posted_form),
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.PRODUCT_MASTERDATA)),
     _csrf: None = Depends(require_csrf),
@@ -214,6 +225,12 @@ def product_update(
     product = get_product(db, product_id)
     if product is None:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+
+    def _text(key: str) -> str:
+        value = form.get(key, "")
+        return value if isinstance(value, str) else ""
+
+    ordered = [(str(key), _text(f"v.{key}.name")) for key in form.getlist("v_order")]
     try:
         update_product(db, product_id, name=name, description=description)
         set_pre_order(
@@ -222,7 +239,8 @@ def product_update(
             pre_order=pre_order in ("on", "true", "1"),
             pre_order_until=_parse_date(pre_order_until),
         )
-    except ProductError as refusal:
+        sync_variants(db, product_id, ordered)
+    except (ProductError, StockError) as refusal:
         return templates.TemplateResponse(
             request,
             "admin_product.html",
