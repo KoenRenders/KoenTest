@@ -34,10 +34,27 @@
 #   TEST_DB_NAME        overschrijft de afgeleide databanknaam
 #   TEST_DATABASE_URL   overschrijft de hele URL (wordt óók door de vangrail getoetst)
 #   VERS                zet dit op 1 om de hulpcontainer opnieuw op te bouwen
+#   EXISTING_DB_URL, EXISTING_DB_SOCKET_DIR
+#                       a database server that already runs, in place of the dev
+#                       stack's (#1891) — see scripts/local-db-lib.sh
+#   HELPER_CONTAINER_USER
+#                       the user the helper container runs as (#1893). Unset: the
+#                       image's own user, `app` — right for an ordinary Docker,
+#                       where root in the container would leave root-owned files
+#                       (`__pycache__`) in the working copy. Set it to `root` in a
+#                       rootless Docker: there a container cannot run as another
+#                       user than root at all (it stops on "libc.so.6: … Permission
+#                       denied"), and root in the container IS the calling user on
+#                       the machine, so it widens nothing. Every `docker exec`
+#                       runs as the user the container was created with, so the
+#                       variable is read when the container is made: a change
+#                       needs one run with VERS=1, as for the network and the mounts.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 COMPOSE=(docker compose -f "$ROOT/docker-compose.dev.yml")
+# shellcheck source=scripts/local-db-lib.sh
+. "$ROOT/scripts/local-db-lib.sh"
 
 # ── Eigen databank per worktree ──────────────────────────────────────────────
 # De suite DROPT en hermaakt het schema van haar doeldatabank. Draaien twee
@@ -55,9 +72,13 @@ DB_NAAM="${TEST_DB_NAME:-raaktest_${slug}}"
 # suite is destructief en `DATABASE_URL` en `TEST_DATABASE_URL` schelen één woord;
 # leest de doelnaam niet als testdatabank, dan stoppen we hier.
 if [ -n "${TEST_DATABASE_URL:-}" ]; then
-  # Laatste padsegment van de URL, zonder eventuele ?querystring.
-  DB_NAAM="${TEST_DATABASE_URL##*/}"
-  DB_NAAM="${DB_NAAM%%\?*}"
+  # Parsed, not cut (#1891): in a URL over a unix socket the last "/" stands
+  # inside ?host=, so "everything after the last /" read the wrong name.
+  if ! db_url_parse "$TEST_DATABASE_URL"; then
+    echo "test-local.sh: GEWEIGERD — TEST_DATABASE_URL leest niet als een databank-URL." >&2
+    exit 2
+  fi
+  DB_NAAM="$DB_URL_NAME"
 fi
 
 case "$DB_NAAM" in
@@ -71,6 +92,9 @@ case "$DB_NAAM" in
     ;;
 esac
 
+# #1891: a database server that already runs, in place of the dev stack's — also
+# decided before any docker call. What the switch is: scripts/local-db-lib.sh.
+existing_db test-local.sh "$DB_NAAM"
 
 # ── Dev-stack en hulpcontainer ───────────────────────────────────────────────
 # De databank draait in het gedeelde dev-project; de suite draait in een eigen,
@@ -85,15 +109,18 @@ NETWERK="dev_internal"
 # changed configuration and REPLACES the db container on every run from another
 # worktree — killing the test run that worktree had going. With it, compose only
 # starts the database when it is not running, and leaves a running one alone.
-"${COMPOSE[@]}" up -d --no-recreate db >/dev/null
+if [ -z "${EXISTING_DB_URL:-}" ]; then
+  "${COMPOSE[@]}" up -d --no-recreate db >/dev/null
 
-# The credentials come from the running db container, not from this file: the
-# dev database carries whatever password its volume was initialised with, and a
-# hardcoded `postgres:postgres` fails the moment that is anything else (CLAUDE.md:
-# never hardcode them). Read after `up`, so the container exists.
-DB_USER="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_USER)"
-DB_PASS="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_PASSWORD)"
-URL="${TEST_DATABASE_URL:-postgresql+psycopg2://${DB_USER}:${DB_PASS}@db:5432/${DB_NAAM}}"
+  # The credentials come from the running db container, not from this file: the
+  # dev database carries whatever password its volume was initialised with, and a
+  # hardcoded `postgres:postgres` fails the moment that is anything else (CLAUDE.md:
+  # never hardcode them). Read after `up`, so the container exists.
+  DB_USER="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_USER)"
+  DB_PASS="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_PASSWORD)"
+  URL="${TEST_DATABASE_URL:-postgresql+psycopg2://${DB_USER}:${DB_PASS}@db:5432/${DB_NAAM}}"
+  RUN_ARGS=(--network "$NETWERK")
+fi
 
 if [ "${VERS:-}" = "1" ]; then
   docker rm -f "$NAAM" >/dev/null 2>&1 || true
@@ -117,7 +144,12 @@ if ! docker inspect -f '{{.State.Running}}' "$NAAM" >/dev/null 2>&1; then
   # bestanden buiten backend/ kijken (de vangrail van dit script zelf, #719). Met
   # /app als repowortel en /app/backend als werkmap ligt de indeling in de container
   # gelijk aan die in de checkout, dus `parents[2]` klopt hier én in CI.
-  docker run -d --name "$NAAM" --network "$NETWERK" \
+  # #1893: the user only when the caller names one; without it the image's own.
+  USER_ARGS=()
+  if [ -n "${HELPER_CONTAINER_USER:-}" ]; then
+    USER_ARGS=(-u "$HELPER_CONTAINER_USER")
+  fi
+  docker run -d --name "$NAAM" "${RUN_ARGS[@]}" "${USER_ARGS[@]}" \
     -v "$ROOT:/app" -w /app/backend \
     -e APP_ENV=dev -e JOBS_ENABLED=false \
     "$IMAGE" sleep infinity >/dev/null
@@ -130,19 +162,38 @@ SOM="$(cat "$ROOT/backend/requirements.txt" "$ROOT/backend/requirements-dev.txt"
 docker exec "$NAAM" sh -c "[ \"\$(cat /tmp/requirements.som 2>/dev/null)\" = '$SOM' ] \
   || { pip install -q -r requirements-dev.txt && echo '$SOM' > /tmp/requirements.som; }"
 
+# #1894: seven tests of the suite run a real `git` and a real `psql`
+# (tests/test_deploy_rollback_migration.py, tests/test_restore_exercise.py). The
+# pull-request run has both; the image has neither, and must not get them — it
+# is the image that goes to the environments. So they are installed HERE, in the
+# helper container, once per container, from Debian's own archive.
+# As root: installing needs it, and root is the one user that exists in an
+# ordinary Docker (where the container runs as `app`) and in a rootless one
+# (where it runs as root already, HELPER_CONTAINER_USER above).
+docker exec -u root "$NAAM" sh -c 'command -v git >/dev/null && command -v psql >/dev/null || { apt-get update -q >/dev/null && apt-get install -y -q --no-install-recommends git postgresql-client >/dev/null; }'
+
 # ── Databank aanmaken als ze nog niet bestaat ────────────────────────────────
 # Foutloos herhaalbaar: bestaat ze al, dan is er niets te doen.
-"${COMPOSE[@]}" exec -T db sh -c \
-  "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -tc \"SELECT 1 FROM pg_database WHERE datname='${DB_NAAM}'\" \
+if [ -n "${EXISTING_DB_URL:-}" ]; then
+  # No db container to ask: the helper container makes it, over the given URL.
+  docker exec -e ADMIN_DATABASE_URL="$EXISTING_DB_URL" "$NAAM" \
+    python -m tests._local_db create "$DB_NAAM"
+else
+  "${COMPOSE[@]}" exec -T db sh -c \
+    "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -tc \"SELECT 1 FROM pg_database WHERE datname='${DB_NAAM}'\" \
    | grep -q 1 || psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c 'CREATE DATABASE ${DB_NAAM}'" >/dev/null
+fi
 
 # ── De rest van de poort ─────────────────────────────────────────────────────
 if [ "${SNEL:-}" != "1" ]; then
   echo "→ ruff"
   # What CI's `lint` job blocks on (CR-29 D4), with the ruff of requirements-dev.txt.
   # --no-cache: the work folder is a bind mount the container cannot write its cache to.
-  docker exec "$NAAM" ruff format --check --no-cache .
-  docker exec "$NAAM" ruff check --no-cache .
+  # `python -m`, like mypy and pytest below (#1891): pip installs for the image's
+  # user outside the PATH, so in a helper container built fresh the bare `ruff`
+  # was not found and the gate stopped on its first line.
+  docker exec "$NAAM" python -m ruff format --check --no-cache .
+  docker exec "$NAAM" python -m ruff check --no-cache .
 
   echo "→ mypy"
   # --cache-dir buiten /app: de werkmap is een bind mount en de container draait als

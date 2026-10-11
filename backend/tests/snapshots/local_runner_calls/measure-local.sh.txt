@@ -1,0 +1,7 @@
+inspect -f {{.State.Running}} raake2e-checkout
+compose -f <root>/docker-compose.dev.yml up -d --no-recreate db
+compose -f <root>/docker-compose.dev.yml exec -T db printenv POSTGRES_USER
+compose -f <root>/docker-compose.dev.yml exec -T db printenv POSTGRES_PASSWORD
+exec raake2e-checkout sh -c command -v faketime >/dev/null || (apt-get update -q >/dev/null && apt-get install -y -q faketime >/dev/null)
+compose -f <root>/docker-compose.dev.yml exec -T db sh -c psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c 'DROP DATABASE IF EXISTS raakmeet_checkout WITH (FORCE)'    && psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c 'CREATE DATABASE raakmeet_checkout'
+exec --env-file <root>/backend/tests_e2e/e2e.env -e DATABASE_URL=postgresql+psycopg2://u:p@db:5432/raakmeet_checkout raake2e-checkout /app/scripts/measure-run.sh
