@@ -771,9 +771,12 @@ body[data-shell="site"]>main{padding-bottom:24px}
    where she was. The Trix editor keeps her own box: her class is on the
    element herself, a negative margin would push her out of line with the
    fields beside her, and her internal padding already keeps links off
-   her clip edge. */
+   her clip edge. The page editor's surface keeps hers for the same
+   reason (review A1 of 12 October 2026): her class sits on the element
+   herself (`de-surface`), and the negative margin pushed her 2 px out
+   of line with the toolbar above her. */
 .prose-raak{overflow-x:auto}
-.prose-raak:not(trix-editor){margin-inline:-2px;padding-inline:2px}
+.prose-raak:not(trix-editor):not(.de-surface){margin-inline:-2px;padding-inline:2px}
 .prose-raak table{border-collapse:collapse;width:100%;margin:.5rem 0;font-size:.875rem;line-height:1.5}
 .prose-raak :is(th,td){border-bottom:1px solid rgb(var(--c-line));padding:.75rem 1rem;text-align:left;vertical-align:top}
 .prose-raak tbody tr:last-child :is(th,td){border-bottom:none}
