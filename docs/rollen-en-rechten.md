@@ -306,24 +306,26 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/rapporten/raakje/paneel`
 - `POST /admin/rapporten/raakje/scherm/{scherm}`
 
-### `party.view` — 9 routes
+### `party.view` — 10 routes
 
 - `GET /admin/leden`
 - `GET /admin/leden-import`
 - `GET /admin/leden/gezin/{family_id}`
 - `GET /admin/leden/gezin/{family_id}/inschrijvingen`
+- `GET /admin/leden/gezin/{family_id}/vernieuwen`
 - `GET /admin/leden/lijst`
 - `GET /admin/leden/nieuw`
 - `GET /admin/organisatie`
 - `GET /admin/personen`
 - `GET /admin/personen/lijst`
 
-### `party.masterdata` — 7 routes
+### `party.masterdata` — 8 routes
 
 - `POST /admin/leden`
 - `POST /admin/leden-import/commit`
 - `POST /admin/leden-import/preview`
 - `POST /admin/leden/gezin/{family_id}`
+- `POST /admin/leden/gezin/{family_id}/vernieuwen`
 - `POST /admin/leden/gezin/{family_id}/verwijderen`
 - `POST /admin/organisatie`
 - `POST /admin/personen/{person_id}/verwijderen`

@@ -21,7 +21,12 @@ from app.domains.auth.api import (
     require_csrf,
     require_right,
 )
-from app.domains.mdm.viewmodels import HouseholdRecordView, LedenView, NewHouseholdView
+from app.domains.mdm.viewmodels import (
+    HouseholdRecordView,
+    LedenView,
+    NewHouseholdView,
+    RenewMembershipView,
+)
 from app.i18n import _
 from app.ui import admin_nav, filterparams, refusal_response, templates
 
@@ -215,7 +220,11 @@ def _record_view(
         list_persons,
         membership_badge,
     )
-    from app.domains.membership.api import board_household_group, get_family
+    from app.domains.membership.api import (
+        board_household_group,
+        board_membership_card,
+        get_family,
+    )
     from app.ui import record_frame
 
     geld = templates.env.filters["geld"]
@@ -255,10 +264,11 @@ def _record_view(
         for m in sorted(family.memberships, key=lambda m: m.year, reverse=True)
     ]
     board = family.board_member
+    card = board_membership_card(db, family_id)
     return HouseholdRecordView(
         family_id=family_id,
         page_title=family_label_of(family),
-        record_head=household_record_head(family, may_change=may_change),
+        record_head=household_record_head(db, family, may_change=may_change),
         record_tabs=gezin_tabs(db, family, email, "overzicht"),
         way_back=frame["way_back"],
         head_editing=edit,
@@ -273,6 +283,7 @@ def _record_view(
         + [(str(p.id), f"{p.last_name} {p.first_name}".strip()) for p in list_persons(db)]
         if edit
         else [],
+        renewal=card if card and (card.transfer or card.online) else None,
         csrf_token=csrf_from_request(request),
         nav_items=admin_nav(NAV, request),
     )
@@ -338,6 +349,82 @@ def lid_nieuw(
         nav_items=admin_nav(NAV, request),
     )
     return templates.TemplateResponse(request, "leden_nieuw.html", view.as_context())
+
+
+RENEW_MESSAGE = "#vernieuw-melding"
+
+
+@router.get("/admin/leden/gezin/{family_id}/vernieuwen", response_class=HTMLResponse)
+def renew_membership_page(
+    family_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_VIEW)),
+):
+    """Lidmaatschap vernieuwen from the household's record (#1899 §4): the page of
+    the member's own renewal, in the admin shell. Where nothing can start — no
+    main member, no renewal available, one that runs, or a reader who may not
+    change master data — the record is the answer: the page never invites to an
+    act that cannot succeed (#618)."""
+    from fastapi.responses import RedirectResponse
+
+    from app.domains.auth.api import may
+    from app.domains.mdm.api import form_code_lists
+    from app.domains.membership.api import board_renewal_page, get_family
+
+    family = get_family(db, family_id)
+    page = (
+        board_renewal_page(db, family_id, form_code_lists(db))
+        if may(db, email, Right.PARTY_MASTERDATA)
+        else None
+    )
+    if page is None:
+        return RedirectResponse(f"/admin/leden/gezin/{family_id}", status_code=303)
+    view = RenewMembershipView(
+        page=page,
+        household_name=family_label_of(family),
+        csrf_token=csrf_from_request(request),
+        nav_items=admin_nav(NAV, request),
+    )
+    return templates.TemplateResponse(request, "renew_membership_admin.html", view.as_context())
+
+
+@router.post(
+    "/admin/leden/gezin/{family_id}/vernieuwen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def renew_membership(
+    family_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
+    payment_method: str = Form(""),
+):
+    """The board starts the renewal. Online: the hard redirect to the provider,
+    as on the public side — the board may pay itself. A transfer: back to the
+    record, where the running renewal stands with its payment details."""
+    from app.domains.membership.api import PAYMENT_METHODS, board_renew_membership
+    from app.kernel.refusals import FieldError
+
+    if payment_method not in PAYMENT_METHODS:
+        return refusal_response(
+            request,
+            [FieldError("payment_method", _("Kies een betaalwijze."))],
+            RENEW_MESSAGE,
+            send=True,
+        )
+    try:
+        result = board_renew_membership(db, family_id, payment_method, by=email)
+    except HTTPException as refusal:
+        return refusal_response(
+            request, [FieldError("", str(refusal.detail))], RENEW_MESSAGE, send=True
+        )
+    response = HTMLResponse("")
+    response.headers["HX-Redirect"] = (
+        result.get("checkout_url") or f"/admin/leden/gezin/{family_id}"
+    )
+    return response
 
 
 NEW_HOUSEHOLD_MESSAGE = "#lid-nieuw-melding"

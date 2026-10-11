@@ -36,6 +36,9 @@ from app.domains.membership.service import (  # noqa: F401
     valid_membership_until,
 )
 
+# The two ways to pay a membership, for a screen that reads the choice (#1899).
+from app.domains.membership.signup_form import PAYMENT_METHODS  # noqa: F401
+
 __all__ = [
     "snapshot_membership",
     "membership_describer",
@@ -184,6 +187,72 @@ def family_portal_page(request, db, person):
     from app.domains.membership.ui import render_family_portal
 
     return render_family_portal(request, db, person)
+
+
+def board_membership_card(db, household_id: int):
+    """The membership card of the household with this id, for the board's record
+    (#1899): is a renewal available, and does one run. None when the household
+    has no main member — a renewal runs for the main member."""
+    from app.domains.membership.portal_service import main_person_of
+
+    person = main_person_of(db, household_id)
+    return membership_card(db, person) if person is not None else None
+
+
+def board_renewal_page(db, household_id: int, codes: dict):
+    """The renewal page as the board sees it for this household (#1899): the
+    page of the public renewal, speaking of the household. None when there is
+    nothing to start — no main member, no renewal available, or one that runs:
+    the record says which."""
+    from datetime import date
+
+    from app.domains.membership.household_page import RenewPage, Terms, household_summary
+    from app.domains.membership.portal_service import main_person_of
+
+    person = main_person_of(db, household_id)
+    if person is None or renewal_is_running(db, person):
+        return None
+    valid_until = membership_coverage_until(person)
+    if not renewal_available(valid_until, date.today()):
+        return None
+    _from, until, amount = renewal_terms(db, person)
+    summary, address_line = household_summary(household_view(db, person), codes)
+    record = f"/admin/leden/gezin/{household_id}"
+    return RenewPage(
+        valid_until=valid_until,
+        renewal_available=True,
+        terms=Terms(amount=amount, valid_to=until),
+        summary=summary,
+        address_line=address_line,
+        board=True,
+        post_url=f"{record}/vernieuwen",
+        household_href=record,
+    )
+
+
+def board_renew_membership(db, household_id: int, payment_method: str, *, by: str):
+    """The board renews this household's membership (#1899): the one renewal of
+    `household_renew_membership`, for the main member, with the board member in
+    the history and the household's record as the place the provider returns
+    to. Refused (409) for a household without a main member."""
+    from fastapi import HTTPException
+
+    from app.domains.membership.portal_service import main_person_of
+    from app.domains.membership.portal_service import renew_membership as _impl
+    from app.i18n import _
+
+    person = main_person_of(db, household_id)
+    if person is None:
+        raise HTTPException(
+            status_code=409, detail=_("Dit gezin heeft geen hoofdlid: vernieuwen kan niet.")
+        )
+    return _impl(
+        person=person,
+        db=db,
+        payment_method=payment_method,
+        by=by,
+        return_path=f"/admin/leden/gezin/{household_id}",
+    )
 
 
 def household_renew_membership(db, person, payment_method: str = "online"):

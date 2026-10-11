@@ -46,13 +46,46 @@ def _member_for(person, db: Session) -> Member:
 
 # No route of its own since CR-13 phase 4b (#1251): no caller. The facade (`api.py`) calls this
 # function for the screen; it stays in this file until phase 4c moves it.
-def renew_membership(*, person, db: Session, payment_method: str = "online") -> dict:
+def main_person_of(db: Session, household_id: int):
+    """The main member of the household with this id — whom a renewal runs for
+    when the board starts it (#1899). None when the household has none; 404
+    when there is no such household."""
+    from app.domains.mdm.api import RelationType
+
+    member = db.query(Member).filter(Member.id == household_id).first()
+    if member is None:
+        raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
+    return next(
+        (
+            link.person
+            for link in member.member_persons
+            if link.deleted_at is None
+            and link.relation_type == RelationType.PRIMARY_MEMBER
+            and link.person is not None
+        ),
+        None,
+    )
+
+
+def renew_membership(
+    *,
+    person,
+    db: Session,
+    payment_method: str = "online",
+    by: str | None = None,
+    return_path: str | None = None,
+) -> dict:
     """Activeer/vernieuw het lidmaatschap van het eigen gezin via een online
     betaling (#113). Maakt géén nieuw gezin: het bestaande Member-record wordt
     hergebruikt. Een nieuw (nog niet-actief) Membership wordt aangemaakt; de
     Mollie-webhook activeert het bij betaling (zie handle_gateway_update).
 
     Weigert als er al een geldig lidmaatschap is — geen dubbele betaling.
+
+    `by` is the board member who starts the renewal from the household's record
+    (#1899): the history then names him and the board's source, where a member's
+    own renewal names the member. `return_path` is where the provider sends the
+    payer back — the household's record for the board, the payment page otherwise.
     """
 
     from app.domains.membership.api import Membership, has_valid_membership
@@ -60,9 +93,10 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
     from app.domains.payment.api import create_payment_record
 
     member = _member_for(person, db)
-    actor = next(
+    actor = by or next(
         (c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None
     )
+    source = "admin_manual" if by else "member_self"
 
     today = date.today()
 
@@ -115,7 +149,7 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
             membership,
             operation="update",
             action="membership_renewal_started",
-            source="member_self",
+            source=source,
             actor=actor,
         )
     else:
@@ -133,7 +167,7 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
             membership,
             operation="insert",
             action="membership_renewal_started",
-            source="member_self",
+            source=source,
             actor=actor,
         )
 
@@ -142,7 +176,7 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
     )
     from app.kernel.tenant_config import tenant_base_url
 
-    redirect_url = f"{tenant_base_url(db)}/betaling/succes?member={member.id}"
+    redirect_url = tenant_base_url(db) + (return_path or f"/betaling/succes?member={member.id}")
     try:
         # A call at the door, not an event handler (CR-13 phase 2, master CLI): an online payment
         # reaches the provider, the route needs the checkout URL now, and a failure rolls
@@ -155,7 +189,7 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
             method=payment_method,
             redirect_url=redirect_url,
             description=description,
-            audit_source="member_self",
+            audit_source=source,
             audit_actor=actor,
         )
     except ValueError as e:

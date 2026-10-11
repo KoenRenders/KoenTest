@@ -50,6 +50,8 @@ EXPECTED = {
     "domains/mdm/templates/my_details.html",
     # #1899: the board's Nieuw lid, the form of Word lid in the admin shell.
     "domains/mdm/templates/leden_nieuw.html",
+    # #1899: the board renews a household's membership — the member's page in the admin shell.
+    "domains/mdm/templates/renew_membership_admin.html",
 }
 
 #: A page on the frame that SAVES a record instead of sending a form: its bar is

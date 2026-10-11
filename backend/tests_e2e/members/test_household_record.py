@@ -11,7 +11,10 @@ end state §2.2, §5.2).
 - **a refusal** stands at its field, keeps what was typed and writes nothing —
   also not the year that was removed in the same form;
 - **measured in edit mode**: the `⋯` of every e-mail row on one x, the e-mail
-  fields equally wide, the address on the kit's grid.
+  fields equally wide, the address on the kit's grid;
+- **Lidmaatschap vernieuwen** (§4): from Acties to the renewal page in the
+  admin shell; the transfer choice lands on the record, where the running
+  renewal stands and Acties offers no second one.
 
 On master the record is eight cards with a form each; there is no
 `#gezin-form` and no `?bewerken=1`.
@@ -322,6 +325,44 @@ EDIT = """() => { const r = e => e.getBoundingClientRect(), n = v => Math.round(
           selects: document.querySelectorAll('#gezinsleden select[name$=".relation_type"]').length,
           bar: n(r(document.querySelector('[data-action-bar]')).bottom), window: innerHeight,
           page: [document.documentElement.scrollWidth, innerWidth]}; }"""
+
+
+def test_the_board_renews_from_the_record(browser, household):
+    """#1899 §4, in the browser at 390 px: Acties → Lidmaatschap vernieuwen is the
+    renewal page in the admin shell; a transfer is ONE request and lands on the
+    record with the running renewal — no second renewal on offer.
+
+    Proven red (locally, restored): `hx-post` of the shared form pointed at a
+    path that does not exist → no request reaches the board's route and the
+    test falls waiting for the record."""
+    page = _board(browser, 390, 844)
+    renew = f"/admin/leden/gezin/{household['id']}/vernieuwen"
+    try:
+        page.goto(f"/admin/leden/gezin/{household['id']}")
+        pagina_klaar(page)
+        page.get_by_role("button", name="Acties").click()
+        page.get_by_role("menuitem", name="Lidmaatschap vernieuwen").click()
+        page.wait_for_url(f"**{renew}")
+        pagina_klaar(page)
+        expect(page.locator("body")).to_have_attribute("data-shell", "admin")
+        expect(page.locator("#vernieuw-form")).to_be_visible()
+        assert page.evaluate("document.documentElement.scrollWidth") == 390
+
+        page.locator('input[name="payment_method"][value="transfer"]').check()
+        page.posts.clear()
+        page.locator("[data-form-save]").first.click()
+        page.wait_for_url(f"**/admin/leden/gezin/{household['id']}")
+        pagina_klaar(page)
+
+        assert [u for u in page.posts if u.endswith(renew)] == [BASE + renew], page.posts
+        expect(page.locator("[data-renewal-running]")).to_be_visible()
+        expect(page.locator("[data-renewal-running] [data-transfer-due]")).to_be_visible()
+        page.get_by_role("button", name="Acties").click()
+        expect(page.get_by_role("menuitem", name="Verwijderen")).to_be_visible()
+        expect(page.get_by_role("menuitem", name="Lidmaatschap vernieuwen")).to_have_count(0)
+        assert page.errors == []
+    finally:
+        page.close()
 
 
 def test_on_a_phone_a_year_stands_beside_its_menu(browser, household):

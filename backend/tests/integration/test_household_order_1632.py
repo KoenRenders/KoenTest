@@ -344,7 +344,9 @@ def test_only_the_card_writes_what_a_running_renewal_asks():
     assert holding('attrs="data-transfer-due"') == ["_transfer_due.html"]
     # Since CR-22 S5 (#1709) a registration still to be paid shows the same block.
     assert holding('"_transfer_due.html"') == ["_my_registration.html", "_renewal_running.html"]
-    assert holding('"_renewal_running.html"') == ["_membership_card.html"]
+    # #1899: the board's household record shows a running renewal too — the same
+    # partial, included, never a second wording.
+    assert holding('"_renewal_running.html"') == ["_membership_card.html", "leden_gezin.html"]
     assert holding('attrs="data-membership-status"') == ["_membership_card.html"]
     # Since CR-22 S3 (#1706) the landing page shows the same card.
     assert holding('"_membership_card.html"') == ["account_home.html", "household_page.html"]

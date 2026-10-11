@@ -1670,14 +1670,16 @@ def household_address_line(family) -> str:
     return ", ".join(part for part in (street, family.municipality) if part)
 
 
-def household_record_head(family, *, may_change: bool, extra_actions: tuple = ()) -> dict:
+def household_record_head(db, family, *, may_change: bool) -> dict:
     """The head of the household's record as data for `ui.record_header` (#1899;
     end state §5.2): the household's name, the membership badge, the address and
     the main member's e-mail address as facts — no household number. Bewerken is
     the primary; Verwijderen stands under Acties (and in the action bar while
-    editing, which the macro arranges). `extra_actions` are the tool actions a
-    caller adds (the renewal). Shared by the record's three tabs."""
-    from app.domains.membership.api import family_label
+    editing, which the macro arranges). **Lidmaatschap vernieuwen** stands
+    under Acties when membership's own rule says a renewal can start: one is
+    available and none runs (`board_membership_card`). Shared by the record's
+    three tabs."""
+    from app.domains.membership.api import board_membership_card, family_label
     from app.i18n import _
 
     label, tone = membership_badge(family)
@@ -1690,7 +1692,12 @@ def household_record_head(family, *, may_change: bool, extra_actions: tuple = ()
     main = family.primary
     if main is not None and main.email:
         facts.append({"text": main.email, "kind": "mail"})
-    actions = list(extra_actions)
+    actions = []
+    card = board_membership_card(db, family.id) if may_change else None
+    if card and card.renewal_available and not (card.transfer or card.online):
+        actions.append(
+            {"kind": "tool", "label": _("Lidmaatschap vernieuwen"), "href": f"{base}/vernieuwen"}
+        )
     if may_change:
         actions.append(
             {
@@ -1723,7 +1730,7 @@ def household_record_frame(request, db, family, viewer_email: str, tab: str) -> 
 
     return {
         "record_head": household_record_head(
-            family, may_change=may(db, viewer_email, Right.PARTY_MASTERDATA)
+            db, family, may_change=may(db, viewer_email, Right.PARTY_MASTERDATA)
         ),
         "record_tabs": gezin_tabs(db, family, viewer_email, tab),
         "way_back": record_frame(request, db, "/admin/leden")["way_back"],

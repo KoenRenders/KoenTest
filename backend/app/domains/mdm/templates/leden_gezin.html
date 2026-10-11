@@ -41,6 +41,14 @@
       {% endif %}
     {% endcall %}
 
+    {# A renewal that runs stands here as it stands on Mijn gezin (#1899 §4):
+       the transfer to make, or the online payment to resume. #}
+    {% if renewal and not edit %}
+    {% set card = renewal %}
+    {% call ui.section(_("Lopende vernieuwing"), id="gezin-vernieuwing") %}
+      <div data-span="full" data-renewal-running>{% include "_renewal_running.html" %}</div>
+    {% endcall %}
+    {% endif %}
     {# The years one under the other, the newest first (Koen, 10 October 2026). No
        way to add one: a year is the result of a renewal. Editing, a year goes
        with its `⋯`, and with the page's one save. #}

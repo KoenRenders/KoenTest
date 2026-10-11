@@ -223,6 +223,11 @@ class RenewPage:
     #: The household in one line per person, and its address in one.
     summary: tuple[tuple[str, str, bool], ...]
     address_line: str
+    #: The board renews for the household, from its record (#1899): the page
+    #: speaks of the household and not to it, and posts and returns there.
+    board: bool = False
+    post_url: str = "/leden/gezin/vernieuwen"
+    household_href: str = "/leden/gezin"
 
 
 def _labels(choices: list) -> dict[str, str]:

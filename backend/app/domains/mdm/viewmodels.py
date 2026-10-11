@@ -71,7 +71,21 @@ class HouseholdRecordView(ViewModel):
     board_member_name: str
     #: (person id, name) for the select, in edit mode only.
     board_options: list[tuple[str, str]]
+    #: A renewal that runs — the transfer to make or the online payment to
+    #: resume — as membership's `MembershipCard`; None when none runs.
+    renewal: Any
 
+    csrf_token: str
+    nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class RenewMembershipView(ViewModel):
+    """`renew_membership_admin.html` — the board renews a household's membership
+    (#1899): membership's `RenewPage`, in the admin shell."""
+
+    page: Any
+    household_name: str
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
